@@ -36,6 +36,7 @@ class Schema;
 class Status;
 class Table;
 class Tensor;
+class SparseTensor;
 
 namespace io {
 
@@ -268,6 +269,20 @@ Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
 ARROW_EXPORT
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length);
+
+// \brief EXPERIMENTAL: Write arrow::SparseTensor as a contiguous mesasge. The metadata,
+// sparse index, and body are written assuming 64-byte alignment. It is the
+// user's responsibility to ensure that the OutputStream has been aligned
+// to a 64-byte multiple before writing the message.
+//
+// \param[in] tensor the SparseTensor to write
+// \param[in] dst the OutputStream to write to
+// \param[out] metadata_length the actual metadata length, including padding
+// \param[out] body_length the actual message body length
+ARROW_EXPORT
+Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
+                         int32_t* metadata_length, int64_t* body_length,
+                         MemoryPool* pool);
 
 namespace internal {
 

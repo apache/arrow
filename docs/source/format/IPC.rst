@@ -234,4 +234,28 @@ region) to be multiples of 64 bytes: ::
     <metadata>
     <tensor body>
 
+SparseTensor Message Format
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``SparseTensor`` message types provides another way to write a
+multidimensional array of fixed-size values using Arrow's shared memory tools
+in addition to ``Tensor``. ``SparseTensor`` is designed specifically for tensors
+whose elements are almost zeros. Arrow implementations in general are not
+required to implement this data format likewise ``Tensor``.
+
+When writing a standalone encapsulated sparse tensor message, we use the format as
+indicated above, but additionally align the starting offset of the metadata as
+well as the starting offsets of the sparse index and the sparse tensor body
+(if writing to a shared memory region) to be multiples of 64 bytes:
+
+    <PADDING>
+    <metadata size: int32>
+    <metadata>
+    <sparse index>
+    <PADDING>
+    <sparse tensor body>
+
+The contents of the sparse tensor index is depends on what kinds of sparse
+format is used.
+
 .. _Flatbuffer: https://github.com/google/flatbuffers

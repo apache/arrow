@@ -50,6 +50,9 @@ static inline bool is_tensor_supported(Type::type type_id) {
   return false;
 }
 
+template <typename SparseIndexType>
+class SparseTensorImpl;
+
 class ARROW_EXPORT Tensor {
  public:
   virtual ~Tensor() = default;
@@ -109,6 +112,9 @@ class ARROW_EXPORT Tensor {
 
   /// These names are optional
   std::vector<std::string> dim_names_;
+
+  template <typename SparseIndexType>
+  friend class SparseTensorImpl;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Tensor);
