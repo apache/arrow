@@ -86,18 +86,9 @@ On Linux and OSX:
         --file arrow/ci/conda_env_python.yml \
         python=3.6
 
-   source activate pyarrow-dev
+   conda activate pyarrow-dev
 
-On Windows:
-
-.. code-block:: shell
-
-    conda create -y -n pyarrow-dev -c conda-forge ^
-        --file arrow\ci\conda_env_cpp.yml ^
-        --file arrow\ci\conda_env_python.yml ^
-        python=3.6
-
-   activate pyarrow-dev
+For Windows, see the `Developing on Windows`_ section below.
 
 We need to set some environment variables to let Arrow's build system know
 about our build toolchain:
@@ -310,11 +301,11 @@ First, starting from fresh clones of Apache Arrow:
 
 .. code-block:: shell
 
-   conda create -y -q -n pyarrow-dev ^
-         python=3.6 numpy six setuptools cython pandas pytest ^
-         cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib ^
-         gflags brotli lz4-c zstd -c conda-forge
-   activate pyarrow-dev
+    conda create -y -n pyarrow-dev -c conda-forge ^
+        --file arrow\ci\conda_env_cpp.yml ^
+        --file arrow\ci\conda_env_python.yml ^
+        python=3.7
+   conda activate pyarrow-dev
 
 Now, we build and install Arrow C++ libraries
 

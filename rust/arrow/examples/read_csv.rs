@@ -59,7 +59,7 @@ fn main() {
         .unwrap();
 
     for i in 0..batch.num_rows() {
-        let city_name: String = String::from_utf8(city.get_value(i).to_vec()).unwrap();
+        let city_name: String = String::from_utf8(city.value(i).to_vec()).unwrap();
 
         println!(
             "City: {}, Latitude: {}, Longitude: {}",

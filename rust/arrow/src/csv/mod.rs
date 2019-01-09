@@ -18,3 +18,4 @@
 pub mod reader;
 
 pub use self::reader::Reader;
+pub use self::reader::ReaderBuilder;

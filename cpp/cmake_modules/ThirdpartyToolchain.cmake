@@ -772,7 +772,7 @@ if (ARROW_JEMALLOC)
   ExternalProject_Add(jemalloc_ep
     URL ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jemalloc/${JEMALLOC_VERSION}.tar.gz
     PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
-    CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_" "--disable-tls"
+    CONFIGURE_COMMAND ./autogen.sh "AR=${CMAKE_AR}" "CC=${CMAKE_C_COMPILER}" "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_" "--disable-tls"
     ${EP_LOG_OPTIONS}
     BUILD_IN_SOURCE 1
     BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS}

@@ -29,23 +29,6 @@
 
 namespace gandiva {
 
-using arrow::binary;
-using arrow::boolean;
-using arrow::date64;
-using arrow::float32;
-using arrow::float64;
-using arrow::int16;
-using arrow::int32;
-using arrow::int64;
-using arrow::int8;
-using arrow::uint16;
-using arrow::uint32;
-using arrow::uint64;
-using arrow::uint8;
-using arrow::utf8;
-using std::iterator;
-using std::vector;
-
 FunctionRegistry::iterator FunctionRegistry::begin() const {
   return &(*pc_registry_.begin());
 }
@@ -89,7 +72,7 @@ SignatureMap FunctionRegistry::InitPCMap() {
 const NativeFunction* FunctionRegistry::LookupSignature(
     const FunctionSignature& signature) const {
   auto got = pc_registry_map_.find(&signature);
-  return got == pc_registry_map_.end() ? NULL : got->second;
+  return got == pc_registry_map_.end() ? nullptr : got->second;
 }
 
 }  // namespace gandiva

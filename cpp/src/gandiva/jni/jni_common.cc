@@ -381,6 +381,12 @@ NodePtr ProtoTypeToNode(const types::TreeNode& node) {
     return TreeExprBuilder::MakeBinaryLiteral(node.binarynode().value());
   }
 
+  if (node.has_decimalnode()) {
+    std::string value = node.decimalnode().value();
+    gandiva::Decimal128Full literal(value, node.decimalnode().precision(),
+                                    node.decimalnode().scale());
+    return TreeExprBuilder::MakeDecimalLiteral(literal);
+  }
   std::cerr << "Unknown node type in protobuf\n";
   return nullptr;
 }

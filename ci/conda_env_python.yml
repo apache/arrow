@@ -18,10 +18,8 @@
 cython
 cloudpickle
 hypothesis
-nomkl
 numpy
 pandas
 pytest
-rsync
 setuptools
 setuptools_scm

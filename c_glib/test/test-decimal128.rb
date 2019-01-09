@@ -106,4 +106,101 @@ class TestDecimal128 < Test::Unit::TestCase
       decimal1.divide(decimal2)
     end
   end
+
+  def test_equal
+    decimal = Arrow::Decimal128.new(10)
+    other_decimal1 = Arrow::Decimal128.new(10)
+    other_decimal2 = Arrow::Decimal128.new(11)
+    assert_equal([
+                   true,
+                   false,
+                 ],
+                 [
+                   decimal == other_decimal1,
+                   decimal == other_decimal2,
+                 ])
+  end
+
+  def test_not_equal
+    require_gi_bindings(3, 3, 1)
+    decimal = Arrow::Decimal128.new(10)
+    other_decimal1 = Arrow::Decimal128.new(10)
+    other_decimal2 = Arrow::Decimal128.new(11)
+    assert_equal([
+                   false,
+                   true,
+                 ],
+                 [
+                   decimal != other_decimal1,
+                   decimal != other_decimal2,
+                 ])
+  end
+
+  def test_less_than
+    require_gi_bindings(3, 3, 1)
+    decimal = Arrow::Decimal128.new(10)
+    other_decimal1 = Arrow::Decimal128.new(11)
+    other_decimal2 = Arrow::Decimal128.new(9)
+    assert_equal([
+                   true,
+                   false,
+                   false
+                 ],
+                 [
+                   decimal < other_decimal1,
+                   decimal < other_decimal2,
+                   decimal < decimal,
+                 ])
+  end
+
+  def test_less_than_or_equal
+    require_gi_bindings(3, 3, 1)
+    decimal = Arrow::Decimal128.new(10)
+    other_decimal1 = Arrow::Decimal128.new(11)
+    other_decimal2 = Arrow::Decimal128.new(9)
+    assert_equal([
+                   true,
+                   false,
+                   true
+                 ],
+                 [
+                   decimal <= other_decimal1,
+                   decimal <= other_decimal2,
+                   decimal <= decimal
+                 ])
+  end
+
+  def test_greater_than
+    require_gi_bindings(3, 3, 1)
+    decimal = Arrow::Decimal128.new(10)
+    other_decimal1 = Arrow::Decimal128.new(11)
+    other_decimal2 = Arrow::Decimal128.new(9)
+    assert_equal([
+                   false,
+                   true,
+                   false
+                 ],
+                 [
+                   decimal > other_decimal1,
+                   decimal > other_decimal2,
+                   decimal > decimal
+                 ])
+  end
+
+  def test_greater_than_or_equal
+    require_gi_bindings(3, 3, 1)
+    decimal = Arrow::Decimal128.new(10)
+    other_decimal1 = Arrow::Decimal128.new(11)
+    other_decimal2 = Arrow::Decimal128.new(9)
+    assert_equal([
+                   false,
+                   true,
+                   true
+                 ],
+                 [
+                   decimal >= other_decimal1,
+                   decimal >= other_decimal2,
+                   decimal >= decimal
+                 ])
+  end
 end

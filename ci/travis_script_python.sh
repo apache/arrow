@@ -47,6 +47,7 @@ fi
 
 conda create -y -q -p $CONDA_ENV_DIR \
       --file $TRAVIS_BUILD_DIR/ci/conda_env_python.yml \
+      nomkl \
       cmake \
       pip \
       numpy=1.13.1 \

@@ -57,28 +57,6 @@ cargo run --example dynamic_types
 cargo run --example read_csv
 ```
 
-## Run Tests
-
-Parquet support in Arrow requires data to test against, this data is in a
-git submodule.  To pull down this data run the following:
-
-```bash
-git submodule update --init
-```
-
-The data can then be found in `cpp/submodules/parquet_testing/data`.
-Create a new environment variable called `PARQUET_TEST_DATA` to point
-to this location and then `cargo test` as usual.
-
-Our CI uses `rustfmt` to check code formatting.  Although the project is
-built and tested against nightly rust we use the stable version of
-`rustfmt`.  So before submitting a PR be sure to run the following
-and check for lint issues:
-
-```bash
-cargo +stable fmt --all -- --check
-```
-
 # Publishing to crates.io
 
 An Arrow committer can publish this crate after an official project release has
