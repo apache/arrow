@@ -56,7 +56,7 @@ pub enum DataType {
     Float16,
     Float32,
     Float64,
-    Timestamp(TimestampUnit),
+    Timestamp(TimeUnit),
     Date(DateUnit),
     Time32(TimeUnit),
     Time64(TimeUnit),
@@ -64,14 +64,6 @@ pub enum DataType {
     Utf8,
     List(Box<DataType>),
     Struct(Vec<Field>),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub enum TimestampUnit {
-    Second,
-    Millisecond,
-    Microsecond,
-    Nanosecond,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -209,16 +201,10 @@ impl DataType {
                     )),
                 },
                 Some(s) if s == "timestamp" => match map.get("unit") {
-                    Some(p) if p == "SECOND" => Ok(DataType::Timestamp(TimestampUnit::Second)),
-                    Some(p) if p == "MILLISECOND" => {
-                        Ok(DataType::Timestamp(TimestampUnit::Millisecond))
-                    }
-                    Some(p) if p == "MICROSECOND" => {
-                        Ok(DataType::Timestamp(TimestampUnit::Microsecond))
-                    }
-                    Some(p) if p == "NANOSECOND" => {
-                        Ok(DataType::Timestamp(TimestampUnit::Nanosecond))
-                    }
+                    Some(p) if p == "SECOND" => Ok(DataType::Timestamp(TimeUnit::Second)),
+                    Some(p) if p == "MILLISECOND" => Ok(DataType::Timestamp(TimeUnit::Millisecond)),
+                    Some(p) if p == "MICROSECOND" => Ok(DataType::Timestamp(TimeUnit::Microsecond)),
+                    Some(p) if p == "NANOSECOND" => Ok(DataType::Timestamp(TimeUnit::Nanosecond)),
                     _ => Err(ArrowError::ParseError(
                         "timestamp unit missing or invalid".to_string(),
                     )),
@@ -351,10 +337,10 @@ impl DataType {
                 DateUnit::Millisecond => "MILLISECOND",
             }}),
             DataType::Timestamp(unit) => json!({"name": "timestamp", "unit": match unit {
-                TimestampUnit::Second => "SECOND",
-                TimestampUnit::Millisecond => "MILLISECOND",
-                TimestampUnit::Microsecond => "MICROSECOND",
-                TimestampUnit::Nanosecond => "NANOSECOND",
+                TimeUnit::Second => "SECOND",
+                TimeUnit::Millisecond => "MILLISECOND",
+                TimeUnit::Microsecond => "MICROSECOND",
+                TimeUnit::Nanosecond => "NANOSECOND",
             }}),
             DataType::Interval(unit) => json!({"name": "interval", "unit": match unit {
                 IntervalUnit::YearMonth => "YEAR_MONTH",
@@ -655,18 +641,10 @@ mod tests {
             Field::new("c12", DataType::Time64(TimeUnit::Millisecond), false),
             Field::new("c13", DataType::Time64(TimeUnit::Microsecond), false),
             Field::new("c14", DataType::Time64(TimeUnit::Nanosecond), false),
-            Field::new("c15", DataType::Timestamp(TimestampUnit::Second), false),
-            Field::new(
-                "c16",
-                DataType::Timestamp(TimestampUnit::Millisecond),
-                false,
-            ),
-            Field::new(
-                "c17",
-                DataType::Timestamp(TimestampUnit::Microsecond),
-                false,
-            ),
-            Field::new("c18", DataType::Timestamp(TimestampUnit::Nanosecond), false),
+            Field::new("c15", DataType::Timestamp(TimeUnit::Second), false),
+            Field::new("c16", DataType::Timestamp(TimeUnit::Millisecond), false),
+            Field::new("c17", DataType::Timestamp(TimeUnit::Microsecond), false),
+            Field::new("c18", DataType::Timestamp(TimeUnit::Nanosecond), false),
             Field::new("c19", DataType::Interval(IntervalUnit::DayTime), false),
             Field::new("c20", DataType::Interval(IntervalUnit::YearMonth), false),
             Field::new(
