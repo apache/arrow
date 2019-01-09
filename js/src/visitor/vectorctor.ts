@@ -41,12 +41,10 @@ import { UnionVector, DenseUnionVector, SparseUnionVector } from '../vector/unio
 import { Utf8Vector } from '../vector/utf8';
 
 export interface GetVectorConstructor extends Visitor {
-    visitMany <T extends Type>    (nodes: T[]     ): VectorCtor<T>[];
-    visit     <T extends Type>    (node: T,       ): VectorCtor<T>;
-    getVisitFn<T extends Type>    (node: T        ): () => VectorCtor<T>;
-    getVisitFn<T extends DataType>(node: Vector<T>): () => VectorCtor<T>;
-    getVisitFn<T extends DataType>(node: Data<T>  ): () => VectorCtor<T>;
-    getVisitFn<T extends DataType>(node: T        ): () => VectorCtor<T>;
+    visit<T extends Type>(node: T): VectorCtor<T>;
+    visitMany <T extends Type>(nodes: T[]): VectorCtor<T>[];
+    getVisitFn<T extends Type>(node: T): () => VectorCtor<T>;
+    getVisitFn<T extends DataType>(node: Vector<T> | Data<T> | T): () => VectorCtor<T>;
 }
 
 export class GetVectorConstructor extends Visitor {

@@ -33,12 +33,10 @@ import {
 } from '../type';
 
 export interface ToArrayVisitor extends Visitor {
-    visitMany <T extends Vector>  (nodes: T[]     ): T['TArray'][];
-    visit     <T extends Vector>  (node: T        ): T['TArray'];
-    getVisitFn<T extends Type>    (node: T        ): (vector: Vector<T>) => Vector<T>['TArray'];
-    getVisitFn<T extends DataType>(node: Vector<T>): (vector: Vector<T>) => Vector<T>['TArray'];
-    getVisitFn<T extends DataType>(node: Data<T>  ): (vector: Vector<T>) => Vector<T>['TArray'];
-    getVisitFn<T extends DataType>(node: T        ): (vector: Vector<T>) => Vector<T>['TArray'];
+    visit<T extends Vector>(node: T): T['TArray'];
+    visitMany<T extends Vector>(nodes: T[]): T['TArray'][];
+    getVisitFn<T extends Type>(node: T): (vector: Vector<T>) => Vector<T>['TArray'];
+    getVisitFn<T extends DataType>(node: Vector<T> | Data<T> | T): (vector: Vector<T>) => Vector<T>['TArray'];
     visitNull                                    <T extends Null>                (vector: Vector<T>): Vector<T>['TArray'];
     visitBool                                    <T extends Bool>                (vector: Vector<T>): Vector<T>['TArray'];
     visitInt                                     <T extends Int>                 (vector: Vector<T>): Vector<T>['TArray'];

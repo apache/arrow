@@ -34,12 +34,10 @@ import {
 } from '../type';
 
 export interface IndexOfVisitor extends Visitor {
+    visit<T extends Vector>  (node: T, value: T['TValue'] | null, index?: number): number;
     visitMany <T extends Vector>  (nodes: T[], values: (T['TValue'] | null)[], indices: (number | undefined)[]): number[];
-    visit     <T extends Vector>  (node: T, value: T['TValue'] | null, index?: number            ): number;
-    getVisitFn<T extends Type>    (node: T         ): (vector: Vector<T>, value: Vector<T>['TValue'] | null, index?: number) => number;
-    getVisitFn<T extends DataType>(node: Vector<T> ): (vector: Vector<T>, value:         T['TValue'] | null, index?: number) => number;
-    getVisitFn<T extends DataType>(node: Data<T>   ): (vector: Vector<T>, value:         T['TValue'] | null, index?: number) => number;
-    getVisitFn<T extends DataType>(node: T         ): (vector: Vector<T>, value:         T['TValue'] | null, index?: number) => number;
+    getVisitFn<T extends Type>    (node: T): (vector: Vector<T>, value: Vector<T>['TValue'] | null, index?: number) => number;
+    getVisitFn<T extends DataType>(node: Vector<T> | Data<T> | T): (vector: Vector<T>, value:         T['TValue'] | null, index?: number) => number;
     visitNull                 <T extends Null>                (vector: Vector<T>, value: T['TValue'] | null, index?: number): number;
     visitBool                 <T extends Bool>                (vector: Vector<T>, value: T['TValue'] | null, index?: number): number;
     visitInt                  <T extends Int>                 (vector: Vector<T>, value: T['TValue'] | null, index?: number): number;

@@ -28,8 +28,8 @@ import { toArrayBufferView } from '../util/buffer';
 import { BufferRegion, FieldNode } from '../ipc/metadata/message';
 
 export interface VectorLoader extends Visitor {
-    visitMany <T extends DataType>(nodes: (Field<T> | T)[]): Data<T>[];
-    visit     <T extends DataType>(node:   Field<T> | T   ): Data<T>;
+    visit<T extends DataType>(node: Field<T> | T): Data<T>;
+    visitMany<T extends DataType>(nodes: (Field<T> | T)[]): Data<T>[];
 }
 
 export class VectorLoader extends Visitor {

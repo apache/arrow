@@ -24,12 +24,10 @@ import { Vector } from '../interfaces';
 import { DataTypeCtor } from '../interfaces';
 
 export interface GetDataTypeConstructor extends Visitor {
-    visitMany <T extends Type>    (nodes: T[]     ): DataTypeCtor<T>[];
-    visit     <T extends Type>    (node: T,       ): DataTypeCtor<T>;
-    getVisitFn<T extends Type>    (node: T        ): () => DataTypeCtor<T>;
-    getVisitFn<T extends DataType>(node: Vector<T>): () => DataTypeCtor<T>;
-    getVisitFn<T extends DataType>(node: Data<T>  ): () => DataTypeCtor<T>;
-    getVisitFn<T extends DataType>(node: T        ): () => DataTypeCtor<T>;
+    visit<T extends Type>(node: T): DataTypeCtor<T>;
+    visitMany<T extends Type>(nodes: T[]): DataTypeCtor<T>[];
+    getVisitFn<T extends Type>(node: T): () => DataTypeCtor<T>;
+    getVisitFn<T extends DataType>(node: Vector<T> |  Data<T> | T): () => DataTypeCtor<T>;
 }
 
 export class GetDataTypeConstructor extends Visitor {

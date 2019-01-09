@@ -33,12 +33,10 @@ import {
 } from '../type';
 
 export interface GetVisitor extends Visitor {
-    visitMany <T extends Vector>  (nodes: T[], indices: number[]): T['TValue'][];
-    visit     <T extends Vector>  (node: T, index: number       ): T['TValue'];
-    getVisitFn<T extends Type>    (node: T        ): (vector: Vector<T>, index: number) => Vector<T>['TValue'];
-    getVisitFn<T extends DataType>(node: Vector<T>): (vector: Vector<T>, index: number) => Vector<T>['TValue'];
-    getVisitFn<T extends DataType>(node: Data<T>  ): (vector: Vector<T>, index: number) => Vector<T>['TValue'];
-    getVisitFn<T extends DataType>(node: T        ): (vector: Vector<T>, index: number) => Vector<T>['TValue'];
+    visit<T extends Vector>  (node: T, index: number): T['TValue'];
+    visitMany<T extends Vector>  (nodes: T[], indices: number[]): T['TValue'][];
+    getVisitFn<T extends Type>    (node: T): (vector: Vector<T>, index: number) => Vector<T>['TValue'];
+    getVisitFn<T extends DataType>(node: Vector<T> | Data<T> | T): (vector: Vector<T>, index: number) => Vector<T>['TValue'];
     visitNull                 <T extends Null>                 (vector: Vector<T>, index: number): T['TValue'];
     visitBool                 <T extends Bool>                 (vector: Vector<T>, index: number): T['TValue'];
     visitInt                  <T extends Int>                  (vector: Vector<T>, index: number): T['TValue'];
