@@ -330,9 +330,11 @@ garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
  * @input_stream: A #GArrowSeekableInputStream.
  * @n_bytes: The number of bytes to be peeked.
  *
- * Returns: (transfer full): The data of the buffer, up to the indicated number.
+ * Returns: (transfer full): The data of the buffer, up to the
+ *   indicated number. The data becomes invalid after any operation on
+ *   the stream. If the stream is unbuffered, the data is empty.
  *
- *   You should not free or modify the data.
+ *   It should be freed with g_bytes_unref() when no longer needed.
  *
  * Since: 0.12.0
  */
