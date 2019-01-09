@@ -172,7 +172,7 @@ static|shared (default shared)")
 
   option(ARROW_GGDB_DEBUG
     "Pass -ggdb flag to debug builds"
-    OFF)
+    ON)
 
   #----------------------------------------------------------------------
   # Project components to enable / disable building
