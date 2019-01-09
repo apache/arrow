@@ -110,12 +110,12 @@ class ARROW_EXPORT SparseCSRIndex : public SparseIndexBase<SparseCSRIndex> {
 };
 
 // ----------------------------------------------------------------------
-// SparseTensorBase class
+// SparseTensor class
 
 /// \brief EXPERIMENTAL: The base class of sparse tensor container
-class ARROW_EXPORT SparseTensorBase {
+class ARROW_EXPORT SparseTensor {
  public:
-  virtual ~SparseTensorBase() = default;
+  virtual ~SparseTensor() = default;
 
   SparseTensorFormat::type sparse_tensor_format_id() const {
     return sparse_index_->format_id();
@@ -146,14 +146,14 @@ class ARROW_EXPORT SparseTensorBase {
     return sparse_index_ ? sparse_index_->non_zero_length() : 0;
   }
 
-  bool Equals(const SparseTensorBase& other) const;
+  bool Equals(const SparseTensor& other) const;
 
  protected:
   // Constructor with all attributes
-  SparseTensorBase(const std::shared_ptr<DataType>& type,
-                   const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
-                   const std::shared_ptr<SparseIndex>& sparse_index,
-                   const std::vector<std::string>& dim_names);
+  SparseTensor(const std::shared_ptr<DataType>& type,
+               const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
+               const std::shared_ptr<SparseIndex>& sparse_index,
+               const std::vector<std::string>& dim_names);
 
   std::shared_ptr<DataType> type_;
   std::shared_ptr<Buffer> data_;
@@ -165,34 +165,34 @@ class ARROW_EXPORT SparseTensorBase {
 };
 
 // ----------------------------------------------------------------------
-// SparseTensor class
+// SparseTensorImpl class
 
-/// \brief EXPERIMENTAL: Concrete sparse tensor classes with sparse index type
+/// \brief EXPERIMENTAL: Concrete sparse tensor implementation classes with sparse index type
 template <typename SparseIndexType>
-class ARROW_EXPORT SparseTensor : public SparseTensorBase {
+class ARROW_EXPORT SparseTensorImpl : public SparseTensor {
  public:
-  virtual ~SparseTensor() = default;
+  virtual ~SparseTensorImpl() = default;
 
   // Constructor with all attributes
-  SparseTensor(const std::shared_ptr<SparseIndexType>& sparse_index,
-               const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-               const std::vector<int64_t>& shape,
-               const std::vector<std::string>& dim_names)
-      : SparseTensorBase(type, data, shape, sparse_index, dim_names) {}
+  SparseTensorImpl(const std::shared_ptr<SparseIndexType>& sparse_index,
+                   const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
+                   const std::vector<int64_t>& shape,
+                   const std::vector<std::string>& dim_names)
+      : SparseTensor(type, data, shape, sparse_index, dim_names) {}
 
   // Constructor for empty sparse tensor
-  SparseTensor(const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
-               const std::vector<std::string>& dim_names = {});
+  SparseTensorImpl(const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
+                   const std::vector<std::string>& dim_names = {});
 
   // Constructor with a dense numeric tensor
   template <typename TYPE>
-  explicit SparseTensor(const NumericTensor<TYPE>& tensor);
+  explicit SparseTensorImpl(const NumericTensor<TYPE>& tensor);
 
   // Constructor with a dense tensor
-  explicit SparseTensor(const Tensor& tensor);
+  explicit SparseTensorImpl(const Tensor& tensor);
 
  private:
-  ARROW_DISALLOW_COPY_AND_ASSIGN(SparseTensor);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(SparseTensorImpl);
 };
 
 }  // namespace arrow

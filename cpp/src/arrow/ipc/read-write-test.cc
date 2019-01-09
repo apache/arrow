@@ -851,14 +851,14 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   void TearDown() { io::MemoryMapFixture::TearDown(); }
 
   template <typename SparseIndexType>
-  void CheckSparseTensorRoundTrip(const SparseTensor<SparseIndexType>& tensor) {
+  void CheckSparseTensorRoundTrip(const SparseTensorImpl<SparseIndexType>& tensor) {
     GTEST_FAIL();
   }
 };
 
 template <>
 void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCOOIndex>(
-    const SparseTensor<SparseCOOIndex>& tensor) {
+    const SparseTensorImpl<SparseCOOIndex>& tensor) {
   const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
   const int elem_size = type.bit_width() / 8;
 
@@ -878,7 +878,7 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCOOIndex>(
 
   ASSERT_OK(mmap_->Seek(0));
 
-  std::shared_ptr<SparseTensorBase> result;
+  std::shared_ptr<SparseTensor> result;
   ASSERT_OK(ReadSparseTensor(mmap_.get(), &result));
 
   const auto& resulted_sparse_index =
@@ -890,7 +890,7 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCOOIndex>(
 
 template <>
 void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCSRIndex>(
-    const SparseTensor<SparseCSRIndex>& tensor) {
+    const SparseTensorImpl<SparseCSRIndex>& tensor) {
   const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
   const int elem_size = type.bit_width() / 8;
 
@@ -911,7 +911,7 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCSRIndex>(
 
   ASSERT_OK(mmap_->Seek(0));
 
-  std::shared_ptr<SparseTensorBase> result;
+  std::shared_ptr<SparseTensor> result;
   ASSERT_OK(ReadSparseTensor(mmap_.get(), &result));
 
   const auto& resulted_sparse_index =
@@ -934,7 +934,7 @@ TEST_F(TestSparseTensorRoundTrip, WithSparseCOOIndex) {
 
   auto data = Buffer::Wrap(values);
   NumericTensor<Int64Type> t(data, shape, {}, dim_names);
-  SparseTensor<SparseCOOIndex> st(t);
+  SparseTensorImpl<SparseCOOIndex> st(t);
 
   CheckSparseTensorRoundTrip(st);
 }
@@ -951,7 +951,7 @@ TEST_F(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
 
   auto data = Buffer::Wrap(values);
   NumericTensor<Int64Type> t(data, shape, {}, dim_names);
-  SparseTensor<SparseCSRIndex> st(t);
+  SparseTensorImpl<SparseCSRIndex> st(t);
 
   CheckSparseTensorRoundTrip(st);
 }

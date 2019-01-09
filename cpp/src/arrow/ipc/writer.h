@@ -36,7 +36,7 @@ class Schema;
 class Status;
 class Table;
 class Tensor;
-class SparseTensorBase;
+class SparseTensor;
 
 namespace io {
 
@@ -280,7 +280,7 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
 // \param[out] metadata_length the actual metadata length, including padding
 // \param[out] body_length the actual message body length
 ARROW_EXPORT
-Status WriteSparseTensor(const SparseTensorBase& sparse_tensor, io::OutputStream* dst,
+Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
                          int32_t* metadata_length, int64_t* body_length,
                          MemoryPool* pool);
 

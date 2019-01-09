@@ -41,7 +41,7 @@ namespace arrow {
 class DataType;
 class Schema;
 class Tensor;
-class SparseTensorBase;
+class SparseTensor;
 
 namespace flatbuf = org::apache::arrow::flatbuf;
 
@@ -145,7 +145,7 @@ Status WriteRecordBatchMessage(const int64_t length, const int64_t body_length,
 Status WriteTensorMessage(const Tensor& tensor, const int64_t buffer_start_offset,
                           std::shared_ptr<Buffer>* out);
 
-Status WriteSparseTensorMessage(const SparseTensorBase& sparse_tensor,
+Status WriteSparseTensorMessage(const SparseTensor& sparse_tensor,
                                 int64_t body_length,
                                 const std::vector<BufferMetadata>& buffers,
                                 std::shared_ptr<Buffer>* out);

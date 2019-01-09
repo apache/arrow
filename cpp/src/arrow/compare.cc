@@ -787,8 +787,8 @@ namespace {
 
 template <typename LeftSparseIndexType, typename RightSparseIndexType>
 struct SparseTensorEqualsImpl {
-  static bool Compare(const SparseTensor<LeftSparseIndexType>& left,
-                      const SparseTensor<RightSparseIndexType>& right) {
+  static bool Compare(const SparseTensorImpl<LeftSparseIndexType>& left,
+                      const SparseTensorImpl<RightSparseIndexType>& right) {
     // TODO(mrkn): should we support the equality among different formats?
     return false;
   }
@@ -796,8 +796,8 @@ struct SparseTensorEqualsImpl {
 
 template <typename SparseIndexType>
 struct SparseTensorEqualsImpl<SparseIndexType, SparseIndexType> {
-  static bool Compare(const SparseTensor<SparseIndexType>& left,
-                      const SparseTensor<SparseIndexType>& right) {
+  static bool Compare(const SparseTensorImpl<SparseIndexType>& left,
+                      const SparseTensorImpl<SparseIndexType>& right) {
     DCHECK(left.type()->id() == right.type()->id());
     DCHECK(left.shape() == right.shape());
     DCHECK(left.non_zero_length() == right.non_zero_length());
@@ -821,19 +821,19 @@ struct SparseTensorEqualsImpl<SparseIndexType, SparseIndexType> {
   }
 };
 
-template <typename SparseTensorType>
-inline bool SparseTensorEqualsImplDispatch(const SparseTensor<SparseTensorType>& left,
-                                           const SparseTensorBase& right) {
+template <typename SparseIndexType>
+inline bool SparseTensorEqualsImplDispatch(const SparseTensorImpl<SparseIndexType>& left,
+                                           const SparseTensor& right) {
   switch (right.sparse_tensor_format_id()) {
     case SparseTensorFormat::COO: {
-      const auto& right_coo = checked_cast<const SparseTensor<SparseCOOIndex>&>(right);
-      return SparseTensorEqualsImpl<SparseTensorType, SparseCOOIndex>::Compare(left,
+      const auto& right_coo = checked_cast<const SparseTensorImpl<SparseCOOIndex>&>(right);
+      return SparseTensorEqualsImpl<SparseIndexType, SparseCOOIndex>::Compare(left,
                                                                                right_coo);
     }
 
     case SparseTensorFormat::CSR: {
-      const auto& right_csr = checked_cast<const SparseTensor<SparseCSRIndex>&>(right);
-      return SparseTensorEqualsImpl<SparseTensorType, SparseCSRIndex>::Compare(left,
+      const auto& right_csr = checked_cast<const SparseTensorImpl<SparseCSRIndex>&>(right);
+      return SparseTensorEqualsImpl<SparseIndexType, SparseCSRIndex>::Compare(left,
                                                                                right_csr);
     }
 
@@ -844,7 +844,7 @@ inline bool SparseTensorEqualsImplDispatch(const SparseTensor<SparseTensorType>&
 
 }  // namespace
 
-bool SparseTensorEquals(const SparseTensorBase& left, const SparseTensorBase& right) {
+bool SparseTensorEquals(const SparseTensor& left, const SparseTensor& right) {
   if (&left == &right) {
     return true;
   } else if (left.type()->id() != right.type()->id()) {
@@ -859,12 +859,12 @@ bool SparseTensorEquals(const SparseTensorBase& left, const SparseTensorBase& ri
 
   switch (left.sparse_tensor_format_id()) {
     case SparseTensorFormat::COO: {
-      const auto& left_coo = checked_cast<const SparseTensor<SparseCOOIndex>&>(left);
+      const auto& left_coo = checked_cast<const SparseTensorImpl<SparseCOOIndex>&>(left);
       return SparseTensorEqualsImplDispatch(left_coo, right);
     }
 
     case SparseTensorFormat::CSR: {
-      const auto& left_csr = checked_cast<const SparseTensor<SparseCSRIndex>&>(left);
+      const auto& left_csr = checked_cast<const SparseTensorImpl<SparseCSRIndex>&>(left);
       return SparseTensorEqualsImplDispatch(left_csr, right);
     }
 

@@ -33,17 +33,17 @@
 namespace arrow {
 
 static inline void CheckSparseIndexFormatType(SparseTensorFormat::type expected,
-                                              const SparseTensorBase& sparse_tensor) {
+                                              const SparseTensor& sparse_tensor) {
   ASSERT_EQ(expected, sparse_tensor.sparse_tensor_format_id());
   ASSERT_EQ(expected, sparse_tensor.sparse_index()->format_id());
 }
 
 TEST(TestSparseCOOTensor, CreationEmptyTensor) {
   std::vector<int64_t> shape = {2, 3, 4};
-  SparseTensor<SparseCOOIndex> st1(int64(), shape);
+  SparseTensorImpl<SparseCOOIndex> st1(int64(), shape);
 
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
-  SparseTensor<SparseCOOIndex> st2(int64(), shape, dim_names);
+  SparseTensorImpl<SparseCOOIndex> st2(int64(), shape, dim_names);
 
   ASSERT_EQ(0, st1.non_zero_length());
   ASSERT_EQ(0, st2.non_zero_length());
@@ -68,8 +68,8 @@ TEST(TestSparseCOOTensor, CreationFromNumericTensor) {
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   NumericTensor<Int64Type> tensor1(buffer, shape);
   NumericTensor<Int64Type> tensor2(buffer, shape, {}, dim_names);
-  SparseTensor<SparseCOOIndex> st1(tensor1);
-  SparseTensor<SparseCOOIndex> st2(tensor2);
+  SparseTensorImpl<SparseCOOIndex> st1(tensor1);
+  SparseTensorImpl<SparseCOOIndex> st2(tensor2);
 
   CheckSparseIndexFormatType(SparseTensorFormat::COO, st1);
 
@@ -133,8 +133,8 @@ TEST(TestSparseCOOTensor, CreationFromTensor) {
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   Tensor tensor1(int64(), buffer, shape);
   Tensor tensor2(int64(), buffer, shape, {}, dim_names);
-  SparseTensor<SparseCOOIndex> st1(tensor1);
-  SparseTensor<SparseCOOIndex> st2(tensor2);
+  SparseTensorImpl<SparseCOOIndex> st1(tensor1);
+  SparseTensorImpl<SparseCOOIndex> st2(tensor2);
 
   ASSERT_EQ(12, st1.non_zero_length());
   ASSERT_TRUE(st1.is_mutable());
@@ -195,8 +195,8 @@ TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
   NumericTensor<Int64Type> tensor1(buffer, shape);
   NumericTensor<Int64Type> tensor2(buffer, shape, {}, dim_names);
 
-  SparseTensor<SparseCSRIndex> st1(tensor1);
-  SparseTensor<SparseCSRIndex> st2(tensor2);
+  SparseTensorImpl<SparseCSRIndex> st1(tensor1);
+  SparseTensorImpl<SparseCSRIndex> st2(tensor2);
 
   CheckSparseIndexFormatType(SparseTensorFormat::CSR, st1);
 

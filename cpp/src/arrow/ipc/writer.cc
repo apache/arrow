@@ -703,12 +703,12 @@ class SparseTensorSerializer {
     return Status::OK();
   }
 
-  Status SerializeMetadata(const SparseTensorBase& sparse_tensor) {
+  Status SerializeMetadata(const SparseTensor& sparse_tensor) {
     return WriteSparseTensorMessage(sparse_tensor, out_->body_length, buffer_meta_,
                                     &out_->metadata);
   }
 
-  Status Assemble(const SparseTensorBase& sparse_tensor) {
+  Status Assemble(const SparseTensor& sparse_tensor) {
     if (buffer_meta_.size() > 0) {
       buffer_meta_.clear();
       out_->body_buffers.clear();
@@ -753,7 +753,7 @@ class SparseTensorSerializer {
   int64_t buffer_start_offset_;
 };
 
-Status GetSparseTensorPayload(const SparseTensorBase& sparse_tensor, MemoryPool* pool,
+Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* pool,
                               IpcPayload* out) {
   SparseTensorSerializer writer(0, out);
   return writer.Assemble(sparse_tensor);
@@ -761,7 +761,7 @@ Status GetSparseTensorPayload(const SparseTensorBase& sparse_tensor, MemoryPool*
 
 }  // namespace internal
 
-Status WriteSparseTensor(const SparseTensorBase& sparse_tensor, io::OutputStream* dst,
+Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
                          int32_t* metadata_length, int64_t* body_length,
                          MemoryPool* pool) {
   internal::IpcPayload payload;

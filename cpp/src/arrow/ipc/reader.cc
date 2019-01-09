@@ -772,8 +772,8 @@ Status MakeSparseTensorWithSparseCOOIndex(
     const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
     const std::vector<std::string>& dim_names,
     const std::shared_ptr<SparseCOOIndex>& sparse_index, int64_t non_zero_length,
-    const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensorBase>* out) {
-  *out = std::make_shared<SparseTensor<SparseCOOIndex>>(sparse_index, type, data, shape, dim_names);
+    const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensor>* out) {
+  *out = std::make_shared<SparseTensorImpl<SparseCOOIndex>>(sparse_index, type, data, shape, dim_names);
   return Status::OK();
 }
 
@@ -781,15 +781,15 @@ Status MakeSparseTensorWithSparseCSRIndex(
     const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
     const std::vector<std::string>& dim_names,
     const std::shared_ptr<SparseCSRIndex>& sparse_index, int64_t non_zero_length,
-    const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensorBase>* out) {
-  *out = std::make_shared<SparseTensor<SparseCSRIndex>>(sparse_index, type, data, shape, dim_names);
+    const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensor>* out) {
+  *out = std::make_shared<SparseTensorImpl<SparseCSRIndex>>(sparse_index, type, data, shape, dim_names);
   return Status::OK();
 }
 
 }  // namespace
 
 Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
-                        std::shared_ptr<SparseTensorBase>* out) {
+                        std::shared_ptr<SparseTensor>* out) {
   std::shared_ptr<DataType> type;
   std::vector<int64_t> shape;
   std::vector<std::string> dim_names;
@@ -830,12 +830,12 @@ Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
   }
 }
 
-Status ReadSparseTensor(const Message& message, std::shared_ptr<SparseTensorBase>* out) {
+Status ReadSparseTensor(const Message& message, std::shared_ptr<SparseTensor>* out) {
   io::BufferReader buffer_reader(message.body());
   return ReadSparseTensor(*message.metadata(), &buffer_reader, out);
 }
 
-Status ReadSparseTensor(io::InputStream* file, std::shared_ptr<SparseTensorBase>* out) {
+Status ReadSparseTensor(io::InputStream* file, std::shared_ptr<SparseTensor>* out) {
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
   DCHECK_EQ(message->type(), Message::SPARSE_TENSOR);
