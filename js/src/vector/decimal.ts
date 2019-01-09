@@ -15,12 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
 import { Decimal } from '../type';
 import { BaseVector } from './base';
 
-export class DecimalVector extends BaseVector<Decimal> {
-    constructor(data: Data<Decimal>) {
-        super(data, undefined, 4);
-    }
-}
+export class DecimalVector extends BaseVector<Decimal> {}

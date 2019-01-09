@@ -41,9 +41,6 @@ export class IntVector<T extends Int = Int> extends BaseVector<T> {
         }
         throw new TypeError('Unrecognized Int data');
     }
-    constructor(data: Data<T>) {
-        super(data, undefined, 1 + Number(data.type.bitWidth > 32));
-    }
 }
 
 export class Int8Vector extends IntVector<Int8> {}

@@ -26,48 +26,43 @@ import { Clonable, Sliceable, Applicative } from '../vector';
 export interface BaseVector<T extends DataType = any> extends Clonable<VType<T>>, Sliceable<VType<T>>, Applicative<T, Chunked<T>> {
     slice(begin?: number, end?: number): VType<T>;
     concat(...others: Vector<T>[]): Chunked<T>;
-    clone<R extends DataType = T>(data: Data<R>, children?: Vector<R>[], stride?: number): VType<R>;
+    clone<R extends DataType = T>(data: Data<R>, children?: Vector<R>[]): VType<R>;
 }
 
 export abstract class BaseVector<T extends DataType = any> extends Vector<T>
     implements Clonable<VType<T>>, Sliceable<VType<T>>, Applicative<T, Chunked<T>> {
 
-    // @ts-ignore
-    protected _data: Data<T>;
-    protected _stride: number = 1;
-    protected _numChildren: number = 0;
     protected _children?: Vector[];
 
-    constructor(data: Data<T>, children?: Vector[], stride?: number) {
+    constructor(data: Data<T>, children?: Vector[]) {
         super();
         this._children = children;
-        this._numChildren = data.childData.length;
-        this._bindDataAccessors(this._data = data);
-        this._stride = Math.floor(Math.max(stride || 1, 1));
+        this.numChildren = data.childData.length;
+        this._bindDataAccessors(this.data = data);
     }
 
-    public get data() { return this._data; }
-    public get stride() { return this._stride; }
-    public get numChildren() { return this._numChildren; }
+    public readonly data: Data<T>;
+    public readonly numChildren: number;
 
-    public get type() { return this._data.type; }
-    public get typeId() { return this._data.typeId as T['TType']; }
-    public get length() { return this._data.length; }
-    public get offset() { return this._data.offset; }
-    public get nullCount() { return this._data.nullCount; }
+    public get type() { return this.data.type; }
+    public get typeId() { return this.data.typeId; }
+    public get length() { return this.data.length; }
+    public get offset() { return this.data.offset; }
+    public get stride() { return this.data.stride; }
+    public get nullCount() { return this.data.nullCount; }
     public get VectorName() { return this.constructor.name; }
 
-    public get ArrayType(): T['ArrayType'] { return this._data.ArrayType; }
+    public get ArrayType(): T['ArrayType'] { return this.data.ArrayType; }
 
-    public get values() { return this._data.values; }
-    public get typeIds() { return this._data.typeIds; }
-    public get nullBitmap() { return this._data.nullBitmap; }
-    public get valueOffsets() { return this._data.valueOffsets; }
+    public get values() { return this.data.values; }
+    public get typeIds() { return this.data.typeIds; }
+    public get nullBitmap() { return this.data.nullBitmap; }
+    public get valueOffsets() { return this.data.valueOffsets; }
 
     public get [Symbol.toStringTag]() { return `${this.VectorName}<${this.type[Symbol.toStringTag]}>`; }
 
-    public clone<R extends DataType = T>(data: Data<R>, children = this._children, stride = this._stride) {
-        return Vector.new<R>(data, children, stride) as any;
+    public clone<R extends DataType = T>(data: Data<R>, children = this._children) {
+        return Vector.new<R>(data, children) as any;
     }
 
     public concat(...others: Vector<T>[]) {
@@ -94,16 +89,15 @@ export abstract class BaseVector<T extends DataType = any> extends Vector<T>
     public getChildAt<R extends DataType = any>(index: number): Vector<R> | null {
         return index < 0 || index >= this.numChildren ? null : (
             (this._children || (this._children = []))[index] ||
-            (this._children[index] = Vector.new<R>(this._data.childData[index] as Data<R>))
+            (this._children[index] = Vector.new<R>(this.data.childData[index] as Data<R>))
         ) as Vector<R>;
     }
 
     // @ts-ignore
     public toJSON(): any { return [...this]; }
 
-    protected _sliceInternal(self: this, offset: number, length: number) {
-        const stride = self.stride;
-        return self.clone(self.data.slice(offset * stride, (length - offset) * stride));
+    protected _sliceInternal(self: this, begin: number, end: number) {
+        return self.clone(self.data.slice(begin, end - begin));
     }
 
     // @ts-ignore
@@ -111,3 +105,5 @@ export abstract class BaseVector<T extends DataType = any> extends Vector<T>
         // Implementation in src/vectors/index.ts due to circular dependency/packaging shenanigans
     }
 }
+
+(BaseVector.prototype as any)[Symbol.isConcatSpreadable] = true;

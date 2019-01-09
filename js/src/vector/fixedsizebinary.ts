@@ -15,12 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
 import { BaseVector } from './base';
 import { FixedSizeBinary } from '../type';
 
 export class FixedSizeBinaryVector extends BaseVector<FixedSizeBinary> {
-    constructor(data: Data<FixedSizeBinary>) {
-        super(data, void 0, data.type.byteWidth);
-    }
 }

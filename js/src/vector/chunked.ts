@@ -27,7 +27,7 @@ type ChunkedDict<T extends DataType> = T extends Dictionary ? T['dictionaryVecto
 type ChunkedKeys<T extends DataType> = T extends Dictionary ? Vector<T['indices']> | Chunked<T['indices']> : null | never;
 
 /** @ignore */
-type SearchContinuation<T extends Chunked> = (column: T, chunkIndex: number, valueIndex: number) => any;
+export type SearchContinuation<T extends Chunked> = (column: T, chunkIndex: number, valueIndex: number) => any;
 
 /** @ignore */
 export class Chunked<T extends DataType = any>
@@ -218,7 +218,7 @@ export class Chunked<T extends DataType = any>
         return -1;
     }
 
-    protected _sliceInternal(self: Chunked<T>, offset: number, length: number) {
+    protected _sliceInternal(self: Chunked<T>, begin: number, end: number) {
         const slices: Vector<T>[] = [];
         const { chunks, _chunkOffsets: chunkOffsets } = self;
         for (let i = -1, n = chunks.length; ++i < n;) {
@@ -226,18 +226,18 @@ export class Chunked<T extends DataType = any>
             const chunkLength = chunk.length;
             const chunkOffset = chunkOffsets[i];
             // If the child is to the right of the slice boundary, we can stop
-            if (chunkOffset >= offset + length) { continue; }
+            if (chunkOffset >= end) { break; }
             // If the child is to the left of of the slice boundary, exclude
-            if (offset >= chunkOffset + chunkLength) { continue; }
+            if (begin >= chunkOffset + chunkLength) { continue; }
             // If the child is between both left and right boundaries, include w/o slicing
-            if (chunkOffset >= offset && (chunkOffset + chunkLength) <= offset + length) {
+            if (chunkOffset >= begin && (chunkOffset + chunkLength) <= end) {
                 slices.push(chunk);
                 continue;
             }
             // If the child overlaps one of the slice boundaries, include that slice
-            const begin = Math.max(0, offset - chunkOffset);
-            const end = begin + Math.min(chunkLength - begin, (offset + length) - chunkOffset);
-            slices.push(chunk.slice(begin, end) as Vector<T>);
+            const from = Math.max(0, begin - chunkOffset);
+            const to = from + Math.min(chunkLength - from, end - chunkOffset);
+            slices.push(chunk.slice(from, to) as Vector<T>);
         }
         return self.clone(slices);
     }

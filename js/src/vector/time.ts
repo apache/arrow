@@ -15,15 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
 import { BaseVector } from './base';
 import { Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond } from '../type';
 
-export class TimeVector<T extends Time = Time> extends BaseVector<T> {
-    constructor(data: Data<T>) {
-        super(data, undefined, 1 + Number(data.type.bitWidth > 32));
-    }
-}
+export class TimeVector<T extends Time = Time> extends BaseVector<T> {}
 export class TimeSecondVector extends TimeVector<TimeSecond> {}
 export class TimeMillisecondVector extends TimeVector<TimeMillisecond> {}
 export class TimeMicrosecondVector extends TimeVector<TimeMicrosecond> {}

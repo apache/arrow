@@ -15,15 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
 import { BaseVector } from './base';
 import { Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond } from '../type';
 
-export class TimestampVector<T extends Timestamp = Timestamp> extends BaseVector<T> {
-    constructor(data: Data<T>) {
-        super(data, undefined, 2);
-    }
-}
+export class TimestampVector<T extends Timestamp = Timestamp> extends BaseVector<T> {}
 export class TimestampSecondVector extends TimestampVector<TimestampSecond> {}
 export class TimestampMillisecondVector extends TimestampVector<TimestampMillisecond> {}
 export class TimestampMicrosecondVector extends TimestampVector<TimestampMicrosecond> {}

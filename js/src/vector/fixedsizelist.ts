@@ -15,12 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
 import { BaseVector } from './base';
 import { DataType, FixedSizeList } from '../type';
 
 export class FixedSizeListVector<T extends DataType = any> extends BaseVector<FixedSizeList<T>> {
-    constructor(data: Data<FixedSizeList<T>>) {
-        super(data, void 0, data.type.listSize);
-    }
 }

@@ -37,9 +37,7 @@ export class DateVector<T extends Date_ = Date_> extends BaseVector<T> {
         }
         throw new TypeError(`Unrecognized date unit "${DateUnit[unit]}"`);
     }
-    constructor(data: Data<T>) {
-        super(data, undefined, data.type.unit + 1);
-    }
 }
+
 export class DateDayVector extends DateVector<DateDay> {}
 export class DateMillisecondVector extends DateVector<DateMillisecond> {}

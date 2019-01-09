@@ -15,15 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
 import { BaseVector } from './base';
 import { Interval, IntervalDayTime, IntervalYearMonth } from '../type';
 
-export class IntervalVector<T extends Interval = Interval> extends BaseVector<T> {
-    constructor(data: Data<T>) {
-        super(data, undefined, data.type.unit + 1);
-    }
-}
-
+export class IntervalVector<T extends Interval = Interval> extends BaseVector<T> {}
 export class IntervalDayTimeVector extends IntervalVector<IntervalDayTime> {}
 export class IntervalYearMonthVector extends IntervalVector<IntervalYearMonth> {}

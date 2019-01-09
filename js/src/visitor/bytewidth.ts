@@ -33,12 +33,10 @@ import {
 /** @ignore */ const variableWidthColumnErrorMessage = (type: DataType) => `Cannot compute the byte width of variable-width column ${type}`;
 
 export interface ByteWidthVisitor extends Visitor {
-    visitMany <T extends DataType>(nodes: T[]     ): number[];
-    visit     <T extends DataType>(node: T        ): number;
-    getVisitFn<T extends Type>    (node: T        ): (type: DataType<T>) => number;
-    getVisitFn<T extends DataType>(node: Vector<T>): (type: T          ) => number;
-    getVisitFn<T extends DataType>(node: Data<T>  ): (type: T          ) => number;
-    getVisitFn<T extends DataType>(node: T        ): (type: T          ) => number;
+    visit<T extends DataType>(node: T): number;
+    visitMany<T extends DataType>(nodes: T[]): number[];
+    getVisitFn<T extends Type>    (node: T): (type: DataType<T>) => number;
+    getVisitFn<T extends DataType>(node: Vector<T> | Data<T> | T): (type: T) => number;
 }
 
 export class ByteWidthVisitor extends Visitor {

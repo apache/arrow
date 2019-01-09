@@ -81,7 +81,7 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
         const fields = this._schema.fields;
         const schema = this._schema.select(...columnNames);
         const childNames = columnNames.reduce((xs, x) => (xs[x] = true) && xs, <any> {});
-        const childData = this._data.childData.filter((_, i) => childNames[fields[i].name]);
+        const childData = this.data.childData.filter((_, i) => childNames[fields[i].name]);
         const structData = Data.Struct(new Struct(schema.fields), 0, this.length, 0, null, childData);
         return new RecordBatch<{ [P in K]: T[P] }>(schema, structData as Data<Struct<{ [P in K]: T[P] }>>);
     }

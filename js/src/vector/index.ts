@@ -170,14 +170,9 @@ function wrapNullableSet<T extends DataType, V extends BaseVector<T>, F extends 
 
 /** @ignore */
 function bindBaseVectorDataAccessors<T extends DataType>(this: BaseVector<T>) {
-    const type = this.type;
-    this['get'] = getVisitor.getVisitFn(type).bind(this, <any> this as V<T>);
-    this['set'] = setVisitor.getVisitFn(type).bind(this, <any> this as V<T>);
-    this['indexOf'] = indexOfVisitor.getVisitFn(type).bind(this, <any> this as V<T>);
-    this['toArray'] = toArrayVisitor.getVisitFn(type).bind(this, <any> this as V<T>);
-    this[Symbol.iterator] = iteratorVisitor.getVisitFn(type).bind(this, <any> this as V<T>);
-    if (this.nullCount > 0) {
-        this['get'] = wrapNullable1(this['get']);
-        this['set'] = wrapNullableSet(this['set']);
+    const nullBitmap = this.nullBitmap;
+    if (nullBitmap && nullBitmap.byteLength > 0) {
+        this.get = wrapNullable1(this.get);
+        this.set = wrapNullableSet(this.set);
     }
 }

@@ -32,12 +32,12 @@ export class DictionaryVector<T extends DataType = any, TKey extends TKeys = TKe
     }
     protected _indices: V<TKey>;
     constructor(data: Data<Dictionary<T, TKey>>) {
-        super(data, void 0, 1);
+        super(data);
         this._indices = Vector.new(data.clone(this.type.indices));
     }
     // protected _bindDataAccessors() {}
     public get indices() { return this._indices; }
-    public get dictionary() { return this._data.type.dictionaryVector; }
+    public get dictionary() { return this.data.type.dictionaryVector; }
     public isValid(index: number) { return this._indices.isValid(index); }
     public reverseLookup(value: T) { return this.dictionary.indexOf(value); }
     public getKey(idx: number): TKey['TValue'] | null { return this._indices.get(idx); }
