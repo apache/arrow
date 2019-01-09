@@ -64,7 +64,7 @@ TEST(TestSparseCOOTensor, CreationFromNumericTensor) {
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
                                  0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-  std::shared_ptr<Buffer> buffer(Buffer::Wrap(values));
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   NumericTensor<Int64Type> tensor1(buffer, shape);
   NumericTensor<Int64Type> tensor2(buffer, shape, {}, dim_names);
@@ -129,7 +129,7 @@ TEST(TestSparseCOOTensor, CreationFromTensor) {
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
                                  0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-  std::shared_ptr<Buffer> buffer(Buffer::Wrap(values));
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   Tensor tensor1(int64(), buffer, shape);
   Tensor tensor2(int64(), buffer, shape, {}, dim_names);
@@ -190,7 +190,7 @@ TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
   std::vector<int64_t> shape = {6, 4};
   std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
                                  0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-  std::shared_ptr<Buffer> buffer(Buffer::Wrap(values));
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   NumericTensor<Int64Type> tensor1(buffer, shape);
   NumericTensor<Int64Type> tensor2(buffer, shape, {}, dim_names);
