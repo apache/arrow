@@ -133,9 +133,7 @@ function measureColumnWidths(rowId: number, batch: RecordBatch, maxColWidths: nu
         if (!row) { continue; }
         maxColWidths[0] = Math.max(maxColWidths[0] || 0, (`${rowId++}`).length);
         for (let val: any, j = -1, k = row.length; ++j < k;) {
-            if (!ArrayBuffer.isView(val = row[j])) {
-                maxColWidths[j + 1] = Math.max(maxColWidths[j + 1] || 0, valueToString(val).length);
-            } else {
+            if (ArrayBuffer.isView(val = row[j]) && (typeof val[Symbol.toPrimitive] !== 'function')) {
                 // If we're printing a column of TypedArrays, ensure the column is wide enough to accommodate
                 // the widest possible element for a given byte size, since JS omits leading zeroes. For example:
                 // 1 |  [1137743649,2170567488,244696391,2122556476]
@@ -152,6 +150,8 @@ function measureColumnWidths(rowId: number, batch: RecordBatch, maxColWidths: nu
                     (val.length - 1) + // commas between elements
                     (val.length * elementWidth) // width of stringified 2^N-1
                 );
+            } else {
+                maxColWidths[j + 1] = Math.max(maxColWidths[j + 1] || 0, valueToString(val).length);
             }
         }
     }
