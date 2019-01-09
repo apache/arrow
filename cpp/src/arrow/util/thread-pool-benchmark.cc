@@ -77,7 +77,7 @@ struct Task {
 // depending on the workload size.  Number of items / second in this (serial)
 // benchmark can be compared to the numbers obtained in BM_ThreadPoolSpawn.
 static void BM_WorkloadCost(benchmark::State& state) {
-  const int32_t workload_size = state.range(0);
+  const auto workload_size = static_cast<int32_t>(state.range(0));
 
   Workload workload(workload_size);
   for (auto _ : state) {
@@ -89,8 +89,8 @@ static void BM_WorkloadCost(benchmark::State& state) {
 
 // Benchmark ThreadPool::Spawn
 static void BM_ThreadPoolSpawn(benchmark::State& state) {
-  const int nthreads = state.range(0);
-  const int32_t workload_size = state.range(1);
+  const auto nthreads = static_cast<int>(state.range(0));
+  const auto workload_size = static_cast<int32_t>(state.range(1));
 
   Workload workload(workload_size);
 
@@ -119,7 +119,7 @@ static void BM_ThreadPoolSpawn(benchmark::State& state) {
 
 // Benchmark serial TaskGroup
 static void BM_SerialTaskGroup(benchmark::State& state) {
-  const int32_t workload_size = state.range(0);
+  const auto workload_size = static_cast<int32_t>(state.range(0));
 
   Task task(workload_size);
 
@@ -138,8 +138,8 @@ static void BM_SerialTaskGroup(benchmark::State& state) {
 
 // Benchmark threaded TaskGroup
 static void BM_ThreadedTaskGroup(benchmark::State& state) {
-  const int nthreads = state.range(0);
-  const int32_t workload_size = state.range(1);
+  const auto nthreads = static_cast<int>(state.range(0));
+  const auto workload_size = static_cast<int32_t>(state.range(1));
 
   std::shared_ptr<ThreadPool> pool;
   ABORT_NOT_OK(ThreadPool::Make(nthreads, &pool));
