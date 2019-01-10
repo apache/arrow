@@ -178,8 +178,8 @@ BufferedOutputStream::BufferedOutputStream(std::shared_ptr<OutputStream> raw,
   impl_.reset(new Impl(std::move(raw), pool));
 }
 
-Status BufferedOutputStream::Create(std::shared_ptr<OutputStream> raw,
-                                    int64_t buffer_size, MemoryPool* pool,
+Status BufferedOutputStream::Create(int64_t buffer_size, MemoryPool* pool,
+                                    std::shared_ptr<OutputStream> raw,
                                     std::shared_ptr<BufferedOutputStream>* out) {
   auto result = std::shared_ptr<BufferedOutputStream>(
       new BufferedOutputStream(std::move(raw), pool));
@@ -357,8 +357,8 @@ BufferedInputStream::BufferedInputStream(std::shared_ptr<InputStream> raw,
 
 BufferedInputStream::~BufferedInputStream() { DCHECK_OK(impl_->Close()); }
 
-Status BufferedInputStream::Create(std::shared_ptr<InputStream> raw, int64_t buffer_size,
-                                   MemoryPool* pool,
+Status BufferedInputStream::Create(int64_t buffer_size, MemoryPool* pool,
+                                   std::shared_ptr<InputStream> raw,
                                    std::shared_ptr<BufferedInputStream>* out) {
   auto result =
       std::shared_ptr<BufferedInputStream>(new BufferedInputStream(std::move(raw), pool));

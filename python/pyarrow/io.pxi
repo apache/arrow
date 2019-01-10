@@ -1134,8 +1134,8 @@ cdef class BufferedInputStream(NativeFile):
         if buffer_size <= 0:
             raise ValueError('Buffer size must be larger than zero')
         check_status(CBufferedInputStream.Create(
-            stream.get_input_stream(), buffer_size,
-            maybe_unbox_memory_pool(memory_pool), &buffered_stream))
+            buffer_size, maybe_unbox_memory_pool(memory_pool),
+            stream.get_input_stream(), &buffered_stream))
 
         self.set_input_stream(<shared_ptr[InputStream]> buffered_stream)
         self.is_readable = True
@@ -1150,8 +1150,8 @@ cdef class BufferedOutputStream(NativeFile):
         if buffer_size <= 0:
             raise ValueError('Buffer size must be larger than zero')
         check_status(CBufferedOutputStream.Create(
-            stream.get_output_stream(), buffer_size,
-            maybe_unbox_memory_pool(memory_pool), &buffered_stream))
+            buffer_size, maybe_unbox_memory_pool(memory_pool),
+            stream.get_output_stream(), &buffered_stream))
 
         self.set_output_stream(<shared_ptr[OutputStream]> buffered_stream)
         self.is_writable = True
@@ -1436,8 +1436,8 @@ def input_stream(source, compression='detect', buffer_size=None):
         If None, no compression will be applied.
         Otherwise, a well-known algorithm name must be supplied (e.g. "gzip")
     buffer_size: int, default None
-        If None, no buffering will happen.
-        Otherwise the size of the temporary read buffer.
+        If None or 0, no buffering will happen.  Otherwise the size of the
+        temporary read buffer.
     """
     cdef NativeFile stream
 
@@ -1464,11 +1464,11 @@ def input_stream(source, compression='detect', buffer_size=None):
     if compression == 'detect':
         compression = _detect_compression(source_path)
 
+    if buffer_size is not None and buffer_size != 0:
+        stream = BufferedInputStream(stream, buffer_size)
+
     if compression is not None:
         stream = CompressedInputStream(stream, compression)
-
-    if buffer_size is not None:
-        stream = BufferedInputStream(stream, buffer_size)
 
     return stream
 
@@ -1488,8 +1488,8 @@ def output_stream(source, compression='detect', buffer_size=None):
         If None, no compression will be applied.
         Otherwise, a well-known algorithm name must be supplied (e.g. "gzip")
     buffer_size: int, default None
-        If None, no buffering will happen.
-        Otherwise the size of the temporary write buffer.
+        If None or 0, no buffering will happen.  Otherwise the size of the
+        temporary write buffer.
     """
     cdef NativeFile stream
 
@@ -1516,10 +1516,10 @@ def output_stream(source, compression='detect', buffer_size=None):
     if compression == 'detect':
         compression = _detect_compression(source_path)
 
+    if buffer_size is not None and buffer_size != 0:
+        stream = BufferedOutputStream(stream, buffer_size)
+
     if compression is not None:
         stream = CompressedOutputStream(stream, compression)
-
-    if buffer_size is not None:
-        stream = BufferedOutputStream(stream, buffer_size)
 
     return stream

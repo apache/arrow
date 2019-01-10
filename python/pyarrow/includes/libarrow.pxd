@@ -701,16 +701,16 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
             " arrow::io::BufferedInputStream"(InputStream):
 
         @staticmethod
-        CStatus Create(shared_ptr[InputStream] raw,
-                       int64_t buffer_size, CMemoryPool* pool,
+        CStatus Create(int64_t buffer_size, CMemoryPool* pool,
+                       shared_ptr[InputStream] raw,
                        shared_ptr[CBufferedInputStream]* out)
 
     cdef cppclass CBufferedOutputStream \
             " arrow::io::BufferedOutputStream"(OutputStream):
 
         @staticmethod
-        CStatus Create(shared_ptr[OutputStream] raw,
-                       int64_t buffer_size, CMemoryPool* pool,
+        CStatus Create(int64_t buffer_size, CMemoryPool* pool,
+                       shared_ptr[OutputStream] raw,
                        shared_ptr[CBufferedOutputStream]* out)
 
     # ----------------------------------------------------------------------

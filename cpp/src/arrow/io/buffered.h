@@ -40,13 +40,14 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   ~BufferedOutputStream() override;
 
   /// \brief Create a buffered output stream wrapping the given output stream.
-  /// \param[in] raw another OutputStream
   /// \param[in] buffer_size the size of the temporary write buffer
   /// \param[in] pool a MemoryPool to use for allocations
+  /// \param[in] raw another OutputStream
   /// \param[out] out the created BufferedOutputStream
   /// \return Status
-  static Status Create(std::shared_ptr<OutputStream> raw, int64_t buffer_size,
-                       MemoryPool* pool, std::shared_ptr<BufferedOutputStream>* out);
+  static Status Create(int64_t buffer_size, MemoryPool* pool,
+                       std::shared_ptr<OutputStream> raw,
+                       std::shared_ptr<BufferedOutputStream>* out);
 
   /// \brief Resize internal buffer
   /// \param[in] new_buffer_size the new buffer size
@@ -94,12 +95,13 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   ~BufferedInputStream() override;
 
   /// \brief Create a BufferedInputStream from a raw InputStream
-  /// \param[in] raw a raw InputStream
   /// \param[in] buffer_size the size of the temporary read buffer
   /// \param[in] pool a MemoryPool to use for allocations
+  /// \param[in] raw a raw InputStream
   /// \param[out] out the created BufferedInputStream
-  static Status Create(std::shared_ptr<InputStream> raw, int64_t buffer_size,
-                       MemoryPool* pool, std::shared_ptr<BufferedInputStream>* out);
+  static Status Create(int64_t buffer_size, MemoryPool* pool,
+                       std::shared_ptr<InputStream> raw,
+                       std::shared_ptr<BufferedInputStream>* out);
 
   /// \brief Resize internal read buffer; calls to Read(...) will read at least
   /// \param[in] new_buffer_size the new read buffer size

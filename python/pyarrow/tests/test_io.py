@@ -1147,11 +1147,12 @@ def test_input_stream_file_path_buffered(tmpdir):
     stream = pa.input_stream(pathlib.Path(str(file_path)), buffer_size=1024)
     assert stream.read() == data
 
+    unbuffered_stream = pa.input_stream(file_path, buffer_size=0)
+    assert isinstance(unbuffered_stream, pa.OSFile)
+
     msg = 'Buffer size must be larger than zero'
     with pytest.raises(ValueError, match=msg):
         pa.input_stream(file_path, buffer_size=-1)
-    with pytest.raises(ValueError, match=msg):
-        pa.input_stream(file_path, buffer_size=0)
     with pytest.raises(TypeError):
         pa.input_stream(file_path, buffer_size='million')
 
@@ -1283,9 +1284,10 @@ def test_output_stream_file_path_buffered(tmpdir):
         with open(str(file_path), 'rb') as f:
             return f.read()
 
+    unbuffered_stream = pa.output_stream(file_path, buffer_size=0)
+    assert isinstance(unbuffered_stream, pa.OSFile)
+
     msg = 'Buffer size must be larger than zero'
-    with pytest.raises(ValueError, match=msg):
-        assert check_data(file_path, data, buffer_size=0) == data
     with pytest.raises(ValueError, match=msg):
         assert check_data(file_path, data, buffer_size=-128) == data
 
