@@ -54,9 +54,12 @@ before_script:
   - source run_conda_forge_build_setup
 
 script:
-  - export FEEDSTOCK_ROOT=`pwd`
   # Don't need to run make_build_number, no build number decrementation happens, it's always 0
-  - conda build --output-folder . -m {{ variant_config_file }} parquet-cpp arrow-cpp pyarrow
+  - |
+    conda build --croot $TRAVIS_HOME/conda_build_root \
+                --output-folder . \
+                -m {{ variant_config_file }} \
+                parquet-cpp arrow-cpp pyarrow
 
 deploy:
   provider: releases
