@@ -59,4 +59,21 @@ class ListArrayBuilderTest < Test::Unit::TestCase
                    array.collect {|list| list ? list.to_a : nil})
     end
   end
+
+  sub_test_case("#append") do
+    test("backward compatibility") do
+      @builder.append
+      @builder.value_builder.append(true)
+      @builder.value_builder.append(false)
+      @builder.append
+      @builder.value_builder.append(true)
+      array = @builder.finish
+
+      assert_equal([
+                     [true, false],
+                     [true],
+                   ],
+                   array.collect(&:to_a))
+    end
+  end
 end

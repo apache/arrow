@@ -22,6 +22,22 @@ module Arrow
     include RecordContainable
     include Enumerable
 
+    class << self
+      def new(*args)
+        n_args = args.size
+        case n_args
+        when 2
+          schema, data = args
+          RecordBatchBuilder.build(schema, data)
+        when 3
+          super
+        else
+          message = "wrong number of arguments (given #{n_args}, expected 2..3)"
+          raise ArgumentError, message
+        end
+      end
+    end
+
     alias_method :each, :each_record
 
     alias_method :columns_raw, :columns

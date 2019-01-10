@@ -82,5 +82,15 @@ module Arrow
         end
       end
     end
+
+    # @since 0.12.0
+    def append(*values)
+      if values.empty?
+        # For backward compatibility
+        append_value
+      else
+        super
+      end
+    end
   end
 end
