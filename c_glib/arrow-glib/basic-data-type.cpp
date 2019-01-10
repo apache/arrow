@@ -1065,7 +1065,7 @@ garrow_decimal_data_type_class_init(GArrowDecimalDataTypeClass *klass)
  *
  * Since: 0.10.0
  *
- * Deprecate: 0.12.0:
+ * Deprecated: 0.12.0:
  *   Use garrow_decimal128_data_type_new() instead.
  */
 GArrowDecimalDataType *
