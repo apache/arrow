@@ -752,6 +752,24 @@ garrow_fixed_size_binary_data_type_new(gint32 byte_width)
   return fixed_size_binary_data_type;
 }
 
+/**
+ * garrow_fixed_size_binary_data_type_get_byte_width:
+ * @data_type: A #GArrowFixedSizeBinaryDataType.
+ *
+ * Returns: The number of bytes for one data.
+ *
+ * Since: 0.12.0
+ */
+gint32
+garrow_fixed_size_binary_data_type_get_byte_width(GArrowFixedSizeBinaryDataType *data_type)
+{
+  const auto arrow_data_type =
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  const auto arrow_fixed_size_binary_type =
+    std::static_pointer_cast<arrow::FixedSizeBinaryType>(arrow_data_type);
+  return arrow_fixed_size_binary_type->byte_width();
+}
+
 
 G_DEFINE_TYPE(GArrowStringDataType,
               garrow_string_data_type,

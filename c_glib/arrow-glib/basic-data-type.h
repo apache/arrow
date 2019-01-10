@@ -352,6 +352,9 @@ struct _GArrowFixedSizeBinaryDataTypeClass
 GARROW_AVAILABLE_IN_0_12
 GArrowFixedSizeBinaryDataType *
 garrow_fixed_size_binary_data_type_new(gint32 byte_width);
+GARROW_AVAILABLE_IN_0_12
+gint32
+garrow_fixed_size_binary_data_type_get_byte_width(GArrowFixedSizeBinaryDataType *data_type);
 
 
 #define GARROW_TYPE_STRING_DATA_TYPE            \

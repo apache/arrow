@@ -29,6 +29,10 @@ class TestFixedSizeBinaryDataType < Test::Unit::TestCase
     assert_equal("fixed_size_binary[10]", @data_type.to_s)
   end
 
+  def test_byte_width
+    assert_equal(@byte_width, @data_type.byte_width)
+  end
+
   def test_bit_width
     assert_equal(@byte_width * 8, @data_type.bit_width)
   end
