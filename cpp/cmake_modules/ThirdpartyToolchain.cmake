@@ -1229,6 +1229,8 @@ if (ARROW_FLIGHT)
     set(GRPC_STATIC_LIBRARY_GPR "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gpr${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GRPC_STATIC_LIBRARY_GRPC "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpc${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GRPC_STATIC_LIBRARY_GRPCPP "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpcpp${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GRPC_STATIC_LIBRARY_ADDRESS_SORTING "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GRPC_STATIC_LIBRARY_CARES "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/third_party/cares/cares/lib/${CMAKE_STATIC_LIBRARY_PREFIX}cares${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GRPC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                         "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
                         "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
@@ -1244,18 +1246,26 @@ if (ARROW_FLIGHT)
       CMAKE_ARGS ${GRPC_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
 
-    get_property(GPR_STATIC_LIB TARGET gRPC::gpr PROPERTY LOCATION)
-    get_property(GRPC_STATIC_LIB TARGET gRPC::grpc_unsecure PROPERTY LOCATION)
-    get_property(GRPCPP_STATIC_LIB TARGET gRPC::grpc++_unsecure PROPERTY LOCATION)
-    get_property(GRPC_ADDRESS_SORTING_STATIC_LIB
-      TARGET gRPC::address_sorting PROPERTY LOCATION)
+    set(GPR_STATIC_LIB "${GRPC_STATIC_LIBRARY_GPR}")
+    set(GRPC_STATIC_LIB "${GRPC_STATIC_LIBRARY_GRPC}")
+    set(GRPCPP_STATIC_LIB "${GRPC_STATIC_LIBRARY_GRPCPP}")
+    set(GRPC_ADDRESS_SORTING_STATIC_LIB "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}")
     # XXX(wesm): relying on vendored c-ares provided by gRPC for the time being
-    get_property(CARES_STATIC_LIB TARGET c-ares::cares_static PROPERTY LOCATION)
-    # Get location of grpc_cpp_plugin so we can pass it to protoc
-    get_property(GRPC_CPP_PLUGIN TARGET gRPC::grpc_cpp_plugin PROPERTY LOCATION)
+    set(CARES_STATIC_LIB "${GRPC_STATIC_LIBRARY_CARES}")
+    set(GRPC_CPP_PLUGIN "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/grpc_cpp_plugin")
+    # get_property(GPR_STATIC_LIB TARGET gRPC::gpr PROPERTY LOCATION)
+    # get_property(GRPC_STATIC_LIB TARGET gRPC::grpc_unsecure PROPERTY LOCATION)
+    # get_property(GRPCPP_STATIC_LIB TARGET gRPC::grpc++_unsecure PROPERTY LOCATION)
+    # get_property(GRPC_ADDRESS_SORTING_STATIC_LIB
+    #   TARGET gRPC::address_sorting PROPERTY LOCATION)
+    # # XXX(wesm): relying on vendored c-ares provided by gRPC for the time being
+    # get_property(CARES_STATIC_LIB TARGET c-ares::cares_static PROPERTY LOCATION)
+    # # Get location of grpc_cpp_plugin so we can pass it to protoc
+    # get_property(GRPC_CPP_PLUGIN TARGET gRPC::grpc_cpp_plugin PROPERTY LOCATION)
   else()
     find_package(gRPC REQUIRED)
     set(GRPC_VENDORED 0)
+  endif()
 
     # If gRPC is built with CMake, it installs its own c-ares, so use
     # that; otherwise, see if the user provided a c-ares installation

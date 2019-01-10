@@ -10,63 +10,66 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# PROTOBUF_HOME environmental variable is used to check for Protobuf headers and static library
-
-# PROTOBUF_INCLUDE_DIR: directory containing headers
-# PROTOBUF_LIBS: directory containing Protobuf libraries
-# PROTOBUF_STATIC_LIB: location of protobuf.a
-# PROTOC_STATIC_LIB: location of protoc.a
-# PROTOBUF_EXECUTABLE: location of protoc
-# PROTOBUF_FOUND is set if Protobuf is found
-
-
 if( NOT "${GRPC_HOME}" STREQUAL "")
     file (TO_CMAKE_PATH "${GRPC_HOME}" _grpc_path)
 endif()
 
 message (STATUS "GRPC_HOME: ${GRPC_HOME}")
 
-find_path (GRPC_INCLUDE_DIR grpc/grpc.h HINTS
-  ${_grpc_path}
-  NO_DEFAULT_PATH
-  PATH_SUFFIXES "include")
+find_package(gRPC CONFIG)
+if (gRPC_FOUND)
+  message (STATUS "Found CMake installation of gRPC")
+  get_property(GRPC_INCLUDE_DIR TARGET gRPC::gpr PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
+  get_property(GPR_STATIC_LIB TARGET gRPC::gpr PROPERTY LOCATION)
+  get_property(GRPC_STATIC_LIB TARGET gRPC::grpc_unsecure PROPERTY LOCATION)
+  get_property(GRPCPP_STATIC_LIB TARGET gRPC::grpc++_unsecure PROPERTY LOCATION)
+  get_property(GRPC_ADDRESS_SORTING_STATIC_LIB
+    TARGET gRPC::address_sorting PROPERTY LOCATION)
+  # Get location of grpc_cpp_plugin so we can pass it to protoc
+  get_property(GRPC_CPP_PLUGIN TARGET gRPC::grpc_cpp_plugin PROPERTY LOCATION)
+else()
+  find_path (GRPC_INCLUDE_DIR grpc/grpc.h HINTS
+    ${_grpc_path}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES "include")
 
-set (lib_dirs "lib")
-if (EXISTS "${_grpc_path}/lib64")
-  set (lib_dirs "lib64" ${lib_dirs})
-endif ()
-if (EXISTS "${_grpc_path}/lib/${CMAKE_LIBRARY_ARCHITECTURE}")
-  set (lib_dirs "lib/${CMAKE_LIBRARY_ARCHITECTURE}" ${lib_dirs})
-endif ()
+  set (lib_dirs "lib")
+  if (EXISTS "${_grpc_path}/lib64")
+    set (lib_dirs "lib64" ${lib_dirs})
+  endif ()
+  if (EXISTS "${_grpc_path}/lib/${CMAKE_LIBRARY_ARCHITECTURE}")
+    set (lib_dirs "lib/${CMAKE_LIBRARY_ARCHITECTURE}" ${lib_dirs})
+  endif ()
 
-find_library (GPR_STATIC_LIB
-  NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}gpr${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  PATHS ${_grpc_path}
-  NO_DEFAULT_PATH
-  PATH_SUFFIXES ${lib_dirs})
+  find_library (GPR_STATIC_LIB
+    NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}gpr${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    PATHS ${_grpc_path}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES ${lib_dirs})
 
-find_library (GRPC_ADDRESS_SORTING_STATIC_LIB
-  NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  PATHS ${_grpc_path}
-  NO_DEFAULT_PATH
-  PATH_SUFFIXES ${lib_dirs})
+  find_library (GRPC_ADDRESS_SORTING_STATIC_LIB
+    NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    PATHS ${_grpc_path}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES ${lib_dirs})
 
-find_library (GRPC_STATIC_LIB
-  NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}grpc${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  PATHS ${_grpc_path}
-  NO_DEFAULT_PATH
-  PATH_SUFFIXES ${lib_dirs})
+  find_library (GRPC_STATIC_LIB
+    NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}grpc${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    PATHS ${_grpc_path}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES ${lib_dirs})
 
-find_library (GRPCPP_STATIC_LIB
-  NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}grpc++${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  PATHS ${_grpc_path}
-  NO_DEFAULT_PATH
-  PATH_SUFFIXES ${lib_dirs})
+  find_library (GRPCPP_STATIC_LIB
+    NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}grpc++${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    PATHS ${_grpc_path}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES ${lib_dirs})
 
-find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin protoc-gen-grpc-cpp
-  HINTS ${_grpc_path}
-  NO_DEFAULT_PATH
-  PATH_SUFFIXES "bin")
+  find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin protoc-gen-grpc-cpp
+    HINTS ${_grpc_path}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES "bin")
+endif()
 
 if (GRPC_INCLUDE_DIR AND GPR_STATIC_LIB AND GRPC_ADDRESS_SORTING_STATIC_LIB AND
     GRPC_STATIC_LIB AND GRPCPP_STATIC_LIB AND GRPC_CPP_PLUGIN)
@@ -93,4 +96,4 @@ endif()
 
 mark_as_advanced (
   GRPC_INCLUDE_DIR
-)
+  )
