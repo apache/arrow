@@ -19,10 +19,17 @@
 _NULL = NA = None
 
 
+cdef class Scalar:
+    """
+    The base class for all array elements.
+    """
+
+
 cdef class NullType(Scalar):
     """
-    Null (NA) value singleton
+    Singleton for null array elements.
     """
+    # TODO rename this NullValue?
     def __cinit__(self):
         global NA
         if NA is not None:
@@ -44,6 +51,9 @@ _NULL = NA = NullType()
 
 
 cdef class ArrayValue(Scalar):
+    """
+    The base class for non-null array elements.
+    """
 
     def __init__(self):
         raise TypeError("Do not call {}'s constructor directly, use array "
@@ -85,6 +95,9 @@ cdef class ArrayValue(Scalar):
 
 
 cdef class BooleanValue(ArrayValue):
+    """
+    Concrete class for boolean array elements.
+    """
 
     def as_py(self):
         """
@@ -95,6 +108,9 @@ cdef class BooleanValue(ArrayValue):
 
 
 cdef class Int8Value(ArrayValue):
+    """
+    Concrete class for int8 array elements.
+    """
 
     def as_py(self):
         """
@@ -105,6 +121,9 @@ cdef class Int8Value(ArrayValue):
 
 
 cdef class UInt8Value(ArrayValue):
+    """
+    Concrete class for uint8 array elements.
+    """
 
     def as_py(self):
         """
@@ -115,6 +134,9 @@ cdef class UInt8Value(ArrayValue):
 
 
 cdef class Int16Value(ArrayValue):
+    """
+    Concrete class for int16 array elements.
+    """
 
     def as_py(self):
         """
@@ -125,6 +147,9 @@ cdef class Int16Value(ArrayValue):
 
 
 cdef class UInt16Value(ArrayValue):
+    """
+    Concrete class for uint16 array elements.
+    """
 
     def as_py(self):
         """
@@ -135,6 +160,9 @@ cdef class UInt16Value(ArrayValue):
 
 
 cdef class Int32Value(ArrayValue):
+    """
+    Concrete class for int32 array elements.
+    """
 
     def as_py(self):
         """
@@ -145,6 +173,9 @@ cdef class Int32Value(ArrayValue):
 
 
 cdef class UInt32Value(ArrayValue):
+    """
+    Concrete class for uint32 array elements.
+    """
 
     def as_py(self):
         """
@@ -155,6 +186,9 @@ cdef class UInt32Value(ArrayValue):
 
 
 cdef class Int64Value(ArrayValue):
+    """
+    Concrete class for int64 array elements.
+    """
 
     def as_py(self):
         """
@@ -165,6 +199,9 @@ cdef class Int64Value(ArrayValue):
 
 
 cdef class UInt64Value(ArrayValue):
+    """
+    Concrete class for uint64 array elements.
+    """
 
     def as_py(self):
         """
@@ -175,6 +212,9 @@ cdef class UInt64Value(ArrayValue):
 
 
 cdef class Date32Value(ArrayValue):
+    """
+    Concrete class for date32 array elements.
+    """
 
     def as_py(self):
         """
@@ -188,6 +228,9 @@ cdef class Date32Value(ArrayValue):
 
 
 cdef class Date64Value(ArrayValue):
+    """
+    Concrete class for date64 array elements.
+    """
 
     def as_py(self):
         """
@@ -199,6 +242,9 @@ cdef class Date64Value(ArrayValue):
 
 
 cdef class Time32Value(ArrayValue):
+    """
+    Concrete class for time32 array elements.
+    """
 
     def as_py(self):
         """
@@ -217,6 +263,9 @@ cdef class Time32Value(ArrayValue):
 
 
 cdef class Time64Value(ArrayValue):
+    """
+    Concrete class for time64 array elements.
+    """
 
     def as_py(self):
         """
@@ -269,6 +318,9 @@ else:
 
 
 cdef class TimestampValue(ArrayValue):
+    """
+    Concrete class for timestamp array elements.
+    """
 
     @property
     def value(self):
@@ -301,6 +353,9 @@ cdef class TimestampValue(ArrayValue):
 
 
 cdef class HalfFloatValue(ArrayValue):
+    """
+    Concrete class for float16 array elements.
+    """
 
     def as_py(self):
         """
@@ -311,6 +366,9 @@ cdef class HalfFloatValue(ArrayValue):
 
 
 cdef class FloatValue(ArrayValue):
+    """
+    Concrete class for float32 array elements.
+    """
 
     def as_py(self):
         """
@@ -321,6 +379,9 @@ cdef class FloatValue(ArrayValue):
 
 
 cdef class DoubleValue(ArrayValue):
+    """
+    Concrete class for float64 array elements.
+    """
 
     def as_py(self):
         """
@@ -331,6 +392,9 @@ cdef class DoubleValue(ArrayValue):
 
 
 cdef class DecimalValue(ArrayValue):
+    """
+    Concrete class for decimal128 array elements.
+    """
 
     def as_py(self):
         """
@@ -343,6 +407,9 @@ cdef class DecimalValue(ArrayValue):
 
 
 cdef class StringValue(ArrayValue):
+    """
+    Concrete class for string (utf8) array elements.
+    """
 
     def as_py(self):
         """
@@ -353,6 +420,9 @@ cdef class StringValue(ArrayValue):
 
 
 cdef class BinaryValue(ArrayValue):
+    """
+    Concrete class for variable-sized binary array elements.
+    """
 
     def as_py(self):
         """
@@ -380,14 +450,26 @@ cdef class BinaryValue(ArrayValue):
 
 
 cdef class ListValue(ArrayValue):
+    """
+    Concrete class for list array elements.
+    """
 
     def __len__(self):
+        """
+        Return the number of values.
+        """
         return self.length()
 
     def __getitem__(self, i):
+        """
+        Return the value at the given index.
+        """
         return self.getitem(_normalize_index(i, self.length()))
 
     def __iter__(self):
+        """
+        Iterate over this element's values.
+        """
         for i in range(len(self)):
             yield self.getitem(i)
         raise StopIteration
@@ -419,6 +501,9 @@ cdef class ListValue(ArrayValue):
 
 
 cdef class UnionValue(ArrayValue):
+    """
+    Concrete class for union array elements.
+    """
 
     cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
@@ -436,11 +521,16 @@ cdef class UnionValue(ArrayValue):
     def as_py(self):
         """
         Return this value as a Python object.
+
+        The exact type depends on the underlying union member.
         """
         return self.getitem(self.index).as_py()
 
 
 cdef class FixedSizeBinaryValue(ArrayValue):
+    """
+    Concrete class for fixed-size binary array elements.
+    """
 
     def as_py(self):
         """
@@ -459,12 +549,18 @@ cdef class FixedSizeBinaryValue(ArrayValue):
 
 
 cdef class StructValue(ArrayValue):
+    """
+    Concrete class for struct array elements.
+    """
 
     cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
         self.ap = <CStructArray*> sp_array.get()
 
     def __getitem__(self, key):
+        """
+        Return the child value for the given field name.
+        """
         cdef:
             CStructType* type
             int index
@@ -496,17 +592,23 @@ cdef class StructValue(ArrayValue):
 
 
 cdef class DictionaryValue(ArrayValue):
+    """
+    Concrete class for dictionary-encoded array elements.
+    """
 
     def as_py(self):
         """
         Return this value as a Python object.
+
+        The exact type depends on the dictionary value type.
         """
         return self.dictionary_value.as_py()
 
     @property
     def index_value(self):
         """
-        Return this value's underlying index as a Int32Value.
+        Return this value's underlying index as a ArrayValue of the right
+        signed integer type.
         """
         cdef CDictionaryArray* darr = <CDictionaryArray*>(self.sp_array.get())
         indices = pyarrow_wrap_array(darr.indices())

@@ -15,22 +15,54 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. _api:
+.. currentmodule:: pyarrow
 
-*************
-API Reference
-*************
+.. _api.memory:
 
-.. toctree::
-   :maxdepth: 2
+Buffers and Memory
+==================
 
-   api/datatypes
-   api/arrays
-   api/memory
-   api/files
-   api/tables
-   api/ipc
-   api/formats
-   api/plasma
-   api/cuda
-   api/misc
+In-Memory Buffers
+-----------------
+
+Factory Functions
+~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+   :toctree: ../generated/
+
+   allocate_buffer
+   py_buffer
+   foreign_buffer
+
+Classes
+~~~~~~~
+
+.. autosummary::
+   :toctree: ../generated/
+
+   Buffer
+   ResizableBuffer
+
+Miscellaneous
+~~~~~~~~~~~~~
+
+.. autosummary::
+   :toctree: ../generated/
+
+   compress
+   decompress
+
+.. _api.memory_pool:
+
+Memory Pools
+------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   MemoryPool
+   default_memory_pool
+   total_allocated_bytes
+   set_memory_pool
+   log_memory_allocations

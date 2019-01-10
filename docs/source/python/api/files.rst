@@ -15,22 +15,51 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. _api:
+.. currentmodule:: pyarrow
 
-*************
-API Reference
-*************
+Streams and File Access
+=======================
 
-.. toctree::
-   :maxdepth: 2
+.. _api.io:
 
-   api/datatypes
-   api/arrays
-   api/memory
-   api/files
-   api/tables
-   api/ipc
-   api/formats
-   api/plasma
-   api/cuda
-   api/misc
+Factory Functions
+-----------------
+
+These factory functions are the recommended way to create a Arrow stream.
+They accept various kinds of sources, such as in-memory buffers or on-disk files.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   input_stream
+   output_stream
+   memory_map
+   create_memory_map
+
+Stream Classes
+--------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   NativeFile
+   OSFile
+   PythonFile
+   BufferReader
+   BufferOutputStream
+   FixedSizeBufferWriter
+   MemoryMappedFile
+   CompressedInputStream
+   CompressedOutputStream
+
+File Systems
+------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   hdfs.connect
+   LocalFileSystem
+
+.. class:: HadoopFileSystem
+   :noindex:
