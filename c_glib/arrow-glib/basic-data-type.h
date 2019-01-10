@@ -346,7 +346,7 @@ G_DECLARE_DERIVABLE_TYPE(GArrowFixedSizeBinaryDataType,
                          GArrowDataType)
 struct _GArrowFixedSizeBinaryDataTypeClass
 {
-  GArrowDataTypeClass parent_class;
+  GArrowFixedWidthDataTypeClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_0_12

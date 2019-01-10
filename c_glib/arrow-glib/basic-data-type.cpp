@@ -241,7 +241,7 @@ garrow_fixed_width_data_type_class_init(GArrowFixedWidthDataTypeClass *klass)
 }
 
 /**
- * garrow_fixed_width_data_type_get_id:
+ * garrow_fixed_width_data_type_get_bit_width:
  * @data_type: A #GArrowFixedWidthDataType.
  *
  * Returns: The number of bits for one data.
@@ -720,7 +720,7 @@ garrow_binary_data_type_new(void)
 
 G_DEFINE_TYPE(GArrowFixedSizeBinaryDataType,
               garrow_fixed_size_binary_data_type,
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_FIXED_WIDTH_DATA_TYPE)
 
 static void
 garrow_fixed_size_binary_data_type_init(GArrowFixedSizeBinaryDataType *object)

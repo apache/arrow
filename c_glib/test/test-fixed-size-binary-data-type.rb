@@ -17,7 +17,8 @@
 
 class TestFixedSizeBinaryDataType < Test::Unit::TestCase
   def setup
-    @data_type = Arrow::FixedSizeBinaryDataType.new(10)
+    @byte_width = 10
+    @data_type = Arrow::FixedSizeBinaryDataType.new(@byte_width)
   end
 
   def test_type
@@ -26,5 +27,9 @@ class TestFixedSizeBinaryDataType < Test::Unit::TestCase
 
   def test_to_s
     assert_equal("fixed_size_binary[10]", @data_type.to_s)
+  end
+
+  def test_bit_width
+    assert_equal(@byte_width * 8, @data_type.bit_width)
   end
 end
