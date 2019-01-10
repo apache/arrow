@@ -104,7 +104,6 @@ TEST_F(TestBooleanKernel, Invert) {
 
   auto type = boolean();
   auto a1 = _MakeArray<BooleanType, bool>(type, values1, {});
-  auto a1_copy = _MakeArray<BooleanType, bool>(type, values1, {});
   auto a2 = _MakeArray<BooleanType, bool>(type, values2, {});
 
   // Plain array
@@ -112,7 +111,7 @@ TEST_F(TestBooleanKernel, Invert) {
   ASSERT_OK(Invert(&this->ctx_, a1, &result));
   ASSERT_EQ(Datum::ARRAY, result.kind());
   std::shared_ptr<Array> result_array = result.make_array();
-  ASSERT_TRUE(result_array->Equals(a2)) << result_array->ToString() << a2->ToString();
+  ASSERT_TRUE(result_array->Equals(a2));
 
   // Array with offset
   ASSERT_OK(Invert(&this->ctx_, a1->Slice(1), &result));
