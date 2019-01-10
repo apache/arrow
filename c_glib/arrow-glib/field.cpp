@@ -243,10 +243,19 @@ GArrowField *
 garrow_field_new_raw(std::shared_ptr<arrow::Field> *arrow_field,
                      GArrowDataType *data_type)
 {
+  bool data_type_need_unref = false;
+  if (!data_type) {
+    auto arrow_data_type = (*arrow_field)->type();
+    data_type = garrow_data_type_new_raw(&arrow_data_type);
+    data_type_need_unref = true;
+  }
   auto field = GARROW_FIELD(g_object_new(GARROW_TYPE_FIELD,
                                          "field", arrow_field,
                                          "data-type", data_type,
                                          NULL));
+  if (data_type_need_unref) {
+    g_object_unref(data_type);
+  }
   return field;
 }
 
