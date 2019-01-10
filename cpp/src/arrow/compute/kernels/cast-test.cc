@@ -138,6 +138,25 @@ TEST_F(TestCast, SameTypeZeroCopy) {
   AssertBufferSame(*arr, *result, 1);
 }
 
+TEST_F(TestCast, FromBoolean) {
+  CastOptions options;
+
+  vector<bool> is_valid(20, true);
+  is_valid[3] = false;
+
+  vector<bool> v1(is_valid.size(), true);
+  vector<int32_t> e1(is_valid.size(), 1);
+  for (size_t i = 0; i < v1.size(); ++i) {
+    if (i % 3 == 1) {
+      v1[i] = false;
+      e1[i] = 0;
+    }
+  }
+
+  CheckCase<BooleanType, bool, Int32Type, int32_t>(boolean(), v1, is_valid, int32(), e1,
+                                                   options);
+}
+
 TEST_F(TestCast, ToBoolean) {
   CastOptions options;
   for (auto type : kNumericTypes) {
