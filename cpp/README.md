@@ -318,9 +318,9 @@ deprecation warnings.
 ### Building and developing Flight (optional)
 
 In addition to the Arrow dependencies, Flight requires:
-* gRPC
-* Protobuf
-* c-ares
+* gRPC (>= 1.14, roughly)
+* Protobuf (>= 3.6, earlier versions may work)
+* c-ares (used by gRPC)
 
 By default, Arrow will try to download and build these dependencies
 when building Flight.
@@ -337,13 +337,19 @@ You can also use existing installations of the extra dependencies.
 When building, set the environment variables `GRPC_HOME` and/or
 `PROTOBUF_HOME` and/or `CARES_HOME`.
 
-On Ubuntu/Debian, you can install these dependencies with:
+You may try using system libraries for gRPC and Protobuf, but these
+are likely to be too old.
+
+On Ubuntu/Debian, you can try:
 
 ```shell
 sudo apt-get install libgrpc-dev libgrpc++-dev protobuf-compiler-grpc libc-ares-dev
 ```
 
-On macOS, you can use [Homebrew][1]:
+Note that the version of gRPC in Ubuntu 18.10 is too old; you will
+have to install gRPC from source. (Ubuntu 19.04/Debian Sid may work.)
+
+On macOS, you can try [Homebrew][1]:
 
 ```shell
 brew install grpc
