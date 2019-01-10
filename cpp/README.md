@@ -339,6 +339,10 @@ When building, set the environment variables `GRPC_HOME` and/or
 
 On Ubuntu/Debian, you can install these dependencies with:
 
+```shell
+sudo apt-get install libgrpc-dev libgrpc++-dev protobuf-compiler-grpc libc-ares-dev
+```
+
 On macOS, you can use [Homebrew][1]:
 
 ```shell

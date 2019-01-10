@@ -47,8 +47,10 @@ else()
     NO_DEFAULT_PATH
     PATH_SUFFIXES ${lib_dirs})
 
+  # On Debian/Ubuntu, libaddress_sorting is statically linked.
   find_library (GRPC_ADDRESS_SORTING_STATIC_LIB
     NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}"
+          "${CMAKE_STATIC_LIBRARY_PREFIX}grpc++${CMAKE_STATIC_LIBRARY_SUFFIX}"
     PATHS ${_grpc_path}
     NO_DEFAULT_PATH
     PATH_SUFFIXES ${lib_dirs})

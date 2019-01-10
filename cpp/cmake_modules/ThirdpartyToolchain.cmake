@@ -1257,15 +1257,6 @@ if (ARROW_FLIGHT)
     # XXX(wesm): relying on vendored c-ares provided by gRPC for the time being
     set(CARES_STATIC_LIB "${GRPC_STATIC_LIBRARY_CARES}")
     set(GRPC_CPP_PLUGIN "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/grpc_cpp_plugin")
-    # get_property(GPR_STATIC_LIB TARGET gRPC::gpr PROPERTY LOCATION)
-    # get_property(GRPC_STATIC_LIB TARGET gRPC::grpc_unsecure PROPERTY LOCATION)
-    # get_property(GRPCPP_STATIC_LIB TARGET gRPC::grpc++_unsecure PROPERTY LOCATION)
-    # get_property(GRPC_ADDRESS_SORTING_STATIC_LIB
-    #   TARGET gRPC::address_sorting PROPERTY LOCATION)
-    # # XXX(wesm): relying on vendored c-ares provided by gRPC for the time being
-    # get_property(CARES_STATIC_LIB TARGET c-ares::cares_static PROPERTY LOCATION)
-    # # Get location of grpc_cpp_plugin so we can pass it to protoc
-    # get_property(GRPC_CPP_PLUGIN TARGET gRPC::grpc_cpp_plugin PROPERTY LOCATION)
   else()
     find_package(gRPC REQUIRED)
     set(GRPC_VENDORED 0)
