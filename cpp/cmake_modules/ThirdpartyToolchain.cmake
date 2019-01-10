@@ -89,6 +89,10 @@ if (DEFINED ENV{GRPC_HOME})
   set(GRPC_HOME "$ENV{GRPC_HOME}")
 endif()
 
+if (DEFINED ENV{CARES_HOME})
+  set(CARES_HOME "$ENV{CARES_HOME}")
+endif()
+
 if (DEFINED ENV{GTEST_HOME})
   set(GTEST_HOME "$ENV{GTEST_HOME}")
 endif()

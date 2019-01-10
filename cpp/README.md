@@ -326,7 +326,7 @@ By default, Arrow will try to download and build these dependencies
 when building Flight.
 
 The optional `flight` libraries and tests can be built by passing
-`-DARROW_FLIGHT=on`.
+`-DARROW_FLIGHT=ON`.
 
 ```shell
 cmake .. -DARROW_FLIGHT=ON -DARROW_BUILD_TESTS=ON
@@ -334,8 +334,8 @@ make
 ```
 
 You can also use existing installations of the extra dependencies.
-When building, pass `-DGRPC_HOME` and/or `-DPROTOBUF_HOME` and/or
-`-DCARES_HOME`.
+When building, set the environment variables `GRPC_HOME` and/or
+`PROTOBUF_HOME` and/or `CARES_HOME`.
 
 On Ubuntu/Debian, you can install these dependencies with:
 
