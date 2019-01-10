@@ -401,18 +401,18 @@ def resolve_filesystem_and_path(where, filesystem=None):
     """
     return filesystem from path which could be an HDFS URI
     """
-    if filesystem is not None:
-        if not _is_path_like(where):
+    if not _is_path_like(where):
+        if filesystem is not None:
             raise ValueError("filesystem passed but where is file-like, so"
                              " there is nothing to open with filesystem.")
-        return _ensure_filesystem(filesystem), where
-
-    path = where
+        return filesystem, where
 
     # input can be hdfs URI such as hdfs://host:port/myfile.parquet
-    path = _stringify_path(path)
-    # if _has_pathlib and isinstance(path, pathlib.Path):
-    #     path = str(path)
+    path = _stringify_path(where)
+
+    if filesystem is not None:
+        return _ensure_filesystem(filesystem), path
+
     parsed_uri = urlparse(path)
     if parsed_uri.scheme == 'hdfs':
         netloc_split = parsed_uri.netloc.split(':')
