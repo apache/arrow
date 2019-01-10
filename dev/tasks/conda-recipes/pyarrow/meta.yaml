@@ -33,6 +33,9 @@ requirements:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
   host:
+    # directly pin boost-cpp as we also seem to directly include boost symbols
+    # in the Python modules.
+    - boost-cpp
     - python
     - setuptools
     - setuptools_scm
@@ -42,6 +45,7 @@ requirements:
     - arrow-cpp {{ ARROW_VERSION }}
 
   run:
+    - boost-cpp
     - python
     - setuptools
     - {{ pin_compatible('numpy', lower_bound='1.14') }}
