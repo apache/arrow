@@ -25,7 +25,7 @@ SET(ARROW_FLIGHT_STATIC_LINK_LIBS
   grpc_grpc_static
   grpc_gpr_static
   grpc_address_sorting_static
-  cares_static)
+  cares)
 
 # TODO(wesm): Protobuf shared vs static linking
 

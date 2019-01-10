@@ -1267,12 +1267,15 @@ if (ARROW_FLIGHT)
     set(GRPC_VENDORED 0)
   endif()
 
-    # If gRPC is built with CMake, it installs its own c-ares, so use
-    # that; otherwise, see if the user provided a c-ares installation
+  # If we built gRPC ourselves, we should use its c-ares.
+  if ("${CARES_STATIC_LIB}" STREQUAL "")
     if (NOT "${CARES_HOME}" STREQUAL "")
       set(CARES_STATIC_LIB "${CARES_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}cares${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    elseif (c-ares_FOUND)
+      get_property(CARES_STATIC_LIB TARGET c-ares::cares_static PROPERTY LOCATION)
     endif()
   endif()
+  message(STATUS "Found the c-ares library: ${CARES_STATIC_LIB}")
 
   if ("${GRPC_CPP_PLUGIN}" STREQUAL "")
     message(SEND_ERROR "Please set GRPC_CPP_PLUGIN.")
