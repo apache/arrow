@@ -27,6 +27,13 @@ SET(ARROW_FLIGHT_STATIC_LINK_LIBS
   grpc_address_sorting_static
   cares_static)
 
+SET(ARROW_FLIGHT_TEST_STATIC_LINK_LIBS
+  arrow_static
+  arrow_flight_static
+  arrow_testing_static
+  ${ARROW_FLIGHT_STATIC_LINK_LIBS}
+  ${PROTOBUF_LIBRARY})
+
 # TODO(wesm): Protobuf shared vs static linking
 
 set(FLIGHT_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
@@ -72,21 +79,20 @@ ADD_ARROW_LIB(arrow_flight
   STATIC_LINK_LIBS arrow_static ${ARROW_FLIGHT_STATIC_LINK_LIBS})
 
 ADD_ARROW_TEST(flight-test
-  EXTRA_LINK_LIBS arrow_flight_static ${ARROW_FLIGHT_STATIC_LINK_LIBS}
+  EXTRA_LINK_LIBS ${ARROW_FLIGHT_TEST_STATIC_LINK_LIBS}
   LABELS "arrow_flight")
 
 # Build test server for unit tests or benchmarks
 if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_executable(flight-test-server test-server.cc)
   target_link_libraries(flight-test-server
-    arrow_flight_static
-    ${ARROW_FLIGHT_STATIC_LINK_LIBS}
+    ${ARROW_FLIGHT_TEST_STATIC_LINK_LIBS}
     gflags_static
     gtest_static)
 
   # This is needed for the unit tests
   if (ARROW_BUILD_TESTS)
-    add_dependencies(flight-test flight-test-server)
+    add_dependencies(arrow-flight-test flight-test-server)
   endif()
 endif()
 
