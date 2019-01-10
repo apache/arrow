@@ -1243,7 +1243,6 @@ if (ARROW_FLIGHT)
       ${EP_LOG_OPTIONS}
       CMAKE_ARGS ${GRPC_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
-    include_directories(SYSTEM ${GRPC_INCLUDE_DIR})
 
     get_property(GPR_STATIC_LIB TARGET gRPC::gpr PROPERTY LOCATION)
     get_property(GRPC_STATIC_LIB TARGET gRPC::grpc_unsecure PROPERTY LOCATION)
@@ -1268,6 +1267,8 @@ if (ARROW_FLIGHT)
   if ("${GRPC_CPP_PLUGIN}" STREQUAL "")
     message(SEND_ERROR "Please set GRPC_CPP_PLUGIN.")
   endif()
+
+  include_directories(SYSTEM ${GRPC_INCLUDE_DIR})
 
   ADD_THIRDPARTY_LIB(grpc_gpr
     STATIC_LIB ${GPR_STATIC_LIB})
