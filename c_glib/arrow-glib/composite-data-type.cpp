@@ -98,7 +98,7 @@ garrow_list_data_type_get_value_field(GArrowListDataType *list_data_type)
     static_cast<arrow::ListType *>(arrow_data_type.get());
 
   auto arrow_field = arrow_list_data_type->value_field();
-  return garrow_field_new_raw(&arrow_field, data_type);
+  return garrow_field_new_raw(&arrow_field, nullptr);
 }
 
 
@@ -172,8 +172,7 @@ garrow_struct_data_type_get_fields(GArrowStructDataType *struct_data_type)
 
   GList *fields = NULL;
   for (auto arrow_field : arrow_fields) {
-    fields = g_list_prepend(fields,
-                            garrow_field_new_raw(&arrow_field, data_type));
+    fields = g_list_prepend(fields, garrow_field_new_raw(&arrow_field, nullptr));
   }
   return g_list_reverse(fields);
 }
@@ -207,7 +206,7 @@ garrow_struct_data_type_get_field(GArrowStructDataType *struct_data_type,
 
   auto arrow_field = arrow_data_type->child(i);
   if (arrow_field) {
-    return garrow_field_new_raw(&arrow_field, data_type);
+    return garrow_field_new_raw(&arrow_field, nullptr);
   } else {
     return NULL;
   }
@@ -234,7 +233,7 @@ garrow_struct_data_type_get_field_by_name(GArrowStructDataType *struct_data_type
 
   auto arrow_field = arrow_struct_data_type->GetFieldByName(name);
   if (arrow_field) {
-    return garrow_field_new_raw(&arrow_field, data_type);
+    return garrow_field_new_raw(&arrow_field, nullptr);
   } else {
     return NULL;
   }
@@ -309,8 +308,7 @@ garrow_union_data_type_get_fields(GArrowUnionDataType *union_data_type)
 
   GList *fields = NULL;
   for (auto arrow_field : arrow_fields) {
-    fields = g_list_prepend(fields,
-                            garrow_field_new_raw(&arrow_field, data_type));
+    fields = g_list_prepend(fields, garrow_field_new_raw(&arrow_field, nullptr));
   }
   return g_list_reverse(fields);
 }
@@ -344,7 +342,7 @@ garrow_union_data_type_get_field(GArrowUnionDataType *union_data_type,
 
   auto arrow_field = arrow_data_type->child(i);
   if (arrow_field) {
-    return garrow_field_new_raw(&arrow_field, data_type);
+    return garrow_field_new_raw(&arrow_field, nullptr);
   } else {
     return NULL;
   }

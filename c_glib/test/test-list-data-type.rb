@@ -16,21 +16,28 @@
 # under the License.
 
 class TestListDataType < Test::Unit::TestCase
+  def setup
+    @field_data_type = Arrow::BooleanDataType.new
+    @field = Arrow::Field.new("enabled", @field_data_type)
+    @data_type = Arrow::ListDataType.new(@field)
+  end
+
   def test_type
-    field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
-    data_type = Arrow::ListDataType.new(field)
-    assert_equal(Arrow::Type::LIST, data_type.id)
+    assert_equal(Arrow::Type::LIST, @data_type.id)
   end
 
   def test_to_s
-    field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
-    data_type = Arrow::ListDataType.new(field)
-    assert_equal("list<enabled: bool>", data_type.to_s)
+    assert_equal("list<enabled: bool>", @data_type.to_s)
   end
 
   def test_value_field
-    field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
-    data_type = Arrow::ListDataType.new(field)
-    assert_equal(field, data_type.value_field)
+    assert_equal([
+                   @field,
+                   @field_data_type,
+                 ],
+                 [
+                   @data_type.value_field,
+                   @data_type.value_field.data_type,
+                 ])
   end
 end
