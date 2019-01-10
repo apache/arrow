@@ -55,10 +55,11 @@ git archive ${release_hash} --prefix ${extract_dir}/ | tar xf -
 # Apache Arrow GLib requires Apache Arrow C++.
 mkdir -p ${extract_dir}/cpp/build
 cpp_install_dir=${PWD}/${extract_dir}/cpp/install
+
 cd ${extract_dir}/cpp/build
 cmake .. \
   -DCMAKE_INSTALL_PREFIX=${cpp_install_dir} \
-  -DCMAKE_INSTALL_LIBDIR=${cpp_install_dir}/lib \
+  -DCMAKE_INSTALL_LIBDIR=lib \
   -DARROW_BUILD_TESTS=no \
   -DARROW_PARQUET=yes
 make -j8
@@ -67,11 +68,23 @@ cd -
 
 # build source archive for Apache Arrow GLib by "make dist".
 cd ${extract_dir}/c_glib
+
+if [ $(uname) = "Darwin" ]; then
+  export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$(brew --prefix libffi)/lib/pkgconfig
+  export XML_CATALOG_FILES=/usr/local/etc/xml/catalog
+fi
+
+export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$cpp_install_dir/lib/pkgconfig
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$cpp_install_dir/lib
+
 ./autogen.sh
-./configure \
-  PKG_CONFIG_PATH=$cpp_install_dir/lib/pkgconfig \
-  --enable-gtk-doc
-LD_LIBRARY_PATH=$cpp_install_dir/lib:$LD_LIBRARY_PATH make -j8
+CONFIGURE_OPTIONS="--enable-gtk-doc"
+CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS CFLAGS=-DARROW_NO_DEPRECATED_API"
+CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS CXXFLAGS=-DARROW_NO_DEPRECATED_API"
+./configure $CONFIGURE_OPTIONS
+
+make -j8
+
 make dist
 tar xzf *.tar.gz
 rm *.tar.gz
