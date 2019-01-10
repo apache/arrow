@@ -181,11 +181,18 @@ Status PrimitiveAllocatingUnaryKernel::Call(FunctionContext* ctx, const Datum& i
   } else {
     std::shared_ptr<Buffer> buffer;
     RETURN_NOT_OK(AllocateBitmap(pool, in_data.length, &buffer));
+    // Make the last byte deterministic because underlying bit functions
+    // try to restore it.
+    *(buffer->mutable_data() + (buffer->size() - 1)) = 0;
     data_buffers.push_back(buffer);
   }
   // Allocate the boolean value buffer.
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(AllocateBitmap(pool, in_data.length, &buffer));
+  // Make the last byte deterministic because underlying bit functions
+  // try to restore it.
+  *(buffer->mutable_data() + (buffer->size() - 1)) = 0;
+
   data_buffers.push_back(buffer);
 
   out->value = ArrayData::Make(null(), in_data.length, data_buffers);
