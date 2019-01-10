@@ -38,23 +38,28 @@ install:
     MINICONDA_FILE="Miniconda3-latest-Linux-x86_64.sh"
     curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
     bash $MINICONDA_FILE -b
-
-  # Configure conda.
+  # Install conda build dependency
   - |
     echo ""
     echo "Configuring conda."
     source /home/travis/miniconda3/bin/activate root
-    conda config --remove channels defaults
-    conda config --add channels defaults
-    conda config --add channels conda-forge
-    conda config --set show_channel_urls true
-    conda install --yes --quiet conda-build
+    conda install -n root -c conda-forge --quiet --yes conda-forge-ci-setup=2
 
-script:
+before_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
   - pushd arrow/dev/tasks/conda-recipes
-  - conda build --output-folder . -m {{ variant_config_file }} parquet-cpp arrow-cpp pyarrow
+  # Configure conda
+  - setup_conda_rc ./ ./ {{ variant_config_file }}
+  - source run_conda_forge_build_setup
+
+script:
+  # Don't need to run make_build_number, no build number decrementation happens, it's always 0
+  - |
+    conda build --croot $TRAVIS_HOME/conda_build_root \
+                --output-folder . \
+                -m {{ variant_config_file }} \
+                parquet-cpp arrow-cpp pyarrow
 
 deploy:
   provider: releases
