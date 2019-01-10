@@ -15,22 +15,40 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. _api:
+.. currentmodule:: pyarrow
 
-*************
-API Reference
-*************
+.. _api.table:
 
-.. toctree::
-   :maxdepth: 2
+Tables and Tensors
+==================
 
-   api/datatypes
-   api/arrays
-   api/memory
-   api/files
-   api/tables
-   api/ipc
-   api/formats
-   api/plasma
-   api/cuda
-   api/misc
+Factory Functions
+-----------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   column
+   chunked_array
+   concat_tables
+
+Classes
+-------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ChunkedArray
+   Column
+   RecordBatch
+   Table
+
+.. _api.tensor:
+
+Tensors
+-------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   Tensor

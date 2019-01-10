@@ -15,22 +15,45 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. _api:
+.. currentmodule:: pyarrow
 
-*************
-API Reference
-*************
+.. _api.ipc:
 
-.. toctree::
-   :maxdepth: 2
+Serialization and IPC
+=====================
 
-   api/datatypes
-   api/arrays
-   api/memory
-   api/files
-   api/tables
-   api/ipc
-   api/formats
-   api/plasma
-   api/cuda
-   api/misc
+Inter-Process Communication
+---------------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ipc.open_file
+   ipc.open_stream
+   Message
+   MessageReader
+   RecordBatchFileReader
+   RecordBatchFileWriter
+   RecordBatchStreamReader
+   RecordBatchStreamWriter
+   read_message
+   read_record_batch
+   get_record_batch_size
+   read_tensor
+   write_tensor
+   get_tensor_size
+
+Serialization
+-------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   serialize
+   serialize_to
+   deserialize
+   deserialize_components
+   deserialize_from
+   read_serialized
+   SerializedPyObject
+   SerializationContext

@@ -15,22 +15,19 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. _api:
+.. currentmodule:: pyarrow.plasma
 
-*************
-API Reference
-*************
+.. _api.plasma:
 
-.. toctree::
-   :maxdepth: 2
+Plasma In-Memory Object Store
+=============================
 
-   api/datatypes
-   api/arrays
-   api/memory
-   api/files
-   api/tables
-   api/ipc
-   api/formats
-   api/plasma
-   api/cuda
-   api/misc
+Classes
+-------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ObjectID
+   PlasmaClient
+   PlasmaBuffer

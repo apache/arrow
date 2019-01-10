@@ -15,22 +15,26 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. _api:
+.. currentmodule:: pyarrow
 
-*************
-API Reference
-*************
+Miscellaneous
+=============
 
-.. toctree::
-   :maxdepth: 2
+Multi-Threading
+---------------
 
-   api/datatypes
-   api/arrays
-   api/memory
-   api/files
-   api/tables
-   api/ipc
-   api/formats
-   api/plasma
-   api/cuda
-   api/misc
+.. autosummary::
+   :toctree: ../generated/
+
+   cpu_count
+   set_cpu_count
+
+Using with C extensions
+-----------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   get_include
+   get_libraries
+   get_library_dirs

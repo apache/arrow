@@ -15,22 +15,56 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. _api:
+Tabular File Formats
+====================
 
-*************
-API Reference
-*************
+.. currentmodule:: pyarrow.csv
 
-.. toctree::
-   :maxdepth: 2
+.. _api.csv:
 
-   api/datatypes
-   api/arrays
-   api/memory
-   api/files
-   api/tables
-   api/ipc
-   api/formats
-   api/plasma
-   api/cuda
-   api/misc
+CSV Files
+---------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ReadOptions
+   ParseOptions
+   ConvertOptions
+   read_csv
+
+.. _api.feather:
+
+Feather Files
+-------------
+
+.. currentmodule:: pyarrow.feather
+
+.. autosummary::
+   :toctree: ../generated/
+
+   read_feather
+   write_feather
+
+.. currentmodule:: pyarrow
+
+.. _api.parquet:
+
+Parquet Files
+-------------
+
+.. currentmodule:: pyarrow.parquet
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ParquetDataset
+   ParquetFile
+   ParquetWriter
+   read_table
+   read_metadata
+   read_pandas
+   read_schema
+   write_metadata
+   write_table
+   write_to_dataset

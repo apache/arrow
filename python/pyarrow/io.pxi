@@ -44,6 +44,16 @@ cdef extern from "Python.h":
 
 
 cdef class NativeFile:
+    """
+    The base class for all Arrow streams.
+
+    Streams are either readable, writable, or both.
+    They optionally support seeking.
+
+    While this class exposes methods to read or write data from Python, the
+    primary intent of using a Arrow stream is to pass it to other Arrow
+    facilities that will make use of it, such as Arrow IPC routines.
+    """
 
     def __cinit__(self):
         self.own_file = False
@@ -559,6 +569,16 @@ BufferedIOBase.register(NativeFile)
 
 
 cdef class PythonFile(NativeFile):
+    """
+    A stream backed by a Python file object.
+
+    This class allows using Python file objects with arbitrary Arrow
+    functions, including functions written in another language than Python.
+
+    As a downside, there is a non-zero redirection cost in translating
+    Arrow stream calls to Python method calls.  Furthermore, Python's
+    Global Interpreter Lock may limit parallelism in some situations.
+    """
     cdef:
         object handle
 
@@ -628,7 +648,9 @@ cdef class PythonFile(NativeFile):
 
 cdef class MemoryMappedFile(NativeFile):
     """
-    Supports 'r', 'r+w', 'w' modes
+    A stream that represents a memory-mapped file.
+
+    Supports 'r', 'r+', 'w' modes.
     """
     cdef:
         shared_ptr[CMemoryMappedFile] handle
@@ -704,7 +726,9 @@ def memory_map(path, mode='r'):
     Parameters
     ----------
     path : string
-    mode : {'r', 'w'}, default 'r'
+    mode : {'r', 'r+', 'w'}, default 'r'
+        Whether the file is opened for reading ('r+'), writing ('w')
+        or both ('r+').
 
     Returns
     -------
@@ -717,13 +741,14 @@ def memory_map(path, mode='r'):
 
 def create_memory_map(path, size):
     """
-    Create memory map at indicated path of the given size, return open
-    writable file object
+    Create a file of the given size and memory-map it.
 
     Parameters
     ----------
     path : string
+        The file path to create, on the local filesystem.
     size : int
+        The file size to create.
 
     Returns
     -------
@@ -734,7 +759,7 @@ def create_memory_map(path, size):
 
 cdef class OSFile(NativeFile):
     """
-    Supports 'r', 'w' modes
+    A stream backed by a regular file descriptor.
     """
     cdef:
         object path
@@ -774,6 +799,9 @@ cdef class OSFile(NativeFile):
 
 
 cdef class FixedSizeBufferWriter(NativeFile):
+    """
+    A stream writing to a Arrow buffer.
+    """
 
     def __cinit__(self, Buffer buffer):
         self.output_stream.reset(new CFixedSizeBufferWriter(buffer.buffer))
@@ -800,6 +828,12 @@ cdef class FixedSizeBufferWriter(NativeFile):
 
 
 cdef class Buffer:
+    """
+    The base class for all Arrow buffers.
+
+    A buffer represents a contiguous memory area.  Many buffers will own
+    their memory, though not all of them do.
+    """
 
     def __cinit__(self):
         pass
@@ -818,14 +852,23 @@ cdef class Buffer:
 
     @property
     def size(self):
+        """
+        The buffer size in bytes.
+        """
         return self.buffer.get().size()
 
     @property
     def address(self):
+        """
+        The buffer's address, as an integer.
+        """
         return <uintptr_t> self.buffer.get().data()
 
     @property
     def is_mutable(self):
+        """
+        Whether the buffer is mutable.
+        """
         return self.buffer.get().is_mutable()
 
     @property
@@ -848,7 +891,9 @@ cdef class Buffer:
 
     def slice(self, offset=0, length=None):
         """
-        Compute slice of this buffer
+        Slice this buffer.  Memory is not copied.
+
+        You can also use the Python slice notation ``buffer[start:stop]``.
 
         Parameters
         ----------
@@ -861,6 +906,7 @@ cdef class Buffer:
         Returns
         -------
         sliced : Buffer
+            A logical view over this buffer.
         """
         cdef shared_ptr[CBuffer] result
 
@@ -876,7 +922,7 @@ cdef class Buffer:
 
     def equals(self, Buffer other):
         """
-        Determine if two buffers contain exactly the same data
+        Determine if two buffers contain exactly the same data.
 
         Parameters
         ----------
@@ -904,6 +950,9 @@ cdef class Buffer:
             return py_buffer, (self.to_pybytes(),)
 
     def to_pybytes(self):
+        """
+        Return this buffer as a Python bytes object.  Memory is copied.
+        """
         return cp.PyBytes_FromStringAndSize(
             <const char*>self.buffer.get().data(),
             self.buffer.get().size())
@@ -950,21 +999,25 @@ cdef class Buffer:
 
 
 cdef class ResizableBuffer(Buffer):
+    """
+    A base class for buffers that can be resized.
+    """
 
     cdef void init_rz(self, const shared_ptr[CResizableBuffer]& buffer):
         self.init(<shared_ptr[CBuffer]> buffer)
 
     def resize(self, int64_t new_size, shrink_to_fit=False):
         """
-        Resize buffer to indicated size
+        Resize buffer to indicated size.
 
         Parameters
         ----------
-        new_size : int64_t
+        new_size : int
             New size of buffer (padding may be added internally)
         shrink_to_fit : boolean, default False
-            If new_size is less than the current size, shrink internal
-            capacity, otherwise leave at current capacity
+            If this is true, the buffer is shrunk when new_size is less
+            than the current size.
+            If this is false, the buffer is never shrunk.
         """
         cdef c_bool c_shrink_to_fit = shrink_to_fit
         with nogil:
@@ -982,15 +1035,17 @@ cdef shared_ptr[CResizableBuffer] _allocate_buffer(CMemoryPool* pool):
 def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
                     resizable=False):
     """
-    Allocate mutable fixed-size buffer
+    Allocate a mutable buffer.
 
     Parameters
     ----------
     size : int
         Number of bytes to allocate (plus internal padding)
     memory_pool : MemoryPool, optional
-        Uses default memory pool if not provided
+        The pool to allocate memory from.
+        If not given, the default memory pool is used.
     resizable : boolean, default False
+        If true, the returned buffer is resizable.
 
     Returns
     -------
@@ -1305,8 +1360,7 @@ def _detect_compression(path):
 
 def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
     """
-    Compress pyarrow.Buffer or Python object supporting the buffer (memoryview)
-    protocol
+    Compress data from buffer-like object.
 
     Parameters
     ----------
@@ -1367,7 +1421,7 @@ def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
 def decompress(object buf, decompressed_size=None, codec='lz4',
                asbytes=False, memory_pool=None):
     """
-    Decompress data from buffer-like object
+    Decompress data from buffer-like object.
 
     Parameters
     ----------

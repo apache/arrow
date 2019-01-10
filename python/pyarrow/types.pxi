@@ -88,7 +88,9 @@ ctypedef CFixedWidthType* _CFixedWidthTypePtr
 
 cdef class DataType:
     """
-    Base type for Apache Arrow data type instances. Wraps C++ arrow::DataType
+    Base class of all Arrow data types.
+
+    Each data type is an *instance* of this class.
     """
     def __cinit__(self):
         pass
@@ -162,7 +164,7 @@ cdef class DataType:
 
     def to_pandas_dtype(self):
         """
-        Return the NumPy dtype that would be used for storing this
+        Return the equivalent NumPy / Pandas dtype.
         """
         cdef Type type_id = self.type.id()
         if type_id in _pandas_type_map:
@@ -172,6 +174,9 @@ cdef class DataType:
 
 
 cdef class DictionaryType(DataType):
+    """
+    Concrete class for dictionary data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
@@ -182,18 +187,31 @@ cdef class DictionaryType(DataType):
 
     @property
     def ordered(self):
+        """
+        Whether the dictionary is ordered, i.e. whether the ordering of values
+        in the dictionary is important.
+        """
         return self.dict_type.ordered()
 
     @property
     def index_type(self):
+        """
+        The data type of dictionary indices (a signed integer type).
+        """
         return pyarrow_wrap_data_type(self.dict_type.index_type())
 
     @property
     def dictionary(self):
+        """
+        The dictionary array, mapping dictionary indices to values.
+        """
         return pyarrow_wrap_array(self.dict_type.dictionary())
 
 
 cdef class ListType(DataType):
+    """
+    Concrete class for list data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
@@ -204,10 +222,16 @@ cdef class ListType(DataType):
 
     @property
     def value_type(self):
+        """
+        The data type of list values.
+        """
         return pyarrow_wrap_data_type(self.list_type.value_type())
 
 
 cdef class StructType(DataType):
+    """
+    Concrete class for struct data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
@@ -215,13 +239,13 @@ cdef class StructType(DataType):
 
     cdef Field field(self, int i):
         """
-        Alias for child(i)
+        Return a child field by its index.
         """
         return self.child(i)
 
     cdef Field field_by_name(self, name):
         """
-        Access a child field by its name rather than the column index.
+        Return a child field by its name rather than its index.
         """
         cdef shared_ptr[CField] field
 
@@ -232,13 +256,22 @@ cdef class StructType(DataType):
         return pyarrow_wrap_field(field)
 
     def __len__(self):
+        """
+        Like num_children().
+        """
         return self.type.num_children()
 
     def __iter__(self):
+        """
+        Iterate over struct fields, in order.
+        """
         for i in range(len(self)):
             yield self[i]
 
     def __getitem__(self, i):
+        """
+        Return the struct field with the given index or name.
+        """
         if isinstance(i, six.string_types):
             return self.field_by_name(i)
         elif isinstance(i, six.integer_types):
@@ -251,20 +284,32 @@ cdef class StructType(DataType):
 
     @property
     def num_children(self):
+        """
+        The number of struct fields.
+        """
         return self.type.num_children()
 
 
 cdef class UnionType(DataType):
+    """
+    Concrete class for struct data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
 
     @property
     def num_children(self):
+        """
+        The number of union members.
+        """
         return self.type.num_children()
 
     @property
     def mode(self):
+        """
+        The mode of the union ("dense" or "sparse").
+        """
         cdef CUnionType* type = <CUnionType*> self.sp_type.get()
         cdef int mode = type.mode()
         if mode == _UnionMode_DENSE:
@@ -274,13 +319,22 @@ cdef class UnionType(DataType):
         assert 0
 
     def __len__(self):
+        """
+        Like num_children()
+        """
         return self.type.num_children()
 
     def __iter__(self):
+        """
+        Iterate over union members, in order.
+        """
         for i in range(len(self)):
             yield self[i]
 
     def __getitem__(self, i):
+        """
+        Return a child member by its index.
+        """
         return self.child(i)
 
     def __reduce__(self):
@@ -288,6 +342,9 @@ cdef class UnionType(DataType):
 
 
 cdef class TimestampType(DataType):
+    """
+    Concrete class for timestamp data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
@@ -295,10 +352,16 @@ cdef class TimestampType(DataType):
 
     @property
     def unit(self):
+        """
+        The timestamp unit ('s', 'ms', 'us' or 'ns').
+        """
         return timeunit_to_string(self.ts_type.unit())
 
     @property
     def tz(self):
+        """
+        The timestamp time zone, if any, or None.
+        """
         if self.ts_type.timezone().size() > 0:
             return frombytes(self.ts_type.timezone())
         else:
@@ -306,7 +369,7 @@ cdef class TimestampType(DataType):
 
     def to_pandas_dtype(self):
         """
-        Return the NumPy dtype that would be used for storing this
+        Return the equivalent NumPy / Pandas dtype.
         """
         if self.tz is None:
             return _pandas_type_map[_Type_TIMESTAMP]
@@ -319,6 +382,9 @@ cdef class TimestampType(DataType):
 
 
 cdef class Time32Type(DataType):
+    """
+    Concrete class for time32 data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
@@ -326,10 +392,16 @@ cdef class Time32Type(DataType):
 
     @property
     def unit(self):
+        """
+        The time unit ('s', 'ms', 'us' or 'ns').
+        """
         return timeunit_to_string(self.time_type.unit())
 
 
 cdef class Time64Type(DataType):
+    """
+    Concrete class for time64 data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
@@ -337,10 +409,16 @@ cdef class Time64Type(DataType):
 
     @property
     def unit(self):
+        """
+        The time unit ('s', 'ms', 'us' or 'ns').
+        """
         return timeunit_to_string(self.time_type.unit())
 
 
 cdef class FixedSizeBinaryType(DataType):
+    """
+    Concrete class for fixed-size binary data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
@@ -352,10 +430,16 @@ cdef class FixedSizeBinaryType(DataType):
 
     @property
     def byte_width(self):
+        """
+        The binary size in bytes.
+        """
         return self.fixed_size_binary_type.byte_width()
 
 
 cdef class Decimal128Type(FixedSizeBinaryType):
+    """
+    Concrete class for decimal128 data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         FixedSizeBinaryType.init(self, type)
@@ -366,17 +450,22 @@ cdef class Decimal128Type(FixedSizeBinaryType):
 
     @property
     def precision(self):
+        """
+        The decimal precision, in number of decimal digits (an integer).
+        """
         return self.decimal128_type.precision()
 
     @property
     def scale(self):
+        """
+        The decimal scale (an integer).
+        """
         return self.decimal128_type.scale()
 
 
 cdef class Field:
     """
-    Represents a named field, with a data type, nullability, and optional
-    metadata
+    A named field, with a data type, nullability, and optional metadata.
 
     Notes
     -----
