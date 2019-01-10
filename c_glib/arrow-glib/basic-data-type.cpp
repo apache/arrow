@@ -66,6 +66,8 @@ G_BEGIN_DECLS
  *
  * #GArrowBinaryDataType is a class for binary data type.
  *
+ * #GArrowFixedSizeBinaryDataType is a class for fixed-size binary data type.
+ *
  * #GArrowStringDataType is a class for UTF-8 encoded string data
  * type.
  *
@@ -239,7 +241,7 @@ garrow_fixed_width_data_type_class_init(GArrowFixedWidthDataTypeClass *klass)
 }
 
 /**
- * garrow_fixed_width_data_type_get_id:
+ * garrow_fixed_width_data_type_get_bit_width:
  * @data_type: A #GArrowFixedWidthDataType.
  *
  * Returns: The number of bits for one data.
@@ -716,6 +718,59 @@ garrow_binary_data_type_new(void)
 }
 
 
+G_DEFINE_TYPE(GArrowFixedSizeBinaryDataType,
+              garrow_fixed_size_binary_data_type,
+              GARROW_TYPE_FIXED_WIDTH_DATA_TYPE)
+
+static void
+garrow_fixed_size_binary_data_type_init(GArrowFixedSizeBinaryDataType *object)
+{
+}
+
+static void
+garrow_fixed_size_binary_data_type_class_init(GArrowFixedSizeBinaryDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_fixed_size_binary_data_type:
+ * @byte_width: The byte width.
+ *
+ * Returns: The newly created fixed-size binary data type.
+ *
+ * Since: 0.12.0
+ */
+GArrowFixedSizeBinaryDataType *
+garrow_fixed_size_binary_data_type_new(gint32 byte_width)
+{
+  auto arrow_fixed_size_binary_data_type = arrow::fixed_size_binary(byte_width);
+
+  auto fixed_size_binary_data_type =
+    GARROW_FIXED_SIZE_BINARY_DATA_TYPE(g_object_new(GARROW_TYPE_FIXED_SIZE_BINARY_DATA_TYPE,
+                                                    "data-type", &arrow_fixed_size_binary_data_type,
+                                                    NULL));
+  return fixed_size_binary_data_type;
+}
+
+/**
+ * garrow_fixed_size_binary_data_type_get_byte_width:
+ * @data_type: A #GArrowFixedSizeBinaryDataType.
+ *
+ * Returns: The number of bytes for one data.
+ *
+ * Since: 0.12.0
+ */
+gint32
+garrow_fixed_size_binary_data_type_get_byte_width(GArrowFixedSizeBinaryDataType *data_type)
+{
+  const auto arrow_data_type =
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  const auto arrow_fixed_size_binary_type =
+    std::static_pointer_cast<arrow::FixedSizeBinaryType>(arrow_data_type);
+  return arrow_fixed_size_binary_type->byte_width();
+}
+
+
 G_DEFINE_TYPE(GArrowStringDataType,
               garrow_string_data_type,
               GARROW_TYPE_DATA_TYPE)
@@ -1044,7 +1099,7 @@ garrow_time64_data_type_new(GArrowTimeUnit unit, GError **error)
 
 G_DEFINE_ABSTRACT_TYPE(GArrowDecimalDataType,
                        garrow_decimal_data_type,
-                       GARROW_TYPE_DATA_TYPE)
+                       GARROW_TYPE_FIXED_SIZE_BINARY_DATA_TYPE)
 
 static void
 garrow_decimal_data_type_init(GArrowDecimalDataType *object)
@@ -1196,6 +1251,9 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
     break;
   case arrow::Type::type::BINARY:
     type = GARROW_TYPE_BINARY_DATA_TYPE;
+    break;
+  case arrow::Type::type::FIXED_SIZE_BINARY:
+    type = GARROW_TYPE_FIXED_SIZE_BINARY_DATA_TYPE;
     break;
   case arrow::Type::type::STRING:
     type = GARROW_TYPE_STRING_DATA_TYPE;
