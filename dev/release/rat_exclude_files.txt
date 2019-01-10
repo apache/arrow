@@ -114,6 +114,7 @@ dev/tasks/linux-packages/debian/plasma-store-server.install
 dev/tasks/linux-packages/debian/rules
 dev/tasks/linux-packages/debian/source/format
 dev/tasks/linux-packages/debian/watch
+dev/tasks/conda-recipes/variants/*.yaml
 docs/requirements.txt
 go/arrow/go.sum
 go/arrow/Gopkg.lock
