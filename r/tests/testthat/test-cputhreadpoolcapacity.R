@@ -15,20 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' Read parquet file from disk
-#'
-#' @param file a file path
-#' @param as_tibble should the [arrow::Table][arrow__Table] be converted to a tibble.
-#' @param use_threads Use threads when converting to a tibble, only relevant if `as_tibble` is `TRUE`
-#' @param ... currently ignored
-#'
-#' @return a [arrow::Table][arrow__Table], or a data frame if `as_tibble` is `TRUE`.
-#'
-#' @export
-read_parquet <- function(file, as_tibble = TRUE, use_threads = TRUE, ...) {
-  tab <- shared_ptr(`arrow::Table`, read_parquet_file(f))
-  if (isTRUE(as_tibble)) {
-    tab <- as_tibble(tab, use_threads = use_threads)
-  }
-  tab
-}
+context("CpuThreadPoolCapacity")
+
+test_that("can set/get cpu thread pool capacity", {
+  old <- GetCpuThreadPoolCapacity()
+  SetCpuThreadPoolCapacity(19L)
+  expect_equal(GetCpuThreadPoolCapacity(), 19L)
+  SetCpuThreadPoolCapacity(old)
+  expect_equal(GetCpuThreadPoolCapacity(), old)
+})
