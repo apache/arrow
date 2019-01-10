@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
+import org.junit.Assert;
 
 public class PlasmaClientTest {
 
@@ -146,6 +147,7 @@ public class PlasmaClientTest {
     System.out.println("Plasma java client get multi-object test success.");
     try {
       pLink.put(id1, value1, null);
+      Assert.fail("Fail to throw DuplicateObjectException when put an object into plasma store twice.");
     } catch (DuplicateObjectException e) {
       System.out.println("Plasma java client put same object twice exception test success.");
     }
