@@ -1321,8 +1321,9 @@ ggandiva_if_node_class_init(GGandivaIfNodeClass *klass)
  * @then_node: the node in case the condition node is true.
  * @else_node: the node in case the condition node is false.
  * @return_type: A #GArrowDataType.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: A newly created #GGandivaIfNode.
+ * Returns: (nullable): A newly created #GGandivaIfNode or %NULl on error.
  *
  * Since: 0.12.0
  */
@@ -1330,8 +1331,18 @@ GGandivaIfNode *
 ggandiva_if_node_new(GGandivaNode *condition_node,
                      GGandivaNode *then_node,
                      GGandivaNode *else_node,
-                     GArrowDataType *return_type)
+                     GArrowDataType *return_type,
+                     GError **error)
 {
+  if (!condition_node || !then_node || !else_node || !return_type) {
+    /* TODO: Improve error message to show which arguments are invalid. */
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "[gandiva][if-literal-node][new] "
+                "all arguments must not NULL");
+    return NULL;
+  }
   auto gandiva_condition_node = ggandiva_node_get_raw(condition_node);
   auto gandiva_then_node = ggandiva_node_get_raw(then_node);
   auto gandiva_else_node = ggandiva_node_get_raw(else_node);
@@ -1340,6 +1351,18 @@ ggandiva_if_node_new(GGandivaNode *condition_node,
                                                        gandiva_then_node,
                                                        gandiva_else_node,
                                                        arrow_return_type);
+  if (!gandiva_node) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "[gandiva][if-literal-node][new] "
+                "failed to create: if (<%s>) {<%s>} else {<%s>} -> <%s>",
+                gandiva_condition_node->ToString().c_str(),
+                gandiva_then_node->ToString().c_str(),
+                gandiva_else_node->ToString().c_str(),
+                arrow_return_type->ToString().c_str());
+    return NULL;
+  }
   return ggandiva_if_node_new_raw(&gandiva_node,
                                   condition_node,
                                   then_node,

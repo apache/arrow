@@ -336,6 +336,7 @@ GGandivaIfNode *
 ggandiva_if_node_new(GGandivaNode *condition_node,
                      GGandivaNode *then_node,
                      GGandivaNode *else_node,
-                     GArrowDataType *return_type);
+                     GArrowDataType *return_type,
+                     GError **error);
 
 G_END_DECLS
