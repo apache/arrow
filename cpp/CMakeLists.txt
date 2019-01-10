@@ -80,7 +80,6 @@ if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR INFER_FOUND)
   # See http://clang.llvm.org/docs/JSONCompilationDatabase.html
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
-
 # ----------------------------------------------------------------------
 # cmake options
 
@@ -358,6 +357,7 @@ endif()
 if (ARROW_USE_CCACHE)
   find_program(CCACHE_FOUND ccache)
   if(CCACHE_FOUND)
+    message(STATUS "Using ccache: ${CCACHE_FOUND}")
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE_FOUND})
     set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${CCACHE_FOUND})
   endif(CCACHE_FOUND)
