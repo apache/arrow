@@ -59,7 +59,7 @@ class ARROW_EXPORT TaskGroup {
   virtual Status current_status() = 0;
 
   /// Whether some tasks have already failed.  Non-blocking , useful for stopping early.
-  bool ok() { return current_status().ok(); }
+  virtual bool ok() = 0;
 
   /// How many tasks can typically be executed in parallel.
   /// This is only a hint, useful for testing or debugging.
