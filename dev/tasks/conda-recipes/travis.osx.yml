@@ -48,6 +48,12 @@ install:
     curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
     bash $MINICONDA_FILE -b
 
+before_script:
+  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git -C arrow checkout {{ arrow.head }}
+  - pushd arrow/dev/tasks/conda-recipes
+
+script:
   # Configure conda.
   - |
     echo ""
@@ -57,12 +63,6 @@ install:
     setup_conda_rc ./ ./ {{ variant_config_file }}
     source run_conda_forge_build_setup
 
-before_script:
-  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
-  - git -C arrow checkout {{ arrow.head }}
-  - pushd arrow/dev/tasks/conda-recipes
-
-script:
   # don't need to run make_build_number, no build number decrementation happens, it's always 0
   - conda build --output-folder . -m {{ variant_config_file }} parquet-cpp arrow-cpp pyarrow
 
