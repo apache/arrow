@@ -29,7 +29,7 @@ index f0e5ed9c56..b30d4d61d6 100644
              <jvmArgs>
                <jvmArg>-Xms1024m</jvmArg>
 diff --git a/python/pyspark/sql/functions.py b/python/pyspark/sql/functions.py
-index a59d5c9b86..2b6766a243 100644
+index a59d5c9b86..b4d8ac1c44 100644
 --- a/python/pyspark/sql/functions.py
 +++ b/python/pyspark/sql/functions.py
 @@ -18,6 +18,7 @@
@@ -49,15 +49,6 @@ index a59d5c9b86..2b6766a243 100644
  from pyspark.sql.dataframe import DataFrame
  from pyspark.sql.types import StringType, DataType
  # Keep UserDefinedFunction import for backwards compatible import; moved in SPARK-22409
-@@ -2258,7 +2259,7 @@ def from_json(col, schema, options={}):
-     [Row(json=[Row(a=1)])]
-     >>> schema = schema_of_json(lit('''{"a": 0}'''))
-     >>> df.select(from_json(df.value, schema).alias("json")).collect()
--    [Row(json=Row(a=1))]
-+    [Row(json=[Row(a=1)])]
-     >>> data = [(1, '''[1, 2, 3]''')]
-     >>> schema = ArrayType(IntegerType())
-     >>> df = spark.createDataFrame(data, ("key", "value"))
 @@ -2326,7 +2327,7 @@ def schema_of_json(json):
      >>> df.select(schema_of_json('{"a": 0}').alias("json")).collect()
      [Row(json=u'struct<a:bigint>')]
