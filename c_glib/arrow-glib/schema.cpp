@@ -174,11 +174,7 @@ garrow_schema_get_field(GArrowSchema *schema, guint i)
 {
   const auto arrow_schema = garrow_schema_get_raw(schema);
   auto arrow_field = arrow_schema->field(i);
-  auto arrow_data_type = arrow_field->type();
-  auto data_type = garrow_data_type_new_raw(&arrow_data_type);
-  auto field = garrow_field_new_raw(&arrow_field, data_type);
-  g_object_unref(data_type);
-  return field;
+  return garrow_field_new_raw(&arrow_field, nullptr);
 }
 
 /**
@@ -198,10 +194,7 @@ garrow_schema_get_field_by_name(GArrowSchema *schema,
     return NULL;
   } else {
     auto arrow_data_type = arrow_field->type();
-    auto data_type = garrow_data_type_new_raw(&arrow_data_type);
-    auto field =  garrow_field_new_raw(&arrow_field, data_type);
-    g_object_unref(data_type);
-    return field;
+    return garrow_field_new_raw(&arrow_field, nullptr);
   }
 }
 
@@ -232,10 +225,7 @@ garrow_schema_get_fields(GArrowSchema *schema)
 
   GList *fields = NULL;
   for (auto arrow_field : arrow_schema->fields()) {
-    auto arrow_data_type = arrow_field->type();
-    auto data_type = garrow_data_type_new_raw(&arrow_data_type);
-    auto field = garrow_field_new_raw(&arrow_field, data_type);
-    g_object_unref(data_type);
+    auto field = garrow_field_new_raw(&arrow_field, nullptr);
     fields = g_list_prepend(fields, field);
   }
 
