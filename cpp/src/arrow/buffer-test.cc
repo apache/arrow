@@ -24,7 +24,6 @@
 #include <utility>
 #include <vector>
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/buffer-builder.h"
@@ -34,24 +33,22 @@
 #include "arrow/test-util.h"
 
 using std::string;
-using testing::Each;
-using testing::Ge;
 
 namespace arrow {
 
 TEST(TestAllocate, Bitmap) {
   std::shared_ptr<Buffer> new_buffer;
   EXPECT_OK(AllocateBitmap(default_memory_pool(), 100, &new_buffer));
-  EXPECT_THAT(new_buffer->size(), Ge(13));
+  EXPECT_GE(new_buffer->size(), 13);
 }
 
 TEST(TestAllocate, EmptyBitmap) {
   std::shared_ptr<Buffer> new_buffer;
   EXPECT_OK(AllocateEmptyBitmap(default_memory_pool(), 100, &new_buffer));
-  EXPECT_THAT(new_buffer->size(), Ge(13));
-  EXPECT_THAT(
+  EXPECT_GE(new_buffer->size(), 13);
+  EXPECT_EQ(
       std::vector<int8_t>(new_buffer->data(), new_buffer->data() + new_buffer->size()),
-      Each(0));
+      std::vector<int8_t>(new_buffer->size(), 0));
 }
 
 TEST(TestBuffer, FromStdString) {
