@@ -77,7 +77,7 @@ namespace Apache.Arrow
             {
                 for (var i = 0; i < count; i++)
                 {
-                    var n = Math.Min(length, Memory.Length);
+                    var n = Math.Min(length, Memory.Length - offset);
                     var slice = Memory.Slice(offset, n);
 
                     slice.CopyTo(buffer);
