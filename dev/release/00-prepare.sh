@@ -136,35 +136,35 @@ if [ "$#" -eq 2 ]; then
   mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmodules -DdevelopmentVersion=${next_version_snapshot}
   cd -
 
-  echo "Updating versions for ${next_version_snapshot}"
-  update_versions "${version}" "${next_version}" "snapshot"
-  git commit -m "[Release] Update versions for ${next_version_snapshot}"
-
-  echo "Updating .deb package names for ${next_version}"
-  deb_lib_suffix=$(echo $version | sed -r -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
-  next_deb_lib_suffix=$(echo $next_version | sed -r -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
-  cd $SOURCE_DIR/../tasks/linux-packages/
-  for target in debian*/lib*${deb_lib_suffix}.install; do
-    git mv \
-      ${target} \
-      $(echo $target | sed -e "s/${deb_lib_suffix}/${next_deb_lib_suffix}/")
-  done
-  deb_lib_suffix_substitute_pattern="s/(lib(arrow|gandiva|parquet|plasma)[-a-z]*)${deb_lib_suffix}/\\1${next_deb_lib_suffix}/g"
-  sed -i.bak -r -e "${deb_lib_suffix_substitute_pattern}" debian*/control
-  rm -f debian*/control.bak
-  git add debian*/control
-  cd -
-  cd $SOURCE_DIR/../tasks/
-  sed -i.bak -r -e "${deb_lib_suffix_substitute_pattern}" tasks.yml
-  rm -f tasks.yml.bak
-  git add tasks.yml
-  cd -
-  cd $SOURCE_DIR
-  sed -i.bak -r -e "${deb_lib_suffix_substitute_pattern}" rat_exclude_files.txt
-  rm -f rat_exclude_files.txt.bak
-  git add rat_exclude_files.txt
-  git commit -m "[Release] Update .deb package names for $next_version"
-  cd -
+  # echo "Updating versions for ${next_version_snapshot}"
+  # update_versions "${version}" "${next_version}" "snapshot"
+  # git commit -m "[Release] Update versions for ${next_version_snapshot}"
+  #
+  # echo "Updating .deb package names for ${next_version}"
+  # deb_lib_suffix=$(echo $version | sed -r -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
+  # next_deb_lib_suffix=$(echo $next_version | sed -r -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
+  # cd $SOURCE_DIR/../tasks/linux-packages/
+  # for target in debian*/lib*${deb_lib_suffix}.install; do
+  #   git mv \
+  #     ${target} \
+  #     $(echo $target | sed -e "s/${deb_lib_suffix}/${next_deb_lib_suffix}/")
+  # done
+  # deb_lib_suffix_substitute_pattern="s/(lib(arrow|gandiva|parquet|plasma)[-a-z]*)${deb_lib_suffix}/\\1${next_deb_lib_suffix}/g"
+  # sed -i.bak -r -e "${deb_lib_suffix_substitute_pattern}" debian*/control
+  # rm -f debian*/control.bak
+  # git add debian*/control
+  # cd -
+  # cd $SOURCE_DIR/../tasks/
+  # sed -i.bak -r -e "${deb_lib_suffix_substitute_pattern}" tasks.yml
+  # rm -f tasks.yml.bak
+  # git add tasks.yml
+  # cd -
+  # cd $SOURCE_DIR
+  # sed -i.bak -r -e "${deb_lib_suffix_substitute_pattern}" rat_exclude_files.txt
+  # rm -f rat_exclude_files.txt.bak
+  # git add rat_exclude_files.txt
+  # git commit -m "[Release] Update .deb package names for $next_version"
+  # cd -
 
   echo "Finish staging binary artifacts by running: sh dev/release/01-perform.sh"
 
