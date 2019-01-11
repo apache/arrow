@@ -303,3 +303,14 @@ services:
 
   # TODO(kszucs): hive-integration
   # TODO(kszucs): spark-integration
+
+  source-release:
+    # Usage:
+    #   docker-compose build release
+    #   docker-compose run release
+    image: arrow:source-release
+    build:
+      context: .
+      dockerfile: dev/release/source/Dockerfile
+    volumes:
+      - .:/arrow:delegated
