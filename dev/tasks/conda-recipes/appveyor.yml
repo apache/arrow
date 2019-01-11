@@ -16,7 +16,7 @@
 # under the License.
 
 environment:
-  ARROW_VERSION: {{ arrow.version }}
+  ARROW_VERSION: {{ arrow.no_rc_version }}
   # regardless of the python version we build against
   CONDA_INSTALL_LOCN: C:\Miniconda36-x64
 

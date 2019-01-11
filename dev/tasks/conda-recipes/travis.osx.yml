@@ -25,7 +25,7 @@ if: tag IS blank
 env:
   global:
     - TRAVIS_TAG={{ task.tag }}
-    - ARROW_VERSION={{ arrow.version }}
+    - ARROW_VERSION={{ arrow.no_rc_version }}
     - PYTHONUNBUFFERED=1
 
 before_install:

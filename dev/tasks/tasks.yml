@@ -66,7 +66,7 @@ tasks:
   #   artifacts: list of regex patterns, each needs to match a single github
   #              release asset, version variable is replaced in the pattern
   #              e.g.:
-  #     - pyarrow-{version}-py36(h[a-z0-9]+)_0-linux-64.tar.bz2
+  #     - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0-linux-64.tar.bz2
 
   ############################## Conda Linux ##################################
 
@@ -76,8 +76,8 @@ tasks:
     params:
       variant_config_file: variants/linux_c_compilergcccxx_compilergxxpython2.7.yaml
     artifacts:
-      - arrow-cpp-{version}-py27(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py27(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
 
   conda-linux-gcc-py36:
     platform: linux
@@ -85,8 +85,8 @@ tasks:
     params:
       variant_config_file: variants/linux_c_compilergcccxx_compilergxxpython3.6.yaml
     artifacts:
-      - arrow-cpp-{version}-py36(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py36(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   conda-linux-gcc-py37:
     platform: linux
@@ -94,8 +94,8 @@ tasks:
     params:
       variant_config_file: variants/linux_c_compilergcccxx_compilergxxpython3.7.yaml
     artifacts:
-      - arrow-cpp-{version}-py37(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py37(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
 
   conda-linux-toolchain-py27:
     platform: linux
@@ -103,8 +103,8 @@ tasks:
     params:
       variant_config_file: variants/linux_c_compilertoolchain_ccxx_compilertoolchain_cxxpython2.7.yaml
     artifacts:
-      - arrow-cpp-{version}-py27(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py27(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
 
   conda-linux-toolchain-py36:
     platform: linux
@@ -112,8 +112,8 @@ tasks:
     params:
       variant_config_file: variants/linux_c_compilertoolchain_ccxx_compilertoolchain_cxxpython3.6.yaml
     artifacts:
-      - arrow-cpp-{version}-py36(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py36(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   conda-linux-toolchain-py37:
     platform: linux
@@ -121,8 +121,8 @@ tasks:
     params:
       variant_config_file: variants/linux_c_compilertoolchain_ccxx_compilertoolchain_cxxpython3.7.yaml
     artifacts:
-      - arrow-cpp-{version}-py37(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py37(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
 
   ############################## Conda OSX ####################################
 
@@ -132,8 +132,8 @@ tasks:
     params:
       variant_config_file: variants/osx_c_compilerclangcxx_compilerclangxxpython2.7.yaml
     artifacts:
-      - arrow-cpp-{version}-py27(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py27(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
 
   conda-osx-clang-py36:
     platform: osx
@@ -141,8 +141,8 @@ tasks:
     params:
       variant_config_file: variants/osx_c_compilerclangcxx_compilerclangxxpython3.6.yaml
     artifacts:
-      - arrow-cpp-{version}-py36(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py36(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   conda-osx-clang-py37:
     platform: osx
@@ -150,8 +150,8 @@ tasks:
     params:
       variant_config_file: variants/osx_c_compilerclangcxx_compilerclangxxpython3.7.yaml
     artifacts:
-      - arrow-cpp-{version}-py37(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py37(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
 
   conda-osx-toolchain-py27:
     platform: osx
@@ -159,8 +159,8 @@ tasks:
     params:
       variant_config_file: variants/osx_c_compilertoolchain_ccxx_compilertoolchain_cxxpython2.7.yaml
     artifacts:
-      - arrow-cpp-{version}-py27(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py27(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
 
   conda-osx-toolchain-py36:
     platform: osx
@@ -168,8 +168,8 @@ tasks:
     params:
       variant_config_file: variants/osx_c_compilertoolchain_ccxx_compilertoolchain_cxxpython3.6.yaml
     artifacts:
-      - arrow-cpp-{version}-py36(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py36(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   conda-osx-toolchain-py37:
     platform: osx
@@ -177,8 +177,8 @@ tasks:
     params:
       variant_config_file: variants/osx_c_compilertoolchain_ccxx_compilertoolchain_cxxpython3.7.yaml
     artifacts:
-      - arrow-cpp-{version}-py37(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py37(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
 
   ############################## Conda Windows ################################
 
@@ -188,8 +188,8 @@ tasks:
     params:
       variant_config_file: variants\win_c_compilervs2015cxx_compilervs2015python3.6.yaml
     artifacts:
-      - arrow-cpp-{version}-py36_vc14(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py36(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py36_vc14(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   conda-win-vs2015-py37:
     platform: win
@@ -197,8 +197,8 @@ tasks:
     params:
       variant_config_file: variants\win_c_compilervs2015cxx_compilervs2015python3.7.yaml
     artifacts:
-      - arrow-cpp-{version}-py37_vc14(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{version}-py37(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37_vc14(h[a-z0-9]+)_0.tar.bz2
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
 
   ############################## Wheel Linux ##################################
 
@@ -210,7 +210,7 @@ tasks:
       unicode_width: 16
       test_docker_images: []
     artifacts:
-      - pyarrow-{version}-cp27-cp27m-manylinux1_x86_64.whl
+      - pyarrow-{no_rc_version}-cp27-cp27m-manylinux1_x86_64.whl
 
   wheel-linux-cp27mu:
     platform: linux
@@ -221,7 +221,7 @@ tasks:
       test_docker_images:
         - python:2.7-slim  # debian ucs4
     artifacts:
-      - pyarrow-{version}-cp27-cp27mu-manylinux1_x86_64.whl
+      - pyarrow-{no_rc_version}-cp27-cp27mu-manylinux1_x86_64.whl
 
   wheel-linux-cp35m:
     platform: linux
@@ -232,7 +232,7 @@ tasks:
       test_docker_images:
         - python:3.5-slim
     artifacts:
-      - pyarrow-{version}-cp35-cp35m-manylinux1_x86_64.whl
+      - pyarrow-{no_rc_version}-cp35-cp35m-manylinux1_x86_64.whl
 
   wheel-linux-cp36m:
     platform: linux
@@ -243,7 +243,7 @@ tasks:
       test_docker_images:
         - python:3.6-slim
     artifacts:
-      - pyarrow-{version}-cp36-cp36m-manylinux1_x86_64.whl
+      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux1_x86_64.whl
 
   wheel-linux-cp37m:
     platform: linux
@@ -254,7 +254,7 @@ tasks:
       test_docker_images:
         - python:3.7-slim
     artifacts:
-      - pyarrow-{version}-cp37-cp37m-manylinux1_x86_64.whl
+      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux1_x86_64.whl
 
   ############################## Wheel OSX ####################################
 
@@ -264,7 +264,7 @@ tasks:
     params:
       python_version: 2.7
     artifacts:
-      - pyarrow-{version}-cp27-cp27m-macosx_10_6_intel.whl
+      - pyarrow-{no_rc_version}-cp27-cp27m-macosx_10_6_intel.whl
 
   wheel-osx-cp35m:
     platform: osx
@@ -272,7 +272,7 @@ tasks:
     params:
       python_version: 3.5
     artifacts:
-      - pyarrow-{version}-cp35-cp35m-macosx_10_6_intel.whl
+      - pyarrow-{no_rc_version}-cp35-cp35m-macosx_10_6_intel.whl
 
   wheel-osx-cp36m:
     platform: osx
@@ -280,7 +280,7 @@ tasks:
     params:
       python_version: 3.6
     artifacts:
-      - pyarrow-{version}-cp36-cp36m-macosx_10_6_intel.whl
+      - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_6_intel.whl
 
   wheel-osx-cp37m:
     platform: osx
@@ -288,7 +288,7 @@ tasks:
     params:
       python_version: 3.7
     artifacts:
-      - pyarrow-{version}-cp37-cp37m-macosx_10_6_intel.whl
+      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_6_intel.whl
 
   ############################## Wheel Windows ################################
 
@@ -298,7 +298,7 @@ tasks:
     params:
       python_version: 3.5
     artifacts:
-      - pyarrow-{version}-cp35-cp35m-win_amd64.whl
+      - pyarrow-{no_rc_version}-cp35-cp35m-win_amd64.whl
 
   wheel-win-cp36m:
     platform: win
@@ -306,7 +306,7 @@ tasks:
     params:
       python_version: 3.6
     artifacts:
-      - pyarrow-{version}-cp36-cp36m-win_amd64.whl
+      - pyarrow-{no_rc_version}-cp36-cp36m-win_amd64.whl
 
   wheel-win-cp37m:
     platform: win
@@ -314,7 +314,7 @@ tasks:
     params:
       python_version: 3.7
     artifacts:
-      - pyarrow-{version}-cp37-cp37m-win_amd64.whl
+      - pyarrow-{no_rc_version}-cp37-cp37m-win_amd64.whl
 
   ############################## Linux PKGS ####################################
 
@@ -597,10 +597,10 @@ tasks:
     platform: linux
     template: gandiva-jars/travis.linux.yml
     artifacts:
-      - arrow-gandiva-{version}-SNAPSHOT.jar
+      - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
 
   gandiva-jar-osx:
     platform: osx
     template: gandiva-jars/travis.osx.yml
     artifacts:
-      - arrow-gandiva-{version}-SNAPSHOT.jar
+      - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
