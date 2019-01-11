@@ -21,6 +21,7 @@ set -e
 
 release_version=$1
 release_hash=$2
+
 release_tag=apache-arrow-$release_version
 release_tarball=${release_tag}.tar.gz
 

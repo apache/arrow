@@ -38,4 +38,4 @@ RUN apt-get update -y && \
 
 ADD dev/release/source/makedist.sh /arrow/dev/release/source/
 
-ENTRYPOINT /arrow/dev/release/source/makedist.sh
+ENTRYPOINT ["/arrow/dev/release/source/makedist.sh"]

@@ -45,11 +45,13 @@ echo "Using commit $release_hash"
 
 tarball=$SOURCE_DIR/${tag}.tar.gz
 
+# won't be required after removing docker-compose from the dev directory
+docker_compose_yml=$SOURCE_DIR/../../docker-compose.yml
+
 # build source distribution in dockerfile and dump to ${tarball}
-docker-compose -f $SOURCE_DIR/docker-compose.yml \
-  build source-release
-docker-compose -f $SOURCE_DIR/docker-compose.yml \
-  run --rm source-release $version $release_hash
+docker-compose -f $docker_compose_yml build source-release
+docker-compose -f $docker_compose_yml run --rm source-release \
+  $version $release_hash
 
 ${SOURCE_DIR}/run-rat.sh ${tarball}
 
