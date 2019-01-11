@@ -18,6 +18,7 @@
 #include "arrow/api.h"
 #include "arrow/io/memory.h"
 #include "arrow/test-util.h"
+#include "arrow/util/cpu-info.h"
 
 #include "benchmark/benchmark.h"
 
@@ -25,8 +26,12 @@
 
 namespace arrow {
 
+// This include hyperthread cores which may slightly negatively impact the
+// bandwidth result.
+static int kNumCores = internal::CpuInfo::GetInstance()->num_cores();
+
 static void BM_SerialMemcopy(benchmark::State& state) {  // NOLINT non-const reference
-  constexpr int64_t kTotalSize = 100 * 1024 * 1024;      // 100MB
+  const int64_t kTotalSize = 128 * 1024 * 1024;          // 128MB
 
   std::shared_ptr<Buffer> buffer1, buffer2;
   ABORT_NOT_OK(AllocateBuffer(kTotalSize, &buffer1));
@@ -37,11 +42,11 @@ static void BM_SerialMemcopy(benchmark::State& state) {  // NOLINT non-const ref
     io::FixedSizeBufferWriter writer(buffer1);
     ABORT_NOT_OK(writer.Write(buffer2->data(), buffer2->size()));
   }
-  state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
+  state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize * 2);
 }
 
-static void BM_ParallelMemcopy(benchmark::State& state) {  // NOLINT non-const reference
-  constexpr int64_t kTotalSize = 100 * 1024 * 1024;        // 100MB
+static void BM_ParallelMemcopy(benchmark::State& state) {   // NOLINT non-const reference
+  const int64_t kTotalSize = kNumCores * 64 * 1024 * 1024;  // 64MB per core
 
   std::shared_ptr<Buffer> buffer1, buffer2;
   ABORT_NOT_OK(AllocateBuffer(kTotalSize, &buffer1));
@@ -51,10 +56,10 @@ static void BM_ParallelMemcopy(benchmark::State& state) {  // NOLINT non-const r
 
   while (state.KeepRunning()) {
     io::FixedSizeBufferWriter writer(buffer1);
-    writer.set_memcopy_threads(4);
+    writer.set_memcopy_threads(kNumCores);
     ABORT_NOT_OK(writer.Write(buffer2->data(), buffer2->size()));
   }
-  state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
+  state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize * 2);
 }
 
 BENCHMARK(BM_SerialMemcopy)->MinTime(1.0)->Repetitions(2)->UseRealTime();
