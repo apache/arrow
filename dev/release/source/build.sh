@@ -32,6 +32,8 @@ cd ${archive_name}/cpp/build
 cmake .. \
   -DCMAKE_INSTALL_PREFIX=${cpp_install_dir} \
   -DCMAKE_INSTALL_LIBDIR=lib \
+  -DARROW_PLASMA=yes \
+  -DARROW_GANDIVA=yes \
   -DARROW_PARQUET=yes
 make -j8
 make install
