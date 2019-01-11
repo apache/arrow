@@ -152,7 +152,7 @@ type FType = {
     [Type.Float  ]: { precision: Precision;        TArray: FloatArray;    TValue: number; };
     [Type.Float16]: { precision: Precision.HALF;   TArray: Uint16Array;   TValue: number; };
     [Type.Float32]: { precision: Precision.SINGLE; TArray: Float32Array;  TValue: number; };
-    [Type.Float64]: { precision: Precision.DOUBLE; TArray: Float32Array;  TValue: number; };
+    [Type.Float64]: { precision: Precision.DOUBLE; TArray: Float64Array;  TValue: number; };
 };
 
 export interface Float<T extends Floats = Floats> extends DataType<T> { TArray: FType[T]['TArray']; TValue: number; }
@@ -162,12 +162,11 @@ export class Float<T extends Floats = Floats> extends DataType<T> {
     }
     public get typeId() { return Type.Float as T; }
     public get precision() { return this._precision; }
-    // @ts-ignore
     public get ArrayType(): ArrayBufferViewConstructor<FType[T]['TArray']> {
         switch (this.precision) {
-            case Precision.HALF: return Uint16Array as any;
-            case Precision.SINGLE: return Float32Array as any;
-            case Precision.DOUBLE: return Float64Array as any;
+            case Precision.HALF: return Uint16Array;
+            case Precision.SINGLE: return Float32Array;
+            case Precision.DOUBLE: return Float64Array;
         }
         throw new Error(`Unrecognized ${this[Symbol.toStringTag]} type`);
     }
