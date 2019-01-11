@@ -40,7 +40,7 @@ script:
   # build wheel
   - pushd arrow/python/manylinux1
   - docker run --shm-size=2g
-      -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.version }}
+      -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }}
       -e PYTHON_VERSIONS="{{ python_version }},{{ unicode_width }}"
       -v $PWD:/io
       -v $PWD/../../:/arrow

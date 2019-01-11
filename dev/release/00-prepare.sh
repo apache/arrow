@@ -107,6 +107,8 @@ update_versions() {
 }
 
 if [ "$#" -eq 2 ]; then
+  ############################## Pre-Tag Commits ##############################
+
   version=$1
   next_version=$2
   next_version_snapshot=${next_version}-SNAPSHOT
@@ -135,6 +137,8 @@ if [ "$#" -eq 2 ]; then
   mvn release:clean
   mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmodules -DdevelopmentVersion=${next_version_snapshot}
   cd -
+
+  ############################## Post-Tag Commits #############################
 
   echo "Updating versions for ${next_version_snapshot}"
   update_versions "${version}" "${next_version}" "snapshot"

@@ -396,6 +396,7 @@ class Target:
         self.branch = branch
         self.remote = remote
         self.version = version
+        self.no_rc_version = re.sub(r'-rc\d+\Z', '', version)
 
     @classmethod
     def from_repo(cls, repo, version=None):
@@ -631,10 +632,9 @@ def submit(ctx, task, group, job_prefix, config_path, arrow_version,
         # instantiate target from the locally checked out repository and branch
         target = Target.from_repo(arrow, version=arrow_version)
 
-    no_rc_version = re.sub(r'-rc\d+\Z', '', target.version)
     params = {
         'version': target.version,
-        'no_rc_version': no_rc_version,
+        'no_rc_version': target.no_rc_version,
     }
 
     # task and group variables are lists, containing multiple values
