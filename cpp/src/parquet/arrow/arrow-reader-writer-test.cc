@@ -1849,6 +1849,14 @@ TEST(TestArrowReadWrite, TableWithDuplicateColumns) {
   ASSERT_NO_FATAL_FAILURE(CheckSimpleRoundtrip(table, table->num_rows()));
 }
 
+TEST(TestArrowReadWrite, ZeroColumnsNoSegfault) {
+  // See ARROW-1374
+  auto schema = ::arrow::schema({});
+  auto table = Table::Make(schema, std::vector<std::shared_ptr<Column>>());
+  auto sink = std::make_shared<InMemoryOutputStream>();
+  ASSERT_EXIT((WriteTable(*table, ::arrow::default_memory_pool(), sink, 123, default_writer_properties(), default_arrow_writer_properties()), exit(0)), ::testing::ExitedWithCode(0), ".*");
+}
+
 TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
   // This is a regression test for this:
   //
