@@ -1850,11 +1850,17 @@ TEST(TestArrowReadWrite, TableWithDuplicateColumns) {
 }
 
 TEST(TestArrowReadWrite, ZeroColumnsNoSegfault) {
-  // See ARROW-1374
+  // See ARROW-1374. Previously writing zero columns
+  // segfaulted. Parquet still doesn't support zero
+  // columns but at least it doesn't segfault. This test
+  // checks that doesn't regress.
   auto schema = ::arrow::schema({});
   auto table = Table::Make(schema, std::vector<std::shared_ptr<Column>>());
   auto sink = std::make_shared<InMemoryOutputStream>();
-  ASSERT_EXIT((WriteTable(*table, ::arrow::default_memory_pool(), sink, 123, default_writer_properties(), default_arrow_writer_properties()), exit(0)), ::testing::ExitedWithCode(0), ".*");
+  ASSERT_EXIT((static_cast<void>(WriteTable(*table,
+    ::arrow::default_memory_pool(), sink, 123, default_writer_properties(),
+    default_arrow_writer_properties())), exit(0)),
+    ::testing::ExitedWithCode(0), ".*");
 }
 
 TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
