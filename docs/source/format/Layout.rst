@@ -124,8 +124,7 @@ practices for optimized memory access:
 * On some architectures alignment can help limit partially used cache lines.
 
 The recommendation for 64 byte alignment comes from the `Intel performance guide`_
-that recommends alignment of memory to match SIMD register width
-(which will be a common case for Arrow Arrays).
+that recommends alignment of memory to match SIMD register width.
 The specific padding length was chosen because it matches the largest known
 SIMD instruction registers available as of April 2016 (Intel AVX-512).
 
