@@ -28,17 +28,17 @@ update_versions() {
 
   case ${type} in
     release)
-      version=${base_version}
-      r_version=${base_version}
+      local version=${base_version}
+      local r_version=${base_version}
       ;;
     snapshot)
-      version=${next_version}-SNAPSHOT
-      r_version=${base_version}.9000
+      local version=${next_version}-SNAPSHOT
+      local r_version=${base_version}.9000
       ;;
   esac
 
   cd "${SOURCE_DIR}/../../cpp"
-  sed -i.bak -r -e \
+  sed -i.bak -E -e \
     "s/^set\(ARROW_VERSION \".+\"\)/set(ARROW_VERSION \"${version}\")/" \
     CMakeLists.txt
   rm -f CMakeLists.txt.bak
@@ -46,10 +46,10 @@ update_versions() {
   cd -
 
   cd "${SOURCE_DIR}/../../c_glib"
-  sed -i.bak -r -e \
+  sed -i.bak -E -e \
     "s/^m4_define\(\[arrow_glib_version\], .+\)/m4_define([arrow_glib_version], ${version})/" \
     configure.ac
-  sed -i.bak -r -e \
+  sed -i.bak -E -e \
     "s/^version = '.+'/version = '${version}'/" \
     meson.build
   rm -f configure.ac.bak meson.build.bak
@@ -58,7 +58,7 @@ update_versions() {
 
   # We can enable this when Arrow JS uses the same version.
   # cd "${SOURCE_DIR}/../../js"
-  # sed -i.bak -r -e \
+  # sed -i.bak -E -e \
   #   "s/^  \"version\": \".+\"/  \"version\": \"${version}\"/" \
   #   package.json
   # rm -f package.json
@@ -66,7 +66,7 @@ update_versions() {
   # cd -
 
   cd "${SOURCE_DIR}/../../matlab"
-  sed -i.bak -r -e \
+  sed -i.bak -E -e \
     "s/^set\(MLARROW_VERSION \".+\"\)/set(MLARROW_VERSION \"${version}\")/" \
     CMakeLists.txt
   rm -f CMakeLists.txt.bak
@@ -74,7 +74,7 @@ update_versions() {
   cd -
 
   cd "${SOURCE_DIR}/../../python"
-  sed -i.bak -r -e \
+  sed -i.bak -E -e \
     "s/^default_version: '.+'/default_version = '${version}'/" \
     setup.py
   rm -f setup.py.bak
@@ -82,7 +82,7 @@ update_versions() {
   cd -
 
   cd "${SOURCE_DIR}/../../r"
-  sed -i.bak -r -e \
+  sed -i.bak -E -e \
     "s/^Version: .+/Version: ${r_version}/" \
     DESCRIPTION
   rm -f DESCRIPTION.bak
@@ -90,7 +90,7 @@ update_versions() {
   cd -
 
   cd "${SOURCE_DIR}/../../ruby"
-  sed -i.bak -r -e \
+  sed -i.bak -E -e \
     "s/^  VERSION = \".+\"/  VERSION = \"${version}\"/g" \
     */*/*/version.rb
   rm -f */*/*/version.rb.bak
@@ -98,7 +98,7 @@ update_versions() {
   cd -
 
   cd "${SOURCE_DIR}/../../rust"
-  sed -i.bak -r -e \
+  sed -i.bak -E -e \
     "s/^version = \".+\"/version = \"${version}\"/g" \
     arrow/Cargo.toml parquet/Cargo.toml
   rm -f arrow/Cargo.toml.bak parquet/Cargo.toml.bak
@@ -145,8 +145,8 @@ if [ "$#" -eq 2 ]; then
   git commit -m "[Release] Update versions for ${next_version_snapshot}"
 
   echo "Updating .deb package names for ${next_version}"
-  deb_lib_suffix=$(echo $version | sed -r -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
-  next_deb_lib_suffix=$(echo $next_version | sed -r -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
+  deb_lib_suffix=$(echo $version | sed -E -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
+  next_deb_lib_suffix=$(echo $next_version | sed -E -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
   cd $SOURCE_DIR/../tasks/linux-packages/
   for target in debian*/lib*${deb_lib_suffix}.install; do
     git mv \
@@ -154,17 +154,17 @@ if [ "$#" -eq 2 ]; then
       $(echo $target | sed -e "s/${deb_lib_suffix}/${next_deb_lib_suffix}/")
   done
   deb_lib_suffix_substitute_pattern="s/(lib(arrow|gandiva|parquet|plasma)[-a-z]*)${deb_lib_suffix}/\\1${next_deb_lib_suffix}/g"
-  sed -i.bak -r -e "${deb_lib_suffix_substitute_pattern}" debian*/control
+  sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" debian*/control
   rm -f debian*/control.bak
   git add debian*/control
   cd -
   cd $SOURCE_DIR/../tasks/
-  sed -i.bak -r -e "${deb_lib_suffix_substitute_pattern}" tasks.yml
+  sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" tasks.yml
   rm -f tasks.yml.bak
   git add tasks.yml
   cd -
   cd $SOURCE_DIR
-  sed -i.bak -r -e "${deb_lib_suffix_substitute_pattern}" rat_exclude_files.txt
+  sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" rat_exclude_files.txt
   rm -f rat_exclude_files.txt.bak
   git add rat_exclude_files.txt
   git commit -m "[Release] Update .deb package names for $next_version"
