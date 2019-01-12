@@ -40,15 +40,16 @@ TEST(TestAllocate, Bitmap) {
   std::shared_ptr<Buffer> new_buffer;
   EXPECT_OK(AllocateBitmap(default_memory_pool(), 100, &new_buffer));
   EXPECT_GE(new_buffer->size(), 13);
+  EXPECT_EQ(new_buffer->capacity() % 8, 0);
 }
 
 TEST(TestAllocate, EmptyBitmap) {
   std::shared_ptr<Buffer> new_buffer;
   EXPECT_OK(AllocateEmptyBitmap(default_memory_pool(), 100, &new_buffer));
-  EXPECT_GE(new_buffer->size(), 13);
-  EXPECT_EQ(
-      std::vector<int8_t>(new_buffer->data(), new_buffer->data() + new_buffer->size()),
-      std::vector<int8_t>(new_buffer->size(), 0));
+  EXPECT_EQ(new_buffer->size(), 13);
+  EXPECT_EQ(new_buffer->capacity() % 8, 0);
+  EXPECT_TRUE(std::all_of(new_buffer->data(), new_buffer->data() + new_buffer->capacity(),
+                          [](int8_t byte) { return byte == 0; }));
 }
 
 TEST(TestBuffer, FromStdString) {
