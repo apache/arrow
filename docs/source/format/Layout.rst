@@ -64,9 +64,10 @@ Base requirements
   data
 * It is required to have all the contiguous memory buffers in an IPC payload
   aligned at 8-byte boundaries. In other words, each buffer must start at
-  an aligned 8-byte offset.
-* The general recommendation is to align and pad buffers to a 64-byte boundary, but
-  this is not absolutely necessary.
+  an aligned 8-byte offset. Additionally, each buffer should be padded to a multiple
+  of 8 bytes.
+* The general recommendation is to align buffers to a 64-byte boundary and pad
+  to a multiple of 64 bytes, but this is not absolutely necessary.
 * Any relative type can have null slots
 * Arrays are immutable once created. Implementations can provide APIs to mutate
   an array, but applying mutations will require a new array data structure to
