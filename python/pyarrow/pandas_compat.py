@@ -33,7 +33,7 @@ from pyarrow.compat import builtin_pickle, PY2, zip_longest  # noqa
 
 def infer_dtype(column):
     try:
-        return pd.api.types.infer_dtype(column)
+        return pd.api.types.infer_dtype(column, skipna=False)
     except AttributeError:
         return pd.lib.infer_dtype(column)
 
@@ -111,6 +111,9 @@ def get_logical_type_from_numpy(pandas_collection):
     except KeyError:
         if hasattr(pandas_collection.dtype, 'tz'):
             return 'datetimetz'
+        # See https://github.com/pandas-dev/pandas/issues/24739
+        if str(pandas_collection.dtype) == 'datetime64[ns]':
+            return 'datetime64[ns]'
         result = infer_dtype(pandas_collection)
 
         if result == 'string':
@@ -477,7 +480,8 @@ def dataframe_to_serialized_dict(frame):
 
         if isinstance(block, _int.DatetimeTZBlock):
             block_data['timezone'] = pa.lib.tzinfo_to_string(values.tz)
-            values = values.values
+            if hasattr(values, 'values'):
+                values = values.values
         elif isinstance(block, _int.CategoricalBlock):
             block_data.update(dictionary=values.categories,
                               ordered=values.ordered)
