@@ -837,8 +837,7 @@ class TestConvertDateTimeLikeTypes(object):
                 '2010-08-13T05:46:57.437'],
                 dtype='datetime64[ms]')
         })
-        df['datetime64'] = (df['datetime64'].dt.tz_localize('US/Eastern')
-                            .to_frame())
+        df['datetime64'] = df['datetime64'].dt.tz_localize('US/Eastern')
         _check_pandas_roundtrip(df)
 
         _check_series_roundtrip(df['datetime64'])
@@ -852,8 +851,7 @@ class TestConvertDateTimeLikeTypes(object):
                 '2010-08-13T05:46:57.437699912'],
                 dtype='datetime64[ns]')
         })
-        df['datetime64'] = (df['datetime64'].dt.tz_localize('US/Eastern')
-                            .to_frame())
+        df['datetime64'] = df['datetime64'].dt.tz_localize('US/Eastern')
 
         _check_pandas_roundtrip(df)
 
