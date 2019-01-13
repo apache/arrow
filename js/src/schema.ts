@@ -38,8 +38,8 @@ export class Schema<T extends { [key: string]: DataType } = any> {
                 metadata?: Map<string, string>,
                 dictionaries?: Map<number, DataType>,
                 dictionaryFields?: Map<number, Field<Dictionary>[]>) {
-        this._fields = fields;
-        this._metadata = metadata || Schema.prototype._metadata;
+        this._fields = fields || [];
+        this._metadata = metadata || new Map();
         if (!dictionaries || !dictionaryFields) {
             ({ dictionaries, dictionaryFields } = generateDictionaryMap(
                 fields, dictionaries || new Map(), dictionaryFields || new Map()
@@ -48,14 +48,14 @@ export class Schema<T extends { [key: string]: DataType } = any> {
         this._dictionaries = dictionaries;
         this._dictionaryFields = dictionaryFields;
     }
+    public get [Symbol.toStringTag]() { return 'Schema'; }
+    public toString() {
+        return `Schema<{ ${this._fields.map((f, i) => `${i}: ${f}`).join(', ')} }>`;
+    }
     public select<K extends keyof T = any>(...columnNames: K[]) {
         const names = columnNames.reduce((xs, x) => (xs[x] = true) && xs, Object.create(null));
         return new Schema<{ [P in K]: T[P] }>(this.fields.filter((f) => names[f.name]), this.metadata);
     }
-    public static [Symbol.toStringTag] = ((prototype: Schema) => {
-        (prototype as any)._metadata = Object.freeze(new Map());
-        return 'Schema';
-    })(Schema.prototype);
 }
 
 export class Field<T extends DataType = DataType> {
@@ -67,14 +67,14 @@ export class Field<T extends DataType = DataType> {
         this._name = name;
         this._type = type;
         this._nullable = nullable;
-        this._metadata = metadata;
+        this._metadata = metadata || new Map();
     }
     public get type() { return this._type; }
     public get name() { return this._name; }
     public get nullable() { return this._nullable; }
     public get metadata() { return this._metadata; }
     public get typeId() { return this._type.typeId; }
-    public get [Symbol.toStringTag](): string { return 'Field'; }
+    public get [Symbol.toStringTag]() { return 'Field'; }
     public get indices() {
         return DataType.isDictionary(this._type) ? this._type.indices : this._type;
     }
