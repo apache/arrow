@@ -33,7 +33,6 @@
 #include "plasma/compat.h"
 
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
 #ifdef PLASMA_CUDA
 #include "arrow/gpu/cuda_api.h"
 #endif
