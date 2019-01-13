@@ -51,10 +51,10 @@ HERE=$(cd `dirname "${BASH_SOURCE[0]:-$0}"` && pwd)
 
 ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
 
-: ${ARROW_HAVE_GPU:=}
-if [ -z "$ARROW_HAVE_GPU" ]; then
+: ${ARROW_HAVE_CUDA:=}
+if [ -z "$ARROW_HAVE_CUDA" ]; then
   if nvidia-smi --list-gpus 2>&1 > /dev/null; then
-    ARROW_HAVE_GPU=yes
+    ARROW_HAVE_CUDA=yes
   fi
 fi
 
@@ -164,13 +164,15 @@ test_and_install_cpp() {
 -DARROW_PLASMA=ON
 -DARROW_ORC=ON
 -DARROW_PYTHON=ON
+-DARROW_GANDIVA=ON
 -DARROW_PARQUET=ON
 -DARROW_BOOST_USE_SHARED=ON
 -DCMAKE_BUILD_TYPE=release
+-DARROW_BUILD_TESTS=ON
 -DARROW_BUILD_BENCHMARKS=ON
 "
-  if [ "$ARROW_HAVE_GPU" = "yes" ]; then
-    ARROW_CMAKE_OPTIONS="$ARROW_CMAKE_OPTIONS -DARROW_GPU=ON"
+  if [ "$ARROW_HAVE_CUDA" = "yes" ]; then
+    ARROW_CMAKE_OPTIONS="$ARROW_CMAKE_OPTIONS -DARROW_CUDA=ON"
   fi
   cmake $ARROW_CMAKE_OPTIONS ..
 
@@ -238,17 +240,17 @@ test_js() {
 test_ruby() {
   pushd ruby
 
-  pushd red-arrow
-  bundle install --path vendor/bundle
-  bundle exec ruby test/run-test.rb
-  popd
+  local modules="red-arrow red-plasma red-gandiva red-parquet"
+  if [ "${ARROW_HAVE_CUDA}" = "yes" ]; then
+    modules="${modules} red-arrow-cuda"
+  fi
 
-  if [ "$ARROW_HAVE_GPU" = "yes" ]; then
-    pushd red-arrow-gpu
+  for module in ${modules}; do
+    pushd ${module}
     bundle install --path vendor/bundle
     bundle exec ruby test/run-test.rb
     popd
-  fi
+  done
 
   popd
 }
@@ -274,9 +276,7 @@ test_rust() {
   cargo fmt --all -- --check
   # raises on any warnings
 
-  cargo rustc -- -D warnings
-
-  cargo build
+  RUSTFLAGS="-D warnings" cargo build
   cargo test
 
   popd
