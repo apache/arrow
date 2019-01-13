@@ -26,12 +26,11 @@ import { RecordBatch, RecordBatchReader, AsyncByteQueue } from '../Arrow.node';
 
 const padLeft = require('pad-left');
 const bignumJSONParse = require('json-bignum').parse;
-const eos = require('util').promisify(stream.finished);
+const pipeline = require('util').promisify(stream.pipeline);
 const argv = require(`command-line-args`)(cliOpts(), { partial: true });
 const files = argv.help ? [] : [...(argv.file || []), ...(argv._unknown || [])].filter(Boolean);
 
 const state = { ...argv, closed: false, hasRecords: false };
-process.stdout.once('error', ({ code }) => (code === 'EPIPE') && (state.closed = true));
 
 (async () => {
 
@@ -45,10 +44,13 @@ process.stdout.once('error', ({ code }) => (code === 'EPIPE') && (state.closed =
     for (const source of sources) {
         if (state.closed) { break; }
         if (reader = await createRecordBatchReader(source)) {
-            await eos(reader
-                .pipe(recordBatchRowsToString(state))
-                .on('data', (x) => process.stdout.write(x)));
+            await pipeline(
+                reader.toNodeStream(),
+                recordBatchRowsToString(state),
+                process.stdout
+            ).catch(() => state.closed = true);
         }
+        if (state.closed) { break; }
     }
 
     return state.hasRecords ? 0 : print_usage();
