@@ -33,6 +33,7 @@
 #include "arrow/adapters/tensorflow/convert.h"
 #include "arrow/api.h"
 #include "arrow/io/api.h"
+#include "arrow/util/logging.h"
 
 // These headers do not include Python.h
 #include "arrow/python/deserialize.h"
