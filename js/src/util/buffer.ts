@@ -26,18 +26,27 @@ const SharedArrayBuf = (typeof SharedArrayBuffer !== 'undefined' ? SharedArrayBu
 
 /** @ignore */
 function collapseContiguousByteRanges(chunks: Uint8Array[]) {
-    for (let x, y, i = 0; ++i < chunks.length;) {
-        x = chunks[i - 1];
-        y = chunks[i - 0];
+    let result = chunks[0] ? [chunks[0]] : [];
+    let byteLength = chunks[0] ? chunks[0].byteLength : 0;
+    for (let x, y, i = 0, j = 0, n = chunks.length; ++i < n;) {
+        x = result[j];
+        y = chunks[i];
         // continue x and y don't share the same underlying ArrayBuffer
-        if (!x || !y || x.buffer !== y.buffer) { continue; }
+        if (!x || !y || x.buffer !== y.buffer) {
+            y && (byteLength += (result[++j] = y).byteLength);
+            continue;
+        }
         const { byteOffset: xOffset, byteLength: xLen } = x;
         const { byteOffset: yOffset, byteLength: yLen } = y;
         // continue if the byte ranges of x and y aren't contiguous
-        if ((xOffset + xLen) < yOffset || (yOffset + yLen) < xOffset) { continue; }
-        chunks.splice(--i, 2, new Uint8Array(x.buffer, xOffset, yOffset - xOffset + yLen));
+        if ((xOffset + xLen) < yOffset || (yOffset + yLen) < xOffset) {
+            y && (byteLength += (result[++j] = y).byteLength);
+            continue;
+        }
+        byteLength += yLen;
+        result[j] = new Uint8Array(x.buffer, xOffset, yOffset - xOffset + yLen);
     }
-    return chunks;
+    return [result, byteLength] as [Uint8Array[], number];
 }
 
 /** @ignore */
@@ -54,25 +63,23 @@ export function joinUint8Arrays(chunks: Uint8Array[], size?: number | null): [Ui
     // collapse chunks that share the same underlying ArrayBuffer and whose byte ranges overlap,
     // to avoid unnecessarily copying the bytes to do this buffer join. This is a common case during
     // streaming, where we may be reading partial byte ranges out of the same underlying ArrayBuffer
-    chunks = collapseContiguousByteRanges(chunks);
-    let offset = 0, index = -1, numChunks = chunks.length;
-    let chunksLen = chunks.reduce((x, y) => x + y.byteLength, 0);
+    let [result, byteLength] = collapseContiguousByteRanges(chunks);
     let source: Uint8Array, sliced: Uint8Array, buffer: Uint8Array | void;
-    let length = Math.min(chunksLen, typeof size === 'number' ? size : Infinity);
-    while (++index < numChunks) {
-        source = chunks[index];
+    let offset = 0, index = -1, length = Math.min(size || Infinity, byteLength);
+    for (let n = result.length; ++index < n;) {
+        source = result[index];
         sliced = source.subarray(0, Math.min(source.length, length - offset));
         if (length <= (offset + sliced.length)) {
             if (sliced.length < source.length) {
-                chunks[index] = source.subarray(sliced.length);
+                result[index] = source.subarray(sliced.length);
             } else if (sliced.length === source.length) { index++; }
             buffer ? memcpy(buffer, sliced, offset) : (buffer = sliced);
             break;
         }
-        (buffer || (buffer = new Uint8Array(length))).set(sliced, offset);
+        memcpy(buffer || (buffer = new Uint8Array(length)), sliced, offset);
         offset += sliced.length;
     }
-    return [buffer || new Uint8Array(0), chunks.slice(index)];
+    return [buffer || new Uint8Array(0), result.slice(index)];
 }
 
 /** @ignore */

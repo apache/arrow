@@ -21,8 +21,12 @@ import { BaseVector } from './base';
 import { DataType, Map_, Struct } from '../type';
 
 export class StructVector<T extends { [key: string]: DataType } = any> extends BaseVector<Struct<T>> {
-    public rowProxy: Row<T> = Row.new<T>(this.type.children || [], false);
     public asMap(keysSorted: boolean = false) {
         return Vector.new(this.data.clone(new Map_(this.type.children, keysSorted)));
+    }
+    // @ts-ignore
+    private _rowProxy: Row<T>;
+    public get rowProxy(): Row<T> {
+        return this._rowProxy || (this._rowProxy = Row.new<T>(this.type.children || [], false));
     }
 }

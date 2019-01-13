@@ -24,8 +24,8 @@ export abstract class Visitor {
     public visitMany(nodes: any[], ...args: any[][]) {
         return nodes.map((node, i) => this.visit(node, ...args.map((x) => x[i])));
     }
-    public visit(node: any, ...args: any[]) {
-        return this.getVisitFn(node, false).call(this, node, ...args);
+    public visit(...args: any[]) {
+        return this.getVisitFn(args[0], false).apply(this, args);
     }
     public getVisitFn(node: any, throwIfNotFound = true) {
         return getVisitFn(this, node, throwIfNotFound);

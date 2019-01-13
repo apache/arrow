@@ -290,47 +290,52 @@ function decodeFieldNode(f: _FieldNode) {
 
 /** @ignore */
 function decodeFieldNodes(batch: _RecordBatch) {
-    return Array.from(
-        { length: batch.nodesLength() },
-        (_, i) => batch.nodes(i)!
-    ).filter(Boolean).map(FieldNode.decode);
+    const nodes = [] as FieldNode[];
+    for (let f, i = -1, j = -1, n = batch.nodesLength(); ++i < n;) {
+        if (f = batch.nodes(i)) {
+            nodes[++j] = FieldNode.decode(f);
+        }
+    }
+    return nodes;
 }
 
 /** @ignore */
 function decodeBuffers(batch: _RecordBatch, version: MetadataVersion) {
-    return Array.from(
-        { length: batch.buffersLength() },
-        (_, i) => batch.buffers(i)!
-    ).filter(Boolean).map(v3Compat(version, BufferRegion.decode));
-}
-
-/** @ignore */
-function v3Compat(version: MetadataVersion, decode: (buffer: _Buffer) => BufferRegion) {
-    return (buffer: _Buffer, i: number) => {
+    const bufferRegions = [] as BufferRegion[];
+    for (let b, i = -1, j = -1, n = batch.buffersLength(); ++i < n;) {
+        if (b = batch.buffers(i)) {
         // If this Arrow buffer was written before version 4,
         // advance the buffer's bb_pos 8 bytes to skip past
         // the now-removed page_id field
         if (version < MetadataVersion.V4) {
-            buffer.bb_pos += (8 * (i + 1));
+                b.bb_pos += (8 * (i + 1));
+            }
+            bufferRegions[++j] = BufferRegion.decode(b);
         }
-        return decode(buffer);
-    };
+    }
+    return bufferRegions;
 }
 
 /** @ignore */
 function decodeSchemaFields(schema: _Schema, dictionaries?: Map<number, DataType>, dictionaryFields?: Map<number, Field<Dictionary>[]>) {
-    return Array.from(
-        { length: schema.fieldsLength() },
-        (_, i) => schema.fields(i)!
-    ).filter(Boolean).map((f) => Field.decode(f, dictionaries, dictionaryFields));
+    const fields = [] as Field[];
+    for (let f, i = -1, j = -1, n = schema.fieldsLength(); ++i < n;) {
+        if (f = schema.fields(i)) {
+            fields[++j] = Field.decode(f, dictionaries, dictionaryFields);
+        }
+    }
+    return fields;
 }
 
 /** @ignore */
 function decodeFieldChildren(field: _Field, dictionaries?: Map<number, DataType>, dictionaryFields?: Map<number, Field<Dictionary>[]>): Field[] {
-    return Array.from(
-        { length: field.childrenLength() },
-        (_, i) => field.children(i)!
-    ).filter(Boolean).map((f) => Field.decode(f, dictionaries, dictionaryFields));
+    const children = [] as Field[];
+    for (let f, i = -1, j = -1, n = field.childrenLength(); ++i < n;) {
+        if (f = field.children(i)) {
+            children[++j] = Field.decode(f, dictionaries, dictionaryFields);
+        }
+    }
+    return children;
 }
 
 /** @ignore */
