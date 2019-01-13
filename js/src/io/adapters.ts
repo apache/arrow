@@ -63,8 +63,7 @@ function* fromIterable<T extends ArrayBufferViewInput>(source: Iterable<T> | T):
         if (cmd === 'peek') {
             return joinUint8Arrays(buffers, size)[0];
         }
-        [buffer, buffers] = joinUint8Arrays(buffers, size);
-        bufferLength -= buffer.byteLength;
+        [buffer, buffers, bufferLength] = joinUint8Arrays(buffers, size);
         return buffer;
     }
 
@@ -109,8 +108,7 @@ async function* fromAsyncIterable<T extends ArrayBufferViewInput>(source: AsyncI
         if (cmd === 'peek') {
             return joinUint8Arrays(buffers, size)[0];
         }
-        [buffer, buffers] = joinUint8Arrays(buffers, size);
-        bufferLength -= buffer.byteLength;
+        [buffer, buffers, bufferLength] = joinUint8Arrays(buffers, size);
         return buffer;
     }
 
@@ -159,8 +157,7 @@ async function* fromDOMStream<T extends ArrayBufferViewInput>(source: ReadableSt
         if (cmd === 'peek') {
             return joinUint8Arrays(buffers, size)[0];
         }
-        [buffer, buffers] = joinUint8Arrays(buffers, size);
-        bufferLength -= buffer.byteLength;
+        [buffer, buffers, bufferLength] = joinUint8Arrays(buffers, size);
         return buffer;
     }
 
@@ -313,8 +310,7 @@ async function* fromNodeStream(stream: NodeJS.ReadableStream): AsyncIterableIter
         if (cmd === 'peek') {
             return joinUint8Arrays(buffers, size)[0];
         }
-        [buffer, buffers] = joinUint8Arrays(buffers, size);
-        bufferLength -= buffer.byteLength;
+        [buffer, buffers, bufferLength] = joinUint8Arrays(buffers, size);
         return buffer;
     }
 

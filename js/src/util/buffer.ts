@@ -27,26 +27,29 @@ const SharedArrayBuf = (typeof SharedArrayBuffer !== 'undefined' ? SharedArrayBu
 /** @ignore */
 function collapseContiguousByteRanges(chunks: Uint8Array[]) {
     let result = chunks[0] ? [chunks[0]] : [];
-    let byteLength = chunks[0] ? chunks[0].byteLength : 0;
+    let xOffset: number, yOffset: number, xLen: number, yLen: number;
     for (let x, y, i = 0, j = 0, n = chunks.length; ++i < n;) {
         x = result[j];
         y = chunks[i];
         // continue x and y don't share the same underlying ArrayBuffer
         if (!x || !y || x.buffer !== y.buffer) {
-            y && (byteLength += (result[++j] = y).byteLength);
+            y && (result[++j] = y);
             continue;
         }
-        const { byteOffset: xOffset, byteLength: xLen } = x;
-        const { byteOffset: yOffset, byteLength: yLen } = y;
+        // swap if y starts before x
+        if (y.byteOffset < x.byteOffset) {
+            x = chunks[i]; y = result[j];
+        }
+        ({ byteOffset: xOffset, byteLength: xLen } = x);
+        ({ byteOffset: yOffset, byteLength: yLen } = y);
         // continue if the byte ranges of x and y aren't contiguous
         if ((xOffset + xLen) < yOffset || (yOffset + yLen) < xOffset) {
-            y && (byteLength += (result[++j] = y).byteLength);
+            y && (result[++j] = y);
             continue;
         }
-        byteLength += yLen;
         result[j] = new Uint8Array(x.buffer, xOffset, yOffset - xOffset + yLen);
     }
-    return [result, byteLength] as [Uint8Array[], number];
+    return result;
 }
 
 /** @ignore */
@@ -59,11 +62,12 @@ export function memcpy<TTarget extends ArrayBufferView, TSource extends ArrayBuf
 }
 
 /** @ignore */
-export function joinUint8Arrays(chunks: Uint8Array[], size?: number | null): [Uint8Array, Uint8Array[]] {
+export function joinUint8Arrays(chunks: Uint8Array[], size?: number | null): [Uint8Array, Uint8Array[], number] {
     // collapse chunks that share the same underlying ArrayBuffer and whose byte ranges overlap,
     // to avoid unnecessarily copying the bytes to do this buffer join. This is a common case during
     // streaming, where we may be reading partial byte ranges out of the same underlying ArrayBuffer
-    let [result, byteLength] = collapseContiguousByteRanges(chunks);
+    let result = collapseContiguousByteRanges(chunks);
+    let byteLength = result.reduce((x, b) => x + b.byteLength, 0);
     let source: Uint8Array, sliced: Uint8Array, buffer: Uint8Array | void;
     let offset = 0, index = -1, length = Math.min(size || Infinity, byteLength);
     for (let n = result.length; ++index < n;) {
@@ -79,7 +83,7 @@ export function joinUint8Arrays(chunks: Uint8Array[], size?: number | null): [Ui
         memcpy(buffer || (buffer = new Uint8Array(length)), sliced, offset);
         offset += sliced.length;
     }
-    return [buffer || new Uint8Array(0), result.slice(index)];
+    return [buffer || new Uint8Array(0), result.slice(index), byteLength - (buffer ? buffer.byteLength : 0)];
 }
 
 /** @ignore */
