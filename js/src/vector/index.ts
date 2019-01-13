@@ -134,7 +134,7 @@ BaseVector.prototype[Symbol.iterator] = function baseVectorSymbolIterator<T exte
             VectorCtor.prototype['set'] = partial2(setVisitor.getVisitFn(typeId));
             VectorCtor.prototype['indexOf'] = partial2(indexOfVisitor.getVisitFn(typeId));
             VectorCtor.prototype['toArray'] = partial0(toArrayVisitor.getVisitFn(typeId));
-            VectorCtor.prototype['getByteWidth'] = partial0(byteWidthVisitor.getVisitFn(typeId));
+            VectorCtor.prototype['getByteWidth'] = partialType0(byteWidthVisitor.getVisitFn(typeId));
             VectorCtor.prototype[Symbol.iterator] = partial0(iteratorVisitor.getVisitFn(typeId));
         });
     });
@@ -142,6 +142,11 @@ BaseVector.prototype[Symbol.iterator] = function baseVectorSymbolIterator<T exte
 /** @ignore */
 function partial0<T>(visit: (node: T) => any) {
     return function(this: T) { return visit(this); };
+}
+
+/** @ignore */
+function partialType0<T extends Vector>(visit: (node: T['type']) => any) {
+    return function(this: T) { return visit(this.type); };
 }
 
 /** @ignore */
