@@ -165,7 +165,7 @@
   </index>
   <index id="api-index-0-13-0" role="0.13.0">
     <title>Index of new symbols in 0.13.0</title>
-    <xi:include href="xml/api-index-0.12.0.xml"><xi:fallback /></xi:include>
+    <xi:include href="xml/api-index-0.13.0.xml"><xi:fallback /></xi:include>
   </index>
   <index id="api-index-0-12-0" role="0.12.0">
     <title>Index of new symbols in 0.12.0</title>
