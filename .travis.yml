@@ -230,7 +230,7 @@ matrix:
     - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - nvm install 10.1
+    - nvm install 11.6
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
@@ -240,7 +240,7 @@ matrix:
     language: node_js
     os: linux
     node_js:
-    - '10.1'
+    - '11.6'
     before_script:
     - if [ $ARROW_CI_JS_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
