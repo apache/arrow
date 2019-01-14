@@ -22,6 +22,7 @@
 #include <arrow-glib/basic-array.h>
 #include <arrow-glib/basic-data-type.h>
 #include <arrow-glib/field.h>
+#include <arrow-glib/version.h>
 
 G_BEGIN_DECLS
 
@@ -67,7 +68,12 @@ struct _GArrowListDataTypeClass
 
 GType               garrow_list_data_type_get_type (void) G_GNUC_CONST;
 GArrowListDataType *garrow_list_data_type_new      (GArrowField *field);
+#ifndef GARROW_DISABLE_DEPRECATED
+GARROW_DEPRECATED_IN_0_13_FOR(garrow_list_data_type_get_field)
 GArrowField *garrow_list_data_type_get_value_field (GArrowListDataType *list_data_type);
+#endif
+GARROW_AVAILABLE_IN_0_13
+GArrowField *garrow_list_data_type_get_field (GArrowListDataType *list_data_type);
 
 
 #define GARROW_TYPE_STRUCT_DATA_TYPE (garrow_struct_data_type_get_type())

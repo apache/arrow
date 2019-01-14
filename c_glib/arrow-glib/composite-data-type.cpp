@@ -88,9 +88,26 @@ garrow_list_data_type_new(GArrowField *field)
  * @list_data_type: A #GArrowListDataType.
  *
  * Returns: (transfer full): The field of value.
+ *
+ * Deprecated: 0.13.0:
+ *   Use garrow_list_data_type_get_field() instead.
  */
 GArrowField *
 garrow_list_data_type_get_value_field(GArrowListDataType *list_data_type)
+{
+  return garrow_list_data_type_get_field(list_data_type);
+}
+
+/**
+ * garrow_list_data_type_get_field:
+ * @list_data_type: A #GArrowListDataType.
+ *
+ * Returns: (transfer full): The field of value.
+ *
+ * Since: 0.13.0
+ */
+GArrowField *
+garrow_list_data_type_get_field(GArrowListDataType *list_data_type)
 {
   auto data_type = GARROW_DATA_TYPE(list_data_type);
   auto arrow_data_type = garrow_data_type_get_raw(data_type);

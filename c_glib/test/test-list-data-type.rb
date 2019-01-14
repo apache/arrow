@@ -30,14 +30,14 @@ class TestListDataType < Test::Unit::TestCase
     assert_equal("list<enabled: bool>", @data_type.to_s)
   end
 
-  def test_value_field
+  def test_field
     assert_equal([
                    @field,
                    @field_data_type,
                  ],
                  [
-                   @data_type.value_field,
-                   @data_type.value_field.data_type,
+                   @data_type.field,
+                   @data_type.field.data_type,
                  ])
   end
 end
