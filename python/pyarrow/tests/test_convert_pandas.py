@@ -2224,6 +2224,10 @@ class TestConvertMisc(object):
         assert table.column('B').type == pa.int32()
 
 
+def test_safe_cast_from_float_with_nans_to_int():
+    pa.Array.from_pandas(pd.Series([1, None]), type=pa.int32(), safe=True)
+
+
 def _fully_loaded_dataframe_example():
     index = pd.MultiIndex.from_arrays([
         pd.date_range('2000-01-01', periods=5).repeat(2),
