@@ -93,10 +93,6 @@ struct ObjectTableEntry {
   int64_t data_size;
   /// Size of the object metadata in bytes.
   int64_t metadata_size;
-#ifdef PLASMA_CUDA
-  /// IPC GPU handle to share with clients.
-  std::shared_ptr<::arrow::cuda::CudaIpcMemHandle> ipc_handle;
-#endif
   /// Number of clients currently using this object.
   int ref_count;
   /// Unix epoch of when this object was created.
@@ -108,6 +104,13 @@ struct ObjectTableEntry {
   ObjectState state;
   /// The digest of the object. Used to see if two objects are the same.
   unsigned char digest[kDigestSize];
+
+#ifdef PLASMA_CUDA
+  /// Put CUDA related members at the last to create Python bindings easily.
+
+  /// IPC GPU handle to share with clients.
+  std::shared_ptr<::arrow::cuda::CudaIpcMemHandle> ipc_handle;
+#endif
 };
 
 /// Mapping from ObjectIDs to information about the object.
