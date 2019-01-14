@@ -219,6 +219,15 @@ std::string UnionType::ToString() const {
 // ----------------------------------------------------------------------
 // Struct type
 
+StructType::StructType(const std::vector<std::shared_ptr<Field>>& fields)
+  : NestedType(Type::STRUCT)
+{
+  children_ = fields;
+  for (size_t i = 0; i < children_.size(); ++i) {
+    name_to_index_[children_[i]->name()] = static_cast<int>(i);
+  }
+}
+
 std::string StructType::ToString() const {
   std::stringstream s;
   s << "struct<";
@@ -239,12 +248,6 @@ std::shared_ptr<Field> StructType::GetFieldByName(const std::string& name) const
 }
 
 int StructType::GetFieldIndex(const std::string& name) const {
-  if (children_.size() > 0 && name_to_index_.size() == 0) {
-    for (size_t i = 0; i < children_.size(); ++i) {
-      name_to_index_[children_[i]->name()] = static_cast<int>(i);
-    }
-  }
-
   if (name_to_index_.size() < children_.size()) {
     // There are duplicate field names. Refuse to guess
     int counts = 0;
@@ -318,11 +321,21 @@ std::string NullType::ToString() const { return name(); }
 
 Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields,
                const std::shared_ptr<const KeyValueMetadata>& metadata)
-    : fields_(fields), metadata_(metadata) {}
+    : fields_(fields), metadata_(metadata)
+{
+  for (size_t i = 0; i < fields_.size(); ++i) {
+    name_to_index_[fields_[i]->name()] = static_cast<int>(i);
+  }
+}
 
 Schema::Schema(std::vector<std::shared_ptr<Field>>&& fields,
                const std::shared_ptr<const KeyValueMetadata>& metadata)
-    : fields_(std::move(fields)), metadata_(metadata) {}
+    : fields_(std::move(fields)), metadata_(metadata)
+{
+  for (size_t i = 0; i < fields_.size(); ++i) {
+    name_to_index_[fields_[i]->name()] = static_cast<int>(i);
+  }
+}
 
 bool Schema::Equals(const Schema& other, bool check_metadata) const {
   if (this == &other) {
@@ -357,12 +370,6 @@ std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) const {
 }
 
 int64_t Schema::GetFieldIndex(const std::string& name) const {
-  if (fields_.size() > 0 && name_to_index_.size() == 0) {
-    for (size_t i = 0; i < fields_.size(); ++i) {
-      name_to_index_[fields_[i]->name()] = static_cast<int>(i);
-    }
-  }
-
   auto it = name_to_index_.find(name);
   if (it == name_to_index_.end()) {
     return -1;
