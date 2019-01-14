@@ -46,12 +46,11 @@ call conda create -p %_VERIFICATION_CONDA_ENV% -f -q -y python=%PYTHON% || exit 
 call activate %_VERIFICATION_CONDA_ENV% || exit /B
 
 call conda install -y ^
-      six pytest setuptools numpy pandas cython ^
-      thrift-cpp flatbuffers rapidjson ^
-      cmake ^
-      git ^
-      boost-cpp ^
-      snappy zlib brotli gflags lz4-c zstd -c conda-forge || exit /B
+     python=3.7 ^
+     git ^
+     --file=ci\conda_env_cpp.yml ^
+     --file=ci\conda_env_python.yml ^
+     -c conda-forge || exit /B
 
 set GENERATOR=Visual Studio 14 2015 Win64
 set CONFIGURATION=release
