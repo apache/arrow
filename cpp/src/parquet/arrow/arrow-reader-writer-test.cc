@@ -1857,10 +1857,9 @@ TEST(TestArrowReadWrite, ZeroColumnsNoSegfault) {
   auto schema = ::arrow::schema({});
   auto table = Table::Make(schema, std::vector<std::shared_ptr<Column>>());
   auto sink = std::make_shared<InMemoryOutputStream>();
-  ASSERT_EXIT((static_cast<void>(WriteTable(*table,
-    ::arrow::default_memory_pool(), sink, 123, default_writer_properties(),
-    default_arrow_writer_properties())), exit(0)),
-    ::testing::ExitedWithCode(0), ".*");
+  static_cast<void>(WriteTable(*table, ::arrow::default_memory_pool(), sink, 123,
+                               default_writer_properties(),
+                               default_arrow_writer_properties()));
 }
 
 TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
