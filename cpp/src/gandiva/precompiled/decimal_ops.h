@@ -20,7 +20,9 @@
 
 #include <cstdint>
 #include <string>
-#include "gandiva/decimal_full.h"
+#include "gandiva/decimal_basic_scalar.h"
+
+using DecimalBasic128 = arrow::DecimalBasic128;
 
 namespace gandiva {
 namespace decimalops {
@@ -28,8 +30,8 @@ namespace decimalops {
 /// Return the sum of 'x' and 'y'.
 /// out_precision and out_scale are passed along for efficiency, they must match
 /// the rules in DecimalTypeSql::GetResultType.
-Decimal128 Add(const Decimal128Full& x, const Decimal128Full& y, int32_t out_precision,
-               int32_t out_scale);
+DecimalBasic128 Add(const DecimalBasicScalar128& x, const DecimalBasicScalar128& y,
+                    int32_t out_precision, int32_t out_scale);
 
 }  // namespace decimalops
 }  // namespace gandiva

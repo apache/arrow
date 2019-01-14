@@ -21,7 +21,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 
-#include "gandiva/decimal_full.h"
+#include "gandiva/decimal_scalar.h"
 #include "gandiva/decimal_type_util.h"
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
@@ -36,24 +36,24 @@ namespace gandiva {
                               << " expected : " << (expected).ToString()   \
                               << " actual : " << (actual).ToString();
 
-Decimal128Full decimal_literal(const char* value, int precision, int scale) {
+DecimalScalar128 decimal_literal(const char* value, int precision, int scale) {
   std::string value_string = std::string(value);
-  return Decimal128Full(value_string, precision, scale);
+  return DecimalScalar128(value_string, precision, scale);
 }
 
 class TestDecimalOps : public ::testing::Test {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
-  ArrayPtr MakeDecimalVector(const Decimal128Full& in);
-  void AddAndVerify(const Decimal128Full& x, const Decimal128Full& y,
-                    const Decimal128Full& expected);
+  ArrayPtr MakeDecimalVector(const DecimalScalar128& in);
+  void AddAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
+                    const DecimalScalar128& expected);
 
  protected:
   arrow::MemoryPool* pool_;
 };
 
-ArrayPtr TestDecimalOps::MakeDecimalVector(const Decimal128Full& in) {
+ArrayPtr TestDecimalOps::MakeDecimalVector(const DecimalScalar128& in) {
   std::vector<arrow::Decimal128> ret;
 
   Decimal128 decimal_value = in.value();
@@ -62,8 +62,8 @@ ArrayPtr TestDecimalOps::MakeDecimalVector(const Decimal128Full& in) {
   return MakeArrowArrayDecimal(decimal_type, {decimal_value}, {true});
 }
 
-void TestDecimalOps::AddAndVerify(const Decimal128Full& x, const Decimal128Full& y,
-                                  const Decimal128Full& expected) {
+void TestDecimalOps::AddAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
+                                  const DecimalScalar128& expected) {
   auto x_type = std::make_shared<arrow::Decimal128Type>(x.precision(), x.scale());
   auto y_type = std::make_shared<arrow::Decimal128Type>(y.precision(), y.scale());
   auto field_x = field("x", x_type);
@@ -104,7 +104,7 @@ void TestDecimalOps::AddAndVerify(const Decimal128Full& x, const Decimal128Full&
 
   auto dtype = dynamic_cast<arrow::Decimal128Type*>(out_array->type().get());
   std::string value_string = out_value.ToString(0);
-  Decimal128Full actual{value_string, dtype->precision(), dtype->scale()};
+  DecimalScalar128 actual{value_string, dtype->precision(), dtype->scale()};
 
   EXPECT_DECIMAL_SUM_EQUALS(x, y, expected, actual);
 }

@@ -598,7 +598,7 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
 
     case arrow::Type::DECIMAL: {
       // build code for struct
-      auto decimal_value = dex.holder().get<Decimal128Full>();
+      auto decimal_value = dex.holder().get<DecimalScalar128>();
       auto int_value =
           llvm::ConstantInt::get(llvm::Type::getInt128Ty(*generator_->context()),
                                  decimal_value.value().ToIntegerString(), 10);

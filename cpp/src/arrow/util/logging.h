@@ -18,6 +18,20 @@
 #ifndef ARROW_UTIL_LOGGING_H
 #define ARROW_UTIL_LOGGING_H
 
+#ifdef GANDIVA_IR
+
+#define ARROW_IGNORE_EXPR(expr) ((void)(expr))
+
+#define DCHECK(condition) ARROW_IGNORE_EXPR(condition)
+#define DCHECK_OK(status) ARROW_IGNORE_EXPR(status)
+#define DCHECK_EQ(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK_NE(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK_LE(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK_LT(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK_GE(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK_GT(val1, val2) ARROW_IGNORE_EXPR(val1)
+
+#else  // !GANDIVA_IR
 #include <iostream>
 #include <memory>
 #include <string>
@@ -185,5 +199,6 @@ class ARROW_EXPORT Voidify {
 
 }  // namespace util
 }  // namespace arrow
+#endif  // GANDIVA_IR
 
 #endif  // ARROW_UTIL_LOGGING_H

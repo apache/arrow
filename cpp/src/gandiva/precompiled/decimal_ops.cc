@@ -27,17 +27,17 @@
 namespace gandiva {
 namespace decimalops {
 
-static Decimal128 CheckAndIncreaseScale(Decimal128 in, int32_t delta) {
+static DecimalBasic128 CheckAndIncreaseScale(DecimalBasic128 in, int32_t delta) {
   return (delta <= 0) ? in : in.IncreaseScaleBy(delta);
 }
 
-static Decimal128 CheckAndReduceScale(Decimal128 in, int32_t delta) {
+static DecimalBasic128 CheckAndReduceScale(DecimalBasic128 in, int32_t delta) {
   return (delta <= 0) ? in : in.ReduceScaleBy(delta);
 }
 
 /// Adjust x and y to the same scale, and add them.
-static Decimal128 AddFastPath(const Decimal128Full& x, const Decimal128Full& y,
-                              int32_t out_scale) {
+static DecimalBasic128 AddFastPath(const DecimalBasicScalar128& x,
+                                   const DecimalBasicScalar128& y, int32_t out_scale) {
   auto higher_scale = std::max(x.scale(), y.scale());
 
   auto x_scaled = CheckAndIncreaseScale(x.value(), higher_scale - x.scale());
@@ -46,21 +46,22 @@ static Decimal128 AddFastPath(const Decimal128Full& x, const Decimal128Full& y,
 }
 
 /// Add x and y, caller has ensured there can be no overflow.
-static Decimal128 AddNoOverflow(const Decimal128Full& x, const Decimal128Full& y,
-                                int32_t out_scale) {
+static DecimalBasic128 AddNoOverflow(const DecimalBasicScalar128& x,
+                                     const DecimalBasicScalar128& y, int32_t out_scale) {
   auto higher_scale = std::max(x.scale(), y.scale());
   auto sum = AddFastPath(x, y, out_scale);
   return CheckAndReduceScale(sum, higher_scale - out_scale);
 }
 
 /// Both x_value and y_value must be >= 0
-static Decimal128 AddLargePositive(const Decimal128Full& x, const Decimal128Full& y,
-                                   int32_t out_scale) {
+static DecimalBasic128 AddLargePositive(const DecimalBasicScalar128& x,
+                                        const DecimalBasicScalar128& y,
+                                        int32_t out_scale) {
   DCHECK_GE(x.value(), 0);
   DCHECK_GE(y.value(), 0);
 
   // separate out whole/fractions.
-  Decimal128 x_left, x_right, y_left, y_right;
+  DecimalBasic128 x_left, x_right, y_left, y_right;
   x.value().GetWholeAndFraction(x.scale(), &x_left, &x_right);
   y.value().GetWholeAndFraction(y.scale(), &y_left, &y_right);
 
@@ -69,9 +70,9 @@ static Decimal128 AddLargePositive(const Decimal128Full& x, const Decimal128Full
   auto x_right_scaled = CheckAndIncreaseScale(x_right, higher_scale - x.scale());
   auto y_right_scaled = CheckAndIncreaseScale(y_right, higher_scale - y.scale());
 
-  Decimal128 right;
-  Decimal128 carry_to_left;
-  auto multiplier = Decimal128::GetScaleMultiplier(higher_scale);
+  DecimalBasic128 right;
+  DecimalBasic128 carry_to_left;
+  auto multiplier = DecimalBasic128::GetScaleMultiplier(higher_scale);
   if (x_right_scaled >= multiplier - y_right_scaled) {
     right = x_right_scaled - (multiplier - y_right_scaled);
     carry_to_left = 1;
@@ -82,18 +83,19 @@ static Decimal128 AddLargePositive(const Decimal128Full& x, const Decimal128Full
   right = CheckAndReduceScale(right, higher_scale - out_scale);
 
   auto left = x_left + y_left + carry_to_left;
-  return (left * Decimal128::GetScaleMultiplier(out_scale)) + right;
+  return (left * DecimalBasic128::GetScaleMultiplier(out_scale)) + right;
 }
 
 /// x_value and y_value cannot be 0, and one must be positive and the other negative.
-static Decimal128 AddLargeNegative(const Decimal128Full& x, const Decimal128Full& y,
-                                   int32_t out_scale) {
+static DecimalBasic128 AddLargeNegative(const DecimalBasicScalar128& x,
+                                        const DecimalBasicScalar128& y,
+                                        int32_t out_scale) {
   DCHECK_NE(x.value(), 0);
   DCHECK_NE(y.value(), 0);
   DCHECK((x.value() < 0 && y.value() > 0) || (x.value() > 0 && y.value() < 0));
 
   // separate out whole/fractions.
-  Decimal128 x_left, x_right, y_left, y_right;
+  DecimalBasic128 x_left, x_right, y_left, y_right;
   x.value().GetWholeAndFraction(x.scale(), &x_left, &x_right);
   y.value().GetWholeAndFraction(y.scale(), &y_left, &y_right);
 
@@ -111,24 +113,24 @@ static Decimal128 AddLargeNegative(const Decimal128Full& x, const Decimal128Full
   // zero, then nothing needs to be done.
   if (left < 0 && right > 0) {
     left += 1;
-    right -= Decimal128::GetScaleMultiplier(higher_scale);
+    right -= DecimalBasic128::GetScaleMultiplier(higher_scale);
   } else if (left > 0 && right < 0) {
     left -= 1;
-    right += Decimal128::GetScaleMultiplier(higher_scale);
+    right += DecimalBasic128::GetScaleMultiplier(higher_scale);
   }
   right = CheckAndReduceScale(right, higher_scale - out_scale);
-  return (left * Decimal128::GetScaleMultiplier(out_scale)) + right;
+  return (left * DecimalBasic128::GetScaleMultiplier(out_scale)) + right;
 }
 
-static Decimal128 AddLarge(const Decimal128Full& x, const Decimal128Full& y,
-                           int32_t out_scale) {
+static DecimalBasic128 AddLarge(const DecimalBasicScalar128& x,
+                                const DecimalBasicScalar128& y, int32_t out_scale) {
   if (x.value() >= 0 && y.value() >= 0) {
     // both positive or 0
     return AddLargePositive(x, y, out_scale);
   } else if (x.value() <= 0 && y.value() <= 0) {
     // both negative or 0
-    Decimal128Full x_neg(-x.value(), x.precision(), x.scale());
-    Decimal128Full y_neg(-y.value(), y.precision(), y.scale());
+    DecimalBasicScalar128 x_neg(-x.value(), x.precision(), x.scale());
+    DecimalBasicScalar128 y_neg(-y.value(), y.precision(), y.scale());
     return -AddLargePositive(x_neg, y_neg, out_scale);
   } else {
     // one positive and the other negative
@@ -164,7 +166,8 @@ inline int32_t MinLeadingZerosAfterScaling(int32_t num_lz, int32_t scale_by) {
 }
 
 // Returns the maximum possible number of bits required to represent num * 10^scale_by.
-inline int32_t MaxBitsRequiredAfterScaling(const Decimal128Full& num, int32_t scale_by) {
+inline int32_t MaxBitsRequiredAfterScaling(const DecimalBasicScalar128& num,
+                                           int32_t scale_by) {
   auto value = num.value();
   auto value_abs = value.Abs();
 
@@ -176,7 +179,8 @@ inline int32_t MaxBitsRequiredAfterScaling(const Decimal128Full& num, int32_t sc
 
 // Returns the minimum number of leading zero x or y would have after one of them gets
 // scaled up to match the scale of the other one.
-inline int32_t MinLeadingZeros(const Decimal128Full& x, const Decimal128Full& y) {
+inline int32_t MinLeadingZeros(const DecimalBasicScalar128& x,
+                               const DecimalBasicScalar128& y) {
   auto x_value = x.value();
   auto x_value_abs = x_value.Abs();
 
@@ -193,8 +197,8 @@ inline int32_t MinLeadingZeros(const Decimal128Full& x, const Decimal128Full& y)
   return std::min(x_lz, y_lz);
 }
 
-Decimal128 Add(const Decimal128Full& x, const Decimal128Full& y, int32_t out_precision,
-               int32_t out_scale) {
+DecimalBasic128 Add(const DecimalBasicScalar128& x, const DecimalBasicScalar128& y,
+                    int32_t out_precision, int32_t out_scale) {
   if (out_precision < DecimalTypeUtil::kMaxPrecision) {
     // fast-path add
     return AddFastPath(x, y, out_scale);

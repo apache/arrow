@@ -105,6 +105,7 @@ set(ARROW_SRCS
   util/compression.cc
   util/cpu-info.cc
   util/decimal.cc
+  util/decimal_basic.cc
   util/int-util.cc
   util/io-util.cc
   util/logging.cc
