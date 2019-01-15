@@ -20,6 +20,7 @@
 require "rubygems"
 require "bundler/gem_helper"
 require "yard"
+require 'rake/extensiontask'
 
 base_dir = File.join(__dir__)
 
@@ -41,3 +42,5 @@ task default: :test
 
 YARD::Rake::YardocTask.new do |task|
 end
+
+Rake::ExtensionTask.new('arrow')
