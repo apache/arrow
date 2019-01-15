@@ -105,7 +105,7 @@ popd
 
 call deactivate
 
-conda create -n wheel_test -q -y -c conda-forge/label/cf201901 python=%PYTHON% || exit /B
+conda create -n wheel_test -q -y python=%PYTHON% || exit /B
 
 call activate wheel_test
 

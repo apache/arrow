@@ -19,8 +19,8 @@
 
 @rem Validate cmake script behaviour on missed lib in toolchain
 set CONDA_ENV=arrow-cmake-tests-libs
-conda create -n %CONDA_ENV% -q -y -c conda-forge/label/cf201901
-conda install -n %CONDA_ENV% -q -y -c conda-forge/label/cf201901 boost-cpp
+conda create -n %CONDA_ENV% -q -y
+conda install -n %CONDA_ENV% -q -y -c conda-forge boost-cpp
 call activate %CONDA_ENV%
 
 set BUILD_DIR=cpp\build-cmake-test
@@ -161,8 +161,8 @@ call deactivate
 
 @rem Validate libs availability in conda toolchain
 set CONDA_ENV=arrow-cmake-tests-toolchain
-conda create -n %CONDA_ENV% -q -y -c conda-forge/label/cf201901
-conda install -n %CONDA_ENV% -q -y -c conda-forge/label/cf201901 ^
+conda create -n %CONDA_ENV% -q -y
+conda install -n %CONDA_ENV% -q -y -c conda-forge ^
       --file=ci\conda_env_cpp.yml
 call activate %CONDA_ENV%
 

@@ -75,9 +75,13 @@ $CMAKE_COMMON_FLAGS \
 -DARROW_INSTALL_NAME_RPATH=OFF"
 fi
 
+ARROW_CXXFLAGS=""
+
 # Use Ninja for faster builds when using toolchain
 if [ $ARROW_TRAVIS_USE_TOOLCHAIN == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -GNinja"
+  # Make sure the toolchain linker (from binutils package) is picked up by clang
+  ARROW_CXXFLAGS="$ARROW_CXXFLAGS -B$CPP_TOOLCHAIN/bin"
 fi
 
 if [ $ARROW_TRAVIS_PLASMA == "1" ]; then
@@ -135,6 +139,7 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
           $CMAKE_LINUX_FLAGS \
           -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
           -DBUILD_WARNING_LEVEL=$ARROW_BUILD_WARNING_LEVEL \
+          -DARROW_CXXFLAGS="$ARROW_CXXFLAGS" \
           $ARROW_CPP_DIR
 else
     if [ "$using_homebrew" = "yes" ]; then

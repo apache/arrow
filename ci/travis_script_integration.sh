@@ -28,7 +28,7 @@ export ARROW_CPP_EXE_PATH=$ARROW_CPP_BUILD_DIR/debug
 pushd $ARROW_JAVA_DIR
 
 echo "mvn package"
-mvn -B clean package 2>&1 > mvn_package.log || (cat mvn_package.log && false)
+$TRAVIS_MVN -B clean package 2>&1 > mvn_package.log || (cat mvn_package.log && false)
 
 popd
 
@@ -43,14 +43,14 @@ popd
 pushd $ARROW_INTEGRATION_DIR
 
 CONDA_ENV_NAME=arrow-integration-test
-conda create -y -q -n $CONDA_ENV_NAME -c conda-forge/label/cf201901 python=3.5
+conda create -y -q -n $CONDA_ENV_NAME python=3.6
 conda activate $CONDA_ENV_NAME
 
 # faster builds, please
-conda install -y nomkl -c conda-forge/label/cf201901
+conda install -y nomkl
 
 # Expensive dependencies install from Continuum package repo
-conda install -y pip numpy six -c conda-forge/label/cf201901
+conda install -y pip numpy six
 
 # ARROW-4008: Create a directory to write temporary files since /tmp can be
 # unstable in Travis CI
