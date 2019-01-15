@@ -18,8 +18,9 @@
 cython
 cloudpickle
 hypothesis
-numpy
+numpy=1.15.4
 pandas
 pytest
 setuptools
 setuptools_scm
+six
