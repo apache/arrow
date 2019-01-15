@@ -21,7 +21,7 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/aggregation.h"
 #include "arrow/compute/kernels/monoid.h"
-#include "arrow/compute/kernels/monoid_impl.h"
+#include "arrow/compute/kernels/monoid-impl.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/visitor_inline.h"
@@ -30,7 +30,7 @@ namespace arrow {
 namespace compute {
 
 template <typename NumericType>
-using SumMonoidType = MaxMonoid<typename NumericType::c_type>;
+using SumMonoidType = SumMonoid<typename NumericType::c_type>;
 
 template <typename NumericType>
 using SumAggregateState = MonoidAggregateState<NumericType, SumMonoidType<NumericType>>;

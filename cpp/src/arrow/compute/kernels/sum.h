@@ -33,6 +33,7 @@ struct Datum;
 class FunctionContext;
 
 /// \brief Sum values of a numeric array.
+///
 /// \param[in] context the FunctionContext
 /// \param[in] value datum to sum, expecting Array or ChunkedArray
 /// \param[out] out resulting datum
@@ -43,6 +44,7 @@ ARROW_EXPORT
 Status Sum(FunctionContext* context, const Datum& value, Datum* out);
 
 /// \brief Sum values of a numeric array.
+///
 /// \param[in] context the FunctionContext
 /// \param[in] array to sum
 /// \param[out] out resulting datum
