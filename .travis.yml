@@ -16,7 +16,7 @@
 # under the License.
 
 sudo: required
-dist: trusty
+dist: xenial
 
 services:
   - docker
@@ -38,7 +38,6 @@ before_install:
   - |
       if [ $TRAVIS_OS_NAME == "linux" ]; then
         sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"
-        sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
         sudo apt-get update -qq
       fi
   - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
@@ -72,10 +71,10 @@ matrix:
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_GANDIVA=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    - CC="clang-6.0"
-    - CXX="clang++-6.0"
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
+    - export CC="clang-6.0"
+    - export CXX="clang++-6.0"
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     # If either C++ or Python changed, we must install the C++ libraries
@@ -84,7 +83,7 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
   # Separating Valgrind and C++ coverage makes individual jobs shorter
-  - name: "C++ unit tests w/ gcc 4.8, coverage"
+  - name: "C++ unit tests w/ gcc 5.4, coverage"
     compiler: gcc
     language: cpp
     os: linux
@@ -109,7 +108,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh || travis_terminate 1
-  - name: "Python 2.7 and 3.6 unit tests w/ Valgrind, gcc 4.8, coverage"
+  - name: "Python 2.7 and 3.6 unit tests w/ Valgrind, gcc 5.4, coverage"
     compiler: gcc
     language: cpp
     os: linux
@@ -171,10 +170,10 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh
-  - name: "[OS X] Python w/ XCode 6.4"
+  - name: "[OS X] Python w/ XCode 7.3"
     compiler: clang
     language: cpp
-    osx_image: xcode6.4
+    osx_image: xcode7.3
     os: osx
     cache:
     addons:
@@ -182,6 +181,7 @@ matrix:
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - ARROW_TRAVIS_OPTIONAL_INSTALL=1
+    - MACOSX_DEPLOYMENT_TARGET="10.9"
     before_script:
     script:
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
@@ -224,10 +224,10 @@ matrix:
     env:
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_PLASMA_JAVA_CLIENT=1
-    - CC="clang-6.0"
-    - CXX="clang++-6.0"
     before_script:
     - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
+    - export CC="clang-6.0"
+    - export CXX="clang++-6.0"
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - nvm install 11.6
@@ -247,7 +247,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
-  - name: "C++ & GLib & Ruby w/ gcc 4.9"
+  - name: "C++ & GLib & Ruby w/ gcc 5.4"
     compiler: gcc
     language: cpp
     os: linux
@@ -257,7 +257,6 @@ matrix:
     - ARROW_TRAVIS_USE_VENDORED_BOOST=1
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_PLASMA=1
-    - MATRIX_EVAL="CC=gcc-4.9 && CXX=g++-4.9"
     before_script:
     - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
@@ -327,6 +326,7 @@ matrix:
     language: r
     cache: packages
     latex: false
+    dist: trusty
     env:
     - ARROW_TRAVIS_PARQUET=1
     before_install:

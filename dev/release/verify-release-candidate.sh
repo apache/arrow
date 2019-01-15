@@ -174,7 +174,7 @@ setup_miniconda() {
 
   . $MINICONDA/etc/profile.d/conda.sh
 
-  conda create -n arrow-test -y -q -c conda-forge/label/cf201901 \
+  conda create -n arrow-test -y -q -c conda-forge \
         python=3.6 \
         nomkl \
         numpy \
