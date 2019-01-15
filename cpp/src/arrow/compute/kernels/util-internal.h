@@ -66,7 +66,7 @@ Datum WrapArraysLike(const Datum& value,
 ARROW_EXPORT
 Datum WrapDatumsLike(const Datum& value, const std::vector<Datum>& datums);
 
-/// \brief Buffer used to preallocate outputs for primitive types.
+/// \brief Kernel used to preallocate outputs for primitive types.
 class PrimitiveAllocatingUnaryKernel : public UnaryKernel {
  public:
   explicit PrimitiveAllocatingUnaryKernel(std::unique_ptr<UnaryKernel> delegate);
