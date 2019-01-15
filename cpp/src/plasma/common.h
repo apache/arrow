@@ -72,6 +72,12 @@ enum class ObjectState : int {
   PLASMA_SEALED
 };
 
+namespace internal {
+
+struct CudaIpcPlaceholder {};
+
+}  //  namespace internal
+
 /// This type is used by the Plasma store. It is here because it is exposed to
 /// the eviction policy.
 struct ObjectTableEntry {
@@ -106,10 +112,10 @@ struct ObjectTableEntry {
   unsigned char digest[kDigestSize];
 
 #ifdef PLASMA_CUDA
-  /// Put CUDA related members at the last to create Python bindings easily.
-
   /// IPC GPU handle to share with clients.
   std::shared_ptr<::arrow::cuda::CudaIpcMemHandle> ipc_handle;
+#else
+  std::shared_ptr<internal::CudaIpcPlaceholder> ipc_handle;
 #endif
 };
 
