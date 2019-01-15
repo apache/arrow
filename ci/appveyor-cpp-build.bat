@@ -98,8 +98,8 @@ if "%JOB%" == "Build_Debug" (
 conda create -n arrow -q -y -c conda-forge ^
       --file=ci\conda_env_python.yml ^
       python=%PYTHON% ^
-      numpy=1.14.0 ^
-      thrift-cpp=0.11.0 ^
+      numpy=1.14 ^
+      thrift-cpp=0.11 ^
       boost-cpp
 
 call activate arrow

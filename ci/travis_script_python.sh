@@ -50,7 +50,7 @@ conda create -y -q -p $CONDA_ENV_DIR \
       nomkl \
       cmake \
       pip \
-      numpy=1.14.0 \
+      numpy=1.14 \
       python=${PYTHON_VERSION} \
       ${CONDA_JVM_DEPS}
 
