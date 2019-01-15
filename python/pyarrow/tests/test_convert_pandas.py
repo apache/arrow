@@ -2270,10 +2270,8 @@ def _check_serialize_components_roundtrip(df):
     tm.assert_frame_equal(df, deserialized)
 
 
-@pytest.mark.skipif(
-    LooseVersion(np.__version__) >= '0.16',
-    'Until https://github.com/numpy/numpy/issues/12745 is resolved'
-)
+@pytest.mark.skipif(LooseVersion(np.__version__) >= '0.16',
+                    reason='Until numpy/numpy#12745 is resolved')
 def test_serialize_deserialize_pandas():
     # ARROW-1784, serialize and deserialize DataFrame by decomposing
     # BlockManager
