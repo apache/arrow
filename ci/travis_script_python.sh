@@ -127,9 +127,9 @@ pushd $ARROW_PYTHON_DIR
 pip install -r requirements.txt
 
 # FIXME(kszucs): disabled in https://github.com/apache/arrow/pull/3406
-# if [ "$PYTHON_VERSION" == "3.6" ]; then
-#     pip install -q pickle5
-# fi
+if [ "$PYTHON_VERSION" == "3.6" ]; then
+    pip install -vvv pickle5 || true
+fi
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     export PYARROW_GENERATE_COVERAGE=1
     pip install -q coverage
