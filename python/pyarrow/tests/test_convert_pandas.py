@@ -23,6 +23,7 @@ import multiprocessing as mp
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta
+from distutils.version import LooseVersion
 
 import hypothesis as h
 import hypothesis.extra.pytz as tzst
@@ -2224,8 +2225,6 @@ class TestConvertMisc(object):
 
 
 def _fully_loaded_dataframe_example():
-    from distutils.version import LooseVersion
-
     index = pd.MultiIndex.from_arrays([
         pd.date_range('2000-01-01', periods=5).repeat(2),
         np.tile(np.array(['foo', 'bar'], dtype=object), 5)
@@ -2271,6 +2270,8 @@ def _check_serialize_components_roundtrip(df):
     tm.assert_frame_equal(df, deserialized)
 
 
+@pytest.mark.skipif(LooseVersion(np.__version__) >= '0.16',
+                    reason='Until numpy/numpy#12745 is resolved')
 def test_serialize_deserialize_pandas():
     # ARROW-1784, serialize and deserialize DataFrame by decomposing
     # BlockManager
