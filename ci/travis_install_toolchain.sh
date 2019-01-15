@@ -27,7 +27,7 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
     fi
 
     # Set up C++ toolchain from conda-forge packages for faster builds
-    conda create -y -q -p $CPP_TOOLCHAIN \
+    conda create -y -q -p $CPP_TOOLCHAIN -c conda-forge/label/cf201901 \
         --file=$TRAVIS_BUILD_DIR/ci/conda_env_cpp.yml \
         ${CONDA_LLVM} \
         ccache \

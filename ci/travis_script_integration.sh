@@ -43,14 +43,14 @@ popd
 pushd $ARROW_INTEGRATION_DIR
 
 CONDA_ENV_NAME=arrow-integration-test
-conda create -y -q -n $CONDA_ENV_NAME python=3.5
+conda create -y -q -n $CONDA_ENV_NAME -c conda-forge/label/cf201901 python=3.5
 conda activate $CONDA_ENV_NAME
 
 # faster builds, please
-conda install -y nomkl
+conda install -y nomkl -c conda-forge/label/cf201901
 
 # Expensive dependencies install from Continuum package repo
-conda install -y pip numpy six
+conda install -y pip numpy six -c conda-forge/label/cf201901
 
 # ARROW-4008: Create a directory to write temporary files since /tmp can be
 # unstable in Travis CI

@@ -39,7 +39,7 @@ if defined need_vcvarsall (
     )
 )
 
-if "%GENERATOR%"=="Ninja" conda install -y -q ninja
+if "%GENERATOR%"=="Ninja" conda install -y -q ninja -c conda-forge/label/cf201901
 
 if "%USE_CLCACHE%" == "true" (
     @rem Use clcache for faster builds

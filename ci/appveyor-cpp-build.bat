@@ -95,7 +95,7 @@ if "%JOB%" == "Build_Debug" (
   exit /B 0
 )
 
-conda create -n arrow -q -y -c conda-forge ^
+conda create -n arrow -q -y -c conda-forge/label/cf201901 ^
       --file=ci\conda_env_python.yml ^
       python=%PYTHON% ^
       numpy=1.14 ^
@@ -110,7 +110,7 @@ set BOOST_LIBRARYDIR=%CONDA_PREFIX%\Library\lib
 
 if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds
-  conda install -q -y -c conda-forge ^
+  conda install -q -y -c conda-forge/label/cf201901 ^
         --file=ci\conda_env_cpp.yml ^
         python=%PYTHON%
 

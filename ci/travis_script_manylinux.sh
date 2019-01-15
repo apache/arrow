@@ -34,7 +34,7 @@ source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 PYTHON_VERSION=3.6
 CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
 
-conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION
+conda create -y -q -p $CONDA_ENV_DIR -c conda-forge/label/cf201901 python=$PYTHON_VERSION
 conda activate $CONDA_ENV_DIR
 
 pip install -q tensorflow
