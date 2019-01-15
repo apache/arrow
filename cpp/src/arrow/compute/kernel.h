@@ -154,9 +154,9 @@ struct ARROW_EXPORT Datum {
 /// \brief An function of a single input argument.
 ///
 /// Note to implementors:  Try to avoid making kernels that allocate memory if
-/// the output size is a determinstic function of the Input Datum's metadata.
+/// the output size is a deterministic function of the Input Datum's metadata.
 /// Instead separate the logic of the kernel and allocations necessary into
-/// two different kernels.  Some reusable kernels that allocate buffers without
+/// two different kernels.  Some reusable kernels that allocate buffers
 /// and delegate computation to another kernel are available in util-internal.h.
 class ARROW_EXPORT UnaryKernel : public OpKernel {
  public:
