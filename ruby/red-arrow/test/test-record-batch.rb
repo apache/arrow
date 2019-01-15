@@ -122,5 +122,25 @@ class RecordBatchTest < Test::Unit::TestCase
         end
       end
     end
+
+    sub_test_case("#raw_records") do
+      def setup
+        @schema = Arrow::Schema.new(name: :string, count: :uint32)
+        @names = Arrow::StringArray.new(["apple", "orange", "watermelon", "octopus"])
+        @counts = Arrow::UInt32Array.new([1, 2, 4, 8])
+        @record_batch = Arrow::RecordBatch.new(@schema, @counts.length, [@names, @counts])
+      end
+
+      test("default") do
+        raw_records = @record_batch.raw_records
+        assert_equal([
+                       ["apple", 1],
+                       ["orange", 2],
+                       ["watermelon", 4],
+                       ["octopus", 8],
+                     ],
+                     raw_records)
+      end
+    end
   end
 end
