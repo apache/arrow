@@ -56,11 +56,9 @@ before_script:
   - source run_conda_forge_build_setup
 
 script:
-  - make_build_number ./ ./pyarrow variants/{{ config }}.yaml
   - |
     conda build --croot $TRAVIS_HOME/conda_build_root \
                 --output-folder . \
-                --clobber-file variants/clobber_{{ config }}.yaml \
                 -m variants/{{ config }}.yaml \
                 parquet-cpp arrow-cpp pyarrow
 

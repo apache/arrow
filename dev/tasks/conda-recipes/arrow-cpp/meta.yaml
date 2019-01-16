@@ -23,7 +23,7 @@ source:
   path: ../../../../
 
 build:
-  number: 1000
+  number: 0
   skip: true  # [win32]
   skip: true  # [win and py<35]
   features:
