@@ -52,21 +52,24 @@ install:
     echo ""
     echo "Configuring conda."
     source /Users/travis/miniconda3/bin/activate root
+
     conda install -n root -c conda-forge --quiet --yes conda-forge-ci-setup=2
+
 
 before_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
   - pushd arrow/dev/tasks/conda-recipes
+
   # Configure conda
   - setup_conda_rc ./ ./ {{ variant_config_file }}
   - source run_conda_forge_build_setup
 
 script:
-  # Don't need to run make_build_number, no build number decrementation happens, it's always 0
+  - make_build_number ./ ./pyarrow ./clobber.yaml
   - |
-    conda build --croot $TRAVIS_HOME/conda_build_root \
-                --output-folder . \
+    conda build --output-folder . \
+                --clobber-file ./clobber.yaml \
                 -m {{ variant_config_file }} \
                 parquet-cpp arrow-cpp pyarrow
 
