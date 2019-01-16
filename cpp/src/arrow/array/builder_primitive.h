@@ -53,8 +53,8 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   using ArrayBuilder::Advance;
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
-  /// The memory at the corresponding data slot is set to 0 to prevent uninitialized
-  /// memory access
+  /// The memory at the corresponding data slot is set to 0 to prevent
+  /// uninitialized memory access
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
     ARROW_RETURN_NOT_OK(Reserve(length));
     memset(raw_data_ + length_, 0,
@@ -194,6 +194,7 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
       : PrimitiveBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
   using ArrayBuilder::UnsafeAppendNull;
+  using ArrayBuilder::UnsafeAppendToBitmap;
   using PrimitiveBuilder<T>::AppendValues;
   using PrimitiveBuilder<T>::Resize;
   using PrimitiveBuilder<T>::Reserve;
