@@ -52,16 +52,16 @@ before_script:
   - pushd arrow/dev/tasks/conda-recipes
 
   # Configure conda
-  - setup_conda_rc ./ ./ {{ variant_config_file }}
+  - setup_conda_rc ./ ./ variants/{{ config }}.yaml
   - source run_conda_forge_build_setup
 
 script:
-  - make_build_number ./ ./pyarrow ./clobber.yaml
+  - make_build_number ./ ./pyarrow variants/{{ config }}.yaml
   - |
     conda build --croot $TRAVIS_HOME/conda_build_root \
                 --output-folder . \
-                --clobber-file ./clobber.yaml \
-                -m {{ variant_config_file }} \
+                --clobber-file variants/clobber_{{ config }}.yaml \
+                -m variants/{{ config }}.yaml \
                 parquet-cpp arrow-cpp pyarrow
 
 deploy:
