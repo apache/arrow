@@ -22,15 +22,9 @@ groups:
     - conda-linux-gcc-py27
     - conda-linux-gcc-py36
     - conda-linux-gcc-py37
-    - conda-linux-toolchain-py27
-    - conda-linux-toolchain-py36
-    - conda-linux-toolchain-py37
-    # - conda-osx-clang-py27
-    # - conda-osx-clang-py36
-    # - conda-osx-clang-py37
-    - conda-osx-toolchain-py27
-    - conda-osx-toolchain-py36
-    - conda-osx-toolchain-py37
+    - conda-osx-clang-py27
+    - conda-osx-clang-py36
+    - conda-osx-clang-py37
     - conda-win-vs2015-py36
     - conda-win-vs2015-py37
   wheel:
@@ -74,7 +68,7 @@ tasks:
     platform: linux
     template: conda-recipes/travis.linux.yml
     params:
-      variant_config_file: variants/linux_c_compilergcccxx_compilergxxpython2.7.yaml
+      config: linux_c_compilergcccxx_compilergxxpython2.7
     artifacts:
       - arrow-cpp-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
@@ -83,7 +77,7 @@ tasks:
     platform: linux
     template: conda-recipes/travis.linux.yml
     params:
-      variant_config_file: variants/linux_c_compilergcccxx_compilergxxpython3.6.yaml
+      config: linux_c_compilergcccxx_compilergxxpython3.6
     artifacts:
       - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
@@ -92,90 +86,36 @@ tasks:
     platform: linux
     template: conda-recipes/travis.linux.yml
     params:
-      variant_config_file: variants/linux_c_compilergcccxx_compilergxxpython3.7.yaml
-    artifacts:
-      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
-
-  conda-linux-toolchain-py27:
-    platform: linux
-    template: conda-recipes/travis.linux.yml
-    params:
-      variant_config_file: variants/linux_c_compilertoolchain_ccxx_compilertoolchain_cxxpython2.7.yaml
-    artifacts:
-      - arrow-cpp-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
-
-  conda-linux-toolchain-py36:
-    platform: linux
-    template: conda-recipes/travis.linux.yml
-    params:
-      variant_config_file: variants/linux_c_compilertoolchain_ccxx_compilertoolchain_cxxpython3.6.yaml
-    artifacts:
-      - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
-      - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
-
-  conda-linux-toolchain-py37:
-    platform: linux
-    template: conda-recipes/travis.linux.yml
-    params:
-      variant_config_file: variants/linux_c_compilertoolchain_ccxx_compilertoolchain_cxxpython3.7.yaml
+      config: linux_c_compilergcccxx_compilergxxpython3.7
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
 
   ############################## Conda OSX ####################################
 
-  # conda-osx-clang-py27:
-  #   platform: osx
-  #   template: conda-recipes/travis.osx.yml
-  #   params:
-  #     variant_config_file: variants/osx_c_compilerclangcxx_compilerclangxxpython2.7.yaml
-  #   artifacts:
-  #     - arrow-cpp-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
-  #     - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
-  #
-  # conda-osx-clang-py36:
-  #   platform: osx
-  #   template: conda-recipes/travis.osx.yml
-  #   params:
-  #     variant_config_file: variants/osx_c_compilerclangcxx_compilerclangxxpython3.6.yaml
-  #   artifacts:
-  #     - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
-  #     - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
-  #
-  # conda-osx-clang-py37:
-  #   platform: osx
-  #   template: conda-recipes/travis.osx.yml
-  #   params:
-  #     variant_config_file: variants/osx_c_compilerclangcxx_compilerclangxxpython3.7.yaml
-  #   artifacts:
-  #     - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
-  #     - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
-
-  conda-osx-toolchain-py27:
+  conda-osx-clang-py27:
     platform: osx
     template: conda-recipes/travis.osx.yml
     params:
-      variant_config_file: variants/osx_c_compilertoolchain_ccxx_compilertoolchain_cxxpython2.7.yaml
+      config: osx_c_compilerclangcxx_compilerclangxxpython2.7
     artifacts:
       - arrow-cpp-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
 
-  conda-osx-toolchain-py36:
+  conda-osx-clang-py36:
     platform: osx
     template: conda-recipes/travis.osx.yml
     params:
-      variant_config_file: variants/osx_c_compilertoolchain_ccxx_compilertoolchain_cxxpython3.6.yaml
+      config: osx_c_compilerclangcxx_compilerclangxxpython3.6
     artifacts:
       - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
-  conda-osx-toolchain-py37:
+  conda-osx-clang-py37:
     platform: osx
     template: conda-recipes/travis.osx.yml
     params:
-      variant_config_file: variants/osx_c_compilertoolchain_ccxx_compilertoolchain_cxxpython3.7.yaml
+      config: osx_c_compilerclangcxx_compilerclangxxpython3.7
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
@@ -186,7 +126,7 @@ tasks:
     platform: win
     template: conda-recipes/appveyor.yml
     params:
-      variant_config_file: variants\win_c_compilervs2015cxx_compilervs2015python3.6.yaml
+      config: win_c_compilervs2015cxx_compilervs2015python3.6
     artifacts:
       - arrow-cpp-{no_rc_version}-py36_vc14(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
@@ -195,7 +135,7 @@ tasks:
     platform: win
     template: conda-recipes/appveyor.yml
     params:
-      variant_config_file: variants\win_c_compilervs2015cxx_compilervs2015python3.7.yaml
+      config: win_c_compilervs2015cxx_compilervs2015python3.7
     artifacts:
       - arrow-cpp-{no_rc_version}-py37_vc14(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2

@@ -35,25 +35,26 @@ install:
 
   - cmd: set PYTHONUNBUFFERED=1
 
-  # Add our channels.
-  - cmd: conda.exe config --set show_channel_urls true
-  - cmd: conda.exe config --remove channels defaults
-  - cmd: conda.exe config --add channels defaults
-  - cmd: conda.exe config --add channels conda-forge
-
   # Configure the VM.
-  - cmd: conda.exe install -n root --quiet --yes conda-forge-ci-setup=1
-  - cmd: run_conda_forge_build_setup
+  - cmd: conda.exe install -n root -c conda-forge --quiet --yes conda-forge-ci-setup=2
 
 # Skip .NET project specific build phase.
 build: off
 
 test_script:
+  # Clone arrow
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow || exit /B
   - git -C arrow checkout {{ arrow.head }} || exit /B
-
   - pushd arrow\dev\tasks\conda-recipes
-  - conda.exe build --output-folder . -m {{ variant_config_file }} parquet-cpp arrow-cpp pyarrow
+
+  # Configure conda
+  - cmd: setup_conda_rc .\ .\ variants\{{ config }}.yaml
+  - cmd: run_conda_forge_build_setup
+
+  # Build the recipes
+  - conda.exe build --output-folder . -m variants\{{ config }}.yaml parquet-cpp arrow-cpp pyarrow
+
+  # Rename artifacts
   - pushd win-64
   - for %%f in (*.tar.bz2) do (
       set %%g=%%~nf
