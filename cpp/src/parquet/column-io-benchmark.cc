@@ -35,8 +35,8 @@ std::unique_ptr<Int64Writer> BuildWriter(int64_t output_size, OutputStream* dst,
                                          const WriterProperties* properties) {
   std::unique_ptr<PageWriter> pager =
       PageWriter::Open(dst, Compression::UNCOMPRESSED, metadata);
-  return std::unique_ptr<Int64Writer>(
-      new Int64Writer(metadata, std::move(pager), Encoding::PLAIN, properties));
+  return std::unique_ptr<Int64Writer>(new Int64Writer(
+      metadata, std::move(pager), false /*use_dictionary*/, Encoding::PLAIN, properties));
 }
 
 std::shared_ptr<ColumnDescriptor> Int64Schema(Repetition::type repetition) {

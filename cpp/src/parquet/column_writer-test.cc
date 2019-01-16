@@ -43,11 +43,15 @@ const int SMALL_SIZE = 100;
 const int LARGE_SIZE = 10000;
 // Very large size to test dictionary fallback.
 const int VERY_LARGE_SIZE = 40000;
+// Reduced dictionary page size to use for testing dictionary fallback with valgrind
+const int64_t DICTIONARY_PAGE_SIZE = 1024;
 #else
 // Larger size to test some corner cases, only used in some specific cases.
 const int LARGE_SIZE = 100000;
 // Very large size to test dictionary fallback.
 const int VERY_LARGE_SIZE = 400000;
+// Dictionary page size to use for testing dictionary fallback
+const int64_t DICTIONARY_PAGE_SIZE = 1024 * 1024;
 #endif
 
 template <typename TestType>
@@ -79,12 +83,15 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
   std::shared_ptr<TypedColumnWriter<TestType>> BuildWriter(
       int64_t output_size = SMALL_SIZE,
-      const ColumnProperties& column_properties = ColumnProperties()) {
+      const ColumnProperties& column_properties = ColumnProperties(),
+      const ParquetVersion::type version = ParquetVersion::PARQUET_1_0) {
     sink_.reset(new InMemoryOutputStream());
     WriterProperties::Builder wp_builder;
+    wp_builder.version(version);
     if (column_properties.encoding() == Encoding::PLAIN_DICTIONARY ||
         column_properties.encoding() == Encoding::RLE_DICTIONARY) {
       wp_builder.enable_dictionary();
+      wp_builder.dictionary_pagesize_limit(DICTIONARY_PAGE_SIZE);
     } else {
       wp_builder.disable_dictionary();
       wp_builder.encoding(column_properties.encoding());
@@ -126,6 +133,50 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     this->WriteRequiredWithSettingsSpaced(encoding, compression, enable_dictionary,
                                           enable_statistics, num_rows);
     ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows));
+  }
+
+  void TestDictionaryFallbackEncoding(ParquetVersion::type version) {
+    this->GenerateData(VERY_LARGE_SIZE);
+    ColumnProperties column_properties;
+    column_properties.set_dictionary_enabled(true);
+
+    if (version == ParquetVersion::PARQUET_1_0) {
+      column_properties.set_encoding(Encoding::PLAIN_DICTIONARY);
+    } else {
+      column_properties.set_encoding(Encoding::RLE_DICTIONARY);
+    }
+
+    auto writer = this->BuildWriter(VERY_LARGE_SIZE, column_properties, version);
+
+    writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
+    writer->Close();
+
+    // Read all rows so we are sure that also the non-dictionary pages are read correctly
+    this->SetupValuesOut(VERY_LARGE_SIZE);
+    this->ReadColumnFully();
+    ASSERT_EQ(VERY_LARGE_SIZE, this->values_read_);
+    this->values_.resize(VERY_LARGE_SIZE);
+    ASSERT_EQ(this->values_, this->values_out_);
+    std::vector<Encoding::type> encodings = this->metadata_encodings();
+
+    if (this->type_num() == Type::BOOLEAN) {
+      // Dictionary encoding is not allowed for boolean type
+      // There are 2 encodings (PLAIN, RLE) in a non dictionary encoding case
+      std::vector<Encoding::type> expected({Encoding::PLAIN, Encoding::RLE});
+      ASSERT_EQ(encodings, expected);
+    } else if (version == ParquetVersion::PARQUET_1_0) {
+      // There are 4 encodings (PLAIN_DICTIONARY, PLAIN, RLE, PLAIN) in a fallback case
+      // for version 1.0
+      std::vector<Encoding::type> expected(
+          {Encoding::PLAIN_DICTIONARY, Encoding::PLAIN, Encoding::RLE, Encoding::PLAIN});
+      ASSERT_EQ(encodings, expected);
+    } else {
+      // There are 4 encodings (RLE_DICTIONARY, PLAIN, RLE, PLAIN) in a fallback case for
+      // version 2.0
+      std::vector<Encoding::type> expected(
+          {Encoding::RLE_DICTIONARY, Encoding::PLAIN, Encoding::RLE, Encoding::PLAIN});
+      ASSERT_EQ(encodings, expected);
+    }
   }
 
   void WriteRequiredWithSettings(Encoding::type encoding, Compression::type compression,
@@ -478,32 +529,13 @@ TYPED_TEST(TestPrimitiveWriter, RequiredLargeChunk) {
   ASSERT_EQ(this->values_, this->values_out_);
 }
 
-// Test case for dictionary fallback encoding
-TYPED_TEST(TestPrimitiveWriter, RequiredVeryLargeChunk) {
-  this->GenerateData(VERY_LARGE_SIZE);
+// Test cases for dictionary fallback encoding
+TYPED_TEST(TestPrimitiveWriter, DictionaryFallbackVersion1_0) {
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_1_0);
+}
 
-  auto writer = this->BuildWriter(VERY_LARGE_SIZE, Encoding::PLAIN_DICTIONARY);
-  writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
-  writer->Close();
-
-  // Read all rows so we are sure that also the non-dictionary pages are read correctly
-  this->SetupValuesOut(VERY_LARGE_SIZE);
-  this->ReadColumnFully();
-  ASSERT_EQ(VERY_LARGE_SIZE, this->values_read_);
-  this->values_.resize(VERY_LARGE_SIZE);
-  ASSERT_EQ(this->values_, this->values_out_);
-  std::vector<Encoding::type> encodings = this->metadata_encodings();
-  // There are 3 encodings (RLE, PLAIN_DICTIONARY, PLAIN) in a fallback case
-  // Dictionary encoding is not allowed for boolean type
-  // There are 2 encodings (RLE, PLAIN) in a non dictionary encoding case
-  if (this->type_num() != Type::BOOLEAN) {
-    ASSERT_EQ(Encoding::PLAIN_DICTIONARY, encodings[0]);
-    ASSERT_EQ(Encoding::PLAIN, encodings[1]);
-    ASSERT_EQ(Encoding::RLE, encodings[2]);
-  } else {
-    ASSERT_EQ(Encoding::PLAIN, encodings[0]);
-    ASSERT_EQ(Encoding::RLE, encodings[1]);
-  }
+TYPED_TEST(TestPrimitiveWriter, DictionaryFallbackVersion2_0) {
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_0);
 }
 
 // PARQUET-719
