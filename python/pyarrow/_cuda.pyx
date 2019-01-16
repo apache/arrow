@@ -23,21 +23,29 @@ cimport cpython as cp
 
 
 cdef class Context:
-    """ CUDA driver context.
+    """
+    CUDA driver context.
     """
 
-    def __cinit__(self, int device_number=0, uintptr_t handle=0):
-        """Construct the shared CUDA driver context for a particular device.
+    def __init__(self, *args, **kwargs):
+        """
+        Create a CUDA driver context for a particular device.
+
+        If a CUDA context handle is passed, it is wrapped, otherwise
+        a default CUDA context for the given device is requested.
 
         Parameters
         ----------
-        device_number : int
-          Specify the gpu device for which the CUDA driver context is
+        device_number : int (default 0)
+          Specify the GPU device for which the CUDA driver context is
           requested.
-        handle : int
-          Specify handle for a shared context that has been created by
-          another library.
+        handle : int, optional
+          Specify CUDA handle for a shared context that has been created
+          by another library.
         """
+        # This method exposed because autodoc doesn't pick __cinit__
+
+    def __cinit__(self, int device_number=0, uintptr_t handle=0):
         cdef CCudaDeviceManager* manager
         check_status(CCudaDeviceManager.GetInstance(&manager))
         cdef int n = manager.num_devices()
@@ -55,13 +63,14 @@ cdef class Context:
 
     @staticmethod
     def from_numba(context=None):
-        """Create Context instance from a numba CUDA context.
+        """
+        Create a Context instance from a Numba CUDA context.
 
         Parameters
         ----------
         context : {numba.cuda.cudadrv.driver.Context, None}
-          Specify numba CUDA context instance. When None, use the
-          current numba context.
+          A Numba CUDA context instance.
+          If None, the current Numba context is used.
 
         Returns
         -------
@@ -75,7 +84,8 @@ cdef class Context:
                        handle=context.handle.value)
 
     def to_numba(self):
-        """Convert Context to numba CUDA context.
+        """
+        Convert Context to a Numba CUDA context.
 
         Returns
         -------
@@ -238,7 +248,7 @@ cdef class Context:
 
 
 cdef class IpcMemHandle:
-    """A container for a CUDA IPC handle.
+    """A serializable container for a CUDA IPC handle.
     """
     cdef void init(self, shared_ptr[CCudaIpcMemHandle]& h):
         self.handle = h
@@ -285,14 +295,10 @@ cdef class IpcMemHandle:
 cdef class CudaBuffer(Buffer):
     """An Arrow buffer with data located in a GPU device.
 
-    To create a CudaBuffer instance, use
+    To create a CudaBuffer instance, use Context.device_buffer().
 
-      <Context instance>.device_buffer(data=<object>, offset=<offset>,
-                                       size=<nbytes>)
-
-    The memory allocated in CudaBuffer instance is freed when the
-    instance is deleted.
-
+    The memory allocated in a CudaBuffer is freed when the buffer object
+    is deleted.
     """
 
     def __init__(self):
@@ -529,7 +535,7 @@ cdef class CudaBuffer(Buffer):
         After calling this function, this device memory will not be
         freed when the CudaBuffer is destructed.
 
-        Results
+        Returns
         -------
         ipc_handle : IpcMemHandle
           The exported IPC handle
@@ -774,9 +780,9 @@ def serialize_record_batch(object batch, object ctx):
     Parameters
     ----------
     batch : RecordBatch
-      Specify record batch to write
+      Record batch to write
     ctx : Context
-      Specify context to allocate device memory from
+      CUDA Context to allocate device memory from
 
     Returns
     -------
@@ -797,14 +803,14 @@ def read_message(object source, pool=None):
     Parameters
     ----------
     source : {CudaBuffer, cuda.BufferReader}
-      Specify device buffer or reader of device buffer.
-    pool : {MemoryPool, None}
-      Specify pool to allocate CPU memory for the metadata
+      Device buffer or reader of device buffer.
+    pool : MemoryPool (optional)
+      Pool to allocate CPU memory for the metadata
 
     Returns
     -------
     message : Message
-      the deserialized message, body still on device
+      The deserialized message, body still on device
     """
     cdef:
         Message result = Message.__new__(Message)
@@ -824,16 +830,16 @@ def read_record_batch(object buffer, object schema, pool=None):
     Parameters
     ----------
     buffer :
-      Specify device buffer containing the complete IPC message
+      Device buffer containing the complete IPC message
     schema : Schema
-      Specify schema for the record batch
-    pool : {MemoryPool, None}
-      Specify pool to use for allocating space for the metadata
+      The schema for the record batch
+    pool : MemoryPool (optional)
+      Pool to allocate metadata from
 
     Returns
     -------
     batch : RecordBatch
-      reconstructed record batch, with device pointers
+      Reconstructed record batch, with device pointers
 
     """
     cdef shared_ptr[CSchema] schema_ = pyarrow_unwrap_schema(schema)

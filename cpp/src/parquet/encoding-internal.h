@@ -83,7 +83,10 @@ inline int DecodePlain(const uint8_t* data, int64_t data_size, int num_values,
   if (data_size < bytes_to_decode) {
     ParquetException::EofException();
   }
-  memcpy(out, data, bytes_to_decode);
+  // If bytes_to_decode == 0, data could be null
+  if (bytes_to_decode > 0) {
+    memcpy(out, data, bytes_to_decode);
+  }
   return bytes_to_decode;
 }
 
@@ -382,7 +385,7 @@ template <typename Type>
 inline void DictionaryDecoder<Type>::SetDict(Decoder<Type>* dictionary) {
   int num_dictionary_values = dictionary->values_left();
   dictionary_.Resize(num_dictionary_values);
-  dictionary->Decode(&dictionary_[0], num_dictionary_values);
+  dictionary->Decode(dictionary_.data(), num_dictionary_values);
 }
 
 template <>

@@ -39,4 +39,12 @@ class TestBufferInputStream < Test::Unit::TestCase
     read_buffer = buffer_input_stream.read(3)
     assert_equal("rld", read_buffer.data.to_s)
   end
+
+  def test_peek
+    buffer = Arrow::Buffer.new("Hello World")
+    buffer_input_stream = Arrow::BufferInputStream.new(buffer)
+    peeked_data = buffer_input_stream.peek(5)
+    assert_equal(buffer_input_stream.read(5).data.to_s,
+                 peeked_data.to_s)
+  end
 end

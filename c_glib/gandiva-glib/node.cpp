@@ -95,6 +95,8 @@ G_BEGIN_DECLS
  * #GGandivaStringLiteralNode is a class for a node in the expression tree,
  * representing an UTF-8 encoded string literal.
  *
+ * #GGandivaIfNode is a class for a node in the expression tree, representing an if-else.
+ *
  * Since: 0.12.0
  */
 
@@ -1180,6 +1182,194 @@ ggandiva_string_literal_node_get_value(GGandivaStringLiteralNode *node)
   return value.c_str();
 }
 
+
+typedef struct GGandivaIfNodePrivate_ {
+  GGandivaNode *condition_node;
+  GGandivaNode *then_node;
+  GGandivaNode *else_node;
+} GGandivaIfNodePrivate;
+
+enum {
+  PROP_CONDITION_NODE = 1,
+  PROP_THEN_NODE,
+  PROP_ELSE_NODE,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GGandivaIfNode,
+                           ggandiva_if_node,
+                           GGANDIVA_TYPE_NODE)
+
+#define GGANDIVA_IF_NODE_GET_PRIVATE(object)                 \
+  static_cast<GGandivaIfNodePrivate *>(                      \
+    ggandiva_if_node_get_instance_private(                   \
+      GGANDIVA_IF_NODE(object)))
+
+static void
+ggandiva_if_node_dispose(GObject *object)
+{
+  auto priv = GGANDIVA_IF_NODE_GET_PRIVATE(object);
+
+  if (priv->condition_node) {
+    g_object_unref(priv->condition_node);
+    priv->condition_node = nullptr;
+  }
+
+  if (priv->then_node) {
+    g_object_unref(priv->then_node);
+    priv->then_node = nullptr;
+  }
+
+  if (priv->else_node) {
+    g_object_unref(priv->else_node);
+    priv->else_node = nullptr;
+  }
+
+  G_OBJECT_CLASS(ggandiva_if_node_parent_class)->dispose(object);
+}
+
+static void
+ggandiva_if_node_set_property(GObject *object,
+                              guint prop_id,
+                              const GValue *value,
+                              GParamSpec *pspec)
+{
+  auto priv = GGANDIVA_IF_NODE_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_CONDITION_NODE:
+    priv->condition_node = GGANDIVA_NODE(g_value_dup_object(value));
+    break;
+  case PROP_THEN_NODE:
+    priv->then_node = GGANDIVA_NODE(g_value_dup_object(value));
+    break;
+  case PROP_ELSE_NODE:
+    priv->else_node = GGANDIVA_NODE(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+ggandiva_if_node_get_property(GObject *object,
+                              guint prop_id,
+                              GValue *value,
+                              GParamSpec *pspec)
+{
+  auto priv = GGANDIVA_IF_NODE_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_CONDITION_NODE:
+    g_value_set_object(value, priv->condition_node);
+    break;
+  case PROP_THEN_NODE:
+    g_value_set_object(value, priv->then_node);
+    break;
+  case PROP_ELSE_NODE:
+    g_value_set_object(value, priv->else_node);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+ggandiva_if_node_init(GGandivaIfNode *if_node)
+{
+}
+
+static void
+ggandiva_if_node_class_init(GGandivaIfNodeClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose      = ggandiva_if_node_dispose;
+  gobject_class->set_property = ggandiva_if_node_set_property;
+  gobject_class->get_property = ggandiva_if_node_get_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_object("condition-node",
+                             "Condition node",
+                             "The condition node",
+                             GGANDIVA_TYPE_NODE,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_CONDITION_NODE, spec);
+
+  spec = g_param_spec_object("then-node",
+                             "Then node",
+                             "The then node",
+                             GGANDIVA_TYPE_NODE,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_THEN_NODE, spec);
+
+  spec = g_param_spec_object("else-node",
+                             "Else node",
+                             "The else node",
+                             GGANDIVA_TYPE_NODE,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_ELSE_NODE, spec);
+}
+
+/**
+ * ggandiva_if_node_new:
+ * @condition_node: the node with the condition for if-else expression.
+ * @then_node: the node in case the condition node is true.
+ * @else_node: the node in case the condition node is false.
+ * @return_type: A #GArrowDataType.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GGandivaIfNode or %NULl on error.
+ *
+ * Since: 0.12.0
+ */
+GGandivaIfNode *
+ggandiva_if_node_new(GGandivaNode *condition_node,
+                     GGandivaNode *then_node,
+                     GGandivaNode *else_node,
+                     GArrowDataType *return_type,
+                     GError **error)
+{
+  if (!condition_node || !then_node || !else_node || !return_type) {
+    /* TODO: Improve error message to show which arguments are invalid. */
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "[gandiva][if-literal-node][new] "
+                "all arguments must not NULL");
+    return NULL;
+  }
+  auto gandiva_condition_node = ggandiva_node_get_raw(condition_node);
+  auto gandiva_then_node = ggandiva_node_get_raw(then_node);
+  auto gandiva_else_node = ggandiva_node_get_raw(else_node);
+  auto arrow_return_type = garrow_data_type_get_raw(return_type);
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeIf(gandiva_condition_node,
+                                                       gandiva_then_node,
+                                                       gandiva_else_node,
+                                                       arrow_return_type);
+  if (!gandiva_node) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "[gandiva][if-literal-node][new] "
+                "failed to create: if (<%s>) {<%s>} else {<%s>} -> <%s>",
+                gandiva_condition_node->ToString().c_str(),
+                gandiva_then_node->ToString().c_str(),
+                gandiva_else_node->ToString().c_str(),
+                arrow_return_type->ToString().c_str());
+    return NULL;
+  }
+  return ggandiva_if_node_new_raw(&gandiva_node,
+                                  condition_node,
+                                  then_node,
+                                  else_node,
+                                  return_type);
+}
+
 G_END_DECLS
 
 std::shared_ptr<gandiva::Node>
@@ -1304,4 +1494,21 @@ ggandiva_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
   }
 
   return literal_node;
+}
+
+GGandivaIfNode *
+ggandiva_if_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
+                         GGandivaNode *condition_node,
+                         GGandivaNode *then_node,
+                         GGandivaNode *else_node,
+                         GArrowDataType *return_type)
+{
+  auto if_node = g_object_new(GGANDIVA_TYPE_IF_NODE,
+                              "node", gandiva_node,
+                              "condition-node", condition_node,
+                              "then-node", then_node,
+                              "else-node", else_node,
+                              "return-type", return_type,
+                              NULL);
+  return GGANDIVA_IF_NODE(if_node);
 }

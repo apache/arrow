@@ -51,10 +51,10 @@ HERE=$(cd `dirname "${BASH_SOURCE[0]:-$0}"` && pwd)
 
 ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
 
-: ${ARROW_HAVE_GPU:=}
-if [ -z "$ARROW_HAVE_GPU" ]; then
+: ${ARROW_HAVE_CUDA:=}
+if [ -z "$ARROW_HAVE_CUDA" ]; then
   if nvidia-smi --list-gpus 2>&1 > /dev/null; then
-    ARROW_HAVE_GPU=yes
+    ARROW_HAVE_CUDA=yes
   fi
 fi
 
@@ -87,24 +87,56 @@ fetch_archive() {
   shasum -a 512 -c ${dist_name}.tar.gz.sha512
 }
 
-verify_binary_artifacts() {
-  # --show-progress not supported on wget < 1.16
-  wget --help | grep -q '\--show-progress' && \
-      _WGET_PROGRESS_OPT="-q --show-progress" || _WGET_PROGRESS_OPT=""
+bintray() {
+  local command=$1
+  shift
+  local path=$1
+  shift
+  local url=https://bintray.com/api/v1${path}
+  echo "${command} ${url}" 1>&2
+  curl \
+    --fail \
+    --basic \
+    --user "${BINTRAY_USER}:${BINTRAY_PASSWORD}" \
+    --header "Content-Type: application/json" \
+    --request ${command} \
+    ${url} \
+    "$@" | \
+      jq .
+}
 
-  # download the binaries folder for the current RC
-  rcname=apache-arrow-${VERSION}-rc${RC_NUMBER}
-  wget -P "$rcname" \
-    --quiet \
-    --no-host-directories \
-    --cut-dirs=5 \
-    $_WGET_PROGRESS_OPT \
-    --no-parent \
-    --reject 'index.html*' \
-    --recursive "$ARROW_DIST_URL/$rcname/binaries/"
+download_bintray_files() {
+  local target=$1
+
+  local version_name=${VERSION}-rc${RC_NUMBER}
+
+  local files=$(
+    bintray \
+      GET /packages/${BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}/files | \
+      jq -r ".[].path")
+
+  for file in ${files}; do
+    mkdir -p "$(dirname ${file})"
+    curl \
+      --fail \
+      --location \
+      --output ${file} \
+      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file}
+  done
+}
+
+verify_binary_artifacts() {
+  local download_dir=binaries
+  mkdir -p ${download_dir}
+  pushd ${download_dir}
+
+  # takes longer on slow network
+  for target in centos debian python ubuntu; do
+    download_bintray_files ${target}
+  done
 
   # verify the signature and the checksums of each artifact
-  find $rcname/binaries -name '*.asc' | while read sigfile; do
+  find . -name '*.asc' | while read sigfile; do
     artifact=${sigfile/.asc/}
     gpg --verify $sigfile $artifact || exit 1
 
@@ -112,10 +144,14 @@ verify_binary_artifacts() {
     # basename of the artifact
     pushd $(dirname $artifact)
     base_artifact=$(basename $artifact)
-    shasum -a 256 -c $base_artifact.sha256 || exit 1
+    if [ -f $base_artifact.sha256 ]; then
+      shasum -a 256 -c $base_artifact.sha256 || exit 1
+    fi
     shasum -a 512 -c $base_artifact.sha512 || exit 1
     popd
   done
+
+  popd
 }
 
 setup_tempdir() {
@@ -160,17 +196,19 @@ test_and_install_cpp() {
 
   ARROW_CMAKE_OPTIONS="
 -DCMAKE_INSTALL_PREFIX=$ARROW_HOME
--DCMAKE_INSTALL_LIBDIR=$ARROW_HOME/lib
+-DCMAKE_INSTALL_LIBDIR=lib
 -DARROW_PLASMA=ON
 -DARROW_ORC=ON
 -DARROW_PYTHON=ON
+-DARROW_GANDIVA=ON
 -DARROW_PARQUET=ON
 -DARROW_BOOST_USE_SHARED=ON
 -DCMAKE_BUILD_TYPE=release
+-DARROW_BUILD_TESTS=ON
 -DARROW_BUILD_BENCHMARKS=ON
 "
-  if [ "$ARROW_HAVE_GPU" = "yes" ]; then
-    ARROW_CMAKE_OPTIONS="$ARROW_CMAKE_OPTIONS -DARROW_GPU=ON"
+  if [ "$ARROW_HAVE_CUDA" = "yes" ]; then
+    ARROW_CMAKE_OPTIONS="$ARROW_CMAKE_OPTIONS -DARROW_CUDA=ON"
   fi
   cmake $ARROW_CMAKE_OPTIONS ..
 
@@ -238,17 +276,17 @@ test_js() {
 test_ruby() {
   pushd ruby
 
-  pushd red-arrow
-  bundle install --path vendor/bundle
-  bundle exec ruby test/run-test.rb
-  popd
+  local modules="red-arrow red-plasma red-gandiva red-parquet"
+  if [ "${ARROW_HAVE_CUDA}" = "yes" ]; then
+    modules="${modules} red-arrow-cuda"
+  fi
 
-  if [ "$ARROW_HAVE_GPU" = "yes" ]; then
-    pushd red-arrow-gpu
+  for module in ${modules}; do
+    pushd ${module}
     bundle install --path vendor/bundle
     bundle exec ruby test/run-test.rb
     popd
-  fi
+  done
 
   popd
 }
@@ -274,9 +312,7 @@ test_rust() {
   cargo fmt --all -- --check
   # raises on any warnings
 
-  cargo rustc -- -D warnings
-
-  cargo build
+  RUSTFLAGS="-D warnings" cargo build
   cargo test
 
   popd
@@ -343,7 +379,14 @@ if [ "$ARTIFACT" == "source" ]; then
   test_integration
   test_rust
 else
-  # takes longer on slow network
+  if [ -z "${BINTRAY_PASSWORD}" ]; then
+    echo "BINTRAY_PASSWORD is empty"
+    exit 1
+  fi
+
+  : ${BINTRAY_USER:=$USER}
+  : ${BINTRAY_REPOSITORY:=apache/arrow}
+
   verify_binary_artifacts
 fi
 

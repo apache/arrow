@@ -53,6 +53,7 @@ inline DataTypePtr time32() { return arrow::time32(arrow::TimeUnit::MILLI); }
 inline DataTypePtr time64() { return arrow::time64(arrow::TimeUnit::MICRO); }
 
 inline DataTypePtr timestamp() { return arrow::timestamp(arrow::TimeUnit::MILLI); }
+inline DataTypePtr decimal128() { return arrow::decimal(0, 0); }
 
 struct KeyHash {
   std::size_t operator()(const FunctionSignature* k) const { return k->Hash(); }

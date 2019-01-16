@@ -18,7 +18,12 @@
 import numpy as np
 import timeit
 
-import pyarrow.plasma as plasma
+try:
+    import pyarrow.plasma as plasma
+except ImportError:
+    # TODO(wesm): These are not asv benchmarks, so we can just fail
+    # silently here
+    pass
 
 
 class SimplePlasmaThroughput(object):

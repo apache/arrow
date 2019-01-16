@@ -63,6 +63,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::CopyBitmap;
+using internal::GenerateBitsUnrolled;
 
 namespace py {
 
@@ -246,6 +247,11 @@ class NumPyConverter {
     return Status::OK();
   }
 
+  // Called before ConvertData to ensure Numpy input buffer is in expected
+  // Arrow layout
+  template <typename ArrowType>
+  Status PrepareInputData(std::shared_ptr<Buffer>* data);
+
   // ----------------------------------------------------------------------
   // Traditional visitor conversion for non-object arrays
 
@@ -407,13 +413,31 @@ Status CopyStridedArray(PyArrayObject* arr, const int64_t length, MemoryPool* po
 }  // namespace
 
 template <typename ArrowType>
-inline Status NumPyConverter::ConvertData(std::shared_ptr<Buffer>* data) {
+inline Status NumPyConverter::PrepareInputData(std::shared_ptr<Buffer>* data) {
   if (is_strided()) {
     RETURN_NOT_OK(CopyStridedArray<ArrowType>(arr_, length_, pool_, data));
+  } else if (dtype_->type_num == NPY_BOOL) {
+    int64_t nbytes = BitUtil::BytesForBits(length_);
+    std::shared_ptr<Buffer> buffer;
+    RETURN_NOT_OK(AllocateBuffer(pool_, nbytes, &buffer));
+
+    Ndarray1DIndexer<uint8_t> values(arr_);
+    int64_t i = 0;
+    const auto generate = [&values, &i]() -> bool { return values[i++] > 0; };
+    GenerateBitsUnrolled(buffer->mutable_data(), 0, length_, generate);
+
+    *data = buffer;
   } else {
     // Can zero-copy
     *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));
   }
+
+  return Status::OK();
+}
+
+template <typename ArrowType>
+inline Status NumPyConverter::ConvertData(std::shared_ptr<Buffer>* data) {
+  RETURN_NOT_OK(PrepareInputData<ArrowType>(data));
 
   std::shared_ptr<DataType> input_type;
   RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
@@ -427,36 +451,10 @@ inline Status NumPyConverter::ConvertData(std::shared_ptr<Buffer>* data) {
 }
 
 template <>
-inline Status NumPyConverter::ConvertData<BooleanType>(std::shared_ptr<Buffer>* data) {
-  int64_t nbytes = BitUtil::BytesForBits(length_);
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(AllocateBuffer(pool_, nbytes, &buffer));
-
-  Ndarray1DIndexer<uint8_t> values(arr_);
-
-  uint8_t* bitmap = buffer->mutable_data();
-
-  memset(bitmap, 0, nbytes);
-  for (int i = 0; i < length_; ++i) {
-    if (values[i] > 0) {
-      BitUtil::SetBit(bitmap, i);
-    }
-  }
-
-  *data = buffer;
-  return Status::OK();
-}
-
-template <>
 inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* data) {
-  if (is_strided()) {
-    RETURN_NOT_OK(CopyStridedArray<Date32Type>(arr_, length_, pool_, data));
-  } else {
-    // Can zero-copy
-    *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));
-  }
-
   std::shared_ptr<DataType> input_type;
+
+  RETURN_NOT_OK(PrepareInputData<Date32Type>(data));
 
   auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(dtype_->c_metadata);
   if (dtype_->type_num == NPY_DATETIME) {
@@ -489,16 +487,10 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
 
 template <>
 inline Status NumPyConverter::ConvertData<Date64Type>(std::shared_ptr<Buffer>* data) {
-  if (is_strided()) {
-    RETURN_NOT_OK(CopyStridedArray<Date64Type>(arr_, length_, pool_, data));
-  } else {
-    // Can zero-copy
-    *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));
-  }
-
   constexpr int64_t kMillisecondsInDay = 86400000;
-
   std::shared_ptr<DataType> input_type;
+
+  RETURN_NOT_OK(PrepareInputData<Date64Type>(data));
 
   auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(dtype_->c_metadata);
   if (dtype_->type_num == NPY_DATETIME) {

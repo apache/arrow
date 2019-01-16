@@ -33,6 +33,7 @@ class Buffer;
 class Schema;
 class Status;
 class Tensor;
+class SparseTensor;
 
 namespace io {
 
@@ -234,6 +235,22 @@ Status ReadTensor(io::InputStream* file, std::shared_ptr<Tensor>* out);
 /// \return Status
 ARROW_EXPORT
 Status ReadTensor(const Message& message, std::shared_ptr<Tensor>* out);
+
+/// \brief EXPERIMETNAL: Read arrow::SparseTensor as encapsulated IPC message in file
+///
+/// \param[in] file an InputStream pointed at the start of the message
+/// \param[out] out the read sparse tensor
+/// \return Status
+ARROW_EXPORT
+Status ReadSparseTensor(io::InputStream* file, std::shared_ptr<SparseTensor>* out);
+
+/// \brief EXPERIMENTAL: Read arrow::SparseTensor from IPC message
+///
+/// \param[in] message a Message containing the tensor metadata and body
+/// \param[out] out the read sparse tensor
+/// \return Status
+ARROW_EXPORT
+Status ReadSparseTensor(const Message& message, std::shared_ptr<SparseTensor>* out);
 
 }  // namespace ipc
 }  // namespace arrow

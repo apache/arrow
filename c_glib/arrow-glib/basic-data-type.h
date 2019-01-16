@@ -338,6 +338,25 @@ GType                 garrow_binary_data_type_get_type (void) G_GNUC_CONST;
 GArrowBinaryDataType *garrow_binary_data_type_new      (void);
 
 
+#define GARROW_TYPE_FIXED_SIZE_BINARY_DATA_TYPE (garrow_fixed_size_binary_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowFixedSizeBinaryDataType,
+                         garrow_fixed_size_binary_data_type,
+                         GARROW,
+                         FIXED_SIZE_BINARY_DATA_TYPE,
+                         GArrowDataType)
+struct _GArrowFixedSizeBinaryDataTypeClass
+{
+  GArrowFixedWidthDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_12
+GArrowFixedSizeBinaryDataType *
+garrow_fixed_size_binary_data_type_new(gint32 byte_width);
+GARROW_AVAILABLE_IN_0_12
+gint32
+garrow_fixed_size_binary_data_type_get_byte_width(GArrowFixedSizeBinaryDataType *data_type);
+
+
 #define GARROW_TYPE_STRING_DATA_TYPE            \
   (garrow_string_data_type_get_type())
 #define GARROW_STRING_DATA_TYPE(obj)                           \
@@ -651,15 +670,14 @@ GArrowTime64DataType *garrow_time64_data_type_new      (GArrowTimeUnit unit,
 
 
 #define GARROW_TYPE_DECIMAL_DATA_TYPE (garrow_decimal_data_type_get_type())
-/* TODO: Delivered from GArrowFixedSizeBinaryDataType. */
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimalDataType,
                          garrow_decimal_data_type,
                          GARROW,
                          DECIMAL_DATA_TYPE,
-                         GArrowDataType)
+                         GArrowFixedSizeBinaryDataType)
 struct _GArrowDecimalDataTypeClass
 {
-  GArrowDataTypeClass parent_class;
+  GArrowFixedSizeBinaryDataTypeClass parent_class;
 };
 
 #ifndef GARROW_DISABLE_DEPRECATED

@@ -66,6 +66,7 @@ class PARQUET_EXPORT Vector {
   void Swap(Vector<T>& v);
   inline T& operator[](int64_t i) const { return data_[i]; }
 
+  T* data() { return data_; }
   const T* data() const { return data_; }
 
  private:

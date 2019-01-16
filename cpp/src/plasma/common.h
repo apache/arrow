@@ -33,7 +33,6 @@
 #include "plasma/compat.h"
 
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
 #ifdef PLASMA_CUDA
 #include "arrow/gpu/cuda_api.h"
 #endif
@@ -73,6 +72,12 @@ enum class ObjectState : int {
   PLASMA_SEALED
 };
 
+namespace internal {
+
+struct CudaIpcPlaceholder {};
+
+}  //  namespace internal
+
 /// This type is used by the Plasma store. It is here because it is exposed to
 /// the eviction policy.
 struct ObjectTableEntry {
@@ -94,10 +99,6 @@ struct ObjectTableEntry {
   int64_t data_size;
   /// Size of the object metadata in bytes.
   int64_t metadata_size;
-#ifdef PLASMA_CUDA
-  /// IPC GPU handle to share with clients.
-  std::shared_ptr<::arrow::cuda::CudaIpcMemHandle> ipc_handle;
-#endif
   /// Number of clients currently using this object.
   int ref_count;
   /// Unix epoch of when this object was created.
@@ -109,6 +110,13 @@ struct ObjectTableEntry {
   ObjectState state;
   /// The digest of the object. Used to see if two objects are the same.
   unsigned char digest[kDigestSize];
+
+#ifdef PLASMA_CUDA
+  /// IPC GPU handle to share with clients.
+  std::shared_ptr<::arrow::cuda::CudaIpcMemHandle> ipc_handle;
+#else
+  std::shared_ptr<internal::CudaIpcPlaceholder> ipc_handle;
+#endif
 };
 
 /// Mapping from ObjectIDs to information about the object.

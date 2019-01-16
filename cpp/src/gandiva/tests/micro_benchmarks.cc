@@ -19,6 +19,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "benchmark/benchmark.h"
+#include "gandiva/decimal_type_util.h"
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tests/timed_evaluate.h"
@@ -30,10 +31,6 @@ using arrow::boolean;
 using arrow::int32;
 using arrow::int64;
 using arrow::utf8;
-
-// TODO : the base numbers are from a mac. they need to be caliberated
-// for the hardware used by travis.
-float tolerance_ratio = 6.0;
 
 static void TimedTestAdd3(benchmark::State& state) {
   // schema for input fields
@@ -280,6 +277,119 @@ static void TimedTestInExpr(benchmark::State& state) {
   ASSERT_OK(status);
 }
 
+static void DoDecimalAdd3(benchmark::State& state, int32_t precision, int32_t scale,
+                          bool large = false) {
+  // schema for input fields
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+  auto field0 = field("f0", decimal_type);
+  auto field1 = field("f1", decimal_type);
+  auto field2 = field("f2", decimal_type);
+  auto schema = arrow::schema({field0, field1, field2});
+
+  Decimal128TypePtr add2_type;
+  auto status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd,
+                                               {decimal_type, decimal_type}, &add2_type);
+
+  Decimal128TypePtr output_type;
+  status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd,
+                                          {add2_type, decimal_type}, &output_type);
+
+  // output field
+  auto field_sum = field("add", output_type);
+
+  // Build expression
+  auto part_sum = TreeExprBuilder::MakeFunction(
+      "add", {TreeExprBuilder::MakeField(field1), TreeExprBuilder::MakeField(field2)},
+      add2_type);
+  auto sum = TreeExprBuilder::MakeFunction(
+      "add", {TreeExprBuilder::MakeField(field0), part_sum}, output_type);
+
+  auto sum_expr = TreeExprBuilder::MakeExpression(sum, field_sum);
+
+  std::shared_ptr<Projector> projector;
+  status = Projector::Make(schema, {sum_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  Decimal128DataGenerator data_generator(large);
+  ProjectEvaluator evaluator(projector);
+
+  status = TimedEvaluate<arrow::Decimal128Type, arrow::Decimal128>(
+      schema, evaluator, data_generator, arrow::default_memory_pool(), 1 * MILLION,
+      16 * THOUSAND, state);
+  ASSERT_OK(status);
+}
+
+static void DoDecimalAdd2(benchmark::State& state, int32_t precision, int32_t scale,
+                          bool large = false) {
+  // schema for input fields
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+  auto field0 = field("f0", decimal_type);
+  auto field1 = field("f1", decimal_type);
+  auto schema = arrow::schema({field0, field1});
+
+  Decimal128TypePtr output_type;
+  auto status = DecimalTypeUtil::GetResultType(
+      DecimalTypeUtil::kOpAdd, {decimal_type, decimal_type}, &output_type);
+
+  // output field
+  auto field_sum = field("add", output_type);
+
+  // Build expression
+  auto sum = TreeExprBuilder::MakeExpression("add", {field0, field1}, field_sum);
+
+  std::shared_ptr<Projector> projector;
+  status = Projector::Make(schema, {sum}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  Decimal128DataGenerator data_generator(large);
+  ProjectEvaluator evaluator(projector);
+
+  status = TimedEvaluate<arrow::Decimal128Type, arrow::Decimal128>(
+      schema, evaluator, data_generator, arrow::default_memory_pool(), 1 * MILLION,
+      16 * THOUSAND, state);
+  ASSERT_OK(status);
+}
+
+static void DecimalAdd2Fast(benchmark::State& state) {
+  // use lesser precision to test the fast-path
+  DoDecimalAdd2(state, DecimalTypeUtil::kMaxPrecision - 6, 18);
+}
+
+static void DecimalAdd2LeadingZeroes(benchmark::State& state) {
+  // use max precision to test the large-integer-path
+  DoDecimalAdd2(state, DecimalTypeUtil::kMaxPrecision, 6);
+}
+
+static void DecimalAdd2LeadingZeroesWithDiv(benchmark::State& state) {
+  // use max precision to test the large-integer-path
+  DoDecimalAdd2(state, DecimalTypeUtil::kMaxPrecision, 18);
+}
+
+static void DecimalAdd2Large(benchmark::State& state) {
+  // use max precision to test the large-integer-path
+  DoDecimalAdd2(state, DecimalTypeUtil::kMaxPrecision, 18, true);
+}
+
+static void DecimalAdd3Fast(benchmark::State& state) {
+  // use lesser precision to test the fast-path
+  DoDecimalAdd3(state, DecimalTypeUtil::kMaxPrecision - 6, 18);
+}
+
+static void DecimalAdd3LeadingZeroes(benchmark::State& state) {
+  // use max precision to test the large-integer-path
+  DoDecimalAdd3(state, DecimalTypeUtil::kMaxPrecision, 6);
+}
+
+static void DecimalAdd3LeadingZeroesWithDiv(benchmark::State& state) {
+  // use max precision to test the large-integer-path
+  DoDecimalAdd3(state, DecimalTypeUtil::kMaxPrecision, 18);
+}
+
+static void DecimalAdd3Large(benchmark::State& state) {
+  // use max precision to test the large-integer-path
+  DoDecimalAdd3(state, DecimalTypeUtil::kMaxPrecision, 18, true);
+}
+
 BENCHMARK(TimedTestAdd3)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestBigNested)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestBigNested)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
@@ -289,5 +399,13 @@ BENCHMARK(TimedTestFilterLike)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestAllocs)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestMultiOr)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestInExpr)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd2Fast)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd2LeadingZeroes)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd2LeadingZeroesWithDiv)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd2Large)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd3Fast)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd3LeadingZeroes)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd3LeadingZeroesWithDiv)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd3Large)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 
 }  // namespace gandiva

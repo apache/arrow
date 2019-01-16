@@ -2,10 +2,17 @@
   "extends": "../tsconfig.json",
   "include": ["./**/*.ts"],
   "compilerOptions": {
-    "target": "es2015",
+    "target": "esnext",
     "module": "commonjs",
     "allowJs": true,
+    "declaration": false,
     "importHelpers": false,
-    "noEmitHelpers": false
+    "noEmitHelpers": false,
+    "noEmitOnError": false,
+
+    "sourceMap": false,
+    "inlineSources": false,
+    "inlineSourceMap": false,
+    "downlevelIteration": false
   }
 }

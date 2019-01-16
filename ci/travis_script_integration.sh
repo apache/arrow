@@ -36,7 +36,7 @@ pushd $ARROW_JS_DIR
 
 # lint and compile JS source
 npm run lint
-npm run build
+npm run build -- -t apache-arrow
 
 popd
 

@@ -37,6 +37,8 @@
 
 namespace gandiva {
 
+class FunctionIRBuilder;
+
 /// \brief LLVM Execution engine wrapper.
 class Engine {
  public:

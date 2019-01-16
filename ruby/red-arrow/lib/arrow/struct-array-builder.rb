@@ -73,13 +73,20 @@ module Arrow
           value.each_with_index do |sub_value, i|
             self[i].append_value(sub_value)
           end
+        when Arrow::Struct
+          append_value_raw
+          value.values.each_with_index do |sub_value, i|
+            self[i].append_value(sub_value)
+          end
         when Hash
           append_value_raw
           value.each do |name, sub_value|
             self[name].append_value(sub_value)
           end
         else
-          message = "struct value must be nil, Array or Hash: #{value.inspect}"
+          message =
+            "struct value must be nil, Array, " +
+            "Arrow::Struct or Hash: #{value.inspect}"
           raise ArgumentError, message
         end
       else
@@ -109,6 +116,16 @@ module Arrow
       append_null_raw
       cached_field_builders.each do |builder|
         builder.append_null
+      end
+    end
+
+    # @since 0.12.0
+    def append(*values)
+      if values.empty?
+        # For backward compatibility
+        append_value_raw
+      else
+        super
       end
     end
 

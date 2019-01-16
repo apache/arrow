@@ -105,7 +105,8 @@ class TestBufferedOutputStream : public FileTestFixture<BufferedOutputStream> {
       lseek(fd_, 0, SEEK_END);
 #endif
     }
-    ASSERT_OK(BufferedOutputStream::Create(file, buffer_size, &buffered_));
+    ASSERT_OK(BufferedOutputStream::Create(buffer_size, default_memory_pool(), file,
+                                           &buffered_));
   }
 
   void WriteChunkwise(const std::string& datastr, const std::valarray<int64_t>& sizes) {
@@ -321,7 +322,7 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
     std::shared_ptr<ReadableFile> file_in;
     ASSERT_OK(ReadableFile::Open(path_, &file_in));
     raw_ = file_in;
-    ASSERT_OK(BufferedInputStream::Create(raw_, buffer_size, pool, &buffered_));
+    ASSERT_OK(BufferedInputStream::Create(buffer_size, pool, raw_, &buffered_));
   }
 
  protected:

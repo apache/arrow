@@ -121,7 +121,6 @@ matrix:
     - ARROW_TRAVIS_COVERAGE=1
     - ARROW_TRAVIS_PYTHON_DOCS=1
     - ARROW_TRAVIS_PYTHON_JVM=1
-    - ARROW_TRAVIS_PYTHON_GANDIVA=1
     - ARROW_TRAVIS_OPTIONAL_INSTALL=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     # TODO(wesm): Run the benchmarks outside of Travis
@@ -138,6 +137,8 @@ matrix:
     - export PLASMA_VALGRIND=0
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7 || travis_terminate 1
     - export PLASMA_VALGRIND=1
+    # Gandiva tests are not enabled with python 2.7
+    - ARROW_TRAVIS_PYTHON_GANDIVA=1
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6 || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
   - name: "[OS X] C++ w/ XCode 8.3"
@@ -229,7 +230,7 @@ matrix:
     - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - nvm install 10.1
+    - nvm install 11.6
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
@@ -239,7 +240,7 @@ matrix:
     language: node_js
     os: linux
     node_js:
-    - '10.1'
+    - '11.6'
     before_script:
     - if [ $ARROW_CI_JS_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
@@ -307,7 +308,7 @@ matrix:
     - pushd ${TRAVIS_BUILD_DIR}/rust
     # Run coverage for codecov.io
     - mkdir -p target/kcov
-    - RUST_BACKTRACE=1 RUSTUP_TOOLCHAIN=stable cargo coverage --verbose
+    - RUST_BACKTRACE=1 RUSTUP_TOOLCHAIN=nightly cargo coverage --verbose
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
   - name: Go
     language: go

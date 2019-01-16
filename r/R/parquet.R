@@ -19,15 +19,16 @@
 #'
 #' @param file a file path
 #' @param as_tibble should the [arrow::Table][arrow__Table] be converted to a tibble.
+#' @param use_threads Use threads when converting to a tibble, only relevant if `as_tibble` is `TRUE`
 #' @param ... currently ignored
 #'
 #' @return a [arrow::Table][arrow__Table], or a data frame if `as_tibble` is `TRUE`.
 #'
 #' @export
-read_parquet <- function(file, as_tibble = TRUE, ...) {
+read_parquet <- function(file, as_tibble = TRUE, use_threads = TRUE, ...) {
   tab <- shared_ptr(`arrow::Table`, read_parquet_file(f))
   if (isTRUE(as_tibble)) {
-    tab <- as_tibble(tab)
+    tab <- as_tibble(tab, use_threads = use_threads)
   }
   tab
 }

@@ -17,6 +17,8 @@
 
 package org.apache.arrow.gandiva.evaluator;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -27,6 +29,7 @@ import org.apache.arrow.gandiva.expression.Condition;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -227,6 +230,18 @@ class BaseEvaluatorTest {
       buffer.writeInt(ints[i]);
     }
     return buffer;
+  }
+
+  DecimalVector decimalVector(String[] values, int precision, int scale) {
+    DecimalVector vector = new DecimalVector("decimal" + Math.random(), allocator, precision, scale);
+    vector.allocateNew();
+    for (int i = 0; i < values.length; i++) {
+      BigDecimal decimal = new BigDecimal(values[i]);
+      vector.setSafe(i, decimal);
+    }
+
+    vector.setValueCount(values.length);
+    return vector;
   }
 
   ArrowBuf longBuf(long[] longs) {

@@ -19,6 +19,8 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+import os
+
 from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
@@ -73,6 +75,14 @@ from pyarrow.includes.libgandiva cimport (
     CFunctionSignature,
     GetRegisteredFunctionSignatures)
 
+if os.name == 'posix':
+    # Expose self with RTLD_GLOBAL so that symbols from gandiva.so and child
+    # libs (such as libstdc++) can be reached during JIT code execution.
+    # Another workaround is to use
+    #   sys.setdlopenflags(os.RTLD_GLOBAL | os.RTLD_NOW)
+    # but it would affect all C extensions loaded in the process.
+    import ctypes
+    _dll = ctypes.CDLL(__file__, ctypes.RTLD_GLOBAL)
 
 cdef class Node:
     cdef:

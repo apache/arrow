@@ -4,12 +4,14 @@
 \alias{read_parquet}
 \title{Read parquet file from disk}
 \usage{
-read_parquet(file, as_tibble = TRUE, ...)
+read_parquet(file, as_tibble = TRUE, use_threads = TRUE, ...)
 }
 \arguments{
 \item{file}{a file path}
 
 \item{as_tibble}{should the \link[=arrow__Table]{arrow::Table} be converted to a tibble.}
+
+\item{use_threads}{Use threads when converting to a tibble, only relevant if \code{as_tibble} is \code{TRUE}}
 
 \item{...}{currently ignored}
 }

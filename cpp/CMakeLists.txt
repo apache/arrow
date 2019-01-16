@@ -80,7 +80,6 @@ if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR INFER_FOUND)
   # See http://clang.llvm.org/docs/JSONCompilationDatabase.html
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
-
 # ----------------------------------------------------------------------
 # cmake options
 
@@ -170,6 +169,10 @@ static|shared (default shared)")
     "If off, 'quiet' flags will be passed to linting tools"
     OFF)
 
+  option(ARROW_GGDB_DEBUG
+    "Pass -ggdb flag to debug builds"
+    ON)
+
   #----------------------------------------------------------------------
   # Project components to enable / disable building
 
@@ -248,6 +251,10 @@ Note that this requires linking Boost statically"
   option(ARROW_PROTOBUF_USE_SHARED
     "Rely on Protocol Buffers shared libraries where relevant"
     OFF)
+
+  option(ARROW_WITH_BACKTRACE
+    "Build with backtrace support"
+    ON)
 
   option(ARROW_USE_GLOG
     "Build libraries with glog support for pluggable logging"
@@ -350,6 +357,7 @@ endif()
 if (ARROW_USE_CCACHE)
   find_program(CCACHE_FOUND ccache)
   if(CCACHE_FOUND)
+    message(STATUS "Using ccache: ${CCACHE_FOUND}")
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE_FOUND})
     set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${CCACHE_FOUND})
   endif(CCACHE_FOUND)
@@ -682,46 +690,59 @@ endif(UNIX)
 ############################################################
 
 set(ARROW_LINK_LIBS)
+set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
+set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
 # Libraries to link statically with libarrow.so
 set(ARROW_STATIC_LINK_LIBS double-conversion_static)
+set(ARROW_STATIC_INSTALL_INTERFACE_LIBS double-conversion)
 
 if (ARROW_WITH_BROTLI)
-  SET(ARROW_STATIC_LINK_LIBS
+  list(APPEND
+    ARROW_STATIC_LINK_LIBS
     brotli_dec_static
     brotli_enc_static
-    brotli_common_static
-    ${ARROW_STATIC_LINK_LIBS})
+    brotli_common_static)
+  list(APPEND
+    ARROW_STATIC_INSTALL_INTERFACE_LIBS
+    brotlidec
+    brotlienc
+    brotlicommon)
 endif()
 
 if (ARROW_WITH_BZ2)
-  SET(ARROW_STATIC_LINK_LIBS bz2_static ${ARROW_STATIC_LINK_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS bz2_static)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS bz2)
 endif()
 
 if (ARROW_WITH_LZ4)
-  SET(ARROW_STATIC_LINK_LIBS lz4_static ${ARROW_STATIC_LINK_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS lz4_static)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS lz4)
 endif()
 
 if (ARROW_WITH_SNAPPY)
-  SET(ARROW_STATIC_LINK_LIBS snappy_static ${ARROW_STATIC_LINK_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS snappy_static)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS snappy)
 endif()
 
 if (ARROW_WITH_ZLIB)
-  SET(ARROW_STATIC_LINK_LIBS ${ZLIB_LIBRARY} ${ARROW_STATIC_LINK_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS ${ZLIB_LIBRARY})
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS z)
 endif()
 
 if (ARROW_WITH_ZSTD)
-  SET(ARROW_STATIC_LINK_LIBS zstd_static ${ARROW_STATIC_LINK_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS zstd_static)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS zstd)
 endif()
 
 if (ARROW_ORC)
-  SET(ARROW_STATIC_LINK_LIBS
-    ${ARROW_STATIC_LINK_LIBS}
-    orc_static)
+  list(APPEND ARROW_STATIC_LINK_LIBS orc_static)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc)
 endif()
 
 if (ARROW_USE_GLOG)
-  SET(ARROW_STATIC_LINK_LIBS glog_static ${ARROW_STATIC_LINK_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS glog_static)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog)
   add_definitions("-DARROW_USE_GLOG")
 endif()
 
@@ -738,15 +759,24 @@ set(ARROW_SHARED_PRIVATE_LINK_LIBS
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY})
 
-set(ARROW_STATIC_LINK_LIBS
-  ${ARROW_STATIC_LINK_LIBS}
+list(APPEND
+  ARROW_STATIC_LINK_LIBS
   ${BOOST_SYSTEM_LIBRARY}
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY})
 
+list(APPEND
+  ARROW_STATIC_INSTALL_INTERFACE_LIBS
+  boost_system
+  boost_filesystem
+  boost_regex)
+
 if (NOT MSVC)
-  set(ARROW_LINK_LIBS
-    ${ARROW_LINK_LIBS}
+  list(APPEND
+    ARROW_LINK_LIBS
+    ${CMAKE_DL_LIBS})
+  list(APPEND
+    ARROW_SHARED_INSTALL_INTERFACE_LIBS
     ${CMAKE_DL_LIBS})
 endif()
 
@@ -814,21 +844,31 @@ if (ARROW_JEMALLOC)
       jemalloc_static
       )
   endif()
-  set(ARROW_SHARED_PRIVATE_LINK_LIBS
-    ${ARROW_SHARED_PRIVATE_LINK_LIBS}
+  list(APPEND
+    ARROW_SHARED_PRIVATE_LINK_LIBS
     ${ARROW_JEMALLOC_LINK_LIBS})
-  set(ARROW_STATIC_LINK_LIBS
-    ${ARROW_STATIC_LINK_LIBS}
+  list(APPEND
+    ARROW_STATIC_LINK_LIBS
     ${ARROW_JEMALLOC_LINK_LIBS})
+  list(APPEND
+    ARROW_STATIC_INSTALL_INTERFACE_LIBS
+    jemalloc
+    rt)
 endif(ARROW_JEMALLOC)
 
 if (PTHREAD_LIBRARY)
-  set(ARROW_LINK_LIBS
-    ${ARROW_LINK_LIBS}
+  list(APPEND
+    ARROW_LINK_LIBS
     pthreadshared)
-  set(ARROW_STATIC_LINK_LIBS
-    ${ARROW_STATIC_LINK_LIBS}
+  list(APPEND
+    ARROW_SHARED_INSTALL_INTERFACE_LIBS
+    pthread)
+  list(APPEND
+    ARROW_STATIC_LINK_LIBS
     pthreadshared)
+  list(APPEND
+    ARROW_STATIC_INSTALL_INTERFACE_LIBS
+    pthread)
 endif()
 
 ############################################################

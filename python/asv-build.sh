@@ -21,7 +21,9 @@ set -e
 
 # ASV doesn't activate its conda environment for us
 if [ -z "$ASV_ENV_DIR" ]; then exit 1; fi
-conda activate $ASV_ENV_DIR
+# Avoid "conda activate" because it's only set up in interactive shells
+# (https://github.com/conda/conda/issues/8072)
+source activate $ASV_ENV_DIR
 echo "== Conda Prefix for benchmarks: " $CONDA_PREFIX " =="
 
 # Build Arrow C++ libraries
@@ -32,6 +34,8 @@ export ORC_HOME=$CONDA_PREFIX
 export PROTOBUF_HOME=$CONDA_PREFIX
 export BOOST_ROOT=$CONDA_PREFIX
 
+export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=1"
+
 pushd ../cpp
 mkdir -p build
 pushd build
@@ -40,9 +44,11 @@ cmake -GNinja \
       -DCMAKE_BUILD_TYPE=release \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DARROW_CXXFLAGS=$CXXFLAGS \
-      -DARROW_PYTHON=ON \
-      -DARROW_PLASMA=ON \
-      -DARROW_BUILD_TESTS=OFF \
+      -DARROW_USE_GLOG=off \
+      -DARROW_PARQUET=on \
+      -DARROW_PYTHON=on \
+      -DARROW_PLASMA=on \
+      -DARROW_BUILD_TESTS=off \
       ..
 cmake --build . --target install
 
@@ -52,7 +58,8 @@ popd
 # Build pyarrow wrappers
 export SETUPTOOLS_SCM_PRETEND_VERSION=0.0.1
 export PYARROW_BUILD_TYPE=release
-export PYARROW_PARALLEL=4
+export PYARROW_PARALLEL=8
+export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 
 python setup.py clean

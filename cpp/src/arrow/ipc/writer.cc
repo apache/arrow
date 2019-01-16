@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <sstream>
 #include <vector>
 
 #include "arrow/array.h"
@@ -33,6 +34,7 @@
 #include "arrow/ipc/util.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
@@ -669,6 +671,105 @@ Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
   RETURN_NOT_OK(internal::WriteTensorMessage(*tensor_to_write, 0, &metadata));
   out->reset(new Message(metadata, tensor_to_write->data()));
   return Status::OK();
+}
+
+namespace internal {
+
+class SparseTensorSerializer {
+ public:
+  SparseTensorSerializer(int64_t buffer_start_offset, IpcPayload* out)
+      : out_(out), buffer_start_offset_(buffer_start_offset) {}
+
+  ~SparseTensorSerializer() = default;
+
+  Status VisitSparseIndex(const SparseIndex& sparse_index) {
+    switch (sparse_index.format_id()) {
+      case SparseTensorFormat::COO:
+        RETURN_NOT_OK(
+            VisitSparseCOOIndex(checked_cast<const SparseCOOIndex&>(sparse_index)));
+        break;
+
+      case SparseTensorFormat::CSR:
+        RETURN_NOT_OK(
+            VisitSparseCSRIndex(checked_cast<const SparseCSRIndex&>(sparse_index)));
+        break;
+
+      default:
+        std::stringstream ss;
+        ss << "Unable to convert type: " << sparse_index.ToString() << std::endl;
+        return Status::NotImplemented(ss.str());
+    }
+
+    return Status::OK();
+  }
+
+  Status SerializeMetadata(const SparseTensor& sparse_tensor) {
+    return WriteSparseTensorMessage(sparse_tensor, out_->body_length, buffer_meta_,
+                                    &out_->metadata);
+  }
+
+  Status Assemble(const SparseTensor& sparse_tensor) {
+    if (buffer_meta_.size() > 0) {
+      buffer_meta_.clear();
+      out_->body_buffers.clear();
+    }
+
+    RETURN_NOT_OK(VisitSparseIndex(*sparse_tensor.sparse_index()));
+    out_->body_buffers.emplace_back(sparse_tensor.data());
+
+    int64_t offset = buffer_start_offset_;
+    buffer_meta_.reserve(out_->body_buffers.size());
+
+    for (size_t i = 0; i < out_->body_buffers.size(); ++i) {
+      const Buffer* buffer = out_->body_buffers[i].get();
+      int64_t size = buffer->size();
+      int64_t padding = BitUtil::RoundUpToMultipleOf8(size) - size;
+      buffer_meta_.push_back({offset, size + padding});
+      offset += size + padding;
+    }
+
+    out_->body_length = offset - buffer_start_offset_;
+    DCHECK(BitUtil::IsMultipleOf8(out_->body_length));
+
+    return SerializeMetadata(sparse_tensor);
+  }
+
+ private:
+  Status VisitSparseCOOIndex(const SparseCOOIndex& sparse_index) {
+    out_->body_buffers.emplace_back(sparse_index.indices()->data());
+    return Status::OK();
+  }
+
+  Status VisitSparseCSRIndex(const SparseCSRIndex& sparse_index) {
+    out_->body_buffers.emplace_back(sparse_index.indptr()->data());
+    out_->body_buffers.emplace_back(sparse_index.indices()->data());
+    return Status::OK();
+  }
+
+  IpcPayload* out_;
+
+  std::vector<internal::BufferMetadata> buffer_meta_;
+
+  int64_t buffer_start_offset_;
+};
+
+Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* pool,
+                              IpcPayload* out) {
+  SparseTensorSerializer writer(0, out);
+  return writer.Assemble(sparse_tensor);
+}
+
+}  // namespace internal
+
+Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
+                         int32_t* metadata_length, int64_t* body_length,
+                         MemoryPool* pool) {
+  internal::IpcPayload payload;
+  internal::SparseTensorSerializer writer(0, &payload);
+  RETURN_NOT_OK(writer.Assemble(sparse_tensor));
+
+  *body_length = payload.body_length;
+  return internal::WriteIpcPayload(payload, dst, metadata_length);
 }
 
 Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,

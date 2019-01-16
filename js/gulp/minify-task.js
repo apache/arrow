@@ -18,10 +18,10 @@
 const {
     targetDir,
     mainExport,
-    ESKeywords,
     UMDSourceTargets,
     terserLanguageNames,
-    observableFromStreams
+    shouldRunInChildProcess,
+    spawnGulpCommandInChildProcess,
 } = require('./util');
 
 const path = require('path');
@@ -30,41 +30,24 @@ const { memoizeTask } = require('./memoize-task');
 const { compileBinFiles } = require('./typescript-task');
 const { Observable, ReplaySubject } = require('rxjs');
 const TerserPlugin = require(`terser-webpack-plugin`);
-const esmRequire = require(`@std/esm`)(module, {
-    mode: `js`,
-    warnings: false,
-    cjs: {
-        /* A boolean for storing ES modules in require.cache. */
-        cache: true,
-        /* A boolean for respecting require.extensions in ESM. */
-        extensions: true,
-        /* A boolean for __esModule interoperability. */
-        interop: true,
-        /* A boolean for importing named exports of CJS modules. */
-        namedExports: true,
-        /* A boolean for following CJS path rules in ESM. */
-        paths: true,
-        /* A boolean for __dirname, __filename, and require in ESM. */
-        vars: true,
-    }
-});
 
 const minifyTask = ((cache, commonConfig) => memoizeTask(cache, function minifyJS(target, format) {
 
+    if (shouldRunInChildProcess(target, format)) {
+        return spawnGulpCommandInChildProcess('compile', target, format);
+    }
+
     const sourceTarget = UMDSourceTargets[target];
-    const PublicNames = reservePublicNames(sourceTarget, `cls`);
     const out = targetDir(target, format), src = targetDir(sourceTarget, `cls`);
 
     const targetConfig = { ...commonConfig,
         output: { ...commonConfig.output,
             path: path.resolve(`./${out}`) } };
 
-    const webpackConfigs = [
-        [mainExport, PublicNames]
-    ].map(([entry, reserved]) => ({
+    const webpackConfigs = [mainExport].map((entry) => ({
         ...targetConfig,
         name: entry,
-        entry: { [entry]: path.resolve(`${src}/${entry}.js`) },
+        entry: { [entry]: path.resolve(`${src}/${entry}.dom.js`) },
         plugins: [
             ...(targetConfig.plugins || []),
             new webpack.SourceMapDevToolPlugin({
@@ -73,20 +56,23 @@ const minifyTask = ((cache, commonConfig) => memoizeTask(cache, function minifyJ
                     resourcePath
                         .replace(/\s/, `_`)
                         .replace(/\.\/node_modules\//, ``)
-            }),
-            new TerserPlugin({
-                sourceMap: true,
-                terserOptions: {
-                    ecma: terserLanguageNames[target],
-                    compress: { unsafe: true },
-                    output: { comments: false, beautify: false },
-                    mangle: { eval: true,
-                        properties: { reserved, keep_quoted: true }
-                    },
-                    safari10: true // <-- works around safari10 bugs, see the "safari10" option here: https://github.com/terser-js/terser#minify-options
-                },
             })
-        ]
+        ],
+        optimization: {
+            minimize: true,
+            minimizer: [
+                new TerserPlugin({
+                    sourceMap: true,
+                    terserOptions: {
+                        ecma: terserLanguageNames[target],
+                        output: { comments: false, beautify: false },
+                        compress: { unsafe: true },
+                        mangle: true,
+                        safari10: true // <-- works around safari10 bugs, see the "safari10" option here: https://github.com/terser-js/terser#minify-options
+                    },
+                })
+            ]
+        }
     }));
 
     const compilers = webpack(webpackConfigs);
@@ -102,42 +88,3 @@ const minifyTask = ((cache, commonConfig) => memoizeTask(cache, function minifyJ
 
 module.exports = minifyTask;
 module.exports.minifyTask = minifyTask;
-
-const reservePublicNames = ((ESKeywords) => function reservePublicNames(target, format) {
-    const src = targetDir(target, format);
-    const publicModulePaths = [
-        `../${src}/data.js`,
-        `../${src}/type.js`,
-        `../${src}/table.js`,
-        `../${src}/vector.js`,
-        `../${src}/util/int.js`,
-        `../${src}/predicate.js`,
-        `../${src}/recordbatch.js`,
-        `../${src}/${mainExport}.js`,
-    ];
-    return publicModulePaths.reduce((keywords, publicModulePath) => [
-        ...keywords, ...reserveExportedNames(esmRequire(publicModulePath, { warnings: false }))
-    ], [...ESKeywords]);
-})(ESKeywords);
-
-// Reflect on the Arrow modules to come up with a list of keys to save from
-// Terser's
-// mangler. Assume all the non-inherited static and prototype members of the Arrow
-// module and its direct exports are public, and should be preserved through minification.
-const reserveExportedNames = (entryModule) => (
-    Object
-        .getOwnPropertyNames(entryModule)
-        .filter((name) => (
-            typeof entryModule[name] === `object` ||
-            typeof entryModule[name] === `function`
-        ))
-        .map((name) => [name, entryModule[name]])
-        .reduce((reserved, [name, value]) => {
-            const fn = function() {};
-            const ownKeys = value && typeof value === 'object' && Object.getOwnPropertyNames(value) || [];
-            const protoKeys = typeof value === `function` && Object.getOwnPropertyNames(value.prototype || {}) || [];
-            const publicNames = [...ownKeys, ...protoKeys].filter((x) => x !== `default` && x !== `undefined` && !(x in fn));
-            return [...reserved, name, ...publicNames];
-        }, []
-    )
-);

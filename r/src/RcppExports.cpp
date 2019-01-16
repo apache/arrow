@@ -17,28 +17,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Array__as_vector
-SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
-RcppExport SEXP _arrow_Array__as_vector(SEXP arraySEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__as_vector(array));
-    return rcpp_result_gen;
-END_RCPP
-}
-// ChunkedArray__as_vector
-SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
-RcppExport SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_arraySEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
-    rcpp_result_gen = Rcpp::wrap(ChunkedArray__as_vector(chunked_array));
-    return rcpp_result_gen;
-END_RCPP
-}
 // Array__Slice1
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, int offset);
 RcppExport SEXP _arrow_Array__Slice1(SEXP arraySEXP, SEXP offsetSEXP) {
@@ -234,6 +212,52 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DictionaryArray>& >::type array(arraySEXP);
     rcpp_result_gen = Rcpp::wrap(DictionaryArray__dictionary(array));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__as_vector
+SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
+RcppExport SEXP _arrow_Array__as_vector(SEXP arraySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__as_vector(array));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ChunkedArray__as_vector
+SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+RcppExport SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_arraySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__as_vector(chunked_array));
+    return rcpp_result_gen;
+END_RCPP
+}
+// RecordBatch__to_dataframe
+List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch, bool use_threads);
+RcppExport SEXP _arrow_RecordBatch__to_dataframe(SEXP batchSEXP, SEXP use_threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
+    Rcpp::traits::input_parameter< bool >::type use_threads(use_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__to_dataframe(batch, use_threads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Table__to_dataframe
+List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_threads);
+RcppExport SEXP _arrow_Table__to_dataframe(SEXP tableSEXP, SEXP use_threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
+    Rcpp::traits::input_parameter< bool >::type use_threads(use_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__to_dataframe(table, use_threads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1846,17 +1870,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// RecordBatch__to_dataframe
-List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch);
-RcppExport SEXP _arrow_RecordBatch__to_dataframe(SEXP batchSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch__to_dataframe(batch));
-    return rcpp_result_gen;
-END_RCPP
-}
 // RecordBatch__from_dataframe
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl);
 RcppExport SEXP _arrow_RecordBatch__from_dataframe(SEXP tblSEXP) {
@@ -2185,17 +2198,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Table__to_dataframe
-List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table);
-RcppExport SEXP _arrow_Table__to_dataframe(SEXP tableSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
-    rcpp_result_gen = Rcpp::wrap(Table__to_dataframe(table));
-    return rcpp_result_gen;
-END_RCPP
-}
 // Table__column
 std::shared_ptr<arrow::Column> Table__column(const std::shared_ptr<arrow::Table>& table, int i);
 RcppExport SEXP _arrow_Table__column(SEXP tableSEXP, SEXP iSEXP) {
@@ -2219,11 +2221,29 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// GetCpuThreadPoolCapacity
+int GetCpuThreadPoolCapacity();
+RcppExport SEXP _arrow_GetCpuThreadPoolCapacity() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(GetCpuThreadPoolCapacity());
+    return rcpp_result_gen;
+END_RCPP
+}
+// SetCpuThreadPoolCapacity
+void SetCpuThreadPoolCapacity(int threads);
+RcppExport SEXP _arrow_SetCpuThreadPoolCapacity(SEXP threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
+    SetCpuThreadPoolCapacity(threads);
+    return R_NilValue;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 1},
-    {"_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1},
-    {"_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1},
     {"_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2},
     {"_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3},
     {"_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2},
@@ -2241,6 +2261,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array__Mask", (DL_FUNC) &_arrow_Array__Mask, 1},
     {"_arrow_DictionaryArray__indices", (DL_FUNC) &_arrow_DictionaryArray__indices, 1},
     {"_arrow_DictionaryArray__dictionary", (DL_FUNC) &_arrow_DictionaryArray__dictionary, 1},
+    {"_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1},
+    {"_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1},
+    {"_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2},
+    {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 2},
     {"_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1},
     {"_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1},
     {"_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1},
@@ -2386,7 +2410,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},
     {"_arrow_RecordBatch__columns", (DL_FUNC) &_arrow_RecordBatch__columns, 1},
     {"_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2},
-    {"_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 1},
     {"_arrow_RecordBatch__from_dataframe", (DL_FUNC) &_arrow_RecordBatch__from_dataframe, 1},
     {"_arrow_RecordBatch__Equals", (DL_FUNC) &_arrow_RecordBatch__Equals, 2},
     {"_arrow_RecordBatch__RemoveColumn", (DL_FUNC) &_arrow_RecordBatch__RemoveColumn, 2},
@@ -2416,9 +2439,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1},
     {"_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1},
     {"_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1},
-    {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 1},
     {"_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
     {"_arrow_Table__columns", (DL_FUNC) &_arrow_Table__columns, 1},
+    {"_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0},
+    {"_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1},
     {NULL, NULL, 0}
 };
 

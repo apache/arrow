@@ -5,14 +5,6 @@ Array__from_vector <- function(x) {
     .Call(`_arrow_Array__from_vector`, x)
 }
 
-Array__as_vector <- function(array) {
-    .Call(`_arrow_Array__as_vector`, array)
-}
-
-ChunkedArray__as_vector <- function(chunked_array) {
-    .Call(`_arrow_ChunkedArray__as_vector`, chunked_array)
-}
-
 Array__Slice1 <- function(array, offset) {
     .Call(`_arrow_Array__Slice1`, array, offset)
 }
@@ -79,6 +71,22 @@ DictionaryArray__indices <- function(array) {
 
 DictionaryArray__dictionary <- function(array) {
     .Call(`_arrow_DictionaryArray__dictionary`, array)
+}
+
+Array__as_vector <- function(array) {
+    .Call(`_arrow_Array__as_vector`, array)
+}
+
+ChunkedArray__as_vector <- function(chunked_array) {
+    .Call(`_arrow_ChunkedArray__as_vector`, chunked_array)
+}
+
+RecordBatch__to_dataframe <- function(batch, use_threads) {
+    .Call(`_arrow_RecordBatch__to_dataframe`, batch, use_threads)
+}
+
+Table__to_dataframe <- function(table, use_threads) {
+    .Call(`_arrow_Table__to_dataframe`, table, use_threads)
 }
 
 ArrayData__get_type <- function(x) {
@@ -661,10 +669,6 @@ RecordBatch__column <- function(batch, i) {
     .Call(`_arrow_RecordBatch__column`, batch, i)
 }
 
-RecordBatch__to_dataframe <- function(batch) {
-    .Call(`_arrow_RecordBatch__to_dataframe`, batch)
-}
-
 RecordBatch__from_dataframe <- function(tbl) {
     .Call(`_arrow_RecordBatch__from_dataframe`, tbl)
 }
@@ -781,15 +785,36 @@ Table__schema <- function(x) {
     .Call(`_arrow_Table__schema`, x)
 }
 
-Table__to_dataframe <- function(table) {
-    .Call(`_arrow_Table__to_dataframe`, table)
-}
-
 Table__column <- function(table, i) {
     .Call(`_arrow_Table__column`, table, i)
 }
 
 Table__columns <- function(table) {
     .Call(`_arrow_Table__columns`, table)
+}
+
+#' Get the capacity of the global thread pool
+#'
+#' @return the number of worker threads in the thread pool to which
+#' Arrow dispatches various CPU-bound tasks. This is an ideal number,
+#' not necessarily the exact number of threads at a given point in time.
+#'
+#' You can change this number using [SetCpuThreadPoolCapacity()].
+#'
+#' @export
+GetCpuThreadPoolCapacity <- function() {
+    .Call(`_arrow_GetCpuThreadPoolCapacity`)
+}
+
+#' Set the capacity of the global thread pool
+#'
+#' @param threads the number of worker threads int the thread pool to which
+#' Arrow dispatches various CPU-bound tasks.
+#'
+#' The current number is returned by [GetCpuThreadPoolCapacity()]
+#'
+#' @export
+SetCpuThreadPoolCapacity <- function(threads) {
+    invisible(.Call(`_arrow_SetCpuThreadPoolCapacity`, threads))
 }
 

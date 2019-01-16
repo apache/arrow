@@ -45,6 +45,8 @@ PLASMA_WAIT_TIMEOUT = 2 ** 30
 
 
 cdef extern from "plasma/common.h" nogil:
+    cdef cppclass CCudaIpcPlaceholder" plasma::internal::CudaIpcPlaceholder":
+        pass
 
     cdef cppclass CUniqueID" plasma::UniqueID":
 
@@ -79,6 +81,7 @@ cdef extern from "plasma/common.h" nogil:
         int64_t create_time
         int64_t construct_duration
         CObjectState state
+        shared_ptr[CCudaIpcPlaceholder] ipc_handle
 
     ctypedef unordered_map[CUniqueID, unique_ptr[CObjectTableEntry]] \
         CObjectTable" plasma::ObjectTable"

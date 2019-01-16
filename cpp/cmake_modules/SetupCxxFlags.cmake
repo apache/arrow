@@ -340,11 +340,19 @@ endif()
 #   Debug symbols are stripped for reduced binary size. Add
 #   -DARROW_CXXFLAGS="-g" to add them
 if (NOT MSVC)
-  set(C_FLAGS_DEBUG "-ggdb -O0")
-  set(C_FLAGS_FASTDEBUG "-ggdb -O1")
+  if(ARROW_GGDB_DEBUG)
+    set(C_FLAGS_DEBUG "-ggdb -O0")
+    set(C_FLAGS_FASTDEBUG "-ggdb -O1")
+    set(CXX_FLAGS_DEBUG "-ggdb -O0")
+    set(CXX_FLAGS_FASTDEBUG "-ggdb -O1")
+  else()
+    set(C_FLAGS_DEBUG "-g -O0")
+    set(C_FLAGS_FASTDEBUG "-g -O1")
+    set(CXX_FLAGS_DEBUG "-g -O0")
+    set(CXX_FLAGS_FASTDEBUG "-g -O1")
+  endif()
+
   set(C_FLAGS_RELEASE "-O3 -DNDEBUG")
-  set(CXX_FLAGS_DEBUG "-ggdb -O0")
-  set(CXX_FLAGS_FASTDEBUG "-ggdb -O1")
   set(CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 endif()
 

@@ -23,7 +23,7 @@ from os.path import join as pjoin
 from six.moves.urllib.parse import urlparse
 
 import pyarrow as pa
-from pyarrow.util import implements, _stringify_path
+from pyarrow.util import implements, _stringify_path, _is_path_like
 
 
 class FileSystem(object):
@@ -319,7 +319,7 @@ class S3FSWrapper(DaskFileSystem):
 
     @implements(FileSystem.isdir)
     def isdir(self, path):
-        path = _stringify_path(path)
+        path = _sanitize_s3(_stringify_path(path))
         try:
             contents = self.fs.ls(path)
             if len(contents) == 1 and contents[0] == path:
@@ -331,7 +331,7 @@ class S3FSWrapper(DaskFileSystem):
 
     @implements(FileSystem.isfile)
     def isfile(self, path):
-        path = _stringify_path(path)
+        path = _sanitize_s3(_stringify_path(path))
         try:
             contents = self.fs.ls(path)
             return len(contents) == 1 and contents[0] == path
@@ -345,7 +345,7 @@ class S3FSWrapper(DaskFileSystem):
         Generator version of what is in s3fs, which yields a flattened list of
         files
         """
-        path = _stringify_path(path).replace('s3://', '')
+        path = _sanitize_s3(_stringify_path(path))
         directories = set()
         files = set()
 
@@ -371,6 +371,13 @@ class S3FSWrapper(DaskFileSystem):
                 yield tup
 
 
+def _sanitize_s3(path):
+    if path.startswith('s3://'):
+        return path.replace('s3://', '')
+    else:
+        return path
+
+
 def _ensure_filesystem(fs):
     fs_type = type(fs)
 
@@ -390,14 +397,22 @@ def _ensure_filesystem(fs):
         return fs
 
 
-def get_filesystem_from_uri(path):
+def resolve_filesystem_and_path(where, filesystem=None):
     """
     return filesystem from path which could be an HDFS URI
     """
+    if not _is_path_like(where):
+        if filesystem is not None:
+            raise ValueError("filesystem passed but where is file-like, so"
+                             " there is nothing to open with filesystem.")
+        return filesystem, where
+
     # input can be hdfs URI such as hdfs://host:port/myfile.parquet
-    path = _stringify_path(path)
-    # if _has_pathlib and isinstance(path, pathlib.Path):
-    #     path = str(path)
+    path = _stringify_path(where)
+
+    if filesystem is not None:
+        return _ensure_filesystem(filesystem), path
+
     parsed_uri = urlparse(path)
     if parsed_uri.scheme == 'hdfs':
         netloc_split = parsed_uri.netloc.split(':')

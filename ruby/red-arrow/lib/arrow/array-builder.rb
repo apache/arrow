@@ -65,6 +65,12 @@ module Arrow
     end
 
     def build(values)
+      append(*values)
+      finish
+    end
+
+    # @since 0.12.0
+    def append(*values)
       value_convertable = respond_to?(:convert_to_arrow_value, true)
       start_index = 0
       current_index = 0
@@ -111,8 +117,6 @@ module Arrow
           append_nulls(current_index - start_index)
         end
       end
-
-      finish
     end
 
     def append_nulls(n)

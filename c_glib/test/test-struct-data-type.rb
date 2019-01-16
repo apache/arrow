@@ -17,8 +17,14 @@
 
 class TestStructDataType < Test::Unit::TestCase
   def setup
-    @enabled_field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
-    @message_field = Arrow::Field.new("message", Arrow::StringDataType.new)
+    @enabled_field_data_type = Arrow::BooleanDataType.new
+    @message_field_data_type = Arrow::StringDataType.new
+    @field_data_types = [
+      @enabled_field_data_type,
+      @message_field_data_type,
+    ]
+    @enabled_field = Arrow::Field.new("enabled", @enabled_field_data_type)
+    @message_field = Arrow::Field.new("message", @message_field_data_type)
     @fields = [@enabled_field, @message_field]
     @data_type = Arrow::StructDataType.new(@fields)
   end
@@ -37,7 +43,8 @@ class TestStructDataType < Test::Unit::TestCase
   end
 
   def test_fields
-    assert_equal(@fields, @data_type.fields)
+    assert_equal(@fields.zip(@field_data_types),
+                 @data_type.fields.collect {|field| [field, field.data_type]})
   end
 
   sub_test_case("#get_field") do
@@ -52,6 +59,18 @@ class TestStructDataType < Test::Unit::TestCase
     def test_over
       assert_equal(nil, @data_type.get_field(2))
     end
+
+    def test_data_type
+      field = @data_type.get_field(0)
+      assert_equal([
+                     @fields[0],
+                     @field_data_types[0],
+                   ],
+                   [
+                     field,
+                     field.data_type,
+                   ])
+    end
   end
 
   sub_test_case("#get_field_by_name") do
@@ -64,9 +83,21 @@ class TestStructDataType < Test::Unit::TestCase
       assert_equal(nil,
                    @data_type.get_field_by_name("nonexistent"))
     end
+
+    def test_data_type
+      field = @data_type.get_field_by_name("enabled")
+      assert_equal([
+                     @enabled_field,
+                     @enabled_field_data_type,
+                   ],
+                   [
+                     field,
+                     field.data_type,
+                   ])
+    end
   end
 
-  sub_test_case("#get_field_by_name") do
+  sub_test_case("#get_field_index") do
     def test_found
       assert_equal(@fields.index(@enabled_field),
                    @data_type.get_field_index("enabled"))

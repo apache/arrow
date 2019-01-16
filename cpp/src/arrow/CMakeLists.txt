@@ -83,6 +83,7 @@ set(ARROW_SRCS
   table.cc
   table_builder.cc
   tensor.cc
+  sparse_tensor.cc
   type.cc
   visitor.cc
 
@@ -225,7 +226,9 @@ ADD_ARROW_LIB(arrow
   SHARED_LINK_FLAGS ${ARROW_SHARED_LINK_FLAGS}
   SHARED_LINK_LIBS ${ARROW_LINK_LIBS}
   SHARED_PRIVATE_LINK_LIBS ${ARROW_SHARED_PRIVATE_LINK_LIBS}
-  STATIC_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
+  STATIC_LINK_LIBS ${ARROW_STATIC_LINK_LIBS}
+  SHARED_INSTALL_INTERFACE_LIBS ${ARROW_SHARED_INSTALL_INTERFACE_LIBS}
+  STATIC_INSTALL_INTERFACE_LIBS ${ARROW_STATIC_INSTALL_INTERFACE_LIBS})
 
 add_dependencies(arrow ${ARROW_LIBRARIES})
 
@@ -256,7 +259,7 @@ find_package(Backtrace)
 foreach(LIB_TARGET ${ARROW_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
     PRIVATE ARROW_EXPORTING)
-  if (Backtrace_FOUND)
+  if (Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
     target_compile_definitions(${LIB_TARGET}
       PRIVATE ARROW_WITH_BACKTRACE)
   endif()
@@ -286,6 +289,7 @@ ADD_ARROW_TEST(type-test)
 ADD_ARROW_TEST(table-test)
 ADD_ARROW_TEST(table_builder-test)
 ADD_ARROW_TEST(tensor-test)
+ADD_ARROW_TEST(sparse_tensor-test)
 
 ADD_ARROW_BENCHMARK(builder-benchmark)
 ADD_ARROW_BENCHMARK(column-benchmark)

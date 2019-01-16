@@ -19,35 +19,37 @@ Benchmarks
 ==========
 
 The ``pyarrow`` package comes with a suite of benchmarks meant to
-run with `asv`_.  You'll need to install the ``asv`` package first
+run with `ASV`_.  You'll need to install the ``asv`` package first
 (``pip install asv`` or ``conda install -c conda-forge asv``).
-
-The benchmarks are run using `asv`_ which is also their only requirement.
 
 Running the benchmarks
 ----------------------
 
-To run the benchmarks, call ``asv run --python=same``. You cannot use the
-plain ``asv run`` command at the moment as asv cannot handle python packages
-in subdirectories of a repository.
+To run the benchmarks for a locally-built Arrow, run ``asv dev`` or
+``asv run --python=same``.
 
-Running with arbitrary revisions
---------------------------------
+Running for arbitrary Git revisions
+-----------------------------------
 
 ASV allows to store results and generate graphs of the benchmarks over
-the project's evolution.  For this you have the latest development version of ASV:
+the project's evolution.  You need to have the latest development version of ASV:
 
 .. code::
 
     pip install git+https://github.com/airspeed-velocity/asv
 
+The build scripts assume that Conda's ``activate`` script is on the PATH
+(the ``conda activate`` command unfortunately isn't available from
+non-interactive scripts).
+
 Now you should be ready to run ``asv run`` or whatever other command
-suits your needs.
+suits your needs.  Note that this can be quite long, as each Arrow needs
+to be rebuilt for each Git revision you're running the benchmarks for.
 
 Compatibility
 -------------
 
 We only expect the benchmarking setup to work with Python 3.6 or later,
-on a Unix-like system.
+on a Unix-like system with bash.
 
 .. _asv: https://asv.readthedocs.org/

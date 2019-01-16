@@ -109,6 +109,9 @@ the buffer is garbaged-collected, all of the memory is freed:
    buf = None
    pa.total_allocated_bytes()
 
+.. seealso::
+   On-GPU buffers using Arrow's optional :doc:`CUDA integration <cuda>`.
+
 
 Input and Output
 ================
