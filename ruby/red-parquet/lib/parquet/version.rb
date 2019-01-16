@@ -16,7 +16,7 @@
 # under the License.
 
 module Parquet
-  VERSION = "0.12.0"
+  VERSION = "0.13.0-SNAPSHOT"
 
   module Version
     numbers, TAG = VERSION.split("-")
