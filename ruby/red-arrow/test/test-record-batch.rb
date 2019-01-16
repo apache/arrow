@@ -125,19 +125,40 @@ class RecordBatchTest < Test::Unit::TestCase
 
     sub_test_case("#raw_records") do
       def setup
-        @schema = Arrow::Schema.new(name: :string, count: :uint32)
+        @decimal_type = Arrow::Decimal128DataType.new(8, 2)
+        @schema = Arrow::Schema.new(name: :string, count: :uint32, weight: :double, price: @decimal_type)
         @names = Arrow::StringArray.new(["apple", "orange", "watermelon", "octopus"])
         @counts = Arrow::UInt32Array.new([1, 2, 4, 8])
-        @record_batch = Arrow::RecordBatch.new(@schema, @counts.length, [@names, @counts])
+        @weights = Arrow::DoubleArray.new([10.1, 11.2, 12.3, 13.4])
+        @prices = Arrow::Decimal128Array.new(
+          @decimal_type,
+          [
+            Arrow::Decimal128.new("123.45"),
+            Arrow::Decimal128.new("234.56"),
+            nil,
+            Arrow::Decimal128.new("345.67")
+          ])
+        @record_batch = Arrow::RecordBatch.new(@schema, @counts.length, [@names, @counts, @weights, @prices])
       end
 
       test("default") do
         raw_records = @record_batch.raw_records
         assert_equal([
-                       ["apple", 1],
-                       ["orange", 2],
-                       ["watermelon", 4],
-                       ["octopus", 8],
+                       ["apple",      1, 10.1, Arrow::Decimal128.new("123.45")],
+                       ["orange",     2, 11.2, Arrow::Decimal128.new("234.56")],
+                       ["watermelon", 4, 12.3, nil],
+                       ["octopus",    8, 13.4, Arrow::Decimal128.new("345.67")],
+                     ],
+                     raw_records)
+      end
+
+      test("convert_decimal: true") do
+        raw_records = @record_batch.raw_records(convert_decimal: true)
+        assert_equal([
+                       ["apple",      1, 10.1, BigDecimal("123.45")],
+                       ["orange",     2, 11.2, BigDecimal("234.56")],
+                       ["watermelon", 4, 12.3, nil],
+                       ["octopus",    8, 13.4, BigDecimal("345.67")],
                      ],
                      raw_records)
       end
