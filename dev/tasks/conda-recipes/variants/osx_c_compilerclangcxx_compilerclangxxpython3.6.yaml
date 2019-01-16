@@ -7,9 +7,9 @@ build_number_decrement:
 c_compiler:
 - clang
 channel_sources:
-- conda-forge/label/gcc7,defaults
+- conda-forge,defaults
 channel_targets:
-- conda-forge gcc7
+- conda-forge main
 cxx_compiler:
 - clangxx
 macos_machine:
