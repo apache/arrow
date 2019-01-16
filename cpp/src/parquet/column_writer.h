@@ -235,8 +235,8 @@ class PARQUET_TEMPLATE_CLASS_EXPORT TypedColumnWriter : public ColumnWriter {
   typedef typename DType::c_type T;
 
   TypedColumnWriter(ColumnChunkMetaDataBuilder* metadata,
-                    std::unique_ptr<PageWriter> pager, Encoding::type encoding,
-                    const WriterProperties* properties);
+                    std::unique_ptr<PageWriter> pager, const bool use_dictionary,
+                    Encoding::type encoding, const WriterProperties* properties);
 
   // Write a batch of repetition levels, definition levels, and values to the
   // column.
