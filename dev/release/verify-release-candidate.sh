@@ -179,12 +179,13 @@ setup_miniconda() {
 
   . $MINICONDA/etc/profile.d/conda.sh
 
-  conda create -n arrow-test -y -q python=3.6 \
+  conda create -n arrow-test -y -q -c conda-forge/label/cf201901 \
+        python=3.6 \
         nomkl \
         numpy \
         pandas \
         six \
-        cython -c conda-forge
+        cython
   conda activate arrow-test
 }
 
