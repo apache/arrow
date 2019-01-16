@@ -28,7 +28,6 @@
 
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -79,9 +78,10 @@ class ARROW_EXPORT Buffer {
   /// able to retain a valid pointer to it even after other shared_ptr's to the
   /// parent buffer have been destroyed
   ///
-  /// This method makes no assertions about alignment or padding of the buffer but
-  /// in general we expected buffers to be aligned and padded to 64 bytes.  In the future
-  /// we might add utility methods to help determine if a buffer satisfies this contract.
+  /// This method makes no assertions about alignment or padding of the buffer
+  /// but in general we expected buffers to be aligned and padded to 64 bytes.
+  /// In the future we might add utility methods to help determine if a buffer
+  /// satisfies this contract.
   Buffer(const std::shared_ptr<Buffer>& parent, const int64_t offset, const int64_t size)
       : Buffer(parent->data() + offset, size) {
     parent_ = parent;
@@ -100,7 +100,8 @@ class ARROW_EXPORT Buffer {
   Status Copy(const int64_t start, const int64_t nbytes, MemoryPool* pool,
               std::shared_ptr<Buffer>* out) const;
 
-  /// Copy a section of the buffer using the default memory pool into a new Buffer.
+  /// Copy a section of the buffer using the default memory pool into a new
+  /// Buffer.
   Status Copy(const int64_t start, const int64_t nbytes,
               std::shared_ptr<Buffer>* out) const;
 
@@ -205,16 +206,19 @@ class ARROW_EXPORT Buffer {
 
 /// \brief Construct a view on a buffer at the given offset and length.
 ///
-/// This function cannot fail and does not check for errors (except in debug builds)
+/// This function cannot fail and does not check for errors (except in debug
+/// builds)
 static inline std::shared_ptr<Buffer> SliceBuffer(const std::shared_ptr<Buffer>& buffer,
                                                   const int64_t offset,
                                                   const int64_t length) {
   return std::make_shared<Buffer>(buffer, offset, length);
 }
 
-/// \brief Construct a view on a buffer at the given offset, up to the buffer's end.
+/// \brief Construct a view on a buffer at the given offset, up to the buffer's
+/// end.
 ///
-/// This function cannot fail and does not check for errors (except in debug builds)
+/// This function cannot fail and does not check for errors (except in debug
+/// builds)
 static inline std::shared_ptr<Buffer> SliceBuffer(const std::shared_ptr<Buffer>& buffer,
                                                   const int64_t offset) {
   int64_t length = buffer->size() - offset;
@@ -264,10 +268,11 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
   /// Change buffer reported size to indicated size, allocating memory if
   /// necessary.  This will ensure that the capacity of the buffer is a multiple
   /// of 64 bytes as defined in Layout.md.
-  /// Consider using ZeroPadding afterwards, in case you return buffer to a reader.
+  /// Consider using ZeroPadding afterwards, in case you return buffer to a
+  /// reader.
   ///
-  /// @param shrink_to_fit On deactivating this option, the capacity of the Buffer won't
-  /// decrease.
+  /// @param shrink_to_fit On deactivating this option, the capacity of the
+  /// Buffer won't decrease.
   virtual Status Resize(const int64_t new_size, bool shrink_to_fit = true) = 0;
 
   /// Ensure that buffer has enough memory allocated to fit the indicated
@@ -293,7 +298,8 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
 ///
 /// @{
 
-/// \brief Allocate a fixed size mutable buffer from a memory pool, zero its padding.
+/// \brief Allocate a fixed size mutable buffer from a memory pool, zero its
+/// padding.
 ///
 /// \param[in] pool a memory pool
 /// \param[in] size size of buffer to allocate
@@ -303,7 +309,8 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
 ARROW_EXPORT
 Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::shared_ptr<Buffer>* out);
 
-/// \brief Allocate a fixed size mutable buffer from a memory pool, zero its padding.
+/// \brief Allocate a fixed size mutable buffer from a memory pool, zero its
+/// padding.
 ///
 /// \param[in] pool a memory pool
 /// \param[in] size size of buffer to allocate
@@ -382,7 +389,8 @@ ARROW_EXPORT
 Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
                            std::shared_ptr<Buffer>* out);
 
-/// \brief Allocate a zero-initialized bitmap buffer from the default memory pool
+/// \brief Allocate a zero-initialized bitmap buffer from the default memory
+/// pool
 ///
 /// \param[in] length size in bits of bitmap to allocate
 /// \param[out] out the resulting buffer

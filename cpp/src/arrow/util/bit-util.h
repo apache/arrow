@@ -327,28 +327,43 @@ static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
                  kBitmask[i % 8];
 }
 
-static inline void SetBitsTo(uint8_t* bits, int64_t i_begin, int64_t i_end,
+/// \brief set or clear a range of bits quickly
+static inline void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length,
                              bool bits_are_set) {
-  if (i_begin == i_end) return;
+  if (length == 0) return;
 
-  auto bytes_begin = i_begin / 8;
-  auto bytes_end = CeilDiv(i_end, 8);
+  const auto i_begin = start_offset;
+  const auto i_end = start_offset + length;
+  const uint8_t fill_byte = -static_cast<uint8_t>(bits_are_set);
 
-  auto first_byte = bits[bytes_begin];
-  auto last_byte = bits[bytes_end - 1];
+  const auto bytes_begin = i_begin / 8;
+  const auto bytes_end = CeilDiv(i_end, 8);
 
-  std::memset(bits + bytes_begin, bits_are_set ? 0xFF : 0x00,
-              static_cast<size_t>(bytes_end - bytes_begin));
+  const auto first_byte_mask = kPrecedingBitmask[i_begin % 8];
+  const auto last_byte_mask = kTrailingBitmask[i_end % 8];
 
-  auto first_byte_mask = kPrecedingBitmask[i_begin % 8];
-  bits[bytes_begin] &= ~first_byte_mask;
-  bits[bytes_begin] |= first_byte & first_byte_mask;
+  const auto first_byte = bits[bytes_begin];
+  if (bytes_end == bytes_begin + 1) {
+    // set bits within a single byte
+    const auto only_byte_mask = first_byte_mask | last_byte_mask;
+    bits[bytes_begin] = (first_byte & only_byte_mask) | (fill_byte & ~only_byte_mask);
+    return;
+  }
+
+  // set/clear trailing bits of first byte
+  bits[bytes_begin] = (first_byte & first_byte_mask) | (fill_byte & ~first_byte_mask);
+
+  if (bytes_end - bytes_begin > 2) {
+    // set/clear whole bytes
+    std::memset(bits + bytes_begin + 1, fill_byte,
+                static_cast<size_t>(bytes_end - bytes_begin - 2));
+  }
 
   if (i_end % 8 == 0) return;
 
-  auto last_byte_mask = kTrailingBitmask[i_end % 8];
-  bits[bytes_end - 1] &= ~last_byte_mask;
-  bits[bytes_end - 1] |= last_byte & last_byte_mask;
+  // set/clear leading bits of last byte
+  auto last_byte = bits[bytes_end - 1];
+  bits[bytes_end - 1] = (last_byte & last_byte_mask) | (fill_byte & ~last_byte_mask);
 }
 
 /// \brief Convert vector of bytes to bitmap buffer
@@ -600,8 +615,8 @@ Status CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset, int64
 /// \param[in] offset bit offset into the source data
 /// \param[in] length number of bits to copy
 /// \param[in] dest_offset bit offset into the destination
-/// \param[out] dest the destination buffer, must have at least space for (offset +
-/// length) bits
+/// \param[out] dest the destination buffer, must have at least space for
+/// (offset + length) bits
 ARROW_EXPORT
 void CopyBitmap(const uint8_t* bitmap, int64_t offset, int64_t length, uint8_t* dest,
                 int64_t dest_offset);
@@ -612,8 +627,8 @@ void CopyBitmap(const uint8_t* bitmap, int64_t offset, int64_t length, uint8_t* 
 /// \param[in] offset bit offset into the source data
 /// \param[in] length number of bits to copy
 /// \param[in] dest_offset bit offset into the destination
-/// \param[out] dest the destination buffer, must have at least space for (offset +
-/// length) bits
+/// \param[out] dest the destination buffer, must have at least space for
+/// (offset + length) bits
 ARROW_EXPORT
 void InvertBitmap(const uint8_t* bitmap, int64_t offset, int64_t length, uint8_t* dest,
                   int64_t dest_offset);
@@ -635,7 +650,8 @@ Status InvertBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset,
 ///
 /// \param[in] data a packed LSB-ordered bitmap as a byte array
 /// \param[in] bit_offset a bitwise offset into the bitmap
-/// \param[in] length the number of bits to inspect in the bitmap relative to the offset
+/// \param[in] length the number of bits to inspect in the bitmap relative to
+/// the offset
 ///
 /// \return The number of set (1) bits in the range
 ARROW_EXPORT

@@ -333,7 +333,7 @@ TEST(TestBufferBuilder, BoolBufferBuilderAppendCopies) {
   ASSERT_OK(builder.Finish(&built));
 
   for (int i = 0; i != 13 + 17; ++i) {
-    EXPECT_EQ(BitUtil::GetBit(built->data(), i), i < 13) << i;
+    EXPECT_EQ(BitUtil::GetBit(built->data(), i), i < 13) << "index = " << i;
   }
 }
 

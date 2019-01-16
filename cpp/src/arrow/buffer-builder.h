@@ -37,7 +37,8 @@ namespace arrow {
 // Buffer builder classes
 
 /// \class BufferBuilder
-/// \brief A class for incrementally building a contiguous chunk of in-memory data
+/// \brief A class for incrementally building a contiguous chunk of in-memory
+/// data
 class ARROW_EXPORT BufferBuilder {
  public:
   explicit BufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
@@ -45,11 +46,10 @@ class ARROW_EXPORT BufferBuilder {
 
   /// \brief Resize the buffer to the nearest multiple of 64 bytes
   ///
-  /// \param new_capacity the new capacity of the of the builder. Will be rounded
-  /// up to a multiple of 64 bytes for padding
-  /// \param shrink_to_fit if new capacity is smaller than the existing size,
-  /// reallocate internal buffer. Set to false to avoid reallocations when
-  /// shrinking the builder.
+  /// \param new_capacity the new capacity of the of the builder. Will be
+  /// rounded up to a multiple of 64 bytes for padding \param shrink_to_fit if
+  /// new capacity is smaller than the existing size, reallocate internal
+  /// buffer. Set to false to avoid reallocations when shrinking the builder.
   /// \return Status
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
     // Resize(0) is a no-op
@@ -76,8 +76,13 @@ class ARROW_EXPORT BufferBuilder {
   ///
   /// \param additional_bytes number of additional bytes to make space for
   /// \return Status
-  Status Reserve(const int64_t additional_bytes) {
-    return Resize(size_ + additional_bytes, false);
+  Status Reserve(const int64_t additional_bytes, bool grow_by_factor = false) {
+    auto min_capacity = size_ + additional_bytes;
+    if (grow_by_factor) {
+      min_capacity = GrowByFactor(min_capacity);
+    }
+    if (min_capacity <= capacity_) return Status::OK();
+    return Resize(min_capacity, false);
   }
 
   /// \brief Return a capacity expanded by a growth factor of 2
@@ -93,7 +98,7 @@ class ARROW_EXPORT BufferBuilder {
   ///
   /// The buffer is automatically expanded if necessary.
   Status Append(const void* data, const int64_t length) {
-    ARROW_RETURN_NOT_OK(Resize(GrowByFactor(length + size_), false));
+    ARROW_RETURN_NOT_OK(Reserve(length, true));
     UnsafeAppend(data, length);
     return Status::OK();
   }
@@ -102,7 +107,7 @@ class ARROW_EXPORT BufferBuilder {
   ///
   /// The buffer is automatically expanded if necessary.
   Status Append(const int64_t num_copies, uint8_t value) {
-    ARROW_RETURN_NOT_OK(Resize(GrowByFactor(num_copies + size_), false));
+    ARROW_RETURN_NOT_OK(Reserve(num_copies, true));
     UnsafeAppend(num_copies, value);
     return Status::OK();
   }
@@ -113,7 +118,7 @@ class ARROW_EXPORT BufferBuilder {
   template <size_t NBYTES>
   Status Append(const std::array<uint8_t, NBYTES>& data) {
     constexpr auto nbytes = static_cast<int64_t>(NBYTES);
-    ARROW_RETURN_NOT_OK(Resize(GrowByFactor(nbytes + size_), false));
+    ARROW_RETURN_NOT_OK(Reserve(NBYTES, true));
     std::copy(data.cbegin(), data.cend(), data_ + size_);
     size_ += nbytes;
     return Status::OK();
@@ -271,27 +276,21 @@ class TypedBufferBuilder<bool> {
 
   void UnsafeAppend(const uint8_t* bytes, int64_t num_elements) {
     if (num_elements == 0) return;
-    internal::FirstTimeBitmapWriter writer(mutable_data(), bit_length_, num_elements);
-    for (int64_t i = 0; i != num_elements; ++i) {
-      if (bytes[i]) {
-        writer.Set();
-      } else {
-        writer.Clear();
-        ++false_count_;
-      }
-      writer.Next();
-    }
-    writer.Finish();
+    int64_t i = 0;
+    internal::GenerateBitsUnrolled(mutable_data(), bit_length_, num_elements, [&] {
+      bool value = bytes[i++];
+      if (!value) ++false_count_;
+      return value;
+    });
     bit_length_ += num_elements;
   }
 
   void UnsafeAppend(const int64_t num_copies, bool value) {
-    const int64_t new_length = bit_length_ + num_copies;
-    BitUtil::SetBitsTo(mutable_data(), bit_length_, new_length, value);
+    BitUtil::SetBitsTo(mutable_data(), bit_length_, num_copies, value);
     if (!value) {
       false_count_ += num_copies;
     }
-    bit_length_ = new_length;
+    bit_length_ += num_copies;
   }
 
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
