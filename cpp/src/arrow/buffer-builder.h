@@ -192,7 +192,7 @@ class TypedBufferBuilder<T, typename std::enable_if<std::is_arithmetic<T>::value
   }
 
   Status Append(const int64_t num_copies, T value) {
-    ARROW_RETURN_NOT_OK(Resize(GrowByFactor(num_copies + size_), false));
+    ARROW_RETURN_NOT_OK(Resize(GrowByFactor(num_copies + length()), false));
     UnsafeAppend(num_copies, value);
     return Status::OK();
   }
