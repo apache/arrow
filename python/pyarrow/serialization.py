@@ -174,7 +174,6 @@ def _register_custom_pandas_handlers(context):
         custom_serializer=_pickle_to_buffer,
         custom_deserializer=_load_pickle_from_buffer)
 
-    # pandas.core.arrays was introduced in pandas 0.23
     if hasattr(pd.core, 'arrays'):
         if hasattr(pd.core.arrays, 'interval'):
             context.register_type(
