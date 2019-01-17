@@ -32,7 +32,8 @@ Building Arrow requires:
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be sufficient.
 * CMake 3.2 or higher
 * Boost
-* Bison/flex (for parquet only)
+* Bison/flex (for building Apache Thrift from source only, 
+a parquet dependency.)
 
 Testing arrow with ctest requires:
 
