@@ -71,15 +71,8 @@ TEST(TestDatum, ImplicitConstructors) {
 
 class TestInvokeBinaryKernel : public ComputeFixture, public TestBase {};
 
-class DummyBinaryKernel : public BinaryKernel {
-  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
-              Datum* out) override {
-    return Status::OK();
-  }
-};
-
 TEST_F(TestInvokeBinaryKernel, Exceptions) {
-  DummyBinaryKernel kernel;
+  MockBinaryKernel kernel;
   std::vector<Datum> outputs;
   std::shared_ptr<Table> table;
   vector<bool> values1 = {true, false, true};
