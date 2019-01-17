@@ -32,6 +32,7 @@ Building Arrow requires:
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be sufficient.
 * CMake 3.2 or higher
 * Boost
+* Bison/flex (for parquet only)
 
 Testing arrow with ctest requires:
 
@@ -48,7 +49,9 @@ sudo apt-get install \
      libboost-filesystem-dev \
      libboost-regex-dev \
      libboost-system-dev \
-     python
+     python \
+     bison \
+     flex
 ```
 
 On Alpine Linux:
