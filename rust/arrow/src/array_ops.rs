@@ -18,14 +18,51 @@
 //! Defines primitive computations on arrays, e.g. addition, equality, boolean logic.
 
 use std::ops::{Add, Div, Mul, Sub};
+use std::mem;
+use std::slice::from_raw_parts_mut;
 
 use num::Zero;
+use packed_simd::f32x4;
 
-use crate::array::{Array, BooleanArray, PrimitiveArray};
+use crate::buffer::MutableBuffer;
+use crate::array::*;
 use crate::builder::PrimitiveBuilder;
 use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
+
+pub fn simd_add(left: &Float32Array, right: &Float32Array) -> Result<Float32Array>
+{
+    if left.len() != right.len() {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform math operation on arrays of different length".to_string(),
+        ));
+    }
+    let buffer_size = left.len() * mem::size_of::<f32>();
+    let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
+
+    for i in (0..left.len()).step_by(4) {
+        let simd_left = unsafe {f32x4::from_slice_unaligned_unchecked(left.value_slice(i, 4))};
+        let simd_right = unsafe {f32x4::from_slice_unaligned_unchecked(right.value_slice(i, 4))};
+        let simd_result = simd_left + simd_right;
+
+        let result_slice: &mut [f32] = unsafe {
+            from_raw_parts_mut(
+                (result.data_mut().as_mut_ptr() as *mut f32).offset(i as isize),
+                4
+            )
+        };
+        unsafe {
+            simd_result.write_to_slice_unaligned_unchecked(result_slice);
+        }
+    }
+
+    Ok(Float32Array::new(
+        left.len(),
+        result.freeze(),
+        0,
+        0))
+}
 
 /// Perform `left + right` operation on two arrays. If either left or right value is null then the result is also null.
 pub fn add<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
@@ -334,6 +371,23 @@ pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
 mod tests {
     use super::*;
     use crate::array::{Float64Array, Int32Array};
+
+    #[test]
+    fn test_simd() {
+        let a = Float32Array::from(vec![5.0, 6.0, 7.0, 8.0, 9.0, 10.0]);
+        let b = Float32Array::from(vec![6.0, 7.0, 8.0, 9.0, 8.0, 20.0]);
+        let c = simd_add(&a, &b).unwrap();
+
+        for i in 0..c.len() {
+            println!("{}: {}", i, c.value(i));
+        }
+        assert_eq!(11.0, c.value(0));
+        assert_eq!(13.0, c.value(1));
+        assert_eq!(15.0, c.value(2));
+        assert_eq!(17.0, c.value(3));
+        assert_eq!(17.0, c.value(4));
+        assert_eq!(30.0, c.value(5));
+    }
 
     #[test]
     fn test_primitive_array_add() {
