@@ -13,8 +13,10 @@ First install a release build of the C++ bindings to arrow.
 git clone https://github.com/apache/arrow.git
 cd arrow/cpp && mkdir release && cd release
 
-# It is important to statically link to boost libraries
-cmake .. -DARROW_PARQUET=ON -DCMAKE_BUILD_TYPE=Release -DARROW_BOOST_USE_SHARED:BOOL=Off
+# It is important to statically link to boost libraries.
+# For this, you may need to use a vendored version of the
+# Boost libraries (e.g. on Ubuntu).
+cmake .. -DARROW_PARQUET=ON -DCMAKE_BUILD_TYPE=Release -DARROW_BOOST_USE_SHARED:BOOL=Off -DARROW_BOOST_VENDORED=ON
 make install
 ```
 
@@ -38,16 +40,16 @@ tf <- tempfile()
 #> # A tibble: 10 x 2
 #>        x       y
 #>    <int>   <dbl>
-#>  1     1  0.0855
-#>  2     2 -1.68  
-#>  3     3 -0.0294
-#>  4     4 -0.124 
-#>  5     5  0.0675
-#>  6     6  1.64  
-#>  7     7  1.54  
-#>  8     8 -0.0209
-#>  9     9 -0.982 
-#> 10    10  0.349
+#>  1     1  0.516 
+#>  2     2 -0.324 
+#>  3     3  0.110 
+#>  4     4  0.511 
+#>  5     5  0.423 
+#>  6     6 -1.09  
+#>  7     7 -0.862 
+#>  8     8 -0.249 
+#>  9     9 -0.0986
+#> 10    10  0.340
 # arrow::write_arrow(tib, tf)
 
 # # read it back with pyarrow
