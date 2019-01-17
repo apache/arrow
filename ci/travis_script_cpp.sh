@@ -24,6 +24,9 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 pushd $CPP_BUILD_DIR
 
 PATH=$ARROW_BUILD_TYPE:$PATH ctest -j2 --output-on-failure -L unittest
+ldd debug/libgandiva_jni.so
+#nm -D -C debug/libgandiva_jni.so|grep ' T '
+nm -D -C debug/libgandiva_jni.so|grep ' T '|grep -i Java
 
 popd
 
