@@ -26,6 +26,7 @@ flatbuffers
 gflags
 glog
 gtest
+gmock
 libprotobuf
 lz4-c
 python
