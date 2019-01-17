@@ -96,9 +96,6 @@ bintray() {
   echo "${command} ${url}" 1>&2
   curl \
     --fail \
-    --basic \
-    --user "${BINTRAY_USER}:${BINTRAY_PASSWORD}" \
-    --header "Content-Type: application/json" \
     --request ${command} \
     ${url} \
     "$@" | \
@@ -110,12 +107,10 @@ download_bintray_files() {
 
   local version_name=${VERSION}-rc${RC_NUMBER}
 
-  local files=$(
-    bintray \
-      GET /packages/${BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}/files | \
-      jq -r ".[].path")
-
-  for file in ${files}; do
+  bintray \
+    GET /packages/${BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}/files | \
+      jq -r ".[].path" | \
+      while read file; do
     mkdir -p "$(dirname ${file})"
     curl \
       --fail \
@@ -380,12 +375,6 @@ if [ "$ARTIFACT" == "source" ]; then
   test_integration
   test_rust
 else
-  if [ -z "${BINTRAY_PASSWORD}" ]; then
-    echo "BINTRAY_PASSWORD is empty"
-    exit 1
-  fi
-
-  : ${BINTRAY_USER:=$USER}
   : ${BINTRAY_REPOSITORY:=apache/arrow}
 
   verify_binary_artifacts
