@@ -191,6 +191,7 @@ test_and_install_cpp() {
   pushd cpp/build
 
   ARROW_CMAKE_OPTIONS="
+${ARROW_CMAKE_OPTIONS}
 -DCMAKE_INSTALL_PREFIX=$ARROW_HOME
 -DCMAKE_INSTALL_LIBDIR=lib
 -DARROW_PLASMA=ON
@@ -361,13 +362,35 @@ if [ "$ARTIFACT" == "source" ]; then
   TARBALL=apache-arrow-$1.tar.gz
   DIST_NAME="apache-arrow-${VERSION}"
 
+  # By default test all functionalities.
+  # To deactivate one test, deactivate the test and all of its dependents
+  TEST_JAVA=${TEST_JAVA:=1}
+  TEST_CPP=${TEST_CPP:=1}
+  TEST_GLIB=${TEST_GLIB:=1}
+  TEST_RUBY=${TEST_RUBY:=1}
+  TEST_PYTHON=${TEST_PYTHON:=1}
+  TEST_JS=${TEST_JS:=1}
+  TEST_INTEGRATION=${TEST_INTEGRATION:=1}
+  TEST_RUST=${TEST_RUST:=1}
+
+  # Automatically test if its activated by a dependent
+  TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
+  TEST_PYTHON=$((${TEST_PYTHON} + ${TEST_INTEGRATION}))
+  TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON}))
+  TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
+  TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
+
   fetch_archive $DIST_NAME
   tar xvzf ${DIST_NAME}.tar.gz
   cd ${DIST_NAME}
 
-  test_package_java
-  setup_miniconda
-  test_and_install_cpp
+  if [ ${TEST_JAVA} -gt 0 ]; then
+    test_package_java
+  fi
+  if [ ${TEST_CPP} -gt 0 ]; then
+    setup_miniconda
+    test_and_install_cpp
+  fi
   test_python
   test_glib
   test_ruby
