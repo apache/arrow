@@ -73,6 +73,7 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tool
 cmake -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DARROW_BOOST_USE_SHARED=ON ^
+      -DARROW_BUILD_TESTS=ON ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
