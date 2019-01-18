@@ -73,7 +73,7 @@ Status LikeHolder::Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* h
       Status::Invalid(
           "'like' function requires a string literal as the second parameter"));
 
-  return Make(boost::get<std::string>(literal->holder()), holder);
+  return Make(literal->holder().get<std::string>(), holder);
 }
 
 Status LikeHolder::Make(const std::string& sql_pattern,

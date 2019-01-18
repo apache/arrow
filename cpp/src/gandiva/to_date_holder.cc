@@ -44,7 +44,7 @@ Status ToDateHolder::Make(const FunctionNode& node,
     return Status::Invalid(
         "'to_date' function requires a string literal as the second parameter");
   }
-  auto pattern = boost::get<std::string>(literal_pattern->holder());
+  auto pattern = literal_pattern->holder().get<std::string>();
 
   auto literal_suppress_errors = dynamic_cast<LiteralNode*>(node.children().at(2).get());
   if (literal_pattern == nullptr) {
@@ -57,7 +57,7 @@ Status ToDateHolder::Make(const FunctionNode& node,
     return Status::Invalid(
         "'to_date' function requires a int literal as the third parameter");
   }
-  auto suppress_errors = boost::get<int>(literal_suppress_errors->holder());
+  auto suppress_errors = literal_suppress_errors->holder().get<int>();
   return Make(pattern, suppress_errors, holder);
 }
 
