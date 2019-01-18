@@ -17,6 +17,7 @@
 
 pub mod array;
 pub mod array_data;
+pub mod compute;
 pub mod bitmap;
 pub mod buffer;
 pub mod builder;
