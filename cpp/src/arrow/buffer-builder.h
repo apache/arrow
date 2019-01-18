@@ -78,10 +78,10 @@ class ARROW_EXPORT BufferBuilder {
   /// \return Status
   Status Reserve(const int64_t additional_bytes, bool grow_by_factor = false) {
     auto min_capacity = size_ + additional_bytes;
+    if (min_capacity <= capacity_) return Status::OK();
     if (grow_by_factor) {
       min_capacity = GrowByFactor(min_capacity);
     }
-    if (min_capacity <= capacity_) return Status::OK();
     return Resize(min_capacity, false);
   }
 
