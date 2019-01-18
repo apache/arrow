@@ -344,7 +344,9 @@ static inline void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length
 
   if (bytes_end == bytes_begin + 1) {
     // set bits within a single byte
-    const auto only_byte_mask = static_cast<uint8_t>(first_byte_mask | last_byte_mask);
+    const auto only_byte_mask = i_end % 8 == 0
+      ? first_byte_mask
+      : static_cast<uint8_t>(first_byte_mask | last_byte_mask);
     bits[bytes_begin] &= only_byte_mask;
     bits[bytes_begin] |= static_cast<uint8_t>(fill_byte & ~only_byte_mask);
     return;

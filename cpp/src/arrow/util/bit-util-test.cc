@@ -523,23 +523,23 @@ TEST(BitUtilTests, TestSetBitsTo) {
     {
       // test set within a byte
       uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
-      SetBitsTo(bitmap, 2, 4, true);
-      SetBitsTo(bitmap, 4, 6, false);
+      SetBitsTo(bitmap, 2, 2, true);
+      SetBitsTo(bitmap, 4, 2, false);
       ASSERT_BYTES_EQ(bitmap, {static_cast<uint8_t>((fill_byte & ~0x3C) | 0xC)});
     }
     {
       // test straddling a single byte boundary
       uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
-      SetBitsTo(bitmap, 4, 11, true);
-      SetBitsTo(bitmap, 11, 18, false);
+      SetBitsTo(bitmap, 4, 7, true);
+      SetBitsTo(bitmap, 11, 7, false);
       ASSERT_BYTES_EQ(bitmap, {static_cast<uint8_t>((fill_byte & 0xF) | 0xF0), 0x7,
                                static_cast<uint8_t>(fill_byte & ~0x3)});
     }
     {
       // test byte aligned end
       uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
-      SetBitsTo(bitmap, 4, 8, true);
-      SetBitsTo(bitmap, 8, 16, false);
+      SetBitsTo(bitmap, 4, 4, true);
+      SetBitsTo(bitmap, 8, 8, false);
       ASSERT_BYTES_EQ(bitmap,
                       {static_cast<uint8_t>((fill_byte & 0xF) | 0xF0), 0x00, fill_byte});
     }
