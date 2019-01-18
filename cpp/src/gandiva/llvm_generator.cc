@@ -527,52 +527,52 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
 
   switch (dex.type()->id()) {
     case arrow::Type::BOOL:
-      value = types->i1_constant(boost::get<bool>(dex.holder()));
+      value = types->i1_constant(dex.holder().get<bool>());
       break;
 
     case arrow::Type::UINT8:
-      value = types->i8_constant(boost::get<uint8_t>(dex.holder()));
+      value = types->i8_constant(dex.holder().get<uint8_t>());
       break;
 
     case arrow::Type::UINT16:
-      value = types->i16_constant(boost::get<uint16_t>(dex.holder()));
+      value = types->i16_constant(dex.holder().get<uint16_t>());
       break;
 
     case arrow::Type::UINT32:
-      value = types->i32_constant(boost::get<uint32_t>(dex.holder()));
+      value = types->i32_constant(dex.holder().get<uint32_t>());
       break;
 
     case arrow::Type::UINT64:
-      value = types->i64_constant(boost::get<uint64_t>(dex.holder()));
+      value = types->i64_constant(dex.holder().get<uint64_t>());
       break;
 
     case arrow::Type::INT8:
-      value = types->i8_constant(boost::get<int8_t>(dex.holder()));
+      value = types->i8_constant(dex.holder().get<int8_t>());
       break;
 
     case arrow::Type::INT16:
-      value = types->i16_constant(boost::get<int16_t>(dex.holder()));
+      value = types->i16_constant(dex.holder().get<int16_t>());
       break;
 
     case arrow::Type::INT32:
-      value = types->i32_constant(boost::get<int32_t>(dex.holder()));
+      value = types->i32_constant(dex.holder().get<int32_t>());
       break;
 
     case arrow::Type::INT64:
-      value = types->i64_constant(boost::get<int64_t>(dex.holder()));
+      value = types->i64_constant(dex.holder().get<int64_t>());
       break;
 
     case arrow::Type::FLOAT:
-      value = types->float_constant(boost::get<float>(dex.holder()));
+      value = types->float_constant(dex.holder().get<float>());
       break;
 
     case arrow::Type::DOUBLE:
-      value = types->double_constant(boost::get<double>(dex.holder()));
+      value = types->double_constant(dex.holder().get<double>());
       break;
 
     case arrow::Type::STRING:
     case arrow::Type::BINARY: {
-      const std::string& str = boost::get<std::string>(dex.holder());
+      const std::string& str = dex.holder().get<std::string>();
 
       llvm::Constant* str_int_cast = types->i64_constant((int64_t)str.c_str());
       value = llvm::ConstantExpr::getIntToPtr(str_int_cast, types->i8_ptr_type());
@@ -581,24 +581,24 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
     }
 
     case arrow::Type::DATE64:
-      value = types->i64_constant(boost::get<int64_t>(dex.holder()));
+      value = types->i64_constant(dex.holder().get<int64_t>());
       break;
 
     case arrow::Type::TIME32:
-      value = types->i32_constant(boost::get<int32_t>(dex.holder()));
+      value = types->i32_constant(dex.holder().get<int32_t>());
       break;
 
     case arrow::Type::TIME64:
-      value = types->i64_constant(boost::get<int64_t>(dex.holder()));
+      value = types->i64_constant(dex.holder().get<int64_t>());
       break;
 
     case arrow::Type::TIMESTAMP:
-      value = types->i64_constant(boost::get<int64_t>(dex.holder()));
+      value = types->i64_constant(dex.holder().get<int64_t>());
       break;
 
     case arrow::Type::DECIMAL: {
       // build code for struct
-      auto decimal_value = boost::get<Decimal128Full>(dex.holder());
+      auto decimal_value = dex.holder().get<Decimal128Full>();
       auto int_value =
           llvm::ConstantInt::get(llvm::Type::getInt128Ty(*generator_->context()),
                                  decimal_value.value().ToIntegerString(), 10);

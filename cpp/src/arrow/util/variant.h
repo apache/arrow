@@ -19,6 +19,7 @@
 #define ARROW_UTIL_VARIANT_H
 
 #include "arrow/vendored/variant/variant.hpp"  // IWYU pragma: export
+#include "arrow/vendored/variant/variant_io.hpp"
 
 namespace arrow {
 namespace util {
