@@ -142,7 +142,7 @@ class ARROW_EXPORT ArrayBuilder {
   // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
   // assume all of length bits are valid.
   void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t length) {
-    if (valid_bytes == nullptr) {
+    if (valid_bytes == NULLPTR) {
       return UnsafeSetNotNull(length);
     }
     null_bitmap_builder_.UnsafeAppend(valid_bytes, length);
