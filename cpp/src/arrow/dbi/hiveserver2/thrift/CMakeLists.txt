@@ -78,7 +78,7 @@ endfunction(HS2_THRIFT_GEN)
 
 message("Using Thrift compiler: ${THRIFT_COMPILER}")
 
-set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/src)
+set(OUTPUT_DIR ${ARROW_BINARY_DIR}/src)
 file(MAKE_DIRECTORY ${OUTPUT_DIR})
 
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift

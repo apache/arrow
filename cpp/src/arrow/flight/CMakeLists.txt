@@ -29,8 +29,8 @@ SET(ARROW_FLIGHT_STATIC_LINK_LIBS
 
 # TODO(wesm): Protobuf shared vs static linking
 
-set(FLIGHT_PROTO_PATH "${CMAKE_SOURCE_DIR}/../format")
-set(FLIGHT_PROTO ${CMAKE_SOURCE_DIR}/../format/Flight.proto)
+set(FLIGHT_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
+set(FLIGHT_PROTO ${ARROW_SOURCE_DIR}/../format/Flight.proto)
 
 set(FLIGHT_GENERATED_PROTO_FILES
   "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
