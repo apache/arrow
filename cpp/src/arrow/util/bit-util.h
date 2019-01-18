@@ -334,7 +334,7 @@ static inline void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length
 
   const auto i_begin = start_offset;
   const auto i_end = start_offset + length;
-  const uint8_t fill_byte = -static_cast<uint8_t>(bits_are_set);
+  const uint8_t fill_byte = static_cast<uint8_t>(-static_cast<uint8_t>(bits_are_set));
 
   const auto bytes_begin = i_begin / 8;
   const auto bytes_end = CeilDiv(i_end, 8);
@@ -342,16 +342,17 @@ static inline void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length
   const auto first_byte_mask = kPrecedingBitmask[i_begin % 8];
   const auto last_byte_mask = kTrailingBitmask[i_end % 8];
 
-  const auto first_byte = bits[bytes_begin];
   if (bytes_end == bytes_begin + 1) {
     // set bits within a single byte
-    const auto only_byte_mask = first_byte_mask | last_byte_mask;
-    bits[bytes_begin] = (first_byte & only_byte_mask) | (fill_byte & ~only_byte_mask);
+    const auto only_byte_mask = static_cast<uint8_t>(first_byte_mask | last_byte_mask);
+    bits[bytes_begin] &= only_byte_mask;
+    bits[bytes_begin] |= static_cast<uint8_t>(fill_byte & ~only_byte_mask);
     return;
   }
 
   // set/clear trailing bits of first byte
-  bits[bytes_begin] = (first_byte & first_byte_mask) | (fill_byte & ~first_byte_mask);
+  bits[bytes_begin] &= first_byte_mask;
+  bits[bytes_begin] |= static_cast<uint8_t>(fill_byte & ~first_byte_mask);
 
   if (bytes_end - bytes_begin > 2) {
     // set/clear whole bytes
@@ -362,8 +363,8 @@ static inline void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length
   if (i_end % 8 == 0) return;
 
   // set/clear leading bits of last byte
-  auto last_byte = bits[bytes_end - 1];
-  bits[bytes_end - 1] = (last_byte & last_byte_mask) | (fill_byte & ~last_byte_mask);
+  bits[bytes_end - 1] &= last_byte_mask;
+  bits[bytes_end - 1] |= static_cast<uint8_t>(fill_byte & ~last_byte_mask);
 }
 
 /// \brief Convert vector of bytes to bitmap buffer
