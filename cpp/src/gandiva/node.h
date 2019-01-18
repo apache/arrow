@@ -76,12 +76,12 @@ class LiteralNode : public Node {
     // The default formatter prints in decimal can cause a loss in precision. so,
     // print in hex. Can't use hexfloat since gcc 4.9 doesn't support it.
     if (return_type()->id() == arrow::Type::DOUBLE) {
-      double dvalue = boost::get<double>(holder_);
+      double dvalue = holder_.get<double>();
       uint64_t bits;
       memcpy(&bits, &dvalue, sizeof(bits));
       ss << " raw(" << std::hex << bits << ")";
     } else if (return_type()->id() == arrow::Type::FLOAT) {
-      float fvalue = boost::get<float>(holder_);
+      float fvalue = holder_.get<float>();
       uint32_t bits;
       memcpy(&bits, &fvalue, sizeof(bits));
       ss << " raw(" << std::hex << bits << ")";
