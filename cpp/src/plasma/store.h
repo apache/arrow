@@ -28,7 +28,10 @@
 #include "plasma/common.h"
 #include "plasma/events.h"
 #include "plasma/eviction_policy.h"
+#include "plasma/external_store.h"
+#include "plasma/external_store_worker.h"
 #include "plasma/plasma.h"
+#include "plasma/protocol.h"
 
 namespace arrow {
 class Status;
@@ -76,7 +79,10 @@ class PlasmaStore {
 
   // TODO: PascalCase PlasmaStore methods.
   PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
-              bool hugetlbfs_enabled);
+              bool hugepages_enabled, const std::string& socket_name,
+              std::shared_ptr<ExternalStore> external_store,
+              const std::string& external_store_endpoint,
+              size_t external_store_parallelism);
 
   ~PlasmaStore();
 
@@ -126,11 +132,10 @@ class PlasmaStore {
   ///  - PlasmaError::ObjectInUse, if the object is in use.
   PlasmaError DeleteObject(ObjectID& object_id);
 
-  /// Delete objects that have been created in the hash table. This should only
-  /// be called on objects that are returned by the eviction policy to evict.
+  /// Evict objects returned by the eviction policy.
   ///
-  /// @param object_ids Object IDs of the objects to be deleted.
-  void DeleteObjects(const std::vector<ObjectID>& object_ids);
+  /// @param object_ids Object IDs of the objects to be evicted.
+  void EvictObjects(const std::vector<ObjectID>& object_ids);
 
   /// Process a get request from a client. This method assumes that we will
   /// eventually have these objects sealed. If one of the objects has not yet
@@ -152,7 +157,8 @@ class PlasmaStore {
   /// @param digest The digest of the object. This is used to tell if two
   /// objects
   ///        with the same object ID are the same.
-  void SealObject(const ObjectID& object_id, unsigned char digest[]);
+  void SealObject(const ObjectID& object_id, unsigned char digest[],
+                  bool notify);
 
   /// Check if the plasma store contains an object:
   ///
@@ -211,6 +217,9 @@ class PlasmaStore {
   int RemoveFromClientObjectIds(const ObjectID& object_id, ObjectTableEntry* entry,
                                 Client* client);
 
+  uint8_t* AllocateMemory(int device_num, size_t size, int* fd, int64_t* map_size,
+                          ptrdiff_t* offset);
+
   /// Event loop of the plasma store.
   EventLoop* loop_;
   /// The plasma store information, including the object tables, that is exposed
@@ -234,6 +243,10 @@ class PlasmaStore {
   std::unordered_map<int, std::unique_ptr<Client>> connected_clients_;
 
   std::unordered_set<ObjectID> deletion_cache_;
+
+  /// Manages worker threads for handling asynchronous/multi-threaded requests
+  /// for reading/writing data to/from external store.
+  ExternalStoreWorker external_store_worker_;
 #ifdef PLASMA_CUDA
   arrow::cuda::CudaDeviceManager* manager_;
 #endif
