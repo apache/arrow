@@ -136,10 +136,6 @@ if (PLASMA_EXTERNAL_STORE_LIBDIRS)
   link_directories(${PLASMA_EXTERNAL_STORE_LIBDIRS})
 endif ()
 
-if (NOT APPLE AND UNIX)
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed -ldl")
-endif ()
-
 # We use static libraries for the plasma_store_server executable so that it can
 # be copied around and used in different locations.
 add_executable(plasma_store_server ${PLASMA_EXTERNAL_STORE_SOURCES} store.cc)
