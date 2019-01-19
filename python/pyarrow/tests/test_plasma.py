@@ -926,7 +926,7 @@ class TestPlasmaClient(object):
         import pyarrow.plasma as plasma
         # Start Plasma store.
         self.plasma_store_ctx = plasma.start_plasma_store(
-            plasma_store_memory=104857600,
+            plasma_store_memory=100 * 1024 * 1024,
             use_valgrind=USE_VALGRIND,
             external_store=EXTERNAL_STORE)
         self.plasma_store_name, self.p = self.plasma_store_ctx.__enter__()
