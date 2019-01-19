@@ -1437,7 +1437,7 @@ if (NOT THRIFT_FOUND)
       # homebrew and ask for its bison installation.
       if (NOT BISON_FOUND)
         find_program(BREW_BIN brew)
-        if (NOT ("${BREW_BIN}" STREQUAL "BREW_BIN-NOTFOUND"))
+        if (BREW_BIN)
           execute_process(
             COMMAND ${BREW_BIN} --prefix bison
             OUTPUT_VARIABLE BISON_PREFIX
@@ -1445,7 +1445,7 @@ if (NOT THRIFT_FOUND)
           )
           set(BISON_EXECUTABLE "${BISON_PREFIX}/bin/bison")
           find_package(BISON 2.5.1)
-          set(THRIFT_BISON_EXECUTABLE "${BISON_PREFIX}/bin/bison")
+          set(THRIFT_BISON_EXECUTABLE "${BISON_EXECUTABLE}")
         endif()
       else()
         set(THRIFT_BISON_EXECUTABLE "${BISON_EXECUTABLE}")
