@@ -81,7 +81,7 @@ class ExternalStores {
   ///
   /// \param endpoint The endpoint for the external store
   /// \return The external store name
-  static std::string ExtractStoreName(const std::string &endpoint);
+  static Status ExtractStoreName(const std::string &endpoint, std::string &store_name);
 
   /// Register a new external store.
   ///
