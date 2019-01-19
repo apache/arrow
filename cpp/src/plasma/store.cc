@@ -1185,7 +1185,11 @@ int main(int argc, char* argv[]) {
   // Get external store
   std::shared_ptr<plasma::ExternalStore> external_store{nullptr};
   if (!external_store_endpoint.empty()) {
-    std::string name = plasma::ExternalStores::ExtractStoreName(external_store_endpoint);
+    std::string name;
+    auto s = plasma::ExternalStores::ExtractStoreName(external_store_endpoint, name);
+    if (s.IsInvalid()) {
+      ARROW_LOG(FATAL) << s.ToString();
+    }
     external_store = plasma::ExternalStores::GetStore(name);
     if (external_store == nullptr) {
       ARROW_LOG(FATAL) << "No such external store \"" << name << "\"";
