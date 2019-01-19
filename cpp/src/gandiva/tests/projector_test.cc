@@ -54,15 +54,15 @@ TEST_F(TestProjector, TestProjectCache) {
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {sum_expr, sub_expr}, configuration, &projector);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(status);
 
   // everything is same, should return the same projector.
   auto schema_same = arrow::schema({field0, field1});
   std::shared_ptr<Projector> cached_projector;
   status = Projector::Make(schema_same, {sum_expr, sub_expr}, configuration,
                            &cached_projector);
-  EXPECT_TRUE(status.ok());
-  EXPECT_TRUE(cached_projector.get() == projector.get());
+  ASSERT_OK(status);
+  EXPECT_EQ(cached_projector, projector);
 
   // schema is different should return a new projector.
   auto field2 = field("f2", int32());
@@ -70,14 +70,31 @@ TEST_F(TestProjector, TestProjectCache) {
   std::shared_ptr<Projector> should_be_new_projector;
   status = Projector::Make(different_schema, {sum_expr, sub_expr}, configuration,
                            &should_be_new_projector);
-  EXPECT_TRUE(status.ok());
-  EXPECT_TRUE(cached_projector.get() != should_be_new_projector.get());
+  ASSERT_OK(status);
+  EXPECT_NE(cached_projector, should_be_new_projector);
 
   // expression list is different should return a new projector.
   std::shared_ptr<Projector> should_be_new_projector1;
   status = Projector::Make(schema, {sum_expr}, configuration, &should_be_new_projector1);
-  EXPECT_TRUE(status.ok());
-  EXPECT_TRUE(cached_projector.get() != should_be_new_projector1.get());
+  ASSERT_OK(status);
+  EXPECT_NE(cached_projector, should_be_new_projector1);
+
+  // another instance of the same configuration, should return the same projector.
+  status = Projector::Make(schema, {sum_expr, sub_expr}, TestConfiguration(),
+                           &cached_projector);
+  ASSERT_OK(status);
+  EXPECT_EQ(cached_projector, projector);
+
+  // if configuration is different, should return a new projector.
+  auto other_configuration =
+      ConfigurationBuilder()
+          .set_byte_code_file_path("/" + std::string(GANDIVA_BYTE_COMPILE_FILE_PATH))
+          .build();
+  std::shared_ptr<Projector> should_be_new_projector2;
+  status = Projector::Make(schema, {sum_expr, sub_expr}, other_configuration,
+                           &should_be_new_projector2);
+  ASSERT_OK(status);
+  EXPECT_NE(projector, should_be_new_projector2);
 }
 
 TEST_F(TestProjector, TestProjectCacheFieldNames) {
