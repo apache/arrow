@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_DECIMAL_H
-#define ARROW_DECIMAL_H
+#pragma once
 
 #include <array>
 #include <cstdint>
@@ -42,7 +41,7 @@ namespace arrow {
 /// The implementation is split into two parts :
 ///
 /// 1. DecimalBasic128
-///    - can be safely compiled to IR without references to libstdcpp.
+///    - can be safely compiled to IR without references to libstdc++.
 /// 2. Decimal128
 ///    - has additional functionality on top of DecimalBasic128 to deal with
 ///      strings and streams.
@@ -70,25 +69,20 @@ class ARROW_EXPORT Decimal128 : public DecimalBasic128 {
   /// little endian byte order.
   explicit Decimal128(const uint8_t* bytes) : DecimalBasic128(bytes) {}
 
+  /// Divide this number by right and return the result. This operation is
+  /// not destructive.
+  /// The answer rounds to zero. Signs work like:
+  ///   21 /  5 ->  4,  1
+  ///  -21 /  5 -> -4, -1
+  ///   21 / -5 -> -4,  1
+  ///  -21 / -5 ->  4, -1
+  /// \param divisor the number to divide by
+  /// \param remainder the remainder after the division
   Status Divide(const Decimal128& divisor, Decimal128* result,
                 Decimal128* remainder) const {
     auto dstatus = DecimalBasic128::Divide(divisor, result, remainder);
     return ToArrowStatus(dstatus);
   }
-
-  /// \brief Convert Decimal128 from one scale to another
-  Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const {
-    auto dstatus = DecimalBasic128::Rescale(original_scale, new_scale, out);
-    return ToArrowStatus(dstatus);
-  }
-
-  /// \brief Convert from a big endian byte representation. The length must be
-  ///        between 1 and 16
-  /// \return error status if the length is an invalid value
-  static Status FromBigEndian(const uint8_t* data, int32_t length, Decimal128* out);
-
-  /// \brief Cast this value to an int64_t.
-  explicit operator int64_t() const;
 
   /// \brief Convert the Decimal128 value to a base 10 decimal string with the given
   /// scale.
@@ -97,14 +91,28 @@ class ARROW_EXPORT Decimal128 : public DecimalBasic128 {
   /// \brief Convert the value to an integer string
   std::string ToIntegerString() const;
 
-  static Status FromString(const util::string_view& s, Decimal128* out,
-                           int32_t* precision = NULLPTR, int32_t* scale = NULLPTR);
+  /// \brief Cast this value to an int64_t.
+  explicit operator int64_t() const;
+
   /// \brief Convert a decimal string to an Decimal128 value, optionally including
   /// precision and scale if they're passed in and not null.
+  static Status FromString(const util::string_view& s, Decimal128* out,
+                           int32_t* precision = NULLPTR, int32_t* scale = NULLPTR);
   static Status FromString(const std::string& s, Decimal128* out,
                            int32_t* precision = NULLPTR, int32_t* scale = NULLPTR);
   static Status FromString(const char* s, Decimal128* out, int32_t* precision = NULLPTR,
                            int32_t* scale = NULLPTR);
+
+  /// \brief Convert from a big endian byte representation. The length must be
+  ///        between 1 and 16
+  /// \return error status if the length is an invalid value
+  static Status FromBigEndian(const uint8_t* data, int32_t length, Decimal128* out);
+
+  /// \brief Convert Decimal128 from one scale to another
+  Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const {
+    auto dstatus = DecimalBasic128::Rescale(original_scale, new_scale, out);
+    return ToArrowStatus(dstatus);
+  }
 
   /// \brief Convert to a signed integer
   template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
@@ -121,9 +129,8 @@ class ARROW_EXPORT Decimal128 : public DecimalBasic128 {
   }
 
  private:
+  /// Converts internal error code to Status
   Status ToArrowStatus(DecimalStatus dstatus) const;
 };
 
 }  // namespace arrow
-
-#endif  //  ARROW_DECIMAL_H

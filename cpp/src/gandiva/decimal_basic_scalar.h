@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef DECIMAL_BASIC_SCALAR_H
-#define DECIMAL_BASIC_SCALAR_H
+#pragma once
 
 #include <cstdint>
 #include "arrow/util/decimal_basic.h"
@@ -56,5 +55,3 @@ inline bool operator==(const DecimalBasicScalar128& left,
 }
 
 }  // namespace gandiva
-
-#endif  // DECIMAL_BASIC_SCALAR_H

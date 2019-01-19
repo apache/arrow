@@ -27,11 +27,13 @@
 namespace gandiva {
 namespace decimalops {
 
-static DecimalBasic128 CheckAndIncreaseScale(DecimalBasic128 in, int32_t delta) {
+using arrow::DecimalBasic128;
+
+static DecimalBasic128 CheckAndIncreaseScale(const DecimalBasic128& in, int32_t delta) {
   return (delta <= 0) ? in : in.IncreaseScaleBy(delta);
 }
 
-static DecimalBasic128 CheckAndReduceScale(DecimalBasic128 in, int32_t delta) {
+static DecimalBasic128 CheckAndReduceScale(const DecimalBasic128& in, int32_t delta) {
   return (delta <= 0) ? in : in.ReduceScaleBy(delta);
 }
 

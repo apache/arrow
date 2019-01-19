@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_DECIMAL_BASIC_H
-#define ARROW_DECIMAL_BASIC_H
+#pragma once
 
 #include <array>
 #include <cstdint>
@@ -162,5 +161,3 @@ ARROW_EXPORT DecimalBasic128 operator%(const DecimalBasic128& left,
                                        const DecimalBasic128& right);
 
 }  // namespace arrow
-
-#endif  //  ARROW_DECIMAL_BASIC_H

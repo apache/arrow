@@ -13,10 +13,9 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
-// under the License.
+// under the License
 
-#ifndef DECIMAL_SCALAR_H
-#define DECIMAL_SCALAR_H
+#pragma once
 
 #include <cstdint>
 #include <iostream>
@@ -62,5 +61,3 @@ class DecimalScalar128 : public DecimalBasicScalar128 {
 };
 
 }  // namespace gandiva
-
-#endif  // DECIMAL_SCALAR_H
