@@ -25,7 +25,7 @@ set(GANDIVA_LLVM_VERSION 6.0)
 if (APPLE)
   # Also look in homebrew for a matching llvm version
   find_program(BREW_BIN brew)
-  if (NOT ("${BREW_BIN}" STREQUAL "BREW_BIN-NOTFOUND"))
+  if (BREW_BIN)
     execute_process(
       COMMAND ${BREW_BIN} --prefix "llvm@6"
       OUTPUT_VARIABLE LLVM_BREW_PREFIX
