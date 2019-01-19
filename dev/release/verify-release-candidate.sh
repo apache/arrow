@@ -364,14 +364,16 @@ if [ "$ARTIFACT" == "source" ]; then
 
   # By default test all functionalities.
   # To deactivate one test, deactivate the test and all of its dependents
-  TEST_JAVA=${TEST_JAVA:=1}
-  TEST_CPP=${TEST_CPP:=1}
-  TEST_GLIB=${TEST_GLIB:=1}
-  TEST_RUBY=${TEST_RUBY:=1}
-  TEST_PYTHON=${TEST_PYTHON:=1}
-  TEST_JS=${TEST_JS:=1}
-  TEST_INTEGRATION=${TEST_INTEGRATION:=1}
-  TEST_RUST=${TEST_RUST:=1}
+  # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
+  : ${TEST_DEFAULT:=1}
+  : ${TEST_JAVA:=${TEST_DEFAULT}}
+  : ${TEST_CPP:=${TEST_DEFAULT}}
+  : ${TEST_GLIB:=${TEST_DEFAULT}}
+  : ${TEST_RUBY:=${TEST_DEFAULT}}
+  : ${TEST_PYTHON:=${TEST_DEFAULT}}
+  : ${TEST_JS:=${TEST_DEFAULT}}
+  : ${TEST_INTEGRATION:=${TEST_DEFAULT}}
+  : ${TEST_RUST:=${TEST_DEFAULT}}
 
   # Automatically test if its activated by a dependent
   TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
@@ -391,12 +393,24 @@ if [ "$ARTIFACT" == "source" ]; then
     setup_miniconda
     test_and_install_cpp
   fi
-  test_python
-  test_glib
-  test_ruby
-  test_js
-  test_integration
-  test_rust
+  if [ ${TEST_PYTHON} -gt 0 ]; then
+    test_python
+  fi
+  if [ ${TEST_GLIB} -gt 0 ]; then
+    test_glib
+  fi
+  if [ ${TEST_RUBY} -gt 0 ]; then
+    test_ruby
+  fi
+  if [ ${TEST_JS} -gt 0 ]; then
+    test_js
+  fi
+  if [ ${TEST_INTEGRATION} -gt 0 ]; then
+    test_integration
+  fi
+  if [ ${TEST_RUST} -gt 0 ]; then
+    test_rust
+  fi
 else
   : ${BINTRAY_REPOSITORY:=apache/arrow}
 
