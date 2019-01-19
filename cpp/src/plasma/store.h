@@ -32,6 +32,8 @@
 #include "plasma/external_store_worker.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
+#include "plasma/external_store.h"
+#include "plasma/external_store_worker.h"
 
 namespace arrow {
 class Status;
