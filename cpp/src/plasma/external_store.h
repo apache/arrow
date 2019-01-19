@@ -41,7 +41,6 @@ class ExternalStoreHandle {
   /// \param num_objects The number of objects to put.
   /// \param ids The IDs of the objects to put.
   /// \param data The object data to put.
-  /// \param object_metadata The object metadata to put.
   /// \return The return status.
   virtual Status Put(size_t num_objects, const ObjectID *ids, const std::string *data) = 0;
 
@@ -51,7 +50,6 @@ class ExternalStoreHandle {
   /// \param num_objects The number of objects to get.
   /// \param ids The IDs of the objects to get.
   /// \param[out] data The object data.
-  /// \param[out] object_metadata The object metadata.
   /// \return The return status.
   virtual Status Get(size_t num_objects, const ObjectID *ids, std::string *data) = 0;
 
