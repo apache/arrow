@@ -19,8 +19,9 @@
 
 namespace plasma {
 
-std::shared_ptr<ExternalStoreHandle> HashTableStore::Connect(const std::string &endpoint) {
-  return std::make_shared<HashTableStoreHandle>(table_, mtx_);
+Status HashTableStore::Connect(const std::string &endpoint, std::shared_ptr<ExternalStoreHandle> *handle) {
+  *handle = std::make_shared<HashTableStoreHandle>(table_, mtx_);
+  return Status::OK();
 }
 
 HashTableStoreHandle::HashTableStoreHandle(hash_table_t &table, std::mutex &mtx)

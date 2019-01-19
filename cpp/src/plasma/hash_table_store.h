@@ -44,7 +44,7 @@ class HashTableStore : public ExternalStore {
  public:
   HashTableStore() = default;
 
-  std::shared_ptr<ExternalStoreHandle> Connect(const std::string &endpoint) override;
+  Status Connect(const std::string &endpoint, std::shared_ptr<ExternalStoreHandle> *handle) override;
  private:
   hash_table_t table_;
   std::mutex mtx_;

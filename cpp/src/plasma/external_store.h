@@ -70,9 +70,11 @@ class ExternalStore {
   ///        specific to the implementation of the external store, it always
   ///        starts with {store-name}://, where {store-name} is the name of the
   ///        external store.
+  /// \param[out] handle A handle to the external store.
   ///
   /// \return The return status.
-  virtual std::shared_ptr<ExternalStoreHandle> Connect(const std::string &endpoint) = 0;
+  virtual Status Connect(const std::string &endpoint,
+                         std::shared_ptr<ExternalStoreHandle> *handle) = 0;
 };
 
 class ExternalStores {
@@ -80,7 +82,8 @@ class ExternalStores {
   /// Extracts the external store name from the external store endpoint
   ///
   /// \param endpoint The endpoint for the external store
-  /// \return The external store name
+  /// \param[out] store_name The name of the external store
+  /// \return The return status
   static Status ExtractStoreName(const std::string &endpoint, std::string &store_name);
 
   /// Register a new external store.

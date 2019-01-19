@@ -13,6 +13,9 @@ ExternalStoreWorker::ExternalStoreWorker(std::shared_ptr<ExternalStore> external
     : plasma_store_socket_(plasma_store_socket),
       plasma_clients_(parallelism, nullptr),
       parallelism_(parallelism),
+      sync_handle_(nullptr),
+      read_handles_(parallelism, nullptr),
+      write_handles_(parallelism, nullptr),
       terminate_(false),
       stopped_(false),
       num_writes_(0),
@@ -22,10 +25,10 @@ ExternalStoreWorker::ExternalStoreWorker(std::shared_ptr<ExternalStore> external
       num_bytes_read_(0) {
   if (external_store) {
     valid_ = true;
-    sync_handle_ = external_store->Connect(external_store_endpoint);
+    ARROW_CHECK_OK(external_store->Connect(external_store_endpoint, &sync_handle_));
     for (size_t i = 0; i < parallelism_; ++i) {
-      read_handles_.push_back(external_store->Connect(external_store_endpoint));
-      write_handles_.push_back(external_store->Connect(external_store_endpoint));
+      ARROW_CHECK_OK(external_store->Connect(external_store_endpoint, &read_handles_[i]));
+      ARROW_CHECK_OK(external_store->Connect(external_store_endpoint, &write_handles_[i]));
       thread_pool_.emplace_back(&ExternalStoreWorker::DoWork, this, i);
     }
   }
