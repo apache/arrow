@@ -56,8 +56,7 @@ class ExternalStoreWorker {
   /// Get objects from the external store.
   ///
   /// \param object_ids The IDs of the objects to get.
-  /// \param object_data[out] The object data to get.
-  /// \return Status of the operation
+  /// \param[out] object_data The object data to get.
   void SequentialGet(const std::vector<ObjectID> &object_ids,
                      std::vector<std::string> &object_data);
 
