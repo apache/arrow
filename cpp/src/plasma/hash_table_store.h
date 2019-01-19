@@ -42,7 +42,7 @@ class HashTableStoreHandle : public ExternalStoreHandle {
 
 class HashTableStore : public ExternalStore {
  public:
-  HashTableStore() noexcept = default;
+  HashTableStore() = default;
 
   std::shared_ptr<ExternalStoreHandle> Connect(const std::string &endpoint) override;
  private:

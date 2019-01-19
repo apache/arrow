@@ -59,8 +59,11 @@ class ExternalStoreHandle {
 
 class ExternalStore {
  public:
+  /// Default constructor
+  ExternalStore() = default;
+
   /// Virtual destructor
-  virtual ~ExternalStore() noexcept = default;
+  virtual ~ExternalStore() = default;
 
   /// Connect to the local plasma store. Return the resulting connection.
   ///
