@@ -185,6 +185,14 @@ class ARROW_EXPORT PlasmaClient {
   /// \return The return status.
   Status Seal(const ObjectID& object_id);
 
+  /// Seal an object in the object store. The object will be immutable after
+  /// this call. This version of the call does not send a notification on seal
+  /// completion.
+  ///
+  /// @param object_id The ID of the object to seal.
+  /// @return The return status.
+  Status SealWithoutNotification(const ObjectID& object_id);
+
   /// Delete an object from the object store. This currently assumes that the
   /// object is present, has been sealed and not used by another client. Otherwise,
   /// it is a no operation.
