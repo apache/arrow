@@ -104,10 +104,7 @@ class ExternalStores {
  private:
   /// Obtain the mapping between external store names and external store instances
   /// \return The mapping between external store names and external store instances
-  static std::shared_ptr<std::map<std::string, std::shared_ptr<ExternalStore>>> Stores();
-
-  /// Mapping between external store names and external store instances
-  static std::shared_ptr<std::map<std::string, std::shared_ptr<ExternalStore>>> external_stores_;
+  static std::unordered_map<std::string, std::shared_ptr<ExternalStore>>& Stores();
 };
 
 #define REGISTER_EXTERNAL_STORE(name, store)                                  \
