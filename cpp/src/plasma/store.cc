@@ -913,7 +913,7 @@ class PlasmaStoreRunner {
     // achieve that by mallocing and freeing a single large amount of space.
     // that maximum allowed size up front.
     if (use_one_memory_mapped_file) {
-      void* pointer = plasma::dlmemalign(kBlockSize, system_memory);
+      void* pointer = plasma::dlmemalign(kBlockSize, system_memory - 8192);
       ARROW_CHECK(pointer != nullptr);
       plasma::dlfree(pointer);
     }
