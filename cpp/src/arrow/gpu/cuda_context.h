@@ -119,6 +119,12 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   /// \brief Return device number
   int device_number() const;
 
+  /// \brief Get device address for the context
+  /// \param[in] addr device address
+  /// \param[out] devaddr the device address for the context
+  /// \return Status
+  Status GetDeviceAddress(uintptr_t addr, uintptr_t* devaddr);
+
  private:
   CudaContext();
 
