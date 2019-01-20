@@ -31,36 +31,44 @@ namespace plasma {
 
 class ExternalStoreHandle {
  public:
+  /// Default constructor.
   ExternalStoreHandle() = default;
 
+  /// Virtual destructor.
   virtual ~ExternalStoreHandle() = default;
 
   /// This method will be called whenever an object in the Plasma store needs
   /// to be evicted to the external store.
   ///
+  /// This API is experimental and might change in the future.
+  ///
   /// \param num_objects The number of objects to put.
   /// \param ids The IDs of the objects to put.
   /// \param data The object data to put.
   /// \return The return status.
-  virtual Status Put(size_t num_objects, const ObjectID *ids, const std::string *data) = 0;
+  virtual Status Put(const std::vector<ObjectID> &ids,
+                     const std::vector<std::shared_ptr<Buffer>> &data) = 0;
 
   /// This method will be called whenever an evicted object in the External
   /// store store needs to be accessed.
+  ///
+  /// This API is experimental and might change in the future.
   ///
   /// \param num_objects The number of objects to get.
   /// \param ids The IDs of the objects to get.
   /// \param[out] data The object data.
   /// \return The return status.
-  virtual Status Get(size_t num_objects, const ObjectID *ids, std::string *data) = 0;
+  virtual Status Get(const std::vector<ObjectID> &ids,
+                     std::vector<std::string> &data) = 0;
 
 };
 
 class ExternalStore {
  public:
-  /// Default constructor
+  /// Default constructor.
   ExternalStore() = default;
 
-  /// Virtual destructor
+  /// Virtual destructor.
   virtual ~ExternalStore() = default;
 
   /// Connect to the local plasma store. Return the resulting connection.
@@ -79,12 +87,13 @@ class ExternalStore {
 
 class ExternalStores {
  public:
-  /// Extracts the external store name from the external store endpoint
+  /// Extracts the external store name from the external store endpoint.
   ///
-  /// \param endpoint The endpoint for the external store
-  /// \param[out] store_name The name of the external store
-  /// \return The return status
-  static Status ExtractStoreName(const std::string &endpoint, std::string &store_name);
+  /// \param endpoint The endpoint for the external store.
+  /// \param[out] store_name The name of the external store.
+  /// \return The return status.
+  static Status ExtractStoreName(const std::string &endpoint,
+                                 std::string &store_name);
 
   /// Register a new external store.
   ///
@@ -105,8 +114,9 @@ class ExternalStores {
   static std::shared_ptr<ExternalStore> GetStore(const std::string &store_name);
 
  private:
-  /// Obtain the mapping between external store names and external store instances
-  /// \return The mapping between external store names and external store instances
+  /// Obtain mapping between external store names and store instances.
+  ///
+  /// \return Mapping between external store names and store instances.
   static std::unordered_map<std::string, std::shared_ptr<ExternalStore>>& Stores();
 };
 

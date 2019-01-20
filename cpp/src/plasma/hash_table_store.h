@@ -32,8 +32,8 @@ class HashTableStoreHandle : public ExternalStoreHandle {
  public:
   HashTableStoreHandle(hash_table_t& table, std::mutex& mtx);
 
-  Status Get(size_t num_objects, const ObjectID *ids, std::string *data) override;
-  Status Put(size_t num_objects, const ObjectID *ids, const std::string *data) override;
+  Status Get(const std::vector<ObjectID> &ids, std::vector<std::string> &data) override;
+  Status Put(const std::vector<ObjectID> &ids, const std::vector<std::shared_ptr<Buffer>> &data) override;
 
  private:
   hash_table_t& table_;

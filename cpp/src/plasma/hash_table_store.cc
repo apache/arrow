@@ -28,16 +28,17 @@ HashTableStoreHandle::HashTableStoreHandle(hash_table_t &table, std::mutex &mtx)
     : table_(table), mtx_(mtx) {
 }
 
-Status HashTableStoreHandle::Put(size_t num_objects, const ObjectID *ids, const std::string *data) {
-  for (size_t i = 0; i < num_objects; ++i) {
+Status HashTableStoreHandle::Put(const std::vector<ObjectID> &ids, const std::vector<std::shared_ptr<Buffer>> &data) {
+  for (size_t i = 0; i < ids.size(); ++i) {
     std::lock_guard<std::mutex> lock(mtx_);
-    table_[ids[i]] = data[i];
+    table_[ids[i]] = data[i]->ToString();
   }
   return Status::OK();
 }
 
-Status HashTableStoreHandle::Get(size_t num_objects, const ObjectID *ids, std::string *data) {
-  for (size_t i = 0; i < num_objects; ++i) {
+Status HashTableStoreHandle::Get(const std::vector<ObjectID> &ids, std::vector<std::string> &data) {
+  data.resize(ids.size());
+  for (size_t i = 0; i < ids.size(); ++i) {
     bool valid;
     hash_table_t::iterator result;
     {
@@ -47,8 +48,6 @@ Status HashTableStoreHandle::Get(size_t num_objects, const ObjectID *ids, std::s
     }
     if (valid) {
       data[i] = result->second;
-    } else {
-      data[i].clear();
     }
   }
   return Status::OK();
