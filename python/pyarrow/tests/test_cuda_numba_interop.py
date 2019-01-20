@@ -78,6 +78,89 @@ def make_random_buffer(size, target='host', dtype='uint8', ctx=None):
 @pytest.mark.parametrize("c", range(len(context_choice_ids)),
                          ids=context_choice_ids)
 @pytest.mark.parametrize("dtype", dtypes, ids=dtypes)
+@pytest.mark.parametrize("size", [0, 1, 8, 1000])
+def test_from_object(c, dtype, size):
+    ctx, nb_ctx = context_choices[c]
+    arr, cbuf = make_random_buffer(size, target='device', dtype=dtype, ctx=ctx)
+
+    # Creating device buffer from numba MemoryObject:
+    mem = cbuf.to_numba()
+    cbuf2 = ctx.buffer_from_object(mem)
+    assert cbuf2.size == cbuf.size
+    arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+    np.testing.assert_equal(arr, arr2)
+
+    # Creating device buffer from a device buffer
+    cbuf2 = ctx.buffer_from_object(cbuf2)
+    assert cbuf2.size == cbuf.size
+    arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+    np.testing.assert_equal(arr, arr2)
+
+    # Creating device buffer from numba DeviceNDArray:
+    darr = DeviceNDArray((size,), (np.dtype(dtype).itemsize,), np.dtype(dtype),
+                         gpu_data=mem)
+    cbuf2 = ctx.buffer_from_object(darr)
+    assert cbuf2.size == cbuf.size
+    arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+    np.testing.assert_equal(arr, arr2)
+
+    # Creating device buffer from a slice of numba DeviceNDArray:
+    if size >= 8:
+        for s in [slice(size//4, None, None),
+                  slice(None, -(size//4), None),
+                  slice(size//4, -(size//4), None),
+                  slice(None, None, 2),
+                  slice(size//4, None, 2),
+                  slice(None, -(size//4), 2),
+                  slice(size//4, -(size//4), 2),
+                  slice(None, None, 3),
+                  slice(size//8, None, 3),
+                  slice(None, -(size//8), 3),
+                  slice(size//8, -(size//8), 3)]:
+            s2 = slice(None, None, s.step)
+            cbuf2 = ctx.buffer_from_object(darr[s])
+            arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+            np.testing.assert_equal(arr[s], arr2[s2])
+
+    # Creating device buffer from a 2-dimensional numba DeviceNDArray:
+    if size >= 8:
+        itemsize = np.dtype(dtype).itemsize
+        darr = DeviceNDArray((size//4, size//(size//4)),
+                             (itemsize, itemsize*(size//4)),
+                             np.dtype(dtype),
+                             gpu_data=mem)
+        cbuf2 = ctx.buffer_from_object(darr)
+        assert cbuf2.size == cbuf.size
+        arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+        np.testing.assert_equal(arr, arr2)
+
+    # Creating device buffer from am object implementing cuda array
+    # interface:
+    class MyObj:
+        def __init__(self, darr):
+            self.darr = darr
+
+        @property
+        def __cuda_array_interface__(self):
+            return self.darr.__cuda_array_interface__
+
+    cbuf2 = ctx.buffer_from_object(MyObj(darr))
+    assert cbuf2.size == cbuf.size
+    arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+    np.testing.assert_equal(arr, arr2)
+
+    # Creating device buffer from a CUDA host buffer
+    hbuf = cuda.new_host_buffer(size * arr.dtype.itemsize)
+    np.frombuffer(hbuf, dtype=dtype)[:] = arr
+    cbuf2 = ctx.buffer_from_object(hbuf)
+    assert cbuf2.size == cbuf.size
+    arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+    np.testing.assert_equal(arr, arr2)
+
+
+@pytest.mark.parametrize("c", range(len(context_choice_ids)),
+                         ids=context_choice_ids)
+@pytest.mark.parametrize("dtype", dtypes, ids=dtypes)
 def test_numba_memalloc(c, dtype):
     ctx, nb_ctx = context_choices[c]
     dtype = np.dtype(dtype)

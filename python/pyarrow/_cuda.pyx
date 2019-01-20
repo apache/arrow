@@ -15,11 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import functools
+
 from pyarrow.compat import tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_cuda cimport *
 from pyarrow.lib import py_buffer, allocate_buffer, as_buffer
 cimport cpython as cp
+
+
+def product(seq):
+    return functools.reduce(lambda a, b: a*b, seq, 1)
 
 
 cdef class Context:
@@ -137,9 +143,37 @@ cdef class Context:
 
     @property
     def bytes_allocated(self):
-        """ Return the number of allocated bytes.
+        """Return the number of allocated bytes.
         """
         return self.context.get().bytes_allocated()
+
+    def get_device_address(self, address):
+        """Return device address for this context
+
+        Parameters
+        ----------
+        address : int
+          Device address
+
+        Returns
+        -------
+        device_address : int
+          Device address for this context
+
+        Notes
+        -----
+        The device address and the corresponding address in the given
+        context are in most allocation cases the same. The exceptions
+        are: user memory registered using cuMemHostRegister, host
+        memory allocated using cuMemHostAlloc as write-combined,
+        host/device address corresponds to invalid unmapped
+        device/host address.
+        """
+        cdef:
+            uintptr_t c_addr = address
+            uintptr_t c_devaddr
+        check_status(self.context.get().GetDeviceAddress(c_addr, &c_devaddr))
+        return c_devaddr
 
     def new_buffer(self, nbytes):
         """Return new device buffer.
@@ -159,16 +193,17 @@ cdef class Context:
         return pyarrow_wrap_cudabuffer(cudabuf)
 
     def foreign_buffer(self, address, size):
-        """Create device buffer from device address and size as a view.
+        """Create device buffer from address and size as a view.
 
         The caller is responsible for allocating and freeing the
-        memory as well as ensuring that the memory belongs to the
-        CUDA context that this Context instance holds.
+        memory.
 
         Parameters
         ----------
         address : int
-          Specify the starting address of the buffer.
+          Specify the starting address of the buffer. The address must
+          be accessible from device after mapping it with
+          `get_device_address` method.
         size : int
           Specify the size of device buffer in bytes.
 
@@ -176,9 +211,11 @@ cdef class Context:
         -------
         cbuf : CudaBuffer
           Device buffer as a view of device memory.
+
         """
+        dev_address = self.get_device_address(address)
         cdef:
-            intptr_t c_addr = address
+            uintptr_t c_addr = dev_address
             int64_t c_size = size
             shared_ptr[CCudaBuffer] cudabuf
         check_status(self.context.get().View(<uint8_t*>c_addr,
@@ -245,6 +282,73 @@ cdef class Context:
         else:
             result.copy_from_device(buf, position=0, nbytes=size)
         return result
+
+    def buffer_from_object(self, obj):
+        """Create device buffer view of arbitray device memory object.
+
+        When the object contains a non-contiguous view of device
+        memory then the returned device buffer will contain contiguous
+        view of the memory, that is, including the intermediate data
+        that is otherwise invisible to the input object.
+
+        Parameters
+        ----------
+        obj : object
+          Specify object that contains address to device memory or
+          implements cuda array interface.
+
+        Returns
+        -------
+        cbuf : CudaBuffer
+          Device buffer as a view of device memory.
+
+        """
+        import numpy as np
+        if isinstance(obj, HostBuffer):
+            if not obj.address and obj.size == 0:
+                return self.new_buffer(0)
+            return self.foreign_buffer(obj.address, obj.size)
+        if isinstance(obj, Buffer):
+            obj = CudaBuffer.from_buffer(obj)
+        if isinstance(obj, CudaBuffer):
+            if not obj.address and obj.size == 0:
+                return self.new_buffer(0)
+            return self.foreign_buffer(obj.address, obj.size)
+        elif hasattr(obj, '__cuda_array_interface__'):
+            desc = obj.__cuda_array_interface__
+            shape = desc['shape']
+            strides = desc.get('strides')
+            dtype = np.dtype(desc['typestr'])
+            addr = desc['data'][0]
+            if addr is None:
+                nbytes = 0
+            elif not strides:
+                nbytes = dtype.itemsize * product(shape)
+            else:
+                start = 0
+                end = dtype.itemsize
+                for i, dim in enumerate(shape):
+                    if dim == 0:
+                        start = end = addr
+                        break
+                    stride = strides[i]
+                    if stride > 0:
+                        end += stride * (dim - 1)
+                    elif stride < 0:
+                        start += stride * (dim - 1)
+                nbytes = end - start
+            if nbytes:
+                return self.foreign_buffer(addr + start, nbytes)
+            else:
+                return self.new_buffer(0)
+        from numba.cuda.cudadrv.driver import MemoryPointer
+        if isinstance(obj, MemoryPointer):
+            addr = obj.device_pointer.value
+            if not addr and obj.size == 0:
+                return self.new_buffer(0)
+            return self.foreign_buffer(addr, obj.size)
+        raise NotImplementedError('creating device buffer view from `%s`'
+                                  % (type(obj)))
 
 
 cdef class IpcMemHandle:
@@ -343,6 +447,8 @@ cdef class CudaBuffer(Buffer):
           Device buffer as a view of numba MemoryPointer.
         """
         ctx = Context.from_numba(mem.context)
+        if mem.device_pointer.value is None and mem.size==0:
+            return ctx.new_buffer(0)
         return ctx.foreign_buffer(mem.device_pointer.value, mem.size)
 
     def to_numba(self):
