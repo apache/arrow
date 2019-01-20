@@ -905,6 +905,8 @@ if (ARROW_WITH_SNAPPY)
                             "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
                             "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}"
                             "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
+                            "-DCMAKE_AR=${CMAKE_AR}"
+                            "-DCMAKE_RANLIB=${CMAKE_RANLIB}"
                             "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
       set(SNAPPY_UPDATE_COMMAND ${CMAKE_COMMAND} -E copy
                         ${CMAKE_SOURCE_DIR}/cmake_modules/SnappyCMakeLists.txt
@@ -923,7 +925,7 @@ if (ARROW_WITH_SNAPPY)
         BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
     else()
       ExternalProject_Add(snappy_ep
-        CONFIGURE_COMMAND ./configure --with-pic "--prefix=${SNAPPY_PREFIX}" ${SNAPPY_CXXFLAGS}
+        CONFIGURE_COMMAND ./configure --with-pic "AR=${CMAKE_AR}" "RANLIB=${CMAKE_RANLIB}" "--prefix=${SNAPPY_PREFIX}" ${SNAPPY_CXXFLAGS}
         ${EP_LOG_OPTIONS}
         BUILD_IN_SOURCE 1
         BUILD_COMMAND ${MAKE}
@@ -1045,7 +1047,7 @@ if (ARROW_WITH_LZ4)
       set(LZ4_PATCH_COMMAND PATCH_COMMAND git --git-dir=. apply --verbose --whitespace=fix ${CMAKE_SOURCE_DIR}/build-support/lz4_msbuild_gl_runtimelibrary_params.patch)
     else()
       set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
-      set(LZ4_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh)
+      set(LZ4_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh "AR=${CMAKE_AR}")
     endif()
 
     ExternalProject_Add(lz4_ep
@@ -1189,7 +1191,7 @@ if (ARROW_ORC OR ARROW_FLIGHT OR ARROW_GANDIVA)
     set (PROTOBUF_EXECUTABLE "${PROTOBUF_PREFIX}/bin/protoc")
 
     ExternalProject_Add(protobuf_ep
-      CONFIGURE_COMMAND "./configure" "--disable-shared" "--prefix=${PROTOBUF_PREFIX}" "CXXFLAGS=${EP_CXX_FLAGS}"
+      CONFIGURE_COMMAND "./configure" "AR=${CMAKE_AR}" "RANLIB=${CMAKE_RANLIB}" "CC=${CMAKE_C_COMPILER}" "CXX=${CMAKE_CXX_COMPILER}" "--disable-shared" "--prefix=${PROTOBUF_PREFIX}" "CXXFLAGS=${EP_CXX_FLAGS}"
       BUILD_IN_SOURCE 1
       URL ${PROTOBUF_SOURCE_URL}
       BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}" "${PROTOBUF_EXECUTABLE}"
