@@ -31,33 +31,35 @@
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
 /// \brief Return with given status if condition is met.
-#define ARROW_RETURN_IF(condition, status)                        \
-  do {                                                            \
-    if (ARROW_PREDICT_FALSE(condition)) {                         \
-      ::arrow::Status _s = (status);                              \
-      std::stringstream ss;                                       \
-      ss << __FILE__ << ":" << __LINE__ << " : " << _s.message(); \
-      return ::arrow::Status(_s.code(), ss.str());                \
-    }                                                             \
+#define ARROW_RETURN_IF_(condition, status, expr)                                     \
+  do {                                                                                \
+    if (ARROW_PREDICT_FALSE(condition)) {                                             \
+      ::arrow::Status _s = (status);                                                  \
+      std::stringstream ss;                                                           \
+      ss << _s.message() << "\n" << __FILE__ << ":" << __LINE__ << " code: " << expr; \
+      return ::arrow::Status(_s.code(), ss.str());                                    \
+    }                                                                                 \
   } while (0)
 
 #else
 
-#define ARROW_RETURN_IF(condition, status) \
-  do {                                     \
-    if (ARROW_PREDICT_FALSE(condition)) {  \
-      return (status);                     \
-    }                                      \
+#define ARROW_RETURN_IF_(condition, status, _) \
+  do {                                         \
+    if (ARROW_PREDICT_FALSE(condition)) {      \
+      return (status);                         \
+    }                                          \
   } while (0)
 
 #endif  // ARROW_EXTRA_ERROR_CONTEXT
 
+#define ARROW_RETURN_IF(condition, status) \
+  ARROW_RETURN_IF_(condition, status, ARROW_STRINGIFY(status))
+
 /// \brief Propagate any non-successful Status to the caller
-#define ARROW_RETURN_NOT_OK(status)  \
-  do {                               \
-    ::arrow::Status __s = (status);  \
-    ARROW_RETURN_IF(!__s.ok(), __s); \
-                                     \
+#define ARROW_RETURN_NOT_OK(status)                            \
+  do {                                                         \
+    ::arrow::Status __s = (status);                            \
+    ARROW_RETURN_IF_(!__s.ok(), __s, ARROW_STRINGIFY(status)); \
   } while (false)
 
 #define RETURN_NOT_OK_ELSE(s, else_) \
