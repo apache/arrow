@@ -64,6 +64,12 @@ if(POLICY CMP0054)
   cmake_policy(SET CMP0054 NEW)
 endif()
 
+# don't ignore <PackageName>_ROOT variables in find_package
+if(POLICY CMP0074)
+  # https://cmake.org/cmake/help/v3.12/policy/CMP0074.html
+  cmake_policy(SET CMP0074 NEW)
+endif()
+
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(CLANG_FORMAT_VERSION "6.0")
@@ -82,6 +88,7 @@ if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR INFER_FOUND)
   # See http://clang.llvm.org/docs/JSONCompilationDatabase.html
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
+
 # ----------------------------------------------------------------------
 # cmake options
 
@@ -356,6 +363,9 @@ that have not been built"
     OFF)
 endif()
 
+# Needed for linting targets, etc.
+find_package(PythonInterp)
+
 if (ARROW_USE_CCACHE)
   find_program(CCACHE_FOUND ccache)
   if(CCACHE_FOUND)
@@ -379,65 +389,68 @@ if (NOT ARROW_VERBOSE_LINT)
   set(ARROW_LINT_QUIET "--quiet")
 endif()
 
-if (UNIX)
+if (NOT LINT_EXCLUSIONS_FILE)
+  # source files matching a glob from a line in this file
+  # will be excluded from linting (cpplint, clang-tidy, clang-format)
+  set(LINT_EXCLUSIONS_FILE ${BUILD_SUPPORT_DIR}/lint_exclusions.txt)
+endif()
 
-  file(GLOB_RECURSE LINT_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
-    )
+find_program(CPPLINT_BIN NAMES cpplint cpplint.py HINTS ${BUILD_SUPPORT_DIR})
+message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
 
-  FOREACH(item ${LINT_FILES})
-    IF(NOT ((item MATCHES "_generated.h") OR
-            (item MATCHES "pyarrow_api.h") OR
-            (item MATCHES "pyarrow_lib.h") OR
-            (item MATCHES "config.h") OR
-            (item MATCHES "vendored/") OR
-            (item MATCHES "zmalloc.h") OR
-            (item MATCHES "ae.h")))
-      LIST(APPEND FILTERED_LINT_FILES ${item})
-    ENDIF()
-  ENDFOREACH(item ${LINT_FILES})
-
-  find_program(CPPLINT_BIN NAMES cpplint cpplint.py HINTS ${BUILD_SUPPORT_DIR})
-  message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
-
-  # Full lint
-  # Balancing act: cpplint.py takes a non-trivial time to launch,
-  # so process 12 files per invocation, while still ensuring parallelism
-  add_custom_target(lint echo ${FILTERED_LINT_FILES} | xargs -n12 -P8
-  ${CPPLINT_BIN}
-  --verbose=2 ${ARROW_LINT_QUIET}
-  --linelength=90
-  --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11,-runtime/references,-build/include_order
-  )
-endif (UNIX)
+add_custom_target(lint
+  ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/run_cpplint.py
+  --cpplint_binary ${CPPLINT_BIN}
+  --exclude_globs ${LINT_EXCLUSIONS_FILE}
+  --source_dir ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${ARROW_LINT_QUIET})
 
 ############################################################
 # "make format" and "make check-format" targets
 ############################################################
+if (${CLANG_FORMAT_FOUND})
+  # runs clang format and updates files in place.
+  add_custom_target(format
+    ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/run_clang_format.py
+    --clang_format_binary ${CLANG_FORMAT_BIN}
+    --exclude_globs ${LINT_EXCLUSIONS_FILE}
+    --source_dir ${CMAKE_CURRENT_SOURCE_DIR}/src
+    --fix
+    ${ARROW_LINT_QUIET})
 
-# runs clang format and updates files in place.
-add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
-  ${CLANG_FORMAT_BIN}
-  ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
-  ${CMAKE_CURRENT_SOURCE_DIR}/src --fix ${ARROW_LINT_QUIET})
-
-# runs clang format and exits with a non-zero exit code if any files need to be reformatted
-add_custom_target(check-format ${BUILD_SUPPORT_DIR}/run_clang_format.py
-   ${CLANG_FORMAT_BIN}
-   ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
-   ${CMAKE_CURRENT_SOURCE_DIR}/src ${ARROW_LINT_QUIET})
+  # runs clang format and exits with a non-zero exit code if any files need to be reformatted
+  add_custom_target(check-format
+    ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/run_clang_format.py
+    --clang_format_binary ${CLANG_FORMAT_BIN}
+    --exclude_globs ${LINT_EXCLUSIONS_FILE}
+    --source_dir ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${ARROW_LINT_QUIET})
+endif()
 
 ############################################################
 # "make clang-tidy" and "make check-clang-tidy" targets
 ############################################################
 if (${CLANG_TIDY_FOUND})
+  # TODO check to make sure .clang-tidy is being respected
+
   # runs clang-tidy and attempts to fix any warning automatically
-  add_custom_target(clang-tidy ${BUILD_SUPPORT_DIR}/run-clang-tidy.sh ${CLANG_TIDY_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json 1
-  `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc | sed -e '/_generated/g'`)
+  add_custom_target(clang-tidy
+    ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
+    --clang_tidy_binary ${CLANG_TIDY_BIN}
+    --exclude_globs ${LINT_EXCLUSIONS_FILE}
+    --compile_commands ${CMAKE_BINARY_DIR}/compile_commands.json
+    --source_dir ${CMAKE_CURRENT_SOURCE_DIR}/src
+    --fix
+    ${ARROW_LINT_QUIET})
+
   # runs clang-tidy and exits with a non-zero exit code if any errors are found.
-  add_custom_target(check-clang-tidy ${BUILD_SUPPORT_DIR}/run-clang-tidy.sh ${CLANG_TIDY_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json
-  0 `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc |grep -v -F -f ${CMAKE_CURRENT_SOURCE_DIR}/src/.clang-tidy-ignore | sed -e '/_generated/g'`)
+  add_custom_target(check-clang-tidy
+    ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
+    --clang_tidy_binary ${CLANG_TIDY_BIN}
+    --exclude_globs ${LINT_EXCLUSIONS_FILE}
+    --compile_commands ${CMAKE_BINARY_DIR}/compile_commands.json
+    --source_dir ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${ARROW_LINT_QUIET})
 endif()
 
 if (ARROW_ONLY_LINT)

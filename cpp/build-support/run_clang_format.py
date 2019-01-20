@@ -16,74 +16,51 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import lintutils
+from subprocess import PIPE
 import argparse
 import difflib
-import fnmatch
 import multiprocessing as mp
-import os
-import subprocess
 import sys
+from functools import partial
 
 
-class FileChecker(object):
+# examine the output of clang-format and if changes are
+# present assemble a (unified)patch of the difference
+def _check_one_file(completed_processes, filename):
+    with open(filename, "rb") as reader:
+        original = reader.read()
 
-    def __init__(self, arguments):
-        self.quiet = arguments.quiet
-        self.clang_format_binary = arguments.clang_format_binary
+    formatted = completed_processes[filename].stdout
+    if formatted != original:
+        # Run the equivalent of diff -u
+        diff = list(difflib.unified_diff(
+            original.decode('utf8').splitlines(True),
+            formatted.decode('utf8').splitlines(True),
+            fromfile=filename,
+            tofile="{} (after clang format)".format(
+                filename)))
+    else:
+        diff = None
 
-    def run(self, filename):
-        if not self.quiet:
-            print("Checking {}".format(filename))
-        #
-        # Due to some incompatibilities between Python 2 and
-        # Python 3, there are some specific actions we take here
-        # to make sure the difflib.unified_diff call works.
-        #
-        # In Python 2, the call to subprocess.check_output return
-        # a 'str' type. In Python 3, however, the call returns a
-        # 'bytes' type unless the 'encoding' argument is
-        # specified. Unfortunately, the 'encoding' argument is not
-        # in the Python 2 API. We could do an if/else here based
-        # on the version of Python we are running, but it's more
-        # straightforward to read the file in binary and do utf-8
-        # conversion. In Python 2, it's just converting string
-        # types to unicode types, whereas in Python 3 it's
-        # converting bytes types to utf-8 encoded str types. This
-        # approach ensures that the arguments to
-        # difflib.unified_diff are acceptable string types in both
-        # Python 2 and Python 3.
-        with open(filename, "rb") as reader:
-            original = reader.read().decode('utf8')
-
-        # Run clang-format and capture its output
-        formatted = subprocess.check_output(
-            [self.clang_format_binary,
-             filename])
-        formatted = formatted.decode('utf8')
-        if formatted != original:
-            # Run the equivalent of diff -u
-            diff = list(difflib.unified_diff(
-                original.splitlines(True),
-                formatted.splitlines(True),
-                fromfile=filename,
-                tofile="{} (after clang format)".format(
-                    filename)))
-            if diff:
-                return filename, diff
+    return filename, diff
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Runs clang format on all of the source "
-        "files. If --fix is specified,  and compares the output "
-        "with the existing file, outputting a unifiied diff if "
-        "there are any necessary changes")
-    parser.add_argument("clang_format_binary",
+        description="Runs clang-format on all of the source "
+        "files. If --fix is specified enforce format by "
+        "modifying in place, otherwise compare the output "
+        "with the existing file and output any necessary "
+        "changes as a patch in unified diff format")
+    parser.add_argument("--clang_format_binary",
+                        required=True,
                         help="Path to the clang-format binary")
-    parser.add_argument("exclude_globs",
+    parser.add_argument("--exclude_globs",
                         help="Filename containing globs for files "
                         "that should be excluded from the checks")
-    parser.add_argument("source_dir",
+    parser.add_argument("--source_dir",
+                        required=True,
                         help="Root directory of the source code")
     parser.add_argument("--fix", default=False,
                         action="store_true",
@@ -93,47 +70,65 @@ if __name__ == "__main__":
     parser.add_argument("--quiet", default=False,
                         action="store_true",
                         help="If specified, only print errors")
-
     arguments = parser.parse_args()
 
-    formatted_filenames = []
-    exclude_globs = [line.strip() for line in open(arguments.exclude_globs)]
-    for directory, subdirs, filenames in os.walk(arguments.source_dir):
-        fullpaths = (os.path.join(directory, filename)
-                     for filename in filenames)
-        source_files = [x for x in fullpaths
-                        if x.endswith(".h") or
-                        x.endswith(".cc") or
-                        x.endswith(".cpp")]
-        formatted_filenames.extend(
-            # Filter out files that match the globs in the globs file
-            [filename for filename in source_files
-             if not any((fnmatch.fnmatch(filename, exclude_glob)
-                         for exclude_glob in exclude_globs))])
+    exclude_globs = []
+    if arguments.exclude_globs:
+        for line in open(arguments.exclude_globs):
+            exclude_globs.append(line.strip())
 
-    error = False
+    formatted_filenames = []
+    for path in lintutils.get_sources(arguments.source_dir, exclude_globs):
+        formatted_filenames.append(str(path))
+
     if arguments.fix:
         if not arguments.quiet:
-            # Print out each file on its own line, but run
-            # clang format once for all of the files
             print("\n".join(map(lambda x: "Formatting {}".format(x),
                                 formatted_filenames)))
-        subprocess.check_call([arguments.clang_format_binary,
-                               "-i"] + formatted_filenames)
+
+        # Break clang-format invocations into chunks: each invocation formats
+        # 16 files. Wait for all processes to complete
+        results = lintutils.run_parallel([
+            [arguments.clang_format_binary, "-i"] + some
+            for some in lintutils.chunk(formatted_filenames, 16)
+        ])
+        for result in results:
+            # if any clang-format reported a parse error, bubble it
+            result.check_returncode()
+
     else:
-        checker = FileChecker(arguments)
+        # run an instance of clang-format for each source file in parallel,
+        # then wait for all processes to complete
+        results = lintutils.run_parallel([
+            [arguments.clang_format_binary, filename]
+            for filename in formatted_filenames
+        ], stdout=PIPE, stderr=PIPE)
+        for result in results:
+            # if any clang-format reported a parse error, bubble it
+            result.check_returncode()
+
+        error = False
+        checker = partial(_check_one_file, {
+            filename: result
+            for filename, result in zip(formatted_filenames, results)
+        })
         pool = mp.Pool()
         try:
-            for res in pool.imap(checker.run, formatted_filenames):
-                if res is not None:
-                    filename, diff = res
+            # check the output from each invocation of clang-format in parallel
+            for filename, diff in pool.imap(checker, formatted_filenames):
+                if not arguments.quiet:
+                    print("Checking {}".format(filename))
+                if diff:
                     print("{} had clang-format style issues".format(filename))
                     # Print out the diff to stderr
                     error = True
+                    # pad with a newline
+                    print(file=sys.stderr)
                     sys.stderr.writelines(diff)
+        except Exception:
+            error = True
+            raise
         finally:
             pool.terminate()
             pool.join()
-
-
-    sys.exit(1 if error else 0)
+        sys.exit(1 if error else 0)
