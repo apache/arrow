@@ -34,7 +34,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
 
     echo "=== (${PYTHON}, ${U_WIDTH}) Installing build dependencies ==="
     $PIP install "numpy==1.14.5"
-    $PIP install "cython==0.28.1"
+    $PIP install "cython==0.29.3"
     $PIP install "pandas==0.23.4"
     $PIP install "virtualenv==15.1.0"
 
