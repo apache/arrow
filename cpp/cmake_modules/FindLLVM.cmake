@@ -21,9 +21,23 @@
 #
 
 set(GANDIVA_LLVM_VERSION 6.0)
+
+if (APPLE)
+  # Also look in homebrew for a matching llvm version
+  find_program(BREW_BIN brew)
+  if (BREW_BIN)
+    execute_process(
+      COMMAND ${BREW_BIN} --prefix "llvm@6"
+      OUTPUT_VARIABLE LLVM_BREW_PREFIX
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+  endif()
+endif()
+
 find_package(LLVM ${GANDIVA_LLVM_VERSION} REQUIRED CONFIG HINTS
              /usr/local/opt/llvm
              /usr/share
+             ${LLVM_BREW_PREFIX}
              ${LLVM_DIR})
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
