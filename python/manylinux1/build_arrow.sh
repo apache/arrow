@@ -39,6 +39,7 @@ export PYARROW_CMAKE_GENERATOR='Ninja'
 export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
+export PYARROW_WITH_GANDIVA=1
 export PYARROW_BUNDLE_ARROW_CPP=1
 export PYARROW_BUNDLE_BOOST=1
 export PYARROW_BOOST_NAMESPACE=arrow_boost
@@ -75,6 +76,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
         -DARROW_BUILD_TESTS=OFF \
         -DARROW_BUILD_SHARED=ON \
         -DARROW_BOOST_USE_SHARED=ON \
+        -DARROW_GANDIVA_PC_CXX_FLAGS="-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2;-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2/x86_64-CentOS-linux/" \
         -DARROW_JEMALLOC=ON \
         -DARROW_RPATH_ORIGIN=ON \
         -DARROW_PYTHON=ON \
@@ -83,6 +85,9 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
         -DARROW_PLASMA=ON \
         -DARROW_TENSORFLOW=ON \
         -DARROW_ORC=ON \
+        -DARROW_GANDIVA=ON \
+        -DARROW_GANDIVA_JAVA=OFF \
+        -DARROW_GANDIVA_BUILD_TESTS=OFF \
         -DBoost_NAMESPACE=arrow_boost \
         -DBOOST_ROOT=/arrow_boost_dist \
         -GNinja /arrow/cpp
@@ -114,6 +119,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     source /venv-test-${PYTHON}-${U_WIDTH}/bin/activate
     pip install repaired_wheels/*.whl
 
+    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.gandiva"
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.orc"
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.plasma"

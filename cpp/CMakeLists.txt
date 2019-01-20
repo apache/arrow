@@ -349,6 +349,9 @@ Always OFF if building binaries"
     "Include -static-libstdc++ -static-libgcc when linking with Gandiva static libraries"
     OFF)
 
+  set(ARROW_GANDIVA_PC_CXX_FLAGS "" CACHE STRING
+    "Compiler flags to append when pre-compiling Gandiva operations")
+
   #----------------------------------------------------------------------
   # Advanced developer options
 
