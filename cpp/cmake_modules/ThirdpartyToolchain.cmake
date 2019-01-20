@@ -1428,10 +1428,31 @@ if (NOT THRIFT_FOUND)
                           "-DWITH_PLUGIN=OFF"
                           ${THRIFT_CMAKE_ARGS})
   elseif (APPLE)
-    if (DEFINED BISON_EXECUTABLE)
-      set(THRIFT_CMAKE_ARGS "-DBISON_EXECUTABLE=${BISON_EXECUTABLE}"
-                            ${THRIFT_CMAKE_ARGS})
+    # Some other process always resets BISON_EXECUTABLE to the system default,
+    # thus we use our own variable here.
+    if (NOT DEFINED THRIFT_BISON_EXECUTABLE)
+      find_package(BISON 2.5.1)
+
+      # In the case where we cannot find a system-wide installation, look for
+      # homebrew and ask for its bison installation.
+      if (NOT BISON_FOUND)
+        find_program(BREW_BIN brew)
+        if (BREW_BIN)
+          execute_process(
+            COMMAND ${BREW_BIN} --prefix bison
+            OUTPUT_VARIABLE BISON_PREFIX
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+          )
+          set(BISON_EXECUTABLE "${BISON_PREFIX}/bin/bison")
+          find_package(BISON 2.5.1)
+          set(THRIFT_BISON_EXECUTABLE "${BISON_EXECUTABLE}")
+        endif()
+      else()
+        set(THRIFT_BISON_EXECUTABLE "${BISON_EXECUTABLE}")
+      endif()
     endif()
+    set(THRIFT_CMAKE_ARGS "-DBISON_EXECUTABLE=${THRIFT_BISON_EXECUTABLE}"
+                          ${THRIFT_CMAKE_ARGS})
   endif()
 
   ExternalProject_Add(thrift_ep
