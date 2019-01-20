@@ -26,7 +26,7 @@ cmake \
     "-DCMAKE_INSTALL_PREFIX:PATH=/usr" \
     -DFLATBUFFERS_BUILD_TESTS=OFF \
     -DCMAKE_BUILD_TYPE=Release \
-    -GNinja
+    -GNinja .
 ninja install
 popd
 rm -rf flatbuffers-${FLATBUFFERS_VERSION}.tar.gz flatbuffers-${FLATBUFFERS_VERSION}
