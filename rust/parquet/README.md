@@ -23,7 +23,7 @@
 Add this to your Cargo.toml:
 ```toml
 [dependencies]
-parquet = "0.4"
+parquet = "0.12"
 ```
 
 and this to your crate root:
@@ -44,7 +44,7 @@ while let Some(record) = iter.next() {
     println!("{}", record);
 }
 ```
-See [crate documentation](https://docs.rs/crate/parquet/0.4.2) on available API.
+See [crate documentation](https://docs.rs/crate/parquet/0.12) on available API.
 
 ## Supported Parquet Version
 - Parquet-format 2.4.0
