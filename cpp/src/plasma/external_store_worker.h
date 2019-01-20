@@ -21,14 +21,28 @@ namespace plasma {
 // All Get requests are enqueued, and periodically serviced by a worker
 // thread. All Put requests are serviced using multiple threads.
 // The worker interface ensures thread-safe access to the external store.
+//
+// Note: this implementation uses a custom thread-pool since it is used in ways
+// that the Arrow thread-pool doesn't support:
+// 1. The implementation maintains a queue of object IDs to fetch, and fetches
+//    multiple object IDs per thread to improve performance via batching.
+// 2. The implementation uses the thread-pool to detect if too many Get()
+//    requests have been enqueued, and sends an error message back to the
+//    caller so that the calling thread can try synchronous Get() instead.
 
 class ExternalStoreWorker {
  public:
-  static const size_t kMemcpyParallelism = 4;
   static const size_t kMaxEnqueue = 32;
+  static const size_t kCopyParallelism = 4;
   static const size_t kObjectSizeThreshold = 1024 * 1024;
-  static const size_t kMemcpyBlockSize = 64;
+  static const size_t kCopyBlockSize = 64;
 
+  /// Constructor.
+  ///
+  /// @param external_store The external store implementation.
+  /// @param external_store_endpoint The external store endpoint to connect to.
+  /// @param plasma_store_socket The socket that Plasma clients can connect to.
+  /// @param parallelism The number of threads to use for async requests.
   ExternalStoreWorker(std::shared_ptr<ExternalStore> external_store,
                       const std::string &external_store_endpoint,
                       const std::string &plasma_store_socket,
@@ -46,25 +60,27 @@ class ExternalStoreWorker {
   /// \return The degree of parallelism for the external store worker.
   size_t Parallelism();
 
-  /// Put objects in the external store.
+  /// Put objects in the external store. Called synchronously from the caller
+  /// thread.
   ///
   /// \param object_ids The IDs of the objects to put.
   /// \param object_data The object data to put.
-  void Put(const std::vector<ObjectID> &object_ids,
-           const std::vector<std::string> &object_data);
+  void SyncPut(const std::vector<ObjectID> &object_ids,
+               const std::vector<std::shared_ptr<Buffer>> &object_data);
 
-  /// Get objects from the external store.
+  /// Get objects from the external store. Called synchronously from the caller
+  /// thread.
   ///
   /// \param object_ids The IDs of the objects to get.
   /// \param[out] object_data The object data to get.
-  void SequentialGet(const std::vector<ObjectID> &object_ids,
-                     std::vector<std::string> &object_data);
+  void SyncGet(const std::vector<ObjectID> &object_ids,
+               std::vector<std::string> &object_data);
 
-  /// Copy memory buffer in parallel if data size is large enough
+  /// Copy memory buffer in parallel if data size is large enough.
   ///
-  /// \param dst Destination memory buffer
-  /// \param src Source memory buffer
-  /// \param n Number of bytes to copy
+  /// \param dst Destination memory buffer.
+  /// \param src Source memory buffer.
+  /// \param n Number of bytes to copy.
   void CopyBuffer(uint8_t *dst, const uint8_t *src, size_t n);
 
   /// Enqueue an un-evict request; if the request is successfully enqueued, the
@@ -86,20 +102,6 @@ class ExternalStoreWorker {
   void Get(std::shared_ptr<ExternalStoreHandle> handle,
            const std::vector<ObjectID> &object_ids,
            std::vector<std::string> &object_data);
-
-  /// Write a chunk of objects to external store. To be used as a task
-  /// for a thread pool.
-  ///
-  /// \param handle The external store handle.
-  /// \param num_objects Number of objects to write.
-  /// \param ids Array containing object IDs to write.
-  /// \param[out] data Output array which will contain data read from external
-  ///             store.
-  /// \return The return status.
-  static Status PutChunk(std::shared_ptr<ExternalStoreHandle> handle,
-                         size_t num_objects,
-                         const ObjectID *ids,
-                         const std::string *data);
 
   /// Contains the logic for a worker thread.
   ///
@@ -131,8 +133,7 @@ class ExternalStoreWorker {
   // External Store handles
   size_t parallelism_;
   std::shared_ptr<ExternalStoreHandle> sync_handle_;
-  std::vector<std::shared_ptr<ExternalStoreHandle>> read_handles_;
-  std::vector<std::shared_ptr<ExternalStoreHandle>> write_handles_;
+  std::vector<std::shared_ptr<ExternalStoreHandle>> async_handles_;
 
   // Worker thread
   std::vector<std::thread> thread_pool_;

@@ -483,7 +483,7 @@ void PlasmaStore::ProcessGetRequest(Client* client,
   if (!evicted_ids.empty()) {
     unsigned char digest[kDigestSize];
     std::vector<std::string> evicted_data;
-    external_store_worker_.SequentialGet(evicted_ids, evicted_data);
+    external_store_worker_.SyncGet(evicted_ids, evicted_data);
     for (size_t i = 0; i < evicted_ids.size(); ++i) {
       ARROW_CHECK(evicted_entries[i]->pointer != nullptr);
       // Write object data into the allocated memory.
@@ -642,7 +642,8 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
 }
 
 void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
-  std::vector<std::string> object_data;
+  std::vector<std::shared_ptr<arrow::Buffer>> evicted_object_data;
+  std::vector<ObjectTableEntry*> evicted_entries;
   for (const auto& object_id : object_ids) {
     ARROW_LOG(DEBUG) << "evicting object " << object_id.hex();
     auto entry = GetObjectTableEntry(&store_info_, object_id);
@@ -660,11 +661,10 @@ void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
     // external store, free the object data pointer and keep a placeholder
     // entry in ObjectTable
     if (external_store_worker_.IsValid()) {
-      object_data.emplace_back(reinterpret_cast<const char*>(entry->pointer),
-          static_cast<size_t>(entry->data_size + entry->metadata_size));
-      dlfree(entry->pointer);
-      entry->pointer = nullptr;
-      entry->state = ObjectState::PLASMA_EVICTED;
+      evicted_object_data.push_back(
+          std::make_shared<arrow::Buffer>(entry->pointer,
+              entry->data_size + entry->metadata_size));
+      evicted_entries.push_back(entry);
     } else {
       // If there is no backing external store, just erase the object entry
       // and send a deletion notification.
@@ -678,7 +678,12 @@ void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
   }
 
   if (external_store_worker_.IsValid() && !object_ids.empty()) {
-    external_store_worker_.Put(object_ids, object_data);
+    external_store_worker_.SyncPut(object_ids, evicted_object_data);
+    for (auto entry: evicted_entries) {
+      dlfree(entry->pointer);
+      entry->pointer = nullptr;
+      entry->state = ObjectState::PLASMA_EVICTED;
+    }
   }
 }
 

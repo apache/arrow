@@ -14,8 +14,7 @@ ExternalStoreWorker::ExternalStoreWorker(std::shared_ptr<ExternalStore> external
       plasma_clients_(parallelism, nullptr),
       parallelism_(parallelism),
       sync_handle_(nullptr),
-      read_handles_(parallelism, nullptr),
-      write_handles_(parallelism, nullptr),
+      async_handles_(parallelism, nullptr),
       terminate_(false),
       stopped_(false),
       num_writes_(0),
@@ -27,8 +26,7 @@ ExternalStoreWorker::ExternalStoreWorker(std::shared_ptr<ExternalStore> external
     valid_ = true;
     ARROW_CHECK_OK(external_store->Connect(external_store_endpoint, &sync_handle_));
     for (size_t i = 0; i < parallelism_; ++i) {
-      ARROW_CHECK_OK(external_store->Connect(external_store_endpoint, &read_handles_[i]));
-      ARROW_CHECK_OK(external_store->Connect(external_store_endpoint, &write_handles_[i]));
+      ARROW_CHECK_OK(external_store->Connect(external_store_endpoint, &async_handles_[i]));
       thread_pool_.emplace_back(&ExternalStoreWorker::DoWork, this, i);
     }
   }
@@ -64,45 +62,19 @@ size_t ExternalStoreWorker::Parallelism() {
   return parallelism_;
 }
 
-void ExternalStoreWorker::Put(const std::vector<ObjectID> &object_ids,
-                              const std::vector<std::string> &object_data) {
-  size_t num_objects = object_ids.size();
-  const ObjectID *ids_ptr = &object_ids[0];
-  const std::string *data_ptr = &object_data[0];
+void ExternalStoreWorker::SyncPut(const std::vector<ObjectID> &object_ids,
+                                  const std::vector<std::shared_ptr<Buffer>> &object_data) {
 
-  size_t num_chunks = std::min(parallelism_, num_objects);
-  if (num_chunks > 1) {
-    size_t chunk_size = num_objects / num_chunks;
-    size_t last_chunk_size = num_objects - (chunk_size * (num_chunks - 1));
+  ARROW_CHECK_OK(sync_handle_->Put(object_ids, object_data));
 
-    std::vector<std::future<Status>> futures;
-    for (size_t i = 0; i < num_chunks; ++i) {
-      size_t chunk_size_i = i == (num_chunks - 1) ? last_chunk_size : chunk_size;
-      futures.push_back(std::async(&ExternalStoreWorker::PutChunk,
-                                   write_handles_[i],
-                                   chunk_size_i,
-                                   ids_ptr + i * chunk_size,
-                                   data_ptr + i * chunk_size));
-    }
-
-    for (auto &fut: futures) {
-      ARROW_CHECK_OK(fut.get());
-    }
-  } else {
-    ARROW_CHECK_OK(ExternalStoreWorker::PutChunk(write_handles_.front(),
-                                                 num_objects,
-                                                 ids_ptr,
-                                                 data_ptr));
-  }
-
-  num_writes_ += num_objects;
+  num_writes_ += object_data.size();
   for (const auto &i : object_data) {
-    num_bytes_written_ += i.size();
+    num_bytes_written_ += i->size();
   }
 }
 
-void ExternalStoreWorker::SequentialGet(const std::vector<ObjectID> &object_ids,
-                                        std::vector<std::string> &object_data) {
+void ExternalStoreWorker::SyncGet(const std::vector<ObjectID> &object_ids,
+                                  std::vector<std::string> &object_data) {
   Get(sync_handle_, object_ids, object_data);
 }
 
@@ -123,7 +95,7 @@ bool ExternalStoreWorker::EnqueueUnevictRequest(const ObjectID &object_id) {
 
 void ExternalStoreWorker::CopyBuffer(uint8_t *dst, const uint8_t *src, size_t n) {
   if (n > kObjectSizeThreshold) {
-    arrow::internal::parallel_memcopy(dst, src, static_cast<int64_t>(n), kMemcpyBlockSize, kMemcpyParallelism);
+    arrow::internal::parallel_memcopy(dst, src, static_cast<int64_t>(n), kCopyBlockSize, kCopyParallelism);
   } else {
     std::memcpy(dst, src, n);
   }
@@ -142,8 +114,7 @@ void ExternalStoreWorker::PrintCounters() {
 void ExternalStoreWorker::Get(std::shared_ptr<ExternalStoreHandle> handle,
                               const std::vector<ObjectID> &object_ids,
                               std::vector<std::string> &object_data) {
-  object_data.resize(object_ids.size());
-  ARROW_CHECK_OK(handle->Get(object_ids.size(), &object_ids[0], &object_data[0]));
+  ARROW_CHECK_OK(handle->Get(object_ids, object_data));
 
   for (const auto &i : object_data) {
     if (i.empty()) {
@@ -153,13 +124,6 @@ void ExternalStoreWorker::Get(std::shared_ptr<ExternalStoreHandle> handle,
     num_reads_++;
     num_bytes_read_ += i.size();
   }
-}
-
-Status ExternalStoreWorker::PutChunk(std::shared_ptr<ExternalStoreHandle> handle,
-                                     size_t num_objects,
-                                     const ObjectID *ids,
-                                     const std::string *data) {
-  return handle->Put(num_objects, ids, data);
 }
 
 void ExternalStoreWorker::DoWork(size_t thread_id) {
@@ -186,7 +150,7 @@ void ExternalStoreWorker::DoWork(size_t thread_id) {
     tasks_cv_.notify_one();
 
     std::vector<std::string> object_data;
-    Get(read_handles_[thread_id], object_ids, object_data);
+    Get(async_handles_[thread_id], object_ids, object_data);
     WriteToPlasma(Client(thread_id), object_ids, object_data);
   }
 }
