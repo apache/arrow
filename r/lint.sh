@@ -23,6 +23,7 @@ CPP_BUILD_SUPPORT=$SOURCE_DIR/../cpp/build-support
 LLVM_VERSION=6.0
 CLANG_FORMAT=clang-format-$LLVM_VERSION
 
-$CPP_BUILD_SUPPORT/run_clang_format.py $CLANG_FORMAT \
-                                       $CPP_BUILD_SUPPORT/clang_format_exclusions.txt \
-                                       $SOURCE_DIR/src --quiet $1
+$CPP_BUILD_SUPPORT/run_clang_format.py \
+    --clang_format_binary=$CLANG_FORMAT \
+    --exclude_glob=$CPP_BUILD_SUPPORT/lint_exclusions.txt \
+    --source_dir=$SOURCE_DIR/src --quiet $1
