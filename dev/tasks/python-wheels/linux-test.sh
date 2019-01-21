@@ -25,6 +25,7 @@ python --version
 
 # Test optional dependencies
 python -c "import pyarrow"
+python -c "import pyarrow.gandiva"
 python -c "import pyarrow.orc"
 python -c "import pyarrow.parquet"
 python -c "import pyarrow.plasma"
