@@ -99,10 +99,12 @@ if __name__ == "__main__":
     else:
         # run an instance of clang-format for each source file in parallel,
         # then wait for all processes to complete
-        results = lintutils.run_parallel([
-            [arguments.clang_format_binary, filename]
-            for filename in formatted_filenames
-        ], stdout=PIPE, stderr=PIPE)
+        results = []
+        for filenames in lintutils.chunk(formatted_filenames, 16**2):
+            results += lintutils.run_parallel([
+                [arguments.clang_format_binary, filename]
+                for filename in filenames
+            ], stdout=PIPE, stderr=PIPE)
         for result in results:
             # if any clang-format reported a parse error, bubble it
             result.check_returncode()
