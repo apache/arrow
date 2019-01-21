@@ -111,7 +111,6 @@ class ExternalStoreWorker {
   /// Get objects from external store and writes it back to plasma store.
   ///
   /// \param object_ids The object IDs to get.
-  /// \return The return status.
   void WriteToPlasma(std::shared_ptr<PlasmaClient> client,
                      const std::vector<ObjectID> &object_ids,
                      const std::vector<std::string> &data);

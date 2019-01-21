@@ -42,7 +42,6 @@ class ExternalStoreHandle {
   ///
   /// This API is experimental and might change in the future.
   ///
-  /// \param num_objects The number of objects to put.
   /// \param ids The IDs of the objects to put.
   /// \param data The object data to put.
   /// \return The return status.
@@ -54,7 +53,6 @@ class ExternalStoreHandle {
   ///
   /// This API is experimental and might change in the future.
   ///
-  /// \param num_objects The number of objects to get.
   /// \param ids The IDs of the objects to get.
   /// \param[out] data The object data.
   /// \return The return status.
