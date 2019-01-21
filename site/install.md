@@ -44,8 +44,8 @@ See the [release notes][10] for more about what's new.
 We have provided binary conda packages on [conda-forge][5] for the following
 platforms:
 
-* Linux and macOS (Python 2.7, 3.5, and 3.6)
-* Windows (Python 3.5 and 3.6)
+* Linux and macOS (Python 2.7, 3.6 and 3.7)
+* Windows (Python 3.6 and 3.7)
 
 Install them with:
 
@@ -78,6 +78,7 @@ Apache Arrow GLib (C). Here are supported platforms:
 * Ubuntu 14.04 LTS
 * Ubuntu 16.04 LTS
 * Ubuntu 18.04 LTS
+* Ubuntu 18.10
 * CentOS 6
 * CentOS 7
 
@@ -94,8 +95,12 @@ APT_LINE
 sudo apt update
 sudo apt install -y -V libarrow-dev # For C++
 sudo apt install -y -V libarrow-glib-dev # For GLib (C)
+sudo apt install -y -V libplasma-dev # For Plasma C++
+sudo apt install -y -V libplasma-glib-dev # For Plasma GLib (C)
+sudo apt install -y -V libgandiva-dev # For Gandiva C++
+sudo apt install -y -V libgandiva-glib-dev # For Gandiva GLib (C)
 sudo apt install -y -V libparquet-dev # For Apache Parquet C++
-sudo apt install -y -V libparquet-glib-dev # For Parquet GLib (C)
+sudo apt install -y -V libparquet-glib-dev # For Apache Parquet GLib (C)
 ```
 
 CentOS:
@@ -119,10 +124,10 @@ sudo yum install -y --enablerepo=epel parquet-glib-devel # For Parquet GLib (C)
 [1]: {{site.data.versions['current'].mirrors}}
 [2]: {{site.data.versions['current'].github-tag-link}}
 [4]: {{site.data.versions['current'].java-artifacts}}
-[5]: http://conda-forge.github.io
+[5]: https://conda-forge.github.io
 [6]: {{site.data.versions['current'].mirrors-tar}}
 [10]: {{site.data.versions['current'].release-notes}}
-[11]: http://www.apache.org/dist/arrow/KEYS
+[11]: https://www.apache.org/dist/arrow/KEYS
 [12]: https://www.apache.org/dyn/closer.cgi#verify
 [13]: {{site.data.versions['current'].asc}}
 [14]: {{site.data.versions['current'].sha256}}
