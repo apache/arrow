@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Read CSV files into the Arrow memory format
+
 pub mod reader;
 
 pub use self::reader::Reader;

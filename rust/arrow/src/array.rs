@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! This module defines public types representing Apache Arrow arrays. Arrow's specification
-//! defines an array as "a sequence of values with known length all having the same type." For
-//! example, the type `Int16Array` represents an Apache Arrow array of 16-byte integers.
+//! Defines public types representing Apache Arrow arrays. Arrow's specification defines an array as
+//! "a sequence of values with known length all having the same type." For example, the type
+//! `Int16Array` represents an Apache Arrow array of 16-byte integers.
 //!
 //! ```
 //! extern crate arrow;

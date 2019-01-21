@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Utils for working with bits
+
 static BIT_MASK: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
 
 static POPCOUNT_TABLE: [u8; 256] = [

@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! This module contains `ArrayData`, a generic representation of Arrow array data which
-//! encapsulates common attributes and operations for Arrow array.
+//! Contains `ArrayData`, a generic representation of Arrow array data which encapsulates common
+//! attributes and operations for Arrow array.
 
 use std::sync::Arc;
 

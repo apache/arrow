@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Defines `Buffer`, a contiguous immutable memory region of fixed size aligned at a 64-byte
+//! boundary.
+
 use std::cmp;
 use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
