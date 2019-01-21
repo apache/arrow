@@ -115,7 +115,7 @@ class ARROW_EXPORT FlightServerBase {
                                std::unique_ptr<FlightInfo>* info);
 
   /// \brief Get a stream of IPC payloads to put on the wire
-  /// \param[in] ticket an opaque ticket
+  /// \param[in] request an opaque ticket
   /// \param[out] stream the returned stream provider
   /// \return Status
   virtual Status DoGet(const Ticket& request, std::unique_ptr<FlightDataStream>* stream);

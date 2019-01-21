@@ -47,9 +47,10 @@ class Engine {
   LLVMTypes* types() { return types_.get(); }
   llvm::Module* module() { return module_; }
 
-  /// factory method to create and initialize the engine object.
+  /// Factory method to create and initialize the engine object.
   ///
-  /// \param[out] engine the created engine.
+  /// \param[in] config the engine configuration
+  /// \param[out] engine the created engine
   static Status Make(std::shared_ptr<Configuration> config,
                      std::unique_ptr<Engine>* engine);
 

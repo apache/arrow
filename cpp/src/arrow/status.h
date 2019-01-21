@@ -130,18 +130,18 @@ class ARROW_EXPORT Status {
   Status(StatusCode code, const std::string& msg);
 
   // Copy the specified status.
-  Status(const Status& s);
-  Status& operator=(const Status& s);
+  inline Status(const Status& s);
+  inline Status& operator=(const Status& s);
 
   // Move the specified status.
   inline Status(Status&& s) noexcept;
-  Status& operator=(Status&& s) noexcept;
+  inline Status& operator=(Status&& s) noexcept;
 
   // AND the statuses.
-  Status operator&(const Status& s) const noexcept;
-  Status operator&(Status&& s) const noexcept;
-  Status& operator&=(const Status& s) noexcept;
-  Status& operator&=(Status&& s) noexcept;
+  inline Status operator&(const Status& s) const noexcept;
+  inline Status operator&(Status&& s) const noexcept;
+  inline Status& operator&=(const Status& s) noexcept;
+  inline Status& operator&=(Status&& s) noexcept;
 
   /// Return a success status
   static Status OK() { return Status(); }
@@ -339,7 +339,7 @@ class ARROW_EXPORT Status {
     state_ = NULL;
   }
   void CopyFrom(const Status& s);
-  void MoveFrom(Status& s);
+  inline void MoveFrom(Status& s);
 };
 
 static inline std::ostream& operator<<(std::ostream& os, const Status& x) {
@@ -347,16 +347,16 @@ static inline std::ostream& operator<<(std::ostream& os, const Status& x) {
   return os;
 }
 
-inline void Status::MoveFrom(Status& s) {
+void Status::MoveFrom(Status& s) {
   delete state_;
   state_ = s.state_;
   s.state_ = NULL;
 }
 
-inline Status::Status(const Status& s)
+Status::Status(const Status& s)
     : state_((s.state_ == NULL) ? NULL : new State(*s.state_)) {}
 
-inline Status& Status::operator=(const Status& s) {
+Status& Status::operator=(const Status& s) {
   // The following condition catches both aliasing (when this == &s),
   // and the common case where both s and *this are ok.
   if (state_ != s.state_) {
@@ -365,14 +365,17 @@ inline Status& Status::operator=(const Status& s) {
   return *this;
 }
 
-inline Status::Status(Status&& s) noexcept : state_(s.state_) { s.state_ = NULL; }
+Status::Status(Status&& s) noexcept : state_(s.state_) { s.state_ = NULL; }
 
-inline Status& Status::operator=(Status&& s) noexcept {
+Status& Status::operator=(Status&& s) noexcept {
   MoveFrom(s);
   return *this;
 }
 
-inline Status Status::operator&(const Status& s) const noexcept {
+/// \cond FALSE
+// (note: emits warnings on Doxygen < 1.8.15,
+//  see https://github.com/doxygen/doxygen/issues/6295)
+Status Status::operator&(const Status& s) const noexcept {
   if (ok()) {
     return s;
   } else {
@@ -380,7 +383,7 @@ inline Status Status::operator&(const Status& s) const noexcept {
   }
 }
 
-inline Status Status::operator&(Status&& s) const noexcept {
+Status Status::operator&(Status&& s) const noexcept {
   if (ok()) {
     return std::move(s);
   } else {
@@ -388,19 +391,20 @@ inline Status Status::operator&(Status&& s) const noexcept {
   }
 }
 
-inline Status& Status::operator&=(const Status& s) noexcept {
+Status& Status::operator&=(const Status& s) noexcept {
   if (ok() && !s.ok()) {
     CopyFrom(s);
   }
   return *this;
 }
 
-inline Status& Status::operator&=(Status&& s) noexcept {
+Status& Status::operator&=(Status&& s) noexcept {
   if (ok() && !s.ok()) {
     MoveFrom(s);
   }
   return *this;
 }
+/// \endcond
 
 }  // namespace arrow
 
