@@ -43,7 +43,7 @@ Gem::Specification.new do |spec|
   spec.test_files += Dir.glob("test/**/*")
   spec.extensions = ["dependency-check/Rakefile"]
 
-  spec.add_runtime_dependency("red-arrow")
+  spec.add_runtime_dependency("red-arrow", "= #{spec.version}")
 
   spec.add_development_dependency("bundler")
   spec.add_development_dependency("rake")
