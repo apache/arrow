@@ -20,29 +20,6 @@
 //!
 //! Currently the project is developed and tested against nightly Rust. To learn more about the
 //! status of Arrow in Rust, see `README.md`.
-//!
-//! The example below shows how to create and modify an Arrow array.
-//!
-//! ```
-//! extern crate arrow;
-//!
-//! use arrow::builder::Int32Builder;
-//!
-//! // Create a new builder with a capacity of 100
-//! let mut primitive_array_builder = Int32Builder::new(100);
-//!
-//! // Append an individual primitive value
-//! primitive_array_builder.append_value(55).unwrap();
-//!
-//! // Append a null value
-//! primitive_array_builder.append_null().unwrap();
-//!
-//! // Append a slice of primitive values
-//! primitive_array_builder.append_slice(&[39, 89, 12]).unwrap();
-//!
-//! // Build the `PrimitiveArray`
-//! let _primitive_array = primitive_array_builder.finish();
-//! ```
 
 #![feature(type_ascription)]
 #![feature(rustc_private)]
