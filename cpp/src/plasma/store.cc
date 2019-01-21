@@ -433,7 +433,8 @@ void PlasmaStore::ProcessGetRequest(Client* client,
       // If necessary, record that this client is using this object. In the case
       // where entry == NULL, this will be called from SealObject.
       AddToClientObjectIds(object_id, entry, client);
-    } else if (entry && entry->state == ObjectState::PLASMA_EVICTED && external_store_worker_.IsValid()) {
+    } else if (entry && entry->state == ObjectState::PLASMA_EVICTED &&
+               external_store_worker_.IsValid()) {
       // Make sure the object pointer is not already allocated
       ARROW_CHECK(entry->pointer == nullptr);
 
@@ -441,14 +442,18 @@ void PlasmaStore::ProcessGetRequest(Client* client,
       // requests to un-evict the object
       entry->state = ObjectState::PLASMA_UNEVICTING;
 
-      // First try to delegate uneviction to external store worker and return without waiting
-      if (external_store_worker_.Parallelism() > 0 && external_store_worker_.EnqueueUnevictRequest(object_id)) {
+      // First try to delegate uneviction to external store worker and return
+      // without waiting
+      if (external_store_worker_.Parallelism() > 0 &&
+          external_store_worker_.EnqueueUnevictRequest(object_id)) {
         add_placeholder = true;
       } else {
-        // If we fail to enqueue un-eviction request to separate thread, do it synchronously
-        ARROW_LOG(INFO) << "Asynchronous un-evict failed or disabled, falling back to synchronous.";
-        entry->pointer = AllocateMemory(0, /* Un-eviction is only supported for device_num = 0 */
-                                        static_cast<size_t>(entry->data_size + entry->metadata_size),
+        // If we fail to enqueue un-eviction request to separate thread, do it
+        // synchronously
+        ARROW_LOG(INFO) << "Asynchronous un-evict failed or disabled,"
+                        << "falling back to synchronous.";
+        entry->pointer = AllocateMemory(0, /* Only support device_num = 0 */
+                                        entry->data_size + entry->metadata_size,
                                         &entry->fd,
                                         &entry->map_size,
                                         &entry->offset);
@@ -456,7 +461,8 @@ void PlasmaStore::ProcessGetRequest(Client* client,
           entry->state = ObjectState::PLASMA_CREATED;
           entry->create_time = std::time(nullptr);
           eviction_policy_.ObjectCreated(object_id);
-          AddToClientObjectIds(object_id, store_info_.objects[object_id].get(), client);
+          AddToClientObjectIds(object_id, store_info_.objects[object_id].get(),
+                               client);
           evicted_ids.push_back(object_id);
           evicted_entries.push_back(entry);
         } else {
@@ -483,16 +489,17 @@ void PlasmaStore::ProcessGetRequest(Client* client,
   if (!evicted_ids.empty()) {
     unsigned char digest[kDigestSize];
     std::vector<std::string> evicted_data;
-    external_store_worker_.SyncGet(evicted_ids, evicted_data);
+    external_store_worker_.Get(evicted_ids, evicted_data);
     for (size_t i = 0; i < evicted_ids.size(); ++i) {
       ARROW_CHECK(evicted_entries[i]->pointer != nullptr);
       // Write object data into the allocated memory.
-      external_store_worker_.CopyBuffer(evicted_entries[i]->pointer,
-                                        reinterpret_cast<const uint8_t *>(evicted_data[i].data()),
+      auto buf = reinterpret_cast<const uint8_t *>(evicted_data[i].data());
+      external_store_worker_.CopyBuffer(evicted_entries[i]->pointer, buf,
                                         evicted_data[i].size());
       evicted_entries[i]->state = ObjectState::PLASMA_SEALED;
       std::memcpy(&evicted_entries[i]->digest[0], &digest[0], kDigestSize);
-      evicted_entries[i]->construct_duration = std::time(nullptr) - evicted_entries[i]->create_time;
+      evicted_entries[i]->construct_duration = std::time(nullptr) -
+                                               evicted_entries[i]->create_time;
       PlasmaObject_init(&get_req->objects[evicted_ids[i]], evicted_entries[i]);
       get_req->num_satisfied += 1;
     }
@@ -678,8 +685,8 @@ void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
   }
 
   if (external_store_worker_.IsValid() && !object_ids.empty()) {
-    external_store_worker_.SyncPut(object_ids, evicted_object_data);
-    for (auto entry: evicted_entries) {
+    external_store_worker_.Put(object_ids, evicted_object_data);
+    for (auto entry : evicted_entries) {
       dlfree(entry->pointer);
       entry->pointer = nullptr;
       entry->state = ObjectState::PLASMA_EVICTED;
@@ -1116,7 +1123,8 @@ int main(int argc, char* argv[]) {
         break;
       case 'p': {
         char extra;
-        int scanned = sscanf(optarg, "%" SCNu64 "%c", &external_store_parallelism, &extra);
+        int scanned = sscanf(optarg, "%" SCNu64 "%c", &external_store_parallelism,
+                             &extra);
         ARROW_CHECK(scanned == 1);
         break;
       }
@@ -1200,7 +1208,8 @@ int main(int argc, char* argv[]) {
       ARROW_LOG(FATAL) << "No such external store \"" << name << "\"";
       return -1;
     }
-    ARROW_LOG(INFO) << "Setting external store parallelism to " << external_store_parallelism;
+    ARROW_LOG(INFO) << "Setting external store parallelism to "
+                    << external_store_parallelism;
   }
 
   // Make it so dlmalloc fails if we try to request more memory than is

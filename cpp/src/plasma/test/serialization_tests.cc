@@ -130,7 +130,8 @@ TEST(PlasmaSerialization, SealRequest) {
   ObjectID object_id2;
   unsigned char digest2[kDigestSize];
   bool notify2;
-  ARROW_CHECK_OK(ReadSealRequest(data.data(), data.size(), &object_id2, &digest2[0], &notify2));
+  ARROW_CHECK_OK(ReadSealRequest(data.data(), data.size(), &object_id2, &digest2[0],
+                                 &notify2));
   ASSERT_EQ(object_id1, object_id2);
   ASSERT_EQ(memcmp(&digest1[0], &digest2[0], kDigestSize), 0);
   ASSERT_EQ(notify1, notify2);

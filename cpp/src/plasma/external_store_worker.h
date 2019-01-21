@@ -23,9 +23,12 @@
 #include <condition_variable>
 #include <future>
 #include <iostream>
+#include <memory>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <thread>
+#include <vector>
 
 #include "plasma/common.h"
 #include "plasma/external_store.h"
@@ -82,16 +85,16 @@ class ExternalStoreWorker {
   ///
   /// \param object_ids The IDs of the objects to put.
   /// \param object_data The object data to put.
-  void SyncPut(const std::vector<ObjectID> &object_ids,
-               const std::vector<std::shared_ptr<Buffer>> &object_data);
+  void Put(const std::vector<ObjectID> &object_ids,
+           const std::vector<std::shared_ptr<Buffer>> &object_data);
 
   /// Get objects from the external store. Called synchronously from the caller
   /// thread.
   ///
   /// \param object_ids The IDs of the objects to get.
   /// \param[out] object_data The object data to get.
-  void SyncGet(const std::vector<ObjectID> &object_ids,
-               std::vector<std::string> &object_data);
+  void Get(const std::vector<ObjectID> &object_ids,
+           std::vector<std::string> &object_data);
 
   /// Copy memory buffer in parallel if data size is large enough.
   ///
@@ -122,8 +125,8 @@ class ExternalStoreWorker {
 
   /// Contains the logic for a worker thread.
   ///
-  /// \param thread_id The thread ID.
-  void DoWork(size_t thread_id);
+  /// \param idx The thread ID.
+  void DoWork(size_t idx);
 
   /// Get objects from external store and writes it back to plasma store.
   ///
@@ -135,9 +138,9 @@ class ExternalStoreWorker {
   /// Returns a client to the plasma store for the given thread ID,
   /// creating one if not already initialized.
   ///
-  /// \param thread_id The thread ID.
+  /// \param idx The thread ID.
   /// \return A client to the plasma store.
-  std::shared_ptr<PlasmaClient> Client(size_t thread_id);
+  std::shared_ptr<PlasmaClient> Client(size_t idx);
 
   // Whether or not plasma is backed by external store
   bool valid_;
@@ -169,6 +172,6 @@ class ExternalStoreWorker {
   std::atomic_size_t num_bytes_read_;
 };
 
-}
+}  // namespace plasma
 
 #endif // EXTERNAL_STORE_WORKER_H
