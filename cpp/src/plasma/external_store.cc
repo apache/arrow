@@ -18,11 +18,12 @@
 #include <iostream>
 #include <sstream>
 
-#include "external_store.h"
+#include "plasma/external_store.h"
 
 namespace plasma {
 
-Status ExternalStores::ExtractStoreName(const std::string &endpoint, std::string &store_name) {
+Status ExternalStores::ExtractStoreName(const std::string &endpoint,
+                                        std::string &store_name) {
   size_t off = endpoint.find_first_of(':');
   if (off == std::string::npos) {
     return Status::Invalid("Malformed endpoint " + endpoint);
@@ -52,11 +53,10 @@ std::shared_ptr<ExternalStore> ExternalStores::GetStore(const std::string &store
   return it->second;
 }
 
-std::unordered_map<std::string, std::shared_ptr<ExternalStore>>& ExternalStores::Stores() {
-  static auto *external_stores =
-      new std::unordered_map<std::string, std::shared_ptr<ExternalStore>>();
+ExternalStores::StoreMap& ExternalStores::Stores() {
+  static auto *external_stores = new StoreMap();
   return *external_stores;
 }
 
-}
+}  // namespace plasma
 

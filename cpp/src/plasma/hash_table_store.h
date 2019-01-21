@@ -18,8 +18,13 @@
 #ifndef HASH_TABLE_STORE_H
 #define HASH_TABLE_STORE_H
 
+#include <memory>
 #include <mutex>
-#include "external_store.h"
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include "plasma/external_store.h"
 
 namespace plasma {
 
@@ -32,8 +37,10 @@ class HashTableStoreHandle : public ExternalStoreHandle {
  public:
   HashTableStoreHandle(hash_table_t& table, std::mutex& mtx);
 
-  Status Get(const std::vector<ObjectID> &ids, std::vector<std::string> &data) override;
-  Status Put(const std::vector<ObjectID> &ids, const std::vector<std::shared_ptr<Buffer>> &data) override;
+  Status Get(const std::vector<ObjectID> &ids,
+             std::vector<std::string> &data) override;
+  Status Put(const std::vector<ObjectID> &ids,
+             const std::vector<std::shared_ptr<Buffer>> &data) override;
 
  private:
   hash_table_t& table_;
@@ -44,12 +51,13 @@ class HashTableStore : public ExternalStore {
  public:
   HashTableStore() = default;
 
-  Status Connect(const std::string &endpoint, std::shared_ptr<ExternalStoreHandle> *handle) override;
+  Status Connect(const std::string &endpoint,
+                 std::shared_ptr<ExternalStoreHandle> *handle) override;
  private:
   hash_table_t table_;
   std::mutex mtx_;
 };
 
-}
+} // namespace plasma
 
 #endif // HASH_TABLE_STORE_H

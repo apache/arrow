@@ -53,7 +53,7 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
   // stdout of the object store. Consider changing that.
   void SetUp() override {
-    uint64_t seed = static_cast<uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+    uint64_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     std::mt19937 rng(static_cast<uint32_t>(seed));
     std::string store_index = std::to_string(rng());
     store_socket_name_ = "/tmp/store" + store_index;
@@ -61,8 +61,9 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
     std::string plasma_directory =
         external_test_executable.substr(0, external_test_executable.find_last_of('/'));
     std::string plasma_command = plasma_directory +
-                                 "/plasma_store_server -m 104857600 -e hashtable://test -s " +
-                                 store_socket_name_ + " 1> /tmp/log.stdout 2> /tmp/log.stderr &";
+                                 "/plasma_store_server -m 104857600 -e " +
+                                 "hashtable://test -s " + store_socket_name_ +
+                                 " 1> /tmp/log.stdout 2> /tmp/log.stderr &";
     system(plasma_command.c_str());
     ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
   }

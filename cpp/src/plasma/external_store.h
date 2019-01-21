@@ -18,7 +18,11 @@
 #ifndef EXTERNAL_STORE_H
 #define EXTERNAL_STORE_H
 
-#include <map>
+#include <memory>
+#include <string>
+#include <vector>
+#include <unordered_map>
+
 #include "plasma/client.h"
 
 namespace plasma {
@@ -58,7 +62,6 @@ class ExternalStoreHandle {
   /// \return The return status.
   virtual Status Get(const std::vector<ObjectID> &ids,
                      std::vector<std::string> &data) = 0;
-
 };
 
 class ExternalStore {
@@ -85,6 +88,7 @@ class ExternalStore {
 
 class ExternalStores {
  public:
+  typedef std::unordered_map<std::string, std::shared_ptr<ExternalStore>> StoreMap;
   /// Extracts the external store name from the external store endpoint.
   ///
   /// \param endpoint The endpoint for the external store.
@@ -115,7 +119,7 @@ class ExternalStores {
   /// Obtain mapping between external store names and store instances.
   ///
   /// \return Mapping between external store names and store instances.
-  static std::unordered_map<std::string, std::shared_ptr<ExternalStore>>& Stores();
+  static StoreMap& Stores();
 };
 
 #define REGISTER_EXTERNAL_STORE(name, store)                                  \
@@ -130,6 +134,6 @@ class ExternalStores {
   };                                                                          \
   store##Class singleton_##store = store##Class()
 
-}
+}  // namespace plasma
 
 #endif // EXTERNAL_STORE_H
