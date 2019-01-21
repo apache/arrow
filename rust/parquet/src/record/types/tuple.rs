@@ -132,7 +132,7 @@ macro_rules! impl_parquet_deserialize_tuple {
     impl<$($t,)*> Downcast<($($t,)*)> for Value where Value: $(Downcast<$t> +)* {
       fn downcast(self) -> Result<($($t,)*),ParquetError> {
         #[allow(unused_mut,unused_variables)]
-        let mut fields = self.as_group()?.0.into_iter();
+        let mut fields = self.into_group()?.0.into_iter();
         Ok(($({$i;fields.next().unwrap().downcast()?},)*))
       }
     }
@@ -145,7 +145,7 @@ macro_rules! impl_parquet_deserialize_tuple {
     }
     impl<$($t,)*> Downcast<TupleSchema<($((String,$t,),)*)>> for ValueSchema where ValueSchema: $(Downcast<$t> +)* {
       fn downcast(self) -> Result<TupleSchema<($((String,$t,),)*)>,ParquetError> {
-        let group = self.as_group()?;
+        let group = self.into_group()?;
         #[allow(unused_mut,unused_variables)]
         let mut fields = group.0.into_iter();
         let mut names = vec![None; group.1.len()];

@@ -954,7 +954,7 @@ mod tests {
                 )
                 .unwrap();
             let res = iter
-                .map(|elem| elem.0.into_iter().next().unwrap().as_i32().unwrap())
+                .map(|elem| elem[0].as_i32().unwrap())
                 .collect::<Vec<i32>>();
             assert_eq!(res, data[i]);
         }

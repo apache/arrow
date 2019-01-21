@@ -327,7 +327,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_bool(self) -> Result<BoolSchema, ParquetError> {
+    pub fn as_bool(&self) -> Result<&BoolSchema, ParquetError> {
+        if let ValueSchema::Bool(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as bool",
+                self
+            )))
+        }
+    }
+
+    pub fn into_bool(self) -> Result<BoolSchema, ParquetError> {
         if let ValueSchema::Bool(ret) = self {
             Ok(ret)
         } else {
@@ -346,7 +357,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_u8(self) -> Result<U8Schema, ParquetError> {
+    pub fn as_u8(&self) -> Result<&U8Schema, ParquetError> {
+        if let ValueSchema::U8(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as u8",
+                self
+            )))
+        }
+    }
+
+    pub fn into_u8(self) -> Result<U8Schema, ParquetError> {
         if let ValueSchema::U8(ret) = self {
             Ok(ret)
         } else {
@@ -365,7 +387,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_i8(self) -> Result<I8Schema, ParquetError> {
+    pub fn as_i8(&self) -> Result<&I8Schema, ParquetError> {
+        if let ValueSchema::I8(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as i8",
+                self
+            )))
+        }
+    }
+
+    pub fn into_i8(self) -> Result<I8Schema, ParquetError> {
         if let ValueSchema::I8(ret) = self {
             Ok(ret)
         } else {
@@ -384,7 +417,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_u16(self) -> Result<U16Schema, ParquetError> {
+    pub fn as_u16(&self) -> Result<&U16Schema, ParquetError> {
+        if let ValueSchema::U16(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as u16",
+                self
+            )))
+        }
+    }
+
+    pub fn into_u16(self) -> Result<U16Schema, ParquetError> {
         if let ValueSchema::U16(ret) = self {
             Ok(ret)
         } else {
@@ -403,7 +447,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_i16(self) -> Result<I16Schema, ParquetError> {
+    pub fn as_i16(&self) -> Result<&I16Schema, ParquetError> {
+        if let ValueSchema::I16(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as i16",
+                self
+            )))
+        }
+    }
+
+    pub fn into_i16(self) -> Result<I16Schema, ParquetError> {
         if let ValueSchema::I16(ret) = self {
             Ok(ret)
         } else {
@@ -422,7 +477,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_u32(self) -> Result<U32Schema, ParquetError> {
+    pub fn as_u32(&self) -> Result<&U32Schema, ParquetError> {
+        if let ValueSchema::U32(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as u32",
+                self
+            )))
+        }
+    }
+
+    pub fn into_u32(self) -> Result<U32Schema, ParquetError> {
         if let ValueSchema::U32(ret) = self {
             Ok(ret)
         } else {
@@ -441,7 +507,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_i32(self) -> Result<I32Schema, ParquetError> {
+    pub fn as_i32(&self) -> Result<&I32Schema, ParquetError> {
+        if let ValueSchema::I32(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as i32",
+                self
+            )))
+        }
+    }
+
+    pub fn into_i32(self) -> Result<I32Schema, ParquetError> {
         if let ValueSchema::I32(ret) = self {
             Ok(ret)
         } else {
@@ -460,7 +537,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_u64(self) -> Result<U64Schema, ParquetError> {
+    pub fn as_u64(&self) -> Result<&U64Schema, ParquetError> {
+        if let ValueSchema::U64(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as u64",
+                self
+            )))
+        }
+    }
+
+    pub fn into_u64(self) -> Result<U64Schema, ParquetError> {
         if let ValueSchema::U64(ret) = self {
             Ok(ret)
         } else {
@@ -479,7 +567,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_i64(self) -> Result<I64Schema, ParquetError> {
+    pub fn as_i64(&self) -> Result<&I64Schema, ParquetError> {
+        if let ValueSchema::I64(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as i64",
+                self
+            )))
+        }
+    }
+
+    pub fn into_i64(self) -> Result<I64Schema, ParquetError> {
         if let ValueSchema::I64(ret) = self {
             Ok(ret)
         } else {
@@ -498,7 +597,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_f32(self) -> Result<F32Schema, ParquetError> {
+    pub fn as_f32(&self) -> Result<&F32Schema, ParquetError> {
+        if let ValueSchema::F32(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as f32",
+                self
+            )))
+        }
+    }
+
+    pub fn into_f32(self) -> Result<F32Schema, ParquetError> {
         if let ValueSchema::F32(ret) = self {
             Ok(ret)
         } else {
@@ -517,7 +627,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_f64(self) -> Result<F64Schema, ParquetError> {
+    pub fn as_f64(&self) -> Result<&F64Schema, ParquetError> {
+        if let ValueSchema::F64(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as f64",
+                self
+            )))
+        }
+    }
+
+    pub fn into_f64(self) -> Result<F64Schema, ParquetError> {
         if let ValueSchema::F64(ret) = self {
             Ok(ret)
         } else {
@@ -536,7 +657,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_timestamp(self) -> Result<TimestampSchema, ParquetError> {
+    pub fn as_timestamp(&self) -> Result<&TimestampSchema, ParquetError> {
+        if let ValueSchema::Timestamp(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as timestamp",
+                self
+            )))
+        }
+    }
+
+    pub fn into_timestamp(self) -> Result<TimestampSchema, ParquetError> {
         if let ValueSchema::Timestamp(ret) = self {
             Ok(ret)
         } else {
@@ -555,7 +687,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_array(self) -> Result<VecSchema, ParquetError> {
+    pub fn as_array(&self) -> Result<&VecSchema, ParquetError> {
+        if let ValueSchema::Array(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as array",
+                self
+            )))
+        }
+    }
+
+    pub fn into_array(self) -> Result<VecSchema, ParquetError> {
         if let ValueSchema::Array(ret) = self {
             Ok(ret)
         } else {
@@ -574,7 +717,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_string(self) -> Result<StringSchema, ParquetError> {
+    pub fn as_string(&self) -> Result<&StringSchema, ParquetError> {
+        if let ValueSchema::String(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as string",
+                self
+            )))
+        }
+    }
+
+    pub fn into_string(self) -> Result<StringSchema, ParquetError> {
         if let ValueSchema::String(ret) = self {
             Ok(ret)
         } else {
@@ -593,7 +747,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_list(self) -> Result<ListSchema<ValueSchema>, ParquetError> {
+    pub fn as_list(&self) -> Result<&ListSchema<ValueSchema>, ParquetError> {
+        if let ValueSchema::List(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as list",
+                self
+            )))
+        }
+    }
+
+    pub fn into_list(self) -> Result<ListSchema<ValueSchema>, ParquetError> {
         if let ValueSchema::List(ret) = self {
             Ok(*ret)
         } else {
@@ -612,7 +777,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_map(self) -> Result<MapSchema<ValueSchema, ValueSchema>, ParquetError> {
+    pub fn as_map(&self) -> Result<&MapSchema<ValueSchema, ValueSchema>, ParquetError> {
+        if let ValueSchema::Map(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as map",
+                self
+            )))
+        }
+    }
+
+    pub fn into_map(self) -> Result<MapSchema<ValueSchema, ValueSchema>, ParquetError> {
         if let ValueSchema::Map(ret) = self {
             Ok(*ret)
         } else {
@@ -631,7 +807,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_group(self) -> Result<GroupSchema, ParquetError> {
+    pub fn as_group(&self) -> Result<&GroupSchema, ParquetError> {
+        if let ValueSchema::Group(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as group",
+                self
+            )))
+        }
+    }
+
+    pub fn into_group(self) -> Result<GroupSchema, ParquetError> {
         if let ValueSchema::Group(ret) = self {
             Ok(ret)
         } else {
@@ -650,7 +837,18 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_option(self) -> Result<OptionSchema<ValueSchema>, ParquetError> {
+    pub fn as_option(&self) -> Result<&OptionSchema<ValueSchema>, ParquetError> {
+        if let ValueSchema::Option(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as option",
+                self
+            )))
+        }
+    }
+
+    pub fn into_option(self) -> Result<OptionSchema<ValueSchema>, ParquetError> {
         if let ValueSchema::Option(ret) = self {
             Ok(*ret)
         } else {
@@ -669,72 +867,72 @@ impl Downcast<ValueSchema> for ValueSchema {
 }
 impl Downcast<BoolSchema> for ValueSchema {
     fn downcast(self) -> Result<BoolSchema, ParquetError> {
-        self.as_bool()
+        self.into_bool()
     }
 }
 impl Downcast<U8Schema> for ValueSchema {
     fn downcast(self) -> Result<U8Schema, ParquetError> {
-        self.as_u8()
+        self.into_u8()
     }
 }
 impl Downcast<I8Schema> for ValueSchema {
     fn downcast(self) -> Result<I8Schema, ParquetError> {
-        self.as_i8()
+        self.into_i8()
     }
 }
 impl Downcast<U16Schema> for ValueSchema {
     fn downcast(self) -> Result<U16Schema, ParquetError> {
-        self.as_u16()
+        self.into_u16()
     }
 }
 impl Downcast<I16Schema> for ValueSchema {
     fn downcast(self) -> Result<I16Schema, ParquetError> {
-        self.as_i16()
+        self.into_i16()
     }
 }
 impl Downcast<U32Schema> for ValueSchema {
     fn downcast(self) -> Result<U32Schema, ParquetError> {
-        self.as_u32()
+        self.into_u32()
     }
 }
 impl Downcast<I32Schema> for ValueSchema {
     fn downcast(self) -> Result<I32Schema, ParquetError> {
-        self.as_i32()
+        self.into_i32()
     }
 }
 impl Downcast<U64Schema> for ValueSchema {
     fn downcast(self) -> Result<U64Schema, ParquetError> {
-        self.as_u64()
+        self.into_u64()
     }
 }
 impl Downcast<I64Schema> for ValueSchema {
     fn downcast(self) -> Result<I64Schema, ParquetError> {
-        self.as_i64()
+        self.into_i64()
     }
 }
 impl Downcast<F32Schema> for ValueSchema {
     fn downcast(self) -> Result<F32Schema, ParquetError> {
-        self.as_f32()
+        self.into_f32()
     }
 }
 impl Downcast<F64Schema> for ValueSchema {
     fn downcast(self) -> Result<F64Schema, ParquetError> {
-        self.as_f64()
+        self.into_f64()
     }
 }
 impl Downcast<TimestampSchema> for ValueSchema {
     fn downcast(self) -> Result<TimestampSchema, ParquetError> {
-        self.as_timestamp()
+        self.into_timestamp()
     }
 }
 impl Downcast<VecSchema> for ValueSchema {
     fn downcast(self) -> Result<VecSchema, ParquetError> {
-        self.as_array()
+        self.into_array()
     }
 }
 impl Downcast<StringSchema> for ValueSchema {
     fn downcast(self) -> Result<StringSchema, ParquetError> {
-        self.as_string()
+        self.into_string()
     }
 }
 impl<T> Downcast<ListSchema<T>> for ValueSchema
@@ -742,13 +940,13 @@ where
     ValueSchema: Downcast<T>,
 {
     default fn downcast(self) -> Result<ListSchema<T>, ParquetError> {
-        let ret = self.as_list()?;
+        let ret = self.into_list()?;
         Ok(ListSchema(ret.0.downcast()?, ret.1))
     }
 }
 impl Downcast<ListSchema<ValueSchema>> for ValueSchema {
     fn downcast(self) -> Result<ListSchema<ValueSchema>, ParquetError> {
-        self.as_list()
+        self.into_list()
     }
 }
 impl<K, V> Downcast<MapSchema<K, V>> for ValueSchema
@@ -756,7 +954,7 @@ where
     ValueSchema: Downcast<K> + Downcast<V>,
 {
     default fn downcast(self) -> Result<MapSchema<K, V>, ParquetError> {
-        let ret = self.as_map()?;
+        let ret = self.into_map()?;
         Ok(MapSchema(
             ret.0.downcast()?,
             ret.1.downcast()?,
@@ -768,12 +966,12 @@ where
 }
 impl Downcast<MapSchema<ValueSchema, ValueSchema>> for ValueSchema {
     fn downcast(self) -> Result<MapSchema<ValueSchema, ValueSchema>, ParquetError> {
-        self.as_map()
+        self.into_map()
     }
 }
 impl Downcast<GroupSchema> for ValueSchema {
     fn downcast(self) -> Result<GroupSchema, ParquetError> {
-        self.as_group()
+        self.into_group()
     }
 }
 impl<T> Downcast<OptionSchema<T>> for ValueSchema
@@ -781,13 +979,13 @@ where
     ValueSchema: Downcast<T>,
 {
     default fn downcast(self) -> Result<OptionSchema<T>, ParquetError> {
-        let ret = self.as_option()?;
+        let ret = self.into_option()?;
         ret.0.downcast().map(OptionSchema)
     }
 }
 impl Downcast<OptionSchema<ValueSchema>> for ValueSchema {
     fn downcast(self) -> Result<OptionSchema<ValueSchema>, ParquetError> {
-        self.as_option()
+        self.into_option()
     }
 }
 

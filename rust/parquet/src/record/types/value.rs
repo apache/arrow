@@ -21,6 +21,7 @@ use crate::{
     schema::types::{ColumnDescPtr, ColumnPath, Type},
 };
 
+/// Represents any valid Parquet value.
 #[derive(Clone, PartialEq, Debug)]
 pub enum Value {
     // Primitive types
@@ -145,6 +146,7 @@ impl Hash for Value {
 impl Eq for Value {}
 
 impl Value {
+    /// Returns true if the `Value` is an Bool. Returns false otherwise.
     pub fn is_bool(&self) -> bool {
         if let Value::Bool(_) = self {
             true
@@ -153,7 +155,20 @@ impl Value {
         }
     }
 
-    pub fn as_bool(self) -> Result<bool, ParquetError> {
+    /// If the `Value` is an Bool, return a reference to it. Returns Err otherwise.
+    pub fn as_bool(&self) -> Result<bool, ParquetError> {
+        if let Value::Bool(ret) = self {
+            Ok(*ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as bool",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an Bool, return it. Returns Err otherwise.
+    pub fn into_bool(self) -> Result<bool, ParquetError> {
         if let Value::Bool(ret) = self {
             Ok(ret)
         } else {
@@ -164,6 +179,7 @@ impl Value {
         }
     }
 
+    /// Returns true if the `Value` is an U8. Returns false otherwise.
     pub fn is_u8(&self) -> bool {
         if let Value::U8(_) = self {
             true
@@ -172,7 +188,20 @@ impl Value {
         }
     }
 
-    pub fn as_u8(self) -> Result<u8, ParquetError> {
+    /// If the `Value` is an U8, return a reference to it. Returns Err otherwise.
+    pub fn as_u8(&self) -> Result<u8, ParquetError> {
+        if let Value::U8(ret) = self {
+            Ok(*ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as u8",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an U8, return it. Returns Err otherwise.
+    pub fn into_u8(self) -> Result<u8, ParquetError> {
         if let Value::U8(ret) = self {
             Ok(ret)
         } else {
@@ -183,6 +212,7 @@ impl Value {
         }
     }
 
+    /// Returns true if the `Value` is an I8. Returns false otherwise.
     pub fn is_i8(&self) -> bool {
         if let Value::I8(_) = self {
             true
@@ -191,7 +221,20 @@ impl Value {
         }
     }
 
-    pub fn as_i8(self) -> Result<i8, ParquetError> {
+    /// If the `Value` is an I8, return a reference to it. Returns Err otherwise.
+    pub fn as_i8(&self) -> Result<i8, ParquetError> {
+        if let Value::I8(ret) = self {
+            Ok(*ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as i8",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an I8, return it. Returns Err otherwise.
+    pub fn into_i8(self) -> Result<i8, ParquetError> {
         if let Value::I8(ret) = self {
             Ok(ret)
         } else {
@@ -202,6 +245,7 @@ impl Value {
         }
     }
 
+    /// Returns true if the `Value` is an U16. Returns false otherwise.
     pub fn is_u16(&self) -> bool {
         if let Value::U16(_) = self {
             true
@@ -210,7 +254,20 @@ impl Value {
         }
     }
 
-    pub fn as_u16(self) -> Result<u16, ParquetError> {
+    /// If the `Value` is an U16, return a reference to it. Returns Err otherwise.
+    pub fn as_u16(&self) -> Result<u16, ParquetError> {
+        if let Value::U16(ret) = self {
+            Ok(*ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as u16",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an U16, return it. Returns Err otherwise.
+    pub fn into_u16(self) -> Result<u16, ParquetError> {
         if let Value::U16(ret) = self {
             Ok(ret)
         } else {
@@ -221,6 +278,7 @@ impl Value {
         }
     }
 
+    /// Returns true if the `Value` is an I16. Returns false otherwise.
     pub fn is_i16(&self) -> bool {
         if let Value::I16(_) = self {
             true
@@ -229,7 +287,20 @@ impl Value {
         }
     }
 
-    pub fn as_i16(self) -> Result<i16, ParquetError> {
+    /// If the `Value` is an I16, return a reference to it. Returns Err otherwise.
+    pub fn as_i16(&self) -> Result<i16, ParquetError> {
+        if let Value::I16(ret) = self {
+            Ok(*ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as i16",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an I16, return it. Returns Err otherwise.
+    pub fn into_i16(self) -> Result<i16, ParquetError> {
         if let Value::I16(ret) = self {
             Ok(ret)
         } else {
@@ -240,6 +311,7 @@ impl Value {
         }
     }
 
+    /// Returns true if the `Value` is an U32. Returns false otherwise.
     pub fn is_u32(&self) -> bool {
         if let Value::U32(_) = self {
             true
@@ -248,7 +320,20 @@ impl Value {
         }
     }
 
-    pub fn as_u32(self) -> Result<u32, ParquetError> {
+    /// If the `Value` is an U32, return a reference to it. Returns Err otherwise.
+    pub fn as_u32(&self) -> Result<u32, ParquetError> {
+        if let Value::U32(ret) = self {
+            Ok(*ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as u32",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an U32, return it. Returns Err otherwise.
+    pub fn into_u32(self) -> Result<u32, ParquetError> {
         if let Value::U32(ret) = self {
             Ok(ret)
         } else {
@@ -259,6 +344,7 @@ impl Value {
         }
     }
 
+    /// Returns true if the `Value` is an I32. Returns false otherwise.
     pub fn is_i32(&self) -> bool {
         if let Value::I32(_) = self {
             true
@@ -267,7 +353,20 @@ impl Value {
         }
     }
 
-    pub fn as_i32(self) -> Result<i32, ParquetError> {
+    /// If the `Value` is an I32, return a reference to it. Returns Err otherwise.
+    pub fn as_i32(&self) -> Result<i32, ParquetError> {
+        if let Value::I32(ret) = self {
+            Ok(*ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as i32",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an I32, return it. Returns Err otherwise.
+    pub fn into_i32(self) -> Result<i32, ParquetError> {
         if let Value::I32(ret) = self {
             Ok(ret)
         } else {
@@ -278,6 +377,7 @@ impl Value {
         }
     }
 
+    /// Returns true if the `Value` is an U64. Returns false otherwise.
     pub fn is_u64(&self) -> bool {
         if let Value::U64(_) = self {
             true
@@ -286,7 +386,20 @@ impl Value {
         }
     }
 
-    pub fn as_u64(self) -> Result<u64, ParquetError> {
+    /// If the `Value` is an U64, return a reference to it. Returns Err otherwise.
+    pub fn as_u64(&self) -> Result<u64, ParquetError> {
+        if let Value::U64(ret) = self {
+            Ok(*ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as u64",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an U64, return it. Returns Err otherwise.
+    pub fn into_u64(self) -> Result<u64, ParquetError> {
         if let Value::U64(ret) = self {
             Ok(ret)
         } else {
@@ -297,6 +410,7 @@ impl Value {
         }
     }
 
+    /// Returns true if the `Value` is an I64. Returns false otherwise.
     pub fn is_i64(&self) -> bool {
         if let Value::I64(_) = self {
             true
@@ -305,7 +419,20 @@ impl Value {
         }
     }
 
-    pub fn as_i64(self) -> Result<i64, ParquetError> {
+    /// If the `Value` is an I64, return a reference to it. Returns Err otherwise.
+    pub fn as_i64(&self) -> Result<i64, ParquetError> {
+        if let Value::I64(ret) = self {
+            Ok(*ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as i64",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an I64, return it. Returns Err otherwise.
+    pub fn into_i64(self) -> Result<i64, ParquetError> {
         if let Value::I64(ret) = self {
             Ok(ret)
         } else {
@@ -316,6 +443,7 @@ impl Value {
         }
     }
 
+    /// Returns true if the `Value` is an F32. Returns false otherwise.
     pub fn is_f32(&self) -> bool {
         if let Value::F32(_) = self {
             true
@@ -324,7 +452,20 @@ impl Value {
         }
     }
 
-    pub fn as_f32(self) -> Result<f32, ParquetError> {
+    /// If the `Value` is an F32, return a reference to it. Returns Err otherwise.
+    pub fn as_f32(&self) -> Result<f32, ParquetError> {
+        if let Value::F32(ret) = self {
+            Ok(*ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as f32",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an F32, return it. Returns Err otherwise.
+    pub fn into_f32(self) -> Result<f32, ParquetError> {
         if let Value::F32(ret) = self {
             Ok(ret)
         } else {
@@ -335,6 +476,7 @@ impl Value {
         }
     }
 
+    /// Returns true if the `Value` is an F64. Returns false otherwise.
     pub fn is_f64(&self) -> bool {
         if let Value::F64(_) = self {
             true
@@ -343,7 +485,20 @@ impl Value {
         }
     }
 
-    pub fn as_f64(self) -> Result<f64, ParquetError> {
+    /// If the `Value` is an F64, return a reference to it. Returns Err otherwise.
+    pub fn as_f64(&self) -> Result<f64, ParquetError> {
+        if let Value::F64(ret) = self {
+            Ok(*ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as f64",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an F64, return it. Returns Err otherwise.
+    pub fn into_f64(self) -> Result<f64, ParquetError> {
         if let Value::F64(ret) = self {
             Ok(ret)
         } else {
@@ -354,6 +509,7 @@ impl Value {
         }
     }
 
+    /// Returns true if the `Value` is an Timestamp. Returns false otherwise.
     pub fn is_timestamp(&self) -> bool {
         if let Value::Timestamp(_) = self {
             true
@@ -362,7 +518,8 @@ impl Value {
         }
     }
 
-    pub fn as_timestamp(self) -> Result<Timestamp, ParquetError> {
+    /// If the `Value` is an Timestamp, return a reference to it. Returns Err otherwise.
+    pub fn as_timestamp(&self) -> Result<&Timestamp, ParquetError> {
         if let Value::Timestamp(ret) = self {
             Ok(ret)
         } else {
@@ -373,6 +530,19 @@ impl Value {
         }
     }
 
+    /// If the `Value` is an Timestamp, return it. Returns Err otherwise.
+    pub fn into_timestamp(self) -> Result<Timestamp, ParquetError> {
+        if let Value::Timestamp(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as timestamp",
+                self
+            )))
+        }
+    }
+
+    /// Returns true if the `Value` is an Array. Returns false otherwise.
     pub fn is_array(&self) -> bool {
         if let Value::Array(_) = self {
             true
@@ -381,7 +551,8 @@ impl Value {
         }
     }
 
-    pub fn as_array(self) -> Result<Vec<u8>, ParquetError> {
+    /// If the `Value` is an Array, return a reference to it. Returns Err otherwise.
+    pub fn as_array(&self) -> Result<&Vec<u8>, ParquetError> {
         if let Value::Array(ret) = self {
             Ok(ret)
         } else {
@@ -392,6 +563,19 @@ impl Value {
         }
     }
 
+    /// If the `Value` is an Array, return it. Returns Err otherwise.
+    pub fn into_array(self) -> Result<Vec<u8>, ParquetError> {
+        if let Value::Array(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as array",
+                self
+            )))
+        }
+    }
+
+    /// Returns true if the `Value` is an String. Returns false otherwise.
     pub fn is_string(&self) -> bool {
         if let Value::String(_) = self {
             true
@@ -400,7 +584,8 @@ impl Value {
         }
     }
 
-    pub fn as_string(self) -> Result<String, ParquetError> {
+    /// If the `Value` is an String, return a reference to it. Returns Err otherwise.
+    pub fn as_string(&self) -> Result<&String, ParquetError> {
         if let Value::String(ret) = self {
             Ok(ret)
         } else {
@@ -411,6 +596,19 @@ impl Value {
         }
     }
 
+    /// If the `Value` is an String, return it. Returns Err otherwise.
+    pub fn into_string(self) -> Result<String, ParquetError> {
+        if let Value::String(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as string",
+                self
+            )))
+        }
+    }
+
+    /// Returns true if the `Value` is an List. Returns false otherwise.
     pub fn is_list(&self) -> bool {
         if let Value::List(_) = self {
             true
@@ -419,7 +617,8 @@ impl Value {
         }
     }
 
-    pub fn as_list(self) -> Result<List<Value>, ParquetError> {
+    /// If the `Value` is an List, return a reference to it. Returns Err otherwise.
+    pub fn as_list(&self) -> Result<&List<Value>, ParquetError> {
         if let Value::List(ret) = self {
             Ok(ret)
         } else {
@@ -430,6 +629,19 @@ impl Value {
         }
     }
 
+    /// If the `Value` is an List, return it. Returns Err otherwise.
+    pub fn into_list(self) -> Result<List<Value>, ParquetError> {
+        if let Value::List(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as list",
+                self
+            )))
+        }
+    }
+
+    /// Returns true if the `Value` is an Map. Returns false otherwise.
     pub fn is_map(&self) -> bool {
         if let Value::Map(_) = self {
             true
@@ -438,7 +650,8 @@ impl Value {
         }
     }
 
-    pub fn as_map(self) -> Result<Map<Value, Value>, ParquetError> {
+    /// If the `Value` is an Map, return a reference to it. Returns Err otherwise.
+    pub fn as_map(&self) -> Result<&Map<Value, Value>, ParquetError> {
         if let Value::Map(ret) = self {
             Ok(ret)
         } else {
@@ -449,6 +662,19 @@ impl Value {
         }
     }
 
+    /// If the `Value` is an Map, return it. Returns Err otherwise.
+    pub fn into_map(self) -> Result<Map<Value, Value>, ParquetError> {
+        if let Value::Map(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as map",
+                self
+            )))
+        }
+    }
+
+    /// Returns true if the `Value` is an Group. Returns false otherwise.
     pub fn is_group(&self) -> bool {
         if let Value::Group(_) = self {
             true
@@ -457,7 +683,8 @@ impl Value {
         }
     }
 
-    pub fn as_group(self) -> Result<Group, ParquetError> {
+    /// If the `Value` is an Group, return a reference to it. Returns Err otherwise.
+    pub fn as_group(&self) -> Result<&Group, ParquetError> {
         if let Value::Group(ret) = self {
             Ok(ret)
         } else {
@@ -468,6 +695,19 @@ impl Value {
         }
     }
 
+    /// If the `Value` is an Group, return it. Returns Err otherwise.
+    pub fn into_group(self) -> Result<Group, ParquetError> {
+        if let Value::Group(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as group",
+                self
+            )))
+        }
+    }
+
+    /// Returns true if the `Value` is an Option. Returns false otherwise.
     pub fn is_option(&self) -> bool {
         if let Value::Option(_) = self {
             true
@@ -476,7 +716,20 @@ impl Value {
         }
     }
 
-    pub fn as_option(self) -> Result<Option<Value>, ParquetError> {
+    /// If the `Value` is an Option, return a reference to it. Returns Err otherwise.
+    pub fn as_option(&self) -> Result<&Option<Value>, ParquetError> {
+        if let Value::Option(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as option",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an Option, return it. Returns Err otherwise.
+    pub fn into_option(self) -> Result<Option<Value>, ParquetError> {
         if let Value::Option(ret) = self {
             Ok(*ret)
         } else {
@@ -495,72 +748,72 @@ impl Downcast<Value> for Value {
 }
 impl Downcast<bool> for Value {
     fn downcast(self) -> Result<bool, ParquetError> {
-        self.as_bool()
+        self.into_bool()
     }
 }
 impl Downcast<u8> for Value {
     fn downcast(self) -> Result<u8, ParquetError> {
-        self.as_u8()
+        self.into_u8()
     }
 }
 impl Downcast<i8> for Value {
     fn downcast(self) -> Result<i8, ParquetError> {
-        self.as_i8()
+        self.into_i8()
     }
 }
 impl Downcast<u16> for Value {
     fn downcast(self) -> Result<u16, ParquetError> {
-        self.as_u16()
+        self.into_u16()
     }
 }
 impl Downcast<i16> for Value {
     fn downcast(self) -> Result<i16, ParquetError> {
-        self.as_i16()
+        self.into_i16()
     }
 }
 impl Downcast<u32> for Value {
     fn downcast(self) -> Result<u32, ParquetError> {
-        self.as_u32()
+        self.into_u32()
     }
 }
 impl Downcast<i32> for Value {
     fn downcast(self) -> Result<i32, ParquetError> {
-        self.as_i32()
+        self.into_i32()
     }
 }
 impl Downcast<u64> for Value {
     fn downcast(self) -> Result<u64, ParquetError> {
-        self.as_u64()
+        self.into_u64()
     }
 }
 impl Downcast<i64> for Value {
     fn downcast(self) -> Result<i64, ParquetError> {
-        self.as_i64()
+        self.into_i64()
     }
 }
 impl Downcast<f32> for Value {
     fn downcast(self) -> Result<f32, ParquetError> {
-        self.as_f32()
+        self.into_f32()
     }
 }
 impl Downcast<f64> for Value {
     fn downcast(self) -> Result<f64, ParquetError> {
-        self.as_f64()
+        self.into_f64()
     }
 }
 impl Downcast<Timestamp> for Value {
     fn downcast(self) -> Result<Timestamp, ParquetError> {
-        self.as_timestamp()
+        self.into_timestamp()
     }
 }
 impl Downcast<Vec<u8>> for Value {
     fn downcast(self) -> Result<Vec<u8>, ParquetError> {
-        self.as_array()
+        self.into_array()
     }
 }
 impl Downcast<String> for Value {
     fn downcast(self) -> Result<String, ParquetError> {
-        self.as_string()
+        self.into_string()
     }
 }
 impl<T> Downcast<List<T>> for Value
@@ -568,7 +821,7 @@ where
     Value: Downcast<T>,
 {
     default fn downcast(self) -> Result<List<T>, ParquetError> {
-        let ret = self.as_list()?;
+        let ret = self.into_list()?;
         ret.0
             .into_iter()
             .map(Downcast::downcast)
@@ -578,7 +831,7 @@ where
 }
 impl Downcast<List<Value>> for Value {
     fn downcast(self) -> Result<List<Value>, ParquetError> {
-        self.as_list()
+        self.into_list()
     }
 }
 impl<K, V> Downcast<Map<K, V>> for Value
@@ -587,7 +840,7 @@ where
     K: Hash + Eq,
 {
     default fn downcast(self) -> Result<Map<K, V>, ParquetError> {
-        let ret = self.as_map()?;
+        let ret = self.into_map()?;
         ret.0
             .into_iter()
             .map(|(k, v)| Ok((k.downcast()?, v.downcast()?)))
@@ -597,12 +850,12 @@ where
 }
 impl Downcast<Map<Value, Value>> for Value {
     fn downcast(self) -> Result<Map<Value, Value>, ParquetError> {
-        self.as_map()
+        self.into_map()
     }
 }
 impl Downcast<Group> for Value {
     fn downcast(self) -> Result<Group, ParquetError> {
-        self.as_group()
+        self.into_group()
     }
 }
 impl<T> Downcast<Option<T>> for Value
@@ -610,7 +863,7 @@ where
     Value: Downcast<T>,
 {
     default fn downcast(self) -> Result<Option<T>, ParquetError> {
-        let ret = self.as_option()?;
+        let ret = self.into_option()?;
         match ret {
             Some(t) => Downcast::<T>::downcast(t).map(Some),
             None => Ok(None),
@@ -619,7 +872,7 @@ where
 }
 impl Downcast<Option<Value>> for Value {
     fn downcast(self) -> Result<Option<Value>, ParquetError> {
-        self.as_option()
+        self.into_option()
     }
 }
 
@@ -651,14 +904,14 @@ impl Deserialize for Value {
                     (PhysicalType::INT64, LogicalType::INT_64)
                     | (PhysicalType::INT64, LogicalType::NONE) => ValueSchema::I64(I64Schema),
                     (PhysicalType::INT64, LogicalType::TIME_MICROS) => unimplemented!(),
-                    // (PhysicalType::INT64,LogicalType::TIME_NANOS) => unimplemented!(),
+                    // (PhysicalType::INT64, LogicalType::TIME_NANOS) => unimplemented!(),
                     (PhysicalType::INT64, LogicalType::TIMESTAMP_MILLIS) => {
                         ValueSchema::Timestamp(TimestampSchema::Millis)
                     }
                     (PhysicalType::INT64, LogicalType::TIMESTAMP_MICROS) => {
                         ValueSchema::Timestamp(TimestampSchema::Micros)
                     }
-                    // (PhysicalType::INT64,LogicalType::TIMESTAMP_NANOS) => unimplemented!(),
+                    // (PhysicalType::INT64, LogicalType::TIMESTAMP_NANOS) => unimplemented!(),
                     (PhysicalType::INT64, LogicalType::DECIMAL) => unimplemented!(),
                     (PhysicalType::INT96, LogicalType::NONE) => {
                         ValueSchema::Timestamp(TimestampSchema::Int96)
