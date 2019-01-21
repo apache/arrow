@@ -17,9 +17,7 @@
 
 import os
 from fnmatch import fnmatch
-from pathlib import Path
-from subprocess import Popen, CompletedProcess
-from collections.abc import Mapping, Sequence
+from subprocess import Popen
 
 
 def chunk(seq, n):
@@ -27,15 +25,16 @@ def chunk(seq, n):
     divide a sequence into equal sized chunks
     (the last chunk may be smaller, but won't be empty)
     """
+    chunks = []
     some = []
     for element in seq:
         if len(some) == n:
-            yield some
+            chunks.append(some)
             some = []
-        else:
-            some.append(element)
+        some.append(element)
     if len(some) > 0:
-        yield some
+        chunks.append(some)
+    return chunks
 
 
 def dechunk(chunks):
@@ -48,29 +47,18 @@ def dechunk(chunks):
 
 def run_parallel(cmds, **kwargs):
     """
-    run each of cmds (with shared **kwargs) using subprocess.Popen
-    then wait for all of them to complete
-    returns a list of each command's CompletedProcess
+    Run each of cmds (with shared **kwargs) using subprocess.Popen
+    then wait for all of them to complete.
+    Runs batches of os.cpu_count() * 2 from cmds
+    returns a list of tuples containing each process'
+    returncode, stdout, stderr
     """
-    procs = []
-    for cmd in cmds:
-        if not isinstance(cmd, Sequence):
-            continue
-        procs.append(Popen(cmd, **kwargs))
-
-    for cmd in cmds:
-        if not isinstance(cmd, Mapping):
-            continue
-        cmd_kwargs = kwargs.copy()
-        cmd_kwargs.update(cmd)
-        procs.append(Popen(**cmd_kwargs))
-
     complete = []
-    for proc in procs:
-        result = proc.communicate()
-        c = CompletedProcess(proc.args, proc.returncode)
-        c.stdout, c.stderr = result
-        complete.append(c)
+    for cmds_batch in chunk(cmds, os.cpu_count() * 2):
+        procs_batch = [Popen(cmd, **kwargs) for cmd in cmds_batch]
+        for proc in procs_batch:
+            stdout, stderr = proc.communicate()
+            complete.append((proc.returncode, stdout, stderr))
     return complete
 
 
@@ -83,16 +71,18 @@ _source_extensions = '''
 def get_sources(source_dir, exclude_globs=[]):
     sources = []
     for directory, subdirs, basenames in os.walk(source_dir):
-        for path in [Path(directory) / basename for basename in basenames]:
+        for path in [os.path.join(directory, basename) for basename in basenames]:
             # filter out non-source files
-            if path.suffix not in _source_extensions:
+            if os.path.splitext(path)[1] not in _source_extensions:
                 continue
+
+            path = os.path.abspath(path)
 
             # filter out files that match the globs in the globs file
-            if any([fnmatch(str(path), glob) for glob in exclude_globs]):
+            if any([fnmatch(path, glob) for glob in exclude_globs]):
                 continue
 
-            sources.append(path.resolve())
+            sources.append(path)
     return sources
 
 
@@ -102,14 +92,15 @@ def stdout_pathcolonline(completed_process, filenames):
     by printing the path name followed by ':' then a line number, examine
     stdout and return the set of actually reported file names
     """
+    returncode, stdout, stderr = completed_process
     bfilenames = set()
     for filename in filenames:
         bfilenames.add(filename.encode('utf-8') + b':')
     problem_files = set()
-    for line in completed_process.stdout.splitlines():
+    for line in stdout.splitlines():
         for filename in bfilenames:
             if line.startswith(filename):
                 problem_files.add(filename.decode('utf-8'))
                 bfilenames.remove(filename)
                 break
-    return problem_files, completed_process.stdout
+    return problem_files, stdout

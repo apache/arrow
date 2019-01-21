@@ -16,6 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from __future__ import print_function
 import lintutils
 from subprocess import PIPE, STDOUT
 import argparse
@@ -91,7 +92,7 @@ if __name__ == "__main__":
                             linted_filenames)))
 
     # lint files in chunks: each invocation of cpplint will process 16 files
-    chunks = list(lintutils.chunk(linted_filenames, 16))
+    chunks = lintutils.chunk(linted_filenames, 16)
     cmds = [cmd + some for some in chunks]
     results = lintutils.run_parallel(cmds, stdout=PIPE, stderr=STDOUT)
 
