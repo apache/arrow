@@ -110,7 +110,12 @@ static inline uint32_t SSE4_crc32_u32(uint32_t crc, uint32_t v) {
 }
 
 static inline uint32_t SSE4_crc32_u64(uint32_t crc, uint64_t v) {
+#if defined(__MINGW32__) && !defined(__MINGW64__)
+  DCHECK(false) << "MinGW-w64 32-bit doesn't support _mm_crc32_u64()";
+  return 0;
+#else
   return static_cast<uint32_t>(_mm_crc32_u64(crc, v));
+#endif
 }
 
 #else  // without SSE 4.2.
