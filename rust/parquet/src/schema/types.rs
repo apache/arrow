@@ -103,6 +103,19 @@ impl Type {
         }
     }
 
+    /// Gets the type length of this primitive type.
+    /// Note that this will panic if called on a non-primitive type.
+    pub fn get_type_length(&self) -> i32 {
+        match *self {
+            Type::PrimitiveType {
+                basic_info: _,
+                type_length,
+                ..
+            } => type_length,
+            _ => panic!("Cannot call get_type_length() on a non-primitive type"),
+        }
+    }
+
     /// Checks if `sub_type` schema is part of current schema.
     /// This method can be used to check if projected columns are part of the root schema.
     pub fn check_contains(&self, sub_type: &Type) -> bool {
@@ -483,6 +496,11 @@ impl BasicTypeInfo {
     pub fn repetition(&self) -> Repetition {
         assert!(self.repetition.is_some());
         self.repetition.unwrap()
+    }
+
+    /// Sets [`Repetition`](`crate::basic::Repetition`) value for the type.
+    pub fn set_repetition(&mut self, repetition: Option<Repetition>) {
+        self.repetition = repetition;
     }
 
     /// Returns [`LogicalType`](crate::basic::LogicalType) value for the type.

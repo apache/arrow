@@ -372,7 +372,7 @@ impl RleDecoder {
     pub fn get<T: Default>(&mut self) -> Result<Option<T>> {
         assert!(size_of::<T>() <= 8);
 
-        while self.rle_left <= 0 && self.bit_packed_left <= 0 {
+        while self.rle_left == 0 && self.bit_packed_left == 0 {
             if !self.reload() {
                 return Ok(None);
             }
@@ -488,10 +488,8 @@ impl RleDecoder {
                         }
                     }
                 }
-            } else {
-                if !self.reload() {
-                    break;
-                }
+            } else if !self.reload() {
+                break;
             }
         }
 
@@ -513,11 +511,9 @@ impl RleDecoder {
                     assert!(self.current_value.is_some());
                 }
                 return true;
-            } else {
-                return false;
             }
         }
-        return false;
+        false
     }
 }
 

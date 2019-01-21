@@ -150,7 +150,7 @@ impl SerializedFileWriter {
 
     /// Writes magic bytes at the beginning of the file.
     fn start_file(file: &mut File) -> Result<()> {
-        file.write(&PARQUET_MAGIC)?;
+        file.write_all(&PARQUET_MAGIC)?;
         Ok(())
     }
 
@@ -194,8 +194,8 @@ impl SerializedFileWriter {
         let mut footer_buffer: [u8; FOOTER_SIZE] = [0; FOOTER_SIZE];
         let metadata_len = (end_pos - start_pos) as i32;
         LittleEndian::write_i32(&mut footer_buffer, metadata_len);
-        (&mut footer_buffer[4..]).write(&PARQUET_MAGIC)?;
-        self.file.write(&footer_buffer)?;
+        (&mut footer_buffer[4..]).write_all(&PARQUET_MAGIC)?;
+        self.file.write_all(&footer_buffer)?;
         Ok(())
     }
 
@@ -531,7 +531,7 @@ mod tests {
         reader::{FileReader, SerializedFileReader, SerializedPageReader},
         statistics::{from_thrift, to_thrift, Statistics},
     };
-    use crate::record::RowAccessor;
+    use crate::record::types::Row;
     use crate::util::{memory::ByteBufferPtr, test_common::get_temp_file};
 
     #[test]
@@ -664,7 +664,7 @@ mod tests {
         writer.close().unwrap();
 
         let reader = SerializedFileReader::new(file).unwrap();
-        assert_eq!(reader.get_row_iter(None).unwrap().count(), 0);
+        assert_eq!(reader.get_row_iter::<Row>(None).unwrap().count(), 0);
     }
 
     #[test]
@@ -945,9 +945,16 @@ mod tests {
         assert_eq!(reader.num_row_groups(), data.len());
         for i in 0..reader.num_row_groups() {
             let row_group_reader = reader.get_row_group(i).unwrap();
-            let iter = row_group_reader.get_row_iter(None).unwrap();
+            // let iter =
+            // row_group_reader.get_row_iter::<Row>(None).unwrap();
+            let iter =
+                crate::record::reader::RowIter::<SerializedFileReader<File>, Row>::from_row_group(
+                    None,
+                    &*row_group_reader,
+                )
+                .unwrap();
             let res = iter
-                .map(|elem| elem.get_int(0).unwrap())
+                .map(|elem| elem.0.into_iter().next().unwrap().as_i32().unwrap())
                 .collect::<Vec<i32>>();
             assert_eq!(res, data[i]);
         }

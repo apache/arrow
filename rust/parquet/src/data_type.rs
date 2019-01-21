@@ -18,7 +18,7 @@
 //! Data types that connect Parquet physical types with their Rust-specific
 //! representations.
 
-use std::mem;
+use std::{mem, slice};
 
 use byteorder::{BigEndian, ByteOrder};
 
@@ -27,51 +27,22 @@ use crate::util::memory::{ByteBuffer, ByteBufferPtr};
 
 /// Rust representation for logical type INT96, value is backed by an array of `u32`.
 /// The type only takes 12 bytes, without extra padding.
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Default, Debug)]
 pub struct Int96 {
-    value: Option<[u32; 3]>,
+    value: [u32; 3],
 }
 
 impl Int96 {
     /// Creates new INT96 type struct with no data set.
-    pub fn new() -> Self {
-        Self { value: None }
+    pub fn new(elem0: u32, elem1: u32, elem2: u32) -> Self {
+        Self {
+            value: [elem0, elem1, elem2],
+        }
     }
 
     /// Returns underlying data as slice of [`u32`].
     pub fn data(&self) -> &[u32] {
-        assert!(self.value.is_some());
-        self.value.as_ref().unwrap()
-    }
-
-    /// Sets data for this INT96 type.
-    pub fn set_data(&mut self, elem0: u32, elem1: u32, elem2: u32) {
-        self.value = Some([elem0, elem1, elem2]);
-    }
-}
-
-impl Default for Int96 {
-    fn default() -> Self {
-        Self { value: None }
-    }
-}
-
-impl PartialEq for Int96 {
-    fn eq(&self, other: &Int96) -> bool {
-        match (&self.value, &other.value) {
-            (Some(v1), Some(v2)) => v1 == v2,
-            (None, None) => true,
-            _ => false,
-        }
-    }
-}
-
-impl From<Vec<u32>> for Int96 {
-    fn from(buf: Vec<u32>) -> Self {
-        assert_eq!(buf.len(), 3);
-        let mut result = Self::new();
-        result.set_data(buf[0], buf[1], buf[2]);
-        result
+        &self.value
     }
 }
 
@@ -272,9 +243,9 @@ macro_rules! gen_as_bytes {
         impl AsBytes for $source_ty {
             fn as_bytes(&self) -> &[u8] {
                 unsafe {
-                    ::std::slice::from_raw_parts(
+                    slice::from_raw_parts(
                         self as *const $source_ty as *const u8,
-                        ::std::mem::size_of::<$source_ty>(),
+                        mem::size_of::<$source_ty>(),
                     )
                 }
             }
@@ -339,13 +310,10 @@ pub trait DataType: 'static {
 
     /// Returns Parquet physical type.
     fn get_physical_type() -> Type;
-
-    /// Returns size in bytes for Rust representation of the physical type.
-    fn get_type_size() -> usize;
 }
 
 macro_rules! make_type {
-    ($name:ident, $physical_ty:path, $native_ty:ty, $size:expr) => {
+    ($name:ident, $physical_ty:path, $native_ty:ty) => {
         pub struct $name {}
 
         impl DataType for $name {
@@ -354,34 +322,20 @@ macro_rules! make_type {
             fn get_physical_type() -> Type {
                 $physical_ty
             }
-
-            fn get_type_size() -> usize {
-                $size
-            }
         }
     };
 }
 
 // Generate struct definitions for all physical types
 
-make_type!(BoolType, Type::BOOLEAN, bool, 1);
-make_type!(Int32Type, Type::INT32, i32, 4);
-make_type!(Int64Type, Type::INT64, i64, 8);
-make_type!(Int96Type, Type::INT96, Int96, mem::size_of::<Int96>());
-make_type!(FloatType, Type::FLOAT, f32, 4);
-make_type!(DoubleType, Type::DOUBLE, f64, 8);
-make_type!(
-    ByteArrayType,
-    Type::BYTE_ARRAY,
-    ByteArray,
-    mem::size_of::<ByteArray>()
-);
-make_type!(
-    FixedLenByteArrayType,
-    Type::FIXED_LEN_BYTE_ARRAY,
-    ByteArray,
-    mem::size_of::<ByteArray>()
-);
+make_type!(BoolType, Type::BOOLEAN, bool);
+make_type!(Int32Type, Type::INT32, i32);
+make_type!(Int64Type, Type::INT64, i64);
+make_type!(Int96Type, Type::INT96, Int96);
+make_type!(FloatType, Type::FLOAT, f32);
+make_type!(DoubleType, Type::DOUBLE, f64);
+make_type!(ByteArrayType, Type::BYTE_ARRAY, ByteArray);
+make_type!(FixedLenByteArrayType, Type::FIXED_LEN_BYTE_ARRAY, ByteArray);
 
 #[cfg(test)]
 mod tests {
@@ -415,7 +369,7 @@ mod tests {
         );
 
         // Test Int96
-        let i96 = Int96::from(vec![1, 2, 3]);
+        let i96 = Int96::new(1, 2, 3);
         assert_eq!(i96.as_bytes(), &[1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0]);
 
         // Test ByteArray
@@ -434,7 +388,7 @@ mod tests {
     #[test]
     fn test_int96_from() {
         assert_eq!(
-            Int96::from(vec![1, 12345, 1234567890]).data(),
+            Int96::new(1, 12345, 1234567890).data(),
             &[1, 12345, 1234567890]
         );
     }

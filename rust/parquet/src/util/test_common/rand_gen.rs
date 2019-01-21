@@ -63,9 +63,7 @@ impl RandGen<Int64Type> for Int64Type {
 impl RandGen<Int96Type> for Int96Type {
     fn gen(_: i32) -> Int96 {
         let mut rng = thread_rng();
-        let mut result = Int96::new();
-        result.set_data(rng.gen::<u32>(), rng.gen::<u32>(), rng.gen::<u32>());
-        result
+        Int96::new(rng.gen::<u32>(), rng.gen::<u32>(), rng.gen::<u32>())
     }
 }
 

@@ -19,8 +19,61 @@
 
 mod api;
 pub mod reader;
+pub mod schemas;
 mod triplet;
+pub mod types;
 
-pub use self::api::{
-    List, ListAccessor, Map, MapAccessor, Row, RowAccessor, RowFormatter,
+use std::{
+    collections::HashMap,
+    fmt::{self, Display},
+    marker::PhantomData,
 };
+
+use crate::{
+    column::reader::ColumnReader,
+    errors::ParquetError,
+    record::reader::Reader,
+    schema::types::{ColumnDescPtr, ColumnPath, Type},
+};
+
+pub trait DisplayType {
+    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error>;
+}
+
+struct DisplayDisplayType<T>(PhantomData<fn(T)>)
+where
+    T: DisplayType;
+impl<T> DisplayDisplayType<T>
+where
+    T: DisplayType,
+{
+    fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+impl<T> Display for DisplayDisplayType<T>
+where
+    T: DisplayType,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> std::result::Result<(), fmt::Error> {
+        T::fmt(f)
+    }
+}
+
+pub trait Deserialize: Sized {
+    type Schema: Display + DisplayType;
+    type Reader: Reader<Item = Self>;
+
+    /// Parse a [`Type`] into `Self::Schema`.
+    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError>;
+
+    /// Builds tree of readers for the specified schema recursively.
+    fn reader(
+        schema: &Self::Schema,
+        path: &mut Vec<String>,
+        curr_def_level: i16,
+        curr_rep_level: i16,
+        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        batch_size: usize,
+    ) -> Self::Reader;
+}

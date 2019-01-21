@@ -41,8 +41,7 @@ use crate::column::{
 use crate::compression::{create_codec, Codec};
 use crate::errors::{ParquetError, Result};
 use crate::file::{metadata::*, statistics, FOOTER_SIZE, PARQUET_MAGIC};
-use crate::record::reader::RowIter;
-use crate::record::Row;
+use crate::record::{reader::RowIter, types::Root, Deserialize};
 use crate::schema::types::{
     self, ColumnDescPtr, SchemaDescPtr, SchemaDescriptor, Type as SchemaType,
 };
@@ -69,7 +68,31 @@ pub trait FileReader {
     ///
     /// Projected schema can be a subset of or equal to the file schema, when it is None,
     /// full file schema is assumed.
-    fn get_row_iter(&self, projection: Option<SchemaType>) -> Result<RowIter>;
+    fn get_row_iter<T>(&self, projection: Option<SchemaType>) -> Result<RowIter<Self, T>>
+    where
+        Root<T>: Deserialize,
+        Self: Sized;
+}
+
+impl FileReader for Box<FileReader> {
+    fn metadata(&self) -> ParquetMetaDataPtr {
+        (**self).metadata()
+    }
+
+    fn num_row_groups(&self) -> usize {
+        (**self).num_row_groups()
+    }
+
+    fn get_row_group(&self, i: usize) -> Result<Box<RowGroupReader>> {
+        (**self).get_row_group(i)
+    }
+
+    fn get_row_iter<T>(&self, _projection: Option<SchemaType>) -> Result<RowIter<Self, T>>
+    where
+        Root<T>: Deserialize,
+        Self: Sized {
+        unimplemented!()
+    }
 }
 
 /// Parquet row group reader API. With this, user can get metadata information about the
@@ -87,11 +110,12 @@ pub trait RowGroupReader {
     /// Get value reader for the `i`th column chunk.
     fn get_column_reader(&self, i: usize) -> Result<ColumnReader>;
 
-    /// Get iterator of `Row`s from this row group.
-    ///
-    /// Projected schema can be a subset of or equal to the file schema, when it is None,
-    /// full file schema is assumed.
-    fn get_row_iter(&self, projection: Option<SchemaType>) -> Result<RowIter>;
+    // /// Get iterator of `Row`s from this row group.
+    // ///
+    // /// Projected schema can be a subset of or equal to the file schema, when it is None,
+    // /// full file schema is assumed.
+    // fn get_row_iter<T>(&self, projection: Option<SchemaType>) -> Result<RowIter<Self,T>>
+    // where Root<T>: Deserialize, Self: Sized;
 }
 
 // ----------------------------------------------------------------------
@@ -276,7 +300,11 @@ impl<R: 'static + ParquetReader> FileReader for SerializedFileReader<R> {
         )))
     }
 
-    fn get_row_iter(&self, projection: Option<SchemaType>) -> Result<RowIter> {
+    fn get_row_iter<T>(&self, projection: Option<SchemaType>) -> Result<RowIter<Self, T>>
+    where
+        Root<T>: Deserialize,
+        Self: Sized,
+    {
         RowIter::from_file(projection, self)
     }
 }
@@ -314,16 +342,16 @@ impl<'a> TryFrom<&'a str> for SerializedFileReader<File> {
     }
 }
 
-/// Conversion into a [`RowIter`](crate::record::reader::RowIter)
-/// using the full file schema over all row groups.
-impl IntoIterator for SerializedFileReader<File> {
-    type Item = Row;
-    type IntoIter = RowIter<'static>;
+// /// Conversion into a [`RowIter`](crate::record::reader::RowIter)
+// /// using the full file schema over all row groups.
+// impl<T> IntoIterator for SerializedFileReader<File> {
+//     type Item = Row;
+//     type IntoIter = RowIter<'static,Self,T>;
 
-    fn into_iter(self) -> Self::IntoIter {
-        RowIter::from_file_into(Box::new(self))
-    }
-}
+//     fn into_iter(self) -> Self::IntoIter {
+//         RowIter::from_file_into(Box::new(self))
+//     }
+// }
 
 /// A serialized implementation for Parquet [`RowGroupReader`].
 pub struct SerializedRowGroupReader<R: ParquetReader> {
@@ -406,9 +434,9 @@ impl<R: 'static + ParquetReader> RowGroupReader for SerializedRowGroupReader<R> 
         Ok(col_reader)
     }
 
-    fn get_row_iter(&self, projection: Option<SchemaType>) -> Result<RowIter> {
-        RowIter::from_row_group(projection, self)
-    }
+    // fn get_row_iter<T>(&self, projection: Option<SchemaType>) -> Result<RowIter<Self,T>>
+    // where Root<T>: Deserialize, Self: Sized {   RowIter::from_row_group(projection,
+    // self) }
 }
 
 /// A serialized implementation for Parquet [`PageReader`].
@@ -651,7 +679,7 @@ mod tests {
     use parquet_format::TypeDefinedOrder;
 
     use crate::basic::SortOrder;
-    use crate::record::RowAccessor;
+    use crate::record::types::Row;
     use crate::schema::parser::parse_message_type;
     use crate::util::test_common::{get_temp_file, get_test_file, get_test_path};
 
@@ -672,13 +700,12 @@ mod tests {
     //     let buffer = include_bytes!(path);
     //     let cursor = Cursor::new(buffer.as_ref());
 
-    //     let read_from_file =
-    //         SerializedFileReader::new(File::open("testdata/alltypes_plain.parquet").
-    // unwrap())             .unwrap();
+    //     let test_file = get_test_file("alltypes_plain.parquet");
+    //     let read_from_file = SerializedFileReader::new(test_file).unwrap();
     //     let read_from_cursor = SerializedFileReader::new(cursor).unwrap();
 
-    //     let file_iter = read_from_file.get_row_iter(None).unwrap();
-    //     let cursor_iter = read_from_cursor.get_row_iter(None).unwrap();
+    //     let file_iter = read_from_file.get_row_iter::<Row>(None).unwrap();
+    //     let cursor_iter = read_from_cursor.get_row_iter::<Row>(None).unwrap();
 
     //     assert!(file_iter.eq(cursor_iter));
     // }

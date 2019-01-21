@@ -15,158 +15,95 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::basic::Type as PhysicalType;
+use std::mem;
+
 use crate::column::reader::{get_typed_column_reader, ColumnReader, ColumnReaderImpl};
 use crate::data_type::*;
 use crate::errors::{ParquetError, Result};
-use crate::record::api::Field;
-use crate::schema::types::ColumnDescPtr;
-
-/// Macro to generate simple functions that cover all types of triplet iterator.
-/// $func is a function of a typed triplet iterator and $token is a either {`ref`} or
-/// {`ref`, `mut`}
-macro_rules! triplet_enum_func {
-  ($self:ident, $func:ident, $( $token:tt ),*) => ({
-    match *$self {
-      TripletIter::BoolTripletIter($($token)* typed) => typed.$func(),
-      TripletIter::Int32TripletIter($($token)* typed) => typed.$func(),
-      TripletIter::Int64TripletIter($($token)* typed) => typed.$func(),
-      TripletIter::Int96TripletIter($($token)* typed) => typed.$func(),
-      TripletIter::FloatTripletIter($($token)* typed) => typed.$func(),
-      TripletIter::DoubleTripletIter($($token)* typed) => typed.$func(),
-      TripletIter::ByteArrayTripletIter($($token)* typed) => typed.$func(),
-      TripletIter::FixedLenByteArrayTripletIter($($token)* typed) => typed.$func()
-    }
-  });
-}
+use crate::record::{
+    reader::{Reader, ValueReader},
+    types::Value,
+    Deserialize,
+};
+use crate::schema::types::{ColumnDescPtr, ColumnPath};
 
 /// High level API wrapper on column reader.
 /// Provides per-element access for each primitive column.
-pub enum TripletIter {
-    BoolTripletIter(TypedTripletIter<BoolType>),
-    Int32TripletIter(TypedTripletIter<Int32Type>),
-    Int64TripletIter(TypedTripletIter<Int64Type>),
-    Int96TripletIter(TypedTripletIter<Int96Type>),
-    FloatTripletIter(TypedTripletIter<FloatType>),
-    DoubleTripletIter(TypedTripletIter<DoubleType>),
-    ByteArrayTripletIter(TypedTripletIter<ByteArrayType>),
-    FixedLenByteArrayTripletIter(TypedTripletIter<FixedLenByteArrayType>),
-}
+pub struct TripletIter(ValueReader);
 
 impl TripletIter {
     /// Creates new triplet for column reader
-    pub fn new(descr: ColumnDescPtr, reader: ColumnReader, batch_size: usize) -> Self {
-        match descr.physical_type() {
-            PhysicalType::BOOLEAN => TripletIter::BoolTripletIter(TypedTripletIter::new(
-                descr, batch_size, reader,
-            )),
-            PhysicalType::INT32 => TripletIter::Int32TripletIter(TypedTripletIter::new(
-                descr, batch_size, reader,
-            )),
-            PhysicalType::INT64 => TripletIter::Int64TripletIter(TypedTripletIter::new(
-                descr, batch_size, reader,
-            )),
-            PhysicalType::INT96 => TripletIter::Int96TripletIter(TypedTripletIter::new(
-                descr, batch_size, reader,
-            )),
-            PhysicalType::FLOAT => TripletIter::FloatTripletIter(TypedTripletIter::new(
-                descr, batch_size, reader,
-            )),
-            PhysicalType::DOUBLE => TripletIter::DoubleTripletIter(
-                TypedTripletIter::new(descr, batch_size, reader),
-            ),
-            PhysicalType::BYTE_ARRAY => TripletIter::ByteArrayTripletIter(
-                TypedTripletIter::new(descr, batch_size, reader),
-            ),
-            PhysicalType::FIXED_LEN_BYTE_ARRAY => {
-                TripletIter::FixedLenByteArrayTripletIter(TypedTripletIter::new(
-                    descr, batch_size, reader,
-                ))
+    pub fn new(descr: ColumnDescPtr, reader: ColumnReader, batch_size: usize) -> Result<Self> {
+        let schema = Value::parse(descr.self_type())?.1;
+        let mut def = descr.max_def_level();
+        let mut rep = descr.max_rep_level();
+        match descr.self_type().get_basic_info().repetition() {
+            crate::basic::Repetition::REQUIRED => (),
+            crate::basic::Repetition::OPTIONAL => def -= 1,
+            crate::basic::Repetition::REPEATED => {
+                def -= 1;
+                rep -= 1
             }
         }
+        let reader = Value::reader(
+            &schema,
+            &mut vec![],
+            def,
+            rep,
+            &mut vec![(ColumnPath::new(vec![]), (descr.clone(), reader))]
+                .into_iter()
+                .collect(),
+            batch_size,
+        );
+        Ok(TripletIter(reader))
     }
 
     /// Invokes underlying typed triplet iterator to buffer current value.
     /// Should be called once - either before `is_null` or `current_value`.
     #[inline]
-    pub fn read_next(&mut self) -> Result<bool> {
-        triplet_enum_func!(self, read_next, ref, mut)
+    pub fn advance_columns(&mut self) -> Result<()> {
+        self.0.advance_columns()
     }
 
     /// Provides check on values/levels left without invoking the underlying typed triplet
     /// iterator.
     /// Returns true if more values/levels exist, false otherwise.
-    /// It is always in sync with `read_next` method.
+    /// It is always in sync with `advance_columns` method.
     #[inline]
     pub fn has_next(&self) -> bool {
-        triplet_enum_func!(self, has_next, ref)
+        self.0.has_next()
     }
 
     /// Returns current definition level for a leaf triplet iterator
     #[inline]
     pub fn current_def_level(&self) -> i16 {
-        triplet_enum_func!(self, current_def_level, ref)
+        self.0.current_def_level()
     }
 
-    /// Returns max definition level for a leaf triplet iterator
-    #[inline]
-    pub fn max_def_level(&self) -> i16 {
-        triplet_enum_func!(self, max_def_level, ref)
-    }
+    // /// Returns max definition level for a leaf triplet iterator
+    // #[inline]
+    // pub fn max_def_level(&self) -> i16 { triplet_enum_func!(self, max_def_level, ref) }
 
     /// Returns current repetition level for a leaf triplet iterator
     #[inline]
     pub fn current_rep_level(&self) -> i16 {
-        triplet_enum_func!(self, current_rep_level, ref)
+        self.0.current_rep_level()
     }
 
-    /// Returns max repetition level for a leaf triplet iterator
-    #[inline]
-    pub fn max_rep_level(&self) -> i16 {
-        triplet_enum_func!(self, max_rep_level, ref)
-    }
+    // /// Returns max repetition level for a leaf triplet iterator
+    // #[inline]
+    // pub fn max_rep_level(&self) -> i16 { triplet_enum_func!(self, max_rep_level, ref) }
 
-    /// Returns true, if current value is null.
-    /// Based on the fact that for non-null value current definition level
-    /// equals to max definition level.
-    #[inline]
-    pub fn is_null(&self) -> bool {
-        self.current_def_level() < self.max_def_level()
-    }
+    // /// Returns true, if current value is null.
+    // /// Based on the fact that for non-null value current definition level
+    // /// equals to max definition level.
+    // #[inline]
+    // pub fn is_null(&self) -> bool { self.current_def_level() < self.max_def_level() }
 
     /// Updates non-null value for current row.
-    pub fn current_value(&self) -> Field {
-        assert!(!self.is_null(), "Value is null");
-        match *self {
-            TripletIter::BoolTripletIter(ref typed) => {
-                Field::convert_bool(typed.column_descr(), *typed.current_value())
-            }
-            TripletIter::Int32TripletIter(ref typed) => {
-                Field::convert_int32(typed.column_descr(), *typed.current_value())
-            }
-            TripletIter::Int64TripletIter(ref typed) => {
-                Field::convert_int64(typed.column_descr(), *typed.current_value())
-            }
-            TripletIter::Int96TripletIter(ref typed) => {
-                Field::convert_int96(typed.column_descr(), typed.current_value().clone())
-            }
-            TripletIter::FloatTripletIter(ref typed) => {
-                Field::convert_float(typed.column_descr(), *typed.current_value())
-            }
-            TripletIter::DoubleTripletIter(ref typed) => {
-                Field::convert_double(typed.column_descr(), *typed.current_value())
-            }
-            TripletIter::ByteArrayTripletIter(ref typed) => Field::convert_byte_array(
-                typed.column_descr(),
-                typed.current_value().clone(),
-            ),
-            TripletIter::FixedLenByteArrayTripletIter(ref typed) => {
-                Field::convert_byte_array(
-                    typed.column_descr(),
-                    typed.current_value().clone(),
-                )
-            }
-        }
+    pub fn read(&mut self) -> Result<Value> {
+        // assert!(!self.is_null(), "Value is null");
+        self.0.read()
     }
 }
 
@@ -174,7 +111,6 @@ impl TripletIter {
 /// (primitive leaf column), provides per-element access.
 pub struct TypedTripletIter<T: DataType> {
     reader: ColumnReaderImpl<T>,
-    column_descr: ColumnDescPtr,
     batch_size: usize,
     // type properties
     max_def_level: i16,
@@ -194,15 +130,13 @@ pub struct TypedTripletIter<T: DataType> {
 impl<T: DataType> TypedTripletIter<T> {
     /// Creates new typed triplet iterator based on provided column reader.
     /// Use batch size to specify the amount of values to buffer from column reader.
-    fn new(descr: ColumnDescPtr, batch_size: usize, column_reader: ColumnReader) -> Self {
-        assert!(
-            batch_size > 0,
-            "Expected positive batch size, found: {}",
-            batch_size
-        );
-
-        let max_def_level = descr.max_def_level();
-        let max_rep_level = descr.max_rep_level();
+    pub fn new(
+        max_def_level: i16,
+        max_rep_level: i16,
+        batch_size: usize,
+        column_reader: ColumnReader,
+    ) -> Self {
+        assert_ne!(batch_size, 0, "Expected positive batch size");
 
         let def_levels = if max_def_level == 0 {
             None
@@ -217,7 +151,6 @@ impl<T: DataType> TypedTripletIter<T> {
 
         Self {
             reader: get_typed_column_reader(column_reader),
-            column_descr: descr,
             batch_size,
             max_def_level,
             max_rep_level,
@@ -230,41 +163,36 @@ impl<T: DataType> TypedTripletIter<T> {
         }
     }
 
-    /// Returns column descriptor reference for the current typed triplet iterator.
-    #[inline]
-    pub fn column_descr(&self) -> &ColumnDescPtr {
-        &self.column_descr
-    }
-
     /// Returns maximum definition level for the triplet iterator (leaf column).
     #[inline]
-    fn max_def_level(&self) -> i16 {
+    pub fn max_def_level(&self) -> i16 {
         self.max_def_level
     }
 
     /// Returns maximum repetition level for the triplet iterator (leaf column).
     #[inline]
-    fn max_rep_level(&self) -> i16 {
+    pub fn max_rep_level(&self) -> i16 {
         self.max_rep_level
     }
 
-    /// Returns current value.
-    /// Method does not advance the iterator, therefore can be called multiple times.
+    /// Returns current value, advancing the iterator.
     #[inline]
-    fn current_value(&self) -> &T::T {
-        assert!(
-            self.current_def_level() == self.max_def_level(),
+    pub fn read(&mut self) -> Result<T::T> {
+        assert_eq!(
+            self.current_def_level(),
+            self.max_def_level,
             "Cannot extract value, max definition level: {}, current level: {}",
-            self.max_def_level(),
+            self.max_def_level,
             self.current_def_level()
         );
-        &self.values[self.curr_triplet_index]
+        let ret = mem::replace(&mut self.values[self.curr_triplet_index], T::T::default());
+        self.advance_columns().map(|()| ret)
     }
 
     /// Returns current definition level.
     /// If field is required, then maximum definition level is returned.
     #[inline]
-    fn current_def_level(&self) -> i16 {
+    pub fn current_def_level(&self) -> i16 {
         match self.def_levels {
             Some(ref vec) => vec[self.curr_triplet_index],
             None => self.max_def_level,
@@ -274,7 +202,7 @@ impl<T: DataType> TypedTripletIter<T> {
     /// Returns current repetition level.
     /// If field is required, then maximum repetition level is returned.
     #[inline]
-    fn current_rep_level(&self) -> i16 {
+    pub fn current_rep_level(&self) -> i16 {
         match self.rep_levels {
             Some(ref vec) => vec[self.curr_triplet_index],
             None => self.max_rep_level,
@@ -282,15 +210,15 @@ impl<T: DataType> TypedTripletIter<T> {
     }
 
     /// Quick check if iterator has more values/levels to read.
-    /// It is updated as a result of `read_next` method, so they are synchronized.
+    /// It is updated as a result of `advance_columns` method, so they are synchronized.
     #[inline]
-    fn has_next(&self) -> bool {
+    pub fn has_next(&self) -> bool {
         self.has_next
     }
 
     /// Advances to the next triplet.
     /// Returns true, if there are more records to read, false there are no records left.
-    fn read_next(&mut self) -> Result<bool> {
+    pub fn advance_columns(&mut self) -> Result<()> {
         self.curr_triplet_index += 1;
 
         if self.curr_triplet_index >= self.triplets_left {
@@ -319,7 +247,7 @@ impl<T: DataType> TypedTripletIter<T> {
             // No more values or levels to read
             if values_read == 0 && levels_read == 0 {
                 self.has_next = false;
-                return Ok(false);
+                return Ok(());
             }
 
             // We never read values more than levels
@@ -356,7 +284,7 @@ impl<T: DataType> TypedTripletIter<T> {
         }
 
         self.has_next = true;
-        Ok(true)
+        Ok(())
     }
 }
 
@@ -369,7 +297,7 @@ mod tests {
     use crate::util::test_common::get_test_file;
 
     #[test]
-    #[should_panic(expected = "Expected positive batch size, found: 0")]
+    #[should_panic(expected = "Expected positive batch size")]
     fn test_triplet_zero_batch_size() {
         let column_path =
             ColumnPath::from(vec!["b_struct".to_string(), "b_c_int".to_string()]);
@@ -386,7 +314,16 @@ mod tests {
     #[test]
     fn test_triplet_null_column() {
         let path = vec!["b_struct", "b_c_int"];
-        let values = vec![];
+        let values = vec![
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(None)),
+        ];
         let def_levels = vec![1, 1, 1, 1, 1, 1, 1, 1];
         let rep_levels = vec![0, 0, 0, 0, 0, 0, 0, 0];
         test_triplet_iter(
@@ -401,7 +338,7 @@ mod tests {
     #[test]
     fn test_triplet_required_column() {
         let path = vec!["ID"];
-        let values = vec![Field::Long(8)];
+        let values = vec![Value::I64(8)];
         let def_levels = vec![0];
         let rep_levels = vec![0];
         test_triplet_iter(
@@ -416,7 +353,15 @@ mod tests {
     #[test]
     fn test_triplet_optional_column() {
         let path = vec!["nested_struct", "A"];
-        let values = vec![Field::Int(1), Field::Int(7)];
+        let values = vec![
+            Value::Option(Box::new(Some(Value::I32(1)))),
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(Some(Value::I32(7)))),
+        ];
         let def_levels = vec![2, 1, 1, 1, 1, 0, 2];
         let rep_levels = vec![0, 0, 0, 0, 0, 0, 0];
         test_triplet_iter(
@@ -432,21 +377,24 @@ mod tests {
     fn test_triplet_optional_list_column() {
         let path = vec!["a", "list", "element", "list", "element", "list", "element"];
         let values = vec![
-            Field::Str("a".to_string()),
-            Field::Str("b".to_string()),
-            Field::Str("c".to_string()),
-            Field::Str("d".to_string()),
-            Field::Str("a".to_string()),
-            Field::Str("b".to_string()),
-            Field::Str("c".to_string()),
-            Field::Str("d".to_string()),
-            Field::Str("e".to_string()),
-            Field::Str("a".to_string()),
-            Field::Str("b".to_string()),
-            Field::Str("c".to_string()),
-            Field::Str("d".to_string()),
-            Field::Str("e".to_string()),
-            Field::Str("f".to_string()),
+            Value::Option(Box::new(Some(Value::String("a".to_string())))),
+            Value::Option(Box::new(Some(Value::String("b".to_string())))),
+            Value::Option(Box::new(Some(Value::String("c".to_string())))),
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(Some(Value::String("d".to_string())))),
+            Value::Option(Box::new(Some(Value::String("a".to_string())))),
+            Value::Option(Box::new(Some(Value::String("b".to_string())))),
+            Value::Option(Box::new(Some(Value::String("c".to_string())))),
+            Value::Option(Box::new(Some(Value::String("d".to_string())))),
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(Some(Value::String("e".to_string())))),
+            Value::Option(Box::new(Some(Value::String("a".to_string())))),
+            Value::Option(Box::new(Some(Value::String("b".to_string())))),
+            Value::Option(Box::new(Some(Value::String("c".to_string())))),
+            Value::Option(Box::new(Some(Value::String("d".to_string())))),
+            Value::Option(Box::new(Some(Value::String("e".to_string())))),
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(Some(Value::String("f".to_string())))),
         ];
         let def_levels = vec![7, 7, 7, 4, 7, 7, 7, 7, 7, 4, 7, 7, 7, 7, 7, 7, 4, 7];
         let rep_levels = vec![0, 3, 2, 1, 2, 0, 3, 2, 3, 1, 2, 0, 3, 2, 3, 2, 1, 2];
@@ -463,13 +411,15 @@ mod tests {
     fn test_triplet_optional_map_column() {
         let path = vec!["a", "key_value", "value", "key_value", "key"];
         let values = vec![
-            Field::Int(1),
-            Field::Int(2),
-            Field::Int(1),
-            Field::Int(1),
-            Field::Int(3),
-            Field::Int(4),
-            Field::Int(5),
+            Value::I32(1),
+            Value::I32(2),
+            Value::I32(1),
+            Value::Option(Box::new(None)),
+            Value::Option(Box::new(None)),
+            Value::I32(1),
+            Value::I32(3),
+            Value::I32(4),
+            Value::I32(5),
         ];
         let def_levels = vec![4, 4, 4, 2, 3, 4, 4, 4, 4];
         let rep_levels = vec![0, 2, 0, 0, 0, 0, 0, 2, 2];
@@ -486,7 +436,7 @@ mod tests {
     fn test_triplet_iter(
         file_name: &str,
         column_path: Vec<&str>,
-        expected_values: &[Field],
+        expected_values: &[Value],
         expected_def_levels: &[i16],
         expected_rep_levels: &[i16],
     ) {
@@ -512,7 +462,7 @@ mod tests {
         file_name: &str,
         batch_size: usize,
         column_path: &ColumnPath,
-        expected_values: &[Field],
+        expected_values: &[Value],
         expected_def_levels: &[i16],
         expected_rep_levels: &[i16],
     ) {
@@ -545,29 +495,33 @@ mod tests {
         descr: ColumnDescPtr,
         reader: ColumnReader,
         batch_size: usize,
-        expected_values: &[Field],
+        expected_values: &[Value],
         expected_def_levels: &[i16],
         expected_rep_levels: &[i16],
     ) {
-        let mut iter = TripletIter::new(descr.clone(), reader, batch_size);
-        let mut values: Vec<Field> = Vec::new();
+        let mut iter = TripletIter::new(descr.clone(), reader, batch_size).unwrap();
+        let mut values: Vec<Value> = Vec::new();
         let mut def_levels: Vec<i16> = Vec::new();
         let mut rep_levels: Vec<i16> = Vec::new();
 
-        assert_eq!(iter.max_def_level(), descr.max_def_level());
-        assert_eq!(iter.max_rep_level(), descr.max_rep_level());
+        // assert_eq!(iter.max_def_level(), descr.max_def_level());
+        // assert_eq!(iter.max_rep_level(), descr.max_rep_level());
 
-        while let Ok(true) = iter.read_next() {
-            assert!(iter.has_next());
-            if !iter.is_null() {
-                values.push(iter.current_value());
-            }
+        iter.advance_columns().unwrap();
+        while iter.has_next() {
             def_levels.push(iter.current_def_level());
             rep_levels.push(iter.current_rep_level());
+            if iter.current_def_level() == descr.max_def_level() {
+                values.push(iter.read().unwrap());
+            } else {
+                iter.advance_columns().unwrap();
+                values.push(Value::Option(Box::new(None)));
+            }
         }
 
-        assert_eq!(values, expected_values);
-        assert_eq!(def_levels, expected_def_levels);
-        assert_eq!(rep_levels, expected_rep_levels);
+        assert_eq!(
+            (&*values, &*def_levels, &*rep_levels),
+            (expected_values, expected_def_levels, expected_rep_levels)
+        );
     }
 }

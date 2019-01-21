@@ -16,6 +16,7 @@
 // under the License.
 
 #![feature(specialization)]
+#![feature(box_syntax)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 #![allow(bare_trait_objects)]

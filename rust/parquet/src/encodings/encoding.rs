@@ -136,7 +136,7 @@ impl<T: DataType> Encoder<T> for PlainEncoder<T> {
                 mem::size_of::<T::T>() * values.len(),
             )
         };
-        self.buffer.write(bytes)?;
+        self.buffer.write_all(bytes)?;
         Ok(())
     }
 
@@ -150,7 +150,7 @@ impl<T: DataType> Encoder<T> for PlainEncoder<T> {
 
     #[inline]
     default fn flush_buffer(&mut self) -> Result<ByteBufferPtr> {
-        self.buffer.write(self.bit_writer.flush_buffer())?;
+        self.buffer.write_all(self.bit_writer.flush_buffer())?;
         self.buffer.flush()?;
         self.bit_writer.clear();
 
@@ -170,7 +170,7 @@ impl Encoder<BoolType> for PlainEncoder<BoolType> {
 impl Encoder<Int96Type> for PlainEncoder<Int96Type> {
     fn put(&mut self, values: &[Int96]) -> Result<()> {
         for v in values {
-            self.buffer.write(v.as_bytes())?;
+            self.buffer.write_all(v.as_bytes())?;
         }
         self.buffer.flush()?;
         Ok(())
@@ -180,8 +180,9 @@ impl Encoder<Int96Type> for PlainEncoder<Int96Type> {
 impl Encoder<ByteArrayType> for PlainEncoder<ByteArrayType> {
     fn put(&mut self, values: &[ByteArray]) -> Result<()> {
         for v in values {
-            self.buffer.write(&(v.len().to_le() as u32).as_bytes())?;
-            self.buffer.write(v.data())?;
+            self.buffer
+                .write_all(&(v.len().to_le() as u32).as_bytes())?;
+            self.buffer.write_all(v.data())?;
         }
         self.buffer.flush()?;
         Ok(())
@@ -191,7 +192,7 @@ impl Encoder<ByteArrayType> for PlainEncoder<ByteArrayType> {
 impl Encoder<FixedLenByteArrayType> for PlainEncoder<FixedLenByteArrayType> {
     fn put(&mut self, values: &[ByteArray]) -> Result<()> {
         for v in values {
-            self.buffer.write(v.data())?;
+            self.buffer.write_all(v.data())?;
         }
         self.buffer.flush()?;
         Ok(())
@@ -299,7 +300,7 @@ impl<T: DataType> DictEncoder<T> {
         self.mem_tracker.alloc(buffer.capacity() as i64);
 
         // Write bit width in the first byte
-        buffer.write((self.bit_width() as u8).as_bytes())?;
+        buffer.write_all((self.bit_width() as u8).as_bytes())?;
         let mut encoder = RleEncoder::new_from_buf(self.bit_width(), buffer, 1);
         for index in self.buffered_indices.data() {
             if !encoder.put(*index as u64)? {
@@ -417,7 +418,6 @@ impl<T: DataType> Encoder<T> for DictEncoder<T> {
 /// Provides encoded size for a data type.
 /// This is a workaround to calculate dictionary size in bytes.
 trait DictEncodedSize<T: DataType> {
-    #[inline]
     fn get_encoded_size(&self, value: &T::T) -> usize;
 }
 
@@ -733,8 +733,8 @@ impl<T: DataType> Encoder<T> for DeltaBitPackEncoder<T> {
         self.write_page_header();
 
         let mut buffer = ByteBuffer::new();
-        buffer.write(self.page_header_writer.flush_buffer())?;
-        buffer.write(self.bit_writer.flush_buffer())?;
+        buffer.write_all(self.page_header_writer.flush_buffer())?;
+        buffer.write_all(self.bit_writer.flush_buffer())?;
         buffer.flush()?;
 
         // Reset state
@@ -752,16 +752,12 @@ impl<T: DataType> Encoder<T> for DeltaBitPackEncoder<T> {
 /// Helper trait to define specific conversions and subtractions when computing deltas
 trait DeltaBitPackEncoderConversion<T: DataType> {
     // Method should panic if type is not supported, otherwise no-op
-    #[inline]
     fn assert_supported_type();
 
-    #[inline]
     fn as_i64(&self, values: &[T::T], index: usize) -> i64;
 
-    #[inline]
     fn subtract(&self, left: i64, right: i64) -> i64;
 
-    #[inline]
     fn subtract_u64(&self, left: i64, right: i64) -> u64;
 }
 
@@ -1135,21 +1131,9 @@ mod tests {
         run_test::<FloatType>(-1, &[1f32, 2f32, 3f32, 4f32, 5f32], 20);
         run_test::<DoubleType>(-1, &[1f64, 2f64, 3f64, 4f64, 5f64], 40);
         // Int96: len + reference
-        run_test::<Int96Type>(
-            -1,
-            &[Int96::from(vec![1, 2, 3]), Int96::from(vec![2, 3, 4])],
-            32,
-        );
-        run_test::<ByteArrayType>(
-            -1,
-            &[ByteArray::from("abcd"), ByteArray::from("efj")],
-            15,
-        );
-        run_test::<FixedLenByteArrayType>(
-            2,
-            &[ByteArray::from("ab"), ByteArray::from("bc")],
-            4,
-        );
+        run_test::<Int96Type>(-1, &[Int96::new(1, 2, 3), Int96::new(2, 3, 4)], 24);
+        run_test::<ByteArrayType>(-1, &[ByteArray::from("abcd"), ByteArray::from("efj")], 15);
+        run_test::<FixedLenByteArrayType>(2, &[ByteArray::from("ab"), ByteArray::from("bc")], 4);
     }
 
     #[test]
