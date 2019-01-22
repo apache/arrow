@@ -337,7 +337,7 @@ static inline void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length
   const uint8_t fill_byte = static_cast<uint8_t>(-static_cast<uint8_t>(bits_are_set));
 
   const auto bytes_begin = i_begin / 8;
-  const auto bytes_end = CeilDiv(i_end, 8);
+  const auto bytes_end = i_end / 8 + 1;
 
   const auto first_byte_mask = kPrecedingBitmask[i_begin % 8];
   const auto last_byte_mask = kTrailingBitmask[i_end % 8];

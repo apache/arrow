@@ -543,6 +543,13 @@ TEST(BitUtilTests, TestSetBitsTo) {
       ASSERT_BYTES_EQ(bitmap,
                       {static_cast<uint8_t>((fill_byte & 0xF) | 0xF0), 0x00, fill_byte});
     }
+    {
+      // test byte aligned end, multiple bytes
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      SetBitsTo(bitmap, 0, 24, false);
+      uint8_t false_byte = static_cast<uint8_t>(0);
+      ASSERT_BYTES_EQ(bitmap, {false_byte, false_byte, false_byte, fill_byte});
+    }
   }
 }
 
