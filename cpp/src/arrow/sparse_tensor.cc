@@ -49,45 +49,6 @@ struct SparseTensorConverterBase {
 
   explicit SparseTensorConverterBase(const NumericTensorType& tensor) : tensor_(tensor) {}
 
-  bool TensorIsTriviallyIterable() const {
-    return tensor_.ndim() <= 1 || tensor_.is_contiguous();
-  }
-
-  size_t CountNonZero() const {
-    if (tensor_.size() == 0) {
-      return 0;
-    }
-
-    if (TensorIsTriviallyIterable()) {
-      const value_type* data = reinterpret_cast<const value_type*>(tensor_.raw_data());
-      return std::count_if(data, data + tensor_.size(),
-                           [](value_type x) { return x != 0; });
-    }
-
-    const std::vector<int64_t>& shape = tensor_.shape();
-    const int64_t ndim = tensor_.ndim();
-
-    size_t count = 0;
-    std::vector<int64_t> coord(ndim, 0);
-    for (int64_t n = tensor_.size(); n > 0; n--) {
-      if (tensor_.Value(coord) != 0) {
-        ++count;
-      }
-
-      // increment index
-      ++coord[ndim - 1];
-      if (n > 1 && coord[ndim - 1] == shape[ndim - 1]) {
-        int64_t d = ndim - 1;
-        while (d > 0 && coord[d] == shape[d]) {
-          coord[d] = 0;
-          ++coord[d - 1];
-          --d;
-        }
-      }
-    }
-    return count;
-  }
-
   const NumericTensorType& tensor_;
 };
 
@@ -96,8 +57,8 @@ class SparseTensorConverter<TYPE, SparseCOOIndex>
     : private SparseTensorConverterBase<TYPE> {
  public:
   using BaseClass = SparseTensorConverterBase<TYPE>;
-  using NumericTensorType = typename BaseClass::NumericTensorType;
-  using value_type = typename BaseClass::value_type;
+  using typename BaseClass::NumericTensorType;
+  using typename BaseClass::value_type;
 
   explicit SparseTensorConverter(const NumericTensorType& tensor) : BaseClass(tensor) {}
 
@@ -170,7 +131,7 @@ class SparseTensorConverter<TYPE, SparseCOOIndex>
   std::shared_ptr<Buffer> data;
 
  private:
-  using SparseTensorConverterBase<TYPE>::tensor_;
+  using BaseClass::tensor_;
 };
 
 template <typename TYPE, typename SparseIndexType>
