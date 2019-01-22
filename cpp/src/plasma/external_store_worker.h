@@ -64,9 +64,8 @@ class ExternalStoreWorker {
   /// @param plasma_store_socket The socket that Plasma clients can connect to.
   /// @param parallelism The number of threads to use for async requests.
   ExternalStoreWorker(std::shared_ptr<ExternalStore> external_store,
-                      const std::string &external_store_endpoint,
-                      const std::string &plasma_store_socket,
-                      size_t parallelism);
+                      const std::string& external_store_endpoint,
+                      const std::string& plasma_store_socket, size_t parallelism);
 
   ~ExternalStoreWorker();
 
@@ -85,23 +84,23 @@ class ExternalStoreWorker {
   ///
   /// \param object_ids The IDs of the objects to put.
   /// \param object_data The object data to put.
-  void Put(const std::vector<ObjectID> &object_ids,
-           const std::vector<std::shared_ptr<Buffer>> &object_data);
+  void Put(const std::vector<ObjectID>& object_ids,
+           const std::vector<std::shared_ptr<Buffer>>& object_data);
 
   /// Get objects from the external store. Called synchronously from the caller
   /// thread.
   ///
   /// \param object_ids The IDs of the objects to get.
   /// \param[out] object_data The object data to get.
-  void Get(const std::vector<ObjectID> &object_ids,
-           std::vector<std::string> &object_data);
+  void Get(const std::vector<ObjectID>& object_ids,
+           std::vector<std::string>& object_data);
 
   /// Copy memory buffer in parallel if data size is large enough.
   ///
   /// \param dst Destination memory buffer.
   /// \param src Source memory buffer.
   /// \param n Number of bytes to copy.
-  void CopyBuffer(uint8_t *dst, const uint8_t *src, size_t n);
+  void CopyBuffer(uint8_t* dst, const uint8_t* src, size_t n);
 
   /// Enqueue an un-evict request; if the request is successfully enqueued, the
   /// worker thread processes the request, reads the object from external store
@@ -110,7 +109,7 @@ class ExternalStoreWorker {
   /// \param object_id The object ID corresponding to the un-evict request.
   /// \return True if the request is enqueued successfully, false if there are
   ///         too many requests enqueued already.
-  bool EnqueueUnevictRequest(const ObjectID &object_id);
+  bool EnqueueUnevictRequest(const ObjectID& object_id);
 
   /// Print Counters
   void PrintCounters();
@@ -120,8 +119,8 @@ class ExternalStoreWorker {
 
  private:
   void Get(std::shared_ptr<ExternalStoreHandle> handle,
-           const std::vector<ObjectID> &object_ids,
-           std::vector<std::string> &object_data);
+           const std::vector<ObjectID>& object_ids,
+           std::vector<std::string>& object_data);
 
   /// Contains the logic for a worker thread.
   ///
@@ -132,8 +131,8 @@ class ExternalStoreWorker {
   ///
   /// \param object_ids The object IDs to get.
   void WriteToPlasma(std::shared_ptr<PlasmaClient> client,
-                     const std::vector<ObjectID> &object_ids,
-                     const std::vector<std::string> &data);
+                     const std::vector<ObjectID>& object_ids,
+                     const std::vector<std::string>& data);
 
   /// Returns a client to the plasma store for the given thread ID,
   /// creating one if not already initialized.
@@ -174,4 +173,4 @@ class ExternalStoreWorker {
 
 }  // namespace plasma
 
-#endif // EXTERNAL_STORE_WORKER_H
+#endif  // EXTERNAL_STORE_WORKER_H

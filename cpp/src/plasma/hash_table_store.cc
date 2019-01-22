@@ -21,18 +21,17 @@
 
 namespace plasma {
 
-Status HashTableStore::Connect(const std::string &endpoint,
-                               std::shared_ptr<ExternalStoreHandle> *handle) {
+Status HashTableStore::Connect(const std::string& endpoint,
+                               std::shared_ptr<ExternalStoreHandle>* handle) {
   *handle = std::make_shared<HashTableStoreHandle>(table_, mtx_);
   return Status::OK();
 }
 
-HashTableStoreHandle::HashTableStoreHandle(hash_table_t &table, std::mutex &mtx)
-    : table_(table), mtx_(mtx) {
-}
+HashTableStoreHandle::HashTableStoreHandle(hash_table_t& table, std::mutex& mtx)
+    : table_(table), mtx_(mtx) {}
 
-Status HashTableStoreHandle::Put(const std::vector<ObjectID> &ids,
-                                 const std::vector<std::shared_ptr<Buffer>> &data) {
+Status HashTableStoreHandle::Put(const std::vector<ObjectID>& ids,
+                                 const std::vector<std::shared_ptr<Buffer>>& data) {
   for (size_t i = 0; i < ids.size(); ++i) {
     std::lock_guard<std::mutex> lock(mtx_);
     table_[ids[i]] = data[i]->ToString();
@@ -40,8 +39,8 @@ Status HashTableStoreHandle::Put(const std::vector<ObjectID> &ids,
   return Status::OK();
 }
 
-Status HashTableStoreHandle::Get(const std::vector<ObjectID> &ids,
-                                 std::vector<std::string> &data) {
+Status HashTableStoreHandle::Get(const std::vector<ObjectID>& ids,
+                                 std::vector<std::string>& data) {
   data.resize(ids.size());
   for (size_t i = 0; i < ids.size(); ++i) {
     bool valid;
@@ -60,4 +59,4 @@ Status HashTableStoreHandle::Get(const std::vector<ObjectID> &ids,
 
 REGISTER_EXTERNAL_STORE("hashtable", HashTableStore);
 
-} // namespace plasma
+}  // namespace plasma

@@ -20,8 +20,8 @@
 
 #include <memory>
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 #include "plasma/client.h"
 
@@ -49,8 +49,8 @@ class ExternalStoreHandle {
   /// \param ids The IDs of the objects to put.
   /// \param data The object data to put.
   /// \return The return status.
-  virtual Status Put(const std::vector<ObjectID> &ids,
-                     const std::vector<std::shared_ptr<Buffer>> &data) = 0;
+  virtual Status Put(const std::vector<ObjectID>& ids,
+                     const std::vector<std::shared_ptr<Buffer>>& data) = 0;
 
   /// This method will be called whenever an evicted object in the External
   /// store store needs to be accessed.
@@ -60,8 +60,8 @@ class ExternalStoreHandle {
   /// \param ids The IDs of the objects to get.
   /// \param[out] data The object data.
   /// \return The return status.
-  virtual Status Get(const std::vector<ObjectID> &ids,
-                     std::vector<std::string> &data) = 0;
+  virtual Status Get(const std::vector<ObjectID>& ids,
+                     std::vector<std::string>& data) = 0;
 };
 
 class ExternalStore {
@@ -82,8 +82,8 @@ class ExternalStore {
   /// \param[out] handle A handle to the external store.
   ///
   /// \return The return status.
-  virtual Status Connect(const std::string &endpoint,
-                         std::shared_ptr<ExternalStoreHandle> *handle) = 0;
+  virtual Status Connect(const std::string& endpoint,
+                         std::shared_ptr<ExternalStoreHandle>* handle) = 0;
 };
 
 class ExternalStores {
@@ -94,26 +94,25 @@ class ExternalStores {
   /// \param endpoint The endpoint for the external store.
   /// \param[out] store_name The name of the external store.
   /// \return The return status.
-  static Status ExtractStoreName(const std::string &endpoint,
-                                 std::string &store_name);
+  static Status ExtractStoreName(const std::string& endpoint, std::string& store_name);
 
   /// Register a new external store.
   ///
   /// \param store_name Name of the new external store.
   /// \param store The new external store object.
-  static void RegisterStore(const std::string &store_name,
+  static void RegisterStore(const std::string& store_name,
                             std::shared_ptr<ExternalStore> store);
 
   /// Register a new external store.
   ///
   /// \param store_name Name of the new external store.
-  static void DeregisterStore(const std::string &store_name);
+  static void DeregisterStore(const std::string& store_name);
 
   /// Obtain the external store given its name.
   ///
   /// \param store_name Name of the external store.
   /// \return The external store object.
-  static std::shared_ptr<ExternalStore> GetStore(const std::string &store_name);
+  static std::shared_ptr<ExternalStore> GetStore(const std::string& store_name);
 
  private:
   /// Obtain mapping between external store names and store instances.
@@ -122,18 +121,14 @@ class ExternalStores {
   static StoreMap& Stores();
 };
 
-#define REGISTER_EXTERNAL_STORE(name, store)                                  \
-  class store##Class {                                                        \
-   public:                                                                    \
-    store##Class() {                                                          \
-      ExternalStores::RegisterStore(name, std::make_shared<store>());         \
-    }                                                                         \
-    ~store##Class() {                                                         \
-      ExternalStores::DeregisterStore(name);                                  \
-    }                                                                         \
-  };                                                                          \
+#define REGISTER_EXTERNAL_STORE(name, store)                                           \
+  class store##Class {                                                                 \
+   public:                                                                             \
+    store##Class() { ExternalStores::RegisterStore(name, std::make_shared<store>()); } \
+    ~store##Class() { ExternalStores::DeregisterStore(name); }                         \
+  };                                                                                   \
   store##Class singleton_##store = store##Class()
 
 }  // namespace plasma
 
-#endif // EXTERNAL_STORE_H
+#endif  // EXTERNAL_STORE_H

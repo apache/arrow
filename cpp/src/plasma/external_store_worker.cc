@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <utility>
 #include <arrow/util/memory.h>
+#include <utility>
 
 #include "plasma/external_store_worker.h"
 #include "plasma/plasma.h"
@@ -24,8 +24,8 @@
 namespace plasma {
 
 ExternalStoreWorker::ExternalStoreWorker(std::shared_ptr<ExternalStore> external_store,
-                                         const std::string &external_store_endpoint,
-                                         const std::string &plasma_store_socket,
+                                         const std::string& external_store_endpoint,
+                                         const std::string& plasma_store_socket,
                                          size_t parallelism)
     : plasma_store_socket_(plasma_store_socket),
       plasma_clients_(parallelism, nullptr),
@@ -43,8 +43,8 @@ ExternalStoreWorker::ExternalStoreWorker(std::shared_ptr<ExternalStore> external
     valid_ = true;
     ARROW_CHECK_OK(external_store->Connect(external_store_endpoint, &sync_handle_));
     for (size_t i = 0; i < parallelism_; ++i) {
-      ARROW_CHECK_OK(external_store->Connect(external_store_endpoint,
-                                             &async_handles_[i]));
+      ARROW_CHECK_OK(
+          external_store->Connect(external_store_endpoint, &async_handles_[i]));
       thread_pool_.emplace_back(&ExternalStoreWorker::DoWork, this, i);
     }
   }
@@ -64,7 +64,7 @@ void ExternalStoreWorker::Shutdown() {
   }
 
   tasks_cv_.notify_all();
-  for (std::thread &thread : thread_pool_) {
+  for (std::thread& thread : thread_pool_) {
     if (thread.joinable()) {
       thread.join();
     }
@@ -72,30 +72,26 @@ void ExternalStoreWorker::Shutdown() {
   stopped_ = true;
 }
 
-bool ExternalStoreWorker::IsValid() const {
-  return valid_;
-}
+bool ExternalStoreWorker::IsValid() const { return valid_; }
 
-size_t ExternalStoreWorker::Parallelism() {
-  return parallelism_;
-}
+size_t ExternalStoreWorker::Parallelism() { return parallelism_; }
 
-void ExternalStoreWorker::Put(const std::vector<ObjectID> &object_ids,
-                              const std::vector<std::shared_ptr<Buffer>> &object_data) {
+void ExternalStoreWorker::Put(const std::vector<ObjectID>& object_ids,
+                              const std::vector<std::shared_ptr<Buffer>>& object_data) {
   ARROW_CHECK_OK(sync_handle_->Put(object_ids, object_data));
 
   num_writes_ += object_data.size();
-  for (const auto &i : object_data) {
+  for (const auto& i : object_data) {
     num_bytes_written_ += i->size();
   }
 }
 
-void ExternalStoreWorker::Get(const std::vector<ObjectID> &object_ids,
-                              std::vector<std::string> &object_data) {
+void ExternalStoreWorker::Get(const std::vector<ObjectID>& object_ids,
+                              std::vector<std::string>& object_data) {
   Get(sync_handle_, object_ids, object_data);
 }
 
-bool ExternalStoreWorker::EnqueueUnevictRequest(const ObjectID &object_id) {
+bool ExternalStoreWorker::EnqueueUnevictRequest(const ObjectID& object_id) {
   size_t n_enqueued = 0;
   {
     std::unique_lock<std::mutex> lock(tasks_mutex_);
@@ -110,10 +106,10 @@ bool ExternalStoreWorker::EnqueueUnevictRequest(const ObjectID &object_id) {
   return true;
 }
 
-void ExternalStoreWorker::CopyBuffer(uint8_t *dst, const uint8_t *src, size_t n) {
+void ExternalStoreWorker::CopyBuffer(uint8_t* dst, const uint8_t* src, size_t n) {
   if (n > kObjectSizeThreshold) {
-    arrow::internal::parallel_memcopy(dst, src, static_cast<int64_t>(n),
-                                      kCopyBlockSize, kCopyParallelism);
+    arrow::internal::parallel_memcopy(dst, src, static_cast<int64_t>(n), kCopyBlockSize,
+                                      kCopyParallelism);
   } else {
     std::memcpy(dst, src, n);
   }
@@ -130,11 +126,11 @@ void ExternalStoreWorker::PrintCounters() {
 }
 
 void ExternalStoreWorker::Get(std::shared_ptr<ExternalStoreHandle> handle,
-                              const std::vector<ObjectID> &object_ids,
-                              std::vector<std::string> &object_data) {
+                              const std::vector<ObjectID>& object_ids,
+                              std::vector<std::string>& object_data) {
   ARROW_CHECK_OK(handle->Get(object_ids, object_data));
 
-  for (const auto &i : object_data) {
+  for (const auto& i : object_data) {
     if (i.empty()) {
       num_reads_not_found_++;
       continue;
@@ -151,9 +147,7 @@ void ExternalStoreWorker::DoWork(size_t idx) {
       std::unique_lock<std::mutex> lock(tasks_mutex_);
 
       // Wait for ObjectIds to become available
-      tasks_cv_.wait(lock, [this] {
-        return !object_ids_.empty() || terminate_;
-      });
+      tasks_cv_.wait(lock, [this] { return !object_ids_.empty() || terminate_; });
 
       // Stop execution if termination signal has been set and there are no
       // more object IDs to process
@@ -174,23 +168,22 @@ void ExternalStoreWorker::DoWork(size_t idx) {
 }
 
 void ExternalStoreWorker::WriteToPlasma(std::shared_ptr<PlasmaClient> client,
-                                        const std::vector<ObjectID> &object_ids,
-                                        const std::vector<std::string> &data) {
+                                        const std::vector<ObjectID>& object_ids,
+                                        const std::vector<std::string>& data) {
   for (size_t i = 0; i < object_ids.size(); ++i) {
     if (data.at(i).empty()) {
       continue;
     }
     std::shared_ptr<Buffer> object_data;
     auto data_size = static_cast<int64_t>(data.at(i).size());
-    auto s = client->Create(object_ids.at(i), data_size, nullptr, 0,
-                            &object_data);
+    auto s = client->Create(object_ids.at(i), data_size, nullptr, 0, &object_data);
     if (s.IsPlasmaObjectExists()) {
       ARROW_LOG(WARNING) << "ObjectID " << object_ids.at(i).hex()
                          << " already exists in Plasma";
       continue;
     }
     CopyBuffer(object_data->mutable_data(),
-               reinterpret_cast<const uint8_t *>(data[i].data()),
+               reinterpret_cast<const uint8_t*>(data[i].data()),
                static_cast<size_t>(data_size));
     ARROW_CHECK_OK(client->SealWithoutNotification(object_ids.at(i)));
     ARROW_CHECK_OK(client->Release(object_ids.at(i)));
