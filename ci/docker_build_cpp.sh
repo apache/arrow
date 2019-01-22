@@ -23,9 +23,6 @@ source_dir=${1:-/arrow/cpp}
 build_dir=${2:-/build/cpp}
 install_dir=${3:-${ARROW_HOME:-/usr/local}}
 
-# https://arrow.apache.org/docs/python/development.html#known-issues
-export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
-
 mkdir -p ${build_dir}
 pushd ${build_dir}
 
