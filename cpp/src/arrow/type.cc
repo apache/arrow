@@ -219,13 +219,22 @@ std::string UnionType::ToString() const {
 // ----------------------------------------------------------------------
 // Struct type
 
-StructType::StructType(const std::vector<std::shared_ptr<Field>>& fields)
-  : NestedType(Type::STRUCT)
-{
-  children_ = fields;
-  for (size_t i = 0; i < children_.size(); ++i) {
-    name_to_index_[children_[i]->name()] = static_cast<int>(i);
+namespace {
+
+std::unordered_map<std::string, int> CreateNameToIndexMap(
+    const std::vector<std::shared_ptr<Field>>& fields) {
+  std::unordered_map<std::string, int> name_to_index;
+  for (size_t i = 0; i < fields.size(); ++i) {
+    name_to_index[fields[i]->name()] = static_cast<int>(i);
   }
+  return name_to_index;
+}
+
+}  // namespace
+
+StructType::StructType(const std::vector<std::shared_ptr<Field>>& fields)
+    : NestedType(Type::STRUCT), name_to_index_(CreateNameToIndexMap(fields)) {
+  children_ = fields;
 }
 
 std::string StructType::ToString() const {
@@ -321,21 +330,15 @@ std::string NullType::ToString() const { return name(); }
 
 Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields,
                const std::shared_ptr<const KeyValueMetadata>& metadata)
-    : fields_(fields), metadata_(metadata)
-{
-  for (size_t i = 0; i < fields_.size(); ++i) {
-    name_to_index_[fields_[i]->name()] = static_cast<int>(i);
-  }
-}
+    : fields_(fields),
+      name_to_index_(CreateNameToIndexMap(fields_)),
+      metadata_(metadata) {}
 
 Schema::Schema(std::vector<std::shared_ptr<Field>>&& fields,
                const std::shared_ptr<const KeyValueMetadata>& metadata)
-    : fields_(std::move(fields)), metadata_(metadata)
-{
-  for (size_t i = 0; i < fields_.size(); ++i) {
-    name_to_index_[fields_[i]->name()] = static_cast<int>(i);
-  }
-}
+    : fields_(std::move(fields)),
+      name_to_index_(CreateNameToIndexMap(fields_)),
+      metadata_(metadata) {}
 
 bool Schema::Equals(const Schema& other, bool check_metadata) const {
   if (this == &other) {
