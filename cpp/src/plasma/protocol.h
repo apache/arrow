@@ -80,8 +80,7 @@ Status ReadAbortReply(uint8_t* data, size_t size, ObjectID* object_id);
 
 /* Plasma Seal message functions. */
 
-Status SendSealRequest(int sock, ObjectID object_id, unsigned char* digest,
-                       bool notify);
+Status SendSealRequest(int sock, ObjectID object_id, unsigned char* digest, bool notify);
 
 Status ReadSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
                        unsigned char* digest, bool* notify);

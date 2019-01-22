@@ -42,8 +42,7 @@ namespace plasma {
 std::string external_test_executable;  // NOLINT
 
 void AssertObjectBufferEqual(const ObjectBuffer& object_buffer,
-                             const std::string& metadata,
-                             const std::string& data) {
+                             const std::string& metadata, const std::string& data) {
   arrow::AssertBufferEqual(*object_buffer.metadata, metadata);
   arrow::AssertBufferEqual(*object_buffer.data, data);
 }

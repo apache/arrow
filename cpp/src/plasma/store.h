@@ -28,10 +28,10 @@
 #include "plasma/common.h"
 #include "plasma/events.h"
 #include "plasma/eviction_policy.h"
-#include "plasma/plasma.h"
-#include "plasma/protocol.h"
 #include "plasma/external_store.h"
 #include "plasma/external_store_worker.h"
+#include "plasma/plasma.h"
+#include "plasma/protocol.h"
 
 namespace plasma {
 
@@ -148,8 +148,7 @@ class PlasmaStore {
   /// @param digest The digest of the object. This is used to tell if two
   /// objects
   ///        with the same object ID are the same.
-  void SealObject(const ObjectID& object_id, unsigned char digest[],
-                  bool notify);
+  void SealObject(const ObjectID& object_id, unsigned char digest[], bool notify);
 
   /// Check if the plasma store contains an object:
   ///
