@@ -48,7 +48,7 @@ const ApplicationVersion& ApplicationVersion::PARQUET_CPP_FIXED_STATS_VERSION() 
 }
 
 const ApplicationVersion& ApplicationVersion::PARQUET_MR_FIXED_STATS_VERSION() {
-  static ApplicationVersion version("parquet-cpp", 1, 10, 0);
+  static ApplicationVersion version("parquet-mr", 1, 10, 0);
   return version;
 }
 
@@ -554,8 +554,8 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
                                               SortOrder::type sort_order) const {
   // parquet-cpp version 1.3.0 and parquet-mr 1.10.0 onwards stats are computed
   // correctly for all types
-  if ((application_ == "parquet-cpp" && VersionLt(PARQUET_CPP_FIXED_STATS_VERSION()))
-      || (application_ == "parquet-mr" && VersionLt(PARQUET_MR_FIXED_STATS_VERSION()))) {
+  if ((application_ == "parquet-cpp" && VersionLt(PARQUET_CPP_FIXED_STATS_VERSION())) ||
+      (application_ == "parquet-mr" && VersionLt(PARQUET_MR_FIXED_STATS_VERSION()))) {
     // Only SIGNED are valid unless max and min are the same
     // (in which case the sort order does not matter)
     bool max_equals_min = statistics.has_min && statistics.has_max
