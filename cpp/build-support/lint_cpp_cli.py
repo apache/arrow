@@ -19,8 +19,6 @@
 import argparse
 import re
 import os
-import sys
-import traceback
 
 parser = argparse.ArgumentParser(
     description="Check for illegal headers for C++/CLI applications")
@@ -82,6 +80,7 @@ EXCLUSIONS = _paths('''\
     test
     internal''')
 
+
 def lint_files():
     for dirpath, _, filenames in os.walk(arguments.source_path):
         for filename in filenames:
@@ -99,6 +98,7 @@ def lint_files():
             # Only run on header files
             if filename.endswith('.h'):
                 yield from lint_file(full_path)
+
 
 if __name__ == '__main__':
     failures = list(lint_files())
