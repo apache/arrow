@@ -37,6 +37,8 @@ use crate::{
     schema::types::{ColumnDescPtr, ColumnPath, Type},
 };
 
+pub use triplet::{TripletIter, TypedTripletIter};
+
 pub trait DisplaySchema {
     fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error>;
     fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error>;
