@@ -230,6 +230,38 @@ def test_context_device_buffer(size):
     np.testing.assert_equal(arr[soffset:soffset+ssize], arr2)
 
 
+@pytest.mark.parametrize("size", [0, 1, 1000])
+def test_context_from_object(size):
+    ctx = global_context
+    arr, cbuf = make_random_buffer(size, target='device')
+    dtype = arr.dtype
+
+    # Creating device buffer from a CUDA host buffer
+    hbuf = cuda.new_host_buffer(size * arr.dtype.itemsize)
+    np.frombuffer(hbuf, dtype=dtype)[:] = arr
+    cbuf2 = ctx.buffer_from_object(hbuf)
+    assert cbuf2.size == cbuf.size
+    arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+    np.testing.assert_equal(arr, arr2)
+
+    # Creating device buffer from a device buffer
+    cbuf2 = ctx.buffer_from_object(cbuf2)
+    assert cbuf2.size == cbuf.size
+    arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+    np.testing.assert_equal(arr, arr2)
+
+    # Trying to create a device buffer from a Buffer
+    with pytest.raises(pa.ArrowTypeError,
+                       match=('buffer is not backed by a CudaBuffer')):
+        ctx.buffer_from_object(pa.py_buffer(b"123"))
+
+    # Trying to create a device buffer from numpy.array
+    with pytest.raises(NotImplementedError,
+                       match=('cannot create device buffer view from'
+                              ' `<class \'numpy.ndarray\'>` object')):
+        ctx.buffer_from_object(np.array([1, 2, 3]))
+
+
 @pytest.mark.parametrize("size", [0, 1, 8, 1000])
 def test_CudaBuffer(size):
     arr, buf = make_random_buffer(size)
