@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8" ?>
 <!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor
   license agreements. See the NOTICE file distributed with this work for additional
   information regarding copyright ownership. The ASF licenses this file to
@@ -9,21 +10,10 @@
   OF ANY KIND, either express or implied. See the License for the specific
   language governing permissions and limitations under the License. -->
 
-<!-- This can be used when running tests with Maven by specifying the following option:
-$ mvn -Dlogback.configurationFile=file:${ARROW_HOME}/java/dev/logback.xml test
--->
-
 <configuration>
+  <logger name="org.apache.arrow" additivity="false">
+    <level value="info" />
+    <appender-ref ref="FILE" />
+  </logger>
 
-  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-    <!-- encoders are assigned the type
-         ch.qos.logback.classic.encoder.PatternLayoutEncoder by default -->
-    <encoder>
-      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-    </encoder>
-  </appender>
-
-  <root level="ERROR">
-    <appender-ref ref="STDOUT" />
-  </root>
 </configuration>

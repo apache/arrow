@@ -27,7 +27,7 @@ if [ $ARROW_TRAVIS_JAVA_BUILD_ONLY == "1" ]; then
     # Save time and make build less verbose by skipping tests and style checks
     mvn -DskipTests=true -Dcheckstyle.skip=true -B install
 else
-    mvn -B install -Dlogback.configurationFile=file:${ARROW_HOME}/java/dev/logback.xml
+    mvn -B install
 fi
 
 popd
