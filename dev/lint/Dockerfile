@@ -24,7 +24,7 @@ RUN apt-get install -y -q \
       clang-tidy \
       iwyu
 
-RUN conda install -c conda-forge flake8 && \
+RUN conda install flake8 && \
     conda clean --all -y
 
 # https://bugs.launchpad.net/ubuntu/+source/iwyu/+bug/1769334

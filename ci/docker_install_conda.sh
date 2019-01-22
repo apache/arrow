@@ -27,3 +27,17 @@ rm /tmp/miniconda.sh
 ln -s ${CONDA_PREFIX}/etc/profile.d/conda.sh /etc/profile.d/conda.sh
 echo ". ${CONDA_PREFIX}/etc/profile.d/conda.sh" >> ~/.bashrc
 echo "conda activate base" >> ~/.bashrc
+
+# Configure conda
+source $MINICONDA/etc/profile.d/conda.sh
+conda config --set show_channel_urls True
+
+# Help with SSL timeouts to S3
+conda config --set remote_connect_timeout_secs 12
+
+# Setup channels
+conda config --add channels https://repo.continuum.io/pkgs/free
+conda config --add channels conda-forge
+
+# Update packages
+conda update --all -q -y
