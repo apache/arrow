@@ -21,11 +21,10 @@ use criterion::Criterion;
 
 extern crate arrow;
 
-use arrow::compute::array_ops::*;
-use arrow::compute::arithmetic_kernels::{add_sse, add_avx2};
-use arrow::builder::*;
 use arrow::array::*;
-
+use arrow::builder::*;
+use arrow::compute::arithmetic_kernels::{add_avx2, add_sse};
+use arrow::compute::array_ops::*;
 
 fn create_array(size: usize) -> Float32Array {
     let mut builder = Float32Builder::new(size);
@@ -44,13 +43,13 @@ fn primitive_array_add(size: usize) {
 fn primitive_array_add_sse(size: usize) {
     let arr_a = create_array(size);
     let arr_b = create_array(size);
-    criterion::black_box(unsafe{add_sse(&arr_a, &arr_b).unwrap()});
+    criterion::black_box(unsafe { add_sse(&arr_a, &arr_b).unwrap() });
 }
 
 fn primitive_array_add_avx2(size: usize) {
     let arr_a = create_array(size);
     let arr_b = create_array(size);
-    criterion::black_box(unsafe{add_avx2(&arr_a, &arr_b).unwrap()});
+    criterion::black_box(unsafe { add_avx2(&arr_a, &arr_b).unwrap() });
 }
 
 fn add_benchmark(c: &mut Criterion) {
@@ -65,7 +64,9 @@ fn add_benchmark(c: &mut Criterion) {
     c.bench_function("add 512 avx2", |b| b.iter(|| primitive_array_add_avx2(512)));
     c.bench_function("add 1024", |b| b.iter(|| primitive_array_add(1024)));
     c.bench_function("add 1024 sse", |b| b.iter(|| primitive_array_add_sse(1024)));
-    c.bench_function("add 1024 avx2", |b| b.iter(|| primitive_array_add_avx2(1024)));
+    c.bench_function("add 1024 avx2", |b| {
+        b.iter(|| primitive_array_add_avx2(1024))
+    });
 }
 
 criterion_group!(benches, add_benchmark);

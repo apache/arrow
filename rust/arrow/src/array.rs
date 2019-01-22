@@ -226,7 +226,9 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     pub fn value_slice(&self, offset: usize, len: usize) -> &[T::Native] {
-        let raw = unsafe { std::slice::from_raw_parts(self.raw_values().offset(offset as isize), offset + len) };
+        let raw = unsafe {
+            std::slice::from_raw_parts(self.raw_values().offset(offset as isize), offset + len)
+        };
         &raw[..]
     }
 

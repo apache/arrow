@@ -15,5 +15,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-pub mod array_ops;
 pub mod arithmetic_kernels;
+pub mod array_ops;

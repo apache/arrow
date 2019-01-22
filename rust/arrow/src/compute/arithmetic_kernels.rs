@@ -17,24 +17,23 @@
 
 //! Defines primitive computations on arrays
 
-use std::ops::{Add, Div, Mul, Sub};
 use std::mem;
+use std::ops::{Add, Div, Mul, Sub};
 use std::slice::from_raw_parts_mut;
 
 use num::Zero;
 use packed_simd::*;
 
-use crate::compute::array_ops::math_op;
-use crate::buffer::MutableBuffer;
 use crate::array::*;
+use crate::buffer::MutableBuffer;
+use crate::compute::array_ops::math_op;
 use crate::datatypes;
 use crate::error::{ArrowError, Result};
 
 macro_rules! simd_add {
     ($ins_set:expr, $instruction_set:ident, $simd_ty:ident, $native_ty:ty, $array_ty:ident) => {
         #[target_feature(enable = $ins_set)]
-        pub unsafe fn $instruction_set(left: &$array_ty, right: &$array_ty) -> Result<$array_ty>
-        {
+        pub unsafe fn $instruction_set(left: &$array_ty, right: &$array_ty) -> Result<$array_ty> {
             if left.len() != right.len() {
                 return Err(ArrowError::ComputeError(
                     "Cannot perform math operation on arrays of different length".to_string(),
@@ -46,22 +45,20 @@ macro_rules! simd_add {
             let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
 
             for i in (0..left.len()).step_by(lanes) {
-                let simd_left = $simd_ty::from_slice_unaligned_unchecked(left.value_slice(i, lanes));
-                let simd_right = $simd_ty::from_slice_unaligned_unchecked(right.value_slice(i, lanes));
+                let simd_left =
+                    $simd_ty::from_slice_unaligned_unchecked(left.value_slice(i, lanes));
+                let simd_right =
+                    $simd_ty::from_slice_unaligned_unchecked(right.value_slice(i, lanes));
                 let simd_result = simd_left + simd_right;
 
                 let result_slice: &mut [$native_ty] = from_raw_parts_mut(
                     (result.data_mut().as_mut_ptr() as *mut $native_ty).offset(i as isize),
-                    lanes
+                    lanes,
                 );
                 simd_result.write_to_slice_unaligned_unchecked(result_slice);
             }
 
-            Ok($array_ty::new(
-                left.len(),
-                result.freeze(),
-                0,
-                0))
+            Ok($array_ty::new(left.len(), result.freeze(), 0, 0))
         }
     };
 }
@@ -81,7 +78,6 @@ where
 {
     math_op(left, right, |a, b| Ok(a + b))
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -105,7 +101,7 @@ mod tests {
     fn test_simd_avx2() {
         let a = Float32Array::from(vec![5.0, 6.0, 7.0, 8.0, 9.0, 10.0]);
         let b = Float32Array::from(vec![6.0, 7.0, 8.0, 9.0, 8.0, 20.0]);
-        let c = unsafe{ add_avx2(&a, &b).unwrap() };
+        let c = unsafe { add_avx2(&a, &b).unwrap() };
 
         for i in 0..c.len() {
             println!("{}: {}", i, c.value(i));
@@ -122,7 +118,7 @@ mod tests {
     fn test_simd_sse() {
         let a = Float32Array::from(vec![5.0, 6.0, 7.0, 8.0, 9.0, 10.0]);
         let b = Float32Array::from(vec![6.0, 7.0, 8.0, 9.0, 8.0, 20.0]);
-        let c = unsafe{ add_sse(&a, &b).unwrap() };
+        let c = unsafe { add_sse(&a, &b).unwrap() };
 
         for i in 0..c.len() {
             println!("{}: {}", i, c.value(i));
