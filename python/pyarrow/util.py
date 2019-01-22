@@ -19,6 +19,8 @@
 
 import six
 import warnings
+import functools
+
 
 try:
     from textwrap import indent
@@ -78,3 +80,44 @@ def _stringify_path(path):
             return str(path)
 
     raise TypeError("not a path-like object")
+
+
+def product(seq):
+    """
+    Return a product of sequence items.
+    """
+    return functools.reduce(lambda a, b: a*b, seq, 1)
+
+
+def get_contiguous_span(shape, strides, itemsize):
+    """
+    Return a span of N-D array data.
+
+    Parameters
+    ----------
+    shape : tuple
+    strides : tuple
+    itemsize : int
+      Specify array shape data
+
+    Returns
+    -------
+    start, end : int
+      The span end points.
+    """
+    if not strides:
+        start = 0
+        end = itemsize * product(shape)
+    else:
+        start = 0
+        end = itemsize
+        for i, dim in enumerate(shape):
+            if dim == 0:
+                start = end = 0
+                break
+            stride = strides[i]
+            if stride > 0:
+                end += stride * (dim - 1)
+            elif stride < 0:
+                start += stride * (dim - 1)
+    return start, end

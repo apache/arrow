@@ -15,17 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import functools
 
 from pyarrow.compat import tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_cuda cimport *
 from pyarrow.lib import py_buffer, allocate_buffer, as_buffer
+from pyarrow.util import get_contiguous_span
 cimport cpython as cp
-
-
-def product(seq):
-    return functools.reduce(lambda a, b: a*b, seq, 1)
 
 
 cdef class Context:
@@ -198,7 +194,8 @@ cdef class Context:
         """Create device buffer from address and size as a view.
 
         The caller is responsible for allocating and freeing the
-        memory.
+        memory. When `address==size==0` then a new zero-sized buffer
+        is returned.
 
         Parameters
         ----------
@@ -214,7 +211,10 @@ cdef class Context:
         -------
         cbuf : CudaBuffer
           Device buffer as a view of device reachable memory.
+
         """
+        if not address and size == 0:
+            return self.new_buffer(0)
         cdef:
             uintptr_t c_addr = self.get_device_address(address)
             int64_t c_size = size
@@ -309,46 +309,24 @@ cdef class Context:
 
         """
         if isinstance(obj, HostBuffer):
-            if not obj.address and obj.size == 0:
-                return self.new_buffer(0)
             return self.foreign_buffer(obj.address, obj.size)
         elif isinstance(obj, Buffer):
             return CudaBuffer.from_buffer(obj)
         elif isinstance(obj, CudaBuffer):
             return obj
         elif hasattr(obj, '__cuda_array_interface__'):
-            import numpy as np
             desc = obj.__cuda_array_interface__
-            shape = desc['shape']
-            strides = desc.get('strides')
-            dtype = np.dtype(desc['typestr'])
             addr = desc['data'][0]
             if addr is None:
-                nbytes = 0
-            elif not strides:
-                nbytes = dtype.itemsize * product(shape)
-            else:
-                start = 0
-                end = dtype.itemsize
-                for i, dim in enumerate(shape):
-                    if dim == 0:
-                        start = end = addr
-                        break
-                    stride = strides[i]
-                    if stride > 0:
-                        end += stride * (dim - 1)
-                    elif stride < 0:
-                        start += stride * (dim - 1)
-                nbytes = end - start
-            if nbytes:
-                return self.foreign_buffer(addr + start, nbytes)
-            else:
                 return self.new_buffer(0)
+            import numpy as np
+            start, end = get_contiguous_span(
+                desc['shape'], desc.get('strides'),
+                np.dtype(desc['typestr']).itemsize)
+            return self.foreign_buffer(addr + start, end - start)
         from numba.cuda.cudadrv.driver import MemoryPointer
         if isinstance(obj, MemoryPointer):
             addr = obj.device_pointer.value
-            if not addr and obj.size == 0:
-                return self.new_buffer(0)
             return self.foreign_buffer(addr, obj.size)
         raise NotImplementedError('cannot create device buffer view from'
                                   ' `%s` object' % (type(obj)))
