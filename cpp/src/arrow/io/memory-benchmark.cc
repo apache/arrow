@@ -27,7 +27,7 @@
 
 namespace arrow {
 
-const static int kNumCores = internal::CpuInfo::GetInstance()->num_cores();
+static const int kNumCores = internal::CpuInfo::GetInstance()->num_cores();
 constexpr size_t kMemoryPerCore = 32 * 1024 * 1024;
 using BufferPtr = std::shared_ptr<Buffer>;
 
@@ -37,25 +37,25 @@ using VectorType = __m128i;
 // for the usage of stream loads/writes. Or section 6.1, page 47 of
 // https://akkadia.org/drepper/cpumemory.pdf .
 
-static void Read(const void* src, void* dst, size_t size) {
-  VectorType* simd = (VectorType*)src;
+static void Read(void* src, void* dst, size_t size) {
+  auto simd = static_cast<VectorType*>(src);
   (void)dst;
 
   for (size_t i = 0; i < size / sizeof(VectorType); i++)
     benchmark::DoNotOptimize(_mm_stream_load_si128(&simd[i]));
 }
 
-static void Write(const void* src, void* dst, size_t size) {
-  VectorType* simd = (VectorType*)dst;
+static void Write(void* src, void* dst, size_t size) {
+  auto simd = static_cast<VectorType*>(dst);
   const VectorType ones = _mm_set1_epi32(1);
   (void)src;
 
   for (size_t i = 0; i < size / sizeof(VectorType); i++) _mm_stream_si128(&simd[i], ones);
 }
 
-static void ReadWrite(const void* src, void* dst, size_t size) {
-  VectorType* src_simd = (VectorType*)src;
-  VectorType* dst_simd = (VectorType*)dst;
+static void ReadWrite(void* src, void* dst, size_t size) {
+  auto src_simd = static_cast<VectorType*>(src);
+  auto dst_simd = static_cast<VectorType*>(dst);
 
   for (size_t i = 0; i < size / sizeof(VectorType); i++)
     _mm_stream_si128(&dst_simd[i], _mm_stream_load_si128(&src_simd[i]));
@@ -73,7 +73,7 @@ static void MemoryBandwidth(benchmark::State& state) {  // NOLINT non-const refe
   random_bytes(buffer_size, 0, src->mutable_data());
 
   while (state.KeepRunning()) {
-    Apply(src->data(), dst->mutable_data(), buffer_size);
+    Apply(src->mutable_data(), dst->mutable_data(), buffer_size);
   }
 
   state.SetBytesProcessed(state.iterations() * buffer_size);
