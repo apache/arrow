@@ -34,10 +34,6 @@ ADD_GANDIVA_TEST(projector_test_static
   SOURCES projector_test.cc
   USE_STATIC_LINKING)
 
-ADD_GANDIVA_TEST(decimal_single_test_static
-  SOURCES decimal_single_test.cc
-  USE_STATIC_LINKING)
-
 ADD_ARROW_BENCHMARK(micro_benchmarks
   PREFIX "gandiva"
   EXTRA_LINK_LIBS gandiva_static)
