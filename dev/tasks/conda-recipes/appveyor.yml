@@ -36,7 +36,7 @@ install:
   - cmd: set PYTHONUNBUFFERED=1
 
   # Configure the VM.
-  - cmd: conda.exe install -n root -c conda-forge --quiet --yes conda-forge-ci-setup=2
+  - cmd: conda.exe install -n root -c conda-forge --quiet --yes conda-forge-ci-setup=2 conda-build
 
 # Skip .NET project specific build phase.
 build: off
