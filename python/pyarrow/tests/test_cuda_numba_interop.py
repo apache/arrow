@@ -78,7 +78,7 @@ def make_random_buffer(size, target='host', dtype='uint8', ctx=None):
 @pytest.mark.parametrize("c", range(len(context_choice_ids)),
                          ids=context_choice_ids)
 @pytest.mark.parametrize("dtype", dtypes, ids=dtypes)
-@pytest.mark.parametrize("size", [0, 1, 8, 1000])
+@pytest.mark.parametrize("size", [0, 1, 1000])
 def test_from_object(c, dtype, size):
     ctx, nb_ctx = context_choices[c]
     arr, cbuf = make_random_buffer(size, target='device', dtype=dtype, ctx=ctx)
@@ -124,12 +124,7 @@ def test_from_object(c, dtype, size):
 
     # Creating device buffer from a 2-dimensional numba DeviceNDArray:
     if size >= 8:
-        itemsize = np.dtype(dtype).itemsize
-        darr = DeviceNDArray((size//4, size//(size//4)),
-                             (itemsize, itemsize*(size//4)),
-                             np.dtype(dtype),
-                             gpu_data=mem)
-        cbuf2 = ctx.buffer_from_object(darr)
+        cbuf2 = ctx.buffer_from_object(darr.reshape(size//4, size//(size//4)))
         assert cbuf2.size == cbuf.size
         arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
         np.testing.assert_equal(arr, arr2)
@@ -156,6 +151,17 @@ def test_from_object(c, dtype, size):
     assert cbuf2.size == cbuf.size
     arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
     np.testing.assert_equal(arr, arr2)
+
+    # Trying to create a device buffer from a Buffer
+    with pytest.raises(pa.ArrowTypeError,
+                       match=('buffer is not backed by a CudaBuffer')):
+        ctx.buffer_from_object(pa.py_buffer(b"123"))
+
+    # Trying to create a device buffer from numpy.array
+    with pytest.raises(NotImplementedError,
+                       match=('cannot create device buffer view from'
+                              ' `<class \'numpy.ndarray\'>` object')):
+        ctx.buffer_from_object(np.array([1,2,3]))
 
 
 @pytest.mark.parametrize("c", range(len(context_choice_ids)),
