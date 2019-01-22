@@ -16,4 +16,4 @@
 // under the License.
 
 pub mod array_ops;
-pub mod add;
+pub mod arithmetic_kernels;

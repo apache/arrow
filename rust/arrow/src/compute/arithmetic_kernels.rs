@@ -31,8 +31,9 @@ use crate::datatypes;
 use crate::error::{ArrowError, Result};
 
 macro_rules! simd_add {
-    ($instruction_set:ident, $simd_ty:ident, $native_ty:ty, $array_ty:ident) => {
-        pub fn $instruction_set(left: &$array_ty, right: &$array_ty) -> Result<$array_ty>
+    ($ins_set:expr, $instruction_set:ident, $simd_ty:ident, $native_ty:ty, $array_ty:ident) => {
+        #[target_feature(enable = $ins_set)]
+        pub unsafe fn $instruction_set(left: &$array_ty, right: &$array_ty) -> Result<$array_ty>
         {
             if left.len() != right.len() {
                 return Err(ArrowError::ComputeError(
@@ -45,19 +46,15 @@ macro_rules! simd_add {
             let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
 
             for i in (0..left.len()).step_by(lanes) {
-                let simd_left = unsafe {$simd_ty::from_slice_unaligned_unchecked(left.value_slice(i, lanes))};
-                let simd_right = unsafe {$simd_ty::from_slice_unaligned_unchecked(right.value_slice(i, lanes))};
+                let simd_left = $simd_ty::from_slice_unaligned_unchecked(left.value_slice(i, lanes));
+                let simd_right = $simd_ty::from_slice_unaligned_unchecked(right.value_slice(i, lanes));
                 let simd_result = simd_left + simd_right;
 
-                let result_slice: &mut [$native_ty] = unsafe {
-                    from_raw_parts_mut(
-                        (result.data_mut().as_mut_ptr() as *mut $native_ty).offset(i as isize),
-                        lanes
-                    )
-                };
-                unsafe {
-                    simd_result.write_to_slice_unaligned_unchecked(result_slice);
-                }
+                let result_slice: &mut [$native_ty] = from_raw_parts_mut(
+                    (result.data_mut().as_mut_ptr() as *mut $native_ty).offset(i as isize),
+                    lanes
+                );
+                simd_result.write_to_slice_unaligned_unchecked(result_slice);
             }
 
             Ok($array_ty::new(
@@ -69,8 +66,8 @@ macro_rules! simd_add {
     };
 }
 
-simd_add!(add_avx2, f32x8, f32, Float32Array);
-simd_add!(add_sse, f32x4, f32, Float32Array);
+simd_add!("sse", add_sse, f32x4, f32, Float32Array);
+simd_add!("avx2", add_avx2, f32x8, f32, Float32Array);
 
 /// Perform `left + right` operation on two arrays. If either left or right value is null then the result is also null.
 pub fn add<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
@@ -108,7 +105,7 @@ mod tests {
     fn test_simd_avx2() {
         let a = Float32Array::from(vec![5.0, 6.0, 7.0, 8.0, 9.0, 10.0]);
         let b = Float32Array::from(vec![6.0, 7.0, 8.0, 9.0, 8.0, 20.0]);
-        let c = add_avx2(&a, &b).unwrap();
+        let c = unsafe{ add_avx2(&a, &b).unwrap() };
 
         for i in 0..c.len() {
             println!("{}: {}", i, c.value(i));
@@ -125,7 +122,7 @@ mod tests {
     fn test_simd_sse() {
         let a = Float32Array::from(vec![5.0, 6.0, 7.0, 8.0, 9.0, 10.0]);
         let b = Float32Array::from(vec![6.0, 7.0, 8.0, 9.0, 8.0, 20.0]);
-        let c = add_sse(&a, &b).unwrap();
+        let c = unsafe{ add_sse(&a, &b).unwrap() };
 
         for i in 0..c.len() {
             println!("{}: {}", i, c.value(i));
