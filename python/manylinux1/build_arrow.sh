@@ -39,7 +39,6 @@ export PYARROW_CMAKE_GENERATOR='Ninja'
 export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
-export PYARROW_WITH_GANDIVA=1
 export PYARROW_BUNDLE_ARROW_CPP=1
 export PYARROW_BUNDLE_BOOST=1
 export PYARROW_BOOST_NAMESPACE=arrow_boost
@@ -58,6 +57,15 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
     PIP="${CPYTHON_PATH}/bin/pip"
     PATH="$PATH:${CPYTHON_PATH}"
+
+    if [ $PYTHON != "2.7" ]; then
+      # Gandiva is not supported on Python 2.7
+      export PYARROW_WITH_GANDIVA=1
+      export BUILD_ARROW_GANDIVA=ON
+    else
+      export PYARROW_WITH_GANDIVA=0
+      export BUILD_ARROW_GANDIVA=OFF
+    fi
 
     # TensorFlow is not supported for Python 2.7 with unicode width 16 or with Python 3.7
     if [ $PYTHON != "2.7" ] || [ $U_WIDTH = "32" ]; then
@@ -85,9 +93,8 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
         -DARROW_PLASMA=ON \
         -DARROW_TENSORFLOW=ON \
         -DARROW_ORC=ON \
-        -DARROW_GANDIVA=ON \
+        -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
         -DARROW_GANDIVA_JAVA=OFF \
-        -DARROW_GANDIVA_BUILD_TESTS=OFF \
         -DBoost_NAMESPACE=arrow_boost \
         -DBOOST_ROOT=/arrow_boost_dist \
         -GNinja /arrow/cpp
@@ -103,6 +110,8 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     # Clear output directory
     rm -rf dist/
     echo "=== (${PYTHON}) Building wheel ==="
+    # Remove build directory to ensure CMake gets a clean run
+    rm -rf build/
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext \
         --inplace \
         --bundle-arrow-cpp \
@@ -119,7 +128,9 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     source /venv-test-${PYTHON}-${U_WIDTH}/bin/activate
     pip install repaired_wheels/*.whl
 
-    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.gandiva"
+    if [ $PYTHON != "2.7" ]; then
+      PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.gandiva"
+    fi
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.orc"
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.plasma"
