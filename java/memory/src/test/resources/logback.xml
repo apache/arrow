@@ -11,6 +11,7 @@
   language governing permissions and limitations under the License. -->
 
 <configuration>
+  <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
   <logger name="org.apache.arrow" additivity="false">
     <level value="info" />
     <appender-ref ref="FILE" />
