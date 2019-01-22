@@ -35,8 +35,7 @@ conda config --set show_channel_urls True
 # Help with SSL timeouts to S3
 conda config --set remote_connect_timeout_secs 12
 
-# Setup channels
-conda config --add channels https://repo.continuum.io/pkgs/free
+# Setup conda-forge
 conda config --add channels conda-forge
 
 # Update packages
