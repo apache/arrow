@@ -38,13 +38,16 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "plasma/common.h"
-#include "plasma/common_generated.h"
 
 #ifdef PLASMA_CUDA
 using arrow::cuda::CudaIpcMemHandle;
 #endif
 
 namespace plasma {
+
+namespace flatbuf {
+struct ObjectInfoT;
+}  // namespace flatbuf
 
 #define HANDLE_SIGPIPE(s, fd_)                                              \
   do {                                                                      \
