@@ -123,4 +123,98 @@ Type::type Tensor::type_id() const { return type_->id(); }
 
 bool Tensor::Equals(const Tensor& other) const { return TensorEquals(*this, other); }
 
+namespace internal {
+
+template <typename TYPE>
+size_t StridedTensorCountNonZero(int dim_index, int64_t offset, const Tensor& tensor) {
+  using c_type = typename TYPE::c_type;
+  c_type const zero = c_type(0);
+  size_t nnz = 0;
+  if (dim_index == tensor.ndim() - 1) {
+    for (int64_t i = 0; i < tensor.shape()[dim_index]; ++i) {
+      auto const* ptr = tensor.raw_data() + offset + i * tensor.strides()[dim_index];
+      auto& elem = *reinterpret_cast<c_type const*>(ptr);
+      if (elem != zero) ++nnz;
+    }
+    return nnz;
+  }
+  for (int64_t i = 0; i < tensor.shape()[dim_index]; ++i) {
+    nnz += StridedTensorCountNonZero<TYPE>(dim_index + 1, offset, tensor);
+    offset += tensor.strides()[dim_index];
+  }
+  return nnz;
+}
+
+template <typename TYPE>
+size_t ContiguousTensorCountNonZero(const Tensor& tensor) {
+  using c_type = typename TYPE::c_type;
+  auto* data = reinterpret_cast<c_type const*>(tensor.raw_data());
+  return std::count_if(data, data + tensor.size(),
+                       [](c_type const& x) { return x != 0; });
+}
+
+}  // namespace internal
+
+size_t Tensor::CountNonZero() const {
+  if (size() == 0) {
+    return 0;
+  }
+
+  if (is_contiguous()) {
+    switch (type()->id()) {
+      case Type::UINT8:
+        return internal::ContiguousTensorCountNonZero<UInt8Type>(*this);
+      case Type::INT8:
+        return internal::ContiguousTensorCountNonZero<Int8Type>(*this);
+      case Type::UINT16:
+        return internal::ContiguousTensorCountNonZero<UInt16Type>(*this);
+      case Type::INT16:
+        return internal::ContiguousTensorCountNonZero<Int16Type>(*this);
+      case Type::UINT32:
+        return internal::ContiguousTensorCountNonZero<UInt32Type>(*this);
+      case Type::INT32:
+        return internal::ContiguousTensorCountNonZero<Int32Type>(*this);
+      case Type::UINT64:
+        return internal::ContiguousTensorCountNonZero<UInt64Type>(*this);
+      case Type::INT64:
+        return internal::ContiguousTensorCountNonZero<Int64Type>(*this);
+      case Type::HALF_FLOAT:
+        return internal::ContiguousTensorCountNonZero<HalfFloatType>(*this);
+      case Type::FLOAT:
+        return internal::ContiguousTensorCountNonZero<FloatType>(*this);
+      case Type::DOUBLE:
+        return internal::ContiguousTensorCountNonZero<DoubleType>(*this);
+      default:
+        return 0;  // This shouldn't be unreachable
+    }
+  } else {
+    switch (type()->id()) {
+      case Type::UINT8:
+        return internal::StridedTensorCountNonZero<UInt8Type>(0, 0, *this);
+      case Type::INT8:
+        return internal::StridedTensorCountNonZero<Int8Type>(0, 0, *this);
+      case Type::UINT16:
+        return internal::StridedTensorCountNonZero<UInt16Type>(0, 0, *this);
+      case Type::INT16:
+        return internal::StridedTensorCountNonZero<Int16Type>(0, 0, *this);
+      case Type::UINT32:
+        return internal::StridedTensorCountNonZero<UInt32Type>(0, 0, *this);
+      case Type::INT32:
+        return internal::StridedTensorCountNonZero<Int32Type>(0, 0, *this);
+      case Type::UINT64:
+        return internal::StridedTensorCountNonZero<UInt64Type>(0, 0, *this);
+      case Type::INT64:
+        return internal::StridedTensorCountNonZero<Int64Type>(0, 0, *this);
+      case Type::HALF_FLOAT:
+        return internal::StridedTensorCountNonZero<HalfFloatType>(0, 0, *this);
+      case Type::FLOAT:
+        return internal::StridedTensorCountNonZero<FloatType>(0, 0, *this);
+      case Type::DOUBLE:
+        return internal::StridedTensorCountNonZero<DoubleType>(0, 0, *this);
+      default:
+        return 0;  // This shouldn't be unreachable
+    }
+  }
+}
+
 }  // namespace arrow

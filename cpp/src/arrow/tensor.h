@@ -104,6 +104,8 @@ class ARROW_EXPORT Tensor {
 
   bool Equals(const Tensor& other) const;
 
+  size_t CountNonZero() const;
+
  protected:
   Tensor() {}
 

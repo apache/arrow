@@ -107,6 +107,48 @@ TEST(TestTensor, ZeroDimensionalTensor) {
   ASSERT_EQ(t.strides().size(), 1);
 }
 
+TEST(TestTensor, CountNonZeroForZeroDimentionalTensor) {
+  std::vector<int64_t> shape = {0};
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_OK(AllocateBuffer(0, &buffer));
+
+  Tensor t(int64(), buffer, shape);
+  ASSERT_EQ(t.CountNonZero(), 0);
+}
+
+TEST(TestTensor, CountNonZeroForContiguousTensor) {
+  std::vector<int64_t> shape = {4, 6};
+  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
+
+  std::vector<int64_t> c_strides = {48, 8};
+  std::vector<int64_t> f_strides = {8, 32};
+  Tensor t1(int64(), buffer, shape, c_strides);
+  Tensor t2(int64(), buffer, shape, f_strides);
+
+  ASSERT_TRUE(t1.is_contiguous());
+  ASSERT_TRUE(t2.is_contiguous());
+  ASSERT_EQ(t1.CountNonZero(), 12);
+  ASSERT_EQ(t2.CountNonZero(), 12);
+}
+
+TEST(TestTensor, CountNonZeroForNonContiguousTensor) {
+  std::vector<int64_t> shape = {4, 4};
+  std::vector<int64_t> values = {
+      1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,  7, 0,  8, 0,
+      0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16, 0, 15, 0, 16,
+  };
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
+
+  std::vector<int64_t> noncontig_strides = {64, 16};
+  Tensor t(int64(), buffer, shape, noncontig_strides);
+
+  ASSERT_FALSE(t.is_contiguous());
+  ASSERT_EQ(t.CountNonZero(), 8);
+}
+
 TEST(TestNumericTensor, ElementAccessWithRowMajorStrides) {
   std::vector<int64_t> shape = {3, 4};
 
