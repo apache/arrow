@@ -30,38 +30,41 @@ use std::{
 };
 
 use crate::{
+    basic::Repetition,
     column::reader::ColumnReader,
     errors::ParquetError,
     record::reader::Reader,
     schema::types::{ColumnDescPtr, ColumnPath, Type},
 };
 
-pub trait DisplayType {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error>;
+pub trait DisplaySchema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error>;
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error>;
 }
 
-struct DisplayDisplayType<T>(PhantomData<fn(T)>)
+struct DisplayDisplaySchema<T>(PhantomData<fn(T)>)
 where
-    T: DisplayType;
-impl<T> DisplayDisplayType<T>
+    T: DisplaySchema;
+impl<T> DisplayDisplaySchema<T>
 where
-    T: DisplayType,
+    T: DisplaySchema,
 {
     fn new() -> Self {
         Self(PhantomData)
     }
 }
-impl<T> Display for DisplayDisplayType<T>
+impl<T> Display for DisplayDisplaySchema<T>
 where
-    T: DisplayType,
+    T: DisplaySchema,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> std::result::Result<(), fmt::Error> {
-        T::fmt(f)
+        unimplemented!()
+        // T::fmt(f)
     }
 }
 
 pub trait Deserialize: Sized {
-    type Schema: Display + DisplayType;
+    type Schema: DisplaySchema;
     type Reader: Reader<Item = Self>;
 
     /// Parse a [`Type`] into `Self::Schema`.

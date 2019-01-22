@@ -7,15 +7,20 @@ use std::{
 use crate::{
     basic::{LogicalType, Repetition, Type as PhysicalType},
     column::reader::ColumnReader,
+    data_type::Decimal,
     errors::ParquetError,
     record::{
         reader::ValueReader,
         schemas::{
-            BoolSchema, F32Schema, F64Schema, GroupSchema, I16Schema, I32Schema, I64Schema,
-            I8Schema, ListSchema, ListSchemaType, OptionSchema, StringSchema, TimestampSchema,
-            U16Schema, U32Schema, U64Schema, U8Schema, ValueSchema, VecSchema,
+            BoolSchema, BsonSchema, DateSchema, DecimalSchema, EnumSchema, F32Schema, F64Schema,
+            GroupSchema, I16Schema, I32Schema, I64Schema, I8Schema, JsonSchema, ListSchema,
+            ListSchemaType, OptionSchema, StringSchema, TimeSchema, TimestampSchema, U16Schema,
+            U32Schema, U64Schema, U8Schema, ValueSchema, VecSchema,
         },
-        types::{list::parse_list, map::parse_map, Downcast, Group, List, Map, Timestamp},
+        types::{
+            list::parse_list, map::parse_map, Bson, Date, Downcast, Enum, Group, Json, List, Map,
+            Time, Timestamp,
+        },
         Deserialize,
     },
     schema::types::{ColumnDescPtr, ColumnPath, Type},
@@ -47,16 +52,25 @@ pub enum Value {
     F32(f32),
     /// IEEE 64-bit floating point value.
     F64(f64),
+    /// Date without a time of day, stores the number of days from the Unix epoch, 1
+    /// January 1970.
+    Date(Date),
+    /// Time of day, stores the number of microseconds from midnight.
+    Time(Time),
     /// Milliseconds from the Unix epoch, 1 January 1970.
     Timestamp(Timestamp),
+    /// Decimal value.
+    Decimal(Decimal),
     /// General binary value.
     Array(Vec<u8>),
+    /// BSON binary value.
+    Bson(Bson),
     /// UTF-8 encoded character string.
     String(String),
-
-    // Decimal value.
-    // Date without a time of day, stores the number of days from the Unix epoch, 1
-    // January 1970.
+    /// JSON string.
+    Json(Json),
+    /// Enum string.
+    Enum(Enum),
 
     // Complex types
     /// List of elements.
@@ -114,30 +128,53 @@ impl Hash for Value {
             Value::F64(_value) => {
                 10u8.hash(state);
             }
-            Value::Timestamp(value) => {
+            Value::Date(value) => {
                 11u8.hash(state);
                 value.hash(state);
             }
-            Value::Array(value) => {
+            Value::Time(value) => {
                 12u8.hash(state);
                 value.hash(state);
             }
-            Value::String(value) => {
+            Value::Timestamp(value) => {
                 13u8.hash(state);
                 value.hash(state);
             }
-            Value::List(value) => {
+            Value::Decimal(_value) => {
                 14u8.hash(state);
+            }
+            Value::Array(value) => {
+                15u8.hash(state);
+                value.hash(state);
+            }
+            Value::Bson(value) => {
+                16u8.hash(state);
+                value.hash(state);
+            }
+            Value::String(value) => {
+                17u8.hash(state);
+                value.hash(state);
+            }
+            Value::Json(value) => {
+                18u8.hash(state);
+                value.hash(state);
+            }
+            Value::Enum(value) => {
+                19u8.hash(state);
+                value.hash(state);
+            }
+            Value::List(value) => {
+                20u8.hash(state);
                 value.hash(state);
             }
             Value::Map(_value) => {
-                15u8.hash(state);
+                21u8.hash(state);
             }
             Value::Group(_value) => {
-                16u8.hash(state);
+                22u8.hash(state);
             }
             Value::Option(value) => {
-                17u8.hash(state);
+                23u8.hash(state);
                 value.hash(state);
             }
         }
@@ -509,6 +546,72 @@ impl Value {
         }
     }
 
+    /// Returns true if the `Value` is an Date. Returns false otherwise.
+    pub fn is_date(&self) -> bool {
+        if let Value::Date(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// If the `Value` is an Date, return a reference to it. Returns Err otherwise.
+    pub fn as_date(&self) -> Result<&Date, ParquetError> {
+        if let Value::Date(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as date",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an Date, return it. Returns Err otherwise.
+    pub fn into_date(self) -> Result<Date, ParquetError> {
+        if let Value::Date(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as date",
+                self
+            )))
+        }
+    }
+
+    /// Returns true if the `Value` is an Time. Returns false otherwise.
+    pub fn is_time(&self) -> bool {
+        if let Value::Time(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// If the `Value` is an Time, return a reference to it. Returns Err otherwise.
+    pub fn as_time(&self) -> Result<&Time, ParquetError> {
+        if let Value::Time(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as time",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an Time, return it. Returns Err otherwise.
+    pub fn into_time(self) -> Result<Time, ParquetError> {
+        if let Value::Time(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as time",
+                self
+            )))
+        }
+    }
+
     /// Returns true if the `Value` is an Timestamp. Returns false otherwise.
     pub fn is_timestamp(&self) -> bool {
         if let Value::Timestamp(_) = self {
@@ -537,6 +640,39 @@ impl Value {
         } else {
             Err(ParquetError::General(format!(
                 "Cannot access {:?} as timestamp",
+                self
+            )))
+        }
+    }
+
+    /// Returns true if the `Value` is an Decimal. Returns false otherwise.
+    pub fn is_decimal(&self) -> bool {
+        if let Value::Decimal(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// If the `Value` is an Decimal, return a reference to it. Returns Err otherwise.
+    pub fn as_decimal(&self) -> Result<&Decimal, ParquetError> {
+        if let Value::Decimal(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as decimal",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an Decimal, return it. Returns Err otherwise.
+    pub fn into_decimal(self) -> Result<Decimal, ParquetError> {
+        if let Value::Decimal(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as decimal",
                 self
             )))
         }
@@ -575,6 +711,39 @@ impl Value {
         }
     }
 
+    /// Returns true if the `Value` is an Bson. Returns false otherwise.
+    pub fn is_bson(&self) -> bool {
+        if let Value::Bson(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// If the `Value` is an Bson, return a reference to it. Returns Err otherwise.
+    pub fn as_bson(&self) -> Result<&Bson, ParquetError> {
+        if let Value::Bson(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as bson",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an Bson, return it. Returns Err otherwise.
+    pub fn into_bson(self) -> Result<Bson, ParquetError> {
+        if let Value::Bson(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as bson",
+                self
+            )))
+        }
+    }
+
     /// Returns true if the `Value` is an String. Returns false otherwise.
     pub fn is_string(&self) -> bool {
         if let Value::String(_) = self {
@@ -603,6 +772,72 @@ impl Value {
         } else {
             Err(ParquetError::General(format!(
                 "Cannot access {:?} as string",
+                self
+            )))
+        }
+    }
+
+    /// Returns true if the `Value` is an Json. Returns false otherwise.
+    pub fn is_json(&self) -> bool {
+        if let Value::Json(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// If the `Value` is an Json, return a reference to it. Returns Err otherwise.
+    pub fn as_json(&self) -> Result<&Json, ParquetError> {
+        if let Value::Json(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as json",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an Json, return it. Returns Err otherwise.
+    pub fn into_json(self) -> Result<Json, ParquetError> {
+        if let Value::Json(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as json",
+                self
+            )))
+        }
+    }
+
+    /// Returns true if the `Value` is an Enum. Returns false otherwise.
+    pub fn is_enum(&self) -> bool {
+        if let Value::Enum(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// If the `Value` is an Enum, return a reference to it. Returns Err otherwise.
+    pub fn as_enum(&self) -> Result<&Enum, ParquetError> {
+        if let Value::Enum(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as enum",
+                self
+            )))
+        }
+    }
+
+    /// If the `Value` is an Enum, return it. Returns Err otherwise.
+    pub fn into_enum(self) -> Result<Enum, ParquetError> {
+        if let Value::Enum(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as enum",
                 self
             )))
         }
@@ -801,9 +1036,24 @@ impl Downcast<f64> for Value {
         self.into_f64()
     }
 }
+impl Downcast<Date> for Value {
+    fn downcast(self) -> Result<Date, ParquetError> {
+        self.into_date()
+    }
+}
+impl Downcast<Time> for Value {
+    fn downcast(self) -> Result<Time, ParquetError> {
+        self.into_time()
+    }
+}
 impl Downcast<Timestamp> for Value {
     fn downcast(self) -> Result<Timestamp, ParquetError> {
         self.into_timestamp()
+    }
+}
+impl Downcast<Decimal> for Value {
+    fn downcast(self) -> Result<Decimal, ParquetError> {
+        self.into_decimal()
     }
 }
 impl Downcast<Vec<u8>> for Value {
@@ -811,9 +1061,24 @@ impl Downcast<Vec<u8>> for Value {
         self.into_array()
     }
 }
+impl Downcast<Bson> for Value {
+    fn downcast(self) -> Result<Bson, ParquetError> {
+        self.into_bson()
+    }
+}
 impl Downcast<String> for Value {
     fn downcast(self) -> Result<String, ParquetError> {
         self.into_string()
+    }
+}
+impl Downcast<Json> for Value {
+    fn downcast(self) -> Result<Json, ParquetError> {
+        self.into_json()
+    }
+}
+impl Downcast<Enum> for Value {
+    fn downcast(self) -> Result<Enum, ParquetError> {
+        self.into_enum()
     }
 }
 impl<T> Downcast<List<T>> for Value
@@ -897,40 +1162,64 @@ impl Deserialize for Value {
                     (PhysicalType::INT32, LogicalType::UINT_32) => ValueSchema::U32(U32Schema),
                     (PhysicalType::INT32, LogicalType::INT_32)
                     | (PhysicalType::INT32, LogicalType::NONE) => ValueSchema::I32(I32Schema),
-                    (PhysicalType::INT32, LogicalType::DATE) => unimplemented!(),
-                    (PhysicalType::INT32, LogicalType::TIME_MILLIS) => unimplemented!(),
-                    (PhysicalType::INT32, LogicalType::DECIMAL) => unimplemented!(),
+                    (PhysicalType::INT32, LogicalType::DATE) => ValueSchema::Date(DateSchema),
+                    (PhysicalType::INT32, LogicalType::TIME_MILLIS) => {
+                        ValueSchema::Time(TimeSchema::Millis)
+                    }
+                    (PhysicalType::INT32, LogicalType::DECIMAL) => {
+                        let (precision, scale) = (schema.get_precision(), schema.get_scale());
+                        let (precision, scale) =
+                            (precision.try_into().unwrap(), scale.try_into().unwrap());
+                        ValueSchema::Decimal(DecimalSchema::Int32 { precision, scale })
+                    }
                     (PhysicalType::INT64, LogicalType::UINT_64) => ValueSchema::U64(U64Schema),
                     (PhysicalType::INT64, LogicalType::INT_64)
                     | (PhysicalType::INT64, LogicalType::NONE) => ValueSchema::I64(I64Schema),
-                    (PhysicalType::INT64, LogicalType::TIME_MICROS) => unimplemented!(),
-                    // (PhysicalType::INT64, LogicalType::TIME_NANOS) => unimplemented!(),
+                    (PhysicalType::INT64, LogicalType::TIME_MICROS) => {
+                        ValueSchema::Time(TimeSchema::Micros)
+                    }
                     (PhysicalType::INT64, LogicalType::TIMESTAMP_MILLIS) => {
                         ValueSchema::Timestamp(TimestampSchema::Millis)
                     }
                     (PhysicalType::INT64, LogicalType::TIMESTAMP_MICROS) => {
                         ValueSchema::Timestamp(TimestampSchema::Micros)
                     }
-                    // (PhysicalType::INT64, LogicalType::TIMESTAMP_NANOS) => unimplemented!(),
-                    (PhysicalType::INT64, LogicalType::DECIMAL) => unimplemented!(),
+                    (PhysicalType::INT64, LogicalType::DECIMAL) => {
+                        let (precision, scale) = (schema.get_precision(), schema.get_scale());
+                        let (precision, scale) =
+                            (precision.try_into().unwrap(), scale.try_into().unwrap());
+                        ValueSchema::Decimal(DecimalSchema::Int64 { precision, scale })
+                    }
                     (PhysicalType::INT96, LogicalType::NONE) => {
                         ValueSchema::Timestamp(TimestampSchema::Int96)
                     }
                     (PhysicalType::FLOAT, LogicalType::NONE) => ValueSchema::F32(F32Schema),
                     (PhysicalType::DOUBLE, LogicalType::NONE) => ValueSchema::F64(F64Schema),
                     (PhysicalType::BYTE_ARRAY, LogicalType::UTF8)
-                    | (PhysicalType::BYTE_ARRAY, LogicalType::ENUM)
-                    | (PhysicalType::BYTE_ARRAY, LogicalType::JSON)
-                    | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::UTF8)
-                    | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::ENUM)
-                    | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::JSON) => {
+                    | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::UTF8) => {
                         ValueSchema::String(StringSchema)
                     }
+                    (PhysicalType::BYTE_ARRAY, LogicalType::JSON)
+                    | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::JSON) => {
+                        ValueSchema::Json(JsonSchema)
+                    }
+                    (PhysicalType::BYTE_ARRAY, LogicalType::ENUM)
+                    | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::ENUM) => {
+                        ValueSchema::Enum(EnumSchema)
+                    }
                     (PhysicalType::BYTE_ARRAY, LogicalType::NONE)
-                    | (PhysicalType::BYTE_ARRAY, LogicalType::BSON)
-                    | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::NONE)
-                    | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::BSON) => {
+                    | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::NONE) => {
                         ValueSchema::Array(VecSchema(
+                            if schema.get_physical_type() == PhysicalType::FIXED_LEN_BYTE_ARRAY {
+                                Some(schema.get_type_length().try_into().unwrap())
+                            } else {
+                                None
+                            },
+                        ))
+                    }
+                    (PhysicalType::BYTE_ARRAY, LogicalType::BSON)
+                    | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::BSON) => {
+                        ValueSchema::Bson(BsonSchema(
                             if schema.get_physical_type() == PhysicalType::FIXED_LEN_BYTE_ARRAY {
                                 Some(schema.get_type_length().try_into().unwrap())
                             } else {
@@ -940,7 +1229,10 @@ impl Deserialize for Value {
                     }
                     (PhysicalType::BYTE_ARRAY, LogicalType::DECIMAL)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL) => {
-                        unimplemented!()
+                        let (precision, scale) = (schema.get_precision(), schema.get_scale());
+                        let (precision, scale) =
+                            (precision.try_into().unwrap(), scale.try_into().unwrap());
+                        ValueSchema::Decimal(DecimalSchema::Array { precision, scale })
                     }
                     (PhysicalType::BYTE_ARRAY, LogicalType::INTERVAL)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::INTERVAL) => {
@@ -1098,6 +1390,22 @@ impl Deserialize for Value {
                 paths,
                 batch_size,
             )),
+            ValueSchema::Date(ref schema) => ValueReader::Date(<Date as Deserialize>::reader(
+                schema,
+                path,
+                curr_def_level,
+                curr_rep_level,
+                paths,
+                batch_size,
+            )),
+            ValueSchema::Time(ref schema) => ValueReader::Time(<Time as Deserialize>::reader(
+                schema,
+                path,
+                curr_def_level,
+                curr_rep_level,
+                paths,
+                batch_size,
+            )),
             ValueSchema::Timestamp(ref schema) => {
                 ValueReader::Timestamp(<Timestamp as Deserialize>::reader(
                     schema,
@@ -1108,7 +1416,25 @@ impl Deserialize for Value {
                     batch_size,
                 ))
             }
+            ValueSchema::Decimal(ref schema) => {
+                ValueReader::Decimal(<Decimal as Deserialize>::reader(
+                    schema,
+                    path,
+                    curr_def_level,
+                    curr_rep_level,
+                    paths,
+                    batch_size,
+                ))
+            }
             ValueSchema::Array(ref schema) => ValueReader::Array(<Vec<u8> as Deserialize>::reader(
+                schema,
+                path,
+                curr_def_level,
+                curr_rep_level,
+                paths,
+                batch_size,
+            )),
+            ValueSchema::Bson(ref schema) => ValueReader::Bson(<Bson as Deserialize>::reader(
                 schema,
                 path,
                 curr_def_level,
@@ -1126,6 +1452,22 @@ impl Deserialize for Value {
                     batch_size,
                 ))
             }
+            ValueSchema::Json(ref schema) => ValueReader::Json(<Json as Deserialize>::reader(
+                schema,
+                path,
+                curr_def_level,
+                curr_rep_level,
+                paths,
+                batch_size,
+            )),
+            ValueSchema::Enum(ref schema) => ValueReader::Enum(<Enum as Deserialize>::reader(
+                schema,
+                path,
+                curr_def_level,
+                curr_rep_level,
+                paths,
+                batch_size,
+            )),
             ValueSchema::List(ref schema) => {
                 ValueReader::List(Box::new(<List<Value> as Deserialize>::reader(
                     schema,

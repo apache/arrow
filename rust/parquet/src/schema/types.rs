@@ -94,11 +94,7 @@ impl Type {
     /// Note that this will panic if called on a non-primitive type.
     pub fn get_physical_type(&self) -> PhysicalType {
         match *self {
-            Type::PrimitiveType {
-                basic_info: _,
-                physical_type,
-                ..
-            } => physical_type,
+            Type::PrimitiveType { physical_type, .. } => physical_type,
             _ => panic!("Cannot call get_physical_type() on a non-primitive type"),
         }
     }
@@ -107,12 +103,26 @@ impl Type {
     /// Note that this will panic if called on a non-primitive type.
     pub fn get_type_length(&self) -> i32 {
         match *self {
-            Type::PrimitiveType {
-                basic_info: _,
-                type_length,
-                ..
-            } => type_length,
+            Type::PrimitiveType { type_length, .. } => type_length,
             _ => panic!("Cannot call get_type_length() on a non-primitive type"),
+        }
+    }
+
+    /// Gets the precision of this primitive type.
+    /// Note that this will panic if called on a non-primitive type.
+    pub fn get_precision(&self) -> i32 {
+        match *self {
+            Type::PrimitiveType { precision, .. } => precision,
+            _ => panic!("Cannot call get_precision() on a non-primitive type"),
+        }
+    }
+
+    /// Gets the scale of this primitive type.
+    /// Note that this will panic if called on a non-primitive type.
+    pub fn get_scale(&self) -> i32 {
+        match *self {
+            Type::PrimitiveType { scale, .. } => scale,
+            _ => panic!("Cannot call get_scale() on a non-primitive type"),
         }
     }
 

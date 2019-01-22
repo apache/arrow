@@ -2,186 +2,152 @@ use std::{
     collections::HashMap,
     fmt::{self, Debug, Display},
     marker::PhantomData,
+    mem,
     str::FromStr,
 };
 
 use super::{
     types::{Downcast, Root},
-    Deserialize, DisplayDisplayType, DisplayType,
+    Deserialize, DisplayDisplaySchema, DisplaySchema,
 };
-use crate::{errors::ParquetError, schema::parser::parse_message_type};
+use crate::{basic::Repetition, errors::ParquetError, schema::parser::parse_message_type};
 
 #[derive(Debug)]
 pub struct BoolSchema;
-impl Display for BoolSchema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("BoolSchema")
+impl DisplaySchema for BoolSchema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} bool {};", r, name))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} bool {};", r, name))
     }
 }
-impl DisplayType for BoolSchema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("BoolSchema")
-    }
-}
+
 #[derive(Debug)]
 pub struct U8Schema;
-impl Display for U8Schema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("U8Schema")
+impl DisplaySchema for U8Schema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int32 {} (UINT_8);", r, name))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int32 {} (UINT_8);", r, name))
     }
 }
-impl DisplayType for U8Schema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("U8Schema")
-    }
-}
+
 #[derive(Debug)]
 pub struct I8Schema;
-impl Display for I8Schema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("I8Schema")
+impl DisplaySchema for I8Schema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int32 {} (INT_8);", r, name))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int32 {} (INT_8);", r, name))
     }
 }
-impl DisplayType for I8Schema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("I8Schema")
-    }
-}
+
 #[derive(Debug)]
 pub struct U16Schema;
-impl Display for U16Schema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("U16Schema")
+impl DisplaySchema for U16Schema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int32 {} (UINT_16);", r, name))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int32 {} (UINT_16);", r, name))
     }
 }
-impl DisplayType for U16Schema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("U16Schema")
-    }
-}
+
 #[derive(Debug)]
 pub struct I16Schema;
-impl Display for I16Schema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("I16Schema")
+impl DisplaySchema for I16Schema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int32 {} (INT_16);", r, name))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int32 {} (INT_16);", r, name))
     }
 }
-impl DisplayType for I16Schema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("I16Schema")
-    }
-}
+
 #[derive(Debug)]
 pub struct U32Schema;
-impl Display for U32Schema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("U32Schema")
+impl DisplaySchema for U32Schema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int32 {} (UINT_32);", r, name))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int32 {} (UINT_32);", r, name))
     }
 }
-impl DisplayType for U32Schema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("U32Schema")
-    }
-}
+
 #[derive(Debug)]
 pub struct I32Schema;
-impl Display for I32Schema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("I32Schema")
+impl DisplaySchema for I32Schema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int32 {} (INT_32);", r, name))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int32 {} (INT_32);", r, name))
     }
 }
-impl DisplayType for I32Schema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("I32Schema")
-    }
-}
+
 #[derive(Debug)]
 pub struct U64Schema;
-impl Display for U64Schema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("U64Schema")
+impl DisplaySchema for U64Schema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int64 {} (UINT_64);", r, name))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int64 {} (UINT_64);", r, name))
     }
 }
-impl DisplayType for U64Schema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("U64Schema")
-    }
-}
+
 #[derive(Debug)]
 pub struct I64Schema;
-impl Display for I64Schema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("I64Schema")
+impl DisplaySchema for I64Schema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int64 {} (INT_64);", r, name))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int64 {} (INT_64);", r, name))
     }
 }
-impl DisplayType for I64Schema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("I64Schema")
-    }
-}
-#[derive(Debug)]
-pub struct F64Schema;
-impl Display for F64Schema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("F64Schema")
-    }
-}
-impl DisplayType for F64Schema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("F64Schema")
-    }
-}
+
 #[derive(Debug)]
 pub struct F32Schema;
-impl Display for F32Schema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("F32Schema")
+impl DisplaySchema for F32Schema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} float {};", r, name))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} float {};", r, name))
     }
 }
-impl DisplayType for F32Schema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("F32Schema")
-    }
-}
+
 #[derive(Debug)]
-pub struct StringSchema;
-impl Display for StringSchema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("StringSchema")
+pub struct F64Schema;
+impl DisplaySchema for F64Schema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} double {};", r, name))
     }
-}
-impl DisplayType for StringSchema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("StringSchema")
-    }
-}
-#[derive(Debug)]
-pub enum TimestampSchema {
-    Int96,
-    Millis,
-    Micros,
-}
-impl Display for TimestampSchema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("TimestampSchema")
-    }
-}
-impl DisplayType for TimestampSchema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("TimestampSchema")
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} double {};", r, name))
     }
 }
 
 #[derive(Debug)]
 pub struct VecSchema(pub(super) Option<u32>);
-impl Display for VecSchema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("VecSchema")
+impl DisplaySchema for VecSchema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        if let Some(len) = self.0 {
+            f.write_fmt(format_args!(
+                "{} fixed_len_byte_array({}) {};",
+                r, len, name
+            ))
+        } else {
+            f.write_fmt(format_args!("{} byte_array {};", r, name))
+        }
     }
-}
-impl DisplayType for VecSchema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("VecSchema")
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} byte_array {};", r, name))
     }
 }
 
@@ -191,14 +157,155 @@ impl<T> Debug for ArraySchema<T> {
         f.debug_tuple("ArraySchema").finish()
     }
 }
-impl<T> Display for ArraySchema<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("ArraySchema<T>")
+impl<T> DisplaySchema for ArraySchema<T> {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} fixed_len_byte_array({}) {};",
+            r,
+            mem::size_of::<T>(),
+            name
+        ))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} fixed_len_byte_array({}) {};",
+            r,
+            mem::size_of::<T>(),
+            name
+        ))
     }
 }
-impl<T> DisplayType for ArraySchema<T> {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("ArraySchema<T>")
+
+#[derive(Debug)]
+pub struct BsonSchema(pub(super) Option<u32>);
+impl DisplaySchema for BsonSchema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        if let Some(len) = self.0 {
+            f.write_fmt(format_args!(
+                "{} fixed_len_byte_array({}) {} (BSON);",
+                r, len, name
+            ))
+        } else {
+            f.write_fmt(format_args!("{} byte_array {} (BSON);", r, name))
+        }
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} byte_array {} (BSON);", r, name))
+    }
+}
+
+#[derive(Debug)]
+pub struct StringSchema;
+impl DisplaySchema for StringSchema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} byte_array {} (UTF8);", r, name))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} byte_array {} (UTF8);", r, name))
+    }
+}
+
+#[derive(Debug)]
+pub struct JsonSchema;
+impl DisplaySchema for JsonSchema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} byte_array {} (JSON);", r, name))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} byte_array {} (JSON);", r, name))
+    }
+}
+
+#[derive(Debug)]
+pub struct EnumSchema;
+impl DisplaySchema for EnumSchema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} byte_array {} (ENUM);", r, name))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} byte_array {} (ENUM);", r, name))
+    }
+}
+
+#[derive(Debug)]
+pub struct DateSchema;
+impl DisplaySchema for DateSchema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int32 {} (DATE);", r, name))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int32 {} (DATE);", r, name))
+    }
+}
+
+#[derive(Debug)]
+pub enum TimeSchema {
+    Millis,
+    Micros,
+}
+impl DisplaySchema for TimeSchema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self {
+            TimeSchema::Millis => f.write_fmt(format_args!("{} int32 {} (TIME_MILLIS);", r, name)),
+            TimeSchema::Micros => f.write_fmt(format_args!("{} int64 {} (TIME_MICROS);", r, name)),
+        }
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int64 {} (TIME_MICROS);", r, name))
+    }
+}
+
+#[derive(Debug)]
+pub enum TimestampSchema {
+    Int96,
+    Millis,
+    Micros,
+}
+impl DisplaySchema for TimestampSchema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self {
+            TimestampSchema::Int96 => f.write_fmt(format_args!("{} int96 {};", r, name)),
+            TimestampSchema::Millis => {
+                f.write_fmt(format_args!("{} int64 {} (TIMESTAMP_MILLIS);", r, name))
+            }
+            TimestampSchema::Micros => {
+                f.write_fmt(format_args!("{} int64 {} (TIMESTAMP_MICROS);", r, name))
+            }
+        }
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int96 {};", r, name))
+    }
+}
+
+#[derive(Debug)]
+pub enum DecimalSchema {
+    Int32 { precision: u8, scale: u8 },
+    Int64 { precision: u8, scale: u8 },
+    Array { precision: u32, scale: u32 },
+}
+impl DisplaySchema for DecimalSchema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        // For decimal type we should print precision and scale if they are > 0, e.g. DECIMAL(9, 2) - DECIMAL(9) - DECIMAL
+        // let precision_scale = match (precision, scale) {
+        //     (p, s) if p > 0 && s > 0 => format!(" ({}, {})", p, s),
+        //     (p, 0) if p > 0 => format!(" ({})", p),
+        //     _ => format!(""),
+        // };
+        match self {
+            DecimalSchema::Int32 { precision, scale } => {
+                f.write_fmt(format_args!("{} int32 {} (DECIMAL);", r, name))
+            }
+            DecimalSchema::Int64 { precision, scale } => {
+                f.write_fmt(format_args!("{} int64 {} (DECIMAL);", r, name))
+            }
+            DecimalSchema::Array { precision, scale } => {
+                f.write_fmt(format_args!("{} byte_array {} (DECIMAL);", r, name))
+            }
+        }
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} int64 {} (DECIMAL);", r, name))
     }
 }
 
@@ -210,42 +317,41 @@ pub struct MapSchema<K, V>(
     pub(super) Option<String>,
     pub(super) Option<String>,
 );
-impl<K, V> Display for MapSchema<K, V>
+impl<K, V> DisplaySchema for MapSchema<K, V>
 where
-    K: Display,
-    V: Display,
+    K: DisplaySchema,
+    V: DisplaySchema,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("MapSchema")
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} group {} (MAP) {{\n    repeated group key_value {{\n        {}\n        {}\n    }}\n}}",
+            r, name, "", ""
+        ))
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} group {} (MAP) {{\n    repeated group key_value {{\n        {}\n        {}\n    }}\n}}",
+            r, name, "", ""
+        ))
     }
 }
-impl<K, V> DisplayType for MapSchema<K, V>
-where
-    K: DisplayType,
-    V: DisplayType,
-{
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("MapSchema")
-    }
-}
+
 #[derive(Debug)]
 pub struct OptionSchema<T>(pub(super) T);
-impl<T> Display for OptionSchema<T>
+impl<T> DisplaySchema for OptionSchema<T>
 where
-    T: Display,
+    T: DisplaySchema,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("OptionSchema")
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        assert_eq!(r, Repetition::REQUIRED);
+        self.0.fmt(Repetition::OPTIONAL, name, f)
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        assert_eq!(r, Repetition::REQUIRED);
+        T::fmt_type(Repetition::OPTIONAL, name, f)
     }
 }
-impl<T> DisplayType for OptionSchema<T>
-where
-    T: DisplayType,
-{
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("OptionSchema")
-    }
-}
+
 #[derive(Debug)]
 pub struct ListSchema<T>(pub(super) T, pub(super) ListSchemaType);
 #[derive(Debug)]
@@ -254,20 +360,21 @@ pub(super) enum ListSchemaType {
     ListCompat(String),
     Repeated,
 }
-impl<T> Display for ListSchema<T>
+impl<T> DisplaySchema for ListSchema<T>
 where
-    T: Display,
+    T: DisplaySchema,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("ListSchema")
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} group {} (LIST) {{\n    repeated group list {{\n        {}\n    }}\n}}",
+            r, name, ""
+        ))
     }
-}
-impl<T> DisplayType for ListSchema<T>
-where
-    T: DisplayType,
-{
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("ListSchema")
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} group {} (LIST) {{\n    repeated group list {{\n        {}\n    }}\n}}",
+            r, name, ""
+        ))
     }
 }
 
@@ -276,14 +383,12 @@ pub struct GroupSchema(
     pub(super) Vec<ValueSchema>,
     pub(super) HashMap<String, usize>,
 );
-impl Display for GroupSchema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("GroupSchema")
+impl DisplaySchema for GroupSchema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} group {} {{\n    ...\n}}", r, name))
     }
-}
-impl DisplayType for GroupSchema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("GroupSchema")
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} group {} {{\n    ...\n}}", r, name))
     }
 }
 
@@ -300,22 +405,51 @@ pub enum ValueSchema {
     I64(I64Schema),
     F32(F32Schema),
     F64(F64Schema),
+    Date(DateSchema),
+    Time(TimeSchema),
     Timestamp(TimestampSchema),
+    Decimal(DecimalSchema),
     Array(VecSchema),
+    Bson(BsonSchema),
     String(StringSchema),
+    Json(JsonSchema),
+    Enum(EnumSchema),
     List(Box<ListSchema<ValueSchema>>),
     Map(Box<MapSchema<ValueSchema, ValueSchema>>),
     Group(GroupSchema),
     Option(Box<OptionSchema<ValueSchema>>),
 }
-impl Display for ValueSchema {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("ValueSchema")
+impl DisplaySchema for ValueSchema {
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self {
+            ValueSchema::Bool(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::U8(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::I8(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::U16(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::I16(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::U32(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::I32(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::U64(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::I64(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::F32(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::F64(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::Date(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::Time(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::Timestamp(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::Decimal(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::Array(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::Bson(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::String(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::Json(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::Enum(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::List(schema) => DisplaySchema::fmt(&**schema, r, name, f),
+            ValueSchema::Map(schema) => DisplaySchema::fmt(&**schema, r, name, f),
+            ValueSchema::Group(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::Option(schema) => DisplaySchema::fmt(&**schema, r, name, f),
+        }
     }
-}
-impl DisplayType for ValueSchema {
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("ValueSchema")
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("{} ... {};", r, name))
     }
 }
 impl ValueSchema {
@@ -649,6 +783,66 @@ impl ValueSchema {
         }
     }
 
+    pub fn is_date(&self) -> bool {
+        if let ValueSchema::Date(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn as_date(&self) -> Result<&DateSchema, ParquetError> {
+        if let ValueSchema::Date(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as date",
+                self
+            )))
+        }
+    }
+
+    pub fn into_date(self) -> Result<DateSchema, ParquetError> {
+        if let ValueSchema::Date(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as date",
+                self
+            )))
+        }
+    }
+
+    pub fn is_time(&self) -> bool {
+        if let ValueSchema::Time(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn as_time(&self) -> Result<&TimeSchema, ParquetError> {
+        if let ValueSchema::Time(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as time",
+                self
+            )))
+        }
+    }
+
+    pub fn into_time(self) -> Result<TimeSchema, ParquetError> {
+        if let ValueSchema::Time(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as time",
+                self
+            )))
+        }
+    }
+
     pub fn is_timestamp(&self) -> bool {
         if let ValueSchema::Timestamp(_) = self {
             true
@@ -674,6 +868,36 @@ impl ValueSchema {
         } else {
             Err(ParquetError::General(format!(
                 "Cannot access {:?} as timestamp",
+                self
+            )))
+        }
+    }
+
+    pub fn is_decimal(&self) -> bool {
+        if let ValueSchema::Decimal(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn as_decimal(&self) -> Result<&DecimalSchema, ParquetError> {
+        if let ValueSchema::Decimal(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as decimal",
+                self
+            )))
+        }
+    }
+
+    pub fn into_decimal(self) -> Result<DecimalSchema, ParquetError> {
+        if let ValueSchema::Decimal(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as decimal",
                 self
             )))
         }
@@ -709,6 +933,36 @@ impl ValueSchema {
         }
     }
 
+    pub fn is_bson(&self) -> bool {
+        if let ValueSchema::Bson(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn as_bson(&self) -> Result<&BsonSchema, ParquetError> {
+        if let ValueSchema::Bson(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as bson",
+                self
+            )))
+        }
+    }
+
+    pub fn into_bson(self) -> Result<BsonSchema, ParquetError> {
+        if let ValueSchema::Bson(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as bson",
+                self
+            )))
+        }
+    }
+
     pub fn is_string(&self) -> bool {
         if let ValueSchema::String(_) = self {
             true
@@ -734,6 +988,66 @@ impl ValueSchema {
         } else {
             Err(ParquetError::General(format!(
                 "Cannot access {:?} as string",
+                self
+            )))
+        }
+    }
+
+    pub fn is_json(&self) -> bool {
+        if let ValueSchema::Json(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn as_json(&self) -> Result<&JsonSchema, ParquetError> {
+        if let ValueSchema::Json(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as json",
+                self
+            )))
+        }
+    }
+
+    pub fn into_json(self) -> Result<JsonSchema, ParquetError> {
+        if let ValueSchema::Json(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as json",
+                self
+            )))
+        }
+    }
+
+    pub fn is_enum(&self) -> bool {
+        if let ValueSchema::Enum(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn as_enum(&self) -> Result<&EnumSchema, ParquetError> {
+        if let ValueSchema::Enum(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as enum",
+                self
+            )))
+        }
+    }
+
+    pub fn into_enum(self) -> Result<EnumSchema, ParquetError> {
+        if let ValueSchema::Enum(ret) = self {
+            Ok(ret)
+        } else {
+            Err(ParquetError::General(format!(
+                "Cannot access {:?} as enum",
                 self
             )))
         }
@@ -920,9 +1234,24 @@ impl Downcast<F64Schema> for ValueSchema {
         self.into_f64()
     }
 }
+impl Downcast<DateSchema> for ValueSchema {
+    fn downcast(self) -> Result<DateSchema, ParquetError> {
+        self.into_date()
+    }
+}
+impl Downcast<TimeSchema> for ValueSchema {
+    fn downcast(self) -> Result<TimeSchema, ParquetError> {
+        self.into_time()
+    }
+}
 impl Downcast<TimestampSchema> for ValueSchema {
     fn downcast(self) -> Result<TimestampSchema, ParquetError> {
         self.into_timestamp()
+    }
+}
+impl Downcast<DecimalSchema> for ValueSchema {
+    fn downcast(self) -> Result<DecimalSchema, ParquetError> {
+        self.into_decimal()
     }
 }
 impl Downcast<VecSchema> for ValueSchema {
@@ -930,9 +1259,24 @@ impl Downcast<VecSchema> for ValueSchema {
         self.into_array()
     }
 }
+impl Downcast<BsonSchema> for ValueSchema {
+    fn downcast(self) -> Result<BsonSchema, ParquetError> {
+        self.into_bson()
+    }
+}
 impl Downcast<StringSchema> for ValueSchema {
     fn downcast(self) -> Result<StringSchema, ParquetError> {
         self.into_string()
+    }
+}
+impl Downcast<JsonSchema> for ValueSchema {
+    fn downcast(self) -> Result<JsonSchema, ParquetError> {
+        self.into_json()
+    }
+}
+impl Downcast<EnumSchema> for ValueSchema {
+    fn downcast(self) -> Result<EnumSchema, ParquetError> {
+        self.into_enum()
     }
 }
 impl<T> Downcast<ListSchema<T>> for ValueSchema
@@ -1001,26 +1345,23 @@ where
             .finish()
     }
 }
-impl<T, S> Display for RootSchema<T, S>
+impl<T, S> DisplaySchema for RootSchema<T, S>
 where
-    S: Display,
+    S: DisplaySchema,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("RootSchema")
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        assert_eq!(r, Repetition::REQUIRED);
+        f.write_fmt(format_args!("message {}", ""))
     }
-}
-impl<T, S> DisplayType for RootSchema<T, S>
-where
-    S: DisplayType,
-{
-    fn fmt(f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_str("RootSchema")
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        assert_eq!(r, Repetition::REQUIRED);
+        f.write_fmt(format_args!("message {}", ""))
     }
 }
 impl<T, S> FromStr for RootSchema<T, S>
 where
     Root<T>: Deserialize<Schema = Self>,
-    S: Display + DisplayType,
+    S: DisplaySchema,
 {
     type Err = ParquetError;
 
@@ -1040,7 +1381,7 @@ where
              {}",
             String::from_utf8(b).unwrap(),
             // String::from_utf8(a).unwrap(),
-            DisplayDisplayType::<<Root<T> as Deserialize>::Schema>::new(),
+            DisplayDisplaySchema::<<Root<T> as Deserialize>::Schema>::new(),
             err
           ))
 
@@ -1060,3 +1401,15 @@ where
 }
 
 pub struct TupleSchema<T>(pub(super) T);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // #[test]
+    // fn schema_printing() {
+    //     let file_name = "alltypes_dictionary.parquet";
+    //     let file = get_test_file(file_name);
+    //     let file_reader: SerializedFileReader<_> = SerializedFileReader::new(file)?;
+    // }
+}

@@ -258,7 +258,7 @@ impl Deserialize for u32 {
                     col_reader,
                 ),
             },
-            (|x| Ok(x as u32)) as fn(_) -> _,
+            |x| Ok(x as u32),
         )
     }
 }
@@ -327,7 +327,7 @@ impl Deserialize for u64 {
                     col_reader,
                 ),
             },
-            (|x| Ok(x as u64)) as fn(_) -> _,
+            |x| Ok(x as u64),
         )
     }
 }

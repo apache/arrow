@@ -1,4 +1,9 @@
-use std::{collections::HashMap, marker::PhantomData, string::FromUtf8Error};
+use std::{
+    collections::HashMap,
+    fmt::{self, Display},
+    marker::PhantomData,
+    string::FromUtf8Error,
+};
 
 use crate::{
     basic::{LogicalType, Repetition, Type as PhysicalType},
@@ -7,7 +12,7 @@ use crate::{
     errors::ParquetError,
     record::{
         reader::{ByteArrayReader, FixedLenByteArrayReader, MapReader},
-        schemas::{ArraySchema, StringSchema, VecSchema},
+        schemas::{ArraySchema, BsonSchema, EnumSchema, JsonSchema, StringSchema, VecSchema},
         triplet::TypedTripletIter,
         types::{downcast, Value},
         Deserialize,
@@ -47,6 +52,51 @@ impl Deserialize for Vec<u8> {
         }
     }
 }
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub struct Bson(Vec<u8>);
+impl Deserialize for Bson {
+    // existential type Reader: Reader<Item = Self>;
+    type Reader =
+        MapReader<<Vec<u8> as Deserialize>::Reader, fn(Vec<u8>) -> Result<Self, ParquetError>>;
+    type Schema = BsonSchema;
+
+    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
+        Value::parse(schema).and_then(downcast)
+    }
+
+    fn reader(
+        schema: &Self::Schema,
+        path: &mut Vec<String>,
+        curr_def_level: i16,
+        curr_rep_level: i16,
+        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        batch_size: usize,
+    ) -> Self::Reader {
+        MapReader(
+            Vec::<u8>::reader(
+                &VecSchema(schema.0),
+                path,
+                curr_def_level,
+                curr_rep_level,
+                paths,
+                batch_size,
+            ),
+            |x| Ok(Bson(x)),
+        )
+    }
+}
+impl From<Bson> for Vec<u8> {
+    fn from(json: Bson) -> Self {
+        json.0
+    }
+}
+impl From<Vec<u8>> for Bson {
+    fn from(string: Vec<u8>) -> Self {
+        Bson(string)
+    }
+}
+
 impl Deserialize for String {
     // existential type Reader: Reader<Item = Self>;
     type Reader = MapReader<ByteArrayReader, fn(Vec<u8>) -> Result<Self, ParquetError>>;
@@ -79,11 +129,109 @@ impl Deserialize for String {
                     col_reader,
                 ),
             },
-            (|x| {
+            |x| {
                 String::from_utf8(x)
                     .map_err(|err: FromUtf8Error| ParquetError::General(err.to_string()))
-            }) as fn(_) -> _,
+            },
         )
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub struct Json(String);
+impl Deserialize for Json {
+    // existential type Reader: Reader<Item = Self>;
+    type Reader =
+        MapReader<<String as Deserialize>::Reader, fn(String) -> Result<Self, ParquetError>>;
+    type Schema = JsonSchema;
+
+    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
+        Value::parse(schema).and_then(downcast)
+    }
+
+    fn reader(
+        _schema: &Self::Schema,
+        path: &mut Vec<String>,
+        curr_def_level: i16,
+        curr_rep_level: i16,
+        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        batch_size: usize,
+    ) -> Self::Reader {
+        MapReader(
+            String::reader(
+                &StringSchema,
+                path,
+                curr_def_level,
+                curr_rep_level,
+                paths,
+                batch_size,
+            ),
+            |x| Ok(Json(x)),
+        )
+    }
+}
+impl Display for Json {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        self.0.fmt(f)
+    }
+}
+impl From<Json> for String {
+    fn from(json: Json) -> Self {
+        json.0
+    }
+}
+impl From<String> for Json {
+    fn from(string: String) -> Self {
+        Json(string)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub struct Enum(String);
+impl Deserialize for Enum {
+    // existential type Reader: Reader<Item = Self>;
+    type Reader =
+        MapReader<<String as Deserialize>::Reader, fn(String) -> Result<Self, ParquetError>>;
+    type Schema = EnumSchema;
+
+    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
+        Value::parse(schema).and_then(downcast)
+    }
+
+    fn reader(
+        _schema: &Self::Schema,
+        path: &mut Vec<String>,
+        curr_def_level: i16,
+        curr_rep_level: i16,
+        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        batch_size: usize,
+    ) -> Self::Reader {
+        MapReader(
+            String::reader(
+                &StringSchema,
+                path,
+                curr_def_level,
+                curr_rep_level,
+                paths,
+                batch_size,
+            ),
+            |x| Ok(Enum(x)),
+        )
+    }
+}
+impl Display for Enum {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        self.0.fmt(f)
+    }
+}
+impl From<Enum> for String {
+    fn from(enum_: Enum) -> Self {
+        enum_.0
+    }
+}
+impl From<String> for Enum {
+    fn from(string: String) -> Self {
+        Enum(string)
     }
 }
 
@@ -133,7 +281,7 @@ macro_rules! impl_parquet_deserialize_array {
                             col_reader,
                         ),
                     },
-                    (|bytes: Vec<_>| {
+                    |bytes: Vec<_>| {
                         let mut ret = std::mem::MaybeUninit::<Self>::uninit();
                         assert_eq!(bytes.len(), unsafe { &*ret.as_ptr() }.len());
                         unsafe {
@@ -144,7 +292,7 @@ macro_rules! impl_parquet_deserialize_array {
                             )
                         };
                         Ok(unsafe { ret.assume_init() })
-                    }) as fn(_) -> _,
+                    },
                 )
             }
         }
@@ -181,7 +329,7 @@ macro_rules! impl_parquet_deserialize_array {
                             col_reader,
                         ),
                     },
-                    (|bytes: Vec<_>| {
+                    |bytes: Vec<_>| {
                         let mut ret = box [0u8; $i];
                         assert_eq!(bytes.len(), ret.len());
                         unsafe {
@@ -192,7 +340,7 @@ macro_rules! impl_parquet_deserialize_array {
                             )
                         };
                         Ok(ret)
-                    }) as fn(_) -> _,
+                    },
                 )
             }
         }

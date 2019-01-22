@@ -22,13 +22,13 @@ use std::{collections::HashMap, convert::TryInto, error::Error, marker::PhantomD
 
 use super::{
     triplet::TypedTripletIter,
-    types::{Group, List, Map, Root, Timestamp, Value},
-    Deserialize, DisplayDisplayType,
+    types::{Bson, Date, Enum, Group, Json, List, Map, Root, Time, Timestamp, Value},
+    Deserialize, DisplayDisplaySchema,
 };
 use crate::column::reader::ColumnReader;
 use crate::data_type::{
-    BoolType, ByteArrayType, DoubleType, FixedLenByteArrayType, FloatType, Int32Type, Int64Type,
-    Int96, Int96Type,
+    BoolType, ByteArrayType, Decimal, DoubleType, FixedLenByteArrayType, FloatType, Int32Type,
+    Int64Type, Int96, Int96Type,
 };
 use crate::errors::{ParquetError, Result};
 use crate::file::reader::{FileReader, RowGroupReader};
@@ -44,6 +44,49 @@ pub trait Reader {
     fn has_next(&self) -> bool;
     fn current_def_level(&self) -> i16;
     fn current_rep_level(&self) -> i16;
+}
+
+impl<A, B> Reader for sum::Sum2<A, B>
+where
+    A: Reader,
+    B: Reader<Item = A::Item>,
+{
+    type Item = A::Item;
+
+    fn read(&mut self) -> Result<Self::Item> {
+        match self {
+            sum::Sum2::A(ref mut reader) => reader.read(),
+            sum::Sum2::B(ref mut reader) => reader.read(),
+        }
+    }
+
+    fn advance_columns(&mut self) -> Result<()> {
+        match self {
+            sum::Sum2::A(ref mut reader) => reader.advance_columns(),
+            sum::Sum2::B(ref mut reader) => reader.advance_columns(),
+        }
+    }
+
+    fn has_next(&self) -> bool {
+        match self {
+            sum::Sum2::A(ref reader) => reader.has_next(),
+            sum::Sum2::B(ref reader) => reader.has_next(),
+        }
+    }
+
+    fn current_def_level(&self) -> i16 {
+        match self {
+            sum::Sum2::A(ref reader) => reader.current_def_level(),
+            sum::Sum2::B(ref reader) => reader.current_def_level(),
+        }
+    }
+
+    fn current_rep_level(&self) -> i16 {
+        match self {
+            sum::Sum2::A(ref reader) => reader.current_rep_level(),
+            sum::Sum2::B(ref reader) => reader.current_rep_level(),
+        }
+    }
 }
 
 impl<A, B, C> Reader for sum::Sum3<A, B, C>
@@ -500,9 +543,15 @@ pub enum ValueReader {
     I64(<i64 as Deserialize>::Reader),
     F32(<f32 as Deserialize>::Reader),
     F64(<f64 as Deserialize>::Reader),
+    Date(<Date as Deserialize>::Reader),
+    Time(<Time as Deserialize>::Reader),
     Timestamp(<Timestamp as Deserialize>::Reader),
+    Decimal(<Decimal as Deserialize>::Reader),
     Array(<Vec<u8> as Deserialize>::Reader),
+    Bson(<Bson as Deserialize>::Reader),
     String(<String as Deserialize>::Reader),
+    Json(<Json as Deserialize>::Reader),
+    Enum(<Enum as Deserialize>::Reader),
     List(Box<<List<Value> as Deserialize>::Reader>),
     Map(Box<<Map<Value, Value> as Deserialize>::Reader>),
     Group(<Group as Deserialize>::Reader),
@@ -524,9 +573,15 @@ impl Reader for ValueReader {
             ValueReader::I64(ref mut reader) => reader.read().map(Value::I64),
             ValueReader::F32(ref mut reader) => reader.read().map(Value::F32),
             ValueReader::F64(ref mut reader) => reader.read().map(Value::F64),
+            ValueReader::Date(ref mut reader) => reader.read().map(Value::Date),
+            ValueReader::Time(ref mut reader) => reader.read().map(Value::Time),
             ValueReader::Timestamp(ref mut reader) => reader.read().map(Value::Timestamp),
+            ValueReader::Decimal(ref mut reader) => reader.read().map(Value::Decimal),
             ValueReader::Array(ref mut reader) => reader.read().map(Value::Array),
+            ValueReader::Bson(ref mut reader) => reader.read().map(Value::Bson),
             ValueReader::String(ref mut reader) => reader.read().map(Value::String),
+            ValueReader::Json(ref mut reader) => reader.read().map(Value::Json),
+            ValueReader::Enum(ref mut reader) => reader.read().map(Value::Enum),
             ValueReader::List(ref mut reader) => reader.read().map(Value::List),
             ValueReader::Map(ref mut reader) => reader.read().map(Value::Map),
             ValueReader::Group(ref mut reader) => reader.read().map(Value::Group),
@@ -549,9 +604,15 @@ impl Reader for ValueReader {
             ValueReader::I64(ref mut reader) => reader.advance_columns(),
             ValueReader::F32(ref mut reader) => reader.advance_columns(),
             ValueReader::F64(ref mut reader) => reader.advance_columns(),
+            ValueReader::Date(ref mut reader) => reader.advance_columns(),
+            ValueReader::Time(ref mut reader) => reader.advance_columns(),
             ValueReader::Timestamp(ref mut reader) => reader.advance_columns(),
+            ValueReader::Decimal(ref mut reader) => reader.advance_columns(),
             ValueReader::Array(ref mut reader) => reader.advance_columns(),
+            ValueReader::Bson(ref mut reader) => reader.advance_columns(),
             ValueReader::String(ref mut reader) => reader.advance_columns(),
+            ValueReader::Json(ref mut reader) => reader.advance_columns(),
+            ValueReader::Enum(ref mut reader) => reader.advance_columns(),
             ValueReader::List(ref mut reader) => reader.advance_columns(),
             ValueReader::Map(ref mut reader) => reader.advance_columns(),
             ValueReader::Group(ref mut reader) => reader.advance_columns(),
@@ -572,9 +633,15 @@ impl Reader for ValueReader {
             ValueReader::I64(ref reader) => reader.has_next(),
             ValueReader::F32(ref reader) => reader.has_next(),
             ValueReader::F64(ref reader) => reader.has_next(),
+            ValueReader::Date(ref reader) => reader.has_next(),
+            ValueReader::Time(ref reader) => reader.has_next(),
             ValueReader::Timestamp(ref reader) => reader.has_next(),
+            ValueReader::Decimal(ref reader) => reader.has_next(),
             ValueReader::Array(ref reader) => reader.has_next(),
+            ValueReader::Bson(ref reader) => reader.has_next(),
             ValueReader::String(ref reader) => reader.has_next(),
+            ValueReader::Json(ref reader) => reader.has_next(),
+            ValueReader::Enum(ref reader) => reader.has_next(),
             ValueReader::List(ref reader) => reader.has_next(),
             ValueReader::Map(ref reader) => reader.has_next(),
             ValueReader::Group(ref reader) => reader.has_next(),
@@ -595,9 +662,15 @@ impl Reader for ValueReader {
             ValueReader::I64(ref reader) => reader.current_def_level(),
             ValueReader::F32(ref reader) => reader.current_def_level(),
             ValueReader::F64(ref reader) => reader.current_def_level(),
+            ValueReader::Date(ref reader) => reader.current_def_level(),
+            ValueReader::Time(ref reader) => reader.current_def_level(),
             ValueReader::Timestamp(ref reader) => reader.current_def_level(),
+            ValueReader::Decimal(ref reader) => reader.current_def_level(),
             ValueReader::Array(ref reader) => reader.current_def_level(),
+            ValueReader::Bson(ref reader) => reader.current_def_level(),
             ValueReader::String(ref reader) => reader.current_def_level(),
+            ValueReader::Json(ref reader) => reader.current_def_level(),
+            ValueReader::Enum(ref reader) => reader.current_def_level(),
             ValueReader::List(ref reader) => reader.current_def_level(),
             ValueReader::Map(ref reader) => reader.current_def_level(),
             ValueReader::Group(ref reader) => reader.current_def_level(),
@@ -618,9 +691,15 @@ impl Reader for ValueReader {
             ValueReader::I64(ref reader) => reader.current_rep_level(),
             ValueReader::F32(ref reader) => reader.current_rep_level(),
             ValueReader::F64(ref reader) => reader.current_rep_level(),
+            ValueReader::Date(ref reader) => reader.current_rep_level(),
+            ValueReader::Time(ref reader) => reader.current_rep_level(),
             ValueReader::Timestamp(ref reader) => reader.current_rep_level(),
+            ValueReader::Decimal(ref reader) => reader.current_rep_level(),
             ValueReader::Array(ref reader) => reader.current_rep_level(),
+            ValueReader::Bson(ref reader) => reader.current_rep_level(),
             ValueReader::String(ref reader) => reader.current_rep_level(),
+            ValueReader::Json(ref reader) => reader.current_rep_level(),
+            ValueReader::Enum(ref reader) => reader.current_rep_level(),
             ValueReader::List(ref reader) => reader.current_rep_level(),
             ValueReader::Map(ref reader) => reader.current_rep_level(),
             ValueReader::Group(ref reader) => reader.current_rep_level(),
@@ -804,7 +883,7 @@ where
                     "Types don't match schema.\nSchema is:\n{}\nBut types require:\n{}\nError: {}",
                     String::from_utf8(b).unwrap(),
                     // String::from_utf8(a).unwrap(),
-                    DisplayDisplayType::<<Root<T> as Deserialize>::Schema>::new(),
+                    DisplayDisplaySchema::<<Root<T> as Deserialize>::Schema>::new(),
                     err
                 ))
             })?
@@ -834,7 +913,7 @@ where
                     "Types don't match schema.\nSchema is:\n{}\nBut types require:\n{}\nError: {}",
                     String::from_utf8(b).unwrap(),
                     // String::from_utf8(a).unwrap(),
-                    DisplayDisplayType::<<Root<T> as Deserialize>::Schema>::new(),
+                    DisplayDisplaySchema::<<Root<T> as Deserialize>::Schema>::new(),
                     err
                 ))
             })?
@@ -891,7 +970,7 @@ where
                     "Types don't match schema.\nSchema is:\n{}\nBut types require:\n{}\nError: {}",
                     String::from_utf8(b).unwrap(),
                     // String::from_utf8(a).unwrap(),
-                    DisplayDisplayType::<<Root<T> as Deserialize>::Schema>::new(),
+                    DisplayDisplaySchema::<<Root<T> as Deserialize>::Schema>::new(),
                     err
                 ))
             })?
@@ -928,7 +1007,7 @@ where
                             "Types don't match schema.\nSchema is:\n{}\nBut types require:\n{}\nError: {}",
                             String::from_utf8(b).unwrap(),
                             // String::from_utf8(a).unwrap(),
-                            DisplayDisplayType::<<Root<T> as Deserialize>::Schema>::new(),
+                            DisplayDisplaySchema::<<Root<T> as Deserialize>::Schema>::new(),
                             err
                         ))
                     })?

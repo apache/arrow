@@ -128,7 +128,7 @@ where
                 keys_reader,
                 values_reader,
             },
-            (|x: Vec<_>| Ok(Map(x.into_iter().collect()))) as fn(_) -> _,
+            |x: Vec<_>| Ok(Map(x.into_iter().collect())),
         )
     }
 }

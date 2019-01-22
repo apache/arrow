@@ -174,7 +174,7 @@ where
                     }
                 }
             },
-            (|x| Ok(List(x))) as fn(_) -> _,
+            |x| Ok(List(x)),
         )
     }
 }
