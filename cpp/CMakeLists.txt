@@ -864,24 +864,29 @@ if (ARROW_JEMALLOC)
     ${ARROW_JEMALLOC_LINK_LIBS})
   list(APPEND
     ARROW_STATIC_INSTALL_INTERFACE_LIBS
-    jemalloc
-    rt)
+    jemalloc)
 endif(ARROW_JEMALLOC)
 
-if (PTHREAD_LIBRARY)
+if (THREADS_FOUND)
   list(APPEND
     ARROW_LINK_LIBS
-    pthreadshared)
+    Threads::Threads
+    rt)
   list(APPEND
     ARROW_SHARED_INSTALL_INTERFACE_LIBS
-    pthread)
+    Threads::Threads
+    rt)
   list(APPEND
     ARROW_STATIC_LINK_LIBS
-    pthreadshared)
+    Threads::Threads
+    rt)
   list(APPEND
     ARROW_STATIC_INSTALL_INTERFACE_LIBS
-    pthread)
+    Threads::Threads
+    rt)
 endif()
+
+message(STATUS "link libs: ${ARROW_LINK_LIBS}")
 
 ############################################################
 # Subdirectories
