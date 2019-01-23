@@ -54,7 +54,9 @@ class ARROW_EXPORT RecordBatchWriter {
 
   /// \brief Write a record batch to the stream
   ///
-  /// \param allow_64bit boolean permitting field lengths exceeding INT32_MAX
+  /// \param[in] batch the record batch to write to the stream
+  /// \param[in] allow_64bit if true, allow field lengths that don't fit
+  ///    in a signed 32-bit int
   /// \return Status
   virtual Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) = 0;
 
@@ -161,6 +163,7 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
 /// \param[out] metadata_length the size of the length-prefixed flatbuffer
 /// including padding to a 64-byte boundary
 /// \param[out] body_length the size of the contiguous buffer block plus
+/// \param[in] pool the memory pool to allocate memory from
 /// \param[in] max_recursion_depth the maximum permitted nesting schema depth
 /// \param[in] allow_64bit permit field lengths exceeding INT32_MAX. May not be
 /// readable by other Arrow implementations
@@ -173,7 +176,9 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
 /// prefixed by its size, followed by each of the memory buffers in the batch
 /// written end to end (with appropriate alignment and padding):
 ///
-/// <int32: metadata size> <uint8*: metadata> <buffers>
+/// \code
+/// <int32: metadata size> <uint8*: metadata> <buffers ...>
+/// \endcode
 ///
 /// Finally, the absolute offsets (relative to the start of the output stream)
 /// to the end of the body and end of the metadata / data header (suffixed by
@@ -254,18 +259,22 @@ ARROW_EXPORT
 Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
                         std::unique_ptr<Message>* out);
 
-/// \brief Write arrow::Tensor as a contiguous message. The metadata and body
-/// are written assuming 64-byte alignment. It is the user's responsibility to
-/// ensure that the OutputStream has been aligned to a 64-byte multiple before
-/// writing the message.
+/// \brief Write arrow::Tensor as a contiguous message.
+///
+/// The metadata and body are written assuming 64-byte alignment. It is the
+/// user's responsibility to ensure that the OutputStream has been aligned
+/// to a 64-byte multiple before writing the message.
+///
+/// The message is written out as followed:
+/// \code
+/// <metadata size> <metadata> <tensor data>
+/// \endcode
 ///
 /// \param[in] tensor the Tensor to write
 /// \param[in] dst the OutputStream to write to
 /// \param[out] metadata_length the actual metadata length, including padding
 /// \param[out] body_length the acutal message body length
 /// \return Status
-///
-/// <metadata size><metadata><tensor data>
 ARROW_EXPORT
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length);

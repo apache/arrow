@@ -99,7 +99,8 @@ class PARQUET_EXPORT BloomFilter {
 
   /// Compute hash for fixed byte array value by using its plain encoding result.
   ///
-  /// @param value the value to hash.
+  /// @param value the value address.
+  /// @param len the value length.
   /// @return hash result.
   virtual uint64_t Hash(const FLBA* value, uint32_t len) const = 0;
 
@@ -186,6 +187,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   void InsertHash(uint64_t hash) override;
   void WriteTo(OutputStream* sink) const override;
   uint32_t GetBitsetSize() const override { return num_bytes_; }
+
   uint64_t Hash(int64_t value) const override { return hasher_->Hash(value); }
   uint64_t Hash(float value) const override { return hasher_->Hash(value); }
   uint64_t Hash(double value) const override { return hasher_->Hash(value); }
@@ -195,6 +197,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   uint64_t Hash(const FLBA* value, uint32_t len) const override {
     return hasher_->Hash(value, len);
   }
+
   /// Deserialize the Bloom filter from an input stream. It is used when reconstructing
   /// a Bloom filter from a parquet filter.
   ///

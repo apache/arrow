@@ -15,18 +15,13 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-*************
-API Reference
-*************
+=========
+Utilities
+=========
 
-.. toctree::
-   :maxdepth: 3
+Decimal Numbers
+===============
 
-   api/support
-   api/memory
-   api/datatype
-   api/array
-   api/builder
-   api/table
-   api/utilities
-   api/cuda
+.. doxygenclass:: arrow::Decimal128
+   :project: arrow_cpp
+   :members:

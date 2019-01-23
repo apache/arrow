@@ -518,7 +518,7 @@ HIDE_UNDOC_CLASSES     = NO
 # included in the documentation.
 # The default value is: NO.
 
-HIDE_FRIEND_COMPOUNDS  = NO
+HIDE_FRIEND_COMPOUNDS  = YES
 
 # If the HIDE_IN_BODY_DOCS tag is set to YES, doxygen will hide any
 # documentation blocks found inside the body of a function. If set to NO, these
@@ -779,7 +779,7 @@ WARN_NO_PARAMDOC       = NO
 # a warning is encountered.
 # The default value is: NO.
 
-WARN_AS_ERROR          = NO
+WARN_AS_ERROR          = YES
 
 # The WARN_FORMAT tag determines the format of the warning messages that doxygen
 # can produce. The string should contain the $file, $line, and $text tags, which
@@ -858,7 +858,7 @@ RECURSIVE              = YES
 # Note that relative paths are relative to the directory from which doxygen is
 # run.
 
-EXCLUDE =
+EXCLUDE                = ../src/arrow/vendored
 
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
 # directories that are symbolic links (a Unix file system feature) are excluded
@@ -2075,7 +2075,8 @@ INCLUDE_FILE_PATTERNS  =
 PREDEFINED = __attribute__(x)= \
              __declspec(x)= \
              ARROW_EXPORT= \
-             ARROW_EXTERN_TEMPLATE=
+             ARROW_EXTERN_TEMPLATE= \
+             ARROW_DEPRECATED(x)=
 
 # If the MACRO_EXPANSION and EXPAND_ONLY_PREDEF tags are set to YES then this
 # tag can be used to specify a list of macro names that should be expanded. The
