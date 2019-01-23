@@ -16,6 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from __future__ import print_function
 import lintutils
 from subprocess import PIPE
 import argparse
@@ -31,7 +32,8 @@ def _check_one_file(completed_processes, filename):
     with open(filename, "rb") as reader:
         original = reader.read()
 
-    formatted = completed_processes[filename].stdout
+    returncode, stdout, stderr = completed_processes[filename]
+    formatted = stdout
     if formatted != original:
         # Run the equivalent of diff -u
         diff = list(difflib.unified_diff(
@@ -92,9 +94,10 @@ if __name__ == "__main__":
             [arguments.clang_format_binary, "-i"] + some
             for some in lintutils.chunk(formatted_filenames, 16)
         ])
-        for result in results:
+        for returncode, stdout, stderr in results:
             # if any clang-format reported a parse error, bubble it
-            result.check_returncode()
+            if returncode != 0:
+                sys.exit(returncode)
 
     else:
         # run an instance of clang-format for each source file in parallel,
@@ -103,9 +106,10 @@ if __name__ == "__main__":
             [arguments.clang_format_binary, filename]
             for filename in formatted_filenames
         ], stdout=PIPE, stderr=PIPE)
-        for result in results:
+        for returncode, stdout, stderr in results:
             # if any clang-format reported a parse error, bubble it
-            result.check_returncode()
+            if returncode != 0:
+                sys.exit(returncode)
 
         error = False
         checker = partial(_check_one_file, {

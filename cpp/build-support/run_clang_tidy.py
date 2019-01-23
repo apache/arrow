@@ -16,10 +16,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from __future__ import print_function
 import argparse
 import multiprocessing as mp
 import lintutils
-from subprocess import PIPE, DEVNULL
+from subprocess import PIPE
 import sys
 from functools import partial
 
@@ -36,40 +37,36 @@ def _check_some_files(completed_processes, filenames):
     return lintutils.stdout_pathcolonline(result, filenames)
 
 
-def _check_all(cmd, all_filenames):
-    # Output from clang-tidy can be massive, so only run 16 instances
-    # of it at a time. Process and drop that output before running more
-    for filenames in lintutils.chunk(all_filenames, 16 ** 2):
-        # each clang-tidy instance will process 16 files
-        chunks = list(lintutils.chunk(filenames, 16))
-        cmds = [cmd + some for some in chunks]
-        results = lintutils.run_parallel(cmds, stderr=DEVNULL, stdout=PIPE)
+def _check_all(cmd, filenames):
+    # each clang-tidy instance will process 16 files
+    chunks = lintutils.chunk(filenames, 16)
+    cmds = [cmd + some for some in chunks]
+    results = lintutils.run_parallel(cmds, stderr=PIPE, stdout=PIPE)
+    error = False
+    # record completed processes (keyed by the first filename in the input
+    # chunk) for lookup in _check_some_files
+    completed_processes = {
+        _get_chunk_key(some): result
+        for some, result in zip(chunks, results)
+    }
+    checker = partial(_check_some_files, completed_processes)
+    pool = mp.Pool()
+    try:
+        # check output of completed clang-tidy invocations in parallel
+        for problem_files, stdout in pool.imap(checker, chunks):
+            if problem_files:
+                msg = "clang-tidy suggested fixes for {}"
+                print("\n".join(map(msg.format, problem_files)))
+                error = True
+    except Exception:
+        error = True
+        raise
+    finally:
+        pool.terminate()
+        pool.join()
 
-        error = False
-        # record completed processes (keyed by the first filename in the input chunk)
-        # for lookup in _check_some_files
-        completed_processes = {
-            _get_chunk_key(some): result
-            for some, result in zip(chunks, results)
-        }
-        checker = partial(_check_some_files, completed_processes)
-        pool = mp.Pool()
-        try:
-            # check output of completed clang-tidy invocations in parallel
-            for problem_files, stdout in pool.imap(checker, chunks):
-                if problem_files:
-                    msg = "clang-tidy suggested fixes for {}"
-                    print("\n".join(map(msg.format, problem_files)))
-                    error = True
-        except Exception:
-            error = True
-            raise
-        finally:
-            pool.terminate()
-            pool.join()
-
-        if error:
-            sys.exit(1)
+    if error:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
@@ -99,7 +96,7 @@ if __name__ == "__main__":
 
     linted_filenames = []
     for path in lintutils.get_sources(arguments.source_dir):
-        linted_filenames.append(str(path))
+        linted_filenames.append(path)
 
     if not arguments.quiet:
         msg = 'Tidying {}' if arguments.fix else 'Checking {}'
