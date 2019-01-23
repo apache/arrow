@@ -91,7 +91,7 @@ BENCHMARK_TEMPLATE(MemoryBandwidth, Write)->ThreadRange(1, kNumCores)->UseRealTi
 BENCHMARK_TEMPLATE(MemoryBandwidth, ReadWrite)->ThreadRange(1, kNumCores)->UseRealTime();
 
 static void ParallelMemoryCopy(benchmark::State& state) {  // NOLINT non-const reference
-  const int n_threads = state.range(0);
+  const int64_t n_threads = state.range(0);
   const int64_t buffer_size = kMemoryPerCore;
 
   std::shared_ptr<Buffer> src, dst;
