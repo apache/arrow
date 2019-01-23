@@ -90,8 +90,8 @@ class ARROW_EXPORT ArrayBuilder {
   /// allocations in STL containers like std::vector
   /// \param[in] additional_capacity the number of additional array values
   /// \return Status
-  Status Reserve(int64_t additional_elements) {
-    auto min_capacity = length() + additional_elements;
+  Status Reserve(int64_t additional_capacity) {
+    auto min_capacity = length() + additional_capacity;
     if (min_capacity <= capacity()) return Status::OK();
 
     // leave growth factor up to BufferBuilder
