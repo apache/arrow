@@ -24,8 +24,7 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 JAVA_DIR=${TRAVIS_BUILD_DIR}/java
 pushd $JAVA_DIR
 
-export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
-if [ $ARROW_TRAVIS_JAVA_BUILD_ONLY == "1" ]; then
+if [ "$ARROW_TRAVIS_JAVA_BUILD_ONLY" == "1" ]; then
     # Save time and make build less verbose by skipping tests and style checks
     $TRAVIS_MVN -DskipTests=true -Dcheckstyle.skip=true -B install
 else
