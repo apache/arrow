@@ -55,6 +55,10 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   /// \brief Parse the number from a base 10 string representation.
   explicit Decimal128(const std::string& value);
 
+  /// \brief Empty constructor wrapper over BasicDecimal128. This is required on some
+  /// older compilers.
+  constexpr Decimal128() noexcept : BasicDecimal128() {}
+
   /// Divide this number by right and return the result.
   ///
   /// This operation is not destructive.
