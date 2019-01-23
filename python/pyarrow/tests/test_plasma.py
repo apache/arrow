@@ -926,7 +926,7 @@ class TestPlasmaClient(object):
         import pyarrow.plasma as plasma
         # Start Plasma store.
         self.plasma_store_ctx = plasma.start_plasma_store(
-            plasma_store_memory=100 * 1024 * 1024,
+            plasma_store_memory=1000 * 1024,
             use_valgrind=USE_VALGRIND,
             external_store=EXTERNAL_STORE)
         self.plasma_store_name, self.p = self.plasma_store_ctx.__enter__()
@@ -949,7 +949,7 @@ class TestPlasmaClient(object):
         client = self.plasma_client
 
         object_ids = [random_object_id() for _ in range(0, 11)]
-        data = b'x' * 10 * 1024 * 1024
+        data = b'x' * 100 * 1024
         metadata = b''
 
         for i in range(0, 11):
