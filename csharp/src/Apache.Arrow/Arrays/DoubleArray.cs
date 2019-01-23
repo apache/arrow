@@ -19,6 +19,14 @@ namespace Apache.Arrow
 {
     public class DoubleArray : PrimitiveArray<double>
     {
+        public class Builder : PrimitiveArrayBuilder<double, DoubleArray, Builder>
+        {
+            protected override DoubleArray Build(
+                ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
+                int length, int nullCount, int offset) =>
+                new DoubleArray(valueBuffer, nullBitmapBuffer, length, nullCount, offset);
+        }
+
         public DoubleArray(
             ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
             int length, int nullCount, int offset)

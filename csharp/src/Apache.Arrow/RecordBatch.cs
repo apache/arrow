@@ -19,7 +19,7 @@ using System.Linq;
 
 namespace Apache.Arrow
 {
-    public class RecordBatch
+    public partial class RecordBatch
     {
         public Schema Schema { get; }
         public int ColumnCount => _arrays.Count;

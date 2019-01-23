@@ -32,6 +32,13 @@ namespace Apache.Arrow
                 _metadata = new Dictionary<string, string>();
             }
 
+            public Builder Clear()
+            {
+                _fields.Clear();
+                _metadata.Clear();
+                return this;
+            }
+
             public Builder Field(Field field)
             {
                 if (field == null) return this;

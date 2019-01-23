@@ -14,7 +14,7 @@
     <RepositoryType>git</RepositoryType>
     <PackageTags>apache arrow</PackageTags>
     <Company>Apache</Company>
-    <Version>0.0.1</Version>
+    <Version>0.0.4</Version>
   </PropertyGroup>
 
   <ItemGroup>

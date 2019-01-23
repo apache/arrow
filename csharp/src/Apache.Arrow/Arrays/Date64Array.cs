@@ -15,6 +15,8 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections.Generic;
+using Apache.Arrow.Memory;
 
 namespace Apache.Arrow
 {
@@ -27,6 +29,24 @@ namespace Apache.Arrow
                 new[] { nullBitmapBuffer, valueBuffer }))
         { }
 
+        public class Builder : PrimitiveArrayBuilder<DateTimeOffset, long, Date64Array, Builder>
+        {
+            internal class DateBuilder: PrimitiveArrayBuilder<long, Date64Array, DateBuilder>
+            {
+                protected override Date64Array Build(
+                    ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
+                    int length, int nullCount, int offset) =>
+                    new Date64Array(valueBuffer, nullBitmapBuffer, length, nullCount, offset);
+            } 
+
+            public Builder() : base(new DateBuilder()) { }
+
+            protected override long ConvertTo(DateTimeOffset value)
+            {
+                return value.ToUnixTimeMilliseconds();
+            }
+        }
+
         public Date64Array(ArrayData data) 
             : base(data)
         {
@@ -37,11 +57,15 @@ namespace Apache.Arrow
 
         public DateTimeOffset? GetDate(int index)
         {
-            var value = GetValue(index);
+            if (!IsValid(index))
+            {
+                return null;
+            }
 
-            return value.HasValue
-                ? DateTimeOffset.FromUnixTimeMilliseconds(value.Value)
-                : default;
+            var values = ValueBuffer.Span.CastTo<long>().Slice(0, Length);
+            var value = values[index];
+
+            return DateTimeOffset.FromUnixTimeMilliseconds(value);
         }
     }
 }

@@ -20,6 +20,21 @@ namespace Apache.Arrow.Tests
 {
     public class BitUtilityTests
     {
+        public class ByteCount
+        {
+            [Theory]
+            [InlineData(0, 0)]
+            [InlineData(1, 1)]
+            [InlineData(8, 1)]
+            [InlineData(9, 2)]
+            [InlineData(32, 4)]
+            public void HasExpectedResult(int n, int expected)
+            {
+                var count = BitUtility.ByteCount(n);
+                Assert.Equal(expected, count);
+            }
+        }
+
         public class CountBits
         {
             [Theory]

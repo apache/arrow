@@ -19,6 +19,14 @@ namespace Apache.Arrow
 {
     public class Int32Array : PrimitiveArray<int>
     {
+        public class Builder : PrimitiveArrayBuilder<int, Int32Array, Builder>
+        {
+            protected override Int32Array Build(
+                ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
+                int length, int nullCount, int offset) =>
+                new Int32Array(valueBuffer, nullBitmapBuffer, length, nullCount, offset);
+        }
+
         public Int32Array(
             ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
             int length, int nullCount, int offset)
