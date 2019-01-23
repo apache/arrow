@@ -92,18 +92,12 @@ def test_from_object(c, dtype, size):
 
     # Creating device buffer from a slice of numba DeviceNDArray:
     if size >= 8:
+        # 1-D arrays
         for s in [slice(size//4, None, None),
-                  slice(size//4, -(size//4), None),
-                  slice(None, None, 2),
-                  slice(size//4, None, 2),
-                  slice(size//4, -(size//4), 2),
-                  slice(None, None, 3),
-                  slice(size//8, None, 3),
-                  slice(size//8, -(size//8), 3)]:
-            s2 = slice(None, None, s.step)
+                  slice(size//4, -(size//4), None)]:
             cbuf2 = ctx.buffer_from_object(darr[s])
             arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
-            np.testing.assert_equal(arr[s], arr2[s2])
+            np.testing.assert_equal(arr[s], arr2)
 
         # cannot test negative strides due to numba bug, see its issue 3705
         if 0:
@@ -113,12 +107,36 @@ def test_from_object(c, dtype, size):
             arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
             np.testing.assert_equal(arr, arr2)
 
-    # Creating device buffer from a 2-dimensional numba DeviceNDArray:
-    if size >= 8:
-        cbuf2 = ctx.buffer_from_object(darr.reshape(size//4, size//(size//4)))
+        with pytest.raises(ValueError,
+                           match=('array data is non-contiguous')):
+            ctx.buffer_from_object(darr[::2])
+
+        # a rectangular 2-D array
+        s1 = size//4
+        s2 = size//s1
+        assert s1 * s2 == size
+        cbuf2 = ctx.buffer_from_object(darr.reshape(s1, s2))
         assert cbuf2.size == cbuf.size
         arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
         np.testing.assert_equal(arr, arr2)
+
+        with pytest.raises(ValueError,
+                           match=('array data is non-contiguous')):
+            ctx.buffer_from_object(darr.reshape(s1, s2)[:, ::2])
+
+        # a 3-D array
+        s1 = 4
+        s2 = size//8
+        s3 = size//(s1*s2)
+        assert s1 * s2 * s3 == size
+        cbuf2 = ctx.buffer_from_object(darr.reshape(s1, s2, s3))
+        assert cbuf2.size == cbuf.size
+        arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+        np.testing.assert_equal(arr, arr2)
+
+        with pytest.raises(ValueError,
+                           match=('array data is non-contiguous')):
+            ctx.buffer_from_object(darr.reshape(s1, s2, s3)[::2])
 
     # Creating device buffer from am object implementing cuda array
     # interface:

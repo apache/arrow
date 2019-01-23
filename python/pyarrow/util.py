@@ -91,7 +91,7 @@ def product(seq):
 
 def get_contiguous_span(shape, strides, itemsize):
     """
-    Return a span of N-D array data.
+    Return a contiguous span of N-D array data.
 
     Parameters
     ----------
@@ -120,4 +120,6 @@ def get_contiguous_span(shape, strides, itemsize):
                 end += stride * (dim - 1)
             elif stride < 0:
                 start += stride * (dim - 1)
+        if end - start != itemsize * product(shape):
+            raise ValueError('array data is non-contiguous')
     return start, end
