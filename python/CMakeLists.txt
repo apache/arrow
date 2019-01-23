@@ -61,6 +61,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_CUDA
     "Build the PyArrow CUDA support"
     OFF)
+  option(PYARROW_BUILD_GANDIVA
+    "Build the PyArrow Gandiva integration"
+    OFF)
   option(PYARROW_BUILD_PARQUET
     "Build the PyArrow Parquet integration"
     OFF)
