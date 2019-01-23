@@ -27,7 +27,7 @@ namespace red_arrow {
 extern VALUE mArrow;
 extern VALUE cRecordBatch;
 
-VALUE record_batch_raw_records(VALUE obj);
+VALUE record_batch_raw_records(int argc, VALUE* argv, VALUE obj);
 
 }  // namesapce red_arrow
 

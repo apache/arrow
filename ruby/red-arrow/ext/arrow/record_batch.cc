@@ -27,7 +27,7 @@ using Status = arrow::Status;
 
 class RawRecordsBuilder : public arrow::ArrayVisitor {
  public:
-  RawRecordsBuilder(VALUE records, int num_columns) : records_(records), num_columns_(num_columns) {}
+  RawRecordsBuilder(VALUE records, int num_columns, bool convert_decimal=false) : records_(records), num_columns_(num_columns), convert_decimal_(convert_decimal) {}
 
   Status Add(const arrow::RecordBatch& record_batch) {
     const int num_columns = record_batch.num_columns();
@@ -176,15 +176,25 @@ class RawRecordsBuilder : public arrow::ArrayVisitor {
   }
 
   Status Visit(const arrow::Decimal128Array& array) override {
-    // TODO: optionally conversion to BigDecimal
-    return VisitColumn(array, [&](const int64_t i) {
-      VALUE value = rb::protect([&]{
-        auto raw_value = std::make_shared<arrow::Decimal128>(array.GetValue(i));
-        auto gobj_value = garrow_decimal128_new_raw(&raw_value);
-        return GOBJ2RVAL(gobj_value);
+    if (convert_decimal_) {
+      ID id_BigDecimal = rb_intern("BigDecimal");
+      return VisitColumn(array, [&](const int64_t i) {
+        auto decimal_str = array.FormatValue(i);
+        VALUE value = rb::protect([&]{
+          return rb_funcall(rb_cObject, id_BigDecimal, 1, rb_str_new_cstr(decimal_str.c_str()));
+        });
+        return value;
       });
-      return value;
-    });
+    } else {
+      return VisitColumn(array, [&](const int64_t i) {
+        VALUE value = rb::protect([&]{
+          auto raw_value = std::make_shared<arrow::Decimal128>(array.GetValue(i));
+          auto gobj_value = garrow_decimal128_new_raw(&raw_value);
+          return GOBJ2RVAL(gobj_value);
+        });
+        return value;
+      });
+    }
   }
 
   Status Visit(const arrow::BinaryArray& array) override {
@@ -252,13 +262,37 @@ class RawRecordsBuilder : public arrow::ArrayVisitor {
 
   // The number of columns.
   const int num_columns_;
+
+  // Convert Decimal to BigDecimal.
+  const bool convert_decimal_;
 };
 
 }  // namespace
 
 VALUE
-record_batch_raw_records(VALUE obj)
+record_batch_raw_records(int argc, VALUE* argv, VALUE obj)
 {
+  VALUE kwargs;
+  bool convert_decimal = false;
+
+  rb_scan_args(argc, argv, ":", &kwargs);
+  if (!NIL_P(kwargs)) {
+    enum { k_convert_decimal, num_kwargs };
+    static ID kwarg_keys[num_kwargs];
+    VALUE kwarg_vals[num_kwargs];
+    kwarg_keys[k_convert_decimal] = rb_intern("convert_decimal");
+
+    rb_get_kwargs(kwargs, kwarg_keys, 0, num_kwargs, kwarg_vals);
+
+    if (kwarg_vals[k_convert_decimal] != Qundef && !NIL_P(kwarg_vals[k_convert_decimal])) {
+      convert_decimal = RTEST(kwarg_vals[k_convert_decimal]);
+    }
+  }
+
+  if (convert_decimal) {
+    rb_require("bigdecimal");
+  }
+
   try {
     const auto gobj_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(obj));
     const auto record_batch = garrow_record_batch_get_raw(gobj_record_batch);
@@ -267,7 +301,7 @@ record_batch_raw_records(VALUE obj)
     const auto schema = record_batch->schema();
 
     VALUE records = rb::protect([&]{ return rb_ary_new2(num_rows); });
-    RawRecordsBuilder builder(records, num_columns);
+    RawRecordsBuilder builder(records, num_columns, convert_decimal);
     builder.Add(*record_batch);
     return records;
   } catch (rb::error err) {
