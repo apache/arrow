@@ -19,7 +19,7 @@
 from pyarrow.compat import tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_cuda cimport *
-from pyarrow.lib import py_buffer, allocate_buffer, as_buffer
+from pyarrow.lib import py_buffer, allocate_buffer, as_buffer, ArrowTypeError
 from pyarrow.util import get_contiguous_span
 cimport cpython as cp
 
@@ -324,12 +324,8 @@ cdef class Context:
                 desc['shape'], desc.get('strides'),
                 np.dtype(desc['typestr']).itemsize)
             return self.foreign_buffer(addr + start, end - start)
-        from numba.cuda.cudadrv.driver import MemoryPointer
-        if isinstance(obj, MemoryPointer):
-            addr = obj.device_pointer.value
-            return self.foreign_buffer(addr, obj.size)
-        raise NotImplementedError('cannot create device buffer view from'
-                                  ' `%s` object' % (type(obj)))
+        raise ArrowTypeError('cannot create device buffer view from'
+                             ' `%s` object' % (type(obj)))
 
 
 cdef class IpcMemHandle:

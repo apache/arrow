@@ -17,9 +17,9 @@
 
 # Miscellaneous utility code
 
+import functools
 import six
 import warnings
-import functools
 
 
 try:

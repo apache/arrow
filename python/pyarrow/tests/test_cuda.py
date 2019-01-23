@@ -256,7 +256,7 @@ def test_context_from_object(size):
         ctx.buffer_from_object(pa.py_buffer(b"123"))
 
     # Trying to create a device buffer from numpy.array
-    with pytest.raises(NotImplementedError,
+    with pytest.raises(pa.ArrowTypeError,
                        match=('cannot create device buffer view from'
                               ' `<class \'numpy.ndarray\'>` object')):
         ctx.buffer_from_object(np.array([1, 2, 3]))
