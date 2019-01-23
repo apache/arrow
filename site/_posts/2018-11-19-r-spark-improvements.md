@@ -66,7 +66,7 @@ Using `arrow` with `sparklyr`, we can transfer data directly from R to
 Spark without having to serialize this data in R or persist in disk.
 
 The following example copies 10M rows from R into Spark using `sparklyr`
-with and without `arrow`, there is close to a 10x improvement using `arrow`.
+with and without `arrow`, there is close to a 16x improvement using `arrow`.
 
 This benchmark uses the [microbenchmark][8] R package, which runs code
 multiple times, provides stats on total execution time and plots each
@@ -108,7 +108,7 @@ significant as copying data since, `sparklyr` already collects data in
 columnar format.
 
 The following benchmark collects 10M rows from Spark into R and shows that
-`arrow` can bring 2x improvements.
+`arrow` can bring 3x improvements.
 
 ```r
 microbenchmark::microbenchmark(
@@ -153,7 +153,7 @@ All the R process needs to do is copy this data from the socket into its heap,
 transform it and copy it back to the socket connection.
 
 The following example transforms 100K rows with and without `arrow` enabled,
-`arrow` makes transformation with R functions close to a 100X faster.
+`arrow` makes transformation with R functions close to 41x faster.
 
 ```r
 microbenchmark::microbenchmark(
