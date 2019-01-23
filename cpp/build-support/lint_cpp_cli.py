@@ -19,8 +19,6 @@
 import argparse
 import re
 import os
-import sys
-import traceback
 
 parser = argparse.ArgumentParser(
     description="Check for illegal headers for C++/CLI applications")
@@ -32,6 +30,10 @@ arguments = parser.parse_args()
 _STRIP_COMMENT_REGEX = re.compile('(.+)?(?=//)')
 _NULLPTR_REGEX = re.compile(r'.*\bnullptr\b.*')
 _RETURN_NOT_OK_REGEX = re.compile(r'.*\sRETURN_NOT_OK.*')
+
+
+def _paths(paths):
+    return [p.strip().replace('/', os.path.sep) for p in paths.splitlines()]
 
 
 def _strip_comments(line):
@@ -48,11 +50,11 @@ def lint_file(path):
         (lambda x: '<mutex>' in x, 'Uses <mutex>', []),
         (lambda x: re.match(_NULLPTR_REGEX, x), 'Uses nullptr', []),
         (lambda x: re.match(_RETURN_NOT_OK_REGEX, x),
-         'Use ARROW_RETURN_NOT_OK in header files',
-         ['arrow/status.h',
-          'test',
-          'arrow/util/hash.h',
-          'arrow/python/util'])
+         'Use ARROW_RETURN_NOT_OK in header files', _paths('''\
+         arrow/status.h
+         test
+         arrow/util/hash.h
+         arrow/python/util'''))
     ]
 
     with open(path) as f:
@@ -63,25 +65,23 @@ def lint_file(path):
                     continue
 
                 if rule(stripped_line):
-                    raise Exception('File {0} failed C++/CLI lint check: {1}\n'
-                                    'Line {2}: {3}'
-                                    .format(path, why, i + 1, line))
+                    yield path, why, i, line
 
 
-EXCLUSIONS = [
-    'arrow/python/iterators.h',
-    'arrow/util/hashing.h',
-    'arrow/util/macros.h',
-    'arrow/util/parallel.h',
-    'arrow/vendored',
-    'arrow/visitor_inline.h',
-    'gandiva/cache.h',
-    'gandiva/jni',
-    'test',
-    'internal'
-]
+EXCLUSIONS = _paths('''\
+    arrow/python/iterators.h
+    arrow/util/hashing.h
+    arrow/util/macros.h
+    arrow/util/parallel.h
+    arrow/vendored
+    arrow/visitor_inline.h
+    gandiva/cache.h
+    gandiva/jni
+    test
+    internal''')
 
-try:
+
+def lint_files():
     for dirpath, _, filenames in os.walk(arguments.source_path):
         for filename in filenames:
             full_path = os.path.join(dirpath, filename)
@@ -97,7 +97,13 @@ try:
 
             # Only run on header files
             if filename.endswith('.h'):
-                lint_file(full_path)
-except Exception:
-    traceback.print_exc()
-    sys.exit(1)
+                yield from lint_file(full_path)
+
+
+if __name__ == '__main__':
+    failures = list(lint_files())
+    for path, why, i, line in failures:
+        print('File {0} failed C++/CLI lint check: {1}\n'
+              'Line {2}: {3}'.format(path, why, i + 1, line))
+    if failures:
+        exit(1)

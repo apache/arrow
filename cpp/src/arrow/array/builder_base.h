@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include "arrow/array/builder_base.h"
-
 #include <algorithm>  // IWYU pragma: keep
 #include <array>
 #include <cstddef>
@@ -31,7 +29,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "arrow/buffer.h"
+#include "arrow/buffer-builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -61,13 +59,7 @@ constexpr int64_t kListMaximumElements = std::numeric_limits<int32_t>::max() - 1
 class ARROW_EXPORT ArrayBuilder {
  public:
   explicit ArrayBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : type_(type),
-        pool_(pool),
-        null_bitmap_(NULLPTR),
-        null_count_(0),
-        null_bitmap_data_(NULLPTR),
-        length_(0),
-        capacity_(0) {}
+      : type_(type), pool_(pool), null_bitmap_builder_(pool) {}
 
   virtual ~ArrayBuilder() = default;
 
@@ -98,7 +90,14 @@ class ARROW_EXPORT ArrayBuilder {
   /// allocations in STL containers like std::vector
   /// \param[in] additional_capacity the number of additional array values
   /// \return Status
-  Status Reserve(int64_t additional_capacity);
+  Status Reserve(int64_t additional_capacity) {
+    auto min_capacity = length() + additional_capacity;
+    if (min_capacity <= capacity()) return Status::OK();
+
+    // leave growth factor up to BufferBuilder
+    auto new_capacity = BufferBuilder::GrowByFactor(min_capacity);
+    return Resize(new_capacity);
+  }
 
   /// Reset the builder.
   virtual void Reset();
@@ -126,8 +125,6 @@ class ARROW_EXPORT ArrayBuilder {
   std::shared_ptr<DataType> type() const { return type_; }
 
  protected:
-  ArrayBuilder() {}
-
   /// Append to null bitmap
   Status AppendToBitmap(bool is_valid);
 
@@ -144,49 +141,21 @@ class ARROW_EXPORT ArrayBuilder {
 
   // Append to null bitmap, update the length
   void UnsafeAppendToBitmap(bool is_valid) {
-    if (is_valid) {
-      BitUtil::SetBit(null_bitmap_data_, length_);
-    } else {
-      ++null_count_;
-    }
+    null_bitmap_builder_.UnsafeAppend(is_valid);
     ++length_;
-  }
-
-  template <typename IterType>
-  void UnsafeAppendToBitmap(const IterType& begin, const IterType& end) {
-    int64_t byte_offset = length_ / 8;
-    int64_t bit_offset = length_ % 8;
-    uint8_t bitset = null_bitmap_data_[byte_offset];
-
-    for (auto iter = begin; iter != end; ++iter) {
-      if (bit_offset == 8) {
-        bit_offset = 0;
-        null_bitmap_data_[byte_offset] = bitset;
-        byte_offset++;
-        // TODO: Except for the last byte, this shouldn't be needed
-        bitset = null_bitmap_data_[byte_offset];
-      }
-
-      if (*iter) {
-        bitset |= BitUtil::kBitmask[bit_offset];
-      } else {
-        bitset &= BitUtil::kFlippedBitmask[bit_offset];
-        ++null_count_;
-      }
-
-      bit_offset++;
-    }
-
-    if (bit_offset != 0) {
-      null_bitmap_data_[byte_offset] = bitset;
-    }
-
-    length_ += std::distance(begin, end);
+    if (!is_valid) ++null_count_;
   }
 
   // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
   // assume all of length bits are valid.
-  void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t length);
+  void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t length) {
+    if (valid_bytes == NULLPTR) {
+      return UnsafeSetNotNull(length);
+    }
+    null_bitmap_builder_.UnsafeAppend(valid_bytes, length);
+    length_ += length;
+    null_count_ = null_bitmap_builder_.false_count();
+  }
 
   void UnsafeAppendToBitmap(const std::vector<bool>& is_valid);
 
@@ -208,14 +177,12 @@ class ARROW_EXPORT ArrayBuilder {
   std::shared_ptr<DataType> type_;
   MemoryPool* pool_;
 
-  // When null_bitmap are first appended to the builder, the null bitmap is allocated
-  std::shared_ptr<ResizableBuffer> null_bitmap_;
-  int64_t null_count_;
-  uint8_t* null_bitmap_data_;
+  TypedBufferBuilder<bool> null_bitmap_builder_;
+  int64_t null_count_ = 0;
 
   // Array length, so far. Also, the index of the next element to be added
-  int64_t length_;
-  int64_t capacity_;
+  int64_t length_ = 0;
+  int64_t capacity_ = 0;
 
   // Child value array builders. These are owned by this class
   std::vector<std::shared_ptr<ArrayBuilder>> children_;

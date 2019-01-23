@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <limits>
+#include <numeric>
 #include <random>
 #include <string>
 #include <vector>
@@ -148,7 +149,7 @@ static void BM_BuildBooleanArrayNoNulls(
   constexpr uint8_t bit_pattern = 0xcc;  // 0b11001100
   uint64_t index = 0;
   std::generate(data.begin(), data.end(),
-                [&index]() -> uint8_t { return (bit_pattern >> ((index++) % 8)) & 1; });
+                [&]() -> uint8_t { return (bit_pattern >> ((index++) % 8)) & 1; });
 
   while (state.KeepRunning()) {
     BooleanBuilder builder;
@@ -292,13 +293,13 @@ static std::vector<std::string> MakeStringDictFodder(int32_t n_values,
     *it++ = "abcfgh";
     // Add random strings
     std::uniform_int_distribution<int32_t> length_dist(2, 20);
-    std::independent_bits_engine<std::default_random_engine, 8, uint8_t> bytes_gen(42);
+    std::independent_bits_engine<std::default_random_engine, 8, uint16_t> bytes_gen(42);
 
-    std::generate(it, values_dict.end(), [&]() {
+    std::generate(it, values_dict.end(), [&] {
       auto length = length_dist(gen);
       std::string s(length, 'X');
       for (int32_t i = 0; i < length; ++i) {
-        s[i] = bytes_gen();
+        s[i] = static_cast<char>(bytes_gen());
       }
       return s;
     });
@@ -306,7 +307,7 @@ static std::vector<std::string> MakeStringDictFodder(int32_t n_values,
   {
     std::uniform_int_distribution<int32_t> indices_dist(0, n_distinct - 1);
     std::generate(values.begin(), values.end(),
-                  [&]() { return values_dict[indices_dist(gen)]; });
+                  [&] { return values_dict[indices_dist(gen)]; });
   }
   return values;
 }
@@ -349,7 +350,7 @@ static void BM_BuildStringDictionaryArray(
   const auto fodder = MakeStringDictFodder(10000, 100);
   auto type = binary();
   auto fodder_size =
-      std::accumulate(fodder.begin(), fodder.end(), 0,
+      std::accumulate(fodder.begin(), fodder.end(), static_cast<size_t>(0),
                       [&](size_t acc, const std::string& s) { return acc + s.size(); });
 
   while (state.KeepRunning()) {
@@ -394,9 +395,7 @@ BENCHMARK(BM_BuildAdaptiveUIntNoNullsScalarAppend)
 
 BENCHMARK(BM_BuildBinaryArray)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_BuildChunkedBinaryArray)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildFixedSizeBinaryArray)
-    ->Repetitions(kRepetitions)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BuildFixedSizeBinaryArray)->MinTime(3.0)->Unit(benchmark::kMicrosecond);
 
 BENCHMARK(BM_BuildInt64DictionaryArrayRandom)
     ->Repetitions(kRepetitions)

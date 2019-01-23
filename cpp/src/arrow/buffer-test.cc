@@ -262,6 +262,82 @@ TEST(TestBufferBuilder, ResizeReserve) {
 }
 
 template <typename T>
+class TypedTestBufferBuilder : public ::testing::Test {};
+
+using BufferBuilderElements = ::testing::Types<int16_t, uint32_t, double>;
+
+TYPED_TEST_CASE(TypedTestBufferBuilder, BufferBuilderElements);
+
+TYPED_TEST(TypedTestBufferBuilder, BasicTypedBufferBuilderUsage) {
+  TypedBufferBuilder<TypeParam> builder;
+
+  ASSERT_OK(builder.Append(static_cast<TypeParam>(0)));
+  ASSERT_EQ(builder.length(), 1);
+  ASSERT_EQ(builder.capacity(), 64 / sizeof(TypeParam));
+
+  constexpr int nvalues = 4;
+  TypeParam values[nvalues];
+  for (int i = 0; i != nvalues; ++i) {
+    values[i] = static_cast<TypeParam>(i);
+  }
+  ASSERT_OK(builder.Append(values, nvalues));
+  ASSERT_EQ(builder.length(), nvalues + 1);
+
+  std::shared_ptr<Buffer> built;
+  ASSERT_OK(builder.Finish(&built));
+
+  auto data = reinterpret_cast<const TypeParam*>(built->data());
+  ASSERT_EQ(data[0], static_cast<TypeParam>(0));
+  for (auto value : values) {
+    ++data;
+    ASSERT_EQ(*data, value);
+  }
+}
+
+TEST(TestBufferBuilder, BasicBoolBufferBuilderUsage) {
+  TypedBufferBuilder<bool> builder;
+
+  ASSERT_OK(builder.Append(false));
+  ASSERT_EQ(builder.length(), 1);
+  ASSERT_EQ(builder.capacity(), 64 * 8);
+
+  constexpr int nvalues = 4;
+  uint8_t values[nvalues];
+  for (int i = 0; i != nvalues; ++i) {
+    values[i] = static_cast<uint8_t>(i);
+  }
+  ASSERT_OK(builder.Append(values, nvalues));
+  ASSERT_EQ(builder.length(), nvalues + 1);
+
+  ASSERT_EQ(builder.false_count(), 2);
+
+  std::shared_ptr<Buffer> built;
+  ASSERT_OK(builder.Finish(&built));
+
+  ASSERT_EQ(BitUtil::GetBit(built->data(), 0), false);
+  for (int i = 0; i != nvalues; ++i) {
+    ASSERT_EQ(BitUtil::GetBit(built->data(), i + 1), static_cast<bool>(values[i]));
+  }
+}
+
+TEST(TestBufferBuilder, BoolBufferBuilderAppendCopies) {
+  TypedBufferBuilder<bool> builder;
+
+  ASSERT_OK(builder.Append(13, true));
+  ASSERT_OK(builder.Append(17, false));
+  ASSERT_EQ(builder.length(), 13 + 17);
+  ASSERT_EQ(builder.capacity(), 64 * 8);
+  ASSERT_EQ(builder.false_count(), 17);
+
+  std::shared_ptr<Buffer> built;
+  ASSERT_OK(builder.Finish(&built));
+
+  for (int i = 0; i != 13 + 17; ++i) {
+    EXPECT_EQ(BitUtil::GetBit(built->data(), i), i < 13) << "index = " << i;
+  }
+}
+
+template <typename T>
 class TypedTestBuffer : public ::testing::Test {};
 
 using BufferPtrs =

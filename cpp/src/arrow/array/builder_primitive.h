@@ -53,8 +53,8 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   using ArrayBuilder::Advance;
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
-  /// The memory at the corresponding data slot is set to 0 to prevent uninitialized
-  /// memory access
+  /// The memory at the corresponding data slot is set to 0 to prevent
+  /// uninitialized memory access
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
     ARROW_RETURN_NOT_OK(Reserve(length));
     memset(raw_data_ + length_, 0,
@@ -141,7 +141,10 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
     std::copy(values_begin, values_end, raw_data_ + length_);
 
     // this updates the length_
-    UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
+    for (int64_t i = 0; i != length; ++i) {
+      UnsafeAppendToBitmap(*valid_begin);
+      ++valid_begin;
+    }
     return Status::OK();
   }
 
@@ -158,7 +161,10 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
     if (valid_begin == NULLPTR) {
       UnsafeSetNotNull(length);
     } else {
-      UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
+      for (int64_t i = 0; i != length; ++i) {
+        UnsafeAppendToBitmap(*valid_begin);
+        ++valid_begin;
+      }
     }
 
     return Status::OK();
@@ -188,6 +194,7 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
       : PrimitiveBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
   using ArrayBuilder::UnsafeAppendNull;
+  using ArrayBuilder::UnsafeAppendToBitmap;
   using PrimitiveBuilder<T>::AppendValues;
   using PrimitiveBuilder<T>::Resize;
   using PrimitiveBuilder<T>::Reserve;
@@ -205,13 +212,12 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
   /// This method does not capacity-check; make sure to call Reserve
   /// beforehand.
   void UnsafeAppend(const value_type val) {
-    BitUtil::SetBit(null_bitmap_data_, length_);
-    raw_data_[length_++] = val;
+    raw_data_[length_] = val;
+    UnsafeAppendToBitmap(true);
   }
 
  protected:
   using PrimitiveBuilder<T>::length_;
-  using PrimitiveBuilder<T>::null_bitmap_data_;
   using PrimitiveBuilder<T>::raw_data_;
 };
 
@@ -272,13 +278,12 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   /// Scalar append, without checking for capacity
   void UnsafeAppend(const bool val) {
-    BitUtil::SetBit(null_bitmap_data_, length_);
     if (val) {
       BitUtil::SetBit(raw_data_, length_);
     } else {
       BitUtil::ClearBit(raw_data_, length_);
     }
-    ++length_;
+    UnsafeAppendToBitmap(true);
   }
 
   void UnsafeAppend(const uint8_t val) { UnsafeAppend(val != 0); }
@@ -364,7 +369,10 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
                                    [&iter]() -> bool { return *(iter++); });
 
     // this updates length_
-    ArrayBuilder::UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
+    for (int64_t i = 0; i != length; ++i) {
+      ArrayBuilder::UnsafeAppendToBitmap(*valid_begin);
+      ++valid_begin;
+    }
     return Status::OK();
   }
 
@@ -383,7 +391,10 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     if (valid_begin == NULLPTR) {
       UnsafeSetNotNull(length);
     } else {
-      UnsafeAppendToBitmap(valid_begin, std::next(valid_begin, length));
+      for (int64_t i = 0; i != length; ++i) {
+        ArrayBuilder::UnsafeAppendToBitmap(*valid_begin);
+        ++valid_begin;
+      }
     }
 
     return Status::OK();

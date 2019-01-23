@@ -45,7 +45,7 @@ struct TypeTraits<UInt8Type> {
   using ArrayType = UInt8Array;
   using BuilderType = UInt8Builder;
   using TensorType = UInt8Tensor;
-  static inline int64_t bytes_required(int64_t elements) { return elements; }
+  static constexpr int64_t bytes_required(int64_t elements) { return elements; }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return uint8(); }
 };
@@ -55,7 +55,7 @@ struct TypeTraits<Int8Type> {
   using ArrayType = Int8Array;
   using BuilderType = Int8Builder;
   using TensorType = Int8Tensor;
-  static inline int64_t bytes_required(int64_t elements) { return elements; }
+  static constexpr int64_t bytes_required(int64_t elements) { return elements; }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return int8(); }
 };
@@ -66,7 +66,7 @@ struct TypeTraits<UInt16Type> {
   using BuilderType = UInt16Builder;
   using TensorType = UInt16Tensor;
 
-  static inline int64_t bytes_required(int64_t elements) {
+  static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(uint16_t);
   }
   constexpr static bool is_parameter_free = true;
@@ -79,7 +79,7 @@ struct TypeTraits<Int16Type> {
   using BuilderType = Int16Builder;
   using TensorType = Int16Tensor;
 
-  static inline int64_t bytes_required(int64_t elements) {
+  static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int16_t);
   }
   constexpr static bool is_parameter_free = true;
@@ -92,7 +92,7 @@ struct TypeTraits<UInt32Type> {
   using BuilderType = UInt32Builder;
   using TensorType = UInt32Tensor;
 
-  static inline int64_t bytes_required(int64_t elements) {
+  static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(uint32_t);
   }
   constexpr static bool is_parameter_free = true;
@@ -105,7 +105,7 @@ struct TypeTraits<Int32Type> {
   using BuilderType = Int32Builder;
   using TensorType = Int32Tensor;
 
-  static inline int64_t bytes_required(int64_t elements) {
+  static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int32_t);
   }
   constexpr static bool is_parameter_free = true;
@@ -118,7 +118,7 @@ struct TypeTraits<UInt64Type> {
   using BuilderType = UInt64Builder;
   using TensorType = UInt64Tensor;
 
-  static inline int64_t bytes_required(int64_t elements) {
+  static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(uint64_t);
   }
   constexpr static bool is_parameter_free = true;
@@ -131,7 +131,7 @@ struct TypeTraits<Int64Type> {
   using BuilderType = Int64Builder;
   using TensorType = Int64Tensor;
 
-  static inline int64_t bytes_required(int64_t elements) {
+  static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int64_t);
   }
   constexpr static bool is_parameter_free = true;
@@ -143,7 +143,7 @@ struct TypeTraits<Date64Type> {
   using ArrayType = Date64Array;
   using BuilderType = Date64Builder;
 
-  static inline int64_t bytes_required(int64_t elements) {
+  static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int64_t);
   }
   constexpr static bool is_parameter_free = true;
@@ -155,7 +155,7 @@ struct TypeTraits<Date32Type> {
   using ArrayType = Date32Array;
   using BuilderType = Date32Builder;
 
-  static inline int64_t bytes_required(int64_t elements) {
+  static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int32_t);
   }
   constexpr static bool is_parameter_free = true;
@@ -167,7 +167,7 @@ struct TypeTraits<TimestampType> {
   using ArrayType = TimestampArray;
   using BuilderType = TimestampBuilder;
 
-  static inline int64_t bytes_required(int64_t elements) {
+  static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int64_t);
   }
   constexpr static bool is_parameter_free = false;
@@ -178,7 +178,7 @@ struct TypeTraits<Time32Type> {
   using ArrayType = Time32Array;
   using BuilderType = Time32Builder;
 
-  static inline int64_t bytes_required(int64_t elements) {
+  static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int32_t);
   }
   constexpr static bool is_parameter_free = false;
@@ -189,7 +189,7 @@ struct TypeTraits<Time64Type> {
   using ArrayType = Time64Array;
   using BuilderType = Time64Builder;
 
-  static inline int64_t bytes_required(int64_t elements) {
+  static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int64_t);
   }
   constexpr static bool is_parameter_free = false;
@@ -201,7 +201,7 @@ struct TypeTraits<HalfFloatType> {
   using BuilderType = HalfFloatBuilder;
   using TensorType = HalfFloatTensor;
 
-  static inline int64_t bytes_required(int64_t elements) {
+  static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(uint16_t);
   }
   constexpr static bool is_parameter_free = true;
@@ -214,7 +214,7 @@ struct TypeTraits<FloatType> {
   using BuilderType = FloatBuilder;
   using TensorType = FloatTensor;
 
-  static inline int64_t bytes_required(int64_t elements) {
+  static constexpr int64_t bytes_required(int64_t elements) {
     return static_cast<int64_t>(elements * sizeof(float));
   }
   constexpr static bool is_parameter_free = true;
@@ -227,7 +227,7 @@ struct TypeTraits<DoubleType> {
   using BuilderType = DoubleBuilder;
   using TensorType = DoubleTensor;
 
-  static inline int64_t bytes_required(int64_t elements) {
+  static constexpr int64_t bytes_required(int64_t elements) {
     return static_cast<int64_t>(elements * sizeof(double));
   }
   constexpr static bool is_parameter_free = true;
@@ -246,7 +246,7 @@ struct TypeTraits<BooleanType> {
   using ArrayType = BooleanArray;
   using BuilderType = BooleanBuilder;
 
-  static inline int64_t bytes_required(int64_t elements) {
+  static constexpr int64_t bytes_required(int64_t elements) {
     return BitUtil::BytesForBits(elements);
   }
   constexpr static bool is_parameter_free = true;
