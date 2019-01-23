@@ -16,6 +16,7 @@
 # under the License.
 
 # distutils: language=c++
+# cython: language_level = 3
 
 from pyarrow.lib cimport *
 

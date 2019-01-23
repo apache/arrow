@@ -73,3 +73,13 @@ if [ $TRAVIS_OS_NAME == "osx" ]; then
 fi
 
 export PARQUET_TEST_DATA=$TRAVIS_BUILD_DIR/cpp/submodules/parquet-testing/data
+
+if [ $TRAVIS_OS_NAME == "linux" ]; then
+    # Use the Ubuntu-provided OpenJDK
+    unset JAVA_HOME
+    export TRAVIS_MVN=/usr/bin/mvn
+    export TRAVIS_JAVA=/usr/bin/java
+else
+    export TRAVIS_MVN=mvn
+    export TRAVIS_JAVA=java
+fi

@@ -45,7 +45,7 @@ if [ $ARROW_TRAVIS_PYTHON_JVM == "1" ]; then
   CONDA_JVM_DEPS="jpype1"
 fi
 
-conda create -y -q -p $CONDA_ENV_DIR -c conda-forge/label/cf201901 \
+conda create -y -q -p $CONDA_ENV_DIR \
       --file $TRAVIS_BUILD_DIR/ci/conda_env_python.yml \
       nomkl \
       cmake \
@@ -61,7 +61,7 @@ which python
 
 if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
   # Install documentation dependencies
-  conda install -y -c conda-forge/label/cf201901 --file ci/conda_env_sphinx.yml
+  conda install -y --file ci/conda_env_sphinx.yml
 fi
 
 # ARROW-2093: PyTorch increases the size of our conda dependency stack
@@ -74,7 +74,7 @@ fi
 # fi
 
 if [ $TRAVIS_OS_NAME != "osx" ]; then
-  conda install -y -c conda-forge/label/cf201901 tensorflow
+  conda install -y tensorflow
   PYARROW_PYTEST_FLAGS="$PYARROW_PYTEST_FLAGS --tensorflow"
 fi
 
@@ -126,9 +126,8 @@ pushd $ARROW_PYTHON_DIR
 # Other stuff pip install
 pip install -r requirements.txt
 
-# FIXME(kszucs): disabled in https://github.com/apache/arrow/pull/3406
 if [ "$PYTHON_VERSION" == "3.6" ]; then
-    pip install -vvv pickle5 || true
+    pip install -q pickle5
 fi
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     export PYARROW_GENERATE_COVERAGE=1
@@ -181,8 +180,8 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     coverage xml -i -o $TRAVIS_BUILD_DIR/coverage.xml
     # Capture C++ coverage info
     pushd $TRAVIS_BUILD_DIR
-    lcov --quiet --directory . --capture --no-external --output-file coverage-python-tests.info \
-        2>&1 | grep -v "WARNING: no data found for /usr/include"
+    lcov --directory . --capture --no-external --output-file coverage-python-tests.info \
+        2>&1 | grep -v "ignoring data for external file"
     lcov --add-tracefile coverage-python-tests.info \
         --output-file $ARROW_CPP_COVERAGE_FILE
     rm coverage-python-tests.info
@@ -204,7 +203,7 @@ if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" 
   # Unfortunately this won't ensure that all benchmarks succeed
   # (see https://github.com/airspeed-velocity/asv/issues/449)
   source deactivate
-  conda create -y -q -n pyarrow_asv python=$PYTHON_VERSION -c conda-forge/label/cf201901
+  conda create -y -q -n pyarrow_asv python=$PYTHON_VERSION
   conda activate pyarrow_asv
   pip install -q git+https://github.com/pitrou/asv.git@customize_commands
 

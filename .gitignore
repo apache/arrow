@@ -30,6 +30,8 @@ arrow-src.tar.gz
 .build_cache_dir
 dependency-reduced-pom.xml
 MANIFEST
+compile_commands.json
+build.ninja
 
 # Generated Visual Studio files
 *.vcxproj
