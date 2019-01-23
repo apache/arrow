@@ -19,6 +19,7 @@
 
 #include <ruby.h>
 #include <string>
+#include <functional>
 
 namespace rb {
 
@@ -38,6 +39,22 @@ class error {
  private:
   VALUE exc_;
 };
+
+namespace internal {
+
+VALUE protect_function_call(VALUE arg);
+
+}  // namespace internal
+
+inline VALUE protect(std::function<VALUE()> func) {
+  VALUE arg = reinterpret_cast<VALUE>(&func);
+  VALUE result = ::rb_protect(internal::protect_function_call, arg, 0);
+  VALUE exc = rb_errinfo();
+  if (!NIL_P(exc)) {
+    throw error(exc);
+  }
+  return result;
+}
 
 }  // namespace rb
 
