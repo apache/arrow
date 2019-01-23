@@ -395,9 +395,7 @@ BENCHMARK(BM_BuildAdaptiveUIntNoNullsScalarAppend)
 
 BENCHMARK(BM_BuildBinaryArray)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_BuildChunkedBinaryArray)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildFixedSizeBinaryArray)
-    ->Repetitions(kRepetitions)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BuildFixedSizeBinaryArray)->MinTime(3.0)->Unit(benchmark::kMicrosecond);
 
 BENCHMARK(BM_BuildInt64DictionaryArrayRandom)
     ->Repetitions(kRepetitions)
