@@ -99,7 +99,7 @@ class ARROW_EXPORT BufferBuilder {
   /// The buffer is automatically expanded if necessary.
   Status Append(const void* data, const int64_t length) {
     if (ARROW_PREDICT_FALSE(size_ + length > capacity_)) {
-      return Resize(GrowByFactor(size_ + length), false);
+      ARROW_RETURN_NOT_OK(Resize(GrowByFactor(size_ + length), false));
     }
     UnsafeAppend(data, length);
     return Status::OK();

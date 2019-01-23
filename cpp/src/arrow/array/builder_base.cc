@@ -84,15 +84,6 @@ Status ArrayBuilder::Finish(std::shared_ptr<Array>* out) {
   return Status::OK();
 }
 
-Status ArrayBuilder::Reserve(int64_t additional_elements) {
-  auto min_capacity = length() + additional_elements;
-  if (min_capacity <= capacity()) return Status::OK();
-
-  // leave growth factor up to BufferBuilder
-  auto new_capacity = BufferBuilder::GrowByFactor(min_capacity);
-  return Resize(new_capacity);
-}
-
 void ArrayBuilder::Reset() {
   capacity_ = length_ = null_count_ = 0;
   null_bitmap_builder_.Reset();
