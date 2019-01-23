@@ -153,6 +153,15 @@ size_t ContiguousTensorCountNonZero(const Tensor& tensor) {
                        [](c_type const& x) { return x != 0; });
 }
 
+template <typename TYPE>
+inline size_t TensorCountNonZero(const Tensor& tensor) {
+  if (tensor.is_contiguous()) {
+    return ContiguousTensorCountNonZero<TYPE>(tensor);
+  } else {
+    return StridedTensorCountNonZero<TYPE>(0, 0, tensor);
+  }
+}
+
 }  // namespace
 
 size_t Tensor::CountNonZero() const {
@@ -160,60 +169,31 @@ size_t Tensor::CountNonZero() const {
     return 0;
   }
 
-  if (is_contiguous()) {
-    switch (type()->id()) {
-      case Type::UINT8:
-        return ContiguousTensorCountNonZero<UInt8Type>(*this);
-      case Type::INT8:
-        return ContiguousTensorCountNonZero<Int8Type>(*this);
-      case Type::UINT16:
-        return ContiguousTensorCountNonZero<UInt16Type>(*this);
-      case Type::INT16:
-        return ContiguousTensorCountNonZero<Int16Type>(*this);
-      case Type::UINT32:
-        return ContiguousTensorCountNonZero<UInt32Type>(*this);
-      case Type::INT32:
-        return ContiguousTensorCountNonZero<Int32Type>(*this);
-      case Type::UINT64:
-        return ContiguousTensorCountNonZero<UInt64Type>(*this);
-      case Type::INT64:
-        return ContiguousTensorCountNonZero<Int64Type>(*this);
-      case Type::HALF_FLOAT:
-        return ContiguousTensorCountNonZero<HalfFloatType>(*this);
-      case Type::FLOAT:
-        return ContiguousTensorCountNonZero<FloatType>(*this);
-      case Type::DOUBLE:
-        return ContiguousTensorCountNonZero<DoubleType>(*this);
-      default:
-        return 0;  // This shouldn't be unreachable
-    }
-  } else {
-    switch (type()->id()) {
-      case Type::UINT8:
-        return StridedTensorCountNonZero<UInt8Type>(0, 0, *this);
-      case Type::INT8:
-        return StridedTensorCountNonZero<Int8Type>(0, 0, *this);
-      case Type::UINT16:
-        return StridedTensorCountNonZero<UInt16Type>(0, 0, *this);
-      case Type::INT16:
-        return StridedTensorCountNonZero<Int16Type>(0, 0, *this);
-      case Type::UINT32:
-        return StridedTensorCountNonZero<UInt32Type>(0, 0, *this);
-      case Type::INT32:
-        return StridedTensorCountNonZero<Int32Type>(0, 0, *this);
-      case Type::UINT64:
-        return StridedTensorCountNonZero<UInt64Type>(0, 0, *this);
-      case Type::INT64:
-        return StridedTensorCountNonZero<Int64Type>(0, 0, *this);
-      case Type::HALF_FLOAT:
-        return StridedTensorCountNonZero<HalfFloatType>(0, 0, *this);
-      case Type::FLOAT:
-        return StridedTensorCountNonZero<FloatType>(0, 0, *this);
-      case Type::DOUBLE:
-        return StridedTensorCountNonZero<DoubleType>(0, 0, *this);
-      default:
-        return 0;  // This shouldn't be unreachable
-    }
+  switch (type()->id()) {
+    case Type::UINT8:
+      return TensorCountNonZero<UInt8Type>(*this);
+    case Type::INT8:
+      return TensorCountNonZero<Int8Type>(*this);
+    case Type::UINT16:
+      return TensorCountNonZero<UInt16Type>(*this);
+    case Type::INT16:
+      return TensorCountNonZero<Int16Type>(*this);
+    case Type::UINT32:
+      return TensorCountNonZero<UInt32Type>(*this);
+    case Type::INT32:
+      return TensorCountNonZero<Int32Type>(*this);
+    case Type::UINT64:
+      return TensorCountNonZero<UInt64Type>(*this);
+    case Type::INT64:
+      return TensorCountNonZero<Int64Type>(*this);
+    case Type::HALF_FLOAT:
+      return TensorCountNonZero<HalfFloatType>(*this);
+    case Type::FLOAT:
+      return TensorCountNonZero<FloatType>(*this);
+    case Type::DOUBLE:
+      return TensorCountNonZero<DoubleType>(*this);
+    default:
+      return 0;  // This shouldn't be unreachable
   }
 }
 
