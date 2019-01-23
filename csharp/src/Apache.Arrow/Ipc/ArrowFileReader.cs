@@ -13,14 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using FlatBuffers;
 using System;
-using System.Buffers;
 using System.Buffers.Binary;
 using System.IO;
-using System.Threading.Tasks;
-using FlatBuffers;
-using System.Threading;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Apache.Arrow.Ipc
 {

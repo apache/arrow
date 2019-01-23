@@ -23,10 +23,9 @@ namespace Apache.Arrow.Tests.Fixtures
 
         public DefaultMemoryPoolFixture()
         {
-            const int padding = 8;
             const int alignment = 64;
 
-            MemoryPool = new NativeMemoryPool(padding, alignment);
+            MemoryPool = new NativeMemoryPool(alignment);
         }
     }
 }

@@ -13,13 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Apache.Arrow.Types
 {
-    public class TimestampType: FixedWidthType
+    public sealed class TimestampType : FixedWidthType
     {
         public static readonly TimestampType Default = new TimestampType(TimeUnit.Millisecond, "UTC");
 
@@ -38,10 +35,6 @@ namespace Apache.Arrow.Types
             Timezone = timezone;
         }
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<TimestampType> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

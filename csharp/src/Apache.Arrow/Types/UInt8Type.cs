@@ -15,7 +15,7 @@
 
 namespace Apache.Arrow.Types
 {
-    public class UInt8Type : NumberType
+    public sealed class UInt8Type : NumberType
     {
         public static readonly UInt8Type Default = new UInt8Type();
 
@@ -24,10 +24,6 @@ namespace Apache.Arrow.Types
         public override int BitWidth => 8;
         public override bool IsSigned => false;
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<Int8Type> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

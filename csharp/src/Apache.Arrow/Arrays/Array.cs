@@ -33,8 +33,6 @@ namespace Apache.Arrow
 
         public int NullCount => Data.NullCount;
 
-        public Bitmap NullBitmap => Data.NullBitmap;
-
         public ArrowBuffer NullBitmapBuffer => Data.Buffers[0];
 
         public virtual void Accept(IArrowArrayVisitor visitor)
@@ -43,7 +41,7 @@ namespace Apache.Arrow
         }
 
         public bool IsValid(int index) =>
-            NullBitmapBuffer == null || NullBitmap.IsSet(index);
+            NullBitmapBuffer.IsEmpty || BitUtility.GetBit(NullBitmapBuffer.Span, index);
 
         public bool IsNull(int index) => !IsValid(index);
 
@@ -51,13 +49,14 @@ namespace Apache.Arrow
         internal static void Accept<T>(T array, IArrowArrayVisitor visitor)
             where T : class, IArrowArray
         {
-            if (visitor is IArrowArrayVisitor<T> v)
+            switch (visitor)
             {
-                v.Visit(array);
-            }
-            else
-            {
-                visitor.Visit(array);
+                case IArrowArrayVisitor<T> typedVisitor:
+                    typedVisitor.Visit(array);
+                    break;
+                default:
+                    visitor.Visit(array);
+                    break;
             }
         }
     }

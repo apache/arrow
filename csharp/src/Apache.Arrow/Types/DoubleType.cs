@@ -13,13 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Apache.Arrow.Types
 {
-    public class DoubleType: FloatingPointType
+    public sealed class DoubleType: FloatingPointType
     {
         public static readonly DoubleType Default = new DoubleType();
 
@@ -29,10 +26,6 @@ namespace Apache.Arrow.Types
         public override bool IsSigned => true;
         public override PrecisionKind Precision => PrecisionKind.Double;
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<DoubleType> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }
