@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Read CSV files into the Arrow memory format
+//! Transfer data between the Arrow memory format and CSV (comma-separated values).
 
 pub mod reader;
 

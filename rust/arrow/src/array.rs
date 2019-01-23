@@ -17,7 +17,7 @@
 
 //! Defines public types representing Apache Arrow arrays. Arrow's specification defines an array as
 //! "a sequence of values with known length all having the same type." For example, the type
-//! `Int16Array` represents an Apache Arrow array of 16-byte integers.
+//! `Int16Array` represents an Apache Arrow array of 16-bit integers.
 //!
 //! ```
 //! extern crate arrow;
@@ -27,7 +27,7 @@
 //! // Create a new builder with a capacity of 100
 //! let mut builder = Int16Array::builder(100);
 //!
-//! // Append an individual primitive value
+//! // Append a single primitive value
 //! builder.append_value(1).unwrap();
 //!
 //! // Append a null value
@@ -43,7 +43,7 @@
 //!
 //! assert_eq!(2, array.value(2), "Get the value with index 2");
 //!
-//! assert_eq!(array.value_slice(1, 2), &[0, 2], "Get slice of len 2 starting at idx 1")
+//! assert_eq!(array.value_slice(3, 2), &[3, 4], "Get slice of len 2 starting at idx 3")
 //! ```
 
 use std::any::Any;
