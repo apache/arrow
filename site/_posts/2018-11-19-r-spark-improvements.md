@@ -37,21 +37,21 @@ Since this work is under active development, install `sparklyr` and
 `arrow` from GitHub as follows:
 
 ```r
-devtools::install_github("apache/arrow", subdir = "r", ref = "dc5df8f")
-devtools::install_github("rstudio/sparklyr", ref = "feature/arrow")
+devtools::install_github("apache/arrow", subdir = "r")
+devtools::install_github("rstudio/sparklyr")
 ```
 
 In this benchmark, we will use [dplyr][5], but similar improvements can
 be  expected from using [DBI][6], or [Spark DataFrames][7] in `sparklyr`.
-The local Spark connection and dataframe with 1M numeric rows was
+The local Spark connection and dataframe with 10M numeric rows was
 initialized as follows:
 
 ```r
 library(sparklyr)
 library(dplyr)
 
-sc <- spark_connect(master = "local")
-data <- data.frame(y = runif(10^6, 0, 1))
+sc <- spark_connect(master = "local", config = list("sparklyr.shell.driver-memory" = "6g"))
+data <- data.frame(y = runif(10^7, 0, 1))
 ```
 
 # Copying
@@ -65,7 +65,7 @@ transfer more data at fast speeds into Spark.
 Using `arrow` with `sparklyr`, we can transfer data directly from R to
 Spark without having to serialize this data in R or persist in disk.
 
-The following example copies 1M rows from R into Spark using `sparklyr`
+The following example copies 10M rows from R into Spark using `sparklyr`
 with and without `arrow`, there is close to a 10x improvement using `arrow`.
 
 This benchmark uses the [microbenchmark][8] R package, which runs code
@@ -83,14 +83,15 @@ microbenchmark::microbenchmark(
     if ("arrow" %in% .packages()) detach("package:arrow")
     sparklyr_df <<- copy_to(sc, data, overwrite = T)
     count(sparklyr_df) %>% collect()
-  }
+  },
+  times = 10
 ) %T>% print() %>% ggplot2::autoplot()
 ```
 ```
-Unit: milliseconds
-      expr       min        lq      mean    median        uq      max neval
-  arrow_on  326.4083  401.3589  484.4189  428.9402  489.8033 1093.707   100
- arrow_off 2450.5797 3146.0476 3386.6042 3246.9822 3488.6524 6945.576   100
+ Unit: seconds
+      expr       min        lq       mean    median         uq       max neval
+  arrow_on  3.011515  4.250025   7.257739  7.273011   8.974331  14.23325    10
+ arrow_off 50.051947 68.523081 119.946947 71.898908 138.743419 390.44028    10
 ```
 
 <div align="center">
@@ -106,7 +107,7 @@ while collecting data from Spark into R. These improvements are not as
 significant as copying data since, `sparklyr` already collects data in
 columnar format.
 
-The following benchmark collects 1M rows from Spark into R and shows that
+The following benchmark collects 10M rows from Spark into R and shows that
 `arrow` can bring 2x improvements.
 
 ```r
@@ -118,14 +119,15 @@ microbenchmark::microbenchmark(
   arrow_off = {
     if ("arrow" %in% .packages()) detach("package:arrow")
     collect(sparklyr_df)
-  }
+  },
+  times = 10
 ) %T>% print() %>% ggplot2::autoplot()
 ```
 ```
-Unit: milliseconds
-      expr      min       lq     mean   median       uq       max neval
-  arrow_on 254.4486 278.3992 313.2547 300.1484 334.9117  496.9672   100
- arrow_off 336.9897 408.1203 478.3004 450.7942 485.0992 1070.5376   100
+Unit: seconds
+      expr      min        lq      mean    median        uq       max neval
+  arrow_on 4.520593  5.609812  6.154509  5.928099  6.217447  9.432221    10
+ arrow_off 7.882841 13.358113 16.670708 16.127704 21.051382 24.373331    10
 ```
 
 <div align="center">
