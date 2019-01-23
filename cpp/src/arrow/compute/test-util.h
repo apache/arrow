@@ -48,9 +48,8 @@ class MockUnaryKernel : public UnaryKernel {
 
 class MockBinaryKernel : public BinaryKernel {
   MOCK_METHOD4(Call, Status(FunctionContext* ctx, const Datum& left, const Datum& right,
-              Datum* out));
+                            Datum* out));
 };
-
 
 template <typename Type, typename T>
 std::shared_ptr<Array> _MakeArray(const std::shared_ptr<DataType>& type,
