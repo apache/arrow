@@ -53,6 +53,20 @@ namespace Apache.Arrow
             data[index / 8] |= BitMask[index % 8];
         }
 
+        public static void SetBit(Span<byte> data, int index, bool value)
+        {
+            var idx = index / 8;
+            var mod = index % 8;
+            data[idx] = value
+                ? (byte)(data[idx] | BitMask[mod])
+                : (byte)(data[idx] & ~BitMask[mod]);
+        }
+
+        public static void ToggleBit(Span<byte> data, int index)
+        {
+            data[index / 8] ^= BitMask[index % 8];
+        }
+
         /// <summary>
         /// Counts the number of set bits in a span of bytes starting
         /// at a specific bit offset.
@@ -116,6 +130,17 @@ namespace Apache.Arrow
             // Assert that factor is a power of two.
             Debug.Assert(factor > 0 && (factor & (factor - 1)) == 0);
             return (n + (factor - 1)) & ~(factor - 1);
+        }
+
+        /// <summary>
+        /// Calculates the number of bytes required to store n bits.
+        /// </summary>
+        /// <param name="n">number of bits</param>
+        /// <returns>number of bytes</returns>
+        public static int ByteCount(int n)
+        {
+            Debug.Assert(n >= 0);
+            return n / 8 + (n % 8 != 0 ? 1 : 0); // ceil(n / 8)
         }
             
         internal static int ReadInt32(ReadOnlyMemory<byte> value)

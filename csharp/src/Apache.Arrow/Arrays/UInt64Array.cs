@@ -19,6 +19,14 @@ namespace Apache.Arrow
 {
     public class UInt64Array : PrimitiveArray<ulong>
     {
+        public class Builder : PrimitiveArrayBuilder<ulong, UInt64Array, Builder>
+        {
+            protected override UInt64Array Build(
+                ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
+                int length, int nullCount, int offset) =>
+                new UInt64Array(valueBuffer, nullBitmapBuffer, length, nullCount, offset);
+        }
+
         public UInt64Array(
             ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
             int length, int nullCount, int offset)

@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  
+  <Import Project="../../build/Common.props" />
+
+  <PropertyGroup>
+    <LangVersion>7.2</LangVersion>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Apache.Arrow\Apache.Arrow.csproj" />
+  </ItemGroup>
+
+</Project>
