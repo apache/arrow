@@ -52,15 +52,18 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
   // stdout of the object store. Consider changing that.
   void SetUp() override {
+    // we add 100 to the seed so that it does not clash with the
+    // seed generated in client_tests, which causes both tests to use
+    // the same socket for Plasma and fail.
     uint64_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-    std::mt19937 rng(static_cast<uint32_t>(seed));
+    std::mt19937 rng(static_cast<uint32_t>(seed + 100));
     std::string store_index = std::to_string(rng());
     store_socket_name_ = "/tmp/store" + store_index;
 
     std::string plasma_directory =
         external_test_executable.substr(0, external_test_executable.find_last_of('/'));
     std::string plasma_command = plasma_directory +
-                                 "/plasma_store_server -m 104857600 -e " +
+                                 "/plasma_store_server -m 1024000 -e " +
                                  "hashtable://test -s " + store_socket_name_ +
                                  " 1> /tmp/log.stdout 2> /tmp/log.stderr &";
     system(plasma_command.c_str());
@@ -86,7 +89,7 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
 
 TEST_F(TestPlasmaStoreWithExternal, EvictionTest) {
   std::vector<ObjectID> object_ids;
-  std::string data(10 * 1024 * 1024, 'x');
+  std::string data(10 * 1024, 'x');
   std::string metadata;
   for (int i = 0; i < 11; i++) {
     ObjectID object_id = random_object_id();
