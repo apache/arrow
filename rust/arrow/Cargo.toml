@@ -60,5 +60,5 @@ name = "builder"
 harness = false
 
 [[bench]]
-name = "array_ops"
+name = "arithmetic_kernels"
 harness = false
