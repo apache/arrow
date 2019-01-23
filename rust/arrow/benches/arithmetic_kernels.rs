@@ -40,7 +40,6 @@ fn primitive_array_add(size: usize) {
     criterion::black_box(add(&arr_a, &arr_b).unwrap());
 }
 
-
 fn primitive_array_add_simd(size: usize) {
     let arr_a = create_array(size);
     let arr_b = create_array(size);
@@ -55,7 +54,9 @@ fn add_benchmark(c: &mut Criterion) {
     c.bench_function("add 512", |b| b.iter(|| primitive_array_add(512)));
     c.bench_function("add 512 simd", |b| b.iter(|| primitive_array_add_simd(512)));
     c.bench_function("add 1024", |b| b.iter(|| primitive_array_add(1024)));
-    c.bench_function("add 1024 simd", |b| b.iter(|| primitive_array_add_simd(1024)));
+    c.bench_function("add 1024 simd", |b| {
+        b.iter(|| primitive_array_add_simd(1024))
+    });
 }
 
 criterion_group!(benches, add_benchmark);
