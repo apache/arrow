@@ -43,6 +43,7 @@ class PARQUET_EXPORT ApplicationVersion {
   static const ApplicationVersion& PARQUET_251_FIXED_VERSION();
   static const ApplicationVersion& PARQUET_816_FIXED_VERSION();
   static const ApplicationVersion& PARQUET_CPP_FIXED_STATS_VERSION();
+  static const ApplicationVersion& PARQUET_MR_FIXED_STATS_VERSION();
   // Regular expression for the version format
   // major . minor . patch unknown - prerelease.x + build info
   // Eg: 1.5.0ab-cdh5.5.0+cd
