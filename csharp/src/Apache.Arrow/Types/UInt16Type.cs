@@ -15,7 +15,7 @@
 
 namespace Apache.Arrow.Types
 {
-    public class UInt16Type : NumberType
+    public sealed class UInt16Type : NumberType
     {
         public static readonly UInt16Type Default = new UInt16Type();
 
@@ -24,10 +24,6 @@ namespace Apache.Arrow.Types
         public override int BitWidth => 16;
         public override bool IsSigned => false;
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<UInt16Type> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

@@ -25,8 +25,8 @@ namespace Apache.Arrow.Memory
     public class NativeMemoryManager: MemoryManager<byte>
     {
         private IntPtr _ptr;
-        private int _offset;
-        private int _length;
+        private readonly int _offset;
+        private readonly int _length;
 
         public NativeMemoryManager(IntPtr ptr, int offset, int length)
         {
@@ -40,13 +40,13 @@ namespace Apache.Arrow.Memory
             Dispose(false);
         }
 
-        public unsafe override Span<byte> GetSpan()
+        public override unsafe Span<byte> GetSpan()
         {
             var ptr = CalculatePointer(0);
             return new Span<byte>(ptr, _length);
         }
 
-        public unsafe override MemoryHandle Pin(int elementIndex = 0)
+        public override unsafe MemoryHandle Pin(int elementIndex = 0)
         {
             // NOTE: Unmanaged memory doesn't require GC pinning because by definition it's not
             // managed by the garbage collector.

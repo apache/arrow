@@ -15,7 +15,7 @@
 
 namespace Apache.Arrow.Types
 {
-    public class Int32Type : NumberType
+    public sealed class Int32Type : NumberType
     {
         public static readonly Int32Type Default = new Int32Type();
 
@@ -24,10 +24,6 @@ namespace Apache.Arrow.Types
         public override int BitWidth => 32;
         public override bool IsSigned => true;
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<Int32Type> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

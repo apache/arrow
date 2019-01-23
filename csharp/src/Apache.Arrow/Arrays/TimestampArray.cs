@@ -38,14 +38,12 @@ namespace Apache.Arrow
 
         public DateTimeOffset? GetTimestamp(int index)
         {
-            var span = GetSpan();
-
             if (IsNull(index))
             {
                 return null;
             }
 
-            var value = span[index];
+            var value = Values[index];
             var type = Data.DataType as TimestampType;
 
             switch (type.Unit)
@@ -60,7 +58,7 @@ namespace Apache.Arrow
                     return DateTimeOffset.FromUnixTimeSeconds(value);
                 default:
                     throw new InvalidDataException(
-                        string.Format("Unsupported timestamp unit <{0}>", type.Unit));
+                        $"Unsupported timestamp unit <{type.Unit}>");
             }
         }
     }

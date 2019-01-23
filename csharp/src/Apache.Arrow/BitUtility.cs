@@ -20,8 +20,7 @@ namespace Apache.Arrow
 {
     public static class BitUtility
     {
-        private static readonly byte[] PopcountTable = new byte[]
-        {
+        private static readonly byte[] PopcountTable = {
             0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
             1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
             1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
@@ -32,8 +31,7 @@ namespace Apache.Arrow
             3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8,
         };
 
-        private static readonly byte[] BitMask = new byte[]
-        {
+        private static readonly byte[] BitMask = {
             1, 2, 4, 8, 16, 32, 64, 128
         };
 

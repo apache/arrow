@@ -15,7 +15,7 @@
 
 namespace Apache.Arrow.Types
 {
-    public class DecimalType: FixedSizeBinaryType
+    public sealed class DecimalType: FixedSizeBinaryType
     {
         public override ArrowTypeId TypeId => ArrowTypeId.Decimal;
         public override string Name => "decimal";

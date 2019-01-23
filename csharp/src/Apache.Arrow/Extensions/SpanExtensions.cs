@@ -14,25 +14,18 @@
 // limitations under the License.
 
 using System;
-using System.Buffers;
 using System.Runtime.InteropServices;
 
-namespace Apache.Arrow.Memory
+namespace Apache.Arrow
 {
-    public class DefaultMemoryPool
+    public static class SpanExtensions
     {
-        public const int DefaultAlignment = 64;
-        public const int DefaultPadding = 8;
+        public static Span<T> CastTo<T>(this Span<byte> span)
+            where T: struct =>
+            MemoryMarshal.Cast<byte, T>(span);
 
-        public static readonly Lazy<MemoryPool> Instance = new Lazy<MemoryPool>(BuildDefault, true);
-
-        private static MemoryPool BuildDefault()
-        {
-            // TODO: Replace the default memory pool instance with a platform-specific implementation
-            // of memory pool with fallback to this implementation?
-
-            return new NativeMemoryPool(DefaultPadding, DefaultAlignment);
-        }
-
+        public static ReadOnlySpan<T> CastTo<T>(this ReadOnlySpan<byte> span)
+            where T: struct =>
+                MemoryMarshal.Cast<byte, T>(span);
     }
 }
