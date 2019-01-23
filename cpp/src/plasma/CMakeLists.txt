@@ -33,6 +33,8 @@ set(PLASMA_FULL_SO_VERSION "${ARROW_FULL_SO_VERSION}")
 
 include_directories("${FLATBUFFERS_INCLUDE_DIR}" "${CMAKE_CURRENT_LIST_DIR}/" "${CMAKE_CURRENT_LIST_DIR}/thirdparty/" "${CMAKE_CURRENT_LIST_DIR}/../")
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion")
+
 # Compile flatbuffers
 
 set(PLASMA_FBS_SRC "${CMAKE_CURRENT_LIST_DIR}/format/plasma.fbs" "${CMAKE_CURRENT_LIST_DIR}/format/common.fbs")
