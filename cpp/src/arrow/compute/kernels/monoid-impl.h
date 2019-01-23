@@ -51,7 +51,8 @@ class IdentityVisitor {
   MonoidType monoid_;
 };
 
-template <typename NumericType, typename MonoidType, typename MonoidVisitor = IdentityVisitor<MonoidType>>
+template <typename NumericType, typename MonoidType,
+          typename MonoidVisitor = IdentityVisitor<MonoidType>>
 class MonoidAggregateState : public AggregateState {
  public:
   Status Consume(FunctionContext* ctx, const Array& input) final {

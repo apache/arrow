@@ -57,7 +57,7 @@ constexpr T zero() {
 
 template <typename T>
 constexpr T add(const T& lhs, const T& rhs) {
-  return lhs + rhs;
+  return static_cast<T>(lhs + rhs);
 }
 
 template <typename T>
