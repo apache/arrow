@@ -56,6 +56,8 @@ class ARROW_EXPORT BufferBuilder {
     if (new_capacity == 0) {
       return Status::OK();
     }
+    int64_t old_capacity = capacity_;
+
     if (buffer_ == NULLPTR) {
       ARROW_RETURN_NOT_OK(AllocateResizableBuffer(pool_, new_capacity, &buffer_));
     } else {
@@ -63,6 +65,9 @@ class ARROW_EXPORT BufferBuilder {
     }
     capacity_ = buffer_->capacity();
     data_ = buffer_->mutable_data();
+    if (capacity_ > old_capacity) {
+      memset(data_ + old_capacity, 0, capacity_ - old_capacity);
+    }
     return Status::OK();
   }
 
@@ -146,10 +151,6 @@ class ARROW_EXPORT BufferBuilder {
   /// \return Status
   Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
     ARROW_RETURN_NOT_OK(Resize(size_, shrink_to_fit));
-    if (buffer_) {
-      // Can be null if unused
-      buffer_->ZeroPadding();
-    }
     *out = buffer_;
     Reset();
     return Status::OK();
@@ -295,8 +296,13 @@ class TypedBufferBuilder<bool> {
   }
 
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
+    const int64_t old_byte_capacity = bytes_builder_.capacity();
     const int64_t new_byte_capacity = BitUtil::BytesForBits(new_capacity);
     ARROW_RETURN_NOT_OK(bytes_builder_.Resize(new_byte_capacity, shrink_to_fit));
+    if (new_byte_capacity > old_byte_capacity) {
+      memset(mutable_data() + old_byte_capacity, 0,
+             static_cast<size_t>(new_byte_capacity - old_byte_capacity));
+    }
     return Status::OK();
   }
 
