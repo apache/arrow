@@ -43,9 +43,9 @@ Decimal128::Decimal128(const std::string& str) : Decimal128() {
   DCHECK(status.ok()) << status.message();
 }
 
-static constexpr Decimal128 kTenTo36(static_cast<int64_t>(0xC097CE7BC90715),
-                                     0xB34B9F1000000000);
-static constexpr Decimal128 kTenTo18(0xDE0B6B3A7640000);
+static const Decimal128 kTenTo36(static_cast<int64_t>(0xC097CE7BC90715),
+                                 0xB34B9F1000000000);
+static const Decimal128 kTenTo18(0xDE0B6B3A7640000);
 
 std::string Decimal128::ToIntegerString() const {
   Decimal128 remainder;
