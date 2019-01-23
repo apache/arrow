@@ -36,8 +36,10 @@ enum class DecimalStatus {
   kRescaleDataLoss,
 };
 
+/// Represents a signed 128-bit integer in two's complement.
+///
 /// This class is also compiled into LLVM IR - so, it should not have cpp references like
-/// streams, boost, ..
+/// streams and boost.
 class ARROW_EXPORT BasicDecimal128 {
  public:
   /// \brief Create a BasicDecimal128 from the two's complement representation.
