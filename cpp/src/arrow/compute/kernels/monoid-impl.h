@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <memory>
 #include <mutex>
 
 #include "arrow/array.h"

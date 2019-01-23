@@ -57,19 +57,21 @@ class ARROW_EXPORT OpKernel {
 
 /// \brief Placeholder for Scalar values until we implement these
 struct ARROW_EXPORT Scalar {
-  util::variant<bool, uint8_t, int8_t, uint16_t, int16_t, uint32_t, int32_t, uint64_t, int64_t, float, double> value;
+  util::variant<bool, uint8_t, int8_t, uint16_t, int16_t, uint32_t, int32_t, uint64_t,
+                int64_t, float, double>
+      value;
 
-  Scalar(bool value) : value(value) {}
-  Scalar(uint8_t value) : value(value) {}
-  Scalar(int8_t value) : value(value) {}
-  Scalar(uint16_t value) : value(value) {}
-  Scalar(int16_t value) : value(value) {}
-  Scalar(uint32_t value) : value(value) {}
-  Scalar(int32_t value) : value(value) {}
-  Scalar(uint64_t value) : value(value) {}
-  Scalar(int64_t value) : value(value) {}
-  Scalar(float value) : value(value) {}
-  Scalar(double value) : value(value) {}
+  explicit Scalar(bool value) : value(value) {}
+  explicit Scalar(uint8_t value) : value(value) {}
+  explicit Scalar(int8_t value) : value(value) {}
+  explicit Scalar(uint16_t value) : value(value) {}
+  explicit Scalar(int16_t value) : value(value) {}
+  explicit Scalar(uint32_t value) : value(value) {}
+  explicit Scalar(int32_t value) : value(value) {}
+  explicit Scalar(uint64_t value) : value(value) {}
+  explicit Scalar(int64_t value) : value(value) {}
+  explicit Scalar(float value) : value(value) {}
+  explicit Scalar(double value) : value(value) {}
 
   Type::type kind() const {
     switch (this->value.which()) {
@@ -186,9 +188,7 @@ struct ARROW_EXPORT Datum {
     return util::get<std::vector<Datum>>(this->value);
   }
 
-  Scalar scalar() const {
-    return util::get<Scalar>(this->value);
-  }
+  Scalar scalar() const { return util::get<Scalar>(this->value); }
 
   bool is_arraylike() const {
     return this->kind() == Datum::ARRAY || this->kind() == Datum::CHUNKED_ARRAY;

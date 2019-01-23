@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <limits>
 
 namespace arrow {
 namespace compute {
@@ -33,7 +34,7 @@ class Monoid {
   static constexpr ValueType identity() { return Identity(); }
 
   Monoid() {}
-  Monoid(ValueType value) : value_(value) {}
+  explicit Monoid(ValueType value) : value_(value) {}
 
   ThisType operator+(const ThisType& rhs) const {
     return BinaryOp(this->value_, rhs.value_);
@@ -53,7 +54,7 @@ class Monoid {
 template <typename T>
 constexpr T zero() {
   return static_cast<T>(0);
-};
+}
 
 template <typename T>
 constexpr T add(const T& lhs, const T& rhs) {

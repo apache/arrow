@@ -66,7 +66,6 @@ class AggregateState {
   virtual ~AggregateState() {}
 };
 
-
 /// \brief UnaryKernel implemented by an AggregateState
 class ARROW_EXPORT AggregateUnaryKernel : public UnaryKernel {
  public:
