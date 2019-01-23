@@ -146,7 +146,10 @@ class ARROW_EXPORT BufferBuilder {
   /// \return Status
   Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
     ARROW_RETURN_NOT_OK(Resize(size_, shrink_to_fit));
-    buffer_->ZeroPadding();
+    if (buffer_) {
+      // Can be null if unused
+      buffer_->ZeroPadding();
+    }
     *out = buffer_;
     Reset();
     return Status::OK();
