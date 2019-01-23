@@ -64,9 +64,11 @@ Base requirements
   data
 * It is required to have all the contiguous memory buffers in an IPC payload
   aligned at 8-byte boundaries. In other words, each buffer must start at
-  an aligned 8-byte offset.
-* The general recommendation is to align the buffers at 64-byte boundary, but
-  this is not absolutely necessary.
+  an aligned 8-byte offset. Additionally, each buffer should be padded to a multiple
+  of 8 bytes.
+* For performance reasons it **preferred/recommended** to align buffers to a 
+  64-byte boundary and pad to a multiple of 64 bytes, but this is not absolutely 
+  necessary.  The rationale is discussed in more details below.
 * Any relative type can have null slots
 * Arrays are immutable once created. Implementations can provide APIs to mutate
   an array, but applying mutations will require a new array data structure to
@@ -122,14 +124,16 @@ practices for optimized memory access:
 
 * Elements in numeric arrays will be guaranteed to be retrieved via aligned access.
 * On some architectures alignment can help limit partially used cache lines.
-* 64 byte alignment is recommended by the `Intel performance guide`_ for
-  data-structures over 64 bytes (which will be a common case for Arrow Arrays).
 
-Recommending padding to a multiple of 64 bytes allows for using `SIMD`_ instructions
+The recommendation for 64 byte alignment comes from the `Intel performance guide`_
+that recommends alignment of memory to match SIMD register width.
+The specific padding length was chosen because it matches the largest known
+SIMD instruction registers available as of April 2016 (Intel AVX-512).
+
+The recommended padding of 64 bytes allows for using `SIMD`_ instructions
 consistently in loops without additional conditional checks.
 This should allow for simpler, efficient and CPU cache-friendly code.
-The specific padding length was chosen because it matches the largest known
-SIMD instruction registers available as of April 2016 (Intel AVX-512). In other
+In other
 words, we can load the entire 64-byte buffer into a 512-bit wide SIMD register
 and get data-level parallelism on all the columnar values packed into the 64-byte
 buffer. Guaranteed padding can also allow certain compilers
@@ -162,9 +166,8 @@ Null bitmaps
 Any relative type can have null value slots, whether primitive or nested type.
 
 An array with nulls must have a contiguous memory buffer, known as the null (or
-validity) bitmap, whose length is a multiple of 64 bytes (as discussed above)
-and large enough to have at least 1 bit for each array
-slot.
+validity) bitmap, whose length is a multiple of 8 bytes (64 bytes recommended)
+and large enough to have at least 1 bit for each array slot.
 
 Whether any array slot is valid (non-null) is encoded in the respective bits of
 this bitmap. A 1 (set bit) for index ``j`` indicates that the value is not null,
