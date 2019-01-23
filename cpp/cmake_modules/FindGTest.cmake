@@ -21,7 +21,7 @@
 # to be set before calling find_package:
 #
 #  GTest_HOME - When set, this path is inspected instead of standard library
-#                locations as the root of the GTest installation.
+#                locations as the root of the GTest/Gmock installation.
 #                The environment variable GTEST_HOME overrides this variable.
 #
 # This module defines
@@ -124,8 +124,6 @@ else()
   find_library(GMOCK_SHARED_LIB NAMES ${GMOCK_SHARED_LIB_NAME})
   find_library(GMOCK_MAIN_SHARED_LIB NAMES ${GMOCK_MAIN_SHARED_LIB_NAME})
 endif()
-
-
 
 if(GTEST_INCLUDE_DIR AND
     (GTEST_STATIC_LIB AND GTEST_MAIN_STATIC_LIB) OR
