@@ -16,6 +16,18 @@
 
 #include "ruby.hpp"
 
-namespace ruby {
+#include <functional>
+
+namespace rb {
+
+namespace internal {
+
+VALUE protect_function_call(VALUE arg)
+{
+  auto& func = *reinterpret_cast<std::function<VALUE()>*>(arg);
+  return func();
+}
+
+}  // namespace internal
 
 }  // namespace ruby
