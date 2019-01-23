@@ -18,38 +18,39 @@
 #pragma once
 
 #include <cstdint>
-#include "arrow/util/decimal_basic.h"
+#include "arrow/util/basic_decimal.h"
 
 namespace gandiva {
 
+using arrow::BasicDecimal128;
+
 /// Represents a 128-bit decimal value along with its precision and scale.
-class DecimalBasicScalar128 {
+class BasicDecimalScalar128 {
  public:
-  DecimalBasicScalar128(int64_t high_bits, uint64_t low_bits, int32_t precision,
+  BasicDecimalScalar128(int64_t high_bits, uint64_t low_bits, int32_t precision,
                         int32_t scale)
       : value_(high_bits, low_bits), precision_(precision), scale_(scale) {}
 
-  DecimalBasicScalar128(const arrow::DecimalBasic128& value, int32_t precision,
-                        int32_t scale)
+  BasicDecimalScalar128(const BasicDecimal128& value, int32_t precision, int32_t scale)
       : value_(value), precision_(precision), scale_(scale) {}
 
-  DecimalBasicScalar128(int32_t precision, int32_t scale)
+  BasicDecimalScalar128(int32_t precision, int32_t scale)
       : precision_(precision), scale_(scale) {}
 
   int32_t scale() const { return scale_; }
 
   int32_t precision() const { return precision_; }
 
-  const arrow::DecimalBasic128& value() const { return value_; }
+  const BasicDecimal128& value() const { return value_; }
 
  private:
-  arrow::DecimalBasic128 value_;
+  BasicDecimal128 value_;
   int32_t precision_;
   int32_t scale_;
 };
 
-inline bool operator==(const DecimalBasicScalar128& left,
-                       const DecimalBasicScalar128& right) {
+inline bool operator==(const BasicDecimalScalar128& left,
+                       const BasicDecimalScalar128& right) {
   return left.value() == right.value() && left.precision() == right.precision() &&
          left.scale() == right.scale();
 }

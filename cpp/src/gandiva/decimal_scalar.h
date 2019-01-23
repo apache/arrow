@@ -21,36 +21,27 @@
 #include <iostream>
 #include <string>
 #include "arrow/util/decimal.h"
-#include "gandiva/decimal_basic_scalar.h"
+#include "gandiva/basic_decimal_scalar.h"
 
 namespace gandiva {
 
 using Decimal128 = arrow::Decimal128;
 
 /// Represents a 128-bit decimal value along with its precision and scale.
-class DecimalScalar128 : public DecimalBasicScalar128 {
+///
+/// BasicDecimalScalar128 can be safely compiled to IR without references to libstdc++.
+/// This class has additional functionality on top of BasicDecimalScalar128 to deal with
+/// strings and streams.
+class DecimalScalar128 : public BasicDecimalScalar128 {
  public:
-  DecimalScalar128(int64_t high_bits, uint64_t low_bits, int32_t precision, int32_t scale)
-      : DecimalBasicScalar128(high_bits, low_bits, precision, scale) {}
+  using BasicDecimalScalar128::BasicDecimalScalar128;
 
-  DecimalScalar128(std::string value, int32_t precision, int32_t scale)
-      : DecimalBasicScalar128(Decimal128(value), precision, scale) {}
-
-  DecimalScalar128(const Decimal128& value, int32_t precision, int32_t scale)
-      : DecimalBasicScalar128(value, precision, scale) {}
-
-  DecimalScalar128(int32_t precision, int32_t scale)
-      : DecimalBasicScalar128(precision, scale) {}
-
-  // constexpr DecimalScalar128(const DecimalBasic128 &value) noexcept :
-  // DecimalBasic128(value) {}
-
-  const arrow::Decimal128& value() const {
-    return static_cast<const arrow::Decimal128&>(DecimalBasicScalar128::value());
-  }
+  DecimalScalar128(const std::string& value, int32_t precision, int32_t scale)
+      : BasicDecimalScalar128(Decimal128(value), precision, scale) {}
 
   inline std::string ToString() const {
-    return value().ToString(0) + "," + std::to_string(precision()) + "," +
+    Decimal128 dvalue(value());
+    return dvalue.ToString(0) + "," + std::to_string(precision()) + "," +
            std::to_string(scale());
   }
 

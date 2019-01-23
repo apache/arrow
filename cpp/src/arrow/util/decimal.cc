@@ -423,12 +423,8 @@ Status Decimal128::ToArrowStatus(DecimalStatus dstatus) const {
       status = Status::Invalid("Division by 0 in Decimal128");
       break;
 
-    case DecimalStatus::kBuildArrayFiveInts:
-      status = Status::Invalid("Can't build Decimal128 with 5 ints.");
-      break;
-
-    case DecimalStatus::kBuildArrayUnsupportedLength:
-      status = Status::Invalid("Unsupported length for building Decimal128");
+    case DecimalStatus::kOverflow:
+      status = Status::Invalid("Overflow occurred during Decimal128 operation.");
       break;
 
     case DecimalStatus::kRescaleDataLoss:

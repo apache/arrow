@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/decimal_basic.h"
+#include "arrow/util/basic_decimal.h"
 
 #include <algorithm>
 #include <array>
@@ -37,109 +37,109 @@ namespace arrow {
 using internal::SafeLeftShift;
 using internal::SafeSignedAdd;
 
-static const DecimalBasic128 ScaleMultipliers[] = {
-    DecimalBasic128(1LL),
-    DecimalBasic128(10LL),
-    DecimalBasic128(100LL),
-    DecimalBasic128(1000LL),
-    DecimalBasic128(10000LL),
-    DecimalBasic128(100000LL),
-    DecimalBasic128(1000000LL),
-    DecimalBasic128(10000000LL),
-    DecimalBasic128(100000000LL),
-    DecimalBasic128(1000000000LL),
-    DecimalBasic128(10000000000LL),
-    DecimalBasic128(100000000000LL),
-    DecimalBasic128(1000000000000LL),
-    DecimalBasic128(10000000000000LL),
-    DecimalBasic128(100000000000000LL),
-    DecimalBasic128(1000000000000000LL),
-    DecimalBasic128(10000000000000000LL),
-    DecimalBasic128(100000000000000000LL),
-    DecimalBasic128(1000000000000000000LL),
-    DecimalBasic128(0LL, 10000000000000000000ULL),
-    DecimalBasic128(5LL, 7766279631452241920ULL),
-    DecimalBasic128(54LL, 3875820019684212736ULL),
-    DecimalBasic128(542LL, 1864712049423024128ULL),
-    DecimalBasic128(5421LL, 200376420520689664ULL),
-    DecimalBasic128(54210LL, 2003764205206896640ULL),
-    DecimalBasic128(542101LL, 1590897978359414784ULL),
-    DecimalBasic128(5421010LL, 15908979783594147840ULL),
-    DecimalBasic128(54210108LL, 11515845246265065472ULL),
-    DecimalBasic128(542101086LL, 4477988020393345024ULL),
-    DecimalBasic128(5421010862LL, 7886392056514347008ULL),
-    DecimalBasic128(54210108624LL, 5076944270305263616ULL),
-    DecimalBasic128(542101086242LL, 13875954555633532928ULL),
-    DecimalBasic128(5421010862427LL, 9632337040368467968ULL),
-    DecimalBasic128(54210108624275LL, 4089650035136921600ULL),
-    DecimalBasic128(542101086242752LL, 4003012203950112768ULL),
-    DecimalBasic128(5421010862427522LL, 3136633892082024448ULL),
-    DecimalBasic128(54210108624275221LL, 12919594847110692864ULL),
-    DecimalBasic128(542101086242752217LL, 68739955140067328ULL),
-    DecimalBasic128(5421010862427522170LL, 687399551400673280ULL)};
+static const BasicDecimal128 ScaleMultipliers[] = {
+    BasicDecimal128(1LL),
+    BasicDecimal128(10LL),
+    BasicDecimal128(100LL),
+    BasicDecimal128(1000LL),
+    BasicDecimal128(10000LL),
+    BasicDecimal128(100000LL),
+    BasicDecimal128(1000000LL),
+    BasicDecimal128(10000000LL),
+    BasicDecimal128(100000000LL),
+    BasicDecimal128(1000000000LL),
+    BasicDecimal128(10000000000LL),
+    BasicDecimal128(100000000000LL),
+    BasicDecimal128(1000000000000LL),
+    BasicDecimal128(10000000000000LL),
+    BasicDecimal128(100000000000000LL),
+    BasicDecimal128(1000000000000000LL),
+    BasicDecimal128(10000000000000000LL),
+    BasicDecimal128(100000000000000000LL),
+    BasicDecimal128(1000000000000000000LL),
+    BasicDecimal128(0LL, 10000000000000000000ULL),
+    BasicDecimal128(5LL, 7766279631452241920ULL),
+    BasicDecimal128(54LL, 3875820019684212736ULL),
+    BasicDecimal128(542LL, 1864712049423024128ULL),
+    BasicDecimal128(5421LL, 200376420520689664ULL),
+    BasicDecimal128(54210LL, 2003764205206896640ULL),
+    BasicDecimal128(542101LL, 1590897978359414784ULL),
+    BasicDecimal128(5421010LL, 15908979783594147840ULL),
+    BasicDecimal128(54210108LL, 11515845246265065472ULL),
+    BasicDecimal128(542101086LL, 4477988020393345024ULL),
+    BasicDecimal128(5421010862LL, 7886392056514347008ULL),
+    BasicDecimal128(54210108624LL, 5076944270305263616ULL),
+    BasicDecimal128(542101086242LL, 13875954555633532928ULL),
+    BasicDecimal128(5421010862427LL, 9632337040368467968ULL),
+    BasicDecimal128(54210108624275LL, 4089650035136921600ULL),
+    BasicDecimal128(542101086242752LL, 4003012203950112768ULL),
+    BasicDecimal128(5421010862427522LL, 3136633892082024448ULL),
+    BasicDecimal128(54210108624275221LL, 12919594847110692864ULL),
+    BasicDecimal128(542101086242752217LL, 68739955140067328ULL),
+    BasicDecimal128(5421010862427522170LL, 687399551400673280ULL)};
 
-static const DecimalBasic128 ScaleMultipliersHalf[] = {
-    DecimalBasic128(0ULL),
-    DecimalBasic128(5ULL),
-    DecimalBasic128(50ULL),
-    DecimalBasic128(500ULL),
-    DecimalBasic128(5000ULL),
-    DecimalBasic128(50000ULL),
-    DecimalBasic128(500000ULL),
-    DecimalBasic128(5000000ULL),
-    DecimalBasic128(50000000ULL),
-    DecimalBasic128(500000000ULL),
-    DecimalBasic128(5000000000ULL),
-    DecimalBasic128(50000000000ULL),
-    DecimalBasic128(500000000000ULL),
-    DecimalBasic128(5000000000000ULL),
-    DecimalBasic128(50000000000000ULL),
-    DecimalBasic128(500000000000000ULL),
-    DecimalBasic128(5000000000000000ULL),
-    DecimalBasic128(50000000000000000ULL),
-    DecimalBasic128(500000000000000000ULL),
-    DecimalBasic128(5000000000000000000ULL),
-    DecimalBasic128(2LL, 13106511852580896768ULL),
-    DecimalBasic128(27LL, 1937910009842106368ULL),
-    DecimalBasic128(271LL, 932356024711512064ULL),
-    DecimalBasic128(2710LL, 9323560247115120640ULL),
-    DecimalBasic128(27105LL, 1001882102603448320ULL),
-    DecimalBasic128(271050LL, 10018821026034483200ULL),
-    DecimalBasic128(2710505LL, 7954489891797073920ULL),
-    DecimalBasic128(27105054LL, 5757922623132532736ULL),
-    DecimalBasic128(271050543LL, 2238994010196672512ULL),
-    DecimalBasic128(2710505431LL, 3943196028257173504ULL),
-    DecimalBasic128(27105054312LL, 2538472135152631808ULL),
-    DecimalBasic128(271050543121LL, 6937977277816766464ULL),
-    DecimalBasic128(2710505431213LL, 14039540557039009792ULL),
-    DecimalBasic128(27105054312137LL, 11268197054423236608ULL),
-    DecimalBasic128(271050543121376LL, 2001506101975056384ULL),
-    DecimalBasic128(2710505431213761LL, 1568316946041012224ULL),
-    DecimalBasic128(27105054312137610LL, 15683169460410122240ULL),
-    DecimalBasic128(271050543121376108LL, 9257742014424809472ULL),
-    DecimalBasic128(2710505431213761085LL, 343699775700336640ULL)};
+static const BasicDecimal128 ScaleMultipliersHalf[] = {
+    BasicDecimal128(0ULL),
+    BasicDecimal128(5ULL),
+    BasicDecimal128(50ULL),
+    BasicDecimal128(500ULL),
+    BasicDecimal128(5000ULL),
+    BasicDecimal128(50000ULL),
+    BasicDecimal128(500000ULL),
+    BasicDecimal128(5000000ULL),
+    BasicDecimal128(50000000ULL),
+    BasicDecimal128(500000000ULL),
+    BasicDecimal128(5000000000ULL),
+    BasicDecimal128(50000000000ULL),
+    BasicDecimal128(500000000000ULL),
+    BasicDecimal128(5000000000000ULL),
+    BasicDecimal128(50000000000000ULL),
+    BasicDecimal128(500000000000000ULL),
+    BasicDecimal128(5000000000000000ULL),
+    BasicDecimal128(50000000000000000ULL),
+    BasicDecimal128(500000000000000000ULL),
+    BasicDecimal128(5000000000000000000ULL),
+    BasicDecimal128(2LL, 13106511852580896768ULL),
+    BasicDecimal128(27LL, 1937910009842106368ULL),
+    BasicDecimal128(271LL, 932356024711512064ULL),
+    BasicDecimal128(2710LL, 9323560247115120640ULL),
+    BasicDecimal128(27105LL, 1001882102603448320ULL),
+    BasicDecimal128(271050LL, 10018821026034483200ULL),
+    BasicDecimal128(2710505LL, 7954489891797073920ULL),
+    BasicDecimal128(27105054LL, 5757922623132532736ULL),
+    BasicDecimal128(271050543LL, 2238994010196672512ULL),
+    BasicDecimal128(2710505431LL, 3943196028257173504ULL),
+    BasicDecimal128(27105054312LL, 2538472135152631808ULL),
+    BasicDecimal128(271050543121LL, 6937977277816766464ULL),
+    BasicDecimal128(2710505431213LL, 14039540557039009792ULL),
+    BasicDecimal128(27105054312137LL, 11268197054423236608ULL),
+    BasicDecimal128(271050543121376LL, 2001506101975056384ULL),
+    BasicDecimal128(2710505431213761LL, 1568316946041012224ULL),
+    BasicDecimal128(27105054312137610LL, 15683169460410122240ULL),
+    BasicDecimal128(271050543121376108LL, 9257742014424809472ULL),
+    BasicDecimal128(2710505431213761085LL, 343699775700336640ULL)};
 
 static constexpr uint64_t kIntMask = 0xFFFFFFFF;
 static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
 
-DecimalBasic128::DecimalBasic128(const uint8_t* bytes)
-    : DecimalBasic128(
+BasicDecimal128::BasicDecimal128(const uint8_t* bytes)
+    : BasicDecimal128(
           BitUtil::FromLittleEndian(reinterpret_cast<const int64_t*>(bytes)[1]),
           BitUtil::FromLittleEndian(reinterpret_cast<const uint64_t*>(bytes)[0])) {}
 
-std::array<uint8_t, 16> DecimalBasic128::ToBytes() const {
+std::array<uint8_t, 16> BasicDecimal128::ToBytes() const {
   std::array<uint8_t, 16> out{{0}};
   ToBytes(out.data());
   return out;
 }
 
-void DecimalBasic128::ToBytes(uint8_t* out) const {
+void BasicDecimal128::ToBytes(uint8_t* out) const {
   DCHECK_NE(out, nullptr);
   reinterpret_cast<uint64_t*>(out)[0] = BitUtil::ToLittleEndian(low_bits_);
   reinterpret_cast<int64_t*>(out)[1] = BitUtil::ToLittleEndian(high_bits_);
 }
 
-DecimalBasic128& DecimalBasic128::Negate() {
+BasicDecimal128& BasicDecimal128::Negate() {
   low_bits_ = ~low_bits_ + 1;
   high_bits_ = ~high_bits_;
   if (low_bits_ == 0) {
@@ -148,9 +148,9 @@ DecimalBasic128& DecimalBasic128::Negate() {
   return *this;
 }
 
-DecimalBasic128& DecimalBasic128::Abs() { return *this < 0 ? Negate() : *this; }
+BasicDecimal128& BasicDecimal128::Abs() { return *this < 0 ? Negate() : *this; }
 
-DecimalBasic128& DecimalBasic128::operator+=(const DecimalBasic128& right) {
+BasicDecimal128& BasicDecimal128::operator+=(const BasicDecimal128& right) {
   const uint64_t sum = low_bits_ + right.low_bits_;
   high_bits_ = SafeSignedAdd<int64_t>(high_bits_, right.high_bits_);
   if (sum < low_bits_) {
@@ -160,7 +160,7 @@ DecimalBasic128& DecimalBasic128::operator+=(const DecimalBasic128& right) {
   return *this;
 }
 
-DecimalBasic128& DecimalBasic128::operator-=(const DecimalBasic128& right) {
+BasicDecimal128& BasicDecimal128::operator-=(const BasicDecimal128& right) {
   const uint64_t diff = low_bits_ - right.low_bits_;
   high_bits_ -= right.high_bits_;
   if (diff > low_bits_) {
@@ -170,26 +170,26 @@ DecimalBasic128& DecimalBasic128::operator-=(const DecimalBasic128& right) {
   return *this;
 }
 
-DecimalBasic128& DecimalBasic128::operator/=(const DecimalBasic128& right) {
-  DecimalBasic128 remainder;
+BasicDecimal128& BasicDecimal128::operator/=(const BasicDecimal128& right) {
+  BasicDecimal128 remainder;
   auto s = Divide(right, this, &remainder);
   DCHECK_EQ(s, DecimalStatus::kSuccess);
   return *this;
 }
 
-DecimalBasic128& DecimalBasic128::operator|=(const DecimalBasic128& right) {
+BasicDecimal128& BasicDecimal128::operator|=(const BasicDecimal128& right) {
   low_bits_ |= right.low_bits_;
   high_bits_ |= right.high_bits_;
   return *this;
 }
 
-DecimalBasic128& DecimalBasic128::operator&=(const DecimalBasic128& right) {
+BasicDecimal128& BasicDecimal128::operator&=(const BasicDecimal128& right) {
   low_bits_ &= right.low_bits_;
   high_bits_ &= right.high_bits_;
   return *this;
 }
 
-DecimalBasic128& DecimalBasic128::operator<<=(uint32_t bits) {
+BasicDecimal128& BasicDecimal128::operator<<=(uint32_t bits) {
   if (bits != 0) {
     if (bits < 64) {
       high_bits_ = SafeLeftShift(high_bits_, bits);
@@ -206,7 +206,7 @@ DecimalBasic128& DecimalBasic128::operator<<=(uint32_t bits) {
   return *this;
 }
 
-DecimalBasic128& DecimalBasic128::operator>>=(uint32_t bits) {
+BasicDecimal128& BasicDecimal128::operator>>=(uint32_t bits) {
   if (bits != 0) {
     if (bits < 64) {
       low_bits_ >>= bits;
@@ -223,7 +223,7 @@ DecimalBasic128& DecimalBasic128::operator>>=(uint32_t bits) {
   return *this;
 }
 
-DecimalBasic128& DecimalBasic128::operator*=(const DecimalBasic128& right) {
+BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
   // Break the left and right numbers into 32 bit chunks
   // so that we can multiply them without overflow.
   const uint64_t L0 = static_cast<uint64_t>(high_bits_) >> 32;
@@ -267,7 +267,7 @@ DecimalBasic128& DecimalBasic128::operator*=(const DecimalBasic128& right) {
 /// \param array an array of length 4 to set with the value
 /// \param was_negative a flag for whether the value was original negative
 /// \result the output length of the array
-static int64_t FillInArray(const DecimalBasic128& value, uint32_t* array,
+static int64_t FillInArray(const BasicDecimal128& value, uint32_t* array,
                            bool& was_negative) {
   uint64_t high;
   uint64_t low;
@@ -344,7 +344,7 @@ static void ShiftArrayRight(uint32_t* array, int64_t length, int64_t bits) {
 
 /// \brief Fix the signs of the result and remainder at the end of the division based on
 /// the signs of the dividend and divisor.
-static void FixDivisionSigns(DecimalBasic128* result, DecimalBasic128* remainder,
+static void FixDivisionSigns(BasicDecimal128* result, BasicDecimal128* remainder,
                              bool dividend_was_negative, bool divisor_was_negative) {
   if (dividend_was_negative != divisor_was_negative) {
     result->Negate();
@@ -355,8 +355,8 @@ static void FixDivisionSigns(DecimalBasic128* result, DecimalBasic128* remainder
   }
 }
 
-/// \brief Build a DecimalBasic128 from a list of ints.
-static DecimalStatus BuildFromArray(DecimalBasic128* value, uint32_t* array,
+/// \brief Build a BasicDecimal128 from a list of ints.
+static DecimalStatus BuildFromArray(BasicDecimal128* value, uint32_t* array,
                                     int64_t length) {
   switch (length) {
     case 0:
@@ -379,13 +379,13 @@ static DecimalStatus BuildFromArray(DecimalBasic128* value, uint32_t* array,
       break;
     case 5:
       if (array[0] != 0) {
-        return DecimalStatus::kBuildArrayFiveInts;
+        return DecimalStatus::kOverflow;
       }
       *value = {(static_cast<int64_t>(array[1]) << 32) + array[2],
                 (static_cast<uint64_t>(array[3]) << 32) + array[4]};
       break;
     default:
-      return DecimalStatus::kBuildArrayUnsupportedLength;
+      return DecimalStatus::kOverflow;
   }
 
   return DecimalStatus::kSuccess;
@@ -393,9 +393,9 @@ static DecimalStatus BuildFromArray(DecimalBasic128* value, uint32_t* array,
 
 /// \brief Do a division where the divisor fits into a single 32 bit value.
 static DecimalStatus SingleDivide(const uint32_t* dividend, int64_t dividend_length,
-                                  uint32_t divisor, DecimalBasic128* remainder,
+                                  uint32_t divisor, BasicDecimal128* remainder,
                                   bool dividend_was_negative, bool divisor_was_negative,
-                                  DecimalBasic128* result) {
+                                  BasicDecimal128* result) {
   uint64_t r = 0;
   uint32_t result_array[5];
   for (int64_t j = 0; j < dividend_length; j++) {
@@ -414,9 +414,9 @@ static DecimalStatus SingleDivide(const uint32_t* dividend, int64_t dividend_len
   return DecimalStatus::kSuccess;
 }
 
-DecimalStatus DecimalBasic128::Divide(const DecimalBasic128& divisor,
-                                      DecimalBasic128* result,
-                                      DecimalBasic128* remainder) const {
+DecimalStatus BasicDecimal128::Divide(const BasicDecimal128& divisor,
+                                      BasicDecimal128* result,
+                                      BasicDecimal128* remainder) const {
   // Split the dividend and divisor into integer pieces so that we can
   // work on them.
   uint32_t dividend_array[5];
@@ -525,82 +525,82 @@ DecimalStatus DecimalBasic128::Divide(const DecimalBasic128& divisor,
   return DecimalStatus::kSuccess;
 }
 
-bool operator==(const DecimalBasic128& left, const DecimalBasic128& right) {
+bool operator==(const BasicDecimal128& left, const BasicDecimal128& right) {
   return left.high_bits() == right.high_bits() && left.low_bits() == right.low_bits();
 }
 
-bool operator!=(const DecimalBasic128& left, const DecimalBasic128& right) {
+bool operator!=(const BasicDecimal128& left, const BasicDecimal128& right) {
   return !operator==(left, right);
 }
 
-bool operator<(const DecimalBasic128& left, const DecimalBasic128& right) {
+bool operator<(const BasicDecimal128& left, const BasicDecimal128& right) {
   return left.high_bits() < right.high_bits() ||
          (left.high_bits() == right.high_bits() && left.low_bits() < right.low_bits());
 }
 
-bool operator<=(const DecimalBasic128& left, const DecimalBasic128& right) {
+bool operator<=(const BasicDecimal128& left, const BasicDecimal128& right) {
   return !operator>(left, right);
 }
 
-bool operator>(const DecimalBasic128& left, const DecimalBasic128& right) {
+bool operator>(const BasicDecimal128& left, const BasicDecimal128& right) {
   return operator<(right, left);
 }
 
-bool operator>=(const DecimalBasic128& left, const DecimalBasic128& right) {
+bool operator>=(const BasicDecimal128& left, const BasicDecimal128& right) {
   return !operator<(left, right);
 }
 
-DecimalBasic128 operator-(const DecimalBasic128& operand) {
-  DecimalBasic128 result(operand.high_bits(), operand.low_bits());
+BasicDecimal128 operator-(const BasicDecimal128& operand) {
+  BasicDecimal128 result(operand.high_bits(), operand.low_bits());
   return result.Negate();
 }
 
-DecimalBasic128 operator~(const DecimalBasic128& operand) {
-  DecimalBasic128 result(~operand.high_bits(), ~operand.low_bits());
+BasicDecimal128 operator~(const BasicDecimal128& operand) {
+  BasicDecimal128 result(~operand.high_bits(), ~operand.low_bits());
   return result;
 }
 
-DecimalBasic128 operator+(const DecimalBasic128& left, const DecimalBasic128& right) {
-  DecimalBasic128 result(left.high_bits(), left.low_bits());
+BasicDecimal128 operator+(const BasicDecimal128& left, const BasicDecimal128& right) {
+  BasicDecimal128 result(left.high_bits(), left.low_bits());
   result += right;
   return result;
 }
 
-DecimalBasic128 operator-(const DecimalBasic128& left, const DecimalBasic128& right) {
-  DecimalBasic128 result(left.high_bits(), left.low_bits());
+BasicDecimal128 operator-(const BasicDecimal128& left, const BasicDecimal128& right) {
+  BasicDecimal128 result(left.high_bits(), left.low_bits());
   result -= right;
   return result;
 }
 
-DecimalBasic128 operator*(const DecimalBasic128& left, const DecimalBasic128& right) {
-  DecimalBasic128 result(left.high_bits(), left.low_bits());
+BasicDecimal128 operator*(const BasicDecimal128& left, const BasicDecimal128& right) {
+  BasicDecimal128 result(left.high_bits(), left.low_bits());
   result *= right;
   return result;
 }
 
-DecimalBasic128 operator/(const DecimalBasic128& left, const DecimalBasic128& right) {
-  DecimalBasic128 remainder;
-  DecimalBasic128 result;
+BasicDecimal128 operator/(const BasicDecimal128& left, const BasicDecimal128& right) {
+  BasicDecimal128 remainder;
+  BasicDecimal128 result;
   auto s = left.Divide(right, &result, &remainder);
   DCHECK_EQ(s, DecimalStatus::kSuccess);
   return result;
 }
 
-DecimalBasic128 operator%(const DecimalBasic128& left, const DecimalBasic128& right) {
-  DecimalBasic128 remainder;
-  DecimalBasic128 result;
+BasicDecimal128 operator%(const BasicDecimal128& left, const BasicDecimal128& right) {
+  BasicDecimal128 remainder;
+  BasicDecimal128 result;
   auto s = left.Divide(right, &result, &remainder);
   DCHECK_EQ(s, DecimalStatus::kSuccess);
   return remainder;
 }
 
-static bool RescaleWouldCauseDataLoss(const DecimalBasic128& value, int32_t delta_scale,
-                                      int32_t abs_delta_scale, DecimalBasic128* result) {
-  DecimalBasic128 multiplier(ScaleMultipliers[abs_delta_scale]);
+static bool RescaleWouldCauseDataLoss(const BasicDecimal128& value, int32_t delta_scale,
+                                      int32_t abs_delta_scale, BasicDecimal128* result) {
+  BasicDecimal128 multiplier(ScaleMultipliers[abs_delta_scale]);
 
   if (delta_scale < 0) {
     DCHECK_NE(multiplier, 0);
-    DecimalBasic128 remainder;
+    BasicDecimal128 remainder;
     auto status = value.Divide(multiplier, result, &remainder);
     DCHECK_EQ(status, DecimalStatus::kSuccess);
     return remainder != 0;
@@ -610,8 +610,8 @@ static bool RescaleWouldCauseDataLoss(const DecimalBasic128& value, int32_t delt
   return (value < 0) ? *result > value : *result < value;
 }
 
-DecimalStatus DecimalBasic128::Rescale(int32_t original_scale, int32_t new_scale,
-                                       DecimalBasic128* out) const {
+DecimalStatus BasicDecimal128::Rescale(int32_t original_scale, int32_t new_scale,
+                                       BasicDecimal128* out) const {
   DCHECK_NE(out, nullptr);
   DCHECK_NE(original_scale, new_scale);
 
@@ -621,7 +621,7 @@ DecimalStatus DecimalBasic128::Rescale(int32_t original_scale, int32_t new_scale
   DCHECK_GE(abs_delta_scale, 1);
   DCHECK_LE(abs_delta_scale, 38);
 
-  DecimalBasic128 result(*this);
+  BasicDecimal128 result(*this);
   const bool rescale_would_cause_data_loss =
       RescaleWouldCauseDataLoss(result, delta_scale, abs_delta_scale, out);
 
@@ -633,36 +633,36 @@ DecimalStatus DecimalBasic128::Rescale(int32_t original_scale, int32_t new_scale
   return DecimalStatus::kSuccess;
 }
 
-void DecimalBasic128::GetWholeAndFraction(int scale, DecimalBasic128* whole,
-                                          DecimalBasic128* fraction) const {
+void BasicDecimal128::GetWholeAndFraction(int scale, BasicDecimal128* whole,
+                                          BasicDecimal128* fraction) const {
   DCHECK_GE(scale, 0);
   DCHECK_LE(scale, 38);
 
-  DecimalBasic128 multiplier(ScaleMultipliers[scale]);
+  BasicDecimal128 multiplier(ScaleMultipliers[scale]);
   DCHECK_EQ(Divide(multiplier, whole, fraction), DecimalStatus::kSuccess);
 }
 
-const DecimalBasic128& DecimalBasic128::GetScaleMultiplier(int32_t scale) {
+const BasicDecimal128& BasicDecimal128::GetScaleMultiplier(int32_t scale) {
   DCHECK_GE(scale, 0);
   DCHECK_LE(scale, 38);
 
   return ScaleMultipliers[scale];
 }
 
-DecimalBasic128 DecimalBasic128::IncreaseScaleBy(int32_t increase_by) const {
+BasicDecimal128 BasicDecimal128::IncreaseScaleBy(int32_t increase_by) const {
   DCHECK_GE(increase_by, 0);
   DCHECK_LE(increase_by, 38);
 
   return (*this) * ScaleMultipliers[increase_by];
 }
 
-DecimalBasic128 DecimalBasic128::ReduceScaleBy(int32_t reduce_by, bool round) const {
+BasicDecimal128 BasicDecimal128::ReduceScaleBy(int32_t reduce_by, bool round) const {
   DCHECK_GE(reduce_by, 0);
   DCHECK_LE(reduce_by, 38);
 
-  DecimalBasic128 divisor(ScaleMultipliers[reduce_by]);
-  DecimalBasic128 result;
-  DecimalBasic128 remainder;
+  BasicDecimal128 divisor(ScaleMultipliers[reduce_by]);
+  BasicDecimal128 result;
+  BasicDecimal128 remainder;
   DCHECK_EQ(Divide(divisor, &result, &remainder), DecimalStatus::kSuccess);
   if (round) {
     auto divisor_half = ScaleMultipliersHalf[reduce_by];
@@ -677,8 +677,8 @@ DecimalBasic128 DecimalBasic128::ReduceScaleBy(int32_t reduce_by, bool round) co
   return result;
 }
 
-int32_t DecimalBasic128::CountLeadingBinaryZeros() const {
-  DCHECK_GE(*this, DecimalBasic128(0));
+int32_t BasicDecimal128::CountLeadingBinaryZeros() const {
+  DCHECK_GE(*this, BasicDecimal128(0));
 
   if (high_bits_ == 0) {
     return BitUtil::CountLeadingZeros(low_bits_) + 64;

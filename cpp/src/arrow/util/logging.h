@@ -20,6 +20,9 @@
 
 #ifdef GANDIVA_IR
 
+// The LLVM IR code doesn't have an NDEBUG mode. And, it shouldn't include references to
+// streams or stdc++. So, making the DCHECK calls void in that case.
+
 #define ARROW_IGNORE_EXPR(expr) ((void)(expr))
 
 #define DCHECK(condition) ARROW_IGNORE_EXPR(condition)
@@ -32,6 +35,7 @@
 #define DCHECK_GT(val1, val2) ARROW_IGNORE_EXPR(val1)
 
 #else  // !GANDIVA_IR
+
 #include <iostream>
 #include <memory>
 #include <string>

@@ -28,7 +28,7 @@ set(PRECOMPILED_SRCS
     string_ops.cc
     time.cc
     timestamp_arithmetic.cc
-    ../../arrow/util/decimal_basic.cc)
+    ../../arrow/util/basic_decimal.cc)
 
 # Create bitcode for each of the source files.
 foreach(SRC_FILE ${PRECOMPILED_SRCS})

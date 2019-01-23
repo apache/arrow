@@ -101,11 +101,11 @@ set(ARROW_SRCS
   io/memory.cc
   io/readahead.cc
 
+  util/basic_decimal.cc
   util/bit-util.cc
   util/compression.cc
   util/cpu-info.cc
   util/decimal.cc
-  util/decimal_basic.cc
   util/int-util.cc
   util/io-util.cc
   util/logging.cc
