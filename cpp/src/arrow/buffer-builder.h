@@ -74,7 +74,9 @@ class ARROW_EXPORT BufferBuilder {
   /// \brief Ensure that builder can accommodate the additional number of bytes
   /// without the need to perform allocations
   ///
-  /// \param additional_bytes number of additional bytes to make space for
+  /// \param[in] additional_bytes number of additional bytes to make space for
+  /// \param[in] grow_by_factor if true, round up allocations using the
+  /// strategy in BufferBuilder::GrowByFactor
   /// \return Status
   Status Reserve(const int64_t additional_bytes, bool grow_by_factor = false) {
     auto min_capacity = size_ + additional_bytes;
