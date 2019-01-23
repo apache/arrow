@@ -47,7 +47,10 @@ namespace arrow {
 ///      strings and streams.
 class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
  public:
+  /// \cond FALSE
+  // (need to avoid a duplicate definition in Sphinx)
   using BasicDecimal128::BasicDecimal128;
+  /// \endcond
 
   /// \brief constructor creates a Decimal128 from a BasicDecimal128.
   constexpr Decimal128(const BasicDecimal128& value) noexcept : BasicDecimal128(value) {}
@@ -55,8 +58,8 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   /// \brief Parse the number from a base 10 string representation.
   explicit Decimal128(const std::string& value);
 
-  /// \brief Empty constructor wrapper over BasicDecimal128. This is required on some
-  /// older compilers.
+  /// \brief Empty constructor creates a Decimal128 with a value of 0.
+  // This is required on some older compilers.
   constexpr Decimal128() noexcept : BasicDecimal128() {}
 
   /// Divide this number by right and return the result.

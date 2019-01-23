@@ -16,8 +16,7 @@
 # under the License.
 
 # Requirements for building the documentation
-breathe
+# You also need to `pip install -r docs/requirements.txt`
+
 doxygen
 ipython
-sphinx
-sphinx_rtd_theme
