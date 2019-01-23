@@ -15,29 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#![feature(specialization)]
-#![feature(box_syntax)]
-#![allow(dead_code)]
-#![allow(non_camel_case_types)]
-#![allow(bare_trait_objects)]
+use parquet::Deserialize;
 
-#[macro_use]
-pub mod errors;
-pub mod basic;
-pub mod data_type;
+#[derive(Deserialize)]
+struct Abc {
+    a: String,
+}
 
-// Exported for external use, such as benchmarks
-pub use self::encodings::{decoding, encoding};
-pub use self::util::memory;
+#[derive(Deserialize)]
+struct Def {
+    #[parquet(rename = "!@£$%^&*(")]
+    a: String,
+}
 
-#[macro_use]
-mod util;
-pub mod arrow;
-pub mod column;
-pub mod compression;
-mod encodings;
-pub mod file;
-pub mod record;
-pub mod schema;
-
-pub use parquet_derive::Deserialize;
+// #[derive(Deserialize)]
+// struct Ghi {
+// 	#[parquet(rename = 123)]
+//     a: String,
+// }

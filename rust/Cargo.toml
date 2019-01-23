@@ -19,5 +19,6 @@
 members = [
         "arrow",
         "parquet",
+        "parquet/parquet_derive",
         "datafusion",
 ]

@@ -332,9 +332,6 @@ pub struct RleDecoder {
     // Bit reader loaded with input buffer.
     bit_reader: Option<BitReader>,
 
-    // Buffer used when `bit_reader` is not `None`, for batch reading.
-    index_buf: Option<Box<[i32; 1024]>>,
-
     // The remaining number of values in RLE for this run
     rle_left: u32,
 
@@ -352,7 +349,6 @@ impl RleDecoder {
             rle_left: 0,
             bit_packed_left: 0,
             bit_reader: None,
-            index_buf: None,
             current_value: None,
         }
     }
@@ -362,7 +358,6 @@ impl RleDecoder {
             bit_reader.reset(data);
         } else {
             self.bit_reader = Some(BitReader::new(data));
-            self.index_buf = Some(box [0; 1024]);
         }
 
         let _ = self.reload();
@@ -471,7 +466,7 @@ impl RleDecoder {
                 let mut num_values =
                     cmp::min(max_values - values_read, self.bit_packed_left as usize);
                 if let Some(ref mut bit_reader) = self.bit_reader {
-                    let mut index_buf = self.index_buf.as_mut().unwrap();
+                    let mut index_buf = [0i32; 1024];
                     num_values = cmp::min(num_values, index_buf.len());
                     loop {
                         num_values = bit_reader.get_batch::<i32>(
