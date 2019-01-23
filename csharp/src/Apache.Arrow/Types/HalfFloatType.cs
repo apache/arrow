@@ -13,13 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Apache.Arrow.Types
 {
-    public class HalfFloatType: FloatingPointType
+    public sealed class HalfFloatType: FloatingPointType
     {
         public static readonly HalfFloatType Default = new HalfFloatType();
 
@@ -29,10 +26,6 @@ namespace Apache.Arrow.Types
         public override bool IsSigned => true;
         public override PrecisionKind Precision => PrecisionKind.Half;
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<HalfFloatType> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

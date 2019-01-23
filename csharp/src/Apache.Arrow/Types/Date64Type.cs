@@ -13,13 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Apache.Arrow.Types
 {
-    public class Date64Type: DateType
+    public sealed class Date64Type : DateType
     {
         public static readonly Date64Type Default = new Date64Type();
 
@@ -28,10 +25,6 @@ namespace Apache.Arrow.Types
         public override int BitWidth => 64;
         public override DateUnit Unit => DateUnit.Milliseconds;
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<Date64Type> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

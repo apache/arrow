@@ -57,7 +57,9 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
                            std::shared_ptr<CudaBuffer>* out);
 
   /// \brief Copy memory from GPU device to CPU host
-  /// \param[out] out a pre-allocated output buffer
+  /// \param[in] position start position inside buffer to copy bytes from
+  /// \param[in] nbytes number of bytes to copy
+  /// \param[out] out start address of the host memory area to copy to
   /// \return Status
   Status CopyToHost(const int64_t position, const int64_t nbytes, void* out) const;
 
@@ -69,8 +71,8 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   Status CopyFromHost(const int64_t position, const void* data, int64_t nbytes);
 
   /// \brief Copy memory from device to device at position
-  /// \param[in] position start position to copy bytes
-  /// \param[in] data the device data to copy
+  /// \param[in] position start position inside buffer to copy bytes to
+  /// \param[in] data start address of the device memory area to copy from
   /// \param[in] nbytes number of bytes to copy
   /// \return Status
   ///

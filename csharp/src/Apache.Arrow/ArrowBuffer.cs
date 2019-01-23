@@ -13,116 +13,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Memory;
 using System;
-using System.Buffers;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
+using Apache.Arrow.Memory;
 
 namespace Apache.Arrow
 {
-    public partial class ArrowBuffer: IEquatable<ArrowBuffer>
+    public readonly partial struct ArrowBuffer: IEquatable<ArrowBuffer>
     {
-        public ArrowBuffer(Memory<byte> data, int size)
+        public static ArrowBuffer Empty => new ArrowBuffer(Memory<byte>.Empty);
+
+        private ArrowBuffer(Memory<byte> data)
         {
             Memory = data;
-            Size = size;
         }
 
-        /// <summary>
-        /// Allocates an Arrow buffer from a memory pool.
-        /// </summary>
-        /// <param name="size">Size of buffer (in bytes) to allocate.</param>
-        /// <param name="memoryPool">Memory pool to use for allocation. If null, a default memory pool is used.</param>
-        /// <returns></returns>
-        public static ArrowBuffer Allocate(int size, MemoryPool memoryPool = null)
-        {
-            if (memoryPool == null)
-                memoryPool = DefaultMemoryPool.Instance.Value;
-
-            var buffer = memoryPool.Allocate(size);
-
-            return new ArrowBuffer(buffer, size);
-        }
-
-        /// <summary>
-        /// Allocates an Arrow buffer the same length as the incoming data, then
-        /// copies the specified data to the arrow buffer.
-        /// </summary>
-        /// <param name="data">Data to copy into a new arrow buffer.</param>
-        /// <param name="memoryPool">Memory pool to use for allocation. If null, a default memory pool is used.</param>
-        /// <returns></returns>
-        public static ArrowBuffer FromMemory(Memory<byte> data, MemoryPool memoryPool = default)
-        {
-            var buffer = Allocate(data.Length, memoryPool);
-            data.CopyTo(buffer.Memory);
-            return buffer;
-        }
-
-        public async Task CopyToAsync(Stream stream, CancellationToken cancellationToken = default)
-        {
-            const float chunkSize = 8192f;
-
-            // TODO: Is there a better copy mechanism to use here that does not involve allocating buffers and targets .NET Standard 1.3?
-            // NOTE: Consider specialization for .NET Core 2.1
-
-            var length = Convert.ToInt32(chunkSize);
-            var buffer = ArrayPool<byte>.Shared.Rent(length);
-            var count = Convert.ToInt32(Math.Ceiling(Memory.Length / chunkSize));
-            var offset = 0;
-
-            try
-            {
-                for (var i = 0; i < count; i++)
-                {
-                    var n = Math.Min(length, Memory.Length);
-                    var slice = Memory.Slice(offset, n);
-
-                    slice.CopyTo(buffer);
-
-                    await stream.WriteAsync(buffer, 0, n, cancellationToken);
-
-                    offset += n;
-                }
-            }
-            finally
-            {
-                if (buffer != null)
-                {
-                    ArrayPool<byte>.Shared.Return(buffer);
-                }
-            }
-        }
-
-        public Memory<byte> Memory { get; }
+        public ReadOnlyMemory<byte> Memory { get; }
 
         public bool IsEmpty => Memory.IsEmpty;
 
-        public int Size { get; }
+        public int Length => Memory.Length;
 
-        public int Capacity => Memory.Length;
+        public ReadOnlySpan<byte> Span
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Memory.Span;
+        }
 
-        public Span<T> GetSpan<T>(int offset)
-            where T : struct =>
-            MemoryMarshal.Cast<byte, T>(
-                Memory.Span.Slice(offset));
-
-        public Span<T> GetSpan<T>(int offset, int length)
-            where T : struct =>
-            MemoryMarshal.Cast<byte, T>(
-                Memory.Span.Slice(offset, length));
-
-        public Span<T> GetSpan<T>()
-            where T: struct =>
-            MemoryMarshal.Cast<byte, T>(Memory.Span);
+        public ArrowBuffer Clone(MemoryPool pool = default)
+        {
+            return new Builder<byte>(Span.Length)
+                .Append(Span)
+                .Build(pool);
+        }
 
         public bool Equals(ArrowBuffer other)
         {
-            var lhs = GetSpan<byte>();
-            var rhs = other.GetSpan<byte>();
-            return lhs.SequenceEqual(rhs);
+            return Span.SequenceEqual(other.Span);
         }
     }
 }

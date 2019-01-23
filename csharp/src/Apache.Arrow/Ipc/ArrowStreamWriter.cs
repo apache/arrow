@@ -60,16 +60,15 @@ namespace Apache.Arrow.Ipc
             }
 
             private readonly List<Buffer> _buffers;
-            private int _offset;
 
             public IReadOnlyList<Buffer> Buffers => _buffers;
 
-            public int TotalLength => _offset;
+            public int TotalLength { get; private set; }
 
             public ArrowRecordBatchFlatBufferBuilder()
             {
                 _buffers = new List<Buffer>();
-                _offset = 0;
+                TotalLength = 0;
             }
 
             public void Visit(Int8Array array) => CreateBuffers(array);
@@ -113,16 +112,11 @@ namespace Apache.Arrow.Ipc
 
             private Buffer CreateBuffer(ArrowBuffer buffer)
             {
-                if (buffer == null)
-                {
-                    return new Buffer(null, _offset, 0);
-                }
+                var offset = TotalLength;
 
-                var offset = _offset;
+                TotalLength += buffer.Length;
 
-                _offset += buffer.Capacity;
-
-                return new Buffer(buffer, offset, buffer.Capacity);
+                return new Buffer(buffer, offset, buffer.Length);
             }
 
             public void Visit(IArrowArray array)
@@ -176,6 +170,8 @@ namespace Apache.Arrow.Ipc
         protected virtual async Task<Block> WriteRecordBatchInternalAsync(RecordBatch recordBatch,
             CancellationToken cancellationToken = default)
         {
+            // TODO: Truncate buffers with extraneous padding / unused capacity
+
             if (!HasWrittenSchema)
             {
                 await WriteSchemaAsync(Schema, cancellationToken);
@@ -243,10 +239,11 @@ namespace Apache.Arrow.Ipc
 
             for (var i = 0; i < buffers.Count; i++)
             {
-                if (buffers[i].DataBuffer == null)
+                if (buffers[i].DataBuffer.IsEmpty)
                     continue;
 
-                await buffers[i].DataBuffer.CopyToAsync(BaseStream, cancellationToken);
+                
+                await WriteBufferAsync(buffers[i].DataBuffer, cancellationToken);
             }
 
             // Write padding so the record batch message body length is a multiple of 8 bytes
@@ -257,7 +254,7 @@ namespace Apache.Arrow.Ipc
             await WritePaddingAsync(bodyPaddingLength);
 
             return new Block(
-                offset: Convert.ToInt32(metadataOffset), 
+                offset: Convert.ToInt32(metadataOffset),
                 length: bodyLength + bodyPaddingLength, 
                 metadataLength: Convert.ToInt32(metadataLength));
         }
@@ -265,6 +262,22 @@ namespace Apache.Arrow.Ipc
         public virtual Task WriteRecordBatchAsync(RecordBatch recordBatch, CancellationToken cancellationToken = default)
         {
             return WriteRecordBatchInternalAsync(recordBatch, cancellationToken);
+        }
+    
+        public Task WriteBufferAsync(ArrowBuffer arrowBuffer, CancellationToken cancellationToken = default)
+        {
+            byte[] buffer = null;
+            try
+            {
+                var span = arrowBuffer.Span;
+                buffer = ArrayPool<byte>.Shared.Rent(span.Length);
+                span.CopyTo(buffer);
+                return BaseStream.WriteAsync(buffer, 0, buffer.Length, cancellationToken);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
 
         protected Offset<Flatbuf.Schema> SerializeSchema(Schema schema)

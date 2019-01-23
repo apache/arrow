@@ -29,9 +29,8 @@ cmake -DCMAKE_BUILD_TYPE=Release \
       -DBUILD_TESTING=OFF \
       -DWITH_GFLAGS=OFF \
       -DCMAKE_CXX_FLAGS=${CFLAGS} \
-
-make -j5
-make install
+      -GNinja .
+ninja install
 popd
 rm -rf glog-${GLOG_VERSION}.tar.gz.tar.gz glog-${GLOG_VERSION}
 

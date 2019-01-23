@@ -13,13 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Apache.Arrow.Types
 {
-    public class Date32Type: DateType
+    public sealed class Date32Type: DateType
     {
         public static readonly Date32Type Default = new Date32Type();
 
@@ -28,10 +25,6 @@ namespace Apache.Arrow.Types
         public override int BitWidth => 32;
         public override DateUnit Unit => DateUnit.Day;
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<Date32Type> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

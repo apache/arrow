@@ -263,10 +263,11 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
   /// Change buffer reported size to indicated size, allocating memory if
   /// necessary.  This will ensure that the capacity of the buffer is a multiple
   /// of 64 bytes as defined in Layout.md.
-  /// Consider using ZeroPadding afterwards, in case you return buffer to a reader.
+  /// Consider using ZeroPadding afterwards, to conform to the Arrow layout
+  /// specification.
   ///
-  /// @param shrink_to_fit On deactivating this option, the capacity of the Buffer won't
-  /// decrease.
+  /// @param new_size The new size for the buffer.
+  /// @param shrink_to_fit Whether to shrink the capacity if new size < current size
   virtual Status Resize(const int64_t new_size, bool shrink_to_fit = true) = 0;
 
   /// Ensure that buffer has enough memory allocated to fit the indicated

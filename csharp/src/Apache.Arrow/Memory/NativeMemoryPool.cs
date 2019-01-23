@@ -20,19 +20,8 @@ namespace Apache.Arrow.Memory
 {
     public class NativeMemoryPool : MemoryPool
     {
-        private readonly int _padding;
-        private readonly int _alignment;
-
-        public NativeMemoryPool(int padding, int alignment)
-        {
-            if (padding < 0) throw new ArgumentOutOfRangeException(nameof(padding));
-            if (alignment < 0) throw new ArgumentOutOfRangeException(nameof(alignment));
-            
-            // TODO: Ensure alignment is a power of two.
-
-            _padding = padding;
-            _alignment = alignment;
-        }
+        public NativeMemoryPool(int alignment = DefaultAlignment) 
+            : base(alignment) { }
 
         protected override Memory<byte> AllocateInternal(int length, out int bytesAllocated)
         {
@@ -42,14 +31,13 @@ namespace Apache.Arrow.Memory
             // to allocated memory, offset, and the allocation size. 
 
             // TODO: Should the allocation be moved to NativeMemory?
-            
-            var size = BitUtility.RoundUpToMultiplePowerOfTwo(length, _padding);
-            var ptr =  Marshal.AllocHGlobal(size + _alignment);
-            var offset = (int)(_alignment - (ptr.ToInt64() & (_alignment - 1)));
-            
-            var manager = new NativeMemoryManager(ptr, offset, size);
 
-            bytesAllocated = (size + _alignment);
+            var size = length + Alignment;
+            var ptr =  Marshal.AllocHGlobal(size);
+            var offset = (int)(Alignment - (ptr.ToInt64() & (Alignment - 1)));
+            var manager = new NativeMemoryManager(ptr, offset, length);
+
+            bytesAllocated = (length + Alignment);
 
             GC.AddMemoryPressure(bytesAllocated);
 

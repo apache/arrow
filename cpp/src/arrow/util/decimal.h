@@ -42,14 +42,14 @@ namespace arrow {
 /// Adapted from the Apache ORC C++ implementation
 class ARROW_EXPORT Decimal128 {
  public:
-  /// \brief Create an Decimal128 from the two's complement representation.
+  /// \brief Create a Decimal128 from the two's complement representation.
   constexpr Decimal128(int64_t high, uint64_t low) noexcept
       : low_bits_(low), high_bits_(high) {}
 
-  /// \brief Empty constructor creates an Decimal128 with a value of 0.
+  /// \brief Empty constructor creates a Decimal128 with a value of 0.
   constexpr Decimal128() noexcept : Decimal128(0, 0) {}
 
-  /// \brief Convert any integer value into an Decimal128.
+  /// \brief Convert any integer value into a Decimal128.
   template <typename T,
             typename = typename std::enable_if<std::is_integral<T>::value, T>::type>
   constexpr Decimal128(T value) noexcept
@@ -59,14 +59,14 @@ class ARROW_EXPORT Decimal128 {
   /// \brief Parse the number from a base 10 string representation.
   explicit Decimal128(const std::string& value);
 
-  /// \brief Create an Decimal128 from an array of bytes. Bytes are assumed to be in
-  /// little endian byte order.
+  /// \brief Create a Decimal128 from an array of bytes. Bytes are assumed to be in
+  /// little-endian byte order.
   explicit Decimal128(const uint8_t* bytes);
 
-  /// \brief Negate the current value
+  /// \brief Negate the current value (in-place)
   Decimal128& Negate();
 
-  /// \brief Absolute value
+  /// \brief Absolute value (in-place)
   Decimal128& Abs();
 
   /// \brief Add a number to this one. The result is truncated to 128 bits.
@@ -78,25 +78,27 @@ class ARROW_EXPORT Decimal128 {
   /// \brief Multiply this number by another number. The result is truncated to 128 bits.
   Decimal128& operator*=(const Decimal128& right);
 
-  /// Divide this number by right and return the result. This operation is
-  /// not destructive.
+  /// Divide this number by right and return the result.
+  ///
+  /// This operation is not destructive.
   /// The answer rounds to zero. Signs work like:
   ///   21 /  5 ->  4,  1
   ///  -21 /  5 -> -4, -1
   ///   21 / -5 -> -4,  1
   ///  -21 / -5 ->  4, -1
-  /// \param divisor the number to divide by
-  /// \param remainder the remainder after the division
+  /// \param[in] divisor the number to divide by
+  /// \param[out] result the quotient
+  /// \param[out] remainder the remainder after the division
   Status Divide(const Decimal128& divisor, Decimal128* result,
                 Decimal128* remainder) const;
 
   /// \brief In-place division.
   Decimal128& operator/=(const Decimal128& right);
 
-  /// \brief Bitwise or between two Decimal128.
+  /// \brief Bitwise "or" between two Decimal128.
   Decimal128& operator|=(const Decimal128& right);
 
-  /// \brief Bitwise and between two Decimal128.
+  /// \brief Bitwise "and" between two Decimal128.
   Decimal128& operator&=(const Decimal128& right);
 
   /// \brief Shift left by the given number of bits.
@@ -125,7 +127,7 @@ class ARROW_EXPORT Decimal128 {
   /// \brief Cast this value to an int64_t.
   explicit operator int64_t() const;
 
-  /// \brief Convert a decimal string to an Decimal128 value, optionally including
+  /// \brief Convert a decimal string to a Decimal128 value, optionally including
   /// precision and scale if they're passed in and not null.
   static Status FromString(const std::string& s, Decimal128* out,
                            int32_t* precision = NULLPTR, int32_t* scale = NULLPTR);
@@ -134,8 +136,8 @@ class ARROW_EXPORT Decimal128 {
   static Status FromString(const char* s, Decimal128* out, int32_t* precision = NULLPTR,
                            int32_t* scale = NULLPTR);
 
-  /// \brief Convert from a big endian byte representation. The length must be
-  ///        between 1 and 16
+  /// \brief Convert from a big-endian byte representation. The length must be
+  ///        between 1 and 16.
   /// \return error status if the length is an invalid value
   static Status FromBigEndian(const uint8_t* data, int32_t length, Decimal128* out);
 

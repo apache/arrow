@@ -53,17 +53,17 @@ set_source_files_properties(Message_generated.h PROPERTIES GENERATED TRUE)
 set_source_files_properties(feather_generated.h PROPERTIES GENERATED TRUE)
 set_source_files_properties(File_generated.h PROPERTIES GENERATED TRUE)
 
-set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/src/arrow/ipc)
+set(OUTPUT_DIR ${ARROW_BINARY_DIR}/src/arrow/ipc)
 set(FBS_OUTPUT_FILES
   "${OUTPUT_DIR}/File_generated.h"
   "${OUTPUT_DIR}/Message_generated.h"
   "${OUTPUT_DIR}/feather_generated.h")
 
 set(FBS_SRC
-  ${CMAKE_SOURCE_DIR}/../format/Message.fbs
-  ${CMAKE_SOURCE_DIR}/../format/File.fbs
-  ${CMAKE_SOURCE_DIR}/../format/Schema.fbs
-  ${CMAKE_SOURCE_DIR}/../format/Tensor.fbs
+  ${ARROW_SOURCE_DIR}/../format/Message.fbs
+  ${ARROW_SOURCE_DIR}/../format/File.fbs
+  ${ARROW_SOURCE_DIR}/../format/Schema.fbs
+  ${ARROW_SOURCE_DIR}/../format/Tensor.fbs
   ${CMAKE_CURRENT_SOURCE_DIR}/feather.fbs)
 
 foreach(FIL ${FBS_SRC})

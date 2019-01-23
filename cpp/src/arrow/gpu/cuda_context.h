@@ -135,7 +135,10 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   friend CudaBuffer;
   friend CudaBufferReader;
   friend CudaBufferWriter;
+  /// \cond FALSE
+  // (note: emits warning on Doxygen < 1.8.15)
   friend CudaDeviceManager::CudaDeviceManagerImpl;
+  /// \endcond
 };
 
 }  // namespace cuda

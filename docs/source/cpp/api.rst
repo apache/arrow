@@ -28,3 +28,5 @@ API Reference
    api/array
    api/builder
    api/table
+   api/utilities
+   api/cuda

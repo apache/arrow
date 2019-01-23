@@ -31,33 +31,35 @@
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
 /// \brief Return with given status if condition is met.
-#define ARROW_RETURN_IF(condition, status)                        \
-  do {                                                            \
-    if (ARROW_PREDICT_FALSE(condition)) {                         \
-      ::arrow::Status _s = (status);                              \
-      std::stringstream ss;                                       \
-      ss << __FILE__ << ":" << __LINE__ << " : " << _s.message(); \
-      return ::arrow::Status(_s.code(), ss.str());                \
-    }                                                             \
+#define ARROW_RETURN_IF_(condition, status, expr)                                     \
+  do {                                                                                \
+    if (ARROW_PREDICT_FALSE(condition)) {                                             \
+      ::arrow::Status _s = (status);                                                  \
+      std::stringstream ss;                                                           \
+      ss << _s.message() << "\n" << __FILE__ << ":" << __LINE__ << " code: " << expr; \
+      return ::arrow::Status(_s.code(), ss.str());                                    \
+    }                                                                                 \
   } while (0)
 
 #else
 
-#define ARROW_RETURN_IF(condition, status) \
-  do {                                     \
-    if (ARROW_PREDICT_FALSE(condition)) {  \
-      return (status);                     \
-    }                                      \
+#define ARROW_RETURN_IF_(condition, status, _) \
+  do {                                         \
+    if (ARROW_PREDICT_FALSE(condition)) {      \
+      return (status);                         \
+    }                                          \
   } while (0)
 
 #endif  // ARROW_EXTRA_ERROR_CONTEXT
 
+#define ARROW_RETURN_IF(condition, status) \
+  ARROW_RETURN_IF_(condition, status, ARROW_STRINGIFY(status))
+
 /// \brief Propagate any non-successful Status to the caller
-#define ARROW_RETURN_NOT_OK(status)  \
-  do {                               \
-    ::arrow::Status __s = (status);  \
-    ARROW_RETURN_IF(!__s.ok(), __s); \
-                                     \
+#define ARROW_RETURN_NOT_OK(status)                            \
+  do {                                                         \
+    ::arrow::Status __s = (status);                            \
+    ARROW_RETURN_IF_(!__s.ok(), __s, ARROW_STRINGIFY(status)); \
   } while (false)
 
 #define RETURN_NOT_OK_ELSE(s, else_) \
@@ -128,18 +130,18 @@ class ARROW_EXPORT Status {
   Status(StatusCode code, const std::string& msg);
 
   // Copy the specified status.
-  Status(const Status& s);
-  Status& operator=(const Status& s);
+  inline Status(const Status& s);
+  inline Status& operator=(const Status& s);
 
   // Move the specified status.
   inline Status(Status&& s) noexcept;
-  Status& operator=(Status&& s) noexcept;
+  inline Status& operator=(Status&& s) noexcept;
 
   // AND the statuses.
-  Status operator&(const Status& s) const noexcept;
-  Status operator&(Status&& s) const noexcept;
-  Status& operator&=(const Status& s) noexcept;
-  Status& operator&=(Status&& s) noexcept;
+  inline Status operator&(const Status& s) const noexcept;
+  inline Status operator&(Status&& s) const noexcept;
+  inline Status& operator&=(const Status& s) noexcept;
+  inline Status& operator&=(Status&& s) noexcept;
 
   /// Return a success status
   static Status OK() { return Status(); }
@@ -337,7 +339,7 @@ class ARROW_EXPORT Status {
     state_ = NULL;
   }
   void CopyFrom(const Status& s);
-  void MoveFrom(Status& s);
+  inline void MoveFrom(Status& s);
 };
 
 static inline std::ostream& operator<<(std::ostream& os, const Status& x) {
@@ -345,16 +347,16 @@ static inline std::ostream& operator<<(std::ostream& os, const Status& x) {
   return os;
 }
 
-inline void Status::MoveFrom(Status& s) {
+void Status::MoveFrom(Status& s) {
   delete state_;
   state_ = s.state_;
   s.state_ = NULL;
 }
 
-inline Status::Status(const Status& s)
+Status::Status(const Status& s)
     : state_((s.state_ == NULL) ? NULL : new State(*s.state_)) {}
 
-inline Status& Status::operator=(const Status& s) {
+Status& Status::operator=(const Status& s) {
   // The following condition catches both aliasing (when this == &s),
   // and the common case where both s and *this are ok.
   if (state_ != s.state_) {
@@ -363,14 +365,17 @@ inline Status& Status::operator=(const Status& s) {
   return *this;
 }
 
-inline Status::Status(Status&& s) noexcept : state_(s.state_) { s.state_ = NULL; }
+Status::Status(Status&& s) noexcept : state_(s.state_) { s.state_ = NULL; }
 
-inline Status& Status::operator=(Status&& s) noexcept {
+Status& Status::operator=(Status&& s) noexcept {
   MoveFrom(s);
   return *this;
 }
 
-inline Status Status::operator&(const Status& s) const noexcept {
+/// \cond FALSE
+// (note: emits warnings on Doxygen < 1.8.15,
+//  see https://github.com/doxygen/doxygen/issues/6295)
+Status Status::operator&(const Status& s) const noexcept {
   if (ok()) {
     return s;
   } else {
@@ -378,7 +383,7 @@ inline Status Status::operator&(const Status& s) const noexcept {
   }
 }
 
-inline Status Status::operator&(Status&& s) const noexcept {
+Status Status::operator&(Status&& s) const noexcept {
   if (ok()) {
     return std::move(s);
   } else {
@@ -386,19 +391,20 @@ inline Status Status::operator&(Status&& s) const noexcept {
   }
 }
 
-inline Status& Status::operator&=(const Status& s) noexcept {
+Status& Status::operator&=(const Status& s) noexcept {
   if (ok() && !s.ok()) {
     CopyFrom(s);
   }
   return *this;
 }
 
-inline Status& Status::operator&=(Status&& s) noexcept {
+Status& Status::operator&=(Status&& s) noexcept {
   if (ok() && !s.ok()) {
     MoveFrom(s);
   }
   return *this;
 }
+/// \endcond
 
 }  // namespace arrow
 

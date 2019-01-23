@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
 namespace Apache.Arrow.Types
 {
     public abstract class ArrowType: IArrowType
@@ -24,5 +25,19 @@ namespace Apache.Arrow.Types
         public virtual bool IsFixedWidth => false;
 
         public abstract void Accept(IArrowTypeVisitor visitor);
+
+        internal static void Accept<T>(T type, IArrowTypeVisitor visitor)
+            where T: class, IArrowType
+        {
+            switch (visitor)
+            {
+                case IArrowTypeVisitor<T> typedVisitor:
+                    typedVisitor.Visit(type);
+                    break;
+                default:
+                    visitor.Visit(type);
+                    break;
+            }
+        }
     }
 }

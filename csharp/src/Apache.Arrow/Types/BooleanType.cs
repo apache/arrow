@@ -13,13 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Apache.Arrow.Types
 {
-    public class BooleanType: NumberType
+    public sealed class BooleanType: NumberType
     {
         public static readonly BooleanType Default = new BooleanType();
 
@@ -28,10 +25,6 @@ namespace Apache.Arrow.Types
         public override int BitWidth => 1;
         public override bool IsSigned => false;
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<Int8Type> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }
