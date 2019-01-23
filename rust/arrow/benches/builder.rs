@@ -39,7 +39,7 @@ fn bench_primitive(c: &mut Criterion) {
             b.iter(|| {
                 let mut builder = Int64Builder::new(64);
                 for _ in 0..NUM_BATCHES {
-                    let _ = black_box(builder.push_slice(&data[..]));
+                    let _ = black_box(builder.append_slice(&data[..]));
                 }
                 black_box(builder.finish());
             })
@@ -62,7 +62,7 @@ fn bench_bool(c: &mut Criterion) {
             b.iter(|| {
                 let mut builder = BooleanBuilder::new(64);
                 for _ in 0..NUM_BATCHES {
-                    let _ = black_box(builder.push_slice(&data[..]));
+                    let _ = black_box(builder.append_slice(&data[..]));
                 }
                 black_box(builder.finish());
             })

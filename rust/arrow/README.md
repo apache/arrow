@@ -37,13 +37,6 @@ is developed and tested against nightly Rust.  The current status is:
 - [ ] Arrow IPC
 - [ ] Interop tests with other implementations
 
-## Dependencies
-
-Parquet support for Apache Arrow requires LLVM.  Our windows CI image
-includes LLVM but to build the libraries locally windows users will have
-to install LLVM. Follow [this](https://github.com/appveyor/ci/issues/2651)
-link for info.
-
 ## Examples
 
 The examples folder shows how to construct some different types of Arrow

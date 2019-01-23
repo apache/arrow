@@ -43,8 +43,10 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
             -DNDEBUG # DCHECK macros not implemented in precompiled code
             -fno-use-cxa-atexit  # Workaround for unresolved __dso_handle
             -O3 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
+            ${ARROW_GANDIVA_PC_CXX_FLAGS}
             -I${CMAKE_SOURCE_DIR}/src
-    DEPENDS ${SRC_FILE})
+    DEPENDS ${SRC_FILE}
+    COMMAND_EXPAND_LISTS)
   list(APPEND BC_FILES ${BC_FILE})
 endforeach()
 

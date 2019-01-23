@@ -58,6 +58,15 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     PIP="${CPYTHON_PATH}/bin/pip"
     PATH="$PATH:${CPYTHON_PATH}"
 
+    if [ $PYTHON != "2.7" ]; then
+      # Gandiva is not supported on Python 2.7
+      export PYARROW_WITH_GANDIVA=1
+      export BUILD_ARROW_GANDIVA=ON
+    else
+      export PYARROW_WITH_GANDIVA=0
+      export BUILD_ARROW_GANDIVA=OFF
+    fi
+
     # TensorFlow is not supported for Python 2.7 with unicode width 16 or with Python 3.7
     if [ $PYTHON != "2.7" ] || [ $U_WIDTH = "32" ]; then
       if [ $PYTHON != "3.7" ]; then
@@ -75,6 +84,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
         -DARROW_BUILD_TESTS=OFF \
         -DARROW_BUILD_SHARED=ON \
         -DARROW_BOOST_USE_SHARED=ON \
+        -DARROW_GANDIVA_PC_CXX_FLAGS="-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2;-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2/x86_64-CentOS-linux/" \
         -DARROW_JEMALLOC=ON \
         -DARROW_RPATH_ORIGIN=ON \
         -DARROW_PYTHON=ON \
@@ -83,6 +93,8 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
         -DARROW_PLASMA=ON \
         -DARROW_TENSORFLOW=ON \
         -DARROW_ORC=ON \
+        -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
+        -DARROW_GANDIVA_JAVA=OFF \
         -DBoost_NAMESPACE=arrow_boost \
         -DBOOST_ROOT=/arrow_boost_dist \
         -GNinja /arrow/cpp
@@ -98,6 +110,8 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     # Clear output directory
     rm -rf dist/
     echo "=== (${PYTHON}) Building wheel ==="
+    # Remove build directory to ensure CMake gets a clean run
+    rm -rf build/
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext \
         --inplace \
         --bundle-arrow-cpp \
@@ -114,6 +128,9 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     source /venv-test-${PYTHON}-${U_WIDTH}/bin/activate
     pip install repaired_wheels/*.whl
 
+    if [ $PYTHON != "2.7" ]; then
+      PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.gandiva"
+    fi
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.orc"
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
     PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.plasma"

@@ -174,26 +174,27 @@ def _register_custom_pandas_handlers(context):
         custom_serializer=_pickle_to_buffer,
         custom_deserializer=_load_pickle_from_buffer)
 
-    if hasattr(pd.core.arrays, 'interval'):
-        context.register_type(
-            pd.core.arrays.interval.IntervalArray,
-            'pd.core.arrays.interval.IntervalArray',
-            custom_serializer=_pickle_to_buffer,
-            custom_deserializer=_load_pickle_from_buffer)
+    if hasattr(pd.core, 'arrays'):
+        if hasattr(pd.core.arrays, 'interval'):
+            context.register_type(
+                pd.core.arrays.interval.IntervalArray,
+                'pd.core.arrays.interval.IntervalArray',
+                custom_serializer=_pickle_to_buffer,
+                custom_deserializer=_load_pickle_from_buffer)
 
-    if hasattr(pd.core.arrays, 'period'):
-        context.register_type(
-            pd.core.arrays.period.PeriodArray,
-            'pd.core.arrays.period.PeriodArray',
-            custom_serializer=_pickle_to_buffer,
-            custom_deserializer=_load_pickle_from_buffer)
+        if hasattr(pd.core.arrays, 'period'):
+            context.register_type(
+                pd.core.arrays.period.PeriodArray,
+                'pd.core.arrays.period.PeriodArray',
+                custom_serializer=_pickle_to_buffer,
+                custom_deserializer=_load_pickle_from_buffer)
 
-    if hasattr(pd.core.arrays, 'datetimes'):
-        context.register_type(
-            pd.core.arrays.datetimes.DatetimeArray,
-            'pd.core.arrays.datetimes.DatetimeArray',
-            custom_serializer=_pickle_to_buffer,
-            custom_deserializer=_load_pickle_from_buffer)
+        if hasattr(pd.core.arrays, 'datetimes'):
+            context.register_type(
+                pd.core.arrays.datetimes.DatetimeArray,
+                'pd.core.arrays.datetimes.DatetimeArray',
+                custom_serializer=_pickle_to_buffer,
+                custom_deserializer=_load_pickle_from_buffer)
 
     context.register_type(
         pd.DataFrame, 'pd.DataFrame',

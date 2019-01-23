@@ -443,8 +443,8 @@ inline Status NumPyConverter::ConvertData(std::shared_ptr<Buffer>* data) {
   RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
 
   if (!input_type->Equals(*type_)) {
-    RETURN_NOT_OK(CastBuffer(input_type, *data, length_, nullptr, 0, type_, cast_options_,
-                             pool_, data));
+    RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count_, type_,
+                             cast_options_, pool_, data));
   }
 
   return Status::OK();
@@ -477,8 +477,8 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
   } else {
     RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
     if (!input_type->Equals(*type_)) {
-      RETURN_NOT_OK(CastBuffer(input_type, *data, length_, nullptr, 0, type_,
-                               cast_options_, pool_, data));
+      RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count_,
+                               type_, cast_options_, pool_, data));
     }
   }
 
@@ -518,8 +518,8 @@ inline Status NumPyConverter::ConvertData<Date64Type>(std::shared_ptr<Buffer>* d
   } else {
     RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
     if (!input_type->Equals(*type_)) {
-      RETURN_NOT_OK(CastBuffer(input_type, *data, length_, nullptr, 0, type_,
-                               cast_options_, pool_, data));
+      RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count_,
+                               type_, cast_options_, pool_, data));
     }
   }
 

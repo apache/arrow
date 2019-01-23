@@ -19,6 +19,7 @@ groups:
   # these groups are just for convenience
   # makes it easier to submit related tasks
   docker:
+    - docker-r
     - docker-rust
     - docker-cpp
     - docker-cpp-alpine
@@ -66,6 +67,15 @@ tasks:
   #     - pyarrow-{version}-py36(h[a-z0-9]+)_0-linux-64.tar.bz2
 
   ############################## Language containers #########################
+
+  docker-r:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp
+        - docker-compose build r
+        - docker-compose run r
 
   docker-rust:
     platform: linux

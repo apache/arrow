@@ -23,8 +23,8 @@ This directory contains source files for building the main project
 documentation. This includes the [Arrow columnar format specification][2].
 
 Instructions for building the documentation site are found in
-[docs/source/python/development.rst][1]. The build depends on the API
+[docs/source/building.rst][1]. The build depends on the API
 documentation for some of the project subcomponents.
 
-[1]: https://github.com/apache/arrow/blob/master/docs/source/python/development.rst#building-the-documentation
+[1]: https://github.com/apache/arrow/blob/master/docs/source/building.rst
 [2]: https://github.com/apache/arrow/tree/master/docs/source/format

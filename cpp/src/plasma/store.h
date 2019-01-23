@@ -29,9 +29,17 @@
 #include "plasma/events.h"
 #include "plasma/eviction_policy.h"
 #include "plasma/plasma.h"
-#include "plasma/protocol.h"
+
+namespace arrow {
+class Status;
+}  // namespace arrow
 
 namespace plasma {
+
+namespace flatbuf {
+struct ObjectInfoT;
+enum class PlasmaError;
+}  // namespace flatbuf
 
 using flatbuf::ObjectInfoT;
 using flatbuf::PlasmaError;
@@ -176,7 +184,7 @@ class PlasmaStore {
 
   NotificationMap::iterator SendNotifications(NotificationMap::iterator it);
 
-  Status ProcessMessage(Client* client);
+  arrow::Status ProcessMessage(Client* client);
 
  private:
   void PushNotification(ObjectInfoT* object_notification);

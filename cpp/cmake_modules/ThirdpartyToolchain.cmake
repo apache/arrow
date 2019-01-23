@@ -31,6 +31,7 @@ set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
 if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(BROTLI_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(BZ2_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(CARES_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(DOUBLE_CONVERSION_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(FLATBUFFERS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(GFLAGS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
@@ -67,6 +68,10 @@ endif()
 
 if (DEFINED ENV{BZ2_HOME})
   set(BZ2_HOME "$ENV{BZ2_HOME}")
+endif()
+
+if (DEFINED ENV{CARES_HOME})
+  set(CARES_HOME "$ENV{CARES_HOME}")
 endif()
 
 if (DEFINED ENV{DOUBLE_CONVERSION_HOME})
@@ -905,6 +910,8 @@ if (ARROW_WITH_SNAPPY)
                             "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
                             "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}"
                             "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
+                            "-DCMAKE_AR=${CMAKE_AR}"
+                            "-DCMAKE_RANLIB=${CMAKE_RANLIB}"
                             "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
       set(SNAPPY_UPDATE_COMMAND ${CMAKE_COMMAND} -E copy
                         ${CMAKE_SOURCE_DIR}/cmake_modules/SnappyCMakeLists.txt
@@ -923,7 +930,7 @@ if (ARROW_WITH_SNAPPY)
         BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
     else()
       ExternalProject_Add(snappy_ep
-        CONFIGURE_COMMAND ./configure --with-pic "--prefix=${SNAPPY_PREFIX}" ${SNAPPY_CXXFLAGS}
+        CONFIGURE_COMMAND ./configure --with-pic "AR=${CMAKE_AR}" "RANLIB=${CMAKE_RANLIB}" "--prefix=${SNAPPY_PREFIX}" ${SNAPPY_CXXFLAGS}
         ${EP_LOG_OPTIONS}
         BUILD_IN_SOURCE 1
         BUILD_COMMAND ${MAKE}
@@ -1045,7 +1052,7 @@ if (ARROW_WITH_LZ4)
       set(LZ4_PATCH_COMMAND PATCH_COMMAND git --git-dir=. apply --verbose --whitespace=fix ${CMAKE_SOURCE_DIR}/build-support/lz4_msbuild_gl_runtimelibrary_params.patch)
     else()
       set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
-      set(LZ4_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh)
+      set(LZ4_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh "AR=${CMAKE_AR}")
     endif()
 
     ExternalProject_Add(lz4_ep
@@ -1189,7 +1196,7 @@ if (ARROW_ORC OR ARROW_FLIGHT OR ARROW_GANDIVA)
     set (PROTOBUF_EXECUTABLE "${PROTOBUF_PREFIX}/bin/protoc")
 
     ExternalProject_Add(protobuf_ep
-      CONFIGURE_COMMAND "./configure" "--disable-shared" "--prefix=${PROTOBUF_PREFIX}" "CXXFLAGS=${EP_CXX_FLAGS}"
+      CONFIGURE_COMMAND "./configure" "AR=${CMAKE_AR}" "RANLIB=${CMAKE_RANLIB}" "CC=${CMAKE_C_COMPILER}" "CXX=${CMAKE_CXX_COMPILER}" "--disable-shared" "--prefix=${PROTOBUF_PREFIX}" "CXXFLAGS=${EP_CXX_FLAGS}"
       BUILD_IN_SOURCE 1
       URL ${PROTOBUF_SOURCE_URL}
       BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}" "${PROTOBUF_EXECUTABLE}"
@@ -1228,7 +1235,9 @@ if (ARROW_FLIGHT)
     set(GRPC_INCLUDE_DIR "${GRPC_PREFIX}/include")
     set(GRPC_STATIC_LIBRARY_GPR "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gpr${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GRPC_STATIC_LIBRARY_GRPC "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpc${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(GRPC_STATIC_LIBRARY_GRPCPP "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpcpp${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GRPC_STATIC_LIBRARY_GRPCPP "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GRPC_STATIC_LIBRARY_ADDRESS_SORTING "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GRPC_STATIC_LIBRARY_CARES "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/third_party/cares/cares/lib/${CMAKE_STATIC_LIBRARY_PREFIX}cares${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GRPC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                         "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
                         "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
@@ -1243,31 +1252,47 @@ if (ARROW_FLIGHT)
       ${EP_LOG_OPTIONS}
       CMAKE_ARGS ${GRPC_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
-    include_directories(SYSTEM ${GRPC_INCLUDE_DIR})
+
+    set(GPR_STATIC_LIB "${GRPC_STATIC_LIBRARY_GPR}")
+    set(GRPC_STATIC_LIB "${GRPC_STATIC_LIBRARY_GRPC}")
+    set(GRPCPP_STATIC_LIB "${GRPC_STATIC_LIBRARY_GRPCPP}")
+    set(GRPC_ADDRESS_SORTING_STATIC_LIB "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}")
+    # XXX(wesm): relying on vendored c-ares provided by gRPC for the time being
+    set(CARES_STATIC_LIB "${GRPC_STATIC_LIBRARY_CARES}")
+    set(GRPC_CPP_PLUGIN "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/grpc_cpp_plugin")
   else()
-    find_package(gRPC CONFIG REQUIRED)
+    find_package(gRPC REQUIRED)
     set(GRPC_VENDORED 0)
   endif()
 
-  get_property(GPR_STATIC_LIB TARGET gRPC::gpr PROPERTY LOCATION)
+  # If we built gRPC ourselves, we should use its c-ares.
+  if ("${CARES_STATIC_LIB}" STREQUAL "")
+    if (NOT "${CARES_HOME}" STREQUAL "")
+      set(CARES_STATIC_LIB "${CARES_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}cares_static${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    elseif (c-ares_FOUND)
+      get_property(CARES_STATIC_LIB TARGET c-ares::cares_static PROPERTY LOCATION)
+    endif()
+  endif()
+  message(STATUS "Found the c-ares library: ${CARES_STATIC_LIB}")
+
+  if ("${GRPC_CPP_PLUGIN}" STREQUAL "")
+    message(SEND_ERROR "Please set GRPC_CPP_PLUGIN.")
+  endif()
+
+  include_directories(SYSTEM ${GRPC_INCLUDE_DIR})
+
   ADD_THIRDPARTY_LIB(grpc_gpr
     STATIC_LIB ${GPR_STATIC_LIB})
 
-  get_property(GRPC_STATIC_LIB TARGET gRPC::grpc_unsecure PROPERTY LOCATION)
   ADD_THIRDPARTY_LIB(grpc_grpc
     STATIC_LIB ${GRPC_STATIC_LIB})
 
-  get_property(GRPCPP_STATIC_LIB TARGET gRPC::grpc++_unsecure PROPERTY LOCATION)
   ADD_THIRDPARTY_LIB(grpc_grpcpp
     STATIC_LIB ${GRPCPP_STATIC_LIB})
 
-  get_property(GRPC_ADDRESS_SORTING_STATIC_LIB
-    TARGET gRPC::address_sorting PROPERTY LOCATION)
   ADD_THIRDPARTY_LIB(grpc_address_sorting
     STATIC_LIB ${GRPC_ADDRESS_SORTING_STATIC_LIB})
 
-  # XXX(wesm): relying on vendored c-ares provided by gRPC for the time being
-  get_property(CARES_STATIC_LIB TARGET c-ares::cares_static PROPERTY LOCATION)
   ADD_THIRDPARTY_LIB(cares
     STATIC_LIB ${CARES_STATIC_LIB})
 endif()
@@ -1428,10 +1453,31 @@ if (NOT THRIFT_FOUND)
                           "-DWITH_PLUGIN=OFF"
                           ${THRIFT_CMAKE_ARGS})
   elseif (APPLE)
-    if (DEFINED BISON_EXECUTABLE)
-      set(THRIFT_CMAKE_ARGS "-DBISON_EXECUTABLE=${BISON_EXECUTABLE}"
-                            ${THRIFT_CMAKE_ARGS})
+    # Some other process always resets BISON_EXECUTABLE to the system default,
+    # thus we use our own variable here.
+    if (NOT DEFINED THRIFT_BISON_EXECUTABLE)
+      find_package(BISON 2.5.1)
+
+      # In the case where we cannot find a system-wide installation, look for
+      # homebrew and ask for its bison installation.
+      if (NOT BISON_FOUND)
+        find_program(BREW_BIN brew)
+        if (BREW_BIN)
+          execute_process(
+            COMMAND ${BREW_BIN} --prefix bison
+            OUTPUT_VARIABLE BISON_PREFIX
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+          )
+          set(BISON_EXECUTABLE "${BISON_PREFIX}/bin/bison")
+          find_package(BISON 2.5.1)
+          set(THRIFT_BISON_EXECUTABLE "${BISON_EXECUTABLE}")
+        endif()
+      else()
+        set(THRIFT_BISON_EXECUTABLE "${BISON_EXECUTABLE}")
+      endif()
     endif()
+    set(THRIFT_CMAKE_ARGS "-DBISON_EXECUTABLE=${THRIFT_BISON_EXECUTABLE}"
+                          ${THRIFT_CMAKE_ARGS})
   endif()
 
   ExternalProject_Add(thrift_ep

@@ -52,11 +52,14 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/status.h"
+
 #include "plasma/common.h"
 #include "plasma/common_generated.h"
 #include "plasma/fling.h"
 #include "plasma/io.h"
 #include "plasma/malloc.h"
+#include "plasma/protocol.h"
 
 #ifdef PLASMA_CUDA
 #include "arrow/gpu/cuda_api.h"

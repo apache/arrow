@@ -25,7 +25,7 @@ If you are planning to publish the website, you must first clone the arrow-site
 git repository:
 
 ```shell
-git clone --branch=asf-site https://git-wip-us.apache.org/repos/asf/arrow-site.git asf-site
+git clone --branch=asf-site https://github.com/apache/arrow-site.git asf-site
 ```
 
 Now, with Ruby >= 2.1 installed, run:

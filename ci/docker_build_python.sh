@@ -21,8 +21,6 @@ set -e
 source_dir=${1:-/arrow/python}
 build_dir=${2:-/build/python}
 
-# For newer GCC per https://arrow.apache.org/docs/python/development.html#known-issues
-export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 export PYARROW_CXXFLAGS=$CXXFLAGS
 export PYARROW_CMAKE_GENERATOR=Ninja
 export PYARROW_BUILD_TYPE=${PYARROW_BUILD_TYPE:-debug}

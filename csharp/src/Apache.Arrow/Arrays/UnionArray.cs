@@ -28,9 +28,9 @@ namespace Apache.Arrow
 
         public ArrowBuffer ValueOffsetBuffer => Data.Buffers[2];
 
-        public ReadOnlySpan<byte> TypeIds => TypeBuffer.GetSpan<byte>();
+        public ReadOnlySpan<byte> TypeIds => TypeBuffer.Span;
 
-        public ReadOnlySpan<int> ValueOffsets => ValueOffsetBuffer.GetSpan<int>();
+        public ReadOnlySpan<int> ValueOffsets => ValueOffsetBuffer.Span.CastTo<int>().Slice(0, Length + 1);
 
         public UnionArray(ArrayData data) 
             : base(data)

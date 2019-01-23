@@ -15,6 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 {
-  global: extern "C++" { gandiva*; Java*; JNI*; };
+  global: extern "C++" { gandiva*; }; Java*; JNI*;
   local: *;
 };

@@ -295,6 +295,8 @@ class build_ext(_build_ext):
                     move_shared_libs(build_prefix, build_lib, "arrow_gpu")
                 if self.with_plasma:
                     move_shared_libs(build_prefix, build_lib, "plasma")
+                if self.with_gandiva:
+                    move_shared_libs(build_prefix, build_lib, "gandiva")
                 if self.with_parquet and not self.with_static_parquet:
                     move_shared_libs(build_prefix, build_lib, "parquet")
                 if not self.with_static_boost and self.bundle_boost:

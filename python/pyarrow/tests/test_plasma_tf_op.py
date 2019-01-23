@@ -82,6 +82,7 @@ def run_tensorflow_test_with_dtype(tf, plasma, plasma_store_name,
 
 @pytest.mark.plasma
 @pytest.mark.tensorflow
+@pytest.mark.skip(reason='Until ARROW-4259 is resolved')
 def test_plasma_tf_op(use_gpu=False):
     import pyarrow.plasma as plasma
     import tensorflow as tf

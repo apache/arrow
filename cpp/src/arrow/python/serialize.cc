@@ -532,13 +532,13 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
 #endif
   } else if (PyBytes_Check(elem)) {
     auto data = reinterpret_cast<uint8_t*>(PyBytes_AS_STRING(elem));
-    int32_t size;
+    int32_t size = -1;
     RETURN_NOT_OK(internal::CastSize(PyBytes_GET_SIZE(elem), &size));
     RETURN_NOT_OK(builder->AppendBytes(data, size));
   } else if (PyUnicode_Check(elem)) {
     PyBytesView view;
     RETURN_NOT_OK(view.FromString(elem));
-    int32_t size;
+    int32_t size = -1;
     RETURN_NOT_OK(internal::CastSize(view.size, &size));
     RETURN_NOT_OK(builder->AppendString(view.bytes, size));
   } else if (PyList_CheckExact(elem)) {

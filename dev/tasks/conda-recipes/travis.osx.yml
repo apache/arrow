@@ -16,7 +16,7 @@
 # under the License.
 
 os: osx
-osx_image: xcode6.4
+osx_image: xcode9.4
 language: generic
 
 # don't build twice
@@ -52,22 +52,23 @@ install:
     echo ""
     echo "Configuring conda."
     source /Users/travis/miniconda3/bin/activate root
+
     conda install -n root -c conda-forge --quiet --yes conda-forge-ci-setup=2
+
 
 before_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
   - pushd arrow/dev/tasks/conda-recipes
+
   # Configure conda
-  - setup_conda_rc ./ ./ {{ variant_config_file }}
+  - setup_conda_rc ./ ./ variants/{{ config }}.yaml
   - source run_conda_forge_build_setup
 
 script:
-  # Don't need to run make_build_number, no build number decrementation happens, it's always 0
   - |
-    conda build --croot $TRAVIS_HOME/conda_build_root \
-                --output-folder . \
-                -m {{ variant_config_file }} \
+    conda build --output-folder . \
+                -m variants/{{ config }}.yaml \
                 parquet-cpp arrow-cpp pyarrow
 
 deploy:

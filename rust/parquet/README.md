@@ -23,7 +23,7 @@
 Add this to your Cargo.toml:
 ```toml
 [dependencies]
-parquet = "0.4"
+parquet = "0.12"
 ```
 
 and this to your crate root:
@@ -44,7 +44,7 @@ while let Some(record) = iter.next() {
     println!("{}", record);
 }
 ```
-See [crate documentation](https://docs.rs/crate/parquet/0.4.2) on available API.
+See [crate documentation](https://docs.rs/crate/parquet/0.12) on available API.
 
 ## Supported Parquet Version
 - Parquet-format 2.4.0
@@ -73,6 +73,9 @@ version is available. Then simply update version of `parquet-format` crate in Ca
 
 See [Working with nightly Rust](https://github.com/rust-lang-nursery/rustup.rs/blob/master/README.md#working-with-nightly-rust)
 to install nightly toolchain and set it as default.
+
+Parquet requires LLVM.  Our windows CI image includes LLVM but to build the libraries locally windows
+users will have to install LLVM. Follow [this](https://github.com/appveyor/ci/issues/2651) link for info.
 
 ## Build
 Run `cargo build` or `cargo build --release` to build in release mode.

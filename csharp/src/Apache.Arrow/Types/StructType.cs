@@ -19,7 +19,7 @@ using System.Linq;
 
 namespace Apache.Arrow.Types
 {
-    public class StructType: ArrowType
+    public sealed class StructType : ArrowType
     {
         private readonly List<Field> _fields;
 
@@ -55,10 +55,6 @@ namespace Apache.Arrow.Types
                 field => comparer.Equals(field.Name, name));
         }
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<StructType> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

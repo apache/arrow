@@ -2,24 +2,40 @@ boost_cpp:
 - 1.68.0
 build_number_decrement:
 - '0'
+channel_sources:
+- conda-forge,defaults
+channel_targets:
+- conda-forge main
 c_compiler:
 - gcc
-channel_sources:
-- conda-forge/label/gcc7,defaults
-channel_targets:
-- conda-forge gcc7
 cxx_compiler:
 - gxx
 docker_image:
 - condaforge/linux-anvil-comp7
+libprotobuf:
+- '3.6'
+lz4_c:
+- 1.8.1
 pin_run_as_build:
   boost-cpp:
+    max_pin: x.x.x
+  libprotobuf:
+    max_pin: x.x
+  lz4-c:
     max_pin: x.x.x
   python:
     min_pin: x.x
     max_pin: x.x
+  snappy:
+    max_pin: x.x.x
+  zlib:
+    max_pin: x.x
+  zstd:
+    max_pin: x.x.x
 python:
 - '3.6'
+snappy:
+- 1.1.7
 zip_keys:
 - - c_compiler
   - cxx_compiler
@@ -27,3 +43,7 @@ zip_keys:
   - channel_targets
   - docker_image
   - build_number_decrement
+zlib:
+- '1.2'
+zstd:
+- 1.3.3

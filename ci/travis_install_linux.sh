@@ -17,25 +17,35 @@
 # specific language governing permissions and limitations
 # under the License.
 
-sudo apt-get install -y -q \
+set -e
+
+sudo apt-get install -y -qq \
     gdb binutils ccache libboost-dev libboost-filesystem-dev \
     libboost-system-dev libboost-regex-dev
 
-if [ "$CXX" == "g++-4.9" ]; then
-    sudo apt-get install -y -q g++-4.9
-fi
-
 if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then
-    sudo apt-get install -y -q valgrind
+    sudo apt-get install -y -qq valgrind
 fi
 
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
-    sudo apt-get install -y -q lcov
+    sudo apt-get install -y -qq lcov
 fi
 
-if [ "$ARROW_TRAVIS_GANDIVA" == "1" -a "$ARROW_USE_TOOLCHAIN" != "1" ]; then
-    sudo add-apt-repository -y ppa:dluxen/cmake-backports
-    sudo apt-get update -q
-    sudo apt-get install -y -q cmake3
-    sudo rm -rf /usr/local/cmake-*
+if [ "$ARROW_TRAVIS_GANDIVA" == "1" ]; then
+    sudo apt-get install -y -qq llvm-6.0-dev
 fi
+
+set -x
+
+sudo apt-get install -y -qq maven
+
+# Remove Travis-specific versions of Java
+sudo rm -rf /usr/local/lib/jvm*
+sudo rm -rf /usr/local/maven*
+hash -r
+unset JAVA_HOME
+
+which java
+which mvn
+java -version
+mvn -v

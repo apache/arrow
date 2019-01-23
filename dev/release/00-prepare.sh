@@ -103,6 +103,16 @@ update_versions() {
     arrow/Cargo.toml parquet/Cargo.toml
   rm -f arrow/Cargo.toml.bak parquet/Cargo.toml.bak
   git add arrow/Cargo.toml parquet/Cargo.toml
+
+  # Update version number for parquet README
+  sed -i.bak -E -e \
+      "s/^parquet = \".+\"/parquet = \"${version}\"/g" \
+      parquet/README.md
+  sed -i.bak -E -e \
+      "s/docs.rs\/crate\/parquet\/.+\)/docs.rs\/crate\/parquet\/${version}\)/g" \
+      parquet/README.md
+  rm -f parquet/README.md.bak
+  git add parquet/README.md
   cd -
 }
 
