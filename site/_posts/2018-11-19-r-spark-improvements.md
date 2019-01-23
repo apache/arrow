@@ -37,8 +37,8 @@ Since this work is under active development, install `sparklyr` and
 `arrow` from GitHub as follows:
 
 ```r
-devtools::install_github("apache/arrow", subdir = "r")
-devtools::install_github("rstudio/sparklyr")
+devtools::install_github("apache/arrow", subdir = "r", ref = "apache-arrow-0.12.0")
+devtools::install_github("rstudio/sparklyr", ref = "apache-arrow-0.12.0")
 ```
 
 In this benchmark, we will use [dplyr][5], but similar improvements can
@@ -170,9 +170,9 @@ microbenchmark::microbenchmark(
 ```
 ```
 Unit: seconds
-      expr        min         lq       mean     median         uq       max neval
-  arrow_on   3.399136   3.505688   3.906025   4.112791   4.183889   4.32687    10
- arrow_off 104.667242 106.801747 109.201360 107.879391 111.520811 116.69798    10
+      expr        min         lq       mean     median         uq        max neval
+  arrow_on   3.881293   4.038376   5.136604   4.772739   5.759082   7.873711    10
+ arrow_off 178.605733 183.654887 213.296238 227.182018 233.601885 238.877341    10
  ```
 
 <div align="center">
