@@ -15,7 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#ifdef _MSC_VER
+#include <intrin.h>
+#else
 #include <immintrin.h>
+#endif
+
 #include <iostream>
 
 #include "arrow/api.h"
@@ -86,7 +91,7 @@ BENCHMARK_TEMPLATE(MemoryBandwidth, Write)->ThreadRange(1, kNumCores)->UseRealTi
 BENCHMARK_TEMPLATE(MemoryBandwidth, ReadWrite)->ThreadRange(1, kNumCores)->UseRealTime();
 
 static void ParallelMemoryCopy(benchmark::State& state) {  // NOLINT non-const reference
-  const size_t n_threads = state.range(0);
+  const int n_threads = state.range(0);
   const int64_t buffer_size = kMemoryPerCore;
 
   std::shared_ptr<Buffer> src, dst;
@@ -102,7 +107,7 @@ static void ParallelMemoryCopy(benchmark::State& state) {  // NOLINT non-const r
   }
 
   state.SetBytesProcessed(int64_t(state.iterations()) * buffer_size);
-  state.counters["threads"] = n_threads;
+  state.counters["threads"] = static_cast<double>(n_threads);
 }
 
 BENCHMARK(ParallelMemoryCopy)->RangeMultiplier(2)->Range(1, kNumCores)->UseRealTime();
