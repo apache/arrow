@@ -238,9 +238,7 @@ class RawRecordsBuilder : public arrow::ArrayVisitor {
         record = rb_ary_new_capa(num_columns_);
         rb_ary_store(records_, row_index, record);
       }
-      if (!NIL_P(val)) {
-        rb_ary_store(record, column_index_, val);
-      }
+      rb_ary_store(record, column_index_, val);
       return Qnil;
     });
     return Status::OK();
