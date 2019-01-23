@@ -315,6 +315,55 @@ ctest -L gandiva
 This library is still in Alpha stages, and subject to API changes without
 deprecation warnings.
 
+### Building and developing Flight (optional)
+
+In addition to the Arrow dependencies, Flight requires:
+* gRPC (>= 1.14, roughly)
+* Protobuf (>= 3.6, earlier versions may work)
+* c-ares (used by gRPC)
+
+By default, Arrow will try to download and build these dependencies
+when building Flight.
+
+The optional `flight` libraries and tests can be built by passing
+`-DARROW_FLIGHT=ON`.
+
+```shell
+cmake .. -DARROW_FLIGHT=ON -DARROW_BUILD_TESTS=ON
+make
+```
+
+You can also use existing installations of the extra dependencies.
+When building, set the environment variables `GRPC_HOME` and/or
+`PROTOBUF_HOME` and/or `CARES_HOME`.
+
+You may try using system libraries for gRPC and Protobuf, but these
+are likely to be too old.
+
+On Ubuntu/Debian, you can try:
+
+```shell
+sudo apt-get install libgrpc-dev libgrpc++-dev protobuf-compiler-grpc libc-ares-dev
+```
+
+Note that the version of gRPC in Ubuntu 18.10 is too old; you will
+have to install gRPC from source. (Ubuntu 19.04/Debian Sid may work.)
+
+On macOS, you can try [Homebrew][1]:
+
+```shell
+brew install grpc
+```
+
+You can also install gRPC from source. In this case, you must install
+gRPC to generate the necessary files for CMake to find gRPC:
+
+```shell
+cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DgRPC_PROTOBUF_PROVIDER=package -DgRPC_ZLIB_PROVIDER=package -DgRPC_CARES_PROVIDER=package -DgRPC_SSL_PROVIDER=package
+```
+
+You can then specify `-DgRPC_DIR` to `cmake`.
+
 ### API documentation
 
 To generate the (html) API documentation, run the following command in the apidoc
