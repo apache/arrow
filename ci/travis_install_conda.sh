@@ -67,7 +67,6 @@ else
   # Help with SSL timeouts to S3
   conda config --set remote_connect_timeout_secs 12
 
-  conda config --add channels https://repo.continuum.io/pkgs/free
   conda config --add channels conda-forge
 fi
 
