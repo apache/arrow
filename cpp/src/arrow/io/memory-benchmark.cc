@@ -102,7 +102,7 @@ static void ParallelMemoryCopy(benchmark::State& state) {  // NOLINT non-const r
 
   while (state.KeepRunning()) {
     io::FixedSizeBufferWriter writer(dst);
-    writer.set_memcopy_threads(n_threads);
+    writer.set_memcopy_threads(static_cast<int>(n_threads));
     ABORT_NOT_OK(writer.Write(src->data(), src->size()));
   }
 
