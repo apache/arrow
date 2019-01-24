@@ -21,6 +21,6 @@ ADD_PARQUET_TEST(arrow-reader-writer-test)
 ADD_BENCHMARK(reader-writer-benchmark
   PREFIX "parquet-arrow"
   LABELS "parquet-benchmarks"
-  EXTRA_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})
+  STATIC_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})
 
 ARROW_INSTALL_ALL_HEADERS("parquet/arrow")
