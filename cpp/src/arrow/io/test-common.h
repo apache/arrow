@@ -26,8 +26,8 @@
 #include <vector>
 
 #ifdef _WIN32
-#include <io.h>
 #include <crtdbg.h>
+#include <io.h>
 #else
 #include <fcntl.h>
 #endif
