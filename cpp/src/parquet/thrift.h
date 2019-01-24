@@ -82,14 +82,34 @@ static inline Compression::type FromThrift(format::CompressionCodec::type type) 
   return static_cast<Compression::type>(type);
 }
 
+static inline AadMetadata FromThrift(format::AesGcmV1 aesGcmV1) {
+  return AadMetadata {
+    aesGcmV1.aad_prefix,
+    aesGcmV1.aad_file_unique,
+    aesGcmV1.supply_aad_prefix
+  };
+}
+
+static inline AadMetadata FromThrift(format::AesGcmCtrV1 aesGcmCtrV1) {
+  return AadMetadata {
+    aesGcmCtrV1.aad_prefix,
+    aesGcmCtrV1.aad_file_unique,
+    aesGcmCtrV1.supply_aad_prefix
+  };
+}
+
 static inline EncryptionAlgorithm FromThrift(format::EncryptionAlgorithm encryption) {
+  EncryptionAlgorithm encryption_algorithm;
+
   if (encryption.__isset.AES_GCM_V1) {
-    return EncryptionAlgorithm{Encryption::AES_GCM_V1,
-                               encryption.AES_GCM_V1.aad_metadata};
+    encryption_algorithm.algorithm = Encryption::AES_GCM_V1;
+    encryption_algorithm.aad = FromThrift(encryption.AES_GCM_V1);
+
   } else {
-    return EncryptionAlgorithm{Encryption::AES_GCM_CTR_V1,
-                               encryption.AES_GCM_CTR_V1.aad_metadata};
+    encryption_algorithm.algorithm = Encryption::AES_GCM_CTR_V1;
+    encryption_algorithm.aad = FromThrift(encryption.AES_GCM_CTR_V1);
   }
+  return encryption_algorithm;
 }
 
 static inline format::Type::type ToThrift(Type::type type) {
@@ -142,16 +162,30 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   return statistics;
 }
 
+static inline format::AesGcmV1 ToAesGcmV1Thrift(AadMetadata aad) {
+  format::AesGcmV1 aesGcmV1;
+  aesGcmV1.aad_prefix = aad.aad_prefix;
+  aesGcmV1.aad_file_unique = aad.aad_file_unique;
+  aesGcmV1.supply_aad_prefix = aad.supply_aad_prefix;
+  return aesGcmV1;
+}
+
+static inline format::AesGcmCtrV1 ToAesGcmCtrV1Thrift(AadMetadata aad) {
+  format::AesGcmCtrV1 aesGcmCtrV1;
+  aesGcmCtrV1.aad_prefix = aad.aad_prefix;
+  aesGcmCtrV1.aad_file_unique = aad.aad_file_unique;
+  aesGcmCtrV1.supply_aad_prefix = aad.supply_aad_prefix;
+  return aesGcmCtrV1;
+}
+
 static inline format::EncryptionAlgorithm ToThrift(EncryptionAlgorithm encryption) {
   format::EncryptionAlgorithm encryption_algorithm;
   if (encryption.algorithm == Encryption::AES_GCM_V1) {
     encryption_algorithm.__isset.AES_GCM_V1 = true;
-    encryption_algorithm.AES_GCM_V1 = format::AesGcmV1();
-    encryption_algorithm.AES_GCM_V1.aad_metadata = encryption.aad_metadata;
+    encryption_algorithm.AES_GCM_V1 = ToAesGcmV1Thrift(encryption.aad);
   } else {
     encryption_algorithm.__isset.AES_GCM_CTR_V1 = true;
-    encryption_algorithm.AES_GCM_CTR_V1 = format::AesGcmCtrV1();
-    encryption_algorithm.AES_GCM_CTR_V1.aad_metadata = encryption.aad_metadata;
+    encryption_algorithm.AES_GCM_CTR_V1 = ToAesGcmCtrV1Thrift(encryption.aad);
   }
   return encryption_algorithm;
 }
@@ -166,7 +200,8 @@ using ThriftBuffer = apache::thrift::transport::TMemoryBuffer;
 // set to the actual length of the header.
 template <class T>
 inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deserialized_msg,
-                                 const EncryptionProperties* encryption = NULLPTR) {
+                                 const EncryptionProperties* encryption = NULLPTR,
+                                 bool shouldReadLength = true) {
   if (encryption == NULLPTR) {
     // Deserialize msg bytes into c++ thrift msg using memory transport.
     shared_ptr<ThriftBuffer> tmem_transport(
@@ -184,27 +219,28 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
     uint32_t bytes_left = tmem_transport->available_read();
     *len = *len - bytes_left;
   } else {
-    // first 4 bytes for length
-    uint8_t clenBytes[4];
-    memcpy(clenBytes, buf, 4);
-
-    uint32_t clen = *(reinterpret_cast<uint32_t*>(clenBytes));
-
+    uint32_t clen;
+    if (shouldReadLength) {
+      // first 4 bytes for length
+      uint8_t clenBytes[4];
+      memcpy(clenBytes, buf, 4);
+      clen = *(reinterpret_cast<uint32_t*>(clenBytes));
+    }
+    else {
+      clen = *len;
+    }
     // decrypt
-    std::vector<uint8_t> decrypted_buffer(encryption->CalculatePlainSize(clen));
-
+    const uint8_t* cipherBuf = shouldReadLength ? &buf[4] : buf;
+    std::vector<uint8_t> decrypted_buffer(encryption->CalculatePlainSize(clen, true));
     uint32_t decrypted_buffer_len = parquet_encryption::Decrypt(
-        encryption->algorithm(), true, &buf[4], clen, encryption->key_bytes(),
+        encryption->algorithm(), true, cipherBuf, clen, encryption->key_bytes(),
         encryption->key_length(), encryption->aad_bytes(), encryption->aad_length(),
         decrypted_buffer.data());
-
     if (decrypted_buffer_len <= 0) {
       throw ParquetException("Couldn't decrypt buffer\n");
     }
-
     DeserializeThriftMsg(decrypted_buffer.data(), &decrypted_buffer_len,
                          deserialized_msg);
-
     *len = 4 + clen;
   }
 }
@@ -237,7 +273,8 @@ class ThriftSerializer {
   }
 
   template <class T>
-  int64_t Serialize(const T* obj, ArrowOutputStream* out, const EncryptionProperties* encryption = NULLPTR) {
+  int64_t Serialize(const T* obj, ArrowOutputStream* out, const EncryptionProperties* encryption = NULLPTR,
+                    bool shouldWriteLength = true) {
     uint8_t* out_buffer;
     uint32_t out_length;
     SerializeToBuffer(obj, &out_length, &out_buffer);
@@ -252,10 +289,15 @@ class ThriftSerializer {
           encryption->key_length(), encryption->aad_bytes(), encryption->aad_length(),
           cipher_buffer.data());
 
-      PARQUET_THROW_NOT_OK(out->Write(reinterpret_cast<uint8_t*>(&cipher_buffer_len), 4));
-      PARQUET_THROW_NOT_OK(out->Write(cipher_buffer.data(), cipher_buffer_len));
-
-      return static_cast<int64_t>(cipher_buffer_len + 4);
+      if (shouldWriteLength) {
+        PARQUET_THROW_NOT_OK(out->Write(reinterpret_cast<uint8_t*>(&cipher_buffer_len), 4));
+        PARQUET_THROW_NOT_OK(out->Write(cipher_buffer.data(), cipher_buffer_len));
+        return static_cast<int64_t>(cipher_buffer_len + 4);
+      }
+      else {
+        PARQUET_THROW_NOT_OK(out->Write(cipher_buffer.data(), cipher_buffer_len));
+        return static_cast<int64_t>(cipher_buffer_len);
+      }
     }
   }
 
