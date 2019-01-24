@@ -255,6 +255,15 @@ class FlightServiceImpl : public FlightService::Service {
     // Requires ServerWriter customization in grpc_customizations.h
     auto custom_writer = reinterpret_cast<ServerWriter<IpcPayload>*>(writer);
 
+    // Write the schema as the first message in the stream
+    IpcPayload schema_payload;
+    MemoryPool* pool = default_memory_pool();
+    ipc::DictionaryMemo dictionary_memo;
+    GRPC_RETURN_NOT_OK(ipc::internal::GetSchemaPayload(*data_stream->schema(),
+                                                       pool, &dictionary_memo,
+                                                       &schema_payload));
+    custom_writer->Write(schema_payload, grpc::WriteOptions());
+
     while (true) {
       IpcPayload payload;
       GRPC_RETURN_NOT_OK(data_stream->Next(&payload));
@@ -367,6 +376,10 @@ Status FlightServerBase::ListActions(std::vector<ActionType>* actions) {
 
 RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader)
     : pool_(default_memory_pool()), reader_(reader) {}
+
+std::shared_ptr<Schema> RecordBatchStream::schema() {
+  return reader_->schema();
+}
 
 Status RecordBatchStream::Next(IpcPayload* payload) {
   std::shared_ptr<RecordBatch> batch;

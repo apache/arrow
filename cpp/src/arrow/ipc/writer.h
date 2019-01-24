@@ -24,6 +24,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/util/visibility.h"
 
@@ -312,6 +313,16 @@ struct IpcPayload {
 ARROW_EXPORT
 Status GetDictionaryPayloads(const Schema& schema,
                              std::vector<std::unique_ptr<IpcPayload>>* out);
+
+/// \brief Compute IpcPayload for the given schema
+/// \param[in] schema the Schema that is being serialized
+/// \param[in,out] pool for any required temporary memory allocations
+/// \param[in,out] dictionary_memo TODO
+/// \param[out] out the returned IpcPayload
+/// \return Status
+ARROW_EXPORT
+Status GetSchemaPayload(const Schema& schema, MemoryPool* pool,
+                        DictionaryMemo* dictionary_memo, IpcPayload* out);
 
 /// \brief Compute IpcPayload for the given record batch
 /// \param[in] batch the RecordBatch that is being serialized

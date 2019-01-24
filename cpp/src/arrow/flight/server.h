@@ -57,6 +57,9 @@ class ARROW_EXPORT FlightDataStream {
  public:
   virtual ~FlightDataStream() = default;
 
+  // When the stream starts, send the schema.
+  virtual std::shared_ptr<Schema> schema() = 0;
+
   // When the stream is completed, the last payload written will have null
   // metadata
   virtual Status Next(ipc::internal::IpcPayload* payload) = 0;
@@ -69,6 +72,7 @@ class ARROW_EXPORT RecordBatchStream : public FlightDataStream {
  public:
   explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader);
 
+  std::shared_ptr<Schema> schema() override;
   Status Next(ipc::internal::IpcPayload* payload) override;
 
  private:
