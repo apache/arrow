@@ -447,9 +447,15 @@ struct Encryption {
   enum type { AES_GCM_V1 = 0, AES_GCM_CTR_V1 = 1 };
 };
 
+struct AadMetadata {
+  std::string aad_prefix;
+  std::string aad_file_unique;
+  bool supply_aad_prefix;
+};
+
 struct EncryptionAlgorithm {
   Encryption::type algorithm;
-  std::string aad_metadata;
+  AadMetadata aad;
 };
 
 class PARQUET_EXPORT EncryptionProperties {
@@ -481,8 +487,8 @@ class PARQUET_EXPORT EncryptionProperties {
   const std::string& key() const { return key_; }
   const std::string& aad() const { return aad_; }
 
-  uint32_t CalculateCipherSize(uint32_t plain_len) const {
-    if (algorithm_ == Encryption::AES_GCM_V1) {
+  uint32_t CalculateCipherSize(uint32_t plain_len, bool is_metadata = false) const {
+    if (is_metadata || algorithm_ == Encryption::AES_GCM_V1) {
       return plain_len + 28;
     } else if (algorithm_ == Encryption::AES_GCM_CTR_V1) {
       return plain_len + 16;
@@ -490,8 +496,8 @@ class PARQUET_EXPORT EncryptionProperties {
     return plain_len;
   }
 
-  uint32_t CalculatePlainSize(uint32_t cipher_len) const {
-    if (algorithm_ == Encryption::AES_GCM_V1) {
+  uint32_t CalculatePlainSize(uint32_t cipher_len, bool is_metadata = false) const {
+    if (is_metadata || algorithm_ == Encryption::AES_GCM_V1) {
       return cipher_len - 28;
     } else if (algorithm_ == Encryption::AES_GCM_CTR_V1) {
       return cipher_len - 16;

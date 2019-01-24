@@ -271,13 +271,16 @@ class FileSerializer : public ParquetFileWriter::Contents {
         WriteFileMetaData(*file_metadata_, sink_.get());
       } else {
         uint64_t metadata_start = static_cast<uint64_t>(sink_->Tell());
+        auto crypto_metadata = metadata_->GetCryptoMetaData();
+        WriteFileCryptoMetaData(*crypto_metadata, sink_.get());
 
         std::shared_ptr<EncryptionProperties> footer_encryption =
-            file_encryption->GetFooterEncryptionProperties();
+          file_encryption->GetFooterEncryptionProperties();
         WriteFileMetaData(*file_metadata_, sink_.get(), footer_encryption.get());
+        uint32_t footer_and_crypto_len = static_cast<uint32_t>(sink_->Tell() - metadata_start);
+        sink_->Write(reinterpret_cast<uint8_t*>(&footer_and_crypto_len), 4);
 
-        auto crypto_metadata = metadata_->GetCryptoMetaData(metadata_start);
-        WriteFileCryptoMetaData(*crypto_metadata, sink_.get());
+        sink_->Write(PARQUET_EMAGIC, 4);
       }
 
       sink_->Close();
@@ -392,7 +395,6 @@ void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sin
     uint32_t metadata_len = static_cast<uint32_t>(position);
 
     file_metadata.WriteTo(sink);
-
     PARQUET_THROW_NOT_OK(sink->Tell(&position));
     metadata_len = static_cast<uint32_t>(position) - metadata_len;
 
@@ -411,24 +413,9 @@ void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink) {
 }
 
 void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
-                             ArrowOutputStream* sink) {
-  int64_t position = -1;
-  PARQUET_THROW_NOT_OK(sink->Tell(&position));
-  uint64_t crypto_offset = static_cast<uint64_t>(position);
-
-  // Get a FileCryptoMetaData
-  crypto_metadata.WriteTo(sink);
-  PARQUET_THROW_NOT_OK(sink->Tell(&position));
-  auto crypto_len = static_cast<uint32_t>(position) - crypto_offset;
-  PARQUET_THROW_NOT_OK(sink->Write(reinterpret_cast<uint8_t*>(&crypto_len), 4));
-
-  PARQUET_THROW_NOT_OK(sink->Write(PARQUET_EMAGIC, 4));
-}
-
-void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
                              OutputStream* sink) {
   ParquetOutputWrapper wrapper(sink);
-  return WriteFileCryptoMetaData(crypto_metadata, &wrapper);
+  crypto_metadata.WriteTo(sink);
 }
 
 void WriteMetaDataFile(const FileMetaData& file_metadata, ArrowOutputStream* sink) {
