@@ -948,7 +948,7 @@ class TestEvictionToExternalStore(object):
     def test_eviction(self):
         client = self.plasma_client
 
-        object_ids = [random_object_id() for _ in range(0, 11)]
+        object_ids = [random_object_id() for _ in range(0, 20)]
         data = b'x' * 100 * 1024
         metadata = b''
 
