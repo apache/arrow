@@ -27,7 +27,7 @@ limitations under the License.
 *[Javier Luraschi][1] is a software engineer at [RStudio][2]*
 
 Support for Apache Arrow in Apache Spark with R is currently under active
-development in the [sparklyr][3] and [sparkR][4] projects. This post explores early, yet
+development in the [sparklyr][3] and [SparkR][4] projects. This post explores early, yet
 promising, performance improvements achieved when using R with [Apache Spark][5],
 Arrow and `sparklyr`.
 
@@ -182,7 +182,7 @@ Unit: seconds
 </div>
 
 Additional benchmarks and fine-tuning parameters can be found under `sparklyr`
-[/rstudio/sparklyr/pull/1611][10] and `sparkR` [/apache/spark/pull/22954][11]. Looking forward to bringing this feature
+[/rstudio/sparklyr/pull/1611][10] and `SparkR` [/apache/spark/pull/22954][11]. Looking forward to bringing this feature
 to the Spark, Arrow and R communities.
 
 [1]: https://github.com/javierluraschi
