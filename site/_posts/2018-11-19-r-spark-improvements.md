@@ -27,9 +27,9 @@ limitations under the License.
 *[Javier Luraschi][1] is a software engineer at [RStudio][2]*
 
 Support for Apache Arrow in Apache Spark with R is currently under active
-development in the [sparklyr][3] project. This post explores early, yet
-promising, performance improvements achieved when using R with [Apache
-Spark][4] and Arrow.
+development in the [sparklyr][3] and [sparkR][4] projects. This post explores early, yet
+promising, performance improvements achieved when using R with [Apache Spark][5],
+Arrow and `sparklyr`.
 
 # Setup
 
@@ -41,8 +41,8 @@ devtools::install_github("apache/arrow", subdir = "r", ref = "apache-arrow-0.12.
 devtools::install_github("rstudio/sparklyr", ref = "apache-arrow-0.12.0")
 ```
 
-In this benchmark, we will use [dplyr][5], but similar improvements can
-be  expected from using [DBI][6], or [Spark DataFrames][7] in `sparklyr`.
+In this benchmark, we will use [dplyr][6], but similar improvements can
+be  expected from using [DBI][7], or [Spark DataFrames][8] in `sparklyr`.
 The local Spark connection and dataframe with 10M numeric rows was
 initialized as follows:
 
@@ -68,7 +68,7 @@ Spark without having to serialize this data in R or persist in disk.
 The following example copies 10M rows from R into Spark using `sparklyr`
 with and without `arrow`, there is close to a 16x improvement using `arrow`.
 
-This benchmark uses the [microbenchmark][8] R package, which runs code
+This benchmark uses the [microbenchmark][9] R package, which runs code
 multiple times, provides stats on total execution time and plots each
 excecution time to understand the distribution over each iteration.
 
@@ -182,15 +182,17 @@ Unit: seconds
 </div>
 
 Additional benchmarks and fine-tuning parameters can be found under `sparklyr`
-[/rstudio/sparklyr/pull/1611][9]. Looking forward to bringing this feature
+[/rstudio/sparklyr/pull/1611][10] and `sparkR` [/apache/spark/pull/22954][11]. Looking forward to bringing this feature
 to the Spark, Arrow and R communities.
 
 [1]: https://github.com/javierluraschi
 [2]: https://rstudio.com
 [3]: https://github.com/rstudio/sparklyr
-[4]: https://spark.apache.org
-[5]: https://dplyr.tidyverse.org
-[6]: https://cran.r-project.org/package=DBI
-[7]: https://spark.rstudio.com/reference/#section-spark-dataframes
-[8]: https://CRAN.R-project.org/package=microbenchmark
-[9]: https://github.com/rstudio/sparklyr/pull/1611
+[4]: https://spark.apache.org/docs/latest/sparkr.html
+[5]: https://spark.apache.org
+[6]: https://dplyr.tidyverse.org
+[7]: https://cran.r-project.org/package=DBI
+[8]: https://spark.rstudio.com/reference/#section-spark-dataframes
+[9]: https://CRAN.R-project.org/package=microbenchmark
+[10]: https://github.com/rstudio/sparklyr/pull/1611
+[11]: https://github.com/apache/spark/pull/22954
