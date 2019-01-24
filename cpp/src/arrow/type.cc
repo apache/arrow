@@ -462,22 +462,22 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>>&& fields,
 #define ACCEPT_VISITOR(TYPE) \
   Status TYPE::Accept(TypeVisitor* visitor) const { return visitor->Visit(*this); }
 
-ACCEPT_VISITOR(NullType);
-ACCEPT_VISITOR(BooleanType);
-ACCEPT_VISITOR(BinaryType);
-ACCEPT_VISITOR(FixedSizeBinaryType);
-ACCEPT_VISITOR(StringType);
-ACCEPT_VISITOR(ListType);
-ACCEPT_VISITOR(StructType);
-ACCEPT_VISITOR(Decimal128Type);
-ACCEPT_VISITOR(UnionType);
-ACCEPT_VISITOR(Date32Type);
-ACCEPT_VISITOR(Date64Type);
-ACCEPT_VISITOR(Time32Type);
-ACCEPT_VISITOR(Time64Type);
-ACCEPT_VISITOR(TimestampType);
-ACCEPT_VISITOR(IntervalType);
-ACCEPT_VISITOR(DictionaryType);
+ACCEPT_VISITOR(NullType)
+ACCEPT_VISITOR(BooleanType)
+ACCEPT_VISITOR(BinaryType)
+ACCEPT_VISITOR(FixedSizeBinaryType)
+ACCEPT_VISITOR(StringType)
+ACCEPT_VISITOR(ListType)
+ACCEPT_VISITOR(StructType)
+ACCEPT_VISITOR(Decimal128Type)
+ACCEPT_VISITOR(UnionType)
+ACCEPT_VISITOR(Date32Type)
+ACCEPT_VISITOR(Date64Type)
+ACCEPT_VISITOR(Time32Type)
+ACCEPT_VISITOR(Time64Type)
+ACCEPT_VISITOR(TimestampType)
+ACCEPT_VISITOR(IntervalType)
+ACCEPT_VISITOR(DictionaryType)
 
 #define TYPE_FACTORY(NAME, KLASS)                                        \
   std::shared_ptr<DataType> NAME() {                                     \
@@ -485,23 +485,23 @@ ACCEPT_VISITOR(DictionaryType);
     return result;                                                       \
   }
 
-TYPE_FACTORY(null, NullType);
-TYPE_FACTORY(boolean, BooleanType);
-TYPE_FACTORY(int8, Int8Type);
-TYPE_FACTORY(uint8, UInt8Type);
-TYPE_FACTORY(int16, Int16Type);
-TYPE_FACTORY(uint16, UInt16Type);
-TYPE_FACTORY(int32, Int32Type);
-TYPE_FACTORY(uint32, UInt32Type);
-TYPE_FACTORY(int64, Int64Type);
-TYPE_FACTORY(uint64, UInt64Type);
-TYPE_FACTORY(float16, HalfFloatType);
-TYPE_FACTORY(float32, FloatType);
-TYPE_FACTORY(float64, DoubleType);
-TYPE_FACTORY(utf8, StringType);
-TYPE_FACTORY(binary, BinaryType);
-TYPE_FACTORY(date64, Date64Type);
-TYPE_FACTORY(date32, Date32Type);
+TYPE_FACTORY(null, NullType)
+TYPE_FACTORY(boolean, BooleanType)
+TYPE_FACTORY(int8, Int8Type)
+TYPE_FACTORY(uint8, UInt8Type)
+TYPE_FACTORY(int16, Int16Type)
+TYPE_FACTORY(uint16, UInt16Type)
+TYPE_FACTORY(int32, Int32Type)
+TYPE_FACTORY(uint32, UInt32Type)
+TYPE_FACTORY(int64, Int64Type)
+TYPE_FACTORY(uint64, UInt64Type)
+TYPE_FACTORY(float16, HalfFloatType)
+TYPE_FACTORY(float32, FloatType)
+TYPE_FACTORY(float64, DoubleType)
+TYPE_FACTORY(utf8, StringType)
+TYPE_FACTORY(binary, BinaryType)
+TYPE_FACTORY(date64, Date64Type)
+TYPE_FACTORY(date32, Date32Type)
 
 std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width) {
   return std::make_shared<FixedSizeBinaryType>(byte_width);
