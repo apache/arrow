@@ -102,6 +102,10 @@ class SerializationTraits<IpcPayload> {
 
     int64_t body_size = 0;
     for (const auto& buffer : msg.body_buffers) {
+      // Buffer may be null when the row length is zero, or when all
+      // entries are invalid.
+      if (!buffer) continue;
+
       body_size += buffer->size();
 
       const int64_t remainder = buffer->size() % 8;
@@ -143,6 +147,10 @@ class SerializationTraits<IpcPayload> {
     constexpr uint8_t kPaddingBytes[8] = {0};
 
     for (const auto& buffer : msg.body_buffers) {
+      // Buffer may be null when the row length is zero, or when all
+      // entries are invalid.
+      if (!buffer) continue;
+
       pb_stream.WriteRawMaybeAliased(buffer->data(), static_cast<int>(buffer->size()));
 
       // Write padding if not multiple of 8
