@@ -17,8 +17,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# e.g. "trusty" or "xenial"
-DISTRO_CODENAME=`lsb_release -s -c`
+
+set -ex
+
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
 sudo apt-add-repository -y \

@@ -17,7 +17,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
+
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 sudo apt-get install -y -qq \
     gdb binutils ccache libboost-dev libboost-filesystem-dev \
@@ -35,15 +37,15 @@ if [ "$ARROW_TRAVIS_GANDIVA" == "1" ]; then
     sudo apt-get install -y -qq llvm-6.0-dev
 fi
 
-set -x
+if [ "$DISTRO_CODENAME" != "trusty"]; then
+    sudo apt-get install -y -qq maven
 
-sudo apt-get install -y -qq maven
-
-# Remove Travis-specific versions of Java
-sudo rm -rf /usr/local/lib/jvm*
-sudo rm -rf /usr/local/maven*
-hash -r
-unset JAVA_HOME
+    # Remove Travis-specific versions of Java
+    sudo rm -rf /usr/local/lib/jvm*
+    sudo rm -rf /usr/local/maven*
+    hash -r
+    unset JAVA_HOME
+fi
 
 which java
 which mvn
