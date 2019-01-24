@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_DECIMAL_H
-#define ARROW_DECIMAL_H
+#pragma once
 
 #include <array>
 #include <cstdint>
@@ -26,10 +25,8 @@
 #include <type_traits>
 
 #include "arrow/status.h"
-#include "arrow/util/macros.h"
+#include "arrow/util/basic_decimal.h"
 #include "arrow/util/string_view.h"
-#include "arrow/util/type_traits.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -40,43 +37,30 @@ namespace arrow {
 /// Semi-numerical Algorithms section 4.3.1.
 ///
 /// Adapted from the Apache ORC C++ implementation
-class ARROW_EXPORT Decimal128 {
+///
+/// The implementation is split into two parts :
+///
+/// 1. BasicDecimal128
+///    - can be safely compiled to IR without references to libstdc++.
+/// 2. Decimal128
+///    - has additional functionality on top of BasicDecimal128 to deal with
+///      strings and streams.
+class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
  public:
-  /// \brief Create a Decimal128 from the two's complement representation.
-  constexpr Decimal128(int64_t high, uint64_t low) noexcept
-      : low_bits_(low), high_bits_(high) {}
+  /// \cond FALSE
+  // (need to avoid a duplicate definition in Sphinx)
+  using BasicDecimal128::BasicDecimal128;
+  /// \endcond
 
-  /// \brief Empty constructor creates a Decimal128 with a value of 0.
-  constexpr Decimal128() noexcept : Decimal128(0, 0) {}
-
-  /// \brief Convert any integer value into a Decimal128.
-  template <typename T,
-            typename = typename std::enable_if<std::is_integral<T>::value, T>::type>
-  constexpr Decimal128(T value) noexcept
-      : Decimal128(static_cast<int64_t>(value) >= 0 ? 0 : -1,
-                   static_cast<uint64_t>(value)) {}
+  /// \brief constructor creates a Decimal128 from a BasicDecimal128.
+  constexpr Decimal128(const BasicDecimal128& value) noexcept : BasicDecimal128(value) {}
 
   /// \brief Parse the number from a base 10 string representation.
   explicit Decimal128(const std::string& value);
 
-  /// \brief Create a Decimal128 from an array of bytes. Bytes are assumed to be in
-  /// little-endian byte order.
-  explicit Decimal128(const uint8_t* bytes);
-
-  /// \brief Negate the current value (in-place)
-  Decimal128& Negate();
-
-  /// \brief Absolute value (in-place)
-  Decimal128& Abs();
-
-  /// \brief Add a number to this one. The result is truncated to 128 bits.
-  Decimal128& operator+=(const Decimal128& right);
-
-  /// \brief Subtract a number from this one. The result is truncated to 128 bits.
-  Decimal128& operator-=(const Decimal128& right);
-
-  /// \brief Multiply this number by another number. The result is truncated to 128 bits.
-  Decimal128& operator*=(const Decimal128& right);
+  /// \brief Empty constructor creates a Decimal128 with a value of 0.
+  // This is required on some older compilers.
+  constexpr Decimal128() noexcept : BasicDecimal128() {}
 
   /// Divide this number by right and return the result.
   ///
@@ -90,32 +74,10 @@ class ARROW_EXPORT Decimal128 {
   /// \param[out] result the quotient
   /// \param[out] remainder the remainder after the division
   Status Divide(const Decimal128& divisor, Decimal128* result,
-                Decimal128* remainder) const;
-
-  /// \brief In-place division.
-  Decimal128& operator/=(const Decimal128& right);
-
-  /// \brief Bitwise "or" between two Decimal128.
-  Decimal128& operator|=(const Decimal128& right);
-
-  /// \brief Bitwise "and" between two Decimal128.
-  Decimal128& operator&=(const Decimal128& right);
-
-  /// \brief Shift left by the given number of bits.
-  Decimal128& operator<<=(uint32_t bits);
-
-  /// \brief Shift right by the given number of bits. Negative values will
-  Decimal128& operator>>=(uint32_t bits);
-
-  /// \brief Get the high bits of the two's complement representation of the number.
-  inline int64_t high_bits() const { return high_bits_; }
-
-  /// \brief Get the low bits of the two's complement representation of the number.
-  inline uint64_t low_bits() const { return low_bits_; }
-
-  /// \brief Return the raw bytes of the value in little-endian byte order.
-  std::array<uint8_t, 16> ToBytes() const;
-  void ToBytes(uint8_t* out) const;
+                Decimal128* remainder) const {
+    auto dstatus = BasicDecimal128::Divide(divisor, result, remainder);
+    return ToArrowStatus(dstatus);
+  }
 
   /// \brief Convert the Decimal128 value to a base 10 decimal string with the given
   /// scale.
@@ -129,9 +91,9 @@ class ARROW_EXPORT Decimal128 {
 
   /// \brief Convert a decimal string to a Decimal128 value, optionally including
   /// precision and scale if they're passed in and not null.
-  static Status FromString(const std::string& s, Decimal128* out,
-                           int32_t* precision = NULLPTR, int32_t* scale = NULLPTR);
   static Status FromString(const util::string_view& s, Decimal128* out,
+                           int32_t* precision = NULLPTR, int32_t* scale = NULLPTR);
+  static Status FromString(const std::string& s, Decimal128* out,
                            int32_t* precision = NULLPTR, int32_t* scale = NULLPTR);
   static Status FromString(const char* s, Decimal128* out, int32_t* precision = NULLPTR,
                            int32_t* scale = NULLPTR);
@@ -141,27 +103,11 @@ class ARROW_EXPORT Decimal128 {
   /// \return error status if the length is an invalid value
   static Status FromBigEndian(const uint8_t* data, int32_t length, Decimal128* out);
 
-  /// \brief seperate the integer and fractional parts for the given scale.
-  void GetWholeAndFraction(int32_t scale, Decimal128* whole, Decimal128* fraction) const;
-
-  /// \brief Scale multiplier for given scale value.
-  static const Decimal128& GetScaleMultiplier(int32_t scale);
-
   /// \brief Convert Decimal128 from one scale to another
-  Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const;
-
-  /// \brief Scale up.
-  Decimal128 IncreaseScaleBy(int32_t increase_by) const;
-
-  /// \brief Scale down.
-  /// - If 'round' is true, the right-most digits are dropped and the result value is
-  ///   rounded up (+1 for +ve, -1 for -ve) based on the value of the dropped digits
-  ///   (>= 10^reduce_by / 2).
-  /// - If 'round' is false, the right-most digits are simply dropped.
-  Decimal128 ReduceScaleBy(int32_t reduce_by, bool round = true) const;
-
-  /// \brief count the number of leading binary zeroes.
-  int32_t CountLeadingBinaryZeros() const;
+  Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const {
+    auto dstatus = BasicDecimal128::Rescale(original_scale, new_scale, out);
+    return ToArrowStatus(dstatus);
+  }
 
   /// \brief Convert to a signed integer
   template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
@@ -173,30 +119,13 @@ class ARROW_EXPORT Decimal128 {
       return Status::Invalid("Invalid cast from Decimal128 to ", sizeof(T),
                              " byte integer");
     }
-    *out = static_cast<T>(low_bits_);
+    *out = static_cast<T>(low_bits());
     return Status::OK();
   }
 
  private:
-  uint64_t low_bits_;
-  int64_t high_bits_;
+  /// Converts internal error code to Status
+  Status ToArrowStatus(DecimalStatus dstatus) const;
 };
 
-ARROW_EXPORT bool operator==(const Decimal128& left, const Decimal128& right);
-ARROW_EXPORT bool operator!=(const Decimal128& left, const Decimal128& right);
-ARROW_EXPORT bool operator<(const Decimal128& left, const Decimal128& right);
-ARROW_EXPORT bool operator<=(const Decimal128& left, const Decimal128& right);
-ARROW_EXPORT bool operator>(const Decimal128& left, const Decimal128& right);
-ARROW_EXPORT bool operator>=(const Decimal128& left, const Decimal128& right);
-
-ARROW_EXPORT Decimal128 operator-(const Decimal128& operand);
-ARROW_EXPORT Decimal128 operator~(const Decimal128& operand);
-ARROW_EXPORT Decimal128 operator+(const Decimal128& left, const Decimal128& right);
-ARROW_EXPORT Decimal128 operator-(const Decimal128& left, const Decimal128& right);
-ARROW_EXPORT Decimal128 operator*(const Decimal128& left, const Decimal128& right);
-ARROW_EXPORT Decimal128 operator/(const Decimal128& left, const Decimal128& right);
-ARROW_EXPORT Decimal128 operator%(const Decimal128& left, const Decimal128& right);
-
 }  // namespace arrow
-
-#endif  //  ARROW_DECIMAL_H

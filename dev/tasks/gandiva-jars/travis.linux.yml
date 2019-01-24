@@ -32,7 +32,6 @@ env:
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
 
 before_install:
-  - export CC="gcc-4.9" CXX="g++-4.9"
   - ulimit -c unlimited -S
   - |
       sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"

@@ -598,12 +598,14 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
 
     case arrow::Type::DECIMAL: {
       // build code for struct
-      auto decimal_value = dex.holder().get<Decimal128Full>();
-      auto int_value =
+      auto scalar = dex.holder().get<DecimalScalar128>();
+      // ConstantInt doesn't have a get method that takes int128 or a pair of int64. so,
+      // passing the string representation instead.
+      auto int128_value =
           llvm::ConstantInt::get(llvm::Type::getInt128Ty(*generator_->context()),
-                                 decimal_value.value().ToIntegerString(), 10);
-      auto type = arrow::decimal(decimal_value.precision(), decimal_value.scale());
-      auto lvalue = generator_->BuildDecimalLValue(int_value, type);
+                                 Decimal128(scalar.value()).ToIntegerString(), 10);
+      auto type = arrow::decimal(scalar.precision(), scalar.scale());
+      auto lvalue = generator_->BuildDecimalLValue(int128_value, type);
       // set it as the l-value and return.
       result_ = lvalue;
       return;

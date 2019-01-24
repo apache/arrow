@@ -62,6 +62,7 @@ which python
 if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
   # Install documentation dependencies
   conda install -y --file ci/conda_env_sphinx.yml
+  pip install -q -r docs/requirements.txt
 fi
 
 # ARROW-2093: PyTorch increases the size of our conda dependency stack
@@ -124,7 +125,7 @@ $ARROW_CPP_BUILD_DIR/$ARROW_BUILD_TYPE/arrow-python-test
 pushd $ARROW_PYTHON_DIR
 
 # Other stuff pip install
-pip install -r requirements.txt
+pip install -q -r requirements.txt
 
 if [ "$PYTHON_VERSION" == "3.6" ]; then
     pip install -q pickle5
@@ -133,6 +134,9 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     export PYARROW_GENERATE_COVERAGE=1
     pip install -q coverage
 fi
+
+echo "=== pip list ==="
+pip list
 
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
 

@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "arrow/test-util.h"
+#include "gandiva/decimal_scalar.h"
 #include "gandiva/decimal_type_util.h"
 #include "gandiva/precompiled/decimal_ops.h"
 #include "gandiva/precompiled/types.h"
@@ -28,8 +29,8 @@ namespace gandiva {
 
 class TestDecimalSql : public ::testing::Test {
  protected:
-  static void AddAndVerify(const Decimal128Full& x, const Decimal128Full& y,
-                           const Decimal128Full& expected);
+  static void AddAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
+                           const DecimalScalar128& expected);
 };
 
 #define EXPECT_DECIMAL_EQ(x, y, expected, actual)                                    \
@@ -37,8 +38,8 @@ class TestDecimalSql : public ::testing::Test {
                               << " expected : " << expected.ToString() << " actual " \
                               << actual.ToString()
 
-void TestDecimalSql::AddAndVerify(const Decimal128Full& x, const Decimal128Full& y,
-                                  const Decimal128Full& expected) {
+void TestDecimalSql::AddAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
+                                  const DecimalScalar128& expected) {
   auto t1 = std::make_shared<arrow::Decimal128Type>(x.precision(), x.scale());
   auto t2 = std::make_shared<arrow::Decimal128Type>(y.precision(), y.scale());
 
@@ -46,30 +47,31 @@ void TestDecimalSql::AddAndVerify(const Decimal128Full& x, const Decimal128Full&
   EXPECT_OK(DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd, {t1, t2}, &out_type));
 
   auto out_value = decimalops::Add(x, y, out_type->precision(), out_type->scale());
-  EXPECT_DECIMAL_EQ(x, y, expected,
-                    Decimal128Full(out_value, out_type->precision(), out_type->scale()));
+  EXPECT_DECIMAL_EQ(
+      x, y, expected,
+      DecimalScalar128(out_value, out_type->precision(), out_type->scale()));
 }
 
 TEST_F(TestDecimalSql, Add) {
   // fast-path
-  AddAndVerify(Decimal128Full{"201", 30, 3},   // x
-               Decimal128Full{"301", 30, 3},   // y
-               Decimal128Full{"502", 31, 3});  // expected
+  AddAndVerify(DecimalScalar128{"201", 30, 3},   // x
+               DecimalScalar128{"301", 30, 3},   // y
+               DecimalScalar128{"502", 31, 3});  // expected
 
   // max precision
-  AddAndVerify(Decimal128Full{"09999999999999999999999999999999000000", 38, 5},  // x
-               Decimal128Full{"100", 38, 7},                                     // y
-               Decimal128Full{"99999999999999999999999999999990000010", 38, 6});
+  AddAndVerify(DecimalScalar128{"09999999999999999999999999999999000000", 38, 5},  // x
+               DecimalScalar128{"100", 38, 7},                                     // y
+               DecimalScalar128{"99999999999999999999999999999990000010", 38, 6});
 
   // Both -ve
-  AddAndVerify(Decimal128Full{"-201", 30, 3},    // x
-               Decimal128Full{"-301", 30, 2},    // y
-               Decimal128Full{"-3211", 32, 3});  // expected
+  AddAndVerify(DecimalScalar128{"-201", 30, 3},    // x
+               DecimalScalar128{"-301", 30, 2},    // y
+               DecimalScalar128{"-3211", 32, 3});  // expected
 
   // -ve and max precision
-  AddAndVerify(Decimal128Full{"-09999999999999999999999999999999000000", 38, 5},  // x
-               Decimal128Full{"-100", 38, 7},                                     // y
-               Decimal128Full{"-99999999999999999999999999999990000010", 38, 6});
+  AddAndVerify(DecimalScalar128{"-09999999999999999999999999999999000000", 38, 5},  // x
+               DecimalScalar128{"-100", 38, 7},                                     // y
+               DecimalScalar128{"-99999999999999999999999999999990000010", 38, 6});
 }
 
 }  // namespace gandiva

@@ -23,14 +23,13 @@
 #include <arrow/util/variant.h>
 
 #include <arrow/type.h>
-#include "gandiva/decimal_full.h"
+#include "gandiva/decimal_scalar.h"
 
 namespace gandiva {
 
 using LiteralHolder =
     arrow::util::variant<bool, float, double, int8_t, int16_t, int32_t, int64_t, uint8_t,
-                         uint16_t, uint32_t, uint64_t, std::string, Decimal128Full>;
-
+                         uint16_t, uint32_t, uint64_t, std::string, DecimalScalar128>;
 }  // namespace gandiva
 
 #endif  // GANDIVA_LITERAL_HOLDER

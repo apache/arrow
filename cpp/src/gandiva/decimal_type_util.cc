@@ -48,8 +48,8 @@ Status DecimalTypeUtil::GetResultType(Op op, const Decimal128TypeVector& in_type
   int32_t s2 = t2->scale();
   int32_t p1 = t1->precision();
   int32_t p2 = t2->precision();
-  int32_t result_scale;
-  int32_t result_precision;
+  int32_t result_scale = 0;
+  int32_t result_precision = 0;
 
   switch (op) {
     case kOpAdd:

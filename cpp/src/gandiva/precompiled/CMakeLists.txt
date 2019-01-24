@@ -28,8 +28,7 @@ set(PRECOMPILED_SRCS
     string_ops.cc
     time.cc
     timestamp_arithmetic.cc
-    ../../arrow/status.cc
-    ../../arrow/util/decimal.cc)
+    ../../arrow/util/basic_decimal.cc)
 
 # Create bitcode for each of the source files.
 foreach(SRC_FILE ${PRECOMPILED_SRCS})
@@ -39,8 +38,8 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
   add_custom_command(
     OUTPUT ${BC_FILE}
     COMMAND ${CLANG_EXECUTABLE}
+            -DGANDIVA_IR
             -std=c++11 -emit-llvm
-            -DNDEBUG # DCHECK macros not implemented in precompiled code
             -fno-use-cxa-atexit  # Workaround for unresolved __dso_handle
             -O3 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
             ${ARROW_GANDIVA_PC_CXX_FLAGS}
