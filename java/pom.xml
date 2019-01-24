@@ -334,6 +334,10 @@
             <configuration>
               <ignoreNonCompile>true</ignoreNonCompile>
               <failOnWarning>true</failOnWarning>
+              <ignoredDependencies>
+                <!-- source annotations (not kept in compiled code) -->
+                <ignoredDependency>javax.annotation:javax.annotation-api:*</ignoredDependency>
+              </ignoredDependencies>
             </configuration>
           </execution>
         </executions>
@@ -529,6 +533,11 @@
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-api</artifactId>
         <version>${dep.slf4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>javax.annotation</groupId>
+        <artifactId>javax.annotation-api</artifactId>
+        <version>1.3.2</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
