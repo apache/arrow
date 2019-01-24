@@ -17,19 +17,20 @@
 
 @echo on
 
-if "%JOB%" == "Rust" (
-    curl -sSf -o rustup-init.exe https://win.rustup.rs/
-    rustup-init.exe -y --default-host %TARGET% --default-toolchain stable
-    set "PATH=%PATH%;C:\Users\Appveyor\.cargo\bin"
-    rustup install stable
-    rustup install nightly
-    rustc -Vv
-    cargo -V
-) else if "%JOB:~,5%" == "MinGW" (
-    call ci\appveyor-cpp-setup-mingw.bat
-) else (
-    set "PATH=C:\Miniconda36-x64;C:\Miniconda36-x64\Scripts;C:\Miniconda36-x64\Library\bin;%PATH%"
-    set BOOST_ROOT=C:\Libraries\boost_1_67_0
-    set BOOST_LIBRARYDIR=C:\Libraries\boost_1_67_0\lib64-msvc-14.0
-    call ci\appveyor-cpp-setup.bat
-)
+set PATH=%MINGW_PREFIX%\bin;C:\msys64\usr\bin;%PATH%
+
+pacman -S --noconfirm ^
+    "%MINGW_PACKAGE_PREFIX%-boost" ^
+    "%MINGW_PACKAGE_PREFIX%-brotli" ^
+    "%MINGW_PACKAGE_PREFIX%-cmake" ^
+    "%MINGW_PACKAGE_PREFIX%-flatbuffers" ^
+    "%MINGW_PACKAGE_PREFIX%-gcc" ^
+    "%MINGW_PACKAGE_PREFIX%-gobject-introspection" ^
+    "%MINGW_PACKAGE_PREFIX%-gtk-doc" ^
+    "%MINGW_PACKAGE_PREFIX%-lz4" ^
+    "%MINGW_PACKAGE_PREFIX%-meson" ^
+    "%MINGW_PACKAGE_PREFIX%-protobuf" ^
+    "%MINGW_PACKAGE_PREFIX%-python3-numpy" ^
+    "%MINGW_PACKAGE_PREFIX%-snappy" ^
+    "%MINGW_PACKAGE_PREFIX%-zlib" ^
+    "%MINGW_PACKAGE_PREFIX%-zstd" || exit /B

@@ -22,7 +22,9 @@ if "%JOB%" == "Rust" (
 ) else (
     git config core.symlinks true
     git reset --hard
-    if "%JOB%"=="Cmake_Script_Tests" (
+    if "%JOB:~,5%" == "MinGW" (
+        call ci\appveyor-cpp-build-mingw.bat
+    ) else if "%JOB%" == "Cmake_Script_Tests" (
         call ci\appveyor-cpp-test-cmake-script.bat
     ) else (
         call ci\appveyor-cpp-build.bat
