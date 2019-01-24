@@ -19,9 +19,10 @@ package org.apache.arrow.plasma;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
+import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
+import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
 
 /**
  * The PlasmaClient is used to interface with a plasma store and manager.
@@ -45,18 +46,9 @@ public class PlasmaClient implements ObjectStoreLink {
   // interface methods --------------------
 
   @Override
-  public void put(byte[] objectId, byte[] value, byte[] metadata) {
-    ByteBuffer buf = null;
-    try {
-      buf = PlasmaClientJNI.create(conn, objectId, value.length, metadata);
-    } catch (Exception e) {
-      System.err.println("ObjectId " + objectId + " error at PlasmaClient put");
-      e.printStackTrace();
-    }
-    if (buf == null) {
-      return;
-    }
-
+  public void put(byte[] objectId, byte[] value, byte[] metadata)
+          throws DuplicateObjectException, PlasmaOutOfMemoryException {
+    ByteBuffer buf = PlasmaClientJNI.create(conn, objectId, value.length, metadata);
     buf.put(value);
     PlasmaClientJNI.seal(conn, objectId);
     PlasmaClientJNI.release(conn, objectId);
