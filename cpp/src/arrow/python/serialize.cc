@@ -86,77 +86,77 @@ class SequenceBuilder {
   }
 
   template <typename BuilderType, typename MakeBuilderFn>
-  Status CreateAndUpdate(std::shared_ptr<BuilderType>& child_builder, int8_t tag,
+  Status CreateAndUpdate(std::shared_ptr<BuilderType>* child_builder, int8_t tag,
                          MakeBuilderFn make_builder) {
-    if (!child_builder) {
-      child_builder.reset(make_builder());
-      type_map_[tag] = builder_->AppendChild(child_builder, std::to_string(tag));
+    if (!*child_builder) {
+      child_builder->reset(make_builder());
+      type_map_[tag] = builder_->AppendChild(*child_builder, std::to_string(tag));
     }
-    return Update(child_builder.get(), type_map_[tag]);
+    return Update(child_builder->get(), type_map_[tag]);
   }
 
   template <typename BuilderType, typename T>
-  Status AppendPrimitive(const T val, int8_t tag,
-                         std::shared_ptr<BuilderType>& child_builder) {
+  Status AppendPrimitive(std::shared_ptr<BuilderType>* child_builder,
+                         const T val, int8_t tag) {
     RETURN_NOT_OK(
         CreateAndUpdate(child_builder, tag, [this]() { return new BuilderType(pool_); }));
-    return child_builder->Append(val);
+    return (*child_builder)->Append(val);
   }
 
   // Appending a boolean to the sequence
   Status AppendBool(const bool data) {
-    return AppendPrimitive(data, PythonType::BOOL, bools_);
+    return AppendPrimitive(&bools_, data, PythonType::BOOL);
   }
 
   // Appending a python 2 int64_t to the sequence
   Status AppendPy2Int64(const int64_t data) {
-    return AppendPrimitive(data, PythonType::PY2INT, py2_ints_);
+    return AppendPrimitive(&py2_ints_, data, PythonType::PY2INT);
   }
 
   // Appending an int64_t to the sequence
   Status AppendInt64(const int64_t data) {
-    return AppendPrimitive(data, PythonType::INT, ints_);
+    return AppendPrimitive(&ints_, data, PythonType::INT);
   }
 
   // Append a list of bytes to the sequence
   Status AppendBytes(const uint8_t* data, int32_t length) {
-    RETURN_NOT_OK(CreateAndUpdate(bytes_, PythonType::BYTES,
+    RETURN_NOT_OK(CreateAndUpdate(&bytes_, PythonType::BYTES,
                                   [this]() { return new BinaryBuilder(pool_); }));
     return bytes_->Append(data, length);
   }
 
   // Appending a string to the sequence
   Status AppendString(const char* data, int32_t length) {
-    RETURN_NOT_OK(CreateAndUpdate(strings_, PythonType::STRING,
+    RETURN_NOT_OK(CreateAndUpdate(&strings_, PythonType::STRING,
                                   [this]() { return new StringBuilder(pool_); }));
     return strings_->Append(data, length);
   }
 
   // Appending a half_float to the sequence
   Status AppendHalfFloat(const npy_half data) {
-    return AppendPrimitive(data, PythonType::HALF_FLOAT, half_floats_);
+    return AppendPrimitive(&half_floats_, data, PythonType::HALF_FLOAT);
   }
 
   // Appending a float to the sequence
   Status AppendFloat(const float data) {
-    return AppendPrimitive(data, PythonType::FLOAT, floats_);
+    return AppendPrimitive(&floats_, data, PythonType::FLOAT);
   }
 
   // Appending a double to the sequence
   Status AppendDouble(const double data) {
-    return AppendPrimitive(data, PythonType::DOUBLE, doubles_);
+    return AppendPrimitive(&doubles_, data, PythonType::DOUBLE);
   }
 
   // Appending a Date64 timestamp to the sequence
   Status AppendDate64(const int64_t timestamp) {
-    return AppendPrimitive(timestamp, PythonType::DATE64, date64s_);
+    return AppendPrimitive(&date64s_, timestamp, PythonType::DATE64);
   }
 
   // Appending a tensor to the sequence
   //
   // \param tensor_index Index of the tensor in the object.
   Status AppendTensor(const int32_t tensor_index) {
-    RETURN_NOT_OK(CreateAndUpdate(tensor_indices_, PythonType::TENSOR,
+    RETURN_NOT_OK(CreateAndUpdate(&tensor_indices_, PythonType::TENSOR,
                                   [this]() { return new Int32Builder(pool_); }));
     return tensor_indices_->Append(tensor_index);
   }
@@ -165,7 +165,7 @@ class SequenceBuilder {
   //
   // \param tensor_index Index of the tensor in the object.
   Status AppendNdarray(const int32_t ndarray_index) {
-    RETURN_NOT_OK(CreateAndUpdate(ndarray_indices_, PythonType::NDARRAY,
+    RETURN_NOT_OK(CreateAndUpdate(&ndarray_indices_, PythonType::NDARRAY,
                                   [this]() { return new Int32Builder(pool_); }));
     return ndarray_indices_->Append(ndarray_index);
   }
@@ -174,7 +174,7 @@ class SequenceBuilder {
   //
   // \param buffer_index Indes of the buffer in the object.
   Status AppendBuffer(const int32_t buffer_index) {
-    RETURN_NOT_OK(CreateAndUpdate(buffer_indices_, PythonType::BUFFER,
+    RETURN_NOT_OK(CreateAndUpdate(&buffer_indices_, PythonType::BUFFER,
                                   [this]() { return new Int32Builder(pool_); }));
     return buffer_indices_->Append(buffer_index);
   }
@@ -188,7 +188,7 @@ class SequenceBuilder {
           "This object exceeds the maximum recursion depth. It may contain itself "
           "recursively.");
     }
-    RETURN_NOT_OK(CreateAndUpdate(target_sequence, tag, [this, &values]() {
+    RETURN_NOT_OK(CreateAndUpdate(&target_sequence, tag, [this, &values]() {
       values.reset(new SequenceBuilder(pool_));
       return new ListBuilder(pool_, values->builder());
     }));
@@ -300,7 +300,7 @@ Status SequenceBuilder::AppendDict(PyObject* context, PyObject* dict,
         "This object exceeds the maximum recursion depth. It may contain itself "
         "recursively.");
   }
-  RETURN_NOT_OK(CreateAndUpdate(dicts_, PythonType::DICT, [this]() {
+  RETURN_NOT_OK(CreateAndUpdate(&dicts_, PythonType::DICT, [this]() {
     dict_values_.reset(new DictBuilder(pool_));
     return new ListBuilder(pool_, dict_values_->builder());
   }));

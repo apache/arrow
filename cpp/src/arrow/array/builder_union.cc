@@ -46,7 +46,7 @@ Status UnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
     type_ids.push_back(static_cast<uint8_t>(i));
   }
 
-  type_ = ::arrow::union_(fields, type_ids, UnionMode::DENSE);
+  type_ = union_(fields, type_ids, UnionMode::DENSE);
 
   *out = ArrayData::Make(type_, length(), {null_bitmap, types, offsets}, null_count_);
   (*out)->child_data = std::move(child_data);
