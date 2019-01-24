@@ -39,12 +39,10 @@ namespace flight {
 class JsonReaderRecordBatchStream : public FlightDataStream {
  public:
   explicit JsonReaderRecordBatchStream(
-    std::unique_ptr<ipc::internal::json::JsonReader>&& reader) :
-    index_(0), pool_(default_memory_pool()), reader_(std::move(reader)) {}
+      std::unique_ptr<ipc::internal::json::JsonReader>&& reader)
+      : index_(0), pool_(default_memory_pool()), reader_(std::move(reader)) {}
 
-  std::shared_ptr<Schema> schema() override {
-    return reader_->schema();
-  }
+  std::shared_ptr<Schema> schema() override { return reader_->schema(); }
 
   Status Next(ipc::internal::IpcPayload* payload) override {
     if (index_ >= reader_->num_record_batches()) {
@@ -118,13 +116,13 @@ class FlightIntegrationTestServer : public FlightServerBase {
 
   Status DoGet(const Ticket& request,
                std::unique_ptr<FlightDataStream>* data_stream) override {
-      std::unique_ptr<arrow::ipc::internal::json::JsonReader> reader;
-      RETURN_NOT_OK(ReadJson(request.ticket, &reader));
+    std::unique_ptr<arrow::ipc::internal::json::JsonReader> reader;
+    RETURN_NOT_OK(ReadJson(request.ticket, &reader));
 
-      *data_stream = std::unique_ptr<FlightDataStream>(
+    *data_stream = std::unique_ptr<FlightDataStream>(
         new JsonReaderRecordBatchStream(std::move(reader)));
 
-      return Status::OK();
+    return Status::OK();
   }
 };
 

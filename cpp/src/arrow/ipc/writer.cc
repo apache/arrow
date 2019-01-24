@@ -525,8 +525,7 @@ Status WriteIpcPayload(const IpcPayload& payload, io::OutputStream* dst,
 }
 
 Status GetSchemaPayload(const Schema& schema, MemoryPool* pool,
-                        DictionaryMemo* dictionary_memo,
-                        IpcPayload* out) {
+                        DictionaryMemo* dictionary_memo, IpcPayload* out) {
   out->type = Message::Type::SCHEMA;
   out->body_buffers.clear();
   out->body_length = 0;

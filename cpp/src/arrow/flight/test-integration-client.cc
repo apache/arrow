@@ -44,9 +44,8 @@ int main(int argc, char** argv) {
   std::unique_ptr<arrow::flight::FlightClient> client;
   ABORT_NOT_OK(arrow::flight::FlightClient::Connect(FLAGS_host, FLAGS_port, &client));
 
-  arrow::flight::FlightDescriptor descr{arrow::flight::FlightDescriptor::PATH,
-                                        "",
-                                        {FLAGS_path}};
+  arrow::flight::FlightDescriptor descr{
+      arrow::flight::FlightDescriptor::PATH, "", {FLAGS_path}};
   std::unique_ptr<arrow::flight::FlightInfo> info;
   ABORT_NOT_OK(client->GetFlightInfo(descr, &info));
 

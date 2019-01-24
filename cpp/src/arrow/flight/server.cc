@@ -117,8 +117,8 @@ class SerializationTraits<IpcPayload> {
     // 2 bytes for body tag
     // Only written when there are body buffers
     if (msg.body_length > 0) {
-      total_size += 2 +
-        WireFormatLite::LengthDelimitedSize(static_cast<size_t>(body_size));
+      total_size +=
+          2 + WireFormatLite::LengthDelimitedSize(static_cast<size_t>(body_size));
     }
 
     // TODO(wesm): messages over 2GB unlikely to be yet supported
@@ -274,9 +274,8 @@ class FlightServiceImpl : public FlightService::Service {
     IpcPayload schema_payload;
     MemoryPool* pool = default_memory_pool();
     ipc::DictionaryMemo dictionary_memo;
-    GRPC_RETURN_NOT_OK(ipc::internal::GetSchemaPayload(*data_stream->schema(),
-                                                       pool, &dictionary_memo,
-                                                       &schema_payload));
+    GRPC_RETURN_NOT_OK(ipc::internal::GetSchemaPayload(
+        *data_stream->schema(), pool, &dictionary_memo, &schema_payload));
     custom_writer->Write(schema_payload, grpc::WriteOptions());
 
     while (true) {
@@ -392,9 +391,7 @@ Status FlightServerBase::ListActions(std::vector<ActionType>* actions) {
 RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader)
     : pool_(default_memory_pool()), reader_(reader) {}
 
-std::shared_ptr<Schema> RecordBatchStream::schema() {
-  return reader_->schema();
-}
+std::shared_ptr<Schema> RecordBatchStream::schema() { return reader_->schema(); }
 
 Status RecordBatchStream::Next(IpcPayload* payload) {
   std::shared_ptr<RecordBatch> batch;
