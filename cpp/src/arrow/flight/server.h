@@ -28,6 +28,7 @@
 #include "arrow/util/visibility.h"
 
 #include "arrow/flight/types.h"
+#include "arrow/ipc/dictionary.h"
 
 namespace arrow {
 

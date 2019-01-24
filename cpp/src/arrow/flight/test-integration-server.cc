@@ -37,8 +37,9 @@ namespace arrow {
 namespace flight {
 
 class JsonReaderRecordBatchStream : public FlightDataStream {
-public:
-  JsonReaderRecordBatchStream(std::unique_ptr<ipc::internal::json::JsonReader>&& reader) :
+ public:
+  explicit JsonReaderRecordBatchStream(
+    std::unique_ptr<ipc::internal::json::JsonReader>&& reader) :
     index_(0), pool_(default_memory_pool()), reader_(std::move(reader)) {}
 
   std::shared_ptr<Schema> schema() override {
@@ -65,7 +66,7 @@ public:
     }
   }
 
-private:
+ private:
   int index_;
   MemoryPool* pool_;
   std::unique_ptr<ipc::internal::json::JsonReader> reader_;
@@ -105,7 +106,7 @@ class FlightIntegrationTestServer : public FlightServerBase {
       flight_data.descriptor = request;
       flight_data.endpoints = {endpoint1};
       flight_data.total_records = reader->num_record_batches();
-      flight_data.total_bytes = 0;
+      flight_data.total_bytes = -1;
       FlightInfo value(flight_data);
 
       *info = std::unique_ptr<FlightInfo>(new FlightInfo(value));
@@ -120,7 +121,8 @@ class FlightIntegrationTestServer : public FlightServerBase {
       std::unique_ptr<arrow::ipc::internal::json::JsonReader> reader;
       RETURN_NOT_OK(ReadJson(request.ticket, &reader));
 
-      *data_stream = std::unique_ptr<FlightDataStream>(new JsonReaderRecordBatchStream(std::move(reader)));
+      *data_stream = std::unique_ptr<FlightDataStream>(
+        new JsonReaderRecordBatchStream(std::move(reader)));
 
       return Status::OK();
   }
@@ -145,8 +147,6 @@ int main(int argc, char** argv) {
   signal(SIGTERM, Shutdown);
 
   g_server.reset(new arrow::flight::FlightIntegrationTestServer);
-
-  // TODO(wesm): How can we tell if the server failed to start for some reason?
   g_server->Run(FLAGS_port);
   return 0;
 }

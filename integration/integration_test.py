@@ -1134,6 +1134,7 @@ class JavaTester(Tester):
             yield
         finally:
             server.terminate()
+            server.wait(5)
 
 
 class CPPTester(Tester):
@@ -1201,6 +1202,7 @@ class CPPTester(Tester):
             yield
         finally:
             server.terminate()
+            server.wait(5)
 
     def flight_request(self, json_path, arrow_path):
         cmd = [self.FLIGHT_CLIENT_PATH, '-path=' + json_path, '-output=' + arrow_path]

@@ -24,13 +24,13 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Buffer;
+class DictionaryMemo;
 class MemoryPool;
 class RecordBatch;
 class Schema;
@@ -317,7 +317,8 @@ Status GetDictionaryPayloads(const Schema& schema,
 /// \brief Compute IpcPayload for the given schema
 /// \param[in] schema the Schema that is being serialized
 /// \param[in,out] pool for any required temporary memory allocations
-/// \param[in,out] dictionary_memo TODO
+/// \param[in,out] dictionary_memo class for tracking dictionaries and assigning
+/// dictionary ids
 /// \param[out] out the returned IpcPayload
 /// \return Status
 ARROW_EXPORT

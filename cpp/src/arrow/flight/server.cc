@@ -117,7 +117,8 @@ class SerializationTraits<IpcPayload> {
     // 2 bytes for body tag
     // Only written when there are body buffers
     if (msg.body_length > 0) {
-      total_size += 2 + WireFormatLite::LengthDelimitedSize(static_cast<size_t>(body_size));
+      total_size += 2 +
+        WireFormatLite::LengthDelimitedSize(static_cast<size_t>(body_size));
     }
 
     // TODO(wesm): messages over 2GB unlikely to be yet supported
