@@ -40,7 +40,7 @@
 
 namespace arrow {
 
-#ifndef _MSC_VER
+#ifndef _WIN32
 
 std::string GetNullFile() { return "/dev/null"; }
 
@@ -250,6 +250,6 @@ BENCHMARK(BM_BufferedOutputStreamLargeWritesToPipe)
     ->MinTime(1.0)
     ->UseRealTime();
 
-#endif  // ifndef _MSC_VER
+#endif  // ifndef _WIN32
 
 }  // namespace arrow
