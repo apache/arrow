@@ -39,11 +39,11 @@ Status UnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::vector<std::shared_ptr<ArrayData>> child_data(children_.size());
   std::vector<uint8_t> type_ids;
   for (size_t i = 0; i < children_.size(); ++i) {
-      std::shared_ptr<ArrayData> data;
-      RETURN_NOT_OK(children_[i]->FinishInternal(&data));
-      child_data[i] = data;
-      fields.push_back(field(field_names_[i], children_[i]->type()));
-      type_ids.push_back(static_cast<uint8_t>(i));
+    std::shared_ptr<ArrayData> data;
+    RETURN_NOT_OK(children_[i]->FinishInternal(&data));
+    child_data[i] = data;
+    fields.push_back(field(field_names_[i], children_[i]->type()));
+    type_ids.push_back(static_cast<uint8_t>(i));
   }
 
   type_ = ::arrow::union_(fields, type_ids, UnionMode::DENSE);

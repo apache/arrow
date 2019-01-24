@@ -67,7 +67,9 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
 class SequenceBuilder {
  public:
   explicit SequenceBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
-      : pool_(pool), types_(::arrow::int8(), pool), offsets_(::arrow::int32(), pool),
+      : pool_(pool),
+        types_(::arrow::int8(), pool),
+        offsets_(::arrow::int32(), pool),
         type_map_(PythonType::MAX) {
     builder_.reset(new UnionBuilder(pool));
   }
@@ -76,31 +78,35 @@ class SequenceBuilder {
   Status AppendNone() { return builder_->AppendNull(); }
 
   template <typename BuilderType>
-  Status Update(std::shared_ptr<BuilderType>& child_builder, int8_t tag) {
+  Status Update(BuilderType* child_builder, int8_t tag) {
     int32_t offset32 = -1;
     RETURN_NOT_OK(internal::CastSize(child_builder->length(), &offset32));
     DCHECK_GE(offset32, 0);
     return builder_->Append(tag, offset32);
   }
 
-  template <typename BuilderType>
-  Status CreateAndUpdate(std::shared_ptr<BuilderType>& child_builder, int8_t tag) {
+  template <typename BuilderType, typename MakeBuilderFn>
+  Status CreateAndUpdate(std::shared_ptr<BuilderType>& child_builder, int8_t tag,
+                         MakeBuilderFn make_builder) {
     if (!child_builder) {
-      child_builder.reset(new BuilderType(pool_));
+      child_builder.reset(make_builder());
       type_map_[tag] = builder_->AppendChild(child_builder, std::to_string(tag));
     }
-    return Update(child_builder, type_map_[tag]);
+    return Update(child_builder.get(), type_map_[tag]);
   }
 
   template <typename BuilderType, typename T>
   Status AppendPrimitive(const T val, int8_t tag,
                          std::shared_ptr<BuilderType>& child_builder) {
-    RETURN_NOT_OK(CreateAndUpdate(child_builder, tag));
+    RETURN_NOT_OK(
+        CreateAndUpdate(child_builder, tag, [this]() { return new BuilderType(pool_); }));
     return child_builder->Append(val);
   }
 
   // Appending a boolean to the sequence
-  Status AppendBool(const bool data) { return AppendPrimitive(data, PythonType::BOOL, bools_); }
+  Status AppendBool(const bool data) {
+    return AppendPrimitive(data, PythonType::BOOL, bools_);
+  }
 
   // Appending a python 2 int64_t to the sequence
   Status AppendPy2Int64(const int64_t data) {
@@ -108,17 +114,21 @@ class SequenceBuilder {
   }
 
   // Appending an int64_t to the sequence
-  Status AppendInt64(const int64_t data) { return AppendPrimitive(data, PythonType::INT, ints_); }
+  Status AppendInt64(const int64_t data) {
+    return AppendPrimitive(data, PythonType::INT, ints_);
+  }
 
   // Append a list of bytes to the sequence
   Status AppendBytes(const uint8_t* data, int32_t length) {
-    RETURN_NOT_OK(CreateAndUpdate(bytes_, PythonType::BYTES));
+    RETURN_NOT_OK(CreateAndUpdate(bytes_, PythonType::BYTES,
+                                  [this]() { return new BinaryBuilder(pool_); }));
     return bytes_->Append(data, length);
   }
 
   // Appending a string to the sequence
   Status AppendString(const char* data, int32_t length) {
-    RETURN_NOT_OK(CreateAndUpdate(strings_, PythonType::STRING));
+    RETURN_NOT_OK(CreateAndUpdate(strings_, PythonType::STRING,
+                                  [this]() { return new StringBuilder(pool_); }));
     return strings_->Append(data, length);
   }
 
@@ -146,7 +156,8 @@ class SequenceBuilder {
   //
   // \param tensor_index Index of the tensor in the object.
   Status AppendTensor(const int32_t tensor_index) {
-    RETURN_NOT_OK(CreateAndUpdate(tensor_indices_, PythonType::TENSOR));
+    RETURN_NOT_OK(CreateAndUpdate(tensor_indices_, PythonType::TENSOR,
+                                  [this]() { return new Int32Builder(pool_); }));
     return tensor_indices_->Append(tensor_index);
   }
 
@@ -154,7 +165,8 @@ class SequenceBuilder {
   //
   // \param tensor_index Index of the tensor in the object.
   Status AppendNdarray(const int32_t ndarray_index) {
-    RETURN_NOT_OK(CreateAndUpdate(ndarray_indices_, PythonType::NDARRAY));
+    RETURN_NOT_OK(CreateAndUpdate(ndarray_indices_, PythonType::NDARRAY,
+                                  [this]() { return new Int32Builder(pool_); }));
     return ndarray_indices_->Append(ndarray_index);
   }
 
@@ -162,7 +174,8 @@ class SequenceBuilder {
   //
   // \param buffer_index Indes of the buffer in the object.
   Status AppendBuffer(const int32_t buffer_index) {
-    RETURN_NOT_OK(CreateAndUpdate(buffer_indices_, PythonType::BUFFER));
+    RETURN_NOT_OK(CreateAndUpdate(buffer_indices_, PythonType::BUFFER,
+                                  [this]() { return new Int32Builder(pool_); }));
     return buffer_indices_->Append(buffer_index);
   }
 
@@ -175,12 +188,10 @@ class SequenceBuilder {
           "This object exceeds the maximum recursion depth. It may contain itself "
           "recursively.");
     }
-    if (!values) {
+    RETURN_NOT_OK(CreateAndUpdate(target_sequence, tag, [this, &values]() {
       values.reset(new SequenceBuilder(pool_));
-      target_sequence.reset(new ListBuilder(pool_, values->builder()));
-      type_map_[tag] = builder_->AppendChild(target_sequence, std::to_string(tag));
-    }
-    RETURN_NOT_OK(Update(target_sequence, type_map_[tag]));
+      return new ListBuilder(pool_, values->builder());
+    }));
     RETURN_NOT_OK(target_sequence->Append());
     PyObject* iter = PyObject_GetIter(sequence);
     RETURN_IF_PYERROR();
@@ -194,8 +205,8 @@ class SequenceBuilder {
 
   Status AppendList(PyObject* context, PyObject* list, int32_t recursion_depth,
                     SerializedPyObject* blobs_out) {
-    return AppendSequence(context, list, PythonType::LIST, lists_, list_values_, recursion_depth,
-                          blobs_out);
+    return AppendSequence(context, list, PythonType::LIST, lists_, list_values_,
+                          recursion_depth, blobs_out);
   }
 
   Status AppendTuple(PyObject* context, PyObject* tuple, int32_t recursion_depth,
@@ -206,8 +217,8 @@ class SequenceBuilder {
 
   Status AppendSet(PyObject* context, PyObject* set, int32_t recursion_depth,
                    SerializedPyObject* blobs_out) {
-    return AppendSequence(context, set, PythonType::SET, sets_, set_values_, recursion_depth,
-                          blobs_out);
+    return AppendSequence(context, set, PythonType::SET, sets_, set_values_,
+                          recursion_depth, blobs_out);
   }
 
   Status AppendDict(PyObject* context, PyObject* dict, int32_t recursion_depth,
@@ -289,12 +300,10 @@ Status SequenceBuilder::AppendDict(PyObject* context, PyObject* dict,
         "This object exceeds the maximum recursion depth. It may contain itself "
         "recursively.");
   }
-  if (!dict_values_) {
+  RETURN_NOT_OK(CreateAndUpdate(dicts_, PythonType::DICT, [this]() {
     dict_values_.reset(new DictBuilder(pool_));
-    dicts_.reset(new ListBuilder(pool_, dict_values_->builder()));
-    type_map_[PythonType::DICT] = builder_->AppendChild(dicts_, std::to_string(PythonType::DICT));
-  }
-  RETURN_NOT_OK(Update(dicts_, type_map_[PythonType::DICT]));
+    return new ListBuilder(pool_, dict_values_->builder());
+  }));
   RETURN_NOT_OK(dicts_->Append());
   PyObject* key;
   PyObject* value;
