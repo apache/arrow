@@ -29,7 +29,6 @@ import string
 import subprocess
 import sys
 import tempfile
-import time
 import traceback
 import uuid
 import errno
@@ -1128,9 +1127,12 @@ class JavaTester(Tester):
                'org.apache.arrow.flight.example.integration.IntegrationTestServer']
         if self.debug:
             print(' '.join(cmd))
-        server = subprocess.Popen(cmd)
+        server = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         try:
-            time.sleep(1)
+            output = server.stdout.readline().decode()
+            if not output.startswith("Server listening on localhost"):
+                raise RuntimeError("Flight-Java server did not start properly, output: " +
+                                   output)
             yield
         finally:
             server.terminate()
@@ -1196,9 +1198,12 @@ class CPPTester(Tester):
     def flight_server(self):
         if self.debug:
             print(self.FLIGHT_SERVER_PATH)
-        server = subprocess.Popen([self.FLIGHT_SERVER_PATH])
+        server = subprocess.Popen([self.FLIGHT_SERVER_PATH], stdout=subprocess.PIPE)
         try:
-            time.sleep(1)
+            output = server.stdout.readline().decode()
+            if not output.startswith("Server listening on localhost"):
+                raise RuntimeError("Flight-C++ server did not start properly, output: " +
+                                   output)
             yield
         finally:
             server.terminate()

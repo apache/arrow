@@ -43,11 +43,15 @@ import org.apache.arrow.vector.ipc.JsonFileReader;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 public class IntegrationTestServer {
+  static final int PORT = 31337;
+
   public static void main(String[] args) throws Exception {
     final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     try (final IntegrationFlightProducer producer = new IntegrationFlightProducer(allocator);
-         final FlightServer server = new FlightServer(allocator, 31337, producer, ServerAuthHandler.NO_OP)) {
+         final FlightServer server = new FlightServer(allocator, PORT, producer, ServerAuthHandler.NO_OP)) {
       server.start();
+      // Print out message for integration test script
+      System.out.println("Server listening on localhost:" + server.getPort());
       while (true) {
         Thread.sleep(30000);
       }
