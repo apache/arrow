@@ -26,8 +26,10 @@
 #include <datetime.h>
 
 // Work around C2528 error
+#ifdef _MSC_VER
 #if _MSC_VER >= 1900
 #undef timezone
+#endif
 #endif
 
 #endif  // ARROW_PYTHON_PLATFORM_H

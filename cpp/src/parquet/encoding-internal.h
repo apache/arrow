@@ -520,7 +520,7 @@ class DictEncoder : public Encoder<DType> {
     int result_size = WriteIndices(buffer->mutable_data(),
                                    static_cast<int>(EstimatedDataEncodedSize()));
     PARQUET_THROW_NOT_OK(buffer->Resize(result_size, false));
-    return buffer;
+    return std::move(buffer);
   }
 
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,

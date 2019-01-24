@@ -264,7 +264,7 @@ class DictionaryPageBuilder {
     std::shared_ptr<ResizableBuffer> dict_buffer =
         AllocateBuffer(::arrow::default_memory_pool(), encoder_->dict_encoded_size());
     encoder_->WriteDict(dict_buffer->mutable_data());
-    return dict_buffer;
+    return std::move(dict_buffer);
   }
 
   int32_t num_values() const { return num_dict_values_; }
