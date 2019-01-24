@@ -19,7 +19,6 @@
 #define HASH_TABLE_STORE_H
 
 #include <memory>
-#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -35,7 +34,7 @@ typedef std::unordered_map<ObjectID, std::string> hash_table_t;
 
 class HashTableStoreHandle : public ExternalStoreHandle {
  public:
-  HashTableStoreHandle(hash_table_t& table, std::mutex& mtx);
+  explicit HashTableStoreHandle(hash_table_t& table);
 
   Status Get(const std::vector<ObjectID>& ids, std::vector<std::string>& data) override;
   Status Put(const std::vector<ObjectID>& ids,
@@ -43,7 +42,6 @@ class HashTableStoreHandle : public ExternalStoreHandle {
 
  private:
   hash_table_t& table_;
-  std::mutex& mtx_;
 };
 
 class HashTableStore : public ExternalStore {
@@ -55,7 +53,6 @@ class HashTableStore : public ExternalStore {
 
  private:
   hash_table_t table_;
-  std::mutex mtx_;
 };
 
 }  // namespace plasma
