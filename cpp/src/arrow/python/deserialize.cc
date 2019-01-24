@@ -108,17 +108,16 @@ Status DeserializeArray(int32_t index, PyObject* base, const SerializedPyObject&
   return Status::OK();
 }
 
-Status GetValue(PyObject* context, const UnionArray& parent, const Array& arr,
-                int64_t index, int32_t type, PyObject* base,
-                const SerializedPyObject& blobs, PyObject** result) {
-  switch (arr.type()->id()) {
-    case Type::BOOL:
+Status GetValue(PyObject* context, const Array& arr, int64_t index, int32_t type,
+                PyObject* base, const SerializedPyObject& blobs, PyObject** result) {
+  switch (type) {
+    case kBoolTag:
       *result = PyBool_FromLong(checked_cast<const BooleanArray&>(arr).Value(index));
       return Status::OK();
-    case Type::INT64: {
+    case kPy2IntTag:
+    case kIntTag: {
 #if PY_MAJOR_VERSION < 3
-      const std::string& child_name = parent.type()->child(type)->name();
-      if (child_name == "py2_int") {
+      if (type == kPy2IntTag) {
         *result = PyInt_FromSsize_t(checked_cast<const Int64Array&>(arr).Value(index));
         return Status::OK();
       }
@@ -126,93 +125,91 @@ Status GetValue(PyObject* context, const UnionArray& parent, const Array& arr,
       *result = PyLong_FromSsize_t(checked_cast<const Int64Array&>(arr).Value(index));
       return Status::OK();
     }
-    case Type::BINARY: {
+    case kBytesTag: {
       auto view = checked_cast<const BinaryArray&>(arr).GetView(index);
       *result = PyBytes_FromStringAndSize(view.data(), view.length());
       return CheckPyError();
     }
-    case Type::STRING: {
+    case kStringTag: {
       auto view = checked_cast<const StringArray&>(arr).GetView(index);
       *result = PyUnicode_FromStringAndSize(view.data(), view.length());
       return CheckPyError();
     }
-    case Type::HALF_FLOAT: {
+    case kHalfFloatTag: {
       *result = PyHalf_FromHalf(checked_cast<const HalfFloatArray&>(arr).Value(index));
       RETURN_IF_PYERROR();
       return Status::OK();
     }
-    case Type::FLOAT:
+    case kFloatTag:
       *result = PyFloat_FromDouble(checked_cast<const FloatArray&>(arr).Value(index));
       return Status::OK();
-    case Type::DOUBLE:
+    case kDoubleTag:
       *result = PyFloat_FromDouble(checked_cast<const DoubleArray&>(arr).Value(index));
       return Status::OK();
-    case Type::DATE64: {
+    case kDate64Tag: {
       RETURN_NOT_OK(PyDateTime_from_int(
           checked_cast<const Date64Array&>(arr).Value(index), TimeUnit::MICRO, result));
       RETURN_IF_PYERROR();
       return Status::OK();
     }
-    case Type::STRUCT: {
-      const auto& s = checked_cast<const StructArray&>(arr);
-      const auto& l = checked_cast<const ListArray&>(*s.field(0));
-      if (s.type()->child(0)->name() == "list") {
-        return DeserializeList(context, *l.values(), l.value_offset(index),
-                               l.value_offset(index + 1), base, blobs, result);
-      } else if (s.type()->child(0)->name() == "tuple") {
-        return DeserializeTuple(context, *l.values(), l.value_offset(index),
-                                l.value_offset(index + 1), base, blobs, result);
-      } else if (s.type()->child(0)->name() == "dict") {
-        return DeserializeDict(context, *l.values(), l.value_offset(index),
-                               l.value_offset(index + 1), base, blobs, result);
-      } else if (s.type()->child(0)->name() == "set") {
-        return DeserializeSet(context, *l.values(), l.value_offset(index),
+    case kListTag: {
+      const auto& l = checked_cast<const ListArray&>(arr);
+      return DeserializeList(context, *l.values(), l.value_offset(index),
+                             l.value_offset(index + 1), base, blobs, result);
+    }
+    case kDictTag: {
+      const auto& l = checked_cast<const ListArray&>(arr);
+      return DeserializeDict(context, *l.values(), l.value_offset(index),
+                             l.value_offset(index + 1), base, blobs, result);
+    }
+    case kTupleTag: {
+      const auto& l = checked_cast<const ListArray&>(arr);
+      return DeserializeTuple(context, *l.values(), l.value_offset(index),
                               l.value_offset(index + 1), base, blobs, result);
-      } else {
-        DCHECK(false) << "unexpected StructArray type " << s.type()->child(0)->name();
-      }
     }
-    default: {
-      const std::string& child_name = parent.type()->child(type)->name();
-      if (child_name == "tensor") {
-        int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
-        *result = wrap_tensor(blobs.tensors[ref]);
-        return Status::OK();
-      } else if (child_name == "buffer") {
-        int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
-        *result = wrap_buffer(blobs.buffers[ref]);
-        return Status::OK();
-      } else if (child_name == "ndarray") {
-        int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
-        return DeserializeArray(ref, base, blobs, result);
-      } else {
-        DCHECK(false) << "union tag " << type << " with child name '" << child_name
-                      << "' not recognized";
-      }
+    case kSetTag: {
+      const auto& l = checked_cast<const ListArray&>(arr);
+      return DeserializeSet(context, *l.values(), l.value_offset(index),
+                            l.value_offset(index + 1), base, blobs, result);
     }
+    case kTensorTag: {
+      int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
+      *result = wrap_tensor(blobs.tensors[ref]);
+      return Status::OK();
+    }
+    case kNdarrayTag: {
+      int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
+      return DeserializeArray(ref, base, blobs, result);
+    }
+    case kBufferTag: {
+      int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
+      *result = wrap_buffer(blobs.buffers[ref]);
+      return Status::OK();
+    }
+    default: { ARROW_CHECK(false) << "union tag " << type << "' not recognized"; }
   }
   return Status::OK();
 }
 
-#define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                                     \
-  const auto& data = checked_cast<const UnionArray&>(array);                             \
-  OwnedRef result(CREATE_FN(stop_idx - start_idx));                                      \
-  const uint8_t* type_ids = data.raw_type_ids();                                         \
-  const int32_t* value_offsets = data.raw_value_offsets();                               \
-  for (int64_t i = start_idx; i < stop_idx; ++i) {                                       \
-    if (data.IsNull(i)) {                                                                \
-      Py_INCREF(Py_None);                                                                \
-      SET_ITEM_FN(result.obj(), i - start_idx, Py_None);                                 \
-    } else {                                                                             \
-      int64_t offset = value_offsets[i];                                                 \
-      uint8_t type = type_ids[i];                                                        \
-      PyObject* value;                                                                   \
-      RETURN_NOT_OK(GetValue(context, data, *data.UnsafeChild(type), offset, type, base, \
-                             blobs, &value));                                            \
-      SET_ITEM_FN(result.obj(), i - start_idx, value);                                   \
-    }                                                                                    \
-  }                                                                                      \
-  *out = result.detach();                                                                \
+#define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                               \
+  const auto& data = checked_cast<const UnionArray&>(array);                       \
+  OwnedRef result(CREATE_FN(stop_idx - start_idx));                                \
+  const uint8_t* type_ids = data.raw_type_ids();                                   \
+  const int32_t* value_offsets = data.raw_value_offsets();                         \
+  for (int64_t i = start_idx; i < stop_idx; ++i) {                                 \
+    if (data.IsNull(i)) {                                                          \
+      Py_INCREF(Py_None);                                                          \
+      SET_ITEM_FN(result.obj(), i - start_idx, Py_None);                           \
+    } else {                                                                       \
+      int64_t offset = value_offsets[i];                                           \
+      uint8_t type = type_ids[i];                                                  \
+      PyObject* value;                                                             \
+      RETURN_NOT_OK(GetValue(context, *data.UnsafeChild(type), offset, type, base, \
+                             blobs, &value));                                      \
+      SET_ITEM_FN(result.obj(), i - start_idx, value);                             \
+    }                                                                              \
+  }                                                                                \
+  *out = result.detach();                                                          \
   return Status::OK()
 
 Status DeserializeList(PyObject* context, const Array& array, int64_t start_idx,
@@ -244,8 +241,8 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
       int32_t offset = value_offsets[i];
       int8_t type = type_ids[i];
       PyObject* value;
-      RETURN_NOT_OK(GetValue(context, data, *data.UnsafeChild(type), offset, type, base,
-                             blobs, &value));
+      RETURN_NOT_OK(
+          GetValue(context, *data.UnsafeChild(type), offset, type, base, blobs, &value));
       if (PySet_Add(result.obj(), value) < 0) {
         RETURN_IF_PYERROR();
       }

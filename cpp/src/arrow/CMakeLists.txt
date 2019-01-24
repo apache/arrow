@@ -73,6 +73,7 @@ set(ARROW_SRCS
   array/builder_dict.cc
   array/builder_nested.cc
   array/builder_primitive.cc
+  array/builder_union.cc
 
   buffer.cc
   compare.cc

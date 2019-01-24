@@ -107,6 +107,24 @@ Status WriteNdarrayHeader(std::shared_ptr<DataType> dtype,
                           const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
                           io::OutputStream* dst);
 
+constexpr int8_t kBoolTag = 0;
+constexpr int8_t kIntTag = 1;
+constexpr int8_t kPy2IntTag = 2;
+constexpr int8_t kBytesTag = 3;
+constexpr int8_t kStringTag = 4;
+constexpr int8_t kHalfFloatTag = 5;
+constexpr int8_t kFloatTag = 6;
+constexpr int8_t kDoubleTag = 7;
+constexpr int8_t kDate64Tag = 8;
+constexpr int8_t kListTag = 9;
+constexpr int8_t kDictTag = 10;
+constexpr int8_t kTupleTag = 11;
+constexpr int8_t kSetTag = 12;
+constexpr int8_t kTensorTag = 13;
+constexpr int8_t kNdarrayTag = 14;
+constexpr int8_t kBufferTag = 15;
+constexpr int8_t kNumTags = 16;
+
 }  // namespace py
 
 }  // namespace arrow
