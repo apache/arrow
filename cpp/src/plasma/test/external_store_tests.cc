@@ -89,9 +89,9 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
 
 TEST_F(TestPlasmaStoreWithExternal, EvictionTest) {
   std::vector<ObjectID> object_ids;
-  std::string data(10 * 1024, 'x');
+  std::string data(100 * 1024, 'x');
   std::string metadata;
-  for (int i = 0; i < 11; i++) {
+  for (int i = 0; i < 20; i++) {
     ObjectID object_id = random_object_id();
     object_ids.push_back(object_id);
 
@@ -108,7 +108,7 @@ TEST_F(TestPlasmaStoreWithExternal, EvictionTest) {
     ASSERT_TRUE(has_object);
   }
 
-  for (int i = 0; i < 11; i++) {
+  for (int i = 0; i < 20; i++) {
     // Since we are accessing objects sequentially, every object we
     // access would be a cache "miss" owing to LRU eviction.
     // Try and access the object from the plasma store first, and then try
