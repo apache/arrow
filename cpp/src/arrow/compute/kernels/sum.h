@@ -51,7 +51,7 @@ Status Sum(FunctionContext* context, const Datum& value, Datum* out);
 ///
 /// \since 0.13.0
 /// \note API not yet finalized
-Status Sum(FunctionContext* context, const Array& value, Datum* out);
+Status Sum(FunctionContext* context, const Array& array, Datum* out);
 
 }  // namespace compute
 }  // namespace arrow
