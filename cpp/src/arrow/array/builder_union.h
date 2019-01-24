@@ -28,8 +28,7 @@ namespace arrow {
 
 class ARROW_EXPORT UnionBuilder : public ArrayBuilder {
  public:
-  UnionBuilder(MemoryPool* pool,
-               const std::vector<std::shared_ptr<ArrayBuilder>>& children);
+  UnionBuilder(MemoryPool* pool);
 
   Status AppendNull() {
     ARROW_RETURN_NOT_OK(types_builder_.Append(0));
@@ -45,13 +44,17 @@ class ARROW_EXPORT UnionBuilder : public ArrayBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
-  void SetChild(int32_t i, const std::shared_ptr<ArrayBuilder>& child) {
-    children_[i] = child;
+  int8_t AppendChild(const std::shared_ptr<ArrayBuilder>& child,
+                     const std::string& field_name = "") {
+    children_.push_back(child);
+    field_names_.push_back(field_name);
+    return static_cast<int8_t>(children_.size() - 1);
   }
 
  private:
   TypedBufferBuilder<int8_t> types_builder_;
   TypedBufferBuilder<int32_t> offsets_builder_;
+  std::vector<std::string> field_names_;
 };
 
 }  // namespace arrow

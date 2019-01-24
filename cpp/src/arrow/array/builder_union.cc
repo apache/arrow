@@ -23,11 +23,8 @@
 
 namespace arrow {
 
-UnionBuilder::UnionBuilder(MemoryPool* pool,
-                           const std::vector<std::shared_ptr<ArrayBuilder>>& children)
-    : ArrayBuilder(nullptr, pool), types_builder_(pool), offsets_builder_(pool) {
-  children_ = children;
-}
+UnionBuilder::UnionBuilder(MemoryPool* pool)
+    : ArrayBuilder(nullptr, pool), types_builder_(pool), offsets_builder_(pool) {}
 
 Status UnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> types;
@@ -42,17 +39,11 @@ Status UnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::vector<std::shared_ptr<ArrayData>> child_data(children_.size());
   std::vector<uint8_t> type_ids;
   for (size_t i = 0; i < children_.size(); ++i) {
-    if (children_[i]) {
       std::shared_ptr<ArrayData> data;
       RETURN_NOT_OK(children_[i]->FinishInternal(&data));
       child_data[i] = data;
-      fields.push_back(::arrow::field("", children_[i]->type()));
+      fields.push_back(field(field_names_[i], children_[i]->type()));
       type_ids.push_back(static_cast<uint8_t>(i));
-    } else {
-      fields.push_back(::arrow::field("", ::arrow::null()));
-      child_data[i] = ArrayData::Make(::arrow::null(), 0);
-      type_ids.push_back(static_cast<uint8_t>(i));
-    }
   }
 
   type_ = ::arrow::union_(fields, type_ids, UnionMode::DENSE);

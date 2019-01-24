@@ -191,20 +191,30 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
   return Status::OK();
 }
 
+std::vector<int8_t> GetPythonTypes(const UnionArray& data) {
+  std::vector<int8_t> result;
+  auto type = data.type();
+  for (int i = 0; i < type->num_children(); ++i) {
+    result.push_back(std::stoi(type->child(i)->name()));
+  }
+  return result;
+}
+
 #define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                               \
   const auto& data = checked_cast<const UnionArray&>(array);                       \
   OwnedRef result(CREATE_FN(stop_idx - start_idx));                                \
   const uint8_t* type_ids = data.raw_type_ids();                                   \
   const int32_t* value_offsets = data.raw_value_offsets();                         \
+  auto python_types = GetPythonTypes(data);                                        \
   for (int64_t i = start_idx; i < stop_idx; ++i) {                                 \
     if (data.IsNull(i)) {                                                          \
       Py_INCREF(Py_None);                                                          \
       SET_ITEM_FN(result.obj(), i - start_idx, Py_None);                           \
     } else {                                                                       \
       int64_t offset = value_offsets[i];                                           \
-      uint8_t type = type_ids[i];                                                  \
+      uint8_t type = type_ids[i];                                    \
       PyObject* value;                                                             \
-      RETURN_NOT_OK(GetValue(context, *data.UnsafeChild(type), offset, type, base, \
+      RETURN_NOT_OK(GetValue(context, *data.UnsafeChild(type), offset, python_types[type_ids[i]], base, \
                              blobs, &value));                                      \
       SET_ITEM_FN(result.obj(), i - start_idx, value);                             \
     }                                                                              \
@@ -231,6 +241,7 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
   OwnedRef result(PySet_New(nullptr));
   const uint8_t* type_ids = data.raw_type_ids();
   const int32_t* value_offsets = data.raw_value_offsets();
+  auto python_types = GetPythonTypes(data);
   for (int64_t i = start_idx; i < stop_idx; ++i) {
     if (data.IsNull(i)) {
       Py_INCREF(Py_None);
@@ -242,7 +253,7 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
       int8_t type = type_ids[i];
       PyObject* value;
       RETURN_NOT_OK(
-          GetValue(context, *data.UnsafeChild(type), offset, type, base, blobs, &value));
+          GetValue(context, *data.UnsafeChild(type), offset, python_types[type], base, blobs, &value));
       if (PySet_Add(result.obj(), value) < 0) {
         RETURN_IF_PYERROR();
       }

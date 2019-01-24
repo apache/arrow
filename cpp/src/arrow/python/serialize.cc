@@ -67,9 +67,9 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
 class SequenceBuilder {
  public:
   explicit SequenceBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
-      : pool_(pool), types_(::arrow::int8(), pool), offsets_(::arrow::int32(), pool) {
-    std::vector<std::shared_ptr<ArrayBuilder>> child_builders(PythonType::MAX);
-    builder_.reset(new UnionBuilder(pool, child_builders));
+      : pool_(pool), types_(::arrow::int8(), pool), offsets_(::arrow::int32(), pool),
+        type_map_(PythonType::MAX) {
+    builder_.reset(new UnionBuilder(pool));
   }
 
   // Appending a none to the sequence
@@ -87,9 +87,9 @@ class SequenceBuilder {
   Status CreateAndUpdate(std::shared_ptr<BuilderType>& child_builder, int8_t tag) {
     if (!child_builder) {
       child_builder.reset(new BuilderType(pool_));
-      builder_->SetChild(tag, child_builder);
+      type_map_[tag] = builder_->AppendChild(child_builder, std::to_string(tag));
     }
-    return Update(child_builder, tag);
+    return Update(child_builder, type_map_[tag]);
   }
 
   template <typename BuilderType, typename T>
@@ -178,9 +178,9 @@ class SequenceBuilder {
     if (!values) {
       values.reset(new SequenceBuilder(pool_));
       target_sequence.reset(new ListBuilder(pool_, values->builder()));
-      builder_->SetChild(tag, target_sequence);
+      type_map_[tag] = builder_->AppendChild(target_sequence, std::to_string(tag));
     }
-    RETURN_NOT_OK(Update(target_sequence, tag));
+    RETURN_NOT_OK(Update(target_sequence, type_map_[tag]));
     RETURN_NOT_OK(target_sequence->Append());
     PyObject* iter = PyObject_GetIter(sequence);
     RETURN_IF_PYERROR();
@@ -224,6 +224,9 @@ class SequenceBuilder {
 
   Int8Builder types_;
   Int32Builder offsets_;
+
+  /// Mapping from PythonType to child index
+  std::vector<int8_t> type_map_;
 
   std::shared_ptr<BooleanBuilder> bools_;
   std::shared_ptr<Int64Builder> ints_;
@@ -289,9 +292,9 @@ Status SequenceBuilder::AppendDict(PyObject* context, PyObject* dict,
   if (!dict_values_) {
     dict_values_.reset(new DictBuilder(pool_));
     dicts_.reset(new ListBuilder(pool_, dict_values_->builder()));
-    builder_->SetChild(PythonType::DICT, dicts_);
+    type_map_[PythonType::DICT] = builder_->AppendChild(dicts_, std::to_string(PythonType::DICT));
   }
-  RETURN_NOT_OK(Update(dicts_, PythonType::DICT));
+  RETURN_NOT_OK(Update(dicts_, type_map_[PythonType::DICT]));
   RETURN_NOT_OK(dicts_->Append());
   PyObject* key;
   PyObject* value;
