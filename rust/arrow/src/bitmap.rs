@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Defines a bitmap, which is used to track which values in an Arrow array are null. This is called
+//! a "validity bitmap" in the Arrow documentation.
+
 use super::buffer::Buffer;
 use crate::util::bit_util;
 

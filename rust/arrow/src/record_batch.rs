@@ -15,6 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! According to the [Arrow Metadata Specification](https://arrow.apache.org/docs/metadata.html):
+//!
+//! > A record batch is a collection of top-level named, equal length Arrow arrays (or vectors). If
+//! > one of the arrays contains nested data, its child arrays are not required to be the same
+//! > length as the top-level arrays.
+
 use std::sync::Arc;
 
 use crate::array::*;

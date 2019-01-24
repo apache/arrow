@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Transfer data between the Arrow memory format and CSV (comma-separated values).
+
 pub mod reader;
 
 pub use self::reader::Reader;

@@ -15,10 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Defines `ArrowError` for representing failures in various Arrow operations
 use std::error::Error;
 
 use csv as csv_crate;
 
+/// Many different operations in the `arrow` crate return this error type
 #[derive(Debug, Clone, PartialEq)]
 pub enum ArrowError {
     MemoryError(String),

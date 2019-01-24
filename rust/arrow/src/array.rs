@@ -15,7 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
-///! Array types
+//! Defines public types representing Apache Arrow arrays. Arrow's specification defines an array as
+//! "a sequence of values with known length all having the same type." For example, the type
+//! `Int16Array` represents an Apache Arrow array of 16-bit integers.
+//!
+//! ```
+//! extern crate arrow;
+//!
+//! use arrow::array::Int16Array;
+//!
+//! // Create a new builder with a capacity of 100
+//! let mut builder = Int16Array::builder(100);
+//!
+//! // Append a single primitive value
+//! builder.append_value(1).unwrap();
+//!
+//! // Append a null value
+//! builder.append_null().unwrap();
+//!
+//! // Append a slice of primitive values
+//! builder.append_slice(&[2, 3, 4]).unwrap();
+//!
+//! // Build the array
+//! let array = builder.finish();
+//!
+//! assert_eq!(5, array.len(), "The array has 5 values, counting the null value");
+//!
+//! assert_eq!(2, array.value(2), "Get the value with index 2");
+//!
+//! assert_eq!(array.value_slice(3, 2), &[3, 4], "Get slice of len 2 starting at idx 3")
+//! ```
+
 use std::any::Any;
 use std::convert::From;
 use std::io::Write;
