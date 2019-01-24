@@ -839,54 +839,39 @@ if (ARROW_BUILD_BENCHMARKS)
     ${ARROW_TEST_LINK_LIBS})
 endif()
 
+set(ARROW_SYSTEM_LINK_LIBS)
+
 if (ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
-
-  if (NOT WIN32 AND NOT APPLE)
-    set(ARROW_JEMALLOC_LINK_LIBS
-      jemalloc_static
-      # For glibc <2.17 we need to link to librt.
-      # As we compile with --as-needed by default, the linker will omit this
-      # dependency if not required.
-      rt
-      )
-  else()
-    set(ARROW_JEMALLOC_LINK_LIBS
-      jemalloc_static
-      )
-  endif()
-  list(APPEND
-    ARROW_SHARED_PRIVATE_LINK_LIBS
-    ${ARROW_JEMALLOC_LINK_LIBS})
-  list(APPEND
-    ARROW_STATIC_LINK_LIBS
-    ${ARROW_JEMALLOC_LINK_LIBS})
-  list(APPEND
-    ARROW_STATIC_INSTALL_INTERFACE_LIBS
-    jemalloc)
+  list(APPEND ARROW_SYSTEM_LINK_LIBS jemalloc_static)
 endif(ARROW_JEMALLOC)
 
 if (THREADS_FOUND)
+  set(ARROW_SYSTEM_LINK_LIBS
+    ${ARROW_SYSTEM_LINK_LIBS}
+    Threads::Threads)
+endif()
+
+if (NOT WIN32 AND NOT APPLE)
+  # Pass -lrt on Linux only
   list(APPEND
-    ARROW_LINK_LIBS
-    Threads::Threads
-    rt)
-  list(APPEND
-    ARROW_SHARED_INSTALL_INTERFACE_LIBS
-    Threads::Threads
-    rt)
-  list(APPEND
-    ARROW_STATIC_LINK_LIBS
-    Threads::Threads
-    rt)
-  list(APPEND
-    ARROW_STATIC_INSTALL_INTERFACE_LIBS
-    Threads::Threads
+    ARROW_SYSTEM_LINK_LIBS
     rt)
 endif()
 
-message(STATUS "link libs: ${ARROW_LINK_LIBS}")
+list(APPEND
+  ARROW_LINK_LIBS
+  ${ARROW_SYSTEM_LINK_LIBS})
+list(APPEND
+  ARROW_STATIC_LINK_LIBS
+  ${ARROW_SYSTEM_LINK_LIBS})
+list(APPEND
+  ARROW_SHARED_INSTALL_INTERFACE_LIBS
+  ${ARROW_SYSTEM_LINK_LIBS})
+list(APPEND
+  ARROW_STATIC_INSTALL_INTERFACE_LIBS
+  ${ARROW_SYSTEM_LINK_LIBS})
 
 ############################################################
 # Subdirectories
