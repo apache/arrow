@@ -947,9 +947,10 @@ class IntegrationRunner(object):
 
     def run_flight(self):
         failures = []
-        for server, client in itertools.product(
-                filter(lambda t: t.FLIGHT_SERVER, self.testers),
-                filter(lambda t: (t.FLIGHT_CLIENT and t.CONSUMER), self.testers)):
+        servers = filter(lambda t: t.FLIGHT_SERVER, self.testers)
+        clients = filter(lambda t: (t.FLIGHT_CLIENT and t.CONSUMER),
+                         self.testers)
+        for server, client in itertools.product(servers, clients):
             try:
                 self._compare_flight_implementations(server, client)
             except Exception:
@@ -1014,10 +1015,11 @@ class IntegrationRunner(object):
 
             with producer.flight_server():
                 # Have the client request the file
-                consumer_file_path = os.path.join(self.temp_dir, file_id + '_' +
-                                                  name +
-                                                  '.consumer_requested_file')
-                consumer.flight_request(producer.FLIGHT_PORT, json_path, consumer_file_path)
+                consumer_file_path = os.path.join(
+                    self.temp_dir,
+                    file_id + '_' + name + '.consumer_requested_file')
+                consumer.flight_request(producer.FLIGHT_PORT,
+                                        json_path, consumer_file_path)
 
                 # Validate the file
                 print('-- Validating file')
@@ -1074,6 +1076,10 @@ class JavaTester(Tester):
         os.path.join(ARROW_HOME,
                      'java/flight/target/arrow-flight-{}-'
                      'jar-with-dependencies.jar'.format(_arrow_version)))
+    ARROW_FLIGHT_SERVER = ('org.apache.arrow.flight.example.integration.'
+                           'IntegrationTestServer')
+    ARROW_FLIGHT_CLIENT = ('org.apache.arrow.flight.example.integration.'
+                           'IntegrationTestClient')
 
     name = 'Java'
 
@@ -1118,7 +1124,7 @@ class JavaTester(Tester):
 
     def flight_request(self, port, json_path, arrow_path):
         cmd = ['java', '-cp', self.ARROW_FLIGHT_JAR,
-               'org.apache.arrow.flight.example.integration.IntegrationTestClient',
+               self.ARROW_FLIGHT_CLIENT,
                '-port', str(port),
                '-j', json_path,
                '-a', arrow_path]
@@ -1129,7 +1135,7 @@ class JavaTester(Tester):
     @contextlib.contextmanager
     def flight_server(self):
         cmd = ['java', '-cp', self.ARROW_FLIGHT_JAR,
-               'org.apache.arrow.flight.example.integration.IntegrationTestServer',
+               self.ARROW_FLIGHT_SERVER,
                '-port', str(self.FLIGHT_PORT)]
         if self.debug:
             print(' '.join(cmd))
@@ -1137,8 +1143,9 @@ class JavaTester(Tester):
         try:
             output = server.stdout.readline().decode()
             if not output.startswith("Server listening on localhost"):
-                raise RuntimeError("Flight-Java server did not start properly, output: " +
-                                   output)
+                raise RuntimeError(
+                    "Flight-Java server did not start properly, output: " +
+                    output)
             yield
         finally:
             server.terminate()
@@ -1161,10 +1168,12 @@ class CPPTester(Tester):
 
     FLIGHT_PORT = 31337
 
-    FLIGHT_SERVER_CMD = [os.path.join(EXE_PATH, 'flight-test-integration-server'),
-                         "-port", str(FLIGHT_PORT)]
-    FLIGHT_CLIENT_CMD = [os.path.join(EXE_PATH, 'flight-test-integration-client'),
-                         "-host", "localhost"]
+    FLIGHT_SERVER_CMD = [
+        os.path.join(EXE_PATH, 'flight-test-integration-server'),
+        "-port", str(FLIGHT_PORT)]
+    FLIGHT_CLIENT_CMD = [
+        os.path.join(EXE_PATH, 'flight-test-integration-client'),
+        "-host", "localhost"]
 
     name = 'C++'
 
@@ -1208,12 +1217,14 @@ class CPPTester(Tester):
     def flight_server(self):
         if self.debug:
             print(' '.join(self.FLIGHT_SERVER_CMD))
-        server = subprocess.Popen(self.FLIGHT_SERVER_CMD, stdout=subprocess.PIPE)
+        server = subprocess.Popen(self.FLIGHT_SERVER_CMD,
+                                  stdout=subprocess.PIPE)
         try:
             output = server.stdout.readline().decode()
             if not output.startswith("Server listening on localhost"):
-                raise RuntimeError("Flight-C++ server did not start properly, output: " +
-                                   output)
+                raise RuntimeError(
+                    "Flight-C++ server did not start properly, output: " +
+                    output)
             yield
         finally:
             server.terminate()
@@ -1318,7 +1329,8 @@ def run_all_tests(run_flight=False, debug=False, tempdir=None):
     else:
         print('-- Tests completed, failures:')
     for producer, consumer, exc_info in failures:
-        print("FAILED TEST:", producer.name, "producing, ", consumer.name, "consuming")
+        print("FAILED TEST:", producer.name, "producing, ",
+              consumer.name, "consuming")
         traceback.print_exception(*exc_info)
         print()
 
@@ -1359,4 +1371,5 @@ if __name__ == '__main__':
                 raise
         write_js_test_json(args.generated_json_path)
     else:
-        run_all_tests(run_flight=args.run_flight, debug=args.debug, tempdir=args.tempdir)
+        run_all_tests(run_flight=args.run_flight,
+                      debug=args.debug, tempdir=args.tempdir)
