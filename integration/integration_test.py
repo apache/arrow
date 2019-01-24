@@ -27,8 +27,10 @@ import random
 import six
 import string
 import subprocess
+import sys
 import tempfile
 import time
+import traceback
 import uuid
 import errno
 
@@ -933,16 +935,28 @@ class IntegrationRunner(object):
         self.debug = debug
 
     def run(self):
+        failures = []
         for producer, consumer in itertools.product(
                 filter(lambda t: t.PRODUCER, self.testers),
                 filter(lambda t: t.CONSUMER, self.testers)):
-            self._compare_implementations(producer, consumer)
+            try:
+                self._compare_implementations(producer, consumer)
+            except Exception:
+                traceback.print_exc()
+                failures.append((producer, consumer, sys.exc_info()))
+        return failures
 
     def run_flight(self):
+        failures = []
         for server, client in itertools.product(
                 filter(lambda t: t.FLIGHT_SERVER, self.testers),
                 filter(lambda t: (t.FLIGHT_CLIENT and t.CONSUMER), self.testers)):
-            self._compare_flight_implementations(server, client)
+            try:
+                self._compare_flight_implementations(server, client)
+            except Exception:
+                traceback.print_exc()
+                failures.append((server, client, sys.exc_info()))
+        return failures
 
     def _compare_implementations(self, producer, consumer):
         print('##########################################################')
@@ -1272,10 +1286,21 @@ def run_all_tests(run_flight=False, debug=False, tempdir=None):
 
     runner = IntegrationRunner(json_files, testers,
                                tempdir=tempdir, debug=debug)
-    runner.run()
+    failures = []
+    failures.extend(runner.run())
     if run_flight:
-        runner.run_flight()
-    print('-- All tests passed!')
+        failures.extend(runner.run_flight())
+
+    print()
+    print('##########################################################')
+    if not failures:
+        print('-- All tests passed!')
+    else:
+        print('-- Tests completed, failures:')
+    for producer, consumer, exc_info in failures:
+        print("FAILED TEST:", producer.name, "producing, ", consumer.name, "consuming")
+        traceback.print_exception(*exc_info)
+        print()
 
 
 def write_js_test_json(directory):
