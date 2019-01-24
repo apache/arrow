@@ -178,6 +178,7 @@ public class FlightStream {
     public void onError(Throwable t) {
       ex = t;
       queue.add(DONE_EX);
+      root.setException(t);
     }
 
     @Override
