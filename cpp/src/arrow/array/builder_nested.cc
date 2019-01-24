@@ -157,9 +157,9 @@ Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   if (!type_) {
     std::vector<std::shared_ptr<Field>> fields;
     for (const auto& field_builder : children_) {
-      fields.push_back(std::make_shared<Field>("", field_builder->type()));
+      fields.push_back(field("", field_builder->type()));
     }
-    type_ = std::make_shared<StructType>(fields);
+    type_ = struct_(fields);
   }
 
   *out = ArrayData::Make(type_, length_, {null_bitmap}, null_count_);

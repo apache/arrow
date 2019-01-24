@@ -108,14 +108,14 @@ Status DeserializeArray(int32_t index, PyObject* base, const SerializedPyObject&
   return Status::OK();
 }
 
-Status GetValue(PyObject* context, const Array& arr, int64_t index, int32_t type,
+Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
                 PyObject* base, const SerializedPyObject& blobs, PyObject** result) {
   switch (type) {
-    case kBoolTag:
+    case PythonType::BOOL:
       *result = PyBool_FromLong(checked_cast<const BooleanArray&>(arr).Value(index));
       return Status::OK();
-    case kPy2IntTag:
-    case kIntTag: {
+    case PythonType::PY2INT:
+    case PythonType::INT: {
 #if PY_MAJOR_VERSION < 3
       if (type == kPy2IntTag) {
         *result = PyInt_FromSsize_t(checked_cast<const Int64Array&>(arr).Value(index));
@@ -125,63 +125,63 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int32_t type
       *result = PyLong_FromSsize_t(checked_cast<const Int64Array&>(arr).Value(index));
       return Status::OK();
     }
-    case kBytesTag: {
+    case PythonType::BYTES: {
       auto view = checked_cast<const BinaryArray&>(arr).GetView(index);
       *result = PyBytes_FromStringAndSize(view.data(), view.length());
       return CheckPyError();
     }
-    case kStringTag: {
+    case PythonType::STRING: {
       auto view = checked_cast<const StringArray&>(arr).GetView(index);
       *result = PyUnicode_FromStringAndSize(view.data(), view.length());
       return CheckPyError();
     }
-    case kHalfFloatTag: {
+    case PythonType::HALF_FLOAT: {
       *result = PyHalf_FromHalf(checked_cast<const HalfFloatArray&>(arr).Value(index));
       RETURN_IF_PYERROR();
       return Status::OK();
     }
-    case kFloatTag:
+    case PythonType::FLOAT:
       *result = PyFloat_FromDouble(checked_cast<const FloatArray&>(arr).Value(index));
       return Status::OK();
-    case kDoubleTag:
+    case PythonType::DOUBLE:
       *result = PyFloat_FromDouble(checked_cast<const DoubleArray&>(arr).Value(index));
       return Status::OK();
-    case kDate64Tag: {
+    case PythonType::DATE64: {
       RETURN_NOT_OK(PyDateTime_from_int(
           checked_cast<const Date64Array&>(arr).Value(index), TimeUnit::MICRO, result));
       RETURN_IF_PYERROR();
       return Status::OK();
     }
-    case kListTag: {
+    case PythonType::LIST: {
       const auto& l = checked_cast<const ListArray&>(arr);
       return DeserializeList(context, *l.values(), l.value_offset(index),
                              l.value_offset(index + 1), base, blobs, result);
     }
-    case kDictTag: {
+    case PythonType::DICT: {
       const auto& l = checked_cast<const ListArray&>(arr);
       return DeserializeDict(context, *l.values(), l.value_offset(index),
                              l.value_offset(index + 1), base, blobs, result);
     }
-    case kTupleTag: {
+    case PythonType::TUPLE: {
       const auto& l = checked_cast<const ListArray&>(arr);
       return DeserializeTuple(context, *l.values(), l.value_offset(index),
                               l.value_offset(index + 1), base, blobs, result);
     }
-    case kSetTag: {
+    case PythonType::SET: {
       const auto& l = checked_cast<const ListArray&>(arr);
       return DeserializeSet(context, *l.values(), l.value_offset(index),
                             l.value_offset(index + 1), base, blobs, result);
     }
-    case kTensorTag: {
+    case PythonType::TENSOR: {
       int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
       *result = wrap_tensor(blobs.tensors[ref]);
       return Status::OK();
     }
-    case kNdarrayTag: {
+    case PythonType::NDARRAY: {
       int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
       return DeserializeArray(ref, base, blobs, result);
     }
-    case kBufferTag: {
+    case PythonType::BUFFER: {
       int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
       *result = wrap_buffer(blobs.buffers[ref]);
       return Status::OK();

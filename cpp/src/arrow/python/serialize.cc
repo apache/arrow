@@ -68,7 +68,7 @@ class SequenceBuilder {
  public:
   explicit SequenceBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
       : pool_(pool), types_(::arrow::int8(), pool), offsets_(::arrow::int32(), pool) {
-    std::vector<std::shared_ptr<ArrayBuilder>> child_builders(kNumTags);
+    std::vector<std::shared_ptr<ArrayBuilder>> child_builders(PythonType::MAX);
     builder_.reset(new UnionBuilder(pool, child_builders));
   }
 
@@ -100,53 +100,53 @@ class SequenceBuilder {
   }
 
   // Appending a boolean to the sequence
-  Status AppendBool(const bool data) { return AppendPrimitive(data, kBoolTag, bools_); }
+  Status AppendBool(const bool data) { return AppendPrimitive(data, PythonType::BOOL, bools_); }
 
   // Appending a python 2 int64_t to the sequence
   Status AppendPy2Int64(const int64_t data) {
-    return AppendPrimitive(data, kPy2IntTag, py2_ints_);
+    return AppendPrimitive(data, PythonType::PY2INT, py2_ints_);
   }
 
   // Appending an int64_t to the sequence
-  Status AppendInt64(const int64_t data) { return AppendPrimitive(data, kIntTag, ints_); }
+  Status AppendInt64(const int64_t data) { return AppendPrimitive(data, PythonType::INT, ints_); }
 
   // Append a list of bytes to the sequence
   Status AppendBytes(const uint8_t* data, int32_t length) {
-    RETURN_NOT_OK(CreateAndUpdate(bytes_, kBytesTag));
+    RETURN_NOT_OK(CreateAndUpdate(bytes_, PythonType::BYTES));
     return bytes_->Append(data, length);
   }
 
   // Appending a string to the sequence
   Status AppendString(const char* data, int32_t length) {
-    RETURN_NOT_OK(CreateAndUpdate(strings_, kStringTag));
+    RETURN_NOT_OK(CreateAndUpdate(strings_, PythonType::STRING));
     return strings_->Append(data, length);
   }
 
   // Appending a half_float to the sequence
   Status AppendHalfFloat(const npy_half data) {
-    return AppendPrimitive(data, kHalfFloatTag, half_floats_);
+    return AppendPrimitive(data, PythonType::HALF_FLOAT, half_floats_);
   }
 
   // Appending a float to the sequence
   Status AppendFloat(const float data) {
-    return AppendPrimitive(data, kFloatTag, floats_);
+    return AppendPrimitive(data, PythonType::FLOAT, floats_);
   }
 
   // Appending a double to the sequence
   Status AppendDouble(const double data) {
-    return AppendPrimitive(data, kDoubleTag, doubles_);
+    return AppendPrimitive(data, PythonType::DOUBLE, doubles_);
   }
 
   // Appending a Date64 timestamp to the sequence
   Status AppendDate64(const int64_t timestamp) {
-    return AppendPrimitive(timestamp, kDate64Tag, date64s_);
+    return AppendPrimitive(timestamp, PythonType::DATE64, date64s_);
   }
 
   // Appending a tensor to the sequence
   //
   // \param tensor_index Index of the tensor in the object.
   Status AppendTensor(const int32_t tensor_index) {
-    RETURN_NOT_OK(CreateAndUpdate(tensor_indices_, kTensorTag));
+    RETURN_NOT_OK(CreateAndUpdate(tensor_indices_, PythonType::TENSOR));
     return tensor_indices_->Append(tensor_index);
   }
 
@@ -154,7 +154,7 @@ class SequenceBuilder {
   //
   // \param tensor_index Index of the tensor in the object.
   Status AppendNdarray(const int32_t ndarray_index) {
-    RETURN_NOT_OK(CreateAndUpdate(ndarray_indices_, kNdarrayTag));
+    RETURN_NOT_OK(CreateAndUpdate(ndarray_indices_, PythonType::NDARRAY));
     return ndarray_indices_->Append(ndarray_index);
   }
 
@@ -162,7 +162,7 @@ class SequenceBuilder {
   //
   // \param buffer_index Indes of the buffer in the object.
   Status AppendBuffer(const int32_t buffer_index) {
-    RETURN_NOT_OK(CreateAndUpdate(buffer_indices_, kBufferTag));
+    RETURN_NOT_OK(CreateAndUpdate(buffer_indices_, PythonType::BUFFER));
     return buffer_indices_->Append(buffer_index);
   }
 
@@ -194,19 +194,19 @@ class SequenceBuilder {
 
   Status AppendList(PyObject* context, PyObject* list, int32_t recursion_depth,
                     SerializedPyObject* blobs_out) {
-    return AppendSequence(context, list, kListTag, lists_, list_values_, recursion_depth,
+    return AppendSequence(context, list, PythonType::LIST, lists_, list_values_, recursion_depth,
                           blobs_out);
   }
 
   Status AppendTuple(PyObject* context, PyObject* tuple, int32_t recursion_depth,
                      SerializedPyObject* blobs_out) {
-    return AppendSequence(context, tuple, kTupleTag, tuples_, tuple_values_,
+    return AppendSequence(context, tuple, PythonType::TUPLE, tuples_, tuple_values_,
                           recursion_depth, blobs_out);
   }
 
   Status AppendSet(PyObject* context, PyObject* set, int32_t recursion_depth,
                    SerializedPyObject* blobs_out) {
-    return AppendSequence(context, set, kSetTag, sets_, set_values_, recursion_depth,
+    return AppendSequence(context, set, PythonType::SET, sets_, set_values_, recursion_depth,
                           blobs_out);
   }
 
@@ -289,9 +289,9 @@ Status SequenceBuilder::AppendDict(PyObject* context, PyObject* dict,
   if (!dict_values_) {
     dict_values_.reset(new DictBuilder(pool_));
     dicts_.reset(new ListBuilder(pool_, dict_values_->builder()));
-    builder_->SetChild(kDictTag, dicts_);
+    builder_->SetChild(PythonType::DICT, dicts_);
   }
-  RETURN_NOT_OK(Update(dicts_, kDictTag));
+  RETURN_NOT_OK(Update(dicts_, PythonType::DICT));
   RETURN_NOT_OK(dicts_->Append());
   PyObject* key;
   PyObject* value;
