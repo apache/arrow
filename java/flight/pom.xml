@@ -103,6 +103,10 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
+    <dependency>
+      <groupId>javax.annotation</groupId>
+      <artifactId>javax.annotation-api</artifactId>
+     </dependency>
   </dependencies>
   <build>
     <extensions>
@@ -214,7 +218,7 @@
               <goal>analyze-only</goal>
             </goals>
             <configuration>
-              <ignoredDependencies combine.self="append">
+              <ignoredDependencies combine.children="append">
                 <ignoredDependency>io.netty:netty-tcnative-boringssl-static:*</ignoredDependency>
               </ignoredDependencies>
             </configuration>
