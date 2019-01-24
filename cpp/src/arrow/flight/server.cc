@@ -115,7 +115,10 @@ class SerializationTraits<IpcPayload> {
     }
 
     // 2 bytes for body tag
-    total_size += 2 + WireFormatLite::LengthDelimitedSize(static_cast<size_t>(body_size));
+    // Only written when there are body buffers
+    if (msg.body_length > 0) {
+      total_size += 2 + WireFormatLite::LengthDelimitedSize(static_cast<size_t>(body_size));
+    }
 
     // TODO(wesm): messages over 2GB unlikely to be yet supported
     if (total_size > kInt32Max) {
@@ -139,24 +142,27 @@ class SerializationTraits<IpcPayload> {
     pb_stream.WriteRawMaybeAliased(msg.metadata->data(),
                                    static_cast<int>(msg.metadata->size()));
 
-    // Write body
-    WireFormatLite::WriteTag(pb::FlightData::kDataBodyFieldNumber,
-                             WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &pb_stream);
-    pb_stream.WriteVarint32(static_cast<uint32_t>(body_size));
+    // Don't write tag if there are no body buffers
+    if (msg.body_length > 0) {
+      // Write body
+      WireFormatLite::WriteTag(pb::FlightData::kDataBodyFieldNumber,
+                               WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &pb_stream);
+      pb_stream.WriteVarint32(static_cast<uint32_t>(body_size));
 
-    constexpr uint8_t kPaddingBytes[8] = {0};
+      constexpr uint8_t kPaddingBytes[8] = {0};
 
-    for (const auto& buffer : msg.body_buffers) {
-      // Buffer may be null when the row length is zero, or when all
-      // entries are invalid.
-      if (!buffer) continue;
+      for (const auto& buffer : msg.body_buffers) {
+        // Buffer may be null when the row length is zero, or when all
+        // entries are invalid.
+        if (!buffer) continue;
 
-      pb_stream.WriteRawMaybeAliased(buffer->data(), static_cast<int>(buffer->size()));
+        pb_stream.WriteRawMaybeAliased(buffer->data(), static_cast<int>(buffer->size()));
 
-      // Write padding if not multiple of 8
-      const int remainder = static_cast<int>(buffer->size() % 8);
-      if (remainder) {
-        pb_stream.WriteRawMaybeAliased(kPaddingBytes, 8 - remainder);
+        // Write padding if not multiple of 8
+        const int remainder = static_cast<int>(buffer->size() % 8);
+        if (remainder) {
+          pb_stream.WriteRawMaybeAliased(kPaddingBytes, 8 - remainder);
+        }
       }
     }
 
