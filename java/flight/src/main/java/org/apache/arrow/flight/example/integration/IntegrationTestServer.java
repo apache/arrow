@@ -41,20 +41,44 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.JsonFileReader;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 
-public class IntegrationTestServer {
-  static final int PORT = 31337;
+class IntegrationTestServer {
+  private final Options options;
 
-  public static void main(String[] args) throws Exception {
+  private IntegrationTestServer() {
+    options = new Options();
+    options.addOption("port", true, "The port to serve on.");
+  }
+
+  private void run(String[] args) throws Exception {
+    CommandLineParser parser = new DefaultParser();
+    CommandLine cmd = parser.parse(options, args, false);
+
     final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    final int port = Integer.parseInt(cmd.getOptionValue("port", "31337"));
     try (final IntegrationFlightProducer producer = new IntegrationFlightProducer(allocator);
-         final FlightServer server = new FlightServer(allocator, PORT, producer, ServerAuthHandler.NO_OP)) {
+         final FlightServer server = new FlightServer(allocator, port, producer, ServerAuthHandler.NO_OP)) {
       server.start();
       // Print out message for integration test script
       System.out.println("Server listening on localhost:" + server.getPort());
       while (true) {
         Thread.sleep(30000);
       }
+    }
+  }
+
+  public static void main(String[] args) {
+    try {
+      new IntegrationTestServer().run(args);
+    } catch (ParseException e) {
+      IntegrationTestClient.fatalError("Error parsing arguments", e);
+    } catch (Exception e) {
+      IntegrationTestClient.fatalError("Runtime error", e);
     }
   }
 
@@ -66,8 +90,8 @@ public class IntegrationTestServer {
     }
 
     @Override
-    public void close() throws Exception {
-
+    public void close() {
+      allocator.close();
     }
 
     @Override
@@ -90,7 +114,7 @@ public class IntegrationTestServer {
 
     @Override
     public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
-
+      listener.onCompleted();
     }
 
     @Override
@@ -126,7 +150,7 @@ public class IntegrationTestServer {
 
     @Override
     public void listActions(StreamListener<ActionType> listener) {
-
+      listener.onCompleted();
     }
   }
 }

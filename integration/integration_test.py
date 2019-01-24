@@ -1017,7 +1017,7 @@ class IntegrationRunner(object):
                 consumer_file_path = os.path.join(self.temp_dir, file_id + '_' +
                                                   name +
                                                   '.consumer_requested_file')
-                consumer.flight_request(json_path, consumer_file_path)
+                consumer.flight_request(producer.FLIGHT_PORT, json_path, consumer_file_path)
 
                 # Validate the file
                 print('-- Validating file')
@@ -1031,6 +1031,7 @@ class Tester(object):
     CONSUMER = False
     FLIGHT_SERVER = False
     FLIGHT_CLIENT = False
+    FLIGHT_PORT = 31337
 
     def __init__(self, debug=False):
         self.debug = debug
@@ -1050,7 +1051,7 @@ class Tester(object):
     def flight_server(self):
         raise NotImplementedError
 
-    def flight_request(self, json_path, arrow_path):
+    def flight_request(self, port, json_path, arrow_path):
         raise NotImplementedError
 
 
@@ -1059,6 +1060,8 @@ class JavaTester(Tester):
     CONSUMER = True
     FLIGHT_SERVER = True
     FLIGHT_CLIENT = True
+
+    FLIGHT_PORT = 31338
 
     _arrow_version = load_version_from_pom()
     ARROW_TOOLS_JAR = os.environ.get(
@@ -1113,10 +1116,12 @@ class JavaTester(Tester):
             print(' '.join(cmd))
         run_cmd(cmd)
 
-    def flight_request(self, json_path, arrow_path):
+    def flight_request(self, port, json_path, arrow_path):
         cmd = ['java', '-cp', self.ARROW_FLIGHT_JAR,
                'org.apache.arrow.flight.example.integration.IntegrationTestClient',
-               '-j', json_path, '-a', arrow_path]
+               '-port', str(port),
+               '-j', json_path,
+               '-a', arrow_path]
         if self.debug:
             print(' '.join(cmd))
         run_cmd(cmd)
@@ -1124,7 +1129,8 @@ class JavaTester(Tester):
     @contextlib.contextmanager
     def flight_server(self):
         cmd = ['java', '-cp', self.ARROW_FLIGHT_JAR,
-               'org.apache.arrow.flight.example.integration.IntegrationTestServer']
+               'org.apache.arrow.flight.example.integration.IntegrationTestServer',
+               '-port', str(self.FLIGHT_PORT)]
         if self.debug:
             print(' '.join(cmd))
         server = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -1153,8 +1159,12 @@ class CPPTester(Tester):
     STREAM_TO_FILE = os.path.join(EXE_PATH, 'arrow-stream-to-file')
     FILE_TO_STREAM = os.path.join(EXE_PATH, 'arrow-file-to-stream')
 
-    FLIGHT_SERVER_PATH = os.path.join(EXE_PATH, 'flight-test-integration-server')
-    FLIGHT_CLIENT_PATH = os.path.join(EXE_PATH, 'flight-test-integration-client')
+    FLIGHT_PORT = 31337
+
+    FLIGHT_SERVER_CMD = [os.path.join(EXE_PATH, 'flight-test-integration-server'),
+                         "-port", str(FLIGHT_PORT)]
+    FLIGHT_CLIENT_CMD = [os.path.join(EXE_PATH, 'flight-test-integration-client'),
+                         "-host", "localhost"]
 
     name = 'C++'
 
@@ -1197,8 +1207,8 @@ class CPPTester(Tester):
     @contextlib.contextmanager
     def flight_server(self):
         if self.debug:
-            print(self.FLIGHT_SERVER_PATH)
-        server = subprocess.Popen([self.FLIGHT_SERVER_PATH], stdout=subprocess.PIPE)
+            print(' '.join(self.FLIGHT_SERVER_CMD))
+        server = subprocess.Popen(self.FLIGHT_SERVER_CMD, stdout=subprocess.PIPE)
         try:
             output = server.stdout.readline().decode()
             if not output.startswith("Server listening on localhost"):
@@ -1209,12 +1219,15 @@ class CPPTester(Tester):
             server.terminate()
             server.wait(5)
 
-    def flight_request(self, json_path, arrow_path):
-        cmd = [self.FLIGHT_CLIENT_PATH, '-path=' + json_path, '-output=' + arrow_path]
-        cmd = ' '.join(cmd)
+    def flight_request(self, port, json_path, arrow_path):
+        cmd = self.FLIGHT_CLIENT_CMD + [
+            '-port=' + str(port),
+            '-path=' + json_path,
+            '-output=' + arrow_path
+        ]
         if self.debug:
-            print(cmd)
-        os.system(cmd)
+            print(' '.join(cmd))
+        subprocess.run(cmd)
 
 
 class JSTester(Tester):

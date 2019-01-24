@@ -20,9 +20,11 @@ package org.apache.arrow.flight.example.integration;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
+import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
@@ -33,21 +35,23 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.ArrowFileWriter;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.cli.PosixParser;
 
 /**
  * An Example Flight Server that provides access to the InMemoryStore.
  */
-public class IntegrationTestClient {
+class IntegrationTestClient {
   private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(IntegrationTestClient.class);
   private final Options options;
 
-  public IntegrationTestClient() {
-    this.options = new Options();
-    this.options.addOption("a", "arrow", true, "arrow file");
-    this.options.addOption("j", "json", true, "json file");
+  private IntegrationTestClient() {
+    options = new Options();
+    options.addOption("a", "arrow", true, "arrow file");
+    options.addOption("j", "json", true, "json file");
+    options.addOption("host", true, "The host to connect to.");
+    options.addOption("port", true, "The port to connect to." );
   }
 
   public static void main(String[] args) {
@@ -60,15 +64,15 @@ public class IntegrationTestClient {
     }
   }
 
-  private static void fatalError(String message, Throwable e) {
+  static void fatalError(String message, Throwable e) {
     System.err.println(message);
     System.err.println(e.getMessage());
     LOGGER.error(message, e);
     System.exit(1);
   }
 
-  void run(String[] args) throws ParseException, IOException {
-    CommandLineParser parser = new PosixParser();
+  private void run(String[] args) throws ParseException, IOException {
+    CommandLineParser parser = new DefaultParser();
     CommandLine cmd = parser.parse(options, args, false);
 
     String fileName = cmd.getOptionValue("arrow");
@@ -80,9 +84,17 @@ public class IntegrationTestClient {
       throw new IllegalArgumentException("arrow file already exists: " + arrowFile.getAbsolutePath());
     }
 
+    final String host = cmd.getOptionValue("host", "localhost");
+    final int port = Integer.parseInt(cmd.getOptionValue("port", "31337"));
+
     final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-    FlightClient client = new FlightClient(allocator, new Location("localhost", 31337));
+    FlightClient client = new FlightClient(allocator, new Location(host, port));
     FlightInfo info = client.getInfo(FlightDescriptor.path(cmd.getOptionValue("json")));
+    List<FlightEndpoint> endpoints = info.getEndpoints();
+    if (endpoints.isEmpty()) {
+      throw new RuntimeException("No endpoints returned from Flight server.");
+    }
+
     FlightStream stream = client.getStream(info.getEndpoints().get(0).getTicket());
     try (VectorSchemaRoot root = stream.getRoot();
          FileOutputStream fileOutputStream = new FileOutputStream(arrowFile);

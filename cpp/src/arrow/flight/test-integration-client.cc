@@ -52,6 +52,12 @@ int main(int argc, char** argv) {
 
   std::shared_ptr<arrow::Schema> schema;
   ABORT_NOT_OK(info->GetSchema(&schema));
+
+  if (info->endpoints().size() == 0) {
+    std::cerr << "No endpoints returned from Flight server." << std::endl;
+    return -1;
+  }
+
   arrow::flight::Ticket ticket = info->endpoints()[0].ticket;
   std::unique_ptr<arrow::RecordBatchReader> stream;
   ABORT_NOT_OK(client->DoGet(ticket, schema, &stream));
