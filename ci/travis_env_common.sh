@@ -79,7 +79,7 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
   export DISTRO_CODENAME=`lsb_release -s -c`
 fi
 
-if [ $TRAVIS_OS_NAME == "linux" ] && [ "$DISTRO_CODENAME" != "trusty" ]; then
+if [ "$ARROW_TRAVIS_USE_SYSTEM_JAVA" == "1" ]; then
     # Use the Ubuntu-provided OpenJDK
     unset JAVA_HOME
     export TRAVIS_MVN=/usr/bin/mvn
