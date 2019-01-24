@@ -920,7 +920,7 @@ class TestPlasmaClient(object):
 
 
 @pytest.mark.plasma
-class TestPlasmaClient(object):
+class TestEvictionToExternalStore(object):
 
     def setup_method(self, test_method):
         import pyarrow.plasma as plasma
@@ -952,7 +952,7 @@ class TestPlasmaClient(object):
         data = b'x' * 100 * 1024
         metadata = b''
 
-        for i in range(0, 11):
+        for i in range(0, 20):
             # Test for object non-existence.
             assert not client.contains(object_ids[i])
 
@@ -962,12 +962,12 @@ class TestPlasmaClient(object):
             # Test that the client can get the object.
             assert client.contains(object_ids[i])
 
-        for i in range(0, 11):
+        for i in range(0, 20):
             # Since we are accessing objects sequentially, every object we
             # access would be a cache "miss" owing to LRU eviction.
-            # Try and access the object from the plasma store first, and then try
-            # external store on failure. This should succeed to fetch the object.
-            # However, it may evict the next few objects.
+            # Try and access the object from the plasma store first, and then
+            # try external store on failure. This should succeed to fetch the
+            # object. However, it may evict the next few objects.
             [result] = client.get_buffers([object_ids[i]])
             assert result.to_pybytes() == data
 
