@@ -28,7 +28,7 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
         CONDA_PACKAGES="$CONDA_PACKAGES llvmdev=6.0.1"
     fi
 
-    if [ $TRAVIS_OS_NAME == "linux" ]; then
+    if [ $TRAVIS_OS_NAME == "linux" ] && [ "$DISTRO_CODENAME" != "trusty" ]; then
         # Use newer binutils when linking against conda-provided libraries
         CONDA_PACKAGES="$CONDA_PACKAGES binutils"
     fi
