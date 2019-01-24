@@ -19,8 +19,10 @@
 #define PLASMA_TEST_UTIL_H
 
 #include <algorithm>
+#include <csignal>
 #include <limits>
 #include <random>
+#include <string>
 
 #include "plasma/common.h"
 
@@ -35,6 +37,21 @@ ObjectID random_object_id() {
   std::generate(data, data + kUniqueIDSize,
                 [&d, &gen] { return static_cast<uint8_t>(d(gen)); });
   return result;
+}
+
+pid_t start_process(const std::string& command) {
+  pid_t pid = fork();
+  if (pid == 0) {
+    execl("/bin/sh", "sh", "-c", command.c_str(), NULL);
+    perror("execl");
+    exit(1);
+  }
+  return pid;
+}
+
+void stop_process(pid_t pid) {
+  kill(pid, SIGTERM);
+  wait(nullptr);
 }
 
 }  // namespace plasma

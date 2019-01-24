@@ -62,22 +62,15 @@ class TestPlasmaStore : public ::testing::Test {
     std::string plasma_command = plasma_directory +
                                  "/plasma_store_server -m 1000000000 -s " +
                                  store_socket_name_ + " 1> /dev/null 2> /dev/null &";
-    system(plasma_command.c_str());
+    store_pid_ = start_process(plasma_command);
+    ARROW_CHECK(store_pid_ > 0);
     ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
     ARROW_CHECK_OK(client2_.Connect(store_socket_name_, ""));
   }
   virtual void TearDown() {
     ARROW_CHECK_OK(client_.Disconnect());
     ARROW_CHECK_OK(client2_.Disconnect());
-    // Kill all plasma_store processes
-    // TODO should only kill the processes we launched
-#ifdef COVERAGE_BUILD
-    // Ask plasma_store to exit gracefully and give it time to write out
-    // coverage files
-    system("killall -TERM plasma_store_server");
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-#endif
-    system("killall -KILL plasma_store_server");
+    stop_process(store_pid_);
   }
 
   void CreateObject(PlasmaClient& client, const ObjectID& object_id,
@@ -101,6 +94,7 @@ class TestPlasmaStore : public ::testing::Test {
   PlasmaClient client_;
   PlasmaClient client2_;
   std::string store_socket_name_;
+  pid_t store_pid_;
 };
 
 TEST_F(TestPlasmaStore, NewSubscriberTest) {
