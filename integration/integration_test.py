@@ -1044,6 +1044,7 @@ class Tester(object):
 class JavaTester(Tester):
     PRODUCER = True
     CONSUMER = True
+    FLIGHT_SERVER = True
     FLIGHT_CLIENT = True
 
     _arrow_version = load_version_from_pom()
@@ -1107,6 +1108,19 @@ class JavaTester(Tester):
             print(' '.join(cmd))
         run_cmd(cmd)
 
+    @contextlib.contextmanager
+    def flight_server(self):
+        cmd = ['java', '-cp', self.ARROW_FLIGHT_JAR,
+               'org.apache.arrow.flight.example.integration.IntegrationTestServer']
+        if self.debug:
+            print(' '.join(cmd))
+        server = subprocess.Popen(cmd)
+        try:
+            time.sleep(1)
+            yield
+        finally:
+            server.terminate()
+
 
 class CPPTester(Tester):
     PRODUCER = True
@@ -1165,6 +1179,8 @@ class CPPTester(Tester):
 
     @contextlib.contextmanager
     def flight_server(self):
+        if self.debug:
+            print(self.FLIGHT_SERVER_PATH)
         server = subprocess.Popen([self.FLIGHT_SERVER_PATH])
         try:
             time.sleep(1)

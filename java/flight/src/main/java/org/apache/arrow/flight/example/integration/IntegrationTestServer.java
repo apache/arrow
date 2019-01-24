@@ -18,6 +18,7 @@
 package org.apache.arrow.flight.example.integration;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.concurrent.Callable;
 
@@ -37,6 +38,7 @@ import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.JsonFileReader;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -44,7 +46,7 @@ public class IntegrationTestServer {
   public static void main(String[] args) throws Exception {
     final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     try (final IntegrationFlightProducer producer = new IntegrationFlightProducer(allocator);
-         final FlightServer server = new FlightServer(allocator, 31338, producer, ServerAuthHandler.NO_OP)) {
+         final FlightServer server = new FlightServer(allocator, 31337, producer, ServerAuthHandler.NO_OP)) {
       server.start();
       while (true) {
         Thread.sleep(30000);
@@ -66,7 +68,20 @@ public class IntegrationTestServer {
 
     @Override
     public void getStream(Ticket ticket, ServerStreamListener listener) {
-
+      String path = new String(ticket.getBytes(), StandardCharsets.UTF_8);
+      File inputFile = new File(path);
+      try (JsonFileReader reader = new JsonFileReader(inputFile, allocator)) {
+        Schema schema = reader.start();
+        try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+          listener.start(root);
+          while (reader.read(root)) {
+            listener.putNext();
+          }
+          listener.completed();
+        }
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
     }
 
     @Override
@@ -86,7 +101,6 @@ public class IntegrationTestServer {
       File inputFile = new File(path);
       try (JsonFileReader reader = new JsonFileReader(inputFile, allocator)) {
         Schema schema = reader.start();
-        System.out.println(schema.toString());
         return new FlightInfo(schema, descriptor,
             Collections.singletonList(new FlightEndpoint(new Ticket(path.getBytes()),
             new Location("localhost", 31338))),
