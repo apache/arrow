@@ -37,7 +37,7 @@ if [ "$ARROW_TRAVIS_GANDIVA" == "1" ]; then
     sudo apt-get install -y -qq llvm-6.0-dev
 fi
 
-if [ "$DISTRO_CODENAME" != "trusty"]; then
+if [ "$DISTRO_CODENAME" != "trusty" ]; then
     sudo apt-get install -y -qq maven
 
     # Remove Travis-specific versions of Java
