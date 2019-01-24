@@ -33,3 +33,8 @@ struct Def {
 // 	#[parquet(rename = 123)]
 //     a: String,
 // }
+
+#[derive(Deserialize)]
+struct Jkl<M> {
+    a: M,
+}

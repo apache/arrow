@@ -25,58 +25,55 @@ extern crate syn;
 extern crate quote;
 
 use proc_macro2::{Span, TokenStream};
-use quote::ToTokens;
 use std::iter;
-use syn::spanned::Spanned;
 use syn::{
-    parse_macro_input, AngleBracketedGenericArguments, Data, DataStruct, DeriveInput, Field,
-    Fields, Ident, Lifetime, Meta, NestedMeta, Path, PathArguments, Type,
+    punctuated::Punctuated, spanned::Spanned, Attribute, Data, DataEnum, DeriveInput, Error, Field,
+    Fields, Ident, Lit, LitStr, Meta, NestedMeta, TypeParam, WhereClause,
 };
 
 #[proc_macro_derive(Deserialize, attributes(parquet))]
 pub fn parquet_deserialize(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let ast: syn::DeriveInput = syn::parse(input).unwrap();
-    let result = match ast.data {
-        syn::Data::Struct(ref s) => new_for_struct(&ast, &s.fields),
-        syn::Data::Enum(ref e) => new_for_enum(&ast, e),
-        syn::Data::Union(_) => panic!("doesn't work with unions yet"),
-    };
-    let result = result.unwrap_or_else(|err| err.to_compile_error());
-    result.into()
+    syn::parse::<DeriveInput>(input)
+        .and_then(|ast| match ast.data {
+            Data::Struct(ref s) => match s.fields {
+                Fields::Named(ref fields) => impl_struct(&ast, &fields.named),
+                Fields::Unit => impl_struct(&ast, &Punctuated::new()),
+                Fields::Unnamed(ref fields) => impl_tuple_struct(&ast, &fields.unnamed),
+            },
+            Data::Enum(ref e) => impl_enum(&ast, e),
+            Data::Union(_) => unimplemented!("#[derive(Deserialize)] doesn't work with unions"),
+        })
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
 }
 
-fn new_for_struct(ast: &syn::DeriveInput, fields: &syn::Fields) -> Result<TokenStream, syn::Error> {
-    match *fields {
-        syn::Fields::Named(ref fields) => new_impl(&ast, &fields.named, true),
-        syn::Fields::Unit => new_impl(&ast, &syn::punctuated::Punctuated::new(), true),
-        syn::Fields::Unnamed(ref fields) => new_impl(&ast, &fields.unnamed, false),
-    }
-}
-
-fn new_for_enum(ast: &syn::DeriveInput, data: &syn::DataEnum) -> Result<TokenStream, syn::Error> {
-    if data.variants.is_empty() {
-        panic!("#[derive(Deserialize)] cannot be implemented for enums with zero variants");
-    }
-    unimplemented!()
-    // let impls = data.variants.iter().map(|v| {
-    //     if v.discriminant.is_some() {
-    //         panic!("#[derive(new)] cannot be implemented for enums with discriminants");
-    //     }
-    //     new_for_struct(ast, &v.fields, Some(&v.ident))
-    // });
-    // my_quote!(#(#impls)*)
-}
-
-fn new_impl(
-    ast: &syn::DeriveInput,
-    fields: &syn::punctuated::Punctuated<syn::Field, Token![,]>,
-    named: bool,
-) -> Result<TokenStream, syn::Error> {
+fn impl_struct(
+    ast: &DeriveInput,
+    fields: &Punctuated<Field, Token![,]>,
+) -> Result<TokenStream, Error> {
     let name = &ast.ident;
     let schema_name = Ident::new(&format!("{}Schema", name), Span::call_site());
     let reader_name = Ident::new(&format!("{}Reader", name), Span::call_site());
 
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+
+    let mut where_clause = where_clause
+        .map(Clone::clone)
+        .unwrap_or_else(|| WhereClause {
+            where_token: <Token![where]>::default(),
+            predicates: Punctuated::new(),
+        });
+    for TypeParam { ident, .. } in ast.generics.type_params() {
+        where_clause
+            .predicates
+            .push(syn::parse2(quote! { #ident: Deserialize }).unwrap());
+    }
+    let mut where_clause_with_debug = where_clause.clone();
+    for TypeParam { ident, .. } in ast.generics.type_params() {
+        where_clause_with_debug
+            .predicates
+            .push(syn::parse2(quote! { <#ident as Deserialize>::Schema: Debug }).unwrap());
+    }
 
     let field_renames1 = fields
         .iter()
@@ -89,7 +86,7 @@ fn new_impl(
                         NestedMeta::Meta(Meta::NameValue(ref m)) if m.ident == "rename" => {
                             let s = get_lit_str(&m.ident, &m.ident, &m.lit)?;
                             if rename.is_some() {
-                                return Err(syn::Error::new_spanned(
+                                return Err(Error::new_spanned(
                                     &m.ident,
                                     "duplicate parquet attribute `rename`",
                                 ));
@@ -97,13 +94,13 @@ fn new_impl(
                             rename = Some(s.clone());
                         }
                         NestedMeta::Meta(ref meta_item) => {
-                            return Err(syn::Error::new_spanned(
+                            return Err(Error::new_spanned(
                                 meta_item.name(),
                                 format!("unknown parquet field attribute `{}`", meta_item.name()),
                             ));
                         }
                         NestedMeta::Literal(ref lit) => {
-                            return Err(syn::Error::new_spanned(
+                            return Err(Error::new_spanned(
                                 lit,
                                 "unexpected literal in parquet field attribute",
                             ));
@@ -112,7 +109,7 @@ fn new_impl(
                 }
             }
             Ok(rename.unwrap_or_else(|| {
-                syn::LitStr::new(&field.ident.as_ref().unwrap().to_string(), field.span())
+                LitStr::new(&field.ident.as_ref().unwrap().to_string(), field.span())
             }))
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -131,86 +128,87 @@ fn new_impl(
     let field_names10 = fields.iter().map(|field| field.ident.as_ref().unwrap());
     let field_names11 = fields.iter().map(|field| field.ident.as_ref().unwrap());
     let field_names12 = fields.iter().map(|field| field.ident.as_ref().unwrap());
+    let field_names13 = fields.iter().map(|field| field.ident.as_ref().unwrap());
+    let field_names14 = fields.iter().map(|field| field.ident.as_ref().unwrap());
 
     let field_types1 = fields.iter().map(|field| &field.ty);
     let field_types2 = fields.iter().map(|field| &field.ty);
     let field_types3 = fields.iter().map(|field| &field.ty);
     let field_types4 = fields.iter().map(|field| &field.ty);
 
-    let name1 = iter::repeat(name);
+    let name1 = iter::repeat(name).take(fields.len());
 
     let gen = quote! {
         use _parquet::{
             basic::Repetition,
             column::reader::ColumnReader,
             errors::ParquetError,
-            record::reader::Reader,
-            record::Deserialize,
-            record::DisplaySchema,
-            schema::types::ColumnDescPtr,
-            schema::types::{ColumnPath, Type},
+            record::{Deserialize, DisplaySchema, reader::Reader},
+            schema::types::{ColumnDescPtr, ColumnPath, Type},
         };
-        use ::std::{collections::HashMap, fmt, result::Result, string::String, vec::Vec};
+        use ::std::{collections::HashMap, fmt::{self, Debug}, result::Result, string::String, vec::Vec};
 
-        #[derive(Debug)]
-        struct #schema_name {
+        struct #schema_name #impl_generics #where_clause {
             #(#field_names1: <#field_types1 as Deserialize>::Schema,)*
         }
-        impl DisplaySchema for #schema_name {
-            fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        impl #impl_generics Debug for #schema_name #ty_generics #where_clause_with_debug {
+            fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
                 f.debug_struct(stringify!(#schema_name))
-                    // $(.field(stringify!($name), &DisplayDisplayType::<<$type_ as Deserialize>::Schema>::new()))*
+                    #(.field(stringify!(#field_names2), &self.#field_names3))*
                     .finish()
+            }
+        }
+        impl #impl_generics DisplaySchema for #schema_name #ty_generics #where_clause {
+            fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+                unimplemented!()
             }
             fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-                f.debug_struct(stringify!(#schema_name))
-                    // $(.field(stringify!($name), &DisplayDisplayType::<<$type_ as Deserialize>::Schema>::new()))*
-                    .finish()
+                unimplemented!()
             }
         }
-        struct #reader_name {
-            #(#field_names2: <#field_types2 as Deserialize>::Reader,)*
+        struct #reader_name #impl_generics #where_clause {
+            #(#field_names4: <#field_types2 as Deserialize>::Reader,)*
         }
-        impl Reader for #reader_name {
-            type Item = #name;
+        impl #impl_generics Reader for #reader_name #ty_generics #where_clause {
+            type Item = #name #ty_generics;
 
             fn read(&mut self) -> Result<Self::Item, ParquetError> {
                 Result::Ok(#name {
-                    #(#field_names3: self.#field_names4.read()?,)*
+                    #(#field_names5: self.#field_names6.read()?,)*
                 })
             }
             fn advance_columns(&mut self) -> Result<(), ParquetError> {
-                #(self.#field_names5.advance_columns()?;)*
+                #(self.#field_names7.advance_columns()?;)*
                 Result::Ok(())
             }
             fn has_next(&self) -> bool {
-                #(if true { self.#field_names6.has_next() } else)*
+                #(if true { self.#field_names8.has_next() } else)*
                 {
                     true
                 }
             }
             fn current_def_level(&self) -> i16 {
-                #(if true { self.#field_names7.current_def_level() } else)*
+                #(if true { self.#field_names9.current_def_level() } else)*
                 {
                     panic!("Current definition level: empty group reader")
                 }
             }
             fn current_rep_level(&self) -> i16 {
-                #(if true { self.#field_names8.current_rep_level() } else)*
+                #(if true { self.#field_names10.current_rep_level() } else)*
                 {
                     panic!("Current repetition level: empty group reader")
                 }
             }
         }
         impl #impl_generics Deserialize for #name #ty_generics #where_clause {
-            type Schema = #schema_name;
-            type Reader = #reader_name;
+            type Schema = #schema_name #ty_generics;
+            type Reader = #reader_name #ty_generics;
 
             fn parse(schema: &Type) -> Result<(String,Self::Schema),ParquetError> {
                 if schema.is_group() && !schema.is_schema() && schema.get_basic_info().repetition() == Repetition::REQUIRED {
                     let fields = schema.get_fields().iter().map(|field|(field.name(),field)).collect::<HashMap<_,_>>();
                     let schema_ = #schema_name{
-                        #(#field_names9: fields.get(#field_renames1).ok_or(ParquetError::General(format!("Struct {} missing field {}", stringify!(#name1), #field_renames2))).and_then(|x|<#field_types3 as Deserialize>::parse(&**x))?.1,)*
+                        #(#field_names11: fields.get(#field_renames1).ok_or(ParquetError::General(format!("Struct {} missing field {}", stringify!(#name1), #field_renames2))).and_then(|x|<#field_types3 as Deserialize>::parse(&**x))?.1,)*
                     };
                     return Result::Ok((schema.name().to_owned(), schema_))
                 }
@@ -219,10 +217,10 @@ fn new_impl(
             fn reader(schema: &Self::Schema, mut path: &mut Vec<String>, curr_def_level: i16, curr_rep_level: i16, paths: &mut HashMap<ColumnPath, (ColumnDescPtr,ColumnReader)>, batch_size: usize) -> Self::Reader {
                 #(
                     path.push(#field_renames3.to_owned());
-                    let #field_names10 = <#field_types4 as Deserialize>::reader(&schema.#field_names11, path, curr_def_level, curr_rep_level, paths, batch_size);
+                    let #field_names12 = <#field_types4 as Deserialize>::reader(&schema.#field_names13, path, curr_def_level, curr_rep_level, paths, batch_size);
                     path.pop().unwrap();
                 )*
-                #reader_name { #(#field_names12,)* }
+                #reader_name { #(#field_names14,)* }
             }
         }
     };
@@ -230,7 +228,60 @@ fn new_impl(
     Ok(wrap_in_const("DESERIALIZE", name, gen))
 }
 
-fn get_parquet_meta_items(attr: &syn::Attribute) -> Option<Vec<syn::NestedMeta>> {
+fn impl_tuple_struct(
+    ast: &DeriveInput,
+    fields: &Punctuated<Field, Token![,]>,
+) -> Result<TokenStream, Error> {
+    let _name = &ast.ident;
+    let _schema_name = Ident::new(&format!("{}Schema", _name), Span::call_site());
+    let _reader_name = Ident::new(&format!("{}Reader", _name), Span::call_site());
+
+    let (_impl_generics, _ty_generics, _where_clause) = ast.generics.split_for_impl();
+
+    for field in fields.iter() {
+        for meta_items in field.attrs.iter().filter_map(get_parquet_meta_items) {
+            for meta_item in meta_items {
+                match meta_item {
+                    NestedMeta::Meta(ref meta_item) => {
+                        return Err(Error::new_spanned(
+                            meta_item.name(),
+                            format!("unknown parquet field attribute `{}`", meta_item.name()),
+                        ));
+                    }
+                    NestedMeta::Literal(ref lit) => {
+                        return Err(Error::new_spanned(
+                            lit,
+                            "unexpected literal in parquet field attribute",
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    unimplemented!("#[derive(Deserialize)] on tuple structs not yet implemented")
+}
+
+fn impl_enum(ast: &DeriveInput, data: &DataEnum) -> Result<TokenStream, Error> {
+    if data.variants.is_empty() {
+        return Err(Error::new_spanned(
+            ast,
+            "#[derive(Deserialize)] cannot be implemented for enums with zero variants",
+        ));
+    }
+    for v in data.variants.iter() {
+        if v.fields.iter().len() == 0 {
+            return Err(Error::new_spanned(
+                v,
+                "#[derive(Deserialize)] cannot be implemented for enums with non-unit variants",
+            ));
+        }
+    }
+
+    unimplemented!("#[derive(Deserialize)] on enums not yet implemented")
+}
+
+fn get_parquet_meta_items(attr: &Attribute) -> Option<Vec<NestedMeta>> {
     if attr.path.segments.len() == 1 && attr.path.segments[0].ident == "parquet" {
         match attr.interpret_meta() {
             Some(Meta::List(ref meta)) => Some(meta.nested.iter().cloned().collect()),
@@ -247,12 +298,12 @@ fn get_parquet_meta_items(attr: &syn::Attribute) -> Option<Vec<syn::NestedMeta>>
 fn get_lit_str<'a>(
     attr_name: &Ident,
     meta_item_name: &Ident,
-    lit: &'a syn::Lit,
-) -> Result<&'a syn::LitStr, syn::Error> {
-    if let syn::Lit::Str(ref lit) = *lit {
+    lit: &'a Lit,
+) -> Result<&'a LitStr, Error> {
+    if let Lit::Str(ref lit) = *lit {
         Ok(lit)
     } else {
-        Err(syn::Error::new_spanned(
+        Err(Error::new_spanned(
             lit,
             format!(
                 "expected parquet {} attribute to be a string: `{} = \"...\"`",
