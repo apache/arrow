@@ -816,7 +816,7 @@ if(NOT MSVC)
     ${CMAKE_DL_LIBS})
 endif()
 
-if ("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
+if (ARROW_BUILD_TESTS AND "${ARROW_TEST_LINKAGE}" STREQUAL "shared")
   if (NOT ARROW_BUILD_SHARED)
     message(FATAL_ERROR "If using shared linkage for unit tests, must also \
 pass ARROW_BUILD_SHARED=on")
