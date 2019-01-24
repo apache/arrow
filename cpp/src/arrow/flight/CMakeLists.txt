@@ -88,7 +88,7 @@ if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   target_link_libraries(flight-test-server
     ${ARROW_FLIGHT_TEST_STATIC_LINK_LIBS}
     gflags_static
-    gtest_static)
+    ${GTEST_LIBRARY})
 
   # This is needed for the unit tests
   if (ARROW_BUILD_TESTS)
@@ -117,7 +117,7 @@ if (ARROW_BUILD_BENCHMARKS)
     arrow_flight_static
     ${ARROW_FLIGHT_STATIC_LINK_LIBS}
     gflags_static
-    gtest_static)
+    ${GTEST_LIBRARY})
 
   add_executable(flight-benchmark
     flight-benchmark.cc
@@ -126,7 +126,7 @@ if (ARROW_BUILD_BENCHMARKS)
     arrow_flight_static
     ${ARROW_FLIGHT_STATIC_LINK_LIBS}
     gflags_static
-    gtest_static)
+    ${GTEST_LIBRARY})
 
   add_dependencies(flight-benchmark flight-perf-server)
 endif(ARROW_BUILD_BENCHMARKS)

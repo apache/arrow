@@ -81,8 +81,8 @@ if(MSVC)
 endif()
 
 set(PARQUET_MIN_TEST_LIBS
-  gtest_main_static
-  gtest_static)
+  ${GTEST_MAIN_LIBRARY}
+  ${GTEST_LIBRARY})
 
 if (APPLE)
   set(PARQUET_MIN_TEST_LIBS

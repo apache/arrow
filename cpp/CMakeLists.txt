@@ -796,8 +796,8 @@ set(ARROW_TEST_STATIC_LINK_LIBS
   arrow_testing_static
   arrow_static
   ${ARROW_LINK_LIBS}
-  gtest_main_static
-  gtest_static)
+  ${GTEST_MAIN_LIBRARY}
+  ${GTEST_LIBRARY})
 
 set(ARROW_TEST_SHARED_LINK_LIBS
   arrow_testing_shared
@@ -807,8 +807,8 @@ set(ARROW_TEST_SHARED_LINK_LIBS
   ${BOOST_SYSTEM_LIBRARY}
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY}
-  gtest_main_static
-  gtest_static)
+  ${GTEST_MAIN_LIBRARY}
+  ${GTEST_LIBRARY})
 
 if(NOT MSVC)
   set(ARROW_TEST_SHARED_LINK_LIBS
