@@ -119,6 +119,20 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   /// \brief Return device number
   int device_number() const;
 
+  /// \brief Return the device address that is reachable from kernels
+  /// running in the context
+  /// \param[in] addr device or host memory address
+  /// \param[out] devaddr the device address
+  /// \return Status
+  ///
+  /// The device address is defined as a memory address accessible by
+  /// device. While it is often a device memory address, it can be
+  /// also a host memory address, for instance, when the memory is
+  /// allocated as host memory (using cudaMallocHost or cudaHostAlloc)
+  /// or as managed memory (using cudaMallocManaged) or the host
+  /// memory is page-locked (using cudaHostRegister).
+  Status GetDeviceAddress(uint8_t* addr, uint8_t** devaddr);
+
  private:
   CudaContext();
 

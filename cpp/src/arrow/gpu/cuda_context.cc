@@ -343,5 +343,12 @@ void* CudaContext::handle() const { return impl_->context_handle(); }
 
 int CudaContext::device_number() const { return impl_->device().device_num; }
 
+Status CudaContext::GetDeviceAddress(uint8_t* addr, uint8_t** devaddr) {
+  ContextSaver set_temporary(reinterpret_cast<CUcontext>(handle()));
+  CU_RETURN_NOT_OK(cuPointerGetAttribute(devaddr, CU_POINTER_ATTRIBUTE_DEVICE_POINTER,
+                                         reinterpret_cast<CUdeviceptr>(addr)));
+  return Status::OK();
+}
+
 }  // namespace cuda
 }  // namespace arrow

@@ -15,10 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
+
 from pyarrow.compat import tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_cuda cimport *
-from pyarrow.lib import py_buffer, allocate_buffer, as_buffer
+from pyarrow.lib import py_buffer, allocate_buffer, as_buffer, ArrowTypeError
+from pyarrow.util import get_contiguous_span
 cimport cpython as cp
 
 
@@ -137,9 +139,39 @@ cdef class Context:
 
     @property
     def bytes_allocated(self):
-        """ Return the number of allocated bytes.
+        """Return the number of allocated bytes.
         """
         return self.context.get().bytes_allocated()
+
+    def get_device_address(self, address):
+        """Return the device address that is reachable from kernels running in
+        the context
+
+        Parameters
+        ----------
+        address : int
+          Specify memory address value
+
+        Returns
+        -------
+        device_address : int
+          Device address accessible from device context
+
+        Notes
+        -----
+        The device address is defined as a memory address accessible
+        by device. While it is often a device memory address but it
+        can be also a host memory address, for instance, when the
+        memory is allocated as host memory (using cudaMallocHost or
+        cudaHostAlloc) or as managed memory (using cudaMallocManaged)
+        or the host memory is page-locked (using cudaHostRegister).
+        """
+        cdef:
+            uintptr_t c_addr = address
+            uint8_t* c_devaddr
+        check_status(self.context.get().GetDeviceAddress(<uint8_t*>c_addr,
+                                                         &c_devaddr))
+        return <uintptr_t>c_devaddr
 
     def new_buffer(self, nbytes):
         """Return new device buffer.
@@ -159,26 +191,32 @@ cdef class Context:
         return pyarrow_wrap_cudabuffer(cudabuf)
 
     def foreign_buffer(self, address, size):
-        """Create device buffer from device address and size as a view.
+        """Create device buffer from address and size as a view.
 
         The caller is responsible for allocating and freeing the
-        memory as well as ensuring that the memory belongs to the
-        CUDA context that this Context instance holds.
+        memory. When `address==size==0` then a new zero-sized buffer
+        is returned.
 
         Parameters
         ----------
         address : int
-          Specify the starting address of the buffer.
+          Specify the starting address of the buffer. The address can
+          refer to both device or host memory but it must be
+          accessible from device after mapping it with
+          `get_device_address` method.
         size : int
           Specify the size of device buffer in bytes.
 
         Returns
         -------
         cbuf : CudaBuffer
-          Device buffer as a view of device memory.
+          Device buffer as a view of device reachable memory.
+
         """
+        if not address and size == 0:
+            return self.new_buffer(0)
         cdef:
-            intptr_t c_addr = address
+            uintptr_t c_addr = self.get_device_address(address)
             int64_t c_size = size
             shared_ptr[CCudaBuffer] cudabuf
         check_status(self.context.get().View(<uint8_t*>c_addr,
@@ -245,6 +283,49 @@ cdef class Context:
         else:
             result.copy_from_device(buf, position=0, nbytes=size)
         return result
+
+    def buffer_from_object(self, obj):
+        """Create device buffer view of arbitrary object that references
+        device accessible memory.
+
+        When the object contains a non-contiguous view of device
+        accessbile memory then the returned device buffer will contain
+        contiguous view of the memory, that is, including the
+        intermediate data that is otherwise invisible to the input
+        object.
+
+        Parameters
+        ----------
+        obj : {object, Buffer, HostBuffer, CudaBuffer, ...}
+          Specify an object that holds (device or host) address that
+          can be accessed from device. This includes objects with
+          types defined in pyarrow.cuda as well as arbitrary objects
+          that implement the CUDA array interface as defined by numba.
+
+        Returns
+        -------
+        cbuf : CudaBuffer
+          Device buffer as a view of device accessible memory.
+
+        """
+        if isinstance(obj, HostBuffer):
+            return self.foreign_buffer(obj.address, obj.size)
+        elif isinstance(obj, Buffer):
+            return CudaBuffer.from_buffer(obj)
+        elif isinstance(obj, CudaBuffer):
+            return obj
+        elif hasattr(obj, '__cuda_array_interface__'):
+            desc = obj.__cuda_array_interface__
+            addr = desc['data'][0]
+            if addr is None:
+                return self.new_buffer(0)
+            import numpy as np
+            start, end = get_contiguous_span(
+                desc['shape'], desc.get('strides'),
+                np.dtype(desc['typestr']).itemsize)
+            return self.foreign_buffer(addr + start, end - start)
+        raise ArrowTypeError('cannot create device buffer view from'
+                             ' `%s` object' % (type(obj)))
 
 
 cdef class IpcMemHandle:
@@ -343,6 +424,8 @@ cdef class CudaBuffer(Buffer):
           Device buffer as a view of numba MemoryPointer.
         """
         ctx = Context.from_numba(mem.context)
+        if mem.device_pointer.value is None and mem.size==0:
+            return ctx.new_buffer(0)
         return ctx.foreign_buffer(mem.device_pointer.value, mem.size)
 
     def to_numba(self):
