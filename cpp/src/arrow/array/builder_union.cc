@@ -23,8 +23,9 @@
 
 namespace arrow {
 
-DenseUnionBuilder::DenseUnionBuilder(MemoryPool* pool)
-    : ArrayBuilder(nullptr, pool), types_builder_(pool), offsets_builder_(pool) {}
+DenseUnionBuilder::DenseUnionBuilder(MemoryPool* pool,
+                                     const std::shared_ptr<DataType>& type)
+    : ArrayBuilder(type, pool), types_builder_(pool), offsets_builder_(pool) {}
 
 Status DenseUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> types;
@@ -46,7 +47,10 @@ Status DenseUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
     type_ids.push_back(static_cast<uint8_t>(i));
   }
 
-  type_ = union_(fields, type_ids, UnionMode::DENSE);
+  // If the type has not been specified in the constructor, infer it
+  if (!type_) {
+    type_ = union_(fields, type_ids, UnionMode::DENSE);
+  }
 
   *out = ArrayData::Make(type_, length(), {null_bitmap, types, offsets}, null_count_);
   (*out)->child_data = std::move(child_data);

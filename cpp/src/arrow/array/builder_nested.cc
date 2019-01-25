@@ -99,7 +99,7 @@ Status ListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
     RETURN_NOT_OK(value_builder_->FinishInternal(&items));
   }
 
-  // If the type hasn't been specified in the constructor, try to infer it
+  // If the type has not been specified in the constructor, infer it
   if (!std::dynamic_pointer_cast<ListType>(type_)->value_type()) {
     type_ = std::static_pointer_cast<DataType>(
         std::make_shared<ListType>(value_builder_->type()));
@@ -153,7 +153,7 @@ Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
     RETURN_NOT_OK(children_[i]->FinishInternal(&child_data[i]));
   }
 
-  // If the type has not been specified, infer it.
+  // If the type has not been specified in the constructor, infer it
   if (!type_) {
     std::vector<std::shared_ptr<Field>> fields;
     for (const auto& field_builder : children_) {

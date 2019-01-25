@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "arrow/array.h"
@@ -43,7 +44,8 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
  public:
   /// Use this constructor to incrementally build the union array along
   /// with types, offsets, and null bitmap.
-  DenseUnionBuilder(MemoryPool* pool);
+  explicit DenseUnionBuilder(MemoryPool* pool,
+                             const std::shared_ptr<DataType>& type = NULLPTR);
 
   Status AppendNull() {
     ARROW_RETURN_NOT_OK(types_builder_.Append(0));
@@ -65,10 +67,10 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
 
   /// \brief Make a new child builder available to the UnionArray
   ///
-  /// \param[in] child the cild builder
+  /// \param[in] child the child builder
   /// \param[in] field_name the name of the field in the union array type
   /// if type inference is used
-  /// \return Child index, which is the "type" argument that needs
+  /// \return child index, which is the "type" argument that needs
   /// to be passed to the "Append" method to add a new element to
   /// the union array.
   int8_t AppendChild(const std::shared_ptr<ArrayBuilder>& child,
