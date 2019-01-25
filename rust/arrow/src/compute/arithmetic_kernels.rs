@@ -125,4 +125,16 @@ mod tests {
             format!("{:?}", e)
         );
     }
+
+//    #[test]
+//    fn test_primitive_array_add_with_nulls() {
+//        let a = Int32Array::from(vec![Some(5), None, Some(7), None]);
+//        let b = Int32Array::from(vec![None, None, Some(6), Some(7)]);
+//        let c = add(&a, &b).unwrap();
+//        assert_eq!(true, c.is_null(0));
+//        assert_eq!(true, c.is_null(1));
+//        assert_eq!(false, c.is_null(2));
+//        assert_eq!(true, c.is_null(3));
+//        assert_eq!(13, c.value(2));
+//    }
 }
