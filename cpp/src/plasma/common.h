@@ -69,7 +69,11 @@ enum class ObjectState : int {
   /// Object was created but not sealed in the local Plasma Store.
   PLASMA_CREATED = 1,
   /// Object is sealed and stored in the local Plasma Store.
-  PLASMA_SEALED
+  PLASMA_SEALED = 2,
+  /// Object is evicted to external store.
+  PLASMA_EVICTED = 3,
+  /// Object is being unevicted from external store.
+  PLASMA_UNEVICTING = 4
 };
 
 namespace internal {
