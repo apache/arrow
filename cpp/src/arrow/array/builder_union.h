@@ -26,9 +26,24 @@
 
 namespace arrow {
 
-class ARROW_EXPORT UnionBuilder : public ArrayBuilder {
+/// \class UnionBuilder
+///
+/// You need to call AppendChild for each of the children builders you want
+/// to use. The function will return an int8_t, which is the type tag
+/// associated with that child. You can then call Append with that tag
+/// (followed by an append on the child builder) to add elements to
+/// the union array.
+///
+/// You can either specify the type when the UnionBuilder is constructed
+/// or let the UnionBuilder infer the type at runtime (by omitting the
+/// type argument from the constructor).
+///
+/// This API is EXPERIMENTAL.
+class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
  public:
-  UnionBuilder(MemoryPool* pool);
+  /// Use this constructor to incrementally build the union array along
+  /// with types, offsets, and null bitmap.
+  DenseUnionBuilder(MemoryPool* pool);
 
   Status AppendNull() {
     ARROW_RETURN_NOT_OK(types_builder_.Append(0));
@@ -36,6 +51,10 @@ class ARROW_EXPORT UnionBuilder : public ArrayBuilder {
     return AppendToBitmap(false);
   }
 
+  /// \brief Append an element to the UnionArray. This must be followed
+  ///        by an append to the appropriate child builder.
+  /// \param[in] type index of the child the value will be appended
+  /// \param[in] offset offset of the value in that child
   Status Append(int8_t type, int32_t offset) {
     ARROW_RETURN_NOT_OK(types_builder_.Append(type));
     ARROW_RETURN_NOT_OK(offsets_builder_.Append(offset));
@@ -44,6 +63,14 @@ class ARROW_EXPORT UnionBuilder : public ArrayBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  /// \brief Make a new child builder available to the UnionArray
+  ///
+  /// \param[in] child the cild builder
+  /// \param[in] field_name the name of the field in the union array type
+  /// if type inference is used
+  /// \return Child index, which is the "type" argument that needs
+  /// to be passed to the "Append" method to add a new element to
+  /// the union array.
   int8_t AppendChild(const std::shared_ptr<ArrayBuilder>& child,
                      const std::string& field_name = "") {
     children_.push_back(child);

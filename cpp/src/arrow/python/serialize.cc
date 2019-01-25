@@ -71,7 +71,7 @@ class SequenceBuilder {
         types_(::arrow::int8(), pool),
         offsets_(::arrow::int32(), pool),
         type_map_(PythonType::MAX) {
-    builder_.reset(new UnionBuilder(pool));
+    builder_.reset(new DenseUnionBuilder(pool));
   }
 
   // Appending a none to the sequence
@@ -224,7 +224,7 @@ class SequenceBuilder {
   // Input arrays may be nullptr
   Status Finish(std::shared_ptr<Array>* out) { return builder_->Finish(out); }
 
-  std::shared_ptr<UnionBuilder> builder() { return builder_; }
+  std::shared_ptr<DenseUnionBuilder> builder() { return builder_; }
 
  private:
   MemoryPool* pool_;
@@ -258,7 +258,7 @@ class SequenceBuilder {
   std::shared_ptr<Int32Builder> ndarray_indices_;
   std::shared_ptr<Int32Builder> buffer_indices_;
 
-  std::shared_ptr<UnionBuilder> builder_;
+  std::shared_ptr<DenseUnionBuilder> builder_;
 };
 
 // Constructing dictionaries of key/value pairs. Sequences of

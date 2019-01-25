@@ -23,10 +23,10 @@
 
 namespace arrow {
 
-UnionBuilder::UnionBuilder(MemoryPool* pool)
+DenseUnionBuilder::DenseUnionBuilder(MemoryPool* pool)
     : ArrayBuilder(nullptr, pool), types_builder_(pool), offsets_builder_(pool) {}
 
-Status UnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+Status DenseUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> types;
   RETURN_NOT_OK(types_builder_.Finish(&types));
   std::shared_ptr<Buffer> offsets;
