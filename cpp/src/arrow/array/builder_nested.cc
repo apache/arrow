@@ -100,7 +100,7 @@ Status ListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   }
 
   // If the type has not been specified in the constructor, infer it
-  if (!std::dynamic_pointer_cast<ListType>(type_)->value_type()) {
+  if (!arrow::internal::checked_cast<ListType&>(*type_).value_type()) {
     type_ = std::static_pointer_cast<DataType>(
         std::make_shared<ListType>(value_builder_->type()));
   }
