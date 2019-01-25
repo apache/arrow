@@ -193,14 +193,10 @@ class SequenceBuilder {
       return new ListBuilder(pool_, values->builder());
     }));
     RETURN_NOT_OK(target_sequence->Append());
-    PyObject* iter = PyObject_GetIter(sequence);
-    RETURN_IF_PYERROR();
-    while (true) {
-      PyObject* item = PyIter_Next(iter);
-      if (!item) break;
-      RETURN_NOT_OK(Append(context, item, values.get(), recursion_depth, blobs_out));
-    }
-    return Status::OK();
+    return internal::VisitIterable(
+        sequence, [&](PyObject* obj, bool* keep_going /* unused */) {
+          return Append(context, obj, values.get(), recursion_depth, blobs_out);
+        });
   }
 
   Status AppendList(PyObject* context, PyObject* list, int32_t recursion_depth,
