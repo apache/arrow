@@ -27,19 +27,6 @@ use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
 
-/// Perform `left + right` operation on two arrays. If either left or right value is null then the result is also null.
-pub fn add<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
-where
-    T: datatypes::ArrowNumericType,
-    T::Native: Add<Output = T::Native>
-        + Sub<Output = T::Native>
-        + Mul<Output = T::Native>
-        + Div<Output = T::Native>
-        + Zero,
-{
-    math_op(left, right, |a, b| Ok(a + b))
-}
-
 /// Perform `left - right` operation on two arrays. If either left or right value is null then the result is also null.
 pub fn subtract<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
@@ -334,31 +321,6 @@ pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
 mod tests {
     use super::*;
     use crate::array::{Float64Array, Int32Array};
-
-    #[test]
-    fn test_primitive_array_add() {
-        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
-        let b = Int32Array::from(vec![6, 7, 8, 9, 8]);
-        let c = add(&a, &b).unwrap();
-        assert_eq!(11, c.value(0));
-        assert_eq!(13, c.value(1));
-        assert_eq!(15, c.value(2));
-        assert_eq!(17, c.value(3));
-        assert_eq!(17, c.value(4));
-    }
-
-    #[test]
-    fn test_primitive_array_add_mismatched_length() {
-        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
-        let b = Int32Array::from(vec![6, 7, 8]);
-        let e = add(&a, &b)
-            .err()
-            .expect("should have failed due to different lengths");
-        assert_eq!(
-            "ComputeError(\"Cannot perform math operation on arrays of different length\")",
-            format!("{:?}", e)
-        );
-    }
 
     #[test]
     fn test_primitive_array_subtract() {
