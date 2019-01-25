@@ -227,7 +227,7 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     /// Note this doesn't do any bound checking, for performance reason.
     pub fn value_slice(&self, offset: usize, len: usize) -> &[T::Native] {
         let raw = unsafe {
-            std::slice::from_raw_parts(self.raw_values().offset(offset as isize), offset + len)
+            std::slice::from_raw_parts(self.raw_values().offset(offset as isize), len)
         };
         &raw[..]
     }
@@ -703,6 +703,19 @@ mod tests {
     use crate::buffer::Buffer;
     use crate::datatypes::{DataType, Field};
     use crate::memory;
+
+    #[test]
+    fn test_example() {
+
+        let mut builder = Int16Array::builder(100);
+        builder.append_value(1).unwrap();
+        builder.append_null().unwrap();
+        builder.append_slice(&[2, 3, 4]).unwrap();
+        let array = builder.finish();
+        assert_eq!(5, array.len(), "The array has 5 values, counting the null value");
+        assert_eq!(2, array.value(2), "Get the value with index 2");
+        assert_eq!(array.value_slice(3, 2), &[3, 4], "Get slice of len 2 starting at idx 3")
+    }
 
     #[test]
     fn test_primitive_array_from_vec() {
