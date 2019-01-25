@@ -18,6 +18,9 @@
 ADD_ARROW_TEST(parser-test
   PREFIX "arrow-json")
 
+ADD_ARROW_TEST(chunker-test
+  PREFIX "arrow-json")
+
 ADD_ARROW_BENCHMARK(parser-benchmark
   PREFIX "arrow-json")
 

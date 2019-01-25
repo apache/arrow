@@ -105,6 +105,7 @@ set(ARROW_SRCS
     csv/parser.cc
     csv/reader.cc
     json/options.cc
+    json/chunker.cc
     json/parser.cc
     io/buffered.cc
     io/compressed.cc

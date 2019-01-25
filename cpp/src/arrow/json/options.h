@@ -38,6 +38,10 @@ struct ARROW_EXPORT ParseOptions {
   // Optional explicit schema (no type inference, ignores other fields)
   std::shared_ptr<Schema> explicit_schema;
 
+  // Whether objects may be printed across multiple lines (for example pretty printed)
+  // NB: if false, input must end with an empty line
+  bool newlines_in_values = false;
+
   static ParseOptions Defaults();
 };
 
