@@ -22,7 +22,6 @@ use std::ops::{Add, Div, Mul, Sub};
 use std::slice::from_raw_parts_mut;
 
 use num::Zero;
-use packed_simd::*;
 
 use crate::array::*;
 use crate::buffer::MutableBuffer;
@@ -30,34 +29,35 @@ use crate::compute::array_ops::math_op;
 use crate::datatypes;
 use crate::error::{ArrowError, Result};
 
-pub fn add_simd(left: &Float32Array, right: &Float32Array) -> Result<Float32Array> {
-    if left.len() != right.len() {
+pub fn add_simd<T>(x: &PrimitiveArray<T>, y: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
+where
+    T: datatypes::SimdType,
+{
+    if x.len() != y.len() {
         return Err(ArrowError::ComputeError(
             "Cannot perform math operation on arrays of different length".to_string(),
         ));
     }
 
-    let lanes = f32x16::lanes();
-    let buffer_size = left.len() * mem::size_of::<f32>();
+    let lanes = T::lanes();
+    let buffer_size = x.len() * mem::size_of::<T::Native>();
     let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
 
-    for i in (0..left.len()).step_by(lanes) {
-        let simd_left =
-            unsafe { f32x16::from_slice_unaligned_unchecked(left.value_slice(i, lanes)) };
-        let simd_right =
-            unsafe { f32x16::from_slice_unaligned_unchecked(right.value_slice(i, lanes)) };
-        let simd_result = simd_left + simd_right;
+    for i in (0..x.len()).step_by(lanes) {
+        let simd_x = T::load(x.value_slice(i, lanes));
+        let simd_y = T::load(y.value_slice(i, lanes));
+        let simd_z = T::add(simd_x, simd_y);
 
-        let result_slice: &mut [f32] = unsafe {
+        let result_slice: &mut [T::Native] = unsafe {
             from_raw_parts_mut(
-                (result.data_mut().as_mut_ptr() as *mut f32).offset(i as isize),
+                (result.data_mut().as_mut_ptr() as *mut T::Native).offset(i as isize),
                 lanes,
             )
         };
-        unsafe { simd_result.write_to_slice_unaligned_unchecked(result_slice) };
+        T::write(simd_z, result_slice);
     }
 
-    Ok(Float32Array::new(left.len(), result.freeze(), 0, 0))
+    Ok(PrimitiveArray::<T>::new(x.len(), result.freeze(), 0, 0))
 }
 
 /// Perform `left + right` operation on two arrays. If either left or right value is null then the result is also null.

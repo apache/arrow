@@ -26,6 +26,7 @@ use std::mem::size_of;
 use std::slice::from_raw_parts;
 use std::str::FromStr;
 
+use packed_simd::*;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -151,8 +152,27 @@ make_type!(UInt64Type, u64, DataType::UInt64, 64, 0u64);
 make_type!(Float32Type, f32, DataType::Float32, 32, 0.0f32);
 make_type!(Float64Type, f64, DataType::Float64, 64, 0.0f64);
 
+
+
+
+
+
+
 /// A subtype of primitive type that represents numeric values.
 pub trait ArrowNumericType: ArrowPrimitiveType {}
+
+pub trait SimdType: ArrowNumericType{
+    type Simd;
+
+    fn lanes() -> usize;
+
+    fn load(slice: &[Self::Native]) -> Self::Simd;
+
+    fn add(left: Self::Simd, right: Self::Simd) -> Self::Simd;
+
+    fn write(simd_result: Self::Simd, slice: &mut [Self::Native]);
+
+}
 
 impl ArrowNumericType for Int8Type {}
 impl ArrowNumericType for Int16Type {}
@@ -163,6 +183,26 @@ impl ArrowNumericType for UInt16Type {}
 impl ArrowNumericType for UInt32Type {}
 impl ArrowNumericType for UInt64Type {}
 impl ArrowNumericType for Float32Type {}
+
+impl SimdType for Float32Type {
+    type Simd = f32x16;
+
+    fn lanes() -> usize {
+        f32x16::lanes()
+    }
+
+    fn load(slice: &[f32]) -> f32x16 {
+        unsafe { f32x16::from_slice_unaligned_unchecked(slice) }
+    }
+
+    fn add(left: f32x16, right: f32x16) -> f32x16 {
+        left + right
+    }
+
+    fn write(simd_result: f32x16, slice: &mut [f32]) {
+        unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
+    }
+}
 impl ArrowNumericType for Float64Type {}
 
 /// Allows conversion from supported Arrow types to a byte slice.
