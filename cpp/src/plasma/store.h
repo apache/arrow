@@ -155,8 +155,9 @@ class PlasmaStore {
   ///
   /// @param object_id Object ID of the object to be sealed.
   /// @param digest The digest of the object. This is used to tell if two
-  /// objects
-  ///        with the same object ID are the same.
+  /// objects with the same object ID are the same.
+  /// @param notify Notification flag; if true, a notification is sent out on seal
+  /// completion, otherwise not.
   void SealObject(const ObjectID& object_id, unsigned char digest[], bool notify);
 
   /// Check if the plasma store contains an object:
