@@ -42,6 +42,7 @@ pub use self::{
     value::*,
 };
 
+/// Due to downcasting from Value -> Option<T>
 pub trait Downcast<T> {
     fn downcast(self) -> Result<T, ParquetError>;
 }

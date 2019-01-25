@@ -23,7 +23,7 @@ use crate::{
     data_type::{Int32Type, Int64Type, Int96, Int96Type},
     errors::ParquetError,
     record::{
-        reader::{I32Reader, I64Reader, I96Reader, MapReader},
+        reader::{I32Reader, I64Reader, I96Reader, MapReader, Reader},
         schemas::{DateSchema, TimeSchema, TimestampSchema},
         triplet::TypedTripletIter,
         types::{downcast, Value},
@@ -41,8 +41,7 @@ const NANOS_PER_MICRO: i64 = 1_000;
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Date(pub(super) i32);
 impl Deserialize for Date {
-    // existential type Reader: Reader<Item = Self>;
-    type Reader = MapReader<I32Reader, fn(i32) -> Result<Self, ParquetError>>;
+    existential type Reader: Reader<Item = Self>;
     type Schema = DateSchema;
 
     fn parse(
@@ -76,11 +75,7 @@ impl Deserialize for Date {
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Time(pub(super) i64);
 impl Deserialize for Time {
-    // existential type Reader: Reader<Item = Self>;
-    type Reader = sum::Sum2<
-        MapReader<I64Reader, fn(i64) -> Result<Self, ParquetError>>,
-        MapReader<I32Reader, fn(i32) -> Result<Self, ParquetError>>,
-    >;
+    existential type Reader: Reader<Item = Self>;
     type Schema = TimeSchema;
 
     fn parse(
@@ -153,12 +148,7 @@ impl Timestamp {
 }
 
 impl Deserialize for Timestamp {
-    // existential type Reader: Reader<Item = Self>;
-    type Reader = sum::Sum3<
-        MapReader<I96Reader, fn(Int96) -> Result<Self, ParquetError>>,
-        MapReader<I64Reader, fn(i64) -> Result<Self, ParquetError>>,
-        MapReader<I64Reader, fn(i64) -> Result<Self, ParquetError>>,
-    >;
+    existential type Reader: Reader<Item = Self>;
     type Schema = TimestampSchema;
 
     fn parse(

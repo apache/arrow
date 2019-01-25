@@ -28,7 +28,7 @@ use crate::{
     column::reader::ColumnReader,
     errors::ParquetError,
     record::{
-        reader::{MapReader, RepeatedReader},
+        reader::{MapReader, Reader, RepeatedReader},
         schemas::{ListSchema, ListSchemaType},
         Deserialize,
     },
@@ -85,15 +85,14 @@ pub(super) fn parse_list<T: Deserialize>(
     )))
 }
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, Eq)]
 pub struct List<T>(pub(in super::super) Vec<T>);
 
 impl<T> Deserialize for List<T>
 where
     T: Deserialize,
 {
-    // existential type Reader: Reader<Item = Self>;
-    type Reader = MapReader<RepeatedReader<T::Reader>, fn(Vec<T>) -> Result<Self, ParquetError>>;
+    existential type Reader: Reader<Item = Self>;
     type Schema = ListSchema<T::Schema>;
 
     fn parse(
@@ -197,6 +196,14 @@ impl<T> From<Vec<T>> for List<T> {
 impl<T> Into<Vec<T>> for List<T> {
     fn into(self) -> Vec<T> {
         self.0
+    }
+}
+impl<T, U> PartialEq<List<U>> for List<T>
+where
+    T: PartialEq<U>,
+{
+    fn eq(&self, other: &List<U>) -> bool {
+        self.0 == other.0
     }
 }
 impl<T, I> Index<I> for List<T>

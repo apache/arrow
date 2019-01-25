@@ -24,7 +24,8 @@ use crate::{
     errors::ParquetError,
     record::{
         reader::{
-            BoolReader, F32Reader, F64Reader, I32Reader, I64Reader, MapReader, TryIntoReader,
+            BoolReader, F32Reader, F64Reader, I32Reader, I64Reader, MapReader, Reader,
+            TryIntoReader,
         },
         schemas::{
             BoolSchema, F32Schema, F64Schema, I16Schema, I32Schema, I64Schema, I8Schema, U16Schema,
@@ -219,8 +220,7 @@ impl Deserialize for i32 {
     }
 }
 impl Deserialize for u32 {
-    // existential type Reader: Reader<Item = Self>;
-    type Reader = MapReader<I32Reader, fn(i32) -> Result<Self, ParquetError>>;
+    existential type Reader: Reader<Item = Self>;
     type Schema = U32Schema;
 
     fn parse(
@@ -280,8 +280,7 @@ impl Deserialize for i64 {
     }
 }
 impl Deserialize for u64 {
-    // existential type Reader: Reader<Item = Self>;
-    type Reader = MapReader<I64Reader, fn(i64) -> Result<Self, ParquetError>>;
+    existential type Reader: Reader<Item = Self>;
     type Schema = U64Schema;
 
     fn parse(

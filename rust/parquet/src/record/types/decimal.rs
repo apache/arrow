@@ -35,12 +35,7 @@ use crate::{
 };
 
 impl Deserialize for Decimal {
-    // existential type Reader: Reader<Item = Self>;
-    type Reader = sum::Sum3<
-        MapReader<I32Reader, fn(i32) -> Result<Self, ParquetError>>,
-        MapReader<I64Reader, fn(i64) -> Result<Self, ParquetError>>,
-        MapReader<ByteArrayReader, fn(Vec<u8>) -> Result<Self, ParquetError>>,
-    >;
+    existential type Reader: Reader<Item = Self>;
     type Schema = DecimalSchema;
 
     fn parse(
@@ -60,47 +55,37 @@ impl Deserialize for Decimal {
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
         let col_reader = paths.remove(&col_path).unwrap();
-        unimplemented!()
-        // match *schema {
-        //     DecimalSchema::Int32 { precision, scale } => sum::Sum3::A(MapReader(
-        //         I32Reader {
-        //             column: TypedTripletIter::<Int32Type>::new(
-        //                 def_level,
-        //                 rep_level,
-        //                 batch_size,
-        //                 col_reader,
-        //             ),
-        //         },
-        //         move |x| Ok(Decimal::from_i32(x, precision as i32, scale as i32)),
-        //     )),
-        //     DecimalSchema::Int64 { precision, scale } => sum::Sum3::B(MapReader(
-        //         I64Reader {
-        //             column: TypedTripletIter::<Int64Type>::new(
-        //                 def_level,
-        //                 rep_level,
-        //                 batch_size,
-        //                 col_reader,
-        //             ),
-        //         },
-        //         move |x| Ok(Decimal::from_i64(x, precision as i32, scale as i32)),
-        //     )),
-        //     DecimalSchema::Array { precision, scale } => sum::Sum3::C(MapReader(
-        //         ByteArrayReader {
-        //             column: TypedTripletIter::<ByteArrayType>::new(
-        //                 def_level,
-        //                 rep_level,
-        //                 batch_size,
-        //                 col_reader,
-        //             ),
-        //         },
-        //         move |x| {
-        //             Ok(Decimal::from_bytes(
-        //                 unimplemented!(),
-        //                 precision as i32,
-        //                 scale as i32,
-        //             ))
-        //         },
-        //     )),
-        // }
+        match *schema {
+            DecimalSchema::Int32 { precision, scale } => sum::Sum3::A(MapReader(
+                I32Reader {
+                    column: TypedTripletIter::<Int32Type>::new(
+                        def_level, rep_level, batch_size, col_reader,
+                    ),
+                },
+                move |x| Ok(Decimal::from_i32(x, precision as i32, scale as i32)),
+            )),
+            DecimalSchema::Int64 { precision, scale } => sum::Sum3::B(MapReader(
+                I64Reader {
+                    column: TypedTripletIter::<Int64Type>::new(
+                        def_level, rep_level, batch_size, col_reader,
+                    ),
+                },
+                move |x| Ok(Decimal::from_i64(x, precision as i32, scale as i32)),
+            )),
+            DecimalSchema::Array { precision, scale } => sum::Sum3::C(MapReader(
+                ByteArrayReader {
+                    column: TypedTripletIter::<ByteArrayType>::new(
+                        def_level, rep_level, batch_size, col_reader,
+                    ),
+                },
+                move |x| {
+                    Ok(Decimal::from_bytes(
+                        unimplemented!(),
+                        precision as i32,
+                        scale as i32,
+                    ))
+                },
+            )),
+        }
     }
 }

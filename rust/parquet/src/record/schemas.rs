@@ -151,8 +151,8 @@ impl DisplaySchema for F64Schema {
 }
 
 #[derive(Debug)]
-pub struct VecSchema(pub(super) Option<u32>);
-impl DisplaySchema for VecSchema {
+pub struct ByteArraySchema(pub(super) Option<u32>);
+impl DisplaySchema for ByteArraySchema {
     fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         if let Some(len) = self.0 {
             f.write_fmt(format_args!(
@@ -168,13 +168,13 @@ impl DisplaySchema for VecSchema {
     }
 }
 
-pub struct ArraySchema<T>(pub(super) PhantomData<fn(T)>);
-impl<T> Debug for ArraySchema<T> {
+pub struct FixedByteArraySchema<T>(pub(super) PhantomData<fn(T)>);
+impl<T> Debug for FixedByteArraySchema<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.debug_tuple("ArraySchema").finish()
+        f.debug_tuple("FixedByteArraySchema").finish()
     }
 }
-impl<T> DisplaySchema for ArraySchema<T> {
+impl<T> DisplaySchema for FixedByteArraySchema<T> {
     fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         f.write_fmt(format_args!(
             "{} fixed_len_byte_array({}) {};",
@@ -194,10 +194,10 @@ impl<T> DisplaySchema for ArraySchema<T> {
 }
 
 #[derive(Debug)]
-pub struct BsonSchema(pub(super) Option<u32>);
+pub struct BsonSchema(pub(super) ByteArraySchema);
 impl DisplaySchema for BsonSchema {
     fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        if let Some(len) = self.0 {
+        if let Some(len) = (self.0).0 {
             f.write_fmt(format_args!(
                 "{} fixed_len_byte_array({}) {} (BSON);",
                 r, len, name
@@ -212,10 +212,17 @@ impl DisplaySchema for BsonSchema {
 }
 
 #[derive(Debug)]
-pub struct StringSchema;
+pub struct StringSchema(pub(super) ByteArraySchema);
 impl DisplaySchema for StringSchema {
     fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} byte_array {} (UTF8);", r, name))
+        if let Some(len) = (self.0).0 {
+            f.write_fmt(format_args!(
+                "{} fixed_len_byte_array({}) {} (UTF8);",
+                r, len, name
+            ))
+        } else {
+            f.write_fmt(format_args!("{} byte_array {} (UTF8);", r, name))
+        }
     }
     fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         f.write_fmt(format_args!("{} byte_array {} (UTF8);", r, name))
@@ -223,10 +230,17 @@ impl DisplaySchema for StringSchema {
 }
 
 #[derive(Debug)]
-pub struct JsonSchema;
+pub struct JsonSchema(pub(super) StringSchema);
 impl DisplaySchema for JsonSchema {
     fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} byte_array {} (JSON);", r, name))
+        if let Some(len) = ((self.0).0).0 {
+            f.write_fmt(format_args!(
+                "{} fixed_len_byte_array({}) {} (JSON);",
+                r, len, name
+            ))
+        } else {
+            f.write_fmt(format_args!("{} byte_array {} (JSON);", r, name))
+        }
     }
     fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         f.write_fmt(format_args!("{} byte_array {} (JSON);", r, name))
@@ -234,10 +248,17 @@ impl DisplaySchema for JsonSchema {
 }
 
 #[derive(Debug)]
-pub struct EnumSchema;
+pub struct EnumSchema(pub(super) StringSchema);
 impl DisplaySchema for EnumSchema {
     fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} byte_array {} (ENUM);", r, name))
+        if let Some(len) = ((self.0).0).0 {
+            f.write_fmt(format_args!(
+                "{} fixed_len_byte_array({}) {} (ENUM);",
+                r, len, name
+            ))
+        } else {
+            f.write_fmt(format_args!("{} byte_array {} (ENUM);", r, name))
+        }
     }
     fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         f.write_fmt(format_args!("{} byte_array {} (ENUM);", r, name))
@@ -426,7 +447,7 @@ pub enum ValueSchema {
     Time(TimeSchema),
     Timestamp(TimestampSchema),
     Decimal(DecimalSchema),
-    Array(VecSchema),
+    ByteArray(ByteArraySchema),
     Bson(BsonSchema),
     String(StringSchema),
     Json(JsonSchema),
@@ -454,7 +475,7 @@ impl DisplaySchema for ValueSchema {
             ValueSchema::Time(schema) => DisplaySchema::fmt(schema, r, name, f),
             ValueSchema::Timestamp(schema) => DisplaySchema::fmt(schema, r, name, f),
             ValueSchema::Decimal(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::Array(schema) => DisplaySchema::fmt(schema, r, name, f),
+            ValueSchema::ByteArray(schema) => DisplaySchema::fmt(schema, r, name, f),
             ValueSchema::Bson(schema) => DisplaySchema::fmt(schema, r, name, f),
             ValueSchema::String(schema) => DisplaySchema::fmt(schema, r, name, f),
             ValueSchema::Json(schema) => DisplaySchema::fmt(schema, r, name, f),
@@ -920,31 +941,31 @@ impl ValueSchema {
         }
     }
 
-    pub fn is_array(&self) -> bool {
-        if let ValueSchema::Array(_) = self {
+    pub fn is_byte_array(&self) -> bool {
+        if let ValueSchema::ByteArray(_) = self {
             true
         } else {
             false
         }
     }
 
-    pub fn as_array(&self) -> Result<&VecSchema, ParquetError> {
-        if let ValueSchema::Array(ret) = self {
+    pub fn as_byte_array(&self) -> Result<&ByteArraySchema, ParquetError> {
+        if let ValueSchema::ByteArray(ret) = self {
             Ok(ret)
         } else {
             Err(ParquetError::General(format!(
-                "Cannot access {:?} as array",
+                "Cannot access {:?} as byte_array",
                 self
             )))
         }
     }
 
-    pub fn into_array(self) -> Result<VecSchema, ParquetError> {
-        if let ValueSchema::Array(ret) = self {
+    pub fn into_byte_array(self) -> Result<ByteArraySchema, ParquetError> {
+        if let ValueSchema::ByteArray(ret) = self {
             Ok(ret)
         } else {
             Err(ParquetError::General(format!(
-                "Cannot access {:?} as array",
+                "Cannot access {:?} as byte_array",
                 self
             )))
         }
@@ -1271,9 +1292,9 @@ impl Downcast<DecimalSchema> for ValueSchema {
         self.into_decimal()
     }
 }
-impl Downcast<VecSchema> for ValueSchema {
-    fn downcast(self) -> Result<VecSchema, ParquetError> {
-        self.into_array()
+impl Downcast<ByteArraySchema> for ValueSchema {
+    fn downcast(self) -> Result<ByteArraySchema, ParquetError> {
+        self.into_byte_array()
     }
 }
 impl Downcast<BsonSchema> for ValueSchema {

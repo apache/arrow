@@ -28,8 +28,10 @@ use crate::{
     data_type::{ByteArrayType, FixedLenByteArrayType},
     errors::ParquetError,
     record::{
-        reader::{ByteArrayReader, FixedLenByteArrayReader, MapReader},
-        schemas::{ArraySchema, BsonSchema, EnumSchema, JsonSchema, StringSchema, VecSchema},
+        reader::{ByteArrayReader, FixedLenByteArrayReader, MapReader, Reader},
+        schemas::{
+            BsonSchema, ByteArraySchema, EnumSchema, FixedByteArraySchema, JsonSchema, StringSchema,
+        },
         triplet::TypedTripletIter,
         types::{downcast, Value},
         Deserialize,
@@ -39,7 +41,7 @@ use crate::{
 
 impl Deserialize for Vec<u8> {
     type Reader = ByteArrayReader;
-    type Schema = VecSchema;
+    type Schema = ByteArraySchema;
 
     fn parse(
         schema: &Type,
@@ -69,9 +71,7 @@ impl Deserialize for Vec<u8> {
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Bson(Vec<u8>);
 impl Deserialize for Bson {
-    // existential type Reader: Reader<Item = Self>;
-    type Reader =
-        MapReader<<Vec<u8> as Deserialize>::Reader, fn(Vec<u8>) -> Result<Self, ParquetError>>;
+    existential type Reader: Reader<Item = Self>;
     type Schema = BsonSchema;
 
     fn parse(
@@ -90,14 +90,7 @@ impl Deserialize for Bson {
         batch_size: usize,
     ) -> Self::Reader {
         MapReader(
-            Vec::<u8>::reader(
-                &VecSchema(schema.0),
-                path,
-                def_level,
-                rep_level,
-                paths,
-                batch_size,
-            ),
+            Vec::<u8>::reader(&schema.0, path, def_level, rep_level, paths, batch_size),
             |x| Ok(Bson(x)),
         )
     }
@@ -114,8 +107,7 @@ impl From<Vec<u8>> for Bson {
 }
 
 impl Deserialize for String {
-    // existential type Reader: Reader<Item = Self>;
-    type Reader = MapReader<ByteArrayReader, fn(Vec<u8>) -> Result<Self, ParquetError>>;
+    existential type Reader: Reader<Item = Self>;
     type Schema = StringSchema;
 
     fn parse(
@@ -126,21 +118,15 @@ impl Deserialize for String {
     }
 
     fn reader(
-        _schema: &Self::Schema,
+        schema: &Self::Schema,
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
         paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
-        let col_path = ColumnPath::new(path.to_vec());
-        let col_reader = paths.remove(&col_path).unwrap();
         MapReader(
-            ByteArrayReader {
-                column: TypedTripletIter::<ByteArrayType>::new(
-                    def_level, rep_level, batch_size, col_reader,
-                ),
-            },
+            Vec::<u8>::reader(&schema.0, path, def_level, rep_level, paths, batch_size),
             |x| {
                 String::from_utf8(x)
                     .map_err(|err: FromUtf8Error| ParquetError::General(err.to_string()))
@@ -152,9 +138,7 @@ impl Deserialize for String {
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Json(String);
 impl Deserialize for Json {
-    // existential type Reader: Reader<Item = Self>;
-    type Reader =
-        MapReader<<String as Deserialize>::Reader, fn(String) -> Result<Self, ParquetError>>;
+    existential type Reader: Reader<Item = Self>;
     type Schema = JsonSchema;
 
     fn parse(
@@ -165,7 +149,7 @@ impl Deserialize for Json {
     }
 
     fn reader(
-        _schema: &Self::Schema,
+        schema: &Self::Schema,
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
@@ -173,7 +157,7 @@ impl Deserialize for Json {
         batch_size: usize,
     ) -> Self::Reader {
         MapReader(
-            String::reader(&StringSchema, path, def_level, rep_level, paths, batch_size),
+            String::reader(&schema.0, path, def_level, rep_level, paths, batch_size),
             |x| Ok(Json(x)),
         )
     }
@@ -197,9 +181,7 @@ impl From<String> for Json {
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Enum(String);
 impl Deserialize for Enum {
-    // existential type Reader: Reader<Item = Self>;
-    type Reader =
-        MapReader<<String as Deserialize>::Reader, fn(String) -> Result<Self, ParquetError>>;
+    existential type Reader: Reader<Item = Self>;
     type Schema = EnumSchema;
 
     fn parse(
@@ -210,7 +192,7 @@ impl Deserialize for Enum {
     }
 
     fn reader(
-        _schema: &Self::Schema,
+        schema: &Self::Schema,
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
@@ -218,7 +200,7 @@ impl Deserialize for Enum {
         batch_size: usize,
     ) -> Self::Reader {
         MapReader(
-            String::reader(&StringSchema, path, def_level, rep_level, paths, batch_size),
+            String::reader(&schema.0, path, def_level, rep_level, paths, batch_size),
             |x| Ok(Enum(x)),
         )
     }
@@ -242,10 +224,8 @@ impl From<String> for Enum {
 macro_rules! impl_parquet_deserialize_array {
     ($i:tt) => {
         impl Deserialize for [u8; $i] {
-            // existential type Reader: Reader<Item = Self>;
-            type Reader =
-                MapReader<FixedLenByteArrayReader, fn(Vec<u8>) -> Result<Self, ParquetError>>;
-            type Schema = ArraySchema<Self>;
+            existential type Reader: Reader<Item = Self>;
+            type Schema = FixedByteArraySchema<Self>;
 
             fn parse(
                 schema: &Type,
@@ -257,7 +237,7 @@ macro_rules! impl_parquet_deserialize_array {
                     && schema.get_basic_info().logical_type() == LogicalType::NONE
                     && schema.get_type_length() == $i
                 {
-                    return Ok((schema.name().to_owned(), ArraySchema(PhantomData)));
+                    return Ok((schema.name().to_owned(), FixedByteArraySchema(PhantomData)));
                 }
                 Err(ParquetError::General(format!(
                     "Can't parse array {:?}",
@@ -297,10 +277,8 @@ macro_rules! impl_parquet_deserialize_array {
             }
         }
         impl Deserialize for Box<[u8; $i]> {
-            // existential type Reader: Reader<Item = Self>;
-            type Reader =
-                MapReader<FixedLenByteArrayReader, fn(Vec<u8>) -> Result<Self, ParquetError>>;
-            type Schema = ArraySchema<[u8; $i]>;
+            existential type Reader: Reader<Item = Self>;
+            type Schema = FixedByteArraySchema<[u8; $i]>;
 
             fn parse(
                 schema: &Type,

@@ -542,7 +542,7 @@ pub enum ValueReader {
     Time(<Time as Deserialize>::Reader),
     Timestamp(<Timestamp as Deserialize>::Reader),
     Decimal(<Decimal as Deserialize>::Reader),
-    Array(<Vec<u8> as Deserialize>::Reader),
+    ByteArray(<Vec<u8> as Deserialize>::Reader),
     Bson(<Bson as Deserialize>::Reader),
     String(<String as Deserialize>::Reader),
     Json(<Json as Deserialize>::Reader),
@@ -576,8 +576,8 @@ impl Reader for ValueReader {
             ValueReader::Decimal(ref mut reader) => {
                 reader.read(def_level, rep_level).map(Value::Decimal)
             }
-            ValueReader::Array(ref mut reader) => {
-                reader.read(def_level, rep_level).map(Value::Array)
+            ValueReader::ByteArray(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::ByteArray)
             }
             ValueReader::Bson(ref mut reader) => reader.read(def_level, rep_level).map(Value::Bson),
             ValueReader::String(ref mut reader) => {
@@ -613,7 +613,7 @@ impl Reader for ValueReader {
             ValueReader::Time(ref mut reader) => reader.advance_columns(),
             ValueReader::Timestamp(ref mut reader) => reader.advance_columns(),
             ValueReader::Decimal(ref mut reader) => reader.advance_columns(),
-            ValueReader::Array(ref mut reader) => reader.advance_columns(),
+            ValueReader::ByteArray(ref mut reader) => reader.advance_columns(),
             ValueReader::Bson(ref mut reader) => reader.advance_columns(),
             ValueReader::String(ref mut reader) => reader.advance_columns(),
             ValueReader::Json(ref mut reader) => reader.advance_columns(),
@@ -642,7 +642,7 @@ impl Reader for ValueReader {
             ValueReader::Time(ref reader) => reader.has_next(),
             ValueReader::Timestamp(ref reader) => reader.has_next(),
             ValueReader::Decimal(ref reader) => reader.has_next(),
-            ValueReader::Array(ref reader) => reader.has_next(),
+            ValueReader::ByteArray(ref reader) => reader.has_next(),
             ValueReader::Bson(ref reader) => reader.has_next(),
             ValueReader::String(ref reader) => reader.has_next(),
             ValueReader::Json(ref reader) => reader.has_next(),
@@ -671,7 +671,7 @@ impl Reader for ValueReader {
             ValueReader::Time(ref reader) => reader.current_def_level(),
             ValueReader::Timestamp(ref reader) => reader.current_def_level(),
             ValueReader::Decimal(ref reader) => reader.current_def_level(),
-            ValueReader::Array(ref reader) => reader.current_def_level(),
+            ValueReader::ByteArray(ref reader) => reader.current_def_level(),
             ValueReader::Bson(ref reader) => reader.current_def_level(),
             ValueReader::String(ref reader) => reader.current_def_level(),
             ValueReader::Json(ref reader) => reader.current_def_level(),
@@ -700,7 +700,7 @@ impl Reader for ValueReader {
             ValueReader::Time(ref reader) => reader.current_rep_level(),
             ValueReader::Timestamp(ref reader) => reader.current_rep_level(),
             ValueReader::Decimal(ref reader) => reader.current_rep_level(),
-            ValueReader::Array(ref reader) => reader.current_rep_level(),
+            ValueReader::ByteArray(ref reader) => reader.current_rep_level(),
             ValueReader::Bson(ref reader) => reader.current_rep_level(),
             ValueReader::String(ref reader) => reader.current_rep_level(),
             ValueReader::Json(ref reader) => reader.current_rep_level(),

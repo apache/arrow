@@ -26,7 +26,7 @@ use crate::{
     column::reader::ColumnReader,
     errors::ParquetError,
     record::{
-        reader::{KeyValueReader, MapReader},
+        reader::{KeyValueReader, MapReader, Reader},
         schemas::MapSchema,
         Deserialize,
     },
@@ -78,7 +78,7 @@ pub(super) fn parse_map<K: Deserialize, V: Deserialize>(
     )))
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Eq)]
 pub struct Map<K: Hash + Eq, V>(pub(in super::super) HashMap<K, V>);
 
 impl<K, V> Deserialize for Map<K, V>
@@ -86,11 +86,7 @@ where
     K: Deserialize + Hash + Eq,
     V: Deserialize,
 {
-    // existential type Reader: Reader<Item = Self>;
-    type Reader = MapReader<
-        KeyValueReader<K::Reader, V::Reader>,
-        fn(Vec<(K, V)>) -> Result<Self, ParquetError>,
-    >;
+    existential type Reader: Reader<Item = Self>;
     type Schema = MapSchema<K::Schema, V::Schema>;
 
     fn parse(
@@ -176,6 +172,15 @@ where
 {
     fn into(self) -> HashMap<K, V> {
         self.0
+    }
+}
+impl<K, V> PartialEq<Map<K, V>> for Map<K, V>
+where
+    K: Eq + Hash,
+    V: PartialEq,
+{
+    fn eq(&self, other: &Map<K, V>) -> bool {
+        self.0 == other.0
     }
 }
 impl<K, V> Debug for Map<K, V>

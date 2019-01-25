@@ -29,10 +29,10 @@ use crate::{
     record::{
         reader::ValueReader,
         schemas::{
-            BoolSchema, BsonSchema, DateSchema, DecimalSchema, EnumSchema, F32Schema, F64Schema,
-            GroupSchema, I16Schema, I32Schema, I64Schema, I8Schema, JsonSchema, ListSchema,
-            ListSchemaType, OptionSchema, StringSchema, TimeSchema, TimestampSchema, U16Schema,
-            U32Schema, U64Schema, U8Schema, ValueSchema, VecSchema,
+            BoolSchema, BsonSchema, ByteArraySchema, DateSchema, DecimalSchema, EnumSchema,
+            F32Schema, F64Schema, GroupSchema, I16Schema, I32Schema, I64Schema, I8Schema,
+            JsonSchema, ListSchema, ListSchemaType, OptionSchema, StringSchema, TimeSchema,
+            TimestampSchema, U16Schema, U32Schema, U64Schema, U8Schema, ValueSchema,
         },
         types::{
             list::parse_list, map::parse_map, Bson, Date, Downcast, Enum, Group, Json, List, Map,
@@ -79,7 +79,7 @@ pub enum Value {
     /// Decimal value.
     Decimal(Decimal),
     /// General binary value.
-    Array(Vec<u8>),
+    ByteArray(Vec<u8>),
     /// BSON binary value.
     Bson(Bson),
     /// UTF-8 encoded character string.
@@ -160,7 +160,7 @@ impl Hash for Value {
             Value::Decimal(_value) => {
                 14u8.hash(state);
             }
-            Value::Array(value) => {
+            Value::ByteArray(value) => {
                 15u8.hash(state);
                 value.hash(state);
             }
@@ -695,34 +695,34 @@ impl Value {
         }
     }
 
-    /// Returns true if the `Value` is an Array. Returns false otherwise.
-    pub fn is_array(&self) -> bool {
-        if let Value::Array(_) = self {
+    /// Returns true if the `Value` is an ByteArray. Returns false otherwise.
+    pub fn is_byte_array(&self) -> bool {
+        if let Value::ByteArray(_) = self {
             true
         } else {
             false
         }
     }
 
-    /// If the `Value` is an Array, return a reference to it. Returns Err otherwise.
-    pub fn as_array(&self) -> Result<&Vec<u8>, ParquetError> {
-        if let Value::Array(ret) = self {
+    /// If the `Value` is an ByteArray, return a reference to it. Returns Err otherwise.
+    pub fn as_byte_array(&self) -> Result<&Vec<u8>, ParquetError> {
+        if let Value::ByteArray(ret) = self {
             Ok(ret)
         } else {
             Err(ParquetError::General(format!(
-                "Cannot access {:?} as array",
+                "Cannot access {:?} as byte_array",
                 self
             )))
         }
     }
 
-    /// If the `Value` is an Array, return it. Returns Err otherwise.
-    pub fn into_array(self) -> Result<Vec<u8>, ParquetError> {
-        if let Value::Array(ret) = self {
+    /// If the `Value` is an ByteArray, return it. Returns Err otherwise.
+    pub fn into_byte_array(self) -> Result<Vec<u8>, ParquetError> {
+        if let Value::ByteArray(ret) = self {
             Ok(ret)
         } else {
             Err(ParquetError::General(format!(
-                "Cannot access {:?} as array",
+                "Cannot access {:?} as byte_array",
                 self
             )))
         }
@@ -993,6 +993,156 @@ impl Value {
     }
 }
 
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        Value::Bool(value)
+    }
+}
+impl From<u8> for Value {
+    fn from(value: u8) -> Self {
+        Value::U8(value)
+    }
+}
+impl From<i8> for Value {
+    fn from(value: i8) -> Self {
+        Value::I8(value)
+    }
+}
+impl From<u16> for Value {
+    fn from(value: u16) -> Self {
+        Value::U16(value)
+    }
+}
+impl From<i16> for Value {
+    fn from(value: i16) -> Self {
+        Value::I16(value)
+    }
+}
+impl From<u32> for Value {
+    fn from(value: u32) -> Self {
+        Value::U32(value)
+    }
+}
+impl From<i32> for Value {
+    fn from(value: i32) -> Self {
+        Value::I32(value)
+    }
+}
+impl From<u64> for Value {
+    fn from(value: u64) -> Self {
+        Value::U64(value)
+    }
+}
+impl From<i64> for Value {
+    fn from(value: i64) -> Self {
+        Value::I64(value)
+    }
+}
+impl From<f32> for Value {
+    fn from(value: f32) -> Self {
+        Value::F32(value)
+    }
+}
+impl From<f64> for Value {
+    fn from(value: f64) -> Self {
+        Value::F64(value)
+    }
+}
+impl From<Date> for Value {
+    fn from(value: Date) -> Self {
+        Value::Date(value)
+    }
+}
+impl From<Time> for Value {
+    fn from(value: Time) -> Self {
+        Value::Time(value)
+    }
+}
+impl From<Timestamp> for Value {
+    fn from(value: Timestamp) -> Self {
+        Value::Timestamp(value)
+    }
+}
+impl From<Decimal> for Value {
+    fn from(value: Decimal) -> Self {
+        Value::Decimal(value)
+    }
+}
+impl From<Vec<u8>> for Value {
+    fn from(value: Vec<u8>) -> Self {
+        Value::ByteArray(value)
+    }
+}
+impl From<Bson> for Value {
+    fn from(value: Bson) -> Self {
+        Value::Bson(value)
+    }
+}
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Value::String(value)
+    }
+}
+impl From<Json> for Value {
+    fn from(value: Json) -> Self {
+        Value::Json(value)
+    }
+}
+impl From<Enum> for Value {
+    fn from(value: Enum) -> Self {
+        Value::Enum(value)
+    }
+}
+impl<T> From<List<T>> for Value
+where
+    Value: From<T>,
+{
+    default fn from(value: List<T>) -> Self {
+        Value::List(List(value.0.into_iter().map(Into::into).collect()))
+    }
+}
+impl From<List<Value>> for Value {
+    fn from(value: List<Value>) -> Self {
+        Value::List(value)
+    }
+}
+impl<K, V> From<Map<K, V>> for Value
+where
+    Value: From<K> + From<V>,
+    K: Hash + Eq,
+{
+    default fn from(value: Map<K, V>) -> Self {
+        Value::Map(Map(value
+            .0
+            .into_iter()
+            .map(|(k, v)| (k.into(), v.into()))
+            .collect()))
+    }
+}
+impl From<Map<Value, Value>> for Value {
+    fn from(value: Map<Value, Value>) -> Self {
+        Value::Map(value)
+    }
+}
+impl From<Group> for Value {
+    fn from(value: Group) -> Self {
+        Value::Group(value)
+    }
+}
+impl<T> From<Option<T>> for Value
+where
+    Value: From<T>,
+{
+    default fn from(value: Option<T>) -> Self {
+        Value::Option(Box::new(value.map(Into::into)))
+    }
+}
+impl From<Option<Value>> for Value {
+    fn from(value: Option<Value>) -> Self {
+        Value::Option(Box::new(value))
+    }
+}
+
 impl Downcast<Value> for Value {
     fn downcast(self) -> Result<Value, ParquetError> {
         Ok(self)
@@ -1075,7 +1225,7 @@ impl Downcast<Decimal> for Value {
 }
 impl Downcast<Vec<u8>> for Value {
     fn downcast(self) -> Result<Vec<u8>, ParquetError> {
-        self.into_array()
+        self.into_byte_array()
     }
 }
 impl Downcast<Bson> for Value {
@@ -1103,12 +1253,13 @@ where
     Value: Downcast<T>,
 {
     default fn downcast(self) -> Result<List<T>, ParquetError> {
-        let ret = self.into_list()?;
-        ret.0
-            .into_iter()
-            .map(Downcast::downcast)
-            .collect::<Result<Vec<_>, _>>()
-            .map(List)
+        self.into_list().and_then(|list| {
+            list.0
+                .into_iter()
+                .map(Downcast::downcast)
+                .collect::<Result<Vec<_>, _>>()
+                .map(List)
+        })
     }
 }
 impl Downcast<List<Value>> for Value {
@@ -1122,12 +1273,13 @@ where
     K: Hash + Eq,
 {
     default fn downcast(self) -> Result<Map<K, V>, ParquetError> {
-        let ret = self.into_map()?;
-        ret.0
-            .into_iter()
-            .map(|(k, v)| Ok((k.downcast()?, v.downcast()?)))
-            .collect::<Result<HashMap<_, _>, _>>()
-            .map(Map)
+        self.into_map().and_then(|map| {
+            map.0
+                .into_iter()
+                .map(|(k, v)| Ok((k.downcast()?, v.downcast()?)))
+                .collect::<Result<HashMap<_, _>, _>>()
+                .map(Map)
+        })
     }
 }
 impl Downcast<Map<Value, Value>> for Value {
@@ -1145,8 +1297,7 @@ where
     Value: Downcast<T>,
 {
     default fn downcast(self) -> Result<Option<T>, ParquetError> {
-        let ret = self.into_option()?;
-        match ret {
+        match self.into_option()? {
             Some(t) => Downcast::<T>::downcast(t).map(Some),
             None => Ok(None),
         }
@@ -1155,6 +1306,151 @@ where
 impl Downcast<Option<Value>> for Value {
     fn downcast(self) -> Result<Option<Value>, ParquetError> {
         self.into_option()
+    }
+}
+
+impl PartialEq<bool> for Value {
+    fn eq(&self, other: &bool) -> bool {
+        self.as_bool().map(|bool| &bool == other).unwrap_or(false)
+    }
+}
+impl PartialEq<u8> for Value {
+    fn eq(&self, other: &u8) -> bool {
+        self.as_u8().map(|u8| &u8 == other).unwrap_or(false)
+    }
+}
+impl PartialEq<i8> for Value {
+    fn eq(&self, other: &i8) -> bool {
+        self.as_i8().map(|i8| &i8 == other).unwrap_or(false)
+    }
+}
+impl PartialEq<u16> for Value {
+    fn eq(&self, other: &u16) -> bool {
+        self.as_u16().map(|u16| &u16 == other).unwrap_or(false)
+    }
+}
+impl PartialEq<i16> for Value {
+    fn eq(&self, other: &i16) -> bool {
+        self.as_i16().map(|i16| &i16 == other).unwrap_or(false)
+    }
+}
+impl PartialEq<u32> for Value {
+    fn eq(&self, other: &u32) -> bool {
+        self.as_u32().map(|u32| &u32 == other).unwrap_or(false)
+    }
+}
+impl PartialEq<i32> for Value {
+    fn eq(&self, other: &i32) -> bool {
+        self.as_i32().map(|i32| &i32 == other).unwrap_or(false)
+    }
+}
+impl PartialEq<u64> for Value {
+    fn eq(&self, other: &u64) -> bool {
+        self.as_u64().map(|u64| &u64 == other).unwrap_or(false)
+    }
+}
+impl PartialEq<i64> for Value {
+    fn eq(&self, other: &i64) -> bool {
+        self.as_i64().map(|i64| &i64 == other).unwrap_or(false)
+    }
+}
+impl PartialEq<f32> for Value {
+    fn eq(&self, other: &f32) -> bool {
+        self.as_f32().map(|f32| &f32 == other).unwrap_or(false)
+    }
+}
+impl PartialEq<f64> for Value {
+    fn eq(&self, other: &f64) -> bool {
+        self.as_f64().map(|f64| &f64 == other).unwrap_or(false)
+    }
+}
+impl PartialEq<Date> for Value {
+    fn eq(&self, other: &Date) -> bool {
+        self.as_date().map(|date| date == other).unwrap_or(false)
+    }
+}
+impl PartialEq<Time> for Value {
+    fn eq(&self, other: &Time) -> bool {
+        self.as_time().map(|time| time == other).unwrap_or(false)
+    }
+}
+impl PartialEq<Timestamp> for Value {
+    fn eq(&self, other: &Timestamp) -> bool {
+        self.as_timestamp()
+            .map(|timestamp| timestamp == other)
+            .unwrap_or(false)
+    }
+}
+impl PartialEq<Decimal> for Value {
+    fn eq(&self, other: &Decimal) -> bool {
+        self.as_decimal()
+            .map(|decimal| decimal == other)
+            .unwrap_or(false)
+    }
+}
+impl PartialEq<Vec<u8>> for Value {
+    fn eq(&self, other: &Vec<u8>) -> bool {
+        self.as_byte_array()
+            .map(|byte_array| byte_array == other)
+            .unwrap_or(false)
+    }
+}
+impl PartialEq<Bson> for Value {
+    fn eq(&self, other: &Bson) -> bool {
+        self.as_bson().map(|bson| bson == other).unwrap_or(false)
+    }
+}
+impl PartialEq<String> for Value {
+    fn eq(&self, other: &String) -> bool {
+        self.as_string()
+            .map(|string| string == other)
+            .unwrap_or(false)
+    }
+}
+impl PartialEq<Json> for Value {
+    fn eq(&self, other: &Json) -> bool {
+        self.as_json().map(|json| json == other).unwrap_or(false)
+    }
+}
+impl PartialEq<Enum> for Value {
+    fn eq(&self, other: &Enum) -> bool {
+        self.as_enum().map(|enum_| enum_ == other).unwrap_or(false)
+    }
+}
+impl<T> PartialEq<List<T>> for Value
+where
+    Value: PartialEq<T>,
+{
+    fn eq(&self, other: &List<T>) -> bool {
+        self.as_list().map(|list| list == other).unwrap_or(false)
+    }
+}
+impl<K, V> PartialEq<Map<K, V>> for Value
+where
+    Value: PartialEq<K> + PartialEq<V>,
+    K: Hash + Eq,
+{
+    fn eq(&self, other: &Map<K, V>) -> bool {
+        self.as_map().map(|map| unimplemented!()).unwrap_or(false)
+    }
+}
+impl PartialEq<Group> for Value {
+    fn eq(&self, other: &Group) -> bool {
+        self.as_group().map(|group| group == other).unwrap_or(false)
+    }
+}
+impl<T> PartialEq<Option<T>> for Value
+where
+    Value: PartialEq<T>,
+{
+    fn eq(&self, other: &Option<T>) -> bool {
+        self.as_option()
+            .map(|option| match (&option, other) {
+                (Some(a), Some(b)) if a == b => true,
+                (None, None) => true,
+                _ => false,
+            })
+            .unwrap_or(false)
     }
 }
 
@@ -1217,19 +1513,37 @@ impl Deserialize for Value {
                     (PhysicalType::DOUBLE, LogicalType::NONE) => ValueSchema::F64(F64Schema),
                     (PhysicalType::BYTE_ARRAY, LogicalType::UTF8)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::UTF8) => {
-                        ValueSchema::String(StringSchema)
+                        ValueSchema::String(StringSchema(ByteArraySchema(
+                            if schema.get_physical_type() == PhysicalType::FIXED_LEN_BYTE_ARRAY {
+                                Some(schema.get_type_length().try_into().unwrap())
+                            } else {
+                                None
+                            },
+                        )))
                     }
                     (PhysicalType::BYTE_ARRAY, LogicalType::JSON)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::JSON) => {
-                        ValueSchema::Json(JsonSchema)
+                        ValueSchema::Json(JsonSchema(StringSchema(ByteArraySchema(
+                            if schema.get_physical_type() == PhysicalType::FIXED_LEN_BYTE_ARRAY {
+                                Some(schema.get_type_length().try_into().unwrap())
+                            } else {
+                                None
+                            },
+                        ))))
                     }
                     (PhysicalType::BYTE_ARRAY, LogicalType::ENUM)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::ENUM) => {
-                        ValueSchema::Enum(EnumSchema)
+                        ValueSchema::Enum(EnumSchema(StringSchema(ByteArraySchema(
+                            if schema.get_physical_type() == PhysicalType::FIXED_LEN_BYTE_ARRAY {
+                                Some(schema.get_type_length().try_into().unwrap())
+                            } else {
+                                None
+                            },
+                        ))))
                     }
                     (PhysicalType::BYTE_ARRAY, LogicalType::NONE)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::NONE) => {
-                        ValueSchema::Array(VecSchema(
+                        ValueSchema::ByteArray(ByteArraySchema(
                             if schema.get_physical_type() == PhysicalType::FIXED_LEN_BYTE_ARRAY {
                                 Some(schema.get_type_length().try_into().unwrap())
                             } else {
@@ -1239,13 +1553,13 @@ impl Deserialize for Value {
                     }
                     (PhysicalType::BYTE_ARRAY, LogicalType::BSON)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::BSON) => {
-                        ValueSchema::Bson(BsonSchema(
+                        ValueSchema::Bson(BsonSchema(ByteArraySchema(
                             if schema.get_physical_type() == PhysicalType::FIXED_LEN_BYTE_ARRAY {
                                 Some(schema.get_type_length().try_into().unwrap())
                             } else {
                                 None
                             },
-                        ))
+                        )))
                     }
                     (PhysicalType::BYTE_ARRAY, LogicalType::DECIMAL)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL) => {
@@ -1373,9 +1687,11 @@ impl Deserialize for Value {
                     schema, path, def_level, rep_level, paths, batch_size,
                 ))
             }
-            ValueSchema::Array(ref schema) => ValueReader::Array(<Vec<u8> as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
+            ValueSchema::ByteArray(ref schema) => {
+                ValueReader::ByteArray(<Vec<u8> as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
             ValueSchema::Bson(ref schema) => ValueReader::Bson(<Bson as Deserialize>::reader(
                 schema, path, def_level, rep_level, paths, batch_size,
             )),
