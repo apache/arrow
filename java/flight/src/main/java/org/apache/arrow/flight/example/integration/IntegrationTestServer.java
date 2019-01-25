@@ -18,6 +18,7 @@
 package org.apache.arrow.flight.example.integration;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.concurrent.Callable;
@@ -39,6 +40,9 @@ import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.ipc.ArrowFileWriter;
 import org.apache.arrow.vector.ipc.JsonFileReader;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.commons.cli.CommandLine;
@@ -131,7 +135,7 @@ class IntegrationTestServer {
         Schema schema = reader.start();
         return new FlightInfo(schema, descriptor,
             Collections.singletonList(new FlightEndpoint(new Ticket(path.getBytes()),
-            new Location("localhost", 31338))),
+                new Location("localhost", 31338))),
             0, 0);
       } catch (Exception e) {
         throw new RuntimeException(e);
@@ -140,12 +144,35 @@ class IntegrationTestServer {
 
     @Override
     public Callable<Flight.PutResult> acceptPut(FlightStream flightStream) {
-      return null;
+      return () -> {
+        if (flightStream.getDescriptor().isCommand()) {
+          throw new UnsupportedOperationException("Commands not supported.");
+        }
+        if (flightStream.getDescriptor().getPath().size() < 1) {
+          throw new IllegalArgumentException("Must provide a path.");
+        }
+        String path = flightStream.getDescriptor().getPath().get(0);
+        File outputFile = new File(path);
+        if (!outputFile.createNewFile()) {
+          throw new IllegalStateException("File already exists.");
+        }
+        try (VectorSchemaRoot root = flightStream.getRoot();
+             FileOutputStream fileOutputStream = new FileOutputStream(outputFile);
+             ArrowFileWriter writer = new ArrowFileWriter(root, new DictionaryProvider.MapDictionaryProvider(),
+                 fileOutputStream.getChannel())) {
+          writer.start();
+          while (flightStream.next()) {
+            writer.writeBatch();
+          }
+          writer.end();
+        }
+        return Flight.PutResult.getDefaultInstance();
+      };
     }
 
     @Override
     public Result doAction(Action action) {
-      return null;
+      throw new UnsupportedOperationException("No actions implemented.");
     }
 
     @Override
