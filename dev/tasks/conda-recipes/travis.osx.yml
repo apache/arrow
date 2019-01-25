@@ -28,16 +28,6 @@ env:
     - ARROW_VERSION={{ arrow.no_rc_version }}
     - PYTHONUNBUFFERED=1
 
-before_install:
-  # Remove homebrew.
-  - |
-    echo ""
-    echo "Removing homebrew from Travis CI to avoid conflicts."
-    curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/uninstall > ~/uninstall_homebrew
-    chmod +x ~/uninstall_homebrew
-    ~/uninstall_homebrew -fq
-    rm ~/uninstall_homebrew
-
 install:
   # Install Miniconda.
   - |
