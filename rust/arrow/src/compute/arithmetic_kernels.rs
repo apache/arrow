@@ -15,7 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines primitive computations on arrays
+//! Defines basic arithmetic kernels for `PrimitiveArrays`.
+//!
+//! These kernels can leverage SIMD if available on your system.  Currently no runtime detection
+//! is provided, you should enable the specific SIMD intrinsics using
+//! `RUSTFLAGS="-C target-feature=+avx2"` for example.  See the
+//! [here] (https://doc.rust-lang.org/stable/std/arch/) for more information.
 
 use std::mem;
 use std::ops::{Add, Div, Mul, Sub};
@@ -29,6 +34,7 @@ use crate::compute::array_ops::math_op;
 use crate::datatypes;
 use crate::error::{ArrowError, Result};
 
+/// Vectorized version of add operation
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub fn add_simd<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where

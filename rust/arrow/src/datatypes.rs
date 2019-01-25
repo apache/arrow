@@ -153,21 +153,28 @@ make_type!(Float32Type, f32, DataType::Float32, 32, 0.0f32);
 make_type!(Float64Type, f64, DataType::Float64, 64, 0.0f64);
 
 
-/// A subtype of primitive type that represents numeric values
+/// A subtype of primitive type that represents numeric values, if available a SIMD type and
+/// SIMD operations are defined in this trait.  SIMD is leveraged in the `compute` module if
+/// available.
 pub trait ArrowNumericType: ArrowPrimitiveType {
 
+    /// Defines the SIMD type that should be used for this numeric type
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     type Simd;
 
+    /// The number of SIMD lanes available
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn lanes() -> usize;
 
+    /// Loads a slice into a SIMD register
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn load(slice: &[Self::Native]) -> Self::Simd;
 
+    /// Performs a SIMD add operation
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn add(left: Self::Simd, right: Self::Simd) -> Self::Simd;
 
+    /// Writes a SIMD result back to a slice
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn write(simd_result: Self::Simd, slice: &mut [Self::Native]);
 
