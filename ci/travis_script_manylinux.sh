@@ -39,4 +39,20 @@ conda activate $CONDA_ENV_DIR
 
 pip install -q tensorflow
 pip install "dist/`ls dist/ | grep cp36`"
-python -c "import pyarrow; import tensorflow"
+
+# # Test optional dependencies and the presence of tensorflow
+python -c "
+import sys
+import pyarrow
+import pyarrow.orc
+import pyarrow.parquet
+import pyarrow.plasma
+import tensorflow
+
+if sys.version_info.major > 2:
+    import pyarrow.gandiva
+"
+
+# Run pyarrow tests
+pip install -r /arrow/python/requirements-test.txt
+pytest --pyargs pyarrow
