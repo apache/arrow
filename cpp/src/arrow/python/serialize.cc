@@ -96,8 +96,8 @@ class SequenceBuilder {
   }
 
   template <typename BuilderType, typename T>
-  Status AppendPrimitive(std::shared_ptr<BuilderType>* child_builder,
-                         const T val, int8_t tag) {
+  Status AppendPrimitive(std::shared_ptr<BuilderType>* child_builder, const T val,
+                         int8_t tag) {
     RETURN_NOT_OK(
         CreateAndUpdate(child_builder, tag, [this]() { return new BuilderType(pool_); }));
     return (*child_builder)->Append(val);

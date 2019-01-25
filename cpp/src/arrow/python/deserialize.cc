@@ -200,67 +200,70 @@ std::vector<int8_t> GetPythonTypes(const UnionArray& data) {
   return result;
 }
 
-#define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                           \
-  const auto& data = checked_cast<const UnionArray&>(array);                   \
-  OwnedRef result(CREATE_FN(stop_idx - start_idx));                            \
-  const uint8_t* type_ids = data.raw_type_ids();                               \
-  const int32_t* value_offsets = data.raw_value_offsets();                     \
-  auto python_types = GetPythonTypes(data);                                    \
-  for (int64_t i = start_idx; i < stop_idx; ++i) {                             \
-    if (data.IsNull(i)) {                                                      \
-      Py_INCREF(Py_None);                                                      \
-      SET_ITEM_FN(result.obj(), i - start_idx, Py_None);                       \
-    } else {                                                                   \
-      int64_t offset = value_offsets[i];                                       \
-      uint8_t type = type_ids[i];                                              \
-      PyObject* value;                                                         \
-      RETURN_NOT_OK(GetValue(context, *data.UnsafeChild(type), offset,         \
-                             python_types[type_ids[i]], base, blobs, &value)); \
-      SET_ITEM_FN(result.obj(), i - start_idx, value);                         \
-    }                                                                          \
-  }                                                                            \
-  *out = result.detach();                                                      \
-  return Status::OK()
-
-Status DeserializeList(PyObject* context, const Array& array, int64_t start_idx,
-                       int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
-                       PyObject** out) {
-  DESERIALIZE_SEQUENCE(PyList_New, PyList_SET_ITEM);
-}
-
-Status DeserializeTuple(PyObject* context, const Array& array, int64_t start_idx,
-                        int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
-                        PyObject** out) {
-  DESERIALIZE_SEQUENCE(PyTuple_New, PyTuple_SET_ITEM);
-}
-
-Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
-                      int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
-                      PyObject** out) {
+template <typename CreateSequenceFn, typename SetItemFn>
+Status DeserializeSequence(PyObject* context, const Array& array, int64_t start_idx,
+                           int64_t stop_idx, PyObject* base,
+                           const SerializedPyObject& blobs,
+                           CreateSequenceFn create_sequence, SetItemFn set_item,
+                           PyObject** out) {
   const auto& data = checked_cast<const UnionArray&>(array);
-  OwnedRef result(PySet_New(nullptr));
+  OwnedRef result(create_sequence(stop_idx - start_idx));
   const uint8_t* type_ids = data.raw_type_ids();
   const int32_t* value_offsets = data.raw_value_offsets();
   auto python_types = GetPythonTypes(data);
   for (int64_t i = start_idx; i < stop_idx; ++i) {
     if (data.IsNull(i)) {
       Py_INCREF(Py_None);
-      if (PySet_Add(result.obj(), Py_None) < 0) {
-        RETURN_IF_PYERROR();
-      }
+      RETURN_NOT_OK(set_item(result.obj(), i - start_idx, Py_None));
     } else {
-      int32_t offset = value_offsets[i];
-      int8_t type = type_ids[i];
+      int64_t offset = value_offsets[i];
+      uint8_t type = type_ids[i];
       PyObject* value;
-      RETURN_NOT_OK(GetValue(context, *data.UnsafeChild(type), offset, python_types[type],
-                             base, blobs, &value));
-      if (PySet_Add(result.obj(), value) < 0) {
-        RETURN_IF_PYERROR();
-      }
+      RETURN_NOT_OK(GetValue(context, *data.UnsafeChild(type), offset,
+                             python_types[type_ids[i]], base, blobs, &value));
+      RETURN_NOT_OK(set_item(result.obj(), i - start_idx, value));
     }
   }
   *out = result.detach();
   return Status::OK();
+}
+
+Status DeserializeList(PyObject* context, const Array& array, int64_t start_idx,
+                       int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
+                       PyObject** out) {
+  return DeserializeSequence(context, array, start_idx, stop_idx, base, blobs,
+                             [](int64_t size) { return PyList_New(size); },
+                             [](PyObject* seq, int64_t index, PyObject* item) {
+                               PyList_SET_ITEM(seq, index, item);
+                               return Status::OK();
+                             },
+                             out);
+}
+
+Status DeserializeTuple(PyObject* context, const Array& array, int64_t start_idx,
+                        int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
+                        PyObject** out) {
+  return DeserializeSequence(context, array, start_idx, stop_idx, base, blobs,
+                             [](int64_t size) { return PyTuple_New(size); },
+                             [](PyObject* seq, int64_t index, PyObject* item) {
+                               PyTuple_SET_ITEM(seq, index, item);
+                               return Status::OK();
+                             },
+                             out);
+}
+
+Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
+                      int64_t stop_idx, PyObject* base, const SerializedPyObject& blobs,
+                      PyObject** out) {
+  return DeserializeSequence(context, array, start_idx, stop_idx, base, blobs,
+                             [](int64_t size) { return PySet_New(nullptr); },
+                             [](PyObject* seq, int64_t index, PyObject* item) {
+                               if (PySet_Add(seq, item) < 0) {
+                                 RETURN_IF_PYERROR();
+                               }
+                               return Status::OK();
+                             },
+                             out);
 }
 
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) {
