@@ -187,7 +187,7 @@ template <typename T>
 void DictionaryBuilder<T>::Reset() {
   ArrayBuilder::Reset();
   values_builder_.Reset();
-  memo_table_.reset();
+  memo_table_.reset(new MemoTableImpl(0));
   delta_offset_ = 0;
 }
 
@@ -199,7 +199,6 @@ Status DictionaryBuilder<T>::Resize(int64_t capacity) {
   if (capacity_ == 0) {
     // Initialize hash table
     // XXX should we let the user pass additional size heuristics?
-    memo_table_.reset(new MemoTableImpl(0));
     delta_offset_ = 0;
   }
   RETURN_NOT_OK(values_builder_.Resize(capacity));
