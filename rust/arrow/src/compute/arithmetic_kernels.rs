@@ -126,6 +126,7 @@ mod tests {
         );
     }
 
+    #[ignore]
     #[test]
     fn test_primitive_array_add_with_nulls() {
         let a = Int32Array::from(vec![Some(5), None, Some(7), None]);
