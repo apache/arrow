@@ -36,7 +36,7 @@ use crate::error::{ArrowError, Result};
 
 /// Vectorized version of add operation
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-pub fn add_simd<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
+fn add_simd<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
 {

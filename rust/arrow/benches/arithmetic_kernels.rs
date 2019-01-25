@@ -23,7 +23,7 @@ extern crate arrow;
 
 use arrow::array::*;
 use arrow::builder::*;
-use arrow::compute::arithmetic_kernels::add_simd;
+use arrow::compute::arithmetic_kernels::*;
 use arrow::compute::array_ops::*;
 
 fn create_array(size: usize) -> Float32Array {
@@ -37,13 +37,13 @@ fn create_array(size: usize) -> Float32Array {
 fn primitive_array_add(size: usize) {
     let arr_a = create_array(size);
     let arr_b = create_array(size);
-    criterion::black_box(add(&arr_a, &arr_b).unwrap());
+    criterion::black_box(math_op(&arr_a, &arr_b, |a, b| Ok(a + b)).unwrap());
 }
 
 fn primitive_array_add_simd(size: usize) {
     let arr_a = create_array(size);
     let arr_b = create_array(size);
-    criterion::black_box(add_simd(&arr_a, &arr_b).unwrap());
+    criterion::black_box(add(&arr_a, &arr_b).unwrap());
 }
 
 fn add_benchmark(c: &mut Criterion) {
