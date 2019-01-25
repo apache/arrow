@@ -70,14 +70,17 @@ pub trait Deserialize: Sized {
     type Reader: Reader<Item = Self>;
 
     /// Parse a [`Type`] into `Self::Schema`.
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError>;
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError>;
 
     /// Builds tree of readers for the specified schema recursively.
     fn reader(
         schema: &Self::Schema,
         path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
+        def_level: i16,
+        rep_level: i16,
         paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
         batch_size: usize,
     ) -> Self::Reader;

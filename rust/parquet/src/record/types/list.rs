@@ -67,13 +67,13 @@ pub(super) fn parse_list<T: Deserialize>(
                     };
 
                     ListSchema(
-                        T::parse(&*element)?.1,
+                        T::parse(&*element, Some(element.get_basic_info().repetition()))?.1,
                         ListSchemaType::List(list_name, element_name),
                     )
                 } else {
                     let element_name = sub_schema.name().to_owned();
                     ListSchema(
-                        T::parse(&*sub_schema)?.1,
+                        T::parse(&*sub_schema, Some(Repetition::REQUIRED))?.1,
                         ListSchemaType::ListCompat(element_name),
                     )
                 },
@@ -96,27 +96,23 @@ where
     type Reader = MapReader<RepeatedReader<T::Reader>, fn(Vec<T>) -> Result<Self, ParquetError>>;
     type Schema = ListSchema<T::Schema>;
 
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
-        if !schema.is_schema() && schema.get_basic_info().repetition() == Repetition::REQUIRED {
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError> {
+        if repetition == Some(Repetition::REQUIRED) {
             return parse_list::<T>(schema).map(|schema2| (schema.name().to_owned(), schema2));
         }
         // A repeated field that is neither contained by a `LIST`- or `MAP`-annotated group
         // nor annotated by `LIST` or `MAP` should be interpreted as a required list of
         // required elements where the element type is the type of the field.
-        if schema.get_basic_info().repetition() == Repetition::REPEATED {
-            let mut schema2: Type = schema.clone();
-            let basic_info = match schema2 {
-                Type::PrimitiveType {
-                    ref mut basic_info, ..
-                } => basic_info,
-                Type::GroupType {
-                    ref mut basic_info, ..
-                } => basic_info,
-            };
-            basic_info.set_repetition(Some(Repetition::REQUIRED));
+        if repetition == Some(Repetition::REPEATED) {
             return Ok((
                 schema.name().to_owned(),
-                ListSchema(T::parse(&schema2)?.1, ListSchemaType::Repeated),
+                ListSchema(
+                    T::parse(&schema, Some(Repetition::REQUIRED))?.1,
+                    ListSchemaType::Repeated,
+                ),
             ));
         }
         Err(ParquetError::General(String::from(
@@ -127,8 +123,8 @@ where
     fn reader(
         schema: &Self::Schema,
         path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
+        def_level: i16,
+        rep_level: i16,
         paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
         batch_size: usize,
     ) -> Self::Reader {
@@ -143,8 +139,8 @@ where
                     let reader = T::reader(
                         &schema.0,
                         path,
-                        curr_def_level + 1,
-                        curr_rep_level + 1,
+                        def_level + 1,
+                        rep_level + 1,
                         paths,
                         batch_size,
                     );
@@ -152,8 +148,8 @@ where
                     path.pop().unwrap();
 
                     RepeatedReader {
-                        def_level: curr_def_level,
-                        rep_level: curr_rep_level,
+                        def_level,
+                        rep_level,
                         reader,
                     }
                 }
@@ -162,16 +158,16 @@ where
                     let reader = T::reader(
                         &schema.0,
                         path,
-                        curr_def_level + 1,
-                        curr_rep_level + 1,
+                        def_level + 1,
+                        rep_level + 1,
                         paths,
                         batch_size,
                     );
                     path.pop().unwrap();
 
                     RepeatedReader {
-                        def_level: curr_def_level,
-                        rep_level: curr_rep_level,
+                        def_level,
+                        rep_level,
                         reader,
                     }
                 }
@@ -179,14 +175,14 @@ where
                     let reader = T::reader(
                         &schema.0,
                         path,
-                        curr_def_level + 1,
-                        curr_rep_level + 1,
+                        def_level + 1,
+                        rep_level + 1,
                         paths,
                         batch_size,
                     );
                     RepeatedReader {
-                        def_level: curr_def_level,
-                        rep_level: curr_rep_level,
+                        def_level,
+                        rep_level,
                         reader,
                     }
                 }

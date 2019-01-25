@@ -70,7 +70,7 @@ pub trait FileReader {
     /// full file schema is assumed.
     fn get_row_iter<T>(&self, projection: Option<SchemaType>) -> Result<RowIter<Self, T>>
     where
-        Root<T>: Deserialize,
+        T: Deserialize,
         Self: Sized;
 }
 
@@ -110,12 +110,17 @@ pub trait RowGroupReader {
     /// Get value reader for the `i`th column chunk.
     fn get_column_reader(&self, i: usize) -> Result<ColumnReader>;
 
-    // /// Get iterator of `Row`s from this row group.
-    // ///
-    // /// Projected schema can be a subset of or equal to the file schema, when it is None,
-    // /// full file schema is assumed.
-    // fn get_row_iter<T>(&self, projection: Option<SchemaType>) -> Result<RowIter<Self,T>>
-    // where Root<T>: Deserialize, Self: Sized;
+    /// Get iterator of `Row`s from this row group.
+    ///
+    /// Projected schema can be a subset of or equal to the file schema, when it is None,
+    /// full file schema is assumed.
+    fn get_row_iter<T>(
+        &self,
+        projection: Option<SchemaType>,
+    ) -> Result<RowIter<SerializedFileReader<std::fs::File>, T>>
+    where
+        T: Deserialize,
+        Self: Sized;
 }
 
 // ----------------------------------------------------------------------
@@ -302,7 +307,7 @@ impl<R: 'static + ParquetReader> FileReader for SerializedFileReader<R> {
 
     fn get_row_iter<T>(&self, projection: Option<SchemaType>) -> Result<RowIter<Self, T>>
     where
-        Root<T>: Deserialize,
+        T: Deserialize,
         Self: Sized,
     {
         RowIter::from_file(projection, self)
@@ -434,9 +439,16 @@ impl<R: 'static + ParquetReader> RowGroupReader for SerializedRowGroupReader<R> 
         Ok(col_reader)
     }
 
-    // fn get_row_iter<T>(&self, projection: Option<SchemaType>) -> Result<RowIter<Self,T>>
-    // where Root<T>: Deserialize, Self: Sized {   RowIter::from_row_group(projection,
-    // self) }
+    fn get_row_iter<T>(
+        &self,
+        projection: Option<SchemaType>,
+    ) -> Result<RowIter<SerializedFileReader<std::fs::File>, T>>
+    where
+        T: Deserialize,
+        Self: Sized,
+    {
+        RowIter::from_row_group(projection, self)
+    }
 }
 
 /// A serialized implementation for Parquet [`PageReader`].

@@ -18,6 +18,7 @@
 use std::{collections::HashMap, convert::TryInto, error::Error, num::TryFromIntError};
 
 use crate::{
+    basic::Repetition,
     column::reader::ColumnReader,
     data_type::{Int32Type, Int64Type, Int96, Int96Type},
     errors::ParquetError,
@@ -44,31 +45,31 @@ impl Deserialize for Date {
     type Reader = MapReader<I32Reader, fn(i32) -> Result<Self, ParquetError>>;
     type Schema = DateSchema;
 
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
-        Value::parse(schema).and_then(downcast)
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError> {
+        Value::parse(schema, repetition).and_then(downcast)
     }
 
     fn reader(
         _schema: &Self::Schema,
         path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
+        def_level: i16,
+        rep_level: i16,
         paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
         let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
         assert_eq!(
-            (curr_def_level, curr_rep_level),
+            (def_level, rep_level),
             (col_descr.max_def_level(), col_descr.max_rep_level())
         );
         MapReader(
             I32Reader {
                 column: TypedTripletIter::<Int32Type>::new(
-                    curr_def_level,
-                    curr_rep_level,
-                    batch_size,
-                    col_reader,
+                    def_level, rep_level, batch_size, col_reader,
                 ),
             },
             |days| Ok(Date(days)),
@@ -86,32 +87,32 @@ impl Deserialize for Time {
     >;
     type Schema = TimeSchema;
 
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
-        Value::parse(schema).and_then(downcast)
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError> {
+        Value::parse(schema, repetition).and_then(downcast)
     }
 
     fn reader(
         schema: &Self::Schema,
         path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
+        def_level: i16,
+        rep_level: i16,
         paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
         let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
         assert_eq!(
-            (curr_def_level, curr_rep_level),
+            (def_level, rep_level),
             (col_descr.max_def_level(), col_descr.max_rep_level())
         );
         match schema {
             TimeSchema::Micros => sum::Sum2::A(MapReader(
                 I64Reader {
                     column: TypedTripletIter::<Int64Type>::new(
-                        curr_def_level,
-                        curr_rep_level,
-                        batch_size,
-                        col_reader,
+                        def_level, rep_level, batch_size, col_reader,
                     ),
                 },
                 |micros| Ok(Time(micros)),
@@ -119,10 +120,7 @@ impl Deserialize for Time {
             TimeSchema::Millis => sum::Sum2::B(MapReader(
                 I32Reader {
                     column: TypedTripletIter::<Int32Type>::new(
-                        curr_def_level,
-                        curr_rep_level,
-                        batch_size,
-                        col_reader,
+                        def_level, rep_level, batch_size, col_reader,
                     ),
                 },
                 |millis| Ok(Time(millis as i64 * MICROS_PER_MILLI)),
@@ -171,32 +169,32 @@ impl Deserialize for Timestamp {
     >;
     type Schema = TimestampSchema;
 
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
-        Value::parse(schema).and_then(downcast)
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError> {
+        Value::parse(schema, repetition).and_then(downcast)
     }
 
     fn reader(
         schema: &Self::Schema,
         path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
+        def_level: i16,
+        rep_level: i16,
         paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
         let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
         assert_eq!(
-            (curr_def_level, curr_rep_level),
+            (def_level, rep_level),
             (col_descr.max_def_level(), col_descr.max_rep_level())
         );
         match schema {
             TimestampSchema::Int96 => sum::Sum3::A(MapReader(
                 I96Reader {
                     column: TypedTripletIter::<Int96Type>::new(
-                        curr_def_level,
-                        curr_rep_level,
-                        batch_size,
-                        col_reader,
+                        def_level, rep_level, batch_size, col_reader,
                     ),
                 },
                 |x| Ok(Timestamp(x)),
@@ -204,10 +202,7 @@ impl Deserialize for Timestamp {
             TimestampSchema::Millis => sum::Sum3::B(MapReader(
                 I64Reader {
                     column: TypedTripletIter::<Int64Type>::new(
-                        curr_def_level,
-                        curr_rep_level,
-                        batch_size,
-                        col_reader,
+                        def_level, rep_level, batch_size, col_reader,
                     ),
                 },
                 |millis| {
@@ -231,10 +226,7 @@ impl Deserialize for Timestamp {
             TimestampSchema::Micros => sum::Sum3::C(MapReader(
                 I64Reader {
                     column: TypedTripletIter::<Int64Type>::new(
-                        curr_def_level,
-                        curr_rep_level,
-                        batch_size,
-                        col_reader,
+                        def_level, rep_level, batch_size, col_reader,
                     ),
                 },
                 |micros| {

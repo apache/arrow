@@ -39,7 +39,7 @@ const DEFAULT_BATCH_SIZE: usize = 1024;
 
 pub trait Reader {
     type Item;
-    fn read(&mut self) -> Result<Self::Item>;
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item>;
     fn advance_columns(&mut self) -> Result<()>;
     fn has_next(&self) -> bool;
     fn current_def_level(&self) -> i16;
@@ -53,10 +53,10 @@ where
 {
     type Item = A::Item;
 
-    fn read(&mut self) -> Result<Self::Item> {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         match self {
-            sum::Sum2::A(ref mut reader) => reader.read(),
-            sum::Sum2::B(ref mut reader) => reader.read(),
+            sum::Sum2::A(ref mut reader) => reader.read(def_level, rep_level),
+            sum::Sum2::B(ref mut reader) => reader.read(def_level, rep_level),
         }
     }
 
@@ -97,11 +97,11 @@ where
 {
     type Item = A::Item;
 
-    fn read(&mut self) -> Result<Self::Item> {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         match self {
-            sum::Sum3::A(ref mut reader) => reader.read(),
-            sum::Sum3::B(ref mut reader) => reader.read(),
-            sum::Sum3::C(ref mut reader) => reader.read(),
+            sum::Sum3::A(ref mut reader) => reader.read(def_level, rep_level),
+            sum::Sum3::B(ref mut reader) => reader.read(def_level, rep_level),
+            sum::Sum3::C(ref mut reader) => reader.read(def_level, rep_level),
         }
     }
 
@@ -144,7 +144,7 @@ pub struct BoolReader {
 impl Reader for BoolReader {
     type Item = bool;
 
-    fn read(&mut self) -> Result<Self::Item> {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
@@ -171,7 +171,7 @@ pub struct I32Reader {
 impl Reader for I32Reader {
     type Item = i32;
 
-    fn read(&mut self) -> Result<Self::Item> {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
@@ -198,7 +198,7 @@ pub struct I64Reader {
 impl Reader for I64Reader {
     type Item = i64;
 
-    fn read(&mut self) -> Result<Self::Item> {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
@@ -225,7 +225,7 @@ pub struct I96Reader {
 impl Reader for I96Reader {
     type Item = Int96;
 
-    fn read(&mut self) -> Result<Self::Item> {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
@@ -252,7 +252,7 @@ pub struct F32Reader {
 impl Reader for F32Reader {
     type Item = f32;
 
-    fn read(&mut self) -> Result<Self::Item> {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
@@ -279,7 +279,7 @@ pub struct F64Reader {
 impl Reader for F64Reader {
     type Item = f64;
 
-    fn read(&mut self) -> Result<Self::Item> {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
@@ -306,7 +306,7 @@ pub struct ByteArrayReader {
 impl Reader for ByteArrayReader {
     type Item = Vec<u8>;
 
-    fn read(&mut self) -> Result<Self::Item> {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         self.column.read().map(|data| data.data().to_owned())
     }
 
@@ -333,7 +333,7 @@ pub struct FixedLenByteArrayReader {
 impl Reader for FixedLenByteArrayReader {
     type Item = Vec<u8>;
 
-    fn read(&mut self) -> Result<Self::Item> {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         self.column.read().map(|data| data.data().to_owned())
     }
 
@@ -361,9 +361,10 @@ pub struct OptionReader<R> {
 impl<R: Reader> Reader for OptionReader<R> {
     type Item = Option<R::Item>;
 
-    fn read(&mut self) -> Result<Self::Item> {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+        assert_eq!(def_level, self.def_level);
         if self.reader.current_def_level() > self.def_level {
-            self.reader.read().map(Some)
+            self.reader.read(def_level + 1, rep_level).map(Some)
         } else {
             self.reader.advance_columns().map(|()| None)
         }
@@ -394,11 +395,12 @@ pub struct RepeatedReader<R> {
 impl<R: Reader> Reader for RepeatedReader<R> {
     type Item = Vec<R::Item>;
 
-    fn read(&mut self) -> Result<Self::Item> {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+        assert_eq!((def_level, rep_level), (self.def_level, self.rep_level));
         let mut elements = Vec::new();
         loop {
             if self.reader.current_def_level() > self.def_level {
-                elements.push(self.reader.read()?);
+                elements.push(self.reader.read(def_level + 1, rep_level + 1)?);
             } else {
                 self.reader.advance_columns()?;
                 // If the current definition level is equal to the definition level of this
@@ -442,11 +444,15 @@ pub struct KeyValueReader<K, V> {
 impl<K: Reader, V: Reader> Reader for KeyValueReader<K, V> {
     type Item = Vec<(K::Item, V::Item)>;
 
-    fn read(&mut self) -> Result<Self::Item> {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+        assert_eq!((def_level, rep_level), (self.def_level, self.rep_level));
         let mut pairs = Vec::new();
         loop {
             if self.keys_reader.current_def_level() > self.def_level {
-                pairs.push((self.keys_reader.read()?, self.values_reader.read()?));
+                pairs.push((
+                    self.keys_reader.read(def_level + 1, rep_level + 1)?,
+                    self.values_reader.read(def_level + 1, rep_level + 1)?,
+                ));
             } else {
                 self.keys_reader.advance_columns()?;
                 self.values_reader.advance_columns()?;
@@ -487,17 +493,16 @@ impl<K: Reader, V: Reader> Reader for KeyValueReader<K, V> {
 }
 
 pub struct GroupReader {
-    pub(super) def_level: i16,
     pub(super) readers: Vec<ValueReader>,
     pub(super) fields: Rc<HashMap<String, usize>>,
 }
 impl Reader for GroupReader {
     type Item = Group;
 
-    fn read(&mut self) -> Result<Self::Item> {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         let mut fields = Vec::new();
         for reader in self.readers.iter_mut() {
-            fields.push(reader.read()?);
+            fields.push(reader.read(def_level, rep_level)?);
         }
         Ok(Group(fields, self.fields.clone()))
     }
@@ -560,34 +565,44 @@ pub enum ValueReader {
 impl Reader for ValueReader {
     type Item = Value;
 
-    fn read(&mut self) -> Result<Self::Item> {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         match self {
-            ValueReader::Bool(ref mut reader) => reader.read().map(Value::Bool),
-            ValueReader::U8(ref mut reader) => reader.read().map(Value::U8),
-            ValueReader::I8(ref mut reader) => reader.read().map(Value::I8),
-            ValueReader::U16(ref mut reader) => reader.read().map(Value::U16),
-            ValueReader::I16(ref mut reader) => reader.read().map(Value::I16),
-            ValueReader::U32(ref mut reader) => reader.read().map(Value::U32),
-            ValueReader::I32(ref mut reader) => reader.read().map(Value::I32),
-            ValueReader::U64(ref mut reader) => reader.read().map(Value::U64),
-            ValueReader::I64(ref mut reader) => reader.read().map(Value::I64),
-            ValueReader::F32(ref mut reader) => reader.read().map(Value::F32),
-            ValueReader::F64(ref mut reader) => reader.read().map(Value::F64),
-            ValueReader::Date(ref mut reader) => reader.read().map(Value::Date),
-            ValueReader::Time(ref mut reader) => reader.read().map(Value::Time),
-            ValueReader::Timestamp(ref mut reader) => reader.read().map(Value::Timestamp),
-            ValueReader::Decimal(ref mut reader) => reader.read().map(Value::Decimal),
-            ValueReader::Array(ref mut reader) => reader.read().map(Value::Array),
-            ValueReader::Bson(ref mut reader) => reader.read().map(Value::Bson),
-            ValueReader::String(ref mut reader) => reader.read().map(Value::String),
-            ValueReader::Json(ref mut reader) => reader.read().map(Value::Json),
-            ValueReader::Enum(ref mut reader) => reader.read().map(Value::Enum),
-            ValueReader::List(ref mut reader) => reader.read().map(Value::List),
-            ValueReader::Map(ref mut reader) => reader.read().map(Value::Map),
-            ValueReader::Group(ref mut reader) => reader.read().map(Value::Group),
-            ValueReader::Option(ref mut reader) => {
-                reader.read().map(|x| Value::Option(Box::new(x)))
+            ValueReader::Bool(ref mut reader) => reader.read(def_level, rep_level).map(Value::Bool),
+            ValueReader::U8(ref mut reader) => reader.read(def_level, rep_level).map(Value::U8),
+            ValueReader::I8(ref mut reader) => reader.read(def_level, rep_level).map(Value::I8),
+            ValueReader::U16(ref mut reader) => reader.read(def_level, rep_level).map(Value::U16),
+            ValueReader::I16(ref mut reader) => reader.read(def_level, rep_level).map(Value::I16),
+            ValueReader::U32(ref mut reader) => reader.read(def_level, rep_level).map(Value::U32),
+            ValueReader::I32(ref mut reader) => reader.read(def_level, rep_level).map(Value::I32),
+            ValueReader::U64(ref mut reader) => reader.read(def_level, rep_level).map(Value::U64),
+            ValueReader::I64(ref mut reader) => reader.read(def_level, rep_level).map(Value::I64),
+            ValueReader::F32(ref mut reader) => reader.read(def_level, rep_level).map(Value::F32),
+            ValueReader::F64(ref mut reader) => reader.read(def_level, rep_level).map(Value::F64),
+            ValueReader::Date(ref mut reader) => reader.read(def_level, rep_level).map(Value::Date),
+            ValueReader::Time(ref mut reader) => reader.read(def_level, rep_level).map(Value::Time),
+            ValueReader::Timestamp(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::Timestamp)
             }
+            ValueReader::Decimal(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::Decimal)
+            }
+            ValueReader::Array(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::Array)
+            }
+            ValueReader::Bson(ref mut reader) => reader.read(def_level, rep_level).map(Value::Bson),
+            ValueReader::String(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::String)
+            }
+            ValueReader::Json(ref mut reader) => reader.read(def_level, rep_level).map(Value::Json),
+            ValueReader::Enum(ref mut reader) => reader.read(def_level, rep_level).map(Value::Enum),
+            ValueReader::List(ref mut reader) => reader.read(def_level, rep_level).map(Value::List),
+            ValueReader::Map(ref mut reader) => reader.read(def_level, rep_level).map(Value::Map),
+            ValueReader::Group(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::Group)
+            }
+            ValueReader::Option(ref mut reader) => reader
+                .read(def_level, rep_level)
+                .map(|x| Value::Option(Box::new(x))),
         }
     }
 
@@ -715,8 +730,8 @@ where
 {
     type Item = Root<R::Item>;
 
-    fn read(&mut self) -> Result<Self::Item> {
-        self.0.read().map(Root)
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+        self.0.read(def_level, rep_level).map(Root)
     }
 
     fn advance_columns(&mut self) -> Result<()> {
@@ -746,8 +761,8 @@ where
 {
     type Item = T;
 
-    fn read(&mut self) -> Result<Self::Item> {
-        self.0.read().and_then(|x| {
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+        self.0.read(def_level, rep_level).and_then(|x| {
             x.try_into()
                 .map_err(|err| ParquetError::General(err.description().to_owned()))
         })
@@ -777,8 +792,8 @@ where
 {
     type Item = T;
 
-    fn read(&mut self) -> Result<Self::Item> {
-        self.0.read().and_then(&mut self.1)
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+        self.0.read(def_level, rep_level).and_then(&mut self.1)
     }
 
     fn advance_columns(&mut self) -> Result<()> {
@@ -826,7 +841,7 @@ impl<'a,R> Either<'a,R> {
 pub struct RowIter<'a, R, T>
 where
     R: FileReader,
-    Root<T>: Deserialize,
+    T: Deserialize,
 {
     descr: SchemaDescPtr,
     // tree_builder: TreeBuilder,
@@ -840,7 +855,7 @@ where
 impl<'a, R, T> RowIter<'a, R, T>
 where
     R: FileReader,
-    Root<T>: Deserialize,
+    T: Deserialize,
 {
     /// Creates a new iterator of [`Row`](crate::record::api::Row)s.
     fn new(
@@ -871,7 +886,7 @@ where
 
         let file_schema = reader.metadata().file_metadata().schema_descr_ptr();
         let file_schema = file_schema.root_schema();
-        let schema = <Root<T> as Deserialize>::parse(file_schema)
+        let schema = <Root<T> as Deserialize>::parse(file_schema, None)
             .map_err(|err| {
                 // let schema: Type = <Root<T> as Deserialize>::render("", &<Root<T> as
                 // Deserialize>::placeholder());
@@ -901,7 +916,7 @@ where
 
         let file_schema = row_group_reader.metadata().schema_descr_ptr();
         let file_schema = file_schema.root_schema();
-        let schema = <Root<T> as Deserialize>::parse(file_schema)
+        let schema = <Root<T> as Deserialize>::parse(file_schema, None)
             .map_err(|err| {
                 // let schema: Type = <Root<T> as Deserialize>::render("", &<Root<T> as
                 // Deserialize>::placeholder());
@@ -1043,7 +1058,7 @@ where
 impl<'a, R, T> Iterator for RowIter<'a, R, T>
 where
     R: FileReader,
-    Root<T>: Deserialize,
+    T: Deserialize,
 {
     type Item = T;
 
@@ -1106,7 +1121,7 @@ where
 /// Internal row iterator for a reader.
 struct ReaderIter<T>
 where
-    Root<T>: Deserialize,
+    T: Deserialize,
 {
     root_reader: <Root<T> as Deserialize>::Reader,
     records_left: u64,
@@ -1115,7 +1130,7 @@ where
 
 impl<T> ReaderIter<T>
 where
-    Root<T>: Deserialize,
+    T: Deserialize,
 {
     fn new(mut root_reader: <Root<T> as Deserialize>::Reader, num_records: u64) -> Self {
         // Prepare root reader by advancing all column vectors
@@ -1130,14 +1145,14 @@ where
 
 impl<T> Iterator for ReaderIter<T>
 where
-    Root<T>: Deserialize,
+    T: Deserialize,
 {
     type Item = T;
 
     fn next(&mut self) -> Option<T> {
         if self.records_left > 0 {
             self.records_left -= 1;
-            Some(self.root_reader.read().unwrap().0)
+            Some(self.root_reader.read(0, 0).unwrap().0)
         } else {
             None
         }
@@ -2227,7 +2242,7 @@ mod tests {
 
     fn test_file_reader_rows<T>(file_name: &str, schema: Option<Type>) -> Result<Vec<T>>
     where
-        Root<T>: Deserialize,
+        T: Deserialize,
     {
         let file = get_test_file(file_name);
         let file_reader: SerializedFileReader<_> = SerializedFileReader::new(file)?;

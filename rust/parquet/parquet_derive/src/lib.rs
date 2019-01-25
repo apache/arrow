@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#![recursion_limit = "200"]
+#![recursion_limit = "300"]
 
 extern crate proc_macro;
 extern crate proc_macro2;
@@ -75,7 +75,7 @@ fn impl_struct(
             .push(syn::parse2(quote! { <#ident as Deserialize>::Schema: Debug }).unwrap());
     }
 
-    let field_renames1 = fields
+    let field_renames = fields
         .iter()
         .map(|field| {
             let mut rename = None;
@@ -113,28 +113,18 @@ fn impl_struct(
             }))
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let field_renames2 = field_renames1.clone();
-    let field_renames3 = field_renames1.clone();
+    let field_renames1 = &field_renames;
+    let field_renames2 = &field_renames;
 
-    let field_names1 = fields.iter().map(|field| field.ident.as_ref().unwrap());
-    let field_names2 = fields.iter().map(|field| field.ident.as_ref().unwrap());
-    let field_names3 = fields.iter().map(|field| field.ident.as_ref().unwrap());
-    let field_names4 = fields.iter().map(|field| field.ident.as_ref().unwrap());
-    let field_names5 = fields.iter().map(|field| field.ident.as_ref().unwrap());
-    let field_names6 = fields.iter().map(|field| field.ident.as_ref().unwrap());
-    let field_names7 = fields.iter().map(|field| field.ident.as_ref().unwrap());
-    let field_names8 = fields.iter().map(|field| field.ident.as_ref().unwrap());
-    let field_names9 = fields.iter().map(|field| field.ident.as_ref().unwrap());
-    let field_names10 = fields.iter().map(|field| field.ident.as_ref().unwrap());
-    let field_names11 = fields.iter().map(|field| field.ident.as_ref().unwrap());
-    let field_names12 = fields.iter().map(|field| field.ident.as_ref().unwrap());
-    let field_names13 = fields.iter().map(|field| field.ident.as_ref().unwrap());
-    let field_names14 = fields.iter().map(|field| field.ident.as_ref().unwrap());
+    let field_names = fields
+        .iter()
+        .map(|field| field.ident.as_ref().unwrap())
+        .collect::<Vec<_>>();
+    let field_names1 = &field_names;
+    let field_names2 = &field_names;
 
-    let field_types1 = fields.iter().map(|field| &field.ty);
-    let field_types2 = fields.iter().map(|field| &field.ty);
-    let field_types3 = fields.iter().map(|field| &field.ty);
-    let field_types4 = fields.iter().map(|field| &field.ty);
+    let field_types = fields.iter().map(|field| &field.ty).collect::<Vec<_>>();
+    let field_types1 = &field_types;
 
     let name1 = iter::repeat(name).take(fields.len());
 
@@ -154,7 +144,7 @@ fn impl_struct(
         impl #impl_generics Debug for #schema_name #ty_generics #where_clause_with_debug {
             fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
                 f.debug_struct(stringify!(#schema_name))
-                    #(.field(stringify!(#field_names2), &self.#field_names3))*
+                    #(.field(stringify!(#field_names1), &self.#field_names2))*
                     .finish()
             }
         }
@@ -167,34 +157,34 @@ fn impl_struct(
             }
         }
         struct #reader_name #impl_generics #where_clause {
-            #(#field_names4: <#field_types2 as Deserialize>::Reader,)*
+            #(#field_names1: <#field_types1 as Deserialize>::Reader,)*
         }
         impl #impl_generics Reader for #reader_name #ty_generics #where_clause {
             type Item = #name #ty_generics;
 
-            fn read(&mut self) -> Result<Self::Item, ParquetError> {
+            fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item, ParquetError> {
                 Result::Ok(#name {
-                    #(#field_names5: self.#field_names6.read()?,)*
+                    #(#field_names1: self.#field_names2.read(def_level, rep_level)?,)*
                 })
             }
             fn advance_columns(&mut self) -> Result<(), ParquetError> {
-                #(self.#field_names7.advance_columns()?;)*
+                #(self.#field_names1.advance_columns()?;)*
                 Result::Ok(())
             }
             fn has_next(&self) -> bool {
-                #(if true { self.#field_names8.has_next() } else)*
+                #(if true { self.#field_names1.has_next() } else)*
                 {
                     true
                 }
             }
             fn current_def_level(&self) -> i16 {
-                #(if true { self.#field_names9.current_def_level() } else)*
+                #(if true { self.#field_names1.current_def_level() } else)*
                 {
                     panic!("Current definition level: empty group reader")
                 }
             }
             fn current_rep_level(&self) -> i16 {
-                #(if true { self.#field_names10.current_rep_level() } else)*
+                #(if true { self.#field_names1.current_rep_level() } else)*
                 {
                     panic!("Current repetition level: empty group reader")
                 }
@@ -204,23 +194,23 @@ fn impl_struct(
             type Schema = #schema_name #ty_generics;
             type Reader = #reader_name #ty_generics;
 
-            fn parse(schema: &Type) -> Result<(String,Self::Schema),ParquetError> {
-                if schema.is_group() && !schema.is_schema() && schema.get_basic_info().repetition() == Repetition::REQUIRED {
+            fn parse(schema: &Type, repetition: Option<Repetition>) -> Result<(String, Self::Schema), ParquetError> {
+                if schema.is_group() && repetition == Some(Repetition::REQUIRED) {
                     let fields = schema.get_fields().iter().map(|field|(field.name(),field)).collect::<HashMap<_,_>>();
                     let schema_ = #schema_name{
-                        #(#field_names11: fields.get(#field_renames1).ok_or(ParquetError::General(format!("Struct {} missing field {}", stringify!(#name1), #field_renames2))).and_then(|x|<#field_types3 as Deserialize>::parse(&**x))?.1,)*
+                        #(#field_names1: fields.get(#field_renames1).ok_or(ParquetError::General(format!("Struct {} missing field {}", stringify!(#name1), #field_renames2))).and_then(|x|<#field_types1 as Deserialize>::parse(&**x, Some(x.get_basic_info().repetition())))?.1,)*
                     };
                     return Result::Ok((schema.name().to_owned(), schema_))
                 }
                 Result::Err(ParquetError::General(format!("Struct {}", stringify!(#name))))
             }
-            fn reader(schema: &Self::Schema, mut path: &mut Vec<String>, curr_def_level: i16, curr_rep_level: i16, paths: &mut HashMap<ColumnPath, (ColumnDescPtr,ColumnReader)>, batch_size: usize) -> Self::Reader {
+            fn reader(schema: &Self::Schema, mut path: &mut Vec<String>, def_level: i16, rep_level: i16, paths: &mut HashMap<ColumnPath, (ColumnDescPtr,ColumnReader)>, batch_size: usize) -> Self::Reader {
                 #(
-                    path.push(#field_renames3.to_owned());
-                    let #field_names12 = <#field_types4 as Deserialize>::reader(&schema.#field_names13, path, curr_def_level, curr_rep_level, paths, batch_size);
+                    path.push(#field_renames1.to_owned());
+                    let #field_names1 = <#field_types1 as Deserialize>::reader(&schema.#field_names2, path, def_level, rep_level, paths, batch_size);
                     path.pop().unwrap();
                 )*
-                #reader_name { #(#field_names14,)* }
+                #reader_name { #(#field_names1,)* }
             }
         }
     };

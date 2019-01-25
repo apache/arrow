@@ -44,12 +44,11 @@ pub(super) fn parse_map<K: Deserialize, V: Deserialize>(
     {
         let sub_schema = schema.get_fields().into_iter().nth(0).unwrap();
         if sub_schema.is_group()
-            && !sub_schema.is_schema()
             && sub_schema.get_basic_info().repetition() == Repetition::REPEATED
             && sub_schema.get_fields().len() == 2
         {
             let mut fields = sub_schema.get_fields().into_iter();
-            let (key, value_) = (fields.next().unwrap(), fields.next().unwrap());
+            let (key, value) = (fields.next().unwrap(), fields.next().unwrap());
             let key_value_name = if sub_schema.name() == "key_value" {
                 None
             } else {
@@ -60,14 +59,14 @@ pub(super) fn parse_map<K: Deserialize, V: Deserialize>(
             } else {
                 Some(key.name().to_owned())
             };
-            let value_name = if value_.name() == "value" {
+            let value_name = if value.name() == "value" {
                 None
             } else {
-                Some(value_.name().to_owned())
+                Some(value.name().to_owned())
             };
             return Ok(MapSchema(
-                K::parse(&*key)?.1,
-                V::parse(&*value_)?.1,
+                K::parse(&*key, Some(key.get_basic_info().repetition()))?.1,
+                V::parse(&*value, Some(value.get_basic_info().repetition()))?.1,
                 key_value_name,
                 key_name,
                 value_name,
@@ -94,8 +93,11 @@ where
     >;
     type Schema = MapSchema<K::Schema, V::Schema>;
 
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
-        if !schema.is_schema() && schema.get_basic_info().repetition() == Repetition::REQUIRED {
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError> {
+        if repetition == Some(Repetition::REQUIRED) {
             return parse_map::<K, V>(schema).map(|schema2| (schema.name().to_owned(), schema2));
         }
         Err(ParquetError::General(String::from(
@@ -106,8 +108,8 @@ where
     fn reader(
         schema: &Self::Schema,
         path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
+        def_level: i16,
+        rep_level: i16,
         paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
         batch_size: usize,
     ) -> Self::Reader {
@@ -120,8 +122,8 @@ where
         let keys_reader = K::reader(
             &schema.0,
             path,
-            curr_def_level + 1,
-            curr_rep_level + 1,
+            def_level + 1,
+            rep_level + 1,
             paths,
             batch_size,
         );
@@ -130,8 +132,8 @@ where
         let values_reader = V::reader(
             &schema.1,
             path,
-            curr_def_level + 1,
-            curr_rep_level + 1,
+            def_level + 1,
+            rep_level + 1,
             paths,
             batch_size,
         );
@@ -140,8 +142,8 @@ where
 
         MapReader(
             KeyValueReader {
-                def_level: curr_def_level,
-                rep_level: curr_rep_level,
+                def_level,
+                rep_level,
                 keys_reader,
                 values_reader,
             },

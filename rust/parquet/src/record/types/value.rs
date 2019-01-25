@@ -1162,9 +1162,12 @@ impl Deserialize for Value {
     type Reader = ValueReader;
     type Schema = ValueSchema;
 
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError> {
         let mut value = None;
-        if schema.is_primitive() {
+        if repetition.is_some() && schema.is_primitive() {
             value = Some(
                 match (
                     schema.get_physical_type(),
@@ -1265,29 +1268,31 @@ impl Deserialize for Value {
             );
         }
         // https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#backward-compatibility-rules
-        if value.is_none() && !schema.is_schema() {
+        if repetition.is_some() && value.is_none() {
             value = parse_list::<Value>(schema)
                 .ok()
                 .map(|value| ValueSchema::List(Box::new(value)));
         }
-        if value.is_none() && !schema.is_schema() {
+        if repetition.is_some() && value.is_none() {
             value = parse_map::<Value, Value>(schema)
                 .ok()
                 .map(|value| ValueSchema::Map(Box::new(value)));
         }
 
-        if value.is_none() && schema.is_group() && !schema.is_schema() {
+        if repetition.is_some() && value.is_none() && schema.is_group() {
             let mut lookup = HashMap::new();
             value = Some(ValueSchema::Group(GroupSchema(
                 schema
                     .get_fields()
                     .iter()
                     .map(|schema| {
-                        Value::parse(&*schema).map(|(name, schema)| {
-                            let x = lookup.insert(name, lookup.len());
-                            assert!(x.is_none());
-                            schema
-                        })
+                        Value::parse(&*schema, Some(schema.get_basic_info().repetition())).map(
+                            |(name, schema)| {
+                                let x = lookup.insert(name, lookup.len());
+                                assert!(x.is_none());
+                                schema
+                            },
+                        )
                     })
                     .collect::<Result<Vec<_>, _>>()?,
                 lookup,
@@ -1295,9 +1300,9 @@ impl Deserialize for Value {
         }
 
         let mut value = value
-            .ok_or_else(|| ParquetError::General(format!("Can't parse group {:?}", schema)))?;
+            .ok_or_else(|| ParquetError::General(format!("Can't parse value {:?}", schema)))?;
 
-        match schema.get_basic_info().repetition() {
+        match repetition.unwrap() {
             Repetition::OPTIONAL => {
                 value = ValueSchema::Option(Box::new(OptionSchema(value)));
             }
@@ -1313,214 +1318,94 @@ impl Deserialize for Value {
     fn reader(
         schema: &Self::Schema,
         path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
+        def_level: i16,
+        rep_level: i16,
         paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
         batch_size: usize,
     ) -> Self::Reader {
         match *schema {
             ValueSchema::Bool(ref schema) => ValueReader::Bool(<bool as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::U8(ref schema) => ValueReader::U8(<u8 as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::I8(ref schema) => ValueReader::I8(<i8 as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::U16(ref schema) => ValueReader::U16(<u16 as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::I16(ref schema) => ValueReader::I16(<i16 as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::U32(ref schema) => ValueReader::U32(<u32 as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::I32(ref schema) => ValueReader::I32(<i32 as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::U64(ref schema) => ValueReader::U64(<u64 as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::I64(ref schema) => ValueReader::I64(<i64 as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::F32(ref schema) => ValueReader::F32(<f32 as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::F64(ref schema) => ValueReader::F64(<f64 as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::Date(ref schema) => ValueReader::Date(<Date as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::Time(ref schema) => ValueReader::Time(<Time as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::Timestamp(ref schema) => {
                 ValueReader::Timestamp(<Timestamp as Deserialize>::reader(
-                    schema,
-                    path,
-                    curr_def_level,
-                    curr_rep_level,
-                    paths,
-                    batch_size,
+                    schema, path, def_level, rep_level, paths, batch_size,
                 ))
             }
             ValueSchema::Decimal(ref schema) => {
                 ValueReader::Decimal(<Decimal as Deserialize>::reader(
-                    schema,
-                    path,
-                    curr_def_level,
-                    curr_rep_level,
-                    paths,
-                    batch_size,
+                    schema, path, def_level, rep_level, paths, batch_size,
                 ))
             }
             ValueSchema::Array(ref schema) => ValueReader::Array(<Vec<u8> as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::Bson(ref schema) => ValueReader::Bson(<Bson as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::String(ref schema) => {
                 ValueReader::String(<String as Deserialize>::reader(
-                    schema,
-                    path,
-                    curr_def_level,
-                    curr_rep_level,
-                    paths,
-                    batch_size,
+                    schema, path, def_level, rep_level, paths, batch_size,
                 ))
             }
             ValueSchema::Json(ref schema) => ValueReader::Json(<Json as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::Enum(ref schema) => ValueReader::Enum(<Enum as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::List(ref schema) => {
                 ValueReader::List(Box::new(<List<Value> as Deserialize>::reader(
-                    schema,
-                    path,
-                    curr_def_level,
-                    curr_rep_level,
-                    paths,
-                    batch_size,
+                    schema, path, def_level, rep_level, paths, batch_size,
                 )))
             }
             ValueSchema::Map(ref schema) => {
                 ValueReader::Map(Box::new(<Map<Value, Value> as Deserialize>::reader(
-                    schema,
-                    path,
-                    curr_def_level,
-                    curr_rep_level,
-                    paths,
-                    batch_size,
+                    schema, path, def_level, rep_level, paths, batch_size,
                 )))
             }
             ValueSchema::Group(ref schema) => ValueReader::Group(<Group as Deserialize>::reader(
-                schema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
+                schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::Option(ref schema) => {
                 ValueReader::Option(Box::new(<Option<Value> as Deserialize>::reader(
-                    schema,
-                    path,
-                    curr_def_level,
-                    curr_rep_level,
-                    paths,
-                    batch_size,
+                    schema, path, def_level, rep_level, paths, batch_size,
                 )))
             }
         }

@@ -26,8 +26,16 @@ mod time;
 mod tuple;
 mod value;
 
-use super::schemas::ValueSchema;
-use crate::errors::ParquetError;
+use std::{collections::HashMap, marker::PhantomData};
+
+use super::schemas::{RootSchema, ValueSchema};
+use super::{reader::RootReader, Deserialize};
+use crate::{
+    basic::Repetition,
+    column::reader::ColumnReader,
+    errors::ParquetError,
+    schema::types::{ColumnDescPtr, ColumnPath, Type},
+};
 
 pub use self::{
     array::*, decimal::*, group::*, list::*, map::*, numbers::*, option::*, time::*, tuple::*,
@@ -47,3 +55,40 @@ where
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub struct Root<T>(pub T);
+
+impl<T> Deserialize for Root<T>
+where
+    T: Deserialize,
+{
+    type Reader = RootReader<T::Reader>;
+    type Schema = RootSchema<T, T::Schema>;
+
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError> {
+        assert!(repetition.is_none());
+        if schema.is_schema() {
+            T::parse(schema, Some(Repetition::REQUIRED))
+                .map(|(name, schema)| (String::from(""), RootSchema(name, schema, PhantomData)))
+        } else {
+            Err(ParquetError::General(format!(
+                "Can't parse Root {:?}",
+                schema
+            )))
+        }
+    }
+
+    fn reader(
+        schema: &Self::Schema,
+        path: &mut Vec<String>,
+        def_level: i16,
+        rep_level: i16,
+        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        batch_size: usize,
+    ) -> Self::Reader {
+        RootReader(T::reader(
+            &schema.1, path, def_level, rep_level, paths, batch_size,
+        ))
+    }
+}

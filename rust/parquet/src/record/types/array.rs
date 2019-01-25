@@ -41,30 +41,30 @@ impl Deserialize for Vec<u8> {
     type Reader = ByteArrayReader;
     type Schema = VecSchema;
 
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
-        Value::parse(schema).and_then(downcast)
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError> {
+        Value::parse(schema, repetition).and_then(downcast)
     }
 
     fn reader(
         _schema: &Self::Schema,
         path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
+        def_level: i16,
+        rep_level: i16,
         paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
         let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
         assert_eq!(
-            (curr_def_level, curr_rep_level),
+            (def_level, rep_level),
             (col_descr.max_def_level(), col_descr.max_rep_level())
         );
         ByteArrayReader {
             column: TypedTripletIter::<ByteArrayType>::new(
-                curr_def_level,
-                curr_rep_level,
-                batch_size,
-                col_reader,
+                def_level, rep_level, batch_size, col_reader,
             ),
         }
     }
@@ -78,15 +78,18 @@ impl Deserialize for Bson {
         MapReader<<Vec<u8> as Deserialize>::Reader, fn(Vec<u8>) -> Result<Self, ParquetError>>;
     type Schema = BsonSchema;
 
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
-        Value::parse(schema).and_then(downcast)
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError> {
+        Value::parse(schema, repetition).and_then(downcast)
     }
 
     fn reader(
         schema: &Self::Schema,
         path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
+        def_level: i16,
+        rep_level: i16,
         paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
         batch_size: usize,
     ) -> Self::Reader {
@@ -94,8 +97,8 @@ impl Deserialize for Bson {
             Vec::<u8>::reader(
                 &VecSchema(schema.0),
                 path,
-                curr_def_level,
-                curr_rep_level,
+                def_level,
+                rep_level,
                 paths,
                 batch_size,
             ),
@@ -119,31 +122,31 @@ impl Deserialize for String {
     type Reader = MapReader<ByteArrayReader, fn(Vec<u8>) -> Result<Self, ParquetError>>;
     type Schema = StringSchema;
 
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
-        Value::parse(schema).and_then(downcast)
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError> {
+        Value::parse(schema, repetition).and_then(downcast)
     }
 
     fn reader(
         _schema: &Self::Schema,
         path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
+        def_level: i16,
+        rep_level: i16,
         paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
         let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
         assert_eq!(
-            (curr_def_level, curr_rep_level),
+            (def_level, rep_level),
             (col_descr.max_def_level(), col_descr.max_rep_level())
         );
         MapReader(
             ByteArrayReader {
                 column: TypedTripletIter::<ByteArrayType>::new(
-                    curr_def_level,
-                    curr_rep_level,
-                    batch_size,
-                    col_reader,
+                    def_level, rep_level, batch_size, col_reader,
                 ),
             },
             |x| {
@@ -162,27 +165,23 @@ impl Deserialize for Json {
         MapReader<<String as Deserialize>::Reader, fn(String) -> Result<Self, ParquetError>>;
     type Schema = JsonSchema;
 
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
-        Value::parse(schema).and_then(downcast)
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError> {
+        Value::parse(schema, repetition).and_then(downcast)
     }
 
     fn reader(
         _schema: &Self::Schema,
         path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
+        def_level: i16,
+        rep_level: i16,
         paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
         batch_size: usize,
     ) -> Self::Reader {
         MapReader(
-            String::reader(
-                &StringSchema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
-            ),
+            String::reader(&StringSchema, path, def_level, rep_level, paths, batch_size),
             |x| Ok(Json(x)),
         )
     }
@@ -211,27 +210,23 @@ impl Deserialize for Enum {
         MapReader<<String as Deserialize>::Reader, fn(String) -> Result<Self, ParquetError>>;
     type Schema = EnumSchema;
 
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
-        Value::parse(schema).and_then(downcast)
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError> {
+        Value::parse(schema, repetition).and_then(downcast)
     }
 
     fn reader(
         _schema: &Self::Schema,
         path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
+        def_level: i16,
+        rep_level: i16,
         paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
         batch_size: usize,
     ) -> Self::Reader {
         MapReader(
-            String::reader(
-                &StringSchema,
-                path,
-                curr_def_level,
-                curr_rep_level,
-                paths,
-                batch_size,
-            ),
+            String::reader(&StringSchema, path, def_level, rep_level, paths, batch_size),
             |x| Ok(Enum(x)),
         )
     }
@@ -260,9 +255,12 @@ macro_rules! impl_parquet_deserialize_array {
                 MapReader<FixedLenByteArrayReader, fn(Vec<u8>) -> Result<Self, ParquetError>>;
             type Schema = ArraySchema<Self>;
 
-            fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
+            fn parse(
+                schema: &Type,
+                repetition: Option<Repetition>,
+            ) -> Result<(String, Self::Schema), ParquetError> {
                 if schema.is_primitive()
-                    && schema.get_basic_info().repetition() == Repetition::REQUIRED
+                    && repetition == Some(Repetition::REQUIRED)
                     && schema.get_physical_type() == PhysicalType::FIXED_LEN_BYTE_ARRAY
                     && schema.get_basic_info().logical_type() == LogicalType::NONE
                     && schema.get_type_length() == $i
@@ -278,24 +276,21 @@ macro_rules! impl_parquet_deserialize_array {
             fn reader(
                 _schema: &Self::Schema,
                 path: &mut Vec<String>,
-                curr_def_level: i16,
-                curr_rep_level: i16,
+                def_level: i16,
+                rep_level: i16,
                 paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
                 batch_size: usize,
             ) -> Self::Reader {
                 let col_path = ColumnPath::new(path.to_vec());
                 let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
                 assert_eq!(
-                    (curr_def_level, curr_rep_level),
+                    (def_level, rep_level),
                     (col_descr.max_def_level(), col_descr.max_rep_level())
                 );
                 MapReader(
                     FixedLenByteArrayReader {
                         column: TypedTripletIter::<FixedLenByteArrayType>::new(
-                            curr_def_level,
-                            curr_rep_level,
-                            batch_size,
-                            col_reader,
+                            def_level, rep_level, batch_size, col_reader,
                         ),
                     },
                     |bytes: Vec<_>| {
@@ -319,31 +314,31 @@ macro_rules! impl_parquet_deserialize_array {
                 MapReader<FixedLenByteArrayReader, fn(Vec<u8>) -> Result<Self, ParquetError>>;
             type Schema = ArraySchema<[u8; $i]>;
 
-            fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
-                <[u8; $i]>::parse(schema)
+            fn parse(
+                schema: &Type,
+                repetition: Option<Repetition>,
+            ) -> Result<(String, Self::Schema), ParquetError> {
+                <[u8; $i]>::parse(schema, repetition)
             }
 
             fn reader(
                 _schema: &Self::Schema,
                 path: &mut Vec<String>,
-                curr_def_level: i16,
-                curr_rep_level: i16,
+                def_level: i16,
+                rep_level: i16,
                 paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
                 batch_size: usize,
             ) -> Self::Reader {
                 let col_path = ColumnPath::new(path.to_vec());
                 let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
                 assert_eq!(
-                    (curr_def_level, curr_rep_level),
+                    (def_level, rep_level),
                     (col_descr.max_def_level(), col_descr.max_rep_level())
                 );
                 MapReader(
                     FixedLenByteArrayReader {
                         column: TypedTripletIter::<FixedLenByteArrayType>::new(
-                            curr_def_level,
-                            curr_rep_level,
-                            batch_size,
-                            col_reader,
+                            def_level, rep_level, batch_size, col_reader,
                         ),
                     },
                     |bytes: Vec<_>| {

@@ -46,18 +46,21 @@ impl Deserialize for Group {
     type Reader = GroupReader;
     type Schema = GroupSchema;
 
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
-        if schema.is_group()
-            && !schema.is_schema()
-            && schema.get_basic_info().repetition() == Repetition::REQUIRED
-        {
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError> {
+        if schema.is_group() && repetition == Some(Repetition::REQUIRED) {
             let mut map = HashMap::new();
             let fields = schema
                 .get_fields()
                 .iter()
                 .enumerate()
                 .map(|(i, field)| {
-                    let (name, schema) = <Value as Deserialize>::parse(&**field)?;
+                    let (name, schema) = <Value as Deserialize>::parse(
+                        &**field,
+                        Some(field.get_basic_info().repetition()),
+                    )?;
                     let x = map.insert(name, i);
                     assert!(x.is_none());
                     Ok(schema)
@@ -75,8 +78,8 @@ impl Deserialize for Group {
     fn reader(
         schema: &Self::Schema,
         path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
+        def_level: i16,
+        rep_level: i16,
         paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
         batch_size: usize,
     ) -> Self::Reader {
@@ -90,71 +93,15 @@ impl Deserialize for Group {
             .enumerate()
             .map(|(i, field)| {
                 path.push(names_[i].take().unwrap());
-                let ret = Value::reader(
-                    field,
-                    path,
-                    curr_def_level,
-                    curr_rep_level,
-                    paths,
-                    batch_size,
-                );
+                let ret = Value::reader(field, path, def_level, rep_level, paths, batch_size);
                 path.pop().unwrap();
                 ret
             })
             .collect();
         GroupReader {
-            def_level: curr_def_level,
             readers,
             fields: Rc::new(schema.1.clone()),
         }
-    }
-}
-impl Deserialize for Root<Group> {
-    type Reader = RootReader<GroupReader>;
-    type Schema = RootSchema<Group, GroupSchema>;
-
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
-        if schema.is_schema() {
-            let mut map = HashMap::new();
-            let fields = schema
-                .get_fields()
-                .iter()
-                .enumerate()
-                .map(|(i, field)| {
-                    let (name, schema) = <Value as Deserialize>::parse(&**field)?;
-                    let x = map.insert(name, i);
-                    assert!(x.is_none());
-                    Ok(schema)
-                })
-                .collect::<Result<Vec<ValueSchema>, ParquetError>>()?;
-            let schema_ = GroupSchema(fields, map);
-            return Ok((
-                String::from(""),
-                RootSchema(schema.name().to_owned(), schema_, PhantomData),
-            ));
-        }
-        Err(ParquetError::General(format!(
-            "Can't parse Group {:?}",
-            schema
-        )))
-    }
-
-    fn reader(
-        schema: &Self::Schema,
-        path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
-        batch_size: usize,
-    ) -> Self::Reader {
-        RootReader(Group::reader(
-            &schema.1,
-            path,
-            curr_def_level,
-            curr_rep_level,
-            paths,
-            batch_size,
-        ))
     }
 }
 

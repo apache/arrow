@@ -40,9 +40,9 @@ macro_rules! impl_parquet_deserialize_tuple {
         impl<$($t,)*> Reader for TupleReader<($($t,)*)> where $($t: Reader,)* {
             type Item = ($($t::Item,)*);
 
-            fn read(&mut self) -> Result<Self::Item, ParquetError> {
+            fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item, ParquetError> {
                 Ok((
-                    $((self.0).$i.read()?,)*
+                    $((self.0).$i.read(def_level, rep_level)?,)*
                 ))
             }
             fn advance_columns(&mut self) -> Result<(), ParquetError> {
@@ -113,32 +113,14 @@ macro_rules! impl_parquet_deserialize_tuple {
                 f.write_str("}}")
             }
         }
-        impl<$($t,)*> Deserialize for Root<($($t,)*)> where $($t: Deserialize,)* {
-            type Schema = RootSchema<($($t,)*),TupleSchema<($((String,$t::Schema,),)*)>>;
-            type Reader = RootReader<TupleReader<($($t::Reader,)*)>>;
-
-            fn parse(schema: &Type) -> Result<(String,Self::Schema),ParquetError> {
-                if schema.is_schema() {
-                    let mut fields = schema.get_fields().iter();
-                    let schema_ = RootSchema(schema.name().to_owned(), TupleSchema(($(fields.next().ok_or(ParquetError::General(String::from("Group missing field"))).and_then(|x|$t::parse(&**x))?,)*)), PhantomData);
-                    if fields.next().is_none() {
-                        return Ok((String::from(""), schema_))
-                    }
-                }
-                Err(ParquetError::General(format!("Can't parse Tuple {:?}", schema)))
-            }
-            fn reader(schema: &Self::Schema, path: &mut Vec<String>, curr_def_level: i16, curr_rep_level: i16, paths: &mut HashMap<ColumnPath, (ColumnDescPtr,ColumnReader)>, batch_size: usize) -> Self::Reader {
-                RootReader(<($($t,)*) as Deserialize>::reader(&schema.1, path, curr_def_level, curr_rep_level, paths, batch_size))
-            }
-        }
         impl<$($t,)*> Deserialize for ($($t,)*) where $($t: Deserialize,)* {
             type Schema = TupleSchema<($((String,$t::Schema,),)*)>;
             type Reader = TupleReader<($($t::Reader,)*)>;
 
-            fn parse(schema: &Type) -> Result<(String,Self::Schema),ParquetError> {
-                if schema.is_group() && !schema.is_schema() && schema.get_basic_info().repetition() == Repetition::REQUIRED {
+            fn parse(schema: &Type, repetition: Option<Repetition>) -> Result<(String, Self::Schema), ParquetError> {
+                if schema.is_group() && repetition == Some(Repetition::REQUIRED) {
                     let mut fields = schema.get_fields().iter();
-                    let schema_ = TupleSchema(($(fields.next().ok_or(ParquetError::General(String::from("Group missing field"))).and_then(|x|$t::parse(&**x))?,)*));
+                    let schema_ = TupleSchema(($(fields.next().ok_or(ParquetError::General(String::from("Group missing field"))).and_then(|x|$t::parse(&**x, Some(x.get_basic_info().repetition())))?,)*));
                     if fields.next().is_none() {
                         return Ok((schema.name().to_owned(), schema_))
                     }
@@ -146,11 +128,11 @@ macro_rules! impl_parquet_deserialize_tuple {
                 Err(ParquetError::General(format!("Can't parse Tuple {:?}", schema)))
             }
             #[allow(unused_variables)]
-            fn reader(schema: &Self::Schema, path: &mut Vec<String>, curr_def_level: i16, curr_rep_level: i16, paths: &mut HashMap<ColumnPath, (ColumnDescPtr,ColumnReader)>, batch_size: usize) -> Self::Reader {
+            fn reader(schema: &Self::Schema, path: &mut Vec<String>, def_level: i16, rep_level: i16, paths: &mut HashMap<ColumnPath, (ColumnDescPtr,ColumnReader)>, batch_size: usize) -> Self::Reader {
                 $(
                     path.push((schema.0).$i.0.to_owned());
                     #[allow(non_snake_case)]
-                    let $t = <$t as Deserialize>::reader(&(schema.0).$i.1, path, curr_def_level, curr_rep_level, paths, batch_size);
+                    let $t = <$t as Deserialize>::reader(&(schema.0).$i.1, path, def_level, rep_level, paths, batch_size);
                     path.pop().unwrap();
                 )*
                 TupleReader(($($t,)*))

@@ -32,24 +32,17 @@ where
     type Reader = OptionReader<T::Reader>;
     type Schema = OptionSchema<T::Schema>;
 
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError> {
         // <Value as Deserialize>::parse(schema).and_then(|(name, schema)| {
         //   Ok((name, OptionSchema(schema.as_option()?.0.downcast()?)))
         // })
-        if schema.get_basic_info().repetition() == Repetition::OPTIONAL {
-            let mut schema2: Type = schema.clone();
-            let basic_info = match schema2 {
-                Type::PrimitiveType {
-                    ref mut basic_info, ..
-                } => basic_info,
-                Type::GroupType {
-                    ref mut basic_info, ..
-                } => basic_info,
-            };
-            basic_info.set_repetition(Some(Repetition::REQUIRED));
+        if repetition == Some(Repetition::OPTIONAL) {
             return Ok((
                 schema.name().to_owned(),
-                OptionSchema(T::parse(&schema2)?.1),
+                OptionSchema(T::parse(&schema, Some(Repetition::REQUIRED))?.1),
             ));
         }
         Err(ParquetError::General(String::from(
@@ -60,18 +53,18 @@ where
     fn reader(
         schema: &Self::Schema,
         path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
+        def_level: i16,
+        rep_level: i16,
         paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
         batch_size: usize,
     ) -> Self::Reader {
         OptionReader {
-            def_level: curr_def_level,
+            def_level,
             reader: <T as Deserialize>::reader(
                 &schema.0,
                 path,
-                curr_def_level + 1,
-                curr_rep_level,
+                def_level + 1,
+                rep_level,
                 paths,
                 batch_size,
             ),

@@ -1385,7 +1385,7 @@ where
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         parse_message_type(s)
             .and_then(|x| {
-                <Root<T> as Deserialize>::parse(&x).map_err(|err| {
+                <Root<T> as Deserialize>::parse(&x, None).map_err(|err| {
                     // let schema: Type = <Root<T> as Deserialize>::render("", &<Root<T> as
                     // Deserialize>::placeholder());
                     let mut b = Vec::new();

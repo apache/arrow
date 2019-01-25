@@ -18,6 +18,7 @@
 use std::collections::HashMap;
 
 use crate::{
+    basic::Repetition,
     column::reader::ColumnReader,
     data_type::{ByteArrayType, Decimal, FixedLenByteArrayType, Int32Type, Int64Type},
     errors::ParquetError,
@@ -42,22 +43,25 @@ impl Deserialize for Decimal {
     >;
     type Schema = DecimalSchema;
 
-    fn parse(schema: &Type) -> Result<(String, Self::Schema), ParquetError> {
-        Value::parse(schema).and_then(downcast)
+    fn parse(
+        schema: &Type,
+        repetition: Option<Repetition>,
+    ) -> Result<(String, Self::Schema), ParquetError> {
+        Value::parse(schema, repetition).and_then(downcast)
     }
 
     fn reader(
         schema: &Self::Schema,
         path: &mut Vec<String>,
-        curr_def_level: i16,
-        curr_rep_level: i16,
+        def_level: i16,
+        rep_level: i16,
         paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
         let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
         assert_eq!(
-            (curr_def_level, curr_rep_level),
+            (def_level, rep_level),
             (col_descr.max_def_level(), col_descr.max_rep_level())
         );
         unimplemented!()
@@ -65,8 +69,8 @@ impl Deserialize for Decimal {
         //     DecimalSchema::Int32 { precision, scale } => sum::Sum3::A(MapReader(
         //         I32Reader {
         //             column: TypedTripletIter::<Int32Type>::new(
-        //                 curr_def_level,
-        //                 curr_rep_level,
+        //                 def_level,
+        //                 rep_level,
         //                 batch_size,
         //                 col_reader,
         //             ),
@@ -76,8 +80,8 @@ impl Deserialize for Decimal {
         //     DecimalSchema::Int64 { precision, scale } => sum::Sum3::B(MapReader(
         //         I64Reader {
         //             column: TypedTripletIter::<Int64Type>::new(
-        //                 curr_def_level,
-        //                 curr_rep_level,
+        //                 def_level,
+        //                 rep_level,
         //                 batch_size,
         //                 col_reader,
         //             ),
@@ -87,8 +91,8 @@ impl Deserialize for Decimal {
         //     DecimalSchema::Array { precision, scale } => sum::Sum3::C(MapReader(
         //         ByteArrayReader {
         //             column: TypedTripletIter::<ByteArrayType>::new(
-        //                 curr_def_level,
-        //                 curr_rep_level,
+        //                 def_level,
+        //                 rep_level,
         //                 batch_size,
         //                 col_reader,
         //             ),
