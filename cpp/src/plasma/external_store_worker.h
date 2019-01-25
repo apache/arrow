@@ -127,9 +127,11 @@ class ExternalStoreWorker {
   /// \param idx The thread ID.
   void DoWork(size_t idx);
 
-  /// Get objects from external store and writes it back to plasma store.
+  /// Write objects to plasma store.
   ///
-  /// \param object_ids The object IDs to get.
+  /// \param client The plasma client.
+  /// \param object_ids The object IDs to write.
+  /// \param data The object data to write.
   void WriteToPlasma(std::shared_ptr<PlasmaClient> client,
                      const std::vector<ObjectID>& object_ids,
                      const std::vector<std::string>& data);
