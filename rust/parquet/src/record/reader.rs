@@ -355,15 +355,13 @@ impl Reader for FixedLenByteArrayReader {
 }
 
 pub struct OptionReader<R> {
-    pub(super) def_level: i16,
     pub(super) reader: R,
 }
 impl<R: Reader> Reader for OptionReader<R> {
     type Item = Option<R::Item>;
 
     fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
-        assert_eq!(def_level, self.def_level);
-        if self.reader.current_def_level() > self.def_level {
+        if self.reader.current_def_level() > def_level {
             self.reader.read(def_level + 1, rep_level).map(Some)
         } else {
             self.reader.advance_columns().map(|()| None)
@@ -388,18 +386,15 @@ impl<R: Reader> Reader for OptionReader<R> {
 }
 
 pub struct RepeatedReader<R> {
-    pub(super) def_level: i16,
-    pub(super) rep_level: i16,
     pub(super) reader: R,
 }
 impl<R: Reader> Reader for RepeatedReader<R> {
     type Item = Vec<R::Item>;
 
     fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
-        assert_eq!((def_level, rep_level), (self.def_level, self.rep_level));
         let mut elements = Vec::new();
         loop {
-            if self.reader.current_def_level() > self.def_level {
+            if self.reader.current_def_level() > def_level {
                 elements.push(self.reader.read(def_level + 1, rep_level + 1)?);
             } else {
                 self.reader.advance_columns()?;
@@ -411,7 +406,7 @@ impl<R: Reader> Reader for RepeatedReader<R> {
 
             // This covers case when we are out of repetition levels and should close the
             // group, or there are no values left to buffer.
-            if !self.reader.has_next() || self.reader.current_rep_level() <= self.rep_level {
+            if !self.reader.has_next() || self.reader.current_rep_level() <= rep_level {
                 break;
             }
         }
@@ -436,8 +431,6 @@ impl<R: Reader> Reader for RepeatedReader<R> {
 }
 
 pub struct KeyValueReader<K, V> {
-    pub(super) def_level: i16,
-    pub(super) rep_level: i16,
     pub(super) keys_reader: K,
     pub(super) values_reader: V,
 }
@@ -445,10 +438,9 @@ impl<K: Reader, V: Reader> Reader for KeyValueReader<K, V> {
     type Item = Vec<(K::Item, V::Item)>;
 
     fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
-        assert_eq!((def_level, rep_level), (self.def_level, self.rep_level));
         let mut pairs = Vec::new();
         loop {
-            if self.keys_reader.current_def_level() > self.def_level {
+            if self.keys_reader.current_def_level() > def_level {
                 pairs.push((
                     self.keys_reader.read(def_level + 1, rep_level + 1)?,
                     self.values_reader.read(def_level + 1, rep_level + 1)?,
@@ -464,9 +456,7 @@ impl<K: Reader, V: Reader> Reader for KeyValueReader<K, V> {
 
             // This covers case when we are out of repetition levels and should close the
             // group, or there are no values left to buffer.
-            if !self.keys_reader.has_next()
-                || self.keys_reader.current_rep_level() <= self.rep_level
-            {
+            if !self.keys_reader.has_next() || self.keys_reader.current_rep_level() <= rep_level {
                 break;
             }
         }
@@ -936,19 +926,15 @@ where
 
         // Prepare lookup table of column path -> original column index
         // This allows to prune columns and map schema leaf nodes to the column readers
-        let mut paths: HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)> = HashMap::new();
+        let mut paths: HashMap<ColumnPath, ColumnReader> = HashMap::new();
         let row_group_metadata = row_group_reader.metadata();
         for col_index in 0..row_group_reader.num_columns() {
             let col_meta = row_group_metadata.column(col_index);
             let col_path = col_meta.column_path().clone();
             // println!("path: {:?}", col_path);
-            let col_descr = row_group_reader
-                .metadata()
-                .column(col_index)
-                .column_descr_ptr();
             let col_reader = row_group_reader.get_column_reader(col_index).unwrap();
 
-            let x = paths.insert(col_path, (col_descr, col_reader));
+            let x = paths.insert(col_path, col_reader);
             assert!(x.is_none());
         }
 
@@ -1079,20 +1065,16 @@ where
                 .get_row_group(self.current_row_group)
                 .expect("Row group is required to advance");
 
-            let mut paths: HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)> = HashMap::new();
+            let mut paths: HashMap<ColumnPath, ColumnReader> = HashMap::new();
             let row_group_metadata = row_group_reader.metadata();
 
             for col_index in 0..row_group_reader.num_columns() {
                 let col_meta = row_group_metadata.column(col_index);
                 let col_path = col_meta.column_path().clone();
                 // println!("path: {:?}", col_path);
-                let col_descr = row_group_reader
-                    .metadata()
-                    .column(col_index)
-                    .column_descr_ptr();
                 let col_reader = row_group_reader.get_column_reader(col_index).unwrap();
 
-                let x = paths.insert(col_path, (col_descr, col_reader));
+                let x = paths.insert(col_path, col_reader);
                 assert!(x.is_none());
             }
 

@@ -204,7 +204,7 @@ fn impl_struct(
                 }
                 Result::Err(ParquetError::General(format!("Struct {}", stringify!(#name))))
             }
-            fn reader(schema: &Self::Schema, mut path: &mut Vec<String>, def_level: i16, rep_level: i16, paths: &mut HashMap<ColumnPath, (ColumnDescPtr,ColumnReader)>, batch_size: usize) -> Self::Reader {
+            fn reader(schema: &Self::Schema, mut path: &mut Vec<String>, def_level: i16, rep_level: i16, paths: &mut HashMap<ColumnPath, ColumnReader>, batch_size: usize) -> Self::Reader {
                 #(
                     path.push(#field_renames1.to_owned());
                     let #field_names1 = <#field_types1 as Deserialize>::reader(&schema.#field_names2, path, def_level, rep_level, paths, batch_size);

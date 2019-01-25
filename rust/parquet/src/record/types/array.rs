@@ -53,15 +53,11 @@ impl Deserialize for Vec<u8> {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         ByteArrayReader {
             column: TypedTripletIter::<ByteArrayType>::new(
                 def_level, rep_level, batch_size, col_reader,
@@ -90,7 +86,7 @@ impl Deserialize for Bson {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         MapReader(
@@ -134,15 +130,11 @@ impl Deserialize for String {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         MapReader(
             ByteArrayReader {
                 column: TypedTripletIter::<ByteArrayType>::new(
@@ -177,7 +169,7 @@ impl Deserialize for Json {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         MapReader(
@@ -222,7 +214,7 @@ impl Deserialize for Enum {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         MapReader(
@@ -278,15 +270,11 @@ macro_rules! impl_parquet_deserialize_array {
                 path: &mut Vec<String>,
                 def_level: i16,
                 rep_level: i16,
-                paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+                paths: &mut HashMap<ColumnPath, ColumnReader>,
                 batch_size: usize,
             ) -> Self::Reader {
                 let col_path = ColumnPath::new(path.to_vec());
-                let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-                assert_eq!(
-                    (def_level, rep_level),
-                    (col_descr.max_def_level(), col_descr.max_rep_level())
-                );
+                let col_reader = paths.remove(&col_path).unwrap();
                 MapReader(
                     FixedLenByteArrayReader {
                         column: TypedTripletIter::<FixedLenByteArrayType>::new(
@@ -326,15 +314,11 @@ macro_rules! impl_parquet_deserialize_array {
                 path: &mut Vec<String>,
                 def_level: i16,
                 rep_level: i16,
-                paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+                paths: &mut HashMap<ColumnPath, ColumnReader>,
                 batch_size: usize,
             ) -> Self::Reader {
                 let col_path = ColumnPath::new(path.to_vec());
-                let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-                assert_eq!(
-                    (def_level, rep_level),
-                    (col_descr.max_def_level(), col_descr.max_rep_level())
-                );
+                let col_reader = paths.remove(&col_path).unwrap();
                 MapReader(
                     FixedLenByteArrayReader {
                         column: TypedTripletIter::<FixedLenByteArrayType>::new(

@@ -53,15 +53,11 @@ impl Deserialize for bool {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         BoolReader {
             column: TypedTripletIter::<BoolType>::new(def_level, rep_level, batch_size, col_reader),
         }
@@ -84,15 +80,11 @@ impl Deserialize for i8 {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         TryIntoReader(
             I32Reader {
                 column: TypedTripletIter::<Int32Type>::new(
@@ -119,15 +111,11 @@ impl Deserialize for u8 {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         TryIntoReader(
             I32Reader {
                 column: TypedTripletIter::<Int32Type>::new(
@@ -155,15 +143,11 @@ impl Deserialize for i16 {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         TryIntoReader(
             I32Reader {
                 column: TypedTripletIter::<Int32Type>::new(
@@ -190,15 +174,11 @@ impl Deserialize for u16 {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         TryIntoReader(
             I32Reader {
                 column: TypedTripletIter::<Int32Type>::new(
@@ -226,15 +206,11 @@ impl Deserialize for i32 {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         I32Reader {
             column: TypedTripletIter::<Int32Type>::new(
                 def_level, rep_level, batch_size, col_reader,
@@ -259,15 +235,11 @@ impl Deserialize for u32 {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         MapReader(
             I32Reader {
                 column: TypedTripletIter::<Int32Type>::new(
@@ -295,15 +267,11 @@ impl Deserialize for i64 {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         I64Reader {
             column: TypedTripletIter::<Int64Type>::new(
                 def_level, rep_level, batch_size, col_reader,
@@ -328,15 +296,11 @@ impl Deserialize for u64 {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         MapReader(
             I64Reader {
                 column: TypedTripletIter::<Int64Type>::new(
@@ -364,15 +328,11 @@ impl Deserialize for f32 {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         F32Reader {
             column: TypedTripletIter::<FloatType>::new(
                 def_level, rep_level, batch_size, col_reader,
@@ -396,15 +356,11 @@ impl Deserialize for f64 {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         F64Reader {
             column: TypedTripletIter::<DoubleType>::new(
                 def_level, rep_level, batch_size, col_reader,

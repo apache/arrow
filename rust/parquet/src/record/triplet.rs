@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::mem;
+use std::{iter, mem};
 
 use crate::basic::Repetition;
 use crate::column::reader::{get_typed_column_reader, ColumnReader, ColumnReaderImpl};
@@ -47,9 +47,7 @@ impl TripletIter {
             &mut vec![],
             def_level,
             rep_level,
-            &mut vec![(ColumnPath::new(vec![]), (descr.clone(), reader))]
-                .into_iter()
-                .collect(),
+            &mut iter::once((ColumnPath::new(vec![]), reader)).collect(),
             batch_size,
         );
         Ok(TripletIter {

@@ -55,15 +55,11 @@ impl Deserialize for Decimal {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         unimplemented!()
         // match *schema {
         //     DecimalSchema::Int32 { precision, scale } => sum::Sum3::A(MapReader(

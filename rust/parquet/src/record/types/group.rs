@@ -30,9 +30,9 @@ use crate::{
     column::reader::ColumnReader,
     errors::ParquetError,
     record::{
-        reader::{GroupReader, RootReader},
-        schemas::{GroupSchema, RootSchema, ValueSchema},
-        types::{Root, Value},
+        reader::GroupReader,
+        schemas::{GroupSchema, ValueSchema},
+        types::Value,
         Deserialize,
     },
     schema::types::{ColumnDescPtr, ColumnPath, Type},
@@ -80,7 +80,7 @@ impl Deserialize for Group {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let mut names_ = vec![None; schema.0.len()];

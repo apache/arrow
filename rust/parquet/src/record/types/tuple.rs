@@ -27,9 +27,9 @@ use crate::{
     column::reader::ColumnReader,
     errors::ParquetError,
     record::{
-        reader::{Reader, RootReader, TupleReader},
-        schemas::{RootSchema, TupleSchema, ValueSchema},
-        types::{group::Group, Downcast, Root, Value},
+        reader::{Reader, TupleReader},
+        schemas::{TupleSchema, ValueSchema},
+        types::{group::Group, Downcast, Value},
         Deserialize, DisplaySchema,
     },
     schema::types::{ColumnDescPtr, ColumnPath, Type},
@@ -128,7 +128,7 @@ macro_rules! impl_parquet_deserialize_tuple {
                 Err(ParquetError::General(format!("Can't parse Tuple {:?}", schema)))
             }
             #[allow(unused_variables)]
-            fn reader(schema: &Self::Schema, path: &mut Vec<String>, def_level: i16, rep_level: i16, paths: &mut HashMap<ColumnPath, (ColumnDescPtr,ColumnReader)>, batch_size: usize) -> Self::Reader {
+            fn reader(schema: &Self::Schema, path: &mut Vec<String>, def_level: i16, rep_level: i16, paths: &mut HashMap<ColumnPath, ColumnReader>, batch_size: usize) -> Self::Reader {
                 $(
                     path.push((schema.0).$i.0.to_owned());
                     #[allow(non_snake_case)]

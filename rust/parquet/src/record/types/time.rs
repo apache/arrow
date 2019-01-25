@@ -57,15 +57,11 @@ impl Deserialize for Date {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         MapReader(
             I32Reader {
                 column: TypedTripletIter::<Int32Type>::new(
@@ -99,15 +95,11 @@ impl Deserialize for Time {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         match schema {
             TimeSchema::Micros => sum::Sum2::A(MapReader(
                 I64Reader {
@@ -181,15 +173,11 @@ impl Deserialize for Timestamp {
         path: &mut Vec<String>,
         def_level: i16,
         rep_level: i16,
-        paths: &mut HashMap<ColumnPath, (ColumnDescPtr, ColumnReader)>,
+        paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
         let col_path = ColumnPath::new(path.to_vec());
-        let (col_descr, col_reader) = paths.remove(&col_path).unwrap();
-        assert_eq!(
-            (def_level, rep_level),
-            (col_descr.max_def_level(), col_descr.max_rep_level())
-        );
+        let col_reader = paths.remove(&col_path).unwrap();
         match schema {
             TimestampSchema::Int96 => sum::Sum3::A(MapReader(
                 I96Reader {

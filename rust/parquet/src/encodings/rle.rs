@@ -466,7 +466,7 @@ impl RleDecoder {
                 let mut num_values =
                     cmp::min(max_values - values_read, self.bit_packed_left as usize);
                 if let Some(ref mut bit_reader) = self.bit_reader {
-                    let mut index_buf = [0i32; 1024];
+                    let mut index_buf = unsafe{std::mem::MaybeUninit::<[i32; 1024]>::uninitialized().into_inner()};
                     num_values = cmp::min(num_values, index_buf.len());
                     loop {
                         num_values = bit_reader.get_batch::<i32>(
