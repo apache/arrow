@@ -29,17 +29,18 @@ RUN apt-get update -q -y && \
     rm /maven-$MAVEN_VERSION.tar.gz && \
     mv /apache-maven-$MAVEN_VERSION /usr/local/maven
 
-# patching spark is required in order to:
-# - avoid too long filenames error https://issues.apache.org/jira/browse/SPARK-4820
-# - fix python compatibility issues in pyspark testing suite
+# installing specific version of spark
 ARG SPARK_VERSION=2.4.0
-ADD integration/spark/$SPARK_VERSION.patch /arrow/integration/spark/$SPARK_VERSION.patch
 RUN mkdir /spark && \
     cd /spark && \
     wget -q -O spark.tar.gz https://github.com/apache/spark/archive/v$SPARK_VERSION.tar.gz && \
     tar -xzf spark.tar.gz && \
-    rm spark.tar.gz && \
-    cd spark-$SPARK_VERSION && \
+    rm spark.tar.gz
+
+# patching spark is required in order to:
+# - avoid too long filenames error https://issues.apache.org/jira/browse/SPARK-4820
+ADD integration/spark/$SPARK_VERSION.patch /arrow/integration/spark/$SPARK_VERSION.patch
+RUN cd /spark/spark-$SPARK_VERSION && \
     patch -p1 < /arrow/integration/spark/$SPARK_VERSION.patch
 
 # build cpp with tests
