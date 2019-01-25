@@ -58,6 +58,10 @@ TYPED_TEST(TestDictionaryBuilder, Basic) {
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(2)));
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
+  ASSERT_OK(builder.AppendNull());
+
+  ASSERT_EQ(builder.length(), 4);
+  ASSERT_EQ(builder.null_count(), 1);
 
   std::shared_ptr<Array> result;
   ASSERT_OK(builder.Finish(&result));
@@ -66,7 +70,7 @@ TYPED_TEST(TestDictionaryBuilder, Basic) {
   auto dict_array = ArrayFromJSON(std::make_shared<TypeParam>(), "[1, 2]");
   auto dict_type = std::make_shared<DictionaryType>(int8(), dict_array);
 
-  auto int_array = ArrayFromJSON(int8(), "[0, 1, 0]");
+  auto int_array = ArrayFromJSON(int8(), "[0, 1, 0, null]");
   DictionaryArray expected(dict_type, int_array);
 
   ASSERT_TRUE(expected.Equals(result));
