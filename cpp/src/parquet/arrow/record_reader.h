@@ -24,7 +24,6 @@
 
 #include "arrow/memory_pool.h"
 
-#include "parquet/util/macros.h"
 #include "parquet/util/memory.h"
 
 namespace arrow {

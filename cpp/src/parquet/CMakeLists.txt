@@ -172,6 +172,7 @@ set(PARQUET_SRCS
   column_reader.cc
   column_scanner.cc
   column_writer.cc
+  encoding.cc
   file_reader.cc
   file_writer.cc
   metadata.cc
@@ -268,6 +269,10 @@ foreach(LIB_TARGET ${PARQUET_LIBRARIES})
       PRIVATE HAVE_NETINET_IN_H)
   endif()
 endforeach()
+
+if (ARROW_BUILD_STATIC AND WIN32)
+  target_compile_definitions(parquet_static PUBLIC PARQUET_STATIC)
+endif()
 
 add_subdirectory(api)
 add_subdirectory(arrow)

@@ -21,6 +21,8 @@
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
+#include "parquet/metadata.h"
+#include "parquet/properties.h"
 #include "parquet/test-specialization.h"
 #include "parquet/test-util.h"
 #include "parquet/thrift.h"

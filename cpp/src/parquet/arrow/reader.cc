@@ -21,13 +21,18 @@
 #include <climits>
 #include <cstring>
 #include <future>
-#include <ostream>
-#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
-#include "arrow/api.h"
+#include "arrow/array.h"
+#include "arrow/buffer.h"
+#include "arrow/builder.h"
+#include "arrow/record_batch.h"
+#include "arrow/status.h"
+#include "arrow/table.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/int-util.h"
 #include "arrow/util/logging.h"

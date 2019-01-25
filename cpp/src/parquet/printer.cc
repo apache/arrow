@@ -17,15 +17,30 @@
 
 #include "parquet/printer.h"
 
+#include <cstdint>
+#include <cstdio>
+#include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 
+#include "arrow/util/key_value_metadata.h"
+
 #include "parquet/column_scanner.h"
+#include "parquet/exception.h"
+#include "parquet/file_reader.h"
+#include "parquet/metadata.h"
+#include "parquet/schema.h"
+#include "parquet/statistics.h"
+#include "parquet/types.h"
 
 using std::string;
 using std::vector;
 
 namespace parquet {
+
+class ColumnReader;
+
 // ----------------------------------------------------------------------
 // ParquetFilePrinter::DebugPrint
 

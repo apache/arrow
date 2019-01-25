@@ -22,6 +22,7 @@
 #include <memory>
 
 #include "parquet/column_page.h"
+#include "parquet/column_reader.h"
 #include "parquet/exception.h"
 #include "parquet/file_reader.h"
 #include "parquet/thrift.h"

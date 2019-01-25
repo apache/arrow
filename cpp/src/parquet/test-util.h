@@ -33,7 +33,7 @@
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
-#include "parquet/encoding-internal.h"
+#include "parquet/encoding.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/test-common.h"
 
@@ -49,6 +49,15 @@ bool operator==(const FixedLenByteArray& a, const FixedLenByteArray& b) {
 }
 
 namespace test {
+
+template <typename Type, typename Sequence>
+std::shared_ptr<Buffer> EncodeValues(Encoding::type encoding, bool use_dictionary,
+                                     const Sequence& values, int length,
+                                     const ColumnDescriptor* descr) {
+  auto encoder = MakeTypedEncoder<Type>(encoding, use_dictionary, descr);
+  encoder->Put(values, length);
+  return encoder->FlushValues();
+}
 
 template <typename T>
 static void InitValues(int num_values, vector<T>& values, vector<uint8_t>& buffer) {
@@ -133,9 +142,8 @@ class DataPageBuilder {
 
   void AppendValues(const ColumnDescriptor* d, const vector<T>& values,
                     Encoding::type encoding = Encoding::PLAIN) {
-    PlainEncoder<Type> encoder(d);
-    encoder.Put(&values[0], static_cast<int>(values.size()));
-    std::shared_ptr<Buffer> values_sink = encoder.FlushValues();
+    std::shared_ptr<Buffer> values_sink = EncodeValues<Type>(
+        encoding, false, values.data(), static_cast<int>(values.size()), d);
     sink_->Write(values_sink->data(), values_sink->size());
 
     num_values_ = std::max(static_cast<int32_t>(values.size()), num_values_);
@@ -195,9 +203,11 @@ void DataPageBuilder<BooleanType>::AppendValues(const ColumnDescriptor* d,
   if (encoding != Encoding::PLAIN) {
     ParquetException::NYI("only plain encoding currently implemented");
   }
-  PlainEncoder<BooleanType> encoder(d);
-  encoder.Put(values, static_cast<int>(values.size()));
-  std::shared_ptr<Buffer> buffer = encoder.FlushValues();
+
+  auto encoder = MakeTypedEncoder<BooleanType>(Encoding::PLAIN, false, d);
+  dynamic_cast<BooleanEncoder*>(encoder.get())
+      ->Put(values, static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buffer = encoder->FlushValues();
   sink_->Write(buffer->data(), buffer->size());
 
   num_values_ = std::max(static_cast<int32_t>(values.size()), num_values_);
@@ -243,11 +253,14 @@ class DictionaryPageBuilder {
  public:
   typedef typename TYPE::c_type TC;
   static constexpr int TN = TYPE::type_num;
+  using SpecializedEncoder = typename EncodingTraits<TYPE>::Encoder;
 
   // This class writes data and metadata to the passed inputs
   explicit DictionaryPageBuilder(const ColumnDescriptor* d)
       : num_dict_values_(0), have_values_(false) {
-    encoder_.reset(new DictEncoder<TYPE>(d));
+    auto encoder = MakeTypedEncoder<TYPE>(Encoding::PLAIN, true, d);
+    dict_traits_ = dynamic_cast<DictEncoder<TYPE>*>(encoder.get());
+    encoder_.reset(dynamic_cast<SpecializedEncoder*>(encoder.release()));
   }
 
   ~DictionaryPageBuilder() {}
@@ -256,22 +269,23 @@ class DictionaryPageBuilder {
     int num_values = static_cast<int>(values.size());
     // Dictionary encoding
     encoder_->Put(values.data(), num_values);
-    num_dict_values_ = encoder_->num_entries();
+    num_dict_values_ = dict_traits_->num_entries();
     have_values_ = true;
     return encoder_->FlushValues();
   }
 
   shared_ptr<Buffer> WriteDict() {
-    std::shared_ptr<ResizableBuffer> dict_buffer =
-        AllocateBuffer(::arrow::default_memory_pool(), encoder_->dict_encoded_size());
-    encoder_->WriteDict(dict_buffer->mutable_data());
-    return std::move(dict_buffer);
+    std::shared_ptr<Buffer> dict_buffer =
+        AllocateBuffer(::arrow::default_memory_pool(), dict_traits_->dict_encoded_size());
+    dict_traits_->WriteDict(dict_buffer->mutable_data());
+    return dict_buffer;
   }
 
   int32_t num_values() const { return num_dict_values_; }
 
  private:
-  shared_ptr<DictEncoder<TYPE>> encoder_;
+  DictEncoder<TYPE>* dict_traits_;
+  std::unique_ptr<SpecializedEncoder> encoder_;
   int32_t num_dict_values_;
   bool have_values_;
 };

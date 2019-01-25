@@ -18,22 +18,31 @@
 #ifndef PARQUET_FILE_METADATA_H
 #define PARQUET_FILE_METADATA_H
 
+#include <cstdint>
 #include <memory>
-#include <set>
 #include <string>
 #include <vector>
 
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/macros.h"
 
 #include "parquet/properties.h"
-#include "parquet/schema.h"
-#include "parquet/statistics.h"
 #include "parquet/types.h"
-#include "parquet/util/macros.h"
-#include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
 namespace parquet {
+
+class ColumnDescriptor;
+class EncodedStatistics;
+class OutputStream;
+class RowGroupStatistics;
+class SchemaDescriptor;
+
+namespace schema {
+
+class ColumnPath;
+
+}  // namespace schema
 
 using KeyValueMetadata = ::arrow::KeyValueMetadata;
 
