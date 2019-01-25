@@ -107,6 +107,10 @@ endif(CCACHE_FOUND)
 
 include(BuildUtils)
 include(CompilerInfo)
+
+# Cython generated code emits way to many warnings at CHECKIN and EVERYTHING
+set(BUILD_WARNING_LEVEL "PRODUCTION")
+
 include(SetupCxxFlags)
 
 # Add common flags
@@ -118,7 +122,7 @@ if (NOT MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
 
   # Suppress Cython warnings
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable -Wno-maybe-uninitialized -Wno-conversion")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable -Wno-maybe-uninitialized")
 else()
   # MSVC version of -Wno-return-type-c-linkage
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4190")
