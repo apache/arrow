@@ -29,24 +29,25 @@ use crate::compute::array_ops::math_op;
 use crate::datatypes;
 use crate::error::{ArrowError, Result};
 
-pub fn add_simd<T>(x: &PrimitiveArray<T>, y: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub fn add_simd<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
 where
-    T: datatypes::SimdType,
+    T: datatypes::ArrowNumericType,
 {
-    if x.len() != y.len() {
+    if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
             "Cannot perform math operation on arrays of different length".to_string(),
         ));
     }
 
     let lanes = T::lanes();
-    let buffer_size = x.len() * mem::size_of::<T::Native>();
+    let buffer_size = left.len() * mem::size_of::<T::Native>();
     let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
 
-    for i in (0..x.len()).step_by(lanes) {
-        let simd_x = T::load(x.value_slice(i, lanes));
-        let simd_y = T::load(y.value_slice(i, lanes));
-        let simd_z = T::add(simd_x, simd_y);
+    for i in (0..left.len()).step_by(lanes) {
+        let simd_left = T::load(left.value_slice(i, lanes));
+        let simd_right = T::load(right.value_slice(i, lanes));
+        let simd_result = T::add(simd_left, simd_right);
 
         let result_slice: &mut [T::Native] = unsafe {
             from_raw_parts_mut(
@@ -54,22 +55,26 @@ where
                 lanes,
             )
         };
-        T::write(simd_z, result_slice);
+        T::write(simd_result, result_slice);
     }
 
-    Ok(PrimitiveArray::<T>::new(x.len(), result.freeze(), 0, 0))
+    Ok(PrimitiveArray::<T>::new(left.len(), result.freeze(), 0, 0))
 }
 
 /// Perform `left + right` operation on two arrays. If either left or right value is null then the result is also null.
 pub fn add<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
-where
-    T: datatypes::ArrowNumericType,
-    T::Native: Add<Output = T::Native>
+    where
+        T: datatypes::ArrowNumericType,
+        T::Native: Add<Output = T::Native>
         + Sub<Output = T::Native>
         + Mul<Output = T::Native>
         + Div<Output = T::Native>
         + Zero,
 {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    return add_simd(&left, &right);
+
+    #[allow(unreachable_code)]
     math_op(left, right, |a, b| Ok(a + b))
 }
 

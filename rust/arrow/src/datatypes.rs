@@ -153,57 +153,66 @@ make_type!(Float32Type, f32, DataType::Float32, 32, 0.0f32);
 make_type!(Float64Type, f64, DataType::Float64, 64, 0.0f64);
 
 
+/// A subtype of primitive type that represents numeric values
+pub trait ArrowNumericType: ArrowPrimitiveType {
 
-
-
-
-
-/// A subtype of primitive type that represents numeric values.
-pub trait ArrowNumericType: ArrowPrimitiveType {}
-
-pub trait SimdType: ArrowNumericType{
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     type Simd;
 
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn lanes() -> usize;
 
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn load(slice: &[Self::Native]) -> Self::Simd;
 
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn add(left: Self::Simd, right: Self::Simd) -> Self::Simd;
 
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn write(simd_result: Self::Simd, slice: &mut [Self::Native]);
 
 }
 
-impl ArrowNumericType for Int8Type {}
-impl ArrowNumericType for Int16Type {}
-impl ArrowNumericType for Int32Type {}
-impl ArrowNumericType for Int64Type {}
-impl ArrowNumericType for UInt8Type {}
-impl ArrowNumericType for UInt16Type {}
-impl ArrowNumericType for UInt32Type {}
-impl ArrowNumericType for UInt64Type {}
-impl ArrowNumericType for Float32Type {}
+macro_rules! make_numeric_type {
+    ($impl_ty:ty, $native_ty:ty, $simd_ty:ident) => {
+        impl ArrowNumericType for $impl_ty {
 
-impl SimdType for Float32Type {
-    type Simd = f32x16;
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            type Simd = $simd_ty;
 
-    fn lanes() -> usize {
-        f32x16::lanes()
-    }
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            fn lanes() -> usize {
+                $simd_ty::lanes()
+            }
 
-    fn load(slice: &[f32]) -> f32x16 {
-        unsafe { f32x16::from_slice_unaligned_unchecked(slice) }
-    }
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            fn load(slice: &[$native_ty]) -> $simd_ty {
+                unsafe { $simd_ty::from_slice_unaligned_unchecked(slice) }
+            }
 
-    fn add(left: f32x16, right: f32x16) -> f32x16 {
-        left + right
-    }
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            fn add(left: $simd_ty, right: $simd_ty) -> $simd_ty {
+                left + right
+            }
 
-    fn write(simd_result: f32x16, slice: &mut [f32]) {
-        unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
-    }
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            fn write(simd_result: $simd_ty, slice: &mut [$native_ty]) {
+                unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
+            }
+        }
+    };
 }
-impl ArrowNumericType for Float64Type {}
+
+make_numeric_type!(Int8Type, i8, i8x64);
+make_numeric_type!(Int16Type, i16, i16x32);
+make_numeric_type!(Int32Type, i32, i32x16);
+make_numeric_type!(Int64Type, i64, i64x8);
+make_numeric_type!(UInt8Type, u8, u8x64);
+make_numeric_type!(UInt16Type, u16, u16x32);
+make_numeric_type!(UInt32Type, u32, u32x16);
+make_numeric_type!(UInt64Type, u64, u64x8);
+make_numeric_type!(Float32Type, f32, f32x16);
+make_numeric_type!(Float64Type, f64, f64x8);
 
 /// Allows conversion from supported Arrow types to a byte slice.
 pub trait ToByteSlice {
