@@ -39,6 +39,7 @@ conda activate $CONDA_ENV_DIR
 
 pip install -q tensorflow
 pip install "dist/`ls dist/ | grep cp36`"
+popd
 
 # # Test optional dependencies and the presence of tensorflow
 python -c "
@@ -54,5 +55,5 @@ if sys.version_info.major > 2:
 "
 
 # Run pyarrow tests
-pip install -r /arrow/python/requirements-test.txt
+pip install -r python/requirements-test.txt
 pytest --pyargs pyarrow
