@@ -378,7 +378,6 @@ mod tests {
         assert_eq!(1.0, c.value(2));
     }
 
-
     #[test]
     fn test_primitive_array_sum() {
         let a = Int32Array::from(vec![1, 2, 3, 4, 5]);

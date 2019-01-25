@@ -69,9 +69,9 @@ where
 
 /// Perform `left + right` operation on two arrays. If either left or right value is null then the result is also null.
 pub fn add<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
-    where
-        T: datatypes::ArrowNumericType,
-        T::Native: Add<Output = T::Native>
+where
+    T: datatypes::ArrowNumericType,
+    T::Native: Add<Output = T::Native>
         + Sub<Output = T::Native>
         + Mul<Output = T::Native>
         + Div<Output = T::Native>
