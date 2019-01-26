@@ -26,15 +26,26 @@ export PYARROW_CMAKE_GENERATOR=Ninja
 export PYARROW_BUILD_TYPE=${PYARROW_BUILD_TYPE:-debug}
 
 # Feature flags
+export SETUPTOOLS_SCM_VERSION_WRITE_TO_PREFIX=$build_dir
 export PYARROW_WITH_ORC=${PYARROW_WITH_ORC:-1}
 export PYARROW_WITH_PARQUET=${PYARROW_WITH_PARQUET:-1}
 export PYARROW_WITH_PLASMA=${PYARROW_WITH_PLASMA:-1}
 
 # Build pyarrow
 pushd ${source_dir}
+  # hacky again, setuptools_scm writes _generated_version.py before pyarrow
+  # directory is created by setuptools
+  mkdir -p $build_dir/pyarrow
 
-python setup.py build --build-temp=${build_dir} \
-                install --single-version-externally-managed \
-                        --record=/build/python/record.txt
+  relative_build_dir=$(realpath --relative-to=. $build_dir)
 
+  # this is a nightmare, but prevents mutating the source directory
+  # which is bind mounted as readonly
+  python setup.py build_ext --build-temp $relative_build_dir \
+                            --build-lib $relative_build_dir \
+                  build_py --build-lib $relative_build_dir \
+                  egg_info --egg-base $relative_build_dir \
+                  install_lib --build-dir $relative_build_dir \
+                  install --single-version-externally-managed \
+                          --record $relative_build_dir/record.txt
 popd

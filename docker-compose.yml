@@ -21,13 +21,19 @@ version: '3.5'
 
 x-ubuntu-volumes:
   &ubuntu-volumes
-  - .:/arrow:delegated
-  - ${ARROW_DOCKER_CACHE_DIR:-./docker_cache}/ubuntu:/build:delegated
+  - .:/arrow:ro  # ensures that docker won't contaminate the host directory
+  - ubuntu-cache:/build:delegated
 
 x-alpine-volumes:
   &alpine-volumes
-  - .:/arrow:delegated
-  - ${ARROW_DOCKER_CACHE_DIR:-./docker_cache}/alpine:/build:delegated
+  - .:/arrow:ro  # ensures that docker won't contaminate the host directory
+  - alpine-cache:/build:delegated
+
+volumes:
+  ubuntu-cache:
+  alpine-cache:
+  maven-cache:
+  spark-cache:
 
 services:
 
@@ -105,8 +111,8 @@ services:
       context: .
       dockerfile: java/Dockerfile
     volumes:
-      - .:/arrow:delegated
-      - $HOME/.m2:/root/.m2:delegated
+      - .:/arrow:ro  # ensures that docker won't contaminate the host directory
+      - maven-cache:/root/.m2:delegated
 
   js:
     image: arrow:js
@@ -267,7 +273,6 @@ services:
     links:
       - hdfs-namenode:hdfs-namenode
 
-  # TODO(kszucs): pass hdfs client version explicitly as a build argument
   hdfs-integration:
     # Usage:
     #   export PYTHON_VERSION=3.6
@@ -275,6 +280,7 @@ services:
     #   docker-compose build python
     #   docker-compose build hdfs-integration
     #   docker-compose run hdfs-integration
+    image: arrow:hdfs-${HDFS_VERSION:-2.6.5}
     links:
       - hdfs-namenode:hdfs-namenode
       - hdfs-datanode-1:hdfs-datanode-1
@@ -286,6 +292,8 @@ services:
     build:
       context: .
       dockerfile: integration/hdfs/Dockerfile
+      args:
+        HDFS_VERSION: ${HDFS_VERSION:-2.6.5}
     volumes: *ubuntu-volumes
 
   # TODO(kszucs): pass dask version explicitly as a build argument
@@ -296,10 +304,29 @@ services:
     #   docker-compose build python
     #   docker-compose build dask-integration
     #   docker-compose run dask-integration
+    image: arrow:dask-integration
     build:
       context: .
       dockerfile: integration/dask/Dockerfile
     volumes: *ubuntu-volumes
 
+  spark-integration:
+    # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build spark-integration
+    #   docker-compose run spark-integration
+    image: arrow:spark-${SPARK_VERSION:-2.4.0}
+    environment:
+      - SPARK_VERSION=${SPARK_VERSION:-2.4.0}
+    build:
+      context: .
+      dockerfile: integration/spark/Dockerfile
+    volumes:
+      - .:/arrow:ro  # ensures that docker won't contaminate the host directory
+      - ubuntu-cache:/build:delegated
+      - maven-cache:/root/.m2:delegated
+      - spark-cache:/spark:delegated
+
   # TODO(kszucs): hive-integration
-  # TODO(kszucs): spark-integration

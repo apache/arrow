@@ -496,6 +496,11 @@ if (not os.path.exists('../.git')
             default_version.replace('-SNAPSHOT', 'a0')
 
 
+# See https://github.com/pypa/setuptools_scm#configuration-parameters
+scm_version_write_to_prefix = os.environ.get(
+    'SETUPTOOLS_SCM_VERSION_WRITE_TO_PREFIX', setup_dir)
+
+
 def parse_git(root, **kwargs):
     """
     Parse function for setuptools_scm that ignores tags for non-C++
@@ -531,7 +536,7 @@ else:
 
 
 setup(
-    name="pyarrow",
+    name='pyarrow',
     packages=['pyarrow', 'pyarrow.tests'],
     zip_safe=False,
     package_data={'pyarrow': ['*.pxd', '*.pyx', 'includes/*.pxd']},
@@ -548,18 +553,19 @@ setup(
             'plasma_store = pyarrow:_plasma_store_entry_point'
         ]
     },
-    use_scm_version={"root": os.path.dirname(setup_dir),
-                     "parse": parse_git,
-                     "write_to": os.path.join(setup_dir,
-                                              "pyarrow/_generated_version.py"),
-                     },
+    use_scm_version={
+        'root': os.path.dirname(setup_dir),
+        'parse': parse_git,
+        'write_to': os.path.join(scm_version_write_to_prefix,
+                                 'pyarrow/_generated_version.py')
+    },
     setup_requires=['setuptools_scm', 'cython >= 0.27'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas', 'hypothesis',
                    'pathlib2; python_version < "3.4"'],
-    description="Python library for Apache Arrow",
+    description='Python library for Apache Arrow',
     long_description=long_description,
-    long_description_content_type="text/markdown",
+    long_description_content_type='text/markdown',
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 2.7',
@@ -568,8 +574,8 @@ setup(
         'Programming Language :: Python :: 3.7',
     ],
     license='Apache License, Version 2.0',
-    maintainer="Apache Arrow Developers",
-    maintainer_email="dev@arrow.apache.org",
-    test_suite="pyarrow.tests",
-    url="https://arrow.apache.org/"
+    maintainer='Apache Arrow Developers',
+    maintainer_email='dev@arrow.apache.org',
+    test_suite='pyarrow.tests',
+    url='https://arrow.apache.org/'
 )
