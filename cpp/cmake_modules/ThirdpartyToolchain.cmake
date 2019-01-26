@@ -783,7 +783,8 @@ if (ARROW_JEMALLOC)
   include_directories(SYSTEM "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/")
   ADD_THIRDPARTY_LIB(jemalloc
     STATIC_LIB ${JEMALLOC_STATIC_LIB}
-    SHARED_LIB ${JEMALLOC_SHARED_LIB})
+    SHARED_LIB ${JEMALLOC_SHARED_LIB}
+    DEPS Threads::Threads)
   add_dependencies(jemalloc_static jemalloc_ep)
 endif()
 
