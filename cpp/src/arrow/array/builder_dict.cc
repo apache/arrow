@@ -215,16 +215,25 @@ Status DictionaryBuilder<T>::Append(const Scalar& value) {
 
   auto memo_index = memo_table_->GetOrInsert(value);
   RETURN_NOT_OK(values_builder_.Append(memo_index));
+  length_ += 1;
 
   return Status::OK();
 }
 
 template <typename T>
 Status DictionaryBuilder<T>::AppendNull() {
+  length_ += 1;
+  null_count_ += 1;
+
   return values_builder_.AppendNull();
 }
 
-Status DictionaryBuilder<NullType>::AppendNull() { return values_builder_.AppendNull(); }
+Status DictionaryBuilder<NullType>::AppendNull() {
+  length_ += 1;
+  null_count_ += 1;
+
+  return values_builder_.AppendNull();
+}
 
 template <typename T>
 Status DictionaryBuilder<T>::AppendArray(const Array& array) {
