@@ -36,7 +36,6 @@ volumes:
   spark-cache:
 
 services:
-
   ######################### Language Containers ###############################
 
   c_glib:
@@ -180,6 +179,9 @@ services:
 
   lint:
     # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
     #   docker-compose build lint
     #   docker-compose run lint
     image: arrow:lint
@@ -191,6 +193,9 @@ services:
 
   iwyu:
     # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
     #   docker-compose build lint
     #   docker-compose run iwyu
     image: arrow:lint
