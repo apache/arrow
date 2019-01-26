@@ -35,6 +35,12 @@ class RecordBatch;
 class RecordBatchReader;
 class Schema;
 
+namespace ipc {
+
+class RecordBatchWriter;
+
+}  // namespace ipc
+
 namespace flight {
 
 /// \brief Client class for Arrow Flight RPC services (gRPC-based).
@@ -94,12 +100,12 @@ class ARROW_EXPORT FlightClient {
   Status DoGet(const Ticket& ticket, const std::shared_ptr<Schema>& schema,
                std::unique_ptr<RecordBatchReader>* stream);
 
-  /// \brief Initiate DoPut RPC, returns FlightPutWriter interface to
-  /// write. Not yet implemented
-  /// \param[in] schema the schema of the stream data
-  /// \param[out] stream the created stream to write record batches to
+  /// \brief Upload data to a Flight described by the given descriptor.
+  /// \param[in] descriptor the descriptor of the stream
+  /// \param[out] stream a writer to write record batches to
   /// \return Status
-  Status DoPut(const Schema& schema, std::unique_ptr<FlightPutWriter>* stream);
+  Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
+               std::unique_ptr<ipc::RecordBatchWriter>* stream);
 
  private:
   FlightClient();

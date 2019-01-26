@@ -69,6 +69,7 @@ set(ARROW_FLIGHT_SRCS
   Flight.pb.cc
   Flight.grpc.pb.cc
   internal.cc
+  serialization-internal.cc
   server.cc
   types.cc
 )

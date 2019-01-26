@@ -29,6 +29,7 @@
 
 #include "arrow/flight/types.h"
 #include "arrow/ipc/dictionary.h"
+#include "arrow/record_batch.h"
 
 namespace arrow {
 
@@ -81,6 +82,13 @@ class ARROW_EXPORT RecordBatchStream : public FlightDataStream {
   std::shared_ptr<RecordBatchReader> reader_;
 };
 
+/// \brief A reader for IPC payloads uploaded by a client
+class ARROW_EXPORT FlightMessageReader : public RecordBatchReader {
+ public:
+  /// \brief Get the descriptor for this upload.
+  virtual const FlightDescriptor& descriptor() const = 0;
+};
+
 /// \brief Skeleton RPC server implementation which can be used to create
 /// custom servers by implementing its abstract methods
 class ARROW_EXPORT FlightServerBase {
@@ -125,7 +133,10 @@ class ARROW_EXPORT FlightServerBase {
   /// \return Status
   virtual Status DoGet(const Ticket& request, std::unique_ptr<FlightDataStream>* stream);
 
-  // virtual Status DoPut(std::unique_ptr<FlightMessageReader>* reader) = 0;
+  /// \brief Process a stream of IPC payloads sent from a client
+  /// \param[in] reader a sequence of uploaded record batches
+  /// \return Status
+  virtual Status DoPut(std::unique_ptr<FlightMessageReader> reader);
 
   /// \brief Execute an action, return stream of zero or more results
   /// \param[in] action the action to execute, with type and body
