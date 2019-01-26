@@ -31,6 +31,8 @@ ExternalStoreWorker::ExternalStoreWorker(std::shared_ptr<ExternalStore> external
       plasma_store_socket_(plasma_store_socket),
       plasma_clients_(parallelism, nullptr),
       parallelism_(parallelism),
+      external_store_endpoint_(external_store_endpoint),
+      external_store_(external_store),
       sync_handle_(nullptr),
       async_handles_(parallelism, nullptr),
       terminate_(false),
@@ -41,10 +43,7 @@ ExternalStoreWorker::ExternalStoreWorker(std::shared_ptr<ExternalStore> external
       num_reads_(0),
       num_bytes_read_(0) {
   if (valid_) {
-    ARROW_CHECK_OK(external_store->Connect(external_store_endpoint, &sync_handle_));
     for (size_t i = 0; i < parallelism_; ++i) {
-      ARROW_CHECK_OK(
-          external_store->Connect(external_store_endpoint, &async_handles_[i]));
       thread_pool_.emplace_back(&ExternalStoreWorker::DoWork, this, i);
     }
   }
@@ -76,34 +75,37 @@ bool ExternalStoreWorker::IsValid() const { return valid_; }
 
 size_t ExternalStoreWorker::Parallelism() { return parallelism_; }
 
-void ExternalStoreWorker::Put(const std::vector<ObjectID>& object_ids,
-                              const std::vector<std::shared_ptr<Buffer>>& object_data) {
-  ARROW_CHECK_OK(sync_handle_->Put(object_ids, object_data));
+Status ExternalStoreWorker::Put(const std::vector<ObjectID>& object_ids,
+                                const std::vector<std::shared_ptr<Buffer>>& object_data) {
+  std::shared_ptr<ExternalStoreHandle> handle;
+  RETURN_NOT_OK(SyncHandle(&handle));
+  RETURN_NOT_OK(handle->Put(object_ids, object_data));
 
   num_writes_ += object_data.size();
   for (const auto& i : object_data) {
     num_bytes_written_ += i->size();
   }
+
+  return Status::OK();
 }
 
-void ExternalStoreWorker::Get(const std::vector<ObjectID>& object_ids,
-                              std::vector<std::string>& object_data) {
-  Get(sync_handle_, object_ids, object_data);
+Status ExternalStoreWorker::Get(const std::vector<ObjectID>& object_ids,
+                                std::vector<std::string>& object_data) {
+  std::shared_ptr<ExternalStoreHandle> handle;
+  RETURN_NOT_OK(SyncHandle(&handle));
+  return Get(handle, object_ids, object_data);
 }
 
-bool ExternalStoreWorker::EnqueueUnevictRequest(const ObjectID& object_id) {
-  size_t n_enqueued = 0;
+Status ExternalStoreWorker::EnqueueUnevictRequest(const ObjectID& object_id) {
   {
     std::unique_lock<std::mutex> lock(tasks_mutex_);
     if (object_ids_.size() >= kMaxEnqueue) {
-      return false;
+      return Status::CapacityError("Request queue full");
     }
     object_ids_.push_back(object_id);
-    n_enqueued = object_ids_.size();
   }
   tasks_cv_.notify_one();
-  ARROW_LOG(DEBUG) << "Enqueued " << n_enqueued << " requests";
-  return true;
+  return Status::OK();
 }
 
 void ExternalStoreWorker::CopyBuffer(uint8_t* dst, const uint8_t* src, size_t n) {
@@ -125,10 +127,10 @@ void ExternalStoreWorker::PrintCounters() {
   ARROW_LOG(INFO) << "Number of failed reads: " << num_reads_not_found_;
 }
 
-void ExternalStoreWorker::Get(std::shared_ptr<ExternalStoreHandle> handle,
-                              const std::vector<ObjectID>& object_ids,
-                              std::vector<std::string>& object_data) {
-  ARROW_CHECK_OK(handle->Get(object_ids, object_data));
+Status ExternalStoreWorker::Get(std::shared_ptr<ExternalStoreHandle> handle,
+                                const std::vector<ObjectID>& object_ids,
+                                std::vector<std::string>& object_data) {
+  RETURN_NOT_OK(handle->Get(object_ids, object_data));
 
   for (const auto& i : object_data) {
     if (i.empty()) {
@@ -138,6 +140,8 @@ void ExternalStoreWorker::Get(std::shared_ptr<ExternalStoreHandle> handle,
     num_reads_++;
     num_bytes_read_ += i.size();
   }
+
+  return Status::OK();
 }
 
 void ExternalStoreWorker::DoWork(size_t idx) {
@@ -161,15 +165,20 @@ void ExternalStoreWorker::DoWork(size_t idx) {
     }
     tasks_cv_.notify_one();
 
+    std::shared_ptr<ExternalStoreHandle> handle;
+    std::shared_ptr<PlasmaClient> client;
     std::vector<std::string> object_data;
-    Get(async_handles_[idx], object_ids, object_data);
-    WriteToPlasma(Client(idx), object_ids, object_data);
+
+    ARROW_CHECK_OK(Client(idx, &client));
+    ARROW_CHECK_OK(AsyncHandle(idx, &handle));
+    ARROW_CHECK_OK(Get(handle, object_ids, object_data));
+    ARROW_CHECK_OK(WriteToPlasma(client, object_ids, object_data));
   }
 }
 
-void ExternalStoreWorker::WriteToPlasma(std::shared_ptr<PlasmaClient> client,
-                                        const std::vector<ObjectID>& object_ids,
-                                        const std::vector<std::string>& data) {
+Status ExternalStoreWorker::WriteToPlasma(std::shared_ptr<PlasmaClient> client,
+                                          const std::vector<ObjectID>& object_ids,
+                                          const std::vector<std::string>& data) {
   for (size_t i = 0; i < object_ids.size(); ++i) {
     if (data.at(i).empty()) {
       continue;
@@ -185,18 +194,38 @@ void ExternalStoreWorker::WriteToPlasma(std::shared_ptr<PlasmaClient> client,
     CopyBuffer(object_data->mutable_data(),
                reinterpret_cast<const uint8_t*>(data[i].data()),
                static_cast<size_t>(data_size));
-    ARROW_CHECK_OK(client->SealWithoutNotification(object_ids.at(i)));
-    ARROW_CHECK_OK(client->Release(object_ids.at(i)));
+    RETURN_NOT_OK(client->Seal(object_ids.at(i), false));
+    RETURN_NOT_OK(client->Release(object_ids.at(i)));
     num_reads_++;
   }
+  return Status::OK();
 }
 
-std::shared_ptr<PlasmaClient> ExternalStoreWorker::Client(size_t idx) {
+Status ExternalStoreWorker::Client(size_t idx, std::shared_ptr<PlasmaClient>* client) {
   if (plasma_clients_[idx] == nullptr) {
     plasma_clients_[idx] = std::make_shared<PlasmaClient>();
-    ARROW_CHECK_OK(plasma_clients_[idx]->Connect(plasma_store_socket_, ""));
+    RETURN_NOT_OK(plasma_clients_[idx]->Connect(plasma_store_socket_, ""));
   }
-  return plasma_clients_[idx];
+  *client = plasma_clients_[idx];
+  return Status::OK();
+}
+
+Status ExternalStoreWorker::AsyncHandle(size_t idx,
+                                        std::shared_ptr<ExternalStoreHandle>* handle) {
+  if (async_handles_[idx] == nullptr) {
+    RETURN_NOT_OK(
+        external_store_->Connect(external_store_endpoint_, &async_handles_[idx]));
+  }
+  *handle = async_handles_[idx];
+  return Status::OK();
+}
+
+Status ExternalStoreWorker::SyncHandle(std::shared_ptr<ExternalStoreHandle>* handle) {
+  if (sync_handle_ == nullptr) {
+    RETURN_NOT_OK(external_store_->Connect(external_store_endpoint_, &sync_handle_));
+  }
+  *handle = sync_handle_;
+  return Status::OK();
 }
 
 }  // namespace plasma

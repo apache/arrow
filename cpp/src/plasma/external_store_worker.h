@@ -84,16 +84,18 @@ class ExternalStoreWorker {
   ///
   /// \param object_ids The IDs of the objects to put.
   /// \param object_data The object data to put.
-  void Put(const std::vector<ObjectID>& object_ids,
-           const std::vector<std::shared_ptr<Buffer>>& object_data);
+  /// \return The return status.
+  Status Put(const std::vector<ObjectID>& object_ids,
+             const std::vector<std::shared_ptr<Buffer>>& object_data);
 
   /// Get objects from the external store. Called synchronously from the caller
   /// thread.
   ///
   /// \param object_ids The IDs of the objects to get.
   /// \param[out] object_data The object data to get.
-  void Get(const std::vector<ObjectID>& object_ids,
-           std::vector<std::string>& object_data);
+  /// \return The return status.
+  Status Get(const std::vector<ObjectID>& object_ids,
+             std::vector<std::string>& object_data);
 
   /// Copy memory buffer in parallel if data size is large enough.
   ///
@@ -107,9 +109,8 @@ class ExternalStoreWorker {
   /// and writes it back to plasma.
   ///
   /// \param object_id The object ID corresponding to the un-evict request.
-  /// \return True if the request is enqueued successfully, false if there are
-  ///         too many requests enqueued already.
-  bool EnqueueUnevictRequest(const ObjectID& object_id);
+  /// \return The return status.
+  Status EnqueueUnevictRequest(const ObjectID& object_id);
 
   /// Print Counters
   void PrintCounters();
@@ -118,9 +119,16 @@ class ExternalStoreWorker {
   void Shutdown();
 
  private:
-  void Get(std::shared_ptr<ExternalStoreHandle> handle,
-           const std::vector<ObjectID>& object_ids,
-           std::vector<std::string>& object_data);
+  /// Get objects from the external store, using the provided handle.
+  /// Updates external store read counters.
+  ///
+  /// @param handle Handle to the external store.
+  /// @param object_ids Object IDs to get.
+  /// @param object_data Object data to get.
+  /// @return The return status.
+  Status Get(std::shared_ptr<ExternalStoreHandle> handle,
+             const std::vector<ObjectID>& object_ids,
+             std::vector<std::string>& object_data);
 
   /// Contains the logic for a worker thread.
   ///
@@ -132,16 +140,32 @@ class ExternalStoreWorker {
   /// \param client The plasma client.
   /// \param object_ids The object IDs to write.
   /// \param data The object data to write.
-  void WriteToPlasma(std::shared_ptr<PlasmaClient> client,
-                     const std::vector<ObjectID>& object_ids,
-                     const std::vector<std::string>& data);
+  /// \return The return status.
+  Status WriteToPlasma(std::shared_ptr<PlasmaClient> client,
+                       const std::vector<ObjectID>& object_ids,
+                       const std::vector<std::string>& data);
 
-  /// Returns a client to the plasma store for the given thread ID,
+  /// Obtain a client to the plasma store for the given thread ID,
   /// creating one if not already initialized.
   ///
   /// \param idx The thread ID.
-  /// \return A client to the plasma store.
-  std::shared_ptr<PlasmaClient> Client(size_t idx);
+  /// \param client Client to the plasma store.
+  /// \return The return status.
+  Status Client(size_t idx, std::shared_ptr<PlasmaClient>* client);
+
+  /// Obtain an async handle to the external store for the given thread ID,
+  /// creating one if not already initialized.
+  ///
+  /// \param idx The thread ID,
+  /// \param handle Handle to the external store.
+  /// \return The return status.
+  Status AsyncHandle(size_t idx, std::shared_ptr<ExternalStoreHandle>* handle);
+
+  /// Obtain a sync handle to the external store, creating one if not initialized.
+  ///
+  /// \param handle Handle to the external store.
+  /// \return The return status.
+  Status SyncHandle(std::shared_ptr<ExternalStoreHandle>* handle);
 
   // Whether or not plasma is backed by external store
   bool valid_;
@@ -152,6 +176,8 @@ class ExternalStoreWorker {
 
   // External Store handles
   size_t parallelism_;
+  std::string external_store_endpoint_;
+  std::shared_ptr<ExternalStore> external_store_;
   std::shared_ptr<ExternalStoreHandle> sync_handle_;
   std::vector<std::shared_ptr<ExternalStoreHandle>> async_handles_;
 

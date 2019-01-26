@@ -932,12 +932,8 @@ Status PlasmaClient::List(ObjectTable* objects) { return impl_->List(objects); }
 
 Status PlasmaClient::Abort(const ObjectID& object_id) { return impl_->Abort(object_id); }
 
-Status PlasmaClient::Seal(const ObjectID& object_id) {
-  return impl_->Seal(object_id, true);
-}
-
-Status PlasmaClient::SealWithoutNotification(const ObjectID& object_id) {
-  return impl_->Seal(object_id, false);
+Status PlasmaClient::Seal(const ObjectID& object_id, bool notify) {
+  return impl_->Seal(object_id, notify);
 }
 
 Status PlasmaClient::Delete(const ObjectID& object_id) {
