@@ -218,21 +218,20 @@ class ByteArrayDecoder : virtual public TypedDecoder<ByteArrayType> {
   virtual int DecodeArrowNonNull(int num_values,
                                  ::arrow::internal::ChunkedBinaryBuilder* builder) = 0;
 
-  // virtual int DecodeArrowDict(int num_values, int null_count,
-  //                             const uint8_t* valid_bits, int64_t valid_bits_offset,
-  //                             ::arrow::BinaryDictionaryBuilder* builder) = 0;
+  // TODO(wesm): Implement this method as part of ARROW-3325
+  // See also ARROW-3772, ARROW-3769
+  // virtual int DecodeArrowNonNull(int num_values,
+  //                                ::arrow::internal::BinaryDictionaryBuilder* builder) = 0;
 };
 
 class FLBADecoder : virtual public TypedDecoder<FLBAType> {
  public:
   using TypedDecoder<FLBAType>::DecodeSpaced;
-  // virtual int DecodeArrow(int num_values, int null_count,
-  //                         const uint8_t* valid_bits, int64_t valid_bits_offset,
-  //                         ::arrow::FixedSizeBinaryBuilder* builder) = 0;
 
-  // virtual int DecodeArrowDict(int num_values, int null_count,
-  //                             const uint8_t* valid_bits, int64_t valid_bits_offset,
-  //                             ::arrow::BinaryDictionaryBuilder* builder) = 0;
+  // TODO(wesm): As possible follow-up to PARQUET-1508, we should examine if
+  // there is value in adding specialized read methods for
+  // FIXED_LEN_BYTE_ARRAY. If only Decimal data can occur with this data type
+  // then perhaps not
 };
 
 template <typename T>
