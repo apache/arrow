@@ -20,8 +20,6 @@
 #  find_package(LLVM)
 #
 
-set(GANDIVA_LLVM_VERSION 6.0)
-
 if (APPLE)
   # Also look in homebrew for a matching llvm version
   find_program(BREW_BIN brew)
@@ -34,7 +32,7 @@ if (APPLE)
   endif()
 endif()
 
-find_package(LLVM ${GANDIVA_LLVM_VERSION} REQUIRED CONFIG HINTS
+find_package(LLVM ${ARROW_LLVM_VERSION} REQUIRED CONFIG HINTS
              /usr/local/opt/llvm
              /usr/share
              ${LLVM_BREW_PREFIX}
@@ -45,7 +43,9 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 # Find the libraries that correspond to the LLVM components
 llvm_map_components_to_libnames(LLVM_LIBS core mcjit native ipo bitreader target linker analysis debuginfodwarf)
 
-find_program(CLANG_EXECUTABLE clang
+find_program(CLANG_EXECUTABLE
+  NAMES clang-${ARROW_LLVM_VERSION}
+  clang-${ARROW_LLVM_MAJOR_VERSION}
   HINTS ${LLVM_TOOLS_BINARY_DIR})
 if (CLANG_EXECUTABLE)
   message(STATUS "Found clang ${CLANG_EXECUTABLE}")

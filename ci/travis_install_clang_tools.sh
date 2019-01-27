@@ -24,6 +24,7 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
 sudo apt-add-repository -y \
-     "deb https://apt.llvm.org/$DISTRO_CODENAME/ llvm-toolchain-$DISTRO_CODENAME-6.0 main"
+     "deb https://llvm.org/apt/$DISTRO_CODENAME/ llvm-toolchain-$DISTRO_CODENAME-$ARROW_LLVM_VERSION main"
+>>>>>>> Build project with LLVM 7. Add option to disable using ld.gold
 sudo apt-get update -qq
-sudo apt-get install -q clang-6.0 clang-format-6.0 clang-tidy-6.0
+sudo apt-get install -q clang-$ARROW_LLVM_VERSION clang-format-$ARROW_LLVM_VERSION clang-tidy-$ARROW_LLVM_VERSION

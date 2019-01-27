@@ -58,7 +58,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
-  - name: "C++ unit tests w/ Valgrind, clang 6.0"
+  - name: "C++ unit tests w/ Valgrind, clang 7.0"
     language: cpp
     os: linux
     env:
@@ -72,8 +72,8 @@ matrix:
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
-    - export CC="clang-6.0"
-    - export CXX="clang++-6.0"
+    - export CC="clang-7.0"
+    - export CXX="clang++-7.0"
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     # If either C++ or Python changed, we must install the C++ libraries
@@ -264,8 +264,8 @@ matrix:
     - ARROW_TRAVIS_PLASMA_JAVA_CLIENT=1
     before_script:
     - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
-    - export CC="clang-6.0"
-    - export CXX="clang++-6.0"
+    - export CC="clang-7.0"
+    - export CXX="clang++-7.0"
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - nvm install 11.6

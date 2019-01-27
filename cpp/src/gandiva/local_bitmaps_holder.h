@@ -53,7 +53,7 @@ class LocalBitMapsHolder {
   std::vector<std::unique_ptr<uint8_t[]>> local_bitmaps_vec_;
 
   /// An array of the local bitmaps.
-  std::unique_ptr<uint8_t* []> local_bitmaps_array_;
+  std::unique_ptr<uint8_t*[]> local_bitmaps_array_;
 
   int64_t local_bitmap_size_;
 };
