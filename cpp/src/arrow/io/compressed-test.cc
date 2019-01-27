@@ -73,7 +73,7 @@ std::shared_ptr<Buffer> CompressDataOneShot(Codec* codec,
   ABORT_NOT_OK(codec->Compress(data.size(), data.data(), max_compressed_len,
                                compressed->mutable_data(), &compressed_len));
   ABORT_NOT_OK(compressed->Resize(compressed_len));
-  return compressed;
+  return std::move(compressed);
 }
 
 Status RunCompressedInputStream(Codec* codec, std::shared_ptr<Buffer> compressed,
