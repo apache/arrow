@@ -17,32 +17,53 @@
   under the License.
 -->
 
-## Apache Arrow Website
+# Apache Arrow Website
 
-### Development instructions
+## Overview
 
-If you are planning to publish the website, you must first clone the arrow-site
-git repository:
+Site content is maintained in the main Arrow repository, mostly in markdown
+format. [Jekyll](https://jekyllrb.com/) is used to generate HTML files that can
+then be committed to the [arrow-site](https://github.com/apache/arrow-site)
+repository.
+
+## Prerequisites
+
+With Ruby >= 2.1 installed, run the following commands to install
+[Jekyll](https://jekyllrb.com/).
+
+```shell
+gem install jekyll bundler
+bundle install
+```
+
+If you are planning to publish the website, you must clone the arrow-site git
+repository. Run this command from the `site` directory so that `asf-site` is a
+subdirectory of `site`.
 
 ```shell
 git clone --branch=asf-site https://github.com/apache/arrow-site.git asf-site
 ```
 
-Now, with Ruby >= 2.1 installed, run:
+Also, from the `site` directory, run the following command to import the format
+markdown documents so that they will rendered.
 
-```shell
-gem install jekyll bundler
-bundle install
-
-# This imports the format Markdown documents so they will be rendered
+```
 scripts/sync_format_docs.sh
+```
 
+## Previewing the site
+
+From the `site` directory, run the following to generate HTML files and run the
+web site locally.
+
+```
 bundle exec jekyll serve
 ```
 
-### Publishing
+## Publishing
 
-After following the above instructions the base `site/` directory, run:
+After following the above instructions, run the following commands from the
+`site` directory:
 
 ```shell
 JEKYLL_ENV=production bundle exec jekyll build
