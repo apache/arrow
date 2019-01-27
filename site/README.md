@@ -50,7 +50,6 @@ scripts/sync_format_docs.sh
 From the `site` directory, run the following to generate HTML files and run the web site locally.
 
 ```
-scripts/sync_format_docs.sh
 bundle exec jekyll serve
 ```
 
