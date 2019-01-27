@@ -984,7 +984,7 @@ impl Value {
     /// If the `Value` is an Option, return it. Returns Err otherwise.
     pub fn into_option(self) -> Result<Option<Value>, ParquetError> {
         if let Value::Option(ret) = self {
-            Ok(ret.map(ValueRequired::into_value))
+            Ok(ret.map(Into::into))
         } else {
             Err(ParquetError::General(format!(
                 "Cannot access {:?} as option",
@@ -1138,13 +1138,13 @@ where
         Value::Option(
             value
                 .map(Into::into)
-                .map(|x| ValueRequired::from_value(x).unwrap()),
+                .map(|x| <Option<ValueRequired> as From<Value>>::from(x).unwrap()),
         )
     }
 }
 impl From<Option<Value>> for Value {
     fn from(value: Option<Value>) -> Self {
-        Value::Option(value.map(|x| ValueRequired::from_value(x).unwrap()))
+        Value::Option(value.map(|x| <Option<ValueRequired>>::from(x).unwrap()))
     }
 }
 

@@ -15,7 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use parquet::Deserialize;
+use std::{collections::HashMap, env, fs, mem, path::PathBuf, str::FromStr, thread};
+
+use parquet::{
+    errors::ParquetError,
+    file::reader::{FileReader, SerializedFileReader},
+    record::{
+        types::{Group, List, Map, Root, Row, Value},
+        Deserialize,
+    },
+    schema::types::Type,
+};
 
 #[derive(Deserialize)]
 struct Abc {
@@ -38,17 +48,6 @@ struct Def {
 struct Jkl<M> {
     a: M,
 }
-
-use std::str::FromStr;
-use std::{collections::HashMap, env, fs, mem, path::PathBuf, thread};
-
-use parquet::errors::ParquetError;
-use parquet::file::reader::{FileReader, SerializedFileReader};
-use parquet::record::{
-    types::{Group, List, Map, Root, Row, Value},
-    Deserialize,
-};
-use parquet::schema::types::Type;
 
 macro_rules! list {
     ( $( $e:expr ), * ) => {

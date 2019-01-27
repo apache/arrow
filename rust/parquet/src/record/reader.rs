@@ -594,7 +594,7 @@ impl Reader for ValueReader {
             }
             ValueReader::Option(ref mut reader) => reader
                 .read(def_level, rep_level)
-                .map(|x| Value::Option(x.map(|x| ValueRequired::from_value(x).unwrap()))),
+                .map(|x| Value::Option(x.map(|x| <Option<ValueRequired>>::from(x).unwrap()))),
         }
     }
 
@@ -1252,7 +1252,7 @@ mod tests {
 
     macro_rules! somev {
         ( $e:expr ) => {
-            Value::Option(Some(ValueRequired::from_value($e).unwrap()))
+            Value::Option(Some(<Option<ValueRequired>>::from($e).unwrap()))
         };
     }
     macro_rules! nonev {

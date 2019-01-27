@@ -57,6 +57,12 @@ impl TripletIter {
         })
     }
 
+    /// Updates non-null value for current row.
+    pub fn read(&mut self) -> Result<Value> {
+        assert!(!self.is_null(), "Value is null");
+        self.reader.read(self.def_level, self.rep_level)
+    }
+
     /// Invokes underlying typed triplet iterator to buffer current value.
     /// Should be called once - either before `is_null` or `current_value`.
     #[inline]
@@ -103,12 +109,6 @@ impl TripletIter {
     #[inline]
     pub fn is_null(&self) -> bool {
         self.current_def_level() < self.max_def_level()
-    }
-
-    /// Updates non-null value for current row.
-    pub fn read(&mut self) -> Result<Value> {
-        assert!(!self.is_null(), "Value is null");
-        self.reader.read(self.def_level, self.rep_level)
     }
 }
 
@@ -168,18 +168,6 @@ impl<T: DataType> TypedTripletIter<T> {
         }
     }
 
-    /// Returns maximum definition level for the triplet iterator (leaf column).
-    #[inline]
-    pub fn max_def_level(&self) -> i16 {
-        self.def_level
-    }
-
-    /// Returns maximum repetition level for the triplet iterator (leaf column).
-    #[inline]
-    pub fn max_rep_level(&self) -> i16 {
-        self.rep_level
-    }
-
     /// Returns current value, advancing the iterator.
     #[inline]
     pub fn read(&mut self) -> Result<T::T> {
@@ -192,33 +180,6 @@ impl<T: DataType> TypedTripletIter<T> {
         );
         let ret = mem::replace(&mut self.values[self.curr_triplet_index], T::T::default());
         self.advance_columns().map(|()| ret)
-    }
-
-    /// Returns current definition level.
-    /// If field is required, then maximum definition level is returned.
-    #[inline]
-    pub fn current_def_level(&self) -> i16 {
-        match self.def_levels {
-            Some(ref vec) => vec[self.curr_triplet_index],
-            None => self.def_level,
-        }
-    }
-
-    /// Returns current repetition level.
-    /// If field is required, then maximum repetition level is returned.
-    #[inline]
-    pub fn current_rep_level(&self) -> i16 {
-        match self.rep_levels {
-            Some(ref vec) => vec[self.curr_triplet_index],
-            None => self.rep_level,
-        }
-    }
-
-    /// Quick check if iterator has more values/levels to read.
-    /// It is updated as a result of `advance_columns` method, so they are synchronized.
-    #[inline]
-    pub fn has_next(&self) -> bool {
-        self.has_next
     }
 
     /// Advances to the next triplet.
@@ -290,6 +251,53 @@ impl<T: DataType> TypedTripletIter<T> {
 
         self.has_next = true;
         Ok(())
+    }
+
+    /// Quick check if iterator has more values/levels to read.
+    /// It is updated as a result of `advance_columns` method, so they are synchronized.
+    #[inline]
+    pub fn has_next(&self) -> bool {
+        self.has_next
+    }
+
+    /// Returns current definition level.
+    /// If field is required, then maximum definition level is returned.
+    #[inline]
+    pub fn current_def_level(&self) -> i16 {
+        match self.def_levels {
+            Some(ref vec) => vec[self.curr_triplet_index],
+            None => self.def_level,
+        }
+    }
+
+    /// Returns maximum definition level for the triplet iterator (leaf column).
+    #[inline]
+    pub fn max_def_level(&self) -> i16 {
+        self.def_level
+    }
+
+    /// Returns current repetition level.
+    /// If field is required, then maximum repetition level is returned.
+    #[inline]
+    pub fn current_rep_level(&self) -> i16 {
+        match self.rep_levels {
+            Some(ref vec) => vec[self.curr_triplet_index],
+            None => self.rep_level,
+        }
+    }
+
+    /// Returns maximum repetition level for the triplet iterator (leaf column).
+    #[inline]
+    pub fn max_rep_level(&self) -> i16 {
+        self.rep_level
+    }
+
+    /// Returns true, if current value is null.
+    /// Based on the fact that for non-null value current definition level
+    /// equals to max definition level.
+    #[inline]
+    pub fn is_null(&self) -> bool {
+        self.current_def_level() < self.max_def_level()
     }
 }
 

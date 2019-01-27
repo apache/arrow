@@ -195,8 +195,21 @@ impl Hash for ValueRequired {
 impl Eq for ValueRequired {}
 
 impl ValueRequired {
-    pub fn into_value(self) -> Value {
-        match self {
+    pub(in super::super) fn eq<T>(&self, other: &T) -> bool
+    where
+        Value: PartialEq<T>,
+    {
+        let self_ = unsafe { std::ptr::read(self) };
+        let self_: Value = self_.into();
+        let ret = &self_ == other;
+        std::mem::forget(self_);
+        ret
+    }
+}
+
+impl From<ValueRequired> for Value {
+    fn from(value: ValueRequired) -> Self {
+        match value {
             ValueRequired::Bool(value) => Value::Bool(value),
             ValueRequired::U8(value) => Value::U8(value),
             ValueRequired::I8(value) => Value::I8(value),
@@ -222,7 +235,10 @@ impl ValueRequired {
             ValueRequired::Group(value) => Value::Group(value),
         }
     }
-    pub fn from_value(value: Value) -> Option<Self> {
+}
+
+impl From<Value> for Option<ValueRequired> {
+    fn from(value: Value) -> Self {
         Some(match value {
             Value::Bool(value) => ValueRequired::Bool(value),
             Value::U8(value) => ValueRequired::U8(value),
@@ -249,15 +265,5 @@ impl ValueRequired {
             Value::Group(value) => ValueRequired::Group(value),
             Value::Option(_) => return None,
         })
-    }
-    pub(in super::super) fn eq<T>(&self, other: &T) -> bool
-    where
-        Value: PartialEq<T>,
-    {
-        let self_ = unsafe { std::ptr::read(self) };
-        let self_ = self_.into_value();
-        let ret = &self_ == other;
-        std::mem::forget(self_);
-        ret
     }
 }

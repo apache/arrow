@@ -39,6 +39,3 @@ mod encodings;
 pub mod file;
 pub mod record;
 pub mod schema;
-
-#[doc(inline)]
-pub use parquet_derive::Deserialize;

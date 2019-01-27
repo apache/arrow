@@ -36,14 +36,9 @@ where
         schema: &Type,
         repetition: Option<Repetition>,
     ) -> Result<(String, Self::Schema), ParquetError> {
-        // <Value as Deserialize>::parse(schema).and_then(|(name, schema)| {
-        //   Ok((name, OptionSchema(schema.as_option()?.0.downcast()?)))
-        // })
         if repetition == Some(Repetition::OPTIONAL) {
-            return Ok((
-                schema.name().to_owned(),
-                OptionSchema(T::parse(&schema, Some(Repetition::REQUIRED))?.1),
-            ));
+            return T::parse(&schema, Some(Repetition::REQUIRED))
+                .map(|(name, schema)| (name, OptionSchema(schema)));
         }
         Err(ParquetError::General(String::from(
             "Couldn't parse Option<T>",

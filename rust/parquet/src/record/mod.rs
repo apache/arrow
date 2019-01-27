@@ -37,6 +37,9 @@ use crate::{
     schema::types::{ColumnDescPtr, ColumnPath, Type},
 };
 
+#[doc(inline)]
+pub use parquet_derive::Deserialize;
+
 pub use triplet::{TripletIter, TypedTripletIter};
 
 pub trait DisplaySchema {
