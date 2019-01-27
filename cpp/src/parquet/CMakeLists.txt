@@ -55,6 +55,23 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
   endif()
 endfunction()
 
+function(ADD_PARQUET_BENCHMARK REL_TEST_NAME)
+  set(options)
+  set(one_value_args PREFIX)
+  set(multi_value_args)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if (ARG_PREFIX)
+    set(PREFIX ${ARG_PREFIX})
+  else()
+    set(PREFIX "parquet")
+  endif()
+  ADD_BENCHMARK(${REL_TEST_NAME}
+    PREFIX ${PREFIX}
+    LABELS "parquet-benchmarks"
+    ${PARQUET_BENCHMARK_LINK_OPTION}
+    ${ARG_UNPARSED_ARGUMENTS})
+endfunction()
+
 # ----------------------------------------------------------------------
 # Link libraries setup
 
@@ -106,9 +123,15 @@ set(PARQUET_STATIC_TEST_LINK_LIBS
   ${ARROW_LIBRARIES_FOR_STATIC_TESTS}
   parquet_static)
 
-set(PARQUET_BENCHMARK_LINK_LIBRARIES
-  arrow_benchmark_main
-  parquet_shared)
+if (WIN32)
+  # The benchmarks depend on some static Thrift symbols
+  set(PARQUET_BENCHMARK_LINK_OPTION
+    STATIC_LINK_LIBS arrow_benchmark_main
+    parquet_static)
+else()
+  set(PARQUET_BENCHMARK_LINK_OPTION
+    EXTRA_LINK_LIBS parquet_shared)
+endif()
 
 ############################################################
 # Generated Thrift sources
@@ -190,11 +213,18 @@ if (NOT PARQUET_MINIMAL_DEPENDENCY)
 
 # Although we don't link parquet_objlib against anything, we need it to depend
 # on these libs as we may generate their headers via ExternalProject_Add
-set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES}
-  ${PARQUET_SHARED_LINK_LIBS}
-  ${PARQUET_SHARED_PRIVATE_LINK_LIBS}
-  ${PARQUET_STATIC_LINK_LIBS})
+if (ARROW_BUILD_SHARED)
+  set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES}
+    ${PARQUET_SHARED_LINK_LIBS}
+    ${PARQUET_SHARED_PRIVATE_LINK_LIBS})
 endif()
+
+if (ARROW_BUILD_STATIC)
+  set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES}
+    ${PARQUET_STATIC_LINK_LIBS})
+endif()
+
+endif(NOT PARQUET_MINIMAL_DEPENDENCY)
 
 if(NOT APPLE AND NOT MSVC)
   # Localize thirdparty symbols using a linker version script. This hides them
@@ -274,14 +304,8 @@ ADD_PARQUET_TEST(reader-test)
 ADD_PARQUET_TEST(file-deserialize-test USE_STATIC_LINKING)
 ADD_PARQUET_TEST(schema-test USE_STATIC_LINKING)
 
-ADD_ARROW_BENCHMARK(column-io-benchmark
-  PREFIX "parquet"
-  LABELS "parquet-benchmarks"
-  EXTRA_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})
-ADD_ARROW_BENCHMARK(encoding-benchmark
-  PREFIX "parquet"
-  LABELS "parquet-benchmarks"
-  EXTRA_LINK_LIBS ${PARQUET_BENCHMARK_LINK_LIBRARIES})
+ADD_PARQUET_BENCHMARK(column-io-benchmark)
+ADD_PARQUET_BENCHMARK(encoding-benchmark)
 
 # Required for tests, the ExternalProject for zstd does not build on CMake < 3.7
 if (ARROW_WITH_ZSTD)

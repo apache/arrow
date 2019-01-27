@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Arrow Tensor Type
+//! Arrow Tensor Type, defined in
+//! [`format/Tensor.fbs`](https://github.com/apache/arrow/blob/master/format/Tensor.fbs).
+
 use std::marker::PhantomData;
 use std::mem;
 

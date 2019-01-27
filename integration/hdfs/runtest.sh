@@ -17,6 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# exit on any error
 set -e
 
 export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`

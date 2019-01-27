@@ -302,7 +302,7 @@ TEST_F(TestBufferedOutputStream, TruncatesFile) {
 // ----------------------------------------------------------------------
 // BufferedInputStream tests
 
-const char kExample1[] = ("informaticacrobaticsimmolation");
+const char kExample1[] = "informaticacrobaticsimmolation";
 
 class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
  public:

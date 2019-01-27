@@ -219,6 +219,24 @@ std::string UnionType::ToString() const {
 // ----------------------------------------------------------------------
 // Struct type
 
+namespace {
+
+std::unordered_map<std::string, int> CreateNameToIndexMap(
+    const std::vector<std::shared_ptr<Field>>& fields) {
+  std::unordered_map<std::string, int> name_to_index;
+  for (size_t i = 0; i < fields.size(); ++i) {
+    name_to_index[fields[i]->name()] = static_cast<int>(i);
+  }
+  return name_to_index;
+}
+
+}  // namespace
+
+StructType::StructType(const std::vector<std::shared_ptr<Field>>& fields)
+    : NestedType(Type::STRUCT), name_to_index_(CreateNameToIndexMap(fields)) {
+  children_ = fields;
+}
+
 std::string StructType::ToString() const {
   std::stringstream s;
   s << "struct<";
@@ -239,12 +257,6 @@ std::shared_ptr<Field> StructType::GetFieldByName(const std::string& name) const
 }
 
 int StructType::GetFieldIndex(const std::string& name) const {
-  if (children_.size() > 0 && name_to_index_.size() == 0) {
-    for (size_t i = 0; i < children_.size(); ++i) {
-      name_to_index_[children_[i]->name()] = static_cast<int>(i);
-    }
-  }
-
   if (name_to_index_.size() < children_.size()) {
     // There are duplicate field names. Refuse to guess
     int counts = 0;
@@ -318,11 +330,15 @@ std::string NullType::ToString() const { return name(); }
 
 Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields,
                const std::shared_ptr<const KeyValueMetadata>& metadata)
-    : fields_(fields), metadata_(metadata) {}
+    : fields_(fields),
+      name_to_index_(CreateNameToIndexMap(fields_)),
+      metadata_(metadata) {}
 
 Schema::Schema(std::vector<std::shared_ptr<Field>>&& fields,
                const std::shared_ptr<const KeyValueMetadata>& metadata)
-    : fields_(std::move(fields)), metadata_(metadata) {}
+    : fields_(std::move(fields)),
+      name_to_index_(CreateNameToIndexMap(fields_)),
+      metadata_(metadata) {}
 
 bool Schema::Equals(const Schema& other, bool check_metadata) const {
   if (this == &other) {
@@ -357,12 +373,6 @@ std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) const {
 }
 
 int64_t Schema::GetFieldIndex(const std::string& name) const {
-  if (fields_.size() > 0 && name_to_index_.size() == 0) {
-    for (size_t i = 0; i < fields_.size(); ++i) {
-      name_to_index_[fields_[i]->name()] = static_cast<int>(i);
-    }
-  }
-
   auto it = name_to_index_.find(name);
   if (it == name_to_index_.end()) {
     return -1;
@@ -452,22 +462,22 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>>&& fields,
 #define ACCEPT_VISITOR(TYPE) \
   Status TYPE::Accept(TypeVisitor* visitor) const { return visitor->Visit(*this); }
 
-ACCEPT_VISITOR(NullType);
-ACCEPT_VISITOR(BooleanType);
-ACCEPT_VISITOR(BinaryType);
-ACCEPT_VISITOR(FixedSizeBinaryType);
-ACCEPT_VISITOR(StringType);
-ACCEPT_VISITOR(ListType);
-ACCEPT_VISITOR(StructType);
-ACCEPT_VISITOR(Decimal128Type);
-ACCEPT_VISITOR(UnionType);
-ACCEPT_VISITOR(Date32Type);
-ACCEPT_VISITOR(Date64Type);
-ACCEPT_VISITOR(Time32Type);
-ACCEPT_VISITOR(Time64Type);
-ACCEPT_VISITOR(TimestampType);
-ACCEPT_VISITOR(IntervalType);
-ACCEPT_VISITOR(DictionaryType);
+ACCEPT_VISITOR(NullType)
+ACCEPT_VISITOR(BooleanType)
+ACCEPT_VISITOR(BinaryType)
+ACCEPT_VISITOR(FixedSizeBinaryType)
+ACCEPT_VISITOR(StringType)
+ACCEPT_VISITOR(ListType)
+ACCEPT_VISITOR(StructType)
+ACCEPT_VISITOR(Decimal128Type)
+ACCEPT_VISITOR(UnionType)
+ACCEPT_VISITOR(Date32Type)
+ACCEPT_VISITOR(Date64Type)
+ACCEPT_VISITOR(Time32Type)
+ACCEPT_VISITOR(Time64Type)
+ACCEPT_VISITOR(TimestampType)
+ACCEPT_VISITOR(IntervalType)
+ACCEPT_VISITOR(DictionaryType)
 
 #define TYPE_FACTORY(NAME, KLASS)                                        \
   std::shared_ptr<DataType> NAME() {                                     \
@@ -475,23 +485,23 @@ ACCEPT_VISITOR(DictionaryType);
     return result;                                                       \
   }
 
-TYPE_FACTORY(null, NullType);
-TYPE_FACTORY(boolean, BooleanType);
-TYPE_FACTORY(int8, Int8Type);
-TYPE_FACTORY(uint8, UInt8Type);
-TYPE_FACTORY(int16, Int16Type);
-TYPE_FACTORY(uint16, UInt16Type);
-TYPE_FACTORY(int32, Int32Type);
-TYPE_FACTORY(uint32, UInt32Type);
-TYPE_FACTORY(int64, Int64Type);
-TYPE_FACTORY(uint64, UInt64Type);
-TYPE_FACTORY(float16, HalfFloatType);
-TYPE_FACTORY(float32, FloatType);
-TYPE_FACTORY(float64, DoubleType);
-TYPE_FACTORY(utf8, StringType);
-TYPE_FACTORY(binary, BinaryType);
-TYPE_FACTORY(date64, Date64Type);
-TYPE_FACTORY(date32, Date32Type);
+TYPE_FACTORY(null, NullType)
+TYPE_FACTORY(boolean, BooleanType)
+TYPE_FACTORY(int8, Int8Type)
+TYPE_FACTORY(uint8, UInt8Type)
+TYPE_FACTORY(int16, Int16Type)
+TYPE_FACTORY(uint16, UInt16Type)
+TYPE_FACTORY(int32, Int32Type)
+TYPE_FACTORY(uint32, UInt32Type)
+TYPE_FACTORY(int64, Int64Type)
+TYPE_FACTORY(uint64, UInt64Type)
+TYPE_FACTORY(float16, HalfFloatType)
+TYPE_FACTORY(float32, FloatType)
+TYPE_FACTORY(float64, DoubleType)
+TYPE_FACTORY(utf8, StringType)
+TYPE_FACTORY(binary, BinaryType)
+TYPE_FACTORY(date64, Date64Type)
+TYPE_FACTORY(date32, Date32Type)
 
 std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width) {
   return std::make_shared<FixedSizeBinaryType>(byte_width);

@@ -61,13 +61,15 @@ class NaiveBitmapWriter {
   void Set() {
     const int64_t byte_offset = position_ / 8;
     const int64_t bit_offset = position_ % 8;
-    bitmap_[byte_offset] |= static_cast<uint8_t>(1 << bit_offset);
+    auto bit_set_mask = (1U << bit_offset);
+    bitmap_[byte_offset] = static_cast<uint8_t>(bitmap_[byte_offset] | bit_set_mask);
   }
 
   void Clear() {
     const int64_t byte_offset = position_ / 8;
     const int64_t bit_offset = position_ % 8;
-    bitmap_[byte_offset] &= 0xFF ^ static_cast<uint8_t>(1 << bit_offset);
+    auto bit_clear_mask = 0xFFU ^ (1U << bit_offset);
+    bitmap_[byte_offset] = static_cast<uint8_t>(bitmap_[byte_offset] & bit_clear_mask);
   }
 
   void Next() { ++position_; }

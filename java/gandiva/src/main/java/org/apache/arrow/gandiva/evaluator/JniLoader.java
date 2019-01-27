@@ -27,8 +27,6 @@ import java.nio.file.StandardCopyOption;
 
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 
-import com.sun.jna.NativeLibrary;
-
 /**
  * This class handles loading of the jni library, and acts as a bridge for the native functions.
  */
@@ -73,9 +71,6 @@ class JniLoader {
           throws IOException, GandivaException {
     final String libraryToLoad = System.mapLibraryName(LIBRARY_NAME);
     final File libraryFile = moveFileFromJarToTemp(tmpDir, libraryToLoad);
-    // This is required to load the library with RT_GLOBAL flags. Otherwise, the symbols in the
-    // libgandiva.so aren't visible to the JIT.
-    NativeLibrary.getInstance(libraryFile.getAbsolutePath());
     System.load(libraryFile.getAbsolutePath());
   }
 

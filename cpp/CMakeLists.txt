@@ -349,6 +349,9 @@ Always OFF if building binaries"
     "Include -static-libstdc++ -static-libgcc when linking with Gandiva static libraries"
     OFF)
 
+  set(ARROW_GANDIVA_PC_CXX_FLAGS "" CACHE STRING
+    "Compiler flags to append when pre-compiling Gandiva operations")
+
   #----------------------------------------------------------------------
   # Advanced developer options
 
@@ -516,12 +519,6 @@ endif()
 
 if (NOT ARROW_FUZZING)
   set(NO_FUZZING 1)
-endif()
-
-if (ARROW_TENSORFLOW)
-  # TensorFlow uses the old GLIBCXX ABI, so we have to use it too
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 
 if (MSVC AND ARROW_USE_CLCACHE AND
@@ -819,7 +816,7 @@ if(NOT MSVC)
     ${CMAKE_DL_LIBS})
 endif()
 
-if ("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
+if (ARROW_BUILD_TESTS AND "${ARROW_TEST_LINKAGE}" STREQUAL "shared")
   if (NOT ARROW_BUILD_SHARED)
     message(FATAL_ERROR "If using shared linkage for unit tests, must also \
 pass ARROW_BUILD_SHARED=on")

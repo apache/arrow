@@ -118,7 +118,7 @@ class ARROW_MUST_USE_RESULT ARROW_EXPORT Status;
 class ARROW_EXPORT Status {
  public:
   // Create a success status.
-  Status() noexcept : state_(NULL) {}
+  Status() noexcept : state_(NULLPTR) {}
   ~Status() noexcept {
     // ARROW-2400: On certain compilers, splitting off the slow path improves
     // performance significantly.
@@ -263,7 +263,7 @@ class ARROW_EXPORT Status {
   }
 
   /// Return true iff the status indicates success.
-  bool ok() const { return (state_ == NULL); }
+  bool ok() const { return (state_ == NULLPTR); }
 
   /// Return true iff the status indicates an out-of-memory error.
   bool IsOutOfMemory() const { return code() == StatusCode::OutOfMemory; }
@@ -336,7 +336,7 @@ class ARROW_EXPORT Status {
 
   void DeleteState() {
     delete state_;
-    state_ = NULL;
+    state_ = NULLPTR;
   }
   void CopyFrom(const Status& s);
   inline void MoveFrom(Status& s);
@@ -350,11 +350,11 @@ static inline std::ostream& operator<<(std::ostream& os, const Status& x) {
 void Status::MoveFrom(Status& s) {
   delete state_;
   state_ = s.state_;
-  s.state_ = NULL;
+  s.state_ = NULLPTR;
 }
 
 Status::Status(const Status& s)
-    : state_((s.state_ == NULL) ? NULL : new State(*s.state_)) {}
+    : state_((s.state_ == NULLPTR) ? NULLPTR : new State(*s.state_)) {}
 
 Status& Status::operator=(const Status& s) {
   // The following condition catches both aliasing (when this == &s),
@@ -365,7 +365,7 @@ Status& Status::operator=(const Status& s) {
   return *this;
 }
 
-Status::Status(Status&& s) noexcept : state_(s.state_) { s.state_ = NULL; }
+Status::Status(Status&& s) noexcept : state_(s.state_) { s.state_ = NULLPTR; }
 
 Status& Status::operator=(Status&& s) noexcept {
   MoveFrom(s);

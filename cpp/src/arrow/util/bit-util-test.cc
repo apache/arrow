@@ -516,6 +516,43 @@ TEST(BitUtilTests, TestCountSetBits) {
   }
 }
 
+TEST(BitUtilTests, TestSetBitsTo) {
+  using BitUtil::SetBitsTo;
+  for (const auto fill_byte_int : {0x00, 0xff}) {
+    const uint8_t fill_byte = static_cast<uint8_t>(fill_byte_int);
+    {
+      // test set within a byte
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      SetBitsTo(bitmap, 2, 2, true);
+      SetBitsTo(bitmap, 4, 2, false);
+      ASSERT_BYTES_EQ(bitmap, {static_cast<uint8_t>((fill_byte & ~0x3C) | 0xC)});
+    }
+    {
+      // test straddling a single byte boundary
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      SetBitsTo(bitmap, 4, 7, true);
+      SetBitsTo(bitmap, 11, 7, false);
+      ASSERT_BYTES_EQ(bitmap, {static_cast<uint8_t>((fill_byte & 0xF) | 0xF0), 0x7,
+                               static_cast<uint8_t>(fill_byte & ~0x3)});
+    }
+    {
+      // test byte aligned end
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      SetBitsTo(bitmap, 4, 4, true);
+      SetBitsTo(bitmap, 8, 8, false);
+      ASSERT_BYTES_EQ(bitmap,
+                      {static_cast<uint8_t>((fill_byte & 0xF) | 0xF0), 0x00, fill_byte});
+    }
+    {
+      // test byte aligned end, multiple bytes
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      SetBitsTo(bitmap, 0, 24, false);
+      uint8_t false_byte = static_cast<uint8_t>(0);
+      ASSERT_BYTES_EQ(bitmap, {false_byte, false_byte, false_byte, fill_byte});
+    }
+  }
+}
+
 TEST(BitUtilTests, TestCopyBitmap) {
   const int kBufferSize = 1000;
 

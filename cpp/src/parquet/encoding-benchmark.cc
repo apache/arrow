@@ -36,7 +36,7 @@ std::shared_ptr<ColumnDescriptor> Int64Schema(Repetition::type repetition) {
 }
 
 static void BM_PlainEncodingBoolean(::benchmark::State& state) {
-  std::vector<bool> values(state.range(0), 64);
+  std::vector<bool> values(state.range(0), true);
   PlainEncoder<BooleanType> encoder(nullptr);
 
   while (state.KeepRunning()) {
@@ -49,7 +49,7 @@ static void BM_PlainEncodingBoolean(::benchmark::State& state) {
 BENCHMARK(BM_PlainEncodingBoolean)->Range(1024, 65536);
 
 static void BM_PlainDecodingBoolean(::benchmark::State& state) {
-  std::vector<bool> values(state.range(0), 64);
+  std::vector<bool> values(state.range(0), true);
   bool* output = new bool[state.range(0)];
   PlainEncoder<BooleanType> encoder(nullptr);
   encoder.Put(values, static_cast<int>(values.size()));

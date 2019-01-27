@@ -30,7 +30,7 @@ popd
 # Capture C++ coverage info (we wipe the build dir in travis_script_python.sh)
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     pushd $TRAVIS_BUILD_DIR
-    lcov --quiet --directory . --capture --no-external --output-file $ARROW_CPP_COVERAGE_FILE \
-        2>&1 | grep -v "WARNING: no data found for /usr/include"
+    lcov --directory . --capture --no-external --output-file $ARROW_CPP_COVERAGE_FILE \
+        2>&1 | grep -v "ignoring data for external file"
     popd
 fi

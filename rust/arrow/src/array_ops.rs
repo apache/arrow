@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines primitive computations on arrays
+//! Defines primitive computations on arrays, e.g. addition, equality, boolean logic.
 
 use std::ops::{Add, Div, Mul, Sub};
 

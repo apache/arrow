@@ -49,13 +49,13 @@ static std::vector<std::string> MakeStrings(int32_t n_values, int32_t min_length
 
   // Generate strings between 2 and 20 bytes
   std::uniform_int_distribution<int32_t> length_dist(min_length, max_length);
-  std::independent_bits_engine<std::default_random_engine, 8, uint8_t> bytes_gen(42);
+  std::independent_bits_engine<std::default_random_engine, 8, uint16_t> bytes_gen(42);
 
   std::generate(values.begin(), values.end(), [&]() {
     auto length = length_dist(gen);
     std::string s(length, 'X');
     for (int32_t i = 0; i < length; ++i) {
-      s[i] = bytes_gen();
+      s[i] = static_cast<uint8_t>(bytes_gen());
     }
     return s;
   });

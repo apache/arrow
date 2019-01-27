@@ -30,11 +30,17 @@
 #include <thread>
 #include <valarray>
 
+#ifndef _WIN32
+
 #include <fcntl.h>
 #include <poll.h>
 #include <unistd.h>
 
+#endif
+
 namespace arrow {
+
+#ifndef _WIN32
 
 std::string GetNullFile() { return "/dev/null"; }
 
@@ -243,5 +249,7 @@ BENCHMARK(BM_BufferedOutputStreamLargeWritesToPipe)
     ->Repetitions(2)
     ->MinTime(1.0)
     ->UseRealTime();
+
+#endif  // ifndef _WIN32
 
 }  // namespace arrow

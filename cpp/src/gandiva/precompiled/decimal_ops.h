@@ -15,12 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef DECIMAL_SQL_H
-#define DECIMAL_SQL_H
+#pragma once
 
 #include <cstdint>
 #include <string>
-#include "gandiva/decimal_full.h"
+#include "gandiva/basic_decimal_scalar.h"
 
 namespace gandiva {
 namespace decimalops {
@@ -28,10 +27,8 @@ namespace decimalops {
 /// Return the sum of 'x' and 'y'.
 /// out_precision and out_scale are passed along for efficiency, they must match
 /// the rules in DecimalTypeSql::GetResultType.
-Decimal128 Add(const Decimal128Full& x, const Decimal128Full& y, int32_t out_precision,
-               int32_t out_scale);
+arrow::BasicDecimal128 Add(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y,
+                           int32_t out_precision, int32_t out_scale);
 
 }  // namespace decimalops
 }  // namespace gandiva
-
-#endif  // DECIMAL_SQL_H

@@ -189,7 +189,7 @@ function(ADD_ARROW_LIB LIB_NAME)
       # expecting that the symbols have been loaded separately. This happens
       # with libpython* where there can be conflicts between system Python and
       # the Python from a thirdparty distribution
-      # 
+      #
       # When running with the Emscripten Compiler, we need not worry about
       # python, and the Emscripten Compiler does not support this option.
       set(ARG_SHARED_LINK_FLAGS
@@ -213,7 +213,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
 
     target_link_libraries(${LIB_NAME}_shared
-      LINK_PUBLIC 
+      LINK_PUBLIC
       "$<BUILD_INTERFACE:${ARG_SHARED_LINK_LIBS}>"
       "$<INSTALL_INTERFACE:${INTERFACE_LIBS}>"
       LINK_PRIVATE ${ARG_SHARED_PRIVATE_LINK_LIBS})
@@ -292,7 +292,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
 
     target_link_libraries(${LIB_NAME}_static
-      LINK_PUBLIC 
+      LINK_PUBLIC
       "$<BUILD_INTERFACE:${ARG_STATIC_LINK_LIBS}>"
       "$<INSTALL_INTERFACE:${INTERFACE_LIBS}>")
 
@@ -339,7 +339,7 @@ endfunction()
 function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   set(options)
   set(one_value_args)
-  set(multi_value_args EXTRA_LINK_LIBS DEPENDENCIES PREFIX LABELS)
+  set(multi_value_args EXTRA_LINK_LIBS STATIC_LINK_LIBS DEPENDENCIES PREFIX LABELS)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
@@ -358,12 +358,18 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     # This benchmark has a corresponding .cc file, set it up as an executable.
     set(BENCHMARK_PATH "${EXECUTABLE_OUTPUT_PATH}/${BENCHMARK_NAME}")
     add_executable(${BENCHMARK_NAME} "${REL_BENCHMARK_NAME}.cc")
-    target_link_libraries(${BENCHMARK_NAME} ${ARROW_BENCHMARK_LINK_LIBS})
+
+    if (ARG_STATIC_LINK_LIBS)
+      # Customize link libraries
+      target_link_libraries(${BENCHMARK_NAME} PRIVATE ${ARG_STATIC_LINK_LIBS})
+    else()
+      target_link_libraries(${BENCHMARK_NAME} PRIVATE ${ARROW_BENCHMARK_LINK_LIBS})
+    endif()
     add_dependencies(benchmark ${BENCHMARK_NAME})
     set(NO_COLOR "--color_print=false")
 
     if (ARG_EXTRA_LINK_LIBS)
-      target_link_libraries(${BENCHMARK_NAME} ${ARG_EXTRA_LINK_LIBS})
+      target_link_libraries(${BENCHMARK_NAME} PRIVATE ${ARG_EXTRA_LINK_LIBS})
     endif()
   else()
     # No executable, just invoke the benchmark (probably a script) directly.

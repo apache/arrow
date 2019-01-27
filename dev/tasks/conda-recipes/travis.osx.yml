@@ -28,16 +28,6 @@ env:
     - ARROW_VERSION={{ arrow.no_rc_version }}
     - PYTHONUNBUFFERED=1
 
-before_install:
-  # Remove homebrew.
-  - |
-    echo ""
-    echo "Removing homebrew from Travis CI to avoid conflicts."
-    curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/uninstall > ~/uninstall_homebrew
-    chmod +x ~/uninstall_homebrew
-    ~/uninstall_homebrew -fq
-    rm ~/uninstall_homebrew
-
 install:
   # Install Miniconda.
   - |
@@ -52,8 +42,7 @@ install:
     echo ""
     echo "Configuring conda."
     source /Users/travis/miniconda3/bin/activate root
-
-    conda install -n root -c conda-forge --quiet --yes conda-forge-ci-setup=2
+    conda install -n root -c conda-forge --quiet --yes conda-forge-ci-setup=2 conda-build
 
 
 before_script:
@@ -63,12 +52,19 @@ before_script:
 
   # Configure conda
   - setup_conda_rc ./ ./ variants/{{ config }}.yaml
-  - source run_conda_forge_build_setup
+
+  # XXX: workaround, see run_conda_forge_build_setup_osx#L33
+  - mkdir -p ./.ci_support
+  - cp variants/{{ config }}.yaml ./.ci_support/{{ config }}.yaml
+  - CONFIG={{ config }} source run_conda_forge_build_setup
+
+  # Compiler cleanup
+  - mangle_compiler ./ ./ ./.ci_support/{{ config }}.yaml
 
 script:
   - |
     conda build --output-folder . \
-                -m variants/{{ config }}.yaml \
+                -m ./.ci_support/{{ config }}.yaml \
                 parquet-cpp arrow-cpp pyarrow
 
 deploy:

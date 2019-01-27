@@ -46,6 +46,7 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::cuda" nogil:
         int64_t bytes_allocated() const
         const void* handle() const
         int device_number() const
+        CStatus GetDeviceAddress(uint8_t* addr, uint8_t** devaddr)
 
     cdef cppclass CCudaIpcMemHandle" arrow::cuda::CudaIpcMemHandle":
         @staticmethod

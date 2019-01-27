@@ -31,30 +31,12 @@ services:
     volumes:
       - ../..:/apache-arrow
 
-  spark_integration:
-    build:
-      context: spark_integration
-    volumes:
-      - ../..:/apache-arrow
-
-  dask_integration:
-    build:
-      context: dask_integration
-    volumes:
-      - ../..:/apache-arrow
-
   gen_apidocs:
     build:
       context: ..
       dockerfile: dev/gen_apidocs/Dockerfile
     volumes:
      - ..:/arrow
-
-  iwyu:
-    build:
-      context: iwyu
-    volumes:
-     - ../..:/apache-arrow
 
   run_site:
     build:

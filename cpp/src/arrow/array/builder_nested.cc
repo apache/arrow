@@ -77,7 +77,7 @@ Status ListBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
 
   // one more then requested for offsets
-  RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int32_t)));
+  RETURN_NOT_OK(offsets_builder_.Resize(capacity + 1));
   return ArrayBuilder::Resize(capacity);
 }
 
@@ -99,7 +99,9 @@ Status ListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
     RETURN_NOT_OK(value_builder_->FinishInternal(&items));
   }
 
-  *out = ArrayData::Make(type_, length_, {null_bitmap_, offsets}, null_count_);
+  std::shared_ptr<Buffer> null_bitmap;
+  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+  *out = ArrayData::Make(type_, length_, {null_bitmap, offsets}, null_count_);
   (*out)->child_data.emplace_back(std::move(items));
   Reset();
   return Status::OK();
@@ -134,8 +136,9 @@ void StructBuilder::Reset() {
 }
 
 Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
-  *out = ArrayData::Make(type_, length_, {null_bitmap_}, null_count_);
+  std::shared_ptr<Buffer> null_bitmap;
+  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+  *out = ArrayData::Make(type_, length_, {null_bitmap}, null_count_);
 
   (*out)->child_data.resize(children_.size());
   for (size_t i = 0; i < children_.size(); ++i) {
@@ -146,7 +149,6 @@ Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
     RETURN_NOT_OK(children_[i]->FinishInternal(&(*out)->child_data[i]));
   }
 
-  null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
   return Status::OK();
 }

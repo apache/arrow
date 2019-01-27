@@ -23,7 +23,7 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 
-conda create -n meson -y -q -c conda-forge/label/cf201901 python=3.6
+conda create -n meson -y -q python=3.6
 conda activate meson
 
 pip install meson
@@ -36,7 +36,7 @@ else
     autoconf-archive \
     gtk-doc-tools \
     libgirepository1.0-dev
-  conda install -q -y ninja -c conda-forge/label/cf201901
+  conda install -q -y ninja
 fi
 
 gem install test-unit gobject-introspection

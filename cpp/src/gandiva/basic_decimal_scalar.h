@@ -15,61 +15,44 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef DECIMAL_FULL_H
-#define DECIMAL_FULL_H
+#pragma once
 
 #include <cstdint>
-#include <iostream>
-#include <string>
-#include "arrow/util/decimal.h"
+#include "arrow/util/basic_decimal.h"
 
 namespace gandiva {
 
-using Decimal128 = arrow::Decimal128;
+using arrow::BasicDecimal128;
 
 /// Represents a 128-bit decimal value along with its precision and scale.
-class Decimal128Full {
+class BasicDecimalScalar128 {
  public:
-  Decimal128Full(int64_t high_bits, uint64_t low_bits, int32_t precision, int32_t scale)
+  BasicDecimalScalar128(int64_t high_bits, uint64_t low_bits, int32_t precision,
+                        int32_t scale)
       : value_(high_bits, low_bits), precision_(precision), scale_(scale) {}
 
-  Decimal128Full(std::string value, int32_t precision, int32_t scale)
+  BasicDecimalScalar128(const BasicDecimal128& value, int32_t precision, int32_t scale)
       : value_(value), precision_(precision), scale_(scale) {}
 
-  Decimal128Full(const Decimal128& value, int32_t precision, int32_t scale)
-      : value_(value), precision_(precision), scale_(scale) {}
+  BasicDecimalScalar128(int32_t precision, int32_t scale)
+      : precision_(precision), scale_(scale) {}
 
-  Decimal128Full(int32_t precision, int32_t scale)
-      : value_(0), precision_(precision), scale_(scale) {}
+  int32_t scale() const { return scale_; }
 
-  uint32_t scale() const { return scale_; }
+  int32_t precision() const { return precision_; }
 
-  uint32_t precision() const { return precision_; }
-
-  const arrow::Decimal128& value() const { return value_; }
-
-  inline std::string ToString() const {
-    return value_.ToString(0) + "," + std::to_string(precision_) + "," +
-           std::to_string(scale_);
-  }
-
-  friend std::ostream& operator<<(std::ostream& os, const Decimal128Full& dec) {
-    os << dec.ToString();
-    return os;
-  }
+  const BasicDecimal128& value() const { return value_; }
 
  private:
-  Decimal128 value_;
-
+  BasicDecimal128 value_;
   int32_t precision_;
   int32_t scale_;
 };
 
-inline bool operator==(const Decimal128Full& left, const Decimal128Full& right) {
+inline bool operator==(const BasicDecimalScalar128& left,
+                       const BasicDecimalScalar128& right) {
   return left.value() == right.value() && left.precision() == right.precision() &&
          left.scale() == right.scale();
 }
 
 }  // namespace gandiva
-
-#endif  // DECIMAL_FULL_H

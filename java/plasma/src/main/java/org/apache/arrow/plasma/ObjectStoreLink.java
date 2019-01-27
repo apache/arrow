@@ -19,6 +19,9 @@ package org.apache.arrow.plasma;
 
 import java.util.List;
 
+import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
+import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
+
 /**
  * Object store interface, which provides the capabilities to put and get raw byte array, and serves.
  */
@@ -42,7 +45,8 @@ public interface ObjectStoreLink {
    * @param value The value to put in the object store.
    * @param metadata encodes whatever metadata the user wishes to encode.
    */
-  void put(byte[] objectId, byte[] value, byte[] metadata);
+  void put(byte[] objectId, byte[] value, byte[] metadata)
+          throws DuplicateObjectException, PlasmaOutOfMemoryException;
 
   /**
    * Get a buffer from the PlasmaStore based on the <tt>objectId</tt>.

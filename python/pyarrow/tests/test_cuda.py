@@ -60,7 +60,7 @@ def test_Context():
         cuda.Context(cuda.Context.get_num_devices())
 
 
-@pytest.mark.parametrize("size", [0, 1, 8, 1000])
+@pytest.mark.parametrize("size", [0, 1, 1000])
 def test_manage_allocate_free_host(size):
     buf = cuda.new_host_buffer(size)
     arr = np.frombuffer(buf, dtype=np.uint8)
@@ -102,7 +102,7 @@ def make_random_buffer(size, target='host'):
     raise ValueError('invalid target value')
 
 
-@pytest.mark.parametrize("size", [0, 1, 8, 1000])
+@pytest.mark.parametrize("size", [0, 1, 1000])
 def test_context_device_buffer(size):
     # Creating device buffer from host buffer;
     arr, buf = make_random_buffer(size)
@@ -230,7 +230,39 @@ def test_context_device_buffer(size):
     np.testing.assert_equal(arr[soffset:soffset+ssize], arr2)
 
 
-@pytest.mark.parametrize("size", [0, 1, 8, 1000])
+@pytest.mark.parametrize("size", [0, 1, 1000])
+def test_context_from_object(size):
+    ctx = global_context
+    arr, cbuf = make_random_buffer(size, target='device')
+    dtype = arr.dtype
+
+    # Creating device buffer from a CUDA host buffer
+    hbuf = cuda.new_host_buffer(size * arr.dtype.itemsize)
+    np.frombuffer(hbuf, dtype=dtype)[:] = arr
+    cbuf2 = ctx.buffer_from_object(hbuf)
+    assert cbuf2.size == cbuf.size
+    arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+    np.testing.assert_equal(arr, arr2)
+
+    # Creating device buffer from a device buffer
+    cbuf2 = ctx.buffer_from_object(cbuf2)
+    assert cbuf2.size == cbuf.size
+    arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+    np.testing.assert_equal(arr, arr2)
+
+    # Trying to create a device buffer from a Buffer
+    with pytest.raises(pa.ArrowTypeError,
+                       match=('buffer is not backed by a CudaBuffer')):
+        ctx.buffer_from_object(pa.py_buffer(b"123"))
+
+    # Trying to create a device buffer from numpy.array
+    with pytest.raises(pa.ArrowTypeError,
+                       match=('cannot create device buffer view from'
+                              ' `<class \'numpy.ndarray\'>` object')):
+        ctx.buffer_from_object(np.array([1, 2, 3]))
+
+
+@pytest.mark.parametrize("size", [0, 1, 1000])
 def test_CudaBuffer(size):
     arr, buf = make_random_buffer(size)
     assert arr.tobytes() == buf.to_pybytes()
@@ -255,7 +287,7 @@ def test_CudaBuffer(size):
         cuda.CudaBuffer()
 
 
-@pytest.mark.parametrize("size", [0, 1, 8, 1000])
+@pytest.mark.parametrize("size", [0, 1, 1000])
 def test_HostBuffer(size):
     arr, buf = make_random_buffer(size)
     assert arr.tobytes() == buf.to_pybytes()
@@ -281,7 +313,7 @@ def test_HostBuffer(size):
         cuda.HostBuffer()
 
 
-@pytest.mark.parametrize("size", [0, 1, 8, 1000])
+@pytest.mark.parametrize("size", [0, 1, 1000])
 def test_copy_from_to_host(size):
 
     # Create a buffer in host containing range(size)
@@ -306,7 +338,7 @@ def test_copy_from_to_host(size):
     np.testing.assert_equal(arr, arr2)
 
 
-@pytest.mark.parametrize("size", [0, 1, 8, 1000])
+@pytest.mark.parametrize("size", [0, 1, 1000])
 def test_copy_to_host(size):
     arr, dbuf = make_random_buffer(size, target='device')
 
@@ -366,7 +398,7 @@ def test_copy_to_host(size):
             dbuf.copy_to_host(buf=buf, position=position, nbytes=nbytes)
 
 
-@pytest.mark.parametrize("size", [0, 1, 8, 1000])
+@pytest.mark.parametrize("size", [0, 1, 1000])
 def test_copy_from_device(size):
     arr, buf = make_random_buffer(size=size, target='device')
     lst = arr.tolist()
@@ -410,7 +442,7 @@ def test_copy_from_device(size):
             put(position=position, nbytes=nbytes)
 
 
-@pytest.mark.parametrize("size", [0, 1, 8, 1000])
+@pytest.mark.parametrize("size", [0, 1, 1000])
 def test_copy_from_host(size):
     arr, buf = make_random_buffer(size=size, target='host')
     lst = arr.tolist()
@@ -617,7 +649,7 @@ def other_process_for_test_IPC(handle_buffer, expected_arr):
 
 @cuda_ipc
 @pytest.mark.skipif(sys.version_info[0] == 2, reason="test needs Python 3")
-@pytest.mark.parametrize("size", [0, 1, 8, 1000])
+@pytest.mark.parametrize("size", [0, 1, 1000])
 def test_IPC(size):
     import multiprocessing
     ctx = multiprocessing.get_context('spawn')

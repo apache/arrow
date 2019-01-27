@@ -22,6 +22,7 @@ only_commits:
   # Skip commits not related to Python, C++ or Rust
   files:
     - appveyor.yml
+    - c_glib/
     - ci/
     - cpp/
     - format/
@@ -34,6 +35,14 @@ cache:
 
 matrix:
   fast_finish: true
+  allow_failures:
+    # Can't build with 32-bit MinGW for now.
+    # See https://issues.apache.org/jira/browse/ARROW-4297
+    - JOB: "MinGW32"
+      MINGW_PACKAGE_PREFIX: mingw-w64-i686
+      MINGW_PREFIX: c:\msys64\mingw32
+      MSYSTEM: MINGW32
+      USE_CLCACHE: false
 
 environment:
   global:
@@ -60,13 +69,21 @@ environment:
       GENERATOR: Ninja
       CONFIGURATION: "Release"
       BUILD_SCRIPT: "CMake_Build_Script"
+    - JOB: "MinGW32"
+      MINGW_PACKAGE_PREFIX: mingw-w64-i686
+      MINGW_PREFIX: c:\msys64\mingw32
+      MSYSTEM: MINGW32
+      USE_CLCACHE: false
+    - JOB: "MinGW64"
+      MINGW_PACKAGE_PREFIX: mingw-w64-x86_64
+      MINGW_PREFIX: c:\msys64\mingw64
+      MSYSTEM: MINGW64
+      USE_CLCACHE: false
     - JOB: "Rust"
       TARGET: x86_64-pc-windows-msvc
       USE_CLCACHE: false
 
   MSVC_DEFAULT_OPTIONS: ON
-  BOOST_ROOT: C:\Libraries\boost_1_67_0
-  BOOST_LIBRARYDIR: C:\Libraries\boost_1_67_0\lib64-msvc-14.0
   APPVEYOR_SAVE_CACHE_ON_ERROR: true
 
 install:
