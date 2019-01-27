@@ -270,7 +270,10 @@ foreach(LIB_TARGET ${PARQUET_LIBRARIES})
   endif()
 endforeach()
 
-if (ARROW_BUILD_STATIC AND WIN32)
+# We always build the Parquet static libraries (see PARQUET-1420) so we add the
+# PARQUET_STATIC public compile definition if we are building the unit tests OR
+# if we are building the static library
+if (WIN32 AND (NOT NO_TESTS OR ARROW_BUILD_STATIC))
   target_compile_definitions(parquet_static PUBLIC PARQUET_STATIC)
 endif()
 
