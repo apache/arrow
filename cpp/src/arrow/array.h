@@ -416,14 +416,14 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
       : PrimitiveArray(TypeTraits<T1>::type_singleton(), length, data, null_bitmap,
                        null_count, offset) {}
 
-  const value_type* raw_values() const {
+  ARROW_FORCE_INLINE const value_type* raw_values() const {
     return reinterpret_cast<const value_type*>(raw_values_) + data_->offset;
   }
 
-  value_type Value(int64_t i) const { return raw_values()[i]; }
+  ARROW_FORCE_INLINE value_type Value(int64_t i) const { return raw_values()[i]; }
 
   // For API compatibility with BinaryArray etc.
-  value_type GetView(int64_t i) const { return Value(i); }
+  ARROW_FORCE_INLINE value_type GetView(int64_t i) const { return Value(i); }
 
  protected:
   using PrimitiveArray::PrimitiveArray;

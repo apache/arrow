@@ -60,6 +60,14 @@
 #define ARROW_MUST_USE_RESULT
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+#define ARROW_FORCE_INLINE __attribute__((always_inline))
+#elif defined(_MSC_VER)
+#define ARROW_FORCE_INLINE __forceinline
+#else
+#define ARROW_FORCE_INLINE
+#endif
+
 // ----------------------------------------------------------------------
 // C++/CLI support macros (see ARROW-1134)
 
