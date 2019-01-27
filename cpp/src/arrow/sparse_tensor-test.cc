@@ -90,13 +90,8 @@ TEST(TestSparseCOOTensor, CreationFromNumericTensor) {
   ASSERT_EQ("", st1.dim_name(1));
   ASSERT_EQ("", st1.dim_name(2));
 
-  const int64_t* ptr = reinterpret_cast<const int64_t*>(st1.raw_data());
-  for (int i = 0; i < 6; ++i) {
-    ASSERT_EQ(i + 1, ptr[i]);
-  }
-  for (int i = 0; i < 6; ++i) {
-    ASSERT_EQ(i + 11, ptr[i + 6]);
-  }
+  const int64_t* raw_data = reinterpret_cast<const int64_t*>(st1.raw_data());
+  AssertNumericDataEqual(raw_data, {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16});
 
   const auto& si = internal::checked_cast<const SparseCOOIndex&>(*st1.sparse_index());
   ASSERT_EQ(std::string("SparseCOOIndex"), si.ToString());
@@ -134,13 +129,8 @@ TEST(TestSparseCOOTensor, CreationFromTensor) {
   ASSERT_EQ("", st1.dim_name(1));
   ASSERT_EQ("", st1.dim_name(2));
 
-  const int64_t* ptr = reinterpret_cast<const int64_t*>(st1.raw_data());
-  for (int i = 0; i < 6; ++i) {
-    ASSERT_EQ(i + 1, ptr[i]);
-  }
-  for (int i = 0; i < 6; ++i) {
-    ASSERT_EQ(i + 11, ptr[i + 6]);
-  }
+  const int64_t* raw_data = reinterpret_cast<const int64_t*>(st1.raw_data());
+  AssertNumericDataEqual(raw_data, {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16});
 
   const auto& si = internal::checked_cast<const SparseCOOIndex&>(*st1.sparse_index());
   std::shared_ptr<SparseCOOIndex::CoordsTensor> sidx = si.indices();
@@ -167,13 +157,8 @@ TEST(TestSparseCOOTensor, CreationFromNonContiguousTensor) {
   ASSERT_EQ(12, st.non_zero_length());
   ASSERT_TRUE(st.is_mutable());
 
-  const int64_t* ptr = reinterpret_cast<const int64_t*>(st.raw_data());
-  for (int i = 0; i < 6; ++i) {
-    ASSERT_EQ(i + 1, ptr[i]);
-  }
-  for (int i = 0; i < 6; ++i) {
-    ASSERT_EQ(i + 11, ptr[i + 6]);
-  }
+  const int64_t* raw_data = reinterpret_cast<const int64_t*>(st.raw_data());
+  AssertNumericDataEqual(raw_data, {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16});
 
   const auto& si = internal::checked_cast<const SparseCOOIndex&>(*st.sparse_index());
   std::shared_ptr<SparseCOOIndex::CoordsTensor> sidx = si.indices();
@@ -212,16 +197,10 @@ TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
   ASSERT_EQ("", st1.dim_name(1));
   ASSERT_EQ("", st1.dim_name(2));
 
-  const int64_t* ptr = reinterpret_cast<const int64_t*>(st1.raw_data());
-  for (int i = 0; i < 6; ++i) {
-    ASSERT_EQ(i + 1, ptr[i]);
-  }
-  for (int i = 0; i < 6; ++i) {
-    ASSERT_EQ(i + 11, ptr[i + 6]);
-  }
+  const int64_t* raw_data = reinterpret_cast<const int64_t*>(st1.raw_data());
+  AssertNumericDataEqual(raw_data, {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16});
 
   const auto& si = internal::checked_cast<const SparseCSRIndex&>(*st1.sparse_index());
-
   ASSERT_EQ(std::string("SparseCSRIndex"), si.ToString());
   ASSERT_EQ(1, si.indptr()->ndim());
   ASSERT_EQ(1, si.indices()->ndim());
@@ -255,13 +234,8 @@ TEST(TestSparseCSRMatrix, CreationFromNonContiguousTensor) {
   ASSERT_EQ(12, st.non_zero_length());
   ASSERT_TRUE(st.is_mutable());
 
-  const int64_t* ptr = reinterpret_cast<const int64_t*>(st.raw_data());
-  for (int i = 0; i < 6; ++i) {
-    ASSERT_EQ(i + 1, ptr[i]);
-  }
-  for (int i = 0; i < 6; ++i) {
-    ASSERT_EQ(i + 11, ptr[i + 6]);
-  }
+  const int64_t* raw_data = reinterpret_cast<const int64_t*>(st.raw_data());
+  AssertNumericDataEqual(raw_data, {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16});
 
   const auto& si = internal::checked_cast<const SparseCSRIndex&>(*st.sparse_index());
   ASSERT_EQ(1, si.indptr()->ndim());
