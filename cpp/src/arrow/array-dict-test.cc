@@ -239,6 +239,23 @@ TEST(TestStringDictionaryBuilder, Basic) {
   ASSERT_TRUE(expected.Equals(result));
 }
 
+// ARROW-4367
+TEST(TestStringDictionaryBuilder, OnlyNull) {
+  // Build the dictionary Array
+  StringDictionaryBuilder builder(default_memory_pool());
+  ASSERT_OK(builder.AppendNull());
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+
+  // Build expected data
+  auto dtype = dictionary(int8(), ArrayFromJSON(utf8(), "[]"));
+  auto int_array = ArrayFromJSON(int8(), "[null]");
+  DictionaryArray expected(dtype, int_array);
+
+  ASSERT_TRUE(expected.Equals(result));
+}
+
 TEST(TestStringDictionaryBuilder, DoubleTableSize) {
   // Build the dictionary Array
   StringDictionaryBuilder builder(default_memory_pool());
