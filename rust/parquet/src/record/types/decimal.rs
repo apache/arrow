@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
-    data_type::{ByteArrayType, Decimal, FixedLenByteArrayType, Int32Type, Int64Type},
+    data_type::{ByteArray, ByteArrayType, Decimal, FixedLenByteArrayType, Int32Type, Int64Type},
     errors::ParquetError,
     record::{
         reader::{
@@ -80,7 +80,7 @@ impl Deserialize for Decimal {
                 },
                 move |x| {
                     Ok(Decimal::from_bytes(
-                        unimplemented!(),
+                        ByteArray::from(x),
                         precision as i32,
                         scale as i32,
                     ))

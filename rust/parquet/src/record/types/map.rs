@@ -174,13 +174,19 @@ where
         self.0
     }
 }
-impl<K, V> PartialEq<Map<K, V>> for Map<K, V>
+impl<K, V, V1> PartialEq<Map<K, V1>> for Map<K, V>
 where
     K: Eq + Hash,
-    V: PartialEq,
+    V: PartialEq<V1>,
 {
-    fn eq(&self, other: &Map<K, V>) -> bool {
-        self.0 == other.0
+    fn eq(&self, other: &Map<K, V1>) -> bool {
+        if self.0.len() != other.0.len() {
+            return false;
+        }
+
+        self.0
+            .iter()
+            .all(|(key, value)| other.0.get(key).map_or(false, |v| *value == *v))
     }
 }
 impl<K, V> Debug for Map<K, V>

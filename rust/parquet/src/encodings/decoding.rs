@@ -270,7 +270,7 @@ impl Decoder<ByteArrayType> for PlainDecoder<ByteArrayType> {
             if data.len() < self.start + len {
                 return Err(eof_err!("Not enough bytes to decode"));
             }
-            buffer[i].set_data(data.range(self.start, len));
+            buffer[i] = ByteArray::new(data.range(self.start, len));
             self.start += len;
         }
         self.num_values -= num_values;
@@ -291,7 +291,7 @@ impl Decoder<FixedLenByteArrayType> for PlainDecoder<FixedLenByteArrayType> {
             if data.len() < self.start + type_length {
                 return Err(eof_err!("Not enough bytes to decode"));
             }
-            buffer[i].set_data(data.range(self.start, type_length));
+            buffer[i] = ByteArray::new(data.range(self.start, type_length));
             self.start += type_length;
         }
         self.num_values -= num_values;
@@ -785,7 +785,7 @@ impl Decoder<ByteArrayType> for DeltaLengthByteArrayDecoder<ByteArrayType> {
         let num_values = cmp::min(buffer.len(), self.num_values);
         for i in 0..num_values {
             let len = self.lengths[self.current_idx] as usize;
-            buffer[i].set_data(data.range(self.offset, len));
+            buffer[i] = ByteArray::new(data.range(self.offset, len));
             self.offset += len;
             self.current_idx += 1;
         }
@@ -883,7 +883,7 @@ impl Decoder<ByteArrayType> for DeltaByteArrayDecoder<ByteArrayType> {
         assert!(self.suffix_decoder.is_some());
 
         let num_values = cmp::min(buffer.len(), self.num_values);
-        let mut v: [ByteArray; 1] = [ByteArray::new(); 1];
+        let mut v: [ByteArray; 1] = [ByteArray::default(); 1];
         for i in 0..num_values {
             // Process suffix
             // TODO: this is awkward - maybe we should add a non-vectorized API?
@@ -900,7 +900,7 @@ impl Decoder<ByteArrayType> for DeltaByteArrayDecoder<ByteArrayType> {
             result.extend_from_slice(suffix);
 
             let data = ByteBufferPtr::new(result.clone());
-            buffer[i].set_data(data);
+            buffer[i] = ByteArray::new(data);
             self.previous_value = result;
             self.current_idx += 1;
         }
@@ -1079,11 +1079,12 @@ mod tests {
 
     #[test]
     fn test_plain_decode_byte_array() {
-        let mut data = vec![ByteArray::new(); 2];
-        data[0].set_data(ByteBufferPtr::new(String::from("hello").into_bytes()));
-        data[1].set_data(ByteBufferPtr::new(String::from("parquet").into_bytes()));
+        let mut data = vec![
+            ByteArray::new(ByteBufferPtr::new(String::from("hellp").into_bytes())),
+            ByteArray::new(ByteBufferPtr::new(String::from("parquet").into_bytes())),
+        ];
         let data_bytes = ByteArrayType::to_byte_array(&data[..]);
-        let mut buffer = vec![ByteArray::new(); 2];
+        let mut buffer = vec![ByteArray::default(); 2];
         test_plain_decode::<ByteArrayType>(
             ByteBufferPtr::new(data_bytes),
             2,
@@ -1095,10 +1096,11 @@ mod tests {
 
     #[test]
     fn test_plain_decode_fixed_len_byte_array() {
-        let mut data = vec![ByteArray::default(); 3];
-        data[0].set_data(ByteBufferPtr::new(String::from("bird").into_bytes()));
-        data[1].set_data(ByteBufferPtr::new(String::from("come").into_bytes()));
-        data[2].set_data(ByteBufferPtr::new(String::from("flow").into_bytes()));
+        let mut data = vec![
+            ByteArray::new(ByteBufferPtr::new(String::from("bird").into_bytes())),
+            ByteArray::new(ByteBufferPtr::new(String::from("come").into_bytes())),
+            ByteArray::new(ByteBufferPtr::new(String::from("flow").into_bytes())),
+        ];
         let data_bytes = FixedLenByteArrayType::to_byte_array(&data[..]);
         let mut buffer = vec![ByteArray::default(); 3];
         test_plain_decode::<FixedLenByteArrayType>(

@@ -82,14 +82,12 @@ impl RandGen<DoubleType> for DoubleType {
 impl RandGen<ByteArrayType> for ByteArrayType {
     fn gen(_: i32) -> ByteArray {
         let mut rng = thread_rng();
-        let mut result = ByteArray::new();
         let mut value = vec![];
         let len = rng.gen_range::<usize>(0, 128);
         for _ in 0..len {
             value.push(rng.gen_range(0, 255) & 0xFF);
         }
-        result.set_data(ByteBufferPtr::new(value));
-        result
+        ByteArray::new(ByteBufferPtr::new(value))
     }
 }
 

@@ -276,6 +276,7 @@ macro_rules! impl_parquet_deserialize_array {
                 )
             }
         }
+
         impl Deserialize for Box<[u8; $i]> {
             existential type Reader: Reader<Item = Self>;
             type Schema = FixedByteArraySchema<[u8; $i]>;

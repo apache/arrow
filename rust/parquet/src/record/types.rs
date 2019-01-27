@@ -16,6 +16,7 @@
 // under the License.
 
 mod array;
+mod boxed;
 mod decimal;
 mod group;
 mod list;
@@ -25,11 +26,15 @@ mod option;
 mod time;
 mod tuple;
 mod value;
+mod value_required;
 
 use std::{collections::HashMap, marker::PhantomData};
 
-use super::schemas::{RootSchema, ValueSchema};
-use super::{reader::RootReader, Deserialize};
+use super::{
+    reader::{BoxReader, RootReader},
+    schemas::{BoxSchema, RootSchema, ValueSchema},
+    Deserialize,
+};
 use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
@@ -38,8 +43,8 @@ use crate::{
 };
 
 pub use self::{
-    array::*, decimal::*, group::*, list::*, map::*, numbers::*, option::*, time::*, tuple::*,
-    value::*,
+    array::*, boxed::*, decimal::*, group::*, list::*, map::*, numbers::*, option::*, time::*,
+    tuple::*, value::*, value_required::*,
 };
 
 /// Due to downcasting from Value -> Option<T>

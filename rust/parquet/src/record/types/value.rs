@@ -36,7 +36,7 @@ use crate::{
         },
         types::{
             list::parse_list, map::parse_map, Bson, Date, Downcast, Enum, Group, Json, List, Map,
-            Time, Timestamp,
+            Time, Timestamp, ValueRequired,
         },
         Deserialize,
     },
@@ -97,8 +97,9 @@ pub enum Value {
     /// Struct, child elements are tuples of field-value pairs.
     Group(Group),
     /// Optional element.
-    Option(Box<Option<Value>>),
+    Option(Option<ValueRequired>),
 }
+
 #[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -969,7 +970,7 @@ impl Value {
     }
 
     /// If the `Value` is an Option, return a reference to it. Returns Err otherwise.
-    pub fn as_option(&self) -> Result<&Option<Value>, ParquetError> {
+    fn as_option(&self) -> Result<&Option<ValueRequired>, ParquetError> {
         if let Value::Option(ret) = self {
             Ok(ret)
         } else {
@@ -983,7 +984,7 @@ impl Value {
     /// If the `Value` is an Option, return it. Returns Err otherwise.
     pub fn into_option(self) -> Result<Option<Value>, ParquetError> {
         if let Value::Option(ret) = self {
-            Ok(*ret)
+            Ok(ret.map(ValueRequired::into_value))
         } else {
             Err(ParquetError::General(format!(
                 "Cannot access {:?} as option",
@@ -1134,12 +1135,16 @@ where
     Value: From<T>,
 {
     default fn from(value: Option<T>) -> Self {
-        Value::Option(Box::new(value.map(Into::into)))
+        Value::Option(
+            value
+                .map(Into::into)
+                .map(|x| ValueRequired::from_value(x).unwrap()),
+        )
     }
 }
 impl From<Option<Value>> for Value {
     fn from(value: Option<Value>) -> Self {
-        Value::Option(Box::new(value))
+        Value::Option(value.map(|x| ValueRequired::from_value(x).unwrap()))
     }
 }
 
@@ -1428,10 +1433,26 @@ where
 impl<K, V> PartialEq<Map<K, V>> for Value
 where
     Value: PartialEq<K> + PartialEq<V>,
-    K: Hash + Eq,
+    K: Hash + Eq + Clone + Into<Value>,
 {
     fn eq(&self, other: &Map<K, V>) -> bool {
-        self.as_map().map(|map| unimplemented!()).unwrap_or(false)
+        self.as_map()
+            .map(|map| {
+                if map.0.len() != other.0.len() {
+                    return false;
+                }
+
+                let other = other
+                    .0
+                    .iter()
+                    .map(|(k, v)| (k.clone().into(), v))
+                    .collect::<HashMap<Value, _>>();
+
+                map.0
+                    .iter()
+                    .all(|(key, value)| other.get(key).map_or(false, |v| value == *v))
+            })
+            .unwrap_or(false)
     }
 }
 impl PartialEq<Group> for Value {
@@ -1446,7 +1467,7 @@ where
     fn eq(&self, other: &Option<T>) -> bool {
         self.as_option()
             .map(|option| match (&option, other) {
-                (Some(a), Some(b)) if a == b => true,
+                (Some(a), Some(b)) if a.eq(b) => true,
                 (None, None) => true,
                 _ => false,
             })
@@ -1570,7 +1591,7 @@ impl Deserialize for Value {
                     }
                     (PhysicalType::BYTE_ARRAY, LogicalType::INTERVAL)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::INTERVAL) => {
-                        unimplemented!()
+                        unimplemented!("Interval logical type not yet implemented")
                     }
                     (physical_type, logical_type) => {
                         return Err(ParquetError::General(format!(
@@ -1594,7 +1615,7 @@ impl Deserialize for Value {
         }
 
         if repetition.is_some() && value.is_none() && schema.is_group() {
-            let mut lookup = HashMap::new();
+            let mut lookup = HashMap::with_capacity(schema.get_fields().len());
             value = Some(ValueSchema::Group(GroupSchema(
                 schema
                     .get_fields()

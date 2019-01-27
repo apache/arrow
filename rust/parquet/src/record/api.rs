@@ -21,17 +21,17 @@ use crate::data_type::Decimal;
 use chrono::{Local, TimeZone};
 use num_bigint::{BigInt, Sign};
 
-/// Macro as a shortcut to generate 'not yet implemented' panic error.
-macro_rules! nyi {
-    ($column_descr:ident, $value:ident) => {{
-        unimplemented!(
-            "Conversion for physical type {}, logical type {}, value {:?}",
-            $column_descr.physical_type(),
-            $column_descr.logical_type(),
-            $value
-        );
-    }};
-}
+// /// Macro as a shortcut to generate 'not yet implemented' panic error.
+// macro_rules! nyi {
+//     ($column_descr:ident, $value:ident) => {{
+//         unimplemented!(
+//             "Conversion for physical type {}, logical type {}, value {:?}",
+//             $column_descr.physical_type(),
+//             $column_descr.logical_type(),
+//             $value
+//         );
+//     }};
+// }
 
 // /// `Row` represents a nested Parquet record.
 // #[derive(Clone, Debug, PartialEq)]

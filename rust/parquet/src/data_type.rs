@@ -33,7 +33,7 @@ pub struct Int96 {
 }
 
 impl Int96 {
-    /// Creates new INT96 type struct with no data set.
+    /// Creates new INT96 type struct.
     pub fn new(elem0: u32, elem1: u32, elem2: u32) -> Self {
         Self {
             value: [elem0, elem1, elem2],
@@ -50,43 +50,35 @@ impl Int96 {
 /// Value is backed by a byte buffer.
 #[derive(Clone, Debug)]
 pub struct ByteArray {
-    data: Option<ByteBufferPtr>,
+    data: ByteBufferPtr,
 }
 
 impl ByteArray {
-    /// Creates new byte array with no data set.
-    pub fn new() -> Self {
-        ByteArray { data: None }
+    /// Creates new byte array from byte buffer.
+    pub fn new(data: ByteBufferPtr) -> Self {
+        ByteArray { data }
     }
 
     /// Gets length of the underlying byte buffer.
     pub fn len(&self) -> usize {
-        assert!(self.data.is_some());
-        self.data.as_ref().unwrap().len()
+        self.data.len()
     }
 
     /// Returns slice of data.
     pub fn data(&self) -> &[u8] {
-        assert!(self.data.is_some());
-        self.data.as_ref().unwrap().as_ref()
-    }
-
-    /// Set data from another byte buffer.
-    pub fn set_data(&mut self, data: ByteBufferPtr) {
-        self.data = Some(data);
+        self.data.as_ref()
     }
 
     /// Returns `ByteArray` instance with slice of values for a data.
     pub fn slice(&self, start: usize, len: usize) -> Self {
-        assert!(self.data.is_some());
-        Self::from(self.data.as_ref().unwrap().range(start, len))
+        Self::from(self.data.range(start, len))
     }
 }
 
 impl From<Vec<u8>> for ByteArray {
     fn from(buf: Vec<u8>) -> ByteArray {
         Self {
-            data: Some(ByteBufferPtr::new(buf)),
+            data: ByteBufferPtr::new(buf),
         }
     }
 }
@@ -96,28 +88,30 @@ impl<'a> From<&'a str> for ByteArray {
         let mut v = Vec::new();
         v.extend_from_slice(s.as_bytes());
         Self {
-            data: Some(ByteBufferPtr::new(v)),
+            data: ByteBufferPtr::new(v),
         }
     }
 }
 
 impl From<ByteBufferPtr> for ByteArray {
     fn from(ptr: ByteBufferPtr) -> ByteArray {
-        Self { data: Some(ptr) }
+        Self { data: ptr }
     }
 }
 
 impl From<ByteBuffer> for ByteArray {
     fn from(mut buf: ByteBuffer) -> ByteArray {
         Self {
-            data: Some(buf.consume()),
+            data: buf.consume(),
         }
     }
 }
 
 impl Default for ByteArray {
     fn default() -> Self {
-        ByteArray { data: None }
+        ByteArray {
+            data: ByteBufferPtr::new(vec![]),
+        }
     }
 }
 

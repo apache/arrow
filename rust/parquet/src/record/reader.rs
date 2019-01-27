@@ -22,7 +22,9 @@ use std::{collections::HashMap, convert::TryInto, error::Error, marker::PhantomD
 
 use super::{
     triplet::TypedTripletIter,
-    types::{Bson, Date, Enum, Group, Json, List, Map, Root, Time, Timestamp, Value},
+    types::{
+        Bson, Date, Enum, Group, Json, List, Map, Root, Time, Timestamp, Value, ValueRequired,
+    },
     Deserialize, DisplayDisplaySchema,
 };
 use crate::column::reader::ColumnReader;
@@ -490,11 +492,11 @@ impl Reader for GroupReader {
     type Item = Group;
 
     fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
-        let mut fields = Vec::new();
-        for reader in self.readers.iter_mut() {
-            fields.push(reader.read(def_level, rep_level)?);
-        }
-        Ok(Group(fields, self.fields.clone()))
+        self.readers
+            .iter_mut()
+            .map(|reader| reader.read(def_level, rep_level))
+            .collect::<Result<Vec<_>>>()
+            .map(|fields| Group(fields, self.fields.clone()))
     }
 
     fn advance_columns(&mut self) -> Result<()> {
@@ -592,7 +594,7 @@ impl Reader for ValueReader {
             }
             ValueReader::Option(ref mut reader) => reader
                 .read(def_level, rep_level)
-                .map(|x| Value::Option(Box::new(x))),
+                .map(|x| Value::Option(x.map(|x| ValueRequired::from_value(x).unwrap()))),
         }
     }
 
@@ -710,6 +712,34 @@ impl Reader for ValueReader {
             ValueReader::Group(ref reader) => reader.current_rep_level(),
             ValueReader::Option(ref reader) => reader.current_rep_level(),
         }
+    }
+}
+
+pub struct BoxReader<T>(pub(super) T);
+impl<T> Reader for BoxReader<T>
+where
+    T: Reader,
+{
+    type Item = Box<T::Item>;
+
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+        self.0.read(def_level, rep_level).map(Box::new)
+    }
+
+    fn advance_columns(&mut self) -> Result<()> {
+        self.0.advance_columns()
+    }
+
+    fn has_next(&self) -> bool {
+        self.0.has_next()
+    }
+
+    fn current_def_level(&self) -> i16 {
+        self.0.current_def_level()
+    }
+
+    fn current_rep_level(&self) -> i16 {
+        self.0.current_rep_level()
     }
 }
 
@@ -926,7 +956,8 @@ where
 
         // Prepare lookup table of column path -> original column index
         // This allows to prune columns and map schema leaf nodes to the column readers
-        let mut paths: HashMap<ColumnPath, ColumnReader> = HashMap::new();
+        let mut paths: HashMap<ColumnPath, ColumnReader> =
+            HashMap::with_capacity(row_group_reader.num_columns());
         let row_group_metadata = row_group_reader.metadata();
         for col_index in 0..row_group_reader.num_columns() {
             let col_meta = row_group_metadata.column(col_index);
@@ -1065,7 +1096,8 @@ where
                 .get_row_group(self.current_row_group)
                 .expect("Row group is required to advance");
 
-            let mut paths: HashMap<ColumnPath, ColumnReader> = HashMap::new();
+            let mut paths: HashMap<ColumnPath, ColumnReader> =
+                HashMap::with_capacity(row_group_reader.num_columns());
             let row_group_metadata = row_group_reader.metadata();
 
             for col_index in 0..row_group_reader.num_columns() {
@@ -1145,6 +1177,8 @@ where
 mod tests {
     use super::*;
 
+    use std::{collections::HashMap, rc::Rc};
+
     use crate::errors::Result;
     use crate::file::reader::{FileReader, SerializedFileReader};
     use crate::record::types::{Row, Value};
@@ -1160,12 +1194,12 @@ mod tests {
                 #[allow(unused_mut)]
                 let mut result = Vec::new();
                 #[allow(unused_mut)]
-                let mut keys = std::collections::HashMap::new();
+                let mut keys = HashMap::new();
                 $(
                     keys.insert($name, result.len());
                     result.push($e);
                 )*
-                Group(result, std::rc::Rc::new(keys))
+                Group(result, Rc::new(keys))
             }
         }
     }
@@ -1218,12 +1252,12 @@ mod tests {
 
     macro_rules! somev {
         ( $e:expr ) => {
-            Value::Option(Box::new(Some($e)))
+            Value::Option(Some(ValueRequired::from_value($e).unwrap()))
         };
     }
     macro_rules! nonev {
         ( ) => {
-            Value::Option(Box::new(None))
+            Value::Option(None)
         };
     }
 

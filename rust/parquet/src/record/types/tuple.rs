@@ -41,13 +41,19 @@ macro_rules! impl_parquet_deserialize_tuple {
             type Item = ($($t::Item,)*);
 
             fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item, ParquetError> {
+                let ret = (
+                    $((self.0).$i.read(def_level, rep_level),)*
+                );
                 Ok((
-                    $((self.0).$i.read(def_level, rep_level)?,)*
+                    $(ret.$i?,)*
                 ))
             }
             fn advance_columns(&mut self) -> Result<(), ParquetError> {
-                $((self.0).$i.advance_columns()?;)*
-                Ok(())
+                let mut res = Ok(());
+                $(
+                    res = res.and((self.0).$i.advance_columns());
+                )*
+                res
             }
             fn has_next(&self) -> bool {
                 // $((self.0).$i.has_next() &&)* true

@@ -51,7 +51,7 @@ impl Deserialize for Group {
         repetition: Option<Repetition>,
     ) -> Result<(String, Self::Schema), ParquetError> {
         if schema.is_group() && repetition == Some(Repetition::REQUIRED) {
-            let mut map = HashMap::new();
+            let mut map = HashMap::with_capacity(schema.get_fields().len());
             let fields = schema
                 .get_fields()
                 .iter()
@@ -137,7 +137,7 @@ impl Debug for Group {
 }
 impl From<HashMap<String, Value>> for Group {
     fn from(hashmap: HashMap<String, Value>) -> Self {
-        let mut keys = HashMap::new();
+        let mut keys = HashMap::with_capacity(hashmap.len());
         Group(
             hashmap
                 .into_iter()

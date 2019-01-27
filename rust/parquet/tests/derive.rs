@@ -144,7 +144,6 @@ where
 {
     let file = get_test_file(file_name);
     let file_reader: SerializedFileReader<_> = SerializedFileReader::new(file)?;
-    // println!("<Root<T> as Deserialize>::Reader: {}", mem::size_of::<<Root<T> as Deserialize>::Reader>());
     let iter = file_reader.get_row_iter(schema)?;
     Ok(iter.collect())
 }

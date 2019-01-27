@@ -1371,6 +1371,20 @@ impl Downcast<OptionSchema<ValueSchema>> for ValueSchema {
     }
 }
 
+#[derive(Debug)]
+pub struct BoxSchema<T>(pub(super) T);
+impl<T> DisplaySchema for BoxSchema<T>
+where
+    T: DisplaySchema,
+{
+    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        self.0.fmt(r, name, f)
+    }
+    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        T::fmt_type(r, name, f)
+    }
+}
+
 pub struct RootSchema<T, S>(pub String, pub S, pub PhantomData<fn(T)>);
 impl<T, S> Debug for RootSchema<T, S>
 where
