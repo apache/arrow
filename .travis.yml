@@ -340,7 +340,6 @@ matrix:
         fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib
     - export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib/pkgconfig
     - pushd ${TRAVIS_BUILD_DIR}/r
