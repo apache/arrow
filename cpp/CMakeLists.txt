@@ -74,9 +74,6 @@ endif()
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
-
-set(CLANG_TOOLS_MAJOR_VERSION string(SUBSTRING ${CLANG_TOOLS_VERSION} 0 1))
-
 set(ARROW_LLVM_VERSION "7.0")
 STRING(REGEX REPLACE "^([0-9]+)\\.[0-9]+" "\\1" ARROW_LLVM_MAJOR_VERSION "${ARROW_LLVM_VERSION}")
 STRING(REGEX REPLACE "^[0-9]+\\.([0-9]+)" "\\1" ARROW_LLVM_MINOR_VERSION "${ARROW_LLVM_VERSION}")
@@ -130,7 +127,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   option(ARROW_USE_LD_GOLD
     "Use ld.gold for linking on Linux (if available)"
-    ON)
+    OFF)
 
   option(ARROW_USE_TSAN
     "Enable Thread Sanitizer checks"
