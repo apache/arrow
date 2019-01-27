@@ -55,7 +55,10 @@ pub enum Type {
 
 impl Type {
     /// Creates primitive type builder with provided field name and physical type.
-    pub fn primitive_type_builder(name: &str, physical_type: PhysicalType) -> PrimitiveTypeBuilder {
+    pub fn primitive_type_builder(
+        name: &str,
+        physical_type: PhysicalType,
+    ) -> PrimitiveTypeBuilder {
         PrimitiveTypeBuilder::new(name, physical_type)
     }
 
@@ -104,7 +107,8 @@ impl Type {
     /// This method can be used to check if projected columns are part of the root schema.
     pub fn check_contains(&self, sub_type: &Type) -> bool {
         // Names match, and repetitions match or not set for both
-        let basic_match = self.get_basic_info().name() == sub_type.get_basic_info().name()
+        let basic_match = self.get_basic_info().name()
+            == sub_type.get_basic_info().name()
             && (self.is_schema() && sub_type.is_schema()
                 || !self.is_schema()
                     && !sub_type.is_schema()
@@ -314,8 +318,9 @@ impl<'a> PrimitiveTypeBuilder<'a> {
                         }
                     }
                     PhysicalType::FIXED_LEN_BYTE_ARRAY => {
-                        let max_precision =
-                            (2f64.powi(8 * self.length - 1) - 1f64).log10().floor() as i32;
+                        let max_precision = (2f64.powi(8 * self.length - 1) - 1f64)
+                            .log10()
+                            .floor() as i32;
 
                         if self.precision > max_precision {
                             return Err(general_err!(
@@ -357,7 +362,9 @@ impl<'a> PrimitiveTypeBuilder<'a> {
                 }
             }
             LogicalType::INTERVAL => {
-                if self.physical_type != PhysicalType::FIXED_LEN_BYTE_ARRAY || self.length != 12 {
+                if self.physical_type != PhysicalType::FIXED_LEN_BYTE_ARRAY
+                    || self.length != 12
+                {
                     return Err(general_err!(
                         "INTERVAL can only annotate FIXED_LEN_BYTE_ARRAY(12)"
                     ));
@@ -745,7 +752,8 @@ impl SchemaDescriptor {
         result.as_ref()
     }
 
-    /// Returns column root [`Type`](`::schema::types::Type`) pointer for a field position.
+    /// Returns column root [`Type`](`::schema::types::Type`) pointer for a field
+    /// position.
     pub fn get_column_root_ptr(&self, i: usize) -> TypePtr {
         let result = self.column_root_of(i);
         result.clone()
@@ -858,7 +866,10 @@ pub fn from_thrift(elements: &[SchemaElement]) -> Result<TypePtr> {
 /// The first result is the starting index for the next Type after this one. If it is
 /// equal to `elements.len()`, then this Type is the last one.
 /// The second result is the result Type.
-fn from_thrift_helper(elements: &[SchemaElement], index: usize) -> Result<(usize, TypePtr)> {
+fn from_thrift_helper(
+    elements: &[SchemaElement],
+    index: usize,
+) -> Result<(usize, TypePtr)> {
     // Whether or not the current node is root (message type).
     // There is only one message type node in the schema tree.
     let is_root_node = index == 0;
@@ -916,11 +927,11 @@ fn from_thrift_helper(elements: &[SchemaElement], index: usize) -> Result<(usize
                 .with_logical_type(logical_type)
                 .with_fields(&mut fields);
             if let Some(rep) = repetition {
-                // Sometimes parquet-cpp and parquet-mr set repetition level REQUIRED or REPEATED
-                // for root node.
+                // Sometimes parquet-cpp and parquet-mr set repetition level REQUIRED or
+                // REPEATED for root node.
                 //
-                // We only set repetition for group types that are not top-level message type.
-                // According to parquet-format:
+                // We only set repetition for group types that are not top-level message
+                // type. According to parquet-format:
                 //   Root of the schema does not have a repetition_type.
                 //   All other types must have one.
                 if !is_root_node {
@@ -1350,7 +1361,8 @@ mod tests {
             .with_repetition(Repetition::REQUIRED)
             .with_logical_type(LogicalType::INT_64)
             .build()?;
-        let item2 = Type::primitive_type_builder("item2", PhysicalType::BOOLEAN).build()?;
+        let item2 =
+            Type::primitive_type_builder("item2", PhysicalType::BOOLEAN).build()?;
         let item3 = Type::primitive_type_builder("item3", PhysicalType::INT32)
             .with_repetition(Repetition::REPEATED)
             .with_logical_type(LogicalType::INT_32)

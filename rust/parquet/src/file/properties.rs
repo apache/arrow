@@ -295,9 +295,9 @@ impl WriterPropertiesBuilder {
 
     /// Sets encoding for any column.
     ///
-    /// If dictionary is not enabled, this is treated as a primary encoding for all columns.
-    /// In case when dictionary is enabled for any column, this value is considered to
-    /// be a fallback encoding for that column.
+    /// If dictionary is not enabled, this is treated as a primary encoding for all
+    /// columns. In case when dictionary is enabled for any column, this value is
+    /// considered to be a fallback encoding for that column.
     ///
     /// Panics if user tries to set dictionary encoding here, regardless of dictinoary
     /// encoding flag being set.
@@ -349,9 +349,10 @@ impl WriterPropertiesBuilder {
     /// Sets encoding for a column.
     /// Takes precedence over globally defined settings.
     ///
-    /// If dictionary is not enabled, this is treated as a primary encoding for this column.
-    /// In case when dictionary is enabled for this column, either through global defaults
-    /// or explicitly, this value is considered to be a fallback encoding for this column.
+    /// If dictionary is not enabled, this is treated as a primary encoding for this
+    /// column. In case when dictionary is enabled for this column, either through
+    /// global defaults or explicitly, this value is considered to be a fallback
+    /// encoding for this column.
     ///
     /// Panics if user tries to set dictionary encoding here, regardless of dictinoary
     /// encoding flag being set.
@@ -383,7 +384,11 @@ impl WriterPropertiesBuilder {
 
     /// Sets max size for statistics for a column.
     /// Takes precedence over globally defined settings.
-    pub fn set_column_max_statistics_size(mut self, col: ColumnPath, value: usize) -> Self {
+    pub fn set_column_max_statistics_size(
+        mut self,
+        col: ColumnPath,
+        value: usize,
+    ) -> Self {
         self.get_mut_props(col).set_max_statistics_size(value);
         self
     }
@@ -460,8 +465,9 @@ impl ColumnProperties {
         self.codec
     }
 
-    /// Returns `Some(true)` if dictionary encoding is enabled for this column, if disabled
-    /// then returns `Some(false)`. If result is `None`, then no setting has been provided.
+    /// Returns `Some(true)` if dictionary encoding is enabled for this column, if
+    /// disabled then returns `Some(false)`. If result is `None`, then no setting has
+    /// been provided.
     fn dictionary_enabled(&self) -> Option<bool> {
         self.dictionary_enabled
     }

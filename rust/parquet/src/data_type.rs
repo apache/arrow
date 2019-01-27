@@ -284,7 +284,9 @@ gen_as_bytes!(f64);
 
 impl AsBytes for Int96 {
     fn as_bytes(&self) -> &[u8] {
-        unsafe { ::std::slice::from_raw_parts(self.data() as *const [u32] as *const u8, 12) }
+        unsafe {
+            ::std::slice::from_raw_parts(self.data() as *const [u32] as *const u8, 12)
+        }
     }
 }
 

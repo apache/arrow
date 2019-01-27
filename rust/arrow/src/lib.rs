@@ -18,8 +18,8 @@
 //! A native Rust implementation of [Apache Arrow](https://arrow.apache.org), a cross-language
 //! development platform for in-memory data.
 //!
-//! Currently the project is developed and tested against nightly Rust. To learn more about the
-//! status of Arrow in Rust, see `README.md`.
+//! Currently the project is developed and tested against nightly Rust. To learn more
+//! about the status of Arrow in Rust, see `README.md`.
 
 #![feature(type_ascription)]
 #![feature(rustc_private)]

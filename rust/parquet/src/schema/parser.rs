@@ -150,7 +150,11 @@ fn assert_token(token: Option<&str>, expected: &str) -> Result<()> {
 }
 
 // Utility function to parse i32 or return general error.
-fn parse_i32(value: Option<&str>, not_found_msg: &str, parse_fail_msg: &str) -> Result<i32> {
+fn parse_i32(
+    value: Option<&str>,
+    not_found_msg: &str,
+    parse_fail_msg: &str,
+) -> Result<i32> {
     value
         .ok_or(general_err!(not_found_msg))
         .and_then(|v| v.parse::<i32>().map_err(|_| general_err!(parse_fail_msg)))
@@ -200,7 +204,9 @@ impl<'a> Parser<'a> {
             .and_then(|v| v.to_uppercase().parse::<Repetition>())?;
 
         match self.tokenizer.next() {
-            Some(group) if group.to_uppercase() == "GROUP" => self.add_group_type(Some(repetition)),
+            Some(group) if group.to_uppercase() == "GROUP" => {
+                self.add_group_type(Some(repetition))
+            }
             Some(type_string) => {
                 let physical_type = type_string.to_uppercase().parse::<PhysicalType>()?;
                 self.add_primitive_type(repetition, physical_type)
@@ -424,11 +430,12 @@ mod tests {
         assert_eq!(
             res,
             vec![
-                "message", "schema", "{", "required", "int32", "a", ";", "optional", "binary", "c",
-                "(", "UTF8", ")", ";", "required", "group", "d", "{", "required", "int32", "a",
-                ";", "optional", "binary", "c", "(", "UTF8", ")", ";", "}", "required", "group",
-                "e", "(", "LIST", ")", "{", "repeated", "group", "list", "{", "required", "int32",
-                "element", ";", "}", "}", "}"
+                "message", "schema", "{", "required", "int32", "a", ";", "optional",
+                "binary", "c", "(", "UTF8", ")", ";", "required", "group", "d", "{",
+                "required", "int32", "a", ";", "optional", "binary", "c", "(", "UTF8",
+                ")", ";", "}", "required", "group", "e", "(", "LIST", ")", "{",
+                "repeated", "group", "list", "{", "required", "int32", "element", ";",
+                "}", "}", "}"
             ]
         );
     }
@@ -586,22 +593,28 @@ mod tests {
         let expected = Type::group_type_builder("root")
             .with_fields(&mut vec![
                 Rc::new(
-                    Type::primitive_type_builder("f1", PhysicalType::FIXED_LEN_BYTE_ARRAY)
-                        .with_logical_type(LogicalType::DECIMAL)
-                        .with_length(5)
-                        .with_precision(9)
-                        .with_scale(3)
-                        .build()
-                        .unwrap(),
+                    Type::primitive_type_builder(
+                        "f1",
+                        PhysicalType::FIXED_LEN_BYTE_ARRAY,
+                    )
+                    .with_logical_type(LogicalType::DECIMAL)
+                    .with_length(5)
+                    .with_precision(9)
+                    .with_scale(3)
+                    .build()
+                    .unwrap(),
                 ),
                 Rc::new(
-                    Type::primitive_type_builder("f2", PhysicalType::FIXED_LEN_BYTE_ARRAY)
-                        .with_logical_type(LogicalType::DECIMAL)
-                        .with_length(16)
-                        .with_precision(38)
-                        .with_scale(18)
-                        .build()
-                        .unwrap(),
+                    Type::primitive_type_builder(
+                        "f2",
+                        PhysicalType::FIXED_LEN_BYTE_ARRAY,
+                    )
+                    .with_logical_type(LogicalType::DECIMAL)
+                    .with_length(16)
+                    .with_precision(38)
+                    .with_scale(18)
+                    .build()
+                    .unwrap(),
                 ),
             ])
             .build()
@@ -645,11 +658,14 @@ mod tests {
                                 .with_repetition(Repetition::OPTIONAL)
                                 .with_logical_type(LogicalType::LIST)
                                 .with_fields(&mut vec![Rc::new(
-                                    Type::primitive_type_builder("a2", PhysicalType::BYTE_ARRAY)
-                                        .with_repetition(Repetition::REPEATED)
-                                        .with_logical_type(LogicalType::UTF8)
-                                        .build()
-                                        .unwrap(),
+                                    Type::primitive_type_builder(
+                                        "a2",
+                                        PhysicalType::BYTE_ARRAY,
+                                    )
+                                    .with_repetition(Repetition::REPEATED)
+                                    .with_logical_type(LogicalType::UTF8)
+                                    .build()
+                                    .unwrap(),
                                 )])
                                 .build()
                                 .unwrap(),
