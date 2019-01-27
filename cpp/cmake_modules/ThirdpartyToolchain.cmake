@@ -634,16 +634,28 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   endif()
 
   message(STATUS "GTest include dir: ${GTEST_INCLUDE_DIR}")
-  message(STATUS "GTest static library: ${GTEST_STATIC_LIB}")
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(gtest
-    STATIC_LIB ${GTEST_STATIC_LIB})
-  ADD_THIRDPARTY_LIB(gtest_main
-    STATIC_LIB ${GTEST_MAIN_STATIC_LIB})
+  if(GTEST_STATIC_LIB)
+    message(STATUS "GTest static library: ${GTEST_STATIC_LIB}")
+    ADD_THIRDPARTY_LIB(gtest
+      STATIC_LIB ${GTEST_STATIC_LIB})
+    ADD_THIRDPARTY_LIB(gtest_main
+      STATIC_LIB ${GTEST_MAIN_STATIC_LIB})
+    set(GTEST_LIBRARY gtest_static)
+    set(GTEST_MAIN_LIBRARY gtest_main_static)
+  else()
+    message(STATUS "GTest shared library: ${GTEST_SHARED_LIB}")
+    ADD_THIRDPARTY_LIB(gtest
+      SHARED_LIB ${GTEST_SHARED_LIB})
+    ADD_THIRDPARTY_LIB(gtest_main
+      SHARED_LIB ${GTEST_MAIN_SHARED_LIB})
+    set(GTEST_LIBRARY gtest_shared)
+    set(GTEST_MAIN_LIBRARY gtest_main_shared)
+  endif()
 
   if(GTEST_VENDORED)
-    add_dependencies(gtest_static googletest_ep)
-    add_dependencies(gtest_main_static googletest_ep)
+    add_dependencies(${GTEST_LIBRARY} googletest_ep)
+    add_dependencies(${GTEST_MAIN_LIBRARY} googletest_ep)
   endif()
 endif()
 
