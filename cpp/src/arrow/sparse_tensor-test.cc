@@ -38,6 +38,12 @@ static inline void CheckSparseIndexFormatType(SparseTensorFormat::type expected,
   ASSERT_EQ(expected, sparse_tensor.sparse_index()->format_id());
 }
 
+static inline void AssertCOOIndex(const std::shared_ptr<SparseCOOIndex::CoordsTensor>& sidx, const int64_t nth, const std::vector<int64_t>& expected_values) {
+  for (int64_t i = 0; i < expected_values.size(); ++i) {
+    ASSERT_EQ(expected_values[i], sidx->Value({nth, i}));
+  }
+}
+
 TEST(TestSparseCOOTensor, CreationEmptyTensor) {
   std::vector<int64_t> shape = {2, 3, 4};
   SparseTensorImpl<SparseCOOIndex> st1(int64(), shape);
@@ -99,30 +105,11 @@ TEST(TestSparseCOOTensor, CreationFromNumericTensor) {
   ASSERT_EQ(std::vector<int64_t>({12, 3}), sidx->shape());
   ASSERT_TRUE(sidx->is_column_major());
 
-  // (0, 0, 0) -> 1
-  ASSERT_EQ(0, sidx->Value({0, 0}));
-  ASSERT_EQ(0, sidx->Value({0, 1}));
-  ASSERT_EQ(0, sidx->Value({0, 2}));
-
-  // (0, 0, 2) -> 2
-  ASSERT_EQ(0, sidx->Value({1, 0}));
-  ASSERT_EQ(0, sidx->Value({1, 1}));
-  ASSERT_EQ(2, sidx->Value({1, 2}));
-
-  // (0, 1, 1) -> 3
-  ASSERT_EQ(0, sidx->Value({2, 0}));
-  ASSERT_EQ(1, sidx->Value({2, 1}));
-  ASSERT_EQ(1, sidx->Value({2, 2}));
-
-  // (1, 2, 1) -> 15
-  ASSERT_EQ(1, sidx->Value({10, 0}));
-  ASSERT_EQ(2, sidx->Value({10, 1}));
-  ASSERT_EQ(1, sidx->Value({10, 2}));
-
-  // (1, 2, 3) -> 16
-  ASSERT_EQ(1, sidx->Value({11, 0}));
-  ASSERT_EQ(2, sidx->Value({11, 1}));
-  ASSERT_EQ(3, sidx->Value({11, 2}));
+  AssertCOOIndex(sidx, 0, {0, 0, 0});
+  AssertCOOIndex(sidx, 1, {0, 0, 2});
+  AssertCOOIndex(sidx, 2, {0, 1, 1});
+  AssertCOOIndex(sidx, 10, {1, 2, 1});
+  AssertCOOIndex(sidx, 11, {1, 2, 3});
 }
 
 TEST(TestSparseCOOTensor, CreationFromTensor) {
@@ -160,30 +147,11 @@ TEST(TestSparseCOOTensor, CreationFromTensor) {
   ASSERT_EQ(std::vector<int64_t>({12, 3}), sidx->shape());
   ASSERT_TRUE(sidx->is_column_major());
 
-  // (0, 0, 0) -> 1
-  ASSERT_EQ(0, sidx->Value({0, 0}));
-  ASSERT_EQ(0, sidx->Value({0, 1}));
-  ASSERT_EQ(0, sidx->Value({0, 2}));
-
-  // (0, 0, 2) -> 2
-  ASSERT_EQ(0, sidx->Value({1, 0}));
-  ASSERT_EQ(0, sidx->Value({1, 1}));
-  ASSERT_EQ(2, sidx->Value({1, 2}));
-
-  // (0, 1, 1) -> 3
-  ASSERT_EQ(0, sidx->Value({2, 0}));
-  ASSERT_EQ(1, sidx->Value({2, 1}));
-  ASSERT_EQ(1, sidx->Value({2, 2}));
-
-  // (1, 2, 1) -> 15
-  ASSERT_EQ(1, sidx->Value({10, 0}));
-  ASSERT_EQ(2, sidx->Value({10, 1}));
-  ASSERT_EQ(1, sidx->Value({10, 2}));
-
-  // (1, 2, 3) -> 16
-  ASSERT_EQ(1, sidx->Value({11, 0}));
-  ASSERT_EQ(2, sidx->Value({11, 1}));
-  ASSERT_EQ(3, sidx->Value({11, 2}));
+  AssertCOOIndex(sidx, 0, {0, 0, 0});
+  AssertCOOIndex(sidx, 1, {0, 0, 2});
+  AssertCOOIndex(sidx, 2, {0, 1, 1});
+  AssertCOOIndex(sidx, 10, {1, 2, 1});
+  AssertCOOIndex(sidx, 11, {1, 2, 3});
 }
 
 TEST(TestSparseCOOTensor, CreationFromNonContiguousTensor) {
@@ -212,30 +180,11 @@ TEST(TestSparseCOOTensor, CreationFromNonContiguousTensor) {
   ASSERT_EQ(std::vector<int64_t>({12, 3}), sidx->shape());
   ASSERT_TRUE(sidx->is_column_major());
 
-  // (0, 0, 0) -> 1
-  ASSERT_EQ(0, sidx->Value({0, 0}));
-  ASSERT_EQ(0, sidx->Value({0, 1}));
-  ASSERT_EQ(0, sidx->Value({0, 2}));
-
-  // (0, 0, 2) -> 2
-  ASSERT_EQ(0, sidx->Value({1, 0}));
-  ASSERT_EQ(0, sidx->Value({1, 1}));
-  ASSERT_EQ(2, sidx->Value({1, 2}));
-
-  // (0, 1, 1) -> 3
-  ASSERT_EQ(0, sidx->Value({2, 0}));
-  ASSERT_EQ(1, sidx->Value({2, 1}));
-  ASSERT_EQ(1, sidx->Value({2, 2}));
-
-  // (1, 2, 1) -> 15
-  ASSERT_EQ(1, sidx->Value({10, 0}));
-  ASSERT_EQ(2, sidx->Value({10, 1}));
-  ASSERT_EQ(1, sidx->Value({10, 2}));
-
-  // (1, 2, 3) -> 16
-  ASSERT_EQ(1, sidx->Value({11, 0}));
-  ASSERT_EQ(2, sidx->Value({11, 1}));
-  ASSERT_EQ(3, sidx->Value({11, 2}));
+  AssertCOOIndex(sidx, 0, {0, 0, 0});
+  AssertCOOIndex(sidx, 1, {0, 0, 2});
+  AssertCOOIndex(sidx, 2, {0, 1, 1});
+  AssertCOOIndex(sidx, 10, {1, 2, 1});
+  AssertCOOIndex(sidx, 11, {1, 2, 3});
 }
 
 TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
