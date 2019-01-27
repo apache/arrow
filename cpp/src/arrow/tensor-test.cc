@@ -112,6 +112,8 @@ TEST(TestNumericTensor, ElementAccessWithRowMajorStrides) {
   NumericTensor<Int64Type> t_i64(buffer_i64, shape);
 
   ASSERT_TRUE(t_i64.is_row_major());
+  ASSERT_FALSE(t_i64.is_column_major());
+  ASSERT_TRUE(t_i64.is_contiguous());
   ASSERT_EQ(1, t_i64.Value({0, 0}));
   ASSERT_EQ(5, t_i64.Value({1, 0}));
   ASSERT_EQ(6, t_i64.Value({1, 1}));
@@ -123,6 +125,8 @@ TEST(TestNumericTensor, ElementAccessWithRowMajorStrides) {
   NumericTensor<FloatType> t_f32(buffer_f32, shape);
 
   ASSERT_TRUE(t_f32.is_row_major());
+  ASSERT_FALSE(t_f32.is_column_major());
+  ASSERT_TRUE(t_f32.is_contiguous());
   ASSERT_EQ(1.1f, t_f32.Value({0, 0}));
   ASSERT_EQ(5.1f, t_f32.Value({1, 0}));
   ASSERT_EQ(6.1f, t_f32.Value({1, 1}));
@@ -139,6 +143,8 @@ TEST(TestNumericTensor, ElementAccessWithColumnMajorStrides) {
   NumericTensor<Int64Type> t_i64(buffer_i64, shape, strides_i64);
 
   ASSERT_TRUE(t_i64.is_column_major());
+  ASSERT_FALSE(t_i64.is_row_major());
+  ASSERT_TRUE(t_i64.is_contiguous());
   ASSERT_EQ(1, t_i64.Value({0, 0}));
   ASSERT_EQ(2, t_i64.Value({0, 1}));
   ASSERT_EQ(4, t_i64.Value({0, 3}));
@@ -154,6 +160,8 @@ TEST(TestNumericTensor, ElementAccessWithColumnMajorStrides) {
   NumericTensor<FloatType> t_f32(buffer_f32, shape, strides_f32);
 
   ASSERT_TRUE(t_f32.is_column_major());
+  ASSERT_FALSE(t_f32.is_row_major());
+  ASSERT_TRUE(t_f32.is_contiguous());
   ASSERT_EQ(1.1f, t_f32.Value({0, 0}));
   ASSERT_EQ(2.1f, t_f32.Value({0, 1}));
   ASSERT_EQ(4.1f, t_f32.Value({0, 3}));
@@ -173,6 +181,8 @@ TEST(TestNumericTensor, ElementAccessWithNonContiguousStrides) {
   NumericTensor<Int64Type> t_i64(buffer_i64, shape, strides_i64);
 
   ASSERT_FALSE(t_i64.is_contiguous());
+  ASSERT_FALSE(t_i64.is_row_major());
+  ASSERT_FALSE(t_i64.is_column_major());
   ASSERT_EQ(1, t_i64.Value({0, 0}));
   ASSERT_EQ(2, t_i64.Value({0, 1}));
   ASSERT_EQ(4, t_i64.Value({0, 3}));
@@ -189,6 +199,8 @@ TEST(TestNumericTensor, ElementAccessWithNonContiguousStrides) {
   NumericTensor<FloatType> t_f32(buffer_f32, shape, strides_f32);
 
   ASSERT_FALSE(t_f32.is_contiguous());
+  ASSERT_FALSE(t_f32.is_row_major());
+  ASSERT_FALSE(t_f32.is_column_major());
   ASSERT_EQ(1.1f, t_f32.Value({0, 0}));
   ASSERT_EQ(2.1f, t_f32.Value({0, 1}));
   ASSERT_EQ(4.1f, t_f32.Value({0, 3}));
