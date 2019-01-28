@@ -23,6 +23,7 @@
 #include <memory>
 #include <numeric>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "arrow/compare.h"
@@ -30,6 +31,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -162,6 +164,26 @@ inline int64_t TensorCountNonZero(const Tensor& tensor) {
   }
 }
 
+struct NonZeroCounter {
+  NonZeroCounter(const Tensor& tensor) : tensor_(tensor), count_(0) {}
+
+  template <typename TYPE>
+  typename std::enable_if<!std::is_base_of<Number, TYPE>::value, Status>::type Visit(
+      const TYPE& type) {
+    return Status::NotImplemented("Tensor of ", type.ToString(), " is not implemented");
+  }
+
+  template <typename TYPE>
+  typename std::enable_if<std::is_base_of<Number, TYPE>::value, Status>::type Visit(
+      const TYPE& type) {
+    count_ = TensorCountNonZero<TYPE>(tensor_);
+    return Status::OK();
+  }
+
+  const Tensor& tensor_;
+  int64_t count_;
+};
+
 }  // namespace
 
 int64_t Tensor::CountNonZero() const {
@@ -169,32 +191,12 @@ int64_t Tensor::CountNonZero() const {
     return 0;
   }
 
-  switch (type()->id()) {
-    case Type::UINT8:
-      return TensorCountNonZero<UInt8Type>(*this);
-    case Type::INT8:
-      return TensorCountNonZero<Int8Type>(*this);
-    case Type::UINT16:
-      return TensorCountNonZero<UInt16Type>(*this);
-    case Type::INT16:
-      return TensorCountNonZero<Int16Type>(*this);
-    case Type::UINT32:
-      return TensorCountNonZero<UInt32Type>(*this);
-    case Type::INT32:
-      return TensorCountNonZero<Int32Type>(*this);
-    case Type::UINT64:
-      return TensorCountNonZero<UInt64Type>(*this);
-    case Type::INT64:
-      return TensorCountNonZero<Int64Type>(*this);
-    case Type::HALF_FLOAT:
-      return TensorCountNonZero<HalfFloatType>(*this);
-    case Type::FLOAT:
-      return TensorCountNonZero<FloatType>(*this);
-    case Type::DOUBLE:
-      return TensorCountNonZero<DoubleType>(*this);
-    default:
-      return 0;  // This shouldn't be unreachable
+  NonZeroCounter counter(*this);
+  if (VisitTypeInline(*type(), &counter).ok()) {
+    return counter.count_;
   }
+
+  return -1;  // TODO: should treat tensor-unsupported types in a right way
 }
 
 }  // namespace arrow
