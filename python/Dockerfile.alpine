@@ -29,6 +29,10 @@ RUN export PYTHON_MAJOR=${PYTHON_VERSION:0:1} && \
     ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/bin/python && \
     pip install --upgrade pip setuptools
 
+# install python requirements
+ADD python/requirements.txt \
+    python/requirements-test.txt \
+    /arrow/python/
 # pandas requires numpy at build time, so install the requirements separately
 RUN pip install -r /arrow/python/requirements.txt cython && \
     pip install -r /arrow/python/requirements-test.txt
