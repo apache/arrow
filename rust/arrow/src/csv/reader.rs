@@ -197,7 +197,8 @@ pub struct Reader<R: Read> {
 impl<R: Read> Reader<R> {
     /// Create a new CsvReader from any value that implements the `Read` trait.
     ///
-    /// If reading a `File` you can customise the Reader, such as to enable schema inference, use `ReaderBuilder`.
+    /// If reading a `File` you can customise the Reader, such as to enable schema
+    /// inference, use `ReaderBuilder`.
     pub fn new(
         reader: R,
         schema: Arc<Schema>,
@@ -216,8 +217,8 @@ impl<R: Read> Reader<R> {
 
     /// Create a new CsvReader from a `BufReader<R: Read>
     ///
-    /// This constructor allows you more flexibility in what records are processed by the csv
-    /// reader.
+    /// This constructor allows you more flexibility in what records are processed by the
+    /// csv reader.
     pub fn from_buf_reader(
         buf_reader: BufReader<R>,
         schema: Arc<Schema>,
@@ -545,7 +546,8 @@ mod tests {
             Field::new("lng", DataType::Float64, false),
         ]);
 
-        let file_with_headers = File::open("test/data/uk_cities_with_headers.csv").unwrap();
+        let file_with_headers =
+            File::open("test/data/uk_cities_with_headers.csv").unwrap();
         let file_without_headers = File::open("test/data/uk_cities.csv").unwrap();
         let both_files = file_with_headers
             .chain(Cursor::new("\n".to_string()))
