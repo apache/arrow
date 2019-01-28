@@ -67,7 +67,7 @@ struct TypeTraits<bool> {
 };
 
 #define PRIMITIVE_TYPE_TRAITS_DEF_(CType_, ArrowType_, ArrowArrayType, ArrowBuilderType, \
-                                   ArrowTensorType, SingletonType)                       \
+                                   ArrowTensorType, SingletonFn)                       \
   template <>                                                                            \
   struct TypeTraits<ArrowType_> {                                                        \
     using ArrayType = ArrowArrayType;                                                    \
@@ -78,7 +78,7 @@ struct TypeTraits<bool> {
       return elements * sizeof(CType_);                                                  \
     }                                                                                    \
     constexpr static bool is_parameter_free = true;                                      \
-    static inline std::shared_ptr<DataType> type_singleton() { return SingletonType(); } \
+    static inline std::shared_ptr<DataType> type_singleton() { return SingletonFn(); } \
   };                                                                                     \
                                                                                          \
   template <>                                                                            \
@@ -91,14 +91,14 @@ struct TypeTraits<bool> {
       return elements * sizeof(CType_);                                                  \
     }                                                                                    \
     constexpr static bool is_parameter_free = true;                                      \
-    static inline std::shared_ptr<DataType> type_singleton() { return SingletonType(); } \
+    static inline std::shared_ptr<DataType> type_singleton() { return SingletonFn(); } \
   };
 
-#define PRIMITIVE_TYPE_TRAITS_DEF(CType, ArrowShort, SingletonType) \
+#define PRIMITIVE_TYPE_TRAITS_DEF(CType, ArrowShort, SingletonFn) \
   PRIMITIVE_TYPE_TRAITS_DEF_(CType, ARROW_CONCAT(ArrowShort, Type), \
                              ARROW_CONCAT(ArrowShort, Array),       \
                              ARROW_CONCAT(ArrowShort, Builder),     \
-                             ARROW_CONCAT(ArrowShort, Tensor), SingletonType)
+                             ARROW_CONCAT(ArrowShort, Tensor), SingletonFn)
 
 PRIMITIVE_TYPE_TRAITS_DEF(uint8_t, UInt8, uint8)
 PRIMITIVE_TYPE_TRAITS_DEF(int8_t, Int8, int8)
