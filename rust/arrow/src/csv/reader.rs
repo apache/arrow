@@ -17,8 +17,8 @@
 
 //! CSV Reader
 //!
-//! This CSV reader allows CSV files to be read into the Arrow memory model. Records are loaded in
-//! batches and are then converted from row-based data to columnar data.
+//! This CSV reader allows CSV files to be read into the Arrow memory model. Records are
+//! loaded in batches and are then converted from row-based data to columnar data.
 //!
 //! Example:
 //!
@@ -68,7 +68,8 @@ lazy_static! {
 
 /// Infer the data type of a record
 fn infer_field_schema(string: &str) -> DataType {
-    // when quoting is enabled in the reader, these quotes aren't escaped, we default to Utf8 for them
+    // when quoting is enabled in the reader, these quotes aren't escaped, we default to
+    // Utf8 for them
     if string.starts_with("\"") {
         return DataType::Utf8;
     }
@@ -226,7 +227,9 @@ impl Reader {
                     rows.push(r);
                 }
                 Some(Err(_)) => {
-                    return Err(ArrowError::ParseError("Error reading CSV file".to_string()));
+                    return Err(ArrowError::ParseError(
+                        "Error reading CSV file".to_string(),
+                    ));
                 }
                 None => break,
             }
@@ -254,17 +257,29 @@ impl Reader {
             .map(|i| {
                 let field = self.schema.field(*i);
                 match field.data_type() {
-                    &DataType::Boolean => self.build_primitive_array::<BooleanType>(rows, i),
+                    &DataType::Boolean => {
+                        self.build_primitive_array::<BooleanType>(rows, i)
+                    }
                     &DataType::Int8 => self.build_primitive_array::<Int8Type>(rows, i),
                     &DataType::Int16 => self.build_primitive_array::<Int16Type>(rows, i),
                     &DataType::Int32 => self.build_primitive_array::<Int32Type>(rows, i),
                     &DataType::Int64 => self.build_primitive_array::<Int64Type>(rows, i),
                     &DataType::UInt8 => self.build_primitive_array::<UInt8Type>(rows, i),
-                    &DataType::UInt16 => self.build_primitive_array::<UInt16Type>(rows, i),
-                    &DataType::UInt32 => self.build_primitive_array::<UInt32Type>(rows, i),
-                    &DataType::UInt64 => self.build_primitive_array::<UInt64Type>(rows, i),
-                    &DataType::Float32 => self.build_primitive_array::<Float32Type>(rows, i),
-                    &DataType::Float64 => self.build_primitive_array::<Float64Type>(rows, i),
+                    &DataType::UInt16 => {
+                        self.build_primitive_array::<UInt16Type>(rows, i)
+                    }
+                    &DataType::UInt32 => {
+                        self.build_primitive_array::<UInt32Type>(rows, i)
+                    }
+                    &DataType::UInt64 => {
+                        self.build_primitive_array::<UInt64Type>(rows, i)
+                    }
+                    &DataType::Float32 => {
+                        self.build_primitive_array::<Float32Type>(rows, i)
+                    }
+                    &DataType::Float64 => {
+                        self.build_primitive_array::<Float64Type>(rows, i)
+                    }
                     &DataType::Utf8 => {
                         let mut builder = BinaryBuilder::new(rows.len());
                         for row_index in 0..rows.len() {
@@ -295,7 +310,8 @@ impl Reader {
         col_idx: &usize,
     ) -> Result<ArrayRef> {
         let mut builder = PrimitiveBuilder::<T>::new(rows.len());
-        let is_boolean_type = *self.schema.field(*col_idx).data_type() == DataType::Boolean;
+        let is_boolean_type =
+            *self.schema.field(*col_idx).data_type() == DataType::Boolean;
         for row_index in 0..rows.len() {
             match rows[row_index].get(*col_idx) {
                 Some(s) if s.len() > 0 => {

@@ -57,7 +57,10 @@ pub struct ParquetMetaData {
 impl ParquetMetaData {
     /// Creates Parquet metadata from file metadata and a list of row group metadata `Rc`s
     /// for each available row group.
-    pub fn new(file_metadata: FileMetaData, row_group_ptrs: Vec<RowGroupMetaDataPtr>) -> Self {
+    pub fn new(
+        file_metadata: FileMetaData,
+        row_group_ptrs: Vec<RowGroupMetaDataPtr>,
+    ) -> Self {
         ParquetMetaData {
             file_metadata: Rc::new(file_metadata),
             row_groups: row_group_ptrs,
@@ -158,8 +161,8 @@ impl FileMetaData {
 
     /// Column (sort) order used for `min` and `max` values of each column in this file.
     ///
-    /// Each column order corresponds to one column, determined by its position in the list,
-    /// matching the position of the column in the schema.
+    /// Each column order corresponds to one column, determined by its position in the
+    /// list, matching the position of the column in the schema.
     ///
     /// When `None` is returned, there are no column orders available, and each column
     /// should be assumed to have undefined (legacy) column order.
@@ -230,7 +233,10 @@ impl RowGroupMetaData {
     }
 
     /// Method to convert from Thrift.
-    pub fn from_thrift(schema_descr: SchemaDescPtr, mut rg: RowGroup) -> Result<RowGroupMetaData> {
+    pub fn from_thrift(
+        schema_descr: SchemaDescPtr,
+        mut rg: RowGroup,
+    ) -> Result<RowGroupMetaData> {
         assert_eq!(schema_descr.num_columns(), rg.columns.len());
         let total_byte_size = rg.total_byte_size;
         let num_rows = rg.num_rows;

@@ -546,7 +546,8 @@ impl Field {
         match descr.physical_type() {
             PhysicalType::BYTE_ARRAY => match descr.logical_type() {
                 LogicalType::UTF8 | LogicalType::ENUM | LogicalType::JSON => {
-                    let value = unsafe { String::from_utf8_unchecked(value.data().to_vec()) };
+                    let value =
+                        unsafe { String::from_utf8_unchecked(value.data().to_vec()) };
                     Field::Str(value)
                 }
                 LogicalType::BSON | LogicalType::NONE => Field::Bytes(value),
@@ -598,11 +599,15 @@ impl fmt::Display for Field {
                     write!(f, "{:?}", value)
                 }
             }
-            Field::Decimal(ref value) => write!(f, "{}", convert_decimal_to_string(value)),
+            Field::Decimal(ref value) => {
+                write!(f, "{}", convert_decimal_to_string(value))
+            }
             Field::Str(ref value) => write!(f, "\"{}\"", value),
             Field::Bytes(ref value) => write!(f, "{:?}", value.data()),
             Field::Date(value) => write!(f, "{}", convert_date_to_string(value)),
-            Field::Timestamp(value) => write!(f, "{}", convert_timestamp_to_string(value)),
+            Field::Timestamp(value) => {
+                write!(f, "{}", convert_timestamp_to_string(value))
+            }
             Field::Group(ref fields) => write!(f, "{}", fields),
             Field::ListInternal(ref list) => {
                 let elems = &list.elements;
@@ -675,7 +680,8 @@ fn convert_decimal_to_string(decimal: &Decimal) -> String {
         }
         num_str.insert_str(negative as usize, "0.");
     } else {
-        // No zeroes need to be prepended to the unscaled value, simply insert decimal point.
+        // No zeroes need to be prepended to the unscaled value, simply insert decimal
+        // point.
         num_str.insert((point + negative) as usize, '.');
     }
 
@@ -770,7 +776,8 @@ mod tests {
         let row = Field::convert_int32(&descr, 14611);
         assert_eq!(row, Field::Date(14611));
 
-        let descr = make_column_descr![PhysicalType::INT32, LogicalType::DECIMAL, 0, 8, 2];
+        let descr =
+            make_column_descr![PhysicalType::INT32, LogicalType::DECIMAL, 0, 8, 2];
         let row = Field::convert_int32(&descr, 444);
         assert_eq!(row, Field::Decimal(Decimal::from_i32(444, 8, 2)));
     }
@@ -785,7 +792,8 @@ mod tests {
         let row = Field::convert_int64(&descr, 78239823);
         assert_eq!(row, Field::ULong(78239823));
 
-        let descr = make_column_descr![PhysicalType::INT64, LogicalType::TIMESTAMP_MILLIS];
+        let descr =
+            make_column_descr![PhysicalType::INT64, LogicalType::TIMESTAMP_MILLIS];
         let row = Field::convert_int64(&descr, 1541186529153);
         assert_eq!(row, Field::Timestamp(1541186529153));
 
@@ -793,7 +801,8 @@ mod tests {
         let row = Field::convert_int64(&descr, 2222);
         assert_eq!(row, Field::Long(2222));
 
-        let descr = make_column_descr![PhysicalType::INT64, LogicalType::DECIMAL, 0, 8, 2];
+        let descr =
+            make_column_descr![PhysicalType::INT64, LogicalType::DECIMAL, 0, 8, 2];
         let row = Field::convert_int64(&descr, 3333);
         assert_eq!(row, Field::Decimal(Decimal::from_i64(3333, 8, 2)));
     }
@@ -871,7 +880,8 @@ mod tests {
         assert_eq!(row, Field::Bytes(value));
 
         // DECIMAL
-        let descr = make_column_descr![PhysicalType::BYTE_ARRAY, LogicalType::DECIMAL, 0, 8, 2];
+        let descr =
+            make_column_descr![PhysicalType::BYTE_ARRAY, LogicalType::DECIMAL, 0, 8, 2];
         let value = ByteArray::from(vec![207, 200]);
         let row = Field::convert_byte_array(&descr, value.clone());
         assert_eq!(row, Field::Decimal(Decimal::from_bytes(value, 8, 2)));

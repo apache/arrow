@@ -35,8 +35,8 @@ use crate::column::{
 };
 use crate::errors::{ParquetError, Result};
 use crate::file::{
-    metadata::*, properties::WriterPropertiesPtr, statistics::to_thrift as statistics_to_thrift,
-    FOOTER_SIZE, PARQUET_MAGIC,
+    metadata::*, properties::WriterPropertiesPtr,
+    statistics::to_thrift as statistics_to_thrift, FOOTER_SIZE, PARQUET_MAGIC,
 };
 use crate::schema::types::{self, SchemaDescPtr, SchemaDescriptor, TypePtr};
 use crate::util::io::{FileSink, Position};
@@ -72,8 +72,8 @@ pub trait FileWriter {
     /// All row groups must be appended before this method is called.
     /// No writes are allowed after this point.
     ///
-    /// Can be called multiple times. It is up to implementation to either result in no-op,
-    /// or return an `Err` for subsequent calls.
+    /// Can be called multiple times. It is up to implementation to either result in
+    /// no-op, or return an `Err` for subsequent calls.
     fn close(&mut self) -> Result<()>;
 }
 
@@ -130,7 +130,11 @@ pub struct SerializedFileWriter {
 
 impl SerializedFileWriter {
     /// Creates new file writer.
-    pub fn new(mut file: File, schema: TypePtr, properties: WriterPropertiesPtr) -> Result<Self> {
+    pub fn new(
+        mut file: File,
+        schema: TypePtr,
+        properties: WriterPropertiesPtr,
+    ) -> Result<Self> {
         Self::start_file(&mut file)?;
         Ok(Self {
             file,
@@ -219,8 +223,11 @@ impl FileWriter for SerializedFileWriter {
     fn next_row_group(&mut self) -> Result<Box<RowGroupWriter>> {
         self.assert_closed()?;
         self.assert_previous_writer_closed()?;
-        let row_group_writer =
-            SerializedRowGroupWriter::new(self.descr.clone(), self.props.clone(), &self.file);
+        let row_group_writer = SerializedRowGroupWriter::new(
+            self.descr.clone(),
+            self.props.clone(),
+            &self.file,
+        );
         self.previous_writer_closed = false;
         Ok(Box::new(row_group_writer))
     }
@@ -259,7 +266,11 @@ pub struct SerializedRowGroupWriter {
 }
 
 impl SerializedRowGroupWriter {
-    pub fn new(schema_descr: SchemaDescPtr, properties: WriterPropertiesPtr, file: &File) -> Self {
+    pub fn new(
+        schema_descr: SchemaDescPtr,
+        properties: WriterPropertiesPtr,
+        file: &File,
+    ) -> Self {
         let num_columns = schema_descr.num_columns();
         Self {
             descr: schema_descr,
@@ -564,7 +575,8 @@ mod tests {
 
     #[test]
     fn test_row_group_writer_error_not_all_columns_written() {
-        let file = get_temp_file("test_row_group_writer_error_not_all_columns_written", &[]);
+        let file =
+            get_temp_file("test_row_group_writer_error_not_all_columns_written", &[]);
         let schema = Rc::new(
             types::Type::group_type_builder("schema")
                 .with_fields(&mut vec![Rc::new(
@@ -781,7 +793,10 @@ mod tests {
                         encoding,
                         def_level_encoding,
                         rep_level_encoding,
-                        statistics: from_thrift(physical_type, to_thrift(statistics.as_ref())),
+                        statistics: from_thrift(
+                            physical_type,
+                            to_thrift(statistics.as_ref()),
+                        ),
                     }
                 }
                 &Page::DataPageV2 {
@@ -797,7 +812,8 @@ mod tests {
                 } => {
                     total_num_values += num_values as i64;
                     let offset = (def_levels_byte_len + rep_levels_byte_len) as usize;
-                    let cmp_buf = compress_helper(compressor.as_mut(), &buf.data()[offset..]);
+                    let cmp_buf =
+                        compress_helper(compressor.as_mut(), &buf.data()[offset..]);
                     let mut output_buf = Vec::from(&buf.data()[..offset]);
                     output_buf.extend_from_slice(&cmp_buf[..]);
 
@@ -810,7 +826,10 @@ mod tests {
                         def_levels_byte_len,
                         rep_levels_byte_len,
                         is_compressed: compressor.is_some(),
-                        statistics: from_thrift(physical_type, to_thrift(statistics.as_ref())),
+                        statistics: from_thrift(
+                            physical_type,
+                            to_thrift(statistics.as_ref()),
+                        ),
                     }
                 }
                 &Page::DictionaryPage {

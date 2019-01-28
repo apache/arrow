@@ -46,7 +46,9 @@
 use std::{fmt, io};
 
 use crate::basic::{LogicalType, Type as PhysicalType};
-use crate::file::metadata::{ColumnChunkMetaData, FileMetaData, ParquetMetaData, RowGroupMetaData};
+use crate::file::metadata::{
+    ColumnChunkMetaData, FileMetaData, ParquetMetaData, RowGroupMetaData,
+};
 use crate::schema::types::Type;
 
 /// Prints Parquet metadata [`ParquetMetaData`](`::file::metadata::ParquetMetaData`)
@@ -204,8 +206,9 @@ impl<'a> Printer<'a> {
                 let logical_type_str = match basic_info.logical_type() {
                     LogicalType::NONE => format!(""),
                     decimal @ LogicalType::DECIMAL => {
-                        // For decimal type we should print precision and scale if they are > 0, e.g.
-                        // DECIMAL(9, 2) - DECIMAL(9) - DECIMAL
+                        // For decimal type we should print precision and scale if they
+                        // are > 0, e.g. DECIMAL(9, 2) -
+                        // DECIMAL(9) - DECIMAL
                         let precision_scale = match (precision, scale) {
                             (p, s) if p > 0 && s > 0 => format!(" ({}, {})", p, s),
                             (p, 0) if p > 0 => format!(" ({})", p),
@@ -314,12 +317,13 @@ mod tests {
                 .with_logical_type(LogicalType::UTF8)
                 .with_id(1)
                 .build();
-            let f3 = Type::primitive_type_builder("f3", PhysicalType::FIXED_LEN_BYTE_ARRAY)
-                .with_repetition(Repetition::REPEATED)
-                .with_logical_type(LogicalType::INTERVAL)
-                .with_length(12)
-                .with_id(2)
-                .build();
+            let f3 =
+                Type::primitive_type_builder("f3", PhysicalType::FIXED_LEN_BYTE_ARRAY)
+                    .with_repetition(Repetition::REPEATED)
+                    .with_logical_type(LogicalType::INTERVAL)
+                    .with_length(12)
+                    .with_id(2)
+                    .build();
             let mut struct_fields = Vec::new();
             struct_fields.push(Rc::new(f1.unwrap()));
             struct_fields.push(Rc::new(f2.unwrap()));

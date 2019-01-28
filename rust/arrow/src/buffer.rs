@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! The main type in the module is `Buffer`, a contiguous immutable memory region of fixed size
-//! aligned at a 64-byte boundary. `MutableBuffer` is like `Buffer`, but it can be mutated and
-//! grown.
+//! The main type in the module is `Buffer`, a contiguous immutable memory region of
+//! fixed size aligned at a 64-byte boundary. `MutableBuffer` is like `Buffer`, but it can
+//! be mutated and grown.
 
 use std::cmp;
 use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
@@ -182,8 +182,9 @@ impl MutableBuffer {
 
     /// Ensure that `count` bytes from `start` contain zero bits
     ///
-    /// This is used to initialize the bits in a buffer, however, it has no impact on the `len`
-    /// of the buffer and so can be used to initialize the memory region from `len` to `capacity`.
+    /// This is used to initialize the bits in a buffer, however, it has no impact on the
+    /// `len` of the buffer and so can be used to initialize the memory region from
+    /// `len` to `capacity`.
     pub fn set_null_bits(&mut self, start: usize, count: usize) {
         assert!(start + count <= self.capacity);
         unsafe {
@@ -219,7 +220,8 @@ impl MutableBuffer {
         } else {
             let new_capacity = bit_util::round_upto_multiple_of_64(new_len);
             if new_capacity < self.capacity {
-                let new_data = memory::reallocate(self.capacity, new_capacity, self.data)?;
+                let new_data =
+                    memory::reallocate(self.capacity, new_capacity, self.data)?;
                 self.data = new_data as *mut u8;
                 self.capacity = new_capacity;
             }
@@ -255,7 +257,9 @@ impl MutableBuffer {
 
     /// Returns the data stored in this buffer as a mutable slice.
     pub fn data_mut(&mut self) -> &mut [u8] {
-        unsafe { ::std::slice::from_raw_parts_mut(self.raw_data() as *mut u8, self.len()) }
+        unsafe {
+            ::std::slice::from_raw_parts_mut(self.raw_data() as *mut u8, self.len())
+        }
     }
 
     /// Returns a raw pointer for this buffer.
@@ -397,7 +401,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "the offset of the new Buffer cannot exceed the existing length")]
+    #[should_panic(
+        expected = "the offset of the new Buffer cannot exceed the existing length"
+    )]
     fn test_slice_offset_out_of_bound() {
         let buf = Buffer::from(&[2, 4, 6, 8, 10]);
         buf.slice(6);
