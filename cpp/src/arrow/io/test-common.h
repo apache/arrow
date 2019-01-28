@@ -25,16 +25,11 @@
 #include <string>
 #include <vector>
 
-#ifndef _MSC_VER
-#include <fcntl.h>
-#endif
-
-#if defined(__MINGW32__)  // MinGW
-// nothing
-#elif defined(_MSC_VER)  // Visual Studio
+#ifdef _WIN32
+#include <crtdbg.h>
 #include <io.h>
-#else  // POSIX / Linux
-// nothing
+#else
+#include <fcntl.h>
 #endif
 
 #include "arrow/buffer.h"
@@ -64,7 +59,7 @@ static inline bool FileExists(const std::string& path) {
   return std::ifstream(path.c_str()).good();
 }
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 static inline void InvalidParamHandler(const wchar_t* expr, const wchar_t* func,
                                        const wchar_t* source_file,
                                        unsigned int source_line, uintptr_t reserved) {
@@ -74,7 +69,7 @@ static inline void InvalidParamHandler(const wchar_t* expr, const wchar_t* func,
 #endif
 
 static inline bool FileIsClosed(int fd) {
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   // Disables default behavior on wrong params which causes the application to crash
   // https://msdn.microsoft.com/en-us/library/ksazx244.aspx
   _set_invalid_parameter_handler(InvalidParamHandler);

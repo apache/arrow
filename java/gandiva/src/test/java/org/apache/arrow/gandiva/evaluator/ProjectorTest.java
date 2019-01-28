@@ -131,6 +131,8 @@ public class ProjectorTest extends BaseEvaluatorTest {
     executors.awaitTermination(100, java.util.concurrent.TimeUnit.SECONDS);
   }
 
+  // Will be fixed by https://issues.apache.org/jira/browse/ARROW-4371
+  @Ignore
   @Test
   public void testMakeProjector() throws GandivaException {
     Field a = Field.nullable("a", int64);

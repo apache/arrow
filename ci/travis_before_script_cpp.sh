@@ -80,8 +80,10 @@ ARROW_CXXFLAGS=""
 # Use Ninja for faster builds when using toolchain
 if [ $ARROW_TRAVIS_USE_TOOLCHAIN == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -GNinja"
-  # Make sure the toolchain linker (from binutils package) is picked up by clang
-  ARROW_CXXFLAGS="$ARROW_CXXFLAGS -B$CPP_TOOLCHAIN/bin"
+  if [ "$DISTRO_CODENAME" != "trusty" ]; then
+    # Make sure the toolchain linker (from binutils package) is picked up by clang
+    ARROW_CXXFLAGS="$ARROW_CXXFLAGS -B$CPP_TOOLCHAIN/bin"
+  fi
 fi
 
 if [ $ARROW_TRAVIS_PLASMA == "1" ]; then

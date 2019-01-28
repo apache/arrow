@@ -1039,7 +1039,7 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
     // Make the function call
     auto out = generator_->AddFunctionCall(func->pc_name(), llvm_return_type, *params);
     ret_lvalue->set_data(out);
-    return ret_lvalue;
+    return std::move(ret_lvalue);
   } else {
     // add extra arg for return length for variable len return types (alloced on stack).
     llvm::AllocaInst* result_len_ptr = nullptr;

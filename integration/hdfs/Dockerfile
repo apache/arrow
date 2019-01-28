@@ -32,7 +32,7 @@ RUN apt-get update -y && \
     wget -q -O hadoop-$HADOOP_VERSION.tar.gz "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=hadoop/common/hadoop-$HADOOP_VERSION/hadoop-$HADOOP_VERSION.tar.gz" && \
     tar -zxf /hadoop-$HADOOP_VERSION.tar.gz && \
     rm /hadoop-$HADOOP_VERSION.tar.gz && \
-    mv hadoop-$HADOOP_VERSION /usr/local/hadoop
+    mv /hadoop-$HADOOP_VERSION /usr/local/hadoop
 ADD integration/hdfs/hdfs-site.xml $HADOOP_HOME/etc/hadoop/
 
 # build cpp with tests

@@ -32,6 +32,8 @@ env:
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
 
 before_install:
+  # gcc 4.9 is required for the static linking of libstdc++
+  - export CC="gcc-4.9" CXX="g++-4.9"
   - ulimit -c unlimited -S
   - |
       sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"
@@ -41,9 +43,9 @@ before_install:
 before_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
+  - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
   - arrow/ci/travis_install_linux.sh
   - arrow/ci/travis_install_clang_tools.sh
-  - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
   - arrow/ci/travis_install_toolchain.sh
 
 script:

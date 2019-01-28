@@ -26,7 +26,11 @@
 //    https://github.com/tantivy-search/bitpacking
 // but the layout it uses for SIMD is different from Parquet.
 // TODO: support packing as well, which is used for encoding.
-pub unsafe fn unpack32(mut in_ptr: *const u32, out_ptr: *mut u32, num_bits: usize) -> *const u32 {
+pub unsafe fn unpack32(
+    mut in_ptr: *const u32,
+    out_ptr: *mut u32,
+    num_bits: usize,
+) -> *const u32 {
     in_ptr = match num_bits {
         0 => nullunpacker32(in_ptr, out_ptr),
         1 => unpack1_32(in_ptr, out_ptr),

@@ -181,8 +181,8 @@ pub enum Encoding {
     /// **Deprecated** dictionary encoding.
     ///
     /// The values in the dictionary are encoded using PLAIN encoding.
-    /// Since it is deprecated, RLE_DICTIONARY encoding is used for a data page, and PLAIN
-    /// encoding is used for dictionary page.
+    /// Since it is deprecated, RLE_DICTIONARY encoding is used for a data page, and
+    /// PLAIN encoding is used for dictionary page.
     PLAIN_DICTIONARY,
 
     /// Group packed run length encoding.
@@ -287,9 +287,10 @@ impl ColumnOrder {
     pub fn get_sort_order(logical_type: LogicalType, physical_type: Type) -> SortOrder {
         match logical_type {
             // Unsigned byte-wise comparison.
-            LogicalType::UTF8 | LogicalType::JSON | LogicalType::BSON | LogicalType::ENUM => {
-                SortOrder::UNSIGNED
-            }
+            LogicalType::UTF8
+            | LogicalType::JSON
+            | LogicalType::BSON
+            | LogicalType::ENUM => SortOrder::UNSIGNED,
 
             LogicalType::INT_8
             | LogicalType::INT_16
@@ -479,8 +480,12 @@ impl convert::From<LogicalType> for Option<parquet::ConvertedType> {
             LogicalType::DATE => Some(parquet::ConvertedType::DATE),
             LogicalType::TIME_MILLIS => Some(parquet::ConvertedType::TIME_MILLIS),
             LogicalType::TIME_MICROS => Some(parquet::ConvertedType::TIME_MICROS),
-            LogicalType::TIMESTAMP_MILLIS => Some(parquet::ConvertedType::TIMESTAMP_MILLIS),
-            LogicalType::TIMESTAMP_MICROS => Some(parquet::ConvertedType::TIMESTAMP_MICROS),
+            LogicalType::TIMESTAMP_MILLIS => {
+                Some(parquet::ConvertedType::TIMESTAMP_MILLIS)
+            }
+            LogicalType::TIMESTAMP_MICROS => {
+                Some(parquet::ConvertedType::TIMESTAMP_MICROS)
+            }
             LogicalType::UINT_8 => Some(parquet::ConvertedType::UINT_8),
             LogicalType::UINT_16 => Some(parquet::ConvertedType::UINT_16),
             LogicalType::UINT_32 => Some(parquet::ConvertedType::UINT_32),
@@ -530,7 +535,9 @@ impl convert::From<parquet::Encoding> for Encoding {
             parquet::Encoding::RLE => Encoding::RLE,
             parquet::Encoding::BIT_PACKED => Encoding::BIT_PACKED,
             parquet::Encoding::DELTA_BINARY_PACKED => Encoding::DELTA_BINARY_PACKED,
-            parquet::Encoding::DELTA_LENGTH_BYTE_ARRAY => Encoding::DELTA_LENGTH_BYTE_ARRAY,
+            parquet::Encoding::DELTA_LENGTH_BYTE_ARRAY => {
+                Encoding::DELTA_LENGTH_BYTE_ARRAY
+            }
             parquet::Encoding::DELTA_BYTE_ARRAY => Encoding::DELTA_BYTE_ARRAY,
             parquet::Encoding::RLE_DICTIONARY => Encoding::RLE_DICTIONARY,
         }
@@ -545,7 +552,9 @@ impl convert::From<Encoding> for parquet::Encoding {
             Encoding::RLE => parquet::Encoding::RLE,
             Encoding::BIT_PACKED => parquet::Encoding::BIT_PACKED,
             Encoding::DELTA_BINARY_PACKED => parquet::Encoding::DELTA_BINARY_PACKED,
-            Encoding::DELTA_LENGTH_BYTE_ARRAY => parquet::Encoding::DELTA_LENGTH_BYTE_ARRAY,
+            Encoding::DELTA_LENGTH_BYTE_ARRAY => {
+                parquet::Encoding::DELTA_LENGTH_BYTE_ARRAY
+            }
             Encoding::DELTA_BYTE_ARRAY => parquet::Encoding::DELTA_BYTE_ARRAY,
             Encoding::RLE_DICTIONARY => parquet::Encoding::RLE_DICTIONARY,
         }

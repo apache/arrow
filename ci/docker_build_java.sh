@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,25 +16,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#######################################
-# arrow/python_test_main
-#######################################
+set -e
 
-if (PYARROW_BUILD_TESTS)
-  add_library(arrow/python_test_main STATIC
-	test_main.cc)
+# /arrow/java is read-only
+mkdir -p /build/java
 
-  if (APPLE)
-	target_link_libraries(arrow/python_test_main
-      ${GTEST_LIBRARY}
-      dl)
-	set_target_properties(arrow/python_test_main
-      PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-  else()
-	target_link_libraries(arrow/python_test_main
-      ${GTEST_LIBRARY}
-      pthread
-      dl
-	  )
-  endif()
-endif()
+arrow_src=/build/java/arrow
+
+pushd /arrow
+  rsync -a header java format integration $arrow_src
+popd
+
+pushd $arrow_src/java
+  mvn -DskipTests -Drat.skip=true install
+popd

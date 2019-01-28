@@ -32,7 +32,10 @@ use arrow::datatypes::{DataType, Field, Schema};
 
 /// Convert parquet schema to arrow schema.
 pub fn parquet_to_arrow_schema(parquet_schema: SchemaDescPtr) -> Result<Schema> {
-    parquet_to_arrow_schema_by_columns(parquet_schema.clone(), 0..parquet_schema.columns().len())
+    parquet_to_arrow_schema_by_columns(
+        parquet_schema.clone(),
+        0..parquet_schema.columns().len(),
+    )
 }
 
 /// Convert parquet schema to arrow schema, only preserving some leaf columns.
@@ -117,8 +120,9 @@ impl ParquetTypeConverter {
     /// [`to_data_type`](`ParquetTypeConverter::to_data_type`), except it reserves schema
     /// name.
     fn to_field(&self) -> Result<Option<Field>> {
-        self.to_data_type()
-            .map(|opt| opt.map(|dt| Field::new(self.schema.name(), dt, self.is_nullable())))
+        self.to_data_type().map(|opt| {
+            opt.map(|dt| Field::new(self.schema.name(), dt, self.is_nullable()))
+        })
     }
 
     // Utility functions.
@@ -252,7 +256,9 @@ impl ParquetTypeConverter {
                 .iter()
                 .map(|field_ptr| self.clone_with_schema(field_ptr.clone()).to_field())
                 .collect::<Result<Vec<Option<Field>>>>()
-                .map(|result| result.into_iter().filter_map(|f| f).collect::<Vec<Field>>())
+                .map(|result| {
+                    result.into_iter().filter_map(|f| f).collect::<Vec<Field>>()
+                })
                 .map(|fields| {
                     if fields.is_empty() {
                         None
@@ -286,7 +292,8 @@ impl ParquetTypeConverter {
                             item_converter.to_primitive_type_inner().map(|dt| Some(dt))
                         } else {
                             Err(ArrowError(
-                                "Primitive element type of list must be repeated.".to_string(),
+                                "Primitive element type of list must be repeated."
+                                    .to_string(),
                             ))
                         }
                     }
@@ -301,7 +308,8 @@ impl ParquetTypeConverter {
                             && list_item.name() != format!("{}_tuple", self.schema.name())
                         {
                             let nested_item = fields.first().unwrap();
-                            let nested_item_converter = self.clone_with_schema(nested_item.clone());
+                            let nested_item_converter =
+                                self.clone_with_schema(nested_item.clone());
 
                             nested_item_converter.to_data_type()
                         } else {
@@ -346,7 +354,8 @@ mod tests {
         let parquet_group_type = parse_message_type(message_type).unwrap();
 
         let parquet_schema = SchemaDescriptor::new(Rc::new(parquet_group_type));
-        let converted_arrow_schema = parquet_to_arrow_schema(Rc::new(parquet_schema)).unwrap();
+        let converted_arrow_schema =
+            parquet_to_arrow_schema(Rc::new(parquet_schema)).unwrap();
 
         let arrow_fields = vec![
             Field::new("boolean", DataType::Boolean, false),
@@ -374,7 +383,8 @@ mod tests {
         let parquet_group_type = parse_message_type(message_type).unwrap();
 
         let parquet_schema = Rc::new(SchemaDescriptor::new(Rc::new(parquet_group_type)));
-        let converted_arrow_schema = parquet_to_arrow_schema(parquet_schema.clone()).unwrap();
+        let converted_arrow_schema =
+            parquet_to_arrow_schema(parquet_schema.clone()).unwrap();
 
         let arrow_fields = vec![
             Field::new("boolean", DataType::Boolean, false),
@@ -382,9 +392,11 @@ mod tests {
         ];
         assert_eq!(&arrow_fields, converted_arrow_schema.fields());
 
-        let converted_arrow_schema =
-            parquet_to_arrow_schema_by_columns(parquet_schema.clone(), vec![0usize, 1usize])
-                .unwrap();
+        let converted_arrow_schema = parquet_to_arrow_schema_by_columns(
+            parquet_schema.clone(),
+            vec![0usize, 1usize],
+        )
+        .unwrap();
         assert_eq!(&arrow_fields, converted_arrow_schema.fields());
     }
 
@@ -545,7 +557,8 @@ mod tests {
         // }
         // Special case: group is named array
         {
-            let arrow_struct = DataType::Struct(vec![Field::new("str", DataType::Utf8, false)]);
+            let arrow_struct =
+                DataType::Struct(vec![Field::new("str", DataType::Utf8, false)]);
             arrow_fields.push(Field::new(
                 "my_list",
                 DataType::List(Box::new(arrow_struct)),
@@ -561,7 +574,8 @@ mod tests {
         // }
         // Special case: group named ends in _tuple
         {
-            let arrow_struct = DataType::Struct(vec![Field::new("str", DataType::Utf8, false)]);
+            let arrow_struct =
+                DataType::Struct(vec![Field::new("str", DataType::Utf8, false)]);
             arrow_fields.push(Field::new(
                 "my_list",
                 DataType::List(Box::new(arrow_struct)),
@@ -582,7 +596,8 @@ mod tests {
         let parquet_group_type = parse_message_type(message_type).unwrap();
 
         let parquet_schema = Rc::new(SchemaDescriptor::new(Rc::new(parquet_group_type)));
-        let converted_arrow_schema = parquet_to_arrow_schema(parquet_schema.clone()).unwrap();
+        let converted_arrow_schema =
+            parquet_to_arrow_schema(parquet_schema.clone()).unwrap();
         let converted_fields = converted_arrow_schema.fields();
 
         assert_eq!(arrow_fields.len(), converted_fields.len());
@@ -599,7 +614,8 @@ mod tests {
                 Field::new("leaf1", DataType::Boolean, false),
                 Field::new("leaf2", DataType::Int32, false),
             ];
-            let group1_struct = Field::new("group1", DataType::Struct(group1_fields), false);
+            let group1_struct =
+                Field::new("group1", DataType::Struct(group1_fields), false);
             arrow_fields.push(group1_struct);
 
             let leaf3_field = Field::new("leaf3", DataType::Int64, false);
@@ -618,7 +634,8 @@ mod tests {
         let parquet_group_type = parse_message_type(message_type).unwrap();
 
         let parquet_schema = Rc::new(SchemaDescriptor::new(Rc::new(parquet_group_type)));
-        let converted_arrow_schema = parquet_to_arrow_schema(parquet_schema.clone()).unwrap();
+        let converted_arrow_schema =
+            parquet_to_arrow_schema(parquet_schema.clone()).unwrap();
         let converted_fields = converted_arrow_schema.fields();
 
         assert_eq!(arrow_fields.len(), converted_fields.len());
@@ -668,7 +685,8 @@ mod tests {
 
         let parquet_schema = Rc::new(SchemaDescriptor::new(Rc::new(parquet_group_type)));
         let converted_arrow_schema =
-            parquet_to_arrow_schema_by_columns(parquet_schema.clone(), vec![0, 3, 4]).unwrap();
+            parquet_to_arrow_schema_by_columns(parquet_schema.clone(), vec![0, 3, 4])
+                .unwrap();
         let converted_fields = converted_arrow_schema.fields();
 
         assert_eq!(arrow_fields.len(), converted_fields.len());
@@ -718,7 +736,8 @@ mod tests {
 
         let parquet_schema = Rc::new(SchemaDescriptor::new(Rc::new(parquet_group_type)));
         let converted_arrow_schema =
-            parquet_to_arrow_schema_by_columns(parquet_schema.clone(), vec![3, 4, 0]).unwrap();
+            parquet_to_arrow_schema_by_columns(parquet_schema.clone(), vec![3, 4, 0])
+                .unwrap();
         let converted_fields = converted_arrow_schema.fields();
 
         assert_eq!(arrow_fields.len(), converted_fields.len());
@@ -768,7 +787,8 @@ mod tests {
         let parquet_group_type = parse_message_type(message_type).unwrap();
 
         let parquet_schema = Rc::new(SchemaDescriptor::new(Rc::new(parquet_group_type)));
-        let converted_arrow_schema = parquet_to_arrow_schema(parquet_schema.clone()).unwrap();
+        let converted_arrow_schema =
+            parquet_to_arrow_schema(parquet_schema.clone()).unwrap();
         let converted_fields = converted_arrow_schema.fields();
 
         assert_eq!(arrow_fields.len(), converted_fields.len());

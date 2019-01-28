@@ -17,7 +17,6 @@
 # under the License.
 
 set -e
-set -o xtrace
 
 source_dir=${1:-/arrow/cpp}
 build_dir=${2:-/build/cpp}

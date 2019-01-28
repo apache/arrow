@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines memory-related functions, currently mostly to make this library play nicely with C.
+//! Defines memory-related functions, currently mostly to make this library play nicely
+//! with C.
 
 use libc;
 use std::cmp;
@@ -34,7 +35,8 @@ extern "C" {
 
 #[cfg(windows)]
 pub fn allocate_aligned(size: usize) -> Result<*mut u8> {
-    let page = unsafe { _aligned_malloc(size as libc::size_t, ALIGNMENT as libc::size_t) };
+    let page =
+        unsafe { _aligned_malloc(size as libc::size_t, ALIGNMENT as libc::size_t) };
     match page {
         0 => Err(ArrowError::MemoryError(
             "Failed to allocate memory".to_string(),
@@ -71,7 +73,11 @@ pub fn free_aligned(p: *const u8) {
     }
 }
 
-pub fn reallocate(old_size: usize, new_size: usize, pointer: *const u8) -> Result<*const u8> {
+pub fn reallocate(
+    old_size: usize,
+    new_size: usize,
+    pointer: *const u8,
+) -> Result<*const u8> {
     unsafe {
         let old_src = mem::transmute::<*const u8, *mut libc::c_void>(pointer);
         let result = allocate_aligned(new_size)?;
