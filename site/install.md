@@ -108,7 +108,7 @@ Debian Ubuntu 16.04 LTS or earlier:
 ```shell
 sudo apt update
 sudo apt install -y -V apt-transport-https lsb-release
-curl url https://dist.apache.org/repos/dist/dev/arrow/KEYS | sudo apt-key add -
+curl https://dist.apache.org/repos/dist/dev/arrow/KEYS | sudo apt-key add -
 sudo tee /etc/apt/sources.list.d/apache-arrow.list <<APT_LINE
 deb [arch=amd64] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
 deb-src https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
