@@ -398,12 +398,12 @@ class ARROW_EXPORT PrimitiveArray : public FlatArray {
 
 /// Concrete Array class for numeric data.
 template <typename TYPE>
-class ARROW_EXPORT NumericArray : public PrimitiveArray {
+class NumericArray : public PrimitiveArray {
  public:
   using TypeClass = TYPE;
   using value_type = typename TypeClass::c_type;
 
-  explicit NumericArray(const std::shared_ptr<ArrayData>& data);
+  explicit NumericArray(const std::shared_ptr<ArrayData>& data) : PrimitiveArray(data) {}
 
   // Only enable this constructor without a type argument for types without additional
   // metadata
@@ -843,27 +843,6 @@ class ARROW_EXPORT DictionaryArray : public Array {
   const DictionaryType* dict_type_;
   std::shared_ptr<Array> indices_;
 };
-
-// ----------------------------------------------------------------------
-// extern templates and other details
-
-// Only instantiate these templates once
-ARROW_EXTERN_TEMPLATE NumericArray<Int8Type>;
-ARROW_EXTERN_TEMPLATE NumericArray<UInt8Type>;
-ARROW_EXTERN_TEMPLATE NumericArray<Int16Type>;
-ARROW_EXTERN_TEMPLATE NumericArray<UInt16Type>;
-ARROW_EXTERN_TEMPLATE NumericArray<Int32Type>;
-ARROW_EXTERN_TEMPLATE NumericArray<UInt32Type>;
-ARROW_EXTERN_TEMPLATE NumericArray<Int64Type>;
-ARROW_EXTERN_TEMPLATE NumericArray<UInt64Type>;
-ARROW_EXTERN_TEMPLATE NumericArray<HalfFloatType>;
-ARROW_EXTERN_TEMPLATE NumericArray<FloatType>;
-ARROW_EXTERN_TEMPLATE NumericArray<DoubleType>;
-ARROW_EXTERN_TEMPLATE NumericArray<Date32Type>;
-ARROW_EXTERN_TEMPLATE NumericArray<Date64Type>;
-ARROW_EXTERN_TEMPLATE NumericArray<Time32Type>;
-ARROW_EXTERN_TEMPLATE NumericArray<Time64Type>;
-ARROW_EXTERN_TEMPLATE NumericArray<TimestampType>;
 
 /// \brief Perform any validation checks to determine obvious inconsistencies
 /// with the array's internal data
