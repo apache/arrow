@@ -19,7 +19,9 @@
 #define ARROW_TYPE_TRAITS_H
 
 #include <memory>
+#include <string>
 #include <type_traits>
+#include <vector>
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit-util.h"
@@ -32,6 +34,9 @@ namespace arrow {
 
 template <typename T>
 struct TypeTraits {};
+
+template <typename T>
+struct CTypeTraits {};
 
 template <>
 struct TypeTraits<NullType> {
@@ -54,20 +59,12 @@ struct TypeTraits<BooleanType> {
 };
 
 template <>
-struct TypeTraits<bool> {
-  using ArrayType = BooleanArray;
-  using BuilderType = BooleanBuilder;
+struct CTypeTraits<bool> : public TypeTraits<BooleanType> {
   using ArrowType = BooleanType;
-
-  static constexpr int64_t bytes_required(int64_t elements) {
-    return BitUtil::BytesForBits(elements);
-  }
-  constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return boolean(); }
 };
 
 #define PRIMITIVE_TYPE_TRAITS_DEF_(CType_, ArrowType_, ArrowArrayType, ArrowBuilderType, \
-                                   ArrowTensorType, SingletonFn)                       \
+                                   ArrowTensorType, SingletonFn)                         \
   template <>                                                                            \
   struct TypeTraits<ArrowType_> {                                                        \
     using ArrayType = ArrowArrayType;                                                    \
@@ -78,27 +75,18 @@ struct TypeTraits<bool> {
       return elements * sizeof(CType_);                                                  \
     }                                                                                    \
     constexpr static bool is_parameter_free = true;                                      \
-    static inline std::shared_ptr<DataType> type_singleton() { return SingletonFn(); } \
+    static inline std::shared_ptr<DataType> type_singleton() { return SingletonFn(); }   \
   };                                                                                     \
                                                                                          \
   template <>                                                                            \
-  struct TypeTraits<CType_> {                                                            \
-    using ArrayType = ArrowArrayType;                                                    \
-    using BuilderType = ArrowBuilderType;                                                \
-    using TensorType = ArrowTensorType;                                                  \
+  struct CTypeTraits<CType_> : public TypeTraits<ArrowType_> {                           \
     using ArrowType = ArrowType_;                                                        \
-    static constexpr int64_t bytes_required(int64_t elements) {                          \
-      return elements * sizeof(CType_);                                                  \
-    }                                                                                    \
-    constexpr static bool is_parameter_free = true;                                      \
-    static inline std::shared_ptr<DataType> type_singleton() { return SingletonFn(); } \
   };
 
-#define PRIMITIVE_TYPE_TRAITS_DEF(CType, ArrowShort, SingletonFn) \
-  PRIMITIVE_TYPE_TRAITS_DEF_(CType, ARROW_CONCAT(ArrowShort, Type), \
-                             ARROW_CONCAT(ArrowShort, Array),       \
-                             ARROW_CONCAT(ArrowShort, Builder),     \
-                             ARROW_CONCAT(ArrowShort, Tensor), SingletonFn)
+#define PRIMITIVE_TYPE_TRAITS_DEF(CType, ArrowShort, SingletonFn)             \
+  PRIMITIVE_TYPE_TRAITS_DEF_(                                                 \
+      CType, ARROW_CONCAT(ArrowShort, Type), ARROW_CONCAT(ArrowShort, Array), \
+      ARROW_CONCAT(ArrowShort, Builder), ARROW_CONCAT(ArrowShort, Tensor), SingletonFn)
 
 PRIMITIVE_TYPE_TRAITS_DEF(uint8_t, UInt8, uint8)
 PRIMITIVE_TYPE_TRAITS_DEF(int8_t, Int8, int8)
@@ -200,6 +188,16 @@ struct TypeTraits<StringType> {
 };
 
 template <>
+struct CTypeTraits<std::string> : public TypeTraits<StringType> {
+  using ArrowType = StringType;
+};
+
+template <>
+struct CTypeTraits<char *> : public TypeTraits<StringType> {
+  using ArrowType = StringType;
+};
+
+template <>
 struct TypeTraits<BinaryType> {
   using ArrayType = BinaryArray;
   using BuilderType = BinaryBuilder;
@@ -219,6 +217,15 @@ struct TypeTraits<ListType> {
   using ArrayType = ListArray;
   using BuilderType = ListBuilder;
   constexpr static bool is_parameter_free = false;
+};
+
+template <typename CType>
+struct CTypeTraits<std::vector<CType>> : public TypeTraits<ListType> {
+  using ArrowType = ListType;
+
+  static inline std::shared_ptr<DataType> type_singleton() {
+    return list(CTypeTraits<CType>::type_singleton());
+  }
 };
 
 template <>

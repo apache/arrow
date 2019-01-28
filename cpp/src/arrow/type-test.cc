@@ -265,7 +265,7 @@ TEST_F(TestSchema, TestRemoveMetadata) {
     using CType = TypeTraits<KLASS>::CType;                                   \
     static_assert(std::is_same<CType, CTYPE>::value, "Not the same c-type!"); \
                                                                               \
-    using DerivedArrowType = TypeTraits<CTYPE>::ArrowType;                    \
+    using DerivedArrowType = CTypeTraits<CTYPE>::ArrowType;                   \
     static_assert(std::is_same<DerivedArrowType, KLASS>::value,               \
                   "Not the same arrow-type!");                                \
   }
