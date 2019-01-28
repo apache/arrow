@@ -127,7 +127,7 @@ public class FlightClient implements AutoCloseable {
     // send the schema to start.
     ArrowMessage message = new ArrowMessage(descriptor.toProtocol(), root.getSchema());
     observer.onNext(message);
-    return new PutObserver(new VectorUnloader(root, true, false), observer, resultObserver.getFuture());
+    return new PutObserver(new VectorUnloader(root, true, true), observer, resultObserver.getFuture());
   }
 
   public FlightInfo getInfo(FlightDescriptor descriptor) {
