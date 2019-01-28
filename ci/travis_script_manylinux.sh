@@ -21,14 +21,18 @@
 set -ex
 
 pushd python/manylinux1
-docker run --shm-size=2g --rm -e PYARROW_PARALLEL=3 -v $PWD:/io -v $PWD/../../:/arrow quay.io/xhochy/arrow_manylinux1_x86_64_base:llvm-7-manylinux1 /io/build_arrow.sh
+docker run --shm-size=2g --rm \
+  -e PYARROW_PARALLEL=3 \
+  -v $PWD:/io \
+  -v $PWD/../../:/arrow \
+  quay.io/xhochy/arrow_manylinux1_x86_64_base:llvm-7-manylinux1 \
+  /io/build_arrow.sh
 
 # Testing for https://issues.apache.org/jira/browse/ARROW-2657
 # These tests cannot be run inside of the docker container, since TensorFlow
 # does not run on manylinux1
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
-
 source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 
 PYTHON_VERSION=3.6
