@@ -126,10 +126,10 @@ bool Tensor::Equals(const Tensor& other) const { return TensorEquals(*this, othe
 namespace {
 
 template <typename TYPE>
-size_t StridedTensorCountNonZero(int dim_index, int64_t offset, const Tensor& tensor) {
+int64_t StridedTensorCountNonZero(int dim_index, int64_t offset, const Tensor& tensor) {
   using c_type = typename TYPE::c_type;
   c_type const zero = c_type(0);
-  size_t nnz = 0;
+  int64_t nnz = 0;
   if (dim_index == tensor.ndim() - 1) {
     for (int64_t i = 0; i < tensor.shape()[dim_index]; ++i) {
       auto const* ptr = tensor.raw_data() + offset + i * tensor.strides()[dim_index];
@@ -146,7 +146,7 @@ size_t StridedTensorCountNonZero(int dim_index, int64_t offset, const Tensor& te
 }
 
 template <typename TYPE>
-size_t ContiguousTensorCountNonZero(const Tensor& tensor) {
+int64_t ContiguousTensorCountNonZero(const Tensor& tensor) {
   using c_type = typename TYPE::c_type;
   auto* data = reinterpret_cast<c_type const*>(tensor.raw_data());
   return std::count_if(data, data + tensor.size(),
@@ -154,7 +154,7 @@ size_t ContiguousTensorCountNonZero(const Tensor& tensor) {
 }
 
 template <typename TYPE>
-inline size_t TensorCountNonZero(const Tensor& tensor) {
+inline int64_t TensorCountNonZero(const Tensor& tensor) {
   if (tensor.is_contiguous()) {
     return ContiguousTensorCountNonZero<TYPE>(tensor);
   } else {
@@ -164,7 +164,7 @@ inline size_t TensorCountNonZero(const Tensor& tensor) {
 
 }  // namespace
 
-size_t Tensor::CountNonZero() const {
+int64_t Tensor::CountNonZero() const {
   if (size() == 0) {
     return 0;
   }
