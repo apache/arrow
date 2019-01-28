@@ -103,11 +103,11 @@ endif()
 # `RELEASE`, then it will default to `PRODUCTION`. The goal of defaulting to
 # `CHECKIN` is to avoid friction with long response time from CI.
 if (NOT BUILD_WARNING_LEVEL)
-  if ("{CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+  if ("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
     set(BUILD_WARNING_LEVEL PRODUCTION)
   else()
     set(BUILD_WARNING_LEVEL CHECKIN)
-  endif("{CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+  endif()
 endif(NOT BUILD_WARNING_LEVEL)
 string(TOUPPER ${BUILD_WARNING_LEVEL} BUILD_WARNING_LEVEL)
 
