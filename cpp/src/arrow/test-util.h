@@ -203,7 +203,8 @@ ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
                                     bool same_chunk_layout = true);
 
 template <typename C_TYPE>
-ARROW_EXPORT void AssertNumericDataEqual(const C_TYPE* raw_data, const std::vector<C_TYPE>& expected_values) {
+ARROW_EXPORT void AssertNumericDataEqual(const C_TYPE* raw_data,
+                                         const std::vector<C_TYPE>& expected_values) {
   for (auto expected : expected_values) {
     ASSERT_EQ(expected, *raw_data);
     ++raw_data;

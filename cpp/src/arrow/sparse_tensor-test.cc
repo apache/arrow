@@ -38,7 +38,9 @@ static inline void CheckSparseIndexFormatType(SparseTensorFormat::type expected,
   ASSERT_EQ(expected, sparse_tensor.sparse_index()->format_id());
 }
 
-static inline void AssertCOOIndex(const std::shared_ptr<SparseCOOIndex::CoordsTensor>& sidx, const int64_t nth, const std::vector<int64_t>& expected_values) {
+static inline void AssertCOOIndex(
+    const std::shared_ptr<SparseCOOIndex::CoordsTensor>& sidx, const int64_t nth,
+    const std::vector<int64_t>& expected_values) {
   for (int64_t i = 0; i < expected_values.size(); ++i) {
     ASSERT_EQ(expected_values[i], sidx->Value({nth, i}));
   }
