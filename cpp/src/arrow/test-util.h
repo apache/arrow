@@ -202,6 +202,15 @@ ARROW_EXPORT void PrintColumn(const Column& col, std::stringstream* ss);
 ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
                                     bool same_chunk_layout = true);
 
+template <typename C_TYPE>
+void AssertNumericDataEqual(const C_TYPE* raw_data,
+                            const std::vector<C_TYPE>& expected_values) {
+  for (auto expected : expected_values) {
+    ASSERT_EQ(expected, *raw_data);
+    ++raw_data;
+  }
+}
+
 ARROW_EXPORT void CompareBatch(const RecordBatch& left, const RecordBatch& right);
 
 // Check if the padding of the buffers of the array is zero.

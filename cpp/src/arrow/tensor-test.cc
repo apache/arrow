@@ -104,13 +104,16 @@ TEST(TestTensor, ZeroDimensionalTensor) {
   ASSERT_EQ(t.strides().size(), 1);
 }
 
-TEST(TestNumericTensor, ElementAccess) {
+TEST(TestNumericTensor, ElementAccessWithRowMajorStrides) {
   std::vector<int64_t> shape = {3, 4};
 
   std::vector<int64_t> values_i64 = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
   std::shared_ptr<Buffer> buffer_i64(Buffer::Wrap(values_i64));
   NumericTensor<Int64Type> t_i64(buffer_i64, shape);
 
+  ASSERT_TRUE(t_i64.is_row_major());
+  ASSERT_FALSE(t_i64.is_column_major());
+  ASSERT_TRUE(t_i64.is_contiguous());
   ASSERT_EQ(1, t_i64.Value({0, 0}));
   ASSERT_EQ(5, t_i64.Value({1, 0}));
   ASSERT_EQ(6, t_i64.Value({1, 1}));
@@ -121,13 +124,53 @@ TEST(TestNumericTensor, ElementAccess) {
   std::shared_ptr<Buffer> buffer_f32(Buffer::Wrap(values_f32));
   NumericTensor<FloatType> t_f32(buffer_f32, shape);
 
+  ASSERT_TRUE(t_f32.is_row_major());
+  ASSERT_FALSE(t_f32.is_column_major());
+  ASSERT_TRUE(t_f32.is_contiguous());
   ASSERT_EQ(1.1f, t_f32.Value({0, 0}));
   ASSERT_EQ(5.1f, t_f32.Value({1, 0}));
   ASSERT_EQ(6.1f, t_f32.Value({1, 1}));
   ASSERT_EQ(11.1f, t_f32.Value({2, 2}));
 }
 
-TEST(TestNumericTensor, ElementAccessWithRowMajorStrides) {
+TEST(TestNumericTensor, ElementAccessWithColumnMajorStrides) {
+  std::vector<int64_t> shape = {3, 4};
+
+  const int64_t i64_size = sizeof(int64_t);
+  std::vector<int64_t> values_i64 = {1, 5, 9, 2, 6, 10, 3, 7, 11, 4, 8, 12};
+  std::vector<int64_t> strides_i64 = {i64_size, i64_size * 3};
+  std::shared_ptr<Buffer> buffer_i64(Buffer::Wrap(values_i64));
+  NumericTensor<Int64Type> t_i64(buffer_i64, shape, strides_i64);
+
+  ASSERT_TRUE(t_i64.is_column_major());
+  ASSERT_FALSE(t_i64.is_row_major());
+  ASSERT_TRUE(t_i64.is_contiguous());
+  ASSERT_EQ(1, t_i64.Value({0, 0}));
+  ASSERT_EQ(2, t_i64.Value({0, 1}));
+  ASSERT_EQ(4, t_i64.Value({0, 3}));
+  ASSERT_EQ(5, t_i64.Value({1, 0}));
+  ASSERT_EQ(6, t_i64.Value({1, 1}));
+  ASSERT_EQ(11, t_i64.Value({2, 2}));
+
+  const int64_t f32_size = sizeof(float);
+  std::vector<float> values_f32 = {1.1f, 5.1f, 9.1f,  2.1f, 6.1f, 10.1f,
+                                   3.1f, 7.1f, 11.1f, 4.1f, 8.1f, 12.1f};
+  std::vector<int64_t> strides_f32 = {f32_size, f32_size * 3};
+  std::shared_ptr<Buffer> buffer_f32(Buffer::Wrap(values_f32));
+  NumericTensor<FloatType> t_f32(buffer_f32, shape, strides_f32);
+
+  ASSERT_TRUE(t_f32.is_column_major());
+  ASSERT_FALSE(t_f32.is_row_major());
+  ASSERT_TRUE(t_f32.is_contiguous());
+  ASSERT_EQ(1.1f, t_f32.Value({0, 0}));
+  ASSERT_EQ(2.1f, t_f32.Value({0, 1}));
+  ASSERT_EQ(4.1f, t_f32.Value({0, 3}));
+  ASSERT_EQ(5.1f, t_f32.Value({1, 0}));
+  ASSERT_EQ(6.1f, t_f32.Value({1, 1}));
+  ASSERT_EQ(11.1f, t_f32.Value({2, 2}));
+}
+
+TEST(TestNumericTensor, ElementAccessWithNonContiguousStrides) {
   std::vector<int64_t> shape = {3, 4};
 
   const int64_t i64_size = sizeof(int64_t);
@@ -137,6 +180,9 @@ TEST(TestNumericTensor, ElementAccessWithRowMajorStrides) {
   std::shared_ptr<Buffer> buffer_i64(Buffer::Wrap(values_i64));
   NumericTensor<Int64Type> t_i64(buffer_i64, shape, strides_i64);
 
+  ASSERT_FALSE(t_i64.is_contiguous());
+  ASSERT_FALSE(t_i64.is_row_major());
+  ASSERT_FALSE(t_i64.is_column_major());
   ASSERT_EQ(1, t_i64.Value({0, 0}));
   ASSERT_EQ(2, t_i64.Value({0, 1}));
   ASSERT_EQ(4, t_i64.Value({0, 3}));
@@ -152,37 +198,9 @@ TEST(TestNumericTensor, ElementAccessWithRowMajorStrides) {
   std::shared_ptr<Buffer> buffer_f32(Buffer::Wrap(values_f32));
   NumericTensor<FloatType> t_f32(buffer_f32, shape, strides_f32);
 
-  ASSERT_EQ(1.1f, t_f32.Value({0, 0}));
-  ASSERT_EQ(2.1f, t_f32.Value({0, 1}));
-  ASSERT_EQ(4.1f, t_f32.Value({0, 3}));
-  ASSERT_EQ(5.1f, t_f32.Value({1, 0}));
-  ASSERT_EQ(6.1f, t_f32.Value({1, 1}));
-  ASSERT_EQ(11.1f, t_f32.Value({2, 2}));
-}
-
-TEST(TestNumericTensor, ElementAccessWithColumnMajorStrides) {
-  std::vector<int64_t> shape = {3, 4};
-
-  const int64_t i64_size = sizeof(int64_t);
-  std::vector<int64_t> values_i64 = {1, 5, 9, 0, 2, 6, 10, 0, 3, 7, 11, 0, 4, 8, 12, 0};
-  std::vector<int64_t> strides_i64 = {i64_size, i64_size * 4};
-  std::shared_ptr<Buffer> buffer_i64(Buffer::Wrap(values_i64));
-  NumericTensor<Int64Type> t_i64(buffer_i64, shape, strides_i64);
-
-  ASSERT_EQ(1, t_i64.Value({0, 0}));
-  ASSERT_EQ(2, t_i64.Value({0, 1}));
-  ASSERT_EQ(4, t_i64.Value({0, 3}));
-  ASSERT_EQ(5, t_i64.Value({1, 0}));
-  ASSERT_EQ(6, t_i64.Value({1, 1}));
-  ASSERT_EQ(11, t_i64.Value({2, 2}));
-
-  const int64_t f32_size = sizeof(float);
-  std::vector<float> values_f32 = {1.1f, 5.1f, 9.1f,  0.0f, 2.1f, 6.1f, 10.1f, 0.0f,
-                                   3.1f, 7.1f, 11.1f, 0.0f, 4.1f, 8.1f, 12.1f, 0.0f};
-  std::vector<int64_t> strides_f32 = {f32_size, f32_size * 4};
-  std::shared_ptr<Buffer> buffer_f32(Buffer::Wrap(values_f32));
-  NumericTensor<FloatType> t_f32(buffer_f32, shape, strides_f32);
-
+  ASSERT_FALSE(t_f32.is_contiguous());
+  ASSERT_FALSE(t_f32.is_row_major());
+  ASSERT_FALSE(t_f32.is_column_major());
   ASSERT_EQ(1.1f, t_f32.Value({0, 0}));
   ASSERT_EQ(2.1f, t_f32.Value({0, 1}));
   ASSERT_EQ(4.1f, t_f32.Value({0, 3}));
