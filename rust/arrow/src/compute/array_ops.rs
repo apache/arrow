@@ -84,7 +84,7 @@ where
 /// Helper function to perform math lambda function on values from two arrays. If either
 /// left or right value is null then the output value is also null, so `1 + null` is
 /// `null`.
-fn math_op<T, F>(
+pub fn math_op<T, F>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
     op: F,

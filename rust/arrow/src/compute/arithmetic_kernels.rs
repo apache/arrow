@@ -36,9 +36,14 @@ use crate::error::{ArrowError, Result};
 
 /// Vectorized version of add operation
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-fn add_simd<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
+fn simd_bin_op<T, F>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>, op: F) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType + datatypes::ArrowSIMDType,
+    T::Simd: Add<Output = T::Simd>
+    + Sub<Output = T::Simd>
+    + Mul<Output = T::Simd>
+    + Div<Output = T::Simd>,
+    F: Fn(T::Simd, T::Simd) -> T::Simd,
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
@@ -53,7 +58,7 @@ where
     for i in (0..left.len()).step_by(lanes) {
         let simd_left = T::load(left.value_slice(i, lanes));
         let simd_right = T::load(right.value_slice(i, lanes));
-        let simd_result = T::add(simd_left, simd_right);
+        let simd_result = T::bin_op(simd_left, simd_right, &op);
 
         let result_slice: &mut [T::Native] = unsafe {
             from_raw_parts_mut(
@@ -78,7 +83,7 @@ where
         + Zero,
 {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    return add_simd(&left, &right);
+    return simd_bin_op(&left, &right, |a, b| a + b);
 
     #[allow(unreachable_code)]
     math_op(left, right, |a, b| Ok(a + b))
@@ -96,7 +101,7 @@ mod tests {
 
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            let c = add_simd(&a, &b).unwrap();
+            let c = simd_bin_op(&a, &b, |x, y| x + y).unwrap();
 
             assert_eq!(11, c.value(0));
             assert_eq!(13, c.value(1));
