@@ -86,7 +86,7 @@ public class Filter {
     JniWrapper wrapper = JniLoader.getInstance().getWrapper();
     long moduleId = wrapper.buildFilter(schemaBuf.toByteArray(),
         conditionBuf.toByteArray(), configurationId);
-    logger.info("Created module for the projector with id {}", moduleId);
+    logger.debug("Created module for the filter with id {}", moduleId);
     return new Filter(wrapper, moduleId, schema);
   }
 

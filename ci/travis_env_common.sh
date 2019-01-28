@@ -74,7 +74,12 @@ fi
 
 export PARQUET_TEST_DATA=$TRAVIS_BUILD_DIR/cpp/submodules/parquet-testing/data
 
+# e.g. "trusty" or "xenial"
 if [ $TRAVIS_OS_NAME == "linux" ]; then
+  export DISTRO_CODENAME=`lsb_release -s -c`
+fi
+
+if [ $TRAVIS_OS_NAME == "linux" ] && [ "$DISTRO_CODENAME" != "trusty" ]; then
     # Use the Ubuntu-provided OpenJDK
     unset JAVA_HOME
     export TRAVIS_MVN=/usr/bin/mvn

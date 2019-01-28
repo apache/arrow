@@ -101,7 +101,7 @@ public class Projector {
     JniWrapper wrapper = JniLoader.getInstance().getWrapper();
     long moduleId = wrapper.buildProjector(schemaBuf.toByteArray(),
         builder.build().toByteArray(), configurationId);
-    logger.info("Created module for the projector with id {}", moduleId);
+    logger.debug("Created module for the projector with id {}", moduleId);
     return new Projector(wrapper, moduleId, schema, exprs.size());
   }
 
