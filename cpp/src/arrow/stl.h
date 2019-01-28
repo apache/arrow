@@ -79,8 +79,7 @@ struct SchemaFromTuple {
     std::vector<std::shared_ptr<Field>> ret =
         SchemaFromTuple<Tuple, N - 1>::MakeSchemaRecursionT(names);
     std::shared_ptr<DataType> type = CTypeTraits<Element>::type_singleton();
-    ret.push_back(
-        field(std::get<N - 1>(names), type, false /* nullable */));
+    ret.push_back(field(std::get<N - 1>(names), type, false /* nullable */));
     return ret;
   }
 

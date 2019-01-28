@@ -193,7 +193,7 @@ struct CTypeTraits<std::string> : public TypeTraits<StringType> {
 };
 
 template <>
-struct CTypeTraits<char *> : public TypeTraits<StringType> {
+struct CTypeTraits<char*> : public TypeTraits<StringType> {
   using ArrowType = StringType;
 };
 
