@@ -152,10 +152,23 @@ make_type!(UInt64Type, u64, DataType::UInt64, 64, 0u64);
 make_type!(Float32Type, f32, DataType::Float32, 32, 0.0f32);
 make_type!(Float64Type, f64, DataType::Float64, 64, 0.0f64);
 
-/// A subtype of primitive type that represents numeric values, if available a SIMD type and
-/// SIMD operations are defined in this trait.  SIMD is leveraged in the `compute` module if
-/// available.
-pub trait ArrowNumericType: ArrowPrimitiveType {
+/// A subtype of primitive type that represents numeric values.
+pub trait ArrowNumericType: ArrowPrimitiveType { }
+
+impl ArrowNumericType for Int8Type {}
+impl ArrowNumericType for Int16Type {}
+impl ArrowNumericType for Int32Type {}
+impl ArrowNumericType for Int64Type {}
+impl ArrowNumericType for UInt8Type {}
+impl ArrowNumericType for UInt16Type {}
+impl ArrowNumericType for UInt32Type {}
+impl ArrowNumericType for UInt64Type {}
+impl ArrowNumericType for Float32Type {}
+impl ArrowNumericType for Float64Type {}
+
+/// A subtype of primitive type that represents SIMD capable types.  SIMD operations are defined
+/// in this trait and are leveraged in the `compute` module if available.
+pub trait ArrowSIMDType: ArrowPrimitiveType {
     /// Defines the SIMD type that should be used for this numeric type
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     type Simd;
@@ -177,9 +190,9 @@ pub trait ArrowNumericType: ArrowPrimitiveType {
     fn write(simd_result: Self::Simd, slice: &mut [Self::Native]);
 }
 
-macro_rules! make_numeric_type {
+macro_rules! make_simd_type {
     ($impl_ty:ty, $native_ty:ty, $simd_ty:ident) => {
-        impl ArrowNumericType for $impl_ty {
+        impl ArrowSIMDType for $impl_ty {
             #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             type Simd = $simd_ty;
 
@@ -206,16 +219,16 @@ macro_rules! make_numeric_type {
     };
 }
 
-make_numeric_type!(Int8Type, i8, i8x64);
-make_numeric_type!(Int16Type, i16, i16x32);
-make_numeric_type!(Int32Type, i32, i32x16);
-make_numeric_type!(Int64Type, i64, i64x8);
-make_numeric_type!(UInt8Type, u8, u8x64);
-make_numeric_type!(UInt16Type, u16, u16x32);
-make_numeric_type!(UInt32Type, u32, u32x16);
-make_numeric_type!(UInt64Type, u64, u64x8);
-make_numeric_type!(Float32Type, f32, f32x16);
-make_numeric_type!(Float64Type, f64, f64x8);
+make_simd_type!(Int8Type, i8, i8x64);
+make_simd_type!(Int16Type, i16, i16x32);
+make_simd_type!(Int32Type, i32, i32x16);
+make_simd_type!(Int64Type, i64, i64x8);
+make_simd_type!(UInt8Type, u8, u8x64);
+make_simd_type!(UInt16Type, u16, u16x32);
+make_simd_type!(UInt32Type, u32, u32x16);
+make_simd_type!(UInt64Type, u64, u64x8);
+make_simd_type!(Float32Type, f32, f32x16);
+make_simd_type!(Float64Type, f64, f64x8);
 
 /// Allows conversion from supported Arrow types to a byte slice.
 pub trait ToByteSlice {
