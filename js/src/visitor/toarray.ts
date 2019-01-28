@@ -148,4 +148,5 @@ ToArrayVisitor.prototype.visitIntervalYearMonth    = arrayOfVector;
 ToArrayVisitor.prototype.visitFixedSizeList        = arrayOfVector;
 ToArrayVisitor.prototype.visitMap                  = arrayOfVector;
 
+/** @ignore */
 export const instance = new ToArrayVisitor();

@@ -21,8 +21,9 @@ import {
     TextEncoder as TextEncoderPolyfill,
 } from 'text-encoding-utf-8';
 
-/** @suppress {missingRequire} */
+/** @ignore @suppress {missingRequire} */
 const _Buffer = typeof Buffer === 'function' ? Buffer : null;
+/** @ignore */
 const useNativeEncoders = typeof TextDecoder === 'function' && typeof TextEncoder === 'function';
 
 /** @ignore */
