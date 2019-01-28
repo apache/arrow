@@ -22,8 +22,8 @@ set -ex
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
+wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
 sudo apt-add-repository -y \
-     "deb http://llvm.org/apt/$DISTRO_CODENAME/ llvm-toolchain-$DISTRO_CODENAME-6.0 main"
+     "deb https://apt.llvm.org/$DISTRO_CODENAME/ llvm-toolchain-$DISTRO_CODENAME-6.0 main"
 sudo apt-get update -qq
 sudo apt-get install -q clang-6.0 clang-format-6.0 clang-tidy-6.0
