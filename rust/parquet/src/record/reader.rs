@@ -2173,9 +2173,14 @@ mod tests {
 
     #[test]
     fn test_tree_reader_handle_repeated_fields_with_no_annotation() {
+        type RepeatedNoAnnotation = (i32, Option<(List<(i64, Option<String>)>,)>);
+
         // Array field `phoneNumbers` does not contain LIST annotation.
         // We parse it as struct with `phone` repeated field as array.
         let rows = test_file_reader_rows::<Row>("repeated_no_annotation.parquet", None).unwrap();
+        let rows_typed =
+            test_file_reader_rows::<RepeatedNoAnnotation>("repeated_no_annotation.parquet", None)
+                .unwrap();
 
         let expected_rows = vec![
             row![
@@ -2253,7 +2258,8 @@ mod tests {
             ],
         ];
 
-        assert_eq!(rows, expected_rows);
+        assert_eq!(expected_rows, rows);
+        assert_eq!(expected_rows, rows_typed);
     }
 
     fn test_file_reader_rows<T>(file_name: &str, schema: Option<Type>) -> Result<Vec<T>>
@@ -2266,10 +2272,10 @@ mod tests {
         Ok(iter.collect())
     }
 
-    fn test_row_group_rows(
-        file_name: &str,
-        schema: Option<Type>,
-    ) -> Result<Vec<crate::record::types::Row>> {
+    fn test_row_group_rows<T>(file_name: &str, schema: Option<Type>) -> Result<Vec<T>>
+    where
+        T: Deserialize,
+    {
         let file = get_test_file(file_name);
         let file_reader: SerializedFileReader<_> = SerializedFileReader::new(file)?;
         // Check the first row group only, because files will contain only single row group

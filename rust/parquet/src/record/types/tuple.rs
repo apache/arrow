@@ -158,6 +158,16 @@ macro_rules! impl_parquet_deserialize_tuple {
                 Ok(($({$i;fields.next().unwrap().downcast()?},)*))
             }
         }
+        impl<$($t,)*> PartialEq<($($t,)*)> for Value where Value: $(PartialEq<$t> +)* {
+            fn eq(&self, other: &($($t,)*)) -> bool {
+                self.is_group() $(&& self.as_group().unwrap()[$i] == other.$i)*
+            }
+        }
+        impl<$($t,)*> PartialEq<($($t,)*)> for Group where Value: $(PartialEq<$t> +)* {
+            fn eq(&self, other: &($($t,)*)) -> bool {
+                $(self[$i] == other.$i && )* true
+            }
+        }
         impl<$($t,)*> Downcast<TupleSchema<($((String,$t,),)*)>> for ValueSchema where ValueSchema: $(Downcast<$t> +)* {
             fn downcast(self) -> Result<TupleSchema<($((String,$t,),)*)>,ParquetError> {
                 let group = self.into_group()?;

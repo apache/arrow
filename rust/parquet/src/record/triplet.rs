@@ -135,12 +135,7 @@ pub struct TypedTripletIter<T: DataType> {
 impl<T: DataType> TypedTripletIter<T> {
     /// Creates new typed triplet iterator based on provided column reader.
     /// Use batch size to specify the amount of values to buffer from column reader.
-    pub fn new(
-        def_level: i16,
-        rep_level: i16,
-        batch_size: usize,
-        column_reader: ColumnReader,
-    ) -> Self {
+    pub fn new(def_level: i16, rep_level: i16, reader: ColumnReader, batch_size: usize) -> Self {
         assert_ne!(batch_size, 0, "Expected positive batch size");
 
         let def_levels = if def_level == 0 {
@@ -155,7 +150,7 @@ impl<T: DataType> TypedTripletIter<T> {
         };
 
         Self {
-            reader: get_typed_column_reader(column_reader),
+            reader: get_typed_column_reader(reader),
             batch_size,
             def_level,
             rep_level,

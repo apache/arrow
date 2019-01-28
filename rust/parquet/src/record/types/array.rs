@@ -62,7 +62,7 @@ impl Deserialize for Vec<u8> {
         let col_reader = paths.remove(&col_path).unwrap();
         ByteArrayReader {
             column: TypedTripletIter::<ByteArrayType>::new(
-                def_level, rep_level, batch_size, col_reader,
+                def_level, rep_level, col_reader, batch_size,
             ),
         }
     }
@@ -258,7 +258,7 @@ macro_rules! impl_parquet_deserialize_array {
                 MapReader(
                     FixedLenByteArrayReader {
                         column: TypedTripletIter::<FixedLenByteArrayType>::new(
-                            def_level, rep_level, batch_size, col_reader,
+                            def_level, rep_level, col_reader, batch_size,
                         ),
                     },
                     |bytes: Vec<_>| {
@@ -301,7 +301,7 @@ macro_rules! impl_parquet_deserialize_array {
                 MapReader(
                     FixedLenByteArrayReader {
                         column: TypedTripletIter::<FixedLenByteArrayType>::new(
-                            def_level, rep_level, batch_size, col_reader,
+                            def_level, rep_level, col_reader, batch_size,
                         ),
                     },
                     |bytes: Vec<_>| {

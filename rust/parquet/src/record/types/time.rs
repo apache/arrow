@@ -64,7 +64,7 @@ impl Deserialize for Date {
         MapReader(
             I32Reader {
                 column: TypedTripletIter::<Int32Type>::new(
-                    def_level, rep_level, batch_size, col_reader,
+                    def_level, rep_level, col_reader, batch_size,
                 ),
             },
             |days| Ok(Date(days)),
@@ -99,7 +99,7 @@ impl Deserialize for Time {
             TimeSchema::Micros => sum::Sum2::A(MapReader(
                 I64Reader {
                     column: TypedTripletIter::<Int64Type>::new(
-                        def_level, rep_level, batch_size, col_reader,
+                        def_level, rep_level, col_reader, batch_size,
                     ),
                 },
                 |micros| Ok(Time(micros)),
@@ -107,7 +107,7 @@ impl Deserialize for Time {
             TimeSchema::Millis => sum::Sum2::B(MapReader(
                 I32Reader {
                     column: TypedTripletIter::<Int32Type>::new(
-                        def_level, rep_level, batch_size, col_reader,
+                        def_level, rep_level, col_reader, batch_size,
                     ),
                 },
                 |millis| Ok(Time(millis as i64 * MICROS_PER_MILLI)),
@@ -172,7 +172,7 @@ impl Deserialize for Timestamp {
             TimestampSchema::Int96 => sum::Sum3::A(MapReader(
                 I96Reader {
                     column: TypedTripletIter::<Int96Type>::new(
-                        def_level, rep_level, batch_size, col_reader,
+                        def_level, rep_level, col_reader, batch_size,
                     ),
                 },
                 |x| Ok(Timestamp(x)),
@@ -180,7 +180,7 @@ impl Deserialize for Timestamp {
             TimestampSchema::Millis => sum::Sum3::B(MapReader(
                 I64Reader {
                     column: TypedTripletIter::<Int64Type>::new(
-                        def_level, rep_level, batch_size, col_reader,
+                        def_level, rep_level, col_reader, batch_size,
                     ),
                 },
                 |millis| {
@@ -204,7 +204,7 @@ impl Deserialize for Timestamp {
             TimestampSchema::Micros => sum::Sum3::C(MapReader(
                 I64Reader {
                     column: TypedTripletIter::<Int64Type>::new(
-                        def_level, rep_level, batch_size, col_reader,
+                        def_level, rep_level, col_reader, batch_size,
                     ),
                 },
                 |micros| {

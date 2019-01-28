@@ -137,6 +137,160 @@ fn test_file_reader_rows_nonnullable_derived() {
     assert_eq!(rows, expected_rows);
 }
 
+#[test]
+fn test_file_reader_rows_projection_derived() {
+    #[derive(PartialEq, Deserialize, Debug)]
+    struct SparkSchema {
+        c: f64,
+        b: i32,
+    }
+
+    let rows = test_file_reader_rows::<SparkSchema>("nested_maps.snappy.parquet", None).unwrap();
+
+    let expected_rows = vec![
+        SparkSchema { c: 1.0, b: 1 },
+        SparkSchema { c: 1.0, b: 1 },
+        SparkSchema { c: 1.0, b: 1 },
+        SparkSchema { c: 1.0, b: 1 },
+        SparkSchema { c: 1.0, b: 1 },
+        SparkSchema { c: 1.0, b: 1 },
+    ];
+
+    assert_eq!(rows, expected_rows);
+}
+
+#[test]
+fn test_file_reader_rows_projection_map_derived() {
+    #[derive(PartialEq, Deserialize, Debug)]
+    struct SparkSchema {
+        a: Option<Map<String, Option<Map<i32, bool>>>>,
+    }
+
+    let rows = test_file_reader_rows::<SparkSchema>("nested_maps.snappy.parquet", None).unwrap();
+
+    let expected_rows = vec![
+        SparkSchema {
+            a: Some(map![("a".to_string(), Some(map![(1, true), (2, false)]))]),
+        },
+        SparkSchema {
+            a: Some(map![("b".to_string(), Some(map![(1, true)]))]),
+        },
+        SparkSchema {
+            a: Some(map![("c".to_string(), None)]),
+        },
+        SparkSchema {
+            a: Some(map![("d".to_string(), Some(map![]))]),
+        },
+        SparkSchema {
+            a: Some(map![("e".to_string(), Some(map![(1, true)]))]),
+        },
+        SparkSchema {
+            a: Some(map![(
+                "f".to_string(),
+                Some(map![(3, true), (4, false), (5, true)])
+            )]),
+        },
+    ];
+
+    assert_eq!(rows, expected_rows);
+}
+
+#[test]
+fn test_file_reader_rows_projection_list_derived() {
+    #[derive(PartialEq, Deserialize, Debug)]
+    struct SparkSchema {
+        a: Option<List<Option<List<Option<List<Option<String>>>>>>>,
+    }
+
+    let rows = test_file_reader_rows::<SparkSchema>("nested_lists.snappy.parquet", None).unwrap();
+
+    let expected_rows = vec![
+        SparkSchema {
+            a: Some(list![
+                Some(list![
+                    Some(list![Some("a".to_string()), Some("b".to_string())]),
+                    Some(list![Some("c".to_string())])
+                ]),
+                Some(list![None, Some(list![Some("d".to_string())])])
+            ]),
+        },
+        SparkSchema {
+            a: Some(list![
+                Some(list![
+                    Some(list![Some("a".to_string()), Some("b".to_string())]),
+                    Some(list![Some("c".to_string()), Some("d".to_string())])
+                ]),
+                Some(list![None, Some(list![Some("e".to_string())])])
+            ]),
+        },
+        SparkSchema {
+            a: Some(list![
+                Some(list![
+                    Some(list![Some("a".to_string()), Some("b".to_string())]),
+                    Some(list![Some("c".to_string()), Some("d".to_string())]),
+                    Some(list![Some("e".to_string())])
+                ]),
+                Some(list![None, Some(list![Some("f".to_string())])])
+            ]),
+        },
+    ];
+
+    assert_eq!(rows, expected_rows);
+}
+
+#[test]
+fn test_file_reader_rows_invalid_projection_derived() {
+    #[derive(PartialEq, Deserialize, Debug)]
+    struct SparkSchema {
+        key: i32,
+        value: bool,
+    }
+
+    let res = test_file_reader_rows::<SparkSchema>("nested_maps.snappy.parquet", None);
+
+    assert_eq!(
+        res.unwrap_err(),
+        ParquetError::General("Root schema does not contain projection".to_string())
+    );
+}
+
+#[test]
+fn test_row_group_rows_invalid_projection_derived() {
+    #[derive(PartialEq, Deserialize, Debug)]
+    struct SparkSchema {
+        key: i32,
+        value: bool,
+    }
+
+    let res = test_row_group_rows::<SparkSchema>("nested_maps.snappy.parquet", None);
+
+    assert_eq!(
+        res.unwrap_err(),
+        ParquetError::General("Root schema does not contain projection".to_string())
+    );
+}
+
+// #[test]
+// #[should_panic(expected = "Invalid map type")]
+// fn test_file_reader_rows_invalid_map_type_derived() {
+//     let schema = "
+//     message spark_schema {
+//       OPTIONAL group a (MAP) {
+//         REPEATED group key_value {
+//           REQUIRED BYTE_ARRAY key (UTF8);
+//           OPTIONAL group value (MAP) {
+//             REPEATED group key_value {
+//               REQUIRED INT32 key;
+//             }
+//           }
+//         }
+//       }
+//     }
+//   ";
+//     let schema = parse_message_type(&schema).unwrap();
+//     test_file_reader_rows::<Row>("nested_maps.snappy.parquet", Some(schema)).unwrap();
+// }
+
 fn test_file_reader_rows<T>(file_name: &str, schema: Option<Type>) -> Result<Vec<T>, ParquetError>
 where
     T: Deserialize,
@@ -144,6 +298,23 @@ where
     let file = get_test_file(file_name);
     let file_reader: SerializedFileReader<_> = SerializedFileReader::new(file)?;
     let iter = file_reader.get_row_iter(schema)?;
+    Ok(iter.collect())
+}
+
+fn test_row_group_rows<T>(file_name: &str, schema: Option<Type>) -> Result<Vec<T>, ParquetError>
+where
+    T: Deserialize,
+{
+    let file = get_test_file(file_name);
+    let file_reader: SerializedFileReader<_> = SerializedFileReader::new(file)?;
+    // Check the first row group only, because files will contain only single row group
+    let row_group_reader = file_reader.get_row_group(0).unwrap();
+    // let iter = row_group_reader.get_row_iter(schema)?;
+    let iter =
+        parquet::record::reader::RowIter::<SerializedFileReader<std::fs::File>, _>::from_row_group(
+            schema,
+            &*row_group_reader,
+        )?;
     Ok(iter.collect())
 }
 

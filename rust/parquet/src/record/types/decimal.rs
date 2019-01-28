@@ -59,7 +59,7 @@ impl Deserialize for Decimal {
             DecimalSchema::Int32 { precision, scale } => sum::Sum3::A(MapReader(
                 I32Reader {
                     column: TypedTripletIter::<Int32Type>::new(
-                        def_level, rep_level, batch_size, col_reader,
+                        def_level, rep_level, col_reader, batch_size,
                     ),
                 },
                 move |x| Ok(Decimal::from_i32(x, precision as i32, scale as i32)),
@@ -67,7 +67,7 @@ impl Deserialize for Decimal {
             DecimalSchema::Int64 { precision, scale } => sum::Sum3::B(MapReader(
                 I64Reader {
                     column: TypedTripletIter::<Int64Type>::new(
-                        def_level, rep_level, batch_size, col_reader,
+                        def_level, rep_level, col_reader, batch_size,
                     ),
                 },
                 move |x| Ok(Decimal::from_i64(x, precision as i32, scale as i32)),
@@ -75,7 +75,7 @@ impl Deserialize for Decimal {
             DecimalSchema::Array { precision, scale } => sum::Sum3::C(MapReader(
                 ByteArrayReader {
                     column: TypedTripletIter::<ByteArrayType>::new(
-                        def_level, rep_level, batch_size, col_reader,
+                        def_level, rep_level, col_reader, batch_size,
                     ),
                 },
                 move |x| {

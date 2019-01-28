@@ -60,7 +60,7 @@ impl Deserialize for bool {
         let col_path = ColumnPath::new(path.to_vec());
         let col_reader = paths.remove(&col_path).unwrap();
         BoolReader {
-            column: TypedTripletIter::<BoolType>::new(def_level, rep_level, batch_size, col_reader),
+            column: TypedTripletIter::<BoolType>::new(def_level, rep_level, col_reader, batch_size),
         }
     }
 }
@@ -89,7 +89,7 @@ impl Deserialize for i8 {
         TryIntoReader(
             I32Reader {
                 column: TypedTripletIter::<Int32Type>::new(
-                    def_level, rep_level, batch_size, col_reader,
+                    def_level, rep_level, col_reader, batch_size,
                 ),
             },
             PhantomData,
@@ -120,7 +120,7 @@ impl Deserialize for u8 {
         TryIntoReader(
             I32Reader {
                 column: TypedTripletIter::<Int32Type>::new(
-                    def_level, rep_level, batch_size, col_reader,
+                    def_level, rep_level, col_reader, batch_size,
                 ),
             },
             PhantomData,
@@ -152,7 +152,7 @@ impl Deserialize for i16 {
         TryIntoReader(
             I32Reader {
                 column: TypedTripletIter::<Int32Type>::new(
-                    def_level, rep_level, batch_size, col_reader,
+                    def_level, rep_level, col_reader, batch_size,
                 ),
             },
             PhantomData,
@@ -183,7 +183,7 @@ impl Deserialize for u16 {
         TryIntoReader(
             I32Reader {
                 column: TypedTripletIter::<Int32Type>::new(
-                    def_level, rep_level, batch_size, col_reader,
+                    def_level, rep_level, col_reader, batch_size,
                 ),
             },
             PhantomData,
@@ -214,7 +214,7 @@ impl Deserialize for i32 {
         let col_reader = paths.remove(&col_path).unwrap();
         I32Reader {
             column: TypedTripletIter::<Int32Type>::new(
-                def_level, rep_level, batch_size, col_reader,
+                def_level, rep_level, col_reader, batch_size,
             ),
         }
     }
@@ -243,7 +243,7 @@ impl Deserialize for u32 {
         MapReader(
             I32Reader {
                 column: TypedTripletIter::<Int32Type>::new(
-                    def_level, rep_level, batch_size, col_reader,
+                    def_level, rep_level, col_reader, batch_size,
                 ),
             },
             |x| Ok(x as u32),
@@ -274,7 +274,7 @@ impl Deserialize for i64 {
         let col_reader = paths.remove(&col_path).unwrap();
         I64Reader {
             column: TypedTripletIter::<Int64Type>::new(
-                def_level, rep_level, batch_size, col_reader,
+                def_level, rep_level, col_reader, batch_size,
             ),
         }
     }
@@ -303,7 +303,7 @@ impl Deserialize for u64 {
         MapReader(
             I64Reader {
                 column: TypedTripletIter::<Int64Type>::new(
-                    def_level, rep_level, batch_size, col_reader,
+                    def_level, rep_level, col_reader, batch_size,
                 ),
             },
             |x| Ok(x as u64),
@@ -334,7 +334,7 @@ impl Deserialize for f32 {
         let col_reader = paths.remove(&col_path).unwrap();
         F32Reader {
             column: TypedTripletIter::<FloatType>::new(
-                def_level, rep_level, batch_size, col_reader,
+                def_level, rep_level, col_reader, batch_size,
             ),
         }
     }
@@ -362,7 +362,7 @@ impl Deserialize for f64 {
         let col_reader = paths.remove(&col_path).unwrap();
         F64Reader {
             column: TypedTripletIter::<DoubleType>::new(
-                def_level, rep_level, batch_size, col_reader,
+                def_level, rep_level, col_reader, batch_size,
             ),
         }
     }
