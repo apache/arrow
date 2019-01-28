@@ -29,12 +29,12 @@ version: '3.5'
 
 x-ubuntu-volumes:
   &ubuntu-volumes
-  - .:/arrow
+  - .:/arrow:delegated
   - ubuntu-cache:/build:delegated
 
 x-alpine-volumes:
   &alpine-volumes
-  - .:/arrow
+  - .:/arrow:delegated
   - alpine-cache:/build:delegated
 
 volumes:
