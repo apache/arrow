@@ -211,7 +211,8 @@ public class FlightClient implements AutoCloseable {
     @Override
     public void putNext() {
       ArrowRecordBatch batch = unloader.getRecordBatch();
-      while (!observer.isReady()) {
+      // Check the futureResult in case server sent an exception
+      while (!observer.isReady() && !futureResult.isDone()) {
         /* busy wait */
       }
       observer.onNext(new ArrowMessage(batch));
