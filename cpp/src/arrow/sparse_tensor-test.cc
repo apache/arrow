@@ -41,7 +41,8 @@ static inline void CheckSparseIndexFormatType(SparseTensorFormat::type expected,
 static inline void AssertCOOIndex(
     const std::shared_ptr<SparseCOOIndex::CoordsTensor>& sidx, const int64_t nth,
     const std::vector<int64_t>& expected_values) {
-  for (int64_t i = 0; i < expected_values.size(); ++i) {
+  int64_t n = static_cast<int64_t>(expected_values.size());
+  for (int64_t i = 0; i < n; ++i) {
     ASSERT_EQ(expected_values[i], sidx->Value({nth, i}));
   }
 }
