@@ -156,7 +156,7 @@ Status FromProto(const pb::FlightDescriptor& pb_descriptor,
                  FlightDescriptor* descriptor) {
   if (pb_descriptor.type() == pb::FlightDescriptor::PATH) {
     descriptor->type = FlightDescriptor::PATH;
-    descriptor->path.resize(pb_descriptor.path_size());
+    descriptor->path.reserve(pb_descriptor.path_size());
     for (int i = 0; i < pb_descriptor.path_size(); ++i) {
       descriptor->path.emplace_back(pb_descriptor.path(i));
     }
