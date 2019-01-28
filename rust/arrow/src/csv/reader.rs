@@ -44,7 +44,7 @@ use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::{BufReader, Seek, SeekFrom};
+use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
 
 use csv as csv_crate;
@@ -183,23 +183,43 @@ fn infer_file_schema(
 }
 
 /// CSV file reader
-pub struct Reader {
+pub struct Reader<R: Read> {
     /// Explicit schema for the CSV file
     schema: Arc<Schema>,
     /// Optional projection for which columns to load (zero-based column indices)
     projection: Option<Vec<usize>>,
     /// File reader
-    record_iter: StringRecordsIntoIter<BufReader<File>>,
+    record_iter: StringRecordsIntoIter<BufReader<R>>,
     /// Batch size (number of records to load each time)
     batch_size: usize,
 }
 
-impl Reader {
-    /// Create a new CsvReader
+impl<R: Read> Reader<R> {
+    /// Create a new CsvReader from any value that implements the `Read` trait.
     ///
-    /// To customise the Reader, such as to enable schema inference, use `ReaderBuilder`
+    /// If reading a `File` you can customise the Reader, such as to enable schema inference, use `ReaderBuilder`.
     pub fn new(
-        file: File,
+        reader: R,
+        schema: Arc<Schema>,
+        has_headers: bool,
+        batch_size: usize,
+        projection: Option<Vec<usize>>,
+    ) -> Self {
+        Self::from_buf_reader(
+            BufReader::new(reader),
+            schema,
+            has_headers,
+            batch_size,
+            projection,
+        )
+    }
+
+    /// Create a new CsvReader from a `BufReader<R: Read>
+    ///
+    /// This constructor allows you more flexibility in what records are processed by the csv
+    /// reader.
+    pub fn from_buf_reader(
+        buf_reader: BufReader<R>,
         schema: Arc<Schema>,
         has_headers: bool,
         batch_size: usize,
@@ -207,9 +227,9 @@ impl Reader {
     ) -> Self {
         let csv_reader = csv::ReaderBuilder::new()
             .has_headers(has_headers)
-            .from_reader(BufReader::new(file));
+            .from_reader(buf_reader);
         let record_iter = csv_reader.into_records();
-        Reader {
+        Self {
             schema,
             projection,
             record_iter,
@@ -390,7 +410,7 @@ impl ReaderBuilder {
     /// use arrow::csv;
     /// use std::fs::File;
     ///
-    /// fn example() -> csv::Reader {
+    /// fn example() -> csv::Reader<File> {
     ///     let file = File::open("test/data/uk_cities_with_headers.csv").unwrap();
     ///
     ///     // create a builder, inferring the schema with the first 100 records
@@ -444,7 +464,7 @@ impl ReaderBuilder {
     }
 
     /// Create a new `Reader` from the `ReaderBuilder`
-    pub fn build(self, file: File) -> Result<Reader> {
+    pub fn build(self, file: File) -> Result<Reader<File>> {
         // check if schema should be inferred
         let schema = match self.schema {
             Some(schema) => schema,
@@ -476,6 +496,8 @@ impl ReaderBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use std::io::Cursor;
 
     use crate::array::*;
     use crate::datatypes::Field;
@@ -513,6 +535,31 @@ mod tests {
         let city_name: String = String::from_utf8(city.value(13).to_vec()).unwrap();
 
         assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
+    }
+
+    #[test]
+    fn test_csv_from_buf_reader() {
+        let schema = Schema::new(vec![
+            Field::new("city", DataType::Utf8, false),
+            Field::new("lat", DataType::Float64, false),
+            Field::new("lng", DataType::Float64, false),
+        ]);
+
+        let file_with_headers = File::open("test/data/uk_cities_with_headers.csv").unwrap();
+        let file_without_headers = File::open("test/data/uk_cities.csv").unwrap();
+        let both_files = file_with_headers
+            .chain(Cursor::new("\n".to_string()))
+            .chain(file_without_headers);
+        let mut csv = Reader::from_buf_reader(
+            BufReader::new(both_files),
+            Arc::new(schema),
+            true,
+            1024,
+            None,
+        );
+        let batch = csv.next().unwrap().unwrap();
+        assert_eq!(74, batch.num_rows());
+        assert_eq!(3, batch.num_columns());
     }
 
     #[test]
