@@ -35,8 +35,9 @@ constexpr int aesCtr = 1;
 constexpr int encryptType = 0;
 constexpr int decryptType = 1;
 constexpr int gcmTagLen = 16;
-constexpr int gcmIvLen = 12;
+constexpr int nonceLen = 12;
 constexpr int ctrIvLen = 16;
+constexpr int bufferSizeLen = 4;
 constexpr int rndMaxBytes = 32;
 
 #define ENCRYPT_INIT(CTX, ALG)                                        \
@@ -141,8 +142,8 @@ int gcm_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
 
   uint8_t tag[gcmTagLen];
   memset(tag, 0, gcmTagLen);
-  uint8_t iv[gcmIvLen];
-  memset(iv, 0, gcmIvLen);
+  uint8_t iv[nonceLen];
+  memset(iv, 0, nonceLen);
 
   // Random IV
   RAND_load_file("/dev/urandom", rndMaxBytes);
@@ -163,15 +164,15 @@ int gcm_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
   }
 
   // Encryption
-  if (1 != EVP_EncryptUpdate(cipher.get(), ciphertext + gcmIvLen, &len, plaintext,
-                             plaintext_len)) {
+  if (1 != EVP_EncryptUpdate(cipher.get(), ciphertext + bufferSizeLen + nonceLen, 
+                             &len, plaintext, plaintext_len)) {
     throw ParquetException("Failed encryption update");
   }
 
   ciphertext_len = len;
 
   // Finalization
-  if (1 != EVP_EncryptFinal_ex(cipher.get(), ciphertext + gcmIvLen + len, &len)) {
+  if (1 != EVP_EncryptFinal_ex(cipher.get(), ciphertext + bufferSizeLen + nonceLen + len, &len)) {
     throw ParquetException("Failed encryption finalization");
   }
 
@@ -182,11 +183,18 @@ int gcm_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
     throw ParquetException("Couldn't get AES-GCM tag");
   }
 
-  // Copying the IV and tag to ciphertext
-  std::copy(iv, iv + gcmIvLen, ciphertext);
-  std::copy(tag, tag + gcmTagLen, ciphertext + gcmIvLen + ciphertext_len);
+  // Copying the buffer size, IV and tag to ciphertext
+  int bufferSize = nonceLen + ciphertext_len + gcmTagLen;
+  uint8_t bufferSizeArray [bufferSizeLen];
+    bufferSizeArray[3] = 0xff & (bufferSize >> 24);
+    bufferSizeArray[2] = 0xff & (bufferSize >> 16);
+    bufferSizeArray[1] = 0xff & (bufferSize >> 8);
+    bufferSizeArray[0] = 0xff & (bufferSize);
+  std::copy(bufferSizeArray, bufferSizeArray + bufferSizeLen, ciphertext);
+  std::copy(iv, iv + nonceLen, ciphertext + bufferSizeLen);
+  std::copy(tag, tag + gcmTagLen, ciphertext + bufferSizeLen + nonceLen + ciphertext_len);
 
-  return gcmIvLen + ciphertext_len + gcmTagLen;
+  return bufferSize;
 }
 
 int ctr_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int key_len,
@@ -196,10 +204,16 @@ int ctr_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
 
   uint8_t iv[ctrIvLen];
   memset(iv, 0, ctrIvLen);
+  iv[ctrIvLen - 1] = 1;
+  
+  uint8_t nonce[nonceLen];
+  memset(iv, 0, nonceLen);
 
-  // Random IV
+  // Random nonce
   RAND_load_file("/dev/urandom", rndMaxBytes);
-  RAND_bytes(iv, sizeof(iv));
+  RAND_bytes(nonce, sizeof(nonce));
+  
+  std::copy(nonce, nonce + nonceLen, iv);
 
   // Init cipher context
   EvpCipher cipher(aesCtr, key_len, encryptType);
@@ -210,7 +224,7 @@ int ctr_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
   }
 
   // Encryption
-  if (1 != EVP_EncryptUpdate(cipher.get(), ciphertext + ctrIvLen, &len, plaintext,
+  if (1 != EVP_EncryptUpdate(cipher.get(), ciphertext + bufferSizeLen + ctrIvLen, &len, plaintext,
                              plaintext_len)) {
     throw ParquetException("Failed encryption update");
   }
@@ -218,16 +232,23 @@ int ctr_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
   ciphertext_len = len;
 
   // Finalization
-  if (1 != EVP_EncryptFinal_ex(cipher.get(), ciphertext + ctrIvLen + len, &len)) {
+  if (1 != EVP_EncryptFinal_ex(cipher.get(), ciphertext + bufferSizeLen + ctrIvLen + len, &len)) {
     throw ParquetException("Failed encryption finalization");
   }
 
   ciphertext_len += len;
 
-  // Copying the IV ciphertext
-  std::copy(iv, iv + ctrIvLen, ciphertext);
+  // Copying the buffer size and IV to ciphertext
+  int bufferSize = ctrIvLen + ciphertext_len;
+  uint8_t bufferSizeArray [bufferSizeLen];
+    bufferSizeArray[3] = 0xff & (bufferSize >> 24);
+    bufferSizeArray[2] = 0xff & (bufferSize >> 16);
+    bufferSizeArray[1] = 0xff & (bufferSize >> 8);
+    bufferSizeArray[0] = 0xff & (bufferSize);
+  std::copy(bufferSizeArray, bufferSizeArray + bufferSizeLen, ciphertext);
+  std::copy(iv, iv + ctrIvLen, ciphertext + bufferSizeLen);
 
-  return ctrIvLen + ciphertext_len;
+  return bufferSize;
 }
 
 int Encrypt(Encryption::type alg_id, bool metadata, const uint8_t* plaintext,
@@ -262,11 +283,11 @@ int gcm_decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int
 
   uint8_t tag[gcmTagLen];
   memset(tag, 0, gcmTagLen);
-  uint8_t iv[gcmIvLen];
-  memset(iv, 0, gcmIvLen);
+  uint8_t iv[nonceLen];
+  memset(iv, 0, nonceLen);
 
   // Extracting IV and tag
-  std::copy(ciphertext, ciphertext + gcmIvLen, iv);
+  std::copy(ciphertext + bufferSizeLen, ciphertext + bufferSizeLen + nonceLen, iv);
   std::copy(ciphertext + ciphertext_len - gcmTagLen, ciphertext + ciphertext_len, tag);
 
   // Init cipher context
@@ -284,8 +305,8 @@ int gcm_decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int
   }
 
   // Decryption
-  if (!EVP_DecryptUpdate(cipher.get(), plaintext, &len, ciphertext + gcmIvLen,
-                         ciphertext_len - gcmIvLen - gcmTagLen)) {
+  if (!EVP_DecryptUpdate(cipher.get(), plaintext, &len, ciphertext + bufferSizeLen + nonceLen,
+                         ciphertext_len - bufferSizeLen - nonceLen - gcmTagLen)) {
     throw ParquetException("Failed decryption update");
   }
 
@@ -314,7 +335,7 @@ int ctr_decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int
   memset(iv, 0, ctrIvLen);
 
   // Extracting IV and tag
-  std::copy(ciphertext, ciphertext + ctrIvLen, iv);
+  std::copy(ciphertext + bufferSizeLen, ciphertext + bufferSizeLen + ctrIvLen, iv);
 
   // Init cipher context
   EvpCipher cipher(aesCtr, key_len, decryptType);
@@ -325,8 +346,8 @@ int ctr_decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int
   }
 
   // Decryption
-  if (!EVP_DecryptUpdate(cipher.get(), plaintext, &len, ciphertext + ctrIvLen,
-                         ciphertext_len - ctrIvLen)) {
+  if (!EVP_DecryptUpdate(cipher.get(), plaintext, &len, ciphertext + bufferSizeLen + ctrIvLen,
+                         ciphertext_len - bufferSizeLen - ctrIvLen)) {
     throw ParquetException("Failed decryption update");
   }
 
