@@ -75,7 +75,7 @@ update_versions() {
 
   cd "${SOURCE_DIR}/../../python"
   sed -i.bak -E -e \
-    "s/^default_version: '.+'/default_version = '${version}'/" \
+    "s/^default_version = '.+'/default_version = '${version}'/" \
     setup.py
   rm -f setup.py.bak
   git add setup.py

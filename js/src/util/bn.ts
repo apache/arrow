@@ -17,10 +17,14 @@
 
 import { toArrayBufferView, ArrayBufferViewInput } from './buffer';
 
+/** @ignore */
 type BigNumArray = IntArray | UintArray;
+/** @ignore */
 type IntArray = Int8Array | Int16Array | Int32Array;
+/** @ignore */
 type UintArray = Uint8Array | Uint16Array | Uint32Array | Uint8ClampedArray;
 
+/** @ignore */
 const BigNumNMixin = {
     toJSON(this: BN<BigNumArray>, ) { return `"${bignumToString(this)}"`; },
     valueOf(this: BN<BigNumArray>, ) { return bignumToNumber(this); },

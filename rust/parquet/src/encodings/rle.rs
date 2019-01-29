@@ -140,7 +140,8 @@ impl RleEncoder {
 
         // Second the maximum size for RLE run
         let min_rle_run_size = 1 + bit_util::ceil(bit_width as i64, 8) as usize;
-        let rle_max_size = bit_util::ceil(num_values as i64, 8) as usize * min_rle_run_size;
+        let rle_max_size =
+            bit_util::ceil(num_values as i64, 8) as usize * min_rle_run_size;
         ::std::cmp::max(bit_packed_max_size, rle_max_size) as usize
     }
 
@@ -206,7 +207,8 @@ impl RleEncoder {
         Ok(self.bit_writer.flush_buffer())
     }
 
-    /// Clears the internal state so this encoder can be reused (e.g., after becoming full).
+    /// Clears the internal state so this encoder can be reused (e.g., after becoming
+    /// full).
     #[inline]
     pub fn clear(&mut self) {
         self.bit_writer.clear();
@@ -222,9 +224,13 @@ impl RleEncoder {
     /// internal writer.
     #[inline]
     pub fn flush(&mut self) -> Result<()> {
-        if self.bit_packed_count > 0 || self.repeat_count > 0 || self.num_buffered_values > 0 {
+        if self.bit_packed_count > 0
+            || self.repeat_count > 0
+            || self.num_buffered_values > 0
+        {
             let all_repeat = self.bit_packed_count == 0
-                && (self.repeat_count == self.num_buffered_values || self.num_buffered_values == 0);
+                && (self.repeat_count == self.num_buffered_values
+                    || self.num_buffered_values == 0);
             if self.repeat_count > 0 && all_repeat {
                 self.flush_rle_run()?;
             } else {
@@ -306,7 +312,8 @@ impl RleEncoder {
         self.bit_packed_count += self.num_buffered_values;
         let num_groups = self.bit_packed_count / 8;
         if num_groups + 1 >= MAX_GROUPS_PER_BIT_PACKED_RUN {
-            // We've reached the maximum value that can be hold in a single bit-packed run.
+            // We've reached the maximum value that can be hold in a single bit-packed
+            // run.
             assert!(self.indicator_byte_pos >= 0);
             self.flush_bit_packed_run(true)?;
         } else {
@@ -403,10 +410,12 @@ impl RleDecoder {
         while values_read < buffer.len() {
             if self.rle_left > 0 {
                 assert!(self.current_value.is_some());
-                let num_values = cmp::min(buffer.len() - values_read, self.rle_left as usize);
+                let num_values =
+                    cmp::min(buffer.len() - values_read, self.rle_left as usize);
                 for i in 0..num_values {
-                    let repeated_value =
-                        unsafe { transmute_copy::<u64, T>(self.current_value.as_mut().unwrap()) };
+                    let repeated_value = unsafe {
+                        transmute_copy::<u64, T>(self.current_value.as_mut().unwrap())
+                    };
                     buffer[values_read + i] = repeated_value;
                 }
                 self.rle_left -= num_values as u32;
@@ -449,7 +458,8 @@ impl RleDecoder {
         while values_read < max_values {
             if self.rle_left > 0 {
                 assert!(self.current_value.is_some());
-                let num_values = cmp::min(max_values - values_read, self.rle_left as usize);
+                let num_values =
+                    cmp::min(max_values - values_read, self.rle_left as usize);
                 let dict_idx = self.current_value.unwrap() as usize;
                 for i in 0..num_values {
                     buffer[values_read + i] = dict[dict_idx].clone();
@@ -498,7 +508,8 @@ impl RleDecoder {
                 } else {
                     self.rle_left = (indicator_value >> 1) as u32;
                     let value_width = bit_util::ceil(self.bit_width as i64, 8);
-                    self.current_value = bit_reader.get_aligned::<u64>(value_width as usize);
+                    self.current_value =
+                        bit_reader.get_aligned::<u64>(value_width as usize);
                     assert!(self.current_value.is_some());
                 }
                 return true;
@@ -562,7 +573,8 @@ mod tests {
         // 100 / 8 = 13 groups
         // 00011011 10101010 ... 00001010
         let data2 = ByteBufferPtr::new(vec![
-            0x1B, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0x0A,
+            0x1B, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA,
+            0x0A,
         ]);
 
         let mut decoder: RleDecoder = RleDecoder::new(1);
@@ -618,10 +630,14 @@ mod tests {
         decoder.set_data(data);
         let mut buffer = vec![""; 12];
         let expected = vec![
-            "ddd", "eee", "fff", "ddd", "eee", "fff", "ddd", "eee", "fff", "eee", "fff", "fff",
+            "ddd", "eee", "fff", "ddd", "eee", "fff", "ddd", "eee", "fff", "eee", "fff",
+            "fff",
         ];
-        let result =
-            decoder.get_batch_with_dict::<&str>(dict.as_slice(), buffer.as_mut_slice(), 12);
+        let result = decoder.get_batch_with_dict::<&str>(
+            dict.as_slice(),
+            buffer.as_mut_slice(),
+            12,
+        );
         assert!(result.is_ok());
         assert_eq!(buffer, expected);
     }
@@ -781,7 +797,8 @@ mod tests {
             assert!(result, "put() should not return false");
         }
 
-        let buffer = ByteBufferPtr::new(encoder.consume().expect("consume() should be OK"));
+        let buffer =
+            ByteBufferPtr::new(encoder.consume().expect("consume() should be OK"));
 
         // Verify read
         let mut decoder = RleDecoder::new(bit_width);
@@ -815,7 +832,8 @@ mod tests {
         for _ in 0..niters {
             values.clear();
             let mut rng = thread_rng();
-            let seed_vec: Vec<u8> = Standard.sample_iter(&mut rng).take(seed_len).collect();
+            let seed_vec: Vec<u8> =
+                Standard.sample_iter(&mut rng).take(seed_len).collect();
             let mut seed = [0u8; 32];
             seed.copy_from_slice(&seed_vec[0..seed_len]);
             let mut gen = rand::StdRng::from_seed(seed);

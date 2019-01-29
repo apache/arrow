@@ -18,6 +18,7 @@
 import { Readable } from 'stream';
 import { isIterable, isAsyncIterable } from '../../util/compat';
 
+/** @ignore */
 type ReadableOptions = import('stream').ReadableOptions;
 
 /** @ignore */

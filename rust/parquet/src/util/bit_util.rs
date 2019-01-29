@@ -32,7 +32,11 @@ macro_rules! read_num_bytes {
         assert!($size <= $src.len());
         let mut data: $ty = Default::default();
         unsafe {
-            ::std::ptr::copy_nonoverlapping($src.as_ptr(), &mut data as *mut $ty as *mut u8, $size);
+            ::std::ptr::copy_nonoverlapping(
+                $src.as_ptr(),
+                &mut data as *mut $ty as *mut u8,
+                $size,
+            );
         }
         data
     }};
@@ -50,7 +54,13 @@ pub fn convert_to_bytes<T>(val: &T, num_bytes: usize) -> Vec<u8> {
 #[inline]
 pub fn memcpy(source: &[u8], target: &mut [u8]) {
     assert!(target.len() >= source.len());
-    unsafe { ::std::ptr::copy_nonoverlapping(source.as_ptr(), target.as_mut_ptr(), source.len()) }
+    unsafe {
+        ::std::ptr::copy_nonoverlapping(
+            source.as_ptr(),
+            target.as_mut_ptr(),
+            source.len(),
+        )
+    }
 }
 
 #[inline]
@@ -255,8 +265,8 @@ impl BitWriter {
     }
 
     /// Returns the internal buffer length. This is the maximum number of bytes that this
-    /// writer can write. User needs to call `consume` to consume the current buffer before
-    /// more data can be written.
+    /// writer can write. User needs to call `consume` to consume the current buffer
+    /// before more data can be written.
     #[inline]
     pub fn buffer_len(&self) -> usize {
         self.max_bytes
@@ -271,7 +281,8 @@ impl BitWriter {
         assert!(num_bits <= 64);
         assert_eq!(v.checked_shr(num_bits as u32).unwrap_or(0), 0); // covers case v >> 64
 
-        if self.byte_offset * 8 + self.bit_offset + num_bits > self.max_bytes as usize * 8 {
+        if self.byte_offset * 8 + self.bit_offset + num_bits > self.max_bytes as usize * 8
+        {
             return false;
         }
 
@@ -286,8 +297,8 @@ impl BitWriter {
             self.byte_offset += 8;
             self.bit_offset -= 64;
             self.buffered_values = 0;
-            // Perform checked right shift: v >> offset, where offset < 64, otherwise we shift
-            // all bits
+            // Perform checked right shift: v >> offset, where offset < 64, otherwise we
+            // shift all bits
             self.buffered_values = v
                 .checked_shr((num_bits - self.bit_offset) as u32)
                 .unwrap_or(0);
@@ -321,7 +332,12 @@ impl BitWriter {
     /// Returns false if there's not enough room left, or the `pos` is not valid.
     /// True otherwise.
     #[inline]
-    pub fn put_aligned_offset<T: Copy>(&mut self, val: T, num_bytes: usize, offset: usize) -> bool {
+    pub fn put_aligned_offset<T: Copy>(
+        &mut self,
+        val: T,
+        num_bytes: usize,
+        offset: usize,
+    ) -> bool {
         if num_bytes + offset > self.max_bytes {
             return false;
         }
@@ -432,8 +448,8 @@ impl BitReader {
             return None;
         }
 
-        let mut v =
-            trailing_bits(self.buffered_values, self.bit_offset + num_bits) >> self.bit_offset;
+        let mut v = trailing_bits(self.buffered_values, self.bit_offset + num_bits)
+            >> self.bit_offset;
         self.bit_offset += num_bits;
 
         if self.bit_offset >= 64 {
@@ -491,8 +507,8 @@ impl BitReader {
                     in_ptr = unpack32(in_ptr, out_ptr, num_bits);
                     self.byte_offset += 4 * num_bits;
                     for n in 0..32 {
-                        // We need to copy from smaller size to bigger size to avoid overwritting
-                        // other memory regions.
+                        // We need to copy from smaller size to bigger size to avoid
+                        // overwritting other memory regions.
                         if size_of::<T>() > size_of::<u32>() {
                             ::std::ptr::copy_nonoverlapping(
                                 out_buf[n..].as_ptr() as *const u32,

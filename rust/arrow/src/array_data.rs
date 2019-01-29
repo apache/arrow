@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Contains `ArrayData`, a generic representation of Arrow array data which encapsulates common
-//! attributes and operations for Arrow array.
+//! Contains `ArrayData`, a generic representation of Arrow array data which encapsulates
+//! common attributes and operations for Arrow array.
 
 use std::sync::Arc;
 
@@ -237,7 +237,8 @@ mod tests {
 
     #[test]
     fn test_new() {
-        let arr_data = ArrayData::new(DataType::Boolean, 10, Some(1), None, 2, vec![], vec![]);
+        let arr_data =
+            ArrayData::new(DataType::Boolean, 10, Some(1), None, 2, vec![], vec![]);
         assert_eq!(10, arr_data.len());
         assert_eq!(1, arr_data.null_count());
         assert_eq!(2, arr_data.offset());

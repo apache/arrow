@@ -19,14 +19,22 @@
 
 version: '3.5'
 
+# TODO(kszucs): set arrow's mount to :ro mode, once all of the builds are
+# passing without write access to the source directory. The following builds
+# are contaminating the source directory:
+# - docs
+# - python-alpine (writes .egg directory)
+# - rust (writes Cargo.lock)
+# - java (without the rsync trick)
+
 x-ubuntu-volumes:
   &ubuntu-volumes
-  - .:/arrow:ro  # ensures that docker won't contaminate the host directory
+  - .:/arrow:delegated
   - ubuntu-cache:/build:delegated
 
 x-alpine-volumes:
   &alpine-volumes
-  - .:/arrow:ro  # ensures that docker won't contaminate the host directory
+  - .:/arrow:delegated
   - alpine-cache:/build:delegated
 
 volumes:

@@ -264,18 +264,18 @@ class SparseTensorConverter<TYPE, SparseCSRIndex>
 // ----------------------------------------------------------------------
 // Instantiate templates
 
-#define INSTANTIATE_SPARSE_TENSOR_CONVERTER(IndexType)                                  \
-  template class ARROW_TEMPLATE_EXPORT SparseTensorConverter<UInt8Type, IndexType>;     \
-  template class ARROW_TEMPLATE_EXPORT SparseTensorConverter<UInt16Type, IndexType>;    \
-  template class ARROW_TEMPLATE_EXPORT SparseTensorConverter<UInt32Type, IndexType>;    \
-  template class ARROW_TEMPLATE_EXPORT SparseTensorConverter<UInt64Type, IndexType>;    \
-  template class ARROW_TEMPLATE_EXPORT SparseTensorConverter<Int8Type, IndexType>;      \
-  template class ARROW_TEMPLATE_EXPORT SparseTensorConverter<Int16Type, IndexType>;     \
-  template class ARROW_TEMPLATE_EXPORT SparseTensorConverter<Int32Type, IndexType>;     \
-  template class ARROW_TEMPLATE_EXPORT SparseTensorConverter<Int64Type, IndexType>;     \
-  template class ARROW_TEMPLATE_EXPORT SparseTensorConverter<HalfFloatType, IndexType>; \
-  template class ARROW_TEMPLATE_EXPORT SparseTensorConverter<FloatType, IndexType>;     \
-  template class ARROW_TEMPLATE_EXPORT SparseTensorConverter<DoubleType, IndexType>
+#define INSTANTIATE_SPARSE_TENSOR_CONVERTER(IndexType)            \
+  template class SparseTensorConverter<UInt8Type, IndexType>;     \
+  template class SparseTensorConverter<UInt16Type, IndexType>;    \
+  template class SparseTensorConverter<UInt32Type, IndexType>;    \
+  template class SparseTensorConverter<UInt64Type, IndexType>;    \
+  template class SparseTensorConverter<Int8Type, IndexType>;      \
+  template class SparseTensorConverter<Int16Type, IndexType>;     \
+  template class SparseTensorConverter<Int32Type, IndexType>;     \
+  template class SparseTensorConverter<Int64Type, IndexType>;     \
+  template class SparseTensorConverter<HalfFloatType, IndexType>; \
+  template class SparseTensorConverter<FloatType, IndexType>;     \
+  template class SparseTensorConverter<DoubleType, IndexType>
 
 INSTANTIATE_SPARSE_TENSOR_CONVERTER(SparseCOOIndex);
 INSTANTIATE_SPARSE_TENSOR_CONVERTER(SparseCSRIndex);

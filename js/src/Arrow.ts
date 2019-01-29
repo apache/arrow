@@ -84,6 +84,7 @@ import * as util_vector_ from './util/vector';
 import * as predicate from './compute/predicate';
 
 export { predicate };
+/** @ignore */
 export const util = {
     ...util_int_,
     ...util_bit_,

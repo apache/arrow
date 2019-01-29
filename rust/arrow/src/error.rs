@@ -43,21 +43,20 @@ impl From<csv_crate::Error> for ArrowError {
             csv_crate::ErrorKind::Io(error) => {
                 ArrowError::CsvError(error.description().to_string())
             }
-            csv_crate::ErrorKind::Utf8 {pos: _, err} => {
-                ArrowError::CsvError(format!("Encountered UTF-8 error while reading CSV file: {:?}", err.description()))
-            }
-            csv_crate::ErrorKind::UnequalLengths {pos: _, expected_len, len} => {
-              ArrowError::CsvError(
-                  format!(
-                      "Encountered unequal lengths between records on CSV file. Expected {} records, found {} records",
-                      len,
-                      expected_len
-                  )
-              )
-            }
-            _ => {
-                ArrowError::CsvError("Error reading CSV file".to_string())
-            }
+            csv_crate::ErrorKind::Utf8 { pos: _, err } => ArrowError::CsvError(format!(
+                "Encountered UTF-8 error while reading CSV file: {:?}",
+                err.description()
+            )),
+            csv_crate::ErrorKind::UnequalLengths {
+                pos: _,
+                expected_len,
+                len,
+            } => ArrowError::CsvError(format!(
+                "Encountered unequal lengths between records on CSV file. Expected {} \
+                 records, found {} records",
+                len, expected_len
+            )),
+            _ => ArrowError::CsvError("Error reading CSV file".to_string()),
         }
     }
 }

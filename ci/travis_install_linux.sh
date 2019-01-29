@@ -19,9 +19,15 @@
 
 set -e
 
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+
 sudo apt-get install -y -qq \
     gdb binutils ccache libboost-dev libboost-filesystem-dev \
     libboost-system-dev libboost-regex-dev
+
+if [ "$CXX" == "g++-4.9" ]; then
+    sudo apt-get install -y -qq g++-4.9
+fi
 
 if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then
     sudo apt-get install -y -qq valgrind
@@ -31,21 +37,23 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     sudo apt-get install -y -qq lcov
 fi
 
-if [ "$ARROW_TRAVIS_GANDIVA" == "1" ]; then
-    sudo apt-get install -y -qq llvm-6.0-dev
+set -x
+if [ "$DISTRO_CODENAME" != "trusty" ]; then
+    if [ "$ARROW_TRAVIS_GANDIVA" == "1" ]; then
+        sudo apt-get install -y -qq llvm-6.0-dev
+    fi
+
+    sudo apt-get install -y -qq maven
+
+    # Remove Travis-specific versions of Java
+    sudo rm -rf /usr/local/lib/jvm*
+    sudo rm -rf /usr/local/maven*
+    hash -r
+    unset JAVA_HOME
+
+    which java
+    which mvn
+    java -version
+    mvn -v
 fi
 
-set -x
-
-sudo apt-get install -y -qq maven
-
-# Remove Travis-specific versions of Java
-sudo rm -rf /usr/local/lib/jvm*
-sudo rm -rf /usr/local/maven*
-hash -r
-unset JAVA_HOME
-
-which java
-which mvn
-java -version
-mvn -v

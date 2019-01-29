@@ -151,4 +151,5 @@ export class TypeAssembler extends Visitor {
     }
 }
 
+/** @ignore */
 export const instance = new TypeAssembler();

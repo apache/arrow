@@ -151,9 +151,22 @@ struct ARROW_EXPORT Datum {
 };
 
 /// \class UnaryKernel
-/// \brief An array-valued function of a single input argument
+/// \brief An function of a single input argument.
+///
+/// Note to implementors:  Try to avoid making kernels that allocate memory if
+/// the output size is a deterministic function of the Input Datum's metadata.
+/// Instead separate the logic of the kernel and allocations necessary into
+/// two different kernels.  Some reusable kernels that allocate buffers
+/// and delegate computation to another kernel are available in util-internal.h.
 class ARROW_EXPORT UnaryKernel : public OpKernel {
  public:
+  /// \brief Executes the kernel.
+  ///
+  /// \param[out] out The output of the function. Each implementation of this
+  /// function might assume different things about the existing contents of out
+  /// (e.g. which buffers are preallocated).  In the future it is expected that
+  /// there will be a more generic mechansim for understanding the necessary
+  /// contracts.
   virtual Status Call(FunctionContext* ctx, const Datum& input, Datum* out) = 0;
 };
 

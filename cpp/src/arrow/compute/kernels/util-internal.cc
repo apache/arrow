@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"
@@ -27,6 +28,7 @@
 #include "arrow/table.h"
 #include "arrow/util/logging.h"
 
+#include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 
 namespace arrow {
@@ -160,6 +162,47 @@ Datum WrapDatumsLike(const Datum& value, const std::vector<Datum>& datums) {
     DCHECK(false) << "unhandled datum kind";
     return Datum();
   }
+}
+
+PrimitiveAllocatingUnaryKernel::PrimitiveAllocatingUnaryKernel(
+    std::unique_ptr<UnaryKernel> delegate)
+    : delegate_(std::move(delegate)) {}
+
+inline void ZeroLastByte(Buffer* buffer) {
+  *(buffer->mutable_data() + (buffer->size() - 1)) = 0;
+}
+
+Status PrimitiveAllocatingUnaryKernel::Call(FunctionContext* ctx, const Datum& input,
+                                            Datum* out) {
+  std::vector<std::shared_ptr<Buffer>> data_buffers;
+  const ArrayData& in_data = *input.array();
+  MemoryPool* pool = ctx->memory_pool();
+
+  // Handle the validity buffer.
+  if (in_data.offset == 0) {
+    // Validity bitmap will be zero copied
+    data_buffers.emplace_back();
+  } else {
+    std::shared_ptr<Buffer> buffer;
+    RETURN_NOT_OK(AllocateBitmap(pool, in_data.length, &buffer));
+    // Per spec all trailing bits should indicate nullness, since
+    // the last byte might only be partially set, we ensure the
+    // remaining bit is set.
+    ZeroLastByte(buffer.get());
+    buffer->ZeroPadding();
+    data_buffers.push_back(buffer);
+  }
+  // Allocate the boolean value buffer.
+  std::shared_ptr<Buffer> buffer;
+  RETURN_NOT_OK(AllocateBitmap(pool, in_data.length, &buffer));
+  // Some utility methods access the last byte before it might be
+  // initialized this makes valgrind/asan unhappy, so we proactively
+  // zero it.
+  ZeroLastByte(buffer.get());
+  data_buffers.push_back(buffer);
+  out->value = ArrayData::Make(null(), in_data.length, data_buffers);
+
+  return delegate_->Call(ctx, input, out);
 }
 
 }  // namespace detail

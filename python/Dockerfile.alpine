@@ -17,6 +17,9 @@
 
 FROM arrow:cpp-alpine
 
+# better compatibility for the scripts
+RUN apk add --no-cache coreutils
+
 # install python, either python3(3.6) or python2(2.7)
 ARG PYTHON_VERSION=3.6
 RUN export PYTHON_MAJOR=${PYTHON_VERSION:0:1} && \
@@ -30,10 +33,9 @@ RUN export PYTHON_MAJOR=${PYTHON_VERSION:0:1} && \
 ADD python/requirements.txt \
     python/requirements-test.txt \
     /arrow/python/
-RUN pip install \
-    -r /arrow/python/requirements.txt \
-    -r /arrow/python/requirements-test.txt \
-    cython
+# pandas requires numpy at build time, so install the requirements separately
+RUN pip install -r /arrow/python/requirements.txt cython && \
+    pip install -r /arrow/python/requirements-test.txt
 
 ENV ARROW_PYTHON=ON \
     PYARROW_WITH_ORC=0 \
