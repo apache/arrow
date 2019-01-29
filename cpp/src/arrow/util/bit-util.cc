@@ -196,8 +196,8 @@ Status TransferBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset,
 
   TransferBitmap<invert_bits, false>(data, offset, length, 0, dest);
 
-  // As we have freshly allocated this bitmap, we should take care of zeroing the remaing
-  // bits.
+  // As we have freshly allocated this bitmap, we should take care of zeroing the
+  // remaining bits.
   int64_t num_bytes = BitUtil::BytesForBits(length);
   int64_t bits_to_zero = num_bytes * 8 - length;
   for (int64_t i = length; i < length + bits_to_zero; ++i) {
