@@ -70,7 +70,7 @@ class SequenceBuilder {
       : pool_(pool),
         types_(::arrow::int8(), pool),
         offsets_(::arrow::int32(), pool),
-        type_map_(PythonType::NUM_PYTHON_TYPES) {
+        type_map_(PythonType::NUM_PYTHON_TYPES, -1) {
     builder_.reset(new DenseUnionBuilder(pool));
   }
 
@@ -90,6 +90,7 @@ class SequenceBuilder {
                          MakeBuilderFn make_builder) {
     if (!*child_builder) {
       child_builder->reset(make_builder());
+      // std::to_string is locale dependent, but should be ok for small integers
       type_map_[tag] = builder_->AppendChild(*child_builder, std::to_string(tag));
     }
     return Update(child_builder->get(), type_map_[tag]);
