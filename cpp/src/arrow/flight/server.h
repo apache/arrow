@@ -69,9 +69,9 @@ class ARROW_EXPORT FlightDataStream {
 
 /// \brief A basic implementation of FlightDataStream that will provide
 /// a sequence of FlightData messages to be written to a gRPC stream
-/// \param[in] reader produces a sequence of record batches
 class ARROW_EXPORT RecordBatchStream : public FlightDataStream {
  public:
+  /// \param[in] reader produces a sequence of record batches
   explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader);
 
   std::shared_ptr<Schema> schema() override;
@@ -98,8 +98,7 @@ class ARROW_EXPORT FlightServerBase {
 
   /// \brief Run an insecure server on localhost at the indicated port. Block
   /// until server is shut down or otherwise terminates
-  /// \param[in] port
-  /// \return Status
+  /// \param[in] port the port to bind to
   void Run(int port);
 
   /// \brief Shut down the server. Can be called from signal handler or another

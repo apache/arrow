@@ -92,7 +92,7 @@ class ARROW_EXPORT FlightClient {
 
   /// \brief Given a flight ticket and schema, request to be sent the
   /// stream. Returns record batch stream reader
-  /// \param[in] ticket
+  /// \param[in] ticket The flight ticket to use
   /// \param[in] schema the schema of the stream data as computed by
   /// GetFlightInfo
   /// \param[out] stream the returned RecordBatchReader
@@ -102,6 +102,7 @@ class ARROW_EXPORT FlightClient {
 
   /// \brief Upload data to a Flight described by the given descriptor.
   /// \param[in] descriptor the descriptor of the stream
+  /// \param[in] schema the schema for the data to upload
   /// \param[out] stream a writer to write record batches to
   /// \return Status
   Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,

@@ -1006,9 +1006,9 @@ class IntegrationRunner(object):
 
         with producer.flight_server():
             for json_path in self.json_files:
-                print('==========================================================')
+                print('=' * 58)
                 print('Testing file {0}'.format(json_path))
-                print('==========================================================')
+                print('=' * 58)
 
                 # Have the client upload the file, then download and
                 # compare

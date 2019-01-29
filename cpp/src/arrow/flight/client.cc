@@ -123,7 +123,7 @@ class FlightStreamWriter : public ipc::RecordBatchWriter {
       : rpc_{std::move(rpc)},
         descriptor_{descriptor},
         schema_{schema},
-        pool_{default_memory_pool()} {};
+        pool_{default_memory_pool()} {}
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override {
     IpcPayload payload;
