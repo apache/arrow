@@ -46,7 +46,7 @@ namespace detail {
 
 /// \brief Invoke the kernel on value using the ctx and store results in outputs.
 ///
-/// \param[in,out] ctx The function context to use when invoking the kernel. 
+/// \param[in,out] ctx The function context to use when invoking the kernel.
 /// \param[in,out] kernel The kernel to execute.
 /// \param[in] value The input value to execute the kernel with.
 /// \param[out] outputs One ArrayData datum for each ArrayData available in value.
