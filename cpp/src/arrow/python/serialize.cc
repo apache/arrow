@@ -269,8 +269,7 @@ class SequenceBuilder {
 class DictBuilder {
  public:
   explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {
-    builder_.reset(
-        new StructBuilder(nullptr, pool, {keys_.builder(), vals_.builder()}));
+    builder_.reset(new StructBuilder(nullptr, pool, {keys_.builder(), vals_.builder()}));
   }
 
   // Builder for the keys of the dictionary
