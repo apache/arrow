@@ -16,8 +16,11 @@
 // under the License.
 
 // Client implementation for Flight integration testing. Requests the
-// given path from the Flight server, then serializes the result back
-// to JSON and writes it to standard out.
+// given path from the Flight server, which reads that file and sends
+// it as a stream to the client. The client then serializes the result
+// back to JSON and writes it to the given output file path. The
+// integration test script then uses the existing integration test
+// tools to compare the output JSON with the original JSON.
 
 #include <iostream>
 #include <memory>
@@ -67,7 +70,7 @@ int main(int argc, char** argv) {
   ABORT_NOT_OK(arrow::ipc::RecordBatchFileWriter::Open(out_file.get(), schema, &writer));
 
   std::shared_ptr<arrow::RecordBatch> chunk;
-  for (;;) {
+  while (true) {
     ABORT_NOT_OK(stream->ReadNext(&chunk));
     if (chunk == nullptr) break;
     ABORT_NOT_OK(writer->WriteRecordBatch(*chunk));
