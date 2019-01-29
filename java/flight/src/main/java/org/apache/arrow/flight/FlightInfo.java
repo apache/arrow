@@ -17,12 +17,21 @@
 
 package org.apache.arrow.flight;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.FlightGetInfo;
+import org.apache.arrow.vector.ipc.ReadChannel;
+import org.apache.arrow.vector.ipc.WriteChannel;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
+
+import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
 
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
@@ -45,8 +54,15 @@ public class FlightInfo {
   }
 
   FlightInfo(FlightGetInfo flightGetInfo) {
-    schema = flightGetInfo.getSchema().size() > 0 ?
-        Schema.deserialize(flightGetInfo.getSchema().asReadOnlyByteBuffer()) : new Schema(ImmutableList.of());
+    try {
+      final ByteBuffer schemaBuf = flightGetInfo.getSchema().asReadOnlyByteBuffer();
+      schema = flightGetInfo.getSchema().size() > 0 ?
+          MessageSerializer.deserializeSchema(
+              new ReadChannel(Channels.newChannel(new ByteBufferBackedInputStream(schemaBuf))))
+          : new Schema(ImmutableList.of());
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
     descriptor = new FlightDescriptor(flightGetInfo.getFlightDescriptor());
     endpoints = flightGetInfo.getEndpointList().stream().map(t -> new FlightEndpoint(t)).collect(Collectors.toList());
     bytes = flightGetInfo.getTotalBytes();
@@ -74,9 +90,16 @@ public class FlightInfo {
   }
 
   FlightGetInfo toProtocol() {
+    // Encode schema in a Message payload
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    try {
+      MessageSerializer.serialize(new WriteChannel(Channels.newChannel(baos)), schema);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
     return Flight.FlightGetInfo.newBuilder()
         .addAllEndpoint(endpoints.stream().map(t -> t.toProtocol()).collect(Collectors.toList()))
-        .setSchema(ByteString.copyFrom(schema.toByteArray()))
+        .setSchema(ByteString.copyFrom(baos.toByteArray()))
         .setFlightDescriptor(descriptor.toProtocol())
         .setTotalBytes(FlightInfo.this.bytes)
         .setTotalRecords(records)

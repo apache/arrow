@@ -22,6 +22,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.arrow.flatbuf.Message;
@@ -52,10 +54,12 @@ import io.grpc.MethodDescriptor;
 import io.grpc.MethodDescriptor.Marshaller;
 import io.grpc.internal.ReadableBuffer;
 import io.grpc.protobuf.ProtoUtils;
+
 import io.netty.buffer.ArrowBuf;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.CompositeByteBuf;
+import io.netty.buffer.Unpooled;
 
 /**
  * The in-memory representation of FlightData used to manage a stream of Arrow messages.
@@ -94,6 +98,18 @@ class ArrowMessage implements AutoCloseable {
     }
 
   }
+
+  // Pre-allocated buffers for padding serialized ArrowMessages.
+  private static List<ByteBuf> PADDING_BUFFERS = Arrays.asList(
+      null,
+      Unpooled.copiedBuffer(new byte[] { 0 }),
+      Unpooled.copiedBuffer(new byte[] { 0, 0 }),
+      Unpooled.copiedBuffer(new byte[] { 0, 0, 0 }),
+      Unpooled.copiedBuffer(new byte[] { 0, 0, 0, 0 }),
+      Unpooled.copiedBuffer(new byte[] { 0, 0, 0, 0, 0 }),
+      Unpooled.copiedBuffer(new byte[] { 0, 0, 0, 0, 0, 0 }),
+      Unpooled.copiedBuffer(new byte[] { 0, 0, 0, 0, 0, 0, 0 })
+  );
 
   private final FlightDescriptor descriptor;
   private final Message message;
@@ -253,8 +269,17 @@ class ArrowMessage implements AutoCloseable {
       cos.writeTag(FlightData.DATA_BODY_FIELD_NUMBER, WireFormat.WIRETYPE_LENGTH_DELIMITED);
 
       int size = 0;
+      List<ByteBuf> allBufs = new ArrayList<>();
       for (ArrowBuf b : bufs) {
+        allBufs.add(b);
         size += b.readableBytes();
+        // [ARROW-4213] These buffers must be aligned to an 8-byte boundary in order to be readable from C++.
+        if (b.readableBytes() % 8 != 0) {
+          int paddingBytes = 8 - (b.readableBytes() % 8);
+          assert paddingBytes > 0 && paddingBytes < 8;
+          size += paddingBytes;
+          allBufs.add(PADDING_BUFFERS.get(paddingBytes).retain());
+        }
       }
       // rawvarint is used for length definition.
       cos.writeUInt32NoTag(size);
@@ -263,7 +288,7 @@ class ArrowMessage implements AutoCloseable {
       ArrowBuf initialBuf = allocator.buffer(baos.size());
       initialBuf.writeBytes(baos.toByteArray());
       final CompositeByteBuf bb = new CompositeByteBuf(allocator.getAsByteBufAllocator(), true, bufs.size() + 1,
-          ImmutableList.<ByteBuf>builder().add(initialBuf).addAll(bufs).build());
+          ImmutableList.<ByteBuf>builder().add(initialBuf).addAll(allBufs).build());
       final ByteBufInputStream is = new DrainableByteBufInputStream(bb);
       return is;
     } catch (Exception ex) {

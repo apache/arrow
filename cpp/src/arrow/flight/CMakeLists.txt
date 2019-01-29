@@ -90,6 +90,18 @@ if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
     gflags_static
     ${GTEST_LIBRARY})
 
+  add_executable(flight-test-integration-server test-integration-server.cc)
+  target_link_libraries(flight-test-integration-server
+    ${ARROW_FLIGHT_TEST_STATIC_LINK_LIBS}
+    gflags_static
+    gtest_static)
+
+  add_executable(flight-test-integration-client test-integration-client.cc)
+  target_link_libraries(flight-test-integration-client
+    ${ARROW_FLIGHT_TEST_STATIC_LINK_LIBS}
+    gflags_static
+    gtest_static)
+
   # This is needed for the unit tests
   if (ARROW_BUILD_TESTS)
     add_dependencies(arrow-flight-test flight-test-server)

@@ -175,6 +175,14 @@ class ARROW_EXPORT RecordBatchFileReader {
 ARROW_EXPORT
 Status ReadSchema(io::InputStream* stream, std::shared_ptr<Schema>* out);
 
+/// \brief Read Schema from encapsulated Message
+///
+/// \param[in] message a message instance containing metadata
+/// \param[out] out the resulting Schema
+/// \return Status
+ARROW_EXPORT
+Status ReadSchema(const Message& message, std::shared_ptr<Schema>* out);
+
 /// Read record batch as encapsulated IPC message with metadata size prefix and
 /// header
 ///

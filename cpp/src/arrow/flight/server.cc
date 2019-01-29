@@ -102,6 +102,10 @@ class SerializationTraits<IpcPayload> {
 
     int64_t body_size = 0;
     for (const auto& buffer : msg.body_buffers) {
+      // Buffer may be null when the row length is zero, or when all
+      // entries are invalid.
+      if (!buffer) continue;
+
       body_size += buffer->size();
 
       const int64_t remainder = buffer->size() % 8;
@@ -111,7 +115,11 @@ class SerializationTraits<IpcPayload> {
     }
 
     // 2 bytes for body tag
-    total_size += 2 + WireFormatLite::LengthDelimitedSize(static_cast<size_t>(body_size));
+    // Only written when there are body buffers
+    if (msg.body_length > 0) {
+      total_size +=
+          2 + WireFormatLite::LengthDelimitedSize(static_cast<size_t>(body_size));
+    }
 
     // TODO(wesm): messages over 2GB unlikely to be yet supported
     if (total_size > kInt32Max) {
@@ -135,20 +143,27 @@ class SerializationTraits<IpcPayload> {
     pb_stream.WriteRawMaybeAliased(msg.metadata->data(),
                                    static_cast<int>(msg.metadata->size()));
 
-    // Write body
-    WireFormatLite::WriteTag(pb::FlightData::kDataBodyFieldNumber,
-                             WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &pb_stream);
-    pb_stream.WriteVarint32(static_cast<uint32_t>(body_size));
+    // Don't write tag if there are no body buffers
+    if (msg.body_length > 0) {
+      // Write body
+      WireFormatLite::WriteTag(pb::FlightData::kDataBodyFieldNumber,
+                               WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &pb_stream);
+      pb_stream.WriteVarint32(static_cast<uint32_t>(body_size));
 
-    constexpr uint8_t kPaddingBytes[8] = {0};
+      constexpr uint8_t kPaddingBytes[8] = {0};
 
-    for (const auto& buffer : msg.body_buffers) {
-      pb_stream.WriteRawMaybeAliased(buffer->data(), static_cast<int>(buffer->size()));
+      for (const auto& buffer : msg.body_buffers) {
+        // Buffer may be null when the row length is zero, or when all
+        // entries are invalid.
+        if (!buffer) continue;
 
-      // Write padding if not multiple of 8
-      const int remainder = static_cast<int>(buffer->size() % 8);
-      if (remainder) {
-        pb_stream.WriteRawMaybeAliased(kPaddingBytes, 8 - remainder);
+        pb_stream.WriteRawMaybeAliased(buffer->data(), static_cast<int>(buffer->size()));
+
+        // Write padding if not multiple of 8
+        const int remainder = static_cast<int>(buffer->size() % 8);
+        if (remainder) {
+          pb_stream.WriteRawMaybeAliased(kPaddingBytes, 8 - remainder);
+        }
       }
     }
 
@@ -254,6 +269,14 @@ class FlightServiceImpl : public FlightService::Service {
 
     // Requires ServerWriter customization in grpc_customizations.h
     auto custom_writer = reinterpret_cast<ServerWriter<IpcPayload>*>(writer);
+
+    // Write the schema as the first message in the stream
+    IpcPayload schema_payload;
+    MemoryPool* pool = default_memory_pool();
+    ipc::DictionaryMemo dictionary_memo;
+    GRPC_RETURN_NOT_OK(ipc::internal::GetSchemaPayload(
+        *data_stream->schema(), pool, &dictionary_memo, &schema_payload));
+    custom_writer->Write(schema_payload, grpc::WriteOptions());
 
     while (true) {
       IpcPayload payload;
@@ -367,6 +390,8 @@ Status FlightServerBase::ListActions(std::vector<ActionType>* actions) {
 
 RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader)
     : pool_(default_memory_pool()), reader_(reader) {}
+
+std::shared_ptr<Schema> RecordBatchStream::schema() { return reader_->schema(); }
 
 Status RecordBatchStream::Next(IpcPayload* payload) {
   std::shared_ptr<RecordBatch> batch;

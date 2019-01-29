@@ -232,7 +232,16 @@ class FlightStreamReader : public RecordBatchReader {
 
       // Validate IPC message
       RETURN_NOT_OK(ipc::Message::Open(data.metadata, data.body, &message));
-      return ipc::ReadRecordBatch(*message, schema_, out);
+      // The first message is a schema; read it and then try to read a
+      // record batch.
+      if (message->type() == ipc::Message::Type::SCHEMA) {
+        RETURN_NOT_OK(ipc::ReadSchema(*message, &schema_));
+        return ReadNext(out);
+      } else if (message->type() == ipc::Message::Type::RECORD_BATCH) {
+        return ipc::ReadRecordBatch(*message, schema_, out);
+      } else {
+        return Status(StatusCode::Invalid, "Unrecognized message in Flight stream");
+      }
     } else {
       // Stream is completed
       stream_finished_ = true;

@@ -701,6 +701,12 @@ Status ReadSchema(io::InputStream* stream, std::shared_ptr<Schema>* out) {
   return Status::OK();
 }
 
+Status ReadSchema(const Message& message, std::shared_ptr<Schema>* out) {
+  std::shared_ptr<RecordBatchReader> reader;
+  DictionaryMemo dictionary_memo;
+  return internal::GetSchema(message.header(), dictionary_memo, &*out);
+}
+
 Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, io::InputStream* file,
                        std::shared_ptr<RecordBatch>* out) {
   std::unique_ptr<Message> message;

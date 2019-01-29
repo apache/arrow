@@ -524,6 +524,15 @@ Status WriteIpcPayload(const IpcPayload& payload, io::OutputStream* dst,
   return Status::OK();
 }
 
+Status GetSchemaPayload(const Schema& schema, MemoryPool* pool,
+                        DictionaryMemo* dictionary_memo, IpcPayload* out) {
+  out->type = Message::Type::SCHEMA;
+  out->body_buffers.clear();
+  out->body_length = 0;
+  RETURN_NOT_OK(SerializeSchema(schema, pool, &out->metadata));
+  return WriteSchemaMessage(schema, dictionary_memo, &out->metadata);
+}
+
 Status GetRecordBatchPayload(const RecordBatch& batch, MemoryPool* pool,
                              IpcPayload* out) {
   RecordBatchSerializer writer(pool, 0, kMaxNestingDepth, true, out);
