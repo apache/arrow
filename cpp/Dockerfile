@@ -23,7 +23,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get install -y -q --no-install-recommends \
         ca-certificates \
         ccache \
-        cmake \
         g++ \
         gcc \
         git \
