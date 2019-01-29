@@ -130,6 +130,18 @@ TEST_F(TestBooleanKernel, Invert) {
   ASSERT_TRUE(result_ca->Equals(ca2));
 }
 
+TEST_F(TestBooleanKernel, InvertEmptyArray) {
+  auto type = boolean();
+  std::vector<std::shared_ptr<Buffer>> data_buffers(2);
+  Datum input;
+  input.value = ArrayData::Make(boolean(), 0 /* length */, std::move(data_buffers),
+                                0 /* null_count */);
+
+  Datum result;
+  ASSERT_OK(Invert(&this->ctx_, input, &result));
+  ASSERT_TRUE(result.make_array()->Equals(input.make_array()));
+}
+
 TEST_F(TestBooleanKernel, And) {
   vector<bool> values1 = {true, false, true, false, true, true};
   vector<bool> values2 = {true, true, false, false, true, false};

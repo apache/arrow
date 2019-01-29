@@ -179,8 +179,8 @@ Status PrimitiveAllocatingUnaryKernel::Call(FunctionContext* ctx, const Datum& i
   MemoryPool* pool = ctx->memory_pool();
 
   // Handle the validity buffer.
-  if (in_data.offset == 0) {
-    // Validity bitmap will be zero copied
+  if (in_data.offset == 0 || in_data.null_count <= 0) {
+    // Validity bitmap will be zero copied (or allocated when buffer is known).
     data_buffers.emplace_back();
   } else {
     std::shared_ptr<Buffer> buffer;
