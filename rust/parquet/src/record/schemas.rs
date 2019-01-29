@@ -462,9 +462,19 @@ impl Schema for TimestampSchema {
 
 #[derive(Debug)]
 pub enum DecimalSchema {
-    Int32 { precision: u8, scale: u8 },
-    Int64 { precision: u8, scale: u8 },
-    Array { precision: u32, scale: u32 },
+    Int32 {
+        precision: u8,
+        scale: u8,
+    },
+    Int64 {
+        precision: u8,
+        scale: u8,
+    },
+    Array {
+        byte_array_schema: ByteArraySchema,
+        precision: u32,
+        scale: u32,
+    },
 }
 impl Schema for DecimalSchema {
     fn fmt(
@@ -473,30 +483,48 @@ impl Schema for DecimalSchema {
         name: Option<&str>,
         f: &mut fmt::Formatter,
     ) -> Result<(), fmt::Error> {
-        // For decimal type we should print precision and scale if they are > 0, e.g.
-        // DECIMAL(9, 2) - DECIMAL(9) - DECIMAL let precision_scale = match
-        // (precision, scale) {     (p, s) if p > 0 && s > 0 => format!(" ({},
-        // {})", p, s),     (p, 0) if p > 0 => format!(" ({})", p),
-        //     _ => format!(""),
-        // };
+        let decimal = |precision: u32, scale: u32| {
+            DisplayFmt::new(move |fmt| match (precision, scale) {
+                (p, 0) => fmt.write_fmt(format_args!(" ({})", p)),
+                (p, s) => fmt.write_fmt(format_args!(" ({}, {})", p, s)),
+            })
+        };
         match self_ {
             Some(DecimalSchema::Int32 { precision, scale }) => f.write_fmt(format_args!(
-                "{} int32 {} (DECIMAL);",
+                "{} int32 {} (DECIMAL{});",
                 r.unwrap(),
-                name.unwrap_or("<name>")
+                name.unwrap_or("<name>"),
+                decimal(*precision as u32, *scale as u32)
             )),
             Some(DecimalSchema::Int64 { precision, scale }) => f.write_fmt(format_args!(
-                "{} int64 {} (DECIMAL);",
+                "{} int64 {} (DECIMAL{});",
                 r.unwrap(),
-                name.unwrap_or("<name>")
+                name.unwrap_or("<name>"),
+                decimal(*precision as u32, *scale as u32)
             )),
-            Some(DecimalSchema::Array { precision, scale }) => f.write_fmt(format_args!(
-                "{} byte_array {} (DECIMAL);",
+            Some(DecimalSchema::Array {
+                byte_array_schema: ByteArraySchema(Some(len)),
+                precision,
+                scale,
+            }) => f.write_fmt(format_args!(
+                "{} fixed_len_byte_array({}) {} (DECIMAL{});",
                 r.unwrap(),
-                name.unwrap_or("<name>")
+                len,
+                name.unwrap_or("<name>"),
+                decimal(*precision as u32, *scale as u32)
+            )),
+            Some(DecimalSchema::Array {
+                byte_array_schema: ByteArraySchema(None),
+                precision,
+                scale,
+            }) => f.write_fmt(format_args!(
+                "{} byte_array {} (DECIMAL{});",
+                r.unwrap(),
+                name.unwrap_or("<name>"),
+                decimal(*precision as u32, *scale as u32)
             )),
             None => f.write_fmt(format_args!(
-                "{} int32|int64|byte_array {} (DECIMAL);",
+                "{} int32|int64|byte_array {} (DECIMAL(precision,scale));",
                 r.unwrap(),
                 name.unwrap_or("<name>")
             )),
@@ -523,6 +551,7 @@ where
         name: Option<&str>,
         f: &mut fmt::Formatter,
     ) -> Result<(), fmt::Error> {
+        #[derive(Debug)]
         struct KeyValue<'a, K, V>(Option<(&'a K, &'a V)>, String, String);
         impl<'a, K, V> Schema for KeyValue<'a, K, V>
         where
@@ -553,10 +582,10 @@ where
             Some(&KeyValue(
                 self_.map(|self_| (&self_.0, &self_.1)),
                 self_
-                    .and_then(|self_| self_.2.clone())
+                    .and_then(|self_| self_.3.clone())
                     .unwrap_or_else(|| String::from("key")),
                 self_
-                    .and_then(|self_| self_.3.clone())
+                    .and_then(|self_| self_.4.clone())
                     .unwrap_or_else(|| String::from("value")),
             )),
         );
@@ -577,7 +606,7 @@ where
         f: &mut fmt::Formatter,
     ) -> Result<(), fmt::Error> {
         assert_eq!(r.unwrap(), Repetition::REQUIRED);
-        T::fmt(
+        <T as Schema>::fmt(
             self_.map(|self_| &self_.0),
             Some(Repetition::OPTIONAL),
             name,
@@ -614,6 +643,7 @@ where
                     None => (None, None, None),
                     _ => unreachable!(),
                 };
+                #[derive(Debug)]
                 struct List<'a, T>(Option<&'a T>, String);
                 impl<'a, T> Schema for List<'a, T>
                 where
@@ -637,7 +667,7 @@ where
                     }
                 }
                 let mut printer =
-                    DisplaySchemaGroup::new(r, name, Some(LogicalType::MAP), f);
+                    DisplaySchemaGroup::new(r, name, Some(LogicalType::LIST), f);
                 printer.field(
                     Some(&list_name.clone().unwrap_or_else(|| String::from("list"))),
                     Some(&List(
@@ -651,13 +681,13 @@ where
             }
             Some(ListSchema(self_, ListSchemaType::ListCompat(element_name))) => {
                 let mut printer =
-                    DisplaySchemaGroup::new(r, name, Some(LogicalType::MAP), f);
+                    DisplaySchemaGroup::new(r, name, Some(LogicalType::LIST), f);
                 printer.field(Some(&element_name.clone()), Some(self_));
                 printer.finish()
             }
             Some(ListSchema(self_, ListSchemaType::Repeated)) => {
                 assert_eq!(r, Some(Repetition::REQUIRED));
-                T::fmt(Some(self_), Some(Repetition::REPEATED), name, f)
+                <T as Schema>::fmt(Some(self_), Some(Repetition::REPEATED), name, f)
             }
         }
     }
@@ -1650,14 +1680,17 @@ where
         name: Option<&str>,
         f: &mut fmt::Formatter,
     ) -> Result<(), fmt::Error> {
-        T::fmt(self_.map(|self_| &self_.0), r, name, f)
+        <T as Schema>::fmt(self_.map(|self_| &self_.0), r, name, f)
     }
 }
 
-pub struct RootSchema<T, S>(pub String, pub S, pub PhantomData<fn(T)>);
-impl<T, S> Debug for RootSchema<T, S>
+pub struct RootSchema<T>(pub String, pub T::Schema, pub PhantomData<fn(T)>)
 where
-    S: Debug,
+    T: Deserialize;
+impl<T> Debug for RootSchema<T>
+where
+    T: Deserialize,
+    T::Schema: Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         f.debug_tuple("RootSchema")
@@ -1666,9 +1699,9 @@ where
             .finish()
     }
 }
-impl<T, S> Schema for RootSchema<T, S>
+impl<T> Schema for RootSchema<T>
 where
-    S: Schema,
+    T: Deserialize,
 {
     fn fmt(
         self_: Option<&Self>,
@@ -1677,13 +1710,17 @@ where
         f: &mut fmt::Formatter,
     ) -> Result<(), fmt::Error> {
         assert_eq!(r, None);
-        S::fmt(self_.map(|self_| &self_.1), None, name, f)
+        <T::Schema as Schema>::fmt(
+            self_.map(|self_| &self_.1),
+            None,
+            self_.map(|self_| &*self_.0),
+            f,
+        )
     }
 }
-impl<T, S> FromStr for RootSchema<T, S>
+impl<T> FromStr for RootSchema<T>
 where
-    Root<T>: Deserialize<Schema = Self>,
-    S: Schema,
+    T: Deserialize,
 {
     type Err = ParquetError;
 
@@ -1700,10 +1737,117 @@ pub struct TupleSchema<T>(pub(super) T);
 mod tests {
     use super::*;
 
-    // #[test]
-    // fn schema_printing() {
-    //     let file_name = "alltypes_dictionary.parquet";
-    //     let file = get_test_file(file_name);
-    //     let file_reader: SerializedFileReader<_> = SerializedFileReader::new(file)?;
-    // }
+    use crate::record::types::Value;
+
+    #[test]
+    fn schema_printing() {
+        let schema: RootSchema<Value> = "message org.apache.impala.ComplexTypesTbl {
+            REQUIRED int64 ID (INT_64);
+            REQUIRED group Int_Array (LIST) {
+                REPEATED group list {
+                    REQUIRED int32 element (INT_32);
+                }
+            }
+            REQUIRED group int_array_array (LIST) {
+                REPEATED group list {
+                    REQUIRED group element (LIST) {
+                        REPEATED group list {
+                            REQUIRED int32 element (INT_32);
+                        }
+                    }
+                }
+            }
+            REQUIRED group Int_Map (MAP) {
+                REPEATED group map {
+                    REQUIRED byte_array key (UTF8);
+                    REQUIRED int32 value (INT_32);
+                }
+            }
+            REQUIRED group int_map_array (LIST) {
+                REPEATED group list {
+                    REQUIRED group element (MAP_KEY_VALUE) {
+                        REPEATED group map {
+                            REQUIRED byte_array key (UTF8);
+                            REQUIRED int32 value (INT_32);
+                        }
+                    }
+                }
+            }
+            OPTIONAL group nested_Struct {
+                REQUIRED int32 a (INT_32);
+                REQUIRED group B (LIST) {
+                    REPEATED group list {
+                        REQUIRED int32 element (INT_32);
+                    }
+                }
+                REQUIRED group c {
+                    REQUIRED group D (LIST) {
+                        REPEATED group list {
+                            REQUIRED group element (LIST) {
+                                REPEATED group list {
+                                    OPTIONAL group element {
+                                        REQUIRED int96 e;
+                                        REQUIRED byte_array f (UTF8);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                REQUIRED group G (MAP) {
+                    REPEATED group key_value {
+                        REQUIRED byte_array yek (UTF8);
+                        OPTIONAL group eulav {
+                            REQUIRED group h {
+                                REQUIRED group i (LIST) {
+                                    REPEATED group list {
+                                        REQUIRED double element;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            REQUIRED group decimals {
+                REPEATED int32 j (decimal(2,1));
+                OPTIONAL int64 k (decimal(2,0));
+                REQUIRED byte_array l (decimal(2));
+                REPEATED fixed_len_byte_array(100) m (decimal(20,19));
+            }
+            REQUIRED group legacy_list (LIST) {
+                REPEATED group n_tuple {
+                    OPTIONAL fixed_len_byte_array(10) o;
+                }
+            }
+            REQUIRED group times (LIST) {
+                REPEATED group q {
+                    REQUIRED int64 r (TIMESTAMP_MICROS);
+                    REQUIRED int64 s (TIMESTAMP_MILLIS);
+                    REQUIRED int32 t (TIME_MILLIS);
+                    REQUIRED int64 u (TIME_MICROS);
+                    REQUIRED int32 v (DATE);
+                }
+            }
+            REQUIRED group strings {
+                REPEATED byte_array j;
+                REPEATED byte_array k (BSON);
+                REPEATED byte_array l (UTF8);
+                REPEATED byte_array m (ENUM);
+                REPEATED byte_array n (JSON);
+            }
+            REQUIRED group numbers {
+                REPEATED int32 i8 (INT_8);
+                REPEATED int32 u8 (UINT_8);
+                REPEATED int32 i16 (INT_16);
+                REPEATED int32 u16 (UINT_16);
+                REPEATED int32 i32 (INT_32);
+                REPEATED int32 u32 (UINT_32);
+                REPEATED int64 i64 (INT_64);
+                REPEATED int64 u64 (UINT_64);
+            }
+        }"
+        .parse()
+        .unwrap();
+    }
 }

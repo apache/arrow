@@ -74,7 +74,7 @@ pub(super) fn parse_list<T: Deserialize>(
                 } else {
                     let element_name = sub_schema.name().to_owned();
                     ListSchema(
-                        T::parse(&*sub_schema, Some(Repetition::REQUIRED))?.1,
+                        T::parse(&*sub_schema, Some(Repetition::REPEATED))?.1,
                         ListSchemaType::ListCompat(element_name),
                     )
                 },

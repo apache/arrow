@@ -1621,11 +1621,24 @@ impl Deserialize for Value {
                     }
                     (PhysicalType::BYTE_ARRAY, LogicalType::DECIMAL)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL) => {
+                        let byte_array_schema = ByteArraySchema(
+                            if schema.get_physical_type()
+                                == PhysicalType::FIXED_LEN_BYTE_ARRAY
+                            {
+                                Some(schema.get_type_length().try_into().unwrap())
+                            } else {
+                                None
+                            },
+                        );
                         let (precision, scale) =
                             (schema.get_precision(), schema.get_scale());
                         let (precision, scale) =
                             (precision.try_into().unwrap(), scale.try_into().unwrap());
-                        ValueSchema::Decimal(DecimalSchema::Array { precision, scale })
+                        ValueSchema::Decimal(DecimalSchema::Array {
+                            byte_array_schema,
+                            precision,
+                            scale,
+                        })
                     }
                     (PhysicalType::BYTE_ARRAY, LogicalType::INTERVAL)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::INTERVAL) => {

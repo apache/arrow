@@ -26,7 +26,7 @@ pub mod types;
 
 use std::{
     collections::HashMap,
-    fmt::{self, Display},
+    fmt::{self, Debug},
     marker::PhantomData,
 };
 
@@ -46,7 +46,7 @@ pub mod _private {
     pub use super::display::DisplaySchemaGroup;
 }
 
-pub trait Schema {
+pub trait Schema: Debug {
     fn fmt(
         self_: Option<&Self>,
         r: Option<Repetition>,

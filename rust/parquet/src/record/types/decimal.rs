@@ -29,7 +29,7 @@ use crate::{
             ByteArrayReader, FixedLenByteArrayReader, I32Reader, I64Reader, MapReader,
             Reader,
         },
-        schemas::DecimalSchema,
+        schemas::{DecimalSchema, I32Schema, I64Schema},
         triplet::TypedTripletIter,
         types::{downcast, Value},
         Deserialize,
@@ -56,31 +56,28 @@ impl Deserialize for Decimal {
         paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
-        let col_path = ColumnPath::new(path.to_vec());
-        let col_reader = paths.remove(&col_path).unwrap();
         match *schema {
             DecimalSchema::Int32 { precision, scale } => sum::Sum3::A(MapReader(
-                I32Reader {
-                    column: TypedTripletIter::<Int32Type>::new(
-                        def_level, rep_level, col_reader, batch_size,
-                    ),
-                },
+                i32::reader(&I32Schema, path, def_level, rep_level, paths, batch_size),
                 move |x| Ok(Decimal::from_i32(x, precision as i32, scale as i32)),
             )),
             DecimalSchema::Int64 { precision, scale } => sum::Sum3::B(MapReader(
-                I64Reader {
-                    column: TypedTripletIter::<Int64Type>::new(
-                        def_level, rep_level, col_reader, batch_size,
-                    ),
-                },
+                i64::reader(&I64Schema, path, def_level, rep_level, paths, batch_size),
                 move |x| Ok(Decimal::from_i64(x, precision as i32, scale as i32)),
             )),
-            DecimalSchema::Array { precision, scale } => sum::Sum3::C(MapReader(
-                ByteArrayReader {
-                    column: TypedTripletIter::<ByteArrayType>::new(
-                        def_level, rep_level, col_reader, batch_size,
-                    ),
-                },
+            DecimalSchema::Array {
+                ref byte_array_schema,
+                precision,
+                scale,
+            } => sum::Sum3::C(MapReader(
+                <Vec<u8>>::reader(
+                    byte_array_schema,
+                    path,
+                    def_level,
+                    rep_level,
+                    paths,
+                    batch_size,
+                ),
                 move |x| {
                     Ok(Decimal::from_bytes(
                         ByteArray::from(x),

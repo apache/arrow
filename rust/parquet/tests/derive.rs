@@ -254,7 +254,7 @@ fn test_file_reader_rows_invalid_projection_derived() {
 
     assert_eq!(
         res.unwrap_err(),
-        ParquetError::General("Root schema does not contain projection".to_string())
+        ParquetError::General("Types don't match schema.\nSchema is:\nmessage spark_schema {\n    OPTIONAL group a (MAP) {\n        REPEATED group key_value {\n            REQUIRED byte_array key (UTF8);\n            OPTIONAL group value (MAP) {\n                REPEATED group key_value {\n                    REQUIRED int32 key (INT_32);\n                    REQUIRED boolean value;\n                }\n            }\n        }\n    }\n    REQUIRED int32 b (INT_32);\n    REQUIRED double c;\n}\nBut types require:\nmessage <name> {\n    REQUIRED int32 key (INT_32);\n    REQUIRED boolean value;\n}\nError: Parquet error: Struct \"SparkSchema\" has field \"key\" not in the schema".to_string())
     );
 }
 
@@ -270,7 +270,7 @@ fn test_row_group_rows_invalid_projection_derived() {
 
     assert_eq!(
         res.unwrap_err(),
-        ParquetError::General("Root schema does not contain projection".to_string())
+        ParquetError::General("Types don't match schema.\nSchema is:\nmessage spark_schema {\n    OPTIONAL group a (MAP) {\n        REPEATED group key_value {\n            REQUIRED byte_array key (UTF8);\n            OPTIONAL group value (MAP) {\n                REPEATED group key_value {\n                    REQUIRED int32 key (INT_32);\n                    REQUIRED boolean value;\n                }\n            }\n        }\n    }\n    REQUIRED int32 b (INT_32);\n    REQUIRED double c;\n}\nBut types require:\nmessage <name> {\n    REQUIRED int32 key (INT_32);\n    REQUIRED boolean value;\n}\nError: Parquet error: Struct \"SparkSchema\" has field \"key\" not in the schema".to_string())
     );
 }
 

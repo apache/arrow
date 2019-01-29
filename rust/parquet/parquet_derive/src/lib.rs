@@ -27,8 +27,8 @@ extern crate quote;
 use proc_macro2::{Span, TokenStream};
 use std::iter;
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, Attribute, Data, DataEnum, DeriveInput, Error, Field,
-    Fields, Ident, Lit, LitStr, Meta, NestedMeta, TypeParam, WhereClause,
+    punctuated::Punctuated, spanned::Spanned, Attribute, Data, DataEnum, DeriveInput,
+    Error, Field, Fields, Ident, Lit, LitStr, Meta, NestedMeta, TypeParam, WhereClause,
 };
 
 #[proc_macro_derive(Deserialize, attributes(parquet))]
@@ -41,7 +41,10 @@ pub fn parquet_deserialize(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 Fields::Unnamed(ref fields) => impl_tuple_struct(&ast, &fields.unnamed),
             },
             Data::Enum(ref e) => impl_enum(&ast, e),
-            Data::Union(_) => unimplemented!("#[derive(Deserialize)] doesn't work with unions"),
+            Data::Union(_) => Err(Error::new_spanned(
+                ast,
+                "#[derive(Deserialize)] doesn't work with unions",
+            )),
         })
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
@@ -57,12 +60,13 @@ fn impl_struct(
 
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
-    let mut where_clause = where_clause
-        .map(Clone::clone)
-        .unwrap_or_else(|| WhereClause {
-            where_token: <Token![where]>::default(),
-            predicates: Punctuated::new(),
-        });
+    let mut where_clause =
+        where_clause
+            .map(Clone::clone)
+            .unwrap_or_else(|| WhereClause {
+                where_token: <Token![where]>::default(),
+                predicates: Punctuated::new(),
+            });
     for TypeParam { ident, .. } in ast.generics.type_params() {
         where_clause
             .predicates
@@ -70,9 +74,9 @@ fn impl_struct(
     }
     let mut where_clause_with_debug = where_clause.clone();
     for TypeParam { ident, .. } in ast.generics.type_params() {
-        where_clause_with_debug
-            .predicates
-            .push(syn::parse2(quote! { <#ident as Deserialize>::Schema: Debug }).unwrap());
+        where_clause_with_debug.predicates.push(
+            syn::parse2(quote! { <#ident as Deserialize>::Schema: Debug }).unwrap(),
+        );
     }
 
     let field_renames = fields
@@ -83,7 +87,9 @@ fn impl_struct(
                 for meta_item in meta_items {
                     match meta_item {
                         // Parse `#[parquet(rename = "foo")]`
-                        NestedMeta::Meta(Meta::NameValue(ref m)) if m.ident == "rename" => {
+                        NestedMeta::Meta(Meta::NameValue(ref m))
+                            if m.ident == "rename" =>
+                        {
                             let s = get_lit_str(&m.ident, &m.ident, &m.lit)?;
                             if rename.is_some() {
                                 return Err(Error::new_spanned(
@@ -96,7 +102,10 @@ fn impl_struct(
                         NestedMeta::Meta(ref meta_item) => {
                             return Err(Error::new_spanned(
                                 meta_item.name(),
-                                format!("unknown parquet field attribute `{}`", meta_item.name()),
+                                format!(
+                                    "unknown parquet field attribute `{}`",
+                                    meta_item.name()
+                                ),
                             ));
                         }
                         NestedMeta::Literal(ref lit) => {
@@ -152,7 +161,7 @@ fn impl_struct(
             fn fmt(self_: Option<&Self>, r: Option<Repetition>, name: Option<&str>, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
                 let mut printer = DisplaySchemaGroup::new(r, name, None, f);
                 #(
-                    printer.field(Some(stringify!(#field_names1)), self_.map(|self_|&self_.#field_names2));
+                    printer.field(Some(#field_renames1), self_.map(|self_|&self_.#field_names1));
                 )*
                 printer.finish()
             }
@@ -236,7 +245,10 @@ fn impl_tuple_struct(
                     NestedMeta::Meta(ref meta_item) => {
                         return Err(Error::new_spanned(
                             meta_item.name(),
-                            format!("unknown parquet field attribute `{}`", meta_item.name()),
+                            format!(
+                                "unknown parquet field attribute `{}`",
+                                meta_item.name()
+                            ),
                         ));
                     }
                     NestedMeta::Literal(ref lit) => {

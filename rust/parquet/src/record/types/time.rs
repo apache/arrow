@@ -24,7 +24,7 @@ use crate::{
     errors::ParquetError,
     record::{
         reader::{I32Reader, I64Reader, I96Reader, MapReader, Reader},
-        schemas::{DateSchema, TimeSchema, TimestampSchema},
+        schemas::{DateSchema, I32Schema, I64Schema, TimeSchema, TimestampSchema},
         triplet::TypedTripletIter,
         types::{downcast, Value},
         Deserialize,
@@ -59,14 +59,8 @@ impl Deserialize for Date {
         paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
-        let col_path = ColumnPath::new(path.to_vec());
-        let col_reader = paths.remove(&col_path).unwrap();
         MapReader(
-            I32Reader {
-                column: TypedTripletIter::<Int32Type>::new(
-                    def_level, rep_level, col_reader, batch_size,
-                ),
-            },
+            i32::reader(&I32Schema, path, def_level, rep_level, paths, batch_size),
             |days| Ok(Date(days)),
         )
     }
@@ -93,23 +87,13 @@ impl Deserialize for Time {
         paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
-        let col_path = ColumnPath::new(path.to_vec());
-        let col_reader = paths.remove(&col_path).unwrap();
         match schema {
             TimeSchema::Micros => sum::Sum2::A(MapReader(
-                I64Reader {
-                    column: TypedTripletIter::<Int64Type>::new(
-                        def_level, rep_level, col_reader, batch_size,
-                    ),
-                },
+                i64::reader(&I64Schema, path, def_level, rep_level, paths, batch_size),
                 |micros| Ok(Time(micros)),
             )),
             TimeSchema::Millis => sum::Sum2::B(MapReader(
-                I32Reader {
-                    column: TypedTripletIter::<Int32Type>::new(
-                        def_level, rep_level, col_reader, batch_size,
-                    ),
-                },
+                i32::reader(&I32Schema, path, def_level, rep_level, paths, batch_size),
                 |millis| Ok(Time(millis as i64 * MICROS_PER_MILLI)),
             )),
         }
@@ -175,23 +159,21 @@ impl Deserialize for Timestamp {
         paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
-        let col_path = ColumnPath::new(path.to_vec());
-        let col_reader = paths.remove(&col_path).unwrap();
         match schema {
             TimestampSchema::Int96 => sum::Sum3::A(MapReader(
-                I96Reader {
-                    column: TypedTripletIter::<Int96Type>::new(
-                        def_level, rep_level, col_reader, batch_size,
-                    ),
+                {
+                    let col_path = ColumnPath::new(path.to_vec());
+                    let col_reader = paths.remove(&col_path).unwrap();
+                    I96Reader {
+                        column: TypedTripletIter::<Int96Type>::new(
+                            def_level, rep_level, col_reader, batch_size,
+                        ),
+                    }
                 },
                 |x| Ok(Timestamp(x)),
             )),
             TimestampSchema::Millis => sum::Sum3::B(MapReader(
-                I64Reader {
-                    column: TypedTripletIter::<Int64Type>::new(
-                        def_level, rep_level, col_reader, batch_size,
-                    ),
-                },
+                i64::reader(&I64Schema, path, def_level, rep_level, paths, batch_size),
                 |millis| {
                     let day: i64 =
                         ((JULIAN_DAY_OF_EPOCH * SECONDS_PER_DAY * MILLIS_PER_SECOND)
@@ -214,11 +196,7 @@ impl Deserialize for Timestamp {
                 },
             )),
             TimestampSchema::Micros => sum::Sum3::C(MapReader(
-                I64Reader {
-                    column: TypedTripletIter::<Int64Type>::new(
-                        def_level, rep_level, col_reader, batch_size,
-                    ),
-                },
+                i64::reader(&I64Schema, path, def_level, rep_level, paths, batch_size),
                 |micros| {
                     let day: i64 = ((JULIAN_DAY_OF_EPOCH
                         * SECONDS_PER_DAY

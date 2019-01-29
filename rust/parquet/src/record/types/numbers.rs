@@ -86,14 +86,8 @@ impl Deserialize for i8 {
         paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
-        let col_path = ColumnPath::new(path.to_vec());
-        let col_reader = paths.remove(&col_path).unwrap();
         TryIntoReader(
-            I32Reader {
-                column: TypedTripletIter::<Int32Type>::new(
-                    def_level, rep_level, col_reader, batch_size,
-                ),
-            },
+            i32::reader(&I32Schema, path, def_level, rep_level, paths, batch_size),
             PhantomData,
         )
     }
@@ -117,14 +111,8 @@ impl Deserialize for u8 {
         paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
-        let col_path = ColumnPath::new(path.to_vec());
-        let col_reader = paths.remove(&col_path).unwrap();
         TryIntoReader(
-            I32Reader {
-                column: TypedTripletIter::<Int32Type>::new(
-                    def_level, rep_level, col_reader, batch_size,
-                ),
-            },
+            i32::reader(&I32Schema, path, def_level, rep_level, paths, batch_size),
             PhantomData,
         )
     }
@@ -149,14 +137,8 @@ impl Deserialize for i16 {
         paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
-        let col_path = ColumnPath::new(path.to_vec());
-        let col_reader = paths.remove(&col_path).unwrap();
         TryIntoReader(
-            I32Reader {
-                column: TypedTripletIter::<Int32Type>::new(
-                    def_level, rep_level, col_reader, batch_size,
-                ),
-            },
+            i32::reader(&I32Schema, path, def_level, rep_level, paths, batch_size),
             PhantomData,
         )
     }
@@ -180,14 +162,8 @@ impl Deserialize for u16 {
         paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
-        let col_path = ColumnPath::new(path.to_vec());
-        let col_reader = paths.remove(&col_path).unwrap();
         TryIntoReader(
-            I32Reader {
-                column: TypedTripletIter::<Int32Type>::new(
-                    def_level, rep_level, col_reader, batch_size,
-                ),
-            },
+            i32::reader(&I32Schema, path, def_level, rep_level, paths, batch_size),
             PhantomData,
         )
     }
@@ -240,14 +216,8 @@ impl Deserialize for u32 {
         paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
-        let col_path = ColumnPath::new(path.to_vec());
-        let col_reader = paths.remove(&col_path).unwrap();
         MapReader(
-            I32Reader {
-                column: TypedTripletIter::<Int32Type>::new(
-                    def_level, rep_level, col_reader, batch_size,
-                ),
-            },
+            i32::reader(&I32Schema, path, def_level, rep_level, paths, batch_size),
             |x| Ok(x as u32),
         )
     }
@@ -300,14 +270,8 @@ impl Deserialize for u64 {
         paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
-        let col_path = ColumnPath::new(path.to_vec());
-        let col_reader = paths.remove(&col_path).unwrap();
         MapReader(
-            I64Reader {
-                column: TypedTripletIter::<Int64Type>::new(
-                    def_level, rep_level, col_reader, batch_size,
-                ),
-            },
+            i64::reader(&I64Schema, path, def_level, rep_level, paths, batch_size),
             |x| Ok(x as u64),
         )
     }
