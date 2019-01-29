@@ -15,12 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Client implementation for Flight integration testing. Requests the given
-// path from the Flight server, which reads that file and sends it as a stream
-// to the client. The client writes the server stream to the IPC file format at
-// the given output file path. The integration test script then uses the
-// existing integration test tools to compare the output binary with the
-// original JSON
+// Client implementation for Flight integration testing. Loads
+// RecordBatches from the given JSON file and uploads them to the
+// Flight server, which stores the data and schema in memory. The
+// client then requests the data from the server and compares it to
+// the data originally uploaded.
 
 #include <iostream>
 #include <memory>
@@ -76,11 +75,14 @@ int main(int argc, char** argv) {
   }
   ABORT_NOT_OK(write_stream->Close());
 
+  std::shared_ptr<arrow::Table> original_data;
+  ABORT_NOT_OK(
+      arrow::Table::FromRecordBatches(reader->schema(), original_chunks, &original_data));
+
   // 2. Get the ticket for the data.
   std::unique_ptr<arrow::flight::FlightInfo> info;
   ABORT_NOT_OK(client->GetFlightInfo(descr, &info));
 
-  // 3. Download the data from the server.
   std::shared_ptr<arrow::Schema> schema;
   ABORT_NOT_OK(info->GetSchema(&schema));
 
@@ -89,32 +91,43 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  arrow::flight::Ticket ticket = info->endpoints()[0].ticket;
-  std::unique_ptr<arrow::RecordBatchReader> stream;
-  ABORT_NOT_OK(client->DoGet(ticket, schema, &stream));
+  for (const arrow::flight::FlightEndpoint& endpoint : info->endpoints()) {
+    const auto& ticket = endpoint.ticket;
 
-  std::vector<std::shared_ptr<arrow::RecordBatch>> retrieved_chunks;
-  std::shared_ptr<arrow::RecordBatch> chunk;
-  while (true) {
-    ABORT_NOT_OK(stream->ReadNext(&chunk));
-    if (chunk == nullptr) break;
-    retrieved_chunks.push_back(chunk);
+    auto locations = endpoint.locations;
+    if (locations.size() == 0) {
+      locations = {arrow::flight::Location{FLAGS_host, FLAGS_port}};
+    }
+
+    for (const auto location : locations) {
+      std::cout << "Verifying location " << location.host << ':' << location.port
+                << std::endl;
+      // 3. Download the data from the server.
+      std::unique_ptr<arrow::flight::FlightClient> read_client;
+      ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location.host, location.port,
+                                                        &read_client));
+
+      std::unique_ptr<arrow::RecordBatchReader> stream;
+      ABORT_NOT_OK(read_client->DoGet(ticket, schema, &stream));
+
+      std::vector<std::shared_ptr<arrow::RecordBatch>> retrieved_chunks;
+      std::shared_ptr<arrow::RecordBatch> chunk;
+      while (true) {
+        ABORT_NOT_OK(stream->ReadNext(&chunk));
+        if (chunk == nullptr) break;
+        retrieved_chunks.push_back(chunk);
+      }
+
+      // 4. Validate that the data is equal.
+      std::shared_ptr<arrow::Table> retrieved_data;
+      ABORT_NOT_OK(
+          arrow::Table::FromRecordBatches(schema, retrieved_chunks, &retrieved_data));
+
+      if (!original_data->Equals(*retrieved_data)) {
+        std::cerr << "Data does not match!" << std::endl;
+        return 1;
+      }
+    }
   }
-
-  // 4. Validate that the data is equal.
-
-  std::shared_ptr<arrow::Table> original_data;
-  std::shared_ptr<arrow::Table> retrieved_data;
-
-  ABORT_NOT_OK(
-      arrow::Table::FromRecordBatches(reader->schema(), original_chunks, &original_data));
-  ABORT_NOT_OK(
-      arrow::Table::FromRecordBatches(schema, retrieved_chunks, &retrieved_data));
-
-  if (!original_data->Equals(*retrieved_data)) {
-    std::cerr << "Data does not match!" << std::endl;
-    return 1;
-  }
-
   return 0;
 }

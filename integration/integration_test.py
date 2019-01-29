@@ -1004,12 +1004,12 @@ class IntegrationRunner(object):
         )
         print('##########################################################')
 
-        for json_path in self.json_files:
-            print('==========================================================')
-            print('Testing file {0}'.format(json_path))
-            print('==========================================================')
+        with producer.flight_server():
+            for json_path in self.json_files:
+                print('==========================================================')
+                print('Testing file {0}'.format(json_path))
+                print('==========================================================')
 
-            with producer.flight_server():
                 # Have the client upload the file, then download and
                 # compare
                 consumer.flight_request(producer.FLIGHT_PORT, json_path)

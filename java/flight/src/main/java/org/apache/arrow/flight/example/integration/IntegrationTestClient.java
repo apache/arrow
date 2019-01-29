@@ -19,6 +19,7 @@ package org.apache.arrow.flight.example.integration;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.flight.FlightClient;
@@ -51,7 +52,7 @@ class IntegrationTestClient {
     options = new Options();
     options.addOption("j", "json", true, "json file");
     options.addOption("host", true, "The host to connect to.");
-    options.addOption("port", true, "The port to connect to." );
+    options.addOption("port", true, "The port to connect to.");
   }
 
   public static void main(String[] args) {
@@ -109,18 +110,29 @@ class IntegrationTestClient {
       throw new RuntimeException("No endpoints returned from Flight server.");
     }
 
-    // 3. Download the data from the server.
-    FlightStream stream = client.getStream(info.getEndpoints().get(0).getTicket());
-    VectorSchemaRoot downloadedRoot;
-    try (VectorSchemaRoot root = stream.getRoot()) {
-      downloadedRoot = VectorSchemaRoot.create(root.getSchema(), allocator);
-      VectorLoader loader = new VectorLoader(downloadedRoot);
-      VectorUnloader unloader = new VectorUnloader(root);
-      while (stream.next()) {
-        loader.load(unloader.getRecordBatch());
+    for (FlightEndpoint endpoint : info.getEndpoints()) {
+      // 3. Download the data from the server.
+      List<Location> locations = endpoint.getLocations();
+      if (locations.size() == 0) {
+        locations = Collections.singletonList(new Location(host, port));
+      }
+      for (Location location : locations) {
+        System.out.println("Verifying location " + location.getHost() + ":" + location.getPort());
+        FlightClient readClient = new FlightClient(allocator, location);
+        FlightStream stream = readClient.getStream(endpoint.getTicket());
+        VectorSchemaRoot downloadedRoot;
+        try (VectorSchemaRoot root = stream.getRoot()) {
+          downloadedRoot = VectorSchemaRoot.create(root.getSchema(), allocator);
+          VectorLoader loader = new VectorLoader(downloadedRoot);
+          VectorUnloader unloader = new VectorUnloader(root);
+          while (stream.next()) {
+            loader.load(unloader.getRecordBatch());
+          }
+        }
+
+        // 4. Validate the data.
+        Validator.compareVectorSchemaRoot(jsonRoot, downloadedRoot);
       }
     }
-
-    Validator.compareVectorSchemaRoot(jsonRoot, downloadedRoot);
   }
 }
