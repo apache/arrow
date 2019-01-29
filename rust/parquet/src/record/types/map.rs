@@ -94,7 +94,8 @@ where
         repetition: Option<Repetition>,
     ) -> Result<(String, Self::Schema), ParquetError> {
         if repetition == Some(Repetition::REQUIRED) {
-            return parse_map::<K, V>(schema).map(|schema2| (schema.name().to_owned(), schema2));
+            return parse_map::<K, V>(schema)
+                .map(|schema2| (schema.name().to_owned(), schema2));
         }
         Err(ParquetError::General(String::from(
             "Couldn't parse Map<K,V>",

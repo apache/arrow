@@ -29,14 +29,15 @@ use crate::{
     record::{
         reader::ValueReader,
         schemas::{
-            BoolSchema, BsonSchema, ByteArraySchema, DateSchema, DecimalSchema, EnumSchema,
-            F32Schema, F64Schema, GroupSchema, I16Schema, I32Schema, I64Schema, I8Schema,
-            JsonSchema, ListSchema, ListSchemaType, OptionSchema, StringSchema, TimeSchema,
-            TimestampSchema, U16Schema, U32Schema, U64Schema, U8Schema, ValueSchema,
+            BoolSchema, BsonSchema, ByteArraySchema, DateSchema, DecimalSchema,
+            EnumSchema, F32Schema, F64Schema, GroupSchema, I16Schema, I32Schema,
+            I64Schema, I8Schema, JsonSchema, ListSchema, ListSchemaType, OptionSchema,
+            StringSchema, TimeSchema, TimestampSchema, U16Schema, U32Schema, U64Schema,
+            U8Schema, ValueSchema,
         },
         types::{
-            list::parse_list, map::parse_map, Bson, Date, Downcast, Enum, Group, Json, List, Map,
-            Time, Timestamp, ValueRequired,
+            list::parse_list, map::parse_map, Bson, Date, Downcast, Enum, Group, Json,
+            List, Map, Time, Timestamp, ValueRequired,
         },
         Deserialize,
     },
@@ -1491,27 +1492,48 @@ impl Deserialize for Value {
                     schema.get_basic_info().logical_type(),
                 ) {
                     // https://github.com/apache/parquet-format/blob/master/LogicalTypes.md
-                    (PhysicalType::BOOLEAN, LogicalType::NONE) => ValueSchema::Bool(BoolSchema),
-                    (PhysicalType::INT32, LogicalType::UINT_8) => ValueSchema::U8(U8Schema),
-                    (PhysicalType::INT32, LogicalType::INT_8) => ValueSchema::I8(I8Schema),
-                    (PhysicalType::INT32, LogicalType::UINT_16) => ValueSchema::U16(U16Schema),
-                    (PhysicalType::INT32, LogicalType::INT_16) => ValueSchema::I16(I16Schema),
-                    (PhysicalType::INT32, LogicalType::UINT_32) => ValueSchema::U32(U32Schema),
+                    (PhysicalType::BOOLEAN, LogicalType::NONE) => {
+                        ValueSchema::Bool(BoolSchema)
+                    }
+                    (PhysicalType::INT32, LogicalType::UINT_8) => {
+                        ValueSchema::U8(U8Schema)
+                    }
+                    (PhysicalType::INT32, LogicalType::INT_8) => {
+                        ValueSchema::I8(I8Schema)
+                    }
+                    (PhysicalType::INT32, LogicalType::UINT_16) => {
+                        ValueSchema::U16(U16Schema)
+                    }
+                    (PhysicalType::INT32, LogicalType::INT_16) => {
+                        ValueSchema::I16(I16Schema)
+                    }
+                    (PhysicalType::INT32, LogicalType::UINT_32) => {
+                        ValueSchema::U32(U32Schema)
+                    }
                     (PhysicalType::INT32, LogicalType::INT_32)
-                    | (PhysicalType::INT32, LogicalType::NONE) => ValueSchema::I32(I32Schema),
-                    (PhysicalType::INT32, LogicalType::DATE) => ValueSchema::Date(DateSchema),
+                    | (PhysicalType::INT32, LogicalType::NONE) => {
+                        ValueSchema::I32(I32Schema)
+                    }
+                    (PhysicalType::INT32, LogicalType::DATE) => {
+                        ValueSchema::Date(DateSchema)
+                    }
                     (PhysicalType::INT32, LogicalType::TIME_MILLIS) => {
                         ValueSchema::Time(TimeSchema::Millis)
                     }
                     (PhysicalType::INT32, LogicalType::DECIMAL) => {
-                        let (precision, scale) = (schema.get_precision(), schema.get_scale());
+                        let (precision, scale) =
+                            (schema.get_precision(), schema.get_scale());
                         let (precision, scale) =
                             (precision.try_into().unwrap(), scale.try_into().unwrap());
                         ValueSchema::Decimal(DecimalSchema::Int32 { precision, scale })
                     }
-                    (PhysicalType::INT64, LogicalType::UINT_64) => ValueSchema::U64(U64Schema),
+                    (PhysicalType::INT64, LogicalType::UINT_64) => {
+                        ValueSchema::U64(U64Schema)
+                    }
                     (PhysicalType::INT64, LogicalType::INT_64)
-                    | (PhysicalType::INT64, LogicalType::NONE) => ValueSchema::I64(I64Schema),
+                    | (PhysicalType::INT64, LogicalType::NONE) => {
+                        ValueSchema::I64(I64Schema)
+                    }
                     (PhysicalType::INT64, LogicalType::TIME_MICROS) => {
                         ValueSchema::Time(TimeSchema::Micros)
                     }
@@ -1522,7 +1544,8 @@ impl Deserialize for Value {
                         ValueSchema::Timestamp(TimestampSchema::Micros)
                     }
                     (PhysicalType::INT64, LogicalType::DECIMAL) => {
-                        let (precision, scale) = (schema.get_precision(), schema.get_scale());
+                        let (precision, scale) =
+                            (schema.get_precision(), schema.get_scale());
                         let (precision, scale) =
                             (precision.try_into().unwrap(), scale.try_into().unwrap());
                         ValueSchema::Decimal(DecimalSchema::Int64 { precision, scale })
@@ -1530,12 +1553,18 @@ impl Deserialize for Value {
                     (PhysicalType::INT96, LogicalType::NONE) => {
                         ValueSchema::Timestamp(TimestampSchema::Int96)
                     }
-                    (PhysicalType::FLOAT, LogicalType::NONE) => ValueSchema::F32(F32Schema),
-                    (PhysicalType::DOUBLE, LogicalType::NONE) => ValueSchema::F64(F64Schema),
+                    (PhysicalType::FLOAT, LogicalType::NONE) => {
+                        ValueSchema::F32(F32Schema)
+                    }
+                    (PhysicalType::DOUBLE, LogicalType::NONE) => {
+                        ValueSchema::F64(F64Schema)
+                    }
                     (PhysicalType::BYTE_ARRAY, LogicalType::UTF8)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::UTF8) => {
                         ValueSchema::String(StringSchema(ByteArraySchema(
-                            if schema.get_physical_type() == PhysicalType::FIXED_LEN_BYTE_ARRAY {
+                            if schema.get_physical_type()
+                                == PhysicalType::FIXED_LEN_BYTE_ARRAY
+                            {
                                 Some(schema.get_type_length().try_into().unwrap())
                             } else {
                                 None
@@ -1545,7 +1574,9 @@ impl Deserialize for Value {
                     (PhysicalType::BYTE_ARRAY, LogicalType::JSON)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::JSON) => {
                         ValueSchema::Json(JsonSchema(StringSchema(ByteArraySchema(
-                            if schema.get_physical_type() == PhysicalType::FIXED_LEN_BYTE_ARRAY {
+                            if schema.get_physical_type()
+                                == PhysicalType::FIXED_LEN_BYTE_ARRAY
+                            {
                                 Some(schema.get_type_length().try_into().unwrap())
                             } else {
                                 None
@@ -1555,7 +1586,9 @@ impl Deserialize for Value {
                     (PhysicalType::BYTE_ARRAY, LogicalType::ENUM)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::ENUM) => {
                         ValueSchema::Enum(EnumSchema(StringSchema(ByteArraySchema(
-                            if schema.get_physical_type() == PhysicalType::FIXED_LEN_BYTE_ARRAY {
+                            if schema.get_physical_type()
+                                == PhysicalType::FIXED_LEN_BYTE_ARRAY
+                            {
                                 Some(schema.get_type_length().try_into().unwrap())
                             } else {
                                 None
@@ -1565,7 +1598,9 @@ impl Deserialize for Value {
                     (PhysicalType::BYTE_ARRAY, LogicalType::NONE)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::NONE) => {
                         ValueSchema::ByteArray(ByteArraySchema(
-                            if schema.get_physical_type() == PhysicalType::FIXED_LEN_BYTE_ARRAY {
+                            if schema.get_physical_type()
+                                == PhysicalType::FIXED_LEN_BYTE_ARRAY
+                            {
                                 Some(schema.get_type_length().try_into().unwrap())
                             } else {
                                 None
@@ -1575,7 +1610,9 @@ impl Deserialize for Value {
                     (PhysicalType::BYTE_ARRAY, LogicalType::BSON)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::BSON) => {
                         ValueSchema::Bson(BsonSchema(ByteArraySchema(
-                            if schema.get_physical_type() == PhysicalType::FIXED_LEN_BYTE_ARRAY {
+                            if schema.get_physical_type()
+                                == PhysicalType::FIXED_LEN_BYTE_ARRAY
+                            {
                                 Some(schema.get_type_length().try_into().unwrap())
                             } else {
                                 None
@@ -1584,7 +1621,8 @@ impl Deserialize for Value {
                     }
                     (PhysicalType::BYTE_ARRAY, LogicalType::DECIMAL)
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL) => {
-                        let (precision, scale) = (schema.get_precision(), schema.get_scale());
+                        let (precision, scale) =
+                            (schema.get_precision(), schema.get_scale());
                         let (precision, scale) =
                             (precision.try_into().unwrap(), scale.try_into().unwrap());
                         ValueSchema::Decimal(DecimalSchema::Array { precision, scale })
@@ -1621,28 +1659,31 @@ impl Deserialize for Value {
                     .get_fields()
                     .iter()
                     .map(|schema| {
-                        Value::parse(&*schema, Some(schema.get_basic_info().repetition())).map(
-                            |(name, schema)| {
+                        Value::parse(&*schema, Some(schema.get_basic_info().repetition()))
+                            .map(|(name, schema)| {
                                 let x = lookup.insert(name, lookup.len());
                                 assert!(x.is_none());
                                 schema
-                            },
-                        )
+                            })
                     })
                     .collect::<Result<Vec<_>, _>>()?,
                 lookup,
             )));
         }
 
-        let mut value = value
-            .ok_or_else(|| ParquetError::General(format!("Can't parse value {:?}", schema)))?;
+        let mut value = value.ok_or_else(|| {
+            ParquetError::General(format!("Can't parse value {:?}", schema))
+        })?;
 
         match repetition.unwrap() {
             Repetition::OPTIONAL => {
                 value = ValueSchema::Option(Box::new(OptionSchema(value)));
             }
             Repetition::REPEATED => {
-                value = ValueSchema::List(Box::new(ListSchema(value, ListSchemaType::Repeated)));
+                value = ValueSchema::List(Box::new(ListSchema(
+                    value,
+                    ListSchemaType::Repeated,
+                )));
             }
             Repetition::REQUIRED => (),
         }
@@ -1659,45 +1700,67 @@ impl Deserialize for Value {
         batch_size: usize,
     ) -> Self::Reader {
         match *schema {
-            ValueSchema::Bool(ref schema) => ValueReader::Bool(<bool as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
+            ValueSchema::Bool(ref schema) => {
+                ValueReader::Bool(<bool as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
             ValueSchema::U8(ref schema) => ValueReader::U8(<u8 as Deserialize>::reader(
                 schema, path, def_level, rep_level, paths, batch_size,
             )),
             ValueSchema::I8(ref schema) => ValueReader::I8(<i8 as Deserialize>::reader(
                 schema, path, def_level, rep_level, paths, batch_size,
             )),
-            ValueSchema::U16(ref schema) => ValueReader::U16(<u16 as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
-            ValueSchema::I16(ref schema) => ValueReader::I16(<i16 as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
-            ValueSchema::U32(ref schema) => ValueReader::U32(<u32 as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
-            ValueSchema::I32(ref schema) => ValueReader::I32(<i32 as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
-            ValueSchema::U64(ref schema) => ValueReader::U64(<u64 as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
-            ValueSchema::I64(ref schema) => ValueReader::I64(<i64 as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
-            ValueSchema::F32(ref schema) => ValueReader::F32(<f32 as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
-            ValueSchema::F64(ref schema) => ValueReader::F64(<f64 as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
-            ValueSchema::Date(ref schema) => ValueReader::Date(<Date as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
-            ValueSchema::Time(ref schema) => ValueReader::Time(<Time as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
+            ValueSchema::U16(ref schema) => {
+                ValueReader::U16(<u16 as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
+            ValueSchema::I16(ref schema) => {
+                ValueReader::I16(<i16 as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
+            ValueSchema::U32(ref schema) => {
+                ValueReader::U32(<u32 as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
+            ValueSchema::I32(ref schema) => {
+                ValueReader::I32(<i32 as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
+            ValueSchema::U64(ref schema) => {
+                ValueReader::U64(<u64 as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
+            ValueSchema::I64(ref schema) => {
+                ValueReader::I64(<i64 as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
+            ValueSchema::F32(ref schema) => {
+                ValueReader::F32(<f32 as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
+            ValueSchema::F64(ref schema) => {
+                ValueReader::F64(<f64 as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
+            ValueSchema::Date(ref schema) => {
+                ValueReader::Date(<Date as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
+            ValueSchema::Time(ref schema) => {
+                ValueReader::Time(<Time as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
             ValueSchema::Timestamp(ref schema) => {
                 ValueReader::Timestamp(<Timestamp as Deserialize>::reader(
                     schema, path, def_level, rep_level, paths, batch_size,
@@ -1713,20 +1776,26 @@ impl Deserialize for Value {
                     schema, path, def_level, rep_level, paths, batch_size,
                 ))
             }
-            ValueSchema::Bson(ref schema) => ValueReader::Bson(<Bson as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
+            ValueSchema::Bson(ref schema) => {
+                ValueReader::Bson(<Bson as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
             ValueSchema::String(ref schema) => {
                 ValueReader::String(<String as Deserialize>::reader(
                     schema, path, def_level, rep_level, paths, batch_size,
                 ))
             }
-            ValueSchema::Json(ref schema) => ValueReader::Json(<Json as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
-            ValueSchema::Enum(ref schema) => ValueReader::Enum(<Enum as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
+            ValueSchema::Json(ref schema) => {
+                ValueReader::Json(<Json as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
+            ValueSchema::Enum(ref schema) => {
+                ValueReader::Enum(<Enum as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
             ValueSchema::List(ref schema) => {
                 ValueReader::List(Box::new(<List<Value> as Deserialize>::reader(
                     schema, path, def_level, rep_level, paths, batch_size,
@@ -1737,9 +1806,11 @@ impl Deserialize for Value {
                     schema, path, def_level, rep_level, paths, batch_size,
                 )))
             }
-            ValueSchema::Group(ref schema) => ValueReader::Group(<Group as Deserialize>::reader(
-                schema, path, def_level, rep_level, paths, batch_size,
-            )),
+            ValueSchema::Group(ref schema) => {
+                ValueReader::Group(<Group as Deserialize>::reader(
+                    schema, path, def_level, rep_level, paths, batch_size,
+                ))
+            }
             ValueSchema::Option(ref schema) => {
                 ValueReader::Option(Box::new(<Option<Value> as Deserialize>::reader(
                     schema, path, def_level, rep_level, paths, batch_size,

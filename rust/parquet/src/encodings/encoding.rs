@@ -1132,8 +1132,16 @@ mod tests {
         run_test::<DoubleType>(-1, &[1f64, 2f64, 3f64, 4f64, 5f64], 40);
         // Int96: len + reference
         run_test::<Int96Type>(-1, &[Int96::new(1, 2, 3), Int96::new(2, 3, 4)], 24);
-        run_test::<ByteArrayType>(-1, &[ByteArray::from("abcd"), ByteArray::from("efj")], 15);
-        run_test::<FixedLenByteArrayType>(2, &[ByteArray::from("ab"), ByteArray::from("bc")], 4);
+        run_test::<ByteArrayType>(
+            -1,
+            &[ByteArray::from("abcd"), ByteArray::from("efj")],
+            15,
+        );
+        run_test::<FixedLenByteArrayType>(
+            2,
+            &[ByteArray::from("ab"), ByteArray::from("bc")],
+            4,
+        );
     }
 
     #[test]

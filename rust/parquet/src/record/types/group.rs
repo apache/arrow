@@ -93,7 +93,8 @@ impl Deserialize for Group {
             .enumerate()
             .map(|(i, field)| {
                 path.push(names_[i].take().unwrap());
-                let ret = Value::reader(field, path, def_level, rep_level, paths, batch_size);
+                let ret =
+                    Value::reader(field, path, def_level, rep_level, paths, batch_size);
                 path.pop().unwrap();
                 ret
             })

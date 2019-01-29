@@ -20,11 +20,14 @@ use std::collections::HashMap;
 use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
-    data_type::{ByteArray, ByteArrayType, Decimal, FixedLenByteArrayType, Int32Type, Int64Type},
+    data_type::{
+        ByteArray, ByteArrayType, Decimal, FixedLenByteArrayType, Int32Type, Int64Type,
+    },
     errors::ParquetError,
     record::{
         reader::{
-            ByteArrayReader, FixedLenByteArrayReader, I32Reader, I64Reader, MapReader, Reader,
+            ByteArrayReader, FixedLenByteArrayReader, I32Reader, I64Reader, MapReader,
+            Reader,
         },
         schemas::DecimalSchema,
         triplet::TypedTripletIter,

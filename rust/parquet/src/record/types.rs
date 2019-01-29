@@ -44,8 +44,8 @@ use crate::{
 };
 
 pub use self::{
-    array::*, boxed::*, decimal::*, group::*, list::*, map::*, numbers::*, option::*, time::*,
-    tuple::*, value::*, value_required::*,
+    array::*, boxed::*, decimal::*, group::*, list::*, map::*, numbers::*, option::*,
+    time::*, tuple::*, value::*, value_required::*,
 };
 
 /// Due to downcasting from Value -> Option<T>

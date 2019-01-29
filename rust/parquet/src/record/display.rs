@@ -131,7 +131,12 @@ impl<'a, 'b: 'a> DisplaySchemaGroup<'a, 'b> {
             let mut writer = PadAdapter::new(&mut self.fmt);
             writer.write_fmt(format_args!(
                 "\n{}",
-                DisplayFmt::new(|fmt| Schema::fmt(value, Some(Repetition::REQUIRED), name, fmt))
+                DisplayFmt::new(|fmt| Schema::fmt(
+                    value,
+                    Some(Repetition::REQUIRED),
+                    name,
+                    fmt
+                ))
             ))
         });
 

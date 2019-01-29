@@ -55,7 +55,8 @@ where
         paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
-        let schema = unsafe { known_type::<&Self::Schema, &BoxSchema<T::Schema>>(schema) };
+        let schema =
+            unsafe { known_type::<&Self::Schema, &BoxSchema<T::Schema>>(schema) };
         let ret = BoxReader(T::reader(
             &schema.0, path, def_level, rep_level, paths, batch_size,
         ));

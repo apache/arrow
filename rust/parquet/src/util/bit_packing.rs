@@ -30,7 +30,11 @@ use std::ptr::read_unaligned;
 //    https://github.com/tantivy-search/bitpacking
 // but the layout it uses for SIMD is different from Parquet.
 // TODO: support packing as well, which is used for encoding.
-pub unsafe fn unpack32(in_ptr: *const u8, out_ptr: *mut u32, num_bits: usize) -> *const u8 {
+pub unsafe fn unpack32(
+    in_ptr: *const u8,
+    out_ptr: *mut u32,
+    num_bits: usize,
+) -> *const u8 {
     #[allow(clippy::cast_ptr_alignment)]
     let in_ptr = in_ptr as *const u32;
     (match num_bits {

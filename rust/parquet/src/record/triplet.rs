@@ -38,7 +38,11 @@ pub struct TripletIter {
 
 impl TripletIter {
     /// Creates new triplet for column reader
-    pub fn new(descr: ColumnDescPtr, reader: ColumnReader, batch_size: usize) -> Result<Self> {
+    pub fn new(
+        descr: ColumnDescPtr,
+        reader: ColumnReader,
+        batch_size: usize,
+    ) -> Result<Self> {
         let schema = descr.self_type();
         let schema = Value::parse(&schema, Some(Repetition::REQUIRED))?.1;
         let (def_level, rep_level) = (descr.max_def_level(), descr.max_rep_level());
@@ -135,7 +139,12 @@ pub struct TypedTripletIter<T: DataType> {
 impl<T: DataType> TypedTripletIter<T> {
     /// Creates new typed triplet iterator based on provided column reader.
     /// Use batch size to specify the amount of values to buffer from column reader.
-    pub fn new(def_level: i16, rep_level: i16, reader: ColumnReader, batch_size: usize) -> Self {
+    pub fn new(
+        def_level: i16,
+        rep_level: i16,
+        reader: ColumnReader,
+        batch_size: usize,
+    ) -> Self {
         assert_ne!(batch_size, 0, "Expected positive batch size");
 
         let def_levels = if def_level == 0 {
@@ -173,7 +182,8 @@ impl<T: DataType> TypedTripletIter<T> {
             self.def_level,
             self.current_def_level()
         );
-        let ret = mem::replace(&mut self.values[self.curr_triplet_index], T::T::default());
+        let ret =
+            mem::replace(&mut self.values[self.curr_triplet_index], T::T::default());
         self.advance_columns().map(|()| ret)
     }
 

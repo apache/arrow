@@ -113,7 +113,8 @@ fn test_file_reader_rows_nonnullable_derived() {
         f: String,
     }
 
-    let rows = test_file_reader_rows::<RowDerived>("nonnullable.impala.parquet", None).unwrap();
+    let rows =
+        test_file_reader_rows::<RowDerived>("nonnullable.impala.parquet", None).unwrap();
 
     let expected_rows: Vec<RowDerived> = vec![RowDerived {
         id: 8,
@@ -145,7 +146,8 @@ fn test_file_reader_rows_projection_derived() {
         b: i32,
     }
 
-    let rows = test_file_reader_rows::<SparkSchema>("nested_maps.snappy.parquet", None).unwrap();
+    let rows =
+        test_file_reader_rows::<SparkSchema>("nested_maps.snappy.parquet", None).unwrap();
 
     let expected_rows = vec![
         SparkSchema { c: 1.0, b: 1 },
@@ -166,7 +168,8 @@ fn test_file_reader_rows_projection_map_derived() {
         a: Option<Map<String, Option<Map<i32, bool>>>>,
     }
 
-    let rows = test_file_reader_rows::<SparkSchema>("nested_maps.snappy.parquet", None).unwrap();
+    let rows =
+        test_file_reader_rows::<SparkSchema>("nested_maps.snappy.parquet", None).unwrap();
 
     let expected_rows = vec![
         SparkSchema {
@@ -202,7 +205,8 @@ fn test_file_reader_rows_projection_list_derived() {
         a: Option<List<Option<List<Option<List<Option<String>>>>>>>,
     }
 
-    let rows = test_file_reader_rows::<SparkSchema>("nested_lists.snappy.parquet", None).unwrap();
+    let rows = test_file_reader_rows::<SparkSchema>("nested_lists.snappy.parquet", None)
+        .unwrap();
 
     let expected_rows = vec![
         SparkSchema {
@@ -291,7 +295,10 @@ fn test_row_group_rows_invalid_projection_derived() {
 //     test_file_reader_rows::<Row>("nested_maps.snappy.parquet", Some(schema)).unwrap();
 // }
 
-fn test_file_reader_rows<T>(file_name: &str, schema: Option<Type>) -> Result<Vec<T>, ParquetError>
+fn test_file_reader_rows<T>(
+    file_name: &str,
+    schema: Option<Type>,
+) -> Result<Vec<T>, ParquetError>
 where
     T: Deserialize,
 {
@@ -301,7 +308,10 @@ where
     Ok(iter.collect())
 }
 
-fn test_row_group_rows<T>(file_name: &str, schema: Option<Type>) -> Result<Vec<T>, ParquetError>
+fn test_row_group_rows<T>(
+    file_name: &str,
+    schema: Option<Type>,
+) -> Result<Vec<T>, ParquetError>
 where
     T: Deserialize,
 {

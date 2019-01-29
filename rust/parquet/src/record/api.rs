@@ -763,8 +763,8 @@ mod tests {
     //   let row = Field::convert_int32(&descr, 14611);
     //   assert_eq!(row, Field::Date(14611));
 
-    //   let descr = make_column_descr![PhysicalType::INT32, LogicalType::DECIMAL, 0, 8, 2];
-    //   let row = Field::convert_int32(&descr, 444);
+    //   let descr = make_column_descr![PhysicalType::INT32, LogicalType::DECIMAL, 0, 8,
+    // 2];   let row = Field::convert_int32(&descr, 444);
     //   assert_eq!(row, Field::Decimal(Decimal::from_i32(444, 8, 2)));
     // }
 
@@ -778,16 +778,16 @@ mod tests {
     //   let row = Field::convert_int64(&descr, 78239823);
     //   assert_eq!(row, Field::ULong(78239823));
 
-    //   let descr = make_column_descr![PhysicalType::INT64, LogicalType::TIMESTAMP_MILLIS];
-    //   let row = Field::convert_int64(&descr, 1541186529153);
-    //   assert_eq!(row, Field::Timestamp(1541186529153));
+    //   let descr = make_column_descr![PhysicalType::INT64,
+    // LogicalType::TIMESTAMP_MILLIS];   let row = Field::convert_int64(&descr,
+    // 1541186529153);   assert_eq!(row, Field::Timestamp(1541186529153));
 
     //   let descr = make_column_descr![PhysicalType::INT64, LogicalType::NONE];
     //   let row = Field::convert_int64(&descr, 2222);
     //   assert_eq!(row, Field::Long(2222));
 
-    //   let descr = make_column_descr![PhysicalType::INT64, LogicalType::DECIMAL, 0, 8, 2];
-    //   let row = Field::convert_int64(&descr, 3333);
+    //   let descr = make_column_descr![PhysicalType::INT64, LogicalType::DECIMAL, 0, 8,
+    // 2];   let row = Field::convert_int64(&descr, 3333);
     //   assert_eq!(row, Field::Decimal(Decimal::from_i64(3333, 8, 2)));
     // }
 

@@ -473,10 +473,10 @@ impl Schema for DecimalSchema {
         name: Option<&str>,
         f: &mut fmt::Formatter,
     ) -> Result<(), fmt::Error> {
-        // For decimal type we should print precision and scale if they are > 0, e.g. DECIMAL(9, 2) - DECIMAL(9) - DECIMAL
-        // let precision_scale = match (precision, scale) {
-        //     (p, s) if p > 0 && s > 0 => format!(" ({}, {})", p, s),
-        //     (p, 0) if p > 0 => format!(" ({})", p),
+        // For decimal type we should print precision and scale if they are > 0, e.g.
+        // DECIMAL(9, 2) - DECIMAL(9) - DECIMAL let precision_scale = match
+        // (precision, scale) {     (p, s) if p > 0 && s > 0 => format!(" ({},
+        // {})", p, s),     (p, 0) if p > 0 => format!(" ({})", p),
         //     _ => format!(""),
         // };
         match self_ {
@@ -607,9 +607,10 @@ where
         match self_ {
             self_ @ Some(ListSchema(_, ListSchemaType::List(_, _))) | self_ @ None => {
                 let (self_, list_name, element_name) = match self_ {
-                    Some(ListSchema(self_, ListSchemaType::List(list_name, element_name))) => {
-                        (Some(self_), list_name.clone(), element_name.clone())
-                    }
+                    Some(ListSchema(
+                        self_,
+                        ListSchemaType::List(list_name, element_name),
+                    )) => (Some(self_), list_name.clone(), element_name.clone()),
                     None => (None, None, None),
                     _ => unreachable!(),
                 };
@@ -625,13 +626,18 @@ where
                         f: &mut fmt::Formatter,
                     ) -> Result<(), fmt::Error> {
                         let self_ = self_.unwrap();
-                        let mut printer =
-                            DisplaySchemaGroup::new(Some(Repetition::REPEATED), name, None, f);
+                        let mut printer = DisplaySchemaGroup::new(
+                            Some(Repetition::REPEATED),
+                            name,
+                            None,
+                            f,
+                        );
                         printer.field(Some(&self_.1), self_.0);
                         printer.finish()
                     }
                 }
-                let mut printer = DisplaySchemaGroup::new(r, name, Some(LogicalType::MAP), f);
+                let mut printer =
+                    DisplaySchemaGroup::new(r, name, Some(LogicalType::MAP), f);
                 printer.field(
                     Some(&list_name.clone().unwrap_or_else(|| String::from("list"))),
                     Some(&List(
@@ -644,7 +650,8 @@ where
                 printer.finish()
             }
             Some(ListSchema(self_, ListSchemaType::ListCompat(element_name))) => {
-                let mut printer = DisplaySchemaGroup::new(r, name, Some(LogicalType::MAP), f);
+                let mut printer =
+                    DisplaySchemaGroup::new(r, name, Some(LogicalType::MAP), f);
                 printer.field(Some(&element_name.clone()), Some(self_));
                 printer.finish()
             }

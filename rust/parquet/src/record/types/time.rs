@@ -129,21 +129,30 @@ impl Timestamp {
         let day = self.0.data()[2] as i64;
         let nanoseconds = ((self.0.data()[1] as i64) << 32) + self.0.data()[0] as i64;
         let seconds = (day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY;
-        Some(seconds * MILLIS_PER_SECOND + nanoseconds / NANOS_PER_MICRO / MICROS_PER_MILLI)
+        Some(
+            seconds * MILLIS_PER_SECOND
+                + nanoseconds / NANOS_PER_MICRO / MICROS_PER_MILLI,
+        )
     }
 
     pub fn as_micros(&self) -> Option<i64> {
         let day = self.0.data()[2] as i64;
         let nanoseconds = ((self.0.data()[1] as i64) << 32) + self.0.data()[0] as i64;
         let seconds = (day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY;
-        Some(seconds * MILLIS_PER_SECOND * MICROS_PER_MILLI + nanoseconds / NANOS_PER_MICRO)
+        Some(
+            seconds * MILLIS_PER_SECOND * MICROS_PER_MILLI
+                + nanoseconds / NANOS_PER_MICRO,
+        )
     }
 
     pub fn as_nanos(&self) -> Option<i64> {
         let day = self.0.data()[2] as i64;
         let nanoseconds = ((self.0.data()[1] as i64) << 32) + self.0.data()[0] as i64;
         let seconds = (day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY;
-        Some(seconds * MILLIS_PER_SECOND * MICROS_PER_MILLI * NANOS_PER_MICRO + nanoseconds)
+        Some(
+            seconds * MILLIS_PER_SECOND * MICROS_PER_MILLI * NANOS_PER_MICRO
+                + nanoseconds,
+        )
     }
 }
 
@@ -184,11 +193,14 @@ impl Deserialize for Timestamp {
                     ),
                 },
                 |millis| {
-                    let day: i64 = ((JULIAN_DAY_OF_EPOCH * SECONDS_PER_DAY * MILLIS_PER_SECOND)
-                        + millis)
-                        / (SECONDS_PER_DAY * MILLIS_PER_SECOND);
+                    let day: i64 =
+                        ((JULIAN_DAY_OF_EPOCH * SECONDS_PER_DAY * MILLIS_PER_SECOND)
+                            + millis)
+                            / (SECONDS_PER_DAY * MILLIS_PER_SECOND);
                     let nanoseconds: i64 = (millis
-                        - ((day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY * MILLIS_PER_SECOND))
+                        - ((day - JULIAN_DAY_OF_EPOCH)
+                            * SECONDS_PER_DAY
+                            * MILLIS_PER_SECOND))
                         * MICROS_PER_MILLI
                         * NANOS_PER_MICRO;
 

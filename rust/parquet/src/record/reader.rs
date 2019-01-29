@@ -18,24 +18,29 @@
 //! Contains implementation of record assembly and converting Parquet types into
 //! [`Row`](crate::record::api::Row)s.
 
-use std::{collections::HashMap, convert::TryInto, error::Error, marker::PhantomData, rc::Rc};
+use std::{
+    collections::HashMap, convert::TryInto, error::Error, marker::PhantomData, rc::Rc,
+};
 
 use super::{
     display::DisplayFmt,
     triplet::TypedTripletIter,
     types::{
-        Bson, Date, Enum, Group, Json, List, Map, Root, Time, Timestamp, Value, ValueRequired,
+        Bson, Date, Enum, Group, Json, List, Map, Root, Time, Timestamp, Value,
+        ValueRequired,
     },
     Deserialize, Schema,
 };
 use crate::column::reader::ColumnReader;
 use crate::data_type::{
-    BoolType, ByteArrayType, Decimal, DoubleType, FixedLenByteArrayType, FloatType, Int32Type,
-    Int64Type, Int96, Int96Type,
+    BoolType, ByteArrayType, Decimal, DoubleType, FixedLenByteArrayType, FloatType,
+    Int32Type, Int64Type, Int96, Int96Type,
 };
 use crate::errors::{ParquetError, Result};
 use crate::file::reader::{FileReader, RowGroupReader};
-use crate::schema::types::{ColumnDescPtr, ColumnPath, SchemaDescPtr, SchemaDescriptor, Type};
+use crate::schema::types::{
+    ColumnDescPtr, ColumnPath, SchemaDescPtr, SchemaDescriptor, Type,
+};
 
 /// Default batch size for a reader
 const DEFAULT_BATCH_SIZE: usize = 1024;
@@ -401,9 +406,9 @@ impl<R: Reader> Reader for RepeatedReader<R> {
                 elements.push(self.reader.read(def_level + 1, rep_level + 1)?);
             } else {
                 self.reader.advance_columns()?;
-                // If the current definition level is equal to the definition level of this
-                // repeated type, then the result is an empty list and the repetition level
-                // will always be <= rl.
+                // If the current definition level is equal to the definition level of
+                // this repeated type, then the result is an empty list
+                // and the repetition level will always be <= rl.
                 break;
             }
 
@@ -451,15 +456,17 @@ impl<K: Reader, V: Reader> Reader for KeyValueReader<K, V> {
             } else {
                 self.keys_reader.advance_columns()?;
                 self.values_reader.advance_columns()?;
-                // If the current definition level is equal to the definition level of this
-                // repeated type, then the result is an empty list and the repetition level
-                // will always be <= rl.
+                // If the current definition level is equal to the definition level of
+                // this repeated type, then the result is an empty list
+                // and the repetition level will always be <= rl.
                 break;
             }
 
             // This covers case when we are out of repetition levels and should close the
             // group, or there are no values left to buffer.
-            if !self.keys_reader.has_next() || self.keys_reader.current_rep_level() <= rep_level {
+            if !self.keys_reader.has_next()
+                || self.keys_reader.current_rep_level() <= rep_level
+            {
                 break;
             }
         }
@@ -560,19 +567,45 @@ impl Reader for ValueReader {
 
     fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         match self {
-            ValueReader::Bool(ref mut reader) => reader.read(def_level, rep_level).map(Value::Bool),
-            ValueReader::U8(ref mut reader) => reader.read(def_level, rep_level).map(Value::U8),
-            ValueReader::I8(ref mut reader) => reader.read(def_level, rep_level).map(Value::I8),
-            ValueReader::U16(ref mut reader) => reader.read(def_level, rep_level).map(Value::U16),
-            ValueReader::I16(ref mut reader) => reader.read(def_level, rep_level).map(Value::I16),
-            ValueReader::U32(ref mut reader) => reader.read(def_level, rep_level).map(Value::U32),
-            ValueReader::I32(ref mut reader) => reader.read(def_level, rep_level).map(Value::I32),
-            ValueReader::U64(ref mut reader) => reader.read(def_level, rep_level).map(Value::U64),
-            ValueReader::I64(ref mut reader) => reader.read(def_level, rep_level).map(Value::I64),
-            ValueReader::F32(ref mut reader) => reader.read(def_level, rep_level).map(Value::F32),
-            ValueReader::F64(ref mut reader) => reader.read(def_level, rep_level).map(Value::F64),
-            ValueReader::Date(ref mut reader) => reader.read(def_level, rep_level).map(Value::Date),
-            ValueReader::Time(ref mut reader) => reader.read(def_level, rep_level).map(Value::Time),
+            ValueReader::Bool(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::Bool)
+            }
+            ValueReader::U8(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::U8)
+            }
+            ValueReader::I8(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::I8)
+            }
+            ValueReader::U16(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::U16)
+            }
+            ValueReader::I16(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::I16)
+            }
+            ValueReader::U32(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::U32)
+            }
+            ValueReader::I32(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::I32)
+            }
+            ValueReader::U64(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::U64)
+            }
+            ValueReader::I64(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::I64)
+            }
+            ValueReader::F32(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::F32)
+            }
+            ValueReader::F64(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::F64)
+            }
+            ValueReader::Date(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::Date)
+            }
+            ValueReader::Time(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::Time)
+            }
             ValueReader::Timestamp(ref mut reader) => {
                 reader.read(def_level, rep_level).map(Value::Timestamp)
             }
@@ -582,20 +615,32 @@ impl Reader for ValueReader {
             ValueReader::ByteArray(ref mut reader) => {
                 reader.read(def_level, rep_level).map(Value::ByteArray)
             }
-            ValueReader::Bson(ref mut reader) => reader.read(def_level, rep_level).map(Value::Bson),
+            ValueReader::Bson(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::Bson)
+            }
             ValueReader::String(ref mut reader) => {
                 reader.read(def_level, rep_level).map(Value::String)
             }
-            ValueReader::Json(ref mut reader) => reader.read(def_level, rep_level).map(Value::Json),
-            ValueReader::Enum(ref mut reader) => reader.read(def_level, rep_level).map(Value::Enum),
-            ValueReader::List(ref mut reader) => reader.read(def_level, rep_level).map(Value::List),
-            ValueReader::Map(ref mut reader) => reader.read(def_level, rep_level).map(Value::Map),
+            ValueReader::Json(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::Json)
+            }
+            ValueReader::Enum(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::Enum)
+            }
+            ValueReader::List(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::List)
+            }
+            ValueReader::Map(ref mut reader) => {
+                reader.read(def_level, rep_level).map(Value::Map)
+            }
             ValueReader::Group(ref mut reader) => {
                 reader.read(def_level, rep_level).map(Value::Group)
             }
-            ValueReader::Option(ref mut reader) => reader
-                .read(def_level, rep_level)
-                .map(|x| Value::Option(x.map(|x| <Option<ValueRequired>>::from(x).unwrap()))),
+            ValueReader::Option(ref mut reader) => {
+                reader.read(def_level, rep_level).map(|x| {
+                    Value::Option(x.map(|x| <Option<ValueRequired>>::from(x).unwrap()))
+                })
+            }
         }
     }
 
@@ -902,8 +947,10 @@ where
 
     /// Creates row iterator for all row groups in a file.
     pub fn from_file(proj: Option<Type>, reader: &'a R) -> Result<Self> {
-        let descr =
-            Self::get_proj_descr(proj, reader.metadata().file_metadata().schema_descr_ptr())?;
+        let descr = Self::get_proj_descr(
+            proj,
+            reader.metadata().file_metadata().schema_descr_ptr(),
+        )?;
 
         let file_schema = reader.metadata().file_metadata().schema_descr_ptr();
         let file_schema = file_schema.root_schema();
@@ -917,7 +964,8 @@ where
         proj: Option<Type>,
         row_group_reader: &'a RowGroupReader,
     ) -> Result<Self> {
-        let descr = Self::get_proj_descr(proj, row_group_reader.metadata().schema_descr_ptr())?;
+        let descr =
+            Self::get_proj_descr(proj, row_group_reader.metadata().schema_descr_ptr())?;
 
         let file_schema = row_group_reader.metadata().schema_descr_ptr();
         let file_schema = file_schema.root_schema();
@@ -940,8 +988,10 @@ where
 
         // Build reader for the message type, requires definition level 0
         let mut path = Vec::new();
-        let reader = <Root<T>>::reader(&schema, &mut path, 0, 0, &mut paths, DEFAULT_BATCH_SIZE);
-        let row_iter = ReaderIter::new(reader, row_group_reader.metadata().num_rows() as u64);
+        let reader =
+            <Root<T>>::reader(&schema, &mut path, 0, 0, &mut paths, DEFAULT_BATCH_SIZE);
+        let row_iter =
+            ReaderIter::new(reader, row_group_reader.metadata().num_rows() as u64);
 
         // For row group we need to set `current_row_group` >= `num_row_groups`, because
         // we only have one row group and can't buffer more.
@@ -1276,7 +1326,8 @@ mod tests {
     fn test_file_reader_rows_nulls_typed() {
         type RowTyped = (Option<(Option<i32>,)>,);
 
-        let rows = test_file_reader_rows::<RowTyped>("nulls.snappy.parquet", None).unwrap();
+        let rows =
+            test_file_reader_rows::<RowTyped>("nulls.snappy.parquet", None).unwrap();
 
         let expected_rows: Vec<RowTyped> = vec![
             (Some((None,)),),
@@ -1294,7 +1345,8 @@ mod tests {
 
     #[test]
     fn test_file_reader_rows_nonnullable() {
-        let rows = test_file_reader_rows::<Row>("nonnullable.impala.parquet", None).unwrap();
+        let rows =
+            test_file_reader_rows::<Row>("nonnullable.impala.parquet", None).unwrap();
 
         let expected_rows = vec![row![
             ("ID".to_string(), Value::I64(8)),
@@ -1327,7 +1379,10 @@ mod tests {
                             "D".to_string(),
                             listv![listv![groupv![
                                 ("e".to_string(), Value::I32(-1)),
-                                ("f".to_string(), Value::String("nonnullable".to_string()))
+                                (
+                                    "f".to_string(),
+                                    Value::String("nonnullable".to_string())
+                                )
                             ]]]
                         )]
                     ),
@@ -1355,7 +1410,8 @@ mod tests {
             ),
         );
 
-        let rows = test_file_reader_rows::<RowTyped>("nonnullable.impala.parquet", None).unwrap();
+        let rows = test_file_reader_rows::<RowTyped>("nonnullable.impala.parquet", None)
+            .unwrap();
 
         let expected_rows: Vec<RowTyped> = vec![(
             8,
@@ -1438,7 +1494,10 @@ mod tests {
                                     ]],
                                     somev![listv![somev![groupv![
                                         ("E".to_string(), somev![Value::I32(11)]),
-                                        ("F".to_string(), somev![Value::String("c".to_string())])
+                                        (
+                                            "F".to_string(),
+                                            somev![Value::String("c".to_string())]
+                                        )
                                     ]]]]
                                 ]]
                             )]]
@@ -1570,7 +1629,10 @@ mod tests {
                                         "H".to_string(),
                                         somev![groupv![(
                                             "i".to_string(),
-                                            somev![listv![somev![Value::F64(2.2)], nonev![]]]
+                                            somev![listv![
+                                                somev![Value::F64(2.2)],
+                                                nonev![]
+                                            ]]
                                         )]]
                                     )]]
                                 ),
@@ -1578,7 +1640,10 @@ mod tests {
                                     Value::String("g2".to_string()),
                                     somev![groupv![(
                                         "H".to_string(),
-                                        somev![groupv![("i".to_string(), somev![listv![]])]]
+                                        somev![groupv![(
+                                            "i".to_string(),
+                                            somev![listv![]]
+                                        )]]
                                     )]]
                                 ),
                                 (Value::String("g3".to_string()), nonev![]),
@@ -1739,12 +1804,15 @@ mod tests {
             Option<(
                 Option<i32>,
                 Option<List<Option<i32>>>,
-                Option<(Option<List<Option<List<Option<(Option<i32>, Option<String>)>>>>>,)>,
+                Option<(
+                    Option<List<Option<List<Option<(Option<i32>, Option<String>)>>>>>,
+                )>,
                 Option<Map<String, Option<(Option<(Option<List<Option<f64>>>,)>,)>>>,
             )>,
         );
 
-        let rows = test_file_reader_rows::<RowTyped>("nullable.impala.parquet", None).unwrap();
+        let rows =
+            test_file_reader_rows::<RowTyped>("nullable.impala.parquet", None).unwrap();
 
         let expected_rows: Vec<RowTyped> = vec![
             (
@@ -2038,8 +2106,8 @@ mod tests {
     //     }
     //   ";
     //   let schema = parse_message_type(&schema).unwrap();
-    //   let res = test_file_reader_rows::<Row>("nested_maps.snappy.parquet", Some(schema));
-    //   assert!(res.is_err());
+    //   let res = test_file_reader_rows::<Row>("nested_maps.snappy.parquet",
+    // Some(schema));   assert!(res.is_err());
     //   assert_eq!(
     //     res.unwrap_err(),
     //     general_err!("Root schema does not contain projection")
@@ -2081,8 +2149,8 @@ mod tests {
     //     }
     //   ";
     //   let schema = parse_message_type(&schema).unwrap();
-    //   test_file_reader_rows::<Row>("nested_maps.snappy.parquet", Some(schema)).unwrap();
-    // }
+    //   test_file_reader_rows::<Row>("nested_maps.snappy.parquet",
+    // Some(schema)).unwrap(); }
 
     #[test]
     fn test_file_reader_iter() -> Result<()> {
@@ -2146,10 +2214,13 @@ mod tests {
 
         // Array field `phoneNumbers` does not contain LIST annotation.
         // We parse it as struct with `phone` repeated field as array.
-        let rows = test_file_reader_rows::<Row>("repeated_no_annotation.parquet", None).unwrap();
-        let rows_typed =
-            test_file_reader_rows::<RepeatedNoAnnotation>("repeated_no_annotation.parquet", None)
-                .unwrap();
+        let rows =
+            test_file_reader_rows::<Row>("repeated_no_annotation.parquet", None).unwrap();
+        let rows_typed = test_file_reader_rows::<RepeatedNoAnnotation>(
+            "repeated_no_annotation.parquet",
+            None,
+        )
+        .unwrap();
 
         let expected_rows = vec![
             row![
@@ -2247,7 +2318,8 @@ mod tests {
     {
         let file = get_test_file(file_name);
         let file_reader: SerializedFileReader<_> = SerializedFileReader::new(file)?;
-        // Check the first row group only, because files will contain only single row group
+        // Check the first row group only, because files will contain only single row
+        // group
         let row_group_reader = file_reader.get_row_group(0).unwrap();
         // let iter = row_group_reader.get_row_iter(schema)?;
         let iter = RowIter::<SerializedFileReader<std::fs::File>, _>::from_row_group(

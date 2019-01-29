@@ -67,7 +67,8 @@ pub(super) fn parse_list<T: Deserialize>(
                     };
 
                     ListSchema(
-                        T::parse(&*element, Some(element.get_basic_info().repetition()))?.1,
+                        T::parse(&*element, Some(element.get_basic_info().repetition()))?
+                            .1,
                         ListSchemaType::List(list_name, element_name),
                     )
                 } else {
@@ -100,11 +101,13 @@ where
         repetition: Option<Repetition>,
     ) -> Result<(String, Self::Schema), ParquetError> {
         if repetition == Some(Repetition::REQUIRED) {
-            return parse_list::<T>(schema).map(|schema2| (schema.name().to_owned(), schema2));
+            return parse_list::<T>(schema)
+                .map(|schema2| (schema.name().to_owned(), schema2));
         }
-        // A repeated field that is neither contained by a `LIST`- or `MAP`-annotated group
-        // nor annotated by `LIST` or `MAP` should be interpreted as a required list of
-        // required elements where the element type is the type of the field.
+        // A repeated field that is neither contained by a `LIST`- or `MAP`-annotated
+        // group nor annotated by `LIST` or `MAP` should be interpreted as a
+        // required list of required elements where the element type is the type
+        // of the field.
         if repetition == Some(Repetition::REPEATED) {
             return Ok((
                 schema.name().to_owned(),
@@ -131,7 +134,8 @@ where
             match schema.1 {
                 ListSchemaType::List(ref list_name, ref element_name) => {
                     let list_name = list_name.as_ref().map(|x| &**x).unwrap_or("list");
-                    let element_name = element_name.as_ref().map(|x| &**x).unwrap_or("element");
+                    let element_name =
+                        element_name.as_ref().map(|x| &**x).unwrap_or("element");
 
                     path.push(list_name.to_owned());
                     path.push(element_name.to_owned());

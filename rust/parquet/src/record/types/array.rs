@@ -30,7 +30,8 @@ use crate::{
     record::{
         reader::{ByteArrayReader, FixedLenByteArrayReader, MapReader, Reader},
         schemas::{
-            BsonSchema, ByteArraySchema, EnumSchema, FixedByteArraySchema, JsonSchema, StringSchema,
+            BsonSchema, ByteArraySchema, EnumSchema, FixedByteArraySchema, JsonSchema,
+            StringSchema,
         },
         triplet::TypedTripletIter,
         types::{downcast, Value},
@@ -237,7 +238,10 @@ macro_rules! impl_parquet_deserialize_array {
                     && schema.get_basic_info().logical_type() == LogicalType::NONE
                     && schema.get_type_length() == $i
                 {
-                    return Ok((schema.name().to_owned(), FixedByteArraySchema(PhantomData)));
+                    return Ok((
+                        schema.name().to_owned(),
+                        FixedByteArraySchema(PhantomData),
+                    ));
                 }
                 Err(ParquetError::General(format!(
                     "Can't parse array {:?}",

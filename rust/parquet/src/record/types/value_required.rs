@@ -29,14 +29,15 @@ use crate::{
     record::{
         reader::ValueReader,
         schemas::{
-            BoolSchema, BsonSchema, ByteArraySchema, DateSchema, DecimalSchema, EnumSchema,
-            F32Schema, F64Schema, GroupSchema, I16Schema, I32Schema, I64Schema, I8Schema,
-            JsonSchema, ListSchema, ListSchemaType, OptionSchema, StringSchema, TimeSchema,
-            TimestampSchema, U16Schema, U32Schema, U64Schema, U8Schema, ValueSchema,
+            BoolSchema, BsonSchema, ByteArraySchema, DateSchema, DecimalSchema,
+            EnumSchema, F32Schema, F64Schema, GroupSchema, I16Schema, I32Schema,
+            I64Schema, I8Schema, JsonSchema, ListSchema, ListSchemaType, OptionSchema,
+            StringSchema, TimeSchema, TimestampSchema, U16Schema, U32Schema, U64Schema,
+            U8Schema, ValueSchema,
         },
         types::{
-            list::parse_list, map::parse_map, Bson, Date, Downcast, Enum, Group, Json, List, Map,
-            Time, Timestamp, Value,
+            list::parse_list, map::parse_map, Bson, Date, Downcast, Enum, Group, Json,
+            List, Map, Time, Timestamp, Value,
         },
         Deserialize,
     },

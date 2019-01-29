@@ -28,8 +28,8 @@ use crate::{
             TryIntoReader,
         },
         schemas::{
-            BoolSchema, F32Schema, F64Schema, I16Schema, I32Schema, I64Schema, I8Schema, U16Schema,
-            U32Schema, U64Schema, U8Schema,
+            BoolSchema, F32Schema, F64Schema, I16Schema, I32Schema, I64Schema, I8Schema,
+            U16Schema, U32Schema, U64Schema, U8Schema,
         },
         triplet::TypedTripletIter,
         types::{downcast, Value},
@@ -60,7 +60,9 @@ impl Deserialize for bool {
         let col_path = ColumnPath::new(path.to_vec());
         let col_reader = paths.remove(&col_path).unwrap();
         BoolReader {
-            column: TypedTripletIter::<BoolType>::new(def_level, rep_level, col_reader, batch_size),
+            column: TypedTripletIter::<BoolType>::new(
+                def_level, rep_level, col_reader, batch_size,
+            ),
         }
     }
 }
