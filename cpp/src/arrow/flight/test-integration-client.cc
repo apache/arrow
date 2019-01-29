@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Client implementation for Flight integration testing. Requests the
-// given path from the Flight server, which reads that file and sends
-// it as a stream to the client. The client then serializes the result
-// back to JSON and writes it to the given output file path. The
-// integration test script then uses the existing integration test
-// tools to compare the output JSON with the original JSON.
+// Client implementation for Flight integration testing. Requests the given
+// path from the Flight server, which reads that file and sends it as a stream
+// to the client. The client writes the server stream to the IPC file format at
+// the given output file path. The integration test script then uses the
+// existing integration test tools to compare the output binary with the
+// original JSON
 
 #include <iostream>
 #include <memory>
