@@ -754,8 +754,8 @@ if (ARROW_IPC)
 
     ExternalProject_Add(flatbuffers_ep
       URL ${FLATBUFFERS_SOURCE_URL}
-      CMAKE_ARGS ${FLATBUFFERS_CMAKE_ARGS})
-      #${EP_LOG_OPTIONS})
+      CMAKE_ARGS ${FLATBUFFERS_CMAKE_ARGS}
+      ${EP_LOG_OPTIONS})
 
     set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
     set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
@@ -1097,7 +1097,7 @@ if (ARROW_WITH_ZSTD)
     set(ZSTD_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zstd_ep-install")
     set(ZSTD_INCLUDE_DIR "${ZSTD_PREFIX}/include")
 
-    set(ZSTD_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
+    set(ZSTD_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                         -DCMAKE_INSTALL_PREFIX=${ZSTD_PREFIX}
                         -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}
                         -DZSTD_BUILD_PROGRAMS=off
@@ -1115,8 +1115,10 @@ if (ARROW_WITH_ZSTD)
       # Only pass our C flags on Unix as on MSVC it leads to a
       # "incompatible command-line options" error
       set(ZSTD_CMAKE_ARGS ${ZSTD_CMAKE_ARGS}
-          "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
-          "-DCMAKE_C_FLAGS=${EP_C_FLAGS}")
+                          -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                          -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+                          -DCMAKE_C_FLAGS=${EP_C_FLAGS}
+                          -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS})
     endif()
 
     if(CMAKE_VERSION VERSION_LESS 3.7)
