@@ -23,13 +23,12 @@ use std::{
 };
 
 use super::{
-    display::DisplayFmt,
     triplet::TypedTripletIter,
     types::{
         Bson, Date, Enum, Group, Json, List, Map, Root, Time, Timestamp, Value,
         ValueRequired,
     },
-    Deserialize, Schema,
+    Deserialize,
 };
 use crate::column::reader::ColumnReader;
 use crate::data_type::{
@@ -38,9 +37,7 @@ use crate::data_type::{
 };
 use crate::errors::{ParquetError, Result};
 use crate::file::reader::{FileReader, RowGroupReader};
-use crate::schema::types::{
-    ColumnDescPtr, ColumnPath, SchemaDescPtr, SchemaDescriptor, Type,
-};
+use crate::schema::types::{ColumnPath, SchemaDescPtr, SchemaDescriptor, Type};
 
 /// Default batch size for a reader
 const DEFAULT_BATCH_SIZE: usize = 1024;
@@ -152,7 +149,7 @@ pub struct BoolReader {
 impl Reader for BoolReader {
     type Item = bool;
 
-    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+    fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
@@ -179,7 +176,7 @@ pub struct I32Reader {
 impl Reader for I32Reader {
     type Item = i32;
 
-    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+    fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
@@ -206,7 +203,7 @@ pub struct I64Reader {
 impl Reader for I64Reader {
     type Item = i64;
 
-    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+    fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
@@ -233,7 +230,7 @@ pub struct I96Reader {
 impl Reader for I96Reader {
     type Item = Int96;
 
-    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+    fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
@@ -260,7 +257,7 @@ pub struct F32Reader {
 impl Reader for F32Reader {
     type Item = f32;
 
-    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+    fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
@@ -287,7 +284,7 @@ pub struct F64Reader {
 impl Reader for F64Reader {
     type Item = f64;
 
-    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+    fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
@@ -314,7 +311,7 @@ pub struct ByteArrayReader {
 impl Reader for ByteArrayReader {
     type Item = Vec<u8>;
 
-    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+    fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read().map(|data| data.data().to_owned())
     }
 
@@ -341,7 +338,7 @@ pub struct FixedLenByteArrayReader {
 impl Reader for FixedLenByteArrayReader {
     type Item = Vec<u8>;
 
-    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+    fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read().map(|data| data.data().to_owned())
     }
 
@@ -1009,23 +1006,7 @@ where
             .schema_descr_ptr();
 
         let schema = descr.root_schema();
-        let schema = <Root<T> as Deserialize>::parse(schema)
-            .map_err(|err| {
-                // let schema: Type = <Root<T> as Deserialize>::render("", &<Root<T> as
-                // Deserialize>::placeholder());
-                let mut b = Vec::new();
-                crate::schema::printer::print_schema(&mut b, schema);
-                // let mut a = Vec::new();
-                // print_schema(&mut a, &schema);
-                ParquetError::General(format!(
-                    "Types don't match schema.\nSchema is:\n{}\nBut types require:\n{}\nError: {}",
-                    String::from_utf8(b).unwrap(),
-                    // String::from_utf8(a).unwrap(),
-                    DisplayDisplaySchema::<<Root<T> as Deserialize>::Schema>::new(),
-                    err
-                ))
-            })?
-            .1;
+        let schema = <Root<T> as Deserialize>::parse(schema, None)?.1;
 
         Ok(RowIter::new(Some(either), None, descr, schema))
     }
@@ -1046,23 +1027,7 @@ where
                 let descr = Self::get_proj_descr(proj, schema)?;
 
                 let schema = descr.root_schema();
-                let schema = <Root<T> as Deserialize>::parse(schema)
-                    .map_err(|err| {
-                        // let schema: Type = <Root<T> as Deserialize>::render("", &<Root<T> as
-                        // Deserialize>::placeholder());
-                        let mut b = Vec::new();
-                        crate::schema::printer::print_schema(&mut b, schema);
-                        // let mut a = Vec::new();
-                        // print_schema(&mut a, &schema);
-                        ParquetError::General(format!(
-                            "Types don't match schema.\nSchema is:\n{}\nBut types require:\n{}\nError: {}",
-                            String::from_utf8(b).unwrap(),
-                            // String::from_utf8(a).unwrap(),
-                            DisplayDisplaySchema::<<Root<T> as Deserialize>::Schema>::new(),
-                            err
-                        ))
-                    })?
-                    .1;
+                let schema = <Root<T> as Deserialize>::parse(schema, None)?.1;
 
                 Ok(Self::new(self.file_reader, None, descr, schema))
             }

@@ -198,7 +198,7 @@ impl Deserialize for i32 {
     }
 }
 impl Deserialize for u32 {
-    existential type Reader: Reader<Item = Self>;
+    type Reader = impl Reader<Item = Self>;
     type Schema = U32Schema;
 
     fn parse(
@@ -252,7 +252,7 @@ impl Deserialize for i64 {
     }
 }
 impl Deserialize for u64 {
-    existential type Reader: Reader<Item = Self>;
+    type Reader = impl Reader<Item = Self>;
     type Schema = U64Schema;
 
     fn parse(

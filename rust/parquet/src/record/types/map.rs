@@ -86,7 +86,7 @@ where
     K: Deserialize + Hash + Eq,
     V: Deserialize,
 {
-    existential type Reader: Reader<Item = Self>;
+    type Reader = impl Reader<Item = Self>;
     type Schema = MapSchema<K::Schema, V::Schema>;
 
     fn parse(

@@ -72,7 +72,7 @@ impl Deserialize for Vec<u8> {
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Bson(Vec<u8>);
 impl Deserialize for Bson {
-    existential type Reader: Reader<Item = Self>;
+    type Reader = impl Reader<Item = Self>;
     type Schema = BsonSchema;
 
     fn parse(
@@ -108,7 +108,7 @@ impl From<Vec<u8>> for Bson {
 }
 
 impl Deserialize for String {
-    existential type Reader: Reader<Item = Self>;
+    type Reader = impl Reader<Item = Self>;
     type Schema = StringSchema;
 
     fn parse(
@@ -139,7 +139,7 @@ impl Deserialize for String {
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Json(String);
 impl Deserialize for Json {
-    existential type Reader: Reader<Item = Self>;
+    type Reader = impl Reader<Item = Self>;
     type Schema = JsonSchema;
 
     fn parse(
@@ -182,7 +182,7 @@ impl From<String> for Json {
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Enum(String);
 impl Deserialize for Enum {
-    existential type Reader: Reader<Item = Self>;
+    type Reader = impl Reader<Item = Self>;
     type Schema = EnumSchema;
 
     fn parse(
@@ -225,7 +225,7 @@ impl From<String> for Enum {
 macro_rules! impl_parquet_deserialize_array {
     ($i:tt) => {
         impl Deserialize for [u8; $i] {
-            existential type Reader: Reader<Item = Self>;
+            type Reader = impl Reader<Item = Self>;
             type Schema = FixedByteArraySchema<Self>;
 
             fn parse(
@@ -282,7 +282,7 @@ macro_rules! impl_parquet_deserialize_array {
         }
 
         impl Deserialize for Box<[u8; $i]> {
-            existential type Reader: Reader<Item = Self>;
+            type Reader = impl Reader<Item = Self>;
             type Schema = FixedByteArraySchema<[u8; $i]>;
 
             fn parse(

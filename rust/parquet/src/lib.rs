@@ -17,6 +17,7 @@
 
 #![feature(specialization)]
 #![feature(box_syntax)]
+#![feature(type_alias_impl_trait)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 #![allow(bare_trait_objects)]

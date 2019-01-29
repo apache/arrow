@@ -17,7 +17,7 @@
 
 //! Contains record-based API for reading Parquet files.
 
-mod api;
+// mod api;
 mod display;
 pub mod reader;
 pub mod schemas;
@@ -27,7 +27,6 @@ pub mod types;
 use std::{
     collections::HashMap,
     fmt::{self, Debug},
-    marker::PhantomData,
 };
 
 use self::reader::Reader;

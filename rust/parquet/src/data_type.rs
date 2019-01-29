@@ -117,11 +117,7 @@ impl Default for ByteArray {
 
 impl PartialEq for ByteArray {
     fn eq(&self, other: &ByteArray) -> bool {
-        match (&self.data, &other.data) {
-            (Some(d1), Some(d2)) => d1.as_ref() == d2.as_ref(),
-            (None, None) => true,
-            _ => false,
-        }
+        self.data.as_ref() == other.data.as_ref()
     }
 }
 

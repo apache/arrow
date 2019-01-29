@@ -41,7 +41,7 @@ use crate::column::{
 use crate::compression::{create_codec, Codec};
 use crate::errors::{ParquetError, Result};
 use crate::file::{metadata::*, statistics, FOOTER_SIZE, PARQUET_MAGIC};
-use crate::record::{reader::RowIter, types::Root, Deserialize};
+use crate::record::{reader::RowIter, Deserialize};
 use crate::schema::types::{
     self, ColumnDescPtr, SchemaDescPtr, SchemaDescriptor, Type as SchemaType,
 };
@@ -89,7 +89,7 @@ impl FileReader for Box<FileReader> {
 
     fn get_row_iter<T>(&self, _projection: Option<SchemaType>) -> Result<RowIter<Self, T>>
     where
-        Root<T>: Deserialize,
+        T: Deserialize,
         Self: Sized {
         unimplemented!()
     }
@@ -690,10 +690,11 @@ mod tests {
 
     use parquet_format::TypeDefinedOrder;
 
-    use crate::basic::SortOrder;
-    use crate::record::types::Row;
     use crate::schema::parser::parse_message_type;
-    use crate::util::test_common::{get_temp_file, get_test_file, get_test_path};
+    use crate::{
+        basic::SortOrder,
+        util::test_common::{get_temp_file, get_test_file, get_test_path},
+    };
 
     #[test]
     fn test_file_reader_metadata_size_smaller_than_footer() {
@@ -706,6 +707,7 @@ mod tests {
         );
     }
 
+    // use crate::record::types::Row;
     // #[test]
     // fn test_cursor_and_file_has_the_same_behaviour() {
     //     let path = get_test_path("alltypes_plain.parquet");

@@ -20,10 +20,10 @@ use std::{collections::HashMap, convert::TryInto, error::Error, num::TryFromIntE
 use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
-    data_type::{Int32Type, Int64Type, Int96, Int96Type},
+    data_type::{Int96, Int96Type},
     errors::ParquetError,
     record::{
-        reader::{I32Reader, I64Reader, I96Reader, MapReader, Reader},
+        reader::{I96Reader, MapReader, Reader},
         schemas::{DateSchema, I32Schema, I64Schema, TimeSchema, TimestampSchema},
         triplet::TypedTripletIter,
         types::{downcast, Value},
@@ -41,7 +41,7 @@ const NANOS_PER_MICRO: i64 = 1_000;
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Date(pub(super) i32);
 impl Deserialize for Date {
-    existential type Reader: Reader<Item = Self>;
+    type Reader = impl Reader<Item = Self>;
     type Schema = DateSchema;
 
     fn parse(
@@ -69,7 +69,7 @@ impl Deserialize for Date {
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Time(pub(super) i64);
 impl Deserialize for Time {
-    existential type Reader: Reader<Item = Self>;
+    type Reader = impl Reader<Item = Self>;
     type Schema = TimeSchema;
 
     fn parse(
@@ -141,7 +141,7 @@ impl Timestamp {
 }
 
 impl Deserialize for Timestamp {
-    existential type Reader: Reader<Item = Self>;
+    type Reader = impl Reader<Item = Self>;
     type Schema = TimestampSchema;
 
     fn parse(

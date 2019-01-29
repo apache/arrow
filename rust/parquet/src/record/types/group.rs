@@ -18,7 +18,6 @@
 use std::{
     collections::HashMap,
     fmt::{self, Debug},
-    marker::PhantomData,
     ops::Index,
     rc::Rc,
     slice::SliceIndex,

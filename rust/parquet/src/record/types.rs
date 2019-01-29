@@ -29,20 +29,8 @@ mod tuple;
 mod value;
 mod value_required;
 
-use std::{collections::HashMap, marker::PhantomData};
-
-use super::{
-    display::DisplayFmt,
-    reader::{BoxReader, RootReader},
-    schemas::{BoxSchema, RootSchema, ValueSchema},
-    Deserialize, Schema,
-};
-use crate::{
-    basic::Repetition,
-    column::reader::ColumnReader,
-    errors::ParquetError,
-    schema::types::{ColumnPath, Type},
-};
+use super::schemas::ValueSchema;
+use crate::errors::ParquetError;
 
 pub use self::{
     array::*, boxed::*, decimal::*, group::*, list::*, map::*, numbers::*, option::*,

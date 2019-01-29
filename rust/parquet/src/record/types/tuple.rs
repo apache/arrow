@@ -18,7 +18,6 @@
 use std::{
     collections::HashMap,
     fmt::{self, Debug},
-    marker::PhantomData,
     vec,
 };
 
@@ -41,6 +40,7 @@ macro_rules! impl_parquet_deserialize_tuple {
         impl<$($t,)*> Reader for TupleReader<($($t,)*)> where $($t: Reader,)* {
             type Item = ($($t::Item,)*);
 
+            #[allow(unused_variables)]
             fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item, ParquetError> {
                 let ret = (
                     $((self.0).$i.read(def_level, rep_level),)*
@@ -50,6 +50,7 @@ macro_rules! impl_parquet_deserialize_tuple {
                 ))
             }
             fn advance_columns(&mut self) -> Result<(), ParquetError> {
+                #[allow(unused_mut)]
                 let mut res = Ok(());
                 $(
                     res = res.and((self.0).$i.advance_columns());
@@ -101,6 +102,7 @@ macro_rules! impl_parquet_deserialize_tuple {
             }
         }
         impl<$($t,)*> Schema for TupleSchema<($((String,$t,),)*)> where $($t: Schema,)* {
+            #[allow(unused_variables)]
             fn fmt(self_: Option<&Self>, r: Option<Repetition>, name: Option<&str>, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
                 let mut printer = DisplaySchemaGroup::new(r, name, None, f);
                 $(
@@ -155,11 +157,13 @@ macro_rules! impl_parquet_deserialize_tuple {
             }
         }
         impl<$($t,)*> PartialEq<($($t,)*)> for Value where Value: $(PartialEq<$t> +)* {
+            #[allow(unused_variables)]
             fn eq(&self, other: &($($t,)*)) -> bool {
                 self.is_group() $(&& self.as_group().unwrap()[$i] == other.$i)*
             }
         }
         impl<$($t,)*> PartialEq<($($t,)*)> for Group where Value: $(PartialEq<$t> +)* {
+            #[allow(unused_variables)]
             fn eq(&self, other: &($($t,)*)) -> bool {
                 $(self[$i] == other.$i && )* true
             }

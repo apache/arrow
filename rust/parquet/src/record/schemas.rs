@@ -17,7 +17,7 @@
 
 use std::{
     collections::HashMap,
-    fmt::{self, Debug, Display},
+    fmt::{self, Debug},
     marker::PhantomData,
     mem,
     str::FromStr,
@@ -38,7 +38,7 @@ use crate::{
 pub struct BoolSchema;
 impl Schema for BoolSchema {
     fn fmt(
-        self_: Option<&Self>,
+        _self_: Option<&Self>,
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
@@ -55,7 +55,7 @@ impl Schema for BoolSchema {
 pub struct U8Schema;
 impl Schema for U8Schema {
     fn fmt(
-        self_: Option<&Self>,
+        _self_: Option<&Self>,
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
@@ -72,7 +72,7 @@ impl Schema for U8Schema {
 pub struct I8Schema;
 impl Schema for I8Schema {
     fn fmt(
-        self_: Option<&Self>,
+        _self_: Option<&Self>,
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
@@ -89,7 +89,7 @@ impl Schema for I8Schema {
 pub struct U16Schema;
 impl Schema for U16Schema {
     fn fmt(
-        self_: Option<&Self>,
+        _self_: Option<&Self>,
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
@@ -106,7 +106,7 @@ impl Schema for U16Schema {
 pub struct I16Schema;
 impl Schema for I16Schema {
     fn fmt(
-        self_: Option<&Self>,
+        _self_: Option<&Self>,
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
@@ -123,7 +123,7 @@ impl Schema for I16Schema {
 pub struct U32Schema;
 impl Schema for U32Schema {
     fn fmt(
-        self_: Option<&Self>,
+        _self_: Option<&Self>,
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
@@ -140,7 +140,7 @@ impl Schema for U32Schema {
 pub struct I32Schema;
 impl Schema for I32Schema {
     fn fmt(
-        self_: Option<&Self>,
+        _self_: Option<&Self>,
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
@@ -157,7 +157,7 @@ impl Schema for I32Schema {
 pub struct U64Schema;
 impl Schema for U64Schema {
     fn fmt(
-        self_: Option<&Self>,
+        _self_: Option<&Self>,
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
@@ -174,7 +174,7 @@ impl Schema for U64Schema {
 pub struct I64Schema;
 impl Schema for I64Schema {
     fn fmt(
-        self_: Option<&Self>,
+        _self_: Option<&Self>,
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
@@ -191,7 +191,7 @@ impl Schema for I64Schema {
 pub struct F32Schema;
 impl Schema for F32Schema {
     fn fmt(
-        self_: Option<&Self>,
+        _self_: Option<&Self>,
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
@@ -208,7 +208,7 @@ impl Schema for F32Schema {
 pub struct F64Schema;
 impl Schema for F64Schema {
     fn fmt(
-        self_: Option<&Self>,
+        _self_: Option<&Self>,
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
@@ -255,7 +255,7 @@ impl<T> Debug for FixedByteArraySchema<T> {
 }
 impl<T> Schema for FixedByteArraySchema<T> {
     fn fmt(
-        self_: Option<&Self>,
+        _self_: Option<&Self>,
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
@@ -377,7 +377,7 @@ impl Schema for EnumSchema {
 pub struct DateSchema;
 impl Schema for DateSchema {
     fn fmt(
-        self_: Option<&Self>,
+        _self_: Option<&Self>,
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
@@ -560,15 +560,15 @@ where
         {
             fn fmt(
                 self_: Option<&Self>,
-                r: Option<Repetition>,
+                _r: Option<Repetition>,
                 name: Option<&str>,
                 f: &mut fmt::Formatter,
             ) -> Result<(), fmt::Error> {
                 let self_ = self_.unwrap();
                 let mut printer =
                     DisplaySchemaGroup::new(Some(Repetition::REPEATED), name, None, f);
-                printer.field(Some(&self_.1), self_.0.map(|(k, v)| k));
-                printer.field(Some(&self_.2), self_.0.map(|(k, v)| v));
+                printer.field(Some(&self_.1), self_.0.map(|(k, _v)| k));
+                printer.field(Some(&self_.2), self_.0.map(|(_k, v)| v));
                 printer.finish()
             }
         }
@@ -651,7 +651,7 @@ where
                 {
                     fn fmt(
                         self_: Option<&Self>,
-                        r: Option<Repetition>,
+                        _r: Option<Repetition>,
                         name: Option<&str>,
                         f: &mut fmt::Formatter,
                     ) -> Result<(), fmt::Error> {
@@ -1706,7 +1706,7 @@ where
     fn fmt(
         self_: Option<&Self>,
         r: Option<Repetition>,
-        name: Option<&str>,
+        _name: Option<&str>,
         f: &mut fmt::Formatter,
     ) -> Result<(), fmt::Error> {
         assert_eq!(r, None);
@@ -1741,7 +1741,7 @@ mod tests {
 
     #[test]
     fn schema_printing() {
-        let schema: RootSchema<Value> = "message org.apache.impala.ComplexTypesTbl {
+        let _schema: RootSchema<Value> = "message org.apache.impala.ComplexTypesTbl {
             REQUIRED int64 ID (INT_64);
             REQUIRED group Int_Array (LIST) {
                 REPEATED group list {

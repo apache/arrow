@@ -17,23 +17,17 @@
 
 use std::{collections::HashMap, marker::PhantomData};
 
+#[cfg(test)]
+use crate::schema::parser::parse_message_type;
 use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
-    data_type::{ByteArrayType, Decimal, FixedLenByteArrayType, Int32Type, Int64Type},
     errors::ParquetError,
     record::{
-        display::DisplayFmt,
-        reader::RootReader,
-        schemas::RootSchema,
-        triplet::TypedTripletIter,
-        types::{downcast, Value},
+        display::DisplayFmt, reader::RootReader, schemas::RootSchema, types::Value,
         Deserialize, Schema,
     },
-    schema::{
-        parser::parse_message_type,
-        types::{ColumnPath, Type},
-    },
+    schema::types::{ColumnPath, Type},
 };
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
@@ -47,16 +41,15 @@ where
     type Schema = RootSchema<T>;
 
     fn parse(
-        schema: &Type,
+        schema_: &Type,
         repetition: Option<Repetition>,
     ) -> Result<(String, Self::Schema), ParquetError> {
         assert!(repetition.is_none());
-        let schema_ = schema;
-        if schema.is_schema() {
-            T::parse(schema, Some(Repetition::REQUIRED))
+        if schema_.is_schema() {
+            T::parse(schema_, Some(Repetition::REQUIRED))
                 .map(|(name, schema)| (String::from(""), RootSchema(name, schema, PhantomData)))
                 .map_err(|err| {
-                    let actual_schema = Value::parse(schema, Some(Repetition::REQUIRED))
+                    let actual_schema = Value::parse(schema_, Some(Repetition::REQUIRED))
                         .map(|(name, schema)| RootSchema(name, schema, PhantomData));
                     let actual_schema = match actual_schema {
                         Ok(actual_schema) => actual_schema,
@@ -98,7 +91,7 @@ where
         } else {
             Err(ParquetError::General(format!(
                 "Not a valid root schema {:?}",
-                schema
+                schema_
             )))
         }
     }

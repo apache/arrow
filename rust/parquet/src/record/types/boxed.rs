@@ -20,15 +20,8 @@ use std::collections::HashMap;
 use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
-    data_type::{ByteArrayType, Decimal, FixedLenByteArrayType, Int32Type, Int64Type},
     errors::ParquetError,
-    record::{
-        reader::BoxReader,
-        schemas::BoxSchema,
-        triplet::TypedTripletIter,
-        types::{downcast, Value},
-        Deserialize,
-    },
+    record::{reader::BoxReader, schemas::BoxSchema, Deserialize},
     schema::types::{ColumnPath, Type},
 };
 

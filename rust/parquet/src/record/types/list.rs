@@ -93,7 +93,7 @@ impl<T> Deserialize for List<T>
 where
     T: Deserialize,
 {
-    existential type Reader: Reader<Item = Self>;
+    type Reader = impl Reader<Item = Self>;
     type Schema = ListSchema<T::Schema>;
 
     fn parse(

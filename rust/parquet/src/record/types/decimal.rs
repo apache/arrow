@@ -20,17 +20,11 @@ use std::collections::HashMap;
 use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
-    data_type::{
-        ByteArray, ByteArrayType, Decimal, FixedLenByteArrayType, Int32Type, Int64Type,
-    },
+    data_type::{ByteArray, Decimal},
     errors::ParquetError,
     record::{
-        reader::{
-            ByteArrayReader, FixedLenByteArrayReader, I32Reader, I64Reader, MapReader,
-            Reader,
-        },
+        reader::{MapReader, Reader},
         schemas::{DecimalSchema, I32Schema, I64Schema},
-        triplet::TypedTripletIter,
         types::{downcast, Value},
         Deserialize,
     },
@@ -38,7 +32,7 @@ use crate::{
 };
 
 impl Deserialize for Decimal {
-    existential type Reader: Reader<Item = Self>;
+    type Reader = impl Reader<Item = Self>;
     type Schema = DecimalSchema;
 
     fn parse(

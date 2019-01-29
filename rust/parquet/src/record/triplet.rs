@@ -26,7 +26,7 @@ use crate::record::{
     types::Value,
     Deserialize,
 };
-use crate::schema::types::{ColumnDescPtr, ColumnPath, Type};
+use crate::schema::types::{ColumnDescPtr, ColumnPath};
 
 /// High level API wrapper on column reader.
 /// Provides per-element access for each primitive column.

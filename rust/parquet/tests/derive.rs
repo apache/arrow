@@ -15,23 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{collections::HashMap, env, fs, mem, path::PathBuf, str::FromStr, thread};
+use std::{collections::HashMap, env, fs, path::PathBuf, str::FromStr};
 
 use parquet::{
     errors::ParquetError,
     file::reader::{FileReader, SerializedFileReader},
     record::{
-        types::{Group, List, Map, Root, Row, Value},
+        types::{List, Map},
         Deserialize,
     },
     schema::types::Type,
 };
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct Abc {
     a: String,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct Def {
     #[parquet(rename = "!@£$%^&*(")]
@@ -44,6 +46,7 @@ struct Def {
 //     a: String,
 // }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct Jkl<M> {
     a: M,

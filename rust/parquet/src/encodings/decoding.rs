@@ -1079,7 +1079,7 @@ mod tests {
 
     #[test]
     fn test_plain_decode_byte_array() {
-        let mut data = vec![
+        let data = vec![
             ByteArray::new(ByteBufferPtr::new(String::from("hellp").into_bytes())),
             ByteArray::new(ByteBufferPtr::new(String::from("parquet").into_bytes())),
         ];
@@ -1096,7 +1096,7 @@ mod tests {
 
     #[test]
     fn test_plain_decode_fixed_len_byte_array() {
-        let mut data = vec![
+        let data = vec![
             ByteArray::new(ByteBufferPtr::new(String::from("bird").into_bytes())),
             ByteArray::new(ByteBufferPtr::new(String::from("come").into_bytes())),
             ByteArray::new(ByteBufferPtr::new(String::from("flow").into_bytes())),
