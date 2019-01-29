@@ -18,6 +18,7 @@
 //! Contains record-based API for reading Parquet files.
 
 mod api;
+mod display;
 pub mod reader;
 pub mod schemas;
 mod triplet;
@@ -29,47 +30,33 @@ use std::{
     marker::PhantomData,
 };
 
+use self::reader::Reader;
 use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
     errors::ParquetError,
-    record::reader::Reader,
-    schema::types::{ColumnDescPtr, ColumnPath, Type},
+    schema::types::{ColumnPath, Type},
 };
 
 #[doc(inline)]
 pub use parquet_derive::Deserialize;
-
 pub use triplet::{TripletIter, TypedTripletIter};
-
-pub trait DisplaySchema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error>;
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error>;
+#[doc(hidden)]
+pub mod _private {
+    pub use super::display::DisplaySchemaGroup;
 }
 
-struct DisplayDisplaySchema<T>(PhantomData<fn(T)>)
-where
-    T: DisplaySchema;
-impl<T> DisplayDisplaySchema<T>
-where
-    T: DisplaySchema,
-{
-    fn new() -> Self {
-        Self(PhantomData)
-    }
-}
-impl<T> Display for DisplayDisplaySchema<T>
-where
-    T: DisplaySchema,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> std::result::Result<(), fmt::Error> {
-        unimplemented!()
-        // T::fmt(f)
-    }
+pub trait Schema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error>;
 }
 
 pub trait Deserialize: Sized {
-    type Schema: DisplaySchema;
+    type Schema: Schema;
     type Reader: Reader<Item = Self>;
 
     /// Parse a [`Type`] into `Self::Schema`.

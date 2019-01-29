@@ -31,15 +31,16 @@ mod value_required;
 use std::{collections::HashMap, marker::PhantomData};
 
 use super::{
+    display::DisplayFmt,
     reader::{BoxReader, RootReader},
     schemas::{BoxSchema, RootSchema, ValueSchema},
-    Deserialize,
+    Deserialize, Schema,
 };
 use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
     errors::ParquetError,
-    schema::types::{ColumnDescPtr, ColumnPath, Type},
+    schema::types::{ColumnPath, Type},
 };
 
 pub use self::{
@@ -77,9 +78,27 @@ where
         if schema.is_schema() {
             T::parse(schema, Some(Repetition::REQUIRED))
                 .map(|(name, schema)| (String::from(""), RootSchema(name, schema, PhantomData)))
+                .map_err(|err| {
+                    let actual_schema = Value::parse(schema, Some(Repetition::REQUIRED))
+                        .map(|(name, schema)| RootSchema(name, schema, PhantomData));
+                    let actual_schema = match actual_schema {
+                        Ok(actual_schema) => actual_schema,
+                        Err(err) => return err,
+                    };
+                    let actual_schema = DisplayFmt::new(|fmt| {
+                        <<Root<Value> as Deserialize>::Schema>::fmt(Some(&actual_schema), None, None, fmt)
+                    });
+                    let schema = DisplayFmt::new(|fmt| <<Root<T> as Deserialize>::Schema>::fmt(None, None, None, fmt));
+                    ParquetError::General(format!(
+                        "Types don't match schema.\nSchema is:\n{}\nBut types require:\n{}\nError: {}",
+                        actual_schema,
+                        schema,
+                        err
+                    ))
+                })
         } else {
             Err(ParquetError::General(format!(
-                "Can't parse Root {:?}",
+                "Not a valid root schema {:?}",
                 schema
             )))
         }

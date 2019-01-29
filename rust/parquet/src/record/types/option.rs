@@ -22,7 +22,7 @@ use crate::{
     column::reader::ColumnReader,
     errors::ParquetError,
     record::{reader::OptionReader, schemas::OptionSchema, Deserialize},
-    schema::types::{ColumnDescPtr, ColumnPath, Type},
+    schema::types::{ColumnPath, Type},
 };
 
 impl<T> Deserialize for Option<T>

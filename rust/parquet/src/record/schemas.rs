@@ -24,147 +24,226 @@ use std::{
 };
 
 use super::{
+    display::{DisplayFmt, DisplaySchemaGroup},
     types::{Downcast, Root},
-    Deserialize, DisplayDisplaySchema, DisplaySchema,
+    Deserialize, Schema,
 };
-use crate::{basic::Repetition, errors::ParquetError, schema::parser::parse_message_type};
+use crate::{
+    basic::{LogicalType, Repetition},
+    errors::ParquetError,
+    schema::parser::parse_message_type,
+};
 
 #[derive(Debug)]
 pub struct BoolSchema;
-impl DisplaySchema for BoolSchema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} bool {};", r, name))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} bool {};", r, name))
+impl Schema for BoolSchema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} boolean {};",
+            r.unwrap(),
+            name.unwrap_or("<name>")
+        ))
     }
 }
 
 #[derive(Debug)]
 pub struct U8Schema;
-impl DisplaySchema for U8Schema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int32 {} (UINT_8);", r, name))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int32 {} (UINT_8);", r, name))
+impl Schema for U8Schema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} int32 {} (UINT_8);",
+            r.unwrap(),
+            name.unwrap_or("<name>")
+        ))
     }
 }
 
 #[derive(Debug)]
 pub struct I8Schema;
-impl DisplaySchema for I8Schema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int32 {} (INT_8);", r, name))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int32 {} (INT_8);", r, name))
+impl Schema for I8Schema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} int32 {} (INT_8);",
+            r.unwrap(),
+            name.unwrap_or("<name>")
+        ))
     }
 }
 
 #[derive(Debug)]
 pub struct U16Schema;
-impl DisplaySchema for U16Schema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int32 {} (UINT_16);", r, name))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int32 {} (UINT_16);", r, name))
+impl Schema for U16Schema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} int32 {} (UINT_16);",
+            r.unwrap(),
+            name.unwrap_or("<name>")
+        ))
     }
 }
 
 #[derive(Debug)]
 pub struct I16Schema;
-impl DisplaySchema for I16Schema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int32 {} (INT_16);", r, name))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int32 {} (INT_16);", r, name))
+impl Schema for I16Schema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} int32 {} (INT_16);",
+            r.unwrap(),
+            name.unwrap_or("<name>")
+        ))
     }
 }
 
 #[derive(Debug)]
 pub struct U32Schema;
-impl DisplaySchema for U32Schema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int32 {} (UINT_32);", r, name))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int32 {} (UINT_32);", r, name))
+impl Schema for U32Schema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} int32 {} (UINT_32);",
+            r.unwrap(),
+            name.unwrap_or("<name>")
+        ))
     }
 }
 
 #[derive(Debug)]
 pub struct I32Schema;
-impl DisplaySchema for I32Schema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int32 {} (INT_32);", r, name))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int32 {} (INT_32);", r, name))
+impl Schema for I32Schema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} int32 {} (INT_32);",
+            r.unwrap(),
+            name.unwrap_or("<name>")
+        ))
     }
 }
 
 #[derive(Debug)]
 pub struct U64Schema;
-impl DisplaySchema for U64Schema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int64 {} (UINT_64);", r, name))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int64 {} (UINT_64);", r, name))
+impl Schema for U64Schema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} int64 {} (UINT_64);",
+            r.unwrap(),
+            name.unwrap_or("<name>")
+        ))
     }
 }
 
 #[derive(Debug)]
 pub struct I64Schema;
-impl DisplaySchema for I64Schema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int64 {} (INT_64);", r, name))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int64 {} (INT_64);", r, name))
+impl Schema for I64Schema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} int64 {} (INT_64);",
+            r.unwrap(),
+            name.unwrap_or("<name>")
+        ))
     }
 }
 
 #[derive(Debug)]
 pub struct F32Schema;
-impl DisplaySchema for F32Schema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} float {};", r, name))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} float {};", r, name))
+impl Schema for F32Schema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} float {};",
+            r.unwrap(),
+            name.unwrap_or("<name>")
+        ))
     }
 }
 
 #[derive(Debug)]
 pub struct F64Schema;
-impl DisplaySchema for F64Schema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} double {};", r, name))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} double {};", r, name))
+impl Schema for F64Schema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} double {};",
+            r.unwrap(),
+            name.unwrap_or("<name>")
+        ))
     }
 }
 
 #[derive(Debug)]
 pub struct ByteArraySchema(pub(super) Option<u32>);
-impl DisplaySchema for ByteArraySchema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        if let Some(len) = self.0 {
+impl Schema for ByteArraySchema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        if let Some(ByteArraySchema(Some(len))) = self_ {
             f.write_fmt(format_args!(
                 "{} fixed_len_byte_array({}) {};",
-                r, len, name
+                r.unwrap(),
+                len,
+                name.unwrap_or("<name>")
             ))
         } else {
-            f.write_fmt(format_args!("{} byte_array {};", r, name))
+            f.write_fmt(format_args!(
+                "{} byte_array {};",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            ))
         }
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} byte_array {};", r, name))
     }
 }
 
@@ -174,105 +253,140 @@ impl<T> Debug for FixedByteArraySchema<T> {
         f.debug_tuple("FixedByteArraySchema").finish()
     }
 }
-impl<T> DisplaySchema for FixedByteArraySchema<T> {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+impl<T> Schema for FixedByteArraySchema<T> {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
         f.write_fmt(format_args!(
             "{} fixed_len_byte_array({}) {};",
-            r,
+            r.unwrap(),
             mem::size_of::<T>(),
-            name
-        ))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!(
-            "{} fixed_len_byte_array({}) {};",
-            r,
-            mem::size_of::<T>(),
-            name
+            name.unwrap_or("<name>")
         ))
     }
 }
 
 #[derive(Debug)]
 pub struct BsonSchema(pub(super) ByteArraySchema);
-impl DisplaySchema for BsonSchema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        if let Some(len) = (self.0).0 {
+impl Schema for BsonSchema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        if let Some(BsonSchema(ByteArraySchema(Some(len)))) = self_ {
             f.write_fmt(format_args!(
                 "{} fixed_len_byte_array({}) {} (BSON);",
-                r, len, name
+                r.unwrap(),
+                len,
+                name.unwrap_or("<name>")
             ))
         } else {
-            f.write_fmt(format_args!("{} byte_array {} (BSON);", r, name))
+            f.write_fmt(format_args!(
+                "{} byte_array {} (BSON);",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            ))
         }
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} byte_array {} (BSON);", r, name))
     }
 }
 
 #[derive(Debug)]
 pub struct StringSchema(pub(super) ByteArraySchema);
-impl DisplaySchema for StringSchema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        if let Some(len) = (self.0).0 {
+impl Schema for StringSchema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        if let Some(StringSchema(ByteArraySchema(Some(len)))) = self_ {
             f.write_fmt(format_args!(
                 "{} fixed_len_byte_array({}) {} (UTF8);",
-                r, len, name
+                r.unwrap(),
+                len,
+                name.unwrap_or("<name>")
             ))
         } else {
-            f.write_fmt(format_args!("{} byte_array {} (UTF8);", r, name))
+            f.write_fmt(format_args!(
+                "{} byte_array {} (UTF8);",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            ))
         }
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} byte_array {} (UTF8);", r, name))
     }
 }
 
 #[derive(Debug)]
 pub struct JsonSchema(pub(super) StringSchema);
-impl DisplaySchema for JsonSchema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        if let Some(len) = ((self.0).0).0 {
+impl Schema for JsonSchema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        if let Some(JsonSchema(StringSchema(ByteArraySchema(Some(len))))) = self_ {
             f.write_fmt(format_args!(
                 "{} fixed_len_byte_array({}) {} (JSON);",
-                r, len, name
+                r.unwrap(),
+                len,
+                name.unwrap_or("<name>")
             ))
         } else {
-            f.write_fmt(format_args!("{} byte_array {} (JSON);", r, name))
+            f.write_fmt(format_args!(
+                "{} byte_array {} (JSON);",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            ))
         }
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} byte_array {} (JSON);", r, name))
     }
 }
 
 #[derive(Debug)]
 pub struct EnumSchema(pub(super) StringSchema);
-impl DisplaySchema for EnumSchema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        if let Some(len) = ((self.0).0).0 {
+impl Schema for EnumSchema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        if let Some(EnumSchema(StringSchema(ByteArraySchema(Some(len))))) = self_ {
             f.write_fmt(format_args!(
                 "{} fixed_len_byte_array({}) {} (ENUM);",
-                r, len, name
+                r.unwrap(),
+                len,
+                name.unwrap_or("<name>")
             ))
         } else {
-            f.write_fmt(format_args!("{} byte_array {} (ENUM);", r, name))
+            f.write_fmt(format_args!(
+                "{} byte_array {} (ENUM);",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            ))
         }
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} byte_array {} (ENUM);", r, name))
     }
 }
 
 #[derive(Debug)]
 pub struct DateSchema;
-impl DisplaySchema for DateSchema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int32 {} (DATE);", r, name))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int32 {} (DATE);", r, name))
+impl Schema for DateSchema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!(
+            "{} int32 {} (DATE);",
+            r.unwrap(),
+            name.unwrap_or("<name>")
+        ))
     }
 }
 
@@ -281,15 +395,30 @@ pub enum TimeSchema {
     Millis,
     Micros,
 }
-impl DisplaySchema for TimeSchema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        match self {
-            TimeSchema::Millis => f.write_fmt(format_args!("{} int32 {} (TIME_MILLIS);", r, name)),
-            TimeSchema::Micros => f.write_fmt(format_args!("{} int64 {} (TIME_MICROS);", r, name)),
+impl Schema for TimeSchema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        match self_ {
+            Some(TimeSchema::Millis) => f.write_fmt(format_args!(
+                "{} int32 {} (TIME_MILLIS);",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            )),
+            Some(TimeSchema::Micros) => f.write_fmt(format_args!(
+                "{} int64 {} (TIME_MICROS);",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            )),
+            None => f.write_fmt(format_args!(
+                "{} int32|int64 {} (TIME_MILLIS|TIME_MICROS);",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            )),
         }
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int64 {} (TIME_MICROS);", r, name))
     }
 }
 
@@ -299,20 +428,35 @@ pub enum TimestampSchema {
     Millis,
     Micros,
 }
-impl DisplaySchema for TimestampSchema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        match self {
-            TimestampSchema::Int96 => f.write_fmt(format_args!("{} int96 {};", r, name)),
-            TimestampSchema::Millis => {
-                f.write_fmt(format_args!("{} int64 {} (TIMESTAMP_MILLIS);", r, name))
-            }
-            TimestampSchema::Micros => {
-                f.write_fmt(format_args!("{} int64 {} (TIMESTAMP_MICROS);", r, name))
-            }
+impl Schema for TimestampSchema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        match self_ {
+            Some(TimestampSchema::Int96) => f.write_fmt(format_args!(
+                "{} int96 {};",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            )),
+            Some(TimestampSchema::Millis) => f.write_fmt(format_args!(
+                "{} int64 {} (TIMESTAMP_MILLIS);",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            )),
+            Some(TimestampSchema::Micros) => f.write_fmt(format_args!(
+                "{} int64 {} (TIMESTAMP_MICROS);",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            )),
+            None => f.write_fmt(format_args!(
+                "{} int64|int96 {} (TIMESTAMP_MILLIS|TIMESTAMP_MICROS);",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            )),
         }
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int96 {};", r, name))
     }
 }
 
@@ -322,28 +466,41 @@ pub enum DecimalSchema {
     Int64 { precision: u8, scale: u8 },
     Array { precision: u32, scale: u32 },
 }
-impl DisplaySchema for DecimalSchema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+impl Schema for DecimalSchema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
         // For decimal type we should print precision and scale if they are > 0, e.g. DECIMAL(9, 2) - DECIMAL(9) - DECIMAL
         // let precision_scale = match (precision, scale) {
         //     (p, s) if p > 0 && s > 0 => format!(" ({}, {})", p, s),
         //     (p, 0) if p > 0 => format!(" ({})", p),
         //     _ => format!(""),
         // };
-        match self {
-            DecimalSchema::Int32 { precision, scale } => {
-                f.write_fmt(format_args!("{} int32 {} (DECIMAL);", r, name))
-            }
-            DecimalSchema::Int64 { precision, scale } => {
-                f.write_fmt(format_args!("{} int64 {} (DECIMAL);", r, name))
-            }
-            DecimalSchema::Array { precision, scale } => {
-                f.write_fmt(format_args!("{} byte_array {} (DECIMAL);", r, name))
-            }
+        match self_ {
+            Some(DecimalSchema::Int32 { precision, scale }) => f.write_fmt(format_args!(
+                "{} int32 {} (DECIMAL);",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            )),
+            Some(DecimalSchema::Int64 { precision, scale }) => f.write_fmt(format_args!(
+                "{} int64 {} (DECIMAL);",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            )),
+            Some(DecimalSchema::Array { precision, scale }) => f.write_fmt(format_args!(
+                "{} byte_array {} (DECIMAL);",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            )),
+            None => f.write_fmt(format_args!(
+                "{} int32|int64|byte_array {} (DECIMAL);",
+                r.unwrap(),
+                name.unwrap_or("<name>")
+            )),
         }
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} int64 {} (DECIMAL);", r, name))
     }
 }
 
@@ -355,38 +512,77 @@ pub struct MapSchema<K, V>(
     pub(super) Option<String>,
     pub(super) Option<String>,
 );
-impl<K, V> DisplaySchema for MapSchema<K, V>
+impl<K, V> Schema for MapSchema<K, V>
 where
-    K: DisplaySchema,
-    V: DisplaySchema,
+    K: Schema,
+    V: Schema,
 {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!(
-            "{} group {} (MAP) {{\n    repeated group key_value {{\n        {}\n        {}\n    }}\n}}",
-            r, name, "", ""
-        ))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!(
-            "{} group {} (MAP) {{\n    repeated group key_value {{\n        {}\n        {}\n    }}\n}}",
-            r, name, "", ""
-        ))
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        struct KeyValue<'a, K, V>(Option<(&'a K, &'a V)>, String, String);
+        impl<'a, K, V> Schema for KeyValue<'a, K, V>
+        where
+            K: Schema,
+            V: Schema,
+        {
+            fn fmt(
+                self_: Option<&Self>,
+                r: Option<Repetition>,
+                name: Option<&str>,
+                f: &mut fmt::Formatter,
+            ) -> Result<(), fmt::Error> {
+                let self_ = self_.unwrap();
+                let mut printer =
+                    DisplaySchemaGroup::new(Some(Repetition::REPEATED), name, None, f);
+                printer.field(Some(&self_.1), self_.0.map(|(k, v)| k));
+                printer.field(Some(&self_.2), self_.0.map(|(k, v)| v));
+                printer.finish()
+            }
+        }
+        let mut printer = DisplaySchemaGroup::new(r, name, Some(LogicalType::MAP), f);
+        printer.field(
+            Some(
+                &self_
+                    .and_then(|self_| self_.2.clone())
+                    .unwrap_or_else(|| String::from("key_value")),
+            ),
+            Some(&KeyValue(
+                self_.map(|self_| (&self_.0, &self_.1)),
+                self_
+                    .and_then(|self_| self_.2.clone())
+                    .unwrap_or_else(|| String::from("key")),
+                self_
+                    .and_then(|self_| self_.3.clone())
+                    .unwrap_or_else(|| String::from("value")),
+            )),
+        );
+        printer.finish()
     }
 }
 
 #[derive(Debug)]
 pub struct OptionSchema<T>(pub(super) T);
-impl<T> DisplaySchema for OptionSchema<T>
+impl<T> Schema for OptionSchema<T>
 where
-    T: DisplaySchema,
+    T: Schema,
 {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        assert_eq!(r, Repetition::REQUIRED);
-        self.0.fmt(Repetition::OPTIONAL, name, f)
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        assert_eq!(r, Repetition::REQUIRED);
-        T::fmt_type(Repetition::OPTIONAL, name, f)
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        assert_eq!(r.unwrap(), Repetition::REQUIRED);
+        T::fmt(
+            self_.map(|self_| &self_.0),
+            Some(Repetition::OPTIONAL),
+            name,
+            f,
+        )
     }
 }
 
@@ -398,21 +594,65 @@ pub(super) enum ListSchemaType {
     ListCompat(String),
     Repeated,
 }
-impl<T> DisplaySchema for ListSchema<T>
+impl<T> Schema for ListSchema<T>
 where
-    T: DisplaySchema,
+    T: Schema,
 {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!(
-            "{} group {} (LIST) {{\n    repeated group list {{\n        {}\n    }}\n}}",
-            r, name, ""
-        ))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!(
-            "{} group {} (LIST) {{\n    repeated group list {{\n        {}\n    }}\n}}",
-            r, name, ""
-        ))
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        match self_ {
+            self_ @ Some(ListSchema(_, ListSchemaType::List(_, _))) | self_ @ None => {
+                let (self_, list_name, element_name) = match self_ {
+                    Some(ListSchema(self_, ListSchemaType::List(list_name, element_name))) => {
+                        (Some(self_), list_name.clone(), element_name.clone())
+                    }
+                    None => (None, None, None),
+                    _ => unreachable!(),
+                };
+                struct List<'a, T>(Option<&'a T>, String);
+                impl<'a, T> Schema for List<'a, T>
+                where
+                    T: Schema,
+                {
+                    fn fmt(
+                        self_: Option<&Self>,
+                        r: Option<Repetition>,
+                        name: Option<&str>,
+                        f: &mut fmt::Formatter,
+                    ) -> Result<(), fmt::Error> {
+                        let self_ = self_.unwrap();
+                        let mut printer =
+                            DisplaySchemaGroup::new(Some(Repetition::REPEATED), name, None, f);
+                        printer.field(Some(&self_.1), self_.0);
+                        printer.finish()
+                    }
+                }
+                let mut printer = DisplaySchemaGroup::new(r, name, Some(LogicalType::MAP), f);
+                printer.field(
+                    Some(&list_name.clone().unwrap_or_else(|| String::from("list"))),
+                    Some(&List(
+                        self_,
+                        element_name
+                            .clone()
+                            .unwrap_or_else(|| String::from("element")),
+                    )),
+                );
+                printer.finish()
+            }
+            Some(ListSchema(self_, ListSchemaType::ListCompat(element_name))) => {
+                let mut printer = DisplaySchemaGroup::new(r, name, Some(LogicalType::MAP), f);
+                printer.field(Some(&element_name.clone()), Some(self_));
+                printer.finish()
+            }
+            Some(ListSchema(self_, ListSchemaType::Repeated)) => {
+                assert_eq!(r, Some(Repetition::REQUIRED));
+                T::fmt(Some(self_), Some(Repetition::REPEATED), name, f)
+            }
+        }
     }
 }
 
@@ -421,12 +661,26 @@ pub struct GroupSchema(
     pub(super) Vec<ValueSchema>,
     pub(super) HashMap<String, usize>,
 );
-impl DisplaySchema for GroupSchema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} group {} {{\n    ...\n}}", r, name))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} group {} {{\n    ...\n}}", r, name))
+impl Schema for GroupSchema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        let mut printer = DisplaySchemaGroup::new(r, name, None, f);
+        if let Some(self_) = self_ {
+            let fields = self_.0.iter();
+            let mut names = vec![None; self_.1.len()];
+            for (name, &index) in self_.1.iter() {
+                names[index].replace(name);
+            }
+            let names = names.into_iter().map(Option::unwrap);
+            for (name, field) in names.zip(fields) {
+                printer.field(Some(name), Some(field));
+            }
+        }
+        printer.finish()
     }
 }
 
@@ -457,37 +711,43 @@ pub enum ValueSchema {
     Group(GroupSchema),
     Option(Box<OptionSchema<ValueSchema>>),
 }
-impl DisplaySchema for ValueSchema {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        match self {
-            ValueSchema::Bool(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::U8(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::I8(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::U16(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::I16(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::U32(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::I32(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::U64(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::I64(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::F32(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::F64(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::Date(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::Time(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::Timestamp(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::Decimal(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::ByteArray(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::Bson(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::String(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::Json(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::Enum(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::List(schema) => DisplaySchema::fmt(&**schema, r, name, f),
-            ValueSchema::Map(schema) => DisplaySchema::fmt(&**schema, r, name, f),
-            ValueSchema::Group(schema) => DisplaySchema::fmt(schema, r, name, f),
-            ValueSchema::Option(schema) => DisplaySchema::fmt(&**schema, r, name, f),
+impl Schema for ValueSchema {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        if let Some(self_) = self_ {
+            match self_ {
+                ValueSchema::Bool(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::U8(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::I8(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::U16(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::I16(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::U32(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::I32(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::U64(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::I64(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::F32(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::F64(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::Date(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::Time(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::Timestamp(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::Decimal(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::ByteArray(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::Bson(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::String(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::Json(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::Enum(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::List(schema) => Schema::fmt(Some(&**schema), r, name, f),
+                ValueSchema::Map(schema) => Schema::fmt(Some(&**schema), r, name, f),
+                ValueSchema::Group(schema) => Schema::fmt(Some(schema), r, name, f),
+                ValueSchema::Option(schema) => Schema::fmt(Some(&**schema), r, name, f),
+            }
+        } else {
+            f.write_str("<any repetition> <any type> <any name>")
         }
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("{} ... {};", r, name))
     }
 }
 impl ValueSchema {
@@ -1373,15 +1633,17 @@ impl Downcast<OptionSchema<ValueSchema>> for ValueSchema {
 
 #[derive(Debug)]
 pub struct BoxSchema<T>(pub(super) T);
-impl<T> DisplaySchema for BoxSchema<T>
+impl<T> Schema for BoxSchema<T>
 where
-    T: DisplaySchema,
+    T: Schema,
 {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        self.0.fmt(r, name, f)
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        T::fmt_type(r, name, f)
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        T::fmt(self_.map(|self_| &self_.0), r, name, f)
     }
 }
 
@@ -1397,57 +1659,30 @@ where
             .finish()
     }
 }
-impl<T, S> DisplaySchema for RootSchema<T, S>
+impl<T, S> Schema for RootSchema<T, S>
 where
-    S: DisplaySchema,
+    S: Schema,
 {
-    fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        assert_eq!(r, Repetition::REQUIRED);
-        f.write_fmt(format_args!("message {}", ""))
-    }
-    fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        assert_eq!(r, Repetition::REQUIRED);
-        f.write_fmt(format_args!("message {}", ""))
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> Result<(), fmt::Error> {
+        assert_eq!(r, None);
+        S::fmt(self_.map(|self_| &self_.1), None, name, f)
     }
 }
 impl<T, S> FromStr for RootSchema<T, S>
 where
     Root<T>: Deserialize<Schema = Self>,
-    S: DisplaySchema,
+    S: Schema,
 {
     type Err = ParquetError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         parse_message_type(s)
-            .and_then(|x| {
-                <Root<T> as Deserialize>::parse(&x, None).map_err(|err| {
-                    // let schema: Type = <Root<T> as Deserialize>::render("", &<Root<T> as
-                    // Deserialize>::placeholder());
-                    let mut b = Vec::new();
-                    crate::schema::printer::print_schema(&mut b, &x);
-                    // let mut a = Vec::new();
-                    // print_schema(&mut a, &schema);
-
-                    ParquetError::General(format!(
-            "Types don't match schema.\nSchema is:\n{}\nBut types require:\n{}\nError: \
-             {}",
-            String::from_utf8(b).unwrap(),
-            // String::from_utf8(a).unwrap(),
-            DisplayDisplaySchema::<<Root<T> as Deserialize>::Schema>::new(),
-            err
-          ))
-
-                    // // let x: Type = <Root<($($t,)*)> as Deserialize>::render("",
-                    // &<Root<($($t,)*)> as Deserialize>::placeholder()); let a = Vec::
-                    // new(); // print_schema(&mut a, &x);
-                    // ParquetError::General(format!(
-                    //   "Types don't match schema.\nSchema is:\n{}\nBut types require:\n{}\nError:
-                    // {}",   s,
-                    //   String::from_utf8(a).unwrap(),
-                    //   err
-                    // ))
-                })
-            })
+            .and_then(|x| <Root<T> as Deserialize>::parse(&x, None))
             .map(|x| x.1)
     }
 }

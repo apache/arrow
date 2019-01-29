@@ -29,7 +29,7 @@ use crate::{
         types::{downcast, Value},
         Deserialize,
     },
-    schema::types::{ColumnDescPtr, ColumnPath, Type},
+    schema::types::{ColumnPath, Type},
 };
 
 const JULIAN_DAY_OF_EPOCH: i64 = 2_440_588;

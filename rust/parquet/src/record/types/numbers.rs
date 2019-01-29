@@ -35,7 +35,7 @@ use crate::{
         types::{downcast, Value},
         Deserialize,
     },
-    schema::types::{ColumnDescPtr, ColumnPath, Type},
+    schema::types::{ColumnPath, Type},
 };
 
 impl Deserialize for bool {

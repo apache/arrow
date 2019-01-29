@@ -29,7 +29,7 @@ use crate::{
         types::{downcast, Value},
         Deserialize,
     },
-    schema::types::{ColumnDescPtr, ColumnPath, Type},
+    schema::types::{ColumnPath, Type},
 };
 
 default impl<T: ?Sized> Deserialize for Box<T>

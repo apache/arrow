@@ -35,7 +35,7 @@ use crate::{
         types::Value,
         Deserialize,
     },
-    schema::types::{ColumnDescPtr, ColumnPath, Type},
+    schema::types::{ColumnPath, Type},
 };
 
 #[derive(Clone, PartialEq)]

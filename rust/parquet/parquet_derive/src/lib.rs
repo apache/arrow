@@ -133,10 +133,10 @@ fn impl_struct(
             basic::Repetition,
             column::reader::ColumnReader,
             errors::ParquetError,
-            record::{Deserialize, DisplaySchema, reader::Reader},
-            schema::types::{ColumnDescPtr, ColumnPath, Type},
+            record::{Deserialize, Schema, reader::Reader, _private::DisplaySchemaGroup},
+            schema::types::{ColumnPath, Type},
         };
-        use ::std::{collections::HashMap, fmt::{self, Debug}, result::Result, string::String, vec::Vec};
+        use ::std::{collections::HashMap, cmp::PartialEq, fmt::{self, Debug}, result::Result, string::String, vec::Vec};
 
         struct #schema_name #impl_generics #where_clause {
             #(#field_names1: <#field_types1 as Deserialize>::Schema,)*
@@ -148,12 +148,13 @@ fn impl_struct(
                     .finish()
             }
         }
-        impl #impl_generics DisplaySchema for #schema_name #ty_generics #where_clause {
-            fn fmt(&self, r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-                unimplemented!()
-            }
-            fn fmt_type(r: Repetition, name: &str, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-                unimplemented!()
+        impl #impl_generics Schema for #schema_name #ty_generics #where_clause {
+            fn fmt(self_: Option<&Self>, r: Option<Repetition>, name: Option<&str>, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+                let mut printer = DisplaySchemaGroup::new(r, name, None, f);
+                #(
+                    printer.field(Some(stringify!(#field_names1)), self_.map(|self_|&self_.#field_names2));
+                )*
+                printer.finish()
             }
         }
         struct #reader_name #impl_generics #where_clause {
@@ -198,11 +199,11 @@ fn impl_struct(
                 if schema.is_group() && repetition == Some(Repetition::REQUIRED) {
                     let fields = schema.get_fields().iter().map(|field|(field.name(),field)).collect::<HashMap<_,_>>();
                     let schema_ = #schema_name{
-                        #(#field_names1: fields.get(#field_renames1).ok_or(ParquetError::General(format!("Struct {} missing field {}", stringify!(#name1), #field_renames2))).and_then(|x|<#field_types1 as Deserialize>::parse(&**x, Some(x.get_basic_info().repetition())))?.1,)*
+                        #(#field_names1: fields.get(#field_renames1).ok_or(ParquetError::General(format!("Struct \"{}\" has field \"{}\" not in the schema", stringify!(#name1), #field_renames2))).and_then(|x|<#field_types1 as Deserialize>::parse(&**x, Some(x.get_basic_info().repetition())))?.1,)*
                     };
                     return Result::Ok((schema.name().to_owned(), schema_))
                 }
-                Result::Err(ParquetError::General(format!("Struct {}", stringify!(#name))))
+                Result::Err(ParquetError::General(format!("Struct \"{}\" is not in the schema", stringify!(#name))))
             }
             fn reader(schema: &Self::Schema, mut path: &mut Vec<String>, def_level: i16, rep_level: i16, paths: &mut HashMap<ColumnPath, ColumnReader>, batch_size: usize) -> Self::Reader {
                 #(

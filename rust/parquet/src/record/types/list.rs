@@ -32,7 +32,7 @@ use crate::{
         schemas::{ListSchema, ListSchemaType},
         Deserialize,
     },
-    schema::types::{ColumnDescPtr, ColumnPath, Type},
+    schema::types::{ColumnPath, Type},
 };
 
 /// Returns true if repeated type is an element type for the list.

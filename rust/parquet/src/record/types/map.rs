@@ -30,7 +30,7 @@ use crate::{
         schemas::MapSchema,
         Deserialize,
     },
-    schema::types::{ColumnDescPtr, ColumnPath, Type},
+    schema::types::{ColumnPath, Type},
 };
 
 // https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#backward-compatibility-rules

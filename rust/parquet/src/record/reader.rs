@@ -21,11 +21,12 @@
 use std::{collections::HashMap, convert::TryInto, error::Error, marker::PhantomData, rc::Rc};
 
 use super::{
+    display::DisplayFmt,
     triplet::TypedTripletIter,
     types::{
         Bson, Date, Enum, Group, Json, List, Map, Root, Time, Timestamp, Value, ValueRequired,
     },
-    Deserialize, DisplayDisplaySchema,
+    Deserialize, Schema,
 };
 use crate::column::reader::ColumnReader;
 use crate::data_type::{
@@ -906,23 +907,7 @@ where
 
         let file_schema = reader.metadata().file_metadata().schema_descr_ptr();
         let file_schema = file_schema.root_schema();
-        let schema = <Root<T> as Deserialize>::parse(file_schema, None)
-            .map_err(|err| {
-                // let schema: Type = <Root<T> as Deserialize>::render("", &<Root<T> as
-                // Deserialize>::placeholder());
-                let mut b = Vec::new();
-                crate::schema::printer::print_schema(&mut b, file_schema);
-                // let mut a = Vec::new();
-                // print_schema(&mut a, &schema);
-                ParquetError::General(format!(
-                    "Types don't match schema.\nSchema is:\n{}\nBut types require:\n{}\nError: {}",
-                    String::from_utf8(b).unwrap(),
-                    // String::from_utf8(a).unwrap(),
-                    DisplayDisplaySchema::<<Root<T> as Deserialize>::Schema>::new(),
-                    err
-                ))
-            })?
-            .1;
+        let schema = <Root<T> as Deserialize>::parse(file_schema, None)?.1;
 
         Ok(Self::new(Some(Either::Left(reader)), None, descr, schema))
     }
@@ -936,23 +921,7 @@ where
 
         let file_schema = row_group_reader.metadata().schema_descr_ptr();
         let file_schema = file_schema.root_schema();
-        let schema = <Root<T> as Deserialize>::parse(file_schema, None)
-            .map_err(|err| {
-                // let schema: Type = <Root<T> as Deserialize>::render("", &<Root<T> as
-                // Deserialize>::placeholder());
-                let mut b = Vec::new();
-                crate::schema::printer::print_schema(&mut b, file_schema);
-                // let mut a = Vec::new();
-                // print_schema(&mut a, &schema);
-                ParquetError::General(format!(
-                    "Types don't match schema.\nSchema is:\n{}\nBut types require:\n{}\nError: {}",
-                    String::from_utf8(b).unwrap(),
-                    // String::from_utf8(a).unwrap(),
-                    DisplayDisplaySchema::<<Root<T> as Deserialize>::Schema>::new(),
-                    err
-                ))
-            })?
-            .1;
+        let schema = <Root<T> as Deserialize>::parse(file_schema, None)?.1;
 
         // Prepare lookup table of column path -> original column index
         // This allows to prune columns and map schema leaf nodes to the column readers

@@ -40,7 +40,7 @@ use crate::{
         },
         Deserialize,
     },
-    schema::types::{ColumnDescPtr, ColumnPath, Type},
+    schema::types::{ColumnPath, Type},
 };
 
 /// Represents any valid Parquet value.
