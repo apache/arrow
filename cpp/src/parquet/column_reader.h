@@ -183,8 +183,6 @@ class TypedColumnReader : public ColumnReader {
   // Skip reading levels
   // Returns the number of levels skipped
   virtual int64_t Skip(int64_t num_rows_to_skip) = 0;
-
- private:
 };
 
 namespace internal {
