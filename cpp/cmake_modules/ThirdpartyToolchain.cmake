@@ -741,7 +741,7 @@ if (ARROW_IPC)
     set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
     set(FLATBUFFERS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
     if (MSVC)
-      set(FLATBUFFERS_CMAKE_CXX_FLAGS ${FLATBUFFERS_CMAKE_CXX_FLAGS} /EHsc)
+      set(FLATBUFFERS_CMAKE_CXX_FLAGS "/EHsc")
     endif()
 
     # RELEASE build is required for `flatc` to be installed.
