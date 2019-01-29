@@ -19,24 +19,24 @@
 #define PARQUET_FILE_READER_H
 
 #include <cstdint>
-#include <iosfwd>
-#include <list>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "parquet/column_reader.h"
-#include "parquet/metadata.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/util/macros.h"
+
+#include "parquet/metadata.h"  // IWYU pragma:: keep
 #include "parquet/properties.h"
-#include "parquet/schema.h"
-#include "parquet/statistics.h"
-#include "parquet/util/macros.h"
-#include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
 namespace parquet {
 
 class ColumnReader;
+class FileMetaData;
+class PageReader;
+class RandomAccessSource;
+class RowGroupMetaData;
 
 class PARQUET_EXPORT RowGroupReader {
  public:

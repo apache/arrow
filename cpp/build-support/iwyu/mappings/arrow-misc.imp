@@ -49,7 +49,7 @@
   { symbol: ["shared_ptr", private, "<memory>", public ] },
   { symbol: ["_Node_const_iterator", private, "<flatbuffers/flatbuffers.h>", public ] },
   { symbol: ["unordered_map<>::mapped_type", private, "<flatbuffers/flatbuffers.h>", public ] },
-  { symbol: ["move", private, "<utility>", public ] },
+  { symbol: ["std::move", private, "<utility>", public ] },
   { symbol: ["pair", private, "<utility>", public ] },
   { symbol: ["errno", private, "<cerrno>", public ] },
   { symbol: ["posix_memalign", private, "<cstdlib>", public ] }

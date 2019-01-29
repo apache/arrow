@@ -172,6 +172,7 @@ set(PARQUET_SRCS
   column_reader.cc
   column_scanner.cc
   column_writer.cc
+  encoding.cc
   file_reader.cc
   file_writer.cc
   metadata.cc
@@ -268,6 +269,13 @@ foreach(LIB_TARGET ${PARQUET_LIBRARIES})
       PRIVATE HAVE_NETINET_IN_H)
   endif()
 endforeach()
+
+# We always build the Parquet static libraries (see PARQUET-1420) so we add the
+# PARQUET_STATIC public compile definition if we are building the unit tests OR
+# if we are building the static library
+if (WIN32 AND (NOT NO_TESTS OR ARROW_BUILD_STATIC))
+  target_compile_definitions(parquet_static PUBLIC PARQUET_STATIC)
+endif()
 
 add_subdirectory(api)
 add_subdirectory(arrow)

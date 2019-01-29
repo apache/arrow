@@ -20,6 +20,7 @@
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
+#include "parquet/metadata.h"
 #include "parquet/thrift.h"
 #include "parquet/util/memory.h"
 

@@ -19,7 +19,8 @@
 #define PARQUET_UTIL_VISIBILITY_H
 
 #if defined(_WIN32) || defined(__CYGWIN__)
-#ifdef _MSC_VER
+
+#if defined(_MSC_VER)
 #pragma warning(push)
 // Disable warning for STL types usage in DLL interface
 // https://web.archive.org/web/20130317015847/http://connect.microsoft.com/VisualStudio/feedback/details/696593/vc-10-vs-2010-basic-string-exports
@@ -30,9 +31,20 @@
 #pragma warning(disable : 4005)
 // Disable extern before exported template warnings
 #pragma warning(disable : 4910)
+#else
+#pragma GCC diagnostic ignored "-Wattributes"
 #endif
+
+#ifdef PARQUET_STATIC
+#define PARQUET_EXPORT
+#elif defined(PARQUET_EXPORTING)
 #define PARQUET_EXPORT __declspec(dllexport)
+#else
+#define PARQUET_EXPORT __declspec(dllimport)
+#endif
+
 #define PARQUET_NO_EXPORT
+
 #else  // Not Windows
 #ifndef PARQUET_EXPORT
 #define PARQUET_EXPORT __attribute__((visibility("default")))

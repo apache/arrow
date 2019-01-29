@@ -16,21 +16,24 @@
 // under the License.
 
 #include <algorithm>
+#include <ostream>
 #include <string>
 #include <utility>
-#include <vector>
+
+#include "arrow/util/logging.h"
 
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
 #include "parquet/schema-internal.h"
 #include "parquet/schema.h"
+#include "parquet/statistics.h"
 #include "parquet/thrift.h"
-#include "parquet/util/memory.h"
 
-#include <boost/algorithm/string.hpp>
-#include <boost/regex.hpp>
+#include <boost/regex.hpp>  // IWYU pragma: keep
 
 namespace parquet {
+
+class OutputStream;
 
 const ApplicationVersion& ApplicationVersion::PARQUET_251_FIXED_VERSION() {
   static ApplicationVersion version("parquet-mr", 1, 8, 0);
