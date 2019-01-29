@@ -41,13 +41,16 @@ namespace arrow {
 
 ListBuilder::ListBuilder(MemoryPool* pool,
                          std::shared_ptr<ArrayBuilder> const& value_builder,
-                         const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(type ? type
-                        : std::static_pointer_cast<DataType>(
-                              std::make_shared<ListType>(value_builder->type())),
+                         const std::shared_ptr<DataType>& type, bool infer_type)
+    : ArrayBuilder(type || infer_type
+                       ? type
+                       : std::static_pointer_cast<DataType>(
+                             std::make_shared<ListType>(value_builder->type())),
                    pool),
       offsets_builder_(pool),
-      value_builder_(value_builder) {}
+      value_builder_(value_builder) {
+  infer_type_ = infer_type;
+}
 
 Status ListBuilder::AppendValues(const int32_t* offsets, int64_t length,
                                  const uint8_t* valid_bytes) {
@@ -99,10 +102,10 @@ Status ListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
     RETURN_NOT_OK(value_builder_->FinishInternal(&items));
   }
 
-  // If the type has not been specified in the constructor, infer it
-  if (!arrow::internal::checked_cast<ListType&>(*type_).value_type()) {
+  if (infer_type_) {
     type_ = std::static_pointer_cast<DataType>(
         std::make_shared<ListType>(value_builder_->type()));
+    infer_type_ = false;
   }
   std::shared_ptr<Buffer> null_bitmap;
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
@@ -128,8 +131,10 @@ ArrayBuilder* ListBuilder::value_builder() const {
 // Struct
 
 StructBuilder::StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
-                             std::vector<std::shared_ptr<ArrayBuilder>>&& field_builders)
+                             std::vector<std::shared_ptr<ArrayBuilder>>&& field_builders,
+                             bool infer_type)
     : ArrayBuilder(type, pool) {
+  infer_type_ = infer_type;
   children_ = std::move(field_builders);
 }
 
@@ -154,12 +159,13 @@ Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   }
 
   // If the type has not been specified in the constructor, infer it
-  if (!type_) {
+  if (infer_type_) {
     std::vector<std::shared_ptr<Field>> fields;
     for (const auto& field_builder : children_) {
       fields.push_back(field("", field_builder->type()));
     }
     type_ = struct_(fields);
+    infer_type_ = false;
   }
 
   *out = ArrayData::Make(type_, length_, {null_bitmap}, null_count_);

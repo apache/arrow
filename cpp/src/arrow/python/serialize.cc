@@ -70,7 +70,7 @@ class SequenceBuilder {
       : pool_(pool),
         types_(::arrow::int8(), pool),
         offsets_(::arrow::int32(), pool),
-        type_map_(PythonType::MAX) {
+        type_map_(PythonType::NUM_PYTHON_TYPES) {
     builder_.reset(new DenseUnionBuilder(pool));
   }
 
@@ -190,7 +190,7 @@ class SequenceBuilder {
     }
     RETURN_NOT_OK(CreateAndUpdate(&target_sequence, tag, [this, &values]() {
       values.reset(new SequenceBuilder(pool_));
-      return new ListBuilder(pool_, values->builder());
+      return new ListBuilder(pool_, values->builder(), nullptr, true);
     }));
     RETURN_NOT_OK(target_sequence->Append());
     return internal::VisitIterable(
@@ -268,7 +268,8 @@ class SequenceBuilder {
 class DictBuilder {
  public:
   explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {
-    builder_.reset(new StructBuilder(nullptr, pool, {keys_.builder(), vals_.builder()}));
+    builder_.reset(
+        new StructBuilder(nullptr, pool, {keys_.builder(), vals_.builder()}, true));
   }
 
   // Builder for the keys of the dictionary
@@ -298,7 +299,7 @@ Status SequenceBuilder::AppendDict(PyObject* context, PyObject* dict,
   }
   RETURN_NOT_OK(CreateAndUpdate(&dicts_, PythonType::DICT, [this]() {
     dict_values_.reset(new DictBuilder(pool_));
-    return new ListBuilder(pool_, dict_values_->builder());
+    return new ListBuilder(pool_, dict_values_->builder(), nullptr, true);
   }));
   RETURN_NOT_OK(dicts_->Append());
   PyObject* key;

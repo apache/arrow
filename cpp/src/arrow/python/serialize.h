@@ -125,7 +125,7 @@ struct PythonType {
     TENSOR,
     NDARRAY,
     BUFFER,
-    MAX
+    NUM_PYTHON_TYPES
   };
 };
 

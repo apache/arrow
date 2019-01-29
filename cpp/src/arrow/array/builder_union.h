@@ -27,7 +27,7 @@
 
 namespace arrow {
 
-/// \class UnionBuilder
+/// \class DenseUnionBuilder
 ///
 /// You need to call AppendChild for each of the children builders you want
 /// to use. The function will return an int8_t, which is the type tag

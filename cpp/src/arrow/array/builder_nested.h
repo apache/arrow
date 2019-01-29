@@ -45,8 +45,14 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
  public:
   /// Use this constructor to incrementally build the value array along with offsets and
   /// null bitmap.
+  ///
+  /// \param[in] pool the memory pool to use
+  /// \param[in] value_builder array builder for the value array
+  /// \param[in] type data type of the list that is being built
+  /// \param[in] infer_type if true, will try to infer the data type in the Finish
+  /// method. This is EXPERIMENTAL.
   ListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
-              const std::shared_ptr<DataType>& type = NULLPTR);
+              const std::shared_ptr<DataType>& type = NULLPTR, bool infer_type = false);
 
   Status Resize(int64_t capacity) override;
   void Reset() override;
@@ -87,8 +93,11 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
 /// called to maintain data-structure consistency.
 class ARROW_EXPORT StructBuilder : public ArrayBuilder {
  public:
+  /// param[in] infer_type if true, will try to infer the data type in the Finish
+  /// method. This is EXPERIMENTAL.
   StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
-                std::vector<std::shared_ptr<ArrayBuilder>>&& field_builders);
+                std::vector<std::shared_ptr<ArrayBuilder>>&& field_builders,
+                bool infer_type = false);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 

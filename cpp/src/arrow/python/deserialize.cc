@@ -204,10 +204,11 @@ template <typename CreateSequenceFn, typename SetItemFn>
 Status DeserializeSequence(PyObject* context, const Array& array, int64_t start_idx,
                            int64_t stop_idx, PyObject* base,
                            const SerializedPyObject& blobs,
-                           CreateSequenceFn create_sequence, SetItemFn set_item,
+                           CreateSequenceFn&& create_sequence, SetItemFn&& set_item,
                            PyObject** out) {
   const auto& data = checked_cast<const UnionArray&>(array);
   OwnedRef result(create_sequence(stop_idx - start_idx));
+  RETURN_IF_PYERROR();
   const uint8_t* type_ids = data.raw_type_ids();
   const int32_t* value_offsets = data.raw_value_offsets();
   auto python_types = GetPythonTypes(data);
@@ -258,7 +259,9 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
   return DeserializeSequence(context, array, start_idx, stop_idx, base, blobs,
                              [](int64_t size) { return PySet_New(nullptr); },
                              [](PyObject* seq, int64_t index, PyObject* item) {
-                               if (PySet_Add(seq, item) < 0) {
+                               int err = PySet_Add(seq, item);
+                               Py_DECREF(item);
+                               if (err < 0) {
                                  RETURN_IF_PYERROR();
                                }
                                return Status::OK();
