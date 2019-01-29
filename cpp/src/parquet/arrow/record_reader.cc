@@ -434,6 +434,7 @@ class RecordReader::RecordReaderImpl {
   int64_t levels_capacity_;
 
   std::shared_ptr<::arrow::ResizableBuffer> values_;
+  // In the case of false, don't allocate the values buffer (when we directly read into builder classes).
   bool uses_values_;
 
   template <typename T>
