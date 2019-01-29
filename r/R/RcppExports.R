@@ -181,6 +181,18 @@ Column__data <- function(column) {
     .Call(`_arrow_Column__data`, column)
 }
 
+util___Codec__Create <- function(codec) {
+    .Call(`_arrow_util___Codec__Create`, codec)
+}
+
+io___CompressedOutputStream__Make <- function(codec, raw) {
+    .Call(`_arrow_io___CompressedOutputStream__Make`, codec, raw)
+}
+
+io___CompressedInputStream__Make <- function(codec, raw) {
+    .Call(`_arrow_io___CompressedInputStream__Make`, codec, raw)
+}
+
 compute___CastOptions__initialize <- function(allow_int_overflow, allow_time_truncate, allow_float_truncate) {
     .Call(`_arrow_compute___CastOptions__initialize`, allow_int_overflow, allow_time_truncate, allow_float_truncate)
 }
@@ -551,6 +563,14 @@ io___ReadableFile__Open <- function(path) {
 
 io___BufferReader__initialize <- function(buffer) {
     .Call(`_arrow_io___BufferReader__initialize`, buffer)
+}
+
+io___Writable__write <- function(stream, buf) {
+    invisible(.Call(`_arrow_io___Writable__write`, stream, buf))
+}
+
+io___OutputStream__Tell <- function(stream) {
+    .Call(`_arrow_io___OutputStream__Tell`, stream)
 }
 
 io___FileOutputStream__Open <- function(path) {

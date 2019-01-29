@@ -23,12 +23,14 @@
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
 #include <arrow/csv/reader.h>
+#include <arrow/io/compressed.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 #include <arrow/ipc/feather.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/type.h>
+#include <arrow/util/compression.h>
 
 #define STOP_IF_NOT(TEST, MSG)  \
   do {                          \
@@ -129,6 +131,7 @@ RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
 RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::Message::Type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::Compression::type)
 
 namespace Rcpp {
 namespace internal {
