@@ -25,6 +25,7 @@ export function recordBatchWriterThroughNodeStream<T extends { [key: string]: Da
     return new RecordBatchWriterDuplex(new this<T>(options));
 }
 
+/** @ignore */
 type CB = (error?: Error | null | undefined) => void;
 
 /** @ignore */

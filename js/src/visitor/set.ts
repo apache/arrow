@@ -323,4 +323,5 @@ SetVisitor.prototype.visitIntervalYearMonth    =    setIntervalYearMonth;
 SetVisitor.prototype.visitFixedSizeList        =        setFixedSizeList;
 SetVisitor.prototype.visitMap                  =               setNested;
 
+/** @ignore */
 export const instance = new SetVisitor();

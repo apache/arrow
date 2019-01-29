@@ -312,4 +312,5 @@ GetVisitor.prototype.visitIntervalYearMonth    =    getIntervalYearMonth;
 GetVisitor.prototype.visitFixedSizeList        =        getFixedSizeList;
 GetVisitor.prototype.visitMap                  =               getNested;
 
+/** @ignore */
 export const instance = new GetVisitor();

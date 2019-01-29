@@ -167,4 +167,5 @@ IteratorVisitor.prototype.visitIntervalYearMonth    = vectorIterator;
 IteratorVisitor.prototype.visitFixedSizeList        = vectorIterator;
 IteratorVisitor.prototype.visitMap                  = vectorIterator;
 
+/** @ignore */
 export const instance = new IteratorVisitor();

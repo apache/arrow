@@ -178,4 +178,5 @@ IndexOfVisitor.prototype.visitIntervalYearMonth    = indexOfValue;
 IndexOfVisitor.prototype.visitFixedSizeList        = indexOfValue;
 IndexOfVisitor.prototype.visitMap                  = indexOfValue;
 
+/** @ignore */
 export const instance = new IndexOfVisitor();

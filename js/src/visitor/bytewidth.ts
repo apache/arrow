@@ -62,4 +62,5 @@ export class ByteWidthVisitor extends Visitor {
     public visitSchema          (schema: Schema        ) { return this.visitFields(schema.fields).reduce(sum, 0); }
 }
 
+/** @ignore */
 export const instance = new ByteWidthVisitor();
