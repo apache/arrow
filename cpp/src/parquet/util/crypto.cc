@@ -285,6 +285,18 @@ int gcm_decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int
   memset(tag, 0, gcmTagLen);
   uint8_t iv[nonceLen];
   memset(iv, 0, nonceLen);
+  
+  // Extract ciphertext length
+  int ciphertext_length = 
+        ((ciphertext[3] & 0xff) << 24) |
+        ((ciphertext[2] & 0xff) << 16) |
+        ((ciphertext[1] & 0xff) <<  8) |
+        ((ciphertext[0] & 0xff));
+        
+  if (ciphertext_len > 0 && ciphertext_len != ciphertext_length) {
+    throw ParquetException("Wrong ciphertext length");
+  }
+  ciphertext_len = ciphertext_length;
 
   // Extracting IV and tag
   std::copy(ciphertext + bufferSizeLen, ciphertext + bufferSizeLen + nonceLen, iv);
@@ -333,6 +345,18 @@ int ctr_decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int
 
   uint8_t iv[ctrIvLen];
   memset(iv, 0, ctrIvLen);
+  
+  // Extract ciphertext length
+  int ciphertext_length = 
+        ((ciphertext[3] & 0xff) << 24) |
+        ((ciphertext[2] & 0xff) << 16) |
+        ((ciphertext[1] & 0xff) <<  8) |
+        ((ciphertext[0] & 0xff));
+        
+  if (ciphertext_len > 0 && ciphertext_len != ciphertext_length) {
+    throw ParquetException("Wrong ciphertext length");
+  }
+  ciphertext_len = ciphertext_length;
 
   // Extracting IV and tag
   std::copy(ciphertext + bufferSizeLen, ciphertext + bufferSizeLen + ctrIvLen, iv);
