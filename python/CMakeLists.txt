@@ -107,6 +107,10 @@ endif(CCACHE_FOUND)
 
 include(BuildUtils)
 include(CompilerInfo)
+
+# Cython generated code emits way to many warnings at CHECKIN and EVERYTHING
+set(BUILD_WARNING_LEVEL "PRODUCTION")
+
 include(SetupCxxFlags)
 
 # Add common flags
