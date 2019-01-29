@@ -20,7 +20,6 @@
 boost-cpp=1.68.0
 brotli
 bzip2
-cmake
 double-conversion
 flatbuffers
 gflags
