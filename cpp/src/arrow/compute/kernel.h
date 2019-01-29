@@ -162,6 +162,8 @@ class ARROW_EXPORT UnaryKernel : public OpKernel {
  public:
   /// \brief Executes the kernel.
   ///
+  /// \param[in,out] ctx The FunctionContext to use in th kernel.
+  /// \param[in] input The input to process.
   /// \param[out] out The output of the function. Each implementation of this
   /// function might assume different things about the existing contents of out
   /// (e.g. which buffers are preallocated).  In the future it is expected that
