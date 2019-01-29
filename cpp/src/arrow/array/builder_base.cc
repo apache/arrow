@@ -84,11 +84,6 @@ Status ArrayBuilder::Finish(std::shared_ptr<Array>* out) {
   return Status::OK();
 }
 
-std::shared_ptr<DataType> ArrayBuilder::type() const {
-  ARROW_CHECK(!infer_type_);
-  return type_;
-}
-
 void ArrayBuilder::Reset() {
   capacity_ = length_ = null_count_ = 0;
   null_bitmap_builder_.Reset();

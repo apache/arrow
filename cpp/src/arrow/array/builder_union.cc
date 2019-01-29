@@ -25,9 +25,7 @@ namespace arrow {
 
 DenseUnionBuilder::DenseUnionBuilder(MemoryPool* pool,
                                      const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(type, pool), types_builder_(pool), offsets_builder_(pool) {
-  infer_type_ = true;
-}
+    : ArrayBuilder(type, pool), types_builder_(pool), offsets_builder_(pool) {}
 
 Status DenseUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> types;
@@ -50,9 +48,8 @@ Status DenseUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   }
 
   // If the type has not been specified in the constructor, infer it
-  if (infer_type_) {
+  if (!type_) {
     type_ = union_(fields, type_ids, UnionMode::DENSE);
-    infer_type_ = false;
   }
 
   *out = ArrayData::Make(type_, length(), {null_bitmap, types, offsets}, null_count_);

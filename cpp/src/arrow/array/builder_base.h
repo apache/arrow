@@ -122,7 +122,7 @@ class ARROW_EXPORT ArrayBuilder {
   /// \return Status
   Status Finish(std::shared_ptr<Array>* out);
 
-  std::shared_ptr<DataType> type() const;
+  std::shared_ptr<DataType> type() const { return type_; }
 
  protected:
   /// Append to null bitmap
@@ -186,11 +186,6 @@ class ARROW_EXPORT ArrayBuilder {
 
   // Child value array builders. These are owned by this class
   std::vector<std::shared_ptr<ArrayBuilder>> children_;
-
-  // Type of this builder is inferred in the Finish method. In this case,
-  // the type() method cannot be used before Finish is called. Only used
-  // for complex array builders (like nested builders). This is EXPERIMENTAL.
-  bool infer_type_ = false;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);

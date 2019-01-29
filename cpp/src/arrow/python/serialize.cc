@@ -191,7 +191,7 @@ class SequenceBuilder {
     }
     RETURN_NOT_OK(CreateAndUpdate(&target_sequence, tag, [this, &values]() {
       values.reset(new SequenceBuilder(pool_));
-      return new ListBuilder(pool_, values->builder(), nullptr, true);
+      return new ListBuilder(pool_, values->builder());
     }));
     RETURN_NOT_OK(target_sequence->Append());
     return internal::VisitIterable(
@@ -270,7 +270,7 @@ class DictBuilder {
  public:
   explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {
     builder_.reset(
-        new StructBuilder(nullptr, pool, {keys_.builder(), vals_.builder()}, true));
+        new StructBuilder(nullptr, pool, {keys_.builder(), vals_.builder()}));
   }
 
   // Builder for the keys of the dictionary
@@ -300,7 +300,7 @@ Status SequenceBuilder::AppendDict(PyObject* context, PyObject* dict,
   }
   RETURN_NOT_OK(CreateAndUpdate(&dicts_, PythonType::DICT, [this]() {
     dict_values_.reset(new DictBuilder(pool_));
-    return new ListBuilder(pool_, dict_values_->builder(), nullptr, true);
+    return new ListBuilder(pool_, dict_values_->builder());
   }));
   RETURN_NOT_OK(dicts_->Append());
   PyObject* key;
