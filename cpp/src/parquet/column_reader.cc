@@ -273,8 +273,6 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType> {
  public:
   using T = typename DType::c_type;
 
-  ~TypedColumnReaderImpl() {}
-
   TypedColumnReaderImpl(const ColumnDescriptor* descr, std::unique_ptr<PageReader> pager,
                         ::arrow::MemoryPool* pool)
       : descr_(descr),
