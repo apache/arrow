@@ -85,7 +85,6 @@ if(_gtest_roots)
   find_library(GTEST_MAIN_SHARED_LIB NAMES ${GTEST_MAIN_SHARED_LIB_NAME}
     PATHS ${_gtest_roots} NO_DEFAULT_PATH
     PATH_SUFFIXES ${lib_dirs})
-        PATH_SUFFIXES "lib" )
 else()
   find_path(GTEST_INCLUDE_DIR NAMES gtest/gtest.h)
   find_library(GTEST_STATIC_LIB NAMES ${GTEST_STATIC_LIB_NAME})
@@ -96,7 +95,7 @@ endif()
 
 # gmock
 # Try the parameterized roots, if they exist
-if(_gmock_roots)
+if(_gtest_roots)
   find_path(GMOCK_INCLUDE_DIR NAMES gmock/gmock.h
     PATHS ${_gmock_roots} NO_DEFAULT_PATH
     PATH_SUFFIXES "include")
@@ -116,7 +115,6 @@ if(_gmock_roots)
   find_library(GMOCK_MAIN_SHARED_LIB NAMES ${GMOCK_MAIN_SHARED_LIB_NAME}
     PATHS ${_gmock_roots} NO_DEFAULT_PATH
     PATH_SUFFIXES ${lib_dirs})
-        PATH_SUFFIXES "lib" )
 else()
   find_path(GMOCK_INCLUDE_DIR NAMES gtest/gtest.h)
   find_library(GMOCK_STATIC_LIB NAMES ${GMOCK_STATIC_LIB_NAME})
