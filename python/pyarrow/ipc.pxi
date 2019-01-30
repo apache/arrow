@@ -148,27 +148,7 @@ cdef class MessageReader:
 # ----------------------------------------------------------------------
 # File and stream readers and writers
 
-cdef class _RecordBatchWriter:
-    cdef:
-        shared_ptr[CRecordBatchWriter] writer
-        shared_ptr[OutputStream] sink
-        bint closed
-
-    def __cinit__(self):
-        pass
-
-    def __dealloc__(self):
-        pass
-
-    def _open(self, sink, Schema schema):
-        get_writer(sink, &self.sink)
-
-        with nogil:
-            check_status(
-                CRecordBatchStreamWriter.Open(self.sink.get(),
-                                              schema.sp_schema,
-                                              &self.writer))
-
+cdef class _CRecordBatchWriter:
     def write(self, table_or_batch):
         """
         Write RecordBatch or Table to stream
@@ -222,6 +202,33 @@ cdef class _RecordBatchWriter:
         with nogil:
             check_status(self.writer.get().Close())
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+
+cdef class _RecordBatchWriter(_CRecordBatchWriter):
+    cdef:
+        shared_ptr[OutputStream] sink
+        bint closed
+
+    def __cinit__(self):
+        pass
+
+    def __dealloc__(self):
+        pass
+
+    def _open(self, sink, Schema schema):
+        get_writer(sink, &self.sink)
+
+        with nogil:
+            check_status(
+                CRecordBatchStreamWriter.Open(self.sink.get(),
+                                              schema.sp_schema,
+                                              &self.writer))
+
 
 cdef _get_input_stream(object source, shared_ptr[InputStream]* out):
     cdef:
@@ -237,25 +244,7 @@ cdef _get_input_stream(object source, shared_ptr[InputStream]* out):
     out[0] = <shared_ptr[InputStream]> file_handle
 
 
-cdef class _RecordBatchReader:
-    cdef:
-        shared_ptr[CRecordBatchReader] reader
-        shared_ptr[InputStream] in_stream
-
-    cdef readonly:
-        Schema schema
-
-    def __cinit__(self):
-        pass
-
-    def _open(self, source):
-        _get_input_stream(source, &self.in_stream)
-        with nogil:
-            check_status(CRecordBatchStreamReader.Open(
-                self.in_stream.get(), &self.reader))
-
-        self.schema = pyarrow_wrap_schema(self.reader.get().schema())
-
+cdef class _CRecordBatchReader:
     def __iter__(self):
         while True:
             yield self.read_next_batch()
@@ -289,6 +278,25 @@ cdef class _RecordBatchReader:
         with nogil:
             check_status(self.reader.get().ReadAll(&table))
         return pyarrow_wrap_table(table)
+
+
+cdef class _RecordBatchReader(_CRecordBatchReader):
+    cdef:
+        shared_ptr[InputStream] in_stream
+
+    cdef readonly:
+        Schema schema
+
+    def __cinit__(self):
+        pass
+
+    def _open(self, source):
+        _get_input_stream(source, &self.in_stream)
+        with nogil:
+            check_status(CRecordBatchStreamReader.Open(
+                self.in_stream.get(), &self.reader))
+
+        self.schema = pyarrow_wrap_schema(self.reader.get().schema())
 
 
 cdef class _RecordBatchFileWriter(_RecordBatchWriter):

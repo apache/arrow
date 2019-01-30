@@ -58,10 +58,21 @@ endif()
 
 # Top level cmake dir
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
-  option(PYARROW_BUILD_CUDA "Build the PyArrow CUDA support" OFF)
-  option(PYARROW_BUILD_GANDIVA "Build the PyArrow Gandiva integration" OFF)
-  option(PYARROW_BUILD_PARQUET "Build the PyArrow Parquet integration" OFF)
-  option(PYARROW_PARQUET_USE_SHARED "Rely on parquet shared libraries where relevant" ON)
+  option(PYARROW_BUILD_CUDA
+    "Build the PyArrow CUDA support"
+    OFF)
+  option(PYARROW_BUILD_FLIGHT
+    "Build the PyArrow Flight integration"
+    OFF)
+  option(PYARROW_BUILD_GANDIVA
+    "Build the PyArrow Gandiva integration"
+    OFF)
+  option(PYARROW_BUILD_PARQUET
+    "Build the PyArrow Parquet integration"
+    OFF)
+  option(PYARROW_PARQUET_USE_SHARED
+    "Rely on parquet shared libraries where relevant"
+    ON)
   option(PYARROW_BOOST_USE_SHARED
          "Rely on boost shared libraries on linking static parquet" ON)
   option(PYARROW_BUILD_PLASMA "Build the PyArrow Plasma integration" OFF)
@@ -191,7 +202,11 @@ include_directories(SYSTEM ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} src)
 # Dependencies
 #
 
-# Arrow
+if(PYARROW_BUILD_FLIGHT)
+  set(ARROW_FLIGHT TRUE)
+endif()
+
+## Arrow
 find_package(Arrow REQUIRED)
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
 
@@ -349,12 +364,24 @@ if(PYARROW_BUNDLE_ARROW_CPP)
   endif()
 endif()
 
-if(MSVC)
-  add_thirdparty_lib(arrow SHARED_LIB ${ARROW_SHARED_IMP_LIB})
-  add_thirdparty_lib(arrow_python SHARED_LIB ${ARROW_PYTHON_SHARED_IMP_LIB})
+if (MSVC)
+  ADD_THIRDPARTY_LIB(arrow
+    SHARED_LIB ${ARROW_SHARED_IMP_LIB})
+  ADD_THIRDPARTY_LIB(arrow_python
+    SHARED_LIB ${ARROW_PYTHON_SHARED_IMP_LIB})
+  if (PYARROW_BUILD_FLIGHT)
+    ADD_THIRDPARTY_LIB(arrow_flight
+      SHARED_LIB ${ARROW_FLIGHT_SHARED_IMP_LIB})
+  endif()
 else()
-  add_thirdparty_lib(arrow SHARED_LIB ${ARROW_SHARED_LIB})
-  add_thirdparty_lib(arrow_python SHARED_LIB ${ARROW_PYTHON_SHARED_LIB})
+  ADD_THIRDPARTY_LIB(arrow
+    SHARED_LIB ${ARROW_SHARED_LIB})
+  ADD_THIRDPARTY_LIB(arrow_python
+    SHARED_LIB ${ARROW_PYTHON_SHARED_LIB})
+  if (PYARROW_BUILD_FLIGHT)
+    ADD_THIRDPARTY_LIB(arrow_flight
+      SHARED_LIB ${ARROW_FLIGHT_SHARED_LIB})
+  endif()
 endif()
 
 #
@@ -474,8 +501,24 @@ if(PYARROW_BUILD_ORC)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _orc)
 endif()
 
-# Gandiva
-if(PYARROW_BUILD_GANDIVA)
+## Flight
+if (PYARROW_BUILD_FLIGHT)
+  if (PYARROW_BUNDLE_ARROW_CPP)
+    # TODO:
+    message(FATAL_ERROR "Not yet implemented: bundling arrow-flight in pyarrow")
+  endif()
+  # We do NOT want to link gRPC or any other Flight dependency
+  # here. Linking more than one copy leads to odd runtime errors due
+  # to multiple copies of static global state. Thus we also need to
+  # link Flight as a shared object.
+  set(LINK_LIBS ${LINK_LIBS}
+    arrow_flight_shared
+    )
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _flight)
+endif()
+
+## Gandiva
+if (PYARROW_BUILD_GANDIVA)
   find_package(Gandiva)
 
   if(NOT GANDIVA_FOUND)
