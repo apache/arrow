@@ -27,6 +27,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 
 using std::shared_ptr;
@@ -254,27 +255,34 @@ TEST_F(TestSchema, TestRemoveMetadata) {
   ASSERT_TRUE(new_schema->metadata() == nullptr);
 }
 
-#define PRIMITIVE_TEST(KLASS, ENUM, NAME)        \
-  TEST(TypesTest, TestPrimitive_##ENUM) {        \
-    KLASS tp;                                    \
-                                                 \
-    ASSERT_EQ(tp.id(), Type::ENUM);              \
-    ASSERT_EQ(tp.ToString(), std::string(NAME)); \
+#define PRIMITIVE_TEST(KLASS, CTYPE, ENUM, NAME)                              \
+  TEST(TypesTest, ARROW_CONCAT(TestPrimitive_, ENUM)) {                       \
+    KLASS tp;                                                                 \
+                                                                              \
+    ASSERT_EQ(tp.id(), Type::ENUM);                                           \
+    ASSERT_EQ(tp.ToString(), std::string(NAME));                              \
+                                                                              \
+    using CType = TypeTraits<KLASS>::CType;                                   \
+    static_assert(std::is_same<CType, CTYPE>::value, "Not the same c-type!"); \
+                                                                              \
+    using DerivedArrowType = CTypeTraits<CTYPE>::ArrowType;                   \
+    static_assert(std::is_same<DerivedArrowType, KLASS>::value,               \
+                  "Not the same arrow-type!");                                \
   }
 
-PRIMITIVE_TEST(Int8Type, INT8, "int8")
-PRIMITIVE_TEST(Int16Type, INT16, "int16")
-PRIMITIVE_TEST(Int32Type, INT32, "int32")
-PRIMITIVE_TEST(Int64Type, INT64, "int64")
-PRIMITIVE_TEST(UInt8Type, UINT8, "uint8")
-PRIMITIVE_TEST(UInt16Type, UINT16, "uint16")
-PRIMITIVE_TEST(UInt32Type, UINT32, "uint32")
-PRIMITIVE_TEST(UInt64Type, UINT64, "uint64")
+PRIMITIVE_TEST(Int8Type, int8_t, INT8, "int8");
+PRIMITIVE_TEST(Int16Type, int16_t, INT16, "int16");
+PRIMITIVE_TEST(Int32Type, int32_t, INT32, "int32");
+PRIMITIVE_TEST(Int64Type, int64_t, INT64, "int64");
+PRIMITIVE_TEST(UInt8Type, uint8_t, UINT8, "uint8");
+PRIMITIVE_TEST(UInt16Type, uint16_t, UINT16, "uint16");
+PRIMITIVE_TEST(UInt32Type, uint32_t, UINT32, "uint32");
+PRIMITIVE_TEST(UInt64Type, uint64_t, UINT64, "uint64");
 
-PRIMITIVE_TEST(FloatType, FLOAT, "float")
-PRIMITIVE_TEST(DoubleType, DOUBLE, "double")
+PRIMITIVE_TEST(FloatType, float, FLOAT, "float");
+PRIMITIVE_TEST(DoubleType, double, DOUBLE, "double");
 
-PRIMITIVE_TEST(BooleanType, BOOL, "bool")
+PRIMITIVE_TEST(BooleanType, bool, BOOL, "bool");
 
 TEST(TestBinaryType, ToString) {
   BinaryType t1;
