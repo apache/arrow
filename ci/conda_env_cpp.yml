@@ -27,7 +27,6 @@ gflags
 glog
 gmock
 gtest
-gmock
 libprotobuf
 lz4-c
 python
