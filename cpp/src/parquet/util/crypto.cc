@@ -142,19 +142,19 @@ int gcm_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
 
   uint8_t tag[gcmTagLen];
   memset(tag, 0, gcmTagLen);
-  uint8_t iv[nonceLen];
-  memset(iv, 0, nonceLen);
+  uint8_t nonce[nonceLen];
+  memset(nonce, 0, nonceLen);
 
-  // Random IV
+  // Random nonce
   RAND_load_file("/dev/urandom", rndMaxBytes);
-  RAND_bytes(iv, sizeof(iv));
+  RAND_bytes(nonce, sizeof(nonce));
 
   // Init cipher context
   EvpCipher cipher(aesGcm, key_len, encryptType);
 
-  // Setting key and IV
-  if (1 != EVP_EncryptInit_ex(cipher.get(), nullptr, nullptr, key, iv)) {
-    throw ParquetException("Couldn't set key and IV");
+  // Setting key and IV (nonce)
+  if (1 != EVP_EncryptInit_ex(cipher.get(), nullptr, nullptr, key, nonce)) {
+    throw ParquetException("Couldn't set key and nonce");
   }
 
   // Setting additional authenticated data
@@ -183,7 +183,7 @@ int gcm_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
     throw ParquetException("Couldn't get AES-GCM tag");
   }
 
-  // Copying the buffer size, IV and tag to ciphertext
+  // Copying the buffer size, nonce and tag to ciphertext
   int bufferSize = nonceLen + ciphertext_len + gcmTagLen;
   uint8_t bufferSizeArray [bufferSizeLen];
     bufferSizeArray[3] = 0xff & (bufferSize >> 24);
@@ -191,29 +191,30 @@ int gcm_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
     bufferSizeArray[1] = 0xff & (bufferSize >> 8);
     bufferSizeArray[0] = 0xff & (bufferSize);
   std::copy(bufferSizeArray, bufferSizeArray + bufferSizeLen, ciphertext);
-  std::copy(iv, iv + nonceLen, ciphertext + bufferSizeLen);
+  std::copy(nonce, nonce + nonceLen, ciphertext + bufferSizeLen);
   std::copy(tag, tag + gcmTagLen, ciphertext + bufferSizeLen + nonceLen + ciphertext_len);
 
-  return bufferSize;
+  return bufferSizeLen + bufferSize;
 }
 
 int ctr_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int key_len,
                 uint8_t* ciphertext) {
   int len;
   int ciphertext_len;
-
-  uint8_t iv[ctrIvLen];
-  memset(iv, 0, ctrIvLen);
-  iv[ctrIvLen - 1] = 1;
   
   uint8_t nonce[nonceLen];
-  memset(iv, 0, nonceLen);
+  memset(nonce, 0, nonceLen);
 
   // Random nonce
   RAND_load_file("/dev/urandom", rndMaxBytes);
   RAND_bytes(nonce, sizeof(nonce));
-  
+
+  // Parquet CTR IVs are comprised of a 12-byte nonce and a 4-byte initial counter field. 
+  // The first 31 bits of the initial counter field are set to 0, the last bit is set to 1.
+  uint8_t iv[ctrIvLen];
+  memset(iv, 0, ctrIvLen);
   std::copy(nonce, nonce + nonceLen, iv);
+  iv[ctrIvLen - 1] = 1;
 
   // Init cipher context
   EvpCipher cipher(aesCtr, key_len, encryptType);
@@ -248,7 +249,7 @@ int ctr_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
   std::copy(bufferSizeArray, bufferSizeArray + bufferSizeLen, ciphertext);
   std::copy(iv, iv + ctrIvLen, ciphertext + bufferSizeLen);
 
-  return bufferSize;
+  return bufferSizeLen + bufferSize;
 }
 
 int Encrypt(Encryption::type alg_id, bool metadata, const uint8_t* plaintext,
@@ -283,30 +284,30 @@ int gcm_decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int
 
   uint8_t tag[gcmTagLen];
   memset(tag, 0, gcmTagLen);
-  uint8_t iv[nonceLen];
-  memset(iv, 0, nonceLen);
+  uint8_t nonce[nonceLen];
+  memset(nonce, 0, nonceLen);
   
   // Extract ciphertext length
-  int ciphertext_length = 
+  int written_ciphertext_len = 
         ((ciphertext[3] & 0xff) << 24) |
         ((ciphertext[2] & 0xff) << 16) |
         ((ciphertext[1] & 0xff) <<  8) |
         ((ciphertext[0] & 0xff));
         
-  if (ciphertext_len > 0 && ciphertext_len != ciphertext_length) {
+  if (ciphertext_len > 0 && ciphertext_len != (written_ciphertext_len + bufferSizeLen)) {
     throw ParquetException("Wrong ciphertext length");
   }
-  ciphertext_len = ciphertext_length;
+  ciphertext_len = written_ciphertext_len + bufferSizeLen;
 
   // Extracting IV and tag
-  std::copy(ciphertext + bufferSizeLen, ciphertext + bufferSizeLen + nonceLen, iv);
+  std::copy(ciphertext + bufferSizeLen, ciphertext + bufferSizeLen + nonceLen, nonce);
   std::copy(ciphertext + ciphertext_len - gcmTagLen, ciphertext + ciphertext_len, tag);
 
   // Init cipher context
   EvpCipher cipher(aesGcm, key_len, decryptType);
 
   // Setting key and IV
-  if (1 != EVP_DecryptInit_ex(cipher.get(), nullptr, nullptr, key, iv)) {
+  if (1 != EVP_DecryptInit_ex(cipher.get(), nullptr, nullptr, key, nonce)) {
     throw ParquetException("Couldn't set key and IV");
   }
 
@@ -347,18 +348,18 @@ int ctr_decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int
   memset(iv, 0, ctrIvLen);
   
   // Extract ciphertext length
-  int ciphertext_length = 
+  int written_ciphertext_len = 
         ((ciphertext[3] & 0xff) << 24) |
         ((ciphertext[2] & 0xff) << 16) |
         ((ciphertext[1] & 0xff) <<  8) |
         ((ciphertext[0] & 0xff));
         
-  if (ciphertext_len > 0 && ciphertext_len != ciphertext_length) {
+  if (ciphertext_len > 0 && ciphertext_len != (written_ciphertext_len + bufferSizeLen)) {
     throw ParquetException("Wrong ciphertext length");
   }
-  ciphertext_len = ciphertext_length;
+  ciphertext_len = written_ciphertext_len;
 
-  // Extracting IV and tag
+  // Extracting IV
   std::copy(ciphertext + bufferSizeLen, ciphertext + bufferSizeLen + ctrIvLen, iv);
 
   // Init cipher context
@@ -371,7 +372,7 @@ int ctr_decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int
 
   // Decryption
   if (!EVP_DecryptUpdate(cipher.get(), plaintext, &len, ciphertext + bufferSizeLen + ctrIvLen,
-                         ciphertext_len - bufferSizeLen - ctrIvLen)) {
+                         ciphertext_len - ctrIvLen)) {
     throw ParquetException("Failed decryption update");
   }
 
