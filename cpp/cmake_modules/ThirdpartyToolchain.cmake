@@ -689,7 +689,15 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   message(STATUS "GTest include dir: ${GTEST_INCLUDE_DIR}")
   message(STATUS "GMock include dir: ${GMOCK_INCLUDE_DIR}")
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
-  include_directories(BEFORE SYSTEM ${GMOCK_INCLUDE_DIR})
+  # Conflicts in header files seem to either cause apple to have
+  # a bad boost symbol, or trusty to use CPP_TOOLCHAIN's header
+  # file for gmock (and the vendored version is 1.8.0 and conda is
+  # 1.8.1)
+  if (APPLE)
+    include_directories(SYSTEM ${GMOCK_INCLUDE_DIR})
+  else()
+    include_directories(BEFORE SYSTEM ${GMOCK_INCLUDE_DIR})
+  endif()
   if(GTEST_STATIC_LIB)
     message(STATUS "GTest static library: ${GTEST_STATIC_LIB}")
     message(STATUS "GMock static library: ${GMOCK_STATIC_LIB}")
