@@ -1208,7 +1208,7 @@ int main(int argc, char* argv[]) {
   plasma::dlmalloc_set_footprint_limit((size_t)system_memory);
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
   plasma::StartServer(socket_name, system_memory, plasma_directory, hugepages_enabled,
-                      external_store, external_store_endpoint, 
+                      external_store, external_store_endpoint,
                       static_cast<size_t>(external_store_parallelism));
   plasma::g_runner->Shutdown();
   plasma::g_runner = nullptr;
