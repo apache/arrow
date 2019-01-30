@@ -23,13 +23,38 @@ import org.apache.arrow.memory.BaseAllocator;
 
 import com.google.common.base.Preconditions;
 
+/**
+ * This class builds {@link JdbcToArrowConfig}s.
+ */
 public class JdbcToArrowConfigBuilder {
   private Calendar calendar;
   private BaseAllocator allocator;
 
+  /**
+   * Default constructor for the <code>JdbcToArrowConfigBuilder}</code>.
+   * Use the setter methods for the allocator and calendar; both must be
+   * set.  Otherwise, {@link #build()} will throw a {@link NullPointerException}.
+   */
   public JdbcToArrowConfigBuilder() {
+    this.allocator = null;
+    this.calendar = null;
   }
 
+  /**
+   * Constructor for the <code>JdbcToArrowConfigBuilder</code>.  Both the
+   * allocator and calendar are required.  A {@link NullPointerException}
+   * will be thrown if one of the arguments is <code>null</code>.
+   * <p>
+   * The allocator is used to construct Arrow vectors from the JDBC ResultSet.
+   * The calendar is used to determine the time zone of {@link java.sql.Timestamp}
+   * fields and convert {@link java.sql.Date}, {@link java.sql.Time}, and
+   * {@link java.sql.Timestamp} fields to a single, common time zone when reading
+   * from the result set.
+   * </p>
+   *
+   * @param allocator The Arrow Vector memory allocator.
+   * @param calendar The calendar to use when constructing timestamp fields.
+   */
   public JdbcToArrowConfigBuilder(BaseAllocator allocator, Calendar calendar) {
     this();
 
@@ -65,6 +90,13 @@ public class JdbcToArrowConfigBuilder {
     return this;
   }
 
+  /**
+   * This builds the {@link JdbcToArrowConfig} from the provided
+   * {@link BaseAllocator} and {@link Calendar}.
+   *
+   * @return The built {@link JdbcToArrowConfig}
+   * @throws NullPointerException if either the allocator or calendar was not set.
+   */
   public JdbcToArrowConfig build() {
     return new JdbcToArrowConfig(allocator, calendar);
   }
