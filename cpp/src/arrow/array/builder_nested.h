@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "arrow/array/builder_base.h"
+#include "arrow/buffer-builder.h"
 
 namespace arrow {
 

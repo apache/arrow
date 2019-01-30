@@ -113,12 +113,12 @@ Status PrimitiveBuilder<T>::AppendValues(const std::vector<value_type>& values) 
 
 template <typename T>
 Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
   RETURN_NOT_OK(TrimBuffer(TypeTraits<T>::bytes_required(length_), data_.get()));
+  std::shared_ptr<Buffer> null_bitmap;
+  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+  *out = ArrayData::Make(type_, length_, {null_bitmap, data_}, null_count_);
 
-  *out = ArrayData::Make(type_, length_, {null_bitmap_, data_}, null_count_);
-
-  data_ = null_bitmap_ = nullptr;
+  data_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
 
   return Status::OK();
@@ -195,12 +195,13 @@ Status BooleanBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
     data_->mutable_data()[length_ / 8] &= BitUtil::kPrecedingBitmask[bit_offset];
   }
 
-  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), null_bitmap_.get()));
+  std::shared_ptr<Buffer> null_bitmap;
+  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
   RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), data_.get()));
 
-  *out = ArrayData::Make(boolean(), length_, {null_bitmap_, data_}, null_count_);
+  *out = ArrayData::Make(boolean(), length_, {null_bitmap, data_}, null_count_);
 
-  data_ = null_bitmap_ = nullptr;
+  data_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
   return Status::OK();
 }

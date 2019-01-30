@@ -16,21 +16,24 @@
 // under the License.
 
 #include <algorithm>
+#include <ostream>
 #include <string>
 #include <utility>
-#include <vector>
+
+#include "arrow/util/logging.h"
 
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
 #include "parquet/schema-internal.h"
 #include "parquet/schema.h"
+#include "parquet/statistics.h"
 #include "parquet/thrift.h"
-#include "parquet/util/memory.h"
 
-#include <boost/algorithm/string.hpp>
-#include <boost/regex.hpp>
+#include <boost/regex.hpp>  // IWYU pragma: keep
 
 namespace parquet {
+
+class OutputStream;
 
 const ApplicationVersion& ApplicationVersion::PARQUET_251_FIXED_VERSION() {
   static ApplicationVersion version("parquet-mr", 1, 8, 0);
@@ -44,6 +47,11 @@ const ApplicationVersion& ApplicationVersion::PARQUET_816_FIXED_VERSION() {
 
 const ApplicationVersion& ApplicationVersion::PARQUET_CPP_FIXED_STATS_VERSION() {
   static ApplicationVersion version("parquet-cpp", 1, 3, 0);
+  return version;
+}
+
+const ApplicationVersion& ApplicationVersion::PARQUET_MR_FIXED_STATS_VERSION() {
+  static ApplicationVersion version("parquet-mr", 1, 10, 0);
   return version;
 }
 
@@ -361,7 +369,8 @@ class FileMetaData::FileMetaDataImpl {
   const ApplicationVersion& writer_version() const { return writer_version_; }
 
   void WriteTo(OutputStream* dst) const {
-    SerializeThriftMsg(metadata_.get(), 1024, dst);
+    ThriftSerializer serializer;
+    serializer.Serialize(metadata_.get(), dst);
   }
 
   std::unique_ptr<RowGroupMetaData> RowGroup(int i) {
@@ -546,8 +555,10 @@ bool ApplicationVersion::VersionEq(const ApplicationVersion& other_version) cons
 bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
                                               EncodedStatistics& statistics,
                                               SortOrder::type sort_order) const {
-  // Parquet cpp version 1.3.0 onwards stats are computed correctly for all types
-  if ((application_ != "parquet-cpp") || (VersionLt(PARQUET_CPP_FIXED_STATS_VERSION()))) {
+  // parquet-cpp version 1.3.0 and parquet-mr 1.10.0 onwards stats are computed
+  // correctly for all types
+  if ((application_ == "parquet-cpp" && VersionLt(PARQUET_CPP_FIXED_STATS_VERSION())) ||
+      (application_ == "parquet-mr" && VersionLt(PARQUET_MR_FIXED_STATS_VERSION()))) {
     // Only SIGNED are valid unless max and min are the same
     // (in which case the sort order does not matter)
     bool max_equals_min = statistics.has_min && statistics.has_max
@@ -667,7 +678,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   }
 
   void WriteTo(OutputStream* sink) {
-    SerializeThriftMsg(column_chunk_, sizeof(format::ColumnChunk), sink);
+    ThriftSerializer serializer;
+    serializer.Serialize(column_chunk_, sink);
   }
 
   const ColumnDescriptor* descr() const { return column_; }
@@ -851,23 +863,19 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
   }
 
   RowGroupMetaDataBuilder* AppendRowGroup() {
-    row_groups_.emplace_back(new format::RowGroup);
+    row_groups_.emplace_back();
     current_row_group_builder_ =
-        RowGroupMetaDataBuilder::Make(properties_, schema_, row_groups_.back().get());
+        RowGroupMetaDataBuilder::Make(properties_, schema_, &row_groups_.back());
     return current_row_group_builder_.get();
   }
 
   std::unique_ptr<FileMetaData> Finish() {
     int64_t total_rows = 0;
-    std::vector<format::RowGroup> row_groups;
-    for (auto row_group = row_groups_.begin(); row_group != row_groups_.end();
-         row_group++) {
-      auto rowgroup = *((*row_group).get());
-      row_groups.push_back(rowgroup);
-      total_rows += rowgroup.num_rows;
+    for (auto row_group : row_groups_) {
+      total_rows += row_group.num_rows;
     }
     metadata_->__set_num_rows(total_rows);
-    metadata_->__set_row_groups(row_groups);
+    metadata_->__set_row_groups(row_groups_);
 
     if (key_value_metadata_) {
       metadata_->key_value_metadata.clear();
@@ -922,7 +930,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
 
  private:
   const std::shared_ptr<WriterProperties> properties_;
-  std::vector<std::unique_ptr<format::RowGroup>> row_groups_;
+  std::vector<format::RowGroup> row_groups_;
 
   std::unique_ptr<RowGroupMetaDataBuilder> current_row_group_builder_;
   const SchemaDescriptor* schema_;

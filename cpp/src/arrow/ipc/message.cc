@@ -63,6 +63,8 @@ class Message::MessageImpl {
         return Message::RECORD_BATCH;
       case flatbuf::MessageHeader_Tensor:
         return Message::TENSOR;
+      case flatbuf::MessageHeader_SparseTensor:
+        return Message::SPARSE_TENSOR;
       default:
         return Message::NONE;
     }

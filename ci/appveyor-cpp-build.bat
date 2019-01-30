@@ -95,11 +95,12 @@ if "%JOB%" == "Build_Debug" (
   exit /B 0
 )
 
-conda create -n arrow -q -y ^
+conda create -n arrow -q -y -c conda-forge ^
+      --file=ci\conda_env_python.yml ^
       python=%PYTHON% ^
-      six pytest setuptools numpy pandas cython hypothesis ^
-      thrift-cpp=0.11.0 boost-cpp ^
-      -c conda-forge
+      numpy=1.14 ^
+      thrift-cpp=0.11 ^
+      boost-cpp
 
 call activate arrow
 
@@ -109,9 +110,9 @@ set BOOST_LIBRARYDIR=%CONDA_PREFIX%\Library\lib
 
 if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds
-  conda install -q -y --file=ci\conda_env_cpp.yml ^
-        python=%PYTHON% ^
-        -c conda-forge
+  conda install -q -y -c conda-forge ^
+        --file=ci\conda_env_cpp.yml ^
+        python=%PYTHON%
 
   set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 )

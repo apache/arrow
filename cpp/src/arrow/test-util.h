@@ -46,35 +46,33 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-#define STRINGIFY(x) #x
-
-#define ASSERT_RAISES(ENUM, expr)                                         \
-  do {                                                                    \
-    ::arrow::Status s = (expr);                                           \
-    if (!s.Is##ENUM()) {                                                  \
-      FAIL() << "Expected '" STRINGIFY(expr) "' to fail with " STRINGIFY( \
-                    ENUM) ", but got "                                    \
-             << s.ToString();                                             \
-    }                                                                     \
+#define ASSERT_RAISES(ENUM, expr)                                                     \
+  do {                                                                                \
+    ::arrow::Status s = (expr);                                                       \
+    if (!s.Is##ENUM()) {                                                              \
+      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
+                    ENUM) ", but got "                                                \
+             << s.ToString();                                                         \
+    }                                                                                 \
   } while (false)
 
-#define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                   \
-  do {                                                                    \
-    ::arrow::Status s = (expr);                                           \
-    if (!s.Is##ENUM()) {                                                  \
-      FAIL() << "Expected '" STRINGIFY(expr) "' to fail with " STRINGIFY( \
-                    ENUM) ", but got "                                    \
-             << s.ToString();                                             \
-    }                                                                     \
-    ASSERT_EQ((message), s.ToString());                                   \
+#define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                               \
+  do {                                                                                \
+    ::arrow::Status s = (expr);                                                       \
+    if (!s.Is##ENUM()) {                                                              \
+      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
+                    ENUM) ", but got "                                                \
+             << s.ToString();                                                         \
+    }                                                                                 \
+    ASSERT_EQ((message), s.ToString());                                               \
   } while (false)
 
-#define ASSERT_OK(expr)                                                \
-  do {                                                                 \
-    ::arrow::Status _s = (expr);                                       \
-    if (!_s.ok()) {                                                    \
-      FAIL() << "'" STRINGIFY(expr) "' failed with " << _s.ToString(); \
-    }                                                                  \
+#define ASSERT_OK(expr)                                                      \
+  do {                                                                       \
+    ::arrow::Status _s = (expr);                                             \
+    if (!_s.ok()) {                                                          \
+      FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _s.ToString(); \
+    }                                                                        \
   } while (false)
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
@@ -203,6 +201,15 @@ ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs);
 ARROW_EXPORT void PrintColumn(const Column& col, std::stringstream* ss);
 ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
                                     bool same_chunk_layout = true);
+
+template <typename C_TYPE>
+void AssertNumericDataEqual(const C_TYPE* raw_data,
+                            const std::vector<C_TYPE>& expected_values) {
+  for (auto expected : expected_values) {
+    ASSERT_EQ(expected, *raw_data);
+    ++raw_data;
+  }
+}
 
 ARROW_EXPORT void CompareBatch(const RecordBatch& left, const RecordBatch& right);
 

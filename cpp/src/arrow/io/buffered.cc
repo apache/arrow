@@ -91,8 +91,8 @@ class BufferedBase {
 
 class BufferedOutputStream::Impl : public BufferedBase {
  public:
-  explicit Impl(std::shared_ptr<OutputStream> raw)
-      : BufferedBase(default_memory_pool()), raw_(std::move(raw)) {}
+  explicit Impl(std::shared_ptr<OutputStream> raw, MemoryPool* pool)
+      : BufferedBase(pool), raw_(std::move(raw)) {}
 
   Status Close() {
     std::lock_guard<std::mutex> guard(lock_);
@@ -173,14 +173,16 @@ class BufferedOutputStream::Impl : public BufferedBase {
   std::shared_ptr<OutputStream> raw_;
 };
 
-BufferedOutputStream::BufferedOutputStream(std::shared_ptr<OutputStream> raw)
-    : impl_(new BufferedOutputStream::Impl(std::move(raw))) {}
+BufferedOutputStream::BufferedOutputStream(std::shared_ptr<OutputStream> raw,
+                                           MemoryPool* pool) {
+  impl_.reset(new Impl(std::move(raw), pool));
+}
 
-Status BufferedOutputStream::Create(std::shared_ptr<OutputStream> raw,
-                                    int64_t buffer_size,
+Status BufferedOutputStream::Create(int64_t buffer_size, MemoryPool* pool,
+                                    std::shared_ptr<OutputStream> raw,
                                     std::shared_ptr<BufferedOutputStream>* out) {
-  auto result =
-      std::shared_ptr<BufferedOutputStream>(new BufferedOutputStream(std::move(raw)));
+  auto result = std::shared_ptr<BufferedOutputStream>(
+      new BufferedOutputStream(std::move(raw), pool));
   RETURN_NOT_OK(result->SetBufferSize(buffer_size));
   *out = std::move(result);
   return Status::OK();
@@ -217,12 +219,12 @@ std::shared_ptr<OutputStream> BufferedOutputStream::raw() const { return impl_->
 // ----------------------------------------------------------------------
 // BufferedInputStream implementation
 
-class BufferedInputStream::BufferedInputStreamImpl : public BufferedBase {
+class BufferedInputStream::Impl : public BufferedBase {
  public:
-  BufferedInputStreamImpl(std::shared_ptr<InputStream> raw, MemoryPool* pool)
+  Impl(std::shared_ptr<InputStream> raw, MemoryPool* pool)
       : BufferedBase(pool), raw_(std::move(raw)), bytes_buffered_(0) {}
 
-  ~BufferedInputStreamImpl() { DCHECK_OK(Close()); }
+  ~Impl() { DCHECK_OK(Close()); }
 
   Status Close() {
     std::lock_guard<std::mutex> guard(lock_);
@@ -350,13 +352,13 @@ class BufferedInputStream::BufferedInputStreamImpl : public BufferedBase {
 
 BufferedInputStream::BufferedInputStream(std::shared_ptr<InputStream> raw,
                                          MemoryPool* pool) {
-  impl_.reset(new BufferedInputStreamImpl(std::move(raw), pool));
+  impl_.reset(new Impl(std::move(raw), pool));
 }
 
 BufferedInputStream::~BufferedInputStream() { DCHECK_OK(impl_->Close()); }
 
-Status BufferedInputStream::Create(std::shared_ptr<InputStream> raw, int64_t buffer_size,
-                                   MemoryPool* pool,
+Status BufferedInputStream::Create(int64_t buffer_size, MemoryPool* pool,
+                                   std::shared_ptr<InputStream> raw,
                                    std::shared_ptr<BufferedInputStream>* out) {
   auto result =
       std::shared_ptr<BufferedInputStream>(new BufferedInputStream(std::move(raw), pool));

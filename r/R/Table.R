@@ -61,6 +61,6 @@ table <- function(.data){
 }
 
 #' @export
-`as_tibble.arrow::Table` <- function(x, ...){
-  Table__to_dataframe(x)
+`as_tibble.arrow::Table` <- function(x, use_threads = TRUE, ...){
+  Table__to_dataframe(x, use_threads = use_threads)
 }

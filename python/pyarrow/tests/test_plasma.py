@@ -37,6 +37,7 @@ import pandas as pd
 
 DEFAULT_PLASMA_STORE_MEMORY = 10 ** 8
 USE_VALGRIND = os.getenv("PLASMA_VALGRIND") == "1"
+SMALL_OBJECT_SIZE = 9000
 
 
 def random_name():
@@ -110,15 +111,11 @@ def assert_get_object_equal(unit_test, client1, client2, object_id,
 class TestPlasmaClient(object):
 
     def setup_method(self, test_method):
-        use_one_memory_mapped_file = (test_method ==
-                                      self.test_use_one_memory_mapped_file)
-
         import pyarrow.plasma as plasma
         # Start Plasma store.
         self.plasma_store_ctx = plasma.start_plasma_store(
             plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
-            use_valgrind=USE_VALGRIND,
-            use_one_memory_mapped_file=use_one_memory_mapped_file)
+            use_valgrind=USE_VALGRIND)
         self.plasma_store_name, self.p = self.plasma_store_ctx.__enter__()
         # Connect to Plasma.
         self.plasma_client = plasma.connect(self.plasma_store_name)
@@ -471,22 +468,26 @@ class TestPlasmaClient(object):
         memory_buffers.append(memory_buffer)
         # Remaining space is 50%. Make sure that we can't create an
         # object of size 50% + 1, but we can create one of size 20%.
-        assert_create_raises_plasma_full(self, 50 * PERCENT + 1)
+        assert_create_raises_plasma_full(
+            self, 50 * PERCENT + SMALL_OBJECT_SIZE)
         _, memory_buffer, _ = create_object(self.plasma_client, 20 * PERCENT)
         del memory_buffer
         _, memory_buffer, _ = create_object(self.plasma_client, 20 * PERCENT)
         del memory_buffer
-        assert_create_raises_plasma_full(self, 50 * PERCENT + 1)
+        assert_create_raises_plasma_full(
+            self, 50 * PERCENT + SMALL_OBJECT_SIZE)
 
         _, memory_buffer, _ = create_object(self.plasma_client, 20 * PERCENT)
         memory_buffers.append(memory_buffer)
         # Remaining space is 30%.
-        assert_create_raises_plasma_full(self, 30 * PERCENT + 1)
+        assert_create_raises_plasma_full(
+            self, 30 * PERCENT + SMALL_OBJECT_SIZE)
 
         _, memory_buffer, _ = create_object(self.plasma_client, 10 * PERCENT)
         memory_buffers.append(memory_buffer)
         # Remaining space is 20%.
-        assert_create_raises_plasma_full(self, 20 * PERCENT + 1)
+        assert_create_raises_plasma_full(
+            self, 20 * PERCENT + SMALL_OBJECT_SIZE)
 
     def test_contains(self):
         fake_object_ids = [random_object_id() for _ in range(100)]
@@ -838,7 +839,7 @@ class TestPlasmaClient(object):
             assert -1 == recv_dsize
             assert -1 == recv_msize
 
-    def test_use_one_memory_mapped_file(self):
+    def test_use_full_memory(self):
         # Fill the object store up with a large number of small objects and let
         # them go out of scope.
         for _ in range(100):
@@ -851,8 +852,8 @@ class TestPlasmaClient(object):
             create_object(self.plasma_client2, DEFAULT_PLASMA_STORE_MEMORY, 0)
         # Verify that an object that is too large does not fit.
         with pytest.raises(pa.lib.PlasmaStoreFull):
-            create_object(self.plasma_client2, DEFAULT_PLASMA_STORE_MEMORY + 1,
-                          0)
+            create_object(self.plasma_client2,
+                          DEFAULT_PLASMA_STORE_MEMORY + SMALL_OBJECT_SIZE, 0)
 
     def test_client_death_during_get(self):
         import pyarrow.plasma as plasma

@@ -146,6 +146,13 @@ message BinaryNode {
   optional bytes value = 1;
 }
 
+message DecimalNode {
+  optional string value = 1;
+  optional int32 precision = 2;
+  optional int32 scale = 3;
+}
+
+
 message TreeNode {
   optional FieldNode fieldNode = 1;
   optional FunctionNode fnNode = 2;
@@ -164,6 +171,7 @@ message TreeNode {
   optional DoubleNode doubleNode = 16;
   optional StringNode stringNode = 17;
   optional BinaryNode binaryNode = 18;
+  optional DecimalNode decimalNode = 19;
 }
 
 message ExpressionRoot {

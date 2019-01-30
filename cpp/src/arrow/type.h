@@ -506,10 +506,7 @@ class ARROW_EXPORT StructType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::STRUCT;
 
-  explicit StructType(const std::vector<std::shared_ptr<Field>>& fields)
-      : NestedType(Type::STRUCT) {
-    children_ = fields;
-  }
+  explicit StructType(const std::vector<std::shared_ptr<Field>>& fields);
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
@@ -529,8 +526,7 @@ class ARROW_EXPORT StructType : public NestedType {
   int GetChildIndex(const std::string& name) const;
 
  private:
-  /// Lazily initialized mapping
-  mutable std::unordered_map<std::string, int> name_to_index_;
+  std::unordered_map<std::string, int> name_to_index_;
 };
 
 /// \brief Base type class for (fixed-size) decimal data
@@ -866,8 +862,7 @@ class ARROW_EXPORT Schema {
  private:
   std::vector<std::shared_ptr<Field>> fields_;
 
-  /// Lazily initialized mapping
-  mutable std::unordered_map<std::string, int> name_to_index_;
+  std::unordered_map<std::string, int> name_to_index_;
 
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };

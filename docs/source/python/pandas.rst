@@ -29,6 +29,13 @@ to them.
    (such as a different type system, and support for null values) that this
    is a separate topic from :ref:`numpy_interop`.
 
+To follow examples in this document, make sure to run:
+
+.. ipython:: python
+
+   import pandas as pd
+   import pyarrow as pa
+
 DataFrames
 ----------
 
@@ -120,5 +127,64 @@ Arrow -> pandas Conversion
 +-------------------------------------+--------------------------------------------------------+
 | ``TIMESTAMP(unit=*)``               | ``pd.Timestamp`` (``np.datetime64[ns]``)               |
 +-------------------------------------+--------------------------------------------------------+
-| ``DATE``                            | ``pd.Timestamp`` (``np.datetime64[ns]``)               |
+| ``DATE``                            | ``object``(with ``datetime.date`` objects)             |
 +-------------------------------------+--------------------------------------------------------+
+
+Categorical types
+~~~~~~~~~~~~~~~~~
+
+TODO
+
+Datetime (Timestamp) types
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+TODO
+
+Date types
+~~~~~~~~~~
+
+While dates can be handled using the ``datetime64[ns]`` type in
+pandas, some systems work with object arrays of Python's built-in
+``datetime.date`` object:
+
+.. ipython:: python
+
+   from datetime import date
+   s = pd.Series([date(2018, 12, 31), None, date(2000, 1, 1)])
+   s
+
+When converting to an Arrow array, the ``date32`` type will be used by
+default:
+
+.. ipython:: python
+
+   arr = pa.array(s)
+   arr.type
+   arr[0]
+
+To use the 64-bit ``date64``, specify this explicitly:
+
+.. ipython:: python
+
+   arr = pa.array(s, type='date64')
+   arr.type
+
+When converting back with ``to_pandas``, object arrays of
+``datetime.date`` objects are returned:
+
+.. ipython:: python
+
+   arr.to_pandas()
+
+If you want to use NumPy's ``datetime64`` dtype instead, pass
+``date_as_object=False``:
+
+.. ipython:: python
+
+   s2 = pd.Series(arr.to_pandas(date_as_object=False))
+   s2.dtype
+
+Time types
+~~~~~~~~~~
+
+TODO

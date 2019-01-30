@@ -33,6 +33,7 @@ requirements:
   build:
     - cmake
     - autoconf  # [unix]
+    - ninja
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
   host:

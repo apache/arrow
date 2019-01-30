@@ -38,6 +38,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # shared libraries
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# if no build build type is specified, default to debug builds
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif(NOT CMAKE_BUILD_TYPE)
+string (TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
+
 # compiler flags that are common across debug/release builds
 if (WIN32)
   # TODO(wesm): Change usages of C runtime functions that MSVC says are
@@ -71,10 +77,10 @@ if (WIN32)
 
     if (ARROW_USE_STATIC_CRT)
       foreach (c_flag CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_DEBUG
-		      CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
-		      CMAKE_C_FLAGS CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_DEBUG
-		      CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO)
-	string(REPLACE "/MD" "-MT" ${c_flag} "${${c_flag}}")
+          CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
+          CMAKE_C_FLAGS CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_DEBUG
+          CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO)
+        string(REPLACE "/MD" "-MT" ${c_flag} "${${c_flag}}")
       endforeach()
     endif()
 
@@ -86,16 +92,26 @@ else()
   set(CXX_COMMON_FLAGS "")
 endif()
 
-# Build warning level (CHECKIN, EVERYTHING, etc.)
+# BUILD_WARNING_LEVEL add warning/error compiler flags. The possible values are
+# - RELEASE: `-Werror` is not provide, thus warning do not halt the build.
+# - CHECKIN: Imply `-Werror -Wall` and some other warnings.
+# - EVERYTHING: Like `CHECKIN`, but possible extra flags depending on the
+#               compiler, including `-Wextra`, `-Weverything`, `-pedantic`.
+#               This is the most aggressive warning level.
 
-# if no build warning level is specified, default to development warning level
+# Defaults BUILD_WARNING_LEVEL to `CHECKIN`, unless CMAKE_BUILD_TYPE is
+# `RELEASE`, then it will default to `PRODUCTION`. The goal of defaulting to
+# `CHECKIN` is to avoid friction with long response time from CI.
 if (NOT BUILD_WARNING_LEVEL)
-  set(BUILD_WARNING_LEVEL Production)
+  if ("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+    set(BUILD_WARNING_LEVEL PRODUCTION)
+  else()
+    set(BUILD_WARNING_LEVEL CHECKIN)
+  endif()
 endif(NOT BUILD_WARNING_LEVEL)
+string(TOUPPER ${BUILD_WARNING_LEVEL} BUILD_WARNING_LEVEL)
 
-string(TOUPPER ${BUILD_WARNING_LEVEL} UPPERCASE_BUILD_WARNING_LEVEL)
-
-if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
+if ("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   # Pre-checkin builds
   if ("${COMPILER_FAMILY}" STREQUAL "msvc")
     string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
@@ -109,7 +125,7 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
 -Wno-shadow -Wno-switch-enum -Wno-exit-time-destructors \
 -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
 -Wno-implicit-fallthrough -Wno-unreachable-code-return \
--Wno-float-equal -Wno-missing-prototypes \
+-Wno-float-equal -Wno-missing-prototypes -Wno-documentation-unknown-command \
 -Wno-old-style-cast -Wno-covered-switch-default \
 -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
 -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
@@ -144,7 +160,7 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   else()
     message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
   endif()
-elseif ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
+elseif ("${BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
   # Pedantic builds for fixing warnings
   if ("${COMPILER_FAMILY}" STREQUAL "msvc")
     string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
@@ -340,11 +356,19 @@ endif()
 #   Debug symbols are stripped for reduced binary size. Add
 #   -DARROW_CXXFLAGS="-g" to add them
 if (NOT MSVC)
-  set(C_FLAGS_DEBUG "-ggdb -O0")
-  set(C_FLAGS_FASTDEBUG "-ggdb -O1")
+  if(ARROW_GGDB_DEBUG)
+    set(C_FLAGS_DEBUG "-ggdb -O0")
+    set(C_FLAGS_FASTDEBUG "-ggdb -O1")
+    set(CXX_FLAGS_DEBUG "-ggdb -O0")
+    set(CXX_FLAGS_FASTDEBUG "-ggdb -O1")
+  else()
+    set(C_FLAGS_DEBUG "-g -O0")
+    set(C_FLAGS_FASTDEBUG "-g -O1")
+    set(CXX_FLAGS_DEBUG "-g -O0")
+    set(CXX_FLAGS_FASTDEBUG "-g -O1")
+  endif()
+
   set(C_FLAGS_RELEASE "-O3 -DNDEBUG")
-  set(CXX_FLAGS_DEBUG "-ggdb -O0")
-  set(CXX_FLAGS_FASTDEBUG "-ggdb -O1")
   set(CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 endif()
 
@@ -353,12 +377,7 @@ set(C_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
 set(CXX_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
 set(CXX_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
 
-# if no build build type is specified, default to debug builds
-if (NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug)
-endif(NOT CMAKE_BUILD_TYPE)
 
-string (TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
 
 # Set compile flags based on the build type.
 message("Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})")

@@ -17,70 +17,147 @@ using Apache.Arrow.Memory;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 
 namespace Apache.Arrow
 {
-    public partial class ArrowBuffer
+    public partial struct ArrowBuffer
     {
-        /// <summary>
-        /// Builds an Arrow buffer from primitive values.
-        /// </summary>
-        /// <typeparam name="T">Primitive type</typeparam>
         public class Builder<T>
             where T : struct
         {
             private readonly int _size;
-            private readonly MemoryPool _pool;
-            private Memory<byte> _memory;
-            private int _offset;
+            private byte[] _buffer;
 
-            public Builder(int initialCapacity = 8, MemoryPool pool = default)
+            public int Capacity => _buffer.Length / _size;
+            public int Length { get; private set; }
+
+            public Builder(int capacity = 8)
             {
-                if (initialCapacity <= 0) initialCapacity = 1;
-                if (pool == null) pool = DefaultMemoryPool.Instance.Value;
-
                 _size = Unsafe.SizeOf<T>();
-                _pool = pool;
-                _memory = _pool.Allocate(initialCapacity * _size);
+                _buffer = new byte[capacity * _size];
+
+                Length = 0;
+            }
+
+            public Builder<T> Append(ArrowBuffer buffer)
+            {
+                Append(buffer.Span.CastTo<T>());
+                return this;
             }
 
             public Builder<T> Append(T value)
             {
-                var span = GetSpan();
-
-                if (_offset + 1 >= span.Length)
-                {
-                    // TODO: Consider a specifiable growth strategy
-
-                    _memory = _pool.Reallocate(_memory, (_memory.Length * 3) / 2);
-                }
-
-                span[_offset++] = value;
+                var span = EnsureCapacity(1);
+                span[Length++] = value;
                 return this;
             }
 
-            public Builder<T> Set(int index, T value)
+            public Builder<T> Append(ReadOnlySpan<T> source)
             {
-                var span = GetSpan();
-                span[index] = value;
+                var span = EnsureCapacity(source.Length);
+                source.CopyTo(span.Slice(Length, source.Length));
+                Length += source.Length;
+                return this;
+            }
+
+            public Builder<T> Append(Func<IEnumerable<T>> fn)
+            {
+                if (fn != null)
+                {
+                    AppendRange(fn());
+                }
+
+                return this;
+            }
+
+            public Builder<T> AppendRange(IEnumerable<T> values)
+            {
+                if (values != null)
+                {
+                    foreach (var v in values)
+                    {
+                        Append(v);
+                    }
+                }
+
+                return this;
+            }
+
+            public Builder<T> Reserve(int capacity)
+            {
+                EnsureCapacity(capacity);
+                return this;
+            }
+
+            public Builder<T> Resize(int capacity)
+            {
+                if (capacity < 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(capacity));
+                }
+
+                Reallocate(capacity);
+                Length = Math.Min(Length, capacity);
+
                 return this;
             }
 
             public Builder<T> Clear()
             {
-                var span = GetSpan();
-                span.Fill(default);
+                Span.Fill(default);
+                Length = 0;
                 return this;
             }
 
-            public ArrowBuffer Build()
+            public ArrowBuffer Build(MemoryPool pool = default)
             {
-                return new ArrowBuffer(_memory, _offset);
+                var length = BitUtility.RoundUpToMultipleOf64(_buffer.Length);
+                var memoryPool = pool ?? MemoryPool.Default.Value;
+                var memory = memoryPool.Allocate(length);
+
+                Memory.CopyTo(memory);
+
+                return new ArrowBuffer(memory);
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private Span<T> GetSpan() => MemoryMarshal.Cast<byte, T>(_memory.Span);
+            private Span<T> EnsureCapacity(int len)
+            {
+                var targetCapacity = Length + len;
+
+                if (targetCapacity > Capacity)
+                {
+                    // TODO: specifiable growth strategy
+
+                    var capacity = Math.Max(
+                        targetCapacity * _size, _buffer.Length * 2);
+
+                    Reallocate(capacity);
+                }
+
+                return Span;
+            }
+
+            private void Reallocate(int length)
+            {
+                if (length < 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(length));
+                }
+
+                if (length != 0)
+                {
+                    System.Array.Resize(ref _buffer, length);
+                }
+            }
+
+            private Memory<byte> Memory => _buffer;
+
+            private Span<T> Span
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => Memory.Span.CastTo<T>();
+            }
         }
+
     }
 }

@@ -54,7 +54,7 @@ Status BinaryBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
 
   // one more then requested for offsets
-  RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int32_t)));
+  RETURN_NOT_OK(offsets_builder_.Resize(capacity + 1));
   return ArrayBuilder::Resize(capacity);
 }
 
@@ -78,12 +78,13 @@ Status BinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(AppendNextOffset());
 
   // These buffers' padding zeroed by BufferBuilder
-  std::shared_ptr<Buffer> offsets, value_data;
+  std::shared_ptr<Buffer> offsets, value_data, null_bitmap;
   RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
   RETURN_NOT_OK(value_data_builder_.Finish(&value_data));
+  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
 
-  *out = ArrayData::Make(type_, length_, {null_bitmap_, offsets, value_data}, null_count_,
-                         0);
+  *out =
+      ArrayData::Make(type_, length_, {null_bitmap, offsets, value_data}, null_count_, 0);
   Reset();
   return Status::OK();
 }
@@ -131,17 +132,17 @@ Status StringBuilder::AppendValues(const std::vector<std::string>& values,
 
   if (valid_bytes) {
     for (std::size_t i = 0; i < values.size(); ++i) {
-      RETURN_NOT_OK(AppendNextOffset());
+      UnsafeAppendNextOffset();
       if (valid_bytes[i]) {
-        RETURN_NOT_OK(value_data_builder_.Append(
-            reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size()));
+        value_data_builder_.UnsafeAppend(
+            reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size());
       }
     }
   } else {
     for (std::size_t i = 0; i < values.size(); ++i) {
-      RETURN_NOT_OK(AppendNextOffset());
-      RETURN_NOT_OK(value_data_builder_.Append(
-          reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size()));
+      UnsafeAppendNextOffset();
+      value_data_builder_.UnsafeAppend(reinterpret_cast<const uint8_t*>(values[i].data()),
+                                       values[i].size());
     }
   }
 
@@ -170,11 +171,11 @@ Status StringBuilder::AppendValues(const char** values, int64_t length,
   if (valid_bytes) {
     int64_t valid_bytes_offset = 0;
     for (int64_t i = 0; i < length; ++i) {
-      RETURN_NOT_OK(AppendNextOffset());
+      UnsafeAppendNextOffset();
       if (valid_bytes[i]) {
         if (values[i]) {
-          RETURN_NOT_OK(value_data_builder_.Append(
-              reinterpret_cast<const uint8_t*>(values[i]), value_lengths[i]));
+          value_data_builder_.UnsafeAppend(reinterpret_cast<const uint8_t*>(values[i]),
+                                           value_lengths[i]);
         } else {
           UnsafeAppendToBitmap(valid_bytes + valid_bytes_offset, i - valid_bytes_offset);
           UnsafeAppendToBitmap(false);
@@ -187,19 +188,19 @@ Status StringBuilder::AppendValues(const char** values, int64_t length,
     if (have_null_value) {
       std::vector<uint8_t> valid_vector(length, 0);
       for (int64_t i = 0; i < length; ++i) {
-        RETURN_NOT_OK(AppendNextOffset());
+        UnsafeAppendNextOffset();
         if (values[i]) {
-          RETURN_NOT_OK(value_data_builder_.Append(
-              reinterpret_cast<const uint8_t*>(values[i]), value_lengths[i]));
+          value_data_builder_.UnsafeAppend(reinterpret_cast<const uint8_t*>(values[i]),
+                                           value_lengths[i]);
           valid_vector[i] = 1;
         }
       }
       UnsafeAppendToBitmap(valid_vector.data(), length);
     } else {
       for (int64_t i = 0; i < length; ++i) {
-        RETURN_NOT_OK(AppendNextOffset());
-        RETURN_NOT_OK(value_data_builder_.Append(
-            reinterpret_cast<const uint8_t*>(values[i]), value_lengths[i]));
+        UnsafeAppendNextOffset();
+        value_data_builder_.UnsafeAppend(reinterpret_cast<const uint8_t*>(values[i]),
+                                         value_lengths[i]);
       }
       UnsafeAppendToBitmap(nullptr, length);
     }
@@ -250,9 +251,10 @@ Status FixedSizeBinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(byte_builder_.Finish(&data));
 
-  *out = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_);
+  std::shared_ptr<Buffer> null_bitmap;
+  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+  *out = ArrayData::Make(type_, length_, {null_bitmap, data}, null_count_);
 
-  null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
   return Status::OK();
 }

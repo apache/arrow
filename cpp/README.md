@@ -32,6 +32,8 @@ Building Arrow requires:
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be sufficient.
 * CMake 3.2 or higher
 * Boost
+* Bison/flex (for building Apache Thrift from source only,
+a parquet dependency.)
 
 Testing arrow with ctest requires:
 
@@ -48,7 +50,9 @@ sudo apt-get install \
      libboost-filesystem-dev \
      libboost-regex-dev \
      libboost-system-dev \
-     python
+     python \
+     bison \
+     flex
 ```
 
 On Alpine Linux:
@@ -75,22 +79,22 @@ If you are developing on Windows, see the [Windows developer guide][2].
 
 ## Building Arrow
 
-Simple debug build:
-
-    git clone https://github.com/apache/arrow.git
-    cd arrow/cpp
-    mkdir debug
-    cd debug
-    cmake -DARROW_BUILD_TESTS=ON ..
-    make unittest
-
 Simple release build:
 
     git clone https://github.com/apache/arrow.git
     cd arrow/cpp
     mkdir release
     cd release
-    cmake -DARROW_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release ..
+    cmake -DARROW_BUILD_TESTS=ON  ..
+    make unittest
+
+Simple debug build:
+
+    git clone https://github.com/apache/arrow.git
+    cd arrow/cpp
+    mkdir debug
+    cd debug
+    cmake -DCMAKE_BUILD_TYPE=Debug -DARROW_BUILD_TESTS=ON ..
     make unittest
 
 If you do not need to build the test suite, you can omit the
@@ -311,6 +315,55 @@ ctest -L gandiva
 This library is still in Alpha stages, and subject to API changes without
 deprecation warnings.
 
+### Building and developing Flight (optional)
+
+In addition to the Arrow dependencies, Flight requires:
+* gRPC (>= 1.14, roughly)
+* Protobuf (>= 3.6, earlier versions may work)
+* c-ares (used by gRPC)
+
+By default, Arrow will try to download and build these dependencies
+when building Flight.
+
+The optional `flight` libraries and tests can be built by passing
+`-DARROW_FLIGHT=ON`.
+
+```shell
+cmake .. -DARROW_FLIGHT=ON -DARROW_BUILD_TESTS=ON
+make
+```
+
+You can also use existing installations of the extra dependencies.
+When building, set the environment variables `GRPC_HOME` and/or
+`PROTOBUF_HOME` and/or `CARES_HOME`.
+
+You may try using system libraries for gRPC and Protobuf, but these
+are likely to be too old.
+
+On Ubuntu/Debian, you can try:
+
+```shell
+sudo apt-get install libgrpc-dev libgrpc++-dev protobuf-compiler-grpc libc-ares-dev
+```
+
+Note that the version of gRPC in Ubuntu 18.10 is too old; you will
+have to install gRPC from source. (Ubuntu 19.04/Debian Sid may work.)
+
+On macOS, you can try [Homebrew][1]:
+
+```shell
+brew install grpc
+```
+
+You can also install gRPC from source. In this case, you must install
+gRPC to generate the necessary files for CMake to find gRPC:
+
+```shell
+cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DgRPC_PROTOBUF_PROVIDER=package -DgRPC_ZLIB_PROVIDER=package -DgRPC_CARES_PROVIDER=package -DgRPC_SSL_PROVIDER=package
+```
+
+You can then specify `-DgRPC_DIR` to `cmake`.
+
 ### API documentation
 
 To generate the (html) API documentation, run the following command in the apidoc
@@ -322,9 +375,13 @@ This requires [Doxygen](http://www.doxygen.org) to be installed.
 
 ## Development
 
-This project follows [Google's C++ Style Guide][3] with minor exceptions. We do
-not encourage anonymous namespaces and we relax the line length restriction to
-90 characters.
+This project follows [Google's C++ Style Guide][3] with minor exceptions:
+
+  *  We relax the line length restriction to 90 characters.
+  *  We use the NULLPTR macro defined in `src/arrow/util/macros.h` to
+     support building C++/CLI (ARROW-1134)
+  *  We use doxygen style comments ("///") instead of line comments ("//")
+     in header files.
 
 ### Memory Pools
 

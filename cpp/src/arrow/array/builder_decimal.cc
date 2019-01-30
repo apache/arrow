@@ -55,8 +55,10 @@ Status Decimal128Builder::Append(const Decimal128& value) {
 Status Decimal128Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(byte_builder_.Finish(&data));
+  std::shared_ptr<Buffer> null_bitmap;
+  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
 
-  *out = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_);
+  *out = ArrayData::Make(type_, length_, {null_bitmap, data}, null_count_);
 
   return Status::OK();
 }

@@ -45,7 +45,7 @@ if (ARROW_BUILD_BENCHMARKS)
   endif()
 
   # TODO(wesm): Some benchmarks include gtest.h
-  add_dependencies(arrow_benchmark_main gtest_static)
+  add_dependencies(arrow_benchmark_main ${GTEST_LIBRARY})
 endif()
 
 ADD_ARROW_TEST(bit-util-test)
@@ -73,5 +73,6 @@ ADD_ARROW_BENCHMARK(int-util-benchmark)
 ADD_ARROW_BENCHMARK(lazy-benchmark)
 ADD_ARROW_BENCHMARK(machine-benchmark)
 ADD_ARROW_BENCHMARK(number-parsing-benchmark)
+ADD_ARROW_BENCHMARK(thread-pool-benchmark)
 ADD_ARROW_BENCHMARK(trie-benchmark)
 ADD_ARROW_BENCHMARK(utf8-util-benchmark)

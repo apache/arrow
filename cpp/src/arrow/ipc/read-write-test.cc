@@ -38,6 +38,7 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/test-util.h"
@@ -842,6 +843,117 @@ TEST_F(TestTensorRoundTrip, NonContiguous) {
   Tensor tensor(int64(), data, {4, 3}, {48, 16});
 
   CheckTensorRoundTrip(tensor);
+}
+
+class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
+ public:
+  void SetUp() { pool_ = default_memory_pool(); }
+  void TearDown() { io::MemoryMapFixture::TearDown(); }
+
+  template <typename SparseIndexType>
+  void CheckSparseTensorRoundTrip(const SparseTensorImpl<SparseIndexType>& tensor) {
+    GTEST_FAIL();
+  }
+};
+
+template <>
+void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCOOIndex>(
+    const SparseTensorImpl<SparseCOOIndex>& tensor) {
+  const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
+  const int elem_size = type.bit_width() / 8;
+
+  int32_t metadata_length;
+  int64_t body_length;
+
+  ASSERT_OK(mmap_->Seek(0));
+
+  ASSERT_OK(WriteSparseTensor(tensor, mmap_.get(), &metadata_length, &body_length,
+                              default_memory_pool()));
+
+  const auto& sparse_index = checked_cast<const SparseCOOIndex&>(*tensor.sparse_index());
+  const int64_t indices_length = elem_size * sparse_index.indices()->size();
+  const int64_t data_length = elem_size * tensor.non_zero_length();
+  const int64_t expected_body_length = indices_length + data_length;
+  ASSERT_EQ(expected_body_length, body_length);
+
+  ASSERT_OK(mmap_->Seek(0));
+
+  std::shared_ptr<SparseTensor> result;
+  ASSERT_OK(ReadSparseTensor(mmap_.get(), &result));
+
+  const auto& resulted_sparse_index =
+      checked_cast<const SparseCOOIndex&>(*result->sparse_index());
+  ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
+  ASSERT_EQ(result->data()->size(), data_length);
+  ASSERT_TRUE(result->Equals(*result));
+}
+
+template <>
+void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCSRIndex>(
+    const SparseTensorImpl<SparseCSRIndex>& tensor) {
+  const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
+  const int elem_size = type.bit_width() / 8;
+
+  int32_t metadata_length;
+  int64_t body_length;
+
+  ASSERT_OK(mmap_->Seek(0));
+
+  ASSERT_OK(WriteSparseTensor(tensor, mmap_.get(), &metadata_length, &body_length,
+                              default_memory_pool()));
+
+  const auto& sparse_index = checked_cast<const SparseCSRIndex&>(*tensor.sparse_index());
+  const int64_t indptr_length = elem_size * sparse_index.indptr()->size();
+  const int64_t indices_length = elem_size * sparse_index.indices()->size();
+  const int64_t data_length = elem_size * tensor.non_zero_length();
+  const int64_t expected_body_length = indptr_length + indices_length + data_length;
+  ASSERT_EQ(expected_body_length, body_length);
+
+  ASSERT_OK(mmap_->Seek(0));
+
+  std::shared_ptr<SparseTensor> result;
+  ASSERT_OK(ReadSparseTensor(mmap_.get(), &result));
+
+  const auto& resulted_sparse_index =
+      checked_cast<const SparseCSRIndex&>(*result->sparse_index());
+  ASSERT_EQ(resulted_sparse_index.indptr()->data()->size(), indptr_length);
+  ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
+  ASSERT_EQ(result->data()->size(), data_length);
+  ASSERT_TRUE(result->Equals(*result));
+}
+
+TEST_F(TestSparseTensorRoundTrip, WithSparseCOOIndex) {
+  std::string path = "test-write-sparse-coo-tensor";
+  constexpr int64_t kBufferSize = 1 << 20;
+  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
+
+  std::vector<int64_t> shape = {2, 3, 4};
+  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
+  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+
+  auto data = Buffer::Wrap(values);
+  NumericTensor<Int64Type> t(data, shape, {}, dim_names);
+  SparseTensorImpl<SparseCOOIndex> st(t);
+
+  CheckSparseTensorRoundTrip(st);
+}
+
+TEST_F(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
+  std::string path = "test-write-sparse-csr-matrix";
+  constexpr int64_t kBufferSize = 1 << 20;
+  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
+
+  std::vector<int64_t> shape = {4, 6};
+  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
+  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+
+  auto data = Buffer::Wrap(values);
+  NumericTensor<Int64Type> t(data, shape, {}, dim_names);
+  SparseTensorImpl<SparseCSRIndex> st(t);
+
+  CheckSparseTensorRoundTrip(st);
 }
 
 TEST(TestRecordBatchStreamReader, MalformedInput) {

@@ -48,8 +48,3 @@ Here are example codes in this directory:
 
   * `read-stream.lua`: It shows how to read Arrow array from file in
     stream mode.
-
-  * `stream-to-torch-tensor.lua`: It shows how to read Arrow array
-    from file in stream mode and convert it to
-    [Torch](http://torch.ch/)'s
-    [`Tensor` object](http://torch7.readthedocs.io/en/rtd/tensor/index.html).

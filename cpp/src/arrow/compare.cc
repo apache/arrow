@@ -30,6 +30,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
@@ -324,7 +325,15 @@ static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& r
     right_data = right.values()->data() + right.offset() * byte_width;
   }
 
-  if (left.null_count() > 0) {
+  if (byte_width == 0) {
+    // Special case 0-width data, as the data pointers may be null
+    for (int64_t i = 0; i < left.length(); ++i) {
+      if (left.IsNull(i) != right.IsNull(i)) {
+        return false;
+      }
+    }
+    return true;
+  } else if (left.null_count() > 0) {
     for (int64_t i = 0; i < left.length(); ++i) {
       const bool left_null = left.IsNull(i);
       const bool right_null = right.IsNull(i);
@@ -772,6 +781,98 @@ bool TensorEquals(const Tensor& left, const Tensor& right) {
     }
   }
   return are_equal;
+}
+
+namespace {
+
+template <typename LeftSparseIndexType, typename RightSparseIndexType>
+struct SparseTensorEqualsImpl {
+  static bool Compare(const SparseTensorImpl<LeftSparseIndexType>& left,
+                      const SparseTensorImpl<RightSparseIndexType>& right) {
+    // TODO(mrkn): should we support the equality among different formats?
+    return false;
+  }
+};
+
+template <typename SparseIndexType>
+struct SparseTensorEqualsImpl<SparseIndexType, SparseIndexType> {
+  static bool Compare(const SparseTensorImpl<SparseIndexType>& left,
+                      const SparseTensorImpl<SparseIndexType>& right) {
+    DCHECK(left.type()->id() == right.type()->id());
+    DCHECK(left.shape() == right.shape());
+    DCHECK(left.non_zero_length() == right.non_zero_length());
+
+    const auto& left_index = checked_cast<const SparseIndexType&>(*left.sparse_index());
+    const auto& right_index = checked_cast<const SparseIndexType&>(*right.sparse_index());
+
+    if (!left_index.Equals(right_index)) {
+      return false;
+    }
+
+    const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
+    const int byte_width = size_meta.bit_width() / CHAR_BIT;
+    DCHECK_GT(byte_width, 0);
+
+    const uint8_t* left_data = left.data()->data();
+    const uint8_t* right_data = right.data()->data();
+
+    return memcmp(left_data, right_data,
+                  static_cast<size_t>(byte_width * left.non_zero_length()));
+  }
+};
+
+template <typename SparseIndexType>
+inline bool SparseTensorEqualsImplDispatch(const SparseTensorImpl<SparseIndexType>& left,
+                                           const SparseTensor& right) {
+  switch (right.format_id()) {
+    case SparseTensorFormat::COO: {
+      const auto& right_coo =
+          checked_cast<const SparseTensorImpl<SparseCOOIndex>&>(right);
+      return SparseTensorEqualsImpl<SparseIndexType, SparseCOOIndex>::Compare(left,
+                                                                              right_coo);
+    }
+
+    case SparseTensorFormat::CSR: {
+      const auto& right_csr =
+          checked_cast<const SparseTensorImpl<SparseCSRIndex>&>(right);
+      return SparseTensorEqualsImpl<SparseIndexType, SparseCSRIndex>::Compare(left,
+                                                                              right_csr);
+    }
+
+    default:
+      return false;
+  }
+}
+
+}  // namespace
+
+bool SparseTensorEquals(const SparseTensor& left, const SparseTensor& right) {
+  if (&left == &right) {
+    return true;
+  } else if (left.type()->id() != right.type()->id()) {
+    return false;
+  } else if (left.size() == 0) {
+    return true;
+  } else if (left.shape() != right.shape()) {
+    return false;
+  } else if (left.non_zero_length() != right.non_zero_length()) {
+    return false;
+  }
+
+  switch (left.format_id()) {
+    case SparseTensorFormat::COO: {
+      const auto& left_coo = checked_cast<const SparseTensorImpl<SparseCOOIndex>&>(left);
+      return SparseTensorEqualsImplDispatch(left_coo, right);
+    }
+
+    case SparseTensorFormat::CSR: {
+      const auto& left_csr = checked_cast<const SparseTensorImpl<SparseCSRIndex>&>(left);
+      return SparseTensorEqualsImplDispatch(left_csr, right);
+    }
+
+    default:
+      return false;
+  }
 }
 
 bool TypeEquals(const DataType& left, const DataType& right) {

@@ -73,7 +73,7 @@ std::shared_ptr<Buffer> CompressDataOneShot(Codec* codec,
   ABORT_NOT_OK(codec->Compress(data.size(), data.data(), max_compressed_len,
                                compressed->mutable_data(), &compressed_len));
   ABORT_NOT_OK(compressed->Resize(compressed_len));
-  return compressed;
+  return std::move(compressed);
 }
 
 Status RunCompressedInputStream(Codec* codec, std::shared_ptr<Buffer> compressed,
@@ -199,11 +199,13 @@ TEST_P(CompressedInputStreamTest, InvalidData) {
 INSTANTIATE_TEST_CASE_P(TestGZipInputStream, CompressedInputStreamTest,
                         ::testing::Values(Compression::GZIP));
 
-INSTANTIATE_TEST_CASE_P(TestZSTDInputStream, CompressedInputStreamTest,
-                        ::testing::Values(Compression::ZSTD));
-
 INSTANTIATE_TEST_CASE_P(TestBrotliInputStream, CompressedInputStreamTest,
                         ::testing::Values(Compression::BROTLI));
+
+#ifdef ARROW_WITH_ZSTD
+INSTANTIATE_TEST_CASE_P(TestZSTDInputStream, CompressedInputStreamTest,
+                        ::testing::Values(Compression::ZSTD));
+#endif
 
 class CompressedOutputStreamTest : public ::testing::TestWithParam<Compression::type> {
  protected:
@@ -235,11 +237,13 @@ TEST_P(CompressedOutputStreamTest, RandomData) {
 INSTANTIATE_TEST_CASE_P(TestGZipOutputStream, CompressedOutputStreamTest,
                         ::testing::Values(Compression::GZIP));
 
-INSTANTIATE_TEST_CASE_P(TestZSTDOutputStream, CompressedOutputStreamTest,
-                        ::testing::Values(Compression::ZSTD));
-
 INSTANTIATE_TEST_CASE_P(TestBrotliOutputStream, CompressedOutputStreamTest,
                         ::testing::Values(Compression::BROTLI));
+
+#ifdef ARROW_WITH_ZSTD
+INSTANTIATE_TEST_CASE_P(TestZSTDOutputStream, CompressedOutputStreamTest,
+                        ::testing::Values(Compression::ZSTD));
+#endif
 
 }  // namespace io
 }  // namespace arrow

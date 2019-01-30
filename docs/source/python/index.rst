@@ -43,6 +43,7 @@ files into Arrow structures.
    pandas
    csv
    parquet
+   cuda
    extending
    api
    development

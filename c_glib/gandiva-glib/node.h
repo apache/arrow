@@ -320,4 +320,23 @@ ggandiva_string_literal_node_new(const gchar *value);
 const gchar *
 ggandiva_string_literal_node_get_value(GGandivaStringLiteralNode *node);
 
+
+#define GGANDIVA_TYPE_IF_NODE (ggandiva_if_node_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaIfNode,
+                         ggandiva_if_node,
+                         GGANDIVA,
+                         IF_NODE,
+                         GGandivaNode)
+struct _GGandivaIfNodeClass
+{
+  GGandivaNodeClass parent_class;
+};
+
+GGandivaIfNode *
+ggandiva_if_node_new(GGandivaNode *condition_node,
+                     GGandivaNode *then_node,
+                     GGandivaNode *else_node,
+                     GArrowDataType *return_type,
+                     GError **error);
+
 G_END_DECLS

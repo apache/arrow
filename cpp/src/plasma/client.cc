@@ -261,7 +261,7 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
 PlasmaBuffer::~PlasmaBuffer() { ARROW_UNUSED(client_->Release(object_id_)); }
 
-PlasmaClient::Impl::Impl() {
+PlasmaClient::Impl::Impl() : store_conn_(0), store_capacity_(0) {
 #ifdef PLASMA_CUDA
   DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
 #endif

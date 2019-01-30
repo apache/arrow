@@ -13,23 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Apache.Arrow.Types
 {
-    public class StringType: ArrowType
+    public sealed class StringType : ArrowType
     {
         public static StringType Default = new StringType();
 
         public override ArrowTypeId TypeId => ArrowTypeId.String;
         public override string Name => "utf8";
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<StringType> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

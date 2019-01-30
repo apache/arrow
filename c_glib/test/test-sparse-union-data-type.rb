@@ -17,11 +17,19 @@
 
 class TestSparseUnionDataType < Test::Unit::TestCase
   def setup
-    fields = [
-      Arrow::Field.new("number", Arrow::Int32DataType.new),
-      Arrow::Field.new("text", Arrow::StringDataType.new),
+    @number_field_data_type = Arrow::Int32DataType.new
+    @text_field_data_type = Arrow::StringDataType.new
+    @field_data_types = [
+      @number_field_data_type,
+      @text_field_data_type,
     ]
-    @data_type = Arrow::SparseUnionDataType.new(fields, [2, 9])
+    @number_field = Arrow::Field.new("number", @number_field_data_type)
+    @text_field = Arrow::Field.new("text", @text_field_data_type)
+    @fields = [
+      @number_field,
+      @text_field,
+    ]
+    @data_type = Arrow::SparseUnionDataType.new(@fields, [2, 9])
   end
 
   def test_type
@@ -31,5 +39,22 @@ class TestSparseUnionDataType < Test::Unit::TestCase
   def test_to_s
     assert_equal("union[sparse]<number: int32=2, text: string=9>",
                  @data_type.to_s)
+  end
+
+  def test_fields
+    assert_equal(@fields.zip(@field_data_types),
+                 @data_type.fields.collect {|field| [field, field.data_type]})
+  end
+
+  def test_get_field
+    field = @data_type.get_field(0)
+    assert_equal([
+                   @fields[0],
+                   @field_data_types[0],
+                 ],
+                 [
+                   field,
+                   field.data_type,
+                 ])
   end
 end

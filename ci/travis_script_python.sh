@@ -47,9 +47,10 @@ fi
 
 conda create -y -q -p $CONDA_ENV_DIR \
       --file $TRAVIS_BUILD_DIR/ci/conda_env_python.yml \
+      nomkl \
       cmake \
       pip \
-      numpy=1.13.1 \
+      numpy=1.14 \
       python=${PYTHON_VERSION} \
       ${CONDA_JVM_DEPS}
 
@@ -60,7 +61,7 @@ which python
 
 if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
   # Install documentation dependencies
-  conda install -y -c conda-forge --file ci/conda_env_sphinx.yml
+  conda install -y --file ci/conda_env_sphinx.yml
 fi
 
 # ARROW-2093: PyTorch increases the size of our conda dependency stack
@@ -73,7 +74,7 @@ fi
 # fi
 
 if [ $TRAVIS_OS_NAME != "osx" ]; then
-  conda install -y -c conda-forge tensorflow
+  conda install -y tensorflow
   PYARROW_PYTEST_FLAGS="$PYARROW_PYTEST_FLAGS --tensorflow"
 fi
 
@@ -122,9 +123,6 @@ $ARROW_CPP_BUILD_DIR/$ARROW_BUILD_TYPE/arrow-python-test
 
 pushd $ARROW_PYTHON_DIR
 
-# Other stuff pip install
-pip install -q -r requirements.txt
-
 if [ "$PYTHON_VERSION" == "3.6" ]; then
     pip install -q pickle5
 fi
@@ -132,6 +130,9 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     export PYARROW_GENERATE_COVERAGE=1
     pip install -q coverage
 fi
+
+echo "=== pip list ==="
+pip list
 
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
 
@@ -179,8 +180,8 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     coverage xml -i -o $TRAVIS_BUILD_DIR/coverage.xml
     # Capture C++ coverage info
     pushd $TRAVIS_BUILD_DIR
-    lcov --quiet --directory . --capture --no-external --output-file coverage-python-tests.info \
-        2>&1 | grep -v "WARNING: no data found for /usr/include"
+    lcov --directory . --capture --no-external --output-file coverage-python-tests.info \
+        2>&1 | grep -v "ignoring data for external file"
     lcov --add-tracefile coverage-python-tests.info \
         --output-file $ARROW_CPP_COVERAGE_FILE
     rm coverage-python-tests.info

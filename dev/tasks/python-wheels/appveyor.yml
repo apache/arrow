@@ -24,7 +24,7 @@ environment:
   PYTHON: "{{ python_version }}"
   MSVC_DEFAULT_OPTIONS: ON
   ARROW_SRC: C:\apache-arrow
-  PYARROW_VERSION: {{ arrow.version }}
+  PYARROW_VERSION: {{ arrow.no_rc_version }}
   PYARROW_REF: {{ arrow.head }}
 
 init:

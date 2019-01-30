@@ -18,7 +18,8 @@
 FROM ubuntu:18.04
 
 # install build essentials
-RUN apt-get update -y -q && \
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         ca-certificates \
         ccache \
@@ -27,6 +28,7 @@ RUN apt-get update -y -q && \
         git \
         ninja-build \
         pkg-config \
+        tzdata \
         wget
 
 # install conda and required packages
@@ -38,7 +40,7 @@ ADD ci/docker_install_conda.sh \
     ci/conda_env_unix.yml \
     /arrow/ci/
 RUN arrow/ci/docker_install_conda.sh && \
-    conda install -c conda-forge \
+    conda install -q -c conda-forge \
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_unix.yml \
         $EXTRA_CONDA_PKGS && \

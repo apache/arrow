@@ -160,7 +160,8 @@ struct ByteArray {
 };
 
 inline bool operator==(const ByteArray& left, const ByteArray& right) {
-  return left.len == right.len && 0 == std::memcmp(left.ptr, right.ptr, left.len);
+  return left.len == right.len &&
+         (left.len == 0 || std::memcmp(left.ptr, right.ptr, left.len) == 0);
 }
 
 inline bool operator!=(const ByteArray& left, const ByteArray& right) {

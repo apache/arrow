@@ -142,7 +142,8 @@ std::shared_ptr<::arrow::Table> TableFromVector<BooleanType>(const std::vector<b
 
 template <bool nullable, typename ParquetType>
 static void BM_WriteColumn(::benchmark::State& state) {
-  std::vector<typename ParquetType::c_type> values(BENCHMARK_SIZE, 128);
+  using T = typename ParquetType::c_type;
+  std::vector<T> values(BENCHMARK_SIZE, static_cast<T>(128));
   std::shared_ptr<::arrow::Table> table = TableFromVector<ParquetType>(values, nullable);
 
   while (state.KeepRunning()) {
@@ -167,7 +168,9 @@ BENCHMARK_TEMPLATE2(BM_WriteColumn, true, BooleanType);
 
 template <bool nullable, typename ParquetType>
 static void BM_ReadColumn(::benchmark::State& state) {
-  std::vector<typename ParquetType::c_type> values(BENCHMARK_SIZE, 128);
+  using T = typename ParquetType::c_type;
+
+  std::vector<T> values(BENCHMARK_SIZE, static_cast<T>(128));
   std::shared_ptr<::arrow::Table> table = TableFromVector<ParquetType>(values, nullable);
   auto output = std::make_shared<InMemoryOutputStream>();
   EXIT_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));

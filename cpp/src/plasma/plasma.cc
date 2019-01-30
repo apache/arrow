@@ -22,6 +22,7 @@
 #include <unistd.h>
 
 #include "plasma/common.h"
+#include "plasma/common_generated.h"
 #include "plasma/protocol.h"
 
 namespace fb = plasma::flatbuf;

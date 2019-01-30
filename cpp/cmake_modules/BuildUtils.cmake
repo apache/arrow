@@ -97,7 +97,9 @@ function(ADD_ARROW_LIB LIB_NAME)
                        SHARED_PRIVATE_LINK_LIBS
                        EXTRA_INCLUDES
                        PRIVATE_INCLUDES
-                       DEPENDENCIES)
+                       DEPENDENCIES
+                       SHARED_INSTALL_INTERFACE_LIBS
+                       STATIC_INSTALL_INTERFACE_LIBS)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
@@ -119,9 +121,11 @@ function(ADD_ARROW_LIB LIB_NAME)
     set(BUILD_STATIC ${ARROW_BUILD_STATIC})
   endif()
 
-  if(MSVC)
+  if(MSVC OR (CMAKE_GENERATOR STREQUAL Xcode))
     # MSVC needs to compile C++ separately for each library kind (shared and static)
     # because of dllexport declarations
+    # The Xcode generator doesn't reliably work with Xcode as target names are not
+    # guessed correctly.
     set(LIB_DEPS ${ARG_SOURCES})
     set(EXTRA_DEPS ${ARG_DEPENDENCIES})
 
@@ -180,11 +184,14 @@ function(ADD_ARROW_LIB LIB_NAME)
         ${ARG_PRIVATE_INCLUDES})
     endif()
 
-    if(APPLE)
+    if(APPLE AND NOT DEFINED $ENV{EMSCRIPTEN})
       # On OS X, you can avoid linking at library load time and instead
       # expecting that the symbols have been loaded separately. This happens
       # with libpython* where there can be conflicts between system Python and
       # the Python from a thirdparty distribution
+      #
+      # When running with the Emscripten Compiler, we need not worry about
+      # python, and the Emscripten Compiler does not support this option.
       set(ARG_SHARED_LINK_FLAGS
         "-undefined dynamic_lookup ${ARG_SHARED_LINK_FLAGS}")
     endif()
@@ -199,8 +206,16 @@ function(ADD_ARROW_LIB LIB_NAME)
       VERSION "${ARROW_FULL_SO_VERSION}"
       SOVERSION "${ARROW_SO_VERSION}")
 
+    if (ARG_SHARED_INSTALL_INTERFACE_LIBS)
+      set(INTERFACE_LIBS ${ARG_SHARED_INSTALL_INTERFACE_LIBS})
+    else()
+      set(INTERFACE_LIBS ${ARG_SHARED_LINK_LIBS})
+    endif()
+
     target_link_libraries(${LIB_NAME}_shared
-      LINK_PUBLIC ${ARG_SHARED_LINK_LIBS}
+      LINK_PUBLIC
+      "$<BUILD_INTERFACE:${ARG_SHARED_LINK_LIBS}>"
+      "$<INSTALL_INTERFACE:${INTERFACE_LIBS}>"
       LINK_PRIVATE ${ARG_SHARED_PRIVATE_LINK_LIBS})
 
     if (ARROW_RPATH_ORIGIN)
@@ -230,7 +245,8 @@ function(ADD_ARROW_LIB LIB_NAME)
       EXPORT ${PROJECT_NAME}-targets
       RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   endif()
 
   if (BUILD_STATIC)
@@ -269,15 +285,24 @@ function(ADD_ARROW_LIB LIB_NAME)
       LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
       OUTPUT_NAME ${LIB_NAME_STATIC})
 
+    if (ARG_STATIC_INSTALL_INTERFACE_LIBS)
+      set(INTERFACE_LIBS ${ARG_STATIC_INSTALL_INTERFACE_LIBS})
+    else()
+      set(INTERFACE_LIBS ${ARG_STATIC_LINK_LIBS})
+    endif()
+
     target_link_libraries(${LIB_NAME}_static
-      LINK_PUBLIC ${ARG_STATIC_LINK_LIBS})
+      LINK_PUBLIC
+      "$<BUILD_INTERFACE:${ARG_STATIC_LINK_LIBS}>"
+      "$<INSTALL_INTERFACE:${INTERFACE_LIBS}>")
 
     install(TARGETS ${LIB_NAME}_static
       ${INSTALL_IS_OPTIONAL}
       EXPORT ${PROJECT_NAME}-targets
       RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   endif()
 
   # Modify variable in calling scope
@@ -314,7 +339,7 @@ endfunction()
 function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   set(options)
   set(one_value_args)
-  set(multi_value_args EXTRA_LINK_LIBS DEPENDENCIES PREFIX LABELS)
+  set(multi_value_args EXTRA_LINK_LIBS STATIC_LINK_LIBS DEPENDENCIES PREFIX LABELS)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
@@ -333,12 +358,18 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     # This benchmark has a corresponding .cc file, set it up as an executable.
     set(BENCHMARK_PATH "${EXECUTABLE_OUTPUT_PATH}/${BENCHMARK_NAME}")
     add_executable(${BENCHMARK_NAME} "${REL_BENCHMARK_NAME}.cc")
-    target_link_libraries(${BENCHMARK_NAME} ${ARROW_BENCHMARK_LINK_LIBS})
+
+    if (ARG_STATIC_LINK_LIBS)
+      # Customize link libraries
+      target_link_libraries(${BENCHMARK_NAME} PRIVATE ${ARG_STATIC_LINK_LIBS})
+    else()
+      target_link_libraries(${BENCHMARK_NAME} PRIVATE ${ARROW_BENCHMARK_LINK_LIBS})
+    endif()
     add_dependencies(benchmark ${BENCHMARK_NAME})
     set(NO_COLOR "--color_print=false")
 
     if (ARG_EXTRA_LINK_LIBS)
-      target_link_libraries(${BENCHMARK_NAME} ${ARG_EXTRA_LINK_LIBS})
+      target_link_libraries(${BENCHMARK_NAME} PRIVATE ${ARG_EXTRA_LINK_LIBS})
     endif()
   else()
     # No executable, just invoke the benchmark (probably a script) directly.
@@ -453,7 +484,7 @@ function(ADD_TEST_CASE REL_TEST_NAME)
       bash -c "cd '${CMAKE_SOURCE_DIR}'; \
                valgrind --suppressions=valgrind.supp --tool=memcheck --gen-suppressions=all \
                  --leak-check=full --leak-check-heuristics=stdstring --error-exitcode=1 ${TEST_PATH}")
-  elseif(MSVC)
+  elseif(WIN32)
     add_test(${TEST_NAME} ${TEST_PATH})
   else()
     add_test(${TEST_NAME}

@@ -18,9 +18,11 @@
 #ifndef GANDIVA_LVALUE_H
 #define GANDIVA_LVALUE_H
 
-#include "arrow/util/macros.h"
+#include <vector>
 
 #include <llvm/IR/IRBuilder.h>
+#include "arrow/util/macros.h"
+#include "gandiva/logging.h"
 
 namespace gandiva {
 
@@ -30,15 +32,46 @@ class LValue {
   explicit LValue(llvm::Value* data, llvm::Value* length = NULLPTR,
                   llvm::Value* validity = NULLPTR)
       : data_(data), length_(length), validity_(validity) {}
+  virtual ~LValue() = default;
 
   llvm::Value* data() { return data_; }
   llvm::Value* length() { return length_; }
   llvm::Value* validity() { return validity_; }
 
+  void set_data(llvm::Value* data) { data_ = data; }
+
+  // Append the params required when passing this as a function parameter.
+  virtual void AppendFunctionParams(std::vector<llvm::Value*>* params) {
+    params->push_back(data_);
+    if (length_ != NULLPTR) {
+      params->push_back(length_);
+    }
+  }
+
  private:
   llvm::Value* data_;
   llvm::Value* length_;
   llvm::Value* validity_;
+};
+
+class DecimalLValue : public LValue {
+ public:
+  DecimalLValue(llvm::Value* data, llvm::Value* validity, llvm::Value* precision,
+                llvm::Value* scale)
+      : LValue(data, NULLPTR, validity), precision_(precision), scale_(scale) {}
+
+  llvm::Value* precision() { return precision_; }
+  llvm::Value* scale() { return scale_; }
+
+  void AppendFunctionParams(std::vector<llvm::Value*>* params) override {
+    LValue::AppendFunctionParams(params);
+    params->push_back(precision_);
+    params->push_back(scale_);
+  }
+
+ private:
+  llvm::Value* precision_;
+  llvm::Value* scale_;
 };
 
 }  // namespace gandiva

@@ -16,8 +16,6 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Apache.Arrow.Memory;
-using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -33,18 +31,17 @@ namespace Apache.Arrow
 
     public ArrowBuffer ValueBuffer => Data.Buffers[1];
 
-    public Span<T> GetSpan() => ValueBuffer.GetSpan<T>().Slice(0, Length);
+    public ReadOnlySpan<T> Values => ValueBuffer.Span.CastTo<T>().Slice(0, Length);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public T? GetValue(int index)
     {
-        var span = GetSpan();
-        return IsValid(index) ? span[index] : (T?) null;
+        return IsValid(index) ? Values[index] : (T?) null;
     }
 
     public IList<T?> ToList(bool includeNulls = false)
     {
-        var span = GetSpan();
+        var span = Values;
         var list = new List<T?>(span.Length);
 
         for (var i = 0; i < span.Length; i++)

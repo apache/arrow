@@ -303,17 +303,23 @@ void AssertZeroPadded(const Array& array) {
   for (const auto& buffer : array.data()->buffers) {
     if (buffer) {
       const int64_t padding = buffer->capacity() - buffer->size();
-      std::vector<uint8_t> zeros(padding);
-      ASSERT_EQ(0, memcmp(buffer->data() + buffer->size(), zeros.data(), padding));
+      if (padding > 0) {
+        std::vector<uint8_t> zeros(padding);
+        ASSERT_EQ(0, memcmp(buffer->data() + buffer->size(), zeros.data(), padding));
+      }
     }
   }
 }
 
 void TestInitialized(const Array& array) {
   for (const auto& buffer : array.data()->buffers) {
-    if (buffer) {
-      std::vector<uint8_t> zeros(buffer->capacity());
-      throw_away = memcmp(buffer->data(), zeros.data(), buffer->size());
+    if (buffer && buffer->capacity() > 0) {
+      int total = 0;
+      auto data = buffer->data();
+      for (int64_t i = 0; i < buffer->size(); ++i) {
+        total ^= data[i];
+      }
+      throw_away = total;
     }
   }
 }

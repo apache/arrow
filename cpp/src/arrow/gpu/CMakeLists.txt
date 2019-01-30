@@ -88,7 +88,7 @@ if (ARROW_BUILD_BENCHMARKS)
   cuda_add_executable(arrow-cuda-benchmark cuda-benchmark.cc)
   target_link_libraries(arrow-cuda-benchmark
     arrow_cuda_shared
-    gtest_static
+    ${GTEST_LIBRARY}
     ${ARROW_BENCHMARK_LINK_LIBS})
   add_dependencies(arrow_cuda-benchmarks arrow-cuda-benchmark)
 endif()

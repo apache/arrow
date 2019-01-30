@@ -146,6 +146,8 @@ def pytest_collection_modifyitems(config, items):
 def pytest_runtest_setup(item):
     only_set = False
 
+    item_marks = {mark.name: mark for mark in item.iter_markers()}
+
     for group in groups:
         flag = '--{0}'.format(group)
         only_flag = '--only-{0}'.format(group)
@@ -154,7 +156,7 @@ def pytest_runtest_setup(item):
 
         if item.config.getoption(only_flag):
             only_set = True
-        elif getattr(item.obj, group, None):
+        elif group in item_marks:
             is_enabled = (item.config.getoption(flag) or
                           item.config.getoption(enable_flag))
             is_disabled = item.config.getoption(disable_flag)
@@ -165,8 +167,7 @@ def pytest_runtest_setup(item):
         skip_item = True
         for group in groups:
             only_flag = '--only-{0}'.format(group)
-            if (getattr(item.obj, group, False) and
-                    item.config.getoption(only_flag)):
+            if group in item_marks and item.config.getoption(only_flag):
                 skip_item = False
 
         if skip_item:

@@ -53,6 +53,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.doctest',
+    'sphinx.ext.ifconfig',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
@@ -68,6 +69,9 @@ autodoc_default_options = {
     'show-inheritance': None,
     'inherited-members': None
 }
+
+# Overriden conditionally below
+autodoc_mock_imports = []
 
 # ipython directive options
 ipython_mplbackend = ''
@@ -387,3 +391,32 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #
 # texinfo_no_detailmenu = False
+
+
+# -- Customization --------------------------------------------------------
+
+# Conditional API doc generation
+
+# Sphinx has two features for conditional inclusion:
+# - The "only" directive
+#   https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#including-content-based-on-tags
+# - The "ifconfig" extension
+#   https://www.sphinx-doc.org/en/master/usage/extensions/ifconfig.html
+#
+# Both have issues, but "ifconfig" seems to work in this setting.
+
+try:
+    import pyarrow.cuda
+    cuda_enabled = True
+except ImportError:
+    cuda_enabled = False
+    # Mock pyarrow.cuda to avoid autodoc warnings.
+    # XXX I can't get autodoc_mock_imports to work, so mock manually instead
+    # (https://github.com/sphinx-doc/sphinx/issues/2174#issuecomment-453177550)
+    from unittest import mock
+    pyarrow.cuda = sys.modules['pyarrow.cuda'] = mock.Mock()
+
+def setup(app):
+    # Use a config value to indicate whether CUDA API docs can be generated.
+    # This will also rebuild appropriately when the value changes.
+    app.add_config_value('cuda_enabled', cuda_enabled, 'env')

@@ -24,7 +24,7 @@
 
 #include "arrow/util/bit-util.h"
 
-#include "parquet/encoding-internal.h"
+#include "parquet/encoding.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
@@ -43,29 +43,31 @@ namespace test {
 TEST(VectorBooleanTest, TestEncodeDecode) {
   // PARQUET-454
   int nvalues = 10000;
-  int nbytes = static_cast<int>(BitUtil::BytesForBits(nvalues));
+  int nbytes = static_cast<int>(::arrow::BitUtil::BytesForBits(nvalues));
 
   // seed the prng so failure is deterministic
   vector<bool> draws = flip_coins_seed(nvalues, 0.5, 0);
 
-  PlainEncoder<BooleanType> encoder(nullptr);
-  PlainDecoder<BooleanType> decoder(nullptr);
+  std::unique_ptr<BooleanEncoder> encoder =
+      MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
+  encoder->Put(draws, nvalues);
 
-  encoder.Put(draws, nvalues);
+  std::unique_ptr<BooleanDecoder> decoder =
+      MakeTypedDecoder<BooleanType>(Encoding::PLAIN);
 
-  std::shared_ptr<Buffer> encode_buffer = encoder.FlushValues();
+  std::shared_ptr<Buffer> encode_buffer = encoder->FlushValues();
   ASSERT_EQ(nbytes, encode_buffer->size());
 
   vector<uint8_t> decode_buffer(nbytes);
   const uint8_t* decode_data = &decode_buffer[0];
 
-  decoder.SetData(nvalues, encode_buffer->data(),
-                  static_cast<int>(encode_buffer->size()));
-  int values_decoded = decoder.Decode(&decode_buffer[0], nvalues);
+  decoder->SetData(nvalues, encode_buffer->data(),
+                   static_cast<int>(encode_buffer->size()));
+  int values_decoded = decoder->Decode(&decode_buffer[0], nvalues);
   ASSERT_EQ(nvalues, values_decoded);
 
   for (int i = 0; i < nvalues; ++i) {
-    ASSERT_EQ(draws[i], BitUtil::GetBit(decode_data, i)) << i;
+    ASSERT_EQ(draws[i], ::arrow::BitUtil::GetBit(decode_data, i)) << i;
   }
 }
 
@@ -214,14 +216,14 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   virtual void CheckRoundtrip() {
-    PlainEncoder<Type> encoder(descr_.get());
-    PlainDecoder<Type> decoder(descr_.get());
-    encoder.Put(draws_, num_values_);
-    encode_buffer_ = encoder.FlushValues();
+    auto encoder = MakeTypedEncoder<Type>(Encoding::PLAIN, false, descr_.get());
+    auto decoder = MakeTypedDecoder<Type>(Encoding::PLAIN, descr_.get());
+    encoder->Put(draws_, num_values_);
+    encode_buffer_ = encoder->FlushValues();
 
-    decoder.SetData(num_values_, encode_buffer_->data(),
-                    static_cast<int>(encode_buffer_->size()));
-    int values_decoded = decoder.Decode(decode_buf_, num_values_);
+    decoder->SetData(num_values_, encode_buffer_->data(),
+                     static_cast<int>(encode_buffer_->size()));
+    int values_decoded = decoder->Decode(decode_buf_, num_values_);
     ASSERT_EQ(num_values_, values_decoded);
     ASSERT_NO_FATAL_FAILURE(VerifyResults<T>(decode_buf_, draws_, num_values_));
   }
@@ -250,29 +252,38 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void CheckRoundtrip() {
-    std::vector<uint8_t> valid_bits(BitUtil::BytesForBits(num_values_) + 1, 255);
-    DictEncoder<Type> encoder(descr_.get());
+    std::vector<uint8_t> valid_bits(::arrow::BitUtil::BytesForBits(num_values_) + 1, 255);
 
-    ASSERT_NO_THROW(encoder.Put(draws_, num_values_));
-    dict_buffer_ = AllocateBuffer(default_memory_pool(), encoder.dict_encoded_size());
-    encoder.WriteDict(dict_buffer_->mutable_data());
-    std::shared_ptr<Buffer> indices = encoder.FlushValues();
+    auto base_encoder = MakeEncoder(Type::type_num, Encoding::PLAIN, true, descr_.get());
+    auto encoder =
+        dynamic_cast<typename EncodingTraits<Type>::Encoder*>(base_encoder.get());
+    auto dict_traits = dynamic_cast<DictEncoder<Type>*>(base_encoder.get());
 
-    DictEncoder<Type> spaced_encoder(descr_.get());
+    ASSERT_NO_THROW(encoder->Put(draws_, num_values_));
+    dict_buffer_ =
+        AllocateBuffer(default_memory_pool(), dict_traits->dict_encoded_size());
+    dict_traits->WriteDict(dict_buffer_->mutable_data());
+    std::shared_ptr<Buffer> indices = encoder->FlushValues();
+
+    auto base_spaced_encoder =
+        MakeEncoder(Type::type_num, Encoding::PLAIN, true, descr_.get());
+    auto spaced_encoder =
+        dynamic_cast<typename EncodingTraits<Type>::Encoder*>(base_spaced_encoder.get());
+
     // PutSpaced should lead to the same results
-    ASSERT_NO_THROW(spaced_encoder.PutSpaced(draws_, num_values_, valid_bits.data(), 0));
-    std::shared_ptr<Buffer> indices_from_spaced = spaced_encoder.FlushValues();
+    ASSERT_NO_THROW(spaced_encoder->PutSpaced(draws_, num_values_, valid_bits.data(), 0));
+    std::shared_ptr<Buffer> indices_from_spaced = spaced_encoder->FlushValues();
     ASSERT_TRUE(indices_from_spaced->Equals(*indices));
 
-    PlainDecoder<Type> dict_decoder(descr_.get());
-    dict_decoder.SetData(encoder.num_entries(), dict_buffer_->data(),
-                         static_cast<int>(dict_buffer_->size()));
+    auto dict_decoder = MakeTypedDecoder<Type>(Encoding::PLAIN, descr_.get());
+    dict_decoder->SetData(dict_traits->num_entries(), dict_buffer_->data(),
+                          static_cast<int>(dict_buffer_->size()));
 
-    DictionaryDecoder<Type> decoder(descr_.get());
-    decoder.SetDict(&dict_decoder);
+    auto decoder = MakeDictDecoder<Type>(descr_.get());
+    decoder->SetDict(dict_decoder.get());
 
-    decoder.SetData(num_values_, indices->data(), static_cast<int>(indices->size()));
-    int values_decoded = decoder.Decode(decode_buf_, num_values_);
+    decoder->SetData(num_values_, indices->data(), static_cast<int>(indices->size()));
+    int values_decoded = decoder->Decode(decode_buf_, num_values_);
     ASSERT_EQ(num_values_, values_decoded);
 
     // TODO(wesm): The DictionaryDecoder must stay alive because the decoded
@@ -281,9 +292,9 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
     ASSERT_NO_FATAL_FAILURE(VerifyResults<T>(decode_buf_, draws_, num_values_));
 
     // Also test spaced decoding
-    decoder.SetData(num_values_, indices->data(), static_cast<int>(indices->size()));
+    decoder->SetData(num_values_, indices->data(), static_cast<int>(indices->size()));
     values_decoded =
-        decoder.DecodeSpaced(decode_buf_, num_values_, 0, valid_bits.data(), 0);
+        decoder->DecodeSpaced(decode_buf_, num_values_, 0, valid_bits.data(), 0);
     ASSERT_EQ(num_values_, values_decoded);
     ASSERT_NO_FATAL_FAILURE(VerifyResults<T>(decode_buf_, draws_, num_values_));
   }
@@ -300,10 +311,7 @@ TYPED_TEST(TestDictionaryEncoding, BasicRoundTrip) {
 }
 
 TEST(TestDictionaryEncoding, CannotDictDecodeBoolean) {
-  PlainDecoder<BooleanType> dict_decoder(nullptr);
-  DictionaryDecoder<BooleanType> decoder(nullptr);
-
-  ASSERT_THROW(decoder.SetDict(&dict_decoder), ParquetException);
+  ASSERT_THROW(MakeDictDecoder<BooleanType>(nullptr), ParquetException);
 }
 
 }  // namespace test

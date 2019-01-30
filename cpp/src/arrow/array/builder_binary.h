@@ -25,6 +25,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_base.h"
+#include "arrow/buffer-builder.h"
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
@@ -279,6 +280,8 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
     }
     return builder_->AppendNull();
   }
+
+  Status Reserve(int64_t values) { return builder_->Reserve(values); }
 
   virtual Status Finish(ArrayVector* out);
 

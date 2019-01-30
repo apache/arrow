@@ -20,44 +20,47 @@ const path = require('path');
 const { argv } = require('./argv');
 const { promisify } = require('util');
 const glob = promisify(require('glob'));
-const stat = promisify(require('fs').stat);
 const mkdirp = promisify(require('mkdirp'));
 const rimraf = promisify(require('rimraf'));
 const child_process = require(`child_process`);
 const { memoizeTask } = require('./memoize-task');
 const readFile = promisify(require('fs').readFile);
+const asyncDone = promisify(require('async-done'));
 const exec = promisify(require('child_process').exec);
 const parseXML = promisify(require('xml2js').parseString);
 
 const jestArgv = [];
-argv.update && jestArgv.push(`-u`);
 argv.verbose && jestArgv.push(`--verbose`);
-argv.coverage && jestArgv.push(`--coverage`);
+argv.coverage
+    ? jestArgv.push(`-c`, `jest.coverage.config.js`, `--coverage`)
+    : jestArgv.push(`-c`, `jest.config.js`, `-i`)
 
-const debugArgv = [`--runInBand`, `--env`, `node-debug`];
-const jest = require.resolve(path.join(`..`, `node_modules`, `.bin`, `jest`));
+const jest = path.join(path.parse(require.resolve(`jest`)).dir, `../bin/jest.js`);
 const testOptions = {
-    env: { ...process.env },
     stdio: [`ignore`, `inherit`, `inherit`],
+    env: {
+        ...process.env,
+        // hide fs.promises/stream[Symbol.asyncIterator] warnings
+        NODE_NO_WARNINGS: `1`,
+        // prevent the user-land `readable-stream` module from
+        // patching node's streams -- they're better now
+        READABLE_STREAM: `disable`
+    },
 };
 
-const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function test(target, format, debug = false) {
+const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function test(target, format) {
     const opts = { ...testOptions };
-    const args = !debug ? [...execArgv] : [...debugArgv, ...execArgv];
-    if (!argv.coverage) {
-        args.push(`test/${argv.integration ? `integration/*` : `unit/*`}`);
-    }
-    opts.env = { ...opts.env,
+    const args = [...execArgv, `test/unit/`];
+    opts.env = {
+        ...opts.env,
         TEST_TARGET: target,
         TEST_MODULE: format,
-        TEST_TS_SOURCE: !!argv.coverage || (target === 'src') || (opts.env.TEST_TS_SOURCE === 'true'),
-        JSON_PATHS: JSON.stringify(Array.isArray(argv.json_files) ? argv.json_files : [argv.json_files]),
-        ARROW_PATHS: JSON.stringify(Array.isArray(argv.arrow_files) ? argv.arrow_files : [argv.arrow_files]),
+        TEST_DOM_STREAMS: (target ==='src' || format === 'umd').toString(),
+        TEST_NODE_STREAMS: (target ==='src' || format !== 'umd').toString(),
+        TEST_TS_SOURCE: !!argv.coverage || (target === 'src') || (opts.env.TEST_TS_SOURCE === 'true')
     };
-    return !debug ?
-        child_process.spawn(jest, args, opts) :
-        child_process.exec(`node --inspect-brk ${jest} ${args.join(` `)}`, opts);
-}))({}, jestArgv, testOptions);
+    return asyncDone(() => child_process.spawn(`node`, args, opts));
+}))({}, [jest, ...jestArgv], testOptions);
 
 module.exports = testTask;
 module.exports.testTask = testTask;
@@ -69,9 +72,9 @@ const ARROW_HOME = process.env.ARROW_HOME || path.resolve('../');
 const ARROW_JAVA_DIR = process.env.ARROW_JAVA_DIR || path.join(ARROW_HOME, 'java');
 const CPP_EXE_PATH = process.env.ARROW_CPP_EXE_PATH || path.join(ARROW_HOME, 'cpp/build/debug');
 const ARROW_INTEGRATION_DIR = process.env.ARROW_INTEGRATION_DIR || path.join(ARROW_HOME, 'integration');
-const CPP_JSON_TO_ARROW = path.join(CPP_EXE_PATH, 'json-integration-test');
-const CPP_STREAM_TO_FILE = path.join(CPP_EXE_PATH, 'stream-to-file');
-const CPP_FILE_TO_STREAM = path.join(CPP_EXE_PATH, 'file-to-stream');
+const CPP_JSON_TO_ARROW = path.join(CPP_EXE_PATH, 'arrow-json-integration-test');
+const CPP_STREAM_TO_FILE = path.join(CPP_EXE_PATH, 'arrow-stream-to-file');
+const CPP_FILE_TO_STREAM = path.join(CPP_EXE_PATH, 'arrow-file-to-stream');
 
 const testFilesDir = path.join(ARROW_HOME, 'js/test/data');
 const snapshotsDir = path.join(ARROW_HOME, 'js/test/__snapshots__');

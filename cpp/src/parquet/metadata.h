@@ -18,22 +18,31 @@
 #ifndef PARQUET_FILE_METADATA_H
 #define PARQUET_FILE_METADATA_H
 
+#include <cstdint>
 #include <memory>
-#include <set>
 #include <string>
 #include <vector>
 
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/macros.h"
 
 #include "parquet/properties.h"
-#include "parquet/schema.h"
-#include "parquet/statistics.h"
 #include "parquet/types.h"
-#include "parquet/util/macros.h"
-#include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
 namespace parquet {
+
+class ColumnDescriptor;
+class EncodedStatistics;
+class OutputStream;
+class RowGroupStatistics;
+class SchemaDescriptor;
+
+namespace schema {
+
+class ColumnPath;
+
+}  // namespace schema
 
 using KeyValueMetadata = ::arrow::KeyValueMetadata;
 
@@ -43,6 +52,7 @@ class PARQUET_EXPORT ApplicationVersion {
   static const ApplicationVersion& PARQUET_251_FIXED_VERSION();
   static const ApplicationVersion& PARQUET_816_FIXED_VERSION();
   static const ApplicationVersion& PARQUET_CPP_FIXED_STATS_VERSION();
+  static const ApplicationVersion& PARQUET_MR_FIXED_STATS_VERSION();
   // Regular expression for the version format
   // major . minor . patch unknown - prerelease.x + build info
   // Eg: 1.5.0ab-cdh5.5.0+cd

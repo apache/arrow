@@ -51,10 +51,10 @@ HERE=$(cd `dirname "${BASH_SOURCE[0]:-$0}"` && pwd)
 
 ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
 
-: ${ARROW_HAVE_GPU:=}
-if [ -z "$ARROW_HAVE_GPU" ]; then
+: ${ARROW_HAVE_CUDA:=}
+if [ -z "$ARROW_HAVE_CUDA" ]; then
   if nvidia-smi --list-gpus 2>&1 > /dev/null; then
-    ARROW_HAVE_GPU=yes
+    ARROW_HAVE_CUDA=yes
   fi
 fi
 
@@ -87,24 +87,51 @@ fetch_archive() {
   shasum -a 512 -c ${dist_name}.tar.gz.sha512
 }
 
-verify_binary_artifacts() {
-  # --show-progress not supported on wget < 1.16
-  wget --help | grep -q '\--show-progress' && \
-      _WGET_PROGRESS_OPT="-q --show-progress" || _WGET_PROGRESS_OPT=""
+bintray() {
+  local command=$1
+  shift
+  local path=$1
+  shift
+  local url=https://bintray.com/api/v1${path}
+  echo "${command} ${url}" 1>&2
+  curl \
+    --fail \
+    --request ${command} \
+    ${url} \
+    "$@" | \
+      jq .
+}
 
-  # download the binaries folder for the current RC
-  rcname=apache-arrow-${VERSION}-rc${RC_NUMBER}
-  wget -P "$rcname" \
-    --quiet \
-    --no-host-directories \
-    --cut-dirs=5 \
-    $_WGET_PROGRESS_OPT \
-    --no-parent \
-    --reject 'index.html*' \
-    --recursive "$ARROW_DIST_URL/$rcname/binaries/"
+download_bintray_files() {
+  local target=$1
+
+  local version_name=${VERSION}-rc${RC_NUMBER}
+
+  bintray \
+    GET /packages/${BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}/files | \
+      jq -r ".[].path" | \
+      while read file; do
+    mkdir -p "$(dirname ${file})"
+    curl \
+      --fail \
+      --location \
+      --output ${file} \
+      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file}
+  done
+}
+
+verify_binary_artifacts() {
+  local download_dir=binaries
+  mkdir -p ${download_dir}
+  pushd ${download_dir}
+
+  # takes longer on slow network
+  for target in centos debian python ubuntu; do
+    download_bintray_files ${target}
+  done
 
   # verify the signature and the checksums of each artifact
-  find $rcname/binaries -name '*.asc' | while read sigfile; do
+  find . -name '*.asc' | while read sigfile; do
     artifact=${sigfile/.asc/}
     gpg --verify $sigfile $artifact || exit 1
 
@@ -112,10 +139,14 @@ verify_binary_artifacts() {
     # basename of the artifact
     pushd $(dirname $artifact)
     base_artifact=$(basename $artifact)
-    shasum -a 256 -c $base_artifact.sha256 || exit 1
+    if [ -f $base_artifact.sha256 ]; then
+      shasum -a 256 -c $base_artifact.sha256 || exit 1
+    fi
     shasum -a 512 -c $base_artifact.sha512 || exit 1
     popd
   done
+
+  popd
 }
 
 setup_tempdir() {
@@ -143,12 +174,13 @@ setup_miniconda() {
 
   . $MINICONDA/etc/profile.d/conda.sh
 
-  conda create -n arrow-test -y -q python=3.6 \
+  conda create -n arrow-test -y -q -c conda-forge \
+        python=3.6 \
         nomkl \
         numpy \
         pandas \
         six \
-        cython -c conda-forge
+        cython
   conda activate arrow-test
 }
 
@@ -159,18 +191,21 @@ test_and_install_cpp() {
   pushd cpp/build
 
   ARROW_CMAKE_OPTIONS="
+${ARROW_CMAKE_OPTIONS}
 -DCMAKE_INSTALL_PREFIX=$ARROW_HOME
--DCMAKE_INSTALL_LIBDIR=$ARROW_HOME/lib
+-DCMAKE_INSTALL_LIBDIR=lib
 -DARROW_PLASMA=ON
 -DARROW_ORC=ON
 -DARROW_PYTHON=ON
+-DARROW_GANDIVA=ON
 -DARROW_PARQUET=ON
 -DARROW_BOOST_USE_SHARED=ON
 -DCMAKE_BUILD_TYPE=release
+-DARROW_BUILD_TESTS=ON
 -DARROW_BUILD_BENCHMARKS=ON
 "
-  if [ "$ARROW_HAVE_GPU" = "yes" ]; then
-    ARROW_CMAKE_OPTIONS="$ARROW_CMAKE_OPTIONS -DARROW_GPU=ON"
+  if [ "$ARROW_HAVE_CUDA" = "yes" ]; then
+    ARROW_CMAKE_OPTIONS="$ARROW_CMAKE_OPTIONS -DARROW_CUDA=ON"
   fi
   cmake $ARROW_CMAKE_OPTIONS ..
 
@@ -238,17 +273,17 @@ test_js() {
 test_ruby() {
   pushd ruby
 
-  pushd red-arrow
-  bundle install --path vendor/bundle
-  bundle exec ruby test/run-test.rb
-  popd
+  local modules="red-arrow red-plasma red-gandiva red-parquet"
+  if [ "${ARROW_HAVE_CUDA}" = "yes" ]; then
+    modules="${modules} red-arrow-cuda"
+  fi
 
-  if [ "$ARROW_HAVE_GPU" = "yes" ]; then
-    pushd red-arrow-gpu
+  for module in ${modules}; do
+    pushd ${module}
     bundle install --path vendor/bundle
     bundle exec ruby test/run-test.rb
     popd
-  fi
+  done
 
   popd
 }
@@ -274,9 +309,7 @@ test_rust() {
   cargo fmt --all -- --check
   # raises on any warnings
 
-  cargo rustc -- -D warnings
-
-  cargo build
+  RUSTFLAGS="-D warnings" cargo build
   cargo test
 
   popd
@@ -329,21 +362,58 @@ if [ "$ARTIFACT" == "source" ]; then
   TARBALL=apache-arrow-$1.tar.gz
   DIST_NAME="apache-arrow-${VERSION}"
 
+  # By default test all functionalities.
+  # To deactivate one test, deactivate the test and all of its dependents
+  # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
+  : ${TEST_DEFAULT:=1}
+  : ${TEST_JAVA:=${TEST_DEFAULT}}
+  : ${TEST_CPP:=${TEST_DEFAULT}}
+  : ${TEST_GLIB:=${TEST_DEFAULT}}
+  : ${TEST_RUBY:=${TEST_DEFAULT}}
+  : ${TEST_PYTHON:=${TEST_DEFAULT}}
+  : ${TEST_JS:=${TEST_DEFAULT}}
+  : ${TEST_INTEGRATION:=${TEST_DEFAULT}}
+  : ${TEST_RUST:=${TEST_DEFAULT}}
+
+  # Automatically test if its activated by a dependent
+  TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
+  TEST_PYTHON=$((${TEST_PYTHON} + ${TEST_INTEGRATION}))
+  TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON}))
+  TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
+  TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
+
   fetch_archive $DIST_NAME
   tar xvzf ${DIST_NAME}.tar.gz
   cd ${DIST_NAME}
 
-  test_package_java
-  setup_miniconda
-  test_and_install_cpp
-  test_python
-  test_glib
-  test_ruby
-  test_js
-  test_integration
-  test_rust
+  if [ ${TEST_JAVA} -gt 0 ]; then
+    test_package_java
+  fi
+  if [ ${TEST_CPP} -gt 0 ]; then
+    setup_miniconda
+    test_and_install_cpp
+  fi
+  if [ ${TEST_PYTHON} -gt 0 ]; then
+    test_python
+  fi
+  if [ ${TEST_GLIB} -gt 0 ]; then
+    test_glib
+  fi
+  if [ ${TEST_RUBY} -gt 0 ]; then
+    test_ruby
+  fi
+  if [ ${TEST_JS} -gt 0 ]; then
+    test_js
+  fi
+  if [ ${TEST_INTEGRATION} -gt 0 ]; then
+    test_integration
+  fi
+  if [ ${TEST_RUST} -gt 0 ]; then
+    test_rust
+  fi
 else
-  # takes longer on slow network
+  : ${BINTRAY_REPOSITORY:=apache/arrow}
+
   verify_binary_artifacts
 fi
 

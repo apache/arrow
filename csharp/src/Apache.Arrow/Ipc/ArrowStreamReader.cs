@@ -219,11 +219,14 @@ namespace Apache.Arrow.Ipc
         {
             if (buffer.Length <= 0)
             {
-                return null;
+                return ArrowBuffer.Empty;
             }
 
             var segment = bodyData.ToArraySegment((int)buffer.Offset, (int)buffer.Length);
-            return ArrowBuffer.FromMemory(segment);
+
+            return new ArrowBuffer.Builder<byte>(segment.Count)
+                .Append(segment)
+                .Build();
         }
 
         private static ArrayData LoadPrimitiveField(Field field,

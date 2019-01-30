@@ -59,6 +59,6 @@ TEST_F(TestLruCache, TestLruBehavior) {
   cache_.get(TestCacheKey(1));
   cache_.insert(TestCacheKey(3), "hello");
   // should have evicted key 2.
-  ASSERT_EQ(cache_.get(TestCacheKey(1)).value(), "hello");
+  ASSERT_EQ(*cache_.get(TestCacheKey(1)), "hello");
 }
 }  // namespace gandiva

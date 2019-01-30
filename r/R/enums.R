@@ -70,3 +70,9 @@ FileMode <- enum("arrow::io::FileMode",
 MessageType <- enum("arrow::ipc::Message::Type",
   NONE = 0L, SCHEMA = 1L, DICTIONARY_BATCH = 2L, RECORD_BATCH = 3L, TENSOR = 4L
 )
+
+#' @rdname DataType
+#' @export
+CompressionType <- enum("arrow::Compression::type",
+  UNCOMPRESSED = 0L, SNAPPY = 1L, GZIP = 2L, BROTLI = 3L, ZSTD = 4L, LZ4 = 5L, LZO = 6L, BZ2 = 7L
+)

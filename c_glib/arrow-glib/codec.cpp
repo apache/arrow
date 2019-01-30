@@ -119,7 +119,7 @@ garrow_codec_class_init(GArrowCodecClass *klass)
 
 /**
  * garrow_codec_new:
- * @type: A #GArrowCodompressionType.
+ * @type: A #GArrowCompressionType.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowCodec on success, %NULL on error.

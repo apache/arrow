@@ -20,8 +20,10 @@ module Parquet
     private
     def save_as_parquet
       chunk_size = @options[:chunk_size] || 1024 # TODO
-      Parquet::ArrowFileWriter.open(@table.schema, @path) do |writer|
-        writer.write_table(@table, chunk_size)
+      open_output_stream do |output|
+        Parquet::ArrowFileWriter.open(@table.schema, output) do |writer|
+          writer.write_table(@table, chunk_size)
+        end
       end
     end
   end

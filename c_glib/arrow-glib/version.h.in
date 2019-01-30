@@ -111,6 +111,15 @@
 #endif
 
 /**
+ * GARROW_VERSION_0_13:
+ *
+ * You can use this macro value for compile time API version check.
+ *
+ * Since: 0.13.0
+ */
+#define GARROW_VERSION_0_13 G_ENCODE_VERSION(0, 13)
+
+/**
  * GARROW_VERSION_0_12:
  *
  * You can use this macro value for compile time API version check.
@@ -174,6 +183,20 @@
 
 
 #define GARROW_AVAILABLE_IN_ALL
+
+#if GARROW_VERSION_MIN_REQUIRED >= GARROW_VERSION_0_13
+#  define GARROW_DEPRECATED_IN_0_13               GARROW_DEPRECATED
+#  define GARROW_DEPRECATED_IN_0_13_FOR(function) GARROW_DEPRECATED_FOR(function)
+#else
+#  define GARROW_DEPRECATED_IN_0_13
+#  define GARROW_DEPRECATED_IN_0_13_FOR(function)
+#endif
+
+#if GARROW_VERSION_MAX_ALLOWED < GARROW_VERSION_0_13
+#  define GARROW_AVAILABLE_IN_0_13 GARROW_UNAVAILABLE(0, 13)
+#else
+#  define GARROW_AVAILABLE_IN_0_13
+#endif
 
 #if GARROW_VERSION_MIN_REQUIRED >= GARROW_VERSION_0_12
 #  define GARROW_DEPRECATED_IN_0_12               GARROW_DEPRECATED

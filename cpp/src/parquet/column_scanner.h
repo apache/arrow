@@ -25,11 +25,13 @@
 #include <string>
 #include <vector>
 
+#include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
+
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/macros.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
@@ -87,7 +89,7 @@ class PARQUET_EXPORT Scanner {
 };
 
 template <typename DType>
-class PARQUET_EXPORT TypedScanner : public Scanner {
+class PARQUET_TEMPLATE_CLASS_EXPORT TypedScanner : public Scanner {
  public:
   typedef typename DType::c_type T;
 

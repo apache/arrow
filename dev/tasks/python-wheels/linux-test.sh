@@ -24,10 +24,17 @@ pip install /arrow/python/manylinux1/dist/*.whl
 python --version
 
 # Test optional dependencies
-python -c "import pyarrow"
-python -c "import pyarrow.orc"
-python -c "import pyarrow.parquet"
-python -c "import pyarrow.plasma"
+command="
+import sys
+import pyarrow
+import pyarrow.orc
+import pyarrow.parquet
+import pyarrow.plasma
+
+if sys.version_info.major > 2:
+    import pyarrow.gandiva
+"
+python -c "$command"
 
 # Run pyarrow tests
 pip install -r /arrow/python/requirements-test.txt

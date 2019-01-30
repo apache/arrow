@@ -18,6 +18,7 @@
 #ifndef ARROW_IO_API_H
 #define ARROW_IO_API_H
 
+#include "arrow/io/buffered.h"
 #include "arrow/io/compressed.h"
 #include "arrow/io/file.h"
 #include "arrow/io/hdfs.h"

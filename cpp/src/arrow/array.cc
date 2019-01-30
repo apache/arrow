@@ -165,12 +165,6 @@ PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t le
   SetData(ArrayData::Make(type, length, {null_bitmap, data}, null_count, offset));
 }
 
-template <typename T>
-NumericArray<T>::NumericArray(const std::shared_ptr<ArrayData>& data)
-    : PrimitiveArray(data) {
-  DCHECK_EQ(data->type->id(), T::type_id);
-}
-
 // ----------------------------------------------------------------------
 // BooleanArray
 
@@ -986,25 +980,5 @@ std::vector<ArrayVector> RechunkArraysConsistently(
 }
 
 }  // namespace internal
-
-// ----------------------------------------------------------------------
-// Instantiate templates
-
-template class ARROW_TEMPLATE_EXPORT NumericArray<UInt8Type>;
-template class ARROW_TEMPLATE_EXPORT NumericArray<UInt16Type>;
-template class ARROW_TEMPLATE_EXPORT NumericArray<UInt32Type>;
-template class ARROW_TEMPLATE_EXPORT NumericArray<UInt64Type>;
-template class ARROW_TEMPLATE_EXPORT NumericArray<Int8Type>;
-template class ARROW_TEMPLATE_EXPORT NumericArray<Int16Type>;
-template class ARROW_TEMPLATE_EXPORT NumericArray<Int32Type>;
-template class ARROW_TEMPLATE_EXPORT NumericArray<Int64Type>;
-template class ARROW_TEMPLATE_EXPORT NumericArray<TimestampType>;
-template class ARROW_TEMPLATE_EXPORT NumericArray<Date32Type>;
-template class ARROW_TEMPLATE_EXPORT NumericArray<Date64Type>;
-template class ARROW_TEMPLATE_EXPORT NumericArray<Time32Type>;
-template class ARROW_TEMPLATE_EXPORT NumericArray<Time64Type>;
-template class ARROW_TEMPLATE_EXPORT NumericArray<HalfFloatType>;
-template class ARROW_TEMPLATE_EXPORT NumericArray<FloatType>;
-template class ARROW_TEMPLATE_EXPORT NumericArray<DoubleType>;
 
 }  // namespace arrow

@@ -45,13 +45,15 @@ Gem::Specification.new do |spec|
   spec.test_files += Dir.glob("test/**/*")
   spec.extensions = ["dependency-check/Rakefile"]
 
-  spec.add_runtime_dependency("gobject-introspection", ">= 3.1.1")
+  spec.add_runtime_dependency("gobject-introspection", ">= 3.3.1")
   spec.add_runtime_dependency("pkg-config")
   spec.add_runtime_dependency("native-package-installer")
 
   spec.add_development_dependency("bundler")
   spec.add_development_dependency("rake")
+  spec.add_development_dependency("redcarpet")
   spec.add_development_dependency("test-unit")
+  spec.add_development_dependency("yard")
 
   spec.metadata["msys2_mingw_dependencies"] = "apache-arrow"
 end

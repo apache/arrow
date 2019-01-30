@@ -22,6 +22,13 @@ if "%JOB%" == "Rust" (
         echo ===
         appveyor exit
     )
+) else if "%JOB%" == "MinGW" (
+    if "%ARROW_CI_GLIB_AFFECTED%" == "0" (
+        echo ===
+        echo === No C++, or GLib changes, exiting job
+        echo ===
+        appveyor exit
+    )
 ) else (
     if "%ARROW_CI_PYTHON_AFFECTED%" == "0" (
         echo ===

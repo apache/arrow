@@ -22,6 +22,7 @@
 #include <sstream>
 
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 
 #include "plasma/common.h"
 #include "plasma/plasma_generated.h"
