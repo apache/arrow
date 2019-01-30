@@ -44,8 +44,7 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
             -O3 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
             ${ARROW_GANDIVA_PC_CXX_FLAGS}
             -I${CMAKE_SOURCE_DIR}/src
-    DEPENDS ${SRC_FILE}
-    COMMAND_EXPAND_LISTS)
+    DEPENDS ${SRC_FILE})
   list(APPEND BC_FILES ${BC_FILE})
 endforeach()
 
