@@ -42,7 +42,7 @@
 //!     column::{reader::ColumnReader, writer::ColumnWriter},
 //!     file::{
 //!         properties::WriterProperties,
-//!         reader::{FileReader, SerializedFileReader},
+//!         reader::{FileReader, SerializedFileReader, RowGroupReader},
 //!         writer::{FileWriter, SerializedFileWriter},
 //!     },
 //!     schema::parser::parse_message_type,

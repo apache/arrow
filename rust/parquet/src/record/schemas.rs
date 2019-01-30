@@ -28,11 +28,9 @@ use super::{
     types::{Downcast, Root},
     Deserialize, Schema,
 };
-use crate::{
-    basic::{LogicalType, Repetition},
-    errors::ParquetError,
-    schema::parser::parse_message_type,
-};
+use crate::basic::{LogicalType, Repetition};
+use crate::errors::ParquetError;
+use crate::schema::parser::parse_message_type;
 
 #[derive(Debug)]
 pub struct BoolSchema;

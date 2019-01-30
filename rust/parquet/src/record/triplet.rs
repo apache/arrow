@@ -311,7 +311,7 @@ impl<T: DataType> TypedTripletIter<T> {
 mod tests {
     use super::*;
 
-    use crate::file::reader::{FileReader, SerializedFileReader};
+    use crate::file::reader::{FileReader, RowGroupReader, SerializedFileReader};
     use crate::schema::types::ColumnPath;
     use crate::util::test_common::get_test_file;
 

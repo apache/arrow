@@ -73,3 +73,8 @@ pub trait Deserialize: Sized {
         batch_size: usize,
     ) -> Self::Reader;
 }
+
+mod predicate {
+    pub struct Predicate;
+}
+pub(crate) use self::predicate::Predicate;

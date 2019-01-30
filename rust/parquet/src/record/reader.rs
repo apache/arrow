@@ -28,7 +28,7 @@ use super::{
         Bson, Date, Enum, Group, Json, List, Map, Root, Time, Timestamp, Value,
         ValueRequired,
     },
-    Deserialize,
+    Deserialize, Predicate,
 };
 use crate::column::reader::ColumnReader;
 use crate::data_type::{
@@ -37,7 +37,7 @@ use crate::data_type::{
 };
 use crate::errors::{ParquetError, Result};
 use crate::file::reader::{FileReader, RowGroupReader};
-use crate::schema::types::{ColumnPath, SchemaDescPtr, SchemaDescriptor, Type};
+use crate::schema::types::{ColumnPath, SchemaDescriptor, SchemaDescPtr, Type};
 
 /// Default batch size for a reader
 const DEFAULT_BATCH_SIZE: usize = 1024;
@@ -994,8 +994,6 @@ where
     R: FileReader,
     T: Deserialize,
 {
-    descr: SchemaDescPtr,
-    // tree_builder: TreeBuilder,
     schema: <Root<T> as Deserialize>::Schema,
     file_reader: Option<Either<'a,R>>,
     current_row_group: usize,
@@ -1012,7 +1010,6 @@ where
     fn new(
         file_reader: Option<Either<'a, R>>,
         row_iter: Option<ReaderIter<T>>,
-        descr: SchemaDescPtr,
         schema: <Root<T> as Deserialize>::Schema,
     ) -> Self {
         let num_row_groups = match file_reader {
@@ -1021,7 +1018,6 @@ where
         };
 
         Self {
-            descr,
             schema,
             file_reader,
             current_row_group: 0,
@@ -1031,40 +1027,49 @@ where
     }
 
     /// Creates row iterator for all row groups in a file.
-    pub fn from_file(proj: Option<Type>, reader: &'a R) -> Result<Self> {
-        let descr = Self::get_proj_descr(
-            proj,
-            reader.metadata().file_metadata().schema_descr_ptr(),
-        )?;
-
+    pub fn from_file(_proj: Option<Predicate>, reader: &'a R) -> Result<Self> {
         let file_schema = reader.metadata().file_metadata().schema_descr_ptr();
         let file_schema = file_schema.root_schema();
         let schema = <Root<T> as Deserialize>::parse(file_schema, None)?.1;
 
-        Ok(Self::new(Some(Either::Left(reader)), None, descr, schema))
+        Ok(Self::new(Some(Either::Left(reader)), None, schema))
     }
 
     /// Creates row iterator for a specific row group.
     pub fn from_row_group(
-        proj: Option<Type>,
+        _proj: Option<Predicate>,
         row_group_reader: &'a RowGroupReader,
     ) -> Result<Self> {
-        let descr =
-            Self::get_proj_descr(proj, row_group_reader.metadata().schema_descr_ptr())?;
-
         let file_schema = row_group_reader.metadata().schema_descr_ptr();
         let file_schema = file_schema.root_schema();
         let schema = <Root<T> as Deserialize>::parse(file_schema, None)?.1;
 
+        let row_iter = Self::get_reader_iter(&schema, row_group_reader);
+
+        // For row group we need to set `current_row_group` >= `num_row_groups`, because
+        // we only have one row group and can't buffer more.
+        Ok(Self {
+            schema,
+            file_reader: None,
+            current_row_group: 0,
+            num_row_groups: 0,
+            row_iter: Some(row_iter),
+        })
+    }
+
+    fn get_reader_iter(
+        schema: &<Root<T> as Deserialize>::Schema,
+        row_group_reader: &RowGroupReader,
+    ) -> ReaderIter<T> {
         // Prepare lookup table of column path -> original column index
         // This allows to prune columns and map schema leaf nodes to the column readers
         let mut paths: HashMap<ColumnPath, ColumnReader> =
             HashMap::with_capacity(row_group_reader.num_columns());
         let row_group_metadata = row_group_reader.metadata();
+
         for col_index in 0..row_group_reader.num_columns() {
             let col_meta = row_group_metadata.column(col_index);
             let col_path = col_meta.column_path().clone();
-            // println!("path: {:?}", col_path);
             let col_reader = row_group_reader.get_column_reader(col_index).unwrap();
 
             let x = paths.insert(col_path, col_reader);
@@ -1075,29 +1080,24 @@ where
         let mut path = Vec::new();
         let reader =
             <Root<T>>::reader(&schema, &mut path, 0, 0, &mut paths, DEFAULT_BATCH_SIZE);
-        let row_iter =
-            ReaderIter::new(reader, row_group_reader.metadata().num_rows() as u64);
-
-        // For row group we need to set `current_row_group` >= `num_row_groups`, because
-        // we only have one row group and can't buffer more.
-        Ok(Self::new(None, Some(row_iter), descr, schema))
+        ReaderIter::new(reader, row_group_reader.metadata().num_rows() as u64)
     }
 
-    /// Creates a iterator of [`Row`](crate::record::api::Row)s from a
-    /// [`FileReader`](crate::file::reader::FileReader) using the full file schema.
-    pub fn from_file_into(reader: Box<FileReader>) -> Result<RowIter<'a, Box<FileReader>, T>> {
-        let either = Either::Right(reader);
-        let descr = either
-            .reader()
-            .metadata()
-            .file_metadata()
-            .schema_descr_ptr();
+    // /// Creates a iterator of [`Row`](crate::record::api::Row)s from a
+    // /// [`FileReader`](crate::file::reader::FileReader) using the full file schema.
+    // pub fn from_file_into(reader: Box<FileReader>) -> Result<RowIter<'a, Box<FileReader>, T>> {
+    //     let either = Either::Right(reader);
+    //     let descr = either
+    //         .reader()
+    //         .metadata()
+    //         .file_metadata()
+    //         .schema_descr_ptr();
 
-        let schema = descr.root_schema();
-        let schema = <Root<T> as Deserialize>::parse(schema, None)?.1;
+    //     let schema = descr.root_schema();
+    //     let schema = <Root<T> as Deserialize>::parse(schema, None)?.1;
 
-        Ok(RowIter::new(Some(either), None, descr, schema))
-    }
+    //     Ok(RowIter::new(Some(either), None, schema))
+    // }
 
     /// Tries to create a iterator of [`Row`](crate::record::api::Row)s using projections.
     /// Returns a error if a file reader is not the source of this iterator.
@@ -1117,7 +1117,7 @@ where
                 let schema = descr.root_schema();
                 let schema = <Root<T> as Deserialize>::parse(schema, None)?.1;
 
-                Ok(Self::new(self.file_reader, None, descr, schema))
+                Ok(Self::new(self.file_reader, None, schema))
             }
             None => Err(general_err!("File reader is required to use projections")),
         }
@@ -1160,7 +1160,7 @@ where
         while row.is_none() && self.current_row_group < self.num_row_groups {
             // We do not expect any failures when accessing a row group, and file reader
             // must be set for selecting next row group.
-            let row_group_reader = &*self
+            let row_group_reader = self
                 .file_reader
                 .as_ref()
                 .expect("File reader is required to advance row group")
@@ -1168,31 +1168,7 @@ where
                 .get_row_group(self.current_row_group)
                 .expect("Row group is required to advance");
 
-            let mut paths: HashMap<ColumnPath, ColumnReader> =
-                HashMap::with_capacity(row_group_reader.num_columns());
-            let row_group_metadata = row_group_reader.metadata();
-
-            for col_index in 0..row_group_reader.num_columns() {
-                let col_meta = row_group_metadata.column(col_index);
-                let col_path = col_meta.column_path().clone();
-                // println!("path: {:?}", col_path);
-                let col_reader = row_group_reader.get_column_reader(col_index).unwrap();
-
-                let x = paths.insert(col_path, col_reader);
-                assert!(x.is_none());
-            }
-
-            let mut path = Vec::new();
-            let reader = <Root<T>>::reader(
-                &self.schema,
-                &mut path,
-                0,
-                0,
-                &mut paths,
-                DEFAULT_BATCH_SIZE,
-            );
-            let mut row_iter =
-                ReaderIter::new(reader, row_group_reader.metadata().num_rows() as u64);
+            let mut row_iter = Self::get_reader_iter(&self.schema, &row_group_reader);
 
             row = row_iter.next();
 
@@ -2355,7 +2331,10 @@ mod tests {
         assert_eq!(expected_rows, rows_typed);
     }
 
-    fn test_file_reader_rows<T>(file_name: &str, schema: Option<Type>) -> Result<Vec<T>>
+    fn test_file_reader_rows<T>(
+        file_name: &str,
+        schema: Option<Predicate>,
+    ) -> Result<Vec<T>>
     where
         T: Deserialize,
     {
@@ -2365,7 +2344,10 @@ mod tests {
         Ok(iter.collect())
     }
 
-    fn test_row_group_rows<T>(file_name: &str, schema: Option<Type>) -> Result<Vec<T>>
+    fn test_row_group_rows<T>(
+        file_name: &str,
+        schema: Option<Predicate>,
+    ) -> Result<Vec<T>>
     where
         T: Deserialize,
     {
@@ -2374,11 +2356,7 @@ mod tests {
         // Check the first row group only, because files will contain only single row
         // group
         let row_group_reader = file_reader.get_row_group(0).unwrap();
-        // let iter = row_group_reader.get_row_iter(schema)?;
-        let iter = RowIter::<SerializedFileReader<std::fs::File>, _>::from_row_group(
-            schema,
-            &*row_group_reader,
-        )?;
+        let iter = row_group_reader.get_row_iter(schema)?;
         Ok(iter.collect())
     }
 }

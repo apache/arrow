@@ -41,7 +41,7 @@ use crate::column::{
 use crate::compression::{create_codec, Codec};
 use crate::errors::{ParquetError, Result};
 use crate::file::{metadata::*, statistics, FOOTER_SIZE, PARQUET_MAGIC};
-use crate::record::{reader::RowIter, Deserialize};
+use crate::record::{reader::RowIter, Deserialize, Predicate};
 use crate::schema::types::{
     self, ColumnDescPtr, SchemaDescPtr, SchemaDescriptor, Type as SchemaType,
 };
@@ -53,6 +53,8 @@ use crate::util::{io::FileSource, memory::ByteBufferPtr};
 /// Parquet file reader API. With this, user can get metadata information about the
 /// Parquet file, can get reader for each row group, and access record iterator.
 pub trait FileReader {
+    type RowGroupReader: RowGroupReader;
+
     /// Get metadata information about this file.
     fn metadata(&self) -> ParquetMetaDataPtr;
 
@@ -60,7 +62,7 @@ pub trait FileReader {
     fn num_row_groups(&self) -> usize;
 
     /// Get the `i`th row group reader. Note this doesn't do bound check.
-    fn get_row_group(&self, i: usize) -> Result<Box<RowGroupReader>>;
+    fn get_row_group(&self, i: usize) -> Result<Self::RowGroupReader>;
 
     /// Get full iterator of `Row`s from a file (over all row groups).
     ///
@@ -68,13 +70,15 @@ pub trait FileReader {
     ///
     /// Projected schema can be a subset of or equal to the file schema, when it is None,
     /// full file schema is assumed.
-    fn get_row_iter<T>(&self, projection: Option<SchemaType>) -> Result<RowIter<Self, T>>
+    fn get_row_iter<T>(&self, projection: Option<Predicate>) -> Result<RowIter<Self, T>>
     where
         T: Deserialize,
         Self: Sized;
 }
 
-impl FileReader for Box<FileReader> {
+impl<R> FileReader for Box<FileReader<RowGroupReader=R>> where R: RowGroupReader {
+    type RowGroupReader = impl RowGroupReader;
+
     fn metadata(&self) -> ParquetMetaDataPtr {
         (**self).metadata()
     }
@@ -83,11 +87,11 @@ impl FileReader for Box<FileReader> {
         (**self).num_row_groups()
     }
 
-    fn get_row_group(&self, i: usize) -> Result<Box<RowGroupReader>> {
+    fn get_row_group(&self, i: usize) -> Result<Self::RowGroupReader> {
         (**self).get_row_group(i)
     }
 
-    fn get_row_iter<T>(&self, _projection: Option<SchemaType>) -> Result<RowIter<Self, T>>
+    fn get_row_iter<T>(&self, _projection: Option<Predicate>) -> Result<RowIter<Self, T>>
     where
         T: Deserialize,
         Self: Sized {
@@ -116,7 +120,7 @@ pub trait RowGroupReader {
     /// full file schema is assumed.
     fn get_row_iter<T>(
         &self,
-        projection: Option<SchemaType>,
+        projection: Option<Predicate>,
     ) -> Result<RowIter<SerializedFileReader<std::fs::File>, T>>
     where
         T: Deserialize,
@@ -287,6 +291,8 @@ impl<R: ParquetReader> SerializedFileReader<R> {
 }
 
 impl<R: 'static + ParquetReader> FileReader for SerializedFileReader<R> {
+    type RowGroupReader = SerializedRowGroupReader<R>;
+
     fn metadata(&self) -> ParquetMetaDataPtr {
         self.metadata.clone()
     }
@@ -295,17 +301,14 @@ impl<R: 'static + ParquetReader> FileReader for SerializedFileReader<R> {
         self.metadata.num_row_groups()
     }
 
-    fn get_row_group(&self, i: usize) -> Result<Box<RowGroupReader>> {
+    fn get_row_group(&self, i: usize) -> Result<Self::RowGroupReader> {
         let row_group_metadata = self.metadata.row_group(i);
         // Row groups should be processed sequentially.
         let f = self.buf.get_ref().try_clone()?;
-        Ok(Box::new(SerializedRowGroupReader::new(
-            f,
-            row_group_metadata,
-        )))
+        Ok(SerializedRowGroupReader::new(f, row_group_metadata))
     }
 
-    fn get_row_iter<T>(&self, projection: Option<SchemaType>) -> Result<RowIter<Self, T>>
+    fn get_row_iter<T>(&self, projection: Option<Predicate>) -> Result<RowIter<Self, T>>
     where
         T: Deserialize,
         Self: Sized,
@@ -441,7 +444,7 @@ impl<R: 'static + ParquetReader> RowGroupReader for SerializedRowGroupReader<R> 
 
     fn get_row_iter<T>(
         &self,
-        projection: Option<SchemaType>,
+        projection: Option<Predicate>,
     ) -> Result<RowIter<SerializedFileReader<std::fs::File>, T>>
     where
         T: Deserialize,
@@ -615,74 +618,74 @@ impl<T: Read> PageReader for SerializedPageReader<T> {
     }
 }
 
-/// Implementation of page iterator for parquet file.
-pub struct FilePageIterator {
-    column_index: usize,
-    row_group_indices: Box<Iterator<Item = usize>>,
-    file_reader: Rc<FileReader>,
-}
+// /// Implementation of page iterator for parquet file.
+// pub struct FilePageIterator {
+//     column_index: usize,
+//     row_group_indices: Box<Iterator<Item = usize>>,
+//     file_reader: Rc<FileReader<RowGroupReader=()>>,
+// }
 
-impl FilePageIterator {
-    /// Creates a page iterator for all row groups in file.
-    pub fn new(column_index: usize, file_reader: Rc<FileReader>) -> Result<Self> {
-        let num_row_groups = file_reader.metadata().num_row_groups();
+// impl FilePageIterator {
+//     /// Creates a page iterator for all row groups in file.
+//     pub fn new(column_index: usize, file_reader: Rc<FileReader<RowGroupReader=()>>) -> Result<Self> {
+//         let num_row_groups = file_reader.metadata().num_row_groups();
 
-        let row_group_indices = Box::new(0..num_row_groups);
+//         let row_group_indices = Box::new(0..num_row_groups);
 
-        Self::with_row_groups(column_index, row_group_indices, file_reader)
-    }
+//         Self::with_row_groups(column_index, row_group_indices, file_reader)
+//     }
 
-    /// Create page iterator from parquet file reader with only some row groups.
-    pub fn with_row_groups(
-        column_index: usize,
-        row_group_indices: Box<Iterator<Item = usize>>,
-        file_reader: Rc<FileReader>,
-    ) -> Result<Self> {
-        // Check that column_index is valid
-        let num_columns = file_reader
-            .metadata()
-            .file_metadata()
-            .schema_descr_ptr()
-            .num_columns();
+//     /// Create page iterator from parquet file reader with only some row groups.
+//     pub fn with_row_groups(
+//         column_index: usize,
+//         row_group_indices: Box<Iterator<Item = usize>>,
+//         file_reader: Rc<FileReader<RowGroupReader=()>>,
+//     ) -> Result<Self> {
+//         // Check that column_index is valid
+//         let num_columns = file_reader
+//             .metadata()
+//             .file_metadata()
+//             .schema_descr_ptr()
+//             .num_columns();
 
-        if column_index >= num_columns {
-            return Err(ParquetError::IndexOutOfBound(column_index, num_columns));
-        }
+//         if column_index >= num_columns {
+//             return Err(ParquetError::IndexOutOfBound(column_index, num_columns));
+//         }
 
-        // We don't check iterators here because iterator may be infinite
-        Ok(Self {
-            column_index,
-            row_group_indices,
-            file_reader,
-        })
-    }
-}
+//         // We don't check iterators here because iterator may be infinite
+//         Ok(Self {
+//             column_index,
+//             row_group_indices,
+//             file_reader,
+//         })
+//     }
+// }
 
-impl Iterator for FilePageIterator {
-    type Item = Result<Box<PageReader>>;
+// impl Iterator for FilePageIterator {
+//     type Item = Result<Box<PageReader>>;
 
-    fn next(&mut self) -> Option<Result<Box<PageReader>>> {
-        self.row_group_indices.next().map(|row_group_index| {
-            self.file_reader
-                .get_row_group(row_group_index)
-                .and_then(|r| r.get_column_page_reader(self.column_index))
-        })
-    }
-}
+//     fn next(&mut self) -> Option<Result<Box<PageReader>>> {
+//         self.row_group_indices.next().map(|row_group_index| {
+//             self.file_reader
+//                 .get_row_group(row_group_index)
+//                 .and_then(|r| r.get_column_page_reader(self.column_index))
+//         })
+//     }
+// }
 
-impl PageIterator for FilePageIterator {
-    fn schema(&mut self) -> Result<SchemaDescPtr> {
-        Ok(self
-            .file_reader
-            .metadata()
-            .file_metadata()
-            .schema_descr_ptr())
-    }
+// impl PageIterator for FilePageIterator {
+//     fn schema(&mut self) -> Result<SchemaDescPtr> {
+//         Ok(self
+//             .file_reader
+//             .metadata()
+//             .file_metadata()
+//             .schema_descr_ptr())
+//     }
 
-    fn column_schema(&mut self) -> Result<ColumnDescPtr> {
-        self.schema().map(|s| s.column(self.column_index))
-    }
-}
+//     fn column_schema(&mut self) -> Result<ColumnDescPtr> {
+//         self.schema().map(|s| s.column(self.column_index))
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -693,6 +696,7 @@ mod tests {
     use crate::schema::parser::parse_message_type;
     use crate::{
         basic::SortOrder,
+        schema::types::Type as SchemaType,
         util::test_common::{get_temp_file, get_test_file, get_test_path},
     };
 
@@ -948,7 +952,7 @@ mod tests {
         // Test row group reader
         let row_group_reader_result = reader.get_row_group(0);
         assert!(row_group_reader_result.is_ok());
-        let row_group_reader: Box<RowGroupReader> = row_group_reader_result.unwrap();
+        let row_group_reader = row_group_reader_result.unwrap();
         assert_eq!(
             row_group_reader.num_columns(),
             row_group_metadata.num_columns()
@@ -1034,7 +1038,7 @@ mod tests {
         // Test row group reader
         let row_group_reader_result = reader.get_row_group(0);
         assert!(row_group_reader_result.is_ok());
-        let row_group_reader: Box<RowGroupReader> = row_group_reader_result.unwrap();
+        let row_group_reader = row_group_reader_result.unwrap();
         assert_eq!(
             row_group_reader.num_columns(),
             row_group_metadata.num_columns()

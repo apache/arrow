@@ -62,7 +62,7 @@
 //! # Example of reading an existing file
 //!
 //! ```rust,no_run
-//! use parquet::file::reader::{FileReader, SerializedFileReader};
+//! use parquet::file::reader::{FileReader, SerializedFileReader, RowGroupReader};
 //! use std::{fs::File, path::Path};
 //!
 //! let path = Path::new("/path/to/sample.parquet");

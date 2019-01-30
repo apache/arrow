@@ -19,12 +19,11 @@ use std::{collections::HashMap, env, fs, path::PathBuf, str::FromStr};
 
 use parquet::{
     errors::ParquetError,
-    file::reader::{FileReader, SerializedFileReader},
+    file::reader::{FileReader, RowGroupReader, SerializedFileReader},
     record::{
         types::{List, Map},
         Deserialize,
     },
-    schema::types::Type,
 };
 
 #[allow(dead_code)]
@@ -304,34 +303,31 @@ fn test_row_group_rows_invalid_projection_derived() {
 
 fn test_file_reader_rows<T>(
     file_name: &str,
-    schema: Option<Type>,
+    schema: Option<()>,
 ) -> Result<Vec<T>, ParquetError>
 where
     T: Deserialize,
 {
+    assert!(schema.is_none());
     let file = get_test_file(file_name);
     let file_reader: SerializedFileReader<_> = SerializedFileReader::new(file)?;
-    let iter = file_reader.get_row_iter(schema)?;
+    let iter = file_reader.get_row_iter(None)?;
     Ok(iter.collect())
 }
 
 fn test_row_group_rows<T>(
     file_name: &str,
-    schema: Option<Type>,
+    schema: Option<()>,
 ) -> Result<Vec<T>, ParquetError>
 where
     T: Deserialize,
 {
+    assert!(schema.is_none());
     let file = get_test_file(file_name);
     let file_reader: SerializedFileReader<_> = SerializedFileReader::new(file)?;
     // Check the first row group only, because files will contain only single row group
     let row_group_reader = file_reader.get_row_group(0).unwrap();
-    // let iter = row_group_reader.get_row_iter(schema)?;
-    let iter =
-        parquet::record::reader::RowIter::<SerializedFileReader<std::fs::File>, _>::from_row_group(
-            schema,
-            &*row_group_reader,
-        )?;
+    let iter = row_group_reader.get_row_iter(None)?;
     Ok(iter.collect())
 }
 

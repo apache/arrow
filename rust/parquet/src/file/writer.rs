@@ -528,7 +528,9 @@ mod tests {
     use crate::compression::{create_codec, Codec};
     use crate::file::{
         properties::WriterProperties,
-        reader::{FileReader, SerializedFileReader, SerializedPageReader},
+        reader::{
+            FileReader, RowGroupReader, SerializedFileReader, SerializedPageReader,
+        },
         statistics::{from_thrift, to_thrift, Statistics},
     };
     use crate::record::types::Row;
@@ -945,13 +947,7 @@ mod tests {
         assert_eq!(reader.num_row_groups(), data.len());
         for i in 0..reader.num_row_groups() {
             let row_group_reader = reader.get_row_group(i).unwrap();
-            // let iter = row_group_reader.get_row_iter::<Row>(None).unwrap();
-            let iter =
-                crate::record::reader::RowIter::<SerializedFileReader<File>, Row>::from_row_group(
-                    None,
-                    &*row_group_reader,
-                )
-                .unwrap();
+            let iter = row_group_reader.get_row_iter::<Row>(None).unwrap();
             let res = iter
                 .map(|elem| elem[0].as_i32().unwrap())
                 .collect::<Vec<i32>>();
