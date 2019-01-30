@@ -291,6 +291,20 @@ impl<T> BufferPtr<T> {
         &self.data[self.start..self.start + self.len]
     }
 
+    /// Return the inner Vec<T>, if there is exactly one reference to it.
+    pub fn try_unwrap(mut self) -> Result<Vec<T>, Self> {
+        if self.start == 0 && self.len == self.data.len() {
+            Rc::try_unwrap(mem::replace(&mut self.data, Rc::new(vec![]))).map_err(
+                |data| {
+                    self.data = data;
+                    self
+                },
+            )
+        } else {
+            Err(self)
+        }
+    }
+
     /// Updates this buffer with new `start` position and length `len`.
     ///
     /// Range should be within current start position and length.

@@ -17,7 +17,6 @@
 
 //! Contains record-based API for reading Parquet files.
 
-// mod api;
 mod display;
 pub mod reader;
 pub mod schemas;

@@ -15,7 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{collections::HashMap, convert::TryInto, error::Error, num::TryFromIntError};
+use chrono::{Local, NaiveTime, TimeZone, Timelike, Utc};
+use std::{
+    collections::HashMap,
+    convert::TryInto,
+    fmt::{self, Display},
+};
 
 use crate::{
     basic::Repetition,
@@ -38,8 +43,18 @@ const MILLIS_PER_SECOND: i64 = 1_000;
 const MICROS_PER_MILLI: i64 = 1_000;
 const NANOS_PER_MICRO: i64 = 1_000;
 
-#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Date(pub(super) i32);
+impl Date {
+    /// Number of days since the Unix epoch
+    pub fn from_days(days: i32) -> Self {
+        Date(days)
+    }
+    /// Number of days since the Unix epoch
+    pub fn as_days(&self) -> i32 {
+        self.0
+    }
+}
 impl Deserialize for Date {
     type Reader = impl Reader<Item = Self>;
     type Schema = DateSchema;
@@ -65,9 +80,65 @@ impl Deserialize for Date {
         )
     }
 }
+impl From<chrono::Date<Utc>> for Date {
+    fn from(date: chrono::Date<Utc>) -> Self {
+        Date(
+            (date
+                .and_time(NaiveTime::from_hms(0, 0, 0))
+                .unwrap()
+                .timestamp()
+                / SECONDS_PER_DAY)
+                .try_into()
+                .unwrap(),
+        )
+    }
+}
+impl From<Date> for chrono::Date<Utc> {
+    fn from(date: Date) -> Self {
+        let x = Utc.timestamp(i64::from(date.0) * SECONDS_PER_DAY, 0);
+        assert_eq!(x.time(), NaiveTime::from_hms(0, 0, 0));
+        x.date()
+    }
+}
+impl Display for Date {
+    // Input is a number of days since the epoch in UTC.
+    // Date is displayed in local timezone.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let dt = Local
+            .timestamp(i64::from(self.0) * SECONDS_PER_DAY, 0)
+            .date();
+        dt.format("%Y-%m-%d %:z").fmt(f)
+    }
+}
 
-#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub struct Time(pub(super) i64);
+#[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub struct Time(pub(super) u64);
+impl Time {
+    /// Number of milliseconds since midnight
+    pub fn from_millis(millis: u32) -> Option<Self> {
+        if millis < (SECONDS_PER_DAY * MILLIS_PER_SECOND) as u32 {
+            Some(Time(millis as u64 * MICROS_PER_MILLI as u64))
+        } else {
+            None
+        }
+    }
+    /// Number of microseconds since midnight
+    pub fn from_micros(micros: u64) -> Option<Self> {
+        if micros < (SECONDS_PER_DAY * MILLIS_PER_SECOND * MICROS_PER_MILLI) as u64 {
+            Some(Time(micros as u64))
+        } else {
+            None
+        }
+    }
+    /// Number of milliseconds since midnight
+    pub fn as_millis(&self) -> u32 {
+        (self.0 / MICROS_PER_MILLI as u64) as u32
+    }
+    /// Number of microseconds since midnight
+    pub fn as_micros(&self) -> u64 {
+        self.0
+    }
+}
 impl Deserialize for Time {
     type Reader = impl Reader<Item = Self>;
     type Schema = TimeSchema;
@@ -90,28 +161,121 @@ impl Deserialize for Time {
         match schema {
             TimeSchema::Micros => sum::Sum2::A(MapReader(
                 i64::reader(&I64Schema, path, def_level, rep_level, paths, batch_size),
-                |micros| Ok(Time(micros)),
+                |micros: i64| {
+                    micros
+                        .try_into()
+                        .ok()
+                        .and_then(Time::from_micros)
+                        .ok_or_else(|| {
+                            ParquetError::General(format!(
+                                "Invalid Time Micros {}",
+                                micros
+                            ))
+                        })
+                },
             )),
             TimeSchema::Millis => sum::Sum2::B(MapReader(
                 i32::reader(&I32Schema, path, def_level, rep_level, paths, batch_size),
-                |millis| Ok(Time(millis as i64 * MICROS_PER_MILLI)),
+                |millis: i32| {
+                    millis
+                        .try_into()
+                        .ok()
+                        .and_then(Time::from_millis)
+                        .ok_or_else(|| {
+                            ParquetError::General(format!(
+                                "Invalid Time Millis {}",
+                                millis
+                            ))
+                        })
+                },
             )),
         }
     }
 }
+impl From<NaiveTime> for Time {
+    fn from(time: NaiveTime) -> Self {
+        Time(
+            time.num_seconds_from_midnight() as u64
+                * (MILLIS_PER_SECOND * MICROS_PER_MILLI) as u64
+                + time.nanosecond() as u64 / NANOS_PER_MICRO as u64,
+        )
+    }
+}
+impl From<Time> for NaiveTime {
+    fn from(time: Time) -> Self {
+        NaiveTime::from_num_seconds_from_midnight(
+            (time.0 / (MICROS_PER_MILLI * MILLIS_PER_SECOND) as u64) as u32,
+            (time.0 % (MICROS_PER_MILLI * MILLIS_PER_SECOND) as u64
+                * NANOS_PER_MICRO as u64) as u32,
+        )
+    }
+}
+impl Display for Time {
+    // Input is a number of microseconds since midnight.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let dt = NaiveTime::from_num_seconds_from_midnight(
+            (self.0 as i64 / MICROS_PER_MILLI / MILLIS_PER_SECOND)
+                .try_into()
+                .unwrap(),
+            (self.0 as i64 % MICROS_PER_MILLI / MILLIS_PER_SECOND)
+                .try_into()
+                .unwrap(),
+        );
+        dt.format("%H:%M:%S").fmt(f)
+    }
+}
 
-#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
 pub struct Timestamp(pub(super) Int96);
 impl Timestamp {
+    pub fn from_millis(millis: i64) -> Self {
+        let day: i64 = ((JULIAN_DAY_OF_EPOCH * SECONDS_PER_DAY * MILLIS_PER_SECOND)
+            + millis)
+            / (SECONDS_PER_DAY * MILLIS_PER_SECOND);
+        let nanoseconds: i64 = (millis
+            - ((day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY * MILLIS_PER_SECOND))
+            * MICROS_PER_MILLI
+            * NANOS_PER_MICRO;
+
+        Timestamp(Int96::new(
+            (nanoseconds & 0xffffffff).try_into().unwrap(),
+            ((nanoseconds as u64) >> 32).try_into().unwrap(),
+            day.try_into().unwrap(),
+        ))
+    }
+
+    pub fn from_micros(micros: i64) -> Self {
+        let day: i64 = ((JULIAN_DAY_OF_EPOCH
+            * SECONDS_PER_DAY
+            * MILLIS_PER_SECOND
+            * MICROS_PER_MILLI)
+            + micros)
+            / (SECONDS_PER_DAY * MILLIS_PER_SECOND * MICROS_PER_MILLI);
+        let nanoseconds: i64 = (micros
+            - ((day - JULIAN_DAY_OF_EPOCH)
+                * SECONDS_PER_DAY
+                * MILLIS_PER_SECOND
+                * MICROS_PER_MILLI))
+            * NANOS_PER_MICRO;
+
+        Timestamp(Int96::new(
+            (nanoseconds & 0xffffffff).try_into().unwrap(),
+            ((nanoseconds as u64) >> 32).try_into().unwrap(),
+            day.try_into().unwrap(),
+        ))
+    }
+
     pub fn as_day_nanos(&self) -> (i64, i64) {
-        let day = self.0.data()[2] as i64;
-        let nanoseconds = ((self.0.data()[1] as i64) << 32) + self.0.data()[0] as i64;
+        let day = i64::from(self.0.data()[2]);
+        let nanoseconds =
+            (i64::from(self.0.data()[1]) << 32) + i64::from(self.0.data()[0]);
         (day, nanoseconds)
     }
 
     pub fn as_millis(&self) -> Option<i64> {
-        let day = self.0.data()[2] as i64;
-        let nanoseconds = ((self.0.data()[1] as i64) << 32) + self.0.data()[0] as i64;
+        let day = i64::from(self.0.data()[2]);
+        let nanoseconds =
+            (i64::from(self.0.data()[1]) << 32) + i64::from(self.0.data()[0]);
         let seconds = (day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY;
         Some(
             seconds * MILLIS_PER_SECOND
@@ -120,8 +284,9 @@ impl Timestamp {
     }
 
     pub fn as_micros(&self) -> Option<i64> {
-        let day = self.0.data()[2] as i64;
-        let nanoseconds = ((self.0.data()[1] as i64) << 32) + self.0.data()[0] as i64;
+        let day = i64::from(self.0.data()[2]);
+        let nanoseconds =
+            (i64::from(self.0.data()[1]) << 32) + i64::from(self.0.data()[0]);
         let seconds = (day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY;
         Some(
             seconds * MILLIS_PER_SECOND * MICROS_PER_MILLI
@@ -130,8 +295,9 @@ impl Timestamp {
     }
 
     pub fn as_nanos(&self) -> Option<i64> {
-        let day = self.0.data()[2] as i64;
-        let nanoseconds = ((self.0.data()[1] as i64) << 32) + self.0.data()[0] as i64;
+        let day = i64::from(self.0.data()[2]);
+        let nanoseconds =
+            (i64::from(self.0.data()[1]) << 32) + i64::from(self.0.data()[0]);
         let seconds = (day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY;
         Some(
             seconds * MILLIS_PER_SECOND * MICROS_PER_MILLI * NANOS_PER_MICRO
@@ -139,7 +305,6 @@ impl Timestamp {
         )
     }
 }
-
 impl Deserialize for Timestamp {
     type Reader = impl Reader<Item = Self>;
     type Schema = TimestampSchema;
@@ -174,52 +339,88 @@ impl Deserialize for Timestamp {
             )),
             TimestampSchema::Millis => sum::Sum3::B(MapReader(
                 i64::reader(&I64Schema, path, def_level, rep_level, paths, batch_size),
-                |millis| {
-                    let day: i64 =
-                        ((JULIAN_DAY_OF_EPOCH * SECONDS_PER_DAY * MILLIS_PER_SECOND)
-                            + millis)
-                            / (SECONDS_PER_DAY * MILLIS_PER_SECOND);
-                    let nanoseconds: i64 = (millis
-                        - ((day - JULIAN_DAY_OF_EPOCH)
-                            * SECONDS_PER_DAY
-                            * MILLIS_PER_SECOND))
-                        * MICROS_PER_MILLI
-                        * NANOS_PER_MICRO;
-
-                    Ok(Timestamp(Int96::new(
-                        (nanoseconds & 0xffff).try_into().unwrap(),
-                        ((nanoseconds as u64) >> 32).try_into().unwrap(),
-                        day.try_into().map_err(|err: TryFromIntError| {
-                            ParquetError::General(err.description().to_owned())
-                        })?,
-                    )))
-                },
+                |x| Ok(Timestamp::from_millis(x)),
             )),
             TimestampSchema::Micros => sum::Sum3::C(MapReader(
                 i64::reader(&I64Schema, path, def_level, rep_level, paths, batch_size),
-                |micros| {
-                    let day: i64 = ((JULIAN_DAY_OF_EPOCH
-                        * SECONDS_PER_DAY
-                        * MILLIS_PER_SECOND
-                        * MICROS_PER_MILLI)
-                        + micros)
-                        / (SECONDS_PER_DAY * MILLIS_PER_SECOND * MICROS_PER_MILLI);
-                    let nanoseconds: i64 = (micros
-                        - ((day - JULIAN_DAY_OF_EPOCH)
-                            * SECONDS_PER_DAY
-                            * MILLIS_PER_SECOND
-                            * MICROS_PER_MILLI))
-                        * NANOS_PER_MICRO;
-
-                    Ok(Timestamp(Int96::new(
-                        (nanoseconds & 0xffff).try_into().unwrap(),
-                        ((nanoseconds as u64) >> 32).try_into().unwrap(),
-                        day.try_into().map_err(|err: TryFromIntError| {
-                            ParquetError::General(err.description().to_owned())
-                        })?,
-                    )))
-                },
+                |x| Ok(Timestamp::from_micros(x)),
             )),
         }
+    }
+}
+impl Display for Timestamp {
+    // Datetime is displayed in local timezone.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let dt = Local.timestamp(self.as_millis().unwrap() / MILLIS_PER_SECOND, 0);
+        dt.format("%Y-%m-%d %H:%M:%S %:z").fmt(f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use chrono::NaiveDate;
+
+    #[test]
+    fn test_int96() {
+        let value = Timestamp(Int96::new(0, 0, 2454923));
+        assert_eq!(value.as_millis().unwrap(), 1238544000000);
+
+        let value = Timestamp(Int96::new(4165425152, 13, 2454923));
+        assert_eq!(value.as_millis().unwrap(), 1238544060000);
+
+        let value = Timestamp(Int96::new(0, 0, 0));
+        assert_eq!(value.as_millis().unwrap(), -210866803200000);
+    }
+
+    #[test]
+    fn test_convert_date_to_string() {
+        fn check_date_conversion(y: i32, m: u32, d: u32) {
+            let datetime = NaiveDate::from_ymd(y, m, d).and_hms(0, 0, 0);
+            let dt = Local.from_utc_datetime(&datetime);
+            let date = Date((dt.timestamp() / SECONDS_PER_DAY) as i32);
+            assert_eq!(date.to_string(), dt.format("%Y-%m-%d %:z").to_string());
+            let date2 = Date::from(<chrono::Date<Utc>>::from(date));
+            assert_eq!(date, date2);
+        }
+
+        check_date_conversion(2010, 01, 02);
+        check_date_conversion(2014, 05, 01);
+        check_date_conversion(2016, 02, 29);
+        check_date_conversion(2017, 09, 12);
+        check_date_conversion(2018, 03, 31);
+    }
+
+    #[test]
+    fn test_convert_time_to_string() {
+        fn check_time_conversion(h: u32, mi: u32, s: u32) {
+            let chrono_time = NaiveTime::from_hms(h, mi, s);
+            let time = Time::from(chrono_time);
+            assert_eq!(time.to_string(), chrono_time.format("%H:%M:%S").to_string());
+        }
+
+        check_time_conversion(13, 12, 54);
+        check_time_conversion(08, 23, 01);
+        check_time_conversion(11, 06, 32);
+        check_time_conversion(16, 38, 00);
+        check_time_conversion(21, 15, 12);
+    }
+
+    #[test]
+    fn test_convert_timestamp_to_string() {
+        fn check_datetime_conversion(y: i32, m: u32, d: u32, h: u32, mi: u32, s: u32) {
+            let datetime = NaiveDate::from_ymd(y, m, d).and_hms(h, mi, s);
+            let dt = Local.from_utc_datetime(&datetime);
+            let res = Timestamp::from_millis(dt.timestamp_millis()).to_string();
+            let exp = dt.format("%Y-%m-%d %H:%M:%S %:z").to_string();
+            assert_eq!(res, exp);
+        }
+
+        check_datetime_conversion(2010, 01, 02, 13, 12, 54);
+        check_datetime_conversion(2011, 01, 03, 08, 23, 01);
+        check_datetime_conversion(2012, 04, 05, 11, 06, 32);
+        check_datetime_conversion(2013, 05, 12, 16, 38, 00);
+        check_datetime_conversion(2014, 11, 28, 21, 15, 12);
     }
 }

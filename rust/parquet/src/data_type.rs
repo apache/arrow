@@ -18,9 +18,13 @@
 //! Data types that connect Parquet physical types with their Rust-specific
 //! representations.
 
-use std::{mem, slice};
+use std::{
+    fmt::{self, Display},
+    mem, slice,
+};
 
 use byteorder::{BigEndian, ByteOrder};
+use num_bigint::{BigInt, Sign};
 
 use crate::basic::Type;
 use crate::util::memory::{ByteBuffer, ByteBufferPtr};
@@ -67,6 +71,11 @@ impl ByteArray {
     /// Returns slice of data.
     pub fn data(&self) -> &[u8] {
         self.data.as_ref()
+    }
+
+    /// Return the inner Vec<T>, if there is exactly one reference to it.
+    pub fn try_unwrap(self) -> Result<Vec<u8>, Self> {
+        self.data.try_unwrap().map_err(|data| Self { data })
     }
 
     /// Returns `ByteArray` instance with slice of values for a data.
@@ -205,6 +214,38 @@ impl Decimal {
             Decimal::Int64 { scale, .. } => scale,
             Decimal::Bytes { scale, .. } => scale,
         }
+    }
+}
+
+impl Display for Decimal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // We assert that `scale >= 0` and `precision > scale`, but this will be enforced
+        // when constructing Parquet schema.
+        assert!(self.scale() >= 0 && self.precision() > self.scale());
+
+        // Specify as signed bytes to resolve sign as part of conversion.
+        let num = BigInt::from_signed_bytes_be(self.data());
+
+        // Offset of the first digit in a string.
+        let negative = if num.sign() == Sign::Minus { 1 } else { 0 };
+        let mut num_str = num.to_string();
+        let mut point = num_str.len() as i32 - self.scale() - negative;
+
+        // Convert to string form without scientific notation.
+        if point <= 0 {
+            // Zeros need to be prepended to the unscaled value.
+            while point < 0 {
+                num_str.insert(negative as usize, '0');
+                point += 1;
+            }
+            num_str.insert_str(negative as usize, "0.");
+        } else {
+            // No zeroes need to be prepended to the unscaled value, simply insert decimal
+            // point.
+            num_str.insert((point + negative) as usize, '.');
+        }
+
+        num_str.fmt(f)
     }
 }
 
@@ -413,5 +454,34 @@ mod tests {
         assert!(Decimal::from_i32(222, 5, 2) != Decimal::from_i32(222, 5, 3));
 
         assert!(Decimal::from_i64(222, 5, 2) != Decimal::from_i32(222, 5, 2));
+    }
+
+    #[test]
+    fn test_convert_decimal_to_string() {
+        // Helper method to compare decimal
+        fn check_decimal(bytes: Vec<u8>, precision: i32, scale: i32, res: &str) {
+            let decimal = Decimal::from_bytes(ByteArray::from(bytes), precision, scale);
+            assert_eq!(decimal.to_string(), res);
+        }
+
+        // This example previously used to fail in some engines
+        check_decimal(
+            vec![0, 0, 0, 0, 0, 0, 0, 0, 13, 224, 182, 179, 167, 100, 0, 0],
+            38,
+            18,
+            "1.000000000000000000",
+        );
+        check_decimal(
+            vec![
+                249, 233, 247, 16, 185, 192, 202, 223, 215, 165, 192, 166, 67, 72,
+            ],
+            36,
+            28,
+            "-12344.0242342304923409234234293432",
+        );
+        check_decimal(vec![0, 0, 0, 0, 0, 4, 147, 224], 17, 5, "3.00000");
+        check_decimal(vec![0, 0, 0, 0, 1, 201, 195, 140], 18, 2, "300000.12");
+        check_decimal(vec![207, 200], 10, 2, "-123.44");
+        check_decimal(vec![207, 200], 10, 8, "-0.00012344");
     }
 }

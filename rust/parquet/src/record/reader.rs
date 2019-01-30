@@ -353,7 +353,10 @@ impl Reader for ByteArrayReader {
 
     #[inline]
     fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
-        self.column.read().map(|data| data.data().to_owned())
+        self.column.read().map(|data| {
+            data.try_unwrap()
+                .unwrap_or_else(|data| data.data().to_owned())
+        })
     }
 
     #[inline]
@@ -385,7 +388,10 @@ impl Reader for FixedLenByteArrayReader {
 
     #[inline]
     fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
-        self.column.read().map(|data| data.data().to_owned())
+        self.column.read().map(|data| {
+            data.try_unwrap()
+                .unwrap_or_else(|data| data.data().to_owned())
+        })
     }
 
     #[inline]
