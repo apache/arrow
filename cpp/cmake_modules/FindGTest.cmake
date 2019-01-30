@@ -32,12 +32,14 @@
 #  GTEST_SHARED_LIB, path to libgtest's shared library
 #  GTEST_SHARED_MAIN_LIB, path to libgtest_main's shared library
 #  GTEST_FOUND, whether gtest has been found
-#  
+#
 #  GMOCK_INCLUDE_DIR, directory containing headers
 #  GMOCK_LIBS, directory containing gmock libraries
 #  GMOCK_STATIC_LIB, path to libgmock.a
+#  GMOCK_STATIC_MAIN_LIB, path to libgmock_main.a
 #  GMOCK_SHARED_LIB, path to libgmock's shared library
-#  GMOCK_FOUND
+#  GMOCK_SHARED_MAIN_LIB, path to libgmock_main's shared library
+#  GMOCK_FOUND, whether gmock has been found
 
 if( NOT "${GTEST_HOME}" STREQUAL "")
     file( TO_CMAKE_PATH "${GTEST_HOME}" _native_path )
