@@ -16,7 +16,6 @@
 # under the License.
 
 import hypothesis as h
-import hypothesis.strategies as st
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
@@ -57,10 +56,6 @@ def test_record_batches(record_bath):
     assert isinstance(record_bath, pa.lib.RecordBatch)
 
 
-############################################################
-
-
-@h.given(st.text(), past.all_arrays | past.all_chunked_arrays)
-def test_column_factory(name, arr):
-    column = pa.column(name, arr)
-    assert isinstance(column, pa.Column)
+@h.given(past.all_tables)
+def test_tables(table):
+    assert isinstance(table, pa.lib.Table)

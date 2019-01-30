@@ -111,16 +111,16 @@ def complex_types(inner_strategy=primitive_types):
     return list_types(inner_strategy) | struct_types(inner_strategy)
 
 
-def nested_list_types(item_strategy=primitive_types):
-    return st.recursive(item_strategy, list_types)
+def nested_list_types(item_strategy=primitive_types, max_leaves=3):
+    return st.recursive(item_strategy, list_types, max_leaves=max_leaves)
 
 
-def nested_struct_types(item_strategy=primitive_types):
-    return st.recursive(item_strategy, struct_types)
+def nested_struct_types(item_strategy=primitive_types, max_leaves=3):
+    return st.recursive(item_strategy, struct_types, max_leaves=max_leaves)
 
 
-def nested_complex_types(inner_strategy=primitive_types):
-    return st.recursive(inner_strategy, complex_types)
+def nested_complex_types(inner_strategy=primitive_types, max_leaves=3):
+    return st.recursive(inner_strategy, complex_types, max_leaves=max_leaves)
 
 
 def schemas(type_strategy=primitive_types, max_fields=None):
@@ -156,14 +156,13 @@ def arrays(draw, type, size=None):
     shape = (size,)
 
     if pa.types.is_list(type):
-        # TODO(kszucs) limit the depth
         offsets = draw(npst.arrays(np.uint8(), shape=shape)).cumsum() // 20
         offsets = np.insert(offsets, 0, 0, axis=0)  # prepend with zero
         values = draw(arrays(type.value_type, size=int(offsets.sum())))
         return pa.ListArray.from_arrays(offsets, values)
 
     if pa.types.is_struct(type):
-        h.assume(len(type) > 0)  # TODO(kszucs): create issue -> pa.struct([])
+        h.assume(len(type) > 0)
         names, child_arrays = [], []
         for field in type:
             names.append(field.name)
@@ -190,12 +189,11 @@ def arrays(draw, type, size=None):
         value = st.binary()
     elif pa.types.is_string(type):
         value = st.text()
-    # elif pa.types.is_decimal(type):
-    #     # TODO(kszucs): properly limit the precision
-    #     value = st.decimals(places=type.scale, allow_infinity=False)
-    #     type = None  # We let arrow infer it from the values
+    elif pa.types.is_decimal(type):
+        # TODO(kszucs): properly limit the precision
+        # value = st.decimals(places=type.scale, allow_infinity=False)
+        h.reject()
     else:
-        h.assume(not pa.types.is_decimal(type))
         raise NotImplementedError(type)
 
     values = st.lists(value, min_size=size, max_size=size)
@@ -234,10 +232,27 @@ def record_batches(draw, type, rows=None, max_fields=None):
 
     schema = draw(schemas(type, max_fields=max_fields))
     children = [draw(arrays(field.type, size=rows)) for field in schema]
+    # TODO(kszucs): the names and schame arguments are not consistent with
+    #               Table.from_array's arguments
     return pa.RecordBatch.from_arrays(children, names=schema)
+
+
+@st.composite
+def tables(draw, type, rows=None, max_fields=None):
+    if isinstance(rows, st.SearchStrategy):
+        rows = draw(rows)
+    elif rows is None:
+        rows = draw(_default_array_sizes)
+    elif not isinstance(rows, int):
+        raise TypeError('Rows must be an integer')
+
+    schema = draw(schemas(type, max_fields=max_fields))
+    children = [draw(arrays(field.type, size=rows)) for field in schema]
+    return pa.Table.from_arrays(children, schema=schema)
 
 
 all_arrays = arrays(all_types)
 all_chunked_arrays = chunked_arrays(all_types)
 all_columns = columns(all_types)
 all_record_batches = record_batches(all_types)
+all_tables = tables(all_types)
