@@ -175,7 +175,7 @@ else ()
 # in tandem.
 if (NOT GTest_FIND_QUIETLY)
     set(GMOCK_ERR_MSG "Could not find the GMock library. Looked in ")
-    if ( _gmock_roots )
+    if ( _gtest_roots )
       set(GTEST_ERR_MSG "${GMOCK_ERR_MSG} in ${_gtest_roots}.")
     else ()
       set(GTEST_ERR_MSG "${GMOCK_ERR_MSG} system search paths.")
