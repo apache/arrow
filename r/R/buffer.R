@@ -81,3 +81,8 @@ buffer.complex <- function(x) {
   shared_ptr(`arrow::Buffer`, r___RBuffer__initialize(x))
 }
 
+#' @export
+`buffer.arrow::Buffer` <- function(x) {
+  x
+}
+

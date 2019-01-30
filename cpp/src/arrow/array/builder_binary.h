@@ -281,6 +281,8 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
     return builder_->AppendNull();
   }
 
+  Status Reserve(int64_t values) { return builder_->Reserve(values); }
+
   virtual Status Finish(ArrayVector* out);
 
  protected:

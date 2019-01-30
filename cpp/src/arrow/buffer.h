@@ -371,11 +371,22 @@ Status AllocateResizableBuffer(const int64_t size, std::shared_ptr<ResizableBuff
 ARROW_EXPORT
 Status AllocateResizableBuffer(const int64_t size, std::unique_ptr<ResizableBuffer>* out);
 
-/// \brief Allocate a zero-initialized bitmap buffer from a memory pool
+/// \brief Allocate a bitmap buffer from a memory pool
+/// no guarantee on values is provided.
 ///
 /// \param[in] pool memory pool to allocate memory from
 /// \param[in] length size in bits of bitmap to allocate
 /// \param[out] out the resulting buffer
+///
+/// \return Status message
+ARROW_EXPORT
+Status AllocateBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* out);
+
+/// \brief Allocate a zero-initialized bitmap buffer from a memory pool
+///
+/// \param[in] pool memory pool to allocate memory from
+/// \param[in] length size in bits of bitmap to allocate
+/// \param[out] out the resulting buffer (zero-initialized).
 ///
 /// \return Status message
 ARROW_EXPORT

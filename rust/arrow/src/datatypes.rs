@@ -17,8 +17,8 @@
 
 //! Defines the data-types of Arrow arrays.
 //!
-//! For an overview of the terminology used within the arrow project and more general information
-//! regarding data-types and memory layouts see
+//! For an overview of the terminology used within the arrow project and more general
+//! information regarding data-types and memory layouts see
 //! [here](https://arrow.apache.org/docs/memory_layout.html).
 
 use std::fmt;
@@ -33,8 +33,8 @@ use crate::error::{ArrowError, Result};
 
 /// The possible relative types that are supported.
 ///
-/// The variants of this enum include primitive fixed size types as well as parametric or nested
-/// types.
+/// The variants of this enum include primitive fixed size types as well as parametric or
+/// nested types.
 /// Currently the Rust implementation supports the following  nested types:
 ///  - `List<T>`
 ///  - `Struct<T, U, V, ...>`
@@ -202,16 +202,24 @@ impl DataType {
                 },
                 Some(s) if s == "timestamp" => match map.get("unit") {
                     Some(p) if p == "SECOND" => Ok(DataType::Timestamp(TimeUnit::Second)),
-                    Some(p) if p == "MILLISECOND" => Ok(DataType::Timestamp(TimeUnit::Millisecond)),
-                    Some(p) if p == "MICROSECOND" => Ok(DataType::Timestamp(TimeUnit::Microsecond)),
-                    Some(p) if p == "NANOSECOND" => Ok(DataType::Timestamp(TimeUnit::Nanosecond)),
+                    Some(p) if p == "MILLISECOND" => {
+                        Ok(DataType::Timestamp(TimeUnit::Millisecond))
+                    }
+                    Some(p) if p == "MICROSECOND" => {
+                        Ok(DataType::Timestamp(TimeUnit::Microsecond))
+                    }
+                    Some(p) if p == "NANOSECOND" => {
+                        Ok(DataType::Timestamp(TimeUnit::Nanosecond))
+                    }
                     _ => Err(ArrowError::ParseError(
                         "timestamp unit missing or invalid".to_string(),
                     )),
                 },
                 Some(s) if s == "date" => match map.get("unit") {
                     Some(p) if p == "DAY" => Ok(DataType::Date(DateUnit::Day)),
-                    Some(p) if p == "MILLISECOND" => Ok(DataType::Date(DateUnit::Millisecond)),
+                    Some(p) if p == "MILLISECOND" => {
+                        Ok(DataType::Date(DateUnit::Millisecond))
+                    }
                     _ => Err(ArrowError::ParseError(
                         "date unit missing or invalid".to_string(),
                     )),
@@ -235,8 +243,12 @@ impl DataType {
                     }
                 }
                 Some(s) if s == "interval" => match map.get("unit") {
-                    Some(p) if p == "DAY_TIME" => Ok(DataType::Interval(IntervalUnit::DayTime)),
-                    Some(p) if p == "YEAR_MONTH" => Ok(DataType::Interval(IntervalUnit::YearMonth)),
+                    Some(p) if p == "DAY_TIME" => {
+                        Ok(DataType::Interval(IntervalUnit::DayTime))
+                    }
+                    Some(p) if p == "YEAR_MONTH" => {
+                        Ok(DataType::Interval(IntervalUnit::YearMonth))
+                    }
                     _ => Err(ArrowError::ParseError(
                         "interval unit missing or invalid".to_string(),
                     )),
@@ -312,26 +324,31 @@ impl DataType {
             DataType::Float64 => json!({"name": "floatingpoint", "precision": "DOUBLE"}),
             DataType::Utf8 => json!({"name": "utf8"}),
             DataType::Struct(ref fields) => {
-                let field_json_array =
-                    Value::Array(fields.iter().map(|f| f.to_json()).collect::<Vec<Value>>());
+                let field_json_array = Value::Array(
+                    fields.iter().map(|f| f.to_json()).collect::<Vec<Value>>(),
+                );
                 json!({ "fields": field_json_array })
             }
             DataType::List(ref t) => {
                 let child_json = t.to_json();
                 json!({ "name": "list", "children": child_json })
             }
-            DataType::Time32(unit) => json!({"name": "time", "bitWidth": "32", "unit": match unit {
-                TimeUnit::Second => "SECOND",
-                TimeUnit::Millisecond => "MILLISECOND",
-                TimeUnit::Microsecond => "MICROSECOND",
-                TimeUnit::Nanosecond => "NANOSECOND",
-            }}),
-            DataType::Time64(unit) => json!({"name": "time", "bitWidth": "64", "unit": match unit {
-                TimeUnit::Second => "SECOND",
-                TimeUnit::Millisecond => "MILLISECOND",
-                TimeUnit::Microsecond => "MICROSECOND",
-                TimeUnit::Nanosecond => "NANOSECOND",
-            }}),
+            DataType::Time32(unit) => {
+                json!({"name": "time", "bitWidth": "32", "unit": match unit {
+                    TimeUnit::Second => "SECOND",
+                    TimeUnit::Millisecond => "MILLISECOND",
+                    TimeUnit::Microsecond => "MICROSECOND",
+                    TimeUnit::Nanosecond => "NANOSECOND",
+                }})
+            }
+            DataType::Time64(unit) => {
+                json!({"name": "time", "bitWidth": "64", "unit": match unit {
+                    TimeUnit::Second => "SECOND",
+                    TimeUnit::Millisecond => "MILLISECOND",
+                    TimeUnit::Microsecond => "MICROSECOND",
+                    TimeUnit::Nanosecond => "NANOSECOND",
+                }})
+            }
             DataType::Date(unit) => json!({"name": "date", "unit": match unit {
                 DateUnit::Day => "DAY",
                 DateUnit::Millisecond => "MILLISECOND",
@@ -438,8 +455,8 @@ impl fmt::Display for Field {
 
 /// Describes the meta-data of an ordered sequence of relative types.
 ///
-/// Note that this information is only part of the meta-data and not part of the physical memory
-/// layout.
+/// Note that this information is only part of the meta-data and not part of the physical
+/// memory layout.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Schema {
     pub(crate) fields: Vec<Field>,
@@ -472,8 +489,8 @@ impl Schema {
         &self.fields
     }
 
-    /// Returns an immutable reference of a specific `Field` instance selected using an offset
-    /// within the internal `fields` vector
+    /// Returns an immutable reference of a specific `Field` instance selected using an
+    /// offset within the internal `fields` vector
     pub fn field(&self, i: usize) -> &Field {
         &self.fields[i]
     }

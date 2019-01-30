@@ -19,13 +19,19 @@
 
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
-#include "parquet/api/schema.h"
-#include "parquet/util/schema-util.h"
-
-#include "arrow/api.h"
+#include "arrow/array.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
 #include "arrow/util/logging.h"
+
+#include "parquet/arrow/writer.h"
+#include "parquet/exception.h"
+#include "parquet/properties.h"
+#include "parquet/types.h"
+#include "parquet/util/schema-util.h"
 
 using arrow::Field;
 using arrow::Status;

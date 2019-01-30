@@ -97,7 +97,9 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
             Some(ref s) => {
                 strides
                     .iter()
-                    .map(|i| assert_eq!(s.len(), i.len(), "shape and stride dimensions differ"))
+                    .map(|i| {
+                        assert_eq!(s.len(), i.len(), "shape and stride dimensions differ")
+                    })
                     .next();
                 names
                     .iter()
@@ -360,7 +362,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "number of dimensions and number of dimension names differ")]
+    #[should_panic(
+        expected = "number of dimensions and number of dimension names differ"
+    )]
     fn test_inconsistent_names() {
         let mut builder = Int32BufferBuilder::new(16);
         for i in 0..16 {

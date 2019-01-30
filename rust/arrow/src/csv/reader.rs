@@ -17,8 +17,8 @@
 
 //! CSV Reader
 //!
-//! This CSV reader allows CSV files to be read into the Arrow memory model. Records are loaded in
-//! batches and are then converted from row-based data to columnar data.
+//! This CSV reader allows CSV files to be read into the Arrow memory model. Records are
+//! loaded in batches and are then converted from row-based data to columnar data.
 //!
 //! Example:
 //!
@@ -44,7 +44,7 @@ use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::{BufReader, Seek, SeekFrom};
+use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
 
 use csv as csv_crate;
@@ -68,7 +68,8 @@ lazy_static! {
 
 /// Infer the data type of a record
 fn infer_field_schema(string: &str) -> DataType {
-    // when quoting is enabled in the reader, these quotes aren't escaped, we default to Utf8 for them
+    // when quoting is enabled in the reader, these quotes aren't escaped, we default to
+    // Utf8 for them
     if string.starts_with("\"") {
         return DataType::Utf8;
     }
@@ -182,23 +183,44 @@ fn infer_file_schema(
 }
 
 /// CSV file reader
-pub struct Reader {
+pub struct Reader<R: Read> {
     /// Explicit schema for the CSV file
     schema: Arc<Schema>,
     /// Optional projection for which columns to load (zero-based column indices)
     projection: Option<Vec<usize>>,
     /// File reader
-    record_iter: StringRecordsIntoIter<BufReader<File>>,
+    record_iter: StringRecordsIntoIter<BufReader<R>>,
     /// Batch size (number of records to load each time)
     batch_size: usize,
 }
 
-impl Reader {
-    /// Create a new CsvReader
+impl<R: Read> Reader<R> {
+    /// Create a new CsvReader from any value that implements the `Read` trait.
     ///
-    /// To customise the Reader, such as to enable schema inference, use `ReaderBuilder`
+    /// If reading a `File` you can customise the Reader, such as to enable schema
+    /// inference, use `ReaderBuilder`.
     pub fn new(
-        file: File,
+        reader: R,
+        schema: Arc<Schema>,
+        has_headers: bool,
+        batch_size: usize,
+        projection: Option<Vec<usize>>,
+    ) -> Self {
+        Self::from_buf_reader(
+            BufReader::new(reader),
+            schema,
+            has_headers,
+            batch_size,
+            projection,
+        )
+    }
+
+    /// Create a new CsvReader from a `BufReader<R: Read>
+    ///
+    /// This constructor allows you more flexibility in what records are processed by the
+    /// csv reader.
+    pub fn from_buf_reader(
+        buf_reader: BufReader<R>,
         schema: Arc<Schema>,
         has_headers: bool,
         batch_size: usize,
@@ -206,9 +228,9 @@ impl Reader {
     ) -> Self {
         let csv_reader = csv::ReaderBuilder::new()
             .has_headers(has_headers)
-            .from_reader(BufReader::new(file));
+            .from_reader(buf_reader);
         let record_iter = csv_reader.into_records();
-        Reader {
+        Self {
             schema,
             projection,
             record_iter,
@@ -226,7 +248,9 @@ impl Reader {
                     rows.push(r);
                 }
                 Some(Err(_)) => {
-                    return Err(ArrowError::ParseError("Error reading CSV file".to_string()));
+                    return Err(ArrowError::ParseError(
+                        "Error reading CSV file".to_string(),
+                    ));
                 }
                 None => break,
             }
@@ -254,17 +278,29 @@ impl Reader {
             .map(|i| {
                 let field = self.schema.field(*i);
                 match field.data_type() {
-                    &DataType::Boolean => self.build_primitive_array::<BooleanType>(rows, i),
+                    &DataType::Boolean => {
+                        self.build_primitive_array::<BooleanType>(rows, i)
+                    }
                     &DataType::Int8 => self.build_primitive_array::<Int8Type>(rows, i),
                     &DataType::Int16 => self.build_primitive_array::<Int16Type>(rows, i),
                     &DataType::Int32 => self.build_primitive_array::<Int32Type>(rows, i),
                     &DataType::Int64 => self.build_primitive_array::<Int64Type>(rows, i),
                     &DataType::UInt8 => self.build_primitive_array::<UInt8Type>(rows, i),
-                    &DataType::UInt16 => self.build_primitive_array::<UInt16Type>(rows, i),
-                    &DataType::UInt32 => self.build_primitive_array::<UInt32Type>(rows, i),
-                    &DataType::UInt64 => self.build_primitive_array::<UInt64Type>(rows, i),
-                    &DataType::Float32 => self.build_primitive_array::<Float32Type>(rows, i),
-                    &DataType::Float64 => self.build_primitive_array::<Float64Type>(rows, i),
+                    &DataType::UInt16 => {
+                        self.build_primitive_array::<UInt16Type>(rows, i)
+                    }
+                    &DataType::UInt32 => {
+                        self.build_primitive_array::<UInt32Type>(rows, i)
+                    }
+                    &DataType::UInt64 => {
+                        self.build_primitive_array::<UInt64Type>(rows, i)
+                    }
+                    &DataType::Float32 => {
+                        self.build_primitive_array::<Float32Type>(rows, i)
+                    }
+                    &DataType::Float64 => {
+                        self.build_primitive_array::<Float64Type>(rows, i)
+                    }
                     &DataType::Utf8 => {
                         let mut builder = BinaryBuilder::new(rows.len());
                         for row_index in 0..rows.len() {
@@ -295,7 +331,8 @@ impl Reader {
         col_idx: &usize,
     ) -> Result<ArrayRef> {
         let mut builder = PrimitiveBuilder::<T>::new(rows.len());
-        let is_boolean_type = *self.schema.field(*col_idx).data_type() == DataType::Boolean;
+        let is_boolean_type =
+            *self.schema.field(*col_idx).data_type() == DataType::Boolean;
         for row_index in 0..rows.len() {
             match rows[row_index].get(*col_idx) {
                 Some(s) if s.len() > 0 => {
@@ -374,7 +411,7 @@ impl ReaderBuilder {
     /// use arrow::csv;
     /// use std::fs::File;
     ///
-    /// fn example() -> csv::Reader {
+    /// fn example() -> csv::Reader<File> {
     ///     let file = File::open("test/data/uk_cities_with_headers.csv").unwrap();
     ///
     ///     // create a builder, inferring the schema with the first 100 records
@@ -428,7 +465,7 @@ impl ReaderBuilder {
     }
 
     /// Create a new `Reader` from the `ReaderBuilder`
-    pub fn build(self, file: File) -> Result<Reader> {
+    pub fn build(self, file: File) -> Result<Reader<File>> {
         // check if schema should be inferred
         let schema = match self.schema {
             Some(schema) => schema,
@@ -460,6 +497,8 @@ impl ReaderBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use std::io::Cursor;
 
     use crate::array::*;
     use crate::datatypes::Field;
@@ -497,6 +536,32 @@ mod tests {
         let city_name: String = String::from_utf8(city.value(13).to_vec()).unwrap();
 
         assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
+    }
+
+    #[test]
+    fn test_csv_from_buf_reader() {
+        let schema = Schema::new(vec![
+            Field::new("city", DataType::Utf8, false),
+            Field::new("lat", DataType::Float64, false),
+            Field::new("lng", DataType::Float64, false),
+        ]);
+
+        let file_with_headers =
+            File::open("test/data/uk_cities_with_headers.csv").unwrap();
+        let file_without_headers = File::open("test/data/uk_cities.csv").unwrap();
+        let both_files = file_with_headers
+            .chain(Cursor::new("\n".to_string()))
+            .chain(file_without_headers);
+        let mut csv = Reader::from_buf_reader(
+            BufReader::new(both_files),
+            Arc::new(schema),
+            true,
+            1024,
+            None,
+        );
+        let batch = csv.next().unwrap().unwrap();
+        assert_eq!(74, batch.num_rows());
+        assert_eq!(3, batch.num_columns());
     }
 
     #[test]

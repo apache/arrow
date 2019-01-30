@@ -184,6 +184,7 @@ export class FieldNode {
     }
 }
 
+/** @ignore */
 function messageHeaderFromJSON(message: any, type: MessageHeader) {
     return (() => {
         switch (type) {
@@ -195,6 +196,7 @@ function messageHeaderFromJSON(message: any, type: MessageHeader) {
     }) as MessageHeaderDecoder;
 }
 
+/** @ignore */
 function decodeMessageHeader(message: _Message, type: MessageHeader) {
     return (() => {
         switch (type) {

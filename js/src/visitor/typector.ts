@@ -76,4 +76,5 @@ export class GetDataTypeConstructor extends Visitor {
     public visitMap                  () { return type.Map_; }
 }
 
+/** @ignore */
 export const instance = new GetDataTypeConstructor();

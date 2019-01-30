@@ -18,26 +18,37 @@
 #ifndef PARQUET_ARROW_WRITER_H
 #define PARQUET_ARROW_WRITER_H
 
+#include <cstdint>
 #include <memory>
 
-#include "parquet/api/schema.h"
-#include "parquet/api/writer.h"
+#include "parquet/properties.h"
+#include "parquet/types.h"
+#include "parquet/util/visibility.h"
 
-#include "arrow/io/interfaces.h"
 #include "arrow/type.h"
 
 namespace arrow {
 
 class Array;
+class ChunkedArray;
 class MemoryPool;
-class PrimitiveArray;
-class Schema;
 class Status;
-class StringArray;
 class Table;
+
+namespace io {
+
+class OutputStream;
+
+}  // namespace io
+
 }  // namespace arrow
 
 namespace parquet {
+
+class FileMetaData;
+class OutputStream;
+class ParquetFileWriter;
+
 namespace arrow {
 
 class PARQUET_EXPORT ArrowWriterProperties {

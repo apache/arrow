@@ -55,13 +55,14 @@ use crate::errors::{ParquetError, Result};
 pub trait Codec {
     /// Compresses data stored in slice `input_buf` and writes the compressed result
     /// to `output_buf`.
-    /// Note that you'll need to call `clear()` before reusing the same `output_buf` across
-    /// different `compress` calls.
+    /// Note that you'll need to call `clear()` before reusing the same `output_buf`
+    /// across different `compress` calls.
     fn compress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<()>;
 
     /// Decompresses data stored in slice `input_buf` and writes output to `output_buf`.
     /// Returns the total number of bytes written.
-    fn decompress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<usize>;
+    fn decompress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>)
+        -> Result<usize>;
 }
 
 /// Given the compression type `codec`, returns a codec used to compress and decompress
@@ -96,7 +97,11 @@ impl SnappyCodec {
 }
 
 impl Codec for SnappyCodec {
-    fn decompress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<usize> {
+    fn decompress(
+        &mut self,
+        input_buf: &[u8],
+        output_buf: &mut Vec<u8>,
+    ) -> Result<usize> {
         let len = decompress_len(input_buf)?;
         output_buf.resize(len, 0);
         self.decoder
@@ -126,7 +131,11 @@ impl GZipCodec {
 }
 
 impl Codec for GZipCodec {
-    fn decompress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<usize> {
+    fn decompress(
+        &mut self,
+        input_buf: &[u8],
+        output_buf: &mut Vec<u8>,
+    ) -> Result<usize> {
         let mut decoder = read::GzDecoder::new(input_buf);
         decoder.read_to_end(output_buf).map_err(|e| e.into())
     }
@@ -153,7 +162,11 @@ impl BrotliCodec {
 }
 
 impl Codec for BrotliCodec {
-    fn decompress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<usize> {
+    fn decompress(
+        &mut self,
+        input_buf: &[u8],
+        output_buf: &mut Vec<u8>,
+    ) -> Result<usize> {
         brotli::Decompressor::new(input_buf, BROTLI_DEFAULT_BUFFER_SIZE)
             .read_to_end(output_buf)
             .map_err(|e| e.into())
@@ -184,7 +197,11 @@ impl LZ4Codec {
 }
 
 impl Codec for LZ4Codec {
-    fn decompress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<usize> {
+    fn decompress(
+        &mut self,
+        input_buf: &[u8],
+        output_buf: &mut Vec<u8>,
+    ) -> Result<usize> {
         let mut decoder = lz4::Decoder::new(input_buf)?;
         let mut buffer: [u8; LZ4_BUFFER_SIZE] = [0; LZ4_BUFFER_SIZE];
         let mut total_len = 0;
@@ -228,7 +245,11 @@ impl ZSTDCodec {
 const ZSTD_COMPRESSION_LEVEL: i32 = 1;
 
 impl Codec for ZSTDCodec {
-    fn decompress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<usize> {
+    fn decompress(
+        &mut self,
+        input_buf: &[u8],
+        output_buf: &mut Vec<u8>,
+    ) -> Result<usize> {
         let mut decoder = zstd::Decoder::new(input_buf)?;
         match io::copy(&mut decoder, output_buf) {
             Ok(n) => Ok(n as usize),

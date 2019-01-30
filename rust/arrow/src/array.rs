@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines public types representing Apache Arrow arrays. Arrow's specification defines an array as
-//! "a sequence of values with known length all having the same type." For example, the type
-//! `Int16Array` represents an Apache Arrow array of 16-bit integers.
+//! Defines public types representing Apache Arrow arrays. Arrow's specification defines
+//! an array as "a sequence of values with known length all having the same type." For
+//! example, the type `Int16Array` represents an Apache Arrow array of 16-bit integers.
 //!
 //! ```
 //! extern crate arrow;
@@ -39,11 +39,19 @@
 //! // Build the array
 //! let array = builder.finish();
 //!
-//! assert_eq!(5, array.len(), "The array has 5 values, counting the null value");
+//! assert_eq!(
+//!     5,
+//!     array.len(),
+//!     "The array has 5 values, counting the null value"
+//! );
 //!
 //! assert_eq!(2, array.value(2), "Get the value with index 2");
 //!
-//! assert_eq!(array.value_slice(3, 2), &[3, 4], "Get slice of len 2 starting at idx 3")
+//! assert_eq!(
+//!     array.value_slice(3, 2),
+//!     &[3, 4],
+//!     "Get slice of len 2 starting at idx 3"
+//! )
 //! ```
 
 use std::any::Any;
@@ -153,8 +161,8 @@ pub struct PrimitiveArray<T: ArrowPrimitiveType> {
     data: ArrayDataRef,
     /// Pointer to the value array. The lifetime of this must be <= to the value buffer
     /// stored in `data`, so it's safe to store.
-    /// Also note that boolean arrays are bit-packed, so although the underlying pointer is of type
-    /// bool it should be cast back to u8 before being used.
+    /// Also note that boolean arrays are bit-packed, so although the underlying pointer
+    /// is of type bool it should be cast back to u8 before being used.
     /// i.e. `self.raw_values.get() as *const u8`
     raw_values: RawPtrBox<T::Native>,
 }
@@ -212,7 +220,9 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
 
     /// Returns a raw pointer to the values of this array.
     pub fn raw_values(&self) -> *const T::Native {
-        unsafe { mem::transmute(self.raw_values.get().offset(self.data.offset() as isize)) }
+        unsafe {
+            mem::transmute(self.raw_values.get().offset(self.data.offset() as isize))
+        }
     }
 
     /// Returns the primitive value at index `i`.
@@ -288,8 +298,10 @@ macro_rules! def_numeric_from_vec {
             fn from(data: Vec<Option<$native_ty>>) -> Self {
                 let data_len = data.len();
                 let num_bytes = bit_util::ceil(data_len, 8);
-                let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-                let mut val_buf = MutableBuffer::new(data_len * mem::size_of::<$native_ty>());
+                let mut null_buf =
+                    MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+                let mut val_buf =
+                    MutableBuffer::new(data_len * mem::size_of::<$native_ty>());
 
                 {
                     let null = vec![0; mem::size_of::<$native_ty>()];
@@ -590,7 +602,8 @@ impl From<ListArray> for BinaryArray {
         assert_eq!(
             v.data().child_data()[0].child_data().len(),
             0,
-            "BinaryArray can only be created from list array of u8 values (i.e. List<PrimitiveArray<u8>>)."
+            "BinaryArray can only be created from list array of u8 values \
+             (i.e. List<PrimitiveArray<u8>>)."
         );
         assert_eq!(
             v.data().child_data()[0].data_type(),
@@ -627,7 +640,8 @@ impl Array for BinaryArray {
     }
 }
 
-/// A nested array type where each child (called *field*) is represented by a separate array.
+/// A nested array type where each child (called *field*) is represented by a separate
+/// array.
 pub struct StructArray {
     data: ArrayDataRef,
     boxed_fields: Vec<ArrayRef>,
@@ -759,9 +773,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "PrimitiveArray data should contain a single buffer only (values buffer)"
-    )]
+    #[should_panic(expected = "PrimitiveArray data should contain a single buffer only \
+                               (values buffer)")]
     fn test_primitive_array_invalid_buffer_len() {
         let data = ArrayData::builder(DataType::Int32).len(5).build();
         Int32Array::from(data);
@@ -841,9 +854,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "PrimitiveArray data should contain a single buffer only (values buffer)"
-    )]
+    #[should_panic(expected = "PrimitiveArray data should contain a single buffer only \
+                               (values buffer)")]
     fn test_boolean_array_invalid_buffer_len() {
         let data = ArrayData::builder(DataType::Boolean).len(5).build();
         BooleanArray::from(data);
@@ -901,7 +913,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "ListArray data should contain a single buffer only (value offsets)")]
+    #[should_panic(
+        expected = "ListArray data should contain a single buffer only (value offsets)"
+    )]
     fn test_list_array_invalid_buffer_len() {
         let value_data = ArrayData::builder(DataType::Int32)
             .len(8)
@@ -916,7 +930,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "ListArray should contain a single child array (values array)")]
+    #[should_panic(
+        expected = "ListArray should contain a single child array (values array)"
+    )]
     fn test_list_array_invalid_child_array_len() {
         let value_offsets = Buffer::from(&[0, 2, 5, 7].to_byte_slice());
         let list_data_type = DataType::List(Box::new(DataType::Int32));
@@ -1058,7 +1074,8 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "BinaryArray can only be created from List<u8> arrays, mismatched data types."
+        expected = "BinaryArray can only be created from List<u8> arrays, mismatched \
+                    data types."
     )]
     fn test_binary_array_from_incorrect_list_array_type() {
         let values: [u32; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
@@ -1079,7 +1096,8 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "BinaryArray can only be created from list array of u8 values (i.e. List<PrimitiveArray<u8>>)."
+        expected = "BinaryArray can only be created from list array of u8 values \
+                    (i.e. List<PrimitiveArray<u8>>)."
     )]
     fn test_binary_array_from_incorrect_list_array() {
         let values: [u32; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
@@ -1151,7 +1169,8 @@ mod tests {
         let struct_array = StructArray::from(vec![
             (
                 Field::new("b", DataType::Boolean, false),
-                Arc::new(BooleanArray::from(vec![false, false, true, true])) as Arc<Array>,
+                Arc::new(BooleanArray::from(vec![false, false, true, true]))
+                    as Arc<Array>,
             ),
             (
                 Field::new("c", DataType::Int32, false),
@@ -1163,7 +1182,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "all child arrays of a StructArray must have the same length")]
+    #[should_panic(
+        expected = "all child arrays of a StructArray must have the same length"
+    )]
     fn test_invalid_struct_child_array_lengths() {
         StructArray::from(vec![
             (

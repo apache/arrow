@@ -43,34 +43,35 @@ namespace compute {
 class InvertKernel : public UnaryKernel {
   Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
     DCHECK_EQ(Datum::ARRAY, input.kind());
+    constexpr int64_t kZeroDestOffset = 0;
 
     const ArrayData& in_data = *input.array();
-    ArrayData* result;
+    std::shared_ptr<ArrayData> result = out->array();
+    result->type = boolean();
 
-    out->value = ArrayData::Make(boolean(), in_data.length);
-    result = out->array().get();
-
-    // Allocate or copy bitmap
+    // Handle validity bitmap
     result->null_count = in_data.null_count;
-    std::shared_ptr<Buffer> validity_bitmap = in_data.buffers[0];
+    const std::shared_ptr<Buffer>& validity_bitmap = in_data.buffers[0];
     if (in_data.offset != 0) {
-      RETURN_NOT_OK(CopyBitmap(ctx->memory_pool(), validity_bitmap->data(),
-                               in_data.offset, in_data.length, &validity_bitmap));
+      DCHECK_LE(BitUtil::BytesForBits(in_data.length), validity_bitmap->size());
+      CopyBitmap(validity_bitmap->data(), in_data.offset, in_data.length,
+                 result->buffers[0]->mutable_data(), kZeroDestOffset);
+    } else {
+      result->buffers[0] = validity_bitmap;
     }
-    result->buffers.push_back(validity_bitmap);
 
-    // Allocate output data buffer
-    std::shared_ptr<Buffer> data_buffer;
-    RETURN_NOT_OK(InvertBitmap(ctx->memory_pool(), in_data.buffers[1]->data(),
-                               in_data.offset, in_data.length, &data_buffer));
-    result->buffers.push_back(data_buffer);
-
+    // Handle output data buffer
+    const std::shared_ptr<Buffer>& data_buffer = in_data.buffers[1];
+    DCHECK_LE(BitUtil::BytesForBits(in_data.length), data_buffer->size());
+    InvertBitmap(data_buffer->data(), in_data.offset, in_data.length,
+                 result->buffers[1]->mutable_data(), kZeroDestOffset);
     return Status::OK();
   }
 };
 
 Status Invert(FunctionContext* ctx, const Datum& value, Datum* out) {
-  InvertKernel kernel;
+  detail::PrimitiveAllocatingUnaryKernel kernel(
+      std::unique_ptr<UnaryKernel>(new InvertKernel()));
 
   std::vector<Datum> result;
   RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, &kernel, value, &result));

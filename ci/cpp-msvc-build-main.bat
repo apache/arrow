@@ -44,6 +44,7 @@ mkdir cpp\build
 pushd cpp\build
 
 cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
+      -DCMAKE_VERBOSE_MAKEFILE=OFF ^
       -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^

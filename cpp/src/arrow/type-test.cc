@@ -262,19 +262,19 @@ TEST_F(TestSchema, TestRemoveMetadata) {
     ASSERT_EQ(tp.ToString(), std::string(NAME)); \
   }
 
-PRIMITIVE_TEST(Int8Type, INT8, "int8");
-PRIMITIVE_TEST(Int16Type, INT16, "int16");
-PRIMITIVE_TEST(Int32Type, INT32, "int32");
-PRIMITIVE_TEST(Int64Type, INT64, "int64");
-PRIMITIVE_TEST(UInt8Type, UINT8, "uint8");
-PRIMITIVE_TEST(UInt16Type, UINT16, "uint16");
-PRIMITIVE_TEST(UInt32Type, UINT32, "uint32");
-PRIMITIVE_TEST(UInt64Type, UINT64, "uint64");
+PRIMITIVE_TEST(Int8Type, INT8, "int8")
+PRIMITIVE_TEST(Int16Type, INT16, "int16")
+PRIMITIVE_TEST(Int32Type, INT32, "int32")
+PRIMITIVE_TEST(Int64Type, INT64, "int64")
+PRIMITIVE_TEST(UInt8Type, UINT8, "uint8")
+PRIMITIVE_TEST(UInt16Type, UINT16, "uint16")
+PRIMITIVE_TEST(UInt32Type, UINT32, "uint32")
+PRIMITIVE_TEST(UInt64Type, UINT64, "uint64")
 
-PRIMITIVE_TEST(FloatType, FLOAT, "float");
-PRIMITIVE_TEST(DoubleType, DOUBLE, "double");
+PRIMITIVE_TEST(FloatType, FLOAT, "float")
+PRIMITIVE_TEST(DoubleType, DOUBLE, "double")
 
-PRIMITIVE_TEST(BooleanType, BOOL, "bool");
+PRIMITIVE_TEST(BooleanType, BOOL, "bool")
 
 TEST(TestBinaryType, ToString) {
   BinaryType t1;

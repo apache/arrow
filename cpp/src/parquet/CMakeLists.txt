@@ -98,8 +98,8 @@ if(MSVC)
 endif()
 
 set(PARQUET_MIN_TEST_LIBS
-  gtest_main_static
-  gtest_static)
+  ${GTEST_MAIN_LIBRARY}
+  ${GTEST_LIBRARY})
 
 if (APPLE)
   set(PARQUET_MIN_TEST_LIBS
@@ -172,6 +172,7 @@ set(PARQUET_SRCS
   column_reader.cc
   column_scanner.cc
   column_writer.cc
+  encoding.cc
   file_reader.cc
   file_writer.cc
   metadata.cc
@@ -213,11 +214,18 @@ if (NOT PARQUET_MINIMAL_DEPENDENCY)
 
 # Although we don't link parquet_objlib against anything, we need it to depend
 # on these libs as we may generate their headers via ExternalProject_Add
-set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES}
-  ${PARQUET_SHARED_LINK_LIBS}
-  ${PARQUET_SHARED_PRIVATE_LINK_LIBS}
-  ${PARQUET_STATIC_LINK_LIBS})
+if (ARROW_BUILD_SHARED)
+  set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES}
+    ${PARQUET_SHARED_LINK_LIBS}
+    ${PARQUET_SHARED_PRIVATE_LINK_LIBS})
 endif()
+
+if (ARROW_BUILD_STATIC)
+  set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES}
+    ${PARQUET_STATIC_LINK_LIBS})
+endif()
+
+endif(NOT PARQUET_MINIMAL_DEPENDENCY)
 
 if(NOT APPLE AND NOT MSVC)
   # Localize thirdparty symbols using a linker version script. This hides them
@@ -261,6 +269,13 @@ foreach(LIB_TARGET ${PARQUET_LIBRARIES})
       PRIVATE HAVE_NETINET_IN_H)
   endif()
 endforeach()
+
+# We always build the Parquet static libraries (see PARQUET-1420) so we add the
+# PARQUET_STATIC public compile definition if we are building the unit tests OR
+# if we are building the static library
+if (WIN32 AND (NOT NO_TESTS OR ARROW_BUILD_STATIC))
+  target_compile_definitions(parquet_static PUBLIC PARQUET_STATIC)
+endif()
 
 add_subdirectory(api)
 add_subdirectory(arrow)

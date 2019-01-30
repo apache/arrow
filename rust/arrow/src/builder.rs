@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines a `BufferBuilder` capable of creating a `Buffer` which can be used as an internal
-//! buffer in an `ArrayData` object.
+//! Defines a `BufferBuilder` capable of creating a `Buffer` which can be used as an
+//! internal buffer in an `ArrayData` object.
 
 use std::any::Any;
 use std::io::Write;
@@ -124,12 +124,13 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
 }
 
 impl<T: ArrowPrimitiveType> BufferBuilder<T> {
-    /// Writes a byte slice to the underlying buffer and updates the `len`, i.e. the number array
-    /// elements in the builder.  Also, converts the `io::Result` required by the `Write` trait
-    /// to the Arrow `Result` type.
+    /// Writes a byte slice to the underlying buffer and updates the `len`, i.e. the
+    /// number array elements in the builder.  Also, converts the `io::Result`
+    /// required by the `Write` trait to the Arrow `Result` type.
     fn write_bytes(&mut self, bytes: &[u8], len_added: usize) -> Result<()> {
         let write_result = self.buffer.write(bytes);
-        // `io::Result` has many options one of which we use, so pattern matching is overkill here
+        // `io::Result` has many options one of which we use, so pattern matching is
+        // overkill here
         if write_result.is_err() {
             Err(ArrowError::MemoryError(
                 "Could not write to Buffer, not big enough".to_string(),
@@ -432,13 +433,14 @@ where
         let offset_buffer = self.offsets_builder.finish();
         let null_bit_buffer = self.bitmap_builder.finish();
         self.offsets_builder.append(0).unwrap();
-        let data = ArrayData::builder(DataType::List(Box::new(values_data.data_type().clone())))
-            .len(len)
-            .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
-            .add_buffer(offset_buffer)
-            .add_child_data(values_data)
-            .null_bit_buffer(null_bit_buffer)
-            .build();
+        let data =
+            ArrayData::builder(DataType::List(Box::new(values_data.data_type().clone())))
+                .len(len)
+                .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
+                .add_buffer(offset_buffer)
+                .add_child_data(values_data)
+                .null_bit_buffer(null_bit_buffer)
+                .build();
 
         ListArray::from(data)
     }
@@ -477,7 +479,8 @@ impl ArrayBuilder for BinaryBuilder {
 }
 
 impl BinaryBuilder {
-    /// Creates a new `BinaryBuilder`, `capacity` is the number of bytes in the values array
+    /// Creates a new `BinaryBuilder`, `capacity` is the number of bytes in the values
+    /// array
     pub fn new(capacity: usize) -> Self {
         let values_builder = UInt8Builder::new(capacity);
         Self {

@@ -15,17 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
-#include <cmath>
 #include <cstdint>
+#include <cstring>
 
-#include "arrow/status.h"
+#include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
 #include "parquet/murmur3.h"
-#include "parquet/types.h"
 
 namespace parquet {
 constexpr uint32_t BlockSplitBloomFilter::SALT[kBitsSetPerBlock];

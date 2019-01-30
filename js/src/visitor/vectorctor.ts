@@ -93,4 +93,5 @@ export class GetVectorConstructor extends Visitor {
     public visitMap                  () { return MapVector; }
 }
 
+/** @ignore */
 export const instance = new GetVectorConstructor();

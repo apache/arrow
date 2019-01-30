@@ -83,7 +83,10 @@ macro_rules! statistics_enum_func {
 }
 
 /// Converts Thrift definition into `Statistics`.
-pub fn from_thrift(physical_type: Type, thrift_stats: Option<TStatistics>) -> Option<Statistics> {
+pub fn from_thrift(
+    physical_type: Type,
+    thrift_stats: Option<TStatistics>,
+) -> Option<Statistics> {
     match thrift_stats {
         Some(stats) => {
             // Number of nulls recorded, when it is not available, we just mark it as 0.
@@ -141,19 +144,25 @@ pub fn from_thrift(physical_type: Type, thrift_stats: Option<TStatistics>) -> Op
                 ),
                 Type::INT96 => {
                     // INT96 statistics may not be correct, because comparison is signed
-                    // byte-wise, not actual timestamps. It is recommended to ignore min/max
-                    // statistics for INT96 columns.
+                    // byte-wise, not actual timestamps. It is recommended to ignore
+                    // min/max statistics for INT96 columns.
                     let min = min.map(|data| {
                         assert_eq!(data.len(), 12);
                         unsafe {
-                            let raw = ::std::slice::from_raw_parts(data.as_ptr() as *mut u32, 3);
+                            let raw = ::std::slice::from_raw_parts(
+                                data.as_ptr() as *mut u32,
+                                3,
+                            );
                             Int96::from(Vec::from(raw))
                         }
                     });
                     let max = max.map(|data| {
                         assert_eq!(data.len(), 12);
                         unsafe {
-                            let raw = ::std::slice::from_raw_parts(data.as_ptr() as *mut u32, 3);
+                            let raw = ::std::slice::from_raw_parts(
+                                data.as_ptr() as *mut u32,
+                                3,
+                            );
                             Int96::from(Vec::from(raw))
                         }
                     });
@@ -454,7 +463,11 @@ impl<T: DataType> fmt::Debug for TypedStatistics<T> {
             f,
             "{{min: {:?}, max: {:?}, distinct_count: {:?}, null_count: {}, \
              min_max_deprecated: {}}}",
-            self.min, self.max, self.distinct_count, self.null_count, self.is_min_max_deprecated
+            self.min,
+            self.max,
+            self.distinct_count,
+            self.null_count,
+            self.is_min_max_deprecated
         )
     }
 }

@@ -334,14 +334,8 @@ endif()
 # ----------------------------------------------------------------------
 # Find pthreads
 
-if (WIN32)
-  set(PTHREAD_LIBRARY "PTHREAD_LIBRARY-NOTFOUND")
-else()
-  find_library(PTHREAD_LIBRARY pthread)
-  message(STATUS "Found pthread: ${PTHREAD_LIBRARY}")
-  add_library(pthreadshared SHARED IMPORTED)
-  set_target_properties(pthreadshared PROPERTIES IMPORTED_LOCATION ${PTHREAD_LIBRARY})
-endif()
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu (incubating))
@@ -634,16 +628,28 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   endif()
 
   message(STATUS "GTest include dir: ${GTEST_INCLUDE_DIR}")
-  message(STATUS "GTest static library: ${GTEST_STATIC_LIB}")
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(gtest
-    STATIC_LIB ${GTEST_STATIC_LIB})
-  ADD_THIRDPARTY_LIB(gtest_main
-    STATIC_LIB ${GTEST_MAIN_STATIC_LIB})
+  if(GTEST_STATIC_LIB)
+    message(STATUS "GTest static library: ${GTEST_STATIC_LIB}")
+    ADD_THIRDPARTY_LIB(gtest
+      STATIC_LIB ${GTEST_STATIC_LIB})
+    ADD_THIRDPARTY_LIB(gtest_main
+      STATIC_LIB ${GTEST_MAIN_STATIC_LIB})
+    set(GTEST_LIBRARY gtest_static)
+    set(GTEST_MAIN_LIBRARY gtest_main_static)
+  else()
+    message(STATUS "GTest shared library: ${GTEST_SHARED_LIB}")
+    ADD_THIRDPARTY_LIB(gtest
+      SHARED_LIB ${GTEST_SHARED_LIB})
+    ADD_THIRDPARTY_LIB(gtest_main
+      SHARED_LIB ${GTEST_MAIN_SHARED_LIB})
+    set(GTEST_LIBRARY gtest_shared)
+    set(GTEST_MAIN_LIBRARY gtest_main_shared)
+  endif()
 
   if(GTEST_VENDORED)
-    add_dependencies(gtest_static googletest_ep)
-    add_dependencies(gtest_main_static googletest_ep)
+    add_dependencies(${GTEST_LIBRARY} googletest_ep)
+    add_dependencies(${GTEST_MAIN_LIBRARY} googletest_ep)
   endif()
 endif()
 
@@ -790,7 +796,7 @@ if (ARROW_JEMALLOC)
   ADD_THIRDPARTY_LIB(jemalloc
     STATIC_LIB ${JEMALLOC_STATIC_LIB}
     SHARED_LIB ${JEMALLOC_SHARED_LIB}
-    DEPS ${PTHREAD_LIBRARY})
+    DEPS Threads::Threads)
   add_dependencies(jemalloc_static jemalloc_ep)
 endif()
 
@@ -1520,7 +1526,7 @@ if (ARROW_USE_GLOG)
     set(GLOG_STATIC_LIB "${GLOG_BUILD_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glog${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GLOG_CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
     set(GLOG_CMAKE_C_FLAGS "${EP_C_FLAGS} -fPIC")
-    if (PTHREAD_LIBRARY)
+    if (Threads::Threads)
       set(GLOG_CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -pthread")
       set(GLOG_CMAKE_C_FLAGS "${EP_C_FLAGS} -fPIC -pthread")
     endif()

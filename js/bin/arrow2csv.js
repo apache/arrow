@@ -21,7 +21,8 @@ const Path = require(`path`);
 const here = Path.resolve(__dirname, '../');
 const tsnode = require.resolve(`ts-node/register`);
 const arrow2csv = Path.join(here, `src/bin/arrow2csv.ts`);
+const env = { ...process.env, TS_NODE_TRANSPILE_ONLY: `true` };
 
 require('child_process').spawn(`node`, [
     `-r`, tsnode, arrow2csv, ...process.argv.slice(2)
-], { cwd: here, env: process.env, stdio: `inherit` });
+], { cwd: here, env, stdio: `inherit` });

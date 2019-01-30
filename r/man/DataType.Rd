@@ -8,6 +8,7 @@
 \alias{StatusCode}
 \alias{FileMode}
 \alias{MessageType}
+\alias{CompressionType}
 \alias{int8}
 \alias{int16}
 \alias{int32}
@@ -44,6 +45,8 @@ StatusCode
 FileMode
 
 MessageType
+
+CompressionType
 
 int8()
 

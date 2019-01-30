@@ -57,30 +57,32 @@ impl TripletIter {
     /// Creates new triplet for column reader
     pub fn new(descr: ColumnDescPtr, reader: ColumnReader, batch_size: usize) -> Self {
         match descr.physical_type() {
-            PhysicalType::BOOLEAN => {
-                TripletIter::BoolTripletIter(TypedTripletIter::new(descr, batch_size, reader))
-            }
-            PhysicalType::INT32 => {
-                TripletIter::Int32TripletIter(TypedTripletIter::new(descr, batch_size, reader))
-            }
-            PhysicalType::INT64 => {
-                TripletIter::Int64TripletIter(TypedTripletIter::new(descr, batch_size, reader))
-            }
-            PhysicalType::INT96 => {
-                TripletIter::Int96TripletIter(TypedTripletIter::new(descr, batch_size, reader))
-            }
-            PhysicalType::FLOAT => {
-                TripletIter::FloatTripletIter(TypedTripletIter::new(descr, batch_size, reader))
-            }
-            PhysicalType::DOUBLE => {
-                TripletIter::DoubleTripletIter(TypedTripletIter::new(descr, batch_size, reader))
-            }
-            PhysicalType::BYTE_ARRAY => {
-                TripletIter::ByteArrayTripletIter(TypedTripletIter::new(descr, batch_size, reader))
-            }
-            PhysicalType::FIXED_LEN_BYTE_ARRAY => TripletIter::FixedLenByteArrayTripletIter(
+            PhysicalType::BOOLEAN => TripletIter::BoolTripletIter(TypedTripletIter::new(
+                descr, batch_size, reader,
+            )),
+            PhysicalType::INT32 => TripletIter::Int32TripletIter(TypedTripletIter::new(
+                descr, batch_size, reader,
+            )),
+            PhysicalType::INT64 => TripletIter::Int64TripletIter(TypedTripletIter::new(
+                descr, batch_size, reader,
+            )),
+            PhysicalType::INT96 => TripletIter::Int96TripletIter(TypedTripletIter::new(
+                descr, batch_size, reader,
+            )),
+            PhysicalType::FLOAT => TripletIter::FloatTripletIter(TypedTripletIter::new(
+                descr, batch_size, reader,
+            )),
+            PhysicalType::DOUBLE => TripletIter::DoubleTripletIter(
                 TypedTripletIter::new(descr, batch_size, reader),
             ),
+            PhysicalType::BYTE_ARRAY => TripletIter::ByteArrayTripletIter(
+                TypedTripletIter::new(descr, batch_size, reader),
+            ),
+            PhysicalType::FIXED_LEN_BYTE_ARRAY => {
+                TripletIter::FixedLenByteArrayTripletIter(TypedTripletIter::new(
+                    descr, batch_size, reader,
+                ))
+            }
         }
     }
 
@@ -154,11 +156,15 @@ impl TripletIter {
             TripletIter::DoubleTripletIter(ref typed) => {
                 Field::convert_double(typed.column_descr(), *typed.current_value())
             }
-            TripletIter::ByteArrayTripletIter(ref typed) => {
-                Field::convert_byte_array(typed.column_descr(), typed.current_value().clone())
-            }
+            TripletIter::ByteArrayTripletIter(ref typed) => Field::convert_byte_array(
+                typed.column_descr(),
+                typed.current_value().clone(),
+            ),
             TripletIter::FixedLenByteArrayTripletIter(ref typed) => {
-                Field::convert_byte_array(typed.column_descr(), typed.current_value().clone())
+                Field::convert_byte_array(
+                    typed.column_descr(),
+                    typed.current_value().clone(),
+                )
             }
         }
     }
@@ -302,8 +308,12 @@ impl<T: DataType> TypedTripletIter<T> {
                 };
 
                 // Buffer triplets
-                self.reader
-                    .read_batch(self.batch_size, def_levels, rep_levels, &mut self.values)?
+                self.reader.read_batch(
+                    self.batch_size,
+                    def_levels,
+                    rep_levels,
+                    &mut self.values,
+                )?
             };
 
             // No more values or levels to read
@@ -320,9 +330,10 @@ impl<T: DataType> TypedTripletIter<T> {
                 self.triplets_left = values_read;
             } else if values_read < levels_read {
                 // Add spacing for triplets.
-                // The idea is setting values for positions in def_levels when current definition
-                // level equals to maximum definition level. Values and levels are guaranteed to
-                // line up, because of the column reader method.
+                // The idea is setting values for positions in def_levels when current
+                // definition level equals to maximum definition level.
+                // Values and levels are guaranteed to line up, because of
+                // the column reader method.
 
                 // Note: if values_read == 0, then spacing will not be triggered
                 let mut idx = values_read;
@@ -360,7 +371,8 @@ mod tests {
     #[test]
     #[should_panic(expected = "Expected positive batch size, found: 0")]
     fn test_triplet_zero_batch_size() {
-        let column_path = ColumnPath::from(vec!["b_struct".to_string(), "b_c_int".to_string()]);
+        let column_path =
+            ColumnPath::from(vec!["b_struct".to_string(), "b_c_int".to_string()]);
         test_column_in_file(
             "nulls.snappy.parquet",
             0,

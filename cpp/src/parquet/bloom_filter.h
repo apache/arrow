@@ -18,19 +18,24 @@
 #ifndef PARQUET_BLOOM_FILTER_H
 #define PARQUET_BLOOM_FILTER_H
 
+#include <cmath>
 #include <cstdint>
 #include <memory>
 
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
-#include "parquet/exception.h"
 #include "parquet/hasher.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
+namespace arrow {
+
+class MemoryPool;
+
+}  // namespace arrow
+
 namespace parquet {
-class OutputStream;
 
 // A Bloom filter is a compact structure to indicate whether an item is not in a set or
 // probably in a set. The Bloom filter usually consists of a bit set that represents a

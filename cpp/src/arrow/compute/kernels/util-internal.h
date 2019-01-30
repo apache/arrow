@@ -44,6 +44,9 @@ static inline void ZeroCopyData(const ArrayData& input, ArrayData* output) {
 
 namespace detail {
 
+/// \brief Invoke the kernel on value using the ctx and store results in outputs.
+///
+/// \param[out] outputs One ArrayData datum for each ArrayData available in value.
 ARROW_EXPORT
 Status InvokeUnaryArrayKernel(FunctionContext* ctx, UnaryKernel* kernel,
                               const Datum& value, std::vector<Datum>* outputs);
@@ -62,6 +65,26 @@ Datum WrapArraysLike(const Datum& value,
 
 ARROW_EXPORT
 Datum WrapDatumsLike(const Datum& value, const std::vector<Datum>& datums);
+
+/// \brief Kernel used to preallocate outputs for primitive types.
+class PrimitiveAllocatingUnaryKernel : public UnaryKernel {
+ public:
+  explicit PrimitiveAllocatingUnaryKernel(std::unique_ptr<UnaryKernel> delegate);
+  /// \brief Sets out to be of type ArrayData with the necessary
+  /// data buffers prepopulated.
+  ///
+  /// This method does not populate types on arrays and sets type to null.
+  ///
+  /// The current implementation only supports primitive boolean outputs and
+  /// assumes validity bitmaps that are not sliced will be zero copied (i.e.
+  /// no allocation happens for them).
+  ///
+  /// TODO(ARROW-1896): Make this generic enough to support casts.
+  Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override;
+
+ private:
+  std::unique_ptr<UnaryKernel> delegate_;
+};
 
 }  // namespace detail
 

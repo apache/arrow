@@ -32,7 +32,7 @@ Building Arrow requires:
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be sufficient.
 * CMake 3.2 or higher
 * Boost
-* Bison/flex (for building Apache Thrift from source only, 
+* Bison/flex (for building Apache Thrift from source only,
 a parquet dependency.)
 
 Testing arrow with ctest requires:
@@ -79,22 +79,22 @@ If you are developing on Windows, see the [Windows developer guide][2].
 
 ## Building Arrow
 
-Simple debug build:
-
-    git clone https://github.com/apache/arrow.git
-    cd arrow/cpp
-    mkdir debug
-    cd debug
-    cmake -DARROW_BUILD_TESTS=ON ..
-    make unittest
-
 Simple release build:
 
     git clone https://github.com/apache/arrow.git
     cd arrow/cpp
     mkdir release
     cd release
-    cmake -DARROW_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release ..
+    cmake -DARROW_BUILD_TESTS=ON  ..
+    make unittest
+
+Simple debug build:
+
+    git clone https://github.com/apache/arrow.git
+    cd arrow/cpp
+    mkdir debug
+    cd debug
+    cmake -DCMAKE_BUILD_TYPE=Debug -DARROW_BUILD_TESTS=ON ..
     make unittest
 
 If you do not need to build the test suite, you can omit the
@@ -375,8 +375,8 @@ This requires [Doxygen](http://www.doxygen.org) to be installed.
 
 ## Development
 
-This project follows [Google's C++ Style Guide][3] with minor exceptions: 
-  
+This project follows [Google's C++ Style Guide][3] with minor exceptions:
+
   *  We relax the line length restriction to 90 characters.
   *  We use the NULLPTR macro defined in `src/arrow/util/macros.h` to
      support building C++/CLI (ARROW-1134)

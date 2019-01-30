@@ -19,26 +19,20 @@
 #define PARQUET_COLUMN_READER_H
 
 #include <algorithm>
-#include <climits>
 #include <cstdint>
-#include <cstring>
-#include <iostream>
 #include <memory>
 #include <unordered_map>
 #include <utility>
-#include <vector>
 
-#include <arrow/buffer.h>
-#include <arrow/builder.h>
-#include <arrow/memory_pool.h>
-#include <arrow/util/bit-util.h>
+#include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
+#include "arrow/util/bit-util.h"
+#include "arrow/util/macros.h"
 
-#include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/macros.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
@@ -55,6 +49,9 @@ class RleDecoder;
 }  // namespace arrow
 
 namespace parquet {
+
+class DictionaryPage;
+class Page;
 
 // 16 MB is the default maximum page header size
 static constexpr uint32_t kDefaultMaxPageHeaderSize = 16 * 1024 * 1024;
@@ -290,7 +287,7 @@ class PARQUET_TEMPLATE_CLASS_EXPORT TypedColumnReader : public ColumnReader {
   int64_t Skip(int64_t num_rows_to_skip);
 
  private:
-  typedef Decoder<DType> DecoderType;
+  using DecoderType = TypedDecoder<DType>;
 
   // Advance to the next data page
   bool ReadNewPage() override;
@@ -312,10 +309,9 @@ class PARQUET_TEMPLATE_CLASS_EXPORT TypedColumnReader : public ColumnReader {
   // Map of encoding type to the respective decoder object. For example, a
   // column chunk's data pages may include both dictionary-encoded and
   // plain-encoded data.
-  std::unordered_map<int, std::shared_ptr<DecoderType>> decoders_;
+  std::unordered_map<int, std::unique_ptr<DecoderType>> decoders_;
 
   void ConfigureDictionary(const DictionaryPage* page);
-
   DecoderType* current_decoder_;
 };
 

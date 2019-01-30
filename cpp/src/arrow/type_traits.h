@@ -406,8 +406,8 @@ struct as_void {
     using type = typename T::ATTR_NAME;                                          \
   };
 
-GET_ATTR(c_type, void);
-GET_ATTR(TypeClass, void);
+GET_ATTR(c_type, void)
+GET_ATTR(TypeClass, void)
 
 #undef GET_ATTR
 

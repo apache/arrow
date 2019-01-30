@@ -1024,8 +1024,7 @@ class PlasmaStoreRunner {
   PlasmaStoreRunner() {}
 
   void Start(char* socket_name, int64_t system_memory, std::string directory,
-             bool hugepages_enabled, bool use_one_memory_mapped_file,
-             std::shared_ptr<ExternalStore> external_store,
+             bool hugepages_enabled, std::shared_ptr<ExternalStore> external_store,
              const std::string& external_store_endpoint,
              size_t external_store_parallelism) {
     // Create the event loop.
@@ -1035,14 +1034,15 @@ class PlasmaStoreRunner {
                                  external_store_parallelism));
     plasma_config = store_->GetPlasmaStoreInfo();
 
-    // If the store is configured to use a single memory-mapped file, then we
-    // achieve that by mallocing and freeing a single large amount of space.
-    // that maximum allowed size up front.
-    if (use_one_memory_mapped_file) {
-      void* pointer = plasma::dlmemalign(kBlockSize, system_memory);
-      ARROW_CHECK(pointer != nullptr);
-      plasma::dlfree(pointer);
-    }
+    // We are using a single memory-mapped file by mallocing and freeing a single
+    // large amount of space up front. According to the documentation,
+    // dlmalloc might need up to 128*sizeof(size_t) bytes for internal
+    // bookkeeping.
+    void* pointer = plasma::dlmemalign(kBlockSize, system_memory - 256 * sizeof(size_t));
+    ARROW_CHECK(pointer != nullptr);
+    // This will unmap the file, but the next one created will be as large
+    // as this one (this is an implementation detail of dlmalloc).
+    plasma::dlfree(pointer);
 
     int socket = BindIpcSock(socket_name, true);
     // TODO(pcm): Check return value.
@@ -1078,8 +1078,7 @@ void HandleSignal(int signal) {
 }
 
 void StartServer(char* socket_name, int64_t system_memory, std::string plasma_directory,
-                 bool hugepages_enabled, bool use_one_memory_mapped_file,
-                 std::shared_ptr<ExternalStore> external_store,
+                 bool hugepages_enabled, std::shared_ptr<ExternalStore> external_store,
                  const std::string& external_store_endpoint,
                  size_t external_store_parallelism) {
   // Ignore SIGPIPE signals. If we don't do this, then when we attempt to write
@@ -1089,8 +1088,7 @@ void StartServer(char* socket_name, int64_t system_memory, std::string plasma_di
   g_runner.reset(new PlasmaStoreRunner());
   signal(SIGTERM, HandleSignal);
   g_runner->Start(socket_name, system_memory, plasma_directory, hugepages_enabled,
-                  use_one_memory_mapped_file, external_store, external_store_endpoint,
-                  external_store_parallelism);
+                  external_store, external_store_endpoint, external_store_parallelism);
 }
 
 }  // namespace plasma
@@ -1103,12 +1101,10 @@ int main(int argc, char* argv[]) {
   std::string plasma_directory;
   std::string external_store_endpoint;
   bool hugepages_enabled = false;
-  // True if a single large memory-mapped file should be created at startup.
-  bool use_one_memory_mapped_file = false;
   int64_t system_memory = -1;
   uint64_t external_store_parallelism = std::thread::hardware_concurrency();
   int c;
-  while ((c = getopt(argc, argv, "s:m:d:e:p:hf")) != -1) {
+  while ((c = getopt(argc, argv, "s:m:d:e:p:h")) != -1) {
     switch (c) {
       case 'd':
         plasma_directory = std::string(optarg);
@@ -1133,14 +1129,16 @@ int main(int argc, char* argv[]) {
         char extra;
         int scanned = sscanf(optarg, "%" SCNd64 "%c", &system_memory, &extra);
         ARROW_CHECK(scanned == 1);
+        // Set system memory, potentially rounding it to a page size
+        // Also make it so dlmalloc fails if we try to request more memory than
+        // is available.
+        system_memory =
+            plasma::dlmalloc_set_footprint_limit(static_cast<size_t>(system_memory));
         ARROW_LOG(INFO) << "Allowing the Plasma store to use up to "
                         << static_cast<double>(system_memory) / 1000000000
                         << "GB of memory.";
         break;
       }
-      case 'f':
-        use_one_memory_mapped_file = true;
-        break;
       default:
         exit(-1);
     }
@@ -1210,7 +1208,7 @@ int main(int argc, char* argv[]) {
   plasma::dlmalloc_set_footprint_limit((size_t)system_memory);
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
   plasma::StartServer(socket_name, system_memory, plasma_directory, hugepages_enabled,
-                      use_one_memory_mapped_file, external_store, external_store_endpoint,
+                      external_store, external_store_endpoint, 
                       static_cast<size_t>(external_store_parallelism));
   plasma::g_runner->Shutdown();
   plasma::g_runner = nullptr;

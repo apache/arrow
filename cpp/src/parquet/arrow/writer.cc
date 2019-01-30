@@ -18,17 +18,29 @@
 #include "parquet/arrow/writer.h"
 
 #include <algorithm>
-#include <string>
+#include <cstddef>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
-#include "arrow/api.h"
+#include "arrow/array.h"
+#include "arrow/buffer.h"
+#include "arrow/builder.h"
 #include "arrow/compute/api.h"
+#include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/visitor_inline.h"
 
 #include "arrow/util/logging.h"
+
 #include "parquet/arrow/schema.h"
+#include "parquet/column_writer.h"
+#include "parquet/exception.h"
+#include "parquet/file_writer.h"
+#include "parquet/schema.h"
+#include "parquet/util/memory.h"
 
 using arrow::Array;
 using arrow::BinaryArray;
