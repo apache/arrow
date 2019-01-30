@@ -76,6 +76,7 @@ set(PLASMA_SRCS
   io.cc
   malloc.cc
   plasma.cc
+  plasma_allocator.cc
   protocol.cc
   thirdparty/ae/ae.c)
 

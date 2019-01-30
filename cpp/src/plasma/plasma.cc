@@ -23,20 +23,17 @@
 
 #include "plasma/common.h"
 #include "plasma/common_generated.h"
+#include "plasma/plasma_allocator.h"
 #include "plasma/protocol.h"
 
 namespace fb = plasma::flatbuf;
 
 namespace plasma {
 
-extern "C" {
-void dlfree(void* mem);
-}
-
 ObjectTableEntry::ObjectTableEntry() : pointer(nullptr), ref_count(0) {}
 
 ObjectTableEntry::~ObjectTableEntry() {
-  dlfree(pointer);
+  PlasmaAllocator::Free(pointer, data_size + metadata_size);
   pointer = nullptr;
 }
 
