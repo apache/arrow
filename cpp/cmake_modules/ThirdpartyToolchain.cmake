@@ -30,6 +30,7 @@ set(ARROW_RE2_LINKAGE "static" CACHE STRING
 
 set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
 
+
 if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(BROTLI_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(BZ2_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
@@ -39,9 +40,21 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(GFLAGS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(GLOG_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(GRPC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
-  # Using gtest from the toolchain breaks AppVeyor builds
+  # Using gtest from the toolchain breaks AppVeyor and
+  # trusty builds
   if (NOT MSVC)
-    set(GTEST_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+    if (APPLE)
+      set(GTEST_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+    else()
+      #linux
+      execute_process(COMMAND lsb_release -cs
+        OUTPUT_VARIABLE RELEASE_CODENAME
+	OUTPUT_STRIP_TRAILING_WHITESPACE
+      )
+      if (NOT RELEASE_CODENAME STREQUAL "trusty")
+	set(GTEST_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+      endif()
+    endif()
   endif()
   set(JEMALLOC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(LZ4_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
