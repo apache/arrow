@@ -42,7 +42,6 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   # Using gtest from the toolchain breaks AppVeyor builds
   if (NOT MSVC)
     set(GTEST_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
-    set(GMOCK_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   endif()
   set(JEMALLOC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(LZ4_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
@@ -99,10 +98,6 @@ endif()
 
 if (DEFINED ENV{GTEST_HOME})
   set(GTEST_HOME "$ENV{GTEST_HOME}")
-endif()
-
-if (DEFINED ENV{GMOCK_HOME})
-  set(GMOCK_HOME "$ENV{GMOCK_HOME}")
 endif()
 
 if (DEFINED ENV{JEMALLOC_HOME})
