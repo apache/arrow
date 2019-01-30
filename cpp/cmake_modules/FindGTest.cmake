@@ -96,7 +96,8 @@ else()
 endif()
 
 # gmock
-# Try the parameterized roots, if they exist
+# Try the parameterized roots, if they exist (reuse gtest because the
+# libraries should be built together).
 if(_gtest_roots)
   find_path(GMOCK_INCLUDE_DIR NAMES gmock/gmock.h
     PATHS ${_gtest_roots} NO_DEFAULT_PATH
@@ -106,16 +107,16 @@ if(_gtest_roots)
     "lib64"
     "lib")
   find_library(GMOCK_STATIC_LIB NAMES ${GMOCK_STATIC_LIB_NAME}
-    PATHS ${_gmock_roots} NO_DEFAULT_PATH
+    PATHS ${_gtest_roots} NO_DEFAULT_PATH
     PATH_SUFFIXES ${lib_dirs})
   find_library(GMOCK_MAIN_STATIC_LIB NAMES ${GMOCK_MAIN_STATIC_LIB_NAME}
-    PATHS ${_gmock_roots} NO_DEFAULT_PATH
+    PATHS ${_gtest_roots} NO_DEFAULT_PATH
     PATH_SUFFIXES ${lib_dirs})
   find_library(GMOCK_SHARED_LIB NAMES ${GMOCK_SHARED_LIB_NAME}
-    PATHS ${_gmock_roots} NO_DEFAULT_PATH
+    PATHS ${_gtest_roots} NO_DEFAULT_PATH
     PATH_SUFFIXES ${lib_dirs})
   find_library(GMOCK_MAIN_SHARED_LIB NAMES ${GMOCK_MAIN_SHARED_LIB_NAME}
-    PATHS ${_gmock_roots} NO_DEFAULT_PATH
+    PATHS ${_gtest_roots} NO_DEFAULT_PATH
     PATH_SUFFIXES ${lib_dirs})
 else()
   find_path(GMOCK_INCLUDE_DIR NAMES gmock/gmock.h)
@@ -167,17 +168,16 @@ endif ()
 
 if (GMOCK_FOUND)
   if (NOT GTest_FIND_QUIETLY)
-    message(STATUS "Found the Gmock library: ${GMOCK_LIBRARIES}")
+    message(STATUS "Found the Gmock library:")
     message(STATUS "GMOCK_STATIC_LIB: ${GMOCK_STATIC_LIB}")
     message(STATUS "GMOCK_MAIN_STATIC_LIB: ${GMOCK_MAIN_STATIC_LIB}")
     message(STATUS "GMOCK_SHARED_LIB: ${GMOCK_SHARED_LIB}")
     message(STATUS "GMOCK_MAIN_SHARED_LIB: ${GMOCK_MAIN_SHARED_LIB}")
   endif ()
 else ()
-
-# Reuse Gtest quietly and required flags because they should be found
-# in tandem.
-if (NOT GTest_FIND_QUIETLY)
+  # Reuse Gtest quietly and required flags because they should be found
+  # in tandem.
+  if (NOT GTest_FIND_QUIETLY)
     set(GMOCK_ERR_MSG "Could not find the GMock library. Looked in ")
     if ( _gtest_roots )
       set(GTEST_ERR_MSG "${GMOCK_ERR_MSG} in ${_gtest_roots}.")
