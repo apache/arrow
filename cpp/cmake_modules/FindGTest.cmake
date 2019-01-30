@@ -141,6 +141,8 @@ else()
   set(GMOCK_FOUND FALSE)
 endif()
 
+set(GMOCK_FOUND TRUE)
+
 if (GTEST_FOUND)
   if (NOT GTest_FIND_QUIETLY)
     message(STATUS "Found the GTest library:")
