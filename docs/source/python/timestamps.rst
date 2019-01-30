@@ -1,11 +1,21 @@
+.. Licensed to the Apache Software Foundation (ASF) under one
+.. or more contributor license agreements.  See the NOTICE file
+.. distributed with this work for additional information
+.. regarding copyright ownership.  The ASF licenses this file
+.. to you under the Apache License, Version 2.0 (the
+.. "License"); you may not use this file except in compliance
+.. with the License.  You may obtain a copy of the License at
 
-**Table of Contents**
----------------------
+..   http://www.apache.org/licenses/LICENSE-2.0
 
-**`Background <#definitions>`__ \| `Kinds of Timestamp
-Conversions <#timestamp-conversions-arrow--spark>`__**
-
---------------
+.. Unless required by applicable law or agreed to in writing,
+.. software distributed under the License is distributed on an
+.. "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+.. KIND, either express or implied.  See the License for the
+.. specific language governing permissions and limitations
+.. under the License.
+Timestamps
+==========
 
 Arrow/Pandas Timestamps
 -----------------------
@@ -23,7 +33,7 @@ Timestamp Conversions
 ---------------------
 
 Pandas/Arrow ⇄ Spark
-~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 Spark stores its timestamps as 64-bit integers representing microseconds since
 the UNIX epoch.  It does not store any metadata about timezones with its
@@ -41,8 +51,7 @@ This implies a few things when round-tripping timestamps:
     frame into spark and retreiving that dataframe from spark
     can cause changes to timestamp values.
 
-Converting Arrow → Spark
-------------------------
+** Converting Arrow To Spark **
 
 The following cases assume the Spark configuration
 ``spark.sql.execution.arrow.enabled`` is set to ``"true"``.
@@ -67,6 +76,8 @@ The following cases assume the Spark configuration
                     
 Note that conversion of the aware timezone is shifted to reflect the time
 assuming UTC. 
+
+** Spark to Pandas **
 
 Now if the the session timezone to US Pacific Time (PST):
 
