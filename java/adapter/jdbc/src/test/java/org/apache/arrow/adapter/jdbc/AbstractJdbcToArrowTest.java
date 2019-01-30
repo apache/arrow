@@ -45,7 +45,7 @@ public abstract class AbstractJdbcToArrowTest {
    * @return Table object
    * @throws IOException on error
    */
-  protected static Table getTable(String ymlFilePath, Class clss) throws IOException {
+  protected static Table getTable(String ymlFilePath, @SuppressWarnings("rawtypes") Class clss) throws IOException {
     return new ObjectMapper(new YAMLFactory()).readValue(
             clss.getClassLoader().getResourceAsStream(ymlFilePath), Table.class);
   }
@@ -94,7 +94,7 @@ public abstract class AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    * @throws IOException on error
    */
-  public static Object[][] prepareTestData(String[] testFiles, Class clss)
+  public static Object[][] prepareTestData(String[] testFiles, @SuppressWarnings("rawtypes") Class clss)
       throws SQLException, ClassNotFoundException, IOException {
     Object[][] tableArr = new Object[testFiles.length][];
     int i = 0;
