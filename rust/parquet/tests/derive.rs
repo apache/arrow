@@ -52,6 +52,10 @@ struct Jkl<M> {
     a: M,
 }
 
+#[allow(dead_code)]
+#[derive(Deserialize)]
+struct Mno {}
+
 macro_rules! list {
     ( $( $e:expr ), * ) => {
         {

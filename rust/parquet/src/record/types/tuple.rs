@@ -18,6 +18,7 @@
 use std::{
     collections::HashMap,
     fmt::{self, Debug},
+    intrinsics::unlikely,
     vec,
 };
 
@@ -40,13 +41,17 @@ macro_rules! impl_parquet_deserialize_tuple {
         impl<$($t,)*> Reader for TupleReader<($($t,)*)> where $($t: Reader,)* {
             type Item = ($($t::Item,)*);
 
-            #[allow(unused_variables)]
+            #[allow(unused_variables, non_snake_case)]
             fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item, ParquetError> {
-                let ret = (
-                    $((self.0).$i.read(def_level, rep_level),)*
-                );
+                $(
+                    let $t = (self.0).$i.read(def_level, rep_level);
+                )*
+                if unsafe{unlikely($($t.is_err() ||)* false)} {
+                    $($t?;)*
+                    unreachable!()
+                }
                 Ok((
-                    $(ret.$i?,)*
+                    $($t.unwrap(),)*
                 ))
             }
             fn advance_columns(&mut self) -> Result<(), ParquetError> {
@@ -57,6 +62,7 @@ macro_rules! impl_parquet_deserialize_tuple {
                 )*
                 res
             }
+            #[inline]
             fn has_next(&self) -> bool {
                 // $((self.0).$i.has_next() &&)* true
                 $(if true { (self.0).$i.has_next() } else)*
@@ -64,12 +70,14 @@ macro_rules! impl_parquet_deserialize_tuple {
                     true
                 }
             }
+            #[inline]
             fn current_def_level(&self) -> i16 {
                 $(if true { (self.0).$i.current_def_level() } else)*
                 {
                     panic!("Current definition level: empty group reader")
                 }
             }
+            #[inline]
             fn current_rep_level(&self) -> i16 {
                 $(if true { (self.0).$i.current_rep_level() } else)*
                 {
@@ -77,23 +85,6 @@ macro_rules! impl_parquet_deserialize_tuple {
                 }
             }
         }
-        // impl<$($t,)*> str::FromStr for RootSchema<($($t,)*),TupleSchema<($((String,$t::Schema,),)*)>> where $($t: Deserialize,)* {
-        //   type Err = ParquetError;
-
-        //   fn from_str(s: &str) -> Result<Self, Self::Err> {
-        //     parse_message_type(s).and_then(|x|<Root<($($t,)*)> as Deserialize>::parse(&x).map_err(|err| {
-        //       // let x: Type = <Root<($($t,)*)> as Deserialize>::render("", &<Root<($($t,)*)> as Deserialize>::placeholder());
-        //       let a = Vec::new();
-        //       // print_schema(&mut a, &x);
-        //       ParquetError::General(format!(
-        //         "Types don't match schema.\nSchema is:\n{}\nBut types require:\n{}\nError: {}",
-        //         s,
-        //         String::from_utf8(a).unwrap(),
-        //         err
-        //       ))
-        //     })).map(|x|x.1)
-        //   }
-        // }
         impl<$($t,)*> Debug for TupleSchema<($((String,$t,),)*)> where $($t: Debug,)* {
             fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
                 f.debug_tuple("TupleSchema")

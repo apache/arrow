@@ -58,6 +58,7 @@ where
 {
     type Item = A::Item;
 
+    #[inline]
     fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         match self {
             sum::Sum2::A(ref mut reader) => reader.read(def_level, rep_level),
@@ -65,6 +66,7 @@ where
         }
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         match self {
             sum::Sum2::A(ref mut reader) => reader.advance_columns(),
@@ -72,6 +74,7 @@ where
         }
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         match self {
             sum::Sum2::A(ref reader) => reader.has_next(),
@@ -79,6 +82,7 @@ where
         }
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         match self {
             sum::Sum2::A(ref reader) => reader.current_def_level(),
@@ -86,6 +90,7 @@ where
         }
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         match self {
             sum::Sum2::A(ref reader) => reader.current_rep_level(),
@@ -102,6 +107,7 @@ where
 {
     type Item = A::Item;
 
+    #[inline]
     fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         match self {
             sum::Sum3::A(ref mut reader) => reader.read(def_level, rep_level),
@@ -110,6 +116,7 @@ where
         }
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         match self {
             sum::Sum3::A(ref mut reader) => reader.advance_columns(),
@@ -118,6 +125,7 @@ where
         }
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         match self {
             sum::Sum3::A(ref reader) => reader.has_next(),
@@ -126,6 +134,7 @@ where
         }
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         match self {
             sum::Sum3::A(ref reader) => reader.current_def_level(),
@@ -134,6 +143,7 @@ where
         }
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         match self {
             sum::Sum3::A(ref reader) => reader.current_rep_level(),
@@ -149,22 +159,27 @@ pub struct BoolReader {
 impl Reader for BoolReader {
     type Item = bool;
 
+    #[inline]
     fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         self.column.advance_columns()
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         self.column.has_next()
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         self.column.current_def_level()
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         self.column.current_rep_level()
     }
@@ -176,22 +191,27 @@ pub struct I32Reader {
 impl Reader for I32Reader {
     type Item = i32;
 
+    #[inline]
     fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         self.column.advance_columns()
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         self.column.has_next()
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         self.column.current_def_level()
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         self.column.current_rep_level()
     }
@@ -203,22 +223,27 @@ pub struct I64Reader {
 impl Reader for I64Reader {
     type Item = i64;
 
+    #[inline]
     fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         self.column.advance_columns()
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         self.column.has_next()
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         self.column.current_def_level()
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         self.column.current_rep_level()
     }
@@ -230,22 +255,27 @@ pub struct I96Reader {
 impl Reader for I96Reader {
     type Item = Int96;
 
+    #[inline]
     fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         self.column.advance_columns()
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         self.column.has_next()
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         self.column.current_def_level()
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         self.column.current_rep_level()
     }
@@ -257,22 +287,27 @@ pub struct F32Reader {
 impl Reader for F32Reader {
     type Item = f32;
 
+    #[inline]
     fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         self.column.advance_columns()
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         self.column.has_next()
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         self.column.current_def_level()
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         self.column.current_rep_level()
     }
@@ -284,22 +319,27 @@ pub struct F64Reader {
 impl Reader for F64Reader {
     type Item = f64;
 
+    #[inline]
     fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read()
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         self.column.advance_columns()
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         self.column.has_next()
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         self.column.current_def_level()
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         self.column.current_rep_level()
     }
@@ -311,22 +351,27 @@ pub struct ByteArrayReader {
 impl Reader for ByteArrayReader {
     type Item = Vec<u8>;
 
+    #[inline]
     fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read().map(|data| data.data().to_owned())
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         self.column.advance_columns()
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         self.column.has_next()
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         self.column.current_def_level()
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         self.column.current_rep_level()
     }
@@ -338,22 +383,27 @@ pub struct FixedLenByteArrayReader {
 impl Reader for FixedLenByteArrayReader {
     type Item = Vec<u8>;
 
+    #[inline]
     fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read().map(|data| data.data().to_owned())
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         self.column.advance_columns()
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         self.column.has_next()
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         self.column.current_def_level()
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         self.column.current_rep_level()
     }
@@ -365,6 +415,7 @@ pub struct OptionReader<R> {
 impl<R: Reader> Reader for OptionReader<R> {
     type Item = Option<R::Item>;
 
+    #[inline]
     fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         if self.reader.current_def_level() > def_level {
             self.reader.read(def_level + 1, rep_level).map(Some)
@@ -373,18 +424,22 @@ impl<R: Reader> Reader for OptionReader<R> {
         }
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         self.reader.advance_columns()
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         self.reader.has_next()
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         self.reader.current_def_level()
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         self.reader.current_rep_level()
     }
@@ -418,18 +473,22 @@ impl<R: Reader> Reader for RepeatedReader<R> {
         Ok(elements)
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         self.reader.advance_columns()
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         self.reader.has_next()
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         self.reader.current_def_level()
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         self.reader.current_rep_level()
     }
@@ -471,19 +530,23 @@ impl<K: Reader, V: Reader> Reader for KeyValueReader<K, V> {
         Ok(pairs)
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         self.keys_reader.advance_columns()?;
         self.values_reader.advance_columns()
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         self.keys_reader.has_next()
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         self.keys_reader.current_def_level()
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         self.keys_reader.current_rep_level()
     }
@@ -497,11 +560,11 @@ impl Reader for GroupReader {
     type Item = Group;
 
     fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
-        self.readers
-            .iter_mut()
-            .map(|reader| reader.read(def_level, rep_level))
-            .collect::<Result<Vec<_>>>()
-            .map(|fields| Group(fields, self.fields.clone()))
+        let mut fields = Vec::with_capacity(self.readers.len());
+        for reader in self.readers.iter_mut() {
+            fields.push(reader.read(def_level, rep_level)?);
+        }
+        Ok(Group(fields, self.fields.clone()))
     }
 
     fn advance_columns(&mut self) -> Result<()> {
@@ -769,18 +832,22 @@ where
         self.0.read(def_level, rep_level).map(Box::new)
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         self.0.advance_columns()
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         self.0.has_next()
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         self.0.current_def_level()
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         self.0.current_rep_level()
     }
@@ -793,22 +860,27 @@ where
 {
     type Item = Root<R::Item>;
 
+    #[inline]
     fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         self.0.read(def_level, rep_level).map(Root)
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         self.0.advance_columns()
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         self.0.has_next()
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         self.0.current_def_level()
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         self.0.current_rep_level()
     }
@@ -824,6 +896,7 @@ where
 {
     type Item = T;
 
+    #[inline]
     fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         self.0.read(def_level, rep_level).and_then(|x| {
             x.try_into()
@@ -831,18 +904,22 @@ where
         })
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         self.0.advance_columns()
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         self.0.has_next()
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         self.0.current_def_level()
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         self.0.current_rep_level()
     }
@@ -855,22 +932,27 @@ where
 {
     type Item = T;
 
+    #[inline]
     fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
         self.0.read(def_level, rep_level).and_then(&mut self.1)
     }
 
+    #[inline]
     fn advance_columns(&mut self) -> Result<()> {
         self.0.advance_columns()
     }
 
+    #[inline]
     fn has_next(&self) -> bool {
         self.0.has_next()
     }
 
+    #[inline]
     fn current_def_level(&self) -> i16 {
         self.0.current_def_level()
     }
 
+    #[inline]
     fn current_rep_level(&self) -> i16 {
         self.0.current_rep_level()
     }

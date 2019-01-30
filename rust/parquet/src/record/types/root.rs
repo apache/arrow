@@ -17,7 +17,7 @@
 
 use std::{collections::HashMap, marker::PhantomData};
 
-#[cfg(test)]
+#[cfg(debug_assertions)]
 use crate::schema::parser::parse_message_type;
 use crate::{
     basic::Repetition,
@@ -66,28 +66,28 @@ where
                         err
                     ))
                 })
-                .map(|(name,schema)| {
-                    #[cfg(test)] {
-                        let printed = format!("{}", DisplayFmt::new(|fmt| {
-                            <<Root<T> as Deserialize>::Schema>::fmt(Some(&schema), None, None, fmt)
-                        }));
-                        let schema_2 = parse_message_type(&printed).unwrap();
-                        let (name2,schema2) = T::parse(&schema_2, Some(Repetition::REQUIRED))
-                            .map(|(name, schema)| (String::from(""), RootSchema(name, schema, PhantomData))).unwrap();
-                        let printed2 = format!("{}", DisplayFmt::new(|fmt| {
-                            <<Root<T> as Deserialize>::Schema>::fmt(Some(&schema2), None, Some(&name2), fmt)
-                        }));
-                        assert_eq!(printed, printed2, "{:#?}", schema_);
+            .map(|(name,schema)| {
+                #[cfg(debug_assertions)] {
+                    let printed = format!("{}", DisplayFmt::new(|fmt| {
+                        <<Root<T> as Deserialize>::Schema>::fmt(Some(&schema), None, None, fmt)
+                    }));
+                    let schema_2 = parse_message_type(&printed).unwrap();
+                    let (name2,schema2) = T::parse(&schema_2, Some(Repetition::REQUIRED))
+                        .map(|(name, schema)| (String::from(""), RootSchema(name, schema, PhantomData))).unwrap();
+                    let printed2 = format!("{}", DisplayFmt::new(|fmt| {
+                        <<Root<T> as Deserialize>::Schema>::fmt(Some(&schema2), None, Some(&name2), fmt)
+                    }));
+                    assert_eq!(printed, printed2, "{:#?}", schema_);
 
-                        let (name3,schema3) = Value::parse(&schema_2, Some(Repetition::REQUIRED))
-                            .map(|(name, schema)| (String::from(""), RootSchema(name, schema, PhantomData))).unwrap();
-                        let printed3 = format!("{}", DisplayFmt::new(|fmt| {
-                            <<Root<Value> as Deserialize>::Schema>::fmt(Some(&schema3), None, Some(&name3), fmt)
-                        }));
-                        assert_eq!(printed, printed3, "{:#?}", schema_);
-                    }
-                    (name, schema)
-                })
+                    let (name3,schema3) = Value::parse(&schema_2, Some(Repetition::REQUIRED))
+                        .map(|(name, schema)| (String::from(""), RootSchema(name, schema, PhantomData))).unwrap();
+                    let printed3 = format!("{}", DisplayFmt::new(|fmt| {
+                        <<Root<Value> as Deserialize>::Schema>::fmt(Some(&schema3), None, Some(&name3), fmt)
+                    }));
+                    assert_eq!(printed, printed3, "{:#?}", schema_);
+                }
+                (name, schema)
+            })
         } else {
             Err(ParquetError::General(format!(
                 "Not a valid root schema {:?}",

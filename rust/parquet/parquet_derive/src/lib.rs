@@ -172,27 +172,42 @@ fn impl_struct(
         impl #impl_generics Reader for #reader_name #ty_generics #where_clause {
             type Item = #name #ty_generics;
 
+            #[allow(unused_variables, non_snake_case)]
             fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item, ParquetError> {
+                #(
+                    let #field_names1 = self.#field_names2.read(def_level, rep_level);
+                )*
+                if #(#field_names1.is_err() ||)* false { // TODO: unlikely
+                    #(#field_names1?;)*
+                    unreachable!()
+                }
                 Result::Ok(#name {
-                    #(#field_names1: self.#field_names2.read(def_level, rep_level)?,)*
+                    #(#field_names1: #field_names2.unwrap(),)*
                 })
             }
             fn advance_columns(&mut self) -> Result<(), ParquetError> {
-                #(self.#field_names1.advance_columns()?;)*
-                Result::Ok(())
+                #[allow(unused_mut)]
+                let mut res = Ok(());
+                #(
+                    res = res.and(self.#field_names1.advance_columns());
+                )*
+                res
             }
+            #[inline]
             fn has_next(&self) -> bool {
                 #(if true { self.#field_names1.has_next() } else)*
                 {
                     true
                 }
             }
+            #[inline]
             fn current_def_level(&self) -> i16 {
                 #(if true { self.#field_names1.current_def_level() } else)*
                 {
                     panic!("Current definition level: empty group reader")
                 }
             }
+            #[inline]
             fn current_rep_level(&self) -> i16 {
                 #(if true { self.#field_names1.current_rep_level() } else)*
                 {

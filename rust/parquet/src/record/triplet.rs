@@ -62,8 +62,8 @@ impl TripletIter {
     }
 
     /// Updates non-null value for current row.
+    #[inline]
     pub fn read(&mut self) -> Result<Value> {
-        assert!(!self.is_null(), "Value is null");
         self.reader.read(self.def_level, self.rep_level)
     }
 
@@ -175,7 +175,7 @@ impl<T: DataType> TypedTripletIter<T> {
     /// Returns current value, advancing the iterator.
     #[inline]
     pub fn read(&mut self) -> Result<T::T> {
-        assert_eq!(
+        debug_assert_eq!(
             self.current_def_level(),
             self.def_level,
             "Cannot extract value, max definition level: {}, current level: {}",
@@ -189,6 +189,7 @@ impl<T: DataType> TypedTripletIter<T> {
 
     /// Advances to the next triplet.
     /// Returns true, if there are more records to read, false there are no records left.
+    #[inline]
     pub fn advance_columns(&mut self) -> Result<()> {
         self.curr_triplet_index += 1;
 
