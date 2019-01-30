@@ -30,7 +30,7 @@ import java.util.TimeZone;
 
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
-import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
+import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
 import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.DateMilliVector;
@@ -108,15 +108,15 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
         Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
     testDataSets(JdbcToArrow.sqlToArrow(
         conn.createStatement().executeQuery(table.getQuery()),
-        new JdbcToArrowConfig(
+        new JdbcToArrowConfigBuilder(
             new RootAllocator(Integer.MAX_VALUE),
-            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone())))));
+            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))).build()));
     testDataSets(JdbcToArrow.sqlToArrow(
         conn,
         table.getQuery(),
-        new JdbcToArrowConfig(
+        new JdbcToArrowConfigBuilder(
             new RootAllocator(Integer.MAX_VALUE),
-            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone())))));
+            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))).build()));
   }
 
   /**

@@ -144,7 +144,6 @@ public class JdbcToArrowUtils {
   public static Schema jdbcToArrowSchema(ResultSetMetaData rsmd, JdbcToArrowConfig config) throws SQLException {
     Preconditions.checkNotNull(rsmd, "JDBC ResultSetMetaData object can't be null");
     Preconditions.checkNotNull(config, "The configuration object must not be null");
-    Preconditions.checkArgument(config.isValid(), "The configuration object must be valid");
 
     List<Field> fields = new ArrayList<>();
     int columnCount = rsmd.getColumnCount();
@@ -269,7 +268,6 @@ public class JdbcToArrowUtils {
     Preconditions.checkNotNull(rs, "JDBC ResultSet object can't be null");
     Preconditions.checkNotNull(root, "JDBC ResultSet object can't be null");
     Preconditions.checkNotNull(config, "JDBC-to-Arrow configuration cannot be null");
-    Preconditions.checkArgument(config.isValid(), "JDBC-to-Arrow configuration must be valid");
 
     ResultSetMetaData rsmd = rs.getMetaData();
     int columnCount = rsmd.getColumnCount();

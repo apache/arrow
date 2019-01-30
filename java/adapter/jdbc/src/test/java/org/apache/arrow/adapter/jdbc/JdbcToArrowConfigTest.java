@@ -33,45 +33,61 @@ public class JdbcToArrowConfigTest {
   private static final Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT);
 
   @Test(expected = NullPointerException.class)
-  public void testNullArguments() {
+  public void testConfigNullArguments() {
     new JdbcToArrowConfig(null, null);
   }
 
   @Test(expected = NullPointerException.class)
-  public void testNullCalendar() {
+  public void testBuilderNullArguments() {
+    new JdbcToArrowConfigBuilder(null, null);
+  }
+
+  @Test(expected = NullPointerException.class)
+  public void testConfigNullCalendar() {
     new JdbcToArrowConfig(allocator, null);
   }
 
   @Test(expected = NullPointerException.class)
-  public void testNullAllocator() {
+  public void testBuilderNullCalendar() {
+    new JdbcToArrowConfigBuilder(allocator, null);
+  }
+
+  @Test(expected = NullPointerException.class)
+  public void testConfigNullAllocator() {
     new JdbcToArrowConfig(null, calendar);
   }
 
   @Test(expected = NullPointerException.class)
+  public void testBuilderNullAllocator() {
+    new JdbcToArrowConfigBuilder(null, calendar);
+  }
+
+  @Test(expected = NullPointerException.class)
   public void testSetNullAllocator() {
-    JdbcToArrowConfig config = new JdbcToArrowConfig(allocator, calendar);
-    config.setAllocator(null);
+    JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, calendar);
+    builder.setAllocator(null);
   }
 
   @Test(expected = NullPointerException.class)
   public void testSetNullCalendar() {
-    JdbcToArrowConfig config = new JdbcToArrowConfig(allocator, calendar);
-    config.setCalendar(null);
+    JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, calendar);
+    builder.setCalendar(null);
   }
 
   @Test
   public void testConfig() {
-    JdbcToArrowConfig config = new JdbcToArrowConfig(allocator, calendar);
-    assertTrue(config.isValid());
+    JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, calendar);
+    JdbcToArrowConfig config = builder.build();
+
     assertTrue(allocator == config.getAllocator());
     assertTrue(calendar == config.getCalendar());
 
     Calendar newCalendar = Calendar.getInstance();
     BaseAllocator newAllocator = new RootAllocator(Integer.SIZE);
 
-    config.setAllocator(newAllocator).setCalendar(newCalendar);
+    builder.setAllocator(newAllocator).setCalendar(newCalendar);
+    config = builder.build();
 
-    assertTrue(config.isValid());
     assertTrue(newAllocator == config.getAllocator());
     assertTrue(newCalendar == config.getCalendar());
   }
