@@ -44,7 +44,7 @@ fi
 set -x
 if [ "$DISTRO_CODENAME" != "trusty" ]; then
     if [ "$ARROW_TRAVIS_GANDIVA" == "1" ]; then
-        sudo apt-get install -y -qq llvm-6.0-dev
+        sudo apt-get install -y -qq llvm-$ARROW_LLVM_VERSION-dev
     fi
 
     sudo apt-get install -y -qq maven
