@@ -19,7 +19,7 @@ from __future__ import division
 
 import pytest
 
-from collections import namedtuple, OrderedDict, defaultdict
+import collections
 import datetime
 import os
 import string
@@ -197,15 +197,17 @@ class CustomError(Exception):
     pass
 
 
-Point = namedtuple("Point", ["x", "y"])
-NamedTupleExample = namedtuple("Example",
-                               "field1, field2, field3, field4, field5")
+Point = collections.namedtuple("Point", ["x", "y"])
+NamedTupleExample = collections.namedtuple(
+    "Example", "field1, field2, field3, field4, field5")
 
 
 CUSTOM_OBJECTS = [Exception("Test object."), CustomError(), Point(11, y=22),
                   Foo(), Bar(), Baz(), Qux(), SubQux(), SubQuxPickle(),
                   NamedTupleExample(1, 1.0, "hi", np.zeros([3, 5]), [1, 2, 3]),
-                  OrderedDict([("hello", 1), ("world", 2)])]
+                  collections.OrderedDict([("hello", 1), ("world", 2)]),
+                  collections.deque([1, 2, 3, "a", "b", "c", 3.5]),
+                  collections.Counter([1, 1, 1, 2, 2, 3, "a", "b"])]
 
 
 def make_serialization_context():
@@ -339,7 +341,7 @@ def test_custom_serialization(large_buffer):
 def test_default_dict_serialization(large_buffer):
     pytest.importorskip("cloudpickle")
 
-    obj = defaultdict(lambda: 0, [("hello", 1), ("world", 2)])
+    obj = collections.defaultdict(lambda: 0, [("hello", 1), ("world", 2)])
     serialization_roundtrip(obj, large_buffer)
 
 

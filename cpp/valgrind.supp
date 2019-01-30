@@ -21,4 +21,33 @@
     Memcheck:Cond
     fun:*CastFunctor*BooleanType*
 }
-
+{
+    <llvm>:Conditional jump or move depends on uninitialised value(s)
+    Memcheck:Cond
+    ...
+    fun:*llvm*PassManager*
+}
+{
+    <re2>:Conditional jump or move depends on uninitialised value(s)
+    Memcheck:Cond
+    ...
+    fun:*re2*RE2*
+}
+{
+    <re2>:Use of uninitialised value of size 8
+    Memcheck:Value8
+    ...
+    fun:*re2*RE2*
+}
+{
+    <re2>:Conditional jump or move depends on uninitialised value(s)
+    Memcheck:Cond
+    ...
+    fun:*re2*Prog*
+}
+{
+    <re2>:Use of uninitialised value of size 8
+    Memcheck:Value8
+    ...
+    fun:*re2*Prog*
+}

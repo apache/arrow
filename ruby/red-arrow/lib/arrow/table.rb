@@ -29,6 +29,7 @@ module Arrow
     end
 
     alias_method :initialize_raw, :initialize
+    private :initialize_raw
     def initialize(schema_or_raw_table_or_columns, columns=nil)
       if columns.nil?
         if schema_or_raw_table_or_columns[0].is_a?(Column)

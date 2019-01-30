@@ -34,15 +34,13 @@ namespace cuda {
     (void)ret;            \
   } while (0)
 
-#define CU_RETURN_NOT_OK(STMT)                                                \
-  do {                                                                        \
-    CUresult ret = (STMT);                                                    \
-    if (ret != CUDA_SUCCESS) {                                                \
-      std::stringstream ss;                                                   \
-      ss << "Cuda Driver API call in " << __FILE__ << " at line " << __LINE__ \
-         << " failed with code " << ret << ": " << #STMT;                     \
-      return Status::IOError(ss.str());                                       \
-    }                                                                         \
+#define CU_RETURN_NOT_OK(STMT)                                                  \
+  do {                                                                          \
+    CUresult ret = (STMT);                                                      \
+    if (ret != CUDA_SUCCESS) {                                                  \
+      return Status::IOError("Cuda Driver API call in ", __FILE__, " at line ", \
+                             __LINE__, " failed with code ", ret, ": ", #STMT); \
+    }                                                                           \
   } while (0)
 
 }  // namespace cuda

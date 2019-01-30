@@ -218,9 +218,7 @@ static arrow::Status try_dlopen(std::vector<fs::path> potential_paths, const cha
   }
 
   if (out_handle == NULL) {
-    std::stringstream ss;
-    ss << "Unable to load " << name;
-    return arrow::Status::IOError(ss.str());
+    return arrow::Status::IOError("Unable to load ", name);
   }
 
   return arrow::Status::OK();
@@ -243,9 +241,7 @@ static arrow::Status try_dlopen(std::vector<fs::path> potential_paths, const cha
   }
 
   if (out_handle == NULL) {
-    std::stringstream ss;
-    ss << "Unable to load " << name;
-    return arrow::Status::IOError(ss.str());
+    return arrow::Status::IOError("Unable to load ", name);
   }
 
   return arrow::Status::OK();

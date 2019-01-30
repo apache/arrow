@@ -343,5 +343,19 @@ TEST_F(TestCudaArrowIpc, BasicWriteRead) {
   CompareBatch(*batch, *cpu_batch);
 }
 
+class TestCudaContext : public TestCudaBufferBase {
+ public:
+  void SetUp() { TestCudaBufferBase::SetUp(); }
+};
+
+TEST_F(TestCudaContext, GetDeviceAddress) {
+  const int64_t kSize = 100;
+  std::shared_ptr<CudaBuffer> buffer;
+  uint8_t* devptr = NULL;
+  ASSERT_OK(context_->Allocate(kSize, &buffer));
+  ASSERT_OK(context_->GetDeviceAddress(buffer.get()->mutable_data(), &devptr));
+  ASSERT_EQ(buffer.get()->mutable_data(), devptr);
+}
+
 }  // namespace cuda
 }  // namespace arrow

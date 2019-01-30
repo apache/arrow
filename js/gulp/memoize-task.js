@@ -17,6 +17,13 @@
 
 const { taskName } = require('./util');
 
+const createTask = ((taskFn) => ((target, format, ...args) => {
+  // Give the memoized fn a displayName so gulp's output is easier to follow.
+  const fn = () => taskFn(target, format, ...args);
+  fn.displayName = `${taskFn.name || ``}:${taskName(target, format, ...args)}:task`;
+  return fn;
+}));
+
 const memoizeTask = ((cache, taskFn) => ((target, format, ...args) => {
     // Give the memoized fn a displayName so gulp's output is easier to follow.
     const fn = () => (
@@ -27,4 +34,5 @@ const memoizeTask = ((cache, taskFn) => ((target, format, ...args) => {
 }));
 
 module.exports = memoizeTask;
+module.exports.createTask = createTask;
 module.exports.memoizeTask = memoizeTask;

@@ -221,9 +221,16 @@ class CudaBufferWriter::CudaBufferWriterImpl {
     mutable_data_ = buffer->mutable_data();
     size_ = buffer->size();
     position_ = 0;
+    closed_ = false;
+  }
+
+#define CHECK_CLOSED()                                              \
+  if (closed_) {                                                    \
+    return Status::Invalid("Operation on closed CudaBufferWriter"); \
   }
 
   Status Seek(int64_t position) {
+    CHECK_CLOSED();
     if (position < 0 || position >= size_) {
       return Status::IOError("position out of bounds");
     }
@@ -234,12 +241,17 @@ class CudaBufferWriter::CudaBufferWriterImpl {
   Status Close() {
     if (!closed_) {
       closed_ = true;
-      RETURN_NOT_OK(Flush());
+      RETURN_NOT_OK(FlushInternal());
     }
     return Status::OK();
   }
 
   Status Flush() {
+    CHECK_CLOSED();
+    return FlushInternal();
+  }
+
+  Status FlushInternal() {
     if (buffer_size_ > 0 && buffer_position_ > 0) {
       // Only need to flush when the write has been buffered
       RETURN_NOT_OK(
@@ -253,11 +265,13 @@ class CudaBufferWriter::CudaBufferWriterImpl {
   bool closed() const { return closed_; }
 
   Status Tell(int64_t* position) const {
+    CHECK_CLOSED();
     *position = position_;
     return Status::OK();
   }
 
   Status Write(const void* data, int64_t nbytes) {
+    CHECK_CLOSED();
     if (nbytes == 0) {
       return Status::OK();
     }
@@ -283,11 +297,13 @@ class CudaBufferWriter::CudaBufferWriterImpl {
 
   Status WriteAt(int64_t position, const void* data, int64_t nbytes) {
     std::lock_guard<std::mutex> guard(lock_);
+    CHECK_CLOSED();
     RETURN_NOT_OK(Seek(position));
     return Write(data, nbytes);
   }
 
   Status SetBufferSize(const int64_t buffer_size) {
+    CHECK_CLOSED();
     if (buffer_position_ > 0) {
       // Flush any buffered data
       RETURN_NOT_OK(Flush());
@@ -302,6 +318,8 @@ class CudaBufferWriter::CudaBufferWriterImpl {
   int64_t buffer_size() const { return buffer_size_; }
 
   int64_t buffer_position() const { return buffer_position_; }
+
+#undef CHECK_CLOSED
 
  private:
   std::shared_ptr<CudaContext> context_;

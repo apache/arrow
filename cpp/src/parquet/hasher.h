@@ -63,8 +63,8 @@ class Hasher {
 
   /// Compute hash for fixed byte array value by using its plain encoding result.
   ///
-  /// @param value the value to hash.
-  /// @return hash result.
+  /// @param value the value address.
+  /// @param len the value length.
   virtual uint64_t Hash(const FLBA* value, uint32_t len) const = 0;
 
   virtual ~Hasher() = default;

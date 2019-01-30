@@ -75,8 +75,7 @@ cd cpp/build
 %if %{use_parquet}
   -DARROW_PARQUET=ON \
 %endif
-  -DARROW_PLASMA=ON \
-  -DARROW_BUILD_TESTS=OFF
+  -DARROW_PLASMA=ON
 make %{?_smp_mflags}
 cd -
 
@@ -398,6 +397,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Wed Jan 16 2019 Krisztián Szűcs <szucs.krisztian@gmail.com> - 0.12.0-1
+- New upstream release.
+
 * Thu Oct 04 2018 Kouhei Sutou <kou@clear-code.com> - 0.11.0-1
 - New upstream release.
 

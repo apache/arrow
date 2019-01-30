@@ -38,10 +38,11 @@ Launch cmd.exe and run following commands:
 conda config --add channels conda-forge
 ```
 
-Now, you can bootstrap a build environment
+Now, you can bootstrap a build environment (call from the root directory of the
+Arrow codebase):
 
 ```shell
-conda create -n arrow-dev cmake git boost-cpp flatbuffers rapidjson cmake thrift-cpp snappy zlib brotli gflags lz4-c zstd -c conda-forge
+conda create -n arrow-dev --file=ci\conda_env_cpp.yml
 ```
 
 > **Note:** Make sure to get the `conda-forge` build of `gflags` as the

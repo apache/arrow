@@ -61,6 +61,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_CUDA
     "Build the PyArrow CUDA support"
     OFF)
+  option(PYARROW_BUILD_GANDIVA
+    "Build the PyArrow Gandiva integration"
+    OFF)
   option(PYARROW_BUILD_PARQUET
     "Build the PyArrow Parquet integration"
     OFF)
@@ -104,6 +107,10 @@ endif(CCACHE_FOUND)
 
 include(BuildUtils)
 include(CompilerInfo)
+
+# Cython generated code emits way to many warnings at CHECKIN and EVERYTHING
+set(BUILD_WARNING_LEVEL "PRODUCTION")
+
 include(SetupCxxFlags)
 
 # Add common flags
@@ -138,6 +145,7 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-constant-logical-operand")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-declarations")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sometimes-uninitialized")
 
   # We have public Cython APIs which return C++ types, which are in an extern
   # "C" blog (no symbol mangling) and clang doesn't like this
@@ -410,6 +418,10 @@ if (PYARROW_BUILD_PARQUET)
   endif()
   include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
 
+  if (PYARROW_BUNDLE_ARROW_CPP)
+    file(COPY ${PARQUET_INCLUDE_DIR}/parquet DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
+  endif()
+
   if (PYARROW_PARQUET_USE_SHARED)
     if (PYARROW_BUNDLE_ARROW_CPP)
       bundle_arrow_lib(PARQUET_SHARED_LIB
@@ -500,6 +512,8 @@ if (PYARROW_BUILD_GANDIVA)
   include_directories(SYSTEM ${GANDIVA_INCLUDE_DIR})
 
   if (PYARROW_BUNDLE_ARROW_CPP)
+    file(COPY ${GANDIVA_INCLUDE_DIR}/gandiva DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
+
     bundle_arrow_lib(GANDIVA_SHARED_LIB
       ABI_VERSION ${ARROW_ABI_VERSION}
       SO_VERSION ${ARROW_SO_VERSION})

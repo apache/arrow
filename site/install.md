@@ -44,8 +44,8 @@ See the [release notes][10] for more about what's new.
 We have provided binary conda packages on [conda-forge][5] for the following
 platforms:
 
-* Linux and macOS (Python 2.7, 3.5, and 3.6)
-* Windows (Python 3.5 and 3.6)
+* Linux and macOS (Python 2.7, 3.6 and 3.7)
+* Windows (Python 3.6 and 3.7)
 
 Install them with:
 
@@ -78,10 +78,11 @@ Apache Arrow GLib (C). Here are supported platforms:
 * Ubuntu 14.04 LTS
 * Ubuntu 16.04 LTS
 * Ubuntu 18.04 LTS
+* Ubuntu 18.10
 * CentOS 6
 * CentOS 7
 
-Debian GNU/Linux and Ubuntu:
+Debian GNU/Linux and Ubuntu 18.04 LTS or later:
 
 ```shell
 sudo apt update
@@ -94,8 +95,33 @@ APT_LINE
 sudo apt update
 sudo apt install -y -V libarrow-dev # For C++
 sudo apt install -y -V libarrow-glib-dev # For GLib (C)
+sudo apt install -y -V libplasma-dev # For Plasma C++
+sudo apt install -y -V libplasma-glib-dev # For Plasma GLib (C)
+sudo apt install -y -V libgandiva-dev # For Gandiva C++
+sudo apt install -y -V libgandiva-glib-dev # For Gandiva GLib (C)
 sudo apt install -y -V libparquet-dev # For Apache Parquet C++
-sudo apt install -y -V libparquet-glib-dev # For Parquet GLib (C)
+sudo apt install -y -V libparquet-glib-dev # For Apache Parquet GLib (C)
+```
+
+Debian Ubuntu 16.04 LTS or earlier:
+
+```shell
+sudo apt update
+sudo apt install -y -V apt-transport-https lsb-release
+curl https://dist.apache.org/repos/dist/dev/arrow/KEYS | sudo apt-key add -
+sudo tee /etc/apt/sources.list.d/apache-arrow.list <<APT_LINE
+deb [arch=amd64] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
+deb-src https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
+APT_LINE
+sudo apt update
+sudo apt install -y -V libarrow-dev # For C++
+sudo apt install -y -V libarrow-glib-dev # For GLib (C)
+sudo apt install -y -V libplasma-dev # For Plasma C++
+sudo apt install -y -V libplasma-glib-dev # For Plasma GLib (C)
+sudo apt install -y -V libgandiva-dev # For Gandiva C++
+sudo apt install -y -V libgandiva-glib-dev # For Gandiva GLib (C)
+sudo apt install -y -V libparquet-dev # For Apache Parquet C++
+sudo apt install -y -V libparquet-glib-dev # For Apache Parquet GLib (C)
 ```
 
 CentOS:
@@ -119,10 +145,10 @@ sudo yum install -y --enablerepo=epel parquet-glib-devel # For Parquet GLib (C)
 [1]: {{site.data.versions['current'].mirrors}}
 [2]: {{site.data.versions['current'].github-tag-link}}
 [4]: {{site.data.versions['current'].java-artifacts}}
-[5]: http://conda-forge.github.io
+[5]: https://conda-forge.github.io
 [6]: {{site.data.versions['current'].mirrors-tar}}
 [10]: {{site.data.versions['current'].release-notes}}
-[11]: http://www.apache.org/dist/arrow/KEYS
+[11]: https://www.apache.org/dist/arrow/KEYS
 [12]: https://www.apache.org/dyn/closer.cgi#verify
 [13]: {{site.data.versions['current'].asc}}
 [14]: {{site.data.versions['current'].sha256}}

@@ -33,6 +33,8 @@ export ARROW_RUBY_DIR=$TRAVIS_BUILD_DIR/ruby
 export ARROW_RUST_DIR=${TRAVIS_BUILD_DIR}/rust
 export ARROW_R_DIR=${TRAVIS_BUILD_DIR}/r
 
+export ARROW_TRAVIS_COVERAGE=${ARROW_TRAVIS_COVERAGE:=0}
+
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     export ARROW_CPP_COVERAGE_FILE=${TRAVIS_BUILD_DIR}/coverage.info
     export ARROW_PYTHON_COVERAGE_FILE=${TRAVIS_BUILD_DIR}/.coverage
@@ -71,3 +73,18 @@ if [ $TRAVIS_OS_NAME == "osx" ]; then
 fi
 
 export PARQUET_TEST_DATA=$TRAVIS_BUILD_DIR/cpp/submodules/parquet-testing/data
+
+# e.g. "trusty" or "xenial"
+if [ $TRAVIS_OS_NAME == "linux" ]; then
+  export DISTRO_CODENAME=`lsb_release -s -c`
+fi
+
+if [ "$ARROW_TRAVIS_USE_SYSTEM_JAVA" == "1" ]; then
+    # Use the Ubuntu-provided OpenJDK
+    unset JAVA_HOME
+    export TRAVIS_MVN=/usr/bin/mvn
+    export TRAVIS_JAVA=/usr/bin/java
+else
+    export TRAVIS_MVN=mvn
+    export TRAVIS_JAVA=java
+fi

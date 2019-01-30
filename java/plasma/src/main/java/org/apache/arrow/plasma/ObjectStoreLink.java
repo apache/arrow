@@ -19,6 +19,9 @@ package org.apache.arrow.plasma;
 
 import java.util.List;
 
+import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
+import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
+
 /**
  * Object store interface, which provides the capabilities to put and get raw byte array, and serves.
  */
@@ -42,7 +45,8 @@ public interface ObjectStoreLink {
    * @param value The value to put in the object store.
    * @param metadata encodes whatever metadata the user wishes to encode.
    */
-  void put(byte[] objectId, byte[] value, byte[] metadata);
+  void put(byte[] objectId, byte[] value, byte[] metadata)
+          throws DuplicateObjectException, PlasmaOutOfMemoryException;
 
   /**
    * Get a buffer from the PlasmaStore based on the <tt>objectId</tt>.
@@ -80,16 +84,6 @@ public interface ObjectStoreLink {
   List<ObjectStoreData> get(byte[][] objectIds, int timeoutMs);
 
   /**
-   * Wait until <tt>numReturns</tt> objects in <tt>objectIds</tt> are ready.
-   *
-   * @param objectIds List of object IDs to wait for.
-   * @param timeoutMs Return to the caller after <tt>timeoutMs</tt> milliseconds.
-   * @param numReturns We are waiting for this number of objects to be ready.
-   * @return List of object IDs that are ready
-   */
-  List<byte[]> wait(byte[][] objectIds, int timeoutMs, int numReturns);
-
-  /**
    * Compute the hash of an object in the object store.
    *
    * @param objectId The object ID used to identify the object.
@@ -97,23 +91,6 @@ public interface ObjectStoreLink {
    *         isn't in the object store.
    */
   byte[] hash(byte[] objectId);
-
-  /**
-   * Fetch the object with the given ID from other plasma manager instances.
-   *
-   * @param objectId The object ID used to identify the object.
-   */
-  default void fetch(byte[] objectId) {
-    byte[][] objectIds = {objectId};
-    fetch(objectIds);
-  }
-
-  /**
-   * Fetch the objects with the given IDs from other plasma manager instances.
-   *
-   * @param objectIds List of object IDs used to identify the objects.
-   */
-  void fetch(byte[][] objectIds);
 
   /**
    * Evict some objects to recover given count of bytes.

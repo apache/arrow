@@ -17,28 +17,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Array__as_vector
-SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
-RcppExport SEXP _arrow_Array__as_vector(SEXP arraySEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__as_vector(array));
-    return rcpp_result_gen;
-END_RCPP
-}
-// ChunkedArray__as_vector
-SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
-RcppExport SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_arraySEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
-    rcpp_result_gen = Rcpp::wrap(ChunkedArray__as_vector(chunked_array));
-    return rcpp_result_gen;
-END_RCPP
-}
 // Array__Slice1
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, int offset);
 RcppExport SEXP _arrow_Array__Slice1(SEXP arraySEXP, SEXP offsetSEXP) {
@@ -234,6 +212,52 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DictionaryArray>& >::type array(arraySEXP);
     rcpp_result_gen = Rcpp::wrap(DictionaryArray__dictionary(array));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__as_vector
+SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
+RcppExport SEXP _arrow_Array__as_vector(SEXP arraySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__as_vector(array));
+    return rcpp_result_gen;
+END_RCPP
+}
+// ChunkedArray__as_vector
+SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+RcppExport SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_arraySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::ChunkedArray>& >::type chunked_array(chunked_arraySEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__as_vector(chunked_array));
+    return rcpp_result_gen;
+END_RCPP
+}
+// RecordBatch__to_dataframe
+List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch, bool use_threads);
+RcppExport SEXP _arrow_RecordBatch__to_dataframe(SEXP batchSEXP, SEXP use_threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
+    Rcpp::traits::input_parameter< bool >::type use_threads(use_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__to_dataframe(batch, use_threads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Table__to_dataframe
+List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_threads);
+RcppExport SEXP _arrow_Table__to_dataframe(SEXP tableSEXP, SEXP use_threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
+    Rcpp::traits::input_parameter< bool >::type use_threads(use_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__to_dataframe(table, use_threads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -493,6 +517,41 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// util___Codec__Create
+std::unique_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec);
+RcppExport SEXP _arrow_util___Codec__Create(SEXP codecSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arrow::Compression::type >::type codec(codecSEXP);
+    rcpp_result_gen = Rcpp::wrap(util___Codec__Create(codec));
+    return rcpp_result_gen;
+END_RCPP
+}
+// io___CompressedOutputStream__Make
+std::shared_ptr<arrow::io::CompressedOutputStream> io___CompressedOutputStream__Make(const std::unique_ptr<arrow::util::Codec>& codec, const std::shared_ptr<arrow::io::OutputStream>& raw);
+RcppExport SEXP _arrow_io___CompressedOutputStream__Make(SEXP codecSEXP, SEXP rawSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::util::Codec>& >::type codec(codecSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::OutputStream>& >::type raw(rawSEXP);
+    rcpp_result_gen = Rcpp::wrap(io___CompressedOutputStream__Make(codec, raw));
+    return rcpp_result_gen;
+END_RCPP
+}
+// io___CompressedInputStream__Make
+std::shared_ptr<arrow::io::CompressedInputStream> io___CompressedInputStream__Make(const std::unique_ptr<arrow::util::Codec>& codec, const std::shared_ptr<arrow::io::InputStream>& raw);
+RcppExport SEXP _arrow_io___CompressedInputStream__Make(SEXP codecSEXP, SEXP rawSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::unique_ptr<arrow::util::Codec>& >::type codec(codecSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::InputStream>& >::type raw(rawSEXP);
+    rcpp_result_gen = Rcpp::wrap(io___CompressedInputStream__Make(codec, raw));
+    return rcpp_result_gen;
+END_RCPP
+}
 // compute___CastOptions__initialize
 std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(bool allow_int_overflow, bool allow_time_truncate, bool allow_float_truncate);
 RcppExport SEXP _arrow_compute___CastOptions__initialize(SEXP allow_int_overflowSEXP, SEXP allow_time_truncateSEXP, SEXP allow_float_truncateSEXP) {
@@ -555,6 +614,64 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type schema(schemaSEXP);
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::compute::CastOptions>& >::type options(optionsSEXP);
     rcpp_result_gen = Rcpp::wrap(Table__cast(table, schema, options));
+    return rcpp_result_gen;
+END_RCPP
+}
+// csv___ReadOptions__initialize
+std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(List_ options);
+RcppExport SEXP _arrow_csv___ReadOptions__initialize(SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List_ >::type options(optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(csv___ReadOptions__initialize(options));
+    return rcpp_result_gen;
+END_RCPP
+}
+// csv___ParseOptions__initialize
+std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(List_ options);
+RcppExport SEXP _arrow_csv___ParseOptions__initialize(SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List_ >::type options(optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(csv___ParseOptions__initialize(options));
+    return rcpp_result_gen;
+END_RCPP
+}
+// csv___ConvertOptions__initialize
+std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(List_ options);
+RcppExport SEXP _arrow_csv___ConvertOptions__initialize(SEXP optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List_ >::type options(optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(csv___ConvertOptions__initialize(options));
+    return rcpp_result_gen;
+END_RCPP
+}
+// csv___TableReader__Make
+std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(const std::shared_ptr<arrow::io::InputStream>& input, const std::shared_ptr<arrow::csv::ReadOptions>& read_options, const std::shared_ptr<arrow::csv::ParseOptions>& parse_options, const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options);
+RcppExport SEXP _arrow_csv___TableReader__Make(SEXP inputSEXP, SEXP read_optionsSEXP, SEXP parse_optionsSEXP, SEXP convert_optionsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::InputStream>& >::type input(inputSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::csv::ReadOptions>& >::type read_options(read_optionsSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::csv::ParseOptions>& >::type parse_options(parse_optionsSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::csv::ConvertOptions>& >::type convert_options(convert_optionsSEXP);
+    rcpp_result_gen = Rcpp::wrap(csv___TableReader__Make(input, read_options, parse_options, convert_options));
+    return rcpp_result_gen;
+END_RCPP
+}
+// csv___TableReader__Read
+std::shared_ptr<arrow::Table> csv___TableReader__Read(const std::shared_ptr<arrow::csv::TableReader>& table_reader);
+RcppExport SEXP _arrow_csv___TableReader__Read(SEXP table_readerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::csv::TableReader>& >::type table_reader(table_readerSEXP);
+    rcpp_result_gen = Rcpp::wrap(csv___TableReader__Read(table_reader));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1244,13 +1361,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // ipc___feather___TableReader__Read
-std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
-RcppExport SEXP _arrow_ipc___feather___TableReader__Read(SEXP readerSEXP) {
+std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, SEXP columns);
+RcppExport SEXP _arrow_ipc___feather___TableReader__Read(SEXP readerSEXP, SEXP columnsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::unique_ptr<arrow::ipc::feather::TableReader>& >::type reader(readerSEXP);
-    rcpp_result_gen = Rcpp::wrap(ipc___feather___TableReader__Read(reader));
+    Rcpp::traits::input_parameter< SEXP >::type columns(columnsSEXP);
+    rcpp_result_gen = Rcpp::wrap(ipc___feather___TableReader__Read(reader, columns));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1464,6 +1582,28 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Buffer>& >::type buffer(bufferSEXP);
     rcpp_result_gen = Rcpp::wrap(io___BufferReader__initialize(buffer));
+    return rcpp_result_gen;
+END_RCPP
+}
+// io___Writable__write
+void io___Writable__write(const std::shared_ptr<arrow::io::Writable>& stream, const std::shared_ptr<arrow::Buffer>& buf);
+RcppExport SEXP _arrow_io___Writable__write(SEXP streamSEXP, SEXP bufSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::Writable>& >::type stream(streamSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Buffer>& >::type buf(bufSEXP);
+    io___Writable__write(stream, buf);
+    return R_NilValue;
+END_RCPP
+}
+// io___OutputStream__Tell
+int64_t io___OutputStream__Tell(const std::shared_ptr<arrow::io::OutputStream>& stream);
+RcppExport SEXP _arrow_io___OutputStream__Tell(SEXP streamSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::OutputStream>& >::type stream(streamSEXP);
+    rcpp_result_gen = Rcpp::wrap(io___OutputStream__Tell(stream));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1720,6 +1860,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// read_parquet_file
+std::shared_ptr<arrow::Table> read_parquet_file(std::string filename);
+RcppExport SEXP _arrow_read_parquet_file(SEXP filenameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type filename(filenameSEXP);
+    rcpp_result_gen = Rcpp::wrap(read_parquet_file(filename));
+    return rcpp_result_gen;
+END_RCPP
+}
 // RecordBatch__num_columns
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
 RcppExport SEXP _arrow_RecordBatch__num_columns(SEXP xSEXP) {
@@ -1773,17 +1924,6 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
     Rcpp::traits::input_parameter< int >::type i(iSEXP);
     rcpp_result_gen = Rcpp::wrap(RecordBatch__column(batch, i));
-    return rcpp_result_gen;
-END_RCPP
-}
-// RecordBatch__to_dataframe
-List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch);
-RcppExport SEXP _arrow_RecordBatch__to_dataframe(SEXP batchSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::RecordBatch>& >::type batch(batchSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch__to_dataframe(batch));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -2115,17 +2255,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Table__to_dataframe
-List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table);
-RcppExport SEXP _arrow_Table__to_dataframe(SEXP tableSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
-    rcpp_result_gen = Rcpp::wrap(Table__to_dataframe(table));
-    return rcpp_result_gen;
-END_RCPP
-}
 // Table__column
 std::shared_ptr<arrow::Column> Table__column(const std::shared_ptr<arrow::Table>& table, int i);
 RcppExport SEXP _arrow_Table__column(SEXP tableSEXP, SEXP iSEXP) {
@@ -2149,11 +2278,29 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// GetCpuThreadPoolCapacity
+int GetCpuThreadPoolCapacity();
+RcppExport SEXP _arrow_GetCpuThreadPoolCapacity() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(GetCpuThreadPoolCapacity());
+    return rcpp_result_gen;
+END_RCPP
+}
+// SetCpuThreadPoolCapacity
+void SetCpuThreadPoolCapacity(int threads);
+RcppExport SEXP _arrow_SetCpuThreadPoolCapacity(SEXP threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
+    SetCpuThreadPoolCapacity(threads);
+    return R_NilValue;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 1},
-    {"_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1},
-    {"_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1},
     {"_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2},
     {"_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3},
     {"_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2},
@@ -2171,6 +2318,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Array__Mask", (DL_FUNC) &_arrow_Array__Mask, 1},
     {"_arrow_DictionaryArray__indices", (DL_FUNC) &_arrow_DictionaryArray__indices, 1},
     {"_arrow_DictionaryArray__dictionary", (DL_FUNC) &_arrow_DictionaryArray__dictionary, 1},
+    {"_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1},
+    {"_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1},
+    {"_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2},
+    {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 2},
     {"_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1},
     {"_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1},
     {"_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1},
@@ -2194,11 +2345,19 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Column__null_count", (DL_FUNC) &_arrow_Column__null_count, 1},
     {"_arrow_Column__type", (DL_FUNC) &_arrow_Column__type, 1},
     {"_arrow_Column__data", (DL_FUNC) &_arrow_Column__data, 1},
+    {"_arrow_util___Codec__Create", (DL_FUNC) &_arrow_util___Codec__Create, 1},
+    {"_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2},
+    {"_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2},
     {"_arrow_compute___CastOptions__initialize", (DL_FUNC) &_arrow_compute___CastOptions__initialize, 3},
     {"_arrow_Array__cast", (DL_FUNC) &_arrow_Array__cast, 3},
     {"_arrow_ChunkedArray__cast", (DL_FUNC) &_arrow_ChunkedArray__cast, 3},
     {"_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3},
     {"_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3},
+    {"_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1},
+    {"_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1},
+    {"_arrow_csv___ConvertOptions__initialize", (DL_FUNC) &_arrow_csv___ConvertOptions__initialize, 1},
+    {"_arrow_csv___TableReader__Make", (DL_FUNC) &_arrow_csv___TableReader__Make, 4},
+    {"_arrow_csv___TableReader__Read", (DL_FUNC) &_arrow_csv___TableReader__Read, 1},
     {"_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1},
     {"_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1},
     {"_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0},
@@ -2262,7 +2421,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ipc___feather___TableReader__num_columns", (DL_FUNC) &_arrow_ipc___feather___TableReader__num_columns, 1},
     {"_arrow_ipc___feather___TableReader__GetColumnName", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetColumnName, 2},
     {"_arrow_ipc___feather___TableReader__GetColumn", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetColumn, 2},
-    {"_arrow_ipc___feather___TableReader__Read", (DL_FUNC) &_arrow_ipc___feather___TableReader__Read, 1},
+    {"_arrow_ipc___feather___TableReader__Read", (DL_FUNC) &_arrow_ipc___feather___TableReader__Read, 2},
     {"_arrow_ipc___feather___TableReader__Open", (DL_FUNC) &_arrow_ipc___feather___TableReader__Open, 1},
     {"_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3},
     {"_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1},
@@ -2282,6 +2441,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_io___MemoryMappedFile__Resize", (DL_FUNC) &_arrow_io___MemoryMappedFile__Resize, 2},
     {"_arrow_io___ReadableFile__Open", (DL_FUNC) &_arrow_io___ReadableFile__Open, 1},
     {"_arrow_io___BufferReader__initialize", (DL_FUNC) &_arrow_io___BufferReader__initialize, 1},
+    {"_arrow_io___Writable__write", (DL_FUNC) &_arrow_io___Writable__write, 2},
+    {"_arrow_io___OutputStream__Tell", (DL_FUNC) &_arrow_io___OutputStream__Tell, 1},
     {"_arrow_io___FileOutputStream__Open", (DL_FUNC) &_arrow_io___FileOutputStream__Open, 1},
     {"_arrow_io___BufferOutputStream__Create", (DL_FUNC) &_arrow_io___BufferOutputStream__Create, 1},
     {"_arrow_io___BufferOutputStream__capacity", (DL_FUNC) &_arrow_io___BufferOutputStream__capacity, 1},
@@ -2305,12 +2466,12 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ipc___MessageReader__Open", (DL_FUNC) &_arrow_ipc___MessageReader__Open, 1},
     {"_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC) &_arrow_ipc___MessageReader__ReadNextMessage, 1},
     {"_arrow_ipc___ReadMessage", (DL_FUNC) &_arrow_ipc___ReadMessage, 1},
+    {"_arrow_read_parquet_file", (DL_FUNC) &_arrow_read_parquet_file, 1},
     {"_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1},
     {"_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1},
     {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},
     {"_arrow_RecordBatch__columns", (DL_FUNC) &_arrow_RecordBatch__columns, 1},
     {"_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2},
-    {"_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 1},
     {"_arrow_RecordBatch__from_dataframe", (DL_FUNC) &_arrow_RecordBatch__from_dataframe, 1},
     {"_arrow_RecordBatch__Equals", (DL_FUNC) &_arrow_RecordBatch__Equals, 2},
     {"_arrow_RecordBatch__RemoveColumn", (DL_FUNC) &_arrow_RecordBatch__RemoveColumn, 2},
@@ -2340,9 +2501,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1},
     {"_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1},
     {"_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1},
-    {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 1},
     {"_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
     {"_arrow_Table__columns", (DL_FUNC) &_arrow_Table__columns, 1},
+    {"_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0},
+    {"_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1},
     {NULL, NULL, 0}
 };
 

@@ -16,20 +16,16 @@
 // under the License.
 
 import '../jest-extensions';
-import { TextEncoder } from 'text-encoding-utf-8';
-
-import Arrow, { vector, RecordBatch } from '../Arrow';
-
-const { predicate, Table } = Arrow;
-
-const { DictionaryVector, IntVector, FloatVector, Utf8Vector } = Arrow.vector;
-const { Dictionary, Utf8, Int } = Arrow.type;
+import {
+    predicate,
+    Data, Schema, Table, RecordBatch,
+    Vector, Utf8Vector, DictionaryVector,
+    Struct, Float32, Int32, Dictionary, Utf8, Int8
+} from '../Arrow';
 
 const { col, lit, custom, and, or, And, Or } = predicate;
 
-const utf8Encoder = new TextEncoder('utf-8');
-
-const NAMES = ['f32', 'i32', 'dictionary'];
+const NAMES = ['f32', 'i32', 'dictionary'] as (keyof TestDataSchema)[];
 const F32 = 0, I32 = 1, DICT = 2;
 const test_data = [
     {
@@ -61,7 +57,7 @@ const test_data = [
         ]
     }, {
         name: `struct`,
-        table: () => Table.fromStruct(getStructTable().getColumn('struct') as vector.StructVector),
+        table: () => Table.fromStruct(getStructTable().getColumn('struct')!),
         // Use Math.fround to coerce to float32
         values: () => [
             [Math.fround(-0.3), -1, 'a'],
@@ -75,13 +71,17 @@ const test_data = [
     },
 ];
 
-function compareTables(t1: Table, t2, Table) {
-    expect(t1.length).toEqual(t2.length);
-    expect(t1.numCols).toEqual(t2.numCols);
-    for (let i = -1, n = t1.numCols; ++i < n;) {
-        const v1 = t1.getColumnAt(i);
-        const v2 = t2.getColumnAt(i);
-        (expect([v1, `left`, t1.schema.fields[i].name]) as any).toEqualVector([v2, `right`, t2.schema.fields[i].name]);
+function compareBatchAndTable(source: Table, offset: number, batch: RecordBatch, table: Table) {
+    expect(batch.length).toEqual(table.length);
+    expect(table.numCols).toEqual(source.numCols);
+    expect(batch.numCols).toEqual(source.numCols);
+    for (let i = -1, n = source.numCols; ++i < n;) {
+        const v0 = source.getColumnAt(i)!.slice(offset, offset + batch.length);
+        const v1 = batch.getChildAt(i);
+        const v2 = table.getColumnAt(i);
+        const name = source.schema.fields[i].name;
+        expect([v1, `batch`, name]).toEqualVector([v0, `source`]);
+        expect([v2, `table`, name]).toEqualVector([v0, `source`]);
     }
 }
 
@@ -95,15 +95,41 @@ describe(`Table`, () => {
     test(`Table.from() creates an empty table`, () => {
         expect(Table.from().length).toEqual(0);
     });
+
+    test(`Table.serialize() serializes sliced RecordBatches`, () => {
+
+        const table = getSingleRecordBatchTable();
+        const batch = table.chunks[0], half = batch.length / 2 | 0;
+
+        // First compare what happens when slicing from the batch level
+        let [batch1, batch2] = [batch.slice(0, half), batch.slice(half)];
+
+        compareBatchAndTable(table,    0, batch1, Table.from(new Table(batch1).serialize()));
+        compareBatchAndTable(table, half, batch2, Table.from(new Table(batch2).serialize()));
+
+        // Then compare what happens when creating a RecordBatch by slicing each child individually
+        batch1 = new RecordBatch(batch1.schema, batch1.length, batch1.schema.fields.map((_, i) => {
+            return batch.getChildAt(i)!.slice(0, half);
+        }));
+
+        batch2 = new RecordBatch(batch2.schema, batch2.length, batch2.schema.fields.map((_, i) => {
+            return batch.getChildAt(i)!.slice(half);
+        }));
+
+        compareBatchAndTable(table,    0, batch1, Table.from(new Table(batch1).serialize()));
+        compareBatchAndTable(table, half, batch2, Table.from(new Table(batch2).serialize()));
+    });
+
     for (let datum of test_data) {
         describe(datum.name, () => {
-            const table = datum.table();
-            const values = datum.values();
-
             test(`has the correct length`, () => {
+                const table = datum.table();
+                const values = datum.values();
                 expect(table.length).toEqual(values.length);
             });
             test(`gets expected values`, () => {
+                const table = datum.table();
+                const values = datum.values();
                 for (let i = -1; ++i < values.length;) {
                     const row = table.get(i);
                     const expected = values[i];
@@ -114,6 +140,8 @@ describe(`Table`, () => {
             });
             test(`iterates expected values`, () => {
                 let i = 0;
+                const table = datum.table();
+                const values = datum.values();
                 for (let row of table) {
                     const expected = values[i++];
                     expect(row.f32).toEqual(expected[F32]);
@@ -121,8 +149,15 @@ describe(`Table`, () => {
                     expect(row.dictionary).toEqual(expected[DICT]);
                 }
             });
+            test(`serialize and de-serialize is a no-op`, () => {
+                const table = datum.table();
+                const clone = Table.from(table.serialize());
+                expect(clone).toEqualTable(table);
+            });
+
             describe(`scan()`, () => {
                 test(`yields all values`, () => {
+                    const table = datum.table();
                     let expected_idx = 0;
                     table.scan((idx, batch) => {
                         const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i)!);
@@ -130,21 +165,27 @@ describe(`Table`, () => {
                     });
                 });
                 test(`calls bind function with every batch`, () => {
+                    const table = datum.table();
                     let bind = jest.fn();
                     table.scan(() => { }, bind);
-                    for (let batch of table.batches) {
+                    for (let batch of table.chunks) {
                         expect(bind).toHaveBeenCalledWith(batch);
                     }
                 });
             });
             test(`count() returns the correct length`, () => {
+                const table = datum.table();
+                const values = datum.values();
                 expect(table.count()).toEqual(values.length);
             });
             test(`getColumnIndex`, () => {
+                const table = datum.table();
                 expect(table.getColumnIndex('i32')).toEqual(I32);
                 expect(table.getColumnIndex('f32')).toEqual(F32);
                 expect(table.getColumnIndex('dictionary')).toEqual(DICT);
             });
+            const table = datum.table();
+            const values = datum.values();
             let get_i32: (idx: number) => number, get_f32: (idx: number) => number;
             const filter_tests = [
                 {
@@ -235,7 +276,7 @@ describe(`Table`, () => {
                             // that - and that's ok!
                             let bind = jest.fn();
                             filtered.scan(() => { }, bind);
-                            for (let batch of table.batches) {
+                            for (let batch of table.chunks) {
                                 expect(bind).toHaveBeenCalledWith(batch);
                             }
                         });
@@ -266,7 +307,7 @@ describe(`Table`, () => {
                 expect(() => { table.filter(col('dict').eq('a')).countBy('i32'); }).toThrow();
             });
             test(`countBy on non-existent column throws error`, () => {
-                expect(() => { table.countBy('FAKE'); }).toThrow();
+                expect(() => { table.countBy('FAKE' as any); }).toThrow();
             });
             test(`table.select() basic tests`, () => {
                 let selected = table.select('f32', 'dictionary');
@@ -282,16 +323,16 @@ describe(`Table`, () => {
                     expect(row.dictionary).toEqual(expected_row[DICT]);
                 }
             });
-            test(`table.toString()`, () => {
-                let selected = table.select('i32', 'dictionary');
-                let headers = [`"row_id"`, `"i32: Int32"`, `"dictionary: Dictionary<Int8, Utf8>"`];
-                let expected = [headers.join(' | '), ...values.map((row, idx) => {
-                    return [`${idx}`, `${row[I32]}`, `"${row[DICT]}"`].map((str, col) => {
-                        return leftPad(str, ' ', headers[col].length);
-                    }).join(' | ');
-                })].join('\n') + '\n';
-                expect(selected.toString()).toEqual(expected);
-            });
+            // test(`table.toString()`, () => {
+            //     let selected = table.select('i32', 'dictionary');
+            //     let headers = [`"row_id"`, `"i32: Int32"`, `"dictionary: Dictionary<Int8, Utf8>"`];
+            //     let expected = [headers.join(' | '), ...values.map((row, idx) => {
+            //         return [`${idx}`, `${row[I32]}`, `"${row[DICT]}"`].map((str, col) => {
+            //             return leftPad(str, ' ', headers[col].length);
+            //         }).join(' | ');
+            //     })].join('\n') + '\n';
+            //     expect(selected.toString()).toEqual(expected);
+            // });
             test(`table.filter(..).count() on always false predicates returns 0`, () => {
                 expect(table.filter(col('i32').ge(100)).count()).toEqual(0);
                 expect(table.filter(col('dictionary').eq('z')).count()).toEqual(0);
@@ -314,9 +355,6 @@ describe(`Table`, () => {
                     expect(table.filter(col('dictionary').eq(col('dictionary'))).count()).toEqual(table.length);
                 });
             });
-            describe(`serialize and de-serialize is a no-op`, () => {
-                compareTables(Table.from(table.serialize()), table);
-            });
         });
     }
 });
@@ -326,7 +364,7 @@ describe(`Predicate`, () => {
     const p2 = col('a').lt(1000);
     const p3 = col('b').eq('foo');
     const p4 = col('c').eq('bar');
-    const expected = [p1, p2, p3, p4]
+    const expected = [p1, p2, p3, p4];
     test(`and flattens children`, () => {
         expect(and(p1, p2, p3, p4).children).toEqual(expected);
         expect(and(p1.and(p2), new And(p3, p4)).children).toEqual(expected);
@@ -339,35 +377,19 @@ describe(`Predicate`, () => {
     });
 });
 
-function leftPad(str: string, fill: string, n: number) {
-    return (new Array(n + 1).join(fill) + str).slice(-1 * n);
-}
+// function leftPad(str: string, fill: string, n: number) {
+//     return (new Array(n + 1).join(fill) + str).slice(-1 * n);
+// }
 
-function makeUtf8Vector(values) {
-    const n = values.length;
-    let offset = 0;
-    const offsets = Uint32Array.of(0, ...values.map((d) => { offset += d.length; return offset; }));
-    return new Utf8Vector(new Arrow.data.FlatListData(new Utf8(), n, null, offsets, utf8Encoder.encode(values.join(''))));
-}
+type TestDataSchema = { f32: Float32; i32: Int32; dictionary: Dictionary<Utf8, Int8>; };
 
-function getTestVectors(f32Values, i32Values, dictionaryValues) {
-    const f32Vec = FloatVector.from(
-        Float32Array.from(f32Values)
-    );
+function getTestVectors(f32Values: number[], i32Values: number[], dictIndices: number[]) {
 
-    const i32Vec = IntVector.from(
-        Int32Array.from(i32Values)
-    );
+    const values = Utf8Vector.from(['a', 'b', 'c']);
+    const i32Data = Data.Int(new Int32(), 0, i32Values.length, 0, null, i32Values);
+    const f32Data = Data.Float(new Float32(), 0, f32Values.length, 0, null, f32Values);
 
-    const dictionaryVec = new DictionaryVector(
-        new Arrow.data.DictionaryData(
-            new Dictionary(new Utf8(), new Int(true, 8)),
-            makeUtf8Vector(['a', 'b', 'c']),
-            IntVector.from(Int8Array.from(dictionaryValues)).data
-        )
-    );
-
-    return [f32Vec, i32Vec, dictionaryVec];
+    return [Vector.new(f32Data), Vector.new(i32Data), DictionaryVector.from(values, new Int8(), dictIndices)];
 }
 
 export function getSingleRecordBatchTable() {
@@ -377,35 +399,41 @@ export function getSingleRecordBatchTable() {
         [0, 1, 2, 0, 1, 2, 0]
     );
 
-    return Table.fromVectors(
+    return Table.fromVectors<TestDataSchema>(
         vectors,
         NAMES
     );
 }
 
 function getMultipleRecordBatchesTable() {
-    const b1 = Arrow.RecordBatch.from(getTestVectors(
+
+    const schema = Schema.from<TestDataSchema>(getTestVectors([], [], []), NAMES);
+
+    const b1 = new RecordBatch(schema, 3, getTestVectors(
         [-0.3, -0.2, -0.1],
         [-1, 1, -1],
         [0, 1, 2]
-    ), NAMES);
+    ));
 
-    const b2 = Arrow.RecordBatch.from(getTestVectors(
+    const b2 = new RecordBatch(schema, 3, getTestVectors(
         [0, 0.1, 0.2],
         [1, -1, 1],
         [0, 1, 2]
-    ), NAMES);
+    ));
 
-    const b3 = Arrow.RecordBatch.from(getTestVectors(
+    const b3 = new RecordBatch(schema, 3, getTestVectors(
         [0.3, 0.2, 0.1],
         [-1, 1, -1],
         [0, 1, 2]
-    ), NAMES);
+    ));
 
-    return new Table([b1, b2, b3])
+    return new Table<TestDataSchema>([b1, b2, b3]);
 }
 
 function getStructTable() {
-    const structVec = getSingleRecordBatchTable().batchesUnion
-    return Table.fromVectors([structVec], ['struct'])
+    const table = getSingleRecordBatchTable();
+    const children = table.schema.fields.map((_, i) => table.getColumnAt(i)! as Vector<any>);
+    const structVec = Vector.new(Data.Struct(new Struct(table.schema.fields), 0, table.length, 0, null, children));
+
+    return Table.fromVectors<{ struct: Struct<TestDataSchema> }>([structVec], ['struct']);
 }

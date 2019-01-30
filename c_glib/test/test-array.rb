@@ -42,7 +42,7 @@ class TestArray < Test::Unit::TestCase
   def test_is_null
     builder = Arrow::BooleanArrayBuilder.new
     builder.append_null
-    builder.append(true)
+    builder.append_value(true)
     array = builder.finish
     assert_equal([true, false],
                  array.length.times.collect {|i| array.null?(i)})
@@ -51,7 +51,7 @@ class TestArray < Test::Unit::TestCase
   def test_is_valid
     builder = Arrow::BooleanArrayBuilder.new
     builder.append_null
-    builder.append(true)
+    builder.append_value(true)
     array = builder.finish
     assert_equal([false, true],
                  array.length.times.collect {|i| array.valid?(i)})
@@ -59,7 +59,7 @@ class TestArray < Test::Unit::TestCase
 
   def test_length
     builder = Arrow::BooleanArrayBuilder.new
-    builder.append(true)
+    builder.append_value(true)
     array = builder.finish
     assert_equal(1, array.length)
   end
@@ -75,10 +75,10 @@ class TestArray < Test::Unit::TestCase
   def test_null_bitmap
     builder = Arrow::BooleanArrayBuilder.new
     builder.append_null
-    builder.append(true)
-    builder.append(false)
+    builder.append_value(true)
+    builder.append_value(false)
     builder.append_null
-    builder.append(false)
+    builder.append_value(false)
     array = builder.finish
     assert_equal(0b10110, array.null_bitmap.data.to_s.unpack("c*")[0])
   end
@@ -97,9 +97,9 @@ class TestArray < Test::Unit::TestCase
 
   def test_slice
     builder = Arrow::BooleanArrayBuilder.new
-    builder.append(true)
-    builder.append(false)
-    builder.append(true)
+    builder.append_value(true)
+    builder.append_value(false)
+    builder.append_value(true)
     array = builder.finish
     sub_array = array.slice(1, 2)
     assert_equal([false, true],

@@ -13,10 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Runtime.CompilerServices;
-using Apache.Arrow.Memory;
 using Apache.Arrow.Tests.Fixtures;
+using System;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -34,19 +32,20 @@ namespace Apache.Arrow.Tests
             }
 
             /// <summary>
-            /// Ensure Arrow buffers are allocated in multiples of 8-bytes.
+            /// Ensure Arrow buffers are allocated in multiples of 64 bytes.
             /// </summary>
             /// <param name="size">number of bytes to allocate</param>
             /// <param name="expectedCapacity">expected buffer capacity after allocation</param>
             [Theory]
-            [InlineData(1, 8)]
-            [InlineData(8, 8)]
-            [InlineData(9, 16)]
-            [InlineData(16, 16)]
+            [InlineData(1, 64)]
+            [InlineData(8, 64)]
+            [InlineData(9, 64)]
+            [InlineData(65, 128)]
             public void AllocatesWithExpectedPadding(int size, int expectedCapacity)
             {
-                var buffer = ArrowBuffer.Allocate(size, _memoryPoolFixture.MemoryPool);
-                Assert.Equal(buffer.Capacity, expectedCapacity);
+                var buffer = new ArrowBuffer.Builder<byte>(size).Build();
+
+                Assert.Equal(buffer.Length, expectedCapacity);
             }
 
             /// <summary>
@@ -59,12 +58,11 @@ namespace Apache.Arrow.Tests
             [InlineData(128)]
             public unsafe void AllocatesAlignedToMultipleOf64(int size)
             {
-                var buffer = ArrowBuffer.Allocate(size, _memoryPoolFixture.MemoryPool);
+                var buffer = new ArrowBuffer.Builder<byte>(size).Build();
 
-                using (var pin = buffer.Memory.Pin())
-                {
-                    var ptr = new IntPtr(pin.Pointer);
-                    Assert.True(ptr.ToInt64() % 64 == 0);
+                fixed (byte* ptr = &buffer.Span.GetPinnableReference())
+                { 
+                    Assert.True(new IntPtr(ptr).ToInt64() % 64 == 0);
                 }
             }
 
@@ -74,10 +72,9 @@ namespace Apache.Arrow.Tests
             [Fact]
             public void HasZeroPadding()
             {
-                var buffer = ArrowBuffer.Allocate(32, _memoryPoolFixture.MemoryPool);
-                var span = buffer.GetSpan<byte>();
-
-                foreach (var b in span)
+                var buffer = new ArrowBuffer.Builder<byte>(10).Build();
+                
+                foreach (var b in buffer.Span)
                 {
                     Assert.Equal(0, b);
                 }

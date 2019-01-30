@@ -192,11 +192,15 @@ def _iterate_python_module_paths(package_name):
             for finder in sys.meta_path:
                 try:
                     spec = finder.find_spec(absolute_name, None)
-                except AttributeError:
+                except (AttributeError, TypeError):
                     # On Travis (Python 3.5) the above produced:
                     # AttributeError: 'VendorImporter' object has no
                     # attribute 'find_spec'
+                    #
+                    # ARROW-4117: When running "asv dev", TypeError is raised
+                    # due to the meta-importer
                     spec = None
+
                 if spec is not None:
                     break
 

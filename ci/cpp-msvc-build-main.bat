@@ -44,10 +44,13 @@ mkdir cpp\build
 pushd cpp\build
 
 cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
+      -DCMAKE_VERBOSE_MAKEFILE=OFF ^
       -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DARROW_BUILD_STATIC=OFF ^
+      -DARROW_BUILD_TESTS=ON ^
+      -DARROW_BUILD_EXAMPLES=ON ^
       -DARROW_CXXFLAGS="%ARROW_CXXFLAGS%" ^
       -DCMAKE_CXX_FLAGS_RELEASE="/MD %CMAKE_CXX_FLAGS_RELEASE%" ^
       -DARROW_PARQUET=ON ^
@@ -55,7 +58,7 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       ..  || exit /B
 cmake --build . --target install --config %CONFIGURATION%  || exit /B
 
-@rem Needed so python-test.exe works
+@rem Needed so arrow-python-test.exe works
 set OLD_PYTHONHOME=%PYTHONHOME%
 set PYTHONHOME=%CONDA_PREFIX%
 
@@ -70,7 +73,7 @@ popd
 
 pushd python
 
-pip install pickle5
+pip install -r requirements.txt pickle5
 
 set PYARROW_CXXFLAGS=%ARROW_CXXFLAGS%
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%
@@ -112,6 +115,6 @@ pip install %WHEEL_PATH% || exit /B
 python -c "import pyarrow" || exit /B
 python -c "import pyarrow.parquet" || exit /B
 
-pip install pandas pickle5 pytest pytest-faulthandler || exit /B
+pip install pandas pickle5 pytest pytest-faulthandler hypothesis || exit /B
 
 py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B

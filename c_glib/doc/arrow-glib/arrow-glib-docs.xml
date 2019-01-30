@@ -53,7 +53,7 @@
     </chapter>
     <chapter id="decimal">
       <title>Decimal</title>
-      <xi:include href="xml/decimal.xml"/>
+      <xi:include href="xml/decimal128.xml"/>
     </chapter>
     <chapter id="tensor">
       <title>Tensor</title>
@@ -162,6 +162,10 @@
   <index id="deprecated-api-index" role="deprecated">
     <title>Index of deprecated API</title>
     <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-13-0" role="0.13.0">
+    <title>Index of new symbols in 0.13.0</title>
+    <xi:include href="xml/api-index-0.13.0.xml"><xi:fallback /></xi:include>
   </index>
   <index id="api-index-0-12-0" role="0.12.0">
     <title>Index of new symbols in 0.12.0</title>

@@ -38,13 +38,16 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "plasma/common.h"
-#include "plasma/common_generated.h"
 
 #ifdef PLASMA_CUDA
 using arrow::cuda::CudaIpcMemHandle;
 #endif
 
 namespace plasma {
+
+namespace flatbuf {
+struct ObjectInfoT;
+}  // namespace flatbuf
 
 #define HANDLE_SIGPIPE(s, fd_)                                              \
   do {                                                                      \
@@ -67,9 +70,6 @@ namespace plasma {
 constexpr int64_t kBlockSize = 64;
 
 struct Client;
-
-/// Mapping from object IDs to type and status of the request.
-typedef std::unordered_map<ObjectID, ObjectRequest> ObjectRequestMap;
 
 // TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
 struct PlasmaObject {

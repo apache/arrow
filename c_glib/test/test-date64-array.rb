@@ -34,9 +34,9 @@ class TestDate64Array < Test::Unit::TestCase
     after_epoch = 1503878400000 # 2017-08-28T00:00:00Z
 
     builder = Arrow::Date64ArrayBuilder.new
-    builder.append(0)
-    builder.append(after_epoch)
-    builder.append(before_epoch)
+    builder.append_value(0)
+    builder.append_value(after_epoch)
+    builder.append_value(before_epoch)
     array = builder.finish
     assert_equal([0, after_epoch, before_epoch].pack("q*"),
                  array.buffer.data.to_s)
@@ -46,7 +46,7 @@ class TestDate64Array < Test::Unit::TestCase
     after_epoch = 1503878400000 # 2017-08-28T00:00:00Z
 
     builder = Arrow::Date64ArrayBuilder.new
-    builder.append(after_epoch)
+    builder.append_value(after_epoch)
     array = builder.finish
     assert_equal(after_epoch, array.get_value(0))
   end
@@ -56,9 +56,9 @@ class TestDate64Array < Test::Unit::TestCase
     after_epoch = 1503878400000 # 2017-08-28T00:00:00Z
 
     builder = Arrow::Date64ArrayBuilder.new
-    builder.append(0)
-    builder.append(after_epoch)
-    builder.append(before_epoch)
+    builder.append_value(0)
+    builder.append_value(after_epoch)
+    builder.append_value(before_epoch)
     array = builder.finish
     assert_equal([0, after_epoch, before_epoch], array.values)
   end

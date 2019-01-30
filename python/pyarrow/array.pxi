@@ -339,7 +339,62 @@ def _restore_array(data):
     return pyarrow_wrap_array(MakeArray(ad))
 
 
-cdef class Array:
+cdef class _PandasConvertible:
+
+    def to_pandas(self, categories=None, bint strings_to_categorical=False,
+                  bint zero_copy_only=False, bint integer_object_nulls=False,
+                  bint date_as_object=True, bint use_threads=True,
+                  bint deduplicate_objects=True, bint ignore_metadata=False):
+        """
+        Convert to a pandas-compatible NumPy array or DataFrame, as appropriate
+
+        Parameters
+        ----------
+        strings_to_categorical : boolean, default False
+            Encode string (UTF8) and binary types to pandas.Categorical
+        categories: list, default empty
+            List of fields that should be returned as pandas.Categorical. Only
+            applies to table-like data structures
+        zero_copy_only : boolean, default False
+            Raise an ArrowException if this function call would require copying
+            the underlying data
+        integer_object_nulls : boolean, default False
+            Cast integers with nulls to objects
+        date_as_object : boolean, default False
+            Cast dates to objects
+        use_threads: boolean, default True
+            Whether to parallelize the conversion using multiple threads
+        deduplicate_objects : boolean, default False
+            Do not create multiple copies Python objects when created, to save
+            on memory use. Conversion will be slower
+        ignore_metadata : boolean, default False
+            If True, do not use the 'pandas' metadata to reconstruct the
+            DataFrame index, if present
+
+        Returns
+        -------
+        NumPy array or DataFrame depending on type of object
+        """
+        cdef:
+            PyObject* out
+            PandasOptions options
+
+        options = PandasOptions(
+            strings_to_categorical=strings_to_categorical,
+            zero_copy_only=zero_copy_only,
+            integer_object_nulls=integer_object_nulls,
+            date_as_object=date_as_object,
+            use_threads=use_threads,
+            deduplicate_objects=deduplicate_objects)
+
+        return self._to_pandas(options, categories=categories,
+                               ignore_metadata=ignore_metadata)
+
+
+cdef class Array(_PandasConvertible):
+    """
+    The base class for all Arrow arrays.
+    """
 
     def __init__(self):
         raise TypeError("Do not call {}'s constructor directly, use one of "
@@ -564,11 +619,18 @@ cdef class Array:
     def isnull(self):
         raise NotImplemented
 
-    def __getitem__(self, key):
-        if PySlice_Check(key):
-            return _normalize_slice(self, key)
+    def __getitem__(self, index):
+        """
+        Return the value at the given index.
 
-        return self.getitem(_normalize_index(key, self.length()))
+        Returns
+        -------
+        value : Scalar
+        """
+        if PySlice_Check(index):
+            return _normalize_slice(self, index)
+
+        return self.getitem(_normalize_index(index, self.length()))
 
     cdef getitem(self, int64_t i):
         return box_scalar(self.type, self.sp_array, i)
@@ -602,42 +664,13 @@ cdef class Array:
 
         return pyarrow_wrap_array(result)
 
-    def to_pandas(self, bint strings_to_categorical=False,
-                  bint zero_copy_only=False, bint integer_object_nulls=False,
-                  bint date_as_object=False):
-        """
-        Convert to a NumPy array object suitable for use in pandas.
-
-        Parameters
-        ----------
-        strings_to_categorical : boolean, default False
-            Encode string (UTF8) and binary types to pandas.Categorical
-        zero_copy_only : boolean, default False
-            Raise an ArrowException if this function call would require copying
-            the underlying data
-        integer_object_nulls : boolean, default False
-            Cast integers with nulls to objects
-        date_as_object : boolean, default False
-            Cast dates to objects
-
-        See also
-        --------
-        Column.to_pandas
-        Table.to_pandas
-        RecordBatch.to_pandas
-        """
+    def _to_pandas(self, options, **kwargs):
         cdef:
             PyObject* out
-            PandasOptions options
+            PandasOptions c_options = options
 
-        options = PandasOptions(
-            strings_to_categorical=strings_to_categorical,
-            zero_copy_only=zero_copy_only,
-            integer_object_nulls=integer_object_nulls,
-            date_as_object=date_as_object,
-            use_threads=False)
         with nogil:
-            check_status(ConvertArrayToPandas(options, self.sp_array,
+            check_status(ConvertArrayToPandas(c_options, self.sp_array,
                                               self, &out))
         return wrap_array_output(out)
 
@@ -713,6 +746,9 @@ cdef class Array:
 
 
 cdef class Tensor:
+    """
+    A n-dimensional array a.k.a Tensor.
+    """
 
     def __init__(self):
         raise TypeError("Do not call Tensor's constructor directly, use one "
@@ -819,98 +855,147 @@ cdef wrap_array_output(PyObject* output):
 
 
 cdef class NullArray(Array):
-    pass
+    """
+    Concrete class for Arrow arrays of null data type.
+    """
 
 
 cdef class BooleanArray(Array):
-    pass
+    """
+    Concrete class for Arrow arrays of boolean data type.
+    """
 
 
 cdef class NumericArray(Array):
-    pass
+    """
+    A base class for Arrow numeric arrays.
+    """
 
 
 cdef class IntegerArray(NumericArray):
-    pass
+    """
+    A base class for Arrow integer arrays.
+    """
 
 
 cdef class FloatingPointArray(NumericArray):
-    pass
+    """
+    A base class for Arrow floating-point arrays.
+    """
 
 
 cdef class Int8Array(IntegerArray):
-    pass
+    """
+    Concrete class for Arrow arrays of int8 data type.
+    """
 
 
 cdef class UInt8Array(IntegerArray):
-    pass
+    """
+    Concrete class for Arrow arrays of uint8 data type.
+    """
 
 
 cdef class Int16Array(IntegerArray):
-    pass
+    """
+    Concrete class for Arrow arrays of int16 data type.
+    """
 
 
 cdef class UInt16Array(IntegerArray):
-    pass
+    """
+    Concrete class for Arrow arrays of uint16 data type.
+    """
 
 
 cdef class Int32Array(IntegerArray):
-    pass
+    """
+    Concrete class for Arrow arrays of int32 data type.
+    """
 
 
 cdef class UInt32Array(IntegerArray):
-    pass
+    """
+    Concrete class for Arrow arrays of uint32 data type.
+    """
 
 
 cdef class Int64Array(IntegerArray):
-    pass
+    """
+    Concrete class for Arrow arrays of int64 data type.
+    """
 
 
 cdef class UInt64Array(IntegerArray):
-    pass
+    """
+    Concrete class for Arrow arrays of uint64 data type.
+    """
 
 
 cdef class Date32Array(NumericArray):
-    pass
+    """
+    Concrete class for Arrow arrays of date32 data type.
+    """
 
 
 cdef class Date64Array(NumericArray):
-    pass
+    """
+    Concrete class for Arrow arrays of date64 data type.
+    """
 
 
 cdef class TimestampArray(NumericArray):
-    pass
+    """
+    Concrete class for Arrow arrays of timestamp data type.
+    """
 
 
 cdef class Time32Array(NumericArray):
-    pass
+    """
+    Concrete class for Arrow arrays of time32 data type.
+    """
 
 
 cdef class Time64Array(NumericArray):
-    pass
+    """
+    Concrete class for Arrow arrays of time64 data type.
+    """
 
 
 cdef class HalfFloatArray(FloatingPointArray):
-    pass
+    """
+    Concrete class for Arrow arrays of float16 data type.
+    """
 
 
 cdef class FloatArray(FloatingPointArray):
-    pass
+    """
+    Concrete class for Arrow arrays of float32 data type.
+    """
 
 
 cdef class DoubleArray(FloatingPointArray):
-    pass
+    """
+    Concrete class for Arrow arrays of float64 data type.
+    """
 
 
 cdef class FixedSizeBinaryArray(Array):
-    pass
+    """
+    Concrete class for Arrow arrays of a fixed-size binary data type.
+    """
 
 
 cdef class Decimal128Array(FixedSizeBinaryArray):
-    pass
+    """
+    Concrete class for Arrow arrays of decimal128 data type.
+    """
 
 
 cdef class ListArray(Array):
+    """
+    Concrete class for Arrow arrays of a list data type.
+    """
 
     @staticmethod
     def from_arrays(offsets, values, MemoryPool pool=None):
@@ -952,6 +1037,9 @@ cdef class ListArray(Array):
 
 
 cdef class UnionArray(Array):
+    """
+    Concrete class for Arrow arrays of a Union data type.
+    """
 
     @staticmethod
     def from_dense(Array types, Array value_offsets, list children):
@@ -1005,6 +1093,9 @@ cdef class UnionArray(Array):
 
 
 cdef class StringArray(Array):
+    """
+    Concrete class for Arrow arrays of string (or utf8) data type.
+    """
 
     @staticmethod
     def from_buffers(int length, Buffer value_offsets, Buffer data,
@@ -1043,10 +1134,15 @@ cdef class StringArray(Array):
 
 
 cdef class BinaryArray(Array):
-    pass
+    """
+    Concrete class for Arrow arrays of variable-sized binary data type.
+    """
 
 
 cdef class DictionaryArray(Array):
+    """
+    Concrete class for dictionary-encoded Arrow arrays.
+    """
 
     def dictionary_encode(self):
         return self
@@ -1140,6 +1236,9 @@ cdef class DictionaryArray(Array):
 
 
 cdef class StructArray(Array):
+    """
+    Concrete class for Arrow arrays of a struct data type.
+    """
 
     def field(self, index):
         """

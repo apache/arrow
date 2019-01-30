@@ -26,11 +26,9 @@ env:
     - PLAT=x86_64
     - TRAVIS_TAG={{ task.tag }}
     - MACOSX_DEPLOYMENT_TARGET="10.9"
-    - PYARROW_VERSION={{ arrow.version }}
+    - PYARROW_VERSION={{ arrow.no_rc_version }}
     - PYARROW_BUILD_VERBOSE=1
     - MB_PYTHON_VERSION={{ python_version }}
-    - BUILD_DEPENDS="wheel=={{ wheel_version }} numpy=={{ numpy_version }} cython==0.27.3 six"
-    - TEST_DEPENDS="numpy=={{ numpy_version }} pandas=={{ pandas_version }} six"
 
 before_install:
   - git clone https://github.com/matthew-brett/multibuild # TODO pin it

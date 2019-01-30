@@ -43,6 +43,8 @@ class LLVMTypes {
 
   llvm::Type* i64_type() { return llvm::Type::getInt64Ty(context_); }
 
+  llvm::Type* i128_type() { return llvm::Type::getInt128Ty(context_); }
+
   llvm::Type* float_type() { return llvm::Type::getFloatTy(context_); }
 
   llvm::Type* double_type() { return llvm::Type::getDoubleTy(context_); }
@@ -53,11 +55,18 @@ class LLVMTypes {
 
   llvm::PointerType* i64_ptr_type() { return llvm::PointerType::get(i64_type(), 0); }
 
-  llvm::PointerType* ptr_type(llvm::Type* base_type) {
-    return llvm::PointerType::get(base_type, 0);
+  llvm::PointerType* i128_ptr_type() { return llvm::PointerType::get(i128_type(), 0); }
+
+  llvm::StructType* i128_split_type() {
+    // struct with high/low bits (see decimal_ops.cc:DecimalSplit)
+    return llvm::StructType::get(context_, {i64_type(), i64_type()}, false);
   }
 
   llvm::Type* void_type() { return llvm::Type::getVoidTy(context_); }
+
+  llvm::PointerType* ptr_type(llvm::Type* base_type) {
+    return llvm::PointerType::get(base_type, 0);
+  }
 
   llvm::Constant* true_constant() {
     return llvm::ConstantInt::get(context_, llvm::APInt(1, 1));
@@ -85,6 +94,18 @@ class LLVMTypes {
 
   llvm::Constant* i64_constant(int64_t val) {
     return llvm::ConstantInt::get(context_, llvm::APInt(64, val));
+  }
+
+  llvm::Constant* i128_constant(int64_t val) {
+    return llvm::ConstantInt::get(context_, llvm::APInt(128, val));
+  }
+
+  llvm::Constant* i128_zero() {
+    return llvm::ConstantInt::get(context_, llvm::APInt(128, 0));
+  }
+
+  llvm::Constant* i128_one() {
+    return llvm::ConstantInt::get(context_, llvm::APInt(128, 1));
   }
 
   llvm::Constant* float_constant(float val) {

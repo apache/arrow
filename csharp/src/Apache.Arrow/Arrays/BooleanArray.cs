@@ -39,8 +39,7 @@ namespace Apache.Arrow
             if (IsNull(index))
                 return null;
 
-            var span = GetSpan();
-            return BitUtility.GetBit(span, index);
+            return BitUtility.GetBit(Values, index);
         }
     }
 }

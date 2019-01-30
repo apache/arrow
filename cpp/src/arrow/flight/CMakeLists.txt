@@ -18,24 +18,26 @@
 add_custom_target(arrow_flight)
 
 # Header files
-install(FILES
-  api.h
-  client.h
-  server.h
-  types.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/flight")
+ARROW_INSTALL_ALL_HEADERS("arrow/flight")
 
 SET(ARROW_FLIGHT_STATIC_LINK_LIBS
-  grpc_grpcpp
-  grpc_grpc
-  grpc_gpr
-  grpc_address_sorting
-  cares)
+  grpc_grpcpp_static
+  grpc_grpc_static
+  grpc_gpr_static
+  grpc_address_sorting_static
+  cares_static)
+
+SET(ARROW_FLIGHT_TEST_STATIC_LINK_LIBS
+  arrow_static
+  arrow_flight_static
+  arrow_testing_static
+  ${ARROW_FLIGHT_STATIC_LINK_LIBS}
+  ${PROTOBUF_LIBRARY})
 
 # TODO(wesm): Protobuf shared vs static linking
 
-set(FLIGHT_PROTO_PATH "${CMAKE_SOURCE_DIR}/../format")
-set(FLIGHT_PROTO ${CMAKE_SOURCE_DIR}/../format/Flight.proto)
+set(FLIGHT_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
+set(FLIGHT_PROTO ${ARROW_SOURCE_DIR}/../format/Flight.proto)
 
 set(FLIGHT_GENERATED_PROTO_FILES
   "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
@@ -43,14 +45,7 @@ set(FLIGHT_GENERATED_PROTO_FILES
   "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.cc"
   "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.h")
 
-if(PROTOBUF_VENDORED)
-  set(PROTO_DEPENDS ${FLIGHT_PROTO} protobuf)
-else()
-  set(PROTO_DEPENDS ${FLIGHT_PROTO})
-endif()
-
-# Get location of grpc_cpp_plugin so we can pass it to protoc
-get_property(GRPC_CPP_PLUGIN TARGET gRPC::grpc_cpp_plugin PROPERTY LOCATION)
+set(PROTO_DEPENDS ${FLIGHT_PROTO} ${PROTOBUF_LIBRARY})
 
 add_custom_command(
   OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
@@ -80,26 +75,36 @@ set(ARROW_FLIGHT_SRCS
 
 ADD_ARROW_LIB(arrow_flight
   SOURCES ${ARROW_FLIGHT_SRCS}
-  DEPENDENCIES arrow_dependencies
   SHARED_LINK_LIBS arrow_shared ${ARROW_FLIGHT_STATIC_LINK_LIBS}
   STATIC_LINK_LIBS arrow_static ${ARROW_FLIGHT_STATIC_LINK_LIBS})
 
 ADD_ARROW_TEST(flight-test
-  EXTRA_LINK_LIBS arrow_flight_static ${ARROW_FLIGHT_STATIC_LINK_LIBS}
+  EXTRA_LINK_LIBS ${ARROW_FLIGHT_TEST_STATIC_LINK_LIBS}
   LABELS "arrow_flight")
 
 # Build test server for unit tests or benchmarks
 if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_executable(flight-test-server test-server.cc)
   target_link_libraries(flight-test-server
-    arrow_flight_static
-    ${ARROW_FLIGHT_STATIC_LINK_LIBS}
+    ${ARROW_FLIGHT_TEST_STATIC_LINK_LIBS}
+    gflags_static
+    ${GTEST_LIBRARY})
+
+  add_executable(flight-test-integration-server test-integration-server.cc)
+  target_link_libraries(flight-test-integration-server
+    ${ARROW_FLIGHT_TEST_STATIC_LINK_LIBS}
+    gflags_static
+    gtest_static)
+
+  add_executable(flight-test-integration-client test-integration-client.cc)
+  target_link_libraries(flight-test-integration-client
+    ${ARROW_FLIGHT_TEST_STATIC_LINK_LIBS}
     gflags_static
     gtest_static)
 
   # This is needed for the unit tests
   if (ARROW_BUILD_TESTS)
-    add_dependencies(flight-test flight-test-server)
+    add_dependencies(arrow-flight-test flight-test-server)
   endif()
 endif()
 
@@ -124,7 +129,7 @@ if (ARROW_BUILD_BENCHMARKS)
     arrow_flight_static
     ${ARROW_FLIGHT_STATIC_LINK_LIBS}
     gflags_static
-    gtest_static)
+    ${GTEST_LIBRARY})
 
   add_executable(flight-benchmark
     flight-benchmark.cc
@@ -133,7 +138,7 @@ if (ARROW_BUILD_BENCHMARKS)
     arrow_flight_static
     ${ARROW_FLIGHT_STATIC_LINK_LIBS}
     gflags_static
-    gtest_static)
+    ${GTEST_LIBRARY})
 
   add_dependencies(flight-benchmark flight-perf-server)
 endif(ARROW_BUILD_BENCHMARKS)

@@ -20,12 +20,15 @@ project(gandiva)
 set(PRECOMPILED_SRCS
     arithmetic_ops.cc
     bitmap.cc
+    decimal_ops.cc
+    decimal_wrapper.cc
     extended_math_ops.cc
     hash.cc
     print.cc
     string_ops.cc
     time.cc
-    timestamp_arithmetic.cc)
+    timestamp_arithmetic.cc
+    ../../arrow/util/basic_decimal.cc)
 
 # Create bitcode for each of the source files.
 foreach(SRC_FILE ${PRECOMPILED_SRCS})
@@ -35,9 +38,14 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
   add_custom_command(
     OUTPUT ${BC_FILE}
     COMMAND ${CLANG_EXECUTABLE}
-            -std=c++11 -emit-llvm -O2 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
+            -DGANDIVA_IR
+            -std=c++11 -emit-llvm
+            -fno-use-cxa-atexit  # Workaround for unresolved __dso_handle
+            -O3 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
+            ${ARROW_GANDIVA_PC_CXX_FLAGS}
             -I${CMAKE_SOURCE_DIR}/src
-    DEPENDS ${SRC_FILE})
+    DEPENDS ${SRC_FILE}
+    COMMAND_EXPAND_LISTS)
   list(APPEND BC_FILES ${BC_FILE})
 endforeach()
 
@@ -58,18 +66,18 @@ function(add_precompiled_unit_test REL_TEST_NAME)
   set(TEST_NAME "gandiva-precompiled-${TEST_NAME}")
 
   add_executable(${TEST_NAME} ${REL_TEST_NAME} ${ARGN})
-  add_dependencies(gandiva ${TEST_NAME})
+  add_dependencies(gandiva-tests ${TEST_NAME})
   target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
   target_link_libraries(${TEST_NAME}
     PRIVATE ${ARROW_TEST_LINK_LIBS} ${RE2_LIBRARY}
   )
   target_compile_definitions(${TEST_NAME} PRIVATE GANDIVA_UNIT_TEST=1)
   add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-  set_property(TEST ${TEST_NAME} PROPERTY LABELS gandiva;unittest ${TEST_NAME})
+  set_property(TEST ${TEST_NAME} PROPERTY LABELS gandiva-tests {TEST_NAME})
 endfunction(add_precompiled_unit_test REL_TEST_NAME)
 
 # testing
-if (ARROW_GANDIVA_BUILD_TESTS)
+if (ARROW_BUILD_TESTS)
   add_precompiled_unit_test(bitmap_test.cc bitmap.cc)
   add_precompiled_unit_test(epoch_time_point_test.cc)
   add_precompiled_unit_test(time_test.cc time.cc timestamp_arithmetic.cc ../context_helper.cc)
@@ -77,4 +85,5 @@ if (ARROW_GANDIVA_BUILD_TESTS)
   add_precompiled_unit_test(string_ops_test.cc string_ops.cc ../context_helper.cc)
   add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc ../context_helper.cc)
   add_precompiled_unit_test(extended_math_ops_test.cc extended_math_ops.cc ../context_helper.cc)
+  add_precompiled_unit_test(decimal_ops_test.cc decimal_ops.cc ../decimal_type_util.cc)
 endif()

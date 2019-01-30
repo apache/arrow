@@ -295,6 +295,8 @@ class build_ext(_build_ext):
                     move_shared_libs(build_prefix, build_lib, "arrow_gpu")
                 if self.with_plasma:
                     move_shared_libs(build_prefix, build_lib, "plasma")
+                if self.with_gandiva:
+                    move_shared_libs(build_prefix, build_lib, "gandiva")
                 if self.with_parquet and not self.with_static_parquet:
                     move_shared_libs(build_prefix, build_lib, "parquet")
                 if not self.with_static_boost and self.bundle_boost:
@@ -483,39 +485,20 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
+default_version = '0.12.0-SNAPSHOT'
 if (not os.path.exists('../.git')
         and not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     if os.path.exists('PKG-INFO'):
         # We're probably in a Python sdist, setuptools_scm will handle fine
         pass
-    elif os.path.exists('../java/pom.xml'):
-        # We're probably in a git archive
-        import xml.etree.ElementTree as ET
-        tree = ET.parse('../java/pom.xml')
-        version_tag = list(tree.getroot().findall(
-            '{http://maven.apache.org/POM/4.0.0}version'))[0]
-        use_setuptools_scm = False
-        os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
-            version_tag.text.replace("-SNAPSHOT", "a0")
     else:
-        raise RuntimeError("""\
-            No reliable source available to get Arrow version.
+        os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
+            default_version.replace('-SNAPSHOT', 'a0')
 
-            This is either because you copied the python/ directory yourself
-            outside of a git clone or source archive, or because you ran
-            `pip install` on the python/ directory.
 
-            * Recommended workaround: first run `python sdist`, then
-              `pip install` the resulting source distribution.
-
-            * If you're looking for an editable (in-place) install,
-              `python setup.py develop` should work fine in place of
-              `pip install -e .`.
-
-            * If you really want to `pip install` the python/ directory,
-              set the SETUPTOOLS_SCM_PRETEND_VERSION environment variable
-              to force the Arrow version to the given value.
-            """)
+# See https://github.com/pypa/setuptools_scm#configuration-parameters
+scm_version_write_to_prefix = os.environ.get(
+    'SETUPTOOLS_SCM_VERSION_WRITE_TO_PREFIX', setup_dir)
 
 
 def parse_git(root, **kwargs):
@@ -524,8 +507,8 @@ def parse_git(root, **kwargs):
     subprojects, e.g. apache-arrow-js-XXX tags.
     """
     from setuptools_scm.git import parse
-    kwargs['describe_command'] = \
-        "git describe --dirty --tags --long --match 'apache-arrow-[0-9].*'"
+    kwargs['describe_command'] =\
+        'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
     return parse(root, **kwargs)
 
 
@@ -553,7 +536,7 @@ else:
 
 
 setup(
-    name="pyarrow",
+    name='pyarrow',
     packages=['pyarrow', 'pyarrow.tests'],
     zip_safe=False,
     package_data={'pyarrow': ['*.pxd', '*.pyx', 'includes/*.pxd']},
@@ -570,17 +553,19 @@ setup(
             'plasma_store = pyarrow:_plasma_store_entry_point'
         ]
     },
-    use_scm_version={"root": os.path.dirname(setup_dir),
-                     "parse": parse_git,
-                     "write_to": os.path.join(setup_dir,
-                                              "pyarrow/_generated_version.py"),
-                     },
+    use_scm_version={
+        'root': os.path.dirname(setup_dir),
+        'parse': parse_git,
+        'write_to': os.path.join(scm_version_write_to_prefix,
+                                 'pyarrow/_generated_version.py')
+    },
     setup_requires=['setuptools_scm', 'cython >= 0.27'] + setup_requires,
     install_requires=install_requires,
-    tests_require=['pytest', 'pandas', 'pathlib2; python_version < "3.4"'],
-    description="Python library for Apache Arrow",
+    tests_require=['pytest', 'pandas', 'hypothesis',
+                   'pathlib2; python_version < "3.4"'],
+    description='Python library for Apache Arrow',
     long_description=long_description,
-    long_description_content_type="text/markdown",
+    long_description_content_type='text/markdown',
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 2.7',
@@ -589,8 +574,8 @@ setup(
         'Programming Language :: Python :: 3.7',
     ],
     license='Apache License, Version 2.0',
-    maintainer="Apache Arrow Developers",
-    maintainer_email="dev@arrow.apache.org",
-    test_suite="pyarrow.tests",
-    url="https://arrow.apache.org/"
+    maintainer='Apache Arrow Developers',
+    maintainer_email='dev@arrow.apache.org',
+    test_suite='pyarrow.tests',
+    url='https://arrow.apache.org/'
 )

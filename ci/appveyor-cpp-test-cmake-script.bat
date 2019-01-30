@@ -32,6 +32,8 @@ set FLATBUFFERS_HOME=WrongPath
 
 cmake -G "%GENERATOR%" ^
       -DARROW_BOOST_USE_SHARED=OFF ^
+      -DARROW_BUILD_TESTS=ON ^
+      -DARROW_BUILD_EXAMPLES=ON ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DARROW_CXXFLAGS="/MP" ^
       .. >nul 2>error.txt
@@ -49,6 +51,8 @@ set GFLAGS_HOME=WrongPath
 
 cmake -G "%GENERATOR%" ^
       -DARROW_BOOST_USE_SHARED=OFF ^
+      -DARROW_BUILD_TESTS=ON ^
+      -DARROW_BUILD_EXAMPLES=ON ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DARROW_CXXFLAGS="/MP" ^
       .. >nul 2>error.txt
@@ -66,6 +70,8 @@ set SNAPPY_HOME=WrongPath
 
 cmake -G "%GENERATOR%" ^
       -DARROW_BOOST_USE_SHARED=OFF ^
+      -DARROW_BUILD_TESTS=ON ^
+      -DARROW_BUILD_EXAMPLES=ON ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DARROW_CXXFLAGS="/MP" ^
       .. >nul 2>error.txt
@@ -83,6 +89,8 @@ set ZLIB_HOME=WrongPath
 
 cmake -G "%GENERATOR%" ^
       -DARROW_BOOST_USE_SHARED=OFF ^
+      -DARROW_BUILD_TESTS=ON ^
+      -DARROW_BUILD_EXAMPLES=ON ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DARROW_CXXFLAGS="/MP" ^
       .. >nul 2>error.txt
@@ -100,6 +108,8 @@ set BROTLI_HOME=WrongPath
 
 cmake -G "%GENERATOR%" ^
       -DARROW_BOOST_USE_SHARED=OFF ^
+      -DARROW_BUILD_TESTS=ON ^
+      -DARROW_BUILD_EXAMPLES=ON ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DARROW_CXXFLAGS="/MP" ^
       .. >nul 2>error.txt
@@ -117,6 +127,8 @@ set LZ4_HOME=WrongPath
 
 cmake -G "%GENERATOR%" ^
       -DARROW_BOOST_USE_SHARED=OFF ^
+      -DARROW_BUILD_TESTS=ON ^
+      -DARROW_BUILD_EXAMPLES=ON ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DARROW_CXXFLAGS="/MP" ^
       .. >nul 2>error.txt
@@ -134,6 +146,8 @@ set ZSTD_HOME=WrongPath
 
 cmake -G "%GENERATOR%" ^
       -DARROW_BOOST_USE_SHARED=OFF ^
+      -DARROW_BUILD_TESTS=ON ^
+      -DARROW_BUILD_EXAMPLES=ON ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DARROW_CXXFLAGS="/MP" ^
       .. >nul 2>error.txt
@@ -158,6 +172,8 @@ pushd %BUILD_DIR%
 set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 cmake -G "%GENERATOR%" ^
       -DARROW_BOOST_USE_SHARED=OFF ^
+      -DARROW_BUILD_TESTS=ON ^
+      -DARROW_BUILD_EXAMPLES=ON ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DARROW_CXXFLAGS="/MP" ^
       .. 2>output.txt

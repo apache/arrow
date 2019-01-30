@@ -38,8 +38,8 @@ find_program(INFER_BIN
 
 if ( "${INFER_BIN}" STREQUAL "INFER_BIN-NOTFOUND" )
   set(INFER_FOUND 0)
-  message("infer not found")
+  message(STATUS "infer not found")
 else()
   set(INFER_FOUND 1)
-  message("infer found at ${INFER_BIN}")
+  message(STATUS "infer found at ${INFER_BIN}")
 endif()

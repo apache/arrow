@@ -28,6 +28,7 @@
 #include "arrow/util/visibility.h"
 
 #include "arrow/flight/types.h"
+#include "arrow/ipc/dictionary.h"
 
 namespace arrow {
 
@@ -57,6 +58,9 @@ class ARROW_EXPORT FlightDataStream {
  public:
   virtual ~FlightDataStream() = default;
 
+  // When the stream starts, send the schema.
+  virtual std::shared_ptr<Schema> schema() = 0;
+
   // When the stream is completed, the last payload written will have null
   // metadata
   virtual Status Next(ipc::internal::IpcPayload* payload) = 0;
@@ -69,6 +73,7 @@ class ARROW_EXPORT RecordBatchStream : public FlightDataStream {
  public:
   explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader);
 
+  std::shared_ptr<Schema> schema() override;
   Status Next(ipc::internal::IpcPayload* payload) override;
 
  private:
@@ -115,7 +120,7 @@ class ARROW_EXPORT FlightServerBase {
                                std::unique_ptr<FlightInfo>* info);
 
   /// \brief Get a stream of IPC payloads to put on the wire
-  /// \param[in] ticket an opaque ticket
+  /// \param[in] request an opaque ticket
   /// \param[out] stream the returned stream provider
   /// \return Status
   virtual Status DoGet(const Ticket& request, std::unique_ptr<FlightDataStream>* stream);

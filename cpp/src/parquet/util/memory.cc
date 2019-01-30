@@ -233,8 +233,11 @@ void InMemoryOutputStream::Write(const uint8_t* data, int64_t length) {
     PARQUET_THROW_NOT_OK(buffer_->Resize(new_capacity));
     capacity_ = new_capacity;
   }
-  memcpy(Head(), data, length);
-  size_ += length;
+  // If length == 0, data may be null
+  if (length > 0) {
+    memcpy(Head(), data, length);
+    size_ += length;
+  }
 }
 
 int64_t InMemoryOutputStream::Tell() { return size_; }

@@ -37,9 +37,9 @@ public class EchoServer {
   private boolean closed = false;
 
   public EchoServer(int port) throws IOException {
-    LOGGER.info("Starting echo server.");
+    LOGGER.debug("Starting echo server.");
     serverSocket = new ServerSocket(port);
-    LOGGER.info("Running echo server on port: " + port());
+    LOGGER.debug("Running echo server on port: " + port());
   }
 
   public static void main(String[] args) throws Exception {
@@ -59,9 +59,9 @@ public class EchoServer {
   public void run() throws IOException {
     try {
       while (!closed) {
-        LOGGER.info("Waiting to accept new client connection.");
+        LOGGER.debug("Waiting to accept new client connection.");
         Socket clientSocket = serverSocket.accept();
-        LOGGER.info("Accepted new client connection.");
+        LOGGER.debug("Accepted new client connection.");
         try (ClientConnection client = new ClientConnection(clientSocket)) {
           try {
             client.run();
@@ -69,7 +69,7 @@ public class EchoServer {
             LOGGER.warn("Error handling client connection.", e);
           }
         }
-        LOGGER.info("Closed connection with client");
+        LOGGER.debug("Closed connection with client");
       }
     } catch (java.net.SocketException ex) {
       if (!closed) {
@@ -77,7 +77,7 @@ public class EchoServer {
       }
     } finally {
       serverSocket.close();
-      LOGGER.info("Server closed.");
+      LOGGER.debug("Server closed.");
     }
   }
 
@@ -116,7 +116,7 @@ public class EchoServer {
           }
           writer.end();
           Preconditions.checkState(reader.bytesRead() == writer.bytesWritten());
-          LOGGER.info(String.format("Echoed %d records", echoed));
+          LOGGER.debug(String.format("Echoed %d records", echoed));
         }
       }
     }

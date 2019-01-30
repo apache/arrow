@@ -1,0 +1,9 @@
+*_generated*
+*windows_compatibility.h
+*pyarrow_api.h
+*pyarrow_lib.h
+*python/config.h
+*python/platform.h
+*thirdparty/ae/*
+*vendored/*
+*RcppExports.cpp*

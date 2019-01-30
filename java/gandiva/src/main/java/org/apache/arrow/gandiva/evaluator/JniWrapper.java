@@ -17,100 +17,15 @@
 
 package org.apache.arrow.gandiva.evaluator;
 
-import static java.util.UUID.randomUUID;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 
 /**
  * This class is implemented in JNI. This provides the Java interface
- * to invoke functions in JNI
+ * to invoke functions in JNI.
+ * This file is used to generated the .h files required for jni. Avoid all
+ * external dependencies in this file.
  */
-class JniWrapper {
-  private static final String LIBRARY_NAME = "gandiva_jni";
-  private static final String IRHELPERS_BC = "irhelpers.bc";
-
-  private static volatile JniWrapper INSTANCE;
-
-  private final String byteCodeFilePath;
-
-  private JniWrapper(String byteCodeFilePath) {
-    this.byteCodeFilePath = byteCodeFilePath;
-  }
-
-  static JniWrapper getInstance() throws GandivaException {
-    if (INSTANCE == null) {
-      synchronized (JniWrapper.class) {
-        if (INSTANCE == null) {
-          INSTANCE = setupInstance();
-        }
-      }
-    }
-    return INSTANCE;
-  }
-
-  private static JniWrapper setupInstance() throws GandivaException {
-    try {
-      String tempDir = System.getProperty("java.io.tmpdir");
-      loadGandivaLibraryFromJar(tempDir);
-      File byteCodeFile = moveFileFromJarToTemp(tempDir, IRHELPERS_BC);
-      return new JniWrapper(byteCodeFile.getAbsolutePath());
-    } catch (IOException ioException) {
-      throw new GandivaException("unable to create native instance", ioException);
-    }
-  }
-
-  private static void loadGandivaLibraryFromJar(final String tmpDir)
-          throws IOException, GandivaException {
-    final String libraryToLoad = System.mapLibraryName(LIBRARY_NAME);
-    final File libraryFile = moveFileFromJarToTemp(tmpDir, libraryToLoad);
-    System.load(libraryFile.getAbsolutePath());
-  }
-
-
-  private static File moveFileFromJarToTemp(final String tmpDir, String libraryToLoad)
-          throws IOException, GandivaException {
-    final File temp = setupFile(tmpDir, libraryToLoad);
-    try (final InputStream is = JniWrapper.class.getClassLoader()
-            .getResourceAsStream(libraryToLoad)) {
-      if (is == null) {
-        throw new GandivaException(libraryToLoad + " was not found inside JAR.");
-      } else {
-        Files.copy(is, temp.toPath(), StandardCopyOption.REPLACE_EXISTING);
-      }
-    }
-    return temp;
-  }
-
-  private static File setupFile(String tmpDir, String libraryToLoad)
-          throws IOException, GandivaException {
-    // accommodate multiple processes running with gandiva jar.
-    // length should be ok since uuid is only 36 characters.
-    final String randomizeFileName = libraryToLoad + randomUUID();
-    final File temp = new File(tmpDir, randomizeFileName);
-    if (temp.exists() && !temp.delete()) {
-      throw new GandivaException("File: " + temp.getAbsolutePath() +
-          " already exists and cannot be removed.");
-    }
-    if (!temp.createNewFile()) {
-      throw new GandivaException("File: " + temp.getAbsolutePath() +
-          " could not be created.");
-    }
-    temp.deleteOnExit();
-    return temp;
-  }
-
-  /**
-   * Returns the byte code file path extracted from jar.
-   */
-  public String getByteCodeFilePath() {
-    return byteCodeFilePath;
-  }
+public class JniWrapper {
 
   /**
    * Generates the projector module to evaluate the expressions with

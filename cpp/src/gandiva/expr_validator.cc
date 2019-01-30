@@ -24,133 +24,114 @@
 namespace gandiva {
 
 Status ExprValidator::Validate(const ExpressionPtr& expr) {
-  if (expr == nullptr) {
-    return Status::ExpressionValidationError("Expression cannot be null.");
-  }
+  ARROW_RETURN_IF(expr == nullptr,
+                  Status::ExpressionValidationError("Expression cannot be null"));
+
   Node& root = *expr->root();
-  Status status = root.Accept(*this);
-  if (!status.ok()) {
-    return status;
-  }
-  // validate return type matches
-  // no need to check if type is supported
-  // since root type has been validated.
-  if (!root.return_type()->Equals(*expr->result()->type())) {
-    std::stringstream ss;
-    ss << "Return type of root node " << root.return_type()->name()
-       << " does not match that of expression " << *expr->result()->type();
-    return Status::ExpressionValidationError(ss.str());
-  }
+  ARROW_RETURN_NOT_OK(root.Accept(*this));
+
+  // Ensure root's return type match the expression return type. Type
+  // support validation is not required because root type is already supported.
+  ARROW_RETURN_IF(!root.return_type()->Equals(*expr->result()->type()),
+                  Status::ExpressionValidationError("Return type of root node ",
+                                                    root.return_type()->name(),
+                                                    " does not match that of expression ",
+                                                    expr->result()->type()->name()));
+
   return Status::OK();
 }
 
 Status ExprValidator::Visit(const FieldNode& node) {
   auto llvm_type = types_->IRType(node.return_type()->id());
-  if (llvm_type == nullptr) {
-    std::stringstream ss;
-    ss << "Field " << node.field()->name() << " has unsupported data type "
-       << node.return_type()->name();
-    return Status::ExpressionValidationError(ss.str());
-  }
+  ARROW_RETURN_IF(llvm_type == nullptr,
+                  Status::ExpressionValidationError("Field ", node.field()->name(),
+                                                    " has unsupported data type ",
+                                                    node.return_type()->name()));
 
+  // Ensure that field is found in schema
   auto field_in_schema_entry = field_map_.find(node.field()->name());
+  ARROW_RETURN_IF(field_in_schema_entry == field_map_.end(),
+                  Status::ExpressionValidationError("Field ", node.field()->name(),
+                                                    " not in schema."));
 
-  // validate that field is in schema.
-  if (field_in_schema_entry == field_map_.end()) {
-    std::stringstream ss;
-    ss << "Field " << node.field()->name() << " not in schema.";
-    return Status::ExpressionValidationError(ss.str());
-  }
-
+  // Ensure that that the found field match.
   FieldPtr field_in_schema = field_in_schema_entry->second;
-  // validate that field matches the definition in schema.
-  if (!field_in_schema->Equals(node.field())) {
-    std::stringstream ss;
-    ss << "Field definition in schema " << field_in_schema->ToString()
-       << " different from field in expression " << node.field()->ToString();
-    return Status::ExpressionValidationError(ss.str());
-  }
+  ARROW_RETURN_IF(!field_in_schema->Equals(node.field()),
+                  Status::ExpressionValidationError(
+                      "Field definition in schema ", field_in_schema->ToString(),
+                      " different from field in expression ", node.field()->ToString()));
+
   return Status::OK();
 }
 
 Status ExprValidator::Visit(const FunctionNode& node) {
   auto desc = node.descriptor();
   FunctionSignature signature(desc->name(), desc->params(), desc->return_type());
+
   const NativeFunction* native_function = registry_.LookupSignature(signature);
-  if (native_function == nullptr) {
-    std::stringstream ss;
-    ss << "Function " << signature.ToString() << " not supported yet. ";
-    return Status::ExpressionValidationError(ss.str());
-  }
+  ARROW_RETURN_IF(native_function == nullptr,
+                  Status::ExpressionValidationError("Function ", signature.ToString(),
+                                                    " not supported yet. "));
 
   for (auto& child : node.children()) {
-    Status status = child->Accept(*this);
-    ARROW_RETURN_NOT_OK(status);
+    ARROW_RETURN_NOT_OK(child->Accept(*this));
   }
+
   return Status::OK();
 }
 
 Status ExprValidator::Visit(const IfNode& node) {
-  Status status = node.condition()->Accept(*this);
-  ARROW_RETURN_NOT_OK(status);
-  status = node.then_node()->Accept(*this);
-  ARROW_RETURN_NOT_OK(status);
-  status = node.else_node()->Accept(*this);
-  ARROW_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(node.condition()->Accept(*this));
+  ARROW_RETURN_NOT_OK(node.then_node()->Accept(*this));
+  ARROW_RETURN_NOT_OK(node.else_node()->Accept(*this));
 
   auto if_node_ret_type = node.return_type();
   auto then_node_ret_type = node.then_node()->return_type();
   auto else_node_ret_type = node.else_node()->return_type();
 
-  if (!if_node_ret_type->Equals(*then_node_ret_type)) {
-    std::stringstream ss;
-    ss << "Return type of if " << *if_node_ret_type << " and then " << *then_node_ret_type
-       << " not matching.";
-    return Status::ExpressionValidationError(ss.str());
-  }
+  // Then-branch return type must match.
+  ARROW_RETURN_IF(!if_node_ret_type->Equals(*then_node_ret_type),
+                  Status::ExpressionValidationError(
+                      "Return type of if ", if_node_ret_type->ToString(), " and then ",
+                      then_node_ret_type->ToString(), " not matching."));
 
-  if (!if_node_ret_type->Equals(*else_node_ret_type)) {
-    std::stringstream ss;
-    ss << "Return type of if " << *if_node_ret_type << " and else " << *else_node_ret_type
-       << " not matching.";
-    return Status::ExpressionValidationError(ss.str());
-  }
+  // Else-branch return type must match.
+  ARROW_RETURN_IF(!if_node_ret_type->Equals(*else_node_ret_type),
+                  Status::ExpressionValidationError(
+                      "Return type of if ", if_node_ret_type->ToString(), " and else ",
+                      else_node_ret_type->ToString(), " not matching."));
 
   return Status::OK();
 }
 
 Status ExprValidator::Visit(const LiteralNode& node) {
   auto llvm_type = types_->IRType(node.return_type()->id());
-  if (llvm_type == nullptr) {
-    std::stringstream ss;
-    ss << "Value " << node.holder() << " has unsupported data type "
-       << node.return_type()->name();
-    return Status::ExpressionValidationError(ss.str());
-  }
+  ARROW_RETURN_IF(llvm_type == nullptr,
+                  Status::ExpressionValidationError("Value ", node.holder(),
+                                                    " has unsupported data type ",
+                                                    node.return_type()->name()));
+
   return Status::OK();
 }
 
 Status ExprValidator::Visit(const BooleanNode& node) {
-  Status status;
-
-  if (node.children().size() < 2) {
-    std::stringstream ss;
-    ss << "Boolean expression has " << node.children().size()
-       << " children, expected atleast two";
-    return Status::ExpressionValidationError(ss.str());
-  }
+  ARROW_RETURN_IF(
+      node.children().size() < 2,
+      Status::ExpressionValidationError("Boolean expression has ", node.children().size(),
+                                        " children, expected atleast two"));
 
   for (auto& child : node.children()) {
-    if (!child->return_type()->Equals(arrow::boolean())) {
-      std::stringstream ss;
-      ss << "Boolean expression has a child with return type "
-         << child->return_type()->name() << ", expected return type boolean";
-      return Status::ExpressionValidationError(ss.str());
-    }
+    const auto bool_type = arrow::boolean();
+    const auto ret_type = child->return_type();
 
-    status = child->Accept(*this);
-    ARROW_RETURN_NOT_OK(status);
+    ARROW_RETURN_IF(!ret_type->Equals(bool_type),
+                    Status::ExpressionValidationError(
+                        "Boolean expression has a child with return type ",
+                        ret_type->ToString(), ", expected return type boolean"));
+
+    ARROW_RETURN_NOT_OK(child->Accept(*this));
   }
+
   return Status::OK();
 }
 
@@ -178,18 +159,13 @@ Status ExprValidator::Visit(const InExpressionNode<std::string>& node) {
 Status ExprValidator::ValidateInExpression(size_t number_of_values,
                                            DataTypePtr in_expr_return_type,
                                            DataTypePtr type_of_values) {
-  if (static_cast<int32_t>(number_of_values) == 0) {
-    std::stringstream ss;
-    ss << "IN Expression needs a non-empty constant list to match.";
-    return Status::ExpressionValidationError(ss.str());
-  }
-
-  if (!in_expr_return_type->Equals(type_of_values)) {
-    std::stringstream ss;
-    ss << "Evaluation expression for IN clause returns " << in_expr_return_type
-       << " values are of type" << type_of_values;
-    return Status::ExpressionValidationError(ss.str());
-  }
+  ARROW_RETURN_IF(number_of_values == 0,
+                  Status::ExpressionValidationError(
+                      "IN Expression needs a non-empty constant list to match."));
+  ARROW_RETURN_IF(!in_expr_return_type->Equals(type_of_values),
+                  Status::ExpressionValidationError(
+                      "Evaluation expression for IN clause returns ", in_expr_return_type,
+                      " values are of type", type_of_values));
 
   return Status::OK();
 }

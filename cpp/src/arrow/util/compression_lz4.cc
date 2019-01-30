@@ -18,6 +18,7 @@
 #include "arrow/util/compression_lz4.h"
 
 #include <cstdint>
+#include <cstring>
 #include <sstream>
 
 #include <lz4.h>
@@ -29,6 +30,10 @@
 
 namespace arrow {
 namespace util {
+
+static Status LZ4Error(LZ4F_errorCode_t ret, const char* prefix_msg) {
+  return Status::IOError(prefix_msg, LZ4F_getErrorName(ret));
+}
 
 // ----------------------------------------------------------------------
 // Lz4 decompressor implementation
@@ -78,12 +83,6 @@ class LZ4Decompressor : public Decompressor {
   bool IsFinished() override { return finished_; }
 
  protected:
-  Status LZ4Error(LZ4F_errorCode_t ret, const char* prefix_msg) {
-    std::stringstream ss;
-    ss << prefix_msg << LZ4F_getErrorName(ret);
-    return Status::IOError(ss.str());
-  }
-
   LZ4F_dctx* ctx_ = nullptr;
   bool finished_;
 };
@@ -124,12 +123,6 @@ class LZ4Compressor : public Compressor {
              bool* should_retry) override;
 
  protected:
-  Status LZ4Error(LZ4F_errorCode_t ret, const char* prefix_msg) {
-    std::stringstream ss;
-    ss << prefix_msg << LZ4F_getErrorName(ret);
-    return Status::IOError(ss.str());
-  }
-
   LZ4F_cctx* ctx_ = nullptr;
   LZ4F_preferences_t prefs_;
   bool first_time_;

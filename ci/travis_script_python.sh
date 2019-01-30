@@ -32,36 +32,36 @@ PYARROW_PYTEST_FLAGS=" -r sxX --durations=15 --parquet"
 PYTHON_VERSION=$1
 CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
 
-conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION cmake curl
-conda activate $CONDA_ENV_DIR
-
 # We should use zlib in the target Python directory to avoid loading
 # wrong libpython on macOS at run-time. If we use zlib in
 # $ARROW_BUILD_TOOLCHAIN and libpython3.6m.dylib exists in both
-# $ARROW_BUILD_TOOLCHAIN and $CONDA_ENV_DIR, python-test uses
+# $ARROW_BUILD_TOOLCHAIN and $CONDA_ENV_DIR, arrow-python-test uses
 # libpython3.6m.dylib on $ARROW_BUILD_TOOLCHAIN not $CONDA_ENV_DIR.
 # libpython3.6m.dylib on $ARROW_BUILD_TOOLCHAIN doesn't have NumPy. So
 # python-test fails.
 export ZLIB_HOME=$CONDA_ENV_DIR
 
-python --version
-which python
-
 if [ $ARROW_TRAVIS_PYTHON_JVM == "1" ]; then
   CONDA_JVM_DEPS="jpype1"
 fi
 
-conda install -y -q pip \
+conda create -y -q -p $CONDA_ENV_DIR \
+      --file $TRAVIS_BUILD_DIR/ci/conda_env_python.yml \
       nomkl \
-      cloudpickle \
-      numpy=1.13.1 \
-      ${CONDA_JVM_DEPS} \
-      pandas \
-      cython
+      cmake \
+      pip \
+      numpy=1.14 \
+      python=${PYTHON_VERSION} \
+      ${CONDA_JVM_DEPS}
+
+conda activate $CONDA_ENV_DIR
+
+python --version
+which python
 
 if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
   # Install documentation dependencies
-  conda install -y -c conda-forge --file ci/conda_env_sphinx.yml
+  conda install -y --file ci/conda_env_sphinx.yml
 fi
 
 # ARROW-2093: PyTorch increases the size of our conda dependency stack
@@ -74,7 +74,7 @@ fi
 # fi
 
 if [ $TRAVIS_OS_NAME != "osx" ]; then
-  conda install -y -c conda-forge tensorflow
+  conda install -y tensorflow
   PYARROW_PYTEST_FLAGS="$PYARROW_PYTEST_FLAGS --tensorflow"
 fi
 
@@ -88,19 +88,23 @@ rm -rf *
 # XXX Can we simply reuse CMAKE_COMMON_FLAGS from travis_before_script_cpp.sh?
 CMAKE_COMMON_FLAGS="-DARROW_EXTRA_ERROR_CONTEXT=ON"
 
+PYTHON_CPP_BUILD_TARGETS="arrow_python-all plasma parquet"
+
 if [ $ARROW_TRAVIS_COVERAGE == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GENERATE_COVERAGE=ON"
 fi
 
 if [ $ARROW_TRAVIS_PYTHON_GANDIVA == "1" ]; then
-  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GANDIVA=ON -DARROW_GANDIVA_BUILD_TESTS=OFF"
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GANDIVA=ON"
+  PYTHON_CPP_BUILD_TARGETS="$PYTHON_CPP_BUILD_TARGETS gandiva"
 fi
 
 cmake -GNinja \
       $CMAKE_COMMON_FLAGS \
-      -DARROW_BUILD_TESTS=on \
-      -DARROW_TEST_INCLUDE_LABELS=python \
-      -DARROW_BUILD_UTILITIES=off \
+      -DARROW_BUILD_TESTS=ON \
+      -DARROW_BUILD_UTILITIES=OFF \
+      -DARROW_OPTIONAL_INSTALL=ON \
+      -DARROW_PARQUET=on \
       -DARROW_PLASMA=on \
       -DARROW_TENSORFLOW=on \
       -DARROW_PYTHON=on \
@@ -109,18 +113,15 @@ cmake -GNinja \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       $ARROW_CPP_DIR
 
-ninja
+ninja $PYTHON_CPP_BUILD_TARGETS
 ninja install
 
 popd
 
 # python-test isn't run by travis_script_cpp.sh, exercise it here
-$ARROW_CPP_BUILD_DIR/$ARROW_BUILD_TYPE/python-test
+$ARROW_CPP_BUILD_DIR/$ARROW_BUILD_TYPE/arrow-python-test
 
 pushd $ARROW_PYTHON_DIR
-
-# Other stuff pip install
-pip install -q -r requirements.txt
 
 if [ "$PYTHON_VERSION" == "3.6" ]; then
     pip install -q pickle5
@@ -129,6 +130,9 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     export PYARROW_GENERATE_COVERAGE=1
     pip install -q coverage
 fi
+
+echo "=== pip list ==="
+pip list
 
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
 
@@ -174,12 +178,11 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     coverage report -i --include="*/_parquet.pyx"
     # Generate XML file for CodeCov
     coverage xml -i -o $TRAVIS_BUILD_DIR/coverage.xml
-    # Capture C++ coverage info and combine with previous coverage file
+    # Capture C++ coverage info
     pushd $TRAVIS_BUILD_DIR
-    lcov --quiet --directory . --capture --no-external --output-file coverage-python-tests.info \
-        2>&1 | grep -v "WARNING: no data found for /usr/include"
+    lcov --directory . --capture --no-external --output-file coverage-python-tests.info \
+        2>&1 | grep -v "ignoring data for external file"
     lcov --add-tracefile coverage-python-tests.info \
-        --add-tracefile $ARROW_CPP_COVERAGE_FILE \
         --output-file $ARROW_CPP_COVERAGE_FILE
     rm coverage-python-tests.info
     popd   # $TRAVIS_BUILD_DIR

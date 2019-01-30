@@ -40,3 +40,9 @@ messaging and interprocess communication.
 
    cpp/index
    python/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Other Topics
+
+   building

@@ -86,3 +86,7 @@ overhead of reading CSV files.
 Performance options can be controlled through the :class:`ReadOptions` class.
 Multi-threaded reading is the default for highest performance, distributing
 the workload efficiently over all available cores.
+
+.. note::
+   The number of threads to use concurrently is automatically inferred by Arrow
+   and can be inspected using the :func:`~pyarrow.cpu_count()` function.

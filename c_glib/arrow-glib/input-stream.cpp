@@ -325,6 +325,30 @@ garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
 }
 
 
+/**
+ * garrow_seekable_input_stream_peek:
+ * @input_stream: A #GArrowSeekableInputStream.
+ * @n_bytes: The number of bytes to be peeked.
+ *
+ * Returns: (transfer full): The data of the buffer, up to the
+ *   indicated number. The data becomes invalid after any operation on
+ *   the stream. If the stream is unbuffered, the data is empty.
+ *
+ *   It should be freed with g_bytes_unref() when no longer needed.
+ *
+ * Since: 0.12.0
+ */
+GBytes *
+garrow_seekable_input_stream_peek(GArrowSeekableInputStream *input_stream,
+                                  gint64 n_bytes)
+{
+  auto arrow_random_access_file =
+    garrow_seekable_input_stream_get_raw(input_stream);
+  auto string_view = arrow_random_access_file->Peek(n_bytes);
+  return g_bytes_new_static(string_view.data(), string_view.size());
+}
+
+
 typedef struct GArrowBufferInputStreamPrivate_ {
   GArrowBuffer *buffer;
 } GArrowBufferInputStreamPrivate;

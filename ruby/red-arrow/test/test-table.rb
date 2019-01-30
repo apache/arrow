@@ -395,83 +395,128 @@ class TableTest < Test::Unit::TestCase
   end
 
   sub_test_case("#save and .load") do
-    sub_test_case(":format") do
-      test("default") do
-        file = Tempfile.new(["red-arrow", ".arrow"])
-        @table.save(file.path)
-        assert_equal(@table, Arrow::Table.load(file.path))
+    module SaveLoadFormatTests
+      def test_default
+        output = create_output(".arrow")
+        @table.save(output)
+        assert_equal(@table, Arrow::Table.load(output))
       end
 
-      test(":batch") do
-        file = Tempfile.new(["red-arrow", ".arrow"])
-        @table.save(file.path, :format => :batch)
-        assert_equal(@table, Arrow::Table.load(file.path, :format => :batch))
+      def test_batch
+        output = create_output(".arrow")
+        @table.save(output, format: :batch)
+        assert_equal(@table, Arrow::Table.load(output, format: :batch))
       end
 
-      test(":stream") do
-        file = Tempfile.new(["red-arrow", ".arrow"])
-        @table.save(file.path, :format => :stream)
-        assert_equal(@table, Arrow::Table.load(file.path, :format => :stream))
+      def test_stream
+        output = create_output(".arrow")
+        @table.save(output, format: :stream)
+        assert_equal(@table, Arrow::Table.load(output, format: :stream))
       end
 
-      test(":csv") do
-        file = Tempfile.new(["red-arrow", ".csv"])
-        @table.save(file.path, :format => :csv)
+      def test_csv
+        output = create_output(".csv")
+        @table.save(output, format: :csv)
         assert_equal(@table,
-                     Arrow::Table.load(file.path,
-                                       :format => :csv,
-                                       :schema => @table.schema))
+                     Arrow::Table.load(output,
+                                       format: :csv,
+                                       schema: @table.schema))
       end
 
-      test("csv.gz") do
-        file = Tempfile.new(["red-arrow", ".csv.gz"])
-        @table.save(file.path)
+      def test_csv_gz
+        output = create_output(".csv.gz")
+        @table.save(output,
+                    format: :csv,
+                    compression: :gzip)
         assert_equal(@table,
-                     Arrow::Table.load(file.path,
-                                       :format => :csv,
-                                       :compression => :gzip,
-                                       :schema => @table.schema))
+                     Arrow::Table.load(output,
+                                       format: :csv,
+                                       compression: :gzip,
+                                       schema: @table.schema))
       end
+    end
 
-      sub_test_case("load: auto detect") do
-        test("batch") do
-          file = Tempfile.new(["red-arrow", ".arrow"])
-          @table.save(file.path, :format => :batch)
-          assert_equal(@table, Arrow::Table.load(file.path))
+    sub_test_case("path") do
+      sub_test_case(":format") do
+        include SaveLoadFormatTests
+
+        def create_output(extension)
+          @file = Tempfile.new(["red-arrow", extension])
+          @file.path
         end
 
-        test("stream") do
-          file = Tempfile.new(["red-arrow", ".arrow"])
-          @table.save(file.path, :format => :stream)
-          assert_equal(@table, Arrow::Table.load(file.path))
+        sub_test_case("save: auto detect") do
+          test("csv") do
+            output = create_output(".csv")
+            @table.save(output)
+            assert_equal(@table,
+                         Arrow::Table.load(output,
+                                           format: :csv,
+                                           schema: @table.schema))
+          end
+
+          test("csv.gz") do
+            output = create_output(".csv.gz")
+            @table.save(output)
+            assert_equal(@table,
+                         Arrow::Table.load(output,
+                                           format: :csv,
+                                           compression: :gzip,
+                                           schema: @table.schema))
+          end
         end
 
-        test("csv") do
-          path = fixture_path("with-header.csv")
-          assert_equal(<<-TABLE, Arrow::Table.load(path, skip_lines: /^#/).to_s)
+        sub_test_case("load: auto detect") do
+          test("batch") do
+            output = create_output(".arrow")
+            @table.save(output, format: :batch)
+            assert_equal(@table, Arrow::Table.load(output))
+          end
+
+          test("stream") do
+            output = create_output(".arrow")
+            @table.save(output, format: :stream)
+            assert_equal(@table, Arrow::Table.load(output))
+          end
+
+          test("csv") do
+            path = fixture_path("with-header.csv")
+            table = Arrow::Table.load(path, skip_lines: /^\#/)
+            assert_equal(<<-TABLE, table.to_s)
 	name	score
 0	alice	   10
 1	bob 	   29
 2	chris	   -1
-          TABLE
-        end
+            TABLE
+          end
 
-        test("csv.gz") do
-          file = Tempfile.new(["red-arrow", ".csv.gz"])
-          Zlib::GzipWriter.wrap(file) do |gz|
-            gz.write(<<-CSV)
+          test("csv.gz") do
+            file = Tempfile.new(["red-arrow", ".csv.gz"])
+            Zlib::GzipWriter.wrap(file) do |gz|
+              gz.write(<<-CSV)
 name,score
 alice,10
 bob,29
 chris,-1
-            CSV
-          end
-          assert_equal(<<-TABLE, Arrow::Table.load(file.path).to_s)
+              CSV
+            end
+            assert_equal(<<-TABLE, Arrow::Table.load(file.path).to_s)
 	name	score
 0	alice	   10
 1	bob 	   29
 2	chris	   -1
           TABLE
+          end
+        end
+      end
+    end
+
+    sub_test_case("Buffer") do
+      sub_test_case(":format") do
+        include SaveLoadFormatTests
+
+        def create_output(extension)
+          Arrow::ResizableBuffer.new(1024)
         end
       end
     end

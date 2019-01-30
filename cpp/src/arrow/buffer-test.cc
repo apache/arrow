@@ -26,6 +26,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/buffer-builder.h"
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -34,6 +35,22 @@
 using std::string;
 
 namespace arrow {
+
+TEST(TestAllocate, Bitmap) {
+  std::shared_ptr<Buffer> new_buffer;
+  EXPECT_OK(AllocateBitmap(default_memory_pool(), 100, &new_buffer));
+  EXPECT_GE(new_buffer->size(), 13);
+  EXPECT_EQ(new_buffer->capacity() % 8, 0);
+}
+
+TEST(TestAllocate, EmptyBitmap) {
+  std::shared_ptr<Buffer> new_buffer;
+  EXPECT_OK(AllocateEmptyBitmap(default_memory_pool(), 100, &new_buffer));
+  EXPECT_EQ(new_buffer->size(), 13);
+  EXPECT_EQ(new_buffer->capacity() % 8, 0);
+  EXPECT_TRUE(std::all_of(new_buffer->data(), new_buffer->data() + new_buffer->capacity(),
+                          [](int8_t byte) { return byte == 0; }));
+}
 
 TEST(TestBuffer, FromStdString) {
   std::string val = "hello, world";
@@ -176,6 +193,65 @@ TEST(TestBuffer, SliceMutableBuffer) {
   ASSERT_TRUE(slice->Equals(expected));
 }
 
+template <typename AllocateFunction>
+void TestZeroSizeAllocateBuffer(MemoryPool* pool, AllocateFunction&& allocate_func) {
+  auto allocated_bytes = pool->bytes_allocated();
+  {
+    std::shared_ptr<Buffer> buffer;
+
+    ASSERT_OK(allocate_func(pool, 0, &buffer));
+    ASSERT_EQ(buffer->size(), 0);
+    // Even 0-sized buffers should not have a null data pointer
+    ASSERT_NE(buffer->data(), nullptr);
+    ASSERT_EQ(buffer->mutable_data(), buffer->data());
+
+    ASSERT_GE(pool->bytes_allocated(), allocated_bytes);
+  }
+  ASSERT_EQ(pool->bytes_allocated(), allocated_bytes);
+}
+
+TEST(TestAllocateBuffer, ZeroSize) {
+  MemoryPool* pool = default_memory_pool();
+  auto allocate_func = [](MemoryPool* pool, int64_t size, std::shared_ptr<Buffer>* out) {
+    return AllocateBuffer(pool, size, out);
+  };
+  TestZeroSizeAllocateBuffer(pool, allocate_func);
+}
+
+TEST(TestAllocateResizableBuffer, ZeroSize) {
+  MemoryPool* pool = default_memory_pool();
+  auto allocate_func = [](MemoryPool* pool, int64_t size, std::shared_ptr<Buffer>* out) {
+    std::shared_ptr<ResizableBuffer> res;
+    RETURN_NOT_OK(AllocateResizableBuffer(pool, size, &res));
+    *out = res;
+    return Status::OK();
+  };
+  TestZeroSizeAllocateBuffer(pool, allocate_func);
+}
+
+TEST(TestAllocateResizableBuffer, ZeroResize) {
+  MemoryPool* pool = default_memory_pool();
+  auto allocated_bytes = pool->bytes_allocated();
+  {
+    std::shared_ptr<ResizableBuffer> buffer;
+
+    ASSERT_OK(AllocateResizableBuffer(pool, 1000, &buffer));
+    ASSERT_EQ(buffer->size(), 1000);
+    ASSERT_NE(buffer->data(), nullptr);
+    ASSERT_EQ(buffer->mutable_data(), buffer->data());
+
+    ASSERT_GE(pool->bytes_allocated(), allocated_bytes + 1000);
+
+    ASSERT_OK(buffer->Resize(0));
+    ASSERT_NE(buffer->data(), nullptr);
+    ASSERT_EQ(buffer->mutable_data(), buffer->data());
+
+    ASSERT_GE(pool->bytes_allocated(), allocated_bytes);
+    ASSERT_LT(pool->bytes_allocated(), allocated_bytes + 1000);
+  }
+  ASSERT_EQ(pool->bytes_allocated(), allocated_bytes);
+}
+
 TEST(TestBufferBuilder, ResizeReserve) {
   const std::string data = "some data";
   auto data_ptr = data.c_str();
@@ -199,6 +275,82 @@ TEST(TestBufferBuilder, ResizeReserve) {
   // Reserve elements
   ASSERT_OK(builder.Reserve(60));
   ASSERT_EQ(128, builder.capacity());
+}
+
+template <typename T>
+class TypedTestBufferBuilder : public ::testing::Test {};
+
+using BufferBuilderElements = ::testing::Types<int16_t, uint32_t, double>;
+
+TYPED_TEST_CASE(TypedTestBufferBuilder, BufferBuilderElements);
+
+TYPED_TEST(TypedTestBufferBuilder, BasicTypedBufferBuilderUsage) {
+  TypedBufferBuilder<TypeParam> builder;
+
+  ASSERT_OK(builder.Append(static_cast<TypeParam>(0)));
+  ASSERT_EQ(builder.length(), 1);
+  ASSERT_EQ(builder.capacity(), 64 / sizeof(TypeParam));
+
+  constexpr int nvalues = 4;
+  TypeParam values[nvalues];
+  for (int i = 0; i != nvalues; ++i) {
+    values[i] = static_cast<TypeParam>(i);
+  }
+  ASSERT_OK(builder.Append(values, nvalues));
+  ASSERT_EQ(builder.length(), nvalues + 1);
+
+  std::shared_ptr<Buffer> built;
+  ASSERT_OK(builder.Finish(&built));
+
+  auto data = reinterpret_cast<const TypeParam*>(built->data());
+  ASSERT_EQ(data[0], static_cast<TypeParam>(0));
+  for (auto value : values) {
+    ++data;
+    ASSERT_EQ(*data, value);
+  }
+}
+
+TEST(TestBufferBuilder, BasicBoolBufferBuilderUsage) {
+  TypedBufferBuilder<bool> builder;
+
+  ASSERT_OK(builder.Append(false));
+  ASSERT_EQ(builder.length(), 1);
+  ASSERT_EQ(builder.capacity(), 64 * 8);
+
+  constexpr int nvalues = 4;
+  uint8_t values[nvalues];
+  for (int i = 0; i != nvalues; ++i) {
+    values[i] = static_cast<uint8_t>(i);
+  }
+  ASSERT_OK(builder.Append(values, nvalues));
+  ASSERT_EQ(builder.length(), nvalues + 1);
+
+  ASSERT_EQ(builder.false_count(), 2);
+
+  std::shared_ptr<Buffer> built;
+  ASSERT_OK(builder.Finish(&built));
+
+  ASSERT_EQ(BitUtil::GetBit(built->data(), 0), false);
+  for (int i = 0; i != nvalues; ++i) {
+    ASSERT_EQ(BitUtil::GetBit(built->data(), i + 1), static_cast<bool>(values[i]));
+  }
+}
+
+TEST(TestBufferBuilder, BoolBufferBuilderAppendCopies) {
+  TypedBufferBuilder<bool> builder;
+
+  ASSERT_OK(builder.Append(13, true));
+  ASSERT_OK(builder.Append(17, false));
+  ASSERT_EQ(builder.length(), 13 + 17);
+  ASSERT_EQ(builder.capacity(), 64 * 8);
+  ASSERT_EQ(builder.false_count(), 17);
+
+  std::shared_ptr<Buffer> built;
+  ASSERT_OK(builder.Finish(&built));
+
+  for (int i = 0; i != 13 + 17; ++i) {
+    EXPECT_EQ(BitUtil::GetBit(built->data(), i), i < 13) << "index = " << i;
+  }
 }
 
 template <typename T>

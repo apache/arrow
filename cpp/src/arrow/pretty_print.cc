@@ -19,7 +19,7 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
-#include <sstream>
+#include <sstream>  // IWYU pragma: keep
 #include <string>
 #include <type_traits>
 #include <vector>

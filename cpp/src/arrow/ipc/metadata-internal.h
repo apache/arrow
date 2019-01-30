@@ -33,6 +33,7 @@
 #include "arrow/ipc/dictionary.h"  // IYWU pragma: keep
 #include "arrow/ipc/message.h"
 #include "arrow/memory_pool.h"
+#include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 
 namespace arrow {
@@ -40,6 +41,7 @@ namespace arrow {
 class DataType;
 class Schema;
 class Tensor;
+class SparseTensor;
 
 namespace flatbuf = org::apache::arrow::flatbuf;
 
@@ -103,6 +105,12 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
                          std::vector<int64_t>* shape, std::vector<int64_t>* strides,
                          std::vector<std::string>* dim_names);
 
+// EXPERIMENTAL: Extracting metadata of a sparse tensor from the message
+Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
+                               std::vector<int64_t>* shape,
+                               std::vector<std::string>* dim_names, int64_t* length,
+                               SparseTensorFormat::type* sparse_tensor_format_id);
+
 /// Write a serialized message metadata with a length-prefix and padding to an
 /// 8-byte offset. Does not make assumptions about whether the stream is
 /// aligned already
@@ -136,6 +144,10 @@ Status WriteRecordBatchMessage(const int64_t length, const int64_t body_length,
 
 Status WriteTensorMessage(const Tensor& tensor, const int64_t buffer_start_offset,
                           std::shared_ptr<Buffer>* out);
+
+Status WriteSparseTensorMessage(const SparseTensor& sparse_tensor, int64_t body_length,
+                                const std::vector<BufferMetadata>& buffers,
+                                std::shared_ptr<Buffer>* out);
 
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
                        const std::vector<FileBlock>& record_batches,

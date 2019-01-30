@@ -17,37 +17,46 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// @ts-check
+
 const fs = require('fs');
-const glob = require('glob');
-const path = require('path');
-const { promisify } = require('util');
+const Path = require('path');
 const { parse } = require('json-bignum');
+const eos = require('util').promisify(require('stream').finished);
+const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '';
 const argv = require(`command-line-args`)(cliOpts(), { partial: true });
+const { RecordBatchReader, RecordBatchFileWriter, RecordBatchStreamWriter } = require(`../index${extension}`);
 
-const ext = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '';
-const { Table } = require(`../index${ext}`);
-
-const encoding = 'binary';
-const stream = argv.format === 'stream';
 const jsonPaths = [...(argv.json || [])];
 const arrowPaths = [...(argv.arrow || [])];
 
-if (!jsonPaths.length || !arrowPaths.length || (jsonPaths.length !== arrowPaths.length)) {
-    return print_usage();
-}
+(async () => {
 
-const readFile = callResolved(promisify(fs.readFile));
-const writeFile = callResolved(promisify(fs.writeFile));
+    if (!jsonPaths.length || !arrowPaths.length || (jsonPaths.length !== arrowPaths.length)) {
+        return print_usage();
+    }
 
-(async () => await Promise.all(jsonPaths.map(async (jPath, i) => {
-    const aPath = arrowPaths[i];
-    const arrowTable = Table.from(parse('' + (await readFile(jPath))));
-    await writeFile(aPath, arrowTable.serialize(encoding, stream), encoding);
-})))().catch((e) => { console.error(e); process.exit(1); });
+    await Promise.all(jsonPaths.map(async (path, i) => {
+        
+        const RecordBatchWriter = argv.format !== 'stream'
+            ? RecordBatchFileWriter
+            : RecordBatchStreamWriter;
 
-function callResolved(fn) {
-    return async (path_, ...xs) => await fn(path.resolve(path_), ...xs);
-}
+        const reader = RecordBatchReader.from(parse(
+            await fs.promises.readFile(Path.resolve(path), 'utf8')));
+
+        const jsonToArrow = reader
+            .pipe(RecordBatchWriter.throughNode())
+            .pipe(fs.createWriteStream(arrowPaths[i]));
+
+        await eos(jsonToArrow);
+
+    }));
+})()
+.then((x) => +x || 0, (e) => {
+    e && process.stderr.write(`${e}`);
+    return process.exitCode || 1;
+}).then((code = 0) => process.exit(code));
 
 function cliOpts() {
     return [
@@ -95,5 +104,5 @@ function print_usage() {
             ]
         },
     ]));
-    process.exit(1);
+    return 1;
 }

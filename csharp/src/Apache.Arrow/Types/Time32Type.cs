@@ -13,13 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Apache.Arrow.Types
 {
-    public class Time32Type: TimeType
+    public sealed class Time32Type : TimeType
     {
         public static readonly Time32Type Default = new Time32Type();
 
@@ -30,10 +27,6 @@ namespace Apache.Arrow.Types
         public Time32Type(TimeUnit unit = TimeUnit.Millisecond)
             : base(unit) { }
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<Int16Type> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

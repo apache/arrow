@@ -215,10 +215,8 @@ struct PyBytesView {
       this->ref.reset();
       return Status::OK();
     } else {
-      std::stringstream ss;
-      ss << "Expected " << expected_msg << ", got a '" << Py_TYPE(obj)->tp_name
-         << "' object";
-      return Status::TypeError(ss.str());
+      return Status::TypeError("Expected ", expected_msg, ", got a '",
+                               Py_TYPE(obj)->tp_name, "' object");
     }
   }
 

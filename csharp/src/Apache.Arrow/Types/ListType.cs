@@ -14,12 +14,10 @@
 // limitations under the License.
 
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Apache.Arrow.Types
 {
-    public class ListType: ArrowType
+    public sealed class ListType : ArrowType
     {
         public override ArrowTypeId TypeId => ArrowTypeId.List;
         public override string Name => "list";
@@ -33,10 +31,6 @@ namespace Apache.Arrow.Types
             ValueDataType = valueDataType ?? NullType.Default;
         }
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<ListType> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

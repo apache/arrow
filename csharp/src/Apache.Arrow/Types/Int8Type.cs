@@ -13,13 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Apache.Arrow.Types
 {
-    public class Int8Type: NumberType
+    public sealed class Int8Type : NumberType
     {
         public static readonly Int8Type Default = new Int8Type();
 
@@ -28,10 +25,6 @@ namespace Apache.Arrow.Types
         public override int BitWidth => 8;
         public override bool IsSigned => true;
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<Int8Type> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

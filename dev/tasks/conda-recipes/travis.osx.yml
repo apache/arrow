@@ -16,7 +16,7 @@
 # under the License.
 
 os: osx
-osx_image: xcode6.4
+osx_image: xcode9.4
 language: generic
 
 # don't build twice
@@ -25,18 +25,8 @@ if: tag IS blank
 env:
   global:
     - TRAVIS_TAG={{ task.tag }}
-    - ARROW_VERSION={{ arrow.version }}
+    - ARROW_VERSION={{ arrow.no_rc_version }}
     - PYTHONUNBUFFERED=1
-
-before_install:
-  # Remove homebrew.
-  - |
-    echo ""
-    echo "Removing homebrew from Travis CI to avoid conflicts."
-    curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/uninstall > ~/uninstall_homebrew
-    chmod +x ~/uninstall_homebrew
-    ~/uninstall_homebrew -fq
-    rm ~/uninstall_homebrew
 
 install:
   # Install Miniconda.
@@ -47,24 +37,35 @@ install:
     MINICONDA_FILE="Miniconda3-latest-MacOSX-x86_64.sh"
     curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
     bash $MINICONDA_FILE -b
-
-  # Configure conda.
+  # Install conda build dependency
   - |
     echo ""
     echo "Configuring conda."
     source /Users/travis/miniconda3/bin/activate root
-    conda config --remove channels defaults
-    conda config --add channels defaults
-    conda config --add channels conda-forge
-    conda config --set show_channel_urls true
-    conda install --yes --quiet conda-forge-ci-setup=1
-    source run_conda_forge_build_setup
+    conda install -n root -c conda-forge --quiet --yes conda-forge-ci-setup=2 conda-build
 
-script:
+
+before_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
   - pushd arrow/dev/tasks/conda-recipes
-  - conda build --output-folder . -m {{ variant_config_file }} parquet-cpp arrow-cpp pyarrow
+
+  # Configure conda
+  - setup_conda_rc ./ ./ variants/{{ config }}.yaml
+
+  # XXX: workaround, see run_conda_forge_build_setup_osx#L33
+  - mkdir -p ./.ci_support
+  - cp variants/{{ config }}.yaml ./.ci_support/{{ config }}.yaml
+  - CONFIG={{ config }} source run_conda_forge_build_setup
+
+  # Compiler cleanup
+  - mangle_compiler ./ ./ ./.ci_support/{{ config }}.yaml
+
+script:
+  - |
+    conda build --output-folder . \
+                -m ./.ci_support/{{ config }}.yaml \
+                parquet-cpp arrow-cpp pyarrow
 
 deploy:
   provider: releases

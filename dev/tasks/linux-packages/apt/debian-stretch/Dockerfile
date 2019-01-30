@@ -22,6 +22,9 @@ ENV DEBIAN_FRONTEND noninteractive
 ARG DEBUG
 
 RUN sed -i'' -e 's/main$/main contrib non-free/g' /etc/apt/sources.list
+RUN \
+  echo "deb http://deb.debian.org/debian stretch-backports main" > \
+    /etc/apt/sources.list.d/backports.list
 
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
@@ -30,6 +33,7 @@ RUN \
     autoconf-archive \
     bison \
     build-essential \
+    clang-6.0 \
     cmake \
     debhelper\
     devscripts \

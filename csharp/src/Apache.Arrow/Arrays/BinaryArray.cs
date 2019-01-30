@@ -50,28 +50,31 @@ namespace Apache.Arrow
 
         public ArrowBuffer ValueBuffer => Data.Buffers[2];
 
+        public ReadOnlySpan<int> ValueOffsets => ValueOffsetsBuffer.Span.CastTo<int>().Slice(0, Length + 1);
+
+        public ReadOnlySpan<byte> Values => ValueBuffer.Span.CastTo<byte>();
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetValueOffset(int index)
         {
-            var offsets = ValueOffsetsBuffer.GetSpan<int>();
-            return offsets[Offset + index];
+            return ValueOffsets[Offset + index];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetValueLength(int index)
         {
-            var offsets = ValueOffsetsBuffer.GetSpan<int>();
+            var offsets = ValueOffsets;
             var offset = Offset + index;
+
             return offsets[offset + 1] - offsets[offset];
         }
 
-        public ReadOnlySpan<byte> GetValue(int index)
+        public ReadOnlySpan<byte> GetBytes(int index)
         {
             var offset = GetValueOffset(index);
             var length = GetValueLength(index);
-            var values = ValueBuffer.GetSpan<byte>();
-
-            return values.Slice(offset, length);
+            
+            return ValueBuffer.Span.Slice(offset, length);
         }
 
     }

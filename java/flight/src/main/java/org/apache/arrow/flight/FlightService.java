@@ -128,7 +128,8 @@ class FlightService extends FlightServiceImplBase {
     @Override
     public void start(VectorSchemaRoot root) {
       responseObserver.onNext(new ArrowMessage(null, root.getSchema()));
-      unloader = new VectorUnloader(root, true, false);
+      // [ARROW-4213] We must align buffers to be compatible with other languages.
+      unloader = new VectorUnloader(root, true, true);
     }
 
     @Override

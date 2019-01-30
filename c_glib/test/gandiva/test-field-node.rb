@@ -18,11 +18,15 @@
 class TestGandivaFieldNode < Test::Unit::TestCase
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
+    @field = Arrow::Field.new("valid", Arrow::BooleanDataType.new)
+    @node = Gandiva::FieldNode.new(@field)
   end
 
   def test_field
-    field = Arrow::Field.new("valid", Arrow::BooleanDataType.new)
-    field_node = Gandiva::FieldNode.new(field)
-    assert_equal(field, field_node.field)
+    assert_equal(@field, @node.field)
+  end
+
+  def test_return_type
+    assert_equal(@field.data_type, @node.return_type)
   end
 end

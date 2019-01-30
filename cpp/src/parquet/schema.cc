@@ -19,10 +19,12 @@
 #include "parquet/schema-internal.h"
 
 #include <algorithm>
+#include <cstring>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <utility>
+
+#include "arrow/util/logging.h"
 
 #include "parquet/exception.h"
 #include "parquet/thrift.h"

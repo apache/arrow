@@ -15,115 +15,239 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Data } from './data';
 import { Vector } from './vector';
-import { Type, DataType, Dictionary } from './type';
-import { Utf8, Binary, Decimal, FixedSizeBinary } from './type';
-import { List, FixedSizeList, Union, Map_, Struct } from './type';
-import { Bool, Null, Int, Float, Date_, Time, Interval, Timestamp } from './type';
+import { Type, Precision, DateUnit, TimeUnit, IntervalUnit, UnionMode } from './enum';
+import { DataType, Float, Int, Date_, Interval, Time, Timestamp, Union, } from './type';
 
-export interface VisitorNode {
-    acceptTypeVisitor(visitor: TypeVisitor): any;
-    acceptVectorVisitor(visitor: VectorVisitor): any;
+export abstract class Visitor {
+    public visitMany(nodes: any[], ...args: any[][]) {
+        return nodes.map((node, i) => this.visit(node, ...args.map((x) => x[i])));
+    }
+    public visit(...args: any[]) {
+        return this.getVisitFn(args[0], false).apply(this, args);
+    }
+    public getVisitFn(node: any, throwIfNotFound = true) {
+        return getVisitFn(this, node, throwIfNotFound);
+    }
+    public visitNull            (_node: any, ..._args: any[]): any { return null; }
+    public visitBool            (_node: any, ..._args: any[]): any { return null; }
+    public visitInt             (_node: any, ..._args: any[]): any { return null; }
+    public visitFloat           (_node: any, ..._args: any[]): any { return null; }
+    public visitUtf8            (_node: any, ..._args: any[]): any { return null; }
+    public visitBinary          (_node: any, ..._args: any[]): any { return null; }
+    public visitFixedSizeBinary (_node: any, ..._args: any[]): any { return null; }
+    public visitDate            (_node: any, ..._args: any[]): any { return null; }
+    public visitTimestamp       (_node: any, ..._args: any[]): any { return null; }
+    public visitTime            (_node: any, ..._args: any[]): any { return null; }
+    public visitDecimal         (_node: any, ..._args: any[]): any { return null; }
+    public visitList            (_node: any, ..._args: any[]): any { return null; }
+    public visitStruct          (_node: any, ..._args: any[]): any { return null; }
+    public visitUnion           (_node: any, ..._args: any[]): any { return null; }
+    public visitDictionary      (_node: any, ..._args: any[]): any { return null; }
+    public visitInterval        (_node: any, ..._args: any[]): any { return null; }
+    public visitFixedSizeList   (_node: any, ..._args: any[]): any { return null; }
+    public visitMap             (_node: any, ..._args: any[]): any { return null; }
 }
 
-export abstract class TypeVisitor {
-    visit(type: Partial<VisitorNode>): any {
-        return type.acceptTypeVisitor && type.acceptTypeVisitor(this) || null;
-    }
-    visitMany(types: Partial<VisitorNode>[]): any[] {
-        return types.map((type) => this.visit(type));
-    }
-    abstract visitNull?(type: Null): any;
-    abstract visitBool?(type: Bool): any;
-    abstract visitInt?(type: Int): any;
-    abstract visitFloat?(type: Float): any;
-    abstract visitUtf8?(type: Utf8): any;
-    abstract visitBinary?(type: Binary): any;
-    abstract visitFixedSizeBinary?(type: FixedSizeBinary): any;
-    abstract visitDate?(type: Date_): any;
-    abstract visitTimestamp?(type: Timestamp): any;
-    abstract visitTime?(type: Time): any;
-    abstract visitDecimal?(type: Decimal): any;
-    abstract visitList?(type: List): any;
-    abstract visitStruct?(type: Struct): any;
-    abstract visitUnion?(type: Union<any>): any;
-    abstract visitDictionary?(type: Dictionary): any;
-    abstract visitInterval?(type: Interval): any;
-    abstract visitFixedSizeList?(type: FixedSizeList): any;
-    abstract visitMap?(type: Map_): any;
+/** @ignore */
+function getVisitFn<T extends DataType>(visitor: Visitor, node: any, throwIfNotFound = true) {
+    let fn: any = null;
+    let dtype: T['TType'] = Type.NONE;
+    // tslint:disable
+    if      (node instanceof Data    ) { dtype = inferDType(node.type as T); }
+    else if (node instanceof Vector  ) { dtype = inferDType(node.type as T); }
+    else if (node instanceof DataType) { dtype = inferDType(node      as T); }
+    else if (typeof (dtype = node) !== 'number') { dtype = Type[node] as any as T['TType']; }
 
-    static visitTypeInline<T extends DataType>(visitor: TypeVisitor, type: T): any {
-        switch (type.TType) {
-            case Type.Null:            return visitor.visitNull            && visitor.visitNull(type            as any as Null);
-            case Type.Int:             return visitor.visitInt             && visitor.visitInt(type             as any as Int);
-            case Type.Float:           return visitor.visitFloat           && visitor.visitFloat(type           as any as Float);
-            case Type.Binary:          return visitor.visitBinary          && visitor.visitBinary(type          as any as Binary);
-            case Type.Utf8:            return visitor.visitUtf8            && visitor.visitUtf8(type            as any as Utf8);
-            case Type.Bool:            return visitor.visitBool            && visitor.visitBool(type            as any as Bool);
-            case Type.Decimal:         return visitor.visitDecimal         && visitor.visitDecimal(type         as any as Decimal);
-            case Type.Date:            return visitor.visitDate            && visitor.visitDate(type            as any as Date_);
-            case Type.Time:            return visitor.visitTime            && visitor.visitTime(type            as any as Time);
-            case Type.Timestamp:       return visitor.visitTimestamp       && visitor.visitTimestamp(type       as any as Timestamp);
-            case Type.Interval:        return visitor.visitInterval        && visitor.visitInterval(type        as any as Interval);
-            case Type.List:            return visitor.visitList            && visitor.visitList(type            as any as List<T>);
-            case Type.Struct:          return visitor.visitStruct          && visitor.visitStruct(type          as any as Struct);
-            case Type.Union:           return visitor.visitUnion           && visitor.visitUnion(type           as any as Union);
-            case Type.FixedSizeBinary: return visitor.visitFixedSizeBinary && visitor.visitFixedSizeBinary(type as any as FixedSizeBinary);
-            case Type.FixedSizeList:   return visitor.visitFixedSizeList   && visitor.visitFixedSizeList(type   as any as FixedSizeList);
-            case Type.Map:             return visitor.visitMap             && visitor.visitMap(type             as any as Map_);
-            case Type.Dictionary:      return visitor.visitDictionary      && visitor.visitDictionary(type      as any as Dictionary);
-            default: return null;
-        }
+    switch (dtype) {
+        case Type.Null:                 fn = visitor.visitNull; break;
+        case Type.Bool:                 fn = visitor.visitBool; break;
+        case Type.Int:                  fn = visitor.visitInt; break;
+        case Type.Int8:                 fn = visitor.visitInt8 || visitor.visitInt; break;
+        case Type.Int16:                fn = visitor.visitInt16 || visitor.visitInt; break;
+        case Type.Int32:                fn = visitor.visitInt32 || visitor.visitInt; break;
+        case Type.Int64:                fn = visitor.visitInt64 || visitor.visitInt; break;
+        case Type.Uint8:                fn = visitor.visitUint8 || visitor.visitInt; break;
+        case Type.Uint16:               fn = visitor.visitUint16 || visitor.visitInt; break;
+        case Type.Uint32:               fn = visitor.visitUint32 || visitor.visitInt; break;
+        case Type.Uint64:               fn = visitor.visitUint64 || visitor.visitInt; break;
+        case Type.Float:                fn = visitor.visitFloat; break;
+        case Type.Float16:              fn = visitor.visitFloat16 || visitor.visitFloat; break;
+        case Type.Float32:              fn = visitor.visitFloat32 || visitor.visitFloat; break;
+        case Type.Float64:              fn = visitor.visitFloat64 || visitor.visitFloat; break;
+        case Type.Utf8:                 fn = visitor.visitUtf8; break;
+        case Type.Binary:               fn = visitor.visitBinary; break;
+        case Type.FixedSizeBinary:      fn = visitor.visitFixedSizeBinary; break;
+        case Type.Date:                 fn = visitor.visitDate; break;
+        case Type.DateDay:              fn = visitor.visitDateDay || visitor.visitDate; break;
+        case Type.DateMillisecond:      fn = visitor.visitDateMillisecond || visitor.visitDate; break;
+        case Type.Timestamp:            fn = visitor.visitTimestamp; break;
+        case Type.TimestampSecond:      fn = visitor.visitTimestampSecond || visitor.visitTimestamp; break;
+        case Type.TimestampMillisecond: fn = visitor.visitTimestampMillisecond || visitor.visitTimestamp; break;
+        case Type.TimestampMicrosecond: fn = visitor.visitTimestampMicrosecond || visitor.visitTimestamp; break;
+        case Type.TimestampNanosecond:  fn = visitor.visitTimestampNanosecond || visitor.visitTimestamp; break;
+        case Type.Time:                 fn = visitor.visitTime; break;
+        case Type.TimeSecond:           fn = visitor.visitTimeSecond || visitor.visitTime; break;
+        case Type.TimeMillisecond:      fn = visitor.visitTimeMillisecond || visitor.visitTime; break;
+        case Type.TimeMicrosecond:      fn = visitor.visitTimeMicrosecond || visitor.visitTime; break;
+        case Type.TimeNanosecond:       fn = visitor.visitTimeNanosecond || visitor.visitTime; break;
+        case Type.Decimal:              fn = visitor.visitDecimal; break;
+        case Type.List:                 fn = visitor.visitList; break;
+        case Type.Struct:               fn = visitor.visitStruct; break;
+        case Type.Union:                fn = visitor.visitUnion; break;
+        case Type.DenseUnion:           fn = visitor.visitDenseUnion || visitor.visitUnion; break;
+        case Type.SparseUnion:          fn = visitor.visitSparseUnion || visitor.visitUnion; break;
+        case Type.Dictionary:           fn = visitor.visitDictionary; break;
+        case Type.Interval:             fn = visitor.visitInterval; break;
+        case Type.IntervalDayTime:      fn = visitor.visitIntervalDayTime || visitor.visitInterval; break;
+        case Type.IntervalYearMonth:    fn = visitor.visitIntervalYearMonth || visitor.visitInterval; break;
+        case Type.FixedSizeList:        fn = visitor.visitFixedSizeList; break;
+        case Type.Map:                  fn = visitor.visitMap; break;
     }
+    if (typeof fn === 'function') return fn;
+    if (!throwIfNotFound) return () => null;
+    throw new Error(`Unrecognized type '${Type[dtype]}'`);
 }
 
-export abstract class VectorVisitor {
-    visit(vector: Partial<VisitorNode>): any {
-        return vector.acceptVectorVisitor && vector.acceptVectorVisitor(this) || null;
+/** @ignore */
+function inferDType<T extends DataType>(type: T): Type {
+    switch (type.typeId) {
+        case Type.Null: return Type.Null;
+        case Type.Int:
+            const { bitWidth, isSigned } = (type as any as Int);
+            switch (bitWidth) {
+                case  8: return isSigned ? Type.Int8  : Type.Uint8 ;
+                case 16: return isSigned ? Type.Int16 : Type.Uint16;
+                case 32: return isSigned ? Type.Int32 : Type.Uint32;
+                case 64: return isSigned ? Type.Int64 : Type.Uint64;
+            }
+            return Type.Int;
+        case Type.Float:
+            switch((type as any as Float).precision) {
+                case Precision.HALF: return Type.Float16;
+                case Precision.SINGLE: return Type.Float32;
+                case Precision.DOUBLE: return Type.Float64;
+            }
+            return Type.Float;
+        case Type.Binary: return Type.Binary;
+        case Type.Utf8: return Type.Utf8;
+        case Type.Bool: return Type.Bool;
+        case Type.Decimal: return Type.Decimal;
+        case Type.Time:
+            switch ((type as any as Time).unit) {
+                case TimeUnit.SECOND: return Type.TimeSecond;
+                case TimeUnit.MILLISECOND: return Type.TimeMillisecond;
+                case TimeUnit.MICROSECOND: return Type.TimeMicrosecond;
+                case TimeUnit.NANOSECOND: return Type.TimeNanosecond;
+            }
+            return Type.Time;
+        case Type.Timestamp:
+            switch ((type as any as Timestamp).unit) {
+                case TimeUnit.SECOND: return Type.TimestampSecond;
+                case TimeUnit.MILLISECOND: return Type.TimestampMillisecond;
+                case TimeUnit.MICROSECOND: return Type.TimestampMicrosecond;
+                case TimeUnit.NANOSECOND: return Type.TimestampNanosecond;
+            }
+            return Type.Timestamp;
+        case Type.Date:
+            switch ((type as any as Date_).unit) {
+                case DateUnit.DAY: return Type.DateDay;
+                case DateUnit.MILLISECOND: return Type.DateMillisecond;
+            }
+            return Type.Date;
+        case Type.Interval:
+            switch ((type as any as Interval).unit) {
+                case IntervalUnit.DAY_TIME: return Type.IntervalDayTime;
+                case IntervalUnit.YEAR_MONTH: return Type.IntervalYearMonth;
+            }
+            return Type.Interval;
+        case Type.Map: return Type.Map;
+        case Type.List: return Type.List;
+        case Type.Struct: return Type.Struct;
+        case Type.Union:
+            switch ((type as any as Union).mode) {
+                case UnionMode.Dense: return Type.DenseUnion;
+                case UnionMode.Sparse: return Type.SparseUnion;
+            }
+            return Type.Union;
+        case Type.FixedSizeBinary: return Type.FixedSizeBinary;
+        case Type.FixedSizeList: return Type.FixedSizeList;
+        case Type.Dictionary: return Type.Dictionary;
     }
-    visitMany(vectors: Partial<VisitorNode>[]): any[] {
-        return vectors.map((vector) => this.visit(vector));
-    }
-    abstract visitNull?(vector: Vector<Null>): any;
-    abstract visitBool?(vector: Vector<Bool>): any;
-    abstract visitInt?(vector: Vector<Int>): any;
-    abstract visitFloat?(vector: Vector<Float>): any;
-    abstract visitUtf8?(vector: Vector<Utf8>): any;
-    abstract visitBinary?(vector: Vector<Binary>): any;
-    abstract visitFixedSizeBinary?(vector: Vector<FixedSizeBinary>): any;
-    abstract visitDate?(vector: Vector<Date_>): any;
-    abstract visitTimestamp?(vector: Vector<Timestamp>): any;
-    abstract visitTime?(vector: Vector<Time>): any;
-    abstract visitDecimal?(vector: Vector<Decimal>): any;
-    abstract visitList?(vector: Vector<List>): any;
-    abstract visitStruct?(vector: Vector<Struct>): any;
-    abstract visitUnion?(vector: Vector<Union<any>>): any;
-    abstract visitDictionary?(vector: Vector<Dictionary>): any;
-    abstract visitInterval?(vector: Vector<Interval>): any;
-    abstract visitFixedSizeList?(vector: Vector<FixedSizeList>): any;
-    abstract visitMap?(vector: Vector<Map_>): any;
-
-    static visitTypeInline<T extends DataType>(visitor: VectorVisitor, type: T, vector: Vector<T>): any {
-        switch (type.TType) {
-            case Type.Null:            return visitor.visitNull            && visitor.visitNull(vector            as any as Vector<Null>);
-            case Type.Int:             return visitor.visitInt             && visitor.visitInt(vector             as any as Vector<Int>);
-            case Type.Float:           return visitor.visitFloat           && visitor.visitFloat(vector           as any as Vector<Float>);
-            case Type.Binary:          return visitor.visitBinary          && visitor.visitBinary(vector          as any as Vector<Binary>);
-            case Type.Utf8:            return visitor.visitUtf8            && visitor.visitUtf8(vector            as any as Vector<Utf8>);
-            case Type.Bool:            return visitor.visitBool            && visitor.visitBool(vector            as any as Vector<Bool>);
-            case Type.Decimal:         return visitor.visitDecimal         && visitor.visitDecimal(vector         as any as Vector<Decimal>);
-            case Type.Date:            return visitor.visitDate            && visitor.visitDate(vector            as any as Vector<Date_>);
-            case Type.Time:            return visitor.visitTime            && visitor.visitTime(vector            as any as Vector<Time>);
-            case Type.Timestamp:       return visitor.visitTimestamp       && visitor.visitTimestamp(vector       as any as Vector<Timestamp>);
-            case Type.Interval:        return visitor.visitInterval        && visitor.visitInterval(vector        as any as Vector<Interval>);
-            case Type.List:            return visitor.visitList            && visitor.visitList(vector            as any as Vector<List<T>>);
-            case Type.Struct:          return visitor.visitStruct          && visitor.visitStruct(vector          as any as Vector<Struct>);
-            case Type.Union:           return visitor.visitUnion           && visitor.visitUnion(vector           as any as Vector<Union>);
-            case Type.FixedSizeBinary: return visitor.visitFixedSizeBinary && visitor.visitFixedSizeBinary(vector as any as Vector<FixedSizeBinary>);
-            case Type.FixedSizeList:   return visitor.visitFixedSizeList   && visitor.visitFixedSizeList(vector   as any as Vector<FixedSizeList>);
-            case Type.Map:             return visitor.visitMap             && visitor.visitMap(vector             as any as Vector<Map_>);
-            case Type.Dictionary:      return visitor.visitDictionary      && visitor.visitDictionary(vector      as any as Vector<Dictionary>);
-            default: return null;
-        }
-    }
+    throw new Error(`Unrecognized type '${Type[type.typeId]}'`);
 }
+
+export interface Visitor {
+    visitNull                  (node: any, ...args: any[]): any;
+    visitBool                  (node: any, ...args: any[]): any;
+    visitInt                   (node: any, ...args: any[]): any;
+    visitInt8?                 (node: any, ...args: any[]): any;
+    visitInt16?                (node: any, ...args: any[]): any;
+    visitInt32?                (node: any, ...args: any[]): any;
+    visitInt64?                (node: any, ...args: any[]): any;
+    visitUint8?                (node: any, ...args: any[]): any;
+    visitUint16?               (node: any, ...args: any[]): any;
+    visitUint32?               (node: any, ...args: any[]): any;
+    visitUint64?               (node: any, ...args: any[]): any;
+    visitFloat                 (node: any, ...args: any[]): any;
+    visitFloat16?              (node: any, ...args: any[]): any;
+    visitFloat32?              (node: any, ...args: any[]): any;
+    visitFloat64?              (node: any, ...args: any[]): any;
+    visitUtf8                  (node: any, ...args: any[]): any;
+    visitBinary                (node: any, ...args: any[]): any;
+    visitFixedSizeBinary       (node: any, ...args: any[]): any;
+    visitDate                  (node: any, ...args: any[]): any;
+    visitDateDay?              (node: any, ...args: any[]): any;
+    visitDateMillisecond?      (node: any, ...args: any[]): any;
+    visitTimestamp             (node: any, ...args: any[]): any;
+    visitTimestampSecond?      (node: any, ...args: any[]): any;
+    visitTimestampMillisecond? (node: any, ...args: any[]): any;
+    visitTimestampMicrosecond? (node: any, ...args: any[]): any;
+    visitTimestampNanosecond?  (node: any, ...args: any[]): any;
+    visitTime                  (node: any, ...args: any[]): any;
+    visitTimeSecond?           (node: any, ...args: any[]): any;
+    visitTimeMillisecond?      (node: any, ...args: any[]): any;
+    visitTimeMicrosecond?      (node: any, ...args: any[]): any;
+    visitTimeNanosecond?       (node: any, ...args: any[]): any;
+    visitDecimal               (node: any, ...args: any[]): any;
+    visitList                  (node: any, ...args: any[]): any;
+    visitStruct                (node: any, ...args: any[]): any;
+    visitUnion                 (node: any, ...args: any[]): any;
+    visitDenseUnion?           (node: any, ...args: any[]): any;
+    visitSparseUnion?          (node: any, ...args: any[]): any;
+    visitDictionary            (node: any, ...args: any[]): any;
+    visitInterval              (node: any, ...args: any[]): any;
+    visitIntervalDayTime?      (node: any, ...args: any[]): any;
+    visitIntervalYearMonth?    (node: any, ...args: any[]): any;
+    visitFixedSizeList         (node: any, ...args: any[]): any;
+    visitMap                   (node: any, ...args: any[]): any;
+}
+
+// Add these here so they're picked up by the externs creator
+// in the build, and closure-compiler doesn't minify them away
+(Visitor.prototype as any).visitInt8 = null;
+(Visitor.prototype as any).visitInt16 = null;
+(Visitor.prototype as any).visitInt32 = null;
+(Visitor.prototype as any).visitInt64 = null;
+(Visitor.prototype as any).visitUint8 = null;
+(Visitor.prototype as any).visitUint16 = null;
+(Visitor.prototype as any).visitUint32 = null;
+(Visitor.prototype as any).visitUint64 = null;
+(Visitor.prototype as any).visitFloat16 = null;
+(Visitor.prototype as any).visitFloat32 = null;
+(Visitor.prototype as any).visitFloat64 = null;
+(Visitor.prototype as any).visitDateDay = null;
+(Visitor.prototype as any).visitDateMillisecond = null;
+(Visitor.prototype as any).visitTimestampSecond = null;
+(Visitor.prototype as any).visitTimestampMillisecond = null;
+(Visitor.prototype as any).visitTimestampMicrosecond = null;
+(Visitor.prototype as any).visitTimestampNanosecond = null;
+(Visitor.prototype as any).visitTimeSecond = null;
+(Visitor.prototype as any).visitTimeMillisecond = null;
+(Visitor.prototype as any).visitTimeMicrosecond = null;
+(Visitor.prototype as any).visitTimeNanosecond = null;
+(Visitor.prototype as any).visitDenseUnion = null;
+(Visitor.prototype as any).visitSparseUnion = null;
+(Visitor.prototype as any).visitIntervalDayTime = null;
+(Visitor.prototype as any).visitIntervalYearMonth = null;

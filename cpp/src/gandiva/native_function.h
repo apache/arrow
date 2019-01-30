@@ -52,7 +52,6 @@ class NativeFunction {
   bool NeedsFunctionHolder() const { return (flags_ & kNeedsFunctionHolder) != 0; }
   bool CanReturnErrors() const { return (flags_ & kCanReturnErrors) != 0; }
 
- private:
   NativeFunction(const std::string& base_name, const DataTypeVector& param_types,
                  DataTypePtr ret_type, const ResultNullableType& result_nullable_type,
                  const std::string& pc_name, int32_t flags = 0)
@@ -61,6 +60,7 @@ class NativeFunction {
         result_nullable_type_(result_nullable_type),
         pc_name_(pc_name) {}
 
+ private:
   FunctionSignature signature_;
 
   /// attributes
@@ -69,8 +69,6 @@ class NativeFunction {
 
   /// pre-compiled function name.
   std::string pc_name_;
-
-  friend class FunctionRegistry;
 };
 
 }  // end namespace gandiva

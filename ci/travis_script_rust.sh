@@ -19,6 +19,8 @@
 
 set -e
 
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+
 RUST_DIR=${TRAVIS_BUILD_DIR}/rust
 
 pushd $RUST_DIR
@@ -26,22 +28,17 @@ pushd $RUST_DIR
 # show activated toolchain
 rustup show
 
-# check code formatting only for Rust nightly
-if [ $RUSTUP_TOOLCHAIN == "nightly" ]
-then
-  # raises on any formatting errors
-  rustup component add rustfmt-preview
-  cargo fmt --all -- --check
-fi
+# raises on any formatting errors
+cargo +stable fmt --all -- --check
 
-# raises on any warnings
-cargo rustc -- -D warnings
-
-cargo build
+RUSTFLAGS="-D warnings" cargo build
 cargo test
-cargo bench
+
+# run examples
+cd arrow
 cargo run --example builders
 cargo run --example dynamic_types
 cargo run --example read_csv
+cargo run --example read_csv_infer_schema
 
 popd

@@ -18,13 +18,12 @@
 #include "arrow/test-util.h"
 
 #ifndef _WIN32
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
+#include <sys/stat.h>  // IWYU pragma: keep
+#include <sys/wait.h>  // IWYU pragma: keep
+#include <unistd.h>    // IWYU pragma: keep
 #endif
 
 #include <algorithm>
-#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
@@ -33,30 +32,27 @@
 #include <random>
 #include <sstream>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/builder.h"
-#include "arrow/memory_pool.h"
+#include "arrow/ipc/json-simple.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
-void sleep_for(double seconds) {
-  std::this_thread::sleep_for(
-      std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
-}
-
 namespace arrow {
+
+std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
+                                     const std::string& json) {
+  std::shared_ptr<Array> out;
+  ABORT_NOT_OK(ipc::internal::json::ArrayFromJSON(type, json, &out));
+  return out;
+}
 
 void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
   const int random_seed = 0;
@@ -307,17 +303,23 @@ void AssertZeroPadded(const Array& array) {
   for (const auto& buffer : array.data()->buffers) {
     if (buffer) {
       const int64_t padding = buffer->capacity() - buffer->size();
-      std::vector<uint8_t> zeros(padding);
-      ASSERT_EQ(0, memcmp(buffer->data() + buffer->size(), zeros.data(), padding));
+      if (padding > 0) {
+        std::vector<uint8_t> zeros(padding);
+        ASSERT_EQ(0, memcmp(buffer->data() + buffer->size(), zeros.data(), padding));
+      }
     }
   }
 }
 
 void TestInitialized(const Array& array) {
   for (const auto& buffer : array.data()->buffers) {
-    if (buffer) {
-      std::vector<uint8_t> zeros(buffer->capacity());
-      throw_away = memcmp(buffer->data(), zeros.data(), buffer->size());
+    if (buffer && buffer->capacity() > 0) {
+      int total = 0;
+      auto data = buffer->data();
+      for (int64_t i = 0; i < buffer->size(); ++i) {
+        total ^= data[i];
+      }
+      throw_away = total;
     }
   }
 }

@@ -21,6 +21,7 @@
 #include "gtest/gtest.h"
 
 #include "parquet/arrow/schema.h"
+#include "parquet/schema.h"
 
 #include "arrow/api.h"
 #include "arrow/test-util.h"

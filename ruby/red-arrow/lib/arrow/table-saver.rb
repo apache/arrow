@@ -18,15 +18,15 @@
 module Arrow
   class TableSaver
     class << self
-      def save(table, path, options={})
-        new(table, path, options).save
+      def save(table, output, options={})
+        new(table, output, options).save
       end
     end
 
-    def initialize(table, path, options={})
+    def initialize(table, output, options={})
       @table = table
-      path = path.to_path if path.respond_to?(:to_path)
-      @path = path
+      output = output.to_path if output.respond_to?(:to_path)
+      @output = output
       @options = options
       fill_options
     end
@@ -51,7 +51,7 @@ module Arrow
         __send__(custom_save_method)
       else
         # For backward compatibility.
-        __send__(custom_save_method, @path)
+        __send__(custom_save_method, @output)
       end
     end
 
@@ -61,11 +61,15 @@ module Arrow
         return
       end
 
-      extension = PathExtension.new(@path)
-      info = extension.extract
+      if @output.is_a?(Buffer)
+        info = {}
+      else
+        extension = PathExtension.new(@output)
+        info = extension.extract
+      end
       format = info[:format]
       @options = @options.dup
-      if respond_to?("save_as_#{format}", true)
+      if format and respond_to?("save_as_#{format}", true)
         @options[:format] ||= format.to_sym
       else
         @options[:format] ||= :arrow
@@ -75,8 +79,30 @@ module Arrow
       end
     end
 
+    def open_raw_output_stream(&block)
+      if @output.is_a?(Buffer)
+        BufferOutputStream.open(@output, &block)
+      else
+        FileOutputStream.open(@output, false, &block)
+      end
+    end
+
+    def open_output_stream(&block)
+      compression = @options[:compression]
+      if compression
+        codec = Codec.new(compression)
+        open_raw_output_stream do |raw_output|
+          CompressedOutputStream.open(codec, raw_output) do |output|
+            yield(output)
+          end
+        end
+      else
+        open_raw_output_stream(&block)
+      end
+    end
+
     def save_raw(writer_class)
-      FileOutputStream.open(@path, false) do |output|
+      open_output_stream do |output|
         writer_class.open(output, @table.schema) do |writer|
           writer.write_table(@table)
         end
@@ -95,24 +121,8 @@ module Arrow
       save_raw(RecordBatchStreamWriter)
     end
 
-    def open_output
-      compression = @options[:compression]
-      if compression
-        codec = Codec.new(compression)
-        FileOutputStream.open(@path, false) do |raw_output|
-          CompressedOutputStream.open(codec, raw_output) do |output|
-            yield(output)
-          end
-        end
-      else
-        ::File.open(@path, "w") do |output|
-          yield(output)
-        end
-      end
-    end
-
     def save_as_csv
-      open_output do |output|
+      open_output_stream do |output|
         csv = CSV.new(output)
         names = @table.schema.fields.collect(&:name)
         csv << names
@@ -125,7 +135,7 @@ module Arrow
     end
 
     def save_as_feather
-      FileOutputStream.open(@path, false) do |output|
+      open_output_stream do |output|
         FeatherFileWriter.open(output) do |writer|
           writer.write(@table)
         end

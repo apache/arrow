@@ -17,21 +17,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// @ts-check
+
 const fs = require('fs');
 const path = require('path');
-
-const encoding = 'binary';
-const ext = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '';
-const { util: { PipeIterator } } = require(`../index${ext}`);
-const { Table, serializeFile, fromReadableStream } = require(`../index${ext}`);
+const eos = require('util').promisify(require('stream').finished);
+const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '';
+const { RecordBatchReader, RecordBatchFileWriter } = require(`../index${extension}`);
 
 (async () => {
-    // Todo (ptaylor): implement `serializeFileAsync` that accepts an
-    // AsyncIterable<Buffer>, rather than aggregating into a Table first
-    const in_ = process.argv.length < 3
-        ? process.stdin : fs.createReadStream(path.resolve(process.argv[2]));
-    const out = process.argv.length < 4
-        ? process.stdout : fs.createWriteStream(path.resolve(process.argv[3]));
-    new PipeIterator(serializeFile(await Table.fromAsync(fromReadableStream(in_))), encoding).pipe(out);
+
+    const readable = process.argv.length < 3 ? process.stdin : fs.createReadStream(path.resolve(process.argv[2]));
+    const writable = process.argv.length < 4 ? process.stdout : fs.createWriteStream(path.resolve(process.argv[3]));
+
+    const streamToFile = readable
+        .pipe(RecordBatchReader.throughNode())
+        .pipe(RecordBatchFileWriter.throughNode())
+        .pipe(writable);
+
+    await eos(streamToFile);
 
 })().catch((e) => { console.error(e); process.exit(1); });

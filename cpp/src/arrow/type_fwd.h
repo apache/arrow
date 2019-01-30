@@ -96,17 +96,17 @@ class NumericTensor;
   using KLASS##Builder = NumericBuilder<KLASS##Type>; \
   using KLASS##Tensor = NumericTensor<KLASS##Type>;
 
-_NUMERIC_TYPE_DECL(Int8);
-_NUMERIC_TYPE_DECL(Int16);
-_NUMERIC_TYPE_DECL(Int32);
-_NUMERIC_TYPE_DECL(Int64);
-_NUMERIC_TYPE_DECL(UInt8);
-_NUMERIC_TYPE_DECL(UInt16);
-_NUMERIC_TYPE_DECL(UInt32);
-_NUMERIC_TYPE_DECL(UInt64);
-_NUMERIC_TYPE_DECL(HalfFloat);
-_NUMERIC_TYPE_DECL(Float);
-_NUMERIC_TYPE_DECL(Double);
+_NUMERIC_TYPE_DECL(Int8)
+_NUMERIC_TYPE_DECL(Int16)
+_NUMERIC_TYPE_DECL(Int32)
+_NUMERIC_TYPE_DECL(Int64)
+_NUMERIC_TYPE_DECL(UInt8)
+_NUMERIC_TYPE_DECL(UInt16)
+_NUMERIC_TYPE_DECL(UInt32)
+_NUMERIC_TYPE_DECL(UInt64)
+_NUMERIC_TYPE_DECL(HalfFloat)
+_NUMERIC_TYPE_DECL(Float)
+_NUMERIC_TYPE_DECL(Double)
 
 #undef _NUMERIC_TYPE_DECL
 
@@ -136,6 +136,11 @@ using IntervalArray = NumericArray<IntervalType>;
 // ----------------------------------------------------------------------
 // (parameter-free) Factory functions
 // Other factory functions are in type.h
+
+/// \defgroup type-factories Factory functions for creating data types
+///
+/// Factory functions for creating data types
+/// @{
 
 /// \brief Return a NullType instance
 std::shared_ptr<DataType> ARROW_EXPORT null();
@@ -171,6 +176,8 @@ std::shared_ptr<DataType> ARROW_EXPORT binary();
 std::shared_ptr<DataType> ARROW_EXPORT date32();
 /// \brief Return a Date64Type instance
 std::shared_ptr<DataType> ARROW_EXPORT date64();
+
+/// @}
 
 }  // namespace arrow
 

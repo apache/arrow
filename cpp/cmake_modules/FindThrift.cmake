@@ -34,6 +34,17 @@ if( NOT "${THRIFT_HOME}" STREQUAL "")
     list( APPEND _thrift_roots ${_native_path} )
 elseif ( Thrift_HOME )
     list( APPEND _thrift_roots ${Thrift_HOME} )
+elseif (APPLE)
+  # Also look in homebrew for a matching llvm version
+  find_program(BREW_BIN brew)
+  if (BREW_BIN)
+    execute_process(
+      COMMAND ${BREW_BIN} --prefix "thrift"
+      OUTPUT_VARIABLE THRIFT_BREW_PREFIX
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    list( APPEND _thrift_roots ${THRIFT_BREW_PREFIX} )
+  endif()
 endif()
 
 message(STATUS "THRIFT_HOME: ${THRIFT_HOME}")
