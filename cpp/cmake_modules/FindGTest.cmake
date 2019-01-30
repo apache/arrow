@@ -99,7 +99,7 @@ endif()
 # Try the parameterized roots, if they exist
 if(_gtest_roots)
   find_path(GMOCK_INCLUDE_DIR NAMES gmock/gmock.h
-    PATHS ${_gmock_roots} NO_DEFAULT_PATH
+    PATHS ${_gtest_roots} NO_DEFAULT_PATH
     PATH_SUFFIXES "include")
   set(lib_dirs
     "lib/${CMAKE_LIBRARY_ARCHITECTURE}"
@@ -118,7 +118,7 @@ if(_gtest_roots)
     PATHS ${_gmock_roots} NO_DEFAULT_PATH
     PATH_SUFFIXES ${lib_dirs})
 else()
-  find_path(GMOCK_INCLUDE_DIR NAMES gtest/gtest.h)
+  find_path(GMOCK_INCLUDE_DIR NAMES gmock/gmock.h)
   find_library(GMOCK_STATIC_LIB NAMES ${GMOCK_STATIC_LIB_NAME})
   find_library(GMOCK_MAIN_STATIC_LIB NAMES ${GMOCK_MAIN_STATIC_LIB_NAME})
   find_library(GMOCK_SHARED_LIB NAMES ${GMOCK_SHARED_LIB_NAME})
