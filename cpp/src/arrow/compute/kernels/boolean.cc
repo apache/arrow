@@ -52,7 +52,7 @@ class InvertKernel : public UnaryKernel {
     // Handle validity bitmap
     result->null_count = in_data.null_count;
     const std::shared_ptr<Buffer>& validity_bitmap = in_data.buffers[0];
-    if (in_data.offset != 0) {
+    if (in_data.offset != 0 && in_data.null_count > 0) {
       DCHECK_LE(BitUtil::BytesForBits(in_data.length), validity_bitmap->size());
       CopyBitmap(validity_bitmap->data(), in_data.offset, in_data.length,
                  result->buffers[0]->mutable_data(), kZeroDestOffset);
@@ -61,10 +61,12 @@ class InvertKernel : public UnaryKernel {
     }
 
     // Handle output data buffer
-    const std::shared_ptr<Buffer>& data_buffer = in_data.buffers[1];
-    DCHECK_LE(BitUtil::BytesForBits(in_data.length), data_buffer->size());
-    InvertBitmap(data_buffer->data(), in_data.offset, in_data.length,
-                 result->buffers[1]->mutable_data(), kZeroDestOffset);
+    if (in_data.length > 0) {
+      const Buffer& data_buffer = *in_data.buffers[1];
+      DCHECK_LE(BitUtil::BytesForBits(in_data.length), data_buffer.size());
+      InvertBitmap(data_buffer.data(), in_data.offset, in_data.length,
+                   result->buffers[1]->mutable_data(), kZeroDestOffset);
+    }
     return Status::OK();
   }
 };
