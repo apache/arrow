@@ -322,7 +322,7 @@ TYPED_TEST(TypedTestBufferBuilder, AppendCopies) {
 
   auto data = reinterpret_cast<const TypeParam*>(built->data());
   for (int i = 0; i != 13 + 17; ++i, ++data) {
-    ASSERT_EQ(*data, i < 13) << "index = " << i;
+    ASSERT_EQ(*data, static_cast<TypeParam>(i < 13)) << "index = " << i;
   }
 }
 
