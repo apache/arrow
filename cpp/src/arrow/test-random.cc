@@ -45,7 +45,10 @@ struct GenerateOptions {
     DistributionType dist(min_, max_);
 
     ValueType* data = reinterpret_cast<ValueType*>(buffer);
-    std::generate(data, data + n, [&dist, &rng] { return dist(rng); });
+
+    // A static cast is required due to the int16 -> int8 handling.
+    std::generate(data, data + n,
+                  [&dist, &rng] { return static_cast<ValueType>(dist(rng)); });
   }
 
   void GenerateBitmap(uint8_t* buffer, size_t n, int64_t* null_count) {
@@ -121,8 +124,10 @@ static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(int64_t siz
 #define PRIMITIVE_RAND_INTEGER_IMPL(Name, CType, ArrowType) \
   PRIMITIVE_RAND_IMPL(Name, CType, ArrowType, std::uniform_int_distribution<CType>)
 
-PRIMITIVE_RAND_INTEGER_IMPL(UInt8, uint8_t, UInt8Type)
-PRIMITIVE_RAND_INTEGER_IMPL(Int8, int8_t, Int8Type)
+// Visual Studio does not implement uniform_int_distribution for char types.
+PRIMITIVE_RAND_IMPL(UInt8, uint8_t, UInt8Type, std::uniform_int_distribution<uint16_t>)
+PRIMITIVE_RAND_IMPL(Int8, int8_t, Int8Type, std::uniform_int_distribution<int16_t>)
+
 PRIMITIVE_RAND_INTEGER_IMPL(UInt16, uint16_t, UInt16Type)
 PRIMITIVE_RAND_INTEGER_IMPL(Int16, int16_t, Int16Type)
 PRIMITIVE_RAND_INTEGER_IMPL(UInt32, uint32_t, UInt32Type)
