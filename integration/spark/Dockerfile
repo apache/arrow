@@ -33,9 +33,9 @@ RUN apt-get update -q -y && \
 ARG SPARK_VERSION=2.4.0
 RUN mkdir /spark && \
     cd /spark && \
-    wget -q -O spark.zip https://github.com/apache/spark/archive/master.zip \
-    unzip spark.zip \
-    rm spark.zip
+    wget -q -O spark.tar.gz https://github.com/apache/spark/archive/master.tar.gz && \
+    tar -xzf spark.tar.gz && \
+    rm spark.tar.gz
 
 # build cpp with tests
 ENV CC=gcc \
