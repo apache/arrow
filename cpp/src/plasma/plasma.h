@@ -104,9 +104,6 @@ enum class ObjectStatus : int {
 struct PlasmaStoreInfo {
   /// Objects that are in the Plasma store.
   ObjectTable objects;
-  /// The amount of memory (in bytes) that we allow to be allocated in the
-  /// store.
-  int64_t memory_capacity;
   /// Boolean flag indicating whether to start the object store with hugepages
   /// support enabled. Huge pages are substantially larger than normal memory
   /// pages (e.g. 2MB or 1GB instead of 4KB) and using them can reduce
