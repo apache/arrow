@@ -161,7 +161,7 @@ fi
 # Build and install libraries. Configure ARROW_CPP_BUILD_TARGETS environment
 # variable to only build certain targets. If you use this, you must also set
 # the environment variable ARROW_TRAVIS_OPTIONAL_INSTALL=1
-$TRAVIS_MAKE -j4 $ARROW_CPP_BUILD_TARGETS
+$TRAVIS_MAKE -j4 -v $ARROW_CPP_BUILD_TARGETS
 $TRAVIS_MAKE install
 
 popd
