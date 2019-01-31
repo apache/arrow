@@ -49,5 +49,16 @@ pushd /spark/spark-${SPARK_VERSION}
 
   # Run pyarrow related Python tests only
   echo "Testing PySpark:"
-  python/run-tests --modules pyspark-sql
+  python/run-tests --testnames=
+
+  SPARK_PYTHON_TESTS=(
+    "pyspark.sql.tests.test_arrow"
+    "pyspark.sql.tests.test_pandas_udf"
+    "pyspark.sql.tests.test_pandas_udf_scalar"
+    "pyspark.sql.tests.test_pandas_udf_grouped_agg"
+    "pyspark.sql.tests.test_pandas_udf_grouped_map"
+    "pyspark.sql.tests.test_pandas_udf_window")
+
+  (echo "Testing PySpark:"; IFS=$'\n'; echo "${SPARK_PYTHON_TESTS[*]}")
+  python/run-tests --testnames "$(IFS=,; echo "${SPARK_PYTHON_TESTS[*]}")"
 popd

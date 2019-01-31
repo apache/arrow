@@ -33,15 +33,9 @@ RUN apt-get update -q -y && \
 ARG SPARK_VERSION=2.4.0
 RUN mkdir /spark && \
     cd /spark && \
-    wget -q -O spark.tar.gz https://github.com/apache/spark/archive/v$SPARK_VERSION.tar.gz && \
-    tar -xzf spark.tar.gz && \
-    rm spark.tar.gz
-
-# patching spark is required in order to:
-# - avoid too long filenames error https://issues.apache.org/jira/browse/SPARK-4820
-ADD integration/spark/$SPARK_VERSION.patch /arrow/integration/spark/$SPARK_VERSION.patch
-RUN cd /spark/spark-$SPARK_VERSION && \
-    patch -p1 < /arrow/integration/spark/$SPARK_VERSION.patch
+    wget -q -O spark.zip https://github.com/apache/spark/archive/master.zip \
+    unzip spark.zip \
+    rm spark.zip
 
 # build cpp with tests
 ENV CC=gcc \
