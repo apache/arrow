@@ -58,7 +58,6 @@ add_custom_command(
 
 add_custom_target(precompiled ALL DEPENDS ${GANDIVA_BC_OUTPUT_PATH})
 
-# Add a unittest executable for a precompiled file (used to generate IR)
 function(add_precompiled_unit_test REL_TEST_NAME)
   get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
 
@@ -79,7 +78,7 @@ endfunction(add_precompiled_unit_test REL_TEST_NAME)
 if (ARROW_BUILD_TESTS)
   add_precompiled_unit_test(bitmap_test.cc bitmap.cc)
   add_precompiled_unit_test(epoch_time_point_test.cc)
-  add_precompiled_unit_test(time_test.cc time.cc timestamp_arithmetic.cc ../context_helper.cc)
+  add_precompiled_unit_test(time_test.cc time.cc timestamp_arithmetic.cc ../context_helper.cc ../cast_time.cc ../../arrow/vendored/datetime/tz.cpp)
   add_precompiled_unit_test(hash_test.cc hash.cc)
   add_precompiled_unit_test(string_ops_test.cc string_ops.cc ../context_helper.cc)
   add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc ../context_helper.cc)

@@ -15,9 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <time.h>
-
 #include <gtest/gtest.h>
+#include <time.h>
 #include "../execution_context.h"
 #include "gandiva/precompiled/types.h"
 
@@ -48,6 +47,55 @@ TEST(TestTime, TestCastDate) {
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-1-1", 7), 31536000000);
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-45-1", 7), 0);
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-12-XX", 8), 0);
+}
+
+TEST(TestTime, TestCastTimestamp) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1967-12-1", 9), -65836800000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1972-12-1", 9), 92016000000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "67-12-1", 7), 3089923200000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "67-1-1", 7), 3061065600000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "71-1-1", 7), 31536000000);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30", 18), 969702330000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920", 22), 969702330920);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920 +08:00", 29),
+            969673530920);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920 -11:45", 29),
+            969744630920);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "65-03-04 00:20:40.920 +00:30", 28),
+            3003349840920);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1932-05-18 11:30:00.920 +11:30", 30),
+            -1187308799080);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1857-02-11 20:31:40.920 -05:30", 30),
+            -3562264699080);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920 Canada/Pacific", 37),
+            969727530920);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2012-02-28 23:30:59 Asia/Kolkata", 32),
+            1330452059000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1923-10-07 03:03:03 America/New_York", 36),
+            -1459094217000);
+
+  // error cases
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "20000923", 8), 0);
+  EXPECT_EQ(context.get_error(), "Not a valid day for timestamp value 20000923");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-2b", 10), 0);
+  EXPECT_EQ(context.get_error(),
+            "Invalid timestamp or unknown zone for timestamp value 2000-09-2b");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920 Unknown/Zone", 35),
+            0);
+  EXPECT_EQ(context.get_error(),
+            "Invalid timestamp or unknown zone for timestamp value 2000-09-23 "
+            "9:45:30.920 Unknown/Zone");
+  context.Reset();
 }
 
 TEST(TestTime, TestExtractTime) {

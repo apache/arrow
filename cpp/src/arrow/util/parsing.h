@@ -34,7 +34,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/vendored/date.h"
+#include "arrow/vendored/datetime/date.h"
 
 namespace arrow {
 namespace internal {
@@ -375,7 +375,7 @@ class StringConverter<TimestampType> {
     // - "YYYY-MM-DD[ T]hh:mm:ss"
     // - "YYYY-MM-DD[ T]hh:mm:ssZ"
     // UTC is always assumed, and the DataType's timezone is ignored.
-    date::year_month_day ymd;
+    arrow::util::date::year_month_day ymd;
     if (ARROW_PREDICT_FALSE(length < 10)) {
       return false;
     }
@@ -383,7 +383,7 @@ class StringConverter<TimestampType> {
       if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &ymd))) {
         return false;
       }
-      return ConvertTimePoint(date::sys_days(ymd), out);
+      return ConvertTimePoint(arrow::util::date::sys_days(ymd), out);
     }
     if (ARROW_PREDICT_FALSE(s[10] != ' ') && ARROW_PREDICT_FALSE(s[10] != 'T')) {
       return false;
@@ -399,7 +399,7 @@ class StringConverter<TimestampType> {
       if (ARROW_PREDICT_FALSE(!ParseHH_MM_SS(s + 11, &seconds))) {
         return false;
       }
-      return ConvertTimePoint(date::sys_days(ymd) + seconds, out);
+      return ConvertTimePoint(arrow::util::date::sys_days(ymd) + seconds, out);
     }
     return false;
   }
@@ -428,7 +428,7 @@ class StringConverter<TimestampType> {
     return true;
   }
 
-  bool ParseYYYY_MM_DD(const char* s, date::year_month_day* out) {
+  bool ParseYYYY_MM_DD(const char* s, arrow::util::date::year_month_day* out) {
     uint16_t year;
     uint8_t month, day;
     if (ARROW_PREDICT_FALSE(s[4] != '-') || ARROW_PREDICT_FALSE(s[7] != '-')) {
@@ -443,7 +443,8 @@ class StringConverter<TimestampType> {
     if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 8, 2, &day))) {
       return false;
     }
-    *out = {date::year{year}, date::month{month}, date::day{day}};
+    *out = {arrow::util::date::year{year}, arrow::util::date::month{month},
+            arrow::util::date::day{day}};
     return out->ok();
   }
 

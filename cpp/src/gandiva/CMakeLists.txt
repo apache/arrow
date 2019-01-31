@@ -44,6 +44,7 @@ add_definitions(-DGANDIVA_BYTE_COMPILE_FILE_PATH="${GANDIVA_BC_OUTPUT_PATH}")
 
 set(SRC_FILES annotator.cc
       bitmap_accumulator.cc
+      cast_time.cc
       configuration.cc
       context_helper.cc
       decimal_ir.cc
@@ -119,6 +120,7 @@ set(GANDIVA_STATIC_TEST_LINK_LIBS
   gandiva_static
   ${RE2_LIBRARY}
   ${ARROW_TEST_LINK_LIBS})
+
 set(GANDIVA_SHARED_TEST_LINK_LIBS
   gandiva_shared
   ${RE2_LIBRARY}
