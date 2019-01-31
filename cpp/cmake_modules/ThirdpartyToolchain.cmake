@@ -379,9 +379,6 @@ find_package(Threads REQUIRED)
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu (incubating))
 
-set(ARROW_BOOST_COMPONENTS
-  "filesystem,regex,system")
-
 set(Boost_USE_MULTITHREADED ON)
 if (MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
@@ -424,7 +421,7 @@ if (ARROW_BOOST_VENDORED)
     set(BOOST_CONFIGURE_COMMAND
       "./bootstrap.sh"
       "--prefix=${THIRDPARTY_PREFIX}"
-      "--with-libraries=${ARROW_BOOST_COMPONENTS}")
+      "--with-libraries=filesystem,regex,system")
     if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
       set(BOOST_BUILD_VARIANT "debug")
     else()
@@ -447,7 +444,6 @@ if (ARROW_BOOST_VENDORED)
     INSTALL_COMMAND ""
     ${EP_LOG_OPTIONS})
   set(Boost_INCLUDE_DIR "${THIRDPARTY_PREFIX}")
-  set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
   add_dependencies(toolchain boost_ep)
 else()
   if (MSVC)
@@ -511,7 +507,7 @@ else()
   endif()
 endif()
 
-message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIRS})
+message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIR})
 message(STATUS "Boost libraries: " ${Boost_LIBRARIES})
 
 if (NOT ARROW_BOOST_HEADER_ONLY)
@@ -784,7 +780,7 @@ if (ARROW_WITH_RAPIDJSON)
     set(FLATBUFFERS_BUILD_TYPE RELEASE)
     set(FLATBUFFERS_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
       -DCMAKE_BUILD_TYPE=${FLATBUFFERS_BUILD_TYPE}
-      "-DCMAKE_INSTALL_PREFIX=${FLATBUFFERS_PREFIX}"
+      -DCMAKE_INSTALL_PREFIX=${FLATBUFFERS_PREFIX}
       -DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}
       -DFLATBUFFERS_BUILD_TESTS=OFF)
 
