@@ -49,7 +49,6 @@ pushd /spark/spark-${SPARK_VERSION}
 
   # Run pyarrow related Python tests only
   echo "Testing PySpark:"
-  python/run-tests --testnames=
 
   SPARK_PYTHON_TESTS=(
     "pyspark.sql.tests.test_arrow"
