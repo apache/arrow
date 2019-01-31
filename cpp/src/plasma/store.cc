@@ -108,7 +108,7 @@ GetRequest::GetRequest(Client* client, const std::vector<ObjectID>& object_ids)
 
 Client::Client(int fd) : fd(fd), notification_fd(-1) {}
 
-PlasmaStore::PlasmaStore(EventLoop* loop, std::string directory, bool hugepages_enabled, 
+PlasmaStore::PlasmaStore(EventLoop* loop, std::string directory, bool hugepages_enabled,
                          const std::string& socket_name,
                          std::shared_ptr<ExternalStore> external_store,
                          const std::string& external_store_endpoint,
@@ -679,7 +679,7 @@ void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
   if (external_store_worker_.IsValid() && !object_ids.empty()) {
     ARROW_CHECK_OK(external_store_worker_.Put(object_ids, evicted_object_data));
     for (auto entry : evicted_entries) {
-      dlfree(entry->pointer);
+      PlasmaAllocator::Free(entry->pointer, entry->data_size + entry->metadata_size);
       entry->pointer = nullptr;
       entry->state = ObjectState::PLASMA_EVICTED;
     }
@@ -1016,13 +1016,13 @@ class PlasmaStoreRunner {
  public:
   PlasmaStoreRunner() {}
 
-  void Start(char* socket_name, std::string directory, bool hugepages_enabled, 
+  void Start(char* socket_name, std::string directory, bool hugepages_enabled,
              std::shared_ptr<ExternalStore> external_store,
              const std::string& external_store_endpoint,
              size_t external_store_parallelism) {
     // Create the event loop.
     loop_.reset(new EventLoop);
-    store_.reset(new PlasmaStore(loop_.get(), directory, hugepages_enabled, socket_name, 
+    store_.reset(new PlasmaStore(loop_.get(), directory, hugepages_enabled, socket_name,
                                  external_store, external_store_endpoint,
                                  external_store_parallelism));
     plasma_config = store_->GetPlasmaStoreInfo();
@@ -1072,7 +1072,7 @@ void HandleSignal(int signal) {
   }
 }
 
-void StartServer(char* socket_name, std::string plasma_directory, bool hugepages_enabled, 
+void StartServer(char* socket_name, std::string plasma_directory, bool hugepages_enabled,
                  std::shared_ptr<ExternalStore> external_store,
                  const std::string& external_store_endpoint,
                  size_t external_store_parallelism) {
@@ -1195,9 +1195,6 @@ int main(int argc, char* argv[]) {
                     << external_store_parallelism;
   }
 
-  // Make it so dlmalloc fails if we try to request more memory than is
-  // available.
-  plasma::dlmalloc_set_footprint_limit((size_t)system_memory);
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
   plasma::StartServer(socket_name, plasma_directory, hugepages_enabled, external_store,
                       external_store_endpoint,
