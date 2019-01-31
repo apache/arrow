@@ -201,7 +201,7 @@ using ThriftBuffer = apache::thrift::transport::TMemoryBuffer;
 template <class T>
 inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deserialized_msg,
                                  const EncryptionProperties* encryption = NULLPTR,
-                                 bool shouldReadLength = true) {
+                                 bool shouldReadLength = false) {
   if (encryption == NULLPTR) {
     // Deserialize msg bytes into c++ thrift msg using memory transport.
     shared_ptr<ThriftBuffer> tmem_transport(
@@ -233,7 +233,7 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
     const uint8_t* cipherBuf = shouldReadLength ? &buf[4] : buf;
     std::vector<uint8_t> decrypted_buffer(encryption->CalculatePlainSize(clen, true));
     uint32_t decrypted_buffer_len = parquet_encryption::Decrypt(
-        encryption->algorithm(), true, cipherBuf, clen, encryption->key_bytes(),
+        encryption->algorithm(), true, cipherBuf, 0, encryption->key_bytes(),
         encryption->key_length(), encryption->aad_bytes(), encryption->aad_length(),
         decrypted_buffer.data());
     if (decrypted_buffer_len <= 0) {
@@ -241,7 +241,7 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
     }
     DeserializeThriftMsg(decrypted_buffer.data(), &decrypted_buffer_len,
                          deserialized_msg);
-    *len = 4 + clen;
+    *len = encryption->CalculateCipherSize(decrypted_buffer_len, true);
   }
 }
 
@@ -274,7 +274,7 @@ class ThriftSerializer {
 
   template <class T>
   int64_t Serialize(const T* obj, ArrowOutputStream* out, const EncryptionProperties* encryption = NULLPTR,
-                    bool shouldWriteLength = true) {
+                    bool shouldWriteLength = false) {
     uint8_t* out_buffer;
     uint32_t out_length;
     SerializeToBuffer(obj, &out_length, &out_buffer);
@@ -288,6 +288,11 @@ class ThriftSerializer {
           encryption->algorithm(), true, out_buffer, out_length, encryption->key_bytes(),
           encryption->key_length(), encryption->aad_bytes(), encryption->aad_length(),
           cipher_buffer.data());
+      if (cipher_buffer_len > cipher_buffer.size()) {
+        std::stringstream ss;
+        ss << "cipher length is greater than cipher buffer capacity: " << cipher_buffer_len << cipher_buffer.size() << "\n";
+        throw ParquetException(ss.str());
+      }
 
       if (shouldWriteLength) {
         PARQUET_THROW_NOT_OK(out->Write(reinterpret_cast<uint8_t*>(&cipher_buffer_len), 4));

@@ -489,18 +489,18 @@ class PARQUET_EXPORT EncryptionProperties {
 
   uint32_t CalculateCipherSize(uint32_t plain_len, bool is_metadata = false) const {
     if (is_metadata || algorithm_ == Encryption::AES_GCM_V1) {
-      return plain_len + 28;
+      return plain_len + 28 + 4;
     } else if (algorithm_ == Encryption::AES_GCM_CTR_V1) {
-      return plain_len + 16;
+      return plain_len + 16 + 4;
     }
     return plain_len;
   }
 
   uint32_t CalculatePlainSize(uint32_t cipher_len, bool is_metadata = false) const {
     if (is_metadata || algorithm_ == Encryption::AES_GCM_V1) {
-      return cipher_len - 28;
+      return cipher_len - 28 - 4;
     } else if (algorithm_ == Encryption::AES_GCM_CTR_V1) {
-      return cipher_len - 16;
+      return cipher_len - 16 - 4;
     }
     return cipher_len;
   }
