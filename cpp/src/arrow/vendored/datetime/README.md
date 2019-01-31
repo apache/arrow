@@ -14,7 +14,7 @@ copies or substantial portions of the Software.
 
 # Utilities for supporting date time functions
 
-Sources for datetime are adapted from HowardHinnat/date project
+Sources for datetime are adapted from Howard Hinnant's date library
 (https://github.com/HowardHinnant/date).
 
 Sources are taken from v2.4.1 release of the above project.
