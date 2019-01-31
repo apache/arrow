@@ -791,6 +791,14 @@ if (ARROW_WITH_RAPIDJSON)
 
     set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
     set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
+
+    if (MSVC)
+        ExternalProject_Get_Property(flatbuffers_ep BINARY_DIR)
+        ExternalProject_Add_Step(flatbuffers_ep install_flatc
+            DEPENDEES install
+            COMMAND ${CMAKE_COMMAND} -E copy "${BINARY_DIR}/${CMAKE_BUILD_TYPE}/flatc.exe" ${FLATBUFFERS_PREFIX}/bin/flatc.exe)
+    endif()
+
     set(FLATBUFFERS_VENDORED 1)
     add_dependencies(toolchain flatbuffers_ep)
   else()
