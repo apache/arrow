@@ -99,9 +99,12 @@ class ReadOnlyStream {
  public:
   using Ch = char;
   std::size_t Tell() { return index_; }
-  Ch* PutBegin() { return nullptr; }
   void Put(Ch) { ARROW_LOG(FATAL) << "not implemented"; }
   void Flush() { ARROW_LOG(FATAL) << "not implemented"; }
+  Ch* PutBegin() {
+    ARROW_LOG(FATAL) << "not implemented";
+    return nullptr;
+  }
   std::size_t PutEnd(Ch*) {
     ARROW_LOG(FATAL) << "not implemented";
     return 0;

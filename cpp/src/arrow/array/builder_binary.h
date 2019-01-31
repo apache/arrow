@@ -84,8 +84,8 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
     UnsafeAppend(reinterpret_cast<const uint8_t*>(value), length);
   }
 
-  void UnsafeAppend(const std::string& value) {
-    UnsafeAppend(value.c_str(), static_cast<int32_t>(value.size()));
+  void UnsafeAppend(util::string_view value) {
+    UnsafeAppend(value.data(), static_cast<int32_t>(value.size()));
   }
 
   void UnsafeAppendNull() {

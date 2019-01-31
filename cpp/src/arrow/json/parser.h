@@ -29,6 +29,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -37,46 +38,46 @@ class RecordBatch;
 
 namespace json {
 
-/// \class AdaptiveArrayBuilder
-/// \brief Base class for array builders in contexts where the
-///        final type is unknown
-class AdaptiveArrayBuilder {
- public:
-  AdaptiveArrayBuilder(std::shared_ptr<DataType> type) : type_(type) {}
+enum class Kind : uint8_t { kNull, kBoolean, kNumber, kString, kArray, kObject };
 
-  virtual ~AdaptiveArrayBuilder() = default;
+inline static const std::shared_ptr<const KeyValueMetadata>& Tag(Kind k) {
+  static std::shared_ptr<const KeyValueMetadata> tags[] = {
+      key_value_metadata({{"json_kind", "null"}}),
+      key_value_metadata({{"json_kind", "boolean"}}),
+      key_value_metadata({{"json_kind", "number"}}),
+      key_value_metadata({{"json_kind", "string"}}),
+      key_value_metadata({{"json_kind", "array"}}),
+      key_value_metadata({{"json_kind", "object"}})};
+  return tags[static_cast<uint8_t>(k)];
+}
 
-  /// Complete the built array
-  virtual Status Finish(std::shared_ptr<Array>* out) = 0;
-
-  /// If necessary, promote this builder to accommodate the given type.
-  /// It is not guaranteed that type() == type after this method is called.
-  /// It is possible that a new builder must be constructed
-  /// in order to accomodate this fallback. If this occurs,
-  /// *out will point to the new builder and the object against
-  /// which this method was called should be considered moved from.
-  virtual Status MaybePromoteTo(std::shared_ptr<DataType> type,
-                                std::unique_ptr<AdaptiveArrayBuilder>* out) = 0;
-
-  /// The current type of this builder
-  ///
-  /// \warning this property may be lazily updated, it is only guaranteed
-  /// to be accurate after a call to UpdateType()
-  std::shared_ptr<DataType> type() { return type_; }
-
-  int64_t length() { return length_; }
-
-  /// Force update of built type. If an implementation of AdaptiveArrayBuilder updates
-  /// type lazily, UpdateType() must be overridden. Implementations may not require that
-  /// it be called before Finish() or MaybePromoteTo()
-  virtual Status UpdateType() { return Status::OK(); }
-
- protected:
-  ARROW_DISALLOW_COPY_AND_ASSIGN(AdaptiveArrayBuilder);
-
-  int64_t length_ = 0;
-  std::shared_ptr<DataType> type_;
-};
+Status KindForType(const DataType& type, Kind* kind) {
+  struct {
+    Status Visit(const NullType&) { return SetKind(Kind::kNull); }
+    Status Visit(const BooleanType&) { return SetKind(Kind::kBoolean); }
+    Status Visit(const Number&) { return SetKind(Kind::kNumber); }
+    // XXX should TimeType & DateType be Kind::kNumber or Kind::kString?
+    Status Visit(const TimeType&) { return SetKind(Kind::kNumber); }
+    Status Visit(const DateType&) { return SetKind(Kind::kNumber); }
+    Status Visit(const BinaryType&) { return SetKind(Kind::kString); }
+    // XXX should Decimal128Type be Kind::kNumber or Kind::kString?
+    Status Visit(const FixedSizeBinaryType&) { return SetKind(Kind::kString); }
+    Status Visit(const DictionaryType& dict_type) {
+      return KindForType(*dict_type.dictionary()->type(), kind_);
+    }
+    Status Visit(const ListType&) { return SetKind(Kind::kArray); }
+    Status Visit(const StructType&) { return SetKind(Kind::kObject); }
+    Status Visit(const DataType& not_impl) {
+      return Status::NotImplemented("JSON parsing of ", not_impl);
+    }
+    Status SetKind(Kind kind) {
+      *kind_ = kind;
+      return Status::OK();
+    }
+    Kind* kind_;
+  } visitor = {kind};
+  return VisitTypeInline(type, &visitor);
+}
 
 constexpr int32_t kMaxParserNumRows = 100000;
 
@@ -89,52 +90,32 @@ constexpr int32_t kMaxParserNumRows = 100000;
 /// parser, so the original buffer can be discarded after Parse() returns.
 class ARROW_EXPORT BlockParser {
  public:
-  explicit BlockParser(ParseOptions options, int32_t num_cols = -1,
-                       int32_t max_num_rows = kMaxParserNumRows);
-  explicit BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_cols = -1,
-                       int32_t max_num_rows = kMaxParserNumRows);
+  BlockParser(MemoryPool* pool, ParseOptions options,
+              std::shared_ptr<Buffer> scalar_storage);
+  BlockParser(ParseOptions options, std::shared_ptr<Buffer> scalar_storage);
 
-  /// \brief Parse a block of data
-  ///
-  /// Parse a block of JSON data, ingesting up to max_num_rows rows.
-  /// The number of bytes actually parsed is returned in out_size.
-  Status Parse(util::string_view json);
+  /// \brief Parse a block of data insitu (destructively)
+  /// \warning The input must be null terminated
+  Status Parse(const std::shared_ptr<Buffer>& json) { return impl_->Parse(json); }
 
-  /// \brief Extract parsed data as a RecordBatch
-  Status Finish(std::shared_ptr<RecordBatch>* parsed) {
-    *parsed = parsed_;
-    return Status::OK();
-  }
+  /// \brief Extract parsed data
+  Status Finish(std::shared_ptr<Array>* parsed) { return impl_->Finish(parsed); }
 
   /// \brief Return the number of parsed rows
-  int32_t num_rows() const { return num_rows_; }
-  /// \brief Return the number of parsed columns
-  int32_t num_cols() const { return num_cols_; }
-  /// \brief Return the total size in bytes of parsed data
-  uint32_t num_bytes() const { return parsed_size_; }
+  int32_t num_rows() const { return impl_->num_rows(); }
+
+  struct Impl {
+    virtual Status Parse(const std::shared_ptr<Buffer>& json) = 0;
+    virtual Status Finish(std::shared_ptr<Array>* parsed) = 0;
+    virtual int32_t num_rows() = 0;
+  };
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(BlockParser);
 
-  template <unsigned Flags, typename Handler>
-  Status DoParse(Handler& handler, util::string_view json);
-
   MemoryPool* pool_;
   const ParseOptions options_;
-  // The number of rows parsed from the block
-  int32_t num_rows_;
-  // The number of columns (can be -1 at start)
-  int32_t num_cols_;
-  // The maximum number of rows to parse from this block
-  int32_t max_num_rows_;
-  /// The total size in bytes of parsed data
-  int32_t parsed_size_;
-  /// In the case of a known schema, the RecordBatch for a chunk can be finalized
-  /// as soon as the chunk has been parsed
-  std::shared_ptr<RecordBatch> parsed_;
-  /// In the case of type inference, we can't finish until all blocks have been
-  /// examined. (For example, another block might define a column not present here)
-  std::unique_ptr<AdaptiveArrayBuilder> adaptive_builder_;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace json

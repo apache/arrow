@@ -32,6 +32,8 @@ class DataType;
 
 namespace json {
 
+enum class UnexpectedFieldBehavior : char { Ignore, Error, InferType };
+
 struct ARROW_EXPORT ParseOptions {
   // Parsing options
 
@@ -41,6 +43,9 @@ struct ARROW_EXPORT ParseOptions {
   // Whether objects may be printed across multiple lines (for example pretty printed)
   // NB: if false, input must end with an empty line
   bool newlines_in_values = false;
+
+  // How should parse handle fields outside the explicit_schema?
+  UnexpectedFieldBehavior unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
 
   static ParseOptions Defaults();
 };
