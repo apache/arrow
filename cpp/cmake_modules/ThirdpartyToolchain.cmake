@@ -448,8 +448,10 @@ if (ARROW_BOOST_VENDORED)
 
   set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
 
-  # Prepend this include path to supersede any Boost in the system headers
-  include_directories(BEFORE SYSTEM ${Boost_INCLUDE_DIR})
+  # Prepend this include path and pass with -I instead of isystem to supersede
+  # any Boost in the system headers on macOS.
+  # See https://discourse.mc-stan.org/t/clang-include-path-order/2787/3
+  include_directories(BEFORE ${Boost_INCLUDE_DIR})
 else()
   if (MSVC)
     # disable autolinking in boost
