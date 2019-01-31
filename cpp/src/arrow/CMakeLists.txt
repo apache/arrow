@@ -243,7 +243,7 @@ endif()
 if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   # that depend on gtest
   ADD_ARROW_LIB(arrow_testing
-    SOURCES test-util.cc
+    SOURCES test-util.cc test-random.cc
     OUTPUTS ARROW_TESTING_LIBRARIES
     DEPENDENCIES ${GTEST_LIBRARY}
     SHARED_LINK_LIBS arrow_shared ${GTEST_LIBRARY}
