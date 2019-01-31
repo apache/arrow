@@ -77,7 +77,7 @@ struct ConversionTraits<std::string> : public CTypeTraits<std::string> {
 };
 
 template <typename value_c_type>
-struct ConversionTraits<std::vector<value_c_type>> : public CTypeTraits<std::vector<CType>> {
+struct ConversionTraits<std::vector<value_c_type>> : public CTypeTraits<std::vector<value_c_type>> {
   static Status AppendRow(ListBuilder& builder, std::vector<value_c_type> cell) {
     using ElementBuilderType = typename TypeTraits<
         typename ConversionTraits<value_c_type>::ArrowType>::BuilderType;
@@ -157,7 +157,7 @@ struct SchemaFromTuple {
 
     std::vector<std::shared_ptr<Field>> ret =
         SchemaFromTuple<Tuple, N - 1>::MakeSchemaRecursionT(names);
-    std::shared_ptr<DataType> type = ConversionTraits<Element>::arrow_type();
+    std::shared_ptr<DataType> type = ConversionTraits<Element>::type_singleton();
     ret.push_back(field(get<N - 1>(names), type, ConversionTraits<Element>::nullable));
     return ret;
   }
@@ -202,7 +202,7 @@ struct CreateBuildersRecursive {
   static Status Make(MemoryPool* pool,
                      std::vector<std::unique_ptr<ArrayBuilder>>* builders) {
     using Element = typename std::tuple_element<N - 1, Tuple>::type;
-    std::shared_ptr<DataType> type = ConversionTraits<Element>::arrow_type();
+    std::shared_ptr<DataType> type = ConversionTraits<Element>::type_singleton();
     ARROW_RETURN_NOT_OK(MakeBuilder(pool, type, &builders->at(N - 1)));
 
     return CreateBuildersRecursive<Tuple, N - 1>::Make(pool, builders);
@@ -247,7 +247,7 @@ struct EnsureColumnTypes {
                      compute::FunctionContext* ctx,
                      std::reference_wrapper<const ::arrow::Table>* result) {
     using Element = typename std::tuple_element<N - 1, Tuple>::type;
-    std::shared_ptr<DataType> expected_type = ConversionTraits<Element>::arrow_type();
+    std::shared_ptr<DataType> expected_type = ConversionTraits<Element>::type_singleton();
 
     if (!table.schema()->field(N - 1)->type()->Equals(*expected_type)) {
       compute::Datum casted;
