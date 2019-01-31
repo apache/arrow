@@ -107,6 +107,28 @@ Status WriteNdarrayHeader(std::shared_ptr<DataType> dtype,
                           const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
                           io::OutputStream* dst);
 
+struct PythonType {
+  enum type {
+    BOOL,
+    INT,
+    PY2INT,
+    BYTES,
+    STRING,
+    HALF_FLOAT,
+    FLOAT,
+    DOUBLE,
+    DATE64,
+    LIST,
+    DICT,
+    TUPLE,
+    SET,
+    TENSOR,
+    NDARRAY,
+    BUFFER,
+    NUM_PYTHON_TYPES
+  };
+};
+
 }  // namespace py
 
 }  // namespace arrow
