@@ -152,7 +152,6 @@ else
     fi
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_OSX_FLAGS \
-          -DCMAKE_VERBOSE_MAKEFILE=ON \
           -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
           -DBUILD_WARNING_LEVEL=$ARROW_BUILD_WARNING_LEVEL \
           $ARROW_CPP_DIR
@@ -161,7 +160,7 @@ fi
 # Build and install libraries. Configure ARROW_CPP_BUILD_TARGETS environment
 # variable to only build certain targets. If you use this, you must also set
 # the environment variable ARROW_TRAVIS_OPTIONAL_INSTALL=1
-$TRAVIS_MAKE -j4 -v $ARROW_CPP_BUILD_TARGETS
+$TRAVIS_MAKE -j4 $ARROW_CPP_BUILD_TARGETS
 $TRAVIS_MAKE install
 
 popd
