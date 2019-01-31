@@ -100,6 +100,7 @@ Status ListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   }
 
   // If the type has not been specified in the constructor, infer it
+  // This is the case if the value_builder contains a DenseUnionBuilder
   if (!arrow::internal::checked_cast<ListType&>(*type_).value_type()) {
     type_ = std::static_pointer_cast<DataType>(
         std::make_shared<ListType>(value_builder_->type()));
@@ -154,6 +155,7 @@ Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   }
 
   // If the type has not been specified in the constructor, infer it
+  // This is the case if one of the children contains a DenseUnionBuilder
   if (!type_) {
     std::vector<std::shared_ptr<Field>> fields;
     for (const auto& field_builder : children_) {
