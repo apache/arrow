@@ -53,7 +53,9 @@
     "tsconfig",
     "README.md",
     "gulpfile.js",
-    "npm-release.sh"
+    "npm-release.sh",
+    "jest.config.js",
+    "jest.coverage.config.js"
   ],
   "dependencies": {
     "@types/flatbuffers": "^1.9.0",
