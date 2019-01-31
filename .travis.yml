@@ -188,6 +188,7 @@ matrix:
     - ARROW_TRAVIS_GANDIVA=1
     - ARROW_TRAVIS_GANDIVA_JAVA=1
     - ARROW_TRAVIS_OPTIONAL_INSTALL=1
+    - ARROW_TRAVIS_VERBOSE=0
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     # ARROW-3803: The Xcode 8.3 image has Boost libraries in /usr/local/lib
     # which can get loaded before the toolchain Boost libraries. These seem to
