@@ -22,6 +22,8 @@
 #include <memory>
 #include <random>
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 
 class Array;
@@ -31,7 +33,7 @@ namespace random {
 using SeedType = std::random_device::result_type;
 constexpr SeedType kSeedMax = std::numeric_limits<SeedType>::max();
 
-class RandomArrayGenerator {
+class ARROW_EXPORT RandomArrayGenerator {
  public:
   explicit RandomArrayGenerator(SeedType seed)
       : seed_distribution_(static_cast<SeedType>(1), kSeedMax), seed_rng_(seed) {}
