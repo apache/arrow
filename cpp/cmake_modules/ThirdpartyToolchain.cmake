@@ -1033,7 +1033,7 @@ if (ARROW_WITH_BROTLI)
       ExternalProject_Get_Property(brotli_ep SOURCE_DIR)
 
       ExternalProject_Add_Step(brotli_ep headers_copy
-        COMMAND xcopy /E /I include ..\\..\\..\\brotli_ep\\src\\brotli_ep-install\\include /Y
+        COMMAND xcopy /E /I include ..\\..\\..\\arrow_thirdparty\\include /Y
         DEPENDEES build
         WORKING_DIRECTORY ${SOURCE_DIR})
     endif()
