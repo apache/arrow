@@ -1347,12 +1347,7 @@ if (ARROW_WITH_GRPC)
       BUILD_BYPRODUCTS "${CARES_STATIC_LIB}")
   else()
     set(CARES_VENDORED 0)
-    find_package(c-ares REQUIRED
-      PATHS ${CARES_HOME}
-      NO_DEFAULT_PATH)
-    if(TARGET c-ares::cares)
-      get_property(CARES_STATIC_LIB TARGET c-ares::cares_static PROPERTY LOCATION)
-    endif()
+    find_package(c-ares REQUIRED)
   endif()
   message(STATUS "c-ares library: ${CARES_STATIC_LIB}")
 
