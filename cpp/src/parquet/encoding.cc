@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "arrow/builder.h"
@@ -372,7 +373,7 @@ std::shared_ptr<Buffer> DictEncoderImpl<DType>::FlushValues() {
   int result_size =
       WriteIndices(buffer->mutable_data(), static_cast<int>(EstimatedDataEncodedSize()));
   PARQUET_THROW_NOT_OK(buffer->Resize(result_size, false));
-  return buffer;
+  return std::move(buffer);
 }
 
 template <typename DType>

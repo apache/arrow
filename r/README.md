@@ -24,6 +24,13 @@ Then the R package:
 devtools::install_github("apache/arrow/r")
 ```
 
+If libarrow was built with the old CXXABI then you need to pass
+the ARROW_USE_OLD_CXXABI configuration variable.
+
+``` r
+devtools::install_github("apache/arrow/r", args=c("--configure-vars=ARROW_USE_OLD_CXXABI=1"))
+```
+
 ## Example
 
 ``` r

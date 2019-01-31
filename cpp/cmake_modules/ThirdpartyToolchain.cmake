@@ -297,6 +297,31 @@ string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
 set(EP_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}}")
 set(EP_C_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}}")
 
+if (NOT MSVC)
+  # Set -fPIC on all external projects
+  set(EP_CXX_FLAGS "${EP_CXX_FLAGS} -fPIC")
+  set(EP_C_FLAGS "${EP_C_FLAGS} -fPIC")
+endif()
+
+# CC/CXX environment variables are captured on the first invocation of the
+# builder (e.g make or ninja) instead of when CMake is invoked into to build
+# directory. This leads to issues if the variables are exported in a subshell
+# and the invocation of make/ninja is in distinct subshell without the same
+# environment (CC/CXX).
+set(EP_COMMON_CMAKE_ARGS -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                         -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
+
+# External projects are still able to override the following declarations.
+# cmake command line will favor the last defined variable when a duplicate is
+# encountered. This requires that `EP_COMMON_CMAKE_ARGS` is always the first
+# argument.
+set(EP_COMMON_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
+                         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                         -DCMAKE_C_FLAGS=${EP_C_FLAGS}
+                         -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}
+                         -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}
+                         -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS})
+
 if (NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
   set(EP_LOG_OPTIONS
     LOG_CONFIGURE 1
@@ -307,12 +332,6 @@ if (NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
 else()
   set(EP_LOG_OPTIONS)
   set(Boost_DEBUG TRUE)
-endif()
-
-if (NOT MSVC)
-  # Set -fPIC on all external projects
-  set(EP_CXX_FLAGS "${EP_CXX_FLAGS} -fPIC")
-  set(EP_C_FLAGS "${EP_C_FLAGS} -fPIC")
 endif()
 
 # Ensure that a default make is set
@@ -498,11 +517,9 @@ if("${DOUBLE_CONVERSION_HOME}" STREQUAL "")
   set(DOUBLE_CONVERSION_INCLUDE_DIR "${DOUBLE_CONVERSION_PREFIX}/include")
   set(DOUBLE_CONVERSION_STATIC_LIB "${DOUBLE_CONVERSION_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}double-conversion${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-  set(DOUBLE_CONVERSION_CMAKE_ARGS
-        "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
-        "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
-        "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
-        "-DCMAKE_INSTALL_PREFIX=${DOUBLE_CONVERSION_PREFIX}")
+  set(DOUBLE_CONVERSION_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
+                                   -DCMAKE_INSTALL_PREFIX=${DOUBLE_CONVERSION_PREFIX})
+
   ExternalProject_Add(double-conversion_ep
     ${EP_LOG_OPTIONS}
     INSTALL_DIR ${DOUBLE_CONVERSION_PREFIX}
@@ -540,8 +557,6 @@ if(ARROW_BUILD_TESTS OR
    (ARROW_USE_GLOG AND GLOG_HOME))
   # gflags (formerly Googleflags) command line parsing
   if("${GFLAGS_HOME}" STREQUAL "")
-    set(GFLAGS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
-
     set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
     set(GFLAGS_HOME "${GFLAGS_PREFIX}")
     set(GFLAGS_INCLUDE_DIR "${GFLAGS_PREFIX}/include")
@@ -551,17 +566,14 @@ if(ARROW_BUILD_TESTS OR
       set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/libgflags.a")
     endif()
     set(GFLAGS_VENDORED 1)
-    set(GFLAGS_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    set(GFLAGS_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
                           -DCMAKE_INSTALL_PREFIX=${GFLAGS_PREFIX}
                           -DBUILD_SHARED_LIBS=OFF
                           -DBUILD_STATIC_LIBS=ON
                           -DBUILD_PACKAGING=OFF
                           -DBUILD_TESTING=OFF
                           -DBUILD_CONFIG_TESTS=OFF
-                          -DINSTALL_HEADERS=ON
-                          -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}
-                          -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}
-                          -DCMAKE_CXX_FLAGS=${GFLAGS_CMAKE_CXX_FLAGS})
+                          -DINSTALL_HEADERS=ON)
 
     ExternalProject_Add(gflags_ep
       URL ${GFLAGS_SOURCE_URL}
@@ -595,13 +607,13 @@ endif()
 
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   if("${GTEST_HOME}" STREQUAL "")
+    set(GTEST_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
     if(APPLE)
-      set(GTEST_CMAKE_CXX_FLAGS "-fPIC -DGTEST_USE_OWN_TR1_TUPLE=1 -Wno-unused-value -Wno-ignored-attributes")
-    elseif(NOT MSVC)
-      set(GTEST_CMAKE_CXX_FLAGS "-fPIC")
+      set(GTEST_CMAKE_CXX_FLAGS ${GTEST_CMAKE_CXX_FLAGS}
+                                -DGTEST_USE_OWN_TR1_TUPLE=1
+                                -Wno-unused-value
+                                -Wno-ignored-attributes)
     endif()
-    string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
-    set(GTEST_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}} ${GTEST_CMAKE_CXX_FLAGS}")
 
     set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
     set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
@@ -610,7 +622,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
     set(GTEST_MAIN_STATIC_LIB
       "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GTEST_VENDORED 1)
-    set(GTEST_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    set(GTEST_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
                          -DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}
                          -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS})
     if (MSVC AND NOT ARROW_USE_STATIC_CRT)
@@ -660,7 +672,7 @@ if(ARROW_BUILD_BENCHMARKS)
     endif()
 
     if(NOT MSVC)
-      set(GBENCHMARK_CMAKE_CXX_FLAGS "-fPIC -std=c++11 ${EP_CXX_FLAGS}")
+      set(GBENCHMARK_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} -std=c++11")
     endif()
 
     if(APPLE)
@@ -671,11 +683,10 @@ if(ARROW_BUILD_BENCHMARKS)
     set(GBENCHMARK_INCLUDE_DIR "${GBENCHMARK_PREFIX}/include")
     set(GBENCHMARK_STATIC_LIB "${GBENCHMARK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}benchmark${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GBENCHMARK_VENDORED 1)
-    set(GBENCHMARK_CMAKE_ARGS
-          "-DCMAKE_BUILD_TYPE=Release"
-          "-DCMAKE_INSTALL_PREFIX:PATH=${GBENCHMARK_PREFIX}"
-          "-DBENCHMARK_ENABLE_TESTING=OFF"
-          "-DCMAKE_CXX_FLAGS=${GBENCHMARK_CMAKE_CXX_FLAGS}")
+    set(GBENCHMARK_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
+                              -DCMAKE_INSTALL_PREFIX=${GBENCHMARK_PREFIX}
+                              -DBENCHMARK_ENABLE_TESTING=OFF
+                              -DCMAKE_CXX_FLAGS=${GBENCHMARK_CMAKE_CXX_FLAGS})
     if (APPLE)
       set(GBENCHMARK_CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS} "-DBENCHMARK_USE_LIBCXX=ON")
     endif()
@@ -728,21 +739,22 @@ if (ARROW_IPC)
   ## Flatbuffers
   if("${FLATBUFFERS_HOME}" STREQUAL "")
     set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
+    set(FLATBUFFERS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
     if (MSVC)
-      set(FLATBUFFERS_CMAKE_CXX_FLAGS /EHsc)
-    else()
-      set(FLATBUFFERS_CMAKE_CXX_FLAGS -fPIC)
+      set(FLATBUFFERS_CMAKE_CXX_FLAGS "/EHsc")
     endif()
-    # We always need to do release builds, otherwise flatc will not be installed.
+
+    # RELEASE build is required for `flatc` to be installed.
+    set(FLATBUFFERS_BUILD_TYPE RELEASE)
+    set(FLATBUFFERS_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
+                               -DCMAKE_BUILD_TYPE=${FLATBUFFERS_BUILD_TYPE}
+                               -DCMAKE_INSTALL_PREFIX=${FLATBUFFERS_PREFIX}
+                               -DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}
+                               -DFLATBUFFERS_BUILD_TESTS=OFF)
+
     ExternalProject_Add(flatbuffers_ep
       URL ${FLATBUFFERS_SOURCE_URL}
-      CMAKE_ARGS
-      "-DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}"
-      "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
-      "-DFLATBUFFERS_BUILD_TESTS=OFF"
-      "-DCMAKE_BUILD_TYPE=RELEASE"
-      "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
-      "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}"
+      CMAKE_ARGS ${FLATBUFFERS_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
 
     set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
@@ -866,11 +878,8 @@ if (ARROW_WITH_ZLIB)
       set(ZLIB_STATIC_LIB_NAME libz.a)
     endif()
     set(ZLIB_STATIC_LIB "${ZLIB_PREFIX}/lib/${ZLIB_STATIC_LIB_NAME}")
-    set(ZLIB_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    set(ZLIB_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
                         -DCMAKE_INSTALL_PREFIX=${ZLIB_PREFIX}
-                        -DCMAKE_C_FLAGS=${EP_C_FLAGS}
-                        -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}
-                        -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}
                         -DBUILD_SHARED_LIBS=OFF)
     ADD_THIRDPARTY_LIB(zlib
       STATIC_LIB ${ZLIB_STATIC_LIB})
@@ -911,14 +920,10 @@ if (ARROW_WITH_SNAPPY)
     endif()
 
     if (WIN32)
-      set(SNAPPY_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                            "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
-                            "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
-                            "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}"
-                            "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
-                            "-DCMAKE_AR=${CMAKE_AR}"
-                            "-DCMAKE_RANLIB=${CMAKE_RANLIB}"
-                            "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
+      set(SNAPPY_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
+                            -DCMAKE_AR=${CMAKE_AR}
+                            -DCMAKE_RANLIB=${CMAKE_RANLIB}
+                            -DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX})
       set(SNAPPY_UPDATE_COMMAND ${CMAKE_COMMAND} -E copy
                         ${CMAKE_SOURCE_DIR}/cmake_modules/SnappyCMakeLists.txt
                         ./CMakeLists.txt &&
@@ -975,11 +980,7 @@ if (ARROW_WITH_BROTLI)
     set(BROTLI_STATIC_LIBRARY_ENC "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_LIBRARY_ARCHITECTURE}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(BROTLI_STATIC_LIBRARY_DEC "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_LIBRARY_ARCHITECTURE}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(BROTLI_STATIC_LIBRARY_COMMON "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_LIBRARY_ARCHITECTURE}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(BROTLI_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                          "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
-                          "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
-                          "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
-                          "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}"
+    set(BROTLI_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
                           -DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}
                           -DCMAKE_INSTALL_LIBDIR=lib/${CMAKE_LIBRARY_ARCHITECTURE}
                           -DBUILD_SHARED_LIBS=OFF)
@@ -1096,14 +1097,13 @@ if (ARROW_WITH_ZSTD)
     set(ZSTD_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zstd_ep-install")
     set(ZSTD_INCLUDE_DIR "${ZSTD_PREFIX}/include")
 
-    set(ZSTD_CMAKE_ARGS
-        "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
-        "-DCMAKE_INSTALL_PREFIX=${ZSTD_PREFIX}"
-        "-DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}"
-        "-DZSTD_BUILD_PROGRAMS=off"
-        "-DZSTD_BUILD_SHARED=off"
-        "-DZSTD_BUILD_STATIC=on"
-        "-DZSTD_MULTITHREAD_SUPPORT=off")
+    set(ZSTD_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                        -DCMAKE_INSTALL_PREFIX=${ZSTD_PREFIX}
+                        -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}
+                        -DZSTD_BUILD_PROGRAMS=off
+                        -DZSTD_BUILD_SHARED=off
+                        -DZSTD_BUILD_STATIC=on
+                        -DZSTD_MULTITHREAD_SUPPORT=off)
 
     if (MSVC)
       set(ZSTD_STATIC_LIB "${ZSTD_PREFIX}/${CMAKE_INSTALL_LIBDIR}/zstd_static.lib")
@@ -1115,8 +1115,10 @@ if (ARROW_WITH_ZSTD)
       # Only pass our C flags on Unix as on MSVC it leads to a
       # "incompatible command-line options" error
       set(ZSTD_CMAKE_ARGS ${ZSTD_CMAKE_ARGS}
-          "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
-          "-DCMAKE_C_FLAGS=${EP_C_FLAGS}")
+                          -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                          -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+                          -DCMAKE_C_FLAGS=${EP_C_FLAGS}
+                          -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS})
     endif()
 
     if(CMAKE_VERSION VERSION_LESS 3.7)
@@ -1157,11 +1159,9 @@ if (ARROW_GANDIVA)
     set (RE2_INCLUDE_DIR "${RE2_PREFIX}/include")
     set (RE2_STATIC_LIB "${RE2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}re2${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-    set(RE2_CMAKE_ARGS
-          "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
-          "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
-          "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
-          "-DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}")
+    set(RE2_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
+                       -DCMAKE_INSTALL_PREFIX=${RE2_PREFIX})
+
     ExternalProject_Add(re2_ep
       ${EP_LOG_OPTIONS}
       INSTALL_DIR ${RE2_PREFIX}
@@ -1200,9 +1200,17 @@ if (ARROW_ORC OR ARROW_FLIGHT OR ARROW_GANDIVA)
     set (PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
     set (PROTOBUF_STATIC_LIB "${PROTOBUF_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}protobuf${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set (PROTOBUF_EXECUTABLE "${PROTOBUF_PREFIX}/bin/protoc")
+    set (PROTOBUF_CONFIGURE_ARGS "AR=${CMAKE_AR}"
+                                 "RANLIB=${CMAKE_RANLIB}"
+                                 "CC=${CMAKE_C_COMPILER}"
+                                 "CXX=${CMAKE_CXX_COMPILER}"
+                                 "--disable-shared"
+                                 "--prefix=${PROTOBUF_PREFIX}"
+                                 "CFLAGS=${EP_C_FLAGS}"
+                                 "CXXFLAGS=${EP_CXX_FLAGS}")
 
     ExternalProject_Add(protobuf_ep
-      CONFIGURE_COMMAND "./configure" "AR=${CMAKE_AR}" "RANLIB=${CMAKE_RANLIB}" "CC=${CMAKE_C_COMPILER}" "CXX=${CMAKE_CXX_COMPILER}" "--disable-shared" "--prefix=${PROTOBUF_PREFIX}" "CXXFLAGS=${EP_CXX_FLAGS}"
+      CONFIGURE_COMMAND "./configure" ${PROTOBUF_CONFIGURE_ARGS}
       BUILD_IN_SOURCE 1
       URL ${PROTOBUF_SOURCE_URL}
       BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}" "${PROTOBUF_EXECUTABLE}"
@@ -1244,9 +1252,7 @@ if (ARROW_FLIGHT)
     set(GRPC_STATIC_LIBRARY_GRPCPP "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GRPC_STATIC_LIBRARY_ADDRESS_SORTING "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GRPC_STATIC_LIBRARY_CARES "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/third_party/cares/cares/lib/${CMAKE_STATIC_LIBRARY_PREFIX}cares${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(GRPC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                        "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
-                        "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
+    set(GRPC_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
                         -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
                         -DBUILD_SHARED_LIBS=OFF)
 
@@ -1326,7 +1332,7 @@ if (ARROW_ORC)
     # Since LZ4 isn't installed, the header file is in ${LZ4_HOME}/lib instead of
     # ${LZ4_HOME}/include, which forces us to specify the include directory
     # manually as well.
-    set (ORC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    set (ORC_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
                         -DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}
                         -DCMAKE_CXX_FLAGS=${ORC_CMAKE_CXX_FLAGS}
                         -DBUILD_LIBHDFSPP=OFF
@@ -1388,24 +1394,21 @@ if (NOT THRIFT_FOUND)
   set(THRIFT_HOME "${THRIFT_PREFIX}")
   set(THRIFT_INCLUDE_DIR "${THRIFT_PREFIX}/include")
   set(THRIFT_COMPILER "${THRIFT_PREFIX}/bin/thrift")
-  set(THRIFT_CMAKE_ARGS "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
-                        "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
-                        "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
-                        "-DCMAKE_INSTALL_PREFIX=${THRIFT_PREFIX}"
-                        "-DCMAKE_INSTALL_RPATH=${THRIFT_PREFIX}/lib"
-                        "-DBUILD_SHARED_LIBS=OFF"
-                        "-DBUILD_TESTING=OFF"
-                        "-DBUILD_EXAMPLES=OFF"
-                        "-DBUILD_TUTORIALS=OFF"
-                        "-DWITH_QT4=OFF"
-                        "-DWITH_C_GLIB=OFF"
-                        "-DWITH_JAVA=OFF"
-                        "-DWITH_PYTHON=OFF"
-                        "-DWITH_HASKELL=OFF"
-                        "-DWITH_CPP=ON"
-                        "-DWITH_STATIC_LIB=ON"
-                        "-DWITH_LIBEVENT=OFF"
-                        )
+  set(THRIFT_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
+                        -DCMAKE_INSTALL_PREFIX=${THRIFT_PREFIX}
+                        -DCMAKE_INSTALL_RPATH=${THRIFT_PREFIX}/lib
+                        -DBUILD_SHARED_LIBS=OFF
+                        -DBUILD_TESTING=OFF
+                        -DBUILD_EXAMPLES=OFF
+                        -DBUILD_TUTORIALS=OFF
+                        -DWITH_QT4=OFF
+                        -DWITH_C_GLIB=OFF
+                        -DWITH_JAVA=OFF
+                        -DWITH_PYTHON=OFF
+                        -DWITH_HASKELL=OFF
+                        -DWITH_CPP=ON
+                        -DWITH_STATIC_LIB=ON
+                        -DWITH_LIBEVENT=OFF)
 
   # Thrift also uses boost. Forward important boost settings if there were ones passed.
   if (DEFINED BOOST_ROOT)
@@ -1538,7 +1541,7 @@ if (ARROW_USE_GLOG)
       set(GLOG_CMAKE_CXX_FLAGS "${GLOG_CMAKE_CXX_FLAGS} -mmacosx-version-min=10.9")
     endif()
 
-    set(GLOG_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    set(GLOG_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
                         -DCMAKE_INSTALL_PREFIX=${GLOG_BUILD_DIR}
                         -DBUILD_SHARED_LIBS=OFF
                         -DBUILD_TESTING=OFF

@@ -80,7 +80,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     std::unique_ptr<InMemoryInputStream> source(new InMemoryInputStream(buffer));
     std::unique_ptr<PageReader> page_reader =
         PageReader::Open(std::move(source), num_rows, compression);
-    reader_.reset(new TypedColumnReader<TestType>(this->descr_, std::move(page_reader)));
+    reader_ = std::static_pointer_cast<TypedColumnReader<TestType>>(
+        ColumnReader::Make(this->descr_, std::move(page_reader)));
   }
 
   std::shared_ptr<TypedColumnWriter<TestType>> BuildWriter(
@@ -260,7 +261,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   int64_t values_read_;
   // Keep the reader alive as for ByteArray the lifetime of the ByteArray
   // content is bound to the reader.
-  std::unique_ptr<TypedColumnReader<TestType>> reader_;
+  std::shared_ptr<TypedColumnReader<TestType>> reader_;
 
   std::vector<int16_t> definition_levels_out_;
   std::vector<int16_t> repetition_levels_out_;

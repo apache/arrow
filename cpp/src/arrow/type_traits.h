@@ -19,7 +19,9 @@
 #define ARROW_TYPE_TRAITS_H
 
 #include <memory>
+#include <string>
 #include <type_traits>
+#include <vector>
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit-util.h"
@@ -33,6 +35,9 @@ namespace arrow {
 template <typename T>
 struct TypeTraits {};
 
+template <typename T>
+struct CTypeTraits {};
+
 template <>
 struct TypeTraits<NullType> {
   using ArrayType = NullArray;
@@ -41,102 +46,61 @@ struct TypeTraits<NullType> {
 };
 
 template <>
-struct TypeTraits<UInt8Type> {
-  using ArrayType = UInt8Array;
-  using BuilderType = UInt8Builder;
-  using TensorType = UInt8Tensor;
-  static constexpr int64_t bytes_required(int64_t elements) { return elements; }
-  constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return uint8(); }
-};
-
-template <>
-struct TypeTraits<Int8Type> {
-  using ArrayType = Int8Array;
-  using BuilderType = Int8Builder;
-  using TensorType = Int8Tensor;
-  static constexpr int64_t bytes_required(int64_t elements) { return elements; }
-  constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return int8(); }
-};
-
-template <>
-struct TypeTraits<UInt16Type> {
-  using ArrayType = UInt16Array;
-  using BuilderType = UInt16Builder;
-  using TensorType = UInt16Tensor;
+struct TypeTraits<BooleanType> {
+  using ArrayType = BooleanArray;
+  using BuilderType = BooleanBuilder;
+  using CType = bool;
 
   static constexpr int64_t bytes_required(int64_t elements) {
-    return elements * sizeof(uint16_t);
+    return BitUtil::BytesForBits(elements);
   }
   constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return uint16(); }
+  static inline std::shared_ptr<DataType> type_singleton() { return boolean(); }
 };
 
 template <>
-struct TypeTraits<Int16Type> {
-  using ArrayType = Int16Array;
-  using BuilderType = Int16Builder;
-  using TensorType = Int16Tensor;
-
-  static constexpr int64_t bytes_required(int64_t elements) {
-    return elements * sizeof(int16_t);
-  }
-  constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return int16(); }
+struct CTypeTraits<bool> : public TypeTraits<BooleanType> {
+  using ArrowType = BooleanType;
 };
 
-template <>
-struct TypeTraits<UInt32Type> {
-  using ArrayType = UInt32Array;
-  using BuilderType = UInt32Builder;
-  using TensorType = UInt32Tensor;
+#define PRIMITIVE_TYPE_TRAITS_DEF_(CType_, ArrowType_, ArrowArrayType, ArrowBuilderType, \
+                                   ArrowTensorType, SingletonFn)                         \
+  template <>                                                                            \
+  struct TypeTraits<ArrowType_> {                                                        \
+    using ArrayType = ArrowArrayType;                                                    \
+    using BuilderType = ArrowBuilderType;                                                \
+    using TensorType = ArrowTensorType;                                                  \
+    using CType = CType_;                                                                \
+    static constexpr int64_t bytes_required(int64_t elements) {                          \
+      return elements * sizeof(CType_);                                                  \
+    }                                                                                    \
+    constexpr static bool is_parameter_free = true;                                      \
+    static inline std::shared_ptr<DataType> type_singleton() { return SingletonFn(); }   \
+  };                                                                                     \
+                                                                                         \
+  template <>                                                                            \
+  struct CTypeTraits<CType_> : public TypeTraits<ArrowType_> {                           \
+    using ArrowType = ArrowType_;                                                        \
+  };
 
-  static constexpr int64_t bytes_required(int64_t elements) {
-    return elements * sizeof(uint32_t);
-  }
-  constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return uint32(); }
-};
+#define PRIMITIVE_TYPE_TRAITS_DEF(CType, ArrowShort, SingletonFn)             \
+  PRIMITIVE_TYPE_TRAITS_DEF_(                                                 \
+      CType, ARROW_CONCAT(ArrowShort, Type), ARROW_CONCAT(ArrowShort, Array), \
+      ARROW_CONCAT(ArrowShort, Builder), ARROW_CONCAT(ArrowShort, Tensor), SingletonFn)
 
-template <>
-struct TypeTraits<Int32Type> {
-  using ArrayType = Int32Array;
-  using BuilderType = Int32Builder;
-  using TensorType = Int32Tensor;
+PRIMITIVE_TYPE_TRAITS_DEF(uint8_t, UInt8, uint8)
+PRIMITIVE_TYPE_TRAITS_DEF(int8_t, Int8, int8)
+PRIMITIVE_TYPE_TRAITS_DEF(uint16_t, UInt16, uint16)
+PRIMITIVE_TYPE_TRAITS_DEF(int16_t, Int16, int16)
+PRIMITIVE_TYPE_TRAITS_DEF(uint32_t, UInt32, uint32)
+PRIMITIVE_TYPE_TRAITS_DEF(int32_t, Int32, int32)
+PRIMITIVE_TYPE_TRAITS_DEF(uint64_t, UInt64, uint64)
+PRIMITIVE_TYPE_TRAITS_DEF(int64_t, Int64, int64)
+PRIMITIVE_TYPE_TRAITS_DEF(float, Float, float32)
+PRIMITIVE_TYPE_TRAITS_DEF(double, Double, float64)
 
-  static constexpr int64_t bytes_required(int64_t elements) {
-    return elements * sizeof(int32_t);
-  }
-  constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return int32(); }
-};
-
-template <>
-struct TypeTraits<UInt64Type> {
-  using ArrayType = UInt64Array;
-  using BuilderType = UInt64Builder;
-  using TensorType = UInt64Tensor;
-
-  static constexpr int64_t bytes_required(int64_t elements) {
-    return elements * sizeof(uint64_t);
-  }
-  constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return uint64(); }
-};
-
-template <>
-struct TypeTraits<Int64Type> {
-  using ArrayType = Int64Array;
-  using BuilderType = Int64Builder;
-  using TensorType = Int64Tensor;
-
-  static constexpr int64_t bytes_required(int64_t elements) {
-    return elements * sizeof(int64_t);
-  }
-  constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return int64(); }
-};
+#undef PRIMITIVE_TYPE_TRAITS_DEF
+#undef PRIMITIVE_TYPE_TRAITS_DEF_
 
 template <>
 struct TypeTraits<Date64Type> {
@@ -209,48 +173,10 @@ struct TypeTraits<HalfFloatType> {
 };
 
 template <>
-struct TypeTraits<FloatType> {
-  using ArrayType = FloatArray;
-  using BuilderType = FloatBuilder;
-  using TensorType = FloatTensor;
-
-  static constexpr int64_t bytes_required(int64_t elements) {
-    return static_cast<int64_t>(elements * sizeof(float));
-  }
-  constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return float32(); }
-};
-
-template <>
-struct TypeTraits<DoubleType> {
-  using ArrayType = DoubleArray;
-  using BuilderType = DoubleBuilder;
-  using TensorType = DoubleTensor;
-
-  static constexpr int64_t bytes_required(int64_t elements) {
-    return static_cast<int64_t>(elements * sizeof(double));
-  }
-  constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return float64(); }
-};
-
-template <>
 struct TypeTraits<Decimal128Type> {
   using ArrayType = Decimal128Array;
   using BuilderType = Decimal128Builder;
   constexpr static bool is_parameter_free = false;
-};
-
-template <>
-struct TypeTraits<BooleanType> {
-  using ArrayType = BooleanArray;
-  using BuilderType = BooleanBuilder;
-
-  static constexpr int64_t bytes_required(int64_t elements) {
-    return BitUtil::BytesForBits(elements);
-  }
-  constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return boolean(); }
 };
 
 template <>
@@ -259,6 +185,16 @@ struct TypeTraits<StringType> {
   using BuilderType = StringBuilder;
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return utf8(); }
+};
+
+template <>
+struct CTypeTraits<std::string> : public TypeTraits<StringType> {
+  using ArrowType = StringType;
+};
+
+template <>
+struct CTypeTraits<char*> : public TypeTraits<StringType> {
+  using ArrowType = StringType;
 };
 
 template <>
@@ -281,6 +217,15 @@ struct TypeTraits<ListType> {
   using ArrayType = ListArray;
   using BuilderType = ListBuilder;
   constexpr static bool is_parameter_free = false;
+};
+
+template <typename CType>
+struct CTypeTraits<std::vector<CType>> : public TypeTraits<ListType> {
+  using ArrowType = ListType;
+
+  static inline std::shared_ptr<DataType> type_singleton() {
+    return list(CTypeTraits<CType>::type_singleton());
+  }
 };
 
 template <>

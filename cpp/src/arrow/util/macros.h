@@ -19,6 +19,7 @@
 #define ARROW_UTIL_MACROS_H
 
 #define ARROW_STRINGIFY(x) #x
+#define ARROW_CONCAT(x, y) x##y
 
 // From Google gutil
 #ifndef ARROW_DISALLOW_COPY_AND_ASSIGN

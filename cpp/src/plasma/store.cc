@@ -59,6 +59,7 @@
 #include "plasma/fling.h"
 #include "plasma/io.h"
 #include "plasma/malloc.h"
+#include "plasma/plasma_allocator.h"
 #include "plasma/protocol.h"
 
 #ifdef PLASMA_CUDA
@@ -75,13 +76,6 @@ using arrow::util::ArrowLogLevel;
 namespace fb = plasma::flatbuf;
 
 namespace plasma {
-
-extern "C" {
-void* dlmalloc(size_t bytes);
-void* dlmemalign(size_t alignment, size_t bytes);
-void dlfree(void* mem);
-size_t dlmalloc_set_footprint_limit(size_t bytes);
-}
 
 struct GetRequest {
   GetRequest(Client* client, const std::vector<ObjectID>& object_ids);
@@ -114,8 +108,8 @@ GetRequest::GetRequest(Client* client, const std::vector<ObjectID>& object_ids)
 
 Client::Client(int fd) : fd(fd), notification_fd(-1) {}
 
-PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
-                         bool hugepages_enabled, const std::string& socket_name,
+PlasmaStore::PlasmaStore(EventLoop* loop, std::string directory, bool hugepages_enabled, 
+                         const std::string& socket_name,
                          std::shared_ptr<ExternalStore> external_store,
                          const std::string& external_store_endpoint,
                          size_t external_store_parallelism)
@@ -123,7 +117,6 @@ PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string dir
       eviction_policy_(&store_info_),
       external_store_worker_(std::move(external_store), external_store_endpoint,
                              socket_name, external_store_parallelism) {
-  store_info_.memory_capacity = system_memory;
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
 #ifdef PLASMA_CUDA
@@ -172,7 +165,7 @@ uint8_t* PlasmaStore::AllocateMemory(int device_num, size_t size, int* fd,
   }
 #endif
   while (true) {
-    // Allocate space for the new object. We use dlmemalign instead of dlmalloc
+    // Allocate space for the new object. We use memalign instead of malloc
     // in order to align the allocated region to a 64-byte boundary. This is not
     // strictly necessary, but it is an optimization that could speed up the
     // computation of a hash of the data (see compute_object_hash_parallel in
@@ -180,7 +173,7 @@ uint8_t* PlasmaStore::AllocateMemory(int device_num, size_t size, int* fd,
     // it is not guaranteed that the corresponding pointer in the client will be
     // 64-byte aligned, but in practice it often will be.
     if (device_num == 0) {
-      pointer = reinterpret_cast<uint8_t*>(dlmemalign(kBlockSize, size));
+      pointer = reinterpret_cast<uint8_t*>(PlasmaAllocator::Memalign(kBlockSize, size));
       if (pointer == nullptr) {
         // Tell the eviction policy how much space we need to create this object.
         std::vector<ObjectID> objects_to_evict;
@@ -1005,7 +998,7 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       SubscribeToUpdates(client);
       break;
     case fb::MessageType::PlasmaConnectRequest: {
-      HANDLE_SIGPIPE(SendConnectReply(client->fd, store_info_.memory_capacity),
+      HANDLE_SIGPIPE(SendConnectReply(client->fd, PlasmaAllocator::GetFootprintLimit()),
                      client->fd);
     } break;
     case fb::MessageType::PlasmaDisconnectClient:
@@ -1023,14 +1016,14 @@ class PlasmaStoreRunner {
  public:
   PlasmaStoreRunner() {}
 
-  void Start(char* socket_name, int64_t system_memory, std::string directory,
-             bool hugepages_enabled, std::shared_ptr<ExternalStore> external_store,
+  void Start(char* socket_name, std::string directory, bool hugepages_enabled, 
+             std::shared_ptr<ExternalStore> external_store,
              const std::string& external_store_endpoint,
              size_t external_store_parallelism) {
     // Create the event loop.
     loop_.reset(new EventLoop);
-    store_.reset(new PlasmaStore(loop_.get(), system_memory, directory, hugepages_enabled,
-                                 socket_name, external_store, external_store_endpoint,
+    store_.reset(new PlasmaStore(loop_.get(), directory, hugepages_enabled, socket_name, 
+                                 external_store, external_store_endpoint,
                                  external_store_parallelism));
     plasma_config = store_->GetPlasmaStoreInfo();
 
@@ -1038,11 +1031,13 @@ class PlasmaStoreRunner {
     // large amount of space up front. According to the documentation,
     // dlmalloc might need up to 128*sizeof(size_t) bytes for internal
     // bookkeeping.
-    void* pointer = plasma::dlmemalign(kBlockSize, system_memory - 256 * sizeof(size_t));
+    void* pointer = plasma::PlasmaAllocator::Memalign(
+        kBlockSize, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
     ARROW_CHECK(pointer != nullptr);
     // This will unmap the file, but the next one created will be as large
     // as this one (this is an implementation detail of dlmalloc).
-    plasma::dlfree(pointer);
+    plasma::PlasmaAllocator::Free(
+        pointer, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
 
     int socket = BindIpcSock(socket_name, true);
     // TODO(pcm): Check return value.
@@ -1077,8 +1072,8 @@ void HandleSignal(int signal) {
   }
 }
 
-void StartServer(char* socket_name, int64_t system_memory, std::string plasma_directory,
-                 bool hugepages_enabled, std::shared_ptr<ExternalStore> external_store,
+void StartServer(char* socket_name, std::string plasma_directory, bool hugepages_enabled, 
+                 std::shared_ptr<ExternalStore> external_store,
                  const std::string& external_store_endpoint,
                  size_t external_store_parallelism) {
   // Ignore SIGPIPE signals. If we don't do this, then when we attempt to write
@@ -1087,8 +1082,8 @@ void StartServer(char* socket_name, int64_t system_memory, std::string plasma_di
 
   g_runner.reset(new PlasmaStoreRunner());
   signal(SIGTERM, HandleSignal);
-  g_runner->Start(socket_name, system_memory, plasma_directory, hugepages_enabled,
-                  external_store, external_store_endpoint, external_store_parallelism);
+  g_runner->Start(socket_name, plasma_directory, hugepages_enabled, external_store,
+                  external_store_endpoint, external_store_parallelism);
 }
 
 }  // namespace plasma
@@ -1129,11 +1124,8 @@ int main(int argc, char* argv[]) {
         char extra;
         int scanned = sscanf(optarg, "%" SCNd64 "%c", &system_memory, &extra);
         ARROW_CHECK(scanned == 1);
-        // Set system memory, potentially rounding it to a page size
-        // Also make it so dlmalloc fails if we try to request more memory than
-        // is available.
-        system_memory =
-            plasma::dlmalloc_set_footprint_limit(static_cast<size_t>(system_memory));
+        // Set system memory capacity
+        plasma::PlasmaAllocator::SetFootprintLimit(static_cast<size_t>(system_memory));
         ARROW_LOG(INFO) << "Allowing the Plasma store to use up to "
                         << static_cast<double>(system_memory) / 1000000000
                         << "GB of memory.";
@@ -1207,8 +1199,8 @@ int main(int argc, char* argv[]) {
   // available.
   plasma::dlmalloc_set_footprint_limit((size_t)system_memory);
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
-  plasma::StartServer(socket_name, system_memory, plasma_directory, hugepages_enabled,
-                      external_store, external_store_endpoint,
+  plasma::StartServer(socket_name, plasma_directory, hugepages_enabled, external_store,
+                      external_store_endpoint,
                       static_cast<size_t>(external_store_parallelism));
   plasma::g_runner->Shutdown();
   plasma::g_runner = nullptr;
