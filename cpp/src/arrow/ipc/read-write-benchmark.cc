@@ -31,7 +31,7 @@ namespace arrow {
 
 std::shared_ptr<RecordBatch> MakeRecordBatch(int64_t total_size, int64_t num_fields) {
   int64_t length = total_size / num_fields / sizeof(int64_t);
-  random::RandomArrayGenerator rand(0x4329087abd);
+  random::RandomArrayGenerator rand(0x4f32a908);
   auto type = arrow::int64();
 
   ArrayVector arrays;

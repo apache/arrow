@@ -28,10 +28,13 @@ class Array;
 
 namespace random {
 
+using SeedType = std::random_device::result_type;
+constexpr SeedType kSeedMax = std::numeric_limits<SeedType>::max();
+
 class RandomArrayGenerator {
  public:
-  explicit RandomArrayGenerator(uint64_t seed)
-      : seed_distribution_(0, UINT64_MAX), seed_rng_(seed) {}
+  explicit RandomArrayGenerator(SeedType seed)
+      : seed_distribution_(static_cast<SeedType>(1), kSeedMax), seed_rng_(seed) {}
 
   /// \brief Generates a random BooleanArray
   ///
@@ -154,9 +157,9 @@ class RandomArrayGenerator {
                                         double null_probability);
 
  private:
-  uint64_t seed() { return seed_distribution_(seed_rng_); }
+  SeedType seed() { return seed_distribution_(seed_rng_); }
 
-  std::uniform_int_distribution<uint64_t> seed_distribution_;
+  std::uniform_int_distribution<SeedType> seed_distribution_;
   std::default_random_engine seed_rng_;
 };
 

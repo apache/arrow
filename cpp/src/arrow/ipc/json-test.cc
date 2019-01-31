@@ -218,7 +218,7 @@ TEST(TestJsonArrayWriter, Unions) {
 void MakeBatchArrays(const std::shared_ptr<Schema>& schema, const int num_rows,
                      std::vector<std::shared_ptr<Array>>* arrays) {
   const float null_prob = 0.25f;
-  random::RandomArrayGenerator rand(0x00007f564a3bf000);
+  random::RandomArrayGenerator rand(0x564a3bf0);
 
   *arrays = {rand.Boolean(num_rows, 0.75, null_prob),
              rand.Int8(num_rows, 0, 100, null_prob),
