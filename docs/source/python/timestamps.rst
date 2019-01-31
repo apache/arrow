@@ -14,11 +14,13 @@
 .. KIND, either express or implied.  See the License for the
 .. specific language governing permissions and limitations
 .. under the License.
+
+**********
 Timestamps
-==========
+**********
 
 Arrow/Pandas Timestamps
------------------------
+=======================
 
 The Arrow timestamp is stored as a numeric value (64-bit integer) with metadata
 of a time unit (e.g. seconds or microseconds), and an optional timezone
@@ -30,10 +32,10 @@ timezone are referred to "Aware".
 
 
 Timestamp Conversions
----------------------
+=====================
 
 Pandas/Arrow ⇄ Spark
-~~~~~~~~~~~~~~~~~~~~
+--------------------
 
 Spark stores its timestamps as 64-bit integers representing microseconds since
 the UNIX epoch.  It does not store any metadata about timezones with its
@@ -45,13 +47,15 @@ the default system timezone. For simplicity's sake below, assume the session
 local timezone is always defined.
 
 This implies a few things when round-tripping timestamps:
-1.  Timezone information is lost.
-2.  Data is truncated to microseconds.
-3.  Changing the session time-zone between loading a pandas data
+
+#.  Timezone information is lost.
+#.  Data is truncated to microseconds.
+#.  Changing the session time-zone between loading a pandas data
     frame into spark and retreiving that dataframe from spark
     can cause changes to timestamp values.
 
-** Converting Arrow To Spark **
+Converting Arrow To Spark
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following cases assume the Spark configuration
 ``spark.sql.execution.arrow.enabled`` is set to ``"true"``.
@@ -77,7 +81,8 @@ The following cases assume the Spark configuration
 Note that conversion of the aware timezone is shifted to reflect the time
 assuming UTC. 
 
-** Spark to Pandas **
+Spark to Pandas
+~~~~~~~~~~~~~~~
 
 Now if the the session timezone to US Pacific Time (PST):
 
@@ -98,6 +103,7 @@ the display value is shifted back to represent the correct instant in time in
 PST.
 
 ::
+
     >>> utc_df.show()
     +-------------------+-------------------+
     |              naive|              aware|
