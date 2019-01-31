@@ -310,6 +310,22 @@ TYPED_TEST(TypedTestBufferBuilder, BasicTypedBufferBuilderUsage) {
   }
 }
 
+TYPED_TEST(TypedTestBufferBuilder, AppendCopies) {
+  TypedBufferBuilder<TypeParam> builder;
+
+  ASSERT_OK(builder.Append(13, static_cast<TypeParam>(1)));
+  ASSERT_OK(builder.Append(17, static_cast<TypeParam>(0)));
+  ASSERT_EQ(builder.length(), 13 + 17);
+
+  std::shared_ptr<Buffer> built;
+  ASSERT_OK(builder.Finish(&built));
+
+  auto data = reinterpret_cast<const TypeParam*>(built->data());
+  for (int i = 0; i != 13 + 17; ++i, ++data) {
+    ASSERT_EQ(*data, static_cast<TypeParam>(i < 13)) << "index = " << i;
+  }
+}
+
 TEST(TestBufferBuilder, BasicBoolBufferBuilderUsage) {
   TypedBufferBuilder<bool> builder;
 
