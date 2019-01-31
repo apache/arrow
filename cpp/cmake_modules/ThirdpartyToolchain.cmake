@@ -446,7 +446,7 @@ if (ARROW_BOOST_VENDORED)
     ${EP_LOG_OPTIONS})
   add_dependencies(toolchain boost_ep)
 
-  set(Boost_INCLUDE_DIR "${THIRDPARTY_PREFIX}")
+  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
 
   # Prepend this include path to supersede any Boost in the system headers
   include_directories(BEFORE SYSTEM ${Boost_INCLUDE_DIR})
