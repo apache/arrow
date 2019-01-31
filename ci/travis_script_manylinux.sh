@@ -21,7 +21,7 @@
 set -ex
 
 pushd python/manylinux1
-docker run --shm-size=2g --rm -e PYARROW_PARALLEL=3 -v $PWD:/io -v $PWD/../../:/arrow quay.io/xhochy/arrow_manylinux1_x86_64_base:latest /io/build_arrow.sh
+docker run --shm-size=2g --rm -e PYARROW_PARALLEL=3 -v $PWD:/io -v $PWD/../../:/arrow quay.io/xhochy/arrow_manylinux1_x86_64_base:ARROW-4424 /io/build_arrow.sh
 
 # Testing for https://issues.apache.org/jira/browse/ARROW-2657
 # These tests cannot be run inside of the docker container, since TensorFlow

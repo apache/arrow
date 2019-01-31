@@ -33,15 +33,22 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     PATH="$PATH:$(cpython_path $PYTHON ${U_WIDTH})"
 
     echo "=== (${PYTHON}, ${U_WIDTH}) Installing build dependencies ==="
-    $PIP install "numpy==1.14.5"
-    $PIP install "cython==0.29.3"
-    $PIP install "pandas==0.23.4"
-    $PIP install "virtualenv==15.1.0"
+    $PIP install "numpy==1.14.5" "cython==0.29.3" "virtualenv==16.3.0"
+    # Pandas requires numpy and cython
+    $PIP install "pandas==0.24.0"
+
+    # TensorFlow is not supported for Python 2.7 with unicode width 16 or with Python 3.7
+    if [ $PYTHON != "2.7" ] || [ $U_WIDTH = "32" ]; then
+      if [ $PYTHON != "3.7" ]; then
+        $PIP install "tensorflow==1.11.0" "Keras-Preprocessing==1.0.5"
+      fi
+    fi
+
 
     echo "=== (${PYTHON}, ${U_WIDTH}) Preparing virtualenv for tests ==="
     "$(cpython_path $PYTHON ${U_WIDTH})/bin/virtualenv" -p ${PYTHON_INTERPRETER} --no-download /venv-test-${PYTHON}-${U_WIDTH}
     source /venv-test-${PYTHON}-${U_WIDTH}/bin/activate
-    pip install pytest hypothesis 'numpy==1.14.5' 'pandas==0.23.4'
+    pip install pytest hypothesis 'numpy==1.14.5' 'pandas==0.24.0'
     deactivate
 done
 
