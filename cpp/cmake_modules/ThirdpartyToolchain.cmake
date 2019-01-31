@@ -397,8 +397,8 @@ set(Boost_ADDITIONAL_VERSIONS
   "1.60.0" "1.60")
 
 if (ARROW_BOOST_VENDORED)
-  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost")
-  set(BOOST_LIB_DIR "${BOOST_PREFIX}/lib")
+  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
+  set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
   set(BOOST_BUILD_LINK "static")
   set(BOOST_STATIC_SYSTEM_LIBRARY
     "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -421,7 +421,7 @@ if (ARROW_BOOST_VENDORED)
       ${BOOST_STATIC_REGEX_LIBRARY})
     set(BOOST_CONFIGURE_COMMAND
       "./bootstrap.sh"
-      "--prefix=${THIRDPARTY_PREFIX}"
+      "--prefix=${BOOST_PREFIX}"
       "--with-libraries=filesystem,regex,system")
     if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
       set(BOOST_BUILD_VARIANT "debug")
@@ -430,11 +430,9 @@ if (ARROW_BOOST_VENDORED)
     endif()
     set(BOOST_BUILD_COMMAND
       "./b2"
-      "--prefix=${BOOST_PREFIX}"
       "link=${BOOST_BUILD_LINK}"
       "variant=${BOOST_BUILD_VARIANT}"
-      "cxxflags=-fPIC"
-      "install")
+      "cxxflags=-fPIC")
   endif()
   ExternalProject_Add(boost_ep
     URL ${BOOST_SOURCE_URL}
@@ -444,14 +442,9 @@ if (ARROW_BOOST_VENDORED)
     BUILD_COMMAND ${BOOST_BUILD_COMMAND}
     INSTALL_COMMAND ""
     ${EP_LOG_OPTIONS})
-  add_dependencies(toolchain boost_ep)
-
   set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
-
-  # Prepend this include path and pass with -I instead of isystem to supersede
-  # any Boost in the system headers on macOS.
-  # See https://discourse.mc-stan.org/t/clang-include-path-order/2787/3
-  include_directories(BEFORE ${Boost_INCLUDE_DIR})
+  set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
+  add_dependencies(toolchain boost_ep)
 else()
   if (MSVC)
     # disable autolinking in boost
@@ -512,8 +505,6 @@ else()
       set(BOOST_REGEX_LIBRARY boost_regex_static)
     endif()
   endif()
-
-  include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 endif()
 
 message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIR})
@@ -534,6 +525,8 @@ if (NOT ARROW_BOOST_HEADER_ONLY)
 
   SET(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
 endif()
+
+include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
 # ----------------------------------------------------------------------
 # Google double-conversion
