@@ -37,7 +37,7 @@ namespace random {
 
 template <typename ValueType, typename DistributionType>
 struct GenerateOptions {
-  GenerateOptions(uint64_t seed, ValueType min, ValueType max, double probability)
+  GenerateOptions(SeedType seed, ValueType min, ValueType max, double probability)
       : min_(min), max_(max), seed_(seed), probability_(probability) {}
 
   void GenerateData(uint8_t* buffer, size_t n) {
@@ -69,7 +69,7 @@ struct GenerateOptions {
 
   ValueType min_;
   ValueType max_;
-  uint64_t seed_;
+  SeedType seed_;
   double probability_;
 };
 
