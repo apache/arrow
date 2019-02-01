@@ -65,7 +65,7 @@ module Arrow
 
     # @since 0.12.0
     def append_records(records)
-      n = n_fields
+      n = n_columns
       columns = n.times.collect do
         []
       end
@@ -101,7 +101,7 @@ module Arrow
 
     # @since 0.13.0
     def column_builders
-      @column_builders ||= n_fields.times.collect do |i|
+      @column_builders ||= n_columns.times.collect do |i|
         get_column_builder(i)
       end
     end

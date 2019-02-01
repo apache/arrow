@@ -37,8 +37,8 @@ class TestRecordBatchBuilder < Test::Unit::TestCase
     assert_equal(@schema, @builder.schema)
   end
 
-  def test_n_fields
-    assert_equal(@fields.size, @builder.n_fields)
+  def test_n_columns
+    assert_equal(@fields.size, @builder.n_columns)
   end
 
   sub_test_case("#get_column_builder") do
