@@ -30,7 +30,7 @@
 #endif
 
 #include "arrow/util/macros.h"
-#include "arrow/vendored/date.h"
+#include "arrow/vendored/datetime/date.h"
 
 #include "gandiva/arrow.h"
 #include "gandiva/visibility.h"
@@ -69,16 +69,16 @@ static inline bool ParseTimestamp(const char* buf, const char* format,
 
   // TODO: date::parse fails parsing when the hour value is 0.
   // eg.1886-12-01 00:00:00
-  date::sys_seconds seconds;
+  arrow::util::date::sys_seconds seconds;
   if (ignoreTimeInDay) {
-    date::sys_days days;
-    stream >> date::parse(format, days);
+    arrow::util::date::sys_days days;
+    stream >> arrow::util::date::parse(format, days);
     if (stream.fail()) {
       return false;
     }
     seconds = days;
   } else {
-    stream >> date::parse(format, seconds);
+    stream >> arrow::util::date::parse(format, seconds);
     if (stream.fail()) {
       return false;
     }
@@ -93,8 +93,9 @@ static inline bool ParseTimestamp(const char* buf, const char* format,
     return false;
   }
   // ignore the time part
-  date::sys_seconds secs = date::sys_days(date::year(result.tm_year + 1900) /
-                                          (result.tm_mon + 1) / result.tm_mday);
+  arrow::util::date::sys_seconds secs =
+      arrow::util::date::sys_days(arrow::util::date::year(result.tm_year + 1900) /
+                                  (result.tm_mon + 1) / result.tm_mday);
   if (!ignoreTimeInDay) {
     secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +
              std::chrono::seconds(result.tm_sec));

@@ -89,15 +89,6 @@ int64_t ToDateHolder::operator()(ExecutionContext* context, const std::string& d
   }
 
   *out_valid = true;
-  // ignore the time part
-  arrow::util::date::sys_seconds secs =
-      arrow::util::date::sys_days(arrow::util::date::year(result.tm_year + 1900) /
-                                  (result.tm_mon + 1) / result.tm_mday);
-  int64_t seconds_since_epoch = secs.time_since_epoch().count();
-  if (seconds_since_epoch == 0) {
-    return_error(context, data);
-    return 0;
-  }
   return seconds_since_epoch * 1000;
 }
 

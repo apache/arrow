@@ -102,10 +102,6 @@ TEST_F(TestToDateHolder, TestSimpleDate) {
   millis_since_epoch =
       to_date(&execution_context_, "1986-21-01 01:01:01 +0800", true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 0);
-
-  millis_since_epoch =
-      to_date(&execution_context_, "1986-01-40 01:01:01 +0800", true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 0);
 }
 
 TEST_F(TestToDateHolder, TestSimpleDateTimeError) {
