@@ -15,38 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <getopt.h>
 #include <iostream>
 
 #include "parquet/api/reader.h"
 #include "parquet/api/schema.h"
 
 int main(int argc, char** argv) {
-  static struct option options[] = {
-    {"help", no_argument, nullptr, 'h'}
-  };
   bool help_flag = false;
-  int opt_index;
-  do {
-    opt_index = getopt_long(argc, argv, "h", options, nullptr);
-    switch (opt_index) {
-    case '?':
-    case 'h':
-      help_flag = true;
-      opt_index = -1;
-      break;
-    }
-  } while (opt_index != -1);
-  argc -= optind;
-  argv += optind;
+  std::string filename;
 
-  if (argc != 1 || help_flag) {
+  for (int i = 1; i < argc; i++) {
+    if (!std::strcmp(argv[i], "-?") || !std::strcmp(argv[i], "-h") ||
+        !std::strcmp(argv[i], "--help")) {
+      help_flag = true;
+    } else {
+      filename = argv[i];
+    }
+  }
+
+  if (argc != 2 || help_flag) {
     std::cerr << "Usage: parquet-dump-schema [-h] [--help]"
               << " <filename>" << std::endl;
     return -1;
   }
-
-  std::string filename = argv[0];
 
   try {
     std::unique_ptr<parquet::ParquetFileReader> reader =
