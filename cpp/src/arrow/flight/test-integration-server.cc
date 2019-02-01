@@ -47,7 +47,7 @@ class FlightIntegrationTestServer : public FlightServerBase {
 
       auto data = uploaded_chunks.find(request.path[0]);
       if (data == uploaded_chunks.end()) {
-        return Status::KeyError("Could not find flight.");
+        return Status::KeyError("Could not find flight.", request.path[0]);
       }
       auto flight = data->second;
 
@@ -72,7 +72,7 @@ class FlightIntegrationTestServer : public FlightServerBase {
                std::unique_ptr<FlightDataStream>* data_stream) override {
     auto data = uploaded_chunks.find(request.ticket);
     if (data == uploaded_chunks.end()) {
-      return Status::KeyError("Could not find flight.");
+      return Status::KeyError("Could not find flight.", request.ticket);
     }
     auto flight = data->second;
 

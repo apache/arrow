@@ -39,6 +39,60 @@ DEFINE_string(host, "localhost", "Server port to connect to");
 DEFINE_int32(port, 31337, "Server port to connect to");
 DEFINE_string(path, "", "Resource path to request");
 
+/// \brief Helper to read a RecordBatchReader into a Table.
+arrow::Status ReadToTable(std::unique_ptr<arrow::RecordBatchReader>& reader,
+                          std::shared_ptr<arrow::Table>* retrieved_data) {
+  std::vector<std::shared_ptr<arrow::RecordBatch>> retrieved_chunks;
+  std::shared_ptr<arrow::RecordBatch> chunk;
+  while (true) {
+    RETURN_NOT_OK(reader->ReadNext(&chunk));
+    if (chunk == nullptr) break;
+    retrieved_chunks.push_back(chunk);
+  }
+  return arrow::Table::FromRecordBatches(reader->schema(), retrieved_chunks,
+                                         retrieved_data);
+}
+
+/// \brief Helper to read a JsonReader into a Table.
+arrow::Status ReadToTable(std::unique_ptr<arrow::ipc::internal::json::JsonReader>& reader,
+                          std::shared_ptr<arrow::Table>* retrieved_data) {
+  std::vector<std::shared_ptr<arrow::RecordBatch>> retrieved_chunks;
+  std::shared_ptr<arrow::RecordBatch> chunk;
+  for (int i = 0; i < reader->num_record_batches(); i++) {
+    RETURN_NOT_OK(reader->ReadRecordBatch(i, &chunk));
+    retrieved_chunks.push_back(chunk);
+  }
+  return arrow::Table::FromRecordBatches(reader->schema(), retrieved_chunks,
+                                         retrieved_data);
+}
+
+/// \brief Helper to copy a RecordBatchReader to a RecordBatchWriter.
+arrow::Status CopyReaderToWriter(std::unique_ptr<arrow::RecordBatchReader>& reader,
+                                 std::unique_ptr<arrow::ipc::RecordBatchWriter>& writer) {
+  while (true) {
+    std::shared_ptr<arrow::RecordBatch> chunk;
+    RETURN_NOT_OK(reader->ReadNext(&chunk));
+    if (chunk == nullptr) break;
+    RETURN_NOT_OK(writer->WriteRecordBatch(*chunk));
+  }
+  return writer->Close();
+}
+
+/// \brief Helper to read a flight into a Table.
+arrow::Status ConsumeFlightLocation(const arrow::flight::Location& location,
+                                    const arrow::flight::Ticket& ticket,
+                                    const std::shared_ptr<arrow::Schema>& schema,
+                                    std::shared_ptr<arrow::Table>* retrieved_data) {
+  std::unique_ptr<arrow::flight::FlightClient> read_client;
+  RETURN_NOT_OK(
+      arrow::flight::FlightClient::Connect(location.host, location.port, &read_client));
+
+  std::unique_ptr<arrow::RecordBatchReader> stream;
+  RETURN_NOT_OK(read_client->DoGet(ticket, schema, &stream));
+
+  return ReadToTable(stream, retrieved_data);
+}
+
 int main(int argc, char** argv) {
   gflags::SetUsageMessage("Integration testing client for Flight.");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -57,21 +111,14 @@ int main(int argc, char** argv) {
   ABORT_NOT_OK(arrow::ipc::internal::json::JsonReader::Open(arrow::default_memory_pool(),
                                                             in_file, &reader));
 
+  std::shared_ptr<arrow::Table> original_data;
+  ABORT_NOT_OK(ReadToTable(reader, &original_data));
+
   std::unique_ptr<arrow::ipc::RecordBatchWriter> write_stream;
   ABORT_NOT_OK(client->DoPut(descr, reader->schema(), &write_stream));
-
-  std::vector<std::shared_ptr<arrow::RecordBatch>> original_chunks;
-  for (int i = 0; i < reader->num_record_batches(); i++) {
-    std::shared_ptr<arrow::RecordBatch> batch;
-    ABORT_NOT_OK(reader->ReadRecordBatch(i, &batch));
-    original_chunks.push_back(batch);
-    ABORT_NOT_OK(write_stream->WriteRecordBatch(*batch));
-  }
-  ABORT_NOT_OK(write_stream->Close());
-
-  std::shared_ptr<arrow::Table> original_data;
-  ABORT_NOT_OK(
-      arrow::Table::FromRecordBatches(reader->schema(), original_chunks, &original_data));
+  std::unique_ptr<arrow::RecordBatchReader> table_reader(
+      new arrow::TableBatchReader(*original_data));
+  ABORT_NOT_OK(CopyReaderToWriter(table_reader, write_stream));
 
   // 2. Get the ticket for the data.
   std::unique_ptr<arrow::flight::FlightInfo> info;
@@ -97,26 +144,10 @@ int main(int argc, char** argv) {
       std::cout << "Verifying location " << location.host << ':' << location.port
                 << std::endl;
       // 3. Download the data from the server.
-      std::unique_ptr<arrow::flight::FlightClient> read_client;
-      ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location.host, location.port,
-                                                        &read_client));
-
-      std::unique_ptr<arrow::RecordBatchReader> stream;
-      ABORT_NOT_OK(read_client->DoGet(ticket, schema, &stream));
-
-      std::vector<std::shared_ptr<arrow::RecordBatch>> retrieved_chunks;
-      std::shared_ptr<arrow::RecordBatch> chunk;
-      while (true) {
-        ABORT_NOT_OK(stream->ReadNext(&chunk));
-        if (chunk == nullptr) break;
-        retrieved_chunks.push_back(chunk);
-      }
+      std::shared_ptr<arrow::Table> retrieved_data;
+      ABORT_NOT_OK(ConsumeFlightLocation(location, ticket, schema, &retrieved_data));
 
       // 4. Validate that the data is equal.
-      std::shared_ptr<arrow::Table> retrieved_data;
-      ABORT_NOT_OK(
-          arrow::Table::FromRecordBatches(schema, retrieved_chunks, &retrieved_data));
-
       if (!original_data->Equals(*retrieved_data)) {
         std::cerr << "Data does not match!" << std::endl;
         return 1;

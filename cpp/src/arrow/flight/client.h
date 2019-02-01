@@ -100,7 +100,9 @@ class ARROW_EXPORT FlightClient {
   Status DoGet(const Ticket& ticket, const std::shared_ptr<Schema>& schema,
                std::unique_ptr<RecordBatchReader>* stream);
 
-  /// \brief Upload data to a Flight described by the given descriptor.
+  /// \brief Upload data to a Flight described by the given
+  /// descriptor. The caller must call Close() on the returned stream
+  /// once they are done writing.
   /// \param[in] descriptor the descriptor of the stream
   /// \param[in] schema the schema for the data to upload
   /// \param[out] stream a writer to write record batches to

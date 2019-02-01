@@ -117,13 +117,14 @@ class FlightClient;
 /// DoPut stream.
 class FlightStreamWriter : public ipc::RecordBatchWriter {
  public:
-  explicit FlightStreamWriter(std::unique_ptr<ClientRpc>&& rpc,
+  explicit FlightStreamWriter(std::unique_ptr<ClientRpc> rpc,
                               const FlightDescriptor& descriptor,
-                              const std::shared_ptr<Schema>& schema)
-      : rpc_{std::move(rpc)},
-        descriptor_{descriptor},
-        schema_{schema},
-        pool_{default_memory_pool()} {}
+                              const std::shared_ptr<Schema>& schema,
+                              MemoryPool* pool = default_memory_pool())
+      : rpc_(std::move(rpc)),
+        descriptor_(descriptor),
+        schema_(schema),
+        pool_(pool) {}
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override {
     IpcPayload payload;
@@ -154,7 +155,7 @@ class FlightStreamWriter : public ipc::RecordBatchWriter {
  private:
   /// \brief Set the gRPC writer backing this Flight stream.
   /// \param [in] writer the gRPC writer
-  void set_stream(std::unique_ptr<grpc::ClientWriter<pb::FlightData>>&& writer) {
+  void set_stream(std::unique_ptr<grpc::ClientWriter<pb::FlightData>> writer) {
     writer_ = std::move(writer);
   }
 

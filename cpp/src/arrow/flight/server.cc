@@ -53,15 +53,15 @@ namespace flight {
     return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, MESSAGE); \
   }
 
-class ARROW_EXPORT FlightMessageReaderImpl : public FlightMessageReader {
+class FlightMessageReaderImpl : public FlightMessageReader {
  public:
   FlightMessageReaderImpl(const FlightDescriptor& descriptor,
                           std::shared_ptr<Schema> schema,
                           grpc::ServerReader<pb::FlightData>* reader)
-      : descriptor_{descriptor},
-        schema_{schema},
-        reader_{reader},
-        stream_finished_{false} {}
+      : descriptor_(descriptor),
+        schema_(schema),
+        reader_(reader),
+        stream_finished_(false) {}
 
   const FlightDescriptor& descriptor() const override { return descriptor_; }
 
