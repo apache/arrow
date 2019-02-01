@@ -411,7 +411,7 @@ def test_torch_serialization(large_buffer):
               "uint8", "int16", "int32", "int64"]:
         i = torch.LongTensor([[0, 2], [1, 0], [1, 2]])
         v = torch.from_numpy(np.array([3, 4, 5]).astype(t))
-        obj = torch.sparse_coo_tensor(i.t(), v, torch.Size([2,3]))
+        obj = torch.sparse_coo_tensor(i.t(), v, torch.Size([2, 3]))
         serialization_roundtrip(obj, large_buffer,
                                 context=serialization_context)
 

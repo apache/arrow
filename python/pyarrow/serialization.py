@@ -210,7 +210,7 @@ def register_torch_serialization_handlers(serialization_context):
         import torch
 
         def _serialize_torch_tensor(obj):
-            if hasattr(obj, "_indices") and hasattr(obj, "_values"):
+            if obj.is_sparse:
                 # TODO(pcm): Once ARROW-4453 is resolved, return sparse
                 # tensor representation here
                 return (obj._indices().detach().numpy(),
