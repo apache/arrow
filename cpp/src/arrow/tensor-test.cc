@@ -66,8 +66,11 @@ TEST(TestTensor, BasicCtors) {
   ASSERT_EQ(strides, t1.strides());
   ASSERT_EQ(strides, t2.strides());
 
+  ASSERT_EQ(std::vector<std::string>({"foo", "bar"}), t3.dim_names());
   ASSERT_EQ("foo", t3.dim_name(0));
   ASSERT_EQ("bar", t3.dim_name(1));
+
+  ASSERT_EQ(std::vector<std::string>({}), t1.dim_names());
   ASSERT_EQ("", t1.dim_name(0));
   ASSERT_EQ("", t1.dim_name(1));
 }
