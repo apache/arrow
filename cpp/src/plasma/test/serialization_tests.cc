@@ -64,8 +64,7 @@ std::vector<uint8_t> read_message_from_file(int fd, MessageType message_type) {
 PlasmaObject random_plasma_object(void) {
   unsigned int seed = static_cast<unsigned int>(time(NULL));
   int random = rand_r(&seed);
-  PlasmaObject object;
-  memset(&object, 0, sizeof(object));
+  PlasmaObject object = {};
   object.store_fd = random + 7;
   object.data_offset = random + 1;
   object.metadata_offset = random + 2;
@@ -106,8 +105,7 @@ TEST(PlasmaSerialization, CreateReply) {
   ARROW_CHECK_OK(SendCreateReply(fd, object_id1, &object1, PlasmaError::OK, mmap_size1));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaCreateReply);
   ObjectID object_id2;
-  PlasmaObject object2;
-  memset(&object2, 0, sizeof(object2));
+  PlasmaObject object2 = {};
   int store_fd;
   int64_t mmap_size2;
   ARROW_CHECK_OK(ReadCreateReply(data.data(), data.size(), &object_id2, &object2,
