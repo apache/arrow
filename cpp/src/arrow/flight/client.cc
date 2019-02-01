@@ -115,16 +115,13 @@ class FlightClient;
 
 /// \brief A RecordBatchWriter implementation that writes to a Flight
 /// DoPut stream.
-class FlightStreamWriter : public ipc::RecordBatchWriter {
+class FlightPutWriter::FlightPutWriterImpl : public ipc::RecordBatchWriter {
  public:
-  explicit FlightStreamWriter(std::unique_ptr<ClientRpc> rpc,
-                              const FlightDescriptor& descriptor,
-                              const std::shared_ptr<Schema>& schema,
-                              MemoryPool* pool = default_memory_pool())
-      : rpc_(std::move(rpc)),
-        descriptor_(descriptor),
-        schema_(schema),
-        pool_(pool) {}
+  explicit FlightPutWriterImpl(std::unique_ptr<ClientRpc> rpc,
+                               const FlightDescriptor& descriptor,
+                               const std::shared_ptr<Schema>& schema,
+                               MemoryPool* pool = default_memory_pool())
+      : rpc_(std::move(rpc)), descriptor_(descriptor), schema_(schema), pool_(pool) {}
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override {
     IpcPayload payload;
@@ -170,6 +167,22 @@ class FlightStreamWriter : public ipc::RecordBatchWriter {
   // We need to reference some fields
   friend class FlightClient;
 };
+
+FlightPutWriter::~FlightPutWriter() {}
+
+FlightPutWriter::FlightPutWriter(std::unique_ptr<FlightPutWriterImpl> impl) {
+  impl_ = std::move(impl);
+}
+
+Status FlightPutWriter::WriteRecordBatch(const RecordBatch& batch, bool allow_64bit) {
+  return impl_->WriteRecordBatch(batch, allow_64bit);
+}
+
+Status FlightPutWriter::Close() { return impl_->Close(); }
+
+void FlightPutWriter::set_memory_pool(MemoryPool* pool) {
+  return impl_->set_memory_pool(pool);
+}
 
 class FlightClient::FlightClientImpl {
  public:
@@ -277,10 +290,10 @@ class FlightClient::FlightClientImpl {
   }
 
   Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
-               std::unique_ptr<ipc::RecordBatchWriter>* stream) {
+               std::unique_ptr<FlightPutWriter>* stream) {
     std::unique_ptr<ClientRpc> rpc(new ClientRpc);
-    std::unique_ptr<FlightStreamWriter> out(
-        new FlightStreamWriter(std::move(rpc), descriptor, schema));
+    std::unique_ptr<FlightPutWriter::FlightPutWriterImpl> out(
+        new FlightPutWriter::FlightPutWriterImpl(std::move(rpc), descriptor, schema));
     std::unique_ptr<grpc::ClientWriter<pb::FlightData>> write_stream(
         stub_->DoPut(&out->rpc_->context, &out->response));
 
@@ -302,7 +315,7 @@ class FlightClient::FlightClientImpl {
     }
 
     out->set_stream(std::move(write_stream));
-    *stream = std::move(out);
+    *stream = std::unique_ptr<FlightPutWriter>(new FlightPutWriter(std::move(out)));
     return Status::OK();
   }
 
@@ -350,7 +363,7 @@ Status FlightClient::DoGet(const Ticket& ticket, const std::shared_ptr<Schema>& 
 
 Status FlightClient::DoPut(const FlightDescriptor& descriptor,
                            const std::shared_ptr<Schema>& schema,
-                           std::unique_ptr<ipc::RecordBatchWriter>* stream) {
+                           std::unique_ptr<FlightPutWriter>* stream) {
   return impl_->DoPut(descriptor, schema, stream);
 }
 

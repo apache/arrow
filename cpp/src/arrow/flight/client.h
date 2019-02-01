@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/ipc/writer.h"
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
@@ -35,13 +36,9 @@ class RecordBatch;
 class RecordBatchReader;
 class Schema;
 
-namespace ipc {
-
-class RecordBatchWriter;
-
-}  // namespace ipc
-
 namespace flight {
+
+class FlightPutWriter;
 
 /// \brief Client class for Arrow Flight RPC services (gRPC-based).
 /// API experimental for now
@@ -108,12 +105,29 @@ class ARROW_EXPORT FlightClient {
   /// \param[out] stream a writer to write record batches to
   /// \return Status
   Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
-               std::unique_ptr<ipc::RecordBatchWriter>* stream);
+               std::unique_ptr<FlightPutWriter>* stream);
 
  private:
   FlightClient();
   class FlightClientImpl;
   std::unique_ptr<FlightClientImpl> impl_;
+};
+
+/// \brief An interface to upload record batches to a Flight server
+class ARROW_EXPORT FlightPutWriter : public ipc::RecordBatchWriter {
+ public:
+  ~FlightPutWriter();
+
+  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
+  Status Close() override;
+  void set_memory_pool(MemoryPool* pool) override;
+
+ private:
+  class FlightPutWriterImpl;
+  explicit FlightPutWriter(std::unique_ptr<FlightPutWriterImpl> impl);
+  std::unique_ptr<FlightPutWriterImpl> impl_;
+
+  friend class FlightClient;
 };
 
 }  // namespace flight

@@ -133,8 +133,7 @@ void ToProto(const Ticket& ticket, pb::Ticket* pb_ticket) {
 
 // FlightData
 
-Status FromProto(const pb::FlightData& pb_data,
-                 FlightDescriptor* descriptor,
+Status FromProto(const pb::FlightData& pb_data, FlightDescriptor* descriptor,
                  std::unique_ptr<ipc::Message>* message) {
   RETURN_NOT_OK(internal::FromProto(pb_data.flight_descriptor(), descriptor));
   const std::string& header = pb_data.data_header();

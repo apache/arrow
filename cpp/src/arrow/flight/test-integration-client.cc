@@ -68,14 +68,14 @@ arrow::Status ReadToTable(std::unique_ptr<arrow::ipc::internal::json::JsonReader
 
 /// \brief Helper to copy a RecordBatchReader to a RecordBatchWriter.
 arrow::Status CopyReaderToWriter(std::unique_ptr<arrow::RecordBatchReader>& reader,
-                                 std::unique_ptr<arrow::ipc::RecordBatchWriter>& writer) {
+                                 arrow::ipc::RecordBatchWriter& writer) {
   while (true) {
     std::shared_ptr<arrow::RecordBatch> chunk;
     RETURN_NOT_OK(reader->ReadNext(&chunk));
     if (chunk == nullptr) break;
-    RETURN_NOT_OK(writer->WriteRecordBatch(*chunk));
+    RETURN_NOT_OK(writer.WriteRecordBatch(*chunk));
   }
-  return writer->Close();
+  return writer.Close();
 }
 
 /// \brief Helper to read a flight into a Table.
@@ -114,11 +114,11 @@ int main(int argc, char** argv) {
   std::shared_ptr<arrow::Table> original_data;
   ABORT_NOT_OK(ReadToTable(reader, &original_data));
 
-  std::unique_ptr<arrow::ipc::RecordBatchWriter> write_stream;
+  std::unique_ptr<arrow::flight::FlightPutWriter> write_stream;
   ABORT_NOT_OK(client->DoPut(descr, reader->schema(), &write_stream));
   std::unique_ptr<arrow::RecordBatchReader> table_reader(
       new arrow::TableBatchReader(*original_data));
-  ABORT_NOT_OK(CopyReaderToWriter(table_reader, write_stream));
+  ABORT_NOT_OK(CopyReaderToWriter(table_reader, *write_stream));
 
   // 2. Get the ticket for the data.
   std::unique_ptr<arrow::flight::FlightInfo> info;

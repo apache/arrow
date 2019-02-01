@@ -168,8 +168,7 @@ inline Status FailSerialization(Status status) {
 
 inline arrow::Status FailSerialization(arrow::Status status) {
   if (!status.ok()) {
-    ARROW_LOG(WARNING) << "Error deserializing Flight message: "
-                       << status.ToString();
+    ARROW_LOG(WARNING) << "Error deserializing Flight message: " << status.ToString();
   }
   return status;
 }
@@ -180,9 +179,8 @@ template <>
 class SerializationTraits<FlightData> {
  public:
   static Status Serialize(const FlightData& msg, ByteBuffer** buffer, bool* own_buffer) {
-    return FailSerialization(
-        Status(StatusCode::UNIMPLEMENTED,
-               "internal::FlightData serialization not implemented"));
+    return FailSerialization(Status(
+        StatusCode::UNIMPLEMENTED, "internal::FlightData serialization not implemented"));
   }
 
   static Status Deserialize(ByteBuffer* buffer, FlightData* out) {
@@ -207,20 +205,20 @@ class SerializationTraits<FlightData> {
         case pb::FlightData::kFlightDescriptorFieldNumber: {
           pb::FlightDescriptor pb_descriptor;
           if (!pb_descriptor.ParseFromCodedStream(&pb_stream)) {
-            return FailSerialization(Status(StatusCode::INTERNAL,
-                                            "Unable to parse FlightDescriptor"));
+            return FailSerialization(
+                Status(StatusCode::INTERNAL, "Unable to parse FlightDescriptor"));
           }
         } break;
         case pb::FlightData::kDataHeaderFieldNumber: {
           if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->metadata)) {
-            return FailSerialization(Status(StatusCode::INTERNAL,
-                                            "Unable to read FlightData metadata"));
+            return FailSerialization(
+                Status(StatusCode::INTERNAL, "Unable to read FlightData metadata"));
           }
         } break;
         case pb::FlightData::kDataBodyFieldNumber: {
           if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->body)) {
-            return FailSerialization(Status(StatusCode::INTERNAL,
-                                            "Unable to read FlightData body"));
+            return FailSerialization(
+                Status(StatusCode::INTERNAL, "Unable to read FlightData body"));
           }
         } break;
         default:
@@ -278,9 +276,9 @@ class SerializationTraits<IpcPayload> {
 
     // TODO(wesm): messages over 2GB unlikely to be yet supported
     if (total_size > kInt32Max) {
-      return FailSerialization(grpc::Status(
-                                   grpc::StatusCode::INVALID_ARGUMENT,
-                                   "Cannot send record batches exceeding 2GB yet"));
+      return FailSerialization(
+          grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+                       "Cannot send record batches exceeding 2GB yet"));
     }
 
     // Allocate slice, assign to output buffer
