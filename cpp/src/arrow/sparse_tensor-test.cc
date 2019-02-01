@@ -60,10 +60,12 @@ TEST(TestSparseCOOTensor, CreationEmptyTensor) {
   ASSERT_EQ(24, st1.size());
   ASSERT_EQ(24, st2.size());
 
+  ASSERT_EQ(std::vector<std::string>({"foo", "bar", "baz"}), st2.dim_names());
   ASSERT_EQ("foo", st2.dim_name(0));
   ASSERT_EQ("bar", st2.dim_name(1));
   ASSERT_EQ("baz", st2.dim_name(2));
 
+  ASSERT_EQ(std::vector<std::string>({}), st1.dim_names());
   ASSERT_EQ("", st1.dim_name(0));
   ASSERT_EQ("", st1.dim_name(1));
   ASSERT_EQ("", st1.dim_name(2));
@@ -85,10 +87,12 @@ TEST(TestSparseCOOTensor, CreationFromNumericTensor) {
   ASSERT_EQ(12, st1.non_zero_length());
   ASSERT_TRUE(st1.is_mutable());
 
+  ASSERT_EQ(std::vector<std::string>({"foo", "bar", "baz"}), st2.dim_names());
   ASSERT_EQ("foo", st2.dim_name(0));
   ASSERT_EQ("bar", st2.dim_name(1));
   ASSERT_EQ("baz", st2.dim_name(2));
 
+  ASSERT_EQ(std::vector<std::string>({}), st1.dim_names());
   ASSERT_EQ("", st1.dim_name(0));
   ASSERT_EQ("", st1.dim_name(1));
   ASSERT_EQ("", st1.dim_name(2));
@@ -124,10 +128,12 @@ TEST(TestSparseCOOTensor, CreationFromTensor) {
   ASSERT_EQ(12, st1.non_zero_length());
   ASSERT_TRUE(st1.is_mutable());
 
+  ASSERT_EQ(std::vector<std::string>({"foo", "bar", "baz"}), st2.dim_names());
   ASSERT_EQ("foo", st2.dim_name(0));
   ASSERT_EQ("bar", st2.dim_name(1));
   ASSERT_EQ("baz", st2.dim_name(2));
 
+  ASSERT_EQ(std::vector<std::string>({}), st1.dim_names());
   ASSERT_EQ("", st1.dim_name(0));
   ASSERT_EQ("", st1.dim_name(1));
   ASSERT_EQ("", st1.dim_name(2));
@@ -192,10 +198,12 @@ TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
   ASSERT_EQ(12, st1.non_zero_length());
   ASSERT_TRUE(st1.is_mutable());
 
+  ASSERT_EQ(std::vector<std::string>({"foo", "bar", "baz"}), st2.dim_names());
   ASSERT_EQ("foo", st2.dim_name(0));
   ASSERT_EQ("bar", st2.dim_name(1));
   ASSERT_EQ("baz", st2.dim_name(2));
 
+  ASSERT_EQ(std::vector<std::string>({}), st1.dim_names());
   ASSERT_EQ("", st1.dim_name(0));
   ASSERT_EQ("", st1.dim_name(1));
   ASSERT_EQ("", st1.dim_name(2));
