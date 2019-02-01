@@ -17,8 +17,8 @@
 
 //! Defines basic arithmetic kernels for `PrimitiveArrays`.
 //!
-//! These kernels can leverage SIMD if available on your system.  Currently no runtime detection
-//! is provided, you should enable the specific SIMD intrinsics using
+//! These kernels can leverage SIMD if available on your system.  Currently no runtime
+//! detection is provided, you should enable the specific SIMD intrinsics using
 //! `RUSTFLAGS="-C target-feature=+avx2"` for example.  See the
 //! [here] (https://doc.rust-lang.org/stable/std/arch/) for more information.
 
@@ -36,13 +36,17 @@ use crate::error::{ArrowError, Result};
 
 /// Vectorized version of add operation
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-fn simd_bin_op<T, F>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>, op: F) -> Result<PrimitiveArray<T>>
+fn simd_bin_op<T, F>(
+    left: &PrimitiveArray<T>,
+    right: &PrimitiveArray<T>,
+    op: F,
+) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType + datatypes::ArrowSIMDType,
     T::Simd: Add<Output = T::Simd>
-    + Sub<Output = T::Simd>
-    + Mul<Output = T::Simd>
-    + Div<Output = T::Simd>,
+        + Sub<Output = T::Simd>
+        + Mul<Output = T::Simd>
+        + Div<Output = T::Simd>,
     F: Fn(T::Simd, T::Simd) -> T::Simd,
 {
     if left.len() != right.len() {
@@ -72,8 +76,12 @@ where
     Ok(PrimitiveArray::<T>::new(left.len(), result.freeze(), 0, 0))
 }
 
-/// Perform `left + right` operation on two arrays. If either left or right value is null then the result is also null.
-pub fn add<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
+/// Perform `left + right` operation on two arrays. If either left or right value is null
+/// then the result is also null.
+pub fn add<T>(
+    left: &PrimitiveArray<T>,
+    right: &PrimitiveArray<T>,
+) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType + datatypes::ArrowSIMDType,
     T::Native: Add<Output = T::Native>

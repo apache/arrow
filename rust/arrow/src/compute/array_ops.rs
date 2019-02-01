@@ -27,8 +27,12 @@ use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
 
-/// Perform `left - right` operation on two arrays. If either left or right value is null then the result is also null.
-pub fn subtract<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
+/// Perform `left - right` operation on two arrays. If either left or right value is null
+/// then the result is also null.
+pub fn subtract<T>(
+    left: &PrimitiveArray<T>,
+    right: &PrimitiveArray<T>,
+) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
     T::Native: Add<Output = T::Native>

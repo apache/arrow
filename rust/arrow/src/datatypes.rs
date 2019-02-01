@@ -23,10 +23,10 @@
 
 use std::fmt;
 use std::mem::size_of;
+use std::ops::{Add, Div, Mul, Sub};
 use std::slice::from_raw_parts;
 use std::str::FromStr;
 
-use std::ops::{Add, Div, Mul, Sub};
 use packed_simd::*;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -154,7 +154,7 @@ make_type!(Float32Type, f32, DataType::Float32, 32, 0.0f32);
 make_type!(Float64Type, f64, DataType::Float64, 64, 0.0f64);
 
 /// A subtype of primitive type that represents numeric values.
-pub trait ArrowNumericType: ArrowPrimitiveType { }
+pub trait ArrowNumericType: ArrowPrimitiveType {}
 
 impl ArrowNumericType for Int8Type {}
 impl ArrowNumericType for Int16Type {}
@@ -167,13 +167,14 @@ impl ArrowNumericType for UInt64Type {}
 impl ArrowNumericType for Float32Type {}
 impl ArrowNumericType for Float64Type {}
 
-/// A subtype of primitive type that represents SIMD capable types.  SIMD operations are defined
-/// in this trait and are leveraged in the `compute` module if available.
+/// A subtype of primitive type that represents SIMD capable types.  SIMD operations are
+/// defined in this trait and are leveraged in the `compute` module if available.
 pub trait ArrowSIMDType: ArrowPrimitiveType
-where Self::Simd : Add<Output = Self::Simd>
-+ Sub<Output = Self::Simd>
-+ Mul<Output = Self::Simd>
-+ Div<Output = Self::Simd>
+where
+    Self::Simd: Add<Output = Self::Simd>
+        + Sub<Output = Self::Simd>
+        + Mul<Output = Self::Simd>
+        + Div<Output = Self::Simd>,
 {
     /// Defines the SIMD type that should be used for this numeric type
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -189,7 +190,11 @@ where Self::Simd : Add<Output = Self::Simd>
 
     /// Performs a SIMD add operation
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    fn bin_op<F: Fn(Self::Simd, Self::Simd) -> Self::Simd>(left: Self::Simd, right: Self::Simd, op: F) -> Self::Simd;
+    fn bin_op<F: Fn(Self::Simd, Self::Simd) -> Self::Simd>(
+        left: Self::Simd,
+        right: Self::Simd,
+        op: F,
+    ) -> Self::Simd;
 
     /// Writes a SIMD result back to a slice
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -213,7 +218,11 @@ macro_rules! make_simd_type {
             }
 
             #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-            fn bin_op<F: Fn($simd_ty, $simd_ty) -> $simd_ty>(left: $simd_ty, right: $simd_ty, op: F) -> $simd_ty {
+            fn bin_op<F: Fn($simd_ty, $simd_ty) -> $simd_ty>(
+                left: $simd_ty,
+                right: $simd_ty,
+                op: F,
+            ) -> $simd_ty {
                 op(left, right)
             }
 
