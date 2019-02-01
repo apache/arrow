@@ -99,17 +99,16 @@ module Arrow
       end
     end
 
+    # @since 0.13.0
+    def column_builders
+      @column_builders ||= n_fields.times.collect do |i|
+        get_column_builder(i)
+      end
+    end
+
     private
     def resolve_name(name)
       @name_to_index[name.to_s]
-    end
-
-    # TODO: Make public with good name. Is column_builders good enough?
-    # builders? sub_builders?
-    def column_builders
-      @column_builders ||= n_fields.times.collect do |i|
-        get_field(i)
-      end
     end
   end
 end
