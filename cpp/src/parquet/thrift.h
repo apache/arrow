@@ -200,7 +200,7 @@ using ThriftBuffer = apache::thrift::transport::TMemoryBuffer;
 // set to the actual length of the header.
 template <class T>
 inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deserialized_msg,
-                                 const EncryptionProperties* encryption = NULLPTR,
+                                 const std::shared_ptr<EncryptionProperties>& encryption = NULLPTR,
                                  bool shouldReadLength = false) {
   if (encryption == NULLPTR) {
     // Deserialize msg bytes into c++ thrift msg using memory transport.
@@ -233,9 +233,7 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
     const uint8_t* cipherBuf = shouldReadLength ? &buf[4] : buf;
     std::vector<uint8_t> decrypted_buffer(encryption->CalculatePlainSize(clen, true));
     uint32_t decrypted_buffer_len = parquet_encryption::Decrypt(
-        encryption->algorithm(), true, cipherBuf, 0, encryption->key_bytes(),
-        encryption->key_length(), encryption->aad_bytes(), encryption->aad_length(),
-        decrypted_buffer.data());
+        encryption, true, cipherBuf, 0, decrypted_buffer.data());
     if (decrypted_buffer_len <= 0) {
       throw ParquetException("Couldn't decrypt buffer\n");
     }
@@ -273,7 +271,8 @@ class ThriftSerializer {
   }
 
   template <class T>
-  int64_t Serialize(const T* obj, ArrowOutputStream* out, const EncryptionProperties* encryption = NULLPTR,
+  int64_t Serialize(const T* obj, ArrowOutputStream* out,
+                    const std::shared_ptr<EncryptionProperties>& encryption = NULLPTR,
                     bool shouldWriteLength = false) {
     uint8_t* out_buffer;
     uint32_t out_length;
@@ -285,9 +284,7 @@ class ThriftSerializer {
     } else {
       std::vector<uint8_t> cipher_buffer(encryption->CalculateCipherSize(out_length));
       int cipher_buffer_len = parquet_encryption::Encrypt(
-          encryption->algorithm(), true, out_buffer, out_length, encryption->key_bytes(),
-          encryption->key_length(), encryption->aad_bytes(), encryption->aad_length(),
-          cipher_buffer.data());
+          encryption, true, out_buffer, out_length, cipher_buffer.data());
       if (cipher_buffer_len > cipher_buffer.size()) {
         std::stringstream ss;
         ss << "cipher length is greater than cipher buffer capacity: " << cipher_buffer_len << cipher_buffer.size() << "\n";
