@@ -30,6 +30,7 @@ set(ARROW_RE2_LINKAGE "static" CACHE STRING
 
 set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
 
+
 if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(BROTLI_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(BZ2_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
@@ -39,9 +40,21 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(GFLAGS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(GLOG_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(GRPC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
-  # Using gtest from the toolchain breaks AppVeyor builds
+  # Using gtest from the toolchain breaks AppVeyor and
+  # trusty builds
   if (NOT MSVC)
-    set(GTEST_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+    if (APPLE)
+      set(GTEST_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+    else()
+      #linux
+      execute_process(COMMAND lsb_release -cs
+        OUTPUT_VARIABLE RELEASE_CODENAME
+	OUTPUT_STRIP_TRAILING_WHITESPACE
+      )
+      if (NOT RELEASE_CODENAME STREQUAL "trusty")
+	set(GTEST_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+      endif()
+    endif()
   endif()
   set(JEMALLOC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(LZ4_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
@@ -653,13 +666,19 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
     set(GTEST_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}"
       -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS})
+    set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
+    set(GMOCK_STATIC_LIB
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gmock${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GMOCK_MAIN_STATIC_LIB
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gmock_main${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
     if (MSVC AND NOT ARROW_USE_STATIC_CRT)
       set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} -Dgtest_force_shared_crt=ON)
     endif()
 
     ExternalProject_Add(googletest_ep
       URL ${GTEST_SOURCE_URL}
-      BUILD_BYPRODUCTS ${GTEST_STATIC_LIB} ${GTEST_MAIN_STATIC_LIB}
+      BUILD_BYPRODUCTS ${GTEST_STATIC_LIB} ${GTEST_MAIN_STATIC_LIB} ${GMOCK_STATIC_LIB} ${GMOCK_MAIN_STATIC_LIB}
       CMAKE_ARGS ${GTEST_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
   else()
@@ -668,28 +687,50 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   endif()
 
   message(STATUS "GTest include dir: ${GTEST_INCLUDE_DIR}")
+  message(STATUS "GMock include dir: ${GMOCK_INCLUDE_DIR}")
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
+  # Conflicts in header files seem to either cause apple to have
+  # a bad boost symbol, or trusty to use CPP_TOOLCHAIN's header
+  # file for gmock (and the vendored version is 1.8.0 and conda is
+  # 1.8.1)
+  if (APPLE)
+    include_directories(SYSTEM ${GMOCK_INCLUDE_DIR})
+  else()
+    include_directories(BEFORE SYSTEM ${GMOCK_INCLUDE_DIR})
+  endif()
   if(GTEST_STATIC_LIB)
     message(STATUS "GTest static library: ${GTEST_STATIC_LIB}")
+    message(STATUS "GMock static library: ${GMOCK_STATIC_LIB}")
     ADD_THIRDPARTY_LIB(gtest
       STATIC_LIB ${GTEST_STATIC_LIB})
     ADD_THIRDPARTY_LIB(gtest_main
       STATIC_LIB ${GTEST_MAIN_STATIC_LIB})
+    ADD_THIRDPARTY_LIB(gmock
+      STATIC_LIB ${GMOCK_STATIC_LIB})
+    ADD_THIRDPARTY_LIB(gmock_main
+      STATIC_LIB ${GMOCK_MAIN_STATIC_LIB})
     set(GTEST_LIBRARY gtest_static)
     set(GTEST_MAIN_LIBRARY gtest_main_static)
+    set(GMOCK_LIBRARY gmock_static)
+    set(GMOCK_MAIN_LIBRARY gmock_main_static)
   else()
     message(STATUS "GTest shared library: ${GTEST_SHARED_LIB}")
+    message(STATUS "GMock shared library: ${GMOCK_SHARED_LIB}")
     ADD_THIRDPARTY_LIB(gtest
       SHARED_LIB ${GTEST_SHARED_LIB})
     ADD_THIRDPARTY_LIB(gtest_main
       SHARED_LIB ${GTEST_MAIN_SHARED_LIB})
     set(GTEST_LIBRARY gtest_shared)
     set(GTEST_MAIN_LIBRARY gtest_main_shared)
+    set(GMOCK_LIBRARY gmock_shared)
+    set(GMOCK_MAIN_LIBRARY gmock_main_shared)
   endif()
 
   if(GTEST_VENDORED)
     add_dependencies(${GTEST_LIBRARY} googletest_ep)
     add_dependencies(${GTEST_MAIN_LIBRARY} googletest_ep)
+    add_dependencies(${GMOCK_LIBRARY} googletest_ep)
+    add_dependencies(${GMOCK_MAIN_LIBRARY} googletest_ep)
   endif()
 endif()
 

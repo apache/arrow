@@ -21,11 +21,14 @@
 #include <memory>
 #include <vector>
 
+#include <gmock/gmock.h>
+
 #include "arrow/array.h"
 #include "arrow/memory_pool.h"
 #include "arrow/type.h"
 
 #include "arrow/compute/context.h"
+#include "arrow/compute/kernel.h"
 
 namespace arrow {
 namespace compute {
@@ -36,6 +39,16 @@ class ComputeFixture {
 
  protected:
   FunctionContext ctx_;
+};
+
+class MockUnaryKernel : public UnaryKernel {
+ public:
+  MOCK_METHOD3(Call, Status(FunctionContext* ctx, const Datum& input, Datum* out));
+};
+
+class MockBinaryKernel : public BinaryKernel {
+  MOCK_METHOD4(Call, Status(FunctionContext* ctx, const Datum& left, const Datum& right,
+                            Datum* out));
 };
 
 template <typename Type, typename T>
