@@ -211,12 +211,15 @@ def register_torch_serialization_handlers(serialization_context):
 
         def _serialize_torch_tensor(obj):
             if hasattr(obj, "_indices") and hasattr(obj, "_values"):
-                return obj._indices(), obj._values(), list(obj.shape)
+                # TODO(pcm): Once ARROW-4453 is resolved, return sparse
+                # tensor representation here
+                return (obj._indices().detach().numpy(),
+                        obj._values().detach().numpy(), list(obj.shape))
             else:
                 return obj.detach().numpy()
 
         def _deserialize_torch_tensor(data):
-            if isinstance(data, list):
+            if isinstance(data, tuple):
                 return torch.sparse_coo_tensor(data[0], data[1], data[2])
             else:
                 return torch.from_numpy(data)
