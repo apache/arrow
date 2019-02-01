@@ -249,18 +249,7 @@ GArrowArrayBuilder *
 garrow_record_batch_builder_get_field(GArrowRecordBatchBuilder *builder,
                                       gint i)
 {
-  auto priv = GARROW_RECORD_BATCH_BUILDER_GET_PRIVATE(builder);
-  if (i < 0) {
-    i += priv->fields->len;
-  }
-  if (i < 0) {
-    return NULL;
-  }
-  if (static_cast<guint>(i) >= priv->fields->len) {
-    return NULL;
-  }
-
-  return GARROW_ARRAY_BUILDER(g_ptr_array_index(priv->fields, i));
+  return garrow_record_batch_builder_get_column_builder(builder, i);
 }
 
 /**
