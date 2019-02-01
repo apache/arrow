@@ -213,19 +213,15 @@ class FlightServiceImpl : public FlightService::Service {
     pb::FlightData data;
     if (reader->Read(&data)) {
       FlightDescriptor descriptor;
+      // Message only lives as long as data
       std::unique_ptr<ipc::Message> message;
-      std::shared_ptr<Schema> schema;
-      GRPC_RETURN_NOT_OK(internal::FromProto(data.flight_descriptor(), &descriptor));
-      std::shared_ptr<Buffer> header_buf;
-      std::shared_ptr<Buffer> body_buf;
-      GRPC_RETURN_NOT_OK(Buffer::FromString(data.data_header(), &header_buf));
-      GRPC_RETURN_NOT_OK(Buffer::FromString(data.data_body(), &body_buf));
-      GRPC_RETURN_NOT_OK(ipc::Message::Open(header_buf, body_buf, &message));
+      GRPC_RETURN_NOT_OK(internal::FromProto(data, &descriptor, &message));
 
       if (!message || message->type() != ipc::Message::Type::SCHEMA) {
         return internal::ToGrpcStatus(
             Status(StatusCode::Invalid, "DoPut must start with schema/descriptor"));
       } else {
+        std::shared_ptr<Schema> schema;
         GRPC_RETURN_NOT_OK(ipc::ReadSchema(*message, &schema));
 
         auto message_reader = std::unique_ptr<FlightMessageReader>(
