@@ -19,7 +19,7 @@
 
 # parquet_derive
 
-A crate for automatically deriving `parquet::Deserialize` for arbitrary structs.
+A crate for automatically deriving `parquet::record::Record` for arbitrary structs.
 
 This crate is intended to be used by the `parquet` crate. See [its documentation](https://docs.rs/parquet) for usage.
 

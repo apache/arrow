@@ -22,10 +22,10 @@ use crate::basic::{LogicalType, Repetition};
 
 pub struct DisplayFmt<F>(F)
 where
-    F: Fn(&mut fmt::Formatter) -> std::result::Result<(), fmt::Error>;
+    F: Fn(&mut fmt::Formatter) -> fmt::Result;
 impl<F> DisplayFmt<F>
 where
-    F: Fn(&mut fmt::Formatter) -> std::result::Result<(), fmt::Error>,
+    F: Fn(&mut fmt::Formatter) -> fmt::Result,
 {
     pub fn new(f: F) -> Self {
         Self(f)
@@ -33,9 +33,9 @@ where
 }
 impl<F> Display for DisplayFmt<F>
 where
-    F: Fn(&mut fmt::Formatter) -> std::result::Result<(), fmt::Error>,
+    F: Fn(&mut fmt::Formatter) -> fmt::Result,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> std::result::Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0(f)
     }
 }

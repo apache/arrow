@@ -20,14 +20,14 @@ use std::collections::HashMap;
 use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
-    errors::ParquetError,
-    record::{reader::OptionReader, schemas::OptionSchema, Deserialize},
+    errors::{ParquetError, Result},
+    record::{reader::OptionReader, schemas::OptionSchema, Record},
     schema::types::{ColumnPath, Type},
 };
 
-impl<T> Deserialize for Option<T>
+impl<T> Record for Option<T>
 where
-    T: Deserialize,
+    T: Record,
 {
     type Reader = OptionReader<T::Reader>;
     type Schema = OptionSchema<T::Schema>;
@@ -35,7 +35,7 @@ where
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         if repetition == Some(Repetition::OPTIONAL) {
             return T::parse(&schema, Some(Repetition::REQUIRED))
                 .map(|(name, schema)| (name, OptionSchema(schema)));
@@ -54,7 +54,7 @@ where
         batch_size: usize,
     ) -> Self::Reader {
         OptionReader {
-            reader: <T as Deserialize>::reader(
+            reader: <T as Record>::reader(
                 &schema.0,
                 path,
                 def_level + 1,

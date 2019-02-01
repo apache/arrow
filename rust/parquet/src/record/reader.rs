@@ -28,7 +28,7 @@ use super::{
         Bson, Date, Enum, Group, Json, List, Map, Root, Time, Timestamp, Value,
         ValueRequired,
     },
-    Deserialize, Predicate,
+    Predicate, Reader, Record,
 };
 use crate::column::reader::ColumnReader;
 use crate::data_type::{
@@ -41,15 +41,6 @@ use crate::schema::types::{ColumnPath, SchemaDescriptor, SchemaDescPtr, Type};
 
 /// Default batch size for a reader
 const DEFAULT_BATCH_SIZE: usize = 1024;
-
-pub trait Reader {
-    type Item;
-    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item>;
-    fn advance_columns(&mut self) -> Result<()>;
-    fn has_next(&self) -> bool;
-    fn current_def_level(&self) -> i16;
-    fn current_rep_level(&self) -> i16;
-}
 
 impl<A, B> Reader for sum::Sum2<A, B>
 where
@@ -603,30 +594,30 @@ impl Reader for GroupReader {
 }
 
 pub enum ValueReader {
-    Bool(<bool as Deserialize>::Reader),
-    U8(<u8 as Deserialize>::Reader),
-    I8(<i8 as Deserialize>::Reader),
-    U16(<u16 as Deserialize>::Reader),
-    I16(<i16 as Deserialize>::Reader),
-    U32(<u32 as Deserialize>::Reader),
-    I32(<i32 as Deserialize>::Reader),
-    U64(<u64 as Deserialize>::Reader),
-    I64(<i64 as Deserialize>::Reader),
-    F32(<f32 as Deserialize>::Reader),
-    F64(<f64 as Deserialize>::Reader),
-    Date(<Date as Deserialize>::Reader),
-    Time(<Time as Deserialize>::Reader),
-    Timestamp(<Timestamp as Deserialize>::Reader),
-    Decimal(<Decimal as Deserialize>::Reader),
-    ByteArray(<Vec<u8> as Deserialize>::Reader),
-    Bson(<Bson as Deserialize>::Reader),
-    String(<String as Deserialize>::Reader),
-    Json(<Json as Deserialize>::Reader),
-    Enum(<Enum as Deserialize>::Reader),
-    List(Box<<List<Value> as Deserialize>::Reader>),
-    Map(Box<<Map<Value, Value> as Deserialize>::Reader>),
-    Group(<Group as Deserialize>::Reader),
-    Option(Box<<Option<Value> as Deserialize>::Reader>),
+    Bool(<bool as Record>::Reader),
+    U8(<u8 as Record>::Reader),
+    I8(<i8 as Record>::Reader),
+    U16(<u16 as Record>::Reader),
+    I16(<i16 as Record>::Reader),
+    U32(<u32 as Record>::Reader),
+    I32(<i32 as Record>::Reader),
+    U64(<u64 as Record>::Reader),
+    I64(<i64 as Record>::Reader),
+    F32(<f32 as Record>::Reader),
+    F64(<f64 as Record>::Reader),
+    Date(<Date as Record>::Reader),
+    Time(<Time as Record>::Reader),
+    Timestamp(<Timestamp as Record>::Reader),
+    Decimal(<Decimal as Record>::Reader),
+    ByteArray(<Vec<u8> as Record>::Reader),
+    Bson(<Bson as Record>::Reader),
+    String(<String as Record>::Reader),
+    Json(<Json as Record>::Reader),
+    Enum(<Enum as Record>::Reader),
+    List(Box<<List<Value> as Record>::Reader>),
+    Map(Box<<Map<Value, Value> as Record>::Reader>),
+    Group(<Group as Record>::Reader),
+    Option(Box<<Option<Value> as Record>::Reader>),
 }
 impl Reader for ValueReader {
     type Item = Value;
@@ -984,17 +975,16 @@ impl<'a,R> Either<'a,R> {
 }
 
 /// Iterator of rows. [`Row`](`super::types::Row`) can be used to read as untyped rows. A
-/// tuple or a struct marked with `#[derive(ParquetDeserialize)]` can be used to read as
-/// typed rows.
+/// tuple or a struct marked with `#[derive(Record)]` can be used to read as typed rows.
 ///
 /// It is used either for a single row group to iterate over data in that row group, or
 /// an entire file with auto buffering of all row groups.
 pub struct RowIter<'a, R, T>
 where
     R: FileReader,
-    T: Deserialize,
+    T: Record,
 {
-    schema: <Root<T> as Deserialize>::Schema,
+    schema: <Root<T> as Record>::Schema,
     file_reader: Option<Either<'a,R>>,
     current_row_group: usize,
     num_row_groups: usize,
@@ -1004,13 +994,13 @@ where
 impl<'a, R, T> RowIter<'a, R, T>
 where
     R: FileReader,
-    T: Deserialize,
+    T: Record,
 {
     /// Creates a new iterator of [`Row`](crate::record::api::Row)s.
     fn new(
         file_reader: Option<Either<'a, R>>,
         row_iter: Option<ReaderIter<T>>,
-        schema: <Root<T> as Deserialize>::Schema,
+        schema: <Root<T> as Record>::Schema,
     ) -> Self {
         let num_row_groups = match file_reader {
             Some(ref r) => r.reader().num_row_groups(),
@@ -1030,7 +1020,7 @@ where
     pub fn from_file(_proj: Option<Predicate>, reader: &'a R) -> Result<Self> {
         let file_schema = reader.metadata().file_metadata().schema_descr_ptr();
         let file_schema = file_schema.root_schema();
-        let schema = <Root<T> as Deserialize>::parse(file_schema, None)?.1;
+        let schema = <Root<T> as Record>::parse(file_schema, None)?.1;
 
         Ok(Self::new(Some(Either::Left(reader)), None, schema))
     }
@@ -1042,7 +1032,7 @@ where
     ) -> Result<Self> {
         let file_schema = row_group_reader.metadata().schema_descr_ptr();
         let file_schema = file_schema.root_schema();
-        let schema = <Root<T> as Deserialize>::parse(file_schema, None)?.1;
+        let schema = <Root<T> as Record>::parse(file_schema, None)?.1;
 
         let row_iter = Self::get_reader_iter(&schema, row_group_reader);
 
@@ -1058,7 +1048,7 @@ where
     }
 
     fn get_reader_iter(
-        schema: &<Root<T> as Deserialize>::Schema,
+        schema: &<Root<T> as Record>::Schema,
         row_group_reader: &RowGroupReader,
     ) -> ReaderIter<T> {
         // Prepare lookup table of column path -> original column index
@@ -1094,7 +1084,7 @@ where
     //         .schema_descr_ptr();
 
     //     let schema = descr.root_schema();
-    //     let schema = <Root<T> as Deserialize>::parse(schema, None)?.1;
+    //     let schema = <Root<T> as Record>::parse(schema, None)?.1;
 
     //     Ok(RowIter::new(Some(either), None, schema))
     // }
@@ -1115,7 +1105,7 @@ where
                 let descr = Self::get_proj_descr(proj, schema)?;
 
                 let schema = descr.root_schema();
-                let schema = <Root<T> as Deserialize>::parse(schema, None)?.1;
+                let schema = <Root<T> as Record>::parse(schema, None)?.1;
 
                 Ok(Self::new(self.file_reader, None, schema))
             }
@@ -1147,7 +1137,7 @@ where
 impl<'a, R, T> Iterator for RowIter<'a, R, T>
 where
     R: FileReader,
-    T: Deserialize,
+    T: Record,
 {
     type Item = T;
 
@@ -1183,18 +1173,18 @@ where
 /// Internal row iterator for a reader.
 struct ReaderIter<T>
 where
-    T: Deserialize,
+    T: Record,
 {
-    root_reader: <Root<T> as Deserialize>::Reader,
+    root_reader: <Root<T> as Record>::Reader,
     records_left: u64,
     marker: PhantomData<fn() -> T>,
 }
 
 impl<T> ReaderIter<T>
 where
-    T: Deserialize,
+    T: Record,
 {
-    fn new(mut root_reader: <Root<T> as Deserialize>::Reader, num_records: u64) -> Self {
+    fn new(mut root_reader: <Root<T> as Record>::Reader, num_records: u64) -> Self {
         // Prepare root reader by advancing all column vectors
         root_reader.advance_columns().unwrap();
         Self {
@@ -1207,7 +1197,7 @@ where
 
 impl<T> Iterator for ReaderIter<T>
 where
-    T: Deserialize,
+    T: Record,
 {
     type Item = T;
 
@@ -2336,7 +2326,7 @@ mod tests {
         schema: Option<Predicate>,
     ) -> Result<Vec<T>>
     where
-        T: Deserialize,
+        T: Record,
     {
         let file = get_test_file(file_name);
         let file_reader: SerializedFileReader<_> = SerializedFileReader::new(file)?;
@@ -2349,7 +2339,7 @@ mod tests {
         schema: Option<Predicate>,
     ) -> Result<Vec<T>>
     where
-        T: Deserialize,
+        T: Record,
     {
         let file = get_test_file(file_name);
         let file_reader: SerializedFileReader<_> = SerializedFileReader::new(file)?;

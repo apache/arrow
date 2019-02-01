@@ -25,24 +25,24 @@ use std::{
 use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
-    errors::ParquetError,
+    errors::{ParquetError, Result},
     record::{
         display::DisplaySchemaGroup,
-        reader::{Reader, TupleReader},
+        reader::TupleReader,
         schemas::{TupleSchema, ValueSchema},
         types::{group::Group, Downcast, Value},
-        Deserialize, Schema,
+        Reader, Record, Schema,
     },
     schema::types::{ColumnPath, Type},
 };
 
-macro_rules! impl_parquet_deserialize_tuple {
+macro_rules! impl_parquet_record_tuple {
     ($len:tt $($t:ident $i:tt)*) => (
         impl<$($t,)*> Reader for TupleReader<($($t,)*)> where $($t: Reader,)* {
             type Item = ($($t::Item,)*);
 
             #[allow(unused_variables, non_snake_case)]
-            fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item, ParquetError> {
+            fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
                 $(
                     let $t = (self.0).$i.read(def_level, rep_level);
                 )*
@@ -54,7 +54,7 @@ macro_rules! impl_parquet_deserialize_tuple {
                     $($t.unwrap(),)*
                 ))
             }
-            fn advance_columns(&mut self) -> Result<(), ParquetError> {
+            fn advance_columns(&mut self) -> Result<()> {
                 #[allow(unused_mut)]
                 let mut res = Ok(());
                 $(
@@ -85,8 +85,13 @@ macro_rules! impl_parquet_deserialize_tuple {
                 }
             }
         }
+        impl<$($t,)*> Default for TupleSchema<($((String,$t,),)*)> where $($t: Default,)* {
+            fn default() -> Self {
+                Self(($((format!("field_{}", $i), Default::default()),)*))
+            }
+        }
         impl<$($t,)*> Debug for TupleSchema<($((String,$t,),)*)> where $($t: Debug,)* {
-            fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 f.debug_tuple("TupleSchema")
                     $(.field(&(self.0).$i))*
                     .finish()
@@ -94,7 +99,7 @@ macro_rules! impl_parquet_deserialize_tuple {
         }
         impl<$($t,)*> Schema for TupleSchema<($((String,$t,),)*)> where $($t: Schema,)* {
             #[allow(unused_variables)]
-            fn fmt(self_: Option<&Self>, r: Option<Repetition>, name: Option<&str>, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+            fn fmt(self_: Option<&Self>, r: Option<Repetition>, name: Option<&str>, f: &mut fmt::Formatter) -> fmt::Result {
                 let mut printer = DisplaySchemaGroup::new(r, name, None, f);
                 $(
                     printer.field(self_.map(|self_|&*(self_.0).$i.0), self_.map(|self_|&(self_.0).$i.1));
@@ -102,11 +107,11 @@ macro_rules! impl_parquet_deserialize_tuple {
                 printer.finish()
             }
         }
-        impl<$($t,)*> Deserialize for ($($t,)*) where $($t: Deserialize,)* {
+        impl<$($t,)*> Record for ($($t,)*) where $($t: Record,)* {
             type Schema = TupleSchema<($((String,$t::Schema,),)*)>;
             type Reader = TupleReader<($($t::Reader,)*)>;
 
-            fn parse(schema: &Type, repetition: Option<Repetition>) -> Result<(String, Self::Schema), ParquetError> {
+            fn parse(schema: &Type, repetition: Option<Repetition>) -> Result<(String, Self::Schema)> {
                 if schema.is_group() && repetition == Some(Repetition::REQUIRED) {
                     let mut fields = schema.get_fields().iter();
                     let schema_ = TupleSchema(($(fields.next().ok_or(ParquetError::General(String::from("Group missing field"))).and_then(|x|$t::parse(&**x, Some(x.get_basic_info().repetition())))?,)*));
@@ -121,14 +126,14 @@ macro_rules! impl_parquet_deserialize_tuple {
                 $(
                     path.push((schema.0).$i.0.to_owned());
                     #[allow(non_snake_case)]
-                    let $t = <$t as Deserialize>::reader(&(schema.0).$i.1, path, def_level, rep_level, paths, batch_size);
+                    let $t = <$t as Record>::reader(&(schema.0).$i.1, path, def_level, rep_level, paths, batch_size);
                     path.pop().unwrap();
                 )*
                 TupleReader(($($t,)*))
             }
         }
         impl<$($t,)*> Downcast<($($t,)*)> for Value where Value: $(Downcast<$t> +)* {
-            fn downcast(self) -> Result<($($t,)*),ParquetError> {
+            fn downcast(self) -> Result<($($t,)*)> {
                 #[allow(unused_mut,unused_variables)]
                 let mut fields = self.into_group()?.0.into_iter();
                 if fields.len() != $len {
@@ -138,7 +143,7 @@ macro_rules! impl_parquet_deserialize_tuple {
             }
         }
         impl<$($t,)*> Downcast<($($t,)*)> for Group where Value: $(Downcast<$t> +)* {
-            fn downcast(self) -> Result<($($t,)*),ParquetError> {
+            fn downcast(self) -> Result<($($t,)*)> {
                 #[allow(unused_mut,unused_variables)]
                 let mut fields = self.0.into_iter();
                 if fields.len() != $len {
@@ -160,7 +165,7 @@ macro_rules! impl_parquet_deserialize_tuple {
             }
         }
         impl<$($t,)*> Downcast<TupleSchema<($((String,$t,),)*)>> for ValueSchema where ValueSchema: $(Downcast<$t> +)* {
-            fn downcast(self) -> Result<TupleSchema<($((String,$t,),)*)>,ParquetError> {
+            fn downcast(self) -> Result<TupleSchema<($((String,$t,),)*)>> {
                 let group = self.into_group()?;
                 #[allow(unused_mut,unused_variables)]
                 let mut fields = group.0.into_iter();
@@ -176,36 +181,36 @@ macro_rules! impl_parquet_deserialize_tuple {
     );
 }
 
-impl_parquet_deserialize_tuple!(0);
-impl_parquet_deserialize_tuple!(1 A 0);
-impl_parquet_deserialize_tuple!(2 A 0 B 1);
-impl_parquet_deserialize_tuple!(3 A 0 B 1 C 2);
-impl_parquet_deserialize_tuple!(4 A 0 B 1 C 2 D 3);
-impl_parquet_deserialize_tuple!(5 A 0 B 1 C 2 D 3 E 4);
-impl_parquet_deserialize_tuple!(6 A 0 B 1 C 2 D 3 E 4 F 5);
-impl_parquet_deserialize_tuple!(7 A 0 B 1 C 2 D 3 E 4 F 5 G 6);
-impl_parquet_deserialize_tuple!(8 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7);
-impl_parquet_deserialize_tuple!(9 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8);
-impl_parquet_deserialize_tuple!(10 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9);
-impl_parquet_deserialize_tuple!(11 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10);
-impl_parquet_deserialize_tuple!(12 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11);
-impl_parquet_deserialize_tuple!(13 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12);
-impl_parquet_deserialize_tuple!(14 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13);
-impl_parquet_deserialize_tuple!(15 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14);
-impl_parquet_deserialize_tuple!(16 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15);
-impl_parquet_deserialize_tuple!(17 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16);
-impl_parquet_deserialize_tuple!(18 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17);
-impl_parquet_deserialize_tuple!(19 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18);
-impl_parquet_deserialize_tuple!(20 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19);
-impl_parquet_deserialize_tuple!(21 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20);
-impl_parquet_deserialize_tuple!(22 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21);
-impl_parquet_deserialize_tuple!(23 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22);
-impl_parquet_deserialize_tuple!(24 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23);
-impl_parquet_deserialize_tuple!(25 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24);
-impl_parquet_deserialize_tuple!(26 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24 Z 25);
-impl_parquet_deserialize_tuple!(27 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24 Z 25 AA 26);
-impl_parquet_deserialize_tuple!(28 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24 Z 25 AA 26 AB 27);
-impl_parquet_deserialize_tuple!(29 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24 Z 25 AA 26 AB 27 AC 28);
-impl_parquet_deserialize_tuple!(30 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24 Z 25 AA 26 AB 27 AC 28 AD 29);
-impl_parquet_deserialize_tuple!(31 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24 Z 25 AA 26 AB 27 AC 28 AD 29 AE 30);
-impl_parquet_deserialize_tuple!(32 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24 Z 25 AA 26 AB 27 AC 28 AD 29 AE 30 AF 31);
+impl_parquet_record_tuple!(0);
+impl_parquet_record_tuple!(1 A 0);
+impl_parquet_record_tuple!(2 A 0 B 1);
+impl_parquet_record_tuple!(3 A 0 B 1 C 2);
+impl_parquet_record_tuple!(4 A 0 B 1 C 2 D 3);
+impl_parquet_record_tuple!(5 A 0 B 1 C 2 D 3 E 4);
+impl_parquet_record_tuple!(6 A 0 B 1 C 2 D 3 E 4 F 5);
+impl_parquet_record_tuple!(7 A 0 B 1 C 2 D 3 E 4 F 5 G 6);
+impl_parquet_record_tuple!(8 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7);
+impl_parquet_record_tuple!(9 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8);
+impl_parquet_record_tuple!(10 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9);
+impl_parquet_record_tuple!(11 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10);
+impl_parquet_record_tuple!(12 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11);
+impl_parquet_record_tuple!(13 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12);
+impl_parquet_record_tuple!(14 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13);
+impl_parquet_record_tuple!(15 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14);
+impl_parquet_record_tuple!(16 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15);
+impl_parquet_record_tuple!(17 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16);
+impl_parquet_record_tuple!(18 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17);
+impl_parquet_record_tuple!(19 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18);
+impl_parquet_record_tuple!(20 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19);
+impl_parquet_record_tuple!(21 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20);
+impl_parquet_record_tuple!(22 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21);
+impl_parquet_record_tuple!(23 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22);
+impl_parquet_record_tuple!(24 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23);
+impl_parquet_record_tuple!(25 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24);
+impl_parquet_record_tuple!(26 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24 Z 25);
+impl_parquet_record_tuple!(27 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24 Z 25 AA 26);
+impl_parquet_record_tuple!(28 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24 Z 25 AA 26 AB 27);
+impl_parquet_record_tuple!(29 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24 Z 25 AA 26 AB 27 AC 28);
+impl_parquet_record_tuple!(30 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24 Z 25 AA 26 AB 27 AC 28 AD 29);
+impl_parquet_record_tuple!(31 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24 Z 25 AA 26 AB 27 AC 28 AD 29 AE 30);
+impl_parquet_record_tuple!(32 A 0 B 1 C 2 D 3 E 4 F 5 G 6 H 7 I 8 J 9 K 10 L 11 M 12 N 13 O 14 P 15 Q 16 R 17 S 18 T 19 U 20 V 21 W 22 X 23 Y 24 Z 25 AA 26 AB 27 AC 28 AD 29 AE 30 AF 31);

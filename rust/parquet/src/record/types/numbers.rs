@@ -21,10 +21,10 @@ use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
     data_type::{BoolType, DoubleType, FloatType, Int32Type, Int64Type},
-    errors::ParquetError,
+    errors::Result,
     record::{
         reader::{
-            BoolReader, F32Reader, F64Reader, I32Reader, I64Reader, MapReader, Reader,
+            BoolReader, F32Reader, F64Reader, I32Reader, I64Reader, MapReader,
             TryIntoReader,
         },
         schemas::{
@@ -33,19 +33,19 @@ use crate::{
         },
         triplet::TypedTripletIter,
         types::{downcast, Value},
-        Deserialize,
+        Reader, Record,
     },
     schema::types::{ColumnPath, Type},
 };
 
-impl Deserialize for bool {
+impl Record for bool {
     type Reader = BoolReader;
     type Schema = BoolSchema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -67,14 +67,14 @@ impl Deserialize for bool {
     }
 }
 
-impl Deserialize for i8 {
+impl Record for i8 {
     type Reader = TryIntoReader<I32Reader, i8>;
     type Schema = I8Schema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -92,14 +92,14 @@ impl Deserialize for i8 {
         )
     }
 }
-impl Deserialize for u8 {
+impl Record for u8 {
     type Reader = TryIntoReader<I32Reader, u8>;
     type Schema = U8Schema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -118,14 +118,14 @@ impl Deserialize for u8 {
     }
 }
 
-impl Deserialize for i16 {
+impl Record for i16 {
     type Reader = TryIntoReader<I32Reader, i16>;
     type Schema = I16Schema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -143,14 +143,14 @@ impl Deserialize for i16 {
         )
     }
 }
-impl Deserialize for u16 {
+impl Record for u16 {
     type Reader = TryIntoReader<I32Reader, u16>;
     type Schema = U16Schema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -169,14 +169,14 @@ impl Deserialize for u16 {
     }
 }
 
-impl Deserialize for i32 {
+impl Record for i32 {
     type Reader = I32Reader;
     type Schema = I32Schema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -197,14 +197,14 @@ impl Deserialize for i32 {
         }
     }
 }
-impl Deserialize for u32 {
+impl Record for u32 {
     type Reader = impl Reader<Item = Self>;
     type Schema = U32Schema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -223,14 +223,14 @@ impl Deserialize for u32 {
     }
 }
 
-impl Deserialize for i64 {
+impl Record for i64 {
     type Reader = I64Reader;
     type Schema = I64Schema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -251,14 +251,14 @@ impl Deserialize for i64 {
         }
     }
 }
-impl Deserialize for u64 {
+impl Record for u64 {
     type Reader = impl Reader<Item = Self>;
     type Schema = U64Schema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -277,14 +277,14 @@ impl Deserialize for u64 {
     }
 }
 
-impl Deserialize for f32 {
+impl Record for f32 {
     type Reader = F32Reader;
     type Schema = F32Schema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -305,14 +305,14 @@ impl Deserialize for f32 {
         }
     }
 }
-impl Deserialize for f64 {
+impl Record for f64 {
     type Reader = F64Reader;
     type Schema = F64Schema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 

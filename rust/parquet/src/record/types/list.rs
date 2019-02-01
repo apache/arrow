@@ -26,11 +26,11 @@ use std::{
 use crate::{
     basic::{LogicalType, Repetition},
     column::reader::ColumnReader,
-    errors::ParquetError,
+    errors::{ParquetError, Result},
     record::{
-        reader::{MapReader, Reader, RepeatedReader},
+        reader::{MapReader, RepeatedReader},
         schemas::{ListSchema, ListSchemaType},
-        Deserialize,
+        Reader, Record,
     },
     schema::types::{ColumnPath, Type},
 };
@@ -39,9 +39,7 @@ use crate::{
 /// Used to determine legacy list types.
 /// This method is copied from Spark Parquet reader and is based on the reference:
 /// https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#backward-compatibility-rules
-pub(super) fn parse_list<T: Deserialize>(
-    schema: &Type,
-) -> Result<ListSchema<T::Schema>, ParquetError> {
+pub(super) fn parse_list<T: Record>(schema: &Type) -> Result<ListSchema<T::Schema>> {
     if schema.is_group()
         && schema.get_basic_info().logical_type() == LogicalType::LIST
         && schema.get_fields().len() == 1
@@ -89,9 +87,9 @@ pub(super) fn parse_list<T: Deserialize>(
 #[derive(Clone, Hash, Eq)]
 pub struct List<T>(pub(in super::super) Vec<T>);
 
-impl<T> Deserialize for List<T>
+impl<T> Record for List<T>
 where
-    T: Deserialize,
+    T: Record,
 {
     type Reader = impl Reader<Item = Self>;
     type Schema = ListSchema<T::Schema>;
@@ -99,7 +97,7 @@ where
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         if repetition == Some(Repetition::REQUIRED) {
             return parse_list::<T>(schema)
                 .map(|schema2| (schema.name().to_owned(), schema2));
@@ -224,7 +222,7 @@ impl<T> Debug for List<T>
 where
     T: Debug,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_list().entries(self.iter()).finish()
     }
 }

@@ -21,24 +21,24 @@ use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
     data_type::{ByteArray, Decimal},
-    errors::ParquetError,
+    errors::Result,
     record::{
-        reader::{MapReader, Reader},
+        reader::MapReader,
         schemas::{DecimalSchema, I32Schema, I64Schema},
         types::{downcast, Value},
-        Deserialize,
+        Reader, Record,
     },
     schema::types::{ColumnPath, Type},
 };
 
-impl Deserialize for Decimal {
+impl Record for Decimal {
     type Reader = impl Reader<Item = Self>;
     type Schema = DecimalSchema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 

@@ -22,37 +22,37 @@ use parquet::{
     file::reader::{FileReader, RowGroupReader, SerializedFileReader},
     record::{
         types::{List, Map},
-        Deserialize,
+        Record,
     },
 };
 
 #[allow(dead_code)]
-#[derive(Deserialize)]
+#[derive(Record)]
 struct Abc {
     a: String,
 }
 
 #[allow(dead_code)]
-#[derive(Deserialize)]
+#[derive(Record)]
 struct Def {
     #[parquet(rename = "!@£$%^&*(")]
     a: String,
 }
 
-// #[derive(Deserialize)]
+// #[derive(Record)]
 // struct Ghi {
 // 	#[parquet(rename = 123)]
 //     a: String,
 // }
 
 #[allow(dead_code)]
-#[derive(Deserialize)]
+#[derive(Record)]
 struct Jkl<M> {
     a: M,
 }
 
 #[allow(dead_code)]
-#[derive(Deserialize)]
+#[derive(Record)]
 struct Mno {}
 
 macro_rules! list {
@@ -83,7 +83,7 @@ macro_rules! map {
 
 #[test]
 fn test_file_reader_rows_nonnullable_derived() {
-    #[derive(PartialEq, Deserialize, Debug)]
+    #[derive(PartialEq, Record, Debug)]
     struct RowDerived {
         #[parquet(rename = "ID")]
         id: i64,
@@ -97,7 +97,7 @@ fn test_file_reader_rows_nonnullable_derived() {
         nested_struct: RowDerivedInner,
     }
 
-    #[derive(PartialEq, Deserialize, Debug)]
+    #[derive(PartialEq, Record, Debug)]
     struct RowDerivedInner {
         a: i32,
         #[parquet(rename = "B")]
@@ -107,13 +107,13 @@ fn test_file_reader_rows_nonnullable_derived() {
         g: Map<String, ((List<f64>,),)>,
     }
 
-    #[derive(PartialEq, Deserialize, Debug)]
+    #[derive(PartialEq, Record, Debug)]
     struct RowDerivedInnerInner {
         #[parquet(rename = "D")]
         d: List<List<RowDerivedInnerInnerInner>>,
     }
 
-    #[derive(PartialEq, Deserialize, Debug)]
+    #[derive(PartialEq, Record, Debug)]
     struct RowDerivedInnerInnerInner {
         e: i32,
         f: String,
@@ -146,7 +146,7 @@ fn test_file_reader_rows_nonnullable_derived() {
 
 #[test]
 fn test_file_reader_rows_projection_derived() {
-    #[derive(PartialEq, Deserialize, Debug)]
+    #[derive(PartialEq, Record, Debug)]
     struct SparkSchema {
         c: f64,
         b: i32,
@@ -169,7 +169,7 @@ fn test_file_reader_rows_projection_derived() {
 
 #[test]
 fn test_file_reader_rows_projection_map_derived() {
-    #[derive(PartialEq, Deserialize, Debug)]
+    #[derive(PartialEq, Record, Debug)]
     struct SparkSchema {
         a: Option<Map<String, Option<Map<i32, bool>>>>,
     }
@@ -206,7 +206,7 @@ fn test_file_reader_rows_projection_map_derived() {
 
 #[test]
 fn test_file_reader_rows_projection_list_derived() {
-    #[derive(PartialEq, Deserialize, Debug)]
+    #[derive(PartialEq, Record, Debug)]
     struct SparkSchema {
         a: Option<List<Option<List<Option<List<Option<String>>>>>>>,
     }
@@ -250,7 +250,7 @@ fn test_file_reader_rows_projection_list_derived() {
 
 #[test]
 fn test_file_reader_rows_invalid_projection_derived() {
-    #[derive(PartialEq, Deserialize, Debug)]
+    #[derive(PartialEq, Record, Debug)]
     struct SparkSchema {
         key: i32,
         value: bool,
@@ -266,7 +266,7 @@ fn test_file_reader_rows_invalid_projection_derived() {
 
 #[test]
 fn test_row_group_rows_invalid_projection_derived() {
-    #[derive(PartialEq, Deserialize, Debug)]
+    #[derive(PartialEq, Record, Debug)]
     struct SparkSchema {
         key: i32,
         value: bool,
@@ -306,7 +306,7 @@ fn test_file_reader_rows<T>(
     schema: Option<()>,
 ) -> Result<Vec<T>, ParquetError>
 where
-    T: Deserialize,
+    T: Record,
 {
     assert!(schema.is_none());
     let file = get_test_file(file_name);
@@ -320,7 +320,7 @@ fn test_row_group_rows<T>(
     schema: Option<()>,
 ) -> Result<Vec<T>, ParquetError>
 where
-    T: Deserialize,
+    T: Record,
 {
     assert!(schema.is_none());
     let file = get_test_file(file_name);

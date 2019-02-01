@@ -20,14 +20,14 @@ use std::collections::HashMap;
 use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
-    errors::ParquetError,
-    record::{reader::BoxReader, schemas::BoxSchema, Deserialize},
+    errors::Result,
+    record::{reader::BoxReader, schemas::BoxSchema, Record},
     schema::types::{ColumnPath, Type},
 };
 
-default impl<T: ?Sized> Deserialize for Box<T>
+default impl<T: ?Sized> Record for Box<T>
 where
-    T: Deserialize,
+    T: Record,
 {
     type Reader = BoxReader<T::Reader>;
     type Schema = BoxSchema<T::Schema>;
@@ -35,7 +35,7 @@ where
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         T::parse(schema, repetition)
             .map(|(name, schema)| (name, unsafe { known_type(BoxSchema(schema)) }))
     }

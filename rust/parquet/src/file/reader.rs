@@ -41,7 +41,7 @@ use crate::column::{
 use crate::compression::{create_codec, Codec};
 use crate::errors::{ParquetError, Result};
 use crate::file::{metadata::*, statistics, FOOTER_SIZE, PARQUET_MAGIC};
-use crate::record::{reader::RowIter, Deserialize, Predicate};
+use crate::record::{RowIter, Record, Predicate};
 use crate::schema::types::{
     self, ColumnDescPtr, SchemaDescPtr, SchemaDescriptor, Type as SchemaType,
 };
@@ -72,7 +72,7 @@ pub trait FileReader {
     /// full file schema is assumed.
     fn get_row_iter<T>(&self, projection: Option<Predicate>) -> Result<RowIter<Self, T>>
     where
-        T: Deserialize,
+        T: Record,
         Self: Sized;
 }
 
@@ -93,7 +93,7 @@ impl<R> FileReader for Box<FileReader<RowGroupReader=R>> where R: RowGroupReader
 
     fn get_row_iter<T>(&self, _projection: Option<Predicate>) -> Result<RowIter<Self, T>>
     where
-        T: Deserialize,
+        T: Record,
         Self: Sized {
         unimplemented!()
     }
@@ -123,7 +123,7 @@ pub trait RowGroupReader {
         projection: Option<Predicate>,
     ) -> Result<RowIter<SerializedFileReader<std::fs::File>, T>>
     where
-        T: Deserialize,
+        T: Record,
         Self: Sized;
 }
 
@@ -310,7 +310,7 @@ impl<R: 'static + ParquetReader> FileReader for SerializedFileReader<R> {
 
     fn get_row_iter<T>(&self, projection: Option<Predicate>) -> Result<RowIter<Self, T>>
     where
-        T: Deserialize,
+        T: Record,
         Self: Sized,
     {
         RowIter::from_file(projection, self)
@@ -447,7 +447,7 @@ impl<R: 'static + ParquetReader> RowGroupReader for SerializedRowGroupReader<R> 
         projection: Option<Predicate>,
     ) -> Result<RowIter<SerializedFileReader<std::fs::File>, T>>
     where
-        T: Deserialize,
+        T: Record,
         Self: Sized,
     {
         RowIter::from_row_group(projection, self)

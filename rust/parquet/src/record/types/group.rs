@@ -27,12 +27,12 @@ use std::{
 use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
-    errors::ParquetError,
+    errors::{ParquetError, Result},
     record::{
         reader::GroupReader,
         schemas::{GroupSchema, ValueSchema},
         types::Value,
-        Deserialize,
+        Record,
     },
     schema::types::{ColumnPath, Type},
 };
@@ -41,14 +41,14 @@ use crate::{
 pub struct Group(pub(crate) Vec<Value>, pub(crate) Rc<HashMap<String, usize>>);
 pub type Row = Group;
 
-impl Deserialize for Group {
+impl Record for Group {
     type Reader = GroupReader;
     type Schema = GroupSchema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         if schema.is_group() && repetition == Some(Repetition::REQUIRED) {
             let mut map = HashMap::with_capacity(schema.get_fields().len());
             let fields = schema
@@ -56,7 +56,7 @@ impl Deserialize for Group {
                 .iter()
                 .enumerate()
                 .map(|(i, field)| {
-                    let (name, schema) = <Value as Deserialize>::parse(
+                    let (name, schema) = <Value as Record>::parse(
                         &**field,
                         Some(field.get_basic_info().repetition()),
                     )?;
@@ -64,7 +64,7 @@ impl Deserialize for Group {
                     assert!(x.is_none());
                     Ok(schema)
                 })
-                .collect::<Result<Vec<ValueSchema>, ParquetError>>()?;
+                .collect::<Result<Vec<ValueSchema>>>()?;
             let schema_ = GroupSchema(fields, map);
             return Ok((schema.name().to_owned(), schema_));
         }
@@ -121,7 +121,7 @@ where
     }
 }
 impl Debug for Group {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut printer = f.debug_struct("Group");
         let fields = self.0.iter();
         let mut names = vec![None; self.1.len()];

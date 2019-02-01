@@ -25,7 +25,7 @@ use crate::{
     basic::{LogicalType, Repetition, Type as PhysicalType},
     column::reader::ColumnReader,
     data_type::Decimal,
-    errors::ParquetError,
+    errors::{ParquetError, Result},
     record::{
         reader::ValueReader,
         schemas::{
@@ -39,7 +39,7 @@ use crate::{
             list::parse_list, map::parse_map, Bson, Date, Downcast, Enum, Group, Json,
             List, Map, Time, Timestamp, ValueRequired,
         },
-        Deserialize,
+        Record,
     },
     schema::types::{ColumnPath, Type},
 };
@@ -212,7 +212,7 @@ impl Value {
     }
 
     /// If the `Value` is an Bool, return a reference to it. Returns Err otherwise.
-    pub fn as_bool(&self) -> Result<bool, ParquetError> {
+    pub fn as_bool(&self) -> Result<bool> {
         if let Value::Bool(ret) = self {
             Ok(*ret)
         } else {
@@ -224,7 +224,7 @@ impl Value {
     }
 
     /// If the `Value` is an Bool, return it. Returns Err otherwise.
-    pub fn into_bool(self) -> Result<bool, ParquetError> {
+    pub fn into_bool(self) -> Result<bool> {
         if let Value::Bool(ret) = self {
             Ok(ret)
         } else {
@@ -245,7 +245,7 @@ impl Value {
     }
 
     /// If the `Value` is an U8, return a reference to it. Returns Err otherwise.
-    pub fn as_u8(&self) -> Result<u8, ParquetError> {
+    pub fn as_u8(&self) -> Result<u8> {
         if let Value::U8(ret) = self {
             Ok(*ret)
         } else {
@@ -257,7 +257,7 @@ impl Value {
     }
 
     /// If the `Value` is an U8, return it. Returns Err otherwise.
-    pub fn into_u8(self) -> Result<u8, ParquetError> {
+    pub fn into_u8(self) -> Result<u8> {
         if let Value::U8(ret) = self {
             Ok(ret)
         } else {
@@ -278,7 +278,7 @@ impl Value {
     }
 
     /// If the `Value` is an I8, return a reference to it. Returns Err otherwise.
-    pub fn as_i8(&self) -> Result<i8, ParquetError> {
+    pub fn as_i8(&self) -> Result<i8> {
         if let Value::I8(ret) = self {
             Ok(*ret)
         } else {
@@ -290,7 +290,7 @@ impl Value {
     }
 
     /// If the `Value` is an I8, return it. Returns Err otherwise.
-    pub fn into_i8(self) -> Result<i8, ParquetError> {
+    pub fn into_i8(self) -> Result<i8> {
         if let Value::I8(ret) = self {
             Ok(ret)
         } else {
@@ -311,7 +311,7 @@ impl Value {
     }
 
     /// If the `Value` is an U16, return a reference to it. Returns Err otherwise.
-    pub fn as_u16(&self) -> Result<u16, ParquetError> {
+    pub fn as_u16(&self) -> Result<u16> {
         if let Value::U16(ret) = self {
             Ok(*ret)
         } else {
@@ -323,7 +323,7 @@ impl Value {
     }
 
     /// If the `Value` is an U16, return it. Returns Err otherwise.
-    pub fn into_u16(self) -> Result<u16, ParquetError> {
+    pub fn into_u16(self) -> Result<u16> {
         if let Value::U16(ret) = self {
             Ok(ret)
         } else {
@@ -344,7 +344,7 @@ impl Value {
     }
 
     /// If the `Value` is an I16, return a reference to it. Returns Err otherwise.
-    pub fn as_i16(&self) -> Result<i16, ParquetError> {
+    pub fn as_i16(&self) -> Result<i16> {
         if let Value::I16(ret) = self {
             Ok(*ret)
         } else {
@@ -356,7 +356,7 @@ impl Value {
     }
 
     /// If the `Value` is an I16, return it. Returns Err otherwise.
-    pub fn into_i16(self) -> Result<i16, ParquetError> {
+    pub fn into_i16(self) -> Result<i16> {
         if let Value::I16(ret) = self {
             Ok(ret)
         } else {
@@ -377,7 +377,7 @@ impl Value {
     }
 
     /// If the `Value` is an U32, return a reference to it. Returns Err otherwise.
-    pub fn as_u32(&self) -> Result<u32, ParquetError> {
+    pub fn as_u32(&self) -> Result<u32> {
         if let Value::U32(ret) = self {
             Ok(*ret)
         } else {
@@ -389,7 +389,7 @@ impl Value {
     }
 
     /// If the `Value` is an U32, return it. Returns Err otherwise.
-    pub fn into_u32(self) -> Result<u32, ParquetError> {
+    pub fn into_u32(self) -> Result<u32> {
         if let Value::U32(ret) = self {
             Ok(ret)
         } else {
@@ -410,7 +410,7 @@ impl Value {
     }
 
     /// If the `Value` is an I32, return a reference to it. Returns Err otherwise.
-    pub fn as_i32(&self) -> Result<i32, ParquetError> {
+    pub fn as_i32(&self) -> Result<i32> {
         if let Value::I32(ret) = self {
             Ok(*ret)
         } else {
@@ -422,7 +422,7 @@ impl Value {
     }
 
     /// If the `Value` is an I32, return it. Returns Err otherwise.
-    pub fn into_i32(self) -> Result<i32, ParquetError> {
+    pub fn into_i32(self) -> Result<i32> {
         if let Value::I32(ret) = self {
             Ok(ret)
         } else {
@@ -443,7 +443,7 @@ impl Value {
     }
 
     /// If the `Value` is an U64, return a reference to it. Returns Err otherwise.
-    pub fn as_u64(&self) -> Result<u64, ParquetError> {
+    pub fn as_u64(&self) -> Result<u64> {
         if let Value::U64(ret) = self {
             Ok(*ret)
         } else {
@@ -455,7 +455,7 @@ impl Value {
     }
 
     /// If the `Value` is an U64, return it. Returns Err otherwise.
-    pub fn into_u64(self) -> Result<u64, ParquetError> {
+    pub fn into_u64(self) -> Result<u64> {
         if let Value::U64(ret) = self {
             Ok(ret)
         } else {
@@ -476,7 +476,7 @@ impl Value {
     }
 
     /// If the `Value` is an I64, return a reference to it. Returns Err otherwise.
-    pub fn as_i64(&self) -> Result<i64, ParquetError> {
+    pub fn as_i64(&self) -> Result<i64> {
         if let Value::I64(ret) = self {
             Ok(*ret)
         } else {
@@ -488,7 +488,7 @@ impl Value {
     }
 
     /// If the `Value` is an I64, return it. Returns Err otherwise.
-    pub fn into_i64(self) -> Result<i64, ParquetError> {
+    pub fn into_i64(self) -> Result<i64> {
         if let Value::I64(ret) = self {
             Ok(ret)
         } else {
@@ -509,7 +509,7 @@ impl Value {
     }
 
     /// If the `Value` is an F32, return a reference to it. Returns Err otherwise.
-    pub fn as_f32(&self) -> Result<f32, ParquetError> {
+    pub fn as_f32(&self) -> Result<f32> {
         if let Value::F32(ret) = self {
             Ok(*ret)
         } else {
@@ -521,7 +521,7 @@ impl Value {
     }
 
     /// If the `Value` is an F32, return it. Returns Err otherwise.
-    pub fn into_f32(self) -> Result<f32, ParquetError> {
+    pub fn into_f32(self) -> Result<f32> {
         if let Value::F32(ret) = self {
             Ok(ret)
         } else {
@@ -542,7 +542,7 @@ impl Value {
     }
 
     /// If the `Value` is an F64, return a reference to it. Returns Err otherwise.
-    pub fn as_f64(&self) -> Result<f64, ParquetError> {
+    pub fn as_f64(&self) -> Result<f64> {
         if let Value::F64(ret) = self {
             Ok(*ret)
         } else {
@@ -554,7 +554,7 @@ impl Value {
     }
 
     /// If the `Value` is an F64, return it. Returns Err otherwise.
-    pub fn into_f64(self) -> Result<f64, ParquetError> {
+    pub fn into_f64(self) -> Result<f64> {
         if let Value::F64(ret) = self {
             Ok(ret)
         } else {
@@ -575,7 +575,7 @@ impl Value {
     }
 
     /// If the `Value` is an Date, return a reference to it. Returns Err otherwise.
-    pub fn as_date(&self) -> Result<&Date, ParquetError> {
+    pub fn as_date(&self) -> Result<&Date> {
         if let Value::Date(ret) = self {
             Ok(ret)
         } else {
@@ -587,7 +587,7 @@ impl Value {
     }
 
     /// If the `Value` is an Date, return it. Returns Err otherwise.
-    pub fn into_date(self) -> Result<Date, ParquetError> {
+    pub fn into_date(self) -> Result<Date> {
         if let Value::Date(ret) = self {
             Ok(ret)
         } else {
@@ -608,7 +608,7 @@ impl Value {
     }
 
     /// If the `Value` is an Time, return a reference to it. Returns Err otherwise.
-    pub fn as_time(&self) -> Result<&Time, ParquetError> {
+    pub fn as_time(&self) -> Result<&Time> {
         if let Value::Time(ret) = self {
             Ok(ret)
         } else {
@@ -620,7 +620,7 @@ impl Value {
     }
 
     /// If the `Value` is an Time, return it. Returns Err otherwise.
-    pub fn into_time(self) -> Result<Time, ParquetError> {
+    pub fn into_time(self) -> Result<Time> {
         if let Value::Time(ret) = self {
             Ok(ret)
         } else {
@@ -641,7 +641,7 @@ impl Value {
     }
 
     /// If the `Value` is an Timestamp, return a reference to it. Returns Err otherwise.
-    pub fn as_timestamp(&self) -> Result<&Timestamp, ParquetError> {
+    pub fn as_timestamp(&self) -> Result<&Timestamp> {
         if let Value::Timestamp(ret) = self {
             Ok(ret)
         } else {
@@ -653,7 +653,7 @@ impl Value {
     }
 
     /// If the `Value` is an Timestamp, return it. Returns Err otherwise.
-    pub fn into_timestamp(self) -> Result<Timestamp, ParquetError> {
+    pub fn into_timestamp(self) -> Result<Timestamp> {
         if let Value::Timestamp(ret) = self {
             Ok(ret)
         } else {
@@ -674,7 +674,7 @@ impl Value {
     }
 
     /// If the `Value` is an Decimal, return a reference to it. Returns Err otherwise.
-    pub fn as_decimal(&self) -> Result<&Decimal, ParquetError> {
+    pub fn as_decimal(&self) -> Result<&Decimal> {
         if let Value::Decimal(ret) = self {
             Ok(ret)
         } else {
@@ -686,7 +686,7 @@ impl Value {
     }
 
     /// If the `Value` is an Decimal, return it. Returns Err otherwise.
-    pub fn into_decimal(self) -> Result<Decimal, ParquetError> {
+    pub fn into_decimal(self) -> Result<Decimal> {
         if let Value::Decimal(ret) = self {
             Ok(ret)
         } else {
@@ -707,7 +707,7 @@ impl Value {
     }
 
     /// If the `Value` is an ByteArray, return a reference to it. Returns Err otherwise.
-    pub fn as_byte_array(&self) -> Result<&Vec<u8>, ParquetError> {
+    pub fn as_byte_array(&self) -> Result<&Vec<u8>> {
         if let Value::ByteArray(ret) = self {
             Ok(ret)
         } else {
@@ -719,7 +719,7 @@ impl Value {
     }
 
     /// If the `Value` is an ByteArray, return it. Returns Err otherwise.
-    pub fn into_byte_array(self) -> Result<Vec<u8>, ParquetError> {
+    pub fn into_byte_array(self) -> Result<Vec<u8>> {
         if let Value::ByteArray(ret) = self {
             Ok(ret)
         } else {
@@ -740,7 +740,7 @@ impl Value {
     }
 
     /// If the `Value` is an Bson, return a reference to it. Returns Err otherwise.
-    pub fn as_bson(&self) -> Result<&Bson, ParquetError> {
+    pub fn as_bson(&self) -> Result<&Bson> {
         if let Value::Bson(ret) = self {
             Ok(ret)
         } else {
@@ -752,7 +752,7 @@ impl Value {
     }
 
     /// If the `Value` is an Bson, return it. Returns Err otherwise.
-    pub fn into_bson(self) -> Result<Bson, ParquetError> {
+    pub fn into_bson(self) -> Result<Bson> {
         if let Value::Bson(ret) = self {
             Ok(ret)
         } else {
@@ -773,7 +773,7 @@ impl Value {
     }
 
     /// If the `Value` is an String, return a reference to it. Returns Err otherwise.
-    pub fn as_string(&self) -> Result<&String, ParquetError> {
+    pub fn as_string(&self) -> Result<&String> {
         if let Value::String(ret) = self {
             Ok(ret)
         } else {
@@ -785,7 +785,7 @@ impl Value {
     }
 
     /// If the `Value` is an String, return it. Returns Err otherwise.
-    pub fn into_string(self) -> Result<String, ParquetError> {
+    pub fn into_string(self) -> Result<String> {
         if let Value::String(ret) = self {
             Ok(ret)
         } else {
@@ -806,7 +806,7 @@ impl Value {
     }
 
     /// If the `Value` is an Json, return a reference to it. Returns Err otherwise.
-    pub fn as_json(&self) -> Result<&Json, ParquetError> {
+    pub fn as_json(&self) -> Result<&Json> {
         if let Value::Json(ret) = self {
             Ok(ret)
         } else {
@@ -818,7 +818,7 @@ impl Value {
     }
 
     /// If the `Value` is an Json, return it. Returns Err otherwise.
-    pub fn into_json(self) -> Result<Json, ParquetError> {
+    pub fn into_json(self) -> Result<Json> {
         if let Value::Json(ret) = self {
             Ok(ret)
         } else {
@@ -839,7 +839,7 @@ impl Value {
     }
 
     /// If the `Value` is an Enum, return a reference to it. Returns Err otherwise.
-    pub fn as_enum(&self) -> Result<&Enum, ParquetError> {
+    pub fn as_enum(&self) -> Result<&Enum> {
         if let Value::Enum(ret) = self {
             Ok(ret)
         } else {
@@ -851,7 +851,7 @@ impl Value {
     }
 
     /// If the `Value` is an Enum, return it. Returns Err otherwise.
-    pub fn into_enum(self) -> Result<Enum, ParquetError> {
+    pub fn into_enum(self) -> Result<Enum> {
         if let Value::Enum(ret) = self {
             Ok(ret)
         } else {
@@ -872,7 +872,7 @@ impl Value {
     }
 
     /// If the `Value` is an List, return a reference to it. Returns Err otherwise.
-    pub fn as_list(&self) -> Result<&List<Value>, ParquetError> {
+    pub fn as_list(&self) -> Result<&List<Value>> {
         if let Value::List(ret) = self {
             Ok(ret)
         } else {
@@ -884,7 +884,7 @@ impl Value {
     }
 
     /// If the `Value` is an List, return it. Returns Err otherwise.
-    pub fn into_list(self) -> Result<List<Value>, ParquetError> {
+    pub fn into_list(self) -> Result<List<Value>> {
         if let Value::List(ret) = self {
             Ok(ret)
         } else {
@@ -905,7 +905,7 @@ impl Value {
     }
 
     /// If the `Value` is an Map, return a reference to it. Returns Err otherwise.
-    pub fn as_map(&self) -> Result<&Map<Value, Value>, ParquetError> {
+    pub fn as_map(&self) -> Result<&Map<Value, Value>> {
         if let Value::Map(ret) = self {
             Ok(ret)
         } else {
@@ -917,7 +917,7 @@ impl Value {
     }
 
     /// If the `Value` is an Map, return it. Returns Err otherwise.
-    pub fn into_map(self) -> Result<Map<Value, Value>, ParquetError> {
+    pub fn into_map(self) -> Result<Map<Value, Value>> {
         if let Value::Map(ret) = self {
             Ok(ret)
         } else {
@@ -938,7 +938,7 @@ impl Value {
     }
 
     /// If the `Value` is an Group, return a reference to it. Returns Err otherwise.
-    pub fn as_group(&self) -> Result<&Group, ParquetError> {
+    pub fn as_group(&self) -> Result<&Group> {
         if let Value::Group(ret) = self {
             Ok(ret)
         } else {
@@ -950,7 +950,7 @@ impl Value {
     }
 
     /// If the `Value` is an Group, return it. Returns Err otherwise.
-    pub fn into_group(self) -> Result<Group, ParquetError> {
+    pub fn into_group(self) -> Result<Group> {
         if let Value::Group(ret) = self {
             Ok(ret)
         } else {
@@ -971,7 +971,7 @@ impl Value {
     }
 
     /// If the `Value` is an Option, return a reference to it. Returns Err otherwise.
-    fn as_option(&self) -> Result<&Option<ValueRequired>, ParquetError> {
+    fn as_option(&self) -> Result<&Option<ValueRequired>> {
         if let Value::Option(ret) = self {
             Ok(ret)
         } else {
@@ -983,7 +983,7 @@ impl Value {
     }
 
     /// If the `Value` is an Option, return it. Returns Err otherwise.
-    pub fn into_option(self) -> Result<Option<Value>, ParquetError> {
+    pub fn into_option(self) -> Result<Option<Value>> {
         if let Value::Option(ret) = self {
             Ok(ret.map(Into::into))
         } else {
@@ -1150,107 +1150,107 @@ impl From<Option<Value>> for Value {
 }
 
 impl Downcast<Value> for Value {
-    fn downcast(self) -> Result<Value, ParquetError> {
+    fn downcast(self) -> Result<Value> {
         Ok(self)
     }
 }
 impl Downcast<bool> for Value {
-    fn downcast(self) -> Result<bool, ParquetError> {
+    fn downcast(self) -> Result<bool> {
         self.into_bool()
     }
 }
 impl Downcast<u8> for Value {
-    fn downcast(self) -> Result<u8, ParquetError> {
+    fn downcast(self) -> Result<u8> {
         self.into_u8()
     }
 }
 impl Downcast<i8> for Value {
-    fn downcast(self) -> Result<i8, ParquetError> {
+    fn downcast(self) -> Result<i8> {
         self.into_i8()
     }
 }
 impl Downcast<u16> for Value {
-    fn downcast(self) -> Result<u16, ParquetError> {
+    fn downcast(self) -> Result<u16> {
         self.into_u16()
     }
 }
 impl Downcast<i16> for Value {
-    fn downcast(self) -> Result<i16, ParquetError> {
+    fn downcast(self) -> Result<i16> {
         self.into_i16()
     }
 }
 impl Downcast<u32> for Value {
-    fn downcast(self) -> Result<u32, ParquetError> {
+    fn downcast(self) -> Result<u32> {
         self.into_u32()
     }
 }
 impl Downcast<i32> for Value {
-    fn downcast(self) -> Result<i32, ParquetError> {
+    fn downcast(self) -> Result<i32> {
         self.into_i32()
     }
 }
 impl Downcast<u64> for Value {
-    fn downcast(self) -> Result<u64, ParquetError> {
+    fn downcast(self) -> Result<u64> {
         self.into_u64()
     }
 }
 impl Downcast<i64> for Value {
-    fn downcast(self) -> Result<i64, ParquetError> {
+    fn downcast(self) -> Result<i64> {
         self.into_i64()
     }
 }
 impl Downcast<f32> for Value {
-    fn downcast(self) -> Result<f32, ParquetError> {
+    fn downcast(self) -> Result<f32> {
         self.into_f32()
     }
 }
 impl Downcast<f64> for Value {
-    fn downcast(self) -> Result<f64, ParquetError> {
+    fn downcast(self) -> Result<f64> {
         self.into_f64()
     }
 }
 impl Downcast<Date> for Value {
-    fn downcast(self) -> Result<Date, ParquetError> {
+    fn downcast(self) -> Result<Date> {
         self.into_date()
     }
 }
 impl Downcast<Time> for Value {
-    fn downcast(self) -> Result<Time, ParquetError> {
+    fn downcast(self) -> Result<Time> {
         self.into_time()
     }
 }
 impl Downcast<Timestamp> for Value {
-    fn downcast(self) -> Result<Timestamp, ParquetError> {
+    fn downcast(self) -> Result<Timestamp> {
         self.into_timestamp()
     }
 }
 impl Downcast<Decimal> for Value {
-    fn downcast(self) -> Result<Decimal, ParquetError> {
+    fn downcast(self) -> Result<Decimal> {
         self.into_decimal()
     }
 }
 impl Downcast<Vec<u8>> for Value {
-    fn downcast(self) -> Result<Vec<u8>, ParquetError> {
+    fn downcast(self) -> Result<Vec<u8>> {
         self.into_byte_array()
     }
 }
 impl Downcast<Bson> for Value {
-    fn downcast(self) -> Result<Bson, ParquetError> {
+    fn downcast(self) -> Result<Bson> {
         self.into_bson()
     }
 }
 impl Downcast<String> for Value {
-    fn downcast(self) -> Result<String, ParquetError> {
+    fn downcast(self) -> Result<String> {
         self.into_string()
     }
 }
 impl Downcast<Json> for Value {
-    fn downcast(self) -> Result<Json, ParquetError> {
+    fn downcast(self) -> Result<Json> {
         self.into_json()
     }
 }
 impl Downcast<Enum> for Value {
-    fn downcast(self) -> Result<Enum, ParquetError> {
+    fn downcast(self) -> Result<Enum> {
         self.into_enum()
     }
 }
@@ -1258,18 +1258,18 @@ impl<T> Downcast<List<T>> for Value
 where
     Value: Downcast<T>,
 {
-    default fn downcast(self) -> Result<List<T>, ParquetError> {
+    default fn downcast(self) -> Result<List<T>> {
         self.into_list().and_then(|list| {
             list.0
                 .into_iter()
                 .map(Downcast::downcast)
-                .collect::<Result<Vec<_>, _>>()
+                .collect::<Result<Vec<_>>>()
                 .map(List)
         })
     }
 }
 impl Downcast<List<Value>> for Value {
-    fn downcast(self) -> Result<List<Value>, ParquetError> {
+    fn downcast(self) -> Result<List<Value>> {
         self.into_list()
     }
 }
@@ -1278,23 +1278,23 @@ where
     Value: Downcast<K> + Downcast<V>,
     K: Hash + Eq,
 {
-    default fn downcast(self) -> Result<Map<K, V>, ParquetError> {
+    default fn downcast(self) -> Result<Map<K, V>> {
         self.into_map().and_then(|map| {
             map.0
                 .into_iter()
                 .map(|(k, v)| Ok((k.downcast()?, v.downcast()?)))
-                .collect::<Result<HashMap<_, _>, _>>()
+                .collect::<Result<HashMap<_, _>>>()
                 .map(Map)
         })
     }
 }
 impl Downcast<Map<Value, Value>> for Value {
-    fn downcast(self) -> Result<Map<Value, Value>, ParquetError> {
+    fn downcast(self) -> Result<Map<Value, Value>> {
         self.into_map()
     }
 }
 impl Downcast<Group> for Value {
-    fn downcast(self) -> Result<Group, ParquetError> {
+    fn downcast(self) -> Result<Group> {
         self.into_group()
     }
 }
@@ -1302,7 +1302,7 @@ impl<T> Downcast<Option<T>> for Value
 where
     Value: Downcast<T>,
 {
-    default fn downcast(self) -> Result<Option<T>, ParquetError> {
+    default fn downcast(self) -> Result<Option<T>> {
         match self.into_option()? {
             Some(t) => Downcast::<T>::downcast(t).map(Some),
             None => Ok(None),
@@ -1310,7 +1310,7 @@ where
     }
 }
 impl Downcast<Option<Value>> for Value {
-    fn downcast(self) -> Result<Option<Value>, ParquetError> {
+    fn downcast(self) -> Result<Option<Value>> {
         self.into_option()
     }
 }
@@ -1476,14 +1476,14 @@ where
     }
 }
 
-impl Deserialize for Value {
+impl Record for Value {
     type Reader = ValueReader;
     type Schema = ValueSchema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         let mut value = None;
         if repetition.is_some() && schema.is_primitive() {
             value = Some(
@@ -1679,7 +1679,7 @@ impl Deserialize for Value {
                                 schema
                             })
                     })
-                    .collect::<Result<Vec<_>, _>>()?,
+                    .collect::<Result<Vec<_>>>()?,
                 lookup,
             )));
         }
@@ -1713,119 +1713,91 @@ impl Deserialize for Value {
         batch_size: usize,
     ) -> Self::Reader {
         match *schema {
-            ValueSchema::Bool(ref schema) => {
-                ValueReader::Bool(<bool as Deserialize>::reader(
-                    schema, path, def_level, rep_level, paths, batch_size,
-                ))
-            }
-            ValueSchema::U8(ref schema) => ValueReader::U8(<u8 as Deserialize>::reader(
+            ValueSchema::Bool(ref schema) => ValueReader::Bool(<bool as Record>::reader(
                 schema, path, def_level, rep_level, paths, batch_size,
             )),
-            ValueSchema::I8(ref schema) => ValueReader::I8(<i8 as Deserialize>::reader(
+            ValueSchema::U8(ref schema) => ValueReader::U8(<u8 as Record>::reader(
                 schema, path, def_level, rep_level, paths, batch_size,
             )),
-            ValueSchema::U16(ref schema) => {
-                ValueReader::U16(<u16 as Deserialize>::reader(
-                    schema, path, def_level, rep_level, paths, batch_size,
-                ))
-            }
-            ValueSchema::I16(ref schema) => {
-                ValueReader::I16(<i16 as Deserialize>::reader(
-                    schema, path, def_level, rep_level, paths, batch_size,
-                ))
-            }
-            ValueSchema::U32(ref schema) => {
-                ValueReader::U32(<u32 as Deserialize>::reader(
-                    schema, path, def_level, rep_level, paths, batch_size,
-                ))
-            }
-            ValueSchema::I32(ref schema) => {
-                ValueReader::I32(<i32 as Deserialize>::reader(
-                    schema, path, def_level, rep_level, paths, batch_size,
-                ))
-            }
-            ValueSchema::U64(ref schema) => {
-                ValueReader::U64(<u64 as Deserialize>::reader(
-                    schema, path, def_level, rep_level, paths, batch_size,
-                ))
-            }
-            ValueSchema::I64(ref schema) => {
-                ValueReader::I64(<i64 as Deserialize>::reader(
-                    schema, path, def_level, rep_level, paths, batch_size,
-                ))
-            }
-            ValueSchema::F32(ref schema) => {
-                ValueReader::F32(<f32 as Deserialize>::reader(
-                    schema, path, def_level, rep_level, paths, batch_size,
-                ))
-            }
-            ValueSchema::F64(ref schema) => {
-                ValueReader::F64(<f64 as Deserialize>::reader(
-                    schema, path, def_level, rep_level, paths, batch_size,
-                ))
-            }
-            ValueSchema::Date(ref schema) => {
-                ValueReader::Date(<Date as Deserialize>::reader(
-                    schema, path, def_level, rep_level, paths, batch_size,
-                ))
-            }
-            ValueSchema::Time(ref schema) => {
-                ValueReader::Time(<Time as Deserialize>::reader(
-                    schema, path, def_level, rep_level, paths, batch_size,
-                ))
-            }
+            ValueSchema::I8(ref schema) => ValueReader::I8(<i8 as Record>::reader(
+                schema, path, def_level, rep_level, paths, batch_size,
+            )),
+            ValueSchema::U16(ref schema) => ValueReader::U16(<u16 as Record>::reader(
+                schema, path, def_level, rep_level, paths, batch_size,
+            )),
+            ValueSchema::I16(ref schema) => ValueReader::I16(<i16 as Record>::reader(
+                schema, path, def_level, rep_level, paths, batch_size,
+            )),
+            ValueSchema::U32(ref schema) => ValueReader::U32(<u32 as Record>::reader(
+                schema, path, def_level, rep_level, paths, batch_size,
+            )),
+            ValueSchema::I32(ref schema) => ValueReader::I32(<i32 as Record>::reader(
+                schema, path, def_level, rep_level, paths, batch_size,
+            )),
+            ValueSchema::U64(ref schema) => ValueReader::U64(<u64 as Record>::reader(
+                schema, path, def_level, rep_level, paths, batch_size,
+            )),
+            ValueSchema::I64(ref schema) => ValueReader::I64(<i64 as Record>::reader(
+                schema, path, def_level, rep_level, paths, batch_size,
+            )),
+            ValueSchema::F32(ref schema) => ValueReader::F32(<f32 as Record>::reader(
+                schema, path, def_level, rep_level, paths, batch_size,
+            )),
+            ValueSchema::F64(ref schema) => ValueReader::F64(<f64 as Record>::reader(
+                schema, path, def_level, rep_level, paths, batch_size,
+            )),
+            ValueSchema::Date(ref schema) => ValueReader::Date(<Date as Record>::reader(
+                schema, path, def_level, rep_level, paths, batch_size,
+            )),
+            ValueSchema::Time(ref schema) => ValueReader::Time(<Time as Record>::reader(
+                schema, path, def_level, rep_level, paths, batch_size,
+            )),
             ValueSchema::Timestamp(ref schema) => {
-                ValueReader::Timestamp(<Timestamp as Deserialize>::reader(
+                ValueReader::Timestamp(<Timestamp as Record>::reader(
                     schema, path, def_level, rep_level, paths, batch_size,
                 ))
             }
             ValueSchema::Decimal(ref schema) => {
-                ValueReader::Decimal(<Decimal as Deserialize>::reader(
+                ValueReader::Decimal(<Decimal as Record>::reader(
                     schema, path, def_level, rep_level, paths, batch_size,
                 ))
             }
             ValueSchema::ByteArray(ref schema) => {
-                ValueReader::ByteArray(<Vec<u8> as Deserialize>::reader(
+                ValueReader::ByteArray(<Vec<u8> as Record>::reader(
                     schema, path, def_level, rep_level, paths, batch_size,
                 ))
             }
-            ValueSchema::Bson(ref schema) => {
-                ValueReader::Bson(<Bson as Deserialize>::reader(
-                    schema, path, def_level, rep_level, paths, batch_size,
-                ))
-            }
+            ValueSchema::Bson(ref schema) => ValueReader::Bson(<Bson as Record>::reader(
+                schema, path, def_level, rep_level, paths, batch_size,
+            )),
             ValueSchema::String(ref schema) => {
-                ValueReader::String(<String as Deserialize>::reader(
+                ValueReader::String(<String as Record>::reader(
                     schema, path, def_level, rep_level, paths, batch_size,
                 ))
             }
-            ValueSchema::Json(ref schema) => {
-                ValueReader::Json(<Json as Deserialize>::reader(
-                    schema, path, def_level, rep_level, paths, batch_size,
-                ))
-            }
-            ValueSchema::Enum(ref schema) => {
-                ValueReader::Enum(<Enum as Deserialize>::reader(
-                    schema, path, def_level, rep_level, paths, batch_size,
-                ))
-            }
+            ValueSchema::Json(ref schema) => ValueReader::Json(<Json as Record>::reader(
+                schema, path, def_level, rep_level, paths, batch_size,
+            )),
+            ValueSchema::Enum(ref schema) => ValueReader::Enum(<Enum as Record>::reader(
+                schema, path, def_level, rep_level, paths, batch_size,
+            )),
             ValueSchema::List(ref schema) => {
-                ValueReader::List(Box::new(<List<Value> as Deserialize>::reader(
+                ValueReader::List(Box::new(<List<Value> as Record>::reader(
                     schema, path, def_level, rep_level, paths, batch_size,
                 )))
             }
             ValueSchema::Map(ref schema) => {
-                ValueReader::Map(Box::new(<Map<Value, Value> as Deserialize>::reader(
+                ValueReader::Map(Box::new(<Map<Value, Value> as Record>::reader(
                     schema, path, def_level, rep_level, paths, batch_size,
                 )))
             }
             ValueSchema::Group(ref schema) => {
-                ValueReader::Group(<Group as Deserialize>::reader(
+                ValueReader::Group(<Group as Record>::reader(
                     schema, path, def_level, rep_level, paths, batch_size,
                 ))
             }
             ValueSchema::Option(ref schema) => {
-                ValueReader::Option(Box::new(<Option<Value> as Deserialize>::reader(
+                ValueReader::Option(Box::new(<Option<Value> as Record>::reader(
                     schema, path, def_level, rep_level, paths, batch_size,
                 )))
             }

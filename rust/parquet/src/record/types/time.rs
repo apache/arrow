@@ -26,13 +26,13 @@ use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
     data_type::{Int96, Int96Type},
-    errors::ParquetError,
+    errors::{ParquetError, Result},
     record::{
-        reader::{I96Reader, MapReader, Reader},
+        reader::{I96Reader, MapReader},
         schemas::{DateSchema, I32Schema, I64Schema, TimeSchema, TimestampSchema},
         triplet::TypedTripletIter,
         types::{downcast, Value},
-        Deserialize,
+        Reader, Record,
     },
     schema::types::{ColumnPath, Type},
 };
@@ -55,14 +55,14 @@ impl Date {
         self.0
     }
 }
-impl Deserialize for Date {
+impl Record for Date {
     type Reader = impl Reader<Item = Self>;
     type Schema = DateSchema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -139,14 +139,14 @@ impl Time {
         self.0
     }
 }
-impl Deserialize for Time {
+impl Record for Time {
     type Reader = impl Reader<Item = Self>;
     type Schema = TimeSchema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -305,14 +305,14 @@ impl Timestamp {
         )
     }
 }
-impl Deserialize for Timestamp {
+impl Record for Timestamp {
     type Reader = impl Reader<Item = Self>;
     type Schema = TimestampSchema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 

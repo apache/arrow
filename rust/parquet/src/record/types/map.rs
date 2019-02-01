@@ -16,6 +16,7 @@
 // under the License.
 
 use std::{
+    borrow::Borrow,
     collections::{hash_map, HashMap},
     fmt::{self, Debug},
     hash::Hash,
@@ -24,19 +25,19 @@ use std::{
 use crate::{
     basic::{LogicalType, Repetition},
     column::reader::ColumnReader,
-    errors::ParquetError,
+    errors::{ParquetError, Result},
     record::{
-        reader::{KeyValueReader, MapReader, Reader},
+        reader::{KeyValueReader, MapReader},
         schemas::MapSchema,
-        Deserialize,
+        Reader, Record,
     },
     schema::types::{ColumnPath, Type},
 };
 
 // https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#backward-compatibility-rules
-pub(super) fn parse_map<K: Deserialize, V: Deserialize>(
+pub(super) fn parse_map<K: Record, V: Record>(
     schema: &Type,
-) -> Result<MapSchema<K::Schema, V::Schema>, ParquetError> {
+) -> Result<MapSchema<K::Schema, V::Schema>> {
     if schema.is_group()
         && (schema.get_basic_info().logical_type() == LogicalType::MAP
             || schema.get_basic_info().logical_type() == LogicalType::MAP_KEY_VALUE)
@@ -81,10 +82,10 @@ pub(super) fn parse_map<K: Deserialize, V: Deserialize>(
 #[derive(Clone, Eq)]
 pub struct Map<K: Hash + Eq, V>(pub(in super::super) HashMap<K, V>);
 
-impl<K, V> Deserialize for Map<K, V>
+impl<K, V> Record for Map<K, V>
 where
-    K: Deserialize + Hash + Eq,
-    V: Deserialize,
+    K: Record + Hash + Eq,
+    V: Record,
 {
     type Reader = impl Reader<Item = Self>;
     type Schema = MapSchema<K::Schema, V::Schema>;
@@ -92,7 +93,7 @@ where
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         if repetition == Some(Repetition::REQUIRED) {
             return parse_map::<K, V>(schema)
                 .map(|schema2| (schema.name().to_owned(), schema2));
@@ -151,6 +152,14 @@ impl<K, V> Map<K, V>
 where
     K: Hash + Eq,
 {
+    pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        self.0.get(k)
+    }
+
     pub fn iter(&self) -> hash_map::Iter<'_, K, V> {
         self.0.iter()
     }
@@ -195,7 +204,7 @@ where
     K: Hash + Eq + Debug,
     V: Debug,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_map().entries(self.iter()).finish()
     }
 }

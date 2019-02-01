@@ -30,19 +30,25 @@ mod value;
 mod value_required;
 
 use super::schemas::ValueSchema;
-use crate::errors::ParquetError;
+use crate::errors::Result;
 
 pub use self::{
-    array::*, boxed::*, decimal::*, group::*, list::*, map::*, numbers::*, option::*,
-    root::*, time::*, tuple::*, value::*, value_required::*,
+    array::{Bson, Enum, Json},
+    group::{Group, Row},
+    list::List,
+    map::Map,
+    root::Root,
+    time::{Date, Time, Timestamp},
+    value::Value,
+    value_required::ValueRequired,
 };
 
 /// Due to downcasting from Value -> Option<T>
 pub trait Downcast<T> {
-    fn downcast(self) -> Result<T, ParquetError>;
+    fn downcast(self) -> Result<T>;
 }
 
-fn downcast<T>((name, schema): (String, ValueSchema)) -> Result<(String, T), ParquetError>
+fn downcast<T>((name, schema): (String, ValueSchema)) -> Result<(String, T)>
 where
     ValueSchema: Downcast<T>,
 {

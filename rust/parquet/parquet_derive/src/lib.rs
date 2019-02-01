@@ -31,8 +31,8 @@ use syn::{
     Error, Field, Fields, Ident, Lit, LitStr, Meta, NestedMeta, TypeParam, WhereClause,
 };
 
-#[proc_macro_derive(Deserialize, attributes(parquet))]
-pub fn parquet_deserialize(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+#[proc_macro_derive(Record, attributes(parquet))]
+pub fn parquet_record(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     syn::parse::<DeriveInput>(input)
         .and_then(|ast| match ast.data {
             Data::Struct(ref s) => match s.fields {
@@ -43,7 +43,7 @@ pub fn parquet_deserialize(input: proc_macro::TokenStream) -> proc_macro::TokenS
             Data::Enum(ref e) => impl_enum(&ast, e),
             Data::Union(_) => Err(Error::new_spanned(
                 ast,
-                "#[derive(Deserialize)] doesn't work with unions",
+                "#[derive(Record)] doesn't work with unions",
             )),
         })
         .unwrap_or_else(|err| err.to_compile_error())
@@ -70,12 +70,18 @@ fn impl_struct(
     for TypeParam { ident, .. } in ast.generics.type_params() {
         where_clause
             .predicates
-            .push(syn::parse2(quote! { #ident: Deserialize }).unwrap());
+            .push(syn::parse2(quote! { #ident: Record }).unwrap());
     }
     let mut where_clause_with_debug = where_clause.clone();
     for TypeParam { ident, .. } in ast.generics.type_params() {
         where_clause_with_debug.predicates.push(
-            syn::parse2(quote! { <#ident as Deserialize>::Schema: Debug }).unwrap(),
+            syn::parse2(quote! { <#ident as Record>::Schema: Debug }).unwrap(),
+        );
+    }
+    let mut where_clause_with_default = where_clause.clone();
+    for TypeParam { ident, .. } in ast.generics.type_params() {
+        where_clause_with_default.predicates.push(
+            syn::parse2(quote! { <#ident as Record>::Schema: Default }).unwrap(),
         );
     }
 
@@ -141,24 +147,31 @@ fn impl_struct(
         use _parquet::{
             basic::Repetition,
             column::reader::ColumnReader,
-            errors::ParquetError,
-            record::{Deserialize, Schema, reader::Reader, _private::DisplaySchemaGroup},
+            errors::{ParquetError, Result},
+            record::{Record, Schema, Reader, _private::DisplaySchemaGroup},
             schema::types::{ColumnPath, Type},
         };
-        use ::std::{collections::HashMap, cmp::PartialEq, fmt::{self, Debug}, result::Result, string::String, vec::Vec};
+        use ::std::{collections::HashMap, cmp::PartialEq, default::Default, fmt::{self, Debug}, result::Result as StdResult, string::String, vec::Vec};
 
         struct #schema_name #impl_generics #where_clause {
-            #(#field_names1: <#field_types1 as Deserialize>::Schema,)*
+            #(#field_names1: <#field_types1 as Record>::Schema,)*
+        }
+        impl #impl_generics Default for #schema_name #ty_generics #where_clause_with_default {
+            fn default() -> Self {
+                Self {
+                    #(#field_names1: Default::default(),)*
+                }
+            }
         }
         impl #impl_generics Debug for #schema_name #ty_generics #where_clause_with_debug {
-            fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 f.debug_struct(stringify!(#schema_name))
                     #(.field(stringify!(#field_names1), &self.#field_names2))*
                     .finish()
             }
         }
         impl #impl_generics Schema for #schema_name #ty_generics #where_clause {
-            fn fmt(self_: Option<&Self>, r: Option<Repetition>, name: Option<&str>, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+            fn fmt(self_: Option<&Self>, r: Option<Repetition>, name: Option<&str>, f: &mut fmt::Formatter) -> fmt::Result {
                 let mut printer = DisplaySchemaGroup::new(r, name, None, f);
                 #(
                     printer.field(Some(#field_renames1), self_.map(|self_|&self_.#field_names1));
@@ -167,13 +180,13 @@ fn impl_struct(
             }
         }
         struct #reader_name #impl_generics #where_clause {
-            #(#field_names1: <#field_types1 as Deserialize>::Reader,)*
+            #(#field_names1: <#field_types1 as Record>::Reader,)*
         }
         impl #impl_generics Reader for #reader_name #ty_generics #where_clause {
             type Item = #name #ty_generics;
 
             #[allow(unused_variables, non_snake_case)]
-            fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item, ParquetError> {
+            fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
                 #(
                     let #field_names1 = self.#field_names2.read(def_level, rep_level);
                 )*
@@ -181,11 +194,11 @@ fn impl_struct(
                     #(#field_names1?;)*
                     unreachable!()
                 }
-                Result::Ok(#name {
+                StdResult::Ok(#name {
                     #(#field_names1: #field_names2.unwrap(),)*
                 })
             }
-            fn advance_columns(&mut self) -> Result<(), ParquetError> {
+            fn advance_columns(&mut self) -> Result<()> {
                 #[allow(unused_mut)]
                 let mut res = Ok(());
                 #(
@@ -215,24 +228,24 @@ fn impl_struct(
                 }
             }
         }
-        impl #impl_generics Deserialize for #name #ty_generics #where_clause {
+        impl #impl_generics Record for #name #ty_generics #where_clause {
             type Schema = #schema_name #ty_generics;
             type Reader = #reader_name #ty_generics;
 
-            fn parse(schema: &Type, repetition: Option<Repetition>) -> Result<(String, Self::Schema), ParquetError> {
+            fn parse(schema: &Type, repetition: Option<Repetition>) -> Result<(String, Self::Schema)> {
                 if schema.is_group() && repetition == Some(Repetition::REQUIRED) {
                     let fields = schema.get_fields().iter().map(|field|(field.name(),field)).collect::<HashMap<_,_>>();
                     let schema_ = #schema_name{
-                        #(#field_names1: fields.get(#field_renames1).ok_or(ParquetError::General(format!("Struct \"{}\" has field \"{}\" not in the schema", stringify!(#name1), #field_renames2))).and_then(|x|<#field_types1 as Deserialize>::parse(&**x, Some(x.get_basic_info().repetition())))?.1,)*
+                        #(#field_names1: fields.get(#field_renames1).ok_or(ParquetError::General(format!("Struct \"{}\" has field \"{}\" not in the schema", stringify!(#name1), #field_renames2))).and_then(|x|<#field_types1 as Record>::parse(&**x, Some(x.get_basic_info().repetition())))?.1,)*
                     };
-                    return Result::Ok((schema.name().to_owned(), schema_))
+                    return StdResult::Ok((schema.name().to_owned(), schema_))
                 }
-                Result::Err(ParquetError::General(format!("Struct \"{}\" is not in the schema", stringify!(#name))))
+                StdResult::Err(ParquetError::General(format!("Struct \"{}\" is not in the schema", stringify!(#name))))
             }
             fn reader(schema: &Self::Schema, mut path: &mut Vec<String>, def_level: i16, rep_level: i16, paths: &mut HashMap<ColumnPath, ColumnReader>, batch_size: usize) -> Self::Reader {
                 #(
                     path.push(#field_renames1.to_owned());
-                    let #field_names1 = <#field_types1 as Deserialize>::reader(&schema.#field_names2, path, def_level, rep_level, paths, batch_size);
+                    let #field_names1 = <#field_types1 as Record>::reader(&schema.#field_names2, path, def_level, rep_level, paths, batch_size);
                     path.pop().unwrap();
                 )*
                 #reader_name { #(#field_names1,)* }
@@ -277,26 +290,26 @@ fn impl_tuple_struct(
         }
     }
 
-    unimplemented!("#[derive(Deserialize)] on tuple structs not yet implemented")
+    unimplemented!("#[derive(Record)] on tuple structs not yet implemented")
 }
 
 fn impl_enum(ast: &DeriveInput, data: &DataEnum) -> Result<TokenStream, Error> {
     if data.variants.is_empty() {
         return Err(Error::new_spanned(
             ast,
-            "#[derive(Deserialize)] cannot be implemented for enums with zero variants",
+            "#[derive(Record)] cannot be implemented for enums with zero variants",
         ));
     }
     for v in data.variants.iter() {
         if v.fields.iter().len() == 0 {
             return Err(Error::new_spanned(
                 v,
-                "#[derive(Deserialize)] cannot be implemented for enums with non-unit variants",
+                "#[derive(Record)] cannot be implemented for enums with non-unit variants",
             ));
         }
     }
 
-    unimplemented!("#[derive(Deserialize)] on enums not yet implemented")
+    unimplemented!("#[derive(Record)] on enums not yet implemented")
 }
 
 fn get_parquet_meta_items(attr: &Attribute) -> Option<Vec<NestedMeta>> {

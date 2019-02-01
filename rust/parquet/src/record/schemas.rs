@@ -17,7 +17,7 @@
 
 use std::{
     collections::HashMap,
-    fmt::{self, Debug},
+    fmt::{self, Debug, Display},
     marker::PhantomData,
     mem,
     str::FromStr,
@@ -26,13 +26,13 @@ use std::{
 use super::{
     display::{DisplayFmt, DisplaySchemaGroup},
     types::{Downcast, Root},
-    Deserialize, Schema,
+    Record, Schema,
 };
 use crate::basic::{LogicalType, Repetition};
-use crate::errors::ParquetError;
+use crate::errors::{ParquetError, Result};
 use crate::schema::parser::parse_message_type;
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct BoolSchema;
 impl Schema for BoolSchema {
     fn fmt(
@@ -40,7 +40,7 @@ impl Schema for BoolSchema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} boolean {};",
             r.unwrap(),
@@ -49,7 +49,7 @@ impl Schema for BoolSchema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct U8Schema;
 impl Schema for U8Schema {
     fn fmt(
@@ -57,7 +57,7 @@ impl Schema for U8Schema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} int32 {} (UINT_8);",
             r.unwrap(),
@@ -66,7 +66,7 @@ impl Schema for U8Schema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct I8Schema;
 impl Schema for I8Schema {
     fn fmt(
@@ -74,7 +74,7 @@ impl Schema for I8Schema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} int32 {} (INT_8);",
             r.unwrap(),
@@ -83,7 +83,7 @@ impl Schema for I8Schema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct U16Schema;
 impl Schema for U16Schema {
     fn fmt(
@@ -91,7 +91,7 @@ impl Schema for U16Schema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} int32 {} (UINT_16);",
             r.unwrap(),
@@ -100,7 +100,7 @@ impl Schema for U16Schema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct I16Schema;
 impl Schema for I16Schema {
     fn fmt(
@@ -108,7 +108,7 @@ impl Schema for I16Schema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} int32 {} (INT_16);",
             r.unwrap(),
@@ -117,7 +117,7 @@ impl Schema for I16Schema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct U32Schema;
 impl Schema for U32Schema {
     fn fmt(
@@ -125,7 +125,7 @@ impl Schema for U32Schema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} int32 {} (UINT_32);",
             r.unwrap(),
@@ -134,7 +134,7 @@ impl Schema for U32Schema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct I32Schema;
 impl Schema for I32Schema {
     fn fmt(
@@ -142,7 +142,7 @@ impl Schema for I32Schema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} int32 {} (INT_32);",
             r.unwrap(),
@@ -151,7 +151,7 @@ impl Schema for I32Schema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct U64Schema;
 impl Schema for U64Schema {
     fn fmt(
@@ -159,7 +159,7 @@ impl Schema for U64Schema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} int64 {} (UINT_64);",
             r.unwrap(),
@@ -168,7 +168,7 @@ impl Schema for U64Schema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct I64Schema;
 impl Schema for I64Schema {
     fn fmt(
@@ -176,7 +176,7 @@ impl Schema for I64Schema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} int64 {} (INT_64);",
             r.unwrap(),
@@ -185,7 +185,7 @@ impl Schema for I64Schema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct F32Schema;
 impl Schema for F32Schema {
     fn fmt(
@@ -193,7 +193,7 @@ impl Schema for F32Schema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} float {};",
             r.unwrap(),
@@ -202,7 +202,7 @@ impl Schema for F32Schema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct F64Schema;
 impl Schema for F64Schema {
     fn fmt(
@@ -210,7 +210,7 @@ impl Schema for F64Schema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} double {};",
             r.unwrap(),
@@ -219,7 +219,7 @@ impl Schema for F64Schema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct ByteArraySchema(pub(super) Option<u32>);
 impl Schema for ByteArraySchema {
     fn fmt(
@@ -227,7 +227,7 @@ impl Schema for ByteArraySchema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         if let Some(ByteArraySchema(Some(len))) = self_ {
             f.write_fmt(format_args!(
                 "{} fixed_len_byte_array({}) {};",
@@ -246,8 +246,13 @@ impl Schema for ByteArraySchema {
 }
 
 pub struct FixedByteArraySchema<T>(pub(super) PhantomData<fn(T)>);
+impl<T> Default for FixedByteArraySchema<T> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
 impl<T> Debug for FixedByteArraySchema<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("FixedByteArraySchema").finish()
     }
 }
@@ -257,7 +262,7 @@ impl<T> Schema for FixedByteArraySchema<T> {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} fixed_len_byte_array({}) {};",
             r.unwrap(),
@@ -267,7 +272,7 @@ impl<T> Schema for FixedByteArraySchema<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct BsonSchema(pub(super) ByteArraySchema);
 impl Schema for BsonSchema {
     fn fmt(
@@ -275,7 +280,7 @@ impl Schema for BsonSchema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         if let Some(BsonSchema(ByteArraySchema(Some(len)))) = self_ {
             f.write_fmt(format_args!(
                 "{} fixed_len_byte_array({}) {} (BSON);",
@@ -293,7 +298,7 @@ impl Schema for BsonSchema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct StringSchema(pub(super) ByteArraySchema);
 impl Schema for StringSchema {
     fn fmt(
@@ -301,7 +306,7 @@ impl Schema for StringSchema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         if let Some(StringSchema(ByteArraySchema(Some(len)))) = self_ {
             f.write_fmt(format_args!(
                 "{} fixed_len_byte_array({}) {} (UTF8);",
@@ -319,7 +324,7 @@ impl Schema for StringSchema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct JsonSchema(pub(super) StringSchema);
 impl Schema for JsonSchema {
     fn fmt(
@@ -327,7 +332,7 @@ impl Schema for JsonSchema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         if let Some(JsonSchema(StringSchema(ByteArraySchema(Some(len))))) = self_ {
             f.write_fmt(format_args!(
                 "{} fixed_len_byte_array({}) {} (JSON);",
@@ -345,7 +350,7 @@ impl Schema for JsonSchema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct EnumSchema(pub(super) StringSchema);
 impl Schema for EnumSchema {
     fn fmt(
@@ -353,7 +358,7 @@ impl Schema for EnumSchema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         if let Some(EnumSchema(StringSchema(ByteArraySchema(Some(len))))) = self_ {
             f.write_fmt(format_args!(
                 "{} fixed_len_byte_array({}) {} (ENUM);",
@@ -371,7 +376,7 @@ impl Schema for EnumSchema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct DateSchema;
 impl Schema for DateSchema {
     fn fmt(
@@ -379,7 +384,7 @@ impl Schema for DateSchema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} int32 {} (DATE);",
             r.unwrap(),
@@ -393,13 +398,18 @@ pub enum TimeSchema {
     Millis,
     Micros,
 }
+impl Default for TimeSchema {
+    fn default() -> Self {
+        TimeSchema::Micros
+    }
+}
 impl Schema for TimeSchema {
     fn fmt(
         self_: Option<&Self>,
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         match self_ {
             Some(TimeSchema::Millis) => f.write_fmt(format_args!(
                 "{} int32 {} (TIME_MILLIS);",
@@ -426,13 +436,18 @@ pub enum TimestampSchema {
     Millis,
     Micros,
 }
+impl Default for TimestampSchema {
+    fn default() -> Self {
+        TimestampSchema::Int96
+    }
+}
 impl Schema for TimestampSchema {
     fn fmt(
         self_: Option<&Self>,
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         match self_ {
             Some(TimestampSchema::Int96) => f.write_fmt(format_args!(
                 "{} int96 {};",
@@ -480,7 +495,7 @@ impl Schema for DecimalSchema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         let decimal = |precision: u32, scale: u32| {
             DisplayFmt::new(move |fmt| match (precision, scale) {
                 (p, 0) => fmt.write_fmt(format_args!(" ({})", p)),
@@ -530,7 +545,7 @@ impl Schema for DecimalSchema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct MapSchema<K, V>(
     pub(super) K,
     pub(super) V,
@@ -548,7 +563,7 @@ where
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         #[derive(Debug)]
         struct KeyValue<'a, K, V>(Option<(&'a K, &'a V)>, String, String);
         impl<'a, K, V> Schema for KeyValue<'a, K, V>
@@ -561,7 +576,7 @@ where
                 _r: Option<Repetition>,
                 name: Option<&str>,
                 f: &mut fmt::Formatter,
-            ) -> Result<(), fmt::Error> {
+            ) -> fmt::Result {
                 let self_ = self_.unwrap();
                 let mut printer =
                     DisplaySchemaGroup::new(Some(Repetition::REPEATED), name, None, f);
@@ -591,7 +606,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct OptionSchema<T>(pub(super) T);
 impl<T> Schema for OptionSchema<T>
 where
@@ -602,7 +617,7 @@ where
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         assert_eq!(r.unwrap(), Repetition::REQUIRED);
         <T as Schema>::fmt(
             self_.map(|self_| &self_.0),
@@ -613,13 +628,18 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct ListSchema<T>(pub(super) T, pub(super) ListSchemaType);
 #[derive(Debug)]
 pub(super) enum ListSchemaType {
     List(Option<String>, Option<String>),
     ListCompat(String),
     Repeated,
+}
+impl Default for ListSchemaType {
+    fn default() -> Self {
+        ListSchemaType::List(None, None)
+    }
 }
 impl<T> Schema for ListSchema<T>
 where
@@ -630,7 +650,7 @@ where
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         match self_ {
             self_ @ Some(ListSchema(_, ListSchemaType::List(_, _))) | self_ @ None => {
                 let (self_, list_name, element_name) = match self_ {
@@ -652,7 +672,7 @@ where
                         _r: Option<Repetition>,
                         name: Option<&str>,
                         f: &mut fmt::Formatter,
-                    ) -> Result<(), fmt::Error> {
+                    ) -> fmt::Result {
                         let self_ = self_.unwrap();
                         let mut printer = DisplaySchemaGroup::new(
                             Some(Repetition::REPEATED),
@@ -702,7 +722,7 @@ impl Schema for GroupSchema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         let mut printer = DisplaySchemaGroup::new(r, name, None, f);
         if let Some(self_) = self_ {
             let fields = self_.0.iter();
@@ -752,7 +772,7 @@ impl Schema for ValueSchema {
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         if let Some(self_) = self_ {
             match self_ {
                 ValueSchema::Bool(schema) => Schema::fmt(Some(schema), r, name, f),
@@ -794,7 +814,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_bool(&self) -> Result<&BoolSchema, ParquetError> {
+    pub fn as_bool(&self) -> Result<&BoolSchema> {
         if let ValueSchema::Bool(ret) = self {
             Ok(ret)
         } else {
@@ -805,7 +825,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_bool(self) -> Result<BoolSchema, ParquetError> {
+    pub fn into_bool(self) -> Result<BoolSchema> {
         if let ValueSchema::Bool(ret) = self {
             Ok(ret)
         } else {
@@ -824,7 +844,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_u8(&self) -> Result<&U8Schema, ParquetError> {
+    pub fn as_u8(&self) -> Result<&U8Schema> {
         if let ValueSchema::U8(ret) = self {
             Ok(ret)
         } else {
@@ -835,7 +855,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_u8(self) -> Result<U8Schema, ParquetError> {
+    pub fn into_u8(self) -> Result<U8Schema> {
         if let ValueSchema::U8(ret) = self {
             Ok(ret)
         } else {
@@ -854,7 +874,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_i8(&self) -> Result<&I8Schema, ParquetError> {
+    pub fn as_i8(&self) -> Result<&I8Schema> {
         if let ValueSchema::I8(ret) = self {
             Ok(ret)
         } else {
@@ -865,7 +885,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_i8(self) -> Result<I8Schema, ParquetError> {
+    pub fn into_i8(self) -> Result<I8Schema> {
         if let ValueSchema::I8(ret) = self {
             Ok(ret)
         } else {
@@ -884,7 +904,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_u16(&self) -> Result<&U16Schema, ParquetError> {
+    pub fn as_u16(&self) -> Result<&U16Schema> {
         if let ValueSchema::U16(ret) = self {
             Ok(ret)
         } else {
@@ -895,7 +915,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_u16(self) -> Result<U16Schema, ParquetError> {
+    pub fn into_u16(self) -> Result<U16Schema> {
         if let ValueSchema::U16(ret) = self {
             Ok(ret)
         } else {
@@ -914,7 +934,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_i16(&self) -> Result<&I16Schema, ParquetError> {
+    pub fn as_i16(&self) -> Result<&I16Schema> {
         if let ValueSchema::I16(ret) = self {
             Ok(ret)
         } else {
@@ -925,7 +945,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_i16(self) -> Result<I16Schema, ParquetError> {
+    pub fn into_i16(self) -> Result<I16Schema> {
         if let ValueSchema::I16(ret) = self {
             Ok(ret)
         } else {
@@ -944,7 +964,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_u32(&self) -> Result<&U32Schema, ParquetError> {
+    pub fn as_u32(&self) -> Result<&U32Schema> {
         if let ValueSchema::U32(ret) = self {
             Ok(ret)
         } else {
@@ -955,7 +975,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_u32(self) -> Result<U32Schema, ParquetError> {
+    pub fn into_u32(self) -> Result<U32Schema> {
         if let ValueSchema::U32(ret) = self {
             Ok(ret)
         } else {
@@ -974,7 +994,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_i32(&self) -> Result<&I32Schema, ParquetError> {
+    pub fn as_i32(&self) -> Result<&I32Schema> {
         if let ValueSchema::I32(ret) = self {
             Ok(ret)
         } else {
@@ -985,7 +1005,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_i32(self) -> Result<I32Schema, ParquetError> {
+    pub fn into_i32(self) -> Result<I32Schema> {
         if let ValueSchema::I32(ret) = self {
             Ok(ret)
         } else {
@@ -1004,7 +1024,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_u64(&self) -> Result<&U64Schema, ParquetError> {
+    pub fn as_u64(&self) -> Result<&U64Schema> {
         if let ValueSchema::U64(ret) = self {
             Ok(ret)
         } else {
@@ -1015,7 +1035,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_u64(self) -> Result<U64Schema, ParquetError> {
+    pub fn into_u64(self) -> Result<U64Schema> {
         if let ValueSchema::U64(ret) = self {
             Ok(ret)
         } else {
@@ -1034,7 +1054,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_i64(&self) -> Result<&I64Schema, ParquetError> {
+    pub fn as_i64(&self) -> Result<&I64Schema> {
         if let ValueSchema::I64(ret) = self {
             Ok(ret)
         } else {
@@ -1045,7 +1065,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_i64(self) -> Result<I64Schema, ParquetError> {
+    pub fn into_i64(self) -> Result<I64Schema> {
         if let ValueSchema::I64(ret) = self {
             Ok(ret)
         } else {
@@ -1064,7 +1084,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_f32(&self) -> Result<&F32Schema, ParquetError> {
+    pub fn as_f32(&self) -> Result<&F32Schema> {
         if let ValueSchema::F32(ret) = self {
             Ok(ret)
         } else {
@@ -1075,7 +1095,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_f32(self) -> Result<F32Schema, ParquetError> {
+    pub fn into_f32(self) -> Result<F32Schema> {
         if let ValueSchema::F32(ret) = self {
             Ok(ret)
         } else {
@@ -1094,7 +1114,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_f64(&self) -> Result<&F64Schema, ParquetError> {
+    pub fn as_f64(&self) -> Result<&F64Schema> {
         if let ValueSchema::F64(ret) = self {
             Ok(ret)
         } else {
@@ -1105,7 +1125,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_f64(self) -> Result<F64Schema, ParquetError> {
+    pub fn into_f64(self) -> Result<F64Schema> {
         if let ValueSchema::F64(ret) = self {
             Ok(ret)
         } else {
@@ -1124,7 +1144,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_date(&self) -> Result<&DateSchema, ParquetError> {
+    pub fn as_date(&self) -> Result<&DateSchema> {
         if let ValueSchema::Date(ret) = self {
             Ok(ret)
         } else {
@@ -1135,7 +1155,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_date(self) -> Result<DateSchema, ParquetError> {
+    pub fn into_date(self) -> Result<DateSchema> {
         if let ValueSchema::Date(ret) = self {
             Ok(ret)
         } else {
@@ -1154,7 +1174,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_time(&self) -> Result<&TimeSchema, ParquetError> {
+    pub fn as_time(&self) -> Result<&TimeSchema> {
         if let ValueSchema::Time(ret) = self {
             Ok(ret)
         } else {
@@ -1165,7 +1185,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_time(self) -> Result<TimeSchema, ParquetError> {
+    pub fn into_time(self) -> Result<TimeSchema> {
         if let ValueSchema::Time(ret) = self {
             Ok(ret)
         } else {
@@ -1184,7 +1204,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_timestamp(&self) -> Result<&TimestampSchema, ParquetError> {
+    pub fn as_timestamp(&self) -> Result<&TimestampSchema> {
         if let ValueSchema::Timestamp(ret) = self {
             Ok(ret)
         } else {
@@ -1195,7 +1215,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_timestamp(self) -> Result<TimestampSchema, ParquetError> {
+    pub fn into_timestamp(self) -> Result<TimestampSchema> {
         if let ValueSchema::Timestamp(ret) = self {
             Ok(ret)
         } else {
@@ -1214,7 +1234,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_decimal(&self) -> Result<&DecimalSchema, ParquetError> {
+    pub fn as_decimal(&self) -> Result<&DecimalSchema> {
         if let ValueSchema::Decimal(ret) = self {
             Ok(ret)
         } else {
@@ -1225,7 +1245,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_decimal(self) -> Result<DecimalSchema, ParquetError> {
+    pub fn into_decimal(self) -> Result<DecimalSchema> {
         if let ValueSchema::Decimal(ret) = self {
             Ok(ret)
         } else {
@@ -1244,7 +1264,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_byte_array(&self) -> Result<&ByteArraySchema, ParquetError> {
+    pub fn as_byte_array(&self) -> Result<&ByteArraySchema> {
         if let ValueSchema::ByteArray(ret) = self {
             Ok(ret)
         } else {
@@ -1255,7 +1275,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_byte_array(self) -> Result<ByteArraySchema, ParquetError> {
+    pub fn into_byte_array(self) -> Result<ByteArraySchema> {
         if let ValueSchema::ByteArray(ret) = self {
             Ok(ret)
         } else {
@@ -1274,7 +1294,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_bson(&self) -> Result<&BsonSchema, ParquetError> {
+    pub fn as_bson(&self) -> Result<&BsonSchema> {
         if let ValueSchema::Bson(ret) = self {
             Ok(ret)
         } else {
@@ -1285,7 +1305,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_bson(self) -> Result<BsonSchema, ParquetError> {
+    pub fn into_bson(self) -> Result<BsonSchema> {
         if let ValueSchema::Bson(ret) = self {
             Ok(ret)
         } else {
@@ -1304,7 +1324,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_string(&self) -> Result<&StringSchema, ParquetError> {
+    pub fn as_string(&self) -> Result<&StringSchema> {
         if let ValueSchema::String(ret) = self {
             Ok(ret)
         } else {
@@ -1315,7 +1335,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_string(self) -> Result<StringSchema, ParquetError> {
+    pub fn into_string(self) -> Result<StringSchema> {
         if let ValueSchema::String(ret) = self {
             Ok(ret)
         } else {
@@ -1334,7 +1354,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_json(&self) -> Result<&JsonSchema, ParquetError> {
+    pub fn as_json(&self) -> Result<&JsonSchema> {
         if let ValueSchema::Json(ret) = self {
             Ok(ret)
         } else {
@@ -1345,7 +1365,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_json(self) -> Result<JsonSchema, ParquetError> {
+    pub fn into_json(self) -> Result<JsonSchema> {
         if let ValueSchema::Json(ret) = self {
             Ok(ret)
         } else {
@@ -1364,7 +1384,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_enum(&self) -> Result<&EnumSchema, ParquetError> {
+    pub fn as_enum(&self) -> Result<&EnumSchema> {
         if let ValueSchema::Enum(ret) = self {
             Ok(ret)
         } else {
@@ -1375,7 +1395,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_enum(self) -> Result<EnumSchema, ParquetError> {
+    pub fn into_enum(self) -> Result<EnumSchema> {
         if let ValueSchema::Enum(ret) = self {
             Ok(ret)
         } else {
@@ -1394,7 +1414,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_list(&self) -> Result<&ListSchema<ValueSchema>, ParquetError> {
+    pub fn as_list(&self) -> Result<&ListSchema<ValueSchema>> {
         if let ValueSchema::List(ret) = self {
             Ok(ret)
         } else {
@@ -1405,7 +1425,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_list(self) -> Result<ListSchema<ValueSchema>, ParquetError> {
+    pub fn into_list(self) -> Result<ListSchema<ValueSchema>> {
         if let ValueSchema::List(ret) = self {
             Ok(*ret)
         } else {
@@ -1424,7 +1444,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_map(&self) -> Result<&MapSchema<ValueSchema, ValueSchema>, ParquetError> {
+    pub fn as_map(&self) -> Result<&MapSchema<ValueSchema, ValueSchema>> {
         if let ValueSchema::Map(ret) = self {
             Ok(ret)
         } else {
@@ -1435,7 +1455,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_map(self) -> Result<MapSchema<ValueSchema, ValueSchema>, ParquetError> {
+    pub fn into_map(self) -> Result<MapSchema<ValueSchema, ValueSchema>> {
         if let ValueSchema::Map(ret) = self {
             Ok(*ret)
         } else {
@@ -1454,7 +1474,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_group(&self) -> Result<&GroupSchema, ParquetError> {
+    pub fn as_group(&self) -> Result<&GroupSchema> {
         if let ValueSchema::Group(ret) = self {
             Ok(ret)
         } else {
@@ -1465,7 +1485,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_group(self) -> Result<GroupSchema, ParquetError> {
+    pub fn into_group(self) -> Result<GroupSchema> {
         if let ValueSchema::Group(ret) = self {
             Ok(ret)
         } else {
@@ -1484,7 +1504,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn as_option(&self) -> Result<&OptionSchema<ValueSchema>, ParquetError> {
+    pub fn as_option(&self) -> Result<&OptionSchema<ValueSchema>> {
         if let ValueSchema::Option(ret) = self {
             Ok(ret)
         } else {
@@ -1495,7 +1515,7 @@ impl ValueSchema {
         }
     }
 
-    pub fn into_option(self) -> Result<OptionSchema<ValueSchema>, ParquetError> {
+    pub fn into_option(self) -> Result<OptionSchema<ValueSchema>> {
         if let ValueSchema::Option(ret) = self {
             Ok(*ret)
         } else {
@@ -1508,107 +1528,107 @@ impl ValueSchema {
 }
 
 impl Downcast<ValueSchema> for ValueSchema {
-    fn downcast(self) -> Result<ValueSchema, ParquetError> {
+    fn downcast(self) -> Result<ValueSchema> {
         Ok(self)
     }
 }
 impl Downcast<BoolSchema> for ValueSchema {
-    fn downcast(self) -> Result<BoolSchema, ParquetError> {
+    fn downcast(self) -> Result<BoolSchema> {
         self.into_bool()
     }
 }
 impl Downcast<U8Schema> for ValueSchema {
-    fn downcast(self) -> Result<U8Schema, ParquetError> {
+    fn downcast(self) -> Result<U8Schema> {
         self.into_u8()
     }
 }
 impl Downcast<I8Schema> for ValueSchema {
-    fn downcast(self) -> Result<I8Schema, ParquetError> {
+    fn downcast(self) -> Result<I8Schema> {
         self.into_i8()
     }
 }
 impl Downcast<U16Schema> for ValueSchema {
-    fn downcast(self) -> Result<U16Schema, ParquetError> {
+    fn downcast(self) -> Result<U16Schema> {
         self.into_u16()
     }
 }
 impl Downcast<I16Schema> for ValueSchema {
-    fn downcast(self) -> Result<I16Schema, ParquetError> {
+    fn downcast(self) -> Result<I16Schema> {
         self.into_i16()
     }
 }
 impl Downcast<U32Schema> for ValueSchema {
-    fn downcast(self) -> Result<U32Schema, ParquetError> {
+    fn downcast(self) -> Result<U32Schema> {
         self.into_u32()
     }
 }
 impl Downcast<I32Schema> for ValueSchema {
-    fn downcast(self) -> Result<I32Schema, ParquetError> {
+    fn downcast(self) -> Result<I32Schema> {
         self.into_i32()
     }
 }
 impl Downcast<U64Schema> for ValueSchema {
-    fn downcast(self) -> Result<U64Schema, ParquetError> {
+    fn downcast(self) -> Result<U64Schema> {
         self.into_u64()
     }
 }
 impl Downcast<I64Schema> for ValueSchema {
-    fn downcast(self) -> Result<I64Schema, ParquetError> {
+    fn downcast(self) -> Result<I64Schema> {
         self.into_i64()
     }
 }
 impl Downcast<F32Schema> for ValueSchema {
-    fn downcast(self) -> Result<F32Schema, ParquetError> {
+    fn downcast(self) -> Result<F32Schema> {
         self.into_f32()
     }
 }
 impl Downcast<F64Schema> for ValueSchema {
-    fn downcast(self) -> Result<F64Schema, ParquetError> {
+    fn downcast(self) -> Result<F64Schema> {
         self.into_f64()
     }
 }
 impl Downcast<DateSchema> for ValueSchema {
-    fn downcast(self) -> Result<DateSchema, ParquetError> {
+    fn downcast(self) -> Result<DateSchema> {
         self.into_date()
     }
 }
 impl Downcast<TimeSchema> for ValueSchema {
-    fn downcast(self) -> Result<TimeSchema, ParquetError> {
+    fn downcast(self) -> Result<TimeSchema> {
         self.into_time()
     }
 }
 impl Downcast<TimestampSchema> for ValueSchema {
-    fn downcast(self) -> Result<TimestampSchema, ParquetError> {
+    fn downcast(self) -> Result<TimestampSchema> {
         self.into_timestamp()
     }
 }
 impl Downcast<DecimalSchema> for ValueSchema {
-    fn downcast(self) -> Result<DecimalSchema, ParquetError> {
+    fn downcast(self) -> Result<DecimalSchema> {
         self.into_decimal()
     }
 }
 impl Downcast<ByteArraySchema> for ValueSchema {
-    fn downcast(self) -> Result<ByteArraySchema, ParquetError> {
+    fn downcast(self) -> Result<ByteArraySchema> {
         self.into_byte_array()
     }
 }
 impl Downcast<BsonSchema> for ValueSchema {
-    fn downcast(self) -> Result<BsonSchema, ParquetError> {
+    fn downcast(self) -> Result<BsonSchema> {
         self.into_bson()
     }
 }
 impl Downcast<StringSchema> for ValueSchema {
-    fn downcast(self) -> Result<StringSchema, ParquetError> {
+    fn downcast(self) -> Result<StringSchema> {
         self.into_string()
     }
 }
 impl Downcast<JsonSchema> for ValueSchema {
-    fn downcast(self) -> Result<JsonSchema, ParquetError> {
+    fn downcast(self) -> Result<JsonSchema> {
         self.into_json()
     }
 }
 impl Downcast<EnumSchema> for ValueSchema {
-    fn downcast(self) -> Result<EnumSchema, ParquetError> {
+    fn downcast(self) -> Result<EnumSchema> {
         self.into_enum()
     }
 }
@@ -1616,13 +1636,13 @@ impl<T> Downcast<ListSchema<T>> for ValueSchema
 where
     ValueSchema: Downcast<T>,
 {
-    default fn downcast(self) -> Result<ListSchema<T>, ParquetError> {
+    default fn downcast(self) -> Result<ListSchema<T>> {
         let ret = self.into_list()?;
         Ok(ListSchema(ret.0.downcast()?, ret.1))
     }
 }
 impl Downcast<ListSchema<ValueSchema>> for ValueSchema {
-    fn downcast(self) -> Result<ListSchema<ValueSchema>, ParquetError> {
+    fn downcast(self) -> Result<ListSchema<ValueSchema>> {
         self.into_list()
     }
 }
@@ -1630,7 +1650,7 @@ impl<K, V> Downcast<MapSchema<K, V>> for ValueSchema
 where
     ValueSchema: Downcast<K> + Downcast<V>,
 {
-    default fn downcast(self) -> Result<MapSchema<K, V>, ParquetError> {
+    default fn downcast(self) -> Result<MapSchema<K, V>> {
         let ret = self.into_map()?;
         Ok(MapSchema(
             ret.0.downcast()?,
@@ -1642,12 +1662,12 @@ where
     }
 }
 impl Downcast<MapSchema<ValueSchema, ValueSchema>> for ValueSchema {
-    fn downcast(self) -> Result<MapSchema<ValueSchema, ValueSchema>, ParquetError> {
+    fn downcast(self) -> Result<MapSchema<ValueSchema, ValueSchema>> {
         self.into_map()
     }
 }
 impl Downcast<GroupSchema> for ValueSchema {
-    fn downcast(self) -> Result<GroupSchema, ParquetError> {
+    fn downcast(self) -> Result<GroupSchema> {
         self.into_group()
     }
 }
@@ -1655,18 +1675,18 @@ impl<T> Downcast<OptionSchema<T>> for ValueSchema
 where
     ValueSchema: Downcast<T>,
 {
-    default fn downcast(self) -> Result<OptionSchema<T>, ParquetError> {
+    default fn downcast(self) -> Result<OptionSchema<T>> {
         let ret = self.into_option()?;
         ret.0.downcast().map(OptionSchema)
     }
 }
 impl Downcast<OptionSchema<ValueSchema>> for ValueSchema {
-    fn downcast(self) -> Result<OptionSchema<ValueSchema>, ParquetError> {
+    fn downcast(self) -> Result<OptionSchema<ValueSchema>> {
         self.into_option()
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct BoxSchema<T>(pub(super) T);
 impl<T> Schema for BoxSchema<T>
 where
@@ -1677,20 +1697,33 @@ where
         r: Option<Repetition>,
         name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         <T as Schema>::fmt(self_.map(|self_| &self_.0), r, name, f)
     }
 }
 
 pub struct RootSchema<T>(pub String, pub T::Schema, pub PhantomData<fn(T)>)
 where
-    T: Deserialize;
+    T: Record;
+impl<T> Default for RootSchema<T>
+where
+    T: Record,
+    T::Schema: Default,
+{
+    fn default() -> Self {
+        RootSchema(
+            String::from("parquet_rust_schema"),
+            Default::default(),
+            PhantomData,
+        )
+    }
+}
 impl<T> Debug for RootSchema<T>
 where
-    T: Deserialize,
+    T: Record,
     T::Schema: Debug,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("RootSchema")
             .field(&self.0)
             .field(&self.1)
@@ -1699,14 +1732,14 @@ where
 }
 impl<T> Schema for RootSchema<T>
 where
-    T: Deserialize,
+    T: Record,
 {
     fn fmt(
         self_: Option<&Self>,
         r: Option<Repetition>,
         _name: Option<&str>,
         f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error> {
+    ) -> fmt::Result {
         assert_eq!(r, None);
         <T::Schema as Schema>::fmt(
             self_.map(|self_| &self_.1),
@@ -1718,14 +1751,22 @@ where
 }
 impl<T> FromStr for RootSchema<T>
 where
-    T: Deserialize,
+    T: Record,
 {
     type Err = ParquetError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self> {
         parse_message_type(s)
-            .and_then(|x| <Root<T> as Deserialize>::parse(&x, None))
+            .and_then(|x| <Root<T> as Record>::parse(&x, None))
             .map(|x| x.1)
+    }
+}
+impl<T> Display for RootSchema<T>
+where
+    T: Record,
+{
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        <Self as Schema>::fmt(Some(&self), None, None, fmt)
     }
 }
 

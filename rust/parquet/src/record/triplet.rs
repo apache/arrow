@@ -21,11 +21,7 @@ use crate::basic::Repetition;
 use crate::column::reader::{get_typed_column_reader, ColumnReader, ColumnReaderImpl};
 use crate::data_type::*;
 use crate::errors::{ParquetError, Result};
-use crate::record::{
-    reader::{Reader, ValueReader},
-    types::Value,
-    Deserialize,
-};
+use crate::record::{reader::ValueReader, types::Value, Reader, Record};
 use crate::schema::types::{ColumnDescPtr, ColumnPath};
 
 /// High level API wrapper on column reader.

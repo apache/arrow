@@ -18,8 +18,8 @@
 //! Contains record-based API for reading Parquet files.
 
 mod display;
-pub mod reader;
-pub mod schemas;
+mod reader;
+mod schemas;
 mod triplet;
 pub mod types;
 
@@ -28,32 +28,28 @@ use std::{
     fmt::{self, Debug},
 };
 
-use self::reader::Reader;
 use crate::{
     basic::Repetition,
     column::reader::ColumnReader,
-    errors::ParquetError,
+    errors::Result,
     schema::types::{ColumnPath, Type},
 };
 
 #[doc(inline)]
-pub use parquet_derive::Deserialize;
+pub use parquet_derive::Record;
+pub use reader::RowIter;
+pub use schemas::RootSchema;
 pub use triplet::{TripletIter, TypedTripletIter};
 #[doc(hidden)]
 pub mod _private {
     pub use super::display::DisplaySchemaGroup;
 }
-
-pub trait Schema: Debug {
-    fn fmt(
-        self_: Option<&Self>,
-        r: Option<Repetition>,
-        name: Option<&str>,
-        f: &mut fmt::Formatter,
-    ) -> Result<(), fmt::Error>;
+mod predicate {
+    pub struct Predicate;
 }
+pub(crate) use self::predicate::Predicate;
 
-pub trait Deserialize: Sized {
+pub trait Record: Sized {
     type Schema: Schema;
     type Reader: Reader<Item = Self>;
 
@@ -61,7 +57,7 @@ pub trait Deserialize: Sized {
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError>;
+    ) -> Result<(String, Self::Schema)>;
 
     /// Builds tree of readers for the specified schema recursively.
     fn reader(
@@ -74,7 +70,20 @@ pub trait Deserialize: Sized {
     ) -> Self::Reader;
 }
 
-mod predicate {
-    pub struct Predicate;
+pub trait Schema: Debug {
+    fn fmt(
+        self_: Option<&Self>,
+        r: Option<Repetition>,
+        name: Option<&str>,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result;
 }
-pub(crate) use self::predicate::Predicate;
+
+pub trait Reader {
+    type Item;
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item>;
+    fn advance_columns(&mut self) -> Result<()>;
+    fn has_next(&self) -> bool;
+    fn current_def_level(&self) -> i16;
+    fn current_rep_level(&self) -> i16;
+}

@@ -26,28 +26,28 @@ use crate::{
     basic::{LogicalType, Repetition, Type as PhysicalType},
     column::reader::ColumnReader,
     data_type::{ByteArrayType, FixedLenByteArrayType},
-    errors::ParquetError,
+    errors::{ParquetError, Result},
     record::{
-        reader::{ByteArrayReader, FixedLenByteArrayReader, MapReader, Reader},
+        reader::{ByteArrayReader, FixedLenByteArrayReader, MapReader},
         schemas::{
             BsonSchema, ByteArraySchema, EnumSchema, FixedByteArraySchema, JsonSchema,
             StringSchema,
         },
         triplet::TypedTripletIter,
         types::{downcast, Value},
-        Deserialize,
+        Reader, Record,
     },
     schema::types::{ColumnPath, Type},
 };
 
-impl Deserialize for Vec<u8> {
+impl Record for Vec<u8> {
     type Reader = ByteArrayReader;
     type Schema = ByteArraySchema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -71,14 +71,14 @@ impl Deserialize for Vec<u8> {
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Bson(Vec<u8>);
-impl Deserialize for Bson {
+impl Record for Bson {
     type Reader = impl Reader<Item = Self>;
     type Schema = BsonSchema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -107,14 +107,14 @@ impl From<Vec<u8>> for Bson {
     }
 }
 
-impl Deserialize for String {
+impl Record for String {
     type Reader = impl Reader<Item = Self>;
     type Schema = StringSchema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -138,14 +138,14 @@ impl Deserialize for String {
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Json(String);
-impl Deserialize for Json {
+impl Record for Json {
     type Reader = impl Reader<Item = Self>;
     type Schema = JsonSchema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -164,7 +164,7 @@ impl Deserialize for Json {
     }
 }
 impl Display for Json {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
 }
@@ -181,14 +181,14 @@ impl From<String> for Json {
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Enum(String);
-impl Deserialize for Enum {
+impl Record for Enum {
     type Reader = impl Reader<Item = Self>;
     type Schema = EnumSchema;
 
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
-    ) -> Result<(String, Self::Schema), ParquetError> {
+    ) -> Result<(String, Self::Schema)> {
         Value::parse(schema, repetition).and_then(downcast)
     }
 
@@ -207,7 +207,7 @@ impl Deserialize for Enum {
     }
 }
 impl Display for Enum {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
 }
@@ -222,16 +222,16 @@ impl From<String> for Enum {
     }
 }
 
-macro_rules! impl_parquet_deserialize_array {
+macro_rules! impl_parquet_record_array {
     ($i:tt) => {
-        impl Deserialize for [u8; $i] {
+        impl Record for [u8; $i] {
             type Reader = impl Reader<Item = Self>;
             type Schema = FixedByteArraySchema<Self>;
 
             fn parse(
                 schema: &Type,
                 repetition: Option<Repetition>,
-            ) -> Result<(String, Self::Schema), ParquetError> {
+            ) -> Result<(String, Self::Schema)> {
                 if schema.is_primitive()
                     && repetition == Some(Repetition::REQUIRED)
                     && schema.get_physical_type() == PhysicalType::FIXED_LEN_BYTE_ARRAY
@@ -281,14 +281,14 @@ macro_rules! impl_parquet_deserialize_array {
             }
         }
 
-        impl Deserialize for Box<[u8; $i]> {
+        impl Record for Box<[u8; $i]> {
             type Reader = impl Reader<Item = Self>;
             type Schema = FixedByteArraySchema<[u8; $i]>;
 
             fn parse(
                 schema: &Type,
                 repetition: Option<Repetition>,
-            ) -> Result<(String, Self::Schema), ParquetError> {
+            ) -> Result<(String, Self::Schema)> {
                 <[u8; $i]>::parse(schema, repetition)
             }
 
@@ -327,60 +327,60 @@ macro_rules! impl_parquet_deserialize_array {
 }
 
 // Implemented on common array lengths, copied from arrayvec
-impl_parquet_deserialize_array!(0);
-impl_parquet_deserialize_array!(1);
-impl_parquet_deserialize_array!(2);
-impl_parquet_deserialize_array!(3);
-impl_parquet_deserialize_array!(4);
-impl_parquet_deserialize_array!(5);
-impl_parquet_deserialize_array!(6);
-impl_parquet_deserialize_array!(7);
-impl_parquet_deserialize_array!(8);
-impl_parquet_deserialize_array!(9);
-impl_parquet_deserialize_array!(10);
-impl_parquet_deserialize_array!(11);
-impl_parquet_deserialize_array!(12);
-impl_parquet_deserialize_array!(13);
-impl_parquet_deserialize_array!(14);
-impl_parquet_deserialize_array!(15);
-impl_parquet_deserialize_array!(16);
-impl_parquet_deserialize_array!(17);
-impl_parquet_deserialize_array!(18);
-impl_parquet_deserialize_array!(19);
-impl_parquet_deserialize_array!(20);
-impl_parquet_deserialize_array!(21);
-impl_parquet_deserialize_array!(22);
-impl_parquet_deserialize_array!(23);
-impl_parquet_deserialize_array!(24);
-impl_parquet_deserialize_array!(25);
-impl_parquet_deserialize_array!(26);
-impl_parquet_deserialize_array!(27);
-impl_parquet_deserialize_array!(28);
-impl_parquet_deserialize_array!(29);
-impl_parquet_deserialize_array!(30);
-impl_parquet_deserialize_array!(31);
-impl_parquet_deserialize_array!(32);
-impl_parquet_deserialize_array!(40);
-impl_parquet_deserialize_array!(48);
-impl_parquet_deserialize_array!(50);
-impl_parquet_deserialize_array!(56);
-impl_parquet_deserialize_array!(64);
-impl_parquet_deserialize_array!(72);
-impl_parquet_deserialize_array!(96);
-impl_parquet_deserialize_array!(100);
-impl_parquet_deserialize_array!(128);
-impl_parquet_deserialize_array!(160);
-impl_parquet_deserialize_array!(192);
-impl_parquet_deserialize_array!(200);
-impl_parquet_deserialize_array!(224);
-impl_parquet_deserialize_array!(256);
-impl_parquet_deserialize_array!(384);
-impl_parquet_deserialize_array!(512);
-impl_parquet_deserialize_array!(768);
-impl_parquet_deserialize_array!(1024);
-impl_parquet_deserialize_array!(2048);
-impl_parquet_deserialize_array!(4096);
-impl_parquet_deserialize_array!(8192);
-impl_parquet_deserialize_array!(16384);
-impl_parquet_deserialize_array!(32768);
-impl_parquet_deserialize_array!(65536);
+impl_parquet_record_array!(0);
+impl_parquet_record_array!(1);
+impl_parquet_record_array!(2);
+impl_parquet_record_array!(3);
+impl_parquet_record_array!(4);
+impl_parquet_record_array!(5);
+impl_parquet_record_array!(6);
+impl_parquet_record_array!(7);
+impl_parquet_record_array!(8);
+impl_parquet_record_array!(9);
+impl_parquet_record_array!(10);
+impl_parquet_record_array!(11);
+impl_parquet_record_array!(12);
+impl_parquet_record_array!(13);
+impl_parquet_record_array!(14);
+impl_parquet_record_array!(15);
+impl_parquet_record_array!(16);
+impl_parquet_record_array!(17);
+impl_parquet_record_array!(18);
+impl_parquet_record_array!(19);
+impl_parquet_record_array!(20);
+impl_parquet_record_array!(21);
+impl_parquet_record_array!(22);
+impl_parquet_record_array!(23);
+impl_parquet_record_array!(24);
+impl_parquet_record_array!(25);
+impl_parquet_record_array!(26);
+impl_parquet_record_array!(27);
+impl_parquet_record_array!(28);
+impl_parquet_record_array!(29);
+impl_parquet_record_array!(30);
+impl_parquet_record_array!(31);
+impl_parquet_record_array!(32);
+impl_parquet_record_array!(40);
+impl_parquet_record_array!(48);
+impl_parquet_record_array!(50);
+impl_parquet_record_array!(56);
+impl_parquet_record_array!(64);
+impl_parquet_record_array!(72);
+impl_parquet_record_array!(96);
+impl_parquet_record_array!(100);
+impl_parquet_record_array!(128);
+impl_parquet_record_array!(160);
+impl_parquet_record_array!(192);
+impl_parquet_record_array!(200);
+impl_parquet_record_array!(224);
+impl_parquet_record_array!(256);
+impl_parquet_record_array!(384);
+impl_parquet_record_array!(512);
+impl_parquet_record_array!(768);
+impl_parquet_record_array!(1024);
+impl_parquet_record_array!(2048);
+impl_parquet_record_array!(4096);
+impl_parquet_record_array!(8192);
+impl_parquet_record_array!(16384);
+impl_parquet_record_array!(32768);
+impl_parquet_record_array!(65536);
