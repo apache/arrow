@@ -41,6 +41,10 @@ except ImportError:
 
 def assert_equal(obj1, obj2):
     if torch is not None and torch.is_tensor(obj1) and torch.is_tensor(obj2):
+        if obj1.is_sparse:
+            obj1 = obj1.to_dense()
+        if obj2.is_sparse:
+            obj2 = obj2.to_dense()
         assert torch.equal(obj1, obj2)
         return
     module_numpy = (type(obj1).__module__ == np.__name__ or
