@@ -309,16 +309,12 @@ macro_rules! impl_parquet_record_array {
                         ),
                     },
                     |bytes: Vec<_>| {
-                        let mut ret = box [0u8; $i];
-                        assert_eq!(bytes.len(), ret.len());
-                        unsafe {
-                            std::ptr::copy_nonoverlapping(
-                                bytes.as_ptr(),
-                                ret.as_mut_ptr(),
-                                bytes.len(),
+                        assert_eq!(bytes.len(), $i);
+                        Ok(unsafe {
+                            Box::from_raw(
+                                Box::into_raw(bytes.into_boxed_slice()) as *mut [u8; $i]
                             )
-                        };
-                        Ok(ret)
+                        })
                     },
                 )
             }

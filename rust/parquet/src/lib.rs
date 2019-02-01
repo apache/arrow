@@ -16,7 +16,6 @@
 // under the License.
 
 #![feature(specialization)]
-#![feature(box_syntax)]
 #![feature(type_alias_impl_trait)]
 #![feature(core_intrinsics)]
 #![allow(dead_code)]
