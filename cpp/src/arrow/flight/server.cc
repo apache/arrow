@@ -229,10 +229,6 @@ class FlightServiceImpl : public FlightService::Service {
         return internal::ToGrpcStatus(server_->DoPut(std::move(message_reader)));
       }
     } else {
-      // TODO(lihalite): gRPC doesn't let us distinguish between no
-      // message sent, and message failed to deserialize. IMO, we
-      // should add logging around the Status returns in
-      // serialization-internal.h to make debugging such cases easier.
       return grpc::Status::OK;
     }
   }

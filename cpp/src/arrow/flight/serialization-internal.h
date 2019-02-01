@@ -156,23 +156,42 @@ class GrpcBuffer : public arrow::MutableBuffer {
   grpc_slice slice_;
 };
 
+// Helper to log status code, as gRPC doesn't expose why
+// (de)serialization fails
+inline Status FailSerialization(Status status) {
+  if (!status.ok()) {
+    ARROW_LOG(WARNING) << "Error deserializing Flight message: "
+                       << status.error_message();
+  }
+  return status;
+}
+
+inline arrow::Status FailSerialization(arrow::Status status) {
+  if (!status.ok()) {
+    ARROW_LOG(WARNING) << "Error deserializing Flight message: "
+                       << status.ToString();
+  }
+  return status;
+}
+
 // Read internal::FlightData from grpc::ByteBuffer containing FlightData
 // protobuf without copying
 template <>
 class SerializationTraits<FlightData> {
  public:
   static Status Serialize(const FlightData& msg, ByteBuffer** buffer, bool* own_buffer) {
-    return Status(StatusCode::UNIMPLEMENTED,
-                  "internal::FlightData serialization not implemented");
+    return FailSerialization(
+        Status(StatusCode::UNIMPLEMENTED,
+               "internal::FlightData serialization not implemented"));
   }
 
   static Status Deserialize(ByteBuffer* buffer, FlightData* out) {
     if (!buffer) {
-      return Status(StatusCode::INTERNAL, "No payload");
+      return FailSerialization(Status(StatusCode::INTERNAL, "No payload"));
     }
 
     std::shared_ptr<arrow::Buffer> wrapped_buffer;
-    GRPC_RETURN_NOT_OK(GrpcBuffer::Wrap(buffer, &wrapped_buffer));
+    GRPC_RETURN_NOT_OK(FailSerialization(GrpcBuffer::Wrap(buffer, &wrapped_buffer)));
 
     auto buffer_length = static_cast<int>(wrapped_buffer->size());
     CodedInputStream pb_stream(wrapped_buffer->data(), buffer_length);
@@ -188,17 +207,20 @@ class SerializationTraits<FlightData> {
         case pb::FlightData::kFlightDescriptorFieldNumber: {
           pb::FlightDescriptor pb_descriptor;
           if (!pb_descriptor.ParseFromCodedStream(&pb_stream)) {
-            return Status(StatusCode::INTERNAL, "Unable to parse FlightDescriptor");
+            return FailSerialization(Status(StatusCode::INTERNAL,
+                                            "Unable to parse FlightDescriptor"));
           }
         } break;
         case pb::FlightData::kDataHeaderFieldNumber: {
           if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->metadata)) {
-            return Status(StatusCode::INTERNAL, "Unable to read FlightData metadata");
+            return FailSerialization(Status(StatusCode::INTERNAL,
+                                            "Unable to read FlightData metadata"));
           }
         } break;
         case pb::FlightData::kDataBodyFieldNumber: {
           if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->body)) {
-            return Status(StatusCode::INTERNAL, "Unable to read FlightData body");
+            return FailSerialization(Status(StatusCode::INTERNAL,
+                                            "Unable to read FlightData body"));
           }
         } break;
         default:
@@ -219,8 +241,8 @@ template <>
 class SerializationTraits<IpcPayload> {
  public:
   static grpc::Status Deserialize(ByteBuffer* buffer, IpcPayload* out) {
-    return grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
-                        "IpcPayload deserialization not implemented");
+    return FailSerialization(grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
+                                          "IpcPayload deserialization not implemented"));
   }
 
   static grpc::Status Serialize(const IpcPayload& msg, ByteBuffer* out,
@@ -256,8 +278,9 @@ class SerializationTraits<IpcPayload> {
 
     // TODO(wesm): messages over 2GB unlikely to be yet supported
     if (total_size > kInt32Max) {
-      return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-                          "Cannot send record batches exceeding 2GB yet");
+      return FailSerialization(grpc::Status(
+                                   grpc::StatusCode::INVALID_ARGUMENT,
+                                   "Cannot send record batches exceeding 2GB yet"));
     }
 
     // Allocate slice, assign to output buffer
@@ -309,8 +332,5 @@ class SerializationTraits<IpcPayload> {
     return grpc::Status::OK;
   }
 };
-
-template class grpc::ClientWriter<arrow::ipc::internal::IpcPayload>;
-template class grpc::ClientReader<arrow::ipc::internal::IpcPayload>;
 
 }  // namespace grpc
