@@ -15,7 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/vendored/datetime/tz.h"
+#include <cstdint>
+
+#include "arrow/vendored/datetime.h"
+
 #include "gandiva/precompiled/time_fields.h"
 
 #ifndef GANDIVA_UNIT_TEST

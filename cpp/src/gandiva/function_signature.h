@@ -24,12 +24,13 @@
 
 #include "gandiva/arrow.h"
 #include "gandiva/logging.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief Signature for a function : includes the base name, input param types and
 /// output types.
-class FunctionSignature {
+class GANDIVA_EXPORT FunctionSignature {
  public:
   FunctionSignature(const std::string& base_name, const DataTypeVector& param_types,
                     DataTypePtr ret_type)

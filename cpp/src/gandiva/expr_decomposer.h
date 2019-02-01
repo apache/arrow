@@ -27,6 +27,7 @@
 #include "gandiva/expression.h"
 #include "gandiva/node.h"
 #include "gandiva/node_visitor.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
@@ -35,7 +36,7 @@ class Annotator;
 
 /// \brief Decomposes an expression tree to seperate out the validity and
 /// value expressions.
-class ExprDecomposer : public NodeVisitor {
+class GANDIVA_EXPORT ExprDecomposer : public NodeVisitor {
  public:
   explicit ExprDecomposer(const FunctionRegistry& registry, Annotator& annotator)
       : registry_(registry), annotator_(annotator) {}
@@ -49,6 +50,8 @@ class ExprDecomposer : public NodeVisitor {
   }
 
  private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ExprDecomposer);
+
   FRIEND_TEST(TestExprDecomposer, TestStackSimple);
   FRIEND_TEST(TestExprDecomposer, TestNested);
   FRIEND_TEST(TestExprDecomposer, TestInternalIf);
@@ -83,6 +86,9 @@ class ExprDecomposer : public NodeVisitor {
     StackEntryType entry_type_;
     bool is_terminal_else_;
     int local_bitmap_idx_;
+
+   private:
+    ARROW_DISALLOW_COPY_AND_ASSIGN(IfStackEntry);
   };
 
   // pop 'condition entry' into stack.

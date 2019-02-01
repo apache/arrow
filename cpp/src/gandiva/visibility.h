@@ -15,35 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_EXPRESSION_H
-#define GANDIVA_EXPR_EXPRESSION_H
+#pragma once
 
-#include <string>
+#if defined(_WIN32) || defined(__CYGWIN__)
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4251)
+#else
+#pragma GCC diagnostic ignored "-Wattributes"
+#endif
 
-#include "gandiva/arrow.h"
-#include "gandiva/gandiva_aliases.h"
-#include "gandiva/visibility.h"
+#ifdef GANDIVA_STATIC
+#define GANDIVA_EXPORT
+#elif defined(GANDIVA_EXPORTING)
+#define GANDIVA_EXPORT __declspec(dllexport)
+#else
+#define GANDIVA_EXPORT __declspec(dllimport)
+#endif
 
-namespace gandiva {
+#define GANDIVA_NO_EXPORT
+#else  // Not Windows
+#ifndef GANDIVA_EXPORT
+#define GANDIVA_EXPORT __attribute__((visibility("default")))
+#endif
+#ifndef GANDIVA_NO_EXPORT
+#define GANDIVA_NO_EXPORT __attribute__((visibility("hidden")))
+#endif
+#endif  // Non-Windows
 
-/// \brief An expression tree with a root node, and a result field.
-class GANDIVA_EXPORT Expression {
- public:
-  Expression(const NodePtr root, const FieldPtr result) : root_(root), result_(result) {}
-
-  virtual ~Expression() = default;
-
-  const NodePtr& root() const { return root_; }
-
-  const FieldPtr& result() const { return result_; }
-
-  std::string ToString();
-
- private:
-  const NodePtr root_;
-  const FieldPtr result_;
-};
-
-}  // namespace gandiva
-
-#endif  // GANDIVA_EXPR_EXPRESSION_H
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif

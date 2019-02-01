@@ -23,6 +23,7 @@
 #include "arrow/status.h"
 
 #include "gandiva/logging.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
@@ -35,7 +36,7 @@ template <typename Type>
 class InExpressionNode;
 
 /// \brief Visitor for nodes in the expression tree.
-class NodeVisitor {
+class GANDIVA_EXPORT NodeVisitor {
  public:
   virtual ~NodeVisitor() = default;
 

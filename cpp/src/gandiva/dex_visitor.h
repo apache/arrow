@@ -21,6 +21,7 @@
 #include <string>
 
 #include "gandiva/logging.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
@@ -41,7 +42,7 @@ template <typename Type>
 class InExprDexBase;
 
 /// \brief Visitor for decomposed expression.
-class DexVisitor {
+class GANDIVA_EXPORT DexVisitor {
  public:
   virtual ~DexVisitor() = default;
 
@@ -67,7 +68,7 @@ class DexVisitor {
 #define VISIT_DCHECK(DEX_CLASS) \
   void Visit(const DEX_CLASS& dex) override { DCHECK(0); }
 
-class DexDefaultVisitor : public DexVisitor {
+class GANDIVA_EXPORT DexDefaultVisitor : public DexVisitor {
   VISIT_DCHECK(VectorReadValidityDex)
   VISIT_DCHECK(VectorReadFixedLenValueDex)
   VISIT_DCHECK(VectorReadVarLenValueDex)

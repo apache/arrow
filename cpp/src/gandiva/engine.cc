@@ -23,6 +23,15 @@
 #include <unordered_set>
 #include <utility>
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4141)
+#pragma warning(disable : 4146)
+#pragma warning(disable : 4244)
+#pragma warning(disable : 4267)
+#pragma warning(disable : 4624)
+#endif
+
 #include <llvm/Analysis/Passes.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/Bitcode/BitcodeReader.h>
@@ -39,6 +48,11 @@
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/Transforms/Vectorize.h>
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
+
 #include "gandiva/decimal_ir.h"
 #include "gandiva/exported_funcs_registry.h"
 

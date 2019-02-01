@@ -47,6 +47,7 @@ matrix:
 environment:
   global:
     USE_CLCACHE: true
+    ARROW_BUILD_GANDIVA: "OFF"
     PYTHON: "3.6"
     ARCH: "64"
 

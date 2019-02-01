@@ -36,13 +36,14 @@
 #include "gandiva/llvm_types.h"
 #include "gandiva/lvalue.h"
 #include "gandiva/value_validity_pair.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 class FunctionHolder;
 
 /// Builds an LLVM module and generates code for the specified set of expressions.
-class LLVMGenerator {
+class GANDIVA_EXPORT LLVMGenerator {
  public:
   /// \brief Factory method to initialize the generator.
   static Status Make(std::shared_ptr<Configuration> config,

@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <string>
 
-#include "arrow/vendored/datetime/date.h"
+#include "arrow/vendored/datetime.h"
 
 #include "gandiva/date_utils.h"
 #include "gandiva/execution_context.h"
@@ -64,8 +64,7 @@ Status ToDateHolder::Make(const FunctionNode& node,
 Status ToDateHolder::Make(const std::string& sql_pattern, int32_t suppress_errors,
                           std::shared_ptr<ToDateHolder>* holder) {
   std::shared_ptr<std::string> transformed_pattern;
-  Status status = DateUtils::ToInternalFormat(sql_pattern, &transformed_pattern);
-  ARROW_RETURN_NOT_OK(status);
+  ARROW_RETURN_NOT_OK(DateUtils::ToInternalFormat(sql_pattern, &transformed_pattern));
   auto lholder = std::shared_ptr<ToDateHolder>(
       new ToDateHolder(*(transformed_pattern.get()), suppress_errors));
   *holder = lholder;
@@ -82,22 +81,14 @@ int64_t ToDateHolder::operator()(ExecutionContext* context, const std::string& d
   // Issues
   // 1. processes date that do not match the format.
   // 2. does not process time in format +08:00 (or) id.
-  struct tm result = {};
-  char* ret = strptime(data.c_str(), pattern_.c_str(), &result);
-  if (ret == nullptr) {
+  int64_t seconds_since_epoch = 0;
+  if (!internal::ParseTimestamp(data.c_str(), pattern_.c_str(), true,
+                                &seconds_since_epoch)) {
     return_error(context, data);
     return 0;
   }
+
   *out_valid = true;
-  // ignore the time part
-  arrow::util::date::sys_seconds secs =
-      arrow::util::date::sys_days(arrow::util::date::year(result.tm_year + 1900) /
-                                  (result.tm_mon + 1) / result.tm_mday);
-  int64_t seconds_since_epoch = secs.time_since_epoch().count();
-  if (seconds_since_epoch == 0) {
-    return_error(context, data);
-    return 0;
-  }
   return seconds_since_epoch * 1000;
 }
 

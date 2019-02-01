@@ -57,7 +57,7 @@ int64_t MillisSince(time_t base_line, int32_t yy, int32_t mm, int32_t dd, int32_
   given_ts.tm_min = min;
   given_ts.tm_sec = sec;
 
-  return (lround(difftime(mktime(&given_ts), base_line)) * 1000 + millis);
+  return (static_cast<int64_t>(difftime(mktime(&given_ts), base_line)) * 1000 + millis);
 }
 
 TEST_F(TestProjector, TestIsNull) {

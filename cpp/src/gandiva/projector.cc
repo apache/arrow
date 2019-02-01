@@ -36,6 +36,8 @@ Projector::Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr sc
       output_fields_(output_fields),
       configuration_(configuration) {}
 
+Projector::~Projector() {}
+
 Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
                        std::shared_ptr<Projector>* projector) {
   return Projector::Make(schema, exprs, ConfigurationBuilder::DefaultConfiguration(),
