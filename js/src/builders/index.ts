@@ -28,7 +28,7 @@ export { DateBuilder, DateDayBuilder, DateMillisecondBuilder };
 export { TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder };
 export { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder };
 export { DecimalBuilder };
-export { DictionaryBuilder }
+export { DictionaryBuilder };
 // export { ListBuilder };
 // export { StructBuilder };
 // export { UnionBuilder, DenseUnionBuilder, SparseUnionBuilder };

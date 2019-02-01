@@ -12,17 +12,17 @@ import {
 
 describe('DictionaryBuilder', () => {
     describe('<Utf8, Int32>', () => {
-        runTestsWithEncoder('chunkLength: 5', encodeAll(() => new Dictionary(new Utf8(), new Int32()), 5));
-        runTestsWithEncoder('chunkLength: 25', encodeAll(() => new Dictionary(new Utf8(), new Int32()), 25));
-        runTestsWithEncoder('chunkLength: undefined', encodeAll(() => new Dictionary(new Utf8(), new Int32()), void 0));
-        runTestsWithEncoder('chunkLength: 5', encodeEach(() => new Dictionary(new Utf8(), new Int32()), 5));
-        runTestsWithEncoder('chunkLength: 25', encodeEach(() => new Dictionary(new Utf8(), new Int32()), 25));
-        runTestsWithEncoder('chunkLength: undefined', encodeEach(() => new Dictionary(new Utf8(), new Int32()), void 0));
+        runTestsWithEncoder(encodeAll(() => new Dictionary(new Utf8(), new Int32()), 5));
+        runTestsWithEncoder(encodeAll(() => new Dictionary(new Utf8(), new Int32()), 25));
+        runTestsWithEncoder(encodeAll(() => new Dictionary(new Utf8(), new Int32()), void 0));
+        runTestsWithEncoder(encodeEach(() => new Dictionary(new Utf8(), new Int32()), 5));
+        runTestsWithEncoder(encodeEach(() => new Dictionary(new Utf8(), new Int32()), 25));
+        runTestsWithEncoder(encodeEach(() => new Dictionary(new Utf8(), new Int32()), void 0));
     });
 });
 
-function runTestsWithEncoder(name: string, encode: (vals: (string | null)[], nullVals?: any[]) => Vector<Dictionary<Utf8, Int32>>) {
-    describe(`${encode.name} ${name}`, () => {
+function runTestsWithEncoder(encode: (vals: (string | null)[], nullVals?: any[]) => Vector<Dictionary<Utf8, Int32>>) {
+    describe(encode.name, () => {
         it(`dictionary-encodes strings no nulls`, () => {
             const vals = duplicateItems(20, stringsNoNulls(10));
             validateVector(vals, encode(vals, []), []);
