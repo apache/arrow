@@ -46,8 +46,15 @@ void garrow_record_batch_builder_set_initial_capacity(GArrowRecordBatchBuilder *
 GArrowSchema *garrow_record_batch_builder_get_schema(GArrowRecordBatchBuilder *builder);
 
 gint garrow_record_batch_builder_get_n_fields(GArrowRecordBatchBuilder *builder);
+#ifndef GARROW_DISABLE_DEPRECATED
+GARROW_DEPRECATED_IN_0_13_FOR(garrow_record_batch_builder_get_column_builder)
 GArrowArrayBuilder *garrow_record_batch_builder_get_field(GArrowRecordBatchBuilder *builder,
                                                           gint i);
+#endif
+GARROW_AVAILABLE_IN_0_13
+GArrowArrayBuilder *
+garrow_record_batch_builder_get_column_builder(GArrowRecordBatchBuilder *builder,
+                                               gint i);
 
 GArrowRecordBatch *garrow_record_batch_builder_flush(GArrowRecordBatchBuilder *builder,
                                                      GError **error);

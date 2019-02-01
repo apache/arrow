@@ -241,10 +241,42 @@ garrow_record_batch_builder_get_n_fields(GArrowRecordBatchBuilder *builder)
  *   the `i`-th field on success, %NULL on out of index.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 0.13.0:
+ *   Use garrow_record_batch_builder_get_column_builder() instead.
  */
 GArrowArrayBuilder *
 garrow_record_batch_builder_get_field(GArrowRecordBatchBuilder *builder,
                                       gint i)
+{
+  auto priv = GARROW_RECORD_BATCH_BUILDER_GET_PRIVATE(builder);
+  if (i < 0) {
+    i += priv->fields->len;
+  }
+  if (i < 0) {
+    return NULL;
+  }
+  if (static_cast<guint>(i) >= priv->fields->len) {
+    return NULL;
+  }
+
+  return GARROW_ARRAY_BUILDER(g_ptr_array_index(priv->fields, i));
+}
+
+/**
+ * garrow_record_batch_builder_get_column_builder:
+ * @builder: A #GArrowRecordBatchBuilder.
+ * @i: The column index. If it's negative, index is counted backward
+ *   from the end of the columns. `-1` means the last column.
+ *
+ * Returns: (transfer none) (nullable): The #GArrowArrayBuilder for
+ *   the `i`-th column on success, %NULL on out of index.
+ *
+ * Since: 0.13.0
+ */
+GArrowArrayBuilder *
+garrow_record_batch_builder_get_column_builder(GArrowRecordBatchBuilder *builder,
+                                               gint i)
 {
   auto priv = GARROW_RECORD_BATCH_BUILDER_GET_PRIVATE(builder);
   if (i < 0) {
