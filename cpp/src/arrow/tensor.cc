@@ -170,6 +170,7 @@ struct NonZeroCounter {
   template <typename TYPE>
   typename std::enable_if<!std::is_base_of<Number, TYPE>::value, Status>::type Visit(
       const TYPE& type) {
+    DCHECK(!is_tensor_supported(type.id()));
     return Status::NotImplemented("Tensor of ", type.ToString(), " is not implemented");
   }
 
