@@ -33,6 +33,10 @@ class MemoryPool;
 class RecordBatch;
 class Schema;
 
+namespace io {
+class ReadableFile;
+}  // namespace io
+
 namespace ipc {
 namespace internal {
 namespace json {
@@ -93,6 +97,15 @@ class ARROW_EXPORT JsonReader {
   /// \param[out] reader the returned reader object
   /// \return Status
   static Status Open(const std::shared_ptr<Buffer>& data,
+                     std::unique_ptr<JsonReader>* reader);
+
+  /// \brief Create a new JSON reader from a file
+  ///
+  /// \param[in] pool a MemoryPool to use for buffer allocations
+  /// \param[in] in_file a ReadableFile containing JSON data
+  /// \param[out] reader the returned reader object
+  /// \return Status
+  static Status Open(MemoryPool* pool, const std::shared_ptr<io::ReadableFile>& in_file,
                      std::unique_ptr<JsonReader>* reader);
 
   /// \brief Return the schema read from the JSON

@@ -51,17 +51,11 @@ int main(int argc, char** argv) {
 
   // 1. Put the data to the server.
   std::unique_ptr<arrow::ipc::internal::json::JsonReader> reader;
-  std::shared_ptr<arrow::io::ReadableFile> in_file;
   std::cout << "Opening JSON file '" << FLAGS_path << "'" << std::endl;
+  std::shared_ptr<arrow::io::ReadableFile> in_file;
   ABORT_NOT_OK(arrow::io::ReadableFile::Open(FLAGS_path, &in_file));
-
-  int64_t file_size = 0;
-  ABORT_NOT_OK(in_file->GetSize(&file_size));
-
-  std::shared_ptr<arrow::Buffer> json_buffer;
-  ABORT_NOT_OK(in_file->Read(file_size, &json_buffer));
-
-  ABORT_NOT_OK(arrow::ipc::internal::json::JsonReader::Open(json_buffer, &reader));
+  ABORT_NOT_OK(arrow::ipc::internal::json::JsonReader::Open(arrow::default_memory_pool(),
+                                                            in_file, &reader));
 
   std::unique_ptr<arrow::ipc::RecordBatchWriter> write_stream;
   ABORT_NOT_OK(client->DoPut(descr, reader->schema(), &write_stream));
