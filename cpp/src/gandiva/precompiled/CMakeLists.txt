@@ -85,6 +85,7 @@ function(add_precompiled_unit_test REL_TEST_NAME)
   )
   target_compile_definitions(${TEST_NAME} PRIVATE
     GANDIVA_UNIT_TEST=1
+    ARROW_STATIC
     GANDIVA_STATIC)
   set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
   add_test(${TEST_NAME} ${TEST_PATH})

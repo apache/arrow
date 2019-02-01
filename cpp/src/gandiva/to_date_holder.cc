@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <string>
 
-#include "arrow/vendored/datetime/date.h"
+#include "arrow/vendored/datetime.h"
 
 #include "gandiva/date_utils.h"
 #include "gandiva/execution_context.h"

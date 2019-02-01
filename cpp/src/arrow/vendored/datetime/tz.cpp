@@ -30,6 +30,9 @@
 // been invented (that would involve another several millennia of evolution).
 // We did not mean to shout.
 
+// wesm: This is required so that symbols are properly exported from the DLL
+#include "visibility.h"
+
 #ifdef _WIN32
    // windows.h will be included directly and indirectly (e.g. by curl).
    // We need to define these macros to prevent windows.h bringing in

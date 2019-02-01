@@ -30,7 +30,7 @@
 #endif
 
 #include "arrow/util/macros.h"
-#include "arrow/vendored/datetime/date.h"
+#include "arrow/vendored/datetime.h"
 
 #include "gandiva/arrow.h"
 #include "gandiva/visibility.h"
