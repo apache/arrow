@@ -74,15 +74,15 @@ fn impl_struct(
     }
     let mut where_clause_with_debug = where_clause.clone();
     for TypeParam { ident, .. } in ast.generics.type_params() {
-        where_clause_with_debug.predicates.push(
-            syn::parse2(quote! { <#ident as Record>::Schema: Debug }).unwrap(),
-        );
+        where_clause_with_debug
+            .predicates
+            .push(syn::parse2(quote! { <#ident as Record>::Schema: Debug }).unwrap());
     }
     let mut where_clause_with_default = where_clause.clone();
     for TypeParam { ident, .. } in ast.generics.type_params() {
-        where_clause_with_default.predicates.push(
-            syn::parse2(quote! { <#ident as Record>::Schema: Default }).unwrap(),
-        );
+        where_clause_with_default
+            .predicates
+            .push(syn::parse2(quote! { <#ident as Record>::Schema: Default }).unwrap());
     }
 
     let field_renames = fields

@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Contains implementation of record assembly and converting Parquet types into
-//! [`Row`](crate::record::api::Row)s.
+//! Contains implementation of record assembly and converting Parquet types into Rust
+//! types.
 
 use std::{
     collections::HashMap, convert::TryInto, error::Error, marker::PhantomData, rc::Rc,

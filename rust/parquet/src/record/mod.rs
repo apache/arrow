@@ -49,6 +49,85 @@ mod predicate {
 }
 pub(crate) use self::predicate::Predicate;
 
+/// This trait is implemented on all types that can be read from/written to Parquet files.
+///
+/// It is implemented on the following types:
+///
+/// | Rust type | Parquet Physical Type | Parquet Logical Type |
+/// |---|---|---|
+/// | `bool` | boolean | none |
+/// | `u8` | int32 | uint_8 |
+/// | `i8` | int32 | int_8 |
+/// | `u16` | int32 | uint_16 |
+/// | `i16` | int32 | int_16 |
+/// | `u32` | int32 | uint_32 |
+/// | `i32` | int32 | int_32 |
+/// | `u64` | int64 | uint_64 |
+/// | `i64` | int64 | int_64 |
+/// | `f32` | float | none |
+/// | `f64` | double | none |
+/// | [`Date`](self::types::Date) | int32 | [date](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#date) |
+/// | [`Time`](self::types::Time) | int32 | [time_millis](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#time) |
+/// | [`Time`](self::types::Time) | int64 | [time_micros](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#time) |
+/// | [`Timestamp`](self::types::Timestamp) | int64 | [timestamp_millis](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#timestamp) |
+/// | [`Timestamp`](self::types::Timestamp) | int64 | [timestamp_micros](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#timestamp) |
+/// | [`Timestamp`](self::types::Timestamp) | int96 | [none](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#timestamp) |
+/// | [`Decimal`](self::types::Decimal) | int32 | [decimal](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#decimal) |
+/// | [`Decimal`](self::types::Decimal) | int64 | [decimal](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#decimal) |
+/// | [`Decimal`](self::types::Decimal) | byte_array | [decimal](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#decimal) |
+/// | `Vec<u8>` | byte_array | none |
+/// | `[u8; N]` | fixed_len_byte_array | none |
+/// | [`Bson`](self::types::Bson) | byte_array | [bson](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#bson) |
+/// | `String` | byte_array | [utf8](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#string) |
+/// | [`Json`](self::types::Json) | byte_array | [json](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#json) |
+/// | [`Enum`](self::types::Enum) | byte_array | [enum](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#enum) |
+/// | [`List<T>`](self::types::List) | group | [list](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists) |
+/// | [`Map<K,V>`](self::types::Map) | group | [map](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#maps) |
+/// | [`Group`](self::types::Group) | group | none |
+/// | `(T, U, …)` | group | none |
+/// | `Option<T>` | – | – |
+/// | [`Value`](self::types::Value) | * | * |
+///
+/// `Option<T>` corresponds to a field marked as "optional".
+///
+/// [`List<T>`](self::types::List) corresponds to either [annotated List logical types](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists), or unannotated fields marked as "repeated".
+///
+/// [`Value`](self::types::Value) corresponds to any valid Parquet type, and is useful
+/// when the type is not known at compile time.
+///
+/// "byte_array" is interchangeable with "fixed_len_byte_array" for the purposes of the
+/// above correspondance.
+///
+/// The implementation for tuples is only for those up to length 32. The implementation
+/// for arrays is only for common array lengths. See [`Record`] for more details.
+///
+/// ## `#[derive(Record)]`
+///
+/// The easiest way to implement `Record` on a new type is using `#[derive(Record)]`:
+///
+/// ```
+/// use parquet::record::{types::Timestamp, Record};
+///
+/// #[derive(Record, Debug)]
+/// struct MyRow {
+///     id: u64,
+///     time: Timestamp,
+///     event: String,
+/// }
+/// ```
+///
+/// If the Rust field name and the Parquet field name differ, say if the latter is not an idiomatic or valid identifier in Rust, then an automatic rename can be made like so:
+///
+/// ```
+/// # use parquet::record::{Record, types::Timestamp};
+/// #[derive(Record, Debug)]
+/// struct MyRow {
+///     #[parquet(rename = "ID")]
+///     id: u64,
+///     time: Timestamp,
+///     event: String,
+/// }
+/// ```
 pub trait Record: Sized {
     type Schema: Schema;
     type Reader: Reader<Item = Self>;

@@ -31,17 +31,40 @@ and this to your crate root:
 extern crate parquet;
 ```
 
-Example usage of reading data:
+Example usage of reading data untyped:
 ```rust
 use std::fs::File;
 use std::path::Path;
 use parquet::file::reader::{FileReader, SerializedFileReader};
+use parquet::record::types::Row;
 
 let file = File::open(&Path::new("/path/to/file")).unwrap();
 let reader = SerializedFileReader::new(file).unwrap();
-let mut iter = reader.get_row_iter(None).unwrap();
+let mut iter = reader.get_row_iter::<Row>(None).unwrap();
 while let Some(record) = iter.next() {
-    println!("{}", record);
+    println!("{:?}", record);
+}
+```
+
+Example usage of reading data strongly-typed:
+```rust
+use std::fs::File;
+use std::path::Path;
+use parquet::file::reader::{FileReader, SerializedFileReader};
+use parquet::record::{Record, types::Timestamp};
+
+#[derive(Record, Debug)]
+struct MyRow {
+    id: u64,
+    time: Timestamp,
+    event: String,
+}
+
+let file = File::open(&Path::new("/path/to/file")).unwrap();
+let reader = SerializedFileReader::new(file).unwrap();
+let mut iter = reader.get_row_iter::<MyRow>(None).unwrap();
+while let Some(record) = iter.next() {
+    println!("{}: {}", record.time, record.event);
 }
 ```
 See [crate documentation](https://docs.rs/crate/parquet/0.15.0-SNAPSHOT) on available API.
