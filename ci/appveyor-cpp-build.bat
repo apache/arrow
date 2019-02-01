@@ -104,6 +104,13 @@ conda create -n arrow -q -y -c conda-forge ^
 
 call activate arrow
 
+set ARROW_LLVM_VERSION=6.0.1
+
+if "%ARROW_BUILD_GANDIVA%" == "ON" (
+  @rem Install llvmdev in the toolchain if building gandiva.dll
+  conda install -q -y llvmdev=%ARROW_LLVM_VERSION% || exit /B
+)
+
 @rem Use Boost from Anaconda
 set BOOST_ROOT=%CONDA_PREFIX%\Library
 set BOOST_LIBRARYDIR=%CONDA_PREFIX%\Library\lib

@@ -232,7 +232,7 @@ int ExprDecomposer::PushThenEntry(const IfNode& node) {
   // push new entry to the stack.
   std::unique_ptr<IfStackEntry> entry(new IfStackEntry(
       node, kStackEntryThen, false /*is_terminal_else*/, local_bitmap_idx));
-  if_entries_stack_.push(std::move(entry));
+  if_entries_stack_.emplace(std::move(entry));
   return local_bitmap_idx;
 }
 
@@ -250,7 +250,7 @@ void ExprDecomposer::PopThenEntry(const IfNode& node) {
 void ExprDecomposer::PushElseEntry(const IfNode& node, int local_bitmap_idx) {
   std::unique_ptr<IfStackEntry> entry(new IfStackEntry(
       node, kStackEntryElse, true /*is_terminal_else*/, local_bitmap_idx));
-  if_entries_stack_.push(std::move(entry));
+  if_entries_stack_.emplace(std::move(entry));
 }
 
 bool ExprDecomposer::PopElseEntry(const IfNode& node) {
@@ -268,7 +268,7 @@ bool ExprDecomposer::PopElseEntry(const IfNode& node) {
 
 void ExprDecomposer::PushConditionEntry(const IfNode& node) {
   std::unique_ptr<IfStackEntry> entry(new IfStackEntry(node, kStackEntryCondition));
-  if_entries_stack_.push(std::move(entry));
+  if_entries_stack_.emplace(std::move(entry));
 }
 
 void ExprDecomposer::PopConditionEntry(const IfNode& node) {

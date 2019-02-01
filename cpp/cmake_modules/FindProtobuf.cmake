@@ -44,12 +44,12 @@ if (EXISTS "${_protobuf_path}/lib/${CMAKE_LIBRARY_ARCHITECTURE}")
   set (lib_dirs "lib/${CMAKE_LIBRARY_ARCHITECTURE}" ${lib_dirs})
 endif ()
 
-find_library (PROTOBUF_LIBRARY NAMES protobuf PATHS
+find_library (PROTOBUF_LIBRARY NAMES protobuf libprotobuf PATHS
   ${_protobuf_path}
   NO_DEFAULT_PATH
   PATH_SUFFIXES ${lib_dirs})
 
-find_library (PROTOC_LIBRARY NAMES protoc PATHS
+find_library (PROTOC_LIBRARY NAMES protoc libprotoc PATHS
   ${_protobuf_path}
   NO_DEFAULT_PATH
   PATH_SUFFIXES ${lib_dirs})
@@ -66,7 +66,7 @@ if (PROTOBUF_INCLUDE_DIR AND PROTOBUF_LIBRARY AND PROTOC_LIBRARY AND PROTOBUF_EX
   get_filename_component (PROTOBUF_LIBS ${PROTOBUF_LIBRARY} PATH)
   set (PROTOBUF_LIB_NAME protobuf)
   set (PROTOC_LIB_NAME protoc)
-  set (PROTOBUF_STATIC_LIB ${PROTOBUF_LIBS}/${CMAKE_STATIC_LIBRARY_PREFIX}${PROTOBUF_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})
+  set (PROTOBUF_STATIC_LIB ${PROTOBUF_LIBS}/${CMAKE_STATIC_LIBRARY_PREFIX}${PROTOBUF_LIB_NAME}${PROTOBUF_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX})
   set (PROTOC_STATIC_LIB ${PROTOBUF_LIBS}/${CMAKE_STATIC_LIBRARY_PREFIX}${PROTOC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})
 else ()
   set (PROTOBUF_FOUND FALSE)
@@ -81,7 +81,7 @@ if (PROTOBUF_FOUND)
   message (STATUS "Found the Protoc executable: ${PROTOBUF_EXECUTABLE}")
 else()
   if (_protobuf_path)
-    set (PROTOBUF_ERR_MSG "Could not find Protobuf. Looked in ${_protobuf_path}.")
+    set (PROTOBUF_ERR_MSG "Could not find Protobuf. Looked in ${_protobuf_path}")
   else ()
     set (PROTOBUF_ERR_MSG "Could not find Protobuf in system search paths.")
   endif()
@@ -100,4 +100,3 @@ mark_as_advanced (
   PROTOBUF_STATIC_LIB
   PROTOC_STATIC_LIB
 )
-

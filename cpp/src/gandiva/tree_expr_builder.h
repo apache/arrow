@@ -27,11 +27,12 @@
 #include "gandiva/condition.h"
 #include "gandiva/decimal_scalar.h"
 #include "gandiva/expression.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief Tree Builder for a nested expression.
-class TreeExprBuilder {
+class GANDIVA_EXPORT TreeExprBuilder {
  public:
   /// \brief create a node on a literal.
   static NodePtr MakeLiteral(bool value);

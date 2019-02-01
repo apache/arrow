@@ -22,14 +22,17 @@
 #include <string>
 
 #include <re2/re2.h>
+
 #include "arrow/status.h"
+
 #include "gandiva/function_holder.h"
 #include "gandiva/node.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// Function Holder for SQL 'like'
-class LikeHolder : public FunctionHolder {
+class GANDIVA_EXPORT LikeHolder : public FunctionHolder {
  public:
   ~LikeHolder() override = default;
 

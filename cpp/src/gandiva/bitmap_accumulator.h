@@ -24,12 +24,13 @@
 #include "gandiva/dex.h"
 #include "gandiva/dex_visitor.h"
 #include "gandiva/eval_batch.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief Extract bitmap buffer from either the input/buffer vectors or the
 /// local validity bitmap, and accumultes them to do the final computation.
-class BitMapAccumulator : public DexDefaultVisitor {
+class GANDIVA_EXPORT BitMapAccumulator : public DexDefaultVisitor {
  public:
   explicit BitMapAccumulator(const EvalBatch& eval_batch)
       : eval_batch_(eval_batch), all_invalid_(false) {}

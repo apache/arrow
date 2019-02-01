@@ -30,12 +30,13 @@
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/literal_holder.h"
 #include "gandiva/node_visitor.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief Represents a node in the expression tree. Validity and value are
 /// in a joined state.
-class Node {
+class GANDIVA_EXPORT Node {
  public:
   explicit Node(DataTypePtr return_type) : return_type_(return_type) {}
 
@@ -53,7 +54,7 @@ class Node {
 };
 
 /// \brief Node in the expression tree, representing a literal.
-class LiteralNode : public Node {
+class GANDIVA_EXPORT LiteralNode : public Node {
  public:
   LiteralNode(DataTypePtr type, const LiteralHolder& holder, bool is_null)
       : Node(type), holder_(holder), is_null_(is_null) {}
@@ -95,7 +96,7 @@ class LiteralNode : public Node {
 };
 
 /// \brief Node in the expression tree, representing an arrow field.
-class FieldNode : public Node {
+class GANDIVA_EXPORT FieldNode : public Node {
  public:
   explicit FieldNode(FieldPtr field) : Node(field->type()), field_(field) {}
 
@@ -112,7 +113,7 @@ class FieldNode : public Node {
 };
 
 /// \brief Node in the expression tree, representing a function.
-class FunctionNode : public Node {
+class GANDIVA_EXPORT FunctionNode : public Node {
  public:
   FunctionNode(const std::string& name, const NodeVector& children, DataTypePtr retType);
 
@@ -154,7 +155,7 @@ inline FunctionNode::FunctionNode(const std::string& name, const NodeVector& chi
 }
 
 /// \brief Node in the expression tree, representing an if-else expression.
-class IfNode : public Node {
+class GANDIVA_EXPORT IfNode : public Node {
  public:
   IfNode(NodePtr condition, NodePtr then_node, NodePtr else_node, DataTypePtr result_type)
       : Node(result_type),
@@ -183,7 +184,7 @@ class IfNode : public Node {
 };
 
 /// \brief Node in the expression tree, representing an and/or boolean expression.
-class BooleanNode : public Node {
+class GANDIVA_EXPORT BooleanNode : public Node {
  public:
   enum ExprType : char { AND, OR };
 

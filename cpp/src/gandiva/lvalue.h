@@ -20,14 +20,15 @@
 
 #include <vector>
 
-#include <llvm/IR/IRBuilder.h>
 #include "arrow/util/macros.h"
+
+#include "gandiva/llvm_includes.h"
 #include "gandiva/logging.h"
 
 namespace gandiva {
 
 /// \brief Tracks validity/value builders in LLVM.
-class LValue {
+class GANDIVA_EXPORT LValue {
  public:
   explicit LValue(llvm::Value* data, llvm::Value* length = NULLPTR,
                   llvm::Value* validity = NULLPTR)
@@ -54,7 +55,7 @@ class LValue {
   llvm::Value* validity_;
 };
 
-class DecimalLValue : public LValue {
+class GANDIVA_EXPORT DecimalLValue : public LValue {
  public:
   DecimalLValue(llvm::Value* data, llvm::Value* validity, llvm::Value* precision,
                 llvm::Value* scale)

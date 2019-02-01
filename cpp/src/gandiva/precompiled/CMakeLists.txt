@@ -30,6 +30,18 @@ set(PRECOMPILED_SRCS
     timestamp_arithmetic.cc
     ../../arrow/util/basic_decimal.cc)
 
+if (MSVC)
+  # clang pretends to be a particular version of MSVC. Version 1900 is
+  # Visual Studio 2015, and the standard library uses C++14 features,
+  # so we have to use that -std version to get the IR compilation to
+  # work
+  set(PLATFORM_CLANG_OPTIONS
+    -std=c++14 -fms-compatibility -fms-compatibility-version=19)
+else()
+  set(PLATFORM_CLANG_OPTIONS
+    -std=c++11)
+endif()
+
 # Create bitcode for each of the source files.
 foreach(SRC_FILE ${PRECOMPILED_SRCS})
   get_filename_component(SRC_BASE ${SRC_FILE} NAME_WE)
@@ -38,10 +50,13 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
   add_custom_command(
     OUTPUT ${BC_FILE}
     COMMAND ${CLANG_EXECUTABLE}
+            ${PLATFORM_CLANG_OPTIONS}
             -DGANDIVA_IR
-            -std=c++11 -emit-llvm
+            -DNDEBUG # DCHECK macros not implemented in precompiled code
+            -DARROW_STATIC # Do not set __declspec(dllimport) on MSVC on Arrow symbols
+            -DGANDIVA_STATIC # Do not set __declspec(dllimport) on MSVC on Gandiva symbols
             -fno-use-cxa-atexit  # Workaround for unresolved __dso_handle
-            -O3 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
+            -emit-llvm -O3 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
             ${ARROW_GANDIVA_PC_CXX_FLAGS}
             -I${CMAKE_SOURCE_DIR}/src
     DEPENDS ${SRC_FILE})
@@ -64,14 +79,20 @@ function(add_precompiled_unit_test REL_TEST_NAME)
   set(TEST_NAME "gandiva-precompiled-${TEST_NAME}")
 
   add_executable(${TEST_NAME} ${REL_TEST_NAME} ${ARGN})
-  add_dependencies(gandiva-tests ${TEST_NAME})
   target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
   target_link_libraries(${TEST_NAME}
     PRIVATE ${ARROW_TEST_LINK_LIBS} ${RE2_LIBRARY}
   )
-  target_compile_definitions(${TEST_NAME} PRIVATE GANDIVA_UNIT_TEST=1)
-  add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-  set_property(TEST ${TEST_NAME} PROPERTY LABELS gandiva-tests {TEST_NAME})
+  target_compile_definitions(${TEST_NAME} PRIVATE
+    GANDIVA_UNIT_TEST=1
+    ARROW_STATIC
+    GANDIVA_STATIC)
+  set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
+  add_test(${TEST_NAME} ${TEST_PATH})
+  set_property(TEST ${TEST_NAME}
+    APPEND PROPERTY
+    LABELS "unittest;gandiva-tests")
+  add_dependencies(gandiva-tests ${TEST_NAME})
 endfunction(add_precompiled_unit_test REL_TEST_NAME)
 
 # testing

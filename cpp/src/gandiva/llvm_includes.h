@@ -15,35 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_EXPRESSION_H
-#define GANDIVA_EXPR_EXPRESSION_H
+#pragma once
 
-#include <string>
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4141)
+#pragma warning(disable : 4146)
+#pragma warning(disable : 4244)
+#pragma warning(disable : 4267)
+#pragma warning(disable : 4291)
+#pragma warning(disable : 4624)
+#endif
 
-#include "gandiva/arrow.h"
-#include "gandiva/gandiva_aliases.h"
-#include "gandiva/visibility.h"
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
 
-namespace gandiva {
-
-/// \brief An expression tree with a root node, and a result field.
-class GANDIVA_EXPORT Expression {
- public:
-  Expression(const NodePtr root, const FieldPtr result) : root_(root), result_(result) {}
-
-  virtual ~Expression() = default;
-
-  const NodePtr& root() const { return root_; }
-
-  const FieldPtr& result() const { return result_; }
-
-  std::string ToString();
-
- private:
-  const NodePtr root_;
-  const FieldPtr result_;
-};
-
-}  // namespace gandiva
-
-#endif  // GANDIVA_EXPR_EXPRESSION_H
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif

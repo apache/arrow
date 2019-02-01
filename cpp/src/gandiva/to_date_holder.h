@@ -27,11 +27,12 @@
 #include "gandiva/execution_context.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/node.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// Function Holder for SQL 'to_date'
-class ToDateHolder : public FunctionHolder {
+class GANDIVA_EXPORT ToDateHolder : public FunctionHolder {
  public:
   ~ToDateHolder() override = default;
 
