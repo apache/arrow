@@ -210,10 +210,16 @@ def register_torch_serialization_handlers(serialization_context):
         import torch
 
         def _serialize_torch_tensor(obj):
-            return obj.detach().numpy()
+            if hasattr(obj, "_indices") and hasattr(obj, "_values"):
+                return obj._indices(), obj._values(), list(obj.shape)
+            else:
+                return obj.detach().numpy()
 
         def _deserialize_torch_tensor(data):
-            return torch.from_numpy(data)
+            if isinstance(data, list):
+                return torch.sparse_coo_tensor(data[0], data[1], data[2])
+            else:
+                return torch.from_numpy(data)
 
         for t in [torch.FloatTensor, torch.DoubleTensor, torch.HalfTensor,
                   torch.ByteTensor, torch.CharTensor, torch.ShortTensor,
