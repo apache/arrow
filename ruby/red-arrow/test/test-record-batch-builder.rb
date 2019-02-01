@@ -112,5 +112,14 @@ class RecordBatchBuilderTest < Test::Unit::TestCase
                                           arrays),
                    @builder.flush)
     end
+
+    test("#column_builders") do
+      column_builders = [
+        @builder.get_column_builder(0),
+        @builder.get_column_builder(1),
+      ]
+      assert_equal(column_builders,
+                   @builder.column_builders)
+    end
   end
 end
