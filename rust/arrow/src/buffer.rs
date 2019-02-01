@@ -19,11 +19,16 @@
 //! fixed size aligned at a 64-byte boundary. `MutableBuffer` is like `Buffer`, but it can
 //! be mutated and grown.
 
+use packed_simd::u8x64;
+
 use std::cmp;
 use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
+use std::ops::BitOr;
+use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
 
+use crate::builder::{BufferBuilderTrait, UInt8BufferBuilder};
 use crate::error::Result;
 use crate::memory;
 use crate::util::bit_util;
@@ -140,7 +145,63 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
     }
 }
 
+impl BitOr for Buffer {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self {
+        assert_eq!(
+            self.len(),
+            rhs.len(),
+            "Buffers must be the same size to apply Bitwise OR."
+        );
+
+        // SIMD implementation if available
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        {
+            let mut result =
+                MutableBuffer::new(self.len()).with_bitset(self.len(), false);
+            let lanes = u8x64::lanes();
+            for i in (0..self.len()).step_by(lanes) {
+                let left_data =
+                    unsafe { from_raw_parts(self.raw_data().offset(i as isize), lanes) };
+                let left_simd =
+                    unsafe { u8x64::from_slice_unaligned_unchecked(left_data) };
+                let right_data =
+                    unsafe { from_raw_parts(rhs.raw_data().offset(i as isize), lanes) };
+                let right_simd =
+                    unsafe { u8x64::from_slice_unaligned_unchecked(right_data) };
+                let simd_result = left_simd | right_simd;
+                let result_slice: &mut [u8] = unsafe {
+                    from_raw_parts_mut(
+                        (result.data_mut().as_mut_ptr() as *mut u8).offset(i as isize),
+                        lanes,
+                    )
+                };
+                unsafe { simd_result.write_to_slice_unaligned_unchecked(result_slice) };
+            }
+            return result.freeze();
+        }
+
+        // Default implementation
+        #[allow(unreachable_code)]
+        {
+            let mut builder = UInt8BufferBuilder::new(self.len());
+            for i in 0..self.len() {
+                unsafe {
+                    builder
+                        .append(
+                            self.data().get_unchecked(i) | rhs.data().get_unchecked(i),
+                        )
+                        .unwrap();
+                }
+            }
+            builder.finish()
+        }
+    }
+}
+
 unsafe impl Sync for Buffer {}
+
 unsafe impl Send for Buffer {}
 
 /// Similar to `Buffer`, but is growable and can be mutated. A mutable buffer can be
@@ -347,6 +408,23 @@ mod tests {
         // unequal because of different length
         buf2 = Buffer::from(&[0, 1, 2, 3]);
         assert_ne!(buf1, buf2);
+    }
+
+    #[test]
+    fn test_buffer_bitor() {
+        let buf1 = Buffer::from([0b01101010]);
+        let buf2 = Buffer::from([0b01001110]);
+        let buf3 = buf1 | buf2;
+        assert_eq!(Buffer::from([0b01101110]), buf3);
+    }
+
+    #[test]
+    #[should_panic(expected = "Buffers must be the same size to apply Bitwise OR.")]
+    fn test_buffer_bitor_different_sizes() {
+        let buf1 = Buffer::from([1_u8, 1_u8]);
+        let buf2 = Buffer::from([0b01001110]);
+        let buf3 = buf1 | buf2;
+        assert_eq!(Buffer::from([0b01101110]), buf3);
     }
 
     #[test]
