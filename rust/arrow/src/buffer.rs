@@ -24,7 +24,7 @@ use packed_simd::u8x64;
 use std::cmp;
 use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
-use std::ops::BitOr;
+use std::ops::BitAnd;
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
 
@@ -145,10 +145,10 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
     }
 }
 
-impl BitOr for Buffer {
+impl BitAnd for Buffer {
     type Output = Self;
 
-    fn bitor(self, rhs: Self) -> Self {
+    fn bitand(self, rhs: Self) -> Self {
         assert_eq!(
             self.len(),
             rhs.len(),
@@ -170,7 +170,7 @@ impl BitOr for Buffer {
                     unsafe { from_raw_parts(rhs.raw_data().offset(i as isize), lanes) };
                 let right_simd =
                     unsafe { u8x64::from_slice_unaligned_unchecked(right_data) };
-                let simd_result = left_simd | right_simd;
+                let simd_result = left_simd & right_simd;
                 let result_slice: &mut [u8] = unsafe {
                     from_raw_parts_mut(
                         (result.data_mut().as_mut_ptr() as *mut u8).offset(i as isize),
@@ -190,7 +190,7 @@ impl BitOr for Buffer {
                 unsafe {
                     builder
                         .append(
-                            self.data().get_unchecked(i) | rhs.data().get_unchecked(i),
+                            self.data().get_unchecked(i) & rhs.data().get_unchecked(i),
                         )
                         .unwrap();
                 }
@@ -411,20 +411,19 @@ mod tests {
     }
 
     #[test]
-    fn test_buffer_bitor() {
+    fn test_buffer_bitand() {
         let buf1 = Buffer::from([0b01101010]);
         let buf2 = Buffer::from([0b01001110]);
-        let buf3 = buf1 | buf2;
-        assert_eq!(Buffer::from([0b01101110]), buf3);
+        let buf3 = buf1 & buf2;
+        assert_eq!(Buffer::from([0b01001010]), buf3);
     }
 
     #[test]
     #[should_panic(expected = "Buffers must be the same size to apply Bitwise OR.")]
-    fn test_buffer_bitor_different_sizes() {
+    fn test_buffer_bitand_different_sizes() {
         let buf1 = Buffer::from([1_u8, 1_u8]);
         let buf2 = Buffer::from([0b01001110]);
-        let buf3 = buf1 | buf2;
-        assert_eq!(Buffer::from([0b01101110]), buf3);
+        let _buf3 = buf1 & buf2;
     }
 
     #[test]
