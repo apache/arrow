@@ -28,7 +28,9 @@ void dlfree(void* mem);
 }
 
 int64_t PlasmaAllocator::footprint_limit_ = 0;
+int64_t PlasmaAllocator::eviction_buffer_limit_ = 0;
 int64_t PlasmaAllocator::allocated_ = 0;
+int64_t PlasmaAllocator::eviction_buffered_;
 
 void* PlasmaAllocator::Memalign(size_t alignment, size_t bytes) {
   if (allocated_ + static_cast<int64_t>(bytes) > footprint_limit_) {
@@ -37,12 +39,14 @@ void* PlasmaAllocator::Memalign(size_t alignment, size_t bytes) {
   void* mem = dlmemalign(alignment, bytes);
   ARROW_CHECK(mem);
   allocated_ += bytes;
+  ARROW_CHECK(allocated_ <= footprint_limit_);
   return mem;
 }
 
 void PlasmaAllocator::Free(void* mem, size_t bytes) {
   dlfree(mem);
   allocated_ -= bytes;
+  ARROW_CHECK(allocated_ >= 0);
 }
 
 void PlasmaAllocator::SetFootprintLimit(size_t bytes) {
@@ -52,5 +56,40 @@ void PlasmaAllocator::SetFootprintLimit(size_t bytes) {
 int64_t PlasmaAllocator::GetFootprintLimit() { return footprint_limit_; }
 
 int64_t PlasmaAllocator::Allocated() { return allocated_; }
+
+void PlasmaAllocator::SetEvictionBufferLimit(size_t bytes) {
+  eviction_buffer_limit_ = static_cast<int64_t>(bytes);
+}
+
+int64_t PlasmaAllocator::GetEvictionBufferLimit() { return eviction_buffer_limit_; }
+
+bool PlasmaAllocator::MarkForEviction(size_t bytes) {
+  if (eviction_buffered_ + static_cast<int64_t>(bytes) > eviction_buffer_limit_) {
+    return false;
+  }
+
+  allocated_ -= bytes;
+  eviction_buffered_ += bytes;
+  ARROW_CHECK(allocated_ >= 0);
+  ARROW_CHECK(eviction_buffered_ <= eviction_buffer_limit_);
+  return true;
+}
+
+void PlasmaAllocator::CompleteEviction(void* mem, size_t bytes) {
+  dlfree(mem);
+  eviction_buffered_ -= bytes;
+  ARROW_CHECK(eviction_buffered_ >= 0);
+}
+
+bool PlasmaAllocator::AbortEviction(size_t bytes) {
+  if (allocated_ + static_cast<int64_t>(bytes) > footprint_limit_) {
+    return false;
+  }
+  allocated_ += bytes;
+  eviction_buffered_ -= bytes;
+  ARROW_CHECK(allocated_ <= footprint_limit_);
+  ARROW_CHECK(eviction_buffered_ >= 0);
+  return true;
+}
 
 }  // namespace plasma

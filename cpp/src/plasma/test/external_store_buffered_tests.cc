@@ -39,7 +39,7 @@
 
 namespace plasma {
 
-std::string external_test_executable;  // NOLINT
+std::string external_buffered_test_executable;  // NOLINT
 
 void AssertObjectBufferEqual(const ObjectBuffer& object_buffer,
                              const std::string& metadata, const std::string& data) {
@@ -47,7 +47,7 @@ void AssertObjectBufferEqual(const ObjectBuffer& object_buffer,
   arrow::AssertBufferEqual(*object_buffer.data, data);
 }
 
-class TestPlasmaStoreWithExternal : public ::testing::Test {
+class TestPlasmaStoreWithExternalBuffered : public ::testing::Test {
  public:
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
   // stdout of the object store. Consider changing that.
@@ -55,15 +55,15 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
     uint64_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     std::mt19937 rng(static_cast<uint32_t>(seed));
     std::string store_index = std::to_string(rng());
-    store_socket_name_ = "/tmp/store_with_external" + store_index;
+    store_socket_name_ = "/tmp/store_with_external_buffered" + store_index;
 
-    std::string plasma_directory =
-        external_test_executable.substr(0, external_test_executable.find_last_of('/'));
-    std::string plasma_command = plasma_directory +
-                                 "/plasma_store_server -m 1024000 -e " +
-                                 "hashtable://test -s " + store_socket_name_ +
-                                 " 1> /tmp/es_log.stdout 2> /tmp/es_log.stderr & " +
-                                 "echo $! > " + store_socket_name_ + ".pid";
+    std::string plasma_directory = external_buffered_test_executable.substr(
+        0, external_buffered_test_executable.find_last_of('/'));
+    std::string plasma_command =
+        plasma_directory + "/plasma_store_server -m 1024000 -e " +
+        "hashtable://test -s " + store_socket_name_ +
+        " -b 102400 1> /tmp/esb_log.stdout 2> /tmp/esb_log.stderr & echo $! > " +
+        store_socket_name_ + ".pid";
     system(plasma_command.c_str());
     ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
   }
@@ -86,7 +86,7 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
   std::string store_socket_name_;
 };
 
-TEST_F(TestPlasmaStoreWithExternal, EvictionTest) {
+TEST_F(TestPlasmaStoreWithExternalBuffered, EvictionTest) {
   std::vector<ObjectID> object_ids;
   std::string data(100 * 1024, 'x');
   std::string metadata;
@@ -134,6 +134,6 @@ TEST_F(TestPlasmaStoreWithExternal, EvictionTest) {
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
-  plasma::external_test_executable = std::string(argv[0]);
+  plasma::external_buffered_test_executable = std::string(argv[0]);
   return RUN_ALL_TESTS();
 }

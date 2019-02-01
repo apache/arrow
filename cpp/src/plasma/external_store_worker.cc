@@ -16,6 +16,7 @@
 // under the License.
 
 #include <arrow/util/memory.h>
+#include <sys/socket.h>
 #include <utility>
 
 #include "plasma/external_store_worker.h"
@@ -75,8 +76,9 @@ bool ExternalStoreWorker::IsValid() const { return valid_; }
 
 size_t ExternalStoreWorker::Parallelism() { return parallelism_; }
 
-Status ExternalStoreWorker::Put(const std::vector<ObjectID>& object_ids,
-                                const std::vector<std::shared_ptr<Buffer>>& object_data) {
+Status ExternalStoreWorker::PutSync(
+    const std::vector<ObjectID>& object_ids,
+    const std::vector<std::shared_ptr<Buffer>>& object_data) {
   std::shared_ptr<ExternalStoreHandle> handle;
   RETURN_NOT_OK(SyncHandle(&handle));
   RETURN_NOT_OK(handle->Put(object_ids, object_data));
@@ -85,6 +87,34 @@ Status ExternalStoreWorker::Put(const std::vector<ObjectID>& object_ids,
   for (const auto& i : object_data) {
     num_bytes_written_ += i->size();
   }
+
+  return Status::OK();
+}
+
+Status ExternalStoreWorker::PutAsync(
+    const std::vector<ObjectID>& object_ids,
+    const std::vector<std::shared_ptr<Buffer>>& object_data, int* fd) {
+  int fds[2];
+  ARROW_CHECK(socketpair(PF_LOCAL, SOCK_STREAM, 0, fds) == 0);
+
+  *fd = fds[0];
+  int write_fd = fds[1];
+
+  std::shared_ptr<ExternalStoreHandle> handle;
+  RETURN_NOT_OK(WriteHandle(&handle));
+
+  std::thread([write_fd, object_ids, object_data, handle, this]() {
+    ARROW_CHECK_OK(handle->Put(object_ids, object_data));
+    ARROW_CHECK(write(write_fd, "\0", 1) == 1);
+
+    num_writes_ += object_data.size();
+    for (const auto& i : object_data) {
+      num_bytes_written_ += i->size();
+    }
+
+    close(write_fd);
+  })
+      .detach();
 
   return Status::OK();
 }
@@ -225,6 +255,14 @@ Status ExternalStoreWorker::SyncHandle(std::shared_ptr<ExternalStoreHandle>* han
     RETURN_NOT_OK(external_store_->Connect(external_store_endpoint_, &sync_handle_));
   }
   *handle = sync_handle_;
+  return Status::OK();
+}
+
+Status ExternalStoreWorker::WriteHandle(std::shared_ptr<ExternalStoreHandle>* handle) {
+  if (write_handle_ == nullptr) {
+    RETURN_NOT_OK(external_store_->Connect(external_store_endpoint_, &write_handle_));
+  }
+  *handle = write_handle_;
   return Status::OK();
 }
 

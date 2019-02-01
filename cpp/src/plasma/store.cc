@@ -415,13 +415,41 @@ void PlasmaStore::ProcessGetRequest(Client* client,
     // object is being used and mark it as accounted for.
     auto entry = GetObjectTableEntry(&store_info_, object_id);
     bool add_placeholder = false;
-    if (entry && entry->state == ObjectState::PLASMA_SEALED) {
-      // Update the get request to take into account the present object.
-      PlasmaObject_init(&get_req->objects[object_id], entry);
-      get_req->num_satisfied += 1;
-      // If necessary, record that this client is using this object. In the case
-      // where entry == NULL, this will be called from SealObject.
-      AddToClientObjectIds(object_id, entry, client);
+    if (entry && (entry->state == ObjectState::PLASMA_SEALED ||
+                  entry->state == ObjectState::PLASMA_EVICTING)) {
+      bool success = true;
+      if (entry->state == ObjectState::PLASMA_EVICTING) {
+        // Try to make enough space so we can abort the eviction
+        size_t size = entry->data_size + entry->metadata_size;
+        while (!PlasmaAllocator::AbortEviction(size)) {
+          std::vector<ObjectID> objects_to_evict;
+          success = eviction_policy_.RequireSpace(size, &objects_to_evict);
+          EvictObjects(objects_to_evict);
+          // Return an error to the client if not enough space could be freed to
+          // create the object.
+          if (!success) {
+            // We could not evict enough objects
+            break;
+          }
+        }
+        if (success) {
+          entry->state = ObjectState::PLASMA_SEALED;
+          eviction_policy_.ObjectCreated(object_id);
+        }
+      }
+      if (success) {
+        // Update the get request to take into account the present object.
+        PlasmaObject_init(&get_req->objects[object_id], entry);
+        get_req->num_satisfied += 1;
+        // If necessary, record that this client is using this object. In the case
+        // where entry == NULL, this will be called from SealObject.
+        AddToClientObjectIds(object_id, entry, client);
+      } else {
+        // We could not get enough memory. We will block the get request until some other
+        // request can unevict the object.
+        // TODO(akh) Ideally, Get() should have a way to fail here.
+        add_placeholder = true;
+      }
     } else if (entry && entry->state == ObjectState::PLASMA_EVICTED &&
                external_store_worker_.IsValid()) {
       // Make sure the object pointer is not already allocated
@@ -439,8 +467,8 @@ void PlasmaStore::ProcessGetRequest(Client* client,
       } else {
         // If we fail to enqueue un-eviction request to separate thread, do it
         // synchronously
-        ARROW_LOG(INFO) << "Asynchronous un-evict failed or disabled,"
-                        << "falling back to synchronous.";
+        ARROW_LOG(DEBUG) << "Asynchronous un-evict failed or disabled,"
+                         << "falling back to synchronous.";
         entry->pointer = AllocateMemory(0, /* Only support device_num = 0 */
                                         entry->data_size + entry->metadata_size,
                                         &entry->fd, &entry->map_size, &entry->offset);
@@ -455,7 +483,9 @@ void PlasmaStore::ProcessGetRequest(Client* client,
           // We are out of memory an cannot allocate memory for this object.
           // Change the state of the object back to PLASMA_EVICTED so some
           // other request can try again.
+          // TODO(akh): Ideally, Get() should have a way to fail here.
           entry->state = ObjectState::PLASMA_EVICTED;
+          add_placeholder = true;
         }
       }
     } else {
@@ -643,8 +673,16 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
 }
 
 void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
-  std::vector<std::shared_ptr<arrow::Buffer>> evicted_object_data;
-  std::vector<ObjectTableEntry*> evicted_entries;
+  // Information for synchronous evictions
+  std::vector<ObjectID> object_ids_to_evict_sync;
+  std::vector<std::shared_ptr<arrow::Buffer>> object_data_to_evict_sync;
+  std::vector<ObjectTableEntry*> entries_to_evict_sync;
+
+  // Information for asynchronous evictions
+  std::vector<ObjectID> object_ids_to_evict_async;
+  std::vector<std::shared_ptr<arrow::Buffer>> object_data_to_evict_async;
+  std::vector<ObjectTableEntry*> entries_to_evict_async;
+
   for (const auto& object_id : object_ids) {
     ARROW_LOG(DEBUG) << "evicting object " << object_id.hex();
     auto entry = GetObjectTableEntry(&store_info_, object_id);
@@ -661,9 +699,18 @@ void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
     // external store, free the object data pointer and keep a placeholder
     // entry in ObjectTable
     if (external_store_worker_.IsValid()) {
-      evicted_object_data.push_back(std::make_shared<arrow::Buffer>(
-          entry->pointer, entry->data_size + entry->metadata_size));
-      evicted_entries.push_back(entry);
+      if (PlasmaAllocator::MarkForEviction(entry->data_size + entry->metadata_size)) {
+        entry->state = ObjectState::PLASMA_EVICTING;
+        object_ids_to_evict_async.push_back(object_id);
+        object_data_to_evict_async.push_back(std::make_shared<arrow::Buffer>(
+            entry->pointer, entry->data_size + entry->metadata_size));
+        entries_to_evict_async.push_back(entry);
+      } else {
+        object_ids_to_evict_sync.push_back(object_id);
+        object_data_to_evict_sync.push_back(std::make_shared<arrow::Buffer>(
+            entry->pointer, entry->data_size + entry->metadata_size));
+        entries_to_evict_sync.push_back(entry);
+      }
     } else {
       // If there is no backing external store, just erase the object entry
       // and send a deletion notification.
@@ -677,11 +724,33 @@ void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
   }
 
   if (external_store_worker_.IsValid() && !object_ids.empty()) {
-    ARROW_CHECK_OK(external_store_worker_.Put(object_ids, evicted_object_data));
-    for (auto entry : evicted_entries) {
-      PlasmaAllocator::Free(entry->pointer, entry->data_size + entry->metadata_size);
-      entry->pointer = nullptr;
-      entry->state = ObjectState::PLASMA_EVICTED;
+    if (!entries_to_evict_async.empty()) {
+      int fd;
+      // TODO(akh): Ideally, we should relay the failure back to the caller
+      ARROW_CHECK_OK(external_store_worker_.PutAsync(object_ids_to_evict_async,
+                                                     object_data_to_evict_async, &fd));
+      // TODO(akh): Check return value
+      loop_->AddFileEvent(fd, kEventLoopRead, [fd, entries_to_evict_async](int events) {
+        for (auto entry : entries_to_evict_async) {
+          if (entry->state == ObjectState::PLASMA_EVICTING) {
+            PlasmaAllocator::CompleteEviction(entry->pointer,
+                                              entry->data_size + entry->metadata_size);
+            entry->pointer = nullptr;
+            entry->state = ObjectState::PLASMA_EVICTED;
+          }
+        }
+        close(fd);
+      });
+    }
+    if (!entries_to_evict_sync.empty()) {
+      // TODO(akh): Ideally, we should relay the failure back to the caller
+      ARROW_CHECK_OK(external_store_worker_.PutSync(object_ids_to_evict_sync,
+                                                    object_data_to_evict_sync));
+      for (auto entry : entries_to_evict_sync) {
+        PlasmaAllocator::Free(entry->pointer, entry->data_size + entry->metadata_size);
+        entry->pointer = nullptr;
+        entry->state = ObjectState::PLASMA_EVICTED;
+      }
     }
   }
 }
@@ -1097,9 +1166,10 @@ int main(int argc, char* argv[]) {
   std::string external_store_endpoint;
   bool hugepages_enabled = false;
   int64_t system_memory = -1;
+  int64_t eviction_buffer_size = 0;
   uint64_t external_store_parallelism = std::thread::hardware_concurrency();
   int c;
-  while ((c = getopt(argc, argv, "s:m:d:e:p:h")) != -1) {
+  while ((c = getopt(argc, argv, "s:m:d:e:p:b:h")) != -1) {
     switch (c) {
       case 'd':
         plasma_directory = std::string(optarg);
@@ -1114,6 +1184,19 @@ int main(int argc, char* argv[]) {
         ARROW_CHECK(scanned == 1);
         break;
       }
+      case 'b': {
+        char extra;
+        int scanned = sscanf(optarg, "%" SCNd64 "%c", &eviction_buffer_size, &extra);
+        ARROW_CHECK(scanned == 1);
+        // Set system memory capacity
+        plasma::PlasmaAllocator::SetEvictionBufferLimit(
+            static_cast<size_t>(eviction_buffer_size));
+        ARROW_LOG(INFO) << "Allowing the Plasma store to use up to "
+                        << static_cast<double>(eviction_buffer_size) / 1000000000
+                        << "GB of memory as eviction buffer.";
+        break;
+      }
+
       case 'h':
         hugepages_enabled = true;
         break;
