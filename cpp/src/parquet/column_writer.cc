@@ -185,7 +185,7 @@ class SerializedPageWriter : public PageWriter {
     if (dictionary_page_offset_ == 0) {
       dictionary_page_offset_ = start_pos;
     }
-    int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_.get(), encryption_.get());
+    int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_.get(), encryption_);
     PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
 
     total_uncompressed_size_ += uncompressed_size + header_size;
@@ -265,7 +265,7 @@ class SerializedPageWriter : public PageWriter {
       data_page_offset_ = start_pos;
     }
 
-    int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_.get(), encryption_.get());
+    int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_.get(), encryption_);
     PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
 
     total_uncompressed_size_ += uncompressed_size + header_size;

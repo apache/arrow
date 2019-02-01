@@ -394,11 +394,11 @@ class FileMetaData::FileMetaDataImpl {
   FileMetaDataImpl() : metadata_len_(0) {}
 
   explicit FileMetaDataImpl(const void* metadata, uint32_t* metadata_len,
-                            std::shared_ptr<EncryptionProperties> encryption = nullptr)
+                            const std::shared_ptr<EncryptionProperties>& encryption = nullptr)
       : metadata_len_(0) {
     metadata_.reset(new format::FileMetaData);
     DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(metadata), metadata_len,
-                         metadata_.get(), encryption.get(), false);
+                         metadata_.get(), encryption, false);
     metadata_len_ = *metadata_len;
 
     if (metadata_->__isset.created_by) {
@@ -426,7 +426,7 @@ class FileMetaData::FileMetaDataImpl {
 
   const ApplicationVersion& writer_version() const { return writer_version_; }
 
-  void WriteTo(::arrow::io::OutputStream* dst, EncryptionProperties* encryption) const {
+  void WriteTo(::arrow::io::OutputStream* dst,  const std::shared_ptr<EncryptionProperties>& encryption) const {
     ThriftSerializer serializer;
     serializer.Serialize(metadata_.get(), dst, encryption, false);
   }
@@ -514,14 +514,14 @@ class FileMetaData::FileMetaDataImpl {
 
 std::shared_ptr<FileMetaData> FileMetaData::Make(const void* metadata,
                                                  uint32_t* metadata_len,
-                                                 std::shared_ptr<EncryptionProperties> encryption) {
+                                                 const std::shared_ptr<EncryptionProperties>& encryption) {
   // This FileMetaData ctor is private, not compatible with std::make_shared
   return std::shared_ptr<FileMetaData>(
       new FileMetaData(metadata, metadata_len, encryption));
 }
 
 FileMetaData::FileMetaData(const void* metadata, uint32_t* metadata_len,
-                           std::shared_ptr<EncryptionProperties> encryption)
+                           const std::shared_ptr<EncryptionProperties>& encryption)
     : impl_{std::unique_ptr<FileMetaDataImpl>(
           new FileMetaDataImpl(metadata, metadata_len, encryption))} {}
 
@@ -575,7 +575,7 @@ void FileMetaData::AppendRowGroups(const FileMetaData& other) {
   impl_->AppendRowGroups(other.impl_);
 }
 
-void FileMetaData::WriteTo(::arrow::io::OutputStream* dst, EncryptionProperties* encryption) const {
+void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,  const std::shared_ptr<EncryptionProperties>& encryption) const {
   return impl_->WriteTo(dst, encryption);
 }
 
@@ -844,7 +844,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         auto encrypt_props = properties_->encryption(column_->path());
         uint64_t metadata_start = sink->Tell();
 
-        serializer.Serialize(&column_metadata_, sink, encrypt_props.get());
+        serializer.Serialize(&column_metadata_, sink, encrypt_props);
 
         // Set the ColumnMetaData offset at the “file_offset” field in the ColumnChunk.
         column_chunk_->__set_file_offset(metadata_start);
