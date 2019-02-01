@@ -107,7 +107,7 @@ TEST(TestTensor, ZeroDimensionalTensor) {
   ASSERT_EQ(t.strides().size(), 1);
 }
 
-TEST(TestTensor, CountNonZeroForZeroDimentionalTensor) {
+TEST(TestTensor, CountNonZeroForZeroDimensionalTensor) {
   std::vector<int64_t> shape = {0};
 
   std::shared_ptr<Buffer> buffer;
