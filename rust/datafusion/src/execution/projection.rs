@@ -88,12 +88,13 @@ mod tests {
     use arrow::datatypes::{DataType, Field, Schema};
 
     #[test]
-    fn project_all_columns() {
+    fn project_first_column() {
         let schema = Arc::new(Schema::new(vec![
-            Field::new("id", DataType::Int32, false),
-            Field::new("first_name", DataType::Utf8, false),
+            Field::new("city", DataType::Utf8, false),
+            Field::new("lat", DataType::Float64, false),
+            Field::new("lon", DataType::Float64, false),
         ]));
-        let ds = CsvDataSource::new("test/data/people.csv", schema.clone(), 1024);
+        let ds = CsvDataSource::new("test/data/uk_cities.csv", schema.clone(), 1024);
         let relation = Rc::new(RefCell::new(DataSourceRelation::new(Rc::new(
             RefCell::new(ds),
         ))));
@@ -109,7 +110,7 @@ mod tests {
         let batch = projection.next().unwrap().unwrap();
         assert_eq!(1, batch.num_columns());
 
-        assert_eq!("id", batch.schema().field(0).name());
+        assert_eq!("city", batch.schema().field(0).name());
     }
 
 }
