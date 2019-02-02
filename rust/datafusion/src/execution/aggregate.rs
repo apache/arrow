@@ -1051,7 +1051,7 @@ mod tests {
             .as_any()
             .downcast_ref::<Float64Array>()
             .unwrap();
-        assert_eq!(50.376289, min_lat.value(0));
+        assert_eq!(51.507222, min_lat.value(0));
     }
 
     #[test]
@@ -1086,7 +1086,7 @@ mod tests {
             .as_any()
             .downcast_ref::<Float64Array>()
             .unwrap();
-        assert_eq!(57.477772, max_lat.value(0));
+        assert_eq!(53.479444, max_lat.value(0));
     }
 
     #[test]

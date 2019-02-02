@@ -36,7 +36,7 @@ fn csv_query_with_predicate() {
     let sql =
         "SELECT city, lat, lng, lat + lng FROM cities WHERE lat > 51.0 AND lat < 53";
     let actual = execute(&mut ctx, sql);
-    let expected= "\"Solihull, Birmingham, UK\"\t52.412811\t-1.778197\t50.634614\n\"Cardiff, Cardiff county, UK\"\t51.481583\t-3.17909\t48.302493\n\"Oxford, Oxfordshire, UK\"\t51.752022\t-1.257677\t50.494344999999996\n\"London, UK\"\t51.509865\t-0.118092\t51.391773\n\"Swindon, Swindon, UK\"\t51.568535\t-1.772232\t49.796302999999995\n\"Gravesend, Kent, UK\"\t51.441883\t0.370759\t51.812642\n\"Northampton, Northamptonshire, UK\"\t52.240479\t-0.902656\t51.337823\n\"Rugby, Warwickshire, UK\"\t52.370876\t-1.265032\t51.105844000000005\n\"Sutton Coldfield, West Midlands, UK\"\t52.570385\t-1.824042\t50.746343\n\"Harlow, Essex, UK\"\t51.772938\t0.10231\t51.875248000000006\n\"Swansea, Swansea, UK\"\t51.621441\t-3.943646\t47.677794999999996\n\"Salisbury, Wiltshire, UK\"\t51.068787\t-1.794472\t49.274315\n\"Wolverhampton, West Midlands, UK\"\t52.59137\t-2.110748\t50.480622\n\"Bedford, UK\"\t52.136436\t-0.460739\t51.67569700000001\n\"Basildon, Essex, UK\"\t51.572376\t0.470009\t52.042384999999996\n\"Chippenham, Wiltshire, UK\"\t51.458057\t-2.116074\t49.341983\n\"Haverhill, Suffolk, UK\"\t52.080875\t0.444517\t52.525392\n\"Frankton, Warwickshire, UK\"\t52.328415\t-1.377561\t50.950854\n".to_string();
+    let expected= "\"London, UK\"\t51.507222\t-0.1275\t51.379722\n".to_string();
     assert_eq!(expected, actual);
 }
 
@@ -77,7 +77,7 @@ fn csv_query_cast() {
     register_cities_csv(&mut ctx);
     let sql = "SELECT CAST(lat AS int) FROM cities";
     let actual = execute(&mut ctx, sql);
-    let expected= "53\n52\n51\n50\n51\n51\n51\n51\n52\n52\n52\n51\n57\n51\n53\n55\n51\n50\n52\n53\n50\n53\n55\n50\n52\n51\n51\n54\n50\n50\n53\n54\n50\n52\n52\n57\n".to_string();
+    let expected= "51\n53\n".to_string();
     assert_eq!(expected, actual);
 }
 
