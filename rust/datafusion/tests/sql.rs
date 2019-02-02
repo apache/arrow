@@ -42,7 +42,6 @@ fn csv_query_with_predicate() {
 #[test]
 fn csv_query_group_by_int_min_max() {
     let mut ctx = ExecutionContext::new();
-    let schema = aggr_test_schema();
     register_aggregate_csv(&mut ctx);
     //TODO add ORDER BY once supported, to make this test determistic
     let sql = "SELECT c2, MIN(c12), MAX(c12) FROM aggregate_test_100 GROUP BY c2";
@@ -54,7 +53,6 @@ fn csv_query_group_by_int_min_max() {
 #[test]
 fn csv_query_group_by_string_min_max() {
     let mut ctx = ExecutionContext::new();
-    let schema = aggr_test_schema();
     register_aggregate_csv(&mut ctx);
     //TODO add ORDER BY once supported, to make this test determistic
     let sql = "SELECT c2, MIN(c12), MAX(c12) FROM aggregate_test_100 GROUP BY c1";
