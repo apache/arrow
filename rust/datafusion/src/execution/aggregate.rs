@@ -1020,16 +1020,16 @@ mod tests {
     use arrow::datatypes::{DataType, Field, Schema};
 
     #[test]
-    fn min_lat() {
-        let schema = uk_cities_schema();
-        let relation = load_csv("test/data/uk_cities.csv", &schema);
+    fn min_f64_group_by_string() {
+        let schema = aggr_test_schema();
+        let relation = load_csv("test/data/aggregate_test_100.csv", &schema);
         let context = ExecutionContext::new();
 
         let aggr_expr = vec![expression::compile_expr(
             &context,
             &Expr::AggregateFunction {
                 name: String::from("min"),
-                args: vec![Expr::Column(1)],
+                args: vec![Expr::Column(11)],
                 return_type: DataType::Float64,
             },
             &schema,
@@ -1051,20 +1051,20 @@ mod tests {
             .as_any()
             .downcast_ref::<Float64Array>()
             .unwrap();
-        assert_eq!(51.507222, min_lat.value(0));
+        assert_eq!(0.01479305307777301, min_lat.value(0));
     }
 
     #[test]
-    fn max_lat() {
-        let schema = uk_cities_schema();
-        let relation = load_csv("test/data/uk_cities.csv", &schema);
+    fn max_f64_group_by_string() {
+        let schema = aggr_test_schema();
+        let relation = load_csv("test/data/aggregate_test_100.csv", &schema);
         let context = ExecutionContext::new();
 
         let aggr_expr = vec![expression::compile_expr(
             &context,
             &Expr::AggregateFunction {
                 name: String::from("max"),
-                args: vec![Expr::Column(1)],
+                args: vec![Expr::Column(11)],
                 return_type: DataType::Float64,
             },
             &schema,
@@ -1086,24 +1086,24 @@ mod tests {
             .as_any()
             .downcast_ref::<Float64Array>()
             .unwrap();
-        assert_eq!(53.479444, max_lat.value(0));
+        assert_eq!(0.9965400387585364, max_lat.value(0));
     }
 
     #[test]
-    fn test_min_max_sum_group_by() {
+    fn test_min_max_sum_f64_group_by_uint32() {
         let schema = aggr_test_schema();
-        let relation = load_csv("test/data/aggregate_test_1.csv", &schema);
+        let relation = load_csv("test/data/aggregate_test_100.csv", &schema);
 
         let context = ExecutionContext::new();
 
         let group_by_expr =
-            expression::compile_expr(&context, &Expr::Column(0), &schema).unwrap();
+            expression::compile_expr(&context, &Expr::Column(1), &schema).unwrap();
 
         let min_expr = expression::compile_expr(
             &context,
             &Expr::AggregateFunction {
                 name: String::from("min"),
-                args: vec![Expr::Column(1)],
+                args: vec![Expr::Column(11)],
                 return_type: DataType::Float64,
             },
             &schema,
@@ -1114,7 +1114,7 @@ mod tests {
             &context,
             &Expr::AggregateFunction {
                 name: String::from("max"),
-                args: vec![Expr::Column(1)],
+                args: vec![Expr::Column(11)],
                 return_type: DataType::Float64,
             },
             &schema,
@@ -1125,7 +1125,7 @@ mod tests {
             &context,
             &Expr::AggregateFunction {
                 name: String::from("sum"),
-                args: vec![Expr::Column(1)],
+                args: vec![Expr::Column(11)],
                 return_type: DataType::Float64,
             },
             &schema,
@@ -1133,7 +1133,7 @@ mod tests {
         .unwrap();
 
         let aggr_schema = Arc::new(Schema::new(vec![
-            Field::new("a", DataType::Int32, false),
+            Field::new("c2", DataType::Int32, false),
             Field::new("min", DataType::Float64, false),
             Field::new("max", DataType::Float64, false),
             Field::new("sum", DataType::Float64, false),
@@ -1147,12 +1147,12 @@ mod tests {
         );
         let batch = projection.next().unwrap().unwrap();
         assert_eq!(4, batch.num_columns());
-        assert_eq!(3, batch.num_rows());
+        assert_eq!(5, batch.num_rows());
 
         let a = batch
             .column(0)
             .as_any()
-            .downcast_ref::<Int32Array>()
+            .downcast_ref::<UInt32Array>()
             .unwrap();
         let min = batch
             .column(1)
@@ -1170,34 +1170,37 @@ mod tests {
             .downcast_ref::<Float64Array>()
             .unwrap();
 
-        assert_eq!(2, a.value(0));
-        assert_eq!(3.3, min.value(0));
-        assert_eq!(5.5, max.value(0));
-        assert_eq!(13.2, sum.value(0));
+        assert_eq!(4, a.value(0));
+        assert_eq!(0.02182578039211991, min.value(0));
+        assert_eq!(0.9237877978193884, max.value(0));
+        assert_eq!(9.253864188402662, sum.value(0));
 
-        assert_eq!(3, a.value(1));
-        assert_eq!(1.0, min.value(1));
-        assert_eq!(2.0, max.value(1));
-        assert_eq!(3.0, sum.value(1));
+        assert_eq!(2, a.value(1));
+        assert_eq!(0.16301110515739792, min.value(1));
+        assert_eq!(0.991517828651004, max.value(1));
+        assert_eq!(14.400412325480858, sum.value(1));
 
-        assert_eq!(1, a.value(2));
-        assert_eq!(1.1, min.value(2));
-        assert_eq!(2.2, max.value(2));
-        assert_eq!(3.3000000000000003, sum.value(2));
-    }
-
-    fn uk_cities_schema() -> Arc<Schema> {
-        Arc::new(Schema::new(vec![
-            Field::new("name", DataType::Utf8, false),
-            Field::new("lat", DataType::Float64, false),
-            Field::new("lng", DataType::Float64, false),
-        ]))
+        assert_eq!(5, a.value(2));
+        assert_eq!(0.01479305307777301, min.value(2));
+        assert_eq!(0.9723580396501548, max.value(2));
+        assert_eq!(6.037181692266781, sum.value(2));
     }
 
     fn aggr_test_schema() -> Arc<Schema> {
         Arc::new(Schema::new(vec![
-            Field::new("a", DataType::Int32, false),
-            Field::new("b", DataType::Float64, false),
+            Field::new("c1", DataType::Utf8, false),
+            Field::new("c2", DataType::UInt32, false),
+            Field::new("c3", DataType::Int8, false),
+            Field::new("c3", DataType::Int16, false),
+            Field::new("c4", DataType::Int32, false),
+            Field::new("c5", DataType::Int64, false),
+            Field::new("c6", DataType::UInt8, false),
+            Field::new("c7", DataType::UInt16, false),
+            Field::new("c8", DataType::UInt32, false),
+            Field::new("c9", DataType::UInt64, false),
+            Field::new("c10", DataType::Float32, false),
+            Field::new("c11", DataType::Float64, false),
+            Field::new("c12", DataType::Utf8, false),
         ]))
     }
 

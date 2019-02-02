@@ -275,8 +275,16 @@ macro_rules! cast_column {
 macro_rules! cast_column_outer {
     ($INDEX:expr, $FROM_TYPE:ty, $TO_TYPE:expr) => {{
         match $TO_TYPE {
+            DataType::UInt8 => cast_column!($INDEX, $FROM_TYPE, UInt8Array, u8),
+            DataType::UInt16 => cast_column!($INDEX, $FROM_TYPE, UInt16Array, u16),
+            DataType::UInt32 => cast_column!($INDEX, $FROM_TYPE, UInt32Array, u32),
+            DataType::UInt64 => cast_column!($INDEX, $FROM_TYPE, UInt64Array, u64),
+            DataType::Int8 => cast_column!($INDEX, $FROM_TYPE, Int8Array, i8),
             DataType::Int16 => cast_column!($INDEX, $FROM_TYPE, Int16Array, i16),
             DataType::Int32 => cast_column!($INDEX, $FROM_TYPE, Int32Array, i32),
+            DataType::Int64 => cast_column!($INDEX, $FROM_TYPE, Int64Array, i64),
+            DataType::Float32 => cast_column!($INDEX, $FROM_TYPE, Float32Array, f32),
+            DataType::Float64 => cast_column!($INDEX, $FROM_TYPE, Float64Array, f64),
             _ => unimplemented!(),
         }
     }};

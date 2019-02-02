@@ -89,12 +89,23 @@ mod tests {
 
     #[test]
     fn project_first_column() {
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("city", DataType::Utf8, false),
-            Field::new("lat", DataType::Float64, false),
-            Field::new("lon", DataType::Float64, false),
-        ]));
-        let ds = CsvDataSource::new("test/data/uk_cities.csv", schema.clone(), 1024);
+        let schema =
+            Arc::new(Schema::new(vec![
+                Field::new("c1", DataType::Utf8, false),
+                Field::new("c2", DataType::UInt32, false),
+                Field::new("c3", DataType::Int8, false),
+                Field::new("c3", DataType::Int16, false),
+                Field::new("c4", DataType::Int32, false),
+                Field::new("c5", DataType::Int64, false),
+                Field::new("c6", DataType::UInt8, false),
+                Field::new("c7", DataType::UInt16, false),
+                Field::new("c8", DataType::UInt32, false),
+                Field::new("c9", DataType::UInt64, false),
+                Field::new("c10", DataType::Float32, false),
+                Field::new("c11", DataType::Float64, false),
+                Field::new("c12", DataType::Utf8, false),
+            ]));
+        let ds = CsvDataSource::new("test/data/aggregate_test_100.csv", schema.clone(), 1024);
         let relation = Rc::new(RefCell::new(DataSourceRelation::new(Rc::new(
             RefCell::new(ds),
         ))));
@@ -110,7 +121,7 @@ mod tests {
         let batch = projection.next().unwrap().unwrap();
         assert_eq!(1, batch.num_columns());
 
-        assert_eq!("city", batch.schema().field(0).name());
+        assert_eq!("c1", batch.schema().field(0).name());
     }
 
 }
