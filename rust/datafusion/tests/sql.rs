@@ -33,10 +33,9 @@ use datafusion::execution::relation::Relation;
 fn csv_query_with_predicate() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
-    let sql =
-        "SELECT c1, c12 FROM aggregate_test_100 WHERE c12 > 0.376 AND c12 < 0.4";
+    let sql = "SELECT c1, c12 FROM aggregate_test_100 WHERE c12 > 0.376 AND c12 < 0.4";
     let actual = execute(&mut ctx, sql);
-    let expected= "\"e\"\t0.39144436569161134\n\"d\"\t0.38870280983958583\n".to_string();
+    let expected = "\"e\"\t0.39144436569161134\n\"d\"\t0.38870280983958583\n".to_string();
     assert_eq!(expected, actual);
 }
 
@@ -71,7 +70,7 @@ fn csv_query_cast() {
     register_aggregate_csv(&mut ctx);
     let sql = "SELECT CAST(c12 AS float) FROM aggregate_test_100 WHERE c12 > 0.376 AND c12 < 0.4";
     let actual = execute(&mut ctx, sql);
-    let expected= "0.39144436569161134\n0.38870280983958583\n".to_string();
+    let expected = "0.39144436569161134\n0.38870280983958583\n".to_string();
     assert_eq!(expected, actual);
 }
 
@@ -93,10 +92,14 @@ fn aggr_test_schema() -> Arc<Schema> {
     ]))
 }
 
-
 fn register_aggregate_csv(ctx: &mut ExecutionContext) {
     let schema = aggr_test_schema();
-    register_csv(ctx, "aggregate_test_100", "test/data/aggregate_test_100.csv", &schema);
+    register_csv(
+        ctx,
+        "aggregate_test_100",
+        "test/data/aggregate_test_100.csv",
+        &schema,
+    );
 }
 
 fn register_csv(
@@ -148,15 +151,18 @@ fn result_str(results: &Rc<RefCell<Relation>>) -> String {
                         str.push_str(&format!("{:?}", array.value(row_index)));
                     }
                     DataType::UInt16 => {
-                        let array = column.as_any().downcast_ref::<UInt16Array>().unwrap();
+                        let array =
+                            column.as_any().downcast_ref::<UInt16Array>().unwrap();
                         str.push_str(&format!("{:?}", array.value(row_index)));
                     }
                     DataType::UInt32 => {
-                        let array = column.as_any().downcast_ref::<UInt32Array>().unwrap();
+                        let array =
+                            column.as_any().downcast_ref::<UInt32Array>().unwrap();
                         str.push_str(&format!("{:?}", array.value(row_index)));
                     }
                     DataType::UInt64 => {
-                        let array = column.as_any().downcast_ref::<UInt64Array>().unwrap();
+                        let array =
+                            column.as_any().downcast_ref::<UInt64Array>().unwrap();
                         str.push_str(&format!("{:?}", array.value(row_index)));
                     }
                     DataType::Float32 => {
