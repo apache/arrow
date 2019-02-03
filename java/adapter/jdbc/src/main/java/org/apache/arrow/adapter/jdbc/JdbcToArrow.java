@@ -154,7 +154,7 @@ public class JdbcToArrow {
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet) throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
 
-    return sqlToArrow(resultSet, (Calendar) null);
+    return sqlToArrow(resultSet, Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT));
   }
 
   /**
