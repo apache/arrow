@@ -53,8 +53,8 @@ This implies a few things when round-tripping timestamps:
 #.  The session time zone might have unintuitive impacts on timestamp 
     values. 
 
-Converting Arrow To Spark
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Spark to Pandas (through Apache Arrow)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following cases assume the Spark configuration
 ``spark.sql.execution.arrow.enabled`` is set to ``"true"``.
@@ -79,9 +79,6 @@ The following cases assume the Spark configuration
                     
 Note that conversion of the aware timestamp is shifted to reflect the time
 assuming UTC (it represents the same instant in time). 
-
-Pandas to Spark
-~~~~~~~~~~~~~~~
 
 Now if the session time zone is set to US Pacific Time (PST) we don't
 see any shift in the display of the aware time zone (it
