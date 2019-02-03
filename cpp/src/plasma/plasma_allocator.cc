@@ -44,8 +44,6 @@ void* PlasmaAllocator::Memalign(size_t alignment, size_t bytes) {
 }
 
 void PlasmaAllocator::Free(void* mem, size_t bytes) {
-  if (mem == nullptr)
-    return;
   dlfree(mem);
   allocated_ -= bytes;
   ARROW_CHECK(allocated_ >= 0);
@@ -78,7 +76,6 @@ bool PlasmaAllocator::MarkForEviction(size_t bytes) {
 }
 
 void PlasmaAllocator::CompleteEviction(void* mem, size_t bytes) {
-  ARROW_CHECK(mem);
   dlfree(mem);
   eviction_buffered_ -= bytes;
   ARROW_CHECK(eviction_buffered_ >= 0);
