@@ -41,7 +41,9 @@
 //! let batch = reader.read().unwrap();
 //!
 //! // write a record batch to a feather file
-//! batch.write_feather("test/data/uk_cities_out.feather").unwrap();
+//! batch
+//!     .write_feather("test/data/uk_cities_out.feather")
+//!     .unwrap();
 //! ```
 
 use std::fs::File;
@@ -199,7 +201,7 @@ impl<R: Read + Seek> FeatherReader<R> {
         if ctable.version() != 2 {
             return Err(ArrowError::IpcError(
                 "Only version 2 of Feather files is supported by the reader".to_string(),
-            ))
+            ));
         }
         let num_rows = ctable.num_rows();
         let num_columns = ctable.columns().unwrap().len() as usize;
@@ -309,9 +311,12 @@ impl<R: Read + Seek> FeatherReader<R> {
                 }
                 fbs::TypeMetadata::TimestampMetadata
                 | fbs::TypeMetadata::DateMetadata
-                | fbs::TypeMetadata::TimeMetadata => return Err(ArrowError::IpcError(
-                    "Date/time Feather records are currently not supported.".to_string(),
-                )),
+                | fbs::TypeMetadata::TimeMetadata => {
+                    return Err(ArrowError::IpcError(
+                        "Date/time Feather records are currently not supported."
+                            .to_string(),
+                    ));
+                }
                 fbs::TypeMetadata::NONE => {
                     let array: fbs::PrimitiveArray = column.values().unwrap();
 
@@ -554,19 +559,28 @@ impl FeatherWriter for RecordBatch {
 
                     fbs_cols.push(fbs_column);
                 }
-                DataType::Float16 => return Err(ArrowError::IpcError(
-                    "DataType::Float16 is currently not supported by Rust Arrow".to_string()
-                )),
-                DataType::List(_) | DataType::Struct(_) => return Err(ArrowError::IpcError(
-                    "Writing of lists and structs not supported in Feather".to_string()
-                )),
+                DataType::Float16 => {
+                    return Err(ArrowError::IpcError(
+                        "DataType::Float16 is currently not supported by Rust Arrow"
+                            .to_string(),
+                    ));
+                }
+                DataType::List(_) | DataType::Struct(_) => {
+                    return Err(ArrowError::IpcError(
+                        "Writing of lists and structs not supported in Feather"
+                            .to_string(),
+                    ));
+                }
                 DataType::Timestamp(_)
                 | DataType::Date(_)
                 | DataType::Time32(_)
                 | DataType::Time64(_)
-                | DataType::Interval(_) => return Err(ArrowError::IpcError(
-                    "Date and time formats currently not supported by Rust Arrow".to_string()
-                )),
+                | DataType::Interval(_) => {
+                    return Err(ArrowError::IpcError(
+                        "Date and time formats currently not supported by Rust Arrow"
+                            .to_string(),
+                    ));
+                }
             }
         }
 
@@ -624,8 +638,6 @@ mod tests {
 
         assert!(batch.schema().fields() == batch2.schema().fields());
 
-        batch2
-            .write_feather("test/data/uk_cities.feather")
-            .unwrap();
+        batch2.write_feather("test/data/uk_cities.feather").unwrap();
     }
 }
