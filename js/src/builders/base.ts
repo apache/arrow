@@ -70,7 +70,7 @@ export class DataBuilder<T extends DataType = any> extends Data<T> {
         let { valueOffsets, values, nullBitmap, typeIds } = this;
         typeIds = typeIds ? typeIds.subarray(0, length) : undefined;
         valueOffsets = valueOffsets ? valueOffsets.subarray(0, length + 1) : undefined as any;
-        valueOffsets || (values = values ? values.subarray(0, roundUpTo(values, length * this.stride, 8)) : undefined);
+        valueOffsets || (values = values ? values.subarray(0, roundUpTo(values, length, 8) * this.stride) : undefined);
         nullBitmap = nullBitmap ? nullBitmap.subarray(0, roundUpTo(nullBitmap, length << 3, 64) >> 3) : new Uint8Array(0);
         const data = this.clone(type, offset, length, nullCount, [valueOffsets, values, nullBitmap, typeIds] as Buffers<T>);
         this.reset();
@@ -117,7 +117,7 @@ export class DataBuilder<T extends DataType = any> extends Data<T> {
         let buf = this.values;
         if (!buf) {
             this.values = buf = new this.ArrayType((length === undefined ? this.chunkLength : length) * this.stride);
-        } else if ((length === undefined ? this.length : length) >= buf.length) {
+        } else if ((length === undefined ? this.length : length) >= (buf.length / this.stride)) {
             buf = new this.ArrayType(buf.length * 2) as ArrayBufferView;
             buf.set(this.values!);
             this.values = buf;
