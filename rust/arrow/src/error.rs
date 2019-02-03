@@ -29,6 +29,7 @@ pub enum ArrowError {
     DivideByZero,
     CsvError(String),
     IoError(String),
+    IpcError(String),
 }
 
 impl From<::std::io::Error> for ArrowError {

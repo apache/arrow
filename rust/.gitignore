@@ -1,2 +1,4 @@
 Cargo.lock
 target
+# TODO: remove this after writing test data to tmp
+*.feather
