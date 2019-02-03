@@ -50,8 +50,8 @@ This implies a few things when round-tripping timestamps:
 
 #.  Timezone information is lost.
 #.  Timestamps are truncated to microseconds.
-#.  The session time zone might have unintuitive impacts on timestamp 
-    values. 
+#.  The session time zone might have unintuitive impacts on 
+    translation of timestamp values. 
 
 Spark to Pandas (through Apache Arrow)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -141,7 +141,7 @@ time (i.e. 2019-01-01 GMT).  It is 8 hours before the original time:
 The same type of conversion happens with the data frame converted while 
 the session time zone was UTC.  In this case both naive and aware 
 represent different instants in time (the naive instant is due to 
-the change in session time zone between creating dataframes):
+the change in session time zone between creating data frames):
 
 ::
 
@@ -156,7 +156,7 @@ the change in session time zone between creating dataframes):
   naive      aware
   0 2018-12-31 16:00:00 2019-01-01
 
-Note that the suprising shift for aware doesn't happen
+Note that the surprising shift for aware doesn't happen
 when the session time zone is UTC (but it still loses
 an explicit time zone):
   
