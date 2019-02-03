@@ -44,7 +44,8 @@ void* PlasmaAllocator::Memalign(size_t alignment, size_t bytes) {
 }
 
 void PlasmaAllocator::Free(void* mem, size_t bytes) {
-  if (mem == nullptr) return;
+  if (mem == nullptr)
+    return;
   dlfree(mem);
   allocated_ -= bytes;
   ARROW_CHECK(allocated_ >= 0);
