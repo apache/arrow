@@ -79,25 +79,14 @@ class ExternalStoreWorker {
   /// \return The degree of parallelism for the external store worker.
   size_t Parallelism();
 
-  /// Put objects in the external store. The function executes synchronously
-  /// from the caller thread.
+  /// Put objects in the external store. Called synchronously from the caller
+  /// thread.
   ///
   /// \param object_ids The IDs of the objects to put.
   /// \param object_data The object data to put.
   /// \return The return status.
-  Status PutSync(const std::vector<ObjectID>& object_ids,
-                 const std::vector<std::shared_ptr<Buffer>>& object_data);
-
-  /// Put objects in the external store. The function immediately returns after
-  /// offloading the Put() to a separate thread, but populates a file descriptor
-  /// that can be listened on for a notification indicating completion of Put().
-  ///
-  /// \param object_ids The IDs of the objects to put.
-  /// \param object_data The object data to put.
-  /// \param[out] fd File descriptor to listen on for completion notification.
-  /// \return The return status.
-  Status PutAsync(const std::vector<ObjectID>& object_ids,
-                  const std::vector<std::shared_ptr<Buffer>>& object_data, int* fd);
+  Status Put(const std::vector<ObjectID>& object_ids,
+             const std::vector<std::shared_ptr<Buffer>>& object_data);
 
   /// Get objects from the external store. Called synchronously from the caller
   /// thread.
@@ -172,17 +161,11 @@ class ExternalStoreWorker {
   /// \return The return status.
   Status AsyncHandle(size_t idx, std::shared_ptr<ExternalStoreHandle>* handle);
 
-  /// Obtain a sync handle to the external store, creating it if not initialized.
+  /// Obtain a sync handle to the external store, creating one if not initialized.
   ///
   /// \param handle Handle to the external store.
   /// \return The return status.
   Status SyncHandle(std::shared_ptr<ExternalStoreHandle>* handle);
-
-  /// Obtain a write handle to the external store, creating it if not initialized.
-  ///
-  /// \param handle Handle to the external store.
-  /// \return The return status.
-  Status WriteHandle(std::shared_ptr<ExternalStoreHandle>* handle);
 
   // Whether or not plasma is backed by external store
   bool valid_;
@@ -196,7 +179,6 @@ class ExternalStoreWorker {
   std::string external_store_endpoint_;
   std::shared_ptr<ExternalStore> external_store_;
   std::shared_ptr<ExternalStoreHandle> sync_handle_;
-  std::shared_ptr<ExternalStoreHandle> write_handle_;
   std::vector<std::shared_ptr<ExternalStoreHandle>> async_handles_;
 
   // Worker thread

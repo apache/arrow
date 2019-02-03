@@ -54,40 +54,9 @@ class PlasmaAllocator {
   /// \return Number of bytes allocated by Plasma so far.
   static int64_t Allocated();
 
-  /// Sets the eviction buffer limit for Plasma.
-  ///
-  /// \param bytes Plasma eviction buffer limit in bytes.
-  static void SetEvictionBufferLimit(size_t bytes);
-
-  /// Get the eviction buffer limit for Plasma.
-  ///
-  /// \return Plasma eviction buffer limit in bytes.
-  static int64_t GetEvictionBufferLimit();
-
-  /// Marks the bytes for eviction.
-  ///
-  /// \param bytes Number of bytes to mark for eviction.
-  /// \return True if eviction can be buffered, false otherwise.
-  static bool MarkForEviction(size_t bytes);
-
-  /// Complete the eviction, and free memory space pointed to by mem.
-  ///
-  /// \param mem Pointer to memory to free.
-  /// \param bytes Number of bytes evicted.
-  static void CompleteEviction(void* mem, size_t bytes);
-
-  /// Try to abort evicting given number of bytes, moving them from
-  /// eviction buffer to allocated.
-  ///
-  /// @param bytes Number of bytes to abort evicting.
-  /// @return True if abortion is possible, false otherwise.
-  static bool AbortEviction(size_t bytes);
-
  private:
   static int64_t allocated_;
-  static int64_t eviction_buffered_;
   static int64_t footprint_limit_;
-  static int64_t eviction_buffer_limit_;
 };
 
 }  // namespace plasma

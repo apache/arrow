@@ -62,7 +62,7 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
     std::string plasma_command = plasma_directory +
                                  "/plasma_store_server -m 1024000 -e " +
                                  "hashtable://test -s " + store_socket_name_ +
-                                 " 1> /tmp/es_log.stdout 2> /tmp/es_log.stderr & " +
+                                 " 1> /tmp/log.stdout 2> /tmp/log.stderr & " +
                                  "echo $! > " + store_socket_name_ + ".pid";
     system(plasma_command.c_str());
     ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
