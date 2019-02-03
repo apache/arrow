@@ -105,7 +105,7 @@ public class JdbcToArrowUtils {
     Preconditions.checkNotNull(rsmd, "JDBC ResultSetMetaData object can't be null");
     Preconditions.checkNotNull(calendar, "Calendar object can't be null");
 
-    return jdbcToArrowSchema(rsmd, new JdbcToArrowConfig(new RootAllocator(0), calendar));
+    return jdbcToArrowSchema(rsmd, new JdbcToArrowConfig(new RootAllocator(0), calendar, false));
   }
 
   /**
@@ -270,7 +270,7 @@ public class JdbcToArrowUtils {
     Preconditions.checkNotNull(root, "Vector Schema cannot be null");
     Preconditions.checkNotNull(calendar, "Calendar object can't be null");
 
-    jdbcToArrowVectors(rs, root, new JdbcToArrowConfig(new RootAllocator(0), calendar));
+    jdbcToArrowVectors(rs, root, new JdbcToArrowConfig(new RootAllocator(0), calendar, false));
   }
 
   /**

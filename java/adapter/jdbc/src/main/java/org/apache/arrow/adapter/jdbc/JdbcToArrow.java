@@ -118,7 +118,7 @@ public class JdbcToArrow {
     Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
     Preconditions.checkNotNull(calendar, "Calendar object can not be null");
 
-    return sqlToArrow(connection, query, new JdbcToArrowConfig(allocator, calendar));
+    return sqlToArrow(connection, query, new JdbcToArrowConfig(allocator, calendar, false));
   }
 
   /**
@@ -172,7 +172,7 @@ public class JdbcToArrow {
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
 
     JdbcToArrowConfig config = 
-            new JdbcToArrowConfig(allocator, Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT));
+            new JdbcToArrowConfig(allocator, Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT), false);
     return sqlToArrow(resultSet, config);
   }
 
@@ -188,7 +188,7 @@ public class JdbcToArrow {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
     Preconditions.checkNotNull(calendar, "Calendar object can not be null");
 
-    return sqlToArrow(resultSet, new JdbcToArrowConfig(new RootAllocator(Integer.MAX_VALUE), calendar));
+    return sqlToArrow(resultSet, new JdbcToArrowConfig(new RootAllocator(Integer.MAX_VALUE), calendar, false));
   }
 
   /**
@@ -209,7 +209,7 @@ public class JdbcToArrow {
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
     Preconditions.checkNotNull(calendar, "Calendar object can not be null");
 
-    return sqlToArrow(resultSet, new JdbcToArrowConfig(allocator, calendar));
+    return sqlToArrow(resultSet, new JdbcToArrowConfig(allocator, calendar, false));
   }
 
   /**

@@ -98,6 +98,6 @@ public class JdbcToArrowConfigBuilder {
    * @throws NullPointerException if either the allocator or calendar was not set.
    */
   public JdbcToArrowConfig build() {
-    return new JdbcToArrowConfig(allocator, calendar);
+    return new JdbcToArrowConfig(allocator, calendar, false);
   }
 }

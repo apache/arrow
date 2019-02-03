@@ -34,7 +34,7 @@ public class JdbcToArrowConfigTest {
 
   @Test(expected = NullPointerException.class)
   public void testConfigNullArguments() {
-    new JdbcToArrowConfig(null, null);
+    new JdbcToArrowConfig(null, null, false);
   }
 
   @Test(expected = NullPointerException.class)
@@ -44,7 +44,7 @@ public class JdbcToArrowConfigTest {
 
   @Test(expected = NullPointerException.class)
   public void testConfigNullCalendar() {
-    new JdbcToArrowConfig(allocator, null);
+    new JdbcToArrowConfig(allocator, null, false);
   }
 
   @Test(expected = NullPointerException.class)
@@ -54,7 +54,7 @@ public class JdbcToArrowConfigTest {
 
   @Test(expected = NullPointerException.class)
   public void testConfigNullAllocator() {
-    new JdbcToArrowConfig(null, calendar);
+    new JdbcToArrowConfig(null, calendar, false);
   }
 
   @Test(expected = NullPointerException.class)
