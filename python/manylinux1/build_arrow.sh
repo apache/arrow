@@ -67,13 +67,6 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
       export BUILD_ARROW_GANDIVA=OFF
     fi
 
-    # TensorFlow is not supported for Python 2.7 with unicode width 16 or with Python 3.7
-    if [ $PYTHON != "2.7" ] || [ $U_WIDTH = "32" ]; then
-      if [ $PYTHON != "3.7" ]; then
-        $PIP install tensorflow==1.11.0
-      fi
-    fi
-
     echo "=== (${PYTHON}) Building Arrow C++ libraries ==="
     ARROW_BUILD_DIR=/tmp/build-PY${PYTHON}-${U_WIDTH}
     mkdir -p "${ARROW_BUILD_DIR}"

@@ -22,11 +22,12 @@
 #include <vector>
 
 #include "gandiva/arrow.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// Descriptor for a function in the expression.
-class FuncDescriptor {
+class GANDIVA_EXPORT FuncDescriptor {
  public:
   FuncDescriptor(const std::string& name, const DataTypeVector& params,
                  DataTypePtr return_type)

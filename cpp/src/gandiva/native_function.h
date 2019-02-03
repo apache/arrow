@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "gandiva/function_signature.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
@@ -37,7 +38,7 @@ enum ResultNullableType {
 
 /// \brief Holder for the mapping from a function in an expression to a
 /// precompiled function.
-class NativeFunction {
+class GANDIVA_EXPORT NativeFunction {
  public:
   // fucntion attributes.
   static constexpr int32_t kNeedsContext = (1 << 1);

@@ -21,24 +21,22 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+
+#include "arrow/test-util.h"
+
 #include "gandiva/dex.h"
 
 namespace gandiva {
 
 class TestBitMapAccumulator : public ::testing::Test {
  protected:
-  void FillBitMap(uint8_t* bmap, int nrecords);
+  void FillBitMap(uint8_t* bmap, uint32_t seed, int nrecords);
   void ByteWiseIntersectBitMaps(uint8_t* dst, const std::vector<uint8_t*>& srcs,
                                 int nrecords);
 };
 
-void TestBitMapAccumulator::FillBitMap(uint8_t* bmap, int nbytes) {
-  unsigned int cur = 0;
-
-  for (int i = 0; i < nbytes; ++i) {
-    rand_r(&cur);
-    bmap[i] = static_cast<uint8_t>(cur % UINT8_MAX);
-  }
+void TestBitMapAccumulator::FillBitMap(uint8_t* bmap, uint32_t seed, int nbytes) {
+  ::arrow::random_bytes(nbytes, seed, bmap);
 }
 
 void TestBitMapAccumulator::ByteWiseIntersectBitMaps(uint8_t* dst,
@@ -61,7 +59,7 @@ TEST_F(TestBitMapAccumulator, TestIntersectBitMaps) {
   uint8_t expected_bitmap[length];
 
   for (int i = 0; i < 4; i++) {
-    FillBitMap(src_bitmaps[i], length);
+    FillBitMap(src_bitmaps[i], i, length);
   }
 
   for (int i = 0; i < 4; i++) {

@@ -16,6 +16,7 @@
 // under the License.
 
 #include "plasma/eviction_policy.h"
+#include "plasma/plasma_allocator.h"
 
 #include <algorithm>
 
@@ -48,8 +49,7 @@ int64_t LRUCache::ChooseObjectsToEvict(int64_t num_bytes_required,
   return bytes_evicted;
 }
 
-EvictionPolicy::EvictionPolicy(PlasmaStoreInfo* store_info)
-    : memory_used_(0), store_info_(store_info) {}
+EvictionPolicy::EvictionPolicy(PlasmaStoreInfo* store_info) : store_info_(store_info) {}
 
 int64_t EvictionPolicy::ChooseObjectsToEvict(int64_t num_bytes_required,
                                              std::vector<ObjectID>* objects_to_evict) {
@@ -59,33 +59,29 @@ int64_t EvictionPolicy::ChooseObjectsToEvict(int64_t num_bytes_required,
   for (auto& object_id : *objects_to_evict) {
     cache_.Remove(object_id);
   }
-  // Update the number of bytes used.
-  memory_used_ -= bytes_evicted;
-  ARROW_CHECK(memory_used_ >= 0);
   return bytes_evicted;
 }
 
 void EvictionPolicy::ObjectCreated(const ObjectID& object_id) {
   auto entry = store_info_->objects[object_id].get();
   cache_.Add(object_id, entry->data_size + entry->metadata_size);
-  int64_t size = entry->data_size + entry->metadata_size;
-  memory_used_ += size;
-  ARROW_CHECK(memory_used_ <= store_info_->memory_capacity);
 }
 
 bool EvictionPolicy::RequireSpace(int64_t size, std::vector<ObjectID>* objects_to_evict) {
   // Check if there is enough space to create the object.
-  int64_t required_space = memory_used_ + size - store_info_->memory_capacity;
+  int64_t required_space =
+      PlasmaAllocator::Allocated() + size - PlasmaAllocator::GetFootprintLimit();
   // Try to free up at least as much space as we need right now but ideally
   // up to 20% of the total capacity.
-  int64_t space_to_free = std::max(required_space, store_info_->memory_capacity / 5);
+  int64_t space_to_free =
+      std::max(required_space, PlasmaAllocator::GetFootprintLimit() / 5);
   ARROW_LOG(DEBUG) << "not enough space to create this object, so evicting objects";
   // Choose some objects to evict, and update the return pointers.
   int64_t num_bytes_evicted = ChooseObjectsToEvict(space_to_free, objects_to_evict);
   ARROW_LOG(INFO) << "There is not enough space to create this object, so evicting "
                   << objects_to_evict->size() << " objects to free up "
                   << num_bytes_evicted << " bytes. The number of bytes in use (before "
-                  << "this eviction) is " << (memory_used_ + num_bytes_evicted) << ".";
+                  << "this eviction) is " << PlasmaAllocator::Allocated() << ".";
   return num_bytes_evicted >= required_space && num_bytes_evicted > 0;
 }
 
@@ -105,11 +101,6 @@ void EvictionPolicy::EndObjectAccess(const ObjectID& object_id,
 void EvictionPolicy::RemoveObject(const ObjectID& object_id) {
   // If the object is in the LRU cache, remove it.
   cache_.Remove(object_id);
-
-  auto entry = store_info_->objects[object_id].get();
-  int64_t size = entry->data_size + entry->metadata_size;
-  ARROW_CHECK(memory_used_ >= size);
-  memory_used_ -= size;
 }
 
 }  // namespace plasma

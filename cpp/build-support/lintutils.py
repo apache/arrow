@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import multiprocessing as mp
 import os
 from fnmatch import fnmatch
 from subprocess import Popen
@@ -49,12 +50,12 @@ def run_parallel(cmds, **kwargs):
     """
     Run each of cmds (with shared **kwargs) using subprocess.Popen
     then wait for all of them to complete.
-    Runs batches of os.cpu_count() * 2 from cmds
+    Runs batches of multiprocessing.cpu_count() * 2 from cmds
     returns a list of tuples containing each process'
     returncode, stdout, stderr
     """
     complete = []
-    for cmds_batch in chunk(cmds, os.cpu_count() * 2):
+    for cmds_batch in chunk(cmds, mp.cpu_count() * 2):
         procs_batch = [Popen(cmd, **kwargs) for cmd in cmds_batch]
         for proc in procs_batch:
             stdout, stderr = proc.communicate()

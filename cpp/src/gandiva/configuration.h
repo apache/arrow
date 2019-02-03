@@ -15,16 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_CONFIGURATION_H
-#define GANDIVA_CONFIGURATION_H
+#pragma once
 
 #include <memory>
 #include <string>
 
 #include "arrow/status.h"
 
+#include "gandiva/visibility.h"
+
 namespace gandiva {
 
+GANDIVA_EXPORT
 extern const char kByteCodeFilePath[];
 
 class ConfigurationBuilder;
@@ -32,7 +34,7 @@ class ConfigurationBuilder;
 ///
 /// It contains elements to customize gandiva execution
 /// at run time.
-class Configuration {
+class GANDIVA_EXPORT Configuration {
  public:
   friend class ConfigurationBuilder;
 
@@ -53,7 +55,7 @@ class Configuration {
 ///
 /// Provides a default configuration and convenience methods
 /// to override specific values and build a custom instance
-class ConfigurationBuilder {
+class GANDIVA_EXPORT ConfigurationBuilder {
  public:
   ConfigurationBuilder() : byte_code_file_path_(kByteCodeFilePath) {}
 
@@ -83,4 +85,3 @@ class ConfigurationBuilder {
 };
 
 }  // namespace gandiva
-#endif  // GANDIVA_CONFIGURATION_H

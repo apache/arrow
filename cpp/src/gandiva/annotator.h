@@ -27,12 +27,13 @@
 #include "gandiva/eval_batch.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/logging.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief annotate the arrow fields in an expression, and use that
 /// to convert the incoming arrow-format row batch to an EvalBatch.
-class Annotator {
+class GANDIVA_EXPORT Annotator {
  public:
   Annotator() : buffer_count_(0), local_bitmap_count_(0) {}
 

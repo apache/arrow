@@ -24,6 +24,7 @@ extern "C" {
 #include <time.h>
 
 #include "./time_constants.h"
+#include "./time_fields.h"
 #include "./types.h"
 
 #define MINS_IN_HOUR 60
@@ -518,6 +519,12 @@ void set_error_for_date(int32 length, const char* input, const char* msg,
 }
 
 date64 castDATE_utf8(int64_t context, const char* input, int32 length) {
+  using arrow::util::date::day;
+  using arrow::util::date::month;
+  using arrow::util::date::sys_days;
+  using arrow::util::date::year;
+  using arrow::util::date::year_month_day;
+  using gandiva::TimeFields;
   // format : 0 is year, 1 is month and 2 is day.
   int dateFields[3];
   int dateIndex = 0, index = 0, value = 0;
@@ -546,21 +553,129 @@ date64 castDATE_utf8(int64_t context, const char* input, int32 length) {
    * If range of two digits is between 70 - 99 then year = 1970 - 1999
    * Else if two digits is between 00 - 69 = 2000 - 2069
    */
-  if (dateFields[0] < 100) {
-    if (dateFields[0] < 70) {
-      dateFields[0] += 2000;
+  if (dateFields[TimeFields::kYear] < 100) {
+    if (dateFields[TimeFields::kYear] < 70) {
+      dateFields[TimeFields::kYear] += 2000;
     } else {
-      dateFields[0] += 1900;
+      dateFields[TimeFields::kYear] += 1900;
     }
   }
-  date::year_month_day day =
-      date::year(dateFields[0]) / date::month(dateFields[1]) / date::day(dateFields[2]);
-  if (!day.ok()) {
+  year_month_day date = year(dateFields[TimeFields::kYear]) /
+                        month(dateFields[TimeFields::kMonth]) /
+                        day(dateFields[TimeFields::kDay]);
+  if (!date.ok()) {
     set_error_for_date(length, input, msg, context);
     return 0;
   }
-  return std::chrono::time_point_cast<std::chrono::milliseconds>(date::sys_days(day))
+  return std::chrono::time_point_cast<std::chrono::milliseconds>(sys_days(date))
       .time_since_epoch()
       .count();
+}
+
+/*
+ * Input consists of mandatory and optional fields.
+ * Mandatory fields are year, month and day.
+ * Optional fields are time, displacement and zone.
+ * Format is <year-month-day>[ hours:minutes:seconds][.millis][ displacement|zone]
+ */
+timestamp castTIMESTAMP_utf8(int64_t context, const char* input, int32 length) {
+  using arrow::util::date::day;
+  using arrow::util::date::month;
+  using arrow::util::date::sys_days;
+  using arrow::util::date::year;
+  using arrow::util::date::year_month_day;
+  using gandiva::TimeFields;
+  using std::chrono::hours;
+  using std::chrono::milliseconds;
+  using std::chrono::minutes;
+  using std::chrono::seconds;
+
+  int ts_fields[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+  boolean add_displacement = true;
+  boolean encountered_zone = false;
+  int ts_field_index = TimeFields::kYear, index = 0, value = 0;
+  while (ts_field_index < TimeFields::kMax && index < length) {
+    if (isdigit(input[index])) {
+      value = (value * 10) + (input[index] - '0');
+    } else {
+      ts_fields[ts_field_index] = value;
+      value = 0;
+
+      switch (input[index]) {
+        case '.':
+        case ':':
+        case ' ':
+          ts_field_index++;
+          break;
+        case '+':
+          // +08:00, means time zone is 8 hours ahead. Need to substract.
+          add_displacement = false;
+          ts_field_index = TimeFields::kDisplacementHours;
+          break;
+        case '-':
+          // Overloaded as date separator and negative displacement.
+          ts_field_index = (ts_field_index < 3) ? (ts_field_index + 1)
+                                                : TimeFields::kDisplacementHours;
+          break;
+        default:
+          encountered_zone = true;
+          break;
+      }
+    }
+    if (encountered_zone) {
+      break;
+    }
+    index++;
+  }
+
+  // Store the last value
+  if (ts_field_index < TimeFields::kMax) {
+    ts_fields[ts_field_index++] = value;
+  }
+
+  // adjust the year
+  if (ts_fields[TimeFields::kYear] < 100) {
+    if (ts_fields[TimeFields::kYear] < 70) {
+      ts_fields[TimeFields::kYear] += 2000;
+    } else {
+      ts_fields[TimeFields::kYear] += 1900;
+    }
+  }
+
+  // handle timezone
+  if (encountered_zone) {
+    int err = 0;
+    timestamp ret_time = 0;
+    err = gdv_fn_time_with_zone(&ts_fields[0], (input + index), (length - index),
+                                &ret_time);
+    if (err) {
+      const char* msg = "Invalid timestamp or unknown zone for timestamp value ";
+      set_error_for_date(length, input, msg, context);
+      return 0;
+    }
+    return ret_time;
+  }
+
+  year_month_day date = year(ts_fields[TimeFields::kYear]) /
+                        month(ts_fields[TimeFields::kMonth]) /
+                        day(ts_fields[TimeFields::kDay]);
+  if (!date.ok()) {
+    const char* msg = "Not a valid day for timestamp value ";
+    set_error_for_date(length, input, msg, context);
+    return 0;
+  }
+
+  auto date_time = sys_days(date) + hours(ts_fields[TimeFields::kHours]) +
+                   minutes(ts_fields[TimeFields::kMinutes]) +
+                   seconds(ts_fields[TimeFields::kSeconds]) +
+                   milliseconds(ts_fields[TimeFields::kSubSeconds]);
+  if (ts_fields[TimeFields::kDisplacementHours] ||
+      ts_fields[TimeFields::kDisplacementMinutes]) {
+    auto displacement_time = hours(ts_fields[TimeFields::kDisplacementHours]) +
+                             minutes(ts_fields[TimeFields::kDisplacementMinutes]);
+    date_time = (add_displacement) ? (date_time + displacement_time)
+                                   : (date_time - displacement_time);
+  }
+  return std::chrono::time_point_cast<milliseconds>(date_time).time_since_epoch().count();
 }
 }  // extern "C"

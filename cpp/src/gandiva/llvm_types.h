@@ -21,15 +21,15 @@
 #include <map>
 #include <vector>
 
-#include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/LLVMContext.h>
 #include "gandiva/arrow.h"
+#include "gandiva/llvm_includes.h"
 #include "gandiva/logging.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief Holder for llvm types, and mappings between arrow types and llvm types.
-class LLVMTypes {
+class GANDIVA_EXPORT LLVMTypes {
  public:
   explicit LLVMTypes(llvm::LLVMContext& context);
 

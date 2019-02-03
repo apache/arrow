@@ -681,7 +681,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 --------------------------------------------------------------------------------
-The file cpp/src/arrow/vendored/date.h has the following license (MIT)
+The files cpp/src/arrow/vendored/datetime/date.h, cpp/src/arrow/vendored/datetime/tz.h,
+cpp/src/arrow/vendored/datetime/tz_private.h, cpp/src/arrow/vendored/datetime/ios.h,
+cpp/src/arrow/vendored/datetime/tz.cpp are adapted from
+Howard Hinnant's date library (https://github.com/HowardHinnant/date)
+It is licensed under MIT license.
 
 The MIT License (MIT)
 Copyright (c) 2015, 2016, 2017 Howard Hinnant

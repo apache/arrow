@@ -25,6 +25,7 @@ double-conversion
 flatbuffers
 gflags
 glog
+gmock
 gtest
 libprotobuf
 lz4-c

@@ -46,7 +46,6 @@ SignatureMap FunctionRegistry::InitPCMap() {
 
   auto v1 = GetArithmeticFunctionRegistry();
   pc_registry_.insert(std::end(pc_registry_), v1.begin(), v1.end());
-
   auto v2 = GetDateTimeFunctionRegistry();
   pc_registry_.insert(std::end(pc_registry_), v2.begin(), v2.end());
 

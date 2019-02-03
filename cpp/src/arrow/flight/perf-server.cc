@@ -69,6 +69,8 @@ class PerfDataStream : public FlightDataStream {
     batch_ = RecordBatch::Make(schema, batch_length_, arrays_);
   }
 
+  std::shared_ptr<Schema> schema() override { return schema_; }
+
   Status Next(IpcPayload* payload) override {
     if (records_sent_ >= total_records_) {
       // Signal that iteration is over

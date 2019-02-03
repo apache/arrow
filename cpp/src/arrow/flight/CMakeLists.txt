@@ -45,7 +45,7 @@ set(FLIGHT_GENERATED_PROTO_FILES
   "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.cc"
   "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.h")
 
-set(PROTO_DEPENDS ${FLIGHT_PROTO} ${PROTOBUF_LIBRARY})
+set(PROTO_DEPENDS ${FLIGHT_PROTO} ${PROTOBUF_LIBRARY} grpc)
 
 add_custom_command(
   OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
@@ -127,6 +127,7 @@ if (ARROW_BUILD_BENCHMARKS)
     perf.pb.cc)
   target_link_libraries(flight-perf-server
     arrow_flight_static
+    arrow_testing_static
     ${ARROW_FLIGHT_STATIC_LINK_LIBS}
     gflags_static
     ${GTEST_LIBRARY})
@@ -136,6 +137,7 @@ if (ARROW_BUILD_BENCHMARKS)
     perf.pb.cc)
   target_link_libraries(flight-benchmark
     arrow_flight_static
+    arrow_testing_static
     ${ARROW_FLIGHT_STATIC_LINK_LIBS}
     gflags_static
     ${GTEST_LIBRARY})

@@ -71,6 +71,12 @@ CXX11FLAGS=$("${R_HOME}"/bin/R CMD config CXX11FLAGS)
 CXX11STD=$("${R_HOME}"/bin/R CMD config CXX11STD)
 CPPFLAGS=$("${R_HOME}"/bin/R CMD config CPPFLAGS)
 
+# If libarrow uses the old GLIBCXX ABI, so we have to use it too
+PKG_CXXFLAGS="$C_VISIBILITY"
+if [ "$ARROW_USE_OLD_CXXABI" ]; then
+  PKG_CXXFLAGS="$PKG_CXXFLAGS -D_GLIBCXX_USE_CXX11_ABI=0"
+fi
+
 # Test configuration
 echo "#include $PKG_TEST_HEADER" | ${CXXCPP} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FLAGS} ${CXX11STD} -xc++ - >/dev/null 2>&1
 
@@ -91,7 +97,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Write to Makevars
-sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" -e "s|@visibility@|$C_VISIBILITY|" src/Makevars.in > src/Makevars
+sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" -e "s|@pkgcxxflags@|$PKG_CXXFLAGS|" src/Makevars.in > src/Makevars
 
 # Success
 exit 0

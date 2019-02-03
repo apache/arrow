@@ -86,10 +86,14 @@ TEST_F(TestProjector, TestProjectCache) {
   EXPECT_EQ(cached_projector, projector);
 
   // if configuration is different, should return a new projector.
+
+  // build a new path by replacing the first '/' with '//'
+  std::string alt_path(GANDIVA_BYTE_COMPILE_FILE_PATH);
+  auto pos = alt_path.find('/', 0);
+  EXPECT_NE(pos, std::string::npos);
+  alt_path.replace(pos, 1, "//");
   auto other_configuration =
-      ConfigurationBuilder()
-          .set_byte_code_file_path("/" + std::string(GANDIVA_BYTE_COMPILE_FILE_PATH))
-          .build();
+      ConfigurationBuilder().set_byte_code_file_path(alt_path).build();
   std::shared_ptr<Projector> should_be_new_projector2;
   status = Projector::Make(schema, {sum_expr, sub_expr}, other_configuration,
                            &should_be_new_projector2);
