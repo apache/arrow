@@ -23,8 +23,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Calendar;
-import java.util.Locale;
-import java.util.TimeZone;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -90,7 +88,7 @@ public class JdbcToArrow {
     Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
 
     JdbcToArrowConfig config =
-            new JdbcToArrowConfig(allocator, Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT), false);
+            new JdbcToArrowConfig(allocator, JdbcToArrowUtils.getUtcCalendar(), false);
     return sqlToArrow(connection, query, config);
   }
 
@@ -155,7 +153,7 @@ public class JdbcToArrow {
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet) throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
 
-    return sqlToArrow(resultSet, Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT));
+    return sqlToArrow(resultSet, JdbcToArrowUtils.getUtcCalendar());
   }
 
   /**
@@ -172,7 +170,7 @@ public class JdbcToArrow {
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
 
     JdbcToArrowConfig config = 
-            new JdbcToArrowConfig(allocator, Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT), false);
+            new JdbcToArrowConfig(allocator, JdbcToArrowUtils.getUtcCalendar(), false);
     return sqlToArrow(resultSet, config);
   }
 

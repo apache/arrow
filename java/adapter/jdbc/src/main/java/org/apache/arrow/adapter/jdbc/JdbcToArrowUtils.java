@@ -38,7 +38,9 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
 
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseFixedWidthVector;
@@ -106,6 +108,13 @@ public class JdbcToArrowUtils {
     Preconditions.checkNotNull(calendar, "Calendar object can't be null");
 
     return jdbcToArrowSchema(rsmd, new JdbcToArrowConfig(new RootAllocator(0), calendar, false));
+  }
+
+  /**
+   * Returns the instance of a {java.util.Calendar} with the UTC time zone and root locale.
+   */
+  public static Calendar getUtcCalendar() {
+    return Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT);
   }
 
   /**
