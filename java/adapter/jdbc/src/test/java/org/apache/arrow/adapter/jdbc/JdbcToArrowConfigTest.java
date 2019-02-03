@@ -93,14 +93,17 @@ public class JdbcToArrowConfigTest {
   }
 
   @Test public void testIncludeMetadata() {
-    JdbcToArrowConfig config = new JdbcToArrowConfig(allocator, calendar, false);
+    JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, calendar, false);
+
+    JdbcToArrowConfig config = builder.build();
     assertFalse(config.getIncludeMetadata());
 
-    config.setIncludeMetadata(true);
+    builder.setIncludeMetadata(true);
+    config = builder.build();
     assertTrue(config.getIncludeMetadata());
 
-    config.setIncludeMetadata(false);
-    assertFalse(config.getIncludeMetadata());
+    config = new JdbcToArrowConfigBuilder(allocator, calendar, true).build();
+    assertTrue(config.getIncludeMetadata());
 
     config = new JdbcToArrowConfig(allocator, calendar, true);
     assertTrue(config.getIncludeMetadata());

@@ -127,8 +127,7 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
   @Test
   public void testJdbcSchemaMetadata() throws SQLException {
     Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()));
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), calendar).build();
-    config.setIncludeMetadata(true);
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), calendar, true).build();
     ResultSetMetaData rsmd = conn.createStatement().executeQuery(table.getQuery()).getMetaData();
     Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(rsmd, config);
     JdbcToArrowTestHelper.assertFieldMetadataMatchesResultSetMetadata(rsmd, schema);

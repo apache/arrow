@@ -82,15 +82,4 @@ public final class JdbcToArrowConfig {
   public boolean getIncludeMetadata() {
     return includeMetadata;
   }
-
-  /**
-   * Sets whether to include JDBC ResultSet field metadata in the Arrow Schema field metadata.
-   *
-   * @param includeMetadata Whether to include or exclude JDBC metadata in the Arrow Schema field metadata.
-   * @return This instance of the <code>JdbcToArrowConfig</code>, for chaining.
-   */
-  public JdbcToArrowConfig setIncludeMetadata(boolean includeMetadata) {
-    this.includeMetadata = includeMetadata;
-    return this;
-  }
 }

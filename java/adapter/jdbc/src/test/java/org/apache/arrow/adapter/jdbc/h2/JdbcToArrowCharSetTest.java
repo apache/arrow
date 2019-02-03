@@ -133,8 +133,7 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
 
   @Test
   public void testJdbcSchemaMetadata() throws SQLException {
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance()).build();
-    config.setIncludeMetadata(true);
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true).build();
     ResultSetMetaData rsmd = conn.createStatement().executeQuery(table.getQuery()).getMetaData();
     Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(rsmd, config);
     JdbcToArrowTestHelper.assertFieldMetadataMatchesResultSetMetadata(rsmd, schema);
