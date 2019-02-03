@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Implement [`Record`] for `Vec<u8>` (byte_array/fixed_len_byte_array), [`Bson`] (bson),
+//! `String` (utf8), [`Json`] (json), [`Enum`] (enum), and `[u8; N]`
+//! (fixed_len_byte_array).
+
 use std::{
     collections::HashMap,
     fmt::{self, Display},
@@ -40,6 +44,8 @@ use crate::{
     schema::types::{ColumnPath, Type},
 };
 
+// `Vec<u8>` corresponds to the `binary`/`byte_array` and `fixed_len_byte_array` physical
+// types.
 impl Record for Vec<u8> {
     type Reader = ByteArrayReader;
     type Schema = ByteArraySchema;
@@ -69,6 +75,7 @@ impl Record for Vec<u8> {
     }
 }
 
+/// A Rust type corresponding to the [Bson logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#bson).
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Bson(Vec<u8>);
 impl Record for Bson {
@@ -136,6 +143,7 @@ impl Record for String {
     }
 }
 
+/// A Rust type corresponding to the [Json logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#json).
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Json(String);
 impl Record for Json {
@@ -179,6 +187,7 @@ impl From<String> for Json {
     }
 }
 
+/// A Rust type corresponding to the [Enum logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#enum).
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Enum(String);
 impl Record for Enum {
@@ -281,6 +290,8 @@ macro_rules! impl_parquet_record_array {
             }
         }
 
+        // Specialize the implementation to avoid passing a potentially large array around
+        // on the stack.
         impl Record for Box<[u8; $i]> {
             type Reader = impl Reader<Item = Self>;
             type Schema = FixedByteArraySchema<[u8; $i]>;

@@ -17,6 +17,11 @@
 
 //! Contains implementation of record assembly and converting Parquet types into Rust
 //! types.
+//!
+//! Readers wrap one or more columns'
+//! [`TypedTripletIter`](super::triplet::TypedTripletIter)s, and map their values from
+//! physical type to logical type. They're also responsible for correctly accessing fields
+//! that are optional or repeated.
 
 use std::{
     collections::HashMap, convert::TryInto, error::Error, marker::PhantomData, rc::Rc,
@@ -42,6 +47,7 @@ use crate::schema::types::{ColumnPath, SchemaDescriptor, SchemaDescPtr, Type};
 /// Default batch size for a reader
 const DEFAULT_BATCH_SIZE: usize = 1024;
 
+/// Implementation for "anonymous" sum types
 impl<A, B> Reader for sum::Sum2<A, B>
 where
     A: Reader,
@@ -90,6 +96,7 @@ where
     }
 }
 
+/// Implementation for "anonymous" sum types
 impl<A, B, C> Reader for sum::Sum3<A, B, C>
 where
     A: Reader,
@@ -406,6 +413,7 @@ impl Reader for FixedLenByteArrayReader {
     }
 }
 
+/// A Reader for an optional field, returning `Option<R::Item>`.
 pub struct OptionReader<R> {
     pub(super) reader: R,
 }
@@ -442,6 +450,7 @@ impl<R: Reader> Reader for OptionReader<R> {
     }
 }
 
+/// A Reader for a repeated field, returning `Vec<R::Item>`.
 pub struct RepeatedReader<R> {
     pub(super) reader: R,
 }
@@ -491,6 +500,7 @@ impl<R: Reader> Reader for RepeatedReader<R> {
     }
 }
 
+/// A Reader for two equally repeated fields, returning `Vec<(K::Item, V::Item)>`.
 pub struct KeyValueReader<K, V> {
     pub(super) keys_reader: K,
     pub(super) values_reader: V,
@@ -593,6 +603,8 @@ impl Reader for GroupReader {
     }
 }
 
+/// A Reader that can read any valid Parquet type into the [`Value`] enum. This is how
+/// "untyped readers" can be built atop "typed readers".
 pub enum ValueReader {
     Bool(<bool as Record>::Reader),
     U8(<u8 as Record>::Reader),
@@ -818,6 +830,7 @@ impl Reader for ValueReader {
     }
 }
 
+/// A Reader that wraps a Reader, wrapping the read value in a `Box`.
 pub struct BoxReader<T>(pub(super) T);
 impl<T> Reader for BoxReader<T>
 where
@@ -850,6 +863,7 @@ where
     }
 }
 
+/// A Reader that wraps a Reader, wrapping the read value in a [`Root`] struct.
 pub struct RootReader<R>(pub R);
 impl<R> Reader for RootReader<R>
 where
@@ -885,6 +899,7 @@ where
 
 pub struct TupleReader<T>(pub(super) T);
 
+/// A convenience Reader that maps the read value using [`TryInto`].
 pub struct TryIntoReader<R: Reader, T>(pub(super) R, pub(super) PhantomData<fn(T)>);
 impl<R: Reader, T> Reader for TryIntoReader<R, T>
 where
@@ -922,6 +937,7 @@ where
     }
 }
 
+/// A convenience Reader that maps the read value using the supplied closure.
 pub struct MapReader<R: Reader, F>(pub(super) R, pub(super) F);
 impl<R: Reader, F, T> Reader for MapReader<R, F>
 where

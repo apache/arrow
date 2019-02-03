@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Implement [`Record`] for [`ValueRequired`] – an enum representing any valid required
+//! Parquet value.
+
 use std::hash::{Hash, Hasher};
 
 use crate::{
@@ -22,7 +25,8 @@ use crate::{
     record::types::{Bson, Date, Enum, Group, Json, List, Map, Time, Timestamp, Value},
 };
 
-/// Represents any valid Parquet value.
+/// Represents any valid required Parquet value. Exists to avoid [`Value`] being recursive
+/// and thus infinitely sized.
 #[derive(Clone, PartialEq, Debug)]
 pub enum ValueRequired {
     // Primitive types

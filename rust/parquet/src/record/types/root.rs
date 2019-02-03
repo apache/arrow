@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Implement [`Record`] for `Root<T> where T: Record`.
+
 use std::{collections::HashMap, marker::PhantomData};
 
 #[cfg(debug_assertions)]
@@ -30,6 +32,8 @@ use crate::{
     schema::types::{ColumnPath, Type},
 };
 
+/// `Root<T>` corresponds to the root of the schema, i.e. what is marked as "message" in a
+/// Parquet schema string.
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub struct Root<T>(pub T);
 

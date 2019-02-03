@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Implement [`Record`] for `Option<T> where T: Record`.
+
 use std::collections::HashMap;
 
 use crate::{
@@ -25,6 +27,7 @@ use crate::{
     schema::types::{ColumnPath, Type},
 };
 
+// `Option<T>` corresponds to Parquet fields marked as "optional".
 impl<T> Record for Option<T>
 where
     T: Record,

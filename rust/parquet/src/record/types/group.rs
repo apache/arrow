@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Implement [`Record`] for [`Group`] aka [`Row`].
+
 use std::{
     collections::HashMap,
     fmt::{self, Debug},
@@ -37,8 +39,11 @@ use crate::{
     schema::types::{ColumnPath, Type},
 };
 
+/// A Rust type corresponding to Parquet groups of fields.
 #[derive(Clone, PartialEq)]
 pub struct Group(pub(crate) Vec<Value>, pub(crate) Rc<HashMap<String, usize>>);
+/// [`Row`] is identical to [`Group`] in every way; this alias exists as arguably reading
+/// rows into a type called `Row` is more idiomatic than into a type called `Group`.
 pub type Row = Group;
 
 impl Record for Group {
@@ -106,6 +111,8 @@ impl Record for Group {
 }
 
 impl Group {
+    /// Get a reference to the value belonging to a particular field name. Returns `None`
+    /// if the field name doesn't exist.
     pub fn get(&self, k: &str) -> Option<&Value> {
         self.1.get(k).map(|&offset| &self.0[offset])
     }

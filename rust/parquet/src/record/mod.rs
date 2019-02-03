@@ -119,7 +119,7 @@ pub(crate) use self::predicate::Predicate;
 /// If the Rust field name and the Parquet field name differ, say if the latter is not an idiomatic or valid identifier in Rust, then an automatic rename can be made like so:
 ///
 /// ```
-/// # use parquet::record::{Record, types::Timestamp};
+/// # use parquet::record::{types::Timestamp, Record};
 /// #[derive(Record, Debug)]
 /// struct MyRow {
 ///     #[parquet(rename = "ID")]
@@ -132,13 +132,15 @@ pub trait Record: Sized {
     type Schema: Schema;
     type Reader: Reader<Item = Self>;
 
-    /// Parse a [`Type`] into `Self::Schema`.
+    /// Parse a [`Type`] into `Self::Schema`, using `repetition` instead of
+    /// `Type::get_basic_info().repetition()`. A `repetition` of `None` denotes a root
+    /// schema.
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
     ) -> Result<(String, Self::Schema)>;
 
-    /// Builds tree of readers for the specified schema recursively.
+    /// Builds tree of [`Reader`]s for the specified [`Schema`] recursively.
     fn reader(
         schema: &Self::Schema,
         path: &mut Vec<String>,
@@ -149,6 +151,8 @@ pub trait Record: Sized {
     ) -> Self::Reader;
 }
 
+/// This trait is implemented by Schemas so that they can be printed as Parquet schema
+/// strings.
 pub trait Schema: Debug {
     fn fmt(
         self_: Option<&Self>,
@@ -158,11 +162,21 @@ pub trait Schema: Debug {
     ) -> fmt::Result;
 }
 
+/// This trait is implemented by Readers so the values of one or more columns can be read
+/// while taking into account the definition and repetition levels for optional and
+/// repeated values.
 pub trait Reader {
+    /// Type returned by the Reader
     type Item;
+
+    /// Read a value
     fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item>;
+    /// Advance the columns; this is used for optional or repeated values
     fn advance_columns(&mut self) -> Result<()>;
+    /// Check if there's another value readable
     fn has_next(&self) -> bool;
+    /// Get the current definition level
     fn current_def_level(&self) -> i16;
+    /// Get the current repetition level
     fn current_rep_level(&self) -> i16;
 }

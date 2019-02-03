@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Implementations of Rust types that correspond to Parquet logical types.
+//! [`Record`](super::Record) is implemented for each of them.
+
 mod array;
 mod boxed;
 mod decimal;
@@ -43,7 +46,11 @@ pub use self::{
     value_required::ValueRequired,
 };
 
-/// Due to downcasting from Value -> Option<T>
+/// This trait lets one downcast a generic type like [`Value`] to a specific type like
+/// `u64`.
+///
+/// It exists, rather than for example using [`TryInto`](std::convert::TryInto), due to
+/// coherence issues with downcasting to foreign types like `Option<T>`.
 pub trait Downcast<T> {
     fn downcast(self) -> Result<T>;
 }

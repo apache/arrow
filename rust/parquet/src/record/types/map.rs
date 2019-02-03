@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Implement [`Record`] for [`Map`].
+
 use std::{
     borrow::Borrow,
     collections::{hash_map, HashMap},
@@ -79,6 +81,7 @@ pub(super) fn parse_map<K: Record, V: Record>(
     )))
 }
 
+/// [`Map<K, V>`](Map) corresponds to the [Map logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#maps).
 #[derive(Clone, Eq)]
 pub struct Map<K: Hash + Eq, V>(pub(in super::super) HashMap<K, V>);
 
@@ -152,6 +155,7 @@ impl<K, V> Map<K, V>
 where
     K: Hash + Eq,
 {
+    /// Returns a reference to the value corresponding to the key.
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
     where
         K: Borrow<Q>,
@@ -160,10 +164,12 @@ where
         self.0.get(k)
     }
 
+    /// Returns an iterator over the `(ref key, ref value)` pairs of the Map.
     pub fn iter(&self) -> hash_map::Iter<'_, K, V> {
         self.0.iter()
     }
 
+    /// Creates an iterator over the `(key, value)` pairs of the Map.
     pub fn into_iter(self) -> hash_map::IntoIter<K, V> {
         self.0.into_iter()
     }

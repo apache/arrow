@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Implement [`Record`] for [`Value`] – an enum representing any valid Parquet value.
+
 use std::{
     collections::HashMap,
     convert::TryInto,
@@ -1149,6 +1151,9 @@ impl From<Option<Value>> for Value {
     }
 }
 
+// Downcast implementations for Value so we can try downcasting it to a specific type if
+// we know it.
+
 impl Downcast<Value> for Value {
     fn downcast(self) -> Result<Value> {
         Ok(self)
@@ -1315,6 +1320,8 @@ impl Downcast<Option<Value>> for Value {
     }
 }
 
+// PartialEq implementations for Value so we can compare it with typed values
+
 impl PartialEq<bool> for Value {
     fn eq(&self, other: &bool) -> bool {
         self.as_bool().map(|bool| &bool == other).unwrap_or(false)
@@ -1443,6 +1450,8 @@ where
                     return false;
                 }
 
+                // This comparison unfortunately requires a bit of a hack. This could be
+                // eliminated by ensuring that Value::X hashes identically to X. TODO.
                 let other = other
                     .0
                     .iter()
@@ -1480,18 +1489,21 @@ impl Record for Value {
     type Reader = ValueReader;
     type Schema = ValueSchema;
 
+    /// This is reused by many of the other `Record` implementations. It is the canonical
+    /// encoding of the mapping from [`Type`]s to Schemas.
     fn parse(
         schema: &Type,
         repetition: Option<Repetition>,
     ) -> Result<(String, Self::Schema)> {
         let mut value = None;
+
+        // Try parsing as a primitive. See https://github.com/apache/parquet-format/blob/master/LogicalTypes.md for details.
         if repetition.is_some() && schema.is_primitive() {
             value = Some(
                 match (
                     schema.get_physical_type(),
                     schema.get_basic_info().logical_type(),
                 ) {
-                    // https://github.com/apache/parquet-format/blob/master/LogicalTypes.md
                     (PhysicalType::BOOLEAN, LogicalType::NONE) => {
                         ValueSchema::Bool(BoolSchema)
                     }
@@ -1653,18 +1665,22 @@ impl Record for Value {
                 },
             );
         }
-        // https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#backward-compatibility-rules
+
+        // Try parsing as a list (excluding unannotated repeated fields)
         if repetition.is_some() && value.is_none() {
             value = parse_list::<Value>(schema)
                 .ok()
                 .map(|value| ValueSchema::List(Box::new(value)));
         }
+
+        // Try parsing as a map
         if repetition.is_some() && value.is_none() {
             value = parse_map::<Value, Value>(schema)
                 .ok()
                 .map(|value| ValueSchema::Map(Box::new(value)));
         }
 
+        // Try parsing as a group
         if repetition.is_some() && value.is_none() && schema.is_group() {
             let mut lookup = HashMap::with_capacity(schema.get_fields().len());
             value = Some(ValueSchema::Group(GroupSchema(
@@ -1684,10 +1700,12 @@ impl Record for Value {
             )));
         }
 
+        // If we haven't parsed it by now it's not valid
         let mut value = value.ok_or_else(|| {
             ParquetError::General(format!("Can't parse value {:?}", schema))
         })?;
 
+        // Account for the repetition level
         match repetition.unwrap() {
             Repetition::OPTIONAL => {
                 value = ValueSchema::Option(Box::new(OptionSchema(value)));
@@ -1712,6 +1730,7 @@ impl Record for Value {
         paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
+        // Map the ValueSchema to the corresponding ValueReader
         match *schema {
             ValueSchema::Bool(ref schema) => ValueReader::Bool(<bool as Record>::reader(
                 schema, path, def_level, rep_level, paths, batch_size,

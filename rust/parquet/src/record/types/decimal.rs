@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Implement [`Record`] for [`Decimal`].
+
 use std::collections::HashMap;
 
 use crate::{
@@ -31,6 +33,7 @@ use crate::{
     schema::types::{ColumnPath, Type},
 };
 
+// [`Decimal`] corresponds to the [Decimal logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#decimal).
 impl Record for Decimal {
     type Reader = impl Reader<Item = Self>;
     type Schema = DecimalSchema;

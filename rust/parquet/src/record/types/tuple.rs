@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Implement [`Record`] for tuples up to length 32.
+
 use std::{
     collections::HashMap,
     fmt::{self, Debug},
@@ -36,6 +38,7 @@ use crate::{
     schema::types::{ColumnPath, Type},
 };
 
+/// Macro to implement [`Reader`] on tuples up to length 32.
 macro_rules! impl_parquet_record_tuple {
     ($len:tt $($t:ident $i:tt)*) => (
         impl<$($t,)*> Reader for TupleReader<($($t,)*)> where $($t: Reader,)* {
@@ -64,7 +67,6 @@ macro_rules! impl_parquet_record_tuple {
             }
             #[inline]
             fn has_next(&self) -> bool {
-                // $((self.0).$i.has_next() &&)* true
                 $(if true { (self.0).$i.has_next() } else)*
                 {
                     true

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Implement [`Record`] for [`List`].
+
 use std::{
     collections::HashMap,
     fmt::{self, Debug},
@@ -84,6 +86,7 @@ pub(super) fn parse_list<T: Record>(schema: &Type) -> Result<ListSchema<T::Schem
     )))
 }
 
+/// [`List<T>`](List) corresponds to the [List logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists).
 #[derive(Clone, Hash, Eq)]
 pub struct List<T>(pub(in super::super) Vec<T>);
 
@@ -182,10 +185,12 @@ where
 }
 
 impl<T> List<T> {
+    /// Returns an iterator over references to the elements of the List.
     pub fn iter(&self) -> slice::Iter<'_, T> {
         self.0.iter()
     }
 
+    /// Creates an iterator over the elements of the List.
     pub fn into_iter(self) -> vec::IntoIter<T> {
         self.0.into_iter()
     }

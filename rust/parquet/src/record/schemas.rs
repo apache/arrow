@@ -15,6 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Structs to represent types of fields in a Parquet schema.
+//!
+//! These structs should be sufficient to represent any valid Parquet schema.
+//!
+//! They can be created from [`Type`](crate::schema::types::Type) with [`Record::parse`],
+//! or from a Parquet schema string with [`str::parse`].
+//!
+//! They can be printed as a Parquet schema string with [`Schema::fmt`], or more
+//! conveniently [`RootSchema`](super::RootSchema) also implements [`Display`].
+//!
+//! ```
+//! # use parquet::errors::Result;
+//! use parquet::record::{RootSchema, types::Value};
+//!
+//! #
+//! # fn main() -> Result<()> {
+//! let schema_str =
+//! "message spark_schema {
+//!     REQUIRED double c;
+//!     REQUIRED int32 b (INT_32);
+//! }";
+//!
+//! let schema: RootSchema<Value> = schema_str.parse()?;
+//!
+//! let schema_str2 = schema.to_string();
+//!
+//! assert_eq!(schema_str, schema_str2);
+//! # Ok(())
+//! # }
+//! ```
+
 use std::{
     collections::HashMap,
     fmt::{self, Debug, Display},
@@ -545,12 +576,18 @@ impl Schema for DecimalSchema {
     }
 }
 
+/// Schema for the [Map logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#maps).
 #[derive(Default, Debug)]
 pub struct MapSchema<K, V>(
+    /// Schema for the keys
     pub(super) K,
+    /// Schema for the values
     pub(super) V,
+    /// Name of the repeated field; None = "key_value"
     pub(super) Option<String>,
+    /// Name of the key field; None = "key"
     pub(super) Option<String>,
+    /// Name of the value field; None = "value"
     pub(super) Option<String>,
 );
 impl<K, V> Schema for MapSchema<K, V>
@@ -606,6 +643,7 @@ where
     }
 }
 
+/// Schema for fields marked as "optional".
 #[derive(Default, Debug)]
 pub struct OptionSchema<T>(pub(super) T);
 impl<T> Schema for OptionSchema<T>
@@ -628,12 +666,29 @@ where
     }
 }
 
+/// Schema for the [List logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists) and unannotated repeated elements.
 #[derive(Default, Debug)]
-pub struct ListSchema<T>(pub(super) T, pub(super) ListSchemaType);
+pub struct ListSchema<T>(
+    /// Schema of elements
+    pub(super) T,
+    /// Kind of List
+    pub(super) ListSchemaType,
+);
 #[derive(Debug)]
 pub(super) enum ListSchemaType {
-    List(Option<String>, Option<String>),
-    ListCompat(String),
+    /// List logical type.
+    List(
+        /// Name of the repeated group; None = "list"
+        Option<String>,
+        /// Name of the element; None = "element"
+        Option<String>,
+    ),
+    /// Legacy List logical type
+    ListCompat(
+        /// Name of the element
+        String,
+    ),
+    /// Unannotated repeated field
     Repeated,
 }
 impl Default for ListSchemaType {
@@ -711,9 +766,12 @@ where
     }
 }
 
+/// Schema for groups
 #[derive(Debug)]
 pub struct GroupSchema(
+    /// Vec of schemas for the fields in the group
     pub(super) Vec<ValueSchema>,
+    /// Map of field names to index in the Vec
     pub(super) HashMap<String, usize>,
 );
 impl Schema for GroupSchema {
@@ -739,6 +797,7 @@ impl Schema for GroupSchema {
     }
 }
 
+/// Schema for values, i.e. any valid Parquet type
 #[derive(Debug)]
 pub enum ValueSchema {
     Bool(BoolSchema),
@@ -1702,6 +1761,31 @@ where
     }
 }
 
+/// A root Parquet schema.
+///
+/// It implements [`FromStr`] and [`Display`] so it can be converted from and to a Parquet
+/// schema string like so:
+///
+/// ```
+/// # use parquet::errors::Result;
+/// use parquet::record::{RootSchema, types::Value};
+///
+/// #
+/// # fn main() -> Result<()> {
+/// let schema_str =
+/// "message spark_schema {
+///     REQUIRED double c;
+///     REQUIRED int32 b (INT_32);
+/// }";
+///
+/// let schema: RootSchema<Value> = schema_str.parse()?;
+///
+/// let schema_str2 = schema.to_string();
+///
+/// assert_eq!(schema_str, schema_str2);
+/// # Ok(())
+/// # }
+/// ```
 pub struct RootSchema<T>(pub String, pub T::Schema, pub PhantomData<fn(T)>)
 where
     T: Record;
@@ -1770,6 +1854,7 @@ where
     }
 }
 
+/// Schema for a tuple. See types/tuple.rs for the implementations over lengths up to 32.
 pub struct TupleSchema<T>(pub(super) T);
 
 #[cfg(test)]

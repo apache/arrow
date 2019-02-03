@@ -31,6 +31,42 @@ use syn::{
     Error, Field, Fields, Ident, Lit, LitStr, Meta, NestedMeta, TypeParam, WhereClause,
 };
 
+/// This is a procedural macro to derive the [`Record`](parquet::record::Record) trait on
+/// structs and enums.
+///
+/// ## Example
+///
+/// ```text
+/// use parquet::record::Record;
+///
+/// #[derive(Record, Debug)]
+/// struct MyRow {
+///     id: u64,
+///     time: Timestamp,
+///     event: String,
+/// }
+/// ```
+///
+/// If the Rust field name and the Parquet field name differ, say if the latter is not an
+/// idiomatic or valid identifier in Rust, then an automatic rename can be made like so:
+///
+/// ```text
+/// #[derive(Record, Debug)]
+/// struct MyRow {
+///     #[parquet(rename = "ID")]
+///     id: u64,
+///     time: Timestamp,
+///     event: String,
+/// }
+/// ```
+///
+/// ## Implementation
+///
+/// This macro works by creating two new structs: StructSchema and StructReader
+/// (where "Struct" is the name of the user's struct). These structs implement the
+/// [`Schema`](parquet::record::Schema) and [`Reader`](parquet::record::Reader) traits
+/// respectively. [`Record`](parquet::record::Record) can then be implemented on the
+/// user's struct.
 #[proc_macro_derive(Record, attributes(parquet))]
 pub fn parquet_record(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     syn::parse::<DeriveInput>(input)
@@ -50,6 +86,7 @@ pub fn parquet_record(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         .into()
 }
 
+/// Implement on regular named or unit structs.
 fn impl_struct(
     ast: &DeriveInput,
     fields: &Punctuated<Field, Token![,]>,
@@ -85,6 +122,16 @@ fn impl_struct(
             .push(syn::parse2(quote! { <#ident as Record>::Schema: Default }).unwrap());
     }
 
+    // The struct field names
+    let field_names = fields
+        .iter()
+        .map(|field| field.ident.as_ref().unwrap())
+        .collect::<Vec<_>>();
+    let field_names1 = &field_names;
+    let field_names2 = &field_names;
+
+    // The field names specified via `#[parquet(rename = "foo")]`, falling back to struct
+    // field names
     let field_renames = fields
         .iter()
         .map(|field| {
@@ -131,16 +178,11 @@ fn impl_struct(
     let field_renames1 = &field_renames;
     let field_renames2 = &field_renames;
 
-    let field_names = fields
-        .iter()
-        .map(|field| field.ident.as_ref().unwrap())
-        .collect::<Vec<_>>();
-    let field_names1 = &field_names;
-    let field_names2 = &field_names;
-
+    // The struct field types
     let field_types = fields.iter().map(|field| &field.ty).collect::<Vec<_>>();
     let field_types1 = &field_types;
 
+    // The struct name, repeated so it can be used in a repeated block
     let name1 = iter::repeat(name).take(fields.len());
 
     let gen = quote! {
@@ -256,6 +298,7 @@ fn impl_struct(
     Ok(wrap_in_const("DESERIALIZE", name, gen))
 }
 
+/// Implement on tuple structs.
 fn impl_tuple_struct(
     ast: &DeriveInput,
     fields: &Punctuated<Field, Token![,]>,
@@ -293,6 +336,7 @@ fn impl_tuple_struct(
     unimplemented!("#[derive(Record)] on tuple structs not yet implemented")
 }
 
+/// Implement on unit variant enums.
 fn impl_enum(ast: &DeriveInput, data: &DataEnum) -> Result<TokenStream, Error> {
     if data.variants.is_empty() {
         return Err(Error::new_spanned(
@@ -311,6 +355,8 @@ fn impl_enum(ast: &DeriveInput, data: &DataEnum) -> Result<TokenStream, Error> {
 
     unimplemented!("#[derive(Record)] on enums not yet implemented")
 }
+
+// The below code adapted from https://github.com/serde-rs/serde/tree/c8e39594357bdecb9dfee889dbdfced735033469/serde_derive/src
 
 fn get_parquet_meta_items(attr: &Attribute) -> Option<Vec<NestedMeta>> {
     if attr.path.segments.len() == 1 && attr.path.segments[0].ident == "parquet" {

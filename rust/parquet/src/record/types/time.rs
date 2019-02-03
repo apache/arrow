@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Implement [`Record`] for [`Time`], [`Date`], and [`Timestamp`].
+
 use chrono::{Local, NaiveTime, TimeZone, Timelike, Utc};
 use std::{
     collections::HashMap,
@@ -43,14 +45,15 @@ const MILLIS_PER_SECOND: i64 = 1_000;
 const MICROS_PER_MILLI: i64 = 1_000;
 const NANOS_PER_MICRO: i64 = 1_000;
 
+// [`Date`] corresponds to the [Date logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#date).
 #[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Date(pub(super) i32);
 impl Date {
-    /// Number of days since the Unix epoch
+    /// Create a Date from the number of days since the Unix epoch
     pub fn from_days(days: i32) -> Self {
         Date(days)
     }
-    /// Number of days since the Unix epoch
+    /// Get the number of days since the Unix epoch
     pub fn as_days(&self) -> i32 {
         self.0
     }
@@ -111,10 +114,11 @@ impl Display for Date {
     }
 }
 
+// [`Time`] corresponds to the [Time logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#time).
 #[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Time(pub(super) u64);
 impl Time {
-    /// Number of milliseconds since midnight
+    /// Create a Time from the number of milliseconds since midnight
     pub fn from_millis(millis: u32) -> Option<Self> {
         if millis < (SECONDS_PER_DAY * MILLIS_PER_SECOND) as u32 {
             Some(Time(millis as u64 * MICROS_PER_MILLI as u64))
@@ -122,7 +126,7 @@ impl Time {
             None
         }
     }
-    /// Number of microseconds since midnight
+    /// Create a Time from the number of microseconds since midnight
     pub fn from_micros(micros: u64) -> Option<Self> {
         if micros < (SECONDS_PER_DAY * MILLIS_PER_SECOND * MICROS_PER_MILLI) as u64 {
             Some(Time(micros as u64))
@@ -130,11 +134,11 @@ impl Time {
             None
         }
     }
-    /// Number of milliseconds since midnight
+    /// Get the number of milliseconds since midnight
     pub fn as_millis(&self) -> u32 {
         (self.0 / MICROS_PER_MILLI as u64) as u32
     }
-    /// Number of microseconds since midnight
+    /// Get the number of microseconds since midnight
     pub fn as_micros(&self) -> u64 {
         self.0
     }
@@ -225,9 +229,11 @@ impl Display for Time {
     }
 }
 
+// [`Timestamp`] corresponds to the [Timestamp logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#timestamp).
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
 pub struct Timestamp(pub(super) Int96);
 impl Timestamp {
+    /// Create a Timestamp from the number of milliseconds since the Unix epoch
     pub fn from_millis(millis: i64) -> Self {
         let day: i64 = ((JULIAN_DAY_OF_EPOCH * SECONDS_PER_DAY * MILLIS_PER_SECOND)
             + millis)
@@ -244,6 +250,7 @@ impl Timestamp {
         ]))
     }
 
+    /// Create a Timestamp from the number of microseconds since the Unix epoch
     pub fn from_micros(micros: i64) -> Self {
         let day: i64 = ((JULIAN_DAY_OF_EPOCH
             * SECONDS_PER_DAY
@@ -265,6 +272,7 @@ impl Timestamp {
         ]))
     }
 
+    /// Get the number of days and nanoseconds since the Unix epoch
     pub fn as_day_nanos(&self) -> (i64, i64) {
         let day = i64::from(self.0.data()[2]);
         let nanoseconds =
@@ -272,6 +280,7 @@ impl Timestamp {
         (day, nanoseconds)
     }
 
+    /// Get the number of milliseconds since the Unix epoch
     pub fn as_millis(&self) -> Option<i64> {
         let day = i64::from(self.0.data()[2]);
         let nanoseconds =
@@ -283,6 +292,7 @@ impl Timestamp {
         )
     }
 
+    /// Get the number of microseconds since the Unix epoch
     pub fn as_micros(&self) -> Option<i64> {
         let day = i64::from(self.0.data()[2]);
         let nanoseconds =
@@ -294,6 +304,7 @@ impl Timestamp {
         )
     }
 
+    /// Get the number of nanoseconds since the Unix epoch
     pub fn as_nanos(&self) -> Option<i64> {
         let day = i64::from(self.0.data()[2]);
         let nanoseconds =

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Implement [`Record`] for `Box<T> where T: Record`.
+
 use std::collections::HashMap;
 
 use crate::{
@@ -25,6 +27,8 @@ use crate::{
     schema::types::{ColumnPath, Type},
 };
 
+// Enables Rust types to be transparently boxed, for example to avoid overflowing the
+// stack. This is marked as `default` so that `Box<[u8; N]>` can be specialized.
 default impl<T: ?Sized> Record for Box<T>
 where
     T: Record,

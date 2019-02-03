@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Utility structs and methods to help with displaying schemas
+
 use std::fmt::{self, Display, Write};
 
 use super::Schema;
@@ -39,6 +41,8 @@ where
         self.0(f)
     }
 }
+
+// The following is code adapted from https://github.com/rust-lang/rust/blob/79d8a0fcefa5134db2a94739b1d18daa01fc6e9f/src/libcore/fmt/builders.rs
 
 struct PadAdapter<T: fmt::Write> {
     fmt: T,
