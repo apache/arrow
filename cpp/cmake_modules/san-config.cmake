@@ -22,19 +22,6 @@ if (${ARROW_USE_ASAN})
           ("${COMPILER_FAMILY}" STREQUAL "gcc" AND "${COMPILER_VERSION}" VERSION_GREATER "4.8")))
     message(SEND_ERROR "Cannot use ASAN without clang or gcc >= 4.8")
   endif()
-
-  # If UBSAN is also enabled, and we're on clang < 3.5, ensure static linking is
-  # enabled. Otherwise, we run into https://llvm.org/bugs/show_bug.cgi?id=18211
-  if("${ARROW_USE_UBSAN}" AND
-      "${COMPILER_FAMILY}" STREQUAL "clang" AND
-      "${COMPILER_VERSION}" VERSION_LESS "3.5")
-    if("${ARROW_LINK}" STREQUAL "a")
-      message("Using static linking for ASAN+UBSAN build")
-      set(ARROW_LINK "s")
-    elseif("${ARROW_LINK}" STREQUAL "d")
-      message(SEND_ERROR "Cannot use dynamic linking when ASAN and UBSAN are both enabled")
-    endif()
-  endif()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -DADDRESS_SANITIZER")
 endif()
 
@@ -49,7 +36,7 @@ if (${ARROW_USE_UBSAN})
           ("${COMPILER_FAMILY}" STREQUAL "gcc" AND "${COMPILER_VERSION}" VERSION_GREATER "4.9")))
     message(SEND_ERROR "Cannot use UBSAN without clang or gcc >= 4.9")
   endif()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-sanitize=alignment,vptr -fno-sanitize-recover")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-sanitize=alignment,vptr -fno-sanitize-recover=all")
 endif ()
 
 # Flag to enable thread sanitizer (clang or gcc 4.8)
@@ -101,14 +88,7 @@ if ("${ARROW_USE_UBSAN}" OR "${ARROW_USE_ASAN}" OR "${ARROW_USE_TSAN}")
   # GCC 4.8 and 4.9 (latest as of this writing) don't allow you to specify a
   # sanitizer blacklist.
   if("${COMPILER_FAMILY}" STREQUAL "clang")
-    # Require clang 3.4 or newer; clang 3.3 has issues with TSAN and pthread
-    # symbol interception.
-    if("${COMPILER_VERSION}" VERSION_LESS "3.4")
-        message(SEND_ERROR "Must use clang 3.4 or newer to run a sanitizer build."
-        " Detected unsupported version ${COMPILER_VERSION}."
-        " Try using clang from $NATIVE_TOOLCHAIN/.")
-    endif()
-    add_definitions("-fsanitize-blacklist=${BUILD_SUPPORT_DIR}/sanitize-blacklist.txt")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize-blacklist=${BUILD_SUPPORT_DIR}/sanitize-blacklist.txt")
   else()
     message(WARNING "GCC does not support specifying a sanitizer blacklist. Known sanitizer check failures will not be suppressed.")
   endif()

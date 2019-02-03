@@ -87,7 +87,7 @@ class ARROW_EXPORT FlightClient {
   /// \brief Given a flight ticket and schema, request to be sent the
   /// stream. Returns record batch stream reader
   /// \param[in] ticket
-  /// \param[in] schema the arrow::Schema for the stream as computed by
+  /// \param[in] schema the schema of the stream data as computed by
   /// GetFlightInfo
   /// \param[out] stream the returned RecordBatchReader
   /// \return Status
@@ -96,6 +96,7 @@ class ARROW_EXPORT FlightClient {
 
   /// \brief Initiate DoPut RPC, returns FlightPutWriter interface to
   /// write. Not yet implemented
+  /// \param[in] schema the schema of the stream data
   /// \param[out] stream the created stream to write record batches to
   /// \return Status
   Status DoPut(const Schema& schema, std::unique_ptr<FlightPutWriter>* stream);

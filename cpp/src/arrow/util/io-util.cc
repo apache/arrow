@@ -113,10 +113,8 @@ static inline Status CheckFileOpResult(int ret, int errno_actual,
                                        const PlatformFilename& file_name,
                                        const char* opname) {
   if (ret == -1) {
-    std::stringstream ss;
-    ss << "Failed to " << opname << " file: " << file_name.string();
-    ss << " , error: " << std::strerror(errno_actual);
-    return Status::IOError(ss.str());
+    return Status::IOError("Failed to ", opname, " file: ", file_name.string(),
+                           " , error: ", std::strerror(errno_actual));
   }
   return Status::OK();
 }
@@ -232,10 +230,16 @@ Status CreatePipe(int fd[2]) {
 #endif
 
   if (ret == -1) {
-    return Status::IOError(std::string("Error creating pipe: ") +
-                           std::string(strerror(errno)));
+    return Status::IOError("Error creating pipe: ", std::strerror(errno));
   }
   return Status::OK();
+}
+
+static Status StatusFromErrno(const char* prefix) {
+#ifdef _WIN32
+  errno = __map_mman_error(GetLastError(), EPERM);
+#endif
+  return Status::IOError(prefix, std::strerror(errno));
 }
 
 //
@@ -251,18 +255,12 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
   HANDLE fm, h;
 
   if (!UnmapViewOfFile(addr)) {
-    errno = __map_mman_error(GetLastError(), EPERM);
-    std::stringstream ss;
-    ss << "UnmapViewOfFile failed: " << std::strerror(errno);
-    return Status::IOError(ss.str());
+    return StatusFromErrno("UnmapViewOfFile failed: ");
   }
 
   h = reinterpret_cast<HANDLE>(_get_osfhandle(fildes));
   if (h == INVALID_HANDLE_VALUE) {
-    errno = __map_mman_error(GetLastError(), EPERM);
-    std::stringstream ss;
-    ss << "cannot get file handle: " << std::strerror(errno);
-    return Status::IOError(ss.str());
+    return StatusFromErrno("Cannot get file handle: ");
   }
 
   LONG new_size_low = static_cast<LONG>(new_size & 0xFFFFFFFFL);
@@ -272,18 +270,12 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
   SetEndOfFile(h);
   fm = CreateFileMapping(h, NULL, PAGE_READWRITE, 0, 0, "");
   if (fm == NULL) {
-    errno = __map_mman_error(GetLastError(), EPERM);
-    std::stringstream ss;
-    ss << "mremap failed: " << std::strerror(errno);
-    return Status::IOError(ss.str());
+    return StatusFromErrno("CreateFileMapping failed: ");
   }
   *new_addr = MapViewOfFile(fm, FILE_MAP_WRITE, 0, 0, new_size);
   CloseHandle(fm);
   if (new_addr == NULL) {
-    errno = __map_mman_error(GetLastError(), EPERM);
-    std::stringstream ss;
-    ss << "mremap failed: " << std::strerror(errno);
-    return Status::IOError(ss.str());
+    return StatusFromErrno("MapViewOfFile failed: ");
   }
   return Status::OK();
 #else
@@ -291,26 +283,26 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
   // we have to close the mmap first, truncate the file to the new size
   // and recreate the mmap
   if (munmap(addr, old_size) == -1) {
-    std::stringstream ss;
-    ss << "munmap failed: " << std::strerror(errno);
-    return Status::IOError(ss.str());
+    return StatusFromErrno("munmap failed: ");
   }
   if (ftruncate(fildes, new_size) == -1) {
-    std::stringstream ss;
-    ss << "cannot truncate file: " << std::strerror(errno);
-    return Status::IOError(ss.str());
+    return StatusFromErrno("ftruncate failed: ");
   }
   // we set READ / WRITE flags on the new map, since we could only have
   // unlarged a RW map in the first place
   *new_addr = mmap(NULL, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fildes, 0);
+  if (*new_addr == MAP_FAILED) {
+    return StatusFromErrno("mmap failed: ");
+  }
   return Status::OK();
 #else
   if (ftruncate(fildes, new_size) == -1) {
-    std::stringstream ss;
-    ss << "file truncate failed: " << std::strerror(errno);
-    return Status::IOError(ss.str());
+    return StatusFromErrno("ftruncate failed: ");
   }
   *new_addr = mremap(addr, old_size, new_size, MREMAP_MAYMOVE);
+  if (*new_addr == MAP_FAILED) {
+    return StatusFromErrno("mremap failed: ");
+  }
   return Status::OK();
 #endif
 #endif

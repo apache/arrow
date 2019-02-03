@@ -28,6 +28,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/util/macros.h"
+
 #include "parquet/types.h"
 #include "parquet/util/macros.h"
 #include "parquet/util/visibility.h"
@@ -144,9 +146,7 @@ class PARQUET_EXPORT Node {
 
   const std::shared_ptr<ColumnPath> path() const;
 
-  // ToParquet returns an opaque void* to avoid exporting
-  // parquet::SchemaElement into the public API
-  virtual void ToParquet(void* opaque_element) const = 0;
+  virtual void ToParquet(void* element) const = 0;
 
   // Node::Visitor abstract class for walking schemas with the visitor pattern
   class Visitor {
@@ -193,8 +193,6 @@ typedef std::vector<NodePtr> NodeVector;
 // parameters)
 class PARQUET_EXPORT PrimitiveNode : public Node {
  public:
-  // FromParquet accepts an opaque void* to avoid exporting
-  // parquet::SchemaElement into the public API
   static std::unique_ptr<Node> FromParquet(const void* opaque_element, int id);
 
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
@@ -217,7 +215,7 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
   const DecimalMetadata& decimal_metadata() const { return decimal_metadata_; }
 
-  void ToParquet(void* opaque_element) const override;
+  void ToParquet(void* element) const override;
   void Visit(Visitor* visitor) override;
   void VisitConst(ConstVisitor* visitor) const override;
 
@@ -250,8 +248,6 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
 class PARQUET_EXPORT GroupNode : public Node {
  public:
-  // Like PrimitiveNode, GroupNode::FromParquet accepts an opaque void* to avoid exporting
-  // parquet::SchemaElement into the public API
   static std::unique_ptr<Node> FromParquet(const void* opaque_element, int id,
                                            const NodeVector& fields);
 
@@ -273,7 +269,7 @@ class PARQUET_EXPORT GroupNode : public Node {
 
   int field_count() const { return static_cast<int>(fields_.size()); }
 
-  void ToParquet(void* opaque_element) const override;
+  void ToParquet(void* element) const override;
   void Visit(Visitor* visitor) override;
   void VisitConst(ConstVisitor* visitor) const override;
 

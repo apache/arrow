@@ -29,6 +29,7 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.collect.ImmutableList;
@@ -78,6 +79,7 @@ public class TestBackPressure {
   /**
    * Make sure that a stream doesn't go faster than the consumer is consuming.
    */
+  @Ignore
   @Test
   public void ensureWaitUntilProceed() throws Exception {
     // request some values.

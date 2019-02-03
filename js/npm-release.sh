@@ -20,11 +20,7 @@ set -e
 
 # validate the targets pass all tests before publishing
 npm install
-# npx run-s clean:all lint create:testdata build
-# npm run test -- -t ts -u --integration
-# npm run test -- --integration
-npx run-s clean:all lint build
-npm run test
+npx gulp
 
 # publish the JS target modules to npm
 npx lerna exec -- npm publish

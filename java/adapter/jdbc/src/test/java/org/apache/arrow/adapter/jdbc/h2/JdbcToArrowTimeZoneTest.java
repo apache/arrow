@@ -32,6 +32,7 @@ import java.util.TimeZone;
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
+import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowUtils;
 import org.apache.arrow.adapter.jdbc.Table;
@@ -112,21 +113,22 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
         Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))));
     testDataSets(JdbcToArrow.sqlToArrow(
         conn.createStatement().executeQuery(table.getQuery()),
-        new JdbcToArrowConfig(
+        new JdbcToArrowConfigBuilder(
             new RootAllocator(Integer.MAX_VALUE),
-            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone())))));
+            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))).build()));
     testDataSets(JdbcToArrow.sqlToArrow(
         conn,
         table.getQuery(),
-        new JdbcToArrowConfig(
+        new JdbcToArrowConfigBuilder(
             new RootAllocator(Integer.MAX_VALUE),
-            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone())))));
+            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))).build()));
   }
 
   @Test
   public void testJdbcSchemaMetadata() throws SQLException {
     Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()));
-    JdbcToArrowConfig config = new JdbcToArrowConfig(new RootAllocator(0), calendar, true);
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), calendar).build();
+    config.setIncludeMetadata(true);
     ResultSetMetaData rsmd = conn.createStatement().executeQuery(table.getQuery()).getMetaData();
     Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(rsmd, config);
     JdbcToArrowTestHelper.assertFieldMetadataMatchesResultSetMetadata(rsmd, schema);

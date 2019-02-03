@@ -18,18 +18,24 @@
 #ifndef PARQUET_BLOOM_FILTER_H
 #define PARQUET_BLOOM_FILTER_H
 
+#include <cmath>
 #include <cstdint>
 #include <memory>
 
+#include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
-#include "parquet/exception.h"
 #include "parquet/hasher.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
+namespace arrow {
+
+class MemoryPool;
+
+}  // namespace arrow
+
 namespace parquet {
-class OutputStream;
 
 // A Bloom filter is a compact structure to indicate whether an item is not in a set or
 // probably in a set. The Bloom filter usually consists of a bit set that represents a
@@ -98,7 +104,8 @@ class PARQUET_EXPORT BloomFilter {
 
   /// Compute hash for fixed byte array value by using its plain encoding result.
   ///
-  /// @param value the value to hash.
+  /// @param value the value address.
+  /// @param len the value length.
   /// @return hash result.
   virtual uint64_t Hash(const FLBA* value, uint32_t len) const = 0;
 
@@ -154,11 +161,13 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   static uint32_t OptimalNumOfBits(uint32_t ndv, double fpp) {
     DCHECK(fpp > 0.0 && fpp < 1.0);
     const double m = -8.0 * ndv / log(1 - pow(fpp, 1.0 / 8));
-    uint32_t num_bits = static_cast<uint32_t>(m);
+    uint32_t num_bits;
 
     // Handle overflow.
     if (m < 0 || m > kMaximumBloomFilterBytes << 3) {
       num_bits = static_cast<uint32_t>(kMaximumBloomFilterBytes << 3);
+    } else {
+      num_bits = static_cast<uint32_t>(m);
     }
 
     // Round up to lower bound
@@ -183,6 +192,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   void InsertHash(uint64_t hash) override;
   void WriteTo(OutputStream* sink) const override;
   uint32_t GetBitsetSize() const override { return num_bytes_; }
+
   uint64_t Hash(int64_t value) const override { return hasher_->Hash(value); }
   uint64_t Hash(float value) const override { return hasher_->Hash(value); }
   uint64_t Hash(double value) const override { return hasher_->Hash(value); }
@@ -192,6 +202,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   uint64_t Hash(const FLBA* value, uint32_t len) const override {
     return hasher_->Hash(value, len);
   }
+
   /// Deserialize the Bloom filter from an input stream. It is used when reconstructing
   /// a Bloom filter from a parquet filter.
   ///

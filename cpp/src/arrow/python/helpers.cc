@@ -164,11 +164,10 @@ namespace {
 
 Status IntegerOverflowStatus(PyObject* obj, const std::string& overflow_message) {
   if (overflow_message.empty()) {
-    std::stringstream ss;
     std::string obj_as_stdstring;
     RETURN_NOT_OK(PyObject_StdStringStr(obj, &obj_as_stdstring));
-    ss << "Value " << obj_as_stdstring << " too large to fit in C integer type";
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Value ", obj_as_stdstring,
+                           " too large to fit in C integer type");
   } else {
     return Status::Invalid(overflow_message);
   }
@@ -299,13 +298,10 @@ bool PandasObjectIsNull(PyObject* obj) {
 }
 
 Status InvalidValue(PyObject* obj, const std::string& why) {
-  std::stringstream ss;
-
   std::string obj_as_str;
   RETURN_NOT_OK(internal::PyObject_StdStringStr(obj, &obj_as_str));
-  ss << "Could not convert " << obj_as_str << " with type " << Py_TYPE(obj)->tp_name
-     << ": " << why;
-  return Status::Invalid(ss.str());
+  return Status::Invalid("Could not convert ", obj_as_str, " with type ",
+                         Py_TYPE(obj)->tp_name, ": ", why);
 }
 
 Status UnboxIntegerAsInt64(PyObject* obj, int64_t* out) {
@@ -355,10 +351,8 @@ Status IntegerScalarToDoubleSafe(PyObject* obj, double* out) {
   constexpr int64_t kDoubleMin = -(1LL << 53);
 
   if (value < kDoubleMin || value > kDoubleMax) {
-    std::stringstream ss;
-    ss << "Integer value " << value << " is outside of the range exactly"
-       << " representable by a IEEE 754 double precision value";
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Integer value ", value, " is outside of the range exactly",
+                           " representable by a IEEE 754 double precision value");
   }
   *out = static_cast<double>(value);
   return Status::OK();
@@ -372,10 +366,8 @@ Status IntegerScalarToFloat32Safe(PyObject* obj, float* out) {
   constexpr int64_t kFloatMin = -(1LL << 24);
 
   if (value < kFloatMin || value > kFloatMax) {
-    std::stringstream ss;
-    ss << "Integer value " << value << " is outside of the range exactly"
-       << " representable by a IEEE 754 single precision value";
-    return Status::Invalid(ss.str());
+    return Status::Invalid("Integer value ", value, " is outside of the range exactly",
+                           " representable by a IEEE 754 single precision value");
   }
   *out = static_cast<float>(value);
   return Status::OK();

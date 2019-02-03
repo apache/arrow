@@ -34,6 +34,9 @@ namespace internal {
 struct ThreadPool::State {
   State() : desired_capacity_(0), please_shutdown_(false), quick_shutdown_(false) {}
 
+  // NOTE: in case locking becomes too expensive, we can investigate lock-free FIFOs
+  // such as https://github.com/cameron314/concurrentqueue
+
   std::mutex mutex_;
   std::condition_variable cv_;
   std::condition_variable cv_shutdown_;

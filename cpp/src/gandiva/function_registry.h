@@ -18,15 +18,16 @@
 #ifndef GANDIVA_FUNCTION_REGISTRY_H
 #define GANDIVA_FUNCTION_REGISTRY_H
 
-#include <unordered_map>
-
+#include <vector>
+#include "gandiva/function_registry_common.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/native_function.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 ///\brief Registry of pre-compiled IR functions.
-class FunctionRegistry {
+class GANDIVA_EXPORT FunctionRegistry {
  public:
   using iterator = const NativeFunction*;
 
@@ -37,28 +38,9 @@ class FunctionRegistry {
   iterator end() const;
 
  private:
-  struct KeyHash {
-    std::size_t operator()(const FunctionSignature* k) const { return k->Hash(); }
-  };
-
-  struct KeyEquals {
-    bool operator()(const FunctionSignature* s1, const FunctionSignature* s2) const {
-      return *s1 == *s2;
-    }
-  };
-
-  static DataTypePtr time32() { return arrow::time32(arrow::TimeUnit::MILLI); }
-
-  static DataTypePtr time64() { return arrow::time64(arrow::TimeUnit::MICRO); }
-
-  static DataTypePtr timestamp() { return arrow::timestamp(arrow::TimeUnit::MILLI); }
-
-  typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyHash,
-                             KeyEquals>
-      SignatureMap;
   static SignatureMap InitPCMap();
 
-  static NativeFunction pc_registry_[];
+  static std::vector<NativeFunction> pc_registry_;
   static SignatureMap pc_registry_map_;
 };
 

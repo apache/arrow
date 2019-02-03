@@ -15,6 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/lib/arrow/version.rb
-
+/.yardoc/
+/doc/reference/
 /pkg/

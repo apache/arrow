@@ -21,7 +21,11 @@
 
 # OutputStream ------------------------------------------------------------
 
-`arrow::io::Writable` <- R6Class("arrow::io::Writable", inherit = `arrow::Object`)
+`arrow::io::Writable` <- R6Class("arrow::io::Writable", inherit = `arrow::Object`,
+  public = list(
+    write = function(x) io___Writable__write(self, buffer(x))
+  )
+)
 
 #' @title OutputStream
 #'
@@ -38,7 +42,8 @@
 #' @name arrow__io__OutputStream
 `arrow::io::OutputStream` <- R6Class("arrow::io::OutputStream", inherit = `arrow::io::Writable`,
   public = list(
-    close = function() io___OutputStream__Close(self)
+    close = function() io___OutputStream__Close(self),
+    tell = function() io___OutputStream__Tell(self)
   )
 )
 

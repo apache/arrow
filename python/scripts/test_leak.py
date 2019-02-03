@@ -19,29 +19,49 @@
 
 import pyarrow as pa
 import numpy as np
+import pandas as pd
+import pandas.util.testing as tm
 import memory_profiler
 import gc
 import io
 
+MEGABYTE = 1 << 20
 
-def leak():
+
+def assert_does_not_leak(f, iterations=10, check_interval=1, tolerance=5):
+    gc.collect()
+    baseline = memory_profiler.memory_usage()[0]
+    for i in range(iterations):
+        f()
+        if i % check_interval == 0:
+            gc.collect()
+            usage = memory_profiler.memory_usage()[0]
+            diff = usage - baseline
+            print("{0}: {1}\r".format(i, diff), end="")
+            if diff > tolerance:
+                raise Exception("Memory increased by {0} megabytes after {1} "
+                                "iterations".format(diff, i + 1))
+    gc.collect()
+    usage = memory_profiler.memory_usage()[0]
+    diff = usage - baseline
+    print("\nMemory increased by {0} megabytes after {1} "
+          "iterations".format(diff, iterations))
+
+
+def test_leak1():
     data = [pa.array(np.concatenate([np.random.randn(100000)] * 1000))]
     table = pa.Table.from_arrays(data, ['foo'])
-    while True:
-        print('calling to_pandas')
-        print('memory_usage: {0}'.format(memory_profiler.memory_usage()))
+
+    def func():
         table.to_pandas()
-        gc.collect()
-
-# leak()
+    assert_does_not_leak(func)
 
 
-def leak2():
+def test_leak2():
     data = [pa.array(np.concatenate([np.random.randn(100000)] * 10))]
     table = pa.Table.from_arrays(data, ['foo'])
-    while True:
-        print('calling to_pandas')
-        print('memory_usage: {0}'.format(memory_profiler.memory_usage()))
+
+    def func():
         df = table.to_pandas()
 
         batch = pa.RecordBatch.from_pandas(df)
@@ -55,7 +75,27 @@ def leak2():
         reader = pa.open_file(buf_reader)
         reader.read_all()
 
-        gc.collect()
+    assert_does_not_leak(func, iterations=50, tolerance=50)
 
 
-leak2()
+def test_leak3():
+    import pyarrow.parquet as pq
+
+    df = pd.DataFrame({'a{0}'.format(i): [1, 2, 3, 4]
+                       for i in range(50)})
+    table = pa.Table.from_pandas(df, preserve_index=False)
+
+    writer = pq.ParquetWriter('leak_test_' + tm.rands(5) + '.parquet',
+                              table.schema)
+
+    def func():
+        writer.write_table(table, row_group_size=len(table))
+
+    # This does not "leak" per se but we do want to have this use as little
+    # memory as possible
+    assert_does_not_leak(func, iterations=500,
+                         check_interval=50, tolerance=20)
+
+
+if __name__ == '__main__':
+    test_leak3()

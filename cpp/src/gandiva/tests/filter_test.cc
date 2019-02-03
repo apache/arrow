@@ -50,14 +50,15 @@ TEST_F(TestFilter, TestFilterCache) {
   auto less_than_10 = TreeExprBuilder::MakeFunction("less_than", {sum_func, literal_10},
                                                     arrow::boolean());
   auto condition = TreeExprBuilder::MakeCondition(less_than_10);
+  auto configuration = TestConfiguration();
 
   std::shared_ptr<Filter> filter;
-  Status status = Filter::Make(schema, condition, &filter);
+  auto status = Filter::Make(schema, condition, configuration, &filter);
   EXPECT_TRUE(status.ok());
 
   // same schema and condition, should return the same filter as above.
   std::shared_ptr<Filter> cached_filter;
-  status = Filter::Make(schema, condition, &cached_filter);
+  status = Filter::Make(schema, condition, configuration, &cached_filter);
   EXPECT_TRUE(status.ok());
   EXPECT_TRUE(cached_filter.get() == filter.get());
 
@@ -65,7 +66,8 @@ TEST_F(TestFilter, TestFilterCache) {
   auto field2 = field("f2", int32());
   auto different_schema = arrow::schema({field0, field1, field2});
   std::shared_ptr<Filter> should_be_new_filter;
-  status = Filter::Make(different_schema, condition, &should_be_new_filter);
+  status =
+      Filter::Make(different_schema, condition, configuration, &should_be_new_filter);
   EXPECT_TRUE(status.ok());
   EXPECT_TRUE(cached_filter.get() != should_be_new_filter.get());
 
@@ -74,7 +76,7 @@ TEST_F(TestFilter, TestFilterCache) {
       "greater_than", {sum_func, literal_10}, arrow::boolean());
   auto new_condition = TreeExprBuilder::MakeCondition(greater_than_10);
   std::shared_ptr<Filter> should_be_new_filter1;
-  status = Filter::Make(schema, new_condition, &should_be_new_filter1);
+  status = Filter::Make(schema, new_condition, configuration, &should_be_new_filter1);
   EXPECT_TRUE(status.ok());
   EXPECT_TRUE(cached_filter.get() != should_be_new_filter1.get());
 }
@@ -96,7 +98,7 @@ TEST_F(TestFilter, TestSimple) {
   auto condition = TreeExprBuilder::MakeCondition(less_than_10);
 
   std::shared_ptr<Filter> filter;
-  Status status = Filter::Make(schema, condition, &filter);
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -134,7 +136,7 @@ TEST_F(TestFilter, TestSimpleCustomConfig) {
   std::shared_ptr<Configuration> config = config_builder.build();
 
   std::shared_ptr<Filter> filter;
-  Status status = Filter::Make(schema, condition, &filter);
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -168,7 +170,7 @@ TEST_F(TestFilter, TestZeroCopy) {
   auto condition = TreeExprBuilder::MakeCondition("isnotnull", {field0});
 
   std::shared_ptr<Filter> filter;
-  Status status = Filter::Make(schema, condition, &filter);
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -208,7 +210,7 @@ TEST_F(TestFilter, TestZeroCopyNegative) {
   auto condition = TreeExprBuilder::MakeCondition("isnotnull", {field0});
 
   std::shared_ptr<Filter> filter;
-  Status status = Filter::Make(schema, condition, &filter);
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -265,7 +267,7 @@ TEST_F(TestFilter, TestSimpleSVInt32) {
   auto condition = TreeExprBuilder::MakeCondition(less_than_10);
 
   std::shared_ptr<Filter> filter;
-  Status status = Filter::Make(schema, condition, &filter);
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data

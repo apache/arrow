@@ -30,12 +30,14 @@
 namespace arrow {
 
 class Buffer;
+class DictionaryMemo;
 class MemoryPool;
 class RecordBatch;
 class Schema;
 class Status;
 class Table;
 class Tensor;
+class SparseTensor;
 
 namespace io {
 
@@ -53,7 +55,9 @@ class ARROW_EXPORT RecordBatchWriter {
 
   /// \brief Write a record batch to the stream
   ///
-  /// \param allow_64bit boolean permitting field lengths exceeding INT32_MAX
+  /// \param[in] batch the record batch to write to the stream
+  /// \param[in] allow_64bit if true, allow field lengths that don't fit
+  ///    in a signed 32-bit int
   /// \return Status
   virtual Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) = 0;
 
@@ -160,6 +164,7 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
 /// \param[out] metadata_length the size of the length-prefixed flatbuffer
 /// including padding to a 64-byte boundary
 /// \param[out] body_length the size of the contiguous buffer block plus
+/// \param[in] pool the memory pool to allocate memory from
 /// \param[in] max_recursion_depth the maximum permitted nesting schema depth
 /// \param[in] allow_64bit permit field lengths exceeding INT32_MAX. May not be
 /// readable by other Arrow implementations
@@ -172,7 +177,9 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
 /// prefixed by its size, followed by each of the memory buffers in the batch
 /// written end to end (with appropriate alignment and padding):
 ///
-/// <int32: metadata size> <uint8*: metadata> <buffers>
+/// \code
+/// <int32: metadata size> <uint8*: metadata> <buffers ...>
+/// \endcode
 ///
 /// Finally, the absolute offsets (relative to the start of the output stream)
 /// to the end of the body and end of the metadata / data header (suffixed by
@@ -253,21 +260,39 @@ ARROW_EXPORT
 Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
                         std::unique_ptr<Message>* out);
 
-/// \brief Write arrow::Tensor as a contiguous message. The metadata and body
-/// are written assuming 64-byte alignment. It is the user's responsibility to
-/// ensure that the OutputStream has been aligned to a 64-byte multiple before
-/// writing the message.
+/// \brief Write arrow::Tensor as a contiguous message.
+///
+/// The metadata and body are written assuming 64-byte alignment. It is the
+/// user's responsibility to ensure that the OutputStream has been aligned
+/// to a 64-byte multiple before writing the message.
+///
+/// The message is written out as followed:
+/// \code
+/// <metadata size> <metadata> <tensor data>
+/// \endcode
 ///
 /// \param[in] tensor the Tensor to write
 /// \param[in] dst the OutputStream to write to
 /// \param[out] metadata_length the actual metadata length, including padding
 /// \param[out] body_length the acutal message body length
 /// \return Status
-///
-/// <metadata size><metadata><tensor data>
 ARROW_EXPORT
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length);
+
+// \brief EXPERIMENTAL: Write arrow::SparseTensor as a contiguous mesasge. The metadata,
+// sparse index, and body are written assuming 64-byte alignment. It is the
+// user's responsibility to ensure that the OutputStream has been aligned
+// to a 64-byte multiple before writing the message.
+//
+// \param[in] tensor the SparseTensor to write
+// \param[in] dst the OutputStream to write to
+// \param[out] metadata_length the actual metadata length, including padding
+// \param[out] body_length the actual message body length
+ARROW_EXPORT
+Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
+                         int32_t* metadata_length, int64_t* body_length,
+                         MemoryPool* pool);
 
 namespace internal {
 
@@ -288,6 +313,17 @@ struct IpcPayload {
 ARROW_EXPORT
 Status GetDictionaryPayloads(const Schema& schema,
                              std::vector<std::unique_ptr<IpcPayload>>* out);
+
+/// \brief Compute IpcPayload for the given schema
+/// \param[in] schema the Schema that is being serialized
+/// \param[in,out] pool for any required temporary memory allocations
+/// \param[in,out] dictionary_memo class for tracking dictionaries and assigning
+/// dictionary ids
+/// \param[out] out the returned IpcPayload
+/// \return Status
+ARROW_EXPORT
+Status GetSchemaPayload(const Schema& schema, MemoryPool* pool,
+                        DictionaryMemo* dictionary_memo, IpcPayload* out);
 
 /// \brief Compute IpcPayload for the given record batch
 /// \param[in] batch the RecordBatch that is being serialized

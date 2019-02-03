@@ -58,22 +58,6 @@ std::shared_ptr<arrow::Array> RecordBatch__column(
 }
 
 // [[Rcpp::export]]
-List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch) {
-  int nc = batch->num_columns();
-  int nr = batch->num_rows();
-  List tbl(nc);
-  CharacterVector names(nc);
-  for (int i = 0; i < nc; i++) {
-    tbl[i] = Array__as_vector(batch->column(i));
-    names[i] = batch->column_name(i);
-  }
-  tbl.attr("names") = names;
-  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
-  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
-  return tbl;
-}
-
-// [[Rcpp::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl) {
   CharacterVector names = tbl.names();
 

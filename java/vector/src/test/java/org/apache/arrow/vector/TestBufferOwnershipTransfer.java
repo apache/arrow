@@ -40,19 +40,18 @@ public class TestBufferOwnershipTransfer {
     IntVector v1 = new IntVector("v1", childAllocator1);
     v1.allocateNew();
     v1.setValueCount(4095);
+    long totalAllocatedMemory = childAllocator1.getAllocatedMemory();
 
     IntVector v2 = new IntVector("v2", childAllocator2);
 
     v1.makeTransferPair(v2).transfer();
 
     assertEquals(0, childAllocator1.getAllocatedMemory());
-    int expectedBitVector = 512;
-    int expectedValueVector = 4096 * 4;
-    assertEquals(expectedBitVector + expectedValueVector, childAllocator2.getAllocatedMemory());
+    assertEquals(totalAllocatedMemory, childAllocator2.getAllocatedMemory());
   }
 
   @Test
-  public void testTransferVariableidth() {
+  public void testTransferVariableWidth() {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     BufferAllocator childAllocator1 = allocator.newChildAllocator("child1", 100000, 100000);
     BufferAllocator childAllocator2 = allocator.newChildAllocator("child2", 100000, 100000);
@@ -63,15 +62,12 @@ public class TestBufferOwnershipTransfer {
     v1.setValueCount(4001);
 
     VarCharVector v2 = new VarCharVector("v2", childAllocator2);
+    long memoryBeforeTransfer = childAllocator1.getAllocatedMemory();
 
     v1.makeTransferPair(v2).transfer();
 
     assertEquals(0, childAllocator1.getAllocatedMemory());
-    int expectedValueVector = 4096 * 8;
-    int expectedOffsetVector = 4096 * 4;
-    int expectedBitVector = 512;
-    int expected = expectedBitVector + expectedOffsetVector + expectedValueVector;
-    assertEquals(expected, childAllocator2.getAllocatedMemory());
+    assertEquals(memoryBeforeTransfer, childAllocator2.getAllocatedMemory());
   }
 
   private static class Pointer<T> {

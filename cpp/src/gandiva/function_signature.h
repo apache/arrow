@@ -24,12 +24,13 @@
 
 #include "gandiva/arrow.h"
 #include "gandiva/logging.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief Signature for a function : includes the base name, input param types and
 /// output types.
-class FunctionSignature {
+class GANDIVA_EXPORT FunctionSignature {
  public:
   FunctionSignature(const std::string& base_name, const DataTypeVector& param_types,
                     DataTypePtr ret_type)
@@ -56,10 +57,22 @@ class FunctionSignature {
   std::string ToString() const;
 
  private:
-  // TODO : for some of the types, this shouldn't match type specific data. eg. for
-  // decimals, this shouldn't match precision/scale.
   bool DataTypeEquals(const DataTypePtr left, const DataTypePtr right) const {
-    return left->Equals(right);
+    if (left->id() == right->id()) {
+      switch (left->id()) {
+        case arrow::Type::DECIMAL: {
+          // For decimal types, the precision/scale isn't part of the signature.
+          auto dleft = arrow::internal::checked_cast<arrow::DecimalType*>(left.get());
+          auto dright = arrow::internal::checked_cast<arrow::DecimalType*>(right.get());
+          return (dleft != NULL) && (dright != NULL) &&
+                 (dleft->byte_width() == dright->byte_width());
+        }
+        default:
+          return left->Equals(right);
+      }
+    } else {
+      return false;
+    }
   }
 
   std::string base_name_;

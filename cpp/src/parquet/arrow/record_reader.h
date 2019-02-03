@@ -20,15 +20,15 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "arrow/memory_pool.h"
 
-#include "parquet/util/macros.h"
 #include "parquet/util/memory.h"
 
 namespace arrow {
 
-class ArrayBuilder;
+class Array;
 
 }  // namespace arrow
 
@@ -77,7 +77,6 @@ class RecordReader {
 
   std::shared_ptr<ResizableBuffer> ReleaseValues();
   std::shared_ptr<ResizableBuffer> ReleaseIsValid();
-  ::arrow::ArrayBuilder* builder();
 
   /// \brief Number of values written including nulls (if any)
   int64_t values_written() const;
@@ -105,6 +104,9 @@ class RecordReader {
   void SetPageReader(std::unique_ptr<PageReader> reader);
 
   void DebugPrintState();
+
+  // For BYTE_ARRAY, FIXED_LEN_BYTE_ARRAY types that may have chunked output
+  std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks();
 
  private:
   std::unique_ptr<RecordReaderImpl> impl_;

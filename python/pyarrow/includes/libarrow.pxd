@@ -23,9 +23,15 @@ cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
     cdef cppclass CKeyValueMetadata" arrow::KeyValueMetadata":
         CKeyValueMetadata()
         CKeyValueMetadata(const unordered_map[c_string, c_string]&)
+        CKeyValueMetadata(const vector[c_string]& keys,
+                          const vector[c_string]& values)
+
+        void reserve(int64_t n)
+        int64_t size() const
+        c_string key(int64_t i) const
+        c_string value(int64_t i) const
 
         c_bool Equals(const CKeyValueMetadata& other)
-
         void Append(const c_string& key, const c_string& value)
         void ToUnorderedMap(unordered_map[c_string, c_string]*) const
 
@@ -270,8 +276,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CStructType" arrow::StructType"(CDataType):
         CStructType(const vector[shared_ptr[CField]]& fields)
 
-        shared_ptr[CField] GetChildByName(const c_string& name)
-        int GetChildIndex(const c_string& name)
+        shared_ptr[CField] GetFieldByName(const c_string& name)
+        int GetFieldIndex(const c_string& name)
 
     cdef cppclass CUnionType" arrow::UnionType"(CDataType):
         CUnionType(const vector[shared_ptr[CField]]& fields,
@@ -691,6 +697,22 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CStatus Make(CCodec* codec, shared_ptr[OutputStream] raw,
                      shared_ptr[CCompressedOutputStream]* out)
 
+    cdef cppclass CBufferedInputStream \
+            " arrow::io::BufferedInputStream"(InputStream):
+
+        @staticmethod
+        CStatus Create(int64_t buffer_size, CMemoryPool* pool,
+                       shared_ptr[InputStream] raw,
+                       shared_ptr[CBufferedInputStream]* out)
+
+    cdef cppclass CBufferedOutputStream \
+            " arrow::io::BufferedOutputStream"(OutputStream):
+
+        @staticmethod
+        CStatus Create(int64_t buffer_size, CMemoryPool* pool,
+                       shared_ptr[OutputStream] raw,
+                       shared_ptr[CBufferedOutputStream]* out)
+
     # ----------------------------------------------------------------------
     # HDFS
 
@@ -948,6 +970,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
     cdef cppclass CCSVConvertOptions" arrow::csv::ConvertOptions":
         c_bool check_utf8
         unordered_map[c_string, shared_ptr[CDataType]] column_types
+        vector[c_string] null_values
 
         @staticmethod
         CCSVConvertOptions Defaults()
@@ -1057,20 +1080,20 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus TensorToNdarray(const shared_ptr[CTensor]& tensor, object base,
                             PyObject** out)
 
-    CStatus ConvertArrayToPandas(PandasOptions options,
+    CStatus ConvertArrayToPandas(const PandasOptions& options,
                                  const shared_ptr[CArray]& arr,
                                  object py_ref, PyObject** out)
 
-    CStatus ConvertChunkedArrayToPandas(PandasOptions options,
+    CStatus ConvertChunkedArrayToPandas(const PandasOptions& options,
                                         const shared_ptr[CChunkedArray]& arr,
                                         object py_ref, PyObject** out)
 
-    CStatus ConvertColumnToPandas(PandasOptions options,
+    CStatus ConvertColumnToPandas(const PandasOptions& options,
                                   const shared_ptr[CColumn]& arr,
                                   object py_ref, PyObject** out)
 
     CStatus ConvertTableToPandas(
-        PandasOptions options,
+        const PandasOptions& options,
         const unordered_set[c_string]& categorical_columns,
         const shared_ptr[CTable]& table,
         CMemoryPool* pool,
@@ -1103,6 +1126,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         c_bool integer_object_nulls
         c_bool date_as_object
         c_bool use_threads
+        c_bool deduplicate_objects
 
 cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
 

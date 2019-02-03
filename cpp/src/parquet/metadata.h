@@ -18,22 +18,31 @@
 #ifndef PARQUET_FILE_METADATA_H
 #define PARQUET_FILE_METADATA_H
 
+#include <cstdint>
 #include <memory>
-#include <set>
 #include <string>
 #include <vector>
 
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/macros.h"
 
 #include "parquet/properties.h"
-#include "parquet/schema.h"
-#include "parquet/statistics.h"
 #include "parquet/types.h"
-#include "parquet/util/macros.h"
-#include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
 namespace parquet {
+
+class ColumnDescriptor;
+class EncodedStatistics;
+class OutputStream;
+class RowGroupStatistics;
+class SchemaDescriptor;
+
+namespace schema {
+
+class ColumnPath;
+
+}  // namespace schema
 
 using KeyValueMetadata = ::arrow::KeyValueMetadata;
 
@@ -43,6 +52,7 @@ class PARQUET_EXPORT ApplicationVersion {
   static const ApplicationVersion& PARQUET_251_FIXED_VERSION();
   static const ApplicationVersion& PARQUET_816_FIXED_VERSION();
   static const ApplicationVersion& PARQUET_CPP_FIXED_STATS_VERSION();
+  static const ApplicationVersion& PARQUET_MR_FIXED_STATS_VERSION();
   // Regular expression for the version format
   // major . minor . patch unknown - prerelease.x + build info
   // Eg: 1.5.0ab-cdh5.5.0+cd
@@ -93,7 +103,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
  public:
   // API convenience to get a MetaData accessor
   static std::unique_ptr<ColumnChunkMetaData> Make(
-      const uint8_t* metadata, const ColumnDescriptor* descr,
+      const void* metadata, const ColumnDescriptor* descr,
       const ApplicationVersion* writer_version = NULLPTR);
 
   ~ColumnChunkMetaData();
@@ -119,7 +129,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   int64_t total_uncompressed_size() const;
 
  private:
-  explicit ColumnChunkMetaData(const uint8_t* metadata, const ColumnDescriptor* descr,
+  explicit ColumnChunkMetaData(const void* metadata, const ColumnDescriptor* descr,
                                const ApplicationVersion* writer_version = NULLPTR);
   // PIMPL Idiom
   class ColumnChunkMetaDataImpl;
@@ -130,7 +140,7 @@ class PARQUET_EXPORT RowGroupMetaData {
  public:
   // API convenience to get a MetaData accessor
   static std::unique_ptr<RowGroupMetaData> Make(
-      const uint8_t* metadata, const SchemaDescriptor* schema,
+      const void* metadata, const SchemaDescriptor* schema,
       const ApplicationVersion* writer_version = NULLPTR);
 
   ~RowGroupMetaData();
@@ -144,7 +154,7 @@ class PARQUET_EXPORT RowGroupMetaData {
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) const;
 
  private:
-  explicit RowGroupMetaData(const uint8_t* metadata, const SchemaDescriptor* schema,
+  explicit RowGroupMetaData(const void* metadata, const SchemaDescriptor* schema,
                             const ApplicationVersion* writer_version = NULLPTR);
   // PIMPL Idiom
   class RowGroupMetaDataImpl;
@@ -156,7 +166,7 @@ class FileMetaDataBuilder;
 class PARQUET_EXPORT FileMetaData {
  public:
   // API convenience to get a MetaData accessor
-  static std::shared_ptr<FileMetaData> Make(const uint8_t* serialized_metadata,
+  static std::shared_ptr<FileMetaData> Make(const void* serialized_metadata,
                                             uint32_t* metadata_len);
 
   ~FileMetaData();
@@ -182,7 +192,7 @@ class PARQUET_EXPORT FileMetaData {
 
  private:
   friend FileMetaDataBuilder;
-  explicit FileMetaData(const uint8_t* serialized_metadata, uint32_t* metadata_len);
+  explicit FileMetaData(const void* serialized_metadata, uint32_t* metadata_len);
 
   // PIMPL Idiom
   FileMetaData();
@@ -199,7 +209,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
 
   static std::unique_ptr<ColumnChunkMetaDataBuilder> Make(
       const std::shared_ptr<WriterProperties>& props, const ColumnDescriptor* column,
-      uint8_t* contents);
+      void* contents);
 
   ~ColumnChunkMetaDataBuilder();
 
@@ -217,7 +227,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
               bool dictionary_fallback);
 
   // The metadata contents, suitable for passing to ColumnChunkMetaData::Make
-  const uint8_t* contents() const;
+  const void* contents() const;
 
   // For writing metadata at end of column chunk
   void WriteTo(OutputStream* sink);
@@ -226,7 +236,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   explicit ColumnChunkMetaDataBuilder(const std::shared_ptr<WriterProperties>& props,
                                       const ColumnDescriptor* column);
   explicit ColumnChunkMetaDataBuilder(const std::shared_ptr<WriterProperties>& props,
-                                      const ColumnDescriptor* column, uint8_t* contents);
+                                      const ColumnDescriptor* column, void* contents);
   // PIMPL Idiom
   class ColumnChunkMetaDataBuilderImpl;
   std::unique_ptr<ColumnChunkMetaDataBuilderImpl> impl_;
@@ -237,7 +247,7 @@ class PARQUET_EXPORT RowGroupMetaDataBuilder {
   // API convenience to get a MetaData reader
   static std::unique_ptr<RowGroupMetaDataBuilder> Make(
       const std::shared_ptr<WriterProperties>& props, const SchemaDescriptor* schema_,
-      uint8_t* contents);
+      void* contents);
 
   ~RowGroupMetaDataBuilder();
 
@@ -253,7 +263,7 @@ class PARQUET_EXPORT RowGroupMetaDataBuilder {
 
  private:
   explicit RowGroupMetaDataBuilder(const std::shared_ptr<WriterProperties>& props,
-                                   const SchemaDescriptor* schema_, uint8_t* contents);
+                                   const SchemaDescriptor* schema_, void* contents);
   // PIMPL Idiom
   class RowGroupMetaDataBuilderImpl;
   std::unique_ptr<RowGroupMetaDataBuilderImpl> impl_;
@@ -268,9 +278,10 @@ class PARQUET_EXPORT FileMetaDataBuilder {
 
   ~FileMetaDataBuilder();
 
+  // The prior RowGroupMetaDataBuilder (if any) is destroyed
   RowGroupMetaDataBuilder* AppendRowGroup();
 
-  // commit the metadata
+  // Complete the Thrift structure
   std::unique_ptr<FileMetaData> Finish();
 
  private:
@@ -281,6 +292,8 @@ class PARQUET_EXPORT FileMetaDataBuilder {
   class FileMetaDataBuilderImpl;
   std::unique_ptr<FileMetaDataBuilderImpl> impl_;
 };
+
+PARQUET_EXPORT std::string ParquetVersionToString(ParquetVersion::type ver);
 
 }  // namespace parquet
 

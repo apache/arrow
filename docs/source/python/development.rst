@@ -86,14 +86,9 @@ On Linux and OSX:
         --file arrow/ci/conda_env_python.yml \
         python=3.6
 
-On Windows:
+   conda activate pyarrow-dev
 
-.. code-block:: shell
-
-    conda create -y -n pyarrow-dev -c conda-forge ^
-        --file arrow\ci\conda_env_cpp.yml ^
-        --file arrow\ci\conda_env_python.yml ^
-        python=3.6
+For Windows, see the `Developing on Windows`_ section below.
 
 We need to set some environment variables to let Arrow's build system know
 about our build toolchain:
@@ -101,13 +96,20 @@ about our build toolchain:
 .. code-block:: shell
 
    export ARROW_BUILD_TYPE=release
-
    export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
    export ARROW_HOME=$CONDA_PREFIX
    export PARQUET_HOME=$CONDA_PREFIX
+   export BOOST_HOME=$CONDA_PREFIX
 
 Using pip
 ~~~~~~~~~
+
+.. warning::
+
+   If you installed Python using the Anaconda distribution or `Miniconda
+   <https://conda.io/miniconda.html>`_, you cannot currently use ``virtualenv``
+   to manage your development. Please follow the conda-based development
+   instructions instead.
 
 On macOS, install all dependencies through Homebrew that are required for
 building Arrow C++:
@@ -125,8 +127,12 @@ dependencies will be automatically built by Arrow's third-party toolchain.
                           libboost-filesystem-dev \
                           libboost-system-dev \
                           libboost-regex-dev \
+                          python-dev \
+                          autoconf \
                           flex \
                           bison
+
+If you are building Arrow for Python 3, install ``python3-dev`` instead of ``python-dev``.
 
 On Arch Linux, you can get these dependencies via pacman.
 
@@ -185,6 +191,12 @@ Now build and install the Arrow C++ libraries:
 
 If you don't want to build and install the Plasma in-memory object store,
 you can omit the ``-DARROW_PLASMA=on`` flag.
+Also, if multiple versions of Python are installed in your environment,
+you may have to pass additional parameters to cmake so that
+it can find the right executable, headers and libraries.
+For example, specifying `-DPYTHON_EXECUTABLE=$VIRTUAL_ENV/bin/python`
+(assuming that you're in virtualenv) enables cmake to choose
+the python executable which you are using.
 
 .. note::
 
@@ -197,9 +209,10 @@ Now, build pyarrow:
 
 .. code-block:: shell
 
-   cd arrow/python
+   pushd arrow/python
    python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
           --with-parquet --with-plasma --inplace
+   popd
 
 If you did not build with plasma, you can omit ``--with-plasma``.
 
@@ -227,6 +240,7 @@ libraries), one can set ``--bundle-arrow-cpp``:
 
 .. code-block:: shell
 
+   pip install wheel  # if not installed
    python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
           --with-parquet --with-plasma --bundle-arrow-cpp bdist_wheel
 
@@ -287,11 +301,11 @@ First, starting from fresh clones of Apache Arrow:
 
 .. code-block:: shell
 
-   conda create -y -q -n pyarrow-dev ^
-         python=3.6 numpy six setuptools cython pandas pytest ^
-         cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib ^
-         gflags brotli lz4-c zstd -c conda-forge
-   activate pyarrow-dev
+    conda create -y -n pyarrow-dev -c conda-forge ^
+        --file arrow\ci\conda_env_cpp.yml ^
+        --file arrow\ci\conda_env_python.yml ^
+        python=3.7
+   conda activate pyarrow-dev
 
 Now, we build and install Arrow C++ libraries
 
@@ -341,3 +355,8 @@ Getting ``python-test.exe`` to run is a bit tricky because your
    set PYTHONHOME=%CONDA_PREFIX%
 
 Now ``python-test.exe`` or simply ``ctest`` (to run all tests) should work.
+
+Building the Documentation
+==========================
+
+See :ref:`building-docs` for instructions to build the HTML documentation.

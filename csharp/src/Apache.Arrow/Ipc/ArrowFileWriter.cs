@@ -16,7 +16,6 @@
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,6 +36,8 @@ namespace Apache.Arrow.Ipc
             {
                 throw new ArgumentException("stream must be writable", nameof(stream));
             }
+
+            // TODO: Remove seek requirement
 
             if (!stream.CanSeek)
             {
@@ -66,7 +67,7 @@ namespace Apache.Arrow.Ipc
             RecordBatchBlocks.Add(block);
         }
 
-        public async Task CloseAsync(CancellationToken cancellationToken = default)
+        public async Task WriteFooterAsync(CancellationToken cancellationToken = default)
         {
             if (!HasWrittenFooter)
             {
@@ -75,19 +76,6 @@ namespace Apache.Arrow.Ipc
             }
 
             await BaseStream.FlushAsync(cancellationToken);
-        }
-
-        public override void Dispose()
-        {
-            try
-            {
-                CloseAsync().GetAwaiter().GetResult();
-            }
-            catch(Exception ex)
-            {
-                // NOTE: Dispose shouldn't throw.
-                Debug.WriteLine(ex);
-            }
         }
 
         private async Task WriteHeaderAsync(CancellationToken cancellationToken)
@@ -144,10 +132,12 @@ namespace Apache.Arrow.Ipc
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            Buffers.RentReturn(4, (buffer) =>
+            await Buffers.RentReturnAsync(4, async (buffer) =>
             {
                 BinaryPrimitives.WriteInt32LittleEndian(buffer,
                     Convert.ToInt32(BaseStream.Position - offset));
+
+                await BaseStream.WriteAsync(buffer, 0, 4, cancellationToken);
             });
 
             // Write magic

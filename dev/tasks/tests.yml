@@ -19,9 +19,11 @@ groups:
   # these groups are just for convenience
   # makes it easier to submit related tasks
   docker:
+    - docker-r
     - docker-rust
     - docker-cpp
     - docker-cpp-alpine
+    - docker-cpp-cmake32
     - docker-c_glib
     - docker-go
     - docker-python-2.7
@@ -31,19 +33,25 @@ groups:
     - docker-python-3.6-alpine
     - docker-java
     - docker-js
+    - docker-docs
     - docker-lint
     - docker-iwyu
     - docker-clang-format
-    - docker-hdfs-integration
     - docker-pandas-master
+    - docker-dask-integration
+    - docker-hdfs-integration
+    - docker-spark-integration
 
   integration:
-    - docker-hdfs-integration
     - docker-pandas-master
+    - docker-dask-integration
+    - docker-hdfs-integration
+    - docker-spark-integration
 
   cpp-python:
     - docker-cpp
     - docker-cpp-alpine
+    - docker-cpp-cmake32
     - docker-python-2.7
     - docker-python-2.7-alpine
     - docker-python-3.6
@@ -61,6 +69,15 @@ tasks:
   #     - pyarrow-{version}-py36(h[a-z0-9]+)_0-linux-64.tar.bz2
 
   ############################## Language containers #########################
+
+  docker-r:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp
+        - docker-compose build r
+        - docker-compose run r
 
   docker-rust:
     platform: linux
@@ -85,6 +102,14 @@ tasks:
       commands:
         - docker-compose build cpp-alpine
         - docker-compose run cpp-alpine
+
+  docker-cpp-cmake32:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp-cmake32
+        - docker-compose run cpp-cmake32
 
   docker-c_glib:
     platform: linux
@@ -174,6 +199,20 @@ tasks:
         - docker-compose build python-alpine
         - docker-compose run python-alpine
 
+  ###################### Documentation building tests #########################
+
+  docker-docs:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build docs
+        - docker-compose run docs
+
   ############################## Linter tests #################################
 
   docker-lint:
@@ -214,13 +253,41 @@ tasks:
 
   ############################## Integration tests ############################
 
+  docker-dask-integration:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build dask-integration
+        - docker-compose run dask-integration
+
   docker-hdfs-integration:
     platform: linux
     template: docker-tests/travis.linux.yml
     params:
+      environment:
+        PYTHON_VERSION: 3.6
       commands:
+        - docker-compose build cpp
+        - docker-compose build python
         - docker-compose build hdfs-integration
         - docker-compose run hdfs-integration
+
+  docker-spark-integration:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build spark-integration
+        - docker-compose run spark-integration
 
   docker-pandas-master:
     platform: linux

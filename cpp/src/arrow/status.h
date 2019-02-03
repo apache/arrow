@@ -25,31 +25,42 @@
 #endif
 
 #include "arrow/util/macros.h"
+#include "arrow/util/string_builder.h"
 #include "arrow/util/visibility.h"
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
-#define ARROW_RETURN_NOT_OK(s)                                                      \
-  do {                                                                              \
-    ::arrow::Status _s = (s);                                                       \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) {                                            \
-      std::stringstream ss;                                                         \
-      ss << __FILE__ << ":" << __LINE__ << " code: " << #s << "\n" << _s.message(); \
-      return Status(_s.code(), ss.str());                                           \
-    }                                                                               \
+/// \brief Return with given status if condition is met.
+#define ARROW_RETURN_IF_(condition, status, expr)                                     \
+  do {                                                                                \
+    if (ARROW_PREDICT_FALSE(condition)) {                                             \
+      ::arrow::Status _s = (status);                                                  \
+      std::stringstream ss;                                                           \
+      ss << _s.message() << "\n" << __FILE__ << ":" << __LINE__ << " code: " << expr; \
+      return ::arrow::Status(_s.code(), ss.str());                                    \
+    }                                                                                 \
   } while (0)
 
 #else
 
-#define ARROW_RETURN_NOT_OK(s)           \
-  do {                                   \
-    ::arrow::Status _s = (s);            \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) { \
-      return _s;                         \
-    }                                    \
-  } while (false)
+#define ARROW_RETURN_IF_(condition, status, _) \
+  do {                                         \
+    if (ARROW_PREDICT_FALSE(condition)) {      \
+      return (status);                         \
+    }                                          \
+  } while (0)
 
 #endif  // ARROW_EXTRA_ERROR_CONTEXT
+
+#define ARROW_RETURN_IF(condition, status) \
+  ARROW_RETURN_IF_(condition, status, ARROW_STRINGIFY(status))
+
+/// \brief Propagate any non-successful Status to the caller
+#define ARROW_RETURN_NOT_OK(status)                            \
+  do {                                                         \
+    ::arrow::Status __s = (status);                            \
+    ARROW_RETURN_IF_(!__s.ok(), __s, ARROW_STRINGIFY(status)); \
+  } while (false)
 
 #define RETURN_NOT_OK_ELSE(s, else_) \
   do {                               \
@@ -59,17 +70,6 @@
       return _s;                     \
     }                                \
   } while (false)
-
-#define ARROW_RETURN_FAILURE_IF_FALSE(condition, status)                                 \
-  do {                                                                                   \
-    if (!(condition)) {                                                                  \
-      Status _status = (status);                                                         \
-      std::stringstream ss;                                                              \
-      ss << __FILE__ << ":" << __LINE__ << " code: " << _status.CodeAsString() << " \n " \
-         << _status.message();                                                           \
-      return Status(_status.code(), ss.str());                                           \
-    }                                                                                    \
-  } while (0)
 
 // This is an internal-use macro and should not be used in public headers.
 #ifndef RETURN_NOT_OK
@@ -107,10 +107,18 @@ enum class StatusCode : char {
 class ARROW_MUST_USE_RESULT ARROW_EXPORT Status;
 #endif
 
+/// \brief Status outcome object (success or error)
+///
+/// The Status object is an object holding the outcome of an operation.
+/// The outcome is represented as a StatusCode, either success
+/// (StatusCode::OK) or an error (any other of the StatusCode enumeration values).
+///
+/// Additionally, if an error occurred, a specific error message is generally
+/// attached.
 class ARROW_EXPORT Status {
  public:
   // Create a success status.
-  Status() noexcept : state_(NULL) {}
+  Status() noexcept : state_(NULLPTR) {}
   ~Status() noexcept {
     // ARROW-2400: On certain compilers, splitting off the slow path improves
     // performance significantly.
@@ -122,123 +130,174 @@ class ARROW_EXPORT Status {
   Status(StatusCode code, const std::string& msg);
 
   // Copy the specified status.
-  Status(const Status& s);
-  Status& operator=(const Status& s);
+  inline Status(const Status& s);
+  inline Status& operator=(const Status& s);
 
   // Move the specified status.
   inline Status(Status&& s) noexcept;
-  Status& operator=(Status&& s) noexcept;
+  inline Status& operator=(Status&& s) noexcept;
 
   // AND the statuses.
-  Status operator&(const Status& s) const noexcept;
-  Status operator&(Status&& s) const noexcept;
-  Status& operator&=(const Status& s) noexcept;
-  Status& operator&=(Status&& s) noexcept;
+  inline Status operator&(const Status& s) const noexcept;
+  inline Status operator&(Status&& s) const noexcept;
+  inline Status& operator&=(const Status& s) noexcept;
+  inline Status& operator&=(Status&& s) noexcept;
 
-  // Return a success status.
+  /// Return a success status
   static Status OK() { return Status(); }
 
-  // Return a success status with extra info
-  static Status OK(const std::string& msg) { return Status(StatusCode::OK, msg); }
-
-  // Return error status of an appropriate type.
-  static Status OutOfMemory(const std::string& msg) {
-    return Status(StatusCode::OutOfMemory, msg);
+  /// Return a success status with a specific message
+  template <typename... Args>
+  static Status OK(Args&&... args) {
+    return Status(StatusCode::OK, util::StringBuilder(std::forward<Args>(args)...));
   }
 
-  static Status KeyError(const std::string& msg) {
-    return Status(StatusCode::KeyError, msg);
+  /// Return an error status for out-of-memory conditions
+  template <typename... Args>
+  static Status OutOfMemory(Args&&... args) {
+    return Status(StatusCode::OutOfMemory,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
-  static Status TypeError(const std::string& msg) {
-    return Status(StatusCode::TypeError, msg);
+  /// Return an error status for failed key lookups (e.g. column name in a table)
+  template <typename... Args>
+  static Status KeyError(Args&&... args) {
+    return Status(StatusCode::KeyError, util::StringBuilder(std::forward<Args>(args)...));
   }
 
-  static Status UnknownError(const std::string& msg) {
-    return Status(StatusCode::UnknownError, msg);
+  /// Return an error status for type errors (such as mismatching data types)
+  template <typename... Args>
+  static Status TypeError(Args&&... args) {
+    return Status(StatusCode::TypeError,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
-  static Status NotImplemented(const std::string& msg) {
-    return Status(StatusCode::NotImplemented, msg);
+  /// Return an error status for unknown errors
+  template <typename... Args>
+  static Status UnknownError(Args&&... args) {
+    return Status(StatusCode::UnknownError,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
-  static Status Invalid(const std::string& msg) {
-    return Status(StatusCode::Invalid, msg);
+  /// Return an error status when an operation or a combination of operation and
+  /// data types is unimplemented
+  template <typename... Args>
+  static Status NotImplemented(Args&&... args) {
+    return Status(StatusCode::NotImplemented,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
-  static Status CapacityError(const std::string& msg) {
-    return Status(StatusCode::CapacityError, msg);
+  /// Return an error status for invalid data (for example a string that fails parsing)
+  template <typename... Args>
+  static Status Invalid(Args&&... args) {
+    return Status(StatusCode::Invalid, util::StringBuilder(std::forward<Args>(args)...));
   }
 
-  static Status IOError(const std::string& msg) {
-    return Status(StatusCode::IOError, msg);
+  /// Return an error status when a container's capacity would exceed its limits
+  template <typename... Args>
+  static Status CapacityError(Args&&... args) {
+    return Status(StatusCode::CapacityError,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
-  static Status SerializationError(const std::string& msg) {
-    return Status(StatusCode::SerializationError, msg);
+  /// Return an error status when some IO-related operation failed
+  template <typename... Args>
+  static Status IOError(Args&&... args) {
+    return Status(StatusCode::IOError, util::StringBuilder(std::forward<Args>(args)...));
   }
 
-  static Status RError(const std::string& msg) { return Status(StatusCode::RError, msg); }
-
-  static Status PlasmaObjectExists(const std::string& msg) {
-    return Status(StatusCode::PlasmaObjectExists, msg);
+  /// Return an error status when some (de)serialization operation failed
+  template <typename... Args>
+  static Status SerializationError(Args&&... args) {
+    return Status(StatusCode::SerializationError,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
-  static Status PlasmaObjectNonexistent(const std::string& msg) {
-    return Status(StatusCode::PlasmaObjectNonexistent, msg);
+  template <typename... Args>
+  static Status RError(Args&&... args) {
+    return Status(StatusCode::RError, util::StringBuilder(std::forward<Args>(args)...));
   }
 
-  static Status PlasmaObjectAlreadySealed(const std::string& msg) {
-    return Status(StatusCode::PlasmaObjectAlreadySealed, msg);
+  template <typename... Args>
+  static Status PlasmaObjectExists(Args&&... args) {
+    return Status(StatusCode::PlasmaObjectExists,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
-  static Status PlasmaStoreFull(const std::string& msg) {
-    return Status(StatusCode::PlasmaStoreFull, msg);
+  template <typename... Args>
+  static Status PlasmaObjectNonexistent(Args&&... args) {
+    return Status(StatusCode::PlasmaObjectNonexistent,
+                  util::StringBuilder(std::forward<Args>(args)...));
+  }
+
+  template <typename... Args>
+  static Status PlasmaObjectAlreadySealed(Args&&... args) {
+    return Status(StatusCode::PlasmaObjectAlreadySealed,
+                  util::StringBuilder(std::forward<Args>(args)...));
+  }
+
+  template <typename... Args>
+  static Status PlasmaStoreFull(Args&&... args) {
+    return Status(StatusCode::PlasmaStoreFull,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
   static Status StillExecuting() { return Status(StatusCode::StillExecuting, ""); }
 
-  // Return error status of an appropriate type.
-  static Status CodeGenError(const std::string& msg) {
-    return Status(StatusCode::CodeGenError, msg);
+  template <typename... Args>
+  static Status CodeGenError(Args&&... args) {
+    return Status(StatusCode::CodeGenError,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
-  static Status ExpressionValidationError(const std::string& msg) {
-    return Status(StatusCode::ExpressionValidationError, msg);
+  template <typename... Args>
+  static Status ExpressionValidationError(Args&&... args) {
+    return Status(StatusCode::ExpressionValidationError,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
-  static Status ExecutionError(const std::string& msg) {
-    return Status(StatusCode::ExecutionError, msg);
+  template <typename... Args>
+  static Status ExecutionError(Args&&... args) {
+    return Status(StatusCode::ExecutionError,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
-  // Returns true iff the status indicates success.
-  bool ok() const { return (state_ == NULL); }
+  /// Return true iff the status indicates success.
+  bool ok() const { return (state_ == NULLPTR); }
 
+  /// Return true iff the status indicates an out-of-memory error.
   bool IsOutOfMemory() const { return code() == StatusCode::OutOfMemory; }
+  /// Return true iff the status indicates a key lookup error.
   bool IsKeyError() const { return code() == StatusCode::KeyError; }
+  /// Return true iff the status indicates invalid data.
   bool IsInvalid() const { return code() == StatusCode::Invalid; }
+  /// Return true iff the status indicates an IO-related failure.
   bool IsIOError() const { return code() == StatusCode::IOError; }
+  /// Return true iff the status indicates a container reaching capacity limits.
   bool IsCapacityError() const { return code() == StatusCode::CapacityError; }
+  /// Return true iff the status indicates a type error.
   bool IsTypeError() const { return code() == StatusCode::TypeError; }
+  /// Return true iff the status indicates an unknown error.
   bool IsUnknownError() const { return code() == StatusCode::UnknownError; }
+  /// Return true iff the status indicates an unimplemented operation.
   bool IsNotImplemented() const { return code() == StatusCode::NotImplemented; }
-  // An object could not be serialized or deserialized.
+  /// Return true iff the status indicates a (de)serialization failure
   bool IsSerializationError() const { return code() == StatusCode::SerializationError; }
-  // An error from R
+  /// Return true iff the status indicates a R-originated error.
   bool IsRError() const { return code() == StatusCode::RError; }
-  // An error is propagated from a nested Python function.
+  /// Return true iff the status indicates a Python-originated error.
   bool IsPythonError() const { return code() == StatusCode::PythonError; }
-  // An object with this object ID already exists in the plasma store.
+  /// Return true iff the status indicates an already existing Plasma object.
   bool IsPlasmaObjectExists() const { return code() == StatusCode::PlasmaObjectExists; }
-  // An object was requested that doesn't exist in the plasma store.
+  /// Return true iff the status indicates a non-existent Plasma object.
   bool IsPlasmaObjectNonexistent() const {
     return code() == StatusCode::PlasmaObjectNonexistent;
   }
-  // An already sealed object is tried to be sealed again.
+  /// Return true iff the status indicates an already sealed Plasma object.
   bool IsPlasmaObjectAlreadySealed() const {
     return code() == StatusCode::PlasmaObjectAlreadySealed;
   }
-  // An object is too large to fit into the plasma store.
+  /// Return true iff the status indicates the Plasma store reached its capacity limit.
   bool IsPlasmaStoreFull() const { return code() == StatusCode::PlasmaStoreFull; }
 
   bool IsStillExecuting() const { return code() == StatusCode::StillExecuting; }
@@ -251,16 +310,19 @@ class ARROW_EXPORT Status {
 
   bool IsExecutionError() const { return code() == StatusCode::ExecutionError; }
 
-  // Return a string representation of this status suitable for printing.
-  // Returns the string "OK" for success.
+  /// \brief Return a string representation of this status suitable for printing.
+  ///
+  /// The string "OK" is returned for success.
   std::string ToString() const;
 
-  // Return a string representation of the status code, without the message
-  // text or posix code information.
+  /// \brief Return a string representation of the status code, without the message
+  /// text or POSIX code information.
   std::string CodeAsString() const;
 
+  /// \brief Return the StatusCode value attached to this status.
   StatusCode code() const { return ok() ? StatusCode::OK : state_->code; }
 
+  /// \brief Return the specific error message attached to this status.
   std::string message() const { return ok() ? "" : state_->msg; }
 
  private:
@@ -274,10 +336,10 @@ class ARROW_EXPORT Status {
 
   void DeleteState() {
     delete state_;
-    state_ = NULL;
+    state_ = NULLPTR;
   }
   void CopyFrom(const Status& s);
-  void MoveFrom(Status& s);
+  inline void MoveFrom(Status& s);
 };
 
 static inline std::ostream& operator<<(std::ostream& os, const Status& x) {
@@ -285,16 +347,16 @@ static inline std::ostream& operator<<(std::ostream& os, const Status& x) {
   return os;
 }
 
-inline void Status::MoveFrom(Status& s) {
+void Status::MoveFrom(Status& s) {
   delete state_;
   state_ = s.state_;
-  s.state_ = NULL;
+  s.state_ = NULLPTR;
 }
 
-inline Status::Status(const Status& s)
-    : state_((s.state_ == NULL) ? NULL : new State(*s.state_)) {}
+Status::Status(const Status& s)
+    : state_((s.state_ == NULLPTR) ? NULLPTR : new State(*s.state_)) {}
 
-inline Status& Status::operator=(const Status& s) {
+Status& Status::operator=(const Status& s) {
   // The following condition catches both aliasing (when this == &s),
   // and the common case where both s and *this are ok.
   if (state_ != s.state_) {
@@ -303,14 +365,17 @@ inline Status& Status::operator=(const Status& s) {
   return *this;
 }
 
-inline Status::Status(Status&& s) noexcept : state_(s.state_) { s.state_ = NULL; }
+Status::Status(Status&& s) noexcept : state_(s.state_) { s.state_ = NULLPTR; }
 
-inline Status& Status::operator=(Status&& s) noexcept {
+Status& Status::operator=(Status&& s) noexcept {
   MoveFrom(s);
   return *this;
 }
 
-inline Status Status::operator&(const Status& s) const noexcept {
+/// \cond FALSE
+// (note: emits warnings on Doxygen < 1.8.15,
+//  see https://github.com/doxygen/doxygen/issues/6295)
+Status Status::operator&(const Status& s) const noexcept {
   if (ok()) {
     return s;
   } else {
@@ -318,7 +383,7 @@ inline Status Status::operator&(const Status& s) const noexcept {
   }
 }
 
-inline Status Status::operator&(Status&& s) const noexcept {
+Status Status::operator&(Status&& s) const noexcept {
   if (ok()) {
     return std::move(s);
   } else {
@@ -326,19 +391,20 @@ inline Status Status::operator&(Status&& s) const noexcept {
   }
 }
 
-inline Status& Status::operator&=(const Status& s) noexcept {
+Status& Status::operator&=(const Status& s) noexcept {
   if (ok() && !s.ok()) {
     CopyFrom(s);
   }
   return *this;
 }
 
-inline Status& Status::operator&=(Status&& s) noexcept {
+Status& Status::operator&=(Status&& s) noexcept {
   if (ok() && !s.ok()) {
     MoveFrom(s);
   }
   return *this;
 }
+/// \endcond
 
 }  // namespace arrow
 

@@ -17,9 +17,7 @@
 
 FROM arrow:cpp
 
-ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get -q install --no-install-recommends -y \
-        tzdata \
         ruby-dev \
         pkg-config \
         autoconf-archive \
@@ -27,7 +25,7 @@ RUN apt-get -q install --no-install-recommends -y \
         libgirepository1.0-dev
 
 ADD c_glib/Gemfile /arrow/c_glib/
-RUN conda install -c conda-forge meson=0.47.1 && \
+RUN conda install meson=0.47.1 && \
     conda clean --all && \
     gem install bundler && \
     bundle install --gemfile arrow/c_glib/Gemfile

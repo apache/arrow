@@ -17,23 +17,10 @@
 
 @rem The "main" Rust build script for Windows CI
 
+@rem Retrieve git submodules, configure env var for Parquet unit tests
+git submodule update --init || exit /B
+set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 pushd rust
-
-@echo ===================================
-@echo Build with stable toolchain
-@echo ===================================
-
-rustup default stable
-rustup show
-cargo build --target %TARGET%
-cargo build --target %TARGET% --release
-@echo Test (debug)
-@echo ------------
-cargo test --target %TARGET%
-@echo
-@echo Test (release)
-@echo --------------
-cargo test --target %TARGET% --release
 
 @echo ===================================
 @echo Build with nightly toolchain
@@ -41,11 +28,7 @@ cargo test --target %TARGET% --release
 
 rustup default nightly
 rustup show
-cargo build --target %TARGET% || exit /B
 cargo build --target %TARGET% --release || exit /B
-@echo Test (debug)
-@echo ------------
-cargo test --target %TARGET% || exit /B
 @echo
 @echo Test (release)
 @echo --------------
@@ -53,8 +36,10 @@ cargo test --target %TARGET% --release || exit /B
 @echo
 @echo Run example (release)
 @echo ---------------------
+cd arrow
 cargo run --example builders --target %TARGET% --release || exit /B
 cargo run --example dynamic_types --target %TARGET% --release || exit /B
 cargo run --example read_csv --target %TARGET% --release || exit /B
+cargo run --example read_csv_infer_schema --target %TARGET% --release || exit /B
 
 popd

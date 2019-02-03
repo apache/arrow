@@ -70,7 +70,7 @@ public class ExpressionRegistry {
       synchronized (ExpressionRegistry.class) {
         if (INSTANCE == null) {
           // ensure library is setup.
-          JniWrapper.getInstance();
+          JniLoader.getInstance();
           Set<ArrowType> typesFromGandiva = getSupportedTypesFromGandiva();
           Set<FunctionSignature> functionsFromGandiva = getSupportedFunctionsFromGandiva();
           INSTANCE = new ExpressionRegistry(typesFromGandiva, functionsFromGandiva);
@@ -173,10 +173,11 @@ public class ExpressionRegistry {
                 BIT_WIDTH_64);
       case GandivaType.NONE_VALUE:
         return new ArrowType.Null();
+      case GandivaType.DECIMAL_VALUE:
+        return new ArrowType.Decimal(0,0);
       case GandivaType.FIXED_SIZE_BINARY_VALUE:
       case GandivaType.MAP_VALUE:
       case GandivaType.INTERVAL_VALUE:
-      case GandivaType.DECIMAL_VALUE:
       case GandivaType.DICTIONARY_VALUE:
       case GandivaType.LIST_VALUE:
       case GandivaType.STRUCT_VALUE:

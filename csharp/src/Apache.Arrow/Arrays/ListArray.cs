@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
@@ -22,6 +23,8 @@ namespace Apache.Arrow
         public IArrowArray Values { get; }
 
         public ArrowBuffer ValueOffsetsBuffer => Data.Buffers[1];
+
+        public ReadOnlySpan<int> ValueOffsets => ValueOffsetsBuffer.Span.CastTo<int>().Slice(0, Length + 1);
 
         public ListArray(IArrowType dataType, int length,
             ArrowBuffer valueOffsetsBuffer, IArrowArray values,
@@ -43,14 +46,13 @@ namespace Apache.Arrow
 
         public int GetValueOffset(int index)
         {
-            var span = ValueOffsetsBuffer.GetSpan<int>(Offset);
-            return span[index];
+            return ValueOffsets[index];
         }
 
         public int GetValueLength(int index)
         {
-            var span = ValueOffsetsBuffer.GetSpan<int>(Offset);
-            return span[index + 1] - span[index];
+            var offsets = ValueOffsets;
+            return offsets[index + 1] - offsets[index];
         }
     }
 }

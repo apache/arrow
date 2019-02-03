@@ -126,25 +126,18 @@ class PoolBuffer : public ResizableBuffer {
   }
 
   Status Resize(const int64_t new_size, bool shrink_to_fit = true) override {
-    if (!shrink_to_fit || (new_size > size_)) {
-      RETURN_NOT_OK(Reserve(new_size));
-    } else {
-      // Buffer is not growing, so shrink to the requested size without
+    if (mutable_data_ && shrink_to_fit && new_size <= size_) {
+      // Buffer is non-null and is not growing, so shrink to the requested size without
       // excess space.
       int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(new_size);
       if (capacity_ != new_capacity) {
         // Buffer hasn't got yet the requested size.
-        if (new_size == 0) {
-          pool_->Free(mutable_data_, capacity_);
-          capacity_ = 0;
-          mutable_data_ = nullptr;
-          data_ = nullptr;
-        } else {
-          RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, &mutable_data_));
-          data_ = mutable_data_;
-          capacity_ = new_capacity;
-        }
+        RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, &mutable_data_));
+        data_ = mutable_data_;
+        capacity_ = new_capacity;
       }
+    } else {
+      RETURN_NOT_OK(Reserve(new_size));
     }
     size_ = new_size;
 
@@ -219,9 +212,13 @@ Status AllocateResizableBuffer(const int64_t size,
   return AllocateResizableBuffer(default_memory_pool(), size, out);
 }
 
+Status AllocateBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* out) {
+  return AllocateBuffer(pool, BitUtil::BytesForBits(length), out);
+}
+
 Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
                            std::shared_ptr<Buffer>* out) {
-  RETURN_NOT_OK(AllocateBuffer(pool, BitUtil::BytesForBits(length), out));
+  RETURN_NOT_OK(AllocateBitmap(pool, length, out));
   memset((*out)->mutable_data(), 0, static_cast<size_t>((*out)->size()));
   return Status::OK();
 }

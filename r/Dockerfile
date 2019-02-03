@@ -68,9 +68,8 @@ RUN apt update && \
         repos = 'http://cran.rstudio.com')"
 
 # Tell R where it can find the source code for arrow
-ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/build/cpp/src/arrow
+ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/build/cpp/src/arrow:/opt/conda/lib/pkgconfig
 ENV LD_LIBRARY_PATH=/opt/conda/lib/:/build/cpp/src/arrow:/arrow/r/src
-ENV CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
 
 # build, install, test R package
 CMD /arrow/ci/docker_build_cpp.sh && \

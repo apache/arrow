@@ -23,7 +23,11 @@ class TestPlasmaClient < Test::Unit::TestCase
     omit("Plasma is required") unless defined?(::Plasma)
     @store = Helper::PlasmaStore.new
     @store.start
-    @client = Plasma::Client.new(@store.socket_path)
+    @options = Plasma::ClientOptions.new
+    @client = Plasma::Client.new(@store.socket_path, @options)
+    @id = Plasma::ObjectID.new("Hello")
+    @data = "World"
+    @options = Plasma::ClientCreateOptions.new
   end
 
   def teardown
@@ -34,10 +38,7 @@ class TestPlasmaClient < Test::Unit::TestCase
     def setup
       super
 
-      @id = Plasma::ObjectID.new("Hello")
-      @data = "World"
       @metadata = "Metadata"
-      @options = Plasma::ClientCreateOptions.new
     end
 
     test("no options") do
@@ -82,6 +83,13 @@ class TestPlasmaClient < Test::Unit::TestCase
                      object.data.copy_to_host(0, @data.bytesize).to_s,
                      object.metadata.copy_to_host(0, @metadata.bytesize).to_s,
                    ])
+    end
+  end
+
+  test("#disconnect") do
+    @client.disconnect
+    assert_raise(Arrow::Error::Io) do
+      @client.create(@id, @data.bytesize, @options)
     end
   end
 end

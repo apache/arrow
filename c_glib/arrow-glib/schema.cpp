@@ -21,6 +21,7 @@
 #  include <config.h>
 #endif
 
+#include <arrow-glib/basic-data-type.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/field.hpp>
 #include <arrow-glib/schema.hpp>
@@ -173,7 +174,7 @@ garrow_schema_get_field(GArrowSchema *schema, guint i)
 {
   const auto arrow_schema = garrow_schema_get_raw(schema);
   auto arrow_field = arrow_schema->field(i);
-  return garrow_field_new_raw(&arrow_field);
+  return garrow_field_new_raw(&arrow_field, nullptr);
 }
 
 /**
@@ -192,7 +193,8 @@ garrow_schema_get_field_by_name(GArrowSchema *schema,
   if (arrow_field == nullptr) {
     return NULL;
   } else {
-    return garrow_field_new_raw(&arrow_field);
+    auto arrow_data_type = arrow_field->type();
+    return garrow_field_new_raw(&arrow_field, nullptr);
   }
 }
 
@@ -223,7 +225,7 @@ garrow_schema_get_fields(GArrowSchema *schema)
 
   GList *fields = NULL;
   for (auto arrow_field : arrow_schema->fields()) {
-    GArrowField *field = garrow_field_new_raw(&arrow_field);
+    auto field = garrow_field_new_raw(&arrow_field, nullptr);
     fields = g_list_prepend(fields, field);
   }
 

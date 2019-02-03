@@ -70,7 +70,7 @@ constexpr int kMaxNestingDepth = 64;
 /// \brief An IPC message including metadata and body
 class ARROW_EXPORT Message {
  public:
-  enum Type { NONE, SCHEMA, DICTIONARY_BATCH, RECORD_BATCH, TENSOR };
+  enum Type { NONE, SCHEMA, DICTIONARY_BATCH, RECORD_BATCH, TENSOR, SPARSE_TENSOR };
 
   /// \brief Construct message, but do not validate
   ///

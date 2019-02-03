@@ -37,6 +37,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parsing.h"  // IWYU pragma: keep
+#include "arrow/util/utf8.h"
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
@@ -77,6 +78,19 @@ namespace compute {
 
 constexpr int64_t kMillisecondsInDay = 86400000;
 
+template <typename O, typename I, typename Enable = void>
+struct is_binary_to_string {
+  static constexpr bool value = false;
+};
+
+template <typename O, typename I>
+struct is_binary_to_string<
+    O, I,
+    typename std::enable_if<std::is_same<BinaryType, I>::value &&
+                            std::is_base_of<StringType, O>::value>::type> {
+  static constexpr bool value = true;
+};
+
 // ----------------------------------------------------------------------
 // Zero copy casts
 
@@ -85,6 +99,8 @@ struct is_zero_copy_cast {
   static constexpr bool value = false;
 };
 
+// TODO(wesm): ARROW-4110; this is no longer needed, but may be useful if we
+// ever _do_ want to generate identity cast kernels at compile time
 template <typename O, typename I>
 struct is_zero_copy_cast<
     O, I,
@@ -112,15 +128,30 @@ struct is_zero_copy_cast<
   static constexpr bool value = sizeof(O_T) == sizeof(I_T);
 };
 
+// Binary to String doesn't require copying, the payload only needs to be
+// validated.
+template <typename O, typename I>
+struct is_zero_copy_cast<
+    O, I,
+    typename std::enable_if<!std::is_same<I, O>::value &&
+                            is_binary_to_string<O, I>::value>::type> {
+  static constexpr bool value = true;
+};
+
 template <typename OutType, typename InType, typename Enable = void>
 struct CastFunctor {};
 
 // Indicated no computation required
+//
+// The case BinaryType -> StringType is special cased due to validation
+// requirements.
 template <typename O, typename I>
-struct CastFunctor<O, I, typename std::enable_if<is_zero_copy_cast<O, I>::value>::type> {
+struct CastFunctor<O, I,
+                   typename std::enable_if<is_zero_copy_cast<O, I>::value &&
+                                           !is_binary_to_string<O, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    CopyData(input, output);
+    ZeroCopyData(input, output);
   }
 };
 
@@ -373,6 +404,7 @@ struct is_float_truncate<
 
 template <typename O, typename I>
 struct CastFunctor<O, I, typename std::enable_if<is_float_truncate<O, I>::value>::type> {
+  ARROW_DISABLE_UBSAN("float-cast-overflow")
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using in_type = typename I::c_type;
@@ -479,11 +511,9 @@ void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_m
         out_data[i] = static_cast<out_type>(in_data[i] / factor);
       }
     } else {
-#define RAISE_INVALID_CAST(VAL)                                                         \
-  std::stringstream ss;                                                                 \
-  ss << "Casting from " << input.type->ToString() << " to " << output->type->ToString() \
-     << " would lose data: " << VAL;                                                    \
-  ctx->SetStatus(Status::Invalid(ss.str()));
+#define RAISE_INVALID_CAST(VAL)                                                   \
+  ctx->SetStatus(Status::Invalid("Casting from ", input.type->ToString(), " to ", \
+                                 output->type->ToString(), " would lose data: ", VAL));
 
       if (input.null_count != 0) {
         internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset,
@@ -532,7 +562,7 @@ struct CastFunctor<TimestampType, TimestampType> {
     const auto& out_type = checked_cast<const TimestampType&>(*output->type);
 
     if (in_type.unit() == out_type.unit()) {
-      CopyData(input, output);
+      ZeroCopyData(input, output);
       return;
     }
 
@@ -625,7 +655,7 @@ struct CastFunctor<O, I,
     const auto& out_type = checked_cast<const O&>(*output->type);
 
     if (in_type.unit() == out_type.unit()) {
-      CopyData(input, output);
+      ZeroCopyData(input, output);
       return;
     }
 
@@ -766,9 +796,8 @@ struct CastFunctor<
         UnpackFixedSizeBinaryDictionary<Int64Type>(ctx, indices, dictionary, output);
         break;
       default:
-        std::stringstream ss;
-        ss << "Invalid index type: " << indices.type()->ToString();
-        ctx->SetStatus(Status::Invalid(ss.str()));
+        ctx->SetStatus(
+            Status::Invalid("Invalid index type: ", indices.type()->ToString()));
         return;
     }
   }
@@ -845,9 +874,8 @@ struct CastFunctor<T, DictionaryType,
             (UnpackBinaryDictionary<Int64Type>(ctx, indices, dictionary, output)));
         break;
       default:
-        std::stringstream ss;
-        ss << "Invalid index type: " << indices.type()->ToString();
-        ctx->SetStatus(Status::Invalid(ss.str()));
+        ctx->SetStatus(
+            Status::Invalid("Invalid index type: ", indices.type()->ToString()));
         return;
     }
   }
@@ -903,9 +931,8 @@ struct CastFunctor<T, DictionaryType,
         UnpackPrimitiveDictionary<Int64Type, c_type>(indices, dictionary, out);
         break;
       default:
-        std::stringstream ss;
-        ss << "Invalid index type: " << indices.type()->ToString();
-        ctx->SetStatus(Status::Invalid(ss.str()));
+        ctx->SetStatus(
+            Status::Invalid("Invalid index type: ", indices.type()->ToString()));
         return;
     }
   }
@@ -931,9 +958,8 @@ struct CastFunctor<O, StringType, enable_if_number<O>> {
 
       auto str = input_array.GetView(i);
       if (!converter(str.data(), str.length(), out_data)) {
-        std::stringstream ss;
-        ss << "Failed to cast String '" << str << "' into " << output->type->ToString();
-        ctx->SetStatus(Status(StatusCode::Invalid, ss.str()));
+        ctx->SetStatus(Status::Invalid("Failed to cast String '", str, "' into ",
+                                       output->type->ToString()));
         return;
       }
     }
@@ -962,10 +988,9 @@ struct CastFunctor<O, StringType,
       bool value;
       auto str = input_array.GetView(i);
       if (!converter(str.data(), str.length(), &value)) {
-        std::stringstream ss;
-        ss << "Failed to cast String '" << input_array.GetString(i) << "' into "
-           << output->type->ToString();
-        ctx->SetStatus(Status(StatusCode::Invalid, ss.str()));
+        ctx->SetStatus(Status::Invalid("Failed to cast String '",
+                                       input_array.GetString(i), "' into ",
+                                       output->type->ToString()));
         return;
       }
 
@@ -998,14 +1023,59 @@ struct CastFunctor<TimestampType, StringType> {
         continue;
       }
 
-      auto str = input_array.GetView(i);
+      const auto str = input_array.GetView(i);
       if (!converter(str.data(), str.length(), out_data)) {
-        std::stringstream ss;
-        ss << "Failed to cast String '" << str << "' into " << output->type->ToString();
-        ctx->SetStatus(Status(StatusCode::Invalid, ss.str()));
+        ctx->SetStatus(Status::Invalid("Failed to cast String '", str, "' into ",
+                                       output->type->ToString()));
         return;
       }
     }
+  }
+};
+
+// ----------------------------------------------------------------------
+// Binary to String
+//
+
+template <typename I>
+struct CastFunctor<
+    StringType, I,
+    typename std::enable_if<is_binary_to_string<StringType, I>::value>::type> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    BinaryArray binary(input.Copy());
+
+    if (options.allow_invalid_utf8) {
+      ZeroCopyData(input, output);
+      return;
+    }
+
+    util::InitializeUTF8();
+
+    if (binary.null_count() != 0) {
+      for (int64_t i = 0; i < input.length; i++) {
+        if (binary.IsNull(i)) {
+          continue;
+        }
+
+        const auto str = binary.GetView(i);
+        if (ARROW_PREDICT_FALSE(!arrow::util::ValidateUTF8(str))) {
+          ctx->SetStatus(Status::Invalid("Invalid UTF8 payload"));
+          return;
+        }
+      }
+
+    } else {
+      for (int64_t i = 0; i < input.length; i++) {
+        const auto str = binary.GetView(i);
+        if (ARROW_PREDICT_FALSE(!arrow::util::ValidateUTF8(str))) {
+          ctx->SetStatus(Status::Invalid("Invalid UTF8 payload"));
+          return;
+        }
+      }
+    }
+
+    ZeroCopyData(input, output);
   }
 };
 
@@ -1048,9 +1118,8 @@ static Status AllocateIfNotPreallocated(FunctionContext* ctx, const ArrayData& i
 
     if (!(is_primitive(type_id) || type_id == Type::FIXED_SIZE_BINARY ||
           type_id == Type::DECIMAL)) {
-      std::stringstream ss;
-      ss << "Cannot pre-allocate memory for type: " << out->type->ToString();
-      return Status::NotImplemented(ss.str());
+      return Status::NotImplemented("Cannot pre-allocate memory for type: ",
+                                    out->type->ToString());
     }
 
     if (type_id != Type::NA) {
@@ -1077,6 +1146,17 @@ static Status AllocateIfNotPreallocated(FunctionContext* ctx, const ArrayData& i
   return Status::OK();
 }
 
+class IdentityCast : public UnaryKernel {
+ public:
+  IdentityCast() {}
+
+  Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
+    DCHECK_EQ(input.kind(), Datum::ARRAY);
+    out->value = input.array()->Copy();
+    return Status::OK();
+  }
+};
+
 class CastKernel : public UnaryKernel {
  public:
   CastKernel(const CastOptions& options, const CastFunction& func, bool is_zero_copy,
@@ -1088,17 +1168,22 @@ class CastKernel : public UnaryKernel {
         out_type_(out_type) {}
 
   Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
-    DCHECK_EQ(Datum::ARRAY, input.kind());
+    if (input.kind() != Datum::ARRAY)
+      return Status::NotImplemented("CastKernel only supports Datum::ARRAY input");
 
     const ArrayData& in_data = *input.array();
-    ArrayData* result;
 
-    if (out->kind() == Datum::NONE) {
-      out->value = ArrayData::Make(out_type_, in_data.length);
+    switch (out->kind()) {
+      case Datum::NONE:
+        out->value = ArrayData::Make(out_type_, in_data.length);
+        break;
+      case Datum::ARRAY:
+        break;
+      default:
+        return Status::NotImplemented("CastKernel only supports Datum::ARRAY output");
     }
 
-    result = out->array().get();
-
+    ArrayData* result = out->array().get();
     if (!is_zero_copy_) {
       RETURN_NOT_OK(
           AllocateIfNotPreallocated(ctx, in_data, can_pre_allocate_values_, result));
@@ -1116,6 +1201,8 @@ class CastKernel : public UnaryKernel {
   bool can_pre_allocate_values_;
   std::shared_ptr<DataType> out_type_;
 };
+
+// TODO(wesm): ARROW-4110 Do not generate cases that could return IdentityCast
 
 #define CAST_CASE(InType, OutType)                                                      \
   case OutType::type_id:                                                                \
@@ -1162,12 +1249,10 @@ class CastKernel : public UnaryKernel {
   FN(Int64Type, Date64Type);
 
 #define DATE32_CASES(FN, IN_TYPE) \
-  FN(Date32Type, Date32Type);     \
   FN(Date32Type, Date64Type);     \
   FN(Date32Type, Int32Type);
 
 #define DATE64_CASES(FN, IN_TYPE) \
-  FN(Date64Type, Date64Type);     \
   FN(Date64Type, Date32Type);     \
   FN(Date64Type, Int64Type);
 
@@ -1187,8 +1272,9 @@ class CastKernel : public UnaryKernel {
   FN(TimestampType, Date64Type);     \
   FN(TimestampType, Int64Type);
 
+#define BINARY_CASES(FN, IN_TYPE) FN(BinaryType, StringType);
+
 #define STRING_CASES(FN, IN_TYPE) \
-  FN(StringType, StringType);     \
   FN(StringType, BooleanType);    \
   FN(StringType, UInt8Type);      \
   FN(StringType, Int8Type);       \
@@ -1242,25 +1328,26 @@ class CastKernel : public UnaryKernel {
     return nullptr;                                                            \
   }
 
-GET_CAST_FUNCTION(NULL_CASES, NullType);
-GET_CAST_FUNCTION(NUMERIC_CASES, BooleanType);
-GET_CAST_FUNCTION(NUMERIC_CASES, UInt8Type);
-GET_CAST_FUNCTION(NUMERIC_CASES, Int8Type);
-GET_CAST_FUNCTION(NUMERIC_CASES, UInt16Type);
-GET_CAST_FUNCTION(NUMERIC_CASES, Int16Type);
-GET_CAST_FUNCTION(NUMERIC_CASES, UInt32Type);
-GET_CAST_FUNCTION(INT32_CASES, Int32Type);
-GET_CAST_FUNCTION(NUMERIC_CASES, UInt64Type);
-GET_CAST_FUNCTION(INT64_CASES, Int64Type);
-GET_CAST_FUNCTION(NUMERIC_CASES, FloatType);
-GET_CAST_FUNCTION(NUMERIC_CASES, DoubleType);
-GET_CAST_FUNCTION(DATE32_CASES, Date32Type);
-GET_CAST_FUNCTION(DATE64_CASES, Date64Type);
-GET_CAST_FUNCTION(TIME32_CASES, Time32Type);
-GET_CAST_FUNCTION(TIME64_CASES, Time64Type);
-GET_CAST_FUNCTION(TIMESTAMP_CASES, TimestampType);
-GET_CAST_FUNCTION(STRING_CASES, StringType);
-GET_CAST_FUNCTION(DICTIONARY_CASES, DictionaryType);
+GET_CAST_FUNCTION(NULL_CASES, NullType)
+GET_CAST_FUNCTION(NUMERIC_CASES, BooleanType)
+GET_CAST_FUNCTION(NUMERIC_CASES, UInt8Type)
+GET_CAST_FUNCTION(NUMERIC_CASES, Int8Type)
+GET_CAST_FUNCTION(NUMERIC_CASES, UInt16Type)
+GET_CAST_FUNCTION(NUMERIC_CASES, Int16Type)
+GET_CAST_FUNCTION(NUMERIC_CASES, UInt32Type)
+GET_CAST_FUNCTION(INT32_CASES, Int32Type)
+GET_CAST_FUNCTION(NUMERIC_CASES, UInt64Type)
+GET_CAST_FUNCTION(INT64_CASES, Int64Type)
+GET_CAST_FUNCTION(NUMERIC_CASES, FloatType)
+GET_CAST_FUNCTION(NUMERIC_CASES, DoubleType)
+GET_CAST_FUNCTION(DATE32_CASES, Date32Type)
+GET_CAST_FUNCTION(DATE64_CASES, Date64Type)
+GET_CAST_FUNCTION(TIME32_CASES, Time32Type)
+GET_CAST_FUNCTION(TIME64_CASES, Time64Type)
+GET_CAST_FUNCTION(TIMESTAMP_CASES, TimestampType)
+GET_CAST_FUNCTION(BINARY_CASES, BinaryType)
+GET_CAST_FUNCTION(STRING_CASES, StringType)
+GET_CAST_FUNCTION(DICTIONARY_CASES, DictionaryType)
 
 #define CAST_FUNCTION_CASE(InType)                      \
   case InType::type_id:                                 \
@@ -1289,6 +1376,11 @@ Status GetListCastFunc(const DataType& in_type, const std::shared_ptr<DataType>&
 
 Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>& out_type,
                        const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel) {
+  if (in_type.Equals(out_type)) {
+    *kernel = std::unique_ptr<UnaryKernel>(new IdentityCast);
+    return Status::OK();
+  }
+
   switch (in_type.id()) {
     CAST_FUNCTION_CASE(NullType);
     CAST_FUNCTION_CASE(BooleanType);
@@ -1307,6 +1399,7 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
     CAST_FUNCTION_CASE(Time32Type);
     CAST_FUNCTION_CASE(Time64Type);
     CAST_FUNCTION_CASE(TimestampType);
+    CAST_FUNCTION_CASE(BinaryType);
     CAST_FUNCTION_CASE(StringType);
     CAST_FUNCTION_CASE(DictionaryType);
     case Type::LIST:
@@ -1316,10 +1409,8 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
       break;
   }
   if (*kernel == nullptr) {
-    std::stringstream ss;
-    ss << "No cast implemented from " << in_type.ToString() << " to "
-       << out_type->ToString();
-    return Status::NotImplemented(ss.str());
+    return Status::NotImplemented("No cast implemented from ", in_type.ToString(), " to ",
+                                  out_type->ToString());
   }
   return Status::OK();
 }

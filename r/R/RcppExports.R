@@ -5,14 +5,6 @@ Array__from_vector <- function(x) {
     .Call(`_arrow_Array__from_vector`, x)
 }
 
-Array__as_vector <- function(array) {
-    .Call(`_arrow_Array__as_vector`, array)
-}
-
-ChunkedArray__as_vector <- function(chunked_array) {
-    .Call(`_arrow_ChunkedArray__as_vector`, chunked_array)
-}
-
 Array__Slice1 <- function(array, offset) {
     .Call(`_arrow_Array__Slice1`, array, offset)
 }
@@ -79,6 +71,22 @@ DictionaryArray__indices <- function(array) {
 
 DictionaryArray__dictionary <- function(array) {
     .Call(`_arrow_DictionaryArray__dictionary`, array)
+}
+
+Array__as_vector <- function(array) {
+    .Call(`_arrow_Array__as_vector`, array)
+}
+
+ChunkedArray__as_vector <- function(chunked_array) {
+    .Call(`_arrow_ChunkedArray__as_vector`, chunked_array)
+}
+
+RecordBatch__to_dataframe <- function(batch, use_threads) {
+    .Call(`_arrow_RecordBatch__to_dataframe`, batch, use_threads)
+}
+
+Table__to_dataframe <- function(table, use_threads) {
+    .Call(`_arrow_Table__to_dataframe`, table, use_threads)
 }
 
 ArrayData__get_type <- function(x) {
@@ -173,6 +181,18 @@ Column__data <- function(column) {
     .Call(`_arrow_Column__data`, column)
 }
 
+util___Codec__Create <- function(codec) {
+    .Call(`_arrow_util___Codec__Create`, codec)
+}
+
+io___CompressedOutputStream__Make <- function(codec, raw) {
+    .Call(`_arrow_io___CompressedOutputStream__Make`, codec, raw)
+}
+
+io___CompressedInputStream__Make <- function(codec, raw) {
+    .Call(`_arrow_io___CompressedInputStream__Make`, codec, raw)
+}
+
 compute___CastOptions__initialize <- function(allow_int_overflow, allow_time_truncate, allow_float_truncate) {
     .Call(`_arrow_compute___CastOptions__initialize`, allow_int_overflow, allow_time_truncate, allow_float_truncate)
 }
@@ -191,6 +211,26 @@ RecordBatch__cast <- function(batch, schema, options) {
 
 Table__cast <- function(table, schema, options) {
     .Call(`_arrow_Table__cast`, table, schema, options)
+}
+
+csv___ReadOptions__initialize <- function(options) {
+    .Call(`_arrow_csv___ReadOptions__initialize`, options)
+}
+
+csv___ParseOptions__initialize <- function(options) {
+    .Call(`_arrow_csv___ParseOptions__initialize`, options)
+}
+
+csv___ConvertOptions__initialize <- function(options) {
+    .Call(`_arrow_csv___ConvertOptions__initialize`, options)
+}
+
+csv___TableReader__Make <- function(input, read_options, parse_options, convert_options) {
+    .Call(`_arrow_csv___TableReader__Make`, input, read_options, parse_options, convert_options)
+}
+
+csv___TableReader__Read <- function(table_reader) {
+    .Call(`_arrow_csv___TableReader__Read`, table_reader)
 }
 
 shared_ptr_is_null <- function(xp) {
@@ -445,8 +485,8 @@ ipc___feather___TableReader__GetColumn <- function(reader, i) {
     .Call(`_arrow_ipc___feather___TableReader__GetColumn`, reader, i)
 }
 
-ipc___feather___TableReader__Read <- function(reader) {
-    .Call(`_arrow_ipc___feather___TableReader__Read`, reader)
+ipc___feather___TableReader__Read <- function(reader, columns) {
+    .Call(`_arrow_ipc___feather___TableReader__Read`, reader, columns)
 }
 
 ipc___feather___TableReader__Open <- function(stream) {
@@ -523,6 +563,14 @@ io___ReadableFile__Open <- function(path) {
 
 io___BufferReader__initialize <- function(buffer) {
     .Call(`_arrow_io___BufferReader__initialize`, buffer)
+}
+
+io___Writable__write <- function(stream, buf) {
+    invisible(.Call(`_arrow_io___Writable__write`, stream, buf))
+}
+
+io___OutputStream__Tell <- function(stream) {
+    .Call(`_arrow_io___OutputStream__Tell`, stream)
 }
 
 io___FileOutputStream__Open <- function(path) {
@@ -617,6 +665,10 @@ ipc___ReadMessage <- function(stream) {
     .Call(`_arrow_ipc___ReadMessage`, stream)
 }
 
+read_parquet_file <- function(filename) {
+    .Call(`_arrow_read_parquet_file`, filename)
+}
+
 RecordBatch__num_columns <- function(x) {
     .Call(`_arrow_RecordBatch__num_columns`, x)
 }
@@ -635,10 +687,6 @@ RecordBatch__columns <- function(batch) {
 
 RecordBatch__column <- function(batch, i) {
     .Call(`_arrow_RecordBatch__column`, batch, i)
-}
-
-RecordBatch__to_dataframe <- function(batch) {
-    .Call(`_arrow_RecordBatch__to_dataframe`, batch)
 }
 
 RecordBatch__from_dataframe <- function(tbl) {
@@ -757,15 +805,36 @@ Table__schema <- function(x) {
     .Call(`_arrow_Table__schema`, x)
 }
 
-Table__to_dataframe <- function(table) {
-    .Call(`_arrow_Table__to_dataframe`, table)
-}
-
 Table__column <- function(table, i) {
     .Call(`_arrow_Table__column`, table, i)
 }
 
 Table__columns <- function(table) {
     .Call(`_arrow_Table__columns`, table)
+}
+
+#' Get the capacity of the global thread pool
+#'
+#' @return the number of worker threads in the thread pool to which
+#' Arrow dispatches various CPU-bound tasks. This is an ideal number,
+#' not necessarily the exact number of threads at a given point in time.
+#'
+#' You can change this number using [SetCpuThreadPoolCapacity()].
+#'
+#' @export
+GetCpuThreadPoolCapacity <- function() {
+    .Call(`_arrow_GetCpuThreadPoolCapacity`)
+}
+
+#' Set the capacity of the global thread pool
+#'
+#' @param threads the number of worker threads int the thread pool to which
+#' Arrow dispatches various CPU-bound tasks.
+#'
+#' The current number is returned by [GetCpuThreadPoolCapacity()]
+#'
+#' @export
+SetCpuThreadPoolCapacity <- function(threads) {
+    invisible(.Call(`_arrow_SetCpuThreadPoolCapacity`, threads))
 }
 

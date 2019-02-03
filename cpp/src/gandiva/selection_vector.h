@@ -24,12 +24,13 @@
 
 #include "gandiva/arrow.h"
 #include "gandiva/logging.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief Selection Vector : vector of indices in a row-batch for a selection,
 /// backed by an arrow-array.
-class SelectionVector {
+class GANDIVA_EXPORT SelectionVector {
  public:
   virtual ~SelectionVector() = default;
 

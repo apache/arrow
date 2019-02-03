@@ -19,18 +19,31 @@
 
 version: '3.5'
 
+# TODO(kszucs): set arrow's mount to :ro mode, once all of the builds are
+# passing without write access to the source directory. The following builds
+# are contaminating the source directory:
+# - docs
+# - python-alpine (writes .egg directory)
+# - rust (writes Cargo.lock)
+# - java (without the rsync trick)
+
 x-ubuntu-volumes:
   &ubuntu-volumes
   - .:/arrow:delegated
-  - ${ARROW_DOCKER_CACHE_DIR:-./docker_cache}/ubuntu:/build:delegated
+  - ubuntu-cache:/build:delegated
 
 x-alpine-volumes:
   &alpine-volumes
   - .:/arrow:delegated
-  - ${ARROW_DOCKER_CACHE_DIR:-./docker_cache}/alpine:/build:delegated
+  - alpine-cache:/build:delegated
+
+volumes:
+  ubuntu-cache:
+  alpine-cache:
+  maven-cache:
+  spark-cache:
 
 services:
-
   ######################### Language Containers ###############################
 
   c_glib:
@@ -54,6 +67,22 @@ services:
       context: .
       dockerfile: cpp/Dockerfile
     environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-volumes
+
+  cpp-cmake32:
+    # Usage:
+    #   docker-compose build cpp-cmake32
+    #   docker-compose run cpp-cmake32
+    image: arrow:cpp-cmake32
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile
+      args:
+        EXTRA_CONDA_PKGS: cmake=3.2
+    environment:
+      ARROW_ORC: "OFF"
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-volumes
 
@@ -89,8 +118,8 @@ services:
       context: .
       dockerfile: java/Dockerfile
     volumes:
-      - .:/arrow:delegated
-      - $HOME/.m2:/root/.m2:delegated
+      - .:/arrow:ro  # ensures that docker won't contaminate the host directory
+      - maven-cache:/root/.m2:delegated
 
   js:
     image: arrow:js
@@ -136,6 +165,8 @@ services:
     build:
       context: .
       dockerfile: rust/Dockerfile
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-volumes
 
   r:
@@ -156,6 +187,9 @@ services:
 
   lint:
     # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
     #   docker-compose build lint
     #   docker-compose run lint
     image: arrow:lint
@@ -167,6 +201,9 @@ services:
 
   iwyu:
     # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
     #   docker-compose build lint
     #   docker-compose run iwyu
     image: arrow:lint
@@ -196,7 +233,7 @@ services:
     build:
       context: .
       dockerfile: docs/Dockerfile
-    volumes: *volumes
+    volumes: *ubuntu-volumes
 
   ######################### Integration Tests #################################
 
@@ -205,6 +242,20 @@ services:
   #   ports:
   #     - "21050"
   #   hostname: impala
+
+  pandas-master:
+    # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build --no-cache pandas-master
+    #   docker-compose run pandas-master
+    image: arrow:pandas-master
+    build:
+      context: .
+      dockerfile: integration/pandas/Dockerfile
+    shm_size: 2G
+    volumes: *ubuntu-volumes
 
   hdfs-namenode:
     image: gelog/hadoop
@@ -215,7 +266,17 @@ services:
     command: hdfs namenode
     hostname: hdfs-namenode
 
-  hdfs-datanode:
+  hdfs-datanode-1:
+    image: gelog/hadoop
+    command: hdfs datanode
+    ports:
+      # The host port is randomly assigned by Docker, to allow scaling
+      # to multiple DataNodes on the same host
+      - "50075"
+    links:
+      - hdfs-namenode:hdfs-namenode
+
+  hdfs-datanode-2:
     image: gelog/hadoop
     command: hdfs datanode
     ports:
@@ -232,9 +293,11 @@ services:
     #   docker-compose build python
     #   docker-compose build hdfs-integration
     #   docker-compose run hdfs-integration
+    image: arrow:hdfs-${HDFS_VERSION:-2.6.5}
     links:
       - hdfs-namenode:hdfs-namenode
-      - hdfs-datanode:hdfs-datanode
+      - hdfs-datanode-1:hdfs-datanode-1
+      - hdfs-datanode-2:hdfs-datanode-2
     environment:
       - ARROW_HDFS_TEST_HOST=hdfs-namenode
       - ARROW_HDFS_TEST_PORT=9000
@@ -242,22 +305,41 @@ services:
     build:
       context: .
       dockerfile: integration/hdfs/Dockerfile
+      args:
+        HDFS_VERSION: ${HDFS_VERSION:-2.6.5}
+    volumes: *ubuntu-volumes
 
-  pandas-master:
+  # TODO(kszucs): pass dask version explicitly as a build argument
+  dask-integration:
     # Usage:
     #   export PYTHON_VERSION=3.6
     #   docker-compose build cpp
     #   docker-compose build python
-    #   docker-compose build --no-cache pandas-master
-    #   docker-compose run pandas-master
-    image: arrow:pandas-master
+    #   docker-compose build dask-integration
+    #   docker-compose run dask-integration
+    image: arrow:dask-integration
     build:
       context: .
-      dockerfile: integration/pandas/Dockerfile
-    shm_size: 2G
+      dockerfile: integration/dask/Dockerfile
     volumes: *ubuntu-volumes
 
+  spark-integration:
+    # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build spark-integration
+    #   docker-compose run spark-integration
+    image: arrow:spark-${SPARK_VERSION:-2.4.0}
+    environment:
+      - SPARK_VERSION=${SPARK_VERSION:-2.4.0}
+    build:
+      context: .
+      dockerfile: integration/spark/Dockerfile
+    volumes:
+      - .:/arrow:ro  # ensures that docker won't contaminate the host directory
+      - ubuntu-cache:/build:delegated
+      - maven-cache:/root/.m2:delegated
+      - spark-cache:/spark:delegated
 
-  # TODO(kszucs): dask-integration
   # TODO(kszucs): hive-integration
-  # TODO(kszucs): spark-integration

@@ -19,9 +19,10 @@ package org.apache.arrow.plasma;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
+import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
+import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
 
 /**
  * The PlasmaClient is used to interface with a plasma store and manager.
@@ -45,18 +46,9 @@ public class PlasmaClient implements ObjectStoreLink {
   // interface methods --------------------
 
   @Override
-  public void put(byte[] objectId, byte[] value, byte[] metadata) {
-    ByteBuffer buf = null;
-    try {
-      buf = PlasmaClientJNI.create(conn, objectId, value.length, metadata);
-    } catch (Exception e) {
-      System.err.println("ObjectId " + objectId + " error at PlasmaClient put");
-      e.printStackTrace();
-    }
-    if (buf == null) {
-      return;
-    }
-
+  public void put(byte[] objectId, byte[] value, byte[] metadata)
+          throws DuplicateObjectException, PlasmaOutOfMemoryException {
+    ByteBuffer buf = PlasmaClientJNI.create(conn, objectId, value.length, metadata);
     buf.put(value);
     PlasmaClientJNI.seal(conn, objectId);
     PlasmaClientJNI.release(conn, objectId);
@@ -82,31 +74,8 @@ public class PlasmaClient implements ObjectStoreLink {
   }
 
   @Override
-  public List<byte[]> wait(byte[][] objectIds, int timeoutMs, int numReturns) {
-    byte[][] readys = PlasmaClientJNI.wait(conn, objectIds, timeoutMs, numReturns);
-
-    List<byte[]> ret = new ArrayList<>();
-    for (byte[] ready : readys) {
-      for (byte[] id : objectIds) {
-        if (Arrays.equals(ready, id)) {
-          ret.add(id);
-          break;
-        }
-      }
-    }
-
-    assert (ret.size() == readys.length);
-    return ret;
-  }
-
-  @Override
   public byte[] hash(byte[] objectId) {
     return PlasmaClientJNI.hash(conn, objectId);
-  }
-
-  @Override
-  public void fetch(byte[][] objectIds) {
-    PlasmaClientJNI.fetch(conn, objectIds);
   }
 
   @Override

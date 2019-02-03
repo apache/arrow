@@ -199,8 +199,7 @@ garrow_orc_file_reader_new(GArrowSeekableInputStream *input,
  * Since: 0.10.0
  *
  * Deprecated: 0.12.0:
- *  Use garrow_orc_file_reader_set_field_indices() instead.
- *
+ *   Use garrow_orc_file_reader_set_field_indices() instead.
  */
 void
 garrow_orc_file_reader_set_field_indexes(GArrowORCFileReader *reader,

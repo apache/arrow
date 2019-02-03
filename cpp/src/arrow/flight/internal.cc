@@ -37,16 +37,13 @@ Status FromGrpcStatus(const grpc::Status& grpc_status) {
   if (grpc_status.ok()) {
     return Status::OK();
   }
-  std::stringstream ss;
 
   if (grpc_status.error_code() == grpc::StatusCode::UNIMPLEMENTED) {
-    ss << "gRPC returned unimplemented error, with message: "
-       << grpc_status.error_message();
-    return Status::NotImplemented(ss.str());
+    return Status::NotImplemented("gRPC returned unimplemented error, with message: ",
+                                  grpc_status.error_message());
   } else {
-    ss << "gRPC failed with error code " << grpc_status.error_code()
-       << " and message: " << grpc_status.error_message();
-    return Status::IOError(ss.str());
+    return Status::IOError("gRPC failed with error code ", grpc_status.error_code(),
+                           " and message: ", grpc_status.error_message());
   }
 }
 

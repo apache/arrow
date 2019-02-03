@@ -21,15 +21,12 @@
 #include <vector>
 
 #include "parquet/column_writer.h"
-#include "parquet/schema-internal.h"
 #include "parquet/schema.h"
-#include "parquet/thrift.h"
 #include "parquet/util/memory.h"
 
 using arrow::MemoryPool;
 
 using parquet::schema::GroupNode;
-using parquet::schema::SchemaFlattener;
 
 namespace parquet {
 
@@ -251,6 +248,9 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
   void Close() override {
     if (is_open_) {
+      // If any functions here raise an exception, we set is_open_ to be false
+      // so that this does not get called again (possibly causing segfault)
+      is_open_ = false;
       if (row_group_writer_) {
         num_rows_ += row_group_writer_->num_rows();
         row_group_writer_->Close();
@@ -262,7 +262,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
       WriteFileMetaData(*metadata, sink_.get());
 
       sink_->Close();
-      is_open_ = false;
     }
   }
 

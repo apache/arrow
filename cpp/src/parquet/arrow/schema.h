@@ -22,15 +22,14 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/api.h"
-
-#include "parquet/arrow/writer.h"
 #include "parquet/metadata.h"
 #include "parquet/schema.h"
 #include "parquet/util/visibility.h"
 
 namespace arrow {
 
+class Field;
+class Schema;
 class Status;
 
 }  // namespace arrow

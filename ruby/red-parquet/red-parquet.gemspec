@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "version"
+require_relative "lib/parquet/version"
 
 Gem::Specification.new do |spec|
   spec.name = "red-parquet"
@@ -25,9 +25,9 @@ Gem::Specification.new do |spec|
     Parquet::Version::MAJOR.to_s,
     Parquet::Version::MINOR.to_s,
     Parquet::Version::MICRO.to_s,
-    # "beta1",
+    Parquet::Version::TAG,
   ]
-  spec.version = version_components.join(".")
+  spec.version = version_components.compact.join(".")
   spec.homepage = "https://arrow.apache.org/"
   spec.authors = ["Apache Arrow Developers"]
   spec.email = ["dev@arrow.apache.org"]
@@ -41,7 +41,7 @@ Gem::Specification.new do |spec|
   spec.test_files += Dir.glob("test/**/*")
   spec.extensions = ["dependency-check/Rakefile"]
 
-  spec.add_runtime_dependency("red-arrow")
+  spec.add_runtime_dependency("red-arrow", "= #{spec.version}")
 
   spec.add_development_dependency("bundler")
   spec.add_development_dependency("rake")

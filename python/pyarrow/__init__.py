@@ -57,10 +57,12 @@ from pyarrow.lib import (null, bool_,
                          uint8, uint16, uint32, uint64,
                          time32, time64, timestamp, date32, date64,
                          float16, float32, float64,
-                         binary, string, decimal128,
+                         binary, string, utf8, decimal128,
                          list_, struct, union, dictionary, field,
                          type_for_alias,
-                         DataType,
+                         DataType, DictionaryType, ListType, StructType,
+                         UnionType, TimestampType, Time32Type, Time64Type,
+                         FixedSizeBinaryType, Decimal128Type,
                          Field,
                          Schema,
                          schema,
@@ -146,6 +148,28 @@ from pyarrow.ipc import (Message, MessageReader,
                          open_stream,
                          open_file,
                          serialize_pandas, deserialize_pandas)
+import pyarrow.ipc as ipc
+
+
+def open_stream(source):
+    """
+    pyarrow.open_stream deprecated since 0.12, use pyarrow.ipc.open_stream
+    """
+    import warnings
+    warnings.warn("pyarrow.open_stream is deprecated, please use "
+                  "pyarrow.ipc.open_stream")
+    return ipc.open_stream(source)
+
+
+def open_file(source):
+    """
+    pyarrow.open_file deprecated since 0.12, use pyarrow.ipc.open_file
+    """
+    import warnings
+    warnings.warn("pyarrow.open_file is deprecated, please use "
+                  "pyarrow.ipc.open_file")
+    return ipc.open_file(source)
+
 
 localfs = LocalFileSystem.get_instance()
 
@@ -230,5 +254,9 @@ def get_library_dirs():
 
         if _os.path.exists(_os.path.join(library_lib, 'arrow.lib')):
             library_dirs.append(library_lib)
+
+    # ARROW-4074: Allow for ARROW_HOME to be set to some other directory
+    if 'ARROW_HOME' in _os.environ:
+        library_dirs.append(_os.path.join(_os.environ['ARROW_HOME'], 'lib'))
 
     return library_dirs

@@ -102,7 +102,7 @@ class TestPrimitiveReader : public ::testing::Test {
           &vresult[0] + total_values_read, &values_read));
       total_values_read += static_cast<int>(values_read);
       batch_actual += batch;
-      batch_size = std::max(batch_size * 2, 4096);
+      batch_size = std::min(1 << 24, std::max(batch_size * 2, 4096));
     } while (batch > 0);
 
     ASSERT_EQ(num_levels_, batch_actual);
@@ -147,7 +147,7 @@ class TestPrimitiveReader : public ::testing::Test {
       total_values_read += batch - static_cast<int>(null_count);
       batch_actual += batch;
       levels_actual += static_cast<int>(levels_read);
-      batch_size = std::max(batch_size * 2, 4096);
+      batch_size = std::min(1 << 24, std::max(batch_size * 2, 4096));
     } while ((batch > 0) || (levels_read > 0));
 
     ASSERT_EQ(num_levels_, levels_actual);

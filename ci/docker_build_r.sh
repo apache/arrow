@@ -21,10 +21,6 @@ set -e
 export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export ARROW_HOME=$CONDA_PREFIX
 
-# For newer GCC per https://arrow.apache.org/docs/python/development.html#known-issues
-export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
-export PKG_CXXFLAGS=$CXXFLAGS
-
 # Build arrow
 pushd /arrow/r
 

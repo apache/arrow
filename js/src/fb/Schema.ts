@@ -588,7 +588,7 @@ export namespace org.apache.arrow.flatbuf {
      * @param {Array.<number>} data
      * @returns {flatbuffers.Offset}
      */
-    static createTypeIdsVector(builder: flatbuffers.Builder, data: number[] | Uint8Array): flatbuffers.Offset {
+    static createTypeIdsVector(builder: flatbuffers.Builder, data: number[] | Int32Array): flatbuffers.Offset {
       builder.startVector(4, data.length, 4);
       for (let i = data.length - 1; i >= 0; i--) {
         builder.addInt32(data[i]);

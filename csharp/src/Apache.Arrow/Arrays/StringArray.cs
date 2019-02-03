@@ -39,12 +39,12 @@ namespace Apache.Arrow
         {
             encoding = encoding ?? Encoding.UTF8;
 
-            var value = GetValue(index);
+            var bytes = GetBytes(index);
 
             unsafe
             {
-                fixed (byte* data = &MemoryMarshal.GetReference(value))
-                    return encoding.GetString(data, value.Length);
+                fixed (byte* data = &MemoryMarshal.GetReference(bytes))
+                    return encoding.GetString(data, bytes.Length);
             }
         }
     }

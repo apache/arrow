@@ -91,11 +91,10 @@ public class BitVector extends BaseFixedWidthVector {
   @Override
   public void setInitialCapacity(int valueCount) {
     final int size = getValidityBufferSizeFromCount(valueCount);
-    if (size > MAX_ALLOCATION_SIZE) {
+    if (size * 2 > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
     }
-    valueAllocationSizeInBytes = size;
-    validityAllocationSizeInBytes = size;
+    initialValueAllocation = valueCount;
   }
 
   /**

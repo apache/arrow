@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import OrderedDict
 import datetime
 import decimal
 import io
@@ -30,7 +31,7 @@ import pandas.util.testing as tm
 import pyarrow as pa
 from pyarrow.compat import guid, u, BytesIO, unichar, PY2
 from pyarrow.tests import util
-from pyarrow.filesystem import LocalFileSystem
+from pyarrow.filesystem import LocalFileSystem, FileSystem
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 
 try:
@@ -843,7 +844,7 @@ def test_date_time_types():
     a2 = pa.array(data2, type=t2)
 
     t3 = pa.timestamp('us')
-    start = pd.Timestamp('2000-01-01').value / 1000
+    start = pd.Timestamp('2001-01-01').value / 1000
     data3 = np.array([start, start + 1, start + 2], dtype='int64')
     a3 = pa.array(data3, type=t3)
 
@@ -891,8 +892,9 @@ def test_date_time_types():
 
     # date64 as date32
     # time32[s] to time32[ms]
+    # 'timestamp[ms]' is saved as INT96 timestamp
     # 'timestamp[ns]' is saved as INT96 timestamp
-    expected = pa.Table.from_arrays([a1, a1, a3, a4, a5, ex_a6, a7],
+    expected = pa.Table.from_arrays([a1, a1, a7, a4, a5, ex_a6, a7],
                                     ['date32', 'date64', 'timestamp[us]',
                                      'time32[s]', 'time64[us]',
                                      'time32_from64[s]',
@@ -917,6 +919,14 @@ def test_date_time_types():
     a7 = pa.array(data4.astype('int64'), type=t7)
 
     _assert_unsupported(a7)
+
+
+def test_list_of_datetime_time_roundtrip():
+    # ARROW-4135
+    times = pd.to_datetime(['09:00', '09:30', '10:00', '10:30', '11:00',
+                            '11:30', '12:00'])
+    df = pd.DataFrame({'time': [times.time]})
+    _roundtrip_pandas_dataframe(df, write_kwargs={})
 
 
 def test_large_list_records():
@@ -1958,6 +1968,33 @@ def test_large_table_int32_overflow():
     _write_table(table, f)
 
 
+@pytest.mark.large_memory
+def test_binary_array_overflow_to_chunked():
+    # ARROW-3762
+
+    # 2^31 + 1 bytes
+    values = [b'x'] + [
+        b'x' * (1 << 20)
+    ] * 2 * (1 << 10)
+    df = pd.DataFrame({'byte_col': values})
+
+    tbl = pa.Table.from_pandas(df, preserve_index=False)
+
+    buf = io.BytesIO()
+    _write_table(tbl, buf)
+    buf.seek(0)
+    read_tbl = _read_table(buf)
+    buf = None
+
+    col0_data = read_tbl[0].data
+    assert isinstance(col0_data, pa.ChunkedArray)
+
+    # Split up into 16MB chunks. 128 * 16 = 2048, so 129
+    assert col0_data.num_chunks == 129
+
+    assert tbl.equals(read_tbl)
+
+
 def test_index_column_name_duplicate(tempdir):
     data = {
         'close': {
@@ -2222,8 +2259,93 @@ def test_merging_parquet_tables_with_different_pandas_metadata(tempdir):
     writer.write_table(table2)
 
 
+def test_empty_row_groups(tempdir):
+    # ARROW-3020
+    table = pa.Table.from_arrays([pa.array([], type='int32')], ['f0'])
+
+    path = tempdir / 'empty_row_groups.parquet'
+
+    num_groups = 3
+    with pq.ParquetWriter(path, table.schema) as writer:
+        for i in range(num_groups):
+            writer.write_table(table)
+
+    reader = pq.ParquetFile(path)
+    assert reader.metadata.num_row_groups == num_groups
+
+    for i in range(num_groups):
+        assert reader.read_row_group(i).equals(table)
+
+
+def test_parquet_writer_with_caller_provided_filesystem():
+    out = pa.BufferOutputStream()
+
+    class CustomFS(FileSystem):
+        def __init__(self):
+            self.path = None
+            self.mode = None
+
+        def open(self, path, mode='rb'):
+            self.path = path
+            self.mode = mode
+            return out
+
+    fs = CustomFS()
+    fname = 'expected_fname.parquet'
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df, preserve_index=False)
+
+    with pq.ParquetWriter(fname, table.schema, filesystem=fs, version='2.0') \
+            as writer:
+        writer.write_table(table)
+
+    assert fs.path == fname
+    assert fs.mode == 'wb'
+    assert out.closed
+
+    buf = out.getvalue()
+    table_read = _read_table(pa.BufferReader(buf))
+    df_read = table_read.to_pandas()
+    tm.assert_frame_equal(df_read, df)
+
+    # Should raise ValueError when filesystem is passed with file-like object
+    with pytest.raises(ValueError) as err_info:
+        pq.ParquetWriter(pa.BufferOutputStream(), table.schema, filesystem=fs)
+        expected_msg = ("filesystem passed but where is file-like, so"
+                        " there is nothing to open with filesystem.")
+        assert str(err_info) == expected_msg
+
+
 def test_writing_empty_lists():
     # ARROW-2591: [Python] Segmentation fault issue in pq.write_table
-    arr = pa.array([[], []], pa.list_(pa.int32()))
-    table = pa.Table.from_arrays([arr], ['test'])
+    arr1 = pa.array([[], []], pa.list_(pa.int32()))
+    table = pa.Table.from_arrays([arr1], ['list(int32)'])
     _check_roundtrip(table)
+
+
+def test_write_nested_zero_length_array_chunk_failure():
+    # Bug report in ARROW-3792
+    cols = OrderedDict(
+        int32=pa.int32(),
+        list_string=pa.list_(pa.string())
+    )
+    data = [[], [OrderedDict(int32=1, list_string=('G',)), ]]
+
+    # This produces a table with a column like
+    # <Column name='list_string' type=ListType(list<item: string>)>
+    # [
+    #   [],
+    #   [
+    #     [
+    #       "G"
+    #     ]
+    #   ]
+    # ]
+    #
+    # Each column is a ChunkedArray with 2 elements
+    my_arrays = [pa.array(batch, type=pa.struct(cols)).flatten()
+                 for batch in data]
+    my_batches = [pa.RecordBatch.from_arrays(batch, pa.schema(cols))
+                  for batch in my_arrays]
+    tbl = pa.Table.from_batches(my_batches, pa.schema(cols))
+    _check_roundtrip(tbl)

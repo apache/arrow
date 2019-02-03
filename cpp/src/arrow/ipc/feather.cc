@@ -180,6 +180,7 @@ ColumnBuilder::ColumnBuilder(TableBuilder* parent, const std::string& name)
   fbb_ = &parent->fbb();
   name_ = name;
   type_ = ColumnType::PRIMITIVE;
+  meta_time_.unit = TimeUnit::SECOND;
 }
 
 flatbuffers::Offset<void> ColumnBuilder::CreateColumnMetadata() {
@@ -642,9 +643,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 
   Status LoadArrayMetadata(const Array& values, ArrayMetadata* meta) {
     if (!(is_primitive(values.type_id()) || is_binary_like(values.type_id()))) {
-      std::stringstream ss;
-      ss << "Array is not primitive type: " << values.type()->ToString();
-      return Status::Invalid(ss.str());
+      return Status::Invalid("Array is not primitive type: ", values.type()->ToString());
     }
 
     meta->type = ToFlatbufferType(values.type_id());

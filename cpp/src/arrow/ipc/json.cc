@@ -99,7 +99,7 @@ Status JsonWriter::WriteRecordBatch(const RecordBatch& batch) {
 class JsonReader::JsonReaderImpl {
  public:
   JsonReaderImpl(MemoryPool* pool, const std::shared_ptr<Buffer>& data)
-      : pool_(pool), data_(data) {}
+      : pool_(pool), data_(data), record_batches_(nullptr) {}
 
   Status ParseAndReadSchema() {
     doc_.Parse(reinterpret_cast<const rj::Document::Ch*>(data_->data()),

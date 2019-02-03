@@ -88,7 +88,9 @@ ctypedef CFixedWidthType* _CFixedWidthTypePtr
 
 cdef class DataType:
     """
-    Base type for Apache Arrow data type instances. Wraps C++ arrow::DataType
+    Base class of all Arrow data types.
+
+    Each data type is an *instance* of this class.
     """
     def __cinit__(self):
         pass
@@ -162,7 +164,7 @@ cdef class DataType:
 
     def to_pandas_dtype(self):
         """
-        Return the NumPy dtype that would be used for storing this
+        Return the equivalent NumPy / Pandas dtype.
         """
         cdef Type type_id = self.type.id()
         if type_id in _pandas_type_map:
@@ -172,6 +174,9 @@ cdef class DataType:
 
 
 cdef class DictionaryType(DataType):
+    """
+    Concrete class for dictionary data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
@@ -182,18 +187,31 @@ cdef class DictionaryType(DataType):
 
     @property
     def ordered(self):
+        """
+        Whether the dictionary is ordered, i.e. whether the ordering of values
+        in the dictionary is important.
+        """
         return self.dict_type.ordered()
 
     @property
     def index_type(self):
+        """
+        The data type of dictionary indices (a signed integer type).
+        """
         return pyarrow_wrap_data_type(self.dict_type.index_type())
 
     @property
     def dictionary(self):
+        """
+        The dictionary array, mapping dictionary indices to values.
+        """
         return pyarrow_wrap_array(self.dict_type.dictionary())
 
 
 cdef class ListType(DataType):
+    """
+    Concrete class for list data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
@@ -204,37 +222,58 @@ cdef class ListType(DataType):
 
     @property
     def value_type(self):
+        """
+        The data type of list values.
+        """
         return pyarrow_wrap_data_type(self.list_type.value_type())
 
 
 cdef class StructType(DataType):
+    """
+    Concrete class for struct data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
         self.struct_type = <const CStructType*> type.get()
 
-    cdef Field child_by_name(self, name):
+    cdef Field field(self, int i):
         """
-        Access a child field by its name rather than the column index.
+        Return a child field by its index.
+        """
+        return self.child(i)
+
+    cdef Field field_by_name(self, name):
+        """
+        Return a child field by its name rather than its index.
         """
         cdef shared_ptr[CField] field
 
-        field = self.struct_type.GetChildByName(tobytes(name))
+        field = self.struct_type.GetFieldByName(tobytes(name))
         if field == nullptr:
             raise KeyError(name)
 
         return pyarrow_wrap_field(field)
 
     def __len__(self):
+        """
+        Like num_children().
+        """
         return self.type.num_children()
 
     def __iter__(self):
+        """
+        Iterate over struct fields, in order.
+        """
         for i in range(len(self)):
             yield self[i]
 
     def __getitem__(self, i):
+        """
+        Return the struct field with the given index or name.
+        """
         if isinstance(i, six.string_types):
-            return self.child_by_name(i)
+            return self.field_by_name(i)
         elif isinstance(i, six.integer_types):
             return self.child(i)
         else:
@@ -245,20 +284,32 @@ cdef class StructType(DataType):
 
     @property
     def num_children(self):
+        """
+        The number of struct fields.
+        """
         return self.type.num_children()
 
 
 cdef class UnionType(DataType):
+    """
+    Concrete class for struct data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
 
     @property
     def num_children(self):
+        """
+        The number of union members.
+        """
         return self.type.num_children()
 
     @property
     def mode(self):
+        """
+        The mode of the union ("dense" or "sparse").
+        """
         cdef CUnionType* type = <CUnionType*> self.sp_type.get()
         cdef int mode = type.mode()
         if mode == _UnionMode_DENSE:
@@ -268,13 +319,22 @@ cdef class UnionType(DataType):
         assert 0
 
     def __len__(self):
+        """
+        Like num_children()
+        """
         return self.type.num_children()
 
     def __iter__(self):
+        """
+        Iterate over union members, in order.
+        """
         for i in range(len(self)):
             yield self[i]
 
     def __getitem__(self, i):
+        """
+        Return a child member by its index.
+        """
         return self.child(i)
 
     def __reduce__(self):
@@ -282,6 +342,9 @@ cdef class UnionType(DataType):
 
 
 cdef class TimestampType(DataType):
+    """
+    Concrete class for timestamp data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
@@ -289,10 +352,16 @@ cdef class TimestampType(DataType):
 
     @property
     def unit(self):
+        """
+        The timestamp unit ('s', 'ms', 'us' or 'ns').
+        """
         return timeunit_to_string(self.ts_type.unit())
 
     @property
     def tz(self):
+        """
+        The timestamp time zone, if any, or None.
+        """
         if self.ts_type.timezone().size() > 0:
             return frombytes(self.ts_type.timezone())
         else:
@@ -300,7 +369,7 @@ cdef class TimestampType(DataType):
 
     def to_pandas_dtype(self):
         """
-        Return the NumPy dtype that would be used for storing this
+        Return the equivalent NumPy / Pandas dtype.
         """
         if self.tz is None:
             return _pandas_type_map[_Type_TIMESTAMP]
@@ -313,6 +382,9 @@ cdef class TimestampType(DataType):
 
 
 cdef class Time32Type(DataType):
+    """
+    Concrete class for time32 data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
@@ -320,10 +392,16 @@ cdef class Time32Type(DataType):
 
     @property
     def unit(self):
+        """
+        The time unit ('s', 'ms', 'us' or 'ns').
+        """
         return timeunit_to_string(self.time_type.unit())
 
 
 cdef class Time64Type(DataType):
+    """
+    Concrete class for time64 data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
@@ -331,10 +409,16 @@ cdef class Time64Type(DataType):
 
     @property
     def unit(self):
+        """
+        The time unit ('s', 'ms', 'us' or 'ns').
+        """
         return timeunit_to_string(self.time_type.unit())
 
 
 cdef class FixedSizeBinaryType(DataType):
+    """
+    Concrete class for fixed-size binary data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
@@ -346,10 +430,16 @@ cdef class FixedSizeBinaryType(DataType):
 
     @property
     def byte_width(self):
+        """
+        The binary size in bytes.
+        """
         return self.fixed_size_binary_type.byte_width()
 
 
 cdef class Decimal128Type(FixedSizeBinaryType):
+    """
+    Concrete class for decimal128 data types.
+    """
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         FixedSizeBinaryType.init(self, type)
@@ -360,17 +450,22 @@ cdef class Decimal128Type(FixedSizeBinaryType):
 
     @property
     def precision(self):
+        """
+        The decimal precision, in number of decimal digits (an integer).
+        """
         return self.decimal128_type.precision()
 
     @property
     def scale(self):
+        """
+        The decimal scale (an integer).
+        """
         return self.decimal128_type.scale()
 
 
 cdef class Field:
     """
-    Represents a named field, with a data type, nullability, and optional
-    metadata
+    A named field, with a data type, nullability, and optional metadata.
 
     Notes
     -----
@@ -430,11 +525,9 @@ cdef class Field:
 
     @property
     def metadata(self):
-        cdef shared_ptr[const CKeyValueMetadata] metadata = (
-            self.field.metadata())
-        return box_metadata(metadata.get())
+        return pyarrow_wrap_metadata(self.field.metadata())
 
-    def add_metadata(self, dict metadata):
+    def add_metadata(self, metadata):
         """
         Add metadata as dict of string keys and values to Field
 
@@ -447,14 +540,18 @@ cdef class Field:
         -------
         field : pyarrow.Field
         """
-        cdef shared_ptr[CKeyValueMetadata] c_meta
-        convert_metadata(metadata, &c_meta)
+        cdef:
+            shared_ptr[CField] c_field
+            shared_ptr[CKeyValueMetadata] c_meta
 
-        cdef shared_ptr[CField] new_field
+        if not isinstance(metadata, dict):
+            raise TypeError('Metadata must be an instance of dict')
+
+        c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
-            new_field = self.field.AddMetadata(c_meta)
+            c_field = self.field.AddMetadata(c_meta)
 
-        return pyarrow_wrap_field(new_field)
+        return pyarrow_wrap_field(c_field)
 
     def remove_metadata(self):
         """
@@ -515,6 +612,9 @@ cdef class Schema:
     def __reduce__(self):
         return schema, (list(self), self.metadata)
 
+    def __hash__(self):
+        return hash((tuple(self), self.metadata))
+
     @property
     def names(self):
         """
@@ -544,9 +644,7 @@ cdef class Schema:
 
     @property
     def metadata(self):
-        cdef shared_ptr[const CKeyValueMetadata] metadata = (
-            self.schema.metadata())
-        return box_metadata(metadata.get())
+        return pyarrow_wrap_metadata(self.schema.metadata())
 
     def __eq__(self, other):
         try:
@@ -728,7 +826,7 @@ cdef class Schema:
 
         return pyarrow_wrap_schema(new_schema)
 
-    def add_metadata(self, dict metadata):
+    def add_metadata(self, metadata):
         """
         Add metadata as dict of string keys and values to Schema
 
@@ -741,14 +839,18 @@ cdef class Schema:
         -------
         schema : pyarrow.Schema
         """
-        cdef shared_ptr[CKeyValueMetadata] c_meta
-        convert_metadata(metadata, &c_meta)
+        cdef:
+            shared_ptr[CKeyValueMetadata] c_meta
+            shared_ptr[CSchema] c_schema
 
-        cdef shared_ptr[CSchema] new_schema
+        if not isinstance(metadata, dict):
+            raise TypeError('Metadata must be an instance of dict')
+
+        c_meta = pyarrow_unwrap_metadata(metadata)
         with nogil:
-            new_schema = self.schema.AddMetadata(c_meta)
+            c_schema = self.schema.AddMetadata(c_meta)
 
-        return pyarrow_wrap_schema(new_schema)
+        return pyarrow_wrap_schema(c_schema)
 
     def serialize(self, memory_pool=None):
         """
@@ -810,15 +912,6 @@ cdef class Schema:
         return self.__str__()
 
 
-cdef dict box_metadata(const CKeyValueMetadata* metadata):
-    cdef unordered_map[c_string, c_string] result
-    if metadata != nullptr:
-        metadata.ToUnorderedMap(&result)
-        return result
-    else:
-        return None
-
-
 cdef dict _type_cache = {}
 
 
@@ -832,25 +925,12 @@ cdef DataType primitive_type(Type type):
     _type_cache[type] = out
     return out
 
+
 # -----------------------------------------------------------
 # Type factory functions
 
-cdef int convert_metadata(dict metadata,
-                          shared_ptr[CKeyValueMetadata]* out) except -1:
-    cdef:
-        shared_ptr[CKeyValueMetadata] meta = (
-            make_shared[CKeyValueMetadata]())
-        c_string key, value
 
-    for py_key, py_value in metadata.items():
-        key = tobytes(py_key)
-        value = tobytes(py_value)
-        meta.get().Append(key, value)
-    out[0] = meta
-    return 0
-
-
-def field(name, type, bint nullable=True, dict metadata=None):
+def field(name, type, bint nullable=True, metadata=None):
     """
     Create a pyarrow.Field instance
 
@@ -867,17 +947,21 @@ def field(name, type, bint nullable=True, dict metadata=None):
     field : pyarrow.Field
     """
     cdef:
-        shared_ptr[CKeyValueMetadata] c_meta
         Field result = Field.__new__(Field)
-        DataType _type = _as_type(type)
+        DataType _type = ensure_type(type, allow_none=False)
+        shared_ptr[CKeyValueMetadata] c_meta
 
     if metadata is not None:
-        convert_metadata(metadata, &c_meta)
+        if not isinstance(metadata, dict):
+            raise TypeError('Metadata must be an instance of dict')
+        c_meta = pyarrow_unwrap_metadata(metadata)
 
-    result.sp_field.reset(new CField(tobytes(name), _type.sp_type,
-                                     nullable == 1, c_meta))
+    result.sp_field.reset(
+        new CField(tobytes(name), _type.sp_type, nullable, c_meta)
+    )
     result.field = result.sp_field.get()
     result.type = _type
+
     return result
 
 
@@ -1013,7 +1097,9 @@ def tzinfo_to_string(tz):
             raise ValueError('Offset must represent whole number of minutes')
         return '{}{:02d}:{:02d}'.format(sign, hours, minutes)
 
-    if isinstance(tz, pytz.tzinfo.BaseTzInfo):
+    if tz is pytz.utc:
+        return tz.zone  # ARROW-4055
+    elif isinstance(tz, pytz.tzinfo.BaseTzInfo):
         return tz.zone
     elif isinstance(tz, pytz._FixedOffset):
         return fixed_offset_to_string(tz)
@@ -1244,6 +1330,13 @@ def string():
     Create UTF8 variable-length string type
     """
     return primitive_type(_Type_STRING)
+
+
+def utf8():
+    """
+    Alias for string()
+    """
+    return string()
 
 
 def binary(int length=-1):
@@ -1479,23 +1572,18 @@ def type_for_alias(name):
     return alias()
 
 
-def _as_type(typ):
-    if isinstance(typ, DataType):
-        return typ
-    elif isinstance(typ, six.string_types):
-        return type_for_alias(typ)
-    else:
-        raise TypeError("data type expected, got '%r'" % (type(typ),))
-
-
-cdef DataType ensure_type(object type, c_bool allow_none=False):
-    if allow_none and type is None:
+cdef DataType ensure_type(object ty, c_bool allow_none=False):
+    if allow_none and ty is None:
         return None
+    elif isinstance(ty, DataType):
+        return ty
+    elif isinstance(ty, six.string_types):
+        return type_for_alias(ty)
     else:
-        return _as_type(type)
+        raise TypeError('DataType expected, got {!r}'.format(type(ty)))
 
 
-def schema(fields, dict metadata=None):
+def schema(fields, metadata=None):
     """
     Construct pyarrow.Schema from collection of fields
 
@@ -1540,11 +1628,14 @@ def schema(fields, dict metadata=None):
         c_fields.push_back(py_field.sp_field)
 
     if metadata is not None:
-        convert_metadata(metadata, &c_meta)
+        if not isinstance(metadata, dict):
+            raise TypeError('Metadata must be an instance of dict')
+        c_meta = pyarrow_unwrap_metadata(metadata)
 
     c_schema.reset(new CSchema(c_fields, c_meta))
     result = Schema.__new__(Schema)
     result.init_schema(c_schema)
+
     return result
 
 

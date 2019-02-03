@@ -30,16 +30,41 @@ in-source and out-of-source builds with the latter one being preferred.
 Building Arrow requires:
 
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be sufficient.
-* CMake
+* CMake 3.2 or higher
 * Boost
+* Bison/flex (for building Apache Thrift from source only,
+a parquet dependency.)
+
+Testing arrow with ctest requires:
+
+* python
 
 On Ubuntu/Debian you can install the requirements with:
 
 ```shell
-sudo apt-get install cmake \
+sudo apt-get install \
+     autoconf \
+     build-essential \
+     cmake \
      libboost-dev \
      libboost-filesystem-dev \
-     libboost-system-dev
+     libboost-regex-dev \
+     libboost-system-dev \
+     python \
+     bison \
+     flex
+```
+
+On Alpine Linux:
+
+```shell
+apk add autoconf \
+        bash \
+        boost-dev \
+        cmake \
+        g++ \
+        gcc \
+        make
 ```
 
 On macOS, you can use [Homebrew][1]:
@@ -54,25 +79,29 @@ If you are developing on Windows, see the [Windows developer guide][2].
 
 ## Building Arrow
 
-Simple debug build:
-
-    git clone https://github.com/apache/arrow.git
-    cd arrow/cpp
-    mkdir debug
-    cd debug
-    cmake ..
-    make unittest
-
 Simple release build:
 
     git clone https://github.com/apache/arrow.git
     cd arrow/cpp
     mkdir release
     cd release
-    cmake .. -DCMAKE_BUILD_TYPE=Release
+    cmake -DARROW_BUILD_TESTS=ON  ..
     make unittest
 
-Detailed unit test logs will be placed in the build directory under `build/test-logs`.
+Simple debug build:
+
+    git clone https://github.com/apache/arrow.git
+    cd arrow/cpp
+    mkdir debug
+    cd debug
+    cmake -DCMAKE_BUILD_TYPE=Debug -DARROW_BUILD_TESTS=ON ..
+    make unittest
+
+If you do not need to build the test suite, you can omit the
+`ARROW_BUILD_TESTS` option (the default is not to build the unit tests).
+
+Detailed unit test logs will be placed in the build directory under
+`build/test-logs`.
 
 On some Linux distributions, running the test suite might require setting an
 explicit locale. If you see any locale-related errors, try setting the
@@ -82,7 +111,35 @@ environment variable (which requires the `locales` package or equivalent):
 export LC_ALL="en_US.UTF-8"
 ```
 
-## Building and Developing Parquet Libraries
+## Modular Build Targets
+
+Since there are several major parts of the C++ project, we have provided
+modular CMake targets for building each library component, group of unit tests
+and benchmarks, and their dependencies:
+
+* `make arrow` for Arrow core libraries
+* `make parquet` for Parquet libraries
+* `make gandiva` for Gandiva (LLVM expression compiler) libraries
+* `make plasma` for Plasma libraries, server
+
+To build the unit tests or benchmarks, add `-tests` or `-benchmarks` to the
+target name. So `make arrow-tests` will build the Arrow core unit tests. Using
+the `-all` target, e.g. `parquet-all`, will build everything.
+
+If you wish to only build and install one or more project subcomponents, we
+have provided the CMake option `ARROW_OPTIONAL_INSTALL` to only install targets
+that have been built. For example, if you only wish to build the Parquet
+libraries, its tests, and its dependencies, you can run:
+
+```
+cmake .. -DARROW_PARQUET=ON -DARROW_OPTIONAL_INSTALL=ON -DARROW_BUILD_TESTS=ON
+make parquet
+make install
+```
+
+If you omit an explicit target when invoking `make`, all targets will be built.
+
+## Parquet Development Notes
 
 To build the C++ libraries for Apache Parquet, add the flag
 `-DARROW_PARQUET=ON` when invoking CMake. The Parquet libraries and unit tests
@@ -117,10 +174,10 @@ not use the macro.
 Follow the directions for simple build except run cmake
 with the `--ARROW_BUILD_BENCHMARKS` parameter set correctly:
 
-    cmake -DARROW_BUILD_BENCHMARKS=ON ..
+    cmake -DARROW_BUILD_TESTS=ON -DARROW_BUILD_BENCHMARKS=ON ..
 
 and instead of make unittest run either `make; ctest` to run both unit tests
-and benchmarks or `make runbenchmark` to run only the benchmark tests.
+and benchmarks or `make benchmark` to run only the benchmark tests.
 
 Benchmark logs will be placed in the build directory under `build/benchmark-logs`.
 
@@ -250,13 +307,62 @@ The optional `gandiva` libraries and tests can be built by passing
 `-DARROW_GANDIVA=on`.
 
 ```shell
-cmake .. -DARROW_GANDIVA=on
+cmake .. -DARROW_GANDIVA=ON -DARROW_BUILD_TESTS=ON
 make
 ctest -L gandiva
 ```
 
 This library is still in Alpha stages, and subject to API changes without
 deprecation warnings.
+
+### Building and developing Flight (optional)
+
+In addition to the Arrow dependencies, Flight requires:
+* gRPC (>= 1.14, roughly)
+* Protobuf (>= 3.6, earlier versions may work)
+* c-ares (used by gRPC)
+
+By default, Arrow will try to download and build these dependencies
+when building Flight.
+
+The optional `flight` libraries and tests can be built by passing
+`-DARROW_FLIGHT=ON`.
+
+```shell
+cmake .. -DARROW_FLIGHT=ON -DARROW_BUILD_TESTS=ON
+make
+```
+
+You can also use existing installations of the extra dependencies.
+When building, set the environment variables `GRPC_HOME` and/or
+`PROTOBUF_HOME` and/or `CARES_HOME`.
+
+You may try using system libraries for gRPC and Protobuf, but these
+are likely to be too old.
+
+On Ubuntu/Debian, you can try:
+
+```shell
+sudo apt-get install libgrpc-dev libgrpc++-dev protobuf-compiler-grpc libc-ares-dev
+```
+
+Note that the version of gRPC in Ubuntu 18.10 is too old; you will
+have to install gRPC from source. (Ubuntu 19.04/Debian Sid may work.)
+
+On macOS, you can try [Homebrew][1]:
+
+```shell
+brew install grpc
+```
+
+You can also install gRPC from source. In this case, you must install
+gRPC to generate the necessary files for CMake to find gRPC:
+
+```shell
+cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DgRPC_PROTOBUF_PROVIDER=package -DgRPC_ZLIB_PROVIDER=package -DgRPC_CARES_PROVIDER=package -DgRPC_SSL_PROVIDER=package
+```
+
+You can then specify `-DgRPC_DIR` to `cmake`.
 
 ### API documentation
 
@@ -269,9 +375,13 @@ This requires [Doxygen](http://www.doxygen.org) to be installed.
 
 ## Development
 
-This project follows [Google's C++ Style Guide][3] with minor exceptions. We do
-not encourage anonymous namespaces and we relax the line length restriction to
-90 characters.
+This project follows [Google's C++ Style Guide][3] with minor exceptions:
+
+  *  We relax the line length restriction to 90 characters.
+  *  We use the NULLPTR macro defined in `src/arrow/util/macros.h` to
+     support building C++/CLI (ARROW-1134)
+  *  We use doxygen style comments ("///") instead of line comments ("//")
+     in header files.
 
 ### Memory Pools
 
@@ -280,6 +390,12 @@ matter of convenience, some of the array builder classes have constructors
 which use the default pool without explicitly passing it. You can disable these
 constructors in your application (so that you are accounting properly for all
 memory allocations) by defining `ARROW_NO_DEFAULT_MEMORY_POOL`.
+
+### Header files
+
+We use the `.h` extension for C++ header files. Any header file name not
+containing `internal` is considered to be a public header, and will be
+automatically installed by the build.
 
 ### Error Handling and Exceptions
 
@@ -374,6 +490,12 @@ You may find the required packages at http://releases.llvm.org/download.html
 or use the Debian/Ubuntu APT repositories on https://apt.llvm.org/. On macOS
 with [Homebrew][1] you can get it via `brew install llvm@6`.
 
+Depending on how you installed clang-format, the build system may not be able
+to find it. You can provide an explicit path to your LLVM installation (or the
+root path for the clang tools) with the environment variable
+`$CLANG_TOOLS_PATH` or by passing `-DClangTools_PATH=$PATH_TO_CLANG_TOOLS` when
+invoking CMake.
+
 ## Checking for ABI and API stability
 
 To build ABI compliance reports, you need to install the two tools
@@ -426,6 +548,14 @@ travis-CI (but still surface the potential warnings in `make clang-tidy`). Ideal
 both of these options would be used rarely. Current known uses-cases when they are required:
 
 *  Parameterized tests in google test.
+
+## CMake version requirements
+
+We support CMake 3.2 and higher. Some features require a newer version of CMake:
+
+* Building the benchmarks requires 3.6 or higher
+* Building zstd from source requires 3.7 or higher
+* Building Gandiva JNI bindings requires 3.11 or higher
 
 [1]: https://brew.sh/
 [2]: https://github.com/apache/arrow/blob/master/cpp/apidoc/Windows.md

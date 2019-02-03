@@ -44,29 +44,16 @@ public final class JdbcToArrowConfig {
    * is used when constructing the Arrow vectors from the ResultSet, and the calendar is used to define
    * Arrow Timestamp fields, and to read time-based fields from the JDBC <code>ResultSet</code>. 
    *
-   * @param allocator The memory allocator to construct the Arrow vectors with.
-   * @param calendar The calendar to use when constructing Timestamp fields and reading time-based results.
+   * @param allocator       The memory allocator to construct the Arrow vectors with.
+   * @param calendar        The calendar to use when constructing Timestamp fields and reading time-based results.
+   * @param includeMetadata Whether to include JDBC field metadata in the Arrow Schema Field metadata.
    */
-  public JdbcToArrowConfig(BaseAllocator allocator, Calendar calendar) {
+  JdbcToArrowConfig(BaseAllocator allocator, Calendar calendar, boolean includeMetadata) {
     Preconditions.checkNotNull(allocator, "Memory allocator cannot be null");
     Preconditions.checkNotNull(calendar, "Calendar object can not be null");
 
     this.allocator = allocator;
     this.calendar = calendar;
-    this.includeMetadata = false;
-  }
-
-  /**
-   * Constructs a new configuration from the provided allocator and calendar.  The <code>allocator</code>
-   * is used when constructing the Arrow vectors from the ResultSet, and the calendar is used to define
-   * Arrow Timestamp fields, and to read time-based fields from the JDBC <code>ResultSet</code>. 
-   *
-   * @param allocator       The memory allocator to construct the Arrow vectors with.
-   * @param calendar        The calendar to use when constructing Timestamp fields and reading time-based results.
-   * @param includeMetadata Whether to include JDBC field metadata in the Arrow Schema Field metadata.
-   */
-  public JdbcToArrowConfig(BaseAllocator allocator, Calendar calendar, boolean includeMetadata) {
-    this(allocator, calendar);
     this.includeMetadata = includeMetadata;
   }
 
@@ -80,38 +67,11 @@ public final class JdbcToArrowConfig {
   }
 
   /**
-   * Sets the {@link Calendar} to use when constructing timestamp fields in the
-   * Arrow schema, and reading time-based fields from the JDBC <code>ResultSet</code>.
-   *
-   * @param calendar the calendar to set.
-   * @return This instance of the <code>JdbcToArrowConfig</code>, for chaining.
-   * @exception NullPointerExeption if <code>calendar</code> is <code>null</code>.
-   */
-  public JdbcToArrowConfig setCalendar(Calendar calendar) {
-    Preconditions.checkNotNull(calendar, "Calendar object can not be null");
-    this.calendar = calendar;
-    return this;
-  }
-
-  /**
    * The Arrow memory allocator.
    * @return the allocator.
    */
   public BaseAllocator getAllocator() {
     return allocator;
-  }
-
-  /**
-   * Sets the memory allocator to use when construting the Arrow vectors from the ResultSet.
-   *
-   * @param allocator the allocator to set.
-   * @return This instance of the <code>JdbcToArrowConfig</code>, for chaining.
-   * @exception NullPointerException if <code>allocator</code> is null.
-   */
-  public JdbcToArrowConfig setAllocator(BaseAllocator allocator) {
-    Preconditions.checkNotNull(allocator, "Memory allocator cannot be null");
-    this.allocator = allocator;
-    return this;
   }
 
   /**
@@ -132,18 +92,5 @@ public final class JdbcToArrowConfig {
   public JdbcToArrowConfig setIncludeMetadata(boolean includeMetadata) {
     this.includeMetadata = includeMetadata;
     return this;
-  }
-
-  /**
-   * Whether this configuration is valid.  The configuration is valid when:
-   * <ul>
-   *   <li>A memory allocator is provided.</li>
-   *   <li>A calendar is provided.</li>
-   * </ul>
-   *
-   * @return Whether this configuration is valid.
-   */
-  public boolean isValid() {
-    return (calendar != null) && (allocator != null);
   }
 }

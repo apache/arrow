@@ -172,10 +172,10 @@ public final class AutoCloseables {
   }
 
   /**
-   * close() an {@see java.lang.AutoCloseable} without throwing a (checked)
-   * {@see java.lang.Exception}. This wraps the close() call with a
+   * close() an {@link java.lang.AutoCloseable} without throwing a (checked)
+   * {@link java.lang.Exception}. This wraps the close() call with a
    * try-catch that will rethrow an Exception wrapped with a
-   * {@see java.lang.RuntimeException}, providing a way to call close()
+   * {@link java.lang.RuntimeException}, providing a way to call close()
    * without having to do the try-catch everywhere or propagate the Exception.
    *
    * @param autoCloseable the AutoCloseable to close; may be null

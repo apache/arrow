@@ -52,11 +52,15 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/status.h"
+
 #include "plasma/common.h"
 #include "plasma/common_generated.h"
 #include "plasma/fling.h"
 #include "plasma/io.h"
 #include "plasma/malloc.h"
+#include "plasma/plasma_allocator.h"
+#include "plasma/protocol.h"
 
 #ifdef PLASMA_CUDA
 #include "arrow/gpu/cuda_api.h"
@@ -72,13 +76,6 @@ using arrow::util::ArrowLogLevel;
 namespace fb = plasma::flatbuf;
 
 namespace plasma {
-
-extern "C" {
-void* dlmalloc(size_t bytes);
-void* dlmemalign(size_t alignment, size_t bytes);
-void dlfree(void* mem);
-size_t dlmalloc_set_footprint_limit(size_t bytes);
-}
 
 struct GetRequest {
   GetRequest(Client* client, const std::vector<ObjectID>& object_ids);
@@ -111,10 +108,8 @@ GetRequest::GetRequest(Client* client, const std::vector<ObjectID>& object_ids)
 
 Client::Client(int fd) : fd(fd), notification_fd(-1) {}
 
-PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
-                         bool hugepages_enabled)
+PlasmaStore::PlasmaStore(EventLoop* loop, std::string directory, bool hugepages_enabled)
     : loop_(loop), eviction_policy_(&store_info_) {
-  store_info_.memory_capacity = system_memory;
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
 #ifdef PLASMA_CUDA
@@ -170,7 +165,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   }
 #endif
   while (true) {
-    // Allocate space for the new object. We use dlmemalign instead of dlmalloc
+    // Allocate space for the new object. We use memalign instead of malloc
     // in order to align the allocated region to a 64-byte boundary. This is not
     // strictly necessary, but it is an optimization that could speed up the
     // computation of a hash of the data (see compute_object_hash_parallel in
@@ -178,8 +173,8 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
     // it is not guaranteed that the corresponding pointer in the client will be
     // 64-byte aligned, but in practice it often will be.
     if (device_num == 0) {
-      pointer =
-          reinterpret_cast<uint8_t*>(dlmemalign(kBlockSize, data_size + metadata_size));
+      pointer = reinterpret_cast<uint8_t*>(
+          PlasmaAllocator::Memalign(kBlockSize, data_size + metadata_size));
       if (pointer == nullptr) {
         // Tell the eviction policy how much space we need to create this object.
         std::vector<ObjectID> objects_to_evict;
@@ -327,7 +322,12 @@ void PlasmaStore::ReturnFromGet(GetRequest* get_req) {
   if (s.ok()) {
     // Send all of the file descriptors for the present objects.
     for (int store_fd : store_fds) {
-      WarnIfSigpipe(send_fd(get_req->client->fd, store_fd), get_req->client->fd);
+      // Only send the file descriptor if it hasn't been sent (see analogous
+      // logic in GetStoreFd in client.cc).
+      if (get_req->client->used_fds.find(store_fd) == get_req->client->used_fds.end()) {
+        WarnIfSigpipe(send_fd(get_req->client->fd, store_fd), get_req->client->fd);
+        get_req->client->used_fds.insert(store_fd);
+      }
     }
   }
 
@@ -762,9 +762,7 @@ Status PlasmaStore::ProcessMessage(Client* client) {
   uint8_t* input = input_buffer_.data();
   size_t input_size = input_buffer_.size();
   ObjectID object_id;
-  PlasmaObject object;
-  // TODO(pcm): Get rid of the following.
-  memset(&object, 0, sizeof(object));
+  PlasmaObject object = {};
 
   // Process the different types of requests.
   switch (type) {
@@ -783,8 +781,12 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       HANDLE_SIGPIPE(
           SendCreateReply(client->fd, object_id, &object, error_code, mmap_size),
           client->fd);
-      if (error_code == PlasmaError::OK && device_num == 0) {
+      // Only send the file descriptor if it hasn't been sent (see analogous
+      // logic in GetStoreFd in client.cc). Similar in ReturnFromGet.
+      if (error_code == PlasmaError::OK && device_num == 0 &&
+          client->used_fds.find(object.store_fd) == client->used_fds.end()) {
         WarnIfSigpipe(send_fd(client->fd, object.store_fd), client->fd);
+        client->used_fds.insert(object.store_fd);
       }
     } break;
     case fb::MessageType::PlasmaCreateAndSealRequest: {
@@ -874,7 +876,7 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       SubscribeToUpdates(client);
       break;
     case fb::MessageType::PlasmaConnectRequest: {
-      HANDLE_SIGPIPE(SendConnectReply(client->fd, store_info_.memory_capacity),
+      HANDLE_SIGPIPE(SendConnectReply(client->fd, PlasmaAllocator::GetFootprintLimit()),
                      client->fd);
     } break;
     case fb::MessageType::PlasmaDisconnectClient:
@@ -892,22 +894,23 @@ class PlasmaStoreRunner {
  public:
   PlasmaStoreRunner() {}
 
-  void Start(char* socket_name, int64_t system_memory, std::string directory,
-             bool hugepages_enabled, bool use_one_memory_mapped_file) {
+  void Start(char* socket_name, std::string directory, bool hugepages_enabled) {
     // Create the event loop.
     loop_.reset(new EventLoop);
-    store_.reset(
-        new PlasmaStore(loop_.get(), system_memory, directory, hugepages_enabled));
+    store_.reset(new PlasmaStore(loop_.get(), directory, hugepages_enabled));
     plasma_config = store_->GetPlasmaStoreInfo();
 
-    // If the store is configured to use a single memory-mapped file, then we
-    // achieve that by mallocing and freeing a single large amount of space.
-    // that maximum allowed size up front.
-    if (use_one_memory_mapped_file) {
-      void* pointer = plasma::dlmemalign(kBlockSize, system_memory);
-      ARROW_CHECK(pointer != nullptr);
-      plasma::dlfree(pointer);
-    }
+    // We are using a single memory-mapped file by mallocing and freeing a single
+    // large amount of space up front. According to the documentation,
+    // dlmalloc might need up to 128*sizeof(size_t) bytes for internal
+    // bookkeeping.
+    void* pointer = plasma::PlasmaAllocator::Memalign(
+        kBlockSize, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
+    ARROW_CHECK(pointer != nullptr);
+    // This will unmap the file, but the next one created will be as large
+    // as this one (this is an implementation detail of dlmalloc).
+    plasma::PlasmaAllocator::Free(
+        pointer, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
 
     int socket = BindIpcSock(socket_name, true);
     // TODO(pcm): Check return value.
@@ -942,16 +945,15 @@ void HandleSignal(int signal) {
   }
 }
 
-void StartServer(char* socket_name, int64_t system_memory, std::string plasma_directory,
-                 bool hugepages_enabled, bool use_one_memory_mapped_file) {
+void StartServer(char* socket_name, std::string plasma_directory,
+                 bool hugepages_enabled) {
   // Ignore SIGPIPE signals. If we don't do this, then when we attempt to write
   // to a client that has already died, the store could die.
   signal(SIGPIPE, SIG_IGN);
 
   g_runner.reset(new PlasmaStoreRunner());
   signal(SIGTERM, HandleSignal);
-  g_runner->Start(socket_name, system_memory, plasma_directory, hugepages_enabled,
-                  use_one_memory_mapped_file);
+  g_runner->Start(socket_name, plasma_directory, hugepages_enabled);
 }
 
 }  // namespace plasma
@@ -963,11 +965,9 @@ int main(int argc, char* argv[]) {
   // Directory where plasma memory mapped files are stored.
   std::string plasma_directory;
   bool hugepages_enabled = false;
-  // True if a single large memory-mapped file should be created at startup.
-  bool use_one_memory_mapped_file = false;
   int64_t system_memory = -1;
   int c;
-  while ((c = getopt(argc, argv, "s:m:d:hf")) != -1) {
+  while ((c = getopt(argc, argv, "s:m:d:h")) != -1) {
     switch (c) {
       case 'd':
         plasma_directory = std::string(optarg);
@@ -982,14 +982,13 @@ int main(int argc, char* argv[]) {
         char extra;
         int scanned = sscanf(optarg, "%" SCNd64 "%c", &system_memory, &extra);
         ARROW_CHECK(scanned == 1);
+        // Set system memory capacity
+        plasma::PlasmaAllocator::SetFootprintLimit(static_cast<size_t>(system_memory));
         ARROW_LOG(INFO) << "Allowing the Plasma store to use up to "
                         << static_cast<double>(system_memory) / 1000000000
                         << "GB of memory.";
         break;
       }
-      case 'f':
-        use_one_memory_mapped_file = true;
-        break;
       default:
         exit(-1);
     }
@@ -1039,12 +1038,8 @@ int main(int argc, char* argv[]) {
     SetMallocGranularity(1024 * 1024 * 1024);  // 1 GB
   }
 #endif
-  // Make it so dlmalloc fails if we try to request more memory than is
-  // available.
-  plasma::dlmalloc_set_footprint_limit((size_t)system_memory);
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
-  plasma::StartServer(socket_name, system_memory, plasma_directory, hugepages_enabled,
-                      use_one_memory_mapped_file);
+  plasma::StartServer(socket_name, plasma_directory, hugepages_enabled);
   plasma::g_runner->Shutdown();
   plasma::g_runner = nullptr;
 

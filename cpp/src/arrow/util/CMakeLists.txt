@@ -20,45 +20,7 @@
 #######################################
 
 # Headers: top level
-install(FILES
-  bit-stream-utils.h
-  bit-util.h
-  bpacking.h
-  checked_cast.h
-  compiler-util.h
-  compression.h
-  compression_brotli.h
-  compression_bz2.h
-  compression_lz4.h
-  compression_snappy.h
-  compression_zlib.h
-  compression_zstd.h
-  cpu-info.h
-  date.h
-  decimal.h
-  hash-util.h
-  hashing.h
-  io-util.h
-  key_value_metadata.h
-  lazy.h
-  logging.h
-  macros.h
-  memory.h
-  neon-util.h
-  parallel.h
-  rle-encoding.h
-  sse-util.h
-  stl.h
-  stopwatch.h
-  string.h
-  string_view.h
-  thread-pool.h
-  type_traits.h
-  utf8.h
-  variant.h
-  visibility.h
-  windows_compatibility.h
-  DESTINATION include/arrow/util)
+ARROW_INSTALL_ALL_HEADERS("arrow/util")
 
 #######################################
 # arrow_test_main
@@ -68,22 +30,22 @@ if (ARROW_BUILD_BENCHMARKS)
   add_library(arrow_benchmark_main benchmark_main.cc)
   if (APPLE)
     target_link_libraries(arrow_benchmark_main
-      benchmark_static
+      gbenchmark_static
     )
   elseif(MSVC)
     target_link_libraries(arrow_benchmark_main
-      benchmark_static
+      gbenchmark_static
       Shlwapi.lib
   )
   else()
     target_link_libraries(arrow_benchmark_main
-      benchmark_static
+      gbenchmark_static
       pthread
     )
   endif()
 
   # TODO(wesm): Some benchmarks include gtest.h
-  add_dependencies(arrow_benchmark_main gtest_static)
+  add_dependencies(arrow_benchmark_main ${GTEST_LIBRARY})
 endif()
 
 ADD_ARROW_TEST(bit-util-test)
@@ -100,6 +62,7 @@ ADD_ARROW_TEST(rle-encoding-test)
 ADD_ARROW_TEST(stl-util-test)
 ADD_ARROW_TEST(task-group-test)
 ADD_ARROW_TEST(thread-pool-test)
+ADD_ARROW_TEST(trie-test)
 ADD_ARROW_TEST(utf8-util-test)
 
 ADD_ARROW_BENCHMARK(bit-util-benchmark)
@@ -108,8 +71,8 @@ ADD_ARROW_BENCHMARK(decimal-benchmark)
 ADD_ARROW_BENCHMARK(hashing-benchmark)
 ADD_ARROW_BENCHMARK(int-util-benchmark)
 ADD_ARROW_BENCHMARK(lazy-benchmark)
+ADD_ARROW_BENCHMARK(machine-benchmark)
 ADD_ARROW_BENCHMARK(number-parsing-benchmark)
+ADD_ARROW_BENCHMARK(thread-pool-benchmark)
+ADD_ARROW_BENCHMARK(trie-benchmark)
 ADD_ARROW_BENCHMARK(utf8-util-benchmark)
-
-add_subdirectory(string_view)
-add_subdirectory(variant)

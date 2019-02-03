@@ -19,7 +19,7 @@
 # cython: language_level = 3
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
+from pyarrow.includes.libarrow cimport (CChunkedArray, CSchema, CStatus,
                                         CTable, CMemoryPool,
                                         CKeyValueMetadata,
                                         RandomAccessFile, OutputStream,
@@ -272,8 +272,8 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
 
     cdef cppclass FileReader:
         FileReader(CMemoryPool* pool, unique_ptr[ParquetFileReader] reader)
-        CStatus ReadColumn(int i, shared_ptr[CArray]* out)
-        CStatus ReadSchemaField(int i, shared_ptr[CArray]* out)
+        CStatus ReadColumn(int i, shared_ptr[CChunkedArray]* out)
+        CStatus ReadSchemaField(int i, shared_ptr[CChunkedArray]* out)
 
         int num_row_groups()
         CStatus ReadRowGroup(int i, shared_ptr[CTable]* out)

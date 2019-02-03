@@ -69,7 +69,6 @@ test_that("RecordBatch", {
   expect_equal(col_fct$as_vector(), tbl$fct)
   expect_equal(col_fct$type, dictionary(int32(), array(letters[1:10])))
 
-
   batch2 <- batch$RemoveColumn(0)
   expect_equal(
     batch2$schema,

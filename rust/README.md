@@ -19,69 +19,32 @@
 
 # Native Rust implementation of Apache Arrow
 
-[![Build Status](https://travis-ci.org/apache/arrow.svg?branch=master)](https://travis-ci.org/apache/arrow)
-[![Coverage Status](https://coveralls.io/repos/github/apache/arrow/badge.svg)](https://coveralls.io/github/apache/arrow)
+## The Rust implementation of Arrow consists of the following crates
 
-## Status
-
-This is a native Rust implementation of Apache Arrow. The current status is:
-
-- [x] Primitive Arrays
-- [x] List Arrays
-- [x] Struct Arrays
-- [x] CSV Reader
-- [ ] CSV Writer
-- [ ] Parquet Reader
-- [ ] Parquet Writer
-- [ ] Arrow IPC
-- [ ] Interop tests with other implementations
-
-## Examples
-
-The examples folder shows how to construct some different types of Arrow
-arrays, including dynamic arrays created at runtime.
-
-Examples can be run using the `cargo run --example` command. For example:
-
-```bash
-cargo run --example builders
-cargo run --example dynamic_types
-cargo run --example read_csv
-```
+- Arrow [(README)](arrow/README.md)
+- Parquet [(README)](parquet/README.md)
 
 ## Run Tests
 
-```bash
-cargo test
-```
-
-# Publishing to crates.io
-
-An Arrow committer can publish this crate after an official project release has
-been made to crates.io using the following instructions.
-
-Follow [these
-instructions](https://doc.rust-lang.org/cargo/reference/publishing.html) to
-create an account and login to crates.io before asking to be added as an owner
-of the [arrow crate](https://crates.io/crates/arrow).
-
-Checkout the tag for the version to be released. For example:
+Parquet support in Arrow requires data to test against, this data is in a
+git submodule.  To pull down this data run the following:
 
 ```bash
-git checkout apache-arrow-0.11.0
+git submodule update --init
 ```
 
-If the Cargo.toml in this tag already contains `version = "0.11.0"` (as it
-should) then the crate can be published with the following command:
+The data can then be found in `cpp/submodules/parquet_testing/data`.
+Create a new environment variable called `PARQUET_TEST_DATA` to point
+to this location and then `cargo test` as usual.
+
+## Code Formatting
+
+Our CI uses `rustfmt` to check code formatting.  Although the project is
+built and tested against nightly rust we use the stable version of
+`rustfmt`.  So before submitting a PR be sure to run the following
+and check for lint issues:
 
 ```bash
-cargo publish
+cargo +stable fmt --all -- --check
 ```
 
-If the Cargo.toml does not have the correct version then it will be necessary
-to modify it manually. Since there is now a modified file locally that is not
-committed to github it will be necessary to use the following command.
-
-```bash
-cargo publish --allow-dirty
-```

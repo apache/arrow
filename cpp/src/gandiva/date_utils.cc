@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 #include <sstream>
 #include <vector>
@@ -57,7 +58,7 @@ Status DateUtils::ToInternalFormat(const std::string& format,
   std::stringstream buffer;
   bool is_in_quoted_text = false;
 
-  for (uint i = 0; i < format.length(); i++) {
+  for (size_t i = 0; i < format.size(); i++) {
     char currentChar = format[i];
 
     // logic before we append to the buffer
@@ -75,11 +76,8 @@ Status DateUtils::ToInternalFormat(const std::string& format,
         buffer.str("");
         continue;
       } else {
-        if (buffer.str().length() > 0) {
-          std::stringstream err_msg;
-          err_msg << "Invalid date format string '" << format << "' at position " << i;
-          return Status::Invalid(err_msg.str());
-        }
+        ARROW_RETURN_IF(buffer.str().length() > 0,
+                        Status::Invalid("Invalid date format string '", format, "'"));
 
         is_in_quoted_text = true;
         continue;
@@ -156,10 +154,7 @@ Status DateUtils::ToInternalFormat(const std::string& format,
         }
       }
     } else {
-      // no potential matches found
-      std::stringstream err_msg;
-      err_msg << "Invalid date format string '" << format << "' at position " << i;
-      return Status::Invalid(err_msg.str());
+      return Status::Invalid("Invalid date format string '", format, "'");
     }
   }
 
@@ -170,11 +165,10 @@ Status DateUtils::ToInternalFormat(const std::string& format,
     if (exactMatches.size() == 1 && exactMatches[0].length() == buffer.str().length()) {
       builder << sql_date_format_to_boost_map_[exactMatches[0]];
     } else {
-      // we didn't successfully parse the entire string
+      // Format partially parsed
       int64_t pos = format.length() - buffer.str().length();
-      std::stringstream err_msg;
-      err_msg << "Invalid date format string '" << format << "' at position " << pos;
-      return Status::Invalid(err_msg.str());
+      return Status::Invalid("Invalid date format string '", format, "' at position ",
+                             pos);
     }
   }
   std::string final_pattern = builder.str();

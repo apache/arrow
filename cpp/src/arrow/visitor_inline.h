@@ -121,7 +121,7 @@ inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {
 // The scalar value's type depends on the array data type:
 // - the type's `c_type`, if any
 // - for boolean arrays, a `bool`
-// - for binary, string and fixed-size binary arrars, a `util::string_view`
+// - for binary, string and fixed-size binary arrays, a `util::string_view`
 
 template <typename T, typename Enable = void>
 struct ArrayDataVisitor {};

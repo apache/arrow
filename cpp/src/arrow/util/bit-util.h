@@ -45,6 +45,7 @@
 #if defined(_MSC_VER)
 #include <intrin.h>
 #pragma intrinsic(_BitScanReverse)
+#pragma intrinsic(_BitScanForward)
 #define ARROW_BYTE_SWAP64 _byteswap_uint64
 #define ARROW_BYTE_SWAP32 _byteswap_ulong
 #else
@@ -53,6 +54,7 @@
 #endif
 
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include <type_traits>
@@ -84,11 +86,11 @@ namespace BitUtil {
 //
 
 // Returns the ceil of value/divisor
-static inline int64_t CeilDiv(int64_t value, int64_t divisor) {
+constexpr int64_t CeilDiv(int64_t value, int64_t divisor) {
   return value / divisor + (value % divisor != 0);
 }
 
-static inline int64_t BytesForBits(int64_t bits) { return (bits + 7) >> 3; }
+constexpr int64_t BytesForBits(int64_t bits) { return (bits + 7) >> 3; }
 
 // Returns the smallest power of two that contains v.  If v is already a
 // power of two, it is returned as is.
@@ -106,12 +108,12 @@ static inline int64_t NextPower2(int64_t n) {
   return n;
 }
 
-static inline bool IsMultipleOf64(int64_t n) { return (n & 63) == 0; }
+constexpr bool IsMultipleOf64(int64_t n) { return (n & 63) == 0; }
 
-static inline bool IsMultipleOf8(int64_t n) { return (n & 7) == 0; }
+constexpr bool IsMultipleOf8(int64_t n) { return (n & 7) == 0; }
 
 // Returns 'value' rounded up to the nearest multiple of 'factor'
-static inline int64_t RoundUp(int64_t value, int64_t factor) {
+constexpr int64_t RoundUp(int64_t value, int64_t factor) {
   return (value + (factor - 1)) / factor * factor;
 }
 
@@ -119,16 +121,14 @@ static inline int64_t RoundUp(int64_t value, int64_t factor) {
 // is a power of two.
 // The result is undefined on overflow, i.e. if `value > 2**64 - factor`,
 // since we cannot return the correct result which would be 2**64.
-static inline int64_t RoundUpToPowerOf2(int64_t value, int64_t factor) {
+constexpr int64_t RoundUpToPowerOf2(int64_t value, int64_t factor) {
   // DCHECK((factor > 0) && ((factor & (factor - 1)) == 0));
   return (value + (factor - 1)) & ~(factor - 1);
 }
 
-static inline int64_t RoundUpToMultipleOf8(int64_t num) {
-  return RoundUpToPowerOf2(num, 8);
-}
+constexpr int64_t RoundUpToMultipleOf8(int64_t num) { return RoundUpToPowerOf2(num, 8); }
 
-static inline int64_t RoundUpToMultipleOf64(int64_t num) {
+constexpr int64_t RoundUpToMultipleOf64(int64_t num) {
   return RoundUpToPowerOf2(num, 64);
 }
 
@@ -180,6 +180,56 @@ static inline int CountLeadingZeros(uint64_t value) {
     ++bitpos;
   }
   return 64 - bitpos;
+#endif
+}
+
+static inline int CountTrailingZeros(uint32_t value) {
+#if defined(__clang__) || defined(__GNUC__)
+  if (value == 0) return 32;
+  return static_cast<int>(__builtin_ctzl(value));
+#elif defined(_MSC_VER)
+  unsigned long index;  // NOLINT
+  if (_BitScanForward(&index, value)) {
+    return static_cast<int>(index);
+  } else {
+    return 32;
+  }
+#else
+  int bitpos = 0;
+  if (value) {
+    while (value & 1 == 0) {
+      value >>= 1;
+      ++bitpos;
+    }
+  } else {
+    bitpos = 32;
+  }
+  return bitpos;
+#endif
+}
+
+static inline int CountTrailingZeros(uint64_t value) {
+#if defined(__clang__) || defined(__GNUC__)
+  if (value == 0) return 64;
+  return static_cast<int>(__builtin_ctzll(value));
+#elif defined(_MSC_VER)
+  unsigned long index;  // NOLINT
+  if (_BitScanForward64(&index, value)) {
+    return static_cast<int>(index);
+  } else {
+    return 64;
+  }
+#else
+  int bitpos = 0;
+  if (value) {
+    while (value & 1 == 0) {
+      value >>= 1;
+      ++bitpos;
+    }
+  } else {
+    bitpos = 64;
+  }
+  return bitpos;
 #endif
 }
 
@@ -329,6 +379,48 @@ static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
                  kBitmask[i % 8];
 }
 
+/// \brief set or clear a range of bits quickly
+static inline void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length,
+                             bool bits_are_set) {
+  if (length == 0) return;
+
+  const auto i_begin = start_offset;
+  const auto i_end = start_offset + length;
+  const uint8_t fill_byte = static_cast<uint8_t>(-static_cast<uint8_t>(bits_are_set));
+
+  const auto bytes_begin = i_begin / 8;
+  const auto bytes_end = i_end / 8 + 1;
+
+  const auto first_byte_mask = kPrecedingBitmask[i_begin % 8];
+  const auto last_byte_mask = kTrailingBitmask[i_end % 8];
+
+  if (bytes_end == bytes_begin + 1) {
+    // set bits within a single byte
+    const auto only_byte_mask =
+        i_end % 8 == 0 ? first_byte_mask
+                       : static_cast<uint8_t>(first_byte_mask | last_byte_mask);
+    bits[bytes_begin] &= only_byte_mask;
+    bits[bytes_begin] |= static_cast<uint8_t>(fill_byte & ~only_byte_mask);
+    return;
+  }
+
+  // set/clear trailing bits of first byte
+  bits[bytes_begin] &= first_byte_mask;
+  bits[bytes_begin] |= static_cast<uint8_t>(fill_byte & ~first_byte_mask);
+
+  if (bytes_end - bytes_begin > 2) {
+    // set/clear whole bytes
+    std::memset(bits + bytes_begin + 1, fill_byte,
+                static_cast<size_t>(bytes_end - bytes_begin - 2));
+  }
+
+  if (i_end % 8 == 0) return;
+
+  // set/clear leading bits of last byte
+  bits[bytes_end - 1] &= last_byte_mask;
+  bits[bytes_end - 1] |= static_cast<uint8_t>(fill_byte & ~last_byte_mask);
+}
+
 /// \brief Convert vector of bytes to bitmap buffer
 ARROW_EXPORT
 Status BytesToBits(const std::vector<uint8_t>&, MemoryPool*, std::shared_ptr<Buffer>*);
@@ -409,7 +501,7 @@ class BitmapWriter {
 
   void Finish() {
     // Store current byte if we didn't went past bitmap storage
-    if (bit_mask_ != 0x01 || position_ < length_) {
+    if (length_ > 0 && (bit_mask_ != 0x01 || position_ < length_)) {
       bitmap_[byte_offset_] = current_byte_;
     }
   }
@@ -461,7 +553,7 @@ class FirstTimeBitmapWriter {
 
   void Finish() {
     // Store current byte if we didn't went past bitmap storage
-    if (bit_mask_ != 0x01 || position_ < length_) {
+    if (length_ > 0 && (bit_mask_ != 0x01 || position_ < length_)) {
       bitmap_[byte_offset_] = current_byte_;
     }
   }
@@ -578,8 +670,8 @@ Status CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset, int64
 /// \param[in] offset bit offset into the source data
 /// \param[in] length number of bits to copy
 /// \param[in] dest_offset bit offset into the destination
-/// \param[out] dest the destination buffer, must have at least space for (offset +
-/// length) bits
+/// \param[out] dest the destination buffer, must have at least space for
+/// (offset + length) bits
 ARROW_EXPORT
 void CopyBitmap(const uint8_t* bitmap, int64_t offset, int64_t length, uint8_t* dest,
                 int64_t dest_offset);
@@ -590,8 +682,8 @@ void CopyBitmap(const uint8_t* bitmap, int64_t offset, int64_t length, uint8_t* 
 /// \param[in] offset bit offset into the source data
 /// \param[in] length number of bits to copy
 /// \param[in] dest_offset bit offset into the destination
-/// \param[out] dest the destination buffer, must have at least space for (offset +
-/// length) bits
+/// \param[out] dest the destination buffer, must have at least space for
+/// (offset + length) bits
 ARROW_EXPORT
 void InvertBitmap(const uint8_t* bitmap, int64_t offset, int64_t length, uint8_t* dest,
                   int64_t dest_offset);
@@ -613,7 +705,8 @@ Status InvertBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset,
 ///
 /// \param[in] data a packed LSB-ordered bitmap as a byte array
 /// \param[in] bit_offset a bitwise offset into the bitmap
-/// \param[in] length the number of bits to inspect in the bitmap relative to the offset
+/// \param[in] length the number of bits to inspect in the bitmap relative to
+/// the offset
 ///
 /// \return The number of set (1) bits in the range
 ARROW_EXPORT

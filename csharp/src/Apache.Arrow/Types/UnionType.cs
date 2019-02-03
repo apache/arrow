@@ -24,7 +24,7 @@ namespace Apache.Arrow.Types
         Dense
     }
 
-    public class UnionType: ArrowType
+    public sealed class UnionType : ArrowType
     {
         public override ArrowTypeId TypeId => ArrowTypeId.Union;
         public override string Name => "union";
@@ -41,10 +41,6 @@ namespace Apache.Arrow.Types
             Mode = mode;
         }
 
-        public override void Accept(IArrowTypeVisitor visitor)
-        {
-            if (visitor is IArrowTypeVisitor<UnionType> v)
-                v.Visit(this);
-        }
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

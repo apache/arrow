@@ -119,7 +119,7 @@ class ARROW_EXPORT TableBuilder {
 
 class ARROW_EXPORT TableMetadata {
  public:
-  TableMetadata() {}
+  TableMetadata() : table_(NULLPTR) {}
   ~TableMetadata() = default;
 
   Status Open(const std::shared_ptr<Buffer>& buffer) {

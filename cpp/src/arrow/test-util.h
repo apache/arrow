@@ -17,23 +17,17 @@
 
 #pragma once
 
-#ifndef _WIN32
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#endif
-
 #include <algorithm>
-#include <chrono>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <limits>
 #include <memory>
 #include <random>
 #include <sstream>
 #include <string>
-#include <thread>
+#include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -43,44 +37,42 @@
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-#define STRINGIFY(x) #x
-
-#define ASSERT_RAISES(ENUM, expr)                                         \
-  do {                                                                    \
-    ::arrow::Status s = (expr);                                           \
-    if (!s.Is##ENUM()) {                                                  \
-      FAIL() << "Expected '" STRINGIFY(expr) "' to fail with " STRINGIFY( \
-                    ENUM) ", but got "                                    \
-             << s.ToString();                                             \
-    }                                                                     \
+#define ASSERT_RAISES(ENUM, expr)                                                     \
+  do {                                                                                \
+    ::arrow::Status s = (expr);                                                       \
+    if (!s.Is##ENUM()) {                                                              \
+      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
+                    ENUM) ", but got "                                                \
+             << s.ToString();                                                         \
+    }                                                                                 \
   } while (false)
 
-#define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                   \
-  do {                                                                    \
-    ::arrow::Status s = (expr);                                           \
-    if (!s.Is##ENUM()) {                                                  \
-      FAIL() << "Expected '" STRINGIFY(expr) "' to fail with " STRINGIFY( \
-                    ENUM) ", but got "                                    \
-             << s.ToString();                                             \
-    }                                                                     \
-    ASSERT_EQ((message), s.ToString());                                   \
+#define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                               \
+  do {                                                                                \
+    ::arrow::Status s = (expr);                                                       \
+    if (!s.Is##ENUM()) {                                                              \
+      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
+                    ENUM) ", but got "                                                \
+             << s.ToString();                                                         \
+    }                                                                                 \
+    ASSERT_EQ((message), s.ToString());                                               \
   } while (false)
 
-#define ASSERT_OK(expr)                                               \
-  do {                                                                \
-    ::arrow::Status s = (expr);                                       \
-    if (!s.ok()) {                                                    \
-      FAIL() << "'" STRINGIFY(expr) "' failed with " << s.ToString(); \
-    }                                                                 \
+#define ASSERT_OK(expr)                                                      \
+  do {                                                                       \
+    ::arrow::Status _s = (expr);                                             \
+    if (!_s.ok()) {                                                          \
+      FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _s.ToString(); \
+    }                                                                        \
   } while (false)
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
@@ -101,6 +93,10 @@
   } while (false);
 
 namespace arrow {
+
+class ChunkedArray;
+class Column;
+class Table;
 
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
@@ -169,6 +165,12 @@ static inline Status GetBitmapFromVector(const std::vector<T>& is_valid,
   return Status::OK();
 }
 
+template <typename T>
+inline void BitmapFromVector(const std::vector<T>& is_valid,
+                             std::shared_ptr<Buffer>* out) {
+  ASSERT_OK(GetBitmapFromVector(is_valid, out));
+}
+
 // Sets approximately pct_null of the first n bytes in null_bytes to zero
 // and the rest to non-zero (true) values.
 ARROW_EXPORT void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes);
@@ -199,6 +201,15 @@ ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs);
 ARROW_EXPORT void PrintColumn(const Column& col, std::stringstream* ss);
 ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
                                     bool same_chunk_layout = true);
+
+template <typename C_TYPE>
+void AssertNumericDataEqual(const C_TYPE* raw_data,
+                            const std::vector<C_TYPE>& expected_values) {
+  for (auto expected : expected_values) {
+    ASSERT_EQ(expected, *raw_data);
+    ++raw_data;
+  }
+}
 
 ARROW_EXPORT void CompareBatch(const RecordBatch& left, const RecordBatch& right);
 
@@ -246,6 +257,12 @@ Status MakeRandomBuffer(int64_t length, MemoryPool* pool,
   *out = result;
   return Status::OK();
 }
+
+// ArrayFromJSON: construct an Array from a simple JSON representation
+
+ARROW_EXPORT
+std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>&,
+                                     const std::string& json);
 
 // ArrayFromVector: construct an Array from vectors of C values
 

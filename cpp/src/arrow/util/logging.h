@@ -18,10 +18,29 @@
 #ifndef ARROW_UTIL_LOGGING_H
 #define ARROW_UTIL_LOGGING_H
 
+#ifdef GANDIVA_IR
+
+// The LLVM IR code doesn't have an NDEBUG mode. And, it shouldn't include references to
+// streams or stdc++. So, making the DCHECK calls void in that case.
+
+#define ARROW_IGNORE_EXPR(expr) ((void)(expr))
+
+#define DCHECK(condition) ARROW_IGNORE_EXPR(condition)
+#define DCHECK_OK(status) ARROW_IGNORE_EXPR(status)
+#define DCHECK_EQ(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK_NE(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK_LE(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK_LT(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK_GE(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK_GT(val1, val2) ARROW_IGNORE_EXPR(val1)
+
+#else  // !GANDIVA_IR
+
 #include <iostream>
 #include <memory>
 #include <string>
 
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -155,6 +174,8 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   static void InstallFailureSignalHandler();
 
  private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ArrowLog);
+
   // Hide the implementation of log provider by void *.
   // Otherwise, lib user may define the same macro to use the correct header file.
   void* logging_provider_;
@@ -182,5 +203,6 @@ class ARROW_EXPORT Voidify {
 
 }  // namespace util
 }  // namespace arrow
+#endif  // GANDIVA_IR
 
 #endif  // ARROW_UTIL_LOGGING_H

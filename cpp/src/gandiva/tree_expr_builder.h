@@ -23,13 +23,16 @@
 #include <unordered_set>
 #include <vector>
 
+#include "arrow/type.h"
 #include "gandiva/condition.h"
+#include "gandiva/decimal_scalar.h"
 #include "gandiva/expression.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief Tree Builder for a nested expression.
-class TreeExprBuilder {
+class GANDIVA_EXPORT TreeExprBuilder {
  public:
   /// \brief create a node on a literal.
   static NodePtr MakeLiteral(bool value);
@@ -45,6 +48,7 @@ class TreeExprBuilder {
   static NodePtr MakeLiteral(double value);
   static NodePtr MakeStringLiteral(const std::string& value);
   static NodePtr MakeBinaryLiteral(const std::string& value);
+  static NodePtr MakeDecimalLiteral(const DecimalScalar128& value);
 
   /// \brief create a node on a null literal.
   /// returns null if data_type is null or if it's not a supported datatype.

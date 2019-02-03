@@ -17,6 +17,7 @@
 
 apache-rat-*.jar
 arrow-src.tar
+arrow-src.tar.gz
 
 # Compiled source
 *.a
@@ -29,6 +30,8 @@ arrow-src.tar
 .build_cache_dir
 dependency-reduced-pom.xml
 MANIFEST
+compile_commands.json
+build.ninja
 
 # Generated Visual Studio files
 *.vcxproj
@@ -36,10 +39,18 @@ MANIFEST
 *.sln
 *.iml
 
+# Linux perf sample data
+perf.data
+perf.data.old
+
 cpp/.idea/
 cpp/apidoc/xml/
+docs/example.gz
+docs/example1.dat
+docs/example3.dat
 python/.eggs/
 python/doc/
+
 .vscode
 .idea/
 .pytest_cache/

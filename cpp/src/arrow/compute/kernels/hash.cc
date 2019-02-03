@@ -56,11 +56,9 @@ namespace compute {
 
 namespace {
 
-#define CHECK_IMPLEMENTED(KERNEL, FUNCNAME, TYPE)                  \
-  if (!KERNEL) {                                                   \
-    std::stringstream ss;                                          \
-    ss << FUNCNAME << " not implemented for " << type->ToString(); \
-    return Status::NotImplemented(ss.str());                       \
+#define CHECK_IMPLEMENTED(KERNEL, FUNCNAME, TYPE)                                       \
+  if (!KERNEL) {                                                                        \
+    return Status::NotImplemented(FUNCNAME, " not implemented for ", type->ToString()); \
   }
 
 // ----------------------------------------------------------------------

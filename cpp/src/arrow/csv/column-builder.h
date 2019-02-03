@@ -18,21 +18,28 @@
 #ifndef ARROW_CSV_COLUMN_BUILDER_H
 #define ARROW_CSV_COLUMN_BUILDER_H
 
+#include <cstdint>
 #include <memory>
-#include <vector>
 
 #include "arrow/array.h"
-#include "arrow/csv/converter.h"
-#include "arrow/csv/options.h"
-#include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
-#include "arrow/type.h"
-#include "arrow/util/task-group.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class ChunkedArray;
+class DataType;
+
+namespace internal {
+
+class TaskGroup;
+
+}  // namespace internal
+
 namespace csv {
+
+class BlockParser;
+struct ConvertOptions;
 
 class ARROW_EXPORT ColumnBuilder {
  public:

@@ -55,6 +55,10 @@ public class TreeBuilder {
     return new BinaryNode(binaryConstant);
   }
 
+  public static TreeNode makeDecimalLiteral(String decimalConstant, int precision, int scale) {
+    return new DecimalNode(decimalConstant, precision, scale);
+  }
+
   /**
    * create a null literal.
    */

@@ -138,7 +138,6 @@ public class JdbcToArrow {
     Preconditions.checkNotNull(connection, "JDBC connection object can not be null");
     Preconditions.checkArgument(query != null && query.length() > 0, "SQL query can not be null or empty");
     Preconditions.checkNotNull(config, "The configuration cannot be null");
-    Preconditions.checkArgument(config.isValid(), "The configuration must be valid");
 
     try (Statement stmt = connection.createStatement()) {
       return sqlToArrow(stmt.executeQuery(query), config);
@@ -225,7 +224,6 @@ public class JdbcToArrow {
       throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
     Preconditions.checkNotNull(config, "The configuration cannot be null");
-    Preconditions.checkArgument(config.isValid(), "The configuration must be valid");
 
     VectorSchemaRoot root = VectorSchemaRoot.create(
             JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), config), config.getAllocator());
