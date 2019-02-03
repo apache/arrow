@@ -1971,221 +1971,229 @@ mod tests {
         assert_eq!(rows, expected_rows);
     }
 
+    // These tests have been duplicated and made to be strongly typed, in tests/derive.rs.
+    //
+    // While strongly-typed projection has been implemented, untyped projection has not
+    // yet. As such these tests do not succeed for the time being.
+
     // #[test]
     // fn test_file_reader_rows_projection() {
-    //   let schema = "
-    //     message spark_schema {
-    //       REQUIRED DOUBLE c;
-    //       REQUIRED INT32 b;
-    //     }
-    //   ";
-    //   let schema = parse_message_type(&schema).unwrap();
-    //   let rows = test_file_reader_rows::<Row>("nested_maps.snappy.parquet",
-    // Some(schema)).unwrap();   let expected_rows = vec![
-    //     row![
-    //       ("c".to_string(), Value::F64(1.0)),
-    //       ("b".to_string(), Value::I32(1))
-    //     ],
-    //     row![
-    //       ("c".to_string(), Value::F64(1.0)),
-    //       ("b".to_string(), Value::I32(1))
-    //     ],
-    //     row![
-    //       ("c".to_string(), Value::F64(1.0)),
-    //       ("b".to_string(), Value::I32(1))
-    //     ],
-    //     row![
-    //       ("c".to_string(), Value::F64(1.0)),
-    //       ("b".to_string(), Value::I32(1))
-    //     ],
-    //     row![
-    //       ("c".to_string(), Value::F64(1.0)),
-    //       ("b".to_string(), Value::I32(1))
-    //     ],
-    //     row![
-    //       ("c".to_string(), Value::F64(1.0)),
-    //       ("b".to_string(), Value::I32(1))
-    //     ],
-    //   ];
-    //   assert_eq!(rows, expected_rows);
+    //     let schema = "
+    //   message spark_schema {
+    //     REQUIRED DOUBLE c;
+    //     REQUIRED INT32 b;
+    //   }
+    // ";
+    //     let schema = parse_message_type(&schema).unwrap();
+    //     let rows =
+    //         test_file_reader_rows::<Row>("nested_maps.snappy.parquet", Some(schema))
+    //             .unwrap();
+    //     let expected_rows = vec![
+    //         row![
+    //             ("c".to_string(), Value::F64(1.0)),
+    //             ("b".to_string(), Value::I32(1))
+    //         ],
+    //         row![
+    //             ("c".to_string(), Value::F64(1.0)),
+    //             ("b".to_string(), Value::I32(1))
+    //         ],
+    //         row![
+    //             ("c".to_string(), Value::F64(1.0)),
+    //             ("b".to_string(), Value::I32(1))
+    //         ],
+    //         row![
+    //             ("c".to_string(), Value::F64(1.0)),
+    //             ("b".to_string(), Value::I32(1))
+    //         ],
+    //         row![
+    //             ("c".to_string(), Value::F64(1.0)),
+    //             ("b".to_string(), Value::I32(1))
+    //         ],
+    //         row![
+    //             ("c".to_string(), Value::F64(1.0)),
+    //             ("b".to_string(), Value::I32(1))
+    //         ],
+    //     ];
+    //     assert_eq!(rows, expected_rows);
     // }
 
     // #[test]
     // fn test_file_reader_rows_projection_map() {
-    //   let schema = "
-    //     message spark_schema {
-    //       OPTIONAL group a (MAP) {
-    //         REPEATED group key_value {
-    //           REQUIRED BYTE_ARRAY key (UTF8);
-    //           OPTIONAL group value (MAP) {
-    //             REPEATED group key_value {
-    //               REQUIRED INT32 key;
-    //               REQUIRED BOOLEAN value;
-    //             }
+    //     let schema = "
+    //   message spark_schema {
+    //     OPTIONAL group a (MAP) {
+    //       REPEATED group key_value {
+    //         REQUIRED BYTE_ARRAY key (UTF8);
+    //         OPTIONAL group value (MAP) {
+    //           REPEATED group key_value {
+    //             REQUIRED INT32 key;
+    //             REQUIRED BOOLEAN value;
     //           }
     //         }
     //       }
     //     }
-    //   ";
-    //   let schema = parse_message_type(&schema).unwrap();
-    //   let rows = test_file_reader_rows::<Row>("nested_maps.snappy.parquet",
-    // Some(schema)).unwrap();   let expected_rows = vec![
-    //     row![(
-    //       "a".to_string(),
-    //       mapv![(
-    //         Value::String("a".to_string()),
-    //         mapv![
-    //           (Value::I32(1), Value::Bool(true)),
-    //           (Value::I32(2), Value::Bool(false))
-    //         ]
-    //       )]
-    //     )],
-    //     row![(
-    //       "a".to_string(),
-    //       mapv![(
-    //         Value::String("b".to_string()),
-    //         mapv![(Value::I32(1), Value::Bool(true))]
-    //       )]
-    //     )],
-    //     row![(
-    //       "a".to_string(),
-    //       mapv![(Value::String("c".to_string()), nonev![])]
-    //     )],
-    //     row![("a".to_string(), mapv![(Value::String("d".to_string()), mapv![])])],
-    //     row![(
-    //       "a".to_string(),
-    //       mapv![(
-    //         Value::String("e".to_string()),
-    //         mapv![(Value::I32(1), Value::Bool(true))]
-    //       )]
-    //     )],
-    //     row![(
-    //       "a".to_string(),
-    //       mapv![(
-    //         Value::String("f".to_string()),
-    //         mapv![
-    //           (Value::I32(3), Value::Bool(true)),
-    //           (Value::I32(4), Value::Bool(false)),
-    //           (Value::I32(5), Value::Bool(true))
-    //         ]
-    //       )]
-    //     )],
-    //   ];
-    //   assert_eq!(rows, expected_rows);
+    //   }
+    // ";
+    //     let schema = parse_message_type(&schema).unwrap();
+    //     let rows =
+    //         test_file_reader_rows::<Row>("nested_maps.snappy.parquet", Some(schema))
+    //             .unwrap();
+    //     let expected_rows = vec![
+    //         row![(
+    //             "a".to_string(),
+    //             mapv![(
+    //                 Value::String("a".to_string()),
+    //                 mapv![
+    //                     (Value::I32(1), Value::Bool(true)),
+    //                     (Value::I32(2), Value::Bool(false))
+    //                 ]
+    //             )]
+    //         )],
+    //         row![(
+    //             "a".to_string(),
+    //             mapv![(
+    //                 Value::String("b".to_string()),
+    //                 mapv![(Value::I32(1), Value::Bool(true))]
+    //             )]
+    //         )],
+    //         row![(
+    //             "a".to_string(),
+    //             mapv![(Value::String("c".to_string()), nonev![])]
+    //         )],
+    //         row![(
+    //             "a".to_string(),
+    //             mapv![(Value::String("d".to_string()), mapv![])]
+    //         )],
+    //         row![(
+    //             "a".to_string(),
+    //             mapv![(
+    //                 Value::String("e".to_string()),
+    //                 mapv![(Value::I32(1), Value::Bool(true))]
+    //             )]
+    //         )],
+    //         row![(
+    //             "a".to_string(),
+    //             mapv![(
+    //                 Value::String("f".to_string()),
+    //                 mapv![
+    //                     (Value::I32(3), Value::Bool(true)),
+    //                     (Value::I32(4), Value::Bool(false)),
+    //                     (Value::I32(5), Value::Bool(true))
+    //                 ]
+    //             )]
+    //         )],
+    //     ];
+    //     assert_eq!(rows, expected_rows);
     // }
 
     // #[test]
     // fn test_file_reader_rows_projection_list() {
-    //   let schema = "
-    //     message spark_schema {
-    //       OPTIONAL group a (LIST) {
-    //         REPEATED group list {
-    //           OPTIONAL group element (LIST) {
-    //             REPEATED group list {
-    //               OPTIONAL group element (LIST) {
-    //                 REPEATED group list {
-    //                   OPTIONAL BYTE_ARRAY element (UTF8);
-    //                 }
+    //     let schema = "
+    //   message spark_schema {
+    //     OPTIONAL group a (LIST) {
+    //       REPEATED group list {
+    //         OPTIONAL group element (LIST) {
+    //           REPEATED group list {
+    //             OPTIONAL group element (LIST) {
+    //               REPEATED group list {
+    //                 OPTIONAL BYTE_ARRAY element (UTF8);
     //               }
     //             }
     //           }
     //         }
     //       }
     //     }
-    //   ";
-    //   let schema = parse_message_type(&schema).unwrap();
-    //   let rows =
-    //     test_file_reader_rows::<Row>("nested_lists.snappy.parquet",
-    // Some(schema)).unwrap();   let expected_rows = vec![
-    //     row![(
-    //       "a".to_string(),
-    //       listv![
-    //         listv![
-    //           listv![Value::String("a".to_string()), Value::String("b".to_string())],
-    //           listv![Value::String("c".to_string())]
-    //         ],
-    //         listv![nonev![], listv![Value::String("d".to_string())]]
-    //       ]
-    //     )],
-    //     row![(
-    //       "a".to_string(),
-    //       listv![
-    //         listv![
-    //           listv![Value::String("a".to_string()), Value::String("b".to_string())],
-    //           listv![Value::String("c".to_string()), Value::String("d".to_string())]
-    //         ],
-    //         listv![nonev![], listv![Value::String("e".to_string())]]
-    //       ]
-    //     )],
-    //     row![(
-    //       "a".to_string(),
-    //       listv![
-    //         listv![
-    //           listv![Value::String("a".to_string()), Value::String("b".to_string())],
-    //           listv![Value::String("c".to_string()), Value::String("d".to_string())],
-    //           listv![Value::String("e".to_string())]
-    //         ],
-    //         listv![nonev![], listv![Value::String("f".to_string())]]
-    //       ]
-    //     )],
-    //   ];
-    //   assert_eq!(rows, expected_rows);
+    //   }
+    // ";
+    //     let schema = parse_message_type(&schema).unwrap();
+    //     let rows =
+    //         test_file_reader_rows::<Row>("nested_lists.snappy.parquet", Some(schema))
+    //             .unwrap();
+    //     let expected_rows = vec![
+    //         row![(
+    //             "a".to_string(),
+    //             listv![
+    //                 listv![
+    //                     listv![
+    //                         Value::String("a".to_string()),
+    //                         Value::String("b".to_string())
+    //                     ],
+    //                     listv![Value::String("c".to_string())]
+    //                 ],
+    //                 listv![nonev![], listv![Value::String("d".to_string())]]
+    //             ]
+    //         )],
+    //         row![(
+    //             "a".to_string(),
+    //             listv![
+    //                 listv![
+    //                     listv![
+    //                         Value::String("a".to_string()),
+    //                         Value::String("b".to_string())
+    //                     ],
+    //                     listv![
+    //                         Value::String("c".to_string()),
+    //                         Value::String("d".to_string())
+    //                     ]
+    //                 ],
+    //                 listv![nonev![], listv![Value::String("e".to_string())]]
+    //             ]
+    //         )],
+    //         row![(
+    //             "a".to_string(),
+    //             listv![
+    //                 listv![
+    //                     listv![
+    //                         Value::String("a".to_string()),
+    //                         Value::String("b".to_string())
+    //                     ],
+    //                     listv![
+    //                         Value::String("c".to_string()),
+    //                         Value::String("d".to_string())
+    //                     ],
+    //                     listv![Value::String("e".to_string())]
+    //                 ],
+    //                 listv![nonev![], listv![Value::String("f".to_string())]]
+    //             ]
+    //         )],
+    //     ];
+    //     assert_eq!(rows, expected_rows);
     // }
 
     // #[test]
     // fn test_file_reader_rows_invalid_projection() {
-    //   let schema = "
-    //     message spark_schema {
-    //       REQUIRED INT32 key;
-    //       REQUIRED BOOLEAN value;
-    //     }
-    //   ";
-    //   let schema = parse_message_type(&schema).unwrap();
-    //   let res = test_file_reader_rows::<Row>("nested_maps.snappy.parquet",
-    // Some(schema));   assert!(res.is_err());
-    //   assert_eq!(
-    //     res.unwrap_err(),
-    //     general_err!("Root schema does not contain projection")
-    //   );
+    //     let schema = "
+    //   message spark_schema {
+    //     REQUIRED INT32 key;
+    //     REQUIRED BOOLEAN value;
+    //   }
+    // ";
+    //     let schema = parse_message_type(&schema).unwrap();
+    //     let res =
+    //         test_file_reader_rows::<Row>("nested_maps.snappy.parquet", Some(schema));
+    //     assert!(res.is_err());
+    //     assert_eq!(
+    //         res.unwrap_err(),
+    //         general_err!("Root schema does not contain projection")
+    //     );
     // }
 
     // #[test]
     // fn test_row_group_rows_invalid_projection() {
-    //   let schema = "
-    //     message spark_schema {
-    //       REQUIRED INT32 key;
-    //       REQUIRED BOOLEAN value;
-    //     }
-    //   ";
-    //   let schema = parse_message_type(&schema).unwrap();
-    //   let res = test_row_group_rows("nested_maps.snappy.parquet", Some(schema));
-    //   assert!(res.is_err());
-    //   assert_eq!(
-    //     res.unwrap_err(),
-    //     general_err!("Root schema does not contain projection")
-    //   );
+    //     let schema = "
+    //   message spark_schema {
+    //     REQUIRED INT32 key;
+    //     REQUIRED BOOLEAN value;
+    //   }
+    // ";
+    //     let schema = parse_message_type(&schema).unwrap();
+    //     let res = test_row_group_rows("nested_maps.snappy.parquet", Some(schema));
+    //     assert!(res.is_err());
+    //     assert_eq!(
+    //         res.unwrap_err(),
+    //         general_err!("Root schema does not contain projection")
+    //     );
     // }
-
-    // #[test]
-    // #[should_panic(expected = "Invalid map type")]
-    // fn test_file_reader_rows_invalid_map_type() {
-    //   let schema = "
-    //     message spark_schema {
-    //       OPTIONAL group a (MAP) {
-    //         REPEATED group key_value {
-    //           REQUIRED BYTE_ARRAY key (UTF8);
-    //           OPTIONAL group value (MAP) {
-    //             REPEATED group key_value {
-    //               REQUIRED INT32 key;
-    //             }
-    //           }
-    //         }
-    //       }
-    //     }
-    //   ";
-    //   let schema = parse_message_type(&schema).unwrap();
-    //   test_file_reader_rows::<Row>("nested_maps.snappy.parquet",
-    // Some(schema)).unwrap(); }
 
     #[test]
     fn test_file_reader_iter() -> Result<()> {

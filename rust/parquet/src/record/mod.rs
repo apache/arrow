@@ -42,9 +42,12 @@ pub use schemas::RootSchema;
 pub use triplet::{TripletIter, TypedTripletIter};
 #[doc(hidden)]
 pub mod _private {
+    // This is used by `#[derive(Record)]`
     pub use super::display::DisplaySchemaGroup;
 }
 mod predicate {
+    // This is for forward compatibility when Predicate pushdown and dynamic schemas are
+    // implemented.
     pub struct Predicate;
 }
 pub(crate) use self::predicate::Predicate;

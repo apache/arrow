@@ -22,6 +22,8 @@ use std::fmt::{self, Display, Write};
 use super::Schema;
 use crate::basic::{LogicalType, Repetition};
 
+/// Implement [`Display`] given a closure that accepts a [`fmt::Formatter`] and returns a
+/// [`fmt::Result`].
 pub struct DisplayFmt<F>(F)
 where
     F: Fn(&mut fmt::Formatter) -> fmt::Result;
@@ -89,6 +91,8 @@ where
     }
 }
 
+/// Display a group. Tuples, [`Group`](super::types::Group) and structs marked with
+/// `#[derive(Record)]` all make use of this, so the logic is encapsulated here.
 #[must_use = "must eventually call `finish()` on Debug builders"]
 #[allow(missing_debug_implementations)]
 pub struct DisplaySchemaGroup<'a, 'b: 'a> {

@@ -72,6 +72,8 @@ where
                 })
             .map(|(name,schema_)| {
                 #[cfg(debug_assertions)] {
+                    // Check parsing and printing by round-tripping both typed and untyped and checking correctness.
+
                     let printed = format!("{}", schema_);
                     let schema_2 = parse_message_type(&printed).unwrap();
 

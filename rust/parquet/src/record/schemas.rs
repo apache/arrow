@@ -1974,4 +1974,38 @@ mod tests {
         .parse()
         .unwrap();
     }
+
+    #[test]
+    fn invalid_map_type() {
+        let schema = "message spark_schema {
+            OPTIONAL group a (MAP) {
+                REPEATED group key_value {
+                    REQUIRED BYTE_ARRAY key (UTF8);
+                    OPTIONAL group value (MAP) {
+                        REPEATED group key_value {
+                            REQUIRED INT32 key;
+                        }
+                    }
+                }
+            }
+        }"
+        .parse::<RootSchema<Value>>()
+        .unwrap()
+        .to_string();
+
+        let schema2 = "message spark_schema {
+    OPTIONAL group a (MAP) {
+        REPEATED group key_value {
+            REQUIRED byte_array key (UTF8);
+            OPTIONAL group value {
+                REPEATED group key_value {
+                    REQUIRED int32 key (INT_32);
+                }
+            }
+        }
+    }
+}";
+        assert_eq!(schema, schema2);
+    }
+
 }
