@@ -77,7 +77,6 @@ EXCLUSIONS = _paths('''\
     arrow/visitor_inline.h
     gandiva/cache.h
     gandiva/jni
-    plasma/external_store_worker.h
     test
     internal''')
 

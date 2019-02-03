@@ -16,44 +16,38 @@
 // under the License.
 
 #include <memory>
-#include <mutex>
+#include <string>
+
+#include "arrow/util/logging.h"
 
 #include "plasma/hash_table_store.h"
 
 namespace plasma {
 
-std::mutex mtx;
+Status HashTableStore::Connect(const std::string& endpoint) { return Status::OK(); }
 
-Status HashTableStore::Connect(const std::string& endpoint,
-                               std::shared_ptr<ExternalStoreHandle>* handle) {
-  *handle = std::make_shared<HashTableStoreHandle>(table_);
-  return Status::OK();
-}
-
-HashTableStoreHandle::HashTableStoreHandle(hash_table_t& table) : table_(table) {}
-
-Status HashTableStoreHandle::Put(const std::vector<ObjectID>& ids,
-                                 const std::vector<std::shared_ptr<Buffer>>& data) {
+Status HashTableStore::Put(const std::vector<ObjectID>& ids,
+                           const std::vector<std::shared_ptr<Buffer>>& data) {
   for (size_t i = 0; i < ids.size(); ++i) {
-    std::lock_guard<std::mutex> lock(mtx);
     table_[ids[i]] = data[i]->ToString();
   }
   return Status::OK();
 }
 
-Status HashTableStoreHandle::Get(const std::vector<ObjectID>& ids,
-                                 std::vector<std::string>& data) {
-  data.resize(ids.size());
+Status HashTableStore::Get(const std::vector<ObjectID>& ids,
+                           std::vector<std::shared_ptr<Buffer>> buffers) {
+  ARROW_CHECK(ids.size() == buffers.size());
   for (size_t i = 0; i < ids.size(); ++i) {
     bool valid;
-    hash_table_t::iterator result;
+    HashTable::iterator result;
     {
-      std::lock_guard<std::mutex> lock(mtx);
       result = table_.find(ids[i]);
       valid = result != table_.end();
     }
     if (valid) {
-      data[i] = result->second;
+      ARROW_CHECK(buffers[i]->size() == static_cast<int64_t>(result->second.size()));
+      std::memcpy(buffers[i]->mutable_data(), result->second.data(),
+                  result->second.size());
     }
   }
   return Status::OK();

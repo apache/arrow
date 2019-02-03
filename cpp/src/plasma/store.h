@@ -29,7 +29,6 @@
 #include "plasma/events.h"
 #include "plasma/eviction_policy.h"
 #include "plasma/external_store.h"
-#include "plasma/external_store_worker.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
@@ -80,9 +79,7 @@ class PlasmaStore {
   // TODO: PascalCase PlasmaStore methods.
   PlasmaStore(EventLoop* loop, std::string directory, bool hugepages_enabled,
               const std::string& socket_name,
-              std::shared_ptr<ExternalStore> external_store,
-              const std::string& external_store_endpoint,
-              size_t external_store_parallelism);
+              std::shared_ptr<ExternalStore> external_store);
 
   ~PlasmaStore();
 
@@ -156,9 +153,7 @@ class PlasmaStore {
   /// @param object_id Object ID of the object to be sealed.
   /// @param digest The digest of the object. This is used to tell if two
   /// objects with the same object ID are the same.
-  /// @param notify Notification flag; if true, a notification is sent out on seal
-  /// completion, otherwise not.
-  void SealObject(const ObjectID& object_id, unsigned char digest[], bool notify);
+  void SealObject(const ObjectID& object_id, unsigned char digest[]);
 
   /// Check if the plasma store contains an object:
   ///
@@ -246,7 +241,7 @@ class PlasmaStore {
 
   /// Manages worker threads for handling asynchronous/multi-threaded requests
   /// for reading/writing data to/from external store.
-  ExternalStoreWorker external_store_worker_;
+  std::shared_ptr<ExternalStore> external_store_;
 #ifdef PLASMA_CUDA
   arrow::cuda::CudaDeviceManager* manager_;
 #endif

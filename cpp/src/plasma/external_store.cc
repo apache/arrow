@@ -18,17 +18,19 @@
 #include <iostream>
 #include <sstream>
 
+#include "arrow/util/memory.h"
+
 #include "plasma/external_store.h"
 
 namespace plasma {
 
 Status ExternalStores::ExtractStoreName(const std::string& endpoint,
-                                        std::string& store_name) {
+                                        std::string* store_name) {
   size_t off = endpoint.find_first_of(':');
   if (off == std::string::npos) {
     return Status::Invalid("Malformed endpoint " + endpoint);
   }
-  store_name = endpoint.substr(0, off);
+  *store_name = endpoint.substr(0, off);
   return Status::OK();
 }
 

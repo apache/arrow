@@ -182,9 +182,8 @@ class ARROW_EXPORT PlasmaClient {
   /// call.
   ///
   /// \param object_id The ID of the object to seal.
-  /// \param notify If true, send a notification on completion.
   /// \return The return status.
-  Status Seal(const ObjectID& object_id, bool notify = true);
+  Status Seal(const ObjectID& object_id);
 
   /// Delete an object from the object store. This currently assumes that the
   /// object is present, has been sealed and not used by another client. Otherwise,

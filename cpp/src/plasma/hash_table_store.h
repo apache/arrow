@@ -30,29 +30,22 @@ namespace plasma {
 // This is a sample implementation for an external store, for illustration
 // purposes only.
 
-typedef std::unordered_map<ObjectID, std::string> hash_table_t;
-
-class HashTableStoreHandle : public ExternalStoreHandle {
- public:
-  explicit HashTableStoreHandle(hash_table_t& table);
-
-  Status Get(const std::vector<ObjectID>& ids, std::vector<std::string>& data) override;
-  Status Put(const std::vector<ObjectID>& ids,
-             const std::vector<std::shared_ptr<Buffer>>& data) override;
-
- private:
-  hash_table_t& table_;
-};
-
 class HashTableStore : public ExternalStore {
  public:
   HashTableStore() = default;
 
-  Status Connect(const std::string& endpoint,
-                 std::shared_ptr<ExternalStoreHandle>* handle) override;
+  Status Connect(const std::string& endpoint) override;
+
+  Status Get(const std::vector<ObjectID>& ids,
+             std::vector<std::shared_ptr<Buffer>> buffers) override;
+
+  Status Put(const std::vector<ObjectID>& ids,
+             const std::vector<std::shared_ptr<Buffer>>& data) override;
 
  private:
-  hash_table_t table_;
+  typedef std::unordered_map<ObjectID, std::string> HashTable;
+
+  HashTable table_;
 };
 
 }  // namespace plasma

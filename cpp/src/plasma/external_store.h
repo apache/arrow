@@ -33,37 +33,6 @@ namespace plasma {
 // for an external storage service so that objects evicted from Plasma store
 // can be written to it.
 
-class ExternalStoreHandle {
- public:
-  /// Default constructor.
-  ExternalStoreHandle() = default;
-
-  /// Virtual destructor.
-  virtual ~ExternalStoreHandle() = default;
-
-  /// This method will be called whenever an object in the Plasma store needs
-  /// to be evicted to the external store.
-  ///
-  /// This API is experimental and might change in the future.
-  ///
-  /// \param ids The IDs of the objects to put.
-  /// \param data The object data to put.
-  /// \return The return status.
-  virtual Status Put(const std::vector<ObjectID>& ids,
-                     const std::vector<std::shared_ptr<Buffer>>& data) = 0;
-
-  /// This method will be called whenever an evicted object in the External
-  /// store store needs to be accessed.
-  ///
-  /// This API is experimental and might change in the future.
-  ///
-  /// \param ids The IDs of the objects to get.
-  /// \param[out] data The object data.
-  /// \return The return status.
-  virtual Status Get(const std::vector<ObjectID>& ids,
-                     std::vector<std::string>& data) = 0;
-};
-
 class ExternalStore {
  public:
   /// Default constructor.
@@ -79,11 +48,31 @@ class ExternalStore {
   ///        specific to the implementation of the external store, it always
   ///        starts with {store-name}://, where {store-name} is the name of the
   ///        external store.
-  /// \param[out] handle A handle to the external store.
   ///
   /// \return The return status.
-  virtual Status Connect(const std::string& endpoint,
-                         std::shared_ptr<ExternalStoreHandle>* handle) = 0;
+  virtual Status Connect(const std::string& endpoint) = 0;
+
+  /// This method will be called whenever an object in the Plasma store needs
+  /// to be evicted to the external store.
+  ///
+  /// This API is experimental and might change in the future.
+  ///
+  /// \param ids The IDs of the objects to put.
+  /// \param data The object data to put.
+  /// \return The return status.
+  virtual Status Put(const std::vector<ObjectID>& ids,
+                     const std::vector<std::shared_ptr<Buffer>>& data) = 0;
+
+  /// This method will be called whenever an evicted object in the external
+  /// store store needs to be accessed.
+  ///
+  /// This API is experimental and might change in the future.
+  ///
+  /// \param ids The IDs of the objects to get.
+  /// \param buffers List of buffers the data should be written to.
+  /// \return The return status.
+  virtual Status Get(const std::vector<ObjectID>& ids,
+                     std::vector<std::shared_ptr<Buffer>> buffers) = 0;
 };
 
 class ExternalStores {
@@ -94,7 +83,7 @@ class ExternalStores {
   /// \param endpoint The endpoint for the external store.
   /// \param[out] store_name The name of the external store.
   /// \return The return status.
-  static Status ExtractStoreName(const std::string& endpoint, std::string& store_name);
+  static Status ExtractStoreName(const std::string& endpoint, std::string* store_name);
 
   /// Register a new external store.
   ///
@@ -103,9 +92,9 @@ class ExternalStores {
   static void RegisterStore(const std::string& store_name,
                             std::shared_ptr<ExternalStore> store);
 
-  /// Register a new external store.
+  /// Remove an external store from the registry.
   ///
-  /// \param store_name Name of the new external store.
+  /// \param store_name Name of the external store to remove.
   static void DeregisterStore(const std::string& store_name);
 
   /// Obtain the external store given its name.

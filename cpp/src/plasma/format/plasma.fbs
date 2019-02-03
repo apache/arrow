@@ -166,8 +166,6 @@ table PlasmaSealRequest {
   object_id: string;
   // Hash of the object data.
   digest: string;
-  // 1 to send notification, 0 otherwise
-  notify: int;
 }
 
 table PlasmaSealReply {
