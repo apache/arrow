@@ -195,16 +195,16 @@ public class JdbcToArrowTestHelper {
     assertEquals(rsmd.getColumnCount(), fields.size());
 
     // Vector columns are created in the same order as ResultSet columns.
-    for (int i = 0; i < rsmd.getColumnCount(); ++i) {
-      Map<String, String> metadata = fields.get(i).getMetadata();
+    for (int i = 1; i <= rsmd.getColumnCount(); ++i) {
+      Map<String, String> metadata = fields.get(i - 1).getMetadata();
 
       assertNotNull(metadata);
       assertEquals(4, metadata.size());
 
-      assertEquals(rsmd.getCatalogName(i + 1), metadata.get(Constants.SQL_CATALOG_NAME_KEY));
-      assertEquals(rsmd.getTableName(i + 1), metadata.get(Constants.SQL_TABLE_NAME_KEY));
-      assertEquals(rsmd.getColumnName(i + 1), metadata.get(Constants.SQL_COLUMN_NAME_KEY));
-      assertEquals(rsmd.getColumnTypeName(i + 1), metadata.get(Constants.SQL_TYPE_KEY));
+      assertEquals(rsmd.getCatalogName(i), metadata.get(Constants.SQL_CATALOG_NAME_KEY));
+      assertEquals(rsmd.getTableName(i), metadata.get(Constants.SQL_TABLE_NAME_KEY));
+      assertEquals(rsmd.getColumnName(i), metadata.get(Constants.SQL_COLUMN_NAME_KEY));
+      assertEquals(rsmd.getColumnTypeName(i), metadata.get(Constants.SQL_TYPE_KEY));
     }
   }
 
