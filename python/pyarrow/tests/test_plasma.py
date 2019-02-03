@@ -939,7 +939,10 @@ class TestEvictionToExternalStore(object):
             # Check that the Plasma store is still alive.
             assert self.p.poll() is None
             self.p.send_signal(signal.SIGTERM)
-            self.p.wait()
+            if sys.version_info >= (3, 3):
+                self.p.wait(timeout=5)
+            else:
+                self.p.wait()
         finally:
             self.plasma_store_ctx.__exit__(None, None, None)
 
