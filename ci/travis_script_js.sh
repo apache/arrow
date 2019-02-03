@@ -23,9 +23,10 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 pushd $ARROW_JS_DIR
 
-npm run lint
+npm run lint:ci
 npm run build
-# run the non-snapshot unit tests
 npm test
+npm run test:coverage
+bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
 
 popd

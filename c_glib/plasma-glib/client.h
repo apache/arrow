@@ -19,9 +19,52 @@
 
 #pragma once
 
-#include <arrow-glib/gobject-type.h>
+#include <plasma-glib/object.h>
 
 G_BEGIN_DECLS
+
+#define GPLASMA_TYPE_CLIENT_OPTIONS (gplasma_client_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GPlasmaClientOptions,
+                         gplasma_client_options,
+                         GPLASMA,
+                         CLIENT_OPTIONS,
+                         GObject)
+
+struct _GPlasmaClientOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GPlasmaClientOptions *gplasma_client_options_new(void);
+void
+gplasma_client_options_set_n_retries(GPlasmaClientOptions *options,
+                                     gint n_retries);
+gint
+gplasma_client_options_get_n_retries(GPlasmaClientOptions *options);
+
+
+#define GPLASMA_TYPE_CLIENT_CREATE_OPTIONS      \
+  (gplasma_client_create_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GPlasmaClientCreateOptions,
+                         gplasma_client_create_options,
+                         GPLASMA,
+                         CLIENT_CREATE_OPTIONS,
+                         GObject)
+
+struct _GPlasmaClientCreateOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GPlasmaClientCreateOptions *gplasma_client_create_options_new(void);
+void
+gplasma_client_create_options_set_metadata(GPlasmaClientCreateOptions *options,
+                                           const guint8 *metadata,
+                                           gsize size);
+const guint8 *
+gplasma_client_create_options_get_metadata(GPlasmaClientCreateOptions *options,
+                                           gsize *size);
+
 
 #define GPLASMA_TYPE_CLIENT (gplasma_client_get_type())
 G_DECLARE_DERIVABLE_TYPE(GPlasmaClient,
@@ -36,6 +79,20 @@ struct _GPlasmaClientClass
 };
 
 GPlasmaClient *gplasma_client_new(const gchar *store_socket_name,
+                                  GPlasmaClientOptions *options,
                                   GError **error);
+GPlasmaCreatedObject *
+gplasma_client_create(GPlasmaClient *client,
+                      GPlasmaObjectID *id,
+                      gsize data_size,
+                      GPlasmaClientCreateOptions *options,
+                      GError **error);
+GPlasmaReferredObject *
+gplasma_client_refer_object(GPlasmaClient *client,
+                            GPlasmaObjectID *id,
+                            gint64 timeout_ms,
+                            GError **error);
+gboolean gplasma_client_disconnect(GPlasmaClient *client,
+                                   GError **error);
 
 G_END_DECLS

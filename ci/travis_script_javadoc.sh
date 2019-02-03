@@ -19,11 +19,13 @@
 
 set -e
 
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+
 JAVA_DIR=${TRAVIS_BUILD_DIR}/java
 
 pushd $JAVA_DIR
 
 export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
-mvn -B site
+$TRAVIS_MVN -B site
 
 popd

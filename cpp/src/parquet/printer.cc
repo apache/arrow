@@ -17,15 +17,30 @@
 
 #include "parquet/printer.h"
 
+#include <cstdint>
+#include <cstdio>
+#include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 
+#include "arrow/util/key_value_metadata.h"
+
 #include "parquet/column_scanner.h"
+#include "parquet/exception.h"
+#include "parquet/file_reader.h"
+#include "parquet/metadata.h"
+#include "parquet/schema.h"
+#include "parquet/statistics.h"
+#include "parquet/types.h"
 
 using std::string;
 using std::vector;
 
 namespace parquet {
+
+class ColumnReader;
+
 // ----------------------------------------------------------------------
 // ParquetFilePrinter::DebugPrint
 
@@ -38,7 +53,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
   const FileMetaData* file_metadata = fileReader->metadata().get();
 
   stream << "File Name: " << filename << "\n";
-  stream << "Version: " << file_metadata->version() << "\n";
+  stream << "Version: " << ParquetVersionToString(file_metadata->version()) << "\n";
   stream << "Created By: " << file_metadata->created_by() << "\n";
   stream << "Total rows: " << file_metadata->num_rows() << "\n";
 

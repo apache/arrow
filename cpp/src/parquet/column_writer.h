@@ -15,20 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_COLUMN_WRITER_H
-#define PARQUET_COLUMN_WRITER_H
+#pragma once
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 
+#include "arrow/memory_pool.h"
+
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
-#include "parquet/metadata.h"
-#include "parquet/properties.h"
+#include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"
-#include "parquet/util/macros.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
@@ -45,6 +45,9 @@ class RleEncoder;
 }  // namespace arrow
 
 namespace parquet {
+
+class ColumnChunkMetaDataBuilder;
+class WriterProperties;
 
 class PARQUET_EXPORT LevelEncoder {
  public:
@@ -186,7 +189,6 @@ class PARQUET_EXPORT ColumnWriter {
   LevelEncoder level_encoder_;
 
   ::arrow::MemoryPool* allocator_;
-  ChunkedAllocator pool_;
 
   // The total number of values stored in the data page. This is the maximum of
   // the number of encoded definition levels or encoded values. For
@@ -237,8 +239,8 @@ class PARQUET_TEMPLATE_CLASS_EXPORT TypedColumnWriter : public ColumnWriter {
   typedef typename DType::c_type T;
 
   TypedColumnWriter(ColumnChunkMetaDataBuilder* metadata,
-                    std::unique_ptr<PageWriter> pager, Encoding::type encoding,
-                    const WriterProperties* properties);
+                    std::unique_ptr<PageWriter> pager, const bool use_dictionary,
+                    Encoding::type encoding, const WriterProperties* properties);
 
   // Write a batch of repetition levels, definition levels, and values to the
   // column.
@@ -299,13 +301,13 @@ class PARQUET_TEMPLATE_CLASS_EXPORT TypedColumnWriter : public ColumnWriter {
                                int64_t valid_bits_offset, const T* values,
                                int64_t* num_spaced_written);
 
-  typedef Encoder<DType> EncoderType;
-
   // Write values to a temporary buffer before they are encoded into pages
   void WriteValues(int64_t num_values, const T* values);
   void WriteValuesSpaced(int64_t num_values, const uint8_t* valid_bits,
                          int64_t valid_bits_offset, const T* values);
-  std::unique_ptr<EncoderType> current_encoder_;
+
+  using ValueEncoderType = typename EncodingTraits<DType>::Encoder;
+  std::unique_ptr<Encoder> current_encoder_;
 
   typedef TypedRowGroupStatistics<DType> TypedStats;
   std::unique_ptr<TypedStats> page_statistics_;
@@ -331,5 +333,3 @@ PARQUET_EXTERN_TEMPLATE TypedColumnWriter<ByteArrayType>;
 PARQUET_EXTERN_TEMPLATE TypedColumnWriter<FLBAType>;
 
 }  // namespace parquet
-
-#endif  // PARQUET_COLUMN_READER_H

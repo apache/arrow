@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <new>
 
 #include <gtest/gtest.h>

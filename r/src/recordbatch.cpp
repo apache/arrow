@@ -41,25 +41,20 @@ std::shared_ptr<arrow::Schema> RecordBatch__schema(
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Array> RecordBatch__column(
-    const std::shared_ptr<arrow::RecordBatch>& batch, int i) {
-  return batch->column(i);
+arrow::ArrayVector RecordBatch__columns(
+    const std::shared_ptr<arrow::RecordBatch>& batch) {
+  auto nc = batch->num_columns();
+  ArrayVector res(nc);
+  for (int i = 0; i < nc; i++) {
+    res[i] = batch->column(i);
+  }
+  return res;
 }
 
 // [[Rcpp::export]]
-List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch) {
-  int nc = batch->num_columns();
-  int nr = batch->num_rows();
-  List tbl(nc);
-  CharacterVector names(nc);
-  for (int i = 0; i < nc; i++) {
-    tbl[i] = Array__as_vector(batch->column(i));
-    names[i] = batch->column_name(i);
-  }
-  tbl.attr("names") = names;
-  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
-  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
-  return tbl;
+std::shared_ptr<arrow::Array> RecordBatch__column(
+    const std::shared_ptr<arrow::RecordBatch>& batch, int i) {
+  return batch->column(i);
 }
 
 // [[Rcpp::export]]
@@ -119,4 +114,33 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice1(
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(
     const std::shared_ptr<arrow::RecordBatch>& self, int offset, int length) {
   return self->Slice(offset, length);
+}
+
+// [[Rcpp::export]]
+RawVector ipc___SerializeRecordBatch__Raw(
+    const std::shared_ptr<arrow::RecordBatch>& batch) {
+  // how many bytes do we need ?
+  int64_t size;
+  STOP_IF_NOT_OK(arrow::ipc::GetRecordBatchSize(*batch, &size));
+
+  // allocate the result raw vector
+  RawVector out(no_init(size));
+
+  // serialize into the bytes of the raw vector
+  auto buffer = std::make_shared<arrow::r::RBuffer<RAWSXP, RawVector>>(out);
+  arrow::io::FixedSizeBufferWriter stream(buffer);
+  STOP_IF_NOT_OK(
+      arrow::ipc::SerializeRecordBatch(*batch, arrow::default_memory_pool(), &stream));
+  STOP_IF_NOT_OK(stream.Close());
+
+  return out;
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(
+    const std::shared_ptr<arrow::io::InputStream>& stream,
+    const std::shared_ptr<arrow::Schema>& schema) {
+  std::shared_ptr<arrow::RecordBatch> batch;
+  STOP_IF_NOT_OK(arrow::ipc::ReadRecordBatch(schema, stream.get(), &batch));
+  return batch;
 }

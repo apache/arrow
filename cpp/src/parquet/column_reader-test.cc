@@ -102,7 +102,7 @@ class TestPrimitiveReader : public ::testing::Test {
           &vresult[0] + total_values_read, &values_read));
       total_values_read += static_cast<int>(values_read);
       batch_actual += batch;
-      batch_size = std::max(batch_size * 2, 4096);
+      batch_size = std::min(1 << 24, std::max(batch_size * 2, 4096));
     } while (batch > 0);
 
     ASSERT_EQ(num_levels_, batch_actual);
@@ -147,7 +147,7 @@ class TestPrimitiveReader : public ::testing::Test {
       total_values_read += batch - static_cast<int>(null_count);
       batch_actual += batch;
       levels_actual += static_cast<int>(levels_read);
-      batch_size = std::max(batch_size * 2, 4096);
+      batch_size = std::min(1 << 24, std::max(batch_size * 2, 4096));
     } while ((batch > 0) || (levels_read > 0));
 
     ASSERT_EQ(num_levels_, levels_actual);
@@ -384,6 +384,35 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
   // unsupported encoding
   ASSERT_THROW(reader_->HasNext(), ParquetException);
   pages_.clear();
+}
+
+TEST(TestColumnReader, DefinitionLevelsToBitmap) {
+  // Bugs in this function were exposed in ARROW-3930
+  std::vector<int16_t> def_levels = {3, 3, 3, 2, 3, 3, 3, 3, 3};
+  std::vector<int16_t> rep_levels = {0, 1, 1, 1, 1, 1, 1, 1, 1};
+
+  std::vector<uint8_t> valid_bits(2, 0);
+
+  const int max_def_level = 3;
+  const int max_rep_level = 1;
+
+  int64_t values_read = -1;
+  int64_t null_count = 0;
+  internal::DefinitionLevelsToBitmap(def_levels.data(), 9, max_def_level, max_rep_level,
+                                     &values_read, &null_count, valid_bits.data(),
+                                     0 /* valid_bits_offset */);
+  ASSERT_EQ(9, values_read);
+  ASSERT_EQ(1, null_count);
+
+  // Call again with 0 definition levels, make sure that valid_bits is unmodifed
+  const uint8_t current_byte = valid_bits[1];
+  null_count = 0;
+  internal::DefinitionLevelsToBitmap(def_levels.data(), 0, max_def_level, max_rep_level,
+                                     &values_read, &null_count, valid_bits.data(),
+                                     9 /* valid_bits_offset */);
+  ASSERT_EQ(0, values_read);
+  ASSERT_EQ(0, null_count);
+  ASSERT_EQ(current_byte, valid_bits[1]);
 }
 
 }  // namespace test

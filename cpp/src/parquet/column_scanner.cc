@@ -21,7 +21,6 @@
 #include <memory>
 
 #include "parquet/column_reader.h"
-#include "parquet/util/memory.h"
 
 using arrow::MemoryPool;
 

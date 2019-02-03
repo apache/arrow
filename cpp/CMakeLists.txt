@@ -16,13 +16,10 @@
 # under the License.
 
 cmake_minimum_required(VERSION 3.2)
+message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
-# Extract Arrow version number
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../java/pom.xml" POM_XML)
-string(REGEX MATCHALL
-  "\n  <version>[^<]+</version>" ARROW_VERSION_TAG "${POM_XML}")
-string(REGEX REPLACE
-  "(\n  <version>|</version>)" "" ARROW_VERSION "${ARROW_VERSION_TAG}")
+set(ARROW_VERSION "0.13.0-SNAPSHOT")
+
 string(REGEX MATCH
   "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -50,6 +47,8 @@ message(STATUS "Arrow version: "
   "${ARROW_VERSION_MAJOR}.${ARROW_VERSION_MINOR}.${ARROW_VERSION_PATCH} "
   "(full: '${ARROW_VERSION}')")
 
+set(ARROW_SOURCE_DIR ${PROJECT_SOURCE_DIR})
+set(ARROW_BINARY_DIR ${PROJECT_BINARY_DIR})
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
 
@@ -63,6 +62,12 @@ include(GNUInstallDirs)
 if(POLICY CMP0054)
   # http://www.cmake.org/cmake/help/v3.1/policy/CMP0054.html
   cmake_policy(SET CMP0054 NEW)
+endif()
+
+# don't ignore <PackageName>_ROOT variables in find_package
+if(POLICY CMP0074)
+  # https://cmake.org/cmake/help/v3.12/policy/CMP0074.html
+  cmake_policy(SET CMP0074 NEW)
 endif()
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
@@ -83,12 +88,6 @@ if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR INFER_FOUND)
   # See http://clang.llvm.org/docs/JSONCompilationDatabase.html
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
-
-find_program(CCACHE_FOUND ccache)
-if(CCACHE_FOUND)
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE_FOUND})
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${CCACHE_FOUND})
-endif(CCACHE_FOUND)
 
 # ----------------------------------------------------------------------
 # cmake options
@@ -114,76 +113,36 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Run the test suite using valgrind --tool=memcheck"
     OFF)
 
-  option(ARROW_BUILD_TESTS
-    "Build the Arrow googletest unit tests"
+  option(ARROW_USE_ASAN
+    "Enable Address Sanitizer checks"
+    OFF)
+
+  option(ARROW_USE_CCACHE
+    "Use ccache when compiling (if available)"
     ON)
+
+  option(ARROW_USE_TSAN
+    "Enable Thread Sanitizer checks"
+    OFF)
+
+  option(ARROW_BUILD_TESTS
+    "Build the Arrow googletest unit tests, default OFF"
+    OFF)
+
+  option(ARROW_BUILD_BENCHMARKS
+    "Build the Arrow micro benchmarks, default OFF"
+    OFF)
+
+  option(ARROW_BUILD_EXAMPLES
+    "Build the Arrow examples, default OFF"
+    OFF)
 
   set(ARROW_TEST_LINKAGE "shared" CACHE STRING
     "Linkage of Arrow libraries with unit tests executables. \
 static|shared (default shared)")
 
-  set(ARROW_TEST_INCLUDE_LABELS "" CACHE STRING
-    "Only build unit tests having the indicated label or labels. \
-Pass multiple labels by dividing with semicolons")
-
-  option(ARROW_BUILD_BENCHMARKS
-    "Build the Arrow micro benchmarks"
-    OFF)
-
   option(ARROW_NO_DEPRECATED_API
     "Exclude deprecated APIs from build"
-    OFF)
-
-  option(ARROW_COMPUTE
-    "Build the Arrow Compute Modules"
-    ON)
-
-  option(ARROW_EXTRA_ERROR_CONTEXT
-    "Compile with extra error context (line numbers, code)"
-    OFF)
-
-  option(ARROW_FLIGHT
-    "Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)"
-    OFF)
-
-  option(ARROW_IPC
-    "Build the Arrow IPC extensions"
-    ON)
-
-  option(ARROW_GPU
-    "Build the Arrow GPU extensions (requires CUDA installation)"
-    OFF)
-
-  option(ARROW_ORC
-    "Build the Arrow ORC adapter"
-    OFF)
-
-  option(ARROW_TENSORFLOW
-    "Build Arrow with TensorFlow support enabled"
-    OFF)
-
-  option(ARROW_JEMALLOC
-    "Build the Arrow jemalloc-based allocator"
-    ON)
-
-  option(ARROW_HDFS
-    "Build the Arrow HDFS bridge"
-    ON)
-
-  option(ARROW_BOOST_USE_SHARED
-    "Rely on boost shared libraries where relevant"
-    ON)
-
-  option(ARROW_BOOST_VENDORED
-    "Use vendored Boost instead of existing Boost"
-    OFF)
-
-  option(ARROW_PROTOBUF_USE_SHARED
-    "Rely on Protocol Buffers shared libraries where relevant"
-    OFF)
-
-  option(ARROW_PYTHON
-    "Build the Arrow CPython extensions"
     OFF)
 
   option(ARROW_FUZZING
@@ -211,6 +170,65 @@ Pass multiple labels by dividing with semicolons")
     "Build Arrow libraries with install_name set to @rpath"
     ON)
 
+  option(ARROW_GENERATE_COVERAGE
+    "Build with C++ code coverage enabled"
+    OFF)
+
+  option(ARROW_VERBOSE_LINT
+    "If off, 'quiet' flags will be passed to linting tools"
+    OFF)
+
+  option(ARROW_GGDB_DEBUG
+    "Pass -ggdb flag to debug builds"
+    ON)
+
+  #----------------------------------------------------------------------
+  # Project components to enable / disable building
+
+  option(ARROW_COMPUTE
+    "Build the Arrow Compute Modules"
+    ON)
+
+  option(ARROW_FLIGHT
+    "Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)"
+    OFF)
+
+  option(ARROW_GANDIVA
+    "Build the Gandiva libraries"
+    OFF)
+
+  option(ARROW_PARQUET
+    "Build the Parquet libraries"
+    OFF)
+
+  option(ARROW_IPC
+    "Build the Arrow IPC extensions"
+    ON)
+
+  option(ARROW_CUDA
+    "Build the Arrow CUDA extensions (requires CUDA toolkit)"
+    OFF)
+
+  option(ARROW_ORC
+    "Build the Arrow ORC adapter"
+    OFF)
+
+  option(ARROW_TENSORFLOW
+    "Build Arrow with TensorFlow support enabled"
+    OFF)
+
+  option(ARROW_JEMALLOC
+    "Build the Arrow jemalloc-based allocator"
+    ON)
+
+  option(ARROW_HDFS
+    "Build the Arrow HDFS bridge"
+    ON)
+
+  option(ARROW_PYTHON
+    "Build the Arrow CPython extensions"
+    OFF)
+
   option(ARROW_HIVESERVER2
     "Build the HiveServer2 client and Arrow adapter"
     OFF)
@@ -222,6 +240,34 @@ Pass multiple labels by dividing with semicolons")
   option(ARROW_PLASMA_JAVA_CLIENT
     "Build the plasma object store java client"
     OFF)
+
+  #----------------------------------------------------------------------
+  # Thirdparty toolchain options
+
+  option(ARROW_VERBOSE_THIRDPARTY_BUILD
+    "If off, output from ExternalProjects will be logged to files rather than shown"
+    OFF)
+
+  option(ARROW_BOOST_USE_SHARED
+    "Rely on boost shared libraries where relevant"
+    ON)
+
+  option(ARROW_BOOST_VENDORED
+    "Use vendored Boost instead of existing Boost. \
+Note that this requires linking Boost statically"
+    OFF)
+
+  option(ARROW_PROTOBUF_USE_SHARED
+    "Rely on Protocol Buffers shared libraries where relevant"
+    OFF)
+
+  option(ARROW_WITH_BACKTRACE
+    "Build with backtrace support"
+    ON)
+
+  option(ARROW_USE_GLOG
+    "Build libraries with glog support for pluggable logging"
+    ON)
 
   option(ARROW_WITH_BROTLI
     "Build with Brotli compression"
@@ -253,21 +299,8 @@ Pass multiple labels by dividing with semicolons")
     "Build with zstd compression"
     ${ARROW_WITH_ZSTD_DEFAULT})
 
-  option(ARROW_GENERATE_COVERAGE
-    "Build with C++ code coverage enabled"
-    OFF)
-
-  option(ARROW_VERBOSE_THIRDPARTY_BUILD
-    "If off, output from ExternalProjects will be logged to files rather than shown"
-    OFF)
-
-  option(ARROW_VERBOSE_LINT
-    "If off, 'quiet' flags will be passed to linting tools"
-    OFF)
-
-  option(ARROW_USE_GLOG
-    "Build libraries with glog support for pluggable logging"
-    ON)
+  #----------------------------------------------------------------------
+  # Windows options
 
   if (MSVC)
     option(ARROW_USE_CLCACHE
@@ -276,8 +309,12 @@ Pass multiple labels by dividing with semicolons")
 
     set(BROTLI_MSVC_STATIC_LIB_SUFFIX "-static" CACHE STRING
       "Brotli static lib suffix used on Windows with MSVC (default -static)")
+    set(PROTOBUF_MSVC_STATIC_LIB_SUFFIX "" CACHE STRING
+      "Protobuf static lib suffix used on Windows with MSVC (default is empty string)")
+    set(RE2_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
+      "re2 static lib suffix used on Windows with MSVC (default is _static)")
     set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
-      "Snappy static lib suffix used on Windows with MSVC (default is empty string)")
+      "Snappy static lib suffix used on Windows with MSVC (default is _static)")
     set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
       "Lz4 static lib suffix used on Windows with MSVC (default _static)")
     set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
@@ -288,10 +325,8 @@ Pass multiple labels by dividing with semicolons")
       OFF)
   endif()
 
-  # Parquet-related build options
-  option(ARROW_PARQUET
-    "Build the Parquet libraries"
-    OFF)
+  #----------------------------------------------------------------------
+  # Parquet build options
 
   option(PARQUET_MINIMAL_DEPENDENCY
     "Depend only on Thirdparty headers to build libparquet. \
@@ -306,9 +341,11 @@ Always OFF if building binaries"
     "Build the Parquet examples. Requires static libraries to be built."
     OFF)
 
-  # Gandiva related build options
-  option(ARROW_GANDIVA
-    "Build the Gandiva libraries"
+  #----------------------------------------------------------------------
+  # Gandiva build options
+
+  option(ARROW_GANDIVA_JAVA
+    "Build the Gandiva JNI wrappers"
     OFF)
 
   # ARROW-3860: Temporary workaround
@@ -316,16 +353,41 @@ Always OFF if building binaries"
     "Include -static-libstdc++ -static-libgcc when linking with Gandiva static libraries"
     OFF)
 
-  option(ARROW_GANDIVA_JAVA
-    "Build the Gandiva JNI wrappers"
-    ON)
+  set(ARROW_GANDIVA_PC_CXX_FLAGS "" CACHE STRING
+    "Compiler flags to append when pre-compiling Gandiva operations")
 
-  option(ARROW_GANDIVA_BUILD_TESTS
-    "Build the Gandiva googletest unit tests"
-    ON)
+  #----------------------------------------------------------------------
+  # Advanced developer options
 
+  option(ARROW_EXTRA_ERROR_CONTEXT
+    "Compile with extra error context (line numbers, code)"
+    OFF)
+
+  option(ARROW_OPTIONAL_INSTALL
+    "If enabled install ONLY targets that have already been built. Please be \
+advised that if this is enabled 'install' will fail silently on components \
+that have not been built"
+    OFF)
 endif()
 
+# Needed for linting targets, etc.
+find_package(PythonInterp)
+
+if (ARROW_USE_CCACHE)
+  find_program(CCACHE_FOUND ccache)
+  if(CCACHE_FOUND)
+    message(STATUS "Using ccache: ${CCACHE_FOUND}")
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE_FOUND})
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${CCACHE_FOUND})
+  endif(CCACHE_FOUND)
+endif()
+
+if (ARROW_OPTIONAL_INSTALL)
+  # Don't make the "install" target depend on the "all" target
+  set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
+
+  set(INSTALL_IS_OPTIONAL OPTIONAL)
+endif()
 
 ############################################################
 # "make lint" target
@@ -334,69 +396,68 @@ if (NOT ARROW_VERBOSE_LINT)
   set(ARROW_LINT_QUIET "--quiet")
 endif()
 
-if (UNIX)
+if (NOT LINT_EXCLUSIONS_FILE)
+  # source files matching a glob from a line in this file
+  # will be excluded from linting (cpplint, clang-tidy, clang-format)
+  set(LINT_EXCLUSIONS_FILE ${BUILD_SUPPORT_DIR}/lint_exclusions.txt)
+endif()
 
-  file(GLOB_RECURSE LINT_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
-    )
+find_program(CPPLINT_BIN NAMES cpplint cpplint.py HINTS ${BUILD_SUPPORT_DIR})
+message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
 
-  FOREACH(item ${LINT_FILES})
-    IF(NOT ((item MATCHES "_generated.h") OR
-            (item MATCHES "pyarrow_api.h") OR
-            (item MATCHES "pyarrow_lib.h") OR
-            (item MATCHES "xxhash.h") OR
-            (item MATCHES "xxhash.cc") OR
-            (item MATCHES "config.h") OR
-            (item MATCHES "util/date.h") OR
-            (item MATCHES "util/string_view/") OR
-            (item MATCHES "util/variant") OR
-            (item MATCHES "zmalloc.h") OR
-            (item MATCHES "ae.h")))
-      LIST(APPEND FILTERED_LINT_FILES ${item})
-    ENDIF()
-  ENDFOREACH(item ${LINT_FILES})
-
-  find_program(CPPLINT_BIN NAMES cpplint cpplint.py HINTS ${BUILD_SUPPORT_DIR})
-  message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
-
-  # Full lint
-  # Balancing act: cpplint.py takes a non-trivial time to launch,
-  # so process 12 files per invocation, while still ensuring parallelism
-  add_custom_target(lint echo ${FILTERED_LINT_FILES} | xargs -n12 -P8
-  ${CPPLINT_BIN}
-  --verbose=2 ${ARROW_LINT_QUIET}
-  --linelength=90
-  --filter=-whitespace/comments,-readability/todo,-build/header_guard,-build/c++11,-runtime/references,-build/include_order
-  )
-endif (UNIX)
+add_custom_target(lint
+  ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/run_cpplint.py
+  --cpplint_binary ${CPPLINT_BIN}
+  --exclude_globs ${LINT_EXCLUSIONS_FILE}
+  --source_dir ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${ARROW_LINT_QUIET})
 
 ############################################################
 # "make format" and "make check-format" targets
 ############################################################
+if (${CLANG_FORMAT_FOUND})
+  # runs clang format and updates files in place.
+  add_custom_target(format
+    ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/run_clang_format.py
+    --clang_format_binary ${CLANG_FORMAT_BIN}
+    --exclude_globs ${LINT_EXCLUSIONS_FILE}
+    --source_dir ${CMAKE_CURRENT_SOURCE_DIR}/src
+    --fix
+    ${ARROW_LINT_QUIET})
 
-# runs clang format and updates files in place.
-add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
-  ${CLANG_FORMAT_BIN}
-  ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
-  ${CMAKE_CURRENT_SOURCE_DIR}/src --fix ${ARROW_LINT_QUIET})
-
-# runs clang format and exits with a non-zero exit code if any files need to be reformatted
-add_custom_target(check-format ${BUILD_SUPPORT_DIR}/run_clang_format.py
-   ${CLANG_FORMAT_BIN}
-   ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
-   ${CMAKE_CURRENT_SOURCE_DIR}/src ${ARROW_LINT_QUIET})
+  # runs clang format and exits with a non-zero exit code if any files need to be reformatted
+  add_custom_target(check-format
+    ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/run_clang_format.py
+    --clang_format_binary ${CLANG_FORMAT_BIN}
+    --exclude_globs ${LINT_EXCLUSIONS_FILE}
+    --source_dir ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${ARROW_LINT_QUIET})
+endif()
 
 ############################################################
 # "make clang-tidy" and "make check-clang-tidy" targets
 ############################################################
 if (${CLANG_TIDY_FOUND})
+  # TODO check to make sure .clang-tidy is being respected
+
   # runs clang-tidy and attempts to fix any warning automatically
-  add_custom_target(clang-tidy ${BUILD_SUPPORT_DIR}/run-clang-tidy.sh ${CLANG_TIDY_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json 1
-  `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc | sed -e '/_generated/g'`)
+  add_custom_target(clang-tidy
+    ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
+    --clang_tidy_binary ${CLANG_TIDY_BIN}
+    --exclude_globs ${LINT_EXCLUSIONS_FILE}
+    --compile_commands ${CMAKE_BINARY_DIR}/compile_commands.json
+    --source_dir ${CMAKE_CURRENT_SOURCE_DIR}/src
+    --fix
+    ${ARROW_LINT_QUIET})
+
   # runs clang-tidy and exits with a non-zero exit code if any errors are found.
-  add_custom_target(check-clang-tidy ${BUILD_SUPPORT_DIR}/run-clang-tidy.sh ${CLANG_TIDY_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json
-  0 `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc |grep -v -F -f ${CMAKE_CURRENT_SOURCE_DIR}/src/.clang-tidy-ignore | sed -e '/_generated/g'`)
+  add_custom_target(check-clang-tidy
+    ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
+    --clang_tidy_binary ${CLANG_TIDY_BIN}
+    --exclude_globs ${LINT_EXCLUSIONS_FILE}
+    --compile_commands ${CMAKE_BINARY_DIR}/compile_commands.json
+    --source_dir ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${ARROW_LINT_QUIET})
 endif()
 
 if (ARROW_ONLY_LINT)
@@ -409,11 +470,17 @@ endif()
 ############################################################
 
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+  # Currently the compression tests require at least these libraries; bz2 and
+  # zstd are optional. See ARROW-3984
   set(ARROW_WITH_BROTLI ON)
   set(ARROW_WITH_LZ4 ON)
   set(ARROW_WITH_SNAPPY ON)
   set(ARROW_WITH_ZLIB ON)
-  set(ARROW_WITH_ZSTD ON)
+endif()
+
+if(ARROW_BUILD_TESTS)
+  # JSON parsing of arrays is required for Arrow unit tests
+  set(ARROW_IPC ON)
 endif()
 
 if(PARQUET_BUILD_EXAMPLES OR PARQUET_BUILD_EXECUTABLES)
@@ -436,20 +503,26 @@ endif()
 
 if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
+else()
+  add_custom_target(all-tests)
+  add_custom_target(unittest ctest -L unittest)
+  add_dependencies(unittest all-tests)
 endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
+else()
+  add_custom_target(all-benchmarks)
+  add_custom_target(benchmark ctest -L benchmark)
+  add_dependencies(benchmark all-benchmarks)
+endif()
+
+if(NOT ARROW_BUILD_EXAMPLES)
+  set(NO_EXAMPLES 1)
 endif()
 
 if (NOT ARROW_FUZZING)
   set(NO_FUZZING 1)
-endif()
-
-if (ARROW_TENSORFLOW)
-  # TensorFlow uses the old GLIBCXX ABI, so we have to use it too
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 
 if (MSVC AND ARROW_USE_CLCACHE AND
@@ -481,8 +554,6 @@ include(SetupCxxFlags)
 ############################################################
 # Dependencies
 ############################################################
-
-add_custom_target(arrow_dependencies)
 
 include(BuildUtils)
 enable_testing()
@@ -635,47 +706,64 @@ endif(UNIX)
 ############################################################
 
 set(ARROW_LINK_LIBS)
+set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
+set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
 # Libraries to link statically with libarrow.so
 set(ARROW_STATIC_LINK_LIBS double-conversion_static)
+set(ARROW_STATIC_INSTALL_INTERFACE_LIBS double-conversion)
 
 if (ARROW_WITH_BROTLI)
-  SET(ARROW_STATIC_LINK_LIBS
+  list(APPEND
+    ARROW_STATIC_LINK_LIBS
     brotli_dec_static
     brotli_enc_static
-    brotli_common_static
-    ${ARROW_STATIC_LINK_LIBS})
+    brotli_common_static)
+  list(APPEND
+    ARROW_STATIC_INSTALL_INTERFACE_LIBS
+    brotlidec
+    brotlienc
+    brotlicommon)
 endif()
 
 if (ARROW_WITH_BZ2)
-  SET(ARROW_STATIC_LINK_LIBS bz2_static ${ARROW_STATIC_LINK_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS bz2_static)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS bz2)
 endif()
 
 if (ARROW_WITH_LZ4)
-  SET(ARROW_STATIC_LINK_LIBS lz4_static ${ARROW_STATIC_LINK_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS lz4_static)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS lz4)
 endif()
 
 if (ARROW_WITH_SNAPPY)
-  SET(ARROW_STATIC_LINK_LIBS snappy_static ${ARROW_STATIC_LINK_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS snappy_static)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS snappy)
 endif()
 
 if (ARROW_WITH_ZLIB)
-  SET(ARROW_STATIC_LINK_LIBS ${ZLIB_LIBRARY} ${ARROW_STATIC_LINK_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS ${ZLIB_LIBRARY})
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS z)
 endif()
 
 if (ARROW_WITH_ZSTD)
-  SET(ARROW_STATIC_LINK_LIBS zstd_static ${ARROW_STATIC_LINK_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS zstd_static)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS zstd)
 endif()
 
 if (ARROW_ORC)
-  SET(ARROW_STATIC_LINK_LIBS
-    ${ARROW_STATIC_LINK_LIBS}
-    orc_static)
+  list(APPEND ARROW_STATIC_LINK_LIBS orc_static)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc)
 endif()
 
 if (ARROW_USE_GLOG)
-  SET(ARROW_STATIC_LINK_LIBS glog_static ${ARROW_STATIC_LINK_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS glog_static)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog)
+  add_definitions("-DARROW_USE_GLOG")
 endif()
+
+add_custom_target(arrow_dependencies)
+add_dependencies(arrow_dependencies toolchain)
 
 if (ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
@@ -687,15 +775,24 @@ set(ARROW_SHARED_PRIVATE_LINK_LIBS
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY})
 
-set(ARROW_STATIC_LINK_LIBS
-  ${ARROW_STATIC_LINK_LIBS}
+list(APPEND
+  ARROW_STATIC_LINK_LIBS
   ${BOOST_SYSTEM_LIBRARY}
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY})
 
+list(APPEND
+  ARROW_STATIC_INSTALL_INTERFACE_LIBS
+  boost_system
+  boost_filesystem
+  boost_regex)
+
 if (NOT MSVC)
-  set(ARROW_LINK_LIBS
-    ${ARROW_LINK_LIBS}
+  list(APPEND
+    ARROW_LINK_LIBS
+    ${CMAKE_DL_LIBS})
+  list(APPEND
+    ARROW_SHARED_INSTALL_INTERFACE_LIBS
     ${CMAKE_DL_LIBS})
 endif()
 
@@ -703,8 +800,9 @@ set(ARROW_TEST_STATIC_LINK_LIBS
   arrow_testing_static
   arrow_static
   ${ARROW_LINK_LIBS}
-  gtest_main_static
-  gtest_static)
+  ${GTEST_LIBRARY}
+  ${GMOCK_MAIN_LIBRARY}
+  ${GMOCK_LIBRARY})
 
 set(ARROW_TEST_SHARED_LINK_LIBS
   arrow_testing_shared
@@ -714,8 +812,9 @@ set(ARROW_TEST_SHARED_LINK_LIBS
   ${BOOST_SYSTEM_LIBRARY}
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY}
-  gtest_main_static
-  gtest_static)
+  ${GTEST_LIBRARY}
+  ${GMOCK_MAIN_LIBRARY}
+  ${GMOCK_LIBRARY})
 
 if(NOT MSVC)
   set(ARROW_TEST_SHARED_LINK_LIBS
@@ -723,19 +822,21 @@ if(NOT MSVC)
     ${CMAKE_DL_LIBS})
 endif()
 
-if ("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
+if (ARROW_BUILD_TESTS AND "${ARROW_TEST_LINKAGE}" STREQUAL "shared")
   if (NOT ARROW_BUILD_SHARED)
     message(FATAL_ERROR "If using shared linkage for unit tests, must also \
 pass ARROW_BUILD_SHARED=on")
   endif()
   # Use shared linking for unit tests if it's available
   set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS})
+  set(ARROW_EXAMPLE_LINK_LIBS arrow_shared)
 else()
   if (NOT ARROW_BUILD_STATIC)
     message(FATAL_ERROR "If using static linkage for unit tests, must also \
 pass ARROW_BUILD_STATIC=on")
   endif()
   set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_STATIC_LINK_LIBS})
+  set(ARROW_EXAMPLE_LINK_LIBS arrow_static)
 endif()
 
 if (ARROW_BUILD_BENCHMARKS)
@@ -744,39 +845,27 @@ if (ARROW_BUILD_BENCHMARKS)
     ${ARROW_TEST_LINK_LIBS})
 endif()
 
+set(ARROW_SYSTEM_LINK_LIBS)
+
 if (ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
-
-  if (NOT WIN32 AND NOT APPLE)
-    set(ARROW_JEMALLOC_LINK_LIBS
-      jemalloc_static
-      # For glibc <2.17 we need to link to librt.
-      # As we compile with --as-needed by default, the linker will omit this
-      # dependency if not required.
-      rt
-      )
-  else()
-    set(ARROW_JEMALLOC_LINK_LIBS
-      jemalloc_static
-      )
-  endif()
-  set(ARROW_SHARED_PRIVATE_LINK_LIBS
-    ${ARROW_SHARED_PRIVATE_LINK_LIBS}
-    ${ARROW_JEMALLOC_LINK_LIBS})
-  set(ARROW_STATIC_LINK_LIBS
-    ${ARROW_STATIC_LINK_LIBS}
-    ${ARROW_JEMALLOC_LINK_LIBS})
+  list(APPEND ARROW_SYSTEM_LINK_LIBS jemalloc_static)
 endif(ARROW_JEMALLOC)
 
-if (PTHREAD_LIBRARY)
-  set(ARROW_LINK_LIBS
-    ${ARROW_LINK_LIBS}
-    pthreadshared)
-  set(ARROW_STATIC_LINK_LIBS
-    ${ARROW_STATIC_LINK_LIBS}
-    pthreadshared)
+if (THREADS_FOUND)
+  list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)
 endif()
+
+if (NOT WIN32 AND NOT APPLE)
+  # Pass -lrt on Linux only
+  list(APPEND ARROW_SYSTEM_LINK_LIBS rt)
+endif()
+
+list(APPEND ARROW_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
+list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
+list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${ARROW_SYSTEM_LINK_LIBS})
+list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 
 ############################################################
 # Subdirectories
@@ -788,26 +877,21 @@ endif()
 
 add_subdirectory(src/arrow)
 
-if(ARROW_FLIGHT)
-  add_subdirectory(src/arrow/flight)
-endif()
-
-if(ARROW_PYTHON)
-  add_subdirectory(src/arrow/python)
-endif()
-
-if(ARROW_HIVESERVER2)
-  add_subdirectory(src/arrow/dbi/hiveserver2)
-endif()
-
 if(ARROW_PARQUET)
   add_subdirectory(src/parquet)
   add_subdirectory(tools/parquet)
-  add_subdirectory(examples/parquet/low-level-api)
+  if (PARQUET_BUILD_EXAMPLES)
+    add_subdirectory(examples/parquet)
+  endif()
 endif()
 
 if(ARROW_GANDIVA)
   add_subdirectory(src/gandiva)
+endif()
+
+if(ARROW_BUILD_EXAMPLES)
+  add_custom_target(runexample ctest -L example)
+  add_subdirectory(examples/arrow)
 endif()
 
 include(CMakePackageConfigHelpers)

@@ -49,7 +49,7 @@ Check out our [API documentation][7] to learn more about how to use Apache Arrow
 
 ### Get a table from an Arrow file on disk (in IPC format)
 
-```es6
+```js
 import { readFileSync } from 'fs';
 import { Table } from 'apache-arrow';
 
@@ -70,7 +70,7 @@ null, null, null
 
 ### Create a Table when the Arrow file is split across buffers
 
-```es6
+```js
 import { readFileSync } from 'fs';
 import { Table } from 'apache-arrow';
 
@@ -93,45 +93,42 @@ console.log(table.toString());
 
 ### Create a Table from JavaScript arrays
 
-```es6
-const fields = [{
-        name: 'precipitation',
-        type: { name: 'floatingpoint', precision: 'SINGLE'},
-        nullable: false, children: []
-    }, {
-        name: 'date',
-        type: { name: 'date', unit: 'MILLISECOND' },
-        nullable: false, children: []
-    }];
-const rainAmounts = Array.from({length: LENGTH}, () => Number((Math.random() * 20).toFixed(1)));
-const rainDates = Array.from({length: LENGTH}, (_, i) => Date.now() - 1000 * 60 * 60 * 24 * i);
+```js
+import {
+  Table,
+  FloatVector,
+  DateVector
+} from 'apache-arrow';
 
 const LENGTH = 2000;
-const rainfall = arrow.Table.from({
-  schema: { fields: fields },
-  batches: [{
-    count: LENGTH,
-    columns: [
-      {name: "precipitation", count: LENGTH, VALIDITY: [], DATA: rainAmounts },
-      {name: "date",          count: LENGTH, VALIDITY: [], DATA: rainDates } ] }] })
+
+const rainAmounts = Float32Array.from(
+  { length: LENGTH },
+  () => Number((Math.random() * 20).toFixed(1)));
+
+const rainDates = Array.from(
+  { length: LENGTH },
+  (_, i) => new Date(Date.now() - 1000 * 60 * 60 * 24 * i));
+
+const rainfall = Table.fromVectors(
+  [FloatVector.from(rainAmounts), DateVector.from(rainDates)],
+  ['precipitation', 'date']
+);
 ```
 
 ### Load data with `fetch`
 
-```es6
+```js
 import { Table } from "apache-arrow";
 
-fetch(require("simple.arrow")).then(response => {
-  response.arrayBuffer().then(buffer => {
-    const table = Table.from(new Uint8Array(buffer));
-    console.log(table.toString());
-  });
-});
+const table = await Table.from(fetch(("/simple.arrow")));
+console.log(table.toString());
+
 ```
 
 ### Columns look like JS Arrays
 
-```es6
+```js
 import { readFileSync } from 'fs';
 import { Table } from 'apache-arrow';
 
@@ -143,7 +140,7 @@ const table = Table.from([
 const column = table.getColumn('origin_lat');
 
 // Copy the data into a TypedArray
-const typed = column.slice();
+const typed = column.toArray();
 assert(typed instanceof Float32Array);
 
 for (let i = -1, n = column.length; ++i < n;) {
@@ -153,7 +150,7 @@ for (let i = -1, n = column.length; ++i < n;) {
 
 ### Usage with MapD Core
 
-```es6
+```js
 import MapD from 'rxjs-mapd';
 import { Table } from 'apache-arrow';
 
@@ -176,7 +173,7 @@ MapD.open(host, port)
   )
   .map(([schema, records]) =>
     // Create Arrow Table from results
-    Table.from(schema, records))
+    Table.from([schema, records]))
   .map((table) =>
     // Stringify the table to CSV with row numbers
     table.toString({ index: true }))

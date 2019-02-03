@@ -20,6 +20,5 @@ dist_lua_example_DATA =				\
 	README.md				\
 	read-batch.lua				\
 	read-stream.lua				\
-	stream-to-torch-tensor.lua		\
 	write-batch.lua				\
 	write-stream.lua

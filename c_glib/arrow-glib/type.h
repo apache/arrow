@@ -40,6 +40,8 @@ G_BEGIN_DECLS
  * @GARROW_TYPE_DOUBLE: 8-byte floating point value.
  * @GARROW_TYPE_STRING: UTF-8 variable-length string.
  * @GARROW_TYPE_BINARY: Variable-length bytes (no guarantee of UTF-8-ness).
+ * @GARROW_TYPE_FIXED_SIZE_BINARY: Fixed-size binary. Each value occupies
+ *   the same number of bytes.
  * @GARROW_TYPE_DATE32: int32 days since the UNIX epoch.
  * @GARROW_TYPE_DATE64: int64 milliseconds since the UNIX epoch.
  * @GARROW_TYPE_TIMESTAMP: Exact timestamp encoded with int64 since UNIX epoch.
@@ -72,6 +74,7 @@ typedef enum {
   GARROW_TYPE_DOUBLE,
   GARROW_TYPE_STRING,
   GARROW_TYPE_BINARY,
+  GARROW_TYPE_FIXED_SIZE_BINARY,
   GARROW_TYPE_DATE32,
   GARROW_TYPE_DATE64,
   GARROW_TYPE_TIMESTAMP,

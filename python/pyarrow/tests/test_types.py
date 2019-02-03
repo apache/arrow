@@ -19,11 +19,14 @@ from collections import OrderedDict
 
 import pickle
 import pytest
+import hypothesis as h
+import hypothesis.strategies as st
 
 import pandas as pd
 import numpy as np
 import pyarrow as pa
 import pyarrow.types as types
+import pyarrow.tests.strategies as past
 
 
 def get_many_types():
@@ -228,9 +231,12 @@ def test_list_type():
 
 
 def test_struct_type():
-    fields = [pa.field('a', pa.int64()),
-              pa.field('a', pa.int32()),
-              pa.field('b', pa.int32())]
+    fields = [
+        # Duplicate field name on purpose
+        pa.field('a', pa.int64()),
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.int32())
+    ]
     ty = pa.struct(fields)
 
     assert len(ty) == ty.num_children == 3
@@ -240,11 +246,17 @@ def test_struct_type():
     with pytest.raises(IndexError):
         assert ty[3]
 
-    assert ty['a'] == ty[1]
     assert ty['b'] == ty[2]
+
+    # Duplicate
+    with pytest.raises(KeyError):
+        ty['a']
+
+    # Not found
     with pytest.raises(KeyError):
         ty['c']
 
+    # Neither integer nor string
     with pytest.raises(TypeError):
         ty[None]
 
@@ -300,8 +312,8 @@ def test_dictionary_type():
     assert ty0.dictionary.to_pylist() == ['a', 'b', 'c']
     assert ty0.ordered is False
 
-    ty1 = pa.dictionary(pa.float32(), pa.array([1.0, 2.0]), ordered=True)
-    assert ty1.index_type == pa.float32()
+    ty1 = pa.dictionary(pa.int8(), pa.array([1.0, 2.0]), ordered=True)
+    assert ty1.index_type == pa.int8()
     assert isinstance(ty0.dictionary, pa.Array)
     assert ty1.dictionary.to_pylist() == [1.0, 2.0]
     assert ty1.ordered is True
@@ -466,14 +478,26 @@ def test_field_metadata():
 
 
 def test_field_add_remove_metadata():
+    import collections
+
     f0 = pa.field('foo', pa.int32())
 
     assert f0.metadata is None
 
     metadata = {b'foo': b'bar', b'pandas': b'badger'}
+    metadata2 = collections.OrderedDict([
+        (b'a', b'alpha'),
+        (b'b', b'beta')
+    ])
 
     f1 = f0.add_metadata(metadata)
     assert f1.metadata == metadata
+
+    f2 = f0.add_metadata(metadata2)
+    assert f2.metadata == metadata2
+
+    with pytest.raises(TypeError):
+        f0.add_metadata([1, 2, 3])
 
     f3 = f1.remove_metadata()
     assert f3.metadata is None
@@ -533,3 +557,38 @@ def test_schema_from_pandas(data):
     schema = pa.Schema.from_pandas(df)
     expected = pa.Table.from_pandas(df).schema
     assert schema == expected
+
+
+@h.given(
+    past.all_types |
+    past.all_fields |
+    past.all_schemas
+)
+@h.example(
+    pa.field(name='', type=pa.null(), metadata={'0': '', '': ''})
+)
+def test_pickling(field):
+    data = pickle.dumps(field)
+    assert pickle.loads(data) == field
+
+
+@h.given(
+    st.lists(past.all_types) |
+    st.lists(past.all_fields) |
+    st.lists(past.all_schemas)
+)
+def test_hashing(items):
+    h.assume(
+        # well, this is still O(n^2), but makes the input unique
+        all(not a.equals(b) for i, a in enumerate(items) for b in items[:i])
+    )
+
+    container = {}
+    for i, item in enumerate(items):
+        assert hash(item) == hash(item)
+        container[item] = i
+
+    assert len(container) == len(items)
+
+    for i, item in enumerate(items):
+        assert container[item] == i

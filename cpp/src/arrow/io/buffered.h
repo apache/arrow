@@ -29,6 +29,7 @@
 
 namespace arrow {
 
+class Buffer;
 class MemoryPool;
 class Status;
 
@@ -39,12 +40,13 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   ~BufferedOutputStream() override;
 
   /// \brief Create a buffered output stream wrapping the given output stream.
+  /// \param[in] buffer_size the size of the temporary write buffer
+  /// \param[in] pool a MemoryPool to use for allocations
   /// \param[in] raw another OutputStream
-  /// \param[in] buffer_size the size of the temporary buffer. Allocates from
-  /// the default memory pool
   /// \param[out] out the created BufferedOutputStream
   /// \return Status
-  static Status Create(std::shared_ptr<OutputStream> raw, int64_t buffer_size,
+  static Status Create(int64_t buffer_size, MemoryPool* pool,
+                       std::shared_ptr<OutputStream> raw,
                        std::shared_ptr<BufferedOutputStream>* out);
 
   /// \brief Resize internal buffer
@@ -78,7 +80,7 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   std::shared_ptr<OutputStream> raw() const;
 
  private:
-  explicit BufferedOutputStream(std::shared_ptr<OutputStream> raw);
+  explicit BufferedOutputStream(std::shared_ptr<OutputStream> raw, MemoryPool* pool);
 
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
@@ -93,16 +95,13 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   ~BufferedInputStream() override;
 
   /// \brief Create a BufferedInputStream from a raw InputStream
-  /// \param[in] raw a raw InputStream
   /// \param[in] buffer_size the size of the temporary read buffer
   /// \param[in] pool a MemoryPool to use for allocations
+  /// \param[in] raw a raw InputStream
   /// \param[out] out the created BufferedInputStream
-  static Status Create(std::shared_ptr<InputStream> raw, int64_t buffer_size,
-                       MemoryPool* pool, std::shared_ptr<BufferedInputStream>* out);
-
-  /// \brief Return string_view to buffered bytes, up to the indicated
-  /// number. View becomes invalid after any operation on file
-  util::string_view Peek(int64_t nbytes) const;
+  static Status Create(int64_t buffer_size, MemoryPool* pool,
+                       std::shared_ptr<InputStream> raw,
+                       std::shared_ptr<BufferedInputStream>* out);
 
   /// \brief Resize internal read buffer; calls to Read(...) will read at least
   /// \param[in] new_buffer_size the new read buffer size
@@ -124,6 +123,7 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   std::shared_ptr<InputStream> raw() const;
 
   // InputStream APIs
+  util::string_view Peek(int64_t nbytes) const override;
   Status Close() override;
   bool closed() const override;
 
@@ -140,8 +140,8 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
  private:
   explicit BufferedInputStream(std::shared_ptr<InputStream> raw, MemoryPool* pool);
 
-  class ARROW_NO_EXPORT BufferedInputStreamImpl;
-  std::unique_ptr<BufferedInputStreamImpl> impl_;
+  class ARROW_NO_EXPORT Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace io

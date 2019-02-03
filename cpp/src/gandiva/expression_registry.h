@@ -24,6 +24,7 @@
 #include "gandiva/arrow.h"
 #include "gandiva/function_signature.h"
 #include "gandiva/gandiva_aliases.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
@@ -33,13 +34,13 @@ class FunctionRegistry;
 ///
 /// Has helper methods for clients to programatically discover
 /// data types and functions supported by Gandiva.
-class ExpressionRegistry {
+class GANDIVA_EXPORT ExpressionRegistry {
  public:
   using iterator = const NativeFunction*;
   ExpressionRegistry();
   ~ExpressionRegistry();
   static DataTypeVector supported_types() { return supported_types_; }
-  class FunctionSignatureIterator {
+  class GANDIVA_EXPORT FunctionSignatureIterator {
    public:
     explicit FunctionSignatureIterator(iterator it) : it_(it) {}
 

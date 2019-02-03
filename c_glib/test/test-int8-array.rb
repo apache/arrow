@@ -28,25 +28,25 @@ class TestInt8Array < Test::Unit::TestCase
 
   def test_buffer
     builder = Arrow::Int8ArrayBuilder.new
-    builder.append(-1)
-    builder.append(2)
-    builder.append(-4)
+    builder.append_value(-1)
+    builder.append_value(2)
+    builder.append_value(-4)
     array = builder.finish
     assert_equal([-1, 2, -4].pack("c*"), array.buffer.data.to_s)
   end
 
   def test_value
     builder = Arrow::Int8ArrayBuilder.new
-    builder.append(-1)
+    builder.append_value(-1)
     array = builder.finish
     assert_equal(-1, array.get_value(0))
   end
 
   def test_values
     builder = Arrow::Int8ArrayBuilder.new
-    builder.append(-1)
-    builder.append(2)
-    builder.append(-4)
+    builder.append_value(-1)
+    builder.append_value(2)
+    builder.append_value(-4)
     array = builder.finish
     assert_equal([-1, 2, -4], array.values)
   end

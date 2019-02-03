@@ -76,13 +76,16 @@ pytest pyarrow --help
 
 and look for the "custom options" section.
 
+For running the benchmarks, see the [Sphinx documentation][5].
+
 ### Building the documentation
 
 ```bash
-pip install -r doc/requirements.txt
-python setup.py build_sphinx -s doc/source
+pip install -r ../docs/requirements.txt
+python setup.py build_sphinx -s ../docs/source
 ```
 
-[2]: https://github.com/apache/arrow/blob/master/python/doc/source/development.rst
+[2]: https://github.com/apache/arrow/blob/master/docs/source/python/development.rst
 [3]: https://github.com/pandas-dev/pandas
 [4]: https://docs.pytest.org/en/latest/
+[5]: https://arrow.apache.org/docs/latest/python/benchmarks.html

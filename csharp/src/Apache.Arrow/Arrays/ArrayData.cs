@@ -19,7 +19,7 @@ using System.Linq;
 
 namespace Apache.Arrow
 {
-    public class ArrayData
+    public sealed class ArrayData
     {
         public readonly IArrowType DataType;
         public readonly int Length;
@@ -27,9 +27,6 @@ namespace Apache.Arrow
         public readonly int Offset;
         public readonly ArrowBuffer[] Buffers;
         public readonly ArrayData[] Children;
-
-        public ArrowBuffer NullBitmapBuffer => Buffers[0];
-        public Bitmap NullBitmap => NullBitmapBuffer;
 
         public ArrayData(
             IArrowType dataType,

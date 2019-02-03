@@ -791,7 +791,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * @see  {@link #getShortLE(int)}.
+   * @see ArrowBuf#getShortLE(int).
    */
   @Override
   protected short _getShortLE(int index) {
@@ -804,7 +804,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * @see  {@link #getIntLE(int)}.
+   * @see ArrowBuf#getIntLE(int).
    */
   @Override
   protected int _getIntLE(int index) {
@@ -812,7 +812,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * @see  {@link #getUnsignedMedium(int)}.
+   * @see ArrowBuf#getUnsignedMedium(int).
    */
   @Override
   protected int _getUnsignedMedium(int index) {
@@ -820,7 +820,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * @see  {@link #getUnsignedMediumLE(int)}.
+   * @see ArrowBuf#getUnsignedMediumLE(int).
    */
   @Override
   protected int _getUnsignedMediumLE(int index) {
@@ -833,7 +833,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * @see  {@link #getLongLE(int)}.
+   * @see ArrowBuf#getLongLE(int).
    */
   @Override
   protected long _getLongLE(int index) {
@@ -851,7 +851,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * @see  {@link #setShortLE(int, int)}.
+   * @see ArrowBuf#setShortLE(int, int).
    */
   @Override
   protected void _setShortLE(int index, int value) {
@@ -864,7 +864,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * @see  {@link #setMediumLE(int, int)}.
+   * @see ArrowBuf#setMediumLE(int, int).
    */
   @Override
   protected void _setMediumLE(int index, int value) {
@@ -877,7 +877,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * @see  {@link #setIntLE(int, int)}.
+   * @see ArrowBuf#setIntLE(int, int).
    */
   @Override
   protected void _setIntLE(int index, int value) {
@@ -890,7 +890,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * @see  {@link #setLongLE(int, long)}.
+   * @see ArrowBuf#setLongLE(int, long).
    */
   @Override
   public void _setLongLE(int index, long value) {

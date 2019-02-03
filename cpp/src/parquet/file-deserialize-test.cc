@@ -22,6 +22,7 @@
 #include <memory>
 
 #include "parquet/column_page.h"
+#include "parquet/column_reader.h"
 #include "parquet/exception.h"
 #include "parquet/file_reader.h"
 #include "parquet/thrift.h"
@@ -85,8 +86,8 @@ class TestPageSerde : public ::testing::Test {
     page_header_.compressed_page_size = compressed_size;
     page_header_.type = format::PageType::DATA_PAGE;
 
-    ASSERT_NO_THROW(
-        SerializeThriftMsg(&page_header_, max_serialized_len, out_stream_.get()));
+    ThriftSerializer serializer;
+    ASSERT_NO_THROW(serializer.Serialize(&page_header_, out_stream_.get()));
   }
 
   void ResetStream() { out_stream_.reset(new InMemoryOutputStream); }
@@ -176,9 +177,11 @@ TEST_F(TestPageSerde, TestFailLargePageHeaders) {
 }
 
 TEST_F(TestPageSerde, Compression) {
-  Compression::type codec_types[5] = {Compression::GZIP, Compression::SNAPPY,
-                                      Compression::BROTLI, Compression::LZ4,
-                                      Compression::ZSTD};
+  std::vector<Compression::type> codec_types = {Compression::GZIP, Compression::SNAPPY,
+                                                Compression::BROTLI, Compression::LZ4};
+#ifdef ARROW_WITH_ZSTD
+  codec_types.push_back(Compression::ZSTD);
+#endif
 
   const int32_t num_rows = 32;  // dummy value
   data_page_header_.num_values = num_rows;

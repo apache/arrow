@@ -58,7 +58,7 @@ TEST_F(DISABLED_TestHugeProjector, SimpleTestSumHuge) {
   // Build expression
   auto sum_expr = TreeExprBuilder::MakeExpression("add", {field0, field1}, field_sum);
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {sum_expr}, &projector);
+  auto status = Projector::Make(schema, {sum_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -136,7 +136,7 @@ TEST_F(DISABLED_TestHugeFilter, TestSimpleHugeFilter) {
   auto condition = TreeExprBuilder::MakeCondition(less_than_50);
 
   std::shared_ptr<Filter> filter;
-  Status status = Filter::Make(schema, condition, &filter);
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
   EXPECT_TRUE(status.ok());
 
   // prepare input record batch

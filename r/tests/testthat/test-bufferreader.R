@@ -18,9 +18,9 @@
 context("arrow::BufferReader")
 
 test_that("BufferReader can be created from R objects", {
-  num <- buffer_reader(numeric(13))
-  int <- buffer_reader(integer(13))
-  raw <- buffer_reader(raw(16))
+  num <- BufferReader(numeric(13))
+  int <- BufferReader(integer(13))
+  raw <- BufferReader(raw(16))
 
   expect_is(num, "arrow::io::BufferReader")
   expect_is(int, "arrow::io::BufferReader")
@@ -33,7 +33,7 @@ test_that("BufferReader can be created from R objects", {
 
 test_that("BufferReader can be created from Buffer", {
   buf <- buffer(raw(76))
-  reader <- buffer_reader(buf)
+  reader <- BufferReader(buf)
 
   expect_is(reader, "arrow::io::BufferReader")
   expect_equal(reader$GetSize(), 76)

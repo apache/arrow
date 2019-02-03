@@ -125,11 +125,9 @@ Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arr
   const int32_t scale = arrow_type.scale();
 
   if (ARROW_PREDICT_FALSE(inferred_precision > precision)) {
-    std::stringstream buf;
-    buf << "Decimal type with precision " << inferred_precision
-        << " does not fit into precision inferred from first array element: "
-        << precision;
-    return Status::Invalid(buf.str());
+    return Status::Invalid(
+        "Decimal type with precision ", inferred_precision,
+        " does not fit into precision inferred from first array element: ", precision);
   }
 
   if (scale != inferred_scale) {

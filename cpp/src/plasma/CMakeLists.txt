@@ -15,31 +15,30 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required(VERSION 3.2)
+add_custom_target(plasma-all)
+add_custom_target(plasma)
+add_custom_target(plasma-benchmarks)
+add_custom_target(plasma-tests)
+add_dependencies(plasma-all plasma plasma-tests plasma-benchmarks)
 
 # For the moment, Plasma is versioned like Arrow
 project(plasma VERSION "${ARROW_BASE_VERSION}")
+set(PLASMA_VERSION "${ARROW_VERSION}")
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../python/cmake_modules")
-
-find_package(PythonLibsNew REQUIRED)
 find_package(Threads)
 
 # The SO version is also the ABI version
 set(PLASMA_SO_VERSION "${ARROW_SO_VERSION}")
 set(PLASMA_FULL_SO_VERSION "${ARROW_FULL_SO_VERSION}")
 
-include_directories(SYSTEM ${PYTHON_INCLUDE_DIRS})
 include_directories("${FLATBUFFERS_INCLUDE_DIR}" "${CMAKE_CURRENT_LIST_DIR}/" "${CMAKE_CURRENT_LIST_DIR}/thirdparty/" "${CMAKE_CURRENT_LIST_DIR}/../")
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_XOPEN_SOURCE=500 -D_POSIX_C_SOURCE=200809L")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion")
 
 # Compile flatbuffers
 
 set(PLASMA_FBS_SRC "${CMAKE_CURRENT_LIST_DIR}/format/plasma.fbs" "${CMAKE_CURRENT_LIST_DIR}/format/common.fbs")
-set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/src/plasma)
+set(OUTPUT_DIR ${ARROW_BINARY_DIR}/src/plasma)
 
 set(PLASMA_FBS_OUTPUT_FILES
   "${OUTPUT_DIR}/common_generated.h"
@@ -77,16 +76,17 @@ set(PLASMA_SRCS
   io.cc
   malloc.cc
   plasma.cc
+  plasma_allocator.cc
   protocol.cc
   thirdparty/ae/ae.c)
 
 set(PLASMA_LINK_LIBS arrow_shared)
 set(PLASMA_STATIC_LINK_LIBS arrow_static)
 
-if (ARROW_GPU)
-  set(PLASMA_LINK_LIBS ${PLASMA_LINK_LIBS} arrow_gpu_shared)
-  set(PLASMA_STATIC_LINK_LIBS arrow_gpu_static ${PLASMA_STATIC_LINK_LIBS})
-  add_definitions(-DPLASMA_GPU)
+if (ARROW_CUDA)
+  set(PLASMA_LINK_LIBS ${PLASMA_LINK_LIBS} arrow_cuda_shared)
+  set(PLASMA_STATIC_LINK_LIBS arrow_cuda_static ${PLASMA_STATIC_LINK_LIBS})
+  add_definitions(-DPLASMA_CUDA)
 endif()
 
 ADD_ARROW_LIB(plasma
@@ -95,6 +95,8 @@ ADD_ARROW_LIB(plasma
   DEPENDENCIES gen_plasma_fbs
   SHARED_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_LINK_LIBS}
   STATIC_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} ${PLASMA_STATIC_LINK_LIBS})
+
+add_dependencies(plasma ${PLASMA_LIBRARIES})
 
 foreach(LIB_TARGET ${PLASMA_LIBRARIES})
   target_compile_definitions(${LIB_TARGET}
@@ -127,6 +129,7 @@ endif()
 # be copied around and used in different locations.
 add_executable(plasma_store_server store.cc)
 target_link_libraries(plasma_store_server plasma_static ${PLASMA_STATIC_LINK_LIBS})
+add_dependencies(plasma plasma_store_server)
 
 if (ARROW_RPATH_ORIGIN)
   if (APPLE)
@@ -138,7 +141,6 @@ if (ARROW_RPATH_ORIGIN)
       INSTALL_RPATH ${_lib_install_rpath})
 endif()
 
-# Headers: top level
 install(FILES
   common.h
   compat.h
@@ -149,15 +151,12 @@ install(FILES
 
 # Plasma store
 set_target_properties(plasma_store_server PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-install(TARGETS plasma_store_server DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS plasma_store_server
+  ${INSTALL_IS_OPTIONAL}
+  DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # pkg-config support
-configure_file(plasma.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/plasma.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/plasma.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+ARROW_ADD_PKG_CONFIG("plasma")
 
 if(ARROW_PLASMA_JAVA_CLIENT)
   # Plasma java client support
@@ -198,8 +197,20 @@ endif()
 # Unit tests
 #######################################
 
-ADD_ARROW_TEST(test/serialization_tests
+# Adding unit tests part of the "arrow" portion of the test suite
+function(ADD_PLASMA_TEST REL_TEST_NAME)
+  set(options)
+  set(one_value_args)
+  set(multi_value_args)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  ADD_TEST_CASE(${REL_TEST_NAME}
+    PREFIX "plasma"
+    LABELS "plasma-tests"
+    ${ARG_UNPARSED_ARGUMENTS})
+endfunction()
+
+ADD_PLASMA_TEST(test/serialization_tests
   EXTRA_LINK_LIBS plasma_shared ${PLASMA_LINK_LIBS})
-ADD_ARROW_TEST(test/client_tests
+ADD_PLASMA_TEST(test/client_tests
   EXTRA_LINK_LIBS plasma_shared ${PLASMA_LINK_LIBS}
   EXTRA_DEPENDENCIES plasma_store_server)

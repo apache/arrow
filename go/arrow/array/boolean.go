@@ -45,7 +45,12 @@ func NewBooleanData(data *Data) *Boolean {
 	return a
 }
 
-func (a *Boolean) Value(i int) bool { return bitutil.BitIsSet(a.values, i) }
+func (a *Boolean) Value(i int) bool {
+	if i < 0 || i >= a.array.data.length {
+		panic("arrow/array: index out of range")
+	}
+	return bitutil.BitIsSet(a.values, a.array.data.offset+i)
+}
 
 func (a *Boolean) String() string {
 	o := new(strings.Builder)

@@ -23,7 +23,6 @@
 #include <limits>
 #include <memory>
 #include <numeric>
-#include <ostream>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -31,6 +30,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/buffer-builder.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/ipc/test-common.h"
@@ -40,7 +40,6 @@
 #include "arrow/test-common.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
@@ -247,6 +246,23 @@ TEST_F(TestArray, BuildLargeInMemoryArray) {
 TEST_F(TestArray, TestCopy) {}
 
 // ----------------------------------------------------------------------
+// Null type tests
+
+TEST(TestNullBuilder, Basics) {
+  NullBuilder builder;
+  std::shared_ptr<Array> array;
+
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.Append(nullptr));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.Finish(&array));
+
+  const auto& null_array = checked_cast<NullArray&>(*array);
+  ASSERT_EQ(null_array.length(), 3);
+  ASSERT_EQ(null_array.null_count(), 3);
+}
+
+// ----------------------------------------------------------------------
 // Primitive type tests
 
 TEST_F(TestBuilder, TestReserve) {
@@ -331,7 +347,10 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_TRUE(result->Equals(*expected));
   }
 
-  int64_t FlipValue(int64_t value) const { return ~value; }
+  void FlipValue(T* ptr) {
+    auto byteptr = reinterpret_cast<uint8_t*>(ptr);
+    *byteptr = static_cast<uint8_t>(~*byteptr);
+  }
 
  protected:
   std::unique_ptr<BuilderType> builder_;
@@ -414,8 +433,8 @@ void TestPrimitiveBuilder<PBoolean>::RandomData(int64_t N, double pct_null) {
 }
 
 template <>
-int64_t TestPrimitiveBuilder<PBoolean>::FlipValue(int64_t value) const {
-  return !value;
+void TestPrimitiveBuilder<PBoolean>::FlipValue(T* ptr) {
+  *ptr = !*ptr;
 }
 
 template <>
@@ -559,8 +578,7 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
   const int64_t first_valid_idx = std::distance(valid_bytes.begin(), first_valid);
   // This should be true with a very high probability, but might introduce flakiness
   ASSERT_LT(first_valid_idx, size - 1);
-  draws[first_valid_idx] = static_cast<T>(
-      this->FlipValue(*reinterpret_cast<int64_t*>(&draws[first_valid_idx])));
+  this->FlipValue(&draws[first_valid_idx]);
   ASSERT_OK(MakeArray(valid_bytes, draws, size, builder, &unequal_array));
 
   // test normal equality
@@ -744,22 +762,22 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
   auto& draws = this->draws_;
   auto& valid_bytes = this->valid_bytes_;
 
-  auto doubler = [&draws](int64_t index) { return draws[index] * 2; };
-  auto lazy_iter = internal::MakeLazyRange(doubler, size);
+  auto halve = [&draws](int64_t index) { return draws[index] / 2; };
+  auto lazy_iter = internal::MakeLazyRange(halve, size);
 
   ASSERT_OK(this->builder_->AppendValues(lazy_iter.begin(), lazy_iter.end(),
                                          valid_bytes.begin()));
 
-  std::vector<T> doubled;
-  transform(draws.begin(), draws.end(), back_inserter(doubled),
-            [](T in) { return in * 2; });
+  std::vector<T> halved;
+  transform(draws.begin(), draws.end(), back_inserter(halved),
+            [](T in) { return in / 2; });
 
   std::shared_ptr<Array> result;
   FinishAndCheckPadding(this->builder_.get(), &result);
 
   std::shared_ptr<Array> expected;
   ASSERT_OK(
-      this->builder_->AppendValues(doubled.data(), doubled.size(), valid_bytes.data()));
+      this->builder_->AppendValues(halved.data(), halved.size(), valid_bytes.data()));
   FinishAndCheckPadding(this->builder_.get(), &expected);
 
   ASSERT_TRUE(expected->Equals(result));

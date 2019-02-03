@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
+import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -93,6 +94,21 @@ public class JdbcToArrowUtils {
   /**
    * Create Arrow {@link Schema} object for the given JDBC {@link ResultSetMetaData}.
    *
+   * @param rsmd The ResultSetMetaData containing the results, to read the JDBC metadata from.
+   * @param calendar The calendar to use the time zone field of, to construct Timestamp fields from.
+   * @return {@link Schema}
+   * @throws SQLException on error
+   */
+  public static Schema jdbcToArrowSchema(ResultSetMetaData rsmd, Calendar calendar) throws SQLException {
+    Preconditions.checkNotNull(rsmd, "JDBC ResultSetMetaData object can't be null");
+    Preconditions.checkNotNull(calendar, "Calendar object can't be null");
+
+    return jdbcToArrowSchema(rsmd, new JdbcToArrowConfig(new RootAllocator(0), calendar));
+  }
+
+  /**
+   * Create Arrow {@link Schema} object for the given JDBC {@link ResultSetMetaData}.
+   *
    * <p>This method currently performs following type mapping for JDBC SQL data types to corresponding Arrow data types.
    *
    * <p>CHAR --> ArrowType.Utf8
@@ -120,20 +136,14 @@ public class JdbcToArrowUtils {
    * CLOB --> ArrowType.Utf8
    * BLOB --> ArrowType.Binary
    *
-   * <p>If a {@link java.util.Calendar} is set, {@link java.sql.Timestamp} fields in the {@link java.sql.ResultSet} will
-   * be converted to an Arrow {@link org.apache.arrow.vector.TimeStampVector} using the <code>Calendar</code>'s time
-   * zone.  If the <code>Calendar</code> is <code>null</code>, no time zone will be set on the
-   * <code>TimeStampVector</code>.
-   *
-   * @param rsmd ResultSetMetaData
+   * @param rsmd The ResultSetMetaData containing the results, to read the JDBC metadata from.
+   * @param config The configuration to use when constructing the schema.
    * @return {@link Schema}
    * @throws SQLException on error
    */
-  public static Schema jdbcToArrowSchema(ResultSetMetaData rsmd, Calendar calendar) throws SQLException {
-
+  public static Schema jdbcToArrowSchema(ResultSetMetaData rsmd, JdbcToArrowConfig config) throws SQLException {
     Preconditions.checkNotNull(rsmd, "JDBC ResultSetMetaData object can't be null");
-
-    final String tz = (calendar != null) ? calendar.getTimeZone().getID() : null;
+    Preconditions.checkNotNull(config, "The configuration object must not be null");
 
     List<Field> fields = new ArrayList<>();
     int columnCount = rsmd.getColumnCount();
@@ -184,8 +194,8 @@ public class JdbcToArrowUtils {
           fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Time(TimeUnit.MILLISECOND, 32)), null));
           break;
         case Types.TIMESTAMP:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, tz)),
-              null));
+          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND,
+              config.getCalendar().getTimeZone().getID())), null));
           break;
         case Types.BINARY:
         case Types.VARBINARY:
@@ -228,8 +238,8 @@ public class JdbcToArrowUtils {
    * Iterate the given JDBC {@link ResultSet} object to fetch the data and transpose it to populate
    * the given Arrow Vector objects.
    *
-   * @param rs   ResultSet to use to fetch the data from underlying database
-   * @param root Arrow {@link VectorSchemaRoot} object to populate
+   * @param rs       ResultSet to use to fetch the data from underlying database
+   * @param root     Arrow {@link VectorSchemaRoot} object to populate
    * @param calendar The calendar to use when reading {@link Date}, {@link Time}, or {@link Timestamp}
    *                 data types from the {@link ResultSet}, or <code>null</code> if not converting.
    * @throws SQLException on error
@@ -240,10 +250,31 @@ public class JdbcToArrowUtils {
     Preconditions.checkNotNull(rs, "JDBC ResultSet object can't be null");
     Preconditions.checkNotNull(root, "JDBC ResultSet object can't be null");
 
+    jdbcToArrowVectors(rs, root, new JdbcToArrowConfig(new RootAllocator(0), calendar));
+  }
+
+  /**
+   * Iterate the given JDBC {@link ResultSet} object to fetch the data and transpose it to populate
+   * the given Arrow Vector objects.
+   *
+   * @param rs     ResultSet to use to fetch the data from underlying database
+   * @param root   Arrow {@link VectorSchemaRoot} object to populate
+   * @param config The configuration to use when reading the data.
+   * @throws SQLException on error
+   */
+  public static void jdbcToArrowVectors(ResultSet rs, VectorSchemaRoot root, JdbcToArrowConfig config)
+      throws SQLException, IOException {
+
+    Preconditions.checkNotNull(rs, "JDBC ResultSet object can't be null");
+    Preconditions.checkNotNull(root, "JDBC ResultSet object can't be null");
+    Preconditions.checkNotNull(config, "JDBC-to-Arrow configuration cannot be null");
+
     ResultSetMetaData rsmd = rs.getMetaData();
     int columnCount = rsmd.getColumnCount();
 
     allocateVectors(root, DEFAULT_BUFFER_SIZE);
+
+    final Calendar calendar = config.getCalendar();
 
     int rowCount = 0;
     while (rs.next()) {

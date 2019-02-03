@@ -92,9 +92,7 @@ Service::Service(const string& host, int port, int conn_timeout,
 
 Status Service::Open() {
   if (impl_->protocol_version < hs2::TProtocolVersion::HIVE_CLI_SERVICE_PROTOCOL_V6) {
-    std::stringstream ss;
-    ss << "Unsupported protocol: " << impl_->protocol_version;
-    return Status::NotImplemented(ss.str());
+    return Status::NotImplemented("Unsupported protocol: ", impl_->protocol_version);
   }
 
   impl_->socket.reset(new TSocket(host_, port_));

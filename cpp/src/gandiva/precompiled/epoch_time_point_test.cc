@@ -15,36 +15,39 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <time.h>
+#include <ctime>
 
 #include <gtest/gtest.h>
 #include "./epoch_time_point.h"
+#include "gandiva/precompiled/testing.h"
 #include "gandiva/precompiled/types.h"
 
-namespace gandiva {
+#include "gandiva/date_utils.h"
 
-timestamp StringToTimestamp(const char* buf) {
-  struct tm tm;
-  strptime(buf, "%Y-%m-%d %H:%M:%S", &tm);
-  return timegm(&tm) * 1000;  // to millis
-}
+namespace gandiva {
 
 TEST(TestEpochTimePoint, TestTm) {
   auto ts = StringToTimestamp("2015-05-07 10:20:34");
   EpochTimePoint tp(ts);
 
+  struct tm* tm_ptr;
+#if defined(_MSC_VER)
+  __time64_t tsec = ts / 1000;
+  tm_ptr = _gmtime64(&tsec);
+#else
   struct tm tm;
   time_t tsec = ts / 1000;
-  gmtime_r(&tsec, &tm);
+  tm_ptr = gmtime_r(&tsec, &tm);
+#endif
 
-  EXPECT_EQ(tp.TmYear(), tm.tm_year);
-  EXPECT_EQ(tp.TmMon(), tm.tm_mon);
-  EXPECT_EQ(tp.TmYday(), tm.tm_yday);
-  EXPECT_EQ(tp.TmMday(), tm.tm_mday);
-  EXPECT_EQ(tp.TmWday(), tm.tm_wday);
-  EXPECT_EQ(tp.TmHour(), tm.tm_hour);
-  EXPECT_EQ(tp.TmMin(), tm.tm_min);
-  EXPECT_EQ(tp.TmSec(), tm.tm_sec);
+  EXPECT_EQ(tp.TmYear(), tm_ptr->tm_year);
+  EXPECT_EQ(tp.TmMon(), tm_ptr->tm_mon);
+  EXPECT_EQ(tp.TmYday(), tm_ptr->tm_yday);
+  EXPECT_EQ(tp.TmMday(), tm_ptr->tm_mday);
+  EXPECT_EQ(tp.TmWday(), tm_ptr->tm_wday);
+  EXPECT_EQ(tp.TmHour(), tm_ptr->tm_hour);
+  EXPECT_EQ(tp.TmMin(), tm_ptr->tm_min);
+  EXPECT_EQ(tp.TmSec(), tm_ptr->tm_sec);
 }
 
 TEST(TestEpochTimePoint, TestAddYears) {

@@ -53,11 +53,11 @@ namespace arrow {
 namespace flight {
 
 TEST(TestFlight, StartStopTestServer) {
-  TestServer server("flight-test-server", 92385);
+  TestServer server("flight-test-server", 30000);
   server.Start();
   ASSERT_TRUE(server.IsRunning());
 
-  sleep_for(0.2);
+  std::this_thread::sleep_for(std::chrono::duration<double>(0.2));
 
   ASSERT_TRUE(server.IsRunning());
   int exit_code = server.Stop();
@@ -79,7 +79,7 @@ class TestFlightClient : public ::testing::Test {
   // void TearDown() {}
 
   void SetUp() {
-    port_ = 92358;
+    port_ = 30000;
     server_.reset(new TestServer("flight-test-server", port_));
     server_->Start();
     ASSERT_OK(ConnectClient());

@@ -23,6 +23,9 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
+import org.junit.Assert;
+
 public class PlasmaClientTest {
 
   private String storeSuffix = "/tmp/store";
@@ -142,8 +145,12 @@ public class PlasmaClientTest {
     assert Arrays.equals(values.get(0), value1);
     assert Arrays.equals(values.get(1), value2);
     System.out.println("Plasma java client get multi-object test success.");
-    pLink.put(id1, value1, null);
-    System.out.println("Plasma java client put same object twice exception test success.");
+    try {
+      pLink.put(id1, value1, null);
+      Assert.fail("Fail to throw DuplicateObjectException when put an object into plasma store twice.");
+    } catch (DuplicateObjectException e) {
+      System.out.println("Plasma java client put same object twice exception test success.");
+    }
     byte[] id1Hash = pLink.hash(id1);
     assert id1Hash != null;
     System.out.println("Plasma java client hash test success.");

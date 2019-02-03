@@ -28,7 +28,7 @@ export ARROW_CPP_EXE_PATH=$ARROW_CPP_BUILD_DIR/debug
 pushd $ARROW_JAVA_DIR
 
 echo "mvn package"
-mvn -B clean package 2>&1 > mvn_package.log || (cat mvn_package.log && false)
+$TRAVIS_MVN -B clean package 2>&1 > mvn_package.log || (cat mvn_package.log && false)
 
 popd
 
@@ -36,14 +36,14 @@ pushd $ARROW_JS_DIR
 
 # lint and compile JS source
 npm run lint
-npm run build
+npm run build -- -t apache-arrow
 
 popd
 
 pushd $ARROW_INTEGRATION_DIR
 
 CONDA_ENV_NAME=arrow-integration-test
-conda create -y -q -n $CONDA_ENV_NAME python=3.5
+conda create -y -q -n $CONDA_ENV_NAME python=3.6
 conda activate $CONDA_ENV_NAME
 
 # faster builds, please
@@ -52,7 +52,12 @@ conda install -y nomkl
 # Expensive dependencies install from Continuum package repo
 conda install -y pip numpy six
 
-python integration_test.py --debug
+# ARROW-4008: Create a directory to write temporary files since /tmp can be
+# unstable in Travis CI
+INTEGRATION_TEMPDIR=$TRAVIS_BUILD_DIR/integration_temp
+mkdir -p $INTEGRATION_TEMPDIR
+
+python integration_test.py --debug --tempdir=$INTEGRATION_TEMPDIR
 
 popd
 

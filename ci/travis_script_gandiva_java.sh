@@ -24,12 +24,10 @@ JAVA_DIR=${TRAVIS_BUILD_DIR}/java
 
 pushd $JAVA_DIR
 
-export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
-
 # build with gandiva profile
-mvn -P gandiva -B install -DskipTests -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR/debug
+$TRAVIS_MVN -P gandiva -B install -DskipTests -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR/debug
 
 # run gandiva tests
-mvn test -P gandiva -pl gandiva -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR/debug
+$TRAVIS_MVN test -P gandiva -pl gandiva -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR/debug
 
 popd

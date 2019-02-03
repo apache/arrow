@@ -39,7 +39,9 @@ TF_PLASMA_OP_PATH = os.path.join(pa.__path__[0], "tensorflow", "plasma_op.so")
 
 tf_plasma_op = None
 
-if os.path.exists(TF_PLASMA_OP_PATH):
+
+def load_plasma_tensorflow_op():
+    global tf_plasma_op
     import tensorflow as tf
     tf_plasma_op = tf.load_op_library(TF_PLASMA_OP_PATH)
 
@@ -76,7 +78,6 @@ def build_plasma_tensorflow_op():
 @contextlib.contextmanager
 def start_plasma_store(plasma_store_memory,
                        use_valgrind=False, use_profiler=False,
-                       use_one_memory_mapped_file=False,
                        plasma_directory=None, use_hugepages=False):
     """Start a plasma store process.
     Args:
@@ -85,8 +86,6 @@ def start_plasma_store(plasma_store_memory,
             of valgrind. If this is True, use_profiler must be False.
         use_profiler (bool): True if the plasma store should be started inside
             a profiler. If this is True, use_valgrind must be False.
-        use_one_memory_mapped_file: If True, then the store will use only a
-            single memory-mapped file.
         plasma_directory (str): Directory where plasma memory mapped files
             will be stored.
         use_hugepages (bool): True if the plasma store should use huge pages.
@@ -105,8 +104,6 @@ def start_plasma_store(plasma_store_memory,
         command = [plasma_store_executable,
                    "-s", plasma_store_name,
                    "-m", str(plasma_store_memory)]
-        if use_one_memory_mapped_file:
-            command += ["-f"]
         if plasma_directory:
             command += ["-d", plasma_directory]
         if use_hugepages:

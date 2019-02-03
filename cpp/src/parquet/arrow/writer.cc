@@ -18,17 +18,29 @@
 #include "parquet/arrow/writer.h"
 
 #include <algorithm>
-#include <string>
+#include <cstddef>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
-#include "arrow/api.h"
+#include "arrow/array.h"
+#include "arrow/buffer.h"
+#include "arrow/builder.h"
 #include "arrow/compute/api.h"
+#include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/visitor_inline.h"
 
 #include "arrow/util/logging.h"
+
 #include "parquet/arrow/schema.h"
+#include "parquet/column_writer.h"
+#include "parquet/exception.h"
+#include "parquet/file_writer.h"
+#include "parquet/schema.h"
+#include "parquet/util/memory.h"
 
 using arrow::Array;
 using arrow::BinaryArray;
@@ -312,6 +324,10 @@ class ArrowColumnWriter {
   Status Write(const Array& data);
 
   Status Write(const ChunkedArray& data, int64_t offset, const int64_t size) {
+    if (data.length() == 0) {
+      return Status::OK();
+    }
+
     int64_t absolute_position = 0;
     int chunk_index = 0;
     int64_t chunk_offset = 0;
@@ -386,7 +402,11 @@ class ArrowColumnWriter {
   Status WriteBatch(int64_t num_levels, const int16_t* def_levels,
                     const int16_t* rep_levels,
                     const typename ParquetType::c_type* values) {
-    auto typed_writer = static_cast<TypedColumnWriter<ParquetType>*>(writer_);
+    auto typed_writer =
+        ::arrow::internal::checked_cast<TypedColumnWriter<ParquetType>*>(writer_);
+    // WriteBatch was called with type mismatching the writer_'s type. This
+    // could be a schema conversion problem.
+    DCHECK(typed_writer);
     PARQUET_CATCH_NOT_OK(
         typed_writer->WriteBatch(num_levels, def_levels, rep_levels, values));
     return Status::OK();
@@ -397,7 +417,11 @@ class ArrowColumnWriter {
                           const int16_t* rep_levels, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
                           const typename ParquetType::c_type* values) {
-    auto typed_writer = static_cast<TypedColumnWriter<ParquetType>*>(writer_);
+    auto typed_writer =
+        ::arrow::internal::checked_cast<TypedColumnWriter<ParquetType>*>(writer_);
+    // WriteBatchSpaced was called with type mismatching the writer_'s type. This
+    // could be a schema conversion problem.
+    DCHECK(typed_writer);
     PARQUET_CATCH_NOT_OK(typed_writer->WriteBatchSpaced(
         num_levels, def_levels, rep_levels, valid_bits, valid_bits_offset, values));
     return Status::OK();
@@ -504,7 +528,7 @@ Status ArrowColumnWriter::WriteNullableBatch(
   using ParquetCType = typename ParquetType::c_type;
 
   ParquetCType* buffer;
-  RETURN_NOT_OK(ctx_->GetScratchData<ParquetCType>(num_levels, &buffer));
+  RETURN_NOT_OK(ctx_->GetScratchData<ParquetCType>(num_values, &buffer));
   for (int i = 0; i < num_values; i++) {
     buffer[i] = static_cast<ParquetCType>(values[i]);
   }
@@ -570,20 +594,42 @@ NULLABLE_BATCH_FAST_PATH(DoubleType, ::arrow::DoubleType, double)
 NULLABLE_BATCH_FAST_PATH(Int64Type, ::arrow::TimestampType, int64_t)
 NONNULLABLE_BATCH_FAST_PATH(Int64Type, ::arrow::TimestampType, int64_t)
 
+#define CONV_CASE_LOOP(ConversionFunction) \
+  for (int64_t i = 0; i < num_values; i++) \
+    ConversionFunction(arrow_values[i], &output[i]);
+
+static void ConvertArrowTimestampToParquetInt96(const int64_t* arrow_values,
+                                                int64_t num_values,
+                                                ::arrow::TimeUnit ::type unit_type,
+                                                Int96* output) {
+  switch (unit_type) {
+    case TimeUnit::NANO:
+      CONV_CASE_LOOP(internal::NanosecondsToImpalaTimestamp);
+      break;
+    case TimeUnit::MICRO:
+      CONV_CASE_LOOP(internal::MicrosecondsToImpalaTimestamp);
+      break;
+    case TimeUnit::MILLI:
+      CONV_CASE_LOOP(internal::MillisecondsToImpalaTimestamp);
+      break;
+    case TimeUnit::SECOND:
+      CONV_CASE_LOOP(internal::SecondsToImpalaTimestamp);
+      break;
+  }
+}
+
+#undef CONV_CASE_LOOP
+
 template <>
 Status ArrowColumnWriter::WriteNullableBatch<Int96Type, ::arrow::TimestampType>(
     const ::arrow::TimestampType& type, int64_t num_values, int64_t num_levels,
     const int16_t* def_levels, const int16_t* rep_levels, const uint8_t* valid_bits,
     int64_t valid_bits_offset, const int64_t* values) {
-  Int96* buffer;
+  Int96* buffer = nullptr;
   RETURN_NOT_OK(ctx_->GetScratchData<Int96>(num_values, &buffer));
-  if (type.unit() == TimeUnit::NANO) {
-    for (int i = 0; i < num_values; i++) {
-      internal::NanosecondsToImpalaTimestamp(values[i], &buffer[i]);
-    }
-  } else {
-    return Status::NotImplemented("Only NANO timestamps are supported for Int96 writing");
-  }
+
+  ConvertArrowTimestampToParquetInt96(values, num_values, type.unit(), buffer);
+
   return WriteBatchSpaced<Int96Type>(num_levels, def_levels, rep_levels, valid_bits,
                                      valid_bits_offset, buffer);
 }
@@ -592,15 +638,11 @@ template <>
 Status ArrowColumnWriter::WriteNonNullableBatch<Int96Type, ::arrow::TimestampType>(
     const ::arrow::TimestampType& type, int64_t num_values, int64_t num_levels,
     const int16_t* def_levels, const int16_t* rep_levels, const int64_t* values) {
-  Int96* buffer;
+  Int96* buffer = nullptr;
   RETURN_NOT_OK(ctx_->GetScratchData<Int96>(num_values, &buffer));
-  if (type.unit() == TimeUnit::NANO) {
-    for (int i = 0; i < num_values; i++) {
-      internal::NanosecondsToImpalaTimestamp(values[i], buffer + i);
-    }
-  } else {
-    return Status::NotImplemented("Only NANO timestamps are supported for Int96 writing");
-  }
+
+  ConvertArrowTimestampToParquetInt96(values, num_values, type.unit(), buffer);
+
   return WriteBatch<Int96Type>(num_levels, def_levels, rep_levels, buffer);
 }
 
@@ -611,21 +653,15 @@ Status ArrowColumnWriter::WriteTimestamps(const Array& values, int64_t num_level
 
   const bool is_nanosecond = type.unit() == TimeUnit::NANO;
 
-  // In the case where support_deprecated_int96_timestamps was specified
-  // and coerce_timestamps_enabled was specified, a nanosecond column
-  // will have a physical type of int64. In that case, we fall through
-  // to the else if below.
-  //
-  // See https://issues.apache.org/jira/browse/ARROW-2082
-  if (is_nanosecond && ctx_->properties->support_deprecated_int96_timestamps() &&
-      !ctx_->properties->coerce_timestamps_enabled()) {
+  if (ctx_->properties->support_deprecated_int96_timestamps()) {
+    // The user explicitly required to use Int96 storage.
     return TypedWriteBatch<Int96Type, ::arrow::TimestampType>(values, num_levels,
                                                               def_levels, rep_levels);
   } else if (is_nanosecond ||
              (ctx_->properties->coerce_timestamps_enabled() &&
               (type.unit() != ctx_->properties->coerce_timestamps_unit()))) {
     // Casting is required. This covers several cases
-    // * Nanoseconds -> cast to microseconds
+    // * Nanoseconds -> cast to microseconds (until ARROW-3729 is resolved)
     // * coerce_timestamps_enabled_, cast all timestamps to requested unit
     return WriteTimestampsCoerce(ctx_->properties->truncated_timestamps_allowed(), values,
                                  num_levels, def_levels, rep_levels);
@@ -656,10 +692,8 @@ Status ArrowColumnWriter::WriteTimestampsCoerce(const bool truncated_timestamps_
   auto DivideBy = [&](const int64_t factor) {
     for (int64_t i = 0; i < array.length(); i++) {
       if (!truncated_timestamps_allowed && !data.IsNull(i) && (values[i] % factor != 0)) {
-        std::stringstream ss;
-        ss << "Casting from " << type.ToString() << " to " << target_type->ToString()
-           << " would lose data: " << values[i];
-        return Status::Invalid(ss.str());
+        return Status::Invalid("Casting from ", type.ToString(), " to ",
+                               target_type->ToString(), " would lose data: ", values[i]);
       }
       buffer[i] = values[i] / factor;
     }
@@ -861,6 +895,11 @@ Status ArrowColumnWriter::TypedWriteBatch<FLBAType, ::arrow::Decimal128Type>(
 }
 
 Status ArrowColumnWriter::Write(const Array& data) {
+  if (data.length() == 0) {
+    // Write nothing when length is 0
+    return Status::OK();
+  }
+
   ::arrow::Type::type values_type;
   RETURN_NOT_OK(GetLeafType(*data.type(), &values_type));
 
@@ -925,9 +964,8 @@ Status ArrowColumnWriter::Write(const Array& data) {
     default:
       break;
   }
-  std::stringstream ss;
-  ss << "Data type not supported as list value: " << values_array->type()->ToString();
-  return Status::NotImplemented(ss.str());
+  return Status::NotImplemented("Data type not supported as list value: ",
+                                values_array->type()->ToString());
 }
 
 }  // namespace
@@ -1112,22 +1150,32 @@ Status WriteFileMetaData(const FileMetaData& file_metadata,
 namespace {}  // namespace
 
 Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {
-  if (chunk_size <= 0) {
+  if (chunk_size <= 0 && table.num_rows() > 0) {
     return Status::Invalid("chunk size per row_group must be greater than 0");
   } else if (chunk_size > impl_->properties().max_row_group_length()) {
     chunk_size = impl_->properties().max_row_group_length();
   }
 
-  for (int chunk = 0; chunk * chunk_size < table.num_rows(); chunk++) {
-    int64_t offset = chunk * chunk_size;
-    int64_t size = std::min(chunk_size, table.num_rows() - offset);
-
-    RETURN_NOT_OK_ELSE(NewRowGroup(size), PARQUET_IGNORE_NOT_OK(Close()));
+  auto WriteRowGroup = [&](int64_t offset, int64_t size) {
+    RETURN_NOT_OK(NewRowGroup(size));
     for (int i = 0; i < table.num_columns(); i++) {
       auto chunked_data = table.column(i)->data();
-      RETURN_NOT_OK_ELSE(WriteColumnChunk(chunked_data, offset, size),
-                         PARQUET_IGNORE_NOT_OK(Close()));
+      RETURN_NOT_OK(WriteColumnChunk(chunked_data, offset, size));
     }
+    return Status::OK();
+  };
+
+  if (table.num_rows() == 0) {
+    // Append a row group with 0 rows
+    RETURN_NOT_OK_ELSE(WriteRowGroup(0, 0), PARQUET_IGNORE_NOT_OK(Close()));
+    return Status::OK();
+  }
+
+  for (int chunk = 0; chunk * chunk_size < table.num_rows(); chunk++) {
+    int64_t offset = chunk * chunk_size;
+    RETURN_NOT_OK_ELSE(
+        WriteRowGroup(offset, std::min(chunk_size, table.num_rows() - offset)),
+        PARQUET_IGNORE_NOT_OK(Close()));
   }
   return Status::OK();
 }

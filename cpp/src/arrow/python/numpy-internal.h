@@ -143,9 +143,8 @@ inline Status VisitNumpyArrayInline(PyArrayObject* arr, VISITOR* visitor) {
     TYPE_VISIT_INLINE(DATETIME);
     TYPE_VISIT_INLINE(OBJECT);
   }
-  std::stringstream ss;
-  ss << "NumPy type not implemented: " << GetNumPyTypeName(PyArray_TYPE(arr));
-  return Status::NotImplemented(ss.str());
+  return Status::NotImplemented("NumPy type not implemented: ",
+                                GetNumPyTypeName(PyArray_TYPE(arr)));
 }
 
 #undef TYPE_VISIT_INLINE

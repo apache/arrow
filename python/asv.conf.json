@@ -35,6 +35,7 @@
     // of the repository.
     "repo_subdir": "python",
 
+    // Custom build commands for Arrow.
     "build_command": ["/bin/bash {build_dir}/asv-build.sh"],
     "install_command": ["/bin/bash {build_dir}/asv-install.sh"],
     "uninstall_command": ["/bin/bash {build_dir}/asv-uninstall.sh"],
@@ -56,7 +57,8 @@
     // determined by looking for tools on the PATH environment
     // variable.
     "environment_type": "conda",
-    "conda_channels": ["conda-forge", "defaults"],
+    // Avoid conda-forge to avoid C++ ABI issues
+    "conda_channels": ["defaults"],
 
     // the base URL to show a commit for the project.
     "show_commit_url": "https://github.com/apache/arrow/commit/",

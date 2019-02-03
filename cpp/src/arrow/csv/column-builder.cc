@@ -305,12 +305,12 @@ Status InferringColumnBuilder::TryConvertChunk(size_t chunk_index) {
 
 void InferringColumnBuilder::Insert(int64_t block_index,
                                     const std::shared_ptr<BlockParser>& parser) {
-  DCHECK_NE(converter_, nullptr);
-
   // Create a slot for the new chunk and spawn a task to convert it
   size_t chunk_index = static_cast<size_t>(block_index);
   {
     std::lock_guard<std::mutex> lock(mutex_);
+
+    DCHECK_NE(converter_, nullptr);
     if (chunks_.size() <= chunk_index) {
       chunks_.resize(chunk_index + 1);
     }

@@ -20,9 +20,14 @@ import six
 import decimal
 import json
 import multiprocessing as mp
+
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta
+from distutils.version import LooseVersion
 
+import hypothesis as h
+import hypothesis.extra.pytz as tzst
+import hypothesis.strategies as st
 import numpy as np
 import numpy.testing as npt
 import pandas as pd
@@ -31,9 +36,6 @@ import pytest
 import pytz
 
 import pyarrow as pa
-import pyarrow.types as patypes
-from pyarrow.compat import PY2
-
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 
 
@@ -94,7 +96,7 @@ def _check_series_roundtrip(s, type_=None, expected_pa_type=None):
         assert arr.type == expected_pa_type
 
     result = pd.Series(arr.to_pandas(), name=s.name)
-    if patypes.is_timestamp(arr.type) and arr.type.tz is not None:
+    if pa.types.is_timestamp(arr.type) and arr.type.tz is not None:
         result = (result.dt.tz_localize('utc')
                   .dt.tz_convert(arr.type.tz))
 
@@ -112,13 +114,13 @@ def _check_array_roundtrip(values, expected=None, mask=None,
     else:
         assert arr.null_count == (mask | values_nulls).sum()
 
-    if mask is None:
-        tm.assert_series_equal(pd.Series(result), pd.Series(values),
-                               check_names=False)
-    else:
-        expected = pd.Series(np.ma.masked_array(values, mask=mask))
-        tm.assert_series_equal(pd.Series(result), expected,
-                               check_names=False)
+    if expected is None:
+        if mask is None:
+            expected = pd.Series(values)
+        else:
+            expected = pd.Series(np.ma.masked_array(values, mask=mask))
+
+    tm.assert_series_equal(pd.Series(result), expected, check_names=False)
 
 
 def _check_array_from_pandas_roundtrip(np_array, type=None):
@@ -175,6 +177,16 @@ class TestConvertMetadata(object):
         columns = pd.MultiIndex.from_arrays([[u'あ', u'い'], ['X', 'Y']])
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
         _check_pandas_roundtrip(df, preserve_index=True)
+
+    def test_multiindex_doesnt_warn(self):
+        # ARROW-3953: pandas 0.24 rename of MultiIndex labels to codes
+        columns = pd.MultiIndex.from_arrays([['one', 'two'], ['X', 'Y']])
+        df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
+
+        with pytest.warns(None) as record:
+            _check_pandas_roundtrip(df, preserve_index=True)
+
+        assert len(record) == 0
 
     def test_integer_index_column(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
@@ -245,12 +257,14 @@ class TestConvertMetadata(object):
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] == 'stringz'
         assert column_indexes['name'] == column_indexes['field_name']
-        assert column_indexes['pandas_type'] == ('bytes' if PY2 else 'unicode')
         assert column_indexes['numpy_type'] == 'object'
+        assert column_indexes['pandas_type'] == (
+            'bytes' if six.PY2 else 'unicode'
+        )
 
         md = column_indexes['metadata']
 
-        if not PY2:
+        if not six.PY2:
             assert len(md) == 1
             assert md['encoding'] == 'UTF-8'
         else:
@@ -362,6 +376,17 @@ class TestConvertMetadata(object):
         data_column = js['columns'][0]
         assert data_column['pandas_type'] == 'bytes'
         assert data_column['numpy_type'] == 'object'
+
+    def test_ignore_metadata(self):
+        df = pd.DataFrame({'a': [1, 2, 3], 'b': ['foo', 'bar', 'baz']},
+                          index=['one', 'two', 'three'])
+        table = pa.Table.from_pandas(df)
+
+        result = table.to_pandas(ignore_metadata=True)
+        expected = (table.cast(table.schema.remove_metadata())
+                    .to_pandas())
+
+        assert result.equals(expected)
 
     def test_list_metadata(self):
         df = pd.DataFrame({'data': [[1], [2, 3, 4], [5] * 7]})
@@ -535,6 +560,11 @@ class TestConvertPrimitiveTypes(object):
         assert table[0].to_pylist() == [1, 2, None]
         tm.assert_frame_equal(df, table.to_pandas())
 
+    def test_float_nulls_to_boolean(self):
+        s = pd.Series([0.0, 1.0, 2.0, None, -3.0])
+        expected = pd.Series([False, True, True, None, True])
+        _check_array_roundtrip(s, expected=expected, type=pa.bool_())
+
     def test_integer_no_nulls(self):
         data = OrderedDict()
         fields = []
@@ -647,6 +677,26 @@ class TestConvertPrimitiveTypes(object):
         result = table.to_pandas()
 
         tm.assert_frame_equal(result, ex_frame)
+
+    def test_boolean_to_int(self):
+        # test from dtype=bool
+        s = pd.Series([True, True, False, True, True] * 2)
+        expected = pd.Series([1, 1, 0, 1, 1] * 2)
+        _check_array_roundtrip(s, expected=expected, type=pa.int64())
+
+    def test_boolean_objects_to_int(self):
+        # test from dtype=object
+        s = pd.Series([True, True, False, True, True] * 2, dtype=object)
+        expected = pd.Series([1, 1, 0, 1, 1] * 2)
+        expected_msg = 'Expected integer, got bool'
+        with pytest.raises(pa.ArrowTypeError, match=expected_msg):
+            _check_array_roundtrip(s, expected=expected, type=pa.int64())
+
+    def test_boolean_nulls_to_float(self):
+        # test from dtype=object
+        s = pd.Series([True, True, False, None, True] * 2)
+        expected = pd.Series([1.0, 1.0, 0.0, None, 1.0] * 2)
+        _check_array_roundtrip(s, expected=expected, type=pa.float64())
 
     def test_float_object_nulls(self):
         arr = np.array([None, 1.5, np.float64(3.5)] * 5, dtype=object)
@@ -788,8 +838,7 @@ class TestConvertDateTimeLikeTypes(object):
                 '2010-08-13T05:46:57.437'],
                 dtype='datetime64[ms]')
         })
-        df['datetime64'] = (df['datetime64'].dt.tz_localize('US/Eastern')
-                            .to_frame())
+        df['datetime64'] = df['datetime64'].dt.tz_localize('US/Eastern')
         _check_pandas_roundtrip(df)
 
         _check_series_roundtrip(df['datetime64'])
@@ -803,8 +852,7 @@ class TestConvertDateTimeLikeTypes(object):
                 '2010-08-13T05:46:57.437699912'],
                 dtype='datetime64[ns]')
         })
-        df['datetime64'] = (df['datetime64'].dt.tz_localize('US/Eastern')
-                            .to_frame())
+        df['datetime64'] = df['datetime64'].dt.tz_localize('US/Eastern')
 
         _check_pandas_roundtrip(df)
 
@@ -829,6 +877,12 @@ class TestConvertDateTimeLikeTypes(object):
             values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
             df = pd.DataFrame({'datetime': values})
             _check_pandas_roundtrip(df)
+
+    @h.given(st.none() | tzst.timezones())
+    def test_python_datetime_with_pytz_timezone(self, tz):
+        values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
+        df = pd.DataFrame({'datetime': values})
+        _check_pandas_roundtrip(df)
 
     @pytest.mark.skipif(six.PY2, reason='datetime.timezone is available since '
                                         'python version 3.2')
@@ -882,7 +936,7 @@ class TestConvertDateTimeLikeTypes(object):
 
         result = table.to_pandas()
         expected_df = pd.DataFrame(
-            {"date": np.array(["2000-01-01"], dtype="datetime64[ns]")}
+            {"date": np.array([date(2000, 1, 1)], dtype=object)}
         )
         tm.assert_frame_equal(expected_df, result)
 
@@ -932,7 +986,7 @@ class TestConvertDateTimeLikeTypes(object):
         with pytest.raises(pa.ArrowInvalid, match=expected_msg):
             pa.Array.from_pandas(s, type=pa.date64(), mask=mask)
 
-    def test_array_date_as_object(self):
+    def test_array_types_date_as_object(self):
         data = [date(2000, 1, 1),
                 None,
                 date(1970, 1, 1),
@@ -942,58 +996,23 @@ class TestConvertDateTimeLikeTypes(object):
                              '1970-01-01',
                              '2040-02-26'], dtype='datetime64')
 
-        arr = pa.array(data)
-        assert arr.equals(pa.array(expected))
+        objects = [
+            # The second value is the expected value for date_as_object=False
+            (pa.array(data), expected),
+            (pa.chunked_array([data]), expected),
+            (pa.column('date', [data]), expected.astype('M8[ns]'))]
 
-        result = arr.to_pandas()
-        assert result.dtype == expected.dtype
-        npt.assert_array_equal(arr.to_pandas(), expected)
+        assert objects[0][0].equals(pa.array(expected))
 
-        result = arr.to_pandas(date_as_object=True)
-        expected = expected.astype(object)
-        assert result.dtype == expected.dtype
-        npt.assert_array_equal(result, expected)
+        for obj, expected_datetime64 in objects:
+            result = obj.to_pandas()
+            expected_obj = expected.astype(object)
+            assert result.dtype == expected_obj.dtype
+            npt.assert_array_equal(result, expected_obj)
 
-    def test_chunked_array_convert_date_as_object(self):
-        data = [date(2000, 1, 1),
-                None,
-                date(1970, 1, 1),
-                date(2040, 2, 26)]
-        expected = np.array(['2000-01-01',
-                             None,
-                             '1970-01-01',
-                             '2040-02-26'], dtype='datetime64')
-        carr = pa.chunked_array([data])
-
-        result = carr.to_pandas()
-        assert result.dtype == expected.dtype
-        npt.assert_array_equal(carr.to_pandas(), expected)
-
-        result = carr.to_pandas(date_as_object=True)
-        expected = expected.astype(object)
-        assert result.dtype == expected.dtype
-        npt.assert_array_equal(result, expected)
-
-    def test_column_convert_date_as_object(self):
-        data = [date(2000, 1, 1),
-                None,
-                date(1970, 1, 1),
-                date(2040, 2, 26)]
-        expected = np.array(['2000-01-01',
-                             None,
-                             '1970-01-01',
-                             '2040-02-26'], dtype='datetime64')
-
-        arr = pa.array(data)
-        column = pa.column('date', arr)
-
-        result = column.to_pandas()
-        npt.assert_array_equal(column.to_pandas(), expected)
-
-        result = column.to_pandas(date_as_object=True)
-        expected = expected.astype(object)
-        assert result.dtype == expected.dtype
-        npt.assert_array_equal(result, expected)
+            result = obj.to_pandas(date_as_object=False)
+            assert result.dtype == expected_datetime64.dtype
+            npt.assert_array_equal(result, expected_datetime64)
 
     def test_table_convert_date_as_object(self):
         df = pd.DataFrame({
@@ -1004,8 +1023,8 @@ class TestConvertDateTimeLikeTypes(object):
 
         table = pa.Table.from_pandas(df, preserve_index=False)
 
-        df_datetime = table.to_pandas()
-        df_object = table.to_pandas(date_as_object=True)
+        df_datetime = table.to_pandas(date_as_object=False)
+        df_object = table.to_pandas()
 
         tm.assert_frame_equal(df.astype('datetime64[ns]'), df_datetime,
                               check_dtype=True)
@@ -1025,9 +1044,7 @@ class TestConvertDateTimeLikeTypes(object):
         assert table.schema.equals(expected_schema)
 
         result = table.to_pandas()
-        expected = df.copy()
-        expected['date'] = pd.to_datetime(df['date'])
-        tm.assert_frame_equal(result, expected)
+        tm.assert_frame_equal(result, df)
 
     def test_date_mask(self):
         arr = np.array([date(2017, 4, 3), date(2017, 4, 4)],
@@ -1064,17 +1081,26 @@ class TestConvertDateTimeLikeTypes(object):
         # Test converting back to pandas
         colnames = ['date32', 'date64']
         table = pa.Table.from_arrays([a32, a64], colnames)
-        table_pandas = table.to_pandas()
 
         ex_values = (np.array(['2017-04-03', '2017-04-04', '2017-04-04',
                                '2017-04-05'],
-                              dtype='datetime64[D]')
-                     .astype('datetime64[ns]'))
+                              dtype='datetime64[D]'))
         ex_values[1] = pd.NaT.value
-        expected_pandas = pd.DataFrame({'date32': ex_values,
-                                        'date64': ex_values},
+
+        ex_datetime64ns = ex_values.astype('datetime64[ns]')
+        expected_pandas = pd.DataFrame({'date32': ex_datetime64ns,
+                                        'date64': ex_datetime64ns},
                                        columns=colnames)
+        table_pandas = table.to_pandas(date_as_object=False)
         tm.assert_frame_equal(table_pandas, expected_pandas)
+
+        table_pandas_objects = table.to_pandas()
+        ex_objects = ex_values.astype('object')
+        expected_pandas_objects = pd.DataFrame({'date32': ex_objects,
+                                                'date64': ex_objects},
+                                               columns=colnames)
+        tm.assert_frame_equal(table_pandas_objects,
+                              expected_pandas_objects)
 
     def test_dates_from_integers(self):
         t1 = pa.date32()
@@ -1361,6 +1387,13 @@ class TestConvertStringLikeTypes(object):
         tm.assert_frame_equal(result3, expected_cat, check_dtype=True)
         result4 = table.to_pandas(categories=tuple())
         tm.assert_frame_equal(result4, expected_str, check_dtype=True)
+
+    def test_to_pandas_categorical_zero_length(self):
+        # ARROW-3586
+        array = pa.array([], type=pa.int32())
+        table = pa.Table.from_arrays(arrays=[array], names=['col'])
+        # This would segfault under 0.11.0
+        table.to_pandas(categories=['col'])
 
     def test_table_str_to_categorical_without_na(self):
         values = ['a', 'a', 'b', 'b', 'c']
@@ -2191,9 +2224,16 @@ class TestConvertMisc(object):
         assert table.column('B').type == pa.int32()
 
 
-def _fully_loaded_dataframe_example():
-    from distutils.version import LooseVersion
+def test_safe_cast_from_float_with_nans_to_int():
+    # TODO(kszucs): write tests for creating Date32 and Date64 arrays, see
+    #               ARROW-4258 and https://github.com/apache/arrow/pull/3395
+    values = pd.Series([1, 2, None, 4])
+    arr = pa.Array.from_pandas(values, type=pa.int32(), safe=True)
+    expected = pa.array([1, 2, None, 4], type=pa.int32())
+    assert arr.equals(expected)
 
+
+def _fully_loaded_dataframe_example():
     index = pd.MultiIndex.from_arrays([
         pd.date_range('2000-01-01', periods=5).repeat(2),
         np.tile(np.array(['foo', 'bar'], dtype=object), 5)
@@ -2239,6 +2279,8 @@ def _check_serialize_components_roundtrip(df):
     tm.assert_frame_equal(df, deserialized)
 
 
+@pytest.mark.skipif(LooseVersion(np.__version__) >= '0.16',
+                    reason='Until numpy/numpy#12745 is resolved')
 def test_serialize_deserialize_pandas():
     # ARROW-1784, serialize and deserialize DataFrame by decomposing
     # BlockManager
@@ -2278,6 +2320,91 @@ def test_convert_unsupported_type_error_message():
     with pytest.raises(pa.ArrowNotImplementedError, match=expected_msg):
         pa.Table.from_pandas(df)
 
+
+# ----------------------------------------------------------------------
+# Test object deduplication in to_pandas
+
+
+def _generate_dedup_example(nunique, repeats):
+    unique_values = [tm.rands(10) for i in range(nunique)]
+    return unique_values * repeats
+
+
+def _assert_nunique(obj, expected):
+    assert len({id(x) for x in obj}) == expected
+
+
+def test_to_pandas_deduplicate_strings_array_types():
+    nunique = 100
+    repeats = 10
+    values = _generate_dedup_example(nunique, repeats)
+
+    for arr in [pa.array(values, type=pa.binary()),
+                pa.array(values, type=pa.utf8()),
+                pa.chunked_array([values, values]),
+                pa.column('foo', [values, values])]:
+        _assert_nunique(arr.to_pandas(), nunique)
+        _assert_nunique(arr.to_pandas(deduplicate_objects=False), len(arr))
+
+
+def test_to_pandas_deduplicate_strings_table_types():
+    nunique = 100
+    repeats = 10
+    values = _generate_dedup_example(nunique, repeats)
+
+    arr = pa.array(values)
+    rb = pa.RecordBatch.from_arrays([arr], ['foo'])
+    tbl = pa.Table.from_batches([rb])
+
+    for obj in [rb, tbl]:
+        _assert_nunique(obj.to_pandas()['foo'], nunique)
+        _assert_nunique(obj.to_pandas(deduplicate_objects=False)['foo'],
+                        len(obj))
+
+
+def test_to_pandas_deduplicate_integers_as_objects():
+    nunique = 100
+    repeats = 10
+
+    # Python automatically interns smaller integers
+    unique_values = list(np.random.randint(10000000, 1000000000, size=nunique))
+    unique_values[nunique // 2] = None
+
+    arr = pa.array(unique_values * repeats)
+
+    _assert_nunique(arr.to_pandas(integer_object_nulls=True), nunique)
+    _assert_nunique(arr.to_pandas(integer_object_nulls=True,
+                                  deduplicate_objects=False),
+                    # Account for None
+                    (nunique - 1) * repeats + 1)
+
+
+def test_to_pandas_deduplicate_date_time():
+    nunique = 100
+    repeats = 10
+
+    unique_values = list(range(nunique))
+
+    cases = [
+        # raw type, array type, to_pandas options
+        ('int32', 'date32', {'date_as_object': True}),
+        ('int64', 'date64', {'date_as_object': True}),
+        ('int32', 'time32[ms]', {}),
+        ('int64', 'time64[us]', {})
+    ]
+
+    for raw_type, array_type, pandas_options in cases:
+        raw_arr = pa.array(unique_values * repeats, type=raw_type)
+        casted_arr = raw_arr.cast(array_type)
+
+        _assert_nunique(casted_arr.to_pandas(**pandas_options),
+                        nunique)
+        _assert_nunique(casted_arr.to_pandas(deduplicate_objects=False,
+                                             **pandas_options),
+                        len(casted_arr))
+
+
+# ---------------------------------------------------------------------
 
 def test_table_from_pandas_keeps_column_order_of_dataframe():
     df1 = pd.DataFrame(OrderedDict([

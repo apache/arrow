@@ -22,12 +22,15 @@
 #undef Free
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
+#include <arrow/csv/reader.h>
+#include <arrow/io/compressed.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 #include <arrow/ipc/feather.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/type.h>
+#include <arrow/util/compression.h>
 
 #define STOP_IF_NOT(TEST, MSG)  \
   do {                          \
@@ -51,6 +54,8 @@ namespace r {
 struct symbols {
   static SEXP units;
   static SEXP xp;
+  static SEXP dot_Internal;
+  static SEXP inspect;
 };
 }  // namespace r
 }  // namespace arrow
@@ -126,6 +131,7 @@ RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
 RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::Message::Type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::Compression::type)
 
 namespace Rcpp {
 namespace internal {
@@ -147,18 +153,20 @@ inline SEXP wrap_dispatch(const T& x, Rcpp::traits::wrap_type_unique_ptr_tag) {
 }  // namespace Rcpp
 
 namespace Rcpp {
+using NumericVector_ = Rcpp::Vector<REALSXP, Rcpp::NoProtectStorage>;
 using IntegerVector_ = Rcpp::Vector<INTSXP, Rcpp::NoProtectStorage>;
 using LogicalVector_ = Rcpp::Vector<LGLSXP, Rcpp::NoProtectStorage>;
 using StringVector_ = Rcpp::Vector<STRSXP, Rcpp::NoProtectStorage>;
 using CharacterVector_ = StringVector_;
 using RawVector_ = Rcpp::Vector<RAWSXP, Rcpp::NoProtectStorage>;
+using List_ = Rcpp::Vector<VECSXP, Rcpp::NoProtectStorage>;
 
 template <int RTYPE>
-inline typename Rcpp::Vector<RTYPE>::stored_type default_value() {
+inline constexpr typename Rcpp::Vector<RTYPE>::stored_type default_value() {
   return Rcpp::Vector<RTYPE>::get_na();
 }
 template <>
-inline Rbyte default_value<RAWSXP>() {
+inline constexpr Rbyte default_value<RAWSXP>() {
   return 0;
 }
 
@@ -172,16 +180,10 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame 
 namespace arrow {
 namespace r {
 
-template <typename T>
-inline const T* GetValuesSafely(const std::shared_ptr<ArrayData>& data, int i,
-                                int64_t offset) {
-  auto buffer = data->buffers[i];
-  if (!buffer) {
-    return nullptr;
-  } else {
-    return reinterpret_cast<const T*>(buffer->data()) + offset;
-  }
-}
+void inspect(SEXP obj);
+
+// the integer64 sentinel
+constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
 
 template <int RTYPE, typename Vec = Rcpp::Vector<RTYPE>>
 class RBuffer : public MutableBuffer {

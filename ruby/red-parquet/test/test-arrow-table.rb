@@ -40,9 +40,15 @@ class TestArrowTableReader < Test::Unit::TestCase
     @table = Arrow::Table.new(schema, [@count_column, @visible_column])
   end
 
-  def test_save_load
+  def test_save_load_path
     tempfile = Tempfile.open(["red-parquet", ".parquet"])
     @table.save(tempfile.path)
     assert_equal(@table, Arrow::Table.load(tempfile.path))
+  end
+
+  def test_save_load_buffer
+    buffer = Arrow::ResizableBuffer.new(1024)
+    @table.save(buffer, format: :parquet)
+    assert_equal(@table, Arrow::Table.load(buffer, format: :parquet))
   end
 end

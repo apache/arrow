@@ -60,7 +60,7 @@ TEST_F(TestBooleanExpr, SimpleAnd) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, &projector);
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // FALSE_VALID && ?  => FALSE_VALID
@@ -133,7 +133,7 @@ TEST_F(TestBooleanExpr, SimpleOr) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, &projector);
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // TRUE_VALID && ?  => TRUE_VALID
@@ -210,7 +210,7 @@ TEST_F(TestBooleanExpr, AndThree) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, &projector);
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   int num_records = 8;
@@ -257,7 +257,7 @@ TEST_F(TestBooleanExpr, OrThree) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, &projector);
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   int num_records = 8;
@@ -317,7 +317,7 @@ TEST_F(TestBooleanExpr, BooleanAndInsideIf) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, &projector);
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   int num_records = 4;
@@ -368,7 +368,7 @@ TEST_F(TestBooleanExpr, IfInsideBooleanAnd) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, &projector);
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   int num_records = 4;

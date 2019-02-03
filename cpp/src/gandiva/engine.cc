@@ -23,6 +23,15 @@
 #include <unordered_set>
 #include <utility>
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4141)
+#pragma warning(disable : 4146)
+#pragma warning(disable : 4244)
+#pragma warning(disable : 4267)
+#pragma warning(disable : 4624)
+#endif
+
 #include <llvm/Analysis/Passes.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/Bitcode/BitcodeReader.h>
@@ -39,6 +48,12 @@
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/Transforms/Vectorize.h>
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
+
+#include "gandiva/decimal_ir.h"
 #include "gandiva/exported_funcs_registry.h"
 
 namespace gandiva {
@@ -94,6 +109,10 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
   auto status = engine_obj->LoadPreCompiledIRFiles(config->byte_code_file_path());
   ARROW_RETURN_NOT_OK(status);
 
+  // Add decimal functions
+  status = DecimalIR::AddFunctions(engine_obj.get());
+  ARROW_RETURN_NOT_OK(status);
+
   *engine = std::move(engine_obj);
   return Status::OK();
 }
@@ -103,12 +122,11 @@ Status Engine::LoadPreCompiledIRFiles(const std::string& byte_code_file_path) {
   /// Read from file into memory buffer.
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> buffer_or_error =
       llvm::MemoryBuffer::getFile(byte_code_file_path);
-  if (!buffer_or_error) {
-    std::stringstream ss;
-    ss << "Could not load module from IR " << byte_code_file_path << ": "
-       << buffer_or_error.getError().message();
-    return Status::CodeGenError(ss.str());
-  }
+  ARROW_RETURN_IF(
+      !buffer_or_error,
+      Status::CodeGenError("Could not load module from IR ", byte_code_file_path, ": ",
+                           buffer_or_error.getError().message()));
+
   std::unique_ptr<llvm::MemoryBuffer> buffer = move(buffer_or_error.get());
 
   /// Parse the IR module.
@@ -123,15 +141,11 @@ Status Engine::LoadPreCompiledIRFiles(const std::string& byte_code_file_path) {
   }
   std::unique_ptr<llvm::Module> ir_module = move(module_or_error.get());
 
-  /// Verify the IR module
-  if (llvm::verifyModule(*ir_module, &llvm::errs())) {
-    return Status::CodeGenError("verify of IR Module failed");
-  }
+  ARROW_RETURN_IF(llvm::verifyModule(*ir_module, &llvm::errs()),
+                  Status::CodeGenError("verify of IR Module failed"));
+  ARROW_RETURN_IF(llvm::Linker::linkModules(*module_, move(ir_module)),
+                  Status::CodeGenError("failed to link IR Modules"));
 
-  // Link this to the primary module.
-  if (llvm::Linker::linkModules(*module_, move(ir_module))) {
-    return Status::CodeGenError("failed to link IR Modules");
-  }
   return Status::OK();
 }
 
@@ -188,7 +202,7 @@ Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
 
     // run the optimiser
     llvm::PassManagerBuilder pass_builder;
-    pass_builder.OptLevel = 2;
+    pass_builder.OptLevel = 3;
     pass_builder.populateModulePassManager(*pass_manager);
     pass_manager->run(*module_);
 
@@ -197,13 +211,13 @@ Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
     }
   }
 
-  if (llvm::verifyModule(*module_, &llvm::errs())) {
-    return Status::CodeGenError("verify of module failed after optimisation passes");
-  }
+  ARROW_RETURN_IF(llvm::verifyModule(*module_, &llvm::errs()),
+                  Status::CodeGenError("Module verification failed after optimizer"));
 
   // do the compilation
   execution_engine_->finalizeObject();
   module_finalized_ = true;
+
   return Status::OK();
 }
 
@@ -227,7 +241,7 @@ void Engine::DumpIR(std::string prefix) {
   std::string str;
 
   llvm::raw_string_ostream stream(str);
-  module_->print(stream, NULL);
+  module_->print(stream, nullptr);
   std::cout << "====" << prefix << "===" << str << "\n";
 }
 

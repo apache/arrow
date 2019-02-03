@@ -206,11 +206,7 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       *out = union_(fields, type_codes);
       break;
     }
-    default: {
-      std::stringstream ss;
-      ss << "Unknown Orc type kind: " << kind;
-      return Status::Invalid(ss.str());
-    }
+    default: { return Status::Invalid("Unknown Orc type kind: ", kind); }
   }
   return Status::OK();
 }
@@ -346,11 +342,9 @@ class ORCFileReader::Impl {
   }
 
   Status SelectStripe(liborc::RowReaderOptions* opts, int64_t stripe) {
-    if (stripe < 0 || stripe >= NumberOfStripes()) {
-      std::stringstream ss;
-      ss << "Out of bounds stripe: " << stripe;
-      return Status::Invalid(ss.str());
-    }
+    ARROW_RETURN_IF(stripe < 0 || stripe >= NumberOfStripes(),
+                    Status::Invalid("Out of bounds stripe: ", stripe));
+
     opts->range(stripes_[stripe].offset, stripes_[stripe].length);
     return Status::OK();
   }
@@ -359,9 +353,7 @@ class ORCFileReader::Impl {
                        const std::vector<int>& include_indices) {
     std::list<uint64_t> include_indices_list;
     for (auto it = include_indices.begin(); it != include_indices.end(); ++it) {
-      if (*it < 0) {
-        return Status::Invalid("Negative field index");
-      }
+      ARROW_RETURN_IF(*it < 0, Status::Invalid("Negative field index"));
       include_indices_list.push_back(*it);
     }
     opts->includeTypes(include_indices_list);
@@ -455,9 +447,7 @@ class ORCFileReader::Impl {
       case liborc::DECIMAL:
         return AppendDecimalBatch(type, batch, offset, length, builder);
       default:
-        std::stringstream ss;
-        ss << "Not implemented type kind: " << kind;
-        return Status::NotImplemented(ss.str());
+        return Status::NotImplemented("Not implemented type kind: ", kind);
     }
   }
 

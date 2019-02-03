@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 
@@ -54,20 +55,21 @@ public class TestVectorReAlloc {
       vector.setInitialCapacity(512);
       vector.allocateNew();
 
-      assertEquals(512, vector.getValueCapacity());
+      assertTrue(vector.getValueCapacity() >= 512);
+      int initialCapacity = vector.getValueCapacity();
 
       try {
-        vector.set(512, 0);
+        vector.set(initialCapacity, 0);
         Assert.fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok
       }
 
       vector.reAlloc();
-      assertEquals(1024, vector.getValueCapacity());
+      assertTrue(vector.getValueCapacity() >= 2 * initialCapacity);
 
-      vector.set(512, 100);
-      assertEquals(100, vector.get(512));
+      vector.set(initialCapacity, 100);
+      assertEquals(100, vector.get(initialCapacity));
     }
   }
 
@@ -77,20 +79,21 @@ public class TestVectorReAlloc {
       vector.setInitialCapacity(512);
       vector.allocateNew();
 
-      assertEquals(512, vector.getValueCapacity());
+      assertTrue(vector.getValueCapacity() >= 512);
+      int initialCapacity = vector.getValueCapacity();
 
       try {
-        vector.set(512, "foo".getBytes(StandardCharsets.UTF_8));
+        vector.set(initialCapacity, "foo".getBytes(StandardCharsets.UTF_8));
         Assert.fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok
       }
 
       vector.reAlloc();
-      assertEquals(1024, vector.getValueCapacity());
+      assertTrue(vector.getValueCapacity() >= 2 * initialCapacity);
 
-      vector.set(512, "foo".getBytes(StandardCharsets.UTF_8));
-      assertEquals("foo", new String(vector.get(512), StandardCharsets.UTF_8));
+      vector.set(initialCapacity, "foo".getBytes(StandardCharsets.UTF_8));
+      assertEquals("foo", new String(vector.get(initialCapacity), StandardCharsets.UTF_8));
     }
   }
 

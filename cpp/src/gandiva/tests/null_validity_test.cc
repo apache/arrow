@@ -60,7 +60,7 @@ TEST_F(TestNullValidity, TestFunc) {
   auto condition = TreeExprBuilder::MakeCondition(less_than_10);
 
   std::shared_ptr<Filter> filter;
-  Status status = Filter::Make(schema, condition, &filter);
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -111,7 +111,7 @@ TEST_F(TestNullValidity, TestIfElse) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, &projector);
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -148,7 +148,7 @@ TEST_F(TestNullValidity, TestUtf8) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, &projector);
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data

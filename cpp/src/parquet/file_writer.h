@@ -20,25 +20,31 @@
 
 #include <cstdint>
 #include <memory>
+#include <ostream>
 
+#include "arrow/util/macros.h"
+
+#include "parquet/exception.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
-#include "parquet/util/macros.h"
-#include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
+
+namespace arrow {
+
+class MemoryPool;
+
+namespace io {
+
+class OutputStream;
+
+}  // namespace io
+}  // namespace arrow
 
 namespace parquet {
 
 class ColumnWriter;
-class PageWriter;
 class OutputStream;
-
-namespace schema {
-
-class GroupNode;
-
-}  // namespace schema
 
 class PARQUET_EXPORT RowGroupWriter {
  public:

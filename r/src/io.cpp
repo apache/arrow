@@ -115,6 +115,23 @@ std::shared_ptr<arrow::io::BufferReader> io___BufferReader__initialize(
   return std::make_shared<arrow::io::BufferReader>(buffer);
 }
 
+// ------- arrow::io::Writable
+
+// [[Rcpp::export]]
+void io___Writable__write(const std::shared_ptr<arrow::io::Writable>& stream,
+                          const std::shared_ptr<arrow::Buffer>& buf) {
+  STOP_IF_NOT_OK(stream->Write(buf->data(), buf->size()));
+}
+
+// ------- arrow::io::OutputStream
+
+// [[Rcpp::export]]
+int64_t io___OutputStream__Tell(const std::shared_ptr<arrow::io::OutputStream>& stream) {
+  int64_t position;
+  STOP_IF_NOT_OK(stream->Tell(&position));
+  return position;
+}
+
 // ------ arrow::io::FileOutputStream
 
 // [[Rcpp::export]]

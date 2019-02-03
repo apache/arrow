@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -724,6 +725,26 @@ def test_cast_date32_to_int():
     assert result2.equals(arr)
 
 
+def test_cast_binary_to_utf8():
+    binary_arr = pa.array([b'foo', b'bar', b'baz'], type=pa.binary())
+    utf8_arr = binary_arr.cast(pa.utf8())
+    expected = pa.array(['foo', 'bar', 'baz'], type=pa.utf8())
+
+    assert utf8_arr.equals(expected)
+
+    non_utf8_values = [(u'mañana').encode('utf-16-le')]
+    non_utf8_binary = pa.array(non_utf8_values)
+    assert non_utf8_binary.type == pa.binary()
+    with pytest.raises(ValueError):
+        non_utf8_binary.cast(pa.string())
+
+    non_utf8_all_null = pa.array(non_utf8_values, mask=np.array([True]),
+                                 type=pa.binary())
+    # No error
+    casted = non_utf8_all_null.cast(pa.string())
+    assert casted.null_count == 1
+
+
 def test_cast_date64_to_int():
     arr = pa.array(np.array([0, 1, 2], dtype='int64'),
                    type=pa.date64())
@@ -732,6 +753,27 @@ def test_cast_date64_to_int():
     result = arr.cast('i8')
 
     assert result.equals(expected)
+
+
+@pytest.mark.parametrize(('ty', 'values'), [
+    ('bool', [True, False, True]),
+    ('uint8', range(0, 255)),
+    ('int8', range(0, 128)),
+    ('uint16', range(0, 10)),
+    ('int16', range(0, 10)),
+    ('uint32', range(0, 10)),
+    ('int32', range(0, 10)),
+    ('uint64', range(0, 10)),
+    ('int64', range(0, 10)),
+    ('float', [0.0, 0.1, 0.2]),
+    ('double', [0.0, 0.1, 0.2]),
+    ('string', ['a', 'b', 'c']),
+    ('binary', [b'a', b'b', b'c']),
+    (pa.binary(3), [b'abc', b'bcd', b'cde'])
+])
+def test_cast_identities(ty, values):
+    arr = pa.array(values, type=ty)
+    assert arr.cast(ty).equals(arr)
 
 
 pickle_test_parametrize = pytest.mark.parametrize(
@@ -1221,3 +1263,59 @@ def test_nested_dictionary_array():
     dict_arr = pa.DictionaryArray.from_arrays([0, 1, 0], ['a', 'b'])
     dict_arr2 = pa.DictionaryArray.from_arrays([0, 1, 2, 1, 0], dict_arr)
     assert dict_arr2.to_pylist() == ['a', 'b', 'a', 'b', 'a']
+
+
+def test_array_from_numpy_str_utf8():
+    # ARROW-3890 -- in Python 3, NPY_UNICODE arrays are produced, but in Python
+    # 2 they are NPY_STRING (binary), so we must do UTF-8 validation
+    vec = np.array(["toto", "tata"])
+    vec2 = np.array(["toto", "tata"], dtype=object)
+
+    arr = pa.array(vec, pa.string())
+    arr2 = pa.array(vec2, pa.string())
+    expected = pa.array([u"toto", u"tata"])
+    assert arr.equals(expected)
+    assert arr2.equals(expected)
+
+    # with mask, separate code path
+    mask = np.array([False, False], dtype=bool)
+    arr = pa.array(vec, pa.string(), mask=mask)
+    assert arr.equals(expected)
+
+    # UTF8 validation failures
+    vec = np.array([(u'mañana').encode('utf-16-le')])
+    with pytest.raises(ValueError):
+        pa.array(vec, pa.string())
+
+    with pytest.raises(ValueError):
+        pa.array(vec, pa.string(), mask=np.array([False]))
+
+
+@pytest.mark.large_memory
+def test_numpy_string_overflow_to_chunked():
+    # ARROW-3762
+
+    # 2^31 + 1 bytes
+    values = [b'x']
+
+    # Make 10 unique 1MB strings then repeat then 2048 times
+    unique_strings = {
+        i: b'x' * ((1 << 20) - 1) + str(i % 10).encode('utf8')
+        for i in range(10)
+    }
+    values += [unique_strings[i % 10] for i in range(1 << 11)]
+
+    arr = np.array(values)
+    arrow_arr = pa.array(arr)
+
+    assert isinstance(arrow_arr, pa.ChunkedArray)
+
+    # Split up into 16MB chunks. 128 * 16 = 2048, so 129
+    assert arrow_arr.num_chunks == 129
+
+    value_index = 0
+    for i in range(arrow_arr.num_chunks):
+        chunk = arrow_arr.chunk(i)
+        for val in chunk:
+            assert val.as_py() == values[value_index]
+            value_index += 1

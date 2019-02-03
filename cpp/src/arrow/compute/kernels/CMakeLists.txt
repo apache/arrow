@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-install(FILES
-  boolean.h
-  cast.h
-  hash.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/compute/kernels")
+ARROW_INSTALL_ALL_HEADERS("arrow/compute/kernels")
+
+ADD_ARROW_TEST(boolean-test PREFIX "arrow-compute")
+ADD_ARROW_TEST(cast-test PREFIX "arrow-compute")
+ADD_ARROW_TEST(hash-test PREFIX "arrow-compute")

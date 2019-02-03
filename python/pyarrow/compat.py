@@ -25,6 +25,7 @@ import numpy as np
 import sys
 import six
 from six import BytesIO, StringIO, string_types as py_string
+import socket
 
 
 PY26 = sys.version_info[:2] == (2, 6)
@@ -191,11 +192,15 @@ def _iterate_python_module_paths(package_name):
             for finder in sys.meta_path:
                 try:
                     spec = finder.find_spec(absolute_name, None)
-                except AttributeError:
+                except (AttributeError, TypeError):
                     # On Travis (Python 3.5) the above produced:
                     # AttributeError: 'VendorImporter' object has no
                     # attribute 'find_spec'
+                    #
+                    # ARROW-4117: When running "asv dev", TypeError is raised
+                    # due to the meta-importer
                     spec = None
+
                 if spec is not None:
                     break
 
@@ -266,5 +271,14 @@ def import_pytorch_extension():
 
 
 integer_types = six.integer_types + (np.integer,)
+
+
+def get_socket_from_fd(fileno, family, type):
+    if PY2:
+        socket_obj = socket.fromfd(fileno, family, type)
+        return socket.socket(family, type, _sock=socket_obj)
+    else:
+        return socket.socket(fileno=fileno, family=family, type=type)
+
 
 __all__ = []

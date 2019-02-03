@@ -23,7 +23,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-.vscode
+.vscode/**
+!.vscode/launch.json
 
 # Runtime data
 pids
@@ -78,10 +79,13 @@ yarn.lock
 .env
 
 # compilation targets
+doc
 dist
 targets
 
 # test data files
-test/data/
+test/data/**/*.json
+test/data/**/*.arrow
+
 # jest snapshots (too big)
 test/__snapshots__/

@@ -25,6 +25,7 @@ import os
 import pytest
 import random
 import signal
+import struct
 import subprocess
 import sys
 import time
@@ -36,6 +37,7 @@ import pandas as pd
 
 DEFAULT_PLASMA_STORE_MEMORY = 10 ** 8
 USE_VALGRIND = os.getenv("PLASMA_VALGRIND") == "1"
+SMALL_OBJECT_SIZE = 9000
 
 
 def random_name():
@@ -109,19 +111,15 @@ def assert_get_object_equal(unit_test, client1, client2, object_id,
 class TestPlasmaClient(object):
 
     def setup_method(self, test_method):
-        use_one_memory_mapped_file = (test_method ==
-                                      self.test_use_one_memory_mapped_file)
-
         import pyarrow.plasma as plasma
         # Start Plasma store.
         self.plasma_store_ctx = plasma.start_plasma_store(
             plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
-            use_valgrind=USE_VALGRIND,
-            use_one_memory_mapped_file=use_one_memory_mapped_file)
+            use_valgrind=USE_VALGRIND)
         self.plasma_store_name, self.p = self.plasma_store_ctx.__enter__()
         # Connect to Plasma.
-        self.plasma_client = plasma.connect(self.plasma_store_name, "", 64)
-        self.plasma_client2 = plasma.connect(self.plasma_store_name, "", 0)
+        self.plasma_client = plasma.connect(self.plasma_store_name)
+        self.plasma_client2 = plasma.connect(self.plasma_store_name)
 
     def teardown_method(self, test_method):
         try:
@@ -146,7 +144,7 @@ class TestPlasmaClient(object):
         import pyarrow.plasma as plasma
         # ARROW-1264
         with pytest.raises(IOError):
-            plasma.connect('unknown-store-name', '', 0, 1)
+            plasma.connect('unknown-store-name', num_retries=1)
 
     def test_create(self):
         # Create an object id string.
@@ -470,22 +468,26 @@ class TestPlasmaClient(object):
         memory_buffers.append(memory_buffer)
         # Remaining space is 50%. Make sure that we can't create an
         # object of size 50% + 1, but we can create one of size 20%.
-        assert_create_raises_plasma_full(self, 50 * PERCENT + 1)
+        assert_create_raises_plasma_full(
+            self, 50 * PERCENT + SMALL_OBJECT_SIZE)
         _, memory_buffer, _ = create_object(self.plasma_client, 20 * PERCENT)
         del memory_buffer
         _, memory_buffer, _ = create_object(self.plasma_client, 20 * PERCENT)
         del memory_buffer
-        assert_create_raises_plasma_full(self, 50 * PERCENT + 1)
+        assert_create_raises_plasma_full(
+            self, 50 * PERCENT + SMALL_OBJECT_SIZE)
 
         _, memory_buffer, _ = create_object(self.plasma_client, 20 * PERCENT)
         memory_buffers.append(memory_buffer)
         # Remaining space is 30%.
-        assert_create_raises_plasma_full(self, 30 * PERCENT + 1)
+        assert_create_raises_plasma_full(
+            self, 30 * PERCENT + SMALL_OBJECT_SIZE)
 
         _, memory_buffer, _ = create_object(self.plasma_client, 10 * PERCENT)
         memory_buffers.append(memory_buffer)
         # Remaining space is 20%.
-        assert_create_raises_plasma_full(self, 20 * PERCENT + 1)
+        assert_create_raises_plasma_full(
+            self, 20 * PERCENT + SMALL_OBJECT_SIZE)
 
     def test_contains(self):
         fake_object_ids = [random_object_id() for _ in range(100)]
@@ -742,6 +744,34 @@ class TestPlasmaClient(object):
                 assert data_sizes[j] == recv_dsize
                 assert metadata_sizes[j] == recv_msize
 
+    def test_subscribe_socket(self):
+        # Subscribe to notifications from the Plasma Store.
+        self.plasma_client.subscribe()
+        rsock = self.plasma_client.get_notification_socket()
+        for i in self.SUBSCRIBE_TEST_SIZES:
+            # Get notification from socket.
+            object_ids = [random_object_id() for _ in range(i)]
+            metadata_sizes = [np.random.randint(1000) for _ in range(i)]
+            data_sizes = [np.random.randint(1000) for _ in range(i)]
+
+            for j in range(i):
+                self.plasma_client.create(
+                    object_ids[j], data_sizes[j],
+                    metadata=bytearray(np.random.bytes(metadata_sizes[j])))
+                self.plasma_client.seal(object_ids[j])
+
+            # Check that we received notifications for all of the objects.
+            for j in range(i):
+                # Assume the plasma store will not be full,
+                # so we always get the data size instead of -1.
+                msg_len, = struct.unpack('L', rsock.recv(8))
+                content = rsock.recv(msg_len)
+                recv_objid, recv_dsize, recv_msize = (
+                    self.plasma_client.decode_notification(content))
+                assert object_ids[j] == recv_objid
+                assert data_sizes[j] == recv_dsize
+                assert metadata_sizes[j] == recv_msize
+
     def test_subscribe_deletions(self):
         # Subscribe to notifications from the Plasma Store. We use
         # plasma_client2 to make sure that all used objects will get evicted
@@ -809,7 +839,7 @@ class TestPlasmaClient(object):
             assert -1 == recv_dsize
             assert -1 == recv_msize
 
-    def test_use_one_memory_mapped_file(self):
+    def test_use_full_memory(self):
         # Fill the object store up with a large number of small objects and let
         # them go out of scope.
         for _ in range(100):
@@ -822,8 +852,8 @@ class TestPlasmaClient(object):
             create_object(self.plasma_client2, DEFAULT_PLASMA_STORE_MEMORY, 0)
         # Verify that an object that is too large does not fit.
         with pytest.raises(pa.lib.PlasmaStoreFull):
-            create_object(self.plasma_client2, DEFAULT_PLASMA_STORE_MEMORY + 1,
-                          0)
+            create_object(self.plasma_client2,
+                          DEFAULT_PLASMA_STORE_MEMORY + SMALL_OBJECT_SIZE, 0)
 
     def test_client_death_during_get(self):
         import pyarrow.plasma as plasma
@@ -831,7 +861,7 @@ class TestPlasmaClient(object):
         object_id = random_object_id()
 
         def client_blocked_in_get(plasma_store_name):
-            client = plasma.connect(self.plasma_store_name, "", 0)
+            client = plasma.connect(self.plasma_store_name)
             # Try to get an object ID that doesn't exist. This should block.
             client.get([object_id])
 
@@ -860,7 +890,7 @@ class TestPlasmaClient(object):
         object_ids = [random_object_id() for _ in range(10)]
 
         def client_get_multiple(plasma_store_name):
-            client = plasma.connect(self.plasma_store_name, "", 0)
+            client = plasma.connect(self.plasma_store_name)
             # Try to get an object ID that doesn't exist. This should block.
             client.get(object_ids)
 
@@ -919,7 +949,7 @@ def test_use_huge_pages():
             plasma_store_memory=2*10**9,
             plasma_directory="/mnt/hugepages",
             use_hugepages=True) as (plasma_store_name, p):
-        plasma_client = plasma.connect(plasma_store_name, "", 64)
+        plasma_client = plasma.connect(plasma_store_name)
         create_object(plasma_client, 10**8)
 
 
@@ -933,7 +963,7 @@ def test_plasma_client_sharing():
     with plasma.start_plasma_store(
             plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY) \
             as (plasma_store_name, p):
-        plasma_client = plasma.connect(plasma_store_name, "", 64)
+        plasma_client = plasma.connect(plasma_store_name)
         object_id = plasma_client.put(np.zeros(3))
         buf = plasma_client.get(object_id)
         del plasma_client
@@ -948,7 +978,7 @@ def test_plasma_list():
     with plasma.start_plasma_store(
             plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY) \
             as (plasma_store_name, p):
-        plasma_client = plasma.connect(plasma_store_name, "", 0)
+        plasma_client = plasma.connect(plasma_store_name)
 
         # Test sizes
         u, _, _ = create_object(plasma_client, 11, metadata_size=7, seal=False)

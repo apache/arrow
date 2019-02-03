@@ -22,6 +22,7 @@
 #include <mutex>
 
 #include "arrow/status.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace io {
@@ -31,6 +32,10 @@ FileInterface::~FileInterface() = default;
 Status InputStream::Advance(int64_t nbytes) {
   std::shared_ptr<Buffer> temp;
   return Read(nbytes, &temp);
+}
+
+util::string_view InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes)) const {
+  return util::string_view(nullptr, 0);
 }
 
 bool InputStream::supports_zero_copy() const { return false; }

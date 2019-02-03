@@ -66,6 +66,8 @@ G_BEGIN_DECLS
  *
  * #GArrowBinaryDataType is a class for binary data type.
  *
+ * #GArrowFixedSizeBinaryDataType is a class for fixed-size binary data type.
+ *
  * #GArrowStringDataType is a class for UTF-8 encoded string data
  * type.
  *
@@ -85,7 +87,9 @@ G_BEGIN_DECLS
  * #GArrowTime64DataType is a class for the number of microseconds or
  * nanoseconds since midnight in 64-bit signed integer data type.
  *
- * #GArrowDecimalDataType is a class for 128-bit decimal data type.
+ * #GArrowDecimalDataType is a base class for decimal data type.
+ *
+ * #GArrowDecimal128DataType is a class for 128-bit decimal data type.
  */
 
 typedef struct GArrowDataTypePrivate_ {
@@ -198,8 +202,8 @@ garrow_data_type_equal(GArrowDataType *data_type,
  * garrow_data_type_to_string:
  * @data_type: A #GArrowDataType.
  *
- * Returns: The string representation of the data type. The caller
- *   must free it by g_free() when the caller doesn't need it anymore.
+ * Returns: (transfer full): The string representation of the data type.
+ *   The caller must free it by g_free() when the caller doesn't need it anymore.
  */
 gchar *
 garrow_data_type_to_string(GArrowDataType *data_type)
@@ -237,7 +241,7 @@ garrow_fixed_width_data_type_class_init(GArrowFixedWidthDataTypeClass *klass)
 }
 
 /**
- * garrow_fixed_width_data_type_get_id:
+ * garrow_fixed_width_data_type_get_bit_width:
  * @data_type: A #GArrowFixedWidthDataType.
  *
  * Returns: The number of bits for one data.
@@ -714,6 +718,59 @@ garrow_binary_data_type_new(void)
 }
 
 
+G_DEFINE_TYPE(GArrowFixedSizeBinaryDataType,
+              garrow_fixed_size_binary_data_type,
+              GARROW_TYPE_FIXED_WIDTH_DATA_TYPE)
+
+static void
+garrow_fixed_size_binary_data_type_init(GArrowFixedSizeBinaryDataType *object)
+{
+}
+
+static void
+garrow_fixed_size_binary_data_type_class_init(GArrowFixedSizeBinaryDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_fixed_size_binary_data_type:
+ * @byte_width: The byte width.
+ *
+ * Returns: The newly created fixed-size binary data type.
+ *
+ * Since: 0.12.0
+ */
+GArrowFixedSizeBinaryDataType *
+garrow_fixed_size_binary_data_type_new(gint32 byte_width)
+{
+  auto arrow_fixed_size_binary_data_type = arrow::fixed_size_binary(byte_width);
+
+  auto fixed_size_binary_data_type =
+    GARROW_FIXED_SIZE_BINARY_DATA_TYPE(g_object_new(GARROW_TYPE_FIXED_SIZE_BINARY_DATA_TYPE,
+                                                    "data-type", &arrow_fixed_size_binary_data_type,
+                                                    NULL));
+  return fixed_size_binary_data_type;
+}
+
+/**
+ * garrow_fixed_size_binary_data_type_get_byte_width:
+ * @data_type: A #GArrowFixedSizeBinaryDataType.
+ *
+ * Returns: The number of bytes for one data.
+ *
+ * Since: 0.12.0
+ */
+gint32
+garrow_fixed_size_binary_data_type_get_byte_width(GArrowFixedSizeBinaryDataType *data_type)
+{
+  const auto arrow_data_type =
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  const auto arrow_fixed_size_binary_type =
+    std::static_pointer_cast<arrow::FixedSizeBinaryType>(arrow_data_type);
+  return arrow_fixed_size_binary_type->byte_width();
+}
+
+
 G_DEFINE_TYPE(GArrowStringDataType,
               garrow_string_data_type,
               GARROW_TYPE_DATA_TYPE)
@@ -1040,9 +1097,9 @@ garrow_time64_data_type_new(GArrowTimeUnit unit, GError **error)
 }
 
 
-G_DEFINE_TYPE(GArrowDecimalDataType,
-              garrow_decimal_data_type,
-              GARROW_TYPE_DATA_TYPE)
+G_DEFINE_ABSTRACT_TYPE(GArrowDecimalDataType,
+                       garrow_decimal_data_type,
+                       GARROW_TYPE_FIXED_SIZE_BINARY_DATA_TYPE)
 
 static void
 garrow_decimal_data_type_init(GArrowDecimalDataType *object)
@@ -1062,18 +1119,16 @@ garrow_decimal_data_type_class_init(GArrowDecimalDataTypeClass *klass)
  * Returns: The newly created decimal data type.
  *
  * Since: 0.10.0
+ *
+ * Deprecated: 0.12.0:
+ *   Use garrow_decimal128_data_type_new() instead.
  */
 GArrowDecimalDataType *
 garrow_decimal_data_type_new(gint32 precision,
                              gint32 scale)
 {
-  auto arrow_data_type = arrow::decimal(precision, scale);
-
-  GArrowDecimalDataType *data_type =
-    GARROW_DECIMAL_DATA_TYPE(g_object_new(GARROW_TYPE_DECIMAL_DATA_TYPE,
-                                          "data-type", &arrow_data_type,
-                                          NULL));
-  return data_type;
+  auto decimal128_data_type = garrow_decimal128_data_type_new(precision, scale);
+  return GARROW_DECIMAL_DATA_TYPE(decimal128_data_type);
 }
 
 /**
@@ -1110,6 +1165,43 @@ garrow_decimal_data_type_get_scale(GArrowDecimalDataType *decimal_data_type)
   const auto arrow_decimal_type =
     std::static_pointer_cast<arrow::DecimalType>(arrow_data_type);
   return arrow_decimal_type->scale();
+}
+
+
+G_DEFINE_TYPE(GArrowDecimal128DataType,
+              garrow_decimal128_data_type,
+              GARROW_TYPE_DECIMAL_DATA_TYPE)
+
+static void
+garrow_decimal128_data_type_init(GArrowDecimal128DataType *object)
+{
+}
+
+static void
+garrow_decimal128_data_type_class_init(GArrowDecimal128DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_decimal128_data_type_new:
+ * @precision: The precision of decimal data.
+ * @scale: The scale of decimal data.
+ *
+ * Returns: The newly created 128-bit decimal data type.
+ *
+ * Since: 0.12.0
+ */
+GArrowDecimal128DataType *
+garrow_decimal128_data_type_new(gint32 precision,
+                                gint32 scale)
+{
+  auto arrow_data_type = arrow::decimal(precision, scale);
+
+  auto data_type =
+    GARROW_DECIMAL128_DATA_TYPE(g_object_new(GARROW_TYPE_DECIMAL128_DATA_TYPE,
+                                             "data-type", &arrow_data_type,
+                                             NULL));
+  return data_type;
 }
 
 G_END_DECLS
@@ -1160,6 +1252,9 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
   case arrow::Type::type::BINARY:
     type = GARROW_TYPE_BINARY_DATA_TYPE;
     break;
+  case arrow::Type::type::FIXED_SIZE_BINARY:
+    type = GARROW_TYPE_FIXED_SIZE_BINARY_DATA_TYPE;
+    break;
   case arrow::Type::type::STRING:
     type = GARROW_TYPE_STRING_DATA_TYPE;
     break;
@@ -1184,11 +1279,22 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
   case arrow::Type::type::STRUCT:
     type = GARROW_TYPE_STRUCT_DATA_TYPE;
     break;
+  case arrow::Type::type::UNION:
+    {
+      auto arrow_union_data_type =
+        std::static_pointer_cast<arrow::UnionType>(*arrow_data_type);
+      if (arrow_union_data_type->mode() == arrow::UnionMode::SPARSE) {
+        type = GARROW_TYPE_SPARSE_UNION_DATA_TYPE;
+      } else {
+        type = GARROW_TYPE_DENSE_UNION_DATA_TYPE;
+      }
+    }
+    break;
   case arrow::Type::type::DICTIONARY:
     type = GARROW_TYPE_DICTIONARY_DATA_TYPE;
     break;
   case arrow::Type::type::DECIMAL:
-    type = GARROW_TYPE_DECIMAL_DATA_TYPE;
+    type = GARROW_TYPE_DECIMAL128_DATA_TYPE;
     break;
   default:
     type = GARROW_TYPE_DATA_TYPE;

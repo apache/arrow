@@ -19,23 +19,22 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstdio>
+#include <cstring>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <utility>
-#include <vector>
 
+#include "arrow/buffer.h"
 #include "arrow/io/file.h"
+#include "arrow/status.h"
 #include "arrow/util/logging.h"
 
-#include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
-#include "parquet/thrift.h"
+#include "parquet/schema.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 

@@ -17,11 +17,15 @@
 #
 #  find_package(ClangTools)
 #
-# Variables used by this module, they can change the default behaviour and need
+# Variables used by this module which can change the default behaviour and need
 # to be set before calling find_package:
 #
-#  ClangToolsBin_HOME -
-#   When set, this path is inspected instead of standard library binary locations
+#  CLANG_FORMAT_VERSION -
+#   The version of clang-format to find. If this is not specified, clang-format
+#   will not be searched for.
+#
+#  ClangTools_PATH -
+#   When set, this path is inspected in addition to standard library binary locations
 #   to find clang-tidy and clang-format
 #
 # This module defines
@@ -45,6 +49,13 @@ else()
   endif()
 endif()
 
+set(CLANG_TOOLS_SEARCH_PATHS
+  ${ClangTools_PATH}
+  $ENV{CLANG_TOOLS_PATH}
+  /usr/local/bin /usr/bin
+  "C:/Program Files/LLVM/bin"
+  "${HOMEBREW_PREFIX}/bin")
+
 find_program(CLANG_TIDY_BIN
   NAMES clang-tidy-4.0
   clang-tidy-3.9
@@ -52,33 +63,29 @@ find_program(CLANG_TIDY_BIN
   clang-tidy-3.7
   clang-tidy-3.6
   clang-tidy
-  PATHS ${ClangTools_PATH} $ENV{CLANG_TOOLS_PATH} /usr/local/bin /usr/bin "${HOMEBREW_PREFIX}/bin"
-        NO_DEFAULT_PATH
+  PATHS ${CLANG_TOOLS_SEARCH_PATHS} NO_DEFAULT_PATH
 )
 
 if ( "${CLANG_TIDY_BIN}" STREQUAL "CLANG_TIDY_BIN-NOTFOUND" )
   set(CLANG_TIDY_FOUND 0)
-  message("clang-tidy not found")
+  message(STATUS "clang-tidy not found")
 else()
   set(CLANG_TIDY_FOUND 1)
-  message("clang-tidy found at ${CLANG_TIDY_BIN}")
+  message(STATUS "clang-tidy found at ${CLANG_TIDY_BIN}")
 endif()
 
 if (CLANG_FORMAT_VERSION)
     find_program(CLANG_FORMAT_BIN
       NAMES clang-format-${CLANG_FORMAT_VERSION}
-      PATHS
-            ${ClangTools_PATH}
-            $ENV{CLANG_TOOLS_PATH}
-            /usr/local/bin /usr/bin "${HOMEBREW_PREFIX}/bin"
-            NO_DEFAULT_PATH
+      PATHS ${CLANG_TOOLS_SEARCH_PATHS} NO_DEFAULT_PATH
     )
 
     # If not found yet, search alternative locations
-    if (("${CLANG_FORMAT_BIN}" STREQUAL "CLANG_FORMAT_BIN-NOTFOUND") AND APPLE)
+    if ("${CLANG_FORMAT_BIN}" STREQUAL "CLANG_FORMAT_BIN-NOTFOUND")
+      STRING(REGEX REPLACE "^([0-9]+)\\.[0-9]+" "\\1" CLANG_FORMAT_MAJOR_VERSION "${CLANG_FORMAT_VERSION}")
+      STRING(REGEX REPLACE "^[0-9]+\\.([0-9]+)" "\\1" CLANG_FORMAT_MINOR_VERSION "${CLANG_FORMAT_VERSION}")
+      if (APPLE)
         # Homebrew ships older LLVM versions in /usr/local/opt/llvm@version/
-        STRING(REGEX REPLACE "^([0-9]+)\\.[0-9]+" "\\1" CLANG_FORMAT_MAJOR_VERSION "${CLANG_FORMAT_VERSION}")
-        STRING(REGEX REPLACE "^[0-9]+\\.([0-9]+)" "\\1" CLANG_FORMAT_MINOR_VERSION "${CLANG_FORMAT_VERSION}")
         if ("${CLANG_FORMAT_MINOR_VERSION}" STREQUAL "0")
             find_program(CLANG_FORMAT_BIN
               NAMES clang-format
@@ -102,24 +109,29 @@ if (CLANG_FORMAT_VERSION)
                   NO_DEFAULT_PATH
           )
         endif()
+      else()
+        # try searching for "clang-format" and check the version
+        find_program(CLANG_FORMAT_BIN
+          NAMES clang-format
+          PATHS ${CLANG_TOOLS_SEARCH_PATHS} NO_DEFAULT_PATH
+        )
+        if (NOT ("${CLANG_FORMAT_BIN}" STREQUAL "CLANG_FORMAT_BIN-NOTFOUND"))
+          execute_process(COMMAND ${CLANG_FORMAT_BIN} "-version"
+            OUTPUT_VARIABLE CLANG_FORMAT_FOUND_VERSION_MESSAGE
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+          if (NOT ("${CLANG_FORMAT_FOUND_VERSION_MESSAGE}" MATCHES "^clang-format version ${CLANG_FORMAT_MAJOR_VERSION}\\.${CLANG_FORMAT_MINOR_VERSION}.*"))
+            set(CLANG_FORMAT_BIN "CLANG_FORMAT_BIN-NOTFOUND")
+          endif()
+        endif()
+      endif()
     endif()
-else()
-    find_program(CLANG_FORMAT_BIN
-      NAMES clang-format-4.0
-      clang-format-3.9
-      clang-format-3.8
-      clang-format-3.7
-      clang-format-3.6
-      clang-format
-      PATHS ${ClangTools_PATH} $ENV{CLANG_TOOLS_PATH} /usr/local/bin /usr/bin "${HOMEBREW_PREFIX}/bin"
-            NO_DEFAULT_PATH
-    )
+
 endif()
 
 if ( "${CLANG_FORMAT_BIN}" STREQUAL "CLANG_FORMAT_BIN-NOTFOUND" )
   set(CLANG_FORMAT_FOUND 0)
-  message("clang-format not found")
+  message(STATUS "clang-format not found")
 else()
   set(CLANG_FORMAT_FOUND 1)
-  message("clang-format found at ${CLANG_FORMAT_BIN}")
+  message(STATUS "clang-format found at ${CLANG_FORMAT_BIN}")
 endif()

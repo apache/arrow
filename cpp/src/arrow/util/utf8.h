@@ -24,6 +24,7 @@
 #include <memory>
 
 #include "arrow/util/macros.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -155,6 +156,13 @@ inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
     state = internal::ValidateOneUTF8Byte(*data++, state);
   }
   return ARROW_PREDICT_TRUE(state == internal::kUTF8ValidateAccept);
+}
+
+inline bool ValidateUTF8(const util::string_view& str) {
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(str.data());
+  const size_t length = str.size();
+
+  return ValidateUTF8(data, length);
 }
 
 }  // namespace util

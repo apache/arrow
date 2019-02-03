@@ -19,13 +19,31 @@
 
 version: '3.5'
 
-x-volumes:
-  &volumes
+# TODO(kszucs): set arrow's mount to :ro mode, once all of the builds are
+# passing without write access to the source directory. The following builds
+# are contaminating the source directory:
+# - docs
+# - python-alpine (writes .egg directory)
+# - rust (writes Cargo.lock)
+# - java (without the rsync trick)
+
+x-ubuntu-volumes:
+  &ubuntu-volumes
   - .:/arrow:delegated
-  - ${ARROW_DOCKER_CACHE_DIR:-./docker_cache}:/build:delegated
+  - ubuntu-cache:/build:delegated
+
+x-alpine-volumes:
+  &alpine-volumes
+  - .:/arrow:delegated
+  - alpine-cache:/build:delegated
+
+volumes:
+  ubuntu-cache:
+  alpine-cache:
+  maven-cache:
+  spark-cache:
 
 services:
-
   ######################### Language Containers ###############################
 
   c_glib:
@@ -37,7 +55,7 @@ services:
     build:
       context: .
       dockerfile: c_glib/Dockerfile
-    volumes: *volumes
+    volumes: *ubuntu-volumes
 
   cpp:
     # Usage:
@@ -50,7 +68,36 @@ services:
       dockerfile: cpp/Dockerfile
     environment:
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
-    volumes: *volumes
+    volumes: *ubuntu-volumes
+
+  cpp-cmake32:
+    # Usage:
+    #   docker-compose build cpp-cmake32
+    #   docker-compose run cpp-cmake32
+    image: arrow:cpp-cmake32
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile
+      args:
+        EXTRA_CONDA_PKGS: cmake=3.2
+    environment:
+      ARROW_ORC: "OFF"
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-volumes
+
+  cpp-alpine:
+    # Usage:
+    #   docker-compose build cpp-alpine
+    #   docker-compose run cpp-alpine
+    image: arrow:cpp-alpine
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.alpine
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *alpine-volumes
 
   go:
     # Usage:
@@ -60,7 +107,7 @@ services:
     build:
       context: .
       dockerfile: go/Dockerfile
-    volumes: *volumes
+    volumes: *ubuntu-volumes
 
   java:
     # Usage:
@@ -71,8 +118,8 @@ services:
       context: .
       dockerfile: java/Dockerfile
     volumes:
-      - .:/arrow:delegated
-      - $HOME/.m2:/root/.m2:delegated
+      - .:/arrow:ro  # ensures that docker won't contaminate the host directory
+      - maven-cache:/root/.m2:delegated
 
   js:
     image: arrow:js
@@ -93,7 +140,22 @@ services:
       dockerfile: python/Dockerfile
       args:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
-    volumes: *volumes
+    volumes: *ubuntu-volumes
+
+  python-alpine:
+    # Usage:
+    #   export PYTHON_VERSION=2.7|3.6 (minor version is ignored)
+    #   docker-compose build cpp-alpine
+    #   docker-compose build python-alpine
+    #   docker-compose run python-alpine
+    image: arrow:python-${PYTHON_VERSION:-3.6}-alpine
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: python/Dockerfile.alpine
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+    volumes: *alpine-volumes
 
   rust:
     # Usage:
@@ -103,7 +165,9 @@ services:
     build:
       context: .
       dockerfile: rust/Dockerfile
-    volumes: *volumes
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-volumes
 
   r:
     # Usage:
@@ -114,15 +178,18 @@ services:
     build:
       context: .
       dockerfile: r/Dockerfile
-    volumes: *volumes
+    volumes: *ubuntu-volumes
 
   ######################### Tools and Linters #################################
 
   # TODO(kszucs): site
-  # TODO(kszucs): apidoc
+  # TODO(kszucs): {cpp,java,glib,js}-apidoc
 
   lint:
     # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
     #   docker-compose build lint
     #   docker-compose run lint
     image: arrow:lint
@@ -130,10 +197,13 @@ services:
       context: .
       dockerfile: dev/lint/Dockerfile
     command: arrow/dev/lint/run_linters.sh
-    volumes: *volumes
+    volumes: *ubuntu-volumes
 
   iwyu:
     # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
     #   docker-compose build lint
     #   docker-compose run iwyu
     image: arrow:lint
@@ -141,15 +211,29 @@ services:
       CC: clang
       CXX: clang++
     command: arrow/dev/lint/run_iwyu.sh
-    volumes: *volumes
+    volumes: *ubuntu-volumes
 
   clang-format:
     # Usage:
+    #   docker-compose build cpp
+    #   docker-compose build python
     #   docker-compose build lint
     #   docker-compose run clang-format
     image: arrow:lint
     command: arrow/dev/lint/run_clang_format.sh
-    volumes: *volumes
+    volumes: *ubuntu-volumes
+
+  docs:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build docs
+    #   docker-compose run docs
+    image: arrow:docs
+    build:
+      context: .
+      dockerfile: docs/Dockerfile
+    volumes: *ubuntu-volumes
 
   ######################### Integration Tests #################################
 
@@ -158,6 +242,20 @@ services:
   #   ports:
   #     - "21050"
   #   hostname: impala
+
+  pandas-master:
+    # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build --no-cache pandas-master
+    #   docker-compose run pandas-master
+    image: arrow:pandas-master
+    build:
+      context: .
+      dockerfile: integration/pandas/Dockerfile
+    shm_size: 2G
+    volumes: *ubuntu-volumes
 
   hdfs-namenode:
     image: gelog/hadoop
@@ -168,7 +266,17 @@ services:
     command: hdfs namenode
     hostname: hdfs-namenode
 
-  hdfs-datanode:
+  hdfs-datanode-1:
+    image: gelog/hadoop
+    command: hdfs datanode
+    ports:
+      # The host port is randomly assigned by Docker, to allow scaling
+      # to multiple DataNodes on the same host
+      - "50075"
+    links:
+      - hdfs-namenode:hdfs-namenode
+
+  hdfs-datanode-2:
     image: gelog/hadoop
     command: hdfs datanode
     ports:
@@ -185,9 +293,11 @@ services:
     #   docker-compose build python
     #   docker-compose build hdfs-integration
     #   docker-compose run hdfs-integration
+    image: arrow:hdfs-${HDFS_VERSION:-2.6.5}
     links:
       - hdfs-namenode:hdfs-namenode
-      - hdfs-datanode:hdfs-datanode
+      - hdfs-datanode-1:hdfs-datanode-1
+      - hdfs-datanode-2:hdfs-datanode-2
     environment:
       - ARROW_HDFS_TEST_HOST=hdfs-namenode
       - ARROW_HDFS_TEST_PORT=9000
@@ -195,22 +305,41 @@ services:
     build:
       context: .
       dockerfile: integration/hdfs/Dockerfile
+      args:
+        HDFS_VERSION: ${HDFS_VERSION:-2.6.5}
+    volumes: *ubuntu-volumes
 
-  pandas-master:
+  # TODO(kszucs): pass dask version explicitly as a build argument
+  dask-integration:
     # Usage:
     #   export PYTHON_VERSION=3.6
     #   docker-compose build cpp
     #   docker-compose build python
-    #   docker-compose build --no-cache pandas-master
-    #   docker-compose run pandas-master
-    image: arrow:pandas-master
+    #   docker-compose build dask-integration
+    #   docker-compose run dask-integration
+    image: arrow:dask-integration
     build:
       context: .
-      dockerfile: integration/pandas/Dockerfile
-    shm_size: 2G
-    volumes: *volumes
+      dockerfile: integration/dask/Dockerfile
+    volumes: *ubuntu-volumes
 
+  spark-integration:
+    # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build spark-integration
+    #   docker-compose run spark-integration
+    image: arrow:spark-${SPARK_VERSION:-2.4.0}
+    environment:
+      - SPARK_VERSION=${SPARK_VERSION:-2.4.0}
+    build:
+      context: .
+      dockerfile: integration/spark/Dockerfile
+    volumes:
+      - .:/arrow:ro  # ensures that docker won't contaminate the host directory
+      - ubuntu-cache:/build:delegated
+      - maven-cache:/root/.m2:delegated
+      - spark-cache:/spark:delegated
 
-  # TODO(kszucs): dask-integration
   # TODO(kszucs): hive-integration
-  # TODO(kszucs): spark-integration

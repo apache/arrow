@@ -20,11 +20,15 @@ module Arrow
     include Enumerable
 
     class << self
-      def new(values)
+      def new(*args)
         builder_class_name = "#{name}Builder"
         if const_defined?(builder_class_name)
           builder_class = const_get(builder_class_name)
-          builder_class.build(values)
+          if args.size == builder_class.method(:build).arity
+            builder_class.build(*args)
+          else
+            super
+          end
         else
           super
         end

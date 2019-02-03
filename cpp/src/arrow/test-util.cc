@@ -18,13 +18,12 @@
 #include "arrow/test-util.h"
 
 #ifndef _WIN32
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
+#include <sys/stat.h>  // IWYU pragma: keep
+#include <sys/wait.h>  // IWYU pragma: keep
+#include <unistd.h>    // IWYU pragma: keep
 #endif
 
 #include <algorithm>
-#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
@@ -33,34 +32,31 @@
 #include <random>
 #include <sstream>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/builder.h"
-#include "arrow/memory_pool.h"
+#include "arrow/ipc/json-simple.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
-
-void sleep_for(double seconds) {
-  std::this_thread::sleep_for(
-      std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
-}
 
 namespace arrow {
 
+std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
+                                     const std::string& json) {
+  std::shared_ptr<Array> out;
+  ABORT_NOT_OK(ipc::internal::json::ArrayFromJSON(type, json, &out));
+  return out;
+}
+
 void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
   const int random_seed = 0;
-  std::mt19937 gen(random_seed);
+  std::default_random_engine gen(random_seed);
   std::uniform_real_distribution<double> d(0.0, 1.0);
   std::generate(null_bytes, null_bytes + n,
                 [&d, &gen, &pct_null] { return d(gen) > pct_null; });
@@ -68,7 +64,7 @@ void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
 
 void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid) {
   const int random_seed = 0;
-  std::mt19937 gen(random_seed);
+  std::default_random_engine gen(random_seed);
   std::uniform_real_distribution<double> d(0.0, 1.0);
   is_valid->resize(n, false);
   std::generate(is_valid->begin(), is_valid->end(),
@@ -76,7 +72,7 @@ void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid) {
 }
 
 void random_bytes(int64_t n, uint32_t seed, uint8_t* out) {
-  std::mt19937 gen(seed);
+  std::default_random_engine gen(seed);
   std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
   std::generate(out, out + n, [&d, &gen] { return static_cast<uint8_t>(d(gen)); });
 }
@@ -150,7 +146,7 @@ int32_t DecimalSize(int32_t precision) {
 }
 
 void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t* out) {
-  std::mt19937 gen(seed);
+  std::default_random_engine gen(seed);
   std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
   const int32_t required_bytes = DecimalSize(precision);
   constexpr int32_t byte_width = 16;
@@ -307,17 +303,23 @@ void AssertZeroPadded(const Array& array) {
   for (const auto& buffer : array.data()->buffers) {
     if (buffer) {
       const int64_t padding = buffer->capacity() - buffer->size();
-      std::vector<uint8_t> zeros(padding);
-      ASSERT_EQ(0, memcmp(buffer->data() + buffer->size(), zeros.data(), padding));
+      if (padding > 0) {
+        std::vector<uint8_t> zeros(padding);
+        ASSERT_EQ(0, memcmp(buffer->data() + buffer->size(), zeros.data(), padding));
+      }
     }
   }
 }
 
 void TestInitialized(const Array& array) {
   for (const auto& buffer : array.data()->buffers) {
-    if (buffer) {
-      std::vector<uint8_t> zeros(buffer->capacity());
-      throw_away = memcmp(buffer->data(), zeros.data(), buffer->size());
+    if (buffer && buffer->capacity() > 0) {
+      int total = 0;
+      auto data = buffer->data();
+      for (int64_t i = 0; i < buffer->size(); ++i) {
+        total ^= data[i];
+      }
+      throw_away = total;
     }
   }
 }

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_THRIFT_UTIL_H
-#define PARQUET_THRIFT_UTIL_H
+#pragma once
 
 #include "arrow/util/windows_compatibility.h"
 
@@ -28,6 +27,7 @@
 #else
 #include <memory>
 #endif
+#include <string>
 
 // TCompactProtocol requires some #defines to work right.
 #define SIGNED_RIGHT_SHIFT_IS 1
@@ -105,18 +105,18 @@ static inline format::CompressionCodec::type ToThrift(Compression::type type) {
 // ----------------------------------------------------------------------
 // Thrift struct serialization / deserialization utilities
 
+using ThriftBuffer = apache::thrift::transport::TMemoryBuffer;
+
 // Deserialize a thrift message from buf/len.  buf/len must at least contain
 // all the bytes needed to store the thrift message.  On return, len will be
 // set to the actual length of the header.
 template <class T>
 inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deserialized_msg) {
   // Deserialize msg bytes into c++ thrift msg using memory transport.
-  shared_ptr<apache::thrift::transport::TMemoryBuffer> tmem_transport(
-      new apache::thrift::transport::TMemoryBuffer(const_cast<uint8_t*>(buf), *len));
-  apache::thrift::protocol::TCompactProtocolFactoryT<
-      apache::thrift::transport::TMemoryBuffer>
-      tproto_factory;
-  shared_ptr<apache::thrift::protocol::TProtocol> tproto =
+  shared_ptr<ThriftBuffer> tmem_transport(
+      new ThriftBuffer(const_cast<uint8_t*>(buf), *len));
+  apache::thrift::protocol::TCompactProtocolFactoryT<ThriftBuffer> tproto_factory;
+  shared_ptr<apache::thrift::protocol::TProtocol> tproto =  //
       tproto_factory.getProtocol(tmem_transport);
   try {
     deserialized_msg->read(tproto.get());
@@ -129,34 +129,57 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
   *len = *len - bytes_left;
 }
 
-// Serialize obj into a buffer. The result is returned as a string.
-// The arguments are the object to be serialized and
-// the expected size of the serialized object
-template <class T>
-inline int64_t SerializeThriftMsg(T* obj, uint32_t len, OutputStream* out) {
-  shared_ptr<apache::thrift::transport::TMemoryBuffer> mem_buffer(
-      new apache::thrift::transport::TMemoryBuffer(len));
-  apache::thrift::protocol::TCompactProtocolFactoryT<
-      apache::thrift::transport::TMemoryBuffer>
-      tproto_factory;
-  shared_ptr<apache::thrift::protocol::TProtocol> tproto =
-      tproto_factory.getProtocol(mem_buffer);
-  try {
-    mem_buffer->resetBuffer();
-    obj->write(tproto.get());
-  } catch (std::exception& e) {
-    std::stringstream ss;
-    ss << "Couldn't serialize thrift: " << e.what() << "\n";
-    throw ParquetException(ss.str());
+/// Utility class to serialize thrift objects to a binary format.  This object
+/// should be reused if possible to reuse the underlying memory.
+/// Note: thrift will encode NULLs into the serialized buffer so it is not valid
+/// to treat it as a string.
+class ThriftSerializer {
+ public:
+  explicit ThriftSerializer(int initial_buffer_size = 1024)
+      : mem_buffer_(new ThriftBuffer(initial_buffer_size)) {
+    apache::thrift::protocol::TCompactProtocolFactoryT<ThriftBuffer> factory;
+    protocol_ = factory.getProtocol(mem_buffer_);
   }
 
-  uint8_t* out_buffer;
-  uint32_t out_length;
-  mem_buffer->getBuffer(&out_buffer, &out_length);
-  out->Write(out_buffer, out_length);
-  return out_length;
-}
+  /// Serialize obj into a memory buffer.  The result is returned in buffer/len.  The
+  /// memory returned is owned by this object and will be invalid when another object
+  /// is serialized.
+  template <class T>
+  void SerializeToBuffer(const T* obj, uint32_t* len, uint8_t** buffer) {
+    SerializeObject(obj);
+    mem_buffer_->getBuffer(buffer, len);
+  }
+
+  template <class T>
+  void SerializeToString(const T* obj, std::string* result) {
+    SerializeObject(obj);
+    *result = mem_buffer_->getBufferAsString();
+  }
+
+  template <class T>
+  int64_t Serialize(const T* obj, OutputStream* out) {
+    uint8_t* out_buffer;
+    uint32_t out_length;
+    SerializeToBuffer(obj, &out_length, &out_buffer);
+    out->Write(out_buffer, out_length);
+    return static_cast<int64_t>(out_length);
+  }
+
+ private:
+  template <class T>
+  void SerializeObject(const T* obj) {
+    try {
+      mem_buffer_->resetBuffer();
+      obj->write(protocol_.get());
+    } catch (std::exception& e) {
+      std::stringstream ss;
+      ss << "Couldn't serialize thrift: " << e.what() << "\n";
+      throw ParquetException(ss.str());
+    }
+  }
+
+  shared_ptr<ThriftBuffer> mem_buffer_;
+  shared_ptr<apache::thrift::protocol::TProtocol> protocol_;
+};
 
 }  // namespace parquet
-
-#endif  // PARQUET_THRIFT_UTIL_H

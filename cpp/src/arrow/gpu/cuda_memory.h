@@ -27,7 +27,7 @@
 #include "arrow/status.h"
 
 namespace arrow {
-namespace gpu {
+namespace cuda {
 
 class CudaContext;
 class CudaIpcMemHandle;
@@ -57,7 +57,9 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
                            std::shared_ptr<CudaBuffer>* out);
 
   /// \brief Copy memory from GPU device to CPU host
-  /// \param[out] out a pre-allocated output buffer
+  /// \param[in] position start position inside buffer to copy bytes from
+  /// \param[in] nbytes number of bytes to copy
+  /// \param[out] out start address of the host memory area to copy to
   /// \return Status
   Status CopyToHost(const int64_t position, const int64_t nbytes, void* out) const;
 
@@ -69,8 +71,8 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   Status CopyFromHost(const int64_t position, const void* data, int64_t nbytes);
 
   /// \brief Copy memory from device to device at position
-  /// \param[in] position start position to copy bytes
-  /// \param[in] data the device data to copy
+  /// \param[in] position start position inside buffer to copy bytes to
+  /// \param[in] data start address of the device memory area to copy from
   /// \param[in] nbytes number of bytes to copy
   /// \return Status
   ///
@@ -207,7 +209,7 @@ class ARROW_EXPORT CudaBufferWriter : public io::WritableFile {
 };
 
 /// \brief Allocate CUDA-accessible memory on CPU host
-/// \param[in] device_number
+/// \param[in] device_number device to expose host memory
 /// \param[in] size number of bytes
 /// \param[out] out the allocated buffer
 /// \return Status
@@ -215,7 +217,7 @@ ARROW_EXPORT
 Status AllocateCudaHostBuffer(int device_number, const int64_t size,
                               std::shared_ptr<CudaHostBuffer>* out);
 
-}  // namespace gpu
+}  // namespace cuda
 }  // namespace arrow
 
 #endif  // ARROW_GPU_CUDA_MEMORY_H

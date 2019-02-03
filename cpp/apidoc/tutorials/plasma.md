@@ -80,7 +80,7 @@ using namespace plasma;
 int main(int argc, char** argv) {
   // Start up and connect a Plasma client.
   PlasmaClient client;
-  ARROW_CHECK_OK(client.Connect("/tmp/plasma", ""));
+  ARROW_CHECK_OK(client.Connect("/tmp/plasma"));
   // Disconnect the Plasma client.
   ARROW_CHECK_OK(client.Disconnect());
 }
@@ -182,7 +182,7 @@ was written by the `Create` command.
 int64_t data_size = 100;
 // The address of the buffer allocated by the Plasma store will be written at
 // this address.
-uint8_t* data;
+std::shared_ptr<Buffer> data;
 // Create a Plasma object by specifying its ID and size.
 ARROW_CHECK_OK(client.Create(object_id, data_size, NULL, 0, &data));
 ```
@@ -194,7 +194,7 @@ metadata (as raw bytes) and the fourth argument is the size of the metadata.
 // Create a Plasma object with metadata.
 int64_t data_size = 100;
 std::string metadata = "{'author': 'john'}";
-uint8_t* data;
+std::shared_ptr<Buffer> data;
 client.Create(object_id, data_size, (uint8_t*) metadata.data(), metadata.size(), &data);
 ```
 
@@ -226,7 +226,7 @@ using namespace plasma;
 int main(int argc, char** argv) {
   // Start up and connect a Plasma client.
   PlasmaClient client;
-  ARROW_CHECK_OK(client.Connect("/tmp/plasma", ""));
+  ARROW_CHECK_OK(client.Connect("/tmp/plasma"));
   // Create an object with a fixed ObjectID.
   ObjectID object_id = ObjectID::from_binary("00000000000000000000");
   int64_t data_size = 1000;
@@ -332,7 +332,7 @@ using namespace plasma;
 int main(int argc, char** argv) {
   // Start up and connect a Plasma client.
   PlasmaClient client;
-  ARROW_CHECK_OK(client.Connect("/tmp/plasma", ""));
+  ARROW_CHECK_OK(client.Connect("/tmp/plasma"));
   ObjectID object_id = ObjectID::from_binary("00000000000000000000");
   ObjectBuffer object_buffer;
   ARROW_CHECK_OK(client.Get(&object_id, 1, -1, &object_buffer));
@@ -421,7 +421,7 @@ using namespace plasma;
 int main(int argc, char** argv) {
   // Start up and connect a Plasma client.
   PlasmaClient client;
-  ARROW_CHECK_OK(client.Connect("/tmp/plasma", ""));
+  ARROW_CHECK_OK(client.Connect("/tmp/plasma"));
 
   int fd;
   ARROW_CHECK_OK(client.Subscribe(&fd));

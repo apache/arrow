@@ -22,9 +22,9 @@ override_dh_auto_configure:
 	  --builddirectory=cpp_build \
 	  -- \
 	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
-	  -DARROW_BUILD_TESTS=OFF \
 	  -DARROW_ORC=ON \
-	  -DARROW_PARQUET=ON
+	  -DARROW_PARQUET=ON \
+	  -DARROW_PLASMA=ON
 	dh_auto_configure \
 	  --sourcedirectory=c_glib \
 	  --builddirectory=c_glib_build \

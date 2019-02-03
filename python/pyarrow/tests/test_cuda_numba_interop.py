@@ -78,6 +78,85 @@ def make_random_buffer(size, target='host', dtype='uint8', ctx=None):
 @pytest.mark.parametrize("c", range(len(context_choice_ids)),
                          ids=context_choice_ids)
 @pytest.mark.parametrize("dtype", dtypes, ids=dtypes)
+@pytest.mark.parametrize("size", [0, 1, 8, 1000])
+def test_from_object(c, dtype, size):
+    ctx, nb_ctx = context_choices[c]
+    arr, cbuf = make_random_buffer(size, target='device', dtype=dtype, ctx=ctx)
+
+    # Creating device buffer from numba DeviceNDArray:
+    darr = nb_cuda.to_device(arr)
+    cbuf2 = ctx.buffer_from_object(darr)
+    assert cbuf2.size == cbuf.size
+    arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+    np.testing.assert_equal(arr, arr2)
+
+    # Creating device buffer from a slice of numba DeviceNDArray:
+    if size >= 8:
+        # 1-D arrays
+        for s in [slice(size//4, None, None),
+                  slice(size//4, -(size//4), None)]:
+            cbuf2 = ctx.buffer_from_object(darr[s])
+            arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+            np.testing.assert_equal(arr[s], arr2)
+
+        # cannot test negative strides due to numba bug, see its issue 3705
+        if 0:
+            rdarr = darr[::-1]
+            cbuf2 = ctx.buffer_from_object(rdarr)
+            assert cbuf2.size == cbuf.size
+            arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+            np.testing.assert_equal(arr, arr2)
+
+        with pytest.raises(ValueError,
+                           match=('array data is non-contiguous')):
+            ctx.buffer_from_object(darr[::2])
+
+        # a rectangular 2-D array
+        s1 = size//4
+        s2 = size//s1
+        assert s1 * s2 == size
+        cbuf2 = ctx.buffer_from_object(darr.reshape(s1, s2))
+        assert cbuf2.size == cbuf.size
+        arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+        np.testing.assert_equal(arr, arr2)
+
+        with pytest.raises(ValueError,
+                           match=('array data is non-contiguous')):
+            ctx.buffer_from_object(darr.reshape(s1, s2)[:, ::2])
+
+        # a 3-D array
+        s1 = 4
+        s2 = size//8
+        s3 = size//(s1*s2)
+        assert s1 * s2 * s3 == size
+        cbuf2 = ctx.buffer_from_object(darr.reshape(s1, s2, s3))
+        assert cbuf2.size == cbuf.size
+        arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+        np.testing.assert_equal(arr, arr2)
+
+        with pytest.raises(ValueError,
+                           match=('array data is non-contiguous')):
+            ctx.buffer_from_object(darr.reshape(s1, s2, s3)[::2])
+
+    # Creating device buffer from am object implementing cuda array
+    # interface:
+    class MyObj:
+        def __init__(self, darr):
+            self.darr = darr
+
+        @property
+        def __cuda_array_interface__(self):
+            return self.darr.__cuda_array_interface__
+
+    cbuf2 = ctx.buffer_from_object(MyObj(darr))
+    assert cbuf2.size == cbuf.size
+    arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+    np.testing.assert_equal(arr, arr2)
+
+
+@pytest.mark.parametrize("c", range(len(context_choice_ids)),
+                         ids=context_choice_ids)
+@pytest.mark.parametrize("dtype", dtypes, ids=dtypes)
 def test_numba_memalloc(c, dtype):
     ctx, nb_ctx = context_choices[c]
     dtype = np.dtype(dtype)

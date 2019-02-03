@@ -162,11 +162,13 @@ class ReadaheadSpooler::Impl {
     int64_t bytes_read;
     RETURN_NOT_OK(AllocateResizableBuffer(
         pool_, read_size_ + buf->left_padding + buf->right_padding, &buffer));
+    DCHECK_NE(buffer->mutable_data(), nullptr);
     RETURN_NOT_OK(
         raw_->Read(read_size_, &bytes_read, buffer->mutable_data() + buf->left_padding));
     if (bytes_read < read_size_) {
       // Got a short read
       RETURN_NOT_OK(buffer->Resize(bytes_read + buf->left_padding + buf->right_padding));
+      DCHECK_NE(buffer->mutable_data(), nullptr);
     }
     // Zero padding areas
     memset(buffer->mutable_data(), 0, buf->left_padding);

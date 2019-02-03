@@ -57,7 +57,7 @@ class ARROW_EXPORT Converter {
 
   virtual Status Initialize() = 0;
 
-  ConvertOptions options_;
+  const ConvertOptions options_;
   MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
 };

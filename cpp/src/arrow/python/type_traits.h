@@ -149,6 +149,7 @@ template <>
 struct arrow_traits<Type::BOOL> {
   static constexpr int npy_type = NPY_BOOL;
   static constexpr bool supports_nulls = false;
+  typedef typename npy_traits<NPY_BOOL>::value_type T;
 };
 
 #define INT_DECL(TYPE)                                     \

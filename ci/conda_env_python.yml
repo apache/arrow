@@ -16,10 +16,10 @@
 # under the License.
 
 cython
-nomkl
+cloudpickle
+hypothesis
 numpy
 pandas
 pytest
-python
 setuptools
 setuptools_scm

@@ -17,6 +17,7 @@
 
 class TestRecordBatchBuilder < Test::Unit::TestCase
   include Helper::Buildable
+  include Helper::Omittable
 
   def setup
     @fields = [
@@ -36,37 +37,38 @@ class TestRecordBatchBuilder < Test::Unit::TestCase
     assert_equal(@schema, @builder.schema)
   end
 
-  def test_n_fields
-    assert_equal(@fields.size, @builder.n_fields)
+  def test_n_columns
+    assert_equal(@fields.size, @builder.n_columns)
   end
 
-  sub_test_case("#get_field") do
+  sub_test_case("#get_column_builder") do
     def test_valid
       assert_equal(Arrow::BooleanArrayBuilder,
-                   @builder.get_field(0).class)
+                   @builder.get_column_builder(0).class)
     end
 
     def test_negative
       assert_equal(Arrow::Int32ArrayBuilder,
-                   @builder.get_field(-1).class)
+                   @builder.get_column_builder(-1).class)
     end
 
     def test_too_negative
-      assert_nil(@builder.get_field(-@fields.size - 1))
+      assert_nil(@builder.get_column_builder(-@fields.size - 1))
     end
 
     def test_too_large
-      assert_nil(@builder.get_field(@fields.size))
+      assert_nil(@builder.get_column_builder(@fields.size))
     end
   end
 
   def test_flush
+    require_gi_bindings(3, 3, 1)
     arrays = {
       "visible" => build_boolean_array([true, false, true]),
       "point"   => build_int32_array([1, -1, 0]),
     }
     arrays.each_with_index do |(_, array), i|
-      @builder.get_field(i).append_values(array.values, [])
+      @builder.get_column_builder(i).append_values(array.values, [])
     end
     assert_equal(build_record_batch(arrays),
                  @builder.flush)
@@ -76,7 +78,7 @@ class TestRecordBatchBuilder < Test::Unit::TestCase
       "point"   => build_int32_array([10, -10]),
     }
     arrays.each_with_index do |(_, array), i|
-      @builder.get_field(i).append_values(array.values, [])
+      @builder.get_column_builder(i).append_values(array.values, [])
     end
     assert_equal(build_record_batch(arrays),
                  @builder.flush)

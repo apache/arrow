@@ -17,8 +17,12 @@
 
 #include <gtest/gtest.h>
 
+#include <arrow/test-util.h>
+
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
+#include "parquet/metadata.h"
+#include "parquet/properties.h"
 #include "parquet/test-specialization.h"
 #include "parquet/test-util.h"
 #include "parquet/thrift.h"
@@ -28,6 +32,7 @@
 
 namespace parquet {
 
+using schema::GroupNode;
 using schema::NodePtr;
 using schema::PrimitiveNode;
 
@@ -40,11 +45,15 @@ const int SMALL_SIZE = 100;
 const int LARGE_SIZE = 10000;
 // Very large size to test dictionary fallback.
 const int VERY_LARGE_SIZE = 40000;
+// Reduced dictionary page size to use for testing dictionary fallback with valgrind
+const int64_t DICTIONARY_PAGE_SIZE = 1024;
 #else
 // Larger size to test some corner cases, only used in some specific cases.
 const int LARGE_SIZE = 100000;
 // Very large size to test dictionary fallback.
 const int VERY_LARGE_SIZE = 400000;
+// Dictionary page size to use for testing dictionary fallback
+const int64_t DICTIONARY_PAGE_SIZE = 1024 * 1024;
 #endif
 
 template <typename TestType>
@@ -71,17 +80,21 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     std::unique_ptr<InMemoryInputStream> source(new InMemoryInputStream(buffer));
     std::unique_ptr<PageReader> page_reader =
         PageReader::Open(std::move(source), num_rows, compression);
-    reader_.reset(new TypedColumnReader<TestType>(this->descr_, std::move(page_reader)));
+    reader_ = std::static_pointer_cast<TypedColumnReader<TestType>>(
+        ColumnReader::Make(this->descr_, std::move(page_reader)));
   }
 
   std::shared_ptr<TypedColumnWriter<TestType>> BuildWriter(
       int64_t output_size = SMALL_SIZE,
-      const ColumnProperties& column_properties = ColumnProperties()) {
+      const ColumnProperties& column_properties = ColumnProperties(),
+      const ParquetVersion::type version = ParquetVersion::PARQUET_1_0) {
     sink_.reset(new InMemoryOutputStream());
     WriterProperties::Builder wp_builder;
+    wp_builder.version(version);
     if (column_properties.encoding() == Encoding::PLAIN_DICTIONARY ||
         column_properties.encoding() == Encoding::RLE_DICTIONARY) {
       wp_builder.enable_dictionary();
+      wp_builder.dictionary_pagesize_limit(DICTIONARY_PAGE_SIZE);
     } else {
       wp_builder.disable_dictionary();
       wp_builder.encoding(column_properties.encoding());
@@ -123,6 +136,50 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     this->WriteRequiredWithSettingsSpaced(encoding, compression, enable_dictionary,
                                           enable_statistics, num_rows);
     ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows));
+  }
+
+  void TestDictionaryFallbackEncoding(ParquetVersion::type version) {
+    this->GenerateData(VERY_LARGE_SIZE);
+    ColumnProperties column_properties;
+    column_properties.set_dictionary_enabled(true);
+
+    if (version == ParquetVersion::PARQUET_1_0) {
+      column_properties.set_encoding(Encoding::PLAIN_DICTIONARY);
+    } else {
+      column_properties.set_encoding(Encoding::RLE_DICTIONARY);
+    }
+
+    auto writer = this->BuildWriter(VERY_LARGE_SIZE, column_properties, version);
+
+    writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
+    writer->Close();
+
+    // Read all rows so we are sure that also the non-dictionary pages are read correctly
+    this->SetupValuesOut(VERY_LARGE_SIZE);
+    this->ReadColumnFully();
+    ASSERT_EQ(VERY_LARGE_SIZE, this->values_read_);
+    this->values_.resize(VERY_LARGE_SIZE);
+    ASSERT_EQ(this->values_, this->values_out_);
+    std::vector<Encoding::type> encodings = this->metadata_encodings();
+
+    if (this->type_num() == Type::BOOLEAN) {
+      // Dictionary encoding is not allowed for boolean type
+      // There are 2 encodings (PLAIN, RLE) in a non dictionary encoding case
+      std::vector<Encoding::type> expected({Encoding::PLAIN, Encoding::RLE});
+      ASSERT_EQ(encodings, expected);
+    } else if (version == ParquetVersion::PARQUET_1_0) {
+      // There are 4 encodings (PLAIN_DICTIONARY, PLAIN, RLE, PLAIN) in a fallback case
+      // for version 1.0
+      std::vector<Encoding::type> expected(
+          {Encoding::PLAIN_DICTIONARY, Encoding::PLAIN, Encoding::RLE, Encoding::PLAIN});
+      ASSERT_EQ(encodings, expected);
+    } else {
+      // There are 4 encodings (RLE_DICTIONARY, PLAIN, RLE, PLAIN) in a fallback case for
+      // version 2.0
+      std::vector<Encoding::type> expected(
+          {Encoding::RLE_DICTIONARY, Encoding::PLAIN, Encoding::RLE, Encoding::PLAIN});
+      ASSERT_EQ(encodings, expected);
+    }
   }
 
   void WriteRequiredWithSettings(Encoding::type encoding, Compression::type compression,
@@ -204,7 +261,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   int64_t values_read_;
   // Keep the reader alive as for ByteArray the lifetime of the ByteArray
   // content is bound to the reader.
-  std::unique_ptr<TypedColumnReader<TestType>> reader_;
+  std::shared_ptr<TypedColumnReader<TestType>> reader_;
 
   std::vector<int16_t> definition_levels_out_;
   std::vector<int16_t> repetition_levels_out_;
@@ -346,11 +403,6 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithLz4Compression) {
                                  LARGE_SIZE);
 }
 
-TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithZstdCompression) {
-  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::ZSTD, false, false,
-                                 LARGE_SIZE);
-}
-
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStats) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::UNCOMPRESSED, false, true,
                                  LARGE_SIZE);
@@ -376,10 +428,19 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndLz4Compression) {
                                  LARGE_SIZE);
 }
 
+// The ExternalProject for zstd does not build on CMake < 3.7, so we do not
+// require it here
+#ifdef ARROW_WITH_ZSTD
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithZstdCompression) {
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::ZSTD, false, false,
+                                 LARGE_SIZE);
+}
+
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndZstdCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::ZSTD, false, true,
                                  LARGE_SIZE);
 }
+#endif
 
 TYPED_TEST(TestPrimitiveWriter, Optional) {
   // Optional and non-repeated, with definition levels
@@ -471,32 +532,13 @@ TYPED_TEST(TestPrimitiveWriter, RequiredLargeChunk) {
   ASSERT_EQ(this->values_, this->values_out_);
 }
 
-// Test case for dictionary fallback encoding
-TYPED_TEST(TestPrimitiveWriter, RequiredVeryLargeChunk) {
-  this->GenerateData(VERY_LARGE_SIZE);
+// Test cases for dictionary fallback encoding
+TYPED_TEST(TestPrimitiveWriter, DictionaryFallbackVersion1_0) {
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_1_0);
+}
 
-  auto writer = this->BuildWriter(VERY_LARGE_SIZE, Encoding::PLAIN_DICTIONARY);
-  writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
-  writer->Close();
-
-  // Read all rows so we are sure that also the non-dictionary pages are read correctly
-  this->SetupValuesOut(VERY_LARGE_SIZE);
-  this->ReadColumnFully();
-  ASSERT_EQ(VERY_LARGE_SIZE, this->values_read_);
-  this->values_.resize(VERY_LARGE_SIZE);
-  ASSERT_EQ(this->values_, this->values_out_);
-  std::vector<Encoding::type> encodings = this->metadata_encodings();
-  // There are 3 encodings (RLE, PLAIN_DICTIONARY, PLAIN) in a fallback case
-  // Dictionary encoding is not allowed for boolean type
-  // There are 2 encodings (RLE, PLAIN) in a non dictionary encoding case
-  if (this->type_num() != Type::BOOLEAN) {
-    ASSERT_EQ(Encoding::PLAIN_DICTIONARY, encodings[0]);
-    ASSERT_EQ(Encoding::PLAIN, encodings[1]);
-    ASSERT_EQ(Encoding::RLE, encodings[2]);
-  } else {
-    ASSERT_EQ(Encoding::PLAIN, encodings[0]);
-    ASSERT_EQ(Encoding::RLE, encodings[1]);
-  }
+TYPED_TEST(TestPrimitiveWriter, DictionaryFallbackVersion2_0) {
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_0);
 }
 
 // PARQUET-719
@@ -579,6 +621,52 @@ TEST_F(TestByteArrayValuesWriter, CheckDefaultStats) {
   writer->Close();
 
   ASSERT_TRUE(this->metadata_is_stats_set());
+}
+
+TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
+  // In ARROW-3930 we discovered a bug when writing from Arrow when we had data
+  // that looks like this:
+  //
+  // [null, [0, 1, null, 2, 3, 4, null]]
+
+  // Create schema
+  NodePtr item = schema::Int32("item");  // optional item
+  NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, LogicalType::LIST));
+  NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));  // optional list
+  std::vector<NodePtr> fields = {bag};
+  NodePtr root = GroupNode::Make("schema", Repetition::REPEATED, fields);
+
+  SchemaDescriptor schema;
+  schema.Init(root);
+
+  InMemoryOutputStream sink;
+  auto props = WriterProperties::Builder().build();
+
+  auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
+  std::unique_ptr<PageWriter> pager =
+      PageWriter::Open(&sink, Compression::UNCOMPRESSED, metadata.get());
+  std::shared_ptr<ColumnWriter> writer =
+      ColumnWriter::Make(metadata.get(), std::move(pager), props.get());
+  auto typed_writer = std::static_pointer_cast<TypedColumnWriter<Int32Type>>(writer);
+
+  std::vector<int16_t> def_levels = {1, 3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 2, 3, 3};
+  std::vector<int16_t> rep_levels = {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+
+  // Write the values into uninitialized memory
+  std::shared_ptr<Buffer> values_buffer;
+  ASSERT_OK(::arrow::AllocateBuffer(64, &values_buffer));
+  memcpy(values_buffer->mutable_data(), values.data(), 13 * sizeof(int32_t));
+  auto values_data = reinterpret_cast<const int32_t*>(values_buffer->data());
+
+  std::shared_ptr<Buffer> valid_bits;
+  ASSERT_OK(::arrow::BitUtil::BytesToBits({1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1},
+                                          ::arrow::default_memory_pool(), &valid_bits));
+
+  // valgrind will warn about out of bounds access into def_levels_data
+  typed_writer->WriteBatchSpaced(14, def_levels.data(), rep_levels.data(),
+                                 valid_bits->data(), 0, values_data);
+  writer->Close();
 }
 
 void GenerateLevels(int min_repeat_factor, int max_repeat_factor, int max_level,

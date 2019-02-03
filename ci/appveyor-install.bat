@@ -25,7 +25,11 @@ if "%JOB%" == "Rust" (
     rustup install nightly
     rustc -Vv
     cargo -V
+) else if "%JOB:~,5%" == "MinGW" (
+    call ci\appveyor-cpp-setup-mingw.bat
 ) else (
     set "PATH=C:\Miniconda36-x64;C:\Miniconda36-x64\Scripts;C:\Miniconda36-x64\Library\bin;%PATH%"
+    set BOOST_ROOT=C:\Libraries\boost_1_67_0
+    set BOOST_LIBRARYDIR=C:\Libraries\boost_1_67_0\lib64-msvc-14.0
     call ci\appveyor-cpp-setup.bat
 )

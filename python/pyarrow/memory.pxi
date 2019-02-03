@@ -21,6 +21,12 @@
 
 
 cdef class MemoryPool:
+    """
+    Base class for memory allocation.
+
+    Besides tracking its number of allocated bytes, a memory pool also
+    takes care of the required 64-byte alignment for Arrow data.
+    """
 
     def __init__(self):
         raise TypeError("Do not call {}'s constructor directly, "
@@ -68,8 +74,9 @@ cdef class LoggingMemoryPool(MemoryPool):
 
 cdef class ProxyMemoryPool(MemoryPool):
     """
-    Derived MemoryPool class that tracks the number of bytes and
-    maximum memory allocated through its direct calls.
+    Memory pool implementation that tracks the number of bytes and
+    maximum memory allocated through its direct calls, while redirecting
+    to another memory pool.
     """
     cdef:
         unique_ptr[CProxyMemoryPool] proxy_pool
@@ -81,6 +88,9 @@ cdef class ProxyMemoryPool(MemoryPool):
 
 
 def default_memory_pool():
+    """
+    Return the process-global memory pool.
+    """
     cdef:
         MemoryPool pool = MemoryPool.__new__(MemoryPool)
     pool.init(c_get_memory_pool())

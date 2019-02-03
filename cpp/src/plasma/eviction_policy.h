@@ -126,8 +126,6 @@ class EvictionPolicy {
   void RemoveObject(const ObjectID& object_id);
 
  private:
-  /// The amount of memory (in bytes) currently being used.
-  int64_t memory_used_;
   /// Pointer to the plasma store info.
   PlasmaStoreInfo* store_info_;
   /// Datastructure for the LRU cache.

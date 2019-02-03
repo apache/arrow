@@ -1,6 +1,3 @@
-six
-pytest
-cloudpickle>=0.4.0
-numpy>=1.14.0
-futures; python_version < "3"
-pathlib2; python_version < "3.4"
+six>=1.0.0
+numpy>=1.14
+futures; python_version < "3.2"

@@ -17,9 +17,6 @@
 #
 # Includes code assembled from BSD/MIT/Apache-licensed code from some 3rd-party
 # projects, including Kudu, Impala, and libdynd. See python/LICENSE.txt
-#
-# TODO(ARROW-3209): rename arrow_gpu to arrow_cuda
-#
 
 cmake_minimum_required(VERSION 2.7)
 project(pyarrow)
@@ -64,6 +61,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_CUDA
     "Build the PyArrow CUDA support"
     OFF)
+  option(PYARROW_BUILD_GANDIVA
+    "Build the PyArrow Gandiva integration"
+    OFF)
   option(PYARROW_BUILD_PARQUET
     "Build the PyArrow Parquet integration"
     OFF)
@@ -107,6 +107,10 @@ endif(CCACHE_FOUND)
 
 include(BuildUtils)
 include(CompilerInfo)
+
+# Cython generated code emits way to many warnings at CHECKIN and EVERYTHING
+set(BUILD_WARNING_LEVEL "PRODUCTION")
+
 include(SetupCxxFlags)
 
 # Add common flags
@@ -141,6 +145,7 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-constant-logical-operand")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-declarations")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sometimes-uninitialized")
 
   # We have public Cython APIs which return C++ types, which are in an extern
   # "C" blog (no symbol mangling) and clang doesn't like this
@@ -393,13 +398,13 @@ if (PYARROW_BUILD_CUDA)
       endif()
     endif()
     if (MSVC)
-      ADD_THIRDPARTY_LIB(arrow_gpu
+      ADD_THIRDPARTY_LIB(arrow_cuda
         SHARED_LIB ${ARROW_CUDA_SHARED_IMP_LIB})
     else()
-      ADD_THIRDPARTY_LIB(arrow_gpu
+      ADD_THIRDPARTY_LIB(arrow_cuda
         SHARED_LIB ${ARROW_CUDA_SHARED_LIB})
     endif()
-    set(LINK_LIBS ${LINK_LIBS} arrow_gpu_shared)
+    set(LINK_LIBS ${LINK_LIBS} arrow_cuda_shared)
     set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)
   endif()
 endif()
@@ -412,6 +417,10 @@ if (PYARROW_BUILD_PARQUET)
     message(FATAL_ERROR "Unable to locate Parquet libraries")
   endif()
   include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
+
+  if (PYARROW_BUNDLE_ARROW_CPP)
+    file(COPY ${PARQUET_INCLUDE_DIR}/parquet DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
+  endif()
 
   if (PYARROW_PARQUET_USE_SHARED)
     if (PYARROW_BUNDLE_ARROW_CPP)
@@ -503,6 +512,8 @@ if (PYARROW_BUILD_GANDIVA)
   include_directories(SYSTEM ${GANDIVA_INCLUDE_DIR})
 
   if (PYARROW_BUNDLE_ARROW_CPP)
+    file(COPY ${GANDIVA_INCLUDE_DIR}/gandiva DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
+
     bundle_arrow_lib(GANDIVA_SHARED_LIB
       ABI_VERSION ${ARROW_ABI_VERSION}
       SO_VERSION ${ARROW_SO_VERSION})

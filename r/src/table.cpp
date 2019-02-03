@@ -46,24 +46,18 @@ std::shared_ptr<arrow::Schema> Table__schema(const std::shared_ptr<arrow::Table>
 }
 
 // [[Rcpp::export]]
-List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table) {
-  int nc = table->num_columns();
-  int nr = table->num_rows();
-  List tbl(nc);
-  CharacterVector names(nc);
-  for (int i = 0; i < nc; i++) {
-    auto column = table->column(i);
-    tbl[i] = ChunkedArray__as_vector(column->data());
-    names[i] = column->name();
-  }
-  tbl.attr("names") = names;
-  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
-  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
-  return tbl;
-}
-
-// [[Rcpp::export]]
 std::shared_ptr<arrow::Column> Table__column(const std::shared_ptr<arrow::Table>& table,
                                              int i) {
   return table->column(i);
+}
+
+// [[Rcpp::export]]
+std::vector<std::shared_ptr<arrow::Column>> Table__columns(
+    const std::shared_ptr<arrow::Table>& table) {
+  auto nc = table->num_columns();
+  std::vector<std::shared_ptr<arrow::Column>> res(nc);
+  for (int i = 0; i < nc; i++) {
+    res[i] = table->column(i);
+  }
+  return res;
 }

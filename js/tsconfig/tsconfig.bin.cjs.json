@@ -4,7 +4,7 @@
     "exclude": ["../node_modules"],
     "include": ["../src/bin/*.ts"],
       "compilerOptions": {
-      "target": "ES5",
+      "target": "esnext",
       "module": "commonjs",
       "declaration": false
     }
