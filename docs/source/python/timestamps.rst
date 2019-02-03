@@ -22,13 +22,13 @@ Timestamps
 Arrow/Pandas Timestamps
 =======================
 
-The Arrow timestamp is stored as a numeric value (64-bit integer) with metadata
-of a time unit (e.g. seconds or microseconds), and an optional timezone
-assocated with a column.  Python (datetime) and Pandas (Timestamp) have
-essentially the same representations as Arrow.  Pandas's default time unit is
-nanoseconds.  Python/Pandas timestamp types without a associated timezone are
-referred to as "Naive".  Python/Pandas timestamp types with an associated
-timezone are referred to "Aware".   
+Arrow timestamps are stored as a 64-bit integer with column metadata to
+associate a time unit (e.g. milliseconds, microseconds, or nanoseconds), and an
+optional time zone.  Pandas (`Timestamp`) has essentially the same
+representations as Arrow.  Pandas's default time unit is nanoseconds.
+Python/Pandas timestamp types without a associated time zone are referred to as
+"Naive".  Python/Pandas timestamp types with an associated time zone are
+referred to as "Aware".   
 
 
 Timestamp Conversions
@@ -37,22 +37,21 @@ Timestamp Conversions
 Pandas/Arrow ⇄ Spark
 --------------------
 
-Spark stores its timestamps as 64-bit integers representing microseconds since
-the UNIX epoch.  It does not store any metadata about timezones with its
+Spark stores timestamps as 64-bit integers representing microseconds since
+the UNIX epoch.  It does not store any metadata about time zones with its
 timestamps.  
 
-Spark interprets timestamps by default with the *session local timezone*,
-``spark.sql.session.timeZone``. If that timezone is undefined, Spark turns to
-the default system timezone. For simplicity's sake below, assume the session
-local timezone is always defined.
+Spark interprets timestamps with the *session local time zone*, (i.e.
+``spark.sql.session.timeZone``). If that time zone is undefined, Spark turns to
+the default system time zone. For simplicity's sake below, the session
+local time zone is always defined.
 
 This implies a few things when round-tripping timestamps:
 
 #.  Timezone information is lost.
-#.  Data is truncated to microseconds.
-#.  Changing the session time-zone between loading a pandas data
-    frame into spark and retreiving that dataframe from spark
-    can cause changes to timestamp values.
+#.  Timestamps are truncated to microseconds.
+#.  The session time zone might have unintuitive impacts on timestamp 
+    values. 
 
 Converting Arrow To Spark
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -78,13 +77,15 @@ The following cases assume the Spark configuration
     |2019-01-01 00:00:00|2019-01-01 08:00:00|
     +-------------------+-------------------+
                     
-Note that conversion of the aware timezone is shifted to reflect the time
-assuming UTC. 
+Note that conversion of the aware timestamp is shifted to reflect the time
+assuming UTC (it represents the same instant in time). 
 
-Spark to Pandas
+Pandas to Spark
 ~~~~~~~~~~~~~~~
 
-Now if the the session timezone to US Pacific Time (PST):
+Now if the session time zone is set to US Pacific Time (PST) we don't
+see any shift in the display of the aware time zone (it
+still represents the same instant in time):
 
 ::
 
@@ -97,10 +98,10 @@ Now if the the session timezone to US Pacific Time (PST):
     |2019-01-01 00:00:00|2019-01-01 00:00:00|
     +-------------------+-------------------+
 
-But if we look again at utc_df.show() we see one of the tricky aspects.
-Because the naive timestamp was initially converted assuming the UTC timezone,
-the display value is shifted back to represent the correct instant in time in
-PST.
+Looking again at utc_df.show() we see one of the impacts of the session time
+zone.  The naive timestamp was initially converted assuming UTC, the instant it
+reflects is actually earlier then the naive time zone from the PST converted
+data frame:
 
 ::
 
@@ -111,9 +112,11 @@ PST.
     |2018-12-31 16:00:00|2019-01-01 00:00:00|
     +-------------------+-------------------+
 
+Spark to Pandas
+~~~~~~~~~~~~~~~
 
-We can observe what happens when converting back to Arrow/Pandas (this is the
-suprising part).  Assuming the session timezone is still PST:
+We can observe what happens when converting back to Arrow/Pandas.  Assuming the
+session time zone is still PST:
 
 ::
 
@@ -129,19 +132,19 @@ suprising part).  Assuming the session timezone is still PST:
     naive      aware
     0 2019-01-01 2019-01-01
     
-This is a big gotcha.  In addition to no longer having an associated timezone,
-the 'aware' value is now a different instant in
-time (2019-01-01 GMT).  Specifically, it is 8 hours before the original time. 
+Notice that, in addition to no longer having an associated time zone,
+the 'aware' value is now implicitly a different instant in
+time (i.e. 2019-01-01 GMT).  It is 8 hours before the original time:
 
 ::
 
   >>> (pst_df.toPandas()['aware'][0].timestamp()-pdf['aware'][0].timestamp())/3600
   -8.0
 
-The same type of conversion happens with the dataframe converted while 
-the session time-zone wast UTC.  In this case both naive and aware 
+The same type of conversion happens with the data frame converted while 
+the session time zone was UTC.  In this case both naive and aware 
 represent different instants in time (the naive instant is due to 
-the change in session timezone while creating dataframes).
+the change in session time zone between creating dataframes):
 
 ::
 
@@ -156,8 +159,9 @@ the change in session timezone while creating dataframes).
   naive      aware
   0 2018-12-31 16:00:00 2019-01-01
 
-Note that the suprising shift in for aware doesn't happen
-when the session timezone is UTC.
+Note that the suprising shift for aware doesn't happen
+when the session time zone is UTC (but it still loses
+an explicit time zone):
   
 ::
   
