@@ -237,11 +237,11 @@ impl Timestamp {
             * MICROS_PER_MILLI
             * NANOS_PER_MICRO;
 
-        Timestamp(Int96::new(
+        Timestamp(Int96::from(vec![
             (nanoseconds & 0xffffffff).try_into().unwrap(),
             ((nanoseconds as u64) >> 32).try_into().unwrap(),
             day.try_into().unwrap(),
-        ))
+        ]))
     }
 
     pub fn from_micros(micros: i64) -> Self {
@@ -258,11 +258,11 @@ impl Timestamp {
                 * MICROS_PER_MILLI))
             * NANOS_PER_MICRO;
 
-        Timestamp(Int96::new(
+        Timestamp(Int96::from(vec![
             (nanoseconds & 0xffffffff).try_into().unwrap(),
             ((nanoseconds as u64) >> 32).try_into().unwrap(),
             day.try_into().unwrap(),
-        ))
+        ]))
     }
 
     pub fn as_day_nanos(&self) -> (i64, i64) {
@@ -364,13 +364,13 @@ mod tests {
 
     #[test]
     fn test_int96() {
-        let value = Timestamp(Int96::new(0, 0, 2454923));
+        let value = Timestamp(Int96::from(vec![0, 0, 2454923]));
         assert_eq!(value.as_millis().unwrap(), 1238544000000);
 
-        let value = Timestamp(Int96::new(4165425152, 13, 2454923));
+        let value = Timestamp(Int96::from(vec![4165425152, 13, 2454923]));
         assert_eq!(value.as_millis().unwrap(), 1238544060000);
 
-        let value = Timestamp(Int96::new(0, 0, 0));
+        let value = Timestamp(Int96::from(vec![0, 0, 0]));
         assert_eq!(value.as_millis().unwrap(), -210866803200000);
     }
 

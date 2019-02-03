@@ -500,7 +500,7 @@ impl BitReader {
 
         unsafe {
             let in_buf = &self.buffer.data()[self.byte_offset..];
-            let mut in_ptr = in_buf as *const [u8] as *const u8;
+            let mut in_ptr = in_buf as *const [u8] as *const u8 as *const u32;
             if size_of::<T>() == 4 {
                 while values_to_read - i >= 32 {
                     let out_ptr = &mut batch[i..] as *mut [T] as *mut T as *mut u32;

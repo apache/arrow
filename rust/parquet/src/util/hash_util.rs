@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::ptr;
-
 use crate::data_type::AsBytes;
 
 /// Computes hash value for `data`, with a seed value `seed`.
@@ -40,12 +38,16 @@ fn murmur_hash2_64a<T: AsBytes>(data: &T, seed: u64) -> u64 {
     let data_bytes = data.as_bytes();
     let len = data_bytes.len();
     let len_64 = (len / 8) * 8;
-    #[allow(clippy::cast_ptr_alignment)]
-    let data_bytes_64 = data_bytes.as_ptr() as *const u64;
+    let data_bytes_64 = unsafe {
+        ::std::slice::from_raw_parts(
+            &data_bytes[0..len_64] as *const [u8] as *const u64,
+            len / 8,
+        )
+    };
 
     let mut h = seed ^ (MURMUR_PRIME.wrapping_mul(data_bytes.len() as u64));
-    for offset in (0..len_64).step_by(8) {
-        let mut k = unsafe { ptr::read_unaligned(data_bytes_64.add(offset / 8)) };
+    for v in data_bytes_64 {
+        let mut k = *v;
         k = k.wrapping_mul(MURMUR_PRIME);
         k ^= k >> MURMUR_R;
         k = k.wrapping_mul(MURMUR_PRIME);
@@ -102,19 +104,19 @@ unsafe fn crc32_hash<T: AsBytes>(data: &T, seed: u32) -> u32 {
     let num_words = num_bytes / u32_num_bytes;
     num_bytes %= u32_num_bytes;
 
-    #[allow(clippy::cast_ptr_alignment)]
-    let bytes_u32 = bytes.as_ptr() as *const u32;
+    let bytes_u32: &[u32] = ::std::slice::from_raw_parts(
+        &bytes[0..num_words * u32_num_bytes] as *const [u8] as *const u32,
+        num_words,
+    );
 
     let mut offset = 0;
     let mut hash = seed;
-    while offset < num_words * u32_num_bytes {
-        hash = _mm_crc32_u32(
-            hash,
-            ptr::read_unaligned(bytes_u32.add(offset / u32_num_bytes)),
-        );
-        offset += u32_num_bytes;
+    while offset < num_words {
+        hash = _mm_crc32_u32(hash, bytes_u32[offset]);
+        offset += 1;
     }
 
+    offset = num_words * u32_num_bytes;
     while offset < num_bytes {
         hash = _mm_crc32_u8(hash, bytes[offset]);
         offset += 1;

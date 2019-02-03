@@ -150,7 +150,7 @@ impl SerializedFileWriter {
 
     /// Writes magic bytes at the beginning of the file.
     fn start_file(file: &mut File) -> Result<()> {
-        file.write_all(&PARQUET_MAGIC)?;
+        file.write(&PARQUET_MAGIC)?;
         Ok(())
     }
 
@@ -194,8 +194,8 @@ impl SerializedFileWriter {
         let mut footer_buffer: [u8; FOOTER_SIZE] = [0; FOOTER_SIZE];
         let metadata_len = (end_pos - start_pos) as i32;
         LittleEndian::write_i32(&mut footer_buffer, metadata_len);
-        (&mut footer_buffer[4..]).write_all(&PARQUET_MAGIC)?;
-        self.file.write_all(&footer_buffer)?;
+        (&mut footer_buffer[4..]).write(&PARQUET_MAGIC)?;
+        self.file.write(&footer_buffer)?;
         Ok(())
     }
 

@@ -229,7 +229,7 @@ impl Decoder<Int96Type> for PlainDecoder<Int96Type> {
             let elem0 = LittleEndian::read_u32(&bytes[pos..pos + 4]);
             let elem1 = LittleEndian::read_u32(&bytes[pos + 4..pos + 8]);
             let elem2 = LittleEndian::read_u32(&bytes[pos + 8..pos + 12]);
-            buffer[i] = Int96::new(elem0, elem1, elem2);
+            buffer[i].set_data(elem0, elem1, elem2);
             pos += 12;
         }
         self.num_values -= num_values;
@@ -270,7 +270,7 @@ impl Decoder<ByteArrayType> for PlainDecoder<ByteArrayType> {
             if data.len() < self.start + len {
                 return Err(eof_err!("Not enough bytes to decode"));
             }
-            buffer[i] = ByteArray::new(data.range(self.start, len));
+            buffer[i].set_data(data.range(self.start, len));
             self.start += len;
         }
         self.num_values -= num_values;
@@ -291,7 +291,7 @@ impl Decoder<FixedLenByteArrayType> for PlainDecoder<FixedLenByteArrayType> {
             if data.len() < self.start + type_length {
                 return Err(eof_err!("Not enough bytes to decode"));
             }
-            buffer[i] = ByteArray::new(data.range(self.start, type_length));
+            buffer[i].set_data(data.range(self.start, type_length));
             self.start += type_length;
         }
         self.num_values -= num_values;
@@ -657,8 +657,10 @@ impl<T: DataType> Decoder<T> for DeltaBitPackDecoder<T> {
 /// Helper trait to define specific conversions when decoding values
 trait DeltaBitPackDecoderConversion<T: DataType> {
     /// Sets decoded value based on type `T`.
+    #[inline]
     fn get_delta(&self, index: usize) -> i64;
 
+    #[inline]
     fn set_decoded_value(&self, buffer: &mut [T::T], index: usize, value: i64);
 }
 
@@ -785,7 +787,7 @@ impl Decoder<ByteArrayType> for DeltaLengthByteArrayDecoder<ByteArrayType> {
         let num_values = cmp::min(buffer.len(), self.num_values);
         for i in 0..num_values {
             let len = self.lengths[self.current_idx] as usize;
-            buffer[i] = ByteArray::new(data.range(self.offset, len));
+            buffer[i].set_data(data.range(self.offset, len));
             self.offset += len;
             self.current_idx += 1;
         }
@@ -883,7 +885,7 @@ impl Decoder<ByteArrayType> for DeltaByteArrayDecoder<ByteArrayType> {
         assert!(self.suffix_decoder.is_some());
 
         let num_values = cmp::min(buffer.len(), self.num_values);
-        let mut v: [ByteArray; 1] = [ByteArray::default(); 1];
+        let mut v: [ByteArray; 1] = [ByteArray::new(); 1];
         for i in 0..num_values {
             // Process suffix
             // TODO: this is awkward - maybe we should add a non-vectorized API?
@@ -900,7 +902,7 @@ impl Decoder<ByteArrayType> for DeltaByteArrayDecoder<ByteArrayType> {
             result.extend_from_slice(suffix);
 
             let data = ByteBufferPtr::new(result.clone());
-            buffer[i] = ByteArray::new(data);
+            buffer[i].set_data(data);
             self.previous_value = result;
             self.current_idx += 1;
         }
@@ -1044,14 +1046,13 @@ mod tests {
 
     #[test]
     fn test_plain_decode_int96() {
-        let data = vec![
-            Int96::new(11, 22, 33),
-            Int96::new(44, 55, 66),
-            Int96::new(10, 20, 30),
-            Int96::new(40, 50, 60),
-        ];
+        let mut data = vec![Int96::new(); 4];
+        data[0].set_data(11, 22, 33);
+        data[1].set_data(44, 55, 66);
+        data[2].set_data(10, 20, 30);
+        data[3].set_data(40, 50, 60);
         let data_bytes = Int96Type::to_byte_array(&data[..]);
-        let mut buffer = vec![Int96::new(0, 0, 0); 4];
+        let mut buffer = vec![Int96::new(); 4];
         test_plain_decode::<Int96Type>(
             ByteBufferPtr::new(data_bytes),
             4,
@@ -1079,12 +1080,11 @@ mod tests {
 
     #[test]
     fn test_plain_decode_byte_array() {
-        let data = vec![
-            ByteArray::new(ByteBufferPtr::new(String::from("hellp").into_bytes())),
-            ByteArray::new(ByteBufferPtr::new(String::from("parquet").into_bytes())),
-        ];
+        let mut data = vec![ByteArray::new(); 2];
+        data[0].set_data(ByteBufferPtr::new(String::from("hello").into_bytes()));
+        data[1].set_data(ByteBufferPtr::new(String::from("parquet").into_bytes()));
         let data_bytes = ByteArrayType::to_byte_array(&data[..]);
-        let mut buffer = vec![ByteArray::default(); 2];
+        let mut buffer = vec![ByteArray::new(); 2];
         test_plain_decode::<ByteArrayType>(
             ByteBufferPtr::new(data_bytes),
             2,
@@ -1096,11 +1096,10 @@ mod tests {
 
     #[test]
     fn test_plain_decode_fixed_len_byte_array() {
-        let data = vec![
-            ByteArray::new(ByteBufferPtr::new(String::from("bird").into_bytes())),
-            ByteArray::new(ByteBufferPtr::new(String::from("come").into_bytes())),
-            ByteArray::new(ByteBufferPtr::new(String::from("flow").into_bytes())),
-        ];
+        let mut data = vec![ByteArray::default(); 3];
+        data[0].set_data(ByteBufferPtr::new(String::from("bird").into_bytes()));
+        data[1].set_data(ByteBufferPtr::new(String::from("come").into_bytes()));
+        data[2].set_data(ByteBufferPtr::new(String::from("flow").into_bytes()));
         let data_bytes = FixedLenByteArrayType::to_byte_array(&data[..]);
         let mut buffer = vec![ByteArray::default(); 3];
         test_plain_decode::<FixedLenByteArrayType>(
