@@ -32,7 +32,7 @@
 // Needed to support jemalloc 3 and 4
 #define JEMALLOC_MANGLE
 // Explicitly link to our version of jemalloc
-#include "arrow_thirdparty/include/jemalloc/jemalloc.h"
+#include "jemalloc_ep/dist/include/jemalloc/jemalloc.h"
 #endif
 
 namespace arrow {
