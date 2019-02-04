@@ -1022,7 +1022,7 @@ mod tests {
     #[test]
     fn min_f64_group_by_string() {
         let schema = aggr_test_schema();
-        let relation = load_csv("../../testing/csv/aggregate_test_100.csv", &schema);
+        let relation = load_csv("../../testing/data/csv/aggregate_test_100.csv", &schema);
         let context = ExecutionContext::new();
 
         let aggr_expr = vec![expression::compile_expr(
@@ -1057,7 +1057,7 @@ mod tests {
     #[test]
     fn max_f64_group_by_string() {
         let schema = aggr_test_schema();
-        let relation = load_csv("../../testing/csv/aggregate_test_100.csv", &schema);
+        let relation = load_csv("../../testing/data/csv/aggregate_test_100.csv", &schema);
         let context = ExecutionContext::new();
 
         let aggr_expr = vec![expression::compile_expr(
@@ -1092,7 +1092,7 @@ mod tests {
     #[test]
     fn test_min_max_sum_f64_group_by_uint32() {
         let schema = aggr_test_schema();
-        let relation = load_csv("../../testing/csv/aggregate_test_100.csv", &schema);
+        let relation = load_csv("../../testing/data/csv/aggregate_test_100.csv", &schema);
 
         let context = ExecutionContext::new();
 
