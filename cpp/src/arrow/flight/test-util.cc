@@ -119,9 +119,8 @@ bool TestServer::IsRunning() { return server_process_->running(); }
 int TestServer::port() const { return port_; }
 
 Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
-                      const std::vector<FlightEndpoint>& endpoints,
-                      uint64_t total_records, uint64_t total_bytes,
-                      FlightInfo::Data* out) {
+                      const std::vector<FlightEndpoint>& endpoints, int64_t total_records,
+                      int64_t total_bytes, FlightInfo::Data* out) {
   out->descriptor = descriptor;
   out->endpoints = endpoints;
   out->total_records = total_records;
