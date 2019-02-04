@@ -41,6 +41,7 @@ use crate::{
 /// Macro to implement [`Reader`] on tuples up to length 32.
 macro_rules! impl_parquet_record_tuple {
     ($len:tt $($t:ident $i:tt)*) => (
+        // Tuples correspond to Parquet groups with an equal number of fields with corresponding types.
         impl<$($t,)*> Reader for TupleReader<($($t,)*)> where $($t: Reader,)* {
             type Item = ($($t::Item,)*);
 

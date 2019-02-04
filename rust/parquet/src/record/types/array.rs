@@ -32,7 +32,10 @@ use crate::{
     data_type::{ByteArrayType, FixedLenByteArrayType},
     errors::{ParquetError, Result},
     record::{
-        reader::{ByteArrayReader, FixedLenByteArrayReader, MapReader},
+        reader::{
+            BoxFixedLenByteArrayReader, ByteArrayReader, FixedLenByteArrayReader,
+            MapReader,
+        },
         schemas::{
             BsonSchema, ByteArraySchema, EnumSchema, FixedByteArraySchema, JsonSchema,
             StringSchema,
@@ -114,6 +117,7 @@ impl From<Vec<u8>> for Bson {
     }
 }
 
+// `String` corresponds to the [UTF8/String logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#string)
 impl Record for String {
     type Reader = impl Reader<Item = Self>;
     type Schema = StringSchema;
@@ -234,7 +238,7 @@ impl From<String> for Enum {
 macro_rules! impl_parquet_record_array {
     ($i:tt) => {
         impl Record for [u8; $i] {
-            type Reader = impl Reader<Item = Self>;
+            type Reader = FixedLenByteArrayReader<Self>;
             type Schema = FixedByteArraySchema<Self>;
 
             fn parse(
@@ -268,32 +272,19 @@ macro_rules! impl_parquet_record_array {
             ) -> Self::Reader {
                 let col_path = ColumnPath::new(path.to_vec());
                 let col_reader = paths.remove(&col_path).unwrap();
-                MapReader(
-                    FixedLenByteArrayReader {
-                        column: TypedTripletIter::<FixedLenByteArrayType>::new(
-                            def_level, rep_level, col_reader, batch_size,
-                        ),
-                    },
-                    |bytes: Vec<_>| {
-                        let mut ret = std::mem::MaybeUninit::<Self>::uninit();
-                        assert_eq!(bytes.len(), unsafe { &*ret.as_ptr() }.len());
-                        unsafe {
-                            std::ptr::copy_nonoverlapping(
-                                bytes.as_ptr(),
-                                ( &mut *ret.as_mut_ptr() ).as_mut_ptr(),
-                                bytes.len(),
-                            )
-                        };
-                        Ok(unsafe { ret.assume_init() })
-                    },
-                )
+                FixedLenByteArrayReader::<[u8; $i]> {
+                    column: TypedTripletIter::<FixedLenByteArrayType>::new(
+                        def_level, rep_level, col_reader, batch_size,
+                    ),
+                    marker: PhantomData,
+                }
             }
         }
 
         // Specialize the implementation to avoid passing a potentially large array around
         // on the stack.
         impl Record for Box<[u8; $i]> {
-            type Reader = impl Reader<Item = Self>;
+            type Reader = BoxFixedLenByteArrayReader<[u8; $i]>;
             type Schema = FixedByteArraySchema<[u8; $i]>;
 
             fn parse(
@@ -313,27 +304,18 @@ macro_rules! impl_parquet_record_array {
             ) -> Self::Reader {
                 let col_path = ColumnPath::new(path.to_vec());
                 let col_reader = paths.remove(&col_path).unwrap();
-                MapReader(
-                    FixedLenByteArrayReader {
-                        column: TypedTripletIter::<FixedLenByteArrayType>::new(
-                            def_level, rep_level, col_reader, batch_size,
-                        ),
-                    },
-                    |bytes: Vec<_>| {
-                        assert_eq!(bytes.len(), $i);
-                        Ok(unsafe {
-                            Box::from_raw(
-                                Box::into_raw(bytes.into_boxed_slice()) as *mut [u8; $i]
-                            )
-                        })
-                    },
-                )
+                BoxFixedLenByteArrayReader::<[u8; $i]> {
+                    column: TypedTripletIter::<FixedLenByteArrayType>::new(
+                        def_level, rep_level, col_reader, batch_size,
+                    ),
+                    marker: PhantomData,
+                }
             }
         }
     };
 }
 
-// Implemented on common array lengths, copied from arrayvec
+// Implement Record for common array lengths, copied from arrayvec
 impl_parquet_record_array!(0);
 impl_parquet_record_array!(1);
 impl_parquet_record_array!(2);

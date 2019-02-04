@@ -24,7 +24,8 @@
 //! that are optional or repeated.
 
 use std::{
-    collections::HashMap, convert::TryInto, error::Error, marker::PhantomData, rc::Rc,
+    collections::HashMap, convert::TryInto, error::Error, marker::PhantomData, mem,
+    rc::Rc,
 };
 
 use super::{
@@ -47,7 +48,9 @@ use crate::schema::types::{ColumnPath, SchemaDescriptor, SchemaDescPtr, Type};
 /// Default batch size for a reader
 const DEFAULT_BATCH_SIZE: usize = 1024;
 
-/// Implementation for "anonymous" sum types
+// ----------------------------------------------------------------------
+// Implementations for "anonymous" sum types
+
 impl<A, B> Reader for sum::Sum2<A, B>
 where
     A: Reader,
@@ -96,7 +99,6 @@ where
     }
 }
 
-/// Implementation for "anonymous" sum types
 impl<A, B, C> Reader for sum::Sum3<A, B, C>
 where
     A: Reader,
@@ -150,6 +152,9 @@ where
         }
     }
 }
+
+// ----------------------------------------------------------------------
+// Readers that simply wrap `TypedTripletIter<DataType>`s
 
 pub struct BoolReader {
     pub(super) column: TypedTripletIter<BoolType>,
@@ -378,17 +383,27 @@ impl Reader for ByteArrayReader {
     }
 }
 
-pub struct FixedLenByteArrayReader {
+pub struct FixedLenByteArrayReader<T> {
     pub(super) column: TypedTripletIter<FixedLenByteArrayType>,
+    pub(super) marker: PhantomData<fn(T)>,
 }
-impl Reader for FixedLenByteArrayReader {
-    type Item = Vec<u8>;
+impl<T> Reader for FixedLenByteArrayReader<T> {
+    type Item = T;
 
     #[inline]
     fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
         self.column.read().map(|data| {
-            data.try_unwrap()
-                .unwrap_or_else(|data| data.data().to_owned())
+            let data = data.data();
+            let mut ret = std::mem::MaybeUninit::<T>::uninit();
+            assert_eq!(data.len(), mem::size_of::<T>());
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    data.as_ptr(),
+                    ret.as_mut_ptr() as *mut u8,
+                    data.len(),
+                );
+                ret.assume_init()
+            }
         })
     }
 
@@ -412,6 +427,48 @@ impl Reader for FixedLenByteArrayReader {
         self.column.current_rep_level()
     }
 }
+
+pub struct BoxFixedLenByteArrayReader<T> {
+    pub(super) column: TypedTripletIter<FixedLenByteArrayType>,
+    pub(super) marker: PhantomData<fn(T)>,
+}
+impl<T> Reader for BoxFixedLenByteArrayReader<T> {
+    type Item = Box<T>;
+
+    #[inline]
+    fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
+        self.column.read().map(|data| {
+            let data = data
+                .try_unwrap()
+                .unwrap_or_else(|data| data.data().to_owned());
+            assert_eq!(data.len(), mem::size_of::<T>());
+            unsafe { Box::from_raw(Box::into_raw(data.into_boxed_slice()) as *mut T) }
+        })
+    }
+
+    #[inline]
+    fn advance_columns(&mut self) -> Result<()> {
+        self.column.advance_columns()
+    }
+
+    #[inline]
+    fn has_next(&self) -> bool {
+        self.column.has_next()
+    }
+
+    #[inline]
+    fn current_def_level(&self) -> i16 {
+        self.column.current_def_level()
+    }
+
+    #[inline]
+    fn current_rep_level(&self) -> i16 {
+        self.column.current_rep_level()
+    }
+}
+
+// ----------------------------------------------------------------------
+// Complex Readers for optional and repeated fields
 
 /// A Reader for an optional field, returning `Option<R::Item>`.
 pub struct OptionReader<R> {
@@ -559,6 +616,10 @@ impl<K: Reader, V: Reader> Reader for KeyValueReader<K, V> {
     }
 }
 
+// ----------------------------------------------------------------------
+// More complex Readers for groups, untyped generic values, and convenience
+
+/// A reader that can read any Parquet group field.
 pub struct GroupReader {
     pub(super) readers: Vec<ValueReader>,
     pub(super) fields: Rc<HashMap<String, usize>>,

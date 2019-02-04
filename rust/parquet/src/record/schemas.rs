@@ -708,14 +708,7 @@ where
     ) -> fmt::Result {
         match self_ {
             self_ @ Some(ListSchema(_, ListSchemaType::List(_, _))) | self_ @ None => {
-                let (self_, list_name, element_name) = match self_ {
-                    Some(ListSchema(
-                        self_,
-                        ListSchemaType::List(list_name, element_name),
-                    )) => (Some(self_), list_name.clone(), element_name.clone()),
-                    None => (None, None, None),
-                    _ => unreachable!(),
-                };
+                /// Helper struct for nested list group
                 #[derive(Debug)]
                 struct List<'a, T>(Option<&'a T>, String);
                 impl<'a, T> Schema for List<'a, T>
@@ -739,6 +732,17 @@ where
                         printer.finish()
                     }
                 }
+
+                // Treat self_ == None as a normal list
+                let (self_, list_name, element_name) = match self_ {
+                    Some(ListSchema(
+                        self_,
+                        ListSchemaType::List(list_name, element_name),
+                    )) => (Some(self_), list_name.clone(), element_name.clone()),
+                    None => (None, None, None),
+                    _ => unreachable!(),
+                };
+
                 let mut printer =
                     DisplaySchemaGroup::new(r, name, Some(LogicalType::LIST), f);
                 printer.field(

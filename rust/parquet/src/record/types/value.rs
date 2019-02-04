@@ -1656,11 +1656,27 @@ impl Record for Value {
                     | (PhysicalType::FIXED_LEN_BYTE_ARRAY, LogicalType::INTERVAL) => {
                         unimplemented!("Interval logical type not yet implemented")
                     }
-                    (physical_type, logical_type) => {
-                        return Err(ParquetError::General(format!(
-                            "Can't parse primitive ({:?}, {:?})",
-                            physical_type, logical_type
-                        )));
+
+                    // Fallbacks for unrecognised LogicalType
+                    (PhysicalType::BOOLEAN, _) => ValueSchema::Bool(BoolSchema),
+                    (PhysicalType::INT32, _) => ValueSchema::I32(I32Schema),
+                    (PhysicalType::INT64, _) => ValueSchema::I64(I64Schema),
+                    (PhysicalType::INT96, _) => {
+                        ValueSchema::Timestamp(TimestampSchema::Int96)
+                    }
+                    (PhysicalType::FLOAT, _) => ValueSchema::F32(F32Schema),
+                    (PhysicalType::DOUBLE, _) => ValueSchema::F64(F64Schema),
+                    (PhysicalType::BYTE_ARRAY, _)
+                    | (PhysicalType::FIXED_LEN_BYTE_ARRAY, _) => {
+                        ValueSchema::ByteArray(ByteArraySchema(
+                            if schema.get_physical_type()
+                                == PhysicalType::FIXED_LEN_BYTE_ARRAY
+                            {
+                                Some(schema.get_type_length().try_into().unwrap())
+                            } else {
+                                None
+                            },
+                        ))
                     }
                 },
             );
