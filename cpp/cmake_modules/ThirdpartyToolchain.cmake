@@ -17,8 +17,6 @@
 
 add_custom_target(toolchain)
 
-set(THIRDPARTY_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_thirdparty")
-
 # ----------------------------------------------------------------------
 # Toolchain linkage options
 
@@ -555,17 +553,18 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 # Google double-conversion
 
 if("${DOUBLE_CONVERSION_HOME}" STREQUAL "")
-  set(DOUBLE_CONVERSION_HOME "${THIRDPARTY_PREFIX}")
-  set(DOUBLE_CONVERSION_INCLUDE_DIR "${THIRDPARTY_PREFIX}/include")
-  set(DOUBLE_CONVERSION_STATIC_LIB "${THIRDPARTY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}double-conversion${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(DOUBLE_CONVERSION_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/double-conversion_ep/src/double-conversion_ep")
+  set(DOUBLE_CONVERSION_HOME "${DOUBLE_CONVERSION_PREFIX}")
+  set(DOUBLE_CONVERSION_INCLUDE_DIR "${DOUBLE_CONVERSION_PREFIX}/include")
+  set(DOUBLE_CONVERSION_STATIC_LIB "${DOUBLE_CONVERSION_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}double-conversion${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
   set(DOUBLE_CONVERSION_CMAKE_ARGS
     ${EP_COMMON_CMAKE_ARGS}
-    "-DCMAKE_INSTALL_PREFIX=${THIRDPARTY_PREFIX}")
+    "-DCMAKE_INSTALL_PREFIX=${DOUBLE_CONVERSION_PREFIX}")
 
   ExternalProject_Add(double-conversion_ep
     ${EP_LOG_OPTIONS}
-    INSTALL_DIR ${THIRDPARTY_PREFIX}
+    INSTALL_DIR ${DOUBLE_CONVERSION_PREFIX}
     URL ${DOUBLE_CONVERSION_SOURCE_URL}
     CMAKE_ARGS ${DOUBLE_CONVERSION_CMAKE_ARGS}
     BUILD_BYPRODUCTS "${DOUBLE_CONVERSION_STATIC_LIB}")
@@ -608,7 +607,8 @@ if(ARROW_NEED_GFLAGS)
   # gflags (formerly Googleflags) command line parsing
   if("${GFLAGS_HOME}" STREQUAL "")
     set(GFLAGS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
-    set(GFLAGS_PREFIX "${THIRDPARTY_PREFIX}")
+
+    set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
     set(GFLAGS_HOME "${GFLAGS_PREFIX}")
     set(GFLAGS_INCLUDE_DIR "${GFLAGS_PREFIX}/include")
     if(MSVC)
@@ -666,7 +666,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
                                 -Wno-ignored-attributes)
     endif()
 
-    set(GTEST_PREFIX "${THIRDPARTY_PREFIX}")
+    set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
     set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
     set(GTEST_STATIC_LIB
       "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -758,7 +758,7 @@ if(ARROW_BUILD_BENCHMARKS)
       set(GBENCHMARK_CMAKE_CXX_FLAGS "${GBENCHMARK_CMAKE_CXX_FLAGS} -stdlib=libc++")
     endif()
 
-    set(GBENCHMARK_PREFIX "${THIRDPARTY_PREFIX}")
+    set(GBENCHMARK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gbenchmark_ep/src/gbenchmark_ep-install")
     set(GBENCHMARK_INCLUDE_DIR "${GBENCHMARK_PREFIX}/include")
     set(GBENCHMARK_STATIC_LIB "${GBENCHMARK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}benchmark${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GBENCHMARK_VENDORED 1)
@@ -794,12 +794,13 @@ endif()
 if (ARROW_WITH_RAPIDJSON)
   # RapidJSON, header only dependency
   if("${RAPIDJSON_HOME}" STREQUAL "")
-    set(RAPIDJSON_HOME "${THIRDPARTY_PREFIX}")
+    set(RAPIDJSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/rapidjson_ep/src/rapidjson_ep-install")
+    set(RAPIDJSON_HOME "${RAPIDJSON_PREFIX}")
     set(RAPIDJSON_CMAKE_ARGS
       -DRAPIDJSON_BUILD_DOC=OFF
       -DRAPIDJSON_BUILD_EXAMPLES=OFF
       -DRAPIDJSON_BUILD_TESTS=OFF
-      "-DCMAKE_INSTALL_PREFIX=${THIRDPARTY_PREFIX}")
+      "-DCMAKE_INSTALL_PREFIX=${RAPIDJSON_PREFIX}")
 
     ExternalProject_Add(rapidjson_ep
       ${EP_LOG_OPTIONS}
@@ -820,7 +821,7 @@ if (ARROW_WITH_RAPIDJSON)
 
   ## Flatbuffers
   if("${FLATBUFFERS_HOME}" STREQUAL "")
-    set(FLATBUFFERS_PREFIX "${THIRDPARTY_PREFIX}")
+    set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
     if (MSVC)
       set(FLATBUFFERS_CMAKE_CXX_FLAGS /EHsc)
     else()
@@ -830,12 +831,11 @@ if (ARROW_WITH_RAPIDJSON)
     ExternalProject_Add(flatbuffers_ep
       URL ${FLATBUFFERS_SOURCE_URL}
       CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      -DCMAKE_BUILD_TYPE=RELEASE
       "-DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
       "-DFLATBUFFERS_BUILD_TESTS=OFF"
-      "-DCMAKE_BUILD_TYPE=RELEASE"
-      "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
-      "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}"
       ${EP_LOG_OPTIONS})
 
     set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
@@ -866,7 +866,7 @@ if (ARROW_JEMALLOC)
   # find_package(jemalloc)
 
   set(ARROW_JEMALLOC_USE_SHARED OFF)
-  set(JEMALLOC_PREFIX "${THIRDPARTY_PREFIX}")
+  set(JEMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
   set(JEMALLOC_HOME "${JEMALLOC_PREFIX}")
   set(JEMALLOC_INCLUDE_DIR "${JEMALLOC_PREFIX}/include")
   set(JEMALLOC_SHARED_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc${CMAKE_SHARED_LIBRARY_SUFFIX}")
@@ -885,7 +885,7 @@ if (ARROW_JEMALLOC)
 
   # Don't use the include directory directly so that we can point to a path
   # that is unique to our codebase.
-  include_directories(SYSTEM "${CMAKE_CURRENT_BINARY_DIR}")
+  include_directories(SYSTEM "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/")
 
   ADD_THIRDPARTY_LIB(jemalloc
     STATIC_LIB ${JEMALLOC_STATIC_LIB}
@@ -947,7 +947,7 @@ if (ARROW_WITH_ZLIB)
     ADD_THIRDPARTY_LIB(zlib SHARED_LIB ${ZLIB_SHARED_LIB})
     set(ZLIB_LIBRARY zlib_shared)
   else()
-    set(ZLIB_PREFIX "${THIRDPARTY_PREFIX}")
+    set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
     set(ZLIB_HOME "${ZLIB_PREFIX}")
     set(ZLIB_INCLUDE_DIR "${ZLIB_PREFIX}/include")
     if (MSVC)
@@ -983,7 +983,7 @@ if (ARROW_WITH_SNAPPY)
 # Snappy
 
   if("${SNAPPY_HOME}" STREQUAL "")
-    set(SNAPPY_PREFIX "${THIRDPARTY_PREFIX}")
+    set(SNAPPY_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/snappy_ep/src/snappy_ep-install")
     set(SNAPPY_HOME "${SNAPPY_PREFIX}")
     set(SNAPPY_INCLUDE_DIR "${SNAPPY_PREFIX}/include")
     if (MSVC)
@@ -1051,7 +1051,7 @@ if (ARROW_WITH_BROTLI)
 # Brotli
 
   if("${BROTLI_HOME}" STREQUAL "")
-    set(BROTLI_PREFIX "${THIRDPARTY_PREFIX}")
+    set(BROTLI_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/brotli_ep/src/brotli_ep-install")
     set(BROTLI_HOME "${BROTLI_PREFIX}")
     set(BROTLI_INCLUDE_DIR "${BROTLI_PREFIX}/include")
     if (MSVC)
@@ -1078,7 +1078,7 @@ if (ARROW_WITH_BROTLI)
       ExternalProject_Get_Property(brotli_ep SOURCE_DIR)
 
       ExternalProject_Add_Step(brotli_ep headers_copy
-        COMMAND xcopy /E /I include ..\\..\\..\\arrow_thirdparty\\include /Y
+        COMMAND xcopy /E /I include ..\\..\\..\\brotli_ep\\src\\brotli_ep-install\\include /Y
         DEPENDEES build
         WORKING_DIRECTORY ${SOURCE_DIR})
     endif()
@@ -1176,7 +1176,7 @@ if (ARROW_WITH_ZSTD)
 # ZSTD
 
   if("${ZSTD_HOME}" STREQUAL "")
-    set(ZSTD_PREFIX "${THIRDPARTY_PREFIX}")
+    set(ZSTD_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zstd_ep-install")
     set(ZSTD_INCLUDE_DIR "${ZSTD_PREFIX}/include")
 
     set(ZSTD_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -1236,7 +1236,7 @@ endif()
 if (ARROW_GANDIVA)
   # re2
   if ("${RE2_HOME}" STREQUAL "")
-    set (RE2_PREFIX "${THIRDPARTY_PREFIX}")
+    set (RE2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/re2_ep-install")
     set (RE2_HOME "${RE2_PREFIX}")
     set (RE2_INCLUDE_DIR "${RE2_PREFIX}/include")
     set (RE2_STATIC_LIB "${RE2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}re2${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -1277,7 +1277,7 @@ endif ()
 if (ARROW_WITH_PROTOBUF)
   # protobuf
   if ("${PROTOBUF_HOME}" STREQUAL "")
-    set (PROTOBUF_PREFIX "${THIRDPARTY_PREFIX}")
+    set (PROTOBUF_PREFIX "${THIRDPARTY_DIR}/protobuf_ep-install")
     set (PROTOBUF_HOME "${PROTOBUF_PREFIX}")
     set (PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
     set (PROTOBUF_STATIC_LIB "${PROTOBUF_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}protobuf${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -1325,7 +1325,7 @@ endif()
 if (ARROW_WITH_GRPC)
   if ("${CARES_HOME}" STREQUAL "")
     set(CARES_VENDORED 1)
-    set(CARES_PREFIX "${THIRDPARTY_PREFIX}")
+    set(CARES_PREFIX "${THIRDPARTY_DIR}/cares_ep-install")
     set(CARES_HOME "${CARES_PREFIX}")
     set(CARES_INCLUDE_DIR "${CARES_PREFIX}/include")
 
@@ -1361,7 +1361,7 @@ if (ARROW_WITH_GRPC)
   if ("${GRPC_HOME}" STREQUAL "")
     set(GRPC_VENDORED 1)
     set(GRPC_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-prefix/src/grpc_ep-build")
-    set(GRPC_PREFIX "${THIRDPARTY_PREFIX}")
+    set(GRPC_PREFIX "${THIRDPARTY_DIR}/grpc_ep-install")
     set(GRPC_HOME "${GRPC_PREFIX}")
     set(GRPC_INCLUDE_DIR "${GRPC_PREFIX}/include")
     set(GRPC_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
@@ -1374,32 +1374,28 @@ if (ARROW_WITH_GRPC)
     set(GRPC_STATIC_LIBRARY_ADDRESS_SORTING "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GRPC_CPP_PLUGIN "${GRPC_PREFIX}/bin/grpc_cpp_plugin")
 
-    set(GRPC_CMAKE_PREFIX "${THIRDPARTY_PREFIX}")
+    set(GRPC_CMAKE_PREFIX)
 
     add_custom_target(grpc_dependencies)
 
     if (CARES_VENDORED)
       add_dependencies(grpc_dependencies cares_ep)
-    else()
-      set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${CARES_HOME}")
     endif()
 
     if (GFLAGS_VENDORED)
       add_dependencies(grpc_dependencies gflags_ep)
-    else()
-      set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GFLAGS_HOME}")
     endif()
 
     if (PROTOBUF_VENDORED)
       add_dependencies(grpc_dependencies protobuf_ep)
-    else()
-      set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${PROTOBUF_HOME}")
     endif()
 
+    set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${CARES_HOME}")
+    set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GFLAGS_HOME}")
+    set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${PROTOBUF_HOME}")
+
     # ZLIB is never vendored
-    if(NOT "${ZLIB_HOME}" STREQUAL "")
-      set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_HOME}")
-    endif()
+    set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_HOME}")
 
     if (RAPIDJSON_VENDORED)
       add_dependencies(grpc_dependencies rapidjson_ep)
@@ -1479,7 +1475,7 @@ endif()
 if (ARROW_ORC)
   # orc
   if ("${ORC_HOME}" STREQUAL "")
-    set(ORC_PREFIX "${THIRDPARTY_PREFIX}")
+    set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
     set(ORC_HOME "${ORC_PREFIX}")
     set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
     set(ORC_STATIC_LIB "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -1554,7 +1550,7 @@ if (ARROW_WITH_THRIFT)
 find_package(Thrift)
 
 if (NOT THRIFT_FOUND)
-  set(THRIFT_PREFIX "${THIRDPARTY_PREFIX}")
+  set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep/src/thrift_ep-install")
   set(THRIFT_HOME "${THRIFT_PREFIX}")
   set(THRIFT_INCLUDE_DIR "${THRIFT_PREFIX}/include")
   set(THRIFT_COMPILER "${THRIFT_PREFIX}/bin/thrift")
@@ -1608,7 +1604,7 @@ if (NOT THRIFT_FOUND)
 
   if (MSVC)
     set(WINFLEXBISON_VERSION 2.4.9)
-    set(WINFLEXBISON_PREFIX "${THIRDPARTY_PREFIX}")
+    set(WINFLEXBISON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/winflexbison_ep/src/winflexbison_ep-install")
     ExternalProject_Add(winflexbison_ep
       URL https://github.com/lexxmark/winflexbison/releases/download/v.${WINFLEXBISON_VERSION}/win_flex_bison-${WINFLEXBISON_VERSION}.zip
       URL_HASH MD5=a2e979ea9928fbf8567e995e9c0df765
@@ -1688,9 +1684,9 @@ endif()  # ARROW_HIVESERVER2
 
 if (ARROW_USE_GLOG)
   if("${GLOG_HOME}" STREQUAL "")
-    set(GLOG_PREFIX "${THIRDPARTY_PREFIX}")
-    set(GLOG_INCLUDE_DIR "${GLOG_PREFIX}/include")
-    set(GLOG_STATIC_LIB "${GLOG_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glog${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GLOG_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/glog_ep-prefix/src/glog_ep")
+    set(GLOG_INCLUDE_DIR "${GLOG_BUILD_DIR}/include")
+    set(GLOG_STATIC_LIB "${GLOG_BUILD_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}glog${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GLOG_CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
     set(GLOG_CMAKE_C_FLAGS "${EP_C_FLAGS} -fPIC")
     if (Threads::Threads)
@@ -1706,7 +1702,7 @@ if (ARROW_USE_GLOG)
     endif()
 
     set(GLOG_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_INSTALL_PREFIX=${GLOG_PREFIX}"
+      "-DCMAKE_INSTALL_PREFIX=${GLOG_BUILD_DIR}"
       -DBUILD_SHARED_LIBS=OFF
       -DBUILD_TESTING=OFF
       -DWITH_GFLAGS=OFF
