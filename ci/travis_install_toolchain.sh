@@ -34,7 +34,7 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
             CONDA_LABEL=" -c conda-forge/label/cf201901"
         else
             # Use newer binutils when linking against conda-provided libraries
-            CONDA_PACKAGES="$CONDA_PACKAGES binutils"
+            CONDA_PACKAGES="$CONDA_PACKAGES binutils=$CONDA_BINUTILS_VERSION"
         fi
     fi
 
