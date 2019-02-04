@@ -666,7 +666,14 @@ mod tests {
         writer.close().unwrap();
 
         let reader = SerializedFileReader::new(file).unwrap();
-        assert_eq!(reader.get_row_iter::<Row>(None).unwrap().count(), 0);
+        assert_eq!(
+            reader
+                .get_row_iter::<Row>(None)
+                .unwrap()
+                .map(Result::unwrap)
+                .count(),
+            0
+        );
     }
 
     #[test]
@@ -949,6 +956,7 @@ mod tests {
             let row_group_reader = reader.get_row_group(i).unwrap();
             let iter = row_group_reader.get_row_iter::<Row>(None).unwrap();
             let res = iter
+                .map(Result::unwrap)
                 .map(|elem| elem[0].as_i32().unwrap())
                 .collect::<Vec<i32>>();
             assert_eq!(res, data[i]);

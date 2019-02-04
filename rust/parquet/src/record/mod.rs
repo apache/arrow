@@ -16,6 +16,45 @@
 // under the License.
 
 //! Contains record-based API for reading Parquet files.
+//!
+//! Example usage of reading data untyped:
+//!
+//! ```rust,no_run
+//! use std::fs::File;
+//! use std::path::Path;
+//! use parquet::file::reader::{FileReader, SerializedFileReader};
+//! use parquet::record::types::Row;
+//!
+//! let file = File::open(&Path::new("/path/to/file")).unwrap();
+//! let reader = SerializedFileReader::new(file).unwrap();
+//! let iter = reader.get_row_iter::<Row>(None).unwrap();
+//! for record in iter.map(Result::unwrap) {
+//!     println!("{:?}", record);
+//! }
+//! ```
+//!
+//! Example usage of reading data strongly-typed:
+//!
+//! ```rust,no_run
+//! use std::fs::File;
+//! use std::path::Path;
+//! use parquet::file::reader::{FileReader, SerializedFileReader};
+//! use parquet::record::{Record, types::Timestamp};
+//!
+//! #[derive(Record, Debug)]
+//! struct MyRow {
+//!     id: u64,
+//!     time: Timestamp,
+//!     event: String,
+//! }
+//!
+//! let file = File::open(&Path::new("/path/to/file")).unwrap();
+//! let reader = SerializedFileReader::new(file).unwrap();
+//! let iter = reader.get_row_iter::<MyRow>(None).unwrap();
+//! for record in iter.map(Result::unwrap) {
+//!     println!("{}: {}", record.time, record.event);
+//! }
+//! ```
 
 mod display;
 mod reader;

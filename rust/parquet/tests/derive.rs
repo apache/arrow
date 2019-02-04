@@ -291,7 +291,7 @@ where
     let file = get_test_file(file_name);
     let file_reader: SerializedFileReader<_> = SerializedFileReader::new(file)?;
     let iter = file_reader.get_row_iter(None)?;
-    Ok(iter.collect())
+    Ok(iter.map(Result::unwrap).collect())
 }
 
 fn test_row_group_rows<T>(
@@ -307,7 +307,7 @@ where
     // Check the first row group only, because files will contain only single row group
     let row_group_reader = file_reader.get_row_group(0).unwrap();
     let iter = row_group_reader.get_row_iter(None)?;
-    Ok(iter.collect())
+    Ok(iter.map(Result::unwrap).collect())
 }
 
 fn get_test_file(file_name: &str) -> fs::File {

@@ -82,7 +82,7 @@ fn main() {
 
     while all_records || start < end {
         match iter.next() {
-            Some(row) => println!("{:?}", row),
+            Some(row) => println!("{:?}", row.unwrap()),
             None => break,
         }
         start += 1;

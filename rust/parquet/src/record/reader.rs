@@ -1111,7 +1111,7 @@ where
         let file_schema = file_schema.root_schema();
         let schema = <Root<T> as Record>::parse(file_schema, None)?.1;
 
-        let row_iter = Self::get_reader_iter(&schema, row_group_reader);
+        let row_iter = Self::get_reader_iter(&schema, row_group_reader)?;
 
         // For row group we need to set `current_row_group` >= `num_row_groups`, because
         // we only have one row group and can't buffer more.
@@ -1127,7 +1127,7 @@ where
     fn get_reader_iter(
         schema: &<Root<T> as Record>::Schema,
         row_group_reader: &RowGroupReader,
-    ) -> ReaderIter<T> {
+    ) -> Result<ReaderIter<T>> {
         // Prepare lookup table of column path -> original column index
         // This allows to prune columns and map schema leaf nodes to the column readers
         let mut paths: HashMap<ColumnPath, ColumnReader> =
@@ -1216,9 +1216,9 @@ where
     R: FileReader,
     T: Record,
 {
-    type Item = T;
+    type Item = Result<T>;
 
-    fn next(&mut self) -> Option<T> {
+    fn next(&mut self) -> Option<Self::Item> {
         let mut row = None;
         if let Some(ref mut iter) = self.row_iter {
             row = iter.next();
@@ -1235,7 +1235,11 @@ where
                 .get_row_group(self.current_row_group)
                 .expect("Row group is required to advance");
 
-            let mut row_iter = Self::get_reader_iter(&self.schema, &row_group_reader);
+            let mut row_iter =
+                match Self::get_reader_iter(&self.schema, &row_group_reader) {
+                    Err(err) => return Some(Err(err)),
+                    Ok(row_iter) => row_iter,
+                };
 
             row = row_iter.next();
 
@@ -1261,14 +1265,17 @@ impl<T> ReaderIter<T>
 where
     T: Record,
 {
-    fn new(mut root_reader: <Root<T> as Record>::Reader, num_records: u64) -> Self {
+    fn new(
+        mut root_reader: <Root<T> as Record>::Reader,
+        num_records: u64,
+    ) -> Result<Self> {
         // Prepare root reader by advancing all column vectors
-        root_reader.advance_columns().unwrap();
-        Self {
+        root_reader.advance_columns()?;
+        Ok(Self {
             root_reader,
             records_left: num_records,
             marker: PhantomData,
-        }
+        })
     }
 }
 
@@ -1276,12 +1283,12 @@ impl<T> Iterator for ReaderIter<T>
 where
     T: Record,
 {
-    type Item = T;
+    type Item = Result<T>;
 
-    fn next(&mut self) -> Option<T> {
+    fn next(&mut self) -> Option<Self::Item> {
         if self.records_left > 0 {
             self.records_left -= 1;
-            Some(self.root_reader.read(0, 0).unwrap().0)
+            Some(self.root_reader.read(0, 0).map(|row| row.0))
         } else {
             None
         }
@@ -2416,7 +2423,7 @@ mod tests {
         let file = get_test_file(file_name);
         let file_reader: SerializedFileReader<_> = SerializedFileReader::new(file)?;
         let iter = file_reader.get_row_iter(schema)?;
-        Ok(iter.collect())
+        Ok(iter.map(Result::unwrap).collect())
     }
 
     fn test_row_group_rows<T>(
@@ -2432,6 +2439,6 @@ mod tests {
         // group
         let row_group_reader = file_reader.get_row_group(0).unwrap();
         let iter = row_group_reader.get_row_iter(schema)?;
-        Ok(iter.collect())
+        Ok(iter.map(Result::unwrap).collect())
     }
 }
