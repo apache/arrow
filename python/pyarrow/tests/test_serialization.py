@@ -849,4 +849,4 @@ def test_serialize_recursive_objects():
     # objects.
     for obj in recursive_objects:
         with pytest.raises(Exception):
-            pyarrow.serialize(obj).deserialize()
+            pa.serialize(obj).deserialize()
