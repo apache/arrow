@@ -280,27 +280,6 @@ fn test_row_group_rows_invalid_projection_derived() {
     );
 }
 
-// #[test]
-// #[should_panic(expected = "Invalid map type")]
-// fn test_file_reader_rows_invalid_map_type_derived() {
-//     let schema = "
-//     message spark_schema {
-//       OPTIONAL group a (MAP) {
-//         REPEATED group key_value {
-//           REQUIRED BYTE_ARRAY key (UTF8);
-//           OPTIONAL group value (MAP) {
-//             REPEATED group key_value {
-//               REQUIRED INT32 key;
-//             }
-//           }
-//         }
-//       }
-//     }
-//   ";
-//     let schema = parse_message_type(&schema).unwrap();
-//     test_file_reader_rows::<Row>("nested_maps.snappy.parquet", Some(schema)).unwrap();
-// }
-
 fn test_file_reader_rows<T>(
     file_name: &str,
     schema: Option<()>,
