@@ -118,6 +118,6 @@ The roadmap for DataFusion will depend on interest from the Rust community, but 
 
 ## Contributors Welcome!
 
-If you are excited about being able to use Rust for data science and would like to contribute to this work then there are many ways to get involved. The simplest way to get started is to try out DataFusion against your own data sources and file bug reports for any issues that you find. You could also check out the current [list of issues](https://issues.apache.org/) and have a go at fixing one. You can also join the [user mailing list](http://mail-archives.apache.org/mod_mbox/arrow-user/) to ask questions.
+If you are excited about being able to use Rust for data science and would like to contribute to this work then there are many ways to get involved. The simplest way to get started is to try out DataFusion against your own data sources and file bug reports for any issues that you find. You could also check out the current [list of issues](https://cwiki.apache.org/confluence/display/ARROW/Rust+JIRA+Dashboard) and have a go at fixing one. You can also join the [user mailing list](http://mail-archives.apache.org/mod_mbox/arrow-user/) to ask questions.
 
 
