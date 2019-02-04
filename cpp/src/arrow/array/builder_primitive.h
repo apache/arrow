@@ -37,7 +37,7 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status Append(std::nullptr_t value) { return AppendNull(); }
+  Status Append(std::nullptr_t) { return AppendNull(); }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 };
