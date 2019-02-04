@@ -230,8 +230,9 @@ message FlightGetInfo {
    */
   repeated FlightEndpoint endpoint = 3;
 
-  uint64 total_records = 4;
-  uint64 total_bytes = 5;
+  // Set these to -1 if unknown.
+  int64 total_records = 4;
+  int64 total_bytes = 5;
 }
 
 /*

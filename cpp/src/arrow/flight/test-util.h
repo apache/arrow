@@ -102,9 +102,8 @@ inline std::shared_ptr<Schema> ExampleSchema2() {
 
 ARROW_EXPORT
 Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
-                      const std::vector<FlightEndpoint>& endpoints,
-                      uint64_t total_records, uint64_t total_bytes,
-                      FlightInfo::Data* out);
+                      const std::vector<FlightEndpoint>& endpoints, int64_t total_records,
+                      int64_t total_bytes, FlightInfo::Data* out);
 
 ARROW_EXPORT
 std::vector<FlightInfo> ExampleFlightInfo();
