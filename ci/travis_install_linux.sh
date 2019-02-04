@@ -39,7 +39,7 @@ fi
 
 set -x
 if [ "$ARROW_TRAVIS_GANDIVA" == "1" ]; then
-    sudo apt-get install -y -qq llvm-$ARROW_LLVM_VERSION-dev
+    sudo apt-get install -y -qq llvm-$ARROW_LLVM_MAJOR_VERSION-dev
 fi
 
 set -x

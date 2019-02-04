@@ -20,8 +20,7 @@
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CPP_BUILD_SUPPORT=$SOURCE_DIR/../cpp/build-support
 
-LLVM_VERSION=6.0
-CLANG_FORMAT=clang-format-$LLVM_VERSION
+CLANG_FORMAT=clang-format-7
 
 $CPP_BUILD_SUPPORT/run_clang_format.py \
     --clang_format_binary=$CLANG_FORMAT \
