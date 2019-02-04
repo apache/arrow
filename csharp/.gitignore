@@ -262,3 +262,6 @@ __pycache__/
 
 # Project-specific
 artifacts/
+
+# add .sln files back because they are ignored by the root .gitignore file
+!*.sln
