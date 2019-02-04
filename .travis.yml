@@ -72,8 +72,8 @@ matrix:
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
-    - export CC="clang-7.0"
-    - export CXX="clang++-7.0"
+    - export CC="clang-7"
+    - export CXX="clang++-7"
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     # If either C++ or Python changed, we must install the C++ libraries
@@ -254,7 +254,7 @@ matrix:
     - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
-  - name: "Integration w/ OpenJDK 8"
+  - name: "Integration w/ OpenJDK 8, clang 7"
     language: java
     os: linux
     env: ARROW_TEST_GROUP=integration
@@ -264,8 +264,8 @@ matrix:
     - ARROW_TRAVIS_PLASMA_JAVA_CLIENT=1
     before_script:
     - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
-    - export CC="clang-7.0"
-    - export CXX="clang++-7.0"
+    - export CC="clang-7"
+    - export CXX="clang++-7"
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - nvm install 11.6
