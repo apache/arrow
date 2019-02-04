@@ -386,6 +386,8 @@ class ColumnWriterImpl {
     }
   }
 
+  virtual ~ColumnWriterImpl() = default;
+
   int64_t Close();
 
  protected:
@@ -673,13 +675,13 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   // The encoding is switched to PLAIN
   void CheckDictionarySizeLimit();
 
-  EncodedStatistics GetPageStatistics() {
+  EncodedStatistics GetPageStatistics() override {
     EncodedStatistics result;
     if (page_statistics_) result = page_statistics_->Encode();
     return result;
   }
 
-  EncodedStatistics GetChunkStatistics() {
+  EncodedStatistics GetChunkStatistics() override {
     EncodedStatistics result;
     if (chunk_statistics_) result = chunk_statistics_->Encode();
     return result;
