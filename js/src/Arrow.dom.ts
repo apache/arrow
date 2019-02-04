@@ -82,5 +82,18 @@ export {
     ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions,
     DataFrame, FilteredDataFrame, CountByResult, BindFunc, NextFunc,
     predicate,
-    util
+    util,
+    DataBuilder,
+    BoolBuilder,
+    IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder,
+    FloatBuilder, Float16Builder, Float32Builder, Float64Builder,
+    Utf8Builder,
+    BinaryBuilder,
+    FixedSizeBinaryBuilder,
+    DateBuilder, DateDayBuilder, DateMillisecondBuilder,
+    TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder,
+    TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder,
+    DecimalBuilder,
+    DictionaryBuilder,
+    IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder
 } from './Arrow';

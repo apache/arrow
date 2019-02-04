@@ -38,7 +38,13 @@
             },
             "args": [
                 // "-i",
-                "test/unit/",
+                // "test/unit/",
+                "test/unit/builders/",
+
+                // "test/unit/builders/date-tests.ts",
+                // "test/unit/builders/primitive-tests.ts",
+                // "test/unit/builders/dictionary-tests.ts",
+                // "test/unit/builders/utf8-tests.ts",
 
                 // Uncomment any of these to run individual test suites
                 // "test/unit/int-tests.ts",

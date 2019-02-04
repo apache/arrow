@@ -10,12 +10,13 @@ import {
 } from './utils';
 
 describe('DateDayBuilder', () => {
-    runTestsWithEncoder('5', encodeAll(() => new DateDay(), 5));
-    runTestsWithEncoder('25', encodeAll(() => new DateDay(), 25));
-    runTestsWithEncoder('none', encodeAll(() => new DateDay()));
-    runTestsWithEncoder('5', encodeEach(() => new DateDay(), 5));
-    runTestsWithEncoder('25', encodeEach(() => new DateDay(), 25));
-    runTestsWithEncoder('none', encodeEach(() => new DateDay()));
+
+    runTestsWithEncoder('chunkLength: 5', encodeAll(() => new DateDay(), 5));
+    runTestsWithEncoder('chunkLength: 25', encodeAll(() => new DateDay(), 25));
+    runTestsWithEncoder('chunkLength: undefined', encodeAll(() => new DateDay()));
+    runTestsWithEncoder('chunkLength: 5', encodeEach(() => new DateDay(), 5));
+    runTestsWithEncoder('chunkLength: 25', encodeEach(() => new DateDay(), 25));
+    runTestsWithEncoder('chunkLength: undefined', encodeEach(() => new DateDay()));
     
     function runTestsWithEncoder(name: string, encode: (vals: (Date | null)[], nullVals?: any[]) => Vector<DateDay>) {
         describe(`${encode.name} ${name}`, () => {
@@ -32,13 +33,14 @@ describe('DateDayBuilder', () => {
 });
 
 describe('DateMillisecondBuilder', () => {
-    runTestsWithEncoder('5', encodeAll(() => new DateMillisecond(), 5));
-    runTestsWithEncoder('25', encodeAll(() => new DateMillisecond(), 25));
-    runTestsWithEncoder('none', encodeAll(() => new DateMillisecond()));
-    runTestsWithEncoder('5', encodeEach(() => new DateMillisecond(), 5));
-    runTestsWithEncoder('25', encodeEach(() => new DateMillisecond(), 25));
-    runTestsWithEncoder('none', encodeEach(() => new DateMillisecond()));
-    
+
+    runTestsWithEncoder('chunkLength: 5', encodeAll(() => new DateMillisecond(), 5));
+    runTestsWithEncoder('chunkLength: 25', encodeAll(() => new DateMillisecond(), 25));
+    runTestsWithEncoder('chunkLength: undefined', encodeAll(() => new DateMillisecond()));
+    runTestsWithEncoder('chunkLength: 5', encodeEach(() => new DateMillisecond(), 5));
+    runTestsWithEncoder('chunkLength: 25', encodeEach(() => new DateMillisecond(), 25));
+    runTestsWithEncoder('chunkLength: undefined', encodeEach(() => new DateMillisecond()));
+
     function runTestsWithEncoder(name: string, encode: (vals: (Date | null)[], nullVals?: any[]) => Vector<DateMillisecond>) {
         describe(`${encode.name} ${name}`, () => {
             it(`encodes dates no nulls`, () => {

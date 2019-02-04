@@ -29,6 +29,7 @@ export const int32sNoNulls = (length = 20) => Array.from(new Int32Array(randomBy
 export const uint8sNoNulls = (length = 20) => Array.from(new Uint8Array(randomBytes(length * Uint8Array.BYTES_PER_ELEMENT).buffer));
 export const uint16sNoNulls = (length = 20) => Array.from(new Uint16Array(randomBytes(length * Uint16Array.BYTES_PER_ELEMENT).buffer));
 export const uint32sNoNulls = (length = 20) => Array.from(new Uint32Array(randomBytes(length * Uint32Array.BYTES_PER_ELEMENT).buffer));
+export const float16sNoNulls = (length = 20) => Array.from(new Uint16Array(randomBytes(length * Uint32Array.BYTES_PER_ELEMENT).buffer)).map((x) => (x - 32767) / 32767);
 export const float32sNoNulls = (length = 20) => Array.from(new Float32Array(randomBytes(length * Float32Array.BYTES_PER_ELEMENT).buffer));
 export const float64sNoNulls = (length = 20) => Array.from(new Float64Array(randomBytes(length * Float64Array.BYTES_PER_ELEMENT).buffer));
 
@@ -38,12 +39,14 @@ export const stringsWithNAs = (length = 20) => randnulls(stringsNoNulls(length),
 export const stringsWithNulls = (length = 20) => randnulls(stringsNoNulls(length), null);
 export const stringsWithEmpties = (length = 20) => randnulls(stringsNoNulls(length), '\0');
 
+export const boolsWithNulls = (length = 20) => randnulls(boolsNoNulls(length), null);
 export const int8sWithNulls = (length = 20) => randnulls(int8sNoNulls(length), null);
 export const int16sWithNulls = (length = 20) => randnulls(int16sNoNulls(length), null);
 export const int32sWithNulls = (length = 20) => randnulls(int32sNoNulls(length), null);
 export const uint8sWithNulls = (length = 20) => randnulls(uint8sNoNulls(length), null);
 export const uint16sWithNulls = (length = 20) => randnulls(uint16sNoNulls(length), null);
 export const uint32sWithNulls = (length = 20) => randnulls(uint32sNoNulls(length), null);
+export const float16sWithNulls = (length = 20) => randnulls(float16sNoNulls(length), null);
 export const float32sWithNulls = (length = 20) => randnulls(float32sNoNulls(length), null);
 export const float64sWithNulls = (length = 20) => randnulls(float64sNoNulls(length), null);
 
@@ -53,8 +56,9 @@ export const int32sWithMaxInts = (length = 20) => randnulls(int32sNoNulls(length
 export const uint8sWithMaxInts = (length = 20) => randnulls(uint8sNoNulls(length), 0x7fffffff);
 export const uint16sWithMaxInts = (length = 20) => randnulls(uint16sNoNulls(length), 0x7fffffff);
 export const uint32sWithMaxInts = (length = 20) => randnulls(uint32sNoNulls(length), 0x7fffffff);
-export const float64sWithNaNs = (length = 20) => randnulls(float64sNoNulls(length), NaN);
+export const float16sWithNaNs = (length = 20) => randnulls(float16sNoNulls(length), NaN);
 export const float32sWithNaNs = (length = 20) => randnulls(float32sNoNulls(length), NaN);
+export const float64sWithNaNs = (length = 20) => randnulls(float64sNoNulls(length), NaN);
 
 export const duplicateItems = (n: number, xs: (any | null)[]) => {
     const out = new Array<string | null>(n);
@@ -83,11 +87,11 @@ export function encodeEach<T extends DataType>(typeFactory: () => T, chunkLen?: 
 }
 
 export function validateVector<T extends DataType>(vals: (T['TValue'] | null)[], vec: Vector, nullVals: any[]) {
-    let i = 0;
+    let i = 0, x: T['TValue'] | null, y: T['TValue'] | null;
     const nulls = nullVals.reduce((m, x) => m.set(x, true), new Map());
     try {
-        for (const x of vec) {
-            const y = vals[i];
+        for (x of vec) {
+            y = vals[i];
             expect(x).toEqual(nulls.has(y) ? null : y);
             i++;
         }

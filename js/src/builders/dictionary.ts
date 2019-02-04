@@ -4,7 +4,8 @@ import { Vector } from '../vector';
 import { Dictionary } from '../type';
 
 type HashFunction = (x: any) => string | number;
-const metrohash64: HashFunction = require('metrohash').metrohash64;
+// const metrohash64: HashFunction = require('metrohash').metrohash64;
+const defaultHashFunction = (x: any) => `${x}`;
 
 export class DictionaryBuilder<T extends Dictionary> extends DataBuilder<T> {
 
@@ -13,7 +14,7 @@ export class DictionaryBuilder<T extends Dictionary> extends DataBuilder<T> {
     public readonly indices: IntBuilder<T['indices']>;
     public readonly dictionary: DataBuilder<T['dictionary']>;
 
-    constructor(type: T, nullValues?: any[], chunkSize?: number, hash: HashFunction = metrohash64) {
+    constructor(type: T, nullValues?: any[], chunkSize?: number, hash: HashFunction = defaultHashFunction) {
         super(type, nullValues, chunkSize);
         this._hash = hash;
         this.indices = DataBuilder.new(type.indices, nullValues, chunkSize) as IntBuilder<T['indices']>;
