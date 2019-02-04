@@ -1035,52 +1035,36 @@ where
 // ----------------------------------------------------------------------
 // Row iterators
 
-/// The enum Either with variants That represet a reference and a box of
-/// [`FileReader`](crate::file::reader::FileReader).
-enum Either<'a,R> {
-    Left(&'a R),
-    Right(R),
-}
-
-impl<'a,R> Either<'a,R> {
-    fn reader(&self) -> &R {
-        match *self {
-            Either::Left(r) => r,
-            Either::Right(ref r) => r,
-        }
-    }
-}
-
 /// Iterator of rows. [`Row`](`super::types::Row`) can be used to read as untyped rows. A
 /// tuple or a struct marked with `#[derive(Record)]` can be used to read as typed rows.
 ///
 /// It is used either for a single row group to iterate over data in that row group, or
 /// an entire file with auto buffering of all row groups.
-pub struct RowIter<'a, R, T>
+pub struct RowIter<R, T>
 where
     R: FileReader,
     T: Record,
 {
     schema: <Root<T> as Record>::Schema,
-    file_reader: Option<Either<'a,R>>,
+    file_reader: Option<R>,
     current_row_group: usize,
     num_row_groups: usize,
     row_iter: Option<ReaderIter<T>>,
 }
 
-impl<'a, R, T> RowIter<'a, R, T>
+impl<R, T> RowIter<R, T>
 where
     R: FileReader,
     T: Record,
 {
     /// Creates a new iterator of [`Row`](crate::record::api::Row)s.
     fn new(
-        file_reader: Option<Either<'a, R>>,
+        file_reader: Option<R>,
         row_iter: Option<ReaderIter<T>>,
         schema: <Root<T> as Record>::Schema,
     ) -> Self {
         let num_row_groups = match file_reader {
-            Some(ref r) => r.reader().num_row_groups(),
+            Some(ref r) => r.num_row_groups(),
             None => 0,
         };
 
@@ -1094,18 +1078,18 @@ where
     }
 
     /// Creates row iterator for all row groups in a file.
-    pub fn from_file(_proj: Option<Predicate>, reader: &'a R) -> Result<Self> {
+    pub fn from_file(_proj: Option<Predicate>, reader: R) -> Result<Self> {
         let file_schema = reader.metadata().file_metadata().schema_descr_ptr();
         let file_schema = file_schema.root_schema();
         let schema = <Root<T> as Record>::parse(file_schema, None)?.1;
 
-        Ok(Self::new(Some(Either::Left(reader)), None, schema))
+        Ok(Self::new(Some(reader), None, schema))
     }
 
     /// Creates row iterator for a specific row group.
     pub fn from_row_group(
         _proj: Option<Predicate>,
-        row_group_reader: &'a RowGroupReader,
+        row_group_reader: &RowGroupReader,
     ) -> Result<Self> {
         let file_schema = row_group_reader.metadata().schema_descr_ptr();
         let file_schema = file_schema.root_schema();
@@ -1153,9 +1137,7 @@ where
     // /// Creates a iterator of [`Row`](crate::record::api::Row)s from a
     // /// [`FileReader`](crate::file::reader::FileReader) using the full file schema.
     // pub fn from_file_into(reader: Box<FileReader>) -> Result<RowIter<'a, Box<FileReader>, T>> {
-    //     let either = Either::Right(reader);
-    //     let descr = either
-    //         .reader()
+    //     let descr = reader
     //         .metadata()
     //         .file_metadata()
     //         .schema_descr_ptr();
@@ -1163,7 +1145,7 @@ where
     //     let schema = descr.root_schema();
     //     let schema = <Root<T> as Record>::parse(schema, None)?.1;
 
-    //     Ok(RowIter::new(Some(either), None, schema))
+    //     Ok(RowIter::new(Some(reader), None, schema))
     // }
 
     /// Tries to create a iterator of [`Row`](crate::record::api::Row)s using projections.
@@ -1173,9 +1155,8 @@ where
     /// when it is None, full file schema is assumed.
     pub fn project(self, proj: Option<Type>) -> Result<Self> {
         match self.file_reader {
-            Some(ref either) => {
-                let schema = either
-                    .reader()
+            Some(ref reader) => {
+                let schema = reader
                     .metadata()
                     .file_metadata()
                     .schema_descr_ptr();
@@ -1211,7 +1192,7 @@ where
     }
 }
 
-impl<'a, R, T> Iterator for RowIter<'a, R, T>
+impl<R, T> Iterator for RowIter<R, T>
 where
     R: FileReader,
     T: Record,
@@ -1231,7 +1212,6 @@ where
                 .file_reader
                 .as_ref()
                 .expect("File reader is required to advance row group")
-                .reader()
                 .get_row_group(self.current_row_group)
                 .expect("Row group is required to advance");
 

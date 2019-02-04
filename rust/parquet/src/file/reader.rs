@@ -74,10 +74,30 @@ pub trait FileReader {
     ///
     /// Projected schema can be a subset of or equal to the file schema, when it is None,
     /// full file schema is assumed.
-    fn get_row_iter<T>(&self, projection: Option<Predicate>) -> Result<RowIter<Self, T>>
+    fn get_row_iter<T>(self, projection: Option<Predicate>) -> Result<RowIter<Self, T>>
     where
         T: Record,
-        Self: Sized;
+        Self: Sized,
+    {
+        RowIter::from_file(projection, self)
+    }
+}
+
+impl<'a, R> FileReader for &'a R
+where
+    R: FileReader,
+{
+    type RowGroupReader = R::RowGroupReader;
+
+    fn metadata(&self) -> ParquetMetaDataPtr {
+        <R as FileReader>::metadata(*self)
+    }
+    fn num_row_groups(&self) -> usize {
+        <R as FileReader>::num_row_groups(*self)
+    }
+    fn get_row_group(&self, i: usize) -> Result<Self::RowGroupReader> {
+        <R as FileReader>::get_row_group(*self, i)
+    }
 }
 
 impl<R> FileReader for Box<FileReader<RowGroupReader=R>> where R: RowGroupReader {
@@ -93,13 +113,6 @@ impl<R> FileReader for Box<FileReader<RowGroupReader=R>> where R: RowGroupReader
 
     fn get_row_group(&self, i: usize) -> Result<Self::RowGroupReader> {
         (**self).get_row_group(i)
-    }
-
-    fn get_row_iter<T>(&self, _projection: Option<Predicate>) -> Result<RowIter<Self, T>>
-    where
-        T: Record,
-        Self: Sized {
-        unimplemented!()
     }
 }
 
@@ -314,14 +327,6 @@ impl<R: 'static + ParquetReader> FileReader for SerializedFileReader<R> {
         // Row groups should be processed sequentially.
         let f = self.buf.get_ref().try_clone()?;
         Ok(SerializedRowGroupReader::new(f, row_group_metadata))
-    }
-
-    fn get_row_iter<T>(&self, projection: Option<Predicate>) -> Result<RowIter<Self, T>>
-    where
-        T: Record,
-        Self: Sized,
-    {
-        RowIter::from_file(projection, self)
     }
 }
 
