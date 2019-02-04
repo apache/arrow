@@ -95,7 +95,7 @@ fn register_aggregate_csv(ctx: &mut ExecutionContext) {
     register_csv(
         ctx,
         "aggregate_test_100",
-        "test/data/aggregate_test_100.csv",
+        "../../testing/csv/aggregate_test_100.csv",
         &schema,
     );
 }

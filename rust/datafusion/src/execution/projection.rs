@@ -105,7 +105,7 @@ mod tests {
             Field::new("c12", DataType::Utf8, false),
         ]));
         let ds =
-            CsvDataSource::new("test/data/aggregate_test_100.csv", schema.clone(), 1024);
+            CsvDataSource::new("../../testing/csv/aggregate_test_100.csv", schema.clone(), 1024);
         let relation = Rc::new(RefCell::new(DataSourceRelation::new(Rc::new(
             RefCell::new(ds),
         ))));

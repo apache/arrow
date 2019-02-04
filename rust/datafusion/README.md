@@ -40,7 +40,7 @@ fn main() {
     ]));
 
     // register csv file with the execution context
-    let csv_datasource = CsvDataSource::new("test/data/uk_cities.csv", schema.clone(), 1024);
+    let csv_datasource = CsvDataSource::new("../../testing/csv/uk_cities.csv", schema.clone(), 1024);
     ctx.register_datasource("cities", Rc::new(RefCell::new(csv_datasource)));
 
     // simple projection and selection
