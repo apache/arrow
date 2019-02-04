@@ -21,6 +21,7 @@
 export NODE_NO_WARNINGS=1
 export MINICONDA=$HOME/miniconda
 export CONDA_PKGS_DIRS=$HOME/.conda_packages
+export CONDA_BINUTILS_VERSION=2.31
 
 export ARROW_CPP_DIR=$TRAVIS_BUILD_DIR/cpp
 export ARROW_PYTHON_DIR=$TRAVIS_BUILD_DIR/python
