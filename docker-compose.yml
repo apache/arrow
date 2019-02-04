@@ -327,9 +327,9 @@ services:
     #   docker-compose build python
     #   docker-compose build spark-integration
     #   docker-compose run spark-integration
-    image: arrow:spark-${SPARK_VERSION:-2.4.0}
+    image: arrow:spark-${SPARK_VERSION:-master}
     environment:
-      - SPARK_VERSION=${SPARK_VERSION:-2.4.0}
+      - SPARK_VERSION=${SPARK_VERSION:-master}
     build:
       context: .
       dockerfile: integration/spark/Dockerfile

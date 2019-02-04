@@ -18,8 +18,6 @@
 # exit on any error
 set -e
 
-SPARK_VERSION=${SPARK_VERSION:-2.4.0}
-
 # rsynced source directory to build java libs
 arrow_src=/build/java/arrow
 
@@ -30,7 +28,7 @@ popd
 MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
 
 # build Spark with Arrow
-pushd /spark/spark-${SPARK_VERSION}
+pushd /spark
   # update Spark pom with the Arrow version just installed and build Spark, need package phase for pyspark
   echo "Building Spark with Arrow $ARROW_VERSION"
   mvn -q versions:set-property -Dproperty=arrow.version -DnewVersion=$ARROW_VERSION
