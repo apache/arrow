@@ -23,7 +23,7 @@ export MINICONDA=$HOME/miniconda
 export CONDA_PKGS_DIRS=$HOME/.conda_packages
 export CONDA_BINUTILS_VERSION=2.31
 
-export ARROW_LLVM_VERSION=7
+export ARROW_LLVM_VERSION=7.0
 export CONDA_LLVM_VERSION="7.0.*"
 
 export ARROW_CPP_DIR=$TRAVIS_BUILD_DIR/cpp

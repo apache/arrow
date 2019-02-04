@@ -300,7 +300,7 @@ sudo apt-get install llvm-7.0-dev
 On macOS, you can use [Homebrew][1]:
 
 ```shell
-brew install llvm@6
+brew install llvm@7
 ```
 
 The optional `gandiva` libraries and tests can be built by passing

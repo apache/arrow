@@ -22,8 +22,11 @@ set -ex
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
+# extract the major version
+ARROW_LLVM_MAJOR_VERSION=$(echo $ARROW_LLVM_VERSION | cut -d. -f1)
+
 wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
 sudo apt-add-repository -y \
-     "deb https://llvm.org/apt/$DISTRO_CODENAME/ llvm-toolchain-$DISTRO_CODENAME-$ARROW_LLVM_VERSION main"
+     "deb https://apt.llvm.org/$DISTRO_CODENAME/ llvm-toolchain-$DISTRO_CODENAME-$ARROW_LLVM_MAJOR_VERSION main"
 sudo apt-get update -qq
-sudo apt-get install -q clang-$ARROW_LLVM_VERSION clang-format-$ARROW_LLVM_VERSION clang-tidy-$ARROW_LLVM_VERSION
+sudo apt-get install -q clang-$ARROW_LLVM_MAJOR_VERSION clang-format-$ARROW_LLVM_MAJOR_VERSION clang-tidy-$ARROW_LLVM_MAJOR_VERSION
