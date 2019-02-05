@@ -78,7 +78,9 @@ The following cases assume the Spark configuration
     +-------------------+-------------------+
                     
 Note that conversion of the aware timestamp is shifted to reflect the time
-assuming UTC (it represents the same instant in time). 
+assuming UTC (it represents the same instant in time).  For naive
+timestamps, Spark treats them as being in the system local
+time zone and converts them UTC.
 
 Now if the session time zone is set to US Pacific Time (PST) we don't
 see any shift in the display of the aware time zone (it
@@ -97,7 +99,7 @@ still represents the same instant in time):
 
 Looking again at utc_df.show() we see one of the impacts of the session time
 zone.  The naive timestamp was initially converted assuming UTC, the instant it
-reflects is actually earlier then the naive time zone from the PST converted
+reflects is actually earlier than the naive time zone from the PST converted
 data frame:
 
 ::
@@ -131,7 +133,10 @@ session time zone is still PST:
     
 Notice that, in addition to no longer having an associated time zone,
 the 'aware' value is now implicitly a different instant in
-time (i.e. 2019-01-01 GMT).  It is 8 hours before the original time:
+time (i.e. 2019-01-01 GMT).  Spark does the conversion by first converting
+to the session time zone (or system local time zone if session time zones isn't set)
+and then localizes to remove the timezone information.
+This results in the timestamp being 8 hours before the original time:
 
 ::
 
