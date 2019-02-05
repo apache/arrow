@@ -30,14 +30,15 @@ using schema::PrimitiveNode;
 
 namespace benchmark {
 
-std::unique_ptr<Int64Writer> BuildWriter(int64_t output_size, OutputStream* dst,
+std::shared_ptr<Int64Writer> BuildWriter(int64_t output_size, OutputStream* dst,
                                          ColumnChunkMetaDataBuilder* metadata,
                                          ColumnDescriptor* schema,
                                          const WriterProperties* properties) {
   std::unique_ptr<PageWriter> pager =
       PageWriter::Open(dst, Compression::UNCOMPRESSED, metadata);
-  return std::unique_ptr<Int64Writer>(new Int64Writer(
-      metadata, std::move(pager), false /*use_dictionary*/, Encoding::PLAIN, properties));
+  std::shared_ptr<ColumnWriter> writer =
+      ColumnWriter::Make(metadata, std::move(pager), properties);
+  return std::static_pointer_cast<Int64Writer>(writer);
 }
 
 std::shared_ptr<ColumnDescriptor> Int64Schema(Repetition::type repetition) {
@@ -65,14 +66,17 @@ static void BM_WriteInt64Column(::benchmark::State& state) {
   std::vector<int16_t> definition_levels(state.range(0), 1);
   std::vector<int16_t> repetition_levels(state.range(0), 0);
   std::shared_ptr<ColumnDescriptor> schema = Int64Schema(repetition);
-  WriterProperties::Builder builder;
-  std::shared_ptr<WriterProperties> properties = builder.compression(codec)->build();
+  std::shared_ptr<WriterProperties> properties = WriterProperties::Builder()
+                                                     .compression(codec)
+                                                     ->encoding(Encoding::PLAIN)
+                                                     ->disable_dictionary()
+                                                     ->build();
   auto metadata = ColumnChunkMetaDataBuilder::Make(
       properties, schema.get(), reinterpret_cast<uint8_t*>(&thrift_metadata));
 
   while (state.KeepRunning()) {
     InMemoryOutputStream stream;
-    std::unique_ptr<Int64Writer> writer = BuildWriter(
+    std::shared_ptr<Int64Writer> writer = BuildWriter(
         state.range(0), &stream, metadata.get(), schema.get(), properties.get());
     writer->WriteBatch(values.size(), definition_levels.data(), repetition_levels.data(),
                        values.data());
@@ -125,13 +129,17 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
   std::vector<int16_t> definition_levels(state.range(0), 1);
   std::vector<int16_t> repetition_levels(state.range(0), 0);
   std::shared_ptr<ColumnDescriptor> schema = Int64Schema(repetition);
-  WriterProperties::Builder builder;
-  std::shared_ptr<WriterProperties> properties = builder.compression(codec)->build();
+  std::shared_ptr<WriterProperties> properties = WriterProperties::Builder()
+                                                     .compression(codec)
+                                                     ->encoding(Encoding::PLAIN)
+                                                     ->disable_dictionary()
+                                                     ->build();
+
   auto metadata = ColumnChunkMetaDataBuilder::Make(
       properties, schema.get(), reinterpret_cast<uint8_t*>(&thrift_metadata));
 
   InMemoryOutputStream stream;
-  std::unique_ptr<Int64Writer> writer = BuildWriter(
+  std::shared_ptr<Int64Writer> writer = BuildWriter(
       state.range(0), &stream, metadata.get(), schema.get(), properties.get());
   writer->WriteBatch(values.size(), definition_levels.data(), repetition_levels.data(),
                      values.data());
