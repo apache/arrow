@@ -70,10 +70,10 @@ matrix:
     - ARROW_TRAVIS_GANDIVA=1
     - ARROW_TRAVIS_USE_SYSTEM_JAVA=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    - CC="clang-7"
+    - CXX="clang++-7"
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
-    - export CC="clang-7"
-    - export CXX="clang++-7"
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     # If either C++ or Python changed, we must install the C++ libraries
@@ -262,10 +262,10 @@ matrix:
     env:
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_PLASMA_JAVA_CLIENT=1
+    - CC="clang-7"
+    - CXX="clang++-7"
     before_script:
     - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
-    - export CC="clang-7"
-    - export CXX="clang++-7"
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - nvm install 11.6
