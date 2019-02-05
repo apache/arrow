@@ -234,7 +234,9 @@ class FlightServiceImpl : public FlightService::Service {
         return internal::ToGrpcStatus(server_->DoPut(std::move(message_reader)));
       }
     } else {
-      return grpc::Status::OK;
+      return internal::ToGrpcStatus(
+          Status(StatusCode::Invalid,
+                 "Client provided malformed message or did not provide message"));
     }
   }
 

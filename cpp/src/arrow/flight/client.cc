@@ -133,8 +133,10 @@ class FlightPutWriter::FlightPutWriterImpl : public ipc::RecordBatchWriter {
     // may invoke through vtable (not updated by reinterpret_cast)
     if (!custom_writer->grpc::ClientWriter<IpcPayload>::Write(payload,
                                                               grpc::WriteOptions())) {
-      // Stream ended?
-      return Status::UnknownError("Could not write record batch to stream");
+      std::stringstream ss;
+      ss << "Could not write record batch to stream: "
+         << rpc_->context.debug_error_string();
+      return Status::IOError(ss.str());
     }
     return Status::OK();
   }
@@ -313,7 +315,10 @@ class FlightClient::FlightClientImpl {
     descriptor_message.set_data_header(header_buf->ToString());
 
     if (!write_stream->Write(descriptor_message, grpc::WriteOptions())) {
-      return Status::UnknownError("Could not write initial message to stream");
+      std::stringstream ss;
+      ss << "Could not write descriptor and schema to stream: "
+         << rpc->context.debug_error_string();
+      return Status::IOError(ss.str());
     }
 
     out->set_stream(std::move(write_stream));
