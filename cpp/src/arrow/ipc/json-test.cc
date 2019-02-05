@@ -32,6 +32,7 @@
 #include "arrow/ipc/test-common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/test-random.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -216,48 +217,38 @@ TEST(TestJsonArrayWriter, Unions) {
 // Data generation for test case below
 void MakeBatchArrays(const std::shared_ptr<Schema>& schema, const int num_rows,
                      std::vector<std::shared_ptr<Array>>* arrays) {
-  std::vector<bool> is_valid;
-  random_is_valid(num_rows, 0.25, &is_valid);
+  const float null_prob = 0.25f;
+  random::RandomArrayGenerator rand(0x564a3bf0);
 
-  std::vector<int8_t> v1_values;
-  std::vector<int32_t> v2_values;
-
-  randint(num_rows, 0, 100, &v1_values);
-  randint(num_rows, 0, 100, &v2_values);
-
-  std::shared_ptr<Array> v1;
-  ArrayFromVector<Int8Type, int8_t>(is_valid, v1_values, &v1);
-
-  std::shared_ptr<Array> v2;
-  ArrayFromVector<Int32Type, int32_t>(is_valid, v2_values, &v2);
+  *arrays = {rand.Boolean(num_rows, 0.75, null_prob),
+             rand.Int8(num_rows, 0, 100, null_prob),
+             rand.Int32(num_rows, -1000, 1000, null_prob),
+             rand.UInt64(num_rows, 0, 1UL << 16, null_prob)};
 
   static const int kBufferSize = 10;
   static uint8_t buffer[kBufferSize];
   static uint32_t seed = 0;
   StringBuilder string_builder;
   for (int i = 0; i < num_rows; ++i) {
-    if (!is_valid[i]) {
-      ASSERT_OK(string_builder.AppendNull());
-    } else {
-      random_ascii(kBufferSize, seed++, buffer);
-      ASSERT_OK(string_builder.Append(buffer, kBufferSize));
-    }
+    random_ascii(kBufferSize, seed++, buffer);
+    ASSERT_OK(string_builder.Append(buffer, kBufferSize));
   }
   std::shared_ptr<Array> v3;
   ASSERT_OK(string_builder.Finish(&v3));
 
-  arrays->emplace_back(v1);
-  arrays->emplace_back(v2);
   arrays->emplace_back(v3);
 }
 
 TEST(TestJsonFileReadWrite, BasicRoundTrip) {
-  auto v1_type = int8();
-  auto v2_type = int32();
-  auto v3_type = utf8();
+  auto v1_type = boolean();
+  auto v2_type = int8();
+  auto v3_type = int32();
+  auto v4_type = uint64();
+  auto v5_type = utf8();
 
   auto schema =
-      ::arrow::schema({field("f1", v1_type), field("f2", v2_type), field("f3", v3_type)});
+      ::arrow::schema({field("f1", v1_type), field("f2", v2_type), field("f3", v3_type),
+                       field("f4", v4_type), field("f5", v5_type)});
 
   std::unique_ptr<JsonWriter> writer;
   ASSERT_OK(JsonWriter::Open(schema, &writer));
@@ -289,7 +280,7 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
   for (int i = 0; i < nbatches; ++i) {
     std::shared_ptr<RecordBatch> batch;
     ASSERT_OK(reader->ReadRecordBatch(i, &batch));
-    ASSERT_TRUE(batch->Equals(*batches[i]));
+    ASSERT_RECORD_BATCHES_EQUAL(*batch, *batches[i]);
   }
 }
 
