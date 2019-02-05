@@ -91,7 +91,6 @@ class PARQUET_EXPORT Scanner {
 template <typename DType>
 class PARQUET_TEMPLATE_CLASS_EXPORT TypedScanner : public Scanner {
  public:
-  using ReaderType = TypedColumnReader<DType>;
   typedef typename DType::c_type T;
 
   explicit TypedScanner(std::shared_ptr<ColumnReader> reader,

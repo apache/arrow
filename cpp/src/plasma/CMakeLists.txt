@@ -211,11 +211,14 @@ function(ADD_PLASMA_TEST REL_TEST_NAME)
     ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
-ADD_PLASMA_TEST(test/serialization_tests
-  EXTRA_LINK_LIBS plasma_shared ${PLASMA_LINK_LIBS})
+if (ARROW_BUILD_STATIC)
+  ADD_PLASMA_TEST(test/serialization_tests
+    EXTRA_LINK_LIBS plasma_static)
+endif()
+
 ADD_PLASMA_TEST(test/client_tests
-  EXTRA_LINK_LIBS plasma_shared ${PLASMA_LINK_LIBS}
+  EXTRA_LINK_LIBS plasma_shared
   EXTRA_DEPENDENCIES plasma_store_server)
 ADD_PLASMA_TEST(test/external_store_tests
-  EXTRA_LINK_LIBS plasma_shared ${PLASMA_LINK_LIBS}
+  EXTRA_LINK_LIBS plasma_shared
   EXTRA_DEPENDENCIES plasma_store_server)

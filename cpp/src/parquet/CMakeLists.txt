@@ -68,7 +68,7 @@ function(ADD_PARQUET_BENCHMARK REL_TEST_NAME)
   ADD_BENCHMARK(${REL_TEST_NAME}
     PREFIX ${PREFIX}
     LABELS "parquet-benchmarks"
-    ${PARQUET_BENCHMARK_LINK_OPTION}
+    ${PARQUET_BENCHMARK_LINK_LIBS}
     ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
@@ -123,15 +123,9 @@ set(PARQUET_STATIC_TEST_LINK_LIBS
   ${ARROW_LIBRARIES_FOR_STATIC_TESTS}
   parquet_static)
 
-if (WIN32)
-  # The benchmarks depend on some static Thrift symbols
-  set(PARQUET_BENCHMARK_LINK_OPTION
-    STATIC_LINK_LIBS arrow_benchmark_main
-    parquet_static)
-else()
-  set(PARQUET_BENCHMARK_LINK_OPTION
-    EXTRA_LINK_LIBS parquet_shared)
-endif()
+# The benchmarks depend on some static Thrift symbols
+set(PARQUET_BENCHMARK_LINK_LIBS
+  EXTRA_LINK_LIBS parquet_static)
 
 ############################################################
 # Generated Thrift sources
@@ -312,8 +306,10 @@ ADD_PARQUET_TEST(reader-test)
 ADD_PARQUET_TEST(file-deserialize-test USE_STATIC_LINKING)
 ADD_PARQUET_TEST(schema-test USE_STATIC_LINKING)
 
-ADD_PARQUET_BENCHMARK(column-io-benchmark)
-ADD_PARQUET_BENCHMARK(encoding-benchmark)
+if (ARROW_BUILD_STATIC)
+  ADD_PARQUET_BENCHMARK(column-io-benchmark)
+  ADD_PARQUET_BENCHMARK(encoding-benchmark)
+endif()
 
 # Required for tests, the ExternalProject for zstd does not build on CMake < 3.7
 if (ARROW_WITH_ZSTD)
