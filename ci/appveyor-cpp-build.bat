@@ -102,27 +102,27 @@ conda create -n arrow -q -y -c conda-forge ^
       thrift-cpp=0.11 ^
       boost-cpp
 
-call activate arrow
-
 set ARROW_LLVM_VERSION=6.0.1
 
 if "%ARROW_BUILD_GANDIVA%" == "ON" (
   @rem Install llvmdev in the toolchain if building gandiva.dll
-  conda install -q -y llvmdev=%ARROW_LLVM_VERSION% ^
-        clangdev=%ARROW_LLVM_VERSION% -c conda-forge || exit /B
+  conda install -n arrow -q -y llvmdev=%ARROW_LLVM_VERSION% ^
+        clangdev=%ARROW_LLVM_VERSION% -c conda-forge
 )
-
-@rem Use Boost from Anaconda
-set BOOST_ROOT=%CONDA_PREFIX%\Library
-set BOOST_LIBRARYDIR=%CONDA_PREFIX%\Library\lib
 
 if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds
-  conda install -q -y -c conda-forge ^
+  conda install -n arrow -q -y -c conda-forge ^
         --file=ci\conda_env_cpp.yml ^
         python=%PYTHON%
 
   set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 )
+
+call activate arrow
+
+@rem Use Boost from Anaconda
+set BOOST_ROOT=%CONDA_PREFIX%\Library
+set BOOST_LIBRARYDIR=%CONDA_PREFIX%\Library\lib
 
 call ci\cpp-msvc-build-main.bat
