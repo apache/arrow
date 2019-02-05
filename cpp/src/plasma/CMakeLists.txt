@@ -123,6 +123,12 @@ endif()
 
 list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external_store.cc" "hash_table_store.cc")
 
+if (ARROW_PLASMA_S3)
+  find_package(AWSSDK REQUIRED COMPONENTS "s3")
+  set(PLASMA_STATIC_LINK_LIBS ${PLASMA_STATIC_LINK_LIBS} ${AWSSDK_LINK_LIBRARIES})
+  list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "s3_store.cc")
+endif()
+
 # We use static libraries for the plasma_store_server executable so that it can
 # be copied around and used in different locations.
 add_executable(plasma_store_server ${PLASMA_EXTERNAL_STORE_SOURCES} store.cc)

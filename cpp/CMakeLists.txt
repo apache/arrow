@@ -249,6 +249,10 @@ static|shared (default shared)")
     "Build the plasma object store java client"
     OFF)
 
+  option(ARROW_PLASMA_S3
+    "Build S3 external store bindings for the plasma object store"
+    OFF)
+
   #----------------------------------------------------------------------
   # Thirdparty toolchain options
 
