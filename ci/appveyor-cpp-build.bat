@@ -108,7 +108,8 @@ set ARROW_LLVM_VERSION=6.0.1
 
 if "%ARROW_BUILD_GANDIVA%" == "ON" (
   @rem Install llvmdev in the toolchain if building gandiva.dll
-  conda install -q -y llvmdev=%ARROW_LLVM_VERSION% || exit /B
+  conda install -q -y llvmdev=%ARROW_LLVM_VERSION% ^
+        clangdev=%ARROW_LLVM_VERSION% -c conda-forge || exit /B
 )
 
 @rem Use Boost from Anaconda
