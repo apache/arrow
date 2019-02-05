@@ -114,7 +114,7 @@ int main(int argc, char** argv) {
   std::shared_ptr<arrow::Table> original_data;
   ABORT_NOT_OK(ReadToTable(reader, &original_data));
 
-  std::unique_ptr<arrow::flight::FlightPutWriter> write_stream;
+  std::unique_ptr<arrow::ipc::RecordBatchWriter> write_stream;
   ABORT_NOT_OK(client->DoPut(descr, reader->schema(), &write_stream));
   std::unique_ptr<arrow::RecordBatchReader> table_reader(
       new arrow::TableBatchReader(*original_data));

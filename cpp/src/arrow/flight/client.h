@@ -105,7 +105,7 @@ class ARROW_EXPORT FlightClient {
   /// \param[out] stream a writer to write record batches to
   /// \return Status
   Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
-               std::unique_ptr<FlightPutWriter>* stream);
+               std::unique_ptr<ipc::RecordBatchWriter>* stream);
 
  private:
   FlightClient();

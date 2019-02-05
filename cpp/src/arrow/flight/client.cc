@@ -290,7 +290,7 @@ class FlightClient::FlightClientImpl {
   }
 
   Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
-               std::unique_ptr<FlightPutWriter>* stream) {
+               std::unique_ptr<ipc::RecordBatchWriter>* stream) {
     std::unique_ptr<ClientRpc> rpc(new ClientRpc);
     std::unique_ptr<FlightPutWriter::FlightPutWriterImpl> out(
         new FlightPutWriter::FlightPutWriterImpl(std::move(rpc), descriptor, schema));
@@ -315,7 +315,8 @@ class FlightClient::FlightClientImpl {
     }
 
     out->set_stream(std::move(write_stream));
-    *stream = std::unique_ptr<FlightPutWriter>(new FlightPutWriter(std::move(out)));
+    *stream =
+        std::unique_ptr<ipc::RecordBatchWriter>(new FlightPutWriter(std::move(out)));
     return Status::OK();
   }
 
@@ -363,7 +364,7 @@ Status FlightClient::DoGet(const Ticket& ticket, const std::shared_ptr<Schema>& 
 
 Status FlightClient::DoPut(const FlightDescriptor& descriptor,
                            const std::shared_ptr<Schema>& schema,
-                           std::unique_ptr<FlightPutWriter>* stream) {
+                           std::unique_ptr<ipc::RecordBatchWriter>* stream) {
   return impl_->DoPut(descriptor, schema, stream);
 }
 
