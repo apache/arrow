@@ -130,10 +130,10 @@ values.
 
 ## Memory and Performance Benchmarks
 
-We can use the `memory_profiler` Python package to easily get process memory
-usage within a running Python application.
+We can use the [`memory_profiler`][2] Python package to easily get process
+memory usage within a running Python application.
 
-```
+```python
 import memory_profiler
 def mem():
     return memory_profiler.memory_usage()[0]
@@ -244,3 +244,4 @@ provide fast and memory-efficient interoperability with pandas and other
 popular libraries.
 
 [1]: https://www.slideshare.net/xhochy/extending-pandas-using-apache-arrow-and-numba
+[2]: https://pypi.org/project/memory-profiler/
