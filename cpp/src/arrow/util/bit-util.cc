@@ -296,21 +296,30 @@ void UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* 
 }
 
 template <typename BitOp, typename LogicalOp>
+void BitmapOp(const uint8_t* left, int64_t left_offset,
+                const uint8_t* right, int64_t right_offset, int64_t length,
+                int64_t out_offset, uint8_t* dest) {
+  if ((out_offset % 8 == left_offset % 8) && (out_offset % 8 == right_offset % 8)) {
+    // Fast case: can use bytewise AND
+    AlignedBitmapOp<BitOp>(left, left_offset, right, right_offset,
+                           dest, out_offset, length);
+  } else {
+    // Unaligned
+    UnalignedBitmapOp<LogicalOp>(left, left_offset, right, right_offset,
+                                 dest, out_offset, length);
+  }
+}
+
+
+template <typename BitOp, typename LogicalOp>
 Status BitmapOp(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
                 const uint8_t* right, int64_t right_offset, int64_t length,
                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) {
-  if ((out_offset % 8 == left_offset % 8) && (out_offset % 8 == right_offset % 8)) {
-    // Fast case: can use bytewise AND
-    const int64_t phys_bits = length + out_offset;
-    RETURN_NOT_OK(AllocateEmptyBitmap(pool, phys_bits, out_buffer));
-    AlignedBitmapOp<BitOp>(left, left_offset, right, right_offset,
-                           (*out_buffer)->mutable_data(), out_offset, length);
-  } else {
-    // Unaligned
-    RETURN_NOT_OK(AllocateEmptyBitmap(pool, length + out_offset, out_buffer));
-    UnalignedBitmapOp<LogicalOp>(left, left_offset, right, right_offset,
-                                 (*out_buffer)->mutable_data(), out_offset, length);
-  }
+
+  const int64_t phys_bits = length + out_offset;
+  RETURN_NOT_OK(AllocateEmptyBitmap(pool, phys_bits, out_buffer));
+  uint8_t* out = (*out_buffer)->mutable_data();
+  BitmapOp<BitOp, LogicalOp>(left, left_offset, right, right_offset, length, out_offset, out); 
   return Status::OK();
 }
 
@@ -336,6 +345,28 @@ Status BitmapXor(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
   return BitmapOp<std::bit_xor<uint8_t>, std::bit_xor<bool>>(
       pool, left, left_offset, right, right_offset, length, out_offset, out_buffer);
 }
+
+void BitmapAnd(const uint8_t* left, int64_t left_offset,
+                 const uint8_t* right, int64_t right_offset, int64_t length,
+                 int64_t out_offset, uint8_t* out) {
+  BitmapOp<std::bit_and<uint8_t>, std::logical_and<bool>>(
+      left, left_offset, right, right_offset, length, out_offset, out);
+}
+
+void BitmapOr(const uint8_t* left, int64_t left_offset,
+                const uint8_t* right, int64_t right_offset, int64_t length,
+                int64_t out_offset, uint8_t* out) {
+  BitmapOp<std::bit_or<uint8_t>, std::logical_or<bool>>(
+      left, left_offset, right, right_offset, length, out_offset, out);
+}
+
+void BitmapXor(const uint8_t* left, int64_t left_offset,
+                 const uint8_t* right, int64_t right_offset, int64_t length,
+                 int64_t out_offset, uint8_t* out) {
+  BitmapOp<std::bit_xor<uint8_t>, std::bit_xor<bool>>(
+      left, left_offset, right, right_offset, length, out_offset, out);
+}
+
 
 }  // namespace internal
 }  // namespace arrow
