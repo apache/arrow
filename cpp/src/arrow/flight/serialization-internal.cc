@@ -17,7 +17,9 @@
 
 #include "arrow/flight/serialization-internal.h"
 
-namespace grpc {
+namespace arrow {
+namespace flight {
+namespace internal {
 
 bool ReadBytesZeroCopy(const std::shared_ptr<arrow::Buffer>& source_data,
                        CodedInputStream* input, std::shared_ptr<arrow::Buffer>* out) {
@@ -30,4 +32,6 @@ bool ReadBytesZeroCopy(const std::shared_ptr<arrow::Buffer>& source_data,
   return input->Skip(static_cast<int>(length));
 }
 
-}  // namespace grpc
+}  // namespace internal
+}  // namespace flight
+}  // namespace arrow

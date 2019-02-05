@@ -61,16 +61,10 @@ struct FlightData {
   std::shared_ptr<Buffer> body;
 };
 
-}  // namespace flight
-}  // namespace arrow
+namespace internal {
 
-namespace grpc {
-
-using google::protobuf::internal::WireFormatLite;
 using google::protobuf::io::CodedInputStream;
 using google::protobuf::io::CodedOutputStream;
-
-using arrow::flight::FlightData;
 
 // More efficient writing of FlightData to gRPC output buffer
 // Implementation of ZeroCopyOutputStream that writes to a fixed-size buffer
@@ -116,7 +110,8 @@ class GrpcBuffer : public arrow::MutableBuffer {
     grpc_slice_unref(slice_);
   }
 
-  static arrow::Status Wrap(ByteBuffer* cpp_buf, std::shared_ptr<arrow::Buffer>* out) {
+  static arrow::Status Wrap(grpc::ByteBuffer* cpp_buf,
+                            std::shared_ptr<arrow::Buffer>* out) {
     // These types are guaranteed by static assertions in gRPC to have the same
     // in-memory representation
 
@@ -155,6 +150,22 @@ class GrpcBuffer : public arrow::MutableBuffer {
  private:
   grpc_slice slice_;
 };
+
+}  // namespace internal
+
+}  // namespace flight
+}  // namespace arrow
+
+namespace grpc {
+
+using arrow::flight::FlightData;
+using arrow::flight::internal::FixedSizeProtoWriter;
+using arrow::flight::internal::GrpcBuffer;
+using arrow::flight::internal::ReadBytesZeroCopy;
+
+using google::protobuf::internal::WireFormatLite;
+using google::protobuf::io::CodedInputStream;
+using google::protobuf::io::CodedOutputStream;
 
 // Helper to log status code, as gRPC doesn't expose why
 // (de)serialization fails
