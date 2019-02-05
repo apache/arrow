@@ -18,6 +18,7 @@
 #include <aws/core/utils/stream/SimpleStreamBuf.h>
 #include <aws/s3/model/GetObjectRequest.h>
 #include <aws/s3/model/PutObjectRequest.h>
+#include <memory>
 #include <string>
 
 #include "arrow/util/logging.h"
