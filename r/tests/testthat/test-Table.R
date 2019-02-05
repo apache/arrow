@@ -68,3 +68,15 @@ test_that("Table cast (ARROW-3741)", {
   expect_equal(tab2$column(0L)$type, int16())
   expect_equal(tab2$column(1L)$type, int64())
 })
+
+test_that("table_from_batches() cast (ARROW-3818)", {
+  d <- tibble::tibble(int = 1:10, dbl = rnorm(10))
+  batches <- purrr::rerun(10, record_batch(d))
+  table <- table_from_batches(!!!batches)
+  expect_is(table, "arrow::Table")
+  expect_equal(as_tibble(table), vctrs::vec_rbind(!!!purrr::rerun(10, d)))
+
+  table <- table_from_batches(!!!batches, schema = schema(int = int32(), dbl = float64()))
+  expect_is(table, "arrow::Table")
+  expect_equal(as_tibble(table), vctrs::vec_rbind(!!!purrr::rerun(10, d)))
+})

@@ -73,9 +73,9 @@ table_from_batches <- function(..., schema = NULL) {
   walk(batches, ~stopifnot(inherits(., "arrow::RecordBatch")))
 
   if(is.null(schema)) {
-    Table__FromRecordBatches(batches)
+    shared_ptr(`arrow::Table`, Table__FromRecordBatches(batches))
   } else if(inherits(schema, "arrow::Schema")) {
-    Table__FromRecordBatches_Schema(batches, schema)
+    shared_ptr(`arrow::Table`, Table__FromRecordBatches_Schema(batches, schema))
   } else {
     abort("schema should be NULL or a `arrow::Scherma")
   }
