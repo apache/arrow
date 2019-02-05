@@ -19,6 +19,7 @@
 #include <arrow/util/task-group.h>
 #include "./arrow_types.h"
 #include <arrow/util/decimal.h>
+#include <arrow/util/checked_cast.h>
 
 namespace arrow {
 namespace r {
@@ -455,17 +456,20 @@ class Converter_Timestamp : public Converter_Time<value_type> {
 
 class Converter_Decimal : public Converter {
  public:
-  explicit Converter_Decimal(const ArrayVector& arrays) :
-    Converter(arrays), precision(static_cast<arrow::Decimal128Type*>(arrays[0]->type().get())->precision()), scale(static_cast<arrow::Decimal128Type*>(arrays[0]->type().get())->scale()) {}
+  explicit Converter_Decimal(const ArrayVector& arrays) : Converter(arrays){
+    const auto& type = internal::checked_cast<const arrow::Decimal128Type&>(*arrays[0]->type().get());
+    precision = type.precision();
+    scale = type.scale();
+  }
 
   SEXP Allocate(R_xlen_t n) const {
-    List data(1);
+    Rcpp::List data(1);
     data.attr("class") = classes();
     data.attr("names") = names();
     data.attr("scale") = scale;
     data.attr("precision") = precision;
 
-    data[0] = ComplexVector_(no_init(n));
+    data[0] = Rcpp::ComplexVector_(no_init(n));
 
     return data;
   }
