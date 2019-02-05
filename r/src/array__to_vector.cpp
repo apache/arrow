@@ -18,6 +18,7 @@
 #include <arrow/util/parallel.h>
 #include <arrow/util/task-group.h>
 #include "./arrow_types.h"
+#include <arrow/util/decimal.h>
 
 namespace arrow {
 namespace r {
@@ -454,36 +455,54 @@ class Converter_Timestamp : public Converter_Time<value_type> {
 
 class Converter_Decimal : public Converter {
  public:
-  explicit Converter_Decimal(const ArrayVector& arrays) : Converter(arrays) {}
+  explicit Converter_Decimal(const ArrayVector& arrays) :
+    Converter(arrays), precision(static_cast<arrow::Decimal128Type*>(arrays[0]->type().get())->precision()), scale(static_cast<arrow::Decimal128Type*>(arrays[0]->type().get())->scale()) {}
 
-  SEXP Allocate(R_xlen_t n) const { return Rcpp::NumericVector_(no_init(n)); }
+  SEXP Allocate(R_xlen_t n) const {
+    List data(1);
+    data.attr("class") = classes();
+    data.attr("names") = names();
+    data.attr("scale") = scale;
+    data.attr("precision") = precision;
+
+    data[0] = ComplexVector_(no_init(n));
+
+    return data;
+  }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
-    return AllNull_Ingest<REALSXP>(data, start, n);
+    // return AllNull_Ingest<REALSXP>(data, start, n);
+    // not sure what to do here yet
+    return Status::OK();
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n) const {
-    auto p_data = Rcpp::internal::r_vector_start<REALSXP>(data) + start;
-    const auto& decimals_arr =
-        internal::checked_cast<const arrow::Decimal128Array&>(*array);
-
-    if (array->null_count()) {
-      internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
-                                           n);
-
-      for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
-        *p_data = bitmap_reader.IsSet() ? std::stod(decimals_arr.FormatValue(i).c_str())
-                                        : NA_REAL;
-      }
-    } else {
-      for (size_t i = 0; i < n; i++, ++p_data) {
-        *p_data = std::stod(decimals_arr.FormatValue(i).c_str());
-      }
+    auto p_data = reinterpret_cast<arrow::Decimal128*>(Rcpp::internal::r_vector_start<CPLXSXP>(VECTOR_ELT(data, 0))) + start;
+    auto p_values = array->data()->GetValues<arrow::Decimal128>(1);
+    if (!p_values) {
+      return Status::Invalid("Invalid data buffer");
     }
 
+    std::copy_n(p_values, n, p_data);
     return Status::OK();
   }
+
+private:
+
+  int precision;
+  int scale;
+
+  static SEXP classes(){
+    static Rcpp::CharacterVector res(Rcpp::CharacterVector::create("arrow_decimal128", "vctrs_rcrd", "vctrs_vctr"));
+    return res;
+  }
+
+  static SEXP names(){
+    static Rcpp::CharacterVector res(Rcpp::CharacterVector::create("data"));
+    return res;
+  }
+
 };
 
 class Converter_Int64 : public Converter {
