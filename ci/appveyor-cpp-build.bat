@@ -95,29 +95,21 @@ if "%JOB%" == "Build_Debug" (
   exit /B 0
 )
 
-conda create -n arrow -q -y -c conda-forge ^
-      --file=ci\conda_env_python.yml ^
-      python=%PYTHON% ^
-      numpy=1.14 ^
-      thrift-cpp=0.11 ^
-      boost-cpp
-
 set ARROW_LLVM_VERSION=6.0.1
+set CONDA_PACKAGES=--file=ci\conda_env_python.yml python=%PYTHON% numpy=1.14 thrift-cpp=0.11 boost-cpp
 
 if "%ARROW_BUILD_GANDIVA%" == "ON" (
   @rem Install llvmdev in the toolchain if building gandiva.dll
-  conda install -n arrow -q -y llvmdev=%ARROW_LLVM_VERSION% ^
-        clangdev=%ARROW_LLVM_VERSION% -c conda-forge
+  set CONDA_PACKAGES=%CONDA_PACKAGES% llvmdev=%ARROW_LLVM_VERSION% clangdev=%ARROW_LLVM_VERSION%
 )
 
 if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds
-  conda install -n arrow -q -y -c conda-forge ^
-        --file=ci\conda_env_cpp.yml ^
-        python=%PYTHON%
-
+  set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.yml
   set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 )
+
+conda create -n arrow -q -y %CONDA_PACKAGES% -c conda-forge
 
 call activate arrow
 
