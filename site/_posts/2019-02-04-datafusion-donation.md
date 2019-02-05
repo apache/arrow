@@ -28,7 +28,7 @@ We are excited to announce that [DataFusion](https://github.com/apache/arrow/tre
 
 Although DataFusion was started two years ago, it was recently re-implemented to be Arrow-native and currently has limited capabilities but does support SQL queries against iterators of RecordBatch and has support for CSV files. There are plans to [add support for Parquet files](https://issues.apache.org/jira/browse/ARROW-4466).
 
-SQL support is limited to projection (`SELECT`), selection (`WHERE`), and simple aggregates (`MIN`, `MAX`, `SUM`) with support for `GROUP BY`.
+SQL support is limited to projection (`SELECT`), selection (`WHERE`), and simple aggregates (`MIN`, `MAX`, `SUM`) with an optional `GROUP BY` clause.
 
 Supported expressions are identifiers, literals, simple math operations (`+`, `-`, `*`, `/`), binary expressions (`AND`, `OR`), equality and comparison operators (`=`, `!=`, `<`, `<=`, `>=`, `>`), and `CAST(expr AS type)`.
 
