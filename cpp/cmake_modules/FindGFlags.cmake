@@ -40,7 +40,6 @@ set(GFLAGS_STATIC_LIB_NAME
   ${CMAKE_STATIC_LIBRARY_PREFIX}gflags${GFLAGS_STATIC_LIB_SUFFIX})
 
 message(STATUS "GFLAGS_HOME: ${GFLAGS_HOME}")
-message(STATUS "_gflags_roots: ${_gflags_roots}")
 
 if ( _gflags_roots )
   find_path(GFLAGS_INCLUDE_DIR NAMES gflags/gflags.h

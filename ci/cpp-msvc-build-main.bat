@@ -22,7 +22,8 @@ set ARROW_HOME=%CONDA_PREFIX%\Library
 set CMAKE_ARGS=-DARROW_VERBOSE_THIRDPARTY_BUILD=OFF
 
 if "%JOB%" == "Toolchain" (
-    set CMAKE_ARGS=%CMAKE_ARGS% -DARROW_WITH_BZ2=ON
+  set CMAKE_ARGS=%CMAKE_ARGS% -DARROW_WITH_BZ2=ON
+  set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 )
 
 @rem Retrieve git submodules, configure env var for Parquet unit tests

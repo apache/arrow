@@ -106,7 +106,6 @@ if "%ARROW_BUILD_GANDIVA%" == "ON" (
 if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds
   set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.yml
-  set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 )
 
 conda create -n arrow -q -y %CONDA_PACKAGES% -c conda-forge
