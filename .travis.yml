@@ -74,8 +74,8 @@ matrix:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
     - export CC="clang-7"
     - export CXX="clang++-7"
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     # If either C++ or Python changed, we must install the C++ libraries
     - git submodule update --init
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
@@ -99,8 +99,8 @@ matrix:
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     # If either C++ or Python changed, we must install the C++ libraries
     - git submodule update --init
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
@@ -133,8 +133,8 @@ matrix:
     - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     # If either C++ or Python changed, we must install the C++ libraries
     - git submodule update --init
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
@@ -160,8 +160,8 @@ matrix:
     # - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
     before_script:
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ] && [ $ARROW_CI_DOCS_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh || travis_terminate 1
@@ -266,8 +266,8 @@ matrix:
     - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
     - export CC="clang-7"
     - export CXX="clang++-7"
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - nvm install 11.6
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
@@ -297,8 +297,8 @@ matrix:
     - ARROW_TRAVIS_PLASMA=1
     before_script:
     - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_ruby.sh
