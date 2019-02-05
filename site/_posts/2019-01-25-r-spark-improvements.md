@@ -95,7 +95,7 @@ microbenchmark::microbenchmark(
 ```
 
 <div align="center">
-<img src="{{ site.base-url }}/img/arrow-r-spark-copying.png"
+<img src="{{ site.baseurl }}/img/arrow-r-spark-copying.png"
      alt="Copying data with R into Spark with and without Arrow"
      width="60%" class="img-responsive">
 </div>
@@ -131,7 +131,7 @@ Unit: seconds
 ```
 
 <div align="center">
-<img src="{{ site.base-url }}/img/arrow-r-spark-collecting.png"
+<img src="{{ site.baseurl }}/img/arrow-r-spark-collecting.png"
      alt="Collecting data with R from Spark with and without Arrow"
      width="60%" class="img-responsive">
 </div>
