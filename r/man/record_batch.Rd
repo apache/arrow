@@ -7,7 +7,9 @@
 record_batch(..., schema = NULL)
 }
 \arguments{
-\item{.data}{a data frame}
+\item{...}{A variable number of arrow::Array}
+
+\item{schema}{a arrow::Schema}
 }
 \value{
 a \link[=arrow__RecordBatch]{arrow::RecordBatch}
