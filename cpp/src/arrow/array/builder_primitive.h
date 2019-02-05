@@ -256,14 +256,12 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
     ARROW_RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(valid_bytes, length);
-
     return Status::OK();
   }
 
   Status AppendNull() {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(false);
-
     return Status::OK();
   }
 
@@ -278,11 +276,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   /// Scalar append, without checking for capacity
   void UnsafeAppend(const bool val) {
-    if (val) {
-      BitUtil::SetBit(raw_data_, length_);
-    } else {
-      BitUtil::ClearBit(raw_data_, length_);
-    }
+    data_builder_.UnsafeAppend(val);
     UnsafeAppendToBitmap(true);
   }
 
@@ -340,10 +334,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
-    auto iter = values_begin;
-    internal::GenerateBitsUnrolled(raw_data_, length_, length,
-                                   [&iter]() -> bool { return *(iter++); });
-
+    data_builder_.UnsafeAppend(length, [&values_begin]() -> bool { return *values_begin++; });
     // this updates length_
     UnsafeSetNotNull(length);
     return Status::OK();
@@ -364,15 +355,10 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
 
-    auto iter = values_begin;
-    internal::GenerateBitsUnrolled(raw_data_, length_, length,
-                                   [&iter]() -> bool { return *(iter++); });
-
-    // this updates length_
-    for (int64_t i = 0; i != length; ++i) {
-      ArrayBuilder::UnsafeAppendToBitmap(*valid_begin);
-      ++valid_begin;
-    }
+    data_builder_.UnsafeAppend(length, [&values_begin]() -> bool { return *values_begin++; });
+    null_bitmap_builder_.UnsafeAppend(length, [&valid_begin]() -> bool { return *valid_begin++; });
+    length_ = null_bitmap_builder_.length();
+    null_count_ = null_bitmap_builder_.false_count();
     return Status::OK();
   }
 
@@ -382,21 +368,15 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
+    data_builder_.UnsafeAppend(length, [&values_begin]() -> bool { return *values_begin++; });
 
-    auto iter = values_begin;
-    internal::GenerateBitsUnrolled(raw_data_, length_, length,
-                                   [&iter]() -> bool { return *(iter++); });
-
-    // this updates the length_
     if (valid_begin == NULLPTR) {
       UnsafeSetNotNull(length);
     } else {
-      for (int64_t i = 0; i != length; ++i) {
-        ArrayBuilder::UnsafeAppendToBitmap(*valid_begin);
-        ++valid_begin;
-      }
+      null_bitmap_builder_.UnsafeAppend(length, [&valid_begin]() -> bool { return *valid_begin++; });
     }
-
+    length_ = null_bitmap_builder_.length();
+    null_count_ = null_bitmap_builder_.false_count();
     return Status::OK();
   }
 
@@ -405,8 +385,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   Status Resize(int64_t capacity) override;
 
  protected:
-  std::shared_ptr<ResizableBuffer> data_;
-  uint8_t* raw_data_;
+  TypedBufferBuilder<bool> data_builder_;
 };
 
 }  // namespace arrow

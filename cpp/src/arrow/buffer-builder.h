@@ -298,6 +298,17 @@ class TypedBufferBuilder<bool> {
     bit_length_ += num_copies;
   }
 
+  template <typename Generator>
+  void UnsafeAppend(const int64_t num_elements, Generator&& gen) {
+    if (num_elements == 0) return;
+    internal::GenerateBitsUnrolled(mutable_data(), bit_length_, num_elements, [&] {
+      bool value = gen();
+      if (!value) ++false_count_;
+      return value;
+    });
+    bit_length_ += num_elements;
+  }
+
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
     const int64_t old_byte_capacity = bytes_builder_.capacity();
     const int64_t new_byte_capacity = BitUtil::BytesForBits(new_capacity);
