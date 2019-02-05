@@ -75,6 +75,7 @@ class FlightStreamReader : public RecordBatchReader {
     }
 
     // For customizing read path for better memory/serialization efficiency
+    // XXX this cast is undefined behavior
     auto custom_reader = reinterpret_cast<grpc::ClientReader<FlightData>*>(stream_.get());
 
     // Explicitly specify the override to invoke - otherwise compiler
@@ -126,6 +127,7 @@ class FlightPutWriter::FlightPutWriterImpl : public ipc::RecordBatchWriter {
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override {
     IpcPayload payload;
     RETURN_NOT_OK(ipc::internal::GetRecordBatchPayload(batch, pool_, &payload));
+    // XXX this cast is undefined behavior
     auto custom_writer = reinterpret_cast<grpc::ClientWriter<IpcPayload>*>(writer_.get());
     // Explicitly specify the override to invoke - otherwise compiler
     // may invoke through vtable (not updated by reinterpret_cast)

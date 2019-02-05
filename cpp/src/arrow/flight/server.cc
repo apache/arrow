@@ -73,6 +73,7 @@ class FlightMessageReaderImpl : public FlightMessageReader {
       return Status::OK();
     }
 
+    // XXX this cast is undefined behavior
     auto custom_reader = reinterpret_cast<grpc::ServerReader<FlightData>*>(reader_);
 
     FlightData data;
@@ -184,6 +185,7 @@ class FlightServiceImpl : public FlightService::Service {
     GRPC_RETURN_NOT_OK(server_->DoGet(ticket, &data_stream));
 
     // Requires ServerWriter customization in grpc_customizations.h
+    // XXX this cast is undefined behavior
     auto custom_writer = reinterpret_cast<ServerWriter<IpcPayload>*>(writer);
 
     // Write the schema as the first message in the stream
@@ -192,7 +194,10 @@ class FlightServiceImpl : public FlightService::Service {
     ipc::DictionaryMemo dictionary_memo;
     GRPC_RETURN_NOT_OK(ipc::internal::GetSchemaPayload(
         *data_stream->schema(), pool, &dictionary_memo, &schema_payload));
-    custom_writer->Write(schema_payload, grpc::WriteOptions());
+    // Explicitly specify the override to invoke - otherwise compiler
+    // may invoke through vtable (not updated by reinterpret_cast)
+    custom_writer->grpc::ServerWriter<IpcPayload>::Write(schema_payload,
+                                                         grpc::WriteOptions());
 
     while (true) {
       IpcPayload payload;
