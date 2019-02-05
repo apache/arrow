@@ -373,6 +373,7 @@ cdef class PlasmaClient:
             The number of milliseconds that the get call should block before
             timing out and returning. Pass -1 if the call should block and 0
             if the call should return immediately.
+        with_meta : bool
 
         Returns
         -------
