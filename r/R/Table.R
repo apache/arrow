@@ -64,3 +64,8 @@ table <- function(.data){
 `as_tibble.arrow::Table` <- function(x, use_threads = TRUE, ...){
   Table__to_dataframe(x, use_threads = use_threads)
 }
+
+#' @export
+`dim.arrow::Table` <- function(x) {
+  c(x$num_rows, x$num_columns)
+}

@@ -68,3 +68,9 @@ test_that("Table cast (ARROW-3741)", {
   expect_equal(tab2$column(0L)$type, int16())
   expect_equal(tab2$column(1L)$type, int64())
 })
+
+test_that("Table dim() and nrow() (ARROW-3816)", {
+  batch <- table(tibble::tibble(x = 1:10, y  = 1:10))
+  expect_equal(dim(batch), c(10L, 2L))
+  expect_equal(nrow(batch), 10L)
+})
