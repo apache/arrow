@@ -48,7 +48,7 @@ test_that("read_record_batch() handles (raw|Buffer|InputStream, Schema) (ARROW-3
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
   )
-  batch <- record_batch(tbl)
+  batch <- record_batch(!!!tbl)
   schema <- batch$schema
 
   raw <- batch$serialize()
@@ -64,7 +64,7 @@ test_that("read_record_batch() handles (raw|Buffer|InputStream, Schema) (ARROW-3
 })
 
 test_that("read_record_batch() can handle (Message, Schema) parameters (ARROW-3499)", {
-  batch <- record_batch(tibble::tibble(x = 1:10))
+  batch <- record_batch(x = 1:10)
   schema <- batch$schema
 
   raw <- batch$serialize()

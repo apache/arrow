@@ -2046,6 +2046,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// RecordBatch__from_arrays
+std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(const std::shared_ptr<arrow::Schema>& schema, List_ lst);
+RcppExport SEXP _arrow_RecordBatch__from_arrays(SEXP schemaSEXP, SEXP lstSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type schema(schemaSEXP);
+    Rcpp::traits::input_parameter< List_ >::type lst(lstSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__from_arrays(schema, lst));
+    return rcpp_result_gen;
+END_RCPP
+}
 // RecordBatchReader__schema
 std::shared_ptr<arrow::Schema> RecordBatchReader__schema(const std::shared_ptr<arrow::RecordBatchReader>& reader);
 RcppExport SEXP _arrow_RecordBatchReader__schema(SEXP readerSEXP) {
@@ -2495,6 +2507,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_RecordBatch__Slice2", (DL_FUNC) &_arrow_RecordBatch__Slice2, 3},
     {"_arrow_ipc___SerializeRecordBatch__Raw", (DL_FUNC) &_arrow_ipc___SerializeRecordBatch__Raw, 1},
     {"_arrow_ipc___ReadRecordBatch__InputStream__Schema", (DL_FUNC) &_arrow_ipc___ReadRecordBatch__InputStream__Schema, 2},
+    {"_arrow_RecordBatch__from_arrays", (DL_FUNC) &_arrow_RecordBatch__from_arrays, 2},
     {"_arrow_RecordBatchReader__schema", (DL_FUNC) &_arrow_RecordBatchReader__schema, 1},
     {"_arrow_RecordBatchReader__ReadNext", (DL_FUNC) &_arrow_RecordBatchReader__ReadNext, 1},
     {"_arrow_ipc___RecordBatchStreamReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__Open, 1},

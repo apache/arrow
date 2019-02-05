@@ -145,3 +145,18 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(
   STOP_IF_NOT_OK(arrow::ipc::ReadRecordBatch(schema, &memo, stream.get(), &batch));
   return batch;
 }
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(const std::shared_ptr<arrow::Schema>& schema, List_ lst) {
+  auto arrays = arrow::r::list_to_shared_ptr_vector<arrow::Array>(lst);
+
+  // check all sizes are the same
+  int64_t num_rows= arrays[0]->length();
+  for(int64_t i = 1; i<arrays.size(); i++) {
+    if (arrays[i]->length() != num_rows) {
+      Rcpp::stop("All arrays must have the same length");
+    }
+  }
+
+  return arrow::RecordBatch::Make(schema, num_rows, arrays);
+}

@@ -72,7 +72,7 @@ write_feather.default <- function(data, stream) {
 
 #' @export
 write_feather.data.frame <- function(data, stream) {
-  write_feather(record_batch(data), stream)
+  write_feather(record_batch(!!!data), stream)
 }
 
 #' @method write_feather arrow::RecordBatch

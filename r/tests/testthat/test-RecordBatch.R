@@ -24,7 +24,7 @@ test_that("RecordBatch", {
     chr = letters[1:10],
     fct = factor(letters[1:10])
   )
-  batch <- record_batch(tbl)
+  batch <- record_batch(!!!tbl)
 
   expect_true(batch == batch)
   expect_equal(
@@ -93,7 +93,7 @@ test_that("RecordBatch with 0 rows are supported", {
     fct = factor(character(), levels = c("a", "b"))
   )
 
-  batch <- record_batch(tbl)
+  batch <- record_batch(!!!tbl)
   expect_equal(batch$num_columns, 5L)
   expect_equal(batch$num_rows, 0L)
   expect_equal(
