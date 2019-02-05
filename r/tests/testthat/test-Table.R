@@ -70,7 +70,7 @@ test_that("Table cast (ARROW-3741)", {
 })
 
 test_that("Table dim() and nrow() (ARROW-3816)", {
-  batch <- table(tibble::tibble(x = 1:10, y  = 1:10))
-  expect_equal(dim(batch), c(10L, 2L))
-  expect_equal(nrow(batch), 10L)
+  tab <- table(tibble::tibble(x = 1:10, y  = 1:10))
+  expect_equal(dim(tab), c(10L, 2L))
+  expect_equal(nrow(tab), 10L)
 })
