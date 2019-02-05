@@ -79,7 +79,7 @@ public final class JdbcToArrowConfig {
    *
    * @return <code>true</code> to include field metadata, <code>false</code> to exclude it.
    */
-  public boolean getIncludeMetadata() {
+  public boolean shouldIncludeMetadata() {
     return includeMetadata;
   }
 }
