@@ -379,6 +379,8 @@ timestamp <- function(unit, timezone) {
 
 #' @rdname DataType
 #' @export
-decimal <- function(precision, scale) shared_ptr(`arrow::Decimal128Type`, Decimal128Type__initialize(precision, scale))
+decimal <- function(precision = 9L, scale = 0L) {
+  shared_ptr(`arrow::Decimal128Type`, Decimal128Type__initialize(precision, scale))
+}
 
 `arrow::NestedType` <- R6Class("arrow::NestedType", inherit = `arrow::DataType`)

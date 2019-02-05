@@ -86,7 +86,7 @@ null()
 
 timestamp(unit, timezone)
 
-decimal(precision, scale)
+decimal(precision = 9L, scale = 0L)
 
 list_of(type)
 

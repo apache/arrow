@@ -26,17 +26,17 @@
 #' @param ... TODO
 #'
 #' @export
-new_decimal128 <- function(data = complex(), precision = 10L, scale = 0L) {
+new_decimal128 <- function(data = complex(), precision = 9L, scale = 0L) {
   stopifnot(is.complex(data))
-  stopifnot(is.integer(precision), length(precision) == 1L)
-  stopifnot(is.integer(scale), length(scale) == 1L)
+  stopifnot(is.integer(precision), length(precision) == 1L, precision > 0L, precision < 39L)
+  stopifnot(is.integer(scale), length(scale) == 1L, scale <= precision )
 
   new_rcrd(list(data = data), precision = precision, scale = scale, class = "arrow_decimal128")
 }
 
 #' @rdname new_decimal128
 #' @export
-decimal128 <- function(data, precision = 10L, scale = 0L) {
+decimal128 <- function(data, precision = 9L, scale = 0L) {
   new_decimal128(data, precision = precision, scale = scale)
 }
 

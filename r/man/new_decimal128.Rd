@@ -8,9 +8,9 @@
 \alias{vec_cast.arrow_decimal128}
 \title{decimal type}
 \usage{
-new_decimal128(data = complex(), precision = 10L, scale = 0L)
+new_decimal128(data = complex(), precision = 9L, scale = 0L)
 
-decimal128(data, precision = 10L, scale = 0L)
+decimal128(data, precision = 9L, scale = 0L)
 
 \method{format}{arrow_decimal128}(x, ...)
 
