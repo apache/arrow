@@ -179,13 +179,12 @@ public class JdbcToArrow {
    * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
    *
    * @param resultSet ResultSet to use to fetch the data from underlying database
-   * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets.
+   * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets, or <code>null</code> if none.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    * @throws SQLException on error
    */
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, Calendar calendar) throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
-    Preconditions.checkNotNull(calendar, "Calendar object can not be null");
 
     return sqlToArrow(resultSet, new JdbcToArrowConfig(new RootAllocator(Integer.MAX_VALUE), calendar));
   }
@@ -195,7 +194,7 @@ public class JdbcToArrow {
    *
    * @param resultSet ResultSet to use to fetch the data from underlying database
    * @param allocator Memory allocator to use.
-   * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets.
+   * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets, or <code>null</code> if none.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    * @throws SQLException on error
    */
@@ -203,7 +202,6 @@ public class JdbcToArrow {
       throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
     Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
-    Preconditions.checkNotNull(calendar, "Calendar object can not be null");
 
     return sqlToArrow(resultSet, new JdbcToArrowConfig(allocator, calendar));
   }

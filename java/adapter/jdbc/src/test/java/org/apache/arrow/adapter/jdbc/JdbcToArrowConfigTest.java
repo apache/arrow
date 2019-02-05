@@ -42,14 +42,16 @@ public class JdbcToArrowConfigTest {
     new JdbcToArrowConfigBuilder(null, null);
   }
 
-  @Test(expected = NullPointerException.class)
   public void testConfigNullCalendar() {
-    new JdbcToArrowConfig(allocator, null);
+    JdbcToArrowConfig config = new JdbcToArrowConfig(allocator, null);
+    assertNull(config.getCalendar());
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test
   public void testBuilderNullCalendar() {
-    new JdbcToArrowConfigBuilder(allocator, null);
+    JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, null);
+    JdbcToArrowConfig config = builder.build();
+    assertNull(config.getCalendar());
   }
 
   @Test(expected = NullPointerException.class)
@@ -68,10 +70,11 @@ public class JdbcToArrowConfigTest {
     builder.setAllocator(null);
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test
   public void testSetNullCalendar() {
     JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, calendar);
-    builder.setCalendar(null);
+    JdbcToArrowConfig config = builder.setCalendar(null).build();
+    assertNull(config.getCalendar());
   }
 
   @Test
