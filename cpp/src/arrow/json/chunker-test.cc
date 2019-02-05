@@ -38,7 +38,6 @@ namespace json {
 // for object begin/end.
 
 using util::string_view;
-using namespace std::string_literals;
 
 template <typename Lines>
 std::string join(Lines&& lines, std::string delimiter) {
@@ -145,50 +144,54 @@ INSTANTIATE_TEST_CASE_P(ChunkerTest, BaseChunkerTest, ::testing::Values(true));
 INSTANTIATE_TEST_CASE_P(NoNewlineChunkerTest, BaseChunkerTest, ::testing::Values(false));
 
 constexpr auto object_count = 3;
-std::string lines[object_count] = {R"({"0":"ab","1":"c","2":""})",
-                                   R"({"0":"def","1":"","2":"gh"})",
-                                   R"({"0":"","1":"ij","2":"kl"})"};
+const std::vector<std::string>& lines() {
+  static const std::vector<std::string> l = {R"({"0":"ab","1":"c","2":""})",
+                                             R"({"0":"def","1":"","2":"gh"})",
+                                             R"({"0":"","1":"ij","2":"kl"})"};
+  return l;
+}
 
 TEST_P(BaseChunkerTest, Basics) {
-  AssertChunking(*chunker_, join(lines, "\n"), object_count);
+  AssertChunking(*chunker_, join(lines(), "\n"), object_count);
 }
 
 TEST_P(BaseChunkerTest, Empty) {
-  AssertChunking(*chunker_, "\n"s, 0);
-  AssertChunking(*chunker_, "\n\n"s, 0);
+  AssertChunking(*chunker_, "\n", 0);
+  AssertChunking(*chunker_, "\n\n", 0);
 }
 
 TEST(ChunkerTest, PrettyPrinted) {
   std::string pretty[object_count];
-  std::transform(std::begin(lines), std::end(lines), std::begin(pretty), PrettyPrint);
+  std::transform(std::begin(lines()), std::end(lines()), std::begin(pretty),
+                 PrettyPrint);
   auto chunker = MakeChunker(true);
   AssertChunking(*chunker, join(pretty, "\n"), object_count);
 }
 
 TEST(ChunkerTest, SingleLine) {
   auto chunker = MakeChunker(true);
-  AssertChunking(*chunker, join(lines, ""), object_count);
+  AssertChunking(*chunker, join(lines(), ""), object_count);
 }
 
 TEST_P(BaseChunkerTest, Straddling) {
-  AssertStraddledChunking(*chunker_, join(lines, "\n"));
+  AssertStraddledChunking(*chunker_, join(lines(), "\n"));
 }
 
 TEST(ChunkerTest, StraddlingPrettyPrinted) {
   std::string pretty[object_count];
-  std::transform(std::begin(lines), std::end(lines), std::begin(pretty), PrettyPrint);
+  std::transform(std::begin(lines()), std::end(lines()), std::begin(pretty), PrettyPrint);
   auto chunker = MakeChunker(true);
   AssertStraddledChunking(*chunker, join(pretty, "\n"));
 }
 
 TEST(ChunkerTest, StraddlingSingleLine) {
   auto chunker = MakeChunker(true);
-  AssertStraddledChunking(*chunker, join(lines, ""));
+  AssertStraddledChunking(*chunker, join(lines(), ""));
 }
 
 TEST_P(BaseChunkerTest, StraddlingEmpty) {
-  auto joined = join(lines, "\n");
-  auto first = string_view(joined).substr(0, lines[0].size() + 1);
+  auto joined = join(lines(), "\n");
+  auto first = string_view(joined).substr(0, lines()[0].size() + 1);
   auto rest = string_view(joined).substr(first.size());
   string_view first_whole;
   ASSERT_OK(chunker_->Process(first, &first_whole));

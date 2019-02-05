@@ -15,9 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <memory>
 #include <random>
-#include <sstream>
 #include <string>
+#include <vector>
+
+#include <rapidjson/writer.h>
 
 #include "arrow/test-util.h"
 #include "arrow/util/string_view.h"
@@ -26,41 +30,57 @@
 namespace arrow {
 namespace json {
 
-template <typename Engine>
-static Status GenerateValue(const std::shared_ptr<DataType>& type, Engine& e,
-                            std::ostream& os);
+using rapidjson::StringBuffer;
+using Writer = rapidjson::Writer<StringBuffer>;
 
 template <typename Engine>
-static Status GenerateObject(const std::vector<std::shared_ptr<Field>>& fields, Engine& e,
-                             std::ostream& os);
-
-template <typename Element>
-static Status CommaDelimited(int count, std::ostream& os, Element&& element);
+static void Generate(const std::shared_ptr<DataType>& type, Engine& e, Writer* writer);
 
 template <typename Engine>
-struct GenerateValueImpl {
+static void Generate(const std::vector<std::shared_ptr<Field>>& fields, Engine& e,
+                     Writer* writer);
+
+template <typename Engine>
+static void Generate(const std::shared_ptr<Schema>& schm, Engine& e, Writer* writer) {
+  Generate(schm->fields(), e, writer);
+}
+
+template <typename Engine>
+struct GenerateImpl {
+  Status Visit(const BooleanType&) {
+    writer.Bool(std::uniform_int_distribution<uint16_t>{}(e)&1);
+    return Status::OK();
+  }
   template <typename T>
-  Status Visit(T const&, enable_if_integer<T>* = nullptr) {
+  Status Visit(T const&, enable_if_unsigned_integer<T>* = nullptr) {
     auto val = std::uniform_int_distribution<>{}(e);
-    os << static_cast<typename T::c_type>(val);
+    writer.Uint64(static_cast<typename T::c_type>(val));
+    return Status::OK();
+  }
+  template <typename T>
+  Status Visit(T const&, enable_if_signed_integer<T>* = nullptr) {
+    auto val = std::uniform_int_distribution<>{}(e);
+    writer.Int64(static_cast<typename T::c_type>(val));
     return Status::OK();
   }
   template <typename T>
   Status Visit(T const&, enable_if_floating_point<T>* = nullptr) {
-    os << std::normal_distribution<typename T::c_type>{0, 1 << 10}(e);
+    auto val = std::normal_distribution<typename T::c_type>{0, 1 << 10}(e);
+    writer.Double(val);
     return Status::OK();
   }
   Status Visit(HalfFloatType const&) {
-    os << std::uniform_int_distribution<HalfFloatType::c_type>{}(e);
+    auto val = std::normal_distribution<double>{0, 1 << 10}(e);
+    writer.Double(val);
     return Status::OK();
   }
   template <typename T>
   Status Visit(T const&, enable_if_binary<T>* = nullptr) {
     auto size = std::poisson_distribution<>{4}(e);
-    std::uniform_int_distribution<short> gen_char(32, 127);  // FIXME generate UTF8
+    std::uniform_int_distribution<uint16_t> gen_char(32, 127);  // FIXME generate UTF8
     std::string s(size, '\0');
     for (char& ch : s) ch = static_cast<char>(gen_char(e));
-    os << std::quoted(s);
+    writer.String(s.c_str());
     return Status::OK();
   }
   template <typename T>
@@ -71,52 +91,39 @@ struct GenerateValueImpl {
   }
   Status Visit(const ListType& t) {
     auto size = std::poisson_distribution<>{4}(e);
-    os << "[";
-    RETURN_NOT_OK(CommaDelimited(
-        size, os, [&](int) { return GenerateValue(t.value_type(), e, os); }));
-    os << "]";
+    writer.StartArray();
+    for (int i = 0; i != size; ++i) Generate(t.value_type(), e, &writer);
+    writer.EndArray(size);
     return Status::OK();
   }
-  Status Visit(const StructType& t) { return GenerateObject(t.children(), e, os); }
+  Status Visit(const StructType& t) {
+    Generate(t.children(), e, &writer);
+    return Status::OK();
+  }
   Engine& e;
-  std::ostream& os;
+  rapidjson::Writer<rapidjson::StringBuffer>& writer;
 };
 
 template <typename Engine>
-static Status GenerateValue(const std::shared_ptr<DataType>& type, Engine& e,
-                            std::ostream& os) {
+static void Generate(const std::shared_ptr<DataType>& type, Engine& e, Writer* writer) {
   if (std::uniform_real_distribution<>{0, 1}(e) < .2) {
     // one out of 5 chance of null, anywhere
-    os << "null";
-    return Status::OK();
+    writer->Null();
+    return;
   }
-  GenerateValueImpl<Engine> visitor{e, os};
-  return VisitTypeInline(*type, &visitor);
-}
-
-template <typename Element>
-static Status CommaDelimited(int count, std::ostream& os, Element&& element) {
-  bool first = true;
-  for (int i = 0; i != count; ++i) {
-    if (first)
-      first = false;
-    else
-      os << ",";
-    RETURN_NOT_OK(element(i));
-  }
-  return Status::OK();
+  GenerateImpl<Engine> visitor = {e, *writer};
+  VisitTypeInline(*type, &visitor);
 }
 
 template <typename Engine>
-static Status GenerateObject(const std::vector<std::shared_ptr<Field>>& fields, Engine& e,
-                             std::ostream& os) {
-  os << "{";
-  RETURN_NOT_OK(CommaDelimited(static_cast<int>(fields.size()), os, [&](int i) {
-    os << std::quoted(fields[i]->name()) << ":";
-    return GenerateValue(fields[i]->type(), e, os);
-  }));
-  os << "}";
-  return Status::OK();
+static void Generate(const std::vector<std::shared_ptr<Field>>& fields, Engine& e,
+                     Writer* writer) {
+  writer->StartObject();
+  for (const auto& f : fields) {
+    writer->Key(f->name().c_str());
+    Generate(f->type(), e, writer);
+  }
+  writer->EndObject(static_cast<int>(fields.size()));
 }
 
 Status MakeBuffer(util::string_view data, std::shared_ptr<Buffer>* out) {

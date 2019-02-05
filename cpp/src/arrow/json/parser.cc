@@ -19,9 +19,11 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <limits>
 #include <sstream>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 #include <rapidjson/error/en.h>
 #include <rapidjson/reader.h>
@@ -68,7 +70,7 @@ class UnsafeStringBuilder {
   }
 
   Status Append(string_view str) {
-    DCHECK_LE(str.size(), capacity() - values_end_);
+    DCHECK_LE(static_cast<int64_t>(str.size()), capacity() - values_end_);
     RETURN_NOT_OK(AppendNextOffset());
     std::memcpy(values_buffer_->mutable_data() + values_end_, str.data(), str.size());
     length_ += 1;
@@ -174,7 +176,8 @@ const BuilderPtr BuilderPtr::null(Kind::kNull, 0, false);
 template <>
 class RawArrayBuilder<Kind::kBoolean> {
  public:
-  RawArrayBuilder(MemoryPool* pool) : data_builder_(pool), null_bitmap_builder_(pool) {}
+  explicit RawArrayBuilder(MemoryPool* pool)
+      : data_builder_(pool), null_bitmap_builder_(pool) {}
 
   Status Append(bool value) {
     RETURN_NOT_OK(data_builder_.Append(value));
@@ -220,7 +223,8 @@ class RawArrayBuilder<Kind::kBoolean> {
 /// into another array.
 class ScalarBuilder {
  public:
-  ScalarBuilder(MemoryPool* pool) : data_builder_(pool), null_bitmap_builder_(pool) {}
+  explicit ScalarBuilder(MemoryPool* pool)
+      : data_builder_(pool), null_bitmap_builder_(pool) {}
 
   Status Append(int32_t index) {
     RETURN_NOT_OK(data_builder_.Append(index));
@@ -269,7 +273,8 @@ class RawArrayBuilder<Kind::kString> : public ScalarBuilder {
 template <>
 class RawArrayBuilder<Kind::kArray> {
  public:
-  RawArrayBuilder(MemoryPool* pool) : offset_builder_(pool), null_bitmap_builder_(pool) {}
+  explicit RawArrayBuilder(MemoryPool* pool)
+      : offset_builder_(pool), null_bitmap_builder_(pool) {}
 
   Status Append(int32_t child_length) {
     RETURN_NOT_OK(offset_builder_.Append(offset_));
@@ -319,7 +324,7 @@ class RawArrayBuilder<Kind::kArray> {
 
 template <>
 struct RawArrayBuilder<Kind::kObject> {
-  RawArrayBuilder(MemoryPool* pool) : null_bitmap_builder_(pool) {}
+  explicit RawArrayBuilder(MemoryPool* pool) : null_bitmap_builder_(pool) {}
 
   Status Append() { return null_bitmap_builder_.Append(true); }
 
@@ -334,7 +339,7 @@ struct RawArrayBuilder<Kind::kObject> {
   }
 
   int AddField(std::string name, BuilderPtr builder) {
-    auto index = static_cast<int>(field_builders_.size());
+    auto index = num_fields();
     field_builders_.push_back(builder);
     name_to_index_.emplace(std::move(name), index);
     return index;
@@ -435,7 +440,7 @@ class HandlerBase : public BlockParser::Impl,
   }
 
   Status SetSchema(const Schema& s) {
-    DCHECK_EQ(arena<Kind::kObject>().size(), 0);
+    DCHECK_EQ(arena<Kind::kObject>().size(), 1);
     for (const auto& f : s.fields()) {
       BuilderPtr field_builder;
       RETURN_NOT_OK(MakeBuilder(*f->type(), 0, &field_builder));
@@ -446,7 +451,7 @@ class HandlerBase : public BlockParser::Impl,
   }
 
   Status Finish(BuilderPtr builder, std::shared_ptr<Array>* out) {
-    switch (builder.kind) {
+    switch (static_cast<Kind>(builder.kind)) {
       case Kind::kNull: {
         auto length = static_cast<int64_t>(builder.index);
         *out = std::make_shared<NullArray>(length);
@@ -570,7 +575,7 @@ class HandlerBase : public BlockParser::Impl,
     if (!builder_.nullable) {
       return ParseError("a required field was null");
     }
-    switch (builder_.kind) {
+    switch (static_cast<Kind>(builder_.kind)) {
       case Kind::kNull: {
         // increment null count stored inline
         // update the parent, since changing builder_ doesn't affect parent
@@ -722,64 +727,6 @@ class HandlerBase : public BlockParser::Impl,
 
 template <UnexpectedFieldBehavior>
 class Handler;
-/*
-  bool Null() {
-    // Ignore: maybe skip
-    return HandlerBase::Null();
-  }
-
-  bool Bool(bool value) {
-    // Ignore: maybe skip
-    // Infer: maybe promote from null
-    return HandlerBase::Bool(value);
-  }
-
-  bool RawNumber(const char* data, rapidjson::SizeType size, ...) {
-    // Ignore: maybe skip
-    // Infer: maybe promote from null
-    return HandlerBase::RawNumber(data, size);
-  }
-
-  bool String(const char* data, rapidjson::SizeType size, ...) {
-    // Ignore: maybe skip
-    // Infer: maybe promote from null
-    return HandlerBase::String(data, size);
-  }
-
-  bool StartObject() {
-    // Ignore: maybe skip
-    // Infer: maybe promote from null
-    return HandlerBase::StartObject();
-  }
-
-  bool Key(const char* key, rapidjson::SizeType len, ...) {
-    // Ignore: maybe skip or stop skipping
-    if (SetFieldBuilder(string_view(key, len))) {
-      return true;
-    }
-    // Ignore: start skipping
-    // Error: bail out
-    // Infer: add field to parent as Kind::kNull
-    status_ = ParseError("unexpected key");
-    return false;
-  }
-
-  bool EndObject(...) {
-    // Ignore: maybe skip or stop skipping
-    return HandlerBase::EndObject();
-  }
-
-  bool StartArray() {
-    // Ignore: maybe skip
-    // Infer: maybe promote from null
-    return HandlerBase::StartArray();
-  }
-
-  bool EndArray(...) {
-    // Ignore: maybe skip
-    return HandlerBase::EndArray();
-  }
-*/
 
 template <>
 class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
@@ -876,6 +823,77 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
   int skip_depth_ = std::numeric_limits<int>::max();
 };
 
+template <>
+class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
+ public:
+  Handler(MemoryPool* pool, std::shared_ptr<Buffer> scalar_storage)
+      : HandlerBase(pool, std::move(scalar_storage)) {}
+
+  Status Parse(const std::shared_ptr<Buffer>& json) override {
+    return DoParse(*this, json);
+  }
+
+  bool Bool(bool value) {
+    if (MaybePromoteFromNull<Kind::kBoolean>()) return false;
+    return HandlerBase::Bool(value);
+  }
+
+  bool RawNumber(const char* data, rapidjson::SizeType size, ...) {
+    if (MaybePromoteFromNull<Kind::kNumber>()) return false;
+    return HandlerBase::RawNumber(data, size);
+  }
+
+  bool String(const char* data, rapidjson::SizeType size, ...) {
+    if (MaybePromoteFromNull<Kind::kString>()) return false;
+    return HandlerBase::String(data, size);
+  }
+
+  bool StartObject() {
+    if (MaybePromoteFromNull<Kind::kObject>()) return false;
+    return HandlerBase::StartObject();
+  }
+
+  bool Key(const char* key, rapidjson::SizeType len, ...) {
+    if (SetFieldBuilder(string_view(key, len))) {
+      return true;
+    }
+    auto struct_builder = Cast<Kind::kObject>(builder_stack_.back());
+    auto leading_nulls = static_cast<uint32_t>(struct_builder->length() - 1);
+    builder_ = BuilderPtr(Kind::kNull, leading_nulls, true);
+    field_index_ = struct_builder->AddField(std::string(key, len), builder_);
+    return true;
+  }
+
+  bool StartArray() {
+    if (MaybePromoteFromNull<Kind::kArray>()) return false;
+    return HandlerBase::StartArray();
+  }
+
+ private:
+  // return true if a terminal error was encountered
+  template <Kind kind>
+  bool MaybePromoteFromNull() {
+    if (!builder_.kind_is(Kind::kNull)) return false;
+    auto parent = builder_stack_.back();
+    if (parent.kind_is(Kind::kArray)) {
+      auto list_builder = Cast<Kind::kArray>(parent);
+      DCHECK_EQ(list_builder->value_builder(), builder_);
+      status_ = MakeBuilder<kind>(builder_.index, &builder_);
+      if (!status_.ok()) return true;
+      list_builder = Cast<Kind::kArray>(parent);
+      list_builder->value_builder(builder_);
+    } else {
+      auto struct_builder = Cast<Kind::kObject>(parent);
+      DCHECK_EQ(struct_builder->field_builder(field_index_), builder_);
+      status_ = MakeBuilder<kind>(builder_.index, &builder_);
+      if (!status_.ok()) return true;
+      struct_builder = Cast<Kind::kObject>(parent);
+      struct_builder->field_builder(field_index_, builder_);
+    }
+    return false;
+  }
+};
+
 BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
                          std::shared_ptr<Buffer> scalar_storage)
     : pool_(pool), options_(options) {
@@ -898,6 +916,12 @@ BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
       break;
     }
     case UnexpectedFieldBehavior::InferType:
+      auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::InferType>>(
+          pool_, std::move(scalar_storage));
+      if (options.explicit_schema) {
+        handler->SetSchema(*options_.explicit_schema);
+      }
+      impl_ = std::move(handler);
       break;
   }
 }

@@ -17,7 +17,7 @@
 
 #include "benchmark/benchmark.h"
 
-#include <sstream>
+#include <iostream>
 #include <string>
 
 #include "arrow/json/options.h"
@@ -32,7 +32,7 @@ static void BenchmarkJSONParsing(benchmark::State& state,  // NOLINT non-const r
                                  ParseOptions options) {
   for (auto _ : state) {
     std::shared_ptr<Buffer> src;
-    ASSERT_OK(MakeBuffer(json, &src));
+    ABORT_NOT_OK(MakeBuffer(json, &src));
     BlockParser parser(options, src);
     ABORT_NOT_OK(parser.Parse(src));
     if (parser.num_rows() != num_rows) {
@@ -45,22 +45,25 @@ static void BenchmarkJSONParsing(benchmark::State& state,  // NOLINT non-const r
   state.SetBytesProcessed(state.iterations() * json.size());
 }
 
-static void BM_ParseJSONQuotedBlock(
+static void BM_ParseJSONBlockWithSchema(
     benchmark::State& state) {  // NOLINT non-const reference
   const int32_t num_rows = 5000;
-  auto schm = schema({field("int", int32()), field("str", utf8())});
-  std::mt19937_64 engine;
-  std::stringstream json;
-  for (int i = 0; i != num_rows; ++i) {
-    ABORT_NOT_OK(GenerateObject(schm->fields(), engine, json));
-    json << "\n";
-  }
   auto options = ParseOptions::Defaults();
-
-  BenchmarkJSONParsing(state, json.str(), num_rows, options);
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::Error;
+  options.explicit_schema = schema({field("int", int32()), field("str", utf8())});
+  std::mt19937_64 engine;
+  std::string json;
+  for (int i = 0; i != num_rows; ++i) {
+    StringBuffer sb;
+    Writer writer(sb);
+    Generate(options.explicit_schema, engine, &writer);
+    json += sb.GetString();
+    json += "\n";
+  }
+  BenchmarkJSONParsing(state, json, num_rows, options);
 }
 
-BENCHMARK(BM_ParseJSONQuotedBlock)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_ParseJSONBlockWithSchema)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 
 }  // namespace json
 }  // namespace arrow

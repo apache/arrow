@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cstdint>
+#include <iomanip>
 #include <string>
 #include <utility>
 #include <vector>
@@ -40,19 +41,23 @@ using util::string_view;
 
 namespace json {
 
-std::string scalars_only_src = R"(
+std::string scalars_only_src() {
+  return R"(
     { "hello": 3.5, "world": false, "yo": "thing" }
     { "hello": 3.2, "world": null }
     { "hello": 3.4, "world": null, "yo": "\u5fcd" }
     { "hello": 0.0, "world": true, "yo": null }
   )";
+}
 
-std::string nested_src = R"(
+std::string nested_src() {
+  return R"(
     { "hello": 3.5, "world": false, "yo": "thing", "arr": [1, 2, 3], "nuf": {} }
     { "hello": 3.2, "world": null, "arr": [2], "nuf": null }
     { "hello": 3.4, "world": null, "yo": "\u5fcd", "arr": [], "nuf": { "ps": 78 } }
     { "hello": 0.0, "world": true, "yo": null, "arr": null, "nuf": { "ps": 90 } }
   )";
+}
 
 void AssertRawStructArraysEqual(const StructArray& expected, const StructArray& actual);
 
@@ -82,6 +87,8 @@ void AssertRawArraysEqual(const Array& expected, const Array& actual) {
       ASSERT_EQ(expected.type_id(), Type::STRUCT);
       return AssertRawStructArraysEqual(static_cast<const StructArray&>(expected),
                                         static_cast<const StructArray&>(actual));
+    default:
+      FAIL();
   }
 }
 
@@ -105,7 +112,7 @@ void AssertParseColumns(ParseOptions options, string_view src_str,
   std::shared_ptr<Array> parsed;
   ASSERT_OK(parser.Finish(&parsed));
   auto struct_array = std::static_pointer_cast<StructArray>(parsed);
-  for (int i = 0; i != fields.size(); ++i) {
+  for (size_t i = 0; i != fields.size(); ++i) {
     std::shared_ptr<Array> column_expected;
     ASSERT_OK(ArrayFromJSON(fields[i]->type(), columns_json[i], &column_expected));
     auto column = struct_array->GetFieldByName(fields[i]->name());
@@ -121,7 +128,7 @@ TEST(BlockParserWithSchema, Basics) {
       schema({field("hello", float64()), field("world", boolean()), field("yo", utf8())});
   options.unexpected_field_behavior = UnexpectedFieldBehavior::Ignore;
   AssertParseColumns(
-      options, scalars_only_src,
+      options, scalars_only_src(),
       {field("hello", utf8()), field("world", boolean()), field("yo", utf8())},
       {"[\"3.5\", \"3.2\", \"3.4\", \"0.0\"]", "[false, null, null, true]",
        "[\"thing\", null, \"\xe5\xbf\x8d\", null]"});
@@ -142,7 +149,7 @@ TEST(BlockParserWithSchema, SkipFieldsOutsideSchema) {
   auto options = ParseOptions::Defaults();
   options.explicit_schema = schema({field("hello", float64()), field("yo", utf8())});
   options.unexpected_field_behavior = UnexpectedFieldBehavior::Ignore;
-  AssertParseColumns(options, scalars_only_src,
+  AssertParseColumns(options, scalars_only_src(),
                      {field("hello", utf8()), field("yo", utf8())},
                      {"[\"3.5\", \"3.2\", \"3.4\", \"0.0\"]",
                       "[\"thing\", null, \"\xe5\xbf\x8d\", null]"});
@@ -163,7 +170,7 @@ TEST(BlockParserWithSchema, Nested) {
   options.explicit_schema = schema({field("yo", utf8()), field("arr", list(int32())),
                                     field("nuf", struct_({field("ps", int32())}))});
   options.unexpected_field_behavior = UnexpectedFieldBehavior::Ignore;
-  AssertParseColumns(options, nested_src,
+  AssertParseColumns(options, nested_src(),
                      {field("yo", utf8()), field("arr", list(utf8())),
                       field("nuf", struct_({field("ps", utf8())}))},
                      {"[\"thing\", null, \"\xe5\xbf\x8d\", null]",
@@ -179,6 +186,27 @@ TEST(BlockParserWithSchema, FailOnIncompleteJson) {
   ASSERT_OK(MakeBuffer("{\"a\":0, \"b\"", &src));
   BlockParser parser(options, src);
   ASSERT_RAISES(Invalid, parser.Parse(src));
+}
+
+TEST(BlockParser, Basics) {
+  auto options = ParseOptions::Defaults();
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  AssertParseColumns(
+      options, scalars_only_src(),
+      {field("hello", utf8()), field("world", boolean()), field("yo", utf8())},
+      {"[\"3.5\", \"3.2\", \"3.4\", \"0.0\"]", "[false, null, null, true]",
+       "[\"thing\", null, \"\xe5\xbf\x8d\", null]"});
+}
+
+TEST(BlockParser, Nested) {
+  auto options = ParseOptions::Defaults();
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  AssertParseColumns(options, nested_src(),
+                     {field("yo", utf8()), field("arr", list(utf8())),
+                      field("nuf", struct_({field("ps", utf8())}))},
+                     {"[\"thing\", null, \"\xe5\xbf\x8d\", null]",
+                      R"([["1", "2", "3"], ["2"], [], null])",
+                      R"([{"ps":null}, null, {"ps":"78"}, {"ps":"90"}])"});
 }
 
 }  // namespace json

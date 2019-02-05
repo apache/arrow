@@ -20,6 +20,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 #if defined(ARROW_HAVE_SSE4_2)
@@ -117,7 +119,7 @@ class ReadOnlyStream {
 class StringStream : public ReadOnlyStream {
  public:
   using Ch = char;
-  StringStream(string_view string) : string_(string) {}
+  explicit StringStream(string_view string) : string_(string) {}
   Ch Peek() const {
     if (index_ == string_.size()) return '\0';
     return string_[index_];
@@ -133,7 +135,8 @@ class StringStream : public ReadOnlyStream {
 
 class MultiStringStream : public ReadOnlyStream {
  public:
-  MultiStringStream(std::vector<string_view> strings) : strings_(std::move(strings)) {
+  explicit MultiStringStream(std::vector<string_view> strings)
+      : strings_(std::move(strings)) {
     std::remove(strings_.begin(), strings_.end(), string_view(""));
     std::reverse(strings_.begin(), strings_.end());
   }

@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "arrow/util/logging.h"
