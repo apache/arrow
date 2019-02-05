@@ -60,6 +60,27 @@ table <- function(.data){
   shared_ptr(`arrow::Table`, Table__from_dataframe(.data))
 }
 
+#' Create a arrow::Table from record batches
+#'
+#' @param ... variable number of arrow::RecordBatch. This supports tidy dots splicing
+#' @param schema either NULL or a arrow::Schema
+#'
+#' @return a arrow::Table
+#'
+#' @export
+table_from_batches <- function(..., schema = NULL) {
+  batches <- list2(...)
+  walk(batches, ~stopifnot(inherits(., "arrow::RecordBatch")))
+
+  if(is.null(schema)) {
+    Table__FromRecordBatches(batches)
+  } else if(inherits(schema, "arrow::Schema")) {
+    Table__FromRecordBatches_Schema(batches, schema)
+  } else {
+    abort("schema should be NULL or a `arrow::Scherma")
+  }
+}
+
 #' @export
 `as_tibble.arrow::Table` <- function(x, use_threads = TRUE, ...){
   Table__to_dataframe(x, use_threads = use_threads)

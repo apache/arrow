@@ -198,5 +198,16 @@ class RBuffer : public MutableBuffer {
   Vec vec_;
 };
 
+template <typename T>
+std::vector<std::shared_ptr<T>> list_to_shared_ptr_vector(SEXP lst) {
+  SEXP* p = VECTOR_PTR(lst);
+  R_xlen_t n = XLENGTH(lst);
+  std::vector<std::shared_ptr<T>> res(n);
+  for (R_xlen_t i = 0; i < n; i++, ++p) {
+    res[i] = Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>>(*p);
+  }
+  return res;
+}
+
 }  // namespace r
 }  // namespace arrow

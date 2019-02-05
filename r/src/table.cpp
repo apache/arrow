@@ -33,6 +33,22 @@ std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl) {
 }
 
 // [[Rcpp::export]]
+std::shared_ptr<arrow::Table> Table__FromRecordBatches(List_ lst_batches) {
+  auto batches = arrow::r::list_to_shared_ptr_vector<arrow::RecordBatch>(lst_batches);
+  std::shared_ptr<arrow::Table> out;
+  STOP_IF_NOT_OK(arrow::Table::FromRecordBatches(batches, &out));
+  return out;
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Table> Table__FromRecordBatches_Schema(List_ lst_batches, const std::shared_ptr<arrow::Schema>& schema) {
+  auto batches = arrow::r::list_to_shared_ptr_vector<arrow::RecordBatch>(lst_batches);
+  std::shared_ptr<arrow::Table> out;
+  STOP_IF_NOT_OK(arrow::Table::FromRecordBatches(schema, batches, &out));
+  return out;
+}
+
+// [[Rcpp::export]]
 int Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
   return x->num_columns();
 }

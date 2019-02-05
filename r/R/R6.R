@@ -18,7 +18,7 @@
 #' @include enums.R
 #' @importFrom R6 R6Class
 #' @importFrom glue glue
-#' @importFrom purrr map map_int map2
+#' @importFrom purrr map map_int map2 walk
 #' @importFrom rlang dots_n
 #' @importFrom assertthat assert_that
 

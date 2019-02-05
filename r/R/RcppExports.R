@@ -793,6 +793,14 @@ Table__from_dataframe <- function(tbl) {
     .Call(`_arrow_Table__from_dataframe`, tbl)
 }
 
+Table__FromRecordBatches <- function(lst_batches) {
+    .Call(`_arrow_Table__FromRecordBatches`, lst_batches)
+}
+
+Table__FromRecordBatches_Schema <- function(lst_batches, schema) {
+    .Call(`_arrow_Table__FromRecordBatches_Schema`, lst_batches, schema)
+}
+
 Table__num_columns <- function(x) {
     .Call(`_arrow_Table__num_columns`, x)
 }

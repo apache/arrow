@@ -2222,6 +2222,29 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Table__FromRecordBatches
+std::shared_ptr<arrow::Table> Table__FromRecordBatches(List_ lst_batches);
+RcppExport SEXP _arrow_Table__FromRecordBatches(SEXP lst_batchesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List_ >::type lst_batches(lst_batchesSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__FromRecordBatches(lst_batches));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Table__FromRecordBatches_Schema
+std::shared_ptr<arrow::Table> Table__FromRecordBatches_Schema(List_ lst_batches, const std::shared_ptr<arrow::Schema>& schema);
+RcppExport SEXP _arrow_Table__FromRecordBatches_Schema(SEXP lst_batchesSEXP, SEXP schemaSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List_ >::type lst_batches(lst_batchesSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type schema(schemaSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__FromRecordBatches_Schema(lst_batches, schema));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Table__num_columns
 int Table__num_columns(const std::shared_ptr<arrow::Table>& x);
 RcppExport SEXP _arrow_Table__num_columns(SEXP xSEXP) {
@@ -2498,6 +2521,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 2},
     {"_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 2},
     {"_arrow_Table__from_dataframe", (DL_FUNC) &_arrow_Table__from_dataframe, 1},
+    {"_arrow_Table__FromRecordBatches", (DL_FUNC) &_arrow_Table__FromRecordBatches, 1},
+    {"_arrow_Table__FromRecordBatches_Schema", (DL_FUNC) &_arrow_Table__FromRecordBatches_Schema, 2},
     {"_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1},
     {"_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1},
     {"_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1},
