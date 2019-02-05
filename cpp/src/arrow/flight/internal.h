@@ -57,6 +57,8 @@ Status FromProto(const pb::Result& pb_result, Result* result);
 Status FromProto(const pb::Criteria& pb_criteria, Criteria* criteria);
 Status FromProto(const pb::Location& pb_location, Location* location);
 Status FromProto(const pb::Ticket& pb_ticket, Ticket* ticket);
+Status FromProto(const pb::FlightData& pb_data, FlightDescriptor* descriptor,
+                 std::unique_ptr<ipc::Message>* message);
 Status FromProto(const pb::FlightDescriptor& pb_descr, FlightDescriptor* descr);
 Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint);
 Status FromProto(const pb::FlightGetInfo& pb_info, FlightInfo::Data* info);

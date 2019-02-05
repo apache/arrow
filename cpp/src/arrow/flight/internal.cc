@@ -131,6 +131,21 @@ void ToProto(const Ticket& ticket, pb::Ticket* pb_ticket) {
   pb_ticket->set_ticket(ticket.ticket);
 }
 
+// FlightData
+
+Status FromProto(const pb::FlightData& pb_data, FlightDescriptor* descriptor,
+                 std::unique_ptr<ipc::Message>* message) {
+  RETURN_NOT_OK(internal::FromProto(pb_data.flight_descriptor(), descriptor));
+  const std::string& header = pb_data.data_header();
+  const std::string& body = pb_data.data_body();
+  std::shared_ptr<Buffer> header_buf = Buffer::Wrap(header.data(), header.size());
+  std::shared_ptr<Buffer> body_buf = Buffer::Wrap(body.data(), body.size());
+  if (header_buf == nullptr || body_buf == nullptr) {
+    return Status::UnknownError("Could not create buffers from protobuf");
+  }
+  return ipc::Message::Open(header_buf, body_buf, message);
+}
+
 // FlightEndpoint
 
 Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint) {
@@ -156,7 +171,7 @@ Status FromProto(const pb::FlightDescriptor& pb_descriptor,
                  FlightDescriptor* descriptor) {
   if (pb_descriptor.type() == pb::FlightDescriptor::PATH) {
     descriptor->type = FlightDescriptor::PATH;
-    descriptor->path.resize(pb_descriptor.path_size());
+    descriptor->path.reserve(pb_descriptor.path_size());
     for (int i = 0; i < pb_descriptor.path_size(); ++i) {
       descriptor->path.emplace_back(pb_descriptor.path(i));
     }

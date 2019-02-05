@@ -21,6 +21,7 @@ add_custom_target(arrow_flight)
 ARROW_INSTALL_ALL_HEADERS("arrow/flight")
 
 SET(ARROW_FLIGHT_STATIC_LINK_LIBS
+  protobuf_static
   grpc_grpcpp_static
   grpc_grpc_static
   grpc_gpr_static
@@ -69,6 +70,7 @@ set(ARROW_FLIGHT_SRCS
   Flight.pb.cc
   Flight.grpc.pb.cc
   internal.cc
+  serialization-internal.cc
   server.cc
   types.cc
 )

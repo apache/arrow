@@ -18,15 +18,12 @@
 #include "arrow/flight/server.h"
 
 #include <cstdint>
-#include <limits>
 #include <memory>
 #include <string>
 
-#include "google/protobuf/io/coded_stream.h"
-#include "google/protobuf/io/zero_copy_stream.h"
-#include "google/protobuf/wire_format_lite.h"
 #include "grpcpp/grpcpp.h"
 
+#include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -35,6 +32,7 @@
 #include "arrow/flight/Flight.grpc.pb.h"
 #include "arrow/flight/Flight.pb.h"
 #include "arrow/flight/internal.h"
+#include "arrow/flight/serialization-internal.h"
 #include "arrow/flight/types.h"
 
 using FlightService = arrow::flight::protocol::FlightService;
@@ -47,138 +45,6 @@ using ServerWriter = grpc::ServerWriter<T>;
 
 namespace pb = arrow::flight::protocol;
 
-constexpr int64_t kInt32Max = std::numeric_limits<int32_t>::max();
-
-namespace grpc {
-
-using google::protobuf::internal::WireFormatLite;
-using google::protobuf::io::CodedOutputStream;
-
-// More efficient writing of FlightData to gRPC output buffer
-// Implementation of ZeroCopyOutputStream that writes to a fixed-size buffer
-class FixedSizeProtoWriter : public ::google::protobuf::io::ZeroCopyOutputStream {
- public:
-  explicit FixedSizeProtoWriter(grpc_slice slice)
-      : slice_(slice),
-        bytes_written_(0),
-        total_size_(static_cast<int>(GRPC_SLICE_LENGTH(slice))) {}
-
-  bool Next(void** data, int* size) override {
-    // Consume the whole slice
-    *data = GRPC_SLICE_START_PTR(slice_) + bytes_written_;
-    *size = total_size_ - bytes_written_;
-    bytes_written_ = total_size_;
-    return true;
-  }
-
-  void BackUp(int count) override { bytes_written_ -= count; }
-
-  int64_t ByteCount() const override { return bytes_written_; }
-
- private:
-  grpc_slice slice_;
-  int bytes_written_;
-  int total_size_;
-};
-
-// Write FlightData to a grpc::ByteBuffer without extra copying
-template <>
-class SerializationTraits<IpcPayload> {
- public:
-  static grpc::Status Deserialize(ByteBuffer* buffer, IpcPayload* out) {
-    return grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
-                        "IpcPayload deserialization not implemented");
-  }
-
-  static grpc::Status Serialize(const IpcPayload& msg, ByteBuffer* out,
-                                bool* own_buffer) {
-    size_t total_size = 0;
-
-    DCHECK_LT(msg.metadata->size(), kInt32Max);
-    const int32_t metadata_size = static_cast<int32_t>(msg.metadata->size());
-
-    // 1 byte for metadata tag
-    total_size += 1 + WireFormatLite::LengthDelimitedSize(metadata_size);
-
-    int64_t body_size = 0;
-    for (const auto& buffer : msg.body_buffers) {
-      // Buffer may be null when the row length is zero, or when all
-      // entries are invalid.
-      if (!buffer) continue;
-
-      body_size += buffer->size();
-
-      const int64_t remainder = buffer->size() % 8;
-      if (remainder) {
-        body_size += 8 - remainder;
-      }
-    }
-
-    // 2 bytes for body tag
-    // Only written when there are body buffers
-    if (msg.body_length > 0) {
-      total_size +=
-          2 + WireFormatLite::LengthDelimitedSize(static_cast<size_t>(body_size));
-    }
-
-    // TODO(wesm): messages over 2GB unlikely to be yet supported
-    if (total_size > kInt32Max) {
-      return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-                          "Cannot send record batches exceeding 2GB yet");
-    }
-
-    // Allocate slice, assign to output buffer
-    grpc::Slice slice(total_size);
-
-    // XXX(wesm): for debugging
-    // std::cout << "Writing record batch with total size " << total_size << std::endl;
-
-    FixedSizeProtoWriter writer(*reinterpret_cast<grpc_slice*>(&slice));
-    CodedOutputStream pb_stream(&writer);
-
-    // Write header
-    WireFormatLite::WriteTag(pb::FlightData::kDataHeaderFieldNumber,
-                             WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &pb_stream);
-    pb_stream.WriteVarint32(metadata_size);
-    pb_stream.WriteRawMaybeAliased(msg.metadata->data(),
-                                   static_cast<int>(msg.metadata->size()));
-
-    // Don't write tag if there are no body buffers
-    if (msg.body_length > 0) {
-      // Write body
-      WireFormatLite::WriteTag(pb::FlightData::kDataBodyFieldNumber,
-                               WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &pb_stream);
-      pb_stream.WriteVarint32(static_cast<uint32_t>(body_size));
-
-      constexpr uint8_t kPaddingBytes[8] = {0};
-
-      for (const auto& buffer : msg.body_buffers) {
-        // Buffer may be null when the row length is zero, or when all
-        // entries are invalid.
-        if (!buffer) continue;
-
-        pb_stream.WriteRawMaybeAliased(buffer->data(), static_cast<int>(buffer->size()));
-
-        // Write padding if not multiple of 8
-        const int remainder = static_cast<int>(buffer->size() % 8);
-        if (remainder) {
-          pb_stream.WriteRawMaybeAliased(kPaddingBytes, 8 - remainder);
-        }
-      }
-    }
-
-    DCHECK_EQ(static_cast<int>(total_size), pb_stream.ByteCount());
-
-    // Hand off the slice to the returned ByteBuffer
-    grpc::ByteBuffer tmp(&slice, 1);
-    out->Swap(&tmp);
-    *own_buffer = true;
-    return grpc::Status::OK;
-  }
-};
-
-}  // namespace grpc
-
 namespace arrow {
 namespace flight {
 
@@ -186,6 +52,57 @@ namespace flight {
   if (VAL == nullptr) {                                               \
     return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, MESSAGE); \
   }
+
+class FlightMessageReaderImpl : public FlightMessageReader {
+ public:
+  FlightMessageReaderImpl(const FlightDescriptor& descriptor,
+                          std::shared_ptr<Schema> schema,
+                          grpc::ServerReader<pb::FlightData>* reader)
+      : descriptor_(descriptor),
+        schema_(schema),
+        reader_(reader),
+        stream_finished_(false) {}
+
+  const FlightDescriptor& descriptor() const override { return descriptor_; }
+
+  std::shared_ptr<Schema> schema() const override { return schema_; }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
+    if (stream_finished_) {
+      *out = nullptr;
+      return Status::OK();
+    }
+
+    // XXX this cast is undefined behavior
+    auto custom_reader = reinterpret_cast<grpc::ServerReader<FlightData>*>(reader_);
+
+    FlightData data;
+    // Explicitly specify the override to invoke - otherwise compiler
+    // may invoke through vtable (not updated by reinterpret_cast)
+    if (custom_reader->grpc::ServerReader<FlightData>::Read(&data)) {
+      std::unique_ptr<ipc::Message> message;
+
+      // Validate IPC message
+      RETURN_NOT_OK(ipc::Message::Open(data.metadata, data.body, &message));
+      if (message->type() == ipc::Message::Type::RECORD_BATCH) {
+        return ipc::ReadRecordBatch(*message, schema_, out);
+      } else {
+        return Status(StatusCode::Invalid, "Unrecognized message in Flight stream");
+      }
+    } else {
+      // Stream is completed
+      stream_finished_ = true;
+      *out = nullptr;
+      return Status::OK();
+    }
+  }
+
+ private:
+  FlightDescriptor descriptor_;
+  std::shared_ptr<Schema> schema_;
+  grpc::ServerReader<pb::FlightData>* reader_;
+  bool stream_finished_;
+};
 
 // This class glues an implementation of FlightServerBase together with the
 // gRPC service definition, so the latter is not exposed in the public API
@@ -268,6 +185,7 @@ class FlightServiceImpl : public FlightService::Service {
     GRPC_RETURN_NOT_OK(server_->DoGet(ticket, &data_stream));
 
     // Requires ServerWriter customization in grpc_customizations.h
+    // XXX this cast is undefined behavior
     auto custom_writer = reinterpret_cast<ServerWriter<IpcPayload>*>(writer);
 
     // Write the schema as the first message in the stream
@@ -276,7 +194,10 @@ class FlightServiceImpl : public FlightService::Service {
     ipc::DictionaryMemo dictionary_memo;
     GRPC_RETURN_NOT_OK(ipc::internal::GetSchemaPayload(
         *data_stream->schema(), pool, &dictionary_memo, &schema_payload));
-    custom_writer->Write(schema_payload, grpc::WriteOptions());
+    // Explicitly specify the override to invoke - otherwise compiler
+    // may invoke through vtable (not updated by reinterpret_cast)
+    custom_writer->grpc::ServerWriter<IpcPayload>::Write(schema_payload,
+                                                         grpc::WriteOptions());
 
     while (true) {
       IpcPayload payload;
@@ -293,7 +214,30 @@ class FlightServiceImpl : public FlightService::Service {
 
   grpc::Status DoPut(ServerContext* context, grpc::ServerReader<pb::FlightData>* reader,
                      pb::PutResult* response) {
-    return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "");
+    // Get metadata
+    pb::FlightData data;
+    if (reader->Read(&data)) {
+      FlightDescriptor descriptor;
+      // Message only lives as long as data
+      std::unique_ptr<ipc::Message> message;
+      GRPC_RETURN_NOT_OK(internal::FromProto(data, &descriptor, &message));
+
+      if (!message || message->type() != ipc::Message::Type::SCHEMA) {
+        return internal::ToGrpcStatus(
+            Status(StatusCode::Invalid, "DoPut must start with schema/descriptor"));
+      } else {
+        std::shared_ptr<Schema> schema;
+        GRPC_RETURN_NOT_OK(ipc::ReadSchema(*message, &schema));
+
+        auto message_reader = std::unique_ptr<FlightMessageReader>(
+            new FlightMessageReaderImpl(descriptor, schema, reader));
+        return internal::ToGrpcStatus(server_->DoPut(std::move(message_reader)));
+      }
+    } else {
+      return internal::ToGrpcStatus(
+          Status(StatusCode::Invalid,
+                 "Client provided malformed message or did not provide message"));
+    }
   }
 
   grpc::Status ListActions(ServerContext* context, const pb::Empty* request,
@@ -373,6 +317,10 @@ Status FlightServerBase::GetFlightInfo(const FlightDescriptor& request,
 
 Status FlightServerBase::DoGet(const Ticket& request,
                                std::unique_ptr<FlightDataStream>* data_stream) {
+  return Status::NotImplemented("NYI");
+}
+
+Status FlightServerBase::DoPut(std::unique_ptr<FlightMessageReader> reader) {
   return Status::NotImplemented("NYI");
 }
 
