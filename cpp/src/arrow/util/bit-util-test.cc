@@ -379,9 +379,9 @@ struct BitmapOperation {
                       const uint8_t* right, int64_t right_offset, int64_t length,
                       int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) const = 0;
 
-  virtual Status Call(const uint8_t* left, int64_t left_offset,
-                      const uint8_t* right, int64_t right_offset, int64_t length,
-                      int64_t out_offset, uint8_t* out_buffer) const = 0;
+  virtual Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                      int64_t right_offset, int64_t length, int64_t out_offset,
+                      uint8_t* out_buffer) const = 0;
 
   virtual ~BitmapOperation() = default;
 };
@@ -394,13 +394,12 @@ struct BitmapAndOp : public BitmapOperation {
                      out_buffer);
   }
 
-  Status Call(const uint8_t* left, int64_t left_offset,
-                      const uint8_t* right, int64_t right_offset, int64_t length,
-                      int64_t out_offset, uint8_t* out_buffer) const override {
-      return BitmapAnd(left, left_offset, right, right_offset, length, out_offset,
-                     out_buffer);
+  Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+              int64_t right_offset, int64_t length, int64_t out_offset,
+              uint8_t* out_buffer) const override {
+    BitmapAnd(left, left_offset, right, right_offset, length, out_offset, out_buffer);
+    return Status::OK();
   }
-
 };
 
 struct BitmapOrOp : public BitmapOperation {
@@ -411,13 +410,12 @@ struct BitmapOrOp : public BitmapOperation {
                     out_buffer);
   }
 
-  Status Call(const uint8_t* left, int64_t left_offset,
-                      const uint8_t* right, int64_t right_offset, int64_t length,
-                      int64_t out_offset, uint8_t* out_buffer) const override {
-      return BitmapOr(left, left_offset, right, right_offset, length, out_offset,
-                     out_buffer);
+  Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+              int64_t right_offset, int64_t length, int64_t out_offset,
+              uint8_t* out_buffer) const override {
+    BitmapOr(left, left_offset, right, right_offset, length, out_offset, out_buffer);
+    return Status::OK();
   }
-
 };
 
 struct BitmapXorOp : public BitmapOperation {
@@ -428,11 +426,11 @@ struct BitmapXorOp : public BitmapOperation {
                      out_buffer);
   }
 
-  Status Call(const uint8_t* left, int64_t left_offset,
-                      const uint8_t* right, int64_t right_offset, int64_t length,
-                      int64_t out_offset, uint8_t* out_buffer) const override {
-      return BitmapXor(left, left_offset, right, right_offset, length, out_offset,
-                     out_buffer);
+  Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+              int64_t right_offset, int64_t length, int64_t out_offset,
+              uint8_t* out_buffer) const override {
+    BitmapXor(left, left_offset, right, right_offset, length, out_offset, out_buffer);
+    return Status::OK();
   }
 };
 
@@ -456,15 +454,13 @@ class BitmapOp : public TestBase {
           ASSERT_READER_VALUES(reader, result_bits);
 
           // Clear out buffer and try non-allocating version
-	  for (int x = out_offset; x < out->length; x++) {
-	    out->mutable_buffer()[x] = 0; 
-	  }
-          op.Call(left->mutable_data(), left_offset,
-                            right->mutable_data(), right_offset, length, out_offset,
-                            out->mutable_buffer());
-          auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+          for (int64_t x = out_offset; x < out->size(); x++) {
+            out->mutable_data()[x] = 0;
+          }
+          op.Call(left->mutable_data(), left_offset, right->mutable_data(), right_offset,
+                  length, out_offset, out->mutable_data());
+          reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
-
         }
       }
     }
@@ -490,14 +486,13 @@ class BitmapOp : public TestBase {
           auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
 
-	  // Clear out buffer and try non-allocating version
-	  for (int x = 0; x < out->length; x++) {
-	    out->mutable_buffer()[x] = 0; 
-	  }
-          op.Call(left->mutable_data(), left_offset,
-                            right->mutable_data(), right_offset, length, out_offset,
-                            out->mutable_buffer());
-          auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+          // Clear out buffer and try non-allocating version
+          for (int x = 0; x < out->size(); x++) {
+            out->mutable_data()[x] = 0;
+          }
+          op.Call(left->mutable_data(), left_offset, right->mutable_data(), right_offset,
+                  length, out_offset, out->mutable_data());
+          reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
         }
       }

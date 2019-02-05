@@ -749,9 +749,8 @@ Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
 /// out_buffer will be allocated and initialized to zeros using pool before
 /// the operation.
 ARROW_EXPORT
-void BitmapAnd(const uint8_t* left, int64_t left_offset,
-                 const uint8_t* right, int64_t right_offset, int64_t length,
-                 int64_t out_offset, uint8_t* out);
+void BitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+               int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out);
 
 /// \brief Do a "bitmap or" for the given bit length on right and left buffers
 /// starting at their respective bit-offsets and put the results in out
@@ -768,15 +767,14 @@ Status BitmapOr(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
 /// starting at their respective bit-offsets and put the results in out
 /// starting at the given bit-offset.
 ARROW_EXPORT
-void BitmapOr(const uint8_t* left, int64_t left_offset,
-                const uint8_t* right, int64_t right_offset, int64_t length,
-                int64_t out_offset, uint8_t* out_buffer);
-
+void BitmapOr(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+              int64_t right_offset, int64_t length, int64_t out_offset,
+              uint8_t* out_buffer);
 
 /// \brief Do a "bitmap xor" for the given bit-length on right and left
 /// buffers starting at their respective bit-offsets and put the results in
-/// out_buffer starting at the given bit offset.  
-/// 
+/// out_buffer starting at the given bit offset.
+///
 ///
 /// out_buffer will be allocated and initialized to zeros using pool before
 /// the operation.
@@ -785,15 +783,12 @@ Status BitmapXor(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
                  const uint8_t* right, int64_t right_offset, int64_t length,
                  int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
 
-
 /// \brief Do a "bitmap xor" for the given bit-length on right and left
 /// buffers starting at their respective bit-offsets and put the results in
 /// out starting at the given bit offset.
 ARROW_EXPORT
-void BitmapXor(const uint8_t* left, int64_t left_offset,
-                 const uint8_t* right, int64_t right_offset, int64_t length,
-                 int64_t out_offset, uint8_t* out);
-
+void BitmapXor(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+               int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out);
 
 }  // namespace internal
 }  // namespace arrow
