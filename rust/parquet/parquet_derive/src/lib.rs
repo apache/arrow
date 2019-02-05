@@ -295,7 +295,7 @@ fn impl_struct(
         }
     };
 
-    Ok(wrap_in_const("DESERIALIZE", name, gen))
+    Ok(wrap_in_const("RECORD", name, gen))
 }
 
 /// Implement on tuple structs.
