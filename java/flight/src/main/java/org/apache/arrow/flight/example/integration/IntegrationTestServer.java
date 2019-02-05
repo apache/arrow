@@ -17,30 +17,11 @@
 
 package org.apache.arrow.flight.example.integration;
 
-import java.io.File;
-import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.concurrent.Callable;
-
-import org.apache.arrow.flight.Action;
-import org.apache.arrow.flight.ActionType;
-import org.apache.arrow.flight.Criteria;
-import org.apache.arrow.flight.FlightDescriptor;
-import org.apache.arrow.flight.FlightEndpoint;
-import org.apache.arrow.flight.FlightInfo;
-import org.apache.arrow.flight.FlightProducer;
-import org.apache.arrow.flight.FlightServer;
-import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
-import org.apache.arrow.flight.Result;
-import org.apache.arrow.flight.Ticket;
-import org.apache.arrow.flight.auth.ServerAuthHandler;
-import org.apache.arrow.flight.impl.Flight;
+import org.apache.arrow.flight.example.ExampleFlightServer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.ipc.JsonFileReader;
-import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -48,6 +29,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
 class IntegrationTestServer {
+  private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(IntegrationTestServer.class);
   private final Options options;
 
   private IntegrationTestServer() {
@@ -58,17 +40,25 @@ class IntegrationTestServer {
   private void run(String[] args) throws Exception {
     CommandLineParser parser = new DefaultParser();
     CommandLine cmd = parser.parse(options, args, false);
+    final int port = Integer.parseInt(cmd.getOptionValue("port", "31337"));
 
     final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-    final int port = Integer.parseInt(cmd.getOptionValue("port", "31337"));
-    try (final IntegrationFlightProducer producer = new IntegrationFlightProducer(allocator);
-         final FlightServer server = new FlightServer(allocator, port, producer, ServerAuthHandler.NO_OP)) {
-      server.start();
-      // Print out message for integration test script
-      System.out.println("Server listening on localhost:" + server.getPort());
-      while (true) {
-        Thread.sleep(30000);
+    final ExampleFlightServer efs = new ExampleFlightServer(allocator, new Location("localhost", port));
+    efs.start();
+    // Print out message for integration test script
+    System.out.println("Server listening on localhost:" + port);
+
+    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+      try {
+        System.out.println("\nExiting...");
+        AutoCloseables.close(efs, allocator);
+      } catch (Exception e) {
+        e.printStackTrace();
       }
+    }));
+
+    while (true) {
+      Thread.sleep(30000);
     }
   }
 
@@ -76,81 +66,17 @@ class IntegrationTestServer {
     try {
       new IntegrationTestServer().run(args);
     } catch (ParseException e) {
-      IntegrationTestClient.fatalError("Error parsing arguments", e);
+      fatalError("Error parsing arguments", e);
     } catch (Exception e) {
-      IntegrationTestClient.fatalError("Runtime error", e);
+      fatalError("Runtime error", e);
     }
   }
 
-  static class IntegrationFlightProducer implements FlightProducer, AutoCloseable {
-    private final BufferAllocator allocator;
-
-    IntegrationFlightProducer(BufferAllocator allocator) {
-      this.allocator = allocator;
-    }
-
-    @Override
-    public void close() {
-      allocator.close();
-    }
-
-    @Override
-    public void getStream(Ticket ticket, ServerStreamListener listener) {
-      String path = new String(ticket.getBytes(), StandardCharsets.UTF_8);
-      File inputFile = new File(path);
-      try (JsonFileReader reader = new JsonFileReader(inputFile, allocator)) {
-        Schema schema = reader.start();
-        try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
-          listener.start(root);
-          while (reader.read(root)) {
-            listener.putNext();
-          }
-          listener.completed();
-        }
-      } catch (Exception e) {
-        throw new RuntimeException(e);
-      }
-    }
-
-    @Override
-    public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
-      listener.onCompleted();
-    }
-
-    @Override
-    public FlightInfo getFlightInfo(FlightDescriptor descriptor) {
-      if (descriptor.isCommand()) {
-        throw new UnsupportedOperationException("Commands not supported.");
-      }
-      if (descriptor.getPath().size() < 1) {
-        throw new IllegalArgumentException("Must provide a path.");
-      }
-      String path = descriptor.getPath().get(0);
-      File inputFile = new File(path);
-      try (JsonFileReader reader = new JsonFileReader(inputFile, allocator)) {
-        Schema schema = reader.start();
-        return new FlightInfo(schema, descriptor,
-            Collections.singletonList(new FlightEndpoint(new Ticket(path.getBytes()),
-            new Location("localhost", 31338))),
-            0, 0);
-      } catch (Exception e) {
-        throw new RuntimeException(e);
-      }
-    }
-
-    @Override
-    public Callable<Flight.PutResult> acceptPut(FlightStream flightStream) {
-      return null;
-    }
-
-    @Override
-    public Result doAction(Action action) {
-      return null;
-    }
-
-    @Override
-    public void listActions(StreamListener<ActionType> listener) {
-      listener.onCompleted();
-    }
+  private static void fatalError(String message, Throwable e) {
+    System.err.println(message);
+    System.err.println(e.getMessage());
+    LOGGER.error(message, e);
+    System.exit(1);
   }
+
 }

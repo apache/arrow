@@ -22,6 +22,7 @@
 #include <string>
 
 #include "arrow/buffer.h"
+#include "arrow/io/file.h"
 #include "arrow/ipc/json-internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
@@ -155,6 +156,18 @@ Status JsonReader::Open(MemoryPool* pool, const std::shared_ptr<Buffer>& data,
                         std::unique_ptr<JsonReader>* reader) {
   *reader = std::unique_ptr<JsonReader>(new JsonReader(pool, data));
   return (*reader)->impl_->ParseAndReadSchema();
+}
+
+Status JsonReader::Open(MemoryPool* pool,
+                        const std::shared_ptr<io::ReadableFile>& in_file,
+                        std::unique_ptr<JsonReader>* reader) {
+  int64_t file_size = 0;
+  RETURN_NOT_OK(in_file->GetSize(&file_size));
+
+  std::shared_ptr<arrow::Buffer> json_buffer;
+  RETURN_NOT_OK(in_file->Read(file_size, &json_buffer));
+
+  return Open(pool, json_buffer, reader);
 }
 
 std::shared_ptr<Schema> JsonReader::schema() const { return impl_->schema(); }

@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/ipc/writer.h"
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
@@ -36,6 +37,8 @@ class RecordBatchReader;
 class Schema;
 
 namespace flight {
+
+class FlightPutWriter;
 
 /// \brief Client class for Arrow Flight RPC services (gRPC-based).
 /// API experimental for now
@@ -86,7 +89,7 @@ class ARROW_EXPORT FlightClient {
 
   /// \brief Given a flight ticket and schema, request to be sent the
   /// stream. Returns record batch stream reader
-  /// \param[in] ticket
+  /// \param[in] ticket The flight ticket to use
   /// \param[in] schema the schema of the stream data as computed by
   /// GetFlightInfo
   /// \param[out] stream the returned RecordBatchReader
@@ -94,17 +97,37 @@ class ARROW_EXPORT FlightClient {
   Status DoGet(const Ticket& ticket, const std::shared_ptr<Schema>& schema,
                std::unique_ptr<RecordBatchReader>* stream);
 
-  /// \brief Initiate DoPut RPC, returns FlightPutWriter interface to
-  /// write. Not yet implemented
-  /// \param[in] schema the schema of the stream data
-  /// \param[out] stream the created stream to write record batches to
+  /// \brief Upload data to a Flight described by the given
+  /// descriptor. The caller must call Close() on the returned stream
+  /// once they are done writing.
+  /// \param[in] descriptor the descriptor of the stream
+  /// \param[in] schema the schema for the data to upload
+  /// \param[out] stream a writer to write record batches to
   /// \return Status
-  Status DoPut(const Schema& schema, std::unique_ptr<FlightPutWriter>* stream);
+  Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
+               std::unique_ptr<ipc::RecordBatchWriter>* stream);
 
  private:
   FlightClient();
   class FlightClientImpl;
   std::unique_ptr<FlightClientImpl> impl_;
+};
+
+/// \brief An interface to upload record batches to a Flight server
+class ARROW_EXPORT FlightPutWriter : public ipc::RecordBatchWriter {
+ public:
+  ~FlightPutWriter();
+
+  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
+  Status Close() override;
+  void set_memory_pool(MemoryPool* pool) override;
+
+ private:
+  class FlightPutWriterImpl;
+  explicit FlightPutWriter(std::unique_ptr<FlightPutWriterImpl> impl);
+  std::unique_ptr<FlightPutWriterImpl> impl_;
+
+  friend class FlightClient;
 };
 
 }  // namespace flight

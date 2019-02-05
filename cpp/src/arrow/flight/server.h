@@ -29,6 +29,7 @@
 
 #include "arrow/flight/types.h"
 #include "arrow/ipc/dictionary.h"
+#include "arrow/record_batch.h"
 
 namespace arrow {
 
@@ -68,9 +69,9 @@ class ARROW_EXPORT FlightDataStream {
 
 /// \brief A basic implementation of FlightDataStream that will provide
 /// a sequence of FlightData messages to be written to a gRPC stream
-/// \param[in] reader produces a sequence of record batches
 class ARROW_EXPORT RecordBatchStream : public FlightDataStream {
  public:
+  /// \param[in] reader produces a sequence of record batches
   explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader);
 
   std::shared_ptr<Schema> schema() override;
@@ -79,6 +80,13 @@ class ARROW_EXPORT RecordBatchStream : public FlightDataStream {
  private:
   MemoryPool* pool_;
   std::shared_ptr<RecordBatchReader> reader_;
+};
+
+/// \brief A reader for IPC payloads uploaded by a client
+class ARROW_EXPORT FlightMessageReader : public RecordBatchReader {
+ public:
+  /// \brief Get the descriptor for this upload.
+  virtual const FlightDescriptor& descriptor() const = 0;
 };
 
 /// \brief Skeleton RPC server implementation which can be used to create
@@ -90,8 +98,7 @@ class ARROW_EXPORT FlightServerBase {
 
   /// \brief Run an insecure server on localhost at the indicated port. Block
   /// until server is shut down or otherwise terminates
-  /// \param[in] port
-  /// \return Status
+  /// \param[in] port the port to bind to
   void Run(int port);
 
   /// \brief Shut down the server. Can be called from signal handler or another
@@ -125,7 +132,10 @@ class ARROW_EXPORT FlightServerBase {
   /// \return Status
   virtual Status DoGet(const Ticket& request, std::unique_ptr<FlightDataStream>* stream);
 
-  // virtual Status DoPut(std::unique_ptr<FlightMessageReader>* reader) = 0;
+  /// \brief Process a stream of IPC payloads sent from a client
+  /// \param[in] reader a sequence of uploaded record batches
+  /// \return Status
+  virtual Status DoPut(std::unique_ptr<FlightMessageReader> reader);
 
   /// \brief Execute an action, return stream of zero or more results
   /// \param[in] action the action to execute, with type and body

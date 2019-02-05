@@ -27,6 +27,7 @@
 #include "arrow/io/test-common.h"
 #include "arrow/ipc/json.h"
 #include "arrow/record_batch.h"
+#include "arrow/table.h"
 
 #include "arrow/flight/server.h"
 #include "arrow/flight/test-util.h"
@@ -36,57 +37,7 @@ DEFINE_int32(port, 31337, "Server port to listen on");
 namespace arrow {
 namespace flight {
 
-class JsonReaderRecordBatchStream : public FlightDataStream {
- public:
-  explicit JsonReaderRecordBatchStream(
-      std::unique_ptr<ipc::internal::json::JsonReader>&& reader)
-      : index_(0), pool_(default_memory_pool()), reader_(std::move(reader)) {}
-
-  std::shared_ptr<Schema> schema() override { return reader_->schema(); }
-
-  Status Next(ipc::internal::IpcPayload* payload) override {
-    if (index_ >= reader_->num_record_batches()) {
-      // Signal that iteration is over
-      payload->metadata = nullptr;
-      return Status::OK();
-    }
-
-    std::shared_ptr<RecordBatch> batch;
-    RETURN_NOT_OK(reader_->ReadRecordBatch(index_, &batch));
-    index_++;
-
-    if (!batch) {
-      // Signal that iteration is over
-      payload->metadata = nullptr;
-      return Status::OK();
-    } else {
-      return ipc::internal::GetRecordBatchPayload(*batch, pool_, payload);
-    }
-  }
-
- private:
-  int index_;
-  MemoryPool* pool_;
-  std::unique_ptr<ipc::internal::json::JsonReader> reader_;
-};
-
 class FlightIntegrationTestServer : public FlightServerBase {
-  Status ReadJson(const std::string& json_path,
-                  std::unique_ptr<ipc::internal::json::JsonReader>* out) {
-    std::shared_ptr<io::ReadableFile> in_file;
-    std::cout << "Opening JSON file '" << json_path << "'" << std::endl;
-    RETURN_NOT_OK(io::ReadableFile::Open(json_path, &in_file));
-
-    int64_t file_size = 0;
-    RETURN_NOT_OK(in_file->GetSize(&file_size));
-
-    std::shared_ptr<Buffer> json_buffer;
-    RETURN_NOT_OK(in_file->Read(file_size, &json_buffer));
-
-    RETURN_NOT_OK(arrow::ipc::internal::json::JsonReader::Open(json_buffer, out));
-    return Status::OK();
-  }
-
   Status GetFlightInfo(const FlightDescriptor& request,
                        std::unique_ptr<FlightInfo>* info) override {
     if (request.type == FlightDescriptor::PATH) {
@@ -94,16 +45,19 @@ class FlightIntegrationTestServer : public FlightServerBase {
         return Status::Invalid("Invalid path");
       }
 
-      std::unique_ptr<arrow::ipc::internal::json::JsonReader> reader;
-      RETURN_NOT_OK(ReadJson(request.path.back(), &reader));
+      auto data = uploaded_chunks.find(request.path[0]);
+      if (data == uploaded_chunks.end()) {
+        return Status::KeyError("Could not find flight.", request.path[0]);
+      }
+      auto flight = data->second;
 
-      FlightEndpoint endpoint1({{request.path.back()}, {}});
+      FlightEndpoint endpoint1({{request.path[0]}, {}});
 
       FlightInfo::Data flight_data;
-      RETURN_NOT_OK(internal::SchemaToString(*reader->schema(), &flight_data.schema));
+      RETURN_NOT_OK(internal::SchemaToString(*flight->schema(), &flight_data.schema));
       flight_data.descriptor = request;
       flight_data.endpoints = {endpoint1};
-      flight_data.total_records = reader->num_record_batches();
+      flight_data.total_records = flight->num_rows();
       flight_data.total_bytes = -1;
       FlightInfo value(flight_data);
 
@@ -116,14 +70,44 @@ class FlightIntegrationTestServer : public FlightServerBase {
 
   Status DoGet(const Ticket& request,
                std::unique_ptr<FlightDataStream>* data_stream) override {
-    std::unique_ptr<arrow::ipc::internal::json::JsonReader> reader;
-    RETURN_NOT_OK(ReadJson(request.ticket, &reader));
+    auto data = uploaded_chunks.find(request.ticket);
+    if (data == uploaded_chunks.end()) {
+      return Status::KeyError("Could not find flight.", request.ticket);
+    }
+    auto flight = data->second;
 
-    *data_stream = std::unique_ptr<FlightDataStream>(
-        new JsonReaderRecordBatchStream(std::move(reader)));
+    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(
+        std::shared_ptr<RecordBatchReader>(new TableBatchReader(*flight))));
 
     return Status::OK();
   }
+
+  Status DoPut(std::unique_ptr<FlightMessageReader> reader) override {
+    const FlightDescriptor& descriptor = reader->descriptor();
+
+    if (descriptor.type != FlightDescriptor::DescriptorType::PATH) {
+      return Status::Invalid("Must specify a path");
+    } else if (descriptor.path.size() < 1) {
+      return Status::Invalid("Must specify a path");
+    }
+
+    std::string key = descriptor.path[0];
+
+    std::vector<std::shared_ptr<arrow::RecordBatch>> retrieved_chunks;
+    std::shared_ptr<arrow::RecordBatch> chunk;
+    while (true) {
+      RETURN_NOT_OK(reader->ReadNext(&chunk));
+      if (chunk == nullptr) break;
+      retrieved_chunks.push_back(chunk);
+    }
+    std::shared_ptr<arrow::Table> retrieved_data;
+    RETURN_NOT_OK(arrow::Table::FromRecordBatches(reader->schema(), retrieved_chunks,
+                                                  &retrieved_data));
+    uploaded_chunks[key] = retrieved_data;
+    return Status::OK();
+  }
+
+  std::unordered_map<std::string, std::shared_ptr<arrow::Table>> uploaded_chunks;
 };
 
 }  // namespace flight

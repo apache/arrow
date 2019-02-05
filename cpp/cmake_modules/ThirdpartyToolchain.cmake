@@ -1347,12 +1347,7 @@ if (ARROW_WITH_GRPC)
       BUILD_BYPRODUCTS "${CARES_STATIC_LIB}")
   else()
     set(CARES_VENDORED 0)
-    find_package(c-ares REQUIRED
-      PATHS ${CARES_HOME}
-      NO_DEFAULT_PATH)
-    if(TARGET c-ares::cares)
-      get_property(CARES_STATIC_LIB TARGET c-ares::cares_static PROPERTY LOCATION)
-    endif()
+    find_package(c-ares REQUIRED)
   endif()
   message(STATUS "c-ares library: ${CARES_STATIC_LIB}")
 
@@ -1406,15 +1401,15 @@ if (ARROW_WITH_GRPC)
 
     set(GRPC_CMAKE_ARGS
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-      -DCMAKE_PREFIX_PATH="${GRPC_PREFIX_PATH_ALT_SEP}"
-      "-DgRPC_CARES_PROVIDER=package"
-      "-DgRPC_GFLAGS_PROVIDER=package"
-      "-DgRPC_PROTOBUF_PROVIDER=package"
-      "-DgRPC_SSL_PROVIDER=package"
-      "-DgRPC_ZLIB_PROVIDER=package"
-      "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
-      "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
-      "-DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}"
+      -DCMAKE_PREFIX_PATH='${GRPC_PREFIX_PATH_ALT_SEP}'
+      '-DgRPC_CARES_PROVIDER=package'
+      '-DgRPC_GFLAGS_PROVIDER=package'
+      '-DgRPC_PROTOBUF_PROVIDER=package'
+      '-DgRPC_SSL_PROVIDER=package'
+      '-DgRPC_ZLIB_PROVIDER=package'
+      '-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}'
+      '-DCMAKE_C_FLAGS=${EP_C_FLAGS}'
+      '-DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}'
       -DCMAKE_INSTALL_LIBDIR=lib
       -DBUILD_SHARED_LIBS=OFF)
 
