@@ -156,6 +156,13 @@ public class JdbcToArrowUtils {
     Preconditions.checkNotNull(rsmd, "JDBC ResultSetMetaData object can't be null");
     Preconditions.checkNotNull(config, "The configuration object must not be null");
 
+    final String timezone;
+    if (config.getCalendar() != null) {
+      timezone = config.getCalendar().getTimeZone().getID();
+    } else {
+      timezone = null;
+    }
+
     List<Field> fields = new ArrayList<>();
     int columnCount = rsmd.getColumnCount();
     for (int i = 1; i <= columnCount; i++) {
@@ -223,7 +230,7 @@ public class JdbcToArrowUtils {
           fieldType =
               new FieldType(
                   true,
-                  new ArrowType.Timestamp(TimeUnit.MILLISECOND, config.getCalendar().getTimeZone().getID()),
+                  new ArrowType.Timestamp(TimeUnit.MILLISECOND, timezone),
                   null,
                   metadata);
           break;
