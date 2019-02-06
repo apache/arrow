@@ -772,8 +772,7 @@ Status BitmapOr(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
 /// starting at the given bit-offset.
 ARROW_EXPORT
 void BitmapOr(const uint8_t* left, int64_t left_offset, const uint8_t* right,
-              int64_t right_offset, int64_t length, int64_t out_offset,
-              uint8_t* out);
+              int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out);
 
 /// \brief Do a "bitmap xor" for the given bit-length on right and left
 /// buffers starting at their respective bit-offsets and put the results in
