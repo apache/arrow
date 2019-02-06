@@ -20,21 +20,20 @@
 #  find_package(LLVM)
 #
 
-set(GANDIVA_LLVM_VERSION 6.0)
-
 if (APPLE)
   # Also look in homebrew for a matching llvm version
   find_program(BREW_BIN brew)
   if (BREW_BIN)
     execute_process(
-      COMMAND ${BREW_BIN} --prefix "llvm@6"
+      COMMAND ${BREW_BIN} --prefix "llvm@7"
       OUTPUT_VARIABLE LLVM_BREW_PREFIX
       OUTPUT_STRIP_TRAILING_WHITESPACE
     )
   endif()
 endif()
 
-find_package(LLVM ${GANDIVA_LLVM_VERSION} REQUIRED CONFIG HINTS
+find_package(LLVM ${ARROW_LLVM_VERSION} REQUIRED CONFIG HINTS
+             /usr/lib
              /usr/local/opt/llvm
              /usr/share
              ${LLVM_BREW_PREFIX}
@@ -45,20 +44,30 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 # Find the libraries that correspond to the LLVM components
 llvm_map_components_to_libnames(LLVM_LIBS core mcjit native ipo bitreader target linker analysis debuginfodwarf)
 
-find_program(CLANG_EXECUTABLE clang
-  HINTS ${LLVM_TOOLS_BINARY_DIR})
-if (CLANG_EXECUTABLE)
-  message(STATUS "Found clang ${CLANG_EXECUTABLE}")
-else ()
-  message(FATAL_ERROR "Couldn't find clang")
-endif ()
-
 find_program(LLVM_LINK_EXECUTABLE llvm-link
   HINTS ${LLVM_TOOLS_BINARY_DIR})
 if (LLVM_LINK_EXECUTABLE)
   message(STATUS "Found llvm-link ${LLVM_LINK_EXECUTABLE}")
 else ()
   message(FATAL_ERROR "Couldn't find llvm-link")
+endif ()
+
+find_program(CLANG_EXECUTABLE
+  NAMES clang-${ARROW_LLVM_VERSION}
+  clang-${ARROW_LLVM_MAJOR_VERSION}
+  HINTS ${LLVM_TOOLS_BINARY_DIR})
+if (CLANG_EXECUTABLE)
+  message(STATUS "Found clang ${ARROW_LLVM_VERSION} ${CLANG_EXECUTABLE}")
+else ()
+  # If clang-7 not available, switch to normal clang.
+  find_program(CLANG_EXECUTABLE
+    NAMES clang
+    HINTS ${LLVM_TOOLS_BINARY_DIR})
+  if (CLANG_EXECUTABLE)
+    message(STATUS "Found clang ${CLANG_EXECUTABLE}")
+  else ()
+    message(FATAL_ERROR "Couldn't find clang")
+  endif ()
 endif ()
 
 add_library(LLVM::LLVM_INTERFACE INTERFACE IMPORTED)

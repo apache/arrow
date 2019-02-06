@@ -26,7 +26,7 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
     CONDA_LABEL=""
 
     if [ $ARROW_TRAVIS_GANDIVA == "1" ] && [ $TRAVIS_OS_NAME == "osx" ]; then
-        CONDA_PACKAGES="$CONDA_PACKAGES llvmdev=6.0.1"
+        CONDA_PACKAGES="$CONDA_PACKAGES llvmdev=$CONDA_LLVM_VERSION"
     fi
 
     if [ $TRAVIS_OS_NAME == "linux" ]; then

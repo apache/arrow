@@ -85,7 +85,7 @@ class EvalBatch {
   /// An array of 'num_buffers_', each containing a buffer. The buffer
   /// sizes depends on the data type, but all of them have the same
   /// number of slots (equal to num_records_).
-  std::unique_ptr<uint8_t* []> buffers_array_;
+  std::unique_ptr<uint8_t*[]> buffers_array_;
 
   std::unique_ptr<LocalBitMapsHolder> local_bitmaps_holder_;
 
