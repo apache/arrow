@@ -21,8 +21,8 @@
 
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <sstream>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -197,9 +197,9 @@ std::vector<int8_t> GetPythonTypes(const UnionArray& data) {
   auto type = data.type();
   for (int i = 0; i < type->num_children(); ++i) {
     std::istringstream convert(type->child(i)->name());
-    int8_t tag;
+    int tag;
     convert >> tag;
-    result.push_back(tag);
+    result.push_back(static_cast<int8_t>(tag));
   }
   return result;
 }
