@@ -454,11 +454,9 @@ class BitmapOp : public TestBase {
           ASSERT_READER_VALUES(reader, result_bits);
 
           // Clear out buffer and try non-allocating version
-          for (int64_t x = out_offset; x < out->size(); x++) {
-            out->mutable_data()[x] = 0;
-          }
-          op.Call(left->mutable_data(), left_offset, right->mutable_data(), right_offset,
-                  length, out_offset, out->mutable_data());
+          std::memset(out->mutable_data(), 0, out->size());
+          ASSERT_OK(op.Call(left->mutable_data(), left_offset, right->mutable_data(),
+                            right_offset, length, out_offset, out->mutable_data()));
           reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
         }
@@ -487,11 +485,9 @@ class BitmapOp : public TestBase {
           ASSERT_READER_VALUES(reader, result_bits);
 
           // Clear out buffer and try non-allocating version
-          for (int x = 0; x < out->size(); x++) {
-            out->mutable_data()[x] = 0;
-          }
-          op.Call(left->mutable_data(), left_offset, right->mutable_data(), right_offset,
-                  length, out_offset, out->mutable_data());
+          std::memset(out->mutable_data(), 0, out->size());
+          ASSERT_OK(op.Call(left->mutable_data(), left_offset, right->mutable_data(),
+                            right_offset, length, out_offset, out->mutable_data()));
           reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
         }
