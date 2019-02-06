@@ -262,6 +262,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   Status AppendNull() {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(false);
+    data_builder_.UnsafeAppend(false);
     return Status::OK();
   }
 
