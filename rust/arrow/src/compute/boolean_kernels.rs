@@ -23,7 +23,7 @@ use crate::builder::{BufferBuilderTrait, UInt8BufferBuilder};
 
 /// SIMD accelerated version of bitwise binary operation for two `Buffer`'s.
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-fn bitwise_bin_op_simd<F>(left: &Buffer, right: &Buffer, op: F) -> Buffer
+pub fn bitwise_bin_op_simd<F>(left: &Buffer, right: &Buffer, op: F) -> Buffer
 where
     F: Fn(u8x64, u8x64) -> u8x64,
 {
@@ -50,7 +50,7 @@ where
 
 /// Default version of bitwise binary operation for two `Buffer`'s where SIMD is not
 /// available.
-fn bitwise_bin_op_default<F>(left: &Buffer, right: &Buffer, op: F) -> Buffer
+pub fn bitwise_bin_op_default<F>(left: &Buffer, right: &Buffer, op: F) -> Buffer
 where
     F: Fn(&u8, &u8) -> u8,
 {
