@@ -3,14 +3,13 @@ import { DataBuilder } from './base';
 import { Vector } from '../vector';
 import { Dictionary } from '../type';
 
-type HashFunction = (x: any) => string | number;
-// const metrohash64: HashFunction = require('metrohash').metrohash64;
+type HashFunction = (x: string) => string;
 const defaultHashFunction = (x: any) => `${x}`;
 
 export class DictionaryBuilder<T extends Dictionary> extends DataBuilder<T> {
 
+    protected _hash: (x: any) => string;
     protected hashmap = Object.create(null);
-    protected _hash: (x: any) => string | number;
     public readonly indices: IntBuilder<T['indices']>;
     public readonly dictionary: DataBuilder<T['dictionary']>;
 
@@ -48,11 +47,11 @@ export class DictionaryBuilder<T extends Dictionary> extends DataBuilder<T> {
         return (this.length = this.indices.setNull(index));
     }
     public setValue(value: T['TValue'], index = this.length) {
-        let id = this._hash(value);
-        let key = this.hashmap[id];
-        if (key === undefined) {
-            this.hashmap[id] = key = -1 + this.dictionary.setValue(value, key);
+        let id = this._hash(`${value}`);
+        let valueKey = this.hashmap[id];
+        if (valueKey === undefined) {
+            this.hashmap[id] = valueKey = -1 + this.dictionary.setValue(value, valueKey);
         }
-        return (this.length = this.indices.setValue(key, index));
+        return (this.length = this.indices.setValue(valueKey, index));
     }
 }

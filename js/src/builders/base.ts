@@ -11,7 +11,7 @@ const roundUpTo = ({ BYTES_PER_ELEMENT: BPE }: TArrayType, length = 0, to = 1) =
 
 export class DataBuilder<T extends DataType = any> extends Data<T> {
 
-    public static new <T extends DataType = any>(type: T, nullValues?: any[], chunkLength = 1024): DataBuilder<T> {
+    public static new <T extends DataType = any>(type: T, nullValues?: any[], chunkLength: number | undefined = 1024): DataBuilder<T> {
         return createBuilderFromType(type, nullValues, chunkLength) as any;
     }
 
@@ -33,7 +33,7 @@ export class DataBuilder<T extends DataType = any> extends Data<T> {
         super(type, 0, 0, 0, [undefined]);
         this.useChunkLength(chunkLength);
         this.nullable = nullValues.length > 0;
-        this.nullValues = nullValues.reduce((m, x) => m.set(x, true), new Map());
+        this.nullValues = nullValues.reduce((m, x) => m.set(x, x), new Map());
     }
 
     public useChunkLength(chunkLength: number) {
@@ -43,7 +43,7 @@ export class DataBuilder<T extends DataType = any> extends Data<T> {
 
     public useNullValues(nullValues: any[]) {
         this.nullable = nullValues.length > 0;
-        this.nullValues = nullValues.reduce((m, x) => m.set(x, true), new Map());
+        this.nullValues = nullValues.reduce((m, x) => m.set(x, x), new Map());
         return this;
     }
 
