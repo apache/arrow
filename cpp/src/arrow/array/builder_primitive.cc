@@ -48,12 +48,12 @@ Status NullBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 // ----------------------------------------------------------------------
 
 template <typename T>
-void PrimitiveBuilder<T>::Reset() {
+void NumericBuilder<T>::Reset() {
   data_builder_.Reset();
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::Resize(int64_t capacity) {
+Status NumericBuilder<T>::Resize(int64_t capacity) {
   RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
   capacity = std::max(capacity, kMinBuilderCapacity);
   RETURN_NOT_OK(data_builder_.Resize(capacity));
@@ -61,7 +61,7 @@ Status PrimitiveBuilder<T>::Resize(int64_t capacity) {
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::AppendValues(const value_type* values, int64_t length,
+Status NumericBuilder<T>::AppendValues(const value_type* values, int64_t length,
                                          const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
   data_builder_.UnsafeAppend(values, length);
@@ -72,7 +72,7 @@ Status PrimitiveBuilder<T>::AppendValues(const value_type* values, int64_t lengt
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::AppendValues(const value_type* values, int64_t length,
+Status NumericBuilder<T>::AppendValues(const value_type* values, int64_t length,
                                          const std::vector<bool>& is_valid) {
   RETURN_NOT_OK(Reserve(length));
   data_builder_.UnsafeAppend(values, length);
@@ -84,18 +84,18 @@ Status PrimitiveBuilder<T>::AppendValues(const value_type* values, int64_t lengt
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::AppendValues(const std::vector<value_type>& values,
+Status NumericBuilder<T>::AppendValues(const std::vector<value_type>& values,
                                          const std::vector<bool>& is_valid) {
   return AppendValues(values.data(), static_cast<int64_t>(values.size()), is_valid);
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::AppendValues(const std::vector<value_type>& values) {
+Status NumericBuilder<T>::AppendValues(const std::vector<value_type>& values) {
   return AppendValues(values.data(), static_cast<int64_t>(values.size()));
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
+Status NumericBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> data, null_bitmap;
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
   RETURN_NOT_OK(data_builder_.Finish(&data));
@@ -106,22 +106,22 @@ Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
-template class PrimitiveBuilder<UInt8Type>;
-template class PrimitiveBuilder<UInt16Type>;
-template class PrimitiveBuilder<UInt32Type>;
-template class PrimitiveBuilder<UInt64Type>;
-template class PrimitiveBuilder<Int8Type>;
-template class PrimitiveBuilder<Int16Type>;
-template class PrimitiveBuilder<Int32Type>;
-template class PrimitiveBuilder<Int64Type>;
-template class PrimitiveBuilder<Date32Type>;
-template class PrimitiveBuilder<Date64Type>;
-template class PrimitiveBuilder<Time32Type>;
-template class PrimitiveBuilder<Time64Type>;
-template class PrimitiveBuilder<TimestampType>;
-template class PrimitiveBuilder<HalfFloatType>;
-template class PrimitiveBuilder<FloatType>;
-template class PrimitiveBuilder<DoubleType>;
+template class NumericBuilder<UInt8Type>;
+template class NumericBuilder<UInt16Type>;
+template class NumericBuilder<UInt32Type>;
+template class NumericBuilder<UInt64Type>;
+template class NumericBuilder<Int8Type>;
+template class NumericBuilder<Int16Type>;
+template class NumericBuilder<Int32Type>;
+template class NumericBuilder<Int64Type>;
+template class NumericBuilder<Date32Type>;
+template class NumericBuilder<Date64Type>;
+template class NumericBuilder<Time32Type>;
+template class NumericBuilder<Time64Type>;
+template class NumericBuilder<TimestampType>;
+template class NumericBuilder<HalfFloatType>;
+template class NumericBuilder<FloatType>;
+template class NumericBuilder<DoubleType>;
 
 BooleanBuilder::BooleanBuilder(MemoryPool* pool)
     : ArrayBuilder(boolean(), pool), data_builder_(pool) {}

@@ -42,15 +42,27 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 };
 
-template <typename Type>
-class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
+/// Base class for all Builders that emit an Array of a scalar numerical type.
+template <typename T>
+class ARROW_EXPORT NumericBuilder : public ArrayBuilder {
  public:
-  using value_type = typename Type::c_type;
+  using value_type = typename T::c_type;
+  using ArrayBuilder::ArrayBuilder;
 
-  explicit PrimitiveBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : ArrayBuilder(type, pool), data_builder_(pool) {}
+  template <typename T1 = T>
+  explicit NumericBuilder(
+      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool
+          ARROW_MEMORY_POOL_DEFAULT)
+      : ArrayBuilder(TypeTraits<T1>::type_singleton(), pool) {}
 
   using ArrayBuilder::Advance;
+
+  /// Append a single scalar and increase the size if necessary.
+  Status Append(const value_type val) {
+    ARROW_RETURN_NOT_OK(ArrayBuilder::Reserve(1));
+    UnsafeAppend(val);
+    return Status::OK();
+  }
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   /// The memory at the corresponding data slot is set to 0 to prevent
@@ -177,53 +189,23 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
 
   Status Resize(int64_t capacity) override;
 
- protected:
-  TypedBufferBuilder<value_type> data_builder_;
-};
-
-/// Base class for all Builders that emit an Array of a scalar numerical type.
-template <typename T>
-class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
- public:
-  using typename PrimitiveBuilder<T>::value_type;
-  using PrimitiveBuilder<T>::PrimitiveBuilder;
-
-  template <typename T1 = T>
-  explicit NumericBuilder(
-      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool
-          ARROW_MEMORY_POOL_DEFAULT)
-      : PrimitiveBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
-
-  using ArrayBuilder::UnsafeAppendToBitmap;
-  using PrimitiveBuilder<T>::AppendValues;
-  using PrimitiveBuilder<T>::Resize;
-  using PrimitiveBuilder<T>::Reserve;
-
-  /// Append a single scalar and increase the size if necessary.
-  Status Append(const value_type val) {
-    ARROW_RETURN_NOT_OK(ArrayBuilder::Reserve(1));
-    UnsafeAppend(val);
-    return Status::OK();
-  }
-
   /// Append a single scalar under the assumption that the underlying Buffer is
   /// large enough.
   ///
   /// This method does not capacity-check; make sure to call Reserve
   /// beforehand.
   void UnsafeAppend(const value_type val) {
-    UnsafeAppendToBitmap(true);
+    ArrayBuilder::UnsafeAppendToBitmap(true);
     data_builder_.UnsafeAppend(val);
   }
 
   void UnsafeAppendNull() {
-    UnsafeAppendToBitmap(false);
+    ArrayBuilder::UnsafeAppendToBitmap(false);
     data_builder_.UnsafeAppend(0);
   }
 
  protected:
-  using PrimitiveBuilder<T>::length_;
-  using PrimitiveBuilder<T>::data_builder_;
+  TypedBufferBuilder<value_type> data_builder_;
 };
 
 // Builders
