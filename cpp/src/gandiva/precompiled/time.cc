@@ -572,6 +572,8 @@ date64 castDATE_utf8(int64_t context, const char* input, int32 length) {
       .count();
 }
 
+bool is_tzdb_configured() { return gdv_fn_is_tzdb_configured(); }
+
 /*
  * Input consists of mandatory and optional fields.
  * Mandatory fields are year, month and day.

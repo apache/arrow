@@ -68,29 +68,33 @@ TEST(TestTime, TestCastTimestamp) {
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1857-02-11 20:31:40.920 -05:30", 30),
             -3562264699080);
 
-  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920 Canada/Pacific", 37),
-            969727530920);
-  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2012-02-28 23:30:59 Asia/Kolkata", 32),
-            1330452059000);
-  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1923-10-07 03:03:03 America/New_York", 36),
-            -1459094217000);
-
   // error cases
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "20000923", 8), 0);
   EXPECT_EQ(context.get_error(), "Not a valid day for timestamp value 20000923");
   context.Reset();
 
-  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-2b", 10), 0);
-  EXPECT_EQ(context.get_error(),
-            "Invalid timestamp or unknown zone for timestamp value 2000-09-2b");
-  context.Reset();
+  if (is_tzdb_configured()) {
+    EXPECT_EQ(
+        castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920 Canada/Pacific", 37),
+        969727530920);
+    EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2012-02-28 23:30:59 Asia/Kolkata", 32),
+              1330452059000);
+    EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1923-10-07 03:03:03 America/New_York", 36),
+              -1459094217000);
 
-  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920 Unknown/Zone", 35),
-            0);
-  EXPECT_EQ(context.get_error(),
-            "Invalid timestamp or unknown zone for timestamp value 2000-09-23 "
-            "9:45:30.920 Unknown/Zone");
-  context.Reset();
+    // error cases
+    EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-2b", 10), 0);
+    EXPECT_EQ(context.get_error(),
+              "Invalid timestamp or unknown zone for timestamp value 2000-09-2b");
+    context.Reset();
+
+    EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920 Unknown/Zone", 35),
+              0);
+    EXPECT_EQ(context.get_error(),
+              "Invalid timestamp or unknown zone for timestamp value 2000-09-23 "
+              "9:45:30.920 Unknown/Zone");
+    context.Reset();
+  }
 }
 
 TEST(TestTime, TestExtractTime) {

@@ -42,6 +42,11 @@ void ExportedTimeFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_time_with_zone",
                                   types->i32_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_time_with_zone));
+
+  args = {};
+  engine->AddGlobalMappingForFunc("gdv_fn_is_tzdb_configured",
+                                  types->i1_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_time_with_zone));
 }
 
 }  // namespace gandiva
@@ -80,6 +85,14 @@ int gdv_fn_time_with_zone(int* time_fields, const char* zone, int zone_len,
   }
 
   return 0;
+}
+
+bool gdv_fn_is_tzdb_configured() {
+  try {
+    return !(arrow::util::date::get_tzdb().zones.empty());
+  } catch (...) {
+  }
+  return false;
 }
 
 }  // extern "C"
