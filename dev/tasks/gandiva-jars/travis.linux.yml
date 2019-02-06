@@ -50,8 +50,8 @@ before_script:
 
 script:
   - mkdir -p dist
-  - arrow/dev/tasks/gandiva-jars/build-cpp.sh
-  - arrow/dev/tasks/gandiva-jars/build-java.sh
+  - arrow/dev/tasks/gandiva-jars/build-cpp.sh || travis_terminate 1
+  - arrow/dev/tasks/gandiva-jars/build-java.sh || travis_terminate 1
 
 deploy:
   provider: releases

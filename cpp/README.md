@@ -292,15 +292,15 @@ In addition to the arrow dependencies, gandiva requires :
 On Ubuntu/Debian you can install these requirements with:
 
 ```shell
-sudo apt-add-repository -y "deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-6.0 main"
+sudo apt-add-repository -y "deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-7.0 main"
 sudo apt-get update -qq
-sudo apt-get install llvm-6.0-dev
+sudo apt-get install llvm-7.0-dev
 ```
 
 On macOS, you can use [Homebrew][1]:
 
 ```shell
-brew install llvm@6
+brew install llvm@7
 ```
 
 The optional `gandiva` libraries and tests can be built by passing
