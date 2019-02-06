@@ -23,15 +23,6 @@
 using Rcpp::DataFrame;
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl) {
-  auto rb = RecordBatch__from_arrays(R_NilValue, tbl);
-
-  std::shared_ptr<arrow::Table> out;
-  STOP_IF_NOT_OK(arrow::Table::FromRecordBatches({std::move(rb)}, &out));
-  return out;
-}
-
-// [[Rcpp::export]]
 int Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
   return x->num_columns();
 }
@@ -59,4 +50,13 @@ std::vector<std::shared_ptr<arrow::Column>> Table__columns(
     res[i] = table->column(i);
   }
   return res;
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Table> Table__from_arrays(SEXP schema_sxp, SEXP lst) {
+  auto rb = RecordBatch__from_arrays(R_NilValue, lst);
+
+  std::shared_ptr<arrow::Table> out;
+  STOP_IF_NOT_OK(arrow::Table::FromRecordBatches({std::move(rb)}, &out));
+  return out;
 }

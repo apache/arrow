@@ -2225,17 +2225,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Table__from_dataframe
-std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl);
-RcppExport SEXP _arrow_Table__from_dataframe(SEXP tblSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< DataFrame >::type tbl(tblSEXP);
-    rcpp_result_gen = Rcpp::wrap(Table__from_dataframe(tbl));
-    return rcpp_result_gen;
-END_RCPP
-}
 // Table__num_columns
 int Table__num_columns(const std::shared_ptr<arrow::Table>& x);
 RcppExport SEXP _arrow_Table__num_columns(SEXP xSEXP) {
@@ -2289,6 +2278,18 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
     rcpp_result_gen = Rcpp::wrap(Table__columns(table));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Table__from_arrays
+std::shared_ptr<arrow::Table> Table__from_arrays(SEXP schema_sxp, SEXP lst);
+RcppExport SEXP _arrow_Table__from_arrays(SEXP schema_sxpSEXP, SEXP lstSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type schema_sxp(schema_sxpSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type lst(lstSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__from_arrays(schema_sxp, lst));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -2512,12 +2513,12 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__Close, 1},
     {"_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 2},
     {"_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 2},
-    {"_arrow_Table__from_dataframe", (DL_FUNC) &_arrow_Table__from_dataframe, 1},
     {"_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1},
     {"_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1},
     {"_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1},
     {"_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
     {"_arrow_Table__columns", (DL_FUNC) &_arrow_Table__columns, 1},
+    {"_arrow_Table__from_arrays", (DL_FUNC) &_arrow_Table__from_arrays, 2},
     {"_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0},
     {"_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1},
     {NULL, NULL, 0}

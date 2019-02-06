@@ -18,11 +18,12 @@
 context("read_record_batch()")
 
 test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
-  tab <- table(tibble::tibble(
-    int = 1:10, dbl = as.numeric(1:10),
+  tab <- table(
+    int = 1:10,
+    dbl = as.numeric(1:10),
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
-  ))
+  )
   tf <- tempfile()
 
   writer <- RecordBatchFileWriter(tf, tab$schema)

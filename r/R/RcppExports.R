@@ -793,10 +793,6 @@ ipc___RecordBatchStreamWriter__Open <- function(stream, schema) {
     .Call(`_arrow_ipc___RecordBatchStreamWriter__Open`, stream, schema)
 }
 
-Table__from_dataframe <- function(tbl) {
-    .Call(`_arrow_Table__from_dataframe`, tbl)
-}
-
 Table__num_columns <- function(x) {
     .Call(`_arrow_Table__num_columns`, x)
 }
@@ -815,6 +811,10 @@ Table__column <- function(table, i) {
 
 Table__columns <- function(table) {
     .Call(`_arrow_Table__columns`, table)
+}
+
+Table__from_arrays <- function(schema_sxp, lst) {
+    .Call(`_arrow_Table__from_arrays`, schema_sxp, lst)
 }
 
 #' Get the capacity of the global thread pool

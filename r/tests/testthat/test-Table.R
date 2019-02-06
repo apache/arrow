@@ -23,7 +23,7 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
   )
-  tab <- arrow::table(tbl)
+  tab <- arrow::table(!!!tbl)
 
   tf <- tempfile()
   write_arrow(tab, tf)
@@ -64,7 +64,7 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
 })
 
 test_that("Table cast (ARROW-3741)", {
-  tab <- table(tibble::tibble(x = 1:10, y  = 1:10))
+  tab <- table(x = 1:10, y = 1:10)
 
   expect_error(tab$cast(schema(x = int32())))
   expect_error(tab$cast(schema(x = int32(), z = int32())))
