@@ -23,6 +23,7 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getCharArrayWi
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.sql.DriverManager;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
@@ -31,11 +32,15 @@ import java.util.Collection;
 
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
+import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
+import org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper;
+import org.apache.arrow.adapter.jdbc.JdbcToArrowUtils;
 import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -126,12 +131,22 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
         new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()).build()));
   }
 
+  @Test
+  public void testJdbcSchemaMetadata() throws SQLException {
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true).build();
+    ResultSetMetaData rsmd = conn.createStatement().executeQuery(table.getQuery()).getMetaData();
+    Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(rsmd, config);
+    JdbcToArrowTestHelper.assertFieldMetadataMatchesResultSetMetadata(rsmd, schema);
+  }
+
   /**
    * This method calls the assert methods for various DataSets.
    *
    * @param root VectorSchemaRoot for test
    */
   public void testDataSets(VectorSchemaRoot root) {
+    JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
+
     assertVarcharVectorValues((VarCharVector) root.getVector(CLOB), table.getRowCount(),
         getCharArrayWithCharSet(table.getValues(), CLOB, StandardCharsets.UTF_8));
 

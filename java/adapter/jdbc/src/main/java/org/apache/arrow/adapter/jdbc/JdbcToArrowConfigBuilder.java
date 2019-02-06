@@ -29,6 +29,7 @@ import com.google.common.base.Preconditions;
 public class JdbcToArrowConfigBuilder {
   private Calendar calendar;
   private BaseAllocator allocator;
+  private boolean includeMetadata;
 
   /**
    * Default constructor for the <code>JdbcToArrowConfigBuilder}</code>.
@@ -38,6 +39,7 @@ public class JdbcToArrowConfigBuilder {
   public JdbcToArrowConfigBuilder() {
     this.allocator = null;
     this.calendar = null;
+    this.includeMetadata = false;
   }
 
   /**
@@ -62,6 +64,32 @@ public class JdbcToArrowConfigBuilder {
 
     this.allocator = allocator;
     this.calendar = calendar;
+    this.includeMetadata = false;
+  }
+
+  /**
+   * Constructor for the <code>JdbcToArrowConfigBuilder</code>.  Both the
+   * allocator and calendar are required.  A {@link NullPointerException}
+   * will be thrown if either of those arguments is <code>null</code>.
+   * <p>
+   * The allocator is used to construct Arrow vectors from the JDBC ResultSet.
+   * The calendar is used to determine the time zone of {@link java.sql.Timestamp}
+   * fields and convert {@link java.sql.Date}, {@link java.sql.Time}, and
+   * {@link java.sql.Timestamp} fields to a single, common time zone when reading
+   * from the result set.
+   * </p>
+   * <p>
+   * The <code>includeMetadata</code> argument, if <code>true</code> will cause
+   * various information about each database field to be added to the Vector
+   * Schema's field metadata.
+   * </p>
+   *
+   * @param allocator The Arrow Vector memory allocator.
+   * @param calendar The calendar to use when constructing timestamp fields.
+   */
+  public JdbcToArrowConfigBuilder(BaseAllocator allocator, Calendar calendar, boolean includeMetadata) {
+    this(allocator, calendar);
+    this.includeMetadata = includeMetadata;
   }
 
   /**
@@ -88,6 +116,17 @@ public class JdbcToArrowConfigBuilder {
   }
 
   /**
+   * Sets whether to include JDBC ResultSet field metadata in the Arrow Schema field metadata.
+   *
+   * @param includeMetadata Whether to include or exclude JDBC metadata in the Arrow Schema field metadata.
+   * @return This instance of the <code>JdbcToArrowConfig</code>, for chaining.
+   */
+  public JdbcToArrowConfigBuilder setIncludeMetadata(boolean includeMetadata) {
+    this.includeMetadata = includeMetadata;
+    return this;
+  }
+
+  /**
    * This builds the {@link JdbcToArrowConfig} from the provided
    * {@link BaseAllocator} and {@link Calendar}.
    *
@@ -95,6 +134,6 @@ public class JdbcToArrowConfigBuilder {
    * @throws NullPointerException if either the allocator or calendar was not set.
    */
   public JdbcToArrowConfig build() {
-    return new JdbcToArrowConfig(allocator, calendar);
+    return new JdbcToArrowConfig(allocator, calendar, includeMetadata);
   }
 }
