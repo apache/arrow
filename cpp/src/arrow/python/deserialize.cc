@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -195,8 +196,10 @@ std::vector<int8_t> GetPythonTypes(const UnionArray& data) {
   std::vector<int8_t> result;
   auto type = data.type();
   for (int i = 0; i < type->num_children(); ++i) {
-    // stoi is locale dependent, but should be ok for small integers
-    result.push_back(static_cast<int8_t>(std::stoi(type->child(i)->name())));
+    std::istringstream convert(type->child(i)->name());
+    int8_t tag;
+    convert >> tag;
+    result.push_back(tag);
   }
   return result;
 }
