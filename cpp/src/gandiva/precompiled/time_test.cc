@@ -76,6 +76,10 @@ TEST(TestTime, TestCastTimestamp) {
             -1459094217000);
 }
 
+#ifndef _WIN32
+
+// TODO(wesm): ARROW-4495. Fix these tests on Windows
+
 TEST(TestTime, TestCastTimestampErrors) {
   ExecutionContext context;
   // error cases
@@ -95,6 +99,8 @@ TEST(TestTime, TestCastTimestampErrors) {
             "9:45:30.920 Unknown/Zone");
   context.Reset();
 }
+
+#endif
 
 TEST(TestTime, TestExtractTime) {
   // 10:20:33
