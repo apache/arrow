@@ -32,6 +32,7 @@
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
+#include "arrow/test-random.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
@@ -67,20 +68,12 @@ const auto kListListInt32 = list(kListInt32);
 
 Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool,
                             std::shared_ptr<Array>* out, uint32_t seed = 0) {
-  std::shared_ptr<ResizableBuffer> data;
-  RETURN_NOT_OK(MakeRandomBuffer<int32_t>(length, pool, &data, seed));
-  Int32Builder builder(int32(), pool);
-  RETURN_NOT_OK(builder.Resize(length));
-  if (include_nulls) {
-    std::shared_ptr<ResizableBuffer> valid_bytes;
-    RETURN_NOT_OK(MakeRandomByteBuffer(length, pool, &valid_bytes));
-    RETURN_NOT_OK(builder.AppendValues(reinterpret_cast<const int32_t*>(data->data()),
-                                       length, valid_bytes->data()));
-    return builder.Finish(out);
-  }
-  RETURN_NOT_OK(
-      builder.AppendValues(reinterpret_cast<const int32_t*>(data->data()), length));
-  return builder.Finish(out);
+  random::RandomArrayGenerator rand(seed);
+  const double null_probability = include_nulls ? 0.5 : 0.0;
+
+  *out = rand.Int32(length, 0, 1000, null_probability);
+
+  return Status::OK();
 }
 
 Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_lists,

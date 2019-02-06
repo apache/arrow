@@ -152,12 +152,6 @@ class FlightInfo {
   mutable bool reconstructed_schema_;
 };
 
-// TODO(wesm): NYI
-class ARROW_EXPORT FlightPutWriter {
- public:
-  virtual ~FlightPutWriter() = default;
-};
-
 /// \brief An iterator to FlightInfo instances returned by ListFlights
 class ARROW_EXPORT FlightListing {
  public:

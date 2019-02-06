@@ -22,12 +22,12 @@
 #include <string>
 #include <utility>
 
-#include "google/protobuf/io/coded_stream.h"
-#include "google/protobuf/wire_format_lite.h"
-#include "grpc/byte_buffer_reader.h"
 #include "grpcpp/grpcpp.h"
 
+#include "arrow/ipc/dictionary.h"
+#include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -36,161 +36,11 @@
 #include "arrow/flight/Flight.grpc.pb.h"
 #include "arrow/flight/Flight.pb.h"
 #include "arrow/flight/internal.h"
+#include "arrow/flight/serialization-internal.h"
+
+using arrow::ipc::internal::IpcPayload;
 
 namespace pb = arrow::flight::protocol;
-
-namespace arrow {
-namespace flight {
-
-/// Internal, not user-visible type used for memory-efficient reads from gRPC
-/// stream
-struct FlightData {
-  /// Used only for puts, may be null
-  std::unique_ptr<FlightDescriptor> descriptor;
-
-  /// Non-length-prefixed Message header as described in format/Message.fbs
-  std::shared_ptr<Buffer> metadata;
-
-  /// Message body
-  std::shared_ptr<Buffer> body;
-};
-
-}  // namespace flight
-}  // namespace arrow
-
-namespace grpc {
-
-// Customizations to gRPC for more efficient deserialization of FlightData
-
-using google::protobuf::internal::WireFormatLite;
-using google::protobuf::io::CodedInputStream;
-
-using arrow::flight::FlightData;
-
-bool ReadBytesZeroCopy(const std::shared_ptr<arrow::Buffer>& source_data,
-                       CodedInputStream* input, std::shared_ptr<arrow::Buffer>* out) {
-  uint32_t length;
-  if (!input->ReadVarint32(&length)) {
-    return false;
-  }
-  *out = arrow::SliceBuffer(source_data, input->CurrentPosition(),
-                            static_cast<int64_t>(length));
-  return input->Skip(static_cast<int>(length));
-}
-
-// Internal wrapper for gRPC ByteBuffer so its memory can be exposed to Arrow
-// consumers with zero-copy
-class GrpcBuffer : public arrow::MutableBuffer {
- public:
-  GrpcBuffer(grpc_slice slice, bool incref)
-      : MutableBuffer(GRPC_SLICE_START_PTR(slice),
-                      static_cast<int64_t>(GRPC_SLICE_LENGTH(slice))),
-        slice_(incref ? grpc_slice_ref(slice) : slice) {}
-
-  ~GrpcBuffer() override {
-    // Decref slice
-    grpc_slice_unref(slice_);
-  }
-
-  static arrow::Status Wrap(ByteBuffer* cpp_buf, std::shared_ptr<arrow::Buffer>* out) {
-    // These types are guaranteed by static assertions in gRPC to have the same
-    // in-memory representation
-
-    auto buffer = *reinterpret_cast<grpc_byte_buffer**>(cpp_buf);
-
-    // This part below is based on the Flatbuffers gRPC SerializationTraits in
-    // flatbuffers/grpc.h
-
-    // Check if this is a single uncompressed slice.
-    if ((buffer->type == GRPC_BB_RAW) &&
-        (buffer->data.raw.compression == GRPC_COMPRESS_NONE) &&
-        (buffer->data.raw.slice_buffer.count == 1)) {
-      // If it is, then we can reference the `grpc_slice` directly.
-      grpc_slice slice = buffer->data.raw.slice_buffer.slices[0];
-
-      // Increment reference count so this memory remains valid
-      *out = std::make_shared<GrpcBuffer>(slice, true);
-    } else {
-      // Otherwise, we need to use `grpc_byte_buffer_reader_readall` to read
-      // `buffer` into a single contiguous `grpc_slice`. The gRPC reader gives
-      // us back a new slice with the refcount already incremented.
-      grpc_byte_buffer_reader reader;
-      if (!grpc_byte_buffer_reader_init(&reader, buffer)) {
-        return arrow::Status::IOError("Internal gRPC error reading from ByteBuffer");
-      }
-      grpc_slice slice = grpc_byte_buffer_reader_readall(&reader);
-      grpc_byte_buffer_reader_destroy(&reader);
-
-      // Steal the slice reference
-      *out = std::make_shared<GrpcBuffer>(slice, false);
-    }
-
-    return arrow::Status::OK();
-  }
-
- private:
-  grpc_slice slice_;
-};
-
-// Read internal::FlightData from grpc::ByteBuffer containing FlightData
-// protobuf without copying
-template <>
-class SerializationTraits<FlightData> {
- public:
-  static Status Serialize(const FlightData& msg, ByteBuffer** buffer, bool* own_buffer) {
-    return Status(StatusCode::UNIMPLEMENTED,
-                  "internal::FlightData serialization not implemented");
-  }
-
-  static Status Deserialize(ByteBuffer* buffer, FlightData* out) {
-    if (!buffer) {
-      return Status(StatusCode::INTERNAL, "No payload");
-    }
-
-    std::shared_ptr<arrow::Buffer> wrapped_buffer;
-    GRPC_RETURN_NOT_OK(GrpcBuffer::Wrap(buffer, &wrapped_buffer));
-
-    auto buffer_length = static_cast<int>(wrapped_buffer->size());
-    CodedInputStream pb_stream(wrapped_buffer->data(), buffer_length);
-
-    // TODO(wesm): The 2-parameter version of this function is deprecated
-    pb_stream.SetTotalBytesLimit(buffer_length, -1 /* no threshold */);
-
-    // This is the bytes remaining when using CodedInputStream like this
-    while (pb_stream.BytesUntilTotalBytesLimit()) {
-      const uint32_t tag = pb_stream.ReadTag();
-      const int field_number = WireFormatLite::GetTagFieldNumber(tag);
-      switch (field_number) {
-        case pb::FlightData::kFlightDescriptorFieldNumber: {
-          pb::FlightDescriptor pb_descriptor;
-          if (!pb_descriptor.ParseFromCodedStream(&pb_stream)) {
-            return Status(StatusCode::INTERNAL, "Unable to parse FlightDescriptor");
-          }
-        } break;
-        case pb::FlightData::kDataHeaderFieldNumber: {
-          if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->metadata)) {
-            return Status(StatusCode::INTERNAL, "Unable to read FlightData metadata");
-          }
-        } break;
-        case pb::FlightData::kDataBodyFieldNumber: {
-          if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->body)) {
-            return Status(StatusCode::INTERNAL, "Unable to read FlightData body");
-          }
-        } break;
-        default:
-          DCHECK(false) << "cannot happen";
-      }
-    }
-    buffer->Clear();
-
-    // TODO(wesm): Where and when should we verify that the FlightData is not
-    // malformed or missing components?
-
-    return Status::OK;
-  }
-};
-
-}  // namespace grpc
 
 namespace arrow {
 namespace flight {
@@ -225,9 +75,12 @@ class FlightStreamReader : public RecordBatchReader {
     }
 
     // For customizing read path for better memory/serialization efficiency
+    // XXX this cast is undefined behavior
     auto custom_reader = reinterpret_cast<grpc::ClientReader<FlightData>*>(stream_.get());
 
-    if (custom_reader->Read(&data)) {
+    // Explicitly specify the override to invoke - otherwise compiler
+    // may invoke through vtable (not updated by reinterpret_cast)
+    if (custom_reader->grpc::ClientReader<FlightData>::Read(&data)) {
       std::unique_ptr<ipc::Message> message;
 
       // Validate IPC message
@@ -258,6 +111,82 @@ class FlightStreamReader : public RecordBatchReader {
   std::shared_ptr<Schema> schema_;
   std::unique_ptr<grpc::ClientReader<pb::FlightData>> stream_;
 };
+
+class FlightClient;
+
+/// \brief A RecordBatchWriter implementation that writes to a Flight
+/// DoPut stream.
+class FlightPutWriter::FlightPutWriterImpl : public ipc::RecordBatchWriter {
+ public:
+  explicit FlightPutWriterImpl(std::unique_ptr<ClientRpc> rpc,
+                               const FlightDescriptor& descriptor,
+                               const std::shared_ptr<Schema>& schema,
+                               MemoryPool* pool = default_memory_pool())
+      : rpc_(std::move(rpc)), descriptor_(descriptor), schema_(schema), pool_(pool) {}
+
+  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override {
+    IpcPayload payload;
+    RETURN_NOT_OK(ipc::internal::GetRecordBatchPayload(batch, pool_, &payload));
+    // XXX this cast is undefined behavior
+    auto custom_writer = reinterpret_cast<grpc::ClientWriter<IpcPayload>*>(writer_.get());
+    // Explicitly specify the override to invoke - otherwise compiler
+    // may invoke through vtable (not updated by reinterpret_cast)
+    if (!custom_writer->grpc::ClientWriter<IpcPayload>::Write(payload,
+                                                              grpc::WriteOptions())) {
+      std::stringstream ss;
+      ss << "Could not write record batch to stream: "
+         << rpc_->context.debug_error_string();
+      return Status::IOError(ss.str());
+    }
+    return Status::OK();
+  }
+
+  Status Close() override {
+    bool finished_writes = writer_->WritesDone();
+    RETURN_NOT_OK(internal::FromGrpcStatus(writer_->Finish()));
+    if (!finished_writes) {
+      return Status::UnknownError(
+          "Could not finish writing record batches before closing");
+    }
+    return Status::OK();
+  }
+
+  void set_memory_pool(MemoryPool* pool) override { pool_ = pool; }
+
+ private:
+  /// \brief Set the gRPC writer backing this Flight stream.
+  /// \param [in] writer the gRPC writer
+  void set_stream(std::unique_ptr<grpc::ClientWriter<pb::FlightData>> writer) {
+    writer_ = std::move(writer);
+  }
+
+  // TODO: there isn't a way to access this as a user.
+  protocol::PutResult response;
+  std::unique_ptr<ClientRpc> rpc_;
+  FlightDescriptor descriptor_;
+  std::shared_ptr<Schema> schema_;
+  std::unique_ptr<grpc::ClientWriter<pb::FlightData>> writer_;
+  MemoryPool* pool_;
+
+  // We need to reference some fields
+  friend class FlightClient;
+};
+
+FlightPutWriter::~FlightPutWriter() {}
+
+FlightPutWriter::FlightPutWriter(std::unique_ptr<FlightPutWriterImpl> impl) {
+  impl_ = std::move(impl);
+}
+
+Status FlightPutWriter::WriteRecordBatch(const RecordBatch& batch, bool allow_64bit) {
+  return impl_->WriteRecordBatch(batch, allow_64bit);
+}
+
+Status FlightPutWriter::Close() { return impl_->Close(); }
+
+void FlightPutWriter::set_memory_pool(MemoryPool* pool) {
+  return impl_->set_memory_pool(pool);
+}
 
 class FlightClient::FlightClientImpl {
  public:
@@ -364,8 +293,38 @@ class FlightClient::FlightClientImpl {
     return Status::OK();
   }
 
-  Status DoPut(std::unique_ptr<FlightPutWriter>* stream) {
-    return Status::NotImplemented("DoPut");
+  Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
+               std::unique_ptr<ipc::RecordBatchWriter>* stream) {
+    std::unique_ptr<ClientRpc> rpc(new ClientRpc);
+    std::unique_ptr<FlightPutWriter::FlightPutWriterImpl> out(
+        new FlightPutWriter::FlightPutWriterImpl(std::move(rpc), descriptor, schema));
+    std::unique_ptr<grpc::ClientWriter<pb::FlightData>> write_stream(
+        stub_->DoPut(&out->rpc_->context, &out->response));
+
+    // First write the descriptor and schema to the stream.
+    pb::FlightData descriptor_message;
+    RETURN_NOT_OK(
+        internal::ToProto(descriptor, descriptor_message.mutable_flight_descriptor()));
+
+    std::shared_ptr<Buffer> header_buf;
+    RETURN_NOT_OK(Buffer::FromString("", &header_buf));
+    ipc::DictionaryMemo dictionary_memo;
+    RETURN_NOT_OK(ipc::SerializeSchema(*schema, out->pool_, &header_buf));
+    RETURN_NOT_OK(
+        ipc::internal::WriteSchemaMessage(*schema, &dictionary_memo, &header_buf));
+    descriptor_message.set_data_header(header_buf->ToString());
+
+    if (!write_stream->Write(descriptor_message, grpc::WriteOptions())) {
+      std::stringstream ss;
+      ss << "Could not write descriptor and schema to stream: "
+         << rpc->context.debug_error_string();
+      return Status::IOError(ss.str());
+    }
+
+    out->set_stream(std::move(write_stream));
+    *stream =
+        std::unique_ptr<ipc::RecordBatchWriter>(new FlightPutWriter(std::move(out)));
+    return Status::OK();
   }
 
  private:
@@ -410,9 +369,10 @@ Status FlightClient::DoGet(const Ticket& ticket, const std::shared_ptr<Schema>& 
   return impl_->DoGet(ticket, schema, stream);
 }
 
-Status FlightClient::DoPut(const Schema& schema,
-                           std::unique_ptr<FlightPutWriter>* stream) {
-  return Status::NotImplemented("DoPut");
+Status FlightClient::DoPut(const FlightDescriptor& descriptor,
+                           const std::shared_ptr<Schema>& schema,
+                           std::unique_ptr<ipc::RecordBatchWriter>* stream) {
+  return impl_->DoPut(descriptor, schema, stream);
 }
 
 }  // namespace flight

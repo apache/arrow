@@ -127,7 +127,9 @@ public class FlightClient implements AutoCloseable {
     // send the schema to start.
     ArrowMessage message = new ArrowMessage(descriptor.toProtocol(), root.getSchema());
     observer.onNext(message);
-    return new PutObserver(new VectorUnloader(root, true, false), observer, resultObserver.getFuture());
+    return new PutObserver(new VectorUnloader(
+        root, true /* include # of nulls in vectors */, true /* must align buffers to be C++-compatible */),
+        observer, resultObserver.getFuture());
   }
 
   public FlightInfo getInfo(FlightDescriptor descriptor) {
@@ -211,7 +213,8 @@ public class FlightClient implements AutoCloseable {
     @Override
     public void putNext() {
       ArrowRecordBatch batch = unloader.getRecordBatch();
-      while (!observer.isReady()) {
+      // Check the futureResult in case server sent an exception
+      while (!observer.isReady() && !futureResult.isDone()) {
         /* busy wait */
       }
       observer.onNext(new ArrowMessage(batch));

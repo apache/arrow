@@ -57,6 +57,7 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DCMAKE_CXX_FLAGS_RELEASE="/MD %CMAKE_CXX_FLAGS_RELEASE%" ^
       -DARROW_GANDIVA=%ARROW_BUILD_GANDIVA% ^
       -DARROW_PARQUET=ON ^
+      -DPARQUET_BUILD_EXECUTABLES=ON ^
       -DARROW_PYTHON=ON ^
       ..  || exit /B
 cmake --build . --target install --config %CONFIGURATION%  || exit /B

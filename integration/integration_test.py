@@ -1004,28 +1004,15 @@ class IntegrationRunner(object):
         )
         print('##########################################################')
 
-        for json_path in self.json_files:
-            print('==========================================================')
-            print('Testing file {0}'.format(json_path))
-            print('==========================================================')
+        with producer.flight_server():
+            for json_path in self.json_files:
+                print('=' * 58)
+                print('Testing file {0}'.format(json_path))
+                print('=' * 58)
 
-            name = os.path.splitext(os.path.basename(json_path))[0]
-
-            file_id = guid()[:8]
-
-            with producer.flight_server():
-                # Have the client request the file
-                consumer_file_path = os.path.join(
-                    self.temp_dir,
-                    file_id + '_' + name + '.consumer_requested_file')
-                consumer.flight_request(producer.FLIGHT_PORT,
-                                        json_path, consumer_file_path)
-
-                # Validate the file
-                print('-- Validating file')
-                consumer.validate(json_path, consumer_file_path)
-
-                # TODO: also have the client upload the file
+                # Have the client upload the file, then download and
+                # compare
+                consumer.flight_request(producer.FLIGHT_PORT, json_path)
 
 
 class Tester(object):
@@ -1053,7 +1040,7 @@ class Tester(object):
     def flight_server(self):
         raise NotImplementedError
 
-    def flight_request(self, port, json_path, arrow_path):
+    def flight_request(self, port, json_path):
         raise NotImplementedError
 
 
@@ -1122,12 +1109,11 @@ class JavaTester(Tester):
             print(' '.join(cmd))
         run_cmd(cmd)
 
-    def flight_request(self, port, json_path, arrow_path):
+    def flight_request(self, port, json_path):
         cmd = ['java', '-cp', self.ARROW_FLIGHT_JAR,
                self.ARROW_FLIGHT_CLIENT,
                '-port', str(port),
-               '-j', json_path,
-               '-a', arrow_path]
+               '-j', json_path]
         if self.debug:
             print(' '.join(cmd))
         run_cmd(cmd)
@@ -1230,15 +1216,14 @@ class CPPTester(Tester):
             server.terminate()
             server.wait(5)
 
-    def flight_request(self, port, json_path, arrow_path):
+    def flight_request(self, port, json_path):
         cmd = self.FLIGHT_CLIENT_CMD + [
             '-port=' + str(port),
             '-path=' + json_path,
-            '-output=' + arrow_path
         ]
         if self.debug:
             print(' '.join(cmd))
-        subprocess.run(cmd)
+        run_cmd(cmd)
 
 
 class JSTester(Tester):

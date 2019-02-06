@@ -59,7 +59,15 @@ These two steps are mandatory and must be executed in order.
       doxygen
       popd
 
-#. Build the complete documentation using Sphinx
+#. Build the complete documentation using Sphinx.
+
+   .. note::
+
+      This step requires the the pyarrow library is installed
+      in your python environment.  One way to accomplish
+      this is to follow the build instructions at :ref:`development`
+      and then run `python setup.py install` in arrow/python
+      (it is best to do this in a dedicated conda/virtual environment).
 
    .. code-block:: shell
 

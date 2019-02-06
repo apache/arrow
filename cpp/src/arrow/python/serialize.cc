@@ -203,19 +203,19 @@ class SequenceBuilder {
   Status AppendList(PyObject* context, PyObject* list, int32_t recursion_depth,
                     SerializedPyObject* blobs_out) {
     return AppendSequence(context, list, PythonType::LIST, lists_, list_values_,
-                          recursion_depth, blobs_out);
+                          recursion_depth + 1, blobs_out);
   }
 
   Status AppendTuple(PyObject* context, PyObject* tuple, int32_t recursion_depth,
                      SerializedPyObject* blobs_out) {
     return AppendSequence(context, tuple, PythonType::TUPLE, tuples_, tuple_values_,
-                          recursion_depth, blobs_out);
+                          recursion_depth + 1, blobs_out);
   }
 
   Status AppendSet(PyObject* context, PyObject* set, int32_t recursion_depth,
                    SerializedPyObject* blobs_out) {
     return AppendSequence(context, set, PythonType::SET, sets_, set_values_,
-                          recursion_depth, blobs_out);
+                          recursion_depth + 1, blobs_out);
   }
 
   Status AppendDict(PyObject* context, PyObject* dict, int32_t recursion_depth,

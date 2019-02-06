@@ -50,7 +50,6 @@ public final class JdbcToArrowConfig {
    */
   JdbcToArrowConfig(BaseAllocator allocator, Calendar calendar, boolean includeMetadata) {
     Preconditions.checkNotNull(allocator, "Memory allocator cannot be null");
-    Preconditions.checkNotNull(calendar, "Calendar object can not be null");
 
     this.allocator = allocator;
     this.calendar = calendar;
@@ -59,7 +58,8 @@ public final class JdbcToArrowConfig {
 
   /**
    * The calendar to use when defining Arrow Timestamp fields
-   * and retrieving time-based fields from the database.
+   * and retrieving {@link Date}, {@link Time}, or {@link Timestamp}
+   * data types from the {@link ResultSet}, or <code>null</code> if not converting.
    * @return the calendar.
    */
   public Calendar getCalendar() {

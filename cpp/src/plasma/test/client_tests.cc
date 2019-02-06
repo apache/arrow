@@ -59,9 +59,9 @@ class TestPlasmaStore : public ::testing::Test {
 
     std::string plasma_directory =
         test_executable.substr(0, test_executable.find_last_of("/"));
-    std::string plasma_command = plasma_directory +
-                                 "/plasma_store_server -m 10000000 -s " +
-                                 store_socket_name_ + " 1> /dev/null 2> /dev/null &";
+    std::string plasma_command =
+        plasma_directory + "/plasma_store_server -m 10000000 -s " + store_socket_name_ +
+        " 1> /dev/null 2> /dev/null & " + "echo $! > " + store_socket_name_ + ".pid";
     system(plasma_command.c_str());
     ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
     ARROW_CHECK_OK(client2_.Connect(store_socket_name_, ""));
@@ -69,15 +69,16 @@ class TestPlasmaStore : public ::testing::Test {
   virtual void TearDown() {
     ARROW_CHECK_OK(client_.Disconnect());
     ARROW_CHECK_OK(client2_.Disconnect());
-    // Kill all plasma_store processes
-    // TODO should only kill the processes we launched
+    // Kill plasma_store process that we started
 #ifdef COVERAGE_BUILD
     // Ask plasma_store to exit gracefully and give it time to write out
     // coverage files
-    system("killall -TERM plasma_store_server");
+    std::string plasma_term_command = "kill -TERM `cat " + store_socket_name_ + ".pid`";
+    system(plasma_term_command.c_str());
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
 #endif
-    system("killall -KILL plasma_store_server");
+    std::string plasma_kill_command = "kill -KILL `cat " + store_socket_name_ + ".pid`";
+    system(plasma_kill_command.c_str());
   }
 
   void CreateObject(PlasmaClient& client, const ObjectID& object_id,
