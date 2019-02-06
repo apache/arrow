@@ -62,7 +62,7 @@ Status NumericBuilder<T>::Resize(int64_t capacity) {
 
 template <typename T>
 Status NumericBuilder<T>::AppendValues(const value_type* values, int64_t length,
-                                         const uint8_t* valid_bytes) {
+                                       const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
   data_builder_.UnsafeAppend(values, length);
 
@@ -73,7 +73,7 @@ Status NumericBuilder<T>::AppendValues(const value_type* values, int64_t length,
 
 template <typename T>
 Status NumericBuilder<T>::AppendValues(const value_type* values, int64_t length,
-                                         const std::vector<bool>& is_valid) {
+                                       const std::vector<bool>& is_valid) {
   RETURN_NOT_OK(Reserve(length));
   data_builder_.UnsafeAppend(values, length);
   DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
@@ -85,7 +85,7 @@ Status NumericBuilder<T>::AppendValues(const value_type* values, int64_t length,
 
 template <typename T>
 Status NumericBuilder<T>::AppendValues(const std::vector<value_type>& values,
-                                         const std::vector<bool>& is_valid) {
+                                       const std::vector<bool>& is_valid) {
   return AppendValues(values.data(), static_cast<int64_t>(values.size()), is_valid);
 }
 

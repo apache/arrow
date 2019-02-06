@@ -82,9 +82,7 @@ class ARROW_EXPORT NumericBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  value_type GetValue(int64_t index) const {
-    return data_builder_.data()[index];
-  }
+  value_type GetValue(int64_t index) const { return data_builder_.data()[index]; }
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
@@ -322,7 +320,8 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
-    data_builder_.UnsafeAppend(length, [&values_begin]() -> bool { return *values_begin++; });
+    data_builder_.UnsafeAppend(length,
+                               [&values_begin]() -> bool { return *values_begin++; });
     // this updates length_
     UnsafeSetNotNull(length);
     return Status::OK();
@@ -343,8 +342,10 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
 
-    data_builder_.UnsafeAppend(length, [&values_begin]() -> bool { return *values_begin++; });
-    null_bitmap_builder_.UnsafeAppend(length, [&valid_begin]() -> bool { return *valid_begin++; });
+    data_builder_.UnsafeAppend(length,
+                               [&values_begin]() -> bool { return *values_begin++; });
+    null_bitmap_builder_.UnsafeAppend(
+        length, [&valid_begin]() -> bool { return *valid_begin++; });
     length_ = null_bitmap_builder_.length();
     null_count_ = null_bitmap_builder_.false_count();
     return Status::OK();
@@ -356,12 +357,14 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
-    data_builder_.UnsafeAppend(length, [&values_begin]() -> bool { return *values_begin++; });
+    data_builder_.UnsafeAppend(length,
+                               [&values_begin]() -> bool { return *values_begin++; });
 
     if (valid_begin == NULLPTR) {
       UnsafeSetNotNull(length);
     } else {
-      null_bitmap_builder_.UnsafeAppend(length, [&valid_begin]() -> bool { return *valid_begin++; });
+      null_bitmap_builder_.UnsafeAppend(
+          length, [&valid_begin]() -> bool { return *valid_begin++; });
     }
     length_ = null_bitmap_builder_.length();
     null_count_ = null_bitmap_builder_.false_count();
