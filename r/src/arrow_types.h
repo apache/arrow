@@ -212,8 +212,7 @@ std::vector<std::shared_ptr<T>> list_to_shared_ptr_vector(SEXP lst) {
   R_xlen_t n = XLENGTH(lst);
   std::vector<std::shared_ptr<T>> res(n);
   for (R_xlen_t i = 0; i < n; i++) {
-    res[i] = Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>>(
-        VECTOR_ELT(lst, i));
+    res[i] = extract<T>(VECTOR_ELT(lst, i));
   }
   return res;
 }

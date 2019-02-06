@@ -147,8 +147,27 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(const std::shared_ptr<arrow::Schema>& schema, List_ lst) {
-  auto arrays = arrow::r::list_to_shared_ptr_vector<arrow::Array>(lst);
+std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, List_ lst) {
+  R_xlen_t n_arrays = lst.size();
+
+  // convert lst to a vector of arrow::Array
+  std::vector<std::shared_ptr<arrow::Array>> arrays(n_arrays);
+  for(R_xlen_t i=0; i<n_arrays; i++) {
+    arrays[i] = Array__from_vector(lst[i]);
+  }
+
+  // extract or generate schema
+  std::shared_ptr<arrow::Schema> schema;
+  if( Rf_inherits(schema_sxp, "arrow::Schema")) {
+    schema = arrow::r::extract<arrow::Schema>(schema_sxp);
+  } else {
+    CharacterVector names = lst.names();
+    std::vector<std::shared_ptr<arrow::Field>> fields(n_arrays);
+    for (R_xlen_t i=0; i<n_arrays; i++) {
+      fields[i] = std::make_shared<arrow::Field>(std::string(names[i]), arrays[i]->type());
+    }
+    schema = std::make_shared<arrow::Schema>(std::move(fields));
+  }
 
   // check all sizes are the same
   int64_t num_rows= arrays[0]->length();

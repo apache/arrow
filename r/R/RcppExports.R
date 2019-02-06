@@ -729,8 +729,8 @@ ipc___ReadRecordBatch__InputStream__Schema <- function(stream, schema) {
     .Call(`_arrow_ipc___ReadRecordBatch__InputStream__Schema`, stream, schema)
 }
 
-RecordBatch__from_arrays <- function(schema, lst) {
-    .Call(`_arrow_RecordBatch__from_arrays`, schema, lst)
+RecordBatch__from_arrays <- function(schema_sxp, lst) {
+    .Call(`_arrow_RecordBatch__from_arrays`, schema_sxp, lst)
 }
 
 RecordBatchReader__schema <- function(reader) {

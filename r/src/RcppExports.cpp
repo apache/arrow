@@ -2047,14 +2047,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // RecordBatch__from_arrays
-std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(const std::shared_ptr<arrow::Schema>& schema, List_ lst);
-RcppExport SEXP _arrow_RecordBatch__from_arrays(SEXP schemaSEXP, SEXP lstSEXP) {
+std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, List_ lst);
+RcppExport SEXP _arrow_RecordBatch__from_arrays(SEXP schema_sxpSEXP, SEXP lstSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type schema(schemaSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type schema_sxp(schema_sxpSEXP);
     Rcpp::traits::input_parameter< List_ >::type lst(lstSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch__from_arrays(schema, lst));
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__from_arrays(schema_sxp, lst));
     return rcpp_result_gen;
 END_RCPP
 }

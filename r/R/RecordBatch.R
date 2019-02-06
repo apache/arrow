@@ -105,13 +105,7 @@ to_array <- function(x) {
 #' @return a [arrow::RecordBatch][arrow__RecordBatch]
 #' @export
 record_batch <- function(..., schema = NULL){
-  # TODO: maybe this can be done internally in parallel
-  arrays <- map(tibble::lst(...), to_array)
+  arrays <- tibble::lst(...)
   stopifnot(length(arrays) > 0)
-
-  if (!inherits(schema, "arrow::Schema")){
-    schema <- schema(!!!map(arrays, ~.$type))
-  }
-
   shared_ptr(`arrow::RecordBatch`, RecordBatch__from_arrays(schema, arrays) )
 }
