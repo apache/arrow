@@ -185,12 +185,10 @@ int gcm_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
 
   // Copying the buffer size, nonce and tag to ciphertext
   int bufferSize = nonceLen + ciphertext_len + gcmTagLen;
-  uint8_t bufferSizeArray [bufferSizeLen];
-    bufferSizeArray[3] = 0xff & (bufferSize >> 24);
-    bufferSizeArray[2] = 0xff & (bufferSize >> 16);
-    bufferSizeArray[1] = 0xff & (bufferSize >> 8);
-    bufferSizeArray[0] = 0xff & (bufferSize);
-  std::copy(bufferSizeArray, bufferSizeArray + bufferSizeLen, ciphertext);
+  ciphertext[3] = 0xff & (bufferSize >> 24);
+  ciphertext[2] = 0xff & (bufferSize >> 16);
+  ciphertext[1] = 0xff & (bufferSize >> 8);
+  ciphertext[0] = 0xff & (bufferSize);
   std::copy(nonce, nonce + nonceLen, ciphertext + bufferSizeLen);
   std::copy(tag, tag + gcmTagLen, ciphertext + bufferSizeLen + nonceLen + ciphertext_len);
 
@@ -239,15 +237,13 @@ int ctr_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
 
   ciphertext_len += len;
 
-  // Copying the buffer size and IV to ciphertext
-  int bufferSize = ctrIvLen + ciphertext_len;
-  uint8_t bufferSizeArray [bufferSizeLen];
-    bufferSizeArray[3] = 0xff & (bufferSize >> 24);
-    bufferSizeArray[2] = 0xff & (bufferSize >> 16);
-    bufferSizeArray[1] = 0xff & (bufferSize >> 8);
-    bufferSizeArray[0] = 0xff & (bufferSize);
-  std::copy(bufferSizeArray, bufferSizeArray + bufferSizeLen, ciphertext);
-  std::copy(iv, iv + ctrIvLen, ciphertext + bufferSizeLen);
+  // Copying the buffer size and nonce to ciphertext
+  int bufferSize = nonceLen + ciphertext_len;
+  ciphertext[3] = 0xff & (bufferSize >> 24);
+  ciphertext[2] = 0xff & (bufferSize >> 16);
+  ciphertext[1] = 0xff & (bufferSize >> 8);
+  ciphertext[0] = 0xff & (bufferSize);
+  std::copy(nonce, nonce + nonceLen, ciphertext + bufferSizeLen);
 
   return bufferSizeLen + bufferSize;
 }
@@ -359,8 +355,11 @@ int ctr_decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int
   }
   ciphertext_len = written_ciphertext_len;
 
-  // Extracting IV
-  std::copy(ciphertext + bufferSizeLen, ciphertext + bufferSizeLen + ctrIvLen, iv);
+  // Extracting nonce
+  std::copy(ciphertext + bufferSizeLen, ciphertext + bufferSizeLen + nonceLen, iv);
+  // Parquet CTR IVs are comprised of a 12-byte nonce and a 4-byte initial counter field. 
+  // The first 31 bits of the initial counter field are set to 0, the last bit is set to 1.
+  iv[ctrIvLen - 1] = 1;
 
   // Init cipher context
   EvpCipher cipher(aesCtr, key_len, decryptType);
