@@ -36,7 +36,11 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TimeZone;
 
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseFixedWidthVector;
@@ -103,7 +107,14 @@ public class JdbcToArrowUtils {
     Preconditions.checkNotNull(rsmd, "JDBC ResultSetMetaData object can't be null");
     Preconditions.checkNotNull(calendar, "Calendar object can't be null");
 
-    return jdbcToArrowSchema(rsmd, new JdbcToArrowConfig(new RootAllocator(0), calendar));
+    return jdbcToArrowSchema(rsmd, new JdbcToArrowConfig(new RootAllocator(0), calendar, false));
+  }
+
+  /**
+   * Returns the instance of a {java.util.Calendar} with the UTC time zone and root locale.
+   */
+  public static Calendar getUtcCalendar() {
+    return Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT);
   }
 
   /**
@@ -145,39 +156,60 @@ public class JdbcToArrowUtils {
     Preconditions.checkNotNull(rsmd, "JDBC ResultSetMetaData object can't be null");
     Preconditions.checkNotNull(config, "The configuration object must not be null");
 
+    final String timezone;
+    if (config.getCalendar() != null) {
+      timezone = config.getCalendar().getTimeZone().getID();
+    } else {
+      timezone = null;
+    }
+
     List<Field> fields = new ArrayList<>();
     int columnCount = rsmd.getColumnCount();
     for (int i = 1; i <= columnCount; i++) {
-      String columnName = rsmd.getColumnName(i);
+      final String columnName = rsmd.getColumnName(i);
+      final FieldType fieldType;
+
+      final Map<String, String> metadata;
+      if (config.shouldIncludeMetadata()) {
+        metadata = new HashMap<>();
+        metadata.put(Constants.SQL_CATALOG_NAME_KEY, rsmd.getCatalogName(i));
+        metadata.put(Constants.SQL_TABLE_NAME_KEY, rsmd.getTableName(i));
+        metadata.put(Constants.SQL_COLUMN_NAME_KEY, columnName);
+        metadata.put(Constants.SQL_TYPE_KEY, rsmd.getColumnTypeName(i));
+
+      } else {
+        metadata = null;
+      }
+
       switch (rsmd.getColumnType(i)) {
         case Types.BOOLEAN:
         case Types.BIT:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Bool()), null));
+          fieldType = new FieldType(true, new ArrowType.Bool(), null, metadata);
           break;
         case Types.TINYINT:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Int(8, true)), null));
+          fieldType = new FieldType(true, new ArrowType.Int(8, true), null, metadata);
           break;
         case Types.SMALLINT:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Int(16, true)), null));
+          fieldType = new FieldType(true, new ArrowType.Int(16, true), null, metadata);
           break;
         case Types.INTEGER:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Int(32, true)), null));
+          fieldType = new FieldType(true, new ArrowType.Int(32, true), null, metadata);
           break;
         case Types.BIGINT:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Int(64, true)), null));
+          fieldType = new FieldType(true, new ArrowType.Int(64, true), null, metadata);
           break;
         case Types.NUMERIC:
         case Types.DECIMAL:
           int precision = rsmd.getPrecision(i);
           int scale = rsmd.getScale(i);
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Decimal(precision, scale)), null));
+          fieldType = new FieldType(true, new ArrowType.Decimal(precision, scale), null, metadata);
           break;
         case Types.REAL:
         case Types.FLOAT:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.FloatingPoint(SINGLE)), null));
+          fieldType = new FieldType(true, new ArrowType.FloatingPoint(SINGLE), null, metadata);
           break;
         case Types.DOUBLE:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.FloatingPoint(DOUBLE)), null));
+          fieldType = new FieldType(true, new ArrowType.FloatingPoint(DOUBLE), null, metadata);
           break;
         case Types.CHAR:
         case Types.NCHAR:
@@ -185,37 +217,41 @@ public class JdbcToArrowUtils {
         case Types.NVARCHAR:
         case Types.LONGVARCHAR:
         case Types.LONGNVARCHAR:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Utf8()), null));
+        case Types.CLOB:
+          fieldType = new FieldType(true, new ArrowType.Utf8(), null, metadata);
           break;
         case Types.DATE:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Date(DateUnit.MILLISECOND)), null));
+          fieldType = new FieldType(true, new ArrowType.Date(DateUnit.MILLISECOND), null, metadata);
           break;
         case Types.TIME:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Time(TimeUnit.MILLISECOND, 32)), null));
+          fieldType = new FieldType(true, new ArrowType.Time(TimeUnit.MILLISECOND, 32), null, metadata);
           break;
         case Types.TIMESTAMP:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND,
-              config.getCalendar().getTimeZone().getID())), null));
+          fieldType =
+              new FieldType(
+                  true,
+                  new ArrowType.Timestamp(TimeUnit.MILLISECOND, timezone),
+                  null,
+                  metadata);
           break;
         case Types.BINARY:
         case Types.VARBINARY:
         case Types.LONGVARBINARY:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Binary()), null));
-          break;
-        case Types.ARRAY:
-          // TODO Need to handle this type
-          // fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
-          break;
-        case Types.CLOB:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Utf8()), null));
-          break;
         case Types.BLOB:
-          fields.add(new Field(columnName, FieldType.nullable(new ArrowType.Binary()), null));
+          fieldType = new FieldType(true, new ArrowType.Binary(), null, metadata);
           break;
 
+        case Types.ARRAY:
+            // TODO Need to handle this type
+            // fields.add(new Field("list", FieldType.nullable(new ArrowType.List()), null));
         default:
           // no-op, shouldn't get here
+          fieldType = null;
           break;
+      }
+
+      if (fieldType != null) {
+        fields.add(new Field(columnName, fieldType, null));
       }
     }
 
@@ -250,7 +286,7 @@ public class JdbcToArrowUtils {
     Preconditions.checkNotNull(rs, "JDBC ResultSet object can't be null");
     Preconditions.checkNotNull(root, "JDBC ResultSet object can't be null");
 
-    jdbcToArrowVectors(rs, root, new JdbcToArrowConfig(new RootAllocator(0), calendar));
+    jdbcToArrowVectors(rs, root, new JdbcToArrowConfig(new RootAllocator(0), calendar, false));
   }
 
   /**

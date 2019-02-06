@@ -24,6 +24,10 @@ import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BigIntVector;
@@ -39,6 +43,9 @@ import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
  * This is a Helper class which has functionalities to read and assert the values from the given FieldVector object.
@@ -163,6 +170,41 @@ public class JdbcToArrowTestHelper {
 
     for (int j = 0; j < vector.getValueCount(); j++) {
       assertTrue(vector.isNull(j));
+    }
+  }
+
+  public static void assertFieldMetadataIsEmpty(VectorSchemaRoot schema) {
+    assertNotNull(schema);
+    assertNotNull(schema.getSchema());
+    assertNotNull(schema.getSchema().getFields());
+
+    for (Field field : schema.getSchema().getFields()) {
+      assertNotNull(field.getMetadata());
+      assertEquals(0, field.getMetadata().size());
+    }
+  }
+
+  public static void assertFieldMetadataMatchesResultSetMetadata(ResultSetMetaData rsmd, Schema schema)
+      throws SQLException {
+    assertNotNull(schema);
+    assertNotNull(schema.getFields());
+    assertNotNull(rsmd);
+
+    List<Field> fields = schema.getFields();
+
+    assertEquals(rsmd.getColumnCount(), fields.size());
+
+    // Vector columns are created in the same order as ResultSet columns.
+    for (int i = 1; i <= rsmd.getColumnCount(); ++i) {
+      Map<String, String> metadata = fields.get(i - 1).getMetadata();
+
+      assertNotNull(metadata);
+      assertEquals(4, metadata.size());
+
+      assertEquals(rsmd.getCatalogName(i), metadata.get(Constants.SQL_CATALOG_NAME_KEY));
+      assertEquals(rsmd.getTableName(i), metadata.get(Constants.SQL_TABLE_NAME_KEY));
+      assertEquals(rsmd.getColumnName(i), metadata.get(Constants.SQL_COLUMN_NAME_KEY));
+      assertEquals(rsmd.getColumnTypeName(i), metadata.get(Constants.SQL_TYPE_KEY));
     }
   }
 

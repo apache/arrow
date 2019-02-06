@@ -20,6 +20,7 @@ package org.apache.arrow.adapter.jdbc.h2;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertNullValues;
 
 import java.io.IOException;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -27,7 +28,10 @@ import java.util.Collection;
 
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
+import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
+import org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper;
+import org.apache.arrow.adapter.jdbc.JdbcToArrowUtils;
 import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
@@ -44,6 +48,7 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -109,6 +114,13 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
         new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()).build()));
   }
 
+  @Test
+  public void testJdbcSchemaMetadata() throws SQLException {
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true).build();
+    ResultSetMetaData rsmd = conn.createStatement().executeQuery(table.getQuery()).getMetaData();
+    Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(rsmd, config);
+    JdbcToArrowTestHelper.assertFieldMetadataMatchesResultSetMetadata(rsmd, schema);
+  }
 
   /**
    * This method calls the assert methods for various DataSets.
@@ -116,6 +128,8 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
    * @param root VectorSchemaRoot for test
    */
   public void testDataSets(VectorSchemaRoot root) {
+    JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
+
     switch (table.getType()) {
       case NULL:
         sqlToArrowTestNullValues(table.getVectors(), root, table.getRowCount());

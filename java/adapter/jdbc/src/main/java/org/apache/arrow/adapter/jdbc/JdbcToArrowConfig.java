@@ -37,20 +37,23 @@ import com.google.common.base.Preconditions;
 public final class JdbcToArrowConfig {
   private Calendar calendar;
   private BaseAllocator allocator;
+  private boolean includeMetadata;
 
   /**
    * Constructs a new configuration from the provided allocator and calendar.  The <code>allocator</code>
    * is used when constructing the Arrow vectors from the ResultSet, and the calendar is used to define
    * Arrow Timestamp fields, and to read time-based fields from the JDBC <code>ResultSet</code>. 
    *
-   * @param allocator The memory allocator to construct the Arrow vectors with.
-   * @param calendar The calendar to use when constructing Timestamp fields and reading time-based results.
+   * @param allocator       The memory allocator to construct the Arrow vectors with.
+   * @param calendar        The calendar to use when constructing Timestamp fields and reading time-based results.
+   * @param includeMetadata Whether to include JDBC field metadata in the Arrow Schema Field metadata.
    */
-  JdbcToArrowConfig(BaseAllocator allocator, Calendar calendar) {
+  JdbcToArrowConfig(BaseAllocator allocator, Calendar calendar, boolean includeMetadata) {
     Preconditions.checkNotNull(allocator, "Memory allocator cannot be null");
 
     this.allocator = allocator;
     this.calendar = calendar;
+    this.includeMetadata = includeMetadata;
   }
 
   /**
@@ -69,5 +72,14 @@ public final class JdbcToArrowConfig {
    */
   public BaseAllocator getAllocator() {
     return allocator;
+  }
+
+  /**
+   * Whether to include JDBC ResultSet field metadata in the Arrow Schema field metadata.
+   *
+   * @return <code>true</code> to include field metadata, <code>false</code> to exclude it.
+   */
+  public boolean shouldIncludeMetadata() {
+    return includeMetadata;
   }
 }

@@ -34,7 +34,7 @@ public class JdbcToArrowConfigTest {
 
   @Test(expected = NullPointerException.class)
   public void testConfigNullArguments() {
-    new JdbcToArrowConfig(null, null);
+    new JdbcToArrowConfig(null, null, false);
   }
 
   @Test(expected = NullPointerException.class)
@@ -43,7 +43,7 @@ public class JdbcToArrowConfigTest {
   }
 
   public void testConfigNullCalendar() {
-    JdbcToArrowConfig config = new JdbcToArrowConfig(allocator, null);
+    JdbcToArrowConfig config = new JdbcToArrowConfig(allocator, null, false);
     assertNull(config.getCalendar());
   }
 
@@ -56,7 +56,7 @@ public class JdbcToArrowConfigTest {
 
   @Test(expected = NullPointerException.class)
   public void testConfigNullAllocator() {
-    new JdbcToArrowConfig(null, calendar);
+    new JdbcToArrowConfig(null, calendar, false);
   }
 
   @Test(expected = NullPointerException.class)
@@ -93,5 +93,25 @@ public class JdbcToArrowConfigTest {
 
     assertTrue(newAllocator == config.getAllocator());
     assertTrue(newCalendar == config.getCalendar());
+  }
+
+  @Test public void testIncludeMetadata() {
+    JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, calendar, false);
+
+    JdbcToArrowConfig config = builder.build();
+    assertFalse(config.shouldIncludeMetadata());
+
+    builder.setIncludeMetadata(true);
+    config = builder.build();
+    assertTrue(config.shouldIncludeMetadata());
+
+    config = new JdbcToArrowConfigBuilder(allocator, calendar, true).build();
+    assertTrue(config.shouldIncludeMetadata());
+
+    config = new JdbcToArrowConfig(allocator, calendar, true);
+    assertTrue(config.shouldIncludeMetadata());
+
+    config = new JdbcToArrowConfig(allocator, calendar, false);
+    assertFalse(config.shouldIncludeMetadata());
   }
 }
