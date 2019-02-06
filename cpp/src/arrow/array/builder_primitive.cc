@@ -49,23 +49,14 @@ Status NullBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
 template <typename T>
 void PrimitiveBuilder<T>::Reset() {
-  data_.reset();
-  raw_data_ = nullptr;
+  data_builder_.Reset();
 }
 
 template <typename T>
 Status PrimitiveBuilder<T>::Resize(int64_t capacity) {
   RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
   capacity = std::max(capacity, kMinBuilderCapacity);
-
-  int64_t nbytes = TypeTraits<T>::bytes_required(capacity);
-  if (capacity_ == 0) {
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &data_));
-  } else {
-    RETURN_NOT_OK(data_->Resize(nbytes));
-  }
-
-  raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
+  RETURN_NOT_OK(data_builder_.Resize(capacity));
   return ArrayBuilder::Resize(capacity);
 }
 
@@ -73,11 +64,7 @@ template <typename T>
 Status PrimitiveBuilder<T>::AppendValues(const value_type* values, int64_t length,
                                          const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
-
-  if (length > 0) {
-    std::memcpy(raw_data_ + length_, values,
-                static_cast<std::size_t>(TypeTraits<T>::bytes_required(length)));
-  }
+  data_builder_.UnsafeAppend(values, length);
 
   // length_ is update by these
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
@@ -88,12 +75,8 @@ template <typename T>
 Status PrimitiveBuilder<T>::AppendValues(const value_type* values, int64_t length,
                                          const std::vector<bool>& is_valid) {
   RETURN_NOT_OK(Reserve(length));
+  data_builder_.UnsafeAppend(values, length);
   DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
-
-  if (length > 0) {
-    std::memcpy(raw_data_ + length_, values,
-                static_cast<std::size_t>(TypeTraits<T>::bytes_required(length)));
-  }
 
   // length_ is update by these
   ArrayBuilder::UnsafeAppendToBitmap(is_valid);
@@ -113,12 +96,11 @@ Status PrimitiveBuilder<T>::AppendValues(const std::vector<value_type>& values) 
 
 template <typename T>
 Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  RETURN_NOT_OK(TrimBuffer(TypeTraits<T>::bytes_required(length_), data_.get()));
-  std::shared_ptr<Buffer> null_bitmap;
+  std::shared_ptr<Buffer> data, null_bitmap;
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
-  *out = ArrayData::Make(type_, length_, {null_bitmap, data_}, null_count_);
+  RETURN_NOT_OK(data_builder_.Finish(&data));
+  *out = ArrayData::Make(type_, length_, {null_bitmap, data}, null_count_);
 
-  data_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
 
   return Status::OK();

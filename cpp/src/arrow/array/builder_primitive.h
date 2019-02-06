@@ -48,7 +48,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   using value_type = typename Type::c_type;
 
   explicit PrimitiveBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : ArrayBuilder(type, pool), data_(NULLPTR), raw_data_(NULLPTR) {}
+      : ArrayBuilder(type, pool), data_builder_(pool) {}
 
   using ArrayBuilder::Advance;
 
@@ -57,8 +57,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// uninitialized memory access
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
     ARROW_RETURN_NOT_OK(Reserve(length));
-    memset(raw_data_ + length_, 0,
-           static_cast<size_t>(TypeTraits<Type>::bytes_required(length)));
+    data_builder_.UnsafeAppend(length, static_cast<value_type>(0));
     UnsafeAppendToBitmap(valid_bytes, length);
     return Status::OK();
   }
@@ -66,13 +65,13 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// \brief Append a single null element
   Status AppendNull() {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    memset(raw_data_ + length_, 0, sizeof(value_type));
+    data_builder_.UnsafeAppend(static_cast<value_type>(0));
     UnsafeAppendToBitmap(false);
     return Status::OK();
   }
 
   value_type GetValue(int64_t index) const {
-    return reinterpret_cast<const value_type*>(data_->data())[index];
+    return data_builder_.data()[index];
   }
 
   /// \brief Append a sequence of elements in one shot
@@ -115,8 +114,9 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
-
-    std::copy(values_begin, values_end, raw_data_ + length_);
+    for (auto it = values_begin; it != values_end; ++it) {
+      data_builder_.UnsafeAppend(*it);
+    }
 
     // this updates the length_
     UnsafeSetNotNull(length);
@@ -137,8 +137,9 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
                   "version instead");
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
-
-    std::copy(values_begin, values_end, raw_data_ + length_);
+    for (auto it = values_begin; it != values_end; ++it) {
+      data_builder_.UnsafeAppend(*it);
+    }
 
     // this updates the length_
     for (int64_t i = 0; i != length; ++i) {
@@ -154,8 +155,9 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
-
-    std::copy(values_begin, values_end, raw_data_ + length_);
+    for (auto it = values_begin; it != values_end; ++it) {
+      data_builder_.UnsafeAppend(*it);
+    }
 
     // this updates the length_
     if (valid_begin == NULLPTR) {
@@ -176,8 +178,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   Status Resize(int64_t capacity) override;
 
  protected:
-  std::shared_ptr<ResizableBuffer> data_;
-  value_type* raw_data_;
+  TypedBufferBuilder<value_type> data_builder_;
 };
 
 /// Base class for all Builders that emit an Array of a scalar numerical type.
@@ -193,7 +194,6 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
           ARROW_MEMORY_POOL_DEFAULT)
       : PrimitiveBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
-  using ArrayBuilder::UnsafeAppendNull;
   using ArrayBuilder::UnsafeAppendToBitmap;
   using PrimitiveBuilder<T>::AppendValues;
   using PrimitiveBuilder<T>::Resize;
@@ -212,13 +212,18 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
   /// This method does not capacity-check; make sure to call Reserve
   /// beforehand.
   void UnsafeAppend(const value_type val) {
-    raw_data_[length_] = val;
     UnsafeAppendToBitmap(true);
+    data_builder_.UnsafeAppend(val);
+  }
+
+  void UnsafeAppendNull() {
+    UnsafeAppendToBitmap(false);
+    data_builder_.UnsafeAppend(0);
   }
 
  protected:
   using PrimitiveBuilder<T>::length_;
-  using PrimitiveBuilder<T>::raw_data_;
+  using PrimitiveBuilder<T>::data_builder_;
 };
 
 // Builders
