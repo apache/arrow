@@ -693,10 +693,6 @@ RecordBatch__column <- function(batch, i) {
     .Call(`_arrow_RecordBatch__column`, batch, i)
 }
 
-RecordBatch__from_dataframe <- function(tbl) {
-    .Call(`_arrow_RecordBatch__from_dataframe`, tbl)
-}
-
 RecordBatch__Equals <- function(self, other) {
     .Call(`_arrow_RecordBatch__Equals`, self, other)
 }

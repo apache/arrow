@@ -55,24 +55,6 @@ std::shared_ptr<arrow::Array> RecordBatch__column(
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl) {
-  Rcpp::CharacterVector names = tbl.names();
-
-  std::vector<std::shared_ptr<arrow::Field>> fields;
-  std::vector<std::shared_ptr<arrow::Array>> arrays;
-
-  for (int i = 0; i < tbl.size(); i++) {
-    SEXP x = tbl[i];
-    arrays.push_back(Array__from_vector(x, R_NilValue));
-    fields.push_back(
-        std::make_shared<arrow::Field>(std::string(names[i]), arrays[i]->type()));
-  }
-  auto schema = std::make_shared<arrow::Schema>(std::move(fields));
-
-  return arrow::RecordBatch::Make(schema, tbl.nrow(), std::move(arrays));
-}
-
-// [[Rcpp::export]]
 bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self,
                          const std::shared_ptr<arrow::RecordBatch>& other) {
   return self->Equals(*other);
@@ -147,13 +129,13 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, List_ lst) {
-  R_xlen_t n_arrays = lst.size();
+std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SEXP lst) {
+  R_xlen_t n_arrays = XLENGTH(lst);
 
   // convert lst to a vector of arrow::Array
   std::vector<std::shared_ptr<arrow::Array>> arrays(n_arrays);
   for(R_xlen_t i=0; i<n_arrays; i++) {
-    arrays[i] = Array__from_vector(lst[i]);
+    arrays[i] = Array__from_vector(VECTOR_ELT(lst, i), R_NilValue);
   }
 
   // extract or generate schema
@@ -161,7 +143,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, Li
   if( Rf_inherits(schema_sxp, "arrow::Schema")) {
     schema = arrow::r::extract<arrow::Schema>(schema_sxp);
   } else {
-    CharacterVector names = lst.names();
+    Rcpp::CharacterVector names(Rf_getAttrib(lst, R_NamesSymbol));
     std::vector<std::shared_ptr<arrow::Field>> fields(n_arrays);
     for (R_xlen_t i=0; i<n_arrays; i++) {
       fields[i] = std::make_shared<arrow::Field>(std::string(names[i]), arrays[i]->type());
