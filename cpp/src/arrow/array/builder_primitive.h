@@ -150,7 +150,7 @@ class ARROW_EXPORT NumericBuilder : public ArrayBuilder {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
     for (auto it = values_begin; it != values_end; ++it) {
-      data_builder_.UnsafeAppend(*it);
+      data_builder_.UnsafeAppend(static_cast<value_type>(*it));
     }
 
     // this updates the length_
