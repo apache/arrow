@@ -74,7 +74,10 @@ TEST(TestTime, TestCastTimestamp) {
             1330452059000);
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1923-10-07 03:03:03 America/New_York", 36),
             -1459094217000);
+}
 
+TEST(TestTime, TestCastTimestampErrors) {
+  ExecutionContext context;
   // error cases
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "20000923", 8), 0);
   EXPECT_EQ(context.get_error(), "Not a valid day for timestamp value 20000923");

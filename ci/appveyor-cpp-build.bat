@@ -95,7 +95,6 @@ if "%JOB%" == "Build_Debug" (
   exit /B 0
 )
 
-set ARROW_LLVM_VERSION=6.0.1
 set CONDA_PACKAGES=--file=ci\conda_env_python.yml python=%PYTHON% numpy=1.14 thrift-cpp=0.11 boost-cpp
 
 if "%ARROW_BUILD_GANDIVA%" == "ON" (
