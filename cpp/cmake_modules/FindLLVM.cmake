@@ -33,6 +33,7 @@ if (APPLE)
 endif()
 
 find_package(LLVM ${ARROW_LLVM_VERSION} REQUIRED CONFIG HINTS
+             /usr/lib
              /usr/local/opt/llvm
              /usr/share
              ${LLVM_BREW_PREFIX}
@@ -41,7 +42,7 @@ message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 # Find the libraries that correspond to the LLVM components
-llvm_map_components_to_libnames(LLVM_LIBS all)
+llvm_map_components_to_libnames(LLVM_LIBS core mcjit native ipo bitreader target linker analysis debuginfodwarf)
 
 find_program(LLVM_LINK_EXECUTABLE llvm-link
   HINTS ${LLVM_TOOLS_BINARY_DIR})
