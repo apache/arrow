@@ -38,9 +38,9 @@ const BigNumNMixin = {
 };
 
 /** @ignore */
-const SignedBigNumNMixin: any = Object.assign({}, BigNumNMixin, { signed: true, constructor: undefined });
+const SignedBigNumNMixin: any = Object.assign({}, BigNumNMixin, { signed: true });
 /** @ignore */
-const UnsignedBigNumNMixin: any = Object.assign({}, BigNumNMixin, { signed: false, constructor: undefined });
+const UnsignedBigNumNMixin: any = Object.assign({}, BigNumNMixin, { signed: false });
 
 /** @ignore */
 export class BN<T extends BigNumArray> {

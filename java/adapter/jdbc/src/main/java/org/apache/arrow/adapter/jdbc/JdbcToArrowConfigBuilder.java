@@ -32,7 +32,7 @@ public class JdbcToArrowConfigBuilder {
 
   /**
    * Default constructor for the <code>JdbcToArrowConfigBuilder}</code>.
-   * Use the setter methods for the allocator and calendar; both must be
+   * Use the setter methods for the allocator and calendar; the allocator must be
    * set.  Otherwise, {@link #build()} will throw a {@link NullPointerException}.
    */
   public JdbcToArrowConfigBuilder() {
@@ -41,9 +41,9 @@ public class JdbcToArrowConfigBuilder {
   }
 
   /**
-   * Constructor for the <code>JdbcToArrowConfigBuilder</code>.  Both the
-   * allocator and calendar are required.  A {@link NullPointerException}
-   * will be thrown if one of the arguments is <code>null</code>.
+   * Constructor for the <code>JdbcToArrowConfigBuilder</code>.  The
+   * allocator is required, and a {@link NullPointerException}
+   * will be thrown if it is <code>null</code>.
    * <p>
    * The allocator is used to construct Arrow vectors from the JDBC ResultSet.
    * The calendar is used to determine the time zone of {@link java.sql.Timestamp}
@@ -59,7 +59,6 @@ public class JdbcToArrowConfigBuilder {
     this();
 
     Preconditions.checkNotNull(allocator, "Memory allocator cannot be null");
-    Preconditions.checkNotNull(calendar, "Calendar object can not be null");
 
     this.allocator = allocator;
     this.calendar = calendar;
@@ -82,10 +81,8 @@ public class JdbcToArrowConfigBuilder {
    * Arrow schema, and reading time-based fields from the JDBC <code>ResultSet</code>.
    *
    * @param calendar the calendar to set.
-   * @exception NullPointerExeption if <code>calendar</code> is <code>null</code>.
    */
   public JdbcToArrowConfigBuilder setCalendar(Calendar calendar) {
-    Preconditions.checkNotNull(calendar, "Calendar object can not be null");
     this.calendar = calendar;
     return this;
   }

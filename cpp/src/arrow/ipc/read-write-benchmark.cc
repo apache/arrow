@@ -24,34 +24,15 @@
 #include "arrow/api.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
+#include "arrow/test-random.h"
 #include "arrow/test-util.h"
 
 namespace arrow {
 
-template <typename TYPE>
 std::shared_ptr<RecordBatch> MakeRecordBatch(int64_t total_size, int64_t num_fields) {
-  using T = typename TYPE::c_type;
-  size_t itemsize = sizeof(T);
-  int64_t length = total_size / num_fields / itemsize;
-
-  auto type = TypeTraits<TYPE>::type_singleton();
-
-  std::vector<bool> is_valid;
-  random_is_valid(length, 0.1, &is_valid);
-
-  std::vector<T> values;
-  randint<T>(length, 0, 100, &values);
-
-  typename TypeTraits<TYPE>::BuilderType builder(type, default_memory_pool());
-  for (size_t i = 0; i < values.size(); ++i) {
-    if (is_valid[i]) {
-      ABORT_NOT_OK(builder.Append(values[i]));
-    } else {
-      ABORT_NOT_OK(builder.AppendNull());
-    }
-  }
-  std::shared_ptr<Array> array;
-  ABORT_NOT_OK(builder.Finish(&array));
+  int64_t length = total_size / num_fields / sizeof(int64_t);
+  random::RandomArrayGenerator rand(0x4f32a908);
+  auto type = arrow::int64();
 
   ArrayVector arrays;
   std::vector<std::shared_ptr<Field>> fields;
@@ -59,7 +40,7 @@ std::shared_ptr<RecordBatch> MakeRecordBatch(int64_t total_size, int64_t num_fie
     std::stringstream ss;
     ss << "f" << i;
     fields.push_back(field(ss.str(), type));
-    arrays.push_back(array);
+    arrays.push_back(rand.Int64(length, 0, 100, 0.1));
   }
 
   auto schema = std::make_shared<Schema>(fields);
@@ -72,7 +53,7 @@ static void BM_WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const 
 
   std::shared_ptr<ResizableBuffer> buffer;
   ABORT_NOT_OK(AllocateResizableBuffer(kTotalSize & 2, &buffer));
-  auto record_batch = MakeRecordBatch<Int64Type>(kTotalSize, state.range(0));
+  auto record_batch = MakeRecordBatch(kTotalSize, state.range(0));
 
   while (state.KeepRunning()) {
     io::BufferOutputStream stream(buffer);
@@ -93,7 +74,7 @@ static void BM_ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const r
 
   std::shared_ptr<ResizableBuffer> buffer;
   ABORT_NOT_OK(AllocateResizableBuffer(kTotalSize & 2, &buffer));
-  auto record_batch = MakeRecordBatch<Int64Type>(kTotalSize, state.range(0));
+  auto record_batch = MakeRecordBatch(kTotalSize, state.range(0));
 
   io::BufferOutputStream stream(buffer);
 

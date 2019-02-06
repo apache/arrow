@@ -814,3 +814,39 @@ def test_serialization_determinism():
         buf1 = pa.serialize(obj).to_buffer()
         buf2 = pa.serialize(obj).to_buffer()
         assert buf1.to_pybytes() == buf2.to_pybytes()
+
+
+def test_serialize_recursive_objects():
+    class ClassA(object):
+        pass
+
+    # Make a list that contains itself.
+    lst = []
+    lst.append(lst)
+
+    # Make an object that contains itself as a field.
+    a1 = ClassA()
+    a1.field = a1
+
+    # Make two objects that contain each other as fields.
+    a2 = ClassA()
+    a3 = ClassA()
+    a2.field = a3
+    a3.field = a2
+
+    # Make a dictionary that contains itself.
+    d1 = {}
+    d1["key"] = d1
+
+    # Make a numpy array that contains itself.
+    arr = np.array([None], dtype=object)
+    arr[0] = arr
+
+    # Create a list of recursive objects.
+    recursive_objects = [lst, a1, a2, a3, d1, arr]
+
+    # Check that exceptions are thrown when we serialize the recursive
+    # objects.
+    for obj in recursive_objects:
+        with pytest.raises(Exception):
+            pa.serialize(obj).deserialize()

@@ -100,7 +100,7 @@ class Table;
 
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
-#define ASSERT_ARRAYS_EQUAL(LEFT, RIGHT)                                               \
+#define ASSERT_PP_EQUAL(LEFT, RIGHT)                                                   \
   do {                                                                                 \
     if (!(LEFT).Equals((RIGHT))) {                                                     \
       std::stringstream pp_result;                                                     \
@@ -111,6 +111,9 @@ using ArrayVector = std::vector<std::shared_ptr<Array>>;
       FAIL() << "Got: \n" << pp_result.str() << "\nExpected: \n" << pp_expected.str(); \
     }                                                                                  \
   } while (false)
+
+#define ASSERT_ARRAYS_EQUAL(lhs, rhs) ASSERT_PP_EQUAL(lhs, rhs)
+#define ASSERT_RECORD_BATCHES_EQUAL(lhs, rhs) ASSERT_PP_EQUAL(lhs, rhs)
 
 template <typename T, typename U>
 void randint(int64_t N, T lower, T upper, std::vector<U>* out) {

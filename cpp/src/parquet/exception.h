@@ -77,7 +77,7 @@ class ParquetException : public std::exception {
 
   explicit ParquetException(const std::string& msg) : msg_(msg) {}
 
-  explicit ParquetException(const char* msg, std::exception& e) : msg_(msg) {}
+  explicit ParquetException(const char* msg, std::exception&) : msg_(msg) {}
 
   ~ParquetException() throw() override {}
 

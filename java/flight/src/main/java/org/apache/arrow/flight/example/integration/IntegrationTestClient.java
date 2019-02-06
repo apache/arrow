@@ -18,8 +18,8 @@
 package org.apache.arrow.flight.example.integration;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.flight.FlightClient;
@@ -30,9 +30,11 @@ import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.dictionary.DictionaryProvider;
-import org.apache.arrow.vector.ipc.ArrowFileWriter;
+import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.ipc.JsonFileReader;
+import org.apache.arrow.vector.util.Validator;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -48,10 +50,9 @@ class IntegrationTestClient {
 
   private IntegrationTestClient() {
     options = new Options();
-    options.addOption("a", "arrow", true, "arrow file");
     options.addOption("j", "json", true, "json file");
     options.addOption("host", true, "The host to connect to.");
-    options.addOption("port", true, "The port to connect to." );
+    options.addOption("port", true, "The port to connect to.");
   }
 
   public static void main(String[] args) {
@@ -64,7 +65,7 @@ class IntegrationTestClient {
     }
   }
 
-  static void fatalError(String message, Throwable e) {
+  private static void fatalError(String message, Throwable e) {
     System.err.println(message);
     System.err.println(e.getMessage());
     LOGGER.error(message, e);
@@ -72,36 +73,65 @@ class IntegrationTestClient {
   }
 
   private void run(String[] args) throws ParseException, IOException {
-    CommandLineParser parser = new DefaultParser();
-    CommandLine cmd = parser.parse(options, args, false);
-
-    String fileName = cmd.getOptionValue("arrow");
-    if (fileName == null) {
-      throw new IllegalArgumentException("missing arrow file parameter");
-    }
-    File arrowFile = new File(fileName);
-    if (arrowFile.exists()) {
-      throw new IllegalArgumentException("arrow file already exists: " + arrowFile.getAbsolutePath());
-    }
+    final CommandLineParser parser = new DefaultParser();
+    final CommandLine cmd = parser.parse(options, args, false);
 
     final String host = cmd.getOptionValue("host", "localhost");
     final int port = Integer.parseInt(cmd.getOptionValue("port", "31337"));
 
     final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-    FlightClient client = new FlightClient(allocator, new Location(host, port));
-    FlightInfo info = client.getInfo(FlightDescriptor.path(cmd.getOptionValue("json")));
+    final FlightClient client = new FlightClient(allocator, new Location(host, port));
+
+    final String inputPath = cmd.getOptionValue("j");
+
+    // 1. Read data from JSON and upload to server.
+    FlightDescriptor descriptor = FlightDescriptor.path(inputPath);
+    VectorSchemaRoot jsonRoot;
+    try (JsonFileReader reader = new JsonFileReader(new File(inputPath), allocator);
+         VectorSchemaRoot root = VectorSchemaRoot.create(reader.start(), allocator)) {
+      jsonRoot = VectorSchemaRoot.create(root.getSchema(), allocator);
+      VectorUnloader unloader = new VectorUnloader(root);
+      VectorLoader jsonLoader = new VectorLoader(jsonRoot);
+      FlightClient.ClientStreamListener stream = client.startPut(descriptor, root);
+      while (reader.read(root)) {
+        stream.putNext();
+        jsonLoader.load(unloader.getRecordBatch());
+        root.clear();
+      }
+      stream.completed();
+      // Need to call this, or exceptions from the server get swallowed
+      stream.getResult();
+    }
+
+    // 2. Get the ticket for the data.
+    FlightInfo info = client.getInfo(descriptor);
     List<FlightEndpoint> endpoints = info.getEndpoints();
     if (endpoints.isEmpty()) {
       throw new RuntimeException("No endpoints returned from Flight server.");
     }
 
-    FlightStream stream = client.getStream(info.getEndpoints().get(0).getTicket());
-    try (VectorSchemaRoot root = stream.getRoot();
-         FileOutputStream fileOutputStream = new FileOutputStream(arrowFile);
-         ArrowFileWriter arrowWriter = new ArrowFileWriter(root, new DictionaryProvider.MapDictionaryProvider(),
-                 fileOutputStream.getChannel())) {
-      while (stream.next()) {
-        arrowWriter.writeBatch();
+    for (FlightEndpoint endpoint : info.getEndpoints()) {
+      // 3. Download the data from the server.
+      List<Location> locations = endpoint.getLocations();
+      if (locations.size() == 0) {
+        locations = Collections.singletonList(new Location(host, port));
+      }
+      for (Location location : locations) {
+        System.out.println("Verifying location " + location.getHost() + ":" + location.getPort());
+        FlightClient readClient = new FlightClient(allocator, location);
+        FlightStream stream = readClient.getStream(endpoint.getTicket());
+        VectorSchemaRoot downloadedRoot;
+        try (VectorSchemaRoot root = stream.getRoot()) {
+          downloadedRoot = VectorSchemaRoot.create(root.getSchema(), allocator);
+          VectorLoader loader = new VectorLoader(downloadedRoot);
+          VectorUnloader unloader = new VectorUnloader(root);
+          while (stream.next()) {
+            loader.load(unloader.getRecordBatch());
+          }
+        }
+
+        // 4. Validate the data.
+        Validator.compareVectorSchemaRoot(jsonRoot, downloadedRoot);
       }
     }
   }
