@@ -495,7 +495,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
 }
 
 TEST(NumericBuilderAccessors, TestSettersGetters) {
-  int64_t datum = 42; 
+  int64_t datum = 42;
   int64_t new_datum = 43;
   NumericBuilder<Int64Type> builder(int64(), default_memory_pool());
 

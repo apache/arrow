@@ -349,43 +349,44 @@ struct HashKernelTraits<Type, Action, enable_if_fixed_size_binary<Type>> {
 
 }  // namespace
 
+#define PROCESS_SUPPORTED_HASH_TYPES \
+  PROCESS(NullType)                  \
+  PROCESS(BooleanType)               \
+  PROCESS(UInt8Type)                 \
+  PROCESS(Int8Type)                  \
+  PROCESS(UInt16Type)                \
+  PROCESS(Int16Type)                 \
+  PROCESS(UInt32Type)                \
+  PROCESS(Int32Type)                 \
+  PROCESS(UInt64Type)                \
+  PROCESS(Int64Type)                 \
+  PROCESS(FloatType)                 \
+  PROCESS(DoubleType)                \
+  PROCESS(Date32Type)                \
+  PROCESS(Date64Type)                \
+  PROCESS(Time32Type)                \
+  PROCESS(Time64Type)                \
+  PROCESS(TimestampType)             \
+  PROCESS(BinaryType)                \
+  PROCESS(StringType)                \
+  PROCESS(FixedSizeBinaryType)       \
+  PROCESS(Decimal128Type)
+
 Status GetUniqueKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
                        std::unique_ptr<HashKernel>* out) {
   std::unique_ptr<HashKernel> kernel;
-
-#define UNIQUE_CASE(InType)                                                           \
+  switch (type->id()) {
+#define PROCESS(InType)                                                               \
   case InType::type_id:                                                               \
     kernel.reset(new typename HashKernelTraits<InType, UniqueAction>::HashKernelImpl( \
         type, ctx->memory_pool()));                                                   \
-    break
+    break;
 
-  switch (type->id()) {
-    UNIQUE_CASE(NullType);
-    UNIQUE_CASE(BooleanType);
-    UNIQUE_CASE(UInt8Type);
-    UNIQUE_CASE(Int8Type);
-    UNIQUE_CASE(UInt16Type);
-    UNIQUE_CASE(Int16Type);
-    UNIQUE_CASE(UInt32Type);
-    UNIQUE_CASE(Int32Type);
-    UNIQUE_CASE(UInt64Type);
-    UNIQUE_CASE(Int64Type);
-    UNIQUE_CASE(FloatType);
-    UNIQUE_CASE(DoubleType);
-    UNIQUE_CASE(Date32Type);
-    UNIQUE_CASE(Date64Type);
-    UNIQUE_CASE(Time32Type);
-    UNIQUE_CASE(Time64Type);
-    UNIQUE_CASE(TimestampType);
-    UNIQUE_CASE(BinaryType);
-    UNIQUE_CASE(StringType);
-    UNIQUE_CASE(FixedSizeBinaryType);
-    UNIQUE_CASE(Decimal128Type);
+    PROCESS_SUPPORTED_HASH_TYPES
+#undef PROCESS
     default:
       break;
   }
-
-#undef UNIQUE_CASE
 
   CHECK_IMPLEMENTED(kernel, "unique", type);
   RETURN_NOT_OK(kernel->Reset());
@@ -398,35 +399,16 @@ Status GetDictionaryEncodeKernel(FunctionContext* ctx,
                                  std::unique_ptr<HashKernel>* out) {
   std::unique_ptr<HashKernel> kernel;
 
-#define DICTIONARY_ENCODE_CASE(InType)                                                \
+  switch (type->id()) {
+#define PROCESS(InType)                                                               \
   case InType::type_id:                                                               \
     kernel.reset(new                                                                  \
                  typename HashKernelTraits<InType, DictEncodeAction>::HashKernelImpl( \
                      type, ctx->memory_pool()));                                      \
-    break
+    break;
 
-  switch (type->id()) {
-    DICTIONARY_ENCODE_CASE(NullType);
-    DICTIONARY_ENCODE_CASE(BooleanType);
-    DICTIONARY_ENCODE_CASE(UInt8Type);
-    DICTIONARY_ENCODE_CASE(Int8Type);
-    DICTIONARY_ENCODE_CASE(UInt16Type);
-    DICTIONARY_ENCODE_CASE(Int16Type);
-    DICTIONARY_ENCODE_CASE(UInt32Type);
-    DICTIONARY_ENCODE_CASE(Int32Type);
-    DICTIONARY_ENCODE_CASE(UInt64Type);
-    DICTIONARY_ENCODE_CASE(Int64Type);
-    DICTIONARY_ENCODE_CASE(FloatType);
-    DICTIONARY_ENCODE_CASE(DoubleType);
-    DICTIONARY_ENCODE_CASE(Date32Type);
-    DICTIONARY_ENCODE_CASE(Date64Type);
-    DICTIONARY_ENCODE_CASE(Time32Type);
-    DICTIONARY_ENCODE_CASE(Time64Type);
-    DICTIONARY_ENCODE_CASE(TimestampType);
-    DICTIONARY_ENCODE_CASE(BinaryType);
-    DICTIONARY_ENCODE_CASE(StringType);
-    DICTIONARY_ENCODE_CASE(FixedSizeBinaryType);
-    DICTIONARY_ENCODE_CASE(Decimal128Type);
+    PROCESS_SUPPORTED_HASH_TYPES
+#undef PROCESS
     default:
       break;
   }
@@ -442,40 +424,20 @@ Status GetDictionaryEncodeKernel(FunctionContext* ctx,
 Status GetCountValuesKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
                             std::unique_ptr<HashKernel>* out) {
   std::unique_ptr<HashKernel> kernel;
-#define COUNT_VALUES_CASE(InType)                                                      \
+
+  switch (type->id()) {
+#define PROCESS(InType)                                                                \
   case InType::type_id:                                                                \
     kernel.reset(new                                                                   \
                  typename HashKernelTraits<InType, CountValuesAction>::HashKernelImpl( \
                      type, ctx->memory_pool()));                                       \
-    break
+    break;
 
-  switch (type->id()) {
-    COUNT_VALUES_CASE(NullType);
-    COUNT_VALUES_CASE(BooleanType);
-    COUNT_VALUES_CASE(UInt8Type);
-    COUNT_VALUES_CASE(Int8Type);
-    COUNT_VALUES_CASE(UInt16Type);
-    COUNT_VALUES_CASE(Int16Type);
-    COUNT_VALUES_CASE(UInt32Type);
-    COUNT_VALUES_CASE(Int32Type);
-    COUNT_VALUES_CASE(UInt64Type);
-    COUNT_VALUES_CASE(Int64Type);
-    COUNT_VALUES_CASE(FloatType);
-    COUNT_VALUES_CASE(DoubleType);
-    COUNT_VALUES_CASE(Date32Type);
-    COUNT_VALUES_CASE(Date64Type);
-    COUNT_VALUES_CASE(Time32Type);
-    COUNT_VALUES_CASE(Time64Type);
-    COUNT_VALUES_CASE(TimestampType);
-    COUNT_VALUES_CASE(BinaryType);
-    COUNT_VALUES_CASE(StringType);
-    COUNT_VALUES_CASE(FixedSizeBinaryType);
-    COUNT_VALUES_CASE(Decimal128Type);
+    PROCESS_SUPPORTED_HASH_TYPES
+#undef PROCESS
     default:
       break;
   }
-
-#undef COUNT_VALUES_CASE
 
   CHECK_IMPLEMENTED(kernel, "count-values", type);
   RETURN_NOT_OK(kernel->Reset());
@@ -545,6 +507,6 @@ Status CountValues(FunctionContext* ctx, const Datum& value,
   *out_counts = MakeArray(counts.array());
   return Status::OK();
 }
-
+#undef PROCESS_SUPPORTED_HASH_TYPES
 }  // namespace compute
 }  // namespace arrow
