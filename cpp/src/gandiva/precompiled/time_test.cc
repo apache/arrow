@@ -67,6 +67,15 @@ TEST(TestTime, TestCastTimestamp) {
             -1187308799080);
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1857-02-11 20:31:40.920 -05:30", 30),
             -3562264699080);
+}
+
+#ifndef _WIN32
+
+// TODO(wesm): ARROW-4495. Need to address TZ database issues on Windows
+
+TEST(TestTime, TestCastTimestampWithTZ) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
 
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920 Canada/Pacific", 37),
             969727530920);
@@ -75,10 +84,6 @@ TEST(TestTime, TestCastTimestamp) {
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1923-10-07 03:03:03 America/New_York", 36),
             -1459094217000);
 }
-
-#ifndef _WIN32
-
-// TODO(wesm): ARROW-4495. Fix these tests on Windows
 
 TEST(TestTime, TestCastTimestampErrors) {
   ExecutionContext context;

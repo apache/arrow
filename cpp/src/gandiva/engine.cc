@@ -15,6 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// TODO(wesm): LLVM 7 produces pesky C4244 that disable pragmas around the LLVM
+// includes seem to not fix as with LLVM 6
+#if defined(_MSC_VER)
+#pragma warning(disable : 4244)
+#endif
+
 #include "gandiva/engine.h"
 
 #include <iostream>
