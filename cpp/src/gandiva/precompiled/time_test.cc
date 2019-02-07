@@ -82,6 +82,8 @@ TEST(TestTime, TestCastTimestamp) {
 
 TEST(TestTime, TestCastTimestampErrors) {
   ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
   // error cases
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "20000923", 8), 0);
   EXPECT_EQ(context.get_error(), "Not a valid day for timestamp value 20000923");
