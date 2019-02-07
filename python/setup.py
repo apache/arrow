@@ -323,10 +323,11 @@ class build_ext(_build_ext):
             # Move the built C-extension to the place expected by the Python
             # build
             self._found_names = []
+            print(os.listdir())
             for name in self.CYTHON_MODULE_NAMES:
                 built_path = self.get_ext_built(name)
                 if not os.path.exists(built_path):
-                    print(built_path)
+                    print('Did not find {0}'.format(built_path))
                     if self._failure_permitted(name):
                         print('Cython module {0} failure permitted'
                               .format(name))
