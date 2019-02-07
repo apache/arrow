@@ -31,6 +31,12 @@
 
 namespace arrow {
 
+void AssertCountNonZero(const Tensor& t, int64_t expected) {
+  int64_t count = -1;
+  ASSERT_OK(t.CountNonZero(&count));
+  ASSERT_EQ(count, expected);
+}
+
 TEST(TestTensor, ZeroDim) {
   const int64_t values = 1;
   std::vector<int64_t> shape = {};
@@ -97,7 +103,7 @@ TEST(TestTensor, IsContiguous) {
   ASSERT_FALSE(t3.is_contiguous());
 }
 
-TEST(TestTensor, ZeroDimensionalTensor) {
+TEST(TestTensor, ZeroSizedTensor) {
   std::vector<int64_t> shape = {0};
 
   std::shared_ptr<Buffer> buffer;
@@ -105,6 +111,48 @@ TEST(TestTensor, ZeroDimensionalTensor) {
 
   Tensor t(int64(), buffer, shape);
   ASSERT_EQ(t.strides().size(), 1);
+}
+
+TEST(TestTensor, CountNonZeroForZeroSizedTensor) {
+  std::vector<int64_t> shape = {0};
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_OK(AllocateBuffer(0, &buffer));
+
+  Tensor t(int64(), buffer, shape);
+  AssertCountNonZero(t, 0);
+}
+
+TEST(TestTensor, CountNonZeroForContiguousTensor) {
+  std::vector<int64_t> shape = {4, 6};
+  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
+
+  std::vector<int64_t> c_strides = {48, 8};
+  std::vector<int64_t> f_strides = {8, 32};
+  Tensor t1(int64(), buffer, shape, c_strides);
+  Tensor t2(int64(), buffer, shape, f_strides);
+
+  ASSERT_TRUE(t1.is_contiguous());
+  ASSERT_TRUE(t2.is_contiguous());
+  AssertCountNonZero(t1, 12);
+  AssertCountNonZero(t2, 12);
+}
+
+TEST(TestTensor, CountNonZeroForNonContiguousTensor) {
+  std::vector<int64_t> shape = {4, 4};
+  std::vector<int64_t> values = {
+      1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,  7, 0,  8, 0,
+      0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16, 0, 15, 0, 16,
+  };
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
+
+  std::vector<int64_t> noncontig_strides = {64, 16};
+  Tensor t(int64(), buffer, shape, noncontig_strides);
+
+  ASSERT_FALSE(t.is_contiguous());
+  AssertCountNonZero(t, 8);
 }
 
 TEST(TestNumericTensor, ElementAccessWithRowMajorStrides) {
