@@ -58,7 +58,11 @@ impl Default for Int96 {
 
 impl PartialEq for Int96 {
     fn eq(&self, other: &Int96) -> bool {
-        self.data() == other.data()
+        match (&self.value, &other.value) {
+            (Some(v1), Some(v2)) => v1 == v2,
+            (None, None) => true,
+            _ => false,
+        }
     }
 }
 
@@ -148,7 +152,11 @@ impl Default for ByteArray {
 
 impl PartialEq for ByteArray {
     fn eq(&self, other: &ByteArray) -> bool {
-        self.data() == other.data()
+        match (&self.data, &other.data) {
+            (Some(d1), Some(d2)) => d1.as_ref() == d2.as_ref(),
+            (None, None) => true,
+            _ => false,
+        }
     }
 }
 

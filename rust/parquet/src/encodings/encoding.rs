@@ -25,7 +25,7 @@ use crate::encodings::rle::RleEncoder;
 use crate::errors::{ParquetError, Result};
 use crate::schema::types::ColumnDescPtr;
 use crate::util::{
-    bit_util::{log2, num_required_bits, BitWriter},
+    bit_util::{self, log2, num_required_bits, BitWriter},
     hash_util,
     memory::{Buffer, ByteBuffer, ByteBufferPtr, MemTrackerPtr},
 };
@@ -40,6 +40,23 @@ use crate::util::{
 pub trait Encoder<T: DataType> {
     /// Encodes data from `values`.
     fn put(&mut self, values: &[T::T]) -> Result<()>;
+
+    /// Encodes data from `values`, which contains spaces for null values, that is
+    /// identified by `valid_bits`.
+    ///
+    /// Returns the number of non-null values encoded.
+    fn put_spaced(&mut self, values: &[T::T], valid_bits: &[u8]) -> Result<usize> {
+        let num_values = values.len();
+        let mut buffer = Vec::with_capacity(num_values);
+        // TODO: this is pretty inefficient. Revisit in future.
+        for i in 0..num_values {
+            if bit_util::get_bit(valid_bits, i) {
+                buffer.push(values[i].clone());
+            }
+        }
+        self.put(&buffer[..])?;
+        Ok(buffer.len())
+    }
 
     /// Returns the encoding type of this encoder.
     fn encoding(&self) -> Encoding;
@@ -1004,7 +1021,10 @@ mod tests {
     use crate::schema::types::{
         ColumnDescPtr, ColumnDescriptor, ColumnPath, Type as SchemaType,
     };
-    use crate::util::{memory::MemTracker, test_common::RandGen};
+    use crate::util::{
+        memory::MemTracker,
+        test_common::{random_bytes, RandGen},
+    };
 
     const TEST_SET_SIZE: usize = 1024;
 
@@ -1260,6 +1280,27 @@ mod tests {
             let mut decoder = create_test_decoder::<T>(type_length, enc);
             let mut values = <T as RandGen<T>>::gen_vec(type_length, total);
             let mut result_data = vec![T::T::default(); total];
+
+            // Test put/get spaced.
+            let num_bytes = bit_util::ceil(total as i64, 8);
+            let valid_bits = random_bytes(num_bytes as usize);
+            let values_written = encoder.put_spaced(&values[..], &valid_bits[..])?;
+            let data = encoder.flush_buffer()?;
+            decoder.set_data(data, values_written)?;
+            let _ = decoder.get_spaced(
+                &mut result_data[..],
+                values.len() - values_written,
+                &valid_bits[..],
+            )?;
+
+            // Check equality
+            for i in 0..total {
+                if bit_util::get_bit(&valid_bits[..], i) {
+                    assert_eq!(result_data[i], values[i]);
+                } else {
+                    assert_eq!(result_data[i], T::T::default());
+                }
+            }
 
             let mut actual_total = put_and_get(
                 &mut encoder,
