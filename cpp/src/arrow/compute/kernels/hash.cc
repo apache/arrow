@@ -93,54 +93,56 @@ class UniqueAction : public ActionBase {
   Status Flush(Datum* out) { return Status::OK(); }
 
   std::shared_ptr<DataType> out_type() const { return type_; }
+
+  Status FlushFinal(Datum* out) { return Status::OK(); }
 };
 
 // ----------------------------------------------------------------------
-// Count values implementation
+// Count values implementation (see HashKernel for description of methods)
 
-template <typename Type>
-class CountValuesImpl : public HashTableKernel<Type, CountValuesImpl<Type>> {
+class CountValuesAction {
  public:
-  static constexpr bool allow_expand = true;
-  using Base = HashTableKernel<Type, CountValuesImpl>;
-
-  CountValuesImpl(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : Base(type, pool) {}
+  CountValuesAction(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+      : count_builder_(pool) {}
 
   Status Reserve(const int64_t length) {
-    counts_.reserve(length);
+    // builder size is independent of input array size.
+    return Status::OK();
+  }
+  Status Reset() {
+    count_builder_.Reset();
+    return Status::OK();
+  }
+
+  // Don't do anything on flush beceause we don't want to finalize the builder
+  // or incur the cost of memory copies.
+  Status Flush(Datum* out) { return Status::OK(); }
+
+  Status FlushFinal(Datum* out) {
+    std::shared_ptr<ArrayData> result;
+    RETURN_NOT_OK(count_builder_.FinishInternal(&result));
+    out->value = std::move(result);
     return Status::OK();
   }
 
   void ObserveNull() {}
 
-  void ObserveFound(const hash_slot_t slot) { counts_[slot]++; }
-
-  void ObserveNotFound(const hash_slot_t slot) { counts_.emplace_back(1); }
-
-  Status DoubleSize() { return Base::DoubleTableSize(); }
-
-  Status Flush(Datum* out) override {
-    Int64Builder builder(Base::pool_);
-    std::shared_ptr<ArrayData> result;
-
-    for (const int64_t value : counts_) {
-      RETURN_NOT_OK(builder.Append(value));
-    }
-
-    RETURN_NOT_OK(builder.FinishInternal(&result));
-    out->value = std::move(result);
-    return Status::OK();
+  template <class Index>
+  void ObserveFound(Index slot) {
+    count_builder_[slot]++;
   }
 
-  using Base::Append;
+  template <class Index>
+  void ObserveNotFound(Index slot) {
+    count_builder_.Append(1);
+  }
 
  private:
-  std::vector<int64_t> counts_;
+  Int64Builder count_builder_;
 };
 
 // ----------------------------------------------------------------------
-// Dictionary encode implementation
+// Dictionary encode implementation (see HashKernel for description of methods)
 
 class DictEncodeAction : public ActionBase {
  public:
@@ -174,9 +176,31 @@ class DictEncodeAction : public ActionBase {
   }
 
   std::shared_ptr<DataType> out_type() const { return int32(); }
+  Status FlushFinal(Datum* out) { return Status::OK(); }
 
  private:
   Int32Builder indices_builder_;
+};
+
+/// \brief Invoke hash table kernel on input array, returning any output
+/// values. Implementations should be thread-safe
+///
+/// This interface is implemented below using visitor pattern on "Action"
+/// implementations.  It is not consolidate to keep the contract clearer.
+class ARROW_EXPORT HashKernel : public UnaryKernel {
+ public:
+  // Reset for another run.
+  virtual Status Reset() = 0;
+  // Prepare the Action for the given input (e.g. reserve appropriately sized
+  // data structures) and visit the given input with Action.
+  virtual Status Append(FunctionContext* ctx, const ArrayData& input) = 0;
+  // Flush out accumulated results from the last invocation of Call.
+  virtual Status Flush(Datum* out) = 0;
+  // Flush out accumulated results across all invocations of Call. The kernel
+  // should not be used until after Reset() is called.
+  virtual Status FlushFinal(Datum* out) = 0;
+  // Get the values (keys) acummulated in the dictionary so far.
+  virtual Status GetDictionary(std::shared_ptr<ArrayData>* out) = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -222,6 +246,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
   }
 
   Status Flush(Datum* out) override { return action_.Flush(out); }
+
+  Status FlushFinal(Datum* out) override { return action_.FlushFinal(out); }
 
   Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
     return DictionaryTraits<Type>::GetDictionaryArrayData(pool_, type_, *memo_table_,
@@ -273,6 +299,7 @@ class NullHashKernelImpl : public HashKernelImpl {
   }
 
   Status Flush(Datum* out) override { return action_.Flush(out); }
+  Status FlushFinal(Datum* out) override { return action_.FlushFinal(out); }
 
   Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
     // TODO(wesm): handle null being a valid dictionary value
@@ -414,11 +441,12 @@ Status GetDictionaryEncodeKernel(FunctionContext* ctx,
 
 Status GetCountValuesKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
                             std::unique_ptr<HashKernel>* out) {
-  std::unique_ptr<HashTable> hasher;
-
-#define COUNT_VALUES_CASE(InType)                                        \
-  case InType::type_id:                                                  \
-    hasher.reset(new CountValuesImpl<InType>(type, ctx->memory_pool())); \
+  std::unique_ptr<HashKernel> kernel;
+#define COUNT_VALUES_CASE(InType)                                                      \
+  case InType::type_id:                                                                \
+    kernel.reset(new                                                                   \
+                 typename HashKernelTraits<InType, CountValuesAction>::HashKernelImpl( \
+                     type, ctx->memory_pool()));                                       \
     break
 
   switch (type->id()) {
@@ -449,8 +477,9 @@ Status GetCountValuesKernel(FunctionContext* ctx, const std::shared_ptr<DataType
 
 #undef COUNT_VALUES_CASE
 
-  CHECK_IMPLEMENTED(hasher, "count-values", type);
-  out->reset(new HashKernelImpl(std::move(hasher)));
+  CHECK_IMPLEMENTED(kernel, "count-values", type);
+  RETURN_NOT_OK(kernel->Reset());
+  *out = std::move(kernel);
   return Status::OK();
 }
 
@@ -507,10 +536,13 @@ Status CountValues(FunctionContext* ctx, const Datum& value,
   std::unique_ptr<HashKernel> func;
   RETURN_NOT_OK(GetCountValuesKernel(ctx, value.type(), &func));
 
-  std::vector<Datum> counts_datum;
-  RETURN_NOT_OK(InvokeHash(ctx, func.get(), value, &counts_datum, out_uniques));
+  // Calls return nothing for counts.
+  std::vector<Datum> unused_output;
+  RETURN_NOT_OK(InvokeHash(ctx, func.get(), value, &unused_output, out_uniques));
 
-  *out_counts = MakeArray(counts_datum.back().array());
+  Datum counts;
+  RETURN_NOT_OK(func->FlushFinal(&counts));
+  *out_counts = MakeArray(counts.array());
   return Status::OK();
 }
 

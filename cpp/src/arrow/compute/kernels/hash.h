@@ -34,33 +34,10 @@ namespace compute {
 
 class FunctionContext;
 
-/// \brief Invoke hash table kernel on input array, returning any output
-/// values. Implementations should be thread-safe
-class ARROW_EXPORT HashKernel : public UnaryKernel {
- public:
-  // XXX why are those methods exposed?
-  virtual Status Reset() = 0;
-  virtual Status Append(FunctionContext* ctx, const ArrayData& input) = 0;
-  virtual Status Flush(Datum* out) = 0;
-  virtual Status GetDictionary(std::shared_ptr<ArrayData>* out) = 0;
-};
-
-/// \since 0.8.0
-/// \note API not yet finalized
-ARROW_EXPORT
-Status GetUniqueKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
-                       std::unique_ptr<HashKernel>* kernel);
-
-ARROW_EXPORT
-Status GetDictionaryEncodeKernel(FunctionContext* ctx,
-                                 const std::shared_ptr<DataType>& type,
-                                 std::unique_ptr<HashKernel>* kernel);
-
-ARROW_EXPORT
-Status GetCountValuesKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
-                            std::unique_ptr<HashKernel>* kernel);
-
 /// \brief Compute unique elements from an array-like object
+///
+/// Note if a null occurs in the input it will NOT be included in the output.
+///
 /// \param[in] context the FunctionContext
 /// \param[in] datum array-like input
 /// \param[out] out result as Array
@@ -69,6 +46,26 @@ Status GetCountValuesKernel(FunctionContext* ctx, const std::shared_ptr<DataType
 /// \note API not yet finalized
 ARROW_EXPORT
 Status Unique(FunctionContext* context, const Datum& datum, std::shared_ptr<Array>* out);
+
+/// \brief Return counts of unique elements from an array-like object.
+///
+/// Note that the counts do not include counts for nulls in the array.  These can be
+/// obtained separately from metadata.
+///
+/// For floating point arrays there is no attempt to normalize -0.0, 0.0 and NaN values
+/// which can lead to unexpected results if the input Array has these values.
+///
+/// \param[in] context the FunctionContext
+/// \param[in] value array-like input
+/// \param[out] out_uniques unique elements as Array
+/// \param[out] out_counts counts per element as Array, same shape as out_uniques
+///
+/// \since 0.13.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Status CountValues(FunctionContext* context, const Datum& value,
+                   std::shared_ptr<Array>* out_uniques,
+                   std::shared_ptr<Array>* out_counts);
 
 /// \brief Dictionary-encode values in an array-like object
 /// \param[in] context the FunctionContext
@@ -79,19 +76,6 @@ Status Unique(FunctionContext* context, const Datum& datum, std::shared_ptr<Arra
 /// \note API not yet finalized
 ARROW_EXPORT
 Status DictionaryEncode(FunctionContext* context, const Datum& data, Datum* out);
-
-/// \brief Return counts of unique elements from an array-like object
-/// \param[in] context the FunctionContext
-/// \param[in] value array-like input
-/// \param[out] out_uniques unique elements as Array
-/// \param[out] out_counts counts per element as Array, same shape as out_uniques
-///
-/// \since 0.10.0
-/// \note API not yet finalized
-ARROW_EXPORT
-Status CountValues(FunctionContext* context, const Datum& value,
-                   std::shared_ptr<Array>* out_uniques,
-                   std::shared_ptr<Array>* out_counts);
 
 // TODO(wesm): Define API for incremental dictionary encoding
 
@@ -116,11 +100,6 @@ Status CountValues(FunctionContext* context, const Datum& value,
 // ARROW_EXPORT
 // Status IsIn(FunctionContext* context, const Datum& values, const Datum& member_set,
 //             Datum* out);
-
-// ARROW_EXPORT
-// Status CountValues(FunctionContext* context, const Datum& values,
-//                    std::shared_ptr<Array>* out_uniques,
-//                    std::shared_ptr<Array>* out_counts);
 
 }  // namespace compute
 }  // namespace arrow

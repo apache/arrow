@@ -298,12 +298,15 @@ TEST_F(TestHashKernel, BinaryResizeTable) {
   }
 
   CheckUnique<BinaryType, std::string>(&this->ctx_, binary(), values, {}, uniques, {});
+  CheckCountValues<BinaryType, std::string>(&this->ctx_, binary(), values, {}, uniques,
+                                            {}, counts);
+
   CheckDictEncode<BinaryType, std::string>(&this->ctx_, binary(), values, {}, uniques, {},
                                            indices);
 
   CheckUnique<StringType, std::string>(&this->ctx_, utf8(), values, {}, uniques, {});
-  CheckCountValues<FixedSizeBinaryType, std::string>(&this->ctx_, type, values, {},
-                                                     uniques, {}, counts);
+  CheckCountValues<StringType, std::string>(&this->ctx_, utf8(), values, {}, uniques, {},
+                                            counts);
   CheckDictEncode<StringType, std::string>(&this->ctx_, utf8(), values, {}, uniques, {},
                                            indices);
 }
@@ -379,6 +382,20 @@ TEST_F(TestHashKernel, DictEncodeDecimal) {
                                               {true, false, true, true, true}, expected,
                                               {}, {0, 0, 1, 0, 2});
 }
+
+/* TODO(ARROW-XXXX): Determine if we wan to do something that is reproducable with floats.
+TEST_F(TestHashKernel, CountValuesFloat) {
+
+    // No nulls
+  CheckCountValues<FloatType, float>(&this->ctx_, float32(), {1.0f, 0.0f, -0.0f,
+std::nan("1"), std::nan("2")  },
+                                      {}, {0.0f, 1.0f, std::nan("1")}, {}, {});
+
+  CheckCountValues<DoubleType, double>(&this->ctx_, float64(), {1.0f, 0.0f, -0.0f,
+std::nan("1"), std::nan("2")  },
+                                      {}, {0.0f, 1.0f, std::nan("1")}, {}, {});
+}
+*/
 
 TEST_F(TestHashKernel, ChunkedArrayInvoke) {
   vector<std::string> values1 = {"foo", "bar", "foo"};
