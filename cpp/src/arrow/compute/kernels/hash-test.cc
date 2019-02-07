@@ -383,7 +383,7 @@ TEST_F(TestHashKernel, DictEncodeDecimal) {
                                               {}, {0, 0, 1, 0, 2});
 }
 
-/* TODO(ARROW-XXXX): Determine if we wan to do something that is reproducable with floats.
+/* TODO(ARROW-4124): Determine if we wan to do something that is reproducable with floats.
 TEST_F(TestHashKernel, CountValuesFloat) {
 
     // No nulls
