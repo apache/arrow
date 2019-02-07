@@ -28,7 +28,7 @@ use crate::data_type::*;
 use crate::errors::{ParquetError, Result};
 use crate::schema::types::ColumnDescPtr;
 use crate::util::{
-    bit_util::BitReader,
+    bit_util::{self, BitReader},
     memory::{ByteBuffer, ByteBufferPtr},
 };
 
@@ -48,6 +48,52 @@ pub trait Decoder<T: DataType> {
     /// `buffer.len()` unless the remaining number of values is less than
     /// `buffer.len()`.
     fn get(&mut self, buffer: &mut [T::T]) -> Result<usize>;
+
+    /// Consume values from this decoder and write the results to `buffer`, leaving
+    /// "spaces" for null values.
+    ///
+    /// `null_count` is the number of nulls we expect to see in `buffer`, after reading.
+    /// `valid_bits` stores the valid bit for each value in the buffer. It should contain
+    ///   at least number of bits that equal to `buffer.len()`.
+    ///
+    /// Returns the actual number of values decoded.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `null_count` is greater than `buffer.len()`.
+    fn get_spaced(
+        &mut self,
+        buffer: &mut [T::T],
+        null_count: usize,
+        valid_bits: &[u8],
+    ) -> Result<usize> {
+        assert!(buffer.len() >= null_count);
+
+        // TODO: check validity of the input arguments?
+        if null_count == 0 {
+            return self.get(buffer);
+        }
+
+        let num_values = buffer.len();
+        let values_to_read = num_values - null_count;
+        let values_read = self.get(buffer)?;
+        if values_read != values_to_read {
+            return Err(general_err!(
+                "Number of values read: {}, doesn't match expected: {}",
+                values_read,
+                values_to_read
+            ));
+        }
+        let mut values_to_move = values_read;
+        for i in (0..num_values).rev() {
+            if bit_util::get_bit(valid_bits, i) {
+                values_to_move -= 1;
+                buffer.swap(i, values_to_move);
+            }
+        }
+
+        Ok(num_values)
+    }
 
     /// Returns the number of values left in this decoder stream.
     fn values_left(&self) -> usize;
@@ -203,7 +249,8 @@ impl Decoder<BoolType> for PlainDecoder<BoolType> {
         assert!(self.bit_reader.is_some());
 
         let bit_reader = self.bit_reader.as_mut().unwrap();
-        let values_read = bit_reader.get_batch::<bool>(buffer, 1);
+        let num_values = cmp::min(buffer.len(), self.num_values);
+        let values_read = bit_reader.get_batch::<bool>(&mut buffer[..num_values], 1);
         self.num_values -= values_read;
 
         Ok(values_read)
@@ -391,7 +438,8 @@ impl<T: DataType> Decoder<T> for RleValueDecoder<T> {
             .decoder
             .as_mut()
             .expect("RLE decoder is not initialized");
-        let values_read = rle_decoder.get_batch(buffer)?;
+        let num_values = cmp::min(buffer.len(), self.values_left);
+        let values_read = rle_decoder.get_batch(&mut buffer[..num_values])?;
         self.values_left -= values_read;
         Ok(values_read)
     }
@@ -935,6 +983,25 @@ mod tests {
     }
 
     #[test]
+    fn test_plain_decode_int32_spaced() {
+        let data = [42, 18, 52];
+        let expected_data = [0, 42, 0, 18, 0, 0, 52, 0];
+        let data_bytes = Int32Type::to_byte_array(&data[..]);
+        let mut buffer = vec![0; 8];
+        let num_nulls = 5;
+        let valid_bits = [0b01001010];
+        test_plain_decode_spaced::<Int32Type>(
+            ByteBufferPtr::new(data_bytes),
+            3,
+            -1,
+            &mut buffer[..],
+            num_nulls,
+            &valid_bits,
+            &expected_data[..],
+        );
+    }
+
+    #[test]
     fn test_plain_decode_int64() {
         let data = vec![42, 18, 52];
         let data_bytes = Int64Type::to_byte_array(&data[..]);
@@ -1041,6 +1108,41 @@ mod tests {
             &mut buffer[..],
             &data[..],
         );
+    }
+
+    fn test_plain_decode<T: DataType>(
+        data: ByteBufferPtr,
+        num_values: usize,
+        type_length: i32,
+        buffer: &mut [T::T],
+        expected: &[T::T],
+    ) {
+        let mut decoder: PlainDecoder<T> = PlainDecoder::new(type_length);
+        let result = decoder.set_data(data, num_values);
+        assert!(result.is_ok());
+        let result = decoder.get(&mut buffer[..]);
+        assert!(result.is_ok());
+        assert_eq!(decoder.values_left(), 0);
+        assert_eq!(buffer, expected);
+    }
+
+    fn test_plain_decode_spaced<T: DataType>(
+        data: ByteBufferPtr,
+        num_values: usize,
+        type_length: i32,
+        buffer: &mut [T::T],
+        num_nulls: usize,
+        valid_bits: &[u8],
+        expected: &[T::T],
+    ) {
+        let mut decoder: PlainDecoder<T> = PlainDecoder::new(type_length);
+        let result = decoder.set_data(data, num_values);
+        assert!(result.is_ok());
+        let result = decoder.get_spaced(&mut buffer[..], num_nulls, valid_bits);
+        assert!(result.is_ok());
+        assert_eq!(num_values + num_nulls, result.unwrap());
+        assert_eq!(decoder.values_left(), 0);
+        assert_eq!(buffer, expected);
     }
 
     #[test]
@@ -1249,22 +1351,6 @@ mod tests {
     fn test_delta_byte_array_single_array() {
         let data = vec![vec![ByteArray::from(vec![1, 2, 3, 4, 5, 6])]];
         test_delta_byte_array_decode(data);
-    }
-
-    fn test_plain_decode<T: DataType>(
-        data: ByteBufferPtr,
-        num_values: usize,
-        type_length: i32,
-        buffer: &mut [T::T],
-        expected: &[T::T],
-    ) {
-        let mut decoder: PlainDecoder<T> = PlainDecoder::new(type_length);
-        let result = decoder.set_data(data, num_values);
-        assert!(result.is_ok());
-        let result = decoder.get(&mut buffer[..]);
-        assert!(result.is_ok());
-        assert_eq!(decoder.values_left(), 0);
-        assert_eq!(buffer, expected);
     }
 
     fn test_rle_value_decode<T: DataType>(data: Vec<Vec<T::T>>) {

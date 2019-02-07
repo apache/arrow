@@ -139,6 +139,14 @@ pub fn num_required_bits(x: u64) -> usize {
     0
 }
 
+static BIT_MASK: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
+
+/// Returns whether bit at position `i` in `data` is set or not
+#[inline]
+pub fn get_bit(data: &[u8], i: usize) -> bool {
+    (data[i >> 3] & BIT_MASK[i & 7]) != 0
+}
+
 /// Utility class for writing bit/byte streams. This class can write data in either
 /// bit packed or byte aligned fashion.
 pub struct BitWriter {
@@ -746,6 +754,33 @@ mod tests {
         assert_eq!(num_required_bits(10), 4);
         assert_eq!(num_required_bits(12), 4);
         assert_eq!(num_required_bits(16), 5);
+    }
+
+    #[test]
+    fn test_get_bit() {
+        // 00001101
+        assert_eq!(true, get_bit(&[0b00001101], 0));
+        assert_eq!(false, get_bit(&[0b00001101], 1));
+        assert_eq!(true, get_bit(&[0b00001101], 2));
+        assert_eq!(true, get_bit(&[0b00001101], 3));
+
+        // 01001001 01010010
+        assert_eq!(true, get_bit(&[0b01001001, 0b01010010], 0));
+        assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 1));
+        assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 2));
+        assert_eq!(true, get_bit(&[0b01001001, 0b01010010], 3));
+        assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 4));
+        assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 5));
+        assert_eq!(true, get_bit(&[0b01001001, 0b01010010], 6));
+        assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 7));
+        assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 8));
+        assert_eq!(true, get_bit(&[0b01001001, 0b01010010], 9));
+        assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 10));
+        assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 11));
+        assert_eq!(true, get_bit(&[0b01001001, 0b01010010], 12));
+        assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 13));
+        assert_eq!(true, get_bit(&[0b01001001, 0b01010010], 14));
+        assert_eq!(false, get_bit(&[0b01001001, 0b01010010], 15));
     }
 
     #[test]
