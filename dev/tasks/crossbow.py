@@ -286,7 +286,7 @@ class Repo:
         return blob.data
 
     def _parse_github_user_repo(self):
-        m = re.match('.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote_url)
+        m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote_url)
         user, repo = m.group(1), m.group(2)
         return user, repo
 
@@ -301,7 +301,7 @@ class Queue(Repo):
 
     def _next_job_id(self, prefix):
         """Auto increments the branch's identifier based on the prefix"""
-        pattern = re.compile('[\w\/-]*{}-(\d+)'.format(prefix))
+        pattern = re.compile(r'[\w\/-]*{}-(\d+)'.format(prefix))
         matches = list(filter(None, map(pattern.match, self.repo.branches)))
         if matches:
             latest = max(int(m.group(1)) for m in matches)
