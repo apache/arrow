@@ -82,13 +82,17 @@ class UniqueAction : public ActionBase {
 
   Status Reserve(const int64_t length) { return Status::OK(); }
 
-  void ObserveNull() {}
+  Status ObserveNull() { return Status::OK(); }
 
   template <class Index>
-  void ObserveFound(Index index) {}
+  Status ObserveFound(Index index) {
+    return Status::OK();
+  }
 
   template <class Index>
-  void ObserveNotFound(Index index) {}
+  Status ObserveNotFound(Index index) {
+    return Status::OK();
+  }
 
   Status Flush(Datum* out) { return Status::OK(); }
 
@@ -125,16 +129,17 @@ class CountValuesAction {
     return Status::OK();
   }
 
-  void ObserveNull() {}
+  Status ObserveNull() { return Status::OK(); }
 
   template <class Index>
-  void ObserveFound(Index slot) {
+  Status ObserveFound(Index slot) {
     count_builder_[slot]++;
+    return Status::OK();
   }
 
   template <class Index>
-  void ObserveNotFound(Index slot) {
-    count_builder_.Append(1);
+  Status ObserveNotFound(Index slot) {
+    return count_builder_.Append(1);
   }
 
  private:
@@ -156,15 +161,19 @@ class DictEncodeAction : public ActionBase {
 
   Status Reserve(const int64_t length) { return indices_builder_.Reserve(length); }
 
-  void ObserveNull() { indices_builder_.UnsafeAppendNull(); }
-
-  template <class Index>
-  void ObserveFound(Index index) {
-    indices_builder_.UnsafeAppend(index);
+  Status ObserveNull() {
+    indices_builder_.UnsafeAppendNull();
+    return Status::OK();
   }
 
   template <class Index>
-  void ObserveNotFound(Index index) {
+  Status ObserveFound(Index index) {
+    indices_builder_.UnsafeAppend(index);
+    return Status::OK();
+  }
+
+  template <class Index>
+  Status ObserveNotFound(Index index) {
     return ObserveFound(index);
   }
 
@@ -254,18 +263,18 @@ class RegularHashKernelImpl : public HashKernelImpl {
                                                           0 /* start_offset */, out);
   }
 
-  Status VisitNull() {
-    action_.ObserveNull();
-    return Status::OK();
-  }
+  Status VisitNull() { return action_.ObserveNull(); }
 
   Status VisitValue(const Scalar& value) {
-    auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
-    auto on_not_found = [this](int32_t memo_index) {
-      action_.ObserveNotFound(memo_index);
+    Status status;
+    auto on_found = [this, &status](int32_t memo_index) {
+      status = action_.ObserveFound(memo_index);
+    };
+    auto on_not_found = [this, &status](int32_t memo_index) {
+      status = action_.ObserveNotFound(memo_index);
     };
     memo_table_->GetOrInsert(value, on_found, on_not_found);
-    return Status::OK();
+    return status;
   }
 
   std::shared_ptr<DataType> out_type() const override { return action_.out_type(); }
@@ -293,7 +302,7 @@ class NullHashKernelImpl : public HashKernelImpl {
   Status Append(const ArrayData& arr) override {
     RETURN_NOT_OK(action_.Reserve(arr.length));
     for (int64_t i = 0; i < arr.length; ++i) {
-      action_.ObserveNull();
+      RETURN_NOT_OK(action_.ObserveNull());
     }
     return Status::OK();
   }
