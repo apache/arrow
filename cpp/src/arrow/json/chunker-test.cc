@@ -162,8 +162,7 @@ TEST_P(BaseChunkerTest, Empty) {
 
 TEST(ChunkerTest, PrettyPrinted) {
   std::string pretty[object_count];
-  std::transform(std::begin(lines()), std::end(lines()), std::begin(pretty),
-                 PrettyPrint);
+  std::transform(std::begin(lines()), std::end(lines()), std::begin(pretty), PrettyPrint);
   auto chunker = MakeChunker(true);
   AssertChunking(*chunker, join(pretty, "\n"), object_count);
 }

@@ -248,6 +248,12 @@ class ARROW_EXPORT Table {
   /// Return a column by index
   virtual std::shared_ptr<Column> column(int i) const = 0;
 
+  /// Return a column by name
+  std::shared_ptr<Column> GetColumnByName(const std::string& name) const {
+    auto i = schema_->GetFieldIndex(name);
+    return i == -1 ? NULLPTR : column(i);
+  }
+
   /// \brief Remove column from the table, producing a new Table
   virtual Status RemoveColumn(int i, std::shared_ptr<Table>* out) const = 0;
 

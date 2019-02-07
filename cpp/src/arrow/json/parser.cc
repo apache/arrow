@@ -31,7 +31,7 @@
 #include "arrow/array.h"
 #include "arrow/buffer-builder.h"
 #include "arrow/builder.h"
-//#include "arrow/json/conversion_strategy.h"
+#include "arrow/csv/converter.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -54,7 +54,7 @@ Status ParseError(T&&... t) {
   return Status::Invalid("JSON parse error: ", std::forward<T>(t)...);
 }
 
-Status KindChangeError(Kind from, Kind to) {
+Status KindChangeError(Kind::type from, Kind::type to) {
   auto from_name = Tag(from)->value(0);
   auto to_name = Tag(to)->value(0);
   return ParseError("A column changed from ", from_name, " to ", to_name);
@@ -134,29 +134,24 @@ class BitsetStack {
   std::vector<int> offsets_;
 };
 
-template <Kind>
+template <Kind::type>
 class RawArrayBuilder;
 
 struct BuilderPtr {
   BuilderPtr() : BuilderPtr(BuilderPtr::null) {}
-  BuilderPtr(Kind k, uint32_t i, bool n)
-      : kind(static_cast<uint32_t>(k)), index(i), nullable(n) {}
+  BuilderPtr(Kind::type k, uint32_t i, bool n) : kind(k), index(i), nullable(n) {}
 
   BuilderPtr(const BuilderPtr&) = default;
   BuilderPtr& operator=(const BuilderPtr&) = default;
   BuilderPtr(BuilderPtr&&) = default;
   BuilderPtr& operator=(BuilderPtr&&) = default;
 
-  uint32_t kind : 3;
+  Kind::type kind : 3;
   // index of builder in its arena
   // OR the length of that builder if kind == Kind::kNull
   // (we don't allocate an arena for nulls since they're trivial)
-  uint32_t index : 28;
-  uint32_t nullable : 1;
-
-  void set_kind(Kind k) { kind = static_cast<uint32_t>(k); }
-
-  bool kind_is(Kind k) const { return static_cast<Kind>(kind) == k; }
+  uint32_t index;  // : 28; // FIXME(bkietz) GCC is emitting conversion errors with : 28
+  bool nullable : 1;
 
   bool operator==(BuilderPtr other) const {
     return kind == other.kind && index == other.index;
@@ -253,6 +248,8 @@ class ScalarBuilder {
 
   int64_t length() { return null_bitmap_builder_.length(); }
 
+  // TODO(bkietz) track total length of bytes for later simpler allocation
+
  private:
   TypedBufferBuilder<int32_t> data_builder_;
   TypedBufferBuilder<bool> null_bitmap_builder_;
@@ -302,8 +299,8 @@ class RawArrayBuilder<Kind::kArray> {
     RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
     std::shared_ptr<Array> values;
     RETURN_NOT_OK(handler.Finish(value_builder_, &values));
-    auto type = list(field("item", values->type(), value_builder_.nullable,
-                           Tag(static_cast<Kind>(value_builder_.kind))));
+    auto type = list(
+        field("item", values->type(), value_builder_.nullable, Tag(value_builder_.kind)));
     *out = MakeArray(ArrayData::Make(type, size, {null_bitmap, offsets}, {values->data()},
                                      null_count));
     return Status::OK();
@@ -323,7 +320,8 @@ class RawArrayBuilder<Kind::kArray> {
 };
 
 template <>
-struct RawArrayBuilder<Kind::kObject> {
+class RawArrayBuilder<Kind::kObject> {
+ public:
   explicit RawArrayBuilder(MemoryPool* pool) : null_bitmap_builder_(pool) {}
 
   Status Append() { return null_bitmap_builder_.Append(true); }
@@ -369,9 +367,8 @@ struct RawArrayBuilder<Kind::kObject> {
       std::shared_ptr<Array> values;
       RETURN_NOT_OK(handler.Finish(field_builders_[i], &values));
       child_data[i] = values->data();
-      fields[i] =
-          field(field_names[i].to_string(), values->type(), field_builders_[i].nullable,
-                Tag(static_cast<Kind>(field_builders_[i].kind)));
+      fields[i] = field(field_names[i].to_string(), values->type(),
+                        field_builders_[i].nullable, Tag(field_builders_[i].kind));
     }
 
     *out = MakeArray(ArrayData::Make(struct_(std::move(fields)), size, {null_bitmap},
@@ -390,10 +387,10 @@ struct RawArrayBuilder<Kind::kObject> {
 class HandlerBase : public BlockParser::Impl,
                     public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, HandlerBase> {
  public:
-  template <Kind kind>
+  template <Kind::type kind>
   typename std::enable_if<kind != Kind::kNull, RawArrayBuilder<kind>*>::type Cast(
       BuilderPtr builder) {
-    DCHECK(builder.kind_is(kind));
+    DCHECK_EQ(builder.kind, kind);
     return arena<kind>().data() + builder.index;
   }
 
@@ -451,7 +448,7 @@ class HandlerBase : public BlockParser::Impl,
   }
 
   Status Finish(BuilderPtr builder, std::shared_ptr<Array>* out) {
-    switch (static_cast<Kind>(builder.kind)) {
+    switch (builder.kind) {
       case Kind::kNull: {
         auto length = static_cast<int64_t>(builder.index);
         *out = std::make_shared<NullArray>(length);
@@ -524,17 +521,17 @@ class HandlerBase : public BlockParser::Impl,
     return Status::Invalid("Exceeded maximum rows");
   }
 
-  template <Kind kind>
+  template <Kind::type kind>
   Status MakeBuilder(int64_t leading_nulls, BuilderPtr* builder) {
     builder->index = static_cast<uint32_t>(arena<kind>().size());
-    builder->set_kind(kind);
+    builder->kind = kind;
     builder->nullable = true;
     arena<kind>().emplace_back(pool_);
     return Cast<kind>(*builder)->AppendNull(leading_nulls);
   }
 
   Status MakeBuilder(const DataType& t, int64_t leading_nulls, BuilderPtr* builder) {
-    Kind kind;
+    Kind::type kind;
     RETURN_NOT_OK(KindForType(t, &kind));
     switch (kind) {
       case Kind::kNull:
@@ -575,12 +572,12 @@ class HandlerBase : public BlockParser::Impl,
     if (!builder_.nullable) {
       return ParseError("a required field was null");
     }
-    switch (static_cast<Kind>(builder_.kind)) {
+    switch (builder_.kind) {
       case Kind::kNull: {
         // increment null count stored inline
         // update the parent, since changing builder_ doesn't affect parent
         auto parent = builder_stack_.back();
-        if (parent.kind_is(Kind::kArray)) {
+        if (parent.kind == Kind::kArray) {
           auto list_builder = Cast<Kind::kArray>(parent);
           DCHECK_EQ(list_builder->value_builder(), builder_);
           builder_.index += 1;
@@ -619,13 +616,13 @@ class HandlerBase : public BlockParser::Impl,
 
   Status AppendBool(bool value) {
     constexpr auto kind = Kind::kBoolean;
-    if (!builder_.kind_is(kind)) return IllegallyChangedTo(kind);
+    if (builder_.kind != kind) return IllegallyChangedTo(kind);
     return Cast<kind>(builder_)->Append(value);
   }
 
-  template <Kind kind>
+  template <Kind::type kind>
   Status AppendScalar(string_view scalar) {
-    if (!builder_.kind_is(kind)) return IllegallyChangedTo(kind);
+    if (builder_.kind != kind) return IllegallyChangedTo(kind);
     auto index = static_cast<int32_t>(scalar_values_builder_.length());
     RETURN_NOT_OK(Cast<kind>(builder_)->Append(index));
     return scalar_values_builder_.Append(scalar);
@@ -633,7 +630,7 @@ class HandlerBase : public BlockParser::Impl,
 
   Status StartObjectImpl() {
     constexpr auto kind = Kind::kObject;
-    if (!builder_.kind_is(kind)) return IllegallyChangedTo(kind);
+    if (builder_.kind != kind) return IllegallyChangedTo(kind);
     auto struct_builder = Cast<kind>(builder_);
     absent_fields_stack_.Push(struct_builder->num_fields(), true);
     PushStacks();
@@ -666,7 +663,7 @@ class HandlerBase : public BlockParser::Impl,
 
   Status StartArrayImpl() {
     constexpr auto kind = Kind::kArray;
-    if (!builder_.kind_is(kind)) return IllegallyChangedTo(kind);
+    if (builder_.kind != kind) return IllegallyChangedTo(kind);
     PushStacks();
     // append to the list builder in EndArrayImpl
     builder_ = Cast<kind>(builder_)->value_builder();
@@ -693,11 +690,11 @@ class HandlerBase : public BlockParser::Impl,
     builder_stack_.pop_back();
   }
 
-  Status IllegallyChangedTo(Kind illegally_changed_to) {
-    return KindChangeError(static_cast<Kind>(builder_.kind), illegally_changed_to);
+  Status IllegallyChangedTo(Kind::type illegally_changed_to) {
+    return KindChangeError(builder_.kind, illegally_changed_to);
   }
 
-  template <Kind kind>
+  template <Kind::type kind>
   std::vector<RawArrayBuilder<kind>>& arena() {
     return std::get<static_cast<std::size_t>(kind)>(arenas_);
   }
@@ -871,11 +868,11 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
 
  private:
   // return true if a terminal error was encountered
-  template <Kind kind>
+  template <Kind::type kind>
   bool MaybePromoteFromNull() {
-    if (!builder_.kind_is(Kind::kNull)) return false;
+    if (builder_.kind != Kind::kNull) return false;
     auto parent = builder_stack_.back();
-    if (parent.kind_is(Kind::kArray)) {
+    if (parent.kind == Kind::kArray) {
       auto list_builder = Cast<Kind::kArray>(parent);
       DCHECK_EQ(list_builder->value_builder(), builder_);
       status_ = MakeBuilder<kind>(builder_.index, &builder_);
@@ -897,21 +894,21 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
 BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
                          std::shared_ptr<Buffer> scalar_storage)
     : pool_(pool), options_(options) {
+  DCHECK(options_.unexpected_field_behavior == UnexpectedFieldBehavior::InferType ||
+         options_.explicit_schema != nullptr);
   switch (options_.unexpected_field_behavior) {
     case UnexpectedFieldBehavior::Ignore: {
-      DCHECK(options_.explicit_schema);
       auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::Ignore>>(
           pool_, std::move(scalar_storage));
-      // FIXME propagate this status
-      handler->SetSchema(*options_.explicit_schema);
+      // FIXME(bkietz) move this to an Initialize()
+      ARROW_IGNORE_EXPR(handler->SetSchema(*options_.explicit_schema));
       impl_ = std::move(handler);
       break;
     }
     case UnexpectedFieldBehavior::Error: {
-      DCHECK(options_.explicit_schema);
       auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::Error>>(
           pool_, std::move(scalar_storage));
-      handler->SetSchema(*options_.explicit_schema);
+      ARROW_IGNORE_EXPR(handler->SetSchema(*options_.explicit_schema));
       impl_ = std::move(handler);
       break;
     }
@@ -919,7 +916,7 @@ BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
       auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::InferType>>(
           pool_, std::move(scalar_storage));
       if (options.explicit_schema) {
-        handler->SetSchema(*options_.explicit_schema);
+        ARROW_IGNORE_EXPR(handler->SetSchema(*options_.explicit_schema));
       }
       impl_ = std::move(handler);
       break;
@@ -928,6 +925,240 @@ BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
 
 BlockParser::BlockParser(ParseOptions options, std::shared_ptr<Buffer> scalar_storage)
     : BlockParser(default_memory_pool(), options, std::move(scalar_storage)) {}
+
+static Status Convert(const std::shared_ptr<DataType>& out_type,
+                      std::shared_ptr<Array> in, std::shared_ptr<Array>* out);
+
+struct ConvertImpl {
+  Status Visit(const NullType&) {
+    *out = in;
+    return Status::OK();
+  }
+  Status Visit(const BooleanType&) {
+    *out = in;
+    return Status::OK();
+  }
+  // handle conversion to types with StringConverter
+  template <typename T>
+  Status ConvertEachWith(const T& t, StringConverter<T>& convert_one) {
+    auto dict_array = static_cast<const DictionaryArray*>(in.get());
+    const StringArray& dict = static_cast<const StringArray&>(*dict_array->dictionary());
+    const Int32Array& indices = static_cast<const Int32Array&>(*dict_array->indices());
+    using Builder = typename TypeTraits<T>::BuilderType;
+    Builder builder(out_type, default_memory_pool());
+    RETURN_NOT_OK(builder.Resize(indices.length()));
+    for (int64_t i = 0; i != indices.length(); ++i) {
+      if (indices.IsNull(i)) {
+        builder.UnsafeAppendNull();
+        continue;
+      }
+      auto repr = dict.GetView(indices.GetView(i));
+      typename StringConverter<T>::value_type value;
+      if (!convert_one(repr.data(), repr.size(), &value)) {
+        return ParseError("failed conversion to ", t, ":", repr);
+      }
+      builder.UnsafeAppend(value);
+    }
+    return builder.Finish(out);
+  }
+  template <typename T>
+  Status Visit(
+      const T& t,
+      typename std::enable_if<
+          std::is_default_constructible<StringConverter<T>>::value>::type* = nullptr) {
+    StringConverter<T> convert_one;
+    return ConvertEachWith(t, convert_one);
+  }
+  // handle conversion to Timestamp
+  Status Visit(const TimestampType& t) {
+    StringConverter<TimestampType> convert_one(out_type);
+    return ConvertEachWith(t, convert_one);
+  }
+  Status VisitAs(const std::shared_ptr<DataType>& repr_type) {
+    std::shared_ptr<Array> repr_array;
+    RETURN_NOT_OK(Convert(repr_type, in, &repr_array));
+    auto data = repr_array->data();
+    data->type = out_type;
+    *out = MakeArray(data);
+    return Status::OK();
+  }
+  // handle half explicitly
+  Status Visit(const HalfFloatType&) { return VisitAs(float32()); }
+  // handle types represented as integers
+  template <typename T>
+  Status Visit(
+      const T& t,
+      typename std::enable_if<std::is_base_of<TimeType, T>::value ||
+                              std::is_base_of<DateType, T>::value>::type* = nullptr) {
+    return VisitAs(std::is_same<typename T::c_type, int64_t>::value ? int64() : int32());
+  }
+  // handle binary and string
+  template <typename T>
+  Status Visit(
+      const T& t,
+      typename std::enable_if<std::is_base_of<BinaryType, T>::value>::type* = nullptr) {
+    auto dict_array = static_cast<const DictionaryArray*>(in.get());
+    const StringArray& dict = static_cast<const StringArray&>(*dict_array->dictionary());
+    const Int32Array& indices = static_cast<const Int32Array&>(*dict_array->indices());
+    using Builder = typename TypeTraits<T>::BuilderType;
+    Builder builder(out_type, default_memory_pool());
+    RETURN_NOT_OK(builder.Resize(indices.length()));
+    int64_t values_length = 0;
+    for (int64_t i = 0; i != indices.length(); ++i) {
+      if (indices.IsNull(i)) continue;
+      values_length += dict.GetView(indices.GetView(i)).size();
+    }
+    RETURN_NOT_OK(builder.ReserveData(values_length));
+    for (int64_t i = 0; i != indices.length(); ++i) {
+      if (indices.IsNull(i)) {
+        builder.UnsafeAppendNull();
+        continue;
+      }
+      auto value = dict.GetView(indices.GetView(i));
+      builder.UnsafeAppend(value);
+    }
+    return builder.Finish(out);
+  }
+  Status Visit(const ListType& t) {
+    auto list_array = static_cast<const ListArray*>(in.get());
+    std::shared_ptr<Array> values;
+    auto value_type = t.value_type();
+    RETURN_NOT_OK(Convert(value_type, list_array->values(), &values));
+    auto data = ArrayData::Make(out_type, in->length(),
+                                {in->null_bitmap(), list_array->value_offsets()},
+                                {values->data()}, in->null_count());
+    *out = MakeArray(data);
+    return Status::OK();
+  }
+  Status Visit(const StructType& t) {
+    auto struct_array = static_cast<const StructArray*>(in.get());
+    std::vector<std::shared_ptr<ArrayData>> child_data(t.num_children());
+    for (int i = 0; i != t.num_children(); ++i) {
+      std::shared_ptr<Array> child;
+      RETURN_NOT_OK(Convert(t.child(i)->type(), struct_array->field(i), &child));
+      child_data[i] = child->data();
+    }
+    auto data = ArrayData::Make(out_type, in->length(), {in->null_bitmap()},
+                                std::move(child_data), in->null_count());
+    *out = MakeArray(data);
+    return Status::OK();
+  }
+  Status Visit(const DataType& not_impl) {
+    return Status::NotImplemented("JSON parsing of ", not_impl);
+  }
+  std::shared_ptr<DataType> out_type;
+  std::shared_ptr<Array> in;
+  std::shared_ptr<Array>* out;
+};
+
+static Status Convert(const std::shared_ptr<DataType>& out_type,
+                      std::shared_ptr<Array> in, std::shared_ptr<Array>* out) {
+  ConvertImpl visitor = {out_type, in, out};
+  return VisitTypeInline(*out_type, &visitor);
+}
+
+static Status InferAndConvert(std::shared_ptr<DataType> expected,
+                              const std::shared_ptr<const KeyValueMetadata>& tag,
+                              const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) {
+  if (tag == Tag(Kind::kObject)) {
+    // FIXME(bkietz) in general expected fields may not be an exact prefix of parsed's
+    auto in_type = static_cast<StructType*>(in->type().get());
+    if (expected == nullptr) expected = struct_({});
+    auto expected_type = static_cast<StructType*>(expected.get());
+    if (in_type->num_children() == expected_type->num_children()) {
+      return Convert(expected, in, out);
+    }
+
+    auto fields = expected_type->children();
+    fields.resize(in_type->num_children());
+    std::vector<std::shared_ptr<ArrayData>> child_data(in_type->num_children());
+
+    for (int i = 0; i != in_type->num_children(); ++i) {
+      std::shared_ptr<DataType> expected_field_type;
+      if (i < expected_type->num_children()) {
+        expected_field_type = expected_type->child(i)->type();
+      }
+      auto in_field = in_type->child(i);
+      auto in_column = static_cast<StructArray*>(in.get())->field(i);
+      std::shared_ptr<Array> column;
+      RETURN_NOT_OK(
+          InferAndConvert(expected_field_type, in_field->metadata(), in_column, &column));
+      fields[i] = field(in_field->name(), column->type());
+      child_data[i] = column->data();
+    }
+    auto data =
+        ArrayData::Make(struct_(std::move(fields)), in->length(), {in->null_bitmap()},
+                        std::move(child_data), in->null_count());
+    *out = MakeArray(data);
+    return Status::OK();
+  }
+  if (tag == Tag(Kind::kArray)) {
+    auto list_array = static_cast<const ListArray*>(in.get());
+    auto value_tag = list_array->list_type()->value_field()->metadata();
+    std::shared_ptr<Array> values;
+    if (expected != nullptr) {
+      RETURN_NOT_OK(InferAndConvert(expected->child(0)->type(), value_tag,
+                                    list_array->values(), &values));
+    } else {
+      RETURN_NOT_OK(InferAndConvert(nullptr, value_tag, list_array->values(), &values));
+    }
+    auto data = ArrayData::Make(list(values->type()), in->length(),
+                                {in->null_bitmap(), list_array->value_offsets()},
+                                {values->data()}, in->null_count());
+    *out = MakeArray(data);
+    return Status::OK();
+  }
+  // an expected type overrides inferrence for scalars
+  // (nested types may have unexpected fields)
+  if (expected != nullptr) {
+    return Convert(expected, in, out);
+  }
+  // TODO(bkietz) make tag->Kind::type mapping so this can be a switch
+  if (tag == Tag(Kind::kNull)) return Convert(null(), in, out);
+  if (tag == Tag(Kind::kBoolean)) return Convert(boolean(), in, out);
+  if (tag == Tag(Kind::kNumber)) {
+    // attempt conversion to Int64 first
+    if (Convert(int64(), in, out).ok()) {
+      return Status::OK();
+    }
+    return Convert(float64(), in, out);
+  }
+  if (tag == Tag(Kind::kString)) {
+    // attempt conversion to Timestamp first
+    if (Convert(timestamp(TimeUnit::SECOND), in, out).ok()) {
+      return Status::OK();
+    }
+    return Convert(utf8(), in, out);
+  }
+  return Status::OK();
+}
+
+Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
+                std::shared_ptr<RecordBatch>* out) {
+  BlockParser parser(default_memory_pool(), options, json);
+  RETURN_NOT_OK(parser.Parse(json));
+  std::shared_ptr<Array> parsed;
+  RETURN_NOT_OK(parser.Finish(&parsed));
+  std::shared_ptr<Array> converted;
+  auto schm = options.explicit_schema;
+  if (options.unexpected_field_behavior == UnexpectedFieldBehavior::InferType) {
+    if (schm) {
+      RETURN_NOT_OK(InferAndConvert(struct_(schm->fields()), Tag(Kind::kObject), parsed,
+                                    &converted));
+    } else {
+      RETURN_NOT_OK(InferAndConvert(nullptr, Tag(Kind::kObject), parsed, &converted));
+    }
+    schm = schema(converted->type()->children());
+  } else {
+    RETURN_NOT_OK(Convert(struct_(schm->fields()), parsed, &converted));
+  }
+  std::vector<std::shared_ptr<Array>> columns(parsed->num_fields());
+  for (int i = 0; i != parsed->num_fields(); ++i) {
+    columns[i] = static_cast<StructArray*>(converted.get())->field(i);
+  }
+  *out = RecordBatch::Make(schm, parsed->length(), std::move(columns));
+  return Status::OK();
+}
 
 }  // namespace json
 }  // namespace arrow

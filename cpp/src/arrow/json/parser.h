@@ -25,6 +25,7 @@
 
 #include "arrow/builder.h"
 #include "arrow/json/options.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
@@ -38,9 +39,11 @@ class RecordBatch;
 
 namespace json {
 
-enum class Kind : uint8_t { kNull, kBoolean, kNumber, kString, kArray, kObject };
+struct Kind {
+  enum type { kNull, kBoolean, kNumber, kString, kArray, kObject };
+};
 
-inline static const std::shared_ptr<const KeyValueMetadata>& Tag(Kind k) {
+inline static const std::shared_ptr<const KeyValueMetadata>& Tag(Kind::type k) {
   static std::shared_ptr<const KeyValueMetadata> tags[] = {
       key_value_metadata({{"json_kind", "null"}}),
       key_value_metadata({{"json_kind", "boolean"}}),
@@ -51,7 +54,7 @@ inline static const std::shared_ptr<const KeyValueMetadata>& Tag(Kind k) {
   return tags[static_cast<uint8_t>(k)];
 }
 
-Status KindForType(const DataType& type, Kind* kind) {
+Status KindForType(const DataType& type, Kind::type* kind) {
   struct {
     Status Visit(const NullType&) { return SetKind(Kind::kNull); }
     Status Visit(const BooleanType&) { return SetKind(Kind::kBoolean); }
@@ -70,11 +73,11 @@ Status KindForType(const DataType& type, Kind* kind) {
     Status Visit(const DataType& not_impl) {
       return Status::NotImplemented("JSON parsing of ", not_impl);
     }
-    Status SetKind(Kind kind) {
+    Status SetKind(Kind::type kind) {
       *kind_ = kind;
       return Status::OK();
     }
-    Kind* kind_;
+    Kind::type* kind_;
   } visitor = {kind};
   return VisitTypeInline(type, &visitor);
 }
@@ -117,6 +120,9 @@ class ARROW_EXPORT BlockParser {
   const ParseOptions options_;
   std::unique_ptr<Impl> impl_;
 };
+
+ARROW_EXPORT Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
+                             std::shared_ptr<RecordBatch>* out);
 
 }  // namespace json
 }  // namespace arrow

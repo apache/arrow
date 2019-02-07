@@ -36,7 +36,7 @@
 
 namespace arrow {
 
-using ipc::internal::json::ArrayFromJSON;
+// using ipc::internal::json::ArrayFromJSON;
 using util::string_view;
 
 namespace json {
@@ -113,8 +113,9 @@ void AssertParseColumns(ParseOptions options, string_view src_str,
   ASSERT_OK(parser.Finish(&parsed));
   auto struct_array = std::static_pointer_cast<StructArray>(parsed);
   for (size_t i = 0; i != fields.size(); ++i) {
-    std::shared_ptr<Array> column_expected;
-    ASSERT_OK(ArrayFromJSON(fields[i]->type(), columns_json[i], &column_expected));
+    // std::shared_ptr<Array> column_expected;
+    // ASSERT_OK(ArrayFromJSON(fields[i]->type(), columns_json[i], &column_expected));
+    auto column_expected = ArrayFromJSON(fields[i]->type(), columns_json[i]);
     auto column = struct_array->GetFieldByName(fields[i]->name());
     AssertRawArraysEqual(*column_expected, *column);
   }
@@ -207,6 +208,41 @@ TEST(BlockParser, Nested) {
                      {"[\"thing\", null, \"\xe5\xbf\x8d\", null]",
                       R"([["1", "2", "3"], ["2"], [], null])",
                       R"([{"ps":null}, null, {"ps":"78"}, {"ps":"90"}])"});
+}
+
+void AssertParseOne(ParseOptions options, string_view src_str,
+                    std::vector<std::shared_ptr<Field>> fields,
+                    std::vector<std::string> columns_json) {
+  std::shared_ptr<Buffer> src;
+  ASSERT_OK(MakeBuffer(src_str, &src));
+  std::shared_ptr<RecordBatch> parsed;
+  ASSERT_OK(ParseOne(options, src, &parsed));
+  for (size_t i = 0; i != fields.size(); ++i) {
+    auto column_expected = ArrayFromJSON(fields[i]->type(), columns_json[i]);
+    auto column = parsed->GetColumnByName(fields[i]->name());
+    AssertArraysEqual(*column_expected, *column);
+  }
+}
+
+TEST(ParseOne, Basics) {
+  auto options = ParseOptions::Defaults();
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  AssertParseOne(
+      options, scalars_only_src(),
+      {field("hello", float64()), field("world", boolean()), field("yo", utf8())},
+      {"[3.5, 3.2, 3.4, 0.0]", "[false, null, null, true]",
+       "[\"thing\", null, \"\xe5\xbf\x8d\", null]"});
+}
+
+TEST(ParseOne, Nested) {
+  auto options = ParseOptions::Defaults();
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  AssertParseOne(options, nested_src(),
+                 {field("yo", utf8()), field("arr", list(int64())),
+                  field("nuf", struct_({field("ps", int64())}))},
+                 {"[\"thing\", null, \"\xe5\xbf\x8d\", null]",
+                  R"([[1, 2, 3], [2], [], null])",
+                  R"([{"ps":null}, null, {"ps":78}, {"ps":90}])"});
 }
 
 }  // namespace json
