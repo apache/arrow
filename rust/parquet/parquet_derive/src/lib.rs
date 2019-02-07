@@ -107,19 +107,19 @@ fn impl_struct(
     for TypeParam { ident, .. } in ast.generics.type_params() {
         where_clause
             .predicates
-            .push(syn::parse2(quote! { #ident: Record }).unwrap());
+            .push(syn::parse2(quote! { #ident: __::Record }).unwrap());
     }
     let mut where_clause_with_debug = where_clause.clone();
     for TypeParam { ident, .. } in ast.generics.type_params() {
-        where_clause_with_debug
-            .predicates
-            .push(syn::parse2(quote! { <#ident as Record>::Schema: Debug }).unwrap());
+        where_clause_with_debug.predicates.push(
+            syn::parse2(quote! { <#ident as __::Record>::Schema: __::Debug }).unwrap(),
+        );
     }
     let mut where_clause_with_default = where_clause.clone();
     for TypeParam { ident, .. } in ast.generics.type_params() {
-        where_clause_with_default
-            .predicates
-            .push(syn::parse2(quote! { <#ident as Record>::Schema: Default }).unwrap());
+        where_clause_with_default.predicates.push(
+            syn::parse2(quote! { <#ident as __::Record>::Schema: __::Default }).unwrap(),
+        );
     }
 
     // The struct field names
@@ -186,49 +186,60 @@ fn impl_struct(
     let name1 = iter::repeat(name).take(fields.len());
 
     let gen = quote! {
-        use _parquet::{
-            basic::Repetition,
-            column::reader::ColumnReader,
-            errors::{ParquetError, Result},
-            record::{Record, Schema, Reader, _private::DisplaySchemaGroup},
-            schema::types::{ColumnPath, Type},
-        };
-        use ::std::{collections::HashMap, cmp::PartialEq, default::Default, fmt::{self, Debug}, result::Result as StdResult, string::String, vec::Vec};
+        mod __ {
+            #[allow(unknown_lints)]
+            #[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
+            #[allow(rust_2018_idioms)]
+            extern crate parquet;
+            pub use parquet::{
+                basic::Repetition,
+                column::reader::ColumnReader,
+                errors::{ParquetError, Result},
+                record::{Record, Schema, Reader, _private::DisplaySchemaGroup},
+                schema::types::{ColumnPath, Type},
+            };
+            pub use ::std::{collections::HashMap, cmp::PartialEq, default::Default, fmt::{self, Debug}, option::Option::{self, None, Some}, result::Result::{self as StdResult, Err, Ok}, string::String, vec::Vec};
+        }
 
         struct #schema_name #impl_generics #where_clause {
-            #(#field_names1: <#field_types1 as Record>::Schema,)*
+            #(#field_names1: <#field_types1 as __::Record>::Schema,)*
         }
-        impl #impl_generics Default for #schema_name #ty_generics #where_clause_with_default {
+        #[automatically_derived]
+        impl #impl_generics __::Default for #schema_name #ty_generics #where_clause_with_default {
             fn default() -> Self {
                 Self {
-                    #(#field_names1: Default::default(),)*
+                    #(#field_names1: __::Default::default(),)*
                 }
             }
         }
-        impl #impl_generics Debug for #schema_name #ty_generics #where_clause_with_debug {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        #[automatically_derived]
+        impl #impl_generics __::Debug for #schema_name #ty_generics #where_clause_with_debug {
+            fn fmt(&self, f: &mut __::fmt::Formatter) -> __::fmt::Result {
                 f.debug_struct(stringify!(#schema_name))
                     #(.field(stringify!(#field_names1), &self.#field_names2))*
                     .finish()
             }
         }
-        impl #impl_generics Schema for #schema_name #ty_generics #where_clause {
-            fn fmt(self_: Option<&Self>, r: Option<Repetition>, name: Option<&str>, f: &mut fmt::Formatter) -> fmt::Result {
-                let mut printer = DisplaySchemaGroup::new(r, name, None, f);
+        #[automatically_derived]
+        impl #impl_generics __::Schema for #schema_name #ty_generics #where_clause {
+            fn fmt(self_: __::Option<&Self>, r: __::Option<__::Repetition>, name: __::Option<&str>, f: &mut __::fmt::Formatter) -> __::fmt::Result {
+                let mut printer = __::DisplaySchemaGroup::new(r, name, None, f);
                 #(
-                    printer.field(Some(#field_renames1), self_.map(|self_|&self_.#field_names1));
+                    printer.field(__::Some(#field_renames1), self_.map(|self_|&self_.#field_names1));
                 )*
                 printer.finish()
             }
         }
+
         struct #reader_name #impl_generics #where_clause {
-            #(#field_names1: <#field_types1 as Record>::Reader,)*
+            #(#field_names1: <#field_types1 as __::Record>::Reader,)*
         }
-        impl #impl_generics Reader for #reader_name #ty_generics #where_clause {
+        #[automatically_derived]
+        impl #impl_generics __::Reader for #reader_name #ty_generics #where_clause {
             type Item = #name #ty_generics;
 
             #[allow(unused_variables, non_snake_case)]
-            fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+            fn read(&mut self, def_level: i16, rep_level: i16) -> __::Result<Self::Item> {
                 #(
                     let #field_names1 = self.#field_names2.read(def_level, rep_level);
                 )*
@@ -236,13 +247,13 @@ fn impl_struct(
                     #(#field_names1?;)*
                     unreachable!()
                 }
-                StdResult::Ok(#name {
+                __::Ok(#name {
                     #(#field_names1: #field_names2.unwrap(),)*
                 })
             }
-            fn advance_columns(&mut self) -> Result<()> {
+            fn advance_columns(&mut self) -> __::Result<()> {
                 #[allow(unused_mut)]
-                let mut res = Ok(());
+                let mut res = __::Ok(());
                 #(
                     res = res.and(self.#field_names1.advance_columns());
                 )*
@@ -270,24 +281,26 @@ fn impl_struct(
                 }
             }
         }
-        impl #impl_generics Record for #name #ty_generics #where_clause {
+
+        #[automatically_derived]
+        impl #impl_generics __::Record for #name #ty_generics #where_clause {
             type Schema = #schema_name #ty_generics;
             type Reader = #reader_name #ty_generics;
 
-            fn parse(schema: &Type, repetition: Option<Repetition>) -> Result<(String, Self::Schema)> {
-                if schema.is_group() && repetition == Some(Repetition::REQUIRED) {
-                    let fields = schema.get_fields().iter().map(|field|(field.name(),field)).collect::<HashMap<_,_>>();
+            fn parse(schema: &__::Type, repetition: __::Option<__::Repetition>) -> __::Result<(__::String, Self::Schema)> {
+                if schema.is_group() && repetition == __::Some(__::Repetition::REQUIRED) {
+                    let fields = schema.get_fields().iter().map(|field|(field.name(),field)).collect::<__::HashMap<_,_>>();
                     let schema_ = #schema_name{
-                        #(#field_names1: fields.get(#field_renames1).ok_or(ParquetError::General(format!("Struct \"{}\" has field \"{}\" not in the schema", stringify!(#name1), #field_renames2))).and_then(|x|<#field_types1 as Record>::parse(&**x, Some(x.get_basic_info().repetition())))?.1,)*
+                        #(#field_names1: fields.get(#field_renames1).ok_or(__::ParquetError::General(format!("Struct \"{}\" has field \"{}\" not in the schema", stringify!(#name1), #field_renames2))).and_then(|x|<#field_types1 as __::Record>::parse(&**x, __::Some(x.get_basic_info().repetition())))?.1,)*
                     };
-                    return StdResult::Ok((schema.name().to_owned(), schema_))
+                    return __::Ok((schema.name().to_owned(), schema_))
                 }
-                StdResult::Err(ParquetError::General(format!("Struct \"{}\" is not in the schema", stringify!(#name))))
+                __::Err(__::ParquetError::General(format!("Struct \"{}\" is not in the schema", stringify!(#name))))
             }
-            fn reader(schema: &Self::Schema, mut path: &mut Vec<String>, def_level: i16, rep_level: i16, paths: &mut HashMap<ColumnPath, ColumnReader>, batch_size: usize) -> Self::Reader {
+            fn reader(schema: &Self::Schema, mut path: &mut __::Vec<__::String>, def_level: i16, rep_level: i16, paths: &mut __::HashMap<__::ColumnPath, __::ColumnReader>, batch_size: usize) -> Self::Reader {
                 #(
                     path.push(#field_renames1.to_owned());
-                    let #field_names1 = <#field_types1 as Record>::reader(&schema.#field_names2, path, def_level, rep_level, paths, batch_size);
+                    let #field_names1 = <#field_types1 as __::Record>::reader(&schema.#field_names2, path, def_level, rep_level, paths, batch_size);
                     path.pop().unwrap();
                 )*
                 #reader_name { #(#field_names1,)* }
@@ -399,10 +412,6 @@ fn wrap_in_const(trait_: &str, ty: &Ident, code: TokenStream) -> TokenStream {
     quote! {
         #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
         const #dummy_const: () = {
-            #[allow(unknown_lints)]
-            #[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
-            #[allow(rust_2018_idioms)]
-            extern crate parquet as _parquet;
             #code
         };
     }
