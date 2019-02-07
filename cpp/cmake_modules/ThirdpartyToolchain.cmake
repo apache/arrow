@@ -632,6 +632,8 @@ if(ARROW_NEED_GFLAGS)
       BUILD_IN_SOURCE 1
       BUILD_BYPRODUCTS "${GFLAGS_STATIC_LIB}"
       CMAKE_ARGS ${GFLAGS_CMAKE_ARGS})
+
+    add_dependencies(toolchain gflags_ep)
   else()
     set(GFLAGS_VENDORED 0)
     find_package(GFlags REQUIRED)
@@ -691,6 +693,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
       BUILD_BYPRODUCTS ${GTEST_STATIC_LIB} ${GTEST_MAIN_STATIC_LIB} ${GMOCK_STATIC_LIB} ${GMOCK_MAIN_STATIC_LIB}
       CMAKE_ARGS ${GTEST_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
+
+    add_dependencies(toolchain googletest_ep)
   else()
     find_package(GTest REQUIRED)
     set(GTEST_VENDORED 0)
@@ -775,6 +779,8 @@ if(ARROW_BUILD_BENCHMARKS)
       BUILD_BYPRODUCTS "${GBENCHMARK_STATIC_LIB}"
       CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
+
+    add_dependencies(toolchain gbenchmark_ep)
   else()
     find_package(GBenchmark REQUIRED)
     set(GBENCHMARK_VENDORED 0)
@@ -811,6 +817,7 @@ if (ARROW_WITH_RAPIDJSON)
 
     set(RAPIDJSON_INCLUDE_DIR "${RAPIDJSON_HOME}/include")
     set(RAPIDJSON_VENDORED 1)
+
     add_dependencies(toolchain rapidjson_ep)
   else()
     set(RAPIDJSON_INCLUDE_DIR "${RAPIDJSON_HOME}/include")
@@ -892,6 +899,8 @@ if (ARROW_JEMALLOC)
     SHARED_LIB ${JEMALLOC_SHARED_LIB}
     DEPS Threads::Threads)
   add_dependencies(jemalloc_static jemalloc_ep)
+
+  add_dependencies(toolchain jemalloc_ep)
 endif()
 
 ## Google PerfTools
@@ -973,6 +982,8 @@ if (ARROW_WITH_ZLIB)
       BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
       CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
     add_dependencies(${ZLIB_LIBRARY} zlib_ep)
+
+    add_dependencies(toolchain zlib_ep)
   endif()
 
   include_directories(SYSTEM ${ZLIB_INCLUDE_DIR})
@@ -1031,7 +1042,9 @@ if (ARROW_WITH_SNAPPY)
         URL ${SNAPPY_SOURCE_URL}
         BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
     endif()
+
     set(SNAPPY_VENDORED 1)
+    add_dependencies(toolchain snappy_ep)
   else()
     find_package(Snappy REQUIRED)
     set(SNAPPY_VENDORED 0)
@@ -1083,6 +1096,8 @@ if (ARROW_WITH_BROTLI)
         WORKING_DIRECTORY ${SOURCE_DIR})
     endif()
     set(BROTLI_VENDORED 1)
+
+    add_dependencies(toolchain brotli_ep)
   else()
     find_package(Brotli REQUIRED)
     set(BROTLI_VENDORED 0)
@@ -1157,6 +1172,8 @@ if (ARROW_WITH_LZ4)
         )
 
     set(LZ4_VENDORED 1)
+
+    add_dependencies(toolchain lz4_ep)
   else()
     find_package(Lz4 REQUIRED)
     set(LZ4_VENDORED 0)
@@ -1217,6 +1234,7 @@ at least CMake 3.7")
       BUILD_BYPRODUCTS "${ZSTD_STATIC_LIB}")
 
     set(ZSTD_VENDORED 1)
+    add_dependencies(toolchain zstd_ep)
   else()
     find_package(ZSTD REQUIRED)
     set(ZSTD_VENDORED 0)
@@ -1299,6 +1317,7 @@ if (ARROW_WITH_PROTOBUF)
       ${EP_LOG_OPTIONS})
 
     set (PROTOBUF_VENDORED 1)
+    add_dependencies(toolchain protobuf_ep)
   else ()
     find_package (Protobuf REQUIRED)
     set (PROTOBUF_VENDORED 0)
@@ -1345,6 +1364,8 @@ if (ARROW_WITH_GRPC)
       URL ${CARES_SOURCE_URL}
       CMAKE_ARGS ${CARES_CMAKE_ARGS}
       BUILD_BYPRODUCTS "${CARES_STATIC_LIB}")
+
+    add_dependencies(toolchain cares_ep)
   else()
     set(CARES_VENDORED 0)
     find_package(c-ares REQUIRED)
@@ -1402,14 +1423,14 @@ if (ARROW_WITH_GRPC)
     set(GRPC_CMAKE_ARGS
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_PREFIX_PATH='${GRPC_PREFIX_PATH_ALT_SEP}'
-      '-DgRPC_CARES_PROVIDER=package'
-      '-DgRPC_GFLAGS_PROVIDER=package'
-      '-DgRPC_PROTOBUF_PROVIDER=package'
-      '-DgRPC_SSL_PROVIDER=package'
-      '-DgRPC_ZLIB_PROVIDER=package'
-      '-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}'
-      '-DCMAKE_C_FLAGS=${EP_C_FLAGS}'
-      '-DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}'
+      -DgRPC_CARES_PROVIDER=package
+      -DgRPC_GFLAGS_PROVIDER=package
+      -DgRPC_PROTOBUF_PROVIDER=package
+      -DgRPC_SSL_PROVIDER=package
+      -DgRPC_ZLIB_PROVIDER=package
+      -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}
+      -DCMAKE_C_FLAGS=${EP_C_FLAGS}
+      -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
       -DCMAKE_INSTALL_LIBDIR=lib
       -DBUILD_SHARED_LIBS=OFF)
 
@@ -1652,6 +1673,8 @@ if (NOT THRIFT_FOUND)
     ${EP_LOG_OPTIONS})
 
   set(THRIFT_VENDORED 1)
+
+  add_dependencies(toolchain thrift_ep)
 else()
   set(THRIFT_VENDORED 0)
 endif()
@@ -1713,6 +1736,7 @@ if (ARROW_USE_GLOG)
       ${EP_LOG_OPTIONS})
 
     set(GLOG_VENDORED 1)
+    add_dependencies(toolchain glog_ep)
   else()
     find_package(GLOG REQUIRED)
     set(GLOG_VENDORED 0)
