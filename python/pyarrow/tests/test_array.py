@@ -18,6 +18,8 @@
 
 import collections
 import datetime
+import hypothesis as h
+import hypothesis.strategies as st
 import pickle
 import pytest
 import struct
@@ -32,6 +34,7 @@ except ImportError:
     pickle5 = None
 
 import pyarrow as pa
+import pyarrow.tests.strategies as past
 from pyarrow.pandas_compat import get_logical_type
 
 
@@ -800,6 +803,18 @@ def test_array_pickle(data, typ):
     for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
         result = pickle.loads(pickle.dumps(array, proto))
         assert array.equals(result)
+
+
+@h.given(
+    past.arrays(
+        past.all_types,
+        size=st.integers(min_value=0, max_value=10)
+    )
+)
+def test_pickling(arr):
+    data = pickle.dumps(arr)
+    restored = pickle.loads(data)
+    assert arr.equals(restored)
 
 
 @pickle_test_parametrize

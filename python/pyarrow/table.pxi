@@ -1155,9 +1155,9 @@ cdef class Table(_PandasConvertible):
 
         Parameters
         ----------
-        arrays: list of pyarrow.Array or pyarrow.Column
+        arrays : list of pyarrow.Array or pyarrow.Column
             Equal-length arrays that should form the table.
-        names: list of str, optional
+        names : list of str, optional
             Names for the table columns. If Columns passed, will be
             inferred. If Arrays passed, this argument is required
         schema : Schema, default None
@@ -1224,7 +1224,7 @@ cdef class Table(_PandasConvertible):
 
         Parameters
         ----------
-        batches: sequence or iterator of RecordBatch
+        batches : sequence or iterator of RecordBatch
             Sequence of RecordBatch to be converted, all schemas must be equal
         schema : Schema, default None
             If not passed, will be inferred from the first RecordBatch
