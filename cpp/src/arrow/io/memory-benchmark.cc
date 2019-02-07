@@ -142,9 +142,7 @@ static void StreamReadWrite(void* src, void* dst, size_t size) {
   }
 }
 
-static void PlatformMemcpy(void* src, void* dst, size_t size) {
-  memcpy(src, dst, size);
-}
+static void PlatformMemcpy(void* src, void* dst, size_t size) { memcpy(src, dst, size); }
 
 using ApplyFn = decltype(Read);
 

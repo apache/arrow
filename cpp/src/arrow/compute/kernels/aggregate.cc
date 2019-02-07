@@ -15,8 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/kernels/aggregate.h"
+#include <utility>
+
 #include "arrow/compute/context.h"
+#include "arrow/compute/kernels/aggregate.h"
 
 namespace arrow {
 namespace compute {
