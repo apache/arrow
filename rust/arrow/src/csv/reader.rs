@@ -43,7 +43,6 @@
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::collections::HashSet;
-use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
 
@@ -89,15 +88,15 @@ fn infer_field_schema(string: &str) -> DataType {
 /// with `max_read_records` controlling the maximum number of records to read.
 ///
 /// If `max_read_records` is not set, the whole file is read to infer its schema.
-fn infer_file_schema(
-    mut file: File,
+fn infer_file_schema<R: Read + Seek>(
+    reader: &mut BufReader<R>,
     delimiter: u8,
     max_read_records: Option<usize>,
     has_headers: bool,
 ) -> Result<Schema> {
     let mut csv_reader = csv::ReaderBuilder::new()
         .delimiter(delimiter)
-        .from_reader(BufReader::new(file.try_clone()?));
+        .from_reader(reader);
 
     // get or create header names
     // when has_headers is false, creates default column names with column_ prefix
@@ -127,7 +126,7 @@ fn infer_file_schema(
     let mut fields = vec![];
 
     for result in csv_reader
-        .into_records()
+        .records()
         .take(max_read_records.unwrap_or(std::usize::MAX))
     {
         let record = result?;
@@ -176,8 +175,8 @@ fn infer_file_schema(
         }
     }
 
-    // return the file seek back to the start
-    file.seek(SeekFrom::Start(0))?;
+    // return the reader seek back to the start
+    csv_reader.into_inner().seek(SeekFrom::Start(0))?;
 
     Ok(Schema::new(fields))
 }
@@ -197,8 +196,9 @@ pub struct Reader<R: Read> {
 impl<R: Read> Reader<R> {
     /// Create a new CsvReader from any value that implements the `Read` trait.
     ///
-    /// If reading a `File` you can customise the Reader, such as to enable schema
-    /// inference, use `ReaderBuilder`.
+    /// If reading a `File` or an input that supports `std::io::Read` and `std::io::Seek`;
+    /// you can customise the Reader, such as to enable schema inference, use
+    /// `ReaderBuilder`.
     pub fn new(
         reader: R,
         schema: Arc<Schema>,
@@ -465,13 +465,14 @@ impl ReaderBuilder {
     }
 
     /// Create a new `Reader` from the `ReaderBuilder`
-    pub fn build(self, file: File) -> Result<Reader<File>> {
+    pub fn build<R: Read + Seek>(self, reader: R) -> Result<Reader<R>> {
         // check if schema should be inferred
+        let mut buf_reader = BufReader::new(reader);
         let schema = match self.schema {
             Some(schema) => schema,
             None => {
                 let inferred_schema = infer_file_schema(
-                    file.try_clone().unwrap(),
+                    &mut buf_reader,
                     self.delimiter.unwrap_or(b','),
                     self.max_records,
                     self.has_headers,
@@ -483,7 +484,7 @@ impl ReaderBuilder {
         let csv_reader = csv::ReaderBuilder::new()
             .delimiter(self.delimiter.unwrap_or(b','))
             .has_headers(self.has_headers)
-            .from_reader(BufReader::new(file));
+            .from_reader(buf_reader);
         let record_iter = csv_reader.into_records();
         Ok(Reader {
             schema,
@@ -498,6 +499,7 @@ impl ReaderBuilder {
 mod tests {
     use super::*;
 
+    use std::fs::File;
     use std::io::Cursor;
 
     use crate::array::*;
