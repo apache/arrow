@@ -165,7 +165,8 @@ inline int64_t TensorCountNonZero(const Tensor& tensor) {
 }
 
 struct NonZeroCounter {
-  explicit NonZeroCounter(const Tensor& tensor) : tensor_(tensor), count_(0) {}
+  NonZeroCounter(const Tensor& tensor, int64_t* result)
+      : tensor_(tensor), result_(result) {}
 
   template <typename TYPE>
   typename std::enable_if<!std::is_base_of<Number, TYPE>::value, Status>::type Visit(
@@ -177,27 +178,19 @@ struct NonZeroCounter {
   template <typename TYPE>
   typename std::enable_if<std::is_base_of<Number, TYPE>::value, Status>::type Visit(
       const TYPE& type) {
-    count_ = TensorCountNonZero<TYPE>(tensor_);
+    *result_ = TensorCountNonZero<TYPE>(tensor_);
     return Status::OK();
   }
 
   const Tensor& tensor_;
-  int64_t count_;
+  int64_t* result_;
 };
 
 }  // namespace
 
-int64_t Tensor::CountNonZero() const {
-  if (size() == 0) {
-    return 0;
-  }
-
-  NonZeroCounter counter(*this);
-  if (VisitTypeInline(*type(), &counter).ok()) {
-    return counter.count_;
-  }
-
-  return -1;  // TODO: should treat tensor-unsupported types in a right way
+Status Tensor::CountNonZero(int64_t* result) const {
+  NonZeroCounter counter(*this, result);
+  return VisitTypeInline(*type(), &counter);
 }
 
 }  // namespace arrow

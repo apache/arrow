@@ -64,7 +64,8 @@ class SparseTensorConverter<TYPE, SparseCOOIndex>
 
   Status Convert() {
     const int64_t ndim = tensor_.ndim();
-    const int64_t nonzero_count = static_cast<int64_t>(tensor_.CountNonZero());
+    int64_t nonzero_count = -1;
+    RETURN_NOT_OK(tensor_.CountNonZero(&nonzero_count));
 
     std::shared_ptr<Buffer> indices_buffer;
     RETURN_NOT_OK(
@@ -166,7 +167,8 @@ class SparseTensorConverter<TYPE, SparseCSRIndex>
 
     const int64_t nr = tensor_.shape()[0];
     const int64_t nc = tensor_.shape()[1];
-    const int64_t nonzero_count = static_cast<int64_t>(tensor_.CountNonZero());
+    int64_t nonzero_count = -1;
+    RETURN_NOT_OK(tensor_.CountNonZero(&nonzero_count));
 
     std::shared_ptr<Buffer> indptr_buffer;
     std::shared_ptr<Buffer> indices_buffer;

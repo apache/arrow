@@ -31,6 +31,12 @@
 
 namespace arrow {
 
+void AssertCountNonZero(const Tensor& t, int64_t expected) {
+  int64_t count = -1;
+  ASSERT_OK(t.CountNonZero(&count));
+  ASSERT_EQ(count, expected);
+}
+
 TEST(TestTensor, ZeroDim) {
   const int64_t values = 1;
   std::vector<int64_t> shape = {};
@@ -97,7 +103,7 @@ TEST(TestTensor, IsContiguous) {
   ASSERT_FALSE(t3.is_contiguous());
 }
 
-TEST(TestTensor, ZeroDimensionalTensor) {
+TEST(TestTensor, ZeroSizedTensor) {
   std::vector<int64_t> shape = {0};
 
   std::shared_ptr<Buffer> buffer;
@@ -107,14 +113,14 @@ TEST(TestTensor, ZeroDimensionalTensor) {
   ASSERT_EQ(t.strides().size(), 1);
 }
 
-TEST(TestTensor, CountNonZeroForZeroDimensionalTensor) {
+TEST(TestTensor, CountNonZeroForZeroSizedTensor) {
   std::vector<int64_t> shape = {0};
 
   std::shared_ptr<Buffer> buffer;
   ASSERT_OK(AllocateBuffer(0, &buffer));
 
   Tensor t(int64(), buffer, shape);
-  ASSERT_EQ(t.CountNonZero(), 0);
+  AssertCountNonZero(t, 0);
 }
 
 TEST(TestTensor, CountNonZeroForContiguousTensor) {
@@ -130,8 +136,8 @@ TEST(TestTensor, CountNonZeroForContiguousTensor) {
 
   ASSERT_TRUE(t1.is_contiguous());
   ASSERT_TRUE(t2.is_contiguous());
-  ASSERT_EQ(t1.CountNonZero(), 12);
-  ASSERT_EQ(t2.CountNonZero(), 12);
+  AssertCountNonZero(t1, 12);
+  AssertCountNonZero(t2, 12);
 }
 
 TEST(TestTensor, CountNonZeroForNonContiguousTensor) {
@@ -146,7 +152,7 @@ TEST(TestTensor, CountNonZeroForNonContiguousTensor) {
   Tensor t(int64(), buffer, shape, noncontig_strides);
 
   ASSERT_FALSE(t.is_contiguous());
-  ASSERT_EQ(t.CountNonZero(), 8);
+  AssertCountNonZero(t, 8);
 }
 
 TEST(TestNumericTensor, ElementAccessWithRowMajorStrides) {
