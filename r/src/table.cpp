@@ -52,11 +52,55 @@ std::vector<std::shared_ptr<arrow::Column>> Table__columns(
   return res;
 }
 
-// [[Rcpp::export]]
-std::shared_ptr<arrow::Table> Table__from_arrays(SEXP schema_sxp, SEXP lst) {
-  auto rb = RecordBatch__from_arrays(R_NilValue, lst);
+bool all_record_batches(SEXP lst){
+  R_xlen_t n = XLENGTH(lst);
+  for(R_xlen_t i = 0; i<n; i++) {
+    if (!Rf_inherits(VECTOR_ELT(lst, i), "arrow::RecordBatch")) return false;
+  }
+  return true;
+}
 
-  std::shared_ptr<arrow::Table> out;
-  STOP_IF_NOT_OK(arrow::Table::FromRecordBatches({std::move(rb)}, &out));
-  return out;
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Table> Table__from_arrays(SEXP lst) {
+  // lst can be aither:
+  // - a list of record batches, in which case we call Table::FromRecordBatches
+
+  if (all_record_batches(lst)) {
+    auto batches = arrow::r::list_to_shared_ptr_vector<arrow::RecordBatch>(lst);
+    std::shared_ptr<arrow::Table> tab;
+    STOP_IF_NOT_OK(arrow::Table::FromRecordBatches(batches, &tab));
+    return tab;
+  }
+
+  // - a list of arrays, chunked arrays or r vectors
+
+  CharacterVector names(Rf_getAttrib(lst, R_NamesSymbol));
+
+  R_xlen_t n = XLENGTH(lst);
+  std::vector<std::shared_ptr<arrow::Column>> columns(n);
+  std::vector<std::shared_ptr<arrow::Field>> fields(n);
+
+  for (R_xlen_t i = 0; i<n; i++) {
+    SEXP x = VECTOR_ELT(lst, i);
+    if (Rf_inherits(x, "arrow::Column")) {
+      columns[i] = arrow::r::extract<arrow::Column>(x);
+      fields[i] = columns[i]->field();
+    } else if (Rf_inherits(x, "arrow::ChunkedArray")) {
+      auto chunked_array = arrow::r::extract<arrow::ChunkedArray>(x);
+      fields[i] = std::make_shared<arrow::Field>(std::string(names[i]), chunked_array->type());
+      columns[i] = std::make_shared<arrow::Column>(fields[i], chunked_array);
+    } else if (Rf_inherits(x, "arrow::Array")) {
+      auto array = arrow::r::extract<arrow::Array>(x);
+      fields[i] = std::make_shared<arrow::Field>(std::string(names[i]), array->type());
+      columns[i] = std::make_shared<arrow::Column>(fields[i], array);
+    } else {
+      auto array = Array__from_vector(x);
+      fields[i] = std::make_shared<arrow::Field>(std::string(names[i]), array->type());
+      columns[i] = std::make_shared<arrow::Column>(fields[i], array);
+    }
+  }
+
+  auto schema = std::make_shared<arrow::Schema>(std::move(fields));
+  return arrow::Table::Make(schema, columns);
+
 }

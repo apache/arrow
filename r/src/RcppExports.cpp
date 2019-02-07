@@ -2282,14 +2282,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // Table__from_arrays
-std::shared_ptr<arrow::Table> Table__from_arrays(SEXP schema_sxp, SEXP lst);
-RcppExport SEXP _arrow_Table__from_arrays(SEXP schema_sxpSEXP, SEXP lstSEXP) {
+std::shared_ptr<arrow::Table> Table__from_arrays(SEXP lst);
+RcppExport SEXP _arrow_Table__from_arrays(SEXP lstSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type schema_sxp(schema_sxpSEXP);
     Rcpp::traits::input_parameter< SEXP >::type lst(lstSEXP);
-    rcpp_result_gen = Rcpp::wrap(Table__from_arrays(schema_sxp, lst));
+    rcpp_result_gen = Rcpp::wrap(Table__from_arrays(lst));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -2518,7 +2517,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1},
     {"_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
     {"_arrow_Table__columns", (DL_FUNC) &_arrow_Table__columns, 1},
-    {"_arrow_Table__from_arrays", (DL_FUNC) &_arrow_Table__from_arrays, 2},
+    {"_arrow_Table__from_arrays", (DL_FUNC) &_arrow_Table__from_arrays, 1},
     {"_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0},
     {"_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1},
     {NULL, NULL, 0}

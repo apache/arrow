@@ -54,13 +54,13 @@
 #' Create an arrow::Table from a data frame
 #'
 #' @param ... arrays, chunked arrays, or R vectors
-#' @param schema NULL or a schema
+#' @param schema NULL or a schema (currently ignored)
 #'
 #' @export
 table <- function(..., schema = NULL){
-  arrays <- tibble::lst(...)
-  stopifnot(length(arrays) > 0)
-  shared_ptr(`arrow::Table`, Table__from_arrays(schema, arrays))
+  dots <- tibble::lst(...)
+  stopifnot(length(dots) > 0)
+  shared_ptr(`arrow::Table`, Table__from_arrays(dots))
 }
 
 #' @export
