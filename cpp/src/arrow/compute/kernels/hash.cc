@@ -196,7 +196,7 @@ class DictEncodeAction : public ActionBase {
 ///
 /// This interface is implemented below using visitor pattern on "Action"
 /// implementations.  It is not consolidate to keep the contract clearer.
-class ARROW_EXPORT HashKernel : public UnaryKernel {
+class HashKernel : public UnaryKernel {
  public:
   // Reset for another run.
   virtual Status Reset() = 0;
