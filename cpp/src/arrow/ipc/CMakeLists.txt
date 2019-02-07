@@ -90,29 +90,11 @@ add_custom_target(metadata_fbs DEPENDS ${FBS_OUTPUT_FILES})
 # Headers: top level
 ARROW_INSTALL_ALL_HEADERS("arrow/ipc")
 
-if (ARROW_BUILD_STATIC)
-  set(ARROW_UTIL_LIB arrow_static)
-else()
-  set(ARROW_UTIL_LIB arrow_shared)
-endif()
-
-set(UTIL_LINK_LIBS
-  ${ARROW_UTIL_LIB}
-  ${BOOST_FILESYSTEM_LIBRARY}
-  ${BOOST_SYSTEM_LIBRARY})
-
-if(NOT WIN32)
-  set(UTIL_LINK_LIBS
-    ${UTIL_LINK_LIBS}
-    pthread
-    ${CMAKE_DL_LIBS})
-endif()
-
 if (ARROW_BUILD_UTILITIES)
   add_executable(arrow-file-to-stream file-to-stream.cc)
-  target_link_libraries(arrow-file-to-stream ${UTIL_LINK_LIBS})
+  target_link_libraries(arrow-file-to-stream arrow_static)
   add_executable(arrow-stream-to-file stream-to-file.cc)
-  target_link_libraries(arrow-stream-to-file ${UTIL_LINK_LIBS})
+  target_link_libraries(arrow-stream-to-file arrow_static)
 
   add_dependencies(integration arrow-file-to-stream)
   add_dependencies(integration arrow-stream-to-file)

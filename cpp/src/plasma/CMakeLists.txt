@@ -61,10 +61,6 @@ add_custom_command(
   COMMENT "Running flatc compiler on ${PLASMA_FBS_SRC}"
   VERBATIM)
 
-if(UNIX AND NOT APPLE)
-  link_libraries(rt)
-endif()
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
 set(PLASMA_SRCS

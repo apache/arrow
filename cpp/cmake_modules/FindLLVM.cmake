@@ -33,11 +33,11 @@ if (APPLE)
 endif()
 
 find_package(LLVM ${ARROW_LLVM_VERSION} REQUIRED CONFIG HINTS
+             ${LLVM_DIR}
              /usr/lib
              /usr/local/opt/llvm
              /usr/share
-             ${LLVM_BREW_PREFIX}
-             ${LLVM_DIR})
+             ${LLVM_BREW_PREFIX})
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
