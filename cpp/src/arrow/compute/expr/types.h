@@ -19,6 +19,7 @@
 
 #include "arrow/util/visibility.h"
 
+#include "arrow/compute/expr/semantic_type.h"
 
 namespace arrow {
 
@@ -26,8 +27,10 @@ class Status;
 
 namespace compute {
 
+class ExprName;
 class ExprVisitor;
 class Operation;
+class SemType;
 
 /// \brief Base class for all analytic expressions. Expressions may represent
 /// data values (scalars, arrays, tables)
@@ -44,6 +47,9 @@ class ARROW_EXPORT Expr {
   /// \brief
   std::shared_ptr<Operation> op() const { return op_; }
 
+  /// \brief The name of the expression, if any. The default is unnamed
+  virtual const ExprName& name() const;
+
  protected:
   /// \brief Instantiate expression from an abstract operation
   /// \param[in] op the operation that generates the expression
@@ -54,14 +60,18 @@ class ARROW_EXPORT Expr {
 /// \brief Base class for a data-generated expression with a fixed and known
 /// type. This includes arrays and scalars
 class ARROW_EXPORT ValueExpr : public Expr {
- public:
-
  protected:
+  ValueExpr(const std::shared_ptr<Operation>& op,
+            const std::shared_ptr<SemType>& type);
 
-
+  /// \brief The semantic data type of the expression
+  std::shared_ptr<SemType> type_;
 };
 
-class ARROW_EXPORT ScalarExpr : public
+class ARROW_EXPORT ScalarExpr : public ValueExpr {
+ public:
+
+};
 
 }  // namespace compute
 }  // namespace arrow
