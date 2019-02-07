@@ -18,7 +18,6 @@
 #pragma once
 
 #include <memory>
-#include <mutex>
 
 #include "arrow/compute/kernel.h"
 
