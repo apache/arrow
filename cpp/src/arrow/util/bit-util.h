@@ -117,6 +117,11 @@ constexpr int64_t RoundUp(int64_t value, int64_t factor) {
   return (value + (factor - 1)) / factor * factor;
 }
 
+// Returns 'value' rounded down to the nearest multiple of 'factor'
+constexpr int64_t RoundDown(int64_t value, int64_t factor) {
+  return (value / factor) * factor;
+}
+
 // Returns 'value' rounded up to the nearest multiple of 'factor' when factor
 // is a power of two.
 // The result is undefined on overflow, i.e. if `value > 2**64 - factor`,

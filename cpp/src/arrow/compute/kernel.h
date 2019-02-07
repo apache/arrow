@@ -190,6 +190,8 @@ struct ARROW_EXPORT Datum {
 
   Scalar scalar() const { return util::get<Scalar>(this->value); }
 
+  bool is_array() const { return this->kind() == Datum::ARRAY; }
+
   bool is_arraylike() const {
     return this->kind() == Datum::ARRAY || this->kind() == Datum::CHUNKED_ARRAY;
   }

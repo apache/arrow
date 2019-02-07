@@ -26,11 +26,16 @@
 namespace arrow {
 
 class Array;
+class DataType;
 
 namespace compute {
 
 struct Datum;
 class FunctionContext;
+class AggregateFunction;
+
+std::shared_ptr<AggregateFunction> MakeSumAggregateFunction(const DataType& type,
+                                                            FunctionContext* context);
 
 /// \brief Sum values of a numeric array.
 ///

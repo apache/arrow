@@ -114,12 +114,8 @@ TYPED_TEST(TestHashKernelPrimitive, DictEncode) {
 
 TYPED_TEST(TestHashKernelPrimitive, PrimitiveResizeTable) {
   using T = typename TypeParam::c_type;
-  // Skip this test for (u)int8
-  if (sizeof(Scalar) == 1) {
-    return;
-  }
 
-  const int64_t kTotalValues = 1000000;
+  const int64_t kTotalValues = std::min<int64_t>(INT16_MAX, 1UL << sizeof(T) / 2);
   const int64_t kRepeats = 5;
 
   vector<T> values;
