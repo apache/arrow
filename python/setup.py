@@ -158,13 +158,13 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
 
     CYTHON_MODULE_NAMES = [
-        'gandiva',
         'lib',
         '_csv',
         '_cuda',
         '_parquet',
         '_orc',
-        '_plasma']
+        '_plasma',
+        'gandiva']
 
     def _run_cmake(self):
         # The directory containing this setup.py
