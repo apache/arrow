@@ -90,11 +90,17 @@ add_custom_target(metadata_fbs DEPENDS ${FBS_OUTPUT_FILES})
 # Headers: top level
 ARROW_INSTALL_ALL_HEADERS("arrow/ipc")
 
+if (ARROW_BUILD_STATIC)
+  set(ARROW_UTIL_LIB arrow_static)
+else()
+  set(ARROW_UTIL_LIB arrow_shared)
+endif()
+
 if (ARROW_BUILD_UTILITIES)
   add_executable(arrow-file-to-stream file-to-stream.cc)
-  target_link_libraries(arrow-file-to-stream arrow_static)
+  target_link_libraries(arrow-file-to-stream ${ARROW_UTIL_LIB})
   add_executable(arrow-stream-to-file stream-to-file.cc)
-  target_link_libraries(arrow-stream-to-file arrow_static)
+  target_link_libraries(arrow-stream-to-file ${ARROW_UTIL_LIB})
 
   add_dependencies(integration arrow-file-to-stream)
   add_dependencies(integration arrow-stream-to-file)
