@@ -313,7 +313,7 @@ Note that this requires linking Boost statically"
   if (MSVC)
     option(MSVC_LINK_VERBOSE
       "Pass verbose linking options when linking libraries and executables"
-      ON)
+      OFF)
 
     option(ARROW_USE_CLCACHE
       "Use clcache if available"
