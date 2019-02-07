@@ -81,3 +81,23 @@ test_that("Table dim() and nrow() (ARROW-3816)", {
   expect_equal(dim(tab), c(10L, 2L))
   expect_equal(nrow(tab), 10L)
 })
+
+test_that("table() handles record batches with splicing", {
+  batch <- record_batch(x = 1:2, y = letters[1:2])
+  tab <- table(batch, batch, batch)
+  expect_equal(tab$schema, batch$schema)
+  expect_equal(tab$num_rows, 6L)
+  expect_equal(
+    as_tibble(tab),
+    vctrs::vec_rbind(as_tibble(batch), as_tibble(batch), as_tibble(batch))
+  )
+
+  batches <- list(batch, batch, batch)
+  tab <- table(!!!batches)
+  expect_equal(tab$schema, batch$schema)
+  expect_equal(tab$num_rows, 6L)
+  expect_equal(
+    as_tibble(tab),
+    vctrs::vec_rbind(!!!purrr::map(batches, as_tibble))
+  )
+})
