@@ -165,7 +165,7 @@ inline int64_t TensorCountNonZero(const Tensor& tensor) {
 }
 
 struct NonZeroCounter {
-  NonZeroCounter(const Tensor& tensor) : tensor_(tensor), count_(0) {}
+  explicit NonZeroCounter(const Tensor& tensor) : tensor_(tensor), count_(0) {}
 
   template <typename TYPE>
   typename std::enable_if<!std::is_base_of<Number, TYPE>::value, Status>::type Visit(
