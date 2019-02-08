@@ -756,6 +756,12 @@ mod tests {
     }
 
     #[test]
+    fn test_value_slice_no_bounds_check() {
+        let arr = Int32Array::from(vec![2, 3, 4]);
+        let _slice = arr.value_slice(0, 4);
+    }
+
+    #[test]
     fn test_primitive_array_builder() {
         // Test building an primitive array with ArrayData builder and offset
         let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
