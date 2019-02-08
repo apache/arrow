@@ -56,7 +56,7 @@ static void BM_ParseJSONBlockWithSchema(
   for (int i = 0; i != num_rows; ++i) {
     StringBuffer sb;
     Writer writer(sb);
-    Generate(options.explicit_schema, engine, &writer);
+    ABORT_NOT_OK(Generate(options.explicit_schema, engine, &writer));
     json += sb.GetString();
     json += "\n";
   }

@@ -33,46 +33,43 @@ namespace json {
 using rapidjson::StringBuffer;
 using Writer = rapidjson::Writer<StringBuffer>;
 
-template <typename Engine>
-static void Generate(const std::shared_ptr<DataType>& type, Engine& e, Writer* writer);
+static Status OK(bool ok) { return ok ? Status::OK() : Status::Invalid(""); }
 
 template <typename Engine>
-static void Generate(const std::vector<std::shared_ptr<Field>>& fields, Engine& e,
-                     Writer* writer);
+static Status Generate(const std::shared_ptr<DataType>& type, Engine& e, Writer* writer);
 
 template <typename Engine>
-static void Generate(const std::shared_ptr<Schema>& schm, Engine& e, Writer* writer) {
-  Generate(schm->fields(), e, writer);
+static Status Generate(const std::vector<std::shared_ptr<Field>>& fields, Engine& e,
+                       Writer* writer);
+
+template <typename Engine>
+static Status Generate(const std::shared_ptr<Schema>& schm, Engine& e, Writer* writer) {
+  return Generate(schm->fields(), e, writer);
 }
 
 template <typename Engine>
 struct GenerateImpl {
   Status Visit(const BooleanType&) {
-    writer.Bool(std::uniform_int_distribution<uint16_t>{}(e)&1);
-    return Status::OK();
+    return OK(writer.Bool(std::uniform_int_distribution<uint16_t>{}(e)&1));
   }
   template <typename T>
   Status Visit(T const&, enable_if_unsigned_integer<T>* = nullptr) {
     auto val = std::uniform_int_distribution<>{}(e);
-    writer.Uint64(static_cast<typename T::c_type>(val));
-    return Status::OK();
+    return OK(writer.Uint64(static_cast<typename T::c_type>(val)));
   }
   template <typename T>
   Status Visit(T const&, enable_if_signed_integer<T>* = nullptr) {
     auto val = std::uniform_int_distribution<>{}(e);
-    writer.Int64(static_cast<typename T::c_type>(val));
-    return Status::OK();
+    return OK(writer.Int64(static_cast<typename T::c_type>(val)));
   }
   template <typename T>
   Status Visit(T const&, enable_if_floating_point<T>* = nullptr) {
     auto val = std::normal_distribution<typename T::c_type>{0, 1 << 10}(e);
-    writer.Double(val);
-    return Status::OK();
+    return OK(writer.Double(val));
   }
   Status Visit(HalfFloatType const&) {
     auto val = std::normal_distribution<double>{0, 1 << 10}(e);
-    writer.Double(val);
-    return Status::OK();
+    return OK(writer.Double(val));
   }
   template <typename T>
   Status Visit(T const&, enable_if_binary<T>* = nullptr) {
@@ -80,8 +77,7 @@ struct GenerateImpl {
     std::uniform_int_distribution<uint16_t> gen_char(32, 127);  // FIXME generate UTF8
     std::string s(size, '\0');
     for (char& ch : s) ch = static_cast<char>(gen_char(e));
-    writer.String(s.c_str());
-    return Status::OK();
+    return OK(writer.String(s.c_str()));
   }
   template <typename T>
   Status Visit(
@@ -93,37 +89,33 @@ struct GenerateImpl {
     auto size = std::poisson_distribution<>{4}(e);
     writer.StartArray();
     for (int i = 0; i != size; ++i) Generate(t.value_type(), e, &writer);
-    writer.EndArray(size);
-    return Status::OK();
+    return OK(writer.EndArray(size));
   }
-  Status Visit(const StructType& t) {
-    Generate(t.children(), e, &writer);
-    return Status::OK();
-  }
+  Status Visit(const StructType& t) { return Generate(t.children(), e, &writer); }
   Engine& e;
   rapidjson::Writer<rapidjson::StringBuffer>& writer;
 };
 
 template <typename Engine>
-static void Generate(const std::shared_ptr<DataType>& type, Engine& e, Writer* writer) {
+static Status Generate(const std::shared_ptr<DataType>& type, Engine& e, Writer* writer) {
   if (std::uniform_real_distribution<>{0, 1}(e) < .2) {
     // one out of 5 chance of null, anywhere
     writer->Null();
-    return;
+    return Status::OK();
   }
   GenerateImpl<Engine> visitor = {e, *writer};
-  VisitTypeInline(*type, &visitor);
+  return VisitTypeInline(*type, &visitor);
 }
 
 template <typename Engine>
-static void Generate(const std::vector<std::shared_ptr<Field>>& fields, Engine& e,
-                     Writer* writer) {
-  writer->StartObject();
+static Status Generate(const std::vector<std::shared_ptr<Field>>& fields, Engine& e,
+                       Writer* writer) {
+  RETURN_NOT_OK(OK(writer->StartObject()));
   for (const auto& f : fields) {
     writer->Key(f->name().c_str());
-    Generate(f->type(), e, writer);
+    RETURN_NOT_OK(Generate(f->type(), e, writer));
   }
-  writer->EndObject(static_cast<int>(fields.size()));
+  return OK(writer->EndObject(static_cast<int>(fields.size())));
 }
 
 Status MakeBuffer(util::string_view data, std::shared_ptr<Buffer>* out) {
