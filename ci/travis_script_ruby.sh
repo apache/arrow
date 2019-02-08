@@ -27,6 +27,7 @@ arrow_ruby_run_test()
 
   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$arrow_c_glib_lib_dir
   export GI_TYPELIB_PATH=$arrow_c_glib_lib_dir/girepository-1.0
+  rake compile
   test/run-test.rb
 }
 
