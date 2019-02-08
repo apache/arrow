@@ -296,7 +296,6 @@ class build_ext(_build_ext):
             # Move the built C-extension to the place expected by the Python
             # build
             self._found_names = []
-            print(os.listdir())
             for name in self.CYTHON_MODULE_NAMES:
                 built_path = self.get_ext_built(name)
                 if not os.path.exists(built_path):
