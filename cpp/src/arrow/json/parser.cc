@@ -139,19 +139,20 @@ class RawArrayBuilder;
 
 struct BuilderPtr {
   BuilderPtr() : BuilderPtr(BuilderPtr::null) {}
-  BuilderPtr(Kind::type k, uint32_t i, bool n) : kind(k), index(i), nullable(n) {}
+  BuilderPtr(Kind::type k, uint32_t i, bool n) : index(i), kind(k), nullable(n) {}
 
   BuilderPtr(const BuilderPtr&) = default;
   BuilderPtr& operator=(const BuilderPtr&) = default;
   BuilderPtr(BuilderPtr&&) = default;
   BuilderPtr& operator=(BuilderPtr&&) = default;
 
-  Kind::type kind : 3;
   // index of builder in its arena
   // OR the length of that builder if kind == Kind::kNull
   // (we don't allocate an arena for nulls since they're trivial)
-  uint32_t index;  // : 28; // FIXME(bkietz) GCC is emitting conversion errors with : 28
-  bool nullable : 1;
+  // FIXME(bkietz) GCC is emitting conversion errors for the bitfields
+  uint32_t index;  // : 28;
+  Kind::type kind;
+  bool nullable;
 
   bool operator==(BuilderPtr other) const {
     return kind == other.kind && index == other.index;

@@ -40,7 +40,7 @@ class RecordBatch;
 namespace json {
 
 struct Kind {
-  enum type { kNull, kBoolean, kNumber, kString, kArray, kObject };
+  enum type : uint8_t { kNull, kBoolean, kNumber, kString, kArray, kObject };
 };
 
 inline static const std::shared_ptr<const KeyValueMetadata>& Tag(Kind::type k) {
