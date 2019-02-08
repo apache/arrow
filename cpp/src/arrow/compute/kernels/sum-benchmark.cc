@@ -313,7 +313,7 @@ void BenchSum(benchmark::State& state) {
   using T = typename Functor::ValueType;
 
   const int64_t array_size = state.range(0) / sizeof(int64_t);
-  const double null_percent = state.range(1) / 100.0;
+  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
   auto rand = random::RandomArrayGenerator(1923);
   auto array = std::static_pointer_cast<NumericArray<Int64Type>>(
       rand.Int64(array_size, -100, 100, null_percent));
@@ -326,8 +326,8 @@ void BenchSum(benchmark::State& state) {
     benchmark::DoNotOptimize(sum_state);
   }
 
-  state.counters["size"] = state.range(0);
-  state.counters["null_percent"] = state.range(1);
+  state.counters["size"] = static_cast<double>(state.range(0));
+  state.counters["null_percent"] = static_cast<double>(state.range(1));
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(T));
 }
 
@@ -349,7 +349,7 @@ BENCHMARK_TEMPLATE(BenchSum, SumBitmapVectorizeUnroll<int64_t>)->Apply(SetArgs);
 
 static void BenchSumKernel(benchmark::State& state) {
   const int64_t array_size = state.range(0) / sizeof(int64_t);
-  const double null_percent = state.range(1) / 100.0;
+  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
   auto rand = random::RandomArrayGenerator(1923);
   auto array = std::static_pointer_cast<NumericArray<Int64Type>>(
       rand.Int64(array_size, -100, 100, null_percent));
@@ -361,8 +361,8 @@ static void BenchSumKernel(benchmark::State& state) {
     benchmark::DoNotOptimize(out);
   }
 
-  state.counters["size"] = state.range(0);
-  state.counters["null_percent"] = state.range(1);
+  state.counters["size"] = static_cast<double>(state.range(0));
+  state.counters["null_percent"] = static_cast<double>(state.range(1));
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t));
 }
 

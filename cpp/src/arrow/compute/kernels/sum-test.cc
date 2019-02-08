@@ -15,8 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
 #include <string>
+#include <type_traits>
+
+#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/test-common.h"
@@ -34,33 +36,47 @@ using std::vector;
 namespace arrow {
 namespace compute {
 
-constexpr double kArbitraryDoubleErrorBound = 1.0;
+template <typename CType, typename Enable = void>
+struct DatumEqual {
+  static void EnsureEqual(const Datum& lhs, const Datum& rhs) {}
+};
+
+template <typename CType>
+struct DatumEqual<CType,
+                  typename std::enable_if<std::is_floating_point<CType>::value>::type> {
+  static constexpr double kArbitraryDoubleErrorBound = 1.0;
+
+  static void EnsureEqual(const Datum& lhs, const Datum& rhs) {
+    ASSERT_EQ(lhs.kind(), rhs.kind());
+    if (lhs.kind() == Datum::SCALAR) {
+      ASSERT_EQ(lhs.scalar().kind(), rhs.scalar().kind());
+      ASSERT_NEAR(util::get<CType>(lhs.scalar().value),
+                  util::get<CType>(rhs.scalar().value), kArbitraryDoubleErrorBound);
+    }
+  }
+};
+
+template <typename CType>
+struct DatumEqual<CType,
+                  typename std::enable_if<!std::is_floating_point<CType>::value>::type> {
+  static void EnsureEqual(const Datum& lhs, const Datum& rhs) {
+    ASSERT_EQ(lhs.kind(), rhs.kind());
+    if (lhs.kind() == Datum::SCALAR) {
+      ASSERT_EQ(lhs.scalar().kind(), rhs.scalar().kind());
+      ASSERT_EQ(util::get<CType>(lhs.scalar().value),
+                util::get<CType>(rhs.scalar().value));
+    }
+  }
+};
 
 template <typename ArrowType>
 void ValidateSum(FunctionContext* ctx, const Array& input, Datum expected) {
   using CType = typename ArrowType::c_type;
+  using SumType = typename FindAccumulatorType<CType>::Type;
 
   Datum result;
   ASSERT_OK(Sum(ctx, input, &result));
-
-  // Ensure Datum is Scalar of proper type.
-  ASSERT_EQ(result.kind(), expected.kind());
-
-  if (result.kind() == Datum::SCALAR) {
-    ASSERT_EQ(result.scalar().kind(), expected.scalar().kind());
-    switch (result.scalar().kind()) {
-      case Type::FLOAT:
-      case Type::DOUBLE:
-        ASSERT_NEAR(util::get<CType>(result.scalar().value),
-                    util::get<CType>(expected.scalar().value),
-                    kArbitraryDoubleErrorBound);
-        break;
-      default:
-        ASSERT_EQ(util::get<CType>(result.scalar().value),
-                  util::get<CType>(expected.scalar().value));
-        break;
-    }
-  }
+  DatumEqual<SumType>::EnsureEqual(result, expected);
 }
 
 template <typename ArrowType>
@@ -73,8 +89,9 @@ template <typename ArrowType>
 static Datum DummySum(const Array& array) {
   using CType = typename ArrowType::c_type;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  using SumType = typename FindAccumulatorType<CType>::Type;
 
-  CType sum = 0;
+  SumType sum = 0;
   int64_t count = 0;
 
   const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
@@ -87,7 +104,7 @@ static Datum DummySum(const Array& array) {
     }
   }
 
-  return (count > 0) ? Datum(Scalar(static_cast<CType>(sum))) : Datum();
+  return (count > 0) ? Datum(Scalar(sum)) : Datum();
 }
 
 template <typename ArrowType>
@@ -105,14 +122,17 @@ typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
 TYPED_TEST_CASE(TestSumKernelNumeric, NumericArrowTypes);
 TYPED_TEST(TestSumKernelNumeric, SimpleSum) {
   using CType = typename TypeParam::c_type;
+  using SumType = typename FindAccumulatorType<CType>::Type;
+
+  ValidateSum<TypeParam>(&this->ctx_, "[]", Datum());
 
   ValidateSum<TypeParam>(&this->ctx_, "[0, 1, 2, 3, 4, 5]",
-                         Datum(Scalar(static_cast<CType>(5 * 6 / 2))));
+                         Datum(Scalar(static_cast<SumType>(5 * 6 / 2))));
 
   // Avoid this tests for (U)Int8Type
   if (sizeof(CType) > 1)
     ValidateSum<TypeParam>(&this->ctx_, "[1000, null, 300, null, 30, null, 7]",
-                           Datum(Scalar(static_cast<CType>(1337))));
+                           Datum(Scalar(static_cast<SumType>(1337))));
 }
 
 template <typename ArrowType>

@@ -55,6 +55,8 @@ class AggregateFunction {
   /// \brief Convert state into a final result.
   virtual Status Finalize(const void* src, Datum* output) const = 0;
 
+  virtual ~AggregateFunction() {}
+
   /// State management methods.
   virtual int64_t Size() const = 0;
   virtual void New(void* ptr) const = 0;

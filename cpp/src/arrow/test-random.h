@@ -164,25 +164,35 @@ class ARROW_EXPORT RandomArrayGenerator {
                                         double null_probability) {
     switch (ArrowType::type_id) {
       case Type::UINT8:
-        return UInt8(size, min, max, null_probability);
+        return UInt8(size, static_cast<uint8_t>(min), static_cast<uint8_t>(max),
+                     null_probability);
       case Type::INT8:
-        return Int8(size, min, max, null_probability);
+        return Int8(size, static_cast<int8_t>(min), static_cast<int8_t>(max),
+                    null_probability);
       case Type::UINT16:
-        return UInt16(size, min, max, null_probability);
+        return UInt16(size, static_cast<uint16_t>(min), static_cast<uint16_t>(max),
+                      null_probability);
       case Type::INT16:
-        return Int16(size, min, max, null_probability);
+        return Int16(size, static_cast<int16_t>(min), static_cast<int16_t>(max),
+                     null_probability);
       case Type::UINT32:
-        return UInt32(size, min, max, null_probability);
+        return UInt32(size, static_cast<uint32_t>(min), static_cast<uint32_t>(max),
+                      null_probability);
       case Type::INT32:
-        return Int32(size, min, max, null_probability);
+        return Int32(size, static_cast<int32_t>(min), static_cast<int32_t>(max),
+                     null_probability);
       case Type::UINT64:
-        return UInt64(size, min, max, null_probability);
+        return UInt64(size, static_cast<uint64_t>(min), static_cast<uint64_t>(max),
+                      null_probability);
       case Type::INT64:
-        return Int64(size, min, max, null_probability);
+        return Int64(size, static_cast<int64_t>(min), static_cast<int64_t>(max),
+                     null_probability);
       case Type::FLOAT:
-        return Float32(size, min, max, null_probability);
+        return Float32(size, static_cast<float>(min), static_cast<float>(max),
+                       null_probability);
       case Type::DOUBLE:
-        return Float64(size, min, max, null_probability);
+        return Float64(size, static_cast<double>(min), static_cast<double>(max),
+                       null_probability);
       default:
         return nullptr;
     }

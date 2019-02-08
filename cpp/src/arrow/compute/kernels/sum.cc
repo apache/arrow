@@ -28,21 +28,23 @@
 namespace arrow {
 namespace compute {
 
-template <typename CType>
+template <typename CType, typename SumType = typename FindAccumulatorType<CType>::Type>
 struct SumState {
-  SumState<CType> operator+(const SumState<CType>& rhs) const {
-    return SumState<CType>(this->count_ + rhs.count_, this->sum_ + rhs.sum_);
+  using ThisType = SumState<CType, SumType>;
+
+  ThisType operator+(const ThisType& rhs) const {
+    return ThisType(this->count + rhs.count, this->sum + rhs.sum);
   }
 
-  SumState<CType>& operator+=(const SumState<CType>& rhs) {
-    this->count_ += rhs.count_;
-    this->sum_ += rhs.sum_;
+  ThisType& operator+=(const ThisType& rhs) {
+    this->count += rhs.count;
+    this->sum += this->sum;
 
     return *this;
   }
 
-  size_t count_ = 0;
-  CType sum_ = 0;
+  size_t count = 0;
+  SumType sum = 0;
 };
 
 // Generated with the following Python code
@@ -62,13 +64,13 @@ static constexpr uint8_t kBytePopcount[] = {
     5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 3, 4, 4, 5, 4, 5, 5, 6,
     4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8};
 
-template <typename ValueType, typename CType = typename ValueType::c_type>
-class SumAggregateFunction final : public AggregateFunctionStaticState<SumState<CType>> {
-  using State = SumState<CType>;
-  using ArrayType = typename TypeTraits<ValueType>::ArrayType;
+template <typename ArrowType, typename StateType = SumState<typename ArrowType::c_type>>
+class SumAggregateFunction final : public AggregateFunctionStaticState<StateType> {
+  using CType = typename TypeTraits<ArrowType>::CType;
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
  public:
-  Status Consume(const Array& input, State* state) const override {
+  Status Consume(const Array& input, StateType* state) const override {
     const ArrayType& array = static_cast<const ArrayType&>(input);
 
     if (input.null_count() > 0)
@@ -79,32 +81,32 @@ class SumAggregateFunction final : public AggregateFunctionStaticState<SumState<
     return Status::OK();
   }
 
-  Status Merge(const State& src, State* dst) const override {
+  Status Merge(const StateType& src, StateType* dst) const override {
     *dst += src;
     return Status::OK();
   }
 
-  Status Finalize(const State& src, Datum* output) const override {
-    *output = (src.count_ > 0) ? Datum(Scalar(src.sum_)) : Datum();
+  Status Finalize(const StateType& src, Datum* output) const override {
+    *output = (src.count > 0) ? Datum(Scalar(src.sum)) : Datum();
     return Status::OK();
   }
 
  private:
-  State ConsumeDense(const ArrayType& array) const {
-    State local;
+  StateType ConsumeDense(const ArrayType& array) const {
+    StateType local;
 
     const auto values = array.raw_values();
     for (int64_t i = 0; i < array.length(); i++) {
-      local.sum_ += values[i];
+      local.sum += values[i];
     }
 
-    local.count_ = array.length();
+    local.count = array.length();
 
     return local;
   }
 
-  State ConsumeSparse(const ArrayType& array) const {
-    State local;
+  StateType ConsumeSparse(const ArrayType& array) const {
+    StateType local;
 
     // TODO(fsaintjacques): This fails on slice not byte-aligned.
     DCHECK_EQ(array.offset() % 8, 0);
@@ -112,35 +114,36 @@ class SumAggregateFunction final : public AggregateFunctionStaticState<SumState<
     const auto values = array.raw_values();
     const auto bitmap = array.null_bitmap_data() + BitUtil::RoundDown(array.offset(), 8);
     const auto length = array.length();
-    const int64_t length_rounded = BitUtil::RoundDown(length, 8);
+    const auto length_rounded = BitUtil::RoundDown(length, 8);
 
     for (int64_t i = 0; i < length_rounded; i += 8) {
       const uint8_t valid_byte = bitmap[i / 8];
       if (valid_byte < 0xFF) {
-#define SUM_SHIFT(ITEM) (values[i + ITEM] * ((valid_byte >> ITEM) & 1))
+#define SUM_SHIFT(ITEM) \
+  static_cast<CType>(values[i + ITEM] * static_cast<CType>(((valid_byte >> ITEM) & 1U)))
         // Some nulls
-        local.sum_ += SUM_SHIFT(0);
-        local.sum_ += SUM_SHIFT(1);
-        local.sum_ += SUM_SHIFT(2);
-        local.sum_ += SUM_SHIFT(3);
-        local.sum_ += SUM_SHIFT(4);
-        local.sum_ += SUM_SHIFT(5);
-        local.sum_ += SUM_SHIFT(6);
-        local.sum_ += SUM_SHIFT(7);
-        local.count_ += kBytePopcount[valid_byte];
+        local.sum += SUM_SHIFT(0);
+        local.sum += SUM_SHIFT(1);
+        local.sum += SUM_SHIFT(2);
+        local.sum += SUM_SHIFT(3);
+        local.sum += SUM_SHIFT(4);
+        local.sum += SUM_SHIFT(5);
+        local.sum += SUM_SHIFT(6);
+        local.sum += SUM_SHIFT(7);
+        local.count += kBytePopcount[valid_byte];
 #undef SUM_SHIFT
       } else {
         // No nulls
-        local.sum_ += values[i + 0] + values[i + 1] + values[i + 2] + values[i + 3] +
-                      values[i + 4] + values[i + 5] + values[i + 6] + values[i + 7];
-        local.count_ += 8;
+        local.sum += values[i + 0] + values[i + 1] + values[i + 2] + values[i + 3] +
+                     values[i + 4] + values[i + 5] + values[i + 6] + values[i + 7];
+        local.count += 8;
       }
     }
 
     for (int64_t i = length_rounded; i < length; ++i) {
       if (BitUtil::GetBit(bitmap, i)) {
-        local.sum_ += values[i];
-        local.count_++;
+        local.sum += values[i];
+        local.count++;
       }
     }
 

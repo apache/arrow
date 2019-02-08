@@ -19,6 +19,7 @@
 #define ARROW_COMPUTE_KERNELS_SUM_H
 
 #include <memory>
+#include <type_traits>
 
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
@@ -29,6 +30,30 @@ class Array;
 class DataType;
 
 namespace compute {
+
+// Find the largest compatible primitive type for a primitive type.
+template <typename I, typename Enable = void>
+struct FindAccumulatorType {
+  using Type = double;
+};
+
+template <typename I>
+struct FindAccumulatorType<I, typename std::enable_if<std::is_integral<I>::value &&
+                                                      std::is_signed<I>::value>::type> {
+  using Type = int64_t;
+};
+
+template <typename I>
+struct FindAccumulatorType<I, typename std::enable_if<std::is_integral<I>::value &&
+                                                      std::is_unsigned<I>::value>::type> {
+  using Type = uint64_t;
+};
+
+template <typename I>
+struct FindAccumulatorType<
+    I, typename std::enable_if<std::is_floating_point<I>::value>::type> {
+  using Type = double;
+};
 
 struct Datum;
 class FunctionContext;
