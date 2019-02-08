@@ -1589,6 +1589,15 @@ class TestListTypes(object):
         assert parr[2].as_py() is None
         assert parr[3].as_py() == [0]
 
+    def test_column_of_boolean_list(self):
+        # ARROW-4370: Table to pandas conversion fails for list of bool
+        array = pa.array([[True, False], [True]], type=pa.list_(pa.bool_()))
+        table = pa.Table.from_arrays([array], names=['col1'])
+        df = table.to_pandas()
+
+        expected_df = pd.DataFrame({'col1': [[True, False], [True]]})
+        tm.assert_frame_equal(df, expected_df)
+
     def test_column_of_lists(self):
         df, schema = dataframe_with_lists()
         _check_pandas_roundtrip(df, schema=schema, expected_schema=schema)
