@@ -42,8 +42,8 @@ from distutils import sysconfig
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
-if Cython.__version__ < '0.27':
-    raise Exception('Please upgrade to Cython 0.27 or newer')
+if Cython.__version__ < '0.29':
+    raise Exception('Please upgrade to Cython 0.29 or newer')
 
 setup_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -565,7 +565,7 @@ setup(
         'write_to': os.path.join(scm_version_write_to_prefix,
                                  'pyarrow/_generated_version.py')
     },
-    setup_requires=['setuptools_scm', 'cython >= 0.27'] + setup_requires,
+    setup_requires=['setuptools_scm', 'cython >= 0.29'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas', 'hypothesis',
                    'pathlib2; python_version < "3.4"'],
