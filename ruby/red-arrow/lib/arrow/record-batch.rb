@@ -54,12 +54,6 @@ module Arrow
       Table.new(schema, [self])
     end
 
-    def raw_records
-      inject([]) do |records, record|
-        records << record.to_h.values
-      end
-    end
-
     def respond_to_missing?(name, include_private)
       return true if find_column(name)
       super
