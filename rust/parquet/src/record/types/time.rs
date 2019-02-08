@@ -235,9 +235,8 @@ pub struct Timestamp(pub(super) Int96);
 impl Timestamp {
     /// Create a Timestamp from the number of milliseconds since the Unix epoch
     pub fn from_millis(millis: i64) -> Self {
-        let day: i64 = ((JULIAN_DAY_OF_EPOCH * SECONDS_PER_DAY * MILLIS_PER_SECOND)
-            + millis)
-            / (SECONDS_PER_DAY * MILLIS_PER_SECOND);
+        let day: i64 =
+            JULIAN_DAY_OF_EPOCH + millis / (SECONDS_PER_DAY * MILLIS_PER_SECOND);
         let nanoseconds: i64 = (millis
             - ((day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY * MILLIS_PER_SECOND))
             * MICROS_PER_MILLI
@@ -252,18 +251,36 @@ impl Timestamp {
 
     /// Create a Timestamp from the number of microseconds since the Unix epoch
     pub fn from_micros(micros: i64) -> Self {
-        let day: i64 = ((JULIAN_DAY_OF_EPOCH
-            * SECONDS_PER_DAY
-            * MILLIS_PER_SECOND
-            * MICROS_PER_MILLI)
-            + micros)
-            / (SECONDS_PER_DAY * MILLIS_PER_SECOND * MICROS_PER_MILLI);
+        let day: i64 = JULIAN_DAY_OF_EPOCH
+            + micros / (SECONDS_PER_DAY * MILLIS_PER_SECOND * MICROS_PER_MILLI);
         let nanoseconds: i64 = (micros
             - ((day - JULIAN_DAY_OF_EPOCH)
                 * SECONDS_PER_DAY
                 * MILLIS_PER_SECOND
                 * MICROS_PER_MILLI))
             * NANOS_PER_MICRO;
+
+        Timestamp(Int96::from(vec![
+            (nanoseconds & 0xffffffff).try_into().unwrap(),
+            ((nanoseconds as u64) >> 32).try_into().unwrap(),
+            day.try_into().unwrap(),
+        ]))
+    }
+
+    /// Create a Timestamp from the number of nanoseconds since the Unix epoch
+    pub fn from_nanos(nanos: i64) -> Self {
+        let day: i64 = JULIAN_DAY_OF_EPOCH
+            + nanos
+                / (SECONDS_PER_DAY
+                    * MILLIS_PER_SECOND
+                    * MICROS_PER_MILLI
+                    * NANOS_PER_MICRO);
+        let nanoseconds: i64 = nanos
+            - ((day - JULIAN_DAY_OF_EPOCH)
+                * SECONDS_PER_DAY
+                * MILLIS_PER_SECOND
+                * MICROS_PER_MILLI
+                * NANOS_PER_MICRO);
 
         Timestamp(Int96::from(vec![
             (nanoseconds & 0xffffffff).try_into().unwrap(),
@@ -359,6 +376,21 @@ impl Record for Timestamp {
         }
     }
 }
+impl From<chrono::DateTime<Utc>> for Timestamp {
+    fn from(timestamp: chrono::DateTime<Utc>) -> Self {
+        Timestamp::from_nanos(timestamp.timestamp_nanos())
+    }
+}
+impl From<Timestamp> for chrono::DateTime<Utc> {
+    fn from(timestamp: Timestamp) -> Self {
+        Utc.timestamp(
+            timestamp.as_millis().unwrap() / MILLIS_PER_SECOND,
+            (timestamp.as_day_nanos().1
+                % (MILLIS_PER_SECOND * MICROS_PER_MILLI * NANOS_PER_MICRO))
+                as u32,
+        )
+    }
+}
 impl Display for Timestamp {
     // Datetime is displayed in local timezone.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -423,7 +455,7 @@ mod tests {
         fn check_datetime_conversion(y: i32, m: u32, d: u32, h: u32, mi: u32, s: u32) {
             let datetime = NaiveDate::from_ymd(y, m, d).and_hms(h, mi, s);
             let dt = Local.from_utc_datetime(&datetime);
-            let res = Timestamp::from_millis(dt.timestamp_millis()).to_string();
+            let res = Timestamp::from_nanos(dt.timestamp_nanos()).to_string();
             let exp = dt.format("%Y-%m-%d %H:%M:%S %:z").to_string();
             assert_eq!(res, exp);
         }
