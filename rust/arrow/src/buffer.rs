@@ -153,7 +153,7 @@ impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
         assert_eq!(
             self.len(),
             rhs.len(),
-            "Buffers must be the same size to apply Bitwise OR."
+            "Buffers must be the same size to apply Bitwise AND."
         );
 
         // SIMD implementation if available
@@ -572,7 +572,7 @@ mod tests {
     fn test_buffer_bitand_different_sizes() {
         let buf1 = Buffer::from([1_u8, 1_u8]);
         let buf2 = Buffer::from([0b01001110]);
-        let _buf3 = &buf1 & &buf2;
+        let _buf3 = &buf1 | &buf2;
     }
 
     #[test]
