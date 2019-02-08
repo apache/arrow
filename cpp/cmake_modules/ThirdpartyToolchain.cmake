@@ -1153,7 +1153,6 @@ if (ARROW_WITH_LZ4)
       set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/visual/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/liblz4_static.lib")
       set(LZ4_BUILD_COMMAND BUILD_COMMAND msbuild.exe /m /p:Configuration=${CMAKE_BUILD_TYPE} /p:Platform=x64 /p:PlatformToolset=v140
                                           ${LZ4_RUNTIME_LIBRARY_LINKAGE} /t:Build ${LZ4_BUILD_DIR}/visual/VS2010/lz4.sln)
-      set(LZ4_PATCH_COMMAND PATCH_COMMAND git --git-dir=. apply --verbose --whitespace=fix ${CMAKE_SOURCE_DIR}/build-support/lz4_msbuild_gl_runtimelibrary_params.patch)
     else()
       set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
       set(LZ4_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh "AR=${CMAKE_AR}")
