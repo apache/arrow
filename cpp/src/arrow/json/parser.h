@@ -108,6 +108,7 @@ class ARROW_EXPORT BlockParser {
   int32_t num_rows() const { return impl_->num_rows(); }
 
   struct Impl {
+    virtual ~Impl() = default;
     virtual Status Parse(const std::shared_ptr<Buffer>& json) = 0;
     virtual Status Finish(std::shared_ptr<Array>* parsed) = 0;
     virtual int32_t num_rows() = 0;

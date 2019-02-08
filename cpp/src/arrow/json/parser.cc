@@ -1059,7 +1059,8 @@ static Status Convert(const std::shared_ptr<DataType>& out_type,
 
 static Status InferAndConvert(std::shared_ptr<DataType> expected,
                               const std::shared_ptr<const KeyValueMetadata>& tag,
-                              const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) {
+                              const std::shared_ptr<Array>& in,
+                              std::shared_ptr<Array>* out) {
   if (tag == Tag(Kind::kObject)) {
     // FIXME(bkietz) in general expected fields may not be an exact prefix of parsed's
     auto in_type = static_cast<StructType*>(in->type().get());
