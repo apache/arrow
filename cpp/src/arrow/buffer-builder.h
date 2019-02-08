@@ -211,6 +211,14 @@ class TypedBufferBuilder<T, typename std::enable_if<std::is_arithmetic<T>::value
                                 num_elements * sizeof(T));
   }
 
+  template <typename Iter>
+  void UnsafeAppend(Iter values_begin, Iter values_end) {
+    int64_t num_elements = static_cast<int64_t>(std::distance(values_begin, values_end));
+    auto data = mutable_data() + length();
+    bytes_builder_.UnsafeAppend(num_elements * sizeof(T), 0);
+    std::copy(values_begin, values_end, data);
+  }
+
   void UnsafeAppend(const int64_t num_copies, T value) {
     auto data = mutable_data() + length();
     bytes_builder_.UnsafeAppend(num_copies * sizeof(T), 0);
