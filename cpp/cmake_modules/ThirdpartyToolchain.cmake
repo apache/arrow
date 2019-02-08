@@ -30,9 +30,11 @@ set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
 
 
 if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
+  set(AWSSDK_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(BROTLI_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(BZ2_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(CARES_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(CURL_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(DOUBLE_CONVERSION_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(FLATBUFFERS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(GFLAGS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
@@ -74,6 +76,9 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
 endif()
 
 # Home path for each third-party lib can be overriden with env vars
+if (DEFINED ENV{AWSSDK_HOME})
+  set(AWSSDK_HOME "$ENV{AWSSDK_HOME}")
+endif()
 
 if (DEFINED ENV{BROTLI_HOME})
   set(BROTLI_HOME "$ENV{BROTLI_HOME}")
@@ -85,6 +90,10 @@ endif()
 
 if (DEFINED ENV{CARES_HOME})
   set(CARES_HOME "$ENV{CARES_HOME}")
+endif()
+
+if (DEFINED ENV{CURL_HOME})
+  set(CURL_HOME "$ENV{CURL_HOME}")
 endif()
 
 if (DEFINED ENV{DOUBLE_CONVERSION_HOME})
@@ -176,6 +185,14 @@ if (ARROW_ORC OR ARROW_FLIGHT OR ARROW_GANDIVA)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
+if (ARROW_PLASMA_S3)
+  set(ARROW_WITH_AWSSDK ON)
+  set(ARROW_WITH_CURL ON)
+  set(ARROW_WITH_OPENSSL ON)
+  set(ARROW_WITH_ZLIB ON)
+  list(APPEND AWSSDK_MODULES "s3")
+endif()
+
 # ----------------------------------------------------------------------
 # Versions and URLs for toolchain builds, which also can be used to configure
 # offline builds
@@ -202,6 +219,12 @@ foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
   set(${_LIB_NAME} "${_LIB_VERSION}")
 endforeach()
 
+if (DEFINED ENV{ARROW_AWSSDK_URL})
+  set(AWSSDK_SOURCE_URL "$ENV{ARROW_AWSSDK_URL}")
+else()
+  set(AWSSDK_SOURCE_URL "https://github.com/aws/aws-sdk-cpp/archive/${AWSSDK_VERSION}.tar.gz")
+endif()
+
 if (DEFINED ENV{ARROW_BOOST_URL})
   set(BOOST_SOURCE_URL "$ENV{ARROW_BOOST_URL}")
 else()
@@ -220,6 +243,14 @@ if (DEFINED ENV{ARROW_CARES_URL})
   set(CARES_SOURCE_URL "$ENV{ARROW_CARES_URL}")
 else()
   set(CARES_SOURCE_URL "https://c-ares.haxx.se/download/c-ares-${CARES_VERSION}.tar.gz")
+endif()
+
+if (DEFINED ENV{ARROW_CURL_URL})
+  set(CURL_SOURCE_URL "$ENV{ARROW_CURL_URL}")
+else()
+  string(REGEX REPLACE "\\." "_" CURL_VERSION_UNDERSCORES ${CURL_VERSION})
+  set(CURL_SOURCE_URL
+    "https://github.com/curl/curl/releases/download/curl-${CURL_VERSION_UNDERSCORES}/curl-${CURL_VERSION}.tar.gz")
 endif()
 
 if (DEFINED ENV{ARROW_DOUBLE_CONVERSION_URL})
@@ -1756,4 +1787,115 @@ if (ARROW_USE_GLOG)
       STATIC_LIB ${GLOG_STATIC_LIB}
       DEPS gflags_static)
   endif()
+endif()
+
+# ----------------------------------------------------------------------
+# libcurl
+
+if (ARROW_WITH_CURL)
+
+  if("${CURL_HOME}" STREQUAL "")
+    find_package(CURL)
+  else()
+    find_package(CURL REQUIRED
+            PATHS "${CURL_HOME}")
+  endif()
+
+  if (CURL_FOUND)
+    set(CURL_VENDORED 0)
+  else()
+    set(CURL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/curl_ep/src/curl_ep")
+    set(CURL_HOME "${CURL_PREFIX}")
+    set(CURL_INCLUDE_DIR "${CURL_PREFIX}/include")
+    set(CURL_STATIC_LIB "${CURL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}curl${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+    # Use ./configure instead of CMake build for curl since curl's CMake build is unstable.
+    ExternalProject_Add(curl_ep
+            ${EP_LOG_OPTIONS}
+            INSTALL_DIR ${CURL_PREFIX}
+            URL ${CURL_SOURCE_URL}
+            BUILD_IN_SOURCE 1
+            CONFIGURE_COMMAND ./configure --prefix=${CURL_PREFIX} --without-ssl --without-libidn2 --without-zlib --disable-ldap --enable-shared=no --enable-static=yes CXX=${CMAKE_CXX_COMPILER} CC=${CMAKE_C_COMPILER} CFLAGS=${EP_C_FLAGS} CXXFLAGS=${EP_CXX_FLAGS}
+            BUILD_COMMAND "$(MAKE)"
+            INSTALL_COMMAND "$(MAKE)" install
+            BUILD_BYPRODUCTS ${CURL_STATIC_LIB})
+    set(CURL_VENDORED 1)
+  endif()
+
+  include_directories(SYSTEM ${CURL_INCLUDE_DIR})
+
+  ADD_THIRDPARTY_LIB(curl
+          STATIC_LIB ${CURL_STATIC_LIB})
+  if (CURL_VENDORED)
+    add_dependencies(curl_static curl_ep)
+  endif()
+
+  message(STATUS "CURL include dir: ${CURL_INCLUDE_DIR}")
+  message(STATUS "CURL static library: ${CURL_STATIC_LIB}")
+endif()
+
+# ----------------------------------------------------------------------
+# AWS SDK (C++)
+
+if (ARROW_WITH_AWSSDK)
+
+  # Add pre-requisites for any SDK module
+  set(AWSSDK_MODULES "core" ${AWSSDK_MODULES})
+  list(REMOVE_DUPLICATES AWSSDK_MODULES)
+
+  if("${AWSSDK_HOME}" STREQUAL "")
+    find_package(AWSSDK COMPONENTS ${AWSSDK_MODULES})
+  else()
+    find_package(AWSSDK REQUIRED
+            PATHS "${AWSSDK_HOME}"
+            COMPONENTS "${AWSSDK_MODULES}")
+  endif()
+
+  if (AWSSDK_FOUND)
+    set(AWSSDK_VENDORED 0)
+  else()
+    set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep/src/awssdk_ep")
+    set(AWSSDK_HOME "${AWSSDK_PREFIX}")
+    set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
+
+    foreach(MODULE ${AWSSDK_MODULES})
+      string(TOUPPER ${MODULE} MODULE_UPPERCASE)
+      set(AWSSDK_STATIC_${MODULE_UPPERCASE}_LIB "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}aws-cpp-sdk-${MODULE}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+      list(APPEND AWSSDK_STATIC_LIBS ${AWSSDK_STATIC_${MODULE_UPPERCASE}_LIB})
+    endforeach()
+
+    set(AWSSDK_CMAKE_ARGS
+            ${EP_COMMON_CMAKE_ARGS}
+            "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
+            "-DENABLE_TESTING=OFF"
+            "-DMINIMIZE_SIZE=ON"
+            "-DBUILD_SHARED_LIBS=OFF"
+            "-DFORCE_CURL=ON"
+            "-DZLIB_ROOT=${ZLIB_HOME}"
+            "-DCMAKE_PREFIX_PATH=${CURL_HOME}"
+            "-DBUILD_ONLY=s3")
+
+    ExternalProject_Add(awssdk_ep
+            ${EP_LOG_OPTIONS}
+            INSTALL_DIR ${AWSSDK_PREFIX}
+            URL ${AWSSDK_SOURCE_URL}
+            CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
+            DEPENDS curl_static zlib_static
+            BUILD_BYPRODUCTS ${AWSSDK_STATIC_LIBS})
+    set(AWSSDK_VENDORED 1)
+  endif()
+
+  include_directories(SYSTEM ${AWSSDK_INCLUDE_DIR})
+
+  message(STATUS "AWSSDK include dir: ${AWSSDK_INCLUDE_DIR}")
+  foreach(MODULE ${AWSSDK_MODULES})
+    string(REPLACE "-" "_" MODULE_UNDERSCORE ${MODULE})
+    string(TOUPPER ${MODULE_UNDERSCORE} MODULE_UPPERCASE)
+    ADD_THIRDPARTY_LIB(awssdk_${MODULE_UNDERSCORE}
+            STATIC_LIB ${AWSSDK_STATIC_${MODULE_UPPERCASE}_LIB})
+    if (AWSSDK_VENDORED)
+      add_dependencies(awssdk_${MODULE_UNDERSCORE}_static awssdk_ep)
+    endif()
+    message(STATUS "AWSSDK static ${MODULE} library: ${AWSSDK_STATIC_${MODULE_UPPERCASE}_LIB}")
+  endforeach()
 endif()

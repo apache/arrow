@@ -629,3 +629,12 @@ function(ARROW_ADD_PKG_CONFIG MODULE)
     FILES "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc"
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 endfunction()
+
+function(AWSSDK_TARGETS MODULE_LIST TARGETS)
+  # We will always link against these targets
+  set(awssdk_targets "curl_static" "awssdk_core_static")
+  foreach(MODULE IN LISTS MODULE_LIST)
+    list(APPEND awssdk_targets "awssdk_${MODULE}_static")
+  endforeach()
+  set(${TARGETS} ${awssdk_targets} PARENT_SCOPE)
+endfunction(AWSSDK_TARGETS)

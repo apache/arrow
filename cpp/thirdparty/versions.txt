@@ -23,9 +23,11 @@
 # `DEPENDENCIES` array (see the comment on top of the declaration for the
 # format).
 
+AWSSDK_VERSION=1.6.53
 BOOST_VERSION=1.67.0
 BROTLI_VERSION=v0.6.0
 CARES_VERSION=1.15.0
+CURL_VERSION=7.60.0
 DOUBLE_CONVERSION_VERSION=v3.1.1
 FLATBUFFERS_VERSION=v1.10.0
 GBENCHMARK_VERSION=v1.4.1
@@ -49,9 +51,11 @@ ZSTD_VERSION=v1.3.7
 # generated archive file. The third field is the url of the project for the
 # given version.
 DEPENDENCIES=(
+  "ARROW_AWSSDK_URL awssdk-${AWSSDK_VERSION}.tar.gz https://github.com/aws/aws-sdk-cpp/archive/${AWSSDK_VERSION}.tar.gz"
   "ARROW_BOOST_URL boost-${BOOST_VERSION}.tar.gz https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION//./_}.tar.gz"
   "ARROW_BROTLI_URL brotli-${BROTLI_VERSION}.tar.gz https://github.com/google/brotli/archive/${BROTLI_VERSION}.tar.gz"
   "ARROW_CARES_URL cares-${CARES_VERSION}.tar.gz https://c-ares.haxx.se/download/c-ares-$CARES_VERSION.tar.gz"
+  "ARROW_CURL_URL curl-${CURL_VERSION}.tar.gz "https://github.com/curl/curl/releases/download/curl-${CURL_VERSION//./_}/curl-${CURL_VERSION}.tar.gz""
   "ARROW_DOUBLE_CONVERSION_URL double-conversion-${DOUBLE_CONVERSION_VERSION}.tar.gz https://github.com/google/double-conversion/archive/${DOUBLE_CONVERSION_VERSION}.tar.gz"
   "ARROW_FLATBUFFERS_URL flatbuffers-${FLATBUFFERS_VERSION}.tar.gz https://github.com/google/flatbuffers/archive/${FLATBUFFERS_VERSION}.tar.gz"
   "ARROW_GBENCHMARK_URL gbenchmark-${GBENCHMARK_VERSION}.tar.gz https://github.com/google/benchmark/archive/${GBENCHMARK_VERSION}.tar.gz"
