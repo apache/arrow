@@ -137,13 +137,41 @@ class RawRecordsBuilder : public arrow::ArrayVisitor {
 #undef VISIT_FLOAT
 
   Status Visit(const arrow::Date32Array& array) override {
-    // FIXME
-    return NotImplemented("Date32Array");
+    ID id_jd;
+    VALUE cDate = rb::protect([&]{
+      id_jd = rb_intern("jd");
+      rb_require("date");
+      return rb_const_get(rb_cObject, rb_intern("Date"));
+    });
+    return VisitColumn(array, [&](const int64_t i) {
+      const static int32_t JD_UNIX_EPOCH = 2440588; // UNIX epoch in Julian date
+      VALUE value = rb::protect([&]{
+        auto raw_value = array.Value(i);
+        auto days_in_julian = raw_value + JD_UNIX_EPOCH;
+        return rb_funcall(cDate, id_jd, 1, LONG2NUM(days_in_julian));
+      });
+      return value;
+    });
   }
 
   Status Visit(const arrow::Date64Array& array) override {
-    // FIXME
-    return NotImplemented("Date64Array");
+    ID id_to_datetime;
+    rb::protect([&]{
+      id_to_datetime = rb_intern("to_datetime");
+      rb_require("date");
+      return Qnil;
+    });
+    return VisitColumn(array, [&](const int64_t i) {
+      VALUE value = rb::protect([&]{
+        auto raw_value = array.Value(i);
+        VALUE msec = LL2NUM(raw_value);
+        VALUE sec = rb_rational_new(msec, INT2NUM(1000));
+        VALUE time_value = rb_time_num_new(sec, Qnil);
+        return rb_funcall(time_value, id_to_datetime, 0, 0);
+      });
+      return value;
+    });
+    return Status::OK();
   }
 
   Status Visit(const arrow::TimestampArray& array) override {

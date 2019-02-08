@@ -126,7 +126,15 @@ class RecordBatchTest < Test::Unit::TestCase
     sub_test_case("#raw_records") do
       def setup
         @decimal_type = Arrow::Decimal128DataType.new(8, 2)
-        @schema = Arrow::Schema.new(name: :string, count: :uint32, weight: :double, price: @decimal_type)
+        @schema = Arrow::Schema.new(
+          name: :string,
+          count: :uint32,
+          weight: :double,
+          price: @decimal_type,
+          date32: :date32,
+          date64: :date64
+        )
+
         @names = Arrow::StringArray.new(["apple", "orange", "watermelon", "octopus"])
         @counts = Arrow::UInt32Array.new([1, 2, 4, 8])
         @weights = Arrow::DoubleArray.new([10.1, 11.2, 12.3, 13.4])
@@ -138,29 +146,65 @@ class RecordBatchTest < Test::Unit::TestCase
             nil,
             Arrow::Decimal128.new("345.67")
           ])
-        @record_batch = Arrow::RecordBatch.new(@schema, @counts.length, [@names, @counts, @weights, @prices])
+
+        @date32_expected = [
+          Date.new(1993,  2, 24),
+          Date.new(1996, 12, 25),
+          Date.new(2013,  2, 24),
+          Date.new(2020, 12, 25)
+        ]
+        epoch_date = Date.new(1970, 1, 1)
+        @date32 = Arrow::Date32Array.new(
+          @date32_expected.map {|dt| (dt - epoch_date).to_i }
+        )
+
+        @date64_expected = [
+          DateTime.new(1993,  2, 23, 15, 0, 0),
+          DateTime.new(1996, 12, 24, 15, 0, 0),
+          DateTime.new(2013,  2, 23, 15, 0, 0),
+          DateTime.new(2020, 12, 24, 15, 0, 0)
+        ]
+        @date64 = Arrow::Date64Array.new(
+          @date64_expected.map {|dt| dt.to_time.gmtime.to_i * 1000 }
+        )
+
+        @record_batch = Arrow::RecordBatch.new(
+          @schema, @counts.length,
+          [
+            @names,
+            @counts,
+            @weights,
+            @prices,
+            @date32,
+            @date64
+          ]
+        )
       end
 
       test("default") do
         raw_records = @record_batch.raw_records
-        assert_equal([
-                       ["apple",      1, 10.1, Arrow::Decimal128.new("123.45")],
-                       ["orange",     2, 11.2, Arrow::Decimal128.new("234.56")],
-                       ["watermelon", 4, 12.3, nil],
-                       ["octopus",    8, 13.4, Arrow::Decimal128.new("345.67")],
-                     ],
-                     raw_records)
+        expected = [
+          ["apple",      1, 10.1, Arrow::Decimal128.new("123.45")],
+          ["orange",     2, 11.2, Arrow::Decimal128.new("234.56")],
+          ["watermelon", 4, 12.3, nil],
+          ["octopus",    8, 13.4, Arrow::Decimal128.new("345.67")],
+        ]
+        @date32_expected.each_with_index {|x, i| expected[i] << x }
+        @date64_expected.each_with_index {|x, i| expected[i] << x }
+        assert_equal(expected, raw_records)
       end
 
       test("convert_decimal: true") do
         raw_records = @record_batch.raw_records(convert_decimal: true)
-        assert_equal([
-                       ["apple",      1, 10.1, BigDecimal("123.45")],
-                       ["orange",     2, 11.2, BigDecimal("234.56")],
-                       ["watermelon", 4, 12.3, nil],
-                       ["octopus",    8, 13.4, BigDecimal("345.67")],
-                     ],
-                     raw_records)
+        expected = [
+          ["apple",      1, 10.1, BigDecimal("123.45")],
+          ["orange",     2, 11.2, BigDecimal("234.56")],
+          ["watermelon", 4, 12.3, nil],
+          ["octopus",    8, 13.4, BigDecimal("345.67")],
+        ]
+        @date32_expected.each_with_index {|x, i| expected[i] << x }
+        @date64_expected.each_with_index {|x, i| expected[i] << x }
+        assert_equal(expected, raw_records)
       end
     end
   end
