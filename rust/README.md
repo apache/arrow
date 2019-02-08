@@ -21,21 +21,33 @@
 
 ## The Rust implementation of Arrow consists of the following crates
 
-- Arrow [(README)](arrow/README.md)
-- Parquet [(README)](parquet/README.md)
+| Crate     | Description | Documentation |
+|-----------|-------------|---------------|
+|Arrow      | Core functionality (memory layout, array builders, low level computations) | [(README)](arrow/README.md) |
+|Parquet    | Parquet support | [(README)](parquet/README.md) |
+|DataFusion | In-memory query engine with SQL support | [(README)](datafusion/README.md) |
 
-## Run Tests
+## Prerequisites
 
-Parquet support in Arrow requires data to test against, this data is in a
-git submodule.  To pull down this data run the following:
+Before running tests and examples it is necessary to set up the local development enviroment.
+
+### Git Submodules
+
+The tests rely on test data that is contained in git submodules.
+
+To pull down this data run the following:
 
 ```bash
 git submodule update --init
 ```
 
-The data can then be found in `cpp/submodules/parquet_testing/data`.
+This populates data in two git submodules:
+
+- `cpp/submodules/parquet_testing/data` (sourced from https://github.com/apache/parquet-testing.git)
+- `testing` (sourced from https://github.com/apache/arrow-testing)
+
 Create a new environment variable called `PARQUET_TEST_DATA` to point
-to this location and then `cargo test` as usual.
+to `cpp/submodules/parquet_testing/data` and then `cargo test` as usual.
 
 ## Code Formatting
 
