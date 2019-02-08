@@ -132,7 +132,6 @@ Status MakeRandomBuffer(int64_t length, MemoryPool* pool,
   return Status::OK();
 }
 
-
 template <class T, class Builder>
 Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& values,
                  int64_t size, Builder* builder, std::shared_ptr<Array>* out) {
@@ -178,4 +177,3 @@ class BatchIterator : public RecordBatchReader {
 };
 
 }  // namespace arrow
-

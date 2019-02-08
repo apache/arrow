@@ -154,5 +154,4 @@ Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
   return Status::OK();
 }
 
-
 }  // namespace arrow
