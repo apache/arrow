@@ -59,6 +59,7 @@ struct Datum;
 class FunctionContext;
 class AggregateFunction;
 
+ARROW_EXPORT
 std::shared_ptr<AggregateFunction> MakeSumAggregateFunction(const DataType& type,
                                                             FunctionContext* context);
 
@@ -81,6 +82,7 @@ Status Sum(FunctionContext* context, const Datum& value, Datum* out);
 ///
 /// \since 0.13.0
 /// \note API not yet finalized
+ARROW_EXPORT
 Status Sum(FunctionContext* context, const Array& array, Datum* out);
 
 }  // namespace compute

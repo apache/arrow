@@ -96,6 +96,11 @@ static void Read(void* src, void* dst, size_t size) {
     VectorLoadAsm(simd[i + 3], d);
   }
 
+  memset(&a, 0, sizeof(a));
+  memset(&b, 0, sizeof(b));
+  memset(&c, 0, sizeof(c));
+  memset(&d, 0, sizeof(d));
+
   benchmark::DoNotOptimize(a + b + c + d);
 }
 
@@ -106,6 +111,11 @@ static void StreamRead(void* src, void* dst, size_t size) {
   auto simd = static_cast<VectorType*>(src);
   VectorType a, b, c, d;
   (void)dst;
+
+  memset(&a, 0, sizeof(a));
+  memset(&b, 0, sizeof(b));
+  memset(&c, 0, sizeof(c));
+  memset(&d, 0, sizeof(d));
 
   for (size_t i = 0; i < size / sizeof(VectorType); i += 4) {
     VectorStreamLoadAsm(simd[i], a);
