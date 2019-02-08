@@ -290,8 +290,14 @@ class RawRecordsBuilder : public arrow::ArrayVisitor {
   }
 
   Status Visit(const arrow::ListArray& array) override {
-    // FIXME
-    return NotImplemented("ListArray");
+    return VisitColumn(array, [&](const int64_t i) {
+      VALUE value = rb::protect([&]{
+        auto list = array.values()->Slice(array.value_offset(i), array.value_length(i));
+        auto gobj = garrow_array_new_raw(&list);
+        return GOBJ2RVAL(gobj);
+      });
+      return value;
+    });
   }
 
   Status Visit(const arrow::StructArray& array) override {

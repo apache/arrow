@@ -126,6 +126,12 @@ class RecordBatchTest < Test::Unit::TestCase
     sub_test_case("#raw_records") do
       def setup
         @decimal_type = Arrow::Decimal128DataType.new(8, 2)
+        # FIXME: `name:` should be "item".  I don't know why it is.
+        # If the value of `name` is changed, the following error is occurred:
+        #
+        #     Arrow::Error::Invalid: [record-batch][new]: Invalid: Column 9
+        #     type not match schema: list<item: bool> vs list<visible: bool>
+        @list_type = Arrow::ListDataType.new(name: "item", type: :boolean)
         @schema = Arrow::Schema.new(
           name: :string,
           count: :uint32,
@@ -135,7 +141,8 @@ class RecordBatchTest < Test::Unit::TestCase
           date64: :date64,
           timestamp_sec: Arrow::TimestampDataType.new(:second),
           timestamp_msec: Arrow::TimestampDataType.new(:milli),
-          timestamp_usec: Arrow::TimestampDataType.new(:micro)
+          timestamp_usec: Arrow::TimestampDataType.new(:micro),
+          flags: @list_type
         )
 
         @names = Arrow::StringArray.new(["apple", "orange", "watermelon", "octopus"])
@@ -191,6 +198,14 @@ class RecordBatchTest < Test::Unit::TestCase
           @timestamp_expected.map {|ts| (ts.to_r * 1_000_000).to_i }
         )
 
+        @list_raw_values = [
+          [true, false],
+          nil,
+          [false, true, false, false],
+          [true]
+        ]
+        @list = Arrow::ListArray.new(@list_type, @list_raw_values)
+
         @record_batch = Arrow::RecordBatch.new(
           @schema, @counts.length,
           [
@@ -203,6 +218,7 @@ class RecordBatchTest < Test::Unit::TestCase
             @timestamp_sec,
             @timestamp_msec,
             @timestamp_usec,
+            @list
           ]
         )
       end
@@ -220,6 +236,9 @@ class RecordBatchTest < Test::Unit::TestCase
         @timestamp_expected.each_with_index {|x, i| expected[i] << x }
         @timestamp_expected.each_with_index {|x, i| expected[i] << x }
         @timestamp_expected.each_with_index {|x, i| expected[i] << x }
+        @list_raw_values.each_with_index {|x, i|
+          expected[i] << (x ? Arrow::BooleanArray.new(x) : nil)
+        }
         assert_equal(expected, raw_records)
       end
 
@@ -236,6 +255,9 @@ class RecordBatchTest < Test::Unit::TestCase
         @timestamp_expected.each_with_index {|x, i| expected[i] << x }
         @timestamp_expected.each_with_index {|x, i| expected[i] << x }
         @timestamp_expected.each_with_index {|x, i| expected[i] << x }
+        @list_raw_values.each_with_index {|x, i|
+          expected[i] << (x ? Arrow::BooleanArray.new(x) : nil)
+        }
         assert_equal(expected, raw_records)
       end
     end
