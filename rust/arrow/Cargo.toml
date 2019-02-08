@@ -60,5 +60,5 @@ name = "builder"
 harness = false
 
 [[bench]]
-name = "boolean_kernels"
+name = "bitwise_ops"
 harness = false

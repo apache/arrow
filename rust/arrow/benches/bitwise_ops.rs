@@ -23,7 +23,6 @@ extern crate arrow;
 
 use arrow::buffer::Buffer;
 use arrow::builder::{BufferBuilderTrait, UInt8BufferBuilder};
-use arrow::compute::boolean_kernels::*;
 
 fn create_buffer(size: usize) -> Buffer {
     let mut builder = UInt8BufferBuilder::new(size);
@@ -36,13 +35,27 @@ fn create_buffer(size: usize) -> Buffer {
 fn bitwise_and_default(size: usize) {
     let buffer_a = create_buffer(size);
     let buffer_b = create_buffer(size);
-    criterion::black_box(bitwise_bin_op_default(&buffer_a, &buffer_b, |a, b| a & b));
+
+    criterion::black_box({
+        let mut builder = UInt8BufferBuilder::new(buffer_a.len());
+        for i in 0..buffer_a.len() {
+            unsafe {
+                builder
+                    .append(
+                        buffer_a.data().get_unchecked(i)
+                            & buffer_b.data().get_unchecked(i),
+                    )
+                    .unwrap();
+            }
+        }
+        builder.finish()
+    });
 }
 
 fn bitwise_and_simd(size: usize) {
     let buffer_a = create_buffer(size);
     let buffer_b = create_buffer(size);
-    criterion::black_box(bitwise_bin_op_simd(&buffer_a, &buffer_b, |a, b| a & b));
+    criterion::black_box(&buffer_a & &buffer_b);
 }
 
 fn add_benchmark(c: &mut Criterion) {

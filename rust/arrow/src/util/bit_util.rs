@@ -17,6 +17,8 @@
 
 //! Utils for working with bits
 
+use packed_simd::u8x64;
+
 static BIT_MASK: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
 
 static POPCOUNT_TABLE: [u8; 256] = [
@@ -115,6 +117,22 @@ pub fn ceil(value: usize, divisor: usize) -> usize {
         result += 1
     };
     result
+}
+
+/// Performs SIMD bitwise binary operations.
+///
+/// Note that each slice should be 64 bytes and it is the callers responsibility to ensure that
+/// this is the case.  If passed slices larger than 64 bytes the operation will only be performed
+/// on the first 64 bytes.  Slices less than 64 bytes will panic.
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub unsafe fn bitwise_bin_op_simd<F>(left: &[u8], right: &[u8], result: &mut [u8], op: F)
+where
+    F: Fn(u8x64, u8x64) -> u8x64,
+{
+    let left_simd = u8x64::from_slice_unaligned_unchecked(left);
+    let right_simd = u8x64::from_slice_unaligned_unchecked(right);
+    let simd_result = op(left_simd, right_simd);
+    simd_result.write_to_slice_unaligned_unchecked(result);
 }
 
 #[cfg(test)]
@@ -269,5 +287,29 @@ mod tests {
         assert_eq!(ceil(10000000000, 10), 1000000000);
         assert_eq!(ceil(10, 10000000000), 1);
         assert_eq!(ceil(10000000000, 1000000000), 10);
+    }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[test]
+    fn test_bitwise_and_simd() {
+        let buf1 = [0b00110011u8; 64];
+        let buf2 = [0b11110000u8; 64];
+        let mut buf3 = [0b00000000; 64];
+        unsafe { bitwise_bin_op_simd(&buf1, &buf2, &mut buf3, |a, b| a & b) };
+        for i in buf3.iter() {
+            assert_eq!(&0b00110000u8, i);
+        }
+    }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[test]
+    fn test_bitwise_or_simd() {
+        let buf1 = [0b00110011u8; 64];
+        let buf2 = [0b11110000u8; 64];
+        let mut buf3 = [0b00000000; 64];
+        unsafe { bitwise_bin_op_simd(&buf1, &buf2, &mut buf3, |a, b| a | b) };
+        for i in buf3.iter() {
+            assert_eq!(&0b11110011u8, i);
+        }
     }
 }
