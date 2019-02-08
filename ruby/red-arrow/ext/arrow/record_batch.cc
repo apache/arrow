@@ -175,8 +175,35 @@ class RawRecordsBuilder : public arrow::ArrayVisitor {
   }
 
   Status Visit(const arrow::TimestampArray& array) override {
-    // FIXME
-    return NotImplemented("TimestampArray");
+    const auto& type = arrow::internal::checked_cast<arrow::TimestampType&>(*array.type());
+    VALUE scale = Qnil;
+    switch (type.unit()) {
+      case arrow::TimeUnit::SECOND:
+        scale = INT2FIX(1);
+        break;
+      case arrow::TimeUnit::MILLI:
+        scale = INT2FIX(1000);
+        break;
+      case arrow::TimeUnit::MICRO:
+        scale = INT2FIX(1000000);
+        break;
+      case arrow::TimeUnit::NANO:
+        // Note that INT2FIX is enough for 1e+9 because:
+        //     FIXNUM_MAX >= (1<<30) - 1 > 1e+9
+        scale = INT2FIX(1000000000);
+        break;
+      default:
+        return Status::Invalid("Invalid TimeUNIT");
+    }
+
+    return VisitColumn(array, [&](const int64_t i) {
+      VALUE value = rb::protect([&]{
+        auto raw_value = array.Value(i);
+        VALUE sec = rb_rational_new(LL2NUM(raw_value), scale);
+        return rb_time_num_new(sec, Qnil);
+      });
+      return value;
+    });
   }
 
   Status Visit(const arrow::Time32Array& array) override {

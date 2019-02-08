@@ -132,7 +132,10 @@ class RecordBatchTest < Test::Unit::TestCase
           weight: :double,
           price: @decimal_type,
           date32: :date32,
-          date64: :date64
+          date64: :date64,
+          timestamp_sec: Arrow::TimestampDataType.new(:second),
+          timestamp_msec: Arrow::TimestampDataType.new(:milli),
+          timestamp_usec: Arrow::TimestampDataType.new(:micro)
         )
 
         @names = Arrow::StringArray.new(["apple", "orange", "watermelon", "octopus"])
@@ -168,6 +171,26 @@ class RecordBatchTest < Test::Unit::TestCase
           @date64_expected.map {|dt| dt.to_time.gmtime.to_i * 1000 }
         )
 
+        jst = '+09:00'
+        @timestamp_expected = [
+          Time.new(1993,  2, 24, 0, 0, 0, jst).gmtime,
+          Time.new(1996, 12, 25, 0, 0, 0, jst).gmtime,
+          Time.new(2013,  2, 24, 0, 0, 0, jst).gmtime,
+          Time.new(2020, 12, 25, 0, 0, 0, jst).gmtime
+        ]
+        @timestamp_sec = Arrow::TimestampArray.new(
+          :second,
+          @timestamp_expected.map(&:to_i)
+        )
+        @timestamp_msec = Arrow::TimestampArray.new(
+          :milli,
+          @timestamp_expected.map {|ts| (ts.to_r * 1_000).to_i }
+        )
+        @timestamp_usec = Arrow::TimestampArray.new(
+          :micro,
+          @timestamp_expected.map {|ts| (ts.to_r * 1_000_000).to_i }
+        )
+
         @record_batch = Arrow::RecordBatch.new(
           @schema, @counts.length,
           [
@@ -176,7 +199,10 @@ class RecordBatchTest < Test::Unit::TestCase
             @weights,
             @prices,
             @date32,
-            @date64
+            @date64,
+            @timestamp_sec,
+            @timestamp_msec,
+            @timestamp_usec,
           ]
         )
       end
@@ -191,6 +217,9 @@ class RecordBatchTest < Test::Unit::TestCase
         ]
         @date32_expected.each_with_index {|x, i| expected[i] << x }
         @date64_expected.each_with_index {|x, i| expected[i] << x }
+        @timestamp_expected.each_with_index {|x, i| expected[i] << x }
+        @timestamp_expected.each_with_index {|x, i| expected[i] << x }
+        @timestamp_expected.each_with_index {|x, i| expected[i] << x }
         assert_equal(expected, raw_records)
       end
 
@@ -204,6 +233,9 @@ class RecordBatchTest < Test::Unit::TestCase
         ]
         @date32_expected.each_with_index {|x, i| expected[i] << x }
         @date64_expected.each_with_index {|x, i| expected[i] << x }
+        @timestamp_expected.each_with_index {|x, i| expected[i] << x }
+        @timestamp_expected.each_with_index {|x, i| expected[i] << x }
+        @timestamp_expected.each_with_index {|x, i| expected[i] << x }
         assert_equal(expected, raw_records)
       end
     end
