@@ -305,8 +305,10 @@ record_batch_raw_records(int argc, VALUE* argv, VALUE obj)
     builder.Add(*record_batch);
     return records;
   } catch (rb::error err) {
-    rb_exc_raise(err.exception_object());
+    err.raise();
   }
+
+  return Qnil; // unreachable
 }
 
 }  // namespace red_arrow

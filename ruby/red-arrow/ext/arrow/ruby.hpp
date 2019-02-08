@@ -25,19 +25,30 @@ namespace rb {
 
 class error {
  public:
-  explicit error(VALUE exc) : exc_(exc) {}
+  explicit error(VALUE exc) : exc_(exc), state_(0) {}
+  explicit error(int state) : exc_(Qundef), state_(state) {}
 
-  error(VALUE exc_klass, const char* message) {
-    exc_ = rb_exc_new_cstr(exc_klass, message);
-  }
+  error(VALUE exc_klass, const char* message)
+      : error(rb_exc_new_cstr(exc_klass, message)) {}
 
   error(VALUE exc_klass, const std::string& message)
       : error(exc_klass, message.c_str()) {}
 
   VALUE exception_object() const { return exc_; }
+  int state() const { return state_; }
+
+  void raise() const {
+    if (state_ > 0) {
+      rb_jump_tag(state_);
+    }
+    else if (exc_ != Qundef) {
+      rb_exc_raise(exc_);
+    }
+  }
 
  private:
   VALUE exc_;
+  int state_;
 };
 
 namespace internal {
@@ -48,10 +59,10 @@ VALUE protect_function_call(VALUE arg);
 
 inline VALUE protect(std::function<VALUE()> func) {
   VALUE arg = reinterpret_cast<VALUE>(&func);
-  VALUE result = ::rb_protect(internal::protect_function_call, arg, 0);
-  VALUE exc = rb_errinfo();
-  if (!NIL_P(exc)) {
-    throw error(exc);
+  int state = 0;
+  VALUE result = ::rb_protect(internal::protect_function_call, arg, &state);
+  if (state > 0 && !NIL_P(rb_errinfo())) {
+    throw error(state);
   }
   return result;
 }
