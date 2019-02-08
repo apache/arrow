@@ -49,3 +49,4 @@ files into Arrow structures.
    development
    getting_involved
    benchmarks
+   timestamps
