@@ -19,7 +19,9 @@ package org.apache.arrow.adapter.jdbc;
 
 import static org.junit.Assert.*;
 
+import java.sql.Types;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -95,7 +97,8 @@ public class JdbcToArrowConfigTest {
     assertTrue(newCalendar == config.getCalendar());
   }
 
-  @Test public void testIncludeMetadata() {
+  @Test
+  public void testIncludeMetadata() {
     JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, calendar, false);
 
     JdbcToArrowConfig config = builder.build();
@@ -113,5 +116,35 @@ public class JdbcToArrowConfigTest {
 
     config = new JdbcToArrowConfig(allocator, calendar, false);
     assertFalse(config.shouldIncludeMetadata());
+  }
+
+  @Test
+  public void testArraySubTypes() {
+    JdbcToArrowConfig config = new JdbcToArrowConfig(allocator, calendar, false);
+
+    final int columnIndex = 1;
+    final String columnName = "COLUMN";
+
+    assertNull(config.getArraySubTypeByColumnIndex(columnIndex));
+    assertNull(config.getArraySubTypeByColumnName(columnName));
+
+    final HashMap<Integer, JdbcFieldInfo> indexMapping = new HashMap<Integer, JdbcFieldInfo>();
+    indexMapping.put(2, new JdbcFieldInfo(Types.BIGINT));
+
+    final HashMap<String, JdbcFieldInfo> fieldMapping = new HashMap<String, JdbcFieldInfo>();
+    fieldMapping.put("NEW_COLUMN", new JdbcFieldInfo(Types.BINARY));
+
+    config.setArraySubTypeByColumnIndexMap(indexMapping);
+    config.setArraySubTypeByColumnNameMap(fieldMapping);
+
+    assertNull(config.getArraySubTypeByColumnIndex(columnIndex));
+    assertNull(config.getArraySubTypeByColumnName(columnName));
+
+    indexMapping.put(columnIndex, new JdbcFieldInfo(Types.BIT));
+    fieldMapping.put(columnName, new JdbcFieldInfo(Types.BLOB));
+
+    assertNotNull(config.getArraySubTypeByColumnIndex(columnIndex));
+    assertEquals(Types.BIT, config.getArraySubTypeByColumnIndex(columnIndex).getJdbcType());
+    assertEquals(Types.BLOB, config.getArraySubTypeByColumnName(columnName).getJdbcType());
   }
 }
