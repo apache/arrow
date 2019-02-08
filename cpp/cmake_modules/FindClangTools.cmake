@@ -53,8 +53,10 @@ set(CLANG_TOOLS_SEARCH_PATHS
   ${ClangTools_PATH}
   $ENV{CLANG_TOOLS_PATH}
   /usr/local/bin /usr/bin
-  "C:/Program Files/LLVM/bin"
-  "${HOMEBREW_PREFIX}/bin")
+  "C:/Program Files/LLVM/bin"  # Windows, non-conda
+  "$ENV{CONDA_PREFIX}/Library/bin"  # Windows, conda
+  "${HOMEBREW_PREFIX}/bin"
+)
 
 find_program(CLANG_TIDY_BIN
   NAMES clang-tidy-${ARROW_LLVM_VERSION}

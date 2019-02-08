@@ -158,13 +158,13 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
 
     CYTHON_MODULE_NAMES = [
-        'gandiva',
         'lib',
         '_csv',
         '_cuda',
         '_parquet',
         '_orc',
-        '_plasma']
+        '_plasma',
+        'gandiva']
 
     def _run_cmake(self):
         # The directory containing this setup.py
@@ -287,33 +287,6 @@ class build_ext(_build_ext):
             else:
                 build_prefix = self.build_type
 
-            if self.bundle_arrow_cpp:
-                print(pjoin(build_lib, 'pyarrow'))
-                move_shared_libs(build_prefix, build_lib, "arrow")
-                move_shared_libs(build_prefix, build_lib, "arrow_python")
-                if self.with_cuda:
-                    move_shared_libs(build_prefix, build_lib, "arrow_gpu")
-                if self.with_plasma:
-                    move_shared_libs(build_prefix, build_lib, "plasma")
-                if self.with_gandiva:
-                    move_shared_libs(build_prefix, build_lib, "gandiva")
-                if self.with_parquet and not self.with_static_parquet:
-                    move_shared_libs(build_prefix, build_lib, "parquet")
-                if not self.with_static_boost and self.bundle_boost:
-                    move_shared_libs(
-                        build_prefix, build_lib,
-                        "{}_filesystem".format(self.boost_namespace))
-                    move_shared_libs(
-                        build_prefix, build_lib,
-                        "{}_system".format(self.boost_namespace))
-                    move_shared_libs(
-                        build_prefix, build_lib,
-                        "{}_regex".format(self.boost_namespace))
-                if sys.platform == 'win32':
-                    # zlib uses zlib.dll for Windows
-                    zlib_lib_name = 'zlib'
-                    move_shared_libs(build_prefix, build_lib, zlib_lib_name)
-
             print('Bundling includes: ' + pjoin(build_prefix, 'include'))
             if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
                 shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
@@ -326,7 +299,7 @@ class build_ext(_build_ext):
             for name in self.CYTHON_MODULE_NAMES:
                 built_path = self.get_ext_built(name)
                 if not os.path.exists(built_path):
-                    print(built_path)
+                    print('Did not find {0}'.format(built_path))
                     if self._failure_permitted(name):
                         print('Cython module {0} failure permitted'
                               .format(name))
@@ -364,6 +337,37 @@ class build_ext(_build_ext):
                     shutil.move(self.get_ext_built_api_header(name),
                                 pjoin(os.path.dirname(ext_path),
                                       name + '_api.h'))
+
+            if self.bundle_arrow_cpp:
+                print(pjoin(build_lib, 'pyarrow'))
+                move_shared_libs(build_prefix, build_lib, "arrow")
+                move_shared_libs(build_prefix, build_lib, "arrow_python")
+                if self.with_cuda:
+                    move_shared_libs(build_prefix, build_lib, "arrow_gpu")
+                if self.with_plasma:
+                    move_shared_libs(build_prefix, build_lib, "plasma")
+                if self.with_gandiva:
+                    move_shared_libs(build_prefix, build_lib, "gandiva")
+                if self.with_parquet and not self.with_static_parquet:
+                    move_shared_libs(build_prefix, build_lib, "parquet")
+                if not self.with_static_boost and self.bundle_boost:
+                    move_shared_libs(
+                        build_prefix, build_lib,
+                        "{}_filesystem".format(self.boost_namespace),
+                        implib_required=False)
+                    move_shared_libs(
+                        build_prefix, build_lib,
+                        "{}_system".format(self.boost_namespace),
+                        implib_required=False)
+                    move_shared_libs(
+                        build_prefix, build_lib,
+                        "{}_regex".format(self.boost_namespace),
+                        implib_required=False)
+                if sys.platform == 'win32':
+                    # zlib uses zlib.dll for Windows
+                    zlib_lib_name = 'zlib'
+                    move_shared_libs(build_prefix, build_lib, zlib_lib_name,
+                                     implib_required=False)
 
             if self.with_plasma:
                 # Move the plasma store
@@ -437,11 +441,13 @@ class build_ext(_build_ext):
                 for name in self.get_names()]
 
 
-def move_shared_libs(build_prefix, build_lib, lib_name):
+def move_shared_libs(build_prefix, build_lib, lib_name,
+                     implib_required=True):
     if sys.platform == 'win32':
         # Move all .dll and .lib files
-        libs = glob.glob(pjoin(build_prefix, lib_name) + '*')
-
+        libs = [lib_name + '.dll']
+        if implib_required:
+            libs.append(lib_name + '.lib')
         for filename in libs:
             shutil.move(pjoin(build_prefix, filename),
                         pjoin(build_lib, 'pyarrow', filename))

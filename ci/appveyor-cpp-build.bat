@@ -95,33 +95,24 @@ if "%JOB%" == "Build_Debug" (
   exit /B 0
 )
 
-conda create -n arrow -q -y -c conda-forge ^
-      --file=ci\conda_env_python.yml ^
-      python=%PYTHON% ^
-      numpy=1.14 ^
-      thrift-cpp=0.11 ^
-      boost-cpp
-
-call activate arrow
-
-set ARROW_LLVM_VERSION=6.0.1
+set CONDA_PACKAGES=--file=ci\conda_env_python.yml python=%PYTHON% numpy=1.14 thrift-cpp=0.11 boost-cpp
 
 if "%ARROW_BUILD_GANDIVA%" == "ON" (
   @rem Install llvmdev in the toolchain if building gandiva.dll
-  conda install -q -y llvmdev=%ARROW_LLVM_VERSION% || exit /B
+  set CONDA_PACKAGES=%CONDA_PACKAGES% llvmdev=%ARROW_LLVM_VERSION% clangdev=%ARROW_LLVM_VERSION%
 )
+
+if "%JOB%" == "Toolchain" (
+  @rem Install pre-built "toolchain" packages for faster builds
+  set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.yml
+)
+
+conda create -n arrow -q -y %CONDA_PACKAGES% -c conda-forge
+
+call activate arrow
 
 @rem Use Boost from Anaconda
 set BOOST_ROOT=%CONDA_PREFIX%\Library
 set BOOST_LIBRARYDIR=%CONDA_PREFIX%\Library\lib
-
-if "%JOB%" == "Toolchain" (
-  @rem Install pre-built "toolchain" packages for faster builds
-  conda install -q -y -c conda-forge ^
-        --file=ci\conda_env_cpp.yml ^
-        python=%PYTHON%
-
-  set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
-)
 
 call ci\cpp-msvc-build-main.bat

@@ -411,3 +411,22 @@ else()
 endif()
 
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
+
+# ----------------------------------------------------------------------
+# MSVC-specific linker options
+
+if (MSVC)
+  set(MSVC_LINKER_FLAGS)
+  if (MSVC_LINK_VERBOSE)
+    set(MSVC_LINKER_FLAGS "${MSVC_LINKER_FLAGS} /VERBOSE:LIB")
+  endif()
+  if (NOT ARROW_USE_STATIC_CRT)
+    set(MSVC_LINKER_FLAGS "${MSVC_LINKER_FLAGS} /NODEFAULTLIB:LIBCMT")
+    set(CMAKE_EXE_LINKER_FLAGS
+      "${CMAKE_EXE_LINKER_FLAGS} ${MSVC_LINKER_FLAGS}")
+    set(CMAKE_MODULE_LINKER_FLAGS
+      "${CMAKE_MODULE_LINKER_FLAGS} ${MSVC_LINKER_FLAGS}")
+    set(CMAKE_SHARED_LINKER_FLAGS
+      "${CMAKE_SHARED_LINKER_FLAGS} ${MSVC_LINKER_FLAGS}")
+  endif()
+endif()

@@ -325,6 +325,8 @@ Now, we build and install Arrow C++ libraries
    cmake --build . --target INSTALL --config Release
    cd ..\..
 
+If building with LLVM, also add `-DARROW_GANDIVA=ON`.
+
 After that, we must put the install directory's bin path in our ``%PATH%``:
 
 .. code-block:: shell

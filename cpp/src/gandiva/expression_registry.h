@@ -63,6 +63,7 @@ class GANDIVA_EXPORT ExpressionRegistry {
   std::unique_ptr<FunctionRegistry> function_registry_;
 };
 
+GANDIVA_EXPORT
 std::vector<std::shared_ptr<FunctionSignature>> GetRegisteredFunctionSignatures();
 
 }  // namespace gandiva

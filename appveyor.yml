@@ -48,6 +48,7 @@ environment:
   global:
     USE_CLCACHE: true
     ARROW_BUILD_GANDIVA: "OFF"
+    ARROW_LLVM_VERSION: "7.0.*"
     PYTHON: "3.6"
     ARCH: "64"
 
@@ -61,6 +62,7 @@ environment:
     - JOB: "Toolchain"
       GENERATOR: Visual Studio 14 2015 Win64
       CONFIGURATION: "Release"
+      ARROW_BUILD_GANDIVA: "ON"
     - JOB: "Static_Crt_Build"
       GENERATOR: Ninja
     - JOB: "Build_Debug"
