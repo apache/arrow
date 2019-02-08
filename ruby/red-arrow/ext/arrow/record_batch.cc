@@ -207,13 +207,27 @@ class RawRecordsBuilder : public arrow::ArrayVisitor {
   }
 
   Status Visit(const arrow::Time32Array& array) override {
-    // FIXME
-    return NotImplemented("Time32Array");
+    // TODO: must test this function
+    // TODO: unit treatment
+    return VisitColumn(array, [&](const int64_t i) {
+      VALUE value = rb::protect([&]{
+        auto raw_value = array.Value(i);
+        return LONG2NUM(raw_value);
+      });
+      return value;
+    });
   }
 
   Status Visit(const arrow::Time64Array& array) override {
-    // FIXME
-    return NotImplemented("Time64Array");
+    // TODO: must test this function
+    // TODO: unit treatment
+    return VisitColumn(array, [&](const int64_t i) {
+      VALUE value = rb::protect([&]{
+        auto raw_value = array.Value(i);
+        return LL2NUM(raw_value);
+      });
+      return value;
+    });
   }
 
   Status Visit(const arrow::FixedSizeBinaryArray& array) override {
