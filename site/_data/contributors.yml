@@ -42,4 +42,8 @@
 - name: The Apache Arrow PMC
   apacheId: pmc
   githubId: pmc
+- name: Andy Grove
+  apacheId: agrove
+  githubId: andygrove
+  role: PMC
 # End contributors.yml
