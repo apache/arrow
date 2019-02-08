@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/compression.h"
 
 namespace arrow {

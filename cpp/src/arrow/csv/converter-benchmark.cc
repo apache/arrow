@@ -24,7 +24,7 @@
 #include "arrow/csv/options.h"
 #include "arrow/csv/parser.h"
 #include "arrow/csv/test-common.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 namespace csv {

@@ -27,7 +27,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/io/test-common.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/compression.h"
 
 namespace arrow {

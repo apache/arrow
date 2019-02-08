@@ -23,7 +23,7 @@
 
 #include "arrow/array.h"
 #include "arrow/memory_pool.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 
 #include "arrow/gpu/cuda_api.h"
 

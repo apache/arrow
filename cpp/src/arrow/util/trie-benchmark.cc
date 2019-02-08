@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/trie.h"
 
 namespace arrow {

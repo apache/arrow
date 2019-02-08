@@ -41,7 +41,7 @@
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"

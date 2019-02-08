@@ -30,7 +30,7 @@
 #include <vector>
 
 #include "arrow/api.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 

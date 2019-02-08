@@ -33,7 +33,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/test-random.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 
