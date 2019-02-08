@@ -188,12 +188,12 @@ class RawRecordsBuilder : public arrow::ArrayVisitor {
         scale = INT2FIX(1000000);
         break;
       case arrow::TimeUnit::NANO:
-        // Note that INT2FIX is enough for 1e+9 because:
+        // Note that INT2FIX works for 1e+9 because:
         //     FIXNUM_MAX >= (1<<30) - 1 > 1e+9
         scale = INT2FIX(1000000000);
         break;
       default:
-        return Status::Invalid("Invalid TimeUNIT");
+        return Status::Invalid("Invalid TimeUnit");
     }
 
     return VisitColumn(array, [&](const int64_t i) {
