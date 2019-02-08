@@ -181,7 +181,7 @@ std::size_t ConsumeWholeObject(Stream&& stream) {
 
 class ParsingChunker : public Chunker {
  public:
-  Status Process(const string_view block, string_view* chunked) override {
+  Status Process(string_view block, string_view* chunked) override {
     if (block.size() == 0) {
       *chunked = string_view();
       return Status::OK();
