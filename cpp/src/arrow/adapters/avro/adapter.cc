@@ -29,72 +29,102 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/api.h"
+#include "arrow/io/interfaces.h"
+
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-#include "avro.h"
+#include "avro/Schema.hh"
+#include "avro/Encoder.hh"
+#include "avro/Decoder.hh"
+#include "avro/DataFile.hh"
+#include "avro/Generic.hh"
+#include "avro/Stream.hh"
+#include "avro/Types.hh"
+
 
 namespace arrow {
 namespace adapters {
-namespace avro {
+
+#define RETURN_AVRO_ERROR(res)           \
+  do {                                   \
+    int _res = (res);                    \
+    if (res != 0) {                      \
+        return Status::IOError(avro_strerror()); \
+    } \
+  } while (false) \
+
 
 class AvroArrowReader::AvroArrowReaderImpl {
 public:
-  Status GenerateAvroSchema(avro_file_reader_t *file_reader,
-                            std::shared_ptr<DataType> *out) {
-    auto wschema = avro_file_reader_get_writer_schema(*file_reader);
-    std::shared_ptr<DataType> arrow_schema = get_arrow_type(wschema);
+  Status AvroFileWriterSchemaToArrowSchema(avro::DataFileReader<avro::GenericDatum> *file_reader,
+                                           std::shared_ptr<Schema> *out) {
+
+    auto s = file_reader->dataSchema();
     // make array builder
-    out = &arrow_schema;
+    auto root = s.root();
+    *out = avro_to_arrow(root);
     return Status::OK();
   }
 
-  std::shared_ptr<DataType> get_arrow_type(avro_schema_t schema) {
-    avro_schema_t child;
-    size_t size, idx;
-    int64_t length;
-    const char *name;
+  std::shared_ptr<Schema> avro_to_arrow(avro::NodePtr &schema) {
+    // TODO: Make this Node thing work
+    auto size = schema->leaves();
+    auto fields = std::vector<std::shared_ptr<Field>>();
+    for (auto idx = 0; idx < size; idx++) {
+      auto child = schema->leafAt(idx);
+      auto elem_type = get_arrow_type(child);
+      auto name = child->name().fullname();
+      auto f = field(name, elem_type);
+      fields.insert(fields.end(), f);
+    }
+    return std::make_shared<Schema>(fields, nullptr);;
+  }
 
-    auto avro_type = schema->type;
+  std::shared_ptr<DataType> get_arrow_type(avro::NodePtr &schema) {
+    auto avro_type = schema->type();
     switch (avro_type) {
-      case AVRO_BOOLEAN:
+      case avro::AVRO_BOOL:
         return boolean();
-      case AVRO_INT32:
+      case avro::AVRO_INT:
         return int32();
-      case AVRO_INT64:
+      case avro::AVRO_LONG:
         return int64();
-      case AVRO_FLOAT:
+      case avro::AVRO_FLOAT:
         return float32();
-      case AVRO_DOUBLE:
+      case avro::AVRO_DOUBLE:
         return float64();
-      case AVRO_STRING:
+      case avro::AVRO_STRING:
         return utf8();
-      case AVRO_BYTES:
+      case avro::AVRO_BYTES:
         return binary();
-      case AVRO_FIXED: {
-        length = avro_schema_fixed_size(schema);
+      case avro::AVRO_FIXED: {
+        auto length = schema->fixedSize();
         return fixed_size_binary(length);
       }
-      case AVRO_ARRAY: {
-        auto elem_type = get_arrow_type(avro_schema_array_items(schema));
+      case avro::AVRO_ARRAY: {
+        auto e = schema->leafAt(0);
+        auto elem_type = get_arrow_type(e);
         return list(elem_type);
       }
 
-      case AVRO_MAP: {
-        auto value_type = get_arrow_type(avro_schema_map_values(schema));
+      case avro::AVRO_MAP: {
+        auto vt = schema->leafAt(0);
+        auto value_type = get_arrow_type(vt);
         auto fields = {field("key", utf8()), field("value", value_type)};
         return list(struct_(fields));
       }
 
-      case AVRO_UNION: {
-        size = avro_schema_union_size(schema);
+      case avro::AVRO_UNION: {
+        auto size = schema->leaves();
         auto fields = std::vector<std::shared_ptr<Field>>();
         std::vector<uint8_t> type_codes;
 
-        for (idx = 0; idx < size; idx++) {
-          child = avro_schema_union_branch(schema, idx);
+        for (auto idx = 0; idx < size; idx++) {
+          auto child = schema->leafAt(idx);
           auto f = field("_union_" + std::to_string(idx),
                          get_arrow_type(child));
           fields.push_back(f);
@@ -103,49 +133,55 @@ public:
         return union_(fields, type_codes);
       }
 
-      case AVRO_RECORD: {
-        size = avro_schema_record_size(schema);
+      case avro::AVRO_RECORD: {
+        auto size = schema->leaves();
         auto fields = std::vector<std::shared_ptr<Field>>();
-        for (idx = 0; idx < size; idx++) {
-          child = avro_schema_record_field_get_by_index(schema, idx);
+        for (auto idx = 0; idx < size; idx++) {
+          auto child = schema->leafAt(idx);
           auto elem_type = get_arrow_type(child);
-          name = avro_schema_record_field_name(schema, idx);
+          auto name = child->name().fullname();
           auto f = field(name, elem_type);
           fields.insert(fields.end(), f);
         }
         return struct_(fields);
       }
+      case avro::AVRO_NULL:return null();
+      case avro::AVRO_ENUM: break;
+      case avro::AVRO_SYMBOLIC: break;
+      case avro::AVRO_UNKNOWN: break;
     }
+    // TODO: unhandled case ??
+    return null();
   }
 
-  Status generic_read(const avro_value_t val, ArrayBuilder *builder) {
+  Status generic_read(avro::GenericDatum &val, ArrayBuilder *builder) {
     // Generic avro type read dispatcher. Dispatches to the various specializations by AVRO_TYPE.
     // This is used by the various readers for complex types"""
-    avro_type_t avro_type;
-    avro_type = avro_value_get_type(&val);
+
+    auto avro_type =  val.type();
 
     switch (avro_type) {
-      case AVRO_BOOLEAN:
+      case avro::AVRO_BOOL:
         return this->read_bool(val, builder);
-      case AVRO_INT32:
+      case avro::AVRO_INT:
         return this->read_int32(val, builder);
-      case AVRO_INT64:
+      case avro::AVRO_LONG:
         return this->read_int64(val, builder);
-      case AVRO_FLOAT:
+      case avro::AVRO_FLOAT:
         return this->read_float32(val, builder);
-      case AVRO_DOUBLE:
+      case avro::AVRO_DOUBLE:
         return this->read_float64(val, builder);
-      case AVRO_STRING:
+      case avro::AVRO_STRING:
         return this->read_string(val, builder);
-      case AVRO_BYTES:
+      case avro::AVRO_BYTES:
         return this->read_binary(val, builder);
-      case AVRO_FIXED:
+      case avro::AVRO_FIXED:
         return this->read_fixed(val, builder);
-      case AVRO_MAP:
+      case avro::AVRO_MAP:
         return this->read_map(val, builder);
-      case AVRO_RECORD:
+      case avro::AVRO_RECORD:
         return this->read_record(val, builder);
-      case AVRO_ARRAY:
+      case avro::AVRO_ARRAY:
         return this->read_array(val, builder);
       default:
         std::stringstream ss;
@@ -154,117 +190,133 @@ public:
     }
   }
 
-  Status read_string(const avro_value_t val, ArrayBuilder *builder) {
-    size_t strlen;
-    const char *c_str = NULL;
-    avro_value_get_string(&val, &c_str, &strlen);
-    return static_cast<StringBuilder *>(builder)->Append(c_str);
+  Status read_string(avro::GenericDatum& val, ArrayBuilder *builder) {
+    auto tval = val.value<std::string>();
+    return static_cast<StringBuilder *>(builder)->Append(tval);
   }
 
-  Status read_binary(const avro_value_t val, ArrayBuilder *builder) {
-    size_t strlen;
-    const char *c_str = NULL;
-    avro_value_get_bytes(&val, (const void **) &c_str, &strlen);
-    return static_cast<BinaryBuilder *>(builder)->Append(c_str);
+  Status read_binary(avro::GenericDatum& val, ArrayBuilder *builder) {
+    auto value = val.value<std::vector<uint8_t>>();
+    auto start_ptr = &value[0];
+    return static_cast<BinaryBuilder *>(builder)->Append(start_ptr, value.size());
   };
 
-  Status read_fixed(const avro_value_t val, ArrayBuilder *builder) {
-    size_t strlen;
-    const char *c_str = NULL;
-    std::string buffer;
-    avro_value_get_fixed(&val, (const void **) &c_str, &strlen);
-    buffer = c_str;
-    return static_cast<FixedSizeBinaryBuilder *>(builder)->Append(buffer);
+  Status read_fixed(avro::GenericDatum& val, ArrayBuilder *builder) {
+    auto value = val.value<avro::GenericFixed>();
+    auto start_ptr = &value.value()[0];
+    return static_cast<FixedSizeBinaryBuilder *>(builder)->Append(start_ptr);
   }
 
-  Status read_int32(const avro_value_t val, ArrayBuilder *builder) {
-    int32_t out;
-    avro_value_get_int(&val, &out);
+  Status read_int32(avro::GenericDatum& val, ArrayBuilder *builder) {
+    auto out = val.value<int32_t>();
     return static_cast<Int32Builder *>(builder)->Append(out);
   }
 
-  Status read_int64(const avro_value_t val, ArrayBuilder *builder) {
-    int64_t out;
-    avro_value_get_long(&val, &out);
+  Status read_int64(avro::GenericDatum& val, ArrayBuilder *builder) {
+    auto out = val.value<int64_t>();
     return static_cast<Int64Builder *>(builder)->Append(out);
   }
 
-  Status read_float64(const avro_value_t val, ArrayBuilder *builder) {
-    double out;
-    avro_value_get_double(&val, &out);
+  Status read_float64(avro::GenericDatum& val, ArrayBuilder *builder) {
+    auto out = val.value<double>();
     return static_cast<DoubleBuilder *>(builder)->Append(out);
   }
 
-  Status read_float32(avro_value_t val, ArrayBuilder *builder) {
-    float out
-        avro_value_get_float(&val, &out);
+  Status read_float32(avro::GenericDatum& val, ArrayBuilder *builder) {
+    auto out = val.value<float>();
     return static_cast<FloatBuilder *>(builder)->Append(out);
   }
 
-  Status read_bool(const avro_value_t val, ArrayBuilder *builder) {
-    int temp;
-    avro_value_get_boolean(&val, &temp);
-    bool out = temp;
+  Status read_bool(avro::GenericDatum& val, ArrayBuilder *builder) {
+    auto out = val.value<bool>();
     return static_cast<BooleanBuilder *>(builder)->Append(out);
   }
 
-  Status read_array(const avro_value_t val, ArrayBuilder *builder) {
-    size_t actual_size;
+  Status read_array(avro::GenericDatum& val, ArrayBuilder *builder) {
     size_t i;
-    const char *map_key = NULL;
-    avro_value_t child;
-    ArrayBuilder *child_builder;
-    Status result;
+    auto v = val.value<avro::GenericArray>();
+    std::vector<avro::GenericDatum> arr = v.value();
+    // ArrayBuilder *child_builder;//
 
-    avro_value_get_size(&val, &actual_size);
-    static_cast<ListBuilder *>(builder)->Append(true);
-    child_builder = static_cast<ListBuilder *>(builder)->value_builder();
-    for (i = 0; i < actual_size; i++) {
-      avro_value_get_by_index(&val, i, &child, &map_key);
-      result = generic_read(child, child_builder);
+    RETURN_NOT_OK(static_cast<ListBuilder *>(builder)->Append(true));
+    auto child_builder = static_cast<ListBuilder *>(builder)->value_builder();
+    for (i = 0; i < arr.size(); i++) {
+      RETURN_NOT_OK(generic_read(arr[i], child_builder));
     }
-    return result;
+    return Status::OK();
   };
 
-  Status read_map(const avro_value_t val, ArrayBuilder *builder) {
+  Status read_map(avro::GenericDatum& val, ArrayBuilder *builder) {
     size_t num_values, i;
     auto listB = static_cast<ListBuilder *>(builder);
     auto structB = static_cast<StructBuilder *>(listB->child(0));
     auto keyBuilder = static_cast<StringBuilder *>(structB->child(0));
     auto valueBuilder = structB->child(1);
-    avro_value_t child;
-    const char *map_key;
 
-    avro_value_get_size(&val, &num_values);
+    auto v = val.value<avro::GenericMap>();
+    std::vector<std::pair<std::string, avro::GenericDatum> > arr = v.value();
 
-    listB->Append(true);
+    num_values = arr.size();
+
+    RETURN_NOT_OK(listB->Append(true));
     for (i = 0; i < num_values; i++) {
-      structB->Append(true);
-      avro_value_get_by_index(&val, i, &child, &map_key);
-      keyBuilder->Append(map_key);
-      generic_read(child, valueBuilder);
+      RETURN_NOT_OK(structB->Append(true));
+      RETURN_NOT_OK(keyBuilder->Append(arr[i].first));
+      RETURN_NOT_OK(generic_read(arr[i].second, valueBuilder));
     }
     return Status::OK();
   }
 
-  Status read_record(const avro_value_t val, ArrayBuilder *builder) {
-    avro_value_t child;
+  Status read_record(avro::GenericDatum& val, ArrayBuilder *builder) {
+    auto value = val.value<avro::GenericRecord>();
+
+    //avro_value_t child;
     ArrayBuilder *child_builder;
     StructBuilder *typed_builder;
     Status result;
 
     int container_length = builder->num_children();
     typed_builder = static_cast<StructBuilder *>(builder);
-    typed_builder->Append();
+    RETURN_NOT_OK(typed_builder->Append());
 
     for (auto i = 0; i < container_length; i++) {
-      avro_value_get_by_index(&val, i, &child, NULL);
+      auto child = value.fieldAt(i);
       child_builder = typed_builder->child(i);
-      result = generic_read(child, child_builder);
+      RETURN_NOT_OK(generic_read(child, child_builder));
     }
-    return result;
+    return Status::OK();
   }
 
+  Status read_record(avro::GenericDatum& val, RecordBatchBuilder *builder) {
+    auto value = val.value<avro::GenericRecord>();
+
+    int container_length = builder->num_fields();
+    for (auto i = 0; i < container_length; i++) {
+      auto child = value.fieldAt(i);
+      RETURN_NOT_OK(generic_read(child, builder->GetField(i)));
+    }
+    return Status::OK();
+  }
+
+  Status ReadFromAvroFile(
+          MemoryPool* pool,
+          avro::DataFileReader<avro::GenericDatum> *file_reader,
+                                           std::shared_ptr<RecordBatch>* out) {
+
+    Status status;
+    int rval = 0;
+    std::shared_ptr<Schema> datatype;
+    RETURN_NOT_OK(AvroFileWriterSchemaToArrowSchema(file_reader, &datatype));
+    std::unique_ptr<RecordBatchBuilder> builder;
+    RecordBatchBuilder::Make(datatype, pool, &builder);
+
+    avro::GenericDatum datum = avro::GenericDatum(file_reader->dataSchema());
+    while (file_reader->read(datum)) {
+      RETURN_NOT_OK(read_record(datum, std::move(builder).get()));
+    }
+
+    return builder->Flush(out);
+  }
 };
 
 // Public API
@@ -274,52 +326,138 @@ AvroArrowReader::AvroArrowReader() {
   pool_ = default_memory_pool();
 }
 
-Status AvroArrowReader::ReadFromFileName(std::string filename, std::shared_ptr<Array> *out) {
-  avro_file_reader_t reader = NULL;
-  avro_file_reader(filename.c_str(), &reader);
-  return this->ReadFromAvroFile(&reader, out);
+Status AvroArrowReader::ReadFromFileName(std::string filename, std::shared_ptr<RecordBatch>* out) {
+  const char* filename_c = filename.c_str();
+  auto reader = new avro::DataFileReader<avro::GenericDatum>(filename_c);
+  return this->impl_->ReadFromAvroFile(pool_, reader, out);
 }
 
-Status AvroArrowReader::ReadFromAvroFile(avro_file_reader_t *file_reader,
-                                         std::shared_ptr<Array> *out) {
+/**
+ * Adadpted from avrocpp
+ */
+class AvroArrowInInputStream : public avro::InputStream {
+    const size_t bufferSize_;
+    uint8_t* const buffer_;
+    const std::unique_ptr<arrow::io::Readable> in_;
+    size_t byteCount_;
+    uint8_t* next_;
+    int64_t available_;
 
-  std::unique_ptr<ArrayBuilder> builder;
-  std::shared_ptr<Array> res;
-  std::shared_ptr<DataType> datatype;
-  Status status;
-  int rval;
-  avro_value_iface_t *iface;
-  avro_value_t record;
-  ARROW_CHECK_OK(impl_->GenerateAvroSchema(file_reader, &datatype));
-  ARROW_CHECK_OK(MakeBuilder(this->pool_, datatype, &builder));
+    bool next(const uint8_t** data, size_t *size) {
+      if (available_ == 0 && ! fill()) {
+        return false;
+      }
+      *data = next_;
+      *size = available_;
+      next_ += available_;
+      byteCount_ += available_;
+      available_ = 0;
+      return true;
+    }
 
-  auto wschema = avro_file_reader_get_writer_schema(*file_reader);
-  iface = avro_generic_class_from_schema(wschema);
-  avro_generic_value_new(iface, &record);
+    void backup(size_t len) {
+      next_ -= len;
+      available_ += len;
+      byteCount_ -= len;
+    }
 
-  while (true) {
-    rval = avro_file_reader_read_value(*file_reader, &record);
-    if (rval != 0)
-      break;
-    // decompose record into Python types
-    status = impl_->generic_read(record, std::move(builder).get());
-  }
+    void skip(size_t len) {
+      while (len > 0) {
+        if (available_ == 0) {
+          in_->Read(len, nullptr);
+          byteCount_ += len;
+          return;
+        }
+        size_t n = std::min(available_, static_cast<int64_t>(len));
+        available_ -= n;
+        next_ += n;
+        len -= n;
+        byteCount_ += n;
+      }
+    }
 
-  // cast into our final types.
-  ArrayBuilder* sBuilder = static_cast<ArrayBuilder*>(builder.get());
-  StructBuilder* typedBuilder = static_cast<StructBuilder*>(sBuilder);
-  typedBuilder->Finish(&res);
+    size_t byteCount() const { return byteCount_; }
 
-  out = &res;
-  return Status::OK();
+    bool fill() {
+      int64_t n = 0;
+      auto status = in_->Read(bufferSize_, &n, buffer_);
+      if (status.ok()) {
+        next_ = buffer_;
+        available_ = n;
+        return true;
+      }
+      return false;
+    }
+
+
+public:
+    AvroArrowInInputStream(std::unique_ptr<arrow::io::Readable>& in, size_t bufferSize) :
+            bufferSize_(bufferSize),
+            buffer_(new uint8_t[bufferSize]),
+            in_(std::move(in)),
+            byteCount_(0),
+            next_(buffer_),
+            available_(0) { }
+
+    ~AvroArrowInInputStream() {
+      delete[] buffer_;
+    }
+};
+
+Status AvroArrowReader::ReadFromIO(arrow::io::Readable, std::shared_ptr<RecordBatch>* out) {
+  return Status::NotImplemented("Pending...");
+};
+
+//  const char* filename_c = filename.c_str();
+//  std::auto_ptr<avro::DataFileReaderBase> reader_base;
+//  auto reader = avro::DataFileReader<avro::GenericDatum>(reader_base);
+//
+////
+////  avro_file_reader_t reader = NULL;
+////  avro_file_reader(filename.c_str(), &reader);
+//  return this->impl_->ReadFromAvroFile(&reader, out);
+//
+//
+//
+//  auto reader = avro_reader_memory(buffer, num_bytes);
+//  // TODO set the correct schema here.
+//  avro_schema_t reader_schema = nullptr;
+//  avro_schema_t projection_schema = reader_schema;
+//  auto value_reader_iface = avro_generic_class_from_schema(reader_schema);
+//
+//  avro_value_t avro_val;
+//  avro_value_t resolved_avro_val;
+//  avro_generic_value_new(value_reader_iface, &avro_val);
+//
+//  auto resolved_reader_iface = avro_resolved_reader_new(reader_schema, projection_schema);
+//  avro_resolved_reader_new_value(resolved_reader_iface, &resolved_avro_val);
+//  avro_resolved_reader_set_source(&resolved_avro_val, &avro_val);
+//
+//  auto datatype = impl_->avro_to_arrow(reader_schema);
+//  std::unique_ptr<RecordBatchBuilder> builder;
+//  RecordBatchBuilder::Make(datatype, this->pool_, &builder);
+//
+//  int rval;
+//  while ((rval = avro_value_read(reader, &resolved_avro_val)) == 0) {
+//    RETURN_AVRO_ERROR(rval);
+//    RETURN_NOT_OK(impl_->read_record(resolved_avro_val, std::move(builder).get()));
+//    avro_value_reset(&resolved_avro_val);
+//  }
+//
+//  avro_value_decref(&avro_val);
+//  avro_value_iface_decref(resolved_reader_iface);
+//  avro_value_iface_decref(value_reader_iface);
+//  avro_reader_free(reader);
+//
+//  return builder->Flush(out);
+
+//Status AvroArrowReader::GenerateAvroSchema(avro_file_reader_t *file_reader,
+//                                           std::shared_ptr<Schema> *out) {
+//  return impl_->AvroFileWriterSchemaToArrowSchema(file_reader, out);
+//}
+
+
+
+
 }
-
-Status AvroArrowReader::GenerateAvroSchema(avro_file_reader_t *file_reader,
-                                           std::shared_ptr<DataType> *out) {
-  return impl_->GenerateAvroSchema(file_reader, out);
 }
-
-}
-}
-}
-

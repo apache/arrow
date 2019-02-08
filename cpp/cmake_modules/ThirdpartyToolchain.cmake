@@ -22,6 +22,7 @@ add_custom_target(toolchain)
 
 set(ARROW_RE2_LINKAGE "static" CACHE STRING
   "How to link the re2 library. static|shared (default static)")
+set(JANSSON_VERSION "2.10")
 set(AVRO_VERSION "1.8.1")
 
 # ----------------------------------------------------------------------
@@ -1070,20 +1071,27 @@ if (ARROW_AVRO)
     set(AVRO_HOME "${AVRO_PREFIX}")
     set(AVRO_INCLUDE_DIR "${AVRO_PREFIX}/include")
     if (MSVC)
-      set(AVRO_STATIC_LIB_NAME avro_static)
+      set(AVRO_STATIC_LIB_NAME avrocpp_static)
     else()
-      set(AVRO_STATIC_LIB_NAME avro)
+      set(AVRO_STATIC_LIB_NAME avrocpp)
     endif()
     set(AVRO_STATIC_LIB "${AVRO_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${AVRO_STATIC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(AVRO_SRC_URL "https://archive.apache.org/dist/avro/avro-${AVRO_VERSION}/c/avro-c-${AVRO_VERSION}.tar.gz")
+    set(AVRO_SRC_URL "https://archive.apache.org/dist/avro/avro-${AVRO_VERSION}/cpp/avro-cpp-${AVRO_VERSION}.tar.gz")
 
-    if (${UPPERCASE_BUILD_TYPE} EQUAL "RELEASE")
-      if (APPLE)
-        set(AVRO_CXXFLAGS "CXXFLAGS='-DNDEBUG -O1'")
-      else()
-        set(AVRO_CXXFLAGS "CXXFLAGS='-DNDEBUG -O2'")
-      endif()
-    endif()
+#    ExternalProject_Add(flatbuffers_ep
+#            URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
+#            CMAKE_ARGS
+#            "-DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}"
+#            "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
+#            "-DFLATBUFFERS_BUILD_TESTS=OFF"
+#            "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}"
+#            "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_C_FLAGS}"
+#            ${EP_LOG_OPTIONS})
+#
+#    set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
+#    set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
+#    set(FLATBUFFERS_VENDORED 1)
+
 
     if (MSVC)
       set(AVRO_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}

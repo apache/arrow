@@ -27,9 +27,9 @@
 # This module defines
 #  AVRO_INCLUDE_DIR, directory containing headers
 #  AVRO_LIBS, directory containing snappy libraries
-#  AVRO_STATIC_LIB, path to libsnappy.a
-#  AVRO_SHARED_LIB, path to libsnappy's shared library
-#  AVRO_FOUND, whether snappy has been found
+#  AVRO_STATIC_LIB, path to libavro.a
+#  AVRO_SHARED_LIB, path to libavros's shared library
+#  AVRO_FOUND, whether avro has been found
 
 if( NOT "${AVRO_HOME}" STREQUAL "")
     file( TO_CMAKE_PATH "${AVRO_HOME}" _native_path )
@@ -39,22 +39,22 @@ elseif ( AVRO_HOME )
 endif()
 
 message(STATUS "AVRO_HOME: ${AVRO_HOME}")
-find_path(AVRO_INCLUDE_DIR avro.h HINTS
+find_path(AVRO_INCLUDE_DIR avro/Generic.hh Generic.hh HINTS
   ${_AVRO_roots}
   NO_DEFAULT_PATH
   PATH_SUFFIXES "include")
 
-find_library( AVRO_LIBRARIES NAMES avro PATHS
+find_library( AVRO_LIBRARIES NAMES libavrocpp_s.a libavrocpp.a PATHS
   ${_AVRO_roots}
   NO_DEFAULT_PATH
   PATH_SUFFIXES "lib")
 
-if (AVRO_INCLUDE_DIR AND (PARQUET_MINIMAL_DEPENDENCY OR AVRO_LIBRARIES))
+if (AVRO_INCLUDE_DIR AND AVRO_LIBRARIES)
   set(AVRO_FOUND TRUE)
   get_filename_component( AVRO_LIBS ${AVRO_LIBRARIES} PATH )
-  set(AVRO_HEADER_NAME avro.h)
+  set(AVRO_HEADER_NAME avro/Generic.hh)
   set(AVRO_HEADER ${AVRO_INCLUDE_DIR}/${AVRO_HEADER_NAME})
-  set(AVRO_LIB_NAME avro)
+  set(AVRO_LIB_NAME avrocpp)
   set(AVRO_STATIC_LIB ${AVRO_LIBS}/${CMAKE_STATIC_LIBRARY_PREFIX}${AVRO_LIB_NAME}${AVRO_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX})
   set(AVRO_SHARED_LIB ${AVRO_LIBS}/${CMAKE_SHARED_LIBRARY_PREFIX}${AVRO_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
 else ()
@@ -64,14 +64,14 @@ endif ()
 if (AVRO_FOUND)
   if (NOT AVRO_FIND_QUIETLY)
     if (PARQUET_MINIMAL_DEPENDENCY)
-      message(STATUS "Found the Avro header: ${AVRO_HEADER}")
+      message(STATUS "Found the Avrocpp header: ${AVRO_HEADER}")
     else ()
-      message(STATUS "Found the Avro library: ${AVRO_LIBRARIES}")
+      message(STATUS "Found the Avrocpp library: ${AVRO_LIBRARIES}")
     endif ()
   endif ()
 else ()
   if (NOT AVRO_FIND_QUIETLY)
-    set(AVRO_ERR_MSG "Could not find the Avro library. Looked in ")
+    set(AVRO_ERR_MSG "Could not find the Avrocpp library. Looked in ")
     if ( _AVRO_roots )
       set(AVRO_ERR_MSG "${AVRO_ERR_MSG} in ${_AVRO_roots}.")
     else ()

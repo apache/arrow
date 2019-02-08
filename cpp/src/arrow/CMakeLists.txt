@@ -186,6 +186,12 @@ if (ARROW_TENSORFLOW)
   add_subdirectory(adapters/tensorflow)
 endif()
 
+if (ARROW_AVRO)
+  add_definitions(-DARROW_WITH_AVRO)
+  add_subdirectory(adapters/avro)
+  SET(ARROW_SRCS adapters/avro/adapter.cc ${ARROW_SRCS})
+endif()
+
 if (NOT ARROW_BOOST_HEADER_ONLY)
   set(ARROW_SRCS ${ARROW_SRCS}
     io/hdfs.cc

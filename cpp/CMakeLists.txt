@@ -893,15 +893,6 @@ endif()
 
 add_subdirectory(src/arrow)
 
-        src/arrow/adapters/avro/adapter.cc
-endif()
-
-
-if (ARROW_AVRO)
-  add_subdirectory(src/arrow/adapters/avro)
-  set(ARROW_SRC ${ARROW_SRCS}
-    src/arrow/adapters/avro/adapter.cc
-  )
 
 if(ARROW_PARQUET)
   add_subdirectory(src/parquet)

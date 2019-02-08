@@ -32,14 +32,11 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
-
-#include "avro.h"
+#include "arrow/io/api.h"
 
 namespace arrow {
 
 namespace adapters {
-
-namespace avro {
 
 /// Base class for reading from an avro datasource.
 //
@@ -54,22 +51,20 @@ class ARROW_EXPORT AvroArrowReader {
 
   virtual ~AvroArrowReader() = default;
 
-  Status ReadFromFileName(std::string filename, std::shared_ptr<Array>* out);
+  Status ReadFromFileName(std::string filename, std::shared_ptr<RecordBatch>* out);
+  Status ReadFromIO(arrow::io::Readable, std::shared_ptr<RecordBatch>* out);
 
-  Status ReadFromAvroFile(avro_file_reader_t* file_reader,
-                          std::shared_ptr<Array>* out);
  protected:
   AvroArrowReader();
   class ARROW_NO_EXPORT AvroArrowReaderImpl;
   std::shared_ptr<AvroArrowReaderImpl> impl_;
   MemoryPool* pool_;
 
-  Status GenerateAvroSchema(avro_file_reader_t* file_reader,
-                            std::shared_ptr<DataType>* out);
+//  Status GenerateAvroSchema(avro_file_reader_t* file_reader,
+//                            std::shared_ptr<Schema>* out);
+
 
 };
-
-}
 
 }
 
