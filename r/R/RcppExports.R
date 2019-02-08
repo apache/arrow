@@ -813,8 +813,8 @@ Table__columns <- function(table) {
     .Call(`_arrow_Table__columns`, table)
 }
 
-Table__from_arrays <- function(lst) {
-    .Call(`_arrow_Table__from_arrays`, lst)
+Table__from_dots <- function(lst, schema_sxp) {
+    .Call(`_arrow_Table__from_dots`, lst, schema_sxp)
 }
 
 #' Get the capacity of the global thread pool
