@@ -26,8 +26,10 @@ arrow_ruby_run_test()
   local arrow_c_glib_lib_dir=$1
 
   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$arrow_c_glib_lib_dir
-  export GI_TYPELIB_PATH=$arrow_c_glib_lib_dir/girepository-1.0
+  export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
   rake compile
+
+  export GI_TYPELIB_PATH=$arrow_c_glib_lib_dir/girepository-1.0
   test/run-test.rb
 }
 
