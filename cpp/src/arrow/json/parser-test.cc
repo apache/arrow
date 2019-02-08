@@ -237,12 +237,12 @@ TEST(ParseOne, Basics) {
 TEST(ParseOne, Nested) {
   auto options = ParseOptions::Defaults();
   options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
-  AssertParseOne(options, nested_src(),
-                 {field("yo", utf8()), field("arr", list(int64())),
-                  field("nuf", struct_({field("ps", int64())}))},
-                 {"[\"thing\", null, \"\xe5\xbf\x8d\", null]",
-                  R"([[1, 2, 3], [2], [], null])",
-                  R"([{"ps":null}, null, {"ps":78}, {"ps":90}])"});
+  AssertParseOne(
+      options, nested_src(),
+      {field("yo", utf8()), field("arr", list(int64())),
+       field("nuf", struct_({field("ps", int64())}))},
+      {"[\"thing\", null, \"\xe5\xbf\x8d\", null]", R"([[1, 2, 3], [2], [], null])",
+       R"([{"ps":null}, null, {"ps":78}, {"ps":90}])"});
 }
 
 }  // namespace json

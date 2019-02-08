@@ -963,10 +963,7 @@ struct ConvertImpl {
     return builder.Finish(out);
   }
   template <typename T>
-  Status Visit(
-      const T& t,
-      typename std::enable_if<
-          std::is_default_constructible<StringConverter<T>>::value>::type* = nullptr) {
+  Status Visit(const T& t, decltype(StringConverter<T>())* = nullptr) {
     StringConverter<T> convert_one;
     return ConvertEachWith(t, convert_one);
   }
