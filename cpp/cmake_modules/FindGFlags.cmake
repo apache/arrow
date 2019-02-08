@@ -39,16 +39,18 @@ set(GFLAGS_STATIC_LIB_SUFFIX
 set(GFLAGS_STATIC_LIB_NAME
   ${CMAKE_STATIC_LIBRARY_PREFIX}gflags${GFLAGS_STATIC_LIB_SUFFIX})
 
+message(STATUS "GFLAGS_HOME: ${GFLAGS_HOME}")
+
 if ( _gflags_roots )
   find_path(GFLAGS_INCLUDE_DIR NAMES gflags/gflags.h
     PATHS ${_gflags_roots}
     NO_DEFAULT_PATH
     PATH_SUFFIXES "include" )
-  find_library(GFLAGS_SHARED_LIB NAMES gflags
+  find_library(GFLAGS_STATIC_LIB NAMES ${GFLAGS_STATIC_LIB_NAME}
     PATHS ${_gflags_roots}
     NO_DEFAULT_PATH
     PATH_SUFFIXES "lib" )
-  find_library(GFLAGS_STATIC_LIB NAMES ${GFLAGS_STATIC_LIB_NAME}
+  find_library(GFLAGS_SHARED_LIB NAMES gflags
     PATHS ${_gflags_roots}
     NO_DEFAULT_PATH
     PATH_SUFFIXES "lib" )
@@ -57,14 +59,21 @@ else()
     # make sure we don't accidentally pick up a different version
     NO_CMAKE_SYSTEM_PATH
     NO_SYSTEM_ENVIRONMENT_PATH)
-  find_library(GFLAGS_SHARED_LIB gflags
+  find_library(GFLAGS_STATIC_LIB ${GFLAGS_STATIC_LIB_NAME}
     NO_CMAKE_SYSTEM_PATH
     NO_SYSTEM_ENVIRONMENT_PATH)
-  find_library(GFLAGS_STATIC_LIB ${GFLAGS_STATIC_LIB_NAME}
+  find_library(GFLAGS_SHARED_LIB gflags
     NO_CMAKE_SYSTEM_PATH
     NO_SYSTEM_ENVIRONMENT_PATH)
 endif()
 
-include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(GFLAGS REQUIRED_VARS
-  GFLAGS_SHARED_LIB GFLAGS_STATIC_LIB GFLAGS_INCLUDE_DIR)
+if (GFLAGS_INCLUDE_DIR AND GFLAGS_STATIC_LIB)
+  set(GFLAGS_FOUND TRUE)
+else ()
+  set(GFLAGS_FOUND FALSE)
+endif ()
+
+mark_as_advanced(
+  GFLAGS_INCLUDE_DIR
+  GFLAGS_STATIC_LIB
+)

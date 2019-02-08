@@ -517,12 +517,23 @@ if (PYARROW_BUILD_GANDIVA)
     bundle_arrow_lib(GANDIVA_SHARED_LIB
       ABI_VERSION ${ARROW_ABI_VERSION}
       SO_VERSION ${ARROW_SO_VERSION})
+
+    if (MSVC)
+      bundle_arrow_implib(GANDIVA_SHARED_IMP_LIB)
+    endif()
+  endif()
+
+  if (MSVC)
+    ADD_THIRDPARTY_LIB(gandiva
+      SHARED_LIB ${GANDIVA_SHARED_IMP_LIB})
+  else()
+    ADD_THIRDPARTY_LIB(gandiva
+      SHARED_LIB ${GANDIVA_SHARED_LIB})
   endif()
 
   set(LINK_LIBS
     ${LINK_LIBS}
-    ${GANDIVA_SHARED_LIB})
-
+    gandiva_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} gandiva)
 endif()
 
