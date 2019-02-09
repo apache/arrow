@@ -83,28 +83,28 @@ enum class ArrowLogLevel : int {
 
 #define DCHECK(condition)       \
   ARROW_IGNORE_EXPR(condition); \
-  while (false) ::arrow::util::ArrowLogBase()
+  ::arrow::util::ArrowLogIgnore()
 #define DCHECK_OK(status)    \
   ARROW_IGNORE_EXPR(status); \
-  while (false) ::arrow::util::ArrowLogBase()
+  ::arrow::util::ArrowLogIgnore()
 #define DCHECK_EQ(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::util::ArrowLogBase()
+  ::arrow::util::ArrowLogIgnore()
 #define DCHECK_NE(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::util::ArrowLogBase()
+  ::arrow::util::ArrowLogIgnore()
 #define DCHECK_LE(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::util::ArrowLogBase()
+  ::arrow::util::ArrowLogIgnore()
 #define DCHECK_LT(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::util::ArrowLogBase()
+  ::arrow::util::ArrowLogIgnore()
 #define DCHECK_GE(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::util::ArrowLogBase()
+  ::arrow::util::ArrowLogIgnore()
 #define DCHECK_GT(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::util::ArrowLogBase()
+  ::arrow::util::ArrowLogIgnore()
 
 #else
 #define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_FATAL
@@ -145,6 +145,15 @@ class ARROW_EXPORT ArrowLogBase {
 
  protected:
   virtual std::ostream& Stream() { return std::cerr; }
+};
+
+// Completely empty null log
+class ARROW_EXPORT ArrowLogIgnore {
+ public:
+  template <typename T>
+  ArrowLogIgnore& operator<<(const T&) {
+    return *this;
+  }
 };
 
 class ARROW_EXPORT ArrowLog : public ArrowLogBase {
