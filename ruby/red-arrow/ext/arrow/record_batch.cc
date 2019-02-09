@@ -25,19 +25,9 @@ namespace {
 
 using Status = arrow::Status;
 
-class RawRecordsBuilder : public arrow::ArrayVisitor {
+class ArrayConverter : public arrow::ArrayVisitor {
  public:
-  RawRecordsBuilder(VALUE records, int num_columns, bool convert_decimal=false) : records_(records), num_columns_(num_columns), convert_decimal_(convert_decimal) {}
-
-  Status Add(const arrow::RecordBatch& record_batch) {
-    const int num_columns = record_batch.num_columns();
-    for (int i = 0; i < num_columns; ++i) {
-      auto array = record_batch.column(i);
-      column_index_ = i;
-      array->Accept(this);
-    }
-    return Status::OK();
-  }
+  ArrayConverter(bool convert_decimal) : convert_decimal_(convert_decimal) {}
 
  protected:
   Status NotImplemented(char const* message) {
@@ -315,8 +305,38 @@ class RawRecordsBuilder : public arrow::ArrayVisitor {
     return NotImplemented("DictionaryArray");
   }
 
+  virtual Status VisitValue(const int64_t row_index, VALUE value) = 0;
+
  private:
-  inline Status VisitValue(const int64_t row_index, VALUE val) {
+  // Convert Decimal to BigDecimal.
+  const bool convert_decimal_;
+};
+
+class RawRecordsBuilder : public ArrayConverter {
+ public:
+  RawRecordsBuilder(VALUE records, int num_columns, bool convert_decimal=false)
+      : ArrayConverter(convert_decimal), records_(records), num_columns_(num_columns) {}
+
+  Status Add(const arrow::RecordBatch& record_batch) {
+    const int num_columns = record_batch.num_columns();
+    for (int i = 0; i < num_columns; ++i) {
+      auto array = record_batch.column(i);
+      column_index_ = i;
+      array->Accept(this);
+    }
+    return Status::OK();
+  }
+
+ private:
+  inline VALUE GetValue(const int row_index) {
+    return rb::protect([&] {
+      VALUE record = rb_ary_entry(records_, row_index);
+      if (NIL_P(record)) return Qnil;
+      return rb_ary_entry(record, column_index_);
+    });
+  }
+
+  Status VisitValue(const int64_t row_index, VALUE val) override {
     (void)rb::protect([&] {
       VALUE record = rb_ary_entry(records_, row_index);
       if (NIL_P(record)) {
@@ -337,9 +357,6 @@ class RawRecordsBuilder : public arrow::ArrayVisitor {
 
   // The number of columns.
   const int num_columns_;
-
-  // Convert Decimal to BigDecimal.
-  const bool convert_decimal_;
 };
 
 }  // namespace
