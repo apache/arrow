@@ -26,7 +26,7 @@ namespace rb {
 class error {
  public:
   explicit error(VALUE exc) : exc_(exc), state_(0) {}
-  explicit error(int state) : exc_(Qundef), state_(state) {}
+  explicit error(int state) : exc_(rb_errinfo()), state_(state) {}
 
   error(VALUE exc_klass, const char* message)
       : error(rb_exc_new_cstr(exc_klass, message)) {}
