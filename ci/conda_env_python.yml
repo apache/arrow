@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cython
+cython>=0.29.0
 cloudpickle
 hypothesis
-numpy
+numpy>=1.14
 pandas
 pytest
 setuptools
