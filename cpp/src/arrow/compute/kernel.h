@@ -36,6 +36,20 @@ class FunctionContext;
 
 /// \class OpKernel
 /// \brief Base class for operator kernels
+///
+/// Note to implementors:
+/// Operator kernels are intended to be the lowest level of an analytics/compute
+/// engine.  They will generally not be exposed directly to end-users.  Instead
+/// they will be wrapped by higher level constructs (e.g. top-level functions
+/// or physical execution plan nodes).  These higher level constructs are
+/// responsible for user input validation and returning the appropriate
+/// error Status.
+///
+/// Due to this design, implementations of Call (the execution
+/// method on subclasses) should use assertions (i.e. DCHECK) to double-check
+/// parameter arguments when in higher level components returning an
+/// InvalidArgument error might be more appropriate.
+///
 class ARROW_EXPORT OpKernel {
  public:
   virtual ~OpKernel() = default;
@@ -151,7 +165,7 @@ struct ARROW_EXPORT Datum {
 };
 
 /// \class UnaryKernel
-/// \brief An function of a single input argument.
+/// \brief An array-valued function of a single input argument.
 ///
 /// Note to implementors:  Try to avoid making kernels that allocate memory if
 /// the output size is a deterministic function of the Input Datum's metadata.
