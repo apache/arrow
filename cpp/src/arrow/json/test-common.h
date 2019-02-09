@@ -88,7 +88,7 @@ struct GenerateImpl {
   Status Visit(const ListType& t) {
     auto size = std::poisson_distribution<>{4}(e);
     writer.StartArray();
-    for (int i = 0; i != size; ++i) Generate(t.value_type(), e, &writer);
+    for (int i = 0; i != size; ++i) RETURN_NOT_OK(Generate(t.value_type(), e, &writer));
     return OK(writer.EndArray(size));
   }
   Status Visit(const StructType& t) { return Generate(t.children(), e, &writer); }
