@@ -54,7 +54,7 @@ inline static const std::shared_ptr<const KeyValueMetadata>& Tag(Kind::type k) {
   return tags[static_cast<uint8_t>(k)];
 }
 
-Status KindForType(const DataType& type, Kind::type* kind) {
+inline static Status KindForType(const DataType& type, Kind::type* kind) {
   struct {
     Status Visit(const NullType&) { return SetKind(Kind::kNull); }
     Status Visit(const BooleanType&) { return SetKind(Kind::kBoolean); }
