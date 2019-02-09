@@ -146,6 +146,32 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
     }
 }
 
+///  Helper function for SIMD `BitAnd` and `BitOr` implementations
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+fn bitwise_bin_op_simd_helper<F>(left: &Buffer, right: &Buffer, op: F) -> Buffer
+where
+    F: Fn(u8x64, u8x64) -> u8x64,
+{
+    let mut result = MutableBuffer::new(left.len()).with_bitset(left.len(), false);
+    let lanes = u8x64::lanes();
+    for i in (0..left.len()).step_by(lanes) {
+        let left_data =
+            unsafe { from_raw_parts(left.raw_data().offset(i as isize), lanes) };
+        let right_data =
+            unsafe { from_raw_parts(right.raw_data().offset(i as isize), lanes) };
+        let result_slice: &mut [u8] = unsafe {
+            from_raw_parts_mut(
+                (result.data_mut().as_mut_ptr() as *mut u8).offset(i as isize),
+                lanes,
+            )
+        };
+        unsafe {
+            bit_util::bitwise_bin_op_simd(&left_data, &right_data, result_slice, &op)
+        };
+    }
+    return result.freeze();
+}
+
 impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
     type Output = Buffer;
 
@@ -159,30 +185,7 @@ impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
         // SIMD implementation if available
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            let mut result =
-                MutableBuffer::new(self.len()).with_bitset(self.len(), false);
-            let lanes = u8x64::lanes();
-            for i in (0..self.len()).step_by(lanes) {
-                let left_data =
-                    unsafe { from_raw_parts(self.raw_data().offset(i as isize), lanes) };
-                let right_data =
-                    unsafe { from_raw_parts(rhs.raw_data().offset(i as isize), lanes) };
-                let result_slice: &mut [u8] = unsafe {
-                    from_raw_parts_mut(
-                        (result.data_mut().as_mut_ptr() as *mut u8).offset(i as isize),
-                        lanes,
-                    )
-                };
-                unsafe {
-                    bit_util::bitwise_bin_op_simd(
-                        &left_data,
-                        &right_data,
-                        result_slice,
-                        |a, b| a & b,
-                    )
-                };
-            }
-            return result.freeze();
+            return bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b);
         }
 
         // Default implementation
@@ -216,30 +219,7 @@ impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
         // SIMD implementation if available
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            let mut result =
-                MutableBuffer::new(self.len()).with_bitset(self.len(), false);
-            let lanes = u8x64::lanes();
-            for i in (0..self.len()).step_by(lanes) {
-                let left_data =
-                    unsafe { from_raw_parts(self.raw_data().offset(i as isize), lanes) };
-                let right_data =
-                    unsafe { from_raw_parts(rhs.raw_data().offset(i as isize), lanes) };
-                let result_slice: &mut [u8] = unsafe {
-                    from_raw_parts_mut(
-                        (result.data_mut().as_mut_ptr() as *mut u8).offset(i as isize),
-                        lanes,
-                    )
-                };
-                unsafe {
-                    bit_util::bitwise_bin_op_simd(
-                        &left_data,
-                        &right_data,
-                        result_slice,
-                        |a, b| a | b,
-                    )
-                };
-            }
-            return result.freeze();
+            return bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b);
         }
 
         // Default implementation
@@ -250,7 +230,7 @@ impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
                 unsafe {
                     builder
                         .append(
-                            self.data().get_unchecked(i) & rhs.data().get_unchecked(i),
+                            self.data().get_unchecked(i) | rhs.data().get_unchecked(i),
                         )
                         .unwrap();
                 }
