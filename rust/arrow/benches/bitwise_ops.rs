@@ -32,7 +32,10 @@ fn create_buffer(size: usize) -> Buffer {
     builder.finish()
 }
 
-fn bitwise_and_default(size: usize) {
+fn bitwise_default<F>(size: usize, op: F)
+where
+    F: Fn(&u8, &u8) -> u8,
+{
     let buffer_a = create_buffer(size);
     let buffer_b = create_buffer(size);
 
@@ -41,10 +44,10 @@ fn bitwise_and_default(size: usize) {
         for i in 0..buffer_a.len() {
             unsafe {
                 builder
-                    .append(
-                        buffer_a.data().get_unchecked(i)
-                            & buffer_b.data().get_unchecked(i),
-                    )
+                    .append(op(
+                        buffer_a.data().get_unchecked(i),
+                        buffer_b.data().get_unchecked(i),
+                    ))
                     .unwrap();
             }
         }
@@ -52,15 +55,20 @@ fn bitwise_and_default(size: usize) {
     });
 }
 
-fn bitwise_and_simd(size: usize) {
+fn bitwise_simd<F>(size: usize, op: F)
+where
+    F: Fn(&Buffer, &Buffer) -> Buffer,
+{
     let buffer_a = create_buffer(size);
     let buffer_b = create_buffer(size);
-    criterion::black_box(&buffer_a & &buffer_b);
+    criterion::black_box(op(&buffer_a, &buffer_b));
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    c.bench_function("add", |b| b.iter(|| bitwise_and_default(512)));
-    c.bench_function("add simd", |b| b.iter(|| bitwise_and_simd(512)));
+    c.bench_function("add", |b| b.iter(|| bitwise_default(512, |a, b| a & b)));
+    c.bench_function("add simd", |b| b.iter(|| bitwise_simd(512, |a, b| a & b)));
+    c.bench_function("or", |b| b.iter(|| bitwise_default(512, |a, b| a | b)));
+    c.bench_function("or simd", |b| b.iter(|| bitwise_simd(512, |a, b| a | b)));
 }
 
 criterion_group!(benches, add_benchmark);
