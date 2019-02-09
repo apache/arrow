@@ -132,6 +132,11 @@ class RecordBatchTest < Test::Unit::TestCase
         #     Arrow::Error::Invalid: [record-batch][new]: Invalid: Column 9
         #     type not match schema: list<item: bool> vs list<visible: bool>
         @list_type = Arrow::ListDataType.new(name: "item", type: :boolean)
+        @struct_type = Arrow::StructDataType.new(
+          visible: :boolean,
+          value: :double,
+          mark: :string
+        )
         @schema = Arrow::Schema.new(
           name: :string,
           count: :uint32,
@@ -142,7 +147,8 @@ class RecordBatchTest < Test::Unit::TestCase
           timestamp_sec: Arrow::TimestampDataType.new(:second),
           timestamp_msec: Arrow::TimestampDataType.new(:milli),
           timestamp_usec: Arrow::TimestampDataType.new(:micro),
-          flags: @list_type
+          flags: @list_type,
+          struct: @struct_type
         )
 
         @names = Arrow::StringArray.new(["apple", "orange", "watermelon", "octopus"])
@@ -206,6 +212,17 @@ class RecordBatchTest < Test::Unit::TestCase
         ]
         @list = Arrow::ListArray.new(@list_type, @list_raw_values)
 
+        @struct_raw_values = [
+          [true, 3.14, 'a'],
+          nil,
+          [false, 2.71, 'c'],
+          [true, Float::INFINITY, 'z'],
+        ]
+        @struct = Arrow::StructArray.new(
+          @struct_type,
+          @struct_raw_values
+        )
+
         @record_batch = Arrow::RecordBatch.new(
           @schema, @counts.length,
           [
@@ -218,7 +235,8 @@ class RecordBatchTest < Test::Unit::TestCase
             @timestamp_sec,
             @timestamp_msec,
             @timestamp_usec,
-            @list
+            @list,
+            @struct
           ]
         )
       end
@@ -239,6 +257,10 @@ class RecordBatchTest < Test::Unit::TestCase
         @list_raw_values.each_with_index {|x, i|
           expected[i] << (x ? Arrow::BooleanArray.new(x) : nil)
         }
+        struct_names = @struct_type.fields.map(&:name)
+        @struct_raw_values.each_with_index {|x, i|
+          expected[i] << struct_names.zip(x || []).to_h
+        }
         assert_equal(expected, raw_records)
       end
 
@@ -257,6 +279,10 @@ class RecordBatchTest < Test::Unit::TestCase
         @timestamp_expected.each_with_index {|x, i| expected[i] << x }
         @list_raw_values.each_with_index {|x, i|
           expected[i] << (x ? Arrow::BooleanArray.new(x) : nil)
+        }
+        struct_names = @struct_type.fields.map(&:name)
+        @struct_raw_values.each_with_index {|x, i|
+          expected[i] << struct_names.zip(x || []).to_h
         }
         assert_equal(expected, raw_records)
       end

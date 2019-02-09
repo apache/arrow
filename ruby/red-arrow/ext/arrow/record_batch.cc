@@ -290,11 +290,6 @@ class ArrayConverter : public arrow::ArrayVisitor {
     });
   }
 
-  Status Visit(const arrow::StructArray& array) override {
-    // FIXME
-    return NotImplemented("StructArray");
-  }
-
   Status Visit(const arrow::UnionArray& array) override {
     // FIXME
     return NotImplemented("UnionArray");
@@ -307,9 +302,64 @@ class ArrayConverter : public arrow::ArrayVisitor {
 
   virtual Status VisitValue(const int64_t row_index, VALUE value) = 0;
 
- private:
   // Convert Decimal to BigDecimal.
   const bool convert_decimal_;
+};
+
+class StructArrayConverter : public ArrayConverter {
+ public:
+  using VisitValueFunc = std::function<Status(const int64_t, VALUE, VALUE)>;
+
+  explicit StructArrayConverter(bool convert_decimal, VisitValueFunc visit_value_func)
+      : ArrayConverter(convert_decimal), visit_value_func_(visit_value_func) {}
+
+  Status Convert(const arrow::StructArray& array) {
+    const auto* struct_type = array.struct_type();
+    const auto nf = struct_type->num_children();
+
+    RETURN_NOT_OK(collect_field_names(struct_type));
+
+    for (int k = 0; k < nf; ++k) {
+      field_index_ = k;
+
+      auto field_array = array.field(k);
+      RETURN_NOT_OK(field_array->Accept(this));
+    }
+
+    return Status::OK();
+  }
+
+ protected:
+  using ArrayConverter::Visit;
+
+  Status Visit(const arrow::StructArray& array) override {
+    // FIXME
+    return NotImplemented("Struct in Struct is not supported");
+  }
+
+  Status VisitValue(const int64_t row_index, VALUE value) override {
+    VALUE field_name = field_names_[field_index_];
+    return visit_value_func_(row_index, field_name, value);
+  }
+
+ private:
+  Status collect_field_names(const arrow::StructType* type) {
+    const auto nf = type->num_children();
+    field_names_.reserve(nf);
+    (void)rb::protect([&]{
+      for (int i = 0; i < nf; ++i) {
+        auto field = type->child(i);
+        auto& name = field->name();
+        field_names_.push_back(rb_str_new_cstr(name.c_str()));
+      }
+      return Qnil;
+    });
+    return Status::OK();
+  }
+
+  VisitValueFunc visit_value_func_;
+  std::vector<VALUE> field_names_;
+  int field_index_;
 };
 
 class RawRecordsBuilder : public ArrayConverter {
@@ -327,8 +377,28 @@ class RawRecordsBuilder : public ArrayConverter {
     return Status::OK();
   }
 
+ protected:
+  using ArrayConverter::Visit;
+
+  Status Visit(const arrow::StructArray& array) override {
+    StructArrayConverter converter(
+        convert_decimal_,
+        [&](const int64_t row_index, VALUE key, VALUE val) {
+          VALUE hash = GetValue(row_index);
+          (void)rb::protect([&]{
+            if (NIL_P(hash)) {
+              hash = rb_hash_new();
+              VisitValue(row_index, hash);
+            }
+            return rb_hash_aset(hash, key, val);
+          });
+          return Status::OK();
+        });
+    return converter.Convert(array);
+  }
+
  private:
-  inline VALUE GetValue(const int row_index) {
+  inline VALUE GetValue(const int64_t row_index) {
     return rb::protect([&] {
       VALUE record = rb_ary_entry(records_, row_index);
       if (NIL_P(record)) return Qnil;
