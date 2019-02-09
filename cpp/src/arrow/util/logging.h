@@ -84,25 +84,25 @@ enum class ArrowLogLevel : int {
 #define DCHECK(condition) \
   while (false) ARROW_CHECK(condition)
 #define DCHECK_OK(status) \
-  while (false) ARROW_CHECK_OK(condition)
+  while (false) ARROW_CHECK_OK(status)
 #define DCHECK_EQ(val1, val2) \
-  while (false) ARROW_CHECK_EQ(val1, val2)
+  while (false) ARROW_CHECK((val1) == (val2))
 #define DCHECK_NE(val1, val2) \
-  while (false) ARROW_CHECK_NE(val1, val2)
+  while (false) ARROW_CHECK((val1) != (val2))
 #define DCHECK_LE(val1, val2) \
-  while (false) ARROW_CHECK_LE(val1, val2)
+  while (false) ARROW_CHECK((val1) <= (val2))
 #define DCHECK_LT(val1, val2) \
-  while (false) ARROW_CHECK_LT(val1, val2)
+  while (false) ARROW_CHECK((val1) < (val2))
 #define DCHECK_GE(val1, val2) \
-  while (false) ARROW_CHECK_GE(val1, val2)
+  while (false) ARROW_CHECK((val1) >= (val2))
 #define DCHECK_GT(val1, val2) \
-  while (false) ARROW_CHECK_GT(val1, val2)
+  while (false) ARROW_CHECK((val1) > (val2))
 
 #else
 #define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_FATAL
 
 #define DCHECK(condition) ARROW_CHECK(condition)
-#define DCHECK_OK(status) (ARROW_CHECK((status).ok()) << (status).message())
+#define DCHECK_OK(status) ARROW_CHECK_OK(status)
 #define DCHECK_EQ(val1, val2) ARROW_CHECK((val1) == (val2))
 #define DCHECK_NE(val1, val2) ARROW_CHECK((val1) != (val2))
 #define DCHECK_LE(val1, val2) ARROW_CHECK((val1) <= (val2))
