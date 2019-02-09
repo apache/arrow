@@ -322,7 +322,7 @@ class RawRecordsBuilder : public ArrayConverter {
     for (int i = 0; i < num_columns; ++i) {
       auto array = record_batch.column(i);
       column_index_ = i;
-      array->Accept(this);
+      RETURN_NOT_OK(array->Accept(this));
     }
     return Status::OK();
   }
