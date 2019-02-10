@@ -125,7 +125,7 @@ class RecordBatchTest < Test::Unit::TestCase
 
     sub_test_case("#raw_records") do
       def setup
-        @string_values = ["apple", "orange", "watermelon", "octopus"]
+        @string_values = ["apple", "orange", "watermelon", "タコ"]
         @string_array = Arrow::StringArray.new(@string_values)
 
         @uint32_values = [1, 2, 4, 8]

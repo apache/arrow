@@ -108,7 +108,7 @@ class ArrayConverter : public arrow::ArrayVisitor {
     const uint8_t* ptr = array.GetValue(i, &length);
     // TODO: encoding support
     return rb::protect([&]{
-      return rb_str_new(reinterpret_cast<const char*>(ptr), length);
+      return rb_utf8_str_new(reinterpret_cast<const char*>(ptr), length);
     });
   }
 
