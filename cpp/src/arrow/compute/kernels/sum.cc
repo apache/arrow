@@ -56,10 +56,11 @@ class SumAggregateFunction final : public AggregateFunctionStaticState<StateType
   Status Consume(const Array& input, StateType* state) const override {
     const ArrayType& array = static_cast<const ArrayType&>(input);
 
-    if (input.null_count() > 0)
+    if (input.null_count() > 0) {
       *state = ConsumeSparse(array);
-    else
+    } else {
       *state = ConsumeDense(array);
+    }
 
     return Status::OK();
   }
