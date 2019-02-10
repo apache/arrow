@@ -27,6 +27,8 @@ namespace red_arrow {
 extern VALUE mArrow;
 extern VALUE cRecordBatch;
 
+extern ID id_BigDecimal;
+
 VALUE record_batch_raw_records(int argc, VALUE* argv, VALUE obj);
 
 }  // namesapce red_arrow

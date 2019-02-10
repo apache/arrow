@@ -20,6 +20,7 @@ namespace red_arrow {
 
 VALUE mArrow;
 VALUE cRecordBatch;
+ID id_BigDecimal;
 
 }  // namespace rb
 
@@ -28,4 +29,6 @@ extern "C" void Init_arrow() {
   red_arrow::cRecordBatch = rb_const_get_at(red_arrow::mArrow, rb_intern("RecordBatch"));
   rb_define_method(red_arrow::cRecordBatch, "raw_records",
                    reinterpret_cast<VALUE(*)(ANYARGS)>(red_arrow::record_batch_raw_records), -1);
+
+  red_arrow::id_BigDecimal = rb_intern("BigDecimal");
 }

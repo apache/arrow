@@ -101,6 +101,21 @@ class ArrayConverter : public arrow::ArrayVisitor {
     });
   }
 
+  inline VALUE ConvertValue(const arrow::Decimal128Array& array, const int64_t i) {
+    if (convert_decimal_) {
+      auto decimal_str = array.FormatValue(i);
+      return rb::protect([&]{
+        return rb_funcall(rb_cObject, id_BigDecimal, 1, rb_str_new_cstr(decimal_str.c_str()));
+      });
+    } else {
+      return rb::protect([&]{
+        auto raw_value = std::make_shared<arrow::Decimal128>(array.GetValue(i));
+        auto gobj_value = garrow_decimal128_new_raw(&raw_value);
+        return GOBJ2RVAL(gobj_value);
+      });
+    }
+  }
+
   inline VALUE ConvertValue(const arrow::BinaryArray& array, const int64_t i) {
     int32_t length;
     const uint8_t* ptr = array.GetValue(i, &length);
@@ -179,6 +194,7 @@ class ArrayConverter : public arrow::ArrayVisitor {
       CHILD_ARRAY_CONVERT_VALUE_INLINE(HalfFloatType);
       CHILD_ARRAY_CONVERT_VALUE_INLINE(FloatType);
       CHILD_ARRAY_CONVERT_VALUE_INLINE(DoubleType);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(Decimal128Type);
       CHILD_ARRAY_CONVERT_VALUE_INLINE(StringType);
       CHILD_ARRAY_CONVERT_VALUE_INLINE(BinaryType);
       // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(FixedSizeBinaryType);
@@ -187,7 +203,6 @@ class ArrayConverter : public arrow::ArrayVisitor {
       // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(TimestampType);
       CHILD_ARRAY_CONVERT_VALUE_INLINE(Time32Type);
       CHILD_ARRAY_CONVERT_VALUE_INLINE(Time64Type);
-      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(Decimal128Type);
       CHILD_ARRAY_CONVERT_VALUE_INLINE(ListType);
       // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(StructType);
       // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(UnionType);
@@ -372,7 +387,6 @@ class ArrayConverter : public arrow::ArrayVisitor {
 
   Status Visit(const arrow::Decimal128Array& array) override {
     if (convert_decimal_) {
-      ID id_BigDecimal = rb_intern("BigDecimal");
       return VisitColumn(array, [&](const int64_t i) {
         auto decimal_str = array.FormatValue(i);
         VALUE value = rb::protect([&]{

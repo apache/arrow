@@ -125,16 +125,16 @@ class RecordBatchTest < Test::Unit::TestCase
 
     sub_test_case("#raw_records") do
       def setup
-        @string_values = ["apple", "orange", "watermelon", "タコ"]
+        @string_values = ["apple", "orange", "watermelon", nil, "タコ"]
         @string_array = Arrow::StringArray.new(@string_values)
 
-        @uint32_values = [1, 2, 4, 8]
+        @uint32_values = [1, 2, 4, 8, 16]
         @uint32_array = Arrow::UInt32Array.new(@uint32_values)
 
-        @double_values = [10.1, 11.2, 12.3, 13.4]
+        @double_values = [10.1, 11.2, 12.3, 13.4, 14.4]
         @double_array = Arrow::DoubleArray.new(@double_values)
 
-        @decimal128_values = ['123.45', '234.56', nil, '345.67']
+        @decimal128_values = ['123.45', '234.56', nil, '345.67', "456.78"]
         @decimal128_array = Arrow::Decimal128Array.new(
           Arrow::Decimal128DataType.new(8, 2), @decimal128_values)
 
@@ -142,48 +142,52 @@ class RecordBatchTest < Test::Unit::TestCase
           Date.new(1993,  2, 24),
           Date.new(1996, 12, 25),
           Date.new(2013,  2, 24),
-          Date.new(2020, 12, 25)
+          Date.new(2020, 12, 25),
+          nil
         ]
         epoch_date = Date.new(1970, 1, 1)
         @date32_array = Arrow::Date32Array.new(
-          @date32_values.map {|dt| (dt - epoch_date).to_i }
+          @date32_values.map {|dt| dt && (dt - epoch_date).to_i }
         )
 
         @date64_values = [
+          nil,
           DateTime.new(1993,  2, 23, 15, 0, 0),
           DateTime.new(1996, 12, 24, 15, 0, 0),
           DateTime.new(2013,  2, 23, 15, 0, 0),
           DateTime.new(2020, 12, 24, 15, 0, 0)
         ]
         @date64_array = Arrow::Date64Array.new(
-          @date64_values.map {|dt| dt.to_time.gmtime.to_i * 1000 }
+          @date64_values.map {|dt| dt && dt.to_time.gmtime.to_i * 1000 }
         )
 
         jst = '+09:00'
         @timestamp_values = [
           Time.new(1993,  2, 24, 0, 0, 0, jst).gmtime,
           Time.new(1996, 12, 25, 0, 0, 0, jst).gmtime,
+          nil,
           Time.new(2013,  2, 24, 0, 0, 0, jst).gmtime,
           Time.new(2020, 12, 25, 0, 0, 0, jst).gmtime
         ]
         @timestamp_sec_array = Arrow::TimestampArray.new(
           :second,
-          @timestamp_values.map(&:to_i)
+          @timestamp_values.map {|ts| ts && ts.to_i }
         )
         @timestamp_msec_array = Arrow::TimestampArray.new(
           :milli,
-          @timestamp_values.map {|ts| (ts.to_r * 1_000).to_i }
+          @timestamp_values.map {|ts| ts && (ts.to_r * 1_000).to_i }
         )
         @timestamp_usec_array = Arrow::TimestampArray.new(
           :micro,
-          @timestamp_values.map {|ts| (ts.to_r * 1_000_000).to_i }
+          @timestamp_values.map {|ts| ts && (ts.to_r * 1_000_000).to_i }
         )
 
         @list_values = [
           [true, false],
           nil,
           [false, true, false, false],
-          [true]
+          [true],
+          [false, true, true]
         ]
         @list_array = Arrow::ListArray.new(
           # FIXME: `name:` should be "item".  I don't know why it is.
@@ -199,6 +203,7 @@ class RecordBatchTest < Test::Unit::TestCase
           [true, 3.14, 'a'],
           nil,
           [false, 2.71, 'c'],
+          nil,
           [true, Float::INFINITY, 'z'],
         ]
         @struct_array = Arrow::StructArray.new(
@@ -210,11 +215,15 @@ class RecordBatchTest < Test::Unit::TestCase
           @struct_values
         )
 
-        dense_union_type_ids = [ 0, 1, 1, 0 ]
-        dense_union_offsets = [ 0, 0, 1, 1 ]
+        dense_union_type_ids = [ 0, 1, 1, 0, 2 ]
+        dense_union_offsets = [ 0, 0, 1, 1, 0 ]
         dense_union_children = [
           Arrow::Int32Array.new([42, -42]),
-          Arrow::StringArray.new(%w[foo ほげ])
+          Arrow::StringArray.new(%w[foo ほげ]),
+          Arrow::Decimal128Array.new(
+            Arrow::Decimal128DataType.new(8, 2),
+            ['3.14']
+          )
         ]
         # TODO: we should test with non-continuous type codes, but we cannot
         # because arrow-glib hasn't support to make an array of a union type
@@ -226,7 +235,7 @@ class RecordBatchTest < Test::Unit::TestCase
         )
 
         @dict_vocab = Arrow::StringArray.new(['foo', 'bar', 'baz'])
-        @dict_indices = [0, 1, 2, 1]
+        @dict_indices = [0, 1, 2, 1, 0]
         @dict_array = Arrow::DictionaryArray.new(
           Arrow::DictionaryDataType.new(:int8, @dict_vocab, true),
           Arrow::Int8Array.new(@dict_indices)
@@ -295,6 +304,7 @@ class RecordBatchTest < Test::Unit::TestCase
 
       test("convert_decimal: true") do
         @expected_columnar_result[3] = @decimal128_values.map {|x| x && BigDecimal(x) }
+        @expected_columnar_result[11][-1] = BigDecimal('3.14')
 
         raw_records = @record_batch.raw_records(convert_decimal: true)
         assert_equal(@expected_columnar_result.transpose, raw_records)
