@@ -88,6 +88,13 @@ class ArrayConverter : public arrow::ArrayVisitor {
 
 #undef CONVERT_FLOAT
 
+  inline VALUE ConvertValue(const arrow::HalfFloatArray& array, const int64_t i) {
+    // FIXME: should convert to Float
+    return rb::protect([&]{
+      return LONG2FIX(static_cast<long>(array.Value(i)));
+    });
+  }
+
   inline VALUE ConvertValue(const arrow::BinaryArray& array, const int64_t i) {
     int32_t length;
     const uint8_t* ptr = array.GetValue(i, &length);
@@ -175,6 +182,7 @@ class ArrayConverter : public arrow::ArrayVisitor {
   VISIT_CONVERT_VALUE(UInt64)
   VISIT_CONVERT_VALUE(Float)
   VISIT_CONVERT_VALUE(Double)
+  VISIT_CONVERT_VALUE(HalfFloat)
   VISIT_CONVERT_VALUE(String)
   VISIT_CONVERT_VALUE(Time32)
   VISIT_CONVERT_VALUE(Time64)
@@ -199,11 +207,6 @@ class ArrayConverter : public arrow::ArrayVisitor {
       }
     }
     return Status::OK();
-  }
-
-  Status Visit(const arrow::HalfFloatArray& array) override {
-    // FIXME
-    return NotImplemented("HalfFloatArray");
   }
 
   Status Visit(const arrow::Date32Array& array) override {
