@@ -90,11 +90,12 @@ set(ARROW_SRCS
     memory_pool.cc
     pretty_print.cc
     record_batch.cc
+    scalar.cc
+    sparse_tensor.cc
     status.cc
     table.cc
     table_builder.cc
     tensor.cc
-    sparse_tensor.cc
     type.cc
     visitor.cc
     csv/converter.cc
@@ -306,6 +307,7 @@ add_arrow_test(buffer-test)
 add_arrow_test(memory_pool-test)
 add_arrow_test(pretty_print-test)
 add_arrow_test(public-api-test)
+add_arrow_test(scalar-test)
 add_arrow_test(status-test)
 add_arrow_test(stl-test)
 add_arrow_test(type-test)
