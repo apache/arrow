@@ -210,6 +210,21 @@ class RecordBatchTest < Test::Unit::TestCase
           @struct_values
         )
 
+        dense_union_type_ids = [ 0, 1, 1, 0 ]
+        dense_union_offsets = [ 0, 0, 1, 1 ]
+        dense_union_children = [
+          Arrow::Int32Array.new([42, -42]),
+          Arrow::StringArray.new(%w[foo ほげ])
+        ]
+        # TODO: we should test with non-continuous type codes, but we cannot
+        # because arrow-glib hasn't support to make an array of a union type
+        # with non-continuous type codes.
+        @dense_union_array = Arrow::DenseUnionArray.new(
+          Arrow::Int8Array.new(dense_union_type_ids),
+          Arrow::Int32Array.new(dense_union_offsets),
+          dense_union_children
+        )
+
         @dict_vocab = Arrow::StringArray.new(['foo', 'bar', 'baz'])
         @dict_indices = [0, 1, 2, 1]
         @dict_array = Arrow::DictionaryArray.new(
@@ -229,6 +244,7 @@ class RecordBatchTest < Test::Unit::TestCase
           timestamp_usec: @timestamp_usec_array.value_data_type,
           list: @list_array.value_data_type,
           struct: @struct_array.value_data_type,
+          dense_union: @dense_union_array.value_data_type,
           dict: @dict_array.value_data_type
         )
 
@@ -246,6 +262,7 @@ class RecordBatchTest < Test::Unit::TestCase
             @timestamp_usec_array,
             @list_array,
             @struct_array,
+            @dense_union_array,
             @dict_array
           ]
         )
@@ -263,6 +280,10 @@ class RecordBatchTest < Test::Unit::TestCase
           @timestamp_values,
           @list_values.map {|x| x && Arrow::BooleanArray.new(x) },
           @struct_values.map {|x| struct_field_names.zip(x || []).to_h },
+          dense_union_type_ids.map.with_index {|tid, i|
+            offset = dense_union_offsets[i]
+            dense_union_children[tid][offset]
+          },
           @dict_indices
         ]
       end

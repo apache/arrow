@@ -19,6 +19,8 @@
 
 #include <arrow-glib/decimal128.hpp>
 
+#include <cassert>
+
 namespace red_arrow {
 
 namespace {
@@ -32,6 +34,10 @@ class ArrayConverter : public arrow::ArrayVisitor {
  protected:
   Status NotImplemented(char const* message) {
     return Status::NotImplemented(message);
+  }
+
+  inline VALUE ConvertValue(const arrow::NullArray& array, const int64_t i) {
+    return Qnil;
   }
 
   inline VALUE ConvertValue(const arrow::BooleanArray& array, const int64_t i) {
@@ -138,6 +144,76 @@ class ArrayConverter : public arrow::ArrayVisitor {
     });
   }
 
+  inline VALUE ConvertSparseUnionArray(const arrow::UnionArray& array, const int64_t i) {
+    assert(array.mode() == arrow::UnionMode::SPARSE);
+
+    // TODO: NotImplemented("SparseUnionArray");
+    throw rb::error(rb_eNotImpError, "SparseUnionArray");
+  }
+
+  inline VALUE ConvertDenseUnionArray(const arrow::UnionArray& array, const int64_t i) {
+    assert(array.mode() == arrow::UnionMode::DENSE);
+
+    const auto* type_ids = array.raw_type_ids();
+    const auto* value_offsets = array.raw_value_offsets();
+    const auto offset = value_offsets[i];
+    const auto& child_array = *array.UnsafeChild(type_ids[i]);
+#define CHILD_ARRAY_CONVERT_VALUE_INLINE(TYPE_CLASS) \
+  case arrow::TYPE_CLASS::type_id: \
+    { \
+      using ArrayType = typename arrow::TypeTraits<arrow::TYPE_CLASS>::ArrayType; \
+      return ConvertValue(arrow::internal::checked_cast<const ArrayType&>(child_array), offset); \
+    }
+
+    switch (child_array.type_id()) {
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(NullType);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(BooleanType);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(Int8Type);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(UInt8Type);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(Int16Type);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(UInt16Type);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(Int32Type);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(UInt32Type);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(Int64Type);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(UInt64Type);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(HalfFloatType);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(FloatType);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(DoubleType);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(StringType);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(BinaryType);
+      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(FixedSizeBinaryType);
+      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(Date32Type);
+      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(Date64Type);
+      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(TimestampType);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(Time32Type);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(Time64Type);
+      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(Decimal128Type);
+      CHILD_ARRAY_CONVERT_VALUE_INLINE(ListType);
+      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(StructType);
+      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(UnionType);
+      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(DictionaryType);
+      default:
+        break;
+    }
+#undef ARRAY_CONVERT_VALUE_INLINE
+
+    // TODO: NotImplemented("Unsupported dense union element");
+    throw rb::error(rb_eNotImpError, "Unsupported dense union element");
+  }
+
+  inline VALUE ConvertValue(const arrow::UnionArray& array, const int64_t i) {
+    switch (array.mode()) {
+      case arrow::UnionMode::SPARSE:
+        return ConvertSparseUnionArray(array, i);
+
+      case arrow::UnionMode::DENSE:
+        return ConvertDenseUnionArray(array, i);
+    }
+
+    // TODO: return Status::Invalid("Invalid union mode");
+    throw rb::error(rb_eRuntimeError, "Invalid union mode");
+  }
+
   Status Visit(const arrow::NullArray& array) override {
     const int64_t nr = array.length();
     for (int64_t i = 0; i < nr; ++i) {
@@ -187,6 +263,7 @@ class ArrayConverter : public arrow::ArrayVisitor {
   VISIT_CONVERT_VALUE(Time32)
   VISIT_CONVERT_VALUE(Time64)
   VISIT_CONVERT_VALUE(List)
+  VISIT_CONVERT_VALUE(Union)
 
 #undef VISIT_CONVERT_VALUE
 
@@ -313,11 +390,6 @@ class ArrayConverter : public arrow::ArrayVisitor {
         return value;
       });
     }
-  }
-
-  Status Visit(const arrow::UnionArray& array) override {
-    // FIXME
-    return NotImplemented("UnionArray");
   }
 
   Status Visit(const arrow::DictionaryArray& array) override {
