@@ -22,5 +22,5 @@ ADD_ARROW_TEST(cast-test PREFIX "arrow-compute")
 ADD_ARROW_TEST(hash-test PREFIX "arrow-compute")
 
 # Aggregates
-ADD_ARROW_TEST(sum-test PREFIX "arrow-compute")
-ADD_ARROW_BENCHMARK(sum-benchmark PREFIX "arrow-compute")
+ADD_ARROW_TEST(aggregate-test PREFIX "arrow-compute")
+ADD_ARROW_BENCHMARK(aggregate-benchmark PREFIX "arrow-compute")
