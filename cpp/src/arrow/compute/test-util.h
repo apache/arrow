@@ -25,6 +25,7 @@
 
 #include "arrow/array.h"
 #include "arrow/memory_pool.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 
