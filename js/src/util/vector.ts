@@ -96,8 +96,8 @@ export function createElementComparator(search: any) {
             return true;
         };
     }
-    // Compare Rows and Vectors
-    if ((search instanceof Row) || (search instanceof Vector)) {
+    // Compare Vectors
+    if (search instanceof Vector) {
         const n = search.length;
         const C = search.constructor as any;
         const fns = [] as ((x: any) => boolean)[];
@@ -106,6 +106,21 @@ export function createElementComparator(search: any) {
         }
         return (value: any) => {
             if (!(value instanceof C)) { return false; }
+            if (!(value.length === n)) { return false; }
+            for (let i = -1; ++i < n;) {
+                if (!(fns[i](value.get(i)))) { return false; }
+            }
+            return true;
+        };
+    }
+    // Compare Rows
+    if (search instanceof Row) {
+        const n = search.length;
+        const fns = [] as ((x: any) => boolean)[];
+        for (let i = -1; ++i < n;) {
+            fns[i] = createElementComparator((search as any).get(i));
+        }
+        return (value: any) => {
             if (!(value.length === n)) { return false; }
             for (let i = -1; ++i < n;) {
                 if (!(fns[i](value.get(i)))) { return false; }
