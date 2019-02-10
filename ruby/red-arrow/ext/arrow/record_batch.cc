@@ -34,6 +34,103 @@ class ArrayConverter : public arrow::ArrayVisitor {
     return Status::NotImplemented(message);
   }
 
+  inline VALUE ConvertValue(const arrow::BooleanArray& array, const int64_t i) {
+    bool value = array.Value(i);
+    return value ? Qtrue : Qfalse;
+  }
+
+  template <typename ArrayType>
+  inline VALUE ConvertSignedIntegerValue(const ArrayType& array, const int64_t i) {
+    return rb::protect([&]{ return LL2NUM(array.Value(i)); });
+  }
+
+#define CONVERT_SIGNED_INTEGER(TYPE) \
+  VALUE ConvertValue(const TYPE& array, const int64_t i) { \
+    return ConvertSignedIntegerValue<TYPE>(array, i); \
+  }
+
+  CONVERT_SIGNED_INTEGER(arrow::Int8Array)
+  CONVERT_SIGNED_INTEGER(arrow::Int16Array)
+  CONVERT_SIGNED_INTEGER(arrow::Int32Array)
+  CONVERT_SIGNED_INTEGER(arrow::Int64Array)
+
+#undef CONVERT_SIGNED_INTEGER
+
+  template <typename ArrayType>
+  inline VALUE ConvertUnsignedIntegerValue(const ArrayType& array, const int64_t i) {
+    return rb::protect([&]{ return ULL2NUM(array.Value(i)); });
+  }
+
+#define CONVERT_UNSIGNED_INTEGER(TYPE) \
+  VALUE ConvertValue(const TYPE& array, const int64_t i) { \
+    return ConvertUnsignedIntegerValue<TYPE>(array, i); \
+  }
+
+  CONVERT_UNSIGNED_INTEGER(arrow::UInt8Array)
+  CONVERT_UNSIGNED_INTEGER(arrow::UInt16Array)
+  CONVERT_UNSIGNED_INTEGER(arrow::UInt32Array)
+  CONVERT_UNSIGNED_INTEGER(arrow::UInt64Array)
+
+#undef CONVERT_UNSIGNED_INTEGER
+
+  template <typename ArrayType>
+  inline VALUE ConvertFloatValue(const ArrayType& array, const int64_t i) {
+    return rb::protect([&]{ return DBL2NUM(array.Value(i)); });
+  }
+
+#define CONVERT_FLOAT(TYPE) \
+  VALUE ConvertValue(const TYPE& array, const int64_t i) { \
+    return ConvertFloatValue<TYPE>(array, i); \
+  }
+
+  CONVERT_FLOAT(arrow::FloatArray)
+  CONVERT_FLOAT(arrow::DoubleArray)
+
+#undef CONVERT_FLOAT
+
+  inline VALUE ConvertValue(const arrow::BinaryArray& array, const int64_t i) {
+    int32_t length;
+    const uint8_t* ptr = array.GetValue(i, &length);
+    return rb::protect([&]{
+      return rb_str_new(reinterpret_cast<const char*>(ptr), length);
+    });
+  }
+
+  inline VALUE ConvertValue(const arrow::StringArray& array, const int64_t i) {
+    int32_t length;
+    const uint8_t* ptr = array.GetValue(i, &length);
+    // TODO: encoding support
+    return rb::protect([&]{
+      return rb_str_new(reinterpret_cast<const char*>(ptr), length);
+    });
+  }
+
+  inline VALUE ConvertValue(const arrow::Time32Array& array, const int64_t i) {
+    // TODO: must test this function
+    // TODO: unit treatment
+    return rb::protect([&]{
+      auto raw_value = array.Value(i);
+      return LONG2NUM(raw_value);
+    });
+  }
+
+  inline VALUE ConvertValue(const arrow::Time64Array& array, const int64_t i) {
+    // TODO: must test this function
+    // TODO: unit treatment
+    return rb::protect([&]{
+      auto raw_value = array.Value(i);
+      return LL2NUM(raw_value);
+    });
+  }
+
+  inline VALUE ConvertValue(const arrow::ListArray& array, const int64_t i) {
+    return rb::protect([&]{
+      auto list = array.values()->Slice(array.value_offset(i), array.value_length(i));
+      auto gobj = garrow_array_new_raw(&list);
+      return GOBJ2RVAL(gobj);
+    });
+  }
+
   Status Visit(const arrow::NullArray& array) override {
     const int64_t nr = array.length();
     for (int64_t i = 0; i < nr; ++i) {
@@ -42,6 +139,48 @@ class ArrayConverter : public arrow::ArrayVisitor {
     }
     return Status::OK();
   }
+
+  template <typename TYPE>
+  inline Status VisitConvertValue(const TYPE& array) {
+    const int64_t nr = array.length();
+    if (array.null_count() > 0) {
+      for (int64_t i = 0; i < nr; ++i) {
+        if (array.IsNull(i)) {
+          RETURN_NOT_OK(VisitValue(i, Qnil));
+        } else {
+          RETURN_NOT_OK(VisitValue(i, ConvertValue(array, i)));
+        }
+      }
+    } else {
+      for (int64_t i = 0; i < nr; ++i) {
+        RETURN_NOT_OK(VisitValue(i, ConvertValue(array, i)));
+      }
+    }
+    return Status::OK();
+  }
+
+#define VISIT_CONVERT_VALUE(TYPE) \
+  Status Visit(const arrow::TYPE ## Array& array) override { \
+    return VisitConvertValue<arrow::TYPE ## Array>(array); \
+  }
+
+  VISIT_CONVERT_VALUE(Boolean)
+  VISIT_CONVERT_VALUE(Int8)
+  VISIT_CONVERT_VALUE(Int16)
+  VISIT_CONVERT_VALUE(Int32)
+  VISIT_CONVERT_VALUE(Int64)
+  VISIT_CONVERT_VALUE(UInt8)
+  VISIT_CONVERT_VALUE(UInt16)
+  VISIT_CONVERT_VALUE(UInt32)
+  VISIT_CONVERT_VALUE(UInt64)
+  VISIT_CONVERT_VALUE(Float)
+  VISIT_CONVERT_VALUE(Double)
+  VISIT_CONVERT_VALUE(String)
+  VISIT_CONVERT_VALUE(Time32)
+  VISIT_CONVERT_VALUE(Time64)
+  VISIT_CONVERT_VALUE(List)
+
+#undef VISIT_CONVERT_VALUE
 
   template <typename ArrayType>
   Status VisitColumn(const ArrayType& array, std::function<VALUE(const int64_t)> fetch_value) {
@@ -62,69 +201,10 @@ class ArrayConverter : public arrow::ArrayVisitor {
     return Status::OK();
   }
 
-  Status Visit(const arrow::BooleanArray& array) override {
-    return VisitColumn(array, [&](const int64_t i) {
-      bool value = array.Value(i);
-      return value ? Qtrue : Qfalse;
-    });
-  }
-
-  template <typename ArrayType>
-  Status VisitSignedInteger(const ArrayType& array) {
-    return VisitColumn(array, [&](const int64_t i) {
-      VALUE value = rb::protect([&]{ return LL2NUM(array.Value(i)); });
-      return value;
-    });
-  }
-
-#define VISIT_SIGNED_INTEGER(TYPE) \
-  Status Visit(const TYPE& array) override { return VisitSignedInteger<TYPE>(array); }
-
-  VISIT_SIGNED_INTEGER(arrow::Int8Array)
-  VISIT_SIGNED_INTEGER(arrow::Int16Array)
-  VISIT_SIGNED_INTEGER(arrow::Int32Array)
-  VISIT_SIGNED_INTEGER(arrow::Int64Array)
-
-#undef VISIT_SIGNED_INTEGER
-
-  template <typename ArrayType>
-  Status VisitUnsignedInteger(const ArrayType& array) {
-    return VisitColumn(array, [&](int i) {
-      VALUE value = rb::protect([&]{ return ULL2NUM(array.Value(i)); });
-      return value;
-    });
-  }
-
-#define VISIT_UNSIGNED_INTEGER(TYPE) \
-  Status Visit(const TYPE& array) override { return VisitUnsignedInteger<TYPE>(array); }
-
-  VISIT_UNSIGNED_INTEGER(arrow::UInt8Array)
-  VISIT_UNSIGNED_INTEGER(arrow::UInt16Array)
-  VISIT_UNSIGNED_INTEGER(arrow::UInt32Array)
-  VISIT_UNSIGNED_INTEGER(arrow::UInt64Array)
-
-#undef VISIT_UNSIGNED_INTEGER
-
   Status Visit(const arrow::HalfFloatArray& array) override {
     // FIXME
     return NotImplemented("HalfFloatArray");
   }
-
-  template <typename ArrayType>
-  Status VisitFloat(const ArrayType& array) {
-    return VisitColumn(array, [&](const int64_t i) {
-      VALUE value = rb::protect([&]{ return DBL2NUM(array.Value(i)); });
-      return value;
-    });
-  }
-
-#define VISIT_FLOAT(TYPE) \
-  Status Visit(const TYPE& array) override { return VisitFloat<TYPE>(array); }
-
-  VISIT_FLOAT(arrow::FloatArray)
-  VISIT_FLOAT(arrow::DoubleArray)
-
-#undef VISIT_FLOAT
 
   Status Visit(const arrow::Date32Array& array) override {
     ID id_jd;
@@ -196,30 +276,6 @@ class ArrayConverter : public arrow::ArrayVisitor {
     });
   }
 
-  Status Visit(const arrow::Time32Array& array) override {
-    // TODO: must test this function
-    // TODO: unit treatment
-    return VisitColumn(array, [&](const int64_t i) {
-      VALUE value = rb::protect([&]{
-        auto raw_value = array.Value(i);
-        return LONG2NUM(raw_value);
-      });
-      return value;
-    });
-  }
-
-  Status Visit(const arrow::Time64Array& array) override {
-    // TODO: must test this function
-    // TODO: unit treatment
-    return VisitColumn(array, [&](const int64_t i) {
-      VALUE value = rb::protect([&]{
-        auto raw_value = array.Value(i);
-        return LL2NUM(raw_value);
-      });
-      return value;
-    });
-  }
-
   Status Visit(const arrow::FixedSizeBinaryArray& array) override {
     const auto byte_width = array.byte_width();
     VALUE buffer = rb::protect([&]{
@@ -254,40 +310,6 @@ class ArrayConverter : public arrow::ArrayVisitor {
         return value;
       });
     }
-  }
-
-  Status Visit(const arrow::BinaryArray& array) override {
-    return VisitColumn(array, [&](const int64_t i) {
-      int32_t length;
-      const uint8_t* ptr = array.GetValue(i, &length);
-      VALUE value = rb::protect([&]{
-        return rb_str_new(reinterpret_cast<const char*>(ptr), length);
-      });
-      return value;
-    });
-  }
-
-  Status Visit(const arrow::StringArray& array) override {
-    return VisitColumn(array, [&](const int64_t i) {
-      int32_t length;
-      const uint8_t* ptr = array.GetValue(i, &length);
-      // TODO: encoding support
-      VALUE value = rb::protect([&]{
-        return rb_str_new(reinterpret_cast<const char*>(ptr), length);
-      });
-      return value;
-    });
-  }
-
-  Status Visit(const arrow::ListArray& array) override {
-    return VisitColumn(array, [&](const int64_t i) {
-      VALUE value = rb::protect([&]{
-        auto list = array.values()->Slice(array.value_offset(i), array.value_length(i));
-        auto gobj = garrow_array_new_raw(&list);
-        return GOBJ2RVAL(gobj);
-      });
-      return value;
-    });
   }
 
   Status Visit(const arrow::UnionArray& array) override {

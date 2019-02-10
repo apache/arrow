@@ -125,176 +125,158 @@ class RecordBatchTest < Test::Unit::TestCase
 
     sub_test_case("#raw_records") do
       def setup
-        @decimal_type = Arrow::Decimal128DataType.new(8, 2)
-        # FIXME: `name:` should be "item".  I don't know why it is.
-        # If the value of `name` is changed, the following error is occurred:
-        #
-        #     Arrow::Error::Invalid: [record-batch][new]: Invalid: Column 9
-        #     type not match schema: list<item: bool> vs list<visible: bool>
-        @list_type = Arrow::ListDataType.new(name: "item", type: :boolean)
-        @struct_type = Arrow::StructDataType.new(
-          visible: :boolean,
-          value: :double,
-          mark: :string
-        )
-        @dict_vocab = Arrow::StringArray.new(['foo', 'bar', 'baz'])
-        @dict_type = Arrow::DictionaryDataType.new(:int8, @dict_vocab, true)
-        @schema = Arrow::Schema.new(
-          name: :string,
-          count: :uint32,
-          weight: :double,
-          price: @decimal_type,
-          date32: :date32,
-          date64: :date64,
-          timestamp_sec: Arrow::TimestampDataType.new(:second),
-          timestamp_msec: Arrow::TimestampDataType.new(:milli),
-          timestamp_usec: Arrow::TimestampDataType.new(:micro),
-          flags: @list_type,
-          struct: @struct_type,
-          dict: @dict_type
-        )
+        @string_values = ["apple", "orange", "watermelon", "octopus"]
+        @string_array = Arrow::StringArray.new(@string_values)
 
-        @names = Arrow::StringArray.new(["apple", "orange", "watermelon", "octopus"])
-        @counts = Arrow::UInt32Array.new([1, 2, 4, 8])
-        @weights = Arrow::DoubleArray.new([10.1, 11.2, 12.3, 13.4])
-        @prices = Arrow::Decimal128Array.new(
-          @decimal_type,
-          [
-            Arrow::Decimal128.new("123.45"),
-            Arrow::Decimal128.new("234.56"),
-            nil,
-            Arrow::Decimal128.new("345.67")
-          ])
+        @uint32_values = [1, 2, 4, 8]
+        @uint32_array = Arrow::UInt32Array.new(@uint32_values)
 
-        @date32_expected = [
+        @double_values = [10.1, 11.2, 12.3, 13.4]
+        @double_array = Arrow::DoubleArray.new(@double_values)
+
+        @decimal128_values = ['123.45', '234.56', nil, '345.67']
+        @decimal128_array = Arrow::Decimal128Array.new(
+          Arrow::Decimal128DataType.new(8, 2), @decimal128_values)
+
+        @date32_values = [
           Date.new(1993,  2, 24),
           Date.new(1996, 12, 25),
           Date.new(2013,  2, 24),
           Date.new(2020, 12, 25)
         ]
         epoch_date = Date.new(1970, 1, 1)
-        @date32 = Arrow::Date32Array.new(
-          @date32_expected.map {|dt| (dt - epoch_date).to_i }
+        @date32_array = Arrow::Date32Array.new(
+          @date32_values.map {|dt| (dt - epoch_date).to_i }
         )
 
-        @date64_expected = [
+        @date64_values = [
           DateTime.new(1993,  2, 23, 15, 0, 0),
           DateTime.new(1996, 12, 24, 15, 0, 0),
           DateTime.new(2013,  2, 23, 15, 0, 0),
           DateTime.new(2020, 12, 24, 15, 0, 0)
         ]
-        @date64 = Arrow::Date64Array.new(
-          @date64_expected.map {|dt| dt.to_time.gmtime.to_i * 1000 }
+        @date64_array = Arrow::Date64Array.new(
+          @date64_values.map {|dt| dt.to_time.gmtime.to_i * 1000 }
         )
 
         jst = '+09:00'
-        @timestamp_expected = [
+        @timestamp_values = [
           Time.new(1993,  2, 24, 0, 0, 0, jst).gmtime,
           Time.new(1996, 12, 25, 0, 0, 0, jst).gmtime,
           Time.new(2013,  2, 24, 0, 0, 0, jst).gmtime,
           Time.new(2020, 12, 25, 0, 0, 0, jst).gmtime
         ]
-        @timestamp_sec = Arrow::TimestampArray.new(
+        @timestamp_sec_array = Arrow::TimestampArray.new(
           :second,
-          @timestamp_expected.map(&:to_i)
+          @timestamp_values.map(&:to_i)
         )
-        @timestamp_msec = Arrow::TimestampArray.new(
+        @timestamp_msec_array = Arrow::TimestampArray.new(
           :milli,
-          @timestamp_expected.map {|ts| (ts.to_r * 1_000).to_i }
+          @timestamp_values.map {|ts| (ts.to_r * 1_000).to_i }
         )
-        @timestamp_usec = Arrow::TimestampArray.new(
+        @timestamp_usec_array = Arrow::TimestampArray.new(
           :micro,
-          @timestamp_expected.map {|ts| (ts.to_r * 1_000_000).to_i }
+          @timestamp_values.map {|ts| (ts.to_r * 1_000_000).to_i }
         )
 
-        @list_raw_values = [
+        @list_values = [
           [true, false],
           nil,
           [false, true, false, false],
           [true]
         ]
-        @list = Arrow::ListArray.new(@list_type, @list_raw_values)
+        @list_array = Arrow::ListArray.new(
+          # FIXME: `name:` should be "item".  I don't know why it is.
+          # If the value of `name` is changed, the following error is occurred:
+          #
+          #     Arrow::Error::Invalid: [record-batch][new]: Invalid: Column 9
+          #     type not match schema: list<item: bool> vs list<visible: bool>
+          Arrow::ListDataType.new(name: "item", type: :boolean),
+          @list_values
+        )
 
-        @struct_raw_values = [
+        @struct_values = [
           [true, 3.14, 'a'],
           nil,
           [false, 2.71, 'c'],
           [true, Float::INFINITY, 'z'],
         ]
-        @struct = Arrow::StructArray.new(
-          @struct_type,
-          @struct_raw_values
+        @struct_array = Arrow::StructArray.new(
+          Arrow::StructDataType.new(
+            visible: :boolean,
+            value: :double,
+            mark: :string
+          ),
+          @struct_values
         )
 
+        @dict_vocab = Arrow::StringArray.new(['foo', 'bar', 'baz'])
         @dict_indices = [0, 1, 2, 1]
-        @dict = Arrow::DictionaryArray.new(@dict_type,
-                                           Arrow::Int8Array.new(@dict_indices))
+        @dict_array = Arrow::DictionaryArray.new(
+          Arrow::DictionaryDataType.new(:int8, @dict_vocab, true),
+          Arrow::Int8Array.new(@dict_indices)
+        )
+
+        @schema = Arrow::Schema.new(
+          string: :string,
+          uint32: :uint32,
+          double: :double,
+          decimal128: @decimal128_array.value_data_type,
+          date32: :date32,
+          date64: :date64,
+          timestamp_sec: @timestamp_sec_array.value_data_type,
+          timestamp_msec: @timestamp_msec_array.value_data_type,
+          timestamp_usec: @timestamp_usec_array.value_data_type,
+          list: @list_array.value_data_type,
+          struct: @struct_array.value_data_type,
+          dict: @dict_array.value_data_type
+        )
 
         @record_batch = Arrow::RecordBatch.new(
-          @schema, @counts.length,
+          @schema, @string_values.length,
           [
-            @names,
-            @counts,
-            @weights,
-            @prices,
-            @date32,
-            @date64,
-            @timestamp_sec,
-            @timestamp_msec,
-            @timestamp_usec,
-            @list,
-            @struct,
-            @dict
+            @string_array,
+            @uint32_array,
+            @double_array,
+            @decimal128_array,
+            @date32_array,
+            @date64_array,
+            @timestamp_sec_array,
+            @timestamp_msec_array,
+            @timestamp_usec_array,
+            @list_array,
+            @struct_array,
+            @dict_array
           ]
         )
+
+        struct_field_names = @struct_array.value_data_type.fields.map(&:name)
+        @expected_columnar_result = [
+          @string_values,
+          @uint32_values,
+          @double_values,
+          @decimal128_values.map {|d| d && Arrow::Decimal128.new(d) },
+          @date32_values,
+          @date64_values,
+          @timestamp_values,
+          @timestamp_values,
+          @timestamp_values,
+          @list_values.map {|x| x && Arrow::BooleanArray.new(x) },
+          @struct_values.map {|x| struct_field_names.zip(x || []).to_h },
+          @dict_indices
+        ]
       end
 
       test("default") do
         raw_records = @record_batch.raw_records
-        expected = [
-          ["apple",      1, 10.1, Arrow::Decimal128.new("123.45")],
-          ["orange",     2, 11.2, Arrow::Decimal128.new("234.56")],
-          ["watermelon", 4, 12.3, nil],
-          ["octopus",    8, 13.4, Arrow::Decimal128.new("345.67")],
-        ]
-        @date32_expected.each_with_index {|x, i| expected[i] << x }
-        @date64_expected.each_with_index {|x, i| expected[i] << x }
-        @timestamp_expected.each_with_index {|x, i| expected[i] << x }
-        @timestamp_expected.each_with_index {|x, i| expected[i] << x }
-        @timestamp_expected.each_with_index {|x, i| expected[i] << x }
-        @list_raw_values.each_with_index {|x, i|
-          expected[i] << (x ? Arrow::BooleanArray.new(x) : nil)
-        }
-        struct_names = @struct_type.fields.map(&:name)
-        @struct_raw_values.each_with_index {|x, i|
-          expected[i] << struct_names.zip(x || []).to_h
-        }
-        @dict_indices.each_with_index {|x, i| expected[i] << x }
-        assert_equal(expected, raw_records)
+        assert_equal(@expected_columnar_result.transpose, raw_records)
       end
 
       test("convert_decimal: true") do
+        @expected_columnar_result[3] = @decimal128_values.map {|x| x && BigDecimal(x) }
+
         raw_records = @record_batch.raw_records(convert_decimal: true)
-        expected = [
-          ["apple",      1, 10.1, BigDecimal("123.45")],
-          ["orange",     2, 11.2, BigDecimal("234.56")],
-          ["watermelon", 4, 12.3, nil],
-          ["octopus",    8, 13.4, BigDecimal("345.67")],
-        ]
-        @date32_expected.each_with_index {|x, i| expected[i] << x }
-        @date64_expected.each_with_index {|x, i| expected[i] << x }
-        @timestamp_expected.each_with_index {|x, i| expected[i] << x }
-        @timestamp_expected.each_with_index {|x, i| expected[i] << x }
-        @timestamp_expected.each_with_index {|x, i| expected[i] << x }
-        @list_raw_values.each_with_index {|x, i|
-          expected[i] << (x ? Arrow::BooleanArray.new(x) : nil)
-        }
-        struct_names = @struct_type.fields.map(&:name)
-        @struct_raw_values.each_with_index {|x, i|
-          expected[i] << struct_names.zip(x || []).to_h
-        }
-        @dict_indices.each_with_index {|x, i| expected[i] << x }
-        assert_equal(expected, raw_records)
+        assert_equal(@expected_columnar_result.transpose, raw_records)
       end
     end
   end
