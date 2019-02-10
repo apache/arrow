@@ -36,6 +36,50 @@ class ArrayConverter : public arrow::ArrayVisitor {
     return Status::NotImplemented(message);
   }
 
+  inline VALUE ConvertValue(const arrow::Array& array, const int64_t i) {
+#define ARRAY_CONVERT_VALUE_INLINE(TYPE_CLASS) \
+  case arrow::TYPE_CLASS::type_id: \
+    { \
+      using ArrayType = typename arrow::TypeTraits<arrow::TYPE_CLASS>::ArrayType; \
+      return ConvertValue(arrow::internal::checked_cast<const ArrayType&>(array), i); \
+    }
+
+    switch (array.type_id()) {
+      ARRAY_CONVERT_VALUE_INLINE(NullType);
+      ARRAY_CONVERT_VALUE_INLINE(BooleanType);
+      ARRAY_CONVERT_VALUE_INLINE(Int8Type);
+      ARRAY_CONVERT_VALUE_INLINE(UInt8Type);
+      ARRAY_CONVERT_VALUE_INLINE(Int16Type);
+      ARRAY_CONVERT_VALUE_INLINE(UInt16Type);
+      ARRAY_CONVERT_VALUE_INLINE(Int32Type);
+      ARRAY_CONVERT_VALUE_INLINE(UInt32Type);
+      ARRAY_CONVERT_VALUE_INLINE(Int64Type);
+      ARRAY_CONVERT_VALUE_INLINE(UInt64Type);
+      ARRAY_CONVERT_VALUE_INLINE(HalfFloatType);
+      ARRAY_CONVERT_VALUE_INLINE(FloatType);
+      ARRAY_CONVERT_VALUE_INLINE(DoubleType);
+      ARRAY_CONVERT_VALUE_INLINE(Decimal128Type);
+      ARRAY_CONVERT_VALUE_INLINE(StringType);
+      ARRAY_CONVERT_VALUE_INLINE(BinaryType);
+      // TODO: ARRAY_CONVERT_VALUE_INLINE(FixedSizeBinaryType);
+      // TODO: ARRAY_CONVERT_VALUE_INLINE(Date32Type);
+      // TODO: ARRAY_CONVERT_VALUE_INLINE(Date64Type);
+      // TODO: ARRAY_CONVERT_VALUE_INLINE(TimestampType);
+      ARRAY_CONVERT_VALUE_INLINE(Time32Type);
+      ARRAY_CONVERT_VALUE_INLINE(Time64Type);
+      ARRAY_CONVERT_VALUE_INLINE(ListType);
+      // TODO: ARRAY_CONVERT_VALUE_INLINE(StructType);
+      // TODO: ARRAY_CONVERT_VALUE_INLINE(DictionaryType);
+      // TODO: ARRAY_CONVERT_VALUE_INLINE(UnionType);
+      default:
+        break;
+    }
+#undef ARRAY_CONVERT_VALUE_INLINE
+
+    // TODO: NotImplemented("Unsupported array in ConvertValue");
+    throw rb::error(rb_eNotImpError, "Unsupported array in ConvertValue");
+  }
+
   inline VALUE ConvertValue(const arrow::NullArray& array, const int64_t i) {
     return Qnil;
   }
@@ -161,59 +205,18 @@ class ArrayConverter : public arrow::ArrayVisitor {
 
   inline VALUE ConvertSparseUnionArray(const arrow::UnionArray& array, const int64_t i) {
     assert(array.mode() == arrow::UnionMode::SPARSE);
-
-    // TODO: NotImplemented("SparseUnionArray");
-    throw rb::error(rb_eNotImpError, "SparseUnionArray");
+    const auto* type_ids = array.raw_type_ids();
+    const auto& child_array = *array.UnsafeChild(type_ids[i]);
+    return ConvertValue(child_array, i);
   }
 
   inline VALUE ConvertDenseUnionArray(const arrow::UnionArray& array, const int64_t i) {
     assert(array.mode() == arrow::UnionMode::DENSE);
-
     const auto* type_ids = array.raw_type_ids();
     const auto* value_offsets = array.raw_value_offsets();
     const auto offset = value_offsets[i];
     const auto& child_array = *array.UnsafeChild(type_ids[i]);
-#define CHILD_ARRAY_CONVERT_VALUE_INLINE(TYPE_CLASS) \
-  case arrow::TYPE_CLASS::type_id: \
-    { \
-      using ArrayType = typename arrow::TypeTraits<arrow::TYPE_CLASS>::ArrayType; \
-      return ConvertValue(arrow::internal::checked_cast<const ArrayType&>(child_array), offset); \
-    }
-
-    switch (child_array.type_id()) {
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(NullType);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(BooleanType);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(Int8Type);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(UInt8Type);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(Int16Type);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(UInt16Type);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(Int32Type);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(UInt32Type);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(Int64Type);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(UInt64Type);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(HalfFloatType);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(FloatType);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(DoubleType);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(Decimal128Type);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(StringType);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(BinaryType);
-      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(FixedSizeBinaryType);
-      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(Date32Type);
-      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(Date64Type);
-      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(TimestampType);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(Time32Type);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(Time64Type);
-      CHILD_ARRAY_CONVERT_VALUE_INLINE(ListType);
-      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(StructType);
-      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(UnionType);
-      // TODO: CHILD_ARRAY_CONVERT_VALUE_INLINE(DictionaryType);
-      default:
-        break;
-    }
-#undef ARRAY_CONVERT_VALUE_INLINE
-
-    // TODO: NotImplemented("Unsupported dense union element");
-    throw rb::error(rb_eNotImpError, "Unsupported dense union element");
+    return ConvertValue(child_array, offset);
   }
 
   inline VALUE ConvertValue(const arrow::UnionArray& array, const int64_t i) {

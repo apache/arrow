@@ -234,6 +234,20 @@ class RecordBatchTest < Test::Unit::TestCase
           dense_union_children
         )
 
+        sparse_union_type_ids = [ 0, 1, 2, 1, 0 ]
+        sparse_union_children = [
+          Arrow::Int32Array.new([42, nil, nil, nil, -42]),
+          Arrow::StringArray.new([nil, 'foo', nil, 'ほげ', nil]),
+          Arrow::Decimal128Array.new(
+            Arrow::Decimal128DataType.new(8, 2),
+            [nil, nil, '3.14', nil, nil]
+          )
+        ]
+        @sparse_union_array = Arrow::SparseUnionArray.new(
+          Arrow::Int8Array.new(sparse_union_type_ids),
+          sparse_union_children
+        )
+
         @dict_vocab = Arrow::StringArray.new(['foo', 'bar', 'baz'])
         @dict_indices = [0, 1, 2, 1, 0]
         @dict_array = Arrow::DictionaryArray.new(
@@ -254,6 +268,7 @@ class RecordBatchTest < Test::Unit::TestCase
           list: @list_array.value_data_type,
           struct: @struct_array.value_data_type,
           dense_union: @dense_union_array.value_data_type,
+          sparse_union: @sparse_union_array.value_data_type,
           dict: @dict_array.value_data_type
         )
 
@@ -272,6 +287,7 @@ class RecordBatchTest < Test::Unit::TestCase
             @list_array,
             @struct_array,
             @dense_union_array,
+            @sparse_union_array,
             @dict_array
           ]
         )
@@ -293,6 +309,9 @@ class RecordBatchTest < Test::Unit::TestCase
             offset = dense_union_offsets[i]
             dense_union_children[tid][offset]
           },
+          sparse_union_type_ids.map.with_index {|tid, i|
+            sparse_union_children[tid][i]
+          },
           @dict_indices
         ]
       end
@@ -305,6 +324,7 @@ class RecordBatchTest < Test::Unit::TestCase
       test("convert_decimal: true") do
         @expected_columnar_result[3] = @decimal128_values.map {|x| x && BigDecimal(x) }
         @expected_columnar_result[11][-1] = BigDecimal('3.14')
+        @expected_columnar_result[12][2] = BigDecimal('3.14')
 
         raw_records = @record_batch.raw_records(convert_decimal: true)
         assert_equal(@expected_columnar_result.transpose, raw_records)
