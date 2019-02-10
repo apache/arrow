@@ -43,7 +43,7 @@ struct Datum;
 /// - New (placement new constructor invocation)
 /// - Delete (state desctructor)
 ///
-/// Design borrowed from ClickHouse aggregate functions.
+/// Design inspired by ClickHouse aggregate functions.
 class AggregateFunction {
  public:
   /// \brief Consume an array into a state.

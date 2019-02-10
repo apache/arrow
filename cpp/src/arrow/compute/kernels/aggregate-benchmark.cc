@@ -237,23 +237,6 @@ struct SumBitmapReader : public Summer<T> {
   }
 };
 
-// Generated with the following Python code
-
-// output = 'static constexpr uint8_t kBytePopcount[] = {{{0}}};'
-// popcounts = [str(bin(i).count('1')) for i in range(0, 256)]
-// print(output.format(', '.join(popcounts)))
-
-static constexpr uint8_t kBytePopcount[] = {
-    0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3,
-    4, 4, 5, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4,
-    4, 5, 4, 5, 5, 6, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4,
-    5, 3, 4, 4, 5, 4, 5, 5, 6, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5,
-    4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2,
-    3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5,
-    5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4,
-    5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 3, 4, 4, 5, 4, 5, 5, 6,
-    4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8};
-
 template <typename T>
 struct SumBitmapVectorizeUnroll : public Summer<T> {
   using ArrayType = typename CTypeTraits<T>::ArrayType;
@@ -280,7 +263,7 @@ struct SumBitmapVectorizeUnroll : public Summer<T> {
         local.total += SUM_SHIFT(5);
         local.total += SUM_SHIFT(6);
         local.total += SUM_SHIFT(7);
-        local.valid_count += kBytePopcount[valid_byte];
+        local.valid_count += BitUtil::kBytePopcount[valid_byte];
       } else {
         // No nulls
         local.total += values[i + 0] + values[i + 1] + values[i + 2] + values[i + 3] +
@@ -314,7 +297,7 @@ void BenchSum(benchmark::State& state) {
 
   Traits<T>::FixSentinel(array);
 
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     SumState<T> sum_state;
     Functor::Sum(*array, &sum_state);
     benchmark::DoNotOptimize(sum_state);
@@ -349,7 +332,7 @@ static void BenchSumKernel(benchmark::State& state) {
       rand.Int64(array_size, -100, 100, null_percent));
 
   FunctionContext ctx;
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     Datum out;
     ABORT_NOT_OK(Sum(&ctx, Datum(array), &out));
     benchmark::DoNotOptimize(out);
