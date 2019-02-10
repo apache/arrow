@@ -104,6 +104,7 @@ func (tb *tensorBase) NumDims() int             { return len(tb.shape) }
 func (tb *tensorBase) DimName(i int) string     { return tb.names[i] }
 func (tb *tensorBase) DataType() arrow.DataType { return tb.dtype }
 func (tb *tensorBase) Data() *array.Data        { return tb.data }
+func (tb *tensorBase) DimNames() []string     { return tb.names }
 
 // IsMutable returns whether the underlying data buffer is mutable.
 func (tb *tensorBase) IsMutable() bool { return false } // FIXME(sbinet): implement it at the array.Data level
