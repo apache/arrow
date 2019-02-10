@@ -130,9 +130,11 @@ if (ARROW_COMPUTE)
   add_subdirectory(compute)
   set(ARROW_SRCS ${ARROW_SRCS}
     compute/context.cc
+    compute/kernels/aggregate.cc
     compute/kernels/boolean.cc
     compute/kernels/cast.cc
     compute/kernels/hash.cc
+    compute/kernels/sum.cc
     compute/kernels/util-internal.cc
   )
 endif()

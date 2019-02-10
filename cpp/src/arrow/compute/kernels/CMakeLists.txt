@@ -20,3 +20,7 @@ ARROW_INSTALL_ALL_HEADERS("arrow/compute/kernels")
 ADD_ARROW_TEST(boolean-test PREFIX "arrow-compute")
 ADD_ARROW_TEST(cast-test PREFIX "arrow-compute")
 ADD_ARROW_TEST(hash-test PREFIX "arrow-compute")
+
+# Aggregates
+ADD_ARROW_TEST(aggregate-test PREFIX "arrow-compute")
+ADD_ARROW_BENCHMARK(aggregate-benchmark PREFIX "arrow-compute")

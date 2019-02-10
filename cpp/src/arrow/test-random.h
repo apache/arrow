@@ -22,6 +22,7 @@
 #include <memory>
 #include <random>
 
+#include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -157,6 +158,45 @@ class ARROW_EXPORT RandomArrayGenerator {
   /// \return a generated Array
   std::shared_ptr<arrow::Array> Float64(int64_t size, double min, double max,
                                         double null_probability);
+
+  template <typename ArrowType, typename CType = typename ArrowType::c_type>
+  std::shared_ptr<arrow::Array> Numeric(int64_t size, CType min, CType max,
+                                        double null_probability) {
+    switch (ArrowType::type_id) {
+      case Type::UINT8:
+        return UInt8(size, static_cast<uint8_t>(min), static_cast<uint8_t>(max),
+                     null_probability);
+      case Type::INT8:
+        return Int8(size, static_cast<int8_t>(min), static_cast<int8_t>(max),
+                    null_probability);
+      case Type::UINT16:
+        return UInt16(size, static_cast<uint16_t>(min), static_cast<uint16_t>(max),
+                      null_probability);
+      case Type::INT16:
+        return Int16(size, static_cast<int16_t>(min), static_cast<int16_t>(max),
+                     null_probability);
+      case Type::UINT32:
+        return UInt32(size, static_cast<uint32_t>(min), static_cast<uint32_t>(max),
+                      null_probability);
+      case Type::INT32:
+        return Int32(size, static_cast<int32_t>(min), static_cast<int32_t>(max),
+                     null_probability);
+      case Type::UINT64:
+        return UInt64(size, static_cast<uint64_t>(min), static_cast<uint64_t>(max),
+                      null_probability);
+      case Type::INT64:
+        return Int64(size, static_cast<int64_t>(min), static_cast<int64_t>(max),
+                     null_probability);
+      case Type::FLOAT:
+        return Float32(size, static_cast<float>(min), static_cast<float>(max),
+                       null_probability);
+      case Type::DOUBLE:
+        return Float64(size, static_cast<double>(min), static_cast<double>(max),
+                       null_probability);
+      default:
+        return nullptr;
+    }
+  }
 
  private:
   SeedType seed() { return seed_distribution_(seed_rng_); }
