@@ -144,11 +144,9 @@ struct SumSentinel : public Summer<T> {
     const auto values = array.raw_values();
     const auto length = array.length();
     for (int64_t i = 0; i < length; i++) {
-      if (Traits<T>::NotNull(values[i])) {
-        // NaN is not equal to itself
-        local.total += values[i];
-        local.valid_count++;
-      }
+      // NaN is not equal to itself
+      local.total += values[i] * Traits<T>::NotNull(values[i]);
+      local.valid_count++;
     }
 
     *state = local;
@@ -162,12 +160,10 @@ struct SumSentinelUnrolled : public Summer<T> {
   static void Sum(const ArrayType& array, SumState<T>* state) {
     SumState<T> local;
 
-#define SUM_NOT_NULL(ITEM)                      \
-  do {                                          \
-    if (Traits<T>::NotNull(values[i + ITEM])) { \
-      local.total += values[i + ITEM];          \
-      local.valid_count++;                      \
-    }                                           \
+#define SUM_NOT_NULL(ITEM)                                                  \
+  do {                                                                      \
+    local.total += values[i + ITEM] * Traits<T>::NotNull(values[i + ITEM]); \
+    local.valid_count++;                                                    \
   } while (0)
 
     const auto values = array.raw_values();
@@ -187,10 +183,8 @@ struct SumSentinelUnrolled : public Summer<T> {
 #undef SUM_NOT_NULL
 
     for (int64_t i = length_rounded * 8; i < length; ++i) {
-      if (Traits<T>::NotNull(values[i])) {
-        local.total += values[i];
-        ++local.valid_count;
-      }
+      local.total += values[i] * Traits<T>::NotNull(values[i]);
+      ++local.valid_count;
     }
 
     *state = local;
