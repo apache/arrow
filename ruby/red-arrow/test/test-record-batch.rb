@@ -137,6 +137,8 @@ class RecordBatchTest < Test::Unit::TestCase
           value: :double,
           mark: :string
         )
+        @dict_vocab = Arrow::StringArray.new(['foo', 'bar', 'baz'])
+        @dict_type = Arrow::DictionaryDataType.new(:int8, @dict_vocab, true)
         @schema = Arrow::Schema.new(
           name: :string,
           count: :uint32,
@@ -148,7 +150,8 @@ class RecordBatchTest < Test::Unit::TestCase
           timestamp_msec: Arrow::TimestampDataType.new(:milli),
           timestamp_usec: Arrow::TimestampDataType.new(:micro),
           flags: @list_type,
-          struct: @struct_type
+          struct: @struct_type,
+          dict: @dict_type
         )
 
         @names = Arrow::StringArray.new(["apple", "orange", "watermelon", "octopus"])
@@ -223,6 +226,10 @@ class RecordBatchTest < Test::Unit::TestCase
           @struct_raw_values
         )
 
+        @dict_indices = [0, 1, 2, 1]
+        @dict = Arrow::DictionaryArray.new(@dict_type,
+                                           Arrow::Int8Array.new(@dict_indices))
+
         @record_batch = Arrow::RecordBatch.new(
           @schema, @counts.length,
           [
@@ -236,7 +243,8 @@ class RecordBatchTest < Test::Unit::TestCase
             @timestamp_msec,
             @timestamp_usec,
             @list,
-            @struct
+            @struct,
+            @dict
           ]
         )
       end
@@ -261,6 +269,7 @@ class RecordBatchTest < Test::Unit::TestCase
         @struct_raw_values.each_with_index {|x, i|
           expected[i] << struct_names.zip(x || []).to_h
         }
+        @dict_indices.each_with_index {|x, i| expected[i] << x }
         assert_equal(expected, raw_records)
       end
 
@@ -284,6 +293,7 @@ class RecordBatchTest < Test::Unit::TestCase
         @struct_raw_values.each_with_index {|x, i|
           expected[i] << struct_names.zip(x || []).to_h
         }
+        @dict_indices.each_with_index {|x, i| expected[i] << x }
         assert_equal(expected, raw_records)
       end
     end

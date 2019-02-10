@@ -296,8 +296,8 @@ class ArrayConverter : public arrow::ArrayVisitor {
   }
 
   Status Visit(const arrow::DictionaryArray& array) override {
-    // FIXME
-    return NotImplemented("DictionaryArray");
+    auto indices = array.indices();
+    return indices->Accept(this);
   }
 
   virtual Status VisitValue(const int64_t row_index, VALUE value) = 0;
