@@ -87,6 +87,7 @@ environment:
     #   TARGET: x86_64-pc-windows-msvc
     #   USE_CLCACHE: false
     - JOB: "C#"
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
 
   MSVC_DEFAULT_OPTIONS: ON
   APPVEYOR_SAVE_CACHE_ON_ERROR: true
