@@ -55,8 +55,6 @@ class ARROW_EXPORT NumericBuilder : public ArrayBuilder {
           ARROW_MEMORY_POOL_DEFAULT)
       : ArrayBuilder(TypeTraits<T1>::type_singleton(), pool) {}
 
-  using ArrayBuilder::Advance;
-
   /// Append a single scalar and increase the size if necessary.
   Status Append(const value_type val) {
     ARROW_RETURN_NOT_OK(ArrayBuilder::Reserve(1));
@@ -224,9 +222,6 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   explicit BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
-  using ArrayBuilder::Advance;
-  using ArrayBuilder::UnsafeAppendNull;
-
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
     ARROW_RETURN_NOT_OK(Reserve(length));
@@ -236,8 +231,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   Status AppendNull() {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    UnsafeAppendToBitmap(false);
-    data_builder_.UnsafeAppend(false);
+    UnsafeAppendNull();
     return Status::OK();
   }
 
@@ -254,6 +248,11 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   void UnsafeAppend(const bool val) {
     data_builder_.UnsafeAppend(val);
     UnsafeAppendToBitmap(true);
+  }
+
+  void UnsafeAppendNull() {
+    data_builder_.UnsafeAppend(false);
+    UnsafeAppendToBitmap(false);
   }
 
   void UnsafeAppend(const uint8_t val) { UnsafeAppend(val != 0); }

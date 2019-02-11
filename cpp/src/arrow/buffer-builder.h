@@ -56,7 +56,6 @@ class ARROW_EXPORT BufferBuilder {
     if (new_capacity == 0) {
       return Status::OK();
     }
-    int64_t old_capacity = capacity_;
 
     if (buffer_ == NULLPTR) {
       ARROW_RETURN_NOT_OK(AllocateResizableBuffer(pool_, new_capacity, &buffer_));
@@ -65,9 +64,6 @@ class ARROW_EXPORT BufferBuilder {
     }
     capacity_ = buffer_->capacity();
     data_ = buffer_->mutable_data();
-    if (capacity_ > old_capacity) {
-      memset(data_ + old_capacity, 0, capacity_ - old_capacity);
-    }
     return Status::OK();
   }
 
@@ -131,6 +127,9 @@ class ARROW_EXPORT BufferBuilder {
   // Advance pointer and zero out memory
   Status Advance(const int64_t length) { return Append(length, 0); }
 
+  // Advance pointer, but don't allocate or zero memory
+  void UnsafeAdvance(const int64_t length) { size_ += length; }
+
   // Unsafe methods don't check existing size
   void UnsafeAppend(const void* data, const int64_t length) {
     memcpy(data_ + size_, data, static_cast<size_t>(length));
@@ -153,6 +152,7 @@ class ARROW_EXPORT BufferBuilder {
   /// \return Status
   Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
     ARROW_RETURN_NOT_OK(Resize(size_, shrink_to_fit));
+    if (size_ != 0) buffer_->ZeroPadding();
     *out = buffer_;
     Reset();
     return Status::OK();
@@ -215,13 +215,13 @@ class TypedBufferBuilder<T, typename std::enable_if<std::is_arithmetic<T>::value
   void UnsafeAppend(Iter values_begin, Iter values_end) {
     int64_t num_elements = static_cast<int64_t>(std::distance(values_begin, values_end));
     auto data = mutable_data() + length();
-    bytes_builder_.UnsafeAppend(num_elements * sizeof(T), 0);
+    bytes_builder_.UnsafeAdvance(num_elements * sizeof(T));
     std::copy(values_begin, values_end, data);
   }
 
   void UnsafeAppend(const int64_t num_copies, T value) {
     auto data = mutable_data() + length();
-    bytes_builder_.UnsafeAppend(num_copies * sizeof(T), 0);
+    bytes_builder_.UnsafeAdvance(num_copies * sizeof(T));
     for (const auto end = data + num_copies; data != end; ++data) {
       *data = value;
     }
@@ -280,10 +280,13 @@ class TypedBufferBuilder<bool> {
   }
 
   void UnsafeAppend(bool value) {
-    BitUtil::SetBitTo(mutable_data(), bit_length_, value);
-    if (!value) {
-      ++false_count_;
-    }
+    auto trailing_bits = bit_length_ % 8;
+    auto current_byte = bit_length_ / 8;
+    mutable_data()[current_byte] = static_cast<uint8_t>(
+        mutable_data()[current_byte] & BitUtil::kPrecedingBitmask[trailing_bits]);
+    mutable_data()[current_byte] = static_cast<uint8_t>(
+        mutable_data()[current_byte] | BitUtil::kTrailingBitmask[trailing_bits] * value);
+    false_count_ += !value;
     ++bit_length_;
   }
 
@@ -292,7 +295,7 @@ class TypedBufferBuilder<bool> {
     int64_t i = 0;
     internal::GenerateBitsUnrolled(mutable_data(), bit_length_, num_elements, [&] {
       bool value = bytes[i++];
-      if (!value) ++false_count_;
+      false_count_ += !value;
       return value;
     });
     bit_length_ += num_elements;
@@ -300,9 +303,7 @@ class TypedBufferBuilder<bool> {
 
   void UnsafeAppend(const int64_t num_copies, bool value) {
     BitUtil::SetBitsTo(mutable_data(), bit_length_, num_copies, value);
-    if (!value) {
-      false_count_ += num_copies;
-    }
+    false_count_ += num_copies * !value;
     bit_length_ += num_copies;
   }
 
@@ -311,20 +312,15 @@ class TypedBufferBuilder<bool> {
     if (num_elements == 0) return;
     internal::GenerateBitsUnrolled(mutable_data(), bit_length_, num_elements, [&] {
       bool value = gen();
-      if (!value) ++false_count_;
+      false_count_ += !value;
       return value;
     });
     bit_length_ += num_elements;
   }
 
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
-    const int64_t old_byte_capacity = bytes_builder_.capacity();
     const int64_t new_byte_capacity = BitUtil::BytesForBits(new_capacity);
     ARROW_RETURN_NOT_OK(bytes_builder_.Resize(new_byte_capacity, shrink_to_fit));
-    if (new_byte_capacity > old_byte_capacity) {
-      memset(mutable_data() + old_byte_capacity, 0,
-             static_cast<size_t>(new_byte_capacity - old_byte_capacity));
-    }
     return Status::OK();
   }
 
