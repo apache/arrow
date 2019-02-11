@@ -31,9 +31,9 @@ MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m -Dorg.slf4j.simpleLogger.defau
 pushd /spark
   # update Spark pom with the Arrow version just installed and build Spark, need package phase for pyspark
   echo "Building Spark with Arrow $ARROW_VERSION"
-  mvn -q versions:set-property -Dproperty=arrow.version -DnewVersion=$ARROW_VERSION
+  mvn versions:set-property -Dproperty=arrow.version -DnewVersion=$ARROW_VERSION
 
-  build/mvn -DskipTests package -pl sql/core -pl assembly -am
+  build/mvn -q -DskipTests package -pl sql/core -pl assembly -am
 
   SPARK_SCALA_TESTS=(
     "org.apache.spark.sql.execution.arrow"
@@ -43,7 +43,7 @@ pushd /spark
   (echo "Testing Spark:"; IFS=$'\n'; echo "${SPARK_SCALA_TESTS[*]}")
 
   # TODO: should be able to only build spark-sql tests with adding "-pl sql/core" but not currently working
-  build/mvn -Dtest=none -DwildcardSuites=$(IFS=,; echo "${SPARK_SCALA_TESTS[*]}") test
+  build/mvn -q -Dtest=none -DwildcardSuites=$(IFS=,; echo "${SPARK_SCALA_TESTS[*]}") test
 
   # Run pyarrow related Python tests only
   echo "Testing PySpark:"
