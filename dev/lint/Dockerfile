@@ -17,12 +17,16 @@
 
 FROM arrow:python-3.6
 
+RUN apt-get install -y -q gnupg
+RUN echo "deb https://apt.llvm.org/bionic/ llvm-toolchain-bionic-7 main" >> /etc/apt/sources.list
+RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key| apt-key add -
+RUN apt update
+
 RUN apt-get install -y -q \
-      libclang-dev \
-      clang \
-      clang-format \
-      clang-tidy \
-      iwyu
+      clang-7 \
+      clang-format-7 \
+      clang-tidy-7 \
+      clang-tools-7
 
 RUN conda install flake8 && \
     conda clean --all -y
