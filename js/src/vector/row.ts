@@ -59,9 +59,8 @@ export class Row<T extends { [key: string]: DataType }> implements Iterable<T[ke
 
 interface RowConstructor<T extends { [key: string]: DataType }> {
     readonly prototype: Row<T>;
-    new(rowIndex: number): T & Row<T>
+    new(rowIndex: number): T & Row<T>;
 }
-
 
 /** @ignore */
 export class RowProxyGenerator<T extends { [key: string]: DataType }> {
@@ -93,7 +92,7 @@ export class RowProxyGenerator<T extends { [key: string]: DataType }> {
             columnDescriptor.get = function() {
                 const child = (this as any as Row<T>).parent.getChildAt(columnIndex);
                 return child ? child.get((this as any as Row<T>).rowIndex) : null;
-            }
+            };
             // set configurable to true to ensure Object.defineProperty
             // doesn't throw in the case of duplicate column names
             columnDescriptor.configurable = true;
@@ -105,10 +104,10 @@ export class RowProxyGenerator<T extends { [key: string]: DataType }> {
             columnDescriptor.get = null as any;
         });
 
-        this.RowProxy = (BoundRow as any)
+        this.RowProxy = (BoundRow as any);
     }
     public bind(rowIndex: number) {
-        const bound = Object.create(this.RowProxy.prototype)
+        const bound = Object.create(this.RowProxy.prototype);
         bound.rowIndex = rowIndex;
         return bound;
         //return new this.RowProxy(rowIndex);
