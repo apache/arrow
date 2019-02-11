@@ -133,13 +133,13 @@ class HashUtil {
     }
     switch (nbytes) {
       case 3:
-        h1 = HW_crc32_u8(h1, p[3]);
+        h1 = HW_crc32_u8(h1, p[2]);
         // fallthrough
       case 2:
-        h2 = HW_crc32_u8(h2, p[2]);
+        h2 = HW_crc32_u8(h2, p[1]);
         // fallthrough
       case 1:
-        h1 = HW_crc32_u8(h1, p[1]);
+        h1 = HW_crc32_u8(h1, p[0]);
         // fallthrough
       case 0:
         break;
