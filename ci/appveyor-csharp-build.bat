@@ -19,6 +19,6 @@
 
 pushd csharp
 
-dotnet test || /B
+dotnet test || exit /B
 
 popd
