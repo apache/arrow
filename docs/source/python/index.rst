@@ -41,6 +41,7 @@ files into Arrow structures.
    plasma
    numpy
    pandas
+   timestamps
    csv
    parquet
    cuda
@@ -49,4 +50,3 @@ files into Arrow structures.
    development
    getting_involved
    benchmarks
-   timestamps
