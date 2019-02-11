@@ -27,6 +27,6 @@ export class StructVector<T extends { [key: string]: DataType } = any> extends B
     // @ts-ignore
     private _rowProxy: RowProxyGenerator<T>;
     public get rowProxy(): RowProxyGenerator<T> {
-        return this._rowProxy || (this._rowProxy = RowProxyGenerator.new<T>(this.type.children || [], false));
+        return this._rowProxy || (this._rowProxy = RowProxyGenerator.new<T>(this, this.type.children || [], false));
     }
 }
