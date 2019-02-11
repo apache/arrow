@@ -385,11 +385,11 @@ def _ensure_filesystem(fs):
     # interface and return it
     if not issubclass(fs_type, FileSystem):
         for mro in inspect.getmro(fs_type):
-            if mro.__name__ is 'S3FileSystem':
+            if mro.__name__ == 'S3FileSystem':
                 return S3FSWrapper(fs)
             # In case its a simple LocalFileSystem (e.g. dask) use native arrow
             # FS
-            elif mro.__name__ is 'LocalFileSystem':
+            elif mro.__name__ == 'LocalFileSystem':
                 return LocalFileSystem.get_instance()
 
         raise IOError('Unrecognized filesystem: {0}'.format(fs_type))

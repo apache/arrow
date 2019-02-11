@@ -867,6 +867,11 @@ def test_empty_range():
 
 
 def test_structarray():
+    arr = pa.StructArray.from_arrays([], names=[])
+    assert arr.type == pa.struct([])
+    assert len(arr) == 0
+    assert arr.to_pylist() == []
+
     ints = pa.array([None, 2, 3], type=pa.int64())
     strs = pa.array([u'a', None, u'c'], type=pa.string())
     bools = pa.array([True, False, None], type=pa.bool_())
@@ -882,6 +887,10 @@ def test_structarray():
 
     pylist = arr.to_pylist()
     assert pylist == expected, (pylist, expected)
+
+    # len(names) != len(arrays)
+    with pytest.raises(ValueError):
+        pa.StructArray.from_arrays([ints], ['ints', 'strs'])
 
 
 def test_struct_from_dicts():
