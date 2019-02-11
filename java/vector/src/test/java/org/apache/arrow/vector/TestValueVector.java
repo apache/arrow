@@ -1395,6 +1395,35 @@ public class TestValueVector {
   }
 
   @Test
+  public void testSetSafeWithArrowBuf() {
+    final int numValues = BaseFixedWidthVector.INITIAL_VALUE_ALLOCATION * 2;
+
+    try (
+        final VarCharVector fromVector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH,
+            MinorType.VARCHAR, allocator);
+        final VarCharVector toVector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH,
+            MinorType.VARCHAR, allocator)) {
+      fromVector.setInitialCapacity(numValues);
+      fromVector.allocateNew();
+      for (int i = 0; i < numValues; ++i) {
+        fromVector.setSafe(i, "hello world".getBytes(), 0, 11);
+      }
+      fromVector.setValueCount(numValues);
+      ArrowBuf fromDataBuffer = fromVector.getDataBuffer();
+      assertEquals(BaseAllocator.nextPowerOfTwo(numValues * 11), fromDataBuffer.capacity());
+
+      toVector.setInitialCapacity(numValues);
+      toVector.allocateNew();
+      for (int i = 0; i < numValues; i++) {
+        int start = fromVector.getstartOffset(i);
+        int end = fromVector.getstartOffset(i + 1);
+        toVector.setSafe(i, 1, start, end, fromDataBuffer);
+      }
+      assertEquals(fromDataBuffer.capacity(), toVector.getDataBuffer().capacity());
+    }
+  }
+
+  @Test
   public void testCopyFromWithNulls() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
          final VarCharVector vector2 =
