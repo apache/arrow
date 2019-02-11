@@ -19,6 +19,7 @@
 
 use std::{cell, convert, io, result};
 
+use arrow::error::ArrowError;
 use quick_error::quick_error;
 use snap;
 use thrift;
@@ -55,6 +56,7 @@ quick_error! {
       ArrowError(message:  String) {
           display("Arrow: {}", message)
               description(message)
+              from(e: ArrowError) -> (format!("underlying Arrow error: {:?}", e))
       }
   }
 }
