@@ -17,6 +17,9 @@
 
 // Object model for scalar (non-Array) values. Not intended for use with large
 // amounts of data
+//
+// NOTE: This API is experimental as of the 0.13 version and subject to change
+// without deprecation warnings
 
 #pragma once
 
