@@ -1063,7 +1063,7 @@ if (ARROW_WITH_BROTLI)
 # ----------------------------------------------------------------------
 # Brotli
 
-  if("${BROTLI_HOME}" STREQUAL "")
+  if ("${BROTLI_HOME}" STREQUAL "")
     set(BROTLI_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/brotli_ep/src/brotli_ep-install")
     set(BROTLI_HOME "${BROTLI_PREFIX}")
     set(BROTLI_INCLUDE_DIR "${BROTLI_PREFIX}/include")
@@ -1104,12 +1104,21 @@ if (ARROW_WITH_BROTLI)
   endif()
 
   include_directories(SYSTEM ${BROTLI_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(brotli_enc
-    STATIC_LIB ${BROTLI_STATIC_LIBRARY_ENC})
-  ADD_THIRDPARTY_LIB(brotli_dec
-    STATIC_LIB ${BROTLI_STATIC_LIBRARY_DEC})
-  ADD_THIRDPARTY_LIB(brotli_common
-    STATIC_LIB ${BROTLI_STATIC_LIBRARY_COMMON})
+  if (BROTLI_STATIC_LIB OR BROTLI_VENDORED)
+    ADD_THIRDPARTY_LIB(brotli_enc
+      STATIC_LIB ${BROTLI_STATIC_LIBRARY_ENC}
+    ADD_THIRDPARTY_LIB(brotli_dec
+      STATIC_LIB ${BROTLI_STATIC_LIBRARY_DEC}
+    ADD_THIRDPARTY_LIB(brotli_common
+      STATIC_LIB ${BROTLI_STATIC_LIBRARY_COMMON}
+  else()
+    ADD_THIRDPARTY_LIB(brotli_enc
+      SHARED_LIB ${BROTLI_SHARED_LIBRARY_ENC})
+    ADD_THIRDPARTY_LIB(brotli_dec
+      SHARED_LIB ${BROTLI_SHARED_LIBRARY_DEC})
+    ADD_THIRDPARTY_LIB(brotli_common
+      SHARED_LIB ${BROTLI_SHARED_LIBRARY_COMMON})
+  endif()
 
   if (BROTLI_VENDORED)
     add_dependencies(brotli_enc_static brotli_ep)
