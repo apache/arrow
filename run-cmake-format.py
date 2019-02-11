@@ -40,7 +40,8 @@ def find_cmake_files():
 
 
 def run_cmake_format(paths):
-    # cmake-format is fast enough that running in parallel doesn't seem necessary
+    # cmake-format is fast enough that running in parallel doesn't seem
+    # necessary
     cmd = ['cmake-format', '--in-place'] + paths
     try:
         subprocess.run(cmd, check=True)
