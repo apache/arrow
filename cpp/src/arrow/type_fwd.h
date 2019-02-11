@@ -85,7 +85,7 @@ struct StructScalar;
 class Decimal128Type;
 class Decimal128Array;
 class Decimal128Builder;
-class Decimal128Scalar;
+struct Decimal128Scalar;
 
 class UnionType;
 class UnionArray;

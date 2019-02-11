@@ -92,6 +92,12 @@ TEST(TestBinaryScalar, Basics) {
   ASSERT_TRUE(value.is_valid);
   ASSERT_TRUE(value.type->Equals(*binary()));
 
+  auto ref_count = buf.use_count();
+  // Check that destructor doesn't fail to clean up a buffer
+  std::shared_ptr<Scalar> base_ref = std::make_shared<BinaryScalar>(buf);
+  base_ref = nullptr;
+  ASSERT_EQ(ref_count, buf.use_count());
+
   BinaryScalar null_value(nullptr, false);
   ASSERT_FALSE(null_value.is_valid);
 

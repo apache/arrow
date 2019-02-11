@@ -25,6 +25,7 @@
 
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
 
@@ -35,23 +36,29 @@ class Array;
 /// \brief Base class for scalar values, representing a single value occupying
 /// an array "slot"
 struct ARROW_EXPORT Scalar {
-  /// \brief Whether the value is valid (not null) or not
-  bool is_valid;
+  virtual ~Scalar() = default;
 
   /// \brief The type of the scalar value
   std::shared_ptr<DataType> type;
+
+  /// \brief Whether the value is valid (not null) or not
+  bool is_valid;
+
+ protected:
+  Scalar(const std::shared_ptr<DataType>& type, bool is_valid)
+    : type(type), is_valid(is_valid) {}
 };
 
 /// \brief A scalar value for NullType. Never valid
 struct ARROW_EXPORT NullScalar : public Scalar {
  public:
-  NullScalar() : Scalar{false, null()} {}
+  NullScalar() : Scalar{null(), false} {}
 };
 
 struct ARROW_EXPORT BooleanScalar : public Scalar {
   bool value;
   explicit BooleanScalar(bool value, bool is_valid = true)
-      : Scalar{is_valid, boolean()}, value(value) {}
+      : Scalar{boolean(), is_valid}, value(value) {}
 };
 
 template <typename Type>
@@ -60,7 +67,7 @@ struct NumericScalar : public Scalar {
   T value;
 
   explicit NumericScalar(T value, bool is_valid = true)
-      : Scalar{is_valid, TypeTraits<Type>::type_singleton()}, value(value) {}
+      : Scalar{TypeTraits<Type>::type_singleton(), is_valid}, value(value) {}
 };
 
 using UInt8Scalar = NumericScalar<UInt8Type>;
@@ -83,7 +90,7 @@ struct ARROW_EXPORT BinaryScalar : public Scalar {
  protected:
   BinaryScalar(const std::shared_ptr<Buffer>& value,
                const std::shared_ptr<DataType>& type, bool is_valid = true)
-      : Scalar{is_valid, type}, value(value) {}
+      : Scalar{type, is_valid}, value(value) {}
 };
 
 struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
@@ -122,9 +129,9 @@ class ARROW_EXPORT TimestampScalar : public NumericScalar<TimestampType> {
 };
 
 struct ARROW_EXPORT Decimal128Scalar : public Scalar {
-  std::shared_ptr<Buffer> value;
-  Decimal128Scalar(const std::shared_ptr<Buffer>& value,
-                   const std::shared_ptr<DataType>& type, bool is_valid = true);
+  Decimal128 value;
+  Decimal128Scalar(const Decimal128& value, const std::shared_ptr<DataType>& type,
+                   bool is_valid = true);
 };
 
 struct ARROW_EXPORT ListScalar : public Scalar {

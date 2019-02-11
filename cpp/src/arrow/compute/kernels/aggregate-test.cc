@@ -133,7 +133,7 @@ TYPED_TEST(TestSumKernelNumeric, SimpleSum) {
                          Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
 
   // Avoid this tests for (U)Int8Type
-  if (sizeof(typename TypeParam::c_type) > 1) {
+  if (sizeof(T) > 1) {
     ValidateSum<TypeParam>(&this->ctx_, "[1000, null, 300, null, 30, null, 7]",
                            Datum(std::make_shared<ScalarType>(static_cast<T>(1337))));
   }

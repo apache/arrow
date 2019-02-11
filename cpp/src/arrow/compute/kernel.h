@@ -161,6 +161,8 @@ struct ARROW_EXPORT Datum {
       return util::get<std::shared_ptr<ArrayData>>(this->value)->type;
     } else if (this->kind() == Datum::CHUNKED_ARRAY) {
       return util::get<std::shared_ptr<ChunkedArray>>(this->value)->type();
+    } else if (this->kind() == Datum::SCALAR) {
+      return util::get<std::shared_ptr<Scalar>>(this->value)->type;
     }
     return NULLPTR;
   }

@@ -23,6 +23,7 @@
 #include "arrow/buffer.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -36,13 +37,13 @@ FixedSizeBinaryScalar::FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& valu
   DCHECK_EQ(checked_cast<const FixedSizeBinaryType&>(*type).byte_width(), value->size());
 }
 
-Decimal128Scalar::Decimal128Scalar(const std::shared_ptr<Buffer>& value,
+Decimal128Scalar::Decimal128Scalar(const Decimal128& value,
                                    const std::shared_ptr<DataType>& type, bool is_valid)
-    : Scalar{is_valid, type}, value(value) {}
+    : Scalar{type, is_valid}, value(value) {}
 
 ListScalar::ListScalar(const std::shared_ptr<Array>& value,
                        const std::shared_ptr<DataType>& type, bool is_valid)
-    : Scalar{is_valid, type}, value(value) {}
+    : Scalar{type, is_valid}, value(value) {}
 
 ListScalar::ListScalar(const std::shared_ptr<Array>& value, bool is_valid)
     : ListScalar(value, value->type(), is_valid) {}
