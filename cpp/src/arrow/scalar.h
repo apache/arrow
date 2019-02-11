@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/variant.h"
@@ -46,7 +47,7 @@ struct ARROW_EXPORT Scalar {
 
  protected:
   Scalar(const std::shared_ptr<DataType>& type, bool is_valid)
-    : type(type), is_valid(is_valid) {}
+      : type(type), is_valid(is_valid) {}
 };
 
 /// \brief A scalar value for NullType. Never valid
@@ -67,20 +68,12 @@ struct NumericScalar : public Scalar {
   T value;
 
   explicit NumericScalar(T value, bool is_valid = true)
-      : Scalar{TypeTraits<Type>::type_singleton(), is_valid}, value(value) {}
-};
+      : NumericScalar(value, TypeTraits<Type>::type_singleton(), is_valid) {}
 
-using UInt8Scalar = NumericScalar<UInt8Type>;
-using UInt16Scalar = NumericScalar<UInt16Type>;
-using UInt32Scalar = NumericScalar<UInt32Type>;
-using UInt64Scalar = NumericScalar<UInt64Type>;
-using UInt8Scalar = NumericScalar<UInt8Type>;
-using UInt16Scalar = NumericScalar<UInt16Type>;
-using UInt32Scalar = NumericScalar<UInt32Type>;
-using UInt64Scalar = NumericScalar<UInt64Type>;
-using HalfFloatScalar = NumericScalar<HalfFloatType>;
-using FloatScalar = NumericScalar<FloatType>;
-using DoubleScalar = NumericScalar<DoubleType>;
+ protected:
+  explicit NumericScalar(T value, const std::shared_ptr<DataType>& type, bool is_valid)
+      : Scalar{type, is_valid}, value(value) {}
+};
 
 struct ARROW_EXPORT BinaryScalar : public Scalar {
   std::shared_ptr<Buffer> value;
@@ -115,17 +108,20 @@ class ARROW_EXPORT Date64Scalar : public NumericScalar<Date64Type> {
 
 class ARROW_EXPORT Time32Scalar : public NumericScalar<Time32Type> {
  public:
-  using NumericScalar<Time32Type>::NumericScalar;
+  Time32Scalar(int32_t value, const std::shared_ptr<DataType>& type,
+               bool is_valid = true);
 };
 
 class ARROW_EXPORT Time64Scalar : public NumericScalar<Time64Type> {
  public:
-  using NumericScalar<Time64Type>::NumericScalar;
+  Time64Scalar(int64_t value, const std::shared_ptr<DataType>& type,
+               bool is_valid = true);
 };
 
 class ARROW_EXPORT TimestampScalar : public NumericScalar<TimestampType> {
  public:
-  using NumericScalar<TimestampType>::NumericScalar;
+  TimestampScalar(int64_t value, const std::shared_ptr<DataType>& type,
+                  bool is_valid = true);
 };
 
 struct ARROW_EXPORT Decimal128Scalar : public Scalar {

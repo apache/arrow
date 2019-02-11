@@ -30,6 +30,24 @@ namespace arrow {
 
 using internal::checked_cast;
 
+Time32Scalar::Time32Scalar(int32_t value, const std::shared_ptr<DataType>& type,
+                           bool is_valid)
+    : NumericScalar(value, type, is_valid) {
+  DCHECK_EQ(Type::TIME32, type->id());
+}
+
+Time64Scalar::Time64Scalar(int64_t value, const std::shared_ptr<DataType>& type,
+                           bool is_valid)
+    : NumericScalar(value, type, is_valid) {
+  DCHECK_EQ(Type::TIME64, type->id());
+}
+
+TimestampScalar::TimestampScalar(int64_t value, const std::shared_ptr<DataType>& type,
+                                 bool is_valid)
+    : NumericScalar(value, type, is_valid) {
+  DCHECK_EQ(Type::TIMESTAMP, type->id());
+}
+
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value,
                                              const std::shared_ptr<DataType>& type,
                                              bool is_valid)

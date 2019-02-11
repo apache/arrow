@@ -75,9 +75,10 @@ struct DatumEqual<Type, typename std::enable_if<!IsFloatingPoint<Type>::value>::
 
 template <typename ArrowType>
 void ValidateSum(FunctionContext* ctx, const Array& input, Datum expected) {
+  using OutputType = typename FindAccumulatorType<ArrowType>::Type;
   Datum result;
   ASSERT_OK(Sum(ctx, input, &result));
-  DatumEqual<ArrowType>::EnsureEqual(result, expected);
+  DatumEqual<OutputType>::EnsureEqual(result, expected);
 }
 
 template <typename ArrowType>
