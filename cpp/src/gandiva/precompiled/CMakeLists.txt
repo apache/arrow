@@ -30,16 +30,14 @@ set(PRECOMPILED_SRCS
     timestamp_arithmetic.cc
     ../../arrow/util/basic_decimal.cc)
 
-if (MSVC)
+if(MSVC)
   # clang pretends to be a particular version of MSVC. Version 1900 is
   # Visual Studio 2015, and the standard library uses C++14 features,
   # so we have to use that -std version to get the IR compilation to
   # work
-  set(PLATFORM_CLANG_OPTIONS
-    -std=c++14 -fms-compatibility -fms-compatibility-version=19)
+  set(PLATFORM_CLANG_OPTIONS -std=c++14 -fms-compatibility -fms-compatibility-version=19)
 else()
-  set(PLATFORM_CLANG_OPTIONS
-    -std=c++11)
+  set(PLATFORM_CLANG_OPTIONS -std=c++11)
 endif()
 
 # Create bitcode for each of the source files.
@@ -55,8 +53,13 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
             -DNDEBUG # DCHECK macros not implemented in precompiled code
             -DARROW_STATIC # Do not set __declspec(dllimport) on MSVC on Arrow symbols
             -DGANDIVA_STATIC # Do not set __declspec(dllimport) on MSVC on Gandiva symbols
-            -fno-use-cxa-atexit  # Workaround for unresolved __dso_handle
-            -emit-llvm -O3 -c ${ABSOLUTE_SRC} -o ${BC_FILE}
+            -fno-use-cxa-atexit # Workaround for unresolved __dso_handle
+            -emit-llvm
+            -O3
+            -c
+            ${ABSOLUTE_SRC}
+            -o
+            ${BC_FILE}
             ${ARROW_GANDIVA_PC_CXX_FLAGS}
             -I${CMAKE_SOURCE_DIR}/src
     DEPENDS ${SRC_FILE})
@@ -64,12 +67,10 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
 endforeach()
 
 # link all of the bitcode files into a single bitcode file.
-add_custom_command(
-  OUTPUT ${GANDIVA_BC_OUTPUT_PATH}
-  COMMAND ${LLVM_LINK_EXECUTABLE}
-          -o ${GANDIVA_BC_OUTPUT_PATH}
-          ${BC_FILES}
-  DEPENDS ${BC_FILES})
+add_custom_command(OUTPUT ${GANDIVA_BC_OUTPUT_PATH}
+                   COMMAND ${LLVM_LINK_EXECUTABLE} -o ${GANDIVA_BC_OUTPUT_PATH}
+                           ${BC_FILES}
+                   DEPENDS ${BC_FILES})
 
 add_custom_target(precompiled ALL DEPENDS ${GANDIVA_BC_OUTPUT_PATH})
 
@@ -80,29 +81,32 @@ function(add_precompiled_unit_test REL_TEST_NAME)
 
   add_executable(${TEST_NAME} ${REL_TEST_NAME} ${ARGN})
   target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
-  target_link_libraries(${TEST_NAME}
-    PRIVATE ${ARROW_TEST_LINK_LIBS} ${RE2_LIBRARY}
-  )
-  target_compile_definitions(${TEST_NAME} PRIVATE
-    GANDIVA_UNIT_TEST=1
-    ARROW_STATIC
-    GANDIVA_STATIC)
+  target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_TEST_LINK_LIBS} ${RE2_LIBRARY})
+  target_compile_definitions(${TEST_NAME}
+                             PRIVATE
+                             GANDIVA_UNIT_TEST=1
+                             ARROW_STATIC
+                             GANDIVA_STATIC)
   set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
   add_test(${TEST_NAME} ${TEST_PATH})
-  set_property(TEST ${TEST_NAME}
-    APPEND PROPERTY
-    LABELS "unittest;gandiva-tests")
+  set_property(TEST ${TEST_NAME} APPEND PROPERTY LABELS "unittest;gandiva-tests")
   add_dependencies(gandiva-tests ${TEST_NAME})
 endfunction(add_precompiled_unit_test REL_TEST_NAME)
 
 # testing
-if (ARROW_BUILD_TESTS)
+if(ARROW_BUILD_TESTS)
   add_precompiled_unit_test(bitmap_test.cc bitmap.cc)
   add_precompiled_unit_test(epoch_time_point_test.cc)
-  add_precompiled_unit_test(time_test.cc time.cc timestamp_arithmetic.cc ../context_helper.cc ../cast_time.cc ../../arrow/vendored/datetime/tz.cpp)
+  add_precompiled_unit_test(time_test.cc
+                            time.cc
+                            timestamp_arithmetic.cc
+                            ../context_helper.cc
+                            ../cast_time.cc
+                            ../../arrow/vendored/datetime/tz.cpp)
   add_precompiled_unit_test(hash_test.cc hash.cc)
   add_precompiled_unit_test(string_ops_test.cc string_ops.cc ../context_helper.cc)
   add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc ../context_helper.cc)
-  add_precompiled_unit_test(extended_math_ops_test.cc extended_math_ops.cc ../context_helper.cc)
+  add_precompiled_unit_test(extended_math_ops_test.cc extended_math_ops.cc
+                            ../context_helper.cc)
   add_precompiled_unit_test(decimal_ops_test.cc decimal_ops.cc ../decimal_type_util.cc)
 endif()

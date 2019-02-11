@@ -15,4 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARROW_INSTALL_ALL_HEADERS("arrow/vendored/variant")
+arrow_install_all_headers("arrow/vendored/variant")

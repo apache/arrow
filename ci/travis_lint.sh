@@ -23,6 +23,10 @@ set -ex
 export ARROW_TRAVIS_USE_TOOLCHAIN=0
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
+# CMake formatting check
+pip install cmake_format
+$TRAVIS_BUILD_DIR/run-cmake-format.py --check
+
 # C++ code linting
 if [ "$ARROW_CI_CPP_AFFECTED" != "0" ]; then
   mkdir $ARROW_CPP_DIR/lint
@@ -30,10 +34,7 @@ if [ "$ARROW_CI_CPP_AFFECTED" != "0" ]; then
 
   cmake .. -DARROW_ONLY_LINT=ON
   make lint
-
-  if [ "$ARROW_TRAVIS_CLANG_FORMAT" == "1" ]; then
-    make check-format
-  fi
+  make check-format
 
   python $ARROW_CPP_DIR/build-support/lint_cpp_cli.py $ARROW_CPP_DIR/src
 

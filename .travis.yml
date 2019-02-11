@@ -50,8 +50,6 @@ matrix:
     os: linux
     language: python
     python: "3.6"
-    env:
-    - ARROW_TRAVIS_CLANG_FORMAT=1
     before_script:
     # Always run RAT checks, in case another build in matrix breaks RAT
     - $TRAVIS_BUILD_DIR/ci/travis_release_audit.sh

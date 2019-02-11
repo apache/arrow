@@ -16,4 +16,4 @@
 # under the License.
 
 # Headers: top level
-ARROW_INSTALL_ALL_HEADERS("arrow/array")
+arrow_install_all_headers("arrow/array")

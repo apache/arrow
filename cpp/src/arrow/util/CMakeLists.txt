@@ -15,64 +15,56 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#######################################
+#
 # arrow_util
-#######################################
+#
 
 # Headers: top level
-ARROW_INSTALL_ALL_HEADERS("arrow/util")
+arrow_install_all_headers("arrow/util")
 
-#######################################
+#
 # arrow_test_main
-#######################################
+#
 
-if (ARROW_BUILD_BENCHMARKS)
+if(ARROW_BUILD_BENCHMARKS)
   add_library(arrow_benchmark_main benchmark_main.cc)
-  if (APPLE)
-    target_link_libraries(arrow_benchmark_main
-      gbenchmark_static
-    )
+  if(APPLE)
+    target_link_libraries(arrow_benchmark_main gbenchmark_static)
   elseif(MSVC)
-    target_link_libraries(arrow_benchmark_main
-      gbenchmark_static
-      Shlwapi.lib
-  )
+    target_link_libraries(arrow_benchmark_main gbenchmark_static Shlwapi.lib)
   else()
-    target_link_libraries(arrow_benchmark_main
-      gbenchmark_static
-      pthread
-    )
+    target_link_libraries(arrow_benchmark_main gbenchmark_static pthread)
   endif()
 
   # TODO(wesm): Some benchmarks include gtest.h
   add_dependencies(arrow_benchmark_main ${GTEST_LIBRARY})
 endif()
 
-ADD_ARROW_TEST(bit-util-test)
-ADD_ARROW_TEST(checked-cast-test)
-ADD_ARROW_TEST(compression-test)
-ADD_ARROW_TEST(decimal-test)
-ADD_ARROW_TEST(hashing-test)
-ADD_ARROW_TEST(int-util-test)
-ADD_ARROW_TEST(key-value-metadata-test)
-ADD_ARROW_TEST(lazy-test)
-ADD_ARROW_TEST(logging-test)
-ADD_ARROW_TEST(parsing-util-test)
-ADD_ARROW_TEST(rle-encoding-test)
-ADD_ARROW_TEST(stl-util-test)
-ADD_ARROW_TEST(task-group-test)
-ADD_ARROW_TEST(thread-pool-test)
-ADD_ARROW_TEST(trie-test)
-ADD_ARROW_TEST(utf8-util-test)
+add_arrow_test(bit-util-test)
+add_arrow_test(checked-cast-test)
+add_arrow_test(compression-test)
+add_arrow_test(decimal-test)
+add_arrow_test(hashing-test)
+add_arrow_test(int-util-test)
+add_arrow_test(key-value-metadata-test)
+add_arrow_test(lazy-test)
+add_arrow_test(logging-test)
+add_arrow_test(parsing-util-test)
+add_arrow_test(rle-encoding-test)
+add_arrow_test(stl-util-test)
+add_arrow_test(task-group-test)
+add_arrow_test(thread-pool-test)
+add_arrow_test(trie-test)
+add_arrow_test(utf8-util-test)
 
-ADD_ARROW_BENCHMARK(bit-util-benchmark)
-ADD_ARROW_BENCHMARK(compression-benchmark)
-ADD_ARROW_BENCHMARK(decimal-benchmark)
-ADD_ARROW_BENCHMARK(hashing-benchmark)
-ADD_ARROW_BENCHMARK(int-util-benchmark)
-ADD_ARROW_BENCHMARK(lazy-benchmark)
-ADD_ARROW_BENCHMARK(machine-benchmark)
-ADD_ARROW_BENCHMARK(number-parsing-benchmark)
-ADD_ARROW_BENCHMARK(thread-pool-benchmark)
-ADD_ARROW_BENCHMARK(trie-benchmark)
-ADD_ARROW_BENCHMARK(utf8-util-benchmark)
+add_arrow_benchmark(bit-util-benchmark)
+add_arrow_benchmark(compression-benchmark)
+add_arrow_benchmark(decimal-benchmark)
+add_arrow_benchmark(hashing-benchmark)
+add_arrow_benchmark(int-util-benchmark)
+add_arrow_benchmark(lazy-benchmark)
+add_arrow_benchmark(machine-benchmark)
+add_arrow_benchmark(number-parsing-benchmark)
+add_arrow_benchmark(thread-pool-benchmark)
+add_arrow_benchmark(trie-benchmark)
+add_arrow_benchmark(utf8-util-benchmark)
