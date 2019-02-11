@@ -51,7 +51,7 @@ if (NOT DEFINED BROTLI_STATIC_LIB_SUFFIX)
   if (MSVC)
     set(BROTLI_STATIC_LIB_SUFFIX _static)
   else()
-    set(BROTLI_STATIC_LIB_SUFFIX "")
+    set(BROTLI_STATIC_LIB_SUFFIX -static)
   endif()
 endif()
 
