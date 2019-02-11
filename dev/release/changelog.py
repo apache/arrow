@@ -77,9 +77,9 @@ def format_changelog_markdown(issues, out):
 
 def _escape_for_markdown(x):
     return (
-        x.replace('_', '\_')  # underscores
-        .replace('`', '\`')   # backticks
-        .replace('*', '\*')   # asterisks
+        x.replace('_', r'\_')  # underscores
+        .replace('`', r'\`')   # backticks
+        .replace('*', r'\*')   # asterisks
     )
 
 
