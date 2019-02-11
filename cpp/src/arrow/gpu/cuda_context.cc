@@ -112,6 +112,16 @@ class CudaContext::CudaContextImpl {
     return Status::OK();
   }
 
+  Status CopyDeviceToAnotherDevice(const std::shared_ptr<CudaContext>& dst_ctx, void* dst,
+                                   const void* src, int64_t nbytes) {
+    ContextSaver set_temporary(context_);
+    CU_RETURN_NOT_OK(cuMemcpyPeer(reinterpret_cast<CUdeviceptr>(dst),
+                                  reinterpret_cast<CUcontext>(dst_ctx->handle()),
+                                  reinterpret_cast<const CUdeviceptr>(src), context_,
+                                  static_cast<size_t>(nbytes)));
+    return Status::OK();
+  }
+
   Status Synchronize(void) {
     ContextSaver set_temporary(context_);
     CU_RETURN_NOT_OK(cuCtxSynchronize());
@@ -299,6 +309,12 @@ Status CudaContext::CopyDeviceToHost(void* dst, const void* src, int64_t nbytes)
 
 Status CudaContext::CopyDeviceToDevice(void* dst, const void* src, int64_t nbytes) {
   return impl_->CopyDeviceToDevice(dst, src, nbytes);
+}
+
+Status CudaContext::CopyDeviceToAnotherDevice(const std::shared_ptr<CudaContext>& dst_ctx,
+                                              void* dst, const void* src,
+                                              int64_t nbytes) {
+  return impl_->CopyDeviceToAnotherDevice(dst_ctx, dst, src, nbytes);
 }
 
 Status CudaContext::Synchronize(void) { return impl_->Synchronize(); }
