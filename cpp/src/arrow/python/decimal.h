@@ -65,6 +65,14 @@ ARROW_PYTHON_EXPORT
 Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type,
                                 Decimal128* out);
 
+// \brief Convert a Python object to an Arrow Decimal128 object
+// \param[in] python_decimal A Python int or decimal.Decimal instance
+// \param[in] arrow_type An instance of arrow::DecimalType
+// \param[out] out A pointer to a Decimal128
+// \return The status of the operation
+ARROW_PYTHON_EXPORT
+Status DecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type, Decimal128* out);
+
 // \brief Check whether obj is an instance of Decimal
 ARROW_PYTHON_EXPORT
 bool PyDecimal_Check(PyObject* obj);
