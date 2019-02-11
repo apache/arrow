@@ -119,6 +119,7 @@ set(ARROW_SRCS
     util/io-util.cc
     util/logging.cc
     util/key_value_metadata.cc
+    util/memory.cc
     util/task-group.cc
     util/thread-pool.cc
     util/trie.cc

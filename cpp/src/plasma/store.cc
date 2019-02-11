@@ -148,17 +148,10 @@ void PlasmaStore::AddToClientObjectIds(const ObjectID& object_id, ObjectTableEnt
 }
 
 // Allocate memory
-uint8_t* PlasmaStore::AllocateMemory(int device_num, size_t size, int* fd,
-                                     int64_t* map_size, ptrdiff_t* offset) {
+uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
+                                     ptrdiff_t* offset) {
   // Try to evict objects until there is enough space.
   uint8_t* pointer = nullptr;
-#ifdef PLASMA_CUDA
-  std::shared_ptr<CudaBuffer> gpu_handle;
-  std::shared_ptr<CudaContext> context_;
-  if (device_num != 0) {
-    DCHECK_OK(manager_->GetContext(device_num - 1, &context_));
-  }
-#endif
   while (true) {
     // Allocate space for the new object. We use memalign instead of malloc
     // in order to align the allocated region to a 64-byte boundary. This is not
@@ -167,61 +160,82 @@ uint8_t* PlasmaStore::AllocateMemory(int device_num, size_t size, int* fd,
     // plasma_client.cc). Note that even though this pointer is 64-byte aligned,
     // it is not guaranteed that the corresponding pointer in the client will be
     // 64-byte aligned, but in practice it often will be.
-    if (device_num == 0) {
-      pointer = reinterpret_cast<uint8_t*>(PlasmaAllocator::Memalign(kBlockSize, size));
-      if (!pointer) {
-        // Tell the eviction policy how much space we need to create this object.
-        std::vector<ObjectID> objects_to_evict;
-        bool success = eviction_policy_.RequireSpace(size, &objects_to_evict);
-        EvictObjects(objects_to_evict);
-        // Return an error to the client if not enough space could be freed to
-        // create the object.
-        if (!success) {
-          return nullptr;
-        }
-      } else {
-        break;
-      }
-    } else {
-#ifdef PLASMA_CUDA
-      DCHECK_OK(context_->Allocate(data_size + metadata_size, &gpu_handle));
+    pointer = reinterpret_cast<uint8_t*>(PlasmaAllocator::Memalign(kBlockSize, size));
+    if (pointer) {
       break;
-#endif
+    }
+    // Tell the eviction policy how much space we need to create this object.
+    std::vector<ObjectID> objects_to_evict;
+    bool success = eviction_policy_.RequireSpace(size, &objects_to_evict);
+    EvictObjects(objects_to_evict);
+    // Return an error to the client if not enough space could be freed to
+    // create the object.
+    if (!success) {
+      return nullptr;
     }
   }
-  if (device_num == 0) {
-    GetMallocMapinfo(pointer, fd, map_size, offset);
-    ARROW_CHECK(*fd != -1);
-  }
+  GetMallocMapinfo(pointer, fd, map_size, offset);
+  ARROW_CHECK(*fd != -1);
   return pointer;
 }
+
+#ifdef PLASMA_CUDA
+Status PlasmaStore::AllocateCudaMemory(
+    int device_num, int64_t size, uint8_t** out_pointer,
+    std::shared_ptr<CudaIpcMemHandle>* out_ipc_handle) {
+  std::shared_ptr<CudaBuffer> cuda_buffer;
+  std::shared_ptr<CudaContext> context_;
+  DCHECK_NE(device_num, 0);
+  RETURN_NOT_OK(manager_->GetContext(device_num - 1, &context_));
+  RETURN_NOT_OK(context_->Allocate(static_cast<int64_t>(size), &cuda_buffer));
+  *out_pointer = cuda_buffer->mutable_data();
+  // The IPC handle will keep the buffer memory alive
+  return cuda_buffer->ExportForIpc(out_ipc_handle);
+}
+#endif
 
 // Create a new object buffer in the hash table.
 PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_size,
                                       int64_t metadata_size, int device_num,
                                       Client* client, PlasmaObject* result) {
   ARROW_LOG(DEBUG) << "creating object " << object_id.hex();
+
   auto entry = GetObjectTableEntry(&store_info_, object_id);
   if (entry != nullptr) {
     // There is already an object with the same ID in the Plasma Store, so
     // ignore this requst.
     return PlasmaError::ObjectExists;
   }
+  auto ptr = std::unique_ptr<ObjectTableEntry>(new ObjectTableEntry());
+  entry = store_info_.objects.emplace(object_id, std::move(ptr)).first->second.get();
+  entry->data_size = data_size;
+  entry->metadata_size = metadata_size;
 
   int fd = -1;
   int64_t map_size = 0;
   ptrdiff_t offset = 0;
-  uint8_t* pointer =
-      AllocateMemory(device_num, data_size + metadata_size, &fd, &map_size, &offset);
-  if (!pointer) {
+  uint8_t* pointer = nullptr;
+  auto total_size = data_size + metadata_size;
+
+  if (device_num != 0) {
+#ifdef PLASMA_CUDA
+    auto st = AllocateCudaMemory(device_num, total_size, &pointer, &entry->ipc_handle);
+    if (!st.ok()) {
+      ARROW_LOG(ERROR) << "Failed to allocate CUDA memory: " << st.ToString();
+      return PlasmaError::OutOfMemory;
+    }
+    result->ipc_handle = entry->ipc_handle;
+#else
+    ARROW_LOG(ERROR) << "device_num != 0 but CUDA not enabled";
     return PlasmaError::OutOfMemory;
+#endif
+  } else {
+    pointer = AllocateMemory(total_size, &fd, &map_size, &offset);
+    if (!pointer) {
+      return PlasmaError::OutOfMemory;
+    }
   }
-  if (!entry) {
-    auto ptr = std::unique_ptr<ObjectTableEntry>(new ObjectTableEntry());
-    entry = store_info_.objects.emplace(object_id, std::move(ptr)).first->second.get();
-    entry->data_size = data_size;
-    entry->metadata_size = metadata_size;
-  }
+
   entry->pointer = pointer;
   // TODO(pcm): Set the other fields.
   entry->fd = fd;
@@ -231,12 +245,6 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   entry->device_num = device_num;
   entry->create_time = std::time(nullptr);
   entry->construct_duration = -1;
-#ifdef PLASMA_CUDA
-  if (device_num != 0) {
-    DCHECK_OK(gpu_handle->ExportForIpc(&entry->ipc_handle));
-    result->ipc_handle = entry->ipc_handle;
-  }
-#endif
 
   result->store_fd = fd;
   result->data_offset = offset;
@@ -419,8 +427,7 @@ void PlasmaStore::ProcessGetRequest(Client* client,
       // Make sure the object pointer is not already allocated
       ARROW_CHECK(!entry->pointer);
 
-      entry->pointer = AllocateMemory(0, /* Only support device_num = 0 */
-                                      entry->data_size + entry->metadata_size, &entry->fd,
+      entry->pointer = AllocateMemory(entry->data_size + entry->metadata_size, &entry->fd,
                                       &entry->map_size, &entry->offset);
       if (entry->pointer) {
         entry->state = ObjectState::PLASMA_CREATED;
