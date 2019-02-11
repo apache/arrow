@@ -145,18 +145,26 @@ class ArrayConverter : public arrow::ArrayVisitor {
     });
   }
 
+  inline VALUE ConvertDecimal128(const arrow::Decimal128Array& array, const int64_t i) {
+    return rb::protect([&]{
+      auto raw_value = std::make_shared<arrow::Decimal128>(array.GetValue(i));
+      auto gobj_value = garrow_decimal128_new_raw(&raw_value);
+      return GOBJ2RVAL(gobj_value);
+    });
+  }
+
+  inline VALUE ConvertDecimal128ToBigDecimal(const arrow::Decimal128Array& array, const int64_t i) {
+    auto decimal_str = array.FormatValue(i);
+    return rb::protect([&]{
+      return rb_funcall(rb_cObject, id_BigDecimal, 1, rb_str_new_cstr(decimal_str.c_str()));
+    });
+  }
+
   inline VALUE ConvertValue(const arrow::Decimal128Array& array, const int64_t i) {
     if (convert_decimal_) {
-      auto decimal_str = array.FormatValue(i);
-      return rb::protect([&]{
-        return rb_funcall(rb_cObject, id_BigDecimal, 1, rb_str_new_cstr(decimal_str.c_str()));
-      });
+      return ConvertDecimal128ToBigDecimal(array, i);
     } else {
-      return rb::protect([&]{
-        auto raw_value = std::make_shared<arrow::Decimal128>(array.GetValue(i));
-        auto gobj_value = garrow_decimal128_new_raw(&raw_value);
-        return GOBJ2RVAL(gobj_value);
-      });
+      return ConvertDecimal128(array, i);
     }
   }
 
@@ -391,20 +399,11 @@ class ArrayConverter : public arrow::ArrayVisitor {
   Status Visit(const arrow::Decimal128Array& array) override {
     if (convert_decimal_) {
       return VisitColumn(array, [&](const int64_t i) {
-        auto decimal_str = array.FormatValue(i);
-        VALUE value = rb::protect([&]{
-          return rb_funcall(rb_cObject, id_BigDecimal, 1, rb_str_new_cstr(decimal_str.c_str()));
-        });
-        return value;
+        return ConvertDecimal128ToBigDecimal(array, i);
       });
     } else {
       return VisitColumn(array, [&](const int64_t i) {
-        VALUE value = rb::protect([&]{
-          auto raw_value = std::make_shared<arrow::Decimal128>(array.GetValue(i));
-          auto gobj_value = garrow_decimal128_new_raw(&raw_value);
-          return GOBJ2RVAL(gobj_value);
-        });
-        return value;
+        return ConvertDecimal128(array, i);
       });
     }
   }
