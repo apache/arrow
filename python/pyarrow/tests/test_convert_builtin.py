@@ -852,6 +852,14 @@ def test_sequence_decimal_large_integer():
     assert arr.to_pylist() == data
 
 
+def test_sequence_decimal_from_integers():
+    data = [0, 1, -39402950693754869342983]
+    expected = [decimal.Decimal(x) for x in data]
+    type = pa.decimal128(precision=28, scale=5)
+    arr = pa.array(data, type=type)
+    assert arr.to_pylist() == expected
+
+
 def test_range_types():
     arr1 = pa.array(range(3))
     arr2 = pa.array((0, 1, 2))
