@@ -17,12 +17,11 @@
 
 FROM arrow:python-3.6
 
-RUN apt-get install -y -q gnupg
-RUN echo "deb https://apt.llvm.org/bionic/ llvm-toolchain-bionic-7 main" >> /etc/apt/sources.list
-RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key| apt-key add -
-RUN apt update
-
-RUN apt-get install -y -q \
+RUN apt-get install -y -q gnupg && \
+    echo "deb https://apt.llvm.org/bionic/ llvm-toolchain-bionic-7 main" >> /etc/apt/sources.list && \
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    apt update && \
+    apt-get install -y -q \
       clang-7 \
       clang-format-7 \
       clang-tidy-7 \
