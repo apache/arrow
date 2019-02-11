@@ -66,31 +66,31 @@ struct CTypeTraits<bool> : public TypeTraits<BooleanType> {
 };
 
 #define PRIMITIVE_TYPE_TRAITS_DEF_(CType_, ArrowType_, ArrowArrayType, ArrowBuilderType, \
-                                   ArrowScalarType, ArrowTensorType, SingletonFn) \
-  template <>                                                           \
-  struct TypeTraits<ArrowType_> {                                       \
-    using ArrayType = ArrowArrayType;                                   \
-    using BuilderType = ArrowBuilderType;                               \
-    using ScalarType = ArrowScalarType;                                 \
-    using TensorType = ArrowTensorType;                                 \
-    using CType = CType_;                                               \
-    static constexpr int64_t bytes_required(int64_t elements) {         \
-      return elements * sizeof(CType_);                                 \
-    }                                                                   \
-    constexpr static bool is_parameter_free = true;                     \
-    static inline std::shared_ptr<DataType> type_singleton() { return SingletonFn(); } \
-  };                                                                    \
-                                                                        \
-  template <>                                                           \
-  struct CTypeTraits<CType_> : public TypeTraits<ArrowType_> {          \
-    using ArrowType = ArrowType_;                                       \
+                                   ArrowScalarType, ArrowTensorType, SingletonFn)        \
+  template <>                                                                            \
+  struct TypeTraits<ArrowType_> {                                                        \
+    using ArrayType = ArrowArrayType;                                                    \
+    using BuilderType = ArrowBuilderType;                                                \
+    using ScalarType = ArrowScalarType;                                                  \
+    using TensorType = ArrowTensorType;                                                  \
+    using CType = CType_;                                                                \
+    static constexpr int64_t bytes_required(int64_t elements) {                          \
+      return elements * sizeof(CType_);                                                  \
+    }                                                                                    \
+    constexpr static bool is_parameter_free = true;                                      \
+    static inline std::shared_ptr<DataType> type_singleton() { return SingletonFn(); }   \
+  };                                                                                     \
+                                                                                         \
+  template <>                                                                            \
+  struct CTypeTraits<CType_> : public TypeTraits<ArrowType_> {                           \
+    using ArrowType = ArrowType_;                                                        \
   };
 
-#define PRIMITIVE_TYPE_TRAITS_DEF(CType, ArrowShort, SingletonFn)       \
-  PRIMITIVE_TYPE_TRAITS_DEF_(                                           \
+#define PRIMITIVE_TYPE_TRAITS_DEF(CType, ArrowShort, SingletonFn)             \
+  PRIMITIVE_TYPE_TRAITS_DEF_(                                                 \
       CType, ARROW_CONCAT(ArrowShort, Type), ARROW_CONCAT(ArrowShort, Array), \
-      ARROW_CONCAT(ArrowShort, Builder),                                \
-      ARROW_CONCAT(ArrowShort, Scalar), ARROW_CONCAT(ArrowShort, Tensor), SingletonFn)
+      ARROW_CONCAT(ArrowShort, Builder), ARROW_CONCAT(ArrowShort, Scalar),    \
+      ARROW_CONCAT(ArrowShort, Tensor), SingletonFn)
 
 PRIMITIVE_TYPE_TRAITS_DEF(uint8_t, UInt8, uint8)
 PRIMITIVE_TYPE_TRAITS_DEF(int8_t, Int8, int8)
@@ -260,7 +260,8 @@ struct TypeTraits<UnionType> {
 template <>
 struct TypeTraits<DictionaryType> {
   using ArrayType = DictionaryArray;
-  using ScalarType = DictionaryScalar;
+  // TODO(wesm): Not sure what to do about this
+  // using ScalarType = DictionaryScalar;
   constexpr static bool is_parameter_free = false;
 };
 

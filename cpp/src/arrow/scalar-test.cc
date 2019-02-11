@@ -43,25 +43,28 @@
 #include "arrow/memory_pool.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type_traits.h"
 
 namespace arrow {
 
 TEST(TestNullScalar, Basics) {
-  NullScalar
+  NullScalar scalar;
+  ASSERT_FALSE(scalar.is_valid);
+  ASSERT_TRUE(scalar.type->Equals(*null()));
 }
 
-using NumericTypes = ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type,
-                                      Int8Type, Int16Type, Int32Type, Int64Type,
-                                      FloatScalar, DoubleScalar>;
+template <typename T>
+class TestNumericScalar : public ::testing::Test {
+ public:
+  TestNumericScalar() {}
+};
 
-TYPED_TEST_CASE(TestNumericScalar, NumericTypes);
+TYPED_TEST_CASE(TestNumericScalar, NumericArrowTypes);
 
 TYPED_TEST(TestNumericScalar, Basics) {
-  using TemplateType = typename TestFixture::T;
-  using T = typename TemplateType::c_type;
-  using ScalarType = typename TypeTraits<TemplateType>::ScalarType;
+  using T = typename TypeParam::c_type;
+  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
 
   T value = static_cast<T>(1);
 
@@ -69,7 +72,7 @@ TYPED_TEST(TestNumericScalar, Basics) {
   ASSERT_EQ(value, scalar_val->value);
   ASSERT_TRUE(scalar_val->is_valid);
 
-  auto expected_type = TypeTraits<TemplateType>::type_singleton();
+  auto expected_type = TypeTraits<TypeParam>::type_singleton();
   ASSERT_TRUE(scalar_val->type->Equals(*expected_type));
 
   T other_value = static_cast<T>(2);
@@ -78,6 +81,39 @@ TYPED_TEST(TestNumericScalar, Basics) {
 
   ScalarType stack_val = ScalarType(0, false);
   ASSERT_FALSE(stack_val.is_valid);
+}
+
+TEST(TestBinaryScalar, Basics) {
+  std::string data = "test data";
+  auto buf = std::make_shared<Buffer>(data);
+
+  BinaryScalar value(buf);
+  ASSERT_TRUE(value.value->Equals(*buf));
+  ASSERT_TRUE(value.is_valid);
+  ASSERT_TRUE(value.type->Equals(*binary()));
+
+  BinaryScalar null_value(nullptr, false);
+  ASSERT_FALSE(null_value.is_valid);
+
+  StringScalar value2(buf);
+  ASSERT_TRUE(value2.value->Equals(*buf));
+  ASSERT_TRUE(value2.is_valid);
+  ASSERT_TRUE(value2.type->Equals(*utf8()));
+
+  StringScalar null_value2(nullptr, false);
+  ASSERT_FALSE(null_value2.is_valid);
+}
+
+TEST(TestFixedSizeBinaryScalar, Basics) {
+  std::string data = "test data";
+  auto buf = std::make_shared<Buffer>(data);
+
+  auto ex_type = fixed_size_binary(9);
+
+  FixedSizeBinaryScalar value(buf, ex_type);
+  ASSERT_TRUE(value.value->Equals(*buf));
+  ASSERT_TRUE(value.is_valid);
+  ASSERT_TRUE(value.type->Equals(*ex_type));
 }
 
 // TODO test HalfFloatScalar

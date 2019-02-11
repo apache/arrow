@@ -20,10 +20,13 @@
 
 #pragma once
 
+#include <memory>
+#include <vector>
+
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/visibility.h"
 #include "arrow/util/variant.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -32,10 +35,14 @@ class Array;
 /// \brief Base class for scalar values, representing a single value occupying
 /// an array "slot"
 struct ARROW_EXPORT Scalar {
+  /// \brief Whether the value is valid (not null) or not
   bool is_valid;
+
+  /// \brief The type of the scalar value
   std::shared_ptr<DataType> type;
 };
 
+/// \brief A scalar value for NullType. Never valid
 struct ARROW_EXPORT NullScalar : public Scalar {
  public:
   NullScalar() : Scalar{false, null()} {}
@@ -43,8 +50,8 @@ struct ARROW_EXPORT NullScalar : public Scalar {
 
 struct ARROW_EXPORT BooleanScalar : public Scalar {
   bool value;
-  BooleanScalar(bool value, bool is_valid = true)
-    : value(value), Scalar{is_valid, boolean()} {}
+  explicit BooleanScalar(bool value, bool is_valid = true)
+      : Scalar{is_valid, boolean()}, value(value) {}
 };
 
 template <typename Type>
@@ -52,9 +59,8 @@ struct NumericScalar : public Scalar {
   using T = typename Type::c_type;
   T value;
 
-  NumericScalar(T value, bool is_valid = true)
-      : Scalar{is_valid, TypeTraits<Type>::type_singleton()},
-        value(value)
+  explicit NumericScalar(T value, bool is_valid = true)
+      : Scalar{is_valid, TypeTraits<Type>::type_singleton()}, value(value) {}
 };
 
 using UInt8Scalar = NumericScalar<UInt8Type>;
@@ -71,16 +77,13 @@ using DoubleScalar = NumericScalar<DoubleType>;
 
 struct ARROW_EXPORT BinaryScalar : public Scalar {
   std::shared_ptr<Buffer> value;
-  BinaryScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
-    : BinaryScalar(value, binary(), is_valid) {}
-
-  const std::shared_ptr<Buffer>& value() const { return value_; }
+  explicit BinaryScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
+      : BinaryScalar(value, binary(), is_valid) {}
 
  protected:
   BinaryScalar(const std::shared_ptr<Buffer>& value,
-               const std::shared_ptr<DataType>& type,
-               bool is_valid = true)
-    : value(value), Scalar(is_valid, type) {}
+               const std::shared_ptr<DataType>& type, bool is_valid = true)
+      : Scalar{is_valid, type}, value(value) {}
 };
 
 struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
@@ -89,8 +92,8 @@ struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
 };
 
 struct ARROW_EXPORT StringScalar : public BinaryScalar {
-  StringScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
-    : BinaryScalar(value, is_valid) {}
+  explicit StringScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
+      : BinaryScalar(value, utf8(), is_valid) {}
 };
 
 class ARROW_EXPORT Date32Scalar : public NumericScalar<Date32Type> {
@@ -118,39 +121,23 @@ class ARROW_EXPORT TimestampScalar : public NumericScalar<TimestampType> {
   using NumericScalar<TimestampType>::NumericScalar;
 };
 
-class ARROW_EXPORT DecimalScalar : public Scalar {
- public:
-  using ValueType = util::variant<Int32Scalar, Int64Scalar, FixedSizeBinaryScalar>;
-
-  DecimalScalar(const ValueType& value, const std::shared_ptr<DataType> type,
-                bool is_valid = true);
-
- private:
-  ValueType value_;
+struct ARROW_EXPORT Decimal128Scalar : public Scalar {
+  std::shared_ptr<Buffer> value;
+  Decimal128Scalar(const std::shared_ptr<Buffer>& value,
+                   const std::shared_ptr<DataType>& type, bool is_valid = true);
 };
 
 struct ARROW_EXPORT ListScalar : public Scalar {
   std::shared_ptr<Array> value;
 
-  ListScalar(const std::shared_ptr<Array>& value,
-             const std::shared_ptr<DataType>& type,
+  ListScalar(const std::shared_ptr<Array>& value, const std::shared_ptr<DataType>& type,
              bool is_valid = true);
 
-  ListScalar(const std::shared_ptr<Array>& value, bool is_valid = true)
-    : ListScalar(value, value->type(), is_valid) {}
+  explicit ListScalar(const std::shared_ptr<Array>& value, bool is_valid = true);
 };
 
 struct ARROW_EXPORT StructScalar : public Scalar {
-
-
-};
-
-class ARROW_EXPORT DictionaryScalar : public Scalar {
- public:
-
- private:
-  Scalar value_;
-  std::shared_ptr<Array> dictionary_;
+  std::vector<std::shared_ptr<Scalar>> value;
 };
 
 }  // namespace arrow

@@ -102,11 +102,11 @@ class NumericTensor;
 template <typename TypeClass>
 struct NumericScalar;
 
-#define _NUMERIC_TYPE_DECL(KLASS)                       \
-  class KLASS##Type;                                    \
-  using KLASS##Array = NumericArray<KLASS##Type>;       \
-  using KLASS##Builder = NumericBuilder<KLASS##Type>;   \
-  using KLASS##Scalar = NumericScalar<KLASS##Type>;       \
+#define _NUMERIC_TYPE_DECL(KLASS)                     \
+  class KLASS##Type;                                  \
+  using KLASS##Array = NumericArray<KLASS##Type>;     \
+  using KLASS##Builder = NumericBuilder<KLASS##Type>; \
+  using KLASS##Scalar = NumericScalar<KLASS##Type>;   \
   using KLASS##Tensor = NumericTensor<KLASS##Type>;
 
 _NUMERIC_TYPE_DECL(Int8)

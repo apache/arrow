@@ -22,25 +22,29 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+using internal::checked_cast;
 
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value,
                                              const std::shared_ptr<DataType>& type,
                                              bool is_valid)
     : BinaryScalar(value, type, is_valid) {
-  DCHECK_EQ(checked_cast<const FixedSizeBinaryType&>(*type).byte_width(),
-            value->size());
+  DCHECK_EQ(checked_cast<const FixedSizeBinaryType&>(*type).byte_width(), value->size());
 }
 
-DecimalScalar::DecimalScalar(const ValueType& value, const std::shared_ptr<DataType> type,
-                             bool is_valid)
-    : Scalar(is_valid, type), value_(value) {}
+Decimal128Scalar::Decimal128Scalar(const std::shared_ptr<Buffer>& value,
+                                   const std::shared_ptr<DataType>& type, bool is_valid)
+    : Scalar{is_valid, type}, value(value) {}
 
 ListScalar::ListScalar(const std::shared_ptr<Array>& value,
-                       const std::shared_ptr<DataType>& type,
-                       bool is_valid)
-    : Scalar(value, type), value(value) {}
+                       const std::shared_ptr<DataType>& type, bool is_valid)
+    : Scalar{is_valid, type}, value(value) {}
+
+ListScalar::ListScalar(const std::shared_ptr<Array>& value, bool is_valid)
+    : ListScalar(value, value->type(), is_valid) {}
 
 }  // namespace arrow
