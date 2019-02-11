@@ -236,8 +236,10 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     pub fn value_slice(&self, offset: usize, len: usize) -> &[T::Native] {
-        let raw = unsafe { std::slice::from_raw_parts(self.raw_values(), self.len()) };
-        &raw[offset..offset + len]
+        let raw = unsafe {
+            std::slice::from_raw_parts(self.raw_values().offset(offset as isize), len)
+        };
+        &raw[..]
     }
 
     // Returns a new primitive array builder
@@ -751,6 +753,12 @@ mod tests {
                 assert!(!arr.is_valid(i));
             }
         }
+    }
+
+    #[test]
+    fn test_value_slice_no_bounds_check() {
+        let arr = Int32Array::from(vec![2, 3, 4]);
+        let _slice = arr.value_slice(0, 4);
     }
 
     #[test]
