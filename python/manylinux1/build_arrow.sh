@@ -79,6 +79,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
         -DARROW_BOOST_USE_SHARED=ON \
         -DARROW_GANDIVA_PC_CXX_FLAGS="-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2;-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2/x86_64-CentOS-linux/" \
         -DARROW_JEMALLOC=ON \
+        -BROTLI_STATIC_LIB_SUFFIX= \
         -DARROW_RPATH_ORIGIN=ON \
         -DARROW_PYTHON=ON \
         -DARROW_PARQUET=ON \
