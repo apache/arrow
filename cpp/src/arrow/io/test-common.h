@@ -36,7 +36,7 @@
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/memory_pool.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 namespace io {

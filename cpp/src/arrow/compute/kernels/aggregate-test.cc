@@ -21,14 +21,14 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
-#include "arrow/test-common.h"
-#include "arrow/test-random.h"
-#include "arrow/test-util.h"
-#include "arrow/type.h"
-
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/sum.h"
 #include "arrow/compute/test-util.h"
+#include "arrow/type.h"
+
+#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 
 using std::shared_ptr;
 using std::vector;

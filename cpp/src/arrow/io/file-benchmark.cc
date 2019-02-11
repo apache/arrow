@@ -18,7 +18,7 @@
 #include "arrow/api.h"
 #include "arrow/io/buffered.h"
 #include "arrow/io/file.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/io-util.h"
 
 #include "benchmark/benchmark.h"

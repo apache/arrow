@@ -18,7 +18,7 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 
 #include "gandiva/execution_context.h"
 #include "gandiva/to_date_holder.h"

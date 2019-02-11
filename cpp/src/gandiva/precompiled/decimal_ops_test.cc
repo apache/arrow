@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <memory>
 
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "gandiva/decimal_scalar.h"
 #include "gandiva/decimal_type_util.h"
 #include "gandiva/precompiled/decimal_ops.h"

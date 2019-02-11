@@ -24,7 +24,7 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/table.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/decimal.h"
 
 #include "arrow/python/arrow_to_pandas.h"

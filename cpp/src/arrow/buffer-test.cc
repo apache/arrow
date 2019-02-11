@@ -30,7 +30,7 @@
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 
 using std::string;
 

@@ -24,13 +24,14 @@
 #include <string>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 
 namespace arrow {
 

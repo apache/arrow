@@ -25,7 +25,7 @@
 #include "arrow/csv/options.h"
 #include "arrow/csv/test-common.h"
 #include "arrow/table.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/task-group.h"
 #include "arrow/util/thread-pool.h"

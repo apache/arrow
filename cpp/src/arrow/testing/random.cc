@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/test-random.h"
+#include "arrow/testing/random.h"
 
 #include <algorithm>
 #include <memory>
@@ -26,7 +26,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"

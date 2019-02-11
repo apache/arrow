@@ -25,7 +25,8 @@
 
 #include "arrow/api.h"
 #include "arrow/io/memory.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/cpu-info.h"
 
 #include "benchmark/benchmark.h"

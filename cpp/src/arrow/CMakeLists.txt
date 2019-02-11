@@ -102,6 +102,8 @@ set(ARROW_SRCS
   io/memory.cc
   io/readahead.cc
 
+  testing/util.cc
+
   util/basic_decimal.cc
   util/bit-util.cc
   util/compression.cc
@@ -245,7 +247,7 @@ endif()
 if (ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   # that depend on gtest
   ADD_ARROW_LIB(arrow_testing
-    SOURCES test-util.cc test-random.cc
+    SOURCES testing/gtest_util.cc testing/random.cc
     OUTPUTS ARROW_TESTING_LIBRARIES
     DEPENDENCIES ${GTEST_LIBRARY}
     SHARED_LINK_LIBS arrow_shared ${GTEST_LIBRARY}

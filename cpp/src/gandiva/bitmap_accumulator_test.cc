@@ -22,7 +22,8 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 
 #include "gandiva/dex.h"
 
