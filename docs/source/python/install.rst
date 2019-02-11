@@ -18,19 +18,34 @@
 Installing PyArrow
 ==================
 
-Conda
------
+System Compatibility
+--------------------
 
-To install the latest version of PyArrow from conda-forge using conda:
+PyArrow is regularly built and tested on Windows, macOS and various Linux
+distributions (including Ubuntu 16.04, Ubuntu 18.04).  We strongly recommend
+using a 64-bit system.
+
+Python Compatibility
+--------------------
+
+PyArrow pledges to maintain compatibility with Python 2.7 until the end of 2019.
+Other than that, PyArrow is currently compatible with Python 3.5, 3.6 and 3.7.
+
+Using Conda
+-----------
+
+Install the latest version of PyArrow from
+`conda-forge <https://conda-forge.org/>`_ using `Conda <https://conda.io>`_:
 
 .. code-block:: bash
 
     conda install -c conda-forge pyarrow
 
-Pip
----
+Using Pip
+---------
 
-Install the latest version from PyPI (Windows, Linux, and macOS):
+Install the latest version from `PyPI <https://pypi.org/>`_ (Windows, Linux,
+and macOS):
 
 .. code-block:: bash
 

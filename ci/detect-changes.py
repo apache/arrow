@@ -143,11 +143,11 @@ def get_affected_topics(affected_files):
         elif p in ('java', 'js'):
             affected[p] = True
             affected['integration'] = True
-        elif p in ('c_glib'):
+        elif p == 'c_glib':
             affected[p] = True
             affected['ruby'] = True
-        elif p in ('go', 'integration', 'python', 'r', 'ruby', 'rust',
-                   'site', 'dev'):
+        elif p in ('dev', 'docs', 'go', 'integration', 'python', 'r', 'ruby',
+                   'rust', 'site'):
             affected[p] = True
 
     return affected
