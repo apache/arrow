@@ -55,19 +55,19 @@ class ArrayConverter : public arrow::ArrayVisitor {
       ARRAY_CONVERT_VALUE_INLINE(UInt32Type);
       ARRAY_CONVERT_VALUE_INLINE(Int64Type);
       ARRAY_CONVERT_VALUE_INLINE(UInt64Type);
-      ARRAY_CONVERT_VALUE_INLINE(HalfFloatType);
+      ARRAY_CONVERT_VALUE_INLINE(HalfFloatType); // TODO: test
       ARRAY_CONVERT_VALUE_INLINE(FloatType);
       ARRAY_CONVERT_VALUE_INLINE(DoubleType);
       ARRAY_CONVERT_VALUE_INLINE(Decimal128Type);
+      ARRAY_CONVERT_VALUE_INLINE(FixedSizeBinaryType); // TODO: test
       ARRAY_CONVERT_VALUE_INLINE(StringType);
       ARRAY_CONVERT_VALUE_INLINE(BinaryType);
-      // TODO: ARRAY_CONVERT_VALUE_INLINE(FixedSizeBinaryType);
       // TODO: ARRAY_CONVERT_VALUE_INLINE(Date32Type);
       // TODO: ARRAY_CONVERT_VALUE_INLINE(Date64Type);
       // TODO: ARRAY_CONVERT_VALUE_INLINE(TimestampType);
-      ARRAY_CONVERT_VALUE_INLINE(Time32Type);
-      ARRAY_CONVERT_VALUE_INLINE(Time64Type);
-      ARRAY_CONVERT_VALUE_INLINE(ListType);
+      ARRAY_CONVERT_VALUE_INLINE(Time32Type); // TODO: test
+      ARRAY_CONVERT_VALUE_INLINE(Time64Type); // TODO: test
+      ARRAY_CONVERT_VALUE_INLINE(ListType); // TODO: test
       // TODO: ARRAY_CONVERT_VALUE_INLINE(StructType);
       // TODO: ARRAY_CONVERT_VALUE_INLINE(DictionaryType);
       // TODO: ARRAY_CONVERT_VALUE_INLINE(UnionType);
@@ -166,6 +166,18 @@ class ArrayConverter : public arrow::ArrayVisitor {
     } else {
       return ConvertDecimal128(array, i);
     }
+  }
+
+  inline VALUE ConvertValue(const arrow::FixedSizeBinaryArray& array, const int64_t i, VALUE buffer) {
+    const auto byte_width = array.byte_width();
+    return rb::protect([&]{ return rb_str_substr(buffer, i*byte_width, byte_width); });
+  }
+
+  inline VALUE ConvertValue(const arrow::FixedSizeBinaryArray& array, const int64_t i) {
+    const auto byte_width = array.byte_width();
+    const auto offset = i * byte_width;
+    const auto ptr = reinterpret_cast<const char*>(array.raw_values());
+    return rb::protect([&]{ return rb_str_new(ptr + offset, byte_width); });
   }
 
   inline VALUE ConvertValue(const arrow::BinaryArray& array, const int64_t i) {
@@ -389,10 +401,7 @@ class ArrayConverter : public arrow::ArrayVisitor {
       return rb_str_new(reinterpret_cast<const char*>(array.raw_values()), length);
     });
     return VisitColumn(array, [&](const int64_t i) {
-      VALUE value = rb::protect([&]{
-        return rb_str_substr(buffer, i*byte_width, byte_width);
-      });
-      return value;
+      return ConvertValue(array, i, buffer);
     });
   }
 
