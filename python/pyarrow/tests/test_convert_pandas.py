@@ -1851,21 +1851,29 @@ class TestConvertStructTypes(object):
         assert arr.to_pylist() == [{}, {}]
 
     def test_from_numpy_nested(self):
+        # Note: an object field inside a struct
         dt = np.dtype([('x', np.dtype([('xx', np.int8),
                                        ('yy', np.bool_)])),
-                       ('y', np.int16)])
+                       ('y', np.int16),
+                       ('z', np.object_)])
+        # Note: itemsize is not a multiple of sizeof(object)
+        assert dt.itemsize == 12
         ty = pa.struct([pa.field('x', pa.struct([pa.field('xx', pa.int8()),
                                                  pa.field('yy', pa.bool_())])),
-                        pa.field('y', pa.int16())])
+                        pa.field('y', pa.int16()),
+                        pa.field('z', pa.string())])
 
         data = np.array([], dtype=dt)
         arr = pa.array(data, type=ty)
         assert arr.to_pylist() == []
 
-        data = np.array([((1, True), 2), ((3, False), 4)], dtype=dt)
+        data = np.array([
+            ((1, True), 2, 'foo'),
+            ((3, False), 4, 'bar')], dtype=dt)
         arr = pa.array(data, type=ty)
-        assert arr.to_pylist() == [{'x': {'xx': 1, 'yy': True}, 'y': 2},
-                                   {'x': {'xx': 3, 'yy': False}, 'y': 4}]
+        assert arr.to_pylist() == [
+            {'x': {'xx': 1, 'yy': True}, 'y': 2, 'z': 'foo'},
+            {'x': {'xx': 3, 'yy': False}, 'y': 4, 'z': 'bar'}]
 
     @pytest.mark.large_memory
     def test_from_numpy_large(self):
