@@ -16,4 +16,4 @@
 # under the License.
 
 # Headers: public api
-ARROW_INSTALL_ALL_HEADERS("parquet/api")
+arrow_install_all_headers("parquet/api")

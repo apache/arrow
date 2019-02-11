@@ -27,10 +27,10 @@
 # cmake seems to be case sensitive for some keywords. Changing the first IF check to lower
 # case makes it not work.  TODO: investigate this
 function(HS2_THRIFT_GEN VAR)
-  IF (NOT ARGN)
-    MESSAGE(SEND_ERROR "Error: THRIFT_GEN called without any src files")
-    RETURN()
-  ENDIF(NOT ARGN)
+  if(NOT ARGN)
+    message(SEND_ERROR "Error: THRIFT_GEN called without any src files")
+    return()
+  endif(NOT ARGN)
 
   set(${VAR})
   foreach(FIL ${ARGN})
@@ -45,10 +45,10 @@ function(HS2_THRIFT_GEN VAR)
     #   - Does not include .skeleton.cpp files
     #   - Does not include java output files
     set(OUTPUT_BE_FILE
-      "${GEN_DIR}/${FIL_WE}_types.cpp"
-      "${GEN_DIR}/${FIL_WE}_types.h"
-      "${GEN_DIR}/${FIL_WE}_constants.cpp"
-      "${GEN_DIR}/${FIL_WE}_constants.h")
+        "${GEN_DIR}/${FIL_WE}_types.cpp"
+        "${GEN_DIR}/${FIL_WE}_types.h"
+        "${GEN_DIR}/${FIL_WE}_constants.cpp"
+        "${GEN_DIR}/${FIL_WE}_constants.h")
     list(APPEND ${VAR} ${OUTPUT_BE_FILE})
 
     # BeeswaxService thrift generation
@@ -56,21 +56,19 @@ function(HS2_THRIFT_GEN VAR)
     # The java dependency is handled by maven.
     # We need to generate C++ src file for the parent dependencies using the "-r" option.
     set(CPP_ARGS -nowarn --gen cpp -out ${GEN_DIR})
-    IF (FIL STREQUAL "beeswax.thrift")
+    if(FIL STREQUAL "beeswax.thrift")
       set(CPP_ARGS -r -nowarn --gen cpp -out ${GEN_DIR})
-    ENDIF(FIL STREQUAL "beeswax.thrift")
+    endif(FIL STREQUAL "beeswax.thrift")
 
     # Be able to include generated ErrorCodes.thrift file
     set(CPP_ARGS ${CPP_ARGS} -I ${CMAKE_CURRENT_BINARY_DIR})
 
-    add_custom_command(
-      OUTPUT ${OUTPUT_BE_FILE}
-      COMMAND ${THRIFT_COMPILER} ${CPP_ARGS} ${FIL}
-      DEPENDS ${ABS_FIL}
-      COMMENT "Running thrift compiler on ${FIL}"
-	  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      VERBATIM
-    )
+    add_custom_command(OUTPUT ${OUTPUT_BE_FILE}
+                       COMMAND ${THRIFT_COMPILER} ${CPP_ARGS} ${FIL}
+                       DEPENDS ${ABS_FIL}
+                       COMMENT "Running thrift compiler on ${FIL}"
+                       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                       VERBATIM)
   endforeach(FIL)
 
   set(${VAR} ${${VAR}} PARENT_SCOPE)
@@ -82,30 +80,29 @@ set(OUTPUT_DIR ${ARROW_BINARY_DIR}/src)
 file(MAKE_DIRECTORY ${OUTPUT_DIR})
 
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift
-  COMMAND python generate_error_codes.py ${CMAKE_CURRENT_BINARY_DIR}
-  DEPENDS generate_error_codes.py
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+                   COMMAND python generate_error_codes.py ${CMAKE_CURRENT_BINARY_DIR}
+                   DEPENDS generate_error_codes.py
+                   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(SRC_FILES
-  ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift
-  beeswax.thrift
-  TCLIService.thrift
-  ExecStats.thrift
-  ImpalaService.thrift
-  Status.thrift
-  Types.thrift
-)
+    ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift
+    beeswax.thrift
+    TCLIService.thrift
+    ExecStats.thrift
+    ImpalaService.thrift
+    Status.thrift
+    Types.thrift)
 
-SET_SOURCE_FILES_PROPERTIES(Status.thrift PROPERTIES OBJECT_DEPENDS
-  ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift)
+set_source_files_properties(Status.thrift PROPERTIES OBJECT_DEPENDS
+                            ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift)
 
 # Create a build command for each of the thrift src files and generate
 # a list of files they produce
-HS2_THRIFT_GEN(THRIFT_ALL_FILES ${SRC_FILES})
+hs2_thrift_gen(THRIFT_ALL_FILES ${SRC_FILES})
 
 # Add a custom target that generates all the thrift files
 add_custom_target(hs2-thrift-cpp ALL DEPENDS ${THRIFT_ALL_FILES})
 
-add_custom_target(hs2-thrift-generated-files-error DEPENDS
-  ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift)
+add_custom_target(hs2-thrift-generated-files-error
+                  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift)
 add_dependencies(hs2-thrift-cpp hs2-thrift-generated-files-error)

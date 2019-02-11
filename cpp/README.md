@@ -496,6 +496,12 @@ root path for the clang tools) with the environment variable
 `$CLANG_TOOLS_PATH` or by passing `-DClangTools_PATH=$PATH_TO_CLANG_TOOLS` when
 invoking CMake.
 
+Additionally, all CMake files should go through an automatic formatter.
+You'll need Python 3 and [cmake_format](https://github.com/cheshirekow/cmake_format)
+installed.  Then in the top-level directory run the `run-cmake-format.py`
+script.
+
+
 ## Checking for ABI and API stability
 
 To build ABI compliance reports, you need to install the two tools

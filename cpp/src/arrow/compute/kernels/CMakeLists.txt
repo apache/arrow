@@ -15,12 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARROW_INSTALL_ALL_HEADERS("arrow/compute/kernels")
+arrow_install_all_headers("arrow/compute/kernels")
 
-ADD_ARROW_TEST(boolean-test PREFIX "arrow-compute")
-ADD_ARROW_TEST(cast-test PREFIX "arrow-compute")
-ADD_ARROW_TEST(hash-test PREFIX "arrow-compute")
+add_arrow_test(boolean-test PREFIX "arrow-compute")
+add_arrow_test(cast-test PREFIX "arrow-compute")
+add_arrow_test(hash-test PREFIX "arrow-compute")
 
 # Aggregates
-ADD_ARROW_TEST(aggregate-test PREFIX "arrow-compute")
-ADD_ARROW_BENCHMARK(aggregate-benchmark PREFIX "arrow-compute")
+add_arrow_test(aggregate-test PREFIX "arrow-compute")
+add_arrow_benchmark(aggregate-benchmark PREFIX "arrow-compute")

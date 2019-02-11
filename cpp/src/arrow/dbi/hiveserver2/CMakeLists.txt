@@ -19,47 +19,48 @@ add_custom_target(arrow_hiveserver2)
 add_custom_target(arrow_hiveserver2-tests)
 
 # Headers: top level
-ARROW_INSTALL_ALL_HEADERS("arrow/dbi/hiveserver2")
+arrow_install_all_headers("arrow/dbi/hiveserver2")
 
 set(ARROW_HIVESERVER2_SRCS
-  columnar-row-set.cc
-  service.cc
-  session.cc
-  operation.cc
-  sample-usage.cc
-  thrift-internal.cc
-  types.cc
-  util.cc
-)
+    columnar-row-set.cc
+    service.cc
+    session.cc
+    operation.cc
+    sample-usage.cc
+    thrift-internal.cc
+    types.cc
+    util.cc)
 
 add_subdirectory(thrift)
 
 set(HIVESERVER2_THRIFT_SRC
-  ErrorCodes_constants.cpp
-  ErrorCodes_types.cpp
-  ImpalaService.cpp
-  ImpalaService_constants.cpp
-  ImpalaService_types.cpp
-  ImpalaHiveServer2Service.cpp
-  beeswax_constants.cpp
-  beeswax_types.cpp
-  BeeswaxService.cpp
-  TCLIService.cpp
-  TCLIService_constants.cpp
-  TCLIService_types.cpp
-  ExecStats_constants.cpp
-  ExecStats_types.cpp
-  hive_metastore_constants.cpp
-  hive_metastore_types.cpp
-  Status_constants.cpp
-  Status_types.cpp
-  Types_constants.cpp
-  Types_types.cpp
-)
+    ErrorCodes_constants.cpp
+    ErrorCodes_types.cpp
+    ImpalaService.cpp
+    ImpalaService_constants.cpp
+    ImpalaService_types.cpp
+    ImpalaHiveServer2Service.cpp
+    beeswax_constants.cpp
+    beeswax_types.cpp
+    BeeswaxService.cpp
+    TCLIService.cpp
+    TCLIService_constants.cpp
+    TCLIService_types.cpp
+    ExecStats_constants.cpp
+    ExecStats_types.cpp
+    hive_metastore_constants.cpp
+    hive_metastore_types.cpp
+    Status_constants.cpp
+    Status_types.cpp
+    Types_constants.cpp
+    Types_types.cpp)
 
-set_source_files_properties(${HIVESERVER2_THRIFT_SRC} PROPERTIES
-  COMPILE_FLAGS "-Wno-unused-variable -Wno-shadow-field"
-  GENERATED TRUE)
+set_source_files_properties(${HIVESERVER2_THRIFT_SRC}
+                            PROPERTIES
+                            COMPILE_FLAGS
+                            "-Wno-unused-variable -Wno-shadow-field"
+                            GENERATED
+                            TRUE)
 
 # keep everything in one library, the object files reference
 # each other
@@ -74,43 +75,47 @@ add_library(arrow_hiveserver2_thrift STATIC ${HIVESERVER2_THRIFT_SRC})
 
 add_dependencies(arrow_hiveserver2_thrift hs2-thrift-cpp)
 
-set_target_properties(arrow_hiveserver2_thrift
-  PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+set_target_properties(
+  arrow_hiveserver2_thrift
+  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
-ADD_ARROW_LIB(arrow_hiveserver2
-  SOURCES ${ARROW_HIVESERVER2_SRCS}
-  OUTPUTS ARROW_HIVESERVER2_LIBRARIES
-  DEPENDENCIES arrow_hiveserver2_thrift
-  SHARED_LINK_FLAGS ""
-  SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS}
-)
+add_arrow_lib(arrow_hiveserver2
+              SOURCES
+              ${ARROW_HIVESERVER2_SRCS}
+              OUTPUTS
+              ARROW_HIVESERVER2_LIBRARIES
+              DEPENDENCIES
+              arrow_hiveserver2_thrift
+              SHARED_LINK_FLAGS
+              ""
+              SHARED_LINK_LIBS
+              ${ARROW_PYTHON_SHARED_LINK_LIBS})
 
 add_dependencies(arrow_hiveserver2 ${ARROW_HIVESERVER2_LIBRARIES})
 
 foreach(LIB_TARGET ${ARROW_HIVESERVER2_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET}
-    PRIVATE ARROW_EXPORTING)
+  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
 endforeach()
 
 set_property(SOURCE ${ARROW_HIVESERVER2_SRCS}
-  APPEND_STRING PROPERTY COMPILE_FLAGS
-  " -Wno-shadow-field")
+             APPEND_STRING
+             PROPERTY COMPILE_FLAGS " -Wno-shadow-field")
 
 set(ARROW_HIVESERVER2_TEST_LINK_LIBS
-  arrow_hiveserver2_static
-  arrow_hiveserver2_thrift
-  ${ARROW_TEST_LINK_LIBS}
-  thriftstatic)
+    arrow_hiveserver2_static
+    arrow_hiveserver2_thrift
+    ${ARROW_TEST_LINK_LIBS}
+    thriftstatic)
 
-if (ARROW_BUILD_TESTS)
-  ADD_TEST_CASE(hiveserver2-test
-    STATIC_LINK_LIBS "${ARROW_HIVESERVER2_TEST_LINK_LIBS}"
-    LABELS "arrow_hiveserver2-tests"
-  )
-  if (TARGET arrow-hiveserver2-test)
+if(ARROW_BUILD_TESTS)
+  add_test_case(hiveserver2-test
+                STATIC_LINK_LIBS
+                "${ARROW_HIVESERVER2_TEST_LINK_LIBS}"
+                LABELS
+                "arrow_hiveserver2-tests")
+  if(TARGET arrow-hiveserver2-test)
     set_property(TARGET arrow-hiveserver2-test
-      APPEND_STRING PROPERTY COMPILE_FLAGS
-      " -Wno-shadow-field")
+                 APPEND_STRING
+                 PROPERTY COMPILE_FLAGS " -Wno-shadow-field")
   endif()
 endif(ARROW_BUILD_TESTS)

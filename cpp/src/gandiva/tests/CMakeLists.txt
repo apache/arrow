@@ -15,25 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ADD_GANDIVA_TEST(filter_test)
-ADD_GANDIVA_TEST(projector_test)
-ADD_GANDIVA_TEST(projector_build_validation_test)
-ADD_GANDIVA_TEST(if_expr_test)
-ADD_GANDIVA_TEST(literal_test)
-ADD_GANDIVA_TEST(boolean_expr_test)
-ADD_GANDIVA_TEST(binary_test)
-ADD_GANDIVA_TEST(date_time_test)
-ADD_GANDIVA_TEST(to_string_test)
-ADD_GANDIVA_TEST(hash_test)
-ADD_GANDIVA_TEST(in_expr_test)
-ADD_GANDIVA_TEST(null_validity_test)
-ADD_GANDIVA_TEST(decimal_test)
-ADD_GANDIVA_TEST(decimal_single_test)
+add_gandiva_test(filter_test)
+add_gandiva_test(projector_test)
+add_gandiva_test(projector_build_validation_test)
+add_gandiva_test(if_expr_test)
+add_gandiva_test(literal_test)
+add_gandiva_test(boolean_expr_test)
+add_gandiva_test(binary_test)
+add_gandiva_test(date_time_test)
+add_gandiva_test(to_string_test)
+add_gandiva_test(hash_test)
+add_gandiva_test(in_expr_test)
+add_gandiva_test(null_validity_test)
+add_gandiva_test(decimal_test)
+add_gandiva_test(decimal_single_test)
 
-ADD_GANDIVA_TEST(projector_test_static
-  SOURCES projector_test.cc
-  USE_STATIC_LINKING)
+add_gandiva_test(projector_test_static SOURCES projector_test.cc USE_STATIC_LINKING)
 
-ADD_ARROW_BENCHMARK(micro_benchmarks
-  PREFIX "gandiva"
-  EXTRA_LINK_LIBS gandiva_static)
+add_arrow_benchmark(micro_benchmarks PREFIX "gandiva" EXTRA_LINK_LIBS gandiva_static)
