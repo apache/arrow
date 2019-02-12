@@ -47,18 +47,18 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
 
     protected _schema: Schema;
 
-    constructor(schema: Schema<T>, numRows: number, childData: (Data | Vector)[]);
+    constructor(schema: Schema<T>, length: number, children: (Data | Vector)[]);
     constructor(schema: Schema<T>, data: Data<Struct<T>>, children?: Vector[]);
     constructor(...args: any[]) {
-        let schema = args[0];
         let data: Data<Struct<T>>;
+        let schema = args[0] as Schema<T>;
         let children: Vector[] | undefined;
-        if (typeof args[1] === 'number') {
-            const fields = schema.fields as Field<T[keyof T]>[];
-            const [, numRows, childData] = args as [Schema<T>, number, Data[]];
-            data = Data.Struct(new Struct<T>(fields), 0, numRows, 0, null, childData);
+        if (args[1] instanceof Data) {
+            [, data, children] = (args as [any, Data<Struct<T>>, Vector<T[keyof T]>[]?]);
         } else {
-            [, data, children] = (args as [Schema<T>, Data<Struct<T>>, Vector[]?]);
+            const fields = schema.fields as Field<T[keyof T]>[];
+            const [, length, childData] = args as [any, number, Data<T[keyof T]>[]];
+            data = Data.Struct(new Struct<T>(fields), 0, length, 0, null, childData);
         }
         super(data, children);
         this._schema = schema;

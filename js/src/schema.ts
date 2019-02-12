@@ -15,21 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Data } from './data';
+import { Vector } from './vector';
 import { DataType, Dictionary } from './type';
-import { Vector as VType } from './interfaces';
 
 export class Schema<T extends { [key: string]: DataType } = any> {
 
     /** @nocollapse */
-    public static from<T extends { [key: string]: DataType } = any>(vectors: VType<T[keyof T]>[], names: (keyof T)[] = []) {
-        return new Schema<T>(vectors.map((v, i) => new Field('' + (names[i] || i), v.type)));
+    public static from<T extends { [key: string]: DataType } = any>(chunks: (Data<T[keyof T]> | Vector<T[keyof T]>)[], names: (keyof T)[] = []) {
+        return new Schema<T>(chunks.map((v, i) => new Field('' + (names[i] || i), v.type)));
     }
 
-    protected _fields: Field[];
+    protected _fields: Field<T[keyof T]>[];
     protected _metadata: Map<string, string>;
     protected _dictionaries: Map<number, DataType>;
     protected _dictionaryFields: Map<number, Field<Dictionary>[]>;
-    public get fields(): Field[] { return this._fields; }
+    public get fields() { return this._fields; }
     public get metadata(): Map<string, string> { return this._metadata; }
     public get dictionaries(): Map<number, DataType> { return this._dictionaries; }
     public get dictionaryFields(): Map<number, Field<Dictionary>[]> { return this._dictionaryFields; }
@@ -38,7 +39,7 @@ export class Schema<T extends { [key: string]: DataType } = any> {
                 metadata?: Map<string, string>,
                 dictionaries?: Map<number, DataType>,
                 dictionaryFields?: Map<number, Field<Dictionary>[]>) {
-        this._fields = fields || [];
+        this._fields = (fields || []) as Field<T[keyof T]>[];
         this._metadata = metadata || new Map();
         if (!dictionaries || !dictionaryFields) {
             ({ dictionaries, dictionaryFields } = generateDictionaryMap(

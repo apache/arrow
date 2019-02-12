@@ -152,7 +152,7 @@ export class Table<T extends { [key: string]: DataType; } = any>
         this._chunks = chunks;
     }
 
-    protected _schema: Schema;
+    protected _schema: Schema<T>;
     // List of inner RecordBatches
     protected _chunks: RecordBatch<T>[];
     protected _children?: Column<T[keyof T]>[];
@@ -177,12 +177,12 @@ export class Table<T extends { [key: string]: DataType; } = any>
     }
     public getChildAt<R extends DataType = any>(index: number): Column<R> | null {
         if (index < 0 || index >= this.numChildren) { return null; }
-        let schema = this._schema;
-        let column: Column<R>, field: Field<R>, chunks: Vector<R>[];
-        let columns = this._children || (this._children = []) as Column[];
-        if (column = columns[index]) { return column as Column<R>; }
-        if (field = ((schema.fields || [])[index] as Field<R>)) {
-            chunks = this._chunks
+        let field: Field<R>, child: Column<R>;
+        const fields = (this._schema as Schema<any>).fields;
+        const columns = this._children || (this._children = []) as Column[];
+        if (child = columns[index]) { return child as Column<R>; }
+        if (field = fields[index]) {
+            const chunks = this._chunks
                 .map((chunk) => chunk.getChildAt<R>(index))
                 .filter((vec): vec is Vector<R> => vec != null);
             if (chunks.length > 0) {
