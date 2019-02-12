@@ -5,7 +5,7 @@ Maintainer: Kouhei Sutou <kou@clear-code.com>
 Build-Depends:
   autoconf-archive,
   bison,
-  clang-6.0,
+  clang-7,
   cmake,
   debhelper (>= 9.20160115),
   dh-autoreconf,
