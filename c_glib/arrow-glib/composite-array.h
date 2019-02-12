@@ -68,7 +68,8 @@ struct _GArrowListArrayClass
 
 GType garrow_list_array_get_type(void) G_GNUC_CONST;
 
-GArrowListArray *garrow_list_array_new(gint64 length,
+GArrowListArray *garrow_list_array_new(GArrowDataType *data_type,
+                                       gint64 length,
                                        GArrowBuffer *value_offsets,
                                        GArrowArray *values,
                                        GArrowBuffer *null_bitmap,

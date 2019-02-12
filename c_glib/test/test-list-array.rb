@@ -19,13 +19,16 @@ class TestListArray < Test::Unit::TestCase
   include Helper::Buildable
 
   def test_new
+    field = Arrow::Field.new("item", Arrow::Int8DataType.new)
+    data_type = Arrow::ListDataType.new(field)
     value_offsets = Arrow::Buffer.new([0, 2, 5, 5].pack("l*"))
     data = Arrow::Buffer.new([1, 2, 3, 4, 5].pack("c*"))
     nulls = Arrow::Buffer.new([0b11111].pack("C*"))
     values = Arrow::Int8Array.new(5, data, nulls, 0)
     assert_equal(build_list_array(Arrow::Int8DataType.new,
                                   [[1, 2], [3, 4, 5], nil]),
-                 Arrow::ListArray.new(3,
+                 Arrow::ListArray.new(data_type,
+                                      3,
                                       value_offsets,
                                       values,
                                       Arrow::Buffer.new([0b011].pack("C*")),
