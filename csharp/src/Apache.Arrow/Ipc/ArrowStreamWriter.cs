@@ -143,13 +143,13 @@ namespace Apache.Arrow.Ipc
 
         protected ArrayPool<byte> Buffers { get; }
 
-        protected FlatBufferBuilder Builder { get; }
+        private protected FlatBufferBuilder Builder { get; }
 
         protected bool HasWrittenSchema { get; set; }
 
         protected Schema Schema { get; }
 
-        protected const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V4;
+        private protected const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V4;
 
         private static readonly byte[] Padding = new byte[64];
 
@@ -280,7 +280,7 @@ namespace Apache.Arrow.Ipc
             }
         }
 
-        protected Offset<Flatbuf.Schema> SerializeSchema(Schema schema)
+        private protected Offset<Flatbuf.Schema> SerializeSchema(Schema schema)
         {
             // TODO: Serialize schema metadata
 
@@ -313,7 +313,7 @@ namespace Apache.Arrow.Ipc
         }
 
 
-        protected async Task<Offset<Flatbuf.Schema>> WriteSchemaAsync(Schema schema, CancellationToken cancellationToken)
+        private async Task<Offset<Flatbuf.Schema>> WriteSchemaAsync(Schema schema, CancellationToken cancellationToken)
         {
             Builder.Clear();
 
@@ -328,7 +328,7 @@ namespace Apache.Arrow.Ipc
             return schemaOffset;
         }
 
-        protected async Task WriteMessageAsync<T>(
+        private async Task WriteMessageAsync<T>(
             Flatbuf.MessageHeader headerType, Offset<T> headerOffset, int bodyLength,
             CancellationToken cancellationToken)
             where T: struct
@@ -353,7 +353,7 @@ namespace Apache.Arrow.Ipc
             await WritePaddingAsync(messagePaddingLength);
         }
 
-        protected async Task WriteFlatBufferAsync(CancellationToken cancellationToken = default)
+        private protected async Task WriteFlatBufferAsync(CancellationToken cancellationToken = default)
         {
             var segment = Builder.DataBuffer.ToArraySegment(Builder.DataBuffer.Position, Builder.Offset);
 

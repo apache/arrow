@@ -15,7 +15,7 @@ using global::FlatBuffers;
 /// - children is only for nested Arrow arrays
 /// - For primitive types, children will have length 0
 /// - nullable should default to true in general
-public struct Field : IFlatbufferObject
+internal struct Field : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
@@ -25,7 +25,12 @@ public struct Field : IFlatbufferObject
   public Field __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   public string Name { get { int o = __p.__offset(4); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetNameBytes() { return __p.__vector_as_span(4); }
+#else
   public ArraySegment<byte>? GetNameBytes() { return __p.__vector_as_arraysegment(4); }
+#endif
+  public byte[] GetNameArray() { return __p.__vector_as_array<byte>(4); }
   public bool Nullable { get { int o = __p.__offset(6); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
   public Type TypeType { get { int o = __p.__offset(8); return o != 0 ? (Type)__p.bb.Get(o + __p.bb_pos) : Flatbuf.Type.NONE; } }
   public TTable? Type<TTable>() where TTable : struct, IFlatbufferObject { int o = __p.__offset(10); return o != 0 ? (TTable?)__p.__union<TTable>(o) : null; }
@@ -62,9 +67,11 @@ public struct Field : IFlatbufferObject
   public static void AddDictionary(FlatBufferBuilder builder, Offset<DictionaryEncoding> dictionaryOffset) { builder.AddOffset(4, dictionaryOffset.Value, 0); }
   public static void AddChildren(FlatBufferBuilder builder, VectorOffset childrenOffset) { builder.AddOffset(5, childrenOffset.Value, 0); }
   public static VectorOffset CreateChildrenVector(FlatBufferBuilder builder, Offset<Field>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateChildrenVectorBlock(FlatBufferBuilder builder, Offset<Field>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
   public static void StartChildrenVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static void AddCustomMetadata(FlatBufferBuilder builder, VectorOffset customMetadataOffset) { builder.AddOffset(6, customMetadataOffset.Value, 0); }
   public static VectorOffset CreateCustomMetadataVector(FlatBufferBuilder builder, Offset<KeyValue>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateCustomMetadataVectorBlock(FlatBufferBuilder builder, Offset<KeyValue>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
   public static void StartCustomMetadataVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static Offset<Field> EndField(FlatBufferBuilder builder) {
     int o = builder.EndObject();

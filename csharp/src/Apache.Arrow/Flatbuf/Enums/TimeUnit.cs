@@ -5,7 +5,7 @@
 namespace Apache.Arrow.Flatbuf
 {
 
-public enum TimeUnit : short
+internal enum TimeUnit : short
 {
  SECOND = 0,
  MILLISECOND = 1,

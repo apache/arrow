@@ -8,7 +8,7 @@ namespace Apache.Arrow.Flatbuf
 /// ----------------------------------------------------------------------
 /// Top-level Type value, enabling extensible type-specific metadata. We can
 /// add new logical types to Type without breaking backwards compatibility
-public enum Type : byte
+internal enum Type : byte
 {
  NONE = 0,
  Null = 1,
