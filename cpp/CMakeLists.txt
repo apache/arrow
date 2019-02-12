@@ -195,9 +195,6 @@ static|shared (default shared)")
   option(ARROW_BOOST_VENDORED "Use vendored Boost instead of existing Boost. \
 Note that this requires linking Boost statically" OFF)
 
-  option(ARROW_GTEST_VENDORED "Use vendored gtest instead of one from toolchain \
-(if ARROW_BUILD_TOOLCHAIN being used)" OFF)
-
   option(ARROW_PROTOBUF_USE_SHARED
          "Rely on Protocol Buffers shared libraries where relevant" OFF)
 

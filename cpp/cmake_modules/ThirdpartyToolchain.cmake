@@ -40,7 +40,7 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(GRPC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   # Using gtest from the toolchain breaks AppVeyor and
   # trusty builds
-  if (NOT MSVC AND NOT ARROW_GTEST_VENDORED)
+  if (NOT MSVC)
     if (APPLE)
       set(GTEST_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
     else()
@@ -659,7 +659,7 @@ endif()
 # Google gtest
 
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
-  if(ARROW_GTEST_VENDORED OR "${GTEST_HOME}" STREQUAL "")
+  if("${GTEST_HOME}" STREQUAL "")
     set(GTEST_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
 
     if(CMAKE_BUILD_TYPE MATCHES DEBUG)
