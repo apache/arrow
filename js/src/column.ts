@@ -48,6 +48,8 @@ export class Column<T extends DataType = any>
 
     public get field() { return this._field; }
     public get name() { return this._field.name; }
+    public get nullable() { return this._field.nullable; }
+    public get metadata() { return this._field.metadata; }
 
     public clone(chunks = this._chunks) {
         return new Column(this._field, chunks);
