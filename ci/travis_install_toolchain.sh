@@ -25,7 +25,7 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
     CONDA_PACKAGES=""
     CONDA_LABEL=""
 
-    if [ $ARROW_TRAVIS_GANDIVA == "1" ] && [ $TRAVIS_OS_NAME == "osx" ]; then
+    if [ "$ARROW_TRAVIS_GANDIVA" == "1" ] && [ $TRAVIS_OS_NAME == "osx" ]; then
         CONDA_PACKAGES="$CONDA_PACKAGES llvmdev=$CONDA_LLVM_VERSION"
     fi
 
@@ -38,7 +38,7 @@ if [ ! -e $CPP_TOOLCHAIN ]; then
         fi
     fi
 
-    if [ $ARROW_TRAVIS_VALGRIND == "1" ]; then
+    if [ "$ARROW_TRAVIS_VALGRIND" == "1" ]; then
         # Use newer Valgrind
         CONDA_PACKAGES="$CONDA_PACKAGES valgrind"
     fi
