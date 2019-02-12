@@ -41,7 +41,7 @@ struct ConversionTraits {};
 
 #define ARROW_STL_CONVERSION(c_type, ArrowType_)                                    \
   template <>                                                                       \
-  struct ConversionTraits<c_type> : public CTypeTraits<c_type> {                                                 \
+  struct ConversionTraits<c_type> : public CTypeTraits<c_type> {                    \
     static Status AppendRow(typename TypeTraits<ArrowType_>::BuilderType& builder,  \
                             c_type cell) {                                          \
       return builder.Append(cell);                                                  \
@@ -77,7 +77,8 @@ struct ConversionTraits<std::string> : public CTypeTraits<std::string> {
 };
 
 template <typename value_c_type>
-struct ConversionTraits<std::vector<value_c_type>> : public CTypeTraits<std::vector<value_c_type>> {
+struct ConversionTraits<std::vector<value_c_type>>
+    : public CTypeTraits<std::vector<value_c_type>> {
   static Status AppendRow(ListBuilder& builder, std::vector<value_c_type> cell) {
     using ElementBuilderType = typename TypeTraits<
         typename ConversionTraits<value_c_type>::ArrowType>::BuilderType;

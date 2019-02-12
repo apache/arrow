@@ -24,7 +24,7 @@
 
 #include "arrow/stl.h"
 #include "arrow/table.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 
 using primitive_types_tuple = std::tuple<int8_t, int16_t, int32_t, int64_t, uint8_t,
@@ -87,34 +87,24 @@ TEST(TestTableFromTupleVector, PrimitiveTypes) {
   std::shared_ptr<Table> table;
   ASSERT_OK(TableFromTupleRange(default_memory_pool(), rows, names, &table));
 
-  std::shared_ptr<Schema> expected_schema = std::shared_ptr<Schema>(
-      new Schema({field("column1", int8(), false), field("column2", int16(), false),
-                  field("column3", int32(), false), field("column4", int64(), false),
-                  field("column5", uint8(), false), field("column6", uint16(), false),
-                  field("column7", uint32(), false), field("column8", uint64(), false),
-                  field("column9", boolean(), false), field("column10", utf8(), false)}));
+  std::shared_ptr<Schema> expected_schema =
+      schema({field("column1", int8(), false), field("column2", int16(), false),
+              field("column3", int32(), false), field("column4", int64(), false),
+              field("column5", uint8(), false), field("column6", uint16(), false),
+              field("column7", uint32(), false), field("column8", uint64(), false),
+              field("column9", boolean(), false), field("column10", utf8(), false)});
 
   // Construct expected arrays
-  std::shared_ptr<Array> int8_array;
-  ArrayFromVector<Int8Type, int8_t>({-1, -10}, &int8_array);
-  std::shared_ptr<Array> int16_array;
-  ArrayFromVector<Int16Type, int16_t>({-2, -20}, &int16_array);
-  std::shared_ptr<Array> int32_array;
-  ArrayFromVector<Int32Type, int32_t>({-3, -30}, &int32_array);
-  std::shared_ptr<Array> int64_array;
-  ArrayFromVector<Int64Type, int64_t>({-4, -40}, &int64_array);
-  std::shared_ptr<Array> uint8_array;
-  ArrayFromVector<UInt8Type, uint8_t>({1, 10}, &uint8_array);
-  std::shared_ptr<Array> uint16_array;
-  ArrayFromVector<UInt16Type, uint16_t>({2, 20}, &uint16_array);
-  std::shared_ptr<Array> uint32_array;
-  ArrayFromVector<UInt32Type, uint32_t>({3, 30}, &uint32_array);
-  std::shared_ptr<Array> uint64_array;
-  ArrayFromVector<UInt64Type, uint64_t>({4, 40}, &uint64_array);
-  std::shared_ptr<Array> bool_array;
-  ArrayFromVector<BooleanType, bool>({true, false}, &bool_array);
-  std::shared_ptr<Array> string_array;
-  ArrayFromVector<StringType, std::string>({"Tests", "Other"}, &string_array);
+  std::shared_ptr<Array> int8_array = ArrayFromJSON(int8(), "[-1, -10]");
+  std::shared_ptr<Array> int16_array = ArrayFromJSON(int16(), "[-2, -20]");
+  std::shared_ptr<Array> int32_array = ArrayFromJSON(int32(), "[-3, -30]");
+  std::shared_ptr<Array> int64_array = ArrayFromJSON(int64(), "[-4, -40]");
+  std::shared_ptr<Array> uint8_array = ArrayFromJSON(uint8(), "[1, 10]");
+  std::shared_ptr<Array> uint16_array = ArrayFromJSON(uint16(), "[2, 20]");
+  std::shared_ptr<Array> uint32_array = ArrayFromJSON(uint32(), "[3, 30]");
+  std::shared_ptr<Array> uint64_array = ArrayFromJSON(uint64(), "[4, 40]");
+  std::shared_ptr<Array> bool_array = ArrayFromJSON(boolean(), "[true, false]");
+  std::shared_ptr<Array> string_array = ArrayFromJSON(utf8(), R"(["Tests", "Other"])");
   auto expected_table =
       Table::Make(expected_schema,
                   {int8_array, int16_array, int32_array, int64_array, uint8_array,
