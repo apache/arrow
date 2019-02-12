@@ -24,7 +24,7 @@ import { StructVector } from '../vector/struct';
 /** @ignore */ export const kLength = Symbol.for('length');
 /** @ignore */ export const kParent = Symbol.for('parent');
 /** @ignore */ export const kRowIndex = Symbol.for('rowIndex');
-/** @ignore */ const columnDescriptor = { enumerable: true, configurable: false, get: () => {} };
+/** @ignore */ const columnDescriptor = { enumerable: true, configurable: false, get: null as any };
 /** @ignore */ const rowLengthDescriptor = { writable: false, enumerable: false, configurable: false, value: -1 };
 /** @ignore */ const rowParentDescriptor = { writable: false, enumerable: false, configurable: false, value: null as any };
 
@@ -36,9 +36,6 @@ export class Row<T extends { [key: string]: DataType }> implements Iterable<T[ke
     public [kRowIndex]: number;
     // @ts-ignore
     public readonly [kLength]: number;
-    constructor(rowIndex: number) {
-        this[kRowIndex] = rowIndex;
-    }
     *[Symbol.iterator]() {
         for (let i = -1, n = this[kLength]; ++i < n;) {
             yield this[i];
@@ -60,11 +57,6 @@ export class Row<T extends { [key: string]: DataType }> implements Iterable<T[ke
     }
 }
 
-interface RowConstructor<T extends { [key: string]: DataType }> {
-    readonly prototype: Row<T>;
-    new(rowIndex: number): T & Row<T>;
-}
-
 /** @ignore */
 export class RowProxyGenerator<T extends { [key: string]: DataType }> {
     /** @nocollapse */
@@ -80,36 +72,40 @@ export class RowProxyGenerator<T extends { [key: string]: DataType }> {
         return new RowProxyGenerator<T>(parent, fields, fieldsAreEnumerable);
     }
 
-    private RowProxy: RowConstructor<T>;
+    private rowPrototype: Row<T>;
 
     private constructor(parent: MapVector<T> | StructVector<T>, fields: Field[], fieldsAreEnumerable: boolean) {
-        class BoundRow extends Row<T> {}
-        const proto = BoundRow.prototype
+        const proto = Object.create(Row.prototype);
 
         rowParentDescriptor.value = parent;
         rowLengthDescriptor.value = fields.length;
         Object.defineProperty(proto, kParent, rowParentDescriptor);
         Object.defineProperty(proto, kLength, rowLengthDescriptor);
         fields.forEach((field, columnIndex) => {
-            columnDescriptor.get = function() {
-                const child = (this as any as BoundRow)[kParent].getChildAt(columnIndex);
-                return child ? child.get((this as any as BoundRow)[kRowIndex]) : null;
-            };
-            // set configurable to true to ensure Object.defineProperty
-            // doesn't throw in the case of duplicate column names
-            columnDescriptor.configurable = true;
-            columnDescriptor.enumerable = fieldsAreEnumerable;
-            Object.defineProperty(proto, field.name, columnDescriptor);
-            columnDescriptor.configurable = false;
-            columnDescriptor.enumerable = !fieldsAreEnumerable;
-            Object.defineProperty(proto, columnIndex, columnDescriptor);
+            if (!proto.hasOwnProperty(field.name)) {
+                columnDescriptor.enumerable = fieldsAreEnumerable;
+                columnDescriptor.get || (columnDescriptor.get = this._bindGetter(columnIndex));
+                Object.defineProperty(proto, field.name, columnDescriptor);
+            }
+            if (!proto.hasOwnProperty(columnIndex)) {
+                columnDescriptor.enumerable = !fieldsAreEnumerable;
+                columnDescriptor.get || (columnDescriptor.get = this._bindGetter(columnIndex));
+                Object.defineProperty(proto, columnIndex, columnDescriptor);
+            }
             columnDescriptor.get = null as any;
         });
 
-        this.RowProxy = (BoundRow as any);
+        this.rowPrototype = proto;
+    }
+
+    private _bindGetter(columnIndex: number) {
+        return function(this: Row<T>) {
+            const child = this[kParent].getChildAt(columnIndex);
+            return child ? child.get(this[kRowIndex]) : null;
+        };
     }
     public bind(rowIndex: number) {
-        const bound = Object.create(this.RowProxy.prototype);
+        const bound = Object.create(this.rowPrototype);
         bound[kRowIndex] = rowIndex;
         return bound;
         //return new this.RowProxy(rowIndex);
