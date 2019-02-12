@@ -30,7 +30,7 @@
 #  BROTLI_SHARED_LIB, path to libbrotli's shared library
 #  BROTLI_FOUND, whether brotli has been found
 
-if( NOT "${BROTLI_HOME}" STREQUAL "")
+if (NOT "${BROTLI_HOME}" STREQUAL "")
     file( TO_CMAKE_PATH "${BROTLI_HOME}" _native_path )
     list( APPEND _brotli_roots ${_native_path} )
 elseif ( Brotli_HOME )
