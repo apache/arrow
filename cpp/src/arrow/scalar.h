@@ -109,20 +109,23 @@ class ARROW_EXPORT Date64Scalar : public NumericScalar<Date64Type> {
   using NumericScalar<Date64Type>::NumericScalar;
 };
 
-class ARROW_EXPORT Time32Scalar : public NumericScalar<Time32Type> {
+class ARROW_EXPORT Time32Scalar : public Scalar {
  public:
+  int32_t value;
   Time32Scalar(int32_t value, const std::shared_ptr<DataType>& type,
                bool is_valid = true);
 };
 
-class ARROW_EXPORT Time64Scalar : public NumericScalar<Time64Type> {
+class ARROW_EXPORT Time64Scalar : public Scalar {
  public:
+  int64_t value;
   Time64Scalar(int64_t value, const std::shared_ptr<DataType>& type,
                bool is_valid = true);
 };
 
-class ARROW_EXPORT TimestampScalar : public NumericScalar<TimestampType> {
+class ARROW_EXPORT TimestampScalar : public Scalar {
  public:
+  int64_t value;
   TimestampScalar(int64_t value, const std::shared_ptr<DataType>& type,
                   bool is_valid = true);
 };
