@@ -95,7 +95,7 @@ export class Table<T extends { [key: string]: DataType; } = any>
 
     /** @nocollapse */
     public static fromVectors<T extends { [key: string]: DataType; } = any>(vectors: Vector<T[keyof T]>[], fields?: (keyof T | Field<T[keyof T]>)[]) {
-        return Table.new(vectors, fields);
+        return Table.new<T>(vectors, fields);
     }
 
     /** @nocollapse */
