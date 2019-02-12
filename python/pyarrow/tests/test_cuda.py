@@ -406,7 +406,12 @@ def test_copy_to_host(size):
 def test_copy_from_device(dest_ctx, size):
     arr, buf = make_random_buffer(size=size, target='device')
     lst = arr.tolist()
-    dest_ctx = buf.context if dest_ctx == 'same' else global_context1
+    if dest_ctx == 'another':
+        dest_ctx = global_context1
+        if buf.context.device_number == dest_ctx.device_number:
+            pytest.skip("not a multi-GPU system")
+    else:
+        dest_ctx = buf.context
     dbuf = dest_ctx.new_buffer(size)
 
     def put(*args, **kwargs):

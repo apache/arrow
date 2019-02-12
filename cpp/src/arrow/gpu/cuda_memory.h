@@ -81,7 +81,7 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   Status CopyFromDevice(const int64_t position, const void* data, int64_t nbytes);
 
   /// \brief Copy memory from another device to device at position
-  /// \param[in] src_ctx context of the another device memory
+  /// \param[in] src_ctx context of the source device memory
   /// \param[in] position start position inside buffer to copy bytes to
   /// \param[in] data start address of the another device memory area to copy from
   /// \param[in] nbytes number of bytes to copy
