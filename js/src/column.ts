@@ -15,9 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Data } from './data';
 import { Field } from './schema';
-import { Vector } from './vector';
 import { DataType } from './type';
+import { Vector } from './vector';
+import { VectorCtorArgs, Vector as V } from './interfaces';
 import { Clonable, Sliceable, Applicative } from './vector';
 import { Chunked, SearchContinuation } from './vector/chunked';
 
@@ -33,6 +35,25 @@ export class Column<T extends DataType = any>
     implements Clonable<Column<T>>,
                Sliceable<Column<T>>,
                Applicative<T, Column<T>> {
+
+    public static new<T extends DataType>(field: string | Field<T>, ...chunks: (Vector<T> | Vector<T>[])[]): Column<T>;
+    public static new<T extends DataType>(field: string | Field<T>, data: Data<T>, ...args: VectorCtorArgs<V<T>>): Column<T>;
+    /** @nocollapse */
+    public static new<T extends DataType>(field: string | Field<T>, data: Data<T> | Vector<T> | Vector<T>[], ...rest: any[]): any {
+
+        const chunks = Chunked.flatten<T>(...(
+            Array.isArray(data) ? [...data, ...rest] :
+            data instanceof Vector ? [data, ...rest] :
+            [Vector.new(data, ...rest)]));
+
+        if (typeof field === 'string') {
+            const type = chunks[0].data.type;
+            field = new Field(field, type, chunks.some(({ nullCount }) => nullCount > 0));
+        } else if (!field.nullable && chunks.some(({ nullCount }) => nullCount > 0)) {
+            field = field.clone({ nullable: true });
+        }
+        return new Column(field, chunks);
+    }
 
     constructor(field: Field<T>, vectors: Vector<T>[] = [], offsets?: Uint32Array) {
         vectors = Chunked.flatten(...vectors);
