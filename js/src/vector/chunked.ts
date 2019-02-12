@@ -17,11 +17,11 @@
 
 import { Data } from '../data';
 import { Field } from '../schema';
-import { Vector } from '../vector';
 import { clampRange } from '../util/vector';
 import { DataType, Dictionary } from '../type';
-import { Clonable, Sliceable, Applicative } from '../vector';
 import { DictionaryVector } from './dictionary';
+import { AbstractVector, Vector } from '../vector';
+import { Clonable, Sliceable, Applicative } from '../vector';
 
 /** @ignore */
 type ChunkedDict<T extends DataType> = T extends Dictionary ? T['dictionaryVector'] : null | never;
@@ -33,7 +33,7 @@ export type SearchContinuation<T extends Chunked> = (column: T, chunkIndex: numb
 
 /** @ignore */
 export class Chunked<T extends DataType = any>
-    extends Vector<T>
+    extends AbstractVector<T>
     implements Clonable<Chunked<T>>,
                Sliceable<Chunked<T>>,
                Applicative<T, Chunked<T>> {

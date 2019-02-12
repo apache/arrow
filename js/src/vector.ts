@@ -35,7 +35,7 @@ export interface Applicative<T extends DataType, R extends Chunked> {
     readonly [Symbol.isConcatSpreadable]: boolean;
 }
 
-export interface Vector<T extends DataType = any>
+export interface AbstractVector<T extends DataType = any>
     extends Clonable<Vector<T>>,
             Sliceable<Vector<T>>,
             Applicative<T, Chunked<T>> {
@@ -45,7 +45,7 @@ export interface Vector<T extends DataType = any>
     readonly TValue: T['TValue'];
 }
 
-export abstract class Vector<T extends DataType = any> implements Iterable<T['TValue'] | null> {
+export abstract class AbstractVector<T extends DataType = any> implements Iterable<T['TValue'] | null> {
 
     public abstract readonly data: Data<T>;
     public abstract readonly type: T;
@@ -66,3 +66,5 @@ export abstract class Vector<T extends DataType = any> implements Iterable<T['TV
     public abstract toArray(): T['TArray'];
     public abstract getChildAt<R extends DataType = any>(index: number): Vector<R> | null;
 }
+
+export { AbstractVector as Vector };
