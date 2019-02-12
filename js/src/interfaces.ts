@@ -76,7 +76,7 @@ export type VectorCtorType<
 export type Vector<T extends Type | DataType = any> =
     T extends Type          ? TypeToVector<T>     :
     T extends DataType      ? DataTypeToVector<T> :
-                              never
+                              vecs.BaseVector<any>
     ;
 
 /** @ignore */
