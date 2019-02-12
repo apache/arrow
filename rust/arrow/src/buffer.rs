@@ -18,12 +18,17 @@
 //! The main type in the module is `Buffer`, a contiguous immutable memory region of
 //! fixed size aligned at a 64-byte boundary. `MutableBuffer` is like `Buffer`, but it can
 //! be mutated and grown.
+//!
+use packed_simd::u8x64;
 
 use std::cmp;
 use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
+use std::ops::{BitAnd, BitOr};
+use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
 
+use crate::builder::{BufferBuilderTrait, UInt8BufferBuilder};
 use crate::error::Result;
 use crate::memory;
 use crate::util::bit_util;
@@ -138,6 +143,100 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
             memory::memcpy(buffer, slice.as_ptr(), len);
         }
         Buffer::from_raw_parts(buffer, len)
+    }
+}
+
+///  Helper function for SIMD `BitAnd` and `BitOr` implementations
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+fn bitwise_bin_op_simd_helper<F>(left: &Buffer, right: &Buffer, op: F) -> Buffer
+where
+    F: Fn(u8x64, u8x64) -> u8x64,
+{
+    let mut result = MutableBuffer::new(left.len()).with_bitset(left.len(), false);
+    let lanes = u8x64::lanes();
+    for i in (0..left.len()).step_by(lanes) {
+        let left_data =
+            unsafe { from_raw_parts(left.raw_data().offset(i as isize), lanes) };
+        let right_data =
+            unsafe { from_raw_parts(right.raw_data().offset(i as isize), lanes) };
+        let result_slice: &mut [u8] = unsafe {
+            from_raw_parts_mut(
+                (result.data_mut().as_mut_ptr() as *mut u8).offset(i as isize),
+                lanes,
+            )
+        };
+        unsafe {
+            bit_util::bitwise_bin_op_simd(&left_data, &right_data, result_slice, &op)
+        };
+    }
+    return result.freeze();
+}
+
+impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
+    type Output = Buffer;
+
+    fn bitand(self, rhs: &'b Buffer) -> Buffer {
+        assert_eq!(
+            self.len(),
+            rhs.len(),
+            "Buffers must be the same size to apply Bitwise AND."
+        );
+
+        // SIMD implementation if available
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        {
+            return bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b);
+        }
+
+        // Default implementation
+        #[allow(unreachable_code)]
+        {
+            let mut builder = UInt8BufferBuilder::new(self.len());
+            for i in 0..self.len() {
+                unsafe {
+                    builder
+                        .append(
+                            self.data().get_unchecked(i) & rhs.data().get_unchecked(i),
+                        )
+                        .unwrap();
+                }
+            }
+            builder.finish()
+        }
+    }
+}
+
+impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
+    type Output = Buffer;
+
+    fn bitor(self, rhs: &'b Buffer) -> Buffer {
+        assert_eq!(
+            self.len(),
+            rhs.len(),
+            "Buffers must be the same size to apply Bitwise OR."
+        );
+
+        // SIMD implementation if available
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        {
+            return bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b);
+        }
+
+        // Default implementation
+        #[allow(unreachable_code)]
+        {
+            let mut builder = UInt8BufferBuilder::new(self.len());
+            for i in 0..self.len() {
+                unsafe {
+                    builder
+                        .append(
+                            self.data().get_unchecked(i) | rhs.data().get_unchecked(i),
+                        )
+                        .unwrap();
+                }
+            }
+            builder.finish()
+        }
     }
 }
 
@@ -432,6 +531,28 @@ mod tests {
         mut_buf.set_null_bits(32, 32);
         let buf = mut_buf.freeze();
         assert_eq!(256, bit_util::count_set_bits(buf.data()));
+    }
+
+    #[test]
+    fn test_bitwise_and() {
+        let buf1 = Buffer::from([0b01101010]);
+        let buf2 = Buffer::from([0b01001110]);
+        assert_eq!(Buffer::from([0b01001010]), &buf1 & &buf2);
+    }
+
+    #[test]
+    fn test_bitwise_or() {
+        let buf1 = Buffer::from([0b01101010]);
+        let buf2 = Buffer::from([0b01001110]);
+        assert_eq!(Buffer::from([0b01101110]), &buf1 | &buf2);
+    }
+
+    #[test]
+    #[should_panic(expected = "Buffers must be the same size to apply Bitwise OR.")]
+    fn test_buffer_bitand_different_sizes() {
+        let buf1 = Buffer::from([1_u8, 1_u8]);
+        let buf2 = Buffer::from([0b01001110]);
+        let _buf3 = &buf1 | &buf2;
     }
 
     #[test]

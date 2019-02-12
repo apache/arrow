@@ -45,6 +45,7 @@ csv = "1.0.0"
 num = "0.2"
 regex = "1.1"
 lazy_static = "1.2"
+packed_simd = "0.3.1"
 
 [dev-dependencies]
 criterion = "0.2"
@@ -56,4 +57,8 @@ harness = false
 
 [[bench]]
 name = "builder"
+harness = false
+
+[[bench]]
+name = "bitwise_ops"
 harness = false
