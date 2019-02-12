@@ -19,7 +19,7 @@ class TestListArray < Test::Unit::TestCase
   include Helper::Buildable
 
   def test_new
-    field = Arrow::Field.new("item", Arrow::Int8DataType.new)
+    field = Arrow::Field.new("value", Arrow::Int8DataType.new)
     data_type = Arrow::ListDataType.new(field)
     value_offsets = Arrow::Buffer.new([0, 2, 5, 5].pack("l*"))
     data = Arrow::Buffer.new([1, 2, 3, 4, 5].pack("c*"))
