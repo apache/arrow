@@ -15,13 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
 import { Column } from '../column';
 import { Schema } from '../schema';
 import { Vector } from '../vector';
 import { DataType } from '../type';
+import { Data, Buffers } from '../data';
 import { Chunked } from '../vector/chunked';
 import { RecordBatch } from '../recordbatch';
+
+const noopBuf = new Uint8Array(0);
+const nullBufs = (bitmapLength: number) => <unknown> [
+    noopBuf, noopBuf, new Uint8Array(bitmapLength), noopBuf
+] as Buffers<any>;
 
 /** @ignore */
 export function alignChunkLengths<T extends { [key: string]: DataType; } = any>(schema: Schema, chunks: Data<T[keyof T]>[], length = chunks.reduce((l, c) => Math.max(l, c.length), 0)) {
@@ -30,10 +35,11 @@ export function alignChunkLengths<T extends { [key: string]: DataType; } = any>(
         const chunkLength = chunk ? chunk.length : 0;
         if (chunkLength === length) { return chunk; }
         const field = schema.fields[idx];
-        if (!field.nullable) { schema.fields[idx] = field.clone({ nullable: true }); }
-        return chunk
-            ? chunk._changeLengthAndBackfillNullBitmap(length)
-            : new Data(field.type, 0, length, length, [,, new Uint8Array(bitmapLength)]);
+        if (!field.nullable) {
+            schema.fields[idx] = field.clone({ nullable: true });
+        }
+        return chunk ? chunk._changeLengthAndBackfillNullBitmap(length)
+            : new Data(field.type, 0, length, length, nullBufs(bitmapLength));
     });
 }
 
@@ -57,10 +63,11 @@ export function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: s
     for (let chunkIndex = -1; ++chunkIndex < memo.numChunks;) {
 
         const [sameLength, batchLength] = chunks.reduce((memo, chunks) => {
+            const [same, batchLength] = memo;
             const chunk = chunks[chunkIndex];
-            const [sameLength, batchLength] = memo;
-            memo[1] = Math.min(batchLength, chunk ? chunk.length : batchLength);
-            sameLength && isFinite(batchLength) && (memo[0] = batchLength === memo[1]);
+            const chunkLength = chunk ? chunk.length : batchLength;
+            isFinite(batchLength) && same && (memo[0] = chunkLength === batchLength);
+            memo[1] = Math.min(batchLength, chunkLength);
             return memo;
         }, [true, Number.POSITIVE_INFINITY] as [boolean, number]);
 
@@ -80,8 +87,10 @@ function gatherChunksSameLength(schema: Schema, chunkIndex: number, length: numb
         const chunk = chunks[chunkIndex];
         if (chunk) { return chunk; }
         const field = schema.fields[idx];
-        if (!field.nullable) { schema.fields[idx] = field.clone({ nullable: true }); }
-        return new Data(field.type, 0, length, length, [,, new Uint8Array(bitmapLength)]);
+        if (!field.nullable) {
+            schema.fields[idx] = field.clone({ nullable: true });
+        }
+        return new Data(field.type, 0, length, length, nullBufs(bitmapLength));
     });
 }
 
@@ -98,9 +107,10 @@ function gatherChunksDiffLength(schema: Schema, chunkIndex: number, length: numb
             return chunk.slice(0, length);
         }
         const field = schema.fields[idx];
-        if (!field.nullable) { schema.fields[idx] = field.clone({ nullable: true }); }
-        return chunk
-            ? chunk._changeLengthAndBackfillNullBitmap(length)
-            : new Data(field.type, 0, length, length, [,, new Uint8Array(bitmapLength)]);
+        if (!field.nullable) {
+            schema.fields[idx] = field.clone({ nullable: true });
+        }
+        return chunk ? chunk._changeLengthAndBackfillNullBitmap(length)
+            : new Data(field.type, 0, length, length, nullBufs(bitmapLength));
     });
 }
