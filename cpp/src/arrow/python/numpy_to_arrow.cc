@@ -318,8 +318,18 @@ Status NumPyConverter::Convert() {
     return Status::Invalid("only handle 1-dimensional arrays");
   }
 
-  DCHECK_NE(dtype_->type_num, NPY_OBJECT)
-      << "This class does not handle NPY_OBJECT arrays";
+  if (dtype_->type_num == NPY_OBJECT) {
+    // If an object array, convert it like a normal Python sequence
+    PyConversionOptions py_options;
+    py_options.type = type_;
+    py_options.from_pandas = from_pandas_;
+    std::shared_ptr<ChunkedArray> res;
+    RETURN_NOT_OK(ConvertPySequence(reinterpret_cast<PyObject*>(arr_),
+                                    reinterpret_cast<PyObject*>(mask_), py_options,
+                                    &res));
+    out_arrays_ = res->chunks();
+    return Status::OK();
+  }
 
   if (type_ == nullptr) {
     return Status::Invalid("Must pass data type for non-object arrays");
@@ -788,15 +798,6 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
                       std::shared_ptr<ChunkedArray>* out) {
   if (!PyArray_Check(ao)) {
     return Status::Invalid("Input object was not a NumPy array");
-  }
-
-  PyArrayObject* arr = reinterpret_cast<PyArrayObject*>(ao);
-
-  if (PyArray_DESCR(arr)->type_num == NPY_OBJECT) {
-    PyConversionOptions py_options;
-    py_options.type = type;
-    py_options.from_pandas = from_pandas;
-    return ConvertPySequence(ao, mo, py_options, out);
   }
 
   NumPyConverter converter(pool, ao, mo, type, from_pandas, cast_options);

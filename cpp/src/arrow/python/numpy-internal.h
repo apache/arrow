@@ -40,14 +40,12 @@ class Ndarray1DIndexer {
 
   Ndarray1DIndexer() : arr_(NULLPTR), data_(NULLPTR) {}
 
-  explicit Ndarray1DIndexer(PyArrayObject* arr) : Ndarray1DIndexer() { Init(arr); }
-
-  void Init(PyArrayObject* arr) {
+  explicit Ndarray1DIndexer(PyArrayObject* arr) : Ndarray1DIndexer() {
     arr_ = arr;
     DCHECK_EQ(1, PyArray_NDIM(arr)) << "Only works with 1-dimensional arrays";
     Py_INCREF(arr);
-    data_ = reinterpret_cast<T*>(PyArray_DATA(arr));
-    stride_ = PyArray_STRIDES(arr)[0] / sizeof(T);
+    data_ = reinterpret_cast<uint8_t*>(PyArray_DATA(arr));
+    stride_ = PyArray_STRIDES(arr)[0];
   }
 
   ~Ndarray1DIndexer() { Py_XDECREF(arr_); }
@@ -56,14 +54,18 @@ class Ndarray1DIndexer {
 
   T* data() const { return data_; }
 
-  bool is_strided() const { return stride_ != 1; }
+  bool is_strided() const { return stride_ != sizeof(T); }
 
-  T& operator[](size_type index) { return data_[index * stride_]; }
-  T& operator[](size_type index) const { return data_[index * stride_]; }
+  T& operator[](size_type index) {
+    return *reinterpret_cast<T*>(data_ + index * stride_);
+  }
+  const T& operator[](size_type index) const {
+    return *reinterpret_cast<const T*>(data_ + index * stride_);
+  }
 
  private:
   PyArrayObject* arr_;
-  T* data_;
+  uint8_t* data_;
   int64_t stride_;
 };
 
