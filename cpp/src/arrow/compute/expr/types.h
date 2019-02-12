@@ -47,9 +47,6 @@ class ARROW_EXPORT Expr {
   /// \brief
   std::shared_ptr<Operation> op() const { return op_; }
 
-  /// \brief The name of the expression, if any. The default is unnamed
-  virtual const ExprName& name() const;
-
  protected:
   /// \brief Instantiate expression from an abstract operation
   /// \param[in] op the operation that generates the expression
@@ -60,18 +57,108 @@ class ARROW_EXPORT Expr {
 /// \brief Base class for a data-generated expression with a fixed and known
 /// type. This includes arrays and scalars
 class ARROW_EXPORT ValueExpr : public Expr {
+ public:
+  enum {
+    SCALAR,
+    ARRAY
+  } Arity;
+
+  /// \brief The name of the expression, if any. The default is unnamed
+  virtual const ExprName& name() const;
+
+  const ValueType& type() const { return type_; }
+
+  Arity arity() const { return arity_; }
+
  protected:
-  ValueExpr(const std::shared_ptr<Operation>& op,
-            const std::shared_ptr<SemType>& type);
+  ValueExpr(const std::shared_ptr<Operation>& op, const ValueType& type);
 
   /// \brief The semantic data type of the expression
-  std::shared_ptr<SemType> type_;
+  ValueType type_;
+
+  Arity arity_;
+
+  ExprName name_;
 };
 
-class ARROW_EXPORT ScalarExpr : public ValueExpr {
+const ValueExpr& expr = ...;
+
+auto expr1 = ...;
+
+op = ops.Cast(expr1, "string")
+  expr = op.to_expr();
+
+class Operation {
  public:
+  /// \brief Type-check inputs and resolve well-typed output expression
+  virtual Status ToExpr() const = 0;
+};
+
+auto op = ops::Cast(expr1, "string");
+std::shared_ptr<Expr> out_expr;
+RETURN_NOT_OK(op.ToExpr(&out_expr));
+
+class InvalidExpr : public Expr {
+ public:
+  InvalidExpr(const std::shared_ptr<Operator>& parent_op,
+              const std::string& explanation);
+
+  Status Validate() const override {
+    return Status::Invalid(explanation_);
+  }
+};
+
+class OperatorArguments {
 
 };
+
+class ArgumentRules {
+ public:
+  ArgumentRules(const std::vector<ArgumentRule>& rules);
+};
+
+auto expr = ops::Cast(expr, "string").ToExpr();
+
+ops::AnotherOp(expr)
+
+Status s = expr->Validate();
+if (!s.ok()) {
+  expr->op()->Print();
+  return s;
+}
+
+auto string_expr = LiteralString("foo");
+auto int32_expr = LiteralInt32(5);
+
+std::shared_ptr<Expr> expr;
+RETURN_NOT_OK(ops::Cast(expr, "string").ToExpr(&expr));
+RETURN_NOT_OK(ops::Cast(expr, "double").ToExpr(&expr));
+
+auto op2 = ops::Cast(out_expr, "double");
+std::shared_ptr<Expr> out_expr2;
+RETURN_NOT_OK(op2.ToExpr(&out_expr2));
+
+if (Is<AnyScalar>(expr)) {
+
+}
+
+expr.type().id() expr.arity() == ValueExpr::SCALAR
+
+
+isinstance(expr, AnyValue)
+isinstance(expr, AnyScalar)
+isinstance(expr, IntegerValue)
+isinstance(expr, IntegerArray)
+isinstance(expr, IntegerScalar)
+
+if (expr.type().id() == ::arrow::Type::NA) {
+
+}
+
+class ARROW_EXPORT ScalarExpr : public ValueExpr {};
+class ARROW_EXPORT ArrayExpr : public ValueExpr {};
+
+
 
 }  // namespace compute
 }  // namespace arrow
