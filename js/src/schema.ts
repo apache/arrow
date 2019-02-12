@@ -79,6 +79,14 @@ export class Field<T extends DataType = DataType> {
         return DataType.isDictionary(this._type) ? this._type.indices : this._type;
     }
     public toString() { return `${this.name}: ${this.type}`; }
+    public clone<R extends DataType = T>(props?: { name?: string, type?: R, nullable?: boolean, metadata?: Map<string, string> | null }): Field<R> {
+        props || (props = {});
+        return new Field<R>(
+            props.name === undefined ? this.name : props.name,
+            props.type === undefined ? this.type : props.type as any,
+            props.nullable === undefined ? this.nullable : props.nullable,
+            props.metadata === undefined ? this.metadata : props.metadata);
+    }
 }
 
 /** @ignore */
