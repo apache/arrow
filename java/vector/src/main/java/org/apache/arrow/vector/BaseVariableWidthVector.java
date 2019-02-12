@@ -1100,7 +1100,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     assert index >= 0;
     final int dataLength = end - start;
     fillEmpties(index);
-    handleSafe(index, end);
+    handleSafe(index, dataLength);
     BitVectorHelper.setValidityBit(validityBuffer, index, isSet);
     final int startOffset = offsetBuffer.getInt(index * OFFSET_WIDTH);
     offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
