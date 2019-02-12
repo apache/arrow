@@ -20,9 +20,9 @@ import { Table } from './table';
 import { Vector } from './vector';
 import { Schema, Field } from './schema';
 import { DataType, Struct } from './type';
-import { StructVector } from './vector/struct';
-import { Vector as VType } from './interfaces';
 import { Chunked } from './vector/chunked';
+import { StructVector } from './vector/struct';
+import { alignChunkLengths } from './util/recordbatch';
 import { Clonable, Sliceable, Applicative } from './vector';
 
 export interface RecordBatch<T extends { [key: string]: DataType } = any> {
@@ -38,12 +38,11 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
                Applicative<Struct<T>, Table<T>> {
 
     /** @nocollapse */
-    public static from<T extends { [key: string]: DataType } = any>(vectors: VType<T[keyof T]>[], names: (keyof T)[] = []) {
-        return new RecordBatch(
-            Schema.from(vectors, names),
-            vectors.reduce((len, vec) => Math.max(len, vec.length), 0),
-            vectors
-        );
+    public static from<T extends { [key: string]: DataType } = any>(chunks: (Data<T[keyof T]> | Vector<T[keyof T]>)[], names: (keyof T)[] = []) {
+        const schema = Schema.from(chunks, names);
+        const length = chunks.reduce((l, c) => Math.max(l, c.length), 0);
+        const children = chunks.map((x) => x instanceof Data ? x : x.data);
+        return new RecordBatch(schema, length, alignChunkLengths(schema, children, length));
     }
 
     protected _schema: Schema;
