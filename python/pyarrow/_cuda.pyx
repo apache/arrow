@@ -561,15 +561,12 @@ cdef class CudaBuffer(Buffer):
     def copy_from_device(self, buf, int64_t position=0, int64_t nbytes=-1):
         """Copy data from device to device.
 
-        The destination device buffer must be pre-allocated within the
-        same context as source device buffer.
-
         Parameters
         ----------
         buf : CudaBuffer
           Specify source device buffer.
         position : int
-          Specify the starting position of the copy in devive buffer.
+          Specify the starting position of the copy in device buffer.
           Default: 0.
         nbytes : int
           Specify the number of bytes to copy. Default: -1 (all from
@@ -581,9 +578,6 @@ cdef class CudaBuffer(Buffer):
           Number of bytes copied.
 
         """
-        if self.context.handle != buf.context.handle:
-            raise ValueError('device source and destination buffers must be '
-                             'within the same context')
         if position < 0 or position > self.size:
             raise ValueError('position argument is out-of-range')
         cdef int64_t nbytes_
@@ -605,9 +599,18 @@ cdef class CudaBuffer(Buffer):
 
         cdef shared_ptr[CCudaBuffer] buf_ = pyarrow_unwrap_cudabuffer(buf)
         cdef int64_t position_ = position
-        with nogil:
-            check_status(self.cuda_buffer.get().
-                         CopyFromDevice(position_, buf_.get().data(), nbytes_))
+        cdef shared_ptr[CCudaContext] src_ctx_ = pyarrow_unwrap_cudacontext(
+            buf.context)
+        if self.context.handle != buf.context.handle:
+            with nogil:
+                check_status(self.cuda_buffer.get().
+                             CopyFromAnotherDevice(src_ctx_, position_,
+                                                   buf_.get().data(), nbytes_))
+        else:
+            with nogil:
+                check_status(self.cuda_buffer.get().
+                             CopyFromDevice(position_, buf_.get().data(),
+                                            nbytes_))
         return nbytes_
 
     def export_for_ipc(self):
