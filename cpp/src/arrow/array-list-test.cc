@@ -296,4 +296,21 @@ TEST_F(TestListArray, TestZeroLength) {
   ASSERT_OK(ValidateArray(*result_));
 }
 
+TEST_F(TestListArray, TestBuilderPreserveFieleName) {
+  auto list_type_with_name = list(field("counts", int32()));
+
+  std::unique_ptr<ArrayBuilder> tmp;
+  ASSERT_OK(MakeBuilder(pool_, list_type_with_name, &tmp));
+  builder_.reset(checked_cast<ListBuilder*>(tmp.release()));
+
+  vector<int32_t> values = {1, 2, 4, 8};
+  ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
+
+  std::shared_ptr<Array> list_array;
+  ASSERT_OK(builder_->Finish(&list_array));
+
+  const auto& type = checked_cast<ListType&>(*list_array->type());
+  ASSERT_EQ("counts", type.value_field()->name());
+}
+
 }  // namespace arrow
