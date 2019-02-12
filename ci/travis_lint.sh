@@ -44,10 +44,10 @@ fi
 # Python style checks
 # (need Python 3 for crossbow)
 FLAKE8="python3 -m flake8"
-python3 -m pip install -q flake8==3.5
+python3 -m pip install -q flake8
 
 if [ "$ARROW_CI_DEV_AFFECTED" != "0" ]; then
-  $FLAKE8 --count $ARROW_CROSSBOW_DIR
+  $FLAKE8 --count $ARROW_DEV_DIR
 fi
 
 if [ "$ARROW_CI_INTEGRATION_AFFECTED" != "0" ]; then
