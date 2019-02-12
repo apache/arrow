@@ -116,7 +116,7 @@ class ARROW_EXPORT FlightClient {
 /// \brief An interface to upload record batches to a Flight server
 class ARROW_EXPORT FlightPutWriter : public ipc::RecordBatchWriter {
  public:
-  ~FlightPutWriter();
+  ~FlightPutWriter() override;
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
   Status Close() override;

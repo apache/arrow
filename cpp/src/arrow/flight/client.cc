@@ -196,8 +196,11 @@ class FlightClient::FlightClientImpl {
     ss << host << ":" << port;
     std::string uri = ss.str();
 
+    grpc::ChannelArguments args;
+    // Try to reconnect quickly at first, in case the server is still starting up
+    args.SetInt(GRPC_ARG_INITIAL_RECONNECT_BACKOFF_MS, 100);
     stub_ = pb::FlightService::NewStub(
-        grpc::CreateChannel(ss.str(), grpc::InsecureChannelCredentials()));
+        grpc::CreateCustomChannel(ss.str(), grpc::InsecureChannelCredentials(), args));
     return Status::OK();
   }
 
