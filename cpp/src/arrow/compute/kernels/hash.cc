@@ -104,9 +104,9 @@ class UniqueAction : public ActionBase {
 // ----------------------------------------------------------------------
 // Count values implementation (see HashKernel for description of methods)
 
-class CountValuesAction {
+class ValueCountsAction {
  public:
-  CountValuesAction(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+  ValueCountsAction(const std::shared_ptr<DataType>& type, MemoryPool* pool)
       : count_builder_(pool) {}
 
   Status Reserve(const int64_t length) {
@@ -122,6 +122,7 @@ class CountValuesAction {
   // or incur the cost of memory copies.
   Status Flush(Datum* out) { return Status::OK(); }
 
+  // Return the counts corresponding the MemoTable keys.
   Status FlushFinal(Datum* out) {
     std::shared_ptr<ArrayData> result;
     RETURN_NOT_OK(count_builder_.FinishInternal(&result));
@@ -430,7 +431,7 @@ Status GetDictionaryEncodeKernel(FunctionContext* ctx,
   return Status::OK();
 }
 
-Status GetCountValuesKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
+Status GetValueCountsKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
                             std::unique_ptr<HashKernel>* out) {
   std::unique_ptr<HashKernel> kernel;
 
@@ -438,7 +439,7 @@ Status GetCountValuesKernel(FunctionContext* ctx, const std::shared_ptr<DataType
 #define PROCESS(InType)                                                                \
   case InType::type_id:                                                                \
     kernel.reset(new                                                                   \
-                 typename HashKernelTraits<InType, CountValuesAction>::HashKernelImpl( \
+                 typename HashKernelTraits<InType, ValueCountsAction>::HashKernelImpl( \
                      type, ctx->memory_pool()));                                       \
     break;
 
@@ -501,19 +502,25 @@ Status DictionaryEncode(FunctionContext* ctx, const Datum& value, Datum* out) {
   return Status::OK();
 }
 
-Status CountValues(FunctionContext* ctx, const Datum& value,
-                   std::shared_ptr<Array>* out_uniques,
-                   std::shared_ptr<Array>* out_counts) {
+Status ValueCounts(FunctionContext* ctx, const Datum& value,
+                   std::shared_ptr<Array>* counts) {
   std::unique_ptr<HashKernel> func;
-  RETURN_NOT_OK(GetCountValuesKernel(ctx, value.type(), &func));
+  RETURN_NOT_OK(GetValueCountsKernel(ctx, value.type(), &func));
 
   // Calls return nothing for counts.
   std::vector<Datum> unused_output;
-  RETURN_NOT_OK(InvokeHash(ctx, func.get(), value, &unused_output, out_uniques));
+  std::shared_ptr<Array> uniques;
+  RETURN_NOT_OK(InvokeHash(ctx, func.get(), value, &unused_output, &uniques));
 
-  Datum counts;
-  RETURN_NOT_OK(func->FlushFinal(&counts));
-  *out_counts = MakeArray(counts.array());
+  Datum value_counts;
+  RETURN_NOT_OK(func->FlushFinal(&value_counts));
+
+  auto data_type = std::make_shared<StructType>(std::vector<std::shared_ptr<Field>>{
+      std::make_shared<Field>("Values", uniques->type()),
+      std::make_shared<Field>("Counts", int64())});
+  *counts = std::make_shared<StructArray>(
+      data_type, uniques->length(),
+      std::vector<std::shared_ptr<Array>>{uniques, MakeArray(value_counts.array())});
   return Status::OK();
 }
 #undef PROCESS_SUPPORTED_HASH_TYPES

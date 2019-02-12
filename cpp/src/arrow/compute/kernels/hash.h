@@ -57,15 +57,13 @@ Status Unique(FunctionContext* context, const Datum& datum, std::shared_ptr<Arra
 ///
 /// \param[in] context the FunctionContext
 /// \param[in] value array-like input
-/// \param[out] out_uniques unique elements as Array
-/// \param[out] out_counts counts per element as Array, same shape as out_uniques
+/// \param[out] counts An array of  <input type "Values", int64_t "Counts"> structs.
 ///
 /// \since 0.13.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Status CountValues(FunctionContext* context, const Datum& value,
-                   std::shared_ptr<Array>* out_uniques,
-                   std::shared_ptr<Array>* out_counts);
+Status ValueCounts(FunctionContext* context, const Datum& value,
+                   std::shared_ptr<Array>* counts);
 
 /// \brief Dictionary-encode values in an array-like object
 /// \param[in] context the FunctionContext
@@ -81,11 +79,6 @@ Status DictionaryEncode(FunctionContext* context, const Datum& data, Datum* out)
 
 // TODO(wesm): Define API for regularizing DictionaryArray objects with
 // different dictionaries
-
-// class DictionaryEncoder {
-//  public:
-//   virtual Encode(const Datum& data, Datum* out) = 0;
-// };
 
 //
 // ARROW_EXPORT
