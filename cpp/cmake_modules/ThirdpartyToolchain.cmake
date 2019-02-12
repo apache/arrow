@@ -661,6 +661,13 @@ endif()
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   if("${GTEST_HOME}" STREQUAL "")
     set(GTEST_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
+
+    if(CMAKE_BUILD_TYPE MATCHES DEBUG)
+      set(CMAKE_GTEST_DEBUG_EXTENSION "d")
+    else()
+      set(CMAKE_GTEST_DEBUG_EXTENSION "")
+    endif()
+
     if(APPLE)
       set(GTEST_CMAKE_CXX_FLAGS ${GTEST_CMAKE_CXX_FLAGS}
                                 -DGTEST_USE_OWN_TR1_TUPLE=1
@@ -671,18 +678,18 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
     set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
     set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
     set(GTEST_STATIC_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}")
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GTEST_MAIN_STATIC_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_STATIC_LIBRARY_SUFFIX}")
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GTEST_VENDORED 1)
     set(GTEST_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}"
       -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS})
     set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
     set(GMOCK_STATIC_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gmock${CMAKE_STATIC_LIBRARY_SUFFIX}")
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gmock${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GMOCK_MAIN_STATIC_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gmock_main${CMAKE_STATIC_LIBRARY_SUFFIX}")
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gmock_main${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
     if (MSVC AND NOT ARROW_USE_STATIC_CRT)
       set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} -Dgtest_force_shared_crt=ON)
@@ -703,15 +710,6 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   message(STATUS "GTest include dir: ${GTEST_INCLUDE_DIR}")
   message(STATUS "GMock include dir: ${GMOCK_INCLUDE_DIR}")
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
-  # Conflicts in header files seem to either cause apple to have
-  # a bad boost symbol, or trusty to use CPP_TOOLCHAIN's header
-  # file for gmock (and the vendored version is 1.8.0 and conda is
-  # 1.8.1)
-  if (APPLE)
-    include_directories(SYSTEM ${GMOCK_INCLUDE_DIR})
-  else()
-    include_directories(BEFORE SYSTEM ${GMOCK_INCLUDE_DIR})
-  endif()
   if(GTEST_STATIC_LIB)
     message(STATUS "GTest static library: ${GTEST_STATIC_LIB}")
     message(STATUS "GMock static library: ${GMOCK_STATIC_LIB}")
