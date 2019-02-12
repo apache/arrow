@@ -75,7 +75,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       std::shared_ptr<DataType> value_type =
           internal::checked_cast<const ListType&>(*type).value_type();
       RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
-      out->reset(new ListBuilder(pool, std::move(value_builder)));
+      out->reset(new ListBuilder(pool, std::move(value_builder), type));
       return Status::OK();
     }
 
