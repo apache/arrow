@@ -15,16 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Data } from './data';
 import { Column } from './column';
 import { Schema, Field } from './schema';
 import { isPromise } from './util/compat';
 import { RecordBatch } from './recordbatch';
-import { Vector as VType } from './interfaces';
 import { DataFrame } from './compute/dataframe';
 import { RecordBatchReader } from './ipc/reader';
 import { Vector, Chunked } from './vector/index';
 import { DataType, RowLike, Struct } from './type';
 import { Clonable, Sliceable, Applicative } from './vector';
+import { distributeColumnsIntoRecordBatches } from './util/recordbatch';
 import { RecordBatchFileWriter, RecordBatchStreamWriter } from './ipc/writer';
 
 export interface Table<T extends { [key: string]: DataType; } = any> {
@@ -93,15 +94,36 @@ export class Table<T extends { [key: string]: DataType; } = any>
     }
 
     /** @nocollapse */
-    public static fromVectors<T extends { [key: string]: DataType; } = any>(vectors: VType<T[keyof T]>[], names?: (keyof T)[]) {
-        return new Table(RecordBatch.from(vectors, names));
+    public static fromVectors<T extends { [key: string]: DataType; } = any>(vectors: Vector<T[keyof T]>[], fields?: (keyof T | Field<T[keyof T]>)[]) {
+        return Table.new(vectors, fields);
     }
 
     /** @nocollapse */
     public static fromStruct<T extends { [key: string]: DataType; } = any>(struct: Vector<Struct<T>>) {
-        const schema = new Schema<T>(struct.type.children);
-        const chunks = (struct instanceof Chunked ? struct.chunks : [struct]) as VType<Struct<T>>[];
-        return new Table(schema, chunks.map((chunk) => new RecordBatch(schema, chunk.data)));
+        return Table.new<T>(struct.data.childData as Data<T[keyof T]>[], struct.type.children);
+    }
+
+    public static new<T extends { [key: string]: DataType; } = any>(chunks: (Data<T[keyof T]> | Vector<T[keyof T]>)[], fields?: (keyof T | Field<T[keyof T]>)[]): Table<T>;
+    public static new<T extends { [key: string]: DataType; } = any>(...columns: (Column<T[keyof T]> | Column<T[keyof T]>[])[]): Table<T>;
+    /** @nocollapse */
+    public static new<T extends { [key: string]: DataType; } = any>(...args: any[]): Table<T> {
+        let x = args[0], columns: Column<T[keyof T]>[];
+        if (x instanceof Column || (Array.isArray(x) && (x[0] instanceof Column))) {
+            columns = args.reduce(function flatten(xs: any[], x: any): any[] {
+                return Array.isArray(x) ? x.reduce(flatten, xs) : [...xs, x];
+            }, []).filter((x: any): x is Column<T[keyof T]> => x instanceof Column);
+        } else {
+            const [chunks, fields = []] = args as [
+                (Data<T[keyof T]> | Vector<T[keyof T]>)[],
+                           (string | Field<T[keyof T]>)[]];
+            columns = chunks.map((chunk, i) => {
+                const { [i]: name = `${i}`} = fields;
+                const v = chunk instanceof Data ? Vector.new(chunk) : chunk;
+                const f = name instanceof Field ? name as Field<T[keyof T]> : new Field(name, chunk.type);
+                return Column.new(f, [v]) as Column<T[keyof T]>;
+            });
+        }
+        return new Table(...distributeColumnsIntoRecordBatches(columns));
     }
 
     constructor(batches: RecordBatch<T>[]);

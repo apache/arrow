@@ -16,6 +16,7 @@
 // under the License.
 
 import { Vector } from './vector';
+import { truncateBitmap } from './util/bit';
 import { popcnt_bit_range } from './util/bit';
 import { toArrayBufferView } from './util/buffer';
 import { DataType, SparseUnion, DenseUnion } from './type';
@@ -137,6 +138,21 @@ export class Data<T extends DataType = DataType> {
         return this.clone<T>(this.type, this.offset + offset, length, nullCount, buffers,
             // Don't slice children if we have value offsets (the variable-width types)
             (!childData.length || this.valueOffsets) ? childData : this._sliceChildren(childData, childStride * offset, childStride * length));
+    }
+
+    public _changeLengthAndBackfillNullBitmap(newLength: number): Data<T> {
+        const { length, nullCount } = this;
+        // start initialized with 0s (nulls), then fill from 0 to length with 1s (not null)
+        const bitmap = new Uint8Array(((newLength + 63) & ~63) >> 3).fill(255, 0, length >> 3);
+        // set all the bits in the last byte (up to bit `length - length % 8`) to 1 (not null)
+        bitmap[length >> 3] = (1 << (length - (length & ~7))) - 1;
+        // if we have a nullBitmap, truncate + slice and set it over the pre-filled 1s
+        if (nullCount > 0) {
+            bitmap.set(truncateBitmap(this.offset, length, this.nullBitmap), 0);
+        }
+        const buffers = this.buffers;
+        buffers[BufferType.VALIDITY] = bitmap;
+        return this.clone(this.type, 0, newLength, nullCount + (newLength - length), buffers);
     }
 
     protected _sliceBuffers(offset: number, length: number, stride: number, typeId: T['TType']): Buffers<T> {

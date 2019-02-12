@@ -16,7 +16,7 @@
 // under the License.
 
 import { zip } from 'ix/iterable/zip';
-import { Table, Vector, RecordBatch, util } from './Arrow';
+import { Table, Vector, RecordBatch, Column, util } from './Arrow';
 
 declare global {
     namespace jest {
@@ -24,7 +24,7 @@ declare global {
             toArrowCompare(expected: any): CustomMatcherResult;
             toEqualTable(expected: Table): CustomMatcherResult;
             toEqualRecordBatch(expected: RecordBatch): CustomMatcherResult;
-            toEqualVector(expected: [Vector | null, string, string?]): CustomMatcherResult;
+            toEqualVector(expected: Vector | [Vector | null, string?, string?]): CustomMatcherResult;
         }
     }
 }
@@ -92,18 +92,20 @@ function toEqualRecordBatch(this: jest.MatcherUtils, actual: RecordBatch, expect
 }
 
 function toEqualVector<
-    TActual extends [Vector | null, string, string],
-    TExpected extends [Vector | null, string],
+    TActual extends Vector | [Vector | null, string?, string?],
+    TExpected extends Vector | [Vector | null, string?]
 >(this: jest.MatcherUtils, actual: TActual, expected: TExpected) {
 
-    let [v1, format1, columnName] = actual;
-    let [v2, format2] = expected;
+    let [v1, format1 = '', columnName = ''] = Array.isArray(actual) ? actual : [actual];
+    let [v2, format2 = ''] = Array.isArray(expected) ? expected : [expected];
+
+    if (v1 instanceof Column && columnName === '') { columnName = v1.name; }
 
     if (v1 == null || v2 == null) {
         return {
             pass: false,
             message: [
-                `${columnName}: (${format(this, format1, format2, ' !== ')})\n`,
+                [columnName, `(${format(this, format1, format2, ' !== ')})`].filter(Boolean).join(':'),
                 `${v1 == null ? 'actual' : 'expected'} is null`
             ].join('\n')
         };
@@ -151,7 +153,7 @@ function toEqualVector<
     return {
         pass: allFailures.every(({ failures }) => failures.length === 0),
         message: () => [
-            `${columnName}: (${format(this, format1, format2, ' !== ')})\n`,
+            [columnName, `(${format(this, format1, format2, ' !== ')})`].filter(Boolean).join(':'),
             ...allFailures.map(({ failures, title }) =>
                 !failures.length ? `` : [`${title}:`, ...failures].join(`\n`))
         ].join('\n')
