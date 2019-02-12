@@ -29,9 +29,11 @@
 #include "arrow/io/test-common.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/util.h"
 
+#include "arrow/flight/api.h"
+#include "arrow/flight/internal.h"
 #include "arrow/flight/perf.pb.h"
-#include "arrow/flight/server.h"
 #include "arrow/flight/test-util.h"
 
 DEFINE_int32(port, 31337, "Server port to listen on");

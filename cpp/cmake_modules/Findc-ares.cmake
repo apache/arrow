@@ -42,8 +42,9 @@ if (MSVC)
 else ()
   set(CARES_LIB_NAME
     ${CMAKE_SHARED_LIBRARY_PREFIX}cares${CMAKE_SHARED_LIBRARY_SUFFIX})
-  set(CARES_STATIC_LIB_NAME
-    ${CMAKE_STATIC_LIBRARY_PREFIX}cares${CMAKE_STATIC_LIBRARY_SUFFIX})
+  set(CARES_STATIC_LIB_NAMES
+    ${CMAKE_STATIC_LIBRARY_PREFIX}cares${CMAKE_STATIC_LIBRARY_SUFFIX}
+    ${CMAKE_STATIC_LIBRARY_PREFIX}cares_static${CMAKE_STATIC_LIBRARY_SUFFIX})
 endif ()
 
 # Try the parameterized roots, if they exist
@@ -56,7 +57,7 @@ if (_cares_roots)
     PATHS ${_cares_roots} NO_DEFAULT_PATH
     PATH_SUFFIXES "lib")
   find_library(CARES_STATIC_LIB
-    NAMES ${CARES_STATIC_LIB_NAME}
+    NAMES ${CARES_STATIC_LIB_NAMES}
     PATHS ${_cares_roots} NO_DEFAULT_PATH
     PATH_SUFFIXES "lib")
 else ()

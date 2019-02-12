@@ -20,12 +20,14 @@
 boost-cpp=1.68.0
 brotli
 bzip2
+c-ares
 cmake
 double-conversion
 flatbuffers
 gflags
 glog
 gmock
+grpc-cpp
 gtest
 libprotobuf
 lz4-c

@@ -25,6 +25,7 @@
 
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream.h"
+#include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "google/protobuf/wire_format_lite.h"
 #include "grpc/byte_buffer_reader.h"
 #include "grpcpp/grpcpp.h"
@@ -65,33 +66,6 @@ namespace internal {
 
 using google::protobuf::io::CodedInputStream;
 using google::protobuf::io::CodedOutputStream;
-
-// More efficient writing of FlightData to gRPC output buffer
-// Implementation of ZeroCopyOutputStream that writes to a fixed-size buffer
-class FixedSizeProtoWriter : public ::google::protobuf::io::ZeroCopyOutputStream {
- public:
-  explicit FixedSizeProtoWriter(grpc_slice slice)
-      : slice_(slice),
-        bytes_written_(0),
-        total_size_(static_cast<int>(GRPC_SLICE_LENGTH(slice))) {}
-
-  bool Next(void** data, int* size) override {
-    // Consume the whole slice
-    *data = GRPC_SLICE_START_PTR(slice_) + bytes_written_;
-    *size = total_size_ - bytes_written_;
-    bytes_written_ = total_size_;
-    return true;
-  }
-
-  void BackUp(int count) override { bytes_written_ -= count; }
-
-  int64_t ByteCount() const override { return bytes_written_; }
-
- private:
-  grpc_slice slice_;
-  int bytes_written_;
-  int total_size_;
-};
 
 bool ReadBytesZeroCopy(const std::shared_ptr<arrow::Buffer>& source_data,
                        CodedInputStream* input, std::shared_ptr<arrow::Buffer>* out);
@@ -159,11 +133,11 @@ class GrpcBuffer : public arrow::MutableBuffer {
 namespace grpc {
 
 using arrow::flight::FlightData;
-using arrow::flight::internal::FixedSizeProtoWriter;
 using arrow::flight::internal::GrpcBuffer;
 using arrow::flight::internal::ReadBytesZeroCopy;
 
 using google::protobuf::internal::WireFormatLite;
+using google::protobuf::io::ArrayOutputStream;
 using google::protobuf::io::CodedInputStream;
 using google::protobuf::io::CodedOutputStream;
 
@@ -298,7 +272,8 @@ class SerializationTraits<IpcPayload> {
     // XXX(wesm): for debugging
     // std::cout << "Writing record batch with total size " << total_size << std::endl;
 
-    FixedSizeProtoWriter writer(*reinterpret_cast<grpc_slice*>(&slice));
+    ArrayOutputStream writer(const_cast<uint8_t*>(slice.begin()),
+                             static_cast<int>(slice.size()));
     CodedOutputStream pb_stream(&writer);
 
     // Write header
