@@ -246,42 +246,42 @@ impl AggregateFunction for SumFunction {
     }
 
     fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) {
-        if self.value.is_none() {
-            self.value = value.clone();
-        } else if value.is_some() {
-            self.value = match (&self.value, value) {
-                (Some(ScalarValue::UInt8(a)), Some(ScalarValue::UInt8(b))) => {
-                    Some(ScalarValue::UInt8(*a + b))
-                }
-                (Some(ScalarValue::UInt16(a)), Some(ScalarValue::UInt16(b))) => {
-                    Some(ScalarValue::UInt16(*a + b))
-                }
-                (Some(ScalarValue::UInt32(a)), Some(ScalarValue::UInt32(b))) => {
-                    Some(ScalarValue::UInt32(*a + b))
-                }
-                (Some(ScalarValue::UInt64(a)), Some(ScalarValue::UInt64(b))) => {
-                    Some(ScalarValue::UInt64(*a + b))
-                }
-                (Some(ScalarValue::Int8(a)), Some(ScalarValue::Int8(b))) => {
-                    Some(ScalarValue::Int8(*a + b))
-                }
-                (Some(ScalarValue::Int16(a)), Some(ScalarValue::Int16(b))) => {
-                    Some(ScalarValue::Int16(*a + b))
-                }
-                (Some(ScalarValue::Int32(a)), Some(ScalarValue::Int32(b))) => {
-                    Some(ScalarValue::Int32(*a + b))
-                }
-                (Some(ScalarValue::Int64(a)), Some(ScalarValue::Int64(b))) => {
-                    Some(ScalarValue::Int64(*a + b))
-                }
-                (Some(ScalarValue::Float32(a)), Some(ScalarValue::Float32(b))) => {
-                    Some(ScalarValue::Float32(a + *b))
-                }
-                (Some(ScalarValue::Float64(a)), Some(ScalarValue::Float64(b))) => {
-                    Some(ScalarValue::Float64(a + *b))
-                }
-                _ => panic!("unsupported data type for SUM"),
-            }
+        use ScalarValue::*;
+        self.value = match (&self.value, value) {
+            (None, _) => value.clone(), 
+            (Some(__), None) => unimplemented!(),
+            (Some(a), Some(b)) => match (a, b) {
+                //Types that should never be SUM()ed in the first place
+                (Null, _) => panic!("Cannot SUM() Null values"),
+                (Boolean(_), _) => panic!("Cannot SUM() Boolean values"),
+
+                //currently can only SUM() like types
+                //in the future this could be relaxed using Into() or similar
+                (UInt8(a), UInt8(b)) => Some(UInt8(*a + b)),
+                (UInt16(a), UInt16(b)) => Some(UInt16(*a + b)),
+                (UInt32(a), UInt32(b)) => Some(UInt32(*a + b)),
+                (UInt64(a), UInt64(b)) => Some(UInt64(*a + b)),
+                (Int8(a), Int8(b)) => Some(Int8(*a + b)),
+                (Int16(a), Int16(b)) => Some(Int16(*a + b)),
+                (Int32(a), Int32(b)) => Some(Int32(*a + b)),
+                (Int64(a), Int64(b)) => Some(Int64(*a + b)),
+                (Float32(a), Float32(b)) => Some(Float32(*a + b)),
+                (Float64(a), Float64(b)) => Some(Float64(*a + b)),
+
+
+                (Utf8(_), _) => panic!("Cannot SUM() Utf8 values"),
+                (Struct(_), _) => panic!("Cannot SUM() structs"),
+                (Float32(_), _) => panic!("Cannot SUM() Float32 values"),
+                (Float64(_), _) => panic!("Cannot SUM() Float64 values"),
+                (Int8(_), _) => panic!("Cannot SUM() Int8 values with non Int8 values"),
+                (Int16(_), _) => panic!("Cannot SUM() Int16 values with non Int16 values"),
+                (Int32(_), _) => panic!("Cannot SUM() Int32 values with non Int32 values"),
+                (Int64(_), _) => panic!("Cannot SUM() Int64 values with non Int64 values"),
+                (UInt8(_), _) => panic!("Cannot SUM() UInt8 values with non UInt8 values"),
+                (UInt16(_), _) => panic!("Cannot SUM() UInt16 values with non UInt16 values"),
+                (UInt32(_), _) => panic!("Cannot SUM() UInt32 values with non UInt32 values"),
+                (UInt64(_), _) => panic!("Cannot SUM() UInt64 values with non UInt64 values"),
+            },
         }
     }
 
