@@ -44,13 +44,6 @@ subdirectory of `site`.
 git clone --branch=asf-site https://github.com/apache/arrow-site.git asf-site
 ```
 
-Also, from the `site` directory, run the following command to import the format
-markdown documents so that they will rendered.
-
-```
-scripts/sync_format_docs.sh
-```
-
 ## Previewing the site
 
 From the `site` directory, run the following to generate HTML files and run the
