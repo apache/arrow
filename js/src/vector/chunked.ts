@@ -238,7 +238,7 @@ export class Chunked<T extends DataType = any>
             }
             // If the child overlaps one of the slice boundaries, include that slice
             const from = Math.max(0, begin - chunkOffset);
-            const to = from + Math.min(chunkLength - from, end - chunkOffset);
+            const to = Math.min(end - chunkOffset, chunkLength);
             slices.push(chunk.slice(from, to) as Vector<T>);
         }
         return self.clone(slices);
