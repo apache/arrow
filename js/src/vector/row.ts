@@ -21,35 +21,38 @@ import { DataType } from '../type';
 import { valueToString } from '../util/pretty';
 import { StructVector } from '../vector/struct';
 
+/** @ignore */ export const kLength = Symbol.for('length');
+/** @ignore */ export const kParent = Symbol.for('parent');
+/** @ignore */ export const kRowIndex = Symbol.for('rowIndex');
 /** @ignore */ const columnDescriptor = { enumerable: true, configurable: false, get: () => {} };
-/** @ignore */ const lengthDescriptor = { writable: false, enumerable: false, configurable: false, value: -1 };
+/** @ignore */ const rowLengthDescriptor = { writable: false, enumerable: false, configurable: false, value: -1 };
 /** @ignore */ const rowParentDescriptor = { writable: false, enumerable: false, configurable: false, value: null as any };
 
 export class Row<T extends { [key: string]: DataType }> implements Iterable<T[keyof T]['TValue']> {
     [key: string]: T[keyof T]['TValue'];
     // @ts-ignore
-    public parent: MapVector<T> | StructVector<T>;
+    public [kParent]: MapVector<T> | StructVector<T>;
     // @ts-ignore
-    public rowIndex: number;
+    public [kRowIndex]: number;
     // @ts-ignore
-    public readonly length: number;
+    public readonly [kLength]: number;
     constructor(rowIndex: number) {
-        this.rowIndex = rowIndex;
+        this[kRowIndex] = rowIndex;
     }
     *[Symbol.iterator]() {
-        for (let i = -1, n = this.length; ++i < n;) {
+        for (let i = -1, n = this[kLength]; ++i < n;) {
             yield this[i];
         }
     }
     public get<K extends keyof T>(key: K) { return (this as any)[key] as T[K]['TValue']; }
     public toJSON(): any {
-        return DataType.isStruct(this.parent.type) ? [...this] :
+        return DataType.isStruct(this[kParent].type) ? [...this] :
             Object.getOwnPropertyNames(this).reduce((props: any, prop: string) => {
                 return (props[prop] = (this as any)[prop]) && props || props;
             }, {});
     }
     public toString() {
-        return DataType.isStruct(this.parent.type) ?
+        return DataType.isStruct(this[kParent].type) ?
             [...this].map((x) => valueToString(x)).join(', ') :
             Object.getOwnPropertyNames(this).reduce((props: any, prop: string) => {
                 return (props[prop] = valueToString((this as any)[prop])) && props || props;
@@ -81,17 +84,16 @@ export class RowProxyGenerator<T extends { [key: string]: DataType }> {
 
     private constructor(parent: MapVector<T> | StructVector<T>, fields: Field[], fieldsAreEnumerable: boolean) {
         class BoundRow extends Row<T> {}
-
-        const proto = BoundRow.prototype;
+        const proto = BoundRow.prototype
 
         rowParentDescriptor.value = parent;
-        lengthDescriptor.value = fields.length;
-        Object.defineProperty(proto, 'parent', rowParentDescriptor);
-        Object.defineProperty(proto, 'length', lengthDescriptor);
+        rowLengthDescriptor.value = fields.length;
+        Object.defineProperty(proto, kParent, rowParentDescriptor);
+        Object.defineProperty(proto, kLength, rowLengthDescriptor);
         fields.forEach((field, columnIndex) => {
             columnDescriptor.get = function() {
-                const child = (this as any as Row<T>).parent.getChildAt(columnIndex);
-                return child ? child.get((this as any as Row<T>).rowIndex) : null;
+                const child = (this as any as BoundRow)[kParent].getChildAt(columnIndex);
+                return child ? child.get((this as any as BoundRow)[kRowIndex]) : null;
             };
             // set configurable to true to ensure Object.defineProperty
             // doesn't throw in the case of duplicate column names
@@ -108,7 +110,7 @@ export class RowProxyGenerator<T extends { [key: string]: DataType }> {
     }
     public bind(rowIndex: number) {
         const bound = Object.create(this.RowProxy.prototype);
-        bound.rowIndex = rowIndex;
+        bound[kRowIndex] = rowIndex;
         return bound;
         //return new this.RowProxy(rowIndex);
     }
