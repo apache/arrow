@@ -454,7 +454,7 @@ impl<R: Read> Reader<R> {
     where
         T::Native: num::NumCast,
     {
-        let values_builder: PrimitiveBuilder<T> = PrimitiveBuilder::new(10);
+        let values_builder: PrimitiveBuilder<T> = PrimitiveBuilder::new(rows.len());
         let mut builder = ListBuilder::new(values_builder);
         for row_index in 0..rows.len() {
             match rows[row_index].get(col_name) {
