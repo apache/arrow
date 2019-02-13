@@ -58,6 +58,8 @@ add_custom_command(
 
 set_source_files_properties(${FLIGHT_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
 
+add_custom_target(flight_grpc_gen ALL DEPENDS ${FLIGHT_GENERATED_PROTO_FILES})
+
 set(ARROW_FLIGHT_SRCS
     client.cc
     internal.cc
@@ -69,6 +71,8 @@ set(ARROW_FLIGHT_SRCS
 add_arrow_lib(arrow_flight
               SOURCES
               ${ARROW_FLIGHT_SRCS}
+              DEPENDENCIES
+              flight_grpc_gen
               SHARED_LINK_LIBS
               arrow_shared
               ${ARROW_FLIGHT_STATIC_LINK_LIBS}
