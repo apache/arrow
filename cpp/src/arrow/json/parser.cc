@@ -79,7 +79,9 @@ class UnsafeStringBuilder {
   // Builder may not be reused after Finish()
   Status Finish(std::shared_ptr<Array>* out, int64_t* values_length = nullptr) && {
     RETURN_NOT_OK(AppendNextOffset());
-    if (values_length) *values_length = values_end_;
+    if (values_length) {
+      *values_length = values_end_;
+    }
     std::shared_ptr<Buffer> offsets;
     RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
     auto data = ArrayData::Make(utf8(), length_, {nullptr, offsets, values_buffer_}, 0);
@@ -331,7 +333,9 @@ class RawArrayBuilder<Kind::kObject> {
 
   int GetFieldIndex(const std::string& name) const {
     auto it = name_to_index_.find(name);
-    if (it == name_to_index_.end()) return -1;
+    if (it == name_to_index_.end()) {
+      return -1;
+    }
     return it->second;
   }
 
@@ -615,13 +619,17 @@ class HandlerBase : public BlockParser::Impl,
 
   Status AppendBool(bool value) {
     constexpr auto kind = Kind::kBoolean;
-    if (builder_.kind != kind) return IllegallyChangedTo(kind);
+    if (builder_.kind != kind) {
+      return IllegallyChangedTo(kind);
+    }
     return Cast<kind>(builder_)->Append(value);
   }
 
   template <Kind::type kind>
   Status AppendScalar(string_view scalar) {
-    if (builder_.kind != kind) return IllegallyChangedTo(kind);
+    if (builder_.kind != kind) {
+      return IllegallyChangedTo(kind);
+    }
     auto index = static_cast<int32_t>(scalar_values_builder_.length());
     RETURN_NOT_OK(Cast<kind>(builder_)->Append(index));
     return scalar_values_builder_.Append(scalar);
@@ -629,7 +637,9 @@ class HandlerBase : public BlockParser::Impl,
 
   Status StartObjectImpl() {
     constexpr auto kind = Kind::kObject;
-    if (builder_.kind != kind) return IllegallyChangedTo(kind);
+    if (builder_.kind != kind) {
+      return IllegallyChangedTo(kind);
+    }
     auto struct_builder = Cast<kind>(builder_);
     absent_fields_stack_.Push(struct_builder->num_fields(), true);
     PushStacks();
@@ -639,7 +649,9 @@ class HandlerBase : public BlockParser::Impl,
   bool SetFieldBuilder(string_view key) {
     auto parent = Cast<Kind::kObject>(builder_stack_.back());
     field_index_ = parent->GetFieldIndex(std::string(key));
-    if (field_index_ == -1) return false;
+    if (field_index_ == -1) {
+      return false;
+    }
     builder_ = parent->field_builder(field_index_);
     absent_fields_stack_[field_index_] = false;
     return true;
@@ -650,9 +662,13 @@ class HandlerBase : public BlockParser::Impl,
 
     auto expected_count = absent_fields_stack_.TopSize();
     for (field_index_ = 0; field_index_ != expected_count; ++field_index_) {
-      if (!absent_fields_stack_[field_index_]) continue;
+      if (!absent_fields_stack_[field_index_]) {
+        continue;
+      }
       builder_ = parent->field_builder(field_index_);
-      if (!builder_.nullable) return ParseError("a required field was absent");
+      if (!builder_.nullable) {
+        return ParseError("a required field was absent");
+      }
       RETURN_NOT_OK(AppendNull());
     }
     absent_fields_stack_.Pop();
@@ -662,7 +678,9 @@ class HandlerBase : public BlockParser::Impl,
 
   Status StartArrayImpl() {
     constexpr auto kind = Kind::kArray;
-    if (builder_.kind != kind) return IllegallyChangedTo(kind);
+    if (builder_.kind != kind) {
+      return IllegallyChangedTo(kind);
+    }
     PushStacks();
     // append to the list builder in EndArrayImpl
     builder_ = Cast<kind>(builder_)->value_builder();
@@ -754,34 +772,46 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
   }
 
   bool Null() {
-    if (Skipping()) return true;
+    if (Skipping()) {
+      return true;
+    }
     return HandlerBase::Null();
   }
 
   bool Bool(bool value) {
-    if (Skipping()) return true;
+    if (Skipping()) {
+      return true;
+    }
     return HandlerBase::Bool(value);
   }
 
   bool RawNumber(const char* data, rapidjson::SizeType size, ...) {
-    if (Skipping()) return true;
+    if (Skipping()) {
+      return true;
+    }
     return HandlerBase::RawNumber(data, size);
   }
 
   bool String(const char* data, rapidjson::SizeType size, ...) {
-    if (Skipping()) return true;
+    if (Skipping()) {
+      return true;
+    }
     return HandlerBase::String(data, size);
   }
 
   bool StartObject() {
     ++depth_;
-    if (Skipping()) return true;
+    if (Skipping()) {
+      return true;
+    }
     return HandlerBase::StartObject();
   }
 
   bool Key(const char* key, rapidjson::SizeType len, ...) {
     MaybeStopSkipping();
-    if (Skipping()) return true;
+    if (Skipping()) {
+      return true;
+    }
     if (SetFieldBuilder(string_view(key, len))) {
       return true;
     }
@@ -792,17 +822,23 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
   bool EndObject(...) {
     MaybeStopSkipping();
     --depth_;
-    if (Skipping()) return true;
+    if (Skipping()) {
+      return true;
+    }
     return HandlerBase::EndObject();
   }
 
   bool StartArray() {
-    if (Skipping()) return true;
+    if (Skipping()) {
+      return true;
+    }
     return HandlerBase::StartArray();
   }
 
   bool EndArray(rapidjson::SizeType size) {
-    if (Skipping()) return true;
+    if (Skipping()) {
+      return true;
+    }
     return HandlerBase::EndArray(size);
   }
 
@@ -830,22 +866,30 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
   }
 
   bool Bool(bool value) {
-    if (MaybePromoteFromNull<Kind::kBoolean>()) return false;
+    if (MaybePromoteFromNull<Kind::kBoolean>()) {
+      return false;
+    }
     return HandlerBase::Bool(value);
   }
 
   bool RawNumber(const char* data, rapidjson::SizeType size, ...) {
-    if (MaybePromoteFromNull<Kind::kNumber>()) return false;
+    if (MaybePromoteFromNull<Kind::kNumber>()) {
+      return false;
+    }
     return HandlerBase::RawNumber(data, size);
   }
 
   bool String(const char* data, rapidjson::SizeType size, ...) {
-    if (MaybePromoteFromNull<Kind::kString>()) return false;
+    if (MaybePromoteFromNull<Kind::kString>()) {
+      return false;
+    }
     return HandlerBase::String(data, size);
   }
 
   bool StartObject() {
-    if (MaybePromoteFromNull<Kind::kObject>()) return false;
+    if (MaybePromoteFromNull<Kind::kObject>()) {
+      return false;
+    }
     return HandlerBase::StartObject();
   }
 
@@ -861,7 +905,9 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
   }
 
   bool StartArray() {
-    if (MaybePromoteFromNull<Kind::kArray>()) return false;
+    if (MaybePromoteFromNull<Kind::kArray>()) {
+      return false;
+    }
     return HandlerBase::StartArray();
   }
 
@@ -869,20 +915,26 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
   // return true if a terminal error was encountered
   template <Kind::type kind>
   bool MaybePromoteFromNull() {
-    if (builder_.kind != Kind::kNull) return false;
+    if (builder_.kind != Kind::kNull) {
+      return false;
+    }
     auto parent = builder_stack_.back();
     if (parent.kind == Kind::kArray) {
       auto list_builder = Cast<Kind::kArray>(parent);
       DCHECK_EQ(list_builder->value_builder(), builder_);
       status_ = MakeBuilder<kind>(builder_.index, &builder_);
-      if (!status_.ok()) return true;
+      if (!status_.ok()) {
+        return true;
+      }
       list_builder = Cast<Kind::kArray>(parent);
       list_builder->value_builder(builder_);
     } else {
       auto struct_builder = Cast<Kind::kObject>(parent);
       DCHECK_EQ(struct_builder->field_builder(field_index_), builder_);
       status_ = MakeBuilder<kind>(builder_.index, &builder_);
-      if (!status_.ok()) return true;
+      if (!status_.ok()) {
+        return true;
+      }
       struct_builder = Cast<Kind::kObject>(parent);
       struct_builder->field_builder(field_index_, builder_);
     }
