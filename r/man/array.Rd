@@ -4,10 +4,10 @@
 \alias{array}
 \title{create an \link[=arrow__Array]{arrow::Array} from an R vector}
 \usage{
-array(..., type)
+array(x, type)
 }
 \arguments{
-\item{\dots}{Vectors to coerce}
+\item{x}{R object}
 
 \item{type}{currently ignored}
 }
