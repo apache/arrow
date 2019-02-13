@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/flight/client.h"
+#include "arrow/flight/protocol-internal.h"
 
 #include <memory>
 #include <sstream>
@@ -33,8 +34,6 @@
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 
-#include "arrow/flight/Flight.grpc.pb.h"
-#include "arrow/flight/Flight.pb.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/serialization-internal.h"
 
@@ -74,13 +73,8 @@ class FlightStreamReader : public RecordBatchReader {
       return Status::OK();
     }
 
-    // For customizing read path for better memory/serialization efficiency
-    // XXX this cast is undefined behavior
-    auto custom_reader = reinterpret_cast<grpc::ClientReader<FlightData>*>(stream_.get());
-
-    // Explicitly specify the override to invoke - otherwise compiler
-    // may invoke through vtable (not updated by reinterpret_cast)
-    if (custom_reader->grpc::ClientReader<FlightData>::Read(&data)) {
+    // Pretend to be pb::FlightData and intercept in SerializationTraits
+    if (stream_->Read(reinterpret_cast<pb::FlightData*>(&data))) {
       std::unique_ptr<ipc::Message> message;
 
       // Validate IPC message
@@ -127,12 +121,9 @@ class FlightPutWriter::FlightPutWriterImpl : public ipc::RecordBatchWriter {
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override {
     IpcPayload payload;
     RETURN_NOT_OK(ipc::internal::GetRecordBatchPayload(batch, pool_, &payload));
-    // XXX this cast is undefined behavior
-    auto custom_writer = reinterpret_cast<grpc::ClientWriter<IpcPayload>*>(writer_.get());
-    // Explicitly specify the override to invoke - otherwise compiler
-    // may invoke through vtable (not updated by reinterpret_cast)
-    if (!custom_writer->grpc::ClientWriter<IpcPayload>::Write(payload,
-                                                              grpc::WriteOptions())) {
+
+    if (!writer_->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
+                        grpc::WriteOptions())) {
       std::stringstream ss;
       ss << "Could not write record batch to stream: "
          << rpc_->context.debug_error_string();
