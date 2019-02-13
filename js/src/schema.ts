@@ -80,6 +80,42 @@ export class Schema<T extends { [key: string]: DataType } = any> {
         return new Schema<{ [key: string]: K }>(columnIndices.map((i) => this._fields[i]), this.metadata);
     }
 
+    public assign<R extends { [key: string]: DataType } = any>(schema: Schema<R>): Schema<T & R>;
+    public assign<R extends { [key: string]: DataType } = any>(...fields: (Field<R[keyof R]> | Field<R[keyof R]>[])[]): Schema<T & R>;
+    public assign<R extends { [key: string]: DataType } = any>(...args: (Schema<R> | Field<R[keyof R]> | Field<R[keyof R]>[])[]) {
+
+        const other = args[0] instanceof Schema ? args[0] as Schema<R>
+            : new Schema<R>(args.reduce(function flatten(xs: any[], x: any): any[] {
+                return Array.isArray(x) ? x.reduce(flatten, xs) : [...xs, x];
+            }, []).filter((x: any): x is Field<R[keyof R]> => x instanceof Field));
+
+        const curFields = [...this._fields] as Field[];
+        const curDictionaries = [...this.dictionaries];
+        const curDictionaryFields = this.dictionaryFields;
+        const metadata = mergeMaps(this.metadata, other.metadata);
+        const newFields = other.fields.filter((f2) => {
+            const i = curFields.findIndex((f) => f.compareTo(f2));
+            return ~i ? (curFields[i] = curFields[i].clone({
+                metadata: mergeMaps(curFields[i].metadata, f2.metadata)
+            })) && false : true;
+        }) as Field[];
+
+        const { dictionaries, dictionaryFields } = generateDictionaryMap(newFields, new Map(), new Map());
+        const newDictionaries = [...dictionaries].filter(([y]) => !curDictionaries.every(([x]) => x === y));
+        const newDictionaryFields = [...dictionaryFields].map(([id, newDictFields]) => {
+            return [id, [...(curDictionaryFields.get(id) || []), ...newDictFields.map((f) => {
+                const i = newFields.findIndex((f2) => f2.compareTo(f));
+                const { dictionary, indices, isOrdered, dictionaryVector } = f.type;
+                const type = new Dictionary(dictionary, indices, id, isOrdered, dictionaryVector);
+                return newFields[i] = f.clone({ type });
+            })]] as [number, Field<Dictionary>[]];
+        });
+
+        return new Schema<T & R>(
+            [...curFields, ...newFields], metadata,
+            new Map([...curDictionaries, ...newDictionaries]),
+            new Map([...curDictionaryFields, ...newDictionaryFields])
+        );
     }
     public selectAt<K extends T[keyof T] = any>(...columnIndices: number[]) {
         return new Schema<{ [key: string]: K }>(columnIndices.map((i) => this.fields[i]).filter(Boolean), this.metadata);
