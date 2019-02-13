@@ -20,6 +20,7 @@
 
 use super::buffer::Buffer;
 use crate::util::bit_util;
+use std::ops::{BitAnd, BitOr};
 
 #[derive(PartialEq, Debug)]
 pub struct Bitmap {
@@ -54,6 +55,22 @@ impl Bitmap {
     }
 }
 
+impl<'a, 'b> BitAnd<&'b Bitmap> for &'a Bitmap {
+    type Output = Bitmap;
+
+    fn bitand(self, rhs: &'b Bitmap) -> Bitmap {
+        Bitmap::from(&self.bits & &rhs.bits)
+    }
+}
+
+impl<'a, 'b> BitOr<&'b Bitmap> for &'a Bitmap {
+    type Output = Bitmap;
+
+    fn bitor(self, rhs: &'b Bitmap) -> Bitmap {
+        Bitmap::from(&self.bits | &rhs.bits)
+    }
+}
+
 impl From<Buffer> for Bitmap {
     fn from(buf: Buffer) -> Self {
         Self { bits: buf }
@@ -69,6 +86,26 @@ mod tests {
         assert_eq!(64, Bitmap::new(63 * 8).len());
         assert_eq!(64, Bitmap::new(64 * 8).len());
         assert_eq!(128, Bitmap::new(65 * 8).len());
+    }
+
+    #[test]
+    fn test_bitwise_and() {
+        let bitmap1 = Bitmap::from(Buffer::from([0b01101010]));
+        let bitmap2 = Bitmap::from(Buffer::from([0b01001110]));
+        assert_eq!(
+            Bitmap::from(Buffer::from([0b01001010])),
+            &bitmap1 & &bitmap2
+        );
+    }
+
+    #[test]
+    fn test_bitwise_or() {
+        let bitmap1 = Bitmap::from(Buffer::from([0b01101010]));
+        let bitmap2 = Bitmap::from(Buffer::from([0b01001110]));
+        assert_eq!(
+            Bitmap::from(Buffer::from([0b01101110])),
+            &bitmap1 | &bitmap2
+        );
     }
 
     #[test]
