@@ -22,6 +22,8 @@
 #include <type_traits>
 
 #include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -34,25 +36,22 @@ namespace compute {
 // Find the largest compatible primitive type for a primitive type.
 template <typename I, typename Enable = void>
 struct FindAccumulatorType {
-  using Type = double;
+  using Type = DoubleType;
 };
 
 template <typename I>
-struct FindAccumulatorType<I, typename std::enable_if<std::is_integral<I>::value &&
-                                                      std::is_signed<I>::value>::type> {
-  using Type = int64_t;
+struct FindAccumulatorType<I, typename std::enable_if<IsSignedInt<I>::value>::type> {
+  using Type = Int64Type;
 };
 
 template <typename I>
-struct FindAccumulatorType<I, typename std::enable_if<std::is_integral<I>::value &&
-                                                      std::is_unsigned<I>::value>::type> {
-  using Type = uint64_t;
+struct FindAccumulatorType<I, typename std::enable_if<IsUnsignedInt<I>::value>::type> {
+  using Type = UInt64Type;
 };
 
 template <typename I>
-struct FindAccumulatorType<
-    I, typename std::enable_if<std::is_floating_point<I>::value>::type> {
-  using Type = double;
+struct FindAccumulatorType<I, typename std::enable_if<IsFloatingPoint<I>::value>::type> {
+  using Type = DoubleType;
 };
 
 struct Datum;

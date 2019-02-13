@@ -24,6 +24,7 @@
 
 #include "arrow/array.h"
 #include "arrow/record_batch.h"
+#include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/variant.h"  // IWYU pragma: export
@@ -55,60 +56,12 @@ class ARROW_EXPORT OpKernel {
   virtual ~OpKernel() = default;
 };
 
-/// \brief Placeholder for Scalar values until we implement these
-struct ARROW_EXPORT Scalar {
-  util::variant<bool, uint8_t, int8_t, uint16_t, int16_t, uint32_t, int32_t, uint64_t,
-                int64_t, float, double>
-      value;
-
-  explicit Scalar(bool value) : value(value) {}
-  explicit Scalar(uint8_t value) : value(value) {}
-  explicit Scalar(int8_t value) : value(value) {}
-  explicit Scalar(uint16_t value) : value(value) {}
-  explicit Scalar(int16_t value) : value(value) {}
-  explicit Scalar(uint32_t value) : value(value) {}
-  explicit Scalar(int32_t value) : value(value) {}
-  explicit Scalar(uint64_t value) : value(value) {}
-  explicit Scalar(int64_t value) : value(value) {}
-  explicit Scalar(float value) : value(value) {}
-  explicit Scalar(double value) : value(value) {}
-
-  Type::type kind() const {
-    switch (this->value.which()) {
-      case 0:
-        return Type::BOOL;
-      case 1:
-        return Type::UINT8;
-      case 2:
-        return Type::INT8;
-      case 3:
-        return Type::UINT16;
-      case 4:
-        return Type::INT16;
-      case 5:
-        return Type::UINT32;
-      case 6:
-        return Type::INT32;
-      case 7:
-        return Type::UINT64;
-      case 8:
-        return Type::INT64;
-      case 9:
-        return Type::FLOAT;
-      case 10:
-        return Type::DOUBLE;
-      default:
-        return Type::NA;
-    }
-  }
-};
-
 /// \class Datum
 /// \brief Variant type for various Arrow C++ data structures
 struct ARROW_EXPORT Datum {
   enum type { NONE, SCALAR, ARRAY, CHUNKED_ARRAY, RECORD_BATCH, TABLE, COLLECTION };
 
-  util::variant<decltype(NULLPTR), Scalar, std::shared_ptr<ArrayData>,
+  util::variant<decltype(NULLPTR), std::shared_ptr<Scalar>, std::shared_ptr<ArrayData>,
                 std::shared_ptr<ChunkedArray>, std::shared_ptr<RecordBatch>,
                 std::shared_ptr<Table>, std::vector<Datum>>
       value;
@@ -116,7 +69,7 @@ struct ARROW_EXPORT Datum {
   /// \brief Empty datum, to be populated elsewhere
   Datum() : value(NULLPTR) {}
 
-  Datum(const Scalar& value)  // NOLINT implicit conversion
+  Datum(const std::shared_ptr<Scalar>& value)  // NOLINT implicit conversion
       : value(value) {}
   Datum(const std::shared_ptr<ArrayData>& value)  // NOLINT implicit conversion
       : value(value) {}
@@ -188,13 +141,17 @@ struct ARROW_EXPORT Datum {
     return util::get<std::vector<Datum>>(this->value);
   }
 
-  Scalar scalar() const { return util::get<Scalar>(this->value); }
+  std::shared_ptr<Scalar> scalar() const {
+    return util::get<std::shared_ptr<Scalar>>(this->value);
+  }
 
   bool is_array() const { return this->kind() == Datum::ARRAY; }
 
   bool is_arraylike() const {
     return this->kind() == Datum::ARRAY || this->kind() == Datum::CHUNKED_ARRAY;
   }
+
+  bool is_scalar() const { return this->kind() == Datum::SCALAR; }
 
   /// \brief The value type of the variant, if any
   ///
@@ -204,6 +161,8 @@ struct ARROW_EXPORT Datum {
       return util::get<std::shared_ptr<ArrayData>>(this->value)->type;
     } else if (this->kind() == Datum::CHUNKED_ARRAY) {
       return util::get<std::shared_ptr<ChunkedArray>>(this->value)->type();
+    } else if (this->kind() == Datum::SCALAR) {
+      return util::get<std::shared_ptr<Scalar>>(this->value)->type;
     }
     return NULLPTR;
   }

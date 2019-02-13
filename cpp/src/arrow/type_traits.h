@@ -42,6 +42,7 @@ template <>
 struct TypeTraits<NullType> {
   using ArrayType = NullArray;
   using BuilderType = NullBuilder;
+  using ScalarType = NullScalar;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -49,6 +50,7 @@ template <>
 struct TypeTraits<BooleanType> {
   using ArrayType = BooleanArray;
   using BuilderType = BooleanBuilder;
+  using ScalarType = BooleanScalar;
   using CType = bool;
 
   static constexpr int64_t bytes_required(int64_t elements) {
@@ -64,11 +66,12 @@ struct CTypeTraits<bool> : public TypeTraits<BooleanType> {
 };
 
 #define PRIMITIVE_TYPE_TRAITS_DEF_(CType_, ArrowType_, ArrowArrayType, ArrowBuilderType, \
-                                   ArrowTensorType, SingletonFn)                         \
+                                   ArrowScalarType, ArrowTensorType, SingletonFn)        \
   template <>                                                                            \
   struct TypeTraits<ArrowType_> {                                                        \
     using ArrayType = ArrowArrayType;                                                    \
     using BuilderType = ArrowBuilderType;                                                \
+    using ScalarType = ArrowScalarType;                                                  \
     using TensorType = ArrowTensorType;                                                  \
     using CType = CType_;                                                                \
     static constexpr int64_t bytes_required(int64_t elements) {                          \
@@ -86,7 +89,8 @@ struct CTypeTraits<bool> : public TypeTraits<BooleanType> {
 #define PRIMITIVE_TYPE_TRAITS_DEF(CType, ArrowShort, SingletonFn)             \
   PRIMITIVE_TYPE_TRAITS_DEF_(                                                 \
       CType, ARROW_CONCAT(ArrowShort, Type), ARROW_CONCAT(ArrowShort, Array), \
-      ARROW_CONCAT(ArrowShort, Builder), ARROW_CONCAT(ArrowShort, Tensor), SingletonFn)
+      ARROW_CONCAT(ArrowShort, Builder), ARROW_CONCAT(ArrowShort, Scalar),    \
+      ARROW_CONCAT(ArrowShort, Tensor), SingletonFn)
 
 PRIMITIVE_TYPE_TRAITS_DEF(uint8_t, UInt8, uint8)
 PRIMITIVE_TYPE_TRAITS_DEF(int8_t, Int8, int8)
@@ -106,6 +110,7 @@ template <>
 struct TypeTraits<Date64Type> {
   using ArrayType = Date64Array;
   using BuilderType = Date64Builder;
+  using ScalarType = Date64Scalar;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int64_t);
@@ -118,6 +123,7 @@ template <>
 struct TypeTraits<Date32Type> {
   using ArrayType = Date32Array;
   using BuilderType = Date32Builder;
+  using ScalarType = Date32Scalar;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int32_t);
@@ -130,6 +136,7 @@ template <>
 struct TypeTraits<TimestampType> {
   using ArrayType = TimestampArray;
   using BuilderType = TimestampBuilder;
+  using ScalarType = TimestampScalar;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int64_t);
@@ -141,6 +148,7 @@ template <>
 struct TypeTraits<Time32Type> {
   using ArrayType = Time32Array;
   using BuilderType = Time32Builder;
+  using ScalarType = Time32Scalar;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int32_t);
@@ -152,6 +160,7 @@ template <>
 struct TypeTraits<Time64Type> {
   using ArrayType = Time64Array;
   using BuilderType = Time64Builder;
+  using ScalarType = Time64Scalar;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int64_t);
@@ -163,6 +172,7 @@ template <>
 struct TypeTraits<HalfFloatType> {
   using ArrayType = HalfFloatArray;
   using BuilderType = HalfFloatBuilder;
+  using ScalarType = HalfFloatScalar;
   using TensorType = HalfFloatTensor;
 
   static constexpr int64_t bytes_required(int64_t elements) {
@@ -176,6 +186,24 @@ template <>
 struct TypeTraits<Decimal128Type> {
   using ArrayType = Decimal128Array;
   using BuilderType = Decimal128Builder;
+  using ScalarType = Decimal128Scalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<BinaryType> {
+  using ArrayType = BinaryArray;
+  using BuilderType = BinaryBuilder;
+  using ScalarType = BinaryScalar;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return binary(); }
+};
+
+template <>
+struct TypeTraits<FixedSizeBinaryType> {
+  using ArrayType = FixedSizeBinaryArray;
+  using BuilderType = FixedSizeBinaryBuilder;
+  using ScalarType = FixedSizeBinaryScalar;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -183,6 +211,7 @@ template <>
 struct TypeTraits<StringType> {
   using ArrayType = StringArray;
   using BuilderType = StringBuilder;
+  using ScalarType = StringScalar;
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return utf8(); }
 };
@@ -198,24 +227,10 @@ struct CTypeTraits<char*> : public TypeTraits<StringType> {
 };
 
 template <>
-struct TypeTraits<BinaryType> {
-  using ArrayType = BinaryArray;
-  using BuilderType = BinaryBuilder;
-  constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return binary(); }
-};
-
-template <>
-struct TypeTraits<FixedSizeBinaryType> {
-  using ArrayType = FixedSizeBinaryArray;
-  using BuilderType = FixedSizeBinaryBuilder;
-  constexpr static bool is_parameter_free = false;
-};
-
-template <>
 struct TypeTraits<ListType> {
   using ArrayType = ListArray;
   using BuilderType = ListBuilder;
+  using ScalarType = ListScalar;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -232,6 +247,7 @@ template <>
 struct TypeTraits<StructType> {
   using ArrayType = StructArray;
   using BuilderType = StructBuilder;
+  using ScalarType = StructScalar;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -244,6 +260,8 @@ struct TypeTraits<UnionType> {
 template <>
 struct TypeTraits<DictionaryType> {
   using ArrayType = DictionaryArray;
+  // TODO(wesm): Not sure what to do about this
+  // using ScalarType = DictionaryScalar;
   constexpr static bool is_parameter_free = false;
 };
 

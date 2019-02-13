@@ -25,6 +25,8 @@
 #include "arrow/compute/kernels/sum.h"
 #include "arrow/compute/test-util.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
 
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
@@ -36,47 +38,47 @@ using std::vector;
 namespace arrow {
 namespace compute {
 
-template <typename CType, typename Enable = void>
+template <typename Type, typename Enable = void>
 struct DatumEqual {
   static void EnsureEqual(const Datum& lhs, const Datum& rhs) {}
 };
 
-template <typename CType>
-struct DatumEqual<CType,
-                  typename std::enable_if<std::is_floating_point<CType>::value>::type> {
+template <typename Type>
+struct DatumEqual<Type, typename std::enable_if<IsFloatingPoint<Type>::Value>::type> {
   static constexpr double kArbitraryDoubleErrorBound = 1.0;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
 
   static void EnsureEqual(const Datum& lhs, const Datum& rhs) {
     ASSERT_EQ(lhs.kind(), rhs.kind());
     if (lhs.kind() == Datum::SCALAR) {
-      ASSERT_EQ(lhs.scalar().kind(), rhs.scalar().kind());
-      ASSERT_NEAR(util::get<CType>(lhs.scalar().value),
-                  util::get<CType>(rhs.scalar().value), kArbitraryDoubleErrorBound);
+      auto left = static_cast<const ScalarType*>(lhs.scalar().get());
+      auto right = static_cast<const ScalarType*>(rhs.scalar().get());
+      ASSERT_EQ(left->type->id(), right->type->id());
+      ASSERT_NEAR(left->value, right->value, kArbitraryDoubleErrorBound);
     }
   }
 };
 
-template <typename CType>
-struct DatumEqual<CType,
-                  typename std::enable_if<!std::is_floating_point<CType>::value>::type> {
+template <typename Type>
+struct DatumEqual<Type, typename std::enable_if<!IsFloatingPoint<Type>::value>::type> {
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
   static void EnsureEqual(const Datum& lhs, const Datum& rhs) {
     ASSERT_EQ(lhs.kind(), rhs.kind());
     if (lhs.kind() == Datum::SCALAR) {
-      ASSERT_EQ(lhs.scalar().kind(), rhs.scalar().kind());
-      ASSERT_EQ(util::get<CType>(lhs.scalar().value),
-                util::get<CType>(rhs.scalar().value));
+      auto left = static_cast<const ScalarType*>(lhs.scalar().get());
+      auto right = static_cast<const ScalarType*>(rhs.scalar().get());
+      ASSERT_EQ(left->type->id(), right->type->id());
+      ASSERT_EQ(left->value, right->value);
     }
   }
 };
 
 template <typename ArrowType>
 void ValidateSum(FunctionContext* ctx, const Array& input, Datum expected) {
-  using CType = typename ArrowType::c_type;
-  using SumType = typename FindAccumulatorType<CType>::Type;
-
+  using OutputType = typename FindAccumulatorType<ArrowType>::Type;
   Datum result;
   ASSERT_OK(Sum(ctx, input, &result));
-  DatumEqual<SumType>::EnsureEqual(result, expected);
+  DatumEqual<OutputType>::EnsureEqual(result, expected);
 }
 
 template <typename ArrowType>
@@ -87,11 +89,11 @@ void ValidateSum(FunctionContext* ctx, const char* json, Datum expected) {
 
 template <typename ArrowType>
 static Datum DummySum(const Array& array) {
-  using CType = typename ArrowType::c_type;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using SumType = typename FindAccumulatorType<CType>::Type;
+  using SumType = typename FindAccumulatorType<ArrowType>::Type;
+  using SumScalarType = typename TypeTraits<SumType>::ScalarType;
 
-  SumType sum = 0;
+  typename SumType::c_type sum = 0;
   int64_t count = 0;
 
   const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
@@ -104,7 +106,11 @@ static Datum DummySum(const Array& array) {
     }
   }
 
-  return (count > 0) ? Datum(Scalar(sum)) : Datum();
+  if (count > 0) {
+    return Datum(std::make_shared<SumScalarType>(sum));
+  } else {
+    return Datum(std::make_shared<SumScalarType>(0, false));
+  }
 }
 
 template <typename ArrowType>
@@ -115,24 +121,21 @@ void ValidateSum(FunctionContext* ctx, const Array& array) {
 template <typename ArrowType>
 class TestSumKernelNumeric : public ComputeFixture, public TestBase {};
 
-typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
-                         UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType>
-    NumericArrowTypes;
-
 TYPED_TEST_CASE(TestSumKernelNumeric, NumericArrowTypes);
 TYPED_TEST(TestSumKernelNumeric, SimpleSum) {
-  using CType = typename TypeParam::c_type;
-  using SumType = typename FindAccumulatorType<CType>::Type;
+  using SumType = typename FindAccumulatorType<TypeParam>::Type;
+  using ScalarType = typename TypeTraits<SumType>::ScalarType;
+  using T = typename TypeParam::c_type;
 
-  ValidateSum<TypeParam>(&this->ctx_, "[]", Datum());
+  ValidateSum<TypeParam>(&this->ctx_, "[]",
+                         Datum(std::make_shared<ScalarType>(0, false)));
 
   ValidateSum<TypeParam>(&this->ctx_, "[0, 1, 2, 3, 4, 5]",
-                         Datum(Scalar(static_cast<SumType>(5 * 6 / 2))));
+                         Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
 
-  // Avoid this tests for (U)Int8Type
-  if (sizeof(CType) > 1)
-    ValidateSum<TypeParam>(&this->ctx_, "[1000, null, 300, null, 30, null, 7]",
-                           Datum(Scalar(static_cast<SumType>(1337))));
+  const T expected_result = static_cast<T>(14);
+  ValidateSum<TypeParam>(&this->ctx_, "[1, null, 3, null, 3, null, 7]",
+                         Datum(std::make_shared<ScalarType>(expected_result)));
 }
 
 template <typename ArrowType>

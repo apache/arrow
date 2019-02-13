@@ -45,38 +45,47 @@ class Schema;
 
 class DictionaryType;
 class DictionaryArray;
+class DictionaryScalar;
 
 class NullType;
 class NullArray;
 class NullBuilder;
+struct NullScalar;
 
 class BooleanType;
 class BooleanArray;
 class BooleanBuilder;
+struct BooleanScalar;
 
 class BinaryType;
 class BinaryArray;
 class BinaryBuilder;
+struct BinaryScalar;
 
 class FixedSizeBinaryType;
 class FixedSizeBinaryArray;
 class FixedSizeBinaryBuilder;
+struct FixedSizeBinaryScalar;
 
 class StringType;
 class StringArray;
 class StringBuilder;
+struct StringScalar;
 
 class ListType;
 class ListArray;
 class ListBuilder;
+struct ListScalar;
 
 class StructType;
 class StructArray;
 class StructBuilder;
+struct StructScalar;
 
 class Decimal128Type;
 class Decimal128Array;
 class Decimal128Builder;
+struct Decimal128Scalar;
 
 class UnionType;
 class UnionArray;
@@ -90,10 +99,14 @@ class NumericBuilder;
 template <typename TypeClass>
 class NumericTensor;
 
+template <typename TypeClass>
+struct NumericScalar;
+
 #define _NUMERIC_TYPE_DECL(KLASS)                     \
   class KLASS##Type;                                  \
   using KLASS##Array = NumericArray<KLASS##Type>;     \
   using KLASS##Builder = NumericBuilder<KLASS##Type>; \
+  using KLASS##Scalar = NumericScalar<KLASS##Type>;   \
   using KLASS##Tensor = NumericTensor<KLASS##Type>;
 
 _NUMERIC_TYPE_DECL(Int8)
@@ -113,25 +126,31 @@ _NUMERIC_TYPE_DECL(Double)
 class Date64Type;
 using Date64Array = NumericArray<Date64Type>;
 using Date64Builder = NumericBuilder<Date64Type>;
+class Date64Scalar;
 
 class Date32Type;
 using Date32Array = NumericArray<Date32Type>;
 using Date32Builder = NumericBuilder<Date32Type>;
+class Date32Scalar;
 
 class Time32Type;
 using Time32Array = NumericArray<Time32Type>;
 using Time32Builder = NumericBuilder<Time32Type>;
+class Time32Scalar;
 
 class Time64Type;
 using Time64Array = NumericArray<Time64Type>;
 using Time64Builder = NumericBuilder<Time64Type>;
+class Time64Scalar;
 
 class TimestampType;
 using TimestampArray = NumericArray<TimestampType>;
 using TimestampBuilder = NumericBuilder<TimestampType>;
+class TimestampScalar;
 
 class IntervalType;
 using IntervalArray = NumericArray<IntervalType>;
+class IntervalScalar;
 
 // ----------------------------------------------------------------------
 // (parameter-free) Factory functions

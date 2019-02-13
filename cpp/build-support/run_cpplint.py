@@ -112,6 +112,8 @@ if __name__ == "__main__":
             if problem_files:
                 msg = "{} had cpplint issues"
                 print("\n".join(map(msg.format, problem_files)))
+                if isinstance(stdout, bytes):
+                    stdout = stdout.decode('utf8')
                 print(stdout, file=sys.stderr)
                 error = True
     except Exception:

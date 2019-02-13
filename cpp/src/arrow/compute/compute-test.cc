@@ -59,6 +59,8 @@ void CheckImplicitConstructor(enum Datum::type expected_kind) {
 }
 
 TEST(TestDatum, ImplicitConstructors) {
+  CheckImplicitConstructor<Scalar>(Datum::SCALAR);
+
   CheckImplicitConstructor<Array>(Datum::ARRAY);
 
   // Instantiate from array subclass
@@ -66,6 +68,7 @@ TEST(TestDatum, ImplicitConstructors) {
 
   CheckImplicitConstructor<ChunkedArray>(Datum::CHUNKED_ARRAY);
   CheckImplicitConstructor<RecordBatch>(Datum::RECORD_BATCH);
+
   CheckImplicitConstructor<Table>(Datum::TABLE);
 }
 
