@@ -18,6 +18,8 @@
 
 set -e
 
+export MAVEN_OPTS="-Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
+
 # /arrow/java is read-only
 mkdir -p /build/java
 
@@ -28,5 +30,5 @@ pushd /arrow
 popd
 
 pushd $arrow_src/java
-  mvn -DskipTests -Drat.skip=true install
+  mvn -B -DskipTests -Drat.skip=true install
 popd

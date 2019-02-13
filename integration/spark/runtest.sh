@@ -25,7 +25,8 @@ pushd $arrow_src/java
   ARROW_VERSION=`mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | sed -n -e '/^\[.*\]/ !{ /^[0-9]/ { p; q } }'`
 popd
 
-MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
+export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
+export MAVEN_OPTS="${MAVEN_OPTS} -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
 
 # build Spark with Arrow
 pushd /spark
@@ -33,7 +34,7 @@ pushd /spark
   echo "Building Spark with Arrow $ARROW_VERSION"
   mvn versions:set-property -Dproperty=arrow.version -DnewVersion=$ARROW_VERSION
 
-  build/mvn -q -DskipTests package -pl sql/core -pl assembly -am
+  build/mvn -B -DskipTests package -pl sql/core -pl assembly -am
 
   SPARK_SCALA_TESTS=(
     "org.apache.spark.sql.execution.arrow"
@@ -43,7 +44,7 @@ pushd /spark
   (echo "Testing Spark:"; IFS=$'\n'; echo "${SPARK_SCALA_TESTS[*]}")
 
   # TODO: should be able to only build spark-sql tests with adding "-pl sql/core" but not currently working
-  build/mvn -q -Dtest=none -DwildcardSuites=$(IFS=,; echo "${SPARK_SCALA_TESTS[*]}") test
+  build/mvn -B -Dtest=none -DwildcardSuites=$(IFS=,; echo "${SPARK_SCALA_TESTS[*]}") test
 
   # Run pyarrow related Python tests only
   echo "Testing PySpark:"
