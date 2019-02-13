@@ -415,23 +415,13 @@ cdef class FlightDataStream:
 cdef class RecordBatchStream(FlightDataStream):
     def __init__(self, reader):
         # TODO: we don't really expose the readers in Python.
-        # self.stream.reset(None)
         pass
 
 
 cdef void _get_flight_info(void* self, CFlightDescriptor c_descriptor,
                            unique_ptr[CFlightInfo]* info):
     """Callback for implementing Flight servers in Python."""
-    cdef FlightDescriptor descriptor = \
-        FlightDescriptor.__new__(FlightDescriptor)
-    descriptor.descriptor = c_descriptor
-    result = (<object> self).get_flight_info(descriptor)
-    if not result:
-        info.reset(NULL)
-        # TODO:
-    else:
-        # TODO:
-        pass
+    raise NotImplementedError("GetFlightInfo is not implemented")
 
 
 cdef void _do_put(void* self, unique_ptr[CFlightMessageReader] reader):
@@ -479,8 +469,8 @@ cdef class FlightServerBase:
         raise NotImplementedError
 
     def do_put(self, descriptor, reader):
-        pass
+        raise NotImplementedError
 
     def shutdown(self):
-        # TODO: null check
-        self.server.get().Shutdown()
+        if self.server.get() != NULL:
+            self.server.get().Shutdown()
