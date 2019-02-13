@@ -19,8 +19,12 @@
 #define ARROW_JSON_READER_H
 
 #include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "arrow/json/options.h"  // IWYU pragma: keep
+#include "arrow/json/parser.h"   // IWYU pragma: keep
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
@@ -46,6 +50,9 @@ class ARROW_EXPORT TableReader {
                      const ReadOptions&, const ParseOptions&,
                      std::shared_ptr<TableReader>* out);
 };
+
+ARROW_EXPORT Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
+                             std::shared_ptr<RecordBatch>* out);
 
 }  // namespace json
 }  // namespace arrow

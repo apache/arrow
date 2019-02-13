@@ -28,6 +28,7 @@
 #include "arrow/ipc/json-simple.h"
 #include "arrow/json/options.h"
 #include "arrow/json/parser.h"
+#include "arrow/json/reader.h"
 #include "arrow/json/test-common.h"
 #include "arrow/status.h"
 #include "arrow/test-util.h"

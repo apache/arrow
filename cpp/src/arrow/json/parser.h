@@ -122,9 +122,6 @@ class ARROW_EXPORT BlockParser {
   std::unique_ptr<Impl> impl_;
 };
 
-ARROW_EXPORT Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
-                             std::shared_ptr<RecordBatch>* out);
-
 }  // namespace json
 }  // namespace arrow
 
