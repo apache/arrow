@@ -160,14 +160,14 @@ function partial2<T>(visit: (node: T, a: any, b: any) => any) {
 }
 
 /** @ignore */
-function wrapNullable1<T extends DataType, V extends Vector<T>, F extends (i: number) => any>(fn: F): (...args: Parameters<F>) => ReturnType<F> {
+function wrapNullableGet<T extends DataType, V extends Vector<T>, F extends (i: number) => any>(fn: F): (...args: Parameters<F>) => ReturnType<F> {
     return function(this: V, i: number) { return this.isValid(i) ? fn.call(this, i) : null; };
 }
 
 /** @ignore */
 function wrapNullableSet<T extends DataType, V extends BaseVector<T>, F extends (i: number, a: any) => void>(fn: F): (...args: Parameters<F>) => void {
     return function(this: V, i: number, a: any) {
-        if (setBool(this.nullBitmap, this.offset + i, a != null)) {
+        if (setBool(this.nullBitmap, this.offset + i, !(a === null || a === undefined))) {
             fn.call(this, i, a);
         }
     };
@@ -177,7 +177,7 @@ function wrapNullableSet<T extends DataType, V extends BaseVector<T>, F extends 
 function bindBaseVectorDataAccessors<T extends DataType>(this: BaseVector<T>) {
     const nullBitmap = this.nullBitmap;
     if (nullBitmap && nullBitmap.byteLength > 0) {
-        this.get = wrapNullable1(this.get);
+        this.get = wrapNullableGet(this.get);
         this.set = wrapNullableSet(this.set);
     }
 }
