@@ -143,6 +143,8 @@ if(ARROW_COMPUTE)
   set(ARROW_SRCS
       ${ARROW_SRCS}
       compute/context.cc
+      compute/expression.cc
+      compute/operation.cc
       compute/kernels/aggregate.cc
       compute/kernels/boolean.cc
       compute/kernels/cast.cc
