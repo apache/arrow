@@ -88,30 +88,32 @@ void AssertWholeObjects(Chunker& chunker, string_view block, int expected_count)
   ASSERT_EQ(count, expected_count);
 }
 
-void AssertChunking(Chunker& chunker, string_view str, int total_count) {
+void AssertChunking(Chunker& chunker, std::string str, int total_count) {
   // First chunkize whole JSON block
   AssertWholeObjects(chunker, str, total_count);
 
   // Then chunkize incomplete substrings of the block
   for (int i = 0; i != total_count; ++i) {
     // ensure shearing the closing brace off the last object causes it to be chunked out
-    auto last_incomplete = str.substr(0, str.find_last_of('}'));
-    AssertWholeObjects(chunker, last_incomplete, total_count - i - 1);
+    string_view str_view(str);
+    auto last_brace = str_view.find_last_of('}');
+    AssertWholeObjects(chunker, str.substr(0, last_brace), total_count - i - 1);
 
     // ensure skipping one object reduces the count by one
-    ASSERT_NE(ConsumeWholeObject(&str), string_view::npos);
+    ASSERT_NE(ConsumeWholeObject(&str_view), string_view::npos);
+    str = str_view.to_string();
     AssertWholeObjects(chunker, str, total_count - i - 1);
   }
 }
 
 void AssertStraddledChunking(Chunker& chunker, string_view str) {
-  auto first_half = str.substr(0, str.size() / 2);
+  auto first_half = str.substr(0, str.size() / 2).to_string();
   auto second_half = str.substr(str.size() / 2);
   AssertChunking(chunker, first_half, 1);
   string_view first_whole;
   ASSERT_OK(chunker.Process(first_half, &first_whole));
-  ASSERT_TRUE(first_half.starts_with(first_whole));
-  auto partial = first_half.substr(first_whole.size());
+  ASSERT_TRUE(string_view(first_half).starts_with(first_whole));
+  auto partial = string_view(first_half).substr(first_whole.size());
   string_view completion;
   ASSERT_OK(chunker.Process(partial, second_half, &completion));
   ASSERT_TRUE(second_half.starts_with(completion));
@@ -132,17 +134,16 @@ std::unique_ptr<Chunker> MakeChunker(bool newlines_in_values) {
   return Chunker::Make(options);
 }
 
-class DISABLED_BaseChunkerTest : public ::testing::TestWithParam<bool> {
+class BaseChunkerTest : public ::testing::TestWithParam<bool> {
  protected:
   void SetUp() override { chunker_ = MakeChunker(GetParam()); }
 
   std::unique_ptr<Chunker> chunker_;
 };
 
-INSTANTIATE_TEST_CASE_P(ChunkerTest, DISABLED_BaseChunkerTest, ::testing::Values(true));
+INSTANTIATE_TEST_CASE_P(ChunkerTest, BaseChunkerTest, ::testing::Values(true));
 
-INSTANTIATE_TEST_CASE_P(NoNewlineChunkerTest, DISABLED_BaseChunkerTest,
-                        ::testing::Values(false));
+INSTANTIATE_TEST_CASE_P(NoNewlineChunkerTest, BaseChunkerTest, ::testing::Values(false));
 
 constexpr auto object_count = 3;
 const std::vector<std::string>& lines() {
@@ -152,44 +153,44 @@ const std::vector<std::string>& lines() {
   return l;
 }
 
-TEST_P(DISABLED_BaseChunkerTest, Basics) {
+TEST_P(BaseChunkerTest, Basics) {
   AssertChunking(*chunker_, join(lines(), "\n"), object_count);
 }
 
-TEST_P(DISABLED_BaseChunkerTest, Empty) {
+TEST_P(BaseChunkerTest, Empty) {
   AssertChunking(*chunker_, "\n", 0);
   AssertChunking(*chunker_, "\n\n", 0);
 }
 
-TEST(ChunkerTest, DISABLED_PrettyPrinted) {
+TEST(ChunkerTest, PrettyPrinted) {
   std::string pretty[object_count];
   std::transform(std::begin(lines()), std::end(lines()), std::begin(pretty), PrettyPrint);
   auto chunker = MakeChunker(true);
   AssertChunking(*chunker, join(pretty, "\n"), object_count);
 }
 
-TEST(ChunkerTest, DISABLED_SingleLine) {
+TEST(ChunkerTest, SingleLine) {
   auto chunker = MakeChunker(true);
   AssertChunking(*chunker, join(lines(), ""), object_count);
 }
 
-TEST_P(DISABLED_BaseChunkerTest, Straddling) {
+TEST_P(BaseChunkerTest, Straddling) {
   AssertStraddledChunking(*chunker_, join(lines(), "\n"));
 }
 
-TEST(ChunkerTest, DISABLED_StraddlingPrettyPrinted) {
+TEST(ChunkerTest, StraddlingPrettyPrinted) {
   std::string pretty[object_count];
   std::transform(std::begin(lines()), std::end(lines()), std::begin(pretty), PrettyPrint);
   auto chunker = MakeChunker(true);
   AssertStraddledChunking(*chunker, join(pretty, "\n"));
 }
 
-TEST(ChunkerTest, DISABLED_StraddlingSingleLine) {
+TEST(ChunkerTest, StraddlingSingleLine) {
   auto chunker = MakeChunker(true);
   AssertStraddledChunking(*chunker, join(lines(), ""));
 }
 
-TEST_P(DISABLED_BaseChunkerTest, StraddlingEmpty) {
+TEST_P(BaseChunkerTest, StraddlingEmpty) {
   auto joined = join(lines(), "\n");
   auto first = string_view(joined).substr(0, lines()[0].size() + 1);
   auto rest = string_view(joined).substr(first.size());

@@ -97,56 +97,23 @@ class NewlinesStrictlyDelimitChunker : public Chunker {
   }
 };
 
-class ReadOnlyStream {
+/// RapidJson custom stream for reading JSON stored in multiple buffers
+/// http://rapidjson.org/md_doc_stream.html#CustomStream
+class MultiStringStream {
  public:
   using Ch = char;
-  std::size_t Tell() { return index_; }
-  void Put(Ch) { ARROW_LOG(FATAL) << "not implemented"; }
-  void Flush() { ARROW_LOG(FATAL) << "not implemented"; }
-  Ch* PutBegin() {
-    ARROW_LOG(FATAL) << "not implemented";
-    return nullptr;
-  }
-  std::size_t PutEnd(Ch*) {
-    ARROW_LOG(FATAL) << "not implemented";
-    return 0;
-  }
-
- protected:
-  std::size_t index_ = 0;
-};
-
-class StringStream : public ReadOnlyStream {
- public:
-  using Ch = char;
-  explicit StringStream(string_view string) : string_(string) {}
-  Ch Peek() const {
-    if (index_ == string_.size()) return '\0';
-    return string_[index_];
-  }
-  Ch Take() {
-    if (index_ == string_.size()) return '\0';
-    return string_[index_++];
-  }
-
- private:
-  string_view string_;
-};
-
-class MultiStringStream : public ReadOnlyStream {
- public:
   explicit MultiStringStream(std::vector<string_view> strings)
       : strings_(std::move(strings)) {
     std::remove(strings_.begin(), strings_.end(), string_view(""));
     std::reverse(strings_.begin(), strings_.end());
   }
-  Ch Peek() const {
+  char Peek() const {
     if (strings_.size() == 0) return '\0';
     return strings_.back()[0];
   }
-  Ch Take() {
+  char Take() {
     if (strings_.size() == 0) return '\0';
-    Ch taken = strings_.back()[0];
+    char taken = strings_.back()[0];
     if (strings_.back().size() == 1) {
       strings_.pop_back();
     } else {
@@ -155,8 +122,20 @@ class MultiStringStream : public ReadOnlyStream {
     ++index_;
     return taken;
   }
+  std::size_t Tell() { return index_; }
+  void Put(char) { ARROW_LOG(FATAL) << "not implemented"; }
+  void Flush() { ARROW_LOG(FATAL) << "not implemented"; }
+  char* PutBegin() {
+    ARROW_LOG(FATAL) << "not implemented";
+    return nullptr;
+  }
+  std::size_t PutEnd(char*) {
+    ARROW_LOG(FATAL) << "not implemented";
+    return 0;
+  }
 
  private:
+  std::size_t index_ = 0;
   std::vector<string_view> strings_;
 };
 
@@ -188,7 +167,7 @@ class ParsingChunker : public Chunker {
     }
     std::size_t total_length = 0;
     for (auto consumed = block;; consumed = block.substr(total_length)) {
-      auto length = ConsumeWholeObject(StringStream(consumed));
+      auto length = ConsumeWholeObject(rapidjson::StringStream(consumed.data()));
       if (length == string_view::npos || length == 0) {
         // found incomplete object or consumed is empty
         break;

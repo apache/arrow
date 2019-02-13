@@ -40,6 +40,7 @@ class ARROW_EXPORT Chunker {
   virtual ~Chunker() = default;
 
   /// \brief Carve up a chunk in a block of data to contain only whole objects
+  /// \param block must end with '\0'
   virtual Status Process(util::string_view block, util::string_view* chunked) = 0;
 
   /// \brief Carve the completion of a partial object out of a block
