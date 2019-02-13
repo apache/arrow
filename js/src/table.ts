@@ -26,6 +26,7 @@ import { Vector, Chunked } from './vector/index';
 import { DataType, RowLike, Struct } from './type';
 import { Clonable, Sliceable, Applicative } from './vector';
 import { distributeColumnsIntoRecordBatches } from './util/recordbatch';
+import { distributeVectorsIntoRecordBatches } from './util/recordbatch';
 import { RecordBatchFileWriter, RecordBatchStreamWriter } from './ipc/writer';
 
 export interface Table<T extends { [key: string]: DataType; } = any> {
@@ -212,5 +213,23 @@ export class Table<T extends { [key: string]: DataType; } = any>
             return new RecordBatch(schema, length, columnIndices.map((i) => childData[i]));
         }));
     }
+    public assign<R extends { [key: string]: DataType } = any>(other: Table<R>) {
+
+        const fields = this._schema.fields;
+        const [indices, oldToNew] = other.schema.fields.reduce((memo, f2, newIdx) => {
+            const [indices, oldToNew] = memo;
+            const i = fields.findIndex((f) => f.compareTo(f2));
+            ~i ? (oldToNew[i] = newIdx) : indices.push(newIdx);
+            return memo;
+        }, [[], []] as number[][]);
+
+        const schema = this._schema.assign(other.schema);
+        const columns = [
+            ...fields.map((_f, i, _fs, j = oldToNew[i]) =>
+                (j === undefined ? this.getColumnAt(i) : other.getColumnAt(j))!),
+            ...indices.map((i) => other.getColumnAt(i)!)
+        ].filter(Boolean) as Column<(T & R)[keyof T | keyof R]>[];
+
+        return new Table(...distributeVectorsIntoRecordBatches<T & R>(schema, columns));
     }
 }
