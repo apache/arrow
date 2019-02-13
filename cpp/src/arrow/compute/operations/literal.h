@@ -19,7 +19,7 @@
 
 #include <memory>
 
-#include "arrow/scalar.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -31,9 +31,7 @@ namespace compute {
 /// scalar value
 class ARROW_EXPORT Literal : public Operation {
  public:
-  Literal(const std::shared_ptr<Scalar>& value)
-    : value_(value) {}
-
+  explicit Literal(const std::shared_ptr<Scalar>& value);
   Status ToExpr(std::shared_ptr<Expr>* out) const override;
 
  private:

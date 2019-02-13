@@ -152,7 +152,8 @@ if(ARROW_COMPUTE)
       compute/kernels/hash.cc
       compute/kernels/mean.cc
       compute/kernels/sum.cc
-      compute/kernels/util-internal.cc)
+      compute/kernels/util-internal.cc
+      compute/operations/literal.cc)
 endif()
 
 if(ARROW_CUDA)

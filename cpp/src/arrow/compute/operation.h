@@ -32,7 +32,7 @@ class Expr;
 
 /// \brief An operation is a node in a computation graph, taking input data
 /// expression dependencies and emitting an output expression
-class ARROW_EXPORT Operation {
+class ARROW_EXPORT Operation : public std::enable_shared_from_this<Operation> {
  public:
   virtual ~Operation = default;
 
