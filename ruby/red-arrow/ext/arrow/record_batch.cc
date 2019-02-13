@@ -70,7 +70,7 @@ class ArrayConverter : public arrow::ArrayVisitor {
       ARRAY_CONVERT_VALUE_INLINE(ListType); // TODO: test
       // TODO: ARRAY_CONVERT_VALUE_INLINE(StructType);
       // TODO: ARRAY_CONVERT_VALUE_INLINE(DictionaryType);
-      // TODO: ARRAY_CONVERT_VALUE_INLINE(UnionType);
+      ARRAY_CONVERT_VALUE_INLINE(UnionType); // TODO: test
       default:
         break;
     }
@@ -286,6 +286,11 @@ class ArrayConverter : public arrow::ArrayVisitor {
 
     // TODO: return Status::Invalid("Invalid union mode");
     throw rb::error(rb_eRuntimeError, "Invalid union mode");
+  }
+
+  inline VALUE ConvertValue(const arrow::DictionaryArray& array, const int64_t i) {
+    auto indices = array.indices();
+    return ConvertValue(*indices, i);
   }
 
   Status Visit(const arrow::NullArray& array) override {
