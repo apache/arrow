@@ -62,9 +62,9 @@ class ArrayConverter : public arrow::ArrayVisitor {
       ARRAY_CONVERT_VALUE_INLINE(FixedSizeBinaryType); // TODO: test
       ARRAY_CONVERT_VALUE_INLINE(StringType);
       ARRAY_CONVERT_VALUE_INLINE(BinaryType);
-      // TODO: ARRAY_CONVERT_VALUE_INLINE(Date32Type);
-      // TODO: ARRAY_CONVERT_VALUE_INLINE(Date64Type);
-      // TODO: ARRAY_CONVERT_VALUE_INLINE(TimestampType);
+      ARRAY_CONVERT_VALUE_INLINE(Date32Type); // TODO: test
+      ARRAY_CONVERT_VALUE_INLINE(Date64Type); // TODO: test
+      ARRAY_CONVERT_VALUE_INLINE(TimestampType); // TODO: test
       ARRAY_CONVERT_VALUE_INLINE(Time32Type); // TODO: test
       ARRAY_CONVERT_VALUE_INLINE(Time64Type); // TODO: test
       ARRAY_CONVERT_VALUE_INLINE(ListType); // TODO: test
@@ -197,6 +197,25 @@ class ArrayConverter : public arrow::ArrayVisitor {
     });
   }
 
+  inline VALUE ConvertValue(const arrow::Date32Array& array, const int64_t i) {
+    const static int32_t JD_UNIX_EPOCH = 2440588; // UNIX epoch in Julian date
+    return rb::protect([&]{
+      auto raw_value = array.Value(i);
+      auto days_in_julian = raw_value + JD_UNIX_EPOCH;
+      return rb_funcall(rb_cDate, id_jd, 1, LONG2NUM(days_in_julian));
+    });
+  }
+
+  inline VALUE ConvertValue(const arrow::Date64Array& array, const int64_t i) {
+    return rb::protect([&]{
+      auto raw_value = array.Value(i);
+      VALUE msec = LL2NUM(raw_value);
+      VALUE sec = rb_rational_new(msec, INT2NUM(1000));
+      VALUE time_value = rb_time_num_new(sec, Qnil);
+      return rb_funcall(time_value, id_to_datetime, 0, 0);
+    });
+  }
+
   inline VALUE ConvertValue(const arrow::Time32Array& array, const int64_t i) {
     // TODO: must test this function
     // TODO: unit treatment
@@ -213,6 +232,23 @@ class ArrayConverter : public arrow::ArrayVisitor {
       auto raw_value = array.Value(i);
       return LL2NUM(raw_value);
     });
+  }
+
+  inline VALUE ConvertValue(const arrow::TimestampArray& array, const int64_t i, VALUE scale) {
+    return rb::protect([&]{
+      auto raw_value = array.Value(i);
+      VALUE sec = rb_rational_new(LL2NUM(raw_value), scale);
+      return rb_time_num_new(sec, Qnil);
+    });
+  }
+
+  inline VALUE ConvertValue(const arrow::TimestampArray& array, const int64_t i) {
+    const auto& type = arrow::internal::checked_cast<arrow::TimestampType&>(*array.type());
+    VALUE scale = time_unit_to_scale(type.unit());
+    if (NIL_P(scale)) {
+      throw rb::error(rb_eArgError, "Invalid TimeUnit");
+    }
+    return ConvertValue(array, i, scale);
   }
 
   inline VALUE ConvertValue(const arrow::ListArray& array, const int64_t i) {
@@ -298,6 +334,8 @@ class ArrayConverter : public arrow::ArrayVisitor {
   VISIT_CONVERT_VALUE(Double)
   VISIT_CONVERT_VALUE(HalfFloat)
   VISIT_CONVERT_VALUE(String)
+  VISIT_CONVERT_VALUE(Date32)
+  VISIT_CONVERT_VALUE(Date64)
   VISIT_CONVERT_VALUE(Time32)
   VISIT_CONVERT_VALUE(Time64)
   VISIT_CONVERT_VALUE(List)
@@ -324,32 +362,6 @@ class ArrayConverter : public arrow::ArrayVisitor {
     return Status::OK();
   }
 
-  Status Visit(const arrow::Date32Array& array) override {
-    return VisitColumn(array, [&](const int64_t i) {
-      const static int32_t JD_UNIX_EPOCH = 2440588; // UNIX epoch in Julian date
-      VALUE value = rb::protect([&]{
-        auto raw_value = array.Value(i);
-        auto days_in_julian = raw_value + JD_UNIX_EPOCH;
-        return rb_funcall(rb_cDate, id_jd, 1, LONG2NUM(days_in_julian));
-      });
-      return value;
-    });
-  }
-
-  Status Visit(const arrow::Date64Array& array) override {
-    return VisitColumn(array, [&](const int64_t i) {
-      VALUE value = rb::protect([&]{
-        auto raw_value = array.Value(i);
-        VALUE msec = LL2NUM(raw_value);
-        VALUE sec = rb_rational_new(msec, INT2NUM(1000));
-        VALUE time_value = rb_time_num_new(sec, Qnil);
-        return rb_funcall(time_value, id_to_datetime, 0, 0);
-      });
-      return value;
-    });
-    return Status::OK();
-  }
-
   Status Visit(const arrow::TimestampArray& array) override {
     const auto& type = arrow::internal::checked_cast<arrow::TimestampType&>(*array.type());
     VALUE scale = time_unit_to_scale(type.unit());
@@ -357,12 +369,7 @@ class ArrayConverter : public arrow::ArrayVisitor {
       return Status::Invalid("Invalid TimeUnit");
     }
     return VisitColumn(array, [&](const int64_t i) {
-      VALUE value = rb::protect([&]{
-        auto raw_value = array.Value(i);
-        VALUE sec = rb_rational_new(LL2NUM(raw_value), scale);
-        return rb_time_num_new(sec, Qnil);
-      });
-      return value;
+      return ConvertValue(array, i, scale);
     });
   }
 
