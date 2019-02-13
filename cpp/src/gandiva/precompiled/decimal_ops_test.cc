@@ -29,8 +29,18 @@ namespace gandiva {
 
 class TestDecimalSql : public ::testing::Test {
  protected:
-  static void AddAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
-                           const DecimalScalar128& expected);
+  static void Verify(DecimalTypeUtil::Op op, const DecimalScalar128& x,
+                     const DecimalScalar128& y, const DecimalScalar128& expected);
+
+  void AddAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
+                    const DecimalScalar128& expected) {
+    return Verify(DecimalTypeUtil::kOpAdd, x, y, expected);
+  }
+
+  void SubtractAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
+                         const DecimalScalar128& expected) {
+    return Verify(DecimalTypeUtil::kOpSubtract, x, y, expected);
+  }
 };
 
 #define EXPECT_DECIMAL_EQ(x, y, expected, actual)                                    \
@@ -38,15 +48,28 @@ class TestDecimalSql : public ::testing::Test {
                               << " expected : " << expected.ToString() << " actual " \
                               << actual.ToString()
 
-void TestDecimalSql::AddAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
-                                  const DecimalScalar128& expected) {
+void TestDecimalSql::Verify(DecimalTypeUtil::Op op, const DecimalScalar128& x,
+                            const DecimalScalar128& y, const DecimalScalar128& expected) {
   auto t1 = std::make_shared<arrow::Decimal128Type>(x.precision(), x.scale());
   auto t2 = std::make_shared<arrow::Decimal128Type>(y.precision(), y.scale());
 
   Decimal128TypePtr out_type;
-  EXPECT_OK(DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd, {t1, t2}, &out_type));
+  EXPECT_OK(DecimalTypeUtil::GetResultType(op, {t1, t2}, &out_type));
 
-  auto out_value = decimalops::Add(x, y, out_type->precision(), out_type->scale());
+  arrow::BasicDecimal128 out_value;
+  switch (op) {
+    case DecimalTypeUtil::kOpAdd:
+      out_value = decimalops::Add(x, y, out_type->precision(), out_type->scale());
+      break;
+
+    case DecimalTypeUtil::kOpSubtract:
+      out_value = decimalops::Subtract(x, y, out_type->precision(), out_type->scale());
+      break;
+
+    default:
+      // not implemented.
+      ASSERT_FALSE(true);
+  }
   EXPECT_DECIMAL_EQ(
       x, y, expected,
       DecimalScalar128(out_value, out_type->precision(), out_type->scale()));
@@ -72,6 +95,30 @@ TEST_F(TestDecimalSql, Add) {
   AddAndVerify(DecimalScalar128{"-09999999999999999999999999999999000000", 38, 5},  // x
                DecimalScalar128{"-100", 38, 7},                                     // y
                DecimalScalar128{"-99999999999999999999999999999990000010", 38, 6});
+}
+
+TEST_F(TestDecimalSql, Subtract) {
+  // fast-path
+  SubtractAndVerify(DecimalScalar128{"201", 30, 3},    // x
+                    DecimalScalar128{"301", 30, 3},    // y
+                    DecimalScalar128{"-100", 31, 3});  // expected
+
+  // max precision
+  SubtractAndVerify(
+      DecimalScalar128{"09999999999999999999999999999999000000", 38, 5},  // x
+      DecimalScalar128{"100", 38, 7},                                     // y
+      DecimalScalar128{"99999999999999999999999999999989999990", 38, 6});
+
+  // Both -ve
+  SubtractAndVerify(DecimalScalar128{"-201", 30, 3},   // x
+                    DecimalScalar128{"-301", 30, 2},   // y
+                    DecimalScalar128{"2809", 32, 3});  // expected
+
+  // -ve and max precision
+  SubtractAndVerify(
+      DecimalScalar128{"-09999999999999999999999999999999000000", 38, 5},  // x
+      DecimalScalar128{"-100", 38, 7},                                     // y
+      DecimalScalar128{"-99999999999999999999999999999989999990", 38, 6});
 }
 
 }  // namespace gandiva
