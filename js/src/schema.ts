@@ -74,10 +74,10 @@ export class Schema<T extends { [key: string]: DataType } = any> {
 
     public select<K extends keyof T = any>(...columnNames: K[]) {
         const names = columnNames.reduce((xs, x) => (xs[x] = true) && xs, Object.create(null));
-        return new Schema<{ [P in K]: T[P] }>(this._fields.filter((f) => names[f.name]), this.metadata);
+        return new Schema<{ [P in K]: T[P] }>(this.fields.filter((f) => names[f.name]), this.metadata);
     }
     public selectAt<K extends T[keyof T] = any>(...columnIndices: number[]) {
-        return new Schema<{ [key: string]: K }>(columnIndices.map((i) => this._fields[i]), this.metadata);
+        return new Schema<{ [key: string]: K }>(columnIndices.map((i) => this.fields[i]), this.metadata);
     }
 
     public assign<R extends { [key: string]: DataType } = any>(schema: Schema<R>): Schema<T & R>;
@@ -87,7 +87,7 @@ export class Schema<T extends { [key: string]: DataType } = any> {
         const other = args[0] instanceof Schema ? args[0] as Schema<R>
             : new Schema<R>(selectAndFlatten<Field<R[keyof R]>>(Field, args));
 
-        const curFields = [...this._fields] as Field[];
+        const curFields = [...this.fields] as Field[];
         const curDictionaries = [...this.dictionaries];
         const curDictionaryFields = this.dictionaryFields;
         const metadata = mergeMaps(this.metadata, other.metadata);
