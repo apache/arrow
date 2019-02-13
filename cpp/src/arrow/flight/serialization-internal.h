@@ -20,7 +20,8 @@
 
 #pragma once
 
-#include "arrow/flight/protocol.h"
+// Enable gRPC customizations
+#include "arrow/flight/protocol-internal.h"
 
 #include <limits>
 #include <memory>
@@ -78,7 +79,6 @@ bool ReadBytesZeroCopy(const std::shared_ptr<arrow::Buffer>& source_data,
 namespace grpc {
 
 using arrow::flight::FlightData;
-using arrow::flight::internal::ReadBytesZeroCopy;
 
 using google::protobuf::internal::WireFormatLite;
 using google::protobuf::io::ArrayOutputStream;

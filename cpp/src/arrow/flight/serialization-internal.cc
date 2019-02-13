@@ -35,9 +35,6 @@ bool ReadBytesZeroCopy(const std::shared_ptr<arrow::Buffer>& source_data,
 using google::protobuf::io::CodedInputStream;
 using google::protobuf::io::CodedOutputStream;
 
-bool ReadBytesZeroCopy(const std::shared_ptr<arrow::Buffer>& source_data,
-                       CodedInputStream* input, std::shared_ptr<arrow::Buffer>* out);
-
 // Internal wrapper for gRPC ByteBuffer so its memory can be exposed to Arrow
 // consumers with zero-copy
 class GrpcBuffer : public arrow::MutableBuffer {

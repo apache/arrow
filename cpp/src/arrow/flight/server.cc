@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/flight/server.h"
-#include "arrow/flight/protocol.h"
+#include "arrow/flight/protocol-internal.h"
 
 #include <cstdint>
 #include <memory>

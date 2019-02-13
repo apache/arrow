@@ -26,7 +26,7 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/util/macros.h"
 
-#include "arrow/flight/protocol.h"
+#include "arrow/flight/protocol-internal.h"
 #include "arrow/flight/types.h"
 
 namespace arrow {

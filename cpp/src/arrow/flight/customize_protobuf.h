@@ -21,7 +21,14 @@
 #include <memory>
 
 #include "grpcpp/impl/codegen/config_protobuf.h"
+
+// It is necessary to undefined this macro so that the protobuf
+// SerializationTraits specialization is not declared in proto_utils.h. We've
+// copied that specialization below and modified it to exclude
+// protocol::FlightData from the default implementation so we can specialize
+// for our faster serialization-deserialization path
 #undef GRPC_OPEN_SOURCE_PROTO
+
 #include "grpcpp/impl/codegen/proto_utils.h"
 
 namespace arrow {
