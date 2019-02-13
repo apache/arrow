@@ -28,6 +28,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 
@@ -97,7 +98,7 @@ struct ConversionTraits<std::vector<value_c_type>>
         typename ConversionTraits<value_c_type>::ArrowType>::ArrayType;
 
     const ElementArrayType& value_array =
-        internal::checked_cast<const ElementArrayType&>(*array.values());
+        ::arrow::internal::checked_cast<const ElementArrayType&>(*array.values());
 
     std::vector<value_c_type> vec(array.value_length(j));
     for (int64_t i = 0; i < array.value_length(j); i++) {
