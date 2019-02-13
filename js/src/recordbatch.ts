@@ -98,4 +98,9 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
         const childData = columnIndices.map((i) => this.data.childData[i]).filter(Boolean);
         return new RecordBatch<{ [key: string]: K }>(schema, this.length, childData);
     }
+    public selectAt<K extends T[keyof T] = any>(...columnIndices: number[]) {
+        const schema = this._schema.selectAt(...columnIndices);
+        const children = columnIndices.map((i) => this.data.childData[i]);
+        return new RecordBatch<{ [key: string]: K }>(schema, this.length, children);
+    }
 }
