@@ -202,7 +202,15 @@ export class Table<T extends { [key: string]: DataType; } = any>
     public count(): number {
         return this._length;
     }
-    public select(...columnNames: string[]) {
-        return new Table(this._chunks.map((batch) => batch.select(...columnNames)));
+    public select<K extends keyof T = any>(...columnNames: K[]) {
+        const nameToIndex = this._schema.fields.reduce((m, f, i) => m.set(f.name as K, i), new Map<K, number>());
+        return this.selectAt(...columnNames.map((columnName) => nameToIndex.get(columnName)!));
+    }
+    public selectAt<K extends T[keyof T] = any>(...columnIndices: number[]) {
+        const schema = this._schema.selectAt<K>(...columnIndices);
+        return new Table(schema, this._chunks.map(({ length, data: { childData } }) => {
+            return new RecordBatch(schema, length, columnIndices.map((i) => childData[i]));
+        }));
+    }
     }
 }

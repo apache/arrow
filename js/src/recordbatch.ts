@@ -84,4 +84,9 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
         const structData = Data.Struct(new Struct(schema.fields), 0, this.length, 0, null, childData);
         return new RecordBatch<{ [P in K]: T[P] }>(schema, structData as Data<Struct<{ [P in K]: T[P] }>>);
     }
+    public selectAt<K extends T[keyof T] = any>(...columnIndices: number[]) {
+        const schema = this._schema.selectAt(...columnIndices);
+        const children = columnIndices.map((i) => this.data.childData[i]);
+        return new RecordBatch<{ [key: string]: K }>(schema, this.length, children);
+    }
 }

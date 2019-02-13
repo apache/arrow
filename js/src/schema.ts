@@ -61,7 +61,12 @@ export class Schema<T extends { [key: string]: DataType } = any> {
 
     public select<K extends keyof T = any>(...columnNames: K[]) {
         const names = columnNames.reduce((xs, x) => (xs[x] = true) && xs, Object.create(null));
-        return new Schema<{ [P in K]: T[P] }>(this.fields.filter((f) => names[f.name]), this.metadata);
+        return new Schema<{ [P in K]: T[P] }>(this._fields.filter((f) => names[f.name]), this.metadata);
+    }
+    public selectAt<K extends T[keyof T] = any>(...columnIndices: number[]) {
+        return new Schema<{ [key: string]: K }>(columnIndices.map((i) => this._fields[i]), this.metadata);
+    }
+
     }
 }
 
