@@ -38,10 +38,17 @@ class DataTypeTest < Test::Unit::TestCase
                    Arrow::DataType.resolve([:list, field]))
     end
 
-    test("Hash") do
-      field = Arrow::Field.new(:visible, :boolean)
-      assert_equal(Arrow::ListDataType.new(field),
-                   Arrow::DataType.resolve(type: :list, field: field))
+    sub_test_case("Hash") do
+      test("with type name") do
+        field = Arrow::Field.new(:visible, :boolean)
+        assert_equal(Arrow::ListDataType.new(field),
+                     Arrow::DataType.resolve(type: :list, field: field))
+      end
+
+      test("with class") do
+        assert_equal(Arrow::DataType.resolve(type: :decimal128, precision: 8, scale: 2),
+                     Arrow::DataType.resolve(type: Arrow::Decimal128DataType.new(8, 2)))
+      end
     end
   end
 end

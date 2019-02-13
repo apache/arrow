@@ -97,6 +97,7 @@ module Arrow
               "data type description must have :type value: #{data_type.inspect}"
             raise ArgumentError, message
           end
+          return type if type.is_a?(DataType)
           data_type_class = resolve_class(type)
           if description.empty?
             data_type_class.new
