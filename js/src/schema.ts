@@ -18,6 +18,7 @@
 import { Data } from './data';
 import { Vector } from './vector';
 import { DataType, Dictionary } from './type';
+import { selectAndFlatten } from './util/array';
 import { instance as comparer } from './visitor/typecomparator';
 
 export class Schema<T extends { [key: string]: DataType } = any> {
@@ -72,9 +73,7 @@ export class Schema<T extends { [key: string]: DataType } = any> {
     public assign<R extends { [key: string]: DataType } = any>(...args: (Schema<R> | Field<R[keyof R]> | Field<R[keyof R]>[])[]) {
 
         const other = args[0] instanceof Schema ? args[0] as Schema<R>
-            : new Schema<R>(args.reduce(function flatten(xs: any[], x: any): any[] {
-                return Array.isArray(x) ? x.reduce(flatten, xs) : [...xs, x];
-            }, []).filter((x: any): x is Field<R[keyof R]> => x instanceof Field));
+            : new Schema<R>(selectAndFlatten<Field<R[keyof R]>>(Field, args));
 
         const curFields = [...this._fields] as Field[];
         const curDictionaries = [...this.dictionaries];

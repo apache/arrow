@@ -21,6 +21,7 @@ import { clampRange } from '../util/vector';
 import { DataType, Dictionary } from '../type';
 import { DictionaryVector } from './dictionary';
 import { AbstractVector, Vector } from '../vector';
+import { selectAndFlattenChunks } from '../util/array';
 import { Clonable, Sliceable, Applicative } from '../vector';
 
 /** @ignore */
@@ -40,9 +41,7 @@ export class Chunked<T extends DataType = any>
 
     /** @nocollapse */
     public static flatten<T extends DataType>(...vectors: Vector<T>[]) {
-        return vectors.reduce(function flatten(xs: any[], x: any): any[] {
-            return x instanceof Chunked ? x.chunks.reduce(flatten, xs) : [...xs, x];
-        }, []).filter((x: any): x is Vector<T> => x instanceof Vector);
+        return selectAndFlattenChunks<Vector<T>>(Vector, vectors);
     }
 
     /** @nocollapse */

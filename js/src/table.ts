@@ -21,6 +21,7 @@ import { Schema, Field } from './schema';
 import { isPromise } from './util/compat';
 import { RecordBatch } from './recordbatch';
 import { DataFrame } from './compute/dataframe';
+import { selectAndFlatten } from './util/array';
 import { RecordBatchReader } from './ipc/reader';
 import { Vector, Chunked } from './vector/index';
 import { DataType, RowLike, Struct } from './type';
@@ -110,9 +111,7 @@ export class Table<T extends { [key: string]: DataType; } = any>
     public static new<T extends { [key: string]: DataType; } = any>(...args: any[]): Table<T> {
         let x = args[0], columns: Column<T[keyof T]>[];
         if (x instanceof Column || (Array.isArray(x) && (x[0] instanceof Column))) {
-            columns = args.reduce(function flatten(xs: any[], x: any): any[] {
-                return Array.isArray(x) ? x.reduce(flatten, xs) : [...xs, x];
-            }, []).filter((x: any): x is Column<T[keyof T]> => x instanceof Column);
+            columns = selectAndFlatten<Column<T[keyof T]>>(Column, args);
         } else {
             const [chunks, fields = []] = args as [
                 (Data<T[keyof T]> | Vector<T[keyof T]>)[],
@@ -137,9 +136,7 @@ export class Table<T extends { [key: string]: DataType; } = any>
 
         if (args[0] instanceof Schema) { schema = args.shift(); }
 
-        let chunks = args.reduce(function flatten(xs: any[], x: any): any[] {
-            return Array.isArray(x) ? x.reduce(flatten, xs) : [...xs, x];
-        }, []).filter((x: any): x is RecordBatch<T> => x instanceof RecordBatch);
+        let chunks = selectAndFlatten<RecordBatch<T>>(RecordBatch, args);
 
         if (!schema && !(schema = chunks[0] && chunks[0].schema)) {
             throw new TypeError('Table must be initialized with a Schema or at least one RecordBatch');
