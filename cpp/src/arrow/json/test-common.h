@@ -23,7 +23,8 @@
 
 #include <rapidjson/writer.h>
 
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/string_view.h"
 #include "arrow/visitor_inline.h"
 
@@ -33,7 +34,7 @@ namespace json {
 using rapidjson::StringBuffer;
 using Writer = rapidjson::Writer<StringBuffer>;
 
-static Status OK(bool ok) { return ok ? Status::OK() : Status::Invalid(""); }
+inline static Status OK(bool ok) { return ok ? Status::OK() : Status::Invalid(""); }
 
 template <typename Engine>
 static Status Generate(const std::shared_ptr<DataType>& type, Engine& e, Writer* writer);

@@ -31,7 +31,7 @@
 #include "arrow/json/reader.h"
 #include "arrow/json/test-common.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
 

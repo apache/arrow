@@ -27,7 +27,8 @@
 
 #include "arrow/json/chunker.h"
 #include "arrow/json/options.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {

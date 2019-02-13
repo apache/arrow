@@ -23,6 +23,7 @@
 #include "arrow/json/options.h"
 #include "arrow/json/parser.h"
 #include "arrow/json/test-common.h"
+#include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 namespace json {
