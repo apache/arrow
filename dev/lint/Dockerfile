@@ -23,7 +23,8 @@ RUN apt-get install -y -q gnupg && \
       clang-7 \
       clang-format-7 \
       clang-tidy-7 \
-      clang-tools-7
+      clang-tools-7 \
+      iwyu
 
 RUN conda install flake8 && \
     conda clean --all -y
