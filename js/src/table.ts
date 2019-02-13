@@ -21,6 +21,7 @@ import { Schema, Field } from './schema';
 import { isPromise } from './util/compat';
 import { RecordBatch } from './recordbatch';
 import { DataFrame } from './compute/dataframe';
+import { selectAndFlatten } from './util/array';
 import { RecordBatchReader } from './ipc/reader';
 import { Vector, Chunked } from './vector/index';
 import { DataType, RowLike, Struct } from './type';
