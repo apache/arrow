@@ -60,9 +60,8 @@ set_source_files_properties(${FLIGHT_GENERATED_PROTO_FILES} PROPERTIES GENERATED
 
 set(ARROW_FLIGHT_SRCS
     client.cc
-    Flight.pb.cc
-    Flight.grpc.pb.cc
     internal.cc
+    protocol.cc
     serialization-internal.cc
     server.cc
     types.cc)
