@@ -94,8 +94,8 @@ constexpr int32_t kMaxParserNumRows = 100000;
 class ARROW_EXPORT BlockParser {
  public:
   BlockParser(MemoryPool* pool, ParseOptions options,
-              std::shared_ptr<Buffer> scalar_storage);
-  BlockParser(ParseOptions options, std::shared_ptr<Buffer> scalar_storage);
+              const std::shared_ptr<Buffer>& scalar_storage);
+  BlockParser(ParseOptions options, const std::shared_ptr<Buffer>& scalar_storage);
 
   /// \brief Parse a block of data insitu (destructively)
   /// \warning The input must be null terminated

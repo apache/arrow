@@ -62,8 +62,8 @@ Status KindChangeError(Kind::type from, Kind::type to) {
 /// resizing. This builder does not support appending nulls.
 class UnsafeStringBuilder {
  public:
-  UnsafeStringBuilder(MemoryPool* pool, std::shared_ptr<Buffer> buffer)
-      : offsets_builder_(pool), values_buffer_(std::move(buffer)) {
+  UnsafeStringBuilder(MemoryPool* pool, const std::shared_ptr<Buffer>& buffer)
+      : offsets_builder_(pool), values_buffer_(buffer) {
     DCHECK_NE(values_buffer_, nullptr);
   }
 
@@ -476,10 +476,10 @@ class HandlerBase : public BlockParser::Impl,
   int32_t num_rows() override { return num_rows_; }
 
  protected:
-  HandlerBase(MemoryPool* pool, std::shared_ptr<Buffer> scalar_storage)
+  HandlerBase(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
       : pool_(pool),
         builder_(Kind::kObject, 0, false),
-        scalar_values_builder_(pool, std::move(scalar_storage)) {
+        scalar_values_builder_(pool, scalar_storage) {
     arena<Kind::kObject>().emplace_back(pool_);
   }
 
@@ -727,8 +727,8 @@ class Handler;
 template <>
 class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
  public:
-  Handler(MemoryPool* pool, std::shared_ptr<Buffer> scalar_storage)
-      : HandlerBase(pool, std::move(scalar_storage)) {}
+  Handler(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
+      : HandlerBase(pool, scalar_storage) {}
 
   Status Parse(const std::shared_ptr<Buffer>& json) override {
     return DoParse(*this, json);
@@ -746,8 +746,8 @@ class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
 template <>
 class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
  public:
-  Handler(MemoryPool* pool, std::shared_ptr<Buffer> scalar_storage)
-      : HandlerBase(pool, std::move(scalar_storage)) {}
+  Handler(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
+      : HandlerBase(pool, scalar_storage) {}
 
   Status Parse(const std::shared_ptr<Buffer>& json) override {
     return DoParse(*this, json);
@@ -822,8 +822,8 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
 template <>
 class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
  public:
-  Handler(MemoryPool* pool, std::shared_ptr<Buffer> scalar_storage)
-      : HandlerBase(pool, std::move(scalar_storage)) {}
+  Handler(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
+      : HandlerBase(pool, scalar_storage) {}
 
   Status Parse(const std::shared_ptr<Buffer>& json) override {
     return DoParse(*this, json);
@@ -891,14 +891,14 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
 };
 
 BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
-                         std::shared_ptr<Buffer> scalar_storage)
+                         const std::shared_ptr<Buffer>& scalar_storage)
     : pool_(pool), options_(options) {
   DCHECK(options_.unexpected_field_behavior == UnexpectedFieldBehavior::InferType ||
          options_.explicit_schema != nullptr);
   switch (options_.unexpected_field_behavior) {
     case UnexpectedFieldBehavior::Ignore: {
       auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::Ignore>>(
-          pool_, std::move(scalar_storage));
+          pool_, scalar_storage);
       // FIXME(bkietz) move this to an Initialize()
       ARROW_IGNORE_EXPR(handler->SetSchema(*options_.explicit_schema));
       impl_ = std::move(handler);
@@ -906,14 +906,14 @@ BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
     }
     case UnexpectedFieldBehavior::Error: {
       auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::Error>>(
-          pool_, std::move(scalar_storage));
+          pool_, scalar_storage);
       ARROW_IGNORE_EXPR(handler->SetSchema(*options_.explicit_schema));
       impl_ = std::move(handler);
       break;
     }
     case UnexpectedFieldBehavior::InferType:
       auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::InferType>>(
-          pool_, std::move(scalar_storage));
+          pool_, scalar_storage);
       if (options.explicit_schema) {
         ARROW_IGNORE_EXPR(handler->SetSchema(*options_.explicit_schema));
       }
@@ -922,8 +922,9 @@ BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
   }
 }
 
-BlockParser::BlockParser(ParseOptions options, std::shared_ptr<Buffer> scalar_storage)
-    : BlockParser(default_memory_pool(), options, std::move(scalar_storage)) {}
+BlockParser::BlockParser(ParseOptions options,
+                         const std::shared_ptr<Buffer>& scalar_storage)
+    : BlockParser(default_memory_pool(), options, scalar_storage) {}
 
 }  // namespace json
 }  // namespace arrow
