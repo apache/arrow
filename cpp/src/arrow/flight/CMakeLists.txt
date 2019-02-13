@@ -60,6 +60,9 @@ set_source_files_properties(${FLIGHT_GENERATED_PROTO_FILES} PROPERTIES GENERATED
 
 add_custom_target(flight_grpc_gen ALL DEPENDS ${FLIGHT_GENERATED_PROTO_FILES})
 
+# Note, we do not compile the generated Protobuf sources directly, instead
+# compiling then via protocol.cc which contains some gRPC template overrides to
+# enable Flight-specific optimizations. See comments in protobuf.cc
 set(ARROW_FLIGHT_SRCS
     client.cc
     internal.cc
