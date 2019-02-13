@@ -129,7 +129,9 @@ struct ConvertImpl {
     RETURN_NOT_OK(builder.Resize(indices.length()));
     int64_t values_length = 0;
     for (int64_t i = 0; i != indices.length(); ++i) {
-      if (indices.IsNull(i)) continue;
+      if (indices.IsNull(i)) {
+        continue;
+      }
       values_length += dict.GetView(indices.GetView(i)).size();
     }
     RETURN_NOT_OK(builder.ReserveData(values_length));
@@ -190,7 +192,9 @@ static Status InferAndConvert(std::shared_ptr<DataType> expected,
     case Kind::kObject: {
       // FIXME(bkietz) in general expected fields may not be an exact prefix of parsed's
       auto in_type = static_cast<StructType*>(in->type().get());
-      if (expected == nullptr) expected = struct_({});
+      if (expected == nullptr) {
+        expected = struct_({});
+      }
       auto expected_type = static_cast<StructType*>(expected.get());
       if (in_type->num_children() == expected_type->num_children()) {
         return Convert(expected, in, out);
