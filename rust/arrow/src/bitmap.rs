@@ -18,8 +18,10 @@
 //! Defines a bitmap, which is used to track which values in an Arrow array are null.
 //! This is called a "validity bitmap" in the Arrow documentation.
 
-use super::buffer::Buffer;
+use crate::buffer::Buffer;
+use crate::error::Result;
 use crate::util::bit_util;
+
 use std::ops::{BitAnd, BitOr};
 
 #[derive(PartialEq, Debug)]
@@ -56,18 +58,18 @@ impl Bitmap {
 }
 
 impl<'a, 'b> BitAnd<&'b Bitmap> for &'a Bitmap {
-    type Output = Bitmap;
+    type Output = Result<Bitmap>;
 
-    fn bitand(self, rhs: &'b Bitmap) -> Bitmap {
-        Bitmap::from(&self.bits & &rhs.bits)
+    fn bitand(self, rhs: &'b Bitmap) -> Result<Bitmap> {
+        Ok(Bitmap::from((&self.bits & &rhs.bits)?))
     }
 }
 
 impl<'a, 'b> BitOr<&'b Bitmap> for &'a Bitmap {
-    type Output = Bitmap;
+    type Output = Result<Bitmap>;
 
-    fn bitor(self, rhs: &'b Bitmap) -> Bitmap {
-        Bitmap::from(&self.bits | &rhs.bits)
+    fn bitor(self, rhs: &'b Bitmap) -> Result<Bitmap> {
+        Ok(Bitmap::from((&self.bits | &rhs.bits)?))
     }
 }
 
@@ -94,7 +96,7 @@ mod tests {
         let bitmap2 = Bitmap::from(Buffer::from([0b01001110]));
         assert_eq!(
             Bitmap::from(Buffer::from([0b01001010])),
-            &bitmap1 & &bitmap2
+            (&bitmap1 & &bitmap2).unwrap()
         );
     }
 
@@ -104,7 +106,7 @@ mod tests {
         let bitmap2 = Bitmap::from(Buffer::from([0b01001110]));
         assert_eq!(
             Bitmap::from(Buffer::from([0b01101110])),
-            &bitmap1 | &bitmap2
+            (&bitmap1 | &bitmap2).unwrap()
         );
     }
 

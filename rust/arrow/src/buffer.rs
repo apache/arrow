@@ -29,7 +29,7 @@ use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
 
 use crate::builder::{BufferBuilderTrait, UInt8BufferBuilder};
-use crate::error::Result;
+use crate::error::{ArrowError, Result};
 use crate::memory;
 use crate::util::bit_util;
 
@@ -173,19 +173,19 @@ where
 }
 
 impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
-    type Output = Buffer;
+    type Output = Result<Buffer>;
 
-    fn bitand(self, rhs: &'b Buffer) -> Buffer {
-        assert_eq!(
-            self.len(),
-            rhs.len(),
-            "Buffers must be the same size to apply Bitwise AND."
-        );
+    fn bitand(self, rhs: &'b Buffer) -> Result<Buffer> {
+        if self.len() != rhs.len() {
+            return Err(ArrowError::ComputeError(
+                "Buffers must be the same size to apply Bitwise AND.".to_string(),
+            ));
+        }
 
         // SIMD implementation if available
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            return bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b);
+            return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b));
         }
 
         // Default implementation
@@ -201,25 +201,25 @@ impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
                         .unwrap();
                 }
             }
-            builder.finish()
+            Ok(builder.finish())
         }
     }
 }
 
 impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
-    type Output = Buffer;
+    type Output = Result<Buffer>;
 
-    fn bitor(self, rhs: &'b Buffer) -> Buffer {
-        assert_eq!(
-            self.len(),
-            rhs.len(),
-            "Buffers must be the same size to apply Bitwise OR."
-        );
+    fn bitor(self, rhs: &'b Buffer) -> Result<Buffer> {
+        if self.len() != rhs.len() {
+            return Err(ArrowError::ComputeError(
+                "Buffers must be the same size to apply Bitwise OR.".to_string(),
+            ));
+        }
 
         // SIMD implementation if available
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            return bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b);
+            return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b));
         }
 
         // Default implementation
@@ -235,7 +235,7 @@ impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
                         .unwrap();
                 }
             }
-            builder.finish()
+            Ok(builder.finish())
         }
     }
 }
@@ -537,14 +537,14 @@ mod tests {
     fn test_bitwise_and() {
         let buf1 = Buffer::from([0b01101010]);
         let buf2 = Buffer::from([0b01001110]);
-        assert_eq!(Buffer::from([0b01001010]), &buf1 & &buf2);
+        assert_eq!(Buffer::from([0b01001010]), (&buf1 & &buf2).unwrap());
     }
 
     #[test]
     fn test_bitwise_or() {
         let buf1 = Buffer::from([0b01101010]);
         let buf2 = Buffer::from([0b01001110]);
-        assert_eq!(Buffer::from([0b01101110]), &buf1 | &buf2);
+        assert_eq!(Buffer::from([0b01101110]), (&buf1 | &buf2).unwrap());
     }
 
     #[test]
@@ -552,7 +552,7 @@ mod tests {
     fn test_buffer_bitand_different_sizes() {
         let buf1 = Buffer::from([1_u8, 1_u8]);
         let buf2 = Buffer::from([0b01001110]);
-        let _buf3 = &buf1 | &buf2;
+        let _buf3 = (&buf1 | &buf2).unwrap();
     }
 
     #[test]
