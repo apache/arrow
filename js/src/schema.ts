@@ -18,6 +18,7 @@
 import { Data } from './data';
 import { Vector } from './vector';
 import { DataType, Dictionary } from './type';
+import { instance as comparer } from './visitor/typecomparator';
 
 export class Schema<T extends { [key: string]: DataType } = any> {
 
@@ -53,6 +54,11 @@ export class Schema<T extends { [key: string]: DataType } = any> {
     public toString() {
         return `Schema<{ ${this._fields.map((f, i) => `${i}: ${f}`).join(', ')} }>`;
     }
+
+    public compareTo(other?: Schema | null): other is Schema<T> {
+        return comparer.compareSchemas(this, other);
+    }
+
     public select<K extends keyof T = any>(...columnNames: K[]) {
         const names = columnNames.reduce((xs, x) => (xs[x] = true) && xs, Object.create(null));
         return new Schema<{ [P in K]: T[P] }>(this.fields.filter((f) => names[f.name]), this.metadata);
@@ -80,6 +86,9 @@ export class Field<T extends DataType = DataType> {
         return DataType.isDictionary(this._type) ? this._type.indices : this._type;
     }
     public toString() { return `${this.name}: ${this.type}`; }
+    public compareTo(other?: Field | null): other is Field<T> {
+        return comparer.compareField(this, other);
+    }
     public clone<R extends DataType = T>(props?: { name?: string, type?: R, nullable?: boolean, metadata?: Map<string, string> | null }): Field<R> {
         props || (props = {});
         return new Field<R>(

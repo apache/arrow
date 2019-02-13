@@ -20,8 +20,9 @@
 import { Field } from './schema';
 import { Vector } from './vector';
 import { flatbuffers } from 'flatbuffers';
-import { Vector as VType } from './interfaces';
 import { ArrayBufferViewConstructor } from './interfaces';
+import { Vector as VType, TypeToDataType } from './interfaces';
+import { instance as comparer } from './visitor/typecomparator';
 
 import Long = flatbuffers.Long;
 import {
@@ -79,6 +80,10 @@ export class DataType<TType extends Type = Type, TChildren extends { [key: strin
     public get typeId(): TType { return <any> Type.NONE; }
 
     constructor(protected _children?: Field<TChildren[keyof TChildren]>[]) {}
+
+    public compareTo(other: DataType): other is TypeToDataType<TType> {
+        return comparer.visit(this, other);
+    }
 
     protected static [Symbol.toStringTag] = ((proto: DataType) => {
         (<any> proto).ArrayType = Array;

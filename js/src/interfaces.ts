@@ -192,7 +192,7 @@ type DataTypeToVector<T extends DataType = any> =
     ;
 
 /** @ignore */
-type TypeToDataType<T extends Type> =
+export type TypeToDataType<T extends Type> =
       T extends Type.Null                 ? type.Null
     : T extends Type.Bool                 ? type.Bool
     : T extends Type.Int                  ? type.Int
