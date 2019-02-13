@@ -61,7 +61,7 @@ export class Schema<T extends { [key: string]: DataType } = any> {
         return new Schema<{ [P in K]: T[P] }>(this.fields.filter((f) => names[f.name]), this.metadata);
     }
     public selectAt<K extends T[keyof T] = any>(...columnIndices: number[]) {
-        return new Schema<{ [key: string]: K }>(columnIndices.map((i) => this.fields[i]), this.metadata);
+        return new Schema<{ [key: string]: K }>(columnIndices.map((i) => this.fields[i]).filter(Boolean), this.metadata);
     }
 
     public assign<R extends { [key: string]: DataType } = any>(schema: Schema<R>): Schema<T & R>;
