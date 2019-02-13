@@ -65,7 +65,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl) {
   std::vector<std::shared_ptr<arrow::Array>> arrays;
 
   for (int i = 0; i < tbl.size(); i++) {
-    arrays.push_back(Array__from_vector(tbl[i]));
+    arrays.push_back(Array__from_vector(tbl[i], R_NilValue));
     fields.push_back(
         std::make_shared<arrow::Field>(std::string(names[i]), arrays[i]->type()));
   }

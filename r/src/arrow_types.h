@@ -174,7 +174,7 @@ inline constexpr Rbyte default_value<RAWSXP>() {
 
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
-std::shared_ptr<arrow::Array> Array__from_vector(SEXP x);
+std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type);
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl);
 
 namespace arrow {

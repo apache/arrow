@@ -120,15 +120,12 @@
 #' create an [arrow::Array][arrow__Array] from an R vector
 #'
 #' @param x R object
-#' @param type currently ignored
+#' @param type Explicit [type][arrow__DataType], or NULL (the default) to infer from the data
 #'
 #' @importFrom rlang warn
 #' @export
-array <- function(x, type){
-  if (!missing(type)) {
-    warn("The `type` argument is currently ignored")
-  }
-  `arrow::Array`$dispatch(Array__from_vector(x))
+array <- function(x, type = NULL){
+  `arrow::Array`$dispatch(Array__from_vector(x, type))
 }
 
 `arrow::DictionaryArray` <- R6Class("arrow::DictionaryArray", inherit = `arrow::Array`,

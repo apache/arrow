@@ -6,17 +6,6 @@
 
 using namespace Rcpp;
 
-// Array__from_vector
-std::shared_ptr<arrow::Array> Array__from_vector(SEXP x);
-RcppExport SEXP _arrow_Array__from_vector(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__from_vector(x));
-    return rcpp_result_gen;
-END_RCPP
-}
 // Array__Slice1
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, int offset);
 RcppExport SEXP _arrow_Array__Slice1(SEXP arraySEXP, SEXP offsetSEXP) {
@@ -258,6 +247,18 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
     Rcpp::traits::input_parameter< bool >::type use_threads(use_threadsSEXP);
     rcpp_result_gen = Rcpp::wrap(Table__to_dataframe(table, use_threads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__from_vector
+std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type);
+RcppExport SEXP _arrow_Array__from_vector(SEXP xSEXP, SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__from_vector(x, type));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -2300,7 +2301,6 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 1},
     {"_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2},
     {"_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3},
     {"_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2},
@@ -2322,6 +2322,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1},
     {"_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2},
     {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 2},
+    {"_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 2},
     {"_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1},
     {"_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1},
     {"_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1},
