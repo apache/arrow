@@ -190,12 +190,7 @@ class RecordBatchTest < Test::Unit::TestCase
           [false, true, true]
         ]
         @list_array = Arrow::ListArray.new(
-          # FIXME: `name:` should be "item".  I don't know why it is.
-          # If the value of `name` is changed, the following error is occurred:
-          #
-          #     Arrow::Error::Invalid: [record-batch][new]: Invalid: Column 9
-          #     type not match schema: list<item: bool> vs list<visible: bool>
-          Arrow::ListDataType.new(name: "item", type: :boolean),
+          Arrow::ListDataType.new(name: "flags", type: :boolean),
           @list_values
         )
 
