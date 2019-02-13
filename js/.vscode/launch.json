@@ -45,6 +45,9 @@
                 // "test/unit/table-tests.ts",
                 // "test/unit/generated-data-tests.ts",
 
+                // "test/unit/table/assign-tests.ts",
+                // "test/unit/table/serialize-tests.ts",
+
                 // "test/unit/vector/vector-tests.ts",
                 // "test/unit/vector/bool-vector-tests.ts",
                 // "test/unit/vector/date-vector-tests.ts",
