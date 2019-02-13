@@ -26,10 +26,34 @@ namespace red_arrow {
 
 extern VALUE mArrow;
 extern VALUE cRecordBatch;
+extern VALUE rb_cDate;
 
 extern ID id_BigDecimal;
+extern ID id_jd;
+extern ID id_to_datetime;
 
 VALUE record_batch_raw_records(int argc, VALUE* argv, VALUE obj);
+
+extern VALUE timeunit_scale_second;
+extern VALUE timeunit_scale_milli;
+extern VALUE timeunit_scale_micro;
+extern VALUE timeunit_scale_nano;
+
+inline VALUE time_unit_to_scale(arrow::TimeUnit::type unit) {
+  switch (unit) {
+    case arrow::TimeUnit::SECOND:
+      return timeunit_scale_second;
+    case arrow::TimeUnit::MILLI:
+      return timeunit_scale_milli;
+    case arrow::TimeUnit::MICRO:
+      return timeunit_scale_micro;
+    case arrow::TimeUnit::NANO:
+      return timeunit_scale_nano;
+    default:
+      break; // NOT REACHED
+  }
+  return Qnil;
+}
 
 }  // namesapce red_arrow
 

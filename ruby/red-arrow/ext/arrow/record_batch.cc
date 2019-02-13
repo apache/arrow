@@ -325,30 +325,18 @@ class ArrayConverter : public arrow::ArrayVisitor {
   }
 
   Status Visit(const arrow::Date32Array& array) override {
-    ID id_jd;
-    VALUE cDate = rb::protect([&]{
-      id_jd = rb_intern("jd");
-      rb_require("date");
-      return rb_const_get(rb_cObject, rb_intern("Date"));
-    });
     return VisitColumn(array, [&](const int64_t i) {
       const static int32_t JD_UNIX_EPOCH = 2440588; // UNIX epoch in Julian date
       VALUE value = rb::protect([&]{
         auto raw_value = array.Value(i);
         auto days_in_julian = raw_value + JD_UNIX_EPOCH;
-        return rb_funcall(cDate, id_jd, 1, LONG2NUM(days_in_julian));
+        return rb_funcall(rb_cDate, id_jd, 1, LONG2NUM(days_in_julian));
       });
       return value;
     });
   }
 
   Status Visit(const arrow::Date64Array& array) override {
-    ID id_to_datetime;
-    rb::protect([&]{
-      id_to_datetime = rb_intern("to_datetime");
-      rb_require("date");
-      return Qnil;
-    });
     return VisitColumn(array, [&](const int64_t i) {
       VALUE value = rb::protect([&]{
         auto raw_value = array.Value(i);
@@ -364,26 +352,10 @@ class ArrayConverter : public arrow::ArrayVisitor {
 
   Status Visit(const arrow::TimestampArray& array) override {
     const auto& type = arrow::internal::checked_cast<arrow::TimestampType&>(*array.type());
-    VALUE scale = Qnil;
-    switch (type.unit()) {
-      case arrow::TimeUnit::SECOND:
-        scale = INT2FIX(1);
-        break;
-      case arrow::TimeUnit::MILLI:
-        scale = INT2FIX(1000);
-        break;
-      case arrow::TimeUnit::MICRO:
-        scale = INT2FIX(1000000);
-        break;
-      case arrow::TimeUnit::NANO:
-        // Note that INT2FIX works for 1e+9 because:
-        //     FIXNUM_MAX >= (1<<30) - 1 > 1e+9
-        scale = INT2FIX(1000000000);
-        break;
-      default:
-        return Status::Invalid("Invalid TimeUnit");
+    VALUE scale = time_unit_to_scale(type.unit());
+    if (NIL_P(scale)) {
+      return Status::Invalid("Invalid TimeUnit");
     }
-
     return VisitColumn(array, [&](const int64_t i) {
       VALUE value = rb::protect([&]{
         auto raw_value = array.Value(i);
