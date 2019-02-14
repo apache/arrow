@@ -215,8 +215,6 @@ class ByteArrayDecoder : virtual public TypedDecoder<ByteArrayType> {
                           int64_t valid_bits_offset,
                           ::arrow::BinaryDictionaryBuilder* builder) = 0;
 
-  // TODO(wesm): Implement DecodeArrowNonNull as part of ARROW-3325
-  // See also ARROW-3772, ARROW-3769
   virtual int DecodeArrowNonNull(int num_values,
                                  ::arrow::internal::ChunkedBinaryBuilder* builder) = 0;
 
