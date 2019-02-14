@@ -192,7 +192,8 @@ public class TypeLayout {
 
       @Override
       public TypeLayout visit(Interval type) {
-        switch (type.getUnit()) {
+        switch (type.getType()) {
+          case EPOCH:
           case DAY_TIME:
             return newFixedWidthTypeLayout(BufferLayout.dataBuffer(64));
           case YEAR_MONTH:

@@ -19,7 +19,8 @@ package org.apache.arrow.vector.types;
 
 public enum IntervalUnit {
   YEAR_MONTH(org.apache.arrow.flatbuf.IntervalUnit.YEAR_MONTH),
-  DAY_TIME(org.apache.arrow.flatbuf.IntervalUnit.DAY_TIME);
+  DAY_TIME(org.apache.arrow.flatbuf.IntervalUnit.DAY_TIME),
+  EPOCH(org.apache.arrow.flatbuf.IntervalUnit.EPOCH);
 
   private static final IntervalUnit[] valuesByFlatbufId = new IntervalUnit[IntervalUnit.values().length];
 

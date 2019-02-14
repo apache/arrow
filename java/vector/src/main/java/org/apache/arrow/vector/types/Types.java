@@ -33,6 +33,7 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalEpochSecondVector;
 import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMicroVector;
@@ -70,6 +71,7 @@ import org.apache.arrow.vector.complex.impl.Float4WriterImpl;
 import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
 import org.apache.arrow.vector.complex.impl.IntWriterImpl;
 import org.apache.arrow.vector.complex.impl.IntervalDayWriterImpl;
+import org.apache.arrow.vector.complex.impl.IntervalEpochSecondWriterImpl;
 import org.apache.arrow.vector.complex.impl.IntervalYearWriterImpl;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.complex.impl.SmallIntWriterImpl;
@@ -363,7 +365,7 @@ public class Types {
         return new TimeStampNanoWriterImpl((TimeStampNanoVector) vector);
       }
     },
-    INTERVALDAY(new Interval(IntervalUnit.DAY_TIME)) {
+    INTERVALDAY(new Interval(IntervalUnit.DAY_TIME, TimeUnit.NOT_APPLICABLE)) {
       @Override
       public FieldVector getNewVector(
           String name,
@@ -378,7 +380,22 @@ public class Types {
         return new IntervalDayWriterImpl((IntervalDayVector) vector);
       }
     },
-    INTERVALYEAR(new Interval(IntervalUnit.YEAR_MONTH)) {
+    INTERVALEPOCHSECOND(new Interval(IntervalUnit.EPOCH, TimeUnit.SECOND)) {
+      @Override
+      public FieldVector getNewVector(
+              String name,
+              FieldType fieldType,
+              BufferAllocator allocator,
+              CallBack schemaChangeCallback) {
+        return new IntervalEpochSecondVector(name, fieldType, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new IntervalEpochSecondWriterImpl((IntervalEpochSecondVector) vector);
+      }
+    },
+    INTERVALYEAR(new Interval(IntervalUnit.YEAR_MONTH, TimeUnit.NOT_APPLICABLE )) {
       @Override
       public FieldVector getNewVector(
           String name,
@@ -822,7 +839,18 @@ public class Types {
 
       @Override
       public MinorType visit(Interval type) {
-        switch (type.getUnit()) {
+        switch (type.getType()) {
+          case EPOCH:
+            switch (type.getUnit()) {
+              case SECOND:
+                return MinorType.INTERVALEPOCHSECOND;
+              case MILLISECOND:
+              case MICROSECOND:
+              case NANOSECOND:
+              case NOT_APPLICABLE:
+              default:
+                throw new IllegalArgumentException("unknown unit: " + type);
+            }
           case DAY_TIME:
             return MinorType.INTERVALDAY;
           case YEAR_MONTH:

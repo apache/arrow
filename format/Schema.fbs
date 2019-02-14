@@ -140,7 +140,7 @@ table Date {
   unit: DateUnit = MILLISECOND;
 }
 
-enum TimeUnit: short { SECOND, MILLISECOND, MICROSECOND, NANOSECOND }
+enum TimeUnit: short { SECOND, MILLISECOND, MICROSECOND, NANOSECOND, NOT_APPLICABLE }
 
 /// Time type. The physical storage type depends on the unit
 /// - SECOND and MILLISECOND: 32 bits
@@ -182,9 +182,10 @@ table Timestamp {
   timezone: string;
 }
 
-enum IntervalUnit: short { YEAR_MONTH, DAY_TIME}
+enum IntervalUnit: short { YEAR_MONTH, DAY_TIME, EPOCH}
 table Interval {
-  unit: IntervalUnit;
+  type: IntervalUnit;
+  unit: TimeUnit = NOT_APPLICABLE;
 }
 
 /// ----------------------------------------------------------------------

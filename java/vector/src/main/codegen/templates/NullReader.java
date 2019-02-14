@@ -128,7 +128,7 @@ public class NullReader extends AbstractBaseReader implements FieldReader{
   
   <#list ["Object", "BigDecimal", "Integer", "Long", "Boolean", 
           "Character", "LocalDateTime", "Period", "Double", "Float",
-          "Text", "String", "Byte", "Short", "byte[]"] as friendlyType>
+          "Text", "String", "Byte", "Short", "byte[]", "Duration"] as friendlyType>
   <#assign safeType=friendlyType />
   <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
   

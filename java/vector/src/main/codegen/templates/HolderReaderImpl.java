@@ -120,6 +120,8 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
   <#elseif minor.class == "IntervalDay">
     Period p = new Period();
     return p.plusDays(holder.days).plusMillis(holder.milliseconds);
+  <#elseif minor.class == "IntervalEpochSecond">
+    return Duration.ofSeconds(holder.value);
   <#elseif minor.class == "Bit" >
     return new Boolean(holder.value != 0);
   <#elseif minor.class == "Decimal">

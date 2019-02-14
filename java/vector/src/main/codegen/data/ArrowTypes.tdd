@@ -92,7 +92,8 @@
     },
     {
       name: "Interval",
-      fields: [{name: "unit", type: short, valueType: IntervalUnit}],
+      fields: [{name: "type", type: short, valueType: IntervalUnit},
+               {name: "unit", type: short, valueType: TimeUnit}],
       complex: false
     }
   ]

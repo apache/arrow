@@ -76,6 +76,8 @@
         { class: "UInt8" },
         { class: "Float8",           javaType: "double", boxedType: "Double", fields: [{name: "value", type: "double"}] },
         { class: "DateMilli",        javaType: "long",                      friendlyType: "LocalDateTime" },
+        { class: "IntervalEpochSecond", javaType: "long", friendlyType: "Duration"}
+
         { class: "TimeStampSec",     javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
         { class: "TimeStampMilli",   javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
         { class: "TimeStampMicro",   javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },

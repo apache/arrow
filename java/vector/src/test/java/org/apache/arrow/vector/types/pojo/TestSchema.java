@@ -66,13 +66,13 @@ public class TestSchema {
         field("f", new FloatingPoint(FloatingPointPrecision.SINGLE)),
         field("g", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
         field("h", new Timestamp(TimeUnit.MICROSECOND, null)),
-        field("i", new Interval(IntervalUnit.DAY_TIME))
+        field("i", new Interval(IntervalUnit.DAY_TIME, TimeUnit.NOT_APPLICABLE))
     ));
     roundTrip(schema);
     assertEquals(
         "Schema<a: Int(8, true) not null, b: Struct<c: Int(16, true), d: Utf8>, e: List<Date(MILLISECOND)>, " +
           "f: FloatingPoint(SINGLE), g: Timestamp(MILLISECOND, UTC), h: Timestamp(MICROSECOND, null), " +
-          "i: Interval(DAY_TIME)>",
+          "i: Interval(DAY_TIME, NOT_APPLICABLE)>",
         schema.toString());
   }
 
@@ -97,7 +97,7 @@ public class TestSchema {
         field("p", new Time(TimeUnit.NANOSECOND, 64)),
         field("q", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
         field("r", new Timestamp(TimeUnit.MICROSECOND, null)),
-        field("s", new Interval(IntervalUnit.DAY_TIME)),
+        field("s", new Interval(IntervalUnit.DAY_TIME, TimeUnit.NOT_APPLICABLE)),
         field("t", new FixedSizeBinary(100))
     ));
     roundTrip(schema);
@@ -161,8 +161,8 @@ public class TestSchema {
   @Test
   public void testInterval() throws IOException {
     Schema schema = new Schema(asList(
-        field("a", new Interval(IntervalUnit.YEAR_MONTH)),
-        field("b", new Interval(IntervalUnit.DAY_TIME))
+        field("a", new Interval(IntervalUnit.YEAR_MONTH, TimeUnit.NOT_APPLICABLE)),
+        field("b", new Interval(IntervalUnit.DAY_TIME, TimeUnit.NOT_APPLICABLE))
     ));
     roundTrip(schema);
     contains(schema, "YEAR_MONTH", "DAY_TIME");

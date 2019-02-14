@@ -21,7 +21,8 @@ public enum TimeUnit {
   SECOND(org.apache.arrow.flatbuf.TimeUnit.SECOND),
   MILLISECOND(org.apache.arrow.flatbuf.TimeUnit.MILLISECOND),
   MICROSECOND(org.apache.arrow.flatbuf.TimeUnit.MICROSECOND),
-  NANOSECOND(org.apache.arrow.flatbuf.TimeUnit.NANOSECOND);
+  NANOSECOND(org.apache.arrow.flatbuf.TimeUnit.NANOSECOND),
+  NOT_APPLICABLE(org.apache.arrow.flatbuf.TimeUnit.NOT_APPLICABLE);
 
   private static final TimeUnit[] valuesByFlatbufId = new TimeUnit[TimeUnit.values().length];
 
