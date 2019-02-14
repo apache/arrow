@@ -141,8 +141,8 @@ class NumericBuilder : public ArrayBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) {
     std::shared_ptr<Buffer> data, null_bitmap;
-    RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
-    RETURN_NOT_OK(data_builder_.Finish(&data));
+    ARROW_RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+    ARROW_RETURN_NOT_OK(data_builder_.Finish(&data));
     *out = ArrayData::Make(type_, length_, {null_bitmap, data}, null_count_);
     capacity_ = length_ = null_count_ = 0;
     return Status::OK();
