@@ -130,7 +130,7 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
         _ => {
             // TODO(nevi_me) It's possible to have [float, int, list(float)], which should
             // return list(float). Will hash this out later
-            DataType::Utf8
+            Ok(DataType::List(box DataType::Utf8))
         }
     }
 }
