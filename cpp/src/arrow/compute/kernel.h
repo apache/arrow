@@ -189,6 +189,8 @@ class ARROW_EXPORT UnaryKernel : public OpKernel {
   /// contracts.
   virtual Status Call(FunctionContext* ctx, const Datum& input, Datum* out) = 0;
 
+  /// \brief EXPERIMENTAL The output data type of the kernel
+  /// \return the output type
   virtual std::shared_ptr<DataType> out_type() const = 0;
 };
 

@@ -77,7 +77,7 @@ std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type
 }
 
 int64_t ArrayData::GetNullCount() const {
-  if (ARROW_PREDICT_FALSE(this->null_count < 0)) {
+  if (ARROW_PREDICT_FALSE(this->null_count == kUnknownNullCount)) {
     if (this->buffers[0]) {
       this->null_count = this->length - CountSetBits(this->buffers[0]->data(),
                                                      this->offset, this->length);

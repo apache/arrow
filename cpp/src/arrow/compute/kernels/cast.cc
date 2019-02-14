@@ -618,8 +618,8 @@ struct CastFunctor<Date32Type, Date64Type> {
 
 class CastKernelBase : public UnaryKernel {
  public:
-  explicit CastKernelBase(const std::shared_ptr<DataType>& out_type)
-      : out_type_(out_type) {}
+  explicit CastKernelBase(std::shared_ptr<DataType> out_type)
+      : out_type_(std::move(out_type)) {}
 
   std::shared_ptr<DataType> out_type() const override { return out_type_; }
 
@@ -649,8 +649,8 @@ Status InvokeWithAllocation(FunctionContext* ctx, UnaryKernel* func, const Datum
 class ListCastKernel : public CastKernelBase {
  public:
   ListCastKernel(std::unique_ptr<UnaryKernel> child_caster,
-                 const std::shared_ptr<DataType>& out_type)
-      : CastKernelBase(out_type), child_caster_(std::move(child_caster)) {}
+                 std::shared_ptr<DataType> out_type)
+      : CastKernelBase(std::move(out_type)), child_caster_(std::move(child_caster)) {}
 
   Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
     DCHECK_EQ(Datum::ARRAY, input.kind());
@@ -1069,8 +1069,8 @@ class ZeroCopyCast : public CastKernelBase {
 class CastKernel : public CastKernelBase {
  public:
   CastKernel(const CastOptions& options, const CastFunction& func,
-             const std::shared_ptr<DataType>& out_type)
-      : CastKernelBase(out_type), options_(options), func_(func) {}
+             std::shared_ptr<DataType> out_type)
+      : CastKernelBase(std::move(out_type)), options_(options), func_(func) {}
 
   Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
     DCHECK_EQ(input.kind(), Datum::ARRAY);
@@ -1100,22 +1100,44 @@ class CastKernel : public CastKernelBase {
     };                                                                                  \
     break;
 
-#define GET_CAST_FUNCTION(CASE_GENERATOR, InType)                                   \
-  static std::unique_ptr<UnaryKernel> Get##InType##CastFunc(                        \
-      const std::shared_ptr<DataType>& out_type, const CastOptions& options) {      \
-    CastFunction func;                                                              \
-    switch (out_type->id()) {                                                       \
-      CASE_GENERATOR(CAST_CASE);                                                    \
-      default:                                                                      \
-        break;                                                                      \
-    }                                                                               \
-    if (func != nullptr) {                                                          \
-      return std::unique_ptr<UnaryKernel>(new CastKernel(options, func, out_type)); \
-    }                                                                               \
-    return nullptr;                                                                 \
+#define GET_CAST_FUNCTION(CASE_GENERATOR, InType)                       \
+  static std::unique_ptr<UnaryKernel> Get##InType##CastFunc(            \
+      std::shared_ptr<DataType> out_type, const CastOptions& options) { \
+    CastFunction func;                                                  \
+    switch (out_type->id()) {                                           \
+      CASE_GENERATOR(CAST_CASE);                                        \
+      default:                                                          \
+        break;                                                          \
+    }                                                                   \
+    if (func != nullptr) {                                              \
+      return std::unique_ptr<UnaryKernel>(                              \
+          new CastKernel(options, func, std::move(out_type)));          \
+    }                                                                   \
+    return nullptr;                                                     \
   }
 
-#include "cast-codegen-internal.h"  // NOLINT
+#include "generated/cast-codegen-internal.h"  // NOLINT
+
+GET_CAST_FUNCTION(NULL_CASES, NullType)
+GET_CAST_FUNCTION(BOOLEAN_CASES, BooleanType)
+GET_CAST_FUNCTION(UINT8_CASES, UInt8Type)
+GET_CAST_FUNCTION(INT8_CASES, Int8Type)
+GET_CAST_FUNCTION(UINT16_CASES, UInt16Type)
+GET_CAST_FUNCTION(INT16_CASES, Int16Type)
+GET_CAST_FUNCTION(UINT32_CASES, UInt32Type)
+GET_CAST_FUNCTION(INT32_CASES, Int32Type)
+GET_CAST_FUNCTION(UINT64_CASES, UInt64Type)
+GET_CAST_FUNCTION(INT64_CASES, Int64Type)
+GET_CAST_FUNCTION(FLOAT_CASES, FloatType)
+GET_CAST_FUNCTION(DOUBLE_CASES, DoubleType)
+GET_CAST_FUNCTION(DATE32_CASES, Date32Type)
+GET_CAST_FUNCTION(DATE64_CASES, Date64Type)
+GET_CAST_FUNCTION(TIME32_CASES, Time32Type)
+GET_CAST_FUNCTION(TIME64_CASES, Time64Type)
+GET_CAST_FUNCTION(TIMESTAMP_CASES, TimestampType)
+GET_CAST_FUNCTION(BINARY_CASES, BinaryType)
+GET_CAST_FUNCTION(STRING_CASES, StringType)
+GET_CAST_FUNCTION(DICTIONARY_CASES, DictionaryType)
 
 #define CAST_FUNCTION_CASE(InType)                      \
   case InType::type_id:                                 \
@@ -1124,7 +1146,7 @@ class CastKernel : public CastKernelBase {
 
 namespace {
 
-Status GetListCastFunc(const DataType& in_type, const std::shared_ptr<DataType>& out_type,
+Status GetListCastFunc(const DataType& in_type, std::shared_ptr<DataType> out_type,
                        const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel) {
   if (out_type->id() != Type::LIST) {
     // Kernel will be null
@@ -1135,8 +1157,8 @@ Status GetListCastFunc(const DataType& in_type, const std::shared_ptr<DataType>&
       checked_cast<const ListType&>(*out_type).value_type();
   std::unique_ptr<UnaryKernel> child_caster;
   RETURN_NOT_OK(GetCastFunction(in_value_type, out_value_type, options, &child_caster));
-  *kernel =
-      std::unique_ptr<UnaryKernel>(new ListCastKernel(std::move(child_caster), out_type));
+  *kernel = std::unique_ptr<UnaryKernel>(
+      new ListCastKernel(std::move(child_caster), std::move(out_type)));
   return Status::OK();
 }
 
@@ -1162,15 +1184,15 @@ inline bool IsZeroCopyCast(Type::type in_type, Type::type out_type) {
   return false;
 }
 
-Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>& out_type,
+Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_type,
                        const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel) {
   if (in_type.Equals(out_type)) {
-    *kernel = std::unique_ptr<UnaryKernel>(new IdentityCast(out_type));
+    *kernel = std::unique_ptr<UnaryKernel>(new IdentityCast(std::move(out_type)));
     return Status::OK();
   }
 
   if (IsZeroCopyCast(in_type.id(), out_type->id())) {
-    *kernel = std::unique_ptr<UnaryKernel>(new ZeroCopyCast(out_type));
+    *kernel = std::unique_ptr<UnaryKernel>(new ZeroCopyCast(std::move(out_type)));
     return Status::OK();
   }
 
@@ -1196,7 +1218,7 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
     CAST_FUNCTION_CASE(StringType);
     CAST_FUNCTION_CASE(DictionaryType);
     case Type::LIST:
-      RETURN_NOT_OK(GetListCastFunc(in_type, out_type, options, kernel));
+      RETURN_NOT_OK(GetListCastFunc(in_type, std::move(out_type), options, kernel));
       break;
     default:
       break;
@@ -1208,22 +1230,20 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
   return Status::OK();
 }
 
-Status Cast(FunctionContext* ctx, const Datum& value,
-            const std::shared_ptr<DataType>& out_type, const CastOptions& options,
-            Datum* out) {
+Status Cast(FunctionContext* ctx, const Datum& value, std::shared_ptr<DataType> out_type,
+            const CastOptions& options, Datum* out) {
   const DataType& in_type = *value.type();
 
   // Dynamic dispatch to obtain right cast function
   std::unique_ptr<UnaryKernel> func;
-  RETURN_NOT_OK(GetCastFunction(in_type, out_type, options, &func));
+  RETURN_NOT_OK(GetCastFunction(in_type, std::move(out_type), options, &func));
   return InvokeWithAllocation(ctx, func.get(), value, out);
 }
 
-Status Cast(FunctionContext* ctx, const Array& array,
-            const std::shared_ptr<DataType>& out_type, const CastOptions& options,
-            std::shared_ptr<Array>* out) {
+Status Cast(FunctionContext* ctx, const Array& array, std::shared_ptr<DataType> out_type,
+            const CastOptions& options, std::shared_ptr<Array>* out) {
   Datum datum_out;
-  RETURN_NOT_OK(Cast(ctx, Datum(array.data()), out_type, options, &datum_out));
+  RETURN_NOT_OK(Cast(ctx, Datum(array.data()), std::move(out_type), options, &datum_out));
   DCHECK_EQ(Datum::ARRAY, datum_out.kind());
   *out = MakeArray(datum_out.array());
   return Status::OK();

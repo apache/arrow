@@ -236,15 +236,15 @@ Status PrimitiveAllocatingUnaryKernel::Call(FunctionContext* ctx, const Datum& i
 
     if (bit_width == 1) {
       buffer_size = BitUtil::BytesForBits(length);
-    } else if (bit_width % 8 == 0) {
-      buffer_size = length * fw_type.bit_width() / 8;
     } else {
-      DCHECK(false);
+      DCHECK_EQ(bit_width % 8, 0)
+          << "Only bit widths with multiple of 8 are currently supported";
+      buffer_size = length * fw_type.bit_width() / 8;
     }
     RETURN_NOT_OK(ctx->Allocate(buffer_size, &buffer));
     buffer->ZeroPadding();
 
-    if (bit_width == 1) {
+    if (bit_width == 1 && buffer_size > 0) {
       // Some utility methods access the last byte before it might be
       // initialized this makes valgrind/asan unhappy, so we proactively
       // zero it.

@@ -62,6 +62,13 @@ ARROW_EXPORT
 Status InvokeBinaryArrayKernel(FunctionContext* ctx, BinaryKernel* kernel,
                                const Datum& left, const Datum& right, Datum* output);
 
+/// \brief Assign validity bitmap to output, copying bitmap if necessary, but
+/// zero-copy otherwise, so that the same value slots are valid/not-null in the
+/// output
+/// (sliced arrays)
+/// \param[in] ctx the kernel FunctionContext
+/// \param[in] input the input array
+/// \param[out] output the output array
 ARROW_EXPORT
 Status PropagateNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* output);
 
@@ -80,7 +87,7 @@ class PrimitiveAllocatingUnaryKernel : public UnaryKernel {
   PrimitiveAllocatingUnaryKernel(UnaryKernel* delegate,
                                  const std::shared_ptr<DataType>& out_type);
   /// \brief Allocates ArrayData with the necessary data buffers allocated and
-  /// then written into by the kernel
+  /// then written into by the delegate kernel
   Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override;
 
   std::shared_ptr<DataType> out_type() const override;
