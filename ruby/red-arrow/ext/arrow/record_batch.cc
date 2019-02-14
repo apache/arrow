@@ -69,7 +69,7 @@ class ArrayConverter : public arrow::ArrayVisitor {
       ARRAY_CONVERT_VALUE_INLINE(Time64Type); // TODO: test
       ARRAY_CONVERT_VALUE_INLINE(ListType);
       // TODO: ARRAY_CONVERT_VALUE_INLINE(StructType);
-      // TODO: ARRAY_CONVERT_VALUE_INLINE(DictionaryType);
+      ARRAY_CONVERT_VALUE_INLINE(DictionaryType);
       ARRAY_CONVERT_VALUE_INLINE(UnionType);
       default:
         break;

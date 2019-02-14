@@ -366,8 +366,11 @@ class RecordBatchTest < Test::Unit::TestCase
             Arrow::StringArray.new(%w[ほげ])
           ]
 
-          union_type_ids = [ 0, 1, 1, 0, 2, 3, 4, 5, 6, 7, 7 ]
-          union_offsets = [ 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1 ]
+          dict_vocab = Arrow::StringArray.new(['foo', 'bar'])
+          dict_indices = [1, 0]
+
+          union_type_ids = [ 0, 1, 1, 0, 2, 3, 4, 5, 6, 7, 7, 8, 8 ]
+          union_offsets = [ 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1 ]
           union_children = [
             Arrow::Int32Array.new([42, -42]),
             Arrow::StringArray.new(%w[foo ほげ]),
@@ -386,6 +389,10 @@ class RecordBatchTest < Test::Unit::TestCase
               Arrow::Int8Array.new(sub_union_type_ids),
               Arrow::Int32Array.new(sub_union_offsets),
               sub_union_children
+            ),
+            Arrow::DictionaryArray.new(
+              Arrow::DictionaryDataType.new(:int8, dict_vocab, true),
+              Arrow::Int8Array.new(dict_indices)
             )
           ]
 
@@ -416,6 +423,8 @@ class RecordBatchTest < Test::Unit::TestCase
                 sub_tid = sub_union_type_ids[offset]
                 sub_offset = sub_union_offsets[offset]
                 sub_union_children[sub_tid][sub_offset]
+              when Arrow::DictionaryArray
+                dict_indices[offset]
               else
                 union_children[tid][offset]
               end
