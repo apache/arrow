@@ -16,23 +16,24 @@
 # limitations under the License.
 #
 
-set -eux
+set -eu
 
-export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
+: ${IWYU_REPO:="https://github.com/include-what-you-use/include-what-you-use.git"}
+: ${IWYU_BRANCH:="clang_7.0"}
+: ${IWYU_SRC:="/tmp/iwyu"}
+: ${IWYU_HOME:="/opt/iwyu"}
 
-mkdir -p /build/lint
-pushd /build/lint
+git clone "${IWYU_REPO}" "${IWYU_SRC}"
+git -C "${IWYU_SRC}" checkout ${IWYU_BRANCH}
 
-cmake -GNinja \
-      -DARROW_FLIGHT=ON \
-      -DARROW_GANDIVA=ON \
-      -DARROW_PARQUET=ON \
-      -DARROW_PYTHON=ON \
-      -DCMAKE_CXX_FLAGS='-D_GLIBCXX_USE_CXX11_ABI=0' \
-      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-      /arrow/cpp
+mkdir -p "${IWYU_HOME}"
+pushd "${IWYU_HOME}"
+
+# Build IWYU for current Clang
+export CC=clang-7
+export CXX=clang++-7
+
+cmake -DCMAKE_PREFIX_PATH=/usr/lib/llvm-7 "${IWYU_SRC}"
+make -j4
 
 popd
-
-export IWYU_COMPILATION_DATABASE_PATH=/build/lint
-/arrow/cpp/build-support/iwyu/iwyu.sh all
