@@ -41,18 +41,26 @@ export class FloatVector<T extends Float = Float> extends BaseVector<T> {
             case Float64Vector: data = toFloat64Array(data); break;
         }
         switch (data.constructor) {
-            case Uint16Array: return Vector.new(Data.Float(new Float16(), 0, data.length, 0, null, data));
             case Uint16Array:  type = new Float16(); break;
             case Float32Array: type = new Float32(); break;
             case Float64Array: type = new Float64(); break;
         }
-        throw new TypeError('Unrecognized Float data');
         return type !== null
             ? Vector.new(Data.Float(type, 0, data.length, 0, null, data))
             : (() => { throw new TypeError('Unrecognized FloatVector input'); })();
     }
 }
 
-export class Float16Vector extends FloatVector<Float16> {}
+export class Float16Vector extends FloatVector<Float16> {
+    // Since JS doesn't have half floats, `toArray()` returns a zero-copy slice
+    // of the underlying Uint16Array data. This behavior ensures we don't incur
+    // extra compute or copies if you're calling `toArray()` in order to create
+    // a buffer for something like WebGL. Buf if you're using JS and want typed
+    // arrays of 4-to-8-byte precision, these methods will enumerate the values
+    // and clamp to the desired byte lengths.
+    public toFloat32Array() { return new Float32Array(this as Iterable<number>); }
+    public toFloat64Array() { return new Float64Array(this as Iterable<number>); }
+}
+
 export class Float32Vector extends FloatVector<Float32> {}
 export class Float64Vector extends FloatVector<Float64> {}

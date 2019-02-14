@@ -16,9 +16,9 @@
 // under the License.
 
 import { Data } from '../data';
+import { Type } from '../enum';
 import { Visitor } from '../visitor';
 import { Vector } from '../interfaces';
-import { Type, Precision } from '../enum';
 import { instance as iteratorVisitor } from './iterator';
 import {
     DataType, Dictionary,
@@ -91,13 +91,10 @@ function arrayOfVector<T extends DataType>(vector: Vector<T>): T['TArray'] {
 
     // Fast case, return subarray if possible
     switch (type.typeId) {
-        case Type.Int: case Type.Decimal:
+        case Type.Int:
+        case Type.Float: case Type.Decimal:
         case Type.Time: case Type.Timestamp:
             return vector.values.subarray(0, length * stride);
-        case Type.Float:
-            return (type as Float).precision === Precision.HALF /* Precision.HALF */
-                ? new Float32Array(vector[Symbol.iterator]())
-                : vector.values.subarray(0, length * stride);
     }
 
     // Otherwise if not primitive, slow copy
