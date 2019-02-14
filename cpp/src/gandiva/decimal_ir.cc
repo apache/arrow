@@ -307,6 +307,52 @@ Status DecimalIR::BuildAdd() {
   return Status::OK();
 }
 
+Status DecimalIR::BuildSubtract() {
+  // Create fn prototype :
+  // int128_t
+  // subtract_decimal128_decimal128(int128_t x_value, int32_t x_precision, int32_t
+  // x_scale,
+  //                           int128_t y_value, int32_t y_precision, int32_t y_scale
+  //                           int32_t out_precision, int32_t out_scale)
+  auto i32 = types()->i32_type();
+  auto i128 = types()->i128_type();
+  auto function = BuildFunction("subtract_decimal128_decimal128", i128,
+                                {
+                                    {"x_value", i128},
+                                    {"x_precision", i32},
+                                    {"x_scale", i32},
+                                    {"y_value", i128},
+                                    {"y_precision", i32},
+                                    {"y_scale", i32},
+                                    {"out_precision", i32},
+                                    {"out_scale", i32},
+                                });
+
+  auto entry = llvm::BasicBlock::Create(*context(), "entry", function);
+  ir_builder()->SetInsertPoint(entry);
+
+  // reuse add function after negating y_value. i.e
+  //   add(x_value, x_precision, x_scale, -y_value, y_precision, y_scale,
+  //       out_precision, out_scale)
+  std::vector<llvm::Value*> args;
+  int i = 0;
+  for (auto& in_arg : function->args()) {
+    if (i == 3) {
+      auto y_neg_value = ir_builder()->CreateNeg(&in_arg);
+      args.push_back(y_neg_value);
+    } else {
+      args.push_back(&in_arg);
+    }
+    ++i;
+  }
+  auto value =
+      ir_builder()->CreateCall(module()->getFunction("add_decimal128_decimal128"), args);
+
+  // store result to out
+  ir_builder()->CreateRet(value);
+  return Status::OK();
+}
+
 Status DecimalIR::AddFunctions(Engine* engine) {
   auto decimal_ir = std::make_shared<DecimalIR>(engine);
 
@@ -317,7 +363,10 @@ Status DecimalIR::AddFunctions(Engine* engine) {
   decimal_ir->InitializeIntrinsics();
 
   // build "add"
-  return decimal_ir->BuildAdd();
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildAdd());
+
+  // build "subtract"
+  return decimal_ir->BuildSubtract();
 }
 
 // Do an bitwise-or of all the overflow bits.
