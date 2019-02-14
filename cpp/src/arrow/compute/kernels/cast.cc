@@ -627,13 +627,16 @@ class CastKernelBase : public UnaryKernel {
   std::shared_ptr<DataType> out_type_;
 };
 
+bool NeedToPreallocate(const DataType& type) {
+  return dynamic_cast<const FixedWidthType*>(&type) != nullptr;
+}
+
 Status InvokeWithAllocation(FunctionContext* ctx, UnaryKernel* func, const Datum& input,
                             Datum* out) {
   std::vector<Datum> result;
-  auto out_type = func->out_type();
-  if (is_primitive(out_type->id()) || out_type->id() == Type::FIXED_SIZE_BINARY) {
+  if (NeedToPreallocate(*func->out_type())) {
     // Create wrapper that allocates output memory for primitive types
-    detail::PrimitiveAllocatingUnaryKernel wrapper(func, out_type);
+    detail::PrimitiveAllocatingUnaryKernel wrapper(func, func->out_type());
     RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, &wrapper, input, &result));
   } else {
     RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, func, input, &result));
