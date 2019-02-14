@@ -106,6 +106,7 @@
               <argument>${flatc.generated.files}</argument>
               <argument>../../format/Schema.fbs</argument>
               <argument>../../format/Tensor.fbs</argument>
+              <argument>../../format/SparseTensor.fbs</argument>
               <argument>../../format/File.fbs</argument>
               <argument>../../format/Message.fbs</argument>
             </arguments>
