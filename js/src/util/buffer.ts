@@ -18,8 +18,9 @@
 import { flatbuffers } from 'flatbuffers';
 import { encodeUtf8 } from '../util/utf8';
 import ByteBuffer = flatbuffers.ByteBuffer;
-import { ArrayBufferViewConstructor } from '../interfaces';
-import { isPromise, isIterable, isAsyncIterable, isIteratorResult } from './compat';
+import { TypedArray, TypedArrayConstructor } from '../interfaces';
+import { BigIntArray, BigIntArrayConstructor } from '../interfaces';
+import { isPromise, isIterable, isAsyncIterable, isIteratorResult, BigInt64Array, BigUint64Array } from './compat';
 
 /** @ignore */
 const SharedArrayBuf = (typeof SharedArrayBuffer !== 'undefined' ? SharedArrayBuffer : ArrayBuffer);
@@ -92,7 +93,9 @@ export type ArrayBufferViewInput = ArrayBufferView | ArrayBufferLike | ArrayBuff
           ReadableStreamReadResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined> ;
 
 /** @ignore */
-export function toArrayBufferView<T extends ArrayBufferView>(ArrayBufferViewCtor: ArrayBufferViewConstructor<T>, input: ArrayBufferViewInput): T {
+export function toArrayBufferView<T extends TypedArray>(ArrayBufferViewCtor: TypedArrayConstructor<T>, input: ArrayBufferViewInput): T;
+export function toArrayBufferView<T extends BigIntArray>(ArrayBufferViewCtor: BigIntArrayConstructor<T>, input: ArrayBufferViewInput): T;
+export function toArrayBufferView(ArrayBufferViewCtor: any, input: ArrayBufferViewInput) {
 
     let value: any = isIteratorResult(input) ? input.value : input;
 
@@ -114,9 +117,11 @@ export function toArrayBufferView<T extends ArrayBufferView>(ArrayBufferViewCtor
 /** @ignore */ export const toInt8Array = (input: ArrayBufferViewInput) => toArrayBufferView(Int8Array, input);
 /** @ignore */ export const toInt16Array = (input: ArrayBufferViewInput) => toArrayBufferView(Int16Array, input);
 /** @ignore */ export const toInt32Array = (input: ArrayBufferViewInput) => toArrayBufferView(Int32Array, input);
+/** @ignore */ export const toBigInt64Array = (input: ArrayBufferViewInput) => toArrayBufferView(BigInt64Array, input);
 /** @ignore */ export const toUint8Array = (input: ArrayBufferViewInput) => toArrayBufferView(Uint8Array, input);
 /** @ignore */ export const toUint16Array = (input: ArrayBufferViewInput) => toArrayBufferView(Uint16Array, input);
 /** @ignore */ export const toUint32Array = (input: ArrayBufferViewInput) => toArrayBufferView(Uint32Array, input);
+/** @ignore */ export const toBigUint64Array = (input: ArrayBufferViewInput) => toArrayBufferView(BigUint64Array, input);
 /** @ignore */ export const toFloat32Array = (input: ArrayBufferViewInput) => toArrayBufferView(Float32Array, input);
 /** @ignore */ export const toFloat64Array = (input: ArrayBufferViewInput) => toArrayBufferView(Float64Array, input);
 /** @ignore */ export const toUint8ClampedArray = (input: ArrayBufferViewInput) => toArrayBufferView(Uint8ClampedArray, input);
@@ -149,7 +154,7 @@ type ArrayBufferViewIteratorInput = Iterable<ArrayBufferViewInput> | ArrayBuffer
 const pump = <T extends Iterator<any> | AsyncIterator<any>>(iterator: T) => { iterator.next(); return iterator; };
 
 /** @ignore */
-export function* toArrayBufferViewIterator<T extends ArrayBufferView>(ArrayCtor: ArrayBufferViewConstructor<T>, source: ArrayBufferViewIteratorInput) {
+export function* toArrayBufferViewIterator<T extends TypedArray>(ArrayCtor: TypedArrayConstructor<T>, source: ArrayBufferViewIteratorInput) {
 
     const wrap = function*<T>(x: T) { yield x; };
     const buffers: Iterable<ArrayBufferViewInput> =
@@ -181,7 +186,7 @@ export function* toArrayBufferViewIterator<T extends ArrayBufferView>(ArrayCtor:
 type ArrayBufferViewAsyncIteratorInput = AsyncIterable<ArrayBufferViewInput> | Iterable<ArrayBufferViewInput> | PromiseLike<ArrayBufferViewInput> | ArrayBufferViewInput;
 
 /** @ignore */
-export async function* toArrayBufferViewAsyncIterator<T extends ArrayBufferView>(ArrayCtor: ArrayBufferViewConstructor<T>, source: ArrayBufferViewAsyncIteratorInput): AsyncIterableIterator<T> {
+export async function* toArrayBufferViewAsyncIterator<T extends TypedArray>(ArrayCtor: TypedArrayConstructor<T>, source: ArrayBufferViewAsyncIteratorInput): AsyncIterableIterator<T> {
 
     // if a Promise, unwrap the Promise and iterate the resolved value
     if (isPromise<ArrayBufferViewInput>(source)) {

@@ -86,8 +86,18 @@ export class IntVector<T extends Int = Int> extends BaseVector<T> {
 export class Int8Vector extends IntVector<Int8> {}
 export class Int16Vector extends IntVector<Int16> {}
 export class Int32Vector extends IntVector<Int32> {}
-export class Int64Vector extends IntVector<Int64> {}
+export class Int64Vector extends IntVector<Int64> {
+    public toBigInt64Array() {
+        return toBigInt64Array(this.values);
+    }
+}
+
 export class Uint8Vector extends IntVector<Uint8> {}
 export class Uint16Vector extends IntVector<Uint16> {}
 export class Uint32Vector extends IntVector<Uint32> {}
-export class Uint64Vector extends IntVector<Uint64> {}
+export class Uint64Vector extends IntVector<Uint64> {
+    public toBigUint64Array() {
+        return toBigUint64Array(this.values);
+    }
+}
+
