@@ -94,6 +94,11 @@
       name: "Interval",
       fields: [{name: "unit", type: short, valueType: IntervalUnit}],
       complex: false
+    },
+     {
+       name: "Duration",
+       fields: [{name: "unit", type: short, valueType: TimeUnit}],
+       complex: false
     }
   ]
 }

@@ -183,6 +183,17 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename T>
+  inline
+      typename std::enable_if<std::is_same<DayTimeIntervalArray, T>::value, Status>::type
+      WriteDataValues(const T& array) {
+    WriteValues(array, [&](int64_t i) {
+      auto day_millis = array.GetValue(i);
+      (*sink_) << day_millis.days << "d" << day_millis.milliseconds << "ms";
+    });
+    return Status::OK();
+  }
+
+  template <typename T>
   inline typename std::enable_if<IsFloatingPoint<T>::value, Status>::type WriteDataValues(
       const T& array) {
     const auto data = array.raw_values();
@@ -278,8 +289,6 @@ class ArrayPrinter : public PrettyPrinter {
     CloseArray(array);
     return Status::OK();
   }
-
-  Status Visit(const IntervalArray&) { return Status::NotImplemented("interval"); }
 
   Status Visit(const ExtensionArray& array) { return Print(*array.storage()); }
 

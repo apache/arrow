@@ -687,6 +687,36 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
   int32_t byte_width_;
 };
 
+/// DayTimeArray
+/// ---------------------
+/// \brief Array of Day and Millisecond values.
+class ARROW_EXPORT DayTimeIntervalArray : public PrimitiveArray {
+ public:
+  using TypeClass = DayTimeIntervalType;
+
+  explicit DayTimeIntervalArray(const std::shared_ptr<ArrayData>& data);
+
+  DayTimeIntervalArray(const std::shared_ptr<DataType>& type, int64_t length,
+                       const std::shared_ptr<Buffer>& data,
+                       const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+                       int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  TypeClass::DayMilliseconds GetValue(int64_t i) const;
+  TypeClass::DayMilliseconds Value(int64_t i) const { return GetValue(i); }
+
+  // For compability with Take kernel.
+  TypeClass::DayMilliseconds GetView(int64_t i) const { return GetValue(i); }
+
+  int32_t byte_width() const { return sizeof(TypeClass::DayMilliseconds); }
+
+  const uint8_t* raw_values() const { return raw_values_ + data_->offset * byte_width(); }
+
+ protected:
+  inline void SetData(const std::shared_ptr<ArrayData>& data) {
+    this->PrimitiveArray::SetData(data);
+  }
+};
+
 // ----------------------------------------------------------------------
 // Decimal128Array
 

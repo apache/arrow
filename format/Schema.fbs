@@ -30,7 +30,7 @@ enum MetadataVersion:short {
   V3,
 
   /// >= 0.8.0
-  V4
+  V4,
 }
 
 /// These are stored in the flatbuffer in the Type union below
@@ -183,8 +183,33 @@ table Timestamp {
 }
 
 enum IntervalUnit: short { YEAR_MONTH, DAY_TIME}
+// A "calendar" interval which models types that don't necessarily
+// have a precise duration without the context of a base timestamp (e.g.
+// days can differ in length during day light savings time transitions).
+// YEAR_MONTH - Indicates the number of elapsed whole months, stored as 
+//   4-byte integers. 
+// DAY_TIME - Indicates the number of elapsed days and milliseconds,
+//   stored as 2 contiguous 32-bit integers (8-bytes in total).  Support
+//   of this IntervalUnit is not required for full arrow compatibility.
 table Interval {
   unit: IntervalUnit;
+}
+
+// An absolute length of time unrelated to any calendar artifacts.  
+//
+// For the purposes of Arrow Implementations, adding this value to a Timestamp
+// ("t1") naively (i.e. simply summing the two number) is acceptable even
+// though in some cases the resulting Timestamp (t2) would not account for
+// leap-seconds during the elapsed time between "t1" and "t2".  Similarly,
+// representing the difference between two Unix timestamp is acceptable, but
+// would yield a value that is possibly a few seconds off from the true elapsed
+// time.
+//
+//  The resolution defaults to millisecond, but can be any of the other
+//  supported TimeUnit values as with Timestamp and Time types.  This type is
+//  always represented as an 8-byte integer.
+table Duration {
+  unit: TimeUnit = MILLISECOND;
 }
 
 /// ----------------------------------------------------------------------
@@ -208,7 +233,8 @@ union Type {
   Union,
   FixedSizeBinary,
   FixedSizeList,
-  Map
+  Map,
+  Duration,
 }
 
 /// ----------------------------------------------------------------------

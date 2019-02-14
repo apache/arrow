@@ -113,6 +113,9 @@ ARROW_EXPORT
 Status MakeTimestamps(std::shared_ptr<RecordBatch>* out);
 
 ARROW_EXPORT
+Status MakeIntervals(std::shared_ptr<RecordBatch>* out);
+
+ARROW_EXPORT
 Status MakeTimes(std::shared_ptr<RecordBatch>* out);
 
 ARROW_EXPORT

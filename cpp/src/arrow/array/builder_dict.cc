@@ -54,6 +54,12 @@ struct UnifyDictionaryValues {
                                   " dictionaries is not implemented");
   }
 
+  Status Visit(const DayTimeIntervalType&, void* = nullptr) {
+    return Status::NotImplemented(
+        "Unification of DayTime"
+        " dictionaries is not implemented");
+  }
+
   template <typename T>
   Status Visit(const T&,
                typename internal::DictionaryTraits<T>::MemoTableType* = nullptr) {

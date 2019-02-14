@@ -26,6 +26,7 @@
 #include "arrow/array/builder_dict.h"       // IWYU pragma: export
 #include "arrow/array/builder_nested.h"     // IWYU pragma: export
 #include "arrow/array/builder_primitive.h"  // IWYU pragma: export
+#include "arrow/array/builder_time.h"       // IWYU pragma: export
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 

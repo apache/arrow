@@ -17,54 +17,47 @@
 
 package org.apache.arrow.vector;
 
-import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 import java.time.Duration;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.complex.impl.IntervalDayReaderImpl;
+import org.apache.arrow.vector.complex.impl.DurationReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.holders.IntervalDayHolder;
-import org.apache.arrow.vector.holders.NullableIntervalDayHolder;
+import org.apache.arrow.vector.holders.DurationHolder;
+import org.apache.arrow.vector.holders.NullableDurationHolder;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 import io.netty.buffer.ArrowBuf;
 
 /**
- * IntervalDayVector implements a fixed width vector (8 bytes) of
- * interval (days and milliseconds) values which could be null.
+ * DurationVector implements a fixed width vector (8 bytes) of
+ * a configurable TimeUnit granularity duration values which could be null.
  * A validity buffer (bit vector) is maintained to track which elements in the
  * vector are null.
  */
-public class IntervalDayVector extends BaseFixedWidthVector {
-  public static final byte TYPE_WIDTH = 8;
-  private static final byte MILLISECOND_OFFSET = 4;
+public class DurationVector extends BaseFixedWidthVector {
+  private static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
+  private final TimeUnit unit;
 
   /**
-   * Instantiate a IntervalDayVector. This doesn't allocate any memory for
-   * the data in vector.
-   *
-   * @param name name of the vector
-   * @param allocator allocator for memory management.
-   */
-  public IntervalDayVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(MinorType.INTERVALDAY.getType()), allocator);
-  }
-
-  /**
-   * Instantiate a IntervalDayVector. This doesn't allocate any memory for
+   * Instantiate a DurationVector. This doesn't allocate any memory for
    * the data in vector.
    *
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public IntervalDayVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public DurationVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new IntervalDayReaderImpl(IntervalDayVector.this);
+    reader = new DurationReaderImpl(DurationVector.this);
+    this.unit =  ((ArrowType.Duration)fieldType.getType()).getUnit();
+
   }
 
   /**
@@ -81,11 +74,11 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    * Get minor type for this vector. The vector holds values belonging
    * to a particular type.
    *
-   * @return {@link org.apache.arrow.vector.types.Types.MinorType}
+   * @return {@link MinorType}
    */
   @Override
   public MinorType getMinorType() {
-    return MinorType.INTERVALDAY;
+    return MinorType.DURATION;
   }
 
 
@@ -96,31 +89,17 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    *----------------------------------------------------------------*/
 
   /**
-   * Given a data buffer, get the number of days stored at a particular position
+   * Given a data buffer, get the value stored at a particular position
    * in the vector.
    *
    * <p>This method should not be used externally.
    *
    * @param buffer data buffer
    * @param index  position of the element.
-   * @return day value stored at the index.
+   * @return value stored at the index.
    */
-  public static int getDays(final ArrowBuf buffer, final int index) {
-    return buffer.getInt(index * TYPE_WIDTH);
-  }
-
-  /**
-   * Given a data buffer, get the get the number of milliseconds stored at a particular position
-   * in the vector.
-   *
-   * <p>This method should not be used externally.
-   *
-   * @param buffer data buffer
-   * @param index  position of the element.
-   * @return milliseconds value stored at the index.
-   */
-  public static int getMilliseconds(final ArrowBuf buffer, final int index) {
-    return buffer.getInt((index * TYPE_WIDTH) + MILLISECOND_OFFSET);
+  public static long get(final ArrowBuf buffer, final int index) {
+    return buffer.getLong(index * TYPE_WIDTH);
   }
 
   /**
@@ -130,7 +109,7 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public ArrowBuf get(int index) throws IllegalStateException {
-    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
+    if (isSet(index) == 0) {
       return null;
     }
     return valueBuffer.slice(index * TYPE_WIDTH, TYPE_WIDTH);
@@ -143,15 +122,13 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    *
    * @param index   position of element
    */
-  public void get(int index, NullableIntervalDayHolder holder) {
+  public void get(int index, NullableDurationHolder holder) {
     if (isSet(index) == 0) {
       holder.isSet = 0;
       return;
     }
-    final int startIndex = index * TYPE_WIDTH;
     holder.isSet = 1;
-    holder.days = valueBuffer.getInt(startIndex);
-    holder.milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
+    holder.value = get(valueBuffer, index);
   }
 
   /**
@@ -164,10 +141,23 @@ public class IntervalDayVector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      final int startIndex = index * TYPE_WIDTH;
-      final int days = valueBuffer.getInt(startIndex);
-      final int milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
-      return Duration.ofDays(days).plusMillis(milliseconds);
+      final long value =  get(valueBuffer, index);
+      return toDuration(value, unit);
+    }
+  }
+
+  public static Duration toDuration(long value, TimeUnit unit) {
+    switch (unit) {
+      case SECOND:
+        return Duration.ofSeconds(value);
+      case MILLISECOND:
+        return Duration.ofMillis(value);
+      case NANOSECOND:
+        return Duration.ofNanos(value);
+      case MICROSECOND:
+        return Duration.ofNanos(MICROSECONDS.toNanos(value));
+      default:
+        throw new IllegalArgumentException("Unknown timeunit: " + unit);
     }
   }
 
@@ -175,8 +165,7 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    * Get the Interval value at a given index as a {@link StringBuilder} object.
    *
    * @param index position of the element
-   * @return String Builder object with Interval value as
-   *         [days, hours, minutes, seconds, millis]
+   * @return String Builder object with Interval in java.time.Duration format.
    */
   public StringBuilder getAsStringBuilder(int index) {
     if (isSet(index) == 0) {
@@ -187,28 +176,7 @@ public class IntervalDayVector extends BaseFixedWidthVector {
   }
 
   private StringBuilder getAsStringBuilderHelper(int index) {
-    final int startIndex = index * TYPE_WIDTH;
-
-    final int days = valueBuffer.getInt(startIndex);
-    int millis = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
-
-    final int hours = millis / (org.apache.arrow.vector.util.DateUtility.hoursToMillis);
-    millis = millis % (org.apache.arrow.vector.util.DateUtility.hoursToMillis);
-
-    final int minutes = millis / (org.apache.arrow.vector.util.DateUtility.minutesToMillis);
-    millis = millis % (org.apache.arrow.vector.util.DateUtility.minutesToMillis);
-
-    final int seconds = millis / (org.apache.arrow.vector.util.DateUtility.secondsToMillis);
-    millis = millis % (org.apache.arrow.vector.util.DateUtility.secondsToMillis);
-
-    final String dayString = (Math.abs(days) == 1) ? " day " : " days ";
-
-    return (new StringBuilder()
-            .append(days).append(dayString)
-            .append(hours).append(":")
-            .append(minutes).append(":")
-            .append(seconds).append(".")
-            .append(millis));
+    return new StringBuilder(getObject(index).toString());
   }
 
   /**
@@ -219,14 +187,14 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, IntervalDayVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, DurationVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     from.valueBuffer.getBytes(fromIndex * TYPE_WIDTH, this.valueBuffer,
               thisIndex * TYPE_WIDTH, TYPE_WIDTH);
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, IntervalDayVector)} except that
+   * Same as {@link #copyFrom(int, int, DurationVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    *
@@ -234,7 +202,7 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, IntervalDayVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, DurationVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -262,14 +230,12 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    * Set the element at the given index to the given value.
    *
    * @param index          position of element
-   * @param days           days for the interval
-   * @param milliseconds   milliseconds for the interval
+   * @param value   The duration value (in the timeunit associated with this vector)
    */
-  public void set(int index, int days, int milliseconds) {
+  public void set(int index, long value) {
     final int offsetIndex = index * TYPE_WIDTH;
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-    valueBuffer.setInt(offsetIndex, days);
-    valueBuffer.setInt((offsetIndex + MILLISECOND_OFFSET), milliseconds);
+    valueBuffer.setLong(offsetIndex, value);
   }
 
   /**
@@ -280,11 +246,11 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    * @param index   position of element
    * @param holder  nullable data holder for value of element
    */
-  public void set(int index, NullableIntervalDayHolder holder) throws IllegalArgumentException {
+  public void set(int index, NullableDurationHolder holder) throws IllegalArgumentException {
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
     } else if (holder.isSet > 0) {
-      set(index, holder.days, holder.milliseconds);
+      set(index, holder.value);
     } else {
       BitVectorHelper.setValidityBit(validityBuffer, index, 0);
     }
@@ -296,8 +262,8 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    * @param index   position of element
    * @param holder  data holder for value of element
    */
-  public void set(int index, IntervalDayHolder holder) {
-    set(index, holder.days, holder.milliseconds);
+  public void set(int index, DurationHolder holder) {
+    set(index, holder.value);
   }
 
   /**
@@ -314,41 +280,40 @@ public class IntervalDayVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, int, int)} except that it handles the
+   * Same as {@link #set(int, long)} except that it handles the
    * case when index is greater than or equal to existing
    * value capacity {@link #getValueCapacity()}.
    *
    * @param index          position of element
-   * @param days           days for the interval
-   * @param milliseconds   milliseconds for the interval
+   * @param value   duration in the time unit this vector was constructed with
    */
-  public void setSafe(int index, int days, int milliseconds) {
+  public void setSafe(int index, long value) {
     handleSafe(index);
-    set(index, days, milliseconds);
+    set(index, value);
   }
 
   /**
-   * Same as {@link #set(int, NullableIntervalDayHolder)} except that it handles the
+   * Same as {@link #set(int, NullableDurationHolder)} except that it handles the
    * case when index is greater than or equal to existing
    * value capacity {@link #getValueCapacity()}.
    *
    * @param index   position of element
    * @param holder  nullable data holder for value of element
    */
-  public void setSafe(int index, NullableIntervalDayHolder holder) throws IllegalArgumentException {
+  public void setSafe(int index, NullableDurationHolder holder) throws IllegalArgumentException {
     handleSafe(index);
     set(index, holder);
   }
 
   /**
-   * Same as {@link #set(int, IntervalDayHolder)} except that it handles the
+   * Same as {@link #set(int, DurationHolder)} except that it handles the
    * case when index is greater than or equal to existing
    * value capacity {@link #getValueCapacity()}.
    *
    * @param index   position of element
    * @param holder  data holder for value of element
    */
-  public void setSafe(int index, IntervalDayHolder holder) {
+  public void setSafe(int index, DurationHolder holder) {
     handleSafe(index);
     set(index, holder);
   }
@@ -371,30 +336,28 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
-   * @param days days component of interval
-   * @param milliseconds millisecond component of interval
+   * @param value The duration value (in the TimeUnit associated with this vector).
    */
-  public void set(int index, int isSet, int days, int milliseconds) {
+  public void set(int index, int isSet, long value) {
     if (isSet > 0) {
-      set(index, days, milliseconds);
+      set(index, value);
     } else {
       BitVectorHelper.setValidityBit(validityBuffer, index, 0);
     }
   }
 
   /**
-   * Same as {@link #set(int, int, int, int)} except that it handles the case
+   * Same as {@link #set(int, int, long)} except that it handles the case
    * when index is greater than or equal to current value capacity of the
    * vector.
    *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
-   * @param days days component of interval
-   * @param milliseconds millisecond component of interval
+   * @param value The duration value (in the timeunit associated with this vector)
    */
-  public void setSafe(int index, int isSet, int days, int milliseconds) {
+  public void setSafe(int index, int isSet, long value) {
     handleSafe(index);
-    set(index, isSet, days, milliseconds);
+    set(index, isSet, value);
   }
 
 
@@ -426,22 +389,22 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((IntervalDayVector) to);
+    return new TransferImpl((DurationVector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    IntervalDayVector to;
+    DurationVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new IntervalDayVector(ref, field.getFieldType(), allocator);
+      to = new DurationVector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(IntervalDayVector to) {
+    public TransferImpl(DurationVector to) {
       this.to = to;
     }
 
     @Override
-    public IntervalDayVector getTo() {
+    public DurationVector getTo() {
       return to;
     }
 
@@ -457,7 +420,7 @@ public class IntervalDayVector extends BaseFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, IntervalDayVector.this);
+      to.copyFromSafe(fromIndex, toIndex, DurationVector.this);
     }
   }
 }

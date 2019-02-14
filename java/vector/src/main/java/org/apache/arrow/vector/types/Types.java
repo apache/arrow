@@ -27,6 +27,7 @@ import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -65,6 +66,7 @@ import org.apache.arrow.vector.complex.impl.BitWriterImpl;
 import org.apache.arrow.vector.complex.impl.DateDayWriterImpl;
 import org.apache.arrow.vector.complex.impl.DateMilliWriterImpl;
 import org.apache.arrow.vector.complex.impl.DecimalWriterImpl;
+import org.apache.arrow.vector.complex.impl.DurationWriterImpl;
 import org.apache.arrow.vector.complex.impl.FixedSizeBinaryWriterImpl;
 import org.apache.arrow.vector.complex.impl.Float4WriterImpl;
 import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
@@ -101,6 +103,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
 import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
 import org.apache.arrow.vector.types.pojo.ArrowType.Date;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
+import org.apache.arrow.vector.types.pojo.ArrowType.Duration;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
@@ -378,6 +381,23 @@ public class Types {
         return new IntervalDayWriterImpl((IntervalDayVector) vector);
       }
     },
+    DURATION(null) {
+      @Override
+      public FieldVector getNewVector(
+              String name,
+              FieldType fieldType,
+              BufferAllocator allocator,
+              CallBack schemaChangeCallback) {
+        return new DurationVector(name, fieldType, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new DurationWriterImpl((DurationVector) vector);
+      }
+    },
+
+
     INTERVALYEAR(new Interval(IntervalUnit.YEAR_MONTH)) {
       @Override
       public FieldVector getNewVector(
@@ -830,6 +850,11 @@ public class Types {
           default:
             throw new IllegalArgumentException("unknown unit: " + type);
         }
+      }
+
+      @Override
+      public MinorType visit(Duration type) {
+        return MinorType.DURATION;
       }
     });
   }
