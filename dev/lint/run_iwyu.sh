@@ -22,15 +22,34 @@ mkdir -p /build/lint
 pushd /build/lint
 
 cmake -GNinja \
+      -DARROW_FLIGHT=ON \
+      -DARROW_GANDIVA=ON \
       -DARROW_PARQUET=ON \
       -DARROW_PYTHON=ON \
       -DCMAKE_CXX_FLAGS='-D_GLIBCXX_USE_CXX11_ABI=0' \
       -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
       /arrow/cpp
-# Make so that vendored bits are built
-ninja arrow_shared
 
 popd
+
+# Build IWYU for current Clang
+git clone https://github.com/include-what-you-use/include-what-you-use.git
+pushd include-what-you-use
+git checkout clang_7.0
+popd
+
+export CC=clang-7
+export CXX=clang++-7
+
+mkdir -p iwyu
+pushd iwyu
+cmake -G "Unix Makefiles" \
+      -DCMAKE_PREFIX_PATH=/usr/lib/llvm-7 \
+      ../include-what-you-use
+make -j4
+popd
+
+export PATH=`pwd`/iwyu/bin:$PATH
 
 export IWYU_COMPILATION_DATABASE_PATH=/build/lint
 /arrow/cpp/build-support/iwyu/iwyu.sh all

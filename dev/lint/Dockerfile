@@ -21,12 +21,10 @@ RUN apt-get install -y -q gnupg && \
     apt update && \
     apt-get install -y -q \
       clang-7 \
+      libclang-7-dev \
       clang-format-7 \
       clang-tidy-7 \
       clang-tools-7
 
 RUN conda install flake8 && \
     conda clean --all -y
-
-# https://bugs.launchpad.net/ubuntu/+source/iwyu/+bug/1769334
-RUN ln -sv /usr/lib/clang/6.0 /usr/lib/clang/5.0.1
