@@ -62,7 +62,7 @@ class StreamReader(object):
         stream_writer = pa.RecordBatchStreamWriter(sink, schema)
         for batch in batches:
             stream_writer.write_batch(batch)
-        self.source = sink.get_result()
+        self.source = sink.getvalue()
 
     def time_read_to_dataframe(self, *args):
         reader = pa.RecordBatchStreamReader(self.source)
