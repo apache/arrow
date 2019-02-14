@@ -175,6 +175,10 @@ TEST(TestTupleVectorFromTable, PrimitiveTypes) {
   ASSERT_OK(TupleRangeFromTable(*table, cast_options, &ctx, &rows));
   ASSERT_EQ(rows, expected_rows);
 
+  // The number of rows must match
+  std::vector<primitive_types_tuple> too_few_rows(1);
+  ASSERT_RAISES(Invalid, TupleRangeFromTable(*table, cast_options, &ctx, &too_few_rows));
+
   // The number of columns must match
   std::shared_ptr<Table> corrupt_table;
   ASSERT_OK(table->RemoveColumn(0, &corrupt_table));

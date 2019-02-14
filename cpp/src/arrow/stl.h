@@ -346,6 +346,14 @@ Status TupleRangeFromTable(const Table& table, const compute::CastOptions& cast_
     return Status::Invalid(ss.str());
   }
 
+  // TODO: Use std::size with C++17
+  if (rows->size() != table.num_rows()) {
+    std::stringstream ss;
+    ss << "Number of rows in the table does not match the size of the target: ";
+    ss << table.num_rows() << " != " << rows->size();
+    return Status::Invalid(ss.str());
+  }
+
   // Check that all columns have the correct type, otherwise cast them.
   std::shared_ptr<Table> table_owner;
   std::reference_wrapper<const ::arrow::Table> current_table(table);
