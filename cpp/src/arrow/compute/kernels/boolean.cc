@@ -34,13 +34,17 @@ namespace arrow {
 using internal::BitmapAnd;
 using internal::BitmapOr;
 using internal::BitmapXor;
-using internal::CopyBitmap;
 using internal::CountSetBits;
 using internal::InvertBitmap;
 
 namespace compute {
 
-class InvertKernel : public UnaryKernel {
+class BooleanUnaryKernel : public UnaryKernel {
+ public:
+  std::shared_ptr<DataType> out_type() const override { return boolean(); }
+};
+
+class InvertKernel : public BooleanUnaryKernel {
   Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
     DCHECK_EQ(Datum::ARRAY, input.kind());
     constexpr int64_t kZeroDestOffset = 0;
@@ -48,17 +52,6 @@ class InvertKernel : public UnaryKernel {
     const ArrayData& in_data = *input.array();
     std::shared_ptr<ArrayData> result = out->array();
     result->type = boolean();
-
-    // Handle validity bitmap
-    result->null_count = in_data.null_count;
-    const std::shared_ptr<Buffer>& validity_bitmap = in_data.buffers[0];
-    if (in_data.offset != 0 && in_data.null_count > 0) {
-      DCHECK_LE(BitUtil::BytesForBits(in_data.length), validity_bitmap->size());
-      CopyBitmap(validity_bitmap->data(), in_data.offset, in_data.length,
-                 result->buffers[0]->mutable_data(), kZeroDestOffset);
-    } else {
-      result->buffers[0] = validity_bitmap;
-    }
 
     // Handle output data buffer
     if (in_data.length > 0) {
@@ -73,7 +66,7 @@ class InvertKernel : public UnaryKernel {
 
 Status Invert(FunctionContext* ctx, const Datum& value, Datum* out) {
   detail::PrimitiveAllocatingUnaryKernel kernel(
-      std::unique_ptr<UnaryKernel>(new InvertKernel()));
+      std::unique_ptr<UnaryKernel>(new InvertKernel()), boolean());
 
   std::vector<Datum> result;
   RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, &kernel, value, &result));
