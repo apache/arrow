@@ -68,7 +68,7 @@ class ArrayConverter : public arrow::ArrayVisitor {
       ARRAY_CONVERT_VALUE_INLINE(Time32Type); // TODO: test
       ARRAY_CONVERT_VALUE_INLINE(Time64Type); // TODO: test
       ARRAY_CONVERT_VALUE_INLINE(ListType);
-      // TODO: ARRAY_CONVERT_VALUE_INLINE(StructType);
+      ARRAY_CONVERT_VALUE_INLINE(StructType);
       ARRAY_CONVERT_VALUE_INLINE(DictionaryType);
       ARRAY_CONVERT_VALUE_INLINE(UnionType);
       default:
@@ -256,6 +256,23 @@ class ArrayConverter : public arrow::ArrayVisitor {
       auto list = array.values()->Slice(array.value_offset(i), array.value_length(i));
       auto gobj = garrow_array_new_raw(&list);
       return GOBJ2RVAL(gobj);
+    });
+  }
+
+  inline VALUE ConvertValue(const arrow::StructArray& array, const int64_t i) {
+    const auto* struct_type = array.struct_type();
+    const auto nf = struct_type->num_children();
+    return rb::protect([&] {
+      VALUE record = rb_hash_new();
+      for (int k = 0; k < nf; ++k) {
+        auto field_type = struct_type->child(k);
+        auto& field_name = field_type->name();
+        VALUE key = rb_str_new_cstr(field_name.c_str());
+        const auto& field_array = *array.field(k);
+        VALUE val = ConvertValue(field_array, i);
+        rb_hash_aset(record, key, val);
+      }
+      return record;
     });
   }
 

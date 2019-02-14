@@ -369,8 +369,8 @@ class RecordBatchTest < Test::Unit::TestCase
           dict_vocab = Arrow::StringArray.new(['foo', 'bar'])
           dict_indices = [1, 0]
 
-          union_type_ids = [ 0, 1, 1, 0, 2, 3, 4, 5, 6, 7, 7, 8, 8 ]
-          union_offsets = [ 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1 ]
+          union_type_ids = [ 0, 1, 1, 0, 2, 3, 4, 5, 6, 7, 8, 8, 9, 9 ]
+          union_offsets = [ 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1 ]
           union_children = [
             Arrow::Int32Array.new([42, -42]),
             Arrow::StringArray.new(%w[foo ほげ]),
@@ -384,6 +384,14 @@ class RecordBatchTest < Test::Unit::TestCase
             Arrow::ListArray.new(
               Arrow::ListDataType.new(name: 'int', type: :int8),
               [[1, -1, 1, 2, 3]]
+            ),
+            Arrow::StructArray.new(
+              Arrow::StructDataType.new(
+                int: :int8,
+                dbl: :double,
+                str: :string
+              ),
+              [[1, 3.14, 'xyz']]
             ),
             Arrow::DenseUnionArray.new(
               Arrow::Int8Array.new(sub_union_type_ids),
@@ -418,15 +426,20 @@ class RecordBatchTest < Test::Unit::TestCase
           @expected_columnar_result = [
             union_type_ids.map.with_index {|tid, i|
               offset = union_offsets[i]
-              case union_children[tid]
+              child = union_children[tid]
+              case child
               when Arrow::DenseUnionArray
                 sub_tid = sub_union_type_ids[offset]
                 sub_offset = sub_union_offsets[offset]
                 sub_union_children[sub_tid][sub_offset]
               when Arrow::DictionaryArray
                 dict_indices[offset]
+              when Arrow::StructArray
+                child.value_data_type.fields.map {|f|
+                  [f.name, child.find_field(f.name)[offset]]
+                }.to_h
               else
-                union_children[tid][offset]
+                child[offset]
               end
             }
           ]
