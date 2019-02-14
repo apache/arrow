@@ -28,6 +28,7 @@ pub enum ArrowError {
     ComputeError(String),
     DivideByZero,
     CsvError(String),
+    JsonError(String),
     IoError(String),
 }
 
