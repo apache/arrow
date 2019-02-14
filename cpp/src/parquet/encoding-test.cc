@@ -22,6 +22,10 @@
 #include <string>
 #include <vector>
 
+#include "arrow/array.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
+#include "arrow/type.h"
 #include "arrow/util/bit-util.h"
 
 #include "parquet/encoding.h"
@@ -312,6 +316,80 @@ TYPED_TEST(TestDictionaryEncoding, BasicRoundTrip) {
 
 TEST(TestDictionaryEncoding, CannotDictDecodeBoolean) {
   ASSERT_THROW(MakeDictDecoder<BooleanType>(nullptr), ParquetException);
+}
+
+// ----------------------------------------------------------------------
+// Arrow builder decode tests
+class TestDecodeArrow : public ::testing::Test {
+ public:
+  void SetUp() override {
+    allocator_ = default_memory_pool();
+
+    // Build a dictionary array and its dense representation for testing building both
+    auto dict_values = ::arrow::ArrayFromJSON(::arrow::binary(), "[\"foo\", \"bar\"]");
+    auto dtype = ::arrow::dictionary(::arrow::int8(), dict_values);
+    auto indices = ::arrow::ArrayFromJSON(::arrow::int8(), "[0, 1, 0, 0]");
+    ASSERT_OK(::arrow::DictionaryArray::FromArrays(dtype, indices, &expected_dict_));
+    expected_array_ =
+        ArrayFromJSON(::arrow::binary(), "[\"foo\", \"bar\", \"foo\", \"foo\"]");
+    num_values_ = static_cast<int>(expected_array_->length());
+
+    // arrow::BinaryType maps to parquet::ByteArray
+    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*expected_array_);
+    for (int64_t i = 0; i < binary_array.length(); i++) {
+      auto view = binary_array.GetView(i);
+      input_data_.emplace_back(view.length(),
+                               reinterpret_cast<const uint8_t*>(view.data()));
+    }
+
+    valid_bits_ = vector<uint8_t>(::arrow::BitUtil::BytesForBits(num_values_) + 1, 255);
+
+    // Setup encoder/decoder pair
+    encoder_ = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
+    decoder_ = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+    encoder_->Put(input_data_.data(), num_values_);
+    buffer_ = encoder_->FlushValues();
+    decoder_->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
+  }
+
+  void TearDown() override {}
+
+ protected:
+  MemoryPool* allocator_;
+  std::shared_ptr<::arrow::Array> expected_dict_;
+  std::shared_ptr<::arrow::Array> expected_array_;
+  int num_values_;
+  vector<ByteArray> input_data_;
+  vector<uint8_t> valid_bits_;
+  std::unique_ptr<ByteArrayEncoder> encoder_;
+  std::unique_ptr<ByteArrayDecoder> decoder_;
+  std::shared_ptr<Buffer> buffer_;
+};
+
+TEST_F(TestDecodeArrow, DecodeDense) {
+  ::arrow::internal::ChunkedBinaryBuilder builder(static_cast<int>(buffer_->size()),
+                                                  allocator_);
+  auto actual_num_values =
+      decoder_->DecodeArrow(num_values_, 0, valid_bits_.data(), 0, &builder);
+
+  ASSERT_EQ(actual_num_values, num_values_);
+  ::arrow::ArrayVector actual_vec;
+  ASSERT_OK(builder.Finish(&actual_vec));
+  ASSERT_EQ(actual_vec.size(), 1);
+  ASSERT_TRUE(actual_vec[0]->Equals(expected_array_))
+      << "Actual: " << actual_vec[0] << "\nExpected: " << expected_array_;
+}
+
+TEST_F(TestDecodeArrow, DecodeDictionary) {
+  ::arrow::BinaryDictionaryBuilder builder(allocator_);
+  auto actual_num_values =
+      decoder_->DecodeArrow(num_values_, 0, valid_bits_.data(), 0, &builder);
+
+  ASSERT_EQ(actual_num_values, num_values_);
+  std::shared_ptr<::arrow::Array> actual;
+  ASSERT_OK(builder.Finish(&actual));
+  ASSERT_TRUE(actual->Equals(expected_dict_))
+      << "Actual: " << actual << "\nExpected: " << expected_dict_;
 }
 
 }  // namespace test
