@@ -243,7 +243,7 @@ class ArrayConverter : public arrow::ArrayVisitor {
   }
 
   inline VALUE ConvertValue(const arrow::TimestampArray& array, const int64_t i) {
-    const auto& type = arrow::internal::checked_cast<arrow::TimestampType&>(*array.type());
+    const auto& type = arrow::internal::checked_cast<const arrow::TimestampType&>(*array.type());
     VALUE scale = time_unit_to_scale(type.unit());
     if (NIL_P(scale)) {
       throw rb::error(rb_eArgError, "Invalid TimeUnit");
@@ -385,7 +385,7 @@ class ArrayConverter : public arrow::ArrayVisitor {
   }
 
   Status Visit(const arrow::TimestampArray& array) override {
-    const auto& type = arrow::internal::checked_cast<arrow::TimestampType&>(*array.type());
+    const auto& type = arrow::internal::checked_cast<const arrow::TimestampType&>(*array.type());
     VALUE scale = time_unit_to_scale(type.unit());
     if (NIL_P(scale)) {
       return Status::Invalid("Invalid TimeUnit");
