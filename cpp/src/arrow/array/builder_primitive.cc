@@ -156,12 +156,24 @@ Status BooleanBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
 Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
                                     const uint8_t* valid_bytes) {
-  return AppendValues(values, values + length, valid_bytes);
+  RETURN_NOT_OK(Reserve(length));
+
+  int64_t i = 0;
+  data_builder_.UnsafeAppend<false>(length,
+                                    [values, &i]() -> bool { return values[i++] != 0; });
+  ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
+  return Status::OK();
 }
 
 Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
                                     const std::vector<bool>& is_valid) {
-  return AppendValues(values, values + length, is_valid.begin());
+  RETURN_NOT_OK(Reserve(length));
+  DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
+  int64_t i = 0;
+  data_builder_.UnsafeAppend<false>(length,
+                                    [values, &i]() -> bool { return values[i++]; });
+  ArrayBuilder::UnsafeAppendToBitmap(is_valid);
+  return Status::OK();
 }
 
 Status BooleanBuilder::AppendValues(const std::vector<uint8_t>& values,
@@ -175,11 +187,24 @@ Status BooleanBuilder::AppendValues(const std::vector<uint8_t>& values) {
 
 Status BooleanBuilder::AppendValues(const std::vector<bool>& values,
                                     const std::vector<bool>& is_valid) {
-  return AppendValues(values.begin(), values.end(), is_valid.begin());
+  const int64_t length = static_cast<int64_t>(values.size());
+  RETURN_NOT_OK(Reserve(length));
+  DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
+  int64_t i = 0;
+  data_builder_.UnsafeAppend<false>(length,
+                                    [&values, &i]() -> bool { return values[i++]; });
+  ArrayBuilder::UnsafeAppendToBitmap(is_valid);
+  return Status::OK();
 }
 
 Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
-  return AppendValues(values.begin(), values.end());
+  const int64_t length = static_cast<int64_t>(values.size());
+  RETURN_NOT_OK(Reserve(length));
+  int64_t i = 0;
+  data_builder_.UnsafeAppend<false>(length,
+                                    [&values, &i]() -> bool { return values[i++]; });
+  ArrayBuilder::UnsafeSetNotNull(length);
+  return Status::OK();
 }
 
 }  // namespace arrow

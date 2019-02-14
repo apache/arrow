@@ -24,6 +24,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "arrow/buffer.h"
 #include "arrow/status.h"
@@ -307,14 +308,20 @@ class TypedBufferBuilder<bool> {
     bit_length_ += num_copies;
   }
 
-  template <typename Generator>
+  template <bool count_falses, typename Generator>
   void UnsafeAppend(const int64_t num_elements, Generator&& gen) {
     if (num_elements == 0) return;
-    internal::GenerateBitsUnrolled(mutable_data(), bit_length_, num_elements, [&] {
-      bool value = gen();
-      false_count_ += !value;
-      return value;
-    });
+
+    if (count_falses) {
+      internal::GenerateBitsUnrolled(mutable_data(), bit_length_, num_elements, [&] {
+        bool value = gen();
+        false_count_ += !value;
+        return value;
+      });
+    } else {
+      internal::GenerateBitsUnrolled(mutable_data(), bit_length_, num_elements,
+                                     std::forward<Generator>(gen));
+    }
     bit_length_ += num_elements;
   }
 

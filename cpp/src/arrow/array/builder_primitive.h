@@ -143,7 +143,7 @@ class ARROW_EXPORT NumericBuilder : public ArrayBuilder {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
     data_builder_.UnsafeAppend(values_begin, values_end);
-    null_bitmap_builder_.UnsafeAppend(
+    null_bitmap_builder_.UnsafeAppend<true>(
         length, [&valid_begin]() -> bool { return *valid_begin++; });
     length_ = null_bitmap_builder_.length();
     null_count_ = null_bitmap_builder_.false_count();
@@ -161,7 +161,7 @@ class ARROW_EXPORT NumericBuilder : public ArrayBuilder {
     if (valid_begin == NULLPTR) {
       UnsafeSetNotNull(length);
     } else {
-      null_bitmap_builder_.UnsafeAppend(
+      null_bitmap_builder_.UnsafeAppend<true>(
           length, [&valid_begin]() -> bool { return *valid_begin++; });
       length_ = null_bitmap_builder_.length();
       null_count_ = null_bitmap_builder_.false_count();
@@ -309,8 +309,8 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
-    data_builder_.UnsafeAppend(length,
-                               [&values_begin]() -> bool { return *values_begin++; });
+    data_builder_.UnsafeAppend<false>(
+        length, [&values_begin]() -> bool { return *values_begin++; });
     // this updates length_
     UnsafeSetNotNull(length);
     return Status::OK();
@@ -331,9 +331,9 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
 
-    data_builder_.UnsafeAppend(length,
-                               [&values_begin]() -> bool { return *values_begin++; });
-    null_bitmap_builder_.UnsafeAppend(
+    data_builder_.UnsafeAppend<false>(
+        length, [&values_begin]() -> bool { return *values_begin++; });
+    null_bitmap_builder_.UnsafeAppend<true>(
         length, [&valid_begin]() -> bool { return *valid_begin++; });
     length_ = null_bitmap_builder_.length();
     null_count_ = null_bitmap_builder_.false_count();
@@ -346,13 +346,13 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
-    data_builder_.UnsafeAppend(length,
-                               [&values_begin]() -> bool { return *values_begin++; });
+    data_builder_.UnsafeAppend<false>(
+        length, [&values_begin]() -> bool { return *values_begin++; });
 
     if (valid_begin == NULLPTR) {
       UnsafeSetNotNull(length);
     } else {
-      null_bitmap_builder_.UnsafeAppend(
+      null_bitmap_builder_.UnsafeAppend<true>(
           length, [&valid_begin]() -> bool { return *valid_begin++; });
     }
     length_ = null_bitmap_builder_.length();
