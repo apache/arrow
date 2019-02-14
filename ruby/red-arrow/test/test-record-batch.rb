@@ -359,8 +359,15 @@ class RecordBatchTest < Test::Unit::TestCase
 
       sub_test_case('with dense union array') do
         def setup
-          union_type_ids = [ 0, 1, 1, 0, 2, 3, 4, 5, 6 ]
-          union_offsets = [ 0, 0, 1, 1, 0, 0, 1, 0, 0 ]
+          sub_union_type_ids = [ 0, 1 ]
+          sub_union_offsets = [ 0, 0 ]
+          sub_union_children = [
+            Arrow::Int32Array.new([42]),
+            Arrow::StringArray.new(%w[ほげ])
+          ]
+
+          union_type_ids = [ 0, 1, 1, 0, 2, 3, 4, 5, 6, 7, 7 ]
+          union_offsets = [ 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1 ]
           union_children = [
             Arrow::Int32Array.new([42, -42]),
             Arrow::StringArray.new(%w[foo ほげ]),
@@ -374,6 +381,11 @@ class RecordBatchTest < Test::Unit::TestCase
             Arrow::ListArray.new(
               Arrow::ListDataType.new(name: 'int', type: :int8),
               [[1, -1, 1, 2, 3]]
+            ),
+            Arrow::DenseUnionArray.new(
+              Arrow::Int8Array.new(sub_union_type_ids),
+              Arrow::Int32Array.new(sub_union_offsets),
+              sub_union_children
             )
           ]
 
@@ -399,8 +411,15 @@ class RecordBatchTest < Test::Unit::TestCase
           @expected_columnar_result = [
             union_type_ids.map.with_index {|tid, i|
               offset = union_offsets[i]
-              union_children[tid][offset]
-            },
+              case union_children[tid]
+              when Arrow::DenseUnionArray
+                sub_tid = sub_union_type_ids[offset]
+                sub_offset = sub_union_offsets[offset]
+                sub_union_children[sub_tid][sub_offset]
+              else
+                union_children[tid][offset]
+              end
+            }
           ]
           @expected_columnar_result[0][7] = Time.utc(2005, 11, 11, 6, 7, 8)
         end
@@ -411,8 +430,8 @@ class RecordBatchTest < Test::Unit::TestCase
         end
 
         test("convert_decimal: true") do
-          raw_records = @record_batch.raw_records(convert_decimal: true)
           @expected_columnar_result[0][4] = BigDecimal('3.14')
+          raw_records = @record_batch.raw_records(convert_decimal: true)
           assert_equal(@expected_columnar_result.transpose, raw_records)
         end
       end

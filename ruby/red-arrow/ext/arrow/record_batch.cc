@@ -62,15 +62,15 @@ class ArrayConverter : public arrow::ArrayVisitor {
       ARRAY_CONVERT_VALUE_INLINE(FixedSizeBinaryType); // TODO: test
       ARRAY_CONVERT_VALUE_INLINE(StringType);
       ARRAY_CONVERT_VALUE_INLINE(BinaryType);
-      ARRAY_CONVERT_VALUE_INLINE(Date32Type); // TODO: test
-      ARRAY_CONVERT_VALUE_INLINE(Date64Type); // TODO: test
-      ARRAY_CONVERT_VALUE_INLINE(TimestampType); // TODO: test
+      ARRAY_CONVERT_VALUE_INLINE(Date32Type);
+      ARRAY_CONVERT_VALUE_INLINE(Date64Type);
+      ARRAY_CONVERT_VALUE_INLINE(TimestampType);
       ARRAY_CONVERT_VALUE_INLINE(Time32Type); // TODO: test
       ARRAY_CONVERT_VALUE_INLINE(Time64Type); // TODO: test
-      ARRAY_CONVERT_VALUE_INLINE(ListType); // TODO: test
+      ARRAY_CONVERT_VALUE_INLINE(ListType);
       // TODO: ARRAY_CONVERT_VALUE_INLINE(StructType);
       // TODO: ARRAY_CONVERT_VALUE_INLINE(DictionaryType);
-      ARRAY_CONVERT_VALUE_INLINE(UnionType); // TODO: test
+      ARRAY_CONVERT_VALUE_INLINE(UnionType);
       default:
         break;
     }
