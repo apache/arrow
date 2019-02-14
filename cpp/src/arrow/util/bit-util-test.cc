@@ -743,9 +743,11 @@ TEST(BitUtil, RoundDown) {
   EXPECT_EQ(BitUtil::RoundDown(10, 10000000000), 0);
   EXPECT_EQ(BitUtil::RoundDown(100000000000, 10000000000), 100000000000);
 
-  for (int i = 0; i < 100; i++)
-    for (int j = 1; j < 100; j++)
+  for (int i = 0; i < 100; i++) {
+    for (int j = 1; j < 100; j++) {
       EXPECT_EQ(BitUtil::RoundDown(i, j), i - (i % j));
+    }
+  }
 }
 
 TEST(BitUtil, TrailingBits) {
