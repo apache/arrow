@@ -27,7 +27,7 @@ use crate::array_data::ArrayData;
 use crate::buffer::Buffer;
 use crate::compute::util::apply_bin_op_to_option_bitmap;
 use crate::datatypes::DataType;
-use crate::error::Result;
+use crate::error::{ArrowError, Result};
 
 /// Helper function to implement binary kernels
 fn binary_boolean_kernel<F>(
@@ -38,6 +38,13 @@ fn binary_boolean_kernel<F>(
 where
     F: Fn(&Buffer, &Buffer) -> Result<Buffer>,
 {
+    if left.offset() != right.offset() {
+        return Err(ArrowError::ComputeError(
+            "Cannot apply Bitwise binary op when arrays have different offsets."
+                .to_string(),
+        ));
+    }
+
     let left_data = left.data();
     let right_data = right.data();
     let null_bit_buffer = apply_bin_op_to_option_bitmap(
@@ -51,7 +58,7 @@ where
         left.len(),
         None,
         null_bit_buffer,
-        0,
+        left.offset(),
         vec![values],
         vec![],
     );
@@ -73,15 +80,23 @@ pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
 /// Performs unary `NOT` operation on an arrays. If value is null then the result is also
 /// null.
 pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
-    let mut b = BooleanArray::builder(left.len());
-    for i in 0..left.len() {
-        if left.is_null(i) {
-            b.append_null()?;
-        } else {
-            b.append_value(!left.value(i))?;
-        }
-    }
-    Ok(b.finish())
+    let data = left.data();
+    let null_bit_buffer = match *data.null_bitmap() {
+        None => None,
+        Some(ref b) => Some(b.bits.clone()),
+    };
+
+    let values = !&data.buffers()[0];
+    let data = ArrayData::new(
+        DataType::Boolean,
+        left.len(),
+        None,
+        null_bit_buffer,
+        left.offset(),
+        vec![values],
+        vec![],
+    );
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 #[cfg(test)]
