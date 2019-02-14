@@ -15,18 +15,13 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-C++ Implementation
-==================
+.. default-domain:: cpp
+.. highlight:: cpp
 
-.. toctree::
-   :maxdepth: 2
+Row to columnar conversion
+==========================
 
-   getting_started
-   Examples <examples/index>
-   api
+The following example converts an array of structs to a :class:`arrow::Table`
+instance, and then converts it back to the original array of structs.
 
-.. TODO add "topics" chapter
-.. - nested arrays
-.. - dictionary encoding
-
-.. TODO add "building" or "development" chapter
+.. literalinclude:: ../../../../cpp/examples/arrow/row-wise-conversion-example.cc

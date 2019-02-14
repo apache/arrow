@@ -18,19 +18,8 @@
 .. default-domain:: cpp
 .. highlight:: cpp
 
-Examples
-========
-
-Row to columnar conversion
---------------------------
-
-The following example converts an array of structs to a :class:`arrow::Table`
-instance, and then converts it back to the original array of structs.
-
-.. literalinclude:: ../../../cpp/examples/arrow/row-wise-conversion-example.cc
-
 Conversion of range of ``std::tuple``-like to ``Table`` instances
------------------------------------------------------------------
+=================================================================
 
 While the above example shows a quite manual approach of a row to columnar
 conversion, Arrow also provides some template logic to convert ranges of
@@ -71,22 +60,30 @@ pre-allocated range with the data from a ``Table`` instance.
 
 Arrow itself already supports some C(++) data types for this conversion. If you
 want to support additional data types, you need to implement a specialization
-of ``arrow::stl::ConversionTraits<T>``.
+of ``arrow::stl::ConversionTraits<T>`` and the more general
+``arrow::CTypeTraits<T>``.
 
 
 .. code::
 
+    namespace arrow {
+
+    template<>
+    struct CTypeTraits<boost::posix_time::ptime> {
+      using ArrowType = ::arrow::TimestampType;
+
+      static std::shared_ptr<::arrow::DataType> type_singleton() {
+        return ::arrow::timestamp(::arrow::TimeUnit::MICRO);
+      }
+    };
+
+    }
+
     namespace arrow { namespace stl {
 
     template <>
-    struct ConversionTraits<boost::posix_time::ptime> {
+    struct ConversionTraits<boost::posix_time::ptime> : public CTypeTraits<boost::posix_time::ptime> {
       constexpr static bool nullable = false;
-
-      using ArrowType = ::arrow::TimestampType;
-
-      static std::shared_ptr<::arrow::DataType> arrow_type() {
-        return ::arrow::timestamp(::arrow::TimeUnit::MICRO);
-      }
 
       // This is the specialization to load a scalar value into an Arrow builder.
       static Status AppendRow(
@@ -106,3 +103,4 @@ of ``arrow::stl::ConversionTraits<T>``.
     };
 
     }}
+

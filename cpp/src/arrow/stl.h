@@ -85,7 +85,7 @@ struct ConversionTraits<std::vector<value_c_type>>
         typename ConversionTraits<value_c_type>::ArrowType>::BuilderType;
     ARROW_RETURN_NOT_OK(builder.Append());
     ElementBuilderType& value_builder =
-        static_cast<ElementBuilderType&>(*builder.value_builder());
+        ::arrow::internal::checked_cast<ElementBuilderType&>(*builder.value_builder());
     for (auto const& value : cell) {
       ARROW_RETURN_NOT_OK(
           ConversionTraits<value_c_type>::AppendRow(value_builder, value));
@@ -227,7 +227,7 @@ struct RowIterator {
     using BuilderType =
         typename TypeTraits<typename ConversionTraits<Element>::ArrowType>::BuilderType;
 
-    BuilderType& builder = static_cast<BuilderType&>(*builders[N - 1]);
+    BuilderType& builder = ::arrow::internal::checked_cast<BuilderType&>(*builders[N - 1]);
     ARROW_RETURN_NOT_OK(ConversionTraits<Element>::AppendRow(builder, get<N - 1>(row)));
 
     return RowIterator<Tuple, N - 1>::Append(builders, row);
@@ -309,7 +309,7 @@ template <typename Range>
 Status TableFromTupleRange(MemoryPool* pool, const Range& rows,
                            const std::vector<std::string>& names,
                            std::shared_ptr<Table>* table) {
-  using row_type = typename std::decay<decltype(*std::begin(rows))>::type;
+  using row_type = typename std::iterator_traits<decltype(std::begin(rows))>::value_type;
   constexpr std::size_t n_columns = std::tuple_size<row_type>::value;
 
   std::shared_ptr<Schema> schema = SchemaFromTuple<row_type>::MakeSchema(names);

@@ -15,18 +15,11 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-C++ Implementation
-==================
+Examples
+========
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-   getting_started
-   Examples <examples/index>
-   api
-
-.. TODO add "topics" chapter
-.. - nested arrays
-.. - dictionary encoding
-
-.. TODO add "building" or "development" chapter
+   row_columnar_conversion
+   std::tuple-like ranges to Arrow <tuple_range_conversion>
