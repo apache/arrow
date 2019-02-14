@@ -219,6 +219,9 @@ class ByteArrayDecoder : virtual public TypedDecoder<ByteArrayType> {
   // See also ARROW-3772, ARROW-3769
   virtual int DecodeArrowNonNull(int num_values,
                                  ::arrow::internal::ChunkedBinaryBuilder* builder) = 0;
+
+  virtual int DecodeArrowNonNull(int num_values,
+                                 ::arrow::BinaryDictionaryBuilder* builder) = 0;
 };
 
 class FLBADecoder : virtual public TypedDecoder<FLBAType> {

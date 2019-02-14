@@ -380,10 +380,34 @@ TEST_F(TestDecodeArrow, DecodeDense) {
       << "Actual: " << actual_vec[0] << "\nExpected: " << expected_array_;
 }
 
+TEST_F(TestDecodeArrow, DecodeNonNullDense) {
+  ::arrow::internal::ChunkedBinaryBuilder builder(static_cast<int>(buffer_->size()),
+                                                  allocator_);
+  auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, &builder);
+
+  ASSERT_EQ(actual_num_values, num_values_);
+  ::arrow::ArrayVector actual_vec;
+  ASSERT_OK(builder.Finish(&actual_vec));
+  ASSERT_EQ(actual_vec.size(), 1);
+  ASSERT_TRUE(actual_vec[0]->Equals(expected_array_))
+      << "Actual: " << actual_vec[0] << "\nExpected: " << expected_array_;
+}
+
 TEST_F(TestDecodeArrow, DecodeDictionary) {
   ::arrow::BinaryDictionaryBuilder builder(allocator_);
   auto actual_num_values =
       decoder_->DecodeArrow(num_values_, 0, valid_bits_.data(), 0, &builder);
+
+  ASSERT_EQ(actual_num_values, num_values_);
+  std::shared_ptr<::arrow::Array> actual;
+  ASSERT_OK(builder.Finish(&actual));
+  ASSERT_TRUE(actual->Equals(expected_dict_))
+      << "Actual: " << actual << "\nExpected: " << expected_dict_;
+}
+
+TEST_F(TestDecodeArrow, DecodeNonNullDictionary) {
+  ::arrow::BinaryDictionaryBuilder builder(allocator_);
+  auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, &builder);
 
   ASSERT_EQ(actual_num_values, num_values_);
   std::shared_ptr<::arrow::Array> actual;
