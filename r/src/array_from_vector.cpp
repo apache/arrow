@@ -455,8 +455,137 @@ std::shared_ptr<arrow::Array> Time32Array_From_difftime(SEXP x) {
   return std::make_shared<Time32Array>(data);
 }
 
+class VectorConverter;
+
+Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<VectorConverter>* out) {
+  return Status::OK();
+}
+
+class VectorConverter {
+public:
+  virtual ~VectorConverter() = default;
+
+  virtual Status Init(ArrayBuilder* builder) = 0;
+
+  virtual Status Append(SEXP obj) = 0;
+
+  virtual Status GetResult(std::vector<std::shared_ptr<arrow::Array>>* chunks) {
+    *chunks = chunks_;
+
+    // Still some accumulated data in the builder. If there are no chunks, we
+    // always call Finish to deal with the edge case where a size-0 sequence
+    // was converted with a specific output type, like array([], type=t)
+    if (chunks_.size() == 0 || builder_->length() > 0) {
+      std::shared_ptr<Array> last_chunk;
+      RETURN_NOT_OK(builder_->Finish(&last_chunk));
+      chunks->emplace_back(std::move(last_chunk));
+    }
+    return Status::OK();
+  }
+
+  ArrayBuilder* builder() const { return builder_; }
+
+protected:
+  ArrayBuilder* builder_;
+  std::vector<std::shared_ptr<Array>> chunks_;
+
+};
+
+template <typename Type>
+std::shared_ptr<arrow::DataType> GetFactorTypeImpl(Rcpp::IntegerVector_ factor) {
+  auto dict_values = MakeStringArray(Rf_getAttrib(factor, R_LevelsSymbol));
+  auto dict_type =
+    dictionary(std::make_shared<Type>(), dict_values, Rf_inherits(factor, "ordered"));
+  return dict_type;
+}
+
+std::shared_ptr<arrow::DataType> GetFactorType(SEXP factor) {
+  SEXP levels = Rf_getAttrib(factor, R_LevelsSymbol);
+  int n = Rf_length(levels);
+  if (n < 128) {
+    return GetFactorTypeImpl<arrow::Int8Type>(factor);
+  } else if (n < 32768) {
+    return GetFactorTypeImpl<arrow::Int16Type>(factor);
+  } else {
+    return GetFactorTypeImpl<arrow::Int32Type>(factor);
+  }
+}
+
+std::shared_ptr<arrow::DataType> InferType(SEXP x) {
+  switch (TYPEOF(x)) {
+  case LGLSXP:
+    return boolean();
+  case INTSXP:
+    if (Rf_isFactor(x)) {
+      return GetFactorType(x);
+    }
+    if (Rf_inherits(x, "Date")) {
+      return date32();
+    }
+    if (Rf_inherits(x, "POSIXct")) {
+      return timestamp(TimeUnit::MICRO, "GMT");
+    }
+    return int32();
+  case REALSXP:
+    if (Rf_inherits(x, "Date")) {
+      return date32();
+    }
+    if (Rf_inherits(x, "POSIXct")) {
+      return timestamp(TimeUnit::MICRO, "GMT");
+    }
+    if (Rf_inherits(x, "integer64")) {
+      return int64();
+    }
+    if (Rf_inherits(x, "difftime")) {
+      return time32(TimeUnit::SECOND);
+    }
+    return float64();
+  case RAWSXP:
+    return int8();
+  case STRSXP:
+    return utf8();
+  default:
+    break;
+  }
+
+  Rcpp::stop("cannot infer type from data");
+}
+
+std::shared_ptr<arrow::Array> Array__from_vector2(SEXP x, SEXP s_type) {
+  // get or infer the type
+  std::shared_ptr<arrow::DataType> type;
+  if (Rf_inherits(s_type, "arrow::DataType")) {
+    type = arrow::r::extract<arrow::DataType>(s_type);
+  } else {
+    type = arrow::r::InferType(x);
+  }
+
+  // Create the sequence converter, initialize with the builder
+  std::unique_ptr<VectorConverter> converter;
+  STOP_IF_NOT_OK(GetConverter(type, &converter));
+
+  // Create ArrayBuilder for type
+  std::unique_ptr<ArrayBuilder> type_builder;
+  STOP_IF_NOT_OK(MakeBuilder(arrow::default_memory_pool(), type, &type_builder));
+  STOP_IF_NOT_OK(converter->Init(type_builder.get()));
+
+  // ingest x
+  STOP_IF_NOT_OK(converter->Append(x));
+
+  std::vector<std::shared_ptr<arrow::Array>> chunks;
+  STOP_IF_NOT_OK(converter->GetResult(&chunks));
+
+  return chunks[0];
+}
+
+
 }  // namespace r
 }  // namespace arrow
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x) {
+  return arrow::r::InferType(x);
+}
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type) {

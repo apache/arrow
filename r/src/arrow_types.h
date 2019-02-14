@@ -198,5 +198,10 @@ class RBuffer : public MutableBuffer {
   Vec vec_;
 };
 
+template <typename T>
+inline std::shared_ptr<T> extract(SEXP x) {
+  return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>>(x);
+}
+
 }  // namespace r
 }  // namespace arrow

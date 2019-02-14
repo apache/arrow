@@ -250,6 +250,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// Array__infer_type
+std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x);
+RcppExport SEXP _arrow_Array__infer_type(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__infer_type(x));
+    return rcpp_result_gen;
+END_RCPP
+}
 // Array__from_vector
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type);
 RcppExport SEXP _arrow_Array__from_vector(SEXP xSEXP, SEXP typeSEXP) {
@@ -2322,6 +2333,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1},
     {"_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2},
     {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 2},
+    {"_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1},
     {"_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 2},
     {"_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1},
     {"_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1},

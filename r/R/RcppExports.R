@@ -85,6 +85,10 @@ Table__to_dataframe <- function(table, use_threads) {
     .Call(`_arrow_Table__to_dataframe`, table, use_threads)
 }
 
+Array__infer_type <- function(x) {
+    .Call(`_arrow_Array__infer_type`, x)
+}
+
 Array__from_vector <- function(x, type) {
     .Call(`_arrow_Array__from_vector`, x, type)
 }
