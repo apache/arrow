@@ -55,37 +55,105 @@ use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
 
-/// Coerce data type, e.g. Int64 and Float64 should be Float64
-fn coerce_data_type(dt: Vec<&DataType>, is_list: bool) -> DataType {
-    let scalar_type = match dt.len() {
-        1 => dt[0].clone(),
+/// Coerce data type during inference
+///
+/// * `Int64` and `Float64` should be `Float64`
+/// * Lists and scalars are coerced to a list of a compatible scalar
+/// * All other types are coerced to `Utf8`
+fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
+    match dt.len() {
+        1 => Ok(dt[0].clone()),
         2 => {
-            if dt.contains(&&DataType::Float64) && dt.contains(&&DataType::Int64) {
-                DataType::Float64
+            // there can be a case where a list and scalar both exist
+            if dt.contains(&&DataType::List(box DataType::Float64))
+                || dt.contains(&&DataType::List(box DataType::Int64))
+                || dt.contains(&&DataType::List(box DataType::Boolean))
+                || dt.contains(&&DataType::List(box DataType::Utf8))
+            {
+                // we have a list and scalars, so we should get the values and coerce them
+                let mut dt = dt;
+                // sorting guarantees that the list will be the second value
+                dt.sort();
+                match (dt[0], dt[1]) {
+                    (t1, DataType::List(box DataType::Float64)) => {
+                        if t1 == &DataType::Float64 {
+                            Ok(DataType::List(box DataType::Float64))
+                        } else {
+                            Ok(DataType::List(box coerce_data_type(vec![
+                                t1,
+                                &DataType::Float64,
+                            ])?))
+                        }
+                    }
+                    (t1, DataType::List(box DataType::Int64)) => {
+                        if t1 == &DataType::Int64 {
+                            Ok(DataType::List(box DataType::Int64))
+                        } else {
+                            Ok(DataType::List(box coerce_data_type(vec![
+                                t1,
+                                &DataType::Int64,
+                            ])?))
+                        }
+                    }
+                    (t1, DataType::List(box DataType::Boolean)) => {
+                        if t1 == &DataType::Boolean {
+                            Ok(DataType::List(box DataType::Boolean))
+                        } else {
+                            Ok(DataType::List(box coerce_data_type(vec![
+                                t1,
+                                &DataType::Boolean,
+                            ])?))
+                        }
+                    }
+                    (t1, DataType::List(box DataType::Utf8)) => {
+                        if t1 == &DataType::Utf8 {
+                            Ok(DataType::List(box DataType::Utf8))
+                        } else {
+                            dbg!(&t1);
+                            Ok(DataType::List(box coerce_data_type(vec![
+                                t1,
+                                &DataType::Utf8,
+                            ])?))
+                        }
+                    }
+                    (t1 @ _, t2 @ _) => Err(ArrowError::JsonError(format!(
+                        "Cannot coerce data types for {:?} and {:?}",
+                        t1, t2
+                    ))),
+                }
+            } else if dt.contains(&&DataType::Float64) && dt.contains(&&DataType::Int64) {
+                Ok(DataType::Float64)
             } else {
-                DataType::Utf8
+                Ok(DataType::Utf8)
             }
         }
-        _ => DataType::Utf8,
-    };
-    if is_list {
-        DataType::List(Box::new(scalar_type))
-    } else {
-        scalar_type
+        _ => {
+            // TODO(nevi_me) It's possible to have [float, int, list(float)], which should
+            // return list(float). Will hash this out later
+            DataType::Utf8
+        }
     }
 }
 
 /// Generate schema from JSON field names and inferred data types
-fn generate_schema(spec: HashMap<String, HashSet<DataType>>) -> Arc<Schema> {
-    let fields = spec
+fn generate_schema(spec: HashMap<String, HashSet<DataType>>) -> Result<Arc<Schema>> {
+    let fields: Result<Vec<Field>> = spec
         .iter()
         .map(|(k, hs)| {
             let v: Vec<&DataType> = hs.iter().collect();
-            Field::new(k, coerce_data_type(v, false), true)
+            match coerce_data_type(v) {
+                Ok(t) => Ok(Field::new(k, t, true)),
+                Err(e) => Err(e),
+            }
         })
         .collect();
-    let schema = Schema::new(fields);
-    Arc::new(schema)
+    match fields {
+        Ok(fields) => {
+            let schema = Schema::new(fields);
+            Ok(Arc::new(schema))
+        }
+        Err(e) => Err(e),
+    }
 }
 
 /// Infer the fields of a JSON file by reading the first n records of the file, with
@@ -145,15 +213,15 @@ fn infer_json_schema(file: File, max_read_records: Option<usize>) -> Result<Arc<
                                         // if a record contains only nulls, it is not
                                         // added to values
                                         if !types.is_empty() {
-                                            let dt = coerce_data_type(types, true);
+                                            let dt = coerce_data_type(types)?;
 
                                             if values.contains_key(k) {
                                                 let x = values.get_mut(k).unwrap();
-                                                x.insert(dt);
+                                                x.insert(DataType::List(box dt));
                                             } else {
                                                 // create hashset and add value type
                                                 let mut hs = HashSet::new();
-                                                hs.insert(dt);
+                                                hs.insert(DataType::List(box dt));
                                                 values.insert(k.to_string(), hs);
                                             }
                                         }
@@ -237,7 +305,7 @@ fn infer_json_schema(file: File, max_read_records: Option<usize>) -> Result<Arc<
         };
     }
 
-    let schema = generate_schema(values);
+    let schema = generate_schema(values)?;
 
     // return the reader seek back to the start
     &reader.into_inner().seek(SeekFrom::Start(0))?;
@@ -361,16 +429,32 @@ impl<R: Read> Reader<R> {
                                 match rows[row_index].get(field.name()) {
                                     Some(value) => {
                                         // value can be an array or a scalar
-                                        let vals: Vec<Option<&str>> = if let Value::String(v) = value {
-                                            vec![Some(v)]
+                                        let vals: Vec<Option<String>> = if let Value::String(v) = value {
+                                            vec![Some(v.to_string())]
                                         } else if let Value::Array(n) = value {
-                                            n.iter().map(|v: &Value| v.as_str()).collect()
+                                            n.iter().map(|v: &Value| {
+                                                if v.is_string() {
+                                                    Some(v.as_str().unwrap().to_string())
+                                                } else if v.is_array() || v.is_object() {
+                                                    // implicitly drop nested values
+                                                    // TODO support deep-nesting
+                                                    None
+                                                } else {
+                                                    Some(v.to_string())
+                                                }
+                                            }).collect()
+                                        } else if let Value::Null = value {
+                                            vec![None]
                                         } else {
-                                            return Err(ArrowError::JsonError("Only scalars are currently supported in JSON arrays".to_string()))
+                                            if !value.is_object() {
+                                                vec![Some(value.to_string())]
+                                            } else {
+                                                return Err(ArrowError::JsonError("1Only scalars are currently supported in JSON arrays".to_string()))
+                                            }
                                         };
                                         for i in 0..vals.len() {
-                                            match vals[i] {
-                                                Some(v) => builder.values().append_string(v)?,
+                                            match &vals[i] {
+                                                Some(v) => builder.values().append_string(&v)?,
                                                 None => builder.values().append_null()?,
                                             };
                                         }
@@ -425,9 +509,11 @@ impl<R: Read> Reader<R> {
                         vec![Some(*v)]
                     } else if let Value::Array(n) = value {
                         n.iter().map(|v: &Value| v.as_bool()).collect()
+                    } else if let Value::Null = value {
+                        vec![None]
                     } else {
                         return Err(ArrowError::JsonError(
-                            "Only scalars are currently supported in JSON arrays"
+                            "2Only scalars are currently supported in JSON arrays"
                                 .to_string(),
                         ));
                     };
@@ -493,9 +579,11 @@ impl<R: Read> Reader<R> {
                         vec![value.as_f64()]
                     } else if let Value::Array(n) = value {
                         n.iter().map(|v: &Value| v.as_f64()).collect()
+                    } else if let Value::Null = value {
+                        vec![None]
                     } else {
                         return Err(ArrowError::JsonError(
-                            "Only scalars are currently supported in JSON arrays"
+                            "3Only scalars are currently supported in JSON arrays"
                                 .to_string(),
                         ));
                     };
@@ -881,5 +969,95 @@ mod tests {
             .build::<File>(File::open("test/data/uk_cities_with_headers.csv").unwrap())
             .unwrap();
         let _batch = reader.next().unwrap().unwrap();
+    }
+
+    #[test]
+    fn test_coersion_scalar_and_list() {
+        use crate::datatypes::DataType::*;
+
+        assert_eq!(
+            List(box Float64),
+            coerce_data_type(vec![&Float64, &List(box Float64)]).unwrap()
+        );
+        assert_eq!(
+            List(box Float64),
+            coerce_data_type(vec![&Float64, &List(box Int64)]).unwrap()
+        );
+        assert_eq!(
+            List(box Int64),
+            coerce_data_type(vec![&Int64, &List(box Int64)]).unwrap()
+        );
+        // boolean an number are incompatible, return utf8
+        assert_eq!(
+            List(box Utf8),
+            coerce_data_type(vec![&Boolean, &List(box Float64)]).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_mixed_json_arrays() {
+        let builder = ReaderBuilder::new().infer_schema(None).with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/mixed_arrays.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(4, batch.num_columns());
+        assert_eq!(4, batch.num_rows());
+
+        let schema = batch.schema();
+
+        let a = schema.column_with_name("a").unwrap();
+        assert_eq!(&DataType::Int64, a.1.data_type());
+        let b = schema.column_with_name("b").unwrap();
+        assert_eq!(
+            &DataType::List(Box::new(DataType::Float64)),
+            b.1.data_type()
+        );
+        let c = schema.column_with_name("c").unwrap();
+        assert_eq!(
+            &DataType::List(Box::new(DataType::Boolean)),
+            c.1.data_type()
+        );
+        let d = schema.column_with_name("d").unwrap();
+        assert_eq!(&DataType::List(box DataType::Utf8), d.1.data_type());
+
+        let bb = batch
+            .column(b.0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        let bb = bb.values();
+        let bb = bb.as_any().downcast_ref::<Float64Array>().unwrap();
+        assert_eq!(10, bb.len());
+        assert_eq!(4.0, bb.value(9));
+
+        let cc = batch
+            .column(c.0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        let cc = cc.values();
+        let cc = cc.as_any().downcast_ref::<BooleanArray>().unwrap();
+        assert_eq!(6, cc.len());
+        assert_eq!(false, cc.value(0));
+        assert_eq!(false, cc.value(3));
+        assert_eq!(false, cc.is_valid(2));
+        assert_eq!(false, cc.is_valid(4));
+
+        let dd = batch
+            .column(d.0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        let dd = dd.values();
+        let dd = dd.as_any().downcast_ref::<BinaryArray>().unwrap();
+        assert_eq!(7, dd.len());
+        assert_eq!(false, dd.is_valid(1));
+        assert_eq!("text", &String::from_utf8(dd.value(2).to_vec()).unwrap());
+        assert_eq!("1", &String::from_utf8(dd.value(3).to_vec()).unwrap());
+        assert_eq!("false", &String::from_utf8(dd.value(4).to_vec()).unwrap());
+        assert_eq!("array", &String::from_utf8(dd.value(5).to_vec()).unwrap());
+        assert_eq!("2.4", &String::from_utf8(dd.value(6).to_vec()).unwrap());
     }
 }
