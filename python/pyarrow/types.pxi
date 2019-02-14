@@ -1321,6 +1321,8 @@ cpdef DataType decimal128(int precision, int scale=0):
     decimal_type : Decimal128Type
     """
     cdef shared_ptr[CDataType] decimal_type
+    if precision < 1 or precision > 38:
+        raise ValueError("precision should be between 1 and 38")
     decimal_type.reset(new CDecimal128Type(precision, scale))
     return pyarrow_wrap_data_type(decimal_type)
 
