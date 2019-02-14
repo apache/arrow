@@ -101,3 +101,10 @@ export class Uint64Vector extends IntVector<Uint64> {
     }
 }
 
+export interface Int64Vector extends IntVector<Int64> {
+    indexOf(value: Int64['TValue'] | bigint | null, fromIndex?: number): number;
+}
+
+export interface Uint64Vector extends IntVector<Uint64> {
+    indexOf(value: Uint64['TValue'] | bigint | null, fromIndex?: number): number;
+}
