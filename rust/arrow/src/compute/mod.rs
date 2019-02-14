@@ -15,8 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Transfer data between the Arrow memory format and CSV (comma-separated values).
+//! Computation kernels on Arrow Arrays
 
+pub mod array_ops;
 pub mod boolean_kernels;
 
 mod util;
+
+pub use self::array_ops::*;
+pub use self::boolean_kernels::*;

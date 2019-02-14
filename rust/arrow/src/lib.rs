@@ -30,7 +30,6 @@
 
 pub mod array;
 pub mod array_data;
-pub mod array_ops;
 pub mod bitmap;
 pub mod buffer;
 pub mod builder;

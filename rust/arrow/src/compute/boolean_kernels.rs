@@ -14,6 +14,12 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
+//! Defines boolean kernels on Arrow `BooleanArray`'s, e.g. `AND`, `OR` and `NOT`.
+//!
+//! Kernels support SIMD using [static CPU feature detection](https://doc.rust-lang.org/stable/std/arch/#static-cpu-feature-detection)
+//! .
+
 use std::sync::Arc;
 
 use crate::array::{Array, BooleanArray};
@@ -52,19 +58,19 @@ where
     Ok(BooleanArray::from(Arc::new(data)))
 }
 
-/// Perform `AND` operation on two arrays. If either left or right value is null then the
+/// Performs `AND` operation on two arrays. If either left or right value is null then the
 /// result is also null.
 pub fn and(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
     binary_boolean_kernel(&left, &right, |a, b| a & b)
 }
 
-/// Perform `OR` operation on two arrays. If either left or right value is null then the
+/// Performs `OR` operation on two arrays. If either left or right value is null then the
 /// result is also null.
 pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
     binary_boolean_kernel(&left, &right, |a, b| a | b)
 }
 
-/// Perform unary `NOT` operation on an arrays. If value is null then the result is also
+/// Performs unary `NOT` operation on an arrays. If value is null then the result is also
 /// null.
 pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
     let mut b = BooleanArray::builder(left.len());

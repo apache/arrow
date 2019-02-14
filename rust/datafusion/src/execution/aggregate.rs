@@ -24,8 +24,8 @@ use std::str;
 use std::sync::Arc;
 
 use arrow::array::*;
-use arrow::array_ops;
 use arrow::builder::*;
+use arrow::compute;
 use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
@@ -346,61 +346,61 @@ fn create_accumulators(aggr_expr: &Vec<RuntimeExpr>) -> Result<AccumulatorSet> {
 fn array_min(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
     match dt {
         DataType::UInt8 => {
-            match array_ops::min(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt8(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt16 => {
-            match array_ops::min(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt16(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt32 => {
-            match array_ops::min(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt32(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt64 => {
-            match array_ops::min(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt64(n))),
                 None => Ok(None),
             }
         }
         DataType::Int8 => {
-            match array_ops::min(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int8(n))),
                 None => Ok(None),
             }
         }
         DataType::Int16 => {
-            match array_ops::min(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int16(n))),
                 None => Ok(None),
             }
         }
         DataType::Int32 => {
-            match array_ops::min(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int32(n))),
                 None => Ok(None),
             }
         }
         DataType::Int64 => {
-            match array_ops::min(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int64(n))),
                 None => Ok(None),
             }
         }
         DataType::Float32 => {
-            match array_ops::min(array.as_any().downcast_ref::<Float32Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<Float32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Float32(n))),
                 None => Ok(None),
             }
         }
         DataType::Float64 => {
-            match array_ops::min(array.as_any().downcast_ref::<Float64Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<Float64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Float64(n))),
                 None => Ok(None),
             }
@@ -414,61 +414,61 @@ fn array_min(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
 fn array_max(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
     match dt {
         DataType::UInt8 => {
-            match array_ops::max(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt8(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt16 => {
-            match array_ops::max(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt16(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt32 => {
-            match array_ops::max(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt32(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt64 => {
-            match array_ops::max(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt64(n))),
                 None => Ok(None),
             }
         }
         DataType::Int8 => {
-            match array_ops::max(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int8(n))),
                 None => Ok(None),
             }
         }
         DataType::Int16 => {
-            match array_ops::max(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int16(n))),
                 None => Ok(None),
             }
         }
         DataType::Int32 => {
-            match array_ops::max(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int32(n))),
                 None => Ok(None),
             }
         }
         DataType::Int64 => {
-            match array_ops::max(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int64(n))),
                 None => Ok(None),
             }
         }
         DataType::Float32 => {
-            match array_ops::max(array.as_any().downcast_ref::<Float32Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<Float32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Float32(n))),
                 None => Ok(None),
             }
         }
         DataType::Float64 => {
-            match array_ops::max(array.as_any().downcast_ref::<Float64Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<Float64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Float64(n))),
                 None => Ok(None),
             }
@@ -482,61 +482,61 @@ fn array_max(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
 fn array_sum(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
     match dt {
         DataType::UInt8 => {
-            match array_ops::sum(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt8(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt16 => {
-            match array_ops::sum(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt16(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt32 => {
-            match array_ops::sum(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt32(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt64 => {
-            match array_ops::sum(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt64(n))),
                 None => Ok(None),
             }
         }
         DataType::Int8 => {
-            match array_ops::sum(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int8(n))),
                 None => Ok(None),
             }
         }
         DataType::Int16 => {
-            match array_ops::sum(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int16(n))),
                 None => Ok(None),
             }
         }
         DataType::Int32 => {
-            match array_ops::sum(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int32(n))),
                 None => Ok(None),
             }
         }
         DataType::Int64 => {
-            match array_ops::sum(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int64(n))),
                 None => Ok(None),
             }
         }
         DataType::Float32 => {
-            match array_ops::sum(array.as_any().downcast_ref::<Float32Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<Float32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Float32(n))),
                 None => Ok(None),
             }
         }
         DataType::Float64 => {
-            match array_ops::sum(array.as_any().downcast_ref::<Float64Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<Float64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Float64(n))),
                 None => Ok(None),
             }
