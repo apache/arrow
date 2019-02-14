@@ -39,7 +39,7 @@ export class IntVector<T extends Int = Int> extends BaseVector<T> {
     public static from(this: typeof IntVector, data: Int32Array, is64: true): Int64Vector;
     public static from(this: typeof IntVector, data: Uint32Array, is64: true): Uint64Vector;
     public static from<T extends Int>(this: typeof IntVector, data: T['TArray']): V<T>;
-    
+
     public static from(this: typeof Int8Vector,   data: Int8['TArray']   | Iterable<number>): Int8Vector;
     public static from(this: typeof Int16Vector,  data: Int16['TArray']  | Iterable<number>): Int16Vector;
     public static from(this: typeof Int32Vector,  data: Int32['TArray']  | Iterable<number>): Int32Vector;
