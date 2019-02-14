@@ -1048,9 +1048,6 @@ class IdentityCast : public CastKernelBase {
     out->value = input.array()->Copy();
     return Status::OK();
   }
-
- private:
-  std::shared_ptr<DataType> out_type_;
 };
 
 class ZeroCopyCast : public CastKernelBase {
