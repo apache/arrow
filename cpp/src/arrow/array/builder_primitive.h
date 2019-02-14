@@ -21,6 +21,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/array.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/type.h"
 
@@ -44,7 +45,7 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
 
 /// Base class for all Builders that emit an Array of a scalar numerical type.
 template <typename T>
-class ARROW_EXPORT NumericBuilder : public ArrayBuilder {
+class NumericBuilder : public ArrayBuilder {
  public:
   using value_type = typename T::c_type;
   using ArrayBuilder::ArrayBuilder;
@@ -82,6 +83,15 @@ class ARROW_EXPORT NumericBuilder : public ArrayBuilder {
 
   value_type GetValue(int64_t index) const { return data_builder_.data()[index]; }
 
+  void Reset() override { data_builder_.Reset(); }
+
+  Status Resize(int64_t capacity) override {
+    ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+    capacity = std::max(capacity, kMinBuilderCapacity);
+    ARROW_RETURN_NOT_OK(data_builder_.Resize(capacity));
+    return ArrayBuilder::Resize(capacity);
+  }
+
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
   /// \param[in] length the number of values to append
@@ -89,7 +99,13 @@ class ARROW_EXPORT NumericBuilder : public ArrayBuilder {
   /// indicates a valid (non-null) value
   /// \return Status
   Status AppendValues(const value_type* values, int64_t length,
-                      const uint8_t* valid_bytes = NULLPTR);
+                      const uint8_t* valid_bytes = NULLPTR) {
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    data_builder_.UnsafeAppend(values, length);
+    // length_ is update by these
+    ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
+    return Status::OK();
+  }
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
@@ -98,7 +114,13 @@ class ARROW_EXPORT NumericBuilder : public ArrayBuilder {
   /// (0). Equal in length to values
   /// \return Status
   Status AppendValues(const value_type* values, int64_t length,
-                      const std::vector<bool>& is_valid);
+                      const std::vector<bool>& is_valid) {
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    data_builder_.UnsafeAppend(values, length);
+    // length_ is update by these
+    ArrayBuilder::UnsafeAppendToBitmap(is_valid);
+    return Status::OK();
+  }
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a std::vector of values
@@ -106,18 +128,30 @@ class ARROW_EXPORT NumericBuilder : public ArrayBuilder {
   /// (0). Equal in length to values
   /// \return Status
   Status AppendValues(const std::vector<value_type>& values,
-                      const std::vector<bool>& is_valid);
+                      const std::vector<bool>& is_valid) {
+    return AppendValues(values.data(), static_cast<int64_t>(values.size()), is_valid);
+  }
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a std::vector of values
   /// \return Status
-  Status AppendValues(const std::vector<value_type>& values);
+  Status AppendValues(const std::vector<value_type>& values) {
+    return AppendValues(values.data(), static_cast<int64_t>(values.size()));
+  }
+
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) {
+    std::shared_ptr<Buffer> data, null_bitmap;
+    RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+    RETURN_NOT_OK(data_builder_.Finish(&data));
+    *out = ArrayData::Make(type_, length_, {null_bitmap, data}, null_count_);
+    capacity_ = length_ = null_count_ = 0;
+    return Status::OK();
+  }
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values_begin InputIterator to the beginning of the values
   /// \param[in] values_end InputIterator pointing to the end of the values
   /// \return Status
-
   template <typename ValuesIter>
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
@@ -169,11 +203,6 @@ class ARROW_EXPORT NumericBuilder : public ArrayBuilder {
 
     return Status::OK();
   }
-
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
-  void Reset() override;
-
-  Status Resize(int64_t capacity) override;
 
   /// Append a single scalar under the assumption that the underlying Buffer is
   /// large enough.
