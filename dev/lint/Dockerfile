@@ -18,7 +18,7 @@
 FROM arrow:python-3.6
 
 RUN apt-get install -y -q gnupg && \
-    apt update && \
+    apt-get update && \
     apt-get install -y -q \
       clang-7 \
       libclang-7-dev \
@@ -28,3 +28,7 @@ RUN apt-get install -y -q gnupg && \
 
 RUN conda install flake8 && \
     conda clean --all -y
+
+ENV PATH=/opt/iwyu/bin:$PATH
+ADD ci/docker_install_iwyu.sh /arrow/ci/
+RUN arrow/ci/docker_install_iwyu.sh
