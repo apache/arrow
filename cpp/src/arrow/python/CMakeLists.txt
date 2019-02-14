@@ -44,11 +44,24 @@ set(ARROW_PYTHON_SRCS
     pyarrow.cc
     serialize.cc)
 
+if(ARROW_FLIGHT)
+  set(ARROW_PYTHON_SRCS ${ARROW_PYTHON_SRCS} flight.cc)
+endif()
+
 if("${COMPILER_FAMILY}" STREQUAL "clang")
   set_property(SOURCE pyarrow.cc APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-cast-qual ")
 endif()
 
 set(ARROW_PYTHON_SHARED_LINK_LIBS arrow_shared ${PYTHON_OTHER_LIBS})
+
+if(ARROW_FLIGHT)
+  # Must link shared: we don't want to link more than one copy of gRPC
+  # into the eventual Cython shared object, otherwise gRPC calls fail
+  # with weird errors due to multiple copies of global static state
+  # (The other solution is to link gRPC shared everywhere instead of
+  # statically only in Flight)
+  set(ARROW_PYTHON_SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS} arrow_flight_shared)
+endif()
 
 if(WIN32)
   set(ARROW_PYTHON_SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS} ${PYTHON_LIBRARIES})

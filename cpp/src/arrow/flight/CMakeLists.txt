@@ -21,7 +21,7 @@ add_custom_target(arrow_flight)
 arrow_install_all_headers("arrow/flight")
 
 set(ARROW_FLIGHT_STATIC_LINK_LIBS
-    protobuf_static
+    ${PROTOBUF_LIBRARY}
     grpc_grpcpp_static
     grpc_grpc_static
     grpc_gpr_static

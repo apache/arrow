@@ -383,6 +383,16 @@ cdef class NativeFile:
     cdef shared_ptr[OutputStream] get_output_stream(self) except *
 
 
+cdef class _CRecordBatchWriter:
+    cdef:
+        shared_ptr[CRecordBatchWriter] writer
+
+
+cdef class _CRecordBatchReader:
+    cdef:
+        shared_ptr[CRecordBatchReader] reader
+
+
 cdef get_input_stream(object source, c_bool use_memory_map,
                       shared_ptr[InputStream]* reader)
 cdef get_reader(object source, c_bool use_memory_map,
