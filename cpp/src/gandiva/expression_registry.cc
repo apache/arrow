@@ -137,7 +137,7 @@ void ExpressionRegistry::AddArrowTypesToVector(arrow::Type::type& type,
       vector.push_back(arrow::null());
       break;
     case arrow::Type::type::DECIMAL:
-      vector.push_back(arrow::decimal(0, 0));
+      vector.push_back(arrow::decimal(38, 0));
       break;
     case arrow::Type::type::FIXED_SIZE_BINARY:
     case arrow::Type::type::MAP:

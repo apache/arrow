@@ -402,6 +402,14 @@ def test_decimal_properties():
     assert ty.scale == 4
 
 
+def test_decimal_overflow():
+    pa.decimal128(1, 0)
+    pa.decimal128(38, 0)
+    for i in (0, -1, 39):
+        with pytest.raises(ValueError):
+            pa.decimal128(39, 0)
+
+
 def test_type_equality_operators():
     many_types = get_many_types()
     non_pyarrow = ('foo', 16, {'s', 'e', 't'})
