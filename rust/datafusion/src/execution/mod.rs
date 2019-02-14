@@ -21,6 +21,7 @@ pub mod datasource;
 pub mod error;
 pub mod expression;
 pub mod filter;
+pub mod limit;
 pub mod physicalplan;
 pub mod projection;
 pub mod relation;

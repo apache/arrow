@@ -30,6 +30,7 @@ use super::datasource::DataSource;
 use super::error::{ExecutionError, Result};
 use super::expression::*;
 use super::filter::FilterRelation;
+use super::limit::LimitRelation;
 use super::projection::ProjectRelation;
 use super::relation::{DataSourceRelation, Relation};
 
@@ -157,6 +158,21 @@ impl ExecutionContext {
                     compiled_group_expr,
                     compiled_aggr_expr,
                 );
+
+                Ok(Rc::new(RefCell::new(rel)))
+            }
+            LogicalPlan::Limit {
+                ref expr,
+                ref input,
+                ..
+            } => {
+                let input_rel = self.execute(input)?;
+
+                let input_schema = input_rel.as_ref().borrow().schema().clone();
+
+                let compiled_expr = compile_scalar_expr(&self, expr, &input_schema)?;
+
+                let rel = LimitRelation::new(input_rel, compiled_expr, input_schema);
 
                 Ok(Rc::new(RefCell::new(rel)))
             }

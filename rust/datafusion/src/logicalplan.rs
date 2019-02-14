@@ -350,6 +350,12 @@ pub enum LogicalPlan {
     },
     /// An empty relation with an empty schema
     EmptyRelation { schema: Arc<Schema> },
+    // Represents the maximum number of records to return
+    Limit {
+        expr: Expr,
+        input: Rc<LogicalPlan>,
+        schema: Arc<Schema>,
+    },
 }
 
 impl LogicalPlan {
@@ -362,6 +368,7 @@ impl LogicalPlan {
             LogicalPlan::Selection { input, .. } => input.schema(),
             LogicalPlan::Aggregate { schema, .. } => &schema,
             LogicalPlan::Sort { schema, .. } => &schema,
+            LogicalPlan::Limit { schema, .. } => &schema,
         }
     }
 }
@@ -428,6 +435,14 @@ impl LogicalPlan {
                     }
                     write!(f, "{:?}", expr[i])?;
                 }
+                input.fmt_with_indent(f, indent + 1)
+            }
+            LogicalPlan::Limit {
+                ref input,
+                ref expr,
+                ..
+            } => {
+                write!(f, "Limit: {:?}", expr)?;
                 input.fmt_with_indent(f, indent + 1)
             }
         }
