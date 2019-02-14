@@ -17,18 +17,30 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+
+arrow_ruby_compile()
+{
+  local arrow_c_glib_lib_dir=$1
+
+  if [ "$(basename $arrow_c_glib_lib_dir)" == "lib" ]; then
+    arrow_c_glib_pkgconfig_dir=$arrow_c_glib_lib_dir/pkgconfig
+  else
+    arrow_c_glib_pkgconfig_dir=$(dirname $arrow_c_glib_lib_dir)/pkgconfig
+  fi
+
+  export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$arrow_c_glib_pkgconfig_dir
+  export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$arrow_c_glib_lib_dir
+  rake compile
+}
 
 arrow_ruby_run_test()
 {
   local arrow_c_glib_lib_dir=$1
 
   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$arrow_c_glib_lib_dir
-  export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
-  rake compile
-
   export GI_TYPELIB_PATH=$arrow_c_glib_lib_dir/girepository-1.0
   test/run-test.rb
 }
@@ -37,10 +49,13 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
 
 pushd $ARROW_RUBY_DIR/red-arrow
+(arrow_ruby_compile $ARROW_C_GLIB_INSTALL_AUTOTOOLS/lib)
 (arrow_ruby_run_test $ARROW_C_GLIB_INSTALL_AUTOTOOLS/lib)
 if [ -d $ARROW_C_GLIB_INSTALL_MESON/lib/$(arch)-linux-gnu ]; then
+  (arrow_ruby_compile $ARROW_C_GLIB_INSTALL_MESON/lib/$(arch)-linux-gnu)
   (arrow_ruby_run_test $ARROW_C_GLIB_INSTALL_MESON/lib/$(arch)-linux-gnu)
 # else # TODO: Enable this
+#   (arrow_ruby_compile $ARROW_C_GLIB_INSTALL_MESON/lib)
 #   (arrow_ruby_run_test $ARROW_C_GLIB_INSTALL_MESON/lib)
 fi
 popd
