@@ -82,8 +82,6 @@ class UniqueAction : public ActionBase {
 
   Status Reserve(const int64_t length) { return Status::OK(); }
 
-  std::shared_ptr<DataType> out_type() const { return type_; }
-
   void ObserveNull() {}
 
   template <class Index>
@@ -94,8 +92,7 @@ class UniqueAction : public ActionBase {
 
   Status Flush(Datum* out) { return Status::OK(); }
 
- private:
-  std::shared_ptr<DataType> type_;
+  std::shared_ptr<DataType> out_type() const { return type_; }
 };
 
 // ----------------------------------------------------------------------
