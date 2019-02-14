@@ -227,7 +227,8 @@ struct RowIterator {
     using BuilderType =
         typename TypeTraits<typename ConversionTraits<Element>::ArrowType>::BuilderType;
 
-    BuilderType& builder = ::arrow::internal::checked_cast<BuilderType&>(*builders[N - 1]);
+    BuilderType& builder =
+        ::arrow::internal::checked_cast<BuilderType&>(*builders[N - 1]);
     ARROW_RETURN_NOT_OK(ConversionTraits<Element>::AppendRow(builder, get<N - 1>(row)));
 
     return RowIterator<Tuple, N - 1>::Append(builders, row);
