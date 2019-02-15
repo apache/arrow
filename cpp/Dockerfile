@@ -23,7 +23,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get install -y -q --no-install-recommends \
         ca-certificates \
         ccache \
-        clang-7 \
         g++ \
         gcc \
         git \
@@ -44,11 +43,12 @@ RUN arrow/ci/docker_install_conda.sh && \
     conda install -q -c conda-forge \
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_unix.yml \
-        $EXTRA_CONDA_PKGS && \
+        llvmdev $EXTRA_CONDA_PKGS && \
     conda clean --all
 
 ENV CC=gcc \
     CXX=g++ \
+    ARROW_GANDIVA=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX \
     ARROW_HOME=$CONDA_PREFIX \
