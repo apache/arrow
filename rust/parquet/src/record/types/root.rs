@@ -41,8 +41,8 @@ impl<T> Record for Root<T>
 where
     T: Record,
 {
-    type Reader = RootReader<T::Reader>;
     type Schema = RootSchema<T>;
+    type Reader = RootReader<T::Reader>;
 
     fn parse(
         schema: &Type,

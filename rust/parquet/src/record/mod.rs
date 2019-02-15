@@ -78,15 +78,14 @@ use crate::{
 pub use parquet_derive::Record;
 pub use reader::RowIter;
 pub use schemas::RootSchema;
-pub use triplet::{TripletIter, TypedTripletIter};
 #[doc(hidden)]
 pub mod _private {
-    // This is used by `#[derive(Record)]`
+    /// This is used by `#[derive(Record)]`
     pub use super::display::DisplaySchemaGroup;
 }
 mod predicate {
-    // This is for forward compatibility when Predicate pushdown and dynamic schemas are
-    // implemented.
+    /// This is for forward compatibility when Predicate pushdown and dynamic schemas are
+    /// implemented.
     pub struct Predicate;
 }
 pub(crate) use self::predicate::Predicate;
@@ -114,9 +113,9 @@ pub(crate) use self::predicate::Predicate;
 /// | [`Timestamp`](self::types::Timestamp) | int64 | [timestamp_millis](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#timestamp) |
 /// | [`Timestamp`](self::types::Timestamp) | int64 | [timestamp_micros](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#timestamp) |
 /// | [`Timestamp`](self::types::Timestamp) | int96 | [none](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#timestamp) |
-/// | [`Decimal`](self::types::Decimal) | int32 | [decimal](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#decimal) |
-/// | [`Decimal`](self::types::Decimal) | int64 | [decimal](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#decimal) |
-/// | [`Decimal`](self::types::Decimal) | byte_array | [decimal](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#decimal) |
+/// | [`Decimal`](crate::data_type::Decimal) | int32 | [decimal](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#decimal) |
+/// | [`Decimal`](crate::data_type::Decimal) | int64 | [decimal](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#decimal) |
+/// | [`Decimal`](crate::data_type::Decimal) | byte_array | [decimal](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#decimal) |
 /// | `Vec<u8>` | byte_array | none |
 /// | `[u8; N]` | fixed_len_byte_array | none |
 /// | [`Bson`](self::types::Bson) | byte_array | [bson](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#bson) |
@@ -208,17 +207,18 @@ pub trait Schema: Debug {
 /// while taking into account the definition and repetition levels for optional and
 /// repeated values.
 pub trait Reader {
-    /// Type returned by the Reader
+    /// Type returned by the Reader.
     type Item;
 
-    /// Read a value
+    /// Read a value.
     fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item>;
-    /// Advance the columns; this is used for optional or repeated values
+    /// Advance the columns; this is used instead of `read` for optional values when
+    /// `current_def_level <= max_def_level`.
     fn advance_columns(&mut self) -> Result<()>;
-    /// Check if there's another value readable
+    /// Check if there's another value readable.
     fn has_next(&self) -> bool;
-    /// Get the current definition level
+    /// Get the current definition level.
     fn current_def_level(&self) -> i16;
-    /// Get the current repetition level
+    /// Get the current repetition level.
     fn current_rep_level(&self) -> i16;
 }

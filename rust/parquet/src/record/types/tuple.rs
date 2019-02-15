@@ -20,7 +20,6 @@
 use std::{
     collections::HashMap,
     fmt::{self, Debug},
-    intrinsics::unlikely,
 };
 
 use crate::{
@@ -49,7 +48,7 @@ macro_rules! impl_parquet_record_tuple {
                 $(
                     let $t = (self.0).$i.read(def_level, rep_level);
                 )*
-                if unsafe{unlikely($($t.is_err() ||)* false)} {
+                if $($t.is_err() ||)* false { // TODO: unlikely
                     $($t?;)*
                     unreachable!()
                 }

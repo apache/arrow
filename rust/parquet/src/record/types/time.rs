@@ -46,7 +46,7 @@ const MILLIS_PER_SECOND: i64 = 1_000;
 const MICROS_PER_MILLI: i64 = 1_000;
 const NANOS_PER_MICRO: i64 = 1_000;
 
-// [`Date`] corresponds to the [Date logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#date).
+/// Corresponds to the [Date logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#date).
 #[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Date(pub(super) i32);
 impl Date {
@@ -60,8 +60,8 @@ impl Date {
     }
 }
 impl Record for Date {
-    type Reader = impl Reader<Item = Self>;
     type Schema = DateSchema;
+    type Reader = impl Reader<Item = Self>;
 
     fn parse(
         schema: &Type,
@@ -115,7 +115,7 @@ impl Display for Date {
     }
 }
 
-// [`Time`] corresponds to the [Time logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#time).
+/// Corresponds to the [Time logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#time).
 #[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Time(pub(super) u64);
 impl Time {
@@ -145,8 +145,8 @@ impl Time {
     }
 }
 impl Record for Time {
-    type Reader = impl Reader<Item = Self>;
     type Schema = TimeSchema;
+    type Reader = impl Reader<Item = Self>;
 
     fn parse(
         schema: &Type,
@@ -230,7 +230,7 @@ impl Display for Time {
     }
 }
 
-// [`Timestamp`] corresponds to the [Timestamp logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#timestamp).
+/// Corresponds to the [Timestamp logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#timestamp).
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
 pub struct Timestamp(pub(super) Int96);
 impl Timestamp {
@@ -358,8 +358,8 @@ impl Timestamp {
     }
 }
 impl Record for Timestamp {
-    type Reader = impl Reader<Item = Self>;
     type Schema = TimestampSchema;
+    type Reader = impl Reader<Item = Self>;
 
     fn parse(
         schema: &Type,

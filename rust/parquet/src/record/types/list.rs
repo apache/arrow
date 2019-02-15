@@ -86,7 +86,7 @@ pub(super) fn parse_list<T: Record>(schema: &Type) -> Result<ListSchema<T::Schem
     )))
 }
 
-/// [`List<T>`](List) corresponds to the [List logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists).
+/// `List<T>` corresponds to the [List logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists).
 #[derive(Clone, Hash, Eq)]
 pub struct List<T>(pub(in super::super) Vec<T>);
 
@@ -94,8 +94,8 @@ impl<T> Record for List<T>
 where
     T: Record,
 {
-    type Reader = impl Reader<Item = Self>;
     type Schema = ListSchema<T::Schema>;
+    type Reader = impl Reader<Item = Self>;
 
     fn parse(
         schema: &Type,

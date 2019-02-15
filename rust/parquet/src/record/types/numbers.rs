@@ -44,8 +44,8 @@ use crate::{
 // See [Numeric logical types](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#numeric-types) for more details.
 
 impl Record for bool {
-    type Reader = BoolReader;
     type Schema = BoolSchema;
+    type Reader = BoolReader;
 
     fn parse(
         schema: &Type,
@@ -73,8 +73,8 @@ impl Record for bool {
 }
 
 impl Record for i8 {
-    type Reader = TryIntoReader<I32Reader, i8>;
     type Schema = I8Schema;
+    type Reader = TryIntoReader<I32Reader, i8>;
 
     fn parse(
         schema: &Type,
@@ -98,8 +98,8 @@ impl Record for i8 {
     }
 }
 impl Record for u8 {
-    type Reader = TryIntoReader<I32Reader, u8>;
     type Schema = U8Schema;
+    type Reader = TryIntoReader<I32Reader, u8>;
 
     fn parse(
         schema: &Type,
@@ -124,8 +124,8 @@ impl Record for u8 {
 }
 
 impl Record for i16 {
-    type Reader = TryIntoReader<I32Reader, i16>;
     type Schema = I16Schema;
+    type Reader = TryIntoReader<I32Reader, i16>;
 
     fn parse(
         schema: &Type,
@@ -149,8 +149,8 @@ impl Record for i16 {
     }
 }
 impl Record for u16 {
-    type Reader = TryIntoReader<I32Reader, u16>;
     type Schema = U16Schema;
+    type Reader = TryIntoReader<I32Reader, u16>;
 
     fn parse(
         schema: &Type,
@@ -175,8 +175,8 @@ impl Record for u16 {
 }
 
 impl Record for i32 {
-    type Reader = I32Reader;
     type Schema = I32Schema;
+    type Reader = I32Reader;
 
     fn parse(
         schema: &Type,
@@ -203,8 +203,8 @@ impl Record for i32 {
     }
 }
 impl Record for u32 {
-    type Reader = impl Reader<Item = Self>;
     type Schema = U32Schema;
+    type Reader = impl Reader<Item = Self>;
 
     fn parse(
         schema: &Type,
@@ -229,8 +229,8 @@ impl Record for u32 {
 }
 
 impl Record for i64 {
-    type Reader = I64Reader;
     type Schema = I64Schema;
+    type Reader = I64Reader;
 
     fn parse(
         schema: &Type,
@@ -257,8 +257,8 @@ impl Record for i64 {
     }
 }
 impl Record for u64 {
-    type Reader = impl Reader<Item = Self>;
     type Schema = U64Schema;
+    type Reader = impl Reader<Item = Self>;
 
     fn parse(
         schema: &Type,
@@ -283,8 +283,8 @@ impl Record for u64 {
 }
 
 impl Record for f32 {
-    type Reader = F32Reader;
     type Schema = F32Schema;
+    type Reader = F32Reader;
 
     fn parse(
         schema: &Type,
@@ -311,8 +311,8 @@ impl Record for f32 {
     }
 }
 impl Record for f64 {
-    type Reader = F64Reader;
     type Schema = F64Schema;
+    type Reader = F64Reader;
 
     fn parse(
         schema: &Type,

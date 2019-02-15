@@ -77,7 +77,7 @@ pub enum ValueRequired {
     List(List<Value>),
     /// Map of key-value pairs.
     Map(Map<Value, Value>),
-    /// Struct, child elements are tuples of field-value pairs.
+    /// Group of named fields.
     Group(Group),
 }
 

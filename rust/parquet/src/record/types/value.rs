@@ -98,7 +98,7 @@ pub enum Value {
     List(List<Value>),
     /// Map of key-value pairs.
     Map(Map<Value, Value>),
-    /// Struct, child elements are tuples of field-value pairs.
+    /// Group of named fields.
     Group(Group),
     /// Optional element.
     Option(Option<ValueRequired>),
@@ -1487,8 +1487,8 @@ where
 }
 
 impl Record for Value {
-    type Reader = ValueReader;
     type Schema = ValueSchema;
+    type Reader = ValueReader;
 
     /// This is reused by many of the other `Record` implementations. It is the canonical
     /// encoding of the mapping from [`Type`]s to Schemas.

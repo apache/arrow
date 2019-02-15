@@ -64,7 +64,7 @@ impl TripletIter {
     }
 
     /// Invokes underlying typed triplet iterator to buffer current value.
-    /// Should be called once - either before `is_null` or `current_value`.
+    /// Should be called instead of `read`, when `current_def_level <= max_def_level`.
     #[inline]
     pub fn advance_columns(&mut self) -> Result<()> {
         self.reader.advance_columns()

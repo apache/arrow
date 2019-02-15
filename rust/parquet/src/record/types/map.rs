@@ -81,7 +81,7 @@ pub(super) fn parse_map<K: Record, V: Record>(
     )))
 }
 
-/// [`Map<K, V>`](Map) corresponds to the [Map logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#maps).
+/// `Map<K, V>` corresponds to the [Map logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#maps).
 #[derive(Clone, Eq)]
 pub struct Map<K: Hash + Eq, V>(pub(in super::super) HashMap<K, V>);
 
@@ -90,8 +90,8 @@ where
     K: Record + Hash + Eq,
     V: Record,
 {
-    type Reader = impl Reader<Item = Self>;
     type Schema = MapSchema<K::Schema, V::Schema>;
+    type Reader = impl Reader<Item = Self>;
 
     fn parse(
         schema: &Type,

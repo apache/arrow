@@ -47,11 +47,11 @@ use crate::{
     schema::types::{ColumnPath, Type},
 };
 
-// `Vec<u8>` corresponds to the `binary`/`byte_array` and `fixed_len_byte_array` physical
-// types.
+/// `Vec<u8>` corresponds to the `binary`/`byte_array` and `fixed_len_byte_array` physical
+/// types.
 impl Record for Vec<u8> {
-    type Reader = ByteArrayReader;
     type Schema = ByteArraySchema;
+    type Reader = ByteArrayReader;
 
     fn parse(
         schema: &Type,
@@ -78,12 +78,12 @@ impl Record for Vec<u8> {
     }
 }
 
-/// A Rust type corresponding to the [Bson logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#bson).
+/// Corresponds to the [Bson logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#bson).
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Bson(Vec<u8>);
 impl Record for Bson {
-    type Reader = impl Reader<Item = Self>;
     type Schema = BsonSchema;
+    type Reader = impl Reader<Item = Self>;
 
     fn parse(
         schema: &Type,
@@ -117,10 +117,10 @@ impl From<Vec<u8>> for Bson {
     }
 }
 
-// `String` corresponds to the [UTF8/String logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#string)
+/// `String` corresponds to the [UTF8/String logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#string)
 impl Record for String {
-    type Reader = impl Reader<Item = Self>;
     type Schema = StringSchema;
+    type Reader = impl Reader<Item = Self>;
 
     fn parse(
         schema: &Type,
@@ -147,12 +147,12 @@ impl Record for String {
     }
 }
 
-/// A Rust type corresponding to the [Json logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#json).
+/// Corresponds to the [Json logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#json).
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Json(String);
 impl Record for Json {
-    type Reader = impl Reader<Item = Self>;
     type Schema = JsonSchema;
+    type Reader = impl Reader<Item = Self>;
 
     fn parse(
         schema: &Type,
@@ -191,12 +191,12 @@ impl From<String> for Json {
     }
 }
 
-/// A Rust type corresponding to the [Enum logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#enum).
+/// Corresponds to the [Enum logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#enum).
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Enum(String);
 impl Record for Enum {
-    type Reader = impl Reader<Item = Self>;
     type Schema = EnumSchema;
+    type Reader = impl Reader<Item = Self>;
 
     fn parse(
         schema: &Type,
@@ -238,8 +238,8 @@ impl From<String> for Enum {
 macro_rules! impl_parquet_record_array {
     ($i:tt) => {
         impl Record for [u8; $i] {
-            type Reader = FixedLenByteArrayReader<Self>;
             type Schema = FixedByteArraySchema<Self>;
+            type Reader = FixedLenByteArrayReader<Self>;
 
             fn parse(
                 schema: &Type,
@@ -284,8 +284,8 @@ macro_rules! impl_parquet_record_array {
         // Specialize the implementation to avoid passing a potentially large array around
         // on the stack.
         impl Record for Box<[u8; $i]> {
-            type Reader = BoxFixedLenByteArrayReader<[u8; $i]>;
             type Schema = FixedByteArraySchema<[u8; $i]>;
+            type Reader = BoxFixedLenByteArrayReader<[u8; $i]>;
 
             fn parse(
                 schema: &Type,

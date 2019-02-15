@@ -33,8 +33,8 @@ default impl<T: ?Sized> Record for Box<T>
 where
     T: Record,
 {
-    type Reader = BoxReader<T::Reader>;
     type Schema = BoxSchema<T::Schema>;
+    type Reader = BoxReader<T::Reader>;
 
     fn parse(
         schema: &Type,

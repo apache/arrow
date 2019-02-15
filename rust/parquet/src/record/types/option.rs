@@ -32,8 +32,8 @@ impl<T> Record for Option<T>
 where
     T: Record,
 {
-    type Reader = OptionReader<T::Reader>;
     type Schema = OptionSchema<T::Schema>;
+    type Reader = OptionReader<T::Reader>;
 
     fn parse(
         schema: &Type,

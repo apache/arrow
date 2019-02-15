@@ -22,8 +22,7 @@ use linked_hash_map::LinkedHashMap;
 use std::{
     collections::HashMap,
     fmt::{self, Debug},
-    ops::Index,
-    slice::SliceIndex,
+    ops::{Index, IndexMut},
     str,
     sync::Arc,
 };
@@ -41,7 +40,11 @@ use crate::{
     schema::types::{ColumnPath, Type},
 };
 
-/// A Rust type corresponding to Parquet groups of fields.
+/// Corresponds to Parquet groups of named fields.
+///
+/// Its fields can be accessed by name via
+/// [`get()`](Group::get)/[`get_mut()`](Self::get_mut) and via name or ordinal with
+/// [`group[index]`](#impl-Index<usize>).
 #[derive(Clone, PartialEq)]
 pub struct Group(
     pub(crate) Vec<Value>,
@@ -52,8 +55,8 @@ pub struct Group(
 pub type Row = Group;
 
 impl Record for Group {
-    type Reader = GroupReader;
     type Schema = GroupSchema;
+    type Reader = GroupReader;
 
     fn parse(
         schema: &Type,
@@ -128,6 +131,12 @@ impl Group {
     pub fn get(&self, k: &str) -> Option<&Value> {
         self.1.get(k).map(|&offset| &self.0[offset])
     }
+    /// Get a mutable reference to the value belonging to a particular field name. Returns
+    /// `None` if the field name doesn't exist.
+    pub fn get_mut(&mut self, k: &str) -> Option<&mut Value> {
+        let offset = self.1.get(k).map(|&offset| offset);
+        offset.map(move |offset| &mut self.0[offset])
+    }
     #[doc(hidden)]
     pub fn into_fields(self) -> Vec<Value> {
         self.0
@@ -137,14 +146,28 @@ impl Group {
         self.1.clone()
     }
 }
-impl<I> Index<I> for Group
-where
-    I: SliceIndex<[Value]>,
-{
-    type Output = <I as SliceIndex<[Value]>>::Output;
+impl Index<usize> for Group {
+    type Output = Value;
 
-    fn index(&self, index: I) -> &Self::Output {
+    fn index(&self, index: usize) -> &Self::Output {
         self.0.index(index)
+    }
+}
+impl IndexMut<usize> for Group {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.0.index_mut(index)
+    }
+}
+impl Index<&str> for Group {
+    type Output = Value;
+
+    fn index(&self, index: &str) -> &Self::Output {
+        self.get(index).unwrap()
+    }
+}
+impl IndexMut<&str> for Group {
+    fn index_mut(&mut self, index: &str) -> &mut Self::Output {
+        self.get_mut(index).unwrap()
     }
 }
 impl Debug for Group {

@@ -25,7 +25,6 @@ use crate::{
     data_type::{ByteArray, Decimal},
     errors::Result,
     record::{
-        reader::MapReader,
         schemas::{DecimalSchema, I32Schema, I64Schema},
         types::{downcast, Value},
         Reader, Record,
@@ -35,8 +34,8 @@ use crate::{
 
 // [`Decimal`] corresponds to the [Decimal logical type](https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#decimal).
 impl Record for Decimal {
-    type Reader = impl Reader<Item = Self>;
     type Schema = DecimalSchema;
+    type Reader = impl Reader<Item = Self>;
 
     fn parse(
         schema: &Type,
@@ -54,20 +53,26 @@ impl Record for Decimal {
         batch_size: usize,
     ) -> Self::Reader {
         match *schema {
-            DecimalSchema::Int32 { precision, scale } => sum::Sum3::A(MapReader(
-                i32::reader(&I32Schema, path, def_level, rep_level, paths, batch_size),
-                move |x| Ok(Decimal::from_i32(x, precision as i32, scale as i32)),
-            )),
-            DecimalSchema::Int64 { precision, scale } => sum::Sum3::B(MapReader(
-                i64::reader(&I64Schema, path, def_level, rep_level, paths, batch_size),
-                move |x| Ok(Decimal::from_i64(x, precision as i32, scale as i32)),
-            )),
+            DecimalSchema::Int32 { precision, scale } => DecimalReader::Int32 {
+                reader: i32::reader(
+                    &I32Schema, path, def_level, rep_level, paths, batch_size,
+                ),
+                precision,
+                scale,
+            },
+            DecimalSchema::Int64 { precision, scale } => DecimalReader::Int64 {
+                reader: i64::reader(
+                    &I64Schema, path, def_level, rep_level, paths, batch_size,
+                ),
+                precision,
+                scale,
+            },
             DecimalSchema::Array {
                 ref byte_array_schema,
                 precision,
                 scale,
-            } => sum::Sum3::C(MapReader(
-                <Vec<u8>>::reader(
+            } => DecimalReader::Array {
+                reader: <Vec<u8>>::reader(
                     byte_array_schema,
                     path,
                     def_level,
@@ -75,14 +80,98 @@ impl Record for Decimal {
                     paths,
                     batch_size,
                 ),
-                move |x| {
-                    Ok(Decimal::from_bytes(
-                        ByteArray::from(x),
-                        precision as i32,
-                        scale as i32,
-                    ))
-                },
-            )),
+                precision,
+                scale,
+            },
+        }
+    }
+}
+
+pub enum DecimalReader {
+    Int32 {
+        reader: <i32 as Record>::Reader,
+        precision: u8,
+        scale: u8,
+    },
+    Int64 {
+        reader: <i64 as Record>::Reader,
+        precision: u8,
+        scale: u8,
+    },
+    Array {
+        reader: <Vec<u8> as Record>::Reader,
+        precision: u32,
+        scale: u32,
+    },
+}
+
+impl Reader for DecimalReader {
+    type Item = Decimal;
+
+    #[inline]
+    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
+        match self {
+            DecimalReader::Int32 {
+                reader,
+                precision,
+                scale,
+            } => reader
+                .read(def_level, rep_level)
+                .map(|bytes| Decimal::from_i32(bytes, *precision as i32, *scale as i32)),
+            DecimalReader::Int64 {
+                reader,
+                precision,
+                scale,
+            } => reader
+                .read(def_level, rep_level)
+                .map(|bytes| Decimal::from_i64(bytes, *precision as i32, *scale as i32)),
+            DecimalReader::Array {
+                reader,
+                precision,
+                scale,
+            } => reader.read(def_level, rep_level).map(|bytes| {
+                Decimal::from_bytes(
+                    ByteArray::from(bytes),
+                    *precision as i32,
+                    *scale as i32,
+                )
+            }),
+        }
+    }
+
+    #[inline]
+    fn advance_columns(&mut self) -> Result<()> {
+        match self {
+            DecimalReader::Int32 { reader, .. } => reader.advance_columns(),
+            DecimalReader::Int64 { reader, .. } => reader.advance_columns(),
+            DecimalReader::Array { reader, .. } => reader.advance_columns(),
+        }
+    }
+
+    #[inline]
+    fn has_next(&self) -> bool {
+        match self {
+            DecimalReader::Int32 { reader, .. } => reader.has_next(),
+            DecimalReader::Int64 { reader, .. } => reader.has_next(),
+            DecimalReader::Array { reader, .. } => reader.has_next(),
+        }
+    }
+
+    #[inline]
+    fn current_def_level(&self) -> i16 {
+        match self {
+            DecimalReader::Int32 { reader, .. } => reader.current_def_level(),
+            DecimalReader::Int64 { reader, .. } => reader.current_def_level(),
+            DecimalReader::Array { reader, .. } => reader.current_def_level(),
+        }
+    }
+
+    #[inline]
+    fn current_rep_level(&self) -> i16 {
+        match self {
+            DecimalReader::Int32 { reader, .. } => reader.current_rep_level(),
+            DecimalReader::Int64 { reader, .. } => reader.current_rep_level(),
+            DecimalReader::Array { reader, .. } => reader.current_rep_level(),
         }
     }
 }
