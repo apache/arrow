@@ -91,6 +91,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
                 test-util.cc
                 DEPENDENCIES
                 ${GTEST_LIBRARY}
+                flight_grpc_gen
                 SHARED_LINK_LIBS
                 arrow_shared
                 arrow_flight_shared
