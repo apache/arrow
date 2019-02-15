@@ -730,6 +730,26 @@ TEST(BitUtil, RoundUp) {
   EXPECT_EQ(BitUtil::RoundUp(100000000000, 10000000000), 100000000000);
 }
 
+TEST(BitUtil, RoundDown) {
+  EXPECT_EQ(BitUtil::RoundDown(0, 1), 0);
+  EXPECT_EQ(BitUtil::RoundDown(1, 1), 1);
+  EXPECT_EQ(BitUtil::RoundDown(1, 2), 0);
+  EXPECT_EQ(BitUtil::RoundDown(6, 2), 6);
+  EXPECT_EQ(BitUtil::RoundDown(5, 7), 0);
+  EXPECT_EQ(BitUtil::RoundDown(10, 7), 7);
+  EXPECT_EQ(BitUtil::RoundDown(7, 3), 6);
+  EXPECT_EQ(BitUtil::RoundDown(9, 9), 9);
+  EXPECT_EQ(BitUtil::RoundDown(10000000001, 10), 10000000000);
+  EXPECT_EQ(BitUtil::RoundDown(10, 10000000000), 0);
+  EXPECT_EQ(BitUtil::RoundDown(100000000000, 10000000000), 100000000000);
+
+  for (int i = 0; i < 100; i++) {
+    for (int j = 1; j < 100; j++) {
+      EXPECT_EQ(BitUtil::RoundDown(i, j), i - (i % j));
+    }
+  }
+}
+
 TEST(BitUtil, TrailingBits) {
   EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 0), 0);
   EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 1), 1);
