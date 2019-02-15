@@ -119,8 +119,8 @@ class FlightInfo {
     std::string schema;
     FlightDescriptor descriptor;
     std::vector<FlightEndpoint> endpoints;
-    uint64_t total_records;
-    uint64_t total_bytes;
+    int64_t total_records;
+    int64_t total_bytes;
   };
 
   explicit FlightInfo(const Data& data) : data_(data), reconstructed_schema_(false) {}
@@ -141,10 +141,10 @@ class FlightInfo {
   const std::vector<FlightEndpoint>& endpoints() const { return data_.endpoints; }
 
   /// The total number of records (rows) in the dataset. If unknown, set to -1
-  uint64_t total_records() const { return data_.total_records; }
+  int64_t total_records() const { return data_.total_records; }
 
   /// The total number of bytes in the dataset. If unknown, set to -1
-  uint64_t total_bytes() const { return data_.total_bytes; }
+  int64_t total_bytes() const { return data_.total_bytes; }
 
  private:
   Data data_;
