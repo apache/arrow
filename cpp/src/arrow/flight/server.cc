@@ -108,6 +108,9 @@ class FlightServiceImpl : public FlightService::Service {
 
   template <typename UserType, typename Iterator, typename ProtoType>
   grpc::Status WriteStream(Iterator* iterator, ServerWriter<ProtoType>* writer) {
+    if (iterator == nullptr) {
+      return grpc::Status(grpc::StatusCode::INTERNAL, "No items to iterate");
+    }
     // Write flight info to stream until listing is exhausted
     ProtoType pb_value;
     std::unique_ptr<UserType> value;
@@ -153,6 +156,10 @@ class FlightServiceImpl : public FlightService::Service {
       GRPC_RETURN_NOT_OK(internal::FromProto(*request, &criteria));
     }
     GRPC_RETURN_NOT_OK(server_->ListFlights(&criteria, &listing));
+    if (listing == nullptr) {
+      // Treat null listing as no flights available
+      return grpc::Status::OK;
+    }
     return WriteStream<FlightInfo>(listing.get(), writer);
   }
 
