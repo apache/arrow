@@ -34,16 +34,16 @@ using gandiva::ConfigurationBuilder;
 JNIEXPORT jlong JNICALL
 Java_org_apache_arrow_gandiva_evaluator_ConfigurationBuilder_buildConfigInstance(
     JNIEnv* env, jobject configuration) {
-  jstring byte_code_file_path =
+  jstring precompiled_bitcode =
       (jstring)env->CallObjectMethod(configuration, byte_code_accessor_method_id_, 0);
   ConfigurationBuilder configuration_builder;
-  if (byte_code_file_path != nullptr) {
-    const char* byte_code_file_path_cpp = env->GetStringUTFChars(byte_code_file_path, 0);
-    configuration_builder.set_byte_code_file_path(byte_code_file_path_cpp);
-    env->ReleaseStringUTFChars(byte_code_file_path, byte_code_file_path_cpp);
+  if (precompiled_bitcode != nullptr) {
+    const char* precompiled_bitcode_cpp = env->GetStringUTFChars(precompiled_bitcode, 0);
+    configuration_builder.set_precompiled_bitcode(precompiled_bitcode_cpp);
+    env->ReleaseStringUTFChars(precompiled_bitcode, precompiled_bitcode_cpp);
   }
   std::shared_ptr<Configuration> config = configuration_builder.build();
-  env->DeleteLocalRef(byte_code_file_path);
+  env->DeleteLocalRef(precompiled_bitcode);
   return ConfigHolder::MapInsert(config);
 }
 
