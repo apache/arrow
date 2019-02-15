@@ -180,6 +180,10 @@ class FlightServiceImpl : public FlightService::Service {
     std::unique_ptr<FlightDataStream> data_stream;
     GRPC_RETURN_NOT_OK(server_->DoGet(ticket, &data_stream));
 
+    if (data_stream == nullptr) {
+      return grpc::Status(grpc::StatusCode::NOT_FOUND, "No data in this flight");
+    }
+
     // Write the schema as the first message in the stream
     FlightPayload schema_payload;
     MemoryPool* pool = default_memory_pool();
