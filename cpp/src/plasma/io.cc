@@ -195,6 +195,7 @@ int ConnectIpcSock(const std::string& pathname) {
   socket_address.sun_family = AF_UNIX;
   if (pathname.size() + 1 > sizeof(socket_address.sun_path)) {
     ARROW_LOG(ERROR) << "Socket pathname is too long.";
+    close(socket_fd);
     return -1;
   }
   strncpy(socket_address.sun_path, pathname.c_str(), pathname.size() + 1);
