@@ -23,9 +23,11 @@
 //! physical type to logical type. They're also responsible for correctly accessing fields
 //! that are optional or repeated.
 
+use fxhash::FxBuildHasher;
+use linked_hash_map::LinkedHashMap;
 use std::{
     collections::HashMap, convert::TryInto, error::Error, marker::PhantomData, mem,
-    rc::Rc,
+    rc::Rc, sync::Arc,
 };
 
 use super::{
@@ -622,7 +624,7 @@ impl<K: Reader, V: Reader> Reader for KeyValueReader<K, V> {
 /// A reader that can read any Parquet group field.
 pub struct GroupReader {
     pub(super) readers: Vec<ValueReader>,
-    pub(super) fields: Rc<HashMap<String, usize>>,
+    pub(super) fields: Arc<LinkedHashMap<String, usize, FxBuildHasher>>,
 }
 impl Reader for GroupReader {
     type Item = Group;
@@ -1279,7 +1281,8 @@ where
 mod tests {
     use super::*;
 
-    use std::{collections::HashMap, rc::Rc};
+    use linked_hash_map::LinkedHashMap;
+    use std::{collections::HashMap, sync::Arc};
 
     use crate::errors::Result;
     use crate::file::reader::{FileReader, SerializedFileReader};
@@ -1296,12 +1299,12 @@ mod tests {
                 #[allow(unused_mut)]
                 let mut result = Vec::new();
                 #[allow(unused_mut)]
-                let mut keys = HashMap::new();
+                let mut keys = LinkedHashMap::default();
                 $(
                     keys.insert($name, result.len());
                     result.push($e);
                 )*
-                Group(result, Rc::new(keys))
+                Group(result, Arc::new(keys))
             }
         }
     }

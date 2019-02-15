@@ -21,7 +21,6 @@ use std::{
     collections::HashMap,
     fmt::{self, Debug},
     intrinsics::unlikely,
-    vec,
 };
 
 use crate::{
@@ -117,7 +116,7 @@ macro_rules! impl_parquet_record_tuple {
             fn parse(schema: &Type, repetition: Option<Repetition>) -> Result<(String, Self::Schema)> {
                 if schema.is_group() && repetition == Some(Repetition::REQUIRED) {
                     let mut fields = schema.get_fields().iter();
-                    let schema_ = TupleSchema(($(fields.next().ok_or(ParquetError::General(String::from("Group missing field"))).and_then(|x|$t::parse(&**x, Some(x.get_basic_info().repetition())))?,)*));
+                    let schema_ = TupleSchema(($(fields.next().ok_or_else(|| ParquetError::General(String::from("Group missing field"))).and_then(|x|$t::parse(&**x, Some(x.get_basic_info().repetition())))?,)*));
                     if fields.next().is_none() {
                         return Ok((schema.name().to_owned(), schema_))
                     }
@@ -172,12 +171,8 @@ macro_rules! impl_parquet_record_tuple {
                 let group = self.into_group()?;
                 #[allow(unused_mut,unused_variables)]
                 let mut fields = group.0.into_iter();
-                let mut names = vec![None; group.1.len()];
-                for (name,&index) in group.1.iter() {
-                    names[index].replace(name.to_owned());
-                }
                 #[allow(unused_mut,unused_variables)]
-                let mut names = names.into_iter().map(Option::unwrap);
+                let mut names = group.1.into_iter().map(|(name,_index)|name);
                 Ok(TupleSchema(($({let _ = $i;(names.next().unwrap(),fields.next().unwrap().downcast()?)},)*)))
             }
         }

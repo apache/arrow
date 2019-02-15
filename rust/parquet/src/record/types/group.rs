@@ -17,13 +17,15 @@
 
 //! Implement [`Record`] for [`Group`] aka [`Row`].
 
+use fxhash::FxBuildHasher;
+use linked_hash_map::LinkedHashMap;
 use std::{
     collections::HashMap,
     fmt::{self, Debug},
     ops::Index,
-    rc::Rc,
     slice::SliceIndex,
-    str, vec,
+    str,
+    sync::Arc,
 };
 
 use crate::{
@@ -41,7 +43,10 @@ use crate::{
 
 /// A Rust type corresponding to Parquet groups of fields.
 #[derive(Clone, PartialEq)]
-pub struct Group(pub(crate) Vec<Value>, pub(crate) Rc<HashMap<String, usize>>);
+pub struct Group(
+    pub(crate) Vec<Value>,
+    pub(crate) Arc<LinkedHashMap<String, usize, FxBuildHasher>>,
+);
 /// [`Row`] is identical to [`Group`] in every way; this alias exists as arguably reading
 /// rows into a type called `Row` is more idiomatic than into a type called `Group`.
 pub type Row = Group;
@@ -55,7 +60,10 @@ impl Record for Group {
         repetition: Option<Repetition>,
     ) -> Result<(String, Self::Schema)> {
         if schema.is_group() && repetition == Some(Repetition::REQUIRED) {
-            let mut map = HashMap::with_capacity(schema.get_fields().len());
+            let mut map = LinkedHashMap::with_capacity_and_hasher(
+                schema.get_fields().len(),
+                Default::default(),
+            );
             let fields = schema
                 .get_fields()
                 .iter()
@@ -87,16 +95,13 @@ impl Record for Group {
         paths: &mut HashMap<ColumnPath, ColumnReader>,
         batch_size: usize,
     ) -> Self::Reader {
-        let mut names_ = vec![None; schema.0.len()];
-        for (name, &index) in schema.1.iter() {
-            names_[index].replace(name.to_owned());
-        }
         let readers = schema
-            .0
+            .1
             .iter()
-            .enumerate()
-            .map(|(i, field)| {
-                path.push(names_[i].take().unwrap());
+            .map(|(name, _index)| name)
+            .zip(schema.0.iter())
+            .map(|(name, field)| {
+                path.push(name.clone());
                 let ret =
                     Value::reader(field, path, def_level, rep_level, paths, batch_size);
                 path.pop().unwrap();
@@ -105,16 +110,31 @@ impl Record for Group {
             .collect();
         GroupReader {
             readers,
-            fields: Rc::new(schema.1.clone()),
+            fields: Arc::new(schema.1.clone()),
         }
     }
 }
 
 impl Group {
+    #[doc(hidden)]
+    pub fn new(
+        fields: Vec<Value>,
+        field_names: Arc<LinkedHashMap<String, usize, FxBuildHasher>>,
+    ) -> Self {
+        Group(fields, field_names)
+    }
     /// Get a reference to the value belonging to a particular field name. Returns `None`
     /// if the field name doesn't exist.
     pub fn get(&self, k: &str) -> Option<&Value> {
         self.1.get(k).map(|&offset| &self.0[offset])
+    }
+    #[doc(hidden)]
+    pub fn into_fields(self) -> Vec<Value> {
+        self.0
+    }
+    #[doc(hidden)]
+    pub fn field_names(&self) -> Arc<LinkedHashMap<String, usize, FxBuildHasher>> {
+        self.1.clone()
     }
 }
 impl<I> Index<I> for Group
@@ -130,21 +150,16 @@ where
 impl Debug for Group {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut printer = f.debug_struct("Group");
-        let fields = self.0.iter();
-        let mut names = vec![None; self.1.len()];
-        for (name, &index) in self.1.iter() {
-            names[index].replace(name);
-        }
-        let names = names.into_iter().map(Option::unwrap);
-        for (name, field) in names.zip(fields) {
+        for (name, field) in self.1.iter().map(|(name, _index)| name).zip(self.0.iter()) {
             printer.field(name, field);
         }
         printer.finish()
     }
 }
-impl From<HashMap<String, Value>> for Group {
-    fn from(hashmap: HashMap<String, Value>) -> Self {
-        let mut keys = HashMap::with_capacity(hashmap.len());
+impl From<LinkedHashMap<String, Value, FxBuildHasher>> for Group {
+    fn from(hashmap: LinkedHashMap<String, Value, FxBuildHasher>) -> Self {
+        let mut keys =
+            LinkedHashMap::with_capacity_and_hasher(hashmap.len(), Default::default());
         Group(
             hashmap
                 .into_iter()
@@ -153,18 +168,17 @@ impl From<HashMap<String, Value>> for Group {
                     value
                 })
                 .collect(),
-            Rc::new(keys),
+            Arc::new(keys),
         )
     }
 }
-impl Into<HashMap<String, Value>> for Group {
-    fn into(self) -> HashMap<String, Value> {
-        let fields = self.0.into_iter();
-        let mut names = vec![None; self.1.len()];
-        for (name, &index) in self.1.iter() {
-            names[index].replace(name.to_owned());
-        }
-        let names = names.into_iter().map(Option::unwrap);
-        names.zip(fields).collect()
+impl From<Group> for LinkedHashMap<String, Value, FxBuildHasher> {
+    fn from(group: Group) -> Self {
+        group
+            .1
+            .iter()
+            .map(|(name, _index)| name.clone())
+            .zip(group.0)
+            .collect()
     }
 }

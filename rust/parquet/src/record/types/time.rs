@@ -20,8 +20,9 @@
 use chrono::{Local, NaiveTime, TimeZone, Timelike, Utc};
 use std::{
     collections::HashMap,
-    convert::TryInto,
+    convert::{TryFrom, TryInto},
     fmt::{self, Display},
+    result,
 };
 
 use crate::{
@@ -233,6 +234,15 @@ impl Display for Time {
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
 pub struct Timestamp(pub(super) Int96);
 impl Timestamp {
+    /// Create a Timestamp from the number of days and nanoseconds since the Julian epoch
+    pub fn from_day_nanos(days: i64, nanos: i64) -> Self {
+        Timestamp(Int96::from(vec![
+            (nanos & 0xffffffff).try_into().unwrap(),
+            ((nanos as u64) >> 32).try_into().unwrap(),
+            days.try_into().unwrap(),
+        ]))
+    }
+
     /// Create a Timestamp from the number of milliseconds since the Unix epoch
     pub fn from_millis(millis: i64) -> Self {
         let day: i64 =
@@ -289,7 +299,7 @@ impl Timestamp {
         ]))
     }
 
-    /// Get the number of days and nanoseconds since the Unix epoch
+    /// Get the number of days and nanoseconds since the Julian epoch
     pub fn as_day_nanos(&self) -> (i64, i64) {
         let day = i64::from(self.0.data()[2]);
         let nanoseconds =
@@ -302,10 +312,15 @@ impl Timestamp {
         let day = i64::from(self.0.data()[2]);
         let nanoseconds =
             (i64::from(self.0.data()[1]) << 32) + i64::from(self.0.data()[0]);
-        let seconds = (day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY;
+        let seconds = day
+            .checked_sub(JULIAN_DAY_OF_EPOCH)?
+            .checked_mul(SECONDS_PER_DAY)?;
         Some(
-            seconds * MILLIS_PER_SECOND
-                + nanoseconds / NANOS_PER_MICRO / MICROS_PER_MILLI,
+            seconds.checked_mul(MILLIS_PER_SECOND)?.checked_add(
+                nanoseconds
+                    .checked_div(NANOS_PER_MICRO)?
+                    .checked_div(MICROS_PER_MILLI)?,
+            )?,
         )
     }
 
@@ -314,10 +329,14 @@ impl Timestamp {
         let day = i64::from(self.0.data()[2]);
         let nanoseconds =
             (i64::from(self.0.data()[1]) << 32) + i64::from(self.0.data()[0]);
-        let seconds = (day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY;
+        let seconds = day
+            .checked_sub(JULIAN_DAY_OF_EPOCH)?
+            .checked_mul(SECONDS_PER_DAY)?;
         Some(
-            seconds * MILLIS_PER_SECOND * MICROS_PER_MILLI
-                + nanoseconds / NANOS_PER_MICRO,
+            seconds
+                .checked_mul(MILLIS_PER_SECOND)?
+                .checked_mul(MICROS_PER_MILLI)?
+                .checked_add(nanoseconds.checked_div(NANOS_PER_MICRO)?)?,
         )
     }
 
@@ -326,10 +345,15 @@ impl Timestamp {
         let day = i64::from(self.0.data()[2]);
         let nanoseconds =
             (i64::from(self.0.data()[1]) << 32) + i64::from(self.0.data()[0]);
-        let seconds = (day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY;
+        let seconds = day
+            .checked_sub(JULIAN_DAY_OF_EPOCH)?
+            .checked_mul(SECONDS_PER_DAY)?;
         Some(
-            seconds * MILLIS_PER_SECOND * MICROS_PER_MILLI * NANOS_PER_MICRO
-                + nanoseconds,
+            seconds
+                .checked_mul(MILLIS_PER_SECOND)?
+                .checked_mul(MICROS_PER_MILLI)?
+                .checked_mul(NANOS_PER_MICRO)?
+                .checked_add(nanoseconds)?,
         )
     }
 }
@@ -381,14 +405,16 @@ impl From<chrono::DateTime<Utc>> for Timestamp {
         Timestamp::from_nanos(timestamp.timestamp_nanos())
     }
 }
-impl From<Timestamp> for chrono::DateTime<Utc> {
-    fn from(timestamp: Timestamp) -> Self {
-        Utc.timestamp(
+impl TryFrom<Timestamp> for chrono::DateTime<Utc> {
+    type Error = ();
+
+    fn try_from(timestamp: Timestamp) -> result::Result<Self, Self::Error> {
+        Ok(Utc.timestamp(
             timestamp.as_millis().unwrap() / MILLIS_PER_SECOND,
             (timestamp.as_day_nanos().1
                 % (MILLIS_PER_SECOND * MICROS_PER_MILLI * NANOS_PER_MICRO))
                 as u32,
-        )
+        ))
     }
 }
 impl Display for Timestamp {

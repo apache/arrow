@@ -43,6 +43,8 @@ chrono = "0.4"
 num-bigint = "0.2"
 sum = "0.1"
 arrow = { path = "../arrow", version = "0.15.0-SNAPSHOT" }
+linked-hash-map = "0.5"
+fxhash = "0.2"
 
 [dev-dependencies]
 lazy_static = "1"

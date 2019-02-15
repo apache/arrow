@@ -291,7 +291,7 @@ fn impl_struct(
                 if schema.is_group() && repetition == __::Some(__::Repetition::REQUIRED) {
                     let fields = schema.get_fields().iter().map(|field|(field.name(),field)).collect::<__::HashMap<_,_>>();
                     let schema_ = #schema_name{
-                        #(#field_names1: fields.get(#field_renames1).ok_or(__::ParquetError::General(format!("Struct \"{}\" has field \"{}\" not in the schema", stringify!(#name1), #field_renames2))).and_then(|x|<#field_types1 as __::Record>::parse(&**x, __::Some(x.get_basic_info().repetition())))?.1,)*
+                        #(#field_names1: fields.get(#field_renames1).ok_or_else(|| __::ParquetError::General(format!("Struct \"{}\" has field \"{}\" not in the schema", stringify!(#name1), #field_renames2))).and_then(|x|<#field_types1 as __::Record>::parse(&**x, __::Some(x.get_basic_info().repetition())))?.1,)*
                     };
                     return __::Ok((schema.name().to_owned(), schema_))
                 }

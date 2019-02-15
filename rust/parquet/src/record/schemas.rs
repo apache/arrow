@@ -46,8 +46,9 @@
 //! # }
 //! ```
 
+use fxhash::FxBuildHasher;
+use linked_hash_map::LinkedHashMap;
 use std::{
-    collections::HashMap,
     fmt::{self, Debug, Display},
     marker::PhantomData,
     mem,
@@ -776,7 +777,7 @@ pub struct GroupSchema(
     /// Vec of schemas for the fields in the group
     pub(super) Vec<ValueSchema>,
     /// Map of field names to index in the Vec
-    pub(super) HashMap<String, usize>,
+    pub(super) LinkedHashMap<String, usize, FxBuildHasher>,
 );
 impl Schema for GroupSchema {
     fn fmt(
@@ -787,13 +788,12 @@ impl Schema for GroupSchema {
     ) -> fmt::Result {
         let mut printer = DisplaySchemaGroup::new(r, name, None, f);
         if let Some(self_) = self_ {
-            let fields = self_.0.iter();
-            let mut names = vec![None; self_.1.len()];
-            for (name, &index) in self_.1.iter() {
-                names[index].replace(name);
-            }
-            let names = names.into_iter().map(Option::unwrap);
-            for (name, field) in names.zip(fields) {
+            for (name, field) in self_
+                .1
+                .iter()
+                .map(|(name, _index)| name)
+                .zip(self_.0.iter())
+            {
                 printer.field(Some(name), Some(field));
             }
         }

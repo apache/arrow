@@ -17,6 +17,7 @@
 
 //! Implement [`Record`] for [`Value`] – an enum representing any valid Parquet value.
 
+use linked_hash_map::LinkedHashMap;
 use std::{
     collections::HashMap,
     convert::TryInto,
@@ -1698,7 +1699,10 @@ impl Record for Value {
 
         // Try parsing as a group
         if repetition.is_some() && value.is_none() && schema.is_group() {
-            let mut lookup = HashMap::with_capacity(schema.get_fields().len());
+            let mut lookup = LinkedHashMap::with_capacity_and_hasher(
+                schema.get_fields().len(),
+                Default::default(),
+            );
             value = Some(ValueSchema::Group(GroupSchema(
                 schema
                     .get_fields()
