@@ -284,13 +284,10 @@ class TypedBufferBuilder<bool> {
   }
 
   void UnsafeAppend(bool value) {
-    auto trailing_bits = bit_length_ % 8;
-    auto current_byte = bit_length_ / 8;
-    mutable_data()[current_byte] = static_cast<uint8_t>(
-        mutable_data()[current_byte] & BitUtil::kPrecedingBitmask[trailing_bits]);
-    mutable_data()[current_byte] = static_cast<uint8_t>(
-        mutable_data()[current_byte] | BitUtil::kTrailingBitmask[trailing_bits] * value);
-    false_count_ += !value;
+    BitUtil::SetBitTo(mutable_data(), bit_length_, value);
+    if (!value) {
+      ++false_count_;
+    }
     ++bit_length_;
   }
 
