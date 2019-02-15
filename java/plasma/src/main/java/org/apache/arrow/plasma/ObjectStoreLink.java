@@ -29,7 +29,7 @@ public interface ObjectStoreLink {
 
   class ObjectStoreData {
 
-    ObjectStoreData(byte[] metadata, byte[] data) {
+    public ObjectStoreData(byte[] metadata, byte[] data) {
       this.data = data;
       this.metadata = metadata;
     }
