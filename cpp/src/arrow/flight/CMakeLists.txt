@@ -127,6 +127,9 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   if(ARROW_BUILD_TESTS)
     add_dependencies(arrow-flight-test flight-test-server)
   endif()
+
+  add_dependencies(arrow_flight flight-test-server flight-test-integration-client
+                   flight-test-integration-server)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
@@ -139,21 +142,23 @@ if(ARROW_BUILD_BENCHMARKS)
                              "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "perf.proto"
                      DEPENDS ${PROTO_DEPENDS})
 
-  add_executable(flight-perf-server perf-server.cc perf.pb.cc)
-  target_link_libraries(flight-perf-server
+  add_executable(arrow-flight-perf-server perf-server.cc perf.pb.cc)
+  target_link_libraries(arrow-flight-perf-server
                         arrow_flight_shared
                         arrow_flight_testing_shared
                         ${ARROW_FLIGHT_TEST_LINK_LIBS}
                         ${GFLAGS_LIBRARY}
                         ${GTEST_LIBRARY})
 
-  add_executable(flight-benchmark flight-benchmark.cc perf.pb.cc)
-  target_link_libraries(flight-benchmark
+  add_executable(arrow-flight-benchmark flight-benchmark.cc perf.pb.cc)
+  target_link_libraries(arrow-flight-benchmark
                         arrow_flight_static
                         arrow_testing_static
                         ${ARROW_FLIGHT_TEST_LINK_LIBS}
                         ${GFLAGS_LIBRARY}
                         ${GTEST_LIBRARY})
 
-  add_dependencies(flight-benchmark flight-perf-server)
+  add_dependencies(arrow-flight-benchmark arrow-flight-perf-server)
+
+  add_dependencies(arrow_flight arrow-flight-benchmark)
 endif(ARROW_BUILD_BENCHMARKS)

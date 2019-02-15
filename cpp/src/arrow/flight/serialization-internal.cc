@@ -17,6 +17,12 @@
 
 #include "arrow/flight/serialization-internal.h"
 
+#include <string>
+
+#include "arrow/buffer.h"
+#include "arrow/flight/server.h"
+#include "arrow/ipc/writer.h"
+
 namespace arrow {
 namespace flight {
 namespace internal {
@@ -105,17 +111,27 @@ using google::protobuf::io::ArrayOutputStream;
 using google::protobuf::io::CodedInputStream;
 using google::protobuf::io::CodedOutputStream;
 
-Status FlightDataSerialize(const IpcPayload& msg, ByteBuffer* out, bool* own_buffer) {
+Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out, bool* own_buffer) {
   size_t total_size = 0;
 
-  DCHECK_LT(msg.metadata->size(), kInt32Max);
-  const int32_t metadata_size = static_cast<int32_t>(msg.metadata->size());
+  // Write the descriptor if present
+  int32_t descriptor_size = 0;
+  if (msg.descriptor != nullptr) {
+    DCHECK_LT(msg.descriptor->size(), kInt32Max);
+    descriptor_size = static_cast<int32_t>(msg.descriptor->size());
+    total_size += 1 + WireFormatLite::LengthDelimitedSize(descriptor_size);
+  }
+
+  const arrow::ipc::internal::IpcPayload& ipc_msg = msg.ipc_message;
+
+  DCHECK_LT(ipc_msg.metadata->size(), kInt32Max);
+  const int32_t metadata_size = static_cast<int32_t>(ipc_msg.metadata->size());
 
   // 1 byte for metadata tag
   total_size += 1 + WireFormatLite::LengthDelimitedSize(metadata_size);
 
   int64_t body_size = 0;
-  for (const auto& buffer : msg.body_buffers) {
+  for (const auto& buffer : ipc_msg.body_buffers) {
     // Buffer may be null when the row length is zero, or when all
     // entries are invalid.
     if (!buffer) continue;
@@ -130,7 +146,7 @@ Status FlightDataSerialize(const IpcPayload& msg, ByteBuffer* out, bool* own_buf
 
   // 2 bytes for body tag
   // Only written when there are body buffers
-  if (msg.body_length > 0) {
+  if (ipc_msg.body_length > 0) {
     total_size += 2 + WireFormatLite::LengthDelimitedSize(static_cast<size_t>(body_size));
   }
 
@@ -150,15 +166,24 @@ Status FlightDataSerialize(const IpcPayload& msg, ByteBuffer* out, bool* own_buf
                            static_cast<int>(slice.size()));
   CodedOutputStream pb_stream(&writer);
 
+  // Write descriptor
+  if (msg.descriptor != nullptr) {
+    WireFormatLite::WriteTag(pb::FlightData::kFlightDescriptorFieldNumber,
+                             WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &pb_stream);
+    pb_stream.WriteVarint32(descriptor_size);
+    pb_stream.WriteRawMaybeAliased(msg.descriptor->data(),
+                                   static_cast<int>(msg.descriptor->size()));
+  }
+
   // Write header
   WireFormatLite::WriteTag(pb::FlightData::kDataHeaderFieldNumber,
                            WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &pb_stream);
   pb_stream.WriteVarint32(metadata_size);
-  pb_stream.WriteRawMaybeAliased(msg.metadata->data(),
-                                 static_cast<int>(msg.metadata->size()));
+  pb_stream.WriteRawMaybeAliased(ipc_msg.metadata->data(),
+                                 static_cast<int>(ipc_msg.metadata->size()));
 
   // Don't write tag if there are no body buffers
-  if (msg.body_length > 0) {
+  if (ipc_msg.body_length > 0) {
     // Write body
     WireFormatLite::WriteTag(pb::FlightData::kDataBodyFieldNumber,
                              WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &pb_stream);
@@ -166,7 +191,7 @@ Status FlightDataSerialize(const IpcPayload& msg, ByteBuffer* out, bool* own_buf
 
     constexpr uint8_t kPaddingBytes[8] = {0};
 
-    for (const auto& buffer : msg.body_buffers) {
+    for (const auto& buffer : ipc_msg.body_buffers) {
       // Buffer may be null when the row length is zero, or when all
       // entries are invalid.
       if (!buffer) continue;
@@ -213,9 +238,22 @@ Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
     switch (field_number) {
       case pb::FlightData::kFlightDescriptorFieldNumber: {
         pb::FlightDescriptor pb_descriptor;
-        if (!pb_descriptor.ParseFromCodedStream(&pb_stream)) {
+        uint32_t length;
+        if (!pb_stream.ReadVarint32(&length)) {
+          return Status(StatusCode::INTERNAL,
+                        "Unable to parse length of FlightDescriptor");
+        }
+        // Can't use ParseFromCodedStream as this reads the entire
+        // rest of the stream into the descriptor command field.
+        std::string buffer;
+        pb_stream.ReadString(&buffer, length);
+        if (!pb_descriptor.ParseFromString(buffer)) {
           return Status(StatusCode::INTERNAL, "Unable to parse FlightDescriptor");
         }
+        arrow::flight::FlightDescriptor descriptor;
+        GRPC_RETURN_NOT_OK(
+            arrow::flight::internal::FromProto(pb_descriptor, &descriptor));
+        out->descriptor.reset(new arrow::flight::FlightDescriptor(descriptor));
       } break;
       case pb::FlightData::kDataHeaderFieldNumber: {
         if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->metadata)) {

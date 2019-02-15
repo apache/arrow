@@ -183,7 +183,7 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   const int port = 31337;
-  arrow::flight::TestServer server("flight-perf-server", port);
+  arrow::flight::TestServer server("arrow-flight-perf-server", port);
   server.Start();
 
   arrow::Status s = arrow::flight::RunPerformanceTest(port);

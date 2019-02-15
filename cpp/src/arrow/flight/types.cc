@@ -18,8 +18,6 @@
 #include "arrow/flight/types.h"
 
 #include <memory>
-#include <sstream>
-#include <string>
 #include <utility>
 
 #include "arrow/io/memory.h"

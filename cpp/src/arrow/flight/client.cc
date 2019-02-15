@@ -16,14 +16,14 @@
 // under the License.
 
 #include "arrow/flight/client.h"
-#include "arrow/flight/protocol-internal.h"
+#include "arrow/flight/protocol-internal.h"  // IWYU pragma: keep
 
 #include <memory>
 #include <sstream>
 #include <string>
 #include <utility>
 
-#include "grpcpp/grpcpp.h"
+#include <grpcpp/grpcpp.h>
 
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/metadata-internal.h"
@@ -36,12 +36,14 @@
 
 #include "arrow/flight/internal.h"
 #include "arrow/flight/serialization-internal.h"
-
-using arrow::ipc::internal::IpcPayload;
+#include "arrow/flight/types.h"
 
 namespace pb = arrow::flight::protocol;
 
 namespace arrow {
+
+class MemoryPool;
+
 namespace flight {
 
 struct ClientRpc {
@@ -106,8 +108,6 @@ class FlightStreamReader : public RecordBatchReader {
   std::unique_ptr<grpc::ClientReader<pb::FlightData>> stream_;
 };
 
-class FlightClient;
-
 /// \brief A RecordBatchWriter implementation that writes to a Flight
 /// DoPut stream.
 class FlightPutWriter::FlightPutWriterImpl : public ipc::RecordBatchWriter {
@@ -119,8 +119,9 @@ class FlightPutWriter::FlightPutWriterImpl : public ipc::RecordBatchWriter {
       : rpc_(std::move(rpc)), descriptor_(descriptor), schema_(schema), pool_(pool) {}
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override {
-    IpcPayload payload;
-    RETURN_NOT_OK(ipc::internal::GetRecordBatchPayload(batch, pool_, &payload));
+    FlightPayload payload;
+    RETURN_NOT_OK(
+        ipc::internal::GetRecordBatchPayload(batch, pool_, &payload.ipc_message));
 
     if (!writer_->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
                         grpc::WriteOptions())) {
@@ -296,19 +297,18 @@ class FlightClient::FlightClientImpl {
         stub_->DoPut(&out->rpc_->context, &out->response));
 
     // First write the descriptor and schema to the stream.
-    pb::FlightData descriptor_message;
-    RETURN_NOT_OK(
-        internal::ToProto(descriptor, descriptor_message.mutable_flight_descriptor()));
-
-    std::shared_ptr<Buffer> header_buf;
-    RETURN_NOT_OK(Buffer::FromString("", &header_buf));
+    FlightPayload payload;
     ipc::DictionaryMemo dictionary_memo;
-    RETURN_NOT_OK(ipc::SerializeSchema(*schema, out->pool_, &header_buf));
-    RETURN_NOT_OK(
-        ipc::internal::WriteSchemaMessage(*schema, &dictionary_memo, &header_buf));
-    descriptor_message.set_data_header(header_buf->ToString());
+    RETURN_NOT_OK(ipc::internal::GetSchemaPayload(*schema, out->pool_, &dictionary_memo,
+                                                  &payload.ipc_message));
+    pb::FlightDescriptor pb_descr;
+    RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descr));
+    std::string str_descr;
+    pb_descr.SerializeToString(&str_descr);
+    RETURN_NOT_OK(Buffer::FromString(str_descr, &payload.descriptor));
 
-    if (!write_stream->Write(descriptor_message, grpc::WriteOptions())) {
+    if (!write_stream->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
+                             grpc::WriteOptions())) {
       std::stringstream ss;
       ss << "Could not write descriptor and schema to stream: "
          << rpc->context.debug_error_string();

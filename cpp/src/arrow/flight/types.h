@@ -19,12 +19,14 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "arrow/ipc/writer.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -109,6 +111,12 @@ struct FlightEndpoint {
   /// ticket can only be redeemed on the current service where the ticket was
   /// generated
   std::vector<Location> locations;
+};
+
+/// \brief Staging data structure for messages about to be put on the wire
+struct FlightPayload {
+  std::shared_ptr<Buffer> descriptor;
+  ipc::internal::IpcPayload ipc_message;
 };
 
 /// \brief The access coordinates for retireval of a dataset, returned by
