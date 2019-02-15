@@ -27,17 +27,14 @@ add_dependencies(gandiva-all gandiva gandiva-tests gandiva-benchmarks)
 
 find_package(LLVM)
 
-# Set the path where the byte-code files will be installed.
-set(GANDIVA_BC_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/gandiva)
-
-set(GANDIVA_BC_FILE_NAME irhelpers.bc)
-set(GANDIVA_BC_INSTALL_PATH "${GANDIVA_BC_INSTALL_DIR}/${GANDIVA_BC_FILE_NAME}")
-set(GANDIVA_BC_OUTPUT_PATH "${CMAKE_CURRENT_BINARY_DIR}/${GANDIVA_BC_FILE_NAME}")
-install(FILES ${GANDIVA_BC_OUTPUT_PATH} DESTINATION ${GANDIVA_BC_INSTALL_DIR})
-
-set(BC_FILE_PATH_CC "${CMAKE_CURRENT_BINARY_DIR}/bc_file_path.cc")
-configure_file(bc_file_path.cc.in ${BC_FILE_PATH_CC})
-add_definitions(-DGANDIVA_BYTE_COMPILE_FILE_PATH="${GANDIVA_BC_OUTPUT_PATH}")
+# Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
+set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")
+set(GANDIVA_PRECOMPILED_CC_PATH "${CMAKE_CURRENT_BINARY_DIR}/precompiled_bitcode.cc")
+set(GANDIVA_PRECOMPILED_CC_IN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/precompiled_bitcode.cc.in")
+# add_arrow_lib will look for this not yet existing file, so write it
+if(NOT EXISTS ${GANDIVA_PRECOMPILED_CC_PATH})
+  configure_file(${GANDIVA_PRECOMPILED_CC_IN_PATH} ${GANDIVA_PRECOMPILED_CC_PATH})
+endif()
 
 set(SRC_FILES
     annotator.cc
@@ -73,7 +70,8 @@ set(SRC_FILES
     selection_vector.cc
     tree_expr_builder.cc
     to_date_holder.cc
-    ${BC_FILE_PATH_CC})
+    ${GANDIVA_PRECOMPILED_CC_PATH}
+)
 
 set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE ${RE2_LIBRARY})
 

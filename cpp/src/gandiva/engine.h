@@ -79,8 +79,8 @@ class GANDIVA_EXPORT Engine {
 
   llvm::ExecutionEngine& execution_engine() { return *execution_engine_.get(); }
 
-  /// load pre-compiled IR modules and merge them into the main module.
-  Status LoadPreCompiledIRFiles(const std::string& byte_code_file_path);
+  /// load pre-compiled IR modules from string and merge them into the main module.
+  Status LoadPreCompiledIR(const std::string& precompiled_bitcode);
 
   // Create and add mappings for cpp functions that can be accessed from LLVM.
   void AddGlobalMappings();

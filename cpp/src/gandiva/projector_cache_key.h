@@ -41,7 +41,7 @@ class ProjectorCacheKey {
       boost::hash_combine(result, expr_as_string);
       UpdateUniqifier(expr_as_string);
     }
-    boost::hash_combine(result, configuration->Hash());
+    // boost::hash_combine(result, configuration->Hash());
     boost::hash_combine(result, schema_->ToString());
     boost::hash_combine(result, uniqifier_);
     hash_code_ = result;

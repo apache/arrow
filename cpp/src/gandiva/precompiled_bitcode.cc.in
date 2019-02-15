@@ -17,7 +17,8 @@
 
 namespace gandiva {
 
-// Path to the byte-code file.
-extern const char kByteCodeFilePath[] = "${GANDIVA_BC_INSTALL_PATH}";
+// Content of precompiled bitcode file.
+extern const char kPrecompiledBitcode[] = { ${GANDIVA_PRECOMPILED_BITCODE_CHARS} };
+extern const unsigned kPrecompiledBitcodeSize = sizeof(kPrecompiledBitcode);
 
 } // namespace gandiva

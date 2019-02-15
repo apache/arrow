@@ -114,7 +114,7 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
   // Add mappings for functions that can be accessed from LLVM/IR module.
   engine_obj->AddGlobalMappings();
 
-  auto status = engine_obj->LoadPreCompiledIRFiles(config->byte_code_file_path());
+  auto status = engine_obj->LoadPreCompiledIR(config->precompiled_bitcode());
   ARROW_RETURN_NOT_OK(status);
 
   // Add decimal functions
@@ -126,14 +126,13 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
 }
 
 // Handling for pre-compiled IR libraries.
-Status Engine::LoadPreCompiledIRFiles(const std::string& byte_code_file_path) {
+Status Engine::LoadPreCompiledIR(const std::string& precompiled_bitcode) {
   /// Read from file into memory buffer.
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> buffer_or_error =
-      llvm::MemoryBuffer::getFile(byte_code_file_path);
-  ARROW_RETURN_IF(
-      !buffer_or_error,
-      Status::CodeGenError("Could not load module from IR ", byte_code_file_path, ": ",
-                           buffer_or_error.getError().message()));
+      llvm::MemoryBuffer::getMemBuffer(precompiled_bitcode);
+  ARROW_RETURN_IF(!buffer_or_error,
+                  Status::CodeGenError("Could not load module from IR: ",
+                                       buffer_or_error.getError().message()));
 
   std::unique_ptr<llvm::MemoryBuffer> buffer = move(buffer_or_error.get());
 

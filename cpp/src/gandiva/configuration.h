@@ -27,7 +27,8 @@
 namespace gandiva {
 
 GANDIVA_EXPORT
-extern const char kByteCodeFilePath[];
+extern const char kPrecompiledBitcode[];
+extern const unsigned kPrecompiledBitcodeSize;
 
 class ConfigurationBuilder;
 /// \brief runtime config for gandiva
@@ -38,17 +39,17 @@ class GANDIVA_EXPORT Configuration {
  public:
   friend class ConfigurationBuilder;
 
-  const std::string& byte_code_file_path() const { return byte_code_file_path_; }
+  const std::string& precompiled_bitcode() const { return precompiled_bitcode_; }
 
-  std::size_t Hash() const;
+  // std::size_t Hash() const;
   bool operator==(const Configuration& other) const;
   bool operator!=(const Configuration& other) const;
 
  private:
-  explicit Configuration(const std::string& byte_code_file_path)
-      : byte_code_file_path_(byte_code_file_path) {}
+  explicit Configuration(const std::string& precompiled_bitcode)
+      : precompiled_bitcode_(precompiled_bitcode) {}
 
-  const std::string byte_code_file_path_;
+  const std::string precompiled_bitcode_;
 };
 
 /// \brief configuration builder for gandiva
@@ -57,15 +58,13 @@ class GANDIVA_EXPORT Configuration {
 /// to override specific values and build a custom instance
 class GANDIVA_EXPORT ConfigurationBuilder {
  public:
-  ConfigurationBuilder() : byte_code_file_path_(kByteCodeFilePath) {}
-
-  ConfigurationBuilder& set_byte_code_file_path(const std::string& byte_code_file_path) {
-    byte_code_file_path_ = byte_code_file_path;
+  ConfigurationBuilder& set_precompiled_bitcode(const std::string& precompiled_bitcode) {
+    precompiled_bitcode_ = precompiled_bitcode;
     return *this;
   }
 
   std::shared_ptr<Configuration> build() {
-    std::shared_ptr<Configuration> configuration(new Configuration(byte_code_file_path_));
+    std::shared_ptr<Configuration> configuration(new Configuration(precompiled_bitcode_));
     return configuration;
   }
 
@@ -74,10 +73,11 @@ class GANDIVA_EXPORT ConfigurationBuilder {
   }
 
  private:
-  std::string byte_code_file_path_;
+  std::string precompiled_bitcode_;
 
   static std::shared_ptr<Configuration> InitDefaultConfig() {
-    std::shared_ptr<Configuration> configuration(new Configuration(kByteCodeFilePath));
+    const std::string bitcode(kPrecompiledBitcode, kPrecompiledBitcodeSize);
+    std::shared_ptr<Configuration> configuration(new Configuration(bitcode));
     return configuration;
   }
 
