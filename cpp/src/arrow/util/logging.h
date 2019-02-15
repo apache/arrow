@@ -55,8 +55,8 @@ enum class ArrowLogLevel : int {
 };
 
 #define ARROW_LOG_INTERNAL(level) ::arrow::util::ArrowLog(__FILE__, __LINE__, level)
-#define ARROW_LOG(level)                                                                \
-  if (arrow::util::ArrowLog::IsLevelEnabled(arrow::util::ArrowLogLevel::ARROW_##level)) \
+#define ARROW_LOG(level) if (                                                       \
+  arrow::util::ArrowLog::IsLevelEnabled(arrow::util::ArrowLogLevel::ARROW_##level)) \
     ARROW_LOG_INTERNAL(arrow::util::ArrowLogLevel::ARROW_##level)
 
 #define ARROW_IGNORE_EXPR(expr) ((void)(expr))

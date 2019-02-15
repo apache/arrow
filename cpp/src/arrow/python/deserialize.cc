@@ -86,7 +86,7 @@ Status DeserializeDict(PyObject* context, const Array& array, int64_t start_idx,
     // go out of scope at the end.
     int ret = PyDict_SetItem(result.obj(), PyList_GET_ITEM(keys.obj(), i - start_idx),
                    PyList_GET_ITEM(vals.obj(), i - start_idx));
-    if (ret == 0) {
+    if (ret != 0) {
       return Status(StatusCode::PythonError, "PyDict_SetItem failed.");
     }
   }
