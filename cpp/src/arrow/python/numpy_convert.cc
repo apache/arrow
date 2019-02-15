@@ -46,6 +46,7 @@ bool is_contiguous(PyObject* array) {
 }
 
 NumPyBuffer::NumPyBuffer(PyObject* ao) : Buffer(nullptr, 0) {
+  PyAcquireGIL lock;
   arr_ = ao;
   Py_INCREF(ao);
 
@@ -187,8 +188,6 @@ Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out) {
 #undef TO_ARROW_TYPE_CASE
 
 Status NdarrayToTensor(MemoryPool* pool, PyObject* ao, std::shared_ptr<Tensor>* out) {
-  PyAcquireGIL lock;
-
   if (!PyArray_Check(ao)) {
     return Status::TypeError("Did not pass ndarray object");
   }
@@ -199,25 +198,29 @@ Status NdarrayToTensor(MemoryPool* pool, PyObject* ao, std::shared_ptr<Tensor>* 
 
   int ndim = PyArray_NDIM(ndarray);
 
+  // This is also holding the GIL, so don't already draw it.
   std::shared_ptr<Buffer> data = std::make_shared<NumPyBuffer>(ao);
   std::vector<int64_t> shape(ndim);
   std::vector<int64_t> strides(ndim);
 
-  npy_intp* array_strides = PyArray_STRIDES(ndarray);
-  npy_intp* array_shape = PyArray_SHAPE(ndarray);
-  for (int i = 0; i < ndim; ++i) {
-    if (array_strides[i] < 0) {
-      return Status::Invalid("Negative ndarray strides not supported");
+  {
+    PyAcquireGIL lock;
+    npy_intp* array_strides = PyArray_STRIDES(ndarray);
+    npy_intp* array_shape = PyArray_SHAPE(ndarray);
+    for (int i = 0; i < ndim; ++i) {
+      if (array_strides[i] < 0) {
+        return Status::Invalid("Negative ndarray strides not supported");
+      }
+      shape[i] = array_shape[i];
+      strides[i] = array_strides[i];
     }
-    shape[i] = array_shape[i];
-    strides[i] = array_strides[i];
-  }
 
-  std::shared_ptr<DataType> type;
-  RETURN_NOT_OK(
-      GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray)), &type));
-  *out = std::make_shared<Tensor>(type, data, shape, strides);
-  return Status::OK();
+    std::shared_ptr<DataType> type;
+    RETURN_NOT_OK(
+        GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray)), &type));
+    *out = std::make_shared<Tensor>(type, data, shape, strides);
+    return Status::OK();
+  }
 }
 
 Status TensorToNdarray(const std::shared_ptr<Tensor>& tensor, PyObject* base,
