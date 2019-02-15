@@ -433,6 +433,20 @@ cdef class RecordBatchStream(FlightDataStream):
             raise TypeError("Expected RecordBatchReader or Table, but got: {}".format(type(data_source)))
 
 
+cdef void _list_flights(void* self, const CCriteria* c_criteria,
+                        unique_ptr[CFlightListing]* listing):
+    """Callback for implementing ListFlights in Python."""
+    cdef:
+        vector[CFlightInfo] flights
+    result = (<object> self).list_flights(c_criteria.expression)
+    for info in result:
+        if not isinstance(info, FlightInfo):
+            raise TypeError("FlightServerBase.list_flights must return "
+                            "FlightInfo instances, but got {}".format(type(info)))
+        flights.push_back(CFlightInfo(deref((<FlightInfo> info).info.get())))
+    listing.reset(new CSimpleFlightListing(flights))
+
+
 cdef void _get_flight_info(void* self, CFlightDescriptor c_descriptor,
                            unique_ptr[CFlightInfo]* info):
     """Callback for implementing Flight servers in Python."""
@@ -480,12 +494,16 @@ cdef class FlightServerBase:
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             int c_port = port
+        vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info
         vtable.do_put = &_do_put
         vtable.do_get = &_do_get
         self.server.reset(new PyFlightServer(self, vtable))
         with nogil:
             self.server.get().Run(c_port)
+
+    def list_flights(self, criteria):
+        raise NotImplementedError
 
     def get_flight_info(self, descriptor):
         raise NotImplementedError

@@ -33,6 +33,20 @@ class FlightServer(pyarrow.flight.FlightServerBase):
         return (descriptor.descriptor_type.value, descriptor.command,
                 tuple(descriptor.path or tuple()))
 
+    def list_flights(self, criteria):
+        for key, table in self.flights.items():
+            if key[1] is not None:
+                descriptor = pyarrow.flight.FlightDescriptor.for_command(key[1])
+            else:
+                descriptor = pyarrow.flight.FlightDescriptor.for_path(*key[2])
+
+            endpoints = [
+                pyarrow.flight.FlightEndpoint(repr(key), [('localhost', 5005)]),
+            ]
+            yield pyarrow.flight.FlightInfo(table.schema,
+                                            descriptor, endpoints,
+                                            table.num_rows, 0)
+
     def get_flight_info(self, descriptor):
         key = FlightServer.descriptor_to_key(descriptor)
         if key in self.flights:
