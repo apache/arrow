@@ -424,6 +424,11 @@ Status CopyStridedArray(PyArrayObject* arr, const int64_t length, MemoryPool* po
 
 template <typename ArrowType>
 inline Status NumPyConverter::PrepareInputData(std::shared_ptr<Buffer>* data) {
+  if (PyArray_ISBYTESWAPPED(arr_)) {
+    // TODO
+    return Status::NotImplemented("Byte-swapped arrays not supported");
+  }
+
   if (is_strided()) {
     RETURN_NOT_OK(CopyStridedArray<ArrowType>(arr_, length_, pool_, data));
   } else if (dtype_->type_num == NPY_BOOL) {
