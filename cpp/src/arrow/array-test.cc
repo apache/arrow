@@ -478,7 +478,11 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
       ASSERT_EQ(draws_[i] != 0, actual) << i;
     }
   }
-  ASSERT_TRUE(result->Equals(*expected));
+  AssertArraysEqual(*result, *expected);
+
+  // buffers are correctly sized
+  ASSERT_EQ(result->data()->buffers[0]->size(), BitUtil::BytesForBits(size));
+  ASSERT_EQ(result->data()->buffers[1]->size(), BitUtil::BytesForBits(size));
 
   // Builder is now reset
   ASSERT_EQ(0, builder->length());

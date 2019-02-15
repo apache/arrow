@@ -347,6 +347,9 @@ class TypedBufferBuilder<bool> {
   }
 
   Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
+    // set bytes_builder_.size_ == byte size of data
+    bytes_builder_.UnsafeAdvance(BitUtil::BytesForBits(bit_length_) -
+                                 bytes_builder_.length());
     bit_length_ = false_count_ = 0;
     return bytes_builder_.Finish(out, shrink_to_fit);
   }

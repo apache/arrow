@@ -350,6 +350,8 @@ TEST(TestBufferBuilder, BasicBoolBufferBuilderUsage) {
   for (int i = 0; i != nvalues; ++i) {
     ASSERT_EQ(BitUtil::GetBit(built->data(), i + 1), static_cast<bool>(values[i]));
   }
+
+  ASSERT_EQ(built->size(), BitUtil::BytesForBits(nvalues + 1));
 }
 
 TEST(TestBufferBuilder, BoolBufferBuilderAppendCopies) {
@@ -367,6 +369,8 @@ TEST(TestBufferBuilder, BoolBufferBuilderAppendCopies) {
   for (int i = 0; i != 13 + 17; ++i) {
     EXPECT_EQ(BitUtil::GetBit(built->data(), i), i < 13) << "index = " << i;
   }
+
+  ASSERT_EQ(built->size(), BitUtil::BytesForBits(13 + 17));
 }
 
 template <typename T>
