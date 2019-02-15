@@ -15,10 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <string>
+
 namespace gandiva {
 
 // Content of precompiled bitcode file.
-extern const char kPrecompiledBitcode[] = { ${GANDIVA_PRECOMPILED_BITCODE_CHARS} };
-extern const unsigned kPrecompiledBitcodeSize = sizeof(kPrecompiledBitcode);
+// extern const char kPrecompiledBitcode[] = ;
+// extern const unsigned kPrecompiledBitcodeSize = sizeof(kPrecompiledBitcode);
+extern const std::string kPrecompiledBitcode({ ${GANDIVA_PRECOMPILED_BITCODE_CHARS} });
 
 } // namespace gandiva
