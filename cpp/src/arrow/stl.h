@@ -348,7 +348,7 @@ Status TupleRangeFromTable(const Table& table, const compute::CastOptions& cast_
   }
 
   // TODO: Use std::size with C++17
-  if (rows->size() != table.num_rows()) {
+  if (rows->size() != static_cast<size_t>(table.num_rows())) {
     std::stringstream ss;
     ss << "Number of rows in the table does not match the size of the target: ";
     ss << table.num_rows() << " != " << rows->size();
