@@ -233,8 +233,8 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
     pointer = AllocateMemory(total_size, &fd, &map_size, &offset);
     if (!pointer) {
       ARROW_LOG(ERROR) << "Not enough memory to creat the object " << object_id.hex()
-                       << ", data_size=" << data_size << ", metadata_size="
-                       << metadata_size
+                       << ", data_size=" << data_size
+                       << ", metadata_size=" << metadata_size
                        << ", will send a reply of PlasmaError::OutOfMemory";
       return PlasmaError::OutOfMemory;
     }

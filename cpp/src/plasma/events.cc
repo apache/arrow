@@ -87,9 +87,7 @@ void EventLoop::Shutdown() {
   }
 }
 
-EventLoop::~EventLoop() {
-  Shutdown();
-}
+EventLoop::~EventLoop() { Shutdown(); }
 
 int64_t EventLoop::AddTimer(int64_t timeout, const TimerCallback& callback) {
   auto data = std::unique_ptr<TimerCallback>(new TimerCallback(callback));
