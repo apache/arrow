@@ -62,5 +62,9 @@ Status AggregateUnaryKernel::Call(FunctionContext* ctx, const Datum& input, Datu
   return Status::OK();
 }
 
+std::shared_ptr<DataType> AggregateUnaryKernel::out_type() const {
+  return aggregate_function_->out_type();
+}
+
 }  // namespace compute
 }  // namespace arrow

@@ -197,9 +197,12 @@ struct ARROW_EXPORT ArrayData {
     return GetMutableValues<T>(i, offset);
   }
 
+  /// \brief Return null count, or compute and set it if it's not known
+  int64_t GetNullCount() const;
+
   std::shared_ptr<DataType> type;
   int64_t length;
-  int64_t null_count;
+  mutable int64_t null_count;
   // The logical start point into the physical buffers (in values, not bytes).
   // Note that, for child data, this must be *added* to the child data's own offset.
   int64_t offset;

@@ -86,6 +86,10 @@ class SumAggregateFunction final : public AggregateFunctionStaticState<StateType
     return Status::OK();
   }
 
+  std::shared_ptr<DataType> out_type() const override {
+    return TypeTraits<typename FindAccumulatorType<ArrowType>::Type>::type_singleton();
+  }
+
  private:
   StateType ConsumeDense(const ArrayType& array) const {
     StateType local;

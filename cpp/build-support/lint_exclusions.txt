@@ -1,3 +1,4 @@
+*codegen*
 *_generated*
 *windows_compatibility.h
 *pyarrow_api.h
