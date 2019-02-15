@@ -139,7 +139,7 @@ class NumericBuilder : public ArrayBuilder {
     return AppendValues(values.data(), static_cast<int64_t>(values.size()));
   }
 
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) {
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
     std::shared_ptr<Buffer> data, null_bitmap;
     ARROW_RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
     ARROW_RETURN_NOT_OK(data_builder_.Finish(&data));

@@ -57,7 +57,7 @@ class ARROW_EXPORT BufferBuilder {
     if (new_capacity == 0) {
       return Status::OK();
     }
-
+    int64_t old_capacity = capacity_;
     if (buffer_ == NULLPTR) {
       ARROW_RETURN_NOT_OK(AllocateResizableBuffer(pool_, new_capacity, &buffer_));
     } else {
@@ -65,6 +65,9 @@ class ARROW_EXPORT BufferBuilder {
     }
     capacity_ = buffer_->capacity();
     data_ = buffer_->mutable_data();
+    if (capacity_ > old_capacity) {
+      memset(data_ + old_capacity, 0, capacity_ - old_capacity);
+    }
     return Status::OK();
   }
 
@@ -222,7 +225,7 @@ class TypedBufferBuilder<T, typename std::enable_if<std::is_arithmetic<T>::value
 
   void UnsafeAppend(const int64_t num_copies, T value) {
     auto data = mutable_data() + length();
-    bytes_builder_.UnsafeAdvance(num_copies * sizeof(T));
+    bytes_builder_.UnsafeAppend(num_copies * sizeof(T), 0);
     for (const auto end = data + num_copies; data != end; ++data) {
       *data = value;
     }
@@ -326,8 +329,13 @@ class TypedBufferBuilder<bool> {
   }
 
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
+    const int64_t old_byte_capacity = bytes_builder_.capacity();
     const int64_t new_byte_capacity = BitUtil::BytesForBits(new_capacity);
     ARROW_RETURN_NOT_OK(bytes_builder_.Resize(new_byte_capacity, shrink_to_fit));
+    if (new_byte_capacity > old_byte_capacity) {
+      memset(mutable_data() + old_byte_capacity, 0,
+             static_cast<size_t>(new_byte_capacity - old_byte_capacity));
+    }
     return Status::OK();
   }
 
