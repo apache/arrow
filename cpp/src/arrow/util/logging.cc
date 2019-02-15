@@ -152,6 +152,10 @@ void ArrowLog::InstallFailureSignalHandler() {
 #endif
 }
 
+bool ArrowLog::IsLevelEnabled(ArrowLogLevel log_level) {
+  return log_level >= severity_threshold_;
+}
+
 ArrowLog::ArrowLog(const char* file_name, int line_number, ArrowLogLevel severity)
     // glog does not have DEBUG level, we can handle it using is_enabled_.
     : logging_provider_(nullptr), is_enabled_(severity >= severity_threshold_) {
