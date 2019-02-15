@@ -16,5 +16,7 @@
 # under the License.
 
 from pyarrow._flight import (FlightClient, Action, ActionType,  # noqa
-                             FlightDescriptor, FlightInfo, Ticket, Location,
-                             FlightServerBase, DescriptorType)
+                             FlightDescriptor, FlightEndpoint,
+                             FlightInfo, Ticket, Location,
+                             FlightServerBase, DescriptorType,
+                             RecordBatchStream)

@@ -17,6 +17,8 @@
 
 """An example Flight Python server."""
 
+import ast
+
 import pyarrow
 import pyarrow.flight
 
@@ -28,15 +30,18 @@ class FlightServer(pyarrow.flight.FlightServerBase):
 
     @classmethod
     def descriptor_to_key(self, descriptor):
-        return (descriptor.descriptor_type, descriptor.command,
+        return (descriptor.descriptor_type.value, descriptor.command,
                 tuple(descriptor.path or tuple()))
 
     def get_flight_info(self, descriptor):
         key = FlightServer.descriptor_to_key(descriptor)
         if key in self.flights:
             table = self.flights[key]
+            endpoints = [
+                pyarrow.flight.FlightEndpoint(repr(key), [('localhost', 5005)]),
+            ]
             return pyarrow.flight.FlightInfo(table.schema,
-                                             descriptor, [],
+                                             descriptor, endpoints,
                                              table.num_rows, 0)
         raise KeyError('Flight not found.')
 
@@ -45,6 +50,13 @@ class FlightServer(pyarrow.flight.FlightServerBase):
         print(key)
         self.flights[key] = reader.read_all()
         print(self.flights[key])
+
+    def do_get(self, ticket):
+        print(ticket.ticket)
+        key = ast.literal_eval(ticket.ticket.decode())
+        if key not in self.flights:
+            return None
+        return pyarrow.flight.RecordBatchStream(self.flights[key])
 
 
 def main():

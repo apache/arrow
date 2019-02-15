@@ -140,7 +140,7 @@ cdef class FlightDescriptor:
         return self.descriptor.path
 
     def __repr__(self):
-        return "<FlightDescriptor type: {!r}>".format(self.descriptor_type())
+        return "<FlightDescriptor type: {!r}>".format(self.descriptor_type)
 
 
 class Ticket:
@@ -175,9 +175,9 @@ cdef class FlightEndpoint:
             CLocation c_location = CLocation()
 
         if isinstance(ticket, Ticket):
-            self.endpoint.ticket.ticket = ticket.ticket
+            self.endpoint.ticket.ticket = tobytes(ticket.ticket)
         else:
-            self.endpoint.ticket.ticket = ticket
+            self.endpoint.ticket.ticket = tobytes(ticket)
 
         for location in locations:
             # Accepts Location namedtuple or tuple
@@ -270,7 +270,7 @@ cdef class FlightInfo:
 
         result = []
         for endpoint in endpoints:
-            py_endpoint = FlightEndpoint.__new__()
+            py_endpoint = FlightEndpoint.__new__(FlightEndpoint)
             py_endpoint.endpoint = endpoint
             result.append(py_endpoint)
         return result
@@ -413,15 +413,38 @@ cdef class FlightDataStream:
 
 
 cdef class RecordBatchStream(FlightDataStream):
-    def __init__(self, reader):
-        # TODO: we don't really expose the readers in Python.
-        pass
+    """A Flight data stream backed by RecordBatches."""
+    def __init__(self, data_source):
+        """Create a RecordBatchStream from a data source.
+
+        Parameters
+        ----------
+        data_source : RecordBatchReader or Table
+        """
+        cdef shared_ptr[CRecordBatchReader] reader
+        if isinstance(data_source, _CRecordBatchReader):
+            stream = new CRecordBatchStream((<_CRecordBatchReader> data_source).reader)
+            self.stream.reset(stream)
+        elif isinstance(data_source, lib.Table):
+            reader.reset(new TableBatchReader(deref((<Table> data_source).table)))
+            stream = new CRecordBatchStream(reader)
+            self.stream.reset(stream)
+        else:
+            raise TypeError("Expected RecordBatchReader or Table, but got: {}".format(type(data_source)))
 
 
 cdef void _get_flight_info(void* self, CFlightDescriptor c_descriptor,
                            unique_ptr[CFlightInfo]* info):
     """Callback for implementing Flight servers in Python."""
-    raise NotImplementedError("GetFlightInfo is not implemented")
+    cdef:
+        FlightDescriptor py_descriptor = \
+            FlightDescriptor.__new__(FlightDescriptor)
+    py_descriptor.descriptor = c_descriptor
+    result = (<object> self).get_flight_info(py_descriptor)
+    if not isinstance(result, FlightInfo):
+        raise TypeError("FlightServerBase.get_flight_info must return "
+                        "a FlightInfo instance")
+    info[0] = move((<FlightInfo> result).info)
 
 
 cdef void _do_put(void* self, unique_ptr[CFlightMessageReader] reader):
@@ -439,8 +462,7 @@ cdef void _do_put(void* self, unique_ptr[CFlightMessageReader] reader):
 cdef void _do_get(void* self, CTicket ticket,
                   unique_ptr[CFlightDataStream]* stream):
     """Callback for implementing Flight servers in Python."""
-    py_ticket = Ticket()
-    py_ticket.ticket = ticket.ticket
+    py_ticket = Ticket(ticket.ticket)
     result = (<object> self).do_get(py_ticket)
     if not isinstance(result, FlightDataStream):
         raise TypeError("FlightServerBase.do_get must return "
@@ -469,6 +491,9 @@ cdef class FlightServerBase:
         raise NotImplementedError
 
     def do_put(self, descriptor, reader):
+        raise NotImplementedError
+
+    def do_get(self, ticket):
         raise NotImplementedError
 
     def shutdown(self):

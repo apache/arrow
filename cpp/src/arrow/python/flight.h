@@ -35,14 +35,21 @@ namespace flight {
 /// Python.
 class ARROW_PYTHON_EXPORT PyFlightServerVtable {
  public:
+  std::function<void(PyObject*, const arrow::flight::Criteria*,
+                     std::unique_ptr<arrow::flight::FlightListing>*)>
+      list_flights;
   std::function<void(PyObject*, const arrow::flight::FlightDescriptor&,
                      std::unique_ptr<arrow::flight::FlightInfo>*)>
       get_flight_info;
-  std::function<void(PyObject*, std::unique_ptr<arrow::flight::FlightMessageReader>)>
-      do_put;
   std::function<void(PyObject*, const arrow::flight::Ticket&,
                      std::unique_ptr<arrow::flight::FlightDataStream>*)>
       do_get;
+  std::function<void(PyObject*, std::unique_ptr<arrow::flight::FlightMessageReader>)>
+      do_put;
+  std::function<void(PyObject*, const arrow::flight::Action&,
+                     std::unique_ptr<arrow::flight::ResultStream>*)>
+      do_action;
+  std::function<void(PyObject*, std::vector<arrow::flight::ActionType>*)> list_actions;
 };
 
 class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBase {

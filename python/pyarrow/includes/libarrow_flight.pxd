@@ -139,4 +139,7 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         unique_ptr[CFlightInfo]* out)
 
 cdef extern from "<utility>" namespace "std":
+    # Declare explicit overloads of std::move for use in server
+    # bindings
     unique_ptr[CFlightDataStream] move(unique_ptr[CFlightDataStream])
+    unique_ptr[CFlightInfo] move(unique_ptr[CFlightInfo])
