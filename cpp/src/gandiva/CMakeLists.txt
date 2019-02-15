@@ -30,7 +30,8 @@ find_package(LLVM)
 # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
 set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")
 set(GANDIVA_PRECOMPILED_CC_PATH "${CMAKE_CURRENT_BINARY_DIR}/precompiled_bitcode.cc")
-set(GANDIVA_PRECOMPILED_CC_IN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/precompiled_bitcode.cc.in")
+set(GANDIVA_PRECOMPILED_CC_IN_PATH
+    "${CMAKE_CURRENT_SOURCE_DIR}/precompiled_bitcode.cc.in")
 # add_arrow_lib will look for this not yet existing file, so write it
 if(NOT EXISTS ${GANDIVA_PRECOMPILED_CC_PATH})
   configure_file(${GANDIVA_PRECOMPILED_CC_IN_PATH} ${GANDIVA_PRECOMPILED_CC_PATH})
@@ -70,8 +71,7 @@ set(SRC_FILES
     selection_vector.cc
     tree_expr_builder.cc
     to_date_holder.cc
-    ${GANDIVA_PRECOMPILED_CC_PATH}
-)
+    ${GANDIVA_PRECOMPILED_CC_PATH})
 
 set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE ${RE2_LIBRARY})
 

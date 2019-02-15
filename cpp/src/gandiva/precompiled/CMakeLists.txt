@@ -68,12 +68,16 @@ endforeach()
 
 # link all of the bitcode files into a single bitcode file.
 add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_BC_PATH}
-                   COMMAND ${LLVM_LINK_EXECUTABLE} -o ${GANDIVA_PRECOMPILED_BC_PATH} ${BC_FILES}
+                   COMMAND ${LLVM_LINK_EXECUTABLE} -o ${GANDIVA_PRECOMPILED_BC_PATH}
+                           ${BC_FILES}
                    DEPENDS ${BC_FILES})
 
 # write a cmake script to replace precompiled bitcode file's content into a .cc file
 
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake" "\
+file(
+  WRITE
+    "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake"
+    "\
   file(READ \"${GANDIVA_PRECOMPILED_BC_PATH}\" HEXCONTENT HEX)
   string(REGEX REPLACE
          \"(..)(..)(..)(..)(..)\"
@@ -86,8 +90,10 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake" "\
 
 # add the previous command to the execution chain
 add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_CC_PATH}
-                   COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake"
-                   DEPENDS ${GANDIVA_PRECOMPILED_CC_IN_PATH} ${GANDIVA_PRECOMPILED_BC_PATH})
+                   COMMAND ${CMAKE_COMMAND} -P
+                           "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake"
+                   DEPENDS ${GANDIVA_PRECOMPILED_CC_IN_PATH}
+                           ${GANDIVA_PRECOMPILED_BC_PATH})
 
 add_custom_target(precompiled ALL DEPENDS ${GANDIVA_PRECOMPILED_CC_PATH})
 

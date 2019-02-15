@@ -23,6 +23,7 @@ set -ex
 pushd python/manylinux1
 docker run --shm-size=2g --rm \
   -e PYARROW_PARALLEL=3 \
+  -e PYTHON_VERSIONS=$PYTHON_VERSIONS \
   -v $PWD:/io \
   -v $PWD/../../:/arrow \
   quay.io/xhochy/arrow_manylinux1_x86_64_base:llvm-7-manylinux1 \
