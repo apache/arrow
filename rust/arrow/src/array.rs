@@ -56,6 +56,7 @@
 
 use std::any::Any;
 use std::convert::From;
+use std::fmt;
 use std::io::Write;
 use std::mem;
 use std::sync::Arc;
@@ -248,6 +249,25 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     }
 }
 
+impl<T: ArrowNumericType> fmt::Debug for PrimitiveArray<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "PrimitiveArray<{:?}> {{ len: {:?}, values: [",
+            T::get_data_type(),
+            self.len()
+        )
+        .unwrap();
+        for i in 0..self.len() {
+            write!(f, "{:?}", self.value(i)).unwrap();
+            if i != self.len() - 1 {
+                write!(f, ", ").unwrap();
+            }
+        }
+        write!(f, "] }}")
+    }
+}
+
 /// Specific implementation for Boolean arrays due to bit-packing
 impl PrimitiveArray<BooleanType> {
     pub fn new(length: usize, values: Buffer, null_count: usize, offset: usize) -> Self {
@@ -277,6 +297,25 @@ impl PrimitiveArray<BooleanType> {
     // Returns a new primitive array builder
     pub fn builder(capacity: usize) -> BooleanBuilder {
         BooleanBuilder::new(capacity)
+    }
+}
+
+impl fmt::Debug for PrimitiveArray<BooleanType> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "PrimitiveArray<{:?}> {{ len: {:?}, values: [",
+            BooleanType::get_data_type(),
+            self.len()
+        )
+        .unwrap();
+        for i in 0..self.len() {
+            write!(f, "{:?}", self.value(i)).unwrap();
+            if i != self.len() - 1 {
+                write!(f, ", ").unwrap();
+            }
+        }
+        write!(f, "] }}")
     }
 }
 
@@ -759,6 +798,26 @@ mod tests {
     fn test_value_slice_no_bounds_check() {
         let arr = Int32Array::from(vec![2, 3, 4]);
         let _slice = arr.value_slice(0, 4);
+    }
+
+    #[test]
+    fn test_int32_fmt_debug() {
+        let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
+        let arr = Int32Array::new(5, buf, 0, 0);
+        assert_eq!(
+            "PrimitiveArray<Int32> { len: 5, values: [0, 1, 2, 3, 4] }",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_boolean_fmt_debug() {
+        let buf = Buffer::from(&[true, false, false].to_byte_slice());
+        let arr = BooleanArray::new(3, buf, 0, 0);
+        assert_eq!(
+            "PrimitiveArray<Boolean> { len: 3, values: [true, false, false] }",
+            format!("{:?}", arr)
+        );
     }
 
     #[test]
