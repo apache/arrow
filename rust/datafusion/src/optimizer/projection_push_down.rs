@@ -53,16 +53,13 @@ impl ProjectionPushDown {
                 schema,
             } => {
                 // collect all columns referenced by projection expressions
-                expr.iter().for_each(|e| self.collect_expr(e, accum));
+                self.collect_exprs(&expr, accum);
 
                 // push projection down
                 let input = self.optimize_plan(&input, accum, mapping)?;
 
                 // rewrite projection expressions to use new column indexes
-                let new_expr = expr
-                    .iter()
-                    .map(|e| self.rewrite_expr(e, mapping))
-                    .collect::<Result<Vec<Expr>>>()?;
+                let new_expr = self.rewrite_exprs(expr, mapping)?;
 
                 Ok(Rc::new(LogicalPlan::Projection {
                     expr: new_expr,
@@ -92,26 +89,20 @@ impl ProjectionPushDown {
                 schema,
             } => {
                 // collect all columns referenced by grouping and aggregate expressions
-                group_expr.iter().for_each(|e| self.collect_expr(e, accum));
-                aggr_expr.iter().for_each(|e| self.collect_expr(e, accum));
+                self.collect_exprs(&group_expr, accum);
+                self.collect_exprs(&aggr_expr, accum);
 
                 // push projection down
                 let input = self.optimize_plan(&input, accum, mapping)?;
 
                 // rewrite expressions to use new column indexes
-                let new_group_expr: Result<Vec<Expr>> = group_expr
-                    .iter()
-                    .map(|e| self.rewrite_expr(e, mapping))
-                    .collect();
-                let new_aggr_expr: Result<Vec<Expr>> = aggr_expr
-                    .iter()
-                    .map(|e| self.rewrite_expr(e, mapping))
-                    .collect();
+                let new_group_expr = self.rewrite_exprs(group_expr, mapping)?;
+                let new_aggr_expr = self.rewrite_exprs(aggr_expr, mapping)?;
 
                 Ok(Rc::new(LogicalPlan::Aggregate {
                     input,
-                    group_expr: new_group_expr?,
-                    aggr_expr: new_aggr_expr?,
+                    group_expr: new_group_expr,
+                    aggr_expr: new_aggr_expr,
                     schema: schema.clone(),
                 }))
             }
@@ -121,16 +112,13 @@ impl ProjectionPushDown {
                 schema,
             } => {
                 // collect all columns referenced by sort expressions
-                expr.iter().for_each(|e| self.collect_expr(e, accum));
+                self.collect_exprs(&expr, accum);
 
                 // push projection down
                 let input = self.optimize_plan(&input, accum, mapping)?;
 
                 // rewrite sort expressions to use new column indexes
-                let new_expr = expr
-                    .iter()
-                    .map(|e| self.rewrite_expr(e, mapping))
-                    .collect::<Result<Vec<Expr>>>()?;
+                let new_expr = self.rewrite_exprs(expr, mapping)?;
 
                 Ok(Rc::new(LogicalPlan::Sort {
                     expr: new_expr,
@@ -182,6 +170,10 @@ impl ProjectionPushDown {
         }
     }
 
+    fn collect_exprs(&self, expr: &Vec<Expr>, accum: &mut HashSet<usize>) {
+        expr.iter().for_each(|e| self.collect_expr(e, accum));
+    }
+
     fn collect_expr(&self, expr: &Expr, accum: &mut HashSet<usize>) {
         match expr {
             Expr::Column(i) => {
@@ -203,6 +195,17 @@ impl ProjectionPushDown {
                 args.iter().for_each(|arg| self.collect_expr(arg, accum))
             }
         }
+    }
+
+    fn rewrite_exprs(
+        &self,
+        expr: &Vec<Expr>,
+        mapping: &HashMap<usize, usize>,
+    ) -> Result<Vec<Expr>> {
+        Ok(expr
+            .iter()
+            .map(|e| self.rewrite_expr(e, mapping))
+            .collect::<Result<Vec<Expr>>>()?)
     }
 
     fn rewrite_expr(&self, expr: &Expr, mapping: &HashMap<usize, usize>) -> Result<Expr> {
