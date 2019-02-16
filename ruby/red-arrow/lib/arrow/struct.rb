@@ -64,5 +64,16 @@ module Arrow
       end
       super
     end
+
+    def ==(other)
+      other.is_a?(self.class) and
+        @array == other.array and
+        @index == other.index
+    end
+
+    protected
+    def array
+      @array
+    end
   end
 end
