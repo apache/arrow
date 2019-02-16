@@ -171,14 +171,15 @@ impl SqlToRel {
                     let limit_plan = match limit {
                         &Some(ref limit_expr) => {
                             let input_schema = order_by_plan.schema();
-                            let limit_rex = self.sql_to_rex(&limit_expr, &input_schema.clone())?;
+                            let limit_rex =
+                                self.sql_to_rex(&limit_expr, &input_schema.clone())?;
 
                             LogicalPlan::Limit {
                                 expr: limit_rex,
                                 input: Rc::new(order_by_plan.clone()),
                                 schema: input_schema.clone(),
                             }
-                        },
+                        }
                         _ => order_by_plan,
                     };
 

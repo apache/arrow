@@ -26,26 +26,21 @@ use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
 use super::error::{ExecutionError, Result};
-use super::expression::RuntimeExpr;
 use super::relation::Relation;
 
 pub struct LimitRelation {
     input: Rc<RefCell<Relation>>,
-    expr: RuntimeExpr,
     schema: Arc<Schema>,
-    num_consumed_rows: i64,
+    limit: usize,
+    num_consumed_rows: usize,
 }
 
 impl LimitRelation {
-    pub fn new(
-        input: Rc<RefCell<Relation>>,
-        expr: RuntimeExpr,
-        schema: Arc<Schema>,
-    ) -> Self {
+    pub fn new(input: Rc<RefCell<Relation>>, limit: usize, schema: Arc<Schema>) -> Self {
         Self {
             input,
-            expr,
             schema,
+            limit,
             num_consumed_rows: 0,
         }
     }
@@ -55,46 +50,30 @@ impl Relation for LimitRelation {
     fn next(&mut self) -> Result<Option<RecordBatch>> {
         match self.input.borrow_mut().next()? {
             Some(batch) => {
-                match self.expr.get_func()(&batch)?
-                    .as_any()
-                    .downcast_ref::<Int64Array>() {
-                    Some(limits) => {
-                        if limits.len() == 0 {
-                            return Ok(None)
-                        }
-                        let limit_value: i64 = limits.value(0);
-                        let capacity = limit_value - self.num_consumed_rows;
+                let capacity = self.limit - self.num_consumed_rows;
 
-                        if capacity <= 0 {
-                            return Ok(None)
-                        }
+                if capacity <= 0 {
+                    return Ok(None);
+                }
 
-                        let num_batch_rows = batch.num_rows() as i64;
-                        if num_batch_rows >= capacity {
-                            let num_rows_to_read = limit_value - self.num_consumed_rows;
-                            let limited_columns: Result<Vec<ArrayRef>> = (0..batch
-                                .num_columns())
-                                .map(|i| filter(batch.column(i).as_ref(), num_rows_to_read))
-                                .collect();
+                let num_batch_rows = batch.num_rows();
+                if num_batch_rows >= capacity {
+                    let num_rows_to_read = self.limit - self.num_consumed_rows;
+                    let limited_columns: Result<Vec<ArrayRef>> = (0..batch.num_columns())
+                        .map(|i| limit(batch.column(i).as_ref(), num_rows_to_read))
+                        .collect();
 
-                            let filtered_batch: RecordBatch = RecordBatch::new(
-                                Arc::new(Schema::empty()),
-                                limited_columns?,
-                            );
-                            self.num_consumed_rows += capacity;
+                    let limited_batch: RecordBatch =
+                        RecordBatch::new(Arc::new(Schema::empty()), limited_columns?);
+                    self.num_consumed_rows += capacity;
 
-                            Ok(Some(filtered_batch))
-                        } else {
-                            self.num_consumed_rows += num_batch_rows;
-                            Ok(Some(batch))
-                        }
-                    }
-                    None => Err(ExecutionError::ExecutionError(
-                        "Limit expression could not be evaluated".to_string(),
-                    )),
+                    Ok(Some(limited_batch))
+                } else {
+                    self.num_consumed_rows += num_batch_rows;
+                    Ok(Some(batch))
                 }
             }
-            None => Ok(None)
+            None => Ok(None),
         }
     }
 
@@ -104,7 +83,7 @@ impl Relation for LimitRelation {
 }
 
 //TODO: move into Arrow array_ops
-fn filter(a: &Array, num_rows_to_read: i64) -> Result<ArrayRef> {
+fn limit(a: &Array, num_rows_to_read: usize) -> Result<ArrayRef> {
     //TODO use macros
     match a.data_type() {
         DataType::UInt8 => {
