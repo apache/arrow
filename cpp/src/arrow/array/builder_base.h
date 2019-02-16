@@ -162,6 +162,8 @@ class ARROW_EXPORT ArrayBuilder {
   // Set the next length bits to not null (i.e. valid).
   void UnsafeSetNotNull(int64_t length);
 
+  void UnsafeSetNull(int64_t length);
+
   static Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer);
 
   static Status CheckCapacity(int64_t new_capacity, int64_t old_capacity) {

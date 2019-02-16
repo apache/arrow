@@ -45,104 +45,8 @@ Status NullBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
-// ----------------------------------------------------------------------
-
-template <typename T>
-void PrimitiveBuilder<T>::Reset() {
-  data_.reset();
-  raw_data_ = nullptr;
-}
-
-template <typename T>
-Status PrimitiveBuilder<T>::Resize(int64_t capacity) {
-  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
-  capacity = std::max(capacity, kMinBuilderCapacity);
-
-  int64_t nbytes = TypeTraits<T>::bytes_required(capacity);
-  if (capacity_ == 0) {
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &data_));
-  } else {
-    RETURN_NOT_OK(data_->Resize(nbytes));
-  }
-
-  raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
-  return ArrayBuilder::Resize(capacity);
-}
-
-template <typename T>
-Status PrimitiveBuilder<T>::AppendValues(const value_type* values, int64_t length,
-                                         const uint8_t* valid_bytes) {
-  RETURN_NOT_OK(Reserve(length));
-
-  if (length > 0) {
-    std::memcpy(raw_data_ + length_, values,
-                static_cast<std::size_t>(TypeTraits<T>::bytes_required(length)));
-  }
-
-  // length_ is update by these
-  ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
-  return Status::OK();
-}
-
-template <typename T>
-Status PrimitiveBuilder<T>::AppendValues(const value_type* values, int64_t length,
-                                         const std::vector<bool>& is_valid) {
-  RETURN_NOT_OK(Reserve(length));
-  DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
-
-  if (length > 0) {
-    std::memcpy(raw_data_ + length_, values,
-                static_cast<std::size_t>(TypeTraits<T>::bytes_required(length)));
-  }
-
-  // length_ is update by these
-  ArrayBuilder::UnsafeAppendToBitmap(is_valid);
-  return Status::OK();
-}
-
-template <typename T>
-Status PrimitiveBuilder<T>::AppendValues(const std::vector<value_type>& values,
-                                         const std::vector<bool>& is_valid) {
-  return AppendValues(values.data(), static_cast<int64_t>(values.size()), is_valid);
-}
-
-template <typename T>
-Status PrimitiveBuilder<T>::AppendValues(const std::vector<value_type>& values) {
-  return AppendValues(values.data(), static_cast<int64_t>(values.size()));
-}
-
-template <typename T>
-Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  RETURN_NOT_OK(TrimBuffer(TypeTraits<T>::bytes_required(length_), data_.get()));
-  std::shared_ptr<Buffer> null_bitmap;
-  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
-  *out = ArrayData::Make(type_, length_, {null_bitmap, data_}, null_count_);
-
-  data_ = nullptr;
-  capacity_ = length_ = null_count_ = 0;
-
-  return Status::OK();
-}
-
-template class PrimitiveBuilder<UInt8Type>;
-template class PrimitiveBuilder<UInt16Type>;
-template class PrimitiveBuilder<UInt32Type>;
-template class PrimitiveBuilder<UInt64Type>;
-template class PrimitiveBuilder<Int8Type>;
-template class PrimitiveBuilder<Int16Type>;
-template class PrimitiveBuilder<Int32Type>;
-template class PrimitiveBuilder<Int64Type>;
-template class PrimitiveBuilder<Date32Type>;
-template class PrimitiveBuilder<Date64Type>;
-template class PrimitiveBuilder<Time32Type>;
-template class PrimitiveBuilder<Time64Type>;
-template class PrimitiveBuilder<TimestampType>;
-template class PrimitiveBuilder<HalfFloatType>;
-template class PrimitiveBuilder<FloatType>;
-template class PrimitiveBuilder<DoubleType>;
-
 BooleanBuilder::BooleanBuilder(MemoryPool* pool)
-    : ArrayBuilder(boolean(), pool), data_(nullptr), raw_data_(nullptr) {}
+    : ArrayBuilder(boolean(), pool), data_builder_(pool) {}
 
 BooleanBuilder::BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
     : BooleanBuilder(pool) {
@@ -151,57 +55,23 @@ BooleanBuilder::BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool
 
 void BooleanBuilder::Reset() {
   ArrayBuilder::Reset();
-  data_.reset();
-  raw_data_ = nullptr;
+  data_builder_.Reset();
 }
 
 Status BooleanBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
   capacity = std::max(capacity, kMinBuilderCapacity);
-
-  const int64_t new_bitmap_size = BitUtil::BytesForBits(capacity);
-  if (capacity_ == 0) {
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, new_bitmap_size, &data_));
-    raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
-
-    // We zero the memory for booleans to keep things simple; for some reason if
-    // we do not, even though we may write every bit (through in-place | or &),
-    // valgrind will still show a warning. If we do not zero the bytes here, we
-    // will have to be careful to zero them in AppendNull and AppendNulls. Also,
-    // zeroing the bits results in deterministic bits when each byte may have a
-    // mix of nulls and not nulls.
-    //
-    // We only zero up to new_bitmap_size because the padding was zeroed by
-    // AllocateResizableBuffer
-    memset(raw_data_, 0, static_cast<size_t>(new_bitmap_size));
-  } else {
-    const int64_t old_bitmap_capacity = data_->capacity();
-    RETURN_NOT_OK(data_->Resize(new_bitmap_size));
-    const int64_t new_bitmap_capacity = data_->capacity();
-    raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
-
-    // See comment above about why we zero memory for booleans
-    memset(raw_data_ + old_bitmap_capacity, 0,
-           static_cast<size_t>(new_bitmap_capacity - old_bitmap_capacity));
-  }
-
+  RETURN_NOT_OK(data_builder_.Resize(capacity));
   return ArrayBuilder::Resize(capacity);
 }
 
 Status BooleanBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  int64_t bit_offset = length_ % 8;
-  if (bit_offset > 0) {
-    // Adjust last byte
-    data_->mutable_data()[length_ / 8] &= BitUtil::kPrecedingBitmask[bit_offset];
-  }
-
-  std::shared_ptr<Buffer> null_bitmap;
+  std::shared_ptr<Buffer> data, null_bitmap;
+  RETURN_NOT_OK(data_builder_.Finish(&data));
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
-  RETURN_NOT_OK(TrimBuffer(BitUtil::BytesForBits(length_), data_.get()));
 
-  *out = ArrayData::Make(boolean(), length_, {null_bitmap, data_}, null_count_);
+  *out = ArrayData::Make(boolean(), length_, {null_bitmap, data}, null_count_);
 
-  data_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
   return Status::OK();
 }
@@ -211,10 +81,8 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
   RETURN_NOT_OK(Reserve(length));
 
   int64_t i = 0;
-  internal::GenerateBitsUnrolled(raw_data_, length_, length,
-                                 [values, &i]() -> bool { return values[i++] != 0; });
-
-  // this updates length_
+  data_builder_.UnsafeAppend<false>(length,
+                                    [values, &i]() -> bool { return values[i++] != 0; });
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
   return Status::OK();
 }
@@ -223,12 +91,9 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
                                     const std::vector<bool>& is_valid) {
   RETURN_NOT_OK(Reserve(length));
   DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
-
   int64_t i = 0;
-  internal::GenerateBitsUnrolled(raw_data_, length_, length,
-                                 [values, &i]() -> bool { return values[i++]; });
-
-  // this updates length_
+  data_builder_.UnsafeAppend<false>(length,
+                                    [values, &i]() -> bool { return values[i++]; });
   ArrayBuilder::UnsafeAppendToBitmap(is_valid);
   return Status::OK();
 }
@@ -247,12 +112,9 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values,
   const int64_t length = static_cast<int64_t>(values.size());
   RETURN_NOT_OK(Reserve(length));
   DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
-
   int64_t i = 0;
-  internal::GenerateBitsUnrolled(raw_data_, length_, length,
-                                 [&values, &i]() -> bool { return values[i++]; });
-
-  // this updates length_
+  data_builder_.UnsafeAppend<false>(length,
+                                    [&values, &i]() -> bool { return values[i++]; });
   ArrayBuilder::UnsafeAppendToBitmap(is_valid);
   return Status::OK();
 }
@@ -260,12 +122,9 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values,
 Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
   const int64_t length = static_cast<int64_t>(values.size());
   RETURN_NOT_OK(Reserve(length));
-
   int64_t i = 0;
-  internal::GenerateBitsUnrolled(raw_data_, length_, length,
-                                 [&values, &i]() -> bool { return values[i++]; });
-
-  // this updates length_
+  data_builder_.UnsafeAppend<false>(length,
+                                    [&values, &i]() -> bool { return values[i++]; });
   ArrayBuilder::UnsafeSetNotNull(length);
   return Status::OK();
 }
