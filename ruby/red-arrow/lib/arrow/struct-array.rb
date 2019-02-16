@@ -19,17 +19,25 @@ require "arrow/struct"
 
 module Arrow
   class StructArray
-    def [](i)
-      warn("Use #{self.class}\#find_field instead. " +
-           "This will returns Arrow::Struct instead of Arrow::Array " +
-           "since 0.13.0.")
-      get_field(i)
-    end
-
+    # @param i [Integer]
+    #   The index of the value to be gotten. You must specify the value index.
+    #
+    #   You can use {Arrow::Array#[]} for convenient value access.
+    #
+    # @return [Arrow::Struct] The `i`-th value.
     def get_value(i)
       Struct.new(self, i)
     end
 
+    # @overload find_field(index)
+    #   @param index [Integer] The index of the field to be found.
+    #   @return [Arrow::Array, nil]
+    #      The `index`-th field or `nil` for out of range.
+    #
+    # @overload find_field(name)
+    #   @param index [String, Symbol] The name of the field to be found.
+    #   @return [Arrow::Array, nil]
+    #      The field that has `name` or `nil` for nonexistent name.
     def find_field(index_or_name)
       case index_or_name
       when String, Symbol
