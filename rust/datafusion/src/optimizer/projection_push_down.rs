@@ -188,12 +188,8 @@ impl ProjectionPushDown {
             }
             Expr::Cast { expr, .. } => self.collect_expr(expr, accum),
             Expr::Sort { expr, .. } => self.collect_expr(expr, accum),
-            Expr::AggregateFunction { args, .. } => {
-                args.iter().for_each(|arg| self.collect_expr(arg, accum))
-            }
-            Expr::ScalarFunction { args, .. } => {
-                args.iter().for_each(|arg| self.collect_expr(arg, accum))
-            }
+            Expr::AggregateFunction { args, .. } => self.collect_exprs(args, accum),
+            Expr::ScalarFunction { args, .. } => self.collect_exprs(args, accum),
         }
     }
 
@@ -235,10 +231,7 @@ impl ProjectionPushDown {
                 return_type,
             } => Ok(Expr::AggregateFunction {
                 name: name.to_string(),
-                args: args
-                    .iter()
-                    .map(|arg| self.rewrite_expr(arg, mapping))
-                    .collect::<Result<Vec<Expr>>>()?,
+                args: self.rewrite_exprs(args, mapping)?,
                 return_type: return_type.clone(),
             }),
             Expr::ScalarFunction {
@@ -247,10 +240,7 @@ impl ProjectionPushDown {
                 return_type,
             } => Ok(Expr::ScalarFunction {
                 name: name.to_string(),
-                args: args
-                    .iter()
-                    .map(|arg| self.rewrite_expr(arg, mapping))
-                    .collect::<Result<Vec<Expr>>>()?,
+                args: self.rewrite_exprs(args, mapping)?,
                 return_type: return_type.clone(),
             }),
         }
