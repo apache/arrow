@@ -18,9 +18,10 @@
 //! Query optimizer traits
 
 use crate::logicalplan::LogicalPlan;
+use arrow::error::Result;
 use std::rc::Rc;
 
 /// An optimizer rules performs a transformation on a logical plan to produce an optimized logical plan.
 pub trait OptimizerRule {
-    fn optimize(&mut self, plan: &LogicalPlan) -> Rc<LogicalPlan>;
+    fn optimize(&mut self, plan: &LogicalPlan) -> Result<Rc<LogicalPlan>>;
 }

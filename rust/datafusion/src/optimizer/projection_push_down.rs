@@ -20,16 +20,18 @@
 use crate::logicalplan::Expr;
 use crate::logicalplan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
-use std::collections::HashSet;
+use arrow::error::{ArrowError, Result};
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 /// Projection Push Down optimizer rule ensures that only referenced columns are loaded into memory
 pub struct ProjectionPushDown {}
 
 impl OptimizerRule for ProjectionPushDown {
-    fn optimize(&mut self, plan: &LogicalPlan) -> Rc<LogicalPlan> {
+    fn optimize(&mut self, plan: &LogicalPlan) -> Result<Rc<LogicalPlan>> {
         let mut accum = HashSet::new();
-        self.optimize_plan(plan, &mut accum)
+        let mut mapping: HashMap<usize, usize> = HashMap::new();
+        self.optimize_plan(plan, &mut accum, &mut mapping)
     }
 }
 
@@ -42,7 +44,8 @@ impl ProjectionPushDown {
         &self,
         plan: &LogicalPlan,
         accum: &mut HashSet<usize>,
-    ) -> Rc<LogicalPlan> {
+        mapping: &mut HashMap<usize, usize>,
+    ) -> Result<Rc<LogicalPlan>> {
         match plan {
             LogicalPlan::Aggregate {
                 input,
@@ -54,12 +57,25 @@ impl ProjectionPushDown {
                 group_expr.iter().for_each(|e| self.collect_expr(e, accum));
                 aggr_expr.iter().for_each(|e| self.collect_expr(e, accum));
 
-                Rc::new(LogicalPlan::Aggregate {
-                    input: self.optimize_plan(&input, accum),
-                    group_expr: group_expr.clone(),
-                    aggr_expr: aggr_expr.clone(),
+                // push projection down
+                let input = self.optimize_plan(&input, accum, mapping)?;
+
+                // rewrite expressions to use new column indexes
+                let new_group_expr: Vec<Expr> = group_expr
+                    .iter()
+                    .map(|e| self.rewrite_expr(e, mapping))
+                    .collect();
+                let new_aggr_expr: Vec<Expr> = aggr_expr
+                    .iter()
+                    .map(|e| self.rewrite_expr(e, mapping))
+                    .collect();
+
+                Ok(Rc::new(LogicalPlan::Aggregate {
+                    input,
+                    group_expr: new_group_expr,
+                    aggr_expr: new_aggr_expr,
                     schema: schema.clone(),
-                })
+                }))
             }
             LogicalPlan::TableScan {
                 schema_name,
@@ -71,15 +87,31 @@ impl ProjectionPushDown {
                 // the projection in the table scan
                 let mut projection: Vec<usize> = Vec::with_capacity(accum.len());
                 accum.iter().for_each(|i| projection.push(*i));
-                Rc::new(LogicalPlan::TableScan {
+
+                // now that the table scan is returning a different schema we need to create a
+                // mapping from the original column index to the new column index so that we
+                // can rewrite expressions as we walk back up the tree
+
+                if mapping.len() != 0 {
+                    return Err(ArrowError::ComputeError("illegal state".to_string()));
+                }
+
+                for i in 0..schema.fields().len() {
+                    if let Some(n) = projection.iter().position(|v| *v == i) {
+                        mapping.insert(i, n);
+                    }
+                }
+
+                // return the table scan with projection
+                Ok(Rc::new(LogicalPlan::TableScan {
                     schema_name: schema_name.to_string(),
                     table_name: table_name.to_string(),
                     schema: schema.clone(),
                     projection: Some(projection),
-                })
+                }))
             }
             //TODO implement all logical plan variants and remove this unimplemented
-            _ => unimplemented!(),
+            _ => Err(ArrowError::ComputeError("unimplemented".to_string())),
         }
     }
 
@@ -88,6 +120,14 @@ impl ProjectionPushDown {
             Expr::Column(i) => {
                 accum.insert(*i);
             }
+            //TODO implement all expression variants and remove this unimplemented
+            _ => unimplemented!(),
+        }
+    }
+
+    fn rewrite_expr(&self, expr: &Expr, mapping: &HashMap<usize, usize>) -> Expr {
+        match expr {
+            Expr::Column(i) => Expr::Column(*mapping.get(i).unwrap()), //TODO error handling
             //TODO implement all expression variants and remove this unimplemented
             _ => unimplemented!(),
         }
@@ -138,10 +178,10 @@ mod tests {
         let rule: Rc<RefCell<OptimizerRule>> =
             Rc::new(RefCell::new(ProjectionPushDown::new()));
 
-        let optimized_plan = rule.borrow_mut().optimize(&aggregate);
+        let optimized_plan = rule.borrow_mut().optimize(&aggregate).unwrap();
 
         let formatted_plan = format!("{:?}", optimized_plan);
 
-        assert_eq!(formatted_plan, "Aggregate: groupBy=[[]], aggr=[[#1]]\n  TableScan: test projection=Some([1])");
+        assert_eq!(formatted_plan, "Aggregate: groupBy=[[]], aggr=[[#0]]\n  TableScan: test projection=Some([1])");
     }
 }
