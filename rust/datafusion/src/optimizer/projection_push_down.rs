@@ -55,7 +55,7 @@ impl ProjectionPushDown {
                 let input = self.optimize_plan(&input, accum, mapping)?;
 
                 // rewrite filter expression to use new column indexes
-                let new_expr = self.rewrite_expr(expr, mapping);
+                let new_expr = self.rewrite_expr(expr, mapping)?;
 
                 Ok(Rc::new(LogicalPlan::Selection {
                     expr: new_expr,
@@ -76,19 +76,19 @@ impl ProjectionPushDown {
                 let input = self.optimize_plan(&input, accum, mapping)?;
 
                 // rewrite expressions to use new column indexes
-                let new_group_expr: Vec<Expr> = group_expr
+                let new_group_expr: Result<Vec<Expr>> = group_expr
                     .iter()
                     .map(|e| self.rewrite_expr(e, mapping))
                     .collect();
-                let new_aggr_expr: Vec<Expr> = aggr_expr
+                let new_aggr_expr: Result<Vec<Expr>> = aggr_expr
                     .iter()
                     .map(|e| self.rewrite_expr(e, mapping))
                     .collect();
 
                 Ok(Rc::new(LogicalPlan::Aggregate {
                     input,
-                    group_expr: new_group_expr,
-                    aggr_expr: new_aggr_expr,
+                    group_expr: new_group_expr?,
+                    aggr_expr: new_aggr_expr?,
                     schema: schema.clone(),
                 }))
             }
@@ -143,11 +143,20 @@ impl ProjectionPushDown {
         }
     }
 
-    fn rewrite_expr(&self, expr: &Expr, mapping: &HashMap<usize, usize>) -> Expr {
+    fn rewrite_expr(&self, expr: &Expr, mapping: &HashMap<usize, usize>) -> Result<Expr> {
         match expr {
-            Expr::Column(i) => Expr::Column(*mapping.get(i).unwrap()), //TODO error handling
+            Expr::Column(i) => Ok(Expr::Column(self.new_index(mapping, i)?)),
             //TODO implement all expression variants and remove this unimplemented
             _ => unimplemented!(),
+        }
+    }
+
+    fn new_index(&self, mapping: &HashMap<usize, usize>, i: &usize) -> Result<usize> {
+        match mapping.get(i) {
+            Some(j) => Ok(*j),
+            _ => Err(ArrowError::ComputeError(
+                "Internal error computing new column index".to_string(),
+            )),
         }
     }
 }
