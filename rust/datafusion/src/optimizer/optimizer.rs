@@ -17,8 +17,8 @@
 
 //! Query optimizer traits
 
-use std::rc::Rc;
 use crate::logicalplan::LogicalPlan;
+use std::rc::Rc;
 
 /// An optimizer rules performs a transformation on a logical plan to produce an optimized logical plan.
 pub trait OptimizerRule {
