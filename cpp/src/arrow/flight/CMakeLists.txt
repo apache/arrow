@@ -112,16 +112,16 @@ add_arrow_test(flight-test
 # Build test server for unit tests or benchmarks
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_executable(flight-test-server test-server.cc)
-  target_link_libraries(flight-test-server ${ARROW_FLIGHT_TEST_LINK_LIBS} gflags_static
-                        ${GTEST_LIBRARY})
+  target_link_libraries(flight-test-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
+                        ${GFLAGS_LIBRARY} ${GTEST_LIBRARY})
 
   add_executable(flight-test-integration-server test-integration-server.cc)
   target_link_libraries(flight-test-integration-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        gflags_static gtest_static)
+                        ${GFLAGS_LIBRARY} ${GTEST_LIBRARY})
 
   add_executable(flight-test-integration-client test-integration-client.cc)
   target_link_libraries(flight-test-integration-client ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        gflags_static gtest_static)
+                        ${GFLAGS_LIBRARY} ${GTEST_LIBRARY})
 
   # This is needed for the unit tests
   if(ARROW_BUILD_TESTS)
@@ -144,7 +144,7 @@ if(ARROW_BUILD_BENCHMARKS)
                         arrow_flight_shared
                         arrow_flight_testing_shared
                         ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        gflags_static
+                        ${GFLAGS_LIBRARY}
                         ${GTEST_LIBRARY})
 
   add_executable(flight-benchmark flight-benchmark.cc perf.pb.cc)
@@ -152,7 +152,7 @@ if(ARROW_BUILD_BENCHMARKS)
                         arrow_flight_static
                         arrow_testing_static
                         ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        gflags_static
+                        ${GFLAGS_LIBRARY}
                         ${GTEST_LIBRARY})
 
   add_dependencies(flight-benchmark flight-perf-server)
