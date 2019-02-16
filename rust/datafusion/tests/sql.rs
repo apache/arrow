@@ -26,7 +26,6 @@ use arrow::array::*;
 use arrow::datatypes::{DataType, Field, Schema};
 
 use datafusion::execution::context::ExecutionContext;
-use datafusion::execution::datasource::CsvDataSource;
 use datafusion::execution::relation::Relation;
 
 #[test]
@@ -106,8 +105,7 @@ fn register_csv(
     filename: &str,
     schema: &Arc<Schema>,
 ) {
-    let csv_datasource = CsvDataSource::new(filename, schema.clone(), 1024);
-    ctx.register_datasource(name, Rc::new(RefCell::new(csv_datasource)));
+    ctx.register_csv(name, filename, &schema, true);
 }
 
 /// Execute query and return result set as tab delimited string

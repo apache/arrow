@@ -51,12 +51,12 @@ fn main() {
     ]));
 
     // register csv file with the execution context
-    let csv_datasource = CsvDataSource::new(
+    ctx.register_csv(
+        "aggregate_test_100",
         "../../testing/data/csv/aggregate_test_100.csv",
-        schema.clone(),
-        1024,
+        &schema,
+        true,
     );
-    ctx.register_datasource("aggregate_test_100", Rc::new(RefCell::new(csv_datasource)));
 
     // simple projection and selection
     let sql = "SELECT c1, MIN(c12), MAX(c12) FROM aggregate_test_100 WHERE c11 > 0.1 AND c11 < 0.9 GROUP BY c1";

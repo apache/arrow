@@ -18,17 +18,18 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::string::String;
 use std::sync::Arc;
 
 use arrow::datatypes::{Field, Schema};
 
 use super::super::dfparser::{DFASTNode, DFParser};
 use super::super::logicalplan::*;
-use super::super::sqlplanner::{SchemaProvider, SqlToRel};
 use super::super::optimizer::optimizer::OptimizerRule;
 use super::super::optimizer::projection_push_down::ProjectionPushDown;
+use super::super::sqlplanner::{SchemaProvider, SqlToRel};
 use super::aggregate::AggregateRelation;
-use super::datasource::DataSource;
+use super::datasource::{CsvProvider, DataSourceProvider};
 use super::error::{ExecutionError, Result};
 use super::expression::*;
 use super::filter::FilterRelation;
@@ -36,7 +37,7 @@ use super::projection::ProjectRelation;
 use super::relation::{DataSourceRelation, Relation};
 
 pub struct ExecutionContext {
-    datasources: Rc<RefCell<HashMap<String, Rc<RefCell<DataSource>>>>>,
+    datasources: Rc<RefCell<HashMap<String, Rc<DataSourceProvider>>>>,
 }
 
 impl ExecutionContext {
@@ -61,8 +62,10 @@ impl ExecutionContext {
 
                 // plan the query (create a logical relational plan)
                 let plan = query_planner.sql_to_rel(&ansi)?;
+                println!("Logical plan: {:?}", plan);
 
                 let optimized_plan = self.optimize(&plan);
+                println!("Optimized plan: {:?}", optimized_plan);
 
                 let relation = self.execute(&optimized_plan)?;
 
@@ -72,8 +75,17 @@ impl ExecutionContext {
         }
     }
 
-    pub fn register_datasource(&mut self, name: &str, ds: Rc<RefCell<DataSource>>) {
-        self.datasources.borrow_mut().insert(name.to_string(), ds);
+    pub fn register_csv(
+        &mut self,
+        name: &str,
+        filename: &str,
+        schema: &Schema,
+        has_header: bool,
+    ) {
+        self.datasources.borrow_mut().insert(
+            name.to_string(),
+            Rc::new(CsvProvider::new(filename, schema, has_header)),
+        );
     }
 
     fn optimize(&self, plan: &LogicalPlan) -> Rc<LogicalPlan> {
@@ -84,21 +96,21 @@ impl ExecutionContext {
     }
 
     pub fn execute(&mut self, plan: &LogicalPlan) -> Result<Rc<RefCell<Relation>>> {
-        println!("Logical plan: {:?}", plan);
-
         match *plan {
-            LogicalPlan::TableScan { ref table_name, .. } => {
-                match self.datasources.borrow().get(table_name) {
-                    Some(ds) => {
-                        //TODO: projection
-                        Ok(Rc::new(RefCell::new(DataSourceRelation::new(ds.clone()))))
-                    }
-                    _ => Err(ExecutionError::General(format!(
-                        "No table registered as '{}'",
-                        table_name
-                    ))),
+            LogicalPlan::TableScan {
+                ref table_name,
+                ref projection,
+                ..
+            } => match self.datasources.borrow().get(table_name) {
+                Some(provider) => {
+                    let ds = provider.scan(projection);
+                    Ok(Rc::new(RefCell::new(DataSourceRelation::new(ds))))
                 }
-            }
+                _ => Err(ExecutionError::General(format!(
+                    "No table registered as '{}'",
+                    table_name
+                ))),
+            },
             LogicalPlan::Selection {
                 ref expr,
                 ref input,
@@ -219,12 +231,12 @@ pub fn exprlist_to_fields(expr: &Vec<Expr>, input_schema: &Schema) -> Vec<Field>
 }
 
 struct ExecutionContextSchemaProvider {
-    datasources: Rc<RefCell<HashMap<String, Rc<RefCell<DataSource>>>>>,
+    datasources: Rc<RefCell<HashMap<String, Rc<DataSourceProvider>>>>,
 }
 impl SchemaProvider for ExecutionContextSchemaProvider {
     fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>> {
         match self.datasources.borrow().get(name) {
-            Some(ds) => Some(ds.borrow().schema().clone()),
+            Some(ds) => Some(ds.schema().clone()),
             None => None,
         }
     }
