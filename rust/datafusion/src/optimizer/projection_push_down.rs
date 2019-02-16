@@ -138,16 +138,69 @@ impl ProjectionPushDown {
             Expr::Column(i) => {
                 accum.insert(*i);
             }
-            //TODO implement all expression variants and remove this unimplemented
-            _ => unimplemented!(),
+            Expr::Literal(_) => { /* not needed */ }
+            Expr::IsNull(e) => self.collect_expr(e, accum),
+            Expr::IsNotNull(e) => self.collect_expr(e, accum),
+            Expr::BinaryExpr { left, right, .. } => {
+                self.collect_expr(left, accum);
+                self.collect_expr(right, accum);
+            }
+            Expr::Cast { expr, .. } => self.collect_expr(expr, accum),
+            Expr::Sort { expr, .. } => self.collect_expr(expr, accum),
+            Expr::AggregateFunction { args, .. } => {
+                args.iter().for_each(|arg| self.collect_expr(arg, accum))
+            }
+            Expr::ScalarFunction { args, .. } => {
+                args.iter().for_each(|arg| self.collect_expr(arg, accum))
+            }
         }
     }
 
     fn rewrite_expr(&self, expr: &Expr, mapping: &HashMap<usize, usize>) -> Result<Expr> {
         match expr {
             Expr::Column(i) => Ok(Expr::Column(self.new_index(mapping, i)?)),
-            //TODO implement all expression variants and remove this unimplemented
-            _ => unimplemented!(),
+            Expr::Literal(_) => Ok(expr.clone()),
+            Expr::IsNull(e) => Ok(Expr::IsNull(Rc::new(self.rewrite_expr(e, mapping)?))),
+            Expr::IsNotNull(e) => {
+                Ok(Expr::IsNotNull(Rc::new(self.rewrite_expr(e, mapping)?)))
+            }
+            Expr::BinaryExpr { left, op, right } => Ok(Expr::BinaryExpr {
+                left: Rc::new(self.rewrite_expr(left, mapping)?),
+                op: op.clone(),
+                right: Rc::new(self.rewrite_expr(right, mapping)?),
+            }),
+            Expr::Cast { expr, data_type } => Ok(Expr::Cast {
+                expr: Rc::new(self.rewrite_expr(expr, mapping)?),
+                data_type: data_type.clone(),
+            }),
+            Expr::Sort { expr, asc } => Ok(Expr::Sort {
+                expr: Rc::new(self.rewrite_expr(expr, mapping)?),
+                asc: *asc,
+            }),
+            Expr::AggregateFunction {
+                name,
+                args,
+                return_type,
+            } => Ok(Expr::AggregateFunction {
+                name: name.to_string(),
+                args: args
+                    .iter()
+                    .map(|arg| self.rewrite_expr(arg, mapping))
+                    .collect::<Result<Vec<Expr>>>()?,
+                return_type: return_type.clone(),
+            }),
+            Expr::ScalarFunction {
+                name,
+                args,
+                return_type,
+            } => Ok(Expr::ScalarFunction {
+                name: name.to_string(),
+                args: args
+                    .iter()
+                    .map(|arg| self.rewrite_expr(arg, mapping))
+                    .collect::<Result<Vec<Expr>>>()?,
+                return_type: return_type.clone(),
+            }),
         }
     }
 
