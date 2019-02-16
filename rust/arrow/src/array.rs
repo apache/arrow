@@ -251,24 +251,15 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
 
 impl<T: ArrowNumericType> fmt::Debug for PrimitiveArray<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "PrimitiveArray<{:?}> {{ len: {:?}, values: [",
-            T::get_data_type(),
-            self.len()
-        )
-        .unwrap();
+        write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type()).unwrap();
         for i in 0..self.len() {
             if self.is_null(i) {
-                write!(f, "null").unwrap();
+                write!(f, "  null,\n").unwrap();
             } else {
-                write!(f, "{:?}", self.value(i)).unwrap();
-            }
-            if i != self.len() - 1 {
-                write!(f, ", ").unwrap();
+                write!(f, "  {:?},\n", self.value(i)).unwrap();
             }
         }
-        write!(f, "] }}")
+        write!(f, "]")
     }
 }
 
@@ -306,24 +297,15 @@ impl PrimitiveArray<BooleanType> {
 
 impl fmt::Debug for PrimitiveArray<BooleanType> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "PrimitiveArray<{:?}> {{ len: {:?}, values: [",
-            BooleanType::get_data_type(),
-            self.len()
-        )
-        .unwrap();
+        write!(f, "PrimitiveArray<{:?}>\n[\n", BooleanType::get_data_type()).unwrap();
         for i in 0..self.len() {
             if self.is_null(i) {
-                write!(f, "null").unwrap();
+                write!(f, "  null,\n").unwrap();
             } else {
-                write!(f, "{:?}", self.value(i)).unwrap();
-            }
-            if i != self.len() - 1 {
-                write!(f, ", ").unwrap();
+                write!(f, "  {:?},\n", self.value(i)).unwrap();
             }
         }
-        write!(f, "] }}")
+        write!(f, "]")
     }
 }
 
@@ -813,7 +795,7 @@ mod tests {
         let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
         let arr = Int32Array::new(5, buf, 0, 0);
         assert_eq!(
-            "PrimitiveArray<Int32> { len: 5, values: [0, 1, 2, 3, 4] }",
+            "PrimitiveArray<Int32>\n[\n  0,\n  1,\n  2,\n  3,\n  4,\n]",
             format!("{:?}", arr)
         );
     }
@@ -826,7 +808,7 @@ mod tests {
         builder.append_slice(&[3, 4]).unwrap();
         let arr = builder.finish();
         assert_eq!(
-            "PrimitiveArray<Int32> { len: 5, values: [0, 1, null, 3, 4] }",
+            "PrimitiveArray<Int32>\n[\n  0,\n  1,\n  null,\n  3,\n  4,\n]",
             format!("{:?}", arr)
         );
     }
@@ -836,7 +818,7 @@ mod tests {
         let buf = Buffer::from(&[true, false, false].to_byte_slice());
         let arr = BooleanArray::new(3, buf, 0, 0);
         assert_eq!(
-            "PrimitiveArray<Boolean> { len: 3, values: [true, false, false] }",
+            "PrimitiveArray<Boolean>\n[\n  true,\n  false,\n  false,\n]",
             format!("{:?}", arr)
         );
     }
@@ -849,7 +831,7 @@ mod tests {
         builder.append_value(false).unwrap();
         let arr = builder.finish();
         assert_eq!(
-            "PrimitiveArray<Boolean> { len: 3, values: [true, null, false] }",
+            "PrimitiveArray<Boolean>\n[\n  true,\n  null,\n  false,\n]",
             format!("{:?}", arr)
         );
     }
