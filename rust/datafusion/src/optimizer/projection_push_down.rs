@@ -47,6 +47,21 @@ impl ProjectionPushDown {
         mapping: &mut HashMap<usize, usize>,
     ) -> Result<Rc<LogicalPlan>> {
         match plan {
+            LogicalPlan::Selection { expr, input } => {
+                // collect all columns referenced by filter expression
+                self.collect_expr(expr, accum);
+
+                // push projection down
+                let input = self.optimize_plan(&input, accum, mapping)?;
+
+                // rewrite filter expression to use new column indexes
+                let new_expr = self.rewrite_expr(expr, mapping);
+
+                Ok(Rc::new(LogicalPlan::Selection {
+                    expr: new_expr,
+                    input,
+                }))
+            }
             LogicalPlan::Aggregate {
                 input,
                 group_expr,
@@ -87,6 +102,9 @@ impl ProjectionPushDown {
                 // the projection in the table scan
                 let mut projection: Vec<usize> = Vec::with_capacity(accum.len());
                 accum.iter().for_each(|i| projection.push(*i));
+
+                // sort the projection otherwise we get non-deterministic behavior
+                projection.sort();
 
                 // now that the table scan is returning a different schema we need to create a
                 // mapping from the original column index to the new column index so that we
@@ -183,5 +201,89 @@ mod tests {
         let formatted_plan = format!("{:?}", optimized_plan);
 
         assert_eq!(formatted_plan, "Aggregate: groupBy=[[]], aggr=[[#0]]\n  TableScan: test projection=Some([1])");
+    }
+
+    #[test]
+    fn aggregate_group_by() {
+        let schema = Schema::new(vec![
+            Field::new("a", DataType::UInt32, false),
+            Field::new("b", DataType::UInt32, false),
+            Field::new("c", DataType::UInt32, false),
+        ]);
+
+        // create unoptimized plan for SELECT MAX(b) FROM default.test
+
+        let table_scan = TableScan {
+            schema_name: "default".to_string(),
+            table_name: "test".to_string(),
+            schema: Arc::new(schema),
+            projection: None,
+        };
+
+        let aggregate = Aggregate {
+            group_expr: vec![Column(2)],
+            aggr_expr: vec![Column(1)],
+            schema: Arc::new(Schema::new(vec![
+                Field::new("c", DataType::UInt32, false),
+                Field::new("MAX(b)", DataType::UInt32, false),
+            ])),
+            input: Rc::new(table_scan),
+        };
+
+        // run optimizer rule
+
+        let rule: Rc<RefCell<OptimizerRule>> =
+            Rc::new(RefCell::new(ProjectionPushDown::new()));
+
+        let optimized_plan = rule.borrow_mut().optimize(&aggregate).unwrap();
+
+        let formatted_plan = format!("{:?}", optimized_plan);
+
+        assert_eq!(formatted_plan, "Aggregate: groupBy=[[#1]], aggr=[[#0]]\n  TableScan: test projection=Some([1, 2])");
+    }
+
+    #[test]
+    fn aggregate_no_group_by_with_selection() {
+        let schema = Schema::new(vec![
+            Field::new("a", DataType::UInt32, false),
+            Field::new("b", DataType::UInt32, false),
+            Field::new("c", DataType::UInt32, false),
+        ]);
+
+        // create unoptimized plan for SELECT MAX(b) FROM default.test
+
+        let table_scan = TableScan {
+            schema_name: "default".to_string(),
+            table_name: "test".to_string(),
+            schema: Arc::new(schema),
+            projection: None,
+        };
+
+        let selection = Selection {
+            expr: Column(2),
+            input: Rc::new(table_scan),
+        };
+
+        let aggregate = Aggregate {
+            group_expr: vec![],
+            aggr_expr: vec![Column(1)],
+            schema: Arc::new(Schema::new(vec![Field::new(
+                "MAX(b)",
+                DataType::UInt32,
+                false,
+            )])),
+            input: Rc::new(selection),
+        };
+
+        // run optimizer rule
+
+        let rule: Rc<RefCell<OptimizerRule>> =
+            Rc::new(RefCell::new(ProjectionPushDown::new()));
+
+        let optimized_plan = rule.borrow_mut().optimize(&aggregate).unwrap();
+
+        let formatted_plan = format!("{:?}", optimized_plan);
+
+        assert_eq!(formatted_plan, "Aggregate: groupBy=[[]], aggr=[[#0]]\n  Selection: #1\n    TableScan: test projection=Some([1, 2])");
     }
 }
