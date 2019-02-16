@@ -93,16 +93,25 @@ int64_t KeyValueMetadata::size() const {
   return static_cast<int64_t>(keys_.size());
 }
 
-std::string KeyValueMetadata::key(int64_t i) const {
+const std::string& KeyValueMetadata::key(int64_t i) const {
   DCHECK_GE(i, 0);
   DCHECK_LT(static_cast<size_t>(i), keys_.size());
   return keys_[i];
 }
 
-std::string KeyValueMetadata::value(int64_t i) const {
+const std::string& KeyValueMetadata::value(int64_t i) const {
   DCHECK_GE(i, 0);
   DCHECK_LT(static_cast<size_t>(i), values_.size());
   return values_[i];
+}
+
+int KeyValueMetadata::FindKey(const std::string& key) const {
+  for (size_t i = 0; i < keys_.size(); ++i) {
+    if (keys_[i] == key) {
+      return static_cast<int>(i);
+    }
+  }
+  return -1;
 }
 
 std::shared_ptr<KeyValueMetadata> KeyValueMetadata::Copy() const {

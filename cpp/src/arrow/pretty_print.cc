@@ -247,6 +247,8 @@ class ArrayPrinter : public PrettyPrinter {
 
   Status Visit(const IntervalArray&) { return Status::NotImplemented("interval"); }
 
+  Status Visit(const ExtensionArray&) { return Status::NotImplemented("extension"); }
+
   Status WriteValidityBitmap(const Array& array);
 
   Status PrintChildren(const std::vector<std::shared_ptr<Array>>& fields, int64_t offset,

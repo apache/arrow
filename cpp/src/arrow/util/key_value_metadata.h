@@ -29,6 +29,7 @@
 
 namespace arrow {
 
+/// \brief A container for key-value pair type metadata. Not thread-safe
 class ARROW_EXPORT KeyValueMetadata {
  public:
   KeyValueMetadata();
@@ -44,8 +45,11 @@ class ARROW_EXPORT KeyValueMetadata {
   void reserve(int64_t n);
   int64_t size() const;
 
-  std::string key(int64_t i) const;
-  std::string value(int64_t i) const;
+  const std::string& key(int64_t i) const;
+  const std::string& value(int64_t i) const;
+
+  /// \brief Perform linear search for key, returning -1 if not found
+  int FindKey(const std::string& key) const;
 
   std::shared_ptr<KeyValueMetadata> Copy() const;
 

@@ -87,6 +87,7 @@ set(ARROW_SRCS
     array/builder_union.cc
     buffer.cc
     compare.cc
+    extension_type.cc
     memory_pool.cc
     pretty_print.cc
     record_batch.cc
@@ -308,6 +309,12 @@ add_arrow_test(array-test
                array-list-test.cc
                array-struct-test.cc)
 add_arrow_test(buffer-test)
+
+if(ARROW_IPC)
+  # The extension type unit tests require IPC / Flatbuffers support
+  add_arrow_test(extension_type-test)
+endif()
+
 add_arrow_test(memory_pool-test)
 add_arrow_test(pretty_print-test)
 add_arrow_test(public-api-test)

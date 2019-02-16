@@ -299,6 +299,14 @@ class RangeEqualsVisitor {
     return Status::OK();
   }
 
+  Status Visit(const ExtensionArray& left) {
+    result_ = (right_.type()->Equals(*left.type()) &&
+               ArrayRangeEquals(*left.storage(),
+                                *static_cast<const ExtensionArray&>(right_).storage(),
+                                left_start_idx_, left_end_idx_, right_start_idx_));
+    return Status::OK();
+  }
+
   bool result() const { return result_; }
 
  protected:
@@ -502,6 +510,13 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
   Visit(const T& left) {
     return RangeEqualsVisitor::Visit(left);
   }
+
+  Status Visit(const ExtensionArray& left) {
+    result_ = (right_.type()->Equals(*left.type()) &&
+               ArrayEquals(*left.storage(),
+                           *static_cast<const ExtensionArray&>(right_).storage()));
+    return Status::OK();
+  }
 };
 
 template <typename TYPE>
@@ -685,6 +700,11 @@ class TypeEqualsVisitor {
     result_ = left.index_type()->Equals(right.index_type()) &&
               left.dictionary()->Equals(right.dictionary()) &&
               (left.ordered() == right.ordered());
+    return Status::OK();
+  }
+
+  Status Visit(const ExtensionType& left) {
+    result_ = left.ExtensionEquals(static_cast<const ExtensionType&>(right_));
     return Status::OK();
   }
 

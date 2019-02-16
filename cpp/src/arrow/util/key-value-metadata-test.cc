@@ -84,6 +84,16 @@ TEST(KeyValueMetadataTest, Copy) {
   ASSERT_TRUE(metadata.Equals(*metadata2));
 }
 
+TEST(KeyValueMetadataTest, FindKey) {
+  std::vector<std::string> keys = {"foo", "bar"};
+  std::vector<std::string> values = {"bizz", "buzz"};
+  KeyValueMetadata metadata(keys, values);
+
+  ASSERT_EQ(0, metadata.FindKey("foo"));
+  ASSERT_EQ(1, metadata.FindKey("bar"));
+  ASSERT_EQ(-1, metadata.FindKey("baz"));
+}
+
 TEST(KeyValueMetadataTest, Equals) {
   std::vector<std::string> keys = {"foo", "bar"};
   std::vector<std::string> values = {"bizz", "buzz"};

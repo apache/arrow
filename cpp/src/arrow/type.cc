@@ -31,7 +31,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
-#include "arrow/visitor.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -507,25 +507,9 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>>&& fields,
 // ----------------------------------------------------------------------
 // Visitors and factory functions
 
-#define ACCEPT_VISITOR(TYPE) \
-  Status TYPE::Accept(TypeVisitor* visitor) const { return visitor->Visit(*this); }
-
-ACCEPT_VISITOR(NullType)
-ACCEPT_VISITOR(BooleanType)
-ACCEPT_VISITOR(BinaryType)
-ACCEPT_VISITOR(FixedSizeBinaryType)
-ACCEPT_VISITOR(StringType)
-ACCEPT_VISITOR(ListType)
-ACCEPT_VISITOR(StructType)
-ACCEPT_VISITOR(Decimal128Type)
-ACCEPT_VISITOR(UnionType)
-ACCEPT_VISITOR(Date32Type)
-ACCEPT_VISITOR(Date64Type)
-ACCEPT_VISITOR(Time32Type)
-ACCEPT_VISITOR(Time64Type)
-ACCEPT_VISITOR(TimestampType)
-ACCEPT_VISITOR(IntervalType)
-ACCEPT_VISITOR(DictionaryType)
+Status DataType::Accept(TypeVisitor* visitor) const {
+  return VisitTypeInline(*this, visitor);
+}
 
 #define TYPE_FACTORY(NAME, KLASS)                                        \
   std::shared_ptr<DataType> NAME() {                                     \

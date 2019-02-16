@@ -21,6 +21,7 @@
 #define ARROW_VISITOR_INLINE_H
 
 #include "arrow/array.h"
+#include "arrow/extension_type.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
@@ -30,39 +31,43 @@
 
 namespace arrow {
 
+#define ARROW_GENERATE_FOR_ALL_TYPES(ACTION) \
+  ACTION(Null);                              \
+  ACTION(Boolean);                           \
+  ACTION(Int8);                              \
+  ACTION(UInt8);                             \
+  ACTION(Int16);                             \
+  ACTION(UInt16);                            \
+  ACTION(Int32);                             \
+  ACTION(UInt32);                            \
+  ACTION(Int64);                             \
+  ACTION(UInt64);                            \
+  ACTION(HalfFloat);                         \
+  ACTION(Float);                             \
+  ACTION(Double);                            \
+  ACTION(String);                            \
+  ACTION(Binary);                            \
+  ACTION(FixedSizeBinary);                   \
+  ACTION(Date32);                            \
+  ACTION(Date64);                            \
+  ACTION(Timestamp);                         \
+  ACTION(Time32);                            \
+  ACTION(Time64);                            \
+  ACTION(Decimal128);                        \
+  ACTION(List);                              \
+  ACTION(Struct);                            \
+  ACTION(Union);                             \
+  ACTION(Dictionary);                        \
+  ACTION(Extension)
+
 #define TYPE_VISIT_INLINE(TYPE_CLASS) \
-  case TYPE_CLASS::type_id:           \
-    return visitor->Visit(internal::checked_cast<const TYPE_CLASS&>(type));
+  case TYPE_CLASS##Type::type_id:     \
+    return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Type&>(type));
 
 template <typename VISITOR>
 inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
   switch (type.id()) {
-    TYPE_VISIT_INLINE(NullType);
-    TYPE_VISIT_INLINE(BooleanType);
-    TYPE_VISIT_INLINE(Int8Type);
-    TYPE_VISIT_INLINE(UInt8Type);
-    TYPE_VISIT_INLINE(Int16Type);
-    TYPE_VISIT_INLINE(UInt16Type);
-    TYPE_VISIT_INLINE(Int32Type);
-    TYPE_VISIT_INLINE(UInt32Type);
-    TYPE_VISIT_INLINE(Int64Type);
-    TYPE_VISIT_INLINE(UInt64Type);
-    TYPE_VISIT_INLINE(HalfFloatType);
-    TYPE_VISIT_INLINE(FloatType);
-    TYPE_VISIT_INLINE(DoubleType);
-    TYPE_VISIT_INLINE(StringType);
-    TYPE_VISIT_INLINE(BinaryType);
-    TYPE_VISIT_INLINE(FixedSizeBinaryType);
-    TYPE_VISIT_INLINE(Date32Type);
-    TYPE_VISIT_INLINE(Date64Type);
-    TYPE_VISIT_INLINE(TimestampType);
-    TYPE_VISIT_INLINE(Time32Type);
-    TYPE_VISIT_INLINE(Time64Type);
-    TYPE_VISIT_INLINE(Decimal128Type);
-    TYPE_VISIT_INLINE(ListType);
-    TYPE_VISIT_INLINE(StructType);
-    TYPE_VISIT_INLINE(UnionType);
-    TYPE_VISIT_INLINE(DictionaryType);
+    ARROW_GENERATE_FOR_ALL_TYPES(TYPE_VISIT_INLINE);
     default:
       break;
   }
@@ -71,41 +76,16 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
 
 #undef TYPE_VISIT_INLINE
 
-#define ARRAY_VISIT_INLINE(TYPE_CLASS)                                             \
-  case TYPE_CLASS::type_id:                                                        \
-    return visitor->Visit(                                                         \
-        internal::checked_cast<const typename TypeTraits<TYPE_CLASS>::ArrayType&>( \
+#define ARRAY_VISIT_INLINE(TYPE_CLASS)                                                   \
+  case TYPE_CLASS##Type::type_id:                                                        \
+    return visitor->Visit(                                                               \
+        internal::checked_cast<const typename TypeTraits<TYPE_CLASS##Type>::ArrayType&>( \
             array));
 
 template <typename VISITOR>
 inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {
   switch (array.type_id()) {
-    ARRAY_VISIT_INLINE(NullType);
-    ARRAY_VISIT_INLINE(BooleanType);
-    ARRAY_VISIT_INLINE(Int8Type);
-    ARRAY_VISIT_INLINE(UInt8Type);
-    ARRAY_VISIT_INLINE(Int16Type);
-    ARRAY_VISIT_INLINE(UInt16Type);
-    ARRAY_VISIT_INLINE(Int32Type);
-    ARRAY_VISIT_INLINE(UInt32Type);
-    ARRAY_VISIT_INLINE(Int64Type);
-    ARRAY_VISIT_INLINE(UInt64Type);
-    ARRAY_VISIT_INLINE(HalfFloatType);
-    ARRAY_VISIT_INLINE(FloatType);
-    ARRAY_VISIT_INLINE(DoubleType);
-    ARRAY_VISIT_INLINE(StringType);
-    ARRAY_VISIT_INLINE(BinaryType);
-    ARRAY_VISIT_INLINE(FixedSizeBinaryType);
-    ARRAY_VISIT_INLINE(Date32Type);
-    ARRAY_VISIT_INLINE(Date64Type);
-    ARRAY_VISIT_INLINE(TimestampType);
-    ARRAY_VISIT_INLINE(Time32Type);
-    ARRAY_VISIT_INLINE(Time64Type);
-    ARRAY_VISIT_INLINE(Decimal128Type);
-    ARRAY_VISIT_INLINE(ListType);
-    ARRAY_VISIT_INLINE(StructType);
-    ARRAY_VISIT_INLINE(UnionType);
-    ARRAY_VISIT_INLINE(DictionaryType);
+    ARROW_GENERATE_FOR_ALL_TYPES(ARRAY_VISIT_INLINE);
     default:
       break;
   }
