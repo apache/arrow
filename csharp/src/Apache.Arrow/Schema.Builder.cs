@@ -63,6 +63,19 @@ namespace Apache.Arrow
                 return this;
             }
 
+            public Builder Metadata(IEnumerable<KeyValuePair<string, string>> dict)
+            {
+                foreach (KeyValuePair<string, string> entry in dict)
+                {
+                    if (string.IsNullOrWhiteSpace(entry.Key))
+                    {
+                        throw new ArgumentNullException(nameof(entry.Key));
+                    }
+                    _metadata[entry.Key] = entry.Value;
+                }
+                return this;
+            }
+
             public Schema Build()
             {
                 return new Schema(_fields, _metadata);

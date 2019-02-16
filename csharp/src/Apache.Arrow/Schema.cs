@@ -63,5 +63,48 @@ namespace Apache.Arrow
             return _fields.IndexOf(
                 _fields.Single(x => comparer.Compare(x.Name, name) == 0));
         }
+
+        public override bool Equals(object obj)
+        {
+            if (this == obj)
+            {
+                return true;
+            }
+
+            if (obj == null || !this.GetType().Equals(obj.GetType()))
+            {
+                return false;
+            }
+
+
+            Schema other = (Schema)obj;
+            var otherFields = other.Fields;
+
+            if (this.HasMetadata != other.HasMetadata)
+            {
+                return false;
+            }
+            if (this.Fields.Count != otherFields.Count)
+            {
+                return false;
+            }
+            foreach (var pair in Fields)
+            {
+                var thisFieldString = pair.Key;
+                if (!otherFields.ContainsKey(thisFieldString))
+                {
+                    return false;
+                }
+                if (!pair.Value.Equals(otherFields[thisFieldString])) {
+                    return false;
+                }
+            }
+
+            if (this.HasMetadata && other.HasMetadata)
+            {
+                return this.Metadata.Keys.SequenceEqual(other.Metadata.Keys) && this.Metadata.Values.SequenceEqual(other.Metadata.Values);
+            }
+            return true;
+        }
     }
 }
