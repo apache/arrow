@@ -66,10 +66,10 @@ class NumericBuilder : public ArrayBuilder {
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   /// The memory at the corresponding data slot is set to 0 to prevent
   /// uninitialized memory access
-  Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
+  Status AppendNulls(int64_t length) {
     ARROW_RETURN_NOT_OK(Reserve(length));
     data_builder_.UnsafeAppend(length, static_cast<value_type>(0));
-    UnsafeAppendToBitmap(valid_bytes, length);
+    UnsafeSetNull(length);
     return Status::OK();
   }
 
@@ -252,9 +252,10 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   explicit BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
-  Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
+  Status AppendNulls(int64_t length) {
     ARROW_RETURN_NOT_OK(Reserve(length));
-    UnsafeAppendToBitmap(valid_bytes, length);
+    data_builder_.UnsafeAppend(length, false);
+    UnsafeSetNull(length);
     return Status::OK();
   }
 

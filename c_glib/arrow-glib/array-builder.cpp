@@ -136,9 +136,7 @@ garrow_array_builder_append_nulls(GArrowArrayBuilder *builder,
 
   auto arrow_builder =
     static_cast<BUILDER>(garrow_array_builder_get_raw(builder));
-  uint8_t valid_bytes[n];
-  memset(valid_bytes, 0, sizeof(uint8_t) * n);
-  auto status = arrow_builder->AppendNulls(valid_bytes, n);
+  auto status = arrow_builder->AppendNulls(n);
   return garrow_error_check(error, status, context);
 }
 
