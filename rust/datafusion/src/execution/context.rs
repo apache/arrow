@@ -25,6 +25,8 @@ use arrow::datatypes::{Field, Schema};
 use super::super::dfparser::{DFASTNode, DFParser};
 use super::super::logicalplan::*;
 use super::super::sqlplanner::{SchemaProvider, SqlToRel};
+use super::super::optimizer::optimizer::OptimizerRule;
+use super::super::optimizer::projection_push_down::ProjectionPushDown;
 use super::aggregate::AggregateRelation;
 use super::datasource::DataSource;
 use super::error::{ExecutionError, Result};
@@ -59,10 +61,8 @@ impl ExecutionContext {
 
                 // plan the query (create a logical relational plan)
                 let plan = query_planner.sql_to_rel(&ansi)?;
-                //println!("Logical plan: {:?}", plan);
 
-                let optimized_plan = plan; //push_down_projection(&plan, &HashSet::new());
-                                           //println!("Optimized logical plan: {:?}", new_plan);
+                let optimized_plan = self.optimize(&plan);
 
                 let relation = self.execute(&optimized_plan)?;
 
@@ -74,6 +74,13 @@ impl ExecutionContext {
 
     pub fn register_datasource(&mut self, name: &str, ds: Rc<RefCell<DataSource>>) {
         self.datasources.borrow_mut().insert(name.to_string(), ds);
+    }
+
+    fn optimize(&self, plan: &LogicalPlan) -> Rc<LogicalPlan> {
+        let rule: Rc<RefCell<OptimizerRule>> =
+            Rc::new(RefCell::new(ProjectionPushDown::new()));
+        let mut borrowed_rule = rule.borrow_mut();
+        borrowed_rule.optimize(plan).unwrap()
     }
 
     pub fn execute(&mut self, plan: &LogicalPlan) -> Result<Rc<RefCell<Relation>>> {
