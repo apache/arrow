@@ -584,7 +584,7 @@ mod tests {
         quick_test(
             "SELECT state, MIN(age), MAX(age) FROM person GROUP BY state",
             "Aggregate: groupBy=[[#4]], aggr=[[MIN(#3), MAX(#3)]]\
-             \n  TableScan: person projection=TBD",
+             \n  TableScan: person projection=None",
         );
     }
 
