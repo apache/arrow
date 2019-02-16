@@ -251,12 +251,12 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
 
 impl<T: ArrowNumericType> fmt::Debug for PrimitiveArray<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type()).unwrap();
+        write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
         for i in 0..self.len() {
             if self.is_null(i) {
-                write!(f, "  null,\n").unwrap();
+                write!(f, "  null,\n")?;
             } else {
-                write!(f, "  {:?},\n", self.value(i)).unwrap();
+                write!(f, "  {:?},\n", self.value(i))?;
             }
         }
         write!(f, "]")
@@ -297,12 +297,12 @@ impl PrimitiveArray<BooleanType> {
 
 impl fmt::Debug for PrimitiveArray<BooleanType> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PrimitiveArray<{:?}>\n[\n", BooleanType::get_data_type()).unwrap();
+        write!(f, "PrimitiveArray<{:?}>\n[\n", BooleanType::get_data_type())?;
         for i in 0..self.len() {
             if self.is_null(i) {
-                write!(f, "  null,\n").unwrap();
+                write!(f, "  null,\n")?
             } else {
-                write!(f, "  {:?},\n", self.value(i)).unwrap();
+                write!(f, "  {:?},\n", self.value(i))?
             }
         }
         write!(f, "]")
