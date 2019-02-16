@@ -259,7 +259,11 @@ impl<T: ArrowNumericType> fmt::Debug for PrimitiveArray<T> {
         )
         .unwrap();
         for i in 0..self.len() {
-            write!(f, "{:?}", self.value(i)).unwrap();
+            if self.is_null(i) {
+                write!(f, "null").unwrap();
+            } else {
+                write!(f, "{:?}", self.value(i)).unwrap();
+            }
             if i != self.len() - 1 {
                 write!(f, ", ").unwrap();
             }
@@ -310,7 +314,11 @@ impl fmt::Debug for PrimitiveArray<BooleanType> {
         )
         .unwrap();
         for i in 0..self.len() {
-            write!(f, "{:?}", self.value(i)).unwrap();
+            if self.is_null(i) {
+                write!(f, "null").unwrap();
+            } else {
+                write!(f, "{:?}", self.value(i)).unwrap();
+            }
             if i != self.len() - 1 {
                 write!(f, ", ").unwrap();
             }
@@ -811,11 +819,37 @@ mod tests {
     }
 
     #[test]
+    fn test_int32_with_null_fmt_debug() {
+        let mut builder = Int32Array::builder(3);
+        builder.append_slice(&[0, 1]).unwrap();
+        builder.append_null().unwrap();
+        builder.append_slice(&[3, 4]).unwrap();
+        let arr = builder.finish();
+        assert_eq!(
+            "PrimitiveArray<Int32> { len: 5, values: [0, 1, null, 3, 4] }",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
     fn test_boolean_fmt_debug() {
         let buf = Buffer::from(&[true, false, false].to_byte_slice());
         let arr = BooleanArray::new(3, buf, 0, 0);
         assert_eq!(
             "PrimitiveArray<Boolean> { len: 3, values: [true, false, false] }",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_boolean_with_null_fmt_debug() {
+        let mut builder = BooleanArray::builder(3);
+        builder.append_value(true).unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(false).unwrap();
+        let arr = builder.finish();
+        assert_eq!(
+            "PrimitiveArray<Boolean> { len: 3, values: [true, null, false] }",
             format!("{:?}", arr)
         );
     }
