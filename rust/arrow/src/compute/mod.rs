@@ -15,29 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! A native Rust implementation of [Apache Arrow](https://arrow.apache.org), a cross-language
-//! development platform for in-memory data.
-//!
-//! Currently the project is developed and tested against nightly Rust. To learn more
-//! about the status of Arrow in Rust, see `README.md`.
+//! Computation kernels on Arrow Arrays
 
-#![feature(type_ascription)]
-#![feature(rustc_private)]
-#![feature(specialization)]
-#![feature(try_from)]
-#![allow(dead_code)]
-#![allow(non_camel_case_types)]
+pub mod array_ops;
+pub mod boolean_kernels;
 
-pub mod array;
-pub mod array_data;
-pub mod bitmap;
-pub mod buffer;
-pub mod builder;
-pub mod compute;
-pub mod csv;
-pub mod datatypes;
-pub mod error;
-pub mod memory;
-pub mod record_batch;
-pub mod tensor;
-pub mod util;
+mod util;
+
+pub use self::array_ops::*;
+pub use self::boolean_kernels::*;

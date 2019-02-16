@@ -24,12 +24,12 @@ use packed_simd::u8x64;
 use std::cmp;
 use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
-use std::ops::{BitAnd, BitOr};
+use std::ops::{BitAnd, BitOr, Not};
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
 
 use crate::builder::{BufferBuilderTrait, UInt8BufferBuilder};
-use crate::error::Result;
+use crate::error::{ArrowError, Result};
 use crate::memory;
 use crate::util::bit_util;
 
@@ -173,19 +173,19 @@ where
 }
 
 impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
-    type Output = Buffer;
+    type Output = Result<Buffer>;
 
-    fn bitand(self, rhs: &'b Buffer) -> Buffer {
-        assert_eq!(
-            self.len(),
-            rhs.len(),
-            "Buffers must be the same size to apply Bitwise AND."
-        );
+    fn bitand(self, rhs: &'b Buffer) -> Result<Buffer> {
+        if self.len() != rhs.len() {
+            return Err(ArrowError::ComputeError(
+                "Buffers must be the same size to apply Bitwise AND.".to_string(),
+            ));
+        }
 
         // SIMD implementation if available
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            return bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b);
+            return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b));
         }
 
         // Default implementation
@@ -201,25 +201,25 @@ impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
                         .unwrap();
                 }
             }
-            builder.finish()
+            Ok(builder.finish())
         }
     }
 }
 
 impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
-    type Output = Buffer;
+    type Output = Result<Buffer>;
 
-    fn bitor(self, rhs: &'b Buffer) -> Buffer {
-        assert_eq!(
-            self.len(),
-            rhs.len(),
-            "Buffers must be the same size to apply Bitwise OR."
-        );
+    fn bitor(self, rhs: &'b Buffer) -> Result<Buffer> {
+        if self.len() != rhs.len() {
+            return Err(ArrowError::ComputeError(
+                "Buffers must be the same size to apply Bitwise OR.".to_string(),
+            ));
+        }
 
         // SIMD implementation if available
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            return bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b);
+            return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b));
         }
 
         // Default implementation
@@ -233,6 +233,45 @@ impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
                             self.data().get_unchecked(i) | rhs.data().get_unchecked(i),
                         )
                         .unwrap();
+                }
+            }
+            Ok(builder.finish())
+        }
+    }
+}
+
+impl Not for &Buffer {
+    type Output = Buffer;
+
+    fn not(self) -> Buffer {
+        // SIMD implementation if available
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        {
+            let mut result =
+                MutableBuffer::new(self.len()).with_bitset(self.len(), false);
+            let lanes = u8x64::lanes();
+            for i in (0..self.len()).step_by(lanes) {
+                unsafe {
+                    let data = from_raw_parts(self.raw_data().offset(i as isize), lanes);
+                    let data_simd = u8x64::from_slice_unaligned_unchecked(data);
+                    let simd_result = !data_simd;
+                    let result_slice: &mut [u8] = from_raw_parts_mut(
+                        (result.data_mut().as_mut_ptr() as *mut u8).offset(i as isize),
+                        lanes,
+                    );
+                    simd_result.write_to_slice_unaligned_unchecked(result_slice);
+                }
+            }
+            return result.freeze();
+        }
+
+        // Default implementation
+        #[allow(unreachable_code)]
+        {
+            let mut builder = UInt8BufferBuilder::new(self.len());
+            for i in 0..self.len() {
+                unsafe {
+                    builder.append(!self.data().get_unchecked(i)).unwrap();
                 }
             }
             builder.finish()
@@ -537,14 +576,20 @@ mod tests {
     fn test_bitwise_and() {
         let buf1 = Buffer::from([0b01101010]);
         let buf2 = Buffer::from([0b01001110]);
-        assert_eq!(Buffer::from([0b01001010]), &buf1 & &buf2);
+        assert_eq!(Buffer::from([0b01001010]), (&buf1 & &buf2).unwrap());
     }
 
     #[test]
     fn test_bitwise_or() {
         let buf1 = Buffer::from([0b01101010]);
         let buf2 = Buffer::from([0b01001110]);
-        assert_eq!(Buffer::from([0b01101110]), &buf1 | &buf2);
+        assert_eq!(Buffer::from([0b01101110]), (&buf1 | &buf2).unwrap());
+    }
+
+    #[test]
+    fn test_bitwise_not() {
+        let buf = Buffer::from([0b01101010]);
+        assert_eq!(Buffer::from([0b10010101]), !&buf);
     }
 
     #[test]
@@ -552,7 +597,7 @@ mod tests {
     fn test_buffer_bitand_different_sizes() {
         let buf1 = Buffer::from([1_u8, 1_u8]);
         let buf2 = Buffer::from([0b01001110]);
-        let _buf3 = &buf1 | &buf2;
+        let _buf3 = (&buf1 | &buf2).unwrap();
     }
 
     #[test]

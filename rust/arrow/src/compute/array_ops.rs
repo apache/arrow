@@ -312,58 +312,6 @@ where
     Ok(b.finish())
 }
 
-/// Perform `AND` operation on two arrays. If either left or right value is null then the
-/// result is also null.
-pub fn and(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
-    if left.len() != right.len() {
-        return Err(ArrowError::ComputeError(
-            "Cannot perform boolean operation on arrays of different length".to_string(),
-        ));
-    }
-    let mut b = BooleanArray::builder(left.len());
-    for i in 0..left.len() {
-        if left.is_null(i) || right.is_null(i) {
-            b.append_null()?;
-        } else {
-            b.append_value(left.value(i) && right.value(i))?;
-        }
-    }
-    Ok(b.finish())
-}
-
-/// Perform `OR` operation on two arrays. If either left or right value is null then the
-/// result is also null.
-pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
-    if left.len() != right.len() {
-        return Err(ArrowError::ComputeError(
-            "Cannot perform boolean operation on arrays of different length".to_string(),
-        ));
-    }
-    let mut b = BooleanArray::builder(left.len());
-    for i in 0..left.len() {
-        if left.is_null(i) || right.is_null(i) {
-            b.append_null()?;
-        } else {
-            b.append_value(left.value(i) || right.value(i))?;
-        }
-    }
-    Ok(b.finish())
-}
-
-/// Perform unary `NOT` operation on an arrays. If value is null then the result is also
-/// null.
-pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
-    let mut b = BooleanArray::builder(left.len());
-    for i in 0..left.len() {
-        if left.is_null(i) {
-            b.append_null()?;
-        } else {
-            b.append_value(!left.value(i))?;
-        }
-    }
-    Ok(b.finish())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -610,59 +558,5 @@ mod tests {
         let a = Int32Array::from(vec![Some(5), None, None, Some(8), Some(9)]);
         assert_eq!(5, min(&a).unwrap());
         assert_eq!(9, max(&a).unwrap());
-    }
-
-    #[test]
-    fn test_bool_array_and() {
-        let a = BooleanArray::from(vec![false, false, true, true]);
-        let b = BooleanArray::from(vec![false, true, false, true]);
-        let c = and(&a, &b).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(false, c.value(2));
-        assert_eq!(true, c.value(3));
-    }
-
-    #[test]
-    fn test_bool_array_or() {
-        let a = BooleanArray::from(vec![false, false, true, true]);
-        let b = BooleanArray::from(vec![false, true, false, true]);
-        let c = or(&a, &b).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(true, c.value(2));
-        assert_eq!(true, c.value(3));
-    }
-
-    #[test]
-    fn test_bool_array_or_nulls() {
-        let a = BooleanArray::from(vec![None, Some(false), None, Some(false)]);
-        let b = BooleanArray::from(vec![None, None, Some(false), Some(false)]);
-        let c = or(&a, &b).unwrap();
-        assert_eq!(true, c.is_null(0));
-        assert_eq!(true, c.is_null(1));
-        assert_eq!(true, c.is_null(2));
-        assert_eq!(false, c.is_null(3));
-    }
-
-    #[test]
-    fn test_bool_array_not() {
-        let a = BooleanArray::from(vec![false, false, true, true]);
-        let c = not(&a).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
-        assert_eq!(false, c.value(3));
-    }
-
-    #[test]
-    fn test_bool_array_and_nulls() {
-        let a = BooleanArray::from(vec![None, Some(false), None, Some(false)]);
-        let b = BooleanArray::from(vec![None, None, Some(false), Some(false)]);
-        let c = and(&a, &b).unwrap();
-        assert_eq!(true, c.is_null(0));
-        assert_eq!(true, c.is_null(1));
-        assert_eq!(true, c.is_null(2));
-        assert_eq!(false, c.is_null(3));
     }
 }
