@@ -20,9 +20,11 @@
 use crate::logicalplan::Expr;
 use crate::logicalplan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
+use arrow::datatypes::{Field, Schema};
 use arrow::error::{ArrowError, Result};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// Projection Push Down optimizer rule ensures that only referenced columns are loaded into memory
 pub struct ProjectionPushDown {}
@@ -145,6 +147,14 @@ impl ProjectionPushDown {
                 // sort the projection otherwise we get non-deterministic behavior
                 projection.sort();
 
+                // create the projected schema
+                let mut projected_fields: Vec<Field> =
+                    Vec::with_capacity(projection.len());
+                for i in 0..projection.len() {
+                    projected_fields.push(schema.fields()[i].clone());
+                }
+                let projected_schema = Schema::new(projected_fields);
+
                 // now that the table scan is returning a different schema we need to create a
                 // mapping from the original column index to the new column index so that we
                 // can rewrite expressions as we walk back up the tree
@@ -163,7 +173,7 @@ impl ProjectionPushDown {
                 Ok(Rc::new(LogicalPlan::TableScan {
                     schema_name: schema_name.to_string(),
                     table_name: table_name.to_string(),
-                    schema: schema.clone(),
+                    schema: Arc::new(projected_schema),
                     projection: Some(projection),
                 }))
             }
@@ -263,7 +273,7 @@ mod tests {
     use crate::logicalplan::Expr::*;
     use crate::logicalplan::LogicalPlan::*;
     use arrow::datatypes::{DataType, Field, Schema};
-    use std::cell::RefCell;
+    use std::borrow::Borrow;
     use std::rc::Rc;
     use std::sync::Arc;
 
@@ -348,6 +358,34 @@ mod tests {
         );
     }
 
+    #[test]
+    fn table_scan_projected_schema() {
+        let table_scan = test_table_scan();
+        assert_eq!(3, table_scan.schema().fields().len());
+
+        let projection = Projection {
+            expr: vec![Column(0), Column(1)],
+            input: Rc::new(table_scan),
+            schema: Arc::new(Schema::new(vec![
+                Field::new("a", DataType::UInt32, false),
+                Field::new("b", DataType::UInt32, false),
+            ])),
+        };
+
+        let optimized_plan = optimize(&projection);
+
+        // check that table scan schema now contains 2 columns
+        match optimized_plan.as_ref().borrow() {
+            LogicalPlan::Projection { input, .. } => match input.as_ref().borrow() {
+                LogicalPlan::TableScan { ref schema, .. } => {
+                    assert_eq!(2, schema.fields().len());
+                }
+                _ => panic!(),
+            },
+            _ => panic!(),
+        }
+    }
+
     fn assert_optimized_plan_eq(plan: &LogicalPlan, expected: &str) {
         let optimized_plan = optimize(plan);
         let formatted_plan = format!("{:?}", optimized_plan);
@@ -355,10 +393,8 @@ mod tests {
     }
 
     fn optimize(plan: &LogicalPlan) -> Rc<LogicalPlan> {
-        let rule: Rc<RefCell<OptimizerRule>> =
-            Rc::new(RefCell::new(ProjectionPushDown::new()));
-        let mut borrowed_rule = rule.borrow_mut();
-        borrowed_rule.optimize(plan).unwrap()
+        let mut rule = ProjectionPushDown::new();
+        rule.optimize(plan).unwrap()
     }
 
     /// all tests share a common table
