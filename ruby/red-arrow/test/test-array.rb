@@ -24,15 +24,30 @@ class ArrayTest < Test::Unit::TestCase
     end
   end
 
-  test("#each") do
-    array = Arrow::BooleanArray.new([true, false, nil, true])
-    assert_equal([true, false, nil, true],
-                 array.to_a)
-  end
+  sub_test_case("instance methods") do
+    def setup
+      @values = [true, false, nil, true]
+      @array = Arrow::BooleanArray.new(@values)
+    end
 
-  test("#[]") do
-    array = Arrow::BooleanArray.new([true, false, nil, true])
-    assert_equal([true, false, nil, true],
-                 [array[0], array[1], array[2], array[3]])
+    test("#each") do
+      assert_equal(@values, @array.to_a)
+    end
+
+    sub_test_case("#[]") do
+      test("valid range") do
+        assert_equal(@values,
+                     @array.length.times.collect {|i| @array[i]})
+      end
+
+      test("out of range") do
+        assert_nil(@array[@array.length])
+      end
+
+      test("negative index") do
+        assert_equal(@values.last,
+                     @array[-1])
+      end
+    end
   end
 end
