@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Projection Push Down optimizer rule ensures that only referenced columns are loaded into memory
+//! Projection Push Down optimizer rule ensures that only referenced columns are
+//! loaded into memory
 
 use crate::logicalplan::Expr;
 use crate::logicalplan::LogicalPlan;
@@ -26,7 +27,8 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
-/// Projection Push Down optimizer rule ensures that only referenced columns are loaded into memory
+/// Projection Push Down optimizer rule ensures that only referenced columns are
+/// loaded into memory
 pub struct ProjectionPushDown {}
 
 impl OptimizerRule for ProjectionPushDown {
@@ -292,7 +294,11 @@ mod tests {
             input: Rc::new(table_scan),
         };
 
-        assert_optimized_plan_eq(&aggregate, "Aggregate: groupBy=[[]], aggr=[[#0]]\n  TableScan: test projection=Some([1])");
+        assert_optimized_plan_eq(
+            &aggregate,
+            "Aggregate: groupBy=[[]], aggr=[[#0]]\n"
+                + "  TableScan: test projection=Some([1])",
+        );
     }
 
     #[test]
@@ -309,7 +315,11 @@ mod tests {
             input: Rc::new(table_scan),
         };
 
-        assert_optimized_plan_eq(&aggregate, "Aggregate: groupBy=[[#1]], aggr=[[#0]]\n  TableScan: test projection=Some([1, 2])");
+        assert_optimized_plan_eq(
+            &aggregate,
+            "Aggregate: groupBy=[[#1]], aggr=[[#0]]\n"
+                + "  TableScan: test projection=Some([1, 2])",
+        );
     }
 
     #[test]
@@ -332,7 +342,12 @@ mod tests {
             input: Rc::new(selection),
         };
 
-        assert_optimized_plan_eq(&aggregate, "Aggregate: groupBy=[[]], aggr=[[#0]]\n  Selection: #1\n    TableScan: test projection=Some([1, 2])");
+        assert_optimized_plan_eq(
+            &aggregate,
+            "Aggregate: groupBy=[[]], aggr=[[#0]]\n"
+                + "  Selection: #1\n"
+                + "    TableScan: test projection=Some([1, 2])",
+        );
     }
 
     #[test]
@@ -354,7 +369,8 @@ mod tests {
 
         assert_optimized_plan_eq(
             &projection,
-            "Projection: CAST(#0 AS Float64)\n  TableScan: test projection=Some([2])",
+            "Projection: CAST(#0 AS Float64)\n"
+                + "  TableScan: test projection=Some([2])",
         );
     }
 
