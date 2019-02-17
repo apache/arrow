@@ -248,7 +248,7 @@ foreach(LIB_TARGET ${PARQUET_LIBRARIES})
                              HAVE_INTTYPES_H
                              PRIVATE
                              HAVE_NETDB_H)
-  if(MSVC)
+  if(WIN32)
     target_compile_definitions(${LIB_TARGET} PRIVATE NOMINMAX)
   else()
     target_compile_definitions(${LIB_TARGET} PRIVATE HAVE_NETINET_IN_H)
