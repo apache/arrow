@@ -272,8 +272,6 @@ impl<R: Read> Reader<R> {
                 .collect(),
         };
 
-        println!("Projection = {:?}", projection);
-
         let rows = &rows[..];
         let arrays: Result<Vec<ArrayRef>> = projection
             .iter()
