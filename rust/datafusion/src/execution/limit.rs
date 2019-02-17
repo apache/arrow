@@ -56,11 +56,9 @@ impl Relation for LimitRelation {
                     return Ok(None);
                 }
 
-                let num_batch_rows = batch.num_rows();
-                if num_batch_rows >= capacity {
-                    let num_rows_to_read = self.limit - self.num_consumed_rows;
+                if batch.num_rows() >= capacity {
                     let limited_columns: Result<Vec<ArrayRef>> = (0..batch.num_columns())
-                        .map(|i| limit(batch.column(i).as_ref(), num_rows_to_read))
+                        .map(|i| limit(batch.column(i).as_ref(), capacity))
                         .collect();
 
                     let limited_batch: RecordBatch =
@@ -69,7 +67,7 @@ impl Relation for LimitRelation {
 
                     Ok(Some(limited_batch))
                 } else {
-                    self.num_consumed_rows += num_batch_rows;
+                    self.num_consumed_rows += batch.num_rows();
                     Ok(Some(batch))
                 }
             }
