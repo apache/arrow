@@ -53,6 +53,7 @@ impl SqlToRel {
                 ref relation,
                 ref selection,
                 ref order_by,
+                ref limit,
                 ref group_by,
                 ref having,
                 ..
@@ -167,7 +168,22 @@ impl SqlToRel {
                         _ => projection,
                     };
 
-                    Ok(Rc::new(order_by_plan))
+                    let limit_plan = match limit {
+                        &Some(ref limit_expr) => {
+                            let input_schema = order_by_plan.schema();
+                            let limit_rex =
+                                self.sql_to_rex(&limit_expr, &input_schema.clone())?;
+
+                            LogicalPlan::Limit {
+                                expr: limit_rex,
+                                input: Rc::new(order_by_plan.clone()),
+                                schema: input_schema.clone(),
+                            }
+                        }
+                        _ => order_by_plan,
+                    };
+
+                    Ok(Rc::new(limit_plan))
                 }
             }
 
@@ -491,6 +507,7 @@ pub fn push_down_projection(
         }),
         LogicalPlan::Projection { .. } => plan.clone(),
         LogicalPlan::Sort { .. } => plan.clone(),
+        LogicalPlan::Limit { .. } => plan.clone(),
         LogicalPlan::EmptyRelation { .. } => plan.clone(),
     }
 }

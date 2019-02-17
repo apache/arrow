@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use arrow::datatypes::{Field, Schema};
+use arrow::datatypes::*;
 
 use super::super::dfparser::{DFASTNode, DFParser};
 use super::super::logicalplan::*;
@@ -30,6 +30,7 @@ use super::datasource::DataSource;
 use super::error::{ExecutionError, Result};
 use super::expression::*;
 use super::filter::FilterRelation;
+use super::limit::LimitRelation;
 use super::projection::ProjectRelation;
 use super::relation::{DataSourceRelation, Relation};
 
@@ -159,6 +160,39 @@ impl ExecutionContext {
                 );
 
                 Ok(Rc::new(RefCell::new(rel)))
+            }
+            LogicalPlan::Limit {
+                ref expr,
+                ref input,
+                ..
+            } => {
+                let input_rel = self.execute(input)?;
+
+                let input_schema = input_rel.as_ref().borrow().schema().clone();
+
+                match expr {
+                    &Expr::Literal(ref scalar_value) => {
+                        let limit: usize = match scalar_value {
+                            ScalarValue::Int8(x) => Ok(*x as usize),
+                            ScalarValue::Int16(x) => Ok(*x as usize),
+                            ScalarValue::Int32(x) => Ok(*x as usize),
+                            ScalarValue::Int64(x) => Ok(*x as usize),
+                            ScalarValue::UInt8(x) => Ok(*x as usize),
+                            ScalarValue::UInt16(x) => Ok(*x as usize),
+                            ScalarValue::UInt32(x) => Ok(*x as usize),
+                            ScalarValue::UInt64(x) => Ok(*x as usize),
+                            _ => Err(ExecutionError::ExecutionError(
+                                "Limit only support positive integer literals"
+                                    .to_string(),
+                            )),
+                        }?;
+                        let rel = LimitRelation::new(input_rel, limit, input_schema);
+                        Ok(Rc::new(RefCell::new(rel)))
+                    }
+                    _ => Err(ExecutionError::ExecutionError(
+                        "Limit only support positive integer literals".to_string(),
+                    )),
+                }
             }
 
             _ => unimplemented!(),

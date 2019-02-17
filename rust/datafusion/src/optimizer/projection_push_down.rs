@@ -179,6 +179,15 @@ impl ProjectionPushDown {
                     projection: Some(projection),
                 }))
             }
+            LogicalPlan::Limit {
+                expr,
+                input,
+                schema,
+            } => Ok(Rc::new(LogicalPlan::Limit {
+                expr: expr.clone(),
+                input: input.clone(),
+                schema: schema.clone(),
+            })),
         }
     }
 
