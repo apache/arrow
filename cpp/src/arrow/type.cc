@@ -293,6 +293,15 @@ int StructType::GetChildIndex(const std::string& name) const {
 }
 
 // ----------------------------------------------------------------------
+// Decimal128 type
+
+Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
+    : DecimalType(16, precision, scale) {
+  DCHECK_GE(precision, 1);
+  DCHECK_LE(precision, 38);
+}
+
+// ----------------------------------------------------------------------
 // DictionaryType
 
 DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,

@@ -57,6 +57,8 @@ class AggregateFunction {
 
   virtual ~AggregateFunction() {}
 
+  virtual std::shared_ptr<DataType> out_type() const = 0;
+
   /// State management methods.
   virtual int64_t Size() const = 0;
   virtual void New(void* ptr) const = 0;
@@ -102,6 +104,8 @@ class ARROW_EXPORT AggregateUnaryKernel : public UnaryKernel {
       : aggregate_function_(aggregate) {}
 
   Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override;
+
+  std::shared_ptr<DataType> out_type() const override;
 
  private:
   std::shared_ptr<AggregateFunction> aggregate_function_;

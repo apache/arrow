@@ -478,7 +478,11 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
       ASSERT_EQ(draws_[i] != 0, actual) << i;
     }
   }
-  ASSERT_TRUE(result->Equals(*expected));
+  AssertArraysEqual(*result, *expected);
+
+  // buffers are correctly sized
+  ASSERT_EQ(result->data()->buffers[0]->size(), BitUtil::BytesForBits(size));
+  ASSERT_EQ(result->data()->buffers[1]->size(), BitUtil::BytesForBits(size));
 
   // Builder is now reset
   ASSERT_EQ(0, builder->length());
@@ -518,15 +522,13 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
   const int64_t size = 10;
-  const uint8_t valid_bytes[10] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
-
-  ASSERT_OK(this->builder_->AppendNulls(valid_bytes, size));
+  ASSERT_OK(this->builder_->AppendNulls(size));
 
   std::shared_ptr<Array> result;
   FinishAndCheckPadding(this->builder_.get(), &result);
 
   for (int64_t i = 0; i < size; ++i) {
-    ASSERT_EQ(result->IsValid(i), static_cast<bool>(valid_bytes[i]));
+    ASSERT_FALSE(result->IsValid(i));
   }
 }
 
@@ -920,6 +922,27 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
   ASSERT_RAISES(Invalid, this->builder_->Resize(1));
 
   ASSERT_EQ(BitUtil::NextPower2(kMinBuilderCapacity + 100), this->builder_->capacity());
+}
+
+TEST(TestBooleanBuilder, AppendNullsAdvanceBuilder) {
+  BooleanBuilder builder;
+
+  std::vector<uint8_t> values = {1, 0, 0, 1};
+  std::vector<uint8_t> is_valid = {1, 1, 0, 1};
+
+  std::shared_ptr<Array> arr;
+  ASSERT_OK(builder.AppendValues(values.data(), 2));
+  ASSERT_OK(builder.AppendNulls(1));
+  ASSERT_OK(builder.AppendValues(values.data() + 3, 1));
+  ASSERT_OK(builder.Finish(&arr));
+
+  ASSERT_EQ(1, arr->null_count());
+
+  const auto& barr = static_cast<const BooleanArray&>(*arr);
+  ASSERT_TRUE(barr.Value(0));
+  ASSERT_FALSE(barr.Value(1));
+  ASSERT_TRUE(barr.IsNull(2));
+  ASSERT_TRUE(barr.Value(3));
 }
 
 TEST(TestBooleanBuilder, TestStdBoolVectorAppend) {
@@ -1391,13 +1414,12 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendNull) {
 
 TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
   constexpr int64_t size = 10;
-  const uint8_t valid_bytes[size] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
-  ASSERT_OK(builder_->AppendNulls(valid_bytes, size));
+  ASSERT_OK(builder_->AppendNulls(size));
 
   Done();
 
   for (unsigned index = 0; index < size; ++index) {
-    ASSERT_EQ(result_->IsValid(index), static_cast<bool>(valid_bytes[index]));
+    ASSERT_FALSE(result_->IsValid(index));
   }
 }
 
@@ -1526,13 +1548,12 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNull) {
 
 TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
   constexpr int64_t size = 10;
-  const uint8_t valid_bytes[size] = {1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
-  ASSERT_OK(builder_->AppendNulls(valid_bytes, size));
+  ASSERT_OK(builder_->AppendNulls(size));
 
   Done();
 
   for (unsigned index = 0; index < size; ++index) {
-    ASSERT_EQ(result_->IsValid(index), static_cast<bool>(valid_bytes[index]));
+    ASSERT_FALSE(result_->IsValid(index));
   }
 }
 

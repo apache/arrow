@@ -19,7 +19,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use arrow::array::*;
-use arrow::array_ops;
+use arrow::compute;
 use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
@@ -127,7 +127,7 @@ macro_rules! binary_op {
     ($LEFT:expr, $RIGHT:expr, $OP:ident, $DT:ident) => {{
         let ll = $LEFT.as_any().downcast_ref::<$DT>().unwrap();
         let rr = $RIGHT.as_any().downcast_ref::<$DT>().unwrap();
-        Ok(Arc::new(array_ops::$OP(&ll, &rr)?))
+        Ok(Arc::new(compute::$OP(&ll, &rr)?))
     }};
 }
 
@@ -216,7 +216,7 @@ macro_rules! boolean_ops {
     ($LEFT:expr, $RIGHT:expr, $BATCH:expr, $OP:ident) => {{
         let left_values = $LEFT.get_func()($BATCH)?;
         let right_values = $RIGHT.get_func()($BATCH)?;
-        Ok(Arc::new(array_ops::$OP(
+        Ok(Arc::new(compute::$OP(
             left_values.as_any().downcast_ref::<BooleanArray>().unwrap(),
             right_values
                 .as_any()

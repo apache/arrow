@@ -17,34 +17,31 @@
 
 #pragma once
 
-#include <stdio.h>
-#ifndef _MSC_VER
-#include <sys/time.h>
-#endif
-
-#include <ctime>
-#include <iostream>
+#include <cassert>
+#include <chrono>
 
 namespace arrow {
 namespace internal {
 
-uint64_t CurrentTime() {
-  timespec time;
-  clock_gettime(CLOCK_MONOTONIC, &time);
-  return 1000000000L * time.tv_sec + time.tv_nsec;
-}
-
 class StopWatch {
+  // This clock should give us wall clock time
+  using ClockType = std::chrono::steady_clock;
+
  public:
   StopWatch() {}
 
-  void Start() { start_ = CurrentTime(); }
+  void Start() { start_ = ClockType::now(); }
 
   // Returns time in nanoseconds.
-  uint64_t Stop() { return CurrentTime() - start_; }
+  uint64_t Stop() {
+    auto stop = ClockType::now();
+    std::chrono::nanoseconds d = stop - start_;
+    assert(d.count() >= 0);
+    return static_cast<uint64_t>(d.count());
+  }
 
  private:
-  uint64_t start_;
+  std::chrono::time_point<ClockType> start_;
 };
 
 }  // namespace internal

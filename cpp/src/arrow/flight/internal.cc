@@ -17,6 +17,8 @@
 
 #include "arrow/flight/internal.h"
 
+#include "arrow/flight/customize_protobuf.h"
+
 #include <memory>
 #include <string>
 #include <utility>

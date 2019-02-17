@@ -207,9 +207,6 @@ services:
     #   docker-compose build lint
     #   docker-compose run iwyu
     image: arrow:lint
-    environment:
-      CC: clang
-      CXX: clang++
     command: arrow/dev/lint/run_iwyu.sh
     volumes: *ubuntu-volumes
 

@@ -108,7 +108,7 @@ const createClosureArgs = (entry_point, externs) => ({
     output_wrapper:`${apacheHeader()}
 (function (global, factory) {
     typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-    typeof define === 'function' && define.amd ? define(['Arrow'], factory) :
+    typeof define === 'function' && define.amd ? define(['exports'], factory) :
     (factory(global.Arrow = global.Arrow || {}));
 }(this, (function (exports) {%output%}.bind(this))));`
 });

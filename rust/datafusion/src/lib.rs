@@ -27,4 +27,5 @@ extern crate sqlparser;
 pub mod dfparser;
 pub mod execution;
 pub mod logicalplan;
+pub mod optimizer;
 pub mod sqlplanner;

@@ -45,7 +45,7 @@ class _ReadPandasOption(object):
         return table.to_pandas(**options)
 
 
-class RecordBatchStreamReader(lib._RecordBatchReader, _ReadPandasOption):
+class RecordBatchStreamReader(lib._RecordBatchStreamReader, _ReadPandasOption):
     """
     Reader for the Arrow streaming binary format
 
@@ -58,7 +58,7 @@ class RecordBatchStreamReader(lib._RecordBatchReader, _ReadPandasOption):
         self._open(source)
 
 
-class RecordBatchStreamWriter(lib._RecordBatchWriter):
+class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
     """
     Writer for the Arrow streaming binary format
 

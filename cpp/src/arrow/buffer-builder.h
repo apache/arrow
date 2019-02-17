@@ -24,6 +24,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "arrow/buffer.h"
 #include "arrow/status.h"
@@ -57,7 +58,6 @@ class ARROW_EXPORT BufferBuilder {
       return Status::OK();
     }
     int64_t old_capacity = capacity_;
-
     if (buffer_ == NULLPTR) {
       ARROW_RETURN_NOT_OK(AllocateResizableBuffer(pool_, new_capacity, &buffer_));
     } else {
@@ -131,6 +131,9 @@ class ARROW_EXPORT BufferBuilder {
   // Advance pointer and zero out memory
   Status Advance(const int64_t length) { return Append(length, 0); }
 
+  // Advance pointer, but don't allocate or zero memory
+  void UnsafeAdvance(const int64_t length) { size_ += length; }
+
   // Unsafe methods don't check existing size
   void UnsafeAppend(const void* data, const int64_t length) {
     memcpy(data_ + size_, data, static_cast<size_t>(length));
@@ -153,6 +156,7 @@ class ARROW_EXPORT BufferBuilder {
   /// \return Status
   Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
     ARROW_RETURN_NOT_OK(Resize(size_, shrink_to_fit));
+    if (size_ != 0) buffer_->ZeroPadding();
     *out = buffer_;
     Reset();
     return Status::OK();
@@ -209,6 +213,14 @@ class TypedBufferBuilder<T, typename std::enable_if<std::is_arithmetic<T>::value
   void UnsafeAppend(const T* values, int64_t num_elements) {
     bytes_builder_.UnsafeAppend(reinterpret_cast<const uint8_t*>(values),
                                 num_elements * sizeof(T));
+  }
+
+  template <typename Iter>
+  void UnsafeAppend(Iter values_begin, Iter values_end) {
+    int64_t num_elements = static_cast<int64_t>(std::distance(values_begin, values_end));
+    auto data = mutable_data() + length();
+    bytes_builder_.UnsafeAdvance(num_elements * sizeof(T));
+    std::copy(values_begin, values_end, data);
   }
 
   void UnsafeAppend(const int64_t num_copies, T value) {
@@ -284,7 +296,7 @@ class TypedBufferBuilder<bool> {
     int64_t i = 0;
     internal::GenerateBitsUnrolled(mutable_data(), bit_length_, num_elements, [&] {
       bool value = bytes[i++];
-      if (!value) ++false_count_;
+      false_count_ += !value;
       return value;
     });
     bit_length_ += num_elements;
@@ -292,10 +304,25 @@ class TypedBufferBuilder<bool> {
 
   void UnsafeAppend(const int64_t num_copies, bool value) {
     BitUtil::SetBitsTo(mutable_data(), bit_length_, num_copies, value);
-    if (!value) {
-      false_count_ += num_copies;
-    }
+    false_count_ += num_copies * !value;
     bit_length_ += num_copies;
+  }
+
+  template <bool count_falses, typename Generator>
+  void UnsafeAppend(const int64_t num_elements, Generator&& gen) {
+    if (num_elements == 0) return;
+
+    if (count_falses) {
+      internal::GenerateBitsUnrolled(mutable_data(), bit_length_, num_elements, [&] {
+        bool value = gen();
+        false_count_ += !value;
+        return value;
+      });
+    } else {
+      internal::GenerateBitsUnrolled(mutable_data(), bit_length_, num_elements,
+                                     std::forward<Generator>(gen));
+    }
+    bit_length_ += num_elements;
   }
 
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
@@ -320,6 +347,9 @@ class TypedBufferBuilder<bool> {
   }
 
   Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
+    // set bytes_builder_.size_ == byte size of data
+    bytes_builder_.UnsafeAdvance(BitUtil::BytesForBits(bit_length_) -
+                                 bytes_builder_.length());
     bit_length_ = false_count_ = 0;
     return bytes_builder_.Finish(out, shrink_to_fit);
   }

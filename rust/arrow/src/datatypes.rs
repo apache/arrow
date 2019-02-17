@@ -96,7 +96,10 @@ pub struct Field {
     nullable: bool,
 }
 
-pub trait ArrowNativeType: Send + Sync + Copy + PartialOrd + FromStr + 'static {}
+pub trait ArrowNativeType:
+    fmt::Debug + Send + Sync + Copy + PartialOrd + FromStr + 'static
+{
+}
 
 /// Trait indicating a primitive fixed-width type (bool, ints and floats).
 pub trait ArrowPrimitiveType: 'static {

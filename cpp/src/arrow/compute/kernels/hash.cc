@@ -64,9 +64,19 @@ namespace {
 // ----------------------------------------------------------------------
 // Unique implementation
 
-class UniqueAction {
+class ActionBase {
  public:
-  UniqueAction(const std::shared_ptr<DataType>& type, MemoryPool* pool) {}
+  ActionBase(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+      : type_(type), pool_(pool) {}
+
+ protected:
+  std::shared_ptr<DataType> type_;
+  MemoryPool* pool_;
+};
+
+class UniqueAction : public ActionBase {
+ public:
+  using ActionBase::ActionBase;
 
   Status Reset() { return Status::OK(); }
 
@@ -81,15 +91,17 @@ class UniqueAction {
   void ObserveNotFound(Index index) {}
 
   Status Flush(Datum* out) { return Status::OK(); }
+
+  std::shared_ptr<DataType> out_type() const { return type_; }
 };
 
 // ----------------------------------------------------------------------
 // Dictionary encode implementation
 
-class DictEncodeAction {
+class DictEncodeAction : public ActionBase {
  public:
   DictEncodeAction(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : indices_builder_(pool) {}
+      : ActionBase(type, pool), indices_builder_(pool) {}
 
   Status Reset() {
     indices_builder_.Reset();
@@ -116,6 +128,8 @@ class DictEncodeAction {
     out->value = std::move(result);
     return Status::OK();
   }
+
+  std::shared_ptr<DataType> out_type() const { return int32(); }
 
  private:
   Int32Builder indices_builder_;
@@ -184,6 +198,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
     return Status::OK();
   }
 
+  std::shared_ptr<DataType> out_type() const override { return action_.out_type(); }
+
  protected:
   using MemoTable = typename HashTraits<Type>::MemoTableType;
 
@@ -220,6 +236,8 @@ class NullHashKernelImpl : public HashKernelImpl {
     *out = null_array->data();
     return Status::OK();
   }
+
+  std::shared_ptr<DataType> out_type() const override { return null(); }
 
  protected:
   MemoryPool* pool_;

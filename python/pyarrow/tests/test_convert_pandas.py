@@ -607,6 +607,20 @@ class TestConvertPrimitiveTypes(object):
             arr = pa.array(np_arr)
             assert arr.to_pylist() == np_arr.tolist()
 
+    def test_integer_byteorder(self):
+        # Byteswapped arrays are not supported yet
+        int_dtypes = ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8']
+        for dt in int_dtypes:
+            for order in '=<>':
+                data = np.array([1, 2, 42], dtype=order + dt)
+                for np_arr in (data, data[::2]):
+                    if data.dtype.isnative:
+                        arr = pa.array(data)
+                        assert arr.to_pylist() == data.tolist()
+                    else:
+                        with pytest.raises(NotImplementedError):
+                            arr = pa.array(data)
+
     def test_integer_with_nulls(self):
         # pandas requires upcast to float dtype
 

@@ -28,9 +28,10 @@
 namespace arrow {
 namespace compute {
 
-template <typename CType, typename SumType = typename FindAccumulatorType<CType>::Type>
+template <typename ArrowType,
+          typename SumType = typename FindAccumulatorType<ArrowType>::Type>
 struct SumState {
-  using ThisType = SumState<CType, SumType>;
+  using ThisType = SumState<ArrowType, SumType>;
 
   ThisType operator+(const ThisType& rhs) const {
     return ThisType(this->count + rhs.count, this->sum + rhs.sum);
@@ -43,11 +44,16 @@ struct SumState {
     return *this;
   }
 
+  std::shared_ptr<Scalar> AsScalar() const {
+    using ScalarType = typename TypeTraits<SumType>::ScalarType;
+    return std::make_shared<ScalarType>(this->sum);
+  }
+
   size_t count = 0;
-  SumType sum = 0;
+  typename SumType::c_type sum = 0;
 };
 
-template <typename ArrowType, typename StateType = SumState<typename ArrowType::c_type>>
+template <typename ArrowType, typename StateType = SumState<ArrowType>>
 class SumAggregateFunction final : public AggregateFunctionStaticState<StateType> {
   using CType = typename TypeTraits<ArrowType>::CType;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
@@ -71,8 +77,17 @@ class SumAggregateFunction final : public AggregateFunctionStaticState<StateType
   }
 
   Status Finalize(const StateType& src, Datum* output) const override {
-    *output = (src.count > 0) ? Datum(Scalar(src.sum)) : Datum();
+    auto boxed = src.AsScalar();
+    if (src.count == 0) {
+      // TODO(wesm): Currently null, but fix this
+      boxed->is_valid = false;
+    }
+    *output = boxed;
     return Status::OK();
+  }
+
+  std::shared_ptr<DataType> out_type() const override {
+    return TypeTraits<typename FindAccumulatorType<ArrowType>::Type>::type_singleton();
   }
 
  private:
@@ -185,7 +200,7 @@ Status Sum(FunctionContext* ctx, const Datum& value, Datum* out) {
 }
 
 Status Sum(FunctionContext* ctx, const Array& array, Datum* out) {
-  return Sum(ctx, Datum(array.data()), out);
+  return Sum(ctx, array.data(), out);
 }
 
 }  // namespace compute

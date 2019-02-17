@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/flight/server.h"
+#include "arrow/flight/protocol-internal.h"
 
 #include <cstdint>
 #include <memory>
@@ -29,8 +30,6 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
-#include "arrow/flight/Flight.grpc.pb.h"
-#include "arrow/flight/Flight.pb.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/serialization-internal.h"
 #include "arrow/flight/types.h"
@@ -73,13 +72,9 @@ class FlightMessageReaderImpl : public FlightMessageReader {
       return Status::OK();
     }
 
-    // XXX this cast is undefined behavior
-    auto custom_reader = reinterpret_cast<grpc::ServerReader<FlightData>*>(reader_);
-
     FlightData data;
-    // Explicitly specify the override to invoke - otherwise compiler
-    // may invoke through vtable (not updated by reinterpret_cast)
-    if (custom_reader->grpc::ServerReader<FlightData>::Read(&data)) {
+    // Pretend to be pb::FlightData and intercept in SerializationTraits
+    if (reader_->Read(reinterpret_cast<pb::FlightData*>(&data))) {
       std::unique_ptr<ipc::Message> message;
 
       // Validate IPC message
@@ -184,26 +179,23 @@ class FlightServiceImpl : public FlightService::Service {
     std::unique_ptr<FlightDataStream> data_stream;
     GRPC_RETURN_NOT_OK(server_->DoGet(ticket, &data_stream));
 
-    // Requires ServerWriter customization in grpc_customizations.h
-    // XXX this cast is undefined behavior
-    auto custom_writer = reinterpret_cast<ServerWriter<IpcPayload>*>(writer);
-
     // Write the schema as the first message in the stream
     IpcPayload schema_payload;
     MemoryPool* pool = default_memory_pool();
     ipc::DictionaryMemo dictionary_memo;
     GRPC_RETURN_NOT_OK(ipc::internal::GetSchemaPayload(
         *data_stream->schema(), pool, &dictionary_memo, &schema_payload));
-    // Explicitly specify the override to invoke - otherwise compiler
-    // may invoke through vtable (not updated by reinterpret_cast)
-    custom_writer->grpc::ServerWriter<IpcPayload>::Write(schema_payload,
-                                                         grpc::WriteOptions());
+
+    // Pretend to be pb::FlightData, we cast back to IpcPayload in SerializationTraits
+    writer->Write(*reinterpret_cast<const pb::FlightData*>(&schema_payload),
+                  grpc::WriteOptions());
 
     while (true) {
       IpcPayload payload;
       GRPC_RETURN_NOT_OK(data_stream->Next(&payload));
       if (payload.metadata == nullptr ||
-          !custom_writer->Write(payload, grpc::WriteOptions())) {
+          !writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
+                         grpc::WriteOptions())) {
         // No more messages to write, or connection terminated for some other
         // reason
         break;

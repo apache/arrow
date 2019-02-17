@@ -86,6 +86,10 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
   fi
 fi
 
+if [ "$ARROW_TRAVIS_FLIGHT" == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_FLIGHT=ON"
+fi
+
 if [ "$ARROW_TRAVIS_PLASMA" == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_PLASMA=ON"
 fi
@@ -147,7 +151,6 @@ else
     if [ "$using_homebrew" = "yes" ]; then
 	# build against homebrew's boost if we're using it
 	export BOOST_ROOT=$(brew --prefix boost)
-	export LLVM_DIR=$(brew --prefix llvm@6)/lib/cmake/llvm
 	export THRIFT_HOME=$(brew --prefix thrift)
     fi
     cmake $CMAKE_COMMON_FLAGS \

@@ -21,19 +21,18 @@ add_custom_target(arrow_flight)
 arrow_install_all_headers("arrow/flight")
 
 set(ARROW_FLIGHT_STATIC_LINK_LIBS
-    protobuf_static
+    ${PROTOBUF_LIBRARY}
     grpc_grpcpp_static
     grpc_grpc_static
     grpc_gpr_static
     grpc_address_sorting_static
     cares_static)
 
-set(ARROW_FLIGHT_TEST_STATIC_LINK_LIBS
-    arrow_static
-    arrow_flight_static
-    arrow_testing_static
-    ${ARROW_FLIGHT_STATIC_LINK_LIBS}
-    ${PROTOBUF_LIBRARY})
+set(ARROW_FLIGHT_TEST_LINK_LIBS
+    arrow_flight_shared
+    arrow_flight_testing_shared
+    ${ARROW_TEST_SHARED_LINK_LIBS}
+    ${ARROW_FLIGHT_STATIC_LINK_LIBS})
 
 # TODO(wesm): Protobuf shared vs static linking
 
@@ -59,11 +58,16 @@ add_custom_command(
 
 set_source_files_properties(${FLIGHT_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
 
+add_custom_target(flight_grpc_gen ALL DEPENDS ${FLIGHT_GENERATED_PROTO_FILES})
+
+# Note, we do not compile the generated Protobuf sources directly, instead
+# compiling then via protocol-internal.cc which contains some gRPC template
+# overrides to enable Flight-specific optimizations. See comments in
+# protobuf-internal.cc
 set(ARROW_FLIGHT_SRCS
     client.cc
-    Flight.pb.cc
-    Flight.grpc.pb.cc
     internal.cc
+    protocol-internal.cc
     serialization-internal.cc
     server.cc
     types.cc)
@@ -71,6 +75,8 @@ set(ARROW_FLIGHT_SRCS
 add_arrow_lib(arrow_flight
               SOURCES
               ${ARROW_FLIGHT_SRCS}
+              DEPENDENCIES
+              flight_grpc_gen
               SHARED_LINK_LIBS
               arrow_shared
               ${ARROW_FLIGHT_STATIC_LINK_LIBS}
@@ -78,25 +84,44 @@ add_arrow_lib(arrow_flight
               arrow_static
               ${ARROW_FLIGHT_STATIC_LINK_LIBS})
 
+# Define arrow_flight_testing library
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+  add_arrow_lib(arrow_flight_testing
+                SOURCES
+                test-util.cc
+                DEPENDENCIES
+                ${GTEST_LIBRARY}
+                flight_grpc_gen
+                SHARED_LINK_LIBS
+                arrow_shared
+                arrow_flight_shared
+                ${BOOST_FILESYSTEM_LIBRARY}
+                ${BOOST_SYSTEM_LIBRARY}
+                ${GTEST_LIBRARY}
+                STATIC_LINK_LIBS
+                arrow_static
+                arrow_flight_static)
+endif()
+
 add_arrow_test(flight-test
                EXTRA_LINK_LIBS
-               ${ARROW_FLIGHT_TEST_STATIC_LINK_LIBS}
+               ${ARROW_FLIGHT_TEST_LINK_LIBS}
                LABELS
                "arrow_flight")
 
 # Build test server for unit tests or benchmarks
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_executable(flight-test-server test-server.cc)
-  target_link_libraries(flight-test-server ${ARROW_FLIGHT_TEST_STATIC_LINK_LIBS}
-                        gflags_static ${GTEST_LIBRARY})
+  target_link_libraries(flight-test-server ${ARROW_FLIGHT_TEST_LINK_LIBS} gflags_static
+                        ${GTEST_LIBRARY})
 
   add_executable(flight-test-integration-server test-integration-server.cc)
-  target_link_libraries(flight-test-integration-server
-                        ${ARROW_FLIGHT_TEST_STATIC_LINK_LIBS} gflags_static gtest_static)
+  target_link_libraries(flight-test-integration-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
+                        gflags_static gtest_static)
 
   add_executable(flight-test-integration-client test-integration-client.cc)
-  target_link_libraries(flight-test-integration-client
-                        ${ARROW_FLIGHT_TEST_STATIC_LINK_LIBS} gflags_static gtest_static)
+  target_link_libraries(flight-test-integration-client ${ARROW_FLIGHT_TEST_LINK_LIBS}
+                        gflags_static gtest_static)
 
   # This is needed for the unit tests
   if(ARROW_BUILD_TESTS)
@@ -116,9 +141,9 @@ if(ARROW_BUILD_BENCHMARKS)
 
   add_executable(flight-perf-server perf-server.cc perf.pb.cc)
   target_link_libraries(flight-perf-server
-                        arrow_flight_static
-                        arrow_testing_static
-                        ${ARROW_FLIGHT_STATIC_LINK_LIBS}
+                        arrow_flight_shared
+                        arrow_flight_testing_shared
+                        ${ARROW_FLIGHT_TEST_LINK_LIBS}
                         gflags_static
                         ${GTEST_LIBRARY})
 
@@ -126,7 +151,7 @@ if(ARROW_BUILD_BENCHMARKS)
   target_link_libraries(flight-benchmark
                         arrow_flight_static
                         arrow_testing_static
-                        ${ARROW_FLIGHT_STATIC_LINK_LIBS}
+                        ${ARROW_FLIGHT_TEST_LINK_LIBS}
                         gflags_static
                         ${GTEST_LIBRARY})
 
