@@ -294,11 +294,7 @@ mod tests {
             input: Rc::new(table_scan),
         };
 
-        assert_optimized_plan_eq(
-            &aggregate,
-            "Aggregate: groupBy=[[]], aggr=[[#0]]\n"
-                + "  TableScan: test projection=Some([1])",
-        );
+        assert_optimized_plan_eq(&aggregate, "Aggregate: groupBy=[[]], aggr=[[#0]]\n  TableScan: test projection=Some([1])");
     }
 
     #[test]
@@ -315,11 +311,7 @@ mod tests {
             input: Rc::new(table_scan),
         };
 
-        assert_optimized_plan_eq(
-            &aggregate,
-            "Aggregate: groupBy=[[#1]], aggr=[[#0]]\n"
-                + "  TableScan: test projection=Some([1, 2])",
-        );
+        assert_optimized_plan_eq(&aggregate, "Aggregate: groupBy=[[#1]], aggr=[[#0]]\n  TableScan: test projection=Some([1, 2])");
     }
 
     #[test]
@@ -342,12 +334,7 @@ mod tests {
             input: Rc::new(selection),
         };
 
-        assert_optimized_plan_eq(
-            &aggregate,
-            "Aggregate: groupBy=[[]], aggr=[[#0]]\n"
-                + "  Selection: #1\n"
-                + "    TableScan: test projection=Some([1, 2])",
-        );
+        assert_optimized_plan_eq(&aggregate, "Aggregate: groupBy=[[]], aggr=[[#0]]\n  Selection: #1\n    TableScan: test projection=Some([1, 2])");
     }
 
     #[test]
@@ -369,8 +356,7 @@ mod tests {
 
         assert_optimized_plan_eq(
             &projection,
-            "Projection: CAST(#0 AS Float64)\n"
-                + "  TableScan: test projection=Some([2])",
+            "Projection: CAST(#0 AS Float64)\n  TableScan: test projection=Some([2])",
         );
     }
 
