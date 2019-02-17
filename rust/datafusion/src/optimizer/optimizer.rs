@@ -15,17 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! DataFusion is a modern distributed compute platform implemented in Rust that uses Apache Arrow
-//! as the memory model
+//! Query optimizer traits
 
-extern crate arrow;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-extern crate sqlparser;
+use crate::logicalplan::LogicalPlan;
+use arrow::error::Result;
+use std::rc::Rc;
 
-pub mod dfparser;
-pub mod execution;
-pub mod logicalplan;
-pub mod optimizer;
-pub mod sqlplanner;
+/// An optimizer rules performs a transformation on a logical plan to produce an optimized logical plan.
+pub trait OptimizerRule {
+    fn optimize(&mut self, plan: &LogicalPlan) -> Result<Rc<LogicalPlan>>;
+}
