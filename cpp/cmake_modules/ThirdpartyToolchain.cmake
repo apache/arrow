@@ -653,6 +653,7 @@ if(ARROW_NEED_GFLAGS)
     ADD_THIRDPARTY_LIB(gflags
       STATIC_LIB ${GFLAGS_STATIC_LIB})
     set(GFLAGS_LIBRARY gflags_static)
+    target_compile_definitions(${GFLAGS_LIBRARY} INTERFACE "GFLAGS_IS_A_DLL=0")
     if(MSVC)
       set_target_properties(${GFLAGS_LIBRARY}
 	PROPERTIES

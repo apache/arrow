@@ -15,11 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// ARROW-3837: Depending on how gflags was built, this might be set to
-// 1 or 0 by default, making it so that we cannot statically link
-// gflags on Windows if it is set to 1
-#define GFLAGS_IS_A_DLL 0
-
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
