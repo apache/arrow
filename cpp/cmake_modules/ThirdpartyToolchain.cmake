@@ -38,6 +38,7 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(GFLAGS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(GLOG_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(GRPC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(GBENCHMARK_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   # Using gtest from the toolchain breaks AppVeyor and
   # trusty builds
   if (NOT MSVC)
@@ -105,6 +106,10 @@ endif()
 
 if (DEFINED ENV{GRPC_HOME})
   set(GRPC_HOME "$ENV{GRPC_HOME}")
+endif()
+
+if (DEFINED ENV{GBENCHMARK_HOME})
+  set(GBENCHMARK_HOME "$ENV{GBENCHMARK_HOME}")
 endif()
 
 if (DEFINED ENV{GTEST_HOME})
@@ -761,7 +766,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
-  if("$ENV{GBENCHMARK_HOME}" STREQUAL "")
+  if("${GBENCHMARK_HOME}" STREQUAL "")
     if(CMAKE_VERSION VERSION_LESS 3.6)
       message(FATAL_ERROR "Building gbenchmark from source requires at least CMake 3.6")
     endif()

@@ -33,8 +33,8 @@
 if( NOT "$ENV{GBENCHMARK_HOME}" STREQUAL "")
     file( TO_CMAKE_PATH "$ENV{GBENCHMARK_HOME}" _native_path )
     list( APPEND _gbenchmark_roots ${_native_path} )
-elseif ( GBenchmark_HOME )
-    list( APPEND _gbenchmark_roots ${GBenchmark_HOME} )
+elseif ( GBENCHMARK_HOME )
+    list( APPEND _gbenchmark_roots ${GBENCHMARK_HOME} )
 endif()
 
 # Try the parameterized roots, if they exist

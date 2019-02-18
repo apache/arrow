@@ -33,7 +33,7 @@ if(ARROW_BUILD_BENCHMARKS)
   elseif(MSVC)
     target_link_libraries(arrow_benchmark_main gbenchmark_static Shlwapi.lib)
   else()
-    target_link_libraries(arrow_benchmark_main gbenchmark_static pthread)
+    target_link_libraries(arrow_benchmark_main gbenchmark_static Threads::Threads)
   endif()
 
   # TODO(wesm): Some benchmarks include gtest.h
