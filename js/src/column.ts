@@ -39,12 +39,13 @@ export class Column<T extends DataType = any>
     public static new<T extends DataType>(field: string | Field<T>, ...chunks: (Vector<T> | Vector<T>[])[]): Column<T>;
     public static new<T extends DataType>(field: string | Field<T>, data: Data<T>, ...args: VectorCtorArgs<V<T>>): Column<T>;
     /** @nocollapse */
-    public static new<T extends DataType>(field: string | Field<T>, data: Data<T> | Vector<T> | Vector<T>[], ...rest: any[]): any {
+    public static new<T extends DataType = any>(field: string | Field<T>, data: Data<T> | Vector<T> | (Data<T> | Vector<T>)[], ...rest: any[]) {
 
-        const chunks = Chunked.flatten<T>(...(
+        const chunks = Chunked.flatten<T>(
             Array.isArray(data) ? [...data, ...rest] :
             data instanceof Vector ? [data, ...rest] :
-            [Vector.new(data, ...rest)]));
+            [Vector.new(data, ...rest)]
+        );
 
         if (typeof field === 'string') {
             const type = chunks[0].data.type;
@@ -56,7 +57,7 @@ export class Column<T extends DataType = any>
     }
 
     constructor(field: Field<T>, vectors: Vector<T>[] = [], offsets?: Uint32Array) {
-        vectors = Chunked.flatten(...vectors);
+        vectors = Chunked.flatten<T>(...vectors);
         super(field.type, vectors, offsets);
         this._field = field;
         if (vectors.length === 1 && !(this instanceof SingleChunkColumn)) {

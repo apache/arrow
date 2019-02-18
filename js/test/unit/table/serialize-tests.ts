@@ -21,12 +21,11 @@ import {
     Table, Schema, Field, DataType, Dictionary, Int32, Float32, Utf8
 } from '../../Arrow';
 
-type TypeMap = { [key: string]: DataType; };
 const toSchema = (...xs: [string, DataType][]) => new Schema(xs.map((x) => new Field(...x)));
 const schema1 = toSchema(['a', new Int32()], ['b', new Float32()], ['c', new Dictionary(new Utf8(), new Int32())]);
 const schema2 = toSchema(['d', new Int32()], ['e', new Float32()], ['f', new Utf8()]);
 
-function createTable<T extends TypeMap = any>(schema: Schema<T>, chunkLengths: number[]) {
+function createTable<T extends { [key: string]: DataType } = any>(schema: Schema<T>, chunkLengths: number[]) {
     return generate.table(chunkLengths, schema).table;
 }
 
@@ -34,7 +33,7 @@ describe('Table#serialize()', () => {
     const chunkLengths = [] as number[];
     for (let i = -1; ++i < 3;) {
         chunkLengths[i] = (Math.random() * 100) | 0;
-        const table = <T extends TypeMap = any>(schema: Schema<T>) => createTable(schema, chunkLengths);
+        const table = <T extends { [key: string]: DataType } = any>(schema: Schema<T>) => createTable(schema, chunkLengths);
         test(`Table#select round-trips through serialization`, () => {
             const source = table(schema1).select('a', 'c');
             expect(source.numCols).toBe(2);

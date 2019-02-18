@@ -124,8 +124,8 @@ export class Table<T extends { [key: string]: DataType; } = any>
 
     constructor(batches: RecordBatch<T>[]);
     constructor(...batches: RecordBatch<T>[]);
-    constructor(schema: Schema, batches: RecordBatch<T>[]);
-    constructor(schema: Schema, ...batches: RecordBatch<T>[]);
+    constructor(schema: Schema<T>, batches: RecordBatch<T>[]);
+    constructor(schema: Schema<T>, ...batches: RecordBatch<T>[]);
     constructor(...args: any[]) {
 
         let schema: Schema = null!;
@@ -160,6 +160,9 @@ export class Table<T extends { [key: string]: DataType; } = any>
         return new Table<T>(this._schema, chunks);
     }
 
+    public getColumn<R extends keyof T>(name: R): Column<T[R]> {
+        return this.getColumnAt(this.getColumnIndex(name)) as Column<T[R]>;
+    }
     public getColumnAt<R extends DataType = any>(index: number): Column<R> | null {
         return this.getChildAt(index);
     }

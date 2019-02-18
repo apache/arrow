@@ -186,7 +186,7 @@ type DataTypeToVector<T extends DataType = any> =
     T extends type.Map_                 ? vecs.MapVector<T['dataTypes']>           :
     T extends type.List                 ? vecs.ListVector<T['valueType']>          :
     T extends type.Struct               ? vecs.StructVector<T['dataTypes']>        :
-    T extends type.Dictionary           ? vecs.DictionaryVector<T['valueType'], T['indices']>    :
+    T extends type.Dictionary           ? vecs.DictionaryVector<T['valueType'], T['indices']> :
     T extends type.FixedSizeList        ? vecs.FixedSizeListVector<T['valueType']> :
                                           vecs.BaseVector<T>
     ;

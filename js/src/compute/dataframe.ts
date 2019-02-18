@@ -101,7 +101,7 @@ export class CountByResult<T extends DataType = any, TCount extends Int = Int> e
     }
 }
 
-export class FilteredDataFrame<T extends { [key: string]: DataType; } = any> extends DataFrame<T> {
+export class FilteredDataFrame<T extends { [key: string]: DataType } = any> extends DataFrame<T> {
     private _predicate: Predicate;
     constructor (batches: RecordBatch<T>[], predicate: Predicate) {
         super(batches);

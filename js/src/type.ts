@@ -38,7 +38,7 @@ export type IntBitWidth = 8 | 16 | 32 | 64;
 /** @ignore */
 export type IsSigned = { 'true': true; 'false': false };
 /** @ignore */
-export type RowLike<T extends { [key: string]: DataType; }> =
+export type RowLike<T extends { [key: string]: DataType }> =
       { readonly length: number }
     & ( Iterable<T[keyof T]['TValue']> )
     & { [P in keyof T]: T[P]['TValue'] }
@@ -356,8 +356,8 @@ export class List<T extends DataType = any> extends DataType<Type.List, { [0]: T
     })(List.prototype);
 }
 
-export interface Struct<T extends { [key: string]: DataType; } = any> extends DataType<Type.Struct> { TArray: IterableArrayLike<RowLike<T>>; TValue: RowLike<T>; dataTypes: T; }
-export class Struct<T extends { [key: string]: DataType; } = any> extends DataType<Type.Struct, T> {
+export interface Struct<T extends { [key: string]: DataType } = any> extends DataType<Type.Struct> { TArray: IterableArrayLike<RowLike<T>>; TValue: RowLike<T>; dataTypes: T; }
+export class Struct<T extends { [key: string]: DataType } = any> extends DataType<Type.Struct, T> {
     constructor(protected _children: Field<T[keyof T]>[]) {
         super(_children);
     }
@@ -445,8 +445,8 @@ export class FixedSizeList<T extends DataType = any> extends DataType<Type.Fixed
     })(FixedSizeList.prototype);
 }
 
-export interface Map_<T extends { [key: string]: DataType; } = any> extends DataType<Type.Map> { TArray: Uint8Array; TValue: RowLike<T>; dataTypes: T; }
-export class Map_<T extends { [key: string]: DataType; } = any> extends DataType<Type.Map, T> {
+export interface Map_<T extends { [key: string]: DataType } = any> extends DataType<Type.Map> { TArray: Uint8Array; TValue: RowLike<T>; dataTypes: T; }
+export class Map_<T extends { [key: string]: DataType } = any> extends DataType<Type.Map, T> {
     constructor(protected _children: Field<T[keyof T]>[],
                 protected _keysSorted: boolean = false) {
         super(_children);
