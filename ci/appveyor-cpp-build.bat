@@ -44,6 +44,7 @@ if "%JOB%" == "Static_Crt_Build" (
   cmake --build . --config Debug || exit /B
   ctest --output-on-failure -j2 || exit /B
   popd
+  rmdir /S /Q cpp\build-debug
 
   mkdir cpp\build-release
   pushd cpp\build-release

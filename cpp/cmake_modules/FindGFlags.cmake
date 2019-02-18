@@ -53,7 +53,6 @@ if(GFLAGS_FOUND)
   unset(_GFLAGS_TARGET_CONFIG)
   return()
 endif()
-set(GFLAGS_FOUND FALSE)
 
 pkg_check_modules(GFLAGS gflags)
 if(GFLAGS_FOUND)
