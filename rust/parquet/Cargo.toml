@@ -30,7 +30,6 @@ edition = "2018"
 
 [dependencies]
 parquet-format = "~2.5"
-parquet_derive = { version = "0.15.0-SNAPSHOT", path = "./parquet_derive" }
 quick-error = "1.2.2"
 byteorder = "1"
 thrift = "0.0.4"

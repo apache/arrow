@@ -32,29 +32,6 @@
 //!     println!("{:?}", record);
 //! }
 //! ```
-//!
-//! Example usage of reading data strongly-typed:
-//!
-//! ```rust,no_run
-//! use std::fs::File;
-//! use std::path::Path;
-//! use parquet::file::reader::{FileReader, SerializedFileReader};
-//! use parquet::record::{Record, types::Timestamp};
-//!
-//! #[derive(Record, Debug)]
-//! struct MyRow {
-//!     id: u64,
-//!     time: Timestamp,
-//!     event: String,
-//! }
-//!
-//! let file = File::open(&Path::new("/path/to/file")).unwrap();
-//! let reader = SerializedFileReader::new(file).unwrap();
-//! let iter = reader.get_row_iter::<MyRow>(None).unwrap();
-//! for record in iter.map(Result::unwrap) {
-//!     println!("{}: {}", record.time, record.event);
-//! }
-//! ```
 
 mod display;
 mod reader;
@@ -74,8 +51,6 @@ use crate::{
     schema::types::{ColumnPath, Type},
 };
 
-#[doc(inline)]
-pub use parquet_derive::Record;
 pub use reader::RowIter;
 pub use schemas::RootSchema;
 #[doc(hidden)]
@@ -141,34 +116,6 @@ pub(crate) use self::predicate::Predicate;
 ///
 /// The implementation for tuples is only for those up to length 32. The implementation
 /// for arrays is only for common array lengths. See [`Record`] for more details.
-///
-/// ## `#[derive(Record)]`
-///
-/// The easiest way to implement `Record` on a new type is using `#[derive(Record)]`:
-///
-/// ```
-/// use parquet::record::{types::Timestamp, Record};
-///
-/// #[derive(Record, Debug)]
-/// struct MyRow {
-///     id: u64,
-///     time: Timestamp,
-///     event: String,
-/// }
-/// ```
-///
-/// If the Rust field name and the Parquet field name differ, say if the latter is not an idiomatic or valid identifier in Rust, then an automatic rename can be made like so:
-///
-/// ```
-/// # use parquet::record::{types::Timestamp, Record};
-/// #[derive(Record, Debug)]
-/// struct MyRow {
-///     #[parquet(rename = "ID")]
-///     id: u64,
-///     time: Timestamp,
-///     event: String,
-/// }
-/// ```
 pub trait Record: Sized {
     type Schema: Schema;
     type Reader: Reader<Item = Self>;
