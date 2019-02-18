@@ -628,7 +628,7 @@ class CastKernelBase : public UnaryKernel {
 };
 
 bool NeedToPreallocate(const DataType& type) {
-  return dynamic_cast<const FixedWidthType*>(&type) != nullptr;
+  return checked_cast<const FixedWidthType*>(&type) != nullptr;
 }
 
 Status InvokeWithAllocation(FunctionContext* ctx, UnaryKernel* func, const Datum& input,

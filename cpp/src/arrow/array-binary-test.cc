@@ -41,6 +41,7 @@ using std::string;
 using std::vector;
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 // ----------------------------------------------------------------------
 // String / Binary tests
@@ -184,7 +185,7 @@ TEST_F(TestStringArray, TestSliceGetString) {
   std::shared_ptr<Array> array;
   ASSERT_OK(builder.Finish(&array));
   auto s = array->Slice(1, 10);
-  auto arr = std::dynamic_pointer_cast<StringArray>(s);
+  auto arr = checked_pointer_cast<StringArray>(s);
   ASSERT_EQ(arr->GetString(0), "b");
 }
 
@@ -202,7 +203,7 @@ class TestStringBuilder : public TestBuilder {
     std::shared_ptr<Array> out;
     FinishAndCheckPadding(builder_.get(), &out);
 
-    result_ = std::dynamic_pointer_cast<StringArray>(out);
+    result_ = checked_pointer_cast<StringArray>(out);
     ASSERT_OK(ValidateArray(*result_));
   }
 
@@ -491,7 +492,7 @@ class TestBinaryBuilder : public TestBuilder {
     std::shared_ptr<Array> out;
     FinishAndCheckPadding(builder_.get(), &out);
 
-    result_ = std::dynamic_pointer_cast<BinaryArray>(out);
+    result_ = checked_pointer_cast<BinaryArray>(out);
     ASSERT_OK(ValidateArray(*result_));
   }
 

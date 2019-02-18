@@ -40,6 +40,7 @@ using std::string;
 using std::vector;
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 // ----------------------------------------------------------------------
 // Dictionary tests
@@ -639,10 +640,10 @@ TEST(TestDictionary, Basics) {
   ArrayFromVector<Int32Type, int32_t>(values, &dict);
 
   std::shared_ptr<DictionaryType> type1 =
-      std::dynamic_pointer_cast<DictionaryType>(dictionary(int16(), dict));
+      checked_pointer_cast<DictionaryType>(dictionary(int16(), dict));
 
   auto type2 =
-      std::dynamic_pointer_cast<DictionaryType>(::arrow::dictionary(int16(), dict, true));
+      checked_pointer_cast<DictionaryType>(::arrow::dictionary(int16(), dict, true));
 
   ASSERT_TRUE(int16()->Equals(type1->index_type()));
   ASSERT_TRUE(type1->dictionary()->Equals(dict));

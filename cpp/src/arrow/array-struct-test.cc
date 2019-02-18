@@ -37,6 +37,7 @@ using std::string;
 using std::vector;
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 // ----------------------------------------------------------------------
 // Struct tests
@@ -51,9 +52,9 @@ void ValidateBasicStructArray(const StructArray* result,
   ASSERT_EQ(4, result->length());
   ASSERT_OK(ValidateArray(*result));
 
-  auto list_char_arr = std::dynamic_pointer_cast<ListArray>(result->field(0));
-  auto char_arr = std::dynamic_pointer_cast<Int8Array>(list_char_arr->values());
-  auto int32_arr = std::dynamic_pointer_cast<Int32Array>(result->field(1));
+  auto list_char_arr = checked_pointer_cast<ListArray>(result->field(0));
+  auto char_arr = checked_pointer_cast<Int8Array>(list_char_arr->values());
+  auto int32_arr = checked_pointer_cast<Int32Array>(result->field(1));
 
   ASSERT_EQ(nullptr, result->GetFieldByName("non-existing"));
   ASSERT_TRUE(list_char_arr->Equals(result->GetFieldByName("list")));
@@ -108,7 +109,7 @@ class TestStructBuilder : public TestBuilder {
   void Done() {
     std::shared_ptr<Array> out;
     FinishAndCheckPadding(builder_.get(), &out);
-    result_ = std::dynamic_pointer_cast<StructArray>(out);
+    result_ = checked_pointer_cast<StructArray>(out);
   }
 
  protected:
@@ -421,38 +422,38 @@ TEST_F(TestStructBuilder, TestSlice) {
   std::shared_ptr<Int32Array> int_field;
   std::shared_ptr<ListArray> list_field;
 
-  slice = std::dynamic_pointer_cast<StructArray>(array->Slice(2));
-  slice2 = std::dynamic_pointer_cast<StructArray>(array->Slice(2));
+  slice = checked_pointer_cast<StructArray>(array->Slice(2));
+  slice2 = checked_pointer_cast<StructArray>(array->Slice(2));
   ASSERT_EQ(array->length() - 2, slice->length());
 
   ASSERT_TRUE(slice->Equals(slice2));
   ASSERT_TRUE(array->RangeEquals(2, slice->length(), 0, slice));
 
-  int_field = std::dynamic_pointer_cast<Int32Array>(slice->field(1));
+  int_field = checked_pointer_cast<Int32Array>(slice->field(1));
   ASSERT_EQ(int_field->length(), slice->length());
   ASSERT_EQ(int_field->Value(0), 103);
   ASSERT_EQ(int_field->Value(1), 104);
   ASSERT_EQ(int_field->null_count(), 0);
-  list_field = std::dynamic_pointer_cast<ListArray>(slice->field(0));
+  list_field = checked_pointer_cast<ListArray>(slice->field(0));
   ASSERT_FALSE(list_field->IsNull(0));
   ASSERT_FALSE(list_field->IsNull(1));
   ASSERT_EQ(list_field->value_length(0), 3);
   ASSERT_EQ(list_field->value_length(1), 4);
   ASSERT_EQ(list_field->null_count(), 0);
 
-  slice = std::dynamic_pointer_cast<StructArray>(array->Slice(1, 2));
-  slice2 = std::dynamic_pointer_cast<StructArray>(array->Slice(1, 2));
+  slice = checked_pointer_cast<StructArray>(array->Slice(1, 2));
+  slice2 = checked_pointer_cast<StructArray>(array->Slice(1, 2));
   ASSERT_EQ(2, slice->length());
 
   ASSERT_TRUE(slice->Equals(slice2));
   ASSERT_TRUE(array->RangeEquals(1, 3, 0, slice));
 
-  int_field = std::dynamic_pointer_cast<Int32Array>(slice->field(1));
+  int_field = checked_pointer_cast<Int32Array>(slice->field(1));
   ASSERT_EQ(int_field->length(), slice->length());
   ASSERT_EQ(int_field->Value(0), 102);
   ASSERT_EQ(int_field->Value(1), 103);
   ASSERT_EQ(int_field->null_count(), 0);
-  list_field = std::dynamic_pointer_cast<ListArray>(slice->field(0));
+  list_field = checked_pointer_cast<ListArray>(slice->field(0));
   ASSERT_TRUE(list_field->IsNull(0));
   ASSERT_FALSE(list_field->IsNull(1));
   ASSERT_EQ(list_field->value_length(0), 0);

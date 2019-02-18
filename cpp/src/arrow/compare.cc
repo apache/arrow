@@ -311,7 +311,7 @@ class RangeEqualsVisitor {
 };
 
 static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& right) {
-  const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
+  const auto& size_meta = checked_cast<const FixedWidthType&>(*left.type());
   const int byte_width = size_meta.bit_width() / CHAR_BIT;
 
   const uint8_t* left_data = nullptr;
@@ -769,7 +769,7 @@ bool TensorEquals(const Tensor& left, const Tensor& right) {
             StridedTensorContentEquals(0, 0, 0, type.bit_width() / 8, left, right);
       }
     } else {
-      const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
+      const auto& size_meta = checked_cast<const FixedWidthType&>(*left.type());
       const int byte_width = size_meta.bit_width() / CHAR_BIT;
       DCHECK_GT(byte_width, 0);
 
@@ -809,7 +809,7 @@ struct SparseTensorEqualsImpl<SparseIndexType, SparseIndexType> {
       return false;
     }
 
-    const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
+    const auto& size_meta = checked_cast<const FixedWidthType&>(*left.type());
     const int byte_width = size_meta.bit_width() / CHAR_BIT;
     DCHECK_GT(byte_width, 0);
 
