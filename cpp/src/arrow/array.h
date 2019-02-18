@@ -859,6 +859,16 @@ class ARROW_EXPORT DictionaryArray : public Array {
 ARROW_EXPORT
 Status ValidateArray(const Array& array);
 
+/// \brief Concatenate arrays
+///
+/// \param[in] arrays a vector of arrays to be concatenated
+/// \param[in] pool memory to store the result will be allocated from this memory pool
+/// \param[out] out the resulting concatenated array
+/// \return Status
+ARROW_EXPORT
+Status Concatenate(const std::vector<std::shared_ptr<Array>>& arrays, MemoryPool* pool,
+                   std::shared_ptr<Array>* out);
+
 }  // namespace arrow
 
 #endif  // ARROW_ARRAY_H

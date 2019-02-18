@@ -1785,4 +1785,53 @@ TEST(TestRechunkArraysConsistently, Plain) {
   }
 }
 
+// TODO this could be made much better.
+// First, if the concatenation of addends equals the expected then
+// the concatenation of their JSON representations must equal that of the
+// expected array, so we only need to provide the addends as strings.
+// More generally, Concatenate is an excellent candidate for property testing:
+// generate random addends then concatenate them using their json repr and
+// Concatenate, then compare.
+struct ConcatenateParam {
+  std::shared_ptr<Array> expected;
+  std::vector<std::shared_ptr<Array>> addends;
+
+  ConcatenateParam(std::shared_ptr<DataType> expected_type,
+                   const std::string& expected_json,
+                   const std::vector<std::string>& addends_json)
+      : expected(ArrayFromJSON(expected_type, expected_json)) {
+    for (const auto& addend : addends_json) {
+      addends.push_back(ArrayFromJSON(expected_type, addend));
+    }
+  }
+};
+
+class ConcatenateTest : public ::testing::TestWithParam<ConcatenateParam> {
+ public:
+  ConcatenateTest() {}
+};
+
+TEST_P(ConcatenateTest, Basics) {
+  auto param = GetParam();
+  std::shared_ptr<Array> actual;
+  ASSERT_OK(Concatenate(param.addends, default_memory_pool(), &actual));
+  AssertArraysEqual(*param.expected, *actual);
+}
+
+INSTANTIATE_TEST_CASE_P(
+    ConcatenateTest, ConcatenateTest,
+    ::testing::Values(
+        ConcatenateParam(int32(), "[0, 1, 2, 3]", {"[0, 1]", "[2, 3]"}),
+        ConcatenateParam(float64(), "[0, 1, 2, 3]", {"[0, 1]", "[2, 3]"}),
+        ConcatenateParam(uint8(), "[0, 1, 2, 3]", {"[0, 1]", "[2, 3]"}),
+        ConcatenateParam(list(uint8()), "[[], [0, 1], [2], [3]]",
+                         {"[[], [0, 1]]", "[[2], [3]]"}),
+        ConcatenateParam(utf8(), R"(["a", "b", "c", "d"])",
+                         {R"(["a", "b"])", R"(["c", "d"])"}),
+        ConcatenateParam(
+            struct_({field("strings", utf8()), field("ints", int64())}),
+            R"([{"strings":"a", "ints":0}, {"strings":"b", "ints":1}, {"strings":"c", "ints":2}, {"strings":"d", "ints":3}])",
+            {R"([{"strings":"a", "ints":0}, {"strings":"b", "ints":1}])",
+             R"([{"strings":"c", "ints":2}, {"strings":"d", "ints":3}])"})));
+
 }  // namespace arrow
