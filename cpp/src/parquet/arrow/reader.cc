@@ -494,16 +494,22 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
 
   auto rg_metadata = reader_->metadata()->RowGroup(row_group_index);
 
-  int num_columns = static_cast<int>(indices.size());
-  std::vector<std::shared_ptr<Column>> columns(num_columns);
+  // We only need to read schema fields which have columns indicated
+  // in the indices vector
+  std::vector<int> field_indices;
+  if (!ColumnIndicesToFieldIndices(*reader_->metadata()->schema(), indices,
+                                   &field_indices)) {
+    return Status::Invalid("Invalid column index");
+  }
+  int num_fields = static_cast<int>(field_indices.size());
+  std::vector<std::shared_ptr<Column>> columns(num_fields);
 
   // TODO(wesm): Refactor to share more code with ReadTable
 
-  auto ReadColumnFunc = [&indices, &row_group_index, &schema, &columns, this](int i) {
-    int column_index = indices[i];
-
+  auto ReadColumnFunc = [&indices, &field_indices, &row_group_index, &schema, &columns,
+                         this](int i) {
     std::shared_ptr<ChunkedArray> array;
-    RETURN_NOT_OK(ReadColumnChunk(column_index, row_group_index, &array));
+    RETURN_NOT_OK(ReadColumnChunk(field_indices[i], row_group_index, &array));
     columns[i] = std::make_shared<Column>(schema->field(i), array);
     return Status::OK();
   };
@@ -511,7 +517,7 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
   if (use_threads_) {
     std::vector<std::future<Status>> futures;
     auto pool = ::arrow::internal::GetCpuThreadPool();
-    for (int i = 0; i < num_columns; i++) {
+    for (int i = 0; i < num_fields; i++) {
       futures.push_back(pool->Submit(ReadColumnFunc, i));
     }
     Status final_status = Status::OK();
@@ -523,7 +529,7 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
     }
     RETURN_NOT_OK(final_status);
   } else {
-    for (int i = 0; i < num_columns; i++) {
+    for (int i = 0; i < num_fields; i++) {
       RETURN_NOT_OK(ReadColumnFunc(i));
     }
   }
