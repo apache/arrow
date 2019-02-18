@@ -24,7 +24,7 @@ import { Vector as VType } from '../interfaces';
 import { VectorType as BufferType } from '../enum';
 import { UnionMode, DateUnit, TimeUnit } from '../enum';
 import { iterateBits, getBit, getBool } from '../util/bit';
-import { selectAndFlattenColumnChildren } from '../util/array';
+import { selectColumnChildrenArgs } from '../util/args';
 import {
     DataType,
     Float, Int, Date_, Interval, Time, Timestamp, Union,
@@ -60,7 +60,7 @@ export class JSONVectorAssembler extends Visitor {
 
     /** @nocollapse */
     public static assemble<T extends Column | RecordBatch>(...args: (T | T[])[]) {
-        return new JSONVectorAssembler().visitMany(selectAndFlattenColumnChildren(RecordBatch, args));
+        return new JSONVectorAssembler().visitMany(selectColumnChildrenArgs(RecordBatch, args));
     }
 
     public visit<T extends Column>(column: T) {

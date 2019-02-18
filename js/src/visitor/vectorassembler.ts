@@ -23,7 +23,7 @@ import { RecordBatch } from '../recordbatch';
 import { Vector as VType } from '../interfaces';
 import { rebaseValueOffsets } from '../util/buffer';
 import { packBools, truncateBitmap } from '../util/bit';
-import { selectAndFlattenVectorChildren } from '../util/array';
+import { selectVectorChildrenArgs } from '../util/args';
 import { BufferRegion, FieldNode } from '../ipc/metadata/message';
 import {
     DataType, Dictionary,
@@ -59,7 +59,7 @@ export class VectorAssembler extends Visitor {
 
     /** @nocollapse */
     public static assemble<T extends Vector | RecordBatch>(...args: (T | T[])[]) {
-        return new VectorAssembler().visitMany(selectAndFlattenVectorChildren(RecordBatch, args))[0];
+        return new VectorAssembler().visitMany(selectVectorChildrenArgs(RecordBatch, args))[0];
     }
 
     private constructor() { super(); }

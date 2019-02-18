@@ -16,10 +16,10 @@
 // under the License.
 
 import { Column } from '../column';
-import { Schema } from '../schema';
 import { Vector } from '../vector';
 import { DataType } from '../type';
 import { Data, Buffers } from '../data';
+import { Schema, Field } from '../schema';
 import { Chunked } from '../vector/chunked';
 import { RecordBatch } from '../recordbatch';
 
@@ -29,88 +29,90 @@ const nullBufs = (bitmapLength: number) => <unknown> [
 ] as Buffers<any>;
 
 /** @ignore */
-export function alignChunkLengths<T extends { [key: string]: DataType; } = any>(schema: Schema, chunks: Data<T[keyof T]>[], length = chunks.reduce((l, c) => Math.max(l, c.length), 0)) {
-    const bitmapLength = ((length + 63) & ~63) >> 3;
-    return chunks.map((chunk, idx) => {
-        const chunkLength = chunk ? chunk.length : 0;
-        if (chunkLength === length) { return chunk; }
-        const field = schema.fields[idx];
-        if (!field.nullable) {
-            schema.fields[idx] = field.clone({ nullable: true });
+export function ensureSameLengthData<T extends { [key: string]: DataType } = any>(
+    schema: Schema<T>,
+    chunks: Data<T[keyof T]>[],
+    batchLength = chunks.reduce((l, c) => Math.max(l, c.length), 0)
+) {
+    let data: Data<T[keyof T]>;
+    let field: Field<T[keyof T]>;
+    let i = -1, n = chunks.length;
+    const fields = [...schema.fields];
+    const batchData = [] as Data<T[keyof T]>[];
+    const bitmapLength = ((batchLength + 63) & ~63) >> 3;
+    while (++i < n) {
+        if ((data = chunks[i]) && data.length === batchLength) {
+            batchData[i] = data;
+        } else {
+            (field = fields[i]).nullable || (fields[i] = fields[i].clone({ nullable: true }) as Field<T[keyof T]>);
+            batchData[i] = data ? data._changeLengthAndBackfillNullBitmap(batchLength)
+                : new Data(field.type, 0, batchLength, batchLength, nullBufs(bitmapLength)) as Data<T[keyof T]>;
         }
-        return chunk ? chunk._changeLengthAndBackfillNullBitmap(length)
-            : new Data(field.type, 0, length, length, nullBufs(bitmapLength));
-    });
+    }
+    return [new Schema<T>(fields), batchLength, batchData] as [Schema<T>, number, Data<T[keyof T]>[]];
 }
 
 /** @ignore */
-export function distributeColumnsIntoRecordBatches<T extends { [key: string]: DataType; } = any>(columns: Column<T[keyof T]>[]): [Schema<T>, RecordBatch<T>[]] {
+export function distributeColumnsIntoRecordBatches<T extends { [key: string]: DataType } = any>(columns: Column<T[keyof T]>[]): [Schema<T>, RecordBatch<T>[]] {
     return distributeVectorsIntoRecordBatches<T>(new Schema<T>(columns.map(({ field }) => field)), columns);
 }
 
 /** @ignore */
-export function distributeVectorsIntoRecordBatches<T extends { [key: string]: DataType; } = any>(schema: Schema<T>, vecs: (Vector<T[keyof T]> | Chunked<T[keyof T]>)[]): [Schema<T>, RecordBatch<T>[]] {
+export function distributeVectorsIntoRecordBatches<T extends { [key: string]: DataType } = any>(schema: Schema<T>, vecs: (Vector<T[keyof T]> | Chunked<T[keyof T]>)[]): [Schema<T>, RecordBatch<T>[]] {
     return uniformlyDistributeChunksAcrossRecordBatches<T>(schema, vecs.map((v) => v instanceof Chunked ? v.chunks.map((c) => c.data) : [v.data]));
 }
 
 /** @ignore */
-export function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]: DataType; } = any>(schema: Schema<T>, chunks: Data<T[keyof T]>[][]): [Schema<T>, RecordBatch<T>[]] {
+function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]: DataType } = any>(schema: Schema<T>, columns: Data<T[keyof T]>[][]): [Schema<T>, RecordBatch<T>[]] {
 
-    let recordBatchesLen = 0;
-    const recordBatches = [] as RecordBatch<T>[];
-    const memo = { numChunks: chunks.reduce((n, c) => Math.max(n, c.length), 0) };
+    let numBatches = 0;
+    const fields = [...schema.fields];
+    const batches = [] as [number, Data<T[keyof T]>[]][];
+    const memo = { numBatches: columns.reduce((n, c) => Math.max(n, c.length), 0) };
 
-    for (let chunkIndex = -1; ++chunkIndex < memo.numChunks;) {
+    while (memo.numBatches > 0) {
 
-        const [sameLength, batchLength] = chunks.reduce((memo, chunks) => {
+        const [sameLength, batchLength] = columns.reduce((memo, [chunk]) => {
             const [same, batchLength] = memo;
-            const chunk = chunks[chunkIndex];
             const chunkLength = chunk ? chunk.length : batchLength;
             isFinite(batchLength) && same && (memo[0] = chunkLength === batchLength);
             memo[1] = Math.min(batchLength, chunkLength);
             return memo;
         }, [true, Number.POSITIVE_INFINITY] as [boolean, number]);
 
-        if (!isFinite(batchLength) || (sameLength && batchLength <= 0)) { continue; }
-
-        recordBatches[recordBatchesLen++] = new RecordBatch(schema, batchLength,
-            sameLength ? gatherChunksSameLength(schema, chunkIndex, batchLength, chunks) :
-                         gatherChunksDiffLength(schema, chunkIndex, batchLength, chunks, memo));
+        if (isFinite(batchLength) && !(sameLength && batchLength <= 0)) {
+            batches[numBatches++] = [batchLength, distributeChildData(fields, batchLength, columns, memo)];
+        }
     }
-    return [schema, recordBatches];
+    return [
+        schema = new Schema<T>(fields),
+        batches.map((xs) => new RecordBatch(schema, ...xs))
+    ];
 }
 
 /** @ignore */
-function gatherChunksSameLength(schema: Schema, chunkIndex: number, length: number, chunks: Data[][]) {
-    const bitmapLength = ((length + 63) & ~63) >> 3;
-    return chunks.map((chunks, idx) => {
-        const chunk = chunks[chunkIndex];
-        if (chunk) { return chunk; }
-        const field = schema.fields[idx];
-        if (!field.nullable) {
-            schema.fields[idx] = field.clone({ nullable: true });
+function distributeChildData<T extends { [key: string]: DataType } = any>(fields: Field<T[keyof T]>[], batchLength: number, columns: Data<T[keyof T]>[][], memo: { numBatches: number }) {
+    memo.numBatches -= 1;
+    let data: Data<T[keyof T]>;
+    let field: Field<T[keyof T]>;
+    let chunks: Data<T[keyof T]>[];
+    let length = 0, i = -1, n = columns.length;
+    const batchData = [] as Data<T[keyof T]>[];
+    const bitmapLength = ((batchLength + 63) & ~63) >> 3;
+    while (++i < n) {
+        if ((data = (chunks = columns[i]).shift()!) && ((length = data.length) >= batchLength)) {
+            if (length === batchLength) {
+                batchData[i] = data;
+            } else {
+                batchData[i] = data.slice(0, batchLength);
+                data = data.slice(batchLength, length - batchLength);
+                memo.numBatches = Math.max(memo.numBatches, chunks.push(data));
+            }
+        } else {
+            (field = fields[i]).nullable || (fields[i] = field.clone({ nullable: true }) as Field<T[keyof T]>);
+            batchData[i] = data ? data._changeLengthAndBackfillNullBitmap(batchLength)
+                : new Data(field.type, 0, batchLength, batchLength, nullBufs(bitmapLength)) as Data<T[keyof T]>;
         }
-        return new Data(field.type, 0, length, length, nullBufs(bitmapLength));
-    });
-}
-
-/** @ignore */
-function gatherChunksDiffLength(schema: Schema, chunkIndex: number, length: number, chunks: Data[][], memo: { numChunks: number }) {
-    const bitmapLength = ((length + 63) & ~63) >> 3;
-    return chunks.map((chunks, idx) => {
-        const chunk = chunks[chunkIndex];
-        const chunkLength = chunk ? chunk.length : 0;
-        if (chunkLength === length) { return chunk; }
-        if (chunkLength > length) {
-            memo.numChunks = Math.max(memo.numChunks, chunks.length + 1);
-            chunks.splice(chunkIndex + 1, 0, chunk.slice(length, chunkLength - length));
-            return chunk.slice(0, length);
-        }
-        const field = schema.fields[idx];
-        if (!field.nullable) {
-            schema.fields[idx] = field.clone({ nullable: true });
-        }
-        return chunk ? chunk._changeLengthAndBackfillNullBitmap(length)
-            : new Data(field.type, 0, length, length, nullBufs(bitmapLength));
-    });
+    }
+    return batchData;
 }

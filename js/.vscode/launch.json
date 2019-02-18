@@ -47,6 +47,7 @@
 
                 // "test/unit/table/assign-tests.ts",
                 // "test/unit/table/serialize-tests.ts",
+                // "test/unit/recordbatch/record-batch-tests.ts",
 
                 // "test/unit/vector/vector-tests.ts",
                 // "test/unit/vector/bool-vector-tests.ts",

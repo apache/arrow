@@ -22,8 +22,13 @@ import { Schema, Field } from './schema';
 import { DataType, Struct } from './type';
 import { Chunked } from './vector/chunked';
 import { StructVector } from './vector/struct';
-import { alignChunkLengths } from './util/recordbatch';
+import { selectFieldArgs } from './util/args';
+import { ensureSameLengthData } from './util/recordbatch';
 import { Clonable, Sliceable, Applicative } from './vector';
+
+type VectorMap = { [key: string]: Vector };
+type Fields<T extends { [key: string]: DataType }> = (keyof T)[] | Field<T[keyof T]>[];
+type ChildData<T extends { [key: string]: DataType }> = (Data<T[keyof T]> | Vector<T[keyof T]>)[];
 
 export interface RecordBatch<T extends { [key: string]: DataType } = any> {
     concat(...others: Vector<Struct<T>>[]): Table<T>;
@@ -37,12 +42,20 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
                Sliceable<RecordBatch<T>>,
                Applicative<Struct<T>, Table<T>> {
 
+    public static from<T extends VectorMap = any>(children: T): RecordBatch<{ [P in keyof T]: T[P]['type'] }>;
+    public static from<T extends { [key: string]: DataType } = any>(children: ChildData<T>, fields?: Fields<T>): RecordBatch<T>;
     /** @nocollapse */
-    public static from<T extends { [key: string]: DataType } = any>(chunks: (Data<T[keyof T]> | Vector<T[keyof T]>)[], names: (keyof T)[] = []) {
-        const schema = Schema.from(chunks, names);
-        const length = chunks.reduce((l, c) => Math.max(l, c.length), 0);
-        const children = chunks.map((x) => x instanceof Data ? x : x.data);
-        return new RecordBatch(schema, length, alignChunkLengths(schema, children, length));
+    public static from(...args: any[]) {
+        return RecordBatch.new(args[0], args[1]);
+    }
+
+    public static new<T extends VectorMap = any>(children: T): RecordBatch<{ [P in keyof T]: T[P]['type'] }>;
+    public static new<T extends { [key: string]: DataType } = any>(children: ChildData<T>, fields?: Fields<T>): RecordBatch<T>;
+    /** @nocollapse */
+    public static new<T extends { [key: string]: DataType } = any>(...args: any[]) {
+        const [fs, xs] = selectFieldArgs<T>(args);
+        const vs = xs.filter((x): x is Vector<T[keyof T]> => x instanceof Vector);
+        return new RecordBatch(...ensureSameLengthData(new Schema<T>(fs), vs.map((x) => x.data)));
     }
 
     protected _schema: Schema;

@@ -21,7 +21,7 @@ import { clampRange } from '../util/vector';
 import { DataType, Dictionary } from '../type';
 import { DictionaryVector } from './dictionary';
 import { AbstractVector, Vector } from '../vector';
-import { selectAndFlattenChunks } from '../util/array';
+import { selectChunkArgs } from '../util/args';
 import { Clonable, Sliceable, Applicative } from '../vector';
 
 /** @ignore */
@@ -40,13 +40,14 @@ export class Chunked<T extends DataType = any>
                Applicative<T, Chunked<T>> {
 
     /** @nocollapse */
-    public static flatten<T extends DataType>(...vectors: Vector<T>[]) {
-        return selectAndFlattenChunks<Vector<T>>(Vector, vectors);
+    public static flatten<T extends DataType>(...vectors: (Vector<T> | Vector<T>[])[]) {
+        return selectChunkArgs<Vector<T>>(Vector, vectors);
     }
 
     /** @nocollapse */
-    public static concat<T extends DataType>(...chunks: Vector<T>[]): Chunked<T> {
-        return new Chunked(chunks[0].type, Chunked.flatten(...chunks));
+    public static concat<T extends DataType>(...vectors: (Vector<T> | Vector<T>[])[]) {
+        const chunks = Chunked.flatten<T>(...vectors);
+        return new Chunked<T>(chunks[0].type, chunks);
     }
 
     protected _type: T;

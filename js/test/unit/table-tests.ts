@@ -153,7 +153,7 @@ describe(`Table`, () => {
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(0);
 
-            const table = Table.new(i32, f32);
+            const table = Table.new([i32, f32]);
             i32 = table.getColumnAt(0)!;
             f32 = table.getColumnAt(1)!;
 
@@ -192,12 +192,12 @@ describe(`Table`, () => {
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(0);
 
-            const table = Table.new([i32, f32]);
-            i32 = table.getColumnAt(0)!;
-            f32 = table.getColumnAt(1)!;
+            const table = Table.new({ i32Renamed: i32, f32Renamed: f32 });
+            i32 = table.getColumn('i32Renamed');
+            f32 = table.getColumn('f32Renamed');
 
-            expect(i32.name).toBe('i32');
-            expect(f32.name).toBe('f32');
+            expect(i32.name).toBe('i32Renamed');
+            expect(f32.name).toBe('f32Renamed');
             expect(i32.length).toBe(i32s.length);
             expect(f32.length).toBe(i32s.length); // new length should be the same as the longest sibling
             expect(i32.nullable).toBe(false);
@@ -518,10 +518,7 @@ export function getSingleRecordBatchTable() {
         [0, 1, 2, 0, 1, 2, 0]
     );
 
-    return Table.fromVectors<TestDataSchema>(
-        vectors,
-        NAMES
-    );
+    return Table.new<TestDataSchema>(vectors, NAMES);
 }
 
 function getMultipleRecordBatchesTable() {
