@@ -117,26 +117,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     mkdir -p repaired_wheels/
     auditwheel -v repair -L . dist/pyarrow-*.whl -w repaired_wheels/
 
-    # echo "=== (${PYTHON}) Testing manylinux1 wheel ==="
-    # source /venv-test-${PYTHON}-${U_WIDTH}/bin/activate
-    # pip install repaired_wheels/*.whl
-    #
-    # if [ $PYTHON != "2.7" ]; then
-    #   PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.gandiva"
-    # fi
-    # PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.orc"
-    # PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
-    # PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.plasma"
-    #
-    # echo "=== (${PYTHON}) Install modules required for testing ==="
-    # pip install -r requirements-test.txt
-    #
-    # # The TensorFlow test will be skipped here, since TensorFlow is not
-    # # manylinux1 compatible; however, the wheels will support TensorFlow on
-    # # a TensorFlow compatible system
-    # py.test -v -r sxX --durations=15 --parquet ${VIRTUAL_ENV}/lib/*/site-packages/pyarrow
-    # deactivate
-
+    # Testing happens outsite of the build to prevent issues like ARROW-4372
     mv repaired_wheels/*.whl /io/dist
     mv dist/*.tar.gz /io/dist
 done
