@@ -554,5 +554,5 @@ function getStructTable() {
     const struct = new Struct<TestDataSchema>(table.schema.fields);
     const children = table.schema.fields.map((_, i) => table.getColumnAt(i)!);
     const structVec = Vector.new(Data.Struct(struct, 0, table.length, 0, null, children));
-    return Table.fromVectors<{ struct: Struct<TestDataSchema> }>([structVec], ['struct']);
+    return Table.new<{ struct: Struct<TestDataSchema> }>([structVec], ['struct']);
 }
