@@ -15,32 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! A native Rust implementation of [Apache Arrow](https://arrow.apache.org), a cross-language
-//! development platform for in-memory data.
-//!
-//! Currently the project is developed and tested against nightly Rust. To learn more
-//! about the status of Arrow in Rust, see `README.md`.
+//! Transfer data between the Arrow memory format and JSON line-delimited records.
 
-#![feature(type_ascription)]
-#![feature(rustc_private)]
-#![feature(specialization)]
-#![feature(try_from)]
-// required for matching box in lists
-#![feature(box_syntax, box_patterns)]
-#![allow(dead_code)]
-#![allow(non_camel_case_types)]
+pub mod reader;
 
-pub mod array;
-pub mod array_data;
-pub mod bitmap;
-pub mod buffer;
-pub mod builder;
-pub mod compute;
-pub mod csv;
-pub mod datatypes;
-pub mod error;
-pub mod json;
-pub mod memory;
-pub mod record_batch;
-pub mod tensor;
-pub mod util;
+pub use self::reader::Reader;
+pub use self::reader::ReaderBuilder;
