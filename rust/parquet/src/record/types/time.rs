@@ -24,6 +24,7 @@ use std::{
     fmt::{self, Display},
     result,
 };
+use sum::{Sum2, Sum3};
 
 use crate::{
     basic::Repetition,
@@ -164,7 +165,7 @@ impl Record for Time {
         batch_size: usize,
     ) -> Self::Reader {
         match schema {
-            TimeSchema::Micros => sum::Sum2::A(MapReader(
+            TimeSchema::Micros => Sum2::A(MapReader(
                 i64::reader(&I64Schema, path, def_level, rep_level, paths, batch_size),
                 |micros: i64| {
                     micros
@@ -179,7 +180,7 @@ impl Record for Time {
                         })
                 },
             )),
-            TimeSchema::Millis => sum::Sum2::B(MapReader(
+            TimeSchema::Millis => Sum2::B(MapReader(
                 i32::reader(&I32Schema, path, def_level, rep_level, paths, batch_size),
                 |millis: i32| {
                     millis
@@ -377,7 +378,7 @@ impl Record for Timestamp {
         batch_size: usize,
     ) -> Self::Reader {
         match schema {
-            TimestampSchema::Int96 => sum::Sum3::A(MapReader(
+            TimestampSchema::Int96 => Sum3::A(MapReader(
                 {
                     let col_path = ColumnPath::new(path.to_vec());
                     let col_reader = paths.remove(&col_path).unwrap();
@@ -389,11 +390,11 @@ impl Record for Timestamp {
                 },
                 |x| Ok(Timestamp(x)),
             )),
-            TimestampSchema::Millis => sum::Sum3::B(MapReader(
+            TimestampSchema::Millis => Sum3::B(MapReader(
                 i64::reader(&I64Schema, path, def_level, rep_level, paths, batch_size),
                 |x| Ok(Timestamp::from_millis(x)),
             )),
-            TimestampSchema::Micros => sum::Sum3::C(MapReader(
+            TimestampSchema::Micros => Sum3::C(MapReader(
                 i64::reader(&I64Schema, path, def_level, rep_level, paths, batch_size),
                 |x| Ok(Timestamp::from_micros(x)),
             )),

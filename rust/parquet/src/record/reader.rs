@@ -29,6 +29,7 @@ use std::{
     collections::HashMap, convert::TryInto, error::Error, marker::PhantomData, mem,
     rc::Rc, sync::Arc,
 };
+use sum::derive_sum;
 
 use super::{
     triplet::TypedTripletIter,
@@ -51,304 +52,75 @@ use crate::schema::types::{ColumnPath, SchemaDescriptor, SchemaDescPtr, Type};
 const DEFAULT_BATCH_SIZE: usize = 1024;
 
 // ----------------------------------------------------------------------
-// Implementations for "anonymous" sum types
+// This implements `Reader` on the generic sum types from the `sum` crate. This enables
+// the re-use of these generic enums in `types/time.rs` and `types/decimal.rs`, rather
+// than creating several new enums and implementing `Reader` on each.
 
-impl<A, B> Reader for sum::Sum2<A, B>
-where
-    A: Reader,
-    B: Reader<Item = A::Item>,
-{
-    type Item = A::Item;
+derive_sum!(impl Reader for Sum {
+    type Item;
 
-    #[inline]
-    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
-        match self {
-            sum::Sum2::A(ref mut reader) => reader.read(def_level, rep_level),
-            sum::Sum2::B(ref mut reader) => reader.read(def_level, rep_level),
-        }
-    }
-
-    #[inline]
-    fn advance_columns(&mut self) -> Result<()> {
-        match self {
-            sum::Sum2::A(ref mut reader) => reader.advance_columns(),
-            sum::Sum2::B(ref mut reader) => reader.advance_columns(),
-        }
-    }
-
-    #[inline]
-    fn has_next(&self) -> bool {
-        match self {
-            sum::Sum2::A(ref reader) => reader.has_next(),
-            sum::Sum2::B(ref reader) => reader.has_next(),
-        }
-    }
-
-    #[inline]
-    fn current_def_level(&self) -> i16 {
-        match self {
-            sum::Sum2::A(ref reader) => reader.current_def_level(),
-            sum::Sum2::B(ref reader) => reader.current_def_level(),
-        }
-    }
-
-    #[inline]
-    fn current_rep_level(&self) -> i16 {
-        match self {
-            sum::Sum2::A(ref reader) => reader.current_rep_level(),
-            sum::Sum2::B(ref reader) => reader.current_rep_level(),
-        }
-    }
-}
-
-impl<A, B, C> Reader for sum::Sum3<A, B, C>
-where
-    A: Reader,
-    B: Reader<Item = A::Item>,
-    C: Reader<Item = A::Item>,
-{
-    type Item = A::Item;
-
-    #[inline]
-    fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item> {
-        match self {
-            sum::Sum3::A(ref mut reader) => reader.read(def_level, rep_level),
-            sum::Sum3::B(ref mut reader) => reader.read(def_level, rep_level),
-            sum::Sum3::C(ref mut reader) => reader.read(def_level, rep_level),
-        }
-    }
-
-    #[inline]
-    fn advance_columns(&mut self) -> Result<()> {
-        match self {
-            sum::Sum3::A(ref mut reader) => reader.advance_columns(),
-            sum::Sum3::B(ref mut reader) => reader.advance_columns(),
-            sum::Sum3::C(ref mut reader) => reader.advance_columns(),
-        }
-    }
-
-    #[inline]
-    fn has_next(&self) -> bool {
-        match self {
-            sum::Sum3::A(ref reader) => reader.has_next(),
-            sum::Sum3::B(ref reader) => reader.has_next(),
-            sum::Sum3::C(ref reader) => reader.has_next(),
-        }
-    }
-
-    #[inline]
-    fn current_def_level(&self) -> i16 {
-        match self {
-            sum::Sum3::A(ref reader) => reader.current_def_level(),
-            sum::Sum3::B(ref reader) => reader.current_def_level(),
-            sum::Sum3::C(ref reader) => reader.current_def_level(),
-        }
-    }
-
-    #[inline]
-    fn current_rep_level(&self) -> i16 {
-        match self {
-            sum::Sum3::A(ref reader) => reader.current_rep_level(),
-            sum::Sum3::B(ref reader) => reader.current_rep_level(),
-            sum::Sum3::C(ref reader) => reader.current_rep_level(),
-        }
-    }
-}
+    mut fn read(&mut self, def_level: i16, rep_level: i16) -> Result<Self::Item>;
+    mut fn advance_columns(&mut self) -> Result<()>;
+    fn has_next(&self) -> bool;
+    fn current_def_level(&self) -> i16;
+    fn current_rep_level(&self) -> i16;
+});
 
 // ----------------------------------------------------------------------
 // Readers that simply wrap `TypedTripletIter<DataType>`s
 
-pub struct BoolReader {
-    pub(super) column: TypedTripletIter<BoolType>,
-}
-impl Reader for BoolReader {
-    type Item = bool;
+macro_rules! reader_passthrough {
+    ($inner:tt) => (
+        #[inline]
+        fn advance_columns(&mut self) -> Result<()> {
+            self.$inner.advance_columns()
+        }
 
-    #[inline]
-    fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
-        self.column.read()
-    }
+        #[inline]
+        fn has_next(&self) -> bool {
+            self.$inner.has_next()
+        }
 
-    #[inline]
-    fn advance_columns(&mut self) -> Result<()> {
-        self.column.advance_columns()
-    }
+        #[inline]
+        fn current_def_level(&self) -> i16 {
+            self.$inner.current_def_level()
+        }
 
-    #[inline]
-    fn has_next(&self) -> bool {
-        self.column.has_next()
-    }
-
-    #[inline]
-    fn current_def_level(&self) -> i16 {
-        self.column.current_def_level()
-    }
-
-    #[inline]
-    fn current_rep_level(&self) -> i16 {
-        self.column.current_rep_level()
-    }
+        #[inline]
+        fn current_rep_level(&self) -> i16 {
+            self.$inner.current_rep_level()
+        }
+    )
 }
 
-pub struct I32Reader {
-    pub(super) column: TypedTripletIter<Int32Type>,
-}
-impl Reader for I32Reader {
-    type Item = i32;
+macro_rules! triplet_readers {
+    ( $( $reader:ident ( $triplet:ty ) -> $item:ident ,)* ) => {
+        $(
+        pub struct $reader {
+            pub(super) column: $triplet,
+        }
+        impl Reader for $reader {
+            type Item = $item;
 
-    #[inline]
-    fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
-        self.column.read()
-    }
+            #[inline]
+            fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
+                self.column.read()
+            }
 
-    #[inline]
-    fn advance_columns(&mut self) -> Result<()> {
-        self.column.advance_columns()
-    }
-
-    #[inline]
-    fn has_next(&self) -> bool {
-        self.column.has_next()
-    }
-
-    #[inline]
-    fn current_def_level(&self) -> i16 {
-        self.column.current_def_level()
-    }
-
-    #[inline]
-    fn current_rep_level(&self) -> i16 {
-        self.column.current_rep_level()
-    }
+            reader_passthrough!(column);
+        }
+        )*
+    };
 }
 
-pub struct I64Reader {
-    pub(super) column: TypedTripletIter<Int64Type>,
-}
-impl Reader for I64Reader {
-    type Item = i64;
-
-    #[inline]
-    fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
-        self.column.read()
-    }
-
-    #[inline]
-    fn advance_columns(&mut self) -> Result<()> {
-        self.column.advance_columns()
-    }
-
-    #[inline]
-    fn has_next(&self) -> bool {
-        self.column.has_next()
-    }
-
-    #[inline]
-    fn current_def_level(&self) -> i16 {
-        self.column.current_def_level()
-    }
-
-    #[inline]
-    fn current_rep_level(&self) -> i16 {
-        self.column.current_rep_level()
-    }
-}
-
-pub struct I96Reader {
-    pub(super) column: TypedTripletIter<Int96Type>,
-}
-impl Reader for I96Reader {
-    type Item = Int96;
-
-    #[inline]
-    fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
-        self.column.read()
-    }
-
-    #[inline]
-    fn advance_columns(&mut self) -> Result<()> {
-        self.column.advance_columns()
-    }
-
-    #[inline]
-    fn has_next(&self) -> bool {
-        self.column.has_next()
-    }
-
-    #[inline]
-    fn current_def_level(&self) -> i16 {
-        self.column.current_def_level()
-    }
-
-    #[inline]
-    fn current_rep_level(&self) -> i16 {
-        self.column.current_rep_level()
-    }
-}
-
-pub struct F32Reader {
-    pub(super) column: TypedTripletIter<FloatType>,
-}
-impl Reader for F32Reader {
-    type Item = f32;
-
-    #[inline]
-    fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
-        self.column.read()
-    }
-
-    #[inline]
-    fn advance_columns(&mut self) -> Result<()> {
-        self.column.advance_columns()
-    }
-
-    #[inline]
-    fn has_next(&self) -> bool {
-        self.column.has_next()
-    }
-
-    #[inline]
-    fn current_def_level(&self) -> i16 {
-        self.column.current_def_level()
-    }
-
-    #[inline]
-    fn current_rep_level(&self) -> i16 {
-        self.column.current_rep_level()
-    }
-}
-
-pub struct F64Reader {
-    pub(super) column: TypedTripletIter<DoubleType>,
-}
-impl Reader for F64Reader {
-    type Item = f64;
-
-    #[inline]
-    fn read(&mut self, _def_level: i16, _rep_level: i16) -> Result<Self::Item> {
-        self.column.read()
-    }
-
-    #[inline]
-    fn advance_columns(&mut self) -> Result<()> {
-        self.column.advance_columns()
-    }
-
-    #[inline]
-    fn has_next(&self) -> bool {
-        self.column.has_next()
-    }
-
-    #[inline]
-    fn current_def_level(&self) -> i16 {
-        self.column.current_def_level()
-    }
-
-    #[inline]
-    fn current_rep_level(&self) -> i16 {
-        self.column.current_rep_level()
-    }
-}
+triplet_readers!(
+    BoolReader(TypedTripletIter<BoolType>) -> bool,
+    I32Reader(TypedTripletIter<Int32Type>) -> i32,
+    I64Reader(TypedTripletIter<Int64Type>) -> i64,
+    I96Reader(TypedTripletIter<Int96Type>) -> Int96,
+    F32Reader(TypedTripletIter<FloatType>) -> f32,
+    F64Reader(TypedTripletIter<DoubleType>) -> f64,
+);
 
 pub struct ByteArrayReader {
     pub(super) column: TypedTripletIter<ByteArrayType>,
@@ -364,25 +136,7 @@ impl Reader for ByteArrayReader {
         })
     }
 
-    #[inline]
-    fn advance_columns(&mut self) -> Result<()> {
-        self.column.advance_columns()
-    }
-
-    #[inline]
-    fn has_next(&self) -> bool {
-        self.column.has_next()
-    }
-
-    #[inline]
-    fn current_def_level(&self) -> i16 {
-        self.column.current_def_level()
-    }
-
-    #[inline]
-    fn current_rep_level(&self) -> i16 {
-        self.column.current_rep_level()
-    }
+    reader_passthrough!(column);
 }
 
 pub struct FixedLenByteArrayReader<T> {
@@ -409,25 +163,7 @@ impl<T> Reader for FixedLenByteArrayReader<T> {
         })
     }
 
-    #[inline]
-    fn advance_columns(&mut self) -> Result<()> {
-        self.column.advance_columns()
-    }
-
-    #[inline]
-    fn has_next(&self) -> bool {
-        self.column.has_next()
-    }
-
-    #[inline]
-    fn current_def_level(&self) -> i16 {
-        self.column.current_def_level()
-    }
-
-    #[inline]
-    fn current_rep_level(&self) -> i16 {
-        self.column.current_rep_level()
-    }
+    reader_passthrough!(column);
 }
 
 pub struct BoxFixedLenByteArrayReader<T> {
@@ -448,25 +184,7 @@ impl<T> Reader for BoxFixedLenByteArrayReader<T> {
         })
     }
 
-    #[inline]
-    fn advance_columns(&mut self) -> Result<()> {
-        self.column.advance_columns()
-    }
-
-    #[inline]
-    fn has_next(&self) -> bool {
-        self.column.has_next()
-    }
-
-    #[inline]
-    fn current_def_level(&self) -> i16 {
-        self.column.current_def_level()
-    }
-
-    #[inline]
-    fn current_rep_level(&self) -> i16 {
-        self.column.current_rep_level()
-    }
+    reader_passthrough!(column);
 }
 
 // ----------------------------------------------------------------------
@@ -488,25 +206,7 @@ impl<R: Reader> Reader for OptionReader<R> {
         }
     }
 
-    #[inline]
-    fn advance_columns(&mut self) -> Result<()> {
-        self.reader.advance_columns()
-    }
-
-    #[inline]
-    fn has_next(&self) -> bool {
-        self.reader.has_next()
-    }
-
-    #[inline]
-    fn current_def_level(&self) -> i16 {
-        self.reader.current_def_level()
-    }
-
-    #[inline]
-    fn current_rep_level(&self) -> i16 {
-        self.reader.current_rep_level()
-    }
+    reader_passthrough!(reader);
 }
 
 /// A Reader for a repeated field, returning `Vec<R::Item>`.
@@ -538,25 +238,7 @@ impl<R: Reader> Reader for RepeatedReader<R> {
         Ok(elements)
     }
 
-    #[inline]
-    fn advance_columns(&mut self) -> Result<()> {
-        self.reader.advance_columns()
-    }
-
-    #[inline]
-    fn has_next(&self) -> bool {
-        self.reader.has_next()
-    }
-
-    #[inline]
-    fn current_def_level(&self) -> i16 {
-        self.reader.current_def_level()
-    }
-
-    #[inline]
-    fn current_rep_level(&self) -> i16 {
-        self.reader.current_rep_level()
-    }
+    reader_passthrough!(reader);
 }
 
 /// A Reader for two equally repeated fields, returning `Vec<(K::Item, V::Item)>`.
@@ -576,8 +258,9 @@ impl<K: Reader, V: Reader> Reader for KeyValueReader<K, V> {
                     self.values_reader.read(def_level + 1, rep_level + 1)?,
                 ));
             } else {
-                self.keys_reader.advance_columns()?;
-                self.values_reader.advance_columns()?;
+                self.keys_reader
+                    .advance_columns()
+                    .and(self.values_reader.advance_columns())?;
                 // If the current definition level is equal to the definition level of
                 // this repeated type, then the result is an empty list
                 // and the repetition level will always be <= rl.
@@ -598,8 +281,9 @@ impl<K: Reader, V: Reader> Reader for KeyValueReader<K, V> {
 
     #[inline]
     fn advance_columns(&mut self) -> Result<()> {
-        self.keys_reader.advance_columns()?;
-        self.values_reader.advance_columns()
+        self.keys_reader
+            .advance_columns()
+            .and(self.values_reader.advance_columns())
     }
 
     #[inline]
@@ -638,10 +322,10 @@ impl Reader for GroupReader {
     }
 
     fn advance_columns(&mut self) -> Result<()> {
-        for reader in self.readers.iter_mut() {
-            reader.advance_columns()?;
-        }
-        Ok(())
+        self.readers
+            .iter_mut()
+            .map(|reader| reader.advance_columns())
+            .collect::<Result<()>>()
     }
 
     fn has_next(&self) -> bool {

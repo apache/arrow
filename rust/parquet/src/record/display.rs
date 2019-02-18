@@ -27,6 +27,7 @@ use crate::basic::{LogicalType, Repetition};
 pub struct DisplayFmt<F>(F)
 where
     F: Fn(&mut fmt::Formatter) -> fmt::Result;
+
 impl<F> DisplayFmt<F>
 where
     F: Fn(&mut fmt::Formatter) -> fmt::Result,
