@@ -578,7 +578,7 @@ struct Unbox<Type, enable_if_integer<Type>>  {
       if (Rf_inherits(obj, "integer64")) {
         return IngestRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)), XLENGTH(obj), NA_INT64);
       }
-    // TODO: handle eaw and logical
+    // TODO: handle aw and logical
     default:
       break;
     }
@@ -591,7 +591,7 @@ struct Unbox<Type, enable_if_integer<Type>>  {
   static inline Status IngestRange(BuilderType* builder, T* p, R_xlen_t n, T na) {
     RETURN_NOT_OK(builder->Resize(n));
     for (R_xlen_t i=0; i<n; i++, ++p) {
-      if(*p == NA_INTEGER) {
+      if(*p == na) {
         builder->UnsafeAppendNull();
       } else {
         CType value;
@@ -726,6 +726,55 @@ struct Unbox<BooleanType> {
 
 };
 
+template <>
+struct Unbox<Date32Type> {
+
+  static inline Status Ingest(Date32Builder* builder, SEXP obj) {
+    switch(TYPEOF(obj)) {
+    case INTSXP:
+      if (Rf_inherits(obj, "Date")) {
+        return IngestIntRange(builder, INTEGER(obj), XLENGTH(obj));
+      }
+      break;
+    case REALSXP:
+      if (Rf_inherits(obj, "Date")) {
+        return IngestDoubleRange(builder, REAL(obj), XLENGTH(obj));
+      }
+      break;
+    default:
+      break;
+    }
+    return Status::Invalid("Cannot convert R object to date32 type");
+  }
+
+  static inline Status IngestIntRange(Date32Builder* builder, int* p, R_xlen_t n) {
+    RETURN_NOT_OK(builder->Resize(n));
+    for (R_xlen_t i=0; i<n; i++, ++p) {
+      if(*p == NA_INTEGER) {
+        builder->UnsafeAppendNull();
+      } else {
+        builder->UnsafeAppend(*p);
+      }
+    }
+    return Status::OK();
+  }
+
+  static inline Status IngestDoubleRange(Date32Builder* builder, double* p, R_xlen_t n) {
+    RETURN_NOT_OK(builder->Resize(n));
+    for (R_xlen_t i=0; i<n; i++, ++p) {
+      if(ISNA(*p)) {
+        builder->UnsafeAppendNull();
+      } else {
+        builder->UnsafeAppend(static_cast<int>(*p));
+      }
+    }
+    return Status::OK();
+  }
+
+};
+
+
+
 template <typename Type, class Derived>
 class TypedVectorConverter : public VectorConverter {
 public:
@@ -751,12 +800,15 @@ class NumericVectorConverter : public TypedVectorConverter<Type, NumericVectorCo
 
 class BooleanVectorConverter : public TypedVectorConverter<BooleanType, BooleanVectorConverter>{};
 
+class Date32Converter : public TypedVectorConverter<Date32Type, Date32Converter> {};
+
+
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                     \
 case Type::TYPE_ENUM:                                                \
   *out = std::unique_ptr<NumericVectorConverter<TYPE>>(new NumericVectorConverter<TYPE>); \
   return Status::OK()
 
-#define SIMPLE_CONVERTER(TYPE_ENUM, TYPE)                      \
+#define SIMPLE_CONVERTER_CASE(TYPE_ENUM, TYPE)                      \
 case Type::TYPE_ENUM:                                               \
   *out = std::unique_ptr<TYPE>(new TYPE);                      \
   return Status::OK()
@@ -765,7 +817,7 @@ case Type::TYPE_ENUM:                                               \
 Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<VectorConverter>* out) {
 
   switch(type->id()){
-  SIMPLE_CONVERTER(BOOL, BooleanVectorConverter);
+  SIMPLE_CONVERTER_CASE(BOOL, BooleanVectorConverter);
   NUMERIC_CONVERTER(INT8  , Int8Type);
   NUMERIC_CONVERTER(INT16 , Int16Type);
   NUMERIC_CONVERTER(INT32 , Int32Type);
@@ -781,7 +833,7 @@ Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<Vecto
   NUMERIC_CONVERTER(FLOAT, FloatType);
   NUMERIC_CONVERTER(DOUBLE, DoubleType);
 
-  case Type::DATE32:
+  SIMPLE_CONVERTER_CASE(DATE32, Date32Converter);
   case Type::DATE64:
 
   case Type::DECIMAL:
