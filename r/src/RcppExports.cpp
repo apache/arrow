@@ -262,14 +262,26 @@ BEGIN_RCPP
 END_RCPP
 }
 // Array__from_vector
-std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type);
+std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, const std::shared_ptr<arrow::DataType>& type);
 RcppExport SEXP _arrow_Array__from_vector(SEXP xSEXP, SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
-    Rcpp::traits::input_parameter< SEXP >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(Array__from_vector(x, type));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Array__from_vector_old
+std::shared_ptr<arrow::Array> Array__from_vector_old(SEXP x, const std::shared_ptr<arrow::DataType>& type);
+RcppExport SEXP _arrow_Array__from_vector_old(SEXP xSEXP, SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(Array__from_vector_old(x, type));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -475,13 +487,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // ChunkedArray__from_list
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks);
-RcppExport SEXP _arrow_ChunkedArray__from_list(SEXP chunksSEXP) {
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks, const std::shared_ptr<arrow::DataType>& type);
+RcppExport SEXP _arrow_ChunkedArray__from_list(SEXP chunksSEXP, SEXP typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< List >::type chunks(chunksSEXP);
-    rcpp_result_gen = Rcpp::wrap(ChunkedArray__from_list(chunks));
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__from_list(chunks, type));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -2335,6 +2348,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 2},
     {"_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1},
     {"_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 2},
+    {"_arrow_Array__from_vector_old", (DL_FUNC) &_arrow_Array__from_vector_old, 2},
     {"_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1},
     {"_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1},
     {"_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1},
@@ -2353,7 +2367,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ChunkedArray__type", (DL_FUNC) &_arrow_ChunkedArray__type, 1},
     {"_arrow_ChunkArray__Slice1", (DL_FUNC) &_arrow_ChunkArray__Slice1, 2},
     {"_arrow_ChunkArray__Slice2", (DL_FUNC) &_arrow_ChunkArray__Slice2, 3},
-    {"_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 1},
+    {"_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 2},
     {"_arrow_Column__length", (DL_FUNC) &_arrow_Column__length, 1},
     {"_arrow_Column__null_count", (DL_FUNC) &_arrow_Column__null_count, 1},
     {"_arrow_Column__type", (DL_FUNC) &_arrow_Column__type, 1},

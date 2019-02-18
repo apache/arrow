@@ -125,7 +125,7 @@
 #' @importFrom rlang warn
 #' @export
 array <- function(x, type = NULL){
-  `arrow::Array`$dispatch(Array__from_vector(x, type))
+  `arrow::Array`$dispatch(Array__from_vector(x, type %||% type(x)))
 }
 
 `arrow::DictionaryArray` <- R6Class("arrow::DictionaryArray", inherit = `arrow::Array`,

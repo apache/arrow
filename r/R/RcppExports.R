@@ -93,6 +93,10 @@ Array__from_vector <- function(x, type) {
     .Call(`_arrow_Array__from_vector`, x, type)
 }
 
+Array__from_vector_old <- function(x, type) {
+    .Call(`_arrow_Array__from_vector_old`, x, type)
+}
+
 ArrayData__get_type <- function(x) {
     .Call(`_arrow_ArrayData__get_type`, x)
 }
@@ -165,8 +169,8 @@ ChunkArray__Slice2 <- function(chunked_array, offset, length) {
     .Call(`_arrow_ChunkArray__Slice2`, chunked_array, offset, length)
 }
 
-ChunkedArray__from_list <- function(chunks) {
-    .Call(`_arrow_ChunkedArray__from_list`, chunks)
+ChunkedArray__from_list <- function(chunks, type) {
+    .Call(`_arrow_ChunkedArray__from_list`, chunks, type)
 }
 
 Column__length <- function(column) {

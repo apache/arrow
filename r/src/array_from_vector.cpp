@@ -44,7 +44,7 @@ std::shared_ptr<Array> SimpleArray(SEXP x) {
   if (RTYPE != RAWSXP) {
     std::shared_ptr<Buffer> null_bitmap;
 
-    auto first_na = std::find_if(vec.begin(), vec.end(), Rcpp::Vector<RTYPE>::is_na);
+    auto first_na = std::find_if(vec.begin(), vec.end(), isna<RTYPE> );
     if (first_na < vec.end()) {
       STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_bitmap));
       internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
@@ -78,6 +78,50 @@ std::shared_ptr<Array> SimpleArray(SEXP x) {
   // return the right Array class
   return std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
 }
+
+std::shared_ptr<arrow::Array> Int64Array(SEXP x) {
+  auto p_vec_start = reinterpret_cast<int64_t*>(REAL(x));
+  auto n = Rf_xlength(x);
+  int64_t null_count = 0;
+
+  std::vector<std::shared_ptr<Buffer>> buffers{nullptr,
+    std::make_shared<RBuffer<REALSXP>>(x)};
+
+  auto p_vec = std::find(p_vec_start, p_vec_start + n, NA_INT64);
+  auto first_na = p_vec - p_vec_start;
+  if (first_na < n) {
+    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &buffers[0]));
+    internal::FirstTimeBitmapWriter bitmap_writer(buffers[0]->mutable_data(), 0, n);
+
+    // first loop to clear all the bits before the first NA
+    int i = 0;
+    for (; i < first_na; i++, bitmap_writer.Next()) {
+      bitmap_writer.Set();
+    }
+
+    // then finish
+    for (; i < n; i++, bitmap_writer.Next(), ++p_vec) {
+      if (*p_vec == NA_INT64) {
+        bitmap_writer.Clear();
+        null_count++;
+      } else {
+        bitmap_writer.Set();
+      }
+    }
+
+    bitmap_writer.Finish();
+  }
+
+  auto data = ArrayData::Make(
+    std::make_shared<Int64Type>(), n, std::move(buffers), null_count, 0 /*offset*/
+  );
+
+  // return the right Array class
+  return std::make_shared<typename TypeTraits<Int64Type>::ArrayType>(data);
+}
+
+
+
 
 std::shared_ptr<arrow::Array> MakeBooleanArray(LogicalVector_ vec) {
   R_xlen_t n = vec.size();
@@ -345,47 +389,6 @@ std::shared_ptr<Array> TimeStampArray_From_POSIXct(SEXP x) {
   return std::make_shared<TimestampArray>(data);
 }
 
-std::shared_ptr<arrow::Array> Int64Array(SEXP x) {
-  auto p_vec_start = reinterpret_cast<int64_t*>(REAL(x));
-  auto n = Rf_xlength(x);
-  int64_t null_count = 0;
-
-  std::vector<std::shared_ptr<Buffer>> buffers{nullptr,
-    std::make_shared<RBuffer<REALSXP>>(x)};
-
-  auto p_vec = std::find(p_vec_start, p_vec_start + n, NA_INT64);
-  auto first_na = p_vec - p_vec_start;
-  if (first_na < n) {
-    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &buffers[0]));
-    internal::FirstTimeBitmapWriter bitmap_writer(buffers[0]->mutable_data(), 0, n);
-
-    // first loop to clear all the bits before the first NA
-    int i = 0;
-    for (; i < first_na; i++, bitmap_writer.Next()) {
-      bitmap_writer.Set();
-    }
-
-    // then finish
-    for (; i < n; i++, bitmap_writer.Next(), ++p_vec) {
-      if (*p_vec == NA_INT64) {
-        bitmap_writer.Clear();
-        null_count++;
-      } else {
-        bitmap_writer.Set();
-      }
-    }
-
-    bitmap_writer.Finish();
-  }
-
-  auto data = ArrayData::Make(
-    std::make_shared<Int64Type>(), n, std::move(buffers), null_count, 0 /*offset*/
-  );
-
-  // return the right Array class
-  return std::make_shared<typename TypeTraits<Int64Type>::ArrayType>(data);
-}
-
 inline int difftime_unit_multiplier(SEXP x) {
   std::string unit(CHAR(STRING_ELT(Rf_getAttrib(x, symbols::units), 0)));
   if (unit == "secs") {
@@ -455,11 +458,36 @@ std::shared_ptr<arrow::Array> Time32Array_From_difftime(SEXP x) {
   return std::make_shared<Time32Array>(data);
 }
 
-class VectorConverter;
+}
+}
 
-Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<VectorConverter>* out) {
+// ---------------- new api
+
+
+
+
+
+namespace arrow{
+using internal::checked_cast;
+
+namespace internal{
+
+template <typename T, typename Target>
+Status int_cast(T x, Target* out) {
+  if (x < std::numeric_limits<Target>::min() || x > std::numeric_limits<Target>::max()) {
+    return Status::Invalid("Value is too large to fit in C integer type");
+  }
+  *out = static_cast<Target>(x);
   return Status::OK();
 }
+
+}
+
+namespace r{
+
+class VectorConverter;
+
+Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<VectorConverter>* out);
 
 class VectorConverter {
 public:
@@ -467,7 +495,7 @@ public:
 
   virtual Status Init(ArrayBuilder* builder) = 0;
 
-  virtual Status Append(SEXP obj) = 0;
+  virtual Status Ingest(SEXP obj) = 0;
 
   virtual Status GetResult(std::vector<std::shared_ptr<arrow::Array>>* chunks) {
     *chunks = chunks_;
@@ -490,6 +518,151 @@ protected:
   std::vector<std::shared_ptr<Array>> chunks_;
 
 };
+
+template <typename Type, typename Enable = void>
+struct Unbox {};
+
+// unboxer for int type
+template <typename Type>
+struct Unbox<Type, enable_if_integer<Type>>  {
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+  using CType = typename TypeTraits<Type>::CType;
+
+  static inline Status Ingest(BuilderType* builder, SEXP obj) {
+    switch(TYPEOF(obj)) {
+    case INTSXP:
+      return IngestRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
+    case REALSXP:
+      if (Rf_inherits(obj, "integer64")) {
+        return IngestRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)), XLENGTH(obj), NA_INT64);
+      }
+    // TODO: handle eaw and logical
+    default:
+      break;
+    }
+
+    // TODO: include more information about the R object and the target type
+    return Status::Invalid("Cannot convert R object to integer type");
+  }
+
+  template <typename T>
+  static inline Status IngestRange(BuilderType* builder, T* p, R_xlen_t n, T na) {
+    RETURN_NOT_OK(builder->Resize(n));
+    for (R_xlen_t i=0; i<n; i++, ++p) {
+      if(*p == NA_INTEGER) {
+        builder->UnsafeAppendNull();
+      } else {
+        CType value;
+        RETURN_NOT_OK(internal::int_cast(*p, &value));
+        builder->UnsafeAppend(value);
+      }
+    }
+    return Status::OK();
+  }
+};
+
+template <>
+struct Unbox<BooleanType> {
+
+  static inline Status Ingest(BooleanBuilder* builder, SEXP obj) {
+    switch(TYPEOF(obj)) {
+    case LGLSXP:
+    {
+      R_xlen_t n = XLENGTH(obj);
+      RETURN_NOT_OK(builder->Resize(n));
+      int* p = LOGICAL(obj);
+      for (R_xlen_t i=0; i<n; i++, ++p) {
+        if(*p == NA_LOGICAL) {
+          builder->UnsafeAppendNull();
+        } else {
+          builder->UnsafeAppend(*p == 1);
+        }
+      }
+      return Status::OK();
+    }
+
+    default: break;
+    }
+
+    // TODO: include more information about the R object and the target type
+    return Status::Invalid("Cannot convert R object to boolean type");
+  }
+
+};
+
+template <typename Type, class Derived>
+class TypedVectorConverter : public VectorConverter {
+public:
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+
+  Status Init(ArrayBuilder* builder) override {
+    builder_ = builder;
+    typed_builder_ = checked_cast<BuilderType*>(builder_);
+    return Status::OK();
+  }
+
+  Status Ingest(SEXP obj) override {
+    return Unbox<Type>::Ingest(typed_builder_, obj);
+  }
+
+protected:
+  BuilderType* typed_builder_;
+
+};
+
+template <typename Type>
+class IntegerVectorConverter : public TypedVectorConverter<Type, IntegerVectorConverter<Type>>{};
+
+
+class BooleanVectorConverter : public TypedVectorConverter<BooleanType, BooleanVectorConverter>{};
+
+#define INTEGER_CONVERTER(TYPE_ENUM, TYPE)                     \
+case Type::TYPE_ENUM:                                                \
+  *out = std::unique_ptr<IntegerVectorConverter<TYPE>>(new IntegerVectorConverter<TYPE>); \
+  return Status::OK()
+
+#define SIMPLE_CONVERTER(TYPE_ENUM, TYPE)                      \
+case Type::TYPE_ENUM:                                               \
+  *out = std::unique_ptr<TYPE>(new TYPE);                      \
+  return Status::OK()
+
+
+Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<VectorConverter>* out) {
+
+  switch(type->id()){
+  SIMPLE_CONVERTER(BOOL, BooleanVectorConverter);
+
+  case Type::DATE32:
+  case Type::DATE64:
+
+  case Type::DECIMAL:
+
+  case Type::DOUBLE:
+  case Type::FLOAT:
+  case Type::HALF_FLOAT:
+
+  INTEGER_CONVERTER(INT8  , Int8Type);
+  INTEGER_CONVERTER(INT16 , Int16Type);
+  INTEGER_CONVERTER(INT32 , Int32Type);
+  INTEGER_CONVERTER(INT64 , Int64Type);
+  INTEGER_CONVERTER(UINT8 , UInt8Type);
+  INTEGER_CONVERTER(UINT16, UInt16Type);
+  INTEGER_CONVERTER(UINT32, UInt32Type);
+  INTEGER_CONVERTER(UINT64, UInt64Type);
+
+  case Type::STRING:
+  case Type::DICTIONARY:
+
+  case Type::TIME32:
+  case Type::TIME64:
+  case Type::TIMESTAMP:
+
+  default:
+    break;
+  }
+  return Status::NotImplemented("");
+}
+
 
 template <typename Type>
 std::shared_ptr<arrow::DataType> GetFactorTypeImpl(Rcpp::IntegerVector_ factor) {
@@ -551,33 +724,106 @@ std::shared_ptr<arrow::DataType> InferType(SEXP x) {
   Rcpp::stop("cannot infer type from data");
 }
 
-std::shared_ptr<arrow::Array> Array__from_vector2(SEXP x, SEXP s_type) {
-  // get or infer the type
-  std::shared_ptr<arrow::DataType> type;
-  if (Rf_inherits(s_type, "arrow::DataType")) {
-    type = arrow::r::extract<arrow::DataType>(s_type);
-  } else {
-    type = arrow::r::InferType(x);
+// in some situations we can just use the memory of the R object in an RBuffer
+// instead of going through ArrayBuilder, etc ...
+bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
+  switch(type->id()) {
+  case Type::INT32: return TYPEOF(x) == INTSXP && !OBJECT(x);
+  case Type::DOUBLE: return TYPEOF(x) == REALSXP && !OBJECT(x);
+  case Type::INT8: return TYPEOF(x) == RAWSXP && !OBJECT(x);
+  case Type::INT64: return TYPEOF(x) == REALSXP && Rf_inherits(x, "integer64");
+  default:
+    break;
   }
-
-  // Create the sequence converter, initialize with the builder
-  std::unique_ptr<VectorConverter> converter;
-  STOP_IF_NOT_OK(GetConverter(type, &converter));
-
-  // Create ArrayBuilder for type
-  std::unique_ptr<ArrayBuilder> type_builder;
-  STOP_IF_NOT_OK(MakeBuilder(arrow::default_memory_pool(), type, &type_builder));
-  STOP_IF_NOT_OK(converter->Init(type_builder.get()));
-
-  // ingest x
-  STOP_IF_NOT_OK(converter->Append(x));
-
-  std::vector<std::shared_ptr<arrow::Array>> chunks;
-  STOP_IF_NOT_OK(converter->GetResult(&chunks));
-
-  return chunks[0];
+  return false;
 }
 
+template <typename T>
+inline bool is_na(T value) {
+  return false;
+}
+
+template <>
+inline bool is_na<int64_t>(int64_t value){
+  return value == NA_INT64;
+}
+
+template <>
+inline bool is_na<double>(double value){
+  return ISNA(value);
+}
+
+template <>
+inline bool is_na<int>(int value){
+  return value == NA_INTEGER;
+}
+// this is only used on some special cases when the arrow Array can just use the memory of the R
+// object, via an RBuffer, hence be zero copy
+template <int RTYPE, typename Type>
+std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
+  using value_type = typename arrow::TypeTraits<Type>::CType;
+  Rcpp::Vector<RTYPE, NoProtectStorage> vec(x);
+  auto n = vec.size();
+  auto p_vec_start = reinterpret_cast<value_type*>(vec.begin());
+  auto p_vec_end = p_vec_start + n;
+  std::vector<std::shared_ptr<Buffer>> buffers{nullptr,
+    std::make_shared<RBuffer<RTYPE>>(vec)};
+
+  int null_count = 0;
+  std::shared_ptr<Buffer> null_bitmap;
+
+  auto first_na = std::find_if(p_vec_start, p_vec_end, is_na<value_type>);
+  if (first_na < p_vec_start) {
+    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_bitmap));
+    internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
+
+    // first loop to clear all the bits before the first NA
+    auto j = std::distance(p_vec_start, first_na);
+    int i = 0;
+    for (; i < j; i++, bitmap_writer.Next()) {
+      bitmap_writer.Set();
+    }
+
+    auto p_vec = first_na;
+    // then finish
+    for (; i < n; i++, bitmap_writer.Next(), ++p_vec) {
+      if (is_na<value_type>(*p_vec)) {
+        bitmap_writer.Clear();
+        null_count++;
+      } else {
+        bitmap_writer.Set();
+      }
+    }
+
+    bitmap_writer.Finish();
+    buffers[0] = std::move(null_bitmap);
+  }
+
+  auto data = ArrayData::Make(
+    std::make_shared<Type>(), LENGTH(x), std::move(buffers), null_count, 0 /*offset*/
+  );
+
+  // return the right Array class
+  return std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
+}
+
+std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
+  switch(TYPEOF(x)) {
+  case INTSXP:
+    return MakeSimpleArray<INTSXP, Int32Type>(x);
+  case REALSXP:
+    if (Rf_inherits(x, "integer64")) {
+      return MakeSimpleArray<REALSXP, Int64Type>(x);
+    }
+    return MakeSimpleArray<REALSXP, DoubleType>(x);
+  case RAWSXP:
+    return MakeSimpleArray<RAWSXP, Int8Type>(x);
+  default:
+    break;
+  }
+
+  Rcpp::stop("not implemented");
+}
 
 }  // namespace r
 }  // namespace arrow
@@ -588,7 +834,33 @@ std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x) {
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type) {
+std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
+  // special case when we can just use the data from the R vector
+  // directly. This still needs to handle the null bitmap
+  if (arrow::r::can_reuse_memory(x, type)) {
+    return arrow::r::Array__from_vector_reuse_memory(x);
+  }
+
+  // Otherwise we need to use converter and builder
+  std::unique_ptr<arrow::r::VectorConverter> converter;
+  STOP_IF_NOT_OK(arrow::r::GetConverter(type, &converter));
+
+  // Create ArrayBuilder for type
+  std::unique_ptr<arrow::ArrayBuilder> type_builder;
+  STOP_IF_NOT_OK(arrow::MakeBuilder(arrow::default_memory_pool(), type, &type_builder));
+  STOP_IF_NOT_OK(converter->Init(type_builder.get()));
+
+  // ingest x
+  STOP_IF_NOT_OK(converter->Ingest(x));
+
+  std::vector<std::shared_ptr<arrow::Array>> chunks;
+  STOP_IF_NOT_OK(converter->GetResult(&chunks));
+
+  return chunks[0];
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Array> Array__from_vector_old(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
   switch (TYPEOF(x)) {
   case LGLSXP:
     return arrow::r::MakeBooleanArray(x);
