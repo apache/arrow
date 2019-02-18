@@ -133,7 +133,8 @@ TYPED_TEST(TestSumKernelNumeric, SimpleSum) {
   ValidateSum<TypeParam>(&this->ctx_, "[]",
                          Datum(std::make_shared<ScalarType>(0, false)));
 
-  ValidateSum<TypeParam>(&this->ctx_, "[null]", Datum());
+  ValidateSum<TypeParam>(&this->ctx_, "[null]",
+                         Datum(std::make_shared<ScalarType>(0, false)));
 
   ValidateSum<TypeParam>(&this->ctx_, "[0, 1, 2, 3, 4, 5]",
                          Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
