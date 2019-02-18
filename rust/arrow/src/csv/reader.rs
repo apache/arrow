@@ -401,7 +401,7 @@ impl Default for ReaderBuilder {
 impl ReaderBuilder {
     /// Create a new builder for configuring CSV parsing options.
     ///
-    /// To convert a builder into a reader, call `Reader::from_builder`
+    /// To convert a builder into a reader, call `ReaderBuilder::build`
     ///
     /// # Example
     ///
