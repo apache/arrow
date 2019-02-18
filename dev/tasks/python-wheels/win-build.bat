@@ -20,7 +20,7 @@
 conda update --yes --quiet conda
 
 conda create -n arrow -q -y python=%PYTHON% ^
-      six pytest setuptools numpy=%NUMPY% pandas cython
+      six pytest setuptools numpy=%NUMPY% pandas
 
 conda install -n arrow -q -y -c conda-forge ^
       git flatbuffers rapidjson ^
@@ -71,6 +71,10 @@ set PYTHONPATH=
 pushd %ARROW_SRC%\python
 set PYARROW_BUILD_TYPE=Release
 set SETUPTOOLS_SCM_PRETEND_VERSION=%PYARROW_VERSION%
+
+@rem Newer Cython versions are not available on conda-forge
+pip install -U pip
+pip install "Cython>=0.29"
 
 python setup.py build_ext ^
        --with-parquet ^
