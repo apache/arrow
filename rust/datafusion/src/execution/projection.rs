@@ -104,9 +104,12 @@ mod tests {
             Field::new("c11", DataType::Float64, false),
             Field::new("c12", DataType::Utf8, false),
         ]));
+
         let ds = CsvDataSource::new(
             "../../testing/data/csv/aggregate_test_100.csv",
             schema.clone(),
+            true,
+            &None,
             1024,
         );
         let relation = Rc::new(RefCell::new(DataSourceRelation::new(Rc::new(
