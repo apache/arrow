@@ -384,6 +384,7 @@ def test_pandas_column_selection(tempdir):
 
     tm.assert_frame_equal(df[['uint8']], df_read)
 
+
 def _random_integers(size, dtype):
     # We do not generate integers outside the int64 range
     platform_int_info = np.iinfo('int_')
