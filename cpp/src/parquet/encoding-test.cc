@@ -319,12 +319,15 @@ TEST(TestDictionaryEncoding, CannotDictDecodeBoolean) {
 }
 
 // ----------------------------------------------------------------------
-// Arrow builder decode tests
+// Shared arrow builder decode tests
 class TestDecodeArrow : public ::testing::Test {
  public:
   void SetUp() override {
-    allocator_ = default_memory_pool();
+    InitDataInputs();
+    SetupEncoderDecoder();
+  }
 
+  void InitDataInputs() {
     // Build a dictionary array and its dense representation for testing building both
     auto dict_values = ::arrow::ArrayFromJSON(::arrow::binary(), "[\"foo\", \"bar\"]");
     auto dtype = ::arrow::dictionary(::arrow::int8(), dict_values);
@@ -343,19 +346,31 @@ class TestDecodeArrow : public ::testing::Test {
     }
 
     valid_bits_ = vector<uint8_t>(::arrow::BitUtil::BytesForBits(num_values_) + 1, 255);
-
-    // Setup encoder/decoder pair
-    encoder_ = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
-    decoder_ = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
-    encoder_->Put(input_data_.data(), num_values_);
-    buffer_ = encoder_->FlushValues();
-    decoder_->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
   }
 
-  void TearDown() override {}
+  // Setup encoder/decoder pair for testing with
+  virtual void SetupEncoderDecoder() = 0;
+
+  void CheckDecodeDense(const int actual_num_values,
+                        ::arrow::internal::ChunkedBinaryBuilder& builder) {
+    ASSERT_EQ(actual_num_values, num_values_);
+    ::arrow::ArrayVector actual_vec;
+    ASSERT_OK(builder.Finish(&actual_vec));
+    ASSERT_EQ(actual_vec.size(), 1);
+    ASSERT_TRUE(actual_vec[0]->Equals(expected_array_))
+        << "Actual: " << actual_vec[0] << "\nExpected: " << expected_array_;
+  }
+
+  void CheckDecodeDict(const int actual_num_values,
+                       ::arrow::BinaryDictionaryBuilder& builder) {
+    ASSERT_EQ(actual_num_values, num_values_);
+    std::shared_ptr<::arrow::Array> actual;
+    ASSERT_OK(builder.Finish(&actual));
+    ASSERT_TRUE(actual->Equals(expected_dict_))
+        << "Actual: " << actual << "\nExpected: " << expected_dict_;
+  }
 
  protected:
-  MemoryPool* allocator_;
   std::shared_ptr<::arrow::Array> expected_dict_;
   std::shared_ptr<::arrow::Array> expected_array_;
   int num_values_;
@@ -366,54 +381,120 @@ class TestDecodeArrow : public ::testing::Test {
   std::shared_ptr<Buffer> buffer_;
 };
 
-TEST_F(TestDecodeArrow, DecodeDense) {
+// ----------------------------------------------------------------------
+// Arrow builder decode tests for PlainByteArrayDecoder
+class TestDecodeArrowPlain : public TestDecodeArrow {
+ public:
+  void SetupEncoderDecoder() override {
+    encoder_ = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
+    decoder_ = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+    encoder_->Put(input_data_.data(), num_values_);
+    buffer_ = encoder_->FlushValues();
+    decoder_->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
+  }
+
+  void TearDown() override {}
+};
+
+TEST_F(TestDecodeArrowPlain, DecodeDense) {
   ::arrow::internal::ChunkedBinaryBuilder builder(static_cast<int>(buffer_->size()),
-                                                  allocator_);
+                                                  default_memory_pool());
   auto actual_num_values =
       decoder_->DecodeArrow(num_values_, 0, valid_bits_.data(), 0, &builder);
-
-  ASSERT_EQ(actual_num_values, num_values_);
-  ::arrow::ArrayVector actual_vec;
-  ASSERT_OK(builder.Finish(&actual_vec));
-  ASSERT_EQ(actual_vec.size(), 1);
-  ASSERT_TRUE(actual_vec[0]->Equals(expected_array_))
-      << "Actual: " << actual_vec[0] << "\nExpected: " << expected_array_;
+  CheckDecodeDense(actual_num_values, builder);
 }
 
-TEST_F(TestDecodeArrow, DecodeNonNullDense) {
+TEST_F(TestDecodeArrowPlain, DecodeNonNullDense) {
   ::arrow::internal::ChunkedBinaryBuilder builder(static_cast<int>(buffer_->size()),
-                                                  allocator_);
+                                                  default_memory_pool());
   auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, &builder);
-
-  ASSERT_EQ(actual_num_values, num_values_);
-  ::arrow::ArrayVector actual_vec;
-  ASSERT_OK(builder.Finish(&actual_vec));
-  ASSERT_EQ(actual_vec.size(), 1);
-  ASSERT_TRUE(actual_vec[0]->Equals(expected_array_))
-      << "Actual: " << actual_vec[0] << "\nExpected: " << expected_array_;
+  CheckDecodeDense(actual_num_values, builder);
 }
 
-TEST_F(TestDecodeArrow, DecodeDictionary) {
-  ::arrow::BinaryDictionaryBuilder builder(allocator_);
+TEST_F(TestDecodeArrowPlain, DecodeDictionary) {
+  ::arrow::BinaryDictionaryBuilder builder(default_memory_pool());
   auto actual_num_values =
       decoder_->DecodeArrow(num_values_, 0, valid_bits_.data(), 0, &builder);
-
-  ASSERT_EQ(actual_num_values, num_values_);
-  std::shared_ptr<::arrow::Array> actual;
-  ASSERT_OK(builder.Finish(&actual));
-  ASSERT_TRUE(actual->Equals(expected_dict_))
-      << "Actual: " << actual << "\nExpected: " << expected_dict_;
+  CheckDecodeDict(actual_num_values, builder);
 }
 
-TEST_F(TestDecodeArrow, DecodeNonNullDictionary) {
-  ::arrow::BinaryDictionaryBuilder builder(allocator_);
+TEST_F(TestDecodeArrowPlain, DecodeNonNullDictionary) {
+  ::arrow::BinaryDictionaryBuilder builder(default_memory_pool());
   auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, &builder);
+  CheckDecodeDict(actual_num_values, builder);
+}
 
-  ASSERT_EQ(actual_num_values, num_values_);
-  std::shared_ptr<::arrow::Array> actual;
-  ASSERT_OK(builder.Finish(&actual));
-  ASSERT_TRUE(actual->Equals(expected_dict_))
-      << "Actual: " << actual << "\nExpected: " << expected_dict_;
+// ----------------------------------------------------------------------
+// Arrow builder decode tests for DictByteArrayDecoder
+class TestDecodeArrowDict : public TestDecodeArrow {
+ public:
+  void SetupEncoderDecoder() override {
+    auto node = schema::ByteArray("name");
+    descr_ = std::unique_ptr<ColumnDescriptor>(new ColumnDescriptor(node, 0, 0));
+    encoder_ = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN, /*use_dictionary=*/true,
+                                               descr_.get());
+    ASSERT_NO_THROW(encoder_->Put(input_data_.data(), num_values_));
+    buffer_ = encoder_->FlushValues();
+
+    auto dict_encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(encoder_.get());
+    ASSERT_NE(dict_encoder, nullptr);
+    dict_buffer_ =
+        AllocateBuffer(default_memory_pool(), dict_encoder->dict_encoded_size());
+    dict_encoder->WriteDict(dict_buffer_->mutable_data());
+
+    // Simulate reading the dictionary page followed by a data page
+    decoder_ = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN, descr_.get());
+    decoder_->SetData(dict_encoder->num_entries(), dict_buffer_->data(),
+                      static_cast<int>(dict_buffer_->size()));
+
+    dict_decoder_ = MakeDictDecoder<ByteArrayType>(descr_.get());
+    dict_decoder_->SetDict(decoder_.get());
+    dict_decoder_->SetData(num_values_, buffer_->data(),
+                           static_cast<int>(buffer_->size()));
+  }
+
+  void TearDown() override {}
+
+ protected:
+  std::unique_ptr<ColumnDescriptor> descr_;
+  std::unique_ptr<DictDecoder<ByteArrayType>> dict_decoder_;
+  std::shared_ptr<Buffer> dict_buffer_;
+};
+
+TEST_F(TestDecodeArrowDict, DecodeDense) {
+  ::arrow::internal::ChunkedBinaryBuilder builder(static_cast<int>(dict_buffer_->size()),
+                                                  default_memory_pool());
+  auto byte_array_decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder_.get());
+  ASSERT_NE(byte_array_decoder, nullptr);
+  auto actual_num_values =
+      byte_array_decoder->DecodeArrow(num_values_, 0, valid_bits_.data(), 0, &builder);
+  CheckDecodeDense(actual_num_values, builder);
+}
+
+TEST_F(TestDecodeArrowDict, DecodeNonNullDense) {
+  ::arrow::internal::ChunkedBinaryBuilder builder(static_cast<int>(dict_buffer_->size()),
+                                                  default_memory_pool());
+  auto byte_array_decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder_.get());
+  ASSERT_NE(byte_array_decoder, nullptr);
+  auto actual_num_values = byte_array_decoder->DecodeArrowNonNull(num_values_, &builder);
+  CheckDecodeDense(actual_num_values, builder);
+}
+
+TEST_F(TestDecodeArrowDict, DecodeDictionary) {
+  ::arrow::BinaryDictionaryBuilder builder(default_memory_pool());
+  auto byte_array_decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder_.get());
+  ASSERT_NE(byte_array_decoder, nullptr);
+  auto actual_num_values =
+      byte_array_decoder->DecodeArrow(num_values_, 0, valid_bits_.data(), 0, &builder);
+  CheckDecodeDict(actual_num_values, builder);
+}
+
+TEST_F(TestDecodeArrowDict, DecodeNonNullDictionary) {
+  ::arrow::BinaryDictionaryBuilder builder(default_memory_pool());
+  auto byte_array_decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder_.get());
+  ASSERT_NE(byte_array_decoder, nullptr);
+  auto actual_num_values = byte_array_decoder->DecodeArrowNonNull(num_values_, &builder);
+  CheckDecodeDict(actual_num_values, builder);
 }
 
 }  // namespace test

@@ -1015,7 +1015,8 @@ class DictByteArrayDecoder : public DictDecoderImpl<ByteArrayType>,
     int32_t indices_buffer[buffer_size];
     int values_decoded = 0;
     while (values_decoded < num_values) {
-      int num_indices = idx_decoder_.GetBatch(indices_buffer, buffer_size);
+      int32_t batch_size = std::min<int32_t>(buffer_size, num_values - values_decoded);
+      int num_indices = idx_decoder_.GetBatch(indices_buffer, batch_size);
       if (num_indices == 0) break;
       for (int i = 0; i < num_indices; ++i) {
         const auto& val = dictionary_[indices_buffer[i]];
