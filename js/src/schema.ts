@@ -85,16 +85,16 @@ export class Schema<T extends { [key: string]: DataType } = any> {
     public assign<R extends { [key: string]: DataType } = any>(...args: (Schema<R> | Field<R[keyof R]> | Field<R[keyof R]>[])[]) {
 
         const other = args[0] instanceof Schema ? args[0] as Schema<R>
-            : new Schema<R>(selectAndFlatten<Field<R[keyof R]>>(Field, args));
+            : new Schema<R>(selectArgs<Field<R[keyof R]>>(Field, args));
 
         const curFields = [...this.fields] as Field[];
         const curDictionaries = [...this.dictionaries];
         const curDictionaryFields = this.dictionaryFields;
-        const metadata = mergeMaps(this.metadata, other.metadata);
+        const metadata = mergeMaps(mergeMaps(new Map(), this.metadata), other.metadata);
         const newFields = other.fields.filter((f2) => {
             const i = curFields.findIndex((f) => f.compareTo(f2));
             return ~i ? (curFields[i] = curFields[i].clone({
-                metadata: mergeMaps(curFields[i].metadata, f2.metadata)
+                metadata: mergeMaps(mergeMaps(new Map(), curFields[i].metadata), f2.metadata)
             })) && false : true;
         }) as Field[];
 
