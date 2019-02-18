@@ -5,7 +5,7 @@
 namespace Apache.Arrow.Flatbuf
 {
 
-public enum UnionMode : short
+internal enum UnionMode : short
 {
  Sparse = 0,
  Dense = 1,

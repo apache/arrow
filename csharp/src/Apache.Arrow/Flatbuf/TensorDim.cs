@@ -8,8 +8,10 @@ namespace Apache.Arrow.Flatbuf
 using global::System;
 using global::FlatBuffers;
 
+/// ----------------------------------------------------------------------
+/// Data structures for dense tensors
 /// Shape data for a single axis in a tensor
-public struct TensorDim : IFlatbufferObject
+internal struct TensorDim : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
@@ -22,7 +24,12 @@ public struct TensorDim : IFlatbufferObject
   public long Size { get { int o = __p.__offset(4); return o != 0 ? __p.bb.GetLong(o + __p.bb_pos) : (long)0; } }
   /// Name of the dimension, optional
   public string Name { get { int o = __p.__offset(6); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetNameBytes() { return __p.__vector_as_span(6); }
+#else
   public ArraySegment<byte>? GetNameBytes() { return __p.__vector_as_arraysegment(6); }
+#endif
+  public byte[] GetNameArray() { return __p.__vector_as_array<byte>(6); }
 
   public static Offset<TensorDim> CreateTensorDim(FlatBufferBuilder builder,
       long size = 0,

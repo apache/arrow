@@ -148,3 +148,11 @@ Build from the Apache Arrow project root.
 	dotnet test test/Apache.Arrow.Tests
 
 All build artifacts are placed in the **artifacts** folder in the project root.
+
+# Updating FlatBuffers code
+
+See https://google.github.io/flatbuffers/flatbuffers_guide_use_java_c-sharp.html for how to get the `flatc` executable.
+
+Run `flatc --csharp` on each `.fbs` file in the [format](../format) folder. And replace the checked in `.cs` files under [FlatBuf](src/Apache.Arrow/Flatbuf) with the generated files.
+
+Update the non-generated [FlatBuffers](src/Apache.Arrow/Flatbuf/FlatBuffers) `.cs` files with the files from the [google/flatbuffers repo](https://github.com/google/flatbuffers/tree/master/net/FlatBuffers).
