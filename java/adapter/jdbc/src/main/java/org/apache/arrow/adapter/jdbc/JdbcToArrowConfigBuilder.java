@@ -18,6 +18,7 @@
 package org.apache.arrow.adapter.jdbc;
 
 import java.util.Calendar;
+import java.util.Map;
 
 import org.apache.arrow.memory.BaseAllocator;
 
@@ -30,6 +31,8 @@ public class JdbcToArrowConfigBuilder {
   private Calendar calendar;
   private BaseAllocator allocator;
   private boolean includeMetadata;
+  private Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex;
+  private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
 
   /**
    * Default constructor for the <code>JdbcToArrowConfigBuilder}</code>.
@@ -40,6 +43,8 @@ public class JdbcToArrowConfigBuilder {
     this.allocator = null;
     this.calendar = null;
     this.includeMetadata = false;
+    this.arraySubTypesByColumnIndex = null;
+    this.arraySubTypesByColumnName = null;
   }
 
   /**
@@ -127,6 +132,29 @@ public class JdbcToArrowConfigBuilder {
   }
 
   /**
+   * Sets the mapping of column-index-to-{@link JdbcFieldInfo} used for columns of type {@link java.sql.Types#ARRAY}.
+   * The column index is 1-based, to match the JDBC column index.
+   *
+   * @param map The mapping.
+   * @return This instance of the <code>JdbcToArrowConfig</code>, for chaining.
+   */
+  public JdbcToArrowConfigBuilder setArraySubTypeByColumnIndexMap(Map<Integer, JdbcFieldInfo> map) {
+    this.arraySubTypesByColumnIndex = map;
+    return this;
+  }
+
+  /**
+   * Sets the mapping of column-name-to-{@link JdbcFieldInfo} used for columns of type {@link java.sql.Types#ARRAY}.
+   *
+   * @param map The mapping.
+   * @return This instance of the <code>JdbcToArrowConfig</code>, for chaining.
+   */
+  public JdbcToArrowConfigBuilder setArraySubTypeByColumnNameMap(Map<String, JdbcFieldInfo> map) {
+    this.arraySubTypesByColumnName = map;
+    return this;
+  }
+
+  /**
    * This builds the {@link JdbcToArrowConfig} from the provided
    * {@link BaseAllocator} and {@link Calendar}.
    *
@@ -134,6 +162,11 @@ public class JdbcToArrowConfigBuilder {
    * @throws NullPointerException if either the allocator or calendar was not set.
    */
   public JdbcToArrowConfig build() {
-    return new JdbcToArrowConfig(allocator, calendar, includeMetadata);
+    return new JdbcToArrowConfig(
+        allocator,
+        calendar,
+        includeMetadata,
+        arraySubTypesByColumnIndex,
+        arraySubTypesByColumnName);
   }
 }
