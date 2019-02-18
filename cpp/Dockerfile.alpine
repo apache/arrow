@@ -32,6 +32,7 @@ RUN apk add --no-cache -q \
         make \
         musl-dev \
         ninja \
+        openssl-dev \
         wget \
         zlib-dev
 
