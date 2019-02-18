@@ -859,6 +859,56 @@ class BooleanVectorConverter : public TypedVectorConverter<BooleanType, BooleanV
 class Date32Converter : public TypedVectorConverter<Date32Type, Date32Converter> {};
 class Date64Converter : public TypedVectorConverter<Date64Type, Date64Converter> {};
 
+class TimestampConverter : public VectorConverter {
+public:
+  TimestampConverter(TimeUnit::type unit) : unit_(unit), multiplier_(get_multiplier(unit)){}
+
+  Status Init(ArrayBuilder* builder) override {
+    typed_builder_ = checked_cast<TimestampBuilder*>(builder);
+    return Status::OK();
+  }
+
+  Status Ingest(SEXP obj) override {
+
+    if(TYPEOF(obj) == REALSXP && Rf_inherits(obj, "POSIXct")) {
+      return Ingest_POSIXct(REAL(obj), XLENGTH(obj));
+    }
+
+    return Status::Invalid("Cannot convert R object to timestamp type");
+  }
+
+protected:
+  TimeUnit::type unit_;
+  TimestampBuilder* typed_builder_;
+  int64_t multiplier_;
+
+private:
+
+  static int64_t get_multiplier(TimeUnit::type unit){
+    switch(unit){
+    case TimeUnit::SECOND: return 1;
+    case TimeUnit::MILLI: return 1000;
+    case TimeUnit::MICRO: return 1000000;
+    case TimeUnit::NANO: return 1000000000;
+    }
+  }
+
+  Status Ingest_POSIXct(double* p, R_xlen_t n) {
+    RETURN_NOT_OK(typed_builder_->Resize(n));
+
+    for (R_xlen_t i=0; i<n; i++, ++p) {
+      if(ISNA(*p)) {
+        typed_builder_->UnsafeAppendNull();
+      } else {
+        typed_builder_->UnsafeAppend(static_cast<int64_t>(*p * multiplier_));
+      }
+    }
+    return Status::OK();
+  }
+
+
+};
+
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                     \
 case Type::TYPE_ENUM:                                                \
   *out = std::unique_ptr<NumericVectorConverter<TYPE>>(new NumericVectorConverter<TYPE>); \
@@ -899,8 +949,10 @@ Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<Vecto
 
   case Type::TIME32:
   case Type::TIME64:
-  case Type::TIMESTAMP:
 
+  case Type::TIMESTAMP:
+    *out = std::unique_ptr<TimestampConverter>(new TimestampConverter(checked_cast<TimestampType*>(type.get())->unit()));
+    return Status::OK();
   default:
     break;
   }
