@@ -28,7 +28,8 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/File_generated.h"  // IWYU pragma: keep
 #include "arrow/ipc/Message_generated.h"
-#include "arrow/ipc/Tensor_generated.h"  // IWYU pragma: keep
+#include "arrow/ipc/SparseTensor_generated.h"  // IWYU pragma: keep
+#include "arrow/ipc/Tensor_generated.h"        // IWYU pragma: keep
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/util.h"
 #include "arrow/sparse_tensor.h"

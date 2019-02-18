@@ -16,6 +16,7 @@
 // under the License.
 
 include "Schema.fbs";
+include "SparseTensor.fbs";
 include "Tensor.fbs";
 
 namespace org.apache.arrow.flatbuf;
