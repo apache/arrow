@@ -24,13 +24,12 @@ namespace gandiva {
 const std::shared_ptr<Configuration> ConfigurationBuilder::default_configuration_ =
     InitDefaultConfig();
 
-// std::size_t Configuration::Hash() const {
-//   boost::hash<std::string> string_hash;
-//   return string_hash(byte_code_file_path_);
-// }
+std::size_t Configuration::Hash() const {
+  return 0;  // dummy for now, no configuration properties yet
+}
 
 bool Configuration::operator==(const Configuration& other) const {
-  return other.precompiled_bitcode() == precompiled_bitcode();
+  return true;  // always true, no configuration properties yet
 }
 
 bool Configuration::operator!=(const Configuration& other) const {

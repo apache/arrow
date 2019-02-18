@@ -26,9 +26,6 @@
 
 namespace gandiva {
 
-GANDIVA_EXPORT
-extern const std::string kPrecompiledBitcode;
-
 class ConfigurationBuilder;
 /// \brief runtime config for gandiva
 ///
@@ -38,17 +35,9 @@ class GANDIVA_EXPORT Configuration {
  public:
   friend class ConfigurationBuilder;
 
-  const std::string& precompiled_bitcode() const { return precompiled_bitcode_; }
-
-  // std::size_t Hash() const;
+  std::size_t Hash() const;
   bool operator==(const Configuration& other) const;
   bool operator!=(const Configuration& other) const;
-
- private:
-  explicit Configuration(const std::string& precompiled_bitcode)
-      : precompiled_bitcode_(precompiled_bitcode) {}
-
-  const std::string& precompiled_bitcode_;
 };
 
 /// \brief configuration builder for gandiva
@@ -57,15 +46,8 @@ class GANDIVA_EXPORT Configuration {
 /// to override specific values and build a custom instance
 class GANDIVA_EXPORT ConfigurationBuilder {
  public:
-  ConfigurationBuilder() : precompiled_bitcode_(kPrecompiledBitcode) {}
-
-  ConfigurationBuilder& set_precompiled_bitcode(const std::string& precompiled_bitcode) {
-    precompiled_bitcode_ = precompiled_bitcode;
-    return *this;
-  }
-
   std::shared_ptr<Configuration> build() {
-    std::shared_ptr<Configuration> configuration(new Configuration(precompiled_bitcode_));
+    std::shared_ptr<Configuration> configuration(new Configuration());
     return configuration;
   }
 
@@ -74,10 +56,8 @@ class GANDIVA_EXPORT ConfigurationBuilder {
   }
 
  private:
-  std::string precompiled_bitcode_;
-
   static std::shared_ptr<Configuration> InitDefaultConfig() {
-    std::shared_ptr<Configuration> configuration(new Configuration(kPrecompiledBitcode));
+    std::shared_ptr<Configuration> configuration(new Configuration());
     return configuration;
   }
 

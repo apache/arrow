@@ -66,6 +66,9 @@
 
 namespace gandiva {
 
+GANDIVA_EXPORT
+extern const std::string kPrecompiledBitcode;
+
 std::once_flag init_once_flag;
 
 bool Engine::init_once_done_ = false;
@@ -114,7 +117,7 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
   // Add mappings for functions that can be accessed from LLVM/IR module.
   engine_obj->AddGlobalMappings();
 
-  auto status = engine_obj->LoadPreCompiledIR(config->precompiled_bitcode());
+  auto status = engine_obj->LoadPreCompiledIR(kPrecompiledBitcode);
   ARROW_RETURN_NOT_OK(status);
 
   // Add decimal functions
