@@ -77,16 +77,12 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
     public get numCols() { return this._schema.fields.length; }
 
     public select<K extends keyof T = any>(...columnNames: K[]) {
-        const fields = this._schema.fields;
-        const schema = this._schema.select(...columnNames);
-        const childNames = columnNames.reduce((xs, x) => (xs[x] = true) && xs, <any> {});
-        const childData = this.data.childData.filter((_, i) => childNames[fields[i].name]);
-        const structData = Data.Struct(new Struct(schema.fields), 0, this.length, 0, null, childData);
-        return new RecordBatch<{ [P in K]: T[P] }>(schema, structData as Data<Struct<{ [P in K]: T[P] }>>);
+        const nameToIndex = this._schema.fields.reduce((m, f, i) => m.set(f.name as K, i), new Map<K, number>());
+        return this.selectAt(...columnNames.map((columnName) => nameToIndex.get(columnName)!).filter((x) => x > -1));
     }
     public selectAt<K extends T[keyof T] = any>(...columnIndices: number[]) {
         const schema = this._schema.selectAt(...columnIndices);
-        const children = columnIndices.map((i) => this.data.childData[i]);
-        return new RecordBatch<{ [key: string]: K }>(schema, this.length, children);
+        const childData = columnIndices.map((i) => this.data.childData[i]).filter(Boolean);
+        return new RecordBatch<{ [key: string]: K }>(schema, this.length, childData);
     }
 }
