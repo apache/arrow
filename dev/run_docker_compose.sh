@@ -16,24 +16,26 @@
 # limitations under the License.
 #
 
+set -eu
+
+PWD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+ARROW_SRC=$(realpath "${PWD}/..")
+
+: ${DOCKER_COMPOSE:="docker-compose"}
+: ${DOCKER_COMPOSE_CONF:="${ARROW_SRC}/docker-compose.yml"}
+
+docker_compose() {
+  ${DOCKER_COMPOSE} -f ${DOCKER_COMPOSE_CONF} $@
+}
+
+main() {
+  docker_compose build $@
+  docker_compose run --rm $@
+}
+
 if [ $# -lt 1 ]; then
-    echo "This script takes one argument - the docker service to run" >&2
+    echo "Usage: $0 <docker-compose-service>" >&2
     exit 1
 fi
 
-# Make sure this is always run in the directory above Arrow root
-cd $(dirname "${BASH_SOURCE}")/../..
-
-if [ ! -d arrow ]; then
-    echo "Please make sure that the top level Arrow directory" >&2
-    echo "is named 'arrow'"
-    exit 1
-fi
-
-if [ ! -d parquet-cpp ]; then
-    echo "Please clone the Parquet repo next to the Arrow repo" >&2
-    exit 1
-fi
-
-docker-compose -f arrow/dev/docker-compose.yml build "${@}"
-docker-compose -f arrow/dev/docker-compose.yml run --rm "${@}"
+main $@
