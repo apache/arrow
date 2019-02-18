@@ -493,10 +493,33 @@ Status double_cast<int64_t>(int64_t x, double* out) {
   constexpr int64_t kDoubleMin = -(1LL << 53);
 
   if (x < kDoubleMin || x > kDoubleMax) {
-    return Status::Invalid("64 bit integer value ", x, " is outside of the range exactly",
+    return Status::Invalid("integer value ", x, " is outside of the range exactly",
       " representable by a IEEE 754 double precision value");
   }
   *out = static_cast<double>(x);
+  return Status::OK();
+}
+
+// used for int and int64_t
+template <typename T>
+Status float_cast(T x, float* out) {
+  constexpr int64_t kHalfFloatMax = 1LL << 24;
+  constexpr int64_t kHalfFloatMin = -(1LL << 24);
+
+  int64_t x64 = static_cast<int64_t>(x);
+  if (x64 < kHalfFloatMin || x64 > kHalfFloatMax) {
+    return Status::Invalid("integer value ", x, " is outside of the range exactly",
+      " representable by a IEEE 754 half precision value");
+  }
+
+  *out = static_cast<float>(x);
+  return Status::OK();
+}
+
+template <>
+Status float_cast<double>(double x, float* out) {
+  //  TODO: is there some sort of floating point overflow ?
+  *out = static_cast<float>(x);
   return Status::OK();
 }
 
@@ -585,12 +608,14 @@ struct Unbox<DoubleType> {
 
   static inline Status Ingest(DoubleBuilder* builder, SEXP obj) {
     switch(TYPEOF(obj)) {
+    // TODO: handle RAW
     case INTSXP:
     return IngestIntRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
     case REALSXP:
       if(Rf_inherits(obj, "integer64")) {
         return IngestIntRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)), XLENGTH(obj), NA_INT64);
       }
+      return IngestDoubleRange(builder, REAL(obj), XLENGTH(obj));
     }
     return Status::Invalid("Cannot convert R object to double type");
   }
@@ -624,7 +649,53 @@ struct Unbox<DoubleType> {
 
 };
 
+template<>
+struct Unbox<FloatType> {
 
+  static inline Status Ingest(FloatBuilder* builder, SEXP obj) {
+    switch(TYPEOF(obj)) {
+    // TODO: handle RAW
+    case INTSXP:
+      return IngestIntRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
+    case REALSXP:
+      if(Rf_inherits(obj, "integer64")) {
+        return IngestIntRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)), XLENGTH(obj), NA_INT64);
+      }
+      return IngestDoubleRange(builder, REAL(obj), XLENGTH(obj));
+    }
+    return Status::Invalid("Cannot convert R object to double type");
+  }
+
+  template <typename T>
+  static inline Status IngestIntRange(FloatBuilder* builder, T* p, R_xlen_t n, T na) {
+    RETURN_NOT_OK(builder->Resize(n));
+    for (R_xlen_t i=0; i<n; i++, ++p) {
+      if(*p == NA_INTEGER) {
+        builder->UnsafeAppendNull();
+      } else {
+        float value;
+        RETURN_NOT_OK(internal::float_cast(*p, &value));
+        builder->UnsafeAppend(value);
+      }
+    }
+    return Status::OK();
+  }
+
+  static inline Status IngestDoubleRange(FloatBuilder* builder, double* p, R_xlen_t n) {
+    RETURN_NOT_OK(builder->Resize(n));
+    for (R_xlen_t i=0; i<n; i++, ++p) {
+      if(ISNA(*p)) {
+        builder->UnsafeAppendNull();
+      } else {
+        float value;
+        RETURN_NOT_OK(internal::float_cast(*p, &value));
+        builder->UnsafeAppend(value);
+      }
+    }
+    return Status::OK();
+  }
+
+};
 
 template <>
 struct Unbox<BooleanType> {
@@ -704,8 +775,10 @@ Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<Vecto
   NUMERIC_CONVERTER(UINT32, UInt32Type);
   NUMERIC_CONVERTER(UINT64, UInt64Type);
 
+  // TODO: not sure how to handle half floats
+  //       the python code uses npy_half
   // NUMERIC_CONVERTER(HALF_FLOAT, HalfFloatType);
-  // NUMERIC_CONVERTER(FLOAT, FloatType);
+  NUMERIC_CONVERTER(FLOAT, FloatType);
   NUMERIC_CONVERTER(DOUBLE, DoubleType);
 
   case Type::DATE32:
@@ -723,7 +796,7 @@ Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<Vecto
   default:
     break;
   }
-  return Status::NotImplemented("");
+  return Status::NotImplemented("type not implemented");
 }
 
 
