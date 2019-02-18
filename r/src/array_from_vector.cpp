@@ -481,6 +481,25 @@ Status int_cast(T x, Target* out) {
   return Status::OK();
 }
 
+template <typename Int>
+Status double_cast(Int x, double* out) {
+  *out = static_cast<double>(x);
+  return Status::OK();
+}
+
+template <>
+Status double_cast<int64_t>(int64_t x, double* out) {
+  constexpr int64_t kDoubleMax = 1LL << 53;
+  constexpr int64_t kDoubleMin = -(1LL << 53);
+
+  if (x < kDoubleMin || x > kDoubleMax) {
+    return Status::Invalid("64 bit integer value ", x, " is outside of the range exactly",
+      " representable by a IEEE 754 double precision value");
+  }
+  *out = static_cast<double>(x);
+  return Status::OK();
+}
+
 }
 
 namespace r{
@@ -561,6 +580,52 @@ struct Unbox<Type, enable_if_integer<Type>>  {
   }
 };
 
+template<>
+struct Unbox<DoubleType> {
+
+  static inline Status Ingest(DoubleBuilder* builder, SEXP obj) {
+    switch(TYPEOF(obj)) {
+    case INTSXP:
+    return IngestIntRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
+    case REALSXP:
+      if(Rf_inherits(obj, "integer64")) {
+        return IngestIntRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)), XLENGTH(obj), NA_INT64);
+      }
+    }
+    return Status::Invalid("Cannot convert R object to double type");
+  }
+
+  template <typename T>
+  static inline Status IngestIntRange(DoubleBuilder* builder, T* p, R_xlen_t n, T na) {
+    RETURN_NOT_OK(builder->Resize(n));
+    for (R_xlen_t i=0; i<n; i++, ++p) {
+      if(*p == NA_INTEGER) {
+        builder->UnsafeAppendNull();
+      } else {
+        double value;
+        RETURN_NOT_OK(internal::double_cast(*p, &value));
+        builder->UnsafeAppend(value);
+      }
+    }
+    return Status::OK();
+  }
+
+  static inline Status IngestDoubleRange(DoubleBuilder* builder, double* p, R_xlen_t n) {
+    RETURN_NOT_OK(builder->Resize(n));
+    for (R_xlen_t i=0; i<n; i++, ++p) {
+      if(ISNA(*p)) {
+        builder->UnsafeAppendNull();
+      } else {
+        builder->UnsafeAppend(*p);
+      }
+    }
+    return Status::OK();
+  }
+
+};
+
+
+
 template <>
 struct Unbox<BooleanType> {
 
@@ -611,14 +676,13 @@ protected:
 };
 
 template <typename Type>
-class IntegerVectorConverter : public TypedVectorConverter<Type, IntegerVectorConverter<Type>>{};
-
+class NumericVectorConverter : public TypedVectorConverter<Type, NumericVectorConverter<Type>>{};
 
 class BooleanVectorConverter : public TypedVectorConverter<BooleanType, BooleanVectorConverter>{};
 
-#define INTEGER_CONVERTER(TYPE_ENUM, TYPE)                     \
+#define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                     \
 case Type::TYPE_ENUM:                                                \
-  *out = std::unique_ptr<IntegerVectorConverter<TYPE>>(new IntegerVectorConverter<TYPE>); \
+  *out = std::unique_ptr<NumericVectorConverter<TYPE>>(new NumericVectorConverter<TYPE>); \
   return Status::OK()
 
 #define SIMPLE_CONVERTER(TYPE_ENUM, TYPE)                      \
@@ -631,24 +695,23 @@ Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<Vecto
 
   switch(type->id()){
   SIMPLE_CONVERTER(BOOL, BooleanVectorConverter);
+  NUMERIC_CONVERTER(INT8  , Int8Type);
+  NUMERIC_CONVERTER(INT16 , Int16Type);
+  NUMERIC_CONVERTER(INT32 , Int32Type);
+  NUMERIC_CONVERTER(INT64 , Int64Type);
+  NUMERIC_CONVERTER(UINT8 , UInt8Type);
+  NUMERIC_CONVERTER(UINT16, UInt16Type);
+  NUMERIC_CONVERTER(UINT32, UInt32Type);
+  NUMERIC_CONVERTER(UINT64, UInt64Type);
+
+  // NUMERIC_CONVERTER(HALF_FLOAT, HalfFloatType);
+  // NUMERIC_CONVERTER(FLOAT, FloatType);
+  NUMERIC_CONVERTER(DOUBLE, DoubleType);
 
   case Type::DATE32:
   case Type::DATE64:
 
   case Type::DECIMAL:
-
-  case Type::DOUBLE:
-  case Type::FLOAT:
-  case Type::HALF_FLOAT:
-
-  INTEGER_CONVERTER(INT8  , Int8Type);
-  INTEGER_CONVERTER(INT16 , Int16Type);
-  INTEGER_CONVERTER(INT32 , Int32Type);
-  INTEGER_CONVERTER(INT64 , Int64Type);
-  INTEGER_CONVERTER(UINT8 , UInt8Type);
-  INTEGER_CONVERTER(UINT16, UInt16Type);
-  INTEGER_CONVERTER(UINT32, UInt32Type);
-  INTEGER_CONVERTER(UINT64, UInt64Type);
 
   case Type::STRING:
   case Type::DICTIONARY:
