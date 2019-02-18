@@ -17,6 +17,11 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/array.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_dict.h"
+#include "arrow/type.h"
+
 #include "parquet/encoding.h"
 #include "parquet/schema.h"
 #include "parquet/util/memory.h"
@@ -162,5 +167,92 @@ static void BM_DictDecodingInt64_literals(benchmark::State& state) {
 }
 
 BENCHMARK(BM_DictDecodingInt64_literals)->Range(1024, 65536);
+
+class BM_PlainDecodingByteArray : public ::benchmark::Fixture {
+ public:
+  void SetUp(const ::benchmark::State& state) override {
+    num_values_ = static_cast<int>(state.range());
+    input_string_ = "foo";
+    byte_array_ = ByteArray(static_cast<int32_t>(input_string_.size()),
+                            reinterpret_cast<const uint8_t*>(input_string_.data()));
+    values_ = std::vector<ByteArray>(num_values_, byte_array_);
+    valid_bits_ =
+        std::vector<uint8_t>(::arrow::BitUtil::BytesForBits(num_values_) + 1, 255);
+
+    auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
+    encoder->Put(values_.data(), num_values_);
+    buffer_ = encoder->FlushValues();
+  }
+
+  void TearDown(const ::benchmark::State& state) override {}
+
+ protected:
+  int num_values_;
+  std::string input_string_;
+  ByteArray byte_array_;
+  std::vector<ByteArray> values_;
+  std::vector<uint8_t> valid_bits_;
+  std::shared_ptr<Buffer> buffer_;
+};
+
+BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrow_Dense)
+(benchmark::State& state) {
+  while (state.KeepRunning()) {
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+    decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
+    ::arrow::internal::ChunkedBinaryBuilder builder(static_cast<int>(buffer_->size()),
+                                                    ::arrow::default_memory_pool());
+    decoder->DecodeArrow(num_values_, 0, valid_bits_.data(), 0, &builder);
+  }
+
+  state.SetBytesProcessed(state.iterations() * state.range(0) * input_string_.length());
+}
+
+BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrow_Dense)->Range(1024, 65536);
+
+BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dense)
+(benchmark::State& state) {
+  while (state.KeepRunning()) {
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+    decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
+    ::arrow::internal::ChunkedBinaryBuilder builder(static_cast<int>(buffer_->size()),
+                                                    ::arrow::default_memory_pool());
+    decoder->DecodeArrowNonNull(num_values_, &builder);
+  }
+
+  state.SetBytesProcessed(state.iterations() * state.range(0) * input_string_.length());
+}
+
+BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dense)
+    ->Range(1024, 65536);
+
+BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrow_Dict)
+(benchmark::State& state) {
+  while (state.KeepRunning()) {
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+    decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
+    ::arrow::BinaryDictionaryBuilder builder(::arrow::default_memory_pool());
+    decoder->DecodeArrow(num_values_, 0, valid_bits_.data(), 0, &builder);
+  }
+
+  state.SetBytesProcessed(state.iterations() * state.range(0) * input_string_.length());
+}
+
+BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrow_Dict)->Range(1024, 65536);
+
+BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dict)
+(benchmark::State& state) {
+  while (state.KeepRunning()) {
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+    decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
+    ::arrow::BinaryDictionaryBuilder builder(::arrow::default_memory_pool());
+    decoder->DecodeArrowNonNull(num_values_, &builder);
+  }
+
+  state.SetBytesProcessed(state.iterations() * state.range(0) * input_string_.length());
+}
+
+BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dict)
+    ->Range(1024, 65536);
 
 }  // namespace parquet
