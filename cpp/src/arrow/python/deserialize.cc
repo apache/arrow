@@ -87,7 +87,7 @@ Status DeserializeDict(PyObject* context, const Array& array, int64_t start_idx,
     int ret = PyDict_SetItem(result.obj(), PyList_GET_ITEM(keys.obj(), i - start_idx),
                              PyList_GET_ITEM(vals.obj(), i - start_idx));
     if (ret != 0) {
-      return ConvertPyError(StatusCode::PythonError);
+      return ConvertPyError();
     }
   }
   static PyObject* py_type = PyUnicode_FromString("_pytype_");
