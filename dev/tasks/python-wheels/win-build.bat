@@ -73,7 +73,7 @@ set PYARROW_BUILD_TYPE=Release
 set SETUPTOOLS_SCM_PRETEND_VERSION=%PYARROW_VERSION%
 
 @rem Newer Cython versions are not available on conda-forge
-pip install Cython==0.29.5
+pip install 'Cython>=0.29'
 
 python setup.py build_ext ^
        --with-parquet ^
