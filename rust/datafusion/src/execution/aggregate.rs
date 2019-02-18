@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Execution of a simple aggregate relation containing MIN, MAX, COUNT, SUM aggregate functions
-//! with optional GROUP BY columns
+//! Execution of a simple aggregate relation containing MIN, MAX, COUNT, SUM aggregate
+//! functions with optional GROUP BY columns
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -63,8 +63,8 @@ impl AggregateRelation {
     }
 }
 
-/// Enumeration of types that can be used in a GROUP BY expression (all primitives except for
-/// floating point numerics)
+/// Enumeration of types that can be used in a GROUP BY expression (all primitives except
+/// for floating point numerics)
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 enum GroupByScalar {
     UInt8(u8),
@@ -692,7 +692,8 @@ macro_rules! group_array_from_map_entries {
     }};
 }
 
-/// Create array from `value` attribute in map entry (representing an aggregate scalar value)
+/// Create array from `value` attribute in map entry (representing an aggregate scalar
+/// value)
 macro_rules! aggr_array_from_map_entries {
     ($BUILDER:ident, $TY:ident, $ENTRIES:expr, $COL_INDEX:expr) => {{
         let mut builder = $BUILDER::new($ENTRIES.len());
@@ -803,9 +804,10 @@ impl AggregateRelation {
     }
 
     fn with_group_by(&mut self) -> Result<Option<RecordBatch>> {
-        //NOTE this whole method is currently very inefficient with too many per-row operations
-        // involving pattern matching and downcasting ... I'm sure this can be re-implemented in
-        // a much more efficient way that takes better advantage of Arrow
+        //NOTE this whole method is currently very inefficient with too many per-row
+        // operations involving pattern matching and downcasting ... I'm sure this
+        // can be re-implemented in a much more efficient way that takes better
+        // advantage of Arrow
 
         // create map to store aggregate results
         let mut map: FnvHashMap<Vec<GroupByScalar>, Rc<RefCell<AccumulatorSet>>> =
@@ -877,7 +879,8 @@ impl AggregateRelation {
                     })
                     .collect::<Result<Vec<GroupByScalar>>>()?;
 
-                //TODO: find more elegant way to write this instead of hacking around ownership issues
+                //TODO: find more elegant way to write this instead of hacking around
+                // ownership issues
 
                 let updated = match map.get(&key) {
                     Some(entry) => {

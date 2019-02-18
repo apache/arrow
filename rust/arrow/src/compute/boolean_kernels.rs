@@ -17,8 +17,10 @@
 
 //! Defines boolean kernels on Arrow `BooleanArray`'s, e.g. `AND`, `OR` and `NOT`.
 //!
-//! Kernels support SIMD using [static CPU feature detection](https://doc.rust-lang.org/stable/std/arch/#static-cpu-feature-detection)
-//! .
+//! These kernels can leverage SIMD if available on your system.  Currently no runtime
+//! detection is provided, you should enable the specific SIMD intrinsics using
+//! `RUSTFLAGS="-C target-feature=+avx2"` for example.  See the documentation
+//! [here] (https://doc.rust-lang.org/stable/std/arch/) for more information.
 
 use std::sync::Arc;
 

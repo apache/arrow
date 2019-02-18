@@ -23,9 +23,11 @@
 
 use std::fmt;
 use std::mem::size_of;
+use std::ops::{Add, Div, Mul, Sub};
 use std::slice::from_raw_parts;
 use std::str::FromStr;
 
+use packed_simd::*;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -155,18 +157,83 @@ make_type!(Float32Type, f32, DataType::Float32, 32, 0.0f32);
 make_type!(Float64Type, f64, DataType::Float64, 64, 0.0f64);
 
 /// A subtype of primitive type that represents numeric values.
-pub trait ArrowNumericType: ArrowPrimitiveType {}
+///
+/// SIMD operations are defined in this trait if available on the target system.
+pub trait ArrowNumericType: ArrowPrimitiveType
+where
+    Self::Simd: Add<Output = Self::Simd>
+        + Sub<Output = Self::Simd>
+        + Mul<Output = Self::Simd>
+        + Div<Output = Self::Simd>,
+{
+    /// Defines the SIMD type that should be used for this numeric type
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    type Simd;
 
-impl ArrowNumericType for Int8Type {}
-impl ArrowNumericType for Int16Type {}
-impl ArrowNumericType for Int32Type {}
-impl ArrowNumericType for Int64Type {}
-impl ArrowNumericType for UInt8Type {}
-impl ArrowNumericType for UInt16Type {}
-impl ArrowNumericType for UInt32Type {}
-impl ArrowNumericType for UInt64Type {}
-impl ArrowNumericType for Float32Type {}
-impl ArrowNumericType for Float64Type {}
+    /// The number of SIMD lanes available
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    fn lanes() -> usize;
+
+    /// Loads a slice into a SIMD register
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    fn load(slice: &[Self::Native]) -> Self::Simd;
+
+    /// Performs a SIMD binary operation
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    fn bin_op<F: Fn(Self::Simd, Self::Simd) -> Self::Simd>(
+        left: Self::Simd,
+        right: Self::Simd,
+        op: F,
+    ) -> Self::Simd;
+
+    /// Writes a SIMD result back to a slice
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    fn write(simd_result: Self::Simd, slice: &mut [Self::Native]);
+}
+
+macro_rules! make_numeric_type {
+    ($impl_ty:ty, $native_ty:ty, $simd_ty:ident) => {
+        impl ArrowNumericType for $impl_ty {
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            type Simd = $simd_ty;
+
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            fn lanes() -> usize {
+                $simd_ty::lanes()
+            }
+
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            fn load(slice: &[$native_ty]) -> $simd_ty {
+                unsafe { $simd_ty::from_slice_unaligned_unchecked(slice) }
+            }
+
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            fn bin_op<F: Fn($simd_ty, $simd_ty) -> $simd_ty>(
+                left: $simd_ty,
+                right: $simd_ty,
+                op: F,
+            ) -> $simd_ty {
+                op(left, right)
+            }
+
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            fn write(simd_result: $simd_ty, slice: &mut [$native_ty]) {
+                unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
+            }
+        }
+    };
+}
+
+make_numeric_type!(Int8Type, i8, i8x64);
+make_numeric_type!(Int16Type, i16, i16x32);
+make_numeric_type!(Int32Type, i32, i32x16);
+make_numeric_type!(Int64Type, i64, i64x8);
+make_numeric_type!(UInt8Type, u8, u8x64);
+make_numeric_type!(UInt16Type, u16, u16x32);
+make_numeric_type!(UInt32Type, u32, u32x16);
+make_numeric_type!(UInt64Type, u64, u64x8);
+make_numeric_type!(Float32Type, f32, f32x16);
+make_numeric_type!(Float64Type, f64, f64x8);
 
 /// Allows conversion from supported Arrow types to a byte slice.
 pub trait ToByteSlice {

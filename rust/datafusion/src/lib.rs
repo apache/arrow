@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! DataFusion is a modern distributed compute platform implemented in Rust that uses Apache Arrow
-//! as the memory model
+//! DataFusion is a modern distributed compute platform implemented in Rust that uses
+//! Apache Arrow as the memory model
 
 extern crate arrow;
 #[macro_use]

@@ -313,7 +313,8 @@ impl SqlToRel {
                             .map(|a| self.sql_to_rex(a, schema))
                             .collect::<Result<Vec<Expr>>>()?;
 
-                        // return type is same as the argument type for these aggregate functions
+                        // return type is same as the argument type for these aggregate
+                        // functions
                         let return_type = rex_args[0].get_type(schema).clone();
 
                         Ok(Expr::AggregateFunction {
@@ -326,7 +327,8 @@ impl SqlToRel {
                         let rex_args = args
                             .iter()
                             .map(|a| match a {
-                                // this feels hacky but translate COUNT(1)/COUNT(*) to COUNT(first_column)
+                                // this feels hacky but translate COUNT(1)/COUNT(*) to
+                                // COUNT(first_column)
                                 ASTNode::SQLValue(sqlparser::sqlast::Value::Long(1)) => {
                                     Ok(Expr::Column(0))
                                 }

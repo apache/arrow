@@ -121,9 +121,9 @@ pub fn ceil(value: usize, divisor: usize) -> usize {
 
 /// Performs SIMD bitwise binary operations.
 ///
-/// Note that each slice should be 64 bytes and it is the callers responsibility to ensure that
-/// this is the case.  If passed slices larger than 64 bytes the operation will only be performed
-/// on the first 64 bytes.  Slices less than 64 bytes will panic.
+/// Note that each slice should be 64 bytes and it is the callers responsibility to ensure
+/// that this is the case.  If passed slices larger than 64 bytes the operation will only
+/// be performed on the first 64 bytes.  Slices less than 64 bytes will panic.
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub unsafe fn bitwise_bin_op_simd<F>(left: &[u8], right: &[u8], result: &mut [u8], op: F)
 where
