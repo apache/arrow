@@ -24,17 +24,11 @@
 # This module defines
 #  THRIFT_VERSION, version string of ant if found
 #  THRIFT_INCLUDE_DIR, where to find THRIFT headers
-#  THRIFT_CONTRIB_DIR, where contrib thrift files (e.g. fb303.thrift) are installed
 #  THRIFT_STATIC_LIB, THRIFT static library
 #  THRIFT_FOUND, If false, do not try to use ant
 
-# prefer the thrift version supplied in THRIFT_HOME
-if( NOT "${THRIFT_HOME}" STREQUAL "")
-    file( TO_CMAKE_PATH "${THRIFT_HOME}" _native_path )
-    list( APPEND _thrift_roots ${_native_path} )
-elseif ( Thrift_HOME )
-    list( APPEND _thrift_roots ${Thrift_HOME} )
-elseif (APPLE)
+# TODO: Add this back to global
+if (APPLE)
   # Also look in homebrew for a matching llvm version
   find_program(BREW_BIN brew)
   if (BREW_BIN)
@@ -43,38 +37,8 @@ elseif (APPLE)
       OUTPUT_VARIABLE THRIFT_BREW_PREFIX
       OUTPUT_STRIP_TRAILING_WHITESPACE
     )
-    list( APPEND _thrift_roots ${THRIFT_BREW_PREFIX} )
   endif()
 endif()
-
-message(STATUS "THRIFT_HOME: ${THRIFT_HOME}")
-find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h HINTS
-  ${_thrift_roots}
-  NO_DEFAULT_PATH
-  PATH_SUFFIXES "include"
-)
-
-find_path(THRIFT_CONTRIB_DIR share/fb303/if/fb303.thrift HINTS
-  ${_thrift_roots}
-  NO_DEFAULT_PATH
-)
-
-if (MSVC AND NOT THRIFT_MSVC_STATIC_LIB_SUFFIX)
-  set(THRIFT_MSVC_STATIC_LIB_SUFFIX md)
-endif()
-
-find_library(THRIFT_STATIC_LIB NAMES
-  ${CMAKE_STATIC_LIBRARY_PREFIX}thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}
-  HINTS ${_thrift_roots}
-  NO_DEFAULT_PATH
-  PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib"
-)
-
-find_program(THRIFT_COMPILER thrift HINTS
-  ${_thrift_roots}
-  NO_DEFAULT_PATH
-  PATH_SUFFIXES "bin"
-)
 
 function(EXTRACT_THRIFT_VERSION)
   exec_program(${THRIFT_COMPILER}
@@ -94,37 +58,43 @@ function(EXTRACT_THRIFT_VERSION)
   endif()
 endfunction(EXTRACT_THRIFT_VERSION)
 
-if (THRIFT_STATIC_LIB)
-  set(THRIFT_FOUND TRUE)
+if (MSVC AND NOT THRIFT_MSVC_STATIC_LIB_SUFFIX)
+  set(THRIFT_MSVC_STATIC_LIB_SUFFIX md)
+endif()
+
+pkg_check_modules(THRIFT_PC thrift)
+
+# THRIFT-4760: The pkgconfig files are currently only installed when using autotools.
+# Starting with 0.13, they are also installed for the CMake-based installations of Thrift.
+if (THRIFT_PC_FOUND)
+  set(THRIFT_INCLUDE_DIR "${THRIFT_PC_INCLUDEDIR}")
+
+  list(APPEND THRIFT_PC_LIBRARY_DIRS "${THRIFT_PC_LIBDIR}")
+
+  find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX} PATHS ${THRIFT_PC_LIBRARY_DIRS} NO_DEFAULT_PATH)
+  find_program(THRIFT_COMPILER thrift HINTS
+    ${THRIFT_PC_PREFIX}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES "bin"
+  )
+else()
+  find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX} HINTS ${Thrift_ROOT} PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
+  find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h HINTS ${Thrift_ROOT} PATH_SUFFIXES "include")
+  find_program(THRIFT_COMPILER thrift HINTS
+    ${Thrift_ROOT}
+    PATH_SUFFIXES "bin"
+  )
+endif()
+
+find_package_handle_standard_args(Thrift
+  REQUIRED_VARS THRIFT_STATIC_LIB THRIFT_INCLUDE_DIR THRIFT_COMPILER)
+
+if (Thrift_FOUND)
+  add_library(Thrift::thrift STATIC IMPORTED)
+  set_target_properties(Thrift::thrift PROPERTIES
+          IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
+          INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}"
+  )
+
   EXTRACT_THRIFT_VERSION()
-else ()
-  set(THRIFT_FOUND FALSE)
-endif ()
-
-if (THRIFT_FOUND)
-  if (NOT Thrift_FIND_QUIETLY)
-    message(STATUS "Thrift version: ${THRIFT_VERSION}")
-  endif ()
-else ()
-  if (NOT Thrift_FIND_QUIETLY)
-    set(THRIFT_ERR_MSG "Thrift compiler/libraries NOT found: ${THRIFT_RETURN}")
-    set(THRIFT_ERR_MSG "${THRIFT_ERR_MSG} (${THRIFT_INCLUDE_DIR}, ${THRIFT_STATIC_LIB}).")
-    if ( _thrift_roots )
-      set(THRIFT_ERR_MSG "${THRIFT_ERR_MSG} Looked in ${_thrift_roots}.")
-    else ()
-      set(THRIFT_ERR_MSG "${THRIFT_ERR_MSG} Looked in system search paths.")
-    endif ()
-    if ( Thrift_FIND_REQUIRED )
-      message(FATAL_ERROR "${THRIFT_ERR_MSG}")
-    else ()
-      message(STATUS "${THRIFT_ERR_MSG}")
-    endif ()
-  endif ()
-endif ()
-
-
-mark_as_advanced(
-  THRIFT_STATIC_LIB
-  THRIFT_COMPILER
-  THRIFT_INCLUDE_DIR
-)
+endif()

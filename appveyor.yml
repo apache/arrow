@@ -34,8 +34,8 @@ cache:
   - C:\Users\Appveyor\clcache
   - C:\Users\Appveyor\.cargo\registry
 
-matrix:
-  fast_finish: true
+#matrix:
+#  fast_finish: true
 
 environment:
   global:
@@ -61,10 +61,6 @@ environment:
     - JOB: "Build_Debug"
       GENERATOR: Ninja
       CONFIGURATION: "Debug"
-    - JOB: "Cmake_Script_Tests"
-      GENERATOR: Ninja
-      CONFIGURATION: "Release"
-      BUILD_SCRIPT: "CMake_Build_Script"
     - JOB: "MinGW32"
       MINGW_PACKAGE_PREFIX: mingw-w64-i686
       MINGW_PREFIX: c:\msys64\mingw32

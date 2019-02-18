@@ -186,6 +186,33 @@ static|shared (default shared)")
   #----------------------------------------------------------------------
   # Thirdparty toolchain options
 
+  # Determine how we will look for dependencies:
+  # * AUTO: Guess which packaging systems we're running in and pull the
+  #   dependencies from there. Build any missing ones through the
+  #   ExternalProject setup.
+  # * BUNDLED: Build all dependencies through CMake's ExternalProject facility.
+  # * SYSTEM: Use CMake's find_package and find_library without any custom
+  #   paths. If packages are on non-default locations, let the user indicate it
+  #   from the outside using the *_ROOT variables.
+  #   If your system packages are in general in a non-default location, you can
+  #   set a general default for the *_ROOT variables using ARROW_PACKAGE_PREFIX.
+  # * CONDA: Same as system but set all *_ROOT variables to ENV{CONDA_PREFIX}.
+  # * BREW: Use SYSTEM but search for select packages with brew.
+  if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "")
+    set(ARROW_DEPENDENCY_SOURCE_DEFAULT "CONDA")
+  else()
+    set(ARROW_DEPENDENCY_SOURCE_DEFAULT "AUTO")
+  endif()
+  set(ARROW_DEPENDENCY_SOURCE "${ARROW_DEPENDENCY_SOURCE_DEFAULT}"
+      CACHE STRING "Compiler flags to append when compiling Arrow")
+  set_property(CACHE ARROW_DEPENDENCY_SOURCE
+               PROPERTY STRINGS
+                        "AUTO"
+                        "BUNDLED"
+                        "SYSTEM"
+                        "CONDA"
+                        "BREW")
+
   option(ARROW_VERBOSE_THIRDPARTY_BUILD
          "If off, output from ExternalProjects will be logged to files rather than shown"
          OFF)
@@ -196,7 +223,7 @@ static|shared (default shared)")
 Note that this requires linking Boost statically" OFF)
 
   option(ARROW_PROTOBUF_USE_SHARED
-         "Rely on Protocol Buffers shared libraries where relevant" OFF)
+         "Rely on Protocol Buffers shared libraries where relevant" ON)
 
   option(ARROW_GFLAGS_USE_SHARED "Rely on GFlags shared libraries where relevant" ON)
 
@@ -712,53 +739,60 @@ endif(UNIX)
 # Linker and Dependencies
 #
 
+# TODO: Also rework how these libs work
 set(ARROW_LINK_LIBS)
 set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
 # Libraries to link statically with libarrow.so
-set(ARROW_STATIC_LINK_LIBS double-conversion_static)
-set(ARROW_STATIC_INSTALL_INTERFACE_LIBS double-conversion)
+set(ARROW_LINK_LIBS ${double-conversion_LIBRARIES})
+set(ARROW_STATIC_LINK_LIBS ${double-conversion_LIBRARIES})
+set(ARROW_STATIC_INSTALL_INTERFACE_LIBS ${double-conversion_LIBRARIES})
 
 if(ARROW_WITH_BROTLI)
-  list(APPEND ARROW_STATIC_LINK_LIBS brotli_dec_static brotli_enc_static
-              brotli_common_static)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS brotlidec brotlienc brotlicommon)
+  # Order is important for static linking
+  list(APPEND ARROW_LINK_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
+  list(APPEND ARROW_STATIC_LINK_LIBS Brotli::brotlienc Brotli::brotlidec
+              Brotli::brotlicommon)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS Brotli::brotlienc Brotli::brotlidec
+              Brotli::brotlicommon)
 endif()
 
 if(ARROW_WITH_BZ2)
-  list(APPEND ARROW_STATIC_LINK_LIBS bz2_static)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS bz2)
+  list(APPEND ARROW_STATIC_LINK_LIBS BZip2::BZip2)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS BZip2::BZip2)
 endif()
 
 if(ARROW_WITH_LZ4)
-  list(APPEND ARROW_STATIC_LINK_LIBS lz4_static)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS lz4)
+  list(APPEND ARROW_STATIC_LINK_LIBS LZ4::lz4)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS LZ4::lz4)
 endif()
 
 if(ARROW_WITH_SNAPPY)
-  list(APPEND ARROW_STATIC_LINK_LIBS snappy_static)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS snappy)
+  list(APPEND ARROW_STATIC_LINK_LIBS Snappy::snappy)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS Snappy::snappy)
 endif()
 
 if(ARROW_WITH_ZLIB)
-  list(APPEND ARROW_STATIC_LINK_LIBS ${ZLIB_LIBRARY})
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS z)
+  list(APPEND ARROW_STATIC_LINK_LIBS ZLIB::ZLIB)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ZLIB::ZLIB)
 endif()
 
 if(ARROW_WITH_ZSTD)
-  list(APPEND ARROW_STATIC_LINK_LIBS zstd_static)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS zstd)
+  list(APPEND ARROW_STATIC_LINK_LIBS ZSTD::zstd)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ZSTD::zstd)
 endif()
 
 if(ARROW_ORC)
-  list(APPEND ARROW_STATIC_LINK_LIBS orc_static)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc)
+  list(APPEND ARROW_LINK_LIBS protobuf::libprotobuf orc_static)
+  list(APPEND ARROW_STATIC_LINK_LIBS protobuf::libprotobuf orc_static)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS protobuf::libprotobuf orc)
 endif()
 
 if(ARROW_USE_GLOG)
-  list(APPEND ARROW_STATIC_LINK_LIBS glog_static)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog)
+  list(APPEND ARROW_LINK_LIBS GLOG::glog)
+  list(APPEND ARROW_STATIC_LINK_LIBS GLOG::glog)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS GLOG::glog)
   add_definitions("-DARROW_USE_GLOG")
 endif()
 
@@ -792,7 +826,7 @@ if(NOT MSVC)
   list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN ${GTEST_LIBRARY} ${GMOCK_MAIN_LIBRARY} ${GMOCK_LIBRARY})
+set(ARROW_TEST_LINK_TOOLCHAIN GTest::Main GTest::GTest GTest::GMock)
 
 if(ARROW_BUILD_TESTS)
   add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})
@@ -814,7 +848,7 @@ set(ARROW_TEST_SHARED_LINK_LIBS
     arrow_testing_shared
     arrow_shared
     ${ARROW_LINK_LIBS}
-    double-conversion_static
+    ${double-conversion_LIBRARIES}
     ${BOOST_SYSTEM_LIBRARY}
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_REGEX_LIBRARY}
@@ -842,7 +876,16 @@ pass ARROW_BUILD_STATIC=on")
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
-  set(ARROW_BENCHMARK_LINK_LIBS arrow_benchmark_main ${ARROW_TEST_LINK_LIBS})
+  # In the case that benchmark::benchmark_main is not available,
+  # we need to provide our own version. This only happens for older versions
+  # of benchmark.
+  if(NOT TARGET benchmark::benchmark_main)
+    add_library(arrow_benchmark_main STATIC src/arrow/util/benchmark_main.cc)
+    add_library(benchmark::benchmark_main ALIAS arrow_benchmark_main)
+  endif()
+
+  set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main benchmark::benchmark
+      ${ARROW_TEST_LINK_LIBS})
 endif()
 
 set(ARROW_SYSTEM_LINK_LIBS)
@@ -850,7 +893,7 @@ set(ARROW_SYSTEM_LINK_LIBS)
 if(ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
-  list(APPEND ARROW_SYSTEM_LINK_LIBS jemalloc_static)
+  list(APPEND ARROW_SYSTEM_LINK_LIBS jemalloc::jemalloc)
 endif(ARROW_JEMALLOC)
 
 if(THREADS_FOUND)

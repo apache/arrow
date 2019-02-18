@@ -20,7 +20,12 @@
 #include <limits>
 #include <memory>
 
+#include "arrow/util/config.h"
+#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/impl/codegen/config_protobuf.h>
+#else
+#include <grpc++/impl/codegen/config_protobuf.h>
+#endif
 
 // It is necessary to undefined this macro so that the protobuf
 // SerializationTraits specialization is not declared in proto_utils.h. We've
@@ -29,7 +34,11 @@
 // for our faster serialization-deserialization path
 #undef GRPC_OPEN_SOURCE_PROTO
 
+#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/impl/codegen/proto_utils.h>
+#else
+#include <grpc++/impl/codegen/proto_utils.h>
+#endif
 
 namespace grpc {
 

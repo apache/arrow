@@ -344,8 +344,8 @@ void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual
       auto c1 = actual.chunk(i);
       auto c2 = expected.chunk(i);
       if (!c1->Equals(*c2)) {
-        EXPECT_OK(::arrow::PrettyPrint(*c1, 0, &pp_result));
-        EXPECT_OK(::arrow::PrettyPrint(*c2, 0, &pp_expected));
+        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, &pp_result));
+        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c2, 0, &pp_expected));
         FAIL() << "Chunk " << i << " Got: " << pp_result.str()
                << "\nExpected: " << pp_expected.str();
       }
@@ -358,7 +358,7 @@ void PrintColumn(const Column& col, std::stringstream* ss) {
   for (int i = 0; i < carr.num_chunks(); ++i) {
     auto c1 = carr.chunk(i);
     *ss << "Chunk " << i << std::endl;
-    EXPECT_OK(::arrow::PrettyPrint(*c1, 0, ss));
+    ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, ss));
     *ss << std::endl;
   }
 }

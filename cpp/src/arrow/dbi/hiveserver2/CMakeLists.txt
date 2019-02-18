@@ -105,7 +105,7 @@ set(ARROW_HIVESERVER2_TEST_LINK_LIBS
     arrow_hiveserver2_static
     arrow_hiveserver2_thrift
     ${ARROW_TEST_LINK_LIBS}
-    thriftstatic)
+    Thrift::thrift)
 
 if(ARROW_BUILD_TESTS)
   add_test_case(hiveserver2-test

@@ -33,6 +33,7 @@ if (APPLE)
 endif()
 
 find_package(LLVM ${ARROW_LLVM_VERSION} REQUIRED CONFIG HINTS
+             ${LLVM_ROOT}
              ${LLVM_DIR}
              /usr/lib
              /usr/local/opt/llvm

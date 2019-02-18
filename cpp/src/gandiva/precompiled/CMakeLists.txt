@@ -101,7 +101,7 @@ function(add_precompiled_unit_test REL_TEST_NAME)
 
   add_executable(${TEST_NAME} ${REL_TEST_NAME} ${ARGN})
   target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
-  target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_TEST_LINK_LIBS} ${RE2_LIBRARY})
+  target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_TEST_LINK_LIBS} RE2::re2)
   target_compile_definitions(${TEST_NAME}
                              PRIVATE
                              GANDIVA_UNIT_TEST=1

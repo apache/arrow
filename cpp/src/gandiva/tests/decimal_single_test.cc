@@ -100,7 +100,7 @@ void TestDecimalOps::Verify(DecimalTypeUtil::Op op, const std::string& function,
 
   Decimal128TypePtr output_type;
   auto status = DecimalTypeUtil::GetResultType(op, {x_type, y_type}, &output_type);
-  EXPECT_OK(status);
+  ARROW_EXPECT_OK(status);
 
   // output fields
   auto res = field("res", output_type);
@@ -111,7 +111,7 @@ void TestDecimalOps::Verify(DecimalTypeUtil::Op op, const std::string& function,
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
   status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
-  EXPECT_OK(status);
+  ARROW_EXPECT_OK(status);
 
   // Create a row-batch with some sample data
   auto array_a = MakeDecimalVector(x);
@@ -123,7 +123,7 @@ void TestDecimalOps::Verify(DecimalTypeUtil::Op op, const std::string& function,
   // Evaluate expression
   arrow::ArrayVector outputs;
   status = projector->Evaluate(*in_batch, pool_, &outputs);
-  EXPECT_OK(status);
+  ARROW_EXPECT_OK(status);
 
   // Validate results
   auto out_array = dynamic_cast<arrow::Decimal128Array*>(outputs[0].get());
