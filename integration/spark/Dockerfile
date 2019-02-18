@@ -30,18 +30,11 @@ RUN apt-get update -q -y && \
     mv /apache-maven-$MAVEN_VERSION /usr/local/maven
 
 # installing specific version of spark
-ARG SPARK_VERSION=2.4.0
-RUN mkdir /spark && \
-    cd /spark && \
-    wget -q -O spark.tar.gz https://github.com/apache/spark/archive/v$SPARK_VERSION.tar.gz && \
-    tar -xzf spark.tar.gz && \
-    rm spark.tar.gz
-
-# patching spark is required in order to:
-# - avoid too long filenames error https://issues.apache.org/jira/browse/SPARK-4820
-ADD integration/spark/$SPARK_VERSION.patch /arrow/integration/spark/$SPARK_VERSION.patch
-RUN cd /spark/spark-$SPARK_VERSION && \
-    patch -p1 < /arrow/integration/spark/$SPARK_VERSION.patch
+ARG SPARK_VERSION=master
+RUN wget -q -O /tmp/spark.tar.gz https://github.com/apache/spark/archive/$SPARK_VERSION.tar.gz && \
+    mkdir /spark && \
+    tar -xzf /tmp/spark.tar.gz -C /spark --strip-components=1 && \
+    rm /tmp/spark.tar.gz
 
 # build cpp with tests
 ENV CC=gcc \
