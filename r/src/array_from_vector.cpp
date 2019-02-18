@@ -773,7 +773,63 @@ struct Unbox<Date32Type> {
 
 };
 
+template <>
+struct Unbox<Date64Type> {
 
+  constexpr static int64_t kMillisecondsPerDay = 86400000;
+
+  static inline Status Ingest(Date64Builder* builder, SEXP obj) {
+    switch(TYPEOF(obj)) {
+    case INTSXP:
+      // number of days since epoch
+      if (Rf_inherits(obj, "Date")) {
+        return IngestDateInt32Range(builder, INTEGER(obj), XLENGTH(obj));
+      }
+      break;
+
+    case REALSXP:
+      // (fractional number of days since epoch)
+      if (Rf_inherits(obj, "Date")) {
+        return IngestDateDoubleRange<kMillisecondsPerDay>(builder, REAL(obj), XLENGTH(obj));
+      }
+
+      // number of seconds since epoch
+      if (Rf_inherits(obj, "POSIXct")) {
+        return IngestDateDoubleRange<1000>(builder, REAL(obj), XLENGTH(obj));
+      }
+    }
+    return Status::Invalid("Cannot convert R object to date64 type");
+  }
+
+  // ingest a integer vector that represents number of days since epoch
+  static inline Status IngestDateInt32Range(Date64Builder* builder, int* p, R_xlen_t n) {
+    RETURN_NOT_OK(builder->Resize(n));
+    for (R_xlen_t i=0; i<n; i++, ++p) {
+      if(*p == NA_INTEGER) {
+        builder->UnsafeAppendNull();
+      } else {
+        builder->UnsafeAppend(*p * kMillisecondsPerDay);
+      }
+    }
+    return Status::OK();
+  }
+
+  // ingest a numeric vector that represents (fractional) number of days since epoch
+  template <int64_t MULTIPLIER>
+  static inline Status IngestDateDoubleRange(Date64Builder* builder, double* p, R_xlen_t n) {
+    RETURN_NOT_OK(builder->Resize(n));
+
+    for (R_xlen_t i=0; i<n; i++, ++p) {
+      if(ISNA(*p)) {
+        builder->UnsafeAppendNull();
+      } else {
+        builder->UnsafeAppend(static_cast<int64_t>(*p * MULTIPLIER));
+      }
+    }
+    return Status::OK();
+  }
+
+};
 
 template <typename Type, class Derived>
 class TypedVectorConverter : public VectorConverter {
@@ -801,7 +857,7 @@ class NumericVectorConverter : public TypedVectorConverter<Type, NumericVectorCo
 class BooleanVectorConverter : public TypedVectorConverter<BooleanType, BooleanVectorConverter>{};
 
 class Date32Converter : public TypedVectorConverter<Date32Type, Date32Converter> {};
-
+class Date64Converter : public TypedVectorConverter<Date64Type, Date64Converter> {};
 
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                     \
 case Type::TYPE_ENUM:                                                \
@@ -834,7 +890,7 @@ Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<Vecto
   NUMERIC_CONVERTER(DOUBLE, DoubleType);
 
   SIMPLE_CONVERTER_CASE(DATE32, Date32Converter);
-  case Type::DATE64:
+  SIMPLE_CONVERTER_CASE(DATE64, Date64Converter);
 
   case Type::DECIMAL:
 
