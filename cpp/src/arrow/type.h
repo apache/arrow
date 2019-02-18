@@ -263,6 +263,9 @@ class ARROW_EXPORT Field {
   /// \brief Return a copy of this field without any metadata attached to it
   std::shared_ptr<Field> RemoveMetadata() const;
 
+  /// \brief Return a copy of this field with the replaced type.
+  std::shared_ptr<Field> WithType(const std::shared_ptr<DataType>& type) const;
+
   std::vector<std::shared_ptr<Field>> Flatten() const;
 
   bool Equals(const Field& other, bool check_metadata = true) const;
@@ -827,6 +830,8 @@ class ARROW_EXPORT Schema {
   int64_t GetFieldIndex(const std::string& name) const;
 
   const std::vector<std::shared_ptr<Field>>& fields() const { return fields_; }
+
+  std::vector<std::string> field_names() const;
 
   /// \brief The custom key-value metadata, if any
   ///

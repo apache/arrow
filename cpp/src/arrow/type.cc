@@ -50,6 +50,10 @@ std::shared_ptr<Field> Field::RemoveMetadata() const {
   return std::make_shared<Field>(name_, type_, nullable_);
 }
 
+std::shared_ptr<Field> Field::WithType(const std::shared_ptr<DataType>& type) const {
+  return std::make_shared<Field>(name_, type, nullable_, metadata_);
+}
+
 std::vector<std::shared_ptr<Field>> Field::Flatten() const {
   std::vector<std::shared_ptr<Field>> flattened;
   if (type_->id() == Type::STRUCT) {
@@ -453,6 +457,14 @@ std::string Schema::ToString() const {
   }
 
   return buffer.str();
+}
+
+std::vector<std::string> Schema::field_names() const {
+  std::vector<std::string> names;
+  for (auto& field : fields_) {
+    names.push_back(field->name());
+  }
+  return names;
 }
 
 std::shared_ptr<Schema> schema(const std::vector<std::shared_ptr<Field>>& fields,

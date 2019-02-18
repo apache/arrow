@@ -17,8 +17,7 @@
 
 FROM arrow:python-3.6
 
-RUN apt-get install -y -q gnupg && \
-    apt-get update && \
+RUN apt-get update && \
     apt-get install -y -q \
       clang-7 \
       libclang-7-dev \
