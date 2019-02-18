@@ -192,7 +192,8 @@ fn filter(array: &Arc<Array>, filter: &BooleanArray) -> Result<ArrayRef> {
             Ok(Arc::new(builder.finish()))
         }
         DataType::Utf8 => {
-            //TODO: this is inefficient and we should improve the Arrow impl to help make this more concise
+            //TODO: this is inefficient and we should improve the Arrow impl to help make
+            // this more concise
             let b = a.as_any().downcast_ref::<BinaryArray>().unwrap();
             let mut values: Vec<String> = Vec::with_capacity(b.len());
             for i in 0..b.len() {

@@ -17,8 +17,8 @@
 
 //! SQL Parser
 //!
-//! Note that most SQL parsing is now delegated to the sqlparser crate, which handles ANSI SQL but
-//! this module contains DataFusion-specific SQL extensions.
+//! Note that most SQL parsing is now delegated to the sqlparser crate, which handles ANSI
+//! SQL but this module contains DataFusion-specific SQL extensions.
 
 use sqlparser::dialect::*;
 use sqlparser::sqlast::*;

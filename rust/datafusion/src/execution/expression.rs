@@ -298,12 +298,13 @@ pub fn compile_scalar_expr(
 ) -> Result<RuntimeExpr> {
     match expr {
         &Expr::Literal(ref value) => match value {
-            //NOTE: this is a temporary hack .. due to the way expressions like 'a > 1' are
-            // evaluated, currently the left and right are evaluated separately and must result
-            // in arrays and then the '>' operator is evaluated against the two arrays. This works
-            // but is dumb ... I intend to optimize this soon to add special handling for
-            // binary expressions that involve literal values to avoid creating arrays of literals
-            // filed as https://github.com/andygrove/datafusion/issues/191
+            //NOTE: this is a temporary hack .. due to the way expressions like 'a > 1'
+            // are evaluated, currently the left and right are evaluated
+            // separately and must result in arrays and then the '>' operator
+            // is evaluated against the two arrays. This works but is dumb ...
+            // I intend to optimize this soon to add special handling for
+            // binary expressions that involve literal values to avoid creating arrays of
+            // literals filed as https://github.com/andygrove/datafusion/issues/191
             ScalarValue::Int8(n) => literal_array!(n, Int8Array, Int8),
             ScalarValue::Int16(n) => literal_array!(n, Int16Array, Int16),
             ScalarValue::Int32(n) => literal_array!(n, Int32Array, Int32),

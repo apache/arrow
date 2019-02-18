@@ -316,8 +316,8 @@ impl fmt::Debug for Expr {
     }
 }
 
-/// The LogicalPlan represents different types of relations (such as Projection, Selection, etc) and
-/// can be created by the SQL query planner and the DataFrame API.
+/// The LogicalPlan represents different types of relations (such as Projection,
+/// Selection, etc) and can be created by the SQL query planner and the DataFrame API.
 #[derive(Serialize, Deserialize, Clone)]
 pub enum LogicalPlan {
     /// A Projection (essentially a SELECT with an expression list)

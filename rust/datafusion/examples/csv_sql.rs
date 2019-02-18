@@ -28,7 +28,8 @@ use arrow::datatypes::{DataType, Field, Schema};
 use datafusion::execution::context::ExecutionContext;
 use datafusion::execution::datasource::CsvDataSource;
 
-/// This example demonstrates executing a simple query against an Arrow data source and fetching results
+/// This example demonstrates executing a simple query against an Arrow data source and
+/// fetching results
 fn main() {
     // create local execution context
     let mut ctx = ExecutionContext::new();
