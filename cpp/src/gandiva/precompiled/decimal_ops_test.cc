@@ -30,49 +30,80 @@ namespace gandiva {
 class TestDecimalSql : public ::testing::Test {
  protected:
   static void Verify(DecimalTypeUtil::Op op, const DecimalScalar128& x,
-                     const DecimalScalar128& y, const DecimalScalar128& expected);
+                     const DecimalScalar128& y, const DecimalScalar128& expected_result,
+                     bool expected_overflow);
 
   void AddAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
-                    const DecimalScalar128& expected) {
-    return Verify(DecimalTypeUtil::kOpAdd, x, y, expected);
+                    const DecimalScalar128& expected_result) {
+    // TODO: overflow checks
+    return Verify(DecimalTypeUtil::kOpAdd, x, y, expected_result, false);
   }
 
   void SubtractAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
-                         const DecimalScalar128& expected) {
-    return Verify(DecimalTypeUtil::kOpSubtract, x, y, expected);
+                         const DecimalScalar128& expected_result) {
+    // TODO: overflow checks
+    return Verify(DecimalTypeUtil::kOpSubtract, x, y, expected_result, false);
+  }
+
+  void MultiplyAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
+                         const DecimalScalar128& expected_result,
+                         bool expected_overflow) {
+    return Verify(DecimalTypeUtil::kOpMultiply, x, y, expected_result, expected_overflow);
   }
 };
 
-#define EXPECT_DECIMAL_EQ(x, y, expected, actual)                                    \
-  EXPECT_EQ(expected, actual) << (x).ToString() << " + " << (y).ToString()           \
-                              << " expected : " << expected.ToString() << " actual " \
-                              << actual.ToString()
+#define EXPECT_DECIMAL_EQ(op, x, y, expected_result, expected_overflow, actual_result, \
+                          actual_overflow)                                             \
+  {                                                                                    \
+    EXPECT_TRUE(expected_overflow == actual_overflow)                                  \
+        << op << "(" << (x).ToString() << " and " << (y).ToString() << ")"             \
+        << " expected overflow : " << expected_overflow                                \
+        << " actual overflow : " << actual_overflow;                                   \
+    if (!expected_overflow) {                                                          \
+      EXPECT_TRUE(expected_result == actual_result)                                    \
+          << op << "(" << (x).ToString() << " and " << (y).ToString() << ")"           \
+          << " expected : " << expected_result.ToString()                              \
+          << " actual : " << actual_result.ToString();                                 \
+    }                                                                                  \
+  }
 
 void TestDecimalSql::Verify(DecimalTypeUtil::Op op, const DecimalScalar128& x,
-                            const DecimalScalar128& y, const DecimalScalar128& expected) {
+                            const DecimalScalar128& y,
+                            const DecimalScalar128& expected_result,
+                            bool expected_overflow) {
   auto t1 = std::make_shared<arrow::Decimal128Type>(x.precision(), x.scale());
   auto t2 = std::make_shared<arrow::Decimal128Type>(y.precision(), y.scale());
+  bool overflow = false;
 
   Decimal128TypePtr out_type;
   EXPECT_OK(DecimalTypeUtil::GetResultType(op, {t1, t2}, &out_type));
 
   arrow::BasicDecimal128 out_value;
+  std::string op_name;
   switch (op) {
     case DecimalTypeUtil::kOpAdd:
+      op_name = "add";
       out_value = decimalops::Add(x, y, out_type->precision(), out_type->scale());
       break;
 
     case DecimalTypeUtil::kOpSubtract:
+      op_name = "subtract";
       out_value = decimalops::Subtract(x, y, out_type->precision(), out_type->scale());
+      break;
+
+    case DecimalTypeUtil::kOpMultiply:
+      op_name = "multiply";
+      out_value =
+          decimalops::Multiply(x, y, out_type->precision(), out_type->scale(), &overflow);
       break;
 
     default:
       // not implemented.
       ASSERT_FALSE(true);
   }
-  EXPECT_DECIMAL_EQ(
-      x, y, expected,
-      DecimalScalar128(out_value, out_type->precision(), out_type->scale()));
+  EXPECT_DECIMAL_EQ(op_name, x, y, expected_result, expected_overflow,
+                    DecimalScalar128(out_value, out_type->precision(), out_type->scale()),
+                    overflow);
 }
 
 TEST_F(TestDecimalSql, Add) {
@@ -119,6 +150,60 @@ TEST_F(TestDecimalSql, Subtract) {
       DecimalScalar128{"-09999999999999999999999999999999000000", 38, 5},  // x
       DecimalScalar128{"-100", 38, 7},                                     // y
       DecimalScalar128{"-99999999999999999999999999999989999990", 38, 6});
+}
+
+TEST_F(TestDecimalSql, Multiply) {
+#if 0
+  // fast-path : both +ve
+  MultiplyAndVerify(DecimalScalar128{"201", 10, 3},    // x
+                    DecimalScalar128{"301", 10, 2},    // y
+                    DecimalScalar128{"60501", 21, 5},  // expected
+                    false);                            // overflow
+
+  // fast-path : right -ve
+  MultiplyAndVerify(DecimalScalar128{"201", 10, 3},    // x
+                    DecimalScalar128{"-301", 10, 2},    // y
+                    DecimalScalar128{"-60501", 21, 5},  // expected
+                    false);                            // overflow
+
+  // fast-path : left -ve
+  MultiplyAndVerify(DecimalScalar128{"-201", 10, 3},    // x
+                    DecimalScalar128{"301", 10, 2},    // y
+                    DecimalScalar128{"-60501", 21, 5},  // expected
+                    false);                            // overflow
+#endif
+
+  // fast-path : both -ve
+  MultiplyAndVerify(DecimalScalar128{"-201", 10, 3},    // x
+                    DecimalScalar128{"-301", 10, 2},    // y
+                    DecimalScalar128{"60501", 21, 5},  // expected
+                    false);                            // overflow
+#if 0
+  MultiplyAndVerify(DecimalScalar128{"201", 30, 3},    // x
+                    DecimalScalar128{"301", 30, 3},    // y
+                    DecimalScalar128{"60501", 38, 6},  // expected
+                    false);                            // overflow
+
+  // max precision
+  MultiplyAndVerify(
+      DecimalScalar128{"09999999999999999999999999999999000000", 38, 5},  // x
+      DecimalScalar128{"100", 38, 7},                                     // y
+      DecimalScalar128{"999999999999999999999999999999900", 38, 6},  // expected
+      false);                                                             // overflow
+
+  // Both -ve
+  MultiplyAndVerify(DecimalScalar128{"-201", 30, 3},   // x
+                    DecimalScalar128{"-301", 30, 2},   // y
+                    DecimalScalar128{"605010", 38, 5},  // expected
+                    false);                            // overflow
+
+  // -ve and max precision
+  MultiplyAndVerify(
+      DecimalScalar128{"-09999999999999999999999999999999000000", 38, 5},  // x
+      DecimalScalar128{"-100", 38, 7},                                     // y
+      DecimalScalar128{"999999999999999999999999999999900", 38, 6},  // expected
+      false);                                                              // overflow
+#endif
 }
 
 }  // namespace gandiva

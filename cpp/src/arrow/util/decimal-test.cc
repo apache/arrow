@@ -544,6 +544,7 @@ TEST(Decimal128Test, GetWholeAndFractionNegative) {
   ASSERT_EQ(-123456, out);
 }
 
+
 TEST(Decimal128Test, IncreaseScale) {
   Decimal128 result;
   int32_t out;
