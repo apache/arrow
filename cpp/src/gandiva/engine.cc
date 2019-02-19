@@ -66,7 +66,6 @@
 
 namespace gandiva {
 
-GANDIVA_EXPORT
 extern const char kPrecompiledBitcode[];
 extern const size_t kPrecompiledBitcodeSize;
 
