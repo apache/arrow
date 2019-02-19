@@ -19,6 +19,9 @@ prelude: |-
   require 'arrow'
   require 'faker'
 
+  state = ENV.fetch('FAKER_RANDOM_SEED', 17).to_i
+  Faker::Config.random = Random.new(state)
+
   nrows = 1000
   ncols = 10
   dict_vocab = Arrow::StringArray.new(

@@ -20,6 +20,9 @@ prelude: |-
   require 'faker'
   require 'bigdecimal'
 
+  state = ENV.fetch('FAKER_RANDOM_SEED', 17).to_i
+  Faker::Config.random = Random.new(state)
+
   nrows = 1000
   ncols = 10
   type = Arrow::Decimal128DataType.new(10, 5)
