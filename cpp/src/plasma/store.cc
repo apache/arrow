@@ -232,6 +232,10 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   } else {
     pointer = AllocateMemory(total_size, &fd, &map_size, &offset);
     if (!pointer) {
+      ARROW_LOG(ERROR) << "Not enough memory to create the object " << object_id.hex()
+                       << ", data_size=" << data_size
+                       << ", metadata_size=" << metadata_size
+                       << ", will send a reply of PlasmaError::OutOfMemory";
       return PlasmaError::OutOfMemory;
     }
   }
@@ -1036,6 +1040,7 @@ static std::unique_ptr<PlasmaStoreRunner> g_runner = nullptr;
 
 void HandleSignal(int signal) {
   if (signal == SIGTERM) {
+    ARROW_LOG(INFO) << "SIGTERM Signal received, closing Plasma Server...";
     if (g_runner != nullptr) {
       g_runner->Stop();
     }

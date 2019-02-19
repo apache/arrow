@@ -56,6 +56,7 @@ enum class ArrowLogLevel : int {
 
 #define ARROW_LOG_INTERNAL(level) ::arrow::util::ArrowLog(__FILE__, __LINE__, level)
 #define ARROW_LOG(level) ARROW_LOG_INTERNAL(::arrow::util::ArrowLogLevel::ARROW_##level)
+
 #define ARROW_IGNORE_EXPR(expr) ((void)(expr))
 
 #define ARROW_CHECK(condition)                                                         \
@@ -172,6 +173,12 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   /// Install the failure signal handler to output call stack when crash.
   /// If glog is not installed, this function won't do anything.
   static void InstallFailureSignalHandler();
+
+  /// Return whether or not the log level is enabled in current setting.
+  ///
+  /// \param log_level The input log level to test.
+  /// \return True if input log level is not lower than the threshold.
+  static bool IsLevelEnabled(ArrowLogLevel log_level);
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrowLog);
