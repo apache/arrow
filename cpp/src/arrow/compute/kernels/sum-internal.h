@@ -36,22 +36,20 @@ namespace compute {
 
 // Find the largest compatible primitive type for a primitive type.
 template <typename I, typename Enable = void>
-struct FindAccumulatorType {
-  using Type = DoubleType;
-};
+struct FindAccumulatorType {};
 
 template <typename I>
-struct FindAccumulatorType<I, typename std::enable_if<IsSignedInt<I>::value>::type> {
+struct FindAccumulatorType<I, enable_if_signed_integer<I>> {
   using Type = Int64Type;
 };
 
 template <typename I>
-struct FindAccumulatorType<I, typename std::enable_if<IsUnsignedInt<I>::value>::type> {
+struct FindAccumulatorType<I, enable_if_unsigned_integer<I>> {
   using Type = UInt64Type;
 };
 
 template <typename I>
-struct FindAccumulatorType<I, typename std::enable_if<IsFloatingPoint<I>::value>::type> {
+struct FindAccumulatorType<I, enable_if_floating_point<I>> {
   using Type = DoubleType;
 };
 
