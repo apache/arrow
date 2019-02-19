@@ -21,35 +21,18 @@
 #pragma once
 
 #include <memory>
-#include <string>
-#include <utility>
 #include <vector>
 
 #include "arrow/util/visibility.h"
 
-#include "arrow/flight/types.h"
-#include "arrow/ipc/dictionary.h"
+#include "arrow/flight/types.h"  // IWYU pragma: keep
 #include "arrow/record_batch.h"
 
 namespace arrow {
 
 class MemoryPool;
-class RecordBatchReader;
+class Schema;
 class Status;
-
-namespace ipc {
-namespace internal {
-
-struct IpcPayload;
-
-}  // namespace internal
-}  // namespace ipc
-
-namespace io {
-
-class OutputStream;
-
-}  // namespace io
 
 namespace flight {
 
@@ -64,7 +47,7 @@ class ARROW_EXPORT FlightDataStream {
 
   // When the stream is completed, the last payload written will have null
   // metadata
-  virtual Status Next(ipc::internal::IpcPayload* payload) = 0;
+  virtual Status Next(FlightPayload* payload) = 0;
 };
 
 /// \brief A basic implementation of FlightDataStream that will provide
@@ -75,7 +58,7 @@ class ARROW_EXPORT RecordBatchStream : public FlightDataStream {
   explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader);
 
   std::shared_ptr<Schema> schema() override;
-  Status Next(ipc::internal::IpcPayload* payload) override;
+  Status Next(FlightPayload* payload) override;
 
  private:
   MemoryPool* pool_;

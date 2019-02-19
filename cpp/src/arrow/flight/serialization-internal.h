@@ -21,18 +21,19 @@
 #pragma once
 
 // Enable gRPC customizations
-#include "arrow/flight/protocol-internal.h"
+#include "arrow/flight/protocol-internal.h"  // IWYU pragma: keep
 
+#include <cstdint>
 #include <limits>
 #include <memory>
 
-#include "google/protobuf/io/coded_stream.h"
-#include "google/protobuf/io/zero_copy_stream.h"
-#include "google/protobuf/io/zero_copy_stream_impl_lite.h"
-#include "google/protobuf/wire_format_lite.h"
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/zero_copy_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
+#include <google/protobuf/wire_format_lite.h>
+#include <grpcpp/grpcpp.h>
+#include <grpcpp/impl/codegen/proto_utils.h>
 #include "grpc/byte_buffer_reader.h"
-#include "grpcpp/grpcpp.h"
-#include "grpcpp/impl/codegen/proto_utils.h"
 
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
@@ -43,8 +44,6 @@
 #include "arrow/flight/types.h"
 
 namespace pb = arrow::flight::protocol;
-
-using arrow::ipc::internal::IpcPayload;
 
 constexpr int64_t kInt32Max = std::numeric_limits<int32_t>::max();
 
@@ -103,7 +102,7 @@ inline arrow::Status FailSerialization(arrow::Status status) {
 }
 
 // Write FlightData to a grpc::ByteBuffer without extra copying
-Status FlightDataSerialize(const IpcPayload& msg, ByteBuffer* out, bool* own_buffer);
+Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out, bool* own_buffer);
 
 // Read internal::FlightData from grpc::ByteBuffer containing FlightData
 // protobuf without copying

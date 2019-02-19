@@ -30,7 +30,6 @@
 namespace arrow {
 
 class Buffer;
-class DictionaryMemo;
 class MemoryPool;
 class RecordBatch;
 class Schema;
@@ -46,6 +45,8 @@ class OutputStream;
 }  // namespace io
 
 namespace ipc {
+
+class DictionaryMemo;
 
 /// \class RecordBatchWriter
 /// \brief Abstract interface for writing a stream of record batches
@@ -298,9 +299,8 @@ namespace internal {
 
 // These internal APIs may change without warning or deprecation
 
-// Intermediate data structure with metadata header plus zero or more buffers
-// for the message body. This data can either be written out directly as an
-// encapsulated IPC message or used with Flight RPCs
+// Intermediate data structure with metadata header, and zero or more buffers
+// for the message body.
 struct IpcPayload {
   Message::Type type;
   std::shared_ptr<Buffer> metadata;

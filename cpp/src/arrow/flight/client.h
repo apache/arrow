@@ -28,17 +28,16 @@
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
-#include "arrow/flight/types.h"
+#include "arrow/flight/types.h"  // IWYU pragma: keep
 
 namespace arrow {
 
+class MemoryPool;
 class RecordBatch;
 class RecordBatchReader;
 class Schema;
 
 namespace flight {
-
-class FlightPutWriter;
 
 /// \brief Client class for Arrow Flight RPC services (gRPC-based).
 /// API experimental for now

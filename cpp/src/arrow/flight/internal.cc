@@ -16,18 +16,20 @@
 // under the License.
 
 #include "arrow/flight/internal.h"
+#include "arrow/flight/protocol-internal.h"
 
-#include "arrow/flight/customize_protobuf.h"
-
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>
 
 #include <grpcpp/grpcpp.h>
 
+#include "arrow/buffer.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 

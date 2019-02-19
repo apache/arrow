@@ -29,7 +29,7 @@
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string_view.h"  // IWYU pragma: export
 
 namespace arrow {
 

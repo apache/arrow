@@ -41,8 +41,6 @@ DEFINE_int32(port, 31337, "Server port to listen on");
 namespace perf = arrow::flight::perf;
 namespace proto = arrow::flight::protocol;
 
-using IpcPayload = arrow::ipc::internal::IpcPayload;
-
 namespace arrow {
 namespace flight {
 
@@ -73,10 +71,10 @@ class PerfDataStream : public FlightDataStream {
 
   std::shared_ptr<Schema> schema() override { return schema_; }
 
-  Status Next(IpcPayload* payload) override {
+  Status Next(FlightPayload* payload) override {
     if (records_sent_ >= total_records_) {
       // Signal that iteration is over
-      payload->metadata = nullptr;
+      payload->ipc_message.metadata = nullptr;
       return Status::OK();
     }
 
@@ -98,7 +96,8 @@ class PerfDataStream : public FlightDataStream {
     } else {
       records_sent_ += batch_length_;
     }
-    return ipc::internal::GetRecordBatchPayload(*batch, default_memory_pool(), payload);
+    return ipc::internal::GetRecordBatchPayload(*batch, default_memory_pool(),
+                                                &payload->ipc_message);
   }
 
  private:
