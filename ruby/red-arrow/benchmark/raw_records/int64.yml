@@ -16,37 +16,45 @@
 # under the License.
 
 prelude: |-
-  require 'arrow'
-  require 'faker'
+  require "arrow"
+  require "faker"
 
   state = ENV.fetch('FAKER_RANDOM_SEED', 17).to_i
   Faker::Config.random = Random.new(state)
 
-  nrows = 1000
-  ncols = 10
+  n_rows = 1000
+  n_columns = 10
   type = :int64
-  fields = ncols.times.map {|i| ["col_#{i}".to_sym, type] }.to_h
-  schema = Arrow::Schema.new(**fields)
-  arrays = ncols.times.map do
-    Arrow::Int64Array.new(
-      nrows.times.map { Faker::Number.number(18).to_i }
-    )
+
+  fields = {}
+  arrays = {}
+  n_columns.times do |i|
+    column_name = "column_#{i}"
+    fields[column_name] = type
+    arrays[column_name] = n_rows.times.map { Faker::Number.number(18).to_i }
   end
-  record_batch = Arrow::RecordBatch.new(schema, nrows, arrays)
+  record_batch = Arrow::RecordBatch.new(fields, arrays)
 
   def pure_ruby_raw_records(record_batch)
-    [].tap do |ary|
-      record_batch.n_rows.times do |i|
-        record = []
-        record_batch.n_columns.times do |j|
-          record << record_batch.find_column(j)[i]
-        end
-        ary << record
+    n_rows = record_batch.n_rows
+    n_columns = record_batch.n_columns
+    columns = record_batch.columns
+    records = []
+    i = 0
+    while i < n_rows
+      record = []
+      j = 0
+      while j < n_columns
+        record << columns[j][i]
+        j += 1
       end
+      records << record
+      i += 1
     end
+    records
   end
 benchmark:
   pure_ruby: |-
-    raw_records = pure_ruby_raw_records(record_batch)
+    pure_ruby_raw_records(record_batch)
   raw_records: |-
-    raw_records = record_batch.raw_records
+    record_batch.raw_records
