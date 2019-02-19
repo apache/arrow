@@ -980,8 +980,6 @@ Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<Vecto
   SIMPLE_CONVERTER_CASE(DATE64, Date64Converter);
 
   case Type::DECIMAL:
-
-  case Type::STRING:
   case Type::DICTIONARY:
 
   TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
@@ -1165,14 +1163,31 @@ std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x) {
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
+std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
+
+  // the type might be NULL, in which case we need to infer it from the data
+  // we keep track of whether it was infered or supplied
+  bool type_infered = Rf_isNull(s_type);
+  std::shared_ptr<arrow::DataType> type;
+  if (type_infered) {
+    type = arrow::r::InferType(x);
+  } else {
+    type = arrow::r::extract<arrow::DataType>(s_type);
+  }
+
   // special case when we can just use the data from the R vector
   // directly. This still needs to handle the null bitmap
   if (arrow::r::can_reuse_memory(x, type)) {
     return arrow::r::Array__from_vector_reuse_memory(x);
   }
 
-  // Otherwise we need to use converter and builder
+  // treat strings separately for now
+  if (type->id() == Type::STRING) {
+    STOP_IF_NOT(TYPEOF(x) == STRSXP, "Cannot convert R object to string array");
+    return arrow::r::MakeStringArray(x);
+  }
+
+  // general conversion with converter and builder
   std::unique_ptr<arrow::r::VectorConverter> converter;
   STOP_IF_NOT_OK(arrow::r::GetConverter(type, &converter));
 

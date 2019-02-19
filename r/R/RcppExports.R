@@ -89,8 +89,8 @@ Array__infer_type <- function(x) {
     .Call(`_arrow_Array__infer_type`, x)
 }
 
-Array__from_vector <- function(x, type) {
-    .Call(`_arrow_Array__from_vector`, x, type)
+Array__from_vector <- function(x, s_type) {
+    .Call(`_arrow_Array__from_vector`, x, s_type)
 }
 
 Array__from_vector_old <- function(x, type) {

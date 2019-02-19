@@ -65,7 +65,7 @@ std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice2(
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks, const std::shared_ptr<arrow::DataType>& type) {
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks, SEXP type) {
   std::vector<std::shared_ptr<arrow::Array>> vec;
   for (SEXP chunk : chunks) {
     vec.push_back(Array__from_vector(chunk, type));

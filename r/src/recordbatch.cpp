@@ -66,7 +66,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl) {
 
   for (int i = 0; i < tbl.size(); i++) {
     SEXP x = tbl[i];
-    arrays.push_back(Array__from_vector(x, Array__infer_type(x)));
+    arrays.push_back(Array__from_vector(x, R_NilValue));
     fields.push_back(
         std::make_shared<arrow::Field>(std::string(names[i]), arrays[i]->type()));
   }
