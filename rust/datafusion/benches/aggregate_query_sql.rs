@@ -15,19 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#[macro_use]
+extern crate criterion;
+use criterion::Criterion;
+
 use std::sync::Arc;
 
 extern crate arrow;
 extern crate datafusion;
 
-use arrow::array::{BinaryArray, Float64Array};
 use arrow::datatypes::{DataType, Field, Schema};
 
 use datafusion::execution::context::ExecutionContext;
 
-/// This example demonstrates executing a simple query against an Arrow data source and
-/// fetching results
-fn main() {
+fn aggregate_query(sql: &str) {
     // create local execution context
     let mut ctx = ExecutionContext::new();
 
@@ -56,44 +57,42 @@ fn main() {
         true,
     );
 
-    // simple projection and selection
-    let sql = "SELECT c1, MIN(c12), MAX(c12) FROM aggregate_test_100 WHERE c11 > 0.1 AND c11 < 0.9 GROUP BY c1";
-
     // execute the query
-    let relation = ctx.sql(&sql, 1024 * 1024).unwrap();
+    let relation = ctx.sql(&sql).unwrap();
 
     // display the relation
     let mut results = relation.borrow_mut();
 
-    while let Some(batch) = results.next().unwrap() {
-        println!(
-            "RecordBatch has {} rows and {} columns",
-            batch.num_rows(),
-            batch.num_columns()
-        );
-
-        let c1 = batch
-            .column(0)
-            .as_any()
-            .downcast_ref::<BinaryArray>()
-            .unwrap();
-
-        let min = batch
-            .column(1)
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
-
-        let max = batch
-            .column(2)
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
-
-        for i in 0..batch.num_rows() {
-            let c1_value: String = String::from_utf8(c1.value(i).to_vec()).unwrap();
-
-            println!("{}, Min: {}, Max: {}", c1_value, min.value(i), max.value(i),);
-        }
-    }
+    while let Some(_) = results.next().unwrap() {}
 }
+
+fn criterion_benchmark(c: &mut Criterion) {
+    c.bench_function("aggregate_query_no_group_by", |b| {
+        b.iter(|| {
+            aggregate_query(
+                "SELECT MIN(c12), MAX(c12) \
+                 FROM aggregate_test_100",
+            )
+        })
+    });
+    c.bench_function("aggregate_query_group_by", |b| {
+        b.iter(|| {
+            aggregate_query(
+                "SELECT c1, MIN(c12), MAX(c12) \
+                 FROM aggregate_test_100 GROUP BY c1",
+            )
+        })
+    });
+    c.bench_function("aggregate_query_group_by_with_filter", |b| {
+        b.iter(|| {
+            aggregate_query(
+                "SELECT c1, MIN(c12), MAX(c12) \
+                 FROM aggregate_test_100 \
+                 WHERE c11 > 0.1 AND c11 < 0.9 GROUP BY c1",
+            )
+        })
+    });
+}
+
+criterion_group!(benches, criterion_benchmark);
+criterion_main!(benches);

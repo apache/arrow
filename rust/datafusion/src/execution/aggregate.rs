@@ -1208,7 +1208,7 @@ mod tests {
     }
 
     fn load_csv(filename: &str, schema: &Arc<Schema>) -> Rc<RefCell<Relation>> {
-        let ds = CsvDataSource::new(filename, schema.clone(), 1024);
+        let ds = CsvDataSource::new(filename, schema.clone(), true, &None, 1024);
         Rc::new(RefCell::new(DataSourceRelation::new(Rc::new(
             RefCell::new(ds),
         ))))

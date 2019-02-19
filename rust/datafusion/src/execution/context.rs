@@ -15,18 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! ExecutionContext contains methods for registering data sources and executing SQL queries
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::string::String;
 use std::sync::Arc;
 
 use arrow::datatypes::*;
 
 use super::super::dfparser::{DFASTNode, DFParser};
 use super::super::logicalplan::*;
+use super::super::optimizer::optimizer::OptimizerRule;
+use super::super::optimizer::projection_push_down::ProjectionPushDown;
 use super::super::sqlplanner::{SchemaProvider, SqlToRel};
 use super::aggregate::AggregateRelation;
-use super::datasource::DataSource;
+use super::datasource::{CsvProvider, DataSourceProvider};
 use super::error::{ExecutionError, Result};
 use super::expression::*;
 use super::filter::FilterRelation;
@@ -35,17 +40,20 @@ use super::projection::ProjectRelation;
 use super::relation::{DataSourceRelation, Relation};
 
 pub struct ExecutionContext {
-    datasources: Rc<RefCell<HashMap<String, Rc<RefCell<DataSource>>>>>,
+    datasources: Rc<RefCell<HashMap<String, Rc<DataSourceProvider>>>>,
 }
 
 impl ExecutionContext {
+    /// Create a new excution context for in-memory queries
     pub fn new() -> Self {
         Self {
             datasources: Rc::new(RefCell::new(HashMap::new())),
         }
     }
 
-    pub fn sql(&mut self, sql: &str) -> Result<Rc<RefCell<Relation>>> {
+    /// Execute a SQL query and produce a Relation (a schema-aware iterator over a series
+    /// of RecordBatch instances)
+    pub fn sql(&mut self, sql: &str, batch_size: usize) -> Result<Rc<RefCell<Relation>>> {
         let ast = DFParser::parse_sql(String::from(sql))?;
 
         match ast {
@@ -60,12 +68,10 @@ impl ExecutionContext {
 
                 // plan the query (create a logical relational plan)
                 let plan = query_planner.sql_to_rel(&ansi)?;
-                //println!("Logical plan: {:?}", plan);
 
-                let optimized_plan = plan; //push_down_projection(&plan, &HashSet::new());
-                                           //println!("Optimized logical plan: {:?}", new_plan);
+                let optimized_plan = self.optimize(&plan)?;
 
-                let relation = self.execute(&optimized_plan)?;
+                let relation = self.execute(&optimized_plan, batch_size)?;
 
                 Ok(relation)
             }
@@ -73,31 +79,53 @@ impl ExecutionContext {
         }
     }
 
-    pub fn register_datasource(&mut self, name: &str, ds: Rc<RefCell<DataSource>>) {
-        self.datasources.borrow_mut().insert(name.to_string(), ds);
+    /// Register a CSV file as a table so that it can be queried from SQL
+    pub fn register_csv(
+        &mut self,
+        name: &str,
+        filename: &str,
+        schema: &Schema,
+        has_header: bool,
+    ) {
+        self.datasources.borrow_mut().insert(
+            name.to_string(),
+            Rc::new(CsvProvider::new(filename, schema, has_header)),
+        );
     }
 
-    pub fn execute(&mut self, plan: &LogicalPlan) -> Result<Rc<RefCell<Relation>>> {
-        println!("Logical plan: {:?}", plan);
+    /// Optimize the logical plan by applying optimizer rules
+    fn optimize(&self, plan: &LogicalPlan) -> Result<Rc<LogicalPlan>> {
+        let mut rule = ProjectionPushDown::new();
+        Ok(rule.optimize(plan)?)
+    }
 
+    /// Execute a logical plan and produce a Relation (a schema-aware iterator over a series
+    /// of RecordBatch instances)
+    pub fn execute(
+        &mut self,
+        plan: &LogicalPlan,
+        batch_size: usize,
+    ) -> Result<Rc<RefCell<Relation>>> {
         match *plan {
-            LogicalPlan::TableScan { ref table_name, .. } => {
-                match self.datasources.borrow().get(table_name) {
-                    Some(ds) => {
-                        //TODO: projection
-                        Ok(Rc::new(RefCell::new(DataSourceRelation::new(ds.clone()))))
-                    }
-                    _ => Err(ExecutionError::General(format!(
-                        "No table registered as '{}'",
-                        table_name
-                    ))),
+            LogicalPlan::TableScan {
+                ref table_name,
+                ref projection,
+                ..
+            } => match self.datasources.borrow().get(table_name) {
+                Some(provider) => {
+                    let ds = provider.scan(projection, batch_size);
+                    Ok(Rc::new(RefCell::new(DataSourceRelation::new(ds))))
                 }
-            }
+                _ => Err(ExecutionError::General(format!(
+                    "No table registered as '{}'",
+                    table_name
+                ))),
+            },
             LogicalPlan::Selection {
                 ref expr,
                 ref input,
             } => {
-                let input_rel = self.execute(input)?;
+                let input_rel = self.execute(input, batch_size)?;
                 let input_schema = input_rel.as_ref().borrow().schema().clone();
                 let runtime_expr = compile_scalar_expr(&self, expr, &input_schema)?;
                 let rel = FilterRelation::new(
@@ -112,7 +140,7 @@ impl ExecutionContext {
                 ref input,
                 ..
             } => {
-                let input_rel = self.execute(input)?;
+                let input_rel = self.execute(input, batch_size)?;
 
                 let input_schema = input_rel.as_ref().borrow().schema().clone();
 
@@ -136,7 +164,7 @@ impl ExecutionContext {
                 ref aggr_expr,
                 ..
             } => {
-                let input_rel = self.execute(&input)?;
+                let input_rel = self.execute(&input, batch_size)?;
 
                 let input_schema = input_rel.as_ref().borrow().schema().clone();
 
@@ -166,7 +194,7 @@ impl ExecutionContext {
                 ref input,
                 ..
             } => {
-                let input_rel = self.execute(input)?;
+                let input_rel = self.execute(input, batch_size)?;
 
                 let input_schema = input_rel.as_ref().borrow().schema().clone();
 
@@ -200,13 +228,7 @@ impl ExecutionContext {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum ExecutionResult {
-    Unit,
-    Count(usize),
-    Str(String),
-}
-
+/// Create field meta-data from an expression, for use in a result set schema
 pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Field {
     match e {
         Expr::Column(i) => input_schema.fields()[*i].clone(),
@@ -239,6 +261,7 @@ pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Field {
     }
 }
 
+/// Create field meta-data from an expression, for use in a result set schema
 pub fn exprlist_to_fields(expr: &Vec<Expr>, input_schema: &Schema) -> Vec<Field> {
     expr.iter()
         .map(|e| expr_to_field(e, input_schema))
@@ -246,12 +269,12 @@ pub fn exprlist_to_fields(expr: &Vec<Expr>, input_schema: &Schema) -> Vec<Field>
 }
 
 struct ExecutionContextSchemaProvider {
-    datasources: Rc<RefCell<HashMap<String, Rc<RefCell<DataSource>>>>>,
+    datasources: Rc<RefCell<HashMap<String, Rc<DataSourceProvider>>>>,
 }
 impl SchemaProvider for ExecutionContextSchemaProvider {
     fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>> {
         match self.datasources.borrow().get(name) {
-            Some(ds) => Some(ds.borrow().schema().clone()),
+            Some(ds) => Some(ds.schema().clone()),
             None => None,
         }
     }
