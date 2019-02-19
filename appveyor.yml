@@ -36,14 +36,6 @@ cache:
 
 matrix:
   fast_finish: true
-  allow_failures:
-    # Can't build with 32-bit MinGW for now.
-    # See https://issues.apache.org/jira/browse/ARROW-4297
-    - JOB: "MinGW32"
-      MINGW_PACKAGE_PREFIX: mingw-w64-i686
-      MINGW_PREFIX: c:\msys64\mingw32
-      MSYSTEM: MINGW32
-      USE_CLCACHE: false
 
 environment:
   global:
