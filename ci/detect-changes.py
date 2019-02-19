@@ -26,11 +26,6 @@ import subprocess
 
 perr = functools.partial(print, file=sys.stderr)
 
-LANGUAGE_TOPICS = ['c_glib', 'cpp', 'docs', 'go', 'java', 'js', 'python',
-                   'r', 'ruby', 'rust']
-
-ALL_TOPICS = LANGUAGE_TOPICS + ['integration', 'site', 'dev']
-
 
 def run_cmd(cmdline):
     proc = subprocess.Popen(cmdline,
@@ -112,6 +107,26 @@ def list_appveyor_affected_files():
     return list_affected_files("{0}..HEAD".format(merge_base))
 
 
+LANGUAGE_TOPICS = ['c_glib', 'cpp', 'docs', 'go', 'java', 'js', 'python',
+                   'r', 'ruby', 'rust']
+
+ALL_TOPICS = LANGUAGE_TOPICS + ['integration', 'site', 'dev']
+
+
+AFFECTED_DEPENDENCIES = {
+    'java': ['integration', 'python'],
+    'js': ['integration'],
+    'ci': ALL_TOPICS,
+    'cpp': ['python', 'c_glib', 'r', 'ruby', 'integration'],
+    'format': LANGUAGE_TOPICS,
+    '.travis.yml': ALL_TOPICS,
+    'c_glib': ['ruby']
+}
+
+COMPONENTS = {'cpp', 'java', 'c_glib', 'r', 'ruby', 'integration', 'js',
+              'rust', 'site', 'go', 'docs', 'python', 'dev'}
+
+
 def get_affected_topics(affected_files):
     """
     Return a dict of topics affected by the given files.
@@ -131,24 +146,22 @@ def get_affected_topics(affected_files):
         fn = parts[-1]
         if fn.startswith('README'):
             continue
-        if p in ('ci', '.travis.yml'):
-            # For these changes, test everything
-            for k in ALL_TOPICS:
-                affected[k] = True
-            break
-        elif p in ('cpp', 'format'):
-            # Test C++ and bindings to the C++ library
-            for k in ('cpp', 'python', 'c_glib', 'r', 'ruby', 'integration'):
-                affected[k] = True
-        elif p in ('java', 'js'):
+
+        if p in COMPONENTS:
             affected[p] = True
-            affected['integration'] = True
-        elif p == 'c_glib':
-            affected[p] = True
-            affected['ruby'] = True
-        elif p in ('dev', 'docs', 'go', 'integration', 'python', 'r', 'ruby',
-                   'rust', 'site'):
-            affected[p] = True
+
+        _path_already_affected = {}
+
+        def _affect_dependencies(component):
+            if component in _path_already_affected:
+                # For circular dependencies, terminate
+                return
+            for topic in AFFECTED_DEPENDENCIES.get(component, ()):
+                affected[topic] = True
+                _affect_dependencies(topic)
+                _path_already_affected[topic] = True
+
+        _affect_dependencies(p)
 
     return affected
 
@@ -213,6 +226,42 @@ def run_from_appveyor():
     perr("Affected topics:")
     perr(pprint.pformat(affected))
     return get_windows_shell_eval(make_env_for_topics(affected))
+
+
+def test_get_affected_topics():
+    affected_topics = get_affected_topics(['cpp/CMakeLists.txt'])
+    assert affected_topics == {
+        'c_glib': True,
+        'cpp': True,
+        'docs': False,
+        'go': False,
+        'java': False,
+        'js': False,
+        'python': True,
+        'r': True,
+        'ruby': True,
+        'rust': False,
+        'integration': True,
+        'site': False,
+        'dev': False
+    }
+
+    affected_topics = get_affected_topics(['format/Schema.fbs'])
+    assert affected_topics == {
+        'c_glib': True,
+        'cpp': True,
+        'docs': True,
+        'go': True,
+        'java': True,
+        'js': True,
+        'python': True,
+        'r': True,
+        'ruby': True,
+        'rust': True,
+        'integration': True,
+        'site': False,
+        'dev': False
+    }
 
 
 if __name__ == "__main__":
