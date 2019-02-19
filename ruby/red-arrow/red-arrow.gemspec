@@ -55,6 +55,8 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency("redcarpet")
   spec.add_development_dependency("test-unit")
   spec.add_development_dependency("yard")
+  spec.add_development_dependency("benchmark-driver")
+  spec.add_development_dependency("faker")
 
   spec.metadata["msys2_mingw_dependencies"] = "arrow"
 end

@@ -20,6 +20,3 @@
 source "https://rubygems.org/"
 
 gemspec
-
-gem 'faker'
-gem 'benchmark-driver'
