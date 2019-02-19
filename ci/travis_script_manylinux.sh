@@ -20,15 +20,6 @@
 
 set -ex
 
-pushd python/manylinux1
-docker run --shm-size=2g --rm \
-  -e PYARROW_PARALLEL=3 \
-  -e PYTHON_VERSIONS=$PYTHON_VERSIONS \
-  -v $PWD:/io \
-  -v $PWD/../../:/arrow \
-  quay.io/xhochy/arrow_manylinux1_x86_64_base:llvm-7-manylinux1 \
-  /io/build_arrow.sh
-
 # Testing for https://issues.apache.org/jira/browse/ARROW-2657
 # These tests cannot be run inside of the docker container, since TensorFlow
 # does not run on manylinux1
@@ -36,18 +27,7 @@ docker run --shm-size=2g --rm \
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 
-PYTHON_VERSION=3.6
-CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
-
-conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION
-conda activate $CONDA_ENV_DIR
-
-pip install -q tensorflow
-pip install "dist/`ls dist/ | grep cp36`"
-popd
-
-# # Test optional dependencies and the presence of tensorflow
-python -c "
+cat << EOF > check_imports.py
 import sys
 import pyarrow
 import pyarrow.orc
@@ -57,8 +37,41 @@ import tensorflow
 
 if sys.version_info.major > 2:
     import pyarrow.gandiva
-"
+EOF
 
-# Run pyarrow tests
-pip install -r python/requirements-test.txt
-pytest --pyargs pyarrow
+pushd python/manylinux1
+
+for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
+  IFS=","
+  set -- $PYTHON_TUPLE;
+  PYTHON_VERSION=$1
+  UNICODE_WIDTH=$2
+
+  # build the wheels
+  docker run --shm-size=2g --rm \
+    -e PYARROW_PARALLEL=3 \
+    -e PYTHON_VERSION=$PYTHON_VERSION \
+    -e UNICODE_WIDTH=$UNICODE_WIDTH \
+    -v $PWD:/io \
+    -v $PWD/../../:/arrow \
+    quay.io/xhochy/arrow_manylinux1_x86_64_base:llvm-7-manylinux1 \
+    /io/build_arrow.sh
+
+  # create a testing conda environment
+  CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
+  conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION
+  conda activate $CONDA_ENV_DIR
+
+  # install the produced wheels
+  pip install -q tensorflow
+  pip install *.whl
+
+  # Test optional dependencies and the presence of tensorflow
+  python check_imports.py
+
+  # Install test dependencies and run pyarrow tests
+  pip install -r python/requirements-test.txt
+  pytest --pyargs pyarrow
+done
+
+popd
