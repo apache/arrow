@@ -39,7 +39,7 @@ struct SumState {
 
   ThisType& operator+=(const ThisType& rhs) {
     this->count += rhs.count;
-    this->sum += this->sum;
+    this->sum += rhs.sum;
 
     return *this;
   }
@@ -53,19 +53,38 @@ struct SumState {
   typename SumType::c_type sum = 0;
 };
 
+constexpr int64_t CoveringBytes(int64_t offset, int64_t length) {
+  return (BitUtil::RoundUp(length + offset, 8) - BitUtil::RoundDown(offset, 8)) / 8;
+}
+
+static_assert(CoveringBytes(0, 8) == 1, "");
+static_assert(CoveringBytes(0, 9) == 2, "");
+static_assert(CoveringBytes(1, 7) == 1, "");
+static_assert(CoveringBytes(1, 8) == 2, "");
+static_assert(CoveringBytes(2, 19) == 3, "");
+static_assert(CoveringBytes(7, 18) == 4, "");
+
 template <typename ArrowType, typename StateType = SumState<ArrowType>>
 class SumAggregateFunction final : public AggregateFunctionStaticState<StateType> {
   using CType = typename TypeTraits<ArrowType>::CType;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
+  static constexpr int64_t kTinyThreshold = 32;
+  static_assert(kTinyThreshold > 18,
+                "ConsumeSparse requires at least 18 elements to fit 3 bytes");
+
  public:
   Status Consume(const Array& input, StateType* state) const override {
     const ArrayType& array = static_cast<const ArrayType&>(input);
 
-    if (input.null_count() > 0) {
-      *state = ConsumeSparse(array);
-    } else {
+    if (input.null_count() == 0) {
       *state = ConsumeDense(array);
+    } else if (input.length() <= kTinyThreshold) {
+      // In order to simplify ConsumeSparse implementation (requires at least 3
+      // bytes of bitmap data), small arrays are handled differently.
+      *state = ConsumeTiny(array);
+    } else {
+      *state = ConsumeSparse(array);
     }
 
     return Status::OK();
@@ -95,11 +114,56 @@ class SumAggregateFunction final : public AggregateFunctionStaticState<StateType
     StateType local;
 
     const auto values = array.raw_values();
-    for (int64_t i = 0; i < array.length(); i++) {
+    const int64_t length = array.length();
+    for (int64_t i = 0; i < length; i++) {
       local.sum += values[i];
     }
 
-    local.count = array.length();
+    local.count = length;
+
+    return local;
+  }
+
+  StateType ConsumeTiny(const ArrayType& array) const {
+    StateType local;
+
+    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
+                                  array.length());
+    const auto values = array.raw_values();
+    for (int64_t i = 0; i < array.length(); i++) {
+      if (reader.IsSet()) {
+        local.sum += values[i];
+        local.count++;
+      }
+      reader.Next();
+    }
+
+    return local;
+  }
+
+  inline StateType UnrolledSum(uint8_t bits, const CType* values) const {
+    StateType local;
+
+    if (bits < 0xFF) {
+#define SUM_SHIFT(ITEM) values[ITEM] * static_cast<CType>(((bits >> ITEM) & 1U))
+      // Some nulls
+      local.sum += SUM_SHIFT(0);
+      local.sum += SUM_SHIFT(1);
+      local.sum += SUM_SHIFT(2);
+      local.sum += SUM_SHIFT(3);
+      local.sum += SUM_SHIFT(4);
+      local.sum += SUM_SHIFT(5);
+      local.sum += SUM_SHIFT(6);
+      local.sum += SUM_SHIFT(7);
+      local.count += BitUtil::kBytePopcount[bits];
+#undef SUM_SHIFT
+    } else {
+      // No nulls
+      for (size_t i = 0; i < 8; i++) {
+        local.sum += values[i];
+      }
+      local.count += 8;
+    }
 
     return local;
   }
@@ -107,44 +171,48 @@ class SumAggregateFunction final : public AggregateFunctionStaticState<StateType
   StateType ConsumeSparse(const ArrayType& array) const {
     StateType local;
 
-    // TODO(fsaintjacques): This fails on slice not byte-aligned.
-    DCHECK_EQ(array.offset() % 8, 0);
+    // Sliced bitmaps on non-byte positions induce problem with the branchless
+    // unrolled technique. Thus extra padding is added on both left and right
+    // side of the slice such that both ends are byte-aligned. The first and
+    // last bitmap are properly masked to ignore extra values induced by
+    // padding.
+    //
+    // The execution is divided in 3 sections.
+    //
+    // 1. Compute the sum of the first masked byte.
+    // 2. Compute the sum of the middle bytes
+    // 3. Compute the sum of the last masked byte.
 
-    const auto values = array.raw_values();
-    const auto bitmap = array.null_bitmap_data() + BitUtil::RoundDown(array.offset(), 8);
-    const auto length = array.length();
-    const auto length_rounded = BitUtil::RoundDown(length, 8);
+    const int64_t length = array.length();
+    const int64_t offset = array.offset();
 
-    for (int64_t i = 0; i < length_rounded; i += 8) {
-      const uint8_t valid_byte = bitmap[i / 8];
-      if (valid_byte < 0xFF) {
-#define SUM_SHIFT(ITEM) \
-  static_cast<CType>(values[i + ITEM] * static_cast<CType>(((valid_byte >> ITEM) & 1U)))
-        // Some nulls
-        local.sum += SUM_SHIFT(0);
-        local.sum += SUM_SHIFT(1);
-        local.sum += SUM_SHIFT(2);
-        local.sum += SUM_SHIFT(3);
-        local.sum += SUM_SHIFT(4);
-        local.sum += SUM_SHIFT(5);
-        local.sum += SUM_SHIFT(6);
-        local.sum += SUM_SHIFT(7);
-        local.count += BitUtil::kBytePopcount[valid_byte];
-#undef SUM_SHIFT
-      } else {
-        // No nulls
-        local.sum += values[i + 0] + values[i + 1] + values[i + 2] + values[i + 3] +
-                     values[i + 4] + values[i + 5] + values[i + 6] + values[i + 7];
-        local.count += 8;
-      }
+    // The number of bytes covering the range, this includes partial bytes.
+    // This number bounded by `<= (length / 8) + 2`, e.g. a possible extra byte
+    // on the left, and on the right.
+    const int64_t covering_bytes = CoveringBytes(offset, length);
+
+    // Align values to the first batch of 8 elements. Note that raw_values() is
+    // already adjusted with the offset, thus we rewind a little to align to
+    // the closest 8-batch offset.
+    const auto values = array.raw_values() - (offset % 8);
+
+    // Align bitmap at the first consumable byte.
+    const auto bitmap = array.null_bitmap_data() + BitUtil::RoundDown(offset, 8) / 8;
+
+    // Consume the first (potentially partial) byte.
+    const uint8_t first_mask = BitUtil::kTrailingBitmask[offset % 8];
+    local += UnrolledSum(bitmap[0] & first_mask, values);
+
+    // Consume the (full) middle bytes. The loop iterates in unit of
+    // batches of 8 values and 1 byte of bitmap.
+    for (int64_t i = 1; i < covering_bytes - 1; i++) {
+      local += UnrolledSum(bitmap[i], &values[i * 8]);
     }
 
-    for (int64_t i = length_rounded; i < length; ++i) {
-      if (BitUtil::GetBit(bitmap, i)) {
-        local.sum += values[i];
-        local.count++;
-      }
-    }
+    // Consume the last (potentially partial) byte.
+    const int64_t last_idx = covering_bytes - 1;
+    const uint8_t last_mask = BitUtil::kPrecedingWrappingBitmask[(offset + length) % 8];
+    local += UnrolledSum(bitmap[last_idx] & last_mask, &values[last_idx * 8]);
 
     return local;
   }

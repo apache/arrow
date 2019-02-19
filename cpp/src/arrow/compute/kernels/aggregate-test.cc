@@ -96,14 +96,17 @@ static Datum DummySum(const Array& array) {
   typename SumType::c_type sum = 0;
   int64_t count = 0;
 
+  auto data = array.data();
+  internal::BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
   const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
   const auto values = array_numeric.raw_values();
-  const auto bitmap = array.null_bitmap_data();
   for (int64_t i = 0; i < array.length(); i++) {
-    if (BitUtil::GetBit(bitmap, i)) {
+    if (reader.IsSet()) {
       sum += values[i];
       count++;
     }
+
+    reader.Next();
   }
 
   if (count > 0) {
@@ -130,6 +133,9 @@ TYPED_TEST(TestSumKernelNumeric, SimpleSum) {
   ValidateSum<TypeParam>(&this->ctx_, "[]",
                          Datum(std::make_shared<ScalarType>(0, false)));
 
+  ValidateSum<TypeParam>(&this->ctx_, "[null]",
+                         Datum(std::make_shared<ScalarType>(0, false)));
+
   ValidateSum<TypeParam>(&this->ctx_, "[0, 1, 2, 3, 4, 5]",
                          Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
 
@@ -144,13 +150,34 @@ class TestRandomSumKernelNumeric : public ComputeFixture, public TestBase {};
 TYPED_TEST_CASE(TestRandomSumKernelNumeric, NumericArrowTypes);
 TYPED_TEST(TestRandomSumKernelNumeric, RandomArraySum) {
   auto rand = random::RandomArrayGenerator(0x5487655);
-  for (size_t i = 5; i < 14; i++) {
+  for (size_t i = 3; i < 14; i++) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-      for (auto length_offset : {-2, -1, 0, 1, 2}) {
-        int64_t length = (1UL << i) + length_offset;
+      for (auto length_adjust : {-2, -1, 0, 1, 2}) {
+        int64_t length = (1UL << i) + length_adjust;
         auto array = rand.Numeric<TypeParam>(length, 0, 100, null_probability);
         ValidateSum<TypeParam>(&this->ctx_, *array);
       }
+    }
+  }
+}
+
+TYPED_TEST(TestRandomSumKernelNumeric, RandomSliceArraySum) {
+  auto arithmetic = ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(),
+                                  "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]");
+  ValidateSum<TypeParam>(&this->ctx_, *arithmetic);
+  for (size_t i = 1; i < 15; i++) {
+    auto slice = arithmetic->Slice(i, 16);
+    ValidateSum<TypeParam>(&this->ctx_, *slice);
+  }
+
+  // Trigger ConsumeSparse with different slice offsets.
+  auto rand = random::RandomArrayGenerator(0xfa432643);
+  const int64_t length = 1U << 6;
+  auto array = rand.Numeric<TypeParam>(length, 0, 10, 0.5);
+  for (size_t i = 1; i < 16; i++) {
+    for (size_t j = 1; i < 16; i++) {
+      auto slice = array->Slice(i, length - j);
+      ValidateSum<TypeParam>(&this->ctx_, *slice);
     }
   }
 }

@@ -378,6 +378,7 @@ static constexpr uint8_t kFlippedBitmask[] = {254, 253, 251, 247, 239, 223, 191,
 
 // Bitmask selecting the (k - 1) preceding bits in a byte
 static constexpr uint8_t kPrecedingBitmask[] = {0, 1, 3, 7, 15, 31, 63, 127};
+static constexpr uint8_t kPrecedingWrappingBitmask[] = {255, 1, 3, 7, 15, 31, 63, 127};
 
 // the bitwise complement version of kPrecedingBitmask
 static constexpr uint8_t kTrailingBitmask[] = {255, 254, 252, 248, 240, 224, 192, 128};
