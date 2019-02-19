@@ -806,16 +806,16 @@ if(NOT MSVC)
   set(ARROW_TEST_SHARED_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS} ${CMAKE_DL_LIBS})
 endif()
 
-if(ARROW_BUILD_TESTS AND "${ARROW_TEST_LINKAGE}" STREQUAL "shared")
-  if(NOT ARROW_BUILD_SHARED)
+if("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
+  if(ARROW_BUILD_TESTS AND NOT ARROW_BUILD_SHARED)
     message(FATAL_ERROR "If using shared linkage for unit tests, must also \
 pass ARROW_BUILD_SHARED=on")
   endif()
   # Use shared linking for unit tests if it's available
   set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS})
   set(ARROW_EXAMPLE_LINK_LIBS arrow_shared)
-elseif(ARROW_BUILD_TESTS)
-  if(NOT ARROW_BUILD_STATIC)
+else()
+  if(ARROW_BUILD_TESTS AND NOT ARROW_BUILD_STATIC)
     message(FATAL_ERROR "If using static linkage for unit tests, must also \
 pass ARROW_BUILD_STATIC=on")
   endif()
