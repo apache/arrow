@@ -93,10 +93,6 @@ Array__from_vector <- function(x, s_type) {
     .Call(`_arrow_Array__from_vector`, x, s_type)
 }
 
-Array__from_vector_old <- function(x, type) {
-    .Call(`_arrow_Array__from_vector_old`, x, type)
-}
-
 ArrayData__get_type <- function(x) {
     .Call(`_arrow_ArrayData__get_type`, x)
 }

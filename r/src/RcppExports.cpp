@@ -273,18 +273,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Array__from_vector_old
-std::shared_ptr<arrow::Array> Array__from_vector_old(SEXP x, const std::shared_ptr<arrow::DataType>& type);
-RcppExport SEXP _arrow_Array__from_vector_old(SEXP xSEXP, SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(Array__from_vector_old(x, type));
-    return rcpp_result_gen;
-END_RCPP
-}
 // ArrayData__get_type
 std::shared_ptr<arrow::DataType> ArrayData__get_type(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData__get_type(SEXP xSEXP) {
@@ -2348,7 +2336,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 2},
     {"_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1},
     {"_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 2},
-    {"_arrow_Array__from_vector_old", (DL_FUNC) &_arrow_Array__from_vector_old, 2},
     {"_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1},
     {"_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1},
     {"_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1},

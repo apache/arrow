@@ -63,7 +63,5 @@
 #' @importFrom rlang list2 %||%
 #' @export
 chunked_array <- function(..., type = NULL){
-  dots <- list2(...)
-  type <- type %||% type(dots[[1L]])
-  shared_ptr(`arrow::ChunkedArray`, ChunkedArray__from_list(dots, type))
+  shared_ptr(`arrow::ChunkedArray`, ChunkedArray__from_list(list2(...), type))
 }

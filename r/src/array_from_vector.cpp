@@ -23,167 +23,6 @@ using namespace arrow;
 namespace arrow {
 namespace r {
 
-template <int RTYPE>
-inline bool isna(typename Vector<RTYPE>::stored_type x) {
-  return Vector<RTYPE>::is_na(x);
-}
-
-template <>
-inline bool isna<REALSXP>(double x) {
-  return ISNA(x);
-}
-
-template <int RTYPE, typename Type>
-std::shared_ptr<Array> SimpleArray(SEXP x) {
-  Rcpp::Vector<RTYPE> vec(x);
-  auto n = vec.size();
-  std::vector<std::shared_ptr<Buffer>> buffers{nullptr,
-    std::make_shared<RBuffer<RTYPE>>(vec)};
-
-  int null_count = 0;
-  if (RTYPE != RAWSXP) {
-    std::shared_ptr<Buffer> null_bitmap;
-
-    auto first_na = std::find_if(vec.begin(), vec.end(), isna<RTYPE> );
-    if (first_na < vec.end()) {
-      STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_bitmap));
-      internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
-
-      // first loop to clear all the bits before the first NA
-      auto j = std::distance(vec.begin(), first_na);
-      int i = 0;
-      for (; i < j; i++, bitmap_writer.Next()) {
-        bitmap_writer.Set();
-      }
-
-      // then finish
-      for (; i < n; i++, bitmap_writer.Next()) {
-        if (isna<RTYPE>(vec[i])) {
-          bitmap_writer.Clear();
-          null_count++;
-        } else {
-          bitmap_writer.Set();
-        }
-      }
-
-      bitmap_writer.Finish();
-      buffers[0] = std::move(null_bitmap);
-    }
-  }
-
-  auto data = ArrayData::Make(
-    std::make_shared<Type>(), LENGTH(x), std::move(buffers), null_count, 0 /*offset*/
-  );
-
-  // return the right Array class
-  return std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
-}
-
-std::shared_ptr<arrow::Array> Int64Array(SEXP x) {
-  auto p_vec_start = reinterpret_cast<int64_t*>(REAL(x));
-  auto n = Rf_xlength(x);
-  int64_t null_count = 0;
-
-  std::vector<std::shared_ptr<Buffer>> buffers{nullptr,
-    std::make_shared<RBuffer<REALSXP>>(x)};
-
-  auto p_vec = std::find(p_vec_start, p_vec_start + n, NA_INT64);
-  auto first_na = p_vec - p_vec_start;
-  if (first_na < n) {
-    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &buffers[0]));
-    internal::FirstTimeBitmapWriter bitmap_writer(buffers[0]->mutable_data(), 0, n);
-
-    // first loop to clear all the bits before the first NA
-    int i = 0;
-    for (; i < first_na; i++, bitmap_writer.Next()) {
-      bitmap_writer.Set();
-    }
-
-    // then finish
-    for (; i < n; i++, bitmap_writer.Next(), ++p_vec) {
-      if (*p_vec == NA_INT64) {
-        bitmap_writer.Clear();
-        null_count++;
-      } else {
-        bitmap_writer.Set();
-      }
-    }
-
-    bitmap_writer.Finish();
-  }
-
-  auto data = ArrayData::Make(
-    std::make_shared<Int64Type>(), n, std::move(buffers), null_count, 0 /*offset*/
-  );
-
-  // return the right Array class
-  return std::make_shared<typename TypeTraits<Int64Type>::ArrayType>(data);
-}
-
-
-
-
-std::shared_ptr<arrow::Array> MakeBooleanArray(LogicalVector_ vec) {
-  R_xlen_t n = vec.size();
-
-  // allocate a buffer for the data
-  std::shared_ptr<Buffer> data_bitmap;
-  STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &data_bitmap));
-  auto data_bitmap_data = data_bitmap->mutable_data();
-  internal::FirstTimeBitmapWriter bitmap_writer(data_bitmap_data, 0, n);
-  R_xlen_t null_count = 0;
-
-  // loop until the first no null
-  R_xlen_t i = 0;
-  for (; i < n; i++, bitmap_writer.Next()) {
-    if (vec[i] == 0) {
-      bitmap_writer.Clear();
-    } else if (vec[i] == NA_LOGICAL) {
-      break;
-    } else {
-      bitmap_writer.Set();
-    }
-  }
-
-  std::shared_ptr<arrow::Buffer> null_bitmap(nullptr);
-  if (i < n) {
-    // there has been a null before the end, so we need
-    // to collect that information in a null bitmap
-    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_bitmap));
-    auto null_bitmap_data = null_bitmap->mutable_data();
-    internal::FirstTimeBitmapWriter null_bitmap_writer(null_bitmap_data, 0, n);
-
-    // catch up on the initial `i` bits
-    for (R_xlen_t j = 0; j < i; j++, null_bitmap_writer.Next()) {
-      null_bitmap_writer.Set();
-    }
-
-    // finish both bitmaps
-    for (; i < n; i++, bitmap_writer.Next(), null_bitmap_writer.Next()) {
-      if (vec[i] == 0) {
-        bitmap_writer.Clear();
-        null_bitmap_writer.Set();
-      } else if (vec[i] == NA_LOGICAL) {
-        null_bitmap_writer.Clear();
-        null_count++;
-      } else {
-        bitmap_writer.Set();
-        null_bitmap_writer.Set();
-      }
-    }
-    null_bitmap_writer.Finish();
-  }
-  bitmap_writer.Finish();
-
-  auto data =
-    ArrayData::Make(boolean(), n, {std::move(null_bitmap), std::move(data_bitmap)},
-      null_count, 0 /*offset*/
-    );
-
-  // return the right Array class
-  return MakeArray(data);
-}
-
 std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
   R_xlen_t n = vec.size();
 
@@ -336,126 +175,6 @@ inline int64_t time_cast<int>(int value) {
 template <>
 inline int64_t time_cast<double>(double value) {
   return static_cast<int64_t>(value * 1000);
-}
-
-inline int64_t timestamp_cast(int value) { return static_cast<int64_t>(value) * 1000000; }
-
-template <int RTYPE>
-std::shared_ptr<Array> TimeStampArray_From_POSIXct(SEXP x) {
-  Rcpp::Vector<RTYPE> vec(x);
-  auto p_vec = vec.begin();
-  auto n = vec.size();
-
-  std::shared_ptr<Buffer> values_buffer;
-  STOP_IF_NOT_OK(AllocateBuffer(n * sizeof(int64_t), &values_buffer));
-  auto p_values = reinterpret_cast<int64_t*>(values_buffer->mutable_data());
-
-  std::vector<std::shared_ptr<Buffer>> buffers{nullptr, values_buffer};
-
-  int null_count = 0;
-  R_xlen_t i = 0;
-  for (; i < n; i++, ++p_vec, ++p_values) {
-    if (Rcpp::Vector<RTYPE>::is_na(*p_vec)) break;
-    *p_values = timestamp_cast(*p_vec);
-  }
-  if (i < n) {
-    std::shared_ptr<Buffer> null_buffer;
-    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_buffer));
-    internal::FirstTimeBitmapWriter bitmap_writer(null_buffer->mutable_data(), 0, n);
-
-    // catch up
-    for (R_xlen_t j = 0; j < i; j++, bitmap_writer.Next()) {
-      bitmap_writer.Set();
-    }
-
-    // finish
-    for (; i < n; i++, ++p_vec, ++p_values, bitmap_writer.Next()) {
-      if (Rcpp::Vector<RTYPE>::is_na(*p_vec)) {
-        bitmap_writer.Clear();
-        null_count++;
-      } else {
-        bitmap_writer.Set();
-        *p_values = timestamp_cast(*p_vec);
-      }
-    }
-
-    bitmap_writer.Finish();
-    buffers[0] = std::move(null_buffer);
-  }
-
-  auto data = ArrayData::Make(std::make_shared<TimestampType>(TimeUnit::MICRO, "GMT"), n,
-    std::move(buffers), null_count, 0);
-
-  return std::make_shared<TimestampArray>(data);
-}
-
-inline int difftime_unit_multiplier(SEXP x) {
-  std::string unit(CHAR(STRING_ELT(Rf_getAttrib(x, symbols::units), 0)));
-  if (unit == "secs") {
-    return 1;
-  } else if (unit == "mins") {
-    return 60;
-  } else if (unit == "hours") {
-    return 3600;
-  } else if (unit == "days") {
-    return 86400;
-  } else if (unit == "weeks") {
-    return 604800;
-  }
-  Rcpp::stop("unknown difftime unit");
-  return 0;
-}
-
-std::shared_ptr<arrow::Array> Time32Array_From_difftime(SEXP x) {
-  // number of seconds as a double
-  auto p_vec_start = REAL(x);
-  auto n = Rf_xlength(x);
-  int64_t null_count = 0;
-
-  int multiplier = difftime_unit_multiplier(x);
-  std::vector<std::shared_ptr<Buffer>> buffers(2);
-
-  STOP_IF_NOT_OK(AllocateBuffer(n * sizeof(int32_t), &buffers[1]));
-  auto p_values = reinterpret_cast<int32_t*>(buffers[1]->mutable_data());
-
-  R_xlen_t i = 0;
-  auto p_vec = p_vec_start;
-  for (; i < n; i++, ++p_vec, ++p_values) {
-    if (NumericVector::is_na(*p_vec)) {
-      break;
-    }
-    *p_values = static_cast<int32_t>(*p_vec * multiplier);
-  }
-
-  if (i < n) {
-    STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &buffers[0]));
-    internal::FirstTimeBitmapWriter bitmap_writer(buffers[0]->mutable_data(), 0, n);
-
-    // first loop to clear all the bits before the first NA
-    for (R_xlen_t j = 0; j < i; j++, bitmap_writer.Next()) {
-      bitmap_writer.Set();
-    }
-
-    // then finish
-    for (; i < n; i++, bitmap_writer.Next(), ++p_vec, ++p_values) {
-      if (NumericVector::is_na(*p_vec)) {
-        bitmap_writer.Clear();
-        null_count++;
-      } else {
-        bitmap_writer.Set();
-        *p_values = static_cast<int32_t>(*p_vec * multiplier);
-      }
-    }
-
-    bitmap_writer.Finish();
-  }
-
-  auto data = ArrayData::Make(
-    time32(TimeUnit::SECOND), n, std::move(buffers), null_count, 0 /*offset*/
-  );
-
-  // return the right Array class
-  return std::make_shared<Time32Array>(data);
 }
 
 }
@@ -883,7 +602,9 @@ public:
   Status Ingest(SEXP obj) override {
 
     if(valid_R_object(obj)) {
-      return Ingest_POSIXct(REAL(obj), XLENGTH(obj));
+      int difftime_multiplier;
+      RETURN_NOT_OK(GetDifftimeMultiplier(obj, &difftime_multiplier));
+      return Ingest_POSIXct(REAL(obj), XLENGTH(obj), difftime_multiplier);
     }
 
     return Status::Invalid("Cannot convert R object to timestamp type");
@@ -894,14 +615,14 @@ protected:
   BuilderType* typed_builder_;
   int64_t multiplier_;
 
-  Status Ingest_POSIXct(double* p, R_xlen_t n) {
+  Status Ingest_POSIXct(double* p, R_xlen_t n, int difftime_multiplier) {
     RETURN_NOT_OK(typed_builder_->Resize(n));
 
     for (R_xlen_t i=0; i<n; i++, ++p) {
       if(ISNA(*p)) {
         typed_builder_->UnsafeAppendNull();
       } else {
-        typed_builder_->UnsafeAppend(static_cast<int64_t>(*p * multiplier_));
+        typed_builder_->UnsafeAppend(static_cast<int64_t>(*p * multiplier_ * difftime_multiplier));
       }
     }
     return Status::OK();
@@ -909,6 +630,24 @@ protected:
 
   virtual bool valid_R_object(SEXP obj)  = 0 ;
 
+  // only used for Time32 and Time64
+  virtual Status GetDifftimeMultiplier(SEXP obj, int* res) {
+    std::string unit(CHAR(STRING_ELT(Rf_getAttrib(obj, symbols::units), 0)));
+    if (unit == "secs") {
+      *res = 1;
+    } else if (unit == "mins") {
+      *res = 60;
+    } else if (unit == "hours") {
+      *res = 3600;
+    } else if (unit == "days") {
+      *res = 86400;
+    } else if (unit == "weeks") {
+      *res = 604800;
+    } else {
+      return Status::Invalid("unknown difftime unit");
+    }
+    return Status::OK();
+  }
 };
 
 class TimestampConverter : public TimeConverter<TimestampType> {
@@ -919,6 +658,12 @@ protected:
   virtual bool valid_R_object(SEXP obj) override {
     return TYPEOF(obj) == REALSXP && Rf_inherits(obj, "POSIXct");
   }
+
+  virtual Status GetDifftimeMultiplier(SEXP obj, int* res) override {
+    *res = 1;
+    return Status::OK();
+  }
+
 };
 
 class Time32Converter : public TimeConverter<Time32Type> {
@@ -939,6 +684,7 @@ protected:
   virtual bool valid_R_object(SEXP obj) override {
     return TYPEOF(obj) == REALSXP && Rf_inherits(obj, "difftime");
   }
+
 };
 
 
@@ -979,7 +725,9 @@ Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<Vecto
   SIMPLE_CONVERTER_CASE(DATE32, Date32Converter);
   SIMPLE_CONVERTER_CASE(DATE64, Date64Converter);
 
-  case Type::DECIMAL:
+  // TODO: probably after we merge ARROW-3628
+  // case Type::DECIMAL:
+
   case Type::DICTIONARY:
 
   TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
@@ -1102,7 +850,7 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
   std::shared_ptr<Buffer> null_bitmap;
 
   auto first_na = std::find_if(p_vec_start, p_vec_end, is_na<value_type>);
-  if (first_na < p_vec_start) {
+  if (first_na < p_vec_end) {
     STOP_IF_NOT_OK(AllocateBuffer(BitUtil::BytesForBits(n), &null_bitmap));
     internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
 
@@ -1187,6 +935,14 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
     return arrow::r::MakeStringArray(x);
   }
 
+  // factors only when type has been infered
+  if (type->id() == Type::DICTIONARY) {
+    // TODO: lift that restriction
+    STOP_IF_NOT(type_infered, "Can only convert to dictionaries if the type is infered");
+
+    return arrow::r::MakeFactorArray(x);
+  }
+
   // general conversion with converter and builder
   std::unique_ptr<arrow::r::VectorConverter> converter;
   STOP_IF_NOT_OK(arrow::r::GetConverter(type, &converter));
@@ -1203,46 +959,4 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
   STOP_IF_NOT_OK(converter->GetResult(&chunks));
 
   return chunks[0];
-}
-
-// [[Rcpp::export]]
-std::shared_ptr<arrow::Array> Array__from_vector_old(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
-  switch (TYPEOF(x)) {
-  case LGLSXP:
-    return arrow::r::MakeBooleanArray(x);
-  case INTSXP:
-    if (Rf_isFactor(x)) {
-      return arrow::r::MakeFactorArray(x);
-    }
-    if (Rf_inherits(x, "Date")) {
-      return arrow::r::SimpleArray<INTSXP, arrow::Date32Type>(x);
-    }
-    if (Rf_inherits(x, "POSIXct")) {
-      return arrow::r::TimeStampArray_From_POSIXct<INTSXP>(x);
-    }
-    return arrow::r::SimpleArray<INTSXP, arrow::Int32Type>(x);
-  case REALSXP:
-    if (Rf_inherits(x, "Date")) {
-      return arrow::r::SimpleArray<INTSXP, arrow::Date32Type>(x);
-    }
-    if (Rf_inherits(x, "POSIXct")) {
-      return arrow::r::TimeStampArray_From_POSIXct<REALSXP>(x);
-    }
-    if (Rf_inherits(x, "integer64")) {
-      return arrow::r::Int64Array(x);
-    }
-    if (Rf_inherits(x, "difftime")) {
-      return arrow::r::Time32Array_From_difftime(x);
-    }
-    return arrow::r::SimpleArray<REALSXP, arrow::DoubleType>(x);
-  case RAWSXP:
-    return arrow::r::SimpleArray<RAWSXP, arrow::Int8Type>(x);
-  case STRSXP:
-    return arrow::r::MakeStringArray(x);
-  default:
-    break;
-  }
-
-  stop("not handled");
-  return nullptr;
 }

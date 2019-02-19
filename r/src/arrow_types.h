@@ -32,8 +32,8 @@
 #include <arrow/type.h>
 #include <arrow/util/compression.h>
 
-#define STOP_IF_NOT(TEST, MSG)  \
-  do {                          \
+#define STOP_IF_NOT(TEST, MSG)    \
+  do {                            \
     if (!(TEST)) Rcpp::stop(MSG); \
   } while (0)
 

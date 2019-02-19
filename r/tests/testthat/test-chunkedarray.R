@@ -160,12 +160,6 @@ test_that("ChunkedArray supports difftime", {
   expect_equal(a$as_vector(), c(time, time))
 })
 
-test_that("chunked_array ignores the type argument (ARROW-3784)", {
-  a <- expect_warning(chunked_array(1:10, type = int16()))
-  b <- chunked_array(1:10)
-  expect_equal(a, b)
-})
-
 test_that("integer types casts for ChunkedArray (ARROW-3741)", {
   a <- chunked_array(1:10, 1:10)
   a_int8 <- a$cast(int8())
