@@ -93,8 +93,8 @@ Array__from_vector <- function(x, s_type) {
     .Call(`_arrow_Array__from_vector`, x, s_type)
 }
 
-ChunkedArray__from_list <- function(chunks, type) {
-    .Call(`_arrow_ChunkedArray__from_list`, chunks, type)
+ChunkedArray__from_list <- function(chunks, s_type) {
+    .Call(`_arrow_ChunkedArray__from_list`, chunks, s_type)
 }
 
 ArrayData__get_type <- function(x) {

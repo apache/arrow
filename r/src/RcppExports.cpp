@@ -274,14 +274,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // ChunkedArray__from_list
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks, SEXP type);
-RcppExport SEXP _arrow_ChunkedArray__from_list(SEXP chunksSEXP, SEXP typeSEXP) {
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks, SEXP s_type);
+RcppExport SEXP _arrow_ChunkedArray__from_list(SEXP chunksSEXP, SEXP s_typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< List >::type chunks(chunksSEXP);
-    Rcpp::traits::input_parameter< SEXP >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(ChunkedArray__from_list(chunks, type));
+    Rcpp::traits::input_parameter< SEXP >::type s_type(s_typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(ChunkedArray__from_list(chunks, s_type));
     return rcpp_result_gen;
 END_RCPP
 }
