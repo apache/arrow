@@ -95,12 +95,8 @@ std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
 }
 
 template <typename Type>
-std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor) {
+std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor, const std::shared_ptr<arrow::DataType>& type) {
   using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
-  auto dict_values = MakeStringArray(Rf_getAttrib(factor, R_LevelsSymbol));
-  auto dict_type =
-    dictionary(std::make_shared<Type>(), dict_values, Rf_inherits(factor, "ordered"));
-
   auto n = factor.size();
 
   std::shared_ptr<Buffer> indices_buffer;
@@ -148,19 +144,19 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor) {
   auto array_indices = MakeArray(array_indices_data);
 
   std::shared_ptr<Array> out;
-  STOP_IF_NOT_OK(DictionaryArray::FromArrays(dict_type, array_indices, &out));
+  STOP_IF_NOT_OK(DictionaryArray::FromArrays(type, array_indices, &out));
   return out;
 }
 
-std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor) {
+std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor, const std::shared_ptr<arrow::DataType>& type) {
   SEXP levels = factor.attr("levels");
   int n = Rf_length(levels);
   if (n < 128) {
-    return MakeFactorArrayImpl<arrow::Int8Type>(factor);
+    return MakeFactorArrayImpl<arrow::Int8Type>(factor, type);
   } else if (n < 32768) {
-    return MakeFactorArrayImpl<arrow::Int16Type>(factor);
+    return MakeFactorArrayImpl<arrow::Int16Type>(factor, type);
   } else {
-    return MakeFactorArrayImpl<arrow::Int32Type>(factor);
+    return MakeFactorArrayImpl<arrow::Int32Type>(factor, type);
   }
 }
 
@@ -904,6 +900,27 @@ std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
   Rcpp::stop("not implemented");
 }
 
+bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& type) {
+  if (!Rf_inherits(obj, "factor")) return false;
+
+  arrow::DictionaryType* dict_type = arrow::checked_cast<arrow::DictionaryType*>(type.get());
+  auto dictionary = dict_type->dictionary();
+  if(dictionary->type() != utf8()) return false;
+
+  // then compare levels
+  auto typed_dict = checked_cast<arrow::StringArray*>(dictionary.get());
+  SEXP levels = Rf_getAttrib(obj, R_LevelsSymbol);
+
+  R_xlen_t n = XLENGTH(levels);
+  if (n != typed_dict->length()) return false;
+
+  for( R_xlen_t i=0; i<n; i++) {
+    if(typed_dict->GetString(i) != CHAR(STRING_ELT(levels, i))) return false;
+  }
+
+  return true;
+}
+
 }  // namespace r
 }  // namespace arrow
 
@@ -939,10 +956,11 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
 
   // factors only when type has been infered
   if (type->id() == Type::DICTIONARY) {
-    // TODO: lift that restriction
-    STOP_IF_NOT(type_infered, "Can only convert to dictionaries if the type is infered");
+    if (type_infered || arrow::r::CheckCompatibleFactor(x, type)) {
+      return arrow::r::MakeFactorArray(x, type);
+    }
 
-    return arrow::r::MakeFactorArray(x);
+    stop("Object incompatible with dictionary type");
   }
 
   // general conversion with converter and builder
@@ -961,4 +979,13 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
   STOP_IF_NOT_OK(converter->GetResult(&chunks));
 
   return chunks[0];
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks, SEXP type) {
+  std::vector<std::shared_ptr<arrow::Array>> vec;
+  for (SEXP chunk : chunks) {
+    vec.push_back(Array__from_vector(chunk, type));
+  }
+  return std::make_shared<arrow::ChunkedArray>(std::move(vec));
 }
