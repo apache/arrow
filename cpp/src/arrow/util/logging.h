@@ -66,25 +66,20 @@ enum class ArrowLogLevel : int {
                                             ::arrow::util::ArrowLogLevel::ARROW_FATAL) \
                         << " Check failed: " #condition " "
 
-// If 'to_call' returns a bad status, CHECK immediately with a logged message
-// of 'msg' followed by the status.
-#define ARROW_CHECK_OK_PREPEND(to_call, msg)                \
-  do {                                                      \
-    ::arrow::Status _s = (to_call);                         \
-    ARROW_CHECK(_s.ok()) << (msg) << ": " << _s.ToString(); \
+/// Evaluate expr to a Status and check it.
+/// If the status is not ok, CHECK immediately, appending the status to the
+/// logged message.
+#define ARROW_CHECK_OK(expr)                                 \
+  do {                                                       \
+    ::arrow::Status _s = (expr);                             \
+    ARROW_CHECK(_s.ok()) << "Bad status: " << _s.ToString(); \
   } while (false)
-
-// If the status is bad, CHECK immediately, appending the status to the
-// logged message.
-#define ARROW_CHECK_OK(s) ARROW_CHECK_OK_PREPEND(s, "Bad status")
 
 #ifdef NDEBUG
 #define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_WARNING
 
 #define DCHECK(condition) \
   while (false) ARROW_CHECK(condition)
-#define DCHECK_OK(status) \
-  while (false) ARROW_CHECK_OK(status)
 #define DCHECK_EQ(val1, val2) \
   while (false) ARROW_CHECK((val1) == (val2))
 #define DCHECK_NE(val1, val2) \
@@ -102,7 +97,6 @@ enum class ArrowLogLevel : int {
 #define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_FATAL
 
 #define DCHECK(condition) ARROW_CHECK(condition)
-#define DCHECK_OK(status) ARROW_CHECK_OK(status)
 #define DCHECK_EQ(val1, val2) ARROW_CHECK((val1) == (val2))
 #define DCHECK_NE(val1, val2) ARROW_CHECK((val1) != (val2))
 #define DCHECK_LE(val1, val2) ARROW_CHECK((val1) <= (val2))
@@ -111,6 +105,17 @@ enum class ArrowLogLevel : int {
 #define DCHECK_GT(val1, val2) ARROW_CHECK((val1) > (val2))
 
 #endif  // NDEBUG
+
+/// DCHECK_OK(expr) is guaranteed to evaluate expr to a Status, even in release builds
+///
+/// In debug builds, the resulting status will also be checked.
+/// If the status is not ok, CHECK immediately, appending the status to the
+/// logged message.
+#define DCHECK_OK(expr)                                 \
+  do {                                                  \
+    ::arrow::Status _s = (expr);                        \
+    DCHECK(_s.ok()) << "Bad status: " << _s.ToString(); \
+  } while (false)
 
 // This code is adapted from
 // https://github.com/ray-project/ray/blob/master/src/ray/util/logging.h.
