@@ -108,7 +108,7 @@ class FlightServiceImpl : public FlightService::Service {
 
   template <typename UserType, typename Iterator, typename ProtoType>
   grpc::Status WriteStream(Iterator* iterator, ServerWriter<ProtoType>* writer) {
-    if (iterator == nullptr) {
+    if (!iterator) {
       return grpc::Status(grpc::StatusCode::INTERNAL, "No items to iterate");
     }
     // Write flight info to stream until listing is exhausted
@@ -156,7 +156,7 @@ class FlightServiceImpl : public FlightService::Service {
       GRPC_RETURN_NOT_OK(internal::FromProto(*request, &criteria));
     }
     GRPC_RETURN_NOT_OK(server_->ListFlights(&criteria, &listing));
-    if (listing == nullptr) {
+    if (!listing) {
       // Treat null listing as no flights available
       return grpc::Status::OK;
     }
@@ -173,6 +173,11 @@ class FlightServiceImpl : public FlightService::Service {
     std::unique_ptr<FlightInfo> info;
     GRPC_RETURN_NOT_OK(server_->GetFlightInfo(descr, &info));
 
+    if (!info) {
+      // Treat null listing as no flights available
+      return grpc::Status(grpc::StatusCode::NOT_FOUND, "Flight not found");
+    }
+
     GRPC_RETURN_NOT_OK(internal::ToProto(*info, response));
     return grpc::Status::OK;
   }
@@ -187,7 +192,7 @@ class FlightServiceImpl : public FlightService::Service {
     std::unique_ptr<FlightDataStream> data_stream;
     GRPC_RETURN_NOT_OK(server_->DoGet(ticket, &data_stream));
 
-    if (data_stream == nullptr) {
+    if (!data_stream) {
       return grpc::Status(grpc::StatusCode::NOT_FOUND, "No data in this flight");
     }
 
@@ -229,7 +234,7 @@ class FlightServiceImpl : public FlightService::Service {
       if (!message || message->type() != ipc::Message::Type::SCHEMA) {
         return internal::ToGrpcStatus(
             Status(StatusCode::Invalid, "DoPut must start with schema/descriptor"));
-      } else if (data.descriptor == nullptr) {
+      } else if (!data.descriptor) {
         return internal::ToGrpcStatus(
             Status(StatusCode::Invalid, "DoPut must start with non-null descriptor"));
       } else {
