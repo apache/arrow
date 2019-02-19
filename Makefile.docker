@@ -16,9 +16,9 @@
 # under the License.
 
 # build docker compose images:
-# $ make cpp
+# $ make -f Makefile.docker cpp
 # run the built image:
-# $ make run cpp
+# $ make -f Makefile.docker run cpp
 
 .PHONY: clean run cpp cpp-alpine go js java rust r
 
