@@ -262,7 +262,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
                 OUTPUTS
                 ARROW_TESTING_LIBRARIES
                 DEPENDENCIES
-                ${GTEST_LIBRARY}
+                arrow_test_dependencies
                 SHARED_LINK_LIBS
                 arrow_shared
                 ${GTEST_LIBRARY}

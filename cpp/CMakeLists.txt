@@ -760,11 +760,19 @@ if(ARROW_USE_GLOG)
 endif()
 
 add_custom_target(arrow_dependencies)
-add_dependencies(arrow_dependencies toolchain)
+add_custom_target(arrow_benchmark_dependencies)
+add_custom_target(arrow_test_dependencies)
 
-if(ARROW_STATIC_LINK_LIBS)
-  add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
-endif()
+# ARROW-4581: CMake can be finicky about invoking the ExternalProject builds
+# for some of the library dependencies, so we "nuke it from orbit" by making
+# the toolchain dependency explicit using these "dependencies" targets
+add_dependencies(arrow_dependencies toolchain)
+add_dependencies(arrow_test_dependencies toolchain-tests)
+
+# Some benchmarks use gtest
+add_dependencies(arrow_benchmark_dependencies
+  arrow_test_dependencies
+  toolchain-benchmarks)
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
@@ -775,6 +783,10 @@ set(ARROW_SHARED_PRIVATE_LINK_LIBS
 list(APPEND ARROW_STATIC_LINK_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY}
             ${BOOST_REGEX_LIBRARY})
 
+if(ARROW_STATIC_LINK_LIBS)
+  add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
+endif()
+
 list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS boost_system boost_filesystem boost_regex)
 
 if(NOT MSVC)
@@ -782,25 +794,26 @@ if(NOT MSVC)
   list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_STATIC_LINK_LIBS
-    arrow_testing_static
-    arrow_static
-    ${ARROW_LINK_LIBS}
+set(ARROW_TEST_LINK_TOOLCHAIN
     ${GTEST_LIBRARY}
     ${GMOCK_MAIN_LIBRARY}
     ${GMOCK_LIBRARY})
+
+add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})
+
+set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static
+    ${ARROW_LINK_LIBS}
+    ${ARROW_TEST_LINK_TOOLCHAIN_COMMON})
 
 set(ARROW_TEST_SHARED_LINK_LIBS
     arrow_testing_shared
     arrow_shared
     ${ARROW_LINK_LIBS}
+    ${ARROW_TEST_LINK_TOOLCHAIN}
     double-conversion_static
     ${BOOST_SYSTEM_LIBRARY}
     ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_REGEX_LIBRARY}
-    ${GTEST_LIBRARY}
-    ${GMOCK_MAIN_LIBRARY}
-    ${GMOCK_LIBRARY})
+    ${BOOST_REGEX_LIBRARY})
 
 if(NOT MSVC)
   set(ARROW_TEST_SHARED_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS} ${CMAKE_DL_LIBS})
