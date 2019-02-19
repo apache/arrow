@@ -302,8 +302,10 @@ struct Unbox<Type, enable_if_integer<Type>>  {
       break;
     }
 
-    // TODO: include more information about the R object and the target type
-    return Status::Invalid("Cannot convert R object to integer type");
+    return Status::Invalid(
+      tfm::format("Cannot convert R vector of type %s to integer Arrow array", type2name(obj))
+    );
+
   }
 
   template <typename T>
