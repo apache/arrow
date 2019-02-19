@@ -61,7 +61,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
 
   # install the produced wheels
   pip install -q tensorflow
-  pip install *.whl
+  pip install dist/*.whl
 
   # Test optional dependencies and the presence of tensorflow
   python check_imports.py
