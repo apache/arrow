@@ -79,8 +79,8 @@ file(
     "\
   file(READ \"${GANDIVA_PRECOMPILED_BC_PATH}\" HEXCONTENT HEX)
   string(REGEX REPLACE
-         \"(..)(..)(..)(..)(..)\"
-         \"'\\\\\\\\x\\\\1','\\\\\\\\x\\\\2','\\\\\\\\x\\\\3','\\\\\\\\x\\\\4','\\\\\\\\x\\\\5',\"
+         \"([0-9a-f][0-9a-f])\"
+         \"'\\\\\\\\x\\\\1',\"
          GANDIVA_PRECOMPILED_BITCODE_CHARS
          \"\${HEXCONTENT}\")
   configure_file(${GANDIVA_PRECOMPILED_CC_IN_PATH}
