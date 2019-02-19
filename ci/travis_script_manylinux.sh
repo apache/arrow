@@ -27,6 +27,8 @@ set -ex
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 
+pushd python/manylinux1
+
 cat << EOF > check_imports.py
 import sys
 import pyarrow
@@ -38,8 +40,6 @@ import tensorflow
 if sys.version_info.major > 2:
     import pyarrow.gandiva
 EOF
-
-pushd python/manylinux1
 
 for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
   IFS="," read PYTHON_VERSION UNICODE_WIDTH <<< $PYTHON_TUPLE

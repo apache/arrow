@@ -134,7 +134,7 @@ Status Engine::LoadPreCompiledIR() {
 
   /// Read from file into memory buffer.
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> buffer_or_error =
-      llvm::MemoryBuffer::getMemBuffer(bitcode);
+      llvm::MemoryBuffer::getMemBuffer(bitcode, "precompiled", false);
 
   ARROW_RETURN_IF(!buffer_or_error,
                   Status::CodeGenError("Could not load module from IR: ",
