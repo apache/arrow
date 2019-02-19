@@ -47,32 +47,22 @@ cdef class Action:
         return pyarrow_wrap_buffer(self.action.body)
 
 
-cdef class ActionType:
+class ActionType(collections.namedtuple('ActionType', ['type', 'description'])):
     """A type of action executable on a Flight service."""
-    cdef:
-        CActionType action_type
-
-    @property
-    def type(self):
-        return frombytes(self.action_type.type)
-
-    @property
-    def description(self):
-        return frombytes(self.action_type.description)
 
     def make_action(self, buf):
         """Create an Action with this type."""
         return Action(self.type, buf)
-
-    def __repr__(self):
-        return '<ActionType type={} description={}>'.format(
-            self.type, self.description)
 
 
 cdef class Result:
     """A result from executing an Action."""
     cdef:
         unique_ptr[CResult] result
+
+    def __init__(self, buf):
+        self.result.reset(new CResult())
+        self.result.get().body = pyarrow_unwrap_buffer(as_buffer(buf))
 
     @property
     def body(self):
@@ -329,8 +319,8 @@ cdef class FlightClient:
 
         result = []
         for action_type in results:
-            py_action = ActionType()
-            py_action.action_type = action_type
+            py_action = ActionType(frombytes(action_type.type),
+                                   frombytes(action_type.description))
             result.append(py_action)
 
         return result
@@ -339,11 +329,12 @@ cdef class FlightClient:
         """Execute an action on a service."""
         cdef:
             unique_ptr[CResultStream] results
+            Result result
         with nogil:
             check_status(self.client.get().DoAction(action.action, &results))
 
         while True:
-            result = Result()
+            result = Result.__new__(Result)
             with nogil:
                 check_status(results.get().Next(&result.result))
                 if result.result == NULL:
@@ -433,8 +424,8 @@ cdef class RecordBatchStream(FlightDataStream):
             raise TypeError("Expected RecordBatchReader or Table, but got: {}".format(type(data_source)))
 
 
-cdef void _list_flights(void* self, const CCriteria* c_criteria,
-                        unique_ptr[CFlightListing]* listing):
+cdef int _list_flights(void* self, const CCriteria* c_criteria,
+                        unique_ptr[CFlightListing]* listing) except -1:
     """Callback for implementing ListFlights in Python."""
     cdef:
         vector[CFlightInfo] flights
@@ -445,10 +436,11 @@ cdef void _list_flights(void* self, const CCriteria* c_criteria,
                             "FlightInfo instances, but got {}".format(type(info)))
         flights.push_back(CFlightInfo(deref((<FlightInfo> info).info.get())))
     listing.reset(new CSimpleFlightListing(flights))
+    return 0
 
 
-cdef void _get_flight_info(void* self, CFlightDescriptor c_descriptor,
-                           unique_ptr[CFlightInfo]* info):
+cdef int _get_flight_info(void* self, CFlightDescriptor c_descriptor,
+                           unique_ptr[CFlightInfo]* info) except -1:
     """Callback for implementing Flight servers in Python."""
     cdef:
         FlightDescriptor py_descriptor = \
@@ -459,9 +451,10 @@ cdef void _get_flight_info(void* self, CFlightDescriptor c_descriptor,
         raise TypeError("FlightServerBase.get_flight_info must return "
                         "a FlightInfo instance")
     info[0] = move((<FlightInfo> result).info)
+    return 0
 
 
-cdef void _do_put(void* self, unique_ptr[CFlightMessageReader] reader):
+cdef int _do_put(void* self, unique_ptr[CFlightMessageReader] reader) except -1:
     """Callback for implementing Flight servers in Python."""
     cdef:
         FlightRecordBatchReader py_reader = FlightRecordBatchReader()
@@ -471,10 +464,11 @@ cdef void _do_put(void* self, unique_ptr[CFlightMessageReader] reader):
     descriptor.descriptor = reader.get().descriptor()
     py_reader.reader.reset(reader.release())
     (<object> self).do_put(descriptor, py_reader)
+    return 0
 
 
-cdef void _do_get(void* self, CTicket ticket,
-                  unique_ptr[CFlightDataStream]* stream):
+cdef int _do_get(void* self, CTicket ticket,
+                  unique_ptr[CFlightDataStream]* stream) except -1:
     """Callback for implementing Flight servers in Python."""
     py_ticket = Ticket(ticket.ticket)
     result = (<object> self).do_get(py_ticket)
@@ -482,7 +476,45 @@ cdef void _do_get(void* self, CTicket ticket,
         raise TypeError("FlightServerBase.do_get must return "
                         "a FlightDataStream")
     stream[0] = move((<FlightDataStream> result).stream)
+    return 0
 
+
+cdef int _do_action_result_next(void* self,
+                                 unique_ptr[CResult]* result) except -1:
+    """Callback for implementing Flight servers in Python."""
+    try:
+        action_result = next(<object> self)
+        if not isinstance(action_result, Result):
+            raise TypeError("Result of FlightServerBase.do_action must "
+                            "return a Result during iteration")
+        result[0] = move((<Result> action_result).result)
+    except StopIteration:
+        result.reset(nullptr)
+    return 0
+
+
+cdef int _do_action(void* self, const CAction& action,
+                    unique_ptr[CResultStream]* result) except -1:
+    """Callback for implementing Flight servers in Python."""
+    cdef:
+        function[cb_result_next] ptr = &_do_action_result_next
+    py_action = Action(action.type, pyarrow_wrap_buffer(action.body))
+    responses = (<object> self).do_action(py_action)
+    result[0].reset(new CPyFlightResultStream(responses, ptr))
+    return 0
+
+
+cdef int _list_actions(void* self, vector[CActionType]* actions) except -1:
+    """Callback for implementing Flight servers in Python."""
+    cdef:
+        CActionType action_type
+    # Method should return a list of ActionTypes or similar tuple
+    result = (<object> self).list_actions()
+    for action in result:
+        action_type.type = tobytes(action[0])
+        action_type.description = tobytes(action[1])
+        actions.push_back(action_type)
+    return 0
 
 cdef class FlightServerBase:
     """A Flight service definition."""
@@ -498,6 +530,8 @@ cdef class FlightServerBase:
         vtable.get_flight_info = &_get_flight_info
         vtable.do_put = &_do_put
         vtable.do_get = &_do_get
+        vtable.list_actions = &_list_actions
+        vtable.do_action = &_do_action
         self.server.reset(new PyFlightServer(self, vtable))
         with nogil:
             self.server.get().Run(c_port)
@@ -512,6 +546,12 @@ cdef class FlightServerBase:
         raise NotImplementedError
 
     def do_get(self, ticket):
+        raise NotImplementedError
+
+    def list_actions(self):
+        raise NotImplementedError
+
+    def do_action(self, action):
         raise NotImplementedError
 
     def shutdown(self):

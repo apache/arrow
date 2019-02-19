@@ -264,6 +264,10 @@ class FlightServiceImpl : public FlightService::Service {
     std::unique_ptr<ResultStream> results;
     GRPC_RETURN_NOT_OK(server_->DoAction(action, &results));
 
+    if (!results) {
+      return grpc::Status::CANCELLED;
+    }
+
     std::unique_ptr<Result> result;
     pb::Result pb_result;
     while (true) {

@@ -120,13 +120,17 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
 # Callbacks for implementing Flight servers
 # Use typedef to emulate syntax for std::function<void(...)>
-ctypedef void cb_list_flights(object, const CCriteria*,
-                              unique_ptr[CFlightListing]*)
-ctypedef void cb_get_flight_info(object, const CFlightDescriptor&,
-                                 unique_ptr[CFlightInfo]*)
-ctypedef void cb_do_put(object, unique_ptr[CFlightMessageReader])
-ctypedef void cb_do_get(object, const CTicket&,
-                        unique_ptr[CFlightDataStream]*)
+ctypedef int cb_list_flights(object, const CCriteria*,
+                             unique_ptr[CFlightListing]*)
+ctypedef int cb_get_flight_info(object, const CFlightDescriptor&,
+                                unique_ptr[CFlightInfo]*)
+ctypedef int cb_do_put(object, unique_ptr[CFlightMessageReader])
+ctypedef int cb_do_get(object, const CTicket&,
+                       unique_ptr[CFlightDataStream]*)
+ctypedef int cb_do_action(object, const CAction&,
+                          unique_ptr[CResultStream]*)
+ctypedef int cb_list_actions(object, vector[CActionType]*)
+ctypedef int cb_result_next(object, unique_ptr[CResult]*)
 
 cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef cppclass PyFlightServerVtable:
@@ -135,11 +139,16 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         function[cb_get_flight_info] get_flight_info
         function[cb_do_put] do_put
         function[cb_do_get] do_get
+        function[cb_do_action] do_action
+        function[cb_list_actions] list_actions
 
     cdef cppclass PyFlightServer:
         PyFlightServer(object server, PyFlightServerVtable vtable)
         void Run(int port)
         void Shutdown()
+
+    cdef cppclass CPyFlightResultStream" arrow::py::flight::PyFlightResultStream"(CResultStream):
+        CPyFlightResultStream(object generator, function[cb_result_next] callback)
 
     cdef CStatus CreateFlightInfo" arrow::py::flight::CreateFlightInfo"(
         shared_ptr[CSchema] schema,
@@ -154,3 +163,4 @@ cdef extern from "<utility>" namespace "std":
     # bindings
     unique_ptr[CFlightDataStream] move(unique_ptr[CFlightDataStream])
     unique_ptr[CFlightInfo] move(unique_ptr[CFlightInfo])
+    unique_ptr[CResult] move(unique_ptr[CResult])

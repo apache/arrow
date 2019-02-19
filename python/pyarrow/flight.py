@@ -19,4 +19,4 @@ from pyarrow._flight import (FlightClient, Action, ActionType,  # noqa
                              FlightDescriptor, FlightEndpoint,
                              FlightInfo, Ticket, Location,
                              FlightServerBase, DescriptorType,
-                             RecordBatchStream)
+                             RecordBatchStream, Result)

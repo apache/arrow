@@ -72,6 +72,18 @@ class FlightServer(pyarrow.flight.FlightServerBase):
             return None
         return pyarrow.flight.RecordBatchStream(self.flights[key])
 
+    def list_actions(self):
+        return [
+            ("clear", "Clear the stored flights."),
+            ("shutdown", "Shut down this server."),
+        ]
+
+    def do_action(self, action):
+        if action.type == "clear":
+            raise NotImplementedError("{} is not implemented.".format(action.type))
+        else:
+            yield pyarrow.flight.Result(pyarrow.py_buffer(b'Shutdown!'))
+
 
 def main():
     server = FlightServer()

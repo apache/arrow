@@ -71,6 +71,19 @@ Status PyFlightServer::ListActions(std::vector<arrow::flight::ActionType>* actio
   return CheckPyError();
 }
 
+PyFlightResultStream::PyFlightResultStream(PyObject* generator,
+                                           PyFlightResultStreamCallback callback)
+    : callback_(callback) {
+  Py_INCREF(generator);
+  generator_.reset(generator);
+}
+
+Status PyFlightResultStream::Next(std::unique_ptr<arrow::flight::Result>* result) {
+  PyAcquireGIL lock;
+  callback_(generator_.obj(), result);
+  return CheckPyError();
+}
+
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         const arrow::flight::FlightDescriptor& descriptor,
                         const std::vector<arrow::flight::FlightEndpoint>& endpoints,
