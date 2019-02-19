@@ -14,23 +14,22 @@ Encoding: UTF-8
 LazyData: true
 SystemRequirements: C++11
 LinkingTo:
-    Rcpp (>= 0.12.18.2)
+    Rcpp (>= 1.0.0)
 Imports:
-    Rcpp (>= 0.12.18.2),
+    Rcpp (>= 1.0.0),
     rlang,
     purrr,
     assertthat,
     glue,
     R6,
-    vctrs (>= 0.0.0.9000),
+    vctrs (>= 0.1.0.9000),
     fs,
     tibble,
     crayon,
     withr,
     bit64
 Remotes:
-    romainfrancois/vctrs@bit64, 
-    RcppCore/Rcpp, 
+    r-lib/vctrs, 
     r-lib/withr
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
