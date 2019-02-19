@@ -353,3 +353,49 @@ test_that("cast to half float works", {
   a_f16 <- a$cast(float16())
   expect_equal(a_16$type, float16())
 })
+
+test_that("array() supports the type= argument. conversion from INTSXP and int64 to all int types", {
+  num_int32 <- 12L
+  num_int64 <- bit64::as.integer64(10)
+
+  types <- list(
+    int8(), int16(), int32(), int64(),
+    uint8(), uint16(), uint32(), uint64(),
+    float32(), float64()
+  )
+  for(type in types) {
+    expect_equal(array(num_int32, type = type)$type, type)
+    expect_equal(array(num_int64, type = type)$type, type)
+  }
+})
+
+test_that("array() aborts on overflow", {
+  expect_error(array(128L, type = int8())$type, "Invalid.*downsize")
+  expect_error(array(-129L, type = int8())$type, "Invalid.*downsize")
+
+  expect_error(array(256L, type = uint8())$type, "Invalid.*downsize")
+  expect_error(array(-1L, type = uint8())$type, "Invalid.*downsize")
+
+  expect_error(array(32768L, type = int16())$type, "Invalid.*downsize")
+  expect_error(array(-32769L, type = int16())$type, "Invalid.*downsize")
+
+  expect_error(array(65536L, type = uint16())$type, "Invalid.*downsize")
+  expect_error(array(-1L, type = uint16())$type, "Invalid.*downsize")
+
+  expect_error(array(65536L, type = uint16())$type, "Invalid.*downsize")
+  expect_error(array(-1L, type = uint16())$type, "Invalid.*downsize")
+
+  expect_error(array(bit64::as.integer64(2^31), type = int32()), "Invalid.*downsize")
+  expect_error(array(bit64::as.integer64(2^32), type = uint32()), "Invalid.*downsize")
+})
+
+test_that("array() does not convert doubles to integer", {
+  types <- list(
+    int8(), int16(), int32(), int64(),
+    uint8(), uint16(), uint32(), uint64()
+  )
+  for(type in types) {
+    expect_error(array(10, type = type)$type, "Cannot convert.*REALSXP")
+  }
+})
+
