@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import pyarrow.pandas_compat as pdcompat
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
@@ -165,7 +166,6 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
                 from_pandas=True, safe=safe,
                 memory_pool=memory_pool)
         else:
-            import pyarrow.pandas_compat as pdcompat
             values, type = pdcompat.get_datetimetz_type(values, obj.dtype,
                                                         type)
             return _ndarray_to_array(values, mask, type, from_pandas, safe,

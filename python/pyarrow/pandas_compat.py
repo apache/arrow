@@ -28,7 +28,7 @@ import pandas as pd
 import six
 
 import pyarrow as pa
-from pyarrow.compat import builtin_pickle, PY2, zip_longest  # noqa
+from pyarrow.compat import builtin_pickle, DatetimeTZDtype, PY2, zip_longest  # noqa
 
 
 def infer_dtype(column):
@@ -447,8 +447,6 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
 
 
 def get_datetimetz_type(values, dtype, type_):
-    from pyarrow.compat import DatetimeTZDtype
-
     if values.dtype.type != np.datetime64:
         return values, type_
 
@@ -543,7 +541,6 @@ def _reconstruct_block(item):
 
 
 def _make_datetimetz(tz):
-    from pyarrow.compat import DatetimeTZDtype
     tz = pa.lib.string_to_tzinfo(tz)
     return DatetimeTZDtype('ns', tz=tz)
 
@@ -554,7 +551,6 @@ def _make_datetimetz(tz):
 
 def table_to_blockmanager(options, table, categories=None,
                           ignore_metadata=False):
-    from pyarrow.compat import DatetimeTZDtype
 
     index_columns = []
     columns = []
