@@ -98,7 +98,6 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
       set_target_properties(${AUG_LIB_NAME}
         PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${ARG_INCLUDE_DIRECTORIES}")
     endif()
-    message("Added shared library dependency ${AUG_LIB_NAME}: ${ARG_SHARED_LIB}")
   else()
     message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
   endif()
