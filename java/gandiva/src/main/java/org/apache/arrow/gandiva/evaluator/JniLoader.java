@@ -119,6 +119,7 @@ class JniLoader {
     if (defaultConfiguration == 0L) {
       synchronized (ConfigurationBuilder.class) {
         if (defaultConfiguration == 0L) {
+          JniLoader.getInstance();  // setup
           defaultConfiguration = new ConfigurationBuilder()
             .buildConfigInstance();
         }
