@@ -60,7 +60,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
   conda activate $CONDA_ENV_DIR
 
   # install the produced wheels
-  pip install -q tensorflow
+  pip install tensorflow
   pip install dist/*.whl
 
   # Test optional dependencies and the presence of tensorflow
