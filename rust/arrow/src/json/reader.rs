@@ -485,7 +485,7 @@ impl<R: Read> Reader<R> {
         };
 
         let projected_schema = Arc::new(Schema::new(projected_fields));
-        
+
         match arrays {
             Ok(arr) => Ok(Some(RecordBatch::new(projected_schema, arr))),
             Err(e) => Err(e),
