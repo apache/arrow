@@ -1,0 +1,85 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# build docker compose images:
+# $ make -f Makefile.docker cpp
+# run the built image:
+# $ make -f Makefile.docker run cpp
+
+.PHONY: clean run cpp cpp-alpine go js java rust r
+
+DC := docker-compose
+
+clean:
+	$(DC) down -v
+
+run:
+	$(DC) run --rm $(filter-out $@,$(MAKECMDGOALS))
+
+go:
+	$(DC) build go
+
+js:
+	$(DC) build js
+
+java:
+	$(DC) build java
+
+rust:
+	$(DC) build rust
+
+cpp:
+	$(DC) build cpp
+
+cpp-alpine:
+	$(DC) build cpp-alpine
+
+cpp-cmake32:
+	$(DC) build cpp-cmake32
+
+c_glib: cpp
+	$(DC) build c_glib
+
+r: cpp
+	$(DC) build r
+
+python: cpp
+	$(DC) build python
+
+python-alpine: cpp-alpine
+	$(DC) build python-alpine
+
+lint: python
+	$(DC) build lint
+
+iwyu: lint
+
+clang-format: lint
+
+docs: python
+
+dask: python
+	$(DC) build dask
+
+hdfs: python
+	$(DC) build hdfs-integration
+
+spark: python
+	$(DC) build spark-integration
+
+pandas-master: python
+	$(DC) build --no-cache pandas-master
