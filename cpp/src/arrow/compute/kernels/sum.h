@@ -15,49 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COMPUTE_KERNELS_SUM_H
-#define ARROW_COMPUTE_KERNELS_SUM_H
+#pragma once
 
 #include <memory>
-#include <type_traits>
 
-#include "arrow/status.h"
-#include "arrow/type.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Array;
 class DataType;
+class Status;
 
 namespace compute {
-
-// Find the largest compatible primitive type for a primitive type.
-template <typename I, typename Enable = void>
-struct FindAccumulatorType {
-  using Type = DoubleType;
-};
-
-template <typename I>
-struct FindAccumulatorType<I, typename std::enable_if<IsSignedInt<I>::value>::type> {
-  using Type = Int64Type;
-};
-
-template <typename I>
-struct FindAccumulatorType<I, typename std::enable_if<IsUnsignedInt<I>::value>::type> {
-  using Type = UInt64Type;
-};
-
-template <typename I>
-struct FindAccumulatorType<I, typename std::enable_if<IsFloatingPoint<I>::value>::type> {
-  using Type = DoubleType;
-};
 
 struct Datum;
 class FunctionContext;
 class AggregateFunction;
 
+/// \brief Return a Sum Kernel
+///
+/// \param[in] type required to specialize the kernel
+/// \param[in] context the FunctionContext
+///
+/// \since 0.13.0
+/// \note API not yet finalized
 ARROW_EXPORT
 std::shared_ptr<AggregateFunction> MakeSumAggregateFunction(const DataType& type,
                                                             FunctionContext* context);
@@ -86,5 +68,3 @@ Status Sum(FunctionContext* context, const Array& array, Datum* out);
 
 }  // namespace compute
 }  // namespace arrow
-
-#endif  // ARROW_COMPUTE_KERNELS_CAST_H

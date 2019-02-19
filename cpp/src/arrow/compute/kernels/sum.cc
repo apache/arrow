@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/compute/kernels/sum.h"
+#include "arrow/compute/kernels/sum-internal.h"
 
 #include "arrow/array.h"
 #include "arrow/compute/kernel.h"
