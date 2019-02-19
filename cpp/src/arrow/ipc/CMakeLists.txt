@@ -28,7 +28,7 @@ add_arrow_test(json-simple-test PREFIX "arrow-ipc")
 add_arrow_test(json-test PREFIX "arrow-ipc")
 
 if(NOT ARROW_BOOST_HEADER_ONLY)
-  add_arrow_test(json-integration-test EXTRA_LINK_LIBS gflags_static)
+  add_arrow_test(json-integration-test EXTRA_LINK_LIBS ${GFLAGS_LIBRARY})
 
   # Test is being built
   if(TARGET arrow-json-integration-test)

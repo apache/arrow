@@ -198,6 +198,8 @@ Note that this requires linking Boost statically" OFF)
   option(ARROW_PROTOBUF_USE_SHARED
          "Rely on Protocol Buffers shared libraries where relevant" OFF)
 
+  option(ARROW_GFLAGS_USE_SHARED "Rely on GFlags shared libraries where relevant" ON)
+
   option(ARROW_WITH_BACKTRACE "Build with backtrace support" ON)
 
   option(ARROW_USE_GLOG "Build libraries with glog support for pluggable logging" ON)

@@ -605,7 +605,19 @@ endif()
 
 if(ARROW_NEED_GFLAGS)
   # gflags (formerly Googleflags) command line parsing
-  if("${GFLAGS_HOME}" STREQUAL "")
+  find_package(GFlags)
+  if(GFLAGS_FOUND)
+    set(GFLAGS_VENDORED FALSE)
+    get_filename_component(GFLAGS_HOME "${GFLAGS_INCLUDE_DIR}" DIRECTORY)
+    if(ARROW_GFLAGS_USE_SHARED AND GFLAGS_SHARED)
+      set(GFLAGS_LIBRARY gflags_shared)
+    else()
+      set(GFLAGS_LIBRARY gflags_static)
+    endif()
+  elseif(GFLAGS_HOME)
+    message(FATAL_ERROR "No static or shared library provided for gflags: ${GFLAGS_HOME}")
+  else()
+    set(GFLAGS_VENDORED TRUE)
     set(GFLAGS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
 
     set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
@@ -634,24 +646,20 @@ if(ARROW_NEED_GFLAGS)
       CMAKE_ARGS ${GFLAGS_CMAKE_ARGS})
 
     add_dependencies(toolchain gflags_ep)
-  else()
-    set(GFLAGS_VENDORED 0)
-    find_package(GFlags REQUIRED)
-  endif()
 
-  message(STATUS "GFlags include dir: ${GFLAGS_INCLUDE_DIR}")
-  message(STATUS "GFlags static library: ${GFLAGS_STATIC_LIB}")
-  include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(gflags
-    STATIC_LIB ${GFLAGS_STATIC_LIB})
-  if(MSVC)
-    set_target_properties(gflags_static
-      PROPERTIES
-      INTERFACE_LINK_LIBRARIES "shlwapi.lib")
-  endif()
-
-  if(GFLAGS_VENDORED)
-    add_dependencies(gflags_static gflags_ep)
+    message(STATUS "GFlags include dir: ${GFLAGS_INCLUDE_DIR}")
+    message(STATUS "GFlags static library: ${GFLAGS_STATIC_LIB}")
+      include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
+    ADD_THIRDPARTY_LIB(gflags
+      STATIC_LIB ${GFLAGS_STATIC_LIB})
+    set(GFLAGS_LIBRARY gflags_static)
+    target_compile_definitions(${GFLAGS_LIBRARY} INTERFACE "GFLAGS_IS_A_DLL=0")
+    if(MSVC)
+      set_target_properties(${GFLAGS_LIBRARY}
+	PROPERTIES
+	INTERFACE_LINK_LIBRARIES "shlwapi.lib")
+    endif()
+    add_dependencies(${GFLAGS_LIBRARY} gflags_ep)
   endif()
 endif()
 
@@ -1757,6 +1765,6 @@ if (ARROW_USE_GLOG)
   else()
     ADD_THIRDPARTY_LIB(glog
       STATIC_LIB ${GLOG_STATIC_LIB}
-      DEPS gflags_static)
+      DEPS ${GFLAGS_LIBRARY})
   endif()
 endif()

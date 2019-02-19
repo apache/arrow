@@ -25,6 +25,7 @@ import sys
 
 patterns = [
     'cpp/CMakeLists.txt',
+    'cpp/cmake_modules/FindGFlags.cmake',
     'cpp/src/**/CMakeLists.txt',
     'cpp/tools/**/CMakeLists.txt',
     'java/gandiva/CMakeLists.txt',
