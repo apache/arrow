@@ -40,10 +40,14 @@ class ARROW_EXPORT Chunker {
   virtual ~Chunker() = default;
 
   /// \brief Carve up a chunk in a block of data to contain only whole objects
-  /// \param block must end with '\0'
+  /// \param[in] block json data to be chunked, must end with '\0'
+  /// \param[out] chunked subrange of block containing whole json objects
   virtual Status Process(util::string_view block, util::string_view* chunked) = 0;
 
   /// \brief Carve the completion of a partial object out of a block
+  /// \param[in] partial incomplete json object
+  /// \param[in] block json data
+  /// \param[out] completion subrange of block contining the completion of partial
   virtual Status Process(util::string_view partial, util::string_view block,
                          util::string_view* completion) = 0;
 
