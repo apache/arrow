@@ -594,6 +594,11 @@ class HandlerBase : public BlockParser::Impl,
     }
   }
 
+  /// \defgroup handlerbase-append-methods append non-nested values
+  ///
+  /// These methods act on builder_
+  /// @{
+
   Status AppendNull() {
     if (ARROW_PREDICT_FALSE(!builder_.nullable)) {
       return ParseError("a required field was null");
@@ -658,6 +663,8 @@ class HandlerBase : public BlockParser::Impl,
     return scalar_values_builder_.Append(scalar);
   }
 
+  /// @}
+
   Status StartObjectImpl() {
     constexpr auto kind = Kind::kObject;
     if (ARROW_PREDICT_FALSE(builder_.kind != kind)) {
@@ -669,6 +676,10 @@ class HandlerBase : public BlockParser::Impl,
     return struct_builder->Append();
   }
 
+  /// \brief helper for Key() functions
+  ///
+  /// sets the field builder with name key, or returns false if
+  /// there is no field with that name
   bool SetFieldBuilder(string_view key) {
     auto parent = Cast<Kind::kObject>(builder_stack_.back());
     field_index_ = parent->GetFieldIndex(std::string(key));
@@ -781,6 +792,9 @@ class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
     return DoParse(*this, json);
   }
 
+  /// \ingroup rapidjson-handler-interface
+  ///
+  /// if an unexpected field is encountered, emit a parse error and bail
   bool Key(const char* key, rapidjson::SizeType len, ...) {
     if (ARROW_PREDICT_TRUE(SetFieldBuilder(string_view(key, len)))) {
       return true;
@@ -836,6 +850,9 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
     return HandlerBase::StartObject();
   }
 
+  /// \ingroup rapidjson-handler-interface
+  ///
+  /// if an unexpected field is encountered, skip until its value has been consumed
   bool Key(const char* key, rapidjson::SizeType len, ...) {
     MaybeStopSkipping();
     if (Skipping()) {
@@ -922,6 +939,12 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
     return HandlerBase::StartObject();
   }
 
+  /// \ingroup rapidjson-handler-interface
+  ///
+  /// If an unexpected field is encountered, add a new builder to
+  /// the current parent builder. It is added as a NullBuilder with
+  /// (parent.length - 1) leading nulls. The next value parsed
+  /// will probably trigger promotion of this field from null
   bool Key(const char* key, rapidjson::SizeType len, ...) {
     if (ARROW_PREDICT_TRUE(SetFieldBuilder(string_view(key, len)))) {
       return true;
