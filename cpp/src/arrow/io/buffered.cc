@@ -188,7 +188,7 @@ Status BufferedOutputStream::Create(int64_t buffer_size, MemoryPool* pool,
   return Status::OK();
 }
 
-BufferedOutputStream::~BufferedOutputStream() { DABORT_NOT_OK(impl_->Close()); }
+BufferedOutputStream::~BufferedOutputStream() { DCHECK_OK(impl_->Close()); }
 
 Status BufferedOutputStream::SetBufferSize(int64_t new_buffer_size) {
   return impl_->SetBufferSize(new_buffer_size);
@@ -224,7 +224,7 @@ class BufferedInputStream::Impl : public BufferedBase {
   Impl(std::shared_ptr<InputStream> raw, MemoryPool* pool)
       : BufferedBase(pool), raw_(std::move(raw)), bytes_buffered_(0) {}
 
-  ~Impl() { DABORT_NOT_OK(Close()); }
+  ~Impl() { DCHECK_OK(Close()); }
 
   Status Close() {
     std::lock_guard<std::mutex> guard(lock_);
@@ -355,7 +355,7 @@ BufferedInputStream::BufferedInputStream(std::shared_ptr<InputStream> raw,
   impl_.reset(new Impl(std::move(raw), pool));
 }
 
-BufferedInputStream::~BufferedInputStream() { DABORT_NOT_OK(impl_->Close()); }
+BufferedInputStream::~BufferedInputStream() { DCHECK_OK(impl_->Close()); }
 
 Status BufferedInputStream::Create(int64_t buffer_size, MemoryPool* pool,
                                    std::shared_ptr<InputStream> raw,

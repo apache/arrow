@@ -115,7 +115,7 @@ PlasmaStore::PlasmaStore(EventLoop* loop, std::string directory, bool hugepages_
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
 #ifdef PLASMA_CUDA
-  DABORT_NOT_OK(CudaDeviceManager::GetInstance(&manager_));
+  DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
 #endif
 }
 

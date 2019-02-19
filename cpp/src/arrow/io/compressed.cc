@@ -46,7 +46,7 @@ class CompressedOutputStream::Impl {
   Impl(MemoryPool* pool, Codec* codec, const std::shared_ptr<OutputStream>& raw)
       : pool_(pool), raw_(raw), codec_(codec), is_open_(true), compressed_pos_(0) {}
 
-  ~Impl() { DABORT_NOT_OK(Close()); }
+  ~Impl() { DCHECK(Close().ok()); }
 
   Status Init() {
     RETURN_NOT_OK(codec_->MakeCompressor(&compressor_));
@@ -236,7 +236,7 @@ class CompressedInputStream::Impl {
     return Status::OK();
   }
 
-  ~Impl() { DABORT_NOT_OK(Close()); }
+  ~Impl() { DCHECK(Close().ok()); }
 
   Status Close() {
     std::lock_guard<std::mutex> guard(lock_);

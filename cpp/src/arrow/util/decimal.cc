@@ -54,7 +54,7 @@ std::string Decimal128::ToIntegerString() const {
 
   // get anything above 10 ** 36 and print it
   Decimal128 top;
-  DABORT_NOT_OK(Divide(kTenTo36, &top, &remainder));
+  DCHECK_OK(Divide(kTenTo36, &top, &remainder));
 
   if (top != 0) {
     buf << static_cast<int64_t>(top);

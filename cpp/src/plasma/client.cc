@@ -263,7 +263,7 @@ PlasmaBuffer::~PlasmaBuffer() { ARROW_UNUSED(client_->Release(object_id_)); }
 
 PlasmaClient::Impl::Impl() : store_conn_(0), store_capacity_(0) {
 #ifdef PLASMA_CUDA
-  DABORT_NOT_OK(CudaDeviceManager::GetInstance(&manager_));
+  DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
 #endif
 }
 

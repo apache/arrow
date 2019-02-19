@@ -97,7 +97,6 @@ enum class ArrowLogLevel : int {
   while (false) ARROW_CHECK((val1) >= (val2))
 #define DCHECK_GT(val1, val2) \
   while (false) ARROW_CHECK((val1) > (val2))
-#define DABORT_NOT_OK(expr) ARROW_IGNORE_EXPR(expr)
 
 #else
 #define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_FATAL
@@ -110,7 +109,6 @@ enum class ArrowLogLevel : int {
 #define DCHECK_LT(val1, val2) ARROW_CHECK((val1) < (val2))
 #define DCHECK_GE(val1, val2) ARROW_CHECK((val1) >= (val2))
 #define DCHECK_GT(val1, val2) ARROW_CHECK((val1) > (val2))
-#define DABORT_NOT_OK(expr) DCHECK_OK(expr)
 
 #endif  // NDEBUG
 

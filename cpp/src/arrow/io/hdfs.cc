@@ -225,7 +225,7 @@ HdfsReadableFile::HdfsReadableFile(MemoryPool* pool) {
   impl_.reset(new HdfsReadableFileImpl(pool));
 }
 
-HdfsReadableFile::~HdfsReadableFile() { DABORT_NOT_OK(impl_->Close()); }
+HdfsReadableFile::~HdfsReadableFile() { DCHECK_OK(impl_->Close()); }
 
 Status HdfsReadableFile::Close() { return impl_->Close(); }
 
@@ -293,7 +293,7 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
 
 HdfsOutputStream::HdfsOutputStream() { impl_.reset(new HdfsOutputStreamImpl()); }
 
-HdfsOutputStream::~HdfsOutputStream() { DABORT_NOT_OK(impl_->Close()); }
+HdfsOutputStream::~HdfsOutputStream() { DCHECK_OK(impl_->Close()); }
 
 Status HdfsOutputStream::Close() { return impl_->Close(); }
 
