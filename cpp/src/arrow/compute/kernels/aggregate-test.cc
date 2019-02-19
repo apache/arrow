@@ -22,8 +22,8 @@
 
 #include "arrow/array.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/sum.h"
 #include "arrow/compute/kernels/sum-internal.h"
+#include "arrow/compute/kernels/sum.h"
 #include "arrow/compute/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"

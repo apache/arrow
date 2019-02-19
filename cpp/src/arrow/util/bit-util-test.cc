@@ -750,6 +750,15 @@ TEST(BitUtil, RoundDown) {
   }
 }
 
+TEST(BitUtil, CoveringBytes) {
+  EXPECT_EQ(BitUtil::CoveringBytes(0, 8), 1);
+  EXPECT_EQ(BitUtil::CoveringBytes(0, 9), 2);
+  EXPECT_EQ(BitUtil::CoveringBytes(1, 7), 1);
+  EXPECT_EQ(BitUtil::CoveringBytes(1, 8), 2);
+  EXPECT_EQ(BitUtil::CoveringBytes(2, 19), 3);
+  EXPECT_EQ(BitUtil::CoveringBytes(7, 18), 4);
+}
+
 TEST(BitUtil, TrailingBits) {
   EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 0), 0);
   EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 1), 1);

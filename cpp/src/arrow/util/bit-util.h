@@ -154,6 +154,11 @@ constexpr int64_t RoundUpToMultipleOf64(int64_t num) {
   return RoundUpToPowerOf2(num, 64);
 }
 
+// Returns the number of bytes covering a bitmap sliced bitmap.
+constexpr int64_t CoveringBytes(int64_t offset, int64_t length) {
+  return (BitUtil::RoundUp(length + offset, 8) - BitUtil::RoundDown(offset, 8)) / 8;
+}
+
 // Returns the 'num_bits' least-significant bits of 'v'.
 static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
   if (ARROW_PREDICT_FALSE(num_bits == 0)) return 0;
