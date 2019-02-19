@@ -51,12 +51,12 @@ mkdir -p /io/dist
 # Must pass PYTHON_VERSION and UNICODE_WIDTH env variables
 # possible values are: 2.7,16 2.7,32 3.5,16 3.6,16 3.7,16
 
-CPYTHON_PATH="$(cpython_path $PYTHON ${UNICODE_WIDTH})"
+CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION} ${UNICODE_WIDTH})"
 PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
 PIP="${CPYTHON_PATH}/bin/pip"
-PATH="$PATH:${CPYTHON_PATH}"
+PATH="${PATH}:${CPYTHON_PATH}"
 
-if [ $PYTHON != "2.7" ]; then
+if [ ${PYTHON_VERSION} != "2.7" ]; then
   # Gandiva is not supported on Python 2.7
   export PYARROW_WITH_GANDIVA=1
   export BUILD_ARROW_GANDIVA=ON
@@ -69,7 +69,7 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 ARROW_BUILD_DIR=/tmp/build-PY${PYTHON_VERSION}-${UNICODE_WIDTH}
 mkdir -p "${ARROW_BUILD_DIR}"
 pushd "${ARROW_BUILD_DIR}"
-PATH="${CPYTHON_PATH}/bin:$PATH" cmake -DCMAKE_BUILD_TYPE=Release \
+PATH="${CPYTHON_PATH}/bin:${PATH}" cmake -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/arrow-dist \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DARROW_BUILD_TESTS=OFF \
