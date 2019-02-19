@@ -134,6 +134,7 @@ class BitsetStack {
   std::vector<int> offsets_;
 };
 
+/// \brief ArrayBuilder for parsed but unconverted arrays
 template <Kind::type>
 class RawArrayBuilder;
 
@@ -393,9 +394,13 @@ class RawArrayBuilder<Kind::kObject> {
   TypedBufferBuilder<bool> null_bitmap_builder_;
 };
 
+/// Three implementations are provided for BlockParser::Impl, one for each
+/// UnexpectedFieldBehavior. However most of the logic is identical in each
+/// case, so the majority of the implementation is in this base class
 class HandlerBase : public BlockParser::Impl,
                     public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, HandlerBase> {
  public:
+  /// Retrieve a pointer to a builder from a BuilderPtr
   template <Kind::type kind>
   typename std::enable_if<kind != Kind::kNull, RawArrayBuilder<kind>*>::type Cast(
       BuilderPtr builder) {
@@ -403,8 +408,15 @@ class HandlerBase : public BlockParser::Impl,
     return arena<kind>().data() + builder.index;
   }
 
+  /// Accessor for a stored error Status
   Status Error() { return status_; }
 
+  /// \defgroup rapidjson-handler-interface functions expected by rapidjson::Reader
+  ///
+  /// bool Key(const char* data, rapidjson::SizeType size, ...) is omitted since
+  /// the behavior varies greatly between UnexpectedFieldBehaviors
+  ///
+  /// @{
   bool Null() {
     status_ = AppendNull();
     return status_.ok();
@@ -444,7 +456,9 @@ class HandlerBase : public BlockParser::Impl,
     status_ = EndArrayImpl(size);
     return status_.ok();
   }
+  /// @}
 
+  /// \brief Set up builders using an expected Schema
   Status SetSchema(const Schema& s) {
     DCHECK_EQ(arena<Kind::kObject>().size(), 1);
     for (const auto& f : s.fields()) {
@@ -493,6 +507,7 @@ class HandlerBase : public BlockParser::Impl,
     arena<Kind::kObject>().emplace_back(pool_);
   }
 
+  /// finish a column of scalar values (string or number)
   Status FinishScalar(ScalarBuilder* builder, std::shared_ptr<Array>* out) {
     std::shared_ptr<Array> indices;
     RETURN_NOT_OK(builder->Finish(&indices));
@@ -530,6 +545,7 @@ class HandlerBase : public BlockParser::Impl,
     return Status::Invalid("Exceeded maximum rows");
   }
 
+  /// construct a builder of staticallly defined kind in arenas_
   template <Kind::type kind>
   Status MakeBuilder(int64_t leading_nulls, BuilderPtr* builder) {
     builder->index = static_cast<uint32_t>(arena<kind>().size());
@@ -539,6 +555,7 @@ class HandlerBase : public BlockParser::Impl,
     return Cast<kind>(*builder)->AppendNull(leading_nulls);
   }
 
+  /// construct a builder of whatever kind corresponds to a DataType
   Status MakeBuilder(const DataType& t, int64_t leading_nulls, BuilderPtr* builder) {
     Kind::type kind;
     RETURN_NOT_OK(KindForType(t, &kind));
@@ -700,12 +717,18 @@ class HandlerBase : public BlockParser::Impl,
     return list_builder->Append(size);
   }
 
+  /// helper method for StartArray and StartObject
+  /// adds the current builder to a stack so its
+  /// children can be visited and parsed.
   void PushStacks() {
     field_index_stack_.push_back(field_index_);
     field_index_ = -1;
     builder_stack_.push_back(builder_);
   }
 
+  /// helper method for EndArray and EndObject
+  /// replaces the current builder with its parent
+  /// so parsing of the parent can continue
   void PopStacks() {
     field_index_ = field_index_stack_.back();
     field_index_stack_.pop_back();
