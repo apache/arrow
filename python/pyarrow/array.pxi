@@ -15,7 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pyarrow.pandas_compat as pdcompat
+from pyarrow.compat import HAVE_PANDAS
+
+if HAVE_PANDAS:
+    import pyarrow.pandas_compat as pdcompat
+
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
