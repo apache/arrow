@@ -770,9 +770,8 @@ add_dependencies(arrow_dependencies toolchain)
 add_dependencies(arrow_test_dependencies toolchain-tests)
 
 # Some benchmarks use gtest
-add_dependencies(arrow_benchmark_dependencies
-  arrow_test_dependencies
-  toolchain-benchmarks)
+add_dependencies(arrow_benchmark_dependencies arrow_test_dependencies
+                 toolchain-benchmarks)
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
@@ -794,14 +793,13 @@ if(NOT MSVC)
   list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN
-    ${GTEST_LIBRARY}
-    ${GMOCK_MAIN_LIBRARY}
-    ${GMOCK_LIBRARY})
+set(ARROW_TEST_LINK_TOOLCHAIN ${GTEST_LIBRARY} ${GMOCK_MAIN_LIBRARY} ${GMOCK_LIBRARY})
 
 add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})
 
-set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static
+set(ARROW_TEST_STATIC_LINK_LIBS
+    arrow_testing_static
+    arrow_static
     ${ARROW_LINK_LIBS}
     ${ARROW_TEST_LINK_TOOLCHAIN_COMMON})
 
