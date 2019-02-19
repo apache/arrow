@@ -665,7 +665,7 @@ mod tests {
         assert_eq!(
             "{\"name\":\"address\",\"nullable\":false,\"type\":{\"fields\":[\
             {\"name\":\"street\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}},\
-            {\"name\":\"zip\",\"nullable\":false,\"type\":{\"bitWidth\":16,\"isSigned\":false,\"name\":\"int\"}}]}}",
+            {\"name\":\"zip\",\"nullable\":false,\"type\":{\"name\":\"int\",\"bitWidth\":16,\"isSigned\":false}}]}}",
             f.to_json().to_string()
         );
     }
@@ -745,7 +745,26 @@ mod tests {
         ]);
 
         let json = schema.to_json().to_string();
-        assert_eq!(json, "{\"fields\":[{\"name\":\"c1\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}},{\"name\":\"c2\",\"nullable\":false,\"type\":{\"name\":\"date\",\"unit\":\"DAY\"}},{\"name\":\"c3\",\"nullable\":false,\"type\":{\"name\":\"date\",\"unit\":\"MILLISECOND\"}},{\"name\":\"c7\",\"nullable\":false,\"type\":{\"bitWidth\":\"32\",\"name\":\"time\",\"unit\":\"SECOND\"}},{\"name\":\"c8\",\"nullable\":false,\"type\":{\"bitWidth\":\"32\",\"name\":\"time\",\"unit\":\"MILLISECOND\"}},{\"name\":\"c9\",\"nullable\":false,\"type\":{\"bitWidth\":\"32\",\"name\":\"time\",\"unit\":\"MICROSECOND\"}},{\"name\":\"c10\",\"nullable\":false,\"type\":{\"bitWidth\":\"32\",\"name\":\"time\",\"unit\":\"NANOSECOND\"}},{\"name\":\"c11\",\"nullable\":false,\"type\":{\"bitWidth\":\"64\",\"name\":\"time\",\"unit\":\"SECOND\"}},{\"name\":\"c12\",\"nullable\":false,\"type\":{\"bitWidth\":\"64\",\"name\":\"time\",\"unit\":\"MILLISECOND\"}},{\"name\":\"c13\",\"nullable\":false,\"type\":{\"bitWidth\":\"64\",\"name\":\"time\",\"unit\":\"MICROSECOND\"}},{\"name\":\"c14\",\"nullable\":false,\"type\":{\"bitWidth\":\"64\",\"name\":\"time\",\"unit\":\"NANOSECOND\"}},{\"name\":\"c15\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"SECOND\"}},{\"name\":\"c16\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"MILLISECOND\"}},{\"name\":\"c17\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"MICROSECOND\"}},{\"name\":\"c18\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"NANOSECOND\"}},{\"name\":\"c19\",\"nullable\":false,\"type\":{\"name\":\"interval\",\"unit\":\"DAY_TIME\"}},{\"name\":\"c20\",\"nullable\":false,\"type\":{\"name\":\"interval\",\"unit\":\"YEAR_MONTH\"}},{\"name\":\"c21\",\"nullable\":false,\"type\":{\"fields\":[{\"name\":\"a\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}},{\"name\":\"b\",\"nullable\":false,\"type\":{\"bitWidth\":16,\"isSigned\":false,\"name\":\"int\"}}]}}]}");
+        assert_eq!(json, "{\"fields\":[{\"name\":\"c1\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}},\
+        {\"name\":\"c2\",\"nullable\":false,\"type\":{\"name\":\"date\",\"unit\":\"DAY\"}},\
+        {\"name\":\"c3\",\"nullable\":false,\"type\":{\"name\":\"date\",\"unit\":\"MILLISECOND\"}},\
+        {\"name\":\"c7\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"32\",\"unit\":\"SECOND\"}},\
+        {\"name\":\"c8\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"32\",\"unit\":\"MILLISECOND\"}},\
+        {\"name\":\"c9\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"32\",\"unit\":\"MICROSECOND\"}},\
+        {\"name\":\"c10\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"32\",\"unit\":\"NANOSECOND\"}},\
+        {\"name\":\"c11\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"64\",\"unit\":\"SECOND\"}},\
+        {\"name\":\"c12\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"64\",\"unit\":\"MILLISECOND\"}},\
+        {\"name\":\"c13\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"64\",\"unit\":\"MICROSECOND\"}},\
+        {\"name\":\"c14\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"64\",\"unit\":\"NANOSECOND\"}},\
+        {\"name\":\"c15\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"SECOND\"}},\
+        {\"name\":\"c16\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"MILLISECOND\"}},\
+        {\"name\":\"c17\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"MICROSECOND\"}},\
+        {\"name\":\"c18\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"NANOSECOND\"}},\
+        {\"name\":\"c19\",\"nullable\":false,\"type\":{\"name\":\"interval\",\"unit\":\"DAY_TIME\"}},\
+        {\"name\":\"c20\",\"nullable\":false,\"type\":{\"name\":\"interval\",\"unit\":\"YEAR_MONTH\"}},\
+        {\"name\":\"c21\",\"nullable\":false,\"type\":{\"fields\":[\
+        {\"name\":\"a\",\"nullable\":false,\"type\":{\"name\":\"utf8\"}},\
+        {\"name\":\"b\",\"nullable\":false,\"type\":{\"name\":\"int\",\"bitWidth\":16,\"isSigned\":false}}]}}]}");
 
         // convert back to a schema
         let value: Value = serde_json::from_str(&json).unwrap();

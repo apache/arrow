@@ -42,7 +42,8 @@
 //! let batch = json.next().unwrap().unwrap();
 //! ```
 
-use std::collections::{HashMap, HashSet};
+use indexmap::map::IndexMap as HashMap;
+use indexmap::set::IndexSet as HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
@@ -472,8 +473,21 @@ impl<R: Read> Reader<R> {
             })
             .collect();
 
+        let projected_fields: Vec<Field> = if projection.is_empty() {
+            self.schema.fields().to_vec()
+        } else {
+            projection
+                .iter()
+                .map(|name| self.schema.column_with_name(name))
+                .filter_map(|c| c)
+                .map(|(_, field)| field.clone())
+                .collect()
+        };
+
+        let projected_schema = Arc::new(Schema::new(projected_fields));
+
         match arrays {
-            Ok(arr) => Ok(Some(RecordBatch::new(self.schema.clone(), arr))),
+            Ok(arr) => Ok(Some(RecordBatch::new(projected_schema, arr))),
             Err(e) => Err(e),
         }
     }
@@ -728,12 +742,16 @@ mod tests {
         let schema = batch.schema();
 
         let a = schema.column_with_name("a").unwrap();
+        assert_eq!(0, a.0);
         assert_eq!(&DataType::Int64, a.1.data_type());
         let b = schema.column_with_name("b").unwrap();
+        assert_eq!(1, b.0);
         assert_eq!(&DataType::Float64, b.1.data_type());
         let c = schema.column_with_name("c").unwrap();
+        assert_eq!(2, c.0);
         assert_eq!(&DataType::Boolean, c.1.data_type());
         let d = schema.column_with_name("d").unwrap();
+        assert_eq!(3, d.0);
         assert_eq!(&DataType::Utf8, d.1.data_type());
 
         let aa = batch
@@ -891,13 +909,16 @@ mod tests {
         let batch = reader.next().unwrap().unwrap();
 
         assert_eq!(2, batch.num_columns());
+        assert_eq!(2, batch.schema().fields().len());
         assert_eq!(12, batch.num_rows());
 
         let schema = batch.schema();
 
         let a = schema.column_with_name("a").unwrap();
+        assert_eq!(0, a.0);
         assert_eq!(&DataType::Int32, a.1.data_type());
         let c = schema.column_with_name("c").unwrap();
+        assert_eq!(1, c.0);
         assert_eq!(&DataType::Boolean, c.1.data_type());
     }
 

@@ -39,7 +39,8 @@ bytes = "0.4"
 libc = "0.2"
 serde = { version = "1.0.80", features = ["alloc", "rc"] }
 serde_derive = "1.0.80"
-serde_json = "1.0.13"
+serde_json = { version = "1.0.13", features = ["preserve_order"] }
+indexmap = "1.0"
 rand = "0.5"
 csv = "1.0.0"
 num = "0.2"
