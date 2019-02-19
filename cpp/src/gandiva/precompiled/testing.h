@@ -30,7 +30,7 @@ namespace gandiva {
 
 timestamp StringToTimestamp(const char* buf) {
   int64_t out = 0;
-  DCHECK(internal::ParseTimestamp(buf, "%Y-%m-%d %H:%M:%S", false, &out));
+  DABORT_NOT_OK(internal::ParseTimestamp(buf, "%Y-%m-%d %H:%M:%S", false, &out));
   return out * 1000;
 }
 

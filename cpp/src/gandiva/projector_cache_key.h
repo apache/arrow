@@ -77,7 +77,7 @@ class ProjectorCacheKey {
     std::stringstream ss;
     // indent, window, indent_size, null_rep and skip new lines.
     arrow::PrettyPrintOptions options{0, 10, 2, "null", true};
-    DCHECK_OK(PrettyPrint(*schema_.get(), options, &ss));
+    DABORT_NOT_OK(PrettyPrint(*schema_.get(), options, &ss));
 
     ss << "Expressions: [";
     bool first = true;
