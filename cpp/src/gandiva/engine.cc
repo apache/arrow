@@ -67,7 +67,8 @@
 namespace gandiva {
 
 GANDIVA_EXPORT
-extern const std::string kPrecompiledBitcode;
+extern const char kPrecompiledBitcode[];
+extern const size_t kPrecompiledBitcodeSize;
 
 std::once_flag init_once_flag;
 
@@ -117,7 +118,7 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
   // Add mappings for functions that can be accessed from LLVM/IR module.
   engine_obj->AddGlobalMappings();
 
-  auto status = engine_obj->LoadPreCompiledIR(kPrecompiledBitcode);
+  auto status = engine_obj->LoadPreCompiledIR();
   ARROW_RETURN_NOT_OK(status);
 
   // Add decimal functions
@@ -129,10 +130,13 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
 }
 
 // Handling for pre-compiled IR libraries.
-Status Engine::LoadPreCompiledIR(const std::string& precompiled_bitcode) {
+Status Engine::LoadPreCompiledIR() {
+  auto bitcode = llvm::StringRef(kPrecompiledBitcode, kPrecompiledBitcodeSize);
+
   /// Read from file into memory buffer.
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> buffer_or_error =
-      llvm::MemoryBuffer::getMemBuffer(precompiled_bitcode);
+      llvm::MemoryBuffer::getMemBuffer(bitcode);
+
   ARROW_RETURN_IF(!buffer_or_error,
                   Status::CodeGenError("Could not load module from IR: ",
                                        buffer_or_error.getError().message()));

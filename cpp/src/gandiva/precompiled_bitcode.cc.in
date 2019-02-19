@@ -20,8 +20,7 @@
 namespace gandiva {
 
 // Content of precompiled bitcode file.
-// extern const char kPrecompiledBitcode[] = ;
-// extern const unsigned kPrecompiledBitcodeSize = sizeof(kPrecompiledBitcode);
-extern const std::string kPrecompiledBitcode({ ${GANDIVA_PRECOMPILED_BITCODE_CHARS} });
+extern const char kPrecompiledBitcode[] = { ${GANDIVA_PRECOMPILED_BITCODE_CHARS} };
+extern const size_t kPrecompiledBitcodeSize = sizeof(kPrecompiledBitcode);
 
 } // namespace gandiva

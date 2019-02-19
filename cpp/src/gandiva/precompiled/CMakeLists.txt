@@ -73,7 +73,6 @@ add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_BC_PATH}
                    DEPENDS ${BC_FILES})
 
 # write a cmake script to replace precompiled bitcode file's content into a .cc file
-
 file(
   WRITE
     "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake"
@@ -95,7 +94,8 @@ add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_CC_PATH}
                    DEPENDS ${GANDIVA_PRECOMPILED_CC_IN_PATH}
                            ${GANDIVA_PRECOMPILED_BC_PATH})
 
-add_custom_target(precompiled ALL DEPENDS ${GANDIVA_PRECOMPILED_CC_PATH})
+add_custom_target(precompiled ALL
+                  DEPENDS ${GANDIVA_PRECOMPILED_BC_PATH} ${GANDIVA_PRECOMPILED_CC_PATH})
 
 function(add_precompiled_unit_test REL_TEST_NAME)
   get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
