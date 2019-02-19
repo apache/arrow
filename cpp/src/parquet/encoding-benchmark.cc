@@ -20,11 +20,15 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 
 #include "parquet/encoding.h"
 #include "parquet/schema.h"
 #include "parquet/util/memory.h"
+
+#include <random>
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
@@ -168,14 +172,54 @@ static void BM_DictDecodingInt64_literals(benchmark::State& state) {
 
 BENCHMARK(BM_DictDecodingInt64_literals)->Range(1024, 65536);
 
+std::shared_ptr<::arrow::Array> MakeRandomStringsWithRepeats(size_t num_unique,
+                                                             size_t num_values) {
+  const int64_t min_length = 2;
+  const int64_t max_length = 10;
+  std::vector<uint8_t> buffer(max_length);
+  std::vector<std::string> dictionary(num_unique);
+
+  uint32_t seed = 0;
+  std::default_random_engine gen(seed);
+  std::uniform_int_distribution<int64_t> length_dist(min_length, max_length);
+
+  std::generate(dictionary.begin(), dictionary.end(), [&] {
+    auto length = length_dist(gen);
+    ::arrow::random_ascii(length, seed++, buffer.data());
+    return std::string(buffer.begin(), buffer.begin() + length);
+  });
+
+  std::uniform_int_distribution<int64_t> indices_dist(0, num_unique - 1);
+  ::arrow::StringBuilder builder;
+
+  for (size_t i = 0; i < num_values; i++) {
+    const auto index = indices_dist(gen);
+    const auto value = dictionary[index];
+    ABORT_NOT_OK(builder.Append(value));
+  }
+
+  std::shared_ptr<::arrow::Array> result;
+  ABORT_NOT_OK(builder.Finish(&result));
+  return result;
+}
+
 class BM_PlainDecodingByteArray : public ::benchmark::Fixture {
  public:
   void SetUp(const ::benchmark::State& state) override {
     num_values_ = static_cast<int>(state.range());
-    input_string_ = "foo";
-    byte_array_ = ByteArray(static_cast<int32_t>(input_string_.size()),
-                            reinterpret_cast<const uint8_t*>(input_string_.data()));
-    values_ = std::vector<ByteArray>(num_values_, byte_array_);
+
+    input_array_ = MakeRandomStringsWithRepeats(num_values_ / 8, num_values_);
+    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*input_array_);
+    values_ = std::vector<ByteArray>();
+    values_.reserve(num_values_);
+    total_size_ = 0;
+
+    for (int64_t i = 0; i < binary_array.length(); i++) {
+      auto view = binary_array.GetView(i);
+      values_.emplace_back(view.length(), reinterpret_cast<const uint8_t*>(view.data()));
+      total_size_ += view.length();
+    }
+
     valid_bits_ =
         std::vector<uint8_t>(::arrow::BitUtil::BytesForBits(num_values_) + 1, 255);
 
@@ -188,8 +232,8 @@ class BM_PlainDecodingByteArray : public ::benchmark::Fixture {
 
  protected:
   int num_values_;
-  std::string input_string_;
-  ByteArray byte_array_;
+  std::shared_ptr<::arrow::Array> input_array_;
+  uint64_t total_size_;
   std::vector<ByteArray> values_;
   std::vector<uint8_t> valid_bits_;
   std::shared_ptr<Buffer> buffer_;
@@ -205,7 +249,7 @@ BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrow_Dense)
     decoder->DecodeArrow(num_values_, 0, valid_bits_.data(), 0, &builder);
   }
 
-  state.SetBytesProcessed(state.iterations() * state.range(0) * input_string_.length());
+  state.SetBytesProcessed(state.iterations() * total_size_);
 }
 
 BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrow_Dense)->Range(1024, 65536);
@@ -220,7 +264,7 @@ BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dense)
     decoder->DecodeArrowNonNull(num_values_, &builder);
   }
 
-  state.SetBytesProcessed(state.iterations() * state.range(0) * input_string_.length());
+  state.SetBytesProcessed(state.iterations() * total_size_);
 }
 
 BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dense)
@@ -235,7 +279,7 @@ BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrow_Dict)
     decoder->DecodeArrow(num_values_, 0, valid_bits_.data(), 0, &builder);
   }
 
-  state.SetBytesProcessed(state.iterations() * state.range(0) * input_string_.length());
+  state.SetBytesProcessed(state.iterations() * total_size_);
 }
 
 BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrow_Dict)->Range(1024, 65536);
@@ -249,7 +293,7 @@ BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dict)
     decoder->DecodeArrowNonNull(num_values_, &builder);
   }
 
-  state.SetBytesProcessed(state.iterations() * state.range(0) * input_string_.length());
+  state.SetBytesProcessed(state.iterations() * total_size_);
 }
 
 BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dict)
