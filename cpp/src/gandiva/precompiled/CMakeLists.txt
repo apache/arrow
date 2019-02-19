@@ -73,10 +73,7 @@ add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_BC_PATH}
                    DEPENDS ${BC_FILES})
 
 # write a cmake script to replace precompiled bitcode file's content into a .cc file
-file(
-  WRITE
-    "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake"
-    "\
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake" "\
   file(READ \"${GANDIVA_PRECOMPILED_BC_PATH}\" HEXCONTENT HEX)
   string(REGEX REPLACE
          \"([0-9a-f][0-9a-f])\"
