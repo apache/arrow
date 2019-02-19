@@ -351,6 +351,7 @@ add_arrow_test(table-test)
 add_arrow_test(table_builder-test)
 add_arrow_test(tensor-test)
 add_arrow_test(sparse_tensor-test)
+add_arrow_test(union_array-test)
 
 add_arrow_benchmark(builder-benchmark)
 add_arrow_benchmark(column-benchmark)
