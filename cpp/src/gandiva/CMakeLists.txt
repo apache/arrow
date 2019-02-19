@@ -32,10 +32,9 @@ set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")
 set(GANDIVA_PRECOMPILED_CC_PATH "${CMAKE_CURRENT_BINARY_DIR}/precompiled_bitcode.cc")
 set(GANDIVA_PRECOMPILED_CC_IN_PATH
     "${CMAKE_CURRENT_SOURCE_DIR}/precompiled_bitcode.cc.in")
-# add_arrow_lib will look for this not yet existing file, so write it
-if(NOT EXISTS ${GANDIVA_PRECOMPILED_CC_PATH})
-  configure_file(${GANDIVA_PRECOMPILED_CC_IN_PATH} ${GANDIVA_PRECOMPILED_CC_PATH})
-endif()
+
+# add_arrow_lib will look for this not yet existing file, so flag as generated
+set_source_files_properties(${GANDIVA_PRECOMPILED_CC_PATH} PROPERTIES GENERATED TRUE)
 
 set(SRC_FILES
     annotator.cc

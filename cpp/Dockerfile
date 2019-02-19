@@ -43,12 +43,12 @@ RUN arrow/ci/docker_install_conda.sh && \
     conda install -q -c conda-forge \
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_unix.yml \
-        llvmdev $EXTRA_CONDA_PKGS && \
+        $EXTRA_CONDA_PKGS && \
     conda clean --all
 
 ENV CC=gcc \
     CXX=g++ \
-    ARROW_GANDIVA=ON \
+    ARROW_GANDIVA=OFF \
     ARROW_BUILD_TESTS=ON \
     ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX \
     ARROW_HOME=$CONDA_PREFIX \
