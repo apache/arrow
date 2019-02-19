@@ -67,7 +67,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
   python check_imports.py
 
   # Install test dependencies and run pyarrow tests
-  pip install -r python/requirements-test.txt
+  pip install -r ../requirements-test.txt
   pytest --pyargs pyarrow
 done
 
