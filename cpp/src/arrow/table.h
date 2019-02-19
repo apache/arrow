@@ -248,7 +248,9 @@ class ARROW_EXPORT Table {
   /// Return a column by index
   virtual std::shared_ptr<Column> column(int i) const = 0;
 
-  /// Return a column by name
+  /// \brief Return a column by name
+  /// \param[in] name field name
+  /// \return an Array or null if no field was found
   std::shared_ptr<Column> GetColumnByName(const std::string& name) const {
     auto i = schema_->GetFieldIndex(name);
     return i == -1 ? NULLPTR : column(i);

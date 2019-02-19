@@ -37,7 +37,6 @@
 
 namespace arrow {
 
-// using ipc::internal::json::ArrayFromJSON;
 using util::string_view;
 
 namespace json {
@@ -104,8 +103,8 @@ void AssertRawStructArraysEqual(const StructArray& expected, const StructArray& 
 }
 
 void AssertParseColumns(ParseOptions options, string_view src_str,
-                        std::vector<std::shared_ptr<Field>> fields,
-                        std::vector<std::string> columns_json) {
+                        const std::vector<std::shared_ptr<Field>>& fields,
+                        const std::vector<std::string>& columns_json) {
   std::shared_ptr<Buffer> src;
   ASSERT_OK(MakeBuffer(src_str, &src));
   BlockParser parser(options, src);
@@ -212,8 +211,8 @@ TEST(BlockParser, Nested) {
 }
 
 void AssertParseOne(ParseOptions options, string_view src_str,
-                    std::vector<std::shared_ptr<Field>> fields,
-                    std::vector<std::string> columns_json) {
+                    const std::vector<std::shared_ptr<Field>>& fields,
+                    const std::vector<std::string>& columns_json) {
   std::shared_ptr<Buffer> src;
   ASSERT_OK(MakeBuffer(src_str, &src));
   std::shared_ptr<RecordBatch> parsed;
