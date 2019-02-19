@@ -68,7 +68,7 @@ class FlightStreamReader : public RecordBatchReader {
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
-    FlightData data;
+    internal::FlightData data;
 
     if (stream_finished_) {
       *out = nullptr;

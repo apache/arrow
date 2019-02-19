@@ -15,12 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef _WIN32
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#endif
-
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
