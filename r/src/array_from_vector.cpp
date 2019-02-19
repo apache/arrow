@@ -858,19 +858,31 @@ class BooleanVectorConverter : public TypedVectorConverter<BooleanType, BooleanV
 class Date32Converter : public TypedVectorConverter<Date32Type, Date32Converter> {};
 class Date64Converter : public TypedVectorConverter<Date64Type, Date64Converter> {};
 
-class TimestampConverter : public VectorConverter {
+inline int64_t get_time_multiplier(TimeUnit::type unit){
+  switch(unit){
+  case TimeUnit::SECOND: return 1;
+  case TimeUnit::MILLI: return 1000;
+  case TimeUnit::MICRO: return 1000000;
+  case TimeUnit::NANO: return 1000000000;
+  }
+}
+
+template <typename Type>
+class TimeConverter : public VectorConverter {
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+
 public:
-  TimestampConverter(TimeUnit::type unit) : unit_(unit), multiplier_(get_multiplier(unit)){}
+  TimeConverter(TimeUnit::type unit) : unit_(unit), multiplier_(get_time_multiplier(unit)){}
 
   Status Init(ArrayBuilder* builder) override {
     builder_ = builder;
-    typed_builder_ = checked_cast<TimestampBuilder*>(builder);
+    typed_builder_ = checked_cast<BuilderType*>(builder);
     return Status::OK();
   }
 
   Status Ingest(SEXP obj) override {
 
-    if(TYPEOF(obj) == REALSXP && Rf_inherits(obj, "POSIXct")) {
+    if(valid_R_object(obj)) {
       return Ingest_POSIXct(REAL(obj), XLENGTH(obj));
     }
 
@@ -879,19 +891,8 @@ public:
 
 protected:
   TimeUnit::type unit_;
-  TimestampBuilder* typed_builder_;
+  BuilderType* typed_builder_;
   int64_t multiplier_;
-
-private:
-
-  static int64_t get_multiplier(TimeUnit::type unit){
-    switch(unit){
-    case TimeUnit::SECOND: return 1;
-    case TimeUnit::MILLI: return 1000;
-    case TimeUnit::MICRO: return 1000000;
-    case TimeUnit::NANO: return 1000000000;
-    }
-  }
 
   Status Ingest_POSIXct(double* p, R_xlen_t n) {
     RETURN_NOT_OK(typed_builder_->Resize(n));
@@ -906,8 +907,40 @@ private:
     return Status::OK();
   }
 
+  virtual bool valid_R_object(SEXP obj)  = 0 ;
 
 };
+
+class TimestampConverter : public TimeConverter<TimestampType> {
+public:
+  TimestampConverter(TimeUnit::type unit) : TimeConverter<TimestampType>(unit){}
+
+protected:
+  virtual bool valid_R_object(SEXP obj) override {
+    return TYPEOF(obj) == REALSXP && Rf_inherits(obj, "POSIXct");
+  }
+};
+
+class Time32Converter : public TimeConverter<Time32Type> {
+public:
+  Time32Converter(TimeUnit::type unit) : TimeConverter<Time32Type>(unit){}
+
+protected:
+  virtual bool valid_R_object(SEXP obj) override {
+    return TYPEOF(obj) == REALSXP && Rf_inherits(obj, "difftime");
+  }
+};
+
+class Time64Converter : public TimeConverter<Time64Type> {
+public:
+  Time64Converter(TimeUnit::type unit) : TimeConverter<Time64Type>(unit){}
+
+protected:
+  virtual bool valid_R_object(SEXP obj) override {
+    return TYPEOF(obj) == REALSXP && Rf_inherits(obj, "difftime");
+  }
+};
+
 
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                     \
 case Type::TYPE_ENUM:                                                \
@@ -951,9 +984,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<Vecto
   case Type::STRING:
   case Type::DICTIONARY:
 
-  case Type::TIME32:
-  case Type::TIME64:
-
+  TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
+  TIME_CONVERTER_CASE(TIME64, Time64Type, Time64Converter);
   TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
 
   default:
