@@ -42,10 +42,7 @@ EOF
 pushd python/manylinux1
 
 for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
-  IFS=","
-  set -- $PYTHON_TUPLE;
-  PYTHON_VERSION=$1
-  UNICODE_WIDTH=$2
+  IFS="," read PYTHON_VERSION UNICODE_WIDTH <<< $PYTHON_TUPLE
 
   # build the wheels
   docker run --shm-size=2g --rm \

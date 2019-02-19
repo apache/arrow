@@ -23,9 +23,6 @@
 # Build upon the scripts in https://github.com/matthew-brett/manylinux-builds
 # * Copyright (c) 2013-2016, Matt Terry and Matthew Brett (BSD 2-clause)
 
-# Build different python versions with various unicode widths
-PYTHON_VERSIONS="${PYTHON_VERSIONS:-2.7,16 2.7,32 3.5,16 3.6,16 3.7,16}"
-
 source /multibuild/manylinux_utils.sh
 
 # Quit on failure
