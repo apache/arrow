@@ -848,7 +848,6 @@ public:
 
 protected:
   BuilderType* typed_builder_;
-
 };
 
 template <typename Type>
@@ -864,6 +863,7 @@ public:
   TimestampConverter(TimeUnit::type unit) : unit_(unit), multiplier_(get_multiplier(unit)){}
 
   Status Init(ArrayBuilder* builder) override {
+    builder_ = builder;
     typed_builder_ = checked_cast<TimestampBuilder*>(builder);
     return Status::OK();
   }
@@ -919,6 +919,10 @@ case Type::TYPE_ENUM:                                               \
   *out = std::unique_ptr<TYPE>(new TYPE);                      \
   return Status::OK()
 
+#define TIME_CONVERTER_CASE(TYPE_ENUM, DATA_TYPE, TYPE)                      \
+case Type::TYPE_ENUM:                                               \
+  *out = std::unique_ptr<TYPE>(new TYPE(checked_cast<DATA_TYPE*>(type.get())->unit()));                           \
+  return Status::OK()
 
 Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<VectorConverter>* out) {
 
@@ -950,9 +954,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<Vecto
   case Type::TIME32:
   case Type::TIME64:
 
-  case Type::TIMESTAMP:
-    *out = std::unique_ptr<TimestampConverter>(new TimestampConverter(checked_cast<TimestampType*>(type.get())->unit()));
-    return Status::OK();
+  TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
+
   default:
     break;
   }
