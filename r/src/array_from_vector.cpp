@@ -254,17 +254,8 @@ public:
 
   virtual Status Ingest(SEXP obj) = 0;
 
-  virtual Status GetResult(std::vector<std::shared_ptr<arrow::Array>>* chunks) {
-    *chunks = chunks_;
-
-    // Still some accumulated data in the builder. If there are no chunks, we
-    // always call Finish to deal with the edge case where a size-0 sequence
-    // was converted with a specific output type, like array([], type=t)
-    if (chunks_.size() == 0 || builder_->length() > 0) {
-      std::shared_ptr<Array> last_chunk;
-      RETURN_NOT_OK(builder_->Finish(&last_chunk));
-      chunks->emplace_back(std::move(last_chunk));
-    }
+  virtual Status GetResult(std::shared_ptr<arrow::Array>* result) {
+    RETURN_NOT_OK(builder_->Finish(result));
     return Status::OK();
   }
 
@@ -272,8 +263,6 @@ public:
 
 protected:
   ArrayBuilder* builder_;
-  std::vector<std::shared_ptr<Array>> chunks_;
-
 };
 
 template <typename Type, typename Enable = void>
@@ -972,13 +961,12 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
   STOP_IF_NOT_OK(arrow::MakeBuilder(arrow::default_memory_pool(), type, &type_builder));
   STOP_IF_NOT_OK(converter->Init(type_builder.get()));
 
-  // ingest x
+  // ingest R data and grab the result array
   STOP_IF_NOT_OK(converter->Ingest(x));
+  std::shared_ptr<arrow::Array> result;
+  STOP_IF_NOT_OK(converter->GetResult(&result));
 
-  std::vector<std::shared_ptr<arrow::Array>> chunks;
-  STOP_IF_NOT_OK(converter->GetResult(&chunks));
-
-  return chunks[0];
+  return result;
 }
 
 // [[Rcpp::export]]
