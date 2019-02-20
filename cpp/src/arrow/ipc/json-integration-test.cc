@@ -30,7 +30,7 @@
 #include <boost/filesystem.hpp>  // NOLINT
 
 #include "arrow/io/file.h"
-#include "arrow/ipc/json.h"
+#include "arrow/ipc/json-integration.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/pretty_print.h"
