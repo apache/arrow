@@ -61,8 +61,28 @@ void CheckUnique(FunctionContext* ctx, const shared_ptr<DataType>& type,
 
   shared_ptr<Array> result;
   ASSERT_OK(Unique(ctx, input, &result));
+  // TODO: We probably shouldn't rely on array ordering.
   ASSERT_ARRAYS_EQUAL(*expected, *result);
 }
+
+template <typename Type, typename T>
+void CheckValueCountsNull(FunctionContext* ctx, const shared_ptr<DataType>& type) {
+  std::vector<std::shared_ptr<Buffer>> data_buffers(2);
+  Datum input;
+  input.value = ArrayData::Make(type, 0 /* length */, std::move(data_buffers),
+                                0 /* null_count */);
+
+  shared_ptr<Array> ex_values = _MakeArray<Type, T>(type, {}, {});
+  shared_ptr<Array> ex_counts = _MakeArray<Int64Type, int64_t>(int64(), {}, {});
+
+  shared_ptr<Array> result;
+  ASSERT_OK(ValueCounts(ctx, input, &result));
+  auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
+  // TODO: We probably shouldn't rely on value ordering.
+  ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->GetFieldByName("Values"));
+  ASSERT_ARRAYS_EQUAL(*ex_counts, *result_struct->GetFieldByName("Counts"));
+}
+
 
 template <typename Type, typename T>
 void CheckValueCounts(FunctionContext* ctx, const shared_ptr<DataType>& type,
@@ -77,6 +97,7 @@ void CheckValueCounts(FunctionContext* ctx, const shared_ptr<DataType>& type,
   shared_ptr<Array> result;
   ASSERT_OK(ValueCounts(ctx, Datum(input), &result));
   auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
+  // TODO: We probably shouldn't rely on value ordering.
   ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->GetFieldByName("Values"));
   ASSERT_ARRAYS_EQUAL(*ex_counts, *result_struct->GetFieldByName("Counts"));
 }
@@ -128,7 +149,10 @@ TYPED_TEST(TestHashKernelPrimitive, ValueCounts) {
                                  {true, false, true, true, true, true, false}, {2, 1, 3},
                                  {}, {3, 1, 1});
   CheckValueCounts<TypeParam, T>(&this->ctx_, type, {}, {}, {}, {}, {});
+  CheckValueCountsNull<TypeParam, T>(&this->ctx_, type);
 }
+
+
 
 TYPED_TEST(TestHashKernelPrimitive, DictEncode) {
   using T = typename TypeParam::c_type;
