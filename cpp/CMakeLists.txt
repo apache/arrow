@@ -760,7 +760,14 @@ if(ARROW_USE_GLOG)
 endif()
 
 add_custom_target(arrow_dependencies)
+add_custom_target(arrow_benchmark_dependencies)
+add_custom_target(arrow_test_dependencies)
+
+# ARROW-4581: CMake can be finicky about invoking the ExternalProject builds
+# for some of the library dependencies, so we "nuke it from orbit" by making
+# the toolchain dependency explicit using these "dependencies" targets
 add_dependencies(arrow_dependencies toolchain)
+add_dependencies(arrow_test_dependencies toolchain-tests)
 
 if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
@@ -782,13 +789,23 @@ if(NOT MSVC)
   list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()
 
+set(ARROW_TEST_LINK_TOOLCHAIN ${GTEST_LIBRARY} ${GMOCK_MAIN_LIBRARY} ${GMOCK_LIBRARY})
+
+if(ARROW_BUILD_TESTS)
+  add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})
+endif()
+
+if(ARROW_BUILD_BENCHMARKS)
+  # Some benchmarks use gtest
+  add_dependencies(arrow_benchmark_dependencies arrow_test_dependencies
+                   toolchain-benchmarks)
+endif()
+
 set(ARROW_TEST_STATIC_LINK_LIBS
     arrow_testing_static
     arrow_static
     ${ARROW_LINK_LIBS}
-    ${GTEST_LIBRARY}
-    ${GMOCK_MAIN_LIBRARY}
-    ${GMOCK_LIBRARY})
+    ${ARROW_TEST_LINK_TOOLCHAIN})
 
 set(ARROW_TEST_SHARED_LINK_LIBS
     arrow_testing_shared
@@ -798,9 +815,7 @@ set(ARROW_TEST_SHARED_LINK_LIBS
     ${BOOST_SYSTEM_LIBRARY}
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_REGEX_LIBRARY}
-    ${GTEST_LIBRARY}
-    ${GMOCK_MAIN_LIBRARY}
-    ${GMOCK_LIBRARY})
+    ${ARROW_TEST_LINK_TOOLCHAIN})
 
 if(NOT MSVC)
   set(ARROW_TEST_SHARED_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS} ${CMAKE_DL_LIBS})

@@ -16,6 +16,8 @@
 # under the License.
 
 add_custom_target(toolchain)
+add_custom_target(toolchain-benchmarks)
+add_custom_target(toolchain-tests)
 
 # ----------------------------------------------------------------------
 # Toolchain linkage options
@@ -711,7 +713,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
       CMAKE_ARGS ${GTEST_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
 
-    add_dependencies(toolchain googletest_ep)
+    add_dependencies(toolchain-tests googletest_ep)
   else()
     find_package(GTest REQUIRED)
     set(GTEST_VENDORED 0)
@@ -792,7 +794,7 @@ if(ARROW_BUILD_BENCHMARKS)
       CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
 
-    add_dependencies(toolchain gbenchmark_ep)
+    add_dependencies(toolchain-benchmarks gbenchmark_ep)
   else()
     find_package(GBenchmark REQUIRED)
     set(GBENCHMARK_VENDORED 0)
