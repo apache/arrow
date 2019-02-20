@@ -54,7 +54,6 @@ using std::string;
 using std::vector;
 
 using internal::checked_cast;
-using internal::checked_pointer_cast;
 
 class TestArray : public ::testing::Test {
  public:
@@ -337,7 +336,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     std::shared_ptr<Array> out;
     FinishAndCheckPadding(builder.get(), &out);
 
-    std::shared_ptr<ArrayType> result = checked_pointer_cast<ArrayType>(out);
+    std::shared_ptr<ArrayType> result = std::dynamic_pointer_cast<ArrayType>(out);
 
     // Builder is now reset
     ASSERT_EQ(0, builder->length());
@@ -463,7 +462,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
   std::shared_ptr<Array> out;
   FinishAndCheckPadding(builder.get(), &out);
 
-  std::shared_ptr<BooleanArray> result = checked_pointer_cast<BooleanArray>(out);
+  std::shared_ptr<BooleanArray> result = std::dynamic_pointer_cast<BooleanArray>(out);
 
   ASSERT_EQ(ex_null_count, result->null_count());
   ASSERT_EQ(size, result->length());
@@ -514,7 +513,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
 
   std::shared_ptr<Array> out;
   FinishAndCheckPadding(this->builder_.get(), &out);
-  auto result = checked_pointer_cast<typename TypeParam::ArrayType>(out);
+  auto result = std::dynamic_pointer_cast<typename TypeParam::ArrayType>(out);
 
   for (int64_t i = 0; i < size; ++i) {
     ASSERT_TRUE(result->IsNull(i)) << i;

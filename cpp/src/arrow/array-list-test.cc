@@ -39,7 +39,6 @@ using std::string;
 using std::vector;
 
 using internal::checked_cast;
-using internal::checked_pointer_cast;
 
 // ----------------------------------------------------------------------
 // List tests
@@ -60,7 +59,7 @@ class TestListArray : public TestBuilder {
   void Done() {
     std::shared_ptr<Array> out;
     FinishAndCheckPadding(builder_.get(), &out);
-    result_ = checked_pointer_cast<ListArray>(out);
+    result_ = std::dynamic_pointer_cast<ListArray>(out);
   }
 
  protected:
@@ -225,7 +224,7 @@ void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& valu
   }
 
   ASSERT_EQ(7, result->values()->length());
-  auto varr = checked_pointer_cast<Int32Array>(result->values());
+  auto varr = std::dynamic_pointer_cast<Int32Array>(result->values());
 
   for (size_t i = 0; i < values.size(); ++i) {
     ASSERT_EQ(values[i], varr->Value(i));
