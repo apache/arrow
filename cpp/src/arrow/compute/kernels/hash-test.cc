@@ -69,8 +69,8 @@ template <typename Type, typename T>
 void CheckValueCountsNull(FunctionContext* ctx, const shared_ptr<DataType>& type) {
   std::vector<std::shared_ptr<Buffer>> data_buffers(2);
   Datum input;
-  input.value = ArrayData::Make(type, 0 /* length */, std::move(data_buffers),
-                                0 /* null_count */);
+  input.value =
+      ArrayData::Make(type, 0 /* length */, std::move(data_buffers), 0 /* null_count */);
 
   shared_ptr<Array> ex_values = _MakeArray<Type, T>(type, {}, {});
   shared_ptr<Array> ex_counts = _MakeArray<Int64Type, int64_t>(int64(), {}, {});
@@ -82,7 +82,6 @@ void CheckValueCountsNull(FunctionContext* ctx, const shared_ptr<DataType>& type
   ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->GetFieldByName("Values"));
   ASSERT_ARRAYS_EQUAL(*ex_counts, *result_struct->GetFieldByName("Counts"));
 }
-
 
 template <typename Type, typename T>
 void CheckValueCounts(FunctionContext* ctx, const shared_ptr<DataType>& type,
@@ -151,8 +150,6 @@ TYPED_TEST(TestHashKernelPrimitive, ValueCounts) {
   CheckValueCounts<TypeParam, T>(&this->ctx_, type, {}, {}, {}, {}, {});
   CheckValueCountsNull<TypeParam, T>(&this->ctx_, type);
 }
-
-
 
 TYPED_TEST(TestHashKernelPrimitive, DictEncode) {
   using T = typename TypeParam::c_type;
