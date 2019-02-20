@@ -35,22 +35,21 @@ namespace flight {
 /// Python.
 class ARROW_PYTHON_EXPORT PyFlightServerVtable {
  public:
-  // Must return int so Cython will propagate exceptions
-  std::function<int(PyObject*, const arrow::flight::Criteria*,
-                    std::unique_ptr<arrow::flight::FlightListing>*)>
+  std::function<void(PyObject*, const arrow::flight::Criteria*,
+                     std::unique_ptr<arrow::flight::FlightListing>*)>
       list_flights;
-  std::function<int(PyObject*, const arrow::flight::FlightDescriptor&,
-                    std::unique_ptr<arrow::flight::FlightInfo>*)>
+  std::function<void(PyObject*, const arrow::flight::FlightDescriptor&,
+                     std::unique_ptr<arrow::flight::FlightInfo>*)>
       get_flight_info;
-  std::function<int(PyObject*, const arrow::flight::Ticket&,
-                    std::unique_ptr<arrow::flight::FlightDataStream>*)>
+  std::function<void(PyObject*, const arrow::flight::Ticket&,
+                     std::unique_ptr<arrow::flight::FlightDataStream>*)>
       do_get;
-  std::function<int(PyObject*, std::unique_ptr<arrow::flight::FlightMessageReader>)>
+  std::function<void(PyObject*, std::unique_ptr<arrow::flight::FlightMessageReader>)>
       do_put;
-  std::function<int(PyObject*, const arrow::flight::Action&,
-                    std::unique_ptr<arrow::flight::ResultStream>*)>
+  std::function<void(PyObject*, const arrow::flight::Action&,
+                     std::unique_ptr<arrow::flight::ResultStream>*)>
       do_action;
-  std::function<int(PyObject*, std::vector<arrow::flight::ActionType>*)> list_actions;
+  std::function<void(PyObject*, std::vector<arrow::flight::ActionType>*)> list_actions;
 };
 
 class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBase {
@@ -74,7 +73,7 @@ class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBas
 };
 
 /// \brief A callback that obtains the next result from a Flight action.
-typedef std::function<int(PyObject*, std::unique_ptr<arrow::flight::Result>*)>
+typedef std::function<void(PyObject*, std::unique_ptr<arrow::flight::Result>*)>
     PyFlightResultStreamCallback;
 
 /// \brief A ResultStream built around a Python callback.

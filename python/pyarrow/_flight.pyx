@@ -445,8 +445,8 @@ cdef class RecordBatchStream(FlightDataStream):
         return new CRecordBatchStream(reader)
 
 
-cdef int _list_flights(void* self, const CCriteria* c_criteria,
-                       unique_ptr[CFlightListing]* listing) except -1:
+cdef void _list_flights(void* self, const CCriteria* c_criteria,
+                        unique_ptr[CFlightListing]* listing) except *:
     """Callback for implementing ListFlights in Python."""
     cdef:
         vector[CFlightInfo] flights
@@ -458,11 +458,10 @@ cdef int _list_flights(void* self, const CCriteria* c_criteria,
                                 type(info)))
         flights.push_back(deref((<FlightInfo> info).info.get()))
     listing.reset(new CSimpleFlightListing(flights))
-    return 0
 
 
-cdef int _get_flight_info(void* self, CFlightDescriptor c_descriptor,
-                          unique_ptr[CFlightInfo]* info) except -1:
+cdef void _get_flight_info(void* self, CFlightDescriptor c_descriptor,
+                           unique_ptr[CFlightInfo]* info) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         FlightDescriptor py_descriptor = \
@@ -474,11 +473,10 @@ cdef int _get_flight_info(void* self, CFlightDescriptor c_descriptor,
                         "a FlightInfo instance, but got {}".format(
                             type(result)))
     info.reset(new CFlightInfo(deref((<FlightInfo> result).info.get())))
-    return 0
 
 
-cdef int _do_put(void* self,
-                 unique_ptr[CFlightMessageReader] reader) except -1:
+cdef void _do_put(void* self,
+                  unique_ptr[CFlightMessageReader] reader) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         FlightRecordBatchReader py_reader = FlightRecordBatchReader()
@@ -488,11 +486,10 @@ cdef int _do_put(void* self,
     descriptor.descriptor = reader.get().descriptor()
     py_reader.reader.reset(reader.release())
     (<object> self).do_put(descriptor, py_reader)
-    return 0
 
 
-cdef int _do_get(void* self, CTicket ticket,
-                 unique_ptr[CFlightDataStream]* stream) except -1:
+cdef void _do_get(void* self, CTicket ticket,
+                  unique_ptr[CFlightDataStream]* stream) except *:
     """Callback for implementing Flight servers in Python."""
     py_ticket = Ticket(ticket.ticket)
     result = (<object> self).do_get(py_ticket)
@@ -501,11 +498,10 @@ cdef int _do_get(void* self, CTicket ticket,
                         "a FlightDataStream")
     stream[0] = unique_ptr[CFlightDataStream](
         (<FlightDataStream> result).to_stream())
-    return 0
 
 
-cdef int _do_action_result_next(void* self,
-                                unique_ptr[CResult]* result) except -1:
+cdef void _do_action_result_next(void* self,
+                                 unique_ptr[CResult]* result) except *:
     """Callback for implementing Flight servers in Python."""
     try:
         action_result = next(<object> self)
@@ -515,21 +511,19 @@ cdef int _do_action_result_next(void* self,
         result.reset(new CResult(deref((<Result> action_result).result.get())))
     except StopIteration:
         result.reset(nullptr)
-    return 0
 
 
-cdef int _do_action(void* self, const CAction& action,
-                    unique_ptr[CResultStream]* result) except -1:
+cdef void _do_action(void* self, const CAction& action,
+                     unique_ptr[CResultStream]* result) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         function[cb_result_next] ptr = &_do_action_result_next
     py_action = Action(action.type, pyarrow_wrap_buffer(action.body))
     responses = (<object> self).do_action(py_action)
     result.reset(new CPyFlightResultStream(responses, ptr))
-    return 0
 
 
-cdef int _list_actions(void* self, vector[CActionType]* actions) except -1:
+cdef void _list_actions(void* self, vector[CActionType]* actions) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         CActionType action_type
@@ -539,7 +533,7 @@ cdef int _list_actions(void* self, vector[CActionType]* actions) except -1:
         action_type.type = tobytes(action[0])
         action_type.description = tobytes(action[1])
         actions.push_back(action_type)
-    return 0
+
 
 cdef class FlightServerBase:
     """A Flight service definition."""

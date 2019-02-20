@@ -122,17 +122,17 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
 # Callbacks for implementing Flight servers
 # Use typedef to emulate syntax for std::function<void(...)>
-ctypedef int cb_list_flights(object, const CCriteria*,
-                             unique_ptr[CFlightListing]*)
-ctypedef int cb_get_flight_info(object, const CFlightDescriptor&,
-                                unique_ptr[CFlightInfo]*)
-ctypedef int cb_do_put(object, unique_ptr[CFlightMessageReader])
-ctypedef int cb_do_get(object, const CTicket&,
-                       unique_ptr[CFlightDataStream]*)
-ctypedef int cb_do_action(object, const CAction&,
-                          unique_ptr[CResultStream]*)
-ctypedef int cb_list_actions(object, vector[CActionType]*)
-ctypedef int cb_result_next(object, unique_ptr[CResult]*)
+ctypedef void cb_list_flights(object, const CCriteria*,
+                              unique_ptr[CFlightListing]*)
+ctypedef void cb_get_flight_info(object, const CFlightDescriptor&,
+                                 unique_ptr[CFlightInfo]*)
+ctypedef void cb_do_put(object, unique_ptr[CFlightMessageReader])
+ctypedef void cb_do_get(object, const CTicket&,
+                        unique_ptr[CFlightDataStream]*)
+ctypedef void cb_do_action(object, const CAction&,
+                           unique_ptr[CResultStream]*)
+ctypedef void cb_list_actions(object, vector[CActionType]*)
+ctypedef void cb_result_next(object, unique_ptr[CResult]*)
 
 cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef cppclass PyFlightServerVtable:
