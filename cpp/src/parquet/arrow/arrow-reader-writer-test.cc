@@ -2221,6 +2221,15 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_EQ(table->schema()->field(0)->type()->num_children(), 1);
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
+  // columns: {group1.leaf1, leaf3}
+  ASSERT_OK_NO_THROW(reader_->ReadRowGroup(0, {0, 2}, &table));
+  ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
+  ASSERT_EQ(table->num_columns(), 2);
+  ASSERT_EQ(table->schema()->field(0)->name(), "group1");
+  ASSERT_EQ(table->schema()->field(1)->name(), "leaf3");
+  ASSERT_EQ(table->schema()->field(0)->type()->num_children(), 1);
+  ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
+
   // columns: {group1.leaf1, group1.leaf2}
   ASSERT_OK_NO_THROW(reader_->ReadTable({0, 1}, &table));
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
