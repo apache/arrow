@@ -773,6 +773,10 @@ add_dependencies(arrow_test_dependencies toolchain-tests)
 add_dependencies(arrow_benchmark_dependencies arrow_test_dependencies
                  toolchain-benchmarks)
 
+if(ARROW_STATIC_LINK_LIBS)
+  add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
+endif()
+
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
     ${ARROW_STATIC_LINK_LIBS}
     ${BOOST_SYSTEM_LIBRARY}
@@ -781,10 +785,6 @@ set(ARROW_SHARED_PRIVATE_LINK_LIBS
 
 list(APPEND ARROW_STATIC_LINK_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY}
             ${BOOST_REGEX_LIBRARY})
-
-if(ARROW_STATIC_LINK_LIBS)
-  add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
-endif()
 
 list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS boost_system boost_filesystem boost_regex)
 
@@ -795,7 +795,7 @@ endif()
 
 set(ARROW_TEST_LINK_TOOLCHAIN ${GTEST_LIBRARY} ${GMOCK_MAIN_LIBRARY} ${GMOCK_LIBRARY})
 
-add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})
+add_dependencies(arrow_test_dependencies ${GTEST_LIBRARY})
 
 set(ARROW_TEST_STATIC_LINK_LIBS
     arrow_testing_static
