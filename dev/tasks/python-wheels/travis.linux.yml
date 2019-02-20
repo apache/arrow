@@ -30,7 +30,7 @@ env:
     - TRAVIS_TAG={{ task.tag }}
 
 before_script:
-  - docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:llvm-7-manylinux1
+  - docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
 
 script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
