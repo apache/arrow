@@ -487,7 +487,14 @@ static inline bool is_dictionary(Type::type type_id) {
 }
 
 static inline bool is_fixed_size_binary(Type::type type_id) {
-  return type_id == Type::FIXED_SIZE_BINARY;
+  switch (type_id) {
+    case Type::DECIMAL:
+    case Type::FIXED_SIZE_BINARY:
+      return true;
+    default:
+      break;
+  }
+  return false;
 }
 
 static inline bool is_fixed_width(Type::type type_id) {
