@@ -202,6 +202,41 @@ TEST_F(TestSchema, GetFieldIndex) {
   ASSERT_EQ(-1, schema->GetFieldIndex("not-found"));
 }
 
+TEST_F(TestSchema, GetFieldDuplicates) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+  auto f3 = field("f1", list(int16()));
+
+  auto schema = ::arrow::schema({f0, f1, f2, f3});
+
+  ASSERT_EQ(0, schema->GetFieldIndex(f0->name()));
+  ASSERT_EQ(-1, schema->GetFieldIndex(f1->name()));  // duplicate
+  ASSERT_EQ(2, schema->GetFieldIndex(f2->name()));
+  ASSERT_EQ(-1, schema->GetFieldIndex("not-found"));
+  ASSERT_EQ(std::vector<int>{0}, schema->GetAllFieldIndices(f0->name()));
+  AssertSortedEquals(std::vector<int>{1, 3}, schema->GetAllFieldIndices(f1->name()));
+
+  std::vector<std::shared_ptr<Field>> results;
+
+  results = schema->GetAllFieldsByName(f0->name());
+  ASSERT_EQ(results.size(), 1);
+  ASSERT_TRUE(results[0]->Equals(f0));
+
+  results = schema->GetAllFieldsByName(f1->name());
+  ASSERT_EQ(results.size(), 2);
+  if (results[0]->type()->id() == Type::UINT8) {
+    ASSERT_TRUE(results[0]->Equals(f1));
+    ASSERT_TRUE(results[1]->Equals(f3));
+  } else {
+    ASSERT_TRUE(results[0]->Equals(f3));
+    ASSERT_TRUE(results[1]->Equals(f1));
+  }
+
+  results = schema->GetAllFieldsByName("not-found");
+  ASSERT_EQ(results.size(), 0);
+}
+
 TEST_F(TestSchema, TestMetadataConstruction) {
   auto metadata0 = key_value_metadata({{"foo", "bar"}, {"bizz", "buzz"}});
   auto metadata1 = key_value_metadata({{"foo", "baz"}});
@@ -495,7 +530,7 @@ TEST(TestStructType, GetFieldIndex) {
   ASSERT_EQ(-1, struct_type.GetFieldIndex("not-found"));
 }
 
-TEST(TestStructType, GetFieldIndexDuplicates) {
+TEST(TestStructType, GetFieldDuplicates) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", int64());
   auto f2 = field("f1", utf8());
@@ -503,6 +538,27 @@ TEST(TestStructType, GetFieldIndexDuplicates) {
 
   ASSERT_EQ(0, struct_type.GetFieldIndex("f0"));
   ASSERT_EQ(-1, struct_type.GetFieldIndex("f1"));
+  ASSERT_EQ(std::vector<int>{0}, struct_type.GetAllFieldIndices(f0->name()));
+  AssertSortedEquals(std::vector<int>{1, 2}, struct_type.GetAllFieldIndices(f1->name()));
+
+  std::vector<std::shared_ptr<Field>> results;
+
+  results = struct_type.GetAllFieldsByName(f0->name());
+  ASSERT_EQ(results.size(), 1);
+  ASSERT_TRUE(results[0]->Equals(f0));
+
+  results = struct_type.GetAllFieldsByName(f1->name());
+  ASSERT_EQ(results.size(), 2);
+  if (results[0]->type()->id() == Type::INT64) {
+    ASSERT_TRUE(results[0]->Equals(f1));
+    ASSERT_TRUE(results[1]->Equals(f2));
+  } else {
+    ASSERT_TRUE(results[0]->Equals(f2));
+    ASSERT_TRUE(results[1]->Equals(f1));
+  }
+
+  results = struct_type.GetAllFieldsByName("not-found");
+  ASSERT_EQ(results.size(), 0);
 }
 
 TEST(TestDictionaryType, Equals) {

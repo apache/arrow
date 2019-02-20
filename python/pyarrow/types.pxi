@@ -17,6 +17,7 @@
 
 import collections
 import re
+import warnings
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
@@ -247,13 +248,17 @@ cdef class StructType(DataType):
         """
         Return a child field by its name rather than its index.
         """
-        cdef shared_ptr[CField] field
+        cdef vector[shared_ptr[CField]] fields
 
-        field = self.struct_type.GetFieldByName(tobytes(name))
-        if field == nullptr:
+        fields = self.struct_type.GetAllFieldsByName(tobytes(name))
+        if fields.size() == 0:
             raise KeyError(name)
-
-        return pyarrow_wrap_field(field)
+        elif fields.size() > 1:
+            warnings.warn("Struct field name corresponds to more "
+                          "than one field", UserWarning)
+            raise KeyError(name)
+        else:
+            return pyarrow_wrap_field(fields[0])
 
     def __len__(self):
         """
@@ -740,7 +745,18 @@ cdef class Schema:
         -------
         field: pyarrow.Field
         """
-        return pyarrow_wrap_field(self.schema.GetFieldByName(tobytes(name)))
+        cdef:
+            vector[shared_ptr[CField]] results
+
+        results = self.schema.GetAllFieldsByName(tobytes(name))
+        if results.size() == 0:
+            return None
+        elif results.size() > 1:
+            warnings.warn("Schema field name corresponds to more "
+                          "than one field", UserWarning)
+            return None
+        else:
+            return pyarrow_wrap_field(results[0])
 
     def get_field_index(self, name):
         return self.schema.GetFieldIndex(tobytes(name))

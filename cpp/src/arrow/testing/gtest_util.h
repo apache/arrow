@@ -314,4 +314,11 @@ inline void BitmapFromVector(const std::vector<T>& is_valid,
   ASSERT_OK(GetBitmapFromVector(is_valid, out));
 }
 
+template <typename T>
+void AssertSortedEquals(std::vector<T> u, std::vector<T> v) {
+  std::sort(u.begin(), u.end());
+  std::sort(v.begin(), v.end());
+  ASSERT_EQ(u, v);
+}
+
 }  // namespace arrow
