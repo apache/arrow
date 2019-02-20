@@ -104,10 +104,12 @@ class UniqueAction : public ActionBase {
 // ----------------------------------------------------------------------
 // Count values implementation (see HashKernel for description of methods)
 
-class ValueCountsAction {
+class ValueCountsAction : ActionBase {
  public:
+  using ActionBase::ActionBase;
+
   ValueCountsAction(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : count_builder_(pool) {}
+      : ActionBase(type, pool), count_builder_(pool) {}
 
   Status Reserve(const int64_t length) {
     // builder size is independent of input array size.
@@ -121,6 +123,8 @@ class ValueCountsAction {
   // Don't do anything on flush beceause we don't want to finalize the builder
   // or incur the cost of memory copies.
   Status Flush(Datum* out) { return Status::OK(); }
+
+  std::shared_ptr<DataType> out_type() const { return type_; }
 
   // Return the counts corresponding the MemoTable keys.
   Status FlushFinal(Datum* out) {

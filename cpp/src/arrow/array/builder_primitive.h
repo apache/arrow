@@ -95,7 +95,7 @@ class NumericBuilder : public ArrayBuilder {
   value_type operator[](int64_t index) const { return GetValue(index); }
 
   value_type& operator[](int64_t index) {
-    return reinterpret_cast<value_type*>(data_->mutable_data())[index];
+    return reinterpret_cast<value_type*>(data_builder_.mutable_data())[index];
   }
 
   /// \brief Append a sequence of elements in one shot
