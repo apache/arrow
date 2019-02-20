@@ -399,9 +399,12 @@ public class StructVector extends NonNullableStructVector implements FieldVector
 
   @Override
   public void reAlloc() {
-    /* reallocate the validity buffer */
-    reallocValidityBuffer();
+    /* reallocate children */
     super.reAlloc();
+    if (super.getValueCapacity() > getValidityBufferValueCapacity()) {
+      /* reallocate the validity buffer */
+      reallocValidityBuffer();
+    }
   }
 
   private void reallocValidityBuffer() {

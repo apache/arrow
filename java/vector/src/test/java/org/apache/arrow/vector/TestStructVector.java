@@ -18,13 +18,16 @@
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
@@ -67,6 +70,25 @@ public class TestStructVector {
       assertEquals(0, toChild.getValueCapacity());
       assertEquals(0, toChild.getDataBuffer().capacity());
       assertEquals(0, toChild.getValidityBuffer().capacity());
+    }
+  }
+
+  @Test
+  public void tesReAlloc() throws Exception {
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("k1", "v1");
+    FieldType type = new FieldType(true, Struct.INSTANCE, null, metadata);
+    try (StructVector vector = new StructVector("struct", allocator, type, null)) {
+      MinorType childtype = MinorType.INT;
+      vector.addOrGet("intchild", FieldType.nullable(childtype.getType()), IntVector.class);
+      for (int i = 0; i < 100; ++i) {
+        vector.clear();
+        vector.allocateNewSafe(); // Initial allocation
+        vector.reAlloc(); // Double the allocation size
+        // check that validity buffer size is no more than two times the initial allocation size
+        Assert.assertTrue(vector.getValidityBuffer().capacity() * 8L <=
+                BaseAllocator.nextPowerOfTwo(2 * BaseValueVector.INITIAL_VALUE_ALLOCATION));
+      }
     }
   }
 }
