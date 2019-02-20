@@ -113,10 +113,10 @@ mkdir -p repaired_wheels/
 auditwheel -v repair -L . dist/pyarrow-*.whl -w repaired_wheels/
 
 # Install the built wheels
-pip install repaired_wheels/*.whl
+$PIP install repaired_wheels/*.whl
 
 # Test that the modules are importable
-python -c "
+$PYTHON_INTERPRETER -c "
 import sys
 import pyarrow
 import pyarrow.orc
