@@ -558,7 +558,7 @@ VALUE
 record_batch_raw_records(int argc, VALUE* argv, VALUE obj)
 {
   VALUE kwargs;
-  bool convert_decimal = false;
+  bool convert_decimal = true;
 
   rb_scan_args(argc, argv, ":", &kwargs);
   if (!NIL_P(kwargs)) {

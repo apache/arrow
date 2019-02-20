@@ -128,13 +128,13 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
         end
 
         test("default") do
+          @expected_columnar_result[3] = @decimal128_values.map {|x| x && BigDecimal(x) }
           raw_records = @record_batch.raw_records
           assert_equal(@expected_columnar_result.transpose, raw_records)
         end
 
-        test("convert_decimal: true") do
-          @expected_columnar_result[3] = @decimal128_values.map {|x| x && BigDecimal(x) }
-          raw_records = @record_batch.raw_records(convert_decimal: true)
+        test("convert_decimal: false") do
+          raw_records = @record_batch.raw_records(convert_decimal: false)
           assert_equal(@expected_columnar_result.transpose, raw_records)
         end
       end
@@ -191,7 +191,7 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
         end
 
         test("convert_decimal: true") do
-          raw_records = @record_batch.raw_records(convert_decimal: true)
+          raw_records = @record_batch.raw_records(convert_decimal: false)
           assert_equal(@expected_columnar_result.transpose, raw_records)
         end
       end
@@ -237,15 +237,15 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
         test("default") do
           raw_records = @record_batch.raw_records
           @expected_columnar_result[0].each do |h|
-            h['decimal'] &&= Arrow::Decimal128.new(h['decimal'])
+            h['decimal'] &&= BigDecimal(h['decimal'])
           end
           assert_equal(@expected_columnar_result.transpose, raw_records)
         end
 
-        test("convert_decimal: true") do
-          raw_records = @record_batch.raw_records(convert_decimal: true)
+        test("convert_decimal: false") do
+          raw_records = @record_batch.raw_records(convert_decimal: false)
           @expected_columnar_result[0].each do |h|
-            h['decimal'] &&= BigDecimal(h['decimal'])
+            h['decimal'] &&= Arrow::Decimal128.new(h['decimal'])
           end
           assert_equal(@expected_columnar_result.transpose, raw_records)
         end
@@ -341,13 +341,13 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
         end
 
         test("default") do
+          @expected_columnar_result[0][4] = BigDecimal('3.14')
           raw_records = @record_batch.raw_records
           assert_equal(@expected_columnar_result.transpose, raw_records)
         end
 
-        test("convert_decimal: true") do
-          @expected_columnar_result[0][4] = BigDecimal('3.14')
-          raw_records = @record_batch.raw_records(convert_decimal: true)
+        test("convert_decimal: false") do
+          raw_records = @record_batch.raw_records(convert_decimal: false)
           assert_equal(@expected_columnar_result.transpose, raw_records)
         end
       end
@@ -387,12 +387,12 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
 
         test("default") do
           raw_records = @record_batch.raw_records
+          @expected_columnar_result[0][2] = BigDecimal('3.14')
           assert_equal(@expected_columnar_result.transpose, raw_records)
         end
 
-        test("convert_decimal: true") do
-          raw_records = @record_batch.raw_records(convert_decimal: true)
-          @expected_columnar_result[0][2] = BigDecimal('3.14')
+        test("convert_decimal: false") do
+          raw_records = @record_batch.raw_records(convert_decimal: false)
           assert_equal(@expected_columnar_result.transpose, raw_records)
         end
       end
