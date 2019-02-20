@@ -273,14 +273,14 @@ class FlightServiceImpl : public FlightService::Service {
       return grpc::Status::CANCELLED;
     }
 
-    std::unique_ptr<Result> result;
-    pb::Result pb_result;
     while (true) {
+      std::unique_ptr<Result> result;
       GRPC_RETURN_NOT_OK(results->Next(&result));
       if (!result) {
         // No more results
         break;
       }
+      pb::Result pb_result;
       GRPC_RETURN_NOT_OK(internal::ToProto(*result, &pb_result));
       if (!writer->Write(pb_result)) {
         // Stream may be closed

@@ -18,6 +18,8 @@
 """An example Flight Python server."""
 
 import ast
+import threading
+import time
 
 import pyarrow
 import pyarrow.flight
@@ -69,7 +71,6 @@ class FlightServer(pyarrow.flight.FlightServerBase):
         print(self.flights[key])
 
     def do_get(self, ticket):
-        print(ticket.ticket)
         key = ast.literal_eval(ticket.ticket.decode())
         if key not in self.flights:
             return None
@@ -87,6 +88,14 @@ class FlightServer(pyarrow.flight.FlightServerBase):
                 "{} is not implemented.".format(action.type))
         else:
             yield pyarrow.flight.Result(pyarrow.py_buffer(b'Shutdown!'))
+            # Shut down on background thread to avoid blocking current
+            # request
+            threading.Thread(target=self._shutdown).start()
+
+    def _shutdown(self):
+        """Shut down after a delay."""
+        time.sleep(2)
+        self.shutdown()
 
 
 def main():

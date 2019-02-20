@@ -402,12 +402,22 @@ cdef class FlightClient:
 
 
 cdef class FlightDataStream:
-    cdef:
-        unique_ptr[CFlightDataStream] stream
+    """Abstract base class for Flight data streams."""
+
+    cdef CFlightDataStream* to_stream(self):
+        """Create the C++ data stream for the backing Python object.
+
+        We don't expose the C++ object to Python, so we can manage its
+        lifetime from the Cython/C++ side.
+        """
+        raise NotImplementedError
 
 
 cdef class RecordBatchStream(FlightDataStream):
     """A Flight data stream backed by RecordBatches."""
+    cdef:
+        object data_source
+
     def __init__(self, data_source):
         """Create a RecordBatchStream from a data source.
 
@@ -415,19 +425,24 @@ cdef class RecordBatchStream(FlightDataStream):
         ----------
         data_source : RecordBatchReader or Table
         """
-        cdef shared_ptr[CRecordBatchReader] reader
-        if isinstance(data_source, _CRecordBatchReader):
-            reader = (<_CRecordBatchReader> data_source).reader
-            stream = new CRecordBatchStream(reader)
-            self.stream.reset(stream)
-        elif isinstance(data_source, lib.Table):
-            table = (<Table> data_source).table
-            reader.reset(new TableBatchReader(deref(table)))
-            stream = new CRecordBatchStream(reader)
-            self.stream.reset(stream)
-        else:
+        if (not isinstance(data_source, _CRecordBatchReader) and
+                not isinstance(data_source, lib.Table)):
             raise TypeError("Expected RecordBatchReader or Table, "
                             "but got: {}".format(type(data_source)))
+        self.data_source = data_source
+
+    cdef CFlightDataStream* to_stream(self):
+        cdef:
+            shared_ptr[CRecordBatchReader] reader
+        if isinstance(self.data_source, _CRecordBatchReader):
+            reader = (<_CRecordBatchReader> self.data_source).reader
+        elif isinstance(self.data_source, lib.Table):
+            table = (<Table> self.data_source).table
+            reader.reset(new TableBatchReader(deref(table)))
+        else:
+            raise RuntimeError("Can't construct RecordBatchStream "
+                               "from type {}".format(type(self.data_source)))
+        return new CRecordBatchStream(reader)
 
 
 cdef int _list_flights(void* self, const CCriteria* c_criteria,
@@ -441,7 +456,7 @@ cdef int _list_flights(void* self, const CCriteria* c_criteria,
             raise TypeError("FlightServerBase.list_flights must return "
                             "FlightInfo instances, but got {}".format(
                                 type(info)))
-        flights.push_back(CFlightInfo(deref((<FlightInfo> info).info.get())))
+        flights.push_back(deref((<FlightInfo> info).info.get()))
     listing.reset(new CSimpleFlightListing(flights))
     return 0
 
@@ -458,7 +473,7 @@ cdef int _get_flight_info(void* self, CFlightDescriptor c_descriptor,
         raise TypeError("FlightServerBase.get_flight_info must return "
                         "a FlightInfo instance, but got {}".format(
                             type(result)))
-    info[0] = move((<FlightInfo> result).info)
+    info.reset(new CFlightInfo(deref((<FlightInfo> result).info.get())))
     return 0
 
 
@@ -484,7 +499,8 @@ cdef int _do_get(void* self, CTicket ticket,
     if not isinstance(result, FlightDataStream):
         raise TypeError("FlightServerBase.do_get must return "
                         "a FlightDataStream")
-    stream[0] = move((<FlightDataStream> result).stream)
+    stream[0] = unique_ptr[CFlightDataStream](
+        (<FlightDataStream> result).to_stream())
     return 0
 
 
@@ -495,8 +511,8 @@ cdef int _do_action_result_next(void* self,
         action_result = next(<object> self)
         if not isinstance(action_result, Result):
             raise TypeError("Result of FlightServerBase.do_action must "
-                            "return a Result during iteration")
-        result[0] = move((<Result> action_result).result)
+                            "return an iterator of Result objects")
+        result.reset(new CResult(deref((<Result> action_result).result.get())))
     except StopIteration:
         result.reset(nullptr)
     return 0
@@ -509,7 +525,7 @@ cdef int _do_action(void* self, const CAction& action,
         function[cb_result_next] ptr = &_do_action_result_next
     py_action = Action(action.type, pyarrow_wrap_buffer(action.body))
     responses = (<object> self).do_action(py_action)
-    result[0].reset(new CPyFlightResultStream(responses, ptr))
+    result.reset(new CPyFlightResultStream(responses, ptr))
     return 0
 
 
@@ -564,5 +580,12 @@ cdef class FlightServerBase:
         raise NotImplementedError
 
     def shutdown(self):
+        """Shut down the server, blocking until current requests finish.
+
+        Do not call this directly from the implementation of a Flight
+        method, as then the server will block forever waiting for that
+        request to finish. Instead, call this method from a background
+        thread.
+        """
         if self.server.get() != NULL:
             self.server.get().Shutdown()

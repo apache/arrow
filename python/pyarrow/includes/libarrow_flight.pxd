@@ -33,6 +33,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         shared_ptr[CBuffer] body
 
     cdef cppclass CResult" arrow::flight::Result":
+        CResult()
+        CResult(CResult)
         shared_ptr[CBuffer] body
 
     cdef cppclass CResultStream" arrow::flight::ResultStream":
@@ -159,10 +161,3 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         uint64_t total_records,
         uint64_t total_bytes,
         unique_ptr[CFlightInfo]* out)
-
-cdef extern from "<utility>" namespace "std":
-    # Declare explicit overloads of std::move for use in server
-    # bindings
-    unique_ptr[CFlightDataStream] move(unique_ptr[CFlightDataStream])
-    unique_ptr[CFlightInfo] move(unique_ptr[CFlightInfo])
-    unique_ptr[CResult] move(unique_ptr[CResult])
