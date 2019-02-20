@@ -991,14 +991,23 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks, SEXP s
     type = arrow::r::extract<arrow::DataType>(s_type);
   }
 
-  // the first - might differ from the rest of the loop
-  // because we might have infered the type from the first element of the list
-  //
-  // this only really matters for dictionary arrays
-  vec.push_back(arrow::r::Array__from_vector(VECTOR_ELT(chunks, 0), type, type_infered));
+  if (n == 0) {
+    std::shared_ptr<arrow::Array> array;
+    std::unique_ptr<arrow::ArrayBuilder> type_builder;
+    STOP_IF_NOT_OK(arrow::MakeBuilder(arrow::default_memory_pool(), type, &type_builder));
+    STOP_IF_NOT_OK(type_builder->Finish(&array));
+    vec.push_back(array);
+  } else {
+    // the first - might differ from the rest of the loop
+    // because we might have infered the type from the first element of the list
+    //
+    // this only really matters for dictionary arrays
+    vec.push_back(arrow::r::Array__from_vector(VECTOR_ELT(chunks, 0), type, type_infered));
 
-  for (R_xlen_t i=1; i<n; i++) {
-    vec.push_back(arrow::r::Array__from_vector(VECTOR_ELT(chunks, i), type, false));
+    for (R_xlen_t i=1; i<n; i++) {
+      vec.push_back(arrow::r::Array__from_vector(VECTOR_ELT(chunks, i), type, false));
+    }
   }
+
   return std::make_shared<arrow::ChunkedArray>(std::move(vec));
 }
