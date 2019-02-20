@@ -7,6 +7,16 @@ R integration with Apache Arrow.
 
 ## Installation
 
+You first need to install the C++ library:
+
+### macOS
+
+On macOS, you may install using homebrew:
+
+    brew install apache-arrow
+
+### From source
+
 First install a release build of the C++ bindings to arrow.
 
 ``` shell
@@ -18,46 +28,58 @@ cmake .. -DARROW_PARQUET=ON -DCMAKE_BUILD_TYPE=Release -DARROW_BOOST_USE_SHARED:
 make install
 ```
 
-Then the R package:
+## Then the R package
 
 ``` r
 devtools::install_github("apache/arrow/r")
 ```
 
-If libarrow was built with the old CXXABI then you need to pass
-the ARROW_USE_OLD_CXXABI configuration variable.
-
-``` r
-devtools::install_github("apache/arrow/r", args=c("--configure-vars=ARROW_USE_OLD_CXXABI=1"))
-```
-
 ## Example
 
 ``` r
-library(arrow, warn.conflicts = FALSE)
-library(tibble)
-library(reticulate)
+library(arrow)
+#> 
+#> Attaching package: 'arrow'
+#> The following object is masked from 'package:utils':
+#> 
+#>     timestamp
+#> The following objects are masked from 'package:base':
+#> 
+#>     array, table
 
-tf <- tempfile()
-
-# write arrow::Table to file
-(tib <- tibble(x = 1:10, y = rnorm(10)))
+(tib <- tibble::tibble(x = 1:10, y = rnorm(10)))
 #> # A tibble: 10 x 2
 #>        x       y
 #>    <int>   <dbl>
-#>  1     1  0.0855
-#>  2     2 -1.68  
-#>  3     3 -0.0294
-#>  4     4 -0.124 
-#>  5     5  0.0675
-#>  6     6  1.64  
-#>  7     7  1.54  
-#>  8     8 -0.0209
-#>  9     9 -0.982 
-#> 10    10  0.349
-# arrow::write_arrow(tib, tf)
-
-# # read it back with pyarrow
-# pa <- import("pyarrow")
-# as_tibble(pa$open_file(tf)$read_pandas())
+#>  1     1  0.585 
+#>  2     2  0.378 
+#>  3     3  0.958 
+#>  4     4 -0.321 
+#>  5     5  0.702 
+#>  6     6  0.188 
+#>  7     7 -0.625 
+#>  8     8 -2.34  
+#>  9     9 -0.0325
+#> 10    10 -1.22
+tab <- table(tib)
+tab$schema
+#> arrow::Schema 
+#> x: int32
+#> y: double
+tab
+#> arrow::Table
+as_tibble(tab)
+#> # A tibble: 10 x 2
+#>        x       y
+#>    <int>   <dbl>
+#>  1     1  0.585 
+#>  2     2  0.378 
+#>  3     3  0.958 
+#>  4     4 -0.321 
+#>  5     5  0.702 
+#>  6     6  0.188 
+#>  7     7 -0.625 
+#>  8     8 -2.34  
+#>  9     9 -0.0325
+#> 10    10 -1.22
 ```

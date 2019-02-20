@@ -16,7 +16,19 @@ knitr::opts_chunk$set(
 
 R integration with Apache Arrow.
 
-## Installation
+## Installation 
+
+You first need to install the C++ library:
+
+### macOS 
+
+On macOS, you may install using homebrew: 
+
+```
+brew install apache-arrow
+```
+
+### From source
 
 First install a release build of the C++ bindings to arrow.
 
@@ -29,7 +41,7 @@ cmake .. -DARROW_PARQUET=ON -DCMAKE_BUILD_TYPE=Release -DARROW_BOOST_USE_SHARED:
 make install
 ```
 
-Then the R package:
+## Then the R package
 
 ```r
 devtools::install_github("apache/arrow/r")
@@ -38,17 +50,12 @@ devtools::install_github("apache/arrow/r")
 ## Example
 
 ```{r}
-library(arrow, warn.conflicts = FALSE)
-library(tibble)
-library(reticulate)
+library(arrow)
 
-tf <- tempfile()
-
-# write arrow::Table to file
-(tib <- tibble(x = 1:10, y = rnorm(10)))
-# arrow::write_arrow(tib, tf)
-
-# # read it back with pyarrow
-# pa <- import("pyarrow")
-# as_tibble(pa$open_file(tf)$read_pandas())
+(tib <- tibble::tibble(x = 1:10, y = rnorm(10)))
+tab <- table(tib)
+tab$schema
+tab
+as_tibble(tab)
 ```
+
