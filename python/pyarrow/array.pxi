@@ -170,8 +170,9 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
                 from_pandas=True, safe=safe,
                 memory_pool=memory_pool)
         else:
-            values, type = pdcompat.get_datetimetz_type(values, obj.dtype,
-                                                        type)
+            if HAVE_PANDAS:
+                values, type = pdcompat.get_datetimetz_type(
+                    values, obj.dtype, type)
             return _ndarray_to_array(values, mask, type, from_pandas, safe,
                                      pool)
     else:
