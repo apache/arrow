@@ -112,6 +112,22 @@ echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux1 ==="
 mkdir -p repaired_wheels/
 auditwheel -v repair -L . dist/pyarrow-*.whl -w repaired_wheels/
 
-# Testing happens outsite of the build to prevent issues like ARROW-4372
-mv repaired_wheels/*.whl /io/dist
+# Install the built wheels
+pip install repaired_wheels/*.whl
+
+# Test that the modules are importable
+python -c "
+import sys
+import pyarrow
+import pyarrow.orc
+import pyarrow.parquet
+import pyarrow.plasma
+
+if sys.version_info.major > 2:
+    import pyarrow.gandiva
+"
+
+# More thorough testing happens outsite of the build to prevent
+# packaging issues like ARROW-4372
 mv dist/*.tar.gz /io/dist
+mv repaired_wheels/*.whl /io/dist
