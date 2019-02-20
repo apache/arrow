@@ -266,8 +266,12 @@ void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   values_ = MakeArray(data_->child_data[0]);
 }
 
+const ListType* ListArray::list_type() const {
+  return checked_cast<const ListType*>(data_->type.get());
+}
+
 std::shared_ptr<DataType> ListArray::value_type() const {
-  return checked_cast<const ListType&>(*type()).value_type();
+  return list_type()->value_type();
 }
 
 std::shared_ptr<Array> ListArray::values() const { return values_; }

@@ -827,7 +827,7 @@ class ARROW_EXPORT Schema {
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
 
   /// Returns -1 if name not found
-  int64_t GetFieldIndex(const std::string& name) const;
+  int GetFieldIndex(const std::string& name) const;
 
   const std::vector<std::shared_ptr<Field>>& fields() const { return fields_; }
 

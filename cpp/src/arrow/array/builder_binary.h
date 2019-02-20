@@ -88,6 +88,10 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
     UnsafeAppend(value.c_str(), static_cast<int32_t>(value.size()));
   }
 
+  void UnsafeAppend(util::string_view value) {
+    UnsafeAppend(value.data(), static_cast<int32_t>(value.size()));
+  }
+
   void UnsafeAppendNull() {
     const int64_t num_bytes = value_data_builder_.length();
     offsets_builder_.UnsafeAppend(static_cast<int32_t>(num_bytes));

@@ -104,6 +104,10 @@ set(ARROW_SRCS
     csv/options.cc
     csv/parser.cc
     csv/reader.cc
+    json/options.cc
+    json/chunker.cc
+    json/parser.cc
+    json/reader.cc
     io/buffered.cc
     io/compressed.cc
     io/file.cc
@@ -321,6 +325,7 @@ add_arrow_benchmark(column-benchmark)
 
 add_subdirectory(array)
 add_subdirectory(csv)
+add_subdirectory(json)
 add_subdirectory(io)
 add_subdirectory(util)
 add_subdirectory(vendored)

@@ -381,11 +381,11 @@ bool Schema::Equals(const Schema& other, bool check_metadata) const {
 }
 
 std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) const {
-  int64_t i = GetFieldIndex(name);
+  int i = GetFieldIndex(name);
   return i == -1 ? nullptr : fields_[i];
 }
 
-int64_t Schema::GetFieldIndex(const std::string& name) const {
+int Schema::GetFieldIndex(const std::string& name) const {
   auto it = name_to_index_.find(name);
   if (it == name_to_index_.end()) {
     return -1;

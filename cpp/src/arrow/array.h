@@ -486,6 +486,8 @@ class ARROW_EXPORT ListArray : public Array {
   static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
                            std::shared_ptr<Array>* out);
 
+  const ListType* list_type() const;
+
   /// \brief Return array object containing the list's values
   std::shared_ptr<Array> values() const;
 
