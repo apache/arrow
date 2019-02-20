@@ -38,8 +38,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
         implements VariableWidthVector, FieldVector, VectorDefinitionSetter {
   private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
-  private int initialValueAllocation;
-  private int initialValueAllocationSizeInBytes;
+  private int lastValueCapacity;
+  private int lastValueAllocationSizeInBytes;
 
   /* protected members */
   public static final int OFFSET_WIDTH = 4; /* 4 byte unsigned int to track offsets */
@@ -50,21 +50,19 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   protected int valueCount;
   protected int lastSet;
   protected final Field field;
-  private boolean cleared;
 
   public BaseVariableWidthVector(final String name, final BufferAllocator allocator,
                                          FieldType fieldType) {
     super(name, allocator);
-    initialValueAllocationSizeInBytes = INITIAL_BYTE_COUNT;
+    lastValueAllocationSizeInBytes = INITIAL_BYTE_COUNT;
     // -1 because we require one extra slot for the offset array.
-    initialValueAllocation = INITIAL_VALUE_ALLOCATION - 1;
+    lastValueCapacity = INITIAL_VALUE_ALLOCATION - 1;
     field = new Field(name, fieldType, null);
     valueCount = 0;
     lastSet = -1;
     offsetBuffer = allocator.getEmpty();
     validityBuffer = allocator.getEmpty();
     valueBuffer = allocator.getEmpty();
-    cleared = false;
   }
 
   /* TODO:
@@ -155,8 +153,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     final long size = (long) valueCount * DEFAULT_RECORD_BYTE_COUNT;
     checkDataBufferSize(size);
     computeAndCheckOffsetsBufferSize(valueCount);
-    initialValueAllocationSizeInBytes = (int) size;
-    initialValueAllocation = valueCount;
+    lastValueAllocationSizeInBytes = (int) size;
+    lastValueCapacity = valueCount;
   }
 
   /**
@@ -170,8 +168,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     long size = Math.max((long)(valueCount * density), 1L);
     checkDataBufferSize(size);
     computeAndCheckOffsetsBufferSize(valueCount);
-    initialValueAllocationSizeInBytes = (int) size;
-    initialValueAllocation = valueCount;
+    lastValueAllocationSizeInBytes = (int) size;
+    lastValueCapacity = valueCount;
   }
 
   /**
@@ -251,7 +249,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     validityBuffer = releaseBuffer(validityBuffer);
     valueBuffer = releaseBuffer(valueBuffer);
     offsetBuffer = releaseBuffer(offsetBuffer);
-    cleared = true;
     lastSet = -1;
     valueCount = 0;
   }
@@ -362,14 +359,14 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   @Override
   public boolean allocateNewSafe() {
-    checkDataBufferSize(initialValueAllocationSizeInBytes);
-    computeAndCheckOffsetsBufferSize(initialValueAllocation);
+    checkDataBufferSize(lastValueAllocationSizeInBytes);
+    computeAndCheckOffsetsBufferSize(lastValueCapacity);
 
     /* we are doing a new allocation -- release the current buffers */
     clear();
 
     try {
-      allocateBytes(initialValueAllocationSizeInBytes, initialValueAllocation);
+      allocateBytes(lastValueAllocationSizeInBytes, lastValueCapacity);
     } catch (Exception e) {
       clear();
       return false;
@@ -442,6 +439,9 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     validityBuffer = buffers.getValidityBuf();
     initOffsetBuffer();
     initValidityBuffer();
+
+    lastValueCapacity = getValueCapacity();
+    lastValueAllocationSizeInBytes = valueBuffer.capacity();
   }
 
   /* allocate offset buffer */
@@ -478,7 +478,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @throws OutOfMemoryException if the internal memory allocation fails
    */
   public void reallocDataBuffer() {
-    long baseSize = initialValueAllocationSizeInBytes;
+    long baseSize = lastValueAllocationSizeInBytes;
     final int currentBufferCapacity = valueBuffer.capacity();
 
     if (baseSize < (long) currentBufferCapacity) {
@@ -495,6 +495,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     newBuf.setBytes(0, valueBuffer, 0, currentBufferCapacity);
     valueBuffer.release();
     valueBuffer = newBuf;
+    lastValueAllocationSizeInBytes = valueBuffer.capacity();
   }
 
   /**
@@ -523,8 +524,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   public void reallocValidityAndOffsetBuffers() {
     int targetOffsetCount = (offsetBuffer.capacity() / OFFSET_WIDTH)  * 2;
     if (targetOffsetCount == 0) {
-      if (initialValueAllocation > 0) {
-        targetOffsetCount = 2 * (initialValueAllocation + 1);
+      if (lastValueCapacity > 0) {
+        targetOffsetCount = 2 * (lastValueCapacity + 1);
       } else {
         targetOffsetCount = 2 * (INITIAL_VALUE_ALLOCATION + 1);
       }
@@ -543,6 +544,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     newValidityBuffer.setZero(validityBuffer.capacity(), newValidityBuffer.capacity() - validityBuffer.capacity());
     validityBuffer.release();
     validityBuffer = newValidityBuffer;
+
+    lastValueCapacity = getValueCapacity();
   }
 
   /**
