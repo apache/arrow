@@ -18,6 +18,7 @@
 #ifndef ARROW_CAST_H
 #define ARROW_CAST_H
 
+#include <memory>
 #include <type_traits>
 
 namespace arrow {
@@ -35,6 +36,15 @@ inline OutputType checked_cast(InputType&& value) {
   return static_cast<OutputType>(value);
 #else
   return dynamic_cast<OutputType>(value);
+#endif
+}
+
+template <class T, class U>
+std::shared_ptr<T> checked_pointer_cast(const std::shared_ptr<U>& r) noexcept {
+#ifndef NDEBUG
+  return std::static_pointer_cast<T>(r);
+#else
+  return std::dynamic_pointer_cast<T>(r);
 #endif
 }
 

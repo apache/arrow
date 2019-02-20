@@ -627,9 +627,7 @@ class CastKernelBase : public UnaryKernel {
   std::shared_ptr<DataType> out_type_;
 };
 
-bool NeedToPreallocate(const DataType& type) {
-  return dynamic_cast<const FixedWidthType*>(&type) != nullptr;
-}
+bool NeedToPreallocate(const DataType& type) { return is_fixed_width(type.id()); }
 
 Status InvokeWithAllocation(FunctionContext* ctx, UnaryKernel* func, const Datum& input,
                             Datum* out) {

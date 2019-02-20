@@ -486,6 +486,21 @@ static inline bool is_dictionary(Type::type type_id) {
   return type_id == Type::DICTIONARY;
 }
 
+static inline bool is_fixed_size_binary(Type::type type_id) {
+  switch (type_id) {
+    case Type::DECIMAL:
+    case Type::FIXED_SIZE_BINARY:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_fixed_width(Type::type type_id) {
+  return is_primitive(type_id) || is_dictionary(type_id) || is_fixed_size_binary(type_id);
+}
+
 }  // namespace arrow
 
 #endif  // ARROW_TYPE_TRAITS_H

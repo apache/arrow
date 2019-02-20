@@ -28,10 +28,13 @@
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
 
 namespace arrow {
+
+using internal::checked_cast;
 
 // ----------------------------------------------------------------------
 // ChunkedArray and Column methods
@@ -154,7 +157,7 @@ Status ChunkedArray::Flatten(MemoryPool* pool,
   std::vector<ArrayVector> flattened_chunks;
   for (const auto& chunk : chunks_) {
     ArrayVector res;
-    RETURN_NOT_OK(dynamic_cast<const StructArray&>(*chunk).Flatten(pool, &res));
+    RETURN_NOT_OK(checked_cast<const StructArray&>(*chunk).Flatten(pool, &res));
     if (!flattened_chunks.size()) {
       // First chunk
       for (const auto& array : res) {
