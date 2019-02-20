@@ -769,10 +769,6 @@ add_custom_target(arrow_test_dependencies)
 add_dependencies(arrow_dependencies toolchain)
 add_dependencies(arrow_test_dependencies toolchain-tests)
 
-# Some benchmarks use gtest
-add_dependencies(arrow_benchmark_dependencies arrow_test_dependencies
-                 toolchain-benchmarks)
-
 if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 endif()
@@ -795,7 +791,15 @@ endif()
 
 set(ARROW_TEST_LINK_TOOLCHAIN ${GTEST_LIBRARY} ${GMOCK_MAIN_LIBRARY} ${GMOCK_LIBRARY})
 
-add_dependencies(arrow_test_dependencies ${GTEST_LIBRARY})
+if(ARROW_BUILD_TESTS)
+  add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})
+endif()
+
+if(ARROW_BUILD_BENCHMARKS)
+  # Some benchmarks use gtest
+  add_dependencies(arrow_benchmark_dependencies arrow_test_dependencies
+                   toolchain-benchmarks)
+endif()
 
 set(ARROW_TEST_STATIC_LINK_LIBS
     arrow_testing_static
