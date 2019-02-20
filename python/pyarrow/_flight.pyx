@@ -47,7 +47,10 @@ cdef class Action:
         return pyarrow_wrap_buffer(self.action.body)
 
 
-class ActionType(collections.namedtuple('ActionType', ['type', 'description'])):
+_ActionType = collections.namedtuple('_ActionType', ['type', 'description'])
+
+
+class ActionType(_ActionType):
     """A type of action executable on a Flight service."""
 
     def make_action(self, buf):
@@ -414,18 +417,21 @@ cdef class RecordBatchStream(FlightDataStream):
         """
         cdef shared_ptr[CRecordBatchReader] reader
         if isinstance(data_source, _CRecordBatchReader):
-            stream = new CRecordBatchStream((<_CRecordBatchReader> data_source).reader)
+            reader = (<_CRecordBatchReader> data_source).reader
+            stream = new CRecordBatchStream(reader)
             self.stream.reset(stream)
         elif isinstance(data_source, lib.Table):
-            reader.reset(new TableBatchReader(deref((<Table> data_source).table)))
+            table = (<Table> data_source).table
+            reader.reset(new TableBatchReader(deref(table)))
             stream = new CRecordBatchStream(reader)
             self.stream.reset(stream)
         else:
-            raise TypeError("Expected RecordBatchReader or Table, but got: {}".format(type(data_source)))
+            raise TypeError("Expected RecordBatchReader or Table, "
+                            "but got: {}".format(type(data_source)))
 
 
 cdef int _list_flights(void* self, const CCriteria* c_criteria,
-                        unique_ptr[CFlightListing]* listing) except -1:
+                       unique_ptr[CFlightListing]* listing) except -1:
     """Callback for implementing ListFlights in Python."""
     cdef:
         vector[CFlightInfo] flights
@@ -433,14 +439,15 @@ cdef int _list_flights(void* self, const CCriteria* c_criteria,
     for info in result:
         if not isinstance(info, FlightInfo):
             raise TypeError("FlightServerBase.list_flights must return "
-                            "FlightInfo instances, but got {}".format(type(info)))
+                            "FlightInfo instances, but got {}".format(
+                                type(info)))
         flights.push_back(CFlightInfo(deref((<FlightInfo> info).info.get())))
     listing.reset(new CSimpleFlightListing(flights))
     return 0
 
 
 cdef int _get_flight_info(void* self, CFlightDescriptor c_descriptor,
-                           unique_ptr[CFlightInfo]* info) except -1:
+                          unique_ptr[CFlightInfo]* info) except -1:
     """Callback for implementing Flight servers in Python."""
     cdef:
         FlightDescriptor py_descriptor = \
@@ -449,12 +456,14 @@ cdef int _get_flight_info(void* self, CFlightDescriptor c_descriptor,
     result = (<object> self).get_flight_info(py_descriptor)
     if not isinstance(result, FlightInfo):
         raise TypeError("FlightServerBase.get_flight_info must return "
-                        "a FlightInfo instance")
+                        "a FlightInfo instance, but got {}".format(
+                            type(result)))
     info[0] = move((<FlightInfo> result).info)
     return 0
 
 
-cdef int _do_put(void* self, unique_ptr[CFlightMessageReader] reader) except -1:
+cdef int _do_put(void* self,
+                 unique_ptr[CFlightMessageReader] reader) except -1:
     """Callback for implementing Flight servers in Python."""
     cdef:
         FlightRecordBatchReader py_reader = FlightRecordBatchReader()
@@ -468,7 +477,7 @@ cdef int _do_put(void* self, unique_ptr[CFlightMessageReader] reader) except -1:
 
 
 cdef int _do_get(void* self, CTicket ticket,
-                  unique_ptr[CFlightDataStream]* stream) except -1:
+                 unique_ptr[CFlightDataStream]* stream) except -1:
     """Callback for implementing Flight servers in Python."""
     py_ticket = Ticket(ticket.ticket)
     result = (<object> self).do_get(py_ticket)
@@ -480,7 +489,7 @@ cdef int _do_get(void* self, CTicket ticket,
 
 
 cdef int _do_action_result_next(void* self,
-                                 unique_ptr[CResult]* result) except -1:
+                                unique_ptr[CResult]* result) except -1:
     """Callback for implementing Flight servers in Python."""
     try:
         action_result = next(<object> self)

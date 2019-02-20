@@ -36,12 +36,14 @@ class FlightServer(pyarrow.flight.FlightServerBase):
     def list_flights(self, criteria):
         for key, table in self.flights.items():
             if key[1] is not None:
-                descriptor = pyarrow.flight.FlightDescriptor.for_command(key[1])
+                descriptor = \
+                    pyarrow.flight.FlightDescriptor.for_command(key[1])
             else:
                 descriptor = pyarrow.flight.FlightDescriptor.for_path(*key[2])
 
             endpoints = [
-                pyarrow.flight.FlightEndpoint(repr(key), [('localhost', 5005)]),
+                pyarrow.flight.FlightEndpoint(repr(key),
+                                              [('localhost', 5005)]),
             ]
             yield pyarrow.flight.FlightInfo(table.schema,
                                             descriptor, endpoints,
@@ -52,7 +54,8 @@ class FlightServer(pyarrow.flight.FlightServerBase):
         if key in self.flights:
             table = self.flights[key]
             endpoints = [
-                pyarrow.flight.FlightEndpoint(repr(key), [('localhost', 5005)]),
+                pyarrow.flight.FlightEndpoint(repr(key),
+                                              [('localhost', 5005)]),
             ]
             return pyarrow.flight.FlightInfo(table.schema,
                                              descriptor, endpoints,
@@ -80,7 +83,8 @@ class FlightServer(pyarrow.flight.FlightServerBase):
 
     def do_action(self, action):
         if action.type == "clear":
-            raise NotImplementedError("{} is not implemented.".format(action.type))
+            raise NotImplementedError(
+                "{} is not implemented.".format(action.type))
         else:
             yield pyarrow.flight.Result(pyarrow.py_buffer(b'Shutdown!'))
 

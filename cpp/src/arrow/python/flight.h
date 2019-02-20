@@ -34,7 +34,6 @@ namespace flight {
 /// \brief A table of function pointers for calling from C++ into
 /// Python.
 class ARROW_PYTHON_EXPORT PyFlightServerVtable {
-
  public:
   // Must return int so Cython will propagate exceptions
   std::function<int(PyObject*, const arrow::flight::Criteria*,
@@ -75,12 +74,14 @@ class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBas
 };
 
 /// \brief A callback that obtains the next result from a Flight action.
-typedef std::function<int(PyObject*, std::unique_ptr<arrow::flight::Result>*)> PyFlightResultStreamCallback;
+typedef std::function<int(PyObject*, std::unique_ptr<arrow::flight::Result>*)>
+    PyFlightResultStreamCallback;
 
 /// \brief A ResultStream built around a Python callback.
 class ARROW_PYTHON_EXPORT PyFlightResultStream : public arrow::flight::ResultStream {
  public:
-  explicit PyFlightResultStream(PyObject* generator, PyFlightResultStreamCallback callback);
+  explicit PyFlightResultStream(PyObject* generator,
+                                PyFlightResultStreamCallback callback);
   Status Next(std::unique_ptr<arrow::flight::Result>* result) override;
 
  private:

@@ -147,8 +147,10 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         void Run(int port)
         void Shutdown()
 
-    cdef cppclass CPyFlightResultStream" arrow::py::flight::PyFlightResultStream"(CResultStream):
-        CPyFlightResultStream(object generator, function[cb_result_next] callback)
+    cdef cppclass CPyFlightResultStream\
+            " arrow::py::flight::PyFlightResultStream"(CResultStream):
+        CPyFlightResultStream(object generator,
+                              function[cb_result_next] callback)
 
     cdef CStatus CreateFlightInfo" arrow::py::flight::CreateFlightInfo"(
         shared_ptr[CSchema] schema,

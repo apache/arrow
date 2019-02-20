@@ -15,8 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow._flight import (FlightClient, Action, ActionType,  # noqa
-                             FlightDescriptor, FlightEndpoint,
-                             FlightInfo, Ticket, Location,
-                             FlightServerBase, DescriptorType,
-                             RecordBatchStream, Result)
+from pyarrow._flight import (Action,  # noqa
+                             ActionType,
+                             DescriptorType,
+                             FlightClient,
+                             FlightDescriptor,
+                             FlightEndpoint,
+                             FlightInfo,
+                             FlightServerBase,
+                             Location,
+                             Ticket,
+                             RecordBatchStream,
+                             Result)
