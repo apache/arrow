@@ -518,9 +518,15 @@ class ARROW_EXPORT StructType : public NestedType {
   /// Returns null if name not found
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
 
+  /// Return all fields having this name
+  std::vector<std::shared_ptr<Field>> GetAllFieldsByName(const std::string& name) const;
+
   /// Returns -1 if name not found or if there are multiple fields having the
   /// same name
   int GetFieldIndex(const std::string& name) const;
+
+  /// Return the indices of all fields having this name
+  std::vector<int> GetAllFieldIndices(const std::string& name) const;
 
   ARROW_DEPRECATED("Use GetFieldByName")
   std::shared_ptr<Field> GetChildByName(const std::string& name) const;
@@ -529,7 +535,7 @@ class ARROW_EXPORT StructType : public NestedType {
   int GetChildIndex(const std::string& name) const;
 
  private:
-  std::unordered_map<std::string, int> name_to_index_;
+  std::unordered_multimap<std::string, int> name_to_index_;
 };
 
 /// \brief Base type class for (fixed-size) decimal data
@@ -826,8 +832,14 @@ class ARROW_EXPORT Schema {
   /// Returns null if name not found
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
 
+  /// Return all fields having this name
+  std::vector<std::shared_ptr<Field>> GetAllFieldsByName(const std::string& name) const;
+
   /// Returns -1 if name not found
   int GetFieldIndex(const std::string& name) const;
+
+  /// Return the indices of all fields having this name
+  std::vector<int> GetAllFieldIndices(const std::string& name) const;
 
   const std::vector<std::shared_ptr<Field>>& fields() const { return fields_; }
 
@@ -866,7 +878,7 @@ class ARROW_EXPORT Schema {
  private:
   std::vector<std::shared_ptr<Field>> fields_;
 
-  std::unordered_map<std::string, int> name_to_index_;
+  std::unordered_multimap<std::string, int> name_to_index_;
 
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
