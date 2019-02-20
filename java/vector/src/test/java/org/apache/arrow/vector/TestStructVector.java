@@ -69,4 +69,18 @@ public class TestStructVector {
       assertEquals(0, toChild.getValidityBuffer().capacity());
     }
   }
+
+  @Test
+  public void tesReAlloc() throws Exception {
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("k1", "v1");
+    FieldType type = new FieldType(true, Struct.INSTANCE, null, metadata);
+    try (StructVector vector = new StructVector("struct", allocator, type, null)) {
+      for (int i=0; i<100; ++i) {
+        vector.clear();
+        vector.allocateNewSafe();
+        vector.reAlloc();
+      }
+    }
+  }
 }
