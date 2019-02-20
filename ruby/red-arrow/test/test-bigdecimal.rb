@@ -16,8 +16,9 @@
 # under the License.
 
 class BigDecimalTest < Test::Unit::TestCase
-  test("to_arrow") do
+  test("#to_arrow") do
     arrow_decimal = BigDecimal("3.14").to_arrow
-    assert_equal(Arrow::Decimal128.new("3.14"), arrow_decimal)
+    assert_equal(Arrow::Decimal128.new("3.14"),
+                 BigDecimal("3.14").to_arrow)
   end
 end
