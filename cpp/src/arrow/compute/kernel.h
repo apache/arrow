@@ -54,6 +54,9 @@ class FunctionContext;
 class ARROW_EXPORT OpKernel {
  public:
   virtual ~OpKernel() = default;
+  /// \brief EXPERIMENTAL The output data type of the kernel
+  /// \return the output type
+  virtual std::shared_ptr<DataType> out_type() const = 0;
 };
 
 /// \class Datum
@@ -188,10 +191,6 @@ class ARROW_EXPORT UnaryKernel : public OpKernel {
   /// there will be a more generic mechansim for understanding the necessary
   /// contracts.
   virtual Status Call(FunctionContext* ctx, const Datum& input, Datum* out) = 0;
-
-  /// \brief EXPERIMENTAL The output data type of the kernel
-  /// \return the output type
-  virtual std::shared_ptr<DataType> out_type() const = 0;
 };
 
 /// \class BinaryKernel

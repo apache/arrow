@@ -634,7 +634,7 @@ Status InvokeWithAllocation(FunctionContext* ctx, UnaryKernel* func, const Datum
   std::vector<Datum> result;
   if (NeedToPreallocate(*func->out_type())) {
     // Create wrapper that allocates output memory for primitive types
-    detail::PrimitiveAllocatingUnaryKernel wrapper(func, func->out_type());
+    detail::PrimitiveAllocatingUnaryKernel wrapper(func);
     RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, &wrapper, input, &result));
   } else {
     RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, func, input, &result));

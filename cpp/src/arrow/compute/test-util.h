@@ -46,11 +46,14 @@ class ComputeFixture {
 class MockUnaryKernel : public UnaryKernel {
  public:
   MOCK_METHOD3(Call, Status(FunctionContext* ctx, const Datum& input, Datum* out));
+  MOCK_CONST_METHOD0(out_type, std::shared_ptr<DataType>());
 };
 
 class MockBinaryKernel : public BinaryKernel {
+ public:
   MOCK_METHOD4(Call, Status(FunctionContext* ctx, const Datum& left, const Datum& right,
                             Datum* out));
+  MOCK_CONST_METHOD0(out_type, std::shared_ptr<DataType>());
 };
 
 template <typename Type, typename T>

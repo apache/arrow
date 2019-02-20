@@ -64,13 +64,24 @@ Status InvokeBinaryArrayKernel(FunctionContext* ctx, BinaryKernel* kernel,
 
 /// \brief Assign validity bitmap to output, copying bitmap if necessary, but
 /// zero-copy otherwise, so that the same value slots are valid/not-null in the
-/// output
-/// (sliced arrays)
+/// output (sliced arrays).
+///
 /// \param[in] ctx the kernel FunctionContext
 /// \param[in] input the input array
-/// \param[out] output the output array
+/// \param[out] output the output array.  Must have length set correctly.
 ARROW_EXPORT
 Status PropagateNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* output);
+
+/// \brief Assign validity bitmap to output, taking the intersection of left and right
+/// null bitmaps if necessary, but zero-copy otherwise.
+///
+/// \param[in] ctx the kernel FunctionContext
+/// \param[in] left the left operand
+/// \param[in] right the right operand
+/// \param[out] output the output array. Must have length set correctly.
+ARROW_EXPORT
+Status AssignNullIntersection(FunctionContext* ctx, const ArrayData& left,
+                              const ArrayData& right, ArrayData* output);
 
 ARROW_EXPORT
 Datum WrapArraysLike(const Datum& value,
@@ -79,13 +90,14 @@ Datum WrapArraysLike(const Datum& value,
 ARROW_EXPORT
 Datum WrapDatumsLike(const Datum& value, const std::vector<Datum>& datums);
 
-/// \brief Kernel used to preallocate outputs for primitive types.
-class PrimitiveAllocatingUnaryKernel : public UnaryKernel {
+/// \brief Kernel used to preallocate outputs for primitive types. This
+/// does not include allocations for the validity bitmap (PropagateNulls
+/// should be used for that).
+class ARROW_EXPORT PrimitiveAllocatingUnaryKernel : public UnaryKernel {
  public:
-  PrimitiveAllocatingUnaryKernel(std::unique_ptr<UnaryKernel> delegate,
-                                 const std::shared_ptr<DataType>& out_type);
-  PrimitiveAllocatingUnaryKernel(UnaryKernel* delegate,
-                                 const std::shared_ptr<DataType>& out_type);
+  // \brief Construct with a delegate that must live longer
+  // then this object.
+  explicit PrimitiveAllocatingUnaryKernel(UnaryKernel* delegate);
   /// \brief Allocates ArrayData with the necessary data buffers allocated and
   /// then written into by the delegate kernel
   Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override;
@@ -94,8 +106,26 @@ class PrimitiveAllocatingUnaryKernel : public UnaryKernel {
 
  private:
   UnaryKernel* delegate_;
-  std::shared_ptr<DataType> out_type_;
-  std::unique_ptr<UnaryKernel> owned_delegate_;
+};
+
+/// \brief Kernel used to preallocate outputs for primitive types.
+class ARROW_EXPORT PrimitiveAllocatingBinaryKernel : public BinaryKernel {
+ public:
+  // \brief Construct with a kernel to delegate operatoions to.
+  //
+  // Ownership is not taken of the delegate kernel, it must outlive
+  // the life time of this object.
+  explicit PrimitiveAllocatingBinaryKernel(BinaryKernel* delegate);
+
+  /// \brief Sets out to be of type ArrayData with the necessary
+  /// data buffers prepopulated.
+  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
+              Datum* out) override;
+
+  std::shared_ptr<DataType> out_type() const override;
+
+ private:
+  BinaryKernel* delegate_;
 };
 
 }  // namespace detail
