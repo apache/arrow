@@ -18,15 +18,6 @@
 #ifndef PLASMA_PLASMA_H
 #define PLASMA_PLASMA_H
 
-#include <errno.h>
-#include <inttypes.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>  // pid_t
-
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -35,8 +26,6 @@
 #include "plasma/compat.h"
 
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
-#include "arrow/util/macros.h"
 #include "plasma/common.h"
 
 #ifdef PLASMA_CUDA
@@ -45,31 +34,8 @@ using arrow::cuda::CudaIpcMemHandle;
 
 namespace plasma {
 
-namespace flatbuf {
-struct ObjectInfoT;
-}  // namespace flatbuf
-
-#define HANDLE_SIGPIPE(s, fd_)                                              \
-  do {                                                                      \
-    Status _s = (s);                                                        \
-    if (!_s.ok()) {                                                         \
-      if (errno == EPIPE || errno == EBADF || errno == ECONNRESET) {        \
-        ARROW_LOG(WARNING)                                                  \
-            << "Received SIGPIPE, BAD FILE DESCRIPTOR, or ECONNRESET when " \
-               "sending a message to client on fd "                         \
-            << fd_                                                          \
-            << ". "                                                         \
-               "The client on the other end may have hung up.";             \
-      } else {                                                              \
-        return _s;                                                          \
-      }                                                                     \
-    }                                                                       \
-  } while (0);
-
 /// Allocation granularity used in plasma for object allocation.
 constexpr int64_t kBlockSize = 64;
-
-struct Client;
 
 // TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
 struct PlasmaObject {
@@ -116,30 +82,12 @@ struct PlasmaStoreInfo {
 /// Get an entry from the object table and return NULL if the object_id
 /// is not present.
 ///
-/// @param store_info The PlasmaStoreInfo that contains the object table.
-/// @param object_id The object_id of the entry we are looking for.
-/// @return The entry associated with the object_id or NULL if the object_id
+/// \param store_info The PlasmaStoreInfo that contains the object table.
+/// \param object_id The object_id of the entry we are looking for.
+/// \return The entry associated with the object_id or NULL if the object_id
 ///         is not present.
 ObjectTableEntry* GetObjectTableEntry(PlasmaStoreInfo* store_info,
                                       const ObjectID& object_id);
-
-/// Print a warning if the status is less than zero. This should be used to check
-/// the success of messages sent to plasma clients. We print a warning instead of
-/// failing because the plasma clients are allowed to die. This is used to handle
-/// situations where the store writes to a client file descriptor, and the client
-/// may already have disconnected. If we have processed the disconnection and
-/// closed the file descriptor, we should get a BAD FILE DESCRIPTOR error. If we
-/// have not, then we should get a SIGPIPE. If we write to a TCP socket that
-/// isn't connected yet, then we should get an ECONNRESET.
-///
-/// @param status The status to check. If it is less less than zero, we will
-///        print a warning.
-/// @param client_sock The client socket. This is just used to print some extra
-///        information.
-/// @return The errno set.
-int WarnIfSigpipe(int status, int client_sock);
-
-std::unique_ptr<uint8_t[]> CreateObjectInfoBuffer(flatbuf::ObjectInfoT* object_info);
 
 }  // namespace plasma
 

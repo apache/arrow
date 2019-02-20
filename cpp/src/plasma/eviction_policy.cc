@@ -16,6 +16,7 @@
 // under the License.
 
 #include "plasma/eviction_policy.h"
+#include "arrow/util/logging.h"
 #include "plasma/plasma_allocator.h"
 
 #include <algorithm>

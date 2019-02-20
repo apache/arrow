@@ -29,6 +29,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/util/logging.h"
 #include "plasma/common.h"
 #include "plasma/plasma.h"
 

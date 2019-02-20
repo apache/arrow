@@ -2419,6 +2419,33 @@ if(ARROW_ORC)
   endif()
 endif()
 
+# ----------------------------------------------------------------------
+# Plasma
+
+if(ARROW_PLASMA)
+  externalproject_add(asio_ep
+                      URL
+                      https://github.com/chriskohlhoff/asio/archive/asio-1-12-2.zip
+                      CONFIGURE_COMMAND
+                      "" # No autogen since we use asio in header-only way.
+                      BUILD_IN_SOURCE
+                      1
+                      BUILD_COMMAND
+                      ""
+                      INSTALL_COMMAND
+                      cmake
+                      -E
+                      copy
+                      asio/include/asio.hpp
+                      ${PROJECT_BINARY_DIR}/src
+                      &&
+                      cmake
+                      -E
+                      copy_directory
+                      asio/include/asio
+                      ${PROJECT_BINARY_DIR}/src/asio/)
+endif()
+
 # Write out the package configurations.
 
 configure_file("src/arrow/util/config.h.cmake" "src/arrow/util/config.h")

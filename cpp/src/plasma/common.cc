@@ -19,10 +19,6 @@
 
 #include <limits>
 
-#include "plasma/plasma_generated.h"
-
-namespace fb = plasma::flatbuf;
-
 namespace plasma {
 
 using arrow::Status;

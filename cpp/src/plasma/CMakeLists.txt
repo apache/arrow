@@ -61,15 +61,19 @@ add_custom_command(
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
-set(PLASMA_SRCS client.cc common.cc fling.cc io.cc malloc.cc plasma.cc protocol.cc)
+# Set compiling options for asio headers.
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-conversion -Wno-documentation")
+
+set(PLASMA_IO_SRCS fling.cc io/basic_connection.cc io/connection.cc protocol.cc)
+
+set(PLASMA_SRCS client.cc common.cc malloc.cc plasma.cc protocol.cc ${PLASMA_IO_SRCS})
 
 set(PLASMA_STORE_SRCS
     dlmalloc.cc
-    events.cc
     eviction_policy.cc
     plasma_allocator.cc
-    store.cc
-    thirdparty/ae/ae.c)
+    ${PLASMA_IO_SRCS}
+    store.cc)
 
 set(PLASMA_LINK_LIBS arrow_shared)
 set(PLASMA_STATIC_LINK_LIBS arrow_static)
@@ -87,6 +91,7 @@ add_arrow_lib(plasma
               PLASMA_LIBRARIES
               DEPENDENCIES
               gen_plasma_fbs
+              asio_ep
               SHARED_LINK_LIBS
               ${PLASMA_LINK_LIBS}
               STATIC_LINK_LIBS
@@ -120,13 +125,16 @@ list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external_store.cc" "hash_table_store.
 # We use static libraries for the plasma_store_server executable so that it can
 # be copied around and used in different locations.
 add_executable(plasma_store_server ${PLASMA_EXTERNAL_STORE_SOURCES} ${PLASMA_STORE_SRCS})
+
 if(ARROW_BUILD_STATIC)
   target_link_libraries(plasma_store_server plasma_static ${PLASMA_STATIC_LINK_LIBS})
 else()
   # Fallback to shared libs in the case that static libraries are not build.
   target_link_libraries(plasma_store_server plasma_shared ${PLASMA_LINK_LIBS})
 endif()
+
 add_dependencies(plasma plasma_store_server)
+add_dependencies(plasma_store_server asio_ep)
 
 if(ARROW_RPATH_ORIGIN)
   if(APPLE)
@@ -153,11 +161,7 @@ elseif(APPLE)
   endif()
 endif()
 
-install(FILES common.h
-              compat.h
-              client.h
-              events.h
-              test-util.h
+install(FILES common.h compat.h client.h test-util.h
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plasma")
 
 # Plasma store

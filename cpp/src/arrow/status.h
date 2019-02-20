@@ -91,6 +91,7 @@ enum class StatusCode : char {
   SerializationError = 11,
   PythonError = 12,
   RError = 13,
+  ProtocolError = 14,
   PlasmaObjectExists = 20,
   PlasmaObjectNonexistent = 21,
   PlasmaStoreFull = 22,
@@ -216,6 +217,12 @@ class ARROW_EXPORT Status {
   template <typename... Args>
   static Status RError(Args&&... args) {
     return Status(StatusCode::RError, util::StringBuilder(std::forward<Args>(args)...));
+  }
+
+  template <typename... Args>
+  static Status ProtocolError(Args&&... args) {
+    return Status(StatusCode::ProtocolError,
+                  util::StringBuilder(std::forward<Args>(args)...));
   }
 
   template <typename... Args>

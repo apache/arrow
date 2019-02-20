@@ -60,7 +60,7 @@ class EvictionPolicy {
  public:
   /// Construct an eviction policy.
   ///
-  /// @param store_info Information about the Plasma store that is exposed
+  /// \param store_info Information about the Plasma store that is exposed
   ///        to the eviction policy.
   explicit EvictionPolicy(PlasmaStoreInfo* store_info);
 
@@ -69,7 +69,7 @@ class EvictionPolicy {
   /// store calls begin_object_access, we can remove the object from the LRU
   /// cache.
   ///
-  /// @param object_id The object ID of the object that was created.
+  /// \param object_id The object ID of the object that was created.
   void ObjectCreated(const ObjectID& object_id);
 
   /// This method will be called when the Plasma store needs more space, perhaps
@@ -77,11 +77,11 @@ class EvictionPolicy {
   /// policy will assume that the objects chosen to be evicted will in fact be
   /// evicted from the Plasma store by the caller.
   ///
-  /// @param size The size in bytes of the new object, including both data and
+  /// \param size The size in bytes of the new object, including both data and
   ///        metadata.
-  /// @param objects_to_evict The object IDs that were chosen for eviction will
+  /// \param objects_to_evict The object IDs that were chosen for eviction will
   ///        be stored into this vector.
-  /// @return True if enough space can be freed and false otherwise.
+  /// \return True if enough space can be freed and false otherwise.
   bool RequireSpace(int64_t size, std::vector<ObjectID>* objects_to_evict);
 
   /// This method will be called whenever an unused object in the Plasma store
@@ -89,8 +89,8 @@ class EvictionPolicy {
   /// assume that the objects chosen to be evicted will in fact be evicted from
   /// the Plasma store by the caller.
   ///
-  /// @param object_id The ID of the object that is now being used.
-  /// @param objects_to_evict The object IDs that were chosen for eviction will
+  /// \param object_id The ID of the object that is now being used.
+  /// \param objects_to_evict The object IDs that were chosen for eviction will
   ///        be stored into this vector.
   void BeginObjectAccess(const ObjectID& object_id,
                          std::vector<ObjectID>* objects_to_evict);
@@ -100,8 +100,8 @@ class EvictionPolicy {
   /// eviction policy will assume that the objects chosen to be evicted will in
   /// fact be evicted from the Plasma store by the caller.
   ///
-  /// @param object_id The ID of the object that is no longer being used.
-  /// @param objects_to_evict The object IDs that were chosen for eviction will
+  /// \param object_id The ID of the object that is no longer being used.
+  /// \param objects_to_evict The object IDs that were chosen for eviction will
   ///        be stored into this vector.
   void EndObjectAccess(const ObjectID& object_id,
                        std::vector<ObjectID>* objects_to_evict);
@@ -113,16 +113,16 @@ class EvictionPolicy {
   /// @note This method is not part of the API. It is exposed in the header file
   /// only for testing.
   ///
-  /// @param num_bytes_required The number of bytes of space to try to free up.
-  /// @param objects_to_evict The object IDs that were chosen for eviction will
+  /// \param num_bytes_required The number of bytes of space to try to free up.
+  /// \param objects_to_evict The object IDs that were chosen for eviction will
   ///        be stored into this vector.
-  /// @return The total number of bytes of space chosen to be evicted.
+  /// \return The total number of bytes of space chosen to be evicted.
   int64_t ChooseObjectsToEvict(int64_t num_bytes_required,
                                std::vector<ObjectID>* objects_to_evict);
 
   /// This method will be called when an object is going to be removed
   ///
-  /// @param object_id The ID of the object that is now being used.
+  /// \param object_id The ID of the object that is now being used.
   void RemoveObject(const ObjectID& object_id);
 
  private:

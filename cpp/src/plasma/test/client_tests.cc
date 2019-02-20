@@ -15,13 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <assert.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
-
 #include <chrono>
 #include <random>
 #include <thread>
@@ -125,15 +118,13 @@ TEST_F(TestPlasmaStore, NewSubscriberTest) {
   ARROW_CHECK_OK(local_client.Seal(object_id));
 
   // Test that new subscriber client2 can receive notifications about existing objects.
-  int fd = -1;
-  ARROW_CHECK_OK(local_client2.Subscribe(&fd));
-  ASSERT_GT(fd, 0);
+  ARROW_CHECK_OK(local_client2.Subscribe());
 
   ObjectID object_id2 = random_object_id();
   int64_t data_size2 = 0;
   int64_t metadata_size2 = 0;
   ARROW_CHECK_OK(
-      local_client2.GetNotification(fd, &object_id2, &data_size2, &metadata_size2));
+      local_client2.GetNotification(&object_id2, &data_size2, &metadata_size2));
   ASSERT_EQ(object_id, object_id2);
   ASSERT_EQ(data_size, data_size2);
   ASSERT_EQ(metadata_size, metadata_size2);
@@ -143,7 +134,7 @@ TEST_F(TestPlasmaStore, NewSubscriberTest) {
   ARROW_CHECK_OK(local_client.Delete(object_id));
 
   ARROW_CHECK_OK(
-      local_client2.GetNotification(fd, &object_id2, &data_size2, &metadata_size2));
+      local_client2.GetNotification(&object_id2, &data_size2, &metadata_size2));
   ASSERT_EQ(object_id, object_id2);
   ASSERT_EQ(-1, data_size2);
   ASSERT_EQ(-1, metadata_size2);

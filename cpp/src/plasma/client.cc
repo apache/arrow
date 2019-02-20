@@ -23,34 +23,22 @@
 #include <Win32_Interop/win32_types.h>
 #endif
 
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <strings.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/un.h>
-#include <time.h>
-#include <unistd.h>
+#include <sys/mman.h>  // PROT_READ, PROT_WRITE, MAP_SHARED, MAP_FAILED
 
 #include <algorithm>
 #include <deque>
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/thread-pool.h"
 
 #include "plasma/common.h"
-#include "plasma/fling.h"
-#include "plasma/io.h"
 #include "plasma/malloc.h"
-#include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
 #ifdef PLASMA_CUDA
@@ -68,12 +56,11 @@ using arrow::cuda::CudaDeviceManager;
 
 #define XXH64_DEFAULT_SEED 0
 
-namespace fb = plasma::flatbuf;
-
 namespace plasma {
 
-using fb::MessageType;
-using fb::PlasmaError;
+using flatbuf::MessageType;
+using flatbuf::PlasmaError;
+using io::ServerConnection;
 
 using arrow::MutableBuffer;
 
@@ -196,6 +183,11 @@ class ClientMmapTableEntry {
   ARROW_DISALLOW_COPY_AND_ASSIGN(ClientMmapTableEntry);
 };
 
+Status PlasmaReceive(const std::shared_ptr<ServerConnection>& client,
+                     MessageType message_type, std::vector<uint8_t>* buffer) {
+  return client->ReadMessage(static_cast<int64_t>(message_type), buffer);
+}
+
 class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Impl> {
  public:
   Impl();
@@ -203,9 +195,7 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   // PlasmaClient method implementations
 
-  Status Connect(const std::string& store_socket_name,
-                 const std::string& manager_socket_name, int release_delay = 0,
-                 int num_retries = -1);
+  Status Connect(const std::string& store_socket_name);
 
   Status Create(const ObjectID& object_id, int64_t data_size, const uint8_t* metadata,
                 int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
@@ -235,13 +225,16 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status Hash(const ObjectID& object_id, uint8_t* digest);
 
-  Status Subscribe(int* fd);
+  Status Subscribe();
 
   Status DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
                             int64_t* data_size, int64_t* metadata_size);
 
-  Status GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
-                         int64_t* metadata_size);
+  Status GetNotification(ObjectID* object_id, int64_t* data_size, int64_t* metadata_size);
+
+  inline int GetNativeNotificationHandle() {
+    return notification_conn_->GetNativeHandle();
+  }
 
   Status Disconnect();
 
@@ -286,8 +279,13 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
                              const uint8_t* metadata, int64_t metadata_size,
                              int device_num);
 
-  /// File descriptor of the Unix domain socket that connects to the store.
-  int store_conn_;
+  /// The I/O context of the client.
+  asio::io_context io_context_;
+  /// The connection to the store.
+  std::shared_ptr<ServerConnection> store_conn_;
+  std::shared_ptr<ServerConnection> notification_conn_;
+  /// The name of the socket we are connecting to.
+  std::string store_socket_name_;
   /// Table of dlmalloc buffer files that have been memory mapped so far. This
   /// is a hash table mapping a file descriptor to a struct containing the
   /// address of the corresponding memory-mapped file.
@@ -348,8 +346,9 @@ bool PlasmaClient::Impl::IsInUse(const ObjectID& object_id) {
 int PlasmaClient::Impl::GetStoreFd(int store_fd) {
   auto entry = mmap_table_.find(store_fd);
   if (entry == mmap_table_.end()) {
-    int fd = recv_fd(store_conn_);
-    ARROW_CHECK(fd >= 0) << "recv not successful";
+    int fd;
+    auto status = store_conn_->RecvFd(&fd);
+    ARROW_CHECK(status.ok() && fd >= 0) << "recv not successful";
     return fd;
   } else {
     return entry->second->fd();
@@ -794,8 +793,7 @@ Status PlasmaClient::Impl::Abort(const ObjectID& object_id) {
 
   std::vector<uint8_t> buffer;
   ObjectID id;
-  MessageType type;
-  RETURN_NOT_OK(ReadMessage(store_conn_, &type, &buffer));
+  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaAbortReply, &buffer));
   return ReadAbortReply(buffer.data(), buffer.size(), &id);
 }
 
@@ -827,8 +825,7 @@ Status PlasmaClient::Impl::Evict(int64_t num_bytes, int64_t& num_bytes_evicted) 
   RETURN_NOT_OK(SendEvictRequest(store_conn_, num_bytes));
   // Wait for a response with the number of bytes actually evicted.
   std::vector<uint8_t> buffer;
-  MessageType type;
-  RETURN_NOT_OK(ReadMessage(store_conn_, &type, &buffer));
+  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaEvictReply, &buffer));
   return ReadEvictReply(buffer.data(), buffer.size(), num_bytes_evicted);
 }
 
@@ -847,30 +844,22 @@ Status PlasmaClient::Impl::Hash(const ObjectID& object_id, uint8_t* digest) {
   return Status::OK();
 }
 
-Status PlasmaClient::Impl::Subscribe(int* fd) {
-  int sock[2];
-  // Create a non-blocking socket pair. This will only be used to send
-  // notifications from the Plasma store to the client.
-  socketpair(AF_UNIX, SOCK_STREAM, 0, sock);
-  // Make the socket non-blocking.
-  int flags = fcntl(sock[1], F_GETFL, 0);
-  ARROW_CHECK(fcntl(sock[1], F_SETFL, flags | O_NONBLOCK) == 0);
+Status PlasmaClient::Impl::Subscribe() {
+  if (store_socket_name_.empty()) {
+    ARROW_LOG(FATAL) << "Please connect to the store before subscribing messages.";
+  }
+  auto stream = io::CreateLocalStream(io_context_, store_socket_name_);
+  auto conn = ServerConnection::Create(std::move(stream));
+  notification_conn_ = std::move(conn);
   // Tell the Plasma store about the subscription.
-  RETURN_NOT_OK(SendSubscribeRequest(store_conn_));
-  // Send the file descriptor that the Plasma store should use to push
-  // notifications about sealed objects to this client.
-  ARROW_CHECK(send_fd(store_conn_, sock[1]) >= 0);
-  close(sock[1]);
-  // Return the file descriptor that the client should use to read notifications
-  // about sealed objects.
-  *fd = sock[0];
-  return Status::OK();
+  return SendSubscribeRequest(notification_conn_);
 }
 
+// TODO(suquark): Move it to protocol.cc
 Status PlasmaClient::Impl::DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
                                               int64_t* data_size,
                                               int64_t* metadata_size) {
-  auto object_info = flatbuffers::GetRoot<fb::ObjectInfo>(buffer);
+  auto object_info = flatbuffers::GetRoot<flatbuf::ObjectInfo>(buffer);
   ARROW_CHECK(object_info->object_id()->size() == sizeof(ObjectID));
   memcpy(object_id, object_info->object_id()->data(), sizeof(ObjectID));
   if (object_info->is_deletion()) {
@@ -883,26 +872,25 @@ Status PlasmaClient::Impl::DecodeNotification(const uint8_t* buffer, ObjectID* o
   return Status::OK();
 }
 
-Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
-                                           int64_t* data_size, int64_t* metadata_size) {
-  auto notification = ReadMessageAsync(fd);
-  if (notification == NULL) {
+Status PlasmaClient::Impl::GetNotification(ObjectID* object_id, int64_t* data_size,
+                                           int64_t* metadata_size) {
+  std::unique_ptr<uint8_t[]> notification;
+  if (!notification_conn_) {
+    ARROW_LOG(ERROR) << "Get notification without subscription.";
+    return Status::ExecutionError("Get notification without subscription.");
+  }
+  auto status = notification_conn_->ReadNotificationMessage(notification);
+  if (!status.ok()) {
     return Status::IOError("Failed to read object notification from Plasma socket");
   }
   return DecodeNotification(notification.get(), object_id, data_size, metadata_size);
 }
 
-Status PlasmaClient::Impl::Connect(const std::string& store_socket_name,
-                                   const std::string& manager_socket_name,
-                                   int release_delay, int num_retries) {
-  RETURN_NOT_OK(ConnectIpcSocketRetry(store_socket_name, num_retries, -1, &store_conn_));
-  if (manager_socket_name != "") {
-    return Status::NotImplemented("plasma manager is no longer supported");
-  }
-  if (release_delay != 0) {
-    ARROW_LOG(WARNING) << "The release_delay parameter in PlasmaClient::Connect "
-                       << "is deprecated";
-  }
+Status PlasmaClient::Impl::Connect(const std::string& store_socket_name) {
+  store_socket_name_ = store_socket_name;
+  auto stream = io::CreateLocalStream(io_context_, store_socket_name_);
+  auto conn = ServerConnection::Create(std::move(stream));
+  store_conn_ = std::move(conn);
   // Send a ConnectRequest to the store to get its memory capacity.
   RETURN_NOT_OK(SendConnectRequest(store_conn_));
   std::vector<uint8_t> buffer;
@@ -918,9 +906,14 @@ Status PlasmaClient::Impl::Disconnect() {
 
   // Close the connections to Plasma. The Plasma store will release the objects
   // that were in use by us when handling the SIGPIPE.
-  close(store_conn_);
-  store_conn_ = -1;
-  return Status::OK();
+  if (notification_conn_) {
+    auto status = notification_conn_->Disconnect();
+    if (!status.ok()) {
+      ARROW_LOG(ERROR) << "Failed to disconnect notification client "
+                       << "(" << status << ")";
+    }
+  }
+  return store_conn_->Disconnect();
 }
 
 // ----------------------------------------------------------------------
@@ -933,8 +926,19 @@ PlasmaClient::~PlasmaClient() {}
 Status PlasmaClient::Connect(const std::string& store_socket_name,
                              const std::string& manager_socket_name, int release_delay,
                              int num_retries) {
-  return impl_->Connect(store_socket_name, manager_socket_name, release_delay,
-                        num_retries);
+  // Keep "manager_socket_name" & "release_delay" for compatibility.
+  if (manager_socket_name != "") {
+    return Status::NotImplemented("plasma manager is no longer supported");
+  }
+  if (release_delay != 0) {
+    ARROW_LOG(WARNING) << "The release_delay parameter in PlasmaClient::Connect "
+                       << "is deprecated";
+  }
+  if (num_retries != -1) {
+    ARROW_LOG(WARNING) << "The num_retries parameter in PlasmaClient::Connect "
+                       << "is deprecated";
+  }
+  return impl_->Connect(store_socket_name);
 }
 
 Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
@@ -988,16 +992,20 @@ Status PlasmaClient::Hash(const ObjectID& object_id, uint8_t* digest) {
   return impl_->Hash(object_id, digest);
 }
 
-Status PlasmaClient::Subscribe(int* fd) { return impl_->Subscribe(fd); }
+Status PlasmaClient::Subscribe() { return impl_->Subscribe(); }
 
-Status PlasmaClient::GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
+Status PlasmaClient::GetNotification(ObjectID* object_id, int64_t* data_size,
                                      int64_t* metadata_size) {
-  return impl_->GetNotification(fd, object_id, data_size, metadata_size);
+  return impl_->GetNotification(object_id, data_size, metadata_size);
 }
 
 Status PlasmaClient::DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
                                         int64_t* data_size, int64_t* metadata_size) {
   return impl_->DecodeNotification(buffer, object_id, data_size, metadata_size);
+}
+
+int PlasmaClient::GetNativeNotificationHandle() {
+  return impl_->GetNativeNotificationHandle();
 }
 
 Status PlasmaClient::Disconnect() { return impl_->Disconnect(); }
