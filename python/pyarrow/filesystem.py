@@ -399,7 +399,8 @@ def _ensure_filesystem(fs):
 
 def resolve_filesystem_and_path(where, filesystem=None):
     """
-    return filesystem from path which could be an HDFS URI
+    Return filesystem from path which could be an HDFS URI, a local URI,
+    or a plain filesystem path.
     """
     if not _is_path_like(where):
         if filesystem is not None:
@@ -407,7 +408,6 @@ def resolve_filesystem_and_path(where, filesystem=None):
                              " there is nothing to open with filesystem.")
         return filesystem, where
 
-    # input can be hdfs URI such as hdfs://host:port/myfile.parquet
     path = _stringify_path(where)
 
     if filesystem is not None:
@@ -415,6 +415,7 @@ def resolve_filesystem_and_path(where, filesystem=None):
 
     parsed_uri = urlparse(path)
     if parsed_uri.scheme == 'hdfs':
+        # Input is hdfs URI such as hdfs://host:port/myfile.parquet
         netloc_split = parsed_uri.netloc.split(':')
         host = netloc_split[0]
         if host == '':
@@ -423,7 +424,14 @@ def resolve_filesystem_and_path(where, filesystem=None):
         if len(netloc_split) == 2 and netloc_split[1].isnumeric():
             port = int(netloc_split[1])
         fs = pa.hdfs.connect(host=host, port=port)
-    else:
+        fs_path = parsed_uri.path
+    elif parsed_uri.scheme == 'file':
+        # Input is local URI such as file:///home/user/myfile.parquet
         fs = LocalFileSystem.get_instance()
+        fs_path = parsed_uri.path
+    else:
+        # Input is local path such as /home/user/myfile.parquet
+        fs = LocalFileSystem.get_instance()
+        fs_path = where
 
-    return fs, parsed_uri.path
+    return fs, fs_path
