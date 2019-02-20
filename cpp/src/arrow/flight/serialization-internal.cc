@@ -17,33 +17,53 @@
 
 #include "arrow/flight/serialization-internal.h"
 
+#include <cstdint>
+#include <limits>
 #include <string>
+#include <vector>
+
+#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
+#include <google/protobuf/wire_format_lite.h>
+#include <grpc/byte_buffer_reader.h>
+#include <grpcpp/grpcpp.h>
+#include <grpcpp/impl/codegen/proto_utils.h>
 
 #include "arrow/buffer.h"
 #include "arrow/flight/server.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/util/bit-util.h"
+#include "arrow/util/logging.h"
+
+namespace pb = arrow::flight::protocol;
+
+static constexpr int64_t kInt32Max = std::numeric_limits<int32_t>::max();
 
 namespace arrow {
 namespace flight {
 namespace internal {
 
-bool ReadBytesZeroCopy(const std::shared_ptr<arrow::Buffer>& source_data,
-                       CodedInputStream* input, std::shared_ptr<arrow::Buffer>* out) {
+using arrow::ipc::internal::IpcPayload;
+
+using google::protobuf::internal::WireFormatLite;
+using google::protobuf::io::ArrayOutputStream;
+using google::protobuf::io::CodedInputStream;
+using google::protobuf::io::CodedOutputStream;
+
+using grpc::ByteBuffer;
+
+bool ReadBytesZeroCopy(const std::shared_ptr<Buffer>& source_data,
+                       CodedInputStream* input, std::shared_ptr<Buffer>* out) {
   uint32_t length;
   if (!input->ReadVarint32(&length)) {
     return false;
   }
-  *out = arrow::SliceBuffer(source_data, input->CurrentPosition(),
-                            static_cast<int64_t>(length));
+  *out = SliceBuffer(source_data, input->CurrentPosition(), static_cast<int64_t>(length));
   return input->Skip(static_cast<int>(length));
 }
 
-using google::protobuf::io::CodedInputStream;
-using google::protobuf::io::CodedOutputStream;
-
 // Internal wrapper for gRPC ByteBuffer so its memory can be exposed to Arrow
 // consumers with zero-copy
-class GrpcBuffer : public arrow::MutableBuffer {
+class GrpcBuffer : public MutableBuffer {
  public:
   GrpcBuffer(grpc_slice slice, bool incref)
       : MutableBuffer(GRPC_SLICE_START_PTR(slice),
@@ -55,8 +75,7 @@ class GrpcBuffer : public arrow::MutableBuffer {
     grpc_slice_unref(slice_);
   }
 
-  static arrow::Status Wrap(grpc::ByteBuffer* cpp_buf,
-                            std::shared_ptr<arrow::Buffer>* out) {
+  static Status Wrap(ByteBuffer* cpp_buf, std::shared_ptr<Buffer>* out) {
     // These types are guaranteed by static assertions in gRPC to have the same
     // in-memory representation
 
@@ -80,7 +99,7 @@ class GrpcBuffer : public arrow::MutableBuffer {
       // us back a new slice with the refcount already incremented.
       grpc_byte_buffer_reader reader;
       if (!grpc_byte_buffer_reader_init(&reader, buffer)) {
-        return arrow::Status::IOError("Internal gRPC error reading from ByteBuffer");
+        return Status::IOError("Internal gRPC error reading from ByteBuffer");
       }
       grpc_slice slice = grpc_byte_buffer_reader_readall(&reader);
       grpc_byte_buffer_reader_destroy(&reader);
@@ -89,37 +108,42 @@ class GrpcBuffer : public arrow::MutableBuffer {
       *out = std::make_shared<GrpcBuffer>(slice, false);
     }
 
-    return arrow::Status::OK();
+    return Status::OK();
   }
 
  private:
   grpc_slice slice_;
 };
 
-}  // namespace internal
-}  // namespace flight
-}  // namespace arrow
+// Destructor callback for grpc::Slice
+static void ReleaseBuffer(void* buf_ptr) {
+  delete reinterpret_cast<std::shared_ptr<Buffer>*>(buf_ptr);
+}
 
-namespace grpc {
+// Initialize gRPC Slice from arrow Buffer
+grpc::Slice SliceFromBuffer(const std::shared_ptr<Buffer>& buf) {
+  // Allocate persistent shared_ptr to control Buffer lifetime
+  auto ptr = new std::shared_ptr<Buffer>(buf);
+  grpc::Slice slice(const_cast<uint8_t*>(buf->data()), static_cast<size_t>(buf->size()),
+                    &ReleaseBuffer, ptr);
+  // Make sure no copy was done (some grpc::Slice() constructors do an implicit memcpy)
+  DCHECK_EQ(slice.begin(), buf->data());
+  return slice;
+}
 
-using arrow::flight::FlightData;
-using arrow::flight::internal::GrpcBuffer;
-using arrow::flight::internal::ReadBytesZeroCopy;
+static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
-using google::protobuf::internal::WireFormatLite;
-using google::protobuf::io::ArrayOutputStream;
-using google::protobuf::io::CodedInputStream;
-using google::protobuf::io::CodedOutputStream;
-
-Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out, bool* own_buffer) {
-  size_t total_size = 0;
+grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
+                                 bool* own_buffer) {
+  size_t body_size = 0;
+  size_t header_size = 0;
 
   // Write the descriptor if present
   int32_t descriptor_size = 0;
   if (msg.descriptor != nullptr) {
     DCHECK_LT(msg.descriptor->size(), kInt32Max);
     descriptor_size = static_cast<int32_t>(msg.descriptor->size());
-    total_size += 1 + WireFormatLite::LengthDelimitedSize(descriptor_size);
+    header_size += 1 + WireFormatLite::LengthDelimitedSize(descriptor_size);
   }
 
   const arrow::ipc::internal::IpcPayload& ipc_msg = msg.ipc_message;
@@ -128,98 +152,94 @@ Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out, bool* own_
   const int32_t metadata_size = static_cast<int32_t>(ipc_msg.metadata->size());
 
   // 1 byte for metadata tag
-  total_size += 1 + WireFormatLite::LengthDelimitedSize(metadata_size);
+  header_size += 1 + WireFormatLite::LengthDelimitedSize(metadata_size);
 
-  int64_t body_size = 0;
   for (const auto& buffer : ipc_msg.body_buffers) {
     // Buffer may be null when the row length is zero, or when all
     // entries are invalid.
     if (!buffer) continue;
 
-    body_size += buffer->size();
-
-    const int64_t remainder = buffer->size() % 8;
-    if (remainder) {
-      body_size += 8 - remainder;
-    }
+    body_size += static_cast<size_t>(BitUtil::RoundUpToMultipleOf8(buffer->size()));
   }
 
   // 2 bytes for body tag
   // Only written when there are body buffers
   if (ipc_msg.body_length > 0) {
-    total_size += 2 + WireFormatLite::LengthDelimitedSize(static_cast<size_t>(body_size));
+    // We write the body tag in the header but not the actual body data
+    header_size += 2 + WireFormatLite::LengthDelimitedSize(body_size) - body_size;
   }
 
   // TODO(wesm): messages over 2GB unlikely to be yet supported
-  if (total_size > kInt32Max) {
+  if (body_size > kInt32Max) {
     return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
                         "Cannot send record batches exceeding 2GB yet");
   }
 
-  // Allocate slice, assign to output buffer
-  grpc::Slice slice(total_size);
+  // Allocate and initialize slices
+  std::vector<grpc::Slice> slices;
+  grpc::Slice header_slice(header_size);
+  slices.push_back(header_slice);
 
   // XXX(wesm): for debugging
   // std::cout << "Writing record batch with total size " << total_size << std::endl;
 
-  ArrayOutputStream writer(const_cast<uint8_t*>(slice.begin()),
-                           static_cast<int>(slice.size()));
-  CodedOutputStream pb_stream(&writer);
+  ArrayOutputStream header_writer(const_cast<uint8_t*>(header_slice.begin()),
+                                  static_cast<int>(header_slice.size()));
+  CodedOutputStream header_stream(&header_writer);
 
   // Write descriptor
   if (msg.descriptor != nullptr) {
     WireFormatLite::WriteTag(pb::FlightData::kFlightDescriptorFieldNumber,
-                             WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &pb_stream);
-    pb_stream.WriteVarint32(descriptor_size);
-    pb_stream.WriteRawMaybeAliased(msg.descriptor->data(),
-                                   static_cast<int>(msg.descriptor->size()));
+                             WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
+    header_stream.WriteVarint32(descriptor_size);
+    header_stream.WriteRawMaybeAliased(msg.descriptor->data(),
+                                       static_cast<int>(msg.descriptor->size()));
   }
 
   // Write header
   WireFormatLite::WriteTag(pb::FlightData::kDataHeaderFieldNumber,
-                           WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &pb_stream);
-  pb_stream.WriteVarint32(metadata_size);
-  pb_stream.WriteRawMaybeAliased(ipc_msg.metadata->data(),
-                                 static_cast<int>(ipc_msg.metadata->size()));
+                           WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
+  header_stream.WriteVarint32(metadata_size);
+  header_stream.WriteRawMaybeAliased(ipc_msg.metadata->data(),
+                                     static_cast<int>(ipc_msg.metadata->size()));
 
-  // Don't write tag if there are no body buffers
+  // Don't write body tag if there are no body buffers
   if (ipc_msg.body_length > 0) {
-    // Write body
+    // Write body tag
     WireFormatLite::WriteTag(pb::FlightData::kDataBodyFieldNumber,
-                             WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &pb_stream);
-    pb_stream.WriteVarint32(static_cast<uint32_t>(body_size));
+                             WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
+    header_stream.WriteVarint32(static_cast<uint32_t>(body_size));
 
-    constexpr uint8_t kPaddingBytes[8] = {0};
-
+    // Enqueue body buffers for writing, without copying
     for (const auto& buffer : ipc_msg.body_buffers) {
       // Buffer may be null when the row length is zero, or when all
       // entries are invalid.
       if (!buffer) continue;
 
-      pb_stream.WriteRawMaybeAliased(buffer->data(), static_cast<int>(buffer->size()));
+      slices.push_back(SliceFromBuffer(buffer));
 
       // Write padding if not multiple of 8
-      const int remainder = static_cast<int>(buffer->size() % 8);
+      const auto remainder = static_cast<int>(
+          BitUtil::RoundUpToMultipleOf8(buffer->size()) - buffer->size());
       if (remainder) {
-        pb_stream.WriteRawMaybeAliased(kPaddingBytes, 8 - remainder);
+        slices.push_back(grpc::Slice(kPaddingBytes, remainder));
       }
     }
   }
 
-  DCHECK_EQ(static_cast<int>(total_size), pb_stream.ByteCount());
+  DCHECK_EQ(static_cast<int>(header_size), header_stream.ByteCount());
 
-  // Hand off the slice to the returned ByteBuffer
-  grpc::ByteBuffer tmp(&slice, 1);
-  out->Swap(&tmp);
+  // Hand off the slices to the returned ByteBuffer
+  *out = grpc::ByteBuffer(slices.data(), slices.size());
   *own_buffer = true;
   return grpc::Status::OK;
 }
 
 // Read internal::FlightData from grpc::ByteBuffer containing FlightData
 // protobuf without copying
-Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
+grpc::Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
   if (!buffer) {
-    return Status(StatusCode::INTERNAL, "No payload");
+    return grpc::Status(grpc::StatusCode::INTERNAL, "No payload");
   }
 
   std::shared_ptr<arrow::Buffer> wrapped_buffer;
@@ -240,15 +260,16 @@ Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
         pb::FlightDescriptor pb_descriptor;
         uint32_t length;
         if (!pb_stream.ReadVarint32(&length)) {
-          return Status(StatusCode::INTERNAL,
-                        "Unable to parse length of FlightDescriptor");
+          return grpc::Status(grpc::StatusCode::INTERNAL,
+                              "Unable to parse length of FlightDescriptor");
         }
         // Can't use ParseFromCodedStream as this reads the entire
         // rest of the stream into the descriptor command field.
         std::string buffer;
         pb_stream.ReadString(&buffer, length);
         if (!pb_descriptor.ParseFromString(buffer)) {
-          return Status(StatusCode::INTERNAL, "Unable to parse FlightDescriptor");
+          return grpc::Status(grpc::StatusCode::INTERNAL,
+                              "Unable to parse FlightDescriptor");
         }
         arrow::flight::FlightDescriptor descriptor;
         GRPC_RETURN_NOT_OK(
@@ -257,12 +278,14 @@ Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
       } break;
       case pb::FlightData::kDataHeaderFieldNumber: {
         if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->metadata)) {
-          return Status(StatusCode::INTERNAL, "Unable to read FlightData metadata");
+          return grpc::Status(grpc::StatusCode::INTERNAL,
+                              "Unable to read FlightData metadata");
         }
       } break;
       case pb::FlightData::kDataBodyFieldNumber: {
         if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->body)) {
-          return Status(StatusCode::INTERNAL, "Unable to read FlightData body");
+          return grpc::Status(grpc::StatusCode::INTERNAL,
+                              "Unable to read FlightData body");
         }
       } break;
       default:
@@ -274,7 +297,9 @@ Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
   // TODO(wesm): Where and when should we verify that the FlightData is not
   // malformed or missing components?
 
-  return Status::OK;
+  return grpc::Status::OK;
 }
 
-}  // namespace grpc
+}  // namespace internal
+}  // namespace flight
+}  // namespace arrow

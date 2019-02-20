@@ -31,11 +31,32 @@
 
 #include <grpcpp/impl/codegen/proto_utils.h>
 
+namespace grpc {
+
+class ByteBuffer;
+
+}  // namespace grpc
+
 namespace arrow {
 namespace flight {
 
-struct FlightData;
 struct FlightPayload;
+
+namespace internal {
+
+struct FlightData;
+
+// Those two functions are defined in serialization-internal.cc
+
+// Write FlightData to a grpc::ByteBuffer without extra copying
+grpc::Status FlightDataSerialize(const FlightPayload& msg, grpc::ByteBuffer* out,
+                                 bool* own_buffer);
+
+// Read internal::FlightData from grpc::ByteBuffer containing FlightData
+// protobuf without copying
+grpc::Status FlightDataDeserialize(grpc::ByteBuffer* buffer, FlightData* out);
+
+}  // namespace internal
 
 namespace protocol {
 
@@ -46,15 +67,6 @@ class FlightData;
 }  // namespace arrow
 
 namespace grpc {
-
-using arrow::flight::FlightData;
-using arrow::flight::FlightPayload;
-
-class ByteBuffer;
-class Status;
-
-Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out, bool* own_buffer);
-Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out);
 
 // This class provides a protobuf serializer. It translates between protobuf
 // objects and grpc_byte_buffers. More information about SerializationTraits can
@@ -81,12 +93,13 @@ class SerializationTraits<T, typename std::enable_if<std::is_same<
  public:
   static Status Serialize(const grpc::protobuf::Message& msg, ByteBuffer* bb,
                           bool* own_buffer) {
-    return FlightDataSerialize(*reinterpret_cast<const FlightPayload*>(&msg), bb,
-                               own_buffer);
+    return arrow::flight::internal::FlightDataSerialize(
+        *reinterpret_cast<const arrow::flight::FlightPayload*>(&msg), bb, own_buffer);
   }
 
   static Status Deserialize(ByteBuffer* buffer, grpc::protobuf::Message* msg) {
-    return FlightDataDeserialize(buffer, reinterpret_cast<FlightData*>(msg));
+    return arrow::flight::internal::FlightDataDeserialize(
+        buffer, reinterpret_cast<arrow::flight::internal::FlightData*>(msg));
   }
 };
 

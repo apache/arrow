@@ -73,7 +73,7 @@ class FlightMessageReaderImpl : public FlightMessageReader {
       return Status::OK();
     }
 
-    FlightData data;
+    internal::FlightData data;
     // Pretend to be pb::FlightData and intercept in SerializationTraits
     if (reader_->Read(reinterpret_cast<pb::FlightData*>(&data))) {
       std::unique_ptr<ipc::Message> message;
@@ -209,7 +209,7 @@ class FlightServiceImpl : public FlightService::Service {
   grpc::Status DoPut(ServerContext* context, grpc::ServerReader<pb::FlightData>* reader,
                      pb::PutResult* response) {
     // Get metadata
-    FlightData data;
+    internal::FlightData data;
     if (reader->Read(reinterpret_cast<pb::FlightData*>(&data))) {
       // Message only lives as long as data
       std::unique_ptr<ipc::Message> message;
