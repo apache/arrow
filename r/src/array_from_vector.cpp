@@ -272,7 +272,8 @@ struct Unbox {};
 template <typename Type>
 struct Unbox<Type, enable_if_integer<Type>>  {
   using BuilderType = typename TypeTraits<Type>::BuilderType;
-  using CType = typename TypeTraits<Type>::CType;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using CType = typename ArrayType::value_type;
 
   static inline Status Ingest(BuilderType* builder, SEXP obj) {
     switch(TYPEOF(obj)) {
@@ -825,7 +826,7 @@ inline bool is_na<int>(int value){
 // object, via an RBuffer, hence be zero copy
 template <int RTYPE, typename Type>
 std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
-  using value_type = typename arrow::TypeTraits<Type>::CType;
+  using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
   Rcpp::Vector<RTYPE, NoProtectStorage> vec(x);
   auto n = vec.size();
   auto p_vec_start = reinterpret_cast<value_type*>(vec.begin());
