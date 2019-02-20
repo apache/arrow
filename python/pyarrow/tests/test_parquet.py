@@ -377,6 +377,13 @@ def test_pandas_column_selection(tempdir):
 
     tm.assert_frame_equal(df[['uint8']], df_read)
 
+    # ARROW-4267: Selection of duplicate columns still leads to these columns
+    # being read uniquely.
+    table_read = _read_table(filename, columns=['uint8', 'uint8'])
+    df_read = table_read.to_pandas()
+
+    tm.assert_frame_equal(df[['uint8']], df_read)
+
 
 def _random_integers(size, dtype):
     # We do not generate integers outside the int64 range
@@ -1062,8 +1069,14 @@ def test_read_single_row_group_with_column_subset():
     buf.seek(0)
     pf = pq.ParquetFile(buf)
 
-    cols = df.columns[:2]
+    cols = list(df.columns[:2])
     row_groups = [pf.read_row_group(i, columns=cols) for i in range(K)]
+    result = pa.concat_tables(row_groups)
+    tm.assert_frame_equal(df[cols], result.to_pandas())
+
+    # ARROW-4267: Selection of duplicate columns still leads to these columns
+    # being read uniquely.
+    row_groups = [pf.read_row_group(i, columns=cols + cols) for i in range(K)]
     result = pa.concat_tables(row_groups)
     tm.assert_frame_equal(df[cols], result.to_pandas())
 
