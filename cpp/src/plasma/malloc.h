@@ -35,8 +35,8 @@ void GetMallocMapinfo(void* addr, int* fd, int64_t* map_length, ptrdiff_t* offse
 
 /// Get the mmap size corresponding to a specific file descriptor.
 ///
-/// @param fd The file descriptor to look up.
-/// @return The size of the corresponding memory-mapped file.
+/// \param fd The file descriptor to look up.
+/// \return The size of the corresponding memory-mapped file.
 int64_t GetMmapSize(int fd);
 
 struct MmapRecord {

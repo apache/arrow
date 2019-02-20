@@ -384,16 +384,14 @@ sealed in the object store. This may especially be handy when your
 program is collaborating with other Plasma clients, and needs to know
 when they make objects available.
 
-First, you can subscribe your current Plasma client to such notifications
-by getting a file descriptor:
+First, you can subscribe your current Plasma client to such notifications:
 
 ```cpp
 // Start receiving notifications into file_descriptor.
-int fd;
-ARROW_CHECK_OK(client.Subscribe(&fd));
+ARROW_CHECK_OK(client.Subscribe());
 ```
 
-Once you have the file descriptor, you can have your current Plasma client
+Once you have subscribed, you can have your current Plasma client
 wait to receive the next object notification. Object notifications
 include information such as Object ID, data size, and metadata size of
 the next newly available object:
@@ -404,7 +402,7 @@ the next newly available object:
 ObjectID object_id;
 int64_t data_size;
 int64_t metadata_size;
-ARROW_CHECK_OK(client.GetNotification(fd, &object_id, &data_size, &metadata_size));
+ARROW_CHECK_OK(client.GetNotification(&object_id, &data_size, &metadata_size));
 
 // Get the newly available object.
 ObjectBuffer object_buffer;
@@ -423,14 +421,13 @@ int main(int argc, char** argv) {
   PlasmaClient client;
   ARROW_CHECK_OK(client.Connect("/tmp/plasma"));
 
-  int fd;
-  ARROW_CHECK_OK(client.Subscribe(&fd));
+  ARROW_CHECK_OK(client.Subscribe());
 
   ObjectID object_id;
   int64_t data_size;
   int64_t metadata_size;
   while (true) {
-    ARROW_CHECK_OK(client.GetNotification(fd, &object_id, &data_size, &metadata_size));
+    ARROW_CHECK_OK(client.GetNotification(&object_id, &data_size, &metadata_size));
 
     std::cout << "Received object notification for object_id = "
               << object_id.hex() << ", with data_size = " << data_size
