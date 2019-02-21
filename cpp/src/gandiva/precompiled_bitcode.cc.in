@@ -15,9 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <string>
+
 namespace gandiva {
 
-// Path to the byte-code file.
-extern const char kByteCodeFilePath[] = "${GANDIVA_BC_INSTALL_PATH}";
+// Content of precompiled bitcode file.
+extern const char kPrecompiledBitcode[] = { ${GANDIVA_PRECOMPILED_BITCODE_CHARS} };
+extern const size_t kPrecompiledBitcodeSize = sizeof(kPrecompiledBitcode);
 
 } // namespace gandiva

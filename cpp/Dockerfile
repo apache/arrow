@@ -48,6 +48,7 @@ RUN arrow/ci/docker_install_conda.sh && \
 
 ENV CC=gcc \
     CXX=g++ \
+    ARROW_GANDIVA=OFF \
     ARROW_BUILD_TESTS=ON \
     ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX \
     ARROW_HOME=$CONDA_PREFIX \

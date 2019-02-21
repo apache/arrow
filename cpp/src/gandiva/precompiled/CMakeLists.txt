@@ -67,12 +67,32 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
 endforeach()
 
 # link all of the bitcode files into a single bitcode file.
-add_custom_command(OUTPUT ${GANDIVA_BC_OUTPUT_PATH}
-                   COMMAND ${LLVM_LINK_EXECUTABLE} -o ${GANDIVA_BC_OUTPUT_PATH}
+add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_BC_PATH}
+                   COMMAND ${LLVM_LINK_EXECUTABLE} -o ${GANDIVA_PRECOMPILED_BC_PATH}
                            ${BC_FILES}
                    DEPENDS ${BC_FILES})
 
-add_custom_target(precompiled ALL DEPENDS ${GANDIVA_BC_OUTPUT_PATH})
+# write a cmake script to replace precompiled bitcode file's content into a .cc file
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake" "\
+  file(READ \"${GANDIVA_PRECOMPILED_BC_PATH}\" HEXCONTENT HEX)
+  string(REGEX REPLACE
+         \"([0-9a-f][0-9a-f])\"
+         \"'\\\\\\\\x\\\\1',\"
+         GANDIVA_PRECOMPILED_BITCODE_CHARS
+         \"\${HEXCONTENT}\")
+  configure_file(${GANDIVA_PRECOMPILED_CC_IN_PATH}
+                 ${GANDIVA_PRECOMPILED_CC_PATH})
+")
+
+# add the previous command to the execution chain
+add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_CC_PATH}
+                   COMMAND ${CMAKE_COMMAND} -P
+                           "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake"
+                   DEPENDS ${GANDIVA_PRECOMPILED_CC_IN_PATH}
+                           ${GANDIVA_PRECOMPILED_BC_PATH})
+
+add_custom_target(precompiled ALL
+                  DEPENDS ${GANDIVA_PRECOMPILED_BC_PATH} ${GANDIVA_PRECOMPILED_CC_PATH})
 
 function(add_precompiled_unit_test REL_TEST_NAME)
   get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)

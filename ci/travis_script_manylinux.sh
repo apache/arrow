@@ -20,23 +20,58 @@
 
 set -ex
 
-pushd python/manylinux1
-docker run --shm-size=2g --rm -e PYARROW_PARALLEL=3 -v $PWD:/io -v $PWD/../../:/arrow quay.io/xhochy/arrow_manylinux1_x86_64_base:llvm-7-manylinux1 /io/build_arrow.sh
-
 # Testing for https://issues.apache.org/jira/browse/ARROW-2657
 # These tests cannot be run inside of the docker container, since TensorFlow
 # does not run on manylinux1
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
-
 source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 
-PYTHON_VERSION=3.6
-CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
+pushd python/manylinux1
 
-conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION
-conda activate $CONDA_ENV_DIR
+cat << EOF > check_imports.py
+import sys
+import pyarrow
+import pyarrow.orc
+import pyarrow.parquet
+import pyarrow.plasma
+import tensorflow
 
-pip install -q tensorflow
-pip install "dist/`ls dist/ | grep cp36`"
-python -c "import pyarrow; import tensorflow"
+if sys.version_info.major > 2:
+    import pyarrow.gandiva
+EOF
+
+for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
+  IFS="," read PYTHON_VERSION UNICODE_WIDTH <<< $PYTHON_TUPLE
+
+  # cleanup the artifact directory, docker writes it as root
+  sudo rm -rf dist
+
+  # build the wheels
+  docker run --shm-size=2g --rm \
+    -e PYARROW_PARALLEL=3 \
+    -e PYTHON_VERSION=$PYTHON_VERSION \
+    -e UNICODE_WIDTH=$UNICODE_WIDTH \
+    -v $PWD:/io \
+    -v $PWD/../../:/arrow \
+    quay.io/xhochy/arrow_manylinux1_x86_64_base:latest \
+    /io/build_arrow.sh
+
+  # create a testing conda environment
+  CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
+  conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION
+  conda activate $CONDA_ENV_DIR
+
+  # install the produced wheels
+  pip install tensorflow
+  pip install dist/*.whl
+
+  # Test optional dependencies and the presence of tensorflow
+  python check_imports.py
+
+  # Install test dependencies and run pyarrow tests
+  pip install -r ../requirements-test.txt
+  pytest --pyargs pyarrow
+done
+
+popd

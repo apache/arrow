@@ -23,9 +23,6 @@
 # Build upon the scripts in https://github.com/matthew-brett/manylinux-builds
 # * Copyright (c) 2013-2016, Matt Terry and Matthew Brett (BSD 2-clause)
 
-# Build different python versions with various unicode widths
-PYTHON_VERSIONS="${PYTHON_VERSIONS:-2.7,16 2.7,32 3.5,16 3.6,16 3.7,16}"
-
 source /multibuild/manylinux_utils.sh
 
 # Quit on failure
@@ -48,95 +45,89 @@ export PYARROW_CMAKE_OPTIONS='-DTHRIFT_HOME=/usr -DBoost_NAMESPACE=arrow_boost -
 # Ensure the target directory exists
 mkdir -p /io/dist
 
-for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
-    IFS=","
-    set -- $PYTHON_TUPLE;
-    PYTHON=$1
-    U_WIDTH=$2
-    CPYTHON_PATH="$(cpython_path $PYTHON ${U_WIDTH})"
-    PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
-    PIP="${CPYTHON_PATH}/bin/pip"
-    PATH="$PATH:${CPYTHON_PATH}"
+# Must pass PYTHON_VERSION and UNICODE_WIDTH env variables
+# possible values are: 2.7,16 2.7,32 3.5,16 3.6,16 3.7,16
 
-    if [ $PYTHON != "2.7" ]; then
-      # Gandiva is not supported on Python 2.7
-      export PYARROW_WITH_GANDIVA=1
-      export BUILD_ARROW_GANDIVA=ON
-    else
-      export PYARROW_WITH_GANDIVA=0
-      export BUILD_ARROW_GANDIVA=OFF
-    fi
+CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION} ${UNICODE_WIDTH})"
+PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
+PIP="${CPYTHON_PATH}/bin/pip"
+PATH="${PATH}:${CPYTHON_PATH}"
 
-    echo "=== (${PYTHON}) Building Arrow C++ libraries ==="
-    ARROW_BUILD_DIR=/tmp/build-PY${PYTHON}-${U_WIDTH}
-    mkdir -p "${ARROW_BUILD_DIR}"
-    pushd "${ARROW_BUILD_DIR}"
-    PATH="${CPYTHON_PATH}/bin:$PATH" cmake -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=/arrow-dist \
-        -DCMAKE_INSTALL_LIBDIR=lib \
-        -DARROW_BUILD_TESTS=OFF \
-        -DARROW_BUILD_SHARED=ON \
-        -DARROW_BOOST_USE_SHARED=ON \
-        -DARROW_GANDIVA_PC_CXX_FLAGS="-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2;-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2/x86_64-CentOS-linux/" \
-        -DARROW_JEMALLOC=ON \
-        -DARROW_RPATH_ORIGIN=ON \
-        -DARROW_PYTHON=ON \
-        -DARROW_PARQUET=ON \
-        -DPythonInterp_FIND_VERSION=${PYTHON} \
-        -DARROW_PLASMA=ON \
-        -DARROW_TENSORFLOW=ON \
-        -DARROW_ORC=ON \
-        -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
-        -DARROW_GANDIVA_JAVA=OFF \
-        -DBoost_NAMESPACE=arrow_boost \
-        -DBOOST_ROOT=/arrow_boost_dist \
-        -GNinja /arrow/cpp
-    ninja install
-    popd
+if [ ${PYTHON_VERSION} != "2.7" ]; then
+  # Gandiva is not supported on Python 2.7
+  export PYARROW_WITH_GANDIVA=1
+  export BUILD_ARROW_GANDIVA=ON
+else
+  export PYARROW_WITH_GANDIVA=0
+  export BUILD_ARROW_GANDIVA=OFF
+fi
 
-    # Check that we don't expose any unwanted symbols
-    /io/scripts/check_arrow_visibility.sh
+echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
+ARROW_BUILD_DIR=/tmp/build-PY${PYTHON_VERSION}-${UNICODE_WIDTH}
+mkdir -p "${ARROW_BUILD_DIR}"
+pushd "${ARROW_BUILD_DIR}"
+PATH="${CPYTHON_PATH}/bin:${PATH}" cmake -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/arrow-dist \
+    -DCMAKE_INSTALL_LIBDIR=lib \
+    -DARROW_BUILD_TESTS=OFF \
+    -DARROW_BUILD_SHARED=ON \
+    -DARROW_BOOST_USE_SHARED=ON \
+    -DARROW_GANDIVA_PC_CXX_FLAGS="-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2;-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2/x86_64-CentOS-linux/" \
+    -DARROW_JEMALLOC=ON \
+    -DARROW_RPATH_ORIGIN=ON \
+    -DARROW_PYTHON=ON \
+    -DARROW_PARQUET=ON \
+    -DPythonInterp_FIND_VERSION=${PYTHON_VERSION} \
+    -DARROW_PLASMA=ON \
+    -DARROW_TENSORFLOW=ON \
+    -DARROW_ORC=ON \
+    -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
+    -DARROW_GANDIVA_JAVA=OFF \
+    -DBoost_NAMESPACE=arrow_boost \
+    -DBOOST_ROOT=/arrow_boost_dist \
+    -GNinja /arrow/cpp
+ninja install
+popd
 
-    echo "=== (${PYTHON}) Install the wheel build dependencies ==="
-    $PIP install -r requirements-wheel.txt
+# Check that we don't expose any unwanted symbols
+/io/scripts/check_arrow_visibility.sh
 
-    # Clear output directory
-    rm -rf dist/
-    echo "=== (${PYTHON}) Building wheel ==="
-    # Remove build directory to ensure CMake gets a clean run
-    rm -rf build/
-    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext \
-        --inplace \
-        --bundle-arrow-cpp \
-        --bundle-boost \
-        --boost-namespace=arrow_boost
-    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
-    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py sdist
+echo "=== (${PYTHON_VERSION}) Install the wheel build dependencies ==="
+$PIP install -r requirements-wheel.txt
 
-    echo "=== (${PYTHON}) Tag the wheel with manylinux1 ==="
-    mkdir -p repaired_wheels/
-    auditwheel -v repair -L . dist/pyarrow-*.whl -w repaired_wheels/
+# Clear output directory
+rm -rf dist/
+echo "=== (${PYTHON_VERSION}) Building wheel ==="
+# Remove build directory to ensure CMake gets a clean run
+rm -rf build/
+PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext \
+    --inplace \
+    --bundle-arrow-cpp \
+    --bundle-boost \
+    --boost-namespace=arrow_boost
+PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
+PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py sdist
 
-    echo "=== (${PYTHON}) Testing manylinux1 wheel ==="
-    source /venv-test-${PYTHON}-${U_WIDTH}/bin/activate
-    pip install repaired_wheels/*.whl
+echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux1 ==="
+mkdir -p repaired_wheels/
+auditwheel -v repair -L . dist/pyarrow-*.whl -w repaired_wheels/
 
-    if [ $PYTHON != "2.7" ]; then
-      PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.gandiva"
-    fi
-    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.orc"
-    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
-    PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER -c "import pyarrow.plasma"
+# Install the built wheels
+$PIP install repaired_wheels/*.whl
 
-    echo "=== (${PYTHON}) Install modules required for testing ==="
-    pip install -r requirements-test.txt
+# Test that the modules are importable
+$PYTHON_INTERPRETER -c "
+import sys
+import pyarrow
+import pyarrow.orc
+import pyarrow.parquet
+import pyarrow.plasma
 
-    # The TensorFlow test will be skipped here, since TensorFlow is not
-    # manylinux1 compatible; however, the wheels will support TensorFlow on
-    # a TensorFlow compatible system
-    py.test -v -r sxX --durations=15 --parquet ${VIRTUAL_ENV}/lib/*/site-packages/pyarrow
-    deactivate
+if sys.version_info.major > 2:
+    import pyarrow.gandiva
+"
 
-    mv repaired_wheels/*.whl /io/dist
-    mv dist/*.tar.gz /io/dist
-done
+# More thorough testing happens outsite of the build to prevent
+# packaging issues like ARROW-4372
+mv dist/*.tar.gz /io/dist
+mv repaired_wheels/*.whl /io/dist

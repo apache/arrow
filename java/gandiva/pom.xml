@@ -29,7 +29,7 @@
         <protobuf.version>2.5.0</protobuf.version>
         <dep.guava.version>18.0</dep.guava.version>
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-        <gandiva.cpp.build.dir>../../cpp/debug/debug</gandiva.cpp.build.dir>
+        <gandiva.cpp.build.dir>../../cpp/build/debug</gandiva.cpp.build.dir>
     </properties>
     <dependencies>
         <dependency>
@@ -124,18 +124,6 @@
                 <directory>${gandiva.cpp.build.dir}</directory>
                 <includes>
                     <include>**/libgandiva_jni.*</include>
-                </includes>
-            </resource>
-            <resource>
-                <directory>${gandiva.cpp.build.dir}</directory>
-                <includes>
-                    <include>**/libgandiva_helpers.*</include>
-                </includes>
-            </resource>
-            <resource>
-                <directory>${gandiva.cpp.build.dir}/../src/gandiva</directory>
-                <includes>
-                    <include>irhelpers.bc</include>
                 </includes>
             </resource>
         </resources>
