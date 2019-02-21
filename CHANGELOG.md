@@ -17,6 +17,29 @@
   under the License.
 -->
 
+# Apache Arrow 0.12.1 (21 February 2019)
+
+## Bug
+
+* ARROW-3564 - [Python] writing version 2.0 parquet format with dictionary encoding enabled
+* ARROW-4255 - [C++] Schema::GetFieldIndex is not thread-safe
+* ARROW-4267 - [Python/C++] Segfault when reading rowgroups with duplicated columns
+* ARROW-4323 - [Packaging] Fix failing OSX clang conda forge builds
+* ARROW-4367 - [C++] StringDictionaryBuilder segfaults on Finish with only null entries
+* ARROW-4374 - [C++] DictionaryBuilder does not correctly report length and null\_count
+* ARROW-4501 - [C++] Unique returns non-unique strings
+* ARROW-4582 - [C++/Python] Memory corruption on Pandas->Arrow conversion
+* ARROW-4629 - [Python] Pandas to arrow conversion slowed down by local imports
+
+## Improvement
+
+* ARROW-4373 - [Packaging] Travis fails to deploy conda packages on OSX
+
+## New Feature
+
+* ARROW-4291 - [Dev] Support selecting features in release scripts
+* ARROW-4298 - [Java] Building Flight fails with OpenJDK 11
+
 # Apache Arrow 0.12.0 (16 January 2019)
 
 ## Bug
@@ -3223,5 +3246,6 @@
 
 * ARROW-260 - TestValueVector.testFixedVectorReallocation and testVariableVectorReallocation are flaky
 * ARROW-83 - Add basic test infrastructure for DecimalType
+
 
 
