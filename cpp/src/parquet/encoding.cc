@@ -754,11 +754,11 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
         data += increment;
         data_size -= increment;
         bytes_decoded += increment;
-        ++i;
       } else {
         ARROW_RETURN_NOT_OK(out->AppendNull());
       }
       bit_reader.Next();
+      ++i;
     }
 
     data_ += bytes_decoded;
