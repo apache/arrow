@@ -94,7 +94,7 @@ public class BitVector extends BaseFixedWidthVector {
     if (size * 2 > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
     }
-    initialValueAllocation = valueCount;
+    lastValueCapacity = valueCount;
   }
 
   /**
