@@ -583,12 +583,14 @@ std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& chil
   std::vector<uint8_t> type_codes(given_type_codes);
   uint8_t counter = 0;
   for (const auto& child : children) {
-    if (field_names.size() == 0)
+    if (field_names.size() == 0) {
       types.push_back(field(std::to_string(counter), child->type()));
-    else
+    } else {
       types.push_back(field(field_names[counter], child->type()));
-    if (given_type_codes.size() == 0)
+    }
+    if (given_type_codes.size() == 0) {
       type_codes.push_back(counter);
+    }
     counter++;
   }
   return union_(types, type_codes, mode);

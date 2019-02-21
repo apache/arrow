@@ -921,8 +921,7 @@ union_(const std::vector<std::shared_ptr<Field>>& child_fields,
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
        const std::vector<std::string>& field_names,
-       const std::vector<uint8_t>& type_codes,
-       UnionMode::type mode = UnionMode::SPARSE);
+       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
 
 /// \brief Create a UnionType instance
 inline std::shared_ptr<DataType> ARROW_EXPORT
