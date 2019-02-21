@@ -43,12 +43,12 @@ const state = { ...argv, closed: false, hasRecords: false };
 
     for (const source of sources) {
         if (state.closed) { break; }
-        if (reader = await createRecordBatchReader(source)) {
-            await pipeline(
-                reader.toNodeStream(),
-                recordBatchRowsToString(state),
-                process.stdout
-            ).catch(() => state.closed = true);
+        for await (reader of recordBatchReaders(source)) {
+            const source = reader.toNodeStream();
+            const xform = batchesToString(state);
+            const sink = new stream.PassThrough();
+            sink.pipe(process.stdout, { end: false });
+            await pipeline(source, xform, sink).catch(() => state.closed = true);
         }
         if (state.closed) { break; }
     }
@@ -62,35 +62,38 @@ const state = { ...argv, closed: false, hasRecords: false };
     return process.exitCode || 1;
 }).then((code) => process.exit(code));
 
-async function createRecordBatchReader(createSourceStream: () => NodeJS.ReadableStream) {
+async function *recordBatchReaders(createSourceStream: () => NodeJS.ReadableStream) {
 
     let json = new AsyncByteQueue();
     let stream = new AsyncByteQueue();
     let source = createSourceStream();
     let reader: RecordBatchReader | null = null;
+    let readers: AsyncIterable<RecordBatchReader> | null = null;
     // tee the input source, just in case it's JSON
     source.on('end', () => [stream, json].forEach((y) => y.close()))
         .on('data', (x) => [stream, json].forEach((y) => y.write(x)))
        .on('error', (e) => [stream, json].forEach((y) => y.abort(e)));
 
     try {
-        reader = await (await RecordBatchReader.from(stream)).open();
-    } catch (e) { reader = null; }
+        for await (reader of RecordBatchReader.readAll(stream)) {
+            reader && (yield reader);
+        }
+        if (reader) return;
+    } catch (e) { readers = null; }
 
-    if (!reader || reader.closed) {
-        reader = null;
+    if (!readers) {
         await json.closed;
         if (source instanceof fs.ReadStream) { source.close(); }
         // If the data in the `json` ByteQueue parses to JSON, then assume it's Arrow JSON from a file or stdin
         try {
-            reader = await (await RecordBatchReader.from(bignumJSONParse(await json.toString()))).open();
-        } catch (e) { reader = null; }
+            for await (reader of RecordBatchReader.readAll(bignumJSONParse(await json.toString()))) {
+                reader && (yield reader);
+            }
+        } catch (e) { readers = null; }
     }
-
-    return (reader && !reader.closed) ? reader : null;
 }
 
-function recordBatchRowsToString(state: { closed: boolean, schema: any, separator: string, hasRecords: boolean }) {
+function batchesToString(state: { closed: boolean, schema: any, separator: string, hasRecords: boolean }) {
 
     let rowId = 0, maxColWidths = [15], separator = `${state.separator || ' |'} `;
 
