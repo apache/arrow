@@ -341,7 +341,7 @@ class TestDecodeArrow : public ::testing::Test {
     const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*expected_array_);
     for (int64_t i = 0; i < binary_array.length(); i++) {
       auto view = binary_array.GetView(i);
-      input_data_.emplace_back(view.length(),
+      input_data_.emplace_back(static_cast<uint32_t>(view.length()),
                                reinterpret_cast<const uint8_t*>(view.data()));
     }
 

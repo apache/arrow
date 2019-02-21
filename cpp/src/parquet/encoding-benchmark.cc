@@ -216,7 +216,8 @@ class BM_PlainDecodingByteArray : public ::benchmark::Fixture {
 
     for (int64_t i = 0; i < binary_array.length(); i++) {
       auto view = binary_array.GetView(i);
-      values_.emplace_back(view.length(), reinterpret_cast<const uint8_t*>(view.data()));
+      values_.emplace_back(static_cast<uint32_t>(view.length()),
+                           reinterpret_cast<const uint8_t*>(view.data()));
       total_size_ += view.length();
     }
 
