@@ -51,7 +51,7 @@ class UUIDArray : public ExtensionArray {
 
 class UUIDType : public ExtensionType {
  public:
-  UUIDType() : ExtensionType(::arrow::fixed_size_binary(16)) {}
+  UUIDType() : ExtensionType(fixed_size_binary(16)) {}
 
   std::string extension_name() const override { return "uuid"; }
 
@@ -83,40 +83,56 @@ class UUIDType : public ExtensionType {
   std::string Serialize() const override { return "uuid-type-unique-code"; }
 };
 
+std::shared_ptr<DataType> uuid() { return std::make_shared<UUIDType>(); }
+
 class TestExtensionType : public ::testing::Test {
  public:
-  void SetUp() {
-    ASSERT_OK(::arrow::RegisterExtensionType(std::make_shared<UUIDType>()));
-  }
+  void SetUp() { ASSERT_OK(RegisterExtensionType(std::make_shared<UUIDType>())); }
 
   void TearDown() {
     if (GetExtensionType("uuid")) {
-      ASSERT_OK(::arrow::UnregisterExtensionType("uuid"));
+      ASSERT_OK(UnregisterExtensionType("uuid"));
     }
   }
 };
 
-TEST_F(TestExtensionType, AdapterTest) {
-  auto adapter_not_exist = GetExtensionType("uuid-unknown");
-  ASSERT_EQ(adapter_not_exist, nullptr);
+TEST_F(TestExtensionType, ExtensionTypeTest) {
+  auto type_not_exist = GetExtensionType("uuid-unknown");
+  ASSERT_EQ(type_not_exist, nullptr);
 
-  auto adapter = GetExtensionType("uuid");
-  ASSERT_NE(adapter, nullptr);
+  auto registered_type = GetExtensionType("uuid");
+  ASSERT_NE(registered_type, nullptr);
 
-  auto type = std::make_shared<UUIDType>();
+  auto type = uuid();
+  ASSERT_EQ(type->id(), Type::EXTENSION);
 
-  std::string serialized = type->Serialize();
+  const auto& ext_type = static_cast<const ExtensionType&>(*type);
+  std::string serialized = ext_type.Serialize();
 
   std::shared_ptr<DataType> deserialized;
-  ASSERT_OK(adapter->Deserialize(fixed_size_binary(16), serialized, &deserialized));
+  ASSERT_OK(ext_type.Deserialize(fixed_size_binary(16), serialized, &deserialized));
   ASSERT_TRUE(deserialized->Equals(*type));
   ASSERT_FALSE(deserialized->Equals(*fixed_size_binary(16)));
 }
 
-TEST_F(TestExtensionType, IpcRoundtrip) {
-  ::arrow::RegisterExtensionType(std::make_shared<UUIDType>());
+auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,
+                         std::shared_ptr<RecordBatch>* out) {
+  std::shared_ptr<io::BufferOutputStream> out_stream;
+  ASSERT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &out_stream));
+  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, out_stream.get()));
+
+  std::shared_ptr<Buffer> complete_ipc_stream;
+  ASSERT_OK(out_stream->Finish(&complete_ipc_stream));
+
+  io::BufferReader reader(complete_ipc_stream);
+  std::shared_ptr<RecordBatchReader> batch_reader;
+  ASSERT_OK(ipc::RecordBatchStreamReader::Open(&reader, &batch_reader));
+  ASSERT_OK(batch_reader->ReadNext(out));
+};
+
+std::shared_ptr<Array> ExampleUUID() {
   auto storage_type = fixed_size_binary(16);
-  auto ext_type = std::make_shared<UUIDType>();
+  auto ext_type = uuid();
 
   auto arr = ArrayFromJSON(
       storage_type,
@@ -124,20 +140,55 @@ TEST_F(TestExtensionType, IpcRoundtrip) {
 
   auto ext_data = arr->data()->Copy();
   ext_data->type = ext_type;
-  auto ext_arr = MakeArray(ext_data);
+  return MakeArray(ext_data);
+}
 
-  auto batch = RecordBatch::Make(schema({field("f0", ext_type)}), 4, {ext_arr});
+TEST_F(TestExtensionType, IpcRoundtrip) {
+  auto ext_arr = ExampleUUID();
+  auto batch = RecordBatch::Make(schema({field("f0", uuid())}), 4, {ext_arr});
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(ipc::SerializeRecordBatch(*batch, default_memory_pool(), &buffer));
-
-  io::BufferReader stream(buffer);
   std::shared_ptr<RecordBatch> read_batch;
-  ASSERT_OK(ipc::ReadRecordBatch(batch->schema(), &stream, &read_batch));
+  RoundtripBatch(batch, &read_batch);
+  CompareBatch(*batch, *read_batch, false /* compare_metadata */);
 
-  CompareBatch(*batch, *read_batch);
+  // Wrap type in a ListArray and ensure it also makes it
+  auto offsets_arr = ArrayFromJSON(int32(), "[0, 0, 2, 4]");
+  std::shared_ptr<Array> list_arr;
+  ASSERT_OK(
+      ListArray::FromArrays(*offsets_arr, *ext_arr, default_memory_pool(), &list_arr));
+  batch = RecordBatch::Make(schema({field("f0", list(uuid()))}), 3, {list_arr});
+  RoundtripBatch(batch, &read_batch);
+  CompareBatch(*batch, *read_batch, false /* compare_metadata */);
+}
 
-  // Unregister type, then
+TEST_F(TestExtensionType, UnrecognizedExtension) {
+  auto ext_arr = ExampleUUID();
+  auto batch = RecordBatch::Make(schema({field("f0", uuid())}), 4, {ext_arr});
+
+  auto storage_arr = static_cast<const ExtensionArray&>(*ext_arr).storage();
+
+  // Write full IPC stream including schema, then unregister type, then read
+  // and ensure that a plain instance of the storage type is created
+  std::shared_ptr<io::BufferOutputStream> out_stream;
+  ASSERT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &out_stream));
+  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, out_stream.get()));
+
+  std::shared_ptr<Buffer> complete_ipc_stream;
+  ASSERT_OK(out_stream->Finish(&complete_ipc_stream));
+
+  ASSERT_OK(UnregisterExtensionType("uuid"));
+  auto ext_metadata =
+      key_value_metadata({{"arrow_extension_name", "uuid"},
+                          {"arrow_extension_data", "uuid-type-unique-code"}});
+  auto ext_field = field("f0", fixed_size_binary(16), true, ext_metadata);
+  auto batch_no_ext = RecordBatch::Make(schema({ext_field}), 4, {storage_arr});
+
+  io::BufferReader reader(complete_ipc_stream);
+  std::shared_ptr<RecordBatchReader> batch_reader;
+  ASSERT_OK(ipc::RecordBatchStreamReader::Open(&reader, &batch_reader));
+  std::shared_ptr<RecordBatch> read_batch;
+  ASSERT_OK(batch_reader->ReadNext(&read_batch));
+  CompareBatch(*batch_no_ext, *read_batch);
 }
 
 }  // namespace arrow

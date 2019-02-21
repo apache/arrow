@@ -74,7 +74,7 @@ bool Field::Equals(const Field& other, bool check_metadata) const {
     return true;
   }
   if (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
-      this->type_->Equals(*other.type_.get())) {
+      this->type_->Equals(*other.type_.get(), check_metadata)) {
     if (!check_metadata) {
       return true;
     } else if (this->HasMetadata() && other.HasMetadata()) {
@@ -103,7 +103,9 @@ std::string Field::ToString() const {
 
 DataType::~DataType() {}
 
-bool DataType::Equals(const DataType& other) const { return TypeEquals(*this, other); }
+bool DataType::Equals(const DataType& other, bool check_metadata) const {
+  return TypeEquals(*this, other, check_metadata);
+}
 
 bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
   if (!other) {

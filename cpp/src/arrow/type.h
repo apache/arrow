@@ -158,7 +158,8 @@ class ARROW_EXPORT DataType {
   ///
   /// Types that are logically convertible from one to another (e.g. List<UInt8>
   /// and Binary) are NOT equal.
-  virtual bool Equals(const DataType& other) const;
+  bool Equals(const DataType& other, bool check_metadata = true) const;
+
   /// \brief Return whether the types are equal
   bool Equals(const std::shared_ptr<DataType>& other) const;
 
@@ -168,7 +169,7 @@ class ARROW_EXPORT DataType {
 
   int num_children() const { return static_cast<int>(children_.size()); }
 
-  virtual Status Accept(TypeVisitor* visitor) const;
+  Status Accept(TypeVisitor* visitor) const;
 
   /// \brief A string representation of the type, including any children
   virtual std::string ToString() const = 0;

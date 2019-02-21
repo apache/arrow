@@ -582,6 +582,7 @@ class FieldToFlatbufferVisitor {
   }
 
   Status Visit(const ExtensionType& type) {
+    RETURN_NOT_OK(VisitType(*type.storage_type()));
     extra_type_metadata_[kExtensionTypeKeyName] = type.extension_name();
     extra_type_metadata_[kExtensionDataKeyName] = type.Serialize();
     return Status::OK();
