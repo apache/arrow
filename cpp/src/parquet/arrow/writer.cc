@@ -119,6 +119,7 @@ class LevelBuilder {
   NOT_IMPLEMENTED_VISIT(Struct)
   NOT_IMPLEMENTED_VISIT(Union)
   NOT_IMPLEMENTED_VISIT(Dictionary)
+  NOT_IMPLEMENTED_VISIT(Extension)
 
   Status GenerateLevels(const Array& array, const std::shared_ptr<Field>& field,
                         int64_t* values_offset, int64_t* num_values, int64_t* num_levels,
