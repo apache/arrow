@@ -502,29 +502,6 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(internal_data);
 }
 
-namespace {
-
-Status MakeUnionType(const std::vector<std::shared_ptr<Array>>& children,
-                     const std::vector<std::string>& field_names,
-                     UnionMode::type mode,
-                     std::shared_ptr<DataType>* out) {
-  if (field_names.size() == 0) {
-    *out = union_(children, mode);
-  }
-  else {
-    std::vector<std::shared_ptr<Field>> fields;
-    std::vector<uint8_t> type_codes;
-    for (uint8_t i = 0; i < field_names.size(); ++i) {
-      fields.push_back(field(field_names[i], children[i]->type()));
-      type_codes.push_back(i);
-    }
-    *out = union_(fields, type_codes, mode);
-  }
-  return Status::OK();
-}
-
-}  // namespace
-
 Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
                              const std::vector<std::shared_ptr<Array>>& children,
                              const std::vector<std::string>& field_names,
@@ -552,9 +529,8 @@ Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
   BufferVector buffers = {type_ids.null_bitmap(),
                           checked_cast<const Int8Array&>(type_ids).values(),
                           checked_cast<const Int32Array&>(value_offsets).values()};
-  std::shared_ptr<DataType> union_type;
-  RETURN_NOT_OK(MakeUnionType(children, field_names, UnionMode::DENSE, &union_type));
 
+  std::shared_ptr<DataType> union_type = union_(children, field_names, UnionMode::DENSE);
   auto internal_data = ArrayData::Make(union_type, type_ids.length(), std::move(buffers),
                                        type_ids.null_count(), type_ids.offset());
   for (const auto& child : children) {
@@ -578,9 +554,7 @@ Status UnionArray::MakeSparse(const Array& type_ids,
 
   BufferVector buffers = {type_ids.null_bitmap(),
                           checked_cast<const Int8Array&>(type_ids).values(), nullptr};
-  std::shared_ptr<DataType> union_type;
-  RETURN_NOT_OK(MakeUnionType(children, field_names, UnionMode::SPARSE, &union_type));
-
+  std::shared_ptr<DataType> union_type = union_(children, field_names, UnionMode::SPARSE);
   auto internal_data = ArrayData::Make(union_type, type_ids.length(), std::move(buffers),
                                        type_ids.null_count(), type_ids.offset());
   for (const auto& child : children) {
