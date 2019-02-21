@@ -366,6 +366,54 @@ garrow_sparse_union_array_new(GArrowInt8Array *type_ids,
   }
 }
 
+/**
+ * garrow_sparse_union_array_new_data_type:
+ * @data_type: The data type for the sparse array.
+ * @type_ids: The field type IDs for each value as #GArrowInt8Array.
+ * @fields: (element-type GArrowArray): The arrays for each field
+ *   as #GList of #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowSparseUnionArray
+ *   or %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowSparseUnionArray *
+garrow_sparse_union_array_new_data_type(GArrowSparseUnionDataType *data_type,
+                                        GArrowInt8Array *type_ids,
+                                        GList *fields,
+                                        GError **error)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto arrow_union_data_type =
+    std::static_pointer_cast<arrow::UnionType>(arrow_data_type);
+  std::vector<std::string> arrow_field_names;
+  for (const auto &arrow_field : arrow_union_data_type->children()) {
+    arrow_field_names.push_back(arrow_field->name());
+  }
+  std::vector<uint8_t> arrow_type_codes(arrow_union_data_type->type_codes());
+  auto arrow_type_ids = garrow_array_get_raw(GARROW_ARRAY(type_ids));
+  std::vector<std::shared_ptr<arrow::Array>> arrow_fields;
+  for (auto node = fields; node; node = node->next) {
+    auto *field = GARROW_ARRAY(node->data);
+    arrow_fields.push_back(garrow_array_get_raw(field));
+  }
+  std::shared_ptr<arrow::Array> arrow_union_array;
+  auto status = arrow::UnionArray::MakeSparse(*arrow_type_ids,
+                                              arrow_fields,
+                                              arrow_field_names,
+                                              arrow_type_codes,
+                                              &arrow_union_array);
+  if (garrow_error_check(error,
+                         status,
+                         "[sparse-union-array][new][data-type]")) {
+    return GARROW_SPARSE_UNION_ARRAY(garrow_array_new_raw(&arrow_union_array));
+  } else {
+    return NULL;
+  }
+}
+
 
 G_DEFINE_TYPE(GArrowDenseUnionArray,
               garrow_dense_union_array,

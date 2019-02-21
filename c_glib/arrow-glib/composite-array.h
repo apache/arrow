@@ -108,6 +108,11 @@ GArrowSparseUnionArray *
 garrow_sparse_union_array_new(GArrowInt8Array *type_ids,
                               GList *fields,
                               GError **error);
+GArrowSparseUnionArray *
+garrow_sparse_union_array_new_data_type(GArrowSparseUnionDataType *data_type,
+                                        GArrowInt8Array *type_ids,
+                                        GList *fields,
+                                        GError **error);
 
 
 #define GARROW_TYPE_DENSE_UNION_ARRAY (garrow_dense_union_array_get_type())
