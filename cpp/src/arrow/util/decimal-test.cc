@@ -466,6 +466,22 @@ TEST(Decimal128Test, TestToInteger) {
   ASSERT_RAISES(Invalid, invalid_int64.ToInteger(&out2));
 }
 
+TEST(Decimal128Test, Multiply) {
+  Decimal128 result;
+
+  result = Decimal128("301") * Decimal128("201");
+  ASSERT_EQ(result.ToIntegerString(), "60501");
+
+  result = Decimal128("-301") * Decimal128("201");
+  ASSERT_EQ(result.ToIntegerString(), "-60501");
+
+  result = Decimal128("301") * Decimal128("-201");
+  ASSERT_EQ(result.ToIntegerString(), "-60501");
+
+  result = Decimal128("-301") * Decimal128("-201");
+  ASSERT_EQ(result.ToIntegerString(), "60501");
+}
+
 TEST(Decimal128Test, GetWholeAndFraction) {
   Decimal128 value("123456");
   Decimal128 whole;

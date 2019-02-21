@@ -243,13 +243,13 @@ BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
 
   product = L2 * R3;
   sum += product;
+  high_bits_ = static_cast<int64_t>(sum < product ? kCarryBit : 0);
 
   product = L3 * R2;
   sum += product;
 
   low_bits_ += sum << 32;
 
-  high_bits_ = static_cast<int64_t>(sum < product ? kCarryBit : 0);
   if (sum < product) {
     high_bits_ += kCarryBit;
   }
