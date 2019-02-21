@@ -110,10 +110,10 @@ function _selectFieldArgs<T extends { [key: string]: DataType }>(vals: any[], re
         case 0: return ret;
         case 1:
             keys = ret[0];
-            if (!(vals = vals[0])) { return ret; }
-            if (!(vals instanceof Data || vals instanceof Vector || vals instanceof DataType)) {
-                if (isArray(vals)) { return _selectFieldArgs(vals, ret); }
-                [keys, vals] = Object.entries(vals).reduce(toKeysAndValues, ret);
+            if (!(vals[0])) { return ret; }
+            if (isArray(vals[0])) { return _selectFieldArgs(vals[0], ret); }
+            if (!(vals[0] instanceof Data || vals[0] instanceof Vector || vals[0] instanceof DataType)) {
+                [keys, vals] = Object.entries(vals[0]).reduce(toKeysAndValues, ret);
             }
             break;
         default:

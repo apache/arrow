@@ -36,6 +36,24 @@ function numsRecordBatch(i32Len: number, f32Len: number) {
 describe(`RecordBatch`, () => {
     describe(`new()`, () => {
 
+        test(`creates a new RecordBatch from a Vector`, () => {
+
+            const i32s = new Int32Array(arange(new Array<number>(10)));
+
+            let i32 = Vector.new(Data.Int(new Int32(), 0, i32s.length, 0, null, i32s));
+            expect(i32.length).toBe(i32s.length);
+            expect(i32.nullCount).toBe(0);
+
+            const batch = RecordBatch.new([i32], ['i32']);
+            i32 = batch.getChildAt(0) as Int32Vector;
+
+            expect(batch.schema.fields[0].name).toBe('i32');
+            expect(i32.length).toBe(i32s.length);
+            expect(i32.nullCount).toBe(0);
+
+            expect(i32).toEqualVector(Int32Vector.from(i32s));
+        });
+
         test(`creates a new RecordBatch from Vectors`, () => {
 
             const i32s = new Int32Array(arange(new Array<number>(10)));
