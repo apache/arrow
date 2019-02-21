@@ -44,8 +44,8 @@ EOF
 for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
   IFS="," read PYTHON_VERSION UNICODE_WIDTH <<< $PYTHON_TUPLE
 
-  # cleanup the artifact directory
-  rm -rf dist
+  # cleanup the artifact directory, docker writes it as root
+  sudo rm -rf dist
 
   # build the wheels
   docker run --shm-size=2g --rm \
