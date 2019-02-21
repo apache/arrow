@@ -397,6 +397,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Thu Feb 21 2019 Uwe L. Korn <uwelk@xhochy.com> - 0.12.1-1
+- New upstream release.
+
 * Wed Jan 16 2019 Krisztián Szűcs <szucs.krisztian@gmail.com> - 0.12.0-1
 - New upstream release.
 

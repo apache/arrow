@@ -1,3 +1,9 @@
+apache-arrow (0.12.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Uwe L. Korn <uwelk@xhochy.com>  Thu, 21 Feb 2019 13:09:49 -0000
+
 apache-arrow (0.12.0-1) unstable; urgency=low
 
   * New upstream release.
