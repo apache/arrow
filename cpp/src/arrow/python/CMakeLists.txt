@@ -46,6 +46,7 @@ set(ARROW_PYTHON_SRCS
 
 if(ARROW_FLIGHT)
   set(ARROW_PYTHON_SRCS ${ARROW_PYTHON_SRCS} flight.cc)
+  set_source_files_properties(flight.cc PROPERTIES OBJECT_DEPENDS flight_grpc_gen)
 endif()
 
 if("${COMPILER_FAMILY}" STREQUAL "clang")
