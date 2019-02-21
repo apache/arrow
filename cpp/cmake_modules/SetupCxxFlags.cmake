@@ -213,8 +213,10 @@ if ("${COMPILER_FAMILY}" STREQUAL "gcc")
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
   endif()
 
-  # Add colors when paired with ninja
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
+  if ("${COMPILER_VERSION}" VERSION_GREATER "4.8")
+    # Add colors when paired with ninja
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
+  endif()
 endif()
 
 # Clang options for all builds
