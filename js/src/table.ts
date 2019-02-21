@@ -108,8 +108,8 @@ export class Table<T extends { [key: string]: DataType } = any>
     /**
      * @summary Create a new Table from a collection of Columns or Vectors,
      * with an optional list of names or Fields.
-     * 
-     * 
+     *
+     *
      * `Table.new` accepts an Object of
      * Columns or Vectors, where the keys will be used as the field names
      * for the Schema:
@@ -119,7 +119,7 @@ export class Table<T extends { [key: string]: DataType } = any>
      * const table = Table.new({ i32: i32s, f32: f32s });
      * assert(table.schema.fields[0].name === 'i32');
      * ```
-     * 
+     *
      * It also accepts a a list of Vectors with an optional list of names or
      * Fields for the resulting Schema. If the list is omitted or a name is
      * missing, the numeric index of each Vector will be used as the name:
@@ -130,9 +130,9 @@ export class Table<T extends { [key: string]: DataType } = any>
      * assert(table.schema.fields[0].name === 'i32');
      * assert(table.schema.fields[1].name === '1');
      * ```
-     * 
-     * If the supplied arguments are Columns, `Table.new` will infer the field
-     * names from each Column's `field` property:
+     *
+     * If the supplied arguments are Columns, `Table.new` will infer the Schema
+     * from the Columns:
      * ```ts
      * const i32s = Column.new('i32', Int32Vector.from([1, 2, 3]));
      * const f32s = Column.new('f32', Float32Vector.from([.1, .2, .3]));
@@ -140,7 +140,7 @@ export class Table<T extends { [key: string]: DataType } = any>
      * assert(table.schema.fields[0].name === 'i32');
      * assert(table.schema.fields[1].name === 'f32');
      * ```
-     * 
+     *
      * If the supplied Vector or Column lengths are unequal, `Table.new` will
      * extend the lengths of the shorter Columns, allocating additional bytes
      * to represent the additional null slots. The memory required to allocate
@@ -151,7 +151,7 @@ export class Table<T extends { [key: string]: DataType } = any>
      *     additionalBytes += (((longestLength - vec.length) + 63) & ~63) >> 3;
      * }
      * ```
-     * 
+     *
      * For example, an additional null bitmap for one million null values would require
      * 125,000 bytes (`((1e6 + 63) & ~63) >> 3`), or approx. `0.11MiB`
      */
