@@ -15,70 +15,156 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Data } from './data';
+import { Vector } from './vector';
+import { selectArgs } from './util/args';
 import { DataType, Dictionary } from './type';
-import { Vector as VType } from './interfaces';
+import { selectFieldArgs } from './util/args';
+import { instance as comparer } from './visitor/typecomparator';
+
+type VectorMap = { [key: string]: Vector };
+type Fields<T extends { [key: string]: DataType }> = (keyof T)[] | Field<T[keyof T]>[];
+type ChildData<T extends { [key: string]: DataType }> = T[keyof T][] | Data<T[keyof T]>[] | Vector<T[keyof T]>[];
 
 export class Schema<T extends { [key: string]: DataType } = any> {
 
+    public static from<T extends { [key: string]: DataType } = any>(children: T): Schema<T>;
+    public static from<T extends VectorMap = any>(children: T): Schema<{ [P in keyof T]: T[P]['type'] }>;
+    public static from<T extends { [key: string]: DataType } = any>(children: ChildData<T>, fields?: Fields<T>): Schema<T>;
     /** @nocollapse */
-    public static from<T extends { [key: string]: DataType } = any>(vectors: VType<T[keyof T]>[], names: (keyof T)[] = []) {
-        return new Schema<T>(vectors.map((v, i) => new Field('' + (names[i] || i), v.type)));
+    public static from(...args: any[]) {
+        return Schema.new(args[0], args[1]);
     }
 
-    protected _fields: Field[];
-    protected _metadata: Map<string, string>;
-    protected _dictionaries: Map<number, DataType>;
-    protected _dictionaryFields: Map<number, Field<Dictionary>[]>;
-    public get fields(): Field[] { return this._fields; }
-    public get metadata(): Map<string, string> { return this._metadata; }
-    public get dictionaries(): Map<number, DataType> { return this._dictionaries; }
-    public get dictionaryFields(): Map<number, Field<Dictionary>[]> { return this._dictionaryFields; }
+    public static new<T extends { [key: string]: DataType } = any>(children: T): Schema<T>;
+    public static new<T extends VectorMap = any>(children: T): Schema<{ [P in keyof T]: T[P]['type'] }>;
+    public static new<T extends { [key: string]: DataType } = any>(children: ChildData<T>, fields?: Fields<T>): Schema<T>;
+    /** @nocollapse */
+    public static new(...args: any[]) {
+        return new Schema(selectFieldArgs(args)[0]);
+    }
 
-    constructor(fields: Field[],
-                metadata?: Map<string, string>,
-                dictionaries?: Map<number, DataType>,
-                dictionaryFields?: Map<number, Field<Dictionary>[]>) {
-        this._fields = fields || [];
-        this._metadata = metadata || new Map();
+    public readonly fields: Field<T[keyof T]>[];
+    public readonly metadata: Map<string, string>;
+    public readonly dictionaries: Map<number, DataType>;
+    public readonly dictionaryFields: Map<number, Field<Dictionary>[]>;
+
+    constructor(fields: Field[] = [],
+                metadata?: Map<string, string> | null,
+                dictionaries?: Map<number, DataType> | null,
+                dictionaryFields?: Map<number, Field<Dictionary>[]> | null) {
+        this.fields = (fields || []) as Field<T[keyof T]>[];
+        this.metadata = metadata || new Map();
         if (!dictionaries || !dictionaryFields) {
             ({ dictionaries, dictionaryFields } = generateDictionaryMap(
                 fields, dictionaries || new Map(), dictionaryFields || new Map()
             ));
         }
-        this._dictionaries = dictionaries;
-        this._dictionaryFields = dictionaryFields;
+        this.dictionaries = dictionaries;
+        this.dictionaryFields = dictionaryFields;
     }
     public get [Symbol.toStringTag]() { return 'Schema'; }
     public toString() {
-        return `Schema<{ ${this._fields.map((f, i) => `${i}: ${f}`).join(', ')} }>`;
+        return `Schema<{ ${this.fields.map((f, i) => `${i}: ${f}`).join(', ')} }>`;
     }
+
+    public compareTo(other?: Schema | null): other is Schema<T> {
+        return comparer.compareSchemas(this, other);
+    }
+
     public select<K extends keyof T = any>(...columnNames: K[]) {
         const names = columnNames.reduce((xs, x) => (xs[x] = true) && xs, Object.create(null));
         return new Schema<{ [P in K]: T[P] }>(this.fields.filter((f) => names[f.name]), this.metadata);
     }
+    public selectAt<K extends T[keyof T] = any>(...columnIndices: number[]) {
+        return new Schema<{ [key: string]: K }>(columnIndices.map((i) => this.fields[i]).filter(Boolean), this.metadata);
+    }
+
+    public assign<R extends { [key: string]: DataType } = any>(schema: Schema<R>): Schema<T & R>;
+    public assign<R extends { [key: string]: DataType } = any>(...fields: (Field<R[keyof R]> | Field<R[keyof R]>[])[]): Schema<T & R>;
+    public assign<R extends { [key: string]: DataType } = any>(...args: (Schema<R> | Field<R[keyof R]> | Field<R[keyof R]>[])[]) {
+
+        const other = args[0] instanceof Schema ? args[0] as Schema<R>
+            : new Schema<R>(selectArgs<Field<R[keyof R]>>(Field, args));
+
+        const curFields = [...this.fields] as Field[];
+        const curDictionaries = [...this.dictionaries];
+        const curDictionaryFields = this.dictionaryFields;
+        const metadata = mergeMaps(mergeMaps(new Map(), this.metadata), other.metadata);
+        const newFields = other.fields.filter((f2) => {
+            const i = curFields.findIndex((f) => f.compareTo(f2));
+            return ~i ? (curFields[i] = curFields[i].clone({
+                metadata: mergeMaps(mergeMaps(new Map(), curFields[i].metadata), f2.metadata)
+            })) && false : true;
+        }) as Field[];
+
+        const { dictionaries, dictionaryFields } = generateDictionaryMap(newFields, new Map(), new Map());
+        const newDictionaries = [...dictionaries].filter(([y]) => !curDictionaries.every(([x]) => x === y));
+        const newDictionaryFields = [...dictionaryFields].map(([id, newDictFields]) => {
+            return [id, [...(curDictionaryFields.get(id) || []), ...newDictFields.map((f) => {
+                const i = newFields.findIndex((f2) => f2.compareTo(f));
+                const { dictionary, indices, isOrdered, dictionaryVector } = f.type;
+                const type = new Dictionary(dictionary, indices, id, isOrdered, dictionaryVector);
+                return newFields[i] = f.clone({ type });
+            })]] as [number, Field<Dictionary>[]];
+        });
+
+        return new Schema<T & R>(
+            [...curFields, ...newFields], metadata,
+            new Map([...curDictionaries, ...newDictionaries]),
+            new Map([...curDictionaryFields, ...newDictionaryFields])
+        );
+    }
 }
 
-export class Field<T extends DataType = DataType> {
-    protected _type: T;
-    protected _name: string;
-    protected _nullable: true | false;
-    protected _metadata?: Map<string, string> | null;
-    constructor(name: string, type: T, nullable: true | false = false, metadata?: Map<string, string> | null) {
-        this._name = name;
-        this._type = type;
-        this._nullable = nullable;
-        this._metadata = metadata || new Map();
+export class Field<T extends DataType = any> {
+
+    public static new<T extends DataType = any>(props: { name: string | number, type: T, nullable?: boolean, metadata?: Map<string, string> | null }): Field<T>;
+    public static new<T extends DataType = any>(name: string | number | Field<T>, type: T, nullable?: boolean, metadata?: Map<string, string> | null): Field<T>;
+    /** @nocollapse */
+    public static new<T extends DataType = any>(...args: any[]) {
+        let [name, type, nullable, metadata] = args;
+        if (args[0] && typeof args[0] === 'object') {
+            ({ name } = args[0]);
+            (type === undefined) && (type = args[0].type);
+            (nullable === undefined) && (nullable = args[0].nullable);
+            (metadata === undefined) && (metadata = args[0].metadata);
+        }
+        return new Field<T>(`${name}`, type, nullable, metadata);
     }
-    public get type() { return this._type; }
-    public get name() { return this._name; }
-    public get nullable() { return this._nullable; }
-    public get metadata() { return this._metadata; }
-    public get typeId() { return this._type.typeId; }
+
+    public readonly type: T;
+    public readonly name: string;
+    public readonly nullable: boolean;
+    public readonly metadata: Map<string, string>;
+
+    constructor(name: string, type: T, nullable = false, metadata?: Map<string, string> | null) {
+        this.name = name;
+        this.type = type;
+        this.nullable = nullable;
+        this.metadata = metadata || new Map();
+    }
+
+    public get typeId() { return this.type.typeId; }
     public get [Symbol.toStringTag]() { return 'Field'; }
-    public get indices() {
-        return DataType.isDictionary(this._type) ? this._type.indices : this._type;
-    }
     public toString() { return `${this.name}: ${this.type}`; }
+    public compareTo(other?: Field | null): other is Field<T> {
+        return comparer.compareField(this, other);
+    }
+    public clone<R extends DataType = T>(props: { name?: string | number, type?: R, nullable?: boolean, metadata?: Map<string, string> | null }): Field<R>;
+    public clone<R extends DataType = T>(name?: string | number | Field<T>, type?: R, nullable?: boolean, metadata?: Map<string, string> | null): Field<R>;
+    public clone<R extends DataType = T>(...args: any[]) {
+        let [name, type, nullable, metadata] = args;
+        (!args[0] || typeof args[0] !== 'object')
+            ? ([name = this.name, type = this.type, nullable = this.nullable, metadata = this.metadata] = args)
+            : ({name = this.name, type = this.type, nullable = this.nullable, metadata = this.metadata} = args[0]);
+        return Field.new<R>(name, type, nullable, metadata);
+    }
+}
+
+/** @ignore */
+function mergeMaps<TKey, TVal>(m1?: Map<TKey, TVal> | null, m2?: Map<TKey, TVal> | null): Map<TKey, TVal> {
+    return new Map([...(m1 || new Map()), ...(m2 || new Map())]);
 }
 
 /** @ignore */
@@ -105,3 +191,15 @@ function generateDictionaryMap(fields: Field[], dictionaries: Map<number, DataTy
 
     return { dictionaries, dictionaryFields };
 }
+
+// Add these here so they're picked up by the externs creator
+// in the build, and closure-compiler doesn't minify them away
+(Schema.prototype as any).fields = null;
+(Schema.prototype as any).metadata = null;
+(Schema.prototype as any).dictionaries = null;
+(Schema.prototype as any).dictionaryFields = null;
+
+(Field.prototype as any).type = null;
+(Field.prototype as any).name = null;
+(Field.prototype as any).nullable = null;
+(Field.prototype as any).metadata = null;

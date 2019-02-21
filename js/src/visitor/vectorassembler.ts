@@ -23,6 +23,7 @@ import { RecordBatch } from '../recordbatch';
 import { Vector as VType } from '../interfaces';
 import { rebaseValueOffsets } from '../util/buffer';
 import { packBools, truncateBitmap } from '../util/bit';
+import { selectVectorChildrenArgs } from '../util/args';
 import { BufferRegion, FieldNode } from '../ipc/metadata/message';
 import {
     DataType, Dictionary,
@@ -58,14 +59,7 @@ export class VectorAssembler extends Visitor {
 
     /** @nocollapse */
     public static assemble<T extends Vector | RecordBatch>(...args: (T | T[])[]) {
-
-        const vectors = args.reduce(function flatten(xs: any[], x: any): any[] {
-            if (Array.isArray(x)) { return x.reduce(flatten, xs); }
-            if (!(x instanceof RecordBatch)) { return [...xs, x]; }
-            return [...xs, ...x.schema.fields.map((_, i) => x.getChildAt(i)!)];
-        }, []).filter((x: any): x is Vector => x instanceof Vector);
-
-        return new VectorAssembler().visitMany(vectors)[0];
+        return new VectorAssembler().visitMany(selectVectorChildrenArgs(RecordBatch, args))[0];
     }
 
     private constructor() { super(); }

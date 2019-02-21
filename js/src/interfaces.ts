@@ -76,7 +76,7 @@ export type VectorCtorType<
 export type Vector<T extends Type | DataType = any> =
     T extends Type          ? TypeToVector<T>     :
     T extends DataType      ? DataTypeToVector<T> :
-                              never
+                              vecs.BaseVector<any>
     ;
 
 /** @ignore */
@@ -186,13 +186,13 @@ type DataTypeToVector<T extends DataType = any> =
     T extends type.Map_                 ? vecs.MapVector<T['dataTypes']>           :
     T extends type.List                 ? vecs.ListVector<T['valueType']>          :
     T extends type.Struct               ? vecs.StructVector<T['dataTypes']>        :
-    T extends type.Dictionary           ? vecs.DictionaryVector<T['valueType'], T['indices']>    :
+    T extends type.Dictionary           ? vecs.DictionaryVector<T['valueType'], T['indices']> :
     T extends type.FixedSizeList        ? vecs.FixedSizeListVector<T['valueType']> :
                                           vecs.BaseVector<T>
     ;
 
 /** @ignore */
-type TypeToDataType<T extends Type> =
+export type TypeToDataType<T extends Type> =
       T extends Type.Null                 ? type.Null
     : T extends Type.Bool                 ? type.Bool
     : T extends Type.Int                  ? type.Int

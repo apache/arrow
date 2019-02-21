@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { DataType } from '../type';
 import { Vector } from '../vector';
+import { DataType } from '../type';
 import { MessageHeader } from '../enum';
 import { Footer } from './metadata/file';
 import { Schema, Field } from '../schema';

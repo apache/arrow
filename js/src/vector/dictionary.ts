@@ -30,18 +30,17 @@ export class DictionaryVector<T extends DataType = any, TKey extends TKeys = TKe
         const type = new Dictionary(values.type, indices, null, null, values);
         return Vector.new(Data.Dictionary(type, 0, keys.length, 0, null, keys));
     }
-    protected _indices: V<TKey>;
+    public readonly indices: V<TKey>;
     constructor(data: Data<Dictionary<T, TKey>>) {
         super(data);
-        this._indices = Vector.new(data.clone(this.type.indices));
+        this.indices = Vector.new(data.clone(this.type.indices));
     }
-    // protected _bindDataAccessors() {}
-    public get indices() { return this._indices; }
     public get dictionary() { return this.data.type.dictionaryVector; }
-    public isValid(index: number) { return this._indices.isValid(index); }
     public reverseLookup(value: T) { return this.dictionary.indexOf(value); }
-    public getKey(idx: number): TKey['TValue'] | null { return this._indices.get(idx); }
+    public getKey(idx: number): TKey['TValue'] | null { return this.indices.get(idx); }
     public getValue(key: number): T['TValue'] | null { return this.dictionary.get(key); }
-    public setKey(idx: number, key: TKey['TValue'] | null) { return this._indices.set(idx, key); }
+    public setKey(idx: number, key: TKey['TValue'] | null) { return this.indices.set(idx, key); }
     public setValue(key: number, value: T['TValue'] | null) { return this.dictionary.set(key, value); }
 }
+
+(DictionaryVector.prototype as any).indices = null;
