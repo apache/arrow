@@ -17,8 +17,7 @@
 
 // Implement Arrow JSON serialization format
 
-#ifndef ARROW_IPC_JSON_H
-#define ARROW_IPC_JSON_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -132,5 +131,3 @@ class ARROW_EXPORT JsonReader {
 }  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_JSON_H

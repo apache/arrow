@@ -25,7 +25,7 @@
 #include <gflags/gflags.h>
 
 #include "arrow/io/test-common.h"
-#include "arrow/ipc/json.h"
+#include "arrow/ipc/json-integration.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/util/logging.h"

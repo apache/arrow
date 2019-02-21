@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/ipc/json.h"
+#include "arrow/ipc/json-integration.h"
 
 #include <cstddef>
 #include <memory>

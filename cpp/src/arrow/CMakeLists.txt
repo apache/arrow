@@ -209,7 +209,7 @@ if(ARROW_IPC)
   set(ARROW_IPC_SRCS
       ipc/dictionary.cc
       ipc/feather.cc
-      ipc/json.cc
+      ipc/json-integration.cc
       ipc/json-internal.cc
       ipc/json-simple.cc
       ipc/message.cc
