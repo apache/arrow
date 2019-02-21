@@ -199,6 +199,17 @@ def test_no_memory_map(tempdir):
     assert table_read.equals(table)
 
 
+def test_special_chars_filename(tempdir):
+    table = pa.Table.from_arrays([pa.array([42])], ["ints"])
+    filename = "foo # bar"
+    path = tempdir / filename
+    assert not path.exists()
+    _write_table(table, str(path))
+    assert path.exists()
+    table_read = _read_table(str(path))
+    assert table_read.equals(table)
+
+
 def test_empty_table_roundtrip():
     df = alltypes_sample(size=10)
     # The nanosecond->us conversion is a nuisance, so we just avoid it here
