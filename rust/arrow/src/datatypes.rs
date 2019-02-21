@@ -59,7 +59,8 @@ pub enum DataType {
     Float32,
     Float64,
     Timestamp(TimeUnit),
-    Date(DateUnit),
+    Date32(DateUnit),
+    Date64(DateUnit),
     Time32(TimeUnit),
     Time64(TimeUnit),
     Interval(IntervalUnit),
@@ -155,6 +156,107 @@ make_type!(UInt32Type, u32, DataType::UInt32, 32, 0u32);
 make_type!(UInt64Type, u64, DataType::UInt64, 64, 0u64);
 make_type!(Float32Type, f32, DataType::Float32, 32, 0.0f32);
 make_type!(Float64Type, f64, DataType::Float64, 64, 0.0f64);
+
+macro_rules! make_temporal_type {
+    ($name:ident, $native_ty:ty, $data_ty:expr, $bit_width:expr, $default_val:expr) => {
+        pub struct $name {}
+
+        impl ArrowPrimitiveType for $name {
+            type Native = $native_ty;
+
+            fn get_data_type() -> DataType {
+                $data_ty
+            }
+
+            fn get_bit_width() -> usize {
+                $bit_width
+            }
+
+            fn default_value() -> Self::Native {
+                $default_val
+            }
+        }
+    };
+}
+
+make_temporal_type!(
+    TimestampSecondType,
+    i64,
+    DataType::Timestamp(TimeUnit::Second),
+    64,
+    0i64
+);
+make_temporal_type!(
+    TimestampMillisecondType,
+    i64,
+    DataType::Timestamp(TimeUnit::Millisecond),
+    64,
+    0i64
+);
+make_temporal_type!(
+    TimestampMicrosecondType,
+    i64,
+    DataType::Timestamp(TimeUnit::Microsecond),
+    64,
+    0i64
+);
+make_temporal_type!(
+    TimestampNanosecondType,
+    i64,
+    DataType::Timestamp(TimeUnit::Nanosecond),
+    64,
+    0i64
+);
+make_temporal_type!(Date32Type, i32, DataType::Date32(DateUnit::Day), 32, 0i32);
+make_temporal_type!(
+    Date64Type,
+    i64,
+    DataType::Date64(DateUnit::Millisecond),
+    64,
+    0i64
+);
+make_temporal_type!(
+    Time32SecondType,
+    i32,
+    DataType::Time32(TimeUnit::Second),
+    32,
+    0i32
+);
+make_temporal_type!(
+    Time32MillisecondType,
+    i32,
+    DataType::Time32(TimeUnit::Millisecond),
+    32,
+    0i32
+);
+make_temporal_type!(
+    Time64MicrosecondType,
+    i64,
+    DataType::Time64(TimeUnit::Microsecond),
+    64,
+    0i64
+);
+make_temporal_type!(
+    Time64NanosecondType,
+    i64,
+    DataType::Time64(TimeUnit::Nanosecond),
+    64,
+    0i64
+);
+make_temporal_type!(
+    IntervalYearMonthType,
+    i64,
+    DataType::Interval(IntervalUnit::YearMonth),
+    64,
+    0i64
+);
+make_temporal_type!(
+    IntervalDayTimeType,
+    i64,
+    DataType::Interval(IntervalUnit::DayTime),
+    64,
+    0i64
+);
 
 /// A subtype of primitive type that represents numeric values.
 ///
@@ -286,6 +388,35 @@ make_numeric_type!(UInt64Type, u64, u64x8, m64x8);
 make_numeric_type!(Float32Type, f32, f32x16, m32x16);
 make_numeric_type!(Float64Type, f64, f64x8, m64x8);
 
+make_numeric_type!(TimestampSecondType, i64, i64x8);
+make_numeric_type!(TimestampMillisecondType, i64, i64x8);
+make_numeric_type!(TimestampMicrosecondType, i64, i64x8);
+make_numeric_type!(TimestampNanosecondType, i64, i64x8);
+make_numeric_type!(Date32Type, i32, i32x16);
+make_numeric_type!(Date64Type, i64, i64x8);
+make_numeric_type!(Time32SecondType, i32, i32x16);
+make_numeric_type!(Time32MillisecondType, i32, i32x16);
+make_numeric_type!(Time64MicrosecondType, i64, i64x8);
+make_numeric_type!(Time64NanosecondType, i64, i64x8);
+make_numeric_type!(IntervalYearMonthType, i64, i64x8);
+make_numeric_type!(IntervalDayTimeType, i64, i64x8);
+
+/// A subtype of primitive type that represents temporal values.
+pub trait ArrowTemporalType: ArrowPrimitiveType {}
+
+impl ArrowTemporalType for TimestampSecondType {}
+impl ArrowTemporalType for TimestampMillisecondType {}
+impl ArrowTemporalType for TimestampMicrosecondType {}
+impl ArrowTemporalType for TimestampNanosecondType {}
+impl ArrowTemporalType for Date32Type {}
+impl ArrowTemporalType for Date64Type {}
+impl ArrowTemporalType for Time32SecondType {}
+impl ArrowTemporalType for Time32MillisecondType {}
+impl ArrowTemporalType for Time64MicrosecondType {}
+impl ArrowTemporalType for Time64NanosecondType {}
+impl ArrowTemporalType for IntervalYearMonthType {}
+impl ArrowTemporalType for IntervalDayTimeType {}
+
 /// Allows conversion from supported Arrow types to a byte slice.
 pub trait ToByteSlice {
     /// Converts this instance into a byte slice
@@ -337,9 +468,9 @@ impl DataType {
                     )),
                 },
                 Some(s) if s == "date" => match map.get("unit") {
-                    Some(p) if p == "DAY" => Ok(DataType::Date(DateUnit::Day)),
+                    Some(p) if p == "DAY" => Ok(DataType::Date32(DateUnit::Day)),
                     Some(p) if p == "MILLISECOND" => {
-                        Ok(DataType::Date(DateUnit::Millisecond))
+                        Ok(DataType::Date64(DateUnit::Millisecond))
                     }
                     _ => Err(ArrowError::ParseError(
                         "date unit missing or invalid".to_string(),
@@ -470,10 +601,12 @@ impl DataType {
                     TimeUnit::Nanosecond => "NANOSECOND",
                 }})
             }
-            DataType::Date(unit) => json!({"name": "date", "unit": match unit {
-                DateUnit::Day => "DAY",
-                DateUnit::Millisecond => "MILLISECOND",
-            }}),
+            DataType::Date32(unit) | DataType::Date64(unit) => {
+                json!({"name": "date", "unit": match unit {
+                    DateUnit::Day => "DAY",
+                    DateUnit::Millisecond => "MILLISECOND",
+                }})
+            }
             DataType::Timestamp(unit) => json!({"name": "timestamp", "unit": match unit {
                 TimeUnit::Second => "SECOND",
                 TimeUnit::Millisecond => "MILLISECOND",
@@ -769,8 +902,8 @@ mod tests {
     fn schema_json() {
         let schema = Schema::new(vec![
             Field::new("c1", DataType::Utf8, false),
-            Field::new("c2", DataType::Date(DateUnit::Day), false),
-            Field::new("c3", DataType::Date(DateUnit::Millisecond), false),
+            Field::new("c2", DataType::Date32(DateUnit::Day), false),
+            Field::new("c3", DataType::Date64(DateUnit::Millisecond), false),
             Field::new("c7", DataType::Time32(TimeUnit::Second), false),
             Field::new("c8", DataType::Time32(TimeUnit::Millisecond), false),
             Field::new("c9", DataType::Time32(TimeUnit::Microsecond), false),

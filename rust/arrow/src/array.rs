@@ -61,6 +61,8 @@ use std::io::Write;
 use std::mem;
 use std::sync::Arc;
 
+use chrono::prelude::*;
+
 use crate::array_data::{ArrayData, ArrayDataRef};
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::builder::*;
@@ -179,6 +181,12 @@ pub type UInt32Array = PrimitiveArray<UInt32Type>;
 pub type UInt64Array = PrimitiveArray<UInt64Type>;
 pub type Float32Array = PrimitiveArray<Float32Type>;
 pub type Float64Array = PrimitiveArray<Float64Type>;
+pub type TimestampArray = PrimitiveArray<Int64Type>;
+pub type Date32Array = PrimitiveArray<Date32Type>;
+pub type Date64Array = PrimitiveArray<Int64Type>;
+pub type Time32Array = PrimitiveArray<Int32Type>;
+pub type Time64Array = PrimitiveArray<Int64Type>;
+pub type IntervalArray = PrimitiveArray<Int64Type>;
 
 impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
     fn as_any(&self) -> &Any {
@@ -246,6 +254,56 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     // Returns a new primitive array builder
     pub fn builder(capacity: usize) -> PrimitiveBuilder<T> {
         PrimitiveBuilder::<T>::new(capacity)
+    }
+}
+
+impl<T: ArrowTemporalType + ArrowNumericType> PrimitiveArray<T>
+where
+    i64: std::convert::From<T::Native>,
+{
+    /// Returns value as a chrono `NaiveDateTime`, handling time resolution
+    ///
+    /// If a data type cannot be converted to `NaiveDateTime`, a `None` is returned
+    pub fn datetime(&self, i: usize) -> Option<NaiveDateTime> {
+        if !self.is_valid(i) {
+            return None;
+        }
+        match &self.data_type() {
+            &DataType::Date32(_) => {
+                // convert days into seconds
+                Some(NaiveDateTime::from_timestamp(
+                    i64::from(self.value(i)) * 86400,
+                    0,
+                ))
+            }
+            &DataType::Date64(_) => Some(NaiveDateTime::from_timestamp(
+                i64::from(self.value(i)) / 1000,
+                0,
+            )),
+            &DataType::Time32(_) => None,
+            &DataType::Time64(_) => None,
+            &DataType::Timestamp(unit) => match unit {
+                TimeUnit::Second => Some(NaiveDateTime::from_timestamp(
+                    i64::from(self.value(i)) * 86400,
+                    0,
+                )),
+                TimeUnit::Millisecond => Some(NaiveDateTime::from_timestamp(
+                    i64::from(self.value(i)) / 1000,
+                    0,
+                )),
+                TimeUnit::Microsecond => Some(NaiveDateTime::from_timestamp(
+                    i64::from(self.value(i)) / 1000000,
+                    0,
+                )),
+                TimeUnit::Nanosecond => Some(NaiveDateTime::from_timestamp(
+                    i64::from(self.value(i)) / 1000000000,
+                    0,
+                )),
+            },
+            // interval is not yet fully documented [ARROW-3097]
+            &DataType::Interval(_) => None,
+            _ => None,
+        }
     }
 }
 
@@ -370,6 +428,69 @@ def_numeric_from_vec!(UInt32Type, u32, DataType::UInt32);
 def_numeric_from_vec!(UInt64Type, u64, DataType::UInt64);
 def_numeric_from_vec!(Float32Type, f32, DataType::Float32);
 def_numeric_from_vec!(Float64Type, f64, DataType::Float64);
+
+// TODO convert these to macros
+impl From<Vec<Option<i32>>> for PrimitiveArray<Date32Type> {
+    fn from(data: Vec<Option<i32>>) -> Self {
+        let data_len = data.len();
+        let num_bytes = bit_util::ceil(data_len, 8);
+        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+        let mut val_buf = MutableBuffer::new(data_len * mem::size_of::<i32>());
+
+        {
+            let null = vec![0; mem::size_of::<i32>()];
+            let null_slice = null_buf.data_mut();
+            for (i, v) in data.iter().enumerate() {
+                if let Some(n) = v {
+                    bit_util::set_bit(null_slice, i);
+                    // unwrap() in the following should be safe here since we've
+                    // made sure enough space is allocated for the values.
+                    val_buf.write(&n.to_byte_slice()).unwrap();
+                } else {
+                    val_buf.write(&null).unwrap();
+                }
+            }
+        }
+
+        let array_data = ArrayData::builder(DataType::Date32(DateUnit::Day))
+            .len(data_len)
+            .add_buffer(val_buf.freeze())
+            .null_bit_buffer(null_buf.freeze())
+            .build();
+        PrimitiveArray::from(array_data)
+    }
+}
+
+impl From<Vec<Option<i64>>> for PrimitiveArray<Date64Type> {
+    fn from(data: Vec<Option<i64>>) -> Self {
+        let data_len = data.len();
+        let num_bytes = bit_util::ceil(data_len, 8);
+        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+        let mut val_buf = MutableBuffer::new(data_len * mem::size_of::<i64>());
+
+        {
+            let null = vec![0; mem::size_of::<i64>()];
+            let null_slice = null_buf.data_mut();
+            for (i, v) in data.iter().enumerate() {
+                if let Some(n) = v {
+                    bit_util::set_bit(null_slice, i);
+                    // unwrap() in the following should be safe here since we've
+                    // made sure enough space is allocated for the values.
+                    val_buf.write(&n.to_byte_slice()).unwrap();
+                } else {
+                    val_buf.write(&null).unwrap();
+                }
+            }
+        }
+
+        let array_data = ArrayData::builder(DataType::Date64(DateUnit::Millisecond))
+            .len(data_len)
+            .add_buffer(val_buf.freeze())
+            .null_bit_buffer(null_buf.freeze())
+            .build();
+        PrimitiveArray::from(array_data)
+    }
+}
 
 /// Constructs a boolean array from a vector. Should only be used for testing.
 impl From<Vec<bool>> for BooleanArray {
@@ -794,6 +915,26 @@ mod tests {
         assert_eq!(2, arr.null_count());
         for i in 0..5 {
             if i % 2 == 0 {
+                assert!(!arr.is_null(i));
+                assert!(arr.is_valid(i));
+                assert_eq!(i as i32, arr.value(i));
+            } else {
+                assert!(arr.is_null(i));
+                assert!(!arr.is_valid(i));
+            }
+        }
+    }
+
+    #[test]
+    fn test_date32_array_from_vec_option() {
+        // Test building a primitive array with null values
+        let arr = Date32Array::from(vec![Some(0), None, Some(2), None, Some(4)]);
+        assert_eq!(5, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(2, arr.null_count());
+        for i in 0..5 {
+            if i % 2 == 0 {
+                dbg!(arr.datetime(i));
                 assert!(!arr.is_null(i));
                 assert!(arr.is_valid(i));
                 assert_eq!(i as i32, arr.value(i));
