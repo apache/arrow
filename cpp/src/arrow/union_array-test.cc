@@ -50,7 +50,7 @@ class TestUnionArray : public ::testing::Test {
   std::shared_ptr<Int8Array> type_ids_;
 };
 
-TEST_F(TestUnionArray, MakeDense) {
+TEST_F(TestUnionArray, MakeDenseTest) {
   using compute::_MakeArray;
 
   auto value_offsets = _MakeArray<Int32Type, int32_t>(int32(), { 0, 0, 0, 1, 1, 0, 1, 2, 1, 2 }, {});
@@ -70,7 +70,7 @@ TEST_F(TestUnionArray, MakeDense) {
   CheckFieldNames(union_array, { "0", "1", "2", "3" });
 }
 
-TEST_F(TestUnionArray, MakeSparse) {
+TEST_F(TestUnionArray, MakeSparseTest) {
   using compute::_MakeArray;
 
   auto string_array = _MakeArray<StringType, std::string>(utf8(), { "abc", "", "", "def", "", "", "", "xyz", "", "" }, {});
@@ -86,6 +86,48 @@ TEST_F(TestUnionArray, MakeSparse) {
   UnionArray& union_array = checked_cast<UnionArray&>(*result);
   ASSERT_EQ(UnionMode::SPARSE, union_array.mode());
   CheckFieldNames(union_array, { "0", "1", "2", "3" });
+}
+
+TEST_F(TestUnionArray, MakeDenseWithFieldNamesTest) {
+  using compute::_MakeArray;
+
+  auto value_offsets = _MakeArray<Int32Type, int32_t>(int32(), { 0, 0, 0, 1, 1, 0, 1, 2, 1, 2 }, {});
+
+  auto string_array = _MakeArray<StringType, std::string>(utf8(), { "abc", "def", "xyz" }, {});
+  auto uint8_array = _MakeArray<UInt8Type, uint8_t>(uint8(), { 10, 20, 30 }, {});
+  auto double_array = _MakeArray<DoubleType, double>(float64(), { 1.618, 2.718, 3.142 }, {});
+  auto int8_array = _MakeArray<Int8Type, int8_t>(int8(), { -12 }, {});
+
+  std::vector<std::shared_ptr<Array>> children = { string_array, uint8_array, double_array, int8_array };
+  std::vector<std::string> field_names = { "str", "int1", "real", "int2" };
+
+  std::shared_ptr<Array> result;
+  ASSERT_RAISES(Invalid, UnionArray::MakeDense(*type_ids_, *value_offsets, children, {"one"}, &result));
+  ASSERT_OK(UnionArray::MakeDense(*type_ids_, *value_offsets, children, field_names, &result));
+
+  UnionArray& union_array = checked_cast<UnionArray&>(*result);
+  ASSERT_EQ(UnionMode::DENSE, union_array.mode());
+  CheckFieldNames(union_array, field_names);
+}
+
+TEST_F(TestUnionArray, MakeSparseWithFieldNamesTest) {
+  using compute::_MakeArray;
+
+  auto string_array = _MakeArray<StringType, std::string>(utf8(), { "abc", "", "", "def", "", "", "", "xyz", "", "" }, {});
+  auto uint8_array = _MakeArray<UInt8Type, uint8_t>(uint8(), { 0, 10, 0, 0, 20, 0, 0, 0, 0, 30 }, {});
+  auto double_array = _MakeArray<DoubleType, double>(float64(), { 0.0, 0.0, 1.618, 0.0, 0.0, 0.0, 2.718, 0.0, 3.142, 0.0 }, {});
+  auto int8_array = _MakeArray<Int8Type, int8_t>(int8(), { 0, 0, 0, 0, 0, -12, 0, 0, 0, 0 }, {});
+
+  std::vector<std::shared_ptr<Array>> children = { string_array, uint8_array, double_array, int8_array };
+  std::vector<std::string> field_names = { "str", "int1", "real", "int2" };
+
+  std::shared_ptr<Array> result;
+  ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*type_ids_, children, {"one"}, &result));
+  ASSERT_OK(UnionArray::MakeSparse(*type_ids_, children, field_names, &result));
+
+  UnionArray& union_array = checked_cast<UnionArray&>(*result);
+  ASSERT_EQ(UnionMode::SPARSE, union_array.mode());
+  CheckFieldNames(union_array, field_names);
 }
 
 }

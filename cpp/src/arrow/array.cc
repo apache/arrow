@@ -502,8 +502,32 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(internal_data);
 }
 
+namespace {
+
+Status MakeUnionType(const std::vector<std::shared_ptr<Array>>& children,
+                     const std::vector<std::string>& field_names,
+                     UnionMode::type mode,
+                     std::shared_ptr<DataType>* out) {
+  if (field_names.size() == 0) {
+    *out = union_(children, mode);
+  }
+  else {
+    std::vector<std::shared_ptr<Field>> fields;
+    std::vector<uint8_t> type_codes;
+    for (uint8_t i = 0; i < field_names.size(); ++i) {
+      fields.push_back(field(field_names[i], children[i]->type()));
+      type_codes.push_back(i);
+    }
+    *out = union_(fields, type_codes, mode);
+  }
+  return Status::OK();
+}
+
+}  // namespace
+
 Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
                              const std::vector<std::shared_ptr<Array>>& children,
+                             const std::vector<std::string>& field_names,
                              std::shared_ptr<Array>* out) {
   if (value_offsets.length() == 0) {
     return Status::Invalid("UnionArray offsets must have non-zero length");
@@ -521,10 +545,16 @@ Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
     return Status::Invalid("MakeDense does not allow NAs in value_offsets");
   }
 
+  if (field_names.size() > 0 && field_names.size() != children.size()) {
+    return Status::Invalid("field_names must have the same length as children");
+  }
+
   BufferVector buffers = {type_ids.null_bitmap(),
                           checked_cast<const Int8Array&>(type_ids).values(),
                           checked_cast<const Int32Array&>(value_offsets).values()};
-  auto union_type = union_(children, UnionMode::DENSE);
+  std::shared_ptr<DataType> union_type;
+  RETURN_NOT_OK(MakeUnionType(children, field_names, UnionMode::DENSE, &union_type));
+
   auto internal_data = ArrayData::Make(union_type, type_ids.length(), std::move(buffers),
                                        type_ids.null_count(), type_ids.offset());
   for (const auto& child : children) {
@@ -536,13 +566,21 @@ Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
 
 Status UnionArray::MakeSparse(const Array& type_ids,
                               const std::vector<std::shared_ptr<Array>>& children,
+                              const std::vector<std::string>& field_names,
                               std::shared_ptr<Array>* out) {
   if (type_ids.type_id() != Type::INT8) {
     return Status::Invalid("UnionArray type_ids must be signed int8");
   }
+
+  if (field_names.size() > 0 && field_names.size() != children.size()) {
+    return Status::Invalid("field_names must have the same length as children");
+  }
+
   BufferVector buffers = {type_ids.null_bitmap(),
                           checked_cast<const Int8Array&>(type_ids).values(), nullptr};
-  auto union_type = union_(children, UnionMode::SPARSE);
+  std::shared_ptr<DataType> union_type;
+  RETURN_NOT_OK(MakeUnionType(children, field_names, UnionMode::SPARSE, &union_type));
+
   auto internal_data = ArrayData::Make(union_type, type_ids.length(), std::move(buffers),
                                        type_ids.null_count(), type_ids.offset());
   for (const auto& child : children) {
