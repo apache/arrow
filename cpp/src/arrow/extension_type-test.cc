@@ -44,6 +44,11 @@
 
 namespace arrow {
 
+class UUIDArray : public ExtensionArray {
+ public:
+  explicit UUIDArray(const std::shared_ptr<ArrayData>& data) : ExtensionArray(data) {}
+};
+
 class UUIDType : public ExtensionType {
  public:
   UUIDType() : ExtensionType(::arrow::fixed_size_binary(16)) {}
@@ -57,16 +62,8 @@ class UUIDType : public ExtensionType {
     }
     return true;
   }
-};
 
-class UUIDArray : public ExtensionArray {
- public:
-  explicit UUIDArray(const std::shared_ptr<ArrayData>& data) : ExtensionArray(data) {}
-};
-
-class UUIDTypeAdapter : public ExtensionTypeAdapter {
- public:
-  std::shared_ptr<Array> WrapArray(std::shared_ptr<ArrayData> data) override {
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
     DCHECK_EQ(data->type->id(), Type::EXTENSION);
     DCHECK_EQ("uuid", static_cast<const ExtensionType&>(*data->type).extension_name());
     return std::make_shared<UUIDArray>(data);
@@ -74,7 +71,7 @@ class UUIDTypeAdapter : public ExtensionTypeAdapter {
 
   Status Deserialize(std::shared_ptr<DataType> storage_type,
                      const std::string& serialized,
-                     std::shared_ptr<DataType>* out) override {
+                     std::shared_ptr<DataType>* out) const override {
     if (serialized != "uuid-type-unique-code") {
       return Status::Invalid("Type identifier did not match");
     }
@@ -83,19 +80,20 @@ class UUIDTypeAdapter : public ExtensionTypeAdapter {
     return Status::OK();
   }
 
-  std::string Serialize(const ExtensionType& type) override {
-    return "uuid-type-unique-code";
-  }
+  std::string Serialize() const override { return "uuid-type-unique-code"; }
 };
 
 class TestExtensionType : public ::testing::Test {
  public:
   void SetUp() {
-    auto adapter = std::unique_ptr<ExtensionTypeAdapter>(new UUIDTypeAdapter());
-    ASSERT_OK(::arrow::RegisterExtensionType("uuid", std::move(adapter)));
+    ASSERT_OK(::arrow::RegisterExtensionType(std::make_shared<UUIDType>()));
   }
 
-  void TearDown() { ASSERT_OK(::arrow::UnregisterExtensionType("uuid")); }
+  void TearDown() {
+    if (GetExtensionType("uuid")) {
+      ASSERT_OK(::arrow::UnregisterExtensionType("uuid"));
+    }
+  }
 };
 
 TEST_F(TestExtensionType, AdapterTest) {
@@ -107,7 +105,7 @@ TEST_F(TestExtensionType, AdapterTest) {
 
   auto type = std::make_shared<UUIDType>();
 
-  std::string serialized = adapter->Serialize(*type);
+  std::string serialized = type->Serialize();
 
   std::shared_ptr<DataType> deserialized;
   ASSERT_OK(adapter->Deserialize(fixed_size_binary(16), serialized, &deserialized));
@@ -116,6 +114,7 @@ TEST_F(TestExtensionType, AdapterTest) {
 }
 
 TEST_F(TestExtensionType, IpcRoundtrip) {
+  ::arrow::RegisterExtensionType(std::make_shared<UUIDType>());
   auto storage_type = fixed_size_binary(16);
   auto ext_type = std::make_shared<UUIDType>();
 
@@ -137,6 +136,8 @@ TEST_F(TestExtensionType, IpcRoundtrip) {
   ASSERT_OK(ipc::ReadRecordBatch(batch->schema(), &stream, &read_batch));
 
   CompareBatch(*batch, *read_batch);
+
+  // Unregister type, then
 }
 
 }  // namespace arrow

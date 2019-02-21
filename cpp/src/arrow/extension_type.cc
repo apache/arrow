@@ -46,18 +46,17 @@ void ExtensionArray::SetData(const std::shared_ptr<ArrayData>& data) {
   storage_ = MakeArray(storage_data);
 }
 
-std::unordered_map<std::string, std::unique_ptr<ExtensionTypeAdapter>>
-    g_extension_registry;
+std::unordered_map<std::string, std::shared_ptr<ExtensionType>> g_extension_registry;
 std::mutex g_extension_registry_guard;
 
-Status RegisterExtensionType(const std::string& type_name,
-                             std::unique_ptr<ExtensionTypeAdapter> wrapper) {
+Status RegisterExtensionType(std::shared_ptr<ExtensionType> type) {
   std::lock_guard<std::mutex> lock_(g_extension_registry_guard);
+  std::string type_name = type->extension_name();
   auto it = g_extension_registry.find(type_name);
   if (it != g_extension_registry.end()) {
     return Status::KeyError("A type extension with name ", type_name, " already defined");
   }
-  g_extension_registry[type_name] = std::move(wrapper);
+  g_extension_registry[type_name] = std::move(type);
   return Status::OK();
 }
 
@@ -71,13 +70,13 @@ Status UnregisterExtensionType(const std::string& type_name) {
   return Status::OK();
 }
 
-ExtensionTypeAdapter* GetExtensionType(const std::string& type_name) {
+std::shared_ptr<ExtensionType> GetExtensionType(const std::string& type_name) {
   std::lock_guard<std::mutex> lock_(g_extension_registry_guard);
   auto it = g_extension_registry.find(type_name);
   if (it == g_extension_registry.end()) {
     return nullptr;
   } else {
-    return it->second.get();
+    return it->second;
   }
   return nullptr;
 }

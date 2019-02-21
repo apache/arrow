@@ -322,13 +322,13 @@ static Status TypeFromFlatbuffer(const flatbuf::Field* field,
     int data_index = field_metadata->FindKey(kExtensionDataKeyName);
     std::string type_data = data_index == -1 ? "" : field_metadata->value(data_index);
 
-    ExtensionTypeAdapter* adapter = GetExtensionType(type_name);
-    if (adapter == nullptr) {
+    std::shared_ptr<ExtensionType> type = GetExtensionType(type_name);
+    if (type == nullptr) {
       // TODO(wesm): Extension type is unknown; we do not raise here and simply
       // return the raw data
       return Status::OK();
     }
-    RETURN_NOT_OK(adapter->Deserialize(*out, type_data, out));
+    RETURN_NOT_OK(type->Deserialize(*out, type_data, out));
   }
   return Status::OK();
 }
@@ -582,13 +582,8 @@ class FieldToFlatbufferVisitor {
   }
 
   Status Visit(const ExtensionType& type) {
-    auto ext_name = type.extension_name();
-    auto adapter = ::arrow::GetExtensionType(ext_name);
-    if (adapter == nullptr) {
-      return Status::Invalid("No serializer available for extension type ", ext_name);
-    }
-    extra_type_metadata_[kExtensionTypeKeyName] = ext_name;
-    extra_type_metadata_[kExtensionDataKeyName] = adapter->Serialize(type);
+    extra_type_metadata_[kExtensionTypeKeyName] = type.extension_name();
+    extra_type_metadata_[kExtensionDataKeyName] = type.Serialize();
     return Status::OK();
   }
 

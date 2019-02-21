@@ -896,12 +896,7 @@ class ArrayDataWrapper {
   }
 
   Status Visit(const ExtensionType& type) {
-    auto ext_name = type.extension_name();
-    ExtensionTypeAdapter* adapter = GetExtensionType(ext_name);
-    if (adapter == nullptr) {
-      return Status::Invalid("Unrecognized extension type: ", ext_name);
-    }
-    *out_ = adapter->WrapArray(data_);
+    *out_ = type.MakeArray(data_);
     return Status::OK();
   }
 

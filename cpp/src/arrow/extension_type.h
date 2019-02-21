@@ -29,13 +29,20 @@
 
 namespace arrow {
 
-class TypeVisitor;
-
-class ExtensionTypeTraits {
+/// \brief The base class for custom / user-defined types.
+class ARROW_EXPORT ExtensionType : public DataType {
  public:
-  virtual ~ExtensionTypeTraits() = default;
+  static constexpr Type::type type_id = Type::EXTENSION;
 
-  /// \brief Name used for serialization, and lookups for deeserialization
+  /// \brief The type of array used to represent this extension type's data
+  std::shared_ptr<DataType> storage_type() const { return storage_type_; }
+
+  std::string ToString() const override;
+  std::string name() const override;
+
+  /// \brief Unique name of extension type used to identify type for
+  /// serialization
+  /// \return the string name of the extension
   virtual std::string extension_name() const = 0;
 
   /// \brief Determine if two instances of the same extension types are
@@ -43,17 +50,27 @@ class ExtensionTypeTraits {
   /// \param[in] other the type to compare this type with
   /// \return bool true if type instances are equal
   virtual bool ExtensionEquals(const ExtensionType& other) const = 0;
-};
 
-/// \brief The base class for custom / user-defined types.
-class ARROW_EXPORT ExtensionType : public DataType, public ExtensionTypeTraits {
- public:
-  static constexpr Type::type type_id = Type::EXTENSION;
+  /// \brief Wrap built-in Array type in a user-defined ExtensionArray instance
+  /// \param[in] data the physical storage for the extension type
+  virtual std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const = 0;
 
-  std::shared_ptr<DataType> storage_type() const { return storage_type_; }
+  /// \brief Create an instance of the ExtensionType given the actual storage
+  /// type and the serialized representation
+  /// \param[in] storage_type the physical storage type of the extension
+  /// \param[in] serialized_data the serialized representation produced by
+  /// Serialize
+  /// \param[out] out the reconstructed extension type
+  /// \return Status
+  virtual Status Deserialize(std::shared_ptr<DataType> storage_type,
+                             const std::string& serialized_data,
+                             std::shared_ptr<DataType>* out) const = 0;
 
-  std::string ToString() const override;
-  std::string name() const override;
+  /// \brief Create a serialized representation of the extension type's
+  /// metadata. The storage type will be handled automatically in IPC code
+  /// paths
+  /// \return the serialized representation
+  virtual std::string Serialize() const = 0;
 
  protected:
   explicit ExtensionType(std::shared_ptr<DataType> storage_type)
@@ -62,6 +79,7 @@ class ARROW_EXPORT ExtensionType : public DataType, public ExtensionTypeTraits {
   std::shared_ptr<DataType> storage_type_;
 };
 
+/// \brief Base array class for user-defined extension types
 class ARROW_EXPORT ExtensionArray : public Array {
  public:
   /// \brief The physical storage for the extension array
@@ -75,29 +93,24 @@ class ARROW_EXPORT ExtensionArray : public Array {
   std::shared_ptr<Array> storage_;
 };
 
-/// \brief Serializer interface for user-defined types
-class ExtensionTypeAdapter {
- public:
-  /// \brief Wrap built-in Array type in a user-defined ExtensionArray instance
-  /// \param[in] data the physical storage for the extension type
-  virtual std::shared_ptr<Array> WrapArray(std::shared_ptr<ArrayData> data) = 0;
-
-  virtual Status Deserialize(std::shared_ptr<DataType> storage_type,
-                             const std::string& serialized_data,
-                             std::shared_ptr<DataType>* out) = 0;
-
-  virtual std::string Serialize(const ExtensionType& type) = 0;
-};
-
-/// \brief
+/// \brief Register an extension type globally. The name returned by the type's
+/// extension_name() method should be unique. This method is thread-safe
+/// \param[in] type an instance of the extension type
+/// \return Status
 ARROW_EXPORT
-Status RegisterExtensionType(const std::string& type_name,
-                             std::unique_ptr<ExtensionTypeAdapter> wrapper);
+Status RegisterExtensionType(std::shared_ptr<ExtensionType> type);
 
+/// \brief Delete an extension type from the global registry. This method is
+/// thread-safe
+/// \param[in] type_name the unique name of a registered extension type
+/// \return Status error if the type name is unknown
 ARROW_EXPORT
 Status UnregisterExtensionType(const std::string& type_name);
 
+/// \brief Retrieve an extension type from the global registry. Returns nullptr
+/// if not found. This method is thread-safe
+/// \return the globally-registered extension type
 ARROW_EXPORT
-ExtensionTypeAdapter* GetExtensionType(const std::string& type_name);
+std::shared_ptr<ExtensionType> GetExtensionType(const std::string& type_name);
 
 }  // namespace arrow
