@@ -225,7 +225,7 @@ static inline Status PyDate_convert_int(int64_t val, const DateUnit unit, int64_
                                         int64_t* month, int64_t* day) {
   switch (unit) {
     case DateUnit::MILLI:
-      val /= 86400000LL;
+      val /= 86400000LL;  // fall through
     case DateUnit::DAY:
       get_date_from_days(val, year, month, day);
     default:

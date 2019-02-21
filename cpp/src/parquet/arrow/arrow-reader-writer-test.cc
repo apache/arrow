@@ -121,6 +121,7 @@ LogicalType::type get_logical_type(const ::DataType& type) {
           DCHECK(false) << "Only MILLI and MICRO units supported for Arrow timestamps "
                            "with Parquet.";
       }
+      break;
     }
     case ArrowId::TIME32:
       return LogicalType::TIME_MILLIS;
