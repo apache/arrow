@@ -34,7 +34,6 @@ gpg_key_id=$3
 artifact_dir=$4
 
 docker_image_name=apache-arrow/release-binary
-docker_gpg_ssh_port=10022
 gpg_agent_extra_socket="$(gpgconf --list-dirs agent-extra-socket)"
 if [ $(uname) = "Darwin" ]; then
   docker_uid=10000
@@ -80,27 +79,26 @@ docker_run() {
 }
 
 docker_gpg_ssh() {
+  local ssh_port=$1
+  shift
   ssh \
     -o StrictHostKeyChecking=no \
     -i "${docker_ssh_key}" \
-    -p ${docker_gpg_ssh_port} \
+    -p ${ssh_port} \
     -R "/home/arrow/.gnupg/S.gpg-agent:${gpg_agent_extra_socket}" \
     arrow@127.0.0.1 \
     "$@"
 }
 
 docker_run_gpg_ready() {
-  local docker_container_id_file=/tmp/arrow-binary-gpg-container-id
-  if [ -f ${docker_container_id_file} ]; then
-    docker kill $(cat ${docker_container_id_file}) || :
-    rm -rf ${docker_container_id_file}
-  fi
+  local docker_container_id_dir=$(mktemp -d -t "arrow-binary-gpg-container.XXXXX")
+  local docker_container_id_file=${docker_container_id_dir}/id
   docker \
     run \
     --rm \
     --detach \
     --cidfile ${docker_container_id_file} \
-    --publish ${docker_gpg_ssh_port}:22 \
+    --publish-all \
     --volume "$PWD":/host \
     ${docker_image_name} \
     bash -c "
@@ -110,11 +108,16 @@ if [ \$(id -u) -ne ${docker_uid} ]; then
 fi
 /usr/sbin/sshd -D
 "
-  sleep 1 # Wait for sshd available
-  gpg --export ${gpg_key_id} | docker_gpg_ssh gpg --import
-  docker_gpg_ssh "cd /host && $@"
-  docker kill $(cat ${docker_container_id_file})
-  rm -f ${docker_container_id_file}
+  local container_id=$(cat ${docker_container_id_file})
+  local ssh_port=$(docker port ${container_id} | grep -E -o '[0-9]+$')
+  # Wait for sshd available
+  while ! docker_gpg_ssh ${ssh_port} : > /dev/null 2>&1; do
+    sleep 0.1
+  done
+  gpg --export ${gpg_key_id} | docker_gpg_ssh ${ssh_port} gpg --import
+  docker_gpg_ssh ${ssh_port} "cd /host && $@"
+  docker kill ${container_id}
+  rm -rf ${docker_container_id_dir}
 }
 
 jq() {
@@ -183,8 +186,9 @@ download_files() {
       --fail \
       --location \
       --output ${file} \
-      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file}
+      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file} &
   done
+  wait
 }
 
 delete_file() {
@@ -281,8 +285,9 @@ upload_deb() {
       ${rc} \
       ${distribution} \
       ${base_path} \
-      pool/${code_name}/main/a/apache-arrow/${base_path}
+      pool/${code_name}/main/a/apache-arrow/${base_path} &
   done
+  wait
 }
 
 upload_apt() {
@@ -311,7 +316,7 @@ upload_apt() {
     ${rc} \
     ${distribution} \
     ${keyring_name} \
-    ${keyring_name}
+    ${keyring_name} &
 
   for pool_code_name in pool/*; do
     local code_name=$(basename ${pool_code_name})
@@ -355,9 +360,10 @@ upload_apt() {
         ${rc} \
         ${distribution} \
         ${path} \
-        ${path}
+        ${path} &
     done
   done
+  wait
 
   popd
 
@@ -395,8 +401,9 @@ upload_rpm() {
       ${rc} \
       ${distribution} \
       ${rpm_path} \
-      ${upload_path}
+      ${upload_path} &
   done
+  wait
 }
 
 upload_yum() {
@@ -421,7 +428,7 @@ upload_yum() {
     ${rc} \
     ${distribution} \
     ${keyring_name} \
-    ${keyring_name}
+    ${keyring_name} &
   for version_dir in $(find . -mindepth 1 -maxdepth 1 -type d); do
     for arch_dir in ${version_dir}/*; do
       mkdir -p ${arch_dir}/repodata/
@@ -432,10 +439,11 @@ upload_yum() {
           ${rc} \
           ${distribution} \
           ${repo_path} \
-          ${repo_path}
+          ${repo_path} &
       done
     done
   done
+  wait
   popd
 
   popd
@@ -460,8 +468,9 @@ upload_python() {
       ${rc} \
       ${target} \
       ${base_path} \
-      ${version}-rc${rc}/${base_path}
+      ${version}-rc${rc}/${base_path} &
   done
+  wait
 }
 
 docker build -t ${docker_image_name} ${SOURCE_DIR}/binary
