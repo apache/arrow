@@ -57,6 +57,7 @@ requirements:
     - boost-cpp
     - python
     - {{ pin_compatible('numpy', lower_bound='1.14') }}
+    - gflags
     - snappy  # [win and py>=35]
     - zlib
 
