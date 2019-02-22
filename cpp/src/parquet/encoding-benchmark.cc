@@ -54,7 +54,7 @@ static void BM_PlainEncodingBoolean(benchmark::State& state) {
   auto encoder = MakeEncoder(Type::BOOLEAN, Encoding::PLAIN);
   auto typed_encoder = dynamic_cast<BooleanEncoder*>(encoder.get());
 
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     typed_encoder->Put(values, static_cast<int>(values.size()));
     typed_encoder->FlushValues();
   }
@@ -71,7 +71,7 @@ static void BM_PlainDecodingBoolean(benchmark::State& state) {
   typed_encoder->Put(values, static_cast<int>(values.size()));
   std::shared_ptr<Buffer> buf = encoder->FlushValues();
 
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     auto decoder = MakeTypedDecoder<BooleanType>(Encoding::PLAIN);
     decoder->SetData(static_cast<int>(values.size()), buf->data(),
                      static_cast<int>(buf->size()));
@@ -87,7 +87,7 @@ BENCHMARK(BM_PlainDecodingBoolean)->Range(MIN_RANGE, MAX_RANGE);
 static void BM_PlainEncodingInt64(benchmark::State& state) {
   std::vector<int64_t> values(state.range(0), 64);
   auto encoder = MakeTypedEncoder<Int64Type>(Encoding::PLAIN);
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     encoder->Put(values.data(), static_cast<int>(values.size()));
     encoder->FlushValues();
   }
@@ -102,7 +102,7 @@ static void BM_PlainDecodingInt64(benchmark::State& state) {
   encoder->Put(values.data(), static_cast<int>(values.size()));
   std::shared_ptr<Buffer> buf = encoder->FlushValues();
 
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     auto decoder = MakeTypedDecoder<Int64Type>(Encoding::PLAIN);
     decoder->SetData(static_cast<int>(values.size()), buf->data(),
                      static_cast<int>(buf->size()));
@@ -141,7 +141,7 @@ static void DecodeDict(std::vector<typename Type::c_type>& values,
 
   PARQUET_THROW_NOT_OK(indices->Resize(actual_bytes));
 
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     auto dict_decoder = MakeTypedDecoder<Type>(Encoding::PLAIN, descr.get());
     dict_decoder->SetData(dict_traits->num_entries(), dict_buffer->data(),
                           static_cast<int>(dict_buffer->size()));
@@ -253,7 +253,7 @@ class BM_PlainDecodingByteArray : public ::benchmark::Fixture {
 
 BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrow_Dense)
 (benchmark::State& state) {
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
     decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
     ::arrow::internal::ChunkedBinaryBuilder builder(static_cast<int>(buffer_->size()),
@@ -269,7 +269,7 @@ BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrow_Dense)
 
 BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dense)
 (benchmark::State& state) {
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
     decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
     ::arrow::internal::ChunkedBinaryBuilder builder(static_cast<int>(buffer_->size()),
@@ -285,7 +285,7 @@ BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dense)
 
 BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrow_Dict)
 (benchmark::State& state) {
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
     decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
     ::arrow::BinaryDictionaryBuilder builder(::arrow::default_memory_pool());
@@ -300,7 +300,7 @@ BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrow_Dict)
 
 BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dict)
 (benchmark::State& state) {
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
     decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
     ::arrow::BinaryDictionaryBuilder builder(::arrow::default_memory_pool());
