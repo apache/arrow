@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "extpp"
 require "mkmf-gnome2"
 
 unless required_pkg_config_package("arrow",
@@ -41,7 +42,5 @@ end
   build_dir = source_dir
   add_depend_package_path(name, source_dir, build_dir)
 end
-
-$CXXFLAGS += ' -std=c++11 -Wno-deprecated-register'
 
 create_makefile("arrow")

@@ -45,9 +45,10 @@ Gem::Specification.new do |spec|
   spec.test_files += Dir.glob("test/**/*")
   spec.extensions = ["ext/arrow/extconf.rb"]
 
+  spec.add_runtime_dependency("extpp")
   spec.add_runtime_dependency("gobject-introspection", ">= 3.3.5")
-  spec.add_runtime_dependency("pkg-config")
   spec.add_runtime_dependency("native-package-installer")
+  spec.add_runtime_dependency("pkg-config")
 
   spec.add_development_dependency("benchmark-driver")
   spec.add_development_dependency("bundler")

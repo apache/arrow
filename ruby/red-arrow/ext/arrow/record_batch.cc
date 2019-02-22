@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#include "ruby.hpp"
 #include "red_arrow.hpp"
+
+#include <ruby.hpp>
 
 #include <arrow-glib/decimal128.hpp>
 
@@ -77,7 +78,11 @@ class ArrayConverter : public arrow::ArrayVisitor {
 #undef ARRAY_CONVERT_VALUE_INLINE
 
     // TODO: NotImplemented("Unsupported array in ConvertValue");
-    throw rb::error(rb_eNotImpError, "Unsupported array in ConvertValue");
+    return rb::protect([]() -> VALUE {
+                         rb_raise(rb_eNotImpError,
+                                  "Unsupported array in ConvertValue");
+                         return Qnil;
+                       });
   }
 
   inline VALUE ConvertValue(const arrow::NullArray& array, const int64_t i) {
@@ -246,7 +251,10 @@ class ArrayConverter : public arrow::ArrayVisitor {
     const auto& type = arrow::internal::checked_cast<const arrow::TimestampType&>(*array.type());
     VALUE scale = time_unit_to_scale(type.unit());
     if (NIL_P(scale)) {
-      throw rb::error(rb_eArgError, "Invalid TimeUnit");
+      rb::protect([]() -> VALUE {
+                    rb_raise(rb_eArgError, "Invalid TimeUnit");
+                    return Qnil;
+                  });
     }
     return ConvertValue(array, i, scale);
   }
@@ -302,7 +310,10 @@ class ArrayConverter : public arrow::ArrayVisitor {
     }
 
     // TODO: return Status::Invalid("Invalid union mode");
-    throw rb::error(rb_eRuntimeError, "Invalid union mode");
+    return rb::protect([]() -> VALUE {
+                         rb_raise(rb_eArgError, "Invalid union mode");
+                         return Qnil;
+                       });
   }
 
   inline VALUE ConvertValue(const arrow::DictionaryArray& array, const int64_t i) {
@@ -589,8 +600,8 @@ record_batch_raw_records(int argc, VALUE* argv, VALUE obj)
     RawRecordsBuilder builder(records, num_columns, convert_decimal);
     builder.Add(*record_batch);
     return records;
-  } catch (rb::error err) {
-    err.raise();
+  } catch (rb::State& state) {
+    state.jump();
   }
 
   return Qnil; // unreachable
