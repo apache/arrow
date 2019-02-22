@@ -371,8 +371,8 @@ upload_apt() {
         ${path} \
         ${path} &
     done
+    wait
   done
-  wait
   popd
 
   popd
