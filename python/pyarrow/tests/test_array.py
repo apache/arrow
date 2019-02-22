@@ -408,8 +408,53 @@ def test_union_from_dense():
     value_offsets = pa.array([0, 0, 2, 1, 1, 2, 3], type='int32')
 
     result = pa.UnionArray.from_dense(types, value_offsets, [binary, int64])
+    ty = result.type
 
     assert result.to_pylist() == [b'a', 1, b'c', b'b', 2, 3, b'd']
+    assert [ty[i].name for i in range(ty.num_children)] == ['0', '1']
+    assert ty.type_codes == [0, 1]
+
+
+def test_union_from_dense_with_field_name():
+    binary = pa.array([b'a', b'b', b'c', b'd'], type='binary')
+    int64 = pa.array([1, 2, 3], type='int64')
+    types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
+    value_offsets = pa.array([0, 0, 2, 1, 1, 2, 3], type='int32')
+
+    result = pa.UnionArray.from_dense(types, value_offsets, [binary, int64], ['bin', 'int'])
+    ty = result.type
+
+    assert result.to_pylist() == [b'a', 1, b'c', b'b', 2, 3, b'd']
+    assert [ty[i].name for i in range(ty.num_children)] == ['bin', 'int']
+    assert ty.type_codes == [0, 1]
+
+
+def test_union_from_dense_with_type_codes():
+    binary = pa.array([b'a', b'b', b'c', b'd'], type='binary')
+    int64 = pa.array([1, 2, 3], type='int64')
+    types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
+    value_offsets = pa.array([0, 0, 2, 1, 1, 2, 3], type='int32')
+
+    result = pa.UnionArray.from_dense(types, value_offsets, [binary, int64], type_codes=[11, 13])
+    ty = result.type
+
+    assert result.to_pylist() == [b'a', 1, b'c', b'b', 2, 3, b'd']
+    assert [ty[i].name for i in range(ty.num_children)] == ['0', '1']
+    assert ty.type_codes == [11, 13]
+
+
+def test_union_from_dense_with_field_names_and_type_codes():
+    binary = pa.array([b'a', b'b', b'c', b'd'], type='binary')
+    int64 = pa.array([1, 2, 3], type='int64')
+    types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
+    value_offsets = pa.array([0, 0, 2, 1, 1, 2, 3], type='int32')
+
+    result = pa.UnionArray.from_dense(types, value_offsets, [binary, int64], ['bin', 'int'], [11, 13])
+    ty = result.type
+
+    assert result.to_pylist() == [b'a', 1, b'c', b'b', 2, 3, b'd']
+    assert [ty[i].name for i in range(ty.num_children)] == ['bin', 'int']
+    assert ty.type_codes == [11, 13]
 
 
 def test_union_from_sparse():
@@ -419,8 +464,53 @@ def test_union_from_sparse():
     types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
 
     result = pa.UnionArray.from_sparse(types, [binary, int64])
+    ty = result.type
 
     assert result.to_pylist() == [b'a', 1, b'b', b'c', 2, 3, b'd']
+    assert [ty[i].name for i in range(ty.num_children)] == ['0', '1']
+    assert ty.type_codes == [0, 1]
+
+
+def test_union_from_sparse_with_field_name():
+    binary = pa.array([b'a', b' ', b'b', b'c', b' ', b' ', b'd'],
+                      type='binary')
+    int64 = pa.array([0, 1, 0, 0, 2, 3, 0], type='int64')
+    types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
+
+    result = pa.UnionArray.from_sparse(types, [binary, int64], ['bin', 'int'])
+    ty = result.type
+
+    assert result.to_pylist() == [b'a', 1, b'b', b'c', 2, 3, b'd']
+    assert [ty[i].name for i in range(ty.num_children)] == ['bin', 'int']
+    assert ty.type_codes == [0, 1]
+
+
+def test_union_from_sparse_with_type_codes():
+    binary = pa.array([b'a', b' ', b'b', b'c', b' ', b' ', b'd'],
+                      type='binary')
+    int64 = pa.array([0, 1, 0, 0, 2, 3, 0], type='int64')
+    types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
+
+    result = pa.UnionArray.from_sparse(types, [binary, int64], type_codes=[11, 13])
+    ty = result.type
+
+    assert result.to_pylist() == [b'a', 1, b'b', b'c', 2, 3, b'd']
+    assert [ty[i].name for i in range(ty.num_children)] == ['0', '1']
+    assert ty.type_codes == [11, 13]
+
+
+def test_union_from_sparse_with_field_name_and_type_codes():
+    binary = pa.array([b'a', b' ', b'b', b'c', b' ', b' ', b'd'],
+                      type='binary')
+    int64 = pa.array([0, 1, 0, 0, 2, 3, 0], type='int64')
+    types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
+
+    result = pa.UnionArray.from_sparse(types, [binary, int64], ['bin', 'int'], [11, 13])
+    ty = result.type
+
+    assert result.to_pylist() == [b'a', 1, b'b', b'c', 2, 3, b'd']
+    assert [ty[i].name for i in range(ty.num_children)] == ['bin', 'int']
+    assert ty.type_codes == [11, 13]
 
 
 def test_union_array_slice():

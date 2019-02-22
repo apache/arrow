@@ -1054,7 +1054,8 @@ cdef class UnionArray(Array):
     """
 
     @staticmethod
-    def from_dense(Array types, Array value_offsets, list children):
+    def from_dense(Array types, Array value_offsets, list children,
+                   list field_names=None, list type_codes=None):
         """
         Construct dense UnionArray from arrays of int8 types, int32 offsets and
         children arrays
@@ -1064,6 +1065,8 @@ cdef class UnionArray(Array):
         types : Array (int8 type)
         value_offsets : Array (int32 type)
         children : list
+        field_names : list
+        type_codes : list
 
         Returns
         -------
@@ -1072,15 +1075,23 @@ cdef class UnionArray(Array):
         cdef shared_ptr[CArray] out
         cdef vector[shared_ptr[CArray]] c
         cdef Array child
+        cdef vector[c_string] fn
+        cdef vector[uint8_t] tc
         for child in children:
             c.push_back(child.sp_array)
+        if field_names is not None:
+            for x in field_names:
+                fn.push_back(tobytes(x))
+        if type_codes is not None:
+            for x in type_codes:
+                tc.push_back(x)
         with nogil:
             check_status(CUnionArray.MakeDense(
-                deref(types.ap), deref(value_offsets.ap), c, &out))
+                deref(types.ap), deref(value_offsets.ap), c, fn, tc, &out))
         return pyarrow_wrap_array(out)
 
     @staticmethod
-    def from_sparse(Array types, list children):
+    def from_sparse(Array types, list children, list field_names=None, list type_codes=None):
         """
         Construct sparse UnionArray from arrays of int8 types and children
         arrays
@@ -1089,6 +1100,8 @@ cdef class UnionArray(Array):
         ----------
         types : Array (int8 type)
         children : list
+        field_names : list
+        type_codes : list
 
         Returns
         -------
@@ -1097,10 +1110,18 @@ cdef class UnionArray(Array):
         cdef shared_ptr[CArray] out
         cdef vector[shared_ptr[CArray]] c
         cdef Array child
+        cdef vector[c_string] fn
+        cdef vector[uint8_t] tc
         for child in children:
             c.push_back(child.sp_array)
+        if field_names is not None:
+            for x in field_names:
+                fn.push_back(tobytes(x))
+        if type_codes is not None:
+            for x in type_codes:
+                tc.push_back(x)
         with nogil:
-            check_status(CUnionArray.MakeSparse(deref(types.ap), c, &out))
+            check_status(CUnionArray.MakeSparse(deref(types.ap), c, fn, tc, &out))
         return pyarrow_wrap_array(out)
 
 

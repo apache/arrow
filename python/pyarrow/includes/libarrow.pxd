@@ -407,11 +407,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         @staticmethod
         CStatus MakeSparse(const CArray& type_ids,
                            const vector[shared_ptr[CArray]]& children,
+                           const vector[c_string]& field_names,
+                           const vector[uint8_t]& type_codes,
                            shared_ptr[CArray]* out)
 
         @staticmethod
         CStatus MakeDense(const CArray& type_ids, const CArray& value_offsets,
                           const vector[shared_ptr[CArray]]& children,
+                          const vector[c_string]& field_names,
+                          const vector[uint8_t]& type_codes,
                           shared_ptr[CArray]* out)
         uint8_t* raw_type_ids()
         int32_t value_offset(int i)
