@@ -91,13 +91,13 @@ docker_gpg_ssh() {
 }
 
 docker_run_gpg_ready() {
-  local docker_container_id_dir=$(mktemp -d -t "arrow-binary-gpg-container.XXXXX")
-  local docker_container_id_file=${docker_container_id_dir}/id
+  local container_id_dir=$(mktemp -d -t "arrow-binary-gpg-container.XXXXX")
+  local container_id_file=${container_id_dir}/id
   docker \
     run \
     --rm \
     --detach \
-    --cidfile ${docker_container_id_file} \
+    --cidfile ${container_id_file} \
     --publish-all \
     --volume "$PWD":/host \
     ${docker_image_name} \
@@ -108,7 +108,7 @@ if [ \$(id -u) -ne ${docker_uid} ]; then
 fi
 /usr/sbin/sshd -D
 "
-  local container_id=$(cat ${docker_container_id_file})
+  local container_id=$(cat ${container_id_file})
   local ssh_port=$(docker port ${container_id} | grep -E -o '[0-9]+$')
   # Wait for sshd available
   while ! docker_gpg_ssh ${ssh_port} : > /dev/null 2>&1; do
@@ -117,7 +117,7 @@ fi
   gpg --export ${gpg_key_id} | docker_gpg_ssh ${ssh_port} gpg --import
   docker_gpg_ssh ${ssh_port} "cd /host && $@"
   docker kill ${container_id}
-  rm -rf ${docker_container_id_dir}
+  rm -rf ${container_id_dir}
 }
 
 jq() {
@@ -242,10 +242,11 @@ sign_and_upload_file() {
   for suffix in asc sha256 sha512; do
     pushd $(dirname ${local_path})
     local local_path_base=$(basename ${local_path})
-    local output=tmp.${suffix}
+    local output_dir=$(mktemp -d -t "arrow-binary-sign.XXXXX")
+    local output=${output_dir}/tmp.${suffix}
     case $suffix in
       asc)
-        docker_run_gpg_ready gpg \
+        gpg \
           --local-user ${gpg_key_id} \
           --detach-sig \
           --output ${output} \
@@ -258,7 +259,7 @@ sign_and_upload_file() {
         ;;
     esac
     upload_file ${version} ${rc} ${target} ${output} ${upload_path}.${suffix}
-    rm -f ${output}
+    rm -rf ${output_dir}
     popd
   done
 }
