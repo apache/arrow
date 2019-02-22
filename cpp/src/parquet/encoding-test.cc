@@ -330,16 +330,17 @@ class TestDecodeArrow : public ::testing::Test {
   void InitDataInputs() {
     // Build a dictionary array and its dense representation for testing building both
     auto dict_values = ::arrow::ArrayFromJSON(::arrow::binary(), "[\"foo\", \"bar\"]");
-    auto dtype = ::arrow::dictionary(::arrow::int8(), dict_values);
-    auto indices = ::arrow::ArrayFromJSON(::arrow::int8(), "[0, 1, 0, 0]");
-    ASSERT_OK(::arrow::DictionaryArray::FromArrays(dtype, indices, &expected_dict_));
-    expected_array_ =
+    auto dict_type = ::arrow::dictionary(::arrow::int8(), dict_values);
+    auto dict_indices = ::arrow::ArrayFromJSON(::arrow::int8(), "[0, 1, 0, 0]");
+    ASSERT_OK(
+        ::arrow::DictionaryArray::FromArrays(dict_type, dict_indices, &expected_dict_));
+    expected_dense_ =
         ArrayFromJSON(::arrow::binary(), "[\"foo\", \"bar\", \"foo\", \"foo\"]");
-    num_values_ = static_cast<int>(expected_array_->length());
+    num_values_ = static_cast<int>(expected_dense_->length());
 
-    // arrow::BinaryType maps to parquet::ByteArray
-    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*expected_array_);
-    for (int64_t i = 0; i < binary_array.length(); i++) {
+    // Initialize input_data_ for the encoder from the expected_array_ values
+    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*expected_dense_);
+    for (int64_t i = 0; i < binary_array.length(); ++i) {
       auto view = binary_array.GetView(i);
       input_data_.emplace_back(static_cast<uint32_t>(view.length()),
                                reinterpret_cast<const uint8_t*>(view.data()));
@@ -357,8 +358,7 @@ class TestDecodeArrow : public ::testing::Test {
     ::arrow::ArrayVector actual_vec;
     ASSERT_OK(builder.Finish(&actual_vec));
     ASSERT_EQ(actual_vec.size(), 1);
-    ASSERT_TRUE(actual_vec[0]->Equals(expected_array_))
-        << "Actual: " << actual_vec[0] << "\nExpected: " << expected_array_;
+    ASSERT_ARRAYS_EQUAL(*actual_vec[0], *expected_dense_);
   }
 
   void CheckDecodeDict(const int actual_num_values,
@@ -366,13 +366,12 @@ class TestDecodeArrow : public ::testing::Test {
     ASSERT_EQ(actual_num_values, num_values_);
     std::shared_ptr<::arrow::Array> actual;
     ASSERT_OK(builder.Finish(&actual));
-    ASSERT_TRUE(actual->Equals(expected_dict_))
-        << "Actual: " << actual << "\nExpected: " << expected_dict_;
+    ASSERT_ARRAYS_EQUAL(*actual, *expected_dict_);
   }
 
  protected:
   std::shared_ptr<::arrow::Array> expected_dict_;
-  std::shared_ptr<::arrow::Array> expected_array_;
+  std::shared_ptr<::arrow::Array> expected_dense_;
   int num_values_;
   vector<ByteArray> input_data_;
   vector<uint8_t> valid_bits_;
@@ -388,7 +387,7 @@ class TestDecodeArrowPlain : public TestDecodeArrow {
   void SetupEncoderDecoder() override {
     encoder_ = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
     decoder_ = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
-    encoder_->Put(input_data_.data(), num_values_);
+    ASSERT_NO_THROW(encoder_->Put(input_data_.data(), num_values_));
     buffer_ = encoder_->FlushValues();
     decoder_->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
   }
@@ -411,14 +410,14 @@ TEST_F(TestDecodeArrowPlain, DecodeNonNullDense) {
   CheckDecodeDense(actual_num_values, builder);
 }
 
-TEST_F(TestDecodeArrowPlain, DecodeDictionary) {
+TEST_F(TestDecodeArrowPlain, DecodeDict) {
   ::arrow::BinaryDictionaryBuilder builder(default_memory_pool());
   auto actual_num_values =
       decoder_->DecodeArrow(num_values_, 0, valid_bits_.data(), 0, &builder);
   CheckDecodeDict(actual_num_values, builder);
 }
 
-TEST_F(TestDecodeArrowPlain, DecodeNonNullDictionary) {
+TEST_F(TestDecodeArrowPlain, DecodeNonNullDict) {
   ::arrow::BinaryDictionaryBuilder builder(default_memory_pool());
   auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, &builder);
   CheckDecodeDict(actual_num_values, builder);
@@ -480,7 +479,7 @@ TEST_F(TestDecodeArrowDict, DecodeNonNullDense) {
   CheckDecodeDense(actual_num_values, builder);
 }
 
-TEST_F(TestDecodeArrowDict, DecodeDictionary) {
+TEST_F(TestDecodeArrowDict, DecodeDict) {
   ::arrow::BinaryDictionaryBuilder builder(default_memory_pool());
   auto byte_array_decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder_.get());
   ASSERT_NE(byte_array_decoder, nullptr);
@@ -489,7 +488,7 @@ TEST_F(TestDecodeArrowDict, DecodeDictionary) {
   CheckDecodeDict(actual_num_values, builder);
 }
 
-TEST_F(TestDecodeArrowDict, DecodeNonNullDictionary) {
+TEST_F(TestDecodeArrowDict, DecodeNonNullDict) {
   ::arrow::BinaryDictionaryBuilder builder(default_memory_pool());
   auto byte_array_decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder_.get());
   ASSERT_NE(byte_array_decoder, nullptr);

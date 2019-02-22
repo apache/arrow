@@ -33,6 +33,12 @@
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
 
+namespace {
+// The min/max number of values used to drive each family of encoding benchmarks
+constexpr int MIN_RANGE = 1024;
+constexpr int MAX_RANGE = 65536;
+}  // namespace
+
 namespace parquet {
 
 using schema::PrimitiveNode;
@@ -55,7 +61,7 @@ static void BM_PlainEncodingBoolean(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(bool));
 }
 
-BENCHMARK(BM_PlainEncodingBoolean)->Range(1024, 65536);
+BENCHMARK(BM_PlainEncodingBoolean)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_PlainDecodingBoolean(benchmark::State& state) {
   std::vector<bool> values(state.range(0), true);
@@ -76,7 +82,7 @@ static void BM_PlainDecodingBoolean(benchmark::State& state) {
   delete[] output;
 }
 
-BENCHMARK(BM_PlainDecodingBoolean)->Range(1024, 65536);
+BENCHMARK(BM_PlainDecodingBoolean)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_PlainEncodingInt64(benchmark::State& state) {
   std::vector<int64_t> values(state.range(0), 64);
@@ -88,7 +94,7 @@ static void BM_PlainEncodingInt64(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int64_t));
 }
 
-BENCHMARK(BM_PlainEncodingInt64)->Range(1024, 65536);
+BENCHMARK(BM_PlainEncodingInt64)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_PlainDecodingInt64(benchmark::State& state) {
   std::vector<int64_t> values(state.range(0), 64);
@@ -105,7 +111,7 @@ static void BM_PlainDecodingInt64(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int64_t));
 }
 
-BENCHMARK(BM_PlainDecodingInt64)->Range(1024, 65536);
+BENCHMARK(BM_PlainDecodingInt64)->Range(MIN_RANGE, MAX_RANGE);
 
 template <typename Type>
 static void DecodeDict(std::vector<typename Type::c_type>& values,
@@ -157,7 +163,7 @@ static void BM_DictDecodingInt64_repeats(benchmark::State& state) {
   DecodeDict<Type>(values, state);
 }
 
-BENCHMARK(BM_DictDecodingInt64_repeats)->Range(1024, 65536);
+BENCHMARK(BM_DictDecodingInt64_repeats)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_DictDecodingInt64_literals(benchmark::State& state) {
   typedef Int64Type Type;
@@ -170,7 +176,7 @@ static void BM_DictDecodingInt64_literals(benchmark::State& state) {
   DecodeDict<Type>(values, state);
 }
 
-BENCHMARK(BM_DictDecodingInt64_literals)->Range(1024, 65536);
+BENCHMARK(BM_DictDecodingInt64_literals)->Range(MIN_RANGE, MAX_RANGE);
 
 std::shared_ptr<::arrow::Array> MakeRandomStringsWithRepeats(size_t num_unique,
                                                              size_t num_values) {
@@ -191,6 +197,7 @@ std::shared_ptr<::arrow::Array> MakeRandomStringsWithRepeats(size_t num_unique,
 
   std::uniform_int_distribution<int64_t> indices_dist(0, num_unique - 1);
   ::arrow::StringBuilder builder;
+  ABORT_NOT_OK(builder.Reserve(num_values));
 
   for (size_t i = 0; i < num_values; i++) {
     const auto index = indices_dist(gen);
@@ -207,8 +214,14 @@ class BM_PlainDecodingByteArray : public ::benchmark::Fixture {
  public:
   void SetUp(const ::benchmark::State& state) override {
     num_values_ = static_cast<int>(state.range());
+    constexpr int repeat_factor = 8;
+    input_array_ = MakeRandomStringsWithRepeats(num_values_ / repeat_factor, num_values_);
+    PlainEncodeInputArray();
+  }
 
-    input_array_ = MakeRandomStringsWithRepeats(num_values_ / 8, num_values_);
+  void TearDown(const ::benchmark::State& state) override {}
+
+  void PlainEncodeInputArray() {
     const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*input_array_);
     values_ = std::vector<ByteArray>();
     values_.reserve(num_values_);
@@ -228,8 +241,6 @@ class BM_PlainDecodingByteArray : public ::benchmark::Fixture {
     encoder->Put(values_.data(), num_values_);
     buffer_ = encoder->FlushValues();
   }
-
-  void TearDown(const ::benchmark::State& state) override {}
 
  protected:
   int num_values_;
@@ -253,7 +264,8 @@ BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrow_Dense)
   state.SetBytesProcessed(state.iterations() * total_size_);
 }
 
-BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrow_Dense)->Range(1024, 65536);
+BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrow_Dense)
+    ->Range(MIN_RANGE, MAX_RANGE);
 
 BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dense)
 (benchmark::State& state) {
@@ -269,7 +281,7 @@ BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dense)
 }
 
 BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dense)
-    ->Range(1024, 65536);
+    ->Range(MIN_RANGE, MAX_RANGE);
 
 BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrow_Dict)
 (benchmark::State& state) {
@@ -283,7 +295,8 @@ BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrow_Dict)
   state.SetBytesProcessed(state.iterations() * total_size_);
 }
 
-BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrow_Dict)->Range(1024, 65536);
+BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrow_Dict)
+    ->Range(MIN_RANGE, MAX_RANGE);
 
 BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dict)
 (benchmark::State& state) {
@@ -298,6 +311,6 @@ BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dict)
 }
 
 BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dict)
-    ->Range(1024, 65536);
+    ->Range(MIN_RANGE, MAX_RANGE);
 
 }  // namespace parquet
