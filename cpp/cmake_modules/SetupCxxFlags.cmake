@@ -207,10 +207,16 @@ if ("${COMPILER_FAMILY}" STREQUAL "msvc")
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4996")
 endif()
 
-if ("${COMPILER_FAMILY}" STREQUAL "gcc" AND
-    "${COMPILER_VERSION}" VERSION_GREATER "6.0")
-  # Without this, gcc >= 7 warns related to changes in C++17
-  set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
+if ("${COMPILER_FAMILY}" STREQUAL "gcc")
+  if ("${COMPILER_VERSION}" VERSION_GREATER "6.0")
+    # Without this, gcc >= 7 warns related to changes in C++17
+    set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
+  endif()
+
+  if ("${COMPILER_VERSION}" VERSION_GREATER "4.9")
+    # Add colors when paired with ninja
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
+  endif()
 endif()
 
 # Clang options for all builds
@@ -225,6 +231,8 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
 
   # Avoid clang error when an unknown warning flag is passed
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
+  # Add colors when paired with ninja
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
 endif()
 
 # if build warning flags is set, add to CXX_COMMON_FLAGS
