@@ -65,7 +65,7 @@ Status BufferOutputStream::Reset(int64_t initial_capacity, MemoryPool* pool) {
 BufferOutputStream::~BufferOutputStream() {
   // This can fail, better to explicitly call close
   if (buffer_) {
-    DCHECK_OK(Close());
+    DCHECK(Close().ok());
   }
 }
 
