@@ -4,6 +4,7 @@
 *_generated.h
 *_generated.js
 *_generated.ts
+*.csv
 *.json
 *.snap
 .github/ISSUE_TEMPLATE.md
