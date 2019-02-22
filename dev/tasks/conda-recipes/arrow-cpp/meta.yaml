@@ -58,6 +58,7 @@ requirements:
     - python
     - {{ pin_compatible('numpy', lower_bound='1.14') }}
     - snappy  # [win and py>=35]
+    - gflags
     - zlib
 
 test:
