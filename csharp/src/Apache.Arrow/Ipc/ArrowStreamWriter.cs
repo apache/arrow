@@ -339,25 +339,25 @@ namespace Apache.Arrow.Ipc
 
             Builder.Finish(messageOffset.Value);
 
-            var messageData = Builder.DataBuffer.ToArraySegment(Builder.DataBuffer.Position, Builder.Offset);
-            var messagePaddingLength = CalculatePadding(messageData.Count);
+            var messageData = Builder.DataBuffer.ToReadOnlyMemory(Builder.DataBuffer.Position, Builder.Offset);
+            var messagePaddingLength = CalculatePadding(messageData.Length);
 
             await Buffers.RentReturnAsync(4, (buffer) =>
             {
-                var metadataSize = messageData.Count + messagePaddingLength;
+                var metadataSize = messageData.Length + messagePaddingLength;
                 BinaryPrimitives.WriteInt32LittleEndian(buffer, metadataSize);
                 return BaseStream.WriteAsync(buffer, 0, 4, cancellationToken);
             });
 
-            await BaseStream.WriteAsync(messageData.Array, messageData.Offset, messageData.Count, cancellationToken);
+            await BaseStream.WriteAsync(messageData, cancellationToken);
             await WritePaddingAsync(messagePaddingLength);
         }
 
         private protected async Task WriteFlatBufferAsync(CancellationToken cancellationToken = default)
         {
-            var segment = Builder.DataBuffer.ToArraySegment(Builder.DataBuffer.Position, Builder.Offset);
+            var segment = Builder.DataBuffer.ToReadOnlyMemory(Builder.DataBuffer.Position, Builder.Offset);
 
-            await BaseStream.WriteAsync(segment.Array, segment.Offset, segment.Count, cancellationToken);
+            await BaseStream.WriteAsync(segment, cancellationToken);
         }
 
         protected int CalculatePadding(int offset, int alignment = 8) =>

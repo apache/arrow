@@ -3,7 +3,7 @@
   <Import Project="../../build/Common.props" />
 
   <PropertyGroup>
-    <TargetFramework>netstandard1.3</TargetFramework>
+    <TargetFrameworks>netstandard1.3;netcoreapp2.1</TargetFrameworks>
     <LangVersion>7.2</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Authors>Apache</Authors>
@@ -15,6 +15,7 @@
     <PackageTags>apache arrow</PackageTags>
     <Company>Apache</Company>
     <Version>0.0.1</Version>
+    <DefineConstants>$(DefineConstants);UNSAFE_BYTEBUFFER;BYTEBUFFER_NO_BOUNDS_CHECK;ENABLE_SPAN_T</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -39,4 +40,7 @@
     </EmbeddedResource>
   </ItemGroup>
 
+  <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1'">
+    <Compile Remove="Extensions\StreamExtensions.netstandard.cs" />
+  </ItemGroup>
 </Project>
