@@ -32,16 +32,13 @@ import org.apache.arrow.gandiva.exceptions.GandivaException;
  */
 class JniLoader {
   private static final String LIBRARY_NAME = "gandiva_jni";
-  private static final String IRHELPERS_BC = "irhelpers.bc";
 
   private static volatile JniLoader INSTANCE;
   private static volatile long defaultConfiguration = 0L;
 
-  private final String byteCodeFilePath;
   private final JniWrapper wrapper;
 
-  private JniLoader(String byteCodeFilePath) {
-    this.byteCodeFilePath = byteCodeFilePath;
+  private JniLoader() {
     this.wrapper = new JniWrapper();
   }
 
@@ -60,8 +57,7 @@ class JniLoader {
     try {
       String tempDir = System.getProperty("java.io.tmpdir");
       loadGandivaLibraryFromJar(tempDir);
-      File byteCodeFile = moveFileFromJarToTemp(tempDir, IRHELPERS_BC);
-      return new JniLoader(byteCodeFile.getAbsolutePath());
+      return new JniLoader();
     } catch (IOException ioException) {
       throw new GandivaException("unable to create native instance", ioException);
     }
@@ -108,13 +104,6 @@ class JniLoader {
   }
 
   /**
-   * Returns the byte code file path extracted from jar.
-   */
-  public String getByteCodeFilePath() {
-    return byteCodeFilePath;
-  }
-
-  /**
    * Returns the jni wrapper.
    */
   JniWrapper getWrapper() throws GandivaException {
@@ -130,11 +119,9 @@ class JniLoader {
     if (defaultConfiguration == 0L) {
       synchronized (ConfigurationBuilder.class) {
         if (defaultConfiguration == 0L) {
-          String defaultByteCodeFilePath = JniLoader.getInstance().getByteCodeFilePath();
-
+          JniLoader.getInstance();  // setup
           defaultConfiguration = new ConfigurationBuilder()
-              .withByteCodeFilePath(defaultByteCodeFilePath)
-              .buildConfigInstance();
+            .buildConfigInstance();
         }
       }
     }

@@ -15,12 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef _WIN32
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#endif
-
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -28,14 +22,14 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <boost/process.hpp>
 
 #include "arrow/ipc/test-common.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 
 #include "arrow/flight/api.h"
 
@@ -62,6 +56,7 @@ TEST(TestFlight, StartStopTestServer) {
   ASSERT_TRUE(server.IsRunning());
   int exit_code = server.Stop();
   ASSERT_EQ(0, exit_code);
+  ASSERT_FALSE(server.IsRunning());
 }
 
 // ----------------------------------------------------------------------

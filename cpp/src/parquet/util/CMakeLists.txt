@@ -16,7 +16,7 @@
 # under the License.
 
 # Headers: util
-ARROW_INSTALL_ALL_HEADERS("parquet/util")
+arrow_install_all_headers("parquet/util")
 
-ADD_PARQUET_TEST(comparison-test)
-ADD_PARQUET_TEST(memory-test)
+add_parquet_test(comparison-test)
+add_parquet_test(memory-test)

@@ -7,7 +7,7 @@ namespace Apache.Arrow.Flatbuf
 
 /// ----------------------------------------------------------------------
 /// Endianness of the platform producing the data
-public enum Endianness : short
+internal enum Endianness : short
 {
  Little = 0,
  Big = 1,

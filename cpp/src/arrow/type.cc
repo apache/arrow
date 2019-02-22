@@ -50,6 +50,10 @@ std::shared_ptr<Field> Field::RemoveMetadata() const {
   return std::make_shared<Field>(name_, type_, nullable_);
 }
 
+std::shared_ptr<Field> Field::WithType(const std::shared_ptr<DataType>& type) const {
+  return std::make_shared<Field>(name_, type, nullable_, metadata_);
+}
+
 std::vector<std::shared_ptr<Field>> Field::Flatten() const {
   std::vector<std::shared_ptr<Field>> flattened;
   if (type_->id() == Type::STRUCT) {
@@ -221,13 +225,29 @@ std::string UnionType::ToString() const {
 
 namespace {
 
-std::unordered_map<std::string, int> CreateNameToIndexMap(
+std::unordered_multimap<std::string, int> CreateNameToIndexMap(
     const std::vector<std::shared_ptr<Field>>& fields) {
-  std::unordered_map<std::string, int> name_to_index;
+  std::unordered_multimap<std::string, int> name_to_index;
   for (size_t i = 0; i < fields.size(); ++i) {
-    name_to_index[fields[i]->name()] = static_cast<int>(i);
+    name_to_index.emplace(fields[i]->name(), static_cast<int>(i));
   }
   return name_to_index;
+}
+
+int LookupNameIndex(const std::unordered_multimap<std::string, int>& name_to_index,
+                    const std::string& name) {
+  auto p = name_to_index.equal_range(name);
+  auto it = p.first;
+  if (it == p.second) {
+    // Not found
+    return -1;
+  }
+  auto index = it->second;
+  if (++it != p.second) {
+    // Duplicate field name
+    return -1;
+  }
+  return index;
 }
 
 }  // namespace
@@ -257,32 +277,29 @@ std::shared_ptr<Field> StructType::GetFieldByName(const std::string& name) const
 }
 
 int StructType::GetFieldIndex(const std::string& name) const {
-  if (name_to_index_.size() < children_.size()) {
-    // There are duplicate field names. Refuse to guess
-    int counts = 0;
-    int last_observed_index = -1;
-    for (size_t i = 0; i < children_.size(); ++i) {
-      if (children_[i]->name() == name) {
-        ++counts;
-        last_observed_index = static_cast<int>(i);
-      }
-    }
-
-    if (counts == 1) {
-      return last_observed_index;
-    } else {
-      // Duplicate or not found
-      return -1;
-    }
-  }
-
-  auto it = name_to_index_.find(name);
-  if (it == name_to_index_.end()) {
-    return -1;
-  } else {
-    return it->second;
-  }
+  return LookupNameIndex(name_to_index_, name);
 }
+
+std::vector<int> StructType::GetAllFieldIndices(const std::string& name) const {
+  std::vector<int> result;
+  auto p = name_to_index_.equal_range(name);
+  for (auto it = p.first; it != p.second; ++it) {
+    result.push_back(it->second);
+  }
+  return result;
+}
+
+std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
+    const std::string& name) const {
+  std::vector<std::shared_ptr<Field>> result;
+  auto p = name_to_index_.equal_range(name);
+  for (auto it = p.first; it != p.second; ++it) {
+    result.push_back(children_[it->second]);
+  }
+  return result;
+}
+
+// Deprecated methods
 
 std::shared_ptr<Field> StructType::GetChildByName(const std::string& name) const {
   return GetFieldByName(name);
@@ -290,6 +307,15 @@ std::shared_ptr<Field> StructType::GetChildByName(const std::string& name) const
 
 int StructType::GetChildIndex(const std::string& name) const {
   return GetFieldIndex(name);
+}
+
+// ----------------------------------------------------------------------
+// Decimal128 type
+
+Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
+    : DecimalType(16, precision, scale) {
+  DCHECK_GE(precision, 1);
+  DCHECK_LE(precision, 38);
 }
 
 // ----------------------------------------------------------------------
@@ -368,17 +394,31 @@ bool Schema::Equals(const Schema& other, bool check_metadata) const {
 }
 
 std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) const {
-  int64_t i = GetFieldIndex(name);
+  int i = GetFieldIndex(name);
   return i == -1 ? nullptr : fields_[i];
 }
 
-int64_t Schema::GetFieldIndex(const std::string& name) const {
-  auto it = name_to_index_.find(name);
-  if (it == name_to_index_.end()) {
-    return -1;
-  } else {
-    return it->second;
+int Schema::GetFieldIndex(const std::string& name) const {
+  return LookupNameIndex(name_to_index_, name);
+}
+
+std::vector<int> Schema::GetAllFieldIndices(const std::string& name) const {
+  std::vector<int> result;
+  auto p = name_to_index_.equal_range(name);
+  for (auto it = p.first; it != p.second; ++it) {
+    result.push_back(it->second);
   }
+  return result;
+}
+
+std::vector<std::shared_ptr<Field>> Schema::GetAllFieldsByName(
+    const std::string& name) const {
+  std::vector<std::shared_ptr<Field>> result;
+  auto p = name_to_index_.equal_range(name);
+  for (auto it = p.first; it != p.second; ++it) {
+    result.push_back(fields_[it->second]);
+  }
+  return result;
 }
 
 Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
@@ -444,6 +484,14 @@ std::string Schema::ToString() const {
   }
 
   return buffer.str();
+}
+
+std::vector<std::string> Schema::field_names() const {
+  std::vector<std::string> names;
+  for (auto& field : fields_) {
+    names.push_back(field->name());
+  }
+  return names;
 }
 
 std::shared_ptr<Schema> schema(const std::vector<std::shared_ptr<Field>>& fields,

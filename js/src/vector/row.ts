@@ -17,21 +17,50 @@
 
 import { Field } from '../schema';
 import { MapVector } from '../vector/map';
-import { DataType, RowLike } from '../type';
+import { DataType } from '../type';
 import { valueToString } from '../util/pretty';
 import { StructVector } from '../vector/struct';
 
-/** @ignore */ const columnDescriptor = { enumerable: true, configurable: false, get: () => {} };
-/** @ignore */ const lengthDescriptor = { writable: false, enumerable: false, configurable: false, value: -1 };
-/** @ignore */ const rowIndexDescriptor = { writable: false, enumerable: false, configurable: true, value: null as any };
+/** @ignore */ export const kLength = Symbol.for('length');
+/** @ignore */ export const kParent = Symbol.for('parent');
+/** @ignore */ export const kRowIndex = Symbol.for('rowIndex');
+/** @ignore */ const columnDescriptor = { enumerable: true, configurable: false, get: null as any };
+/** @ignore */ const rowLengthDescriptor = { writable: false, enumerable: false, configurable: false, value: -1 };
 /** @ignore */ const rowParentDescriptor = { writable: false, enumerable: false, configurable: false, value: null as any };
-/** @ignore */ const row = { parent: rowParentDescriptor, rowIndex: rowIndexDescriptor };
 
-/** @ignore */
 export class Row<T extends { [key: string]: DataType }> implements Iterable<T[keyof T]['TValue']> {
     [key: string]: T[keyof T]['TValue'];
+    // @ts-ignore
+    public [kParent]: MapVector<T> | StructVector<T>;
+    // @ts-ignore
+    public [kRowIndex]: number;
+    // @ts-ignore
+    public readonly [kLength]: number;
+    *[Symbol.iterator]() {
+        for (let i = -1, n = this[kLength]; ++i < n;) {
+            yield this[i];
+        }
+    }
+    public get<K extends keyof T>(key: K) { return (this as any)[key] as T[K]['TValue']; }
+    public toJSON(): any {
+        return DataType.isStruct(this[kParent].type) ? [...this] :
+            Object.getOwnPropertyNames(this).reduce((props: any, prop: string) => {
+                return (props[prop] = (this as any)[prop]) && props || props;
+            }, {});
+    }
+    public toString() {
+        return DataType.isStruct(this[kParent].type) ?
+            [...this].map((x) => valueToString(x)).join(', ') :
+            Object.getOwnPropertyNames(this).reduce((props: any, prop: string) => {
+                return (props[prop] = valueToString((this as any)[prop])) && props || props;
+            }, {});
+    }
+}
+
+/** @ignore */
+export class RowProxyGenerator<T extends { [key: string]: DataType }> {
     /** @nocollapse */
-    public static new<T extends { [key: string]: DataType }>(schemaOrFields: T | Field[], fieldsAreEnumerable = false): RowLike<T> & Row<T> {
+    public static new<T extends { [key: string]: DataType }>(parent: MapVector<T> | StructVector<T>, schemaOrFields: T | Field[], fieldsAreEnumerable = false): RowProxyGenerator<T> {
         let schema: T, fields: Field[];
         if (Array.isArray(schemaOrFields)) {
             fields = schemaOrFields;
@@ -40,61 +69,45 @@ export class Row<T extends { [key: string]: DataType }> implements Iterable<T[ke
             fieldsAreEnumerable = true;
             fields = Object.keys(schema).map((x) => new Field(x, schema[x]));
         }
-        return new Row<T>(fields, fieldsAreEnumerable) as RowLike<T> & Row<T>;
+        return new RowProxyGenerator<T>(parent, fields, fieldsAreEnumerable);
     }
-    // @ts-ignore
-    private parent: TParent;
-    // @ts-ignore
-    private rowIndex: number;
-    // @ts-ignore
-    public readonly length: number;
-    private constructor(fields: Field[], fieldsAreEnumerable: boolean) {
-        lengthDescriptor.value = fields.length;
-        Object.defineProperty(this, 'length', lengthDescriptor);
+
+    private rowPrototype: Row<T>;
+
+    private constructor(parent: MapVector<T> | StructVector<T>, fields: Field[], fieldsAreEnumerable: boolean) {
+        const proto = Object.create(Row.prototype);
+
+        rowParentDescriptor.value = parent;
+        rowLengthDescriptor.value = fields.length;
+        Object.defineProperty(proto, kParent, rowParentDescriptor);
+        Object.defineProperty(proto, kLength, rowLengthDescriptor);
         fields.forEach((field, columnIndex) => {
-            columnDescriptor.get = this._bindGetter(columnIndex);
-            // set configurable to true to ensure Object.defineProperty
-            // doesn't throw in the case of duplicate column names
-            columnDescriptor.configurable = true;
-            columnDescriptor.enumerable = fieldsAreEnumerable;
-            Object.defineProperty(this, field.name, columnDescriptor);
-            columnDescriptor.configurable = false;
-            columnDescriptor.enumerable = !fieldsAreEnumerable;
-            Object.defineProperty(this, columnIndex, columnDescriptor);
+            if (!proto.hasOwnProperty(field.name)) {
+                columnDescriptor.enumerable = fieldsAreEnumerable;
+                columnDescriptor.get || (columnDescriptor.get = this._bindGetter(columnIndex));
+                Object.defineProperty(proto, field.name, columnDescriptor);
+            }
+            if (!proto.hasOwnProperty(columnIndex)) {
+                columnDescriptor.enumerable = !fieldsAreEnumerable;
+                columnDescriptor.get || (columnDescriptor.get = this._bindGetter(columnIndex));
+                Object.defineProperty(proto, columnIndex, columnDescriptor);
+            }
             columnDescriptor.get = null as any;
         });
+
+        this.rowPrototype = proto;
     }
-    *[Symbol.iterator](this: RowLike<T>) {
-        for (let i = -1, n = this.length; ++i < n;) {
-            yield this[i];
-        }
-    }
-    private _bindGetter(colIndex: number) {
-        return function (this: Row<T>) {
-            let child = this.parent.getChildAt(colIndex);
-            return child ? child.get(this.rowIndex) : null;
+
+    private _bindGetter(columnIndex: number) {
+        return function(this: Row<T>) {
+            const child = this[kParent].getChildAt(columnIndex);
+            return child ? child.get(this[kRowIndex]) : null;
         };
     }
-    public get<K extends keyof T>(key: K) { return (this as any)[key] as T[K]['TValue']; }
-    public bind<TParent extends MapVector<T> | StructVector<T>>(parent: TParent, rowIndex: number) {
-        rowIndexDescriptor.value = rowIndex;
-        rowParentDescriptor.value = parent;
-        const bound = Object.create(this, row);
-        rowIndexDescriptor.value = null;
-        rowParentDescriptor.value = null;
-        return bound as RowLike<T>;
-    }
-    public toJSON(): any {
-        return DataType.isStruct(this.parent.type) ? [...this] :
-            Object.getOwnPropertyNames(this).reduce((props: any, prop: string) => {
-                return (props[prop] = (this as any)[prop]) && props || props;
-            }, {});
-    }
-    public toString() {
-        return DataType.isStruct(this.parent.type) ?
-            [...this].map((x) => valueToString(x)).join(', ') :
-            Object.getOwnPropertyNames(this).reduce((props: any, prop: string) => {
-                return (props[prop] = valueToString((this as any)[prop])) && props || props;
-            }, {});
+    public bind(rowIndex: number) {
+        const bound = Object.create(this.rowPrototype);
+        bound[kRowIndex] = rowIndex;
+        return bound;
+        //return new this.RowProxy(rowIndex);
     }
 }

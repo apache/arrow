@@ -142,4 +142,52 @@ public class TestVectorReAlloc {
       assertNull(vector.getObject(513));
     }
   }
+
+  @Test
+  public void testFixedAllocateAfterReAlloc() throws Exception {
+    try (final IntVector vector = new IntVector("", allocator)) {
+      /*
+       * Allocate the default size, and then, reAlloc. This should double the allocation.
+       */
+      vector.allocateNewSafe(); // Initial allocation
+      vector.reAlloc(); // Double the allocation size.
+      int savedValueCapacity = vector.getValueCapacity();
+
+      /*
+       * Clear and allocate again.
+       */
+      vector.clear();
+      vector.allocateNewSafe();
+
+      /*
+       * Verify that the buffer sizes haven't changed.
+       */
+      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+    }
+  }
+
+  @Test
+  public void testVariableAllocateAfterReAlloc() throws Exception {
+    try (final VarCharVector vector = new VarCharVector("", allocator)) {
+      /*
+       * Allocate the default size, and then, reAlloc. This should double the allocation.
+       */
+      vector.allocateNewSafe(); // Initial allocation
+      vector.reAlloc(); // Double the allocation size.
+      int savedValueCapacity = vector.getValueCapacity();
+      int savedValueBufferSize = vector.valueBuffer.capacity();
+
+      /*
+       * Clear and allocate again.
+       */
+      vector.clear();
+      vector.allocateNewSafe();
+
+      /*
+       * Verify that the buffer sizes haven't changed.
+       */
+      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+      Assert.assertEquals(vector.valueBuffer.capacity(), savedValueBufferSize);
+    }
+  }
 }

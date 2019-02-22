@@ -141,6 +141,8 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   Status CopyHostToDevice(void* dst, const void* src, int64_t nbytes);
   Status CopyDeviceToHost(void* dst, const void* src, int64_t nbytes);
   Status CopyDeviceToDevice(void* dst, const void* src, int64_t nbytes);
+  Status CopyDeviceToAnotherDevice(const std::shared_ptr<CudaContext>& dst_ctx, void* dst,
+                                   const void* src, int64_t nbytes);
   Status Free(void* device_ptr, int64_t nbytes);
 
   class CudaContextImpl;

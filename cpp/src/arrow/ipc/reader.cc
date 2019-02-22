@@ -45,6 +45,8 @@
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
+using arrow::internal::checked_pointer_cast;
+
 namespace arrow {
 
 namespace flatbuf = org::apache::arrow::flatbuf;
@@ -823,14 +825,14 @@ Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
       RETURN_NOT_OK(ReadSparseCOOIndex(sparse_tensor, shape.size(), non_zero_length, file,
                                        &sparse_index));
       return MakeSparseTensorWithSparseCOOIndex(
-          type, shape, dim_names, std::dynamic_pointer_cast<SparseCOOIndex>(sparse_index),
+          type, shape, dim_names, checked_pointer_cast<SparseCOOIndex>(sparse_index),
           non_zero_length, data, out);
 
     case SparseTensorFormat::CSR:
       RETURN_NOT_OK(ReadSparseCSRIndex(sparse_tensor, shape.size(), non_zero_length, file,
                                        &sparse_index));
       return MakeSparseTensorWithSparseCSRIndex(
-          type, shape, dim_names, std::dynamic_pointer_cast<SparseCSRIndex>(sparse_index),
+          type, shape, dim_names, checked_pointer_cast<SparseCSRIndex>(sparse_index),
           non_zero_length, data, out);
 
     default:

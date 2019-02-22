@@ -57,9 +57,11 @@ except ImportError:
 BRANCH_PREFIX = "PR_TOOL"
 JIRA_API_BASE = "https://issues.apache.org/jira"
 
+
 def get_json(url, headers=None):
     req = requests.get(url, headers=headers)
     return req.json()
+
 
 def run_cmd(cmd):
     if isinstance(cmd, six.string_types):
@@ -96,7 +98,7 @@ def clean_up():
         run_cmd("git branch -D %s" % branch)
 
 
-_REGEX_CI_DIRECTIVE = re.compile('\[[^\]]*\]')
+_REGEX_CI_DIRECTIVE = re.compile(r'\[[^\]]*\]')
 
 
 def strip_ci_directives(commit_message):
@@ -143,7 +145,7 @@ class JiraIssue(object):
         unreleased_versions = sorted(unreleased_versions,
                                      key=lambda x: x.name, reverse=True)
 
-        mainline_version_regex = re.compile('\d.*')
+        mainline_version_regex = re.compile(r'\d.*')
         mainline_versions = [x for x in unreleased_versions
                              if mainline_version_regex.match(x.name)]
 
@@ -451,5 +453,5 @@ def cli():
 if __name__ == '__main__':
     try:
         cli()
-    except Exception as e:
+    except Exception:
         raise

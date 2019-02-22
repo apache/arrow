@@ -25,7 +25,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/macros.h"
 
@@ -464,6 +464,22 @@ TEST(Decimal128Test, TestToInteger) {
 
   Decimal128 invalid_int64("12345678912345678901");
   ASSERT_RAISES(Invalid, invalid_int64.ToInteger(&out2));
+}
+
+TEST(Decimal128Test, Multiply) {
+  Decimal128 result;
+
+  result = Decimal128("301") * Decimal128("201");
+  ASSERT_EQ(result.ToIntegerString(), "60501");
+
+  result = Decimal128("-301") * Decimal128("201");
+  ASSERT_EQ(result.ToIntegerString(), "-60501");
+
+  result = Decimal128("301") * Decimal128("-201");
+  ASSERT_EQ(result.ToIntegerString(), "-60501");
+
+  result = Decimal128("-301") * Decimal128("-201");
+  ASSERT_EQ(result.ToIntegerString(), "60501");
 }
 
 TEST(Decimal128Test, GetWholeAndFraction) {

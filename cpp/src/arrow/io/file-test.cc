@@ -39,7 +39,7 @@
 #include "arrow/io/test-common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/io-util.h"
 
 namespace arrow {

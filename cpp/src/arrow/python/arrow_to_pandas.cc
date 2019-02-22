@@ -1336,21 +1336,21 @@ static Status GetPandasBlockType(const Column& col, const PandasOptions& options
     case Type::DOUBLE:
       *output_type = PandasBlock::DOUBLE;
       break;
-    case Type::STRING:
+    case Type::STRING:  // fall through
     case Type::BINARY:
       if (options.strings_to_categorical) {
         *output_type = PandasBlock::CATEGORICAL;
         break;
-      }
-    case Type::NA:
-    case Type::FIXED_SIZE_BINARY:
-    case Type::STRUCT:
-    case Type::TIME32:
-    case Type::TIME64:
-    case Type::DECIMAL:
+      }                            // fall through
+    case Type::NA:                 // fall through
+    case Type::FIXED_SIZE_BINARY:  // fall through
+    case Type::STRUCT:             // fall through
+    case Type::TIME32:             // fall through
+    case Type::TIME64:             // fall through
+    case Type::DECIMAL:            // fall through
       *output_type = PandasBlock::OBJECT;
       break;
-    case Type::DATE32:
+    case Type::DATE32:  // fall through
     case Type::DATE64:
       *output_type = options.date_as_object ? PandasBlock::OBJECT : PandasBlock::DATETIME;
       break;

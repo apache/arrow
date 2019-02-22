@@ -22,6 +22,8 @@ set -e
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 JAVA_DIR=${TRAVIS_BUILD_DIR}/java
 
+export MAVEN_OPTS="-Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
+
 pushd $JAVA_DIR
 
 # build with gandiva profile

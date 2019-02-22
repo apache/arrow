@@ -24,7 +24,7 @@
 #include "arrow/ipc/api.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 
 #include "arrow/gpu/cuda_api.h"
 

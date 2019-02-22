@@ -26,27 +26,33 @@
 #include "arrow/array.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace compute {
 namespace detail {
 
 Status InvokeUnaryArrayKernel(FunctionContext* ctx, UnaryKernel* kernel,
                               const Datum& value, std::vector<Datum>* outputs) {
   if (value.kind() == Datum::ARRAY) {
-    Datum output;
-    RETURN_NOT_OK(kernel->Call(ctx, value, &output));
-    outputs->push_back(output);
+    Datum out;
+    out.value = ArrayData::Make(kernel->out_type(), value.array()->length);
+    RETURN_NOT_OK(kernel->Call(ctx, value, &out));
+    outputs->push_back(out);
   } else if (value.kind() == Datum::CHUNKED_ARRAY) {
     const ChunkedArray& array = *value.chunked_array();
     for (int i = 0; i < array.num_chunks(); i++) {
-      Datum output;
-      RETURN_NOT_OK(kernel->Call(ctx, Datum(array.chunk(i)), &output));
-      outputs->push_back(output);
+      Datum out;
+      out.value = ArrayData::Make(kernel->out_type(), array.chunk(i)->length());
+      RETURN_NOT_OK(kernel->Call(ctx, array.chunk(i), &out));
+      outputs->push_back(out);
     }
   } else {
     return Status::Invalid("Input Datum was not array-like");
@@ -165,44 +171,94 @@ Datum WrapDatumsLike(const Datum& value, const std::vector<Datum>& datums) {
 }
 
 PrimitiveAllocatingUnaryKernel::PrimitiveAllocatingUnaryKernel(
-    std::unique_ptr<UnaryKernel> delegate)
-    : delegate_(std::move(delegate)) {}
+    UnaryKernel* delegate, const std::shared_ptr<DataType>& out_type)
+    : delegate_(delegate), out_type_(out_type) {}
+
+PrimitiveAllocatingUnaryKernel::PrimitiveAllocatingUnaryKernel(
+    std::unique_ptr<UnaryKernel> delegate, const std::shared_ptr<DataType>& out_type)
+    : PrimitiveAllocatingUnaryKernel(delegate.get(), out_type) {
+  owned_delegate_ = std::move(delegate);
+}
 
 inline void ZeroLastByte(Buffer* buffer) {
   *(buffer->mutable_data() + (buffer->size() - 1)) = 0;
+}
+
+Status PropagateNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* output) {
+  const int64_t length = input.length;
+
+  if (output->buffers.size() == 0) {
+    // Ensure we can assign a buffer
+    output->buffers.resize(1);
+  }
+
+  // Handle validity bitmap
+  output->null_count = input.GetNullCount();
+  if (input.offset != 0 && output->null_count > 0) {
+    DCHECK(input.buffers[0]);
+    const Buffer& validity_bitmap = *input.buffers[0];
+    std::shared_ptr<Buffer> buffer;
+    RETURN_NOT_OK(ctx->Allocate(BitUtil::BytesForBits(length), &buffer));
+    // Per spec all trailing bits should indicate nullness, since
+    // the last byte might only be partially set, we ensure the
+    // remaining bit is set.
+    ZeroLastByte(buffer.get());
+    buffer->ZeroPadding();
+    internal::CopyBitmap(validity_bitmap.data(), input.offset, length,
+                         buffer->mutable_data(), 0 /* destination offset */);
+    output->buffers[0] = std::move(buffer);
+  } else {
+    output->buffers[0] = input.buffers[0];
+  }
+  return Status::OK();
 }
 
 Status PrimitiveAllocatingUnaryKernel::Call(FunctionContext* ctx, const Datum& input,
                                             Datum* out) {
   std::vector<std::shared_ptr<Buffer>> data_buffers;
   const ArrayData& in_data = *input.array();
-  MemoryPool* pool = ctx->memory_pool();
 
-  // Handle the validity buffer.
-  if (in_data.offset == 0 || in_data.null_count <= 0) {
-    // Validity bitmap will be zero copied (or allocated when buffer is known).
-    data_buffers.emplace_back();
-  } else {
-    std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(AllocateBitmap(pool, in_data.length, &buffer));
-    // Per spec all trailing bits should indicate nullness, since
-    // the last byte might only be partially set, we ensure the
-    // remaining bit is set.
-    ZeroLastByte(buffer.get());
-    buffer->ZeroPadding();
-    data_buffers.push_back(buffer);
-  }
-  // Allocate the boolean value buffer.
+  DCHECK_EQ(out->kind(), Datum::ARRAY);
+
+  ArrayData* result = out->array().get();
+
+  result->buffers.resize(2);
+
+  const int64_t length = in_data.length;
+
+  // Allocate the value buffer
   std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(AllocateBitmap(pool, in_data.length, &buffer));
-  // Some utility methods access the last byte before it might be
-  // initialized this makes valgrind/asan unhappy, so we proactively
-  // zero it.
-  ZeroLastByte(buffer.get());
-  data_buffers.push_back(buffer);
-  out->value = ArrayData::Make(null(), in_data.length, data_buffers);
+  if (out_type_->id() != Type::NA) {
+    const auto& fw_type = checked_cast<const FixedWidthType&>(*out_type_);
 
+    int bit_width = fw_type.bit_width();
+    int64_t buffer_size = 0;
+
+    if (bit_width == 1) {
+      buffer_size = BitUtil::BytesForBits(length);
+    } else {
+      DCHECK_EQ(bit_width % 8, 0)
+          << "Only bit widths with multiple of 8 are currently supported";
+      buffer_size = length * fw_type.bit_width() / 8;
+    }
+    RETURN_NOT_OK(ctx->Allocate(buffer_size, &buffer));
+    buffer->ZeroPadding();
+
+    if (bit_width == 1 && buffer_size > 0) {
+      // Some utility methods access the last byte before it might be
+      // initialized this makes valgrind/asan unhappy, so we proactively
+      // zero it.
+      ZeroLastByte(buffer.get());
+    }
+
+    memset(buffer->mutable_data(), 0, buffer_size);
+    result->buffers[1] = std::move(buffer);
+  }
   return delegate_->Call(ctx, input, out);
+}
+
+std::shared_ptr<DataType> PrimitiveAllocatingUnaryKernel::out_type() const {
+  return delegate_->out_type();
 }
 
 }  // namespace detail

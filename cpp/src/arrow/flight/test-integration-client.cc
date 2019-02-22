@@ -28,11 +28,13 @@
 #include <gflags/gflags.h>
 
 #include "arrow/io/test-common.h"
-#include "arrow/ipc/json.h"
+#include "arrow/ipc/json-integration.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/util/logging.h"
 
-#include "arrow/flight/server.h"
+#include "arrow/flight/api.h"
 #include "arrow/flight/test-util.h"
 
 DEFINE_string(host, "localhost", "Server port to connect to");

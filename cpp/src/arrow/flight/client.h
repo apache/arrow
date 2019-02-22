@@ -28,17 +28,16 @@
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
-#include "arrow/flight/types.h"
+#include "arrow/flight/types.h"  // IWYU pragma: keep
 
 namespace arrow {
 
+class MemoryPool;
 class RecordBatch;
 class RecordBatchReader;
 class Schema;
 
 namespace flight {
-
-class FlightPutWriter;
 
 /// \brief Client class for Arrow Flight RPC services (gRPC-based).
 /// API experimental for now
@@ -116,7 +115,7 @@ class ARROW_EXPORT FlightClient {
 /// \brief An interface to upload record batches to a Flight server
 class ARROW_EXPORT FlightPutWriter : public ipc::RecordBatchWriter {
  public:
-  ~FlightPutWriter();
+  ~FlightPutWriter() override;
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
   Status Close() override;

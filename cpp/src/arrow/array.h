@@ -32,7 +32,7 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string_view.h"  // IWYU pragma: export
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -197,9 +197,12 @@ struct ARROW_EXPORT ArrayData {
     return GetMutableValues<T>(i, offset);
   }
 
+  /// \brief Return null count, or compute and set it if it's not known
+  int64_t GetNullCount() const;
+
   std::shared_ptr<DataType> type;
   int64_t length;
-  int64_t null_count;
+  mutable int64_t null_count;
   // The logical start point into the physical buffers (in values, not bytes).
   // Note that, for child data, this must be *added* to the child data's own offset.
   int64_t offset;
@@ -482,6 +485,8 @@ class ARROW_EXPORT ListArray : public Array {
   /// \param[out] out Will have length equal to offsets.length() - 1
   static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
                            std::shared_ptr<Array>* out);
+
+  const ListType* list_type() const;
 
   /// \brief Return array object containing the list's values
   std::shared_ptr<Array> values() const;

@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Execution of a simple aggregate relation containing MIN, MAX, COUNT, SUM aggregate functions
-//! with optional GROUP BY columns
+//! Execution of a simple aggregate relation containing MIN, MAX, COUNT, SUM aggregate
+//! functions with optional GROUP BY columns
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -24,8 +24,8 @@ use std::str;
 use std::sync::Arc;
 
 use arrow::array::*;
-use arrow::array_ops;
 use arrow::builder::*;
+use arrow::compute;
 use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
@@ -63,8 +63,8 @@ impl AggregateRelation {
     }
 }
 
-/// Enumeration of types that can be used in a GROUP BY expression (all primitives except for
-/// floating point numerics)
+/// Enumeration of types that can be used in a GROUP BY expression (all primitives except
+/// for floating point numerics)
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 enum GroupByScalar {
     UInt8(u8),
@@ -346,61 +346,61 @@ fn create_accumulators(aggr_expr: &Vec<RuntimeExpr>) -> Result<AccumulatorSet> {
 fn array_min(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
     match dt {
         DataType::UInt8 => {
-            match array_ops::min(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt8(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt16 => {
-            match array_ops::min(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt16(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt32 => {
-            match array_ops::min(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt32(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt64 => {
-            match array_ops::min(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt64(n))),
                 None => Ok(None),
             }
         }
         DataType::Int8 => {
-            match array_ops::min(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int8(n))),
                 None => Ok(None),
             }
         }
         DataType::Int16 => {
-            match array_ops::min(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int16(n))),
                 None => Ok(None),
             }
         }
         DataType::Int32 => {
-            match array_ops::min(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int32(n))),
                 None => Ok(None),
             }
         }
         DataType::Int64 => {
-            match array_ops::min(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int64(n))),
                 None => Ok(None),
             }
         }
         DataType::Float32 => {
-            match array_ops::min(array.as_any().downcast_ref::<Float32Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<Float32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Float32(n))),
                 None => Ok(None),
             }
         }
         DataType::Float64 => {
-            match array_ops::min(array.as_any().downcast_ref::<Float64Array>().unwrap()) {
+            match compute::min(array.as_any().downcast_ref::<Float64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Float64(n))),
                 None => Ok(None),
             }
@@ -414,61 +414,61 @@ fn array_min(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
 fn array_max(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
     match dt {
         DataType::UInt8 => {
-            match array_ops::max(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt8(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt16 => {
-            match array_ops::max(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt16(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt32 => {
-            match array_ops::max(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt32(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt64 => {
-            match array_ops::max(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt64(n))),
                 None => Ok(None),
             }
         }
         DataType::Int8 => {
-            match array_ops::max(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int8(n))),
                 None => Ok(None),
             }
         }
         DataType::Int16 => {
-            match array_ops::max(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int16(n))),
                 None => Ok(None),
             }
         }
         DataType::Int32 => {
-            match array_ops::max(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int32(n))),
                 None => Ok(None),
             }
         }
         DataType::Int64 => {
-            match array_ops::max(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int64(n))),
                 None => Ok(None),
             }
         }
         DataType::Float32 => {
-            match array_ops::max(array.as_any().downcast_ref::<Float32Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<Float32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Float32(n))),
                 None => Ok(None),
             }
         }
         DataType::Float64 => {
-            match array_ops::max(array.as_any().downcast_ref::<Float64Array>().unwrap()) {
+            match compute::max(array.as_any().downcast_ref::<Float64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Float64(n))),
                 None => Ok(None),
             }
@@ -482,61 +482,61 @@ fn array_max(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
 fn array_sum(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
     match dt {
         DataType::UInt8 => {
-            match array_ops::sum(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt8(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt16 => {
-            match array_ops::sum(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt16(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt32 => {
-            match array_ops::sum(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt32(n))),
                 None => Ok(None),
             }
         }
         DataType::UInt64 => {
-            match array_ops::sum(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt64(n))),
                 None => Ok(None),
             }
         }
         DataType::Int8 => {
-            match array_ops::sum(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int8(n))),
                 None => Ok(None),
             }
         }
         DataType::Int16 => {
-            match array_ops::sum(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int16(n))),
                 None => Ok(None),
             }
         }
         DataType::Int32 => {
-            match array_ops::sum(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int32(n))),
                 None => Ok(None),
             }
         }
         DataType::Int64 => {
-            match array_ops::sum(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Int64(n))),
                 None => Ok(None),
             }
         }
         DataType::Float32 => {
-            match array_ops::sum(array.as_any().downcast_ref::<Float32Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<Float32Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Float32(n))),
                 None => Ok(None),
             }
         }
         DataType::Float64 => {
-            match array_ops::sum(array.as_any().downcast_ref::<Float64Array>().unwrap()) {
+            match compute::sum(array.as_any().downcast_ref::<Float64Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::Float64(n))),
                 None => Ok(None),
             }
@@ -692,7 +692,8 @@ macro_rules! group_array_from_map_entries {
     }};
 }
 
-/// Create array from `value` attribute in map entry (representing an aggregate scalar value)
+/// Create array from `value` attribute in map entry (representing an aggregate scalar
+/// value)
 macro_rules! aggr_array_from_map_entries {
     ($BUILDER:ident, $TY:ident, $ENTRIES:expr, $COL_INDEX:expr) => {{
         let mut builder = $BUILDER::new($ENTRIES.len());
@@ -803,9 +804,10 @@ impl AggregateRelation {
     }
 
     fn with_group_by(&mut self) -> Result<Option<RecordBatch>> {
-        //NOTE this whole method is currently very inefficient with too many per-row operations
-        // involving pattern matching and downcasting ... I'm sure this can be re-implemented in
-        // a much more efficient way that takes better advantage of Arrow
+        //NOTE this whole method is currently very inefficient with too many per-row
+        // operations involving pattern matching and downcasting ... I'm sure this
+        // can be re-implemented in a much more efficient way that takes better
+        // advantage of Arrow
 
         // create map to store aggregate results
         let mut map: FnvHashMap<Vec<GroupByScalar>, Rc<RefCell<AccumulatorSet>>> =
@@ -877,7 +879,8 @@ impl AggregateRelation {
                     })
                     .collect::<Result<Vec<GroupByScalar>>>()?;
 
-                //TODO: find more elegant way to write this instead of hacking around ownership issues
+                //TODO: find more elegant way to write this instead of hacking around
+                // ownership issues
 
                 let updated = match map.get(&key) {
                     Some(entry) => {
@@ -1205,7 +1208,7 @@ mod tests {
     }
 
     fn load_csv(filename: &str, schema: &Arc<Schema>) -> Rc<RefCell<Relation>> {
-        let ds = CsvDataSource::new(filename, schema.clone(), 1024);
+        let ds = CsvDataSource::new(filename, schema.clone(), true, &None, 1024);
         Rc::new(RefCell::new(DataSourceRelation::new(Rc::new(
             RefCell::new(ds),
         ))))

@@ -17,26 +17,14 @@
   under the License.
 -->
 
-## Apache Arrow
+# Apache Arrow
 
-<table>
-  <tr>
-    <td>Build Status</td>
-    <td>
-    <a href="https://travis-ci.org/apache/arrow">
-    <img src="https://travis-ci.org/apache/arrow.svg?branch=master" alt="travis build status" />
-    </a>
-    </td>
-    <td>Code Coverage</td>
-    <td>
-    <a href="https://codecov.io/gh/apache/arrow">
-    <img src="https://codecov.io/gh/apache/arrow/branch/master/graph/badge.svg" alt="codecov.io code coverage" />
-    </a>
-    </td>
-  </tr>
-</table>
+[![Build Status](https://travis-ci.org/apache/arrow.svg?branch=master)](https://travis-ci.org/apache/arrow)
+[![Coverage Status](https://codecov.io/gh/apache/arrow/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/arrow?branch=master)
+[![License](http://img.shields.io/:license-Apache%202-blue.svg)](https://github.com/apache/arrow/blob/master/LICENSE.txt)
+[![Twitter Follow](https://img.shields.io/twitter/follow/apachearrow.svg?style=social&label=Follow)](https://twitter.com/apachearrow)
 
-### Powering In-Memory Analytics
+## Powering In-Memory Analytics
 
 Apache Arrow is a development platform for in-memory analytics. It contains a
 set of technologies that enable big data systems to process and move data fast.
@@ -61,7 +49,7 @@ Major components of the project include:
 Arrow is an [Apache Software Foundation](https://www.apache.org) project. Learn more at
 [arrow.apache.org](https://arrow.apache.org).
 
-### What's in the Arrow libraries?
+## What's in the Arrow libraries?
 
 The reference Arrow libraries contain a number of distinct software components:
 
@@ -79,7 +67,7 @@ The reference Arrow libraries contain a number of distinct software components:
   implementations (e.g. sending data from Java to C++)
 - Conversions to and from other in-memory data structures
 
-### Getting involved
+## Getting involved
 
 Even if you do not plan to contribute to Apache Arrow itself or Arrow
 integrations in other projects, we'd be happy to have you involved:
@@ -91,7 +79,7 @@ integrations in other projects, we'd be happy to have you involved:
 - [Learn the format][2]
 - Contribute code to one of the reference implementations
 
-### How to Contribute
+## How to Contribute
 
 We prefer to receive contributions in the form of GitHub pull requests. Please
 send pull requests against the [github.com/apache/arrow][4] repository.

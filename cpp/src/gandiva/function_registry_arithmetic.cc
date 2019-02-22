@@ -58,6 +58,7 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, int64, int64, int64),
 
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(add, decimal128),
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(subtract, decimal128),
 
       BINARY_RELATIONAL_BOOL_FN(equal),
       BINARY_RELATIONAL_BOOL_FN(not_equal),

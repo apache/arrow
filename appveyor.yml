@@ -19,12 +19,13 @@
 os: Visual Studio 2015
 
 only_commits:
-  # Skip commits not related to Python, C++ or Rust
+  # Skip commits not related to Python, C++, C#, or Rust
   files:
     - appveyor.yml
     - c_glib/
     - ci/
     - cpp/
+    - csharp/
     - format/
     - python/
     - rust/
@@ -84,6 +85,9 @@ environment:
       USE_CLCACHE: false
     - JOB: "Rust"
       TARGET: x86_64-pc-windows-msvc
+      USE_CLCACHE: false
+    - JOB: "C#"
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       USE_CLCACHE: false
 
   MSVC_DEFAULT_OPTIONS: ON

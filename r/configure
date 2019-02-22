@@ -54,7 +54,7 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
   if [ "$(command -v brew)" ]; then
     BREWDIR=$(brew --prefix)
   else
-    curl -sfL "https://jeroen.github.io/autobrew/default" > autobrew
+    curl -sfL "https://jeroen.github.io/autobrew/$PKG_BREW_NAME" > autobrew
     source autobrew
   fi
   PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"

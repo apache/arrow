@@ -50,8 +50,6 @@ matrix:
     os: linux
     language: python
     python: "3.6"
-    env:
-    - ARROW_TRAVIS_CLANG_FORMAT=1
     before_script:
     # Always run RAT checks, in case another build in matrix breaks RAT
     - $TRAVIS_BUILD_DIR/ci/travis_release_audit.sh
@@ -64,6 +62,7 @@ matrix:
     env:
     - ARROW_TRAVIS_VALGRIND=1
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
+    - ARROW_TRAVIS_FLIGHT=1
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_PARQUET=1
@@ -88,10 +87,11 @@ matrix:
     os: linux
     jdk: openjdk8
     env:
+    - ARROW_TRAVIS_COVERAGE=1
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
+    - ARROW_TRAVIS_FLIGHT=1
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_ORC=1
-    - ARROW_TRAVIS_COVERAGE=1
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_GANDIVA=1
     - ARROW_TRAVIS_GANDIVA_JAVA=1
@@ -183,6 +183,7 @@ matrix:
     env:
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_PLASMA=1
+    - ARROW_TRAVIS_FLIGHT=1
     - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_GANDIVA=1
@@ -224,6 +225,8 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
   - name: "[manylinux1] Python"
     language: cpp
+    env:
+    - PYTHON_VERSIONS="2.7,32 3.6,16"
     before_script:
     - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:llvm-7-manylinux1; fi
     script:

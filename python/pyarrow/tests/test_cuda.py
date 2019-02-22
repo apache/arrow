@@ -40,10 +40,12 @@ cuda_ipc = pytest.mark.skipif(
     reason='CUDA IPC not supported in platform `%s`' % (platform))
 
 global_context = None  # for flake8
+global_context1 = None  # for flake8
 
 
 def setup_module(module):
     module.global_context = cuda.Context(0)
+    module.global_context1 = cuda.Context(cuda.Context.get_num_devices() - 1)
 
 
 def teardown_module(module):
@@ -53,6 +55,7 @@ def teardown_module(module):
 def test_Context():
     assert cuda.Context.get_num_devices() > 0
     assert global_context.device_number == 0
+    assert global_context1.device_number == cuda.Context.get_num_devices() - 1
 
     with pytest.raises(ValueError,
                        match=("device_number argument must "
@@ -398,11 +401,18 @@ def test_copy_to_host(size):
             dbuf.copy_to_host(buf=buf, position=position, nbytes=nbytes)
 
 
+@pytest.mark.parametrize("dest_ctx", ['same', 'another'])
 @pytest.mark.parametrize("size", [0, 1, 1000])
-def test_copy_from_device(size):
+def test_copy_from_device(dest_ctx, size):
     arr, buf = make_random_buffer(size=size, target='device')
     lst = arr.tolist()
-    dbuf = buf.context.new_buffer(size)
+    if dest_ctx == 'another':
+        dest_ctx = global_context1
+        if buf.context.device_number == dest_ctx.device_number:
+            pytest.skip("not a multi-GPU system")
+    else:
+        dest_ctx = buf.context
+    dbuf = dest_ctx.new_buffer(size)
 
     def put(*args, **kwargs):
         dbuf.copy_from_device(buf, *args, **kwargs)

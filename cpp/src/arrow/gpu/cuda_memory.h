@@ -64,7 +64,7 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   Status CopyToHost(const int64_t position, const int64_t nbytes, void* out) const;
 
   /// \brief Copy memory to device at position
-  /// \param[in] position start position to copy bytes
+  /// \param[in] position start position to copy bytes to
   /// \param[in] data the host data to copy
   /// \param[in] nbytes number of bytes to copy
   /// \return Status
@@ -79,6 +79,15 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   /// \note It is assumed that both source and destination device
   /// memories have been allocated within the same context.
   Status CopyFromDevice(const int64_t position, const void* data, int64_t nbytes);
+
+  /// \brief Copy memory from another device to device at position
+  /// \param[in] src_ctx context of the source device memory
+  /// \param[in] position start position inside buffer to copy bytes to
+  /// \param[in] data start address of the another device memory area to copy from
+  /// \param[in] nbytes number of bytes to copy
+  /// \return Status
+  Status CopyFromAnotherDevice(const std::shared_ptr<CudaContext>& src_ctx,
+                               const int64_t position, const void* data, int64_t nbytes);
 
   /// \brief Expose this device buffer as IPC memory which can be used in other processes
   /// \param[out] handle the exported IPC handle

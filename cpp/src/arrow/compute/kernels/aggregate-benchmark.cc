@@ -26,8 +26,8 @@
 
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
-#include "arrow/test-random.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/cpu-info.h"
 

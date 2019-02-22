@@ -20,15 +20,15 @@
 #include <memory>
 #include <string>
 
-#include <grpcpp/grpcpp.h>
-
-#include "arrow/buffer.h"
-#include "arrow/ipc/writer.h"
+#include "arrow/flight/protocol-internal.h"  // IWYU pragma: keep
+#include "arrow/flight/types.h"
 #include "arrow/util/macros.h"
 
-#include "arrow/flight/Flight.grpc.pb.h"
-#include "arrow/flight/Flight.pb.h"
-#include "arrow/flight/types.h"
+namespace grpc {
+
+class Status;
+
+}  // namespace grpc
 
 namespace arrow {
 
@@ -36,6 +36,12 @@ class Schema;
 class Status;
 
 namespace pb = arrow::flight::protocol;
+
+namespace ipc {
+
+class Message;
+
+}  // namespace ipc
 
 namespace flight {
 

@@ -29,12 +29,13 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
  public:
   explicit AdaptiveIntBuilderBase(MemoryPool* pool);
 
-  /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
-  Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
+  /// \brief Append multiple nulls
+  /// \param[in] length the number of nulls to append
+  Status AppendNulls(int64_t length) {
     ARROW_RETURN_NOT_OK(CommitPendingData());
     ARROW_RETURN_NOT_OK(Reserve(length));
     memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
-    UnsafeAppendToBitmap(valid_bytes, length);
+    UnsafeSetNull(length);
     return Status::OK();
   }
 

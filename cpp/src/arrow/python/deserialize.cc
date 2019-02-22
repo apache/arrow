@@ -84,8 +84,11 @@ Status DeserializeDict(PyObject* context, const Array& array, int64_t start_idx,
     // The latter two steal references whereas PyDict_SetItem does not. So we need
     // to make sure the reference count is decremented by letting the OwnedRef
     // go out of scope at the end.
-    PyDict_SetItem(result.obj(), PyList_GET_ITEM(keys.obj(), i - start_idx),
-                   PyList_GET_ITEM(vals.obj(), i - start_idx));
+    int ret = PyDict_SetItem(result.obj(), PyList_GET_ITEM(keys.obj(), i - start_idx),
+                             PyList_GET_ITEM(vals.obj(), i - start_idx));
+    if (ret != 0) {
+      return ConvertPyError();
+    }
   }
   static PyObject* py_type = PyUnicode_FromString("_pytype_");
   if (PyDict_Contains(result.obj(), py_type)) {

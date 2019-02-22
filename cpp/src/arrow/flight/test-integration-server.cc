@@ -25,10 +25,12 @@
 #include <gflags/gflags.h>
 
 #include "arrow/io/test-common.h"
-#include "arrow/ipc/json.h"
+#include "arrow/ipc/json-integration.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/util/logging.h"
 
+#include "arrow/flight/internal.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/test-util.h"
 

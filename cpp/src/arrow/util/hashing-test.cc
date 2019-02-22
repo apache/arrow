@@ -27,7 +27,7 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
@@ -124,6 +124,25 @@ TEST(HashingQuality, Strings) {
   }
   ASSERT_GE(static_cast<double>(hashes.size()),
             0.96 * static_cast<double>(2 * values.size()));
+}
+
+TEST(HashingBounds, Strings) {
+  std::vector<size_t> sizes({1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21});
+  for (const auto s : sizes) {
+    std::string str;
+    for (size_t i = 0; i < s; i++) {
+      str.push_back(static_cast<char>(i));
+    }
+    hash_t h = ComputeStringHash<1>(str.c_str(), str.size());
+    int different = 0;
+    for (char i = 0; i < 120; i++) {
+      str[str.size() - 1] = i;
+      if (ComputeStringHash<1>(str.c_str(), str.size()) != h) {
+        different++;
+      }
+    }
+    ASSERT_GE(different, 118);
+  }
 }
 
 TEST(ScalarMemoTable, Int64) {

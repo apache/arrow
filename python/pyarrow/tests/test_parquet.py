@@ -199,6 +199,17 @@ def test_no_memory_map(tempdir):
     assert table_read.equals(table)
 
 
+def test_special_chars_filename(tempdir):
+    table = pa.Table.from_arrays([pa.array([42])], ["ints"])
+    filename = "foo # bar"
+    path = tempdir / filename
+    assert not path.exists()
+    _write_table(table, str(path))
+    assert path.exists()
+    table_read = _read_table(str(path))
+    assert table_read.equals(table)
+
+
 def test_empty_table_roundtrip():
     df = alltypes_sample(size=10)
     # The nanosecond->us conversion is a nuisance, so we just avoid it here
@@ -373,6 +384,13 @@ def test_pandas_column_selection(tempdir):
     arrow_table = pa.Table.from_pandas(df)
     _write_table(arrow_table, filename)
     table_read = _read_table(filename, columns=['uint8'])
+    df_read = table_read.to_pandas()
+
+    tm.assert_frame_equal(df[['uint8']], df_read)
+
+    # ARROW-4267: Selection of duplicate columns still leads to these columns
+    # being read uniquely.
+    table_read = _read_table(filename, columns=['uint8', 'uint8'])
     df_read = table_read.to_pandas()
 
     tm.assert_frame_equal(df[['uint8']], df_read)
@@ -1062,8 +1080,14 @@ def test_read_single_row_group_with_column_subset():
     buf.seek(0)
     pf = pq.ParquetFile(buf)
 
-    cols = df.columns[:2]
+    cols = list(df.columns[:2])
     row_groups = [pf.read_row_group(i, columns=cols) for i in range(K)]
+    result = pa.concat_tables(row_groups)
+    tm.assert_frame_equal(df[cols], result.to_pandas())
+
+    # ARROW-4267: Selection of duplicate columns still leads to these columns
+    # being read uniquely.
+    row_groups = [pf.read_row_group(i, columns=cols + cols) for i in range(K)]
     result = pa.concat_tables(row_groups)
     tm.assert_frame_equal(df[cols], result.to_pandas())
 

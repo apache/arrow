@@ -26,8 +26,9 @@ use arrow::array::*;
 use arrow::datatypes::{DataType, Field, Schema};
 
 use datafusion::execution::context::ExecutionContext;
-use datafusion::execution::datasource::CsvDataSource;
 use datafusion::execution::relation::Relation;
+
+const DEFAULT_BATCH_SIZE: usize = 1024 * 1024;
 
 #[test]
 fn csv_query_with_predicate() {
@@ -72,6 +73,59 @@ fn csv_query_cast() {
     assert_eq!(expected, actual);
 }
 
+#[test]
+fn csv_query_limit() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    let sql = "SELECT 0 FROM aggregate_test_100 LIMIT 2";
+    let actual = execute(&mut ctx, sql);
+    let expected = "0\n0\n".to_string();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn csv_query_limit_bigger_than_nbr_of_rows() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    let sql = "SELECT c2 FROM aggregate_test_100 LIMIT 200";
+    let actual = execute(&mut ctx, sql);
+    let expected = "2\n5\n1\n1\n5\n4\n3\n3\n1\n4\n1\n4\n3\n2\n1\n1\n2\n1\n3\n2\n4\n1\n5\n4\n2\n1\n4\n5\n2\n3\n4\n2\n1\n5\n3\n1\n2\n3\n3\n3\n2\n4\n1\n3\n2\n5\n2\n1\n4\n1\n4\n2\n5\n4\n2\n3\n4\n4\n4\n5\n4\n2\n1\n2\n4\n2\n3\n5\n1\n1\n4\n2\n1\n2\n1\n1\n5\n4\n5\n2\n3\n2\n4\n1\n3\n4\n3\n2\n5\n3\n3\n2\n5\n5\n4\n1\n3\n3\n4\n4\n".to_string();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn csv_query_limit_with_same_nbr_of_rows() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    let sql = "SELECT c2 FROM aggregate_test_100 LIMIT 100";
+    let actual = execute(&mut ctx, sql);
+    let expected = "2\n5\n1\n1\n5\n4\n3\n3\n1\n4\n1\n4\n3\n2\n1\n1\n2\n1\n3\n2\n4\n1\n5\n4\n2\n1\n4\n5\n2\n3\n4\n2\n1\n5\n3\n1\n2\n3\n3\n3\n2\n4\n1\n3\n2\n5\n2\n1\n4\n1\n4\n2\n5\n4\n2\n3\n4\n4\n4\n5\n4\n2\n1\n2\n4\n2\n3\n5\n1\n1\n4\n2\n1\n2\n1\n1\n5\n4\n5\n2\n3\n2\n4\n1\n3\n4\n3\n2\n5\n3\n3\n2\n5\n5\n4\n1\n3\n3\n4\n4\n".to_string();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn csv_query_limit_zero() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    let sql = "SELECT 0 FROM aggregate_test_100 LIMIT 0";
+    let actual = execute(&mut ctx, sql);
+    let expected = "".to_string();
+    assert_eq!(expected, actual);
+}
+
+//TODO Uncomment the following test when ORDER BY is implemented to be able to test ORDER BY + LIMIT
+/*
+#[test]
+fn csv_query_limit_with_order_by() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    let sql = "SELECT c7 FROM aggregate_test_100 ORDER BY c7 ASC LIMIT 2";
+    let actual = execute(&mut ctx, sql);
+    let expected = "0\n2\n".to_string();
+    assert_eq!(expected, actual);
+}
+*/
+
 fn aggr_test_schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![
         Field::new("c1", DataType::Utf8, false),
@@ -106,13 +160,12 @@ fn register_csv(
     filename: &str,
     schema: &Arc<Schema>,
 ) {
-    let csv_datasource = CsvDataSource::new(filename, schema.clone(), 1024);
-    ctx.register_datasource(name, Rc::new(RefCell::new(csv_datasource)));
+    ctx.register_csv(name, filename, &schema, true);
 }
 
 /// Execute query and return result set as tab delimited string
 fn execute(ctx: &mut ExecutionContext, sql: &str) -> String {
-    let results = ctx.sql(&sql).unwrap();
+    let results = ctx.sql(&sql, DEFAULT_BATCH_SIZE).unwrap();
     result_str(&results)
 }
 

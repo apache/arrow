@@ -16,6 +16,8 @@
 # under the License.
 
 add_custom_target(toolchain)
+add_custom_target(toolchain-benchmarks)
+add_custom_target(toolchain-tests)
 
 # ----------------------------------------------------------------------
 # Toolchain linkage options
@@ -605,7 +607,19 @@ endif()
 
 if(ARROW_NEED_GFLAGS)
   # gflags (formerly Googleflags) command line parsing
-  if("${GFLAGS_HOME}" STREQUAL "")
+  find_package(GFlags)
+  if(GFLAGS_FOUND)
+    set(GFLAGS_VENDORED FALSE)
+    get_filename_component(GFLAGS_HOME "${GFLAGS_INCLUDE_DIR}" DIRECTORY)
+    if(ARROW_GFLAGS_USE_SHARED AND GFLAGS_SHARED)
+      set(GFLAGS_LIBRARY gflags_shared)
+    else()
+      set(GFLAGS_LIBRARY gflags_static)
+    endif()
+  elseif(GFLAGS_HOME)
+    message(FATAL_ERROR "No static or shared library provided for gflags: ${GFLAGS_HOME}")
+  else()
+    set(GFLAGS_VENDORED TRUE)
     set(GFLAGS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
 
     set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
@@ -634,24 +648,20 @@ if(ARROW_NEED_GFLAGS)
       CMAKE_ARGS ${GFLAGS_CMAKE_ARGS})
 
     add_dependencies(toolchain gflags_ep)
-  else()
-    set(GFLAGS_VENDORED 0)
-    find_package(GFlags REQUIRED)
-  endif()
 
-  message(STATUS "GFlags include dir: ${GFLAGS_INCLUDE_DIR}")
-  message(STATUS "GFlags static library: ${GFLAGS_STATIC_LIB}")
-  include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(gflags
-    STATIC_LIB ${GFLAGS_STATIC_LIB})
-  if(MSVC)
-    set_target_properties(gflags_static
-      PROPERTIES
-      INTERFACE_LINK_LIBRARIES "shlwapi.lib")
-  endif()
-
-  if(GFLAGS_VENDORED)
-    add_dependencies(gflags_static gflags_ep)
+    message(STATUS "GFlags include dir: ${GFLAGS_INCLUDE_DIR}")
+    message(STATUS "GFlags static library: ${GFLAGS_STATIC_LIB}")
+      include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
+    ADD_THIRDPARTY_LIB(gflags
+      STATIC_LIB ${GFLAGS_STATIC_LIB})
+    set(GFLAGS_LIBRARY gflags_static)
+    target_compile_definitions(${GFLAGS_LIBRARY} INTERFACE "GFLAGS_IS_A_DLL=0")
+    if(MSVC)
+      set_target_properties(${GFLAGS_LIBRARY}
+	PROPERTIES
+	INTERFACE_LINK_LIBRARIES "shlwapi.lib")
+    endif()
+    add_dependencies(${GFLAGS_LIBRARY} gflags_ep)
   endif()
 endif()
 
@@ -661,6 +671,13 @@ endif()
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   if("${GTEST_HOME}" STREQUAL "")
     set(GTEST_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
+
+    if(CMAKE_BUILD_TYPE MATCHES DEBUG)
+      set(CMAKE_GTEST_DEBUG_EXTENSION "d")
+    else()
+      set(CMAKE_GTEST_DEBUG_EXTENSION "")
+    endif()
+
     if(APPLE)
       set(GTEST_CMAKE_CXX_FLAGS ${GTEST_CMAKE_CXX_FLAGS}
                                 -DGTEST_USE_OWN_TR1_TUPLE=1
@@ -669,20 +686,22 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
     endif()
 
     set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
+    set(GTEST_HOME ${GTEST_PREFIX})
     set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
     set(GTEST_STATIC_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}")
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GTEST_MAIN_STATIC_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_STATIC_LIBRARY_SUFFIX}")
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GTEST_VENDORED 1)
     set(GTEST_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}"
+      "-DCMAKE_INSTALL_LIBDIR=lib"
       -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS})
     set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
     set(GMOCK_STATIC_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gmock${CMAKE_STATIC_LIBRARY_SUFFIX}")
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gmock${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(GMOCK_MAIN_STATIC_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gmock_main${CMAKE_STATIC_LIBRARY_SUFFIX}")
+      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gmock_main${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
     if (MSVC AND NOT ARROW_USE_STATIC_CRT)
       set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} -Dgtest_force_shared_crt=ON)
@@ -694,7 +713,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
       CMAKE_ARGS ${GTEST_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
 
-    add_dependencies(toolchain googletest_ep)
+    add_dependencies(toolchain-tests googletest_ep)
   else()
     find_package(GTest REQUIRED)
     set(GTEST_VENDORED 0)
@@ -703,15 +722,6 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   message(STATUS "GTest include dir: ${GTEST_INCLUDE_DIR}")
   message(STATUS "GMock include dir: ${GMOCK_INCLUDE_DIR}")
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
-  # Conflicts in header files seem to either cause apple to have
-  # a bad boost symbol, or trusty to use CPP_TOOLCHAIN's header
-  # file for gmock (and the vendored version is 1.8.0 and conda is
-  # 1.8.1)
-  if (APPLE)
-    include_directories(SYSTEM ${GMOCK_INCLUDE_DIR})
-  else()
-    include_directories(BEFORE SYSTEM ${GMOCK_INCLUDE_DIR})
-  endif()
   if(GTEST_STATIC_LIB)
     message(STATUS "GTest static library: ${GTEST_STATIC_LIB}")
     message(STATUS "GMock static library: ${GMOCK_STATIC_LIB}")
@@ -734,6 +744,10 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
       SHARED_LIB ${GTEST_SHARED_LIB})
     ADD_THIRDPARTY_LIB(gtest_main
       SHARED_LIB ${GTEST_MAIN_SHARED_LIB})
+    ADD_THIRDPARTY_LIB(gmock
+      SHARED_LIB ${GMOCK_SHARED_LIB})
+    ADD_THIRDPARTY_LIB(gmock_main
+      SHARED_LIB ${GMOCK_MAIN_SHARED_LIB})
     set(GTEST_LIBRARY gtest_shared)
     set(GTEST_MAIN_LIBRARY gtest_main_shared)
     set(GMOCK_LIBRARY gmock_shared)
@@ -780,7 +794,7 @@ if(ARROW_BUILD_BENCHMARKS)
       CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS}
       ${EP_LOG_OPTIONS})
 
-    add_dependencies(toolchain gbenchmark_ep)
+    add_dependencies(toolchain-benchmarks gbenchmark_ep)
   else()
     find_package(GBenchmark REQUIRED)
     set(GBENCHMARK_VENDORED 0)
@@ -1762,6 +1776,6 @@ if (ARROW_USE_GLOG)
   else()
     ADD_THIRDPARTY_LIB(glog
       STATIC_LIB ${GLOG_STATIC_LIB}
-      DEPS gflags_static)
+      DEPS ${GFLAGS_LIBRARY})
   endif()
 endif()

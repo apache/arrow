@@ -31,8 +31,8 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/test-common.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
@@ -59,6 +59,8 @@ void CheckImplicitConstructor(enum Datum::type expected_kind) {
 }
 
 TEST(TestDatum, ImplicitConstructors) {
+  CheckImplicitConstructor<Scalar>(Datum::SCALAR);
+
   CheckImplicitConstructor<Array>(Datum::ARRAY);
 
   // Instantiate from array subclass
@@ -66,6 +68,7 @@ TEST(TestDatum, ImplicitConstructors) {
 
   CheckImplicitConstructor<ChunkedArray>(Datum::CHUNKED_ARRAY);
   CheckImplicitConstructor<RecordBatch>(Datum::RECORD_BATCH);
+
   CheckImplicitConstructor<Table>(Datum::TABLE);
 }
 

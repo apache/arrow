@@ -263,6 +263,9 @@ class ARROW_EXPORT Field {
   /// \brief Return a copy of this field without any metadata attached to it
   std::shared_ptr<Field> RemoveMetadata() const;
 
+  /// \brief Return a copy of this field with the replaced type.
+  std::shared_ptr<Field> WithType(const std::shared_ptr<DataType>& type) const;
+
   std::vector<std::shared_ptr<Field>> Flatten() const;
 
   bool Equals(const Field& other, bool check_metadata = true) const;
@@ -515,9 +518,15 @@ class ARROW_EXPORT StructType : public NestedType {
   /// Returns null if name not found
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
 
+  /// Return all fields having this name
+  std::vector<std::shared_ptr<Field>> GetAllFieldsByName(const std::string& name) const;
+
   /// Returns -1 if name not found or if there are multiple fields having the
   /// same name
   int GetFieldIndex(const std::string& name) const;
+
+  /// Return the indices of all fields having this name
+  std::vector<int> GetAllFieldIndices(const std::string& name) const;
 
   ARROW_DEPRECATED("Use GetFieldByName")
   std::shared_ptr<Field> GetChildByName(const std::string& name) const;
@@ -526,7 +535,7 @@ class ARROW_EXPORT StructType : public NestedType {
   int GetChildIndex(const std::string& name) const;
 
  private:
-  std::unordered_map<std::string, int> name_to_index_;
+  std::unordered_multimap<std::string, int> name_to_index_;
 };
 
 /// \brief Base type class for (fixed-size) decimal data
@@ -550,8 +559,7 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
  public:
   static constexpr Type::type type_id = Type::DECIMAL;
 
-  explicit Decimal128Type(int32_t precision, int32_t scale)
-      : DecimalType(16, precision, scale) {}
+  explicit Decimal128Type(int32_t precision, int32_t scale);
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
@@ -824,10 +832,18 @@ class ARROW_EXPORT Schema {
   /// Returns null if name not found
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
 
+  /// Return all fields having this name
+  std::vector<std::shared_ptr<Field>> GetAllFieldsByName(const std::string& name) const;
+
   /// Returns -1 if name not found
-  int64_t GetFieldIndex(const std::string& name) const;
+  int GetFieldIndex(const std::string& name) const;
+
+  /// Return the indices of all fields having this name
+  std::vector<int> GetAllFieldIndices(const std::string& name) const;
 
   const std::vector<std::shared_ptr<Field>>& fields() const { return fields_; }
+
+  std::vector<std::string> field_names() const;
 
   /// \brief The custom key-value metadata, if any
   ///
@@ -862,7 +878,7 @@ class ARROW_EXPORT Schema {
  private:
   std::vector<std::shared_ptr<Field>> fields_;
 
-  std::unordered_map<std::string, int> name_to_index_;
+  std::unordered_multimap<std::string, int> name_to_index_;
 
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };

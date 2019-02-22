@@ -22,18 +22,8 @@ package org.apache.arrow.gandiva.evaluator;
  */
 public class ConfigurationBuilder {
 
-  private String byteCodeFilePath = "";
-
-  public ConfigurationBuilder withByteCodeFilePath(final String byteCodeFilePath) {
-    this.byteCodeFilePath = byteCodeFilePath;
-    return this;
-  }
-
-  public String getByteCodeFilePath() {
-    return byteCodeFilePath;
-  }
-
   public native long buildConfigInstance();
 
   public native void releaseConfigInstance(long configId);
+
 }

@@ -14,7 +14,7 @@ using global::FlatBuffers;
 /// There is one vector / column per dictionary, but that vector / column
 /// may be spread across multiple dictionary batches by using the isDelta
 /// flag
-public struct DictionaryBatch : IFlatbufferObject
+internal struct DictionaryBatch : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }

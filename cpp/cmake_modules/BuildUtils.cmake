@@ -18,7 +18,7 @@
 function(ADD_THIRDPARTY_LIB LIB_NAME)
   set(options)
   set(one_value_args SHARED_LIB STATIC_LIB)
-  set(multi_value_args DEPS)
+  set(multi_value_args DEPS INCLUDE_DIRECTORIES)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
@@ -37,7 +37,11 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
       set_target_properties(${AUG_LIB_NAME}
         PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
     endif()
-    message("Added static library dependency ${AUG_LIB_NAME}: ${ARG_STATIC_LIB}")
+    message(STATUS "Added static library dependency ${AUG_LIB_NAME}: ${ARG_STATIC_LIB}")
+    if(ARG_INCLUDE_DIRECTORIES)
+      set_target_properties(${AUG_LIB_NAME}
+        PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${ARG_INCLUDE_DIRECTORIES}")
+    endif()
 
     SET(AUG_LIB_NAME "${LIB_NAME}_shared")
     add_library(${AUG_LIB_NAME} SHARED IMPORTED)
@@ -54,7 +58,11 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
       set_target_properties(${AUG_LIB_NAME}
         PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
     endif()
-    message("Added shared library dependency ${AUG_LIB_NAME}: ${ARG_SHARED_LIB}")
+    message(STATUS "Added shared library dependency ${AUG_LIB_NAME}: ${ARG_SHARED_LIB}")
+    if(ARG_INCLUDE_DIRECTORIES)
+      set_target_properties(${AUG_LIB_NAME}
+        PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${ARG_INCLUDE_DIRECTORIES}")
+    endif()
   elseif(ARG_STATIC_LIB)
     SET(AUG_LIB_NAME "${LIB_NAME}_static")
     add_library(${AUG_LIB_NAME} STATIC IMPORTED)
@@ -64,7 +72,11 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
       set_target_properties(${AUG_LIB_NAME}
         PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
     endif()
-    message("Added static library dependency ${AUG_LIB_NAME}: ${ARG_STATIC_LIB}")
+    message(STATUS "Added static library dependency ${AUG_LIB_NAME}: ${ARG_STATIC_LIB}")
+    if(ARG_INCLUDE_DIRECTORIES)
+      set_target_properties(${AUG_LIB_NAME}
+        PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${ARG_INCLUDE_DIRECTORIES}")
+    endif()
   elseif(ARG_SHARED_LIB)
     SET(AUG_LIB_NAME "${LIB_NAME}_shared")
     add_library(${AUG_LIB_NAME} SHARED IMPORTED)
@@ -77,10 +89,14 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
         set_target_properties(${AUG_LIB_NAME}
             PROPERTIES IMPORTED_LOCATION "${ARG_SHARED_LIB}")
     endif()
-    message("Added shared library dependency ${AUG_LIB_NAME}: ${ARG_SHARED_LIB}")
+    message(STATUS "Added shared library dependency ${AUG_LIB_NAME}: ${ARG_SHARED_LIB}")
     if(ARG_DEPS)
       set_target_properties(${AUG_LIB_NAME}
         PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
+    endif()
+    if(ARG_INCLUDE_DIRECTORIES)
+      set_target_properties(${AUG_LIB_NAME}
+        PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${ARG_INCLUDE_DIRECTORIES}")
     endif()
   else()
     message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
@@ -206,16 +222,10 @@ function(ADD_ARROW_LIB LIB_NAME)
       VERSION "${ARROW_FULL_SO_VERSION}"
       SOVERSION "${ARROW_SO_VERSION}")
 
-    if (ARG_SHARED_INSTALL_INTERFACE_LIBS)
-      set(INTERFACE_LIBS ${ARG_SHARED_INSTALL_INTERFACE_LIBS})
-    else()
-      set(INTERFACE_LIBS ${ARG_SHARED_LINK_LIBS})
-    endif()
-
     target_link_libraries(${LIB_NAME}_shared
       LINK_PUBLIC
       "$<BUILD_INTERFACE:${ARG_SHARED_LINK_LIBS}>"
-      "$<INSTALL_INTERFACE:${INTERFACE_LIBS}>"
+      "$<INSTALL_INTERFACE:${ARG_SHARED_INSTALL_INTERFACE_LIBS}>"
       LINK_PRIVATE ${ARG_SHARED_PRIVATE_LINK_LIBS})
 
     if (ARROW_RPATH_ORIGIN)

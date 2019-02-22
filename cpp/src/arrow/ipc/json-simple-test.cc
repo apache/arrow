@@ -30,7 +30,7 @@
 
 #include "arrow/array.h"
 #include "arrow/ipc/json-simple.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"

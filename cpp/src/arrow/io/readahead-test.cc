@@ -36,7 +36,8 @@
 #include "arrow/io/readahead.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {

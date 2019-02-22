@@ -30,7 +30,7 @@
 #include <vector>
 
 #include "arrow/api.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 
@@ -121,6 +121,7 @@ LogicalType::type get_logical_type(const ::DataType& type) {
           DCHECK(false) << "Only MILLI and MICRO units supported for Arrow timestamps "
                            "with Parquet.";
       }
+      break;
     }
     case ArrowId::TIME32:
       return LogicalType::TIME_MILLIS;
@@ -2214,6 +2215,15 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
 
   // columns: {group1.leaf1, leaf3}
   ASSERT_OK_NO_THROW(reader_->ReadTable({0, 2}, &table));
+  ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
+  ASSERT_EQ(table->num_columns(), 2);
+  ASSERT_EQ(table->schema()->field(0)->name(), "group1");
+  ASSERT_EQ(table->schema()->field(1)->name(), "leaf3");
+  ASSERT_EQ(table->schema()->field(0)->type()->num_children(), 1);
+  ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
+
+  // columns: {group1.leaf1, leaf3}
+  ASSERT_OK_NO_THROW(reader_->ReadRowGroup(0, {0, 2}, &table));
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->name(), "group1");

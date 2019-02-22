@@ -27,7 +27,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
 #include "arrow/record_batch.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/stopwatch.h"
 #include "arrow/util/thread-pool.h"
 
@@ -183,7 +183,7 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   const int port = 31337;
-  arrow::flight::TestServer server("flight-perf-server", port);
+  arrow::flight::TestServer server("arrow-flight-perf-server", port);
   server.Start();
 
   arrow::Status s = arrow::flight::RunPerformanceTest(port);

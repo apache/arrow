@@ -221,5 +221,10 @@ BasicDecimal128 Add(const BasicDecimalScalar128& x, const BasicDecimalScalar128&
   }
 }
 
+BasicDecimal128 Subtract(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y,
+                         int32_t out_precision, int32_t out_scale) {
+  return Add(x, {-y.value(), y.precision(), y.scale()}, out_precision, out_scale);
+}
+
 }  // namespace decimalops
 }  // namespace gandiva

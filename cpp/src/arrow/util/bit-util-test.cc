@@ -29,8 +29,8 @@
 
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
-#include "arrow/test-common.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/cpu-info.h"
@@ -379,6 +379,10 @@ struct BitmapOperation {
                       const uint8_t* right, int64_t right_offset, int64_t length,
                       int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) const = 0;
 
+  virtual Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                      int64_t right_offset, int64_t length, int64_t out_offset,
+                      uint8_t* out_buffer) const = 0;
+
   virtual ~BitmapOperation() = default;
 };
 
@@ -389,6 +393,13 @@ struct BitmapAndOp : public BitmapOperation {
     return BitmapAnd(pool, left, left_offset, right, right_offset, length, out_offset,
                      out_buffer);
   }
+
+  Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+              int64_t right_offset, int64_t length, int64_t out_offset,
+              uint8_t* out_buffer) const override {
+    BitmapAnd(left, left_offset, right, right_offset, length, out_offset, out_buffer);
+    return Status::OK();
+  }
 };
 
 struct BitmapOrOp : public BitmapOperation {
@@ -398,6 +409,13 @@ struct BitmapOrOp : public BitmapOperation {
     return BitmapOr(pool, left, left_offset, right, right_offset, length, out_offset,
                     out_buffer);
   }
+
+  Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+              int64_t right_offset, int64_t length, int64_t out_offset,
+              uint8_t* out_buffer) const override {
+    BitmapOr(left, left_offset, right, right_offset, length, out_offset, out_buffer);
+    return Status::OK();
+  }
 };
 
 struct BitmapXorOp : public BitmapOperation {
@@ -406,6 +424,13 @@ struct BitmapXorOp : public BitmapOperation {
               int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) const override {
     return BitmapXor(pool, left, left_offset, right, right_offset, length, out_offset,
                      out_buffer);
+  }
+
+  Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+              int64_t right_offset, int64_t length, int64_t out_offset,
+              uint8_t* out_buffer) const override {
+    BitmapXor(left, left_offset, right, right_offset, length, out_offset, out_buffer);
+    return Status::OK();
   }
 };
 
@@ -426,6 +451,13 @@ class BitmapOp : public TestBase {
                             right->mutable_data(), right_offset, length, out_offset,
                             &out));
           auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+          ASSERT_READER_VALUES(reader, result_bits);
+
+          // Clear out buffer and try non-allocating version
+          std::memset(out->mutable_data(), 0, out->size());
+          ASSERT_OK(op.Call(left->mutable_data(), left_offset, right->mutable_data(),
+                            right_offset, length, out_offset, out->mutable_data()));
+          reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
         }
       }
@@ -450,6 +482,13 @@ class BitmapOp : public TestBase {
                             right->mutable_data(), right_offset, length, out_offset,
                             &out));
           auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
+          ASSERT_READER_VALUES(reader, result_bits);
+
+          // Clear out buffer and try non-allocating version
+          std::memset(out->mutable_data(), 0, out->size());
+          ASSERT_OK(op.Call(left->mutable_data(), left_offset, right->mutable_data(),
+                            right_offset, length, out_offset, out->mutable_data()));
+          reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
         }
       }
@@ -689,6 +728,26 @@ TEST(BitUtil, RoundUp) {
   EXPECT_EQ(BitUtil::RoundUp(10000000001, 10), 10000000010);
   EXPECT_EQ(BitUtil::RoundUp(10, 10000000000), 10000000000);
   EXPECT_EQ(BitUtil::RoundUp(100000000000, 10000000000), 100000000000);
+}
+
+TEST(BitUtil, RoundDown) {
+  EXPECT_EQ(BitUtil::RoundDown(0, 1), 0);
+  EXPECT_EQ(BitUtil::RoundDown(1, 1), 1);
+  EXPECT_EQ(BitUtil::RoundDown(1, 2), 0);
+  EXPECT_EQ(BitUtil::RoundDown(6, 2), 6);
+  EXPECT_EQ(BitUtil::RoundDown(5, 7), 0);
+  EXPECT_EQ(BitUtil::RoundDown(10, 7), 7);
+  EXPECT_EQ(BitUtil::RoundDown(7, 3), 6);
+  EXPECT_EQ(BitUtil::RoundDown(9, 9), 9);
+  EXPECT_EQ(BitUtil::RoundDown(10000000001, 10), 10000000000);
+  EXPECT_EQ(BitUtil::RoundDown(10, 10000000000), 0);
+  EXPECT_EQ(BitUtil::RoundDown(100000000000, 10000000000), 100000000000);
+
+  for (int i = 0; i < 100; i++) {
+    for (int j = 1; j < 100; j++) {
+      EXPECT_EQ(BitUtil::RoundDown(i, j), i - (i % j));
+    }
+  }
 }
 
 TEST(BitUtil, TrailingBits) {

@@ -22,7 +22,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/parsing.h"
 
 namespace arrow {

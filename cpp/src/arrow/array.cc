@@ -76,21 +76,22 @@ std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type
   return std::make_shared<ArrayData>(type, length, null_count, offset);
 }
 
+int64_t ArrayData::GetNullCount() const {
+  if (ARROW_PREDICT_FALSE(this->null_count == kUnknownNullCount)) {
+    if (this->buffers[0]) {
+      this->null_count = this->length - CountSetBits(this->buffers[0]->data(),
+                                                     this->offset, this->length);
+    } else {
+      this->null_count = 0;
+    }
+  }
+  return this->null_count;
+}
+
 // ----------------------------------------------------------------------
 // Base array class
 
-int64_t Array::null_count() const {
-  if (ARROW_PREDICT_FALSE(data_->null_count < 0)) {
-    if (data_->buffers[0]) {
-      data_->null_count =
-          data_->length - CountSetBits(null_bitmap_data_, data_->offset, data_->length);
-
-    } else {
-      data_->null_count = 0;
-    }
-  }
-  return data_->null_count;
-}
+int64_t Array::null_count() const { return data_->GetNullCount(); }
 
 bool Array::Equals(const Array& arr) const { return ArrayEquals(*this, arr); }
 
@@ -265,8 +266,12 @@ void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   values_ = MakeArray(data_->child_data[0]);
 }
 
+const ListType* ListArray::list_type() const {
+  return checked_cast<const ListType*>(data_->type.get());
+}
+
 std::shared_ptr<DataType> ListArray::value_type() const {
-  return checked_cast<const ListType&>(*type()).value_type();
+  return list_type()->value_type();
 }
 
 std::shared_ptr<Array> ListArray::values() const { return values_; }

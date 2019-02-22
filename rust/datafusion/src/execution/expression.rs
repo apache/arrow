@@ -19,7 +19,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use arrow::array::*;
-use arrow::array_ops;
+use arrow::compute;
 use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
@@ -127,7 +127,7 @@ macro_rules! binary_op {
     ($LEFT:expr, $RIGHT:expr, $OP:ident, $DT:ident) => {{
         let ll = $LEFT.as_any().downcast_ref::<$DT>().unwrap();
         let rr = $RIGHT.as_any().downcast_ref::<$DT>().unwrap();
-        Ok(Arc::new(array_ops::$OP(&ll, &rr)?))
+        Ok(Arc::new(compute::$OP(&ll, &rr)?))
     }};
 }
 
@@ -216,7 +216,7 @@ macro_rules! boolean_ops {
     ($LEFT:expr, $RIGHT:expr, $BATCH:expr, $OP:ident) => {{
         let left_values = $LEFT.get_func()($BATCH)?;
         let right_values = $RIGHT.get_func()($BATCH)?;
-        Ok(Arc::new(array_ops::$OP(
+        Ok(Arc::new(compute::$OP(
             left_values.as_any().downcast_ref::<BooleanArray>().unwrap(),
             right_values
                 .as_any()
@@ -298,12 +298,13 @@ pub fn compile_scalar_expr(
 ) -> Result<RuntimeExpr> {
     match expr {
         &Expr::Literal(ref value) => match value {
-            //NOTE: this is a temporary hack .. due to the way expressions like 'a > 1' are
-            // evaluated, currently the left and right are evaluated separately and must result
-            // in arrays and then the '>' operator is evaluated against the two arrays. This works
-            // but is dumb ... I intend to optimize this soon to add special handling for
-            // binary expressions that involve literal values to avoid creating arrays of literals
-            // filed as https://github.com/andygrove/datafusion/issues/191
+            //NOTE: this is a temporary hack .. due to the way expressions like 'a > 1'
+            // are evaluated, currently the left and right are evaluated
+            // separately and must result in arrays and then the '>' operator
+            // is evaluated against the two arrays. This works but is dumb ...
+            // I intend to optimize this soon to add special handling for
+            // binary expressions that involve literal values to avoid creating arrays of
+            // literals filed as https://github.com/andygrove/datafusion/issues/191
             ScalarValue::Int8(n) => literal_array!(n, Int8Array, Int8),
             ScalarValue::Int16(n) => literal_array!(n, Int16Array, Int16),
             ScalarValue::Int32(n) => literal_array!(n, Int32Array, Int32),

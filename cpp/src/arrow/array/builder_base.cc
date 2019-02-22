@@ -106,4 +106,10 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
   null_bitmap_builder_.UnsafeAppend(length, true);
 }
 
+void ArrayBuilder::UnsafeSetNull(int64_t length) {
+  length_ += length;
+  null_count_ += length;
+  null_bitmap_builder_.UnsafeAppend(length, false);
+}
+
 }  // namespace arrow

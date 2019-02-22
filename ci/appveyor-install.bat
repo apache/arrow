@@ -17,19 +17,34 @@
 
 @echo on
 
-if "%JOB%" == "Rust" (
-    curl -sSf -o rustup-init.exe https://win.rustup.rs/
-    rustup-init.exe -y --default-host %TARGET% --default-toolchain stable
-    set "PATH=%PATH%;C:\Users\Appveyor\.cargo\bin"
-    rustup install stable
-    rustup install nightly
-    rustc -Vv
-    cargo -V
-) else if "%JOB:~,5%" == "MinGW" (
-    call ci\appveyor-cpp-setup-mingw.bat
-) else (
-    set "PATH=C:\Miniconda36-x64;C:\Miniconda36-x64\Scripts;C:\Miniconda36-x64\Library\bin;%PATH%"
-    set BOOST_ROOT=C:\Libraries\boost_1_67_0
-    set BOOST_LIBRARYDIR=C:\Libraries\boost_1_67_0\lib64-msvc-14.0
-    call ci\appveyor-cpp-setup.bat
-)
+IF /i "%JOB%" == "C#" goto csharp
+IF "%JOB:~,5%" == "MinGW" goto mingw
+IF /i "%JOB%" == "rust" goto rust
+
+@rem all else are C++
+goto cpp
+
+:cpp
+set "PATH=C:\Miniconda36-x64;C:\Miniconda36-x64\Scripts;C:\Miniconda36-x64\Library\bin;%PATH%"
+set BOOST_ROOT=C:\Libraries\boost_1_67_0
+set BOOST_LIBRARYDIR=C:\Libraries\boost_1_67_0\lib64-msvc-14.0
+call ci\appveyor-cpp-setup.bat
+goto scriptexit
+
+:rust
+curl -sSf -o rustup-init.exe https://win.rustup.rs/
+rustup-init.exe -y --default-host %TARGET% --default-toolchain stable
+set "PATH=%PATH%;C:\Users\Appveyor\.cargo\bin"
+rustup install stable
+rustup install nightly
+rustc -Vv
+cargo -V
+goto scriptexit
+
+:mingw
+call ci\appveyor-cpp-setup-mingw.bat
+goto scriptexit
+
+:csharp
+
+:scriptexit

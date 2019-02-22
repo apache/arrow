@@ -17,15 +17,17 @@
 
 FROM arrow:python-3.6
 
-RUN apt-get install -y -q \
-      libclang-dev \
-      clang \
-      clang-format \
-      clang-tidy \
-      iwyu
+RUN apt-get update && \
+    apt-get install -y -q \
+      clang-7 \
+      libclang-7-dev \
+      clang-format-7 \
+      clang-tidy-7 \
+      clang-tools-7
 
 RUN conda install flake8 && \
     conda clean --all -y
 
-# https://bugs.launchpad.net/ubuntu/+source/iwyu/+bug/1769334
-RUN ln -sv /usr/lib/clang/6.0 /usr/lib/clang/5.0.1
+ENV PATH=/opt/iwyu/bin:$PATH
+ADD ci/docker_install_iwyu.sh /arrow/ci/
+RUN arrow/ci/docker_install_iwyu.sh

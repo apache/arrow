@@ -15,25 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#######################################
+#
 # arrow/python_test_main
-#######################################
+#
 
-if (PYARROW_BUILD_TESTS)
-  add_library(arrow/python_test_main STATIC
-	test_main.cc)
+if(PYARROW_BUILD_TESTS)
+  add_library(arrow/python_test_main STATIC test_main.cc)
 
-  if (APPLE)
-	target_link_libraries(arrow/python_test_main
-      ${GTEST_LIBRARY}
-      dl)
-	set_target_properties(arrow/python_test_main
-      PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+  if(APPLE)
+    target_link_libraries(arrow/python_test_main ${GTEST_LIBRARY} dl)
+    set_target_properties(arrow/python_test_main
+                          PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
   else()
-	target_link_libraries(arrow/python_test_main
-      ${GTEST_LIBRARY}
-      pthread
-      dl
-	  )
+    target_link_libraries(arrow/python_test_main ${GTEST_LIBRARY} pthread dl)
   endif()
 endif()

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Row } from './row';
+import { RowProxyGenerator } from './row';
 import { Vector } from '../vector';
 import { BaseVector } from './base';
 import { DataType, Map_, Struct } from '../type';
@@ -25,8 +25,8 @@ export class MapVector<T extends { [key: string]: DataType } = any> extends Base
         return Vector.new(this.data.clone(new Struct<T>(this.type.children)));
     }
     // @ts-ignore
-    private _rowProxy: Row<T>;
-    public get rowProxy(): Row<T> {
-        return this._rowProxy || (this._rowProxy = Row.new<T>(this.type.children || [], true));
+    private _rowProxy: RowProxyGenerator<T>;
+    public get rowProxy(): RowProxyGenerator<T> {
+        return this._rowProxy || (this._rowProxy = RowProxyGenerator.new<T>(this, this.type.children || [], true));
     }
 }

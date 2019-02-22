@@ -126,7 +126,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         this._dictionaryBlocks = [];
         this._recordBatchBlocks = [];
 
-        if (!schema || (schema !== this._schema)) {
+        if (!schema || !(schema.compareTo(this._schema))) {
             if (schema === null) {
                 this._position = 0;
                 this._schema = null;

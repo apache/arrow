@@ -56,6 +56,7 @@
 
 use std::any::Any;
 use std::convert::From;
+use std::fmt;
 use std::io::Write;
 use std::mem;
 use std::sync::Arc;
@@ -236,13 +237,29 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     pub fn value_slice(&self, offset: usize, len: usize) -> &[T::Native] {
-        let raw = unsafe { std::slice::from_raw_parts(self.raw_values(), self.len()) };
-        &raw[offset..offset + len]
+        let raw = unsafe {
+            std::slice::from_raw_parts(self.raw_values().offset(offset as isize), len)
+        };
+        &raw[..]
     }
 
     // Returns a new primitive array builder
     pub fn builder(capacity: usize) -> PrimitiveBuilder<T> {
         PrimitiveBuilder::<T>::new(capacity)
+    }
+}
+
+impl<T: ArrowNumericType> fmt::Debug for PrimitiveArray<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
+        for i in 0..self.len() {
+            if self.is_null(i) {
+                write!(f, "  null,\n")?;
+            } else {
+                write!(f, "  {:?},\n", self.value(i))?;
+            }
+        }
+        write!(f, "]")
     }
 }
 
@@ -275,6 +292,20 @@ impl PrimitiveArray<BooleanType> {
     // Returns a new primitive array builder
     pub fn builder(capacity: usize) -> BooleanBuilder {
         BooleanBuilder::new(capacity)
+    }
+}
+
+impl fmt::Debug for PrimitiveArray<BooleanType> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PrimitiveArray<{:?}>\n[\n", BooleanType::get_data_type())?;
+        for i in 0..self.len() {
+            if self.is_null(i) {
+                write!(f, "  null,\n")?
+            } else {
+                write!(f, "  {:?},\n", self.value(i))?
+            }
+        }
+        write!(f, "]")
     }
 }
 
@@ -751,6 +782,58 @@ mod tests {
                 assert!(!arr.is_valid(i));
             }
         }
+    }
+
+    #[test]
+    fn test_value_slice_no_bounds_check() {
+        let arr = Int32Array::from(vec![2, 3, 4]);
+        let _slice = arr.value_slice(0, 4);
+    }
+
+    #[test]
+    fn test_int32_fmt_debug() {
+        let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
+        let arr = Int32Array::new(5, buf, 0, 0);
+        assert_eq!(
+            "PrimitiveArray<Int32>\n[\n  0,\n  1,\n  2,\n  3,\n  4,\n]",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_int32_with_null_fmt_debug() {
+        let mut builder = Int32Array::builder(3);
+        builder.append_slice(&[0, 1]).unwrap();
+        builder.append_null().unwrap();
+        builder.append_slice(&[3, 4]).unwrap();
+        let arr = builder.finish();
+        assert_eq!(
+            "PrimitiveArray<Int32>\n[\n  0,\n  1,\n  null,\n  3,\n  4,\n]",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_boolean_fmt_debug() {
+        let buf = Buffer::from(&[true, false, false].to_byte_slice());
+        let arr = BooleanArray::new(3, buf, 0, 0);
+        assert_eq!(
+            "PrimitiveArray<Boolean>\n[\n  true,\n  false,\n  false,\n]",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_boolean_with_null_fmt_debug() {
+        let mut builder = BooleanArray::builder(3);
+        builder.append_value(true).unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(false).unwrap();
+        let arr = builder.finish();
+        assert_eq!(
+            "PrimitiveArray<Boolean>\n[\n  true,\n  null,\n  false,\n]",
+            format!("{:?}", arr)
+        );
     }
 
     #[test]

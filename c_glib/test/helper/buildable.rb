@@ -101,8 +101,8 @@ module Helper
       build_array(Arrow::StringArrayBuilder.new, values)
     end
 
-    def build_list_array(value_data_type, values_list)
-      value_field = Arrow::Field.new("value", value_data_type)
+    def build_list_array(value_data_type, values_list, field_name: "value")
+      value_field = Arrow::Field.new(field_name, value_data_type)
       data_type = Arrow::ListDataType.new(value_field)
       builder = Arrow::ListArrayBuilder.new(data_type)
       values_list.each do |values|

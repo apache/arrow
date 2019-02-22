@@ -24,7 +24,7 @@
 #include "parquet/schema.h"
 
 #include "arrow/api.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 
 using arrow::ArrayFromVector;
 using arrow::Field;

@@ -75,6 +75,7 @@ garrow_list_array_class_init(GArrowListArrayClass *klass)
 
 /**
  * garrow_list_array_new:
+ * @data_type: The data type of the list.
  * @length: The number of elements.
  * @value_offsets: The offsets of @values in Arrow format.
  * @values: The values as #GArrowArray.
@@ -90,16 +91,17 @@ garrow_list_array_class_init(GArrowListArrayClass *klass)
  * Since: 0.4.0
  */
 GArrowListArray *
-garrow_list_array_new(gint64 length,
+garrow_list_array_new(GArrowDataType *data_type,
+                      gint64 length,
                       GArrowBuffer *value_offsets,
                       GArrowArray *values,
                       GArrowBuffer *null_bitmap,
                       gint64 n_nulls)
 {
+  const auto arrow_data_type = garrow_data_type_get_raw(data_type);
   const auto arrow_value_offsets = garrow_buffer_get_raw(value_offsets);
   const auto arrow_values = garrow_array_get_raw(values);
   const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_data_type = arrow::list(arrow_values->type());
   auto arrow_list_array =
     std::make_shared<arrow::ListArray>(arrow_data_type,
                                        length,

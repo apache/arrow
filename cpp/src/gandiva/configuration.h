@@ -26,9 +26,6 @@
 
 namespace gandiva {
 
-GANDIVA_EXPORT
-extern const char kByteCodeFilePath[];
-
 class ConfigurationBuilder;
 /// \brief runtime config for gandiva
 ///
@@ -38,17 +35,9 @@ class GANDIVA_EXPORT Configuration {
  public:
   friend class ConfigurationBuilder;
 
-  const std::string& byte_code_file_path() const { return byte_code_file_path_; }
-
   std::size_t Hash() const;
   bool operator==(const Configuration& other) const;
   bool operator!=(const Configuration& other) const;
-
- private:
-  explicit Configuration(const std::string& byte_code_file_path)
-      : byte_code_file_path_(byte_code_file_path) {}
-
-  const std::string byte_code_file_path_;
 };
 
 /// \brief configuration builder for gandiva
@@ -57,15 +46,8 @@ class GANDIVA_EXPORT Configuration {
 /// to override specific values and build a custom instance
 class GANDIVA_EXPORT ConfigurationBuilder {
  public:
-  ConfigurationBuilder() : byte_code_file_path_(kByteCodeFilePath) {}
-
-  ConfigurationBuilder& set_byte_code_file_path(const std::string& byte_code_file_path) {
-    byte_code_file_path_ = byte_code_file_path;
-    return *this;
-  }
-
   std::shared_ptr<Configuration> build() {
-    std::shared_ptr<Configuration> configuration(new Configuration(byte_code_file_path_));
+    std::shared_ptr<Configuration> configuration(new Configuration());
     return configuration;
   }
 
@@ -74,10 +56,8 @@ class GANDIVA_EXPORT ConfigurationBuilder {
   }
 
  private:
-  std::string byte_code_file_path_;
-
   static std::shared_ptr<Configuration> InitDefaultConfig() {
-    std::shared_ptr<Configuration> configuration(new Configuration(kByteCodeFilePath));
+    std::shared_ptr<Configuration> configuration(new Configuration());
     return configuration;
   }
 

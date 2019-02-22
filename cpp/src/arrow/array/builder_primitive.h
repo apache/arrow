@@ -21,6 +21,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/array.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/type.h"
 
@@ -42,37 +43,53 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 };
 
-template <typename Type>
-class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
+/// Base class for all Builders that emit an Array of a scalar numerical type.
+template <typename T>
+class NumericBuilder : public ArrayBuilder {
  public:
-  using value_type = typename Type::c_type;
+  using value_type = typename T::c_type;
+  using ArrayBuilder::ArrayBuilder;
 
-  explicit PrimitiveBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : ArrayBuilder(type, pool), data_(NULLPTR), raw_data_(NULLPTR) {}
+  template <typename T1 = T>
+  explicit NumericBuilder(
+      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool
+          ARROW_MEMORY_POOL_DEFAULT)
+      : ArrayBuilder(TypeTraits<T1>::type_singleton(), pool) {}
 
-  using ArrayBuilder::Advance;
+  /// Append a single scalar and increase the size if necessary.
+  Status Append(const value_type val) {
+    ARROW_RETURN_NOT_OK(ArrayBuilder::Reserve(1));
+    UnsafeAppend(val);
+    return Status::OK();
+  }
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   /// The memory at the corresponding data slot is set to 0 to prevent
   /// uninitialized memory access
-  Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
+  Status AppendNulls(int64_t length) {
     ARROW_RETURN_NOT_OK(Reserve(length));
-    memset(raw_data_ + length_, 0,
-           static_cast<size_t>(TypeTraits<Type>::bytes_required(length)));
-    UnsafeAppendToBitmap(valid_bytes, length);
+    data_builder_.UnsafeAppend(length, static_cast<value_type>(0));
+    UnsafeSetNull(length);
     return Status::OK();
   }
 
   /// \brief Append a single null element
   Status AppendNull() {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    memset(raw_data_ + length_, 0, sizeof(value_type));
+    data_builder_.UnsafeAppend(static_cast<value_type>(0));
     UnsafeAppendToBitmap(false);
     return Status::OK();
   }
 
-  value_type GetValue(int64_t index) const {
-    return reinterpret_cast<const value_type*>(data_->data())[index];
+  value_type GetValue(int64_t index) const { return data_builder_.data()[index]; }
+
+  void Reset() override { data_builder_.Reset(); }
+
+  Status Resize(int64_t capacity) override {
+    ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+    capacity = std::max(capacity, kMinBuilderCapacity);
+    ARROW_RETURN_NOT_OK(data_builder_.Resize(capacity));
+    return ArrayBuilder::Resize(capacity);
   }
 
   /// \brief Append a sequence of elements in one shot
@@ -82,7 +99,13 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// indicates a valid (non-null) value
   /// \return Status
   Status AppendValues(const value_type* values, int64_t length,
-                      const uint8_t* valid_bytes = NULLPTR);
+                      const uint8_t* valid_bytes = NULLPTR) {
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    data_builder_.UnsafeAppend(values, length);
+    // length_ is update by these
+    ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
+    return Status::OK();
+  }
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
@@ -91,7 +114,13 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// (0). Equal in length to values
   /// \return Status
   Status AppendValues(const value_type* values, int64_t length,
-                      const std::vector<bool>& is_valid);
+                      const std::vector<bool>& is_valid) {
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    data_builder_.UnsafeAppend(values, length);
+    // length_ is update by these
+    ArrayBuilder::UnsafeAppendToBitmap(is_valid);
+    return Status::OK();
+  }
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a std::vector of values
@@ -99,25 +128,35 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// (0). Equal in length to values
   /// \return Status
   Status AppendValues(const std::vector<value_type>& values,
-                      const std::vector<bool>& is_valid);
+                      const std::vector<bool>& is_valid) {
+    return AppendValues(values.data(), static_cast<int64_t>(values.size()), is_valid);
+  }
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a std::vector of values
   /// \return Status
-  Status AppendValues(const std::vector<value_type>& values);
+  Status AppendValues(const std::vector<value_type>& values) {
+    return AppendValues(values.data(), static_cast<int64_t>(values.size()));
+  }
+
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
+    std::shared_ptr<Buffer> data, null_bitmap;
+    ARROW_RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+    ARROW_RETURN_NOT_OK(data_builder_.Finish(&data));
+    *out = ArrayData::Make(type_, length_, {null_bitmap, data}, null_count_);
+    capacity_ = length_ = null_count_ = 0;
+    return Status::OK();
+  }
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values_begin InputIterator to the beginning of the values
   /// \param[in] values_end InputIterator pointing to the end of the values
   /// \return Status
-
   template <typename ValuesIter>
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
-
-    std::copy(values_begin, values_end, raw_data_ + length_);
-
+    data_builder_.UnsafeAppend(values_begin, values_end);
     // this updates the length_
     UnsafeSetNotNull(length);
     return Status::OK();
@@ -137,14 +176,11 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
                   "version instead");
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
-
-    std::copy(values_begin, values_end, raw_data_ + length_);
-
-    // this updates the length_
-    for (int64_t i = 0; i != length; ++i) {
-      UnsafeAppendToBitmap(*valid_begin);
-      ++valid_begin;
-    }
+    data_builder_.UnsafeAppend(values_begin, values_end);
+    null_bitmap_builder_.UnsafeAppend<true>(
+        length, [&valid_begin]() -> bool { return *valid_begin++; });
+    length_ = null_bitmap_builder_.length();
+    null_count_ = null_bitmap_builder_.false_count();
     return Status::OK();
   }
 
@@ -154,55 +190,17 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
-
-    std::copy(values_begin, values_end, raw_data_ + length_);
-
+    data_builder_.UnsafeAppend(values_begin, values_end);
     // this updates the length_
     if (valid_begin == NULLPTR) {
       UnsafeSetNotNull(length);
     } else {
-      for (int64_t i = 0; i != length; ++i) {
-        UnsafeAppendToBitmap(*valid_begin);
-        ++valid_begin;
-      }
+      null_bitmap_builder_.UnsafeAppend<true>(
+          length, [&valid_begin]() -> bool { return *valid_begin++; });
+      length_ = null_bitmap_builder_.length();
+      null_count_ = null_bitmap_builder_.false_count();
     }
 
-    return Status::OK();
-  }
-
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
-  void Reset() override;
-
-  Status Resize(int64_t capacity) override;
-
- protected:
-  std::shared_ptr<ResizableBuffer> data_;
-  value_type* raw_data_;
-};
-
-/// Base class for all Builders that emit an Array of a scalar numerical type.
-template <typename T>
-class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
- public:
-  using typename PrimitiveBuilder<T>::value_type;
-  using PrimitiveBuilder<T>::PrimitiveBuilder;
-
-  template <typename T1 = T>
-  explicit NumericBuilder(
-      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool
-          ARROW_MEMORY_POOL_DEFAULT)
-      : PrimitiveBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
-
-  using ArrayBuilder::UnsafeAppendNull;
-  using ArrayBuilder::UnsafeAppendToBitmap;
-  using PrimitiveBuilder<T>::AppendValues;
-  using PrimitiveBuilder<T>::Resize;
-  using PrimitiveBuilder<T>::Reserve;
-
-  /// Append a single scalar and increase the size if necessary.
-  Status Append(const value_type val) {
-    ARROW_RETURN_NOT_OK(ArrayBuilder::Reserve(1));
-    UnsafeAppend(val);
     return Status::OK();
   }
 
@@ -212,13 +210,17 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
   /// This method does not capacity-check; make sure to call Reserve
   /// beforehand.
   void UnsafeAppend(const value_type val) {
-    raw_data_[length_] = val;
-    UnsafeAppendToBitmap(true);
+    ArrayBuilder::UnsafeAppendToBitmap(true);
+    data_builder_.UnsafeAppend(val);
+  }
+
+  void UnsafeAppendNull() {
+    ArrayBuilder::UnsafeAppendToBitmap(false);
+    data_builder_.UnsafeAppend(0);
   }
 
  protected:
-  using PrimitiveBuilder<T>::length_;
-  using PrimitiveBuilder<T>::raw_data_;
+  TypedBufferBuilder<value_type> data_builder_;
 };
 
 // Builders
@@ -249,21 +251,17 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   explicit BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
-  using ArrayBuilder::Advance;
-  using ArrayBuilder::UnsafeAppendNull;
-
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
-  Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
+  Status AppendNulls(int64_t length) {
     ARROW_RETURN_NOT_OK(Reserve(length));
-    UnsafeAppendToBitmap(valid_bytes, length);
-
+    data_builder_.UnsafeAppend(length, false);
+    UnsafeSetNull(length);
     return Status::OK();
   }
 
   Status AppendNull() {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    UnsafeAppendToBitmap(false);
-
+    UnsafeAppendNull();
     return Status::OK();
   }
 
@@ -278,12 +276,13 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   /// Scalar append, without checking for capacity
   void UnsafeAppend(const bool val) {
-    if (val) {
-      BitUtil::SetBit(raw_data_, length_);
-    } else {
-      BitUtil::ClearBit(raw_data_, length_);
-    }
+    data_builder_.UnsafeAppend(val);
     UnsafeAppendToBitmap(true);
+  }
+
+  void UnsafeAppendNull() {
+    data_builder_.UnsafeAppend(false);
+    UnsafeAppendToBitmap(false);
   }
 
   void UnsafeAppend(const uint8_t val) { UnsafeAppend(val != 0); }
@@ -340,10 +339,8 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
-    auto iter = values_begin;
-    internal::GenerateBitsUnrolled(raw_data_, length_, length,
-                                   [&iter]() -> bool { return *(iter++); });
-
+    data_builder_.UnsafeAppend<false>(
+        length, [&values_begin]() -> bool { return *values_begin++; });
     // this updates length_
     UnsafeSetNotNull(length);
     return Status::OK();
@@ -364,15 +361,12 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
 
-    auto iter = values_begin;
-    internal::GenerateBitsUnrolled(raw_data_, length_, length,
-                                   [&iter]() -> bool { return *(iter++); });
-
-    // this updates length_
-    for (int64_t i = 0; i != length; ++i) {
-      ArrayBuilder::UnsafeAppendToBitmap(*valid_begin);
-      ++valid_begin;
-    }
+    data_builder_.UnsafeAppend<false>(
+        length, [&values_begin]() -> bool { return *values_begin++; });
+    null_bitmap_builder_.UnsafeAppend<true>(
+        length, [&valid_begin]() -> bool { return *valid_begin++; });
+    length_ = null_bitmap_builder_.length();
+    null_count_ = null_bitmap_builder_.false_count();
     return Status::OK();
   }
 
@@ -382,21 +376,17 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
+    data_builder_.UnsafeAppend<false>(
+        length, [&values_begin]() -> bool { return *values_begin++; });
 
-    auto iter = values_begin;
-    internal::GenerateBitsUnrolled(raw_data_, length_, length,
-                                   [&iter]() -> bool { return *(iter++); });
-
-    // this updates the length_
     if (valid_begin == NULLPTR) {
       UnsafeSetNotNull(length);
     } else {
-      for (int64_t i = 0; i != length; ++i) {
-        ArrayBuilder::UnsafeAppendToBitmap(*valid_begin);
-        ++valid_begin;
-      }
+      null_bitmap_builder_.UnsafeAppend<true>(
+          length, [&valid_begin]() -> bool { return *valid_begin++; });
     }
-
+    length_ = null_bitmap_builder_.length();
+    null_count_ = null_bitmap_builder_.false_count();
     return Status::OK();
   }
 
@@ -405,8 +395,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   Status Resize(int64_t capacity) override;
 
  protected:
-  std::shared_ptr<ResizableBuffer> data_;
-  uint8_t* raw_data_;
+  TypedBufferBuilder<bool> data_builder_;
 };
 
 }  // namespace arrow

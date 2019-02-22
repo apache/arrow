@@ -50,6 +50,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
     browser: `${mainExport}.dom`,
     types: `${mainExport}.node.d.ts`,
     unpkg: `${mainExport}.es5.min.js`,
+    jsdelivr: `${mainExport}.es5.min.js`,
     [`esm`]: { mode: `all`, sourceMap: true }
 });
   
@@ -75,7 +76,8 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
                 browser: format === 'umd' ? undefined : `${mainExport}.dom`,
                 main: format === 'umd' ? `${mainExport}` : `${mainExport}.node`,
                 types: format === 'umd' ? undefined : `${mainExport}.node.d.ts`,
-                version: undefined, unpkg: undefined, module: undefined, [`esm`]: undefined,
+                version: undefined, unpkg: undefined, jsdelivr: undefined,
+                module: undefined, [`esm`]: undefined,
             }
         )
     )

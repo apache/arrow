@@ -16,29 +16,29 @@
 // under the License.
 
 #include "arrow/flight/server.h"
+#include "arrow/flight/protocol-internal.h"
 
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 
-#include "grpcpp/grpcpp.h"
+#include <grpcpp/grpcpp.h>
 
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
-#include "arrow/flight/Flight.grpc.pb.h"
-#include "arrow/flight/Flight.pb.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/serialization-internal.h"
 #include "arrow/flight/types.h"
 
 using FlightService = arrow::flight::protocol::FlightService;
 using ServerContext = grpc::ServerContext;
-
-using arrow::ipc::internal::IpcPayload;
 
 template <typename T>
 using ServerWriter = grpc::ServerWriter<T>;
@@ -73,13 +73,9 @@ class FlightMessageReaderImpl : public FlightMessageReader {
       return Status::OK();
     }
 
-    // XXX this cast is undefined behavior
-    auto custom_reader = reinterpret_cast<grpc::ServerReader<FlightData>*>(reader_);
-
-    FlightData data;
-    // Explicitly specify the override to invoke - otherwise compiler
-    // may invoke through vtable (not updated by reinterpret_cast)
-    if (custom_reader->grpc::ServerReader<FlightData>::Read(&data)) {
+    internal::FlightData data;
+    // Pretend to be pb::FlightData and intercept in SerializationTraits
+    if (reader_->Read(reinterpret_cast<pb::FlightData*>(&data))) {
       std::unique_ptr<ipc::Message> message;
 
       // Validate IPC message
@@ -184,26 +180,24 @@ class FlightServiceImpl : public FlightService::Service {
     std::unique_ptr<FlightDataStream> data_stream;
     GRPC_RETURN_NOT_OK(server_->DoGet(ticket, &data_stream));
 
-    // Requires ServerWriter customization in grpc_customizations.h
-    // XXX this cast is undefined behavior
-    auto custom_writer = reinterpret_cast<ServerWriter<IpcPayload>*>(writer);
-
     // Write the schema as the first message in the stream
-    IpcPayload schema_payload;
+    FlightPayload schema_payload;
     MemoryPool* pool = default_memory_pool();
     ipc::DictionaryMemo dictionary_memo;
     GRPC_RETURN_NOT_OK(ipc::internal::GetSchemaPayload(
-        *data_stream->schema(), pool, &dictionary_memo, &schema_payload));
-    // Explicitly specify the override to invoke - otherwise compiler
-    // may invoke through vtable (not updated by reinterpret_cast)
-    custom_writer->grpc::ServerWriter<IpcPayload>::Write(schema_payload,
-                                                         grpc::WriteOptions());
+        *data_stream->schema(), pool, &dictionary_memo, &schema_payload.ipc_message));
+
+    // Pretend to be pb::FlightData, we cast back to FlightPayload in
+    // SerializationTraits
+    writer->Write(*reinterpret_cast<const pb::FlightData*>(&schema_payload),
+                  grpc::WriteOptions());
 
     while (true) {
-      IpcPayload payload;
+      FlightPayload payload;
       GRPC_RETURN_NOT_OK(data_stream->Next(&payload));
-      if (payload.metadata == nullptr ||
-          !custom_writer->Write(payload, grpc::WriteOptions())) {
+      if (payload.ipc_message.metadata == nullptr ||
+          !writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
+                         grpc::WriteOptions())) {
         // No more messages to write, or connection terminated for some other
         // reason
         break;
@@ -215,22 +209,24 @@ class FlightServiceImpl : public FlightService::Service {
   grpc::Status DoPut(ServerContext* context, grpc::ServerReader<pb::FlightData>* reader,
                      pb::PutResult* response) {
     // Get metadata
-    pb::FlightData data;
-    if (reader->Read(&data)) {
-      FlightDescriptor descriptor;
+    internal::FlightData data;
+    if (reader->Read(reinterpret_cast<pb::FlightData*>(&data))) {
       // Message only lives as long as data
       std::unique_ptr<ipc::Message> message;
-      GRPC_RETURN_NOT_OK(internal::FromProto(data, &descriptor, &message));
+      GRPC_RETURN_NOT_OK(ipc::Message::Open(data.metadata, data.body, &message));
 
       if (!message || message->type() != ipc::Message::Type::SCHEMA) {
         return internal::ToGrpcStatus(
             Status(StatusCode::Invalid, "DoPut must start with schema/descriptor"));
+      } else if (data.descriptor == nullptr) {
+        return internal::ToGrpcStatus(
+            Status(StatusCode::Invalid, "DoPut must start with non-null descriptor"));
       } else {
         std::shared_ptr<Schema> schema;
         GRPC_RETURN_NOT_OK(ipc::ReadSchema(*message, &schema));
 
         auto message_reader = std::unique_ptr<FlightMessageReader>(
-            new FlightMessageReaderImpl(descriptor, schema, reader));
+            new FlightMessageReaderImpl(*data.descriptor.get(), schema, reader));
         return internal::ToGrpcStatus(server_->DoPut(std::move(message_reader)));
       }
     } else {
@@ -341,16 +337,16 @@ RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& r
 
 std::shared_ptr<Schema> RecordBatchStream::schema() { return reader_->schema(); }
 
-Status RecordBatchStream::Next(IpcPayload* payload) {
+Status RecordBatchStream::Next(FlightPayload* payload) {
   std::shared_ptr<RecordBatch> batch;
   RETURN_NOT_OK(reader_->ReadNext(&batch));
 
   if (!batch) {
     // Signal that iteration is over
-    payload->metadata = nullptr;
+    payload->ipc_message.metadata = nullptr;
     return Status::OK();
   } else {
-    return ipc::internal::GetRecordBatchPayload(*batch, pool_, payload);
+    return ipc::internal::GetRecordBatchPayload(*batch, pool_, &payload->ipc_message);
   }
 }
 

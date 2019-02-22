@@ -28,7 +28,7 @@ RUN \
     autoconf-archive \
     bison \
     build-essential \
-    clang-6.0 \
+    clang-7 \
     cmake \
     debhelper\
     devscripts \

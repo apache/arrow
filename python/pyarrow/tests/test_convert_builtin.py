@@ -852,6 +852,14 @@ def test_sequence_decimal_large_integer():
     assert arr.to_pylist() == data
 
 
+def test_sequence_decimal_from_integers():
+    data = [0, 1, -39402950693754869342983]
+    expected = [decimal.Decimal(x) for x in data]
+    type = pa.decimal128(precision=28, scale=5)
+    arr = pa.array(data, type=type)
+    assert arr.to_pylist() == expected
+
+
 def test_range_types():
     arr1 = pa.array(range(3))
     arr2 = pa.array((0, 1, 2))
@@ -867,6 +875,11 @@ def test_empty_range():
 
 
 def test_structarray():
+    arr = pa.StructArray.from_arrays([], names=[])
+    assert arr.type == pa.struct([])
+    assert len(arr) == 0
+    assert arr.to_pylist() == []
+
     ints = pa.array([None, 2, 3], type=pa.int64())
     strs = pa.array([u'a', None, u'c'], type=pa.string())
     bools = pa.array([True, False, None], type=pa.bool_())
@@ -882,6 +895,10 @@ def test_structarray():
 
     pylist = arr.to_pylist()
     assert pylist == expected, (pylist, expected)
+
+    # len(names) != len(arrays)
+    with pytest.raises(ValueError):
+        pa.StructArray.from_arrays([ints], ['ints', 'strs'])
 
 
 def test_struct_from_dicts():

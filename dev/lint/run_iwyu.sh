@@ -16,19 +16,21 @@
 # limitations under the License.
 #
 
+set -eux
+
 export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 
 mkdir -p /build/lint
 pushd /build/lint
 
 cmake -GNinja \
+      -DARROW_FLIGHT=ON \
+      -DARROW_GANDIVA=ON \
       -DARROW_PARQUET=ON \
       -DARROW_PYTHON=ON \
       -DCMAKE_CXX_FLAGS='-D_GLIBCXX_USE_CXX11_ABI=0' \
       -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
       /arrow/cpp
-# Make so that vendored bits are built
-ninja arrow_shared
 
 popd
 

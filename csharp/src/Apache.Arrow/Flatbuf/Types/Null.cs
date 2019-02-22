@@ -9,7 +9,7 @@ using global::System;
 using global::FlatBuffers;
 
 /// These are stored in the flatbuffer in the Type union below
-public struct Null : IFlatbufferObject
+internal struct Null : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }

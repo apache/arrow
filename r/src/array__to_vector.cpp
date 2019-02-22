@@ -460,12 +460,19 @@ class Converter_Decimal : public Converter {
     const auto& decimals_arr =
         internal::checked_cast<const arrow::Decimal128Array&>(*array);
 
-    internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
-                                         n);
+    if (array->null_count()) {
+      internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
+                                           n);
 
-    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
-      *p_data = bitmap_reader.IsSet() ? std::stod(decimals_arr.FormatValue(i).c_str())
-                                      : NA_REAL;
+      for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
+        *p_data = bitmap_reader.IsSet() ? std::stod(decimals_arr.FormatValue(i).c_str())
+                                        : NA_REAL;
+      }
+    }
+    else {
+      for (size_t i = 0; i < n; i++, ++p_data) {
+        *p_data = std::stod(decimals_arr.FormatValue(i).c_str());
+      }
     }
 
     return Status::OK();

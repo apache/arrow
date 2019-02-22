@@ -19,7 +19,7 @@ namespace FlatBuffers
     /// <summary>
     /// All structs in the generated code derive from this class, and add their own accessors.
     /// </summary>
-    public struct Struct
+    internal struct Struct
     {
         public int bb_pos;
         public ByteBuffer bb;

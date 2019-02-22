@@ -31,8 +31,8 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/test-common.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
@@ -844,7 +844,7 @@ TEST_F(TestCast, PreallocatedMemory) {
   shared_ptr<Buffer> out_values;
   ASSERT_OK(this->ctx_.Allocate(length * sizeof(int64_t), &out_values));
 
-  out_data->buffers.push_back(nullptr);
+  out_data->buffers.push_back(arr->data()->buffers[0]);
   out_data->buffers.push_back(out_values);
 
   Datum out(out_data);

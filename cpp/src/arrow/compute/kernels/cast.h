@@ -62,7 +62,7 @@ struct ARROW_EXPORT CastOptions {
 /// \since 0.7.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>& to_type,
+Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> to_type,
                        const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel);
 
 /// \brief Cast from one array type to another
@@ -76,7 +76,7 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
 /// \note API not yet finalized
 ARROW_EXPORT
 Status Cast(FunctionContext* context, const Array& value,
-            const std::shared_ptr<DataType>& to_type, const CastOptions& options,
+            std::shared_ptr<DataType> to_type, const CastOptions& options,
             std::shared_ptr<Array>* out);
 
 /// \brief Cast from one value to another
@@ -90,8 +90,7 @@ Status Cast(FunctionContext* context, const Array& value,
 /// \note API not yet finalized
 ARROW_EXPORT
 Status Cast(FunctionContext* context, const Datum& value,
-            const std::shared_ptr<DataType>& to_type, const CastOptions& options,
-            Datum* out);
+            std::shared_ptr<DataType> to_type, const CastOptions& options, Datum* out);
 
 }  // namespace compute
 }  // namespace arrow

@@ -41,8 +41,12 @@ cdef extern from "numpy/halffloat.h":
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
     # We can later add more of the common status factory methods as needed
-    cdef CStatus CStatus_OK "Status::OK"()
-    cdef CStatus CStatus_Invalid "Status::Invalid"()
+    cdef CStatus CStatus_OK "arrow::Status::OK"()
+    cdef CStatus CStatus_Invalid "arrow::Status::Invalid"()
+    cdef CStatus CStatus_NotImplemented \
+        "arrow::Status::NotImplemented"(const c_string& msg)
+    cdef CStatus CStatus_UnknownError \
+        "arrow::Status::UnknownError"(const c_string& msg)
 
     cdef cppclass CStatus "arrow::Status":
         CStatus()

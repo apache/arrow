@@ -17,12 +17,14 @@
 
 //! Data sources
 
+use std::cell::RefCell;
 use std::fs::File;
 use std::rc::Rc;
+use std::string::String;
 use std::sync::Arc;
 
 use arrow::csv;
-use arrow::datatypes::Schema;
+use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
 use super::error::Result;
@@ -39,10 +41,36 @@ pub struct CsvDataSource {
 }
 
 impl CsvDataSource {
-    pub fn new(filename: &str, schema: Arc<Schema>, batch_size: usize) -> Self {
+    pub fn new(
+        filename: &str,
+        schema: Arc<Schema>,
+        has_header: bool,
+        projection: &Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Self {
         let file = File::open(filename).unwrap();
-        let reader = csv::Reader::new(file, schema.clone(), true, batch_size, None);
-        Self { schema, reader }
+        let reader = csv::Reader::new(
+            file,
+            schema.clone(),
+            has_header,
+            batch_size,
+            projection.clone(),
+        );
+
+        let projected_schema = match projection {
+            Some(p) => {
+                let projected_fields: Vec<Field> =
+                    p.iter().map(|i| schema.fields()[*i].clone()).collect();
+
+                Arc::new(Schema::new(projected_fields))
+            }
+            None => schema,
+        };
+
+        Self {
+            schema: projected_schema,
+            reader,
+        }
     }
 }
 
@@ -56,19 +84,48 @@ impl DataSource for CsvDataSource {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-pub enum DataSourceMeta {
-    /// Represents a CSV file with a provided schema
-    CsvFile {
-        filename: String,
-        schema: Rc<Schema>,
-        has_header: bool,
-        projection: Option<Vec<usize>>,
-    },
-    /// Represents a Parquet file that contains schema information
-    ParquetFile {
-        filename: String,
-        schema: Rc<Schema>,
-        projection: Option<Vec<usize>>,
-    },
+pub trait DataSourceProvider {
+    fn schema(&self) -> &Arc<Schema>;
+    fn scan(
+        &self,
+        projection: &Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Rc<RefCell<DataSource>>;
+}
+
+/// Represents a CSV file with a provided schema
+pub struct CsvProvider {
+    filename: String,
+    schema: Arc<Schema>,
+    has_header: bool,
+}
+
+impl CsvProvider {
+    pub fn new(filename: &str, schema: &Schema, has_header: bool) -> Self {
+        Self {
+            filename: String::from(filename),
+            schema: Arc::new(schema.clone()),
+            has_header,
+        }
+    }
+}
+
+impl DataSourceProvider for CsvProvider {
+    fn schema(&self) -> &Arc<Schema> {
+        &self.schema
+    }
+
+    fn scan(
+        &self,
+        projection: &Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Rc<RefCell<DataSource>> {
+        Rc::new(RefCell::new(CsvDataSource::new(
+            &self.filename,
+            self.schema.clone(),
+            self.has_header,
+            projection,
+            batch_size,
+        )))
+    }
 }

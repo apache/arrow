@@ -159,7 +159,7 @@ namespace Apache.Arrow.Ipc
 
         #region Static Helper Functions
 
-        protected static IEnumerable<IArrowArray> BuildArrays(Schema schema,
+        private static IEnumerable<IArrowArray> BuildArrays(Schema schema,
             FlatBuffers.ByteBuffer messageBuffer,
             Flatbuf.RecordBatch recordBatchMessage)
         {
@@ -180,7 +180,7 @@ namespace Apache.Arrow.Ipc
             return arrays.Select(ArrowArrayFactory.BuildArray);
         }
 
-        protected static T ReadMessage<T>(FlatBuffers.ByteBuffer bb) where T : struct, FlatBuffers.IFlatbufferObject
+        private static T ReadMessage<T>(FlatBuffers.ByteBuffer bb) where T : struct, FlatBuffers.IFlatbufferObject
         {
             var returnType = typeof(T);
             var msg = Flatbuf.Message.GetRootAsMessage(bb);

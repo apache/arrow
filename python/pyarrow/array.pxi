@@ -15,6 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from pyarrow.compat import HAVE_PANDAS
+
+if HAVE_PANDAS:
+    import pyarrow.pandas_compat as pdcompat
+
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
@@ -165,9 +170,9 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
                 from_pandas=True, safe=safe,
                 memory_pool=memory_pool)
         else:
-            import pyarrow.pandas_compat as pdcompat
-            values, type = pdcompat.get_datetimetz_type(values, obj.dtype,
-                                                        type)
+            if HAVE_PANDAS:
+                values, type = pdcompat.get_datetimetz_type(
+                    values, obj.dtype, type)
             return _ndarray_to_array(values, mask, type, from_pandas, safe,
                                      pool)
     else:
@@ -1317,6 +1322,7 @@ cdef class StructArray(Array):
             ssize_t num_arrays
             ssize_t length
             ssize_t i
+            DataType struct_type
 
         if names is None:
             raise ValueError('Names are currently required')
@@ -1324,22 +1330,23 @@ cdef class StructArray(Array):
         arrays = [asarray(x) for x in arrays]
 
         num_arrays = len(arrays)
-        if num_arrays == 0:
-            raise ValueError("arrays list is empty")
+        if num_arrays != len(names):
+            raise ValueError("The number of names should be equal to the "
+                             "number of arrays")
 
-        length = len(arrays[0])
+        if num_arrays > 0:
+            length = len(arrays[0])
+            c_arrays.resize(num_arrays)
+            for i in range(num_arrays):
+                array = arrays[i]
+                if len(array) != length:
+                    raise ValueError("All arrays must have the same length")
+                c_arrays[i] = array.sp_array
+        else:
+            length = 0
 
-        c_arrays.resize(num_arrays)
-        for i in range(num_arrays):
-            array = arrays[i]
-            if len(array) != length:
-                raise ValueError("All arrays must have the same length")
-            c_arrays[i] = array.sp_array
-
-        cdef DataType struct_type = struct([
-            field(name, array.type)
-            for name, array in
-            zip(names, arrays)
+        struct_type = struct([
+            field(name, array.type) for name, array in zip(names, arrays)
         ])
 
         c_result.reset(new CStructArray(struct_type.sp_type, length, c_arrays))

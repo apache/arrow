@@ -744,7 +744,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     }
     /* valueCount for the data vector is the current end offset */
     final int childValueCount = (valueCount == 0) ? 0 :
-            offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
+            offsetBuffer.getInt(lastSet * OFFSET_WIDTH);
     /* set the value count of data vector and this will take care of
      * checking whether data buffer needs to be reallocated.
      */

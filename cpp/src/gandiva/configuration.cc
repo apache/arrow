@@ -25,12 +25,11 @@ const std::shared_ptr<Configuration> ConfigurationBuilder::default_configuration
     InitDefaultConfig();
 
 std::size_t Configuration::Hash() const {
-  boost::hash<std::string> string_hash;
-  return string_hash(byte_code_file_path_);
+  return 0;  // dummy for now, no configuration properties yet
 }
 
 bool Configuration::operator==(const Configuration& other) const {
-  return other.byte_code_file_path() == byte_code_file_path();
+  return true;  // always true, no configuration properties yet
 }
 
 bool Configuration::operator!=(const Configuration& other) const {

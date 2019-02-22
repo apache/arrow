@@ -59,6 +59,8 @@ class EventLoop {
 
   EventLoop();
 
+  ~EventLoop();
+
   /// Add a new file event handler to the event loop.
   ///
   /// \param fd The file descriptor we are listening to.

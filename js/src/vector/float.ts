@@ -21,6 +21,9 @@ import { BaseVector } from './base';
 import { Float, Float16, Float32, Float64 } from '../type';
 
 export class FloatVector<T extends Float = Float> extends BaseVector<T> {
+    public static from<T extends Float16>(data: T['TArray']): Float16Vector;
+    public static from<T extends Float32>(data: T['TArray']): Float32Vector;
+    public static from<T extends Float64>(data: T['TArray']): Float64Vector;
     /** @nocollapse */
     public static from<T extends Float>(data: T['TArray']) {
         switch (data.constructor) {

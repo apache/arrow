@@ -49,9 +49,22 @@ class StructArrayTest < Test::Unit::TestCase
     end
 
     test("#[]") do
-      notify("TODO: Returns Arrow::Struct instead.")
-      assert_equal([[true, false], [1, 2]],
-                   [@array[0].to_a, @array[1].to_a])
+      assert_equal([
+                     Arrow::Struct.new(@array, 0),
+                     Arrow::Struct.new(@array, 1),
+                   ],
+                   @array.to_a)
+    end
+
+    test("#get_value") do
+      assert_equal([
+                     Arrow::Struct.new(@array, 0),
+                     Arrow::Struct.new(@array, 1),
+                   ],
+                   [
+                     @array.get_value(0),
+                     @array.get_value(1),
+                   ])
     end
 
     sub_test_case("#find_field") do

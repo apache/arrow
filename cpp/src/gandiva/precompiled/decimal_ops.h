@@ -30,5 +30,10 @@ namespace decimalops {
 arrow::BasicDecimal128 Add(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y,
                            int32_t out_precision, int32_t out_scale);
 
+/// Subtract 'y' from 'x', and return the result.
+arrow::BasicDecimal128 Subtract(const BasicDecimalScalar128& x,
+                                const BasicDecimalScalar128& y, int32_t out_precision,
+                                int32_t out_scale);
+
 }  // namespace decimalops
 }  // namespace gandiva

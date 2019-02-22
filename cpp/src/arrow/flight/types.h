@@ -19,12 +19,14 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "arrow/ipc/writer.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -111,6 +113,12 @@ struct FlightEndpoint {
   std::vector<Location> locations;
 };
 
+/// \brief Staging data structure for messages about to be put on the wire
+struct FlightPayload {
+  std::shared_ptr<Buffer> descriptor;
+  ipc::internal::IpcPayload ipc_message;
+};
+
 /// \brief The access coordinates for retireval of a dataset, returned by
 /// GetFlightInfo
 class FlightInfo {
@@ -119,8 +127,8 @@ class FlightInfo {
     std::string schema;
     FlightDescriptor descriptor;
     std::vector<FlightEndpoint> endpoints;
-    uint64_t total_records;
-    uint64_t total_bytes;
+    int64_t total_records;
+    int64_t total_bytes;
   };
 
   explicit FlightInfo(const Data& data) : data_(data), reconstructed_schema_(false) {}
@@ -141,10 +149,10 @@ class FlightInfo {
   const std::vector<FlightEndpoint>& endpoints() const { return data_.endpoints; }
 
   /// The total number of records (rows) in the dataset. If unknown, set to -1
-  uint64_t total_records() const { return data_.total_records; }
+  int64_t total_records() const { return data_.total_records; }
 
   /// The total number of bytes in the dataset. If unknown, set to -1
-  uint64_t total_bytes() const { return data_.total_bytes; }
+  int64_t total_bytes() const { return data_.total_bytes; }
 
  private:
   Data data_;

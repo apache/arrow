@@ -22,7 +22,7 @@ C++ Implementation
    :maxdepth: 2
 
    getting_started
-   examples
+   Examples <examples/index>
    api
 
 .. TODO add "topics" chapter

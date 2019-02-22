@@ -28,7 +28,7 @@
 #include "arrow/builder.h"
 #include "arrow/pretty_print.h"
 #include "arrow/table.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 
 namespace arrow {

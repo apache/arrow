@@ -29,7 +29,7 @@
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string_view.h"  // IWYU pragma: export
 
 namespace arrow {
 
@@ -86,6 +86,10 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
 
   void UnsafeAppend(const std::string& value) {
     UnsafeAppend(value.c_str(), static_cast<int32_t>(value.size()));
+  }
+
+  void UnsafeAppend(util::string_view value) {
+    UnsafeAppend(value.data(), static_cast<int32_t>(value.size()));
   }
 
   void UnsafeAppendNull() {

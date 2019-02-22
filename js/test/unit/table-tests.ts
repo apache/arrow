@@ -18,8 +18,8 @@
 import '../jest-extensions';
 import {
     predicate,
-    Data, Schema, Table, RecordBatch,
-    Vector, Utf8Vector, DictionaryVector,
+    Data, Schema, Table, RecordBatch, Column,
+    Vector, Int32Vector, Float32Vector, Utf8Vector, DictionaryVector,
     Struct, Float32, Int32, Dictionary, Utf8, Int8
 } from '../Arrow';
 
@@ -94,6 +94,146 @@ describe(`Table`, () => {
     });
     test(`Table.from() creates an empty table`, () => {
         expect(Table.from().length).toEqual(0);
+    });
+
+    describe(`new()`, () => {
+
+        const arange = <T extends { length: number; [n: number]: number; }>(arr: T, n = arr.length) => {
+            for (let i = -1; ++i < n; arr[i] = i) { }
+            return arr;
+        };
+
+        test(`creates a new Table from a Column`, () => {
+
+            const i32s = new Int32Array(arange(new Array<number>(10)));
+
+            let i32 = Column.new('i32', Data.Int(new Int32(), 0, i32s.length, 0, null, i32s));
+            expect(i32.name).toBe('i32');
+            expect(i32.length).toBe(i32s.length);
+            expect(i32.nullable).toBe(false);
+            expect(i32.nullCount).toBe(0);
+
+            const table = Table.new(i32);
+            i32 = table.getColumnAt(0)!;
+
+            expect(i32.name).toBe('i32');
+            expect(i32.length).toBe(i32s.length);
+            expect(i32.nullable).toBe(false);
+            expect(i32.nullCount).toBe(0);
+
+            expect(i32).toEqualVector(Int32Vector.from(i32s));
+        });
+
+        test(`creates a new Table from Columns`, () => {
+
+            const i32s = new Int32Array(arange(new Array<number>(10)));
+            const f32s = new Float32Array(arange(new Array<number>(10)));
+
+            let i32 = Column.new('i32', Data.Int(new Int32(), 0, i32s.length, 0, null, i32s));
+            let f32 = Column.new('f32', Data.Float(new Float32(), 0, f32s.length, 0, null, f32s));
+            expect(i32.name).toBe('i32');
+            expect(f32.name).toBe('f32');
+            expect(i32.length).toBe(i32s.length);
+            expect(f32.length).toBe(f32s.length);
+            expect(i32.nullable).toBe(false);
+            expect(f32.nullable).toBe(false);
+            expect(i32.nullCount).toBe(0);
+            expect(f32.nullCount).toBe(0);
+
+            const table = Table.new(i32, f32);
+            i32 = table.getColumnAt(0)!;
+            f32 = table.getColumnAt(1)!;
+
+            expect(i32.name).toBe('i32');
+            expect(f32.name).toBe('f32');
+            expect(i32.length).toBe(i32s.length);
+            expect(f32.length).toBe(f32s.length);
+            expect(i32.nullable).toBe(false);
+            expect(f32.nullable).toBe(false);
+            expect(i32.nullCount).toBe(0);
+            expect(f32.nullCount).toBe(0);
+
+            expect(i32).toEqualVector(Int32Vector.from(i32s));
+            expect(f32).toEqualVector(Float32Vector.from(f32s));
+        });
+
+        test(`creates a new Table from Columns with different lengths`, () => {
+
+            const i32s = new Int32Array(arange(new Array<number>(20)));
+            const f32s = new Float32Array(arange(new Array<number>(8)));
+
+            let i32 = Column.new('i32', Int32Vector.from(i32s));
+            let f32 = Column.new('f32', Float32Vector.from(f32s));
+
+            expect(i32.name).toBe('i32');
+            expect(f32.name).toBe('f32');
+            expect(i32.length).toBe(i32s.length);
+            expect(f32.length).toBe(f32s.length);
+            expect(i32.nullable).toBe(false);
+            expect(f32.nullable).toBe(false);
+            expect(i32.nullCount).toBe(0);
+            expect(f32.nullCount).toBe(0);
+
+            const table = Table.new([i32, f32]);
+            i32 = table.getColumnAt(0)!;
+            f32 = table.getColumnAt(1)!;
+
+            expect(i32.name).toBe('i32');
+            expect(f32.name).toBe('f32');
+            expect(i32.length).toBe(i32s.length);
+            expect(f32.length).toBe(i32s.length); // new length should be the same as the longest sibling
+            expect(i32.nullable).toBe(false);
+            expect(f32.nullable).toBe(true); // true, with 12 additional nulls
+            expect(i32.nullCount).toBe(0);
+            expect(f32.nullCount).toBe(i32s.length - f32s.length);
+
+            const f32Expected = Data.Float(
+                f32.type, 0, i32s.length,
+                i32s.length - f32s.length,
+                new Uint8Array(8).fill(255, 0, 1), f32s);
+
+            expect(i32).toEqualVector(Int32Vector.from(i32s));
+            expect(f32).toEqualVector(new Float32Vector(f32Expected));
+        });
+
+        test(`creates a new Table from Columns with different lengths and number of inner chunks`, () => {
+
+            const i32s = new Int32Array(arange(new Array<number>(20)));
+            const f32s = new Float32Array(arange(new Array<number>(16)));
+
+            let i32 = Column.new('i32', Int32Vector.from(i32s));
+            let f32 = Column.new('f32', Float32Vector.from(f32s.slice(0, 8)), Float32Vector.from(f32s.slice(8, 16)));
+
+            expect(i32.name).toBe('i32');
+            expect(f32.name).toBe('f32');
+            expect(i32.length).toBe(i32s.length);
+            expect(f32.length).toBe(f32s.length);
+            expect(i32.nullable).toBe(false);
+            expect(f32.nullable).toBe(false);
+            expect(i32.nullCount).toBe(0);
+            expect(f32.nullCount).toBe(0);
+
+            const table = Table.new({ i32Renamed: i32, f32Renamed: f32 });
+            i32 = table.getColumn('i32Renamed');
+            f32 = table.getColumn('f32Renamed');
+
+            expect(i32.name).toBe('i32Renamed');
+            expect(f32.name).toBe('f32Renamed');
+            expect(i32.length).toBe(i32s.length);
+            expect(f32.length).toBe(i32s.length); // new length should be the same as the longest sibling
+            expect(i32.nullable).toBe(false);
+            expect(f32.nullable).toBe(true); // true, with 4 additional nulls
+            expect(i32.nullCount).toBe(0);
+            expect(f32.nullCount).toBe(i32s.length - f32s.length);
+
+            const f32Expected = Data.Float(
+                f32.type, 0, i32s.length,
+                i32s.length - f32s.length,
+                new Uint8Array(8).fill(255, 0, 2), f32s);
+
+            expect(i32).toEqualVector(Int32Vector.from(i32s));
+            expect(f32).toEqualVector(new Float32Vector(f32Expected));
+        });
     });
 
     test(`Table.serialize() serializes sliced RecordBatches`, () => {
@@ -399,10 +539,7 @@ export function getSingleRecordBatchTable() {
         [0, 1, 2, 0, 1, 2, 0]
     );
 
-    return Table.fromVectors<TestDataSchema>(
-        vectors,
-        NAMES
-    );
+    return Table.new<TestDataSchema>(vectors, NAMES);
 }
 
 function getMultipleRecordBatchesTable() {
@@ -432,8 +569,8 @@ function getMultipleRecordBatchesTable() {
 
 function getStructTable() {
     const table = getSingleRecordBatchTable();
-    const children = table.schema.fields.map((_, i) => table.getColumnAt(i)! as Vector<any>);
-    const structVec = Vector.new(Data.Struct(new Struct(table.schema.fields), 0, table.length, 0, null, children));
-
-    return Table.fromVectors<{ struct: Struct<TestDataSchema> }>([structVec], ['struct']);
+    const struct = new Struct<TestDataSchema>(table.schema.fields);
+    const children = table.schema.fields.map((_, i) => table.getColumnAt(i)!);
+    const structVec = Vector.new(Data.Struct(struct, 0, table.length, 0, null, children));
+    return Table.new<{ struct: Struct<TestDataSchema> }>([structVec], ['struct']);
 }

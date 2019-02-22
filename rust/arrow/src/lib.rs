@@ -25,18 +25,21 @@
 #![feature(rustc_private)]
 #![feature(specialization)]
 #![feature(try_from)]
+// required for matching box in lists
+#![feature(box_syntax, box_patterns)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 
 pub mod array;
 pub mod array_data;
-pub mod array_ops;
 pub mod bitmap;
 pub mod buffer;
 pub mod builder;
+pub mod compute;
 pub mod csv;
 pub mod datatypes;
 pub mod error;
+pub mod json;
 pub mod memory;
 pub mod record_batch;
 pub mod tensor;

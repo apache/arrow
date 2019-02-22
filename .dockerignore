@@ -47,6 +47,7 @@ cpp/thirdparty
 # python
 python/build
 python/dist
+python/manylinux1/dist
 python/*.egg-info
 python/*.egg
 python/*.pyc
@@ -90,3 +91,6 @@ js/test/__snapshots__
 
 # Rust
 rust/target
+
+# site
+site/

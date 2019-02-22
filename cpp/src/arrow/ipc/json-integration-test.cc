@@ -15,11 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// ARROW-3837: Depending on how gflags was built, this might be set to
-// 1 or 0 by default, making it so that we cannot statically link
-// gflags on Windows if it is set to 1
-#define GFLAGS_IS_A_DLL 0
-
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -35,13 +30,13 @@
 #include <boost/filesystem.hpp>  // NOLINT
 
 #include "arrow/io/file.h"
-#include "arrow/ipc/json.h"
+#include "arrow/ipc/json-integration.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 
 DEFINE_string(arrow, "", "Arrow file name");

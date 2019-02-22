@@ -15,10 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ADD_PARQUET_TEST(arrow-schema-test)
-ADD_PARQUET_TEST(arrow-reader-writer-test)
+add_parquet_test(arrow-schema-test)
+add_parquet_test(arrow-reader-writer-test)
 
-ADD_PARQUET_BENCHMARK(reader-writer-benchmark
-  PREFIX "parquet-arrow")
+add_parquet_benchmark(reader-writer-benchmark PREFIX "parquet-arrow")
 
-ARROW_INSTALL_ALL_HEADERS("parquet/arrow")
+arrow_install_all_headers("parquet/arrow")
