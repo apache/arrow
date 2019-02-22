@@ -284,6 +284,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CUnionType(const vector[shared_ptr[CField]]& fields,
                    const vector[uint8_t]& type_codes, UnionMode mode)
         UnionMode mode()
+        const vector[uint8_t]& type_codes()
 
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)

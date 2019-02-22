@@ -323,6 +323,14 @@ cdef class UnionType(DataType):
             return 'sparse'
         assert 0
 
+    @property
+    def type_codes(self):
+        """
+        The type code to indicate each data type in this union.
+        """
+        cdef CUnionType* type = <CUnionType*> self.sp_type.get()
+        return type.type_codes()
+
     def __len__(self):
         """
         Like num_children()
