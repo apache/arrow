@@ -372,7 +372,7 @@ upload_apt() {
         ${path} &
     done
   done
-
+  wait
   popd
 
   popd
@@ -463,6 +463,7 @@ upload_yum() {
       done
     done
   done
+  wait
   popd
 
   popd
@@ -556,7 +557,6 @@ fi
 if [ ${have_centos} = "yes" ]; then
   upload_yum ${version} ${rc} centos
 fi
-wait
 
 echo "Success! The release candidate binaries are available here:"
 if [ ${have_debian} = "yes" ]; then
