@@ -1,0 +1,12 @@
+{
+  "query": "mutation ($p: CreateProjectInput!){createProject(input:$p){project{id}}}",
+  "variables": {
+    "p": {
+      "project": {
+        "projectName": "Apache Arrow",
+        "projectUrl": "https://www.arrow.apache.org",
+        "repoUrl": "https://www.github.com/apache/arrow"
+      }
+    }
+  }
+}
