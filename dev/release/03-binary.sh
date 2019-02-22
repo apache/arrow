@@ -19,6 +19,7 @@
 # under the License.
 #
 set -e
+set -u
 set -o pipefail
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -188,7 +189,6 @@ download_files() {
       --output ${file} \
       https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file} &
   done
-  wait
 }
 
 delete_file() {
@@ -264,31 +264,38 @@ sign_and_upload_file() {
   done
 }
 
+upload_deb_file() {
+  local version=$1
+  local rc=$2
+  local distribution=$3
+  local code_name=$4
+  local base_path=$5
+
+  case ${base_path} in
+    *.dsc|*.changes)
+      docker_run_gpg_ready debsign -k${gpg_key_id} --re-sign ${base_path}
+      ;;
+    *.asc|*.sha256|*.sha512)
+      return
+      ;;
+  esac
+  sign_and_upload_file \
+    ${version} \
+    ${rc} \
+    ${distribution} \
+    ${base_path} \
+    pool/${code_name}/main/a/apache-arrow/${base_path}
+}
+
 upload_deb() {
   local version=$1
   local rc=$2
   local distribution=$3
   local code_name=$4
 
-  ensure_version ${version} ${rc} ${distribution}
-
   for base_path in *; do
-    case ${base_path} in
-      *.dsc|*.changes)
-        docker_run_gpg_ready debsign -k${gpg_key_id} --re-sign ${base_path}
-        ;;
-      *.asc|*.sha256|*.sha512)
-        continue
-        ;;
-    esac
-    sign_and_upload_file \
-      ${version} \
-      ${rc} \
-      ${distribution} \
-      ${base_path} \
-      pool/${code_name}/main/a/apache-arrow/${base_path} &
+    upload_deb_file ${version} ${rc} ${distribution} ${code_name} ${base_path} &
   done
-  wait
 }
 
 upload_apt() {
@@ -302,6 +309,7 @@ upload_apt() {
   pushd ${tmp_dir}
 
   download_files ${version} ${rc} ${distribution}
+  wait
 
   pushd ${distribution}-rc
 
@@ -364,12 +372,41 @@ upload_apt() {
         ${path} &
     done
   done
-  wait
 
   popd
 
   popd
   rm -rf ${tmp_dir}
+}
+
+upload_rpm_file() {
+  local version=$1
+  local rc=$2
+  local distribution=$3
+  local distribution_version=$4
+  local rpm_path=$5
+
+  local upload_path=${distribution_version}
+
+  case ${rpm_path} in
+    *.src.rpm)
+      upload_path=${upload_path}/Source/SPackages
+      ;;
+    *)
+      upload_path=${upload_path}/x86_64/Packages
+      ;;
+  esac
+  upload_path=${upload_path}/${rpm_path}
+  docker_run_gpg_ready rpm \
+    -D "_gpg_name\\ ${gpg_key_id}" \
+    --addsign \
+    ${rpm_path}
+  sign_and_upload_file \
+    ${version} \
+    ${rc} \
+    ${distribution} \
+    ${rpm_path} \
+    ${upload_path}
 }
 
 upload_rpm() {
@@ -378,33 +415,14 @@ upload_rpm() {
   local distribution=$3
   local distribution_version=$4
 
-  local version_name=${version}-rc${rc}
-
-  ensure_version ${version} ${rc} ${distribution}
-
   for rpm_path in *.rpm; do
-    local upload_path=${distribution_version}
-    case ${base_path} in
-      *.src.rpm)
-        upload_path=${upload_path}/Source/SPackages
-        ;;
-      *)
-        upload_path=${upload_path}/x86_64/Packages
-        ;;
-    esac
-    upload_path=${upload_path}/${rpm_path}
-    docker_run_gpg_ready rpm \
-      -D "_gpg_name\\ ${gpg_key_id}" \
-      --addsign \
-      ${rpm_path}
-    sign_and_upload_file \
+    upload_rpm_file \
       ${version} \
       ${rc} \
       ${distribution} \
-      ${rpm_path} \
-      ${upload_path} &
+      ${distribution_version} \
+      ${rpm_path} &
   done
-  wait
 }
 
 upload_yum() {
@@ -420,6 +438,7 @@ upload_yum() {
   pushd ${tmp_dir}
 
   download_files ${version} ${rc} ${distribution}
+  wait
 
   pushd ${distribution}-rc
   local keyring_name=RPM-GPG-KEY-apache-arrow
@@ -444,7 +463,6 @@ upload_yum() {
       done
     done
   done
-  wait
   popd
 
   popd
@@ -455,8 +473,6 @@ upload_python() {
   local version=$1
   local rc=$2
   local target=python
-
-  ensure_version ${version} ${rc} ${target}
 
   for base_path in *; do
     case ${base_path} in
@@ -471,7 +487,6 @@ upload_python() {
       ${base_path} \
       ${version}-rc${rc}/${base_path} &
   done
-  wait
 }
 
 docker build -t ${docker_image_name} ${SOURCE_DIR}/binary
@@ -514,18 +529,22 @@ for dir in *; do
 
   if [ ${is_deb} = "yes" ]; then
     pushd ${dir}
-    upload_deb ${version} ${rc} ${distribution} ${code_name}
+    ensure_version ${version} ${rc} ${distribution}
+    upload_deb ${version} ${rc} ${distribution} ${code_name} &
     popd
   elif [ ${is_rpm} = "yes" ]; then
     pushd ${dir}
-    upload_rpm ${version} ${rc} ${distribution} ${distribution_version}
+    ensure_version ${version} ${rc} ${distribution}
+    upload_rpm ${version} ${rc} ${distribution} ${distribution_version} &
     popd
   elif [ ${is_python} = "yes" ]; then
     pushd ${dir}
-    upload_python ${version} ${rc}
+    ensure_version ${version} ${rc} python
+    upload_python ${version} ${rc} &
     popd
   fi
 done
+wait
 popd
 
 if [ ${have_debian} = "yes" ]; then
@@ -537,6 +556,7 @@ fi
 if [ ${have_centos} = "yes" ]; then
   upload_yum ${version} ${rc} centos
 fi
+wait
 
 echo "Success! The release candidate binaries are available here:"
 if [ ${have_debian} = "yes" ]; then
