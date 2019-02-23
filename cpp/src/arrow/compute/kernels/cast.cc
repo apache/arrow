@@ -531,6 +531,9 @@ struct CastFunctor<Date64Type, TimestampType> {
 
     ShiftTime<int64_t, int64_t>(ctx, options, conversion.first, conversion.second, input,
                                 output);
+    if (!ctx->status().ok()) {
+      return;
+    }
 
     // Ensure that intraday milliseconds have been zeroed out
     auto out_data = output->GetMutableValues<int64_t>(1);
