@@ -169,6 +169,6 @@ function* binaryToString(vector: Vector<Binary> | Vector<FixedSizeBinary>) {
 /** @ignore */
 function* bigNumsToStrings(values: Uint32Array | Int32Array, stride: number) {
     for (let i = -1, n = values.length / stride; ++i < n;) {
-        yield `${BN.new(values.subarray((i + 0) * stride, (i + 1) * stride))}`;
+        yield `${BN.new(values.subarray((i + 0) * stride, (i + 1) * stride), false)}`;
     }
 }
