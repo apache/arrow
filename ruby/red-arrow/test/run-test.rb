@@ -41,6 +41,9 @@ if ENV["NO_MAKE"] != "yes"
 end
 if make
   Dir.chdir(ext_dir.to_s) do
+    unless File.exist?("Makefile")
+      system(RbConfig.ruby, "extconf.rb", "--enable-debug-build") or exit(false)
+    end
     system("#{make} > /dev/null") or exit(false)
   end
 end

@@ -30,23 +30,12 @@ spec = helper.gemspec
 release_task = Rake::Task["release"]
 release_task.prerequisites.replace(["build", "release:rubygem_push"])
 
-def run_extconf(spec, *arguments)
+desc "Configure"
+task :configure do
   spec.extensions.each do |extension|
     cd(File.dirname(extension)) do
       ruby("extconf.rb", *arguments)
     end
-  end
-end
-
-desc "Configure"
-task :configure do
-  run_extconf(spec)
-end
-
-namespace :configure do
-  desc "Configure for debug"
-  task :debug do
-    run_extconf(spec, "--enable-debug-build")
   end
 end
 
@@ -63,7 +52,7 @@ task :test do
   ruby("test/run-test.rb")
 end
 
-task default: ["configure:debug", :test]
+task default: :test
 
 YARD::Rake::YardocTask.new do |task|
 end
