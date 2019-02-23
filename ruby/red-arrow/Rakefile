@@ -17,8 +17,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "rubygems"
 require "bundler/gem_helper"
+require "rake/clean"
 require "yard"
 
 base_dir = File.join(__dir__)
@@ -45,6 +45,12 @@ task :clean do
       sh("make", "clean") if File.exist?("Makefile")
     end
   end
+end
+
+spec.extensions.each do |extension|
+  extension_dir = File.dirname(extension)
+  CLOBBER << File.join(extension_dir, "Makefile")
+  CLOBBER << File.join(extension_dir, "mkmf.log")
 end
 
 desc "Run tests"
