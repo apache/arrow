@@ -73,8 +73,7 @@ mod tests {
 
         // get hour from temporal
         let b = hour(&a).unwrap();
-        assert_eq!(0, b.value(0));
-        assert_eq!(false, b.is_valid(1));
-        assert_eq!(23, b.value(2));
+        assert_eq!(10, b.value(0));
+        assert_eq!(23, b.value(1));
     }
 }
