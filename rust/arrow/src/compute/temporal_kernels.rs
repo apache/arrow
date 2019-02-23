@@ -35,9 +35,15 @@ where
         if array.is_null(i) {
             b.append_null()?;
         } else {
-            match array.datetime(i) {
-                Some(dt) => b.append_value(dt.hour() as i32)?,
-                None => b.append_null()?,
+            match array.data_type() {
+                &DataType::Time32(_) | &DataType::Time64(_) => match array.time(i) {
+                    Some(time) => b.append_value(time.hour() as i32)?,
+                    None => b.append_null()?,
+                },
+                _ => match array.datetime(i) {
+                    Some(dt) => b.append_value(dt.hour() as i32)?,
+                    None => b.append_null()?,
+                },
             }
         }
     }
@@ -53,14 +59,22 @@ mod tests {
     fn test_temporal_array_date64_hour() {
         let a: PrimitiveArray<Date64Type> =
             vec![Some(1514764800000), None, Some(1550636625000)].into();
-        assert_eq!(1514764800000, a.value(0));
-        assert_eq!(false, a.is_valid(1));
-        assert_eq!(1550636625000, a.value(2));
 
-        // get hour from datetime
+        // get hour from temporal
         let b = hour(&a).unwrap();
         assert_eq!(0, b.value(0));
         assert_eq!(false, b.is_valid(1));
         assert_eq!(4, b.value(2));
+    }
+
+    #[test]
+    fn test_temporal_array_time32_second_hour() {
+        let a: PrimitiveArray<Time32SecondType> = vec![37800, 86339].into();
+
+        // get hour from temporal
+        let b = hour(&a).unwrap();
+        assert_eq!(0, b.value(0));
+        assert_eq!(false, b.is_valid(1));
+        assert_eq!(23, b.value(2));
     }
 }
