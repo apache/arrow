@@ -78,11 +78,11 @@ class ArrayConverter : public arrow::ArrayVisitor {
 #undef ARRAY_CONVERT_VALUE_INLINE
 
     // TODO: NotImplemented("Unsupported array in ConvertValue");
-    return rb::protect([]() -> VALUE {
-                         rb_raise(rb_eNotImpError,
-                                  "Unsupported array in ConvertValue");
-                         return Qnil;
-                       });
+    return rb::protect([] {
+      rb_raise(rb_eNotImpError,
+               "Unsupported array in ConvertValue");
+      return Qnil;
+    });
   }
 
   inline VALUE ConvertValue(const arrow::NullArray& array, const int64_t i) {
@@ -251,10 +251,10 @@ class ArrayConverter : public arrow::ArrayVisitor {
     const auto& type = arrow::internal::checked_cast<const arrow::TimestampType&>(*array.type());
     VALUE scale = time_unit_to_scale(type.unit());
     if (NIL_P(scale)) {
-      rb::protect([]() -> VALUE {
-                    rb_raise(rb_eArgError, "Invalid TimeUnit");
-                    return Qnil;
-                  });
+      rb::protect([] {
+        rb_raise(rb_eArgError, "Invalid TimeUnit");
+        return Qnil;
+      });
     }
     return ConvertValue(array, i, scale);
   }
@@ -310,10 +310,10 @@ class ArrayConverter : public arrow::ArrayVisitor {
     }
 
     // TODO: return Status::Invalid("Invalid union mode");
-    return rb::protect([]() -> VALUE {
-                         rb_raise(rb_eArgError, "Invalid union mode");
-                         return Qnil;
-                       });
+    return rb::protect([] {
+      rb_raise(rb_eArgError, "Invalid union mode");
+      return Qnil;
+    });
   }
 
   inline VALUE ConvertValue(const arrow::DictionaryArray& array, const int64_t i) {
