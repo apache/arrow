@@ -75,11 +75,11 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
         @timestamp_values.map {|ts| ts && (ts.to_r * 1_000_000).to_i }
       )
 
-      @dict_vocab = Arrow::StringArray.new(['foo', 'bar', 'baz'])
-      @dict_indices = [0, 1, 2, 1, 0]
-      @dict_array = Arrow::DictionaryArray.new(
-        Arrow::DictionaryDataType.new(:int8, @dict_vocab, true),
-        Arrow::Int8Array.new(@dict_indices)
+      @dictionary = Arrow::StringArray.new(['foo', 'bar', 'baz'])
+      @dictionary_indices = [0, 1, 2, 1, 0]
+      @dictionary_array = Arrow::DictionaryArray.new(
+        Arrow::DictionaryDataType.new(:int8, @dictionary, true),
+        Arrow::Int8Array.new(@dictionary_indices)
       )
 
       @schema = Arrow::Schema.new(
@@ -258,8 +258,8 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
         Arrow::StringArray.new(%w[ほげ])
       ]
 
-      dict_vocab = Arrow::StringArray.new(['foo', 'bar'])
-      dict_indices = [1, 0]
+      dictionary = Arrow::StringArray.new(['foo', 'bar'])
+      dictionary_indices = [1, 0]
 
       union_type_ids = [ 0, 1, 1, 0, 2, 3, 4, 5, 6, 7, 8, 8, 9, 9 ]
       union_offsets = [ 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1 ]
@@ -291,8 +291,8 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
           sub_union_children
         ),
         Arrow::DictionaryArray.new(
-          Arrow::DictionaryDataType.new(:int8, dict_vocab, true),
-          Arrow::Int8Array.new(dict_indices)
+          Arrow::DictionaryDataType.new(:int8, dictionary, true),
+          Arrow::Int8Array.new(dictionary_indices)
         )
       ]
 
