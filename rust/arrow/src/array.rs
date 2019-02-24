@@ -609,14 +609,34 @@ impl From<ArrayDataRef> for BinaryArray {
 
 impl<'a> From<Vec<&'a str>> for BinaryArray {
     fn from(v: Vec<&'a str>) -> Self {
-        let mut offsets = vec![];
-        let mut values = vec![];
+        let mut offsets = Vec::with_capacity(v.len() + 1);
+        let mut values = Vec::new();
         let mut length_so_far = 0;
         offsets.push(length_so_far);
         for s in &v {
             length_so_far += s.len() as i32;
             offsets.push(length_so_far as i32);
             values.extend_from_slice(s.as_bytes());
+        }
+        let array_data = ArrayData::builder(DataType::Utf8)
+            .len(v.len())
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        BinaryArray::from(array_data)
+    }
+}
+
+impl<'a> From<Vec<&[u8]>> for BinaryArray {
+    fn from(v: Vec<&[u8]>) -> Self {
+        let mut offsets = Vec::with_capacity(v.len() + 1);
+        let mut values = Vec::new();
+        let mut length_so_far = 0;
+        offsets.push(length_so_far);
+        for s in &v {
+            length_so_far += s.len() as i32;
+            offsets.push(length_so_far as i32);
+            values.extend_from_slice(s);
         }
         let array_data = ArrayData::builder(DataType::Utf8)
             .len(v.len())
@@ -1152,6 +1172,36 @@ mod tests {
             assert_eq!(binary_array1.get_string(i), binary_array2.get_string(i));
             assert_eq!(binary_array1.value_offset(i), binary_array2.value_offset(i));
             assert_eq!(binary_array1.value_length(i), binary_array2.value_length(i));
+        }
+    }
+
+    #[test]
+    fn test_binary_array_from_u8_slice() {
+        let values: Vec<&[u8]> = vec![
+            &[b'h', b'e', b'l', b'l', b'o'],
+            &[],
+            &[b'p', b'a', b'r', b'q', b'u', b'e', b't'],
+        ];
+
+        // Array data: ["hello", "", "parquet"]
+        let binary_array = BinaryArray::from(values);
+
+        assert_eq!(3, binary_array.len());
+        assert_eq!(0, binary_array.null_count());
+        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
+        assert_eq!("hello", binary_array.get_string(0));
+        assert_eq!([] as [u8; 0], binary_array.value(1));
+        assert_eq!("", binary_array.get_string(1));
+        assert_eq!(
+            [b'p', b'a', b'r', b'q', b'u', b'e', b't'],
+            binary_array.value(2)
+        );
+        assert_eq!("parquet", binary_array.get_string(2));
+        assert_eq!(5, binary_array.value_offset(2));
+        assert_eq!(7, binary_array.value_length(2));
+        for i in 0..3 {
+            assert!(binary_array.is_valid(i));
+            assert!(!binary_array.is_null(i));
         }
     }
 

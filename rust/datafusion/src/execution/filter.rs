@@ -22,7 +22,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use arrow::array::*;
-use arrow::datatypes::{DataType, Schema};
+use arrow::compute::array_ops::filter;
+use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
 use super::error::{ExecutionError, Result};
@@ -61,7 +62,12 @@ impl Relation for FilterRelation {
                     Some(filter_bools) => {
                         let filtered_columns: Result<Vec<ArrayRef>> = (0..batch
                             .num_columns())
-                            .map(|i| filter(batch.column(i), &filter_bools))
+                            .map(|i| {
+                                match filter(batch.column(i).as_ref(), &filter_bools) {
+                                    Ok(result) => Ok(result),
+                                    Err(error) => Err(ExecutionError::from(error)),
+                                }
+                            })
                             .collect();
 
                         let filtered_batch: RecordBatch = RecordBatch::new(
@@ -82,131 +88,5 @@ impl Relation for FilterRelation {
 
     fn schema(&self) -> &Arc<Schema> {
         &self.schema
-    }
-}
-
-//TODO: move into Arrow array_ops
-fn filter(array: &Arc<Array>, filter: &BooleanArray) -> Result<ArrayRef> {
-    let a = array.as_ref();
-
-    //TODO use macros
-    match a.data_type() {
-        DataType::UInt8 => {
-            let b = a.as_any().downcast_ref::<UInt8Array>().unwrap();
-            let mut builder = UInt8Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::UInt16 => {
-            let b = a.as_any().downcast_ref::<UInt16Array>().unwrap();
-            let mut builder = UInt16Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::UInt32 => {
-            let b = a.as_any().downcast_ref::<UInt32Array>().unwrap();
-            let mut builder = UInt32Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::UInt64 => {
-            let b = a.as_any().downcast_ref::<UInt64Array>().unwrap();
-            let mut builder = UInt64Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Int8 => {
-            let b = a.as_any().downcast_ref::<Int8Array>().unwrap();
-            let mut builder = Int8Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Int16 => {
-            let b = a.as_any().downcast_ref::<Int16Array>().unwrap();
-            let mut builder = Int16Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Int32 => {
-            let b = a.as_any().downcast_ref::<Int32Array>().unwrap();
-            let mut builder = Int32Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Int64 => {
-            let b = a.as_any().downcast_ref::<Int64Array>().unwrap();
-            let mut builder = Int64Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Float32 => {
-            let b = a.as_any().downcast_ref::<Float32Array>().unwrap();
-            let mut builder = Float32Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Float64 => {
-            let b = a.as_any().downcast_ref::<Float64Array>().unwrap();
-            let mut builder = Float64Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Utf8 => {
-            //TODO: this is inefficient and we should improve the Arrow impl to help make
-            // this more concise
-            let b = a.as_any().downcast_ref::<BinaryArray>().unwrap();
-            let mut values: Vec<String> = Vec::with_capacity(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    values.push(b.get_string(i));
-                }
-            }
-            let tmp: Vec<&str> = values.iter().map(|s| s.as_str()).collect();
-            Ok(Arc::new(BinaryArray::from(tmp)))
-        }
-        other => Err(ExecutionError::ExecutionError(format!(
-            "filter not supported for {:?}",
-            other
-        ))),
     }
 }
