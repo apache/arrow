@@ -77,7 +77,8 @@ static inline DWORD __map_mmap_prot_file(const int prot) {
   return desiredAccess;
 }
 
-static inline void* mmap(void* addr, size_t len, int prot, int flags, int fildes, off_t off) {
+static inline void* mmap(void* addr, size_t len, int prot, int flags, int fildes,
+                         off_t off) {
   HANDLE fm, h;
 
   void* map = MAP_FAILED;
