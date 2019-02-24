@@ -267,6 +267,14 @@ macro_rules! limit_array {
 }
 
 pub fn limit(array: &Array, num_rows_to_read: usize) -> Result<ArrayRef> {
+    if array.len() < num_rows_to_read {
+        return Err(ArrowError::ComputeError(format!(
+            "Number of rows to read ({:?}) is larger than the length of the array ({:?})",
+            num_rows_to_read,
+            array.len()
+        )));
+    }
+
     match array.data_type() {
         DataType::UInt8 => limit_array!(array, num_rows_to_read, UInt8Array),
         DataType::UInt16 => limit_array!(array, num_rows_to_read, UInt16Array),
@@ -471,5 +479,16 @@ mod tests {
         assert_eq!(5, d.value(0));
         assert_eq!(6, d.value(1));
         assert_eq!(7, d.value(2));
+    }
+
+    #[test]
+    fn test_limit_array_with_limit_too_large() {
+        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
+        let b = limit(&a, 6);
+
+        assert!(
+            b.is_err(),
+            "Number of rows to read (6) is larger than the length of the array (5)"
+        );
     }
 }
