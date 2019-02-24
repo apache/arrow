@@ -257,10 +257,10 @@ pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
 }
 
 macro_rules! limit_array {
-    ($array:expr, $num_rows_to_read:expr, $array_type:ident) => {{
+    ($array:expr, $num_elements:expr, $array_type:ident) => {{
         let b = $array.as_any().downcast_ref::<$array_type>().unwrap();
-        let mut builder = $array_type::builder($num_rows_to_read);
-        for i in 0..$num_rows_to_read {
+        let mut builder = $array_type::builder($num_elements);
+        for i in 0..$num_elements {
             builder.append_value(b.value(i))?;
         }
         Ok(Arc::new(builder.finish()))
