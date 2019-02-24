@@ -366,6 +366,9 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
       return this;
     }
 
+    Preconditions.checkPositionIndex(index, this.length);
+    Preconditions.checkPositionIndex(index + length, this.length);
+
     /*
      * Re the behavior of reference counting, see http://netty.io/wiki/reference-counted-objects
      * .html#wiki-h3-5, which

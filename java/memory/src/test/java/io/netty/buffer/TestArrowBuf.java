@@ -17,11 +17,13 @@
 
 package io.netty.buffer;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -41,6 +43,49 @@ public class TestArrowBuf {
   public static void afterClass() {
     if (allocator != null) {
       allocator.close();
+    }
+  }
+
+  @Test(expected=IndexOutOfBoundsException.class)
+  public void testSliceOutOfBoundsLength_RaisesIndexOutOfBoundsException() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+         ArrowBuf buf = allocator.buffer(2);
+    ){
+      assertEquals(2, buf.capacity());
+      buf.slice(0, 3);
+    }
+  }
+
+  @Test(expected=IndexOutOfBoundsException.class)
+  public void testSliceOutOfBoundsIndexPlusLength_RaisesIndexOutOfBoundsException() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+         ArrowBuf buf = allocator.buffer(2);
+    ){
+      assertEquals(2, buf.capacity());
+      // should fail but doesn't.
+      buf.slice(1, 2);
+    }
+  }
+
+  @Test(expected=IndexOutOfBoundsException.class)
+  public void testSliceOutOfBoundsIndex_RaisesIndexOutOfBoundsException() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+         ArrowBuf buf = allocator.buffer(2);
+    ){
+      assertEquals(2, buf.capacity());
+      // should fail but doesn't.
+      buf.slice(3, 0);
+    }
+  }
+
+  @Test
+  public void testSliceWithinBoundsLength_ReturnsSlice() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+         ArrowBuf buf = allocator.buffer(2);
+    ){
+      assertEquals(2, buf.capacity());
+      // should fail but doesn't.
+      assertEquals(1, buf.slice(1, 1).capacity());
     }
   }
   
