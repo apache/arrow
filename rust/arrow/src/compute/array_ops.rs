@@ -17,6 +17,7 @@
 
 //! Defines primitive computations on arrays, e.g. addition, equality, boolean logic.
 
+use std::cmp;
 use std::ops::Add;
 use std::sync::Arc;
 
@@ -266,32 +267,26 @@ macro_rules! limit_array {
     }};
 }
 
-pub fn limit(array: &Array, num_rows_to_read: usize) -> Result<ArrayRef> {
-    if array.len() < num_rows_to_read {
-        return Err(ArrowError::ComputeError(format!(
-            "Number of rows to read ({:?}) is larger than the length of the array ({:?})",
-            num_rows_to_read,
-            array.len()
-        )));
-    }
+pub fn limit(array: &Array, num_elements: usize) -> Result<ArrayRef> {
+    let num_elements_safe: usize = cmp::min(array.len(), num_elements);
 
     match array.data_type() {
-        DataType::UInt8 => limit_array!(array, num_rows_to_read, UInt8Array),
-        DataType::UInt16 => limit_array!(array, num_rows_to_read, UInt16Array),
-        DataType::UInt32 => limit_array!(array, num_rows_to_read, UInt32Array),
-        DataType::UInt64 => limit_array!(array, num_rows_to_read, UInt64Array),
-        DataType::Int8 => limit_array!(array, num_rows_to_read, Int8Array),
-        DataType::Int16 => limit_array!(array, num_rows_to_read, Int16Array),
-        DataType::Int32 => limit_array!(array, num_rows_to_read, Int32Array),
-        DataType::Int64 => limit_array!(array, num_rows_to_read, Int64Array),
-        DataType::Float32 => limit_array!(array, num_rows_to_read, Float32Array),
-        DataType::Float64 => limit_array!(array, num_rows_to_read, Float64Array),
-        DataType::Boolean => limit_array!(array, num_rows_to_read, BooleanArray),
+        DataType::UInt8 => limit_array!(array, num_elements_safe, UInt8Array),
+        DataType::UInt16 => limit_array!(array, num_elements_safe, UInt16Array),
+        DataType::UInt32 => limit_array!(array, num_elements_safe, UInt32Array),
+        DataType::UInt64 => limit_array!(array, num_elements_safe, UInt64Array),
+        DataType::Int8 => limit_array!(array, num_elements_safe, Int8Array),
+        DataType::Int16 => limit_array!(array, num_elements_safe, Int16Array),
+        DataType::Int32 => limit_array!(array, num_elements_safe, Int32Array),
+        DataType::Int64 => limit_array!(array, num_elements_safe, Int64Array),
+        DataType::Float32 => limit_array!(array, num_elements_safe, Float32Array),
+        DataType::Float64 => limit_array!(array, num_elements_safe, Float64Array),
+        DataType::Boolean => limit_array!(array, num_elements_safe, BooleanArray),
         DataType::Utf8 => {
             //TODO: this is inefficient and we should improve the Arrow impl to help make this more concise
             let b = array.as_any().downcast_ref::<BinaryArray>().unwrap();
-            let mut values: Vec<String> = Vec::with_capacity(num_rows_to_read as usize);
-            for i in 0..num_rows_to_read {
+            let mut values: Vec<String> = Vec::with_capacity(num_elements_safe as usize);
+            for i in 0..num_elements_safe {
                 values.push(b.get_string(i));
             }
             let tmp: Vec<&str> = values.iter().map(|s| s.as_str()).collect();
@@ -473,22 +468,25 @@ mod tests {
     #[test]
     fn test_limit_array() {
         let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
-        let c = limit(&a, 3).unwrap();
-        let d = c.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
-        assert_eq!(3, d.len());
-        assert_eq!(5, d.value(0));
-        assert_eq!(6, d.value(1));
-        assert_eq!(7, d.value(2));
+        let b = limit(&a, 3).unwrap();
+        let c = b.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(3, c.len());
+        assert_eq!(5, c.value(0));
+        assert_eq!(6, c.value(1));
+        assert_eq!(7, c.value(2));
     }
 
     #[test]
     fn test_limit_array_with_limit_too_large() {
         let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
-        let b = limit(&a, 6);
+        let b = limit(&a, 6).unwrap();
+        let c = b.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
 
-        assert!(
-            b.is_err(),
-            "Number of rows to read (6) is larger than the length of the array (5)"
-        );
+        assert_eq!(5, c.len());
+        assert_eq!(a.value(0), c.value(0));
+        assert_eq!(a.value(1), c.value(1));
+        assert_eq!(a.value(2), c.value(2));
+        assert_eq!(a.value(3), c.value(3));
+        assert_eq!(a.value(4), c.value(4));
     }
 }
