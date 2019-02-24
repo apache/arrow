@@ -72,5 +72,19 @@ end
 
 task default: :test
 
+desc "Run benchmarks"
+task :benchmark do
+  benchmarks = if ENV['BENCHMARKS']
+                 ENV['BENCHMARKS'].split
+               else
+                 FileList["benchmark/{,*/**/}*.yml"]
+               end
+  benchmarks.each do |benchmark|
+    if File.exist?(benchmark)
+      sh("benchmark-driver", benchmark)
+    end
+  end
+end
+
 YARD::Rake::YardocTask.new do |task|
 end
