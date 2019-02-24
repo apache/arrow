@@ -60,4 +60,4 @@ benchmark:
   pure_ruby: |-
     pure_ruby_raw_records(record_batch)
   raw_records: |-
-    record_batch.raw_records()
+    record_batch.raw_records
