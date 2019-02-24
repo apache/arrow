@@ -23,6 +23,7 @@
 #include <limits>
 #include <memory>
 #include <numeric>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -46,7 +47,7 @@ namespace arrow {
 
 class UUIDArray : public ExtensionArray {
  public:
-  explicit UUIDArray(const std::shared_ptr<ArrayData>& data) : ExtensionArray(data) {}
+  using ExtensionArray::ExtensionArray;
 };
 
 class UUIDType : public ExtensionType {
@@ -84,6 +85,105 @@ class UUIDType : public ExtensionType {
 };
 
 std::shared_ptr<DataType> uuid() { return std::make_shared<UUIDType>(); }
+
+class Parametric1Array : public ExtensionArray {
+ public:
+  using ExtensionArray::ExtensionArray;
+};
+
+class Parametric2Array : public ExtensionArray {
+ public:
+  using ExtensionArray::ExtensionArray;
+};
+
+// A parametric type where the extension_name() is always the same
+class Parametric1Type : public ExtensionType {
+ public:
+  explicit Parametric1Type(int32_t parameter)
+      : ExtensionType(int32()), parameter_(parameter) {}
+
+  int32_t parameter() const { return parameter_; }
+
+  std::string extension_name() const override { return "parametric-type-1"; }
+
+  bool ExtensionEquals(const ExtensionType& other) const override {
+    const auto& other_ext = static_cast<const ExtensionType&>(other);
+    if (other_ext.extension_name() != this->extension_name()) {
+      return false;
+    }
+    return this->parameter() == static_cast<const Parametric1Type&>(other).parameter();
+  }
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
+    return std::make_shared<Parametric1Array>(data);
+  }
+
+  Status Deserialize(std::shared_ptr<DataType> storage_type,
+                     const std::string& serialized,
+                     std::shared_ptr<DataType>* out) const override {
+    DCHECK_EQ(4, serialized.size());
+    const int32_t parameter = *reinterpret_cast<const int32_t*>(serialized.data());
+    DCHECK(storage_type->Equals(int32()));
+    *out = std::make_shared<Parametric1Type>(parameter);
+    return Status::OK();
+  }
+
+  std::string Serialize() const override {
+    std::string result("    ");
+    memcpy(&result[0], &parameter_, sizeof(int32_t));
+    return result;
+  }
+
+ private:
+  int32_t parameter_;
+};
+
+// A parametric type where the extension_name() is different for each
+// parameter, and must be separately registered
+class Parametric2Type : public ExtensionType {
+ public:
+  explicit Parametric2Type(int32_t parameter)
+      : ExtensionType(int32()), parameter_(parameter) {}
+
+  int32_t parameter() const { return parameter_; }
+
+  std::string extension_name() const override {
+    std::stringstream ss;
+    ss << "parametric-type-2<param=" << parameter_ << ">";
+    return ss.str();
+  }
+
+  bool ExtensionEquals(const ExtensionType& other) const override {
+    const auto& other_ext = static_cast<const ExtensionType&>(other);
+    if (other_ext.extension_name() != this->extension_name()) {
+      return false;
+    }
+    return this->parameter() == static_cast<const Parametric2Type&>(other).parameter();
+  }
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
+    return std::make_shared<Parametric2Array>(data);
+  }
+
+  Status Deserialize(std::shared_ptr<DataType> storage_type,
+                     const std::string& serialized,
+                     std::shared_ptr<DataType>* out) const override {
+    DCHECK_EQ(4, serialized.size());
+    const int32_t parameter = *reinterpret_cast<const int32_t*>(serialized.data());
+    DCHECK(storage_type->Equals(int32()));
+    *out = std::make_shared<Parametric2Type>(parameter);
+    return Status::OK();
+  }
+
+  std::string Serialize() const override {
+    std::string result("    ");
+    memcpy(&result[0], &parameter_, sizeof(int32_t));
+    return result;
+  }
+
+ private:
+  int32_t parameter_;
+};
 
 class TestExtensionType : public ::testing::Test {
  public:
@@ -189,6 +289,40 @@ TEST_F(TestExtensionType, UnrecognizedExtension) {
   std::shared_ptr<RecordBatch> read_batch;
   ASSERT_OK(batch_reader->ReadNext(&read_batch));
   CompareBatch(*batch_no_ext, *read_batch);
+}
+
+std::shared_ptr<Array> ExampleParametric(std::shared_ptr<DataType> type,
+                                         const std::string& json_data) {
+  auto arr = ArrayFromJSON(int32(), json_data);
+  auto ext_data = arr->data()->Copy();
+  ext_data->type = type;
+  return MakeArray(ext_data);
+}
+
+TEST_F(TestExtensionType, ParametricTypes) {
+  auto p1_type = std::make_shared<Parametric1Type>(6);
+  auto p1 = ExampleParametric(p1_type, "[null, 1, 2, 3]");
+
+  auto p2_type = std::make_shared<Parametric1Type>(12);
+  auto p2 = ExampleParametric(p2_type, "[2, null, 3, 4]");
+
+  auto p3_type = std::make_shared<Parametric2Type>(2);
+  auto p3 = ExampleParametric(p3_type, "[5, 6, 7, 8]");
+
+  auto p4_type = std::make_shared<Parametric2Type>(3);
+  auto p4 = ExampleParametric(p4_type, "[5, 6, 7, 9]");
+
+  ASSERT_OK(RegisterExtensionType(std::make_shared<Parametric1Type>(-1)));
+  ASSERT_OK(RegisterExtensionType(p3_type));
+  ASSERT_OK(RegisterExtensionType(p4_type));
+
+  auto batch = RecordBatch::Make(schema({field("f0", p1_type), field("f1", p2_type),
+                                         field("f2", p3_type), field("f3", p4_type)}),
+                                 4, {p1, p2, p3, p4});
+
+  std::shared_ptr<RecordBatch> read_batch;
+  RoundtripBatch(batch, &read_batch);
+  CompareBatch(*batch, *read_batch, false /* compare_metadata */);
 }
 
 }  // namespace arrow
