@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+set -e
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
