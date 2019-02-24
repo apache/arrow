@@ -62,7 +62,6 @@ public class TestArrowBuf {
          ArrowBuf buf = allocator.buffer(2);
     ){
       assertEquals(2, buf.capacity());
-      // should fail but doesn't.
       buf.slice(1, 2);
     }
   }
@@ -73,7 +72,6 @@ public class TestArrowBuf {
          ArrowBuf buf = allocator.buffer(2);
     ){
       assertEquals(2, buf.capacity());
-      // should fail but doesn't.
       buf.slice(3, 0);
     }
   }
@@ -84,8 +82,8 @@ public class TestArrowBuf {
          ArrowBuf buf = allocator.buffer(2);
     ){
       assertEquals(2, buf.capacity());
-      // should fail but doesn't.
       assertEquals(1, buf.slice(1, 1).capacity());
+      assertEquals(2, buf.slice(0, 2).capacity());
     }
   }
   
