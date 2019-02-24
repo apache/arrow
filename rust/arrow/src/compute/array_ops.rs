@@ -209,108 +209,32 @@ where
     Ok(b.finish())
 }
 
+macro_rules! filter_array {
+    ($array:expr, $filter:expr, $array_type:ident) => {{
+        let b = $array.as_any().downcast_ref::<$array_type>().unwrap();
+        let mut builder = $array_type::builder(b.len());
+        for i in 0..b.len() {
+            if $filter.value(i) {
+                builder.append_value(b.value(i))?;
+            }
+        }
+        Ok(Arc::new(builder.finish()))
+    }};
+}
+
 pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
     match array.data_type() {
-        DataType::UInt8 => {
-            let b = array.as_any().downcast_ref::<UInt8Array>().unwrap();
-            let mut builder = UInt8Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::UInt16 => {
-            let b = array.as_any().downcast_ref::<UInt16Array>().unwrap();
-            let mut builder = UInt16Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::UInt32 => {
-            let b = array.as_any().downcast_ref::<UInt32Array>().unwrap();
-            let mut builder = UInt32Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::UInt64 => {
-            let b = array.as_any().downcast_ref::<UInt64Array>().unwrap();
-            let mut builder = UInt64Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Int8 => {
-            let b = array.as_any().downcast_ref::<Int8Array>().unwrap();
-            let mut builder = Int8Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Int16 => {
-            let b = array.as_any().downcast_ref::<Int16Array>().unwrap();
-            let mut builder = Int16Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Int32 => {
-            let b = array.as_any().downcast_ref::<Int32Array>().unwrap();
-            let mut builder = Int32Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Int64 => {
-            let b = array.as_any().downcast_ref::<Int64Array>().unwrap();
-            let mut builder = Int64Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Float32 => {
-            let b = array.as_any().downcast_ref::<Float32Array>().unwrap();
-            let mut builder = Float32Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Float64 => {
-            let b = array.as_any().downcast_ref::<Float64Array>().unwrap();
-            let mut builder = Float64Array::builder(b.len());
-            for i in 0..b.len() {
-                if filter.value(i) {
-                    builder.append_value(b.value(i))?;
-                }
-            }
-            Ok(Arc::new(builder.finish()))
-        }
+        DataType::UInt8 => filter_array!(array, filter, UInt8Array),
+        DataType::UInt16 => filter_array!(array, filter, UInt16Array),
+        DataType::UInt32 => filter_array!(array, filter, UInt32Array),
+        DataType::UInt64 => filter_array!(array, filter, UInt64Array),
+        DataType::Int8 => filter_array!(array, filter, Int8Array),
+        DataType::Int16 => filter_array!(array, filter, Int16Array),
+        DataType::Int32 => filter_array!(array, filter, Int32Array),
+        DataType::Int64 => filter_array!(array, filter, Int64Array),
+        DataType::Float32 => filter_array!(array, filter, Float32Array),
+        DataType::Float64 => filter_array!(array, filter, Float64Array),
+        DataType::Boolean => filter_array!(array, filter, BooleanArray),
         DataType::Utf8 => {
             //TODO: this is inefficient and we should improve the Arrow impl to help make
             // this more concise
@@ -331,94 +255,36 @@ pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
     }
 }
 
+macro_rules! limit_array {
+    ($array:expr, $num_rows_to_read:expr, $array_type:ident) => {{
+        let b = $array.as_any().downcast_ref::<$array_type>().unwrap();
+        let mut builder = $array_type::builder($num_rows_to_read);
+        for i in 0..$num_rows_to_read {
+            builder.append_value(b.value(i))?;
+        }
+        Ok(Arc::new(builder.finish()))
+    }};
+}
+
 pub fn limit(array: &Array, num_rows_to_read: usize) -> Result<ArrayRef> {
     match array.data_type() {
-        DataType::UInt8 => {
-            let b = array.as_any().downcast_ref::<UInt8Array>().unwrap();
-            let mut builder = UInt8Array::builder(num_rows_to_read as usize);
-            for i in 0..num_rows_to_read {
-                builder.append_value(b.value(i as usize))?;
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::UInt16 => {
-            let b = array.as_any().downcast_ref::<UInt16Array>().unwrap();
-            let mut builder = UInt16Array::builder(num_rows_to_read as usize);
-            for i in 0..num_rows_to_read {
-                builder.append_value(b.value(i as usize))?;
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::UInt32 => {
-            let b = array.as_any().downcast_ref::<UInt32Array>().unwrap();
-            let mut builder = UInt32Array::builder(num_rows_to_read as usize);
-            for i in 0..num_rows_to_read {
-                builder.append_value(b.value(i as usize))?;
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::UInt64 => {
-            let b = array.as_any().downcast_ref::<UInt64Array>().unwrap();
-            let mut builder = UInt64Array::builder(num_rows_to_read as usize);
-            for i in 0..num_rows_to_read {
-                builder.append_value(b.value(i as usize))?;
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Int8 => {
-            let b = array.as_any().downcast_ref::<Int8Array>().unwrap();
-            let mut builder = Int8Array::builder(num_rows_to_read as usize);
-            for i in 0..num_rows_to_read {
-                builder.append_value(b.value(i as usize))?;
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Int16 => {
-            let b = array.as_any().downcast_ref::<Int16Array>().unwrap();
-            let mut builder = Int16Array::builder(num_rows_to_read as usize);
-            for i in 0..num_rows_to_read {
-                builder.append_value(b.value(i as usize))?;
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Int32 => {
-            let b = array.as_any().downcast_ref::<Int32Array>().unwrap();
-            let mut builder = Int32Array::builder(num_rows_to_read as usize);
-            for i in 0..num_rows_to_read {
-                builder.append_value(b.value(i as usize))?;
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Int64 => {
-            let b = array.as_any().downcast_ref::<Int64Array>().unwrap();
-            let mut builder = Int64Array::builder(num_rows_to_read as usize);
-            for i in 0..num_rows_to_read {
-                builder.append_value(b.value(i as usize))?;
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Float32 => {
-            let b = array.as_any().downcast_ref::<Float32Array>().unwrap();
-            let mut builder = Float32Array::builder(num_rows_to_read as usize);
-            for i in 0..num_rows_to_read {
-                builder.append_value(b.value(i as usize))?;
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        DataType::Float64 => {
-            let b = array.as_any().downcast_ref::<Float64Array>().unwrap();
-            let mut builder = Float64Array::builder(num_rows_to_read as usize);
-            for i in 0..num_rows_to_read {
-                builder.append_value(b.value(i as usize))?;
-            }
-            Ok(Arc::new(builder.finish()))
-        }
+        DataType::UInt8 => limit_array!(array, num_rows_to_read, UInt8Array),
+        DataType::UInt16 => limit_array!(array, num_rows_to_read, UInt16Array),
+        DataType::UInt32 => limit_array!(array, num_rows_to_read, UInt32Array),
+        DataType::UInt64 => limit_array!(array, num_rows_to_read, UInt64Array),
+        DataType::Int8 => limit_array!(array, num_rows_to_read, Int8Array),
+        DataType::Int16 => limit_array!(array, num_rows_to_read, Int16Array),
+        DataType::Int32 => limit_array!(array, num_rows_to_read, Int32Array),
+        DataType::Int64 => limit_array!(array, num_rows_to_read, Int64Array),
+        DataType::Float32 => limit_array!(array, num_rows_to_read, Float32Array),
+        DataType::Float64 => limit_array!(array, num_rows_to_read, Float64Array),
+        DataType::Boolean => limit_array!(array, num_rows_to_read, BooleanArray),
         DataType::Utf8 => {
             //TODO: this is inefficient and we should improve the Arrow impl to help make this more concise
             let b = array.as_any().downcast_ref::<BinaryArray>().unwrap();
             let mut values: Vec<String> = Vec::with_capacity(num_rows_to_read as usize);
             for i in 0..num_rows_to_read {
-                values.push(b.get_string(i as usize));
+                values.push(b.get_string(i));
             }
             let tmp: Vec<&str> = values.iter().map(|s| s.as_str()).collect();
             Ok(Arc::new(BinaryArray::from(tmp)))
