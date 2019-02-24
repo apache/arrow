@@ -609,8 +609,8 @@ impl From<ArrayDataRef> for BinaryArray {
 
 impl<'a> From<Vec<&'a str>> for BinaryArray {
     fn from(v: Vec<&'a str>) -> Self {
-        let mut offsets = vec![];
-        let mut values = vec![];
+        let mut offsets = Vec::with_capacity(v.len() + 1);
+        let mut values = Vec::new();
         let mut length_so_far = 0;
         offsets.push(length_so_far);
         for s in &v {
@@ -629,8 +629,8 @@ impl<'a> From<Vec<&'a str>> for BinaryArray {
 
 impl<'a> From<Vec<&[u8]>> for BinaryArray {
     fn from(v: Vec<&[u8]>) -> Self {
-        let mut offsets = vec![];
-        let mut values = vec![];
+        let mut offsets = Vec::with_capacity(v.len() + 1);
+        let mut values = Vec::new();
         let mut length_so_far = 0;
         offsets.push(length_so_far);
         for s in &v {
