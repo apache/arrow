@@ -80,9 +80,7 @@ where
         if data.is_null(i) {
             continue;
         }
-        if all_nulls {
-            all_nulls = false;
-        }
+        all_nulls = false;
         let m = array.value(i);
         n = n + m;
     }
