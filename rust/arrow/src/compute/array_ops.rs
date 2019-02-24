@@ -450,4 +450,26 @@ mod tests {
         assert_eq!(5, min(&a).unwrap());
         assert_eq!(9, max(&a).unwrap());
     }
+
+    #[test]
+    fn test_filter_array() {
+        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
+        let b = BooleanArray::from(vec![true, false, false, true, false]);
+        let c = filter(&a, &b).unwrap();
+        let d = c.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(2, d.len());
+        assert_eq!(5, d.value(0));
+        assert_eq!(8, d.value(1));
+    }
+
+    #[test]
+    fn test_limit_array() {
+        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
+        let c = limit(&a, 3).unwrap();
+        let d = c.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(3, d.len());
+        assert_eq!(5, d.value(0));
+        assert_eq!(6, d.value(1));
+        assert_eq!(7, d.value(2));
+    }
 }
