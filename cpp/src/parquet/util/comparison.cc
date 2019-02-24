@@ -25,35 +25,6 @@
 
 namespace parquet {
 
-template <>
-bool CompareDefault<Int96Type>::operator()(const Int96& a, const Int96& b) {
-  // Only the MSB bit is by Signed comparison
-  // For little-endian, this is the last bit of Int96 type
-  const int32_t amsb = static_cast<const int32_t>(a.value[2]);
-  const int32_t bmsb = static_cast<const int32_t>(b.value[2]);
-  if (amsb != bmsb) {
-    return (amsb < bmsb);
-  } else if (a.value[1] != b.value[1]) {
-    return (a.value[1] < b.value[1]);
-  }
-  return (a.value[0] < b.value[0]);
-}
-
-template <>
-bool CompareDefault<ByteArrayType>::operator()(const ByteArray& a, const ByteArray& b) {
-  const int8_t* aptr = reinterpret_cast<const int8_t*>(a.ptr);
-  const int8_t* bptr = reinterpret_cast<const int8_t*>(b.ptr);
-  return std::lexicographical_compare(aptr, aptr + a.len, bptr, bptr + b.len);
-}
-
-template <>
-bool CompareDefault<FLBAType>::operator()(const FLBA& a, const FLBA& b) {
-  const int8_t* aptr = reinterpret_cast<const int8_t*>(a.ptr);
-  const int8_t* bptr = reinterpret_cast<const int8_t*>(b.ptr);
-  return std::lexicographical_compare(aptr, aptr + type_length_, bptr,
-                                      bptr + type_length_);
-}
-
 std::shared_ptr<Comparator> Comparator::Make(const ColumnDescriptor* descr) {
   if (SortOrder::SIGNED == descr->sort_order()) {
     switch (descr->physical_type()) {
@@ -93,14 +64,34 @@ std::shared_ptr<Comparator> Comparator::Make(const ColumnDescriptor* descr) {
   return nullptr;
 }
 
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<BooleanType>;
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<Int32Type>;
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<Int64Type>;
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<Int96Type>;
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<FloatType>;
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<DoubleType>;
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<ByteArrayType>;
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<FLBAType>;
+template <>
+bool CompareDefault<Int96Type>::operator()(const Int96& a, const Int96& b) {
+  // Only the MSB bit is by Signed comparison
+  // For little-endian, this is the last bit of Int96 type
+  const int32_t amsb = static_cast<const int32_t>(a.value[2]);
+  const int32_t bmsb = static_cast<const int32_t>(b.value[2]);
+  if (amsb != bmsb) {
+    return (amsb < bmsb);
+  } else if (a.value[1] != b.value[1]) {
+    return (a.value[1] < b.value[1]);
+  }
+  return (a.value[0] < b.value[0]);
+}
+
+template <>
+bool CompareDefault<ByteArrayType>::operator()(const ByteArray& a, const ByteArray& b) {
+  const int8_t* aptr = reinterpret_cast<const int8_t*>(a.ptr);
+  const int8_t* bptr = reinterpret_cast<const int8_t*>(b.ptr);
+  return std::lexicographical_compare(aptr, aptr + a.len, bptr, bptr + b.len);
+}
+
+template <>
+bool CompareDefault<FLBAType>::operator()(const FLBA& a, const FLBA& b) {
+  const int8_t* aptr = reinterpret_cast<const int8_t*>(a.ptr);
+  const int8_t* bptr = reinterpret_cast<const int8_t*>(b.ptr);
+  return std::lexicographical_compare(aptr, aptr + type_length_, bptr,
+                                      bptr + type_length_);
+}
 
 bool CompareUnsignedInt32::operator()(const int32_t& a, const int32_t& b) {
   const uint32_t ua = a;
