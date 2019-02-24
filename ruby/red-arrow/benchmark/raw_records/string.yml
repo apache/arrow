@@ -19,7 +19,7 @@ prelude: |-
   require "arrow"
   require "faker"
 
-  state = ENV.fetch('FAKER_RANDOM_SEED', 17).to_i
+  state = ENV.fetch("FAKER_RANDOM_SEED", 17).to_i
   Faker::Config.random = Random.new(state)
 
   n_rows = 1000
