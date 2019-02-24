@@ -191,10 +191,11 @@ void TypedRowGroupStatistics<DType>::Update(const T* values, int64_t num_not_nul
     return;
   }
 
-  auto batch_minmax = std::minmax_element(values + begin_offset, values + end_offset,
-                                          std::ref(*(this->comparator_)));
+  T min, max;
+  this->comparator_->minmax_element(values + begin_offset, values + end_offset,
+                                     min, max);
 
-  SetMinMax(*batch_minmax.first, *batch_minmax.second);
+  SetMinMax(min, max);
 }
 
 template <typename DType>
@@ -239,16 +240,8 @@ void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
 
   T min = values[i];
   T max = values[i];
-  for (; i < length; i++) {
-    if (valid_bits_reader.IsSet()) {
-      if ((std::ref(*(this->comparator_)))(values[i], min)) {
-        min = values[i];
-      } else if ((std::ref(*(this->comparator_)))(max, values[i])) {
-        max = values[i];
-      }
-    }
-    valid_bits_reader.Next();
-  }
+
+  this->comparator_->minmax_spaced(valid_bits_reader, values, i, length, min, max);
 
   SetMinMax(min, max);
 }

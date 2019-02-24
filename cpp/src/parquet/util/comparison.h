@@ -21,6 +21,8 @@
 #include <algorithm>
 #include <memory>
 
+#include "arrow/util/bit-util.h"
+
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
@@ -40,50 +42,42 @@ class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault : public Comparator {
  public:
   typedef typename DType::c_type T;
   CompareDefault() {}
-  virtual bool operator()(const T& a, const T& b) { return a < b; }
-};
-
-template <>
-class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault<Int96Type> : public Comparator {
- public:
-  CompareDefault() {}
-  virtual bool operator()(const Int96& a, const Int96& b) {
-    // Only the MSB bit is by Signed comparison
-    // For little-endian, this is the last bit of Int96 type
-    const int32_t amsb = static_cast<const int32_t>(a.value[2]);
-    const int32_t bmsb = static_cast<const int32_t>(b.value[2]);
-    if (amsb != bmsb) {
-      return (amsb < bmsb);
-    } else if (a.value[1] != b.value[1]) {
-      return (a.value[1] < b.value[1]);
-    }
-    return (a.value[0] < b.value[0]);
-  }
-};
-
-template <>
-class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault<ByteArrayType> : public Comparator {
- public:
-  CompareDefault() {}
-  virtual bool operator()(const ByteArray& a, const ByteArray& b) {
-    const int8_t* aptr = reinterpret_cast<const int8_t*>(a.ptr);
-    const int8_t* bptr = reinterpret_cast<const int8_t*>(b.ptr);
-    return std::lexicographical_compare(aptr, aptr + a.len, bptr, bptr + b.len);
-  }
-};
-
-template <>
-class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault<FLBAType> : public Comparator {
- public:
   explicit CompareDefault(int length) : type_length_(length) {}
-  virtual bool operator()(const FLBA& a, const FLBA& b) {
-    const int8_t* aptr = reinterpret_cast<const int8_t*>(a.ptr);
-    const int8_t* bptr = reinterpret_cast<const int8_t*>(b.ptr);
-    return std::lexicographical_compare(aptr, aptr + type_length_, bptr,
-                                        bptr + type_length_);
+
+  virtual bool operator()(const T& a, const T& b) { return a < b; }
+
+  virtual void  minmax_element(const T* a, const T* b, T& min, T& max) {
+    auto batch_minmax = std::minmax_element(a, b, std::ref(*(this)));
+    min = *batch_minmax.first;
+    max = *batch_minmax.second;
   }
+
+  virtual void minmax_spaced(::arrow::internal::BitmapReader& valid_bits_reader,
+                             const T* values, int64_t offset, int64_t length,
+                             T& min, T& max) {
+    for (; offset < length; offset++) {
+      if (valid_bits_reader.IsSet()) {
+        if ((std::ref(*(this)))(values[offset], min)) {
+          min = values[offset];
+        } else if ((std::ref(*(this)))(max, values[offset])) {
+          max = values[offset];
+        }
+      }
+      valid_bits_reader.Next();
+    }
+  }
+
   int32_t type_length_;
 };
+
+template <>
+bool CompareDefault<Int96Type>::operator()(const Int96& a, const Int96& b);
+
+template <>
+bool CompareDefault<ByteArrayType>::operator()(const ByteArray& a, const ByteArray& b);
+
+template <>
+bool CompareDefault<FLBAType>::operator()(const FLBA& a, const FLBA& b);
 
 typedef CompareDefault<BooleanType> CompareDefaultBoolean;
 typedef CompareDefault<Int32Type> CompareDefaultInt32;
