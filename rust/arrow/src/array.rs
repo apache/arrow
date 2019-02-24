@@ -1180,7 +1180,7 @@ mod tests {
         let values: Vec<&[u8]> = vec![
             &[b'h', b'e', b'l', b'l', b'o'],
             &[],
-            &[ b'p', b'a', b'r', b'q', b'u', b'e', b't']
+            &[b'p', b'a', b'r', b'q', b'u', b'e', b't'],
         ];
 
         // Array data: ["hello", "", "parquet"]
