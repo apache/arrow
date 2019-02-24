@@ -85,7 +85,6 @@ where
             n = n + m[i];
         }
         Some(n)
-
     } else {
         let mut n: T::Native = T::default_value();
         let data = array.data();

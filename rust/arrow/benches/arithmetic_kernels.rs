@@ -24,6 +24,7 @@ extern crate arrow;
 use arrow::array::*;
 use arrow::builder::*;
 use arrow::compute::arithmetic_kernels::*;
+use arrow::compute::array_ops::sum;
 use arrow::error::Result;
 
 fn create_array(size: usize) -> Float32Array {
@@ -61,6 +62,11 @@ fn multiply_simd(size: usize) {
     criterion::black_box(multiply(&arr_a, &arr_b).unwrap());
 }
 
+fn sum_no_simd(size: usize) {
+    let arr_a = create_array(size);
+    criterion::black_box(sum(&arr_a).unwrap());
+}
+
 fn add_benchmark(c: &mut Criterion) {
     c.bench_function("add 512", |b| {
         b.iter(|| bin_op_no_simd(512, |a, b| Ok(a + b)))
@@ -74,6 +80,7 @@ fn add_benchmark(c: &mut Criterion) {
         b.iter(|| bin_op_no_simd(512, |a, b| Ok(a * b)))
     });
     c.bench_function("multiply 512 simd", |b| b.iter(|| multiply_simd(512)));
+    c.bench_function("sum 512 no simd", |b| b.iter(|| sum_no_simd(512)));
 }
 
 criterion_group!(benches, add_benchmark);
