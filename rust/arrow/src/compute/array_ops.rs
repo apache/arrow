@@ -236,17 +236,14 @@ pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
         DataType::Float64 => filter_array!(array, filter, Float64Array),
         DataType::Boolean => filter_array!(array, filter, BooleanArray),
         DataType::Utf8 => {
-            //TODO: this is inefficient and we should improve the Arrow impl to help make
-            // this more concise
             let b = array.as_any().downcast_ref::<BinaryArray>().unwrap();
-            let mut values: Vec<String> = Vec::with_capacity(b.len());
+            let mut values: Vec<&[u8]> = Vec::with_capacity(b.len());
             for i in 0..b.len() {
                 if filter.value(i) {
-                    values.push(b.get_string(i));
+                    values.push(b.value(i));
                 }
             }
-            let tmp: Vec<&str> = values.iter().map(|s| s.as_str()).collect();
-            Ok(Arc::new(BinaryArray::from(tmp)))
+            Ok(Arc::new(BinaryArray::from(values)))
         }
         other => Err(ArrowError::ComputeError(format!(
             "filter not supported for {:?}",
@@ -288,14 +285,12 @@ pub fn limit(array: &Array, num_rows_to_read: usize) -> Result<ArrayRef> {
         DataType::Float64 => limit_array!(array, num_rows_to_read, Float64Array),
         DataType::Boolean => limit_array!(array, num_rows_to_read, BooleanArray),
         DataType::Utf8 => {
-            //TODO: this is inefficient and we should improve the Arrow impl to help make this more concise
             let b = array.as_any().downcast_ref::<BinaryArray>().unwrap();
-            let mut values: Vec<String> = Vec::with_capacity(num_rows_to_read as usize);
+            let mut values: Vec<&[u8]> = Vec::with_capacity(num_rows_to_read as usize);
             for i in 0..num_rows_to_read {
-                values.push(b.get_string(i));
+                values.push(b.value(i));
             }
-            let tmp: Vec<&str> = values.iter().map(|s| s.as_str()).collect();
-            Ok(Arc::new(BinaryArray::from(tmp)))
+            Ok(Arc::new(BinaryArray::from(values)))
         }
         other => Err(ArrowError::ComputeError(format!(
             "limit not supported for {:?}",
