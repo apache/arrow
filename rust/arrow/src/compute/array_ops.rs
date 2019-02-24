@@ -284,7 +284,7 @@ pub fn limit(array: &Array, num_elements: usize) -> Result<ArrayRef> {
         DataType::Boolean => limit_array!(array, num_elements_safe, BooleanArray),
         DataType::Utf8 => {
             let b = array.as_any().downcast_ref::<BinaryArray>().unwrap();
-            let mut values: Vec<&[u8]> = Vec::with_capacity(num_elements_safe as usize);
+            let mut values: Vec<&[u8]> = Vec::with_capacity(num_elements_safe);
             for i in 0..num_elements_safe {
                 values.push(b.value(i));
             }
@@ -464,6 +464,17 @@ mod tests {
     }
 
     #[test]
+    fn test_filter_binary_array() {
+        let a = BinaryArray::from(vec!["hello", " ", "world", "!"]);
+        let b = BooleanArray::from(vec![true, false, true, false]);
+        let c = filter(&a, &b).unwrap();
+        let d = c.as_ref().as_any().downcast_ref::<BinaryArray>().unwrap();
+        assert_eq!(2, d.len());
+        assert_eq!("hello", d.get_string(0));
+        assert_eq!("world", d.get_string(1));
+    }
+
+    #[test]
     fn test_limit_array() {
         let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
         let b = limit(&a, 3).unwrap();
@@ -472,6 +483,16 @@ mod tests {
         assert_eq!(5, c.value(0));
         assert_eq!(6, c.value(1));
         assert_eq!(7, c.value(2));
+    }
+
+    #[test]
+    fn test_limit_binary_array() {
+        let a = BinaryArray::from(vec!["hello", " ", "world", "!"]);
+        let b = limit(&a, 2).unwrap();
+        let c = b.as_ref().as_any().downcast_ref::<BinaryArray>().unwrap();
+        assert_eq!(2, c.len());
+        assert_eq!("hello", c.get_string(0));
+        assert_eq!(" ", c.get_string(1));
     }
 
     #[test]
