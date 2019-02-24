@@ -38,15 +38,12 @@ HELP
 
 escape_quote() {  sed 's/"/\\"/g'; }
 
-unstring_jsonb() { sed 's/"\({[^}]*}\)"/\1/g' | sed 's/\\//g'; }
-requote_array() { sed 's/{[^:]*}/"&"/g'; }
-
 template() {
   cat <<TEMPLATE
   {
     "query": "mutation (\$jsonb: JSON!){${1}(input:{fromJsonb:\$jsonb}){${2}}}",
     "variables": {
-      "jsonb": "$(echo $(cat ${datafile}) | unstring_jsonb | requote_array | escape_quote )"
+      "jsonb": "$(echo $(cat ${datafile}) | escape_quote )"
     }
   }
 TEMPLATE

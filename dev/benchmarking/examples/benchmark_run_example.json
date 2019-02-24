@@ -2,7 +2,7 @@
   {
     "benchmark_name": "Benchmark 2",
     "benchmark_version": "version 0",
-    "parameter_values": "{\"arg0\": 100, \"arg1\": 5}",
+    "parameter_values": {"arg0": 100, "arg1": 5},
     "value": 2.5,
     "git_commit_timestamp": "2019-02-08 22:35:53 +0100",
     "git_hash": "324d3cf198444a",
@@ -16,12 +16,12 @@
     "mac_address": "08:00:2b:01:02:03",
     "benchmark_language": "Python",
     "language_implementation_version": "CPython 2.7",
-    "dependencies": "{\"six\": \"\", \"numpy\": \"1.14\", \"other_lib\": \"1.0\"}"
+    "dependencies": {"six": "", "numpy": "1.14", "other_lib": "1.0"}
   },
   {
     "benchmark_name": "Benchmark 2",
     "benchmark_version": "version 0",
-    "parameter_values": "{\"arg0\": 1000, \"arg1\": 5}",
+    "parameter_values": {"arg0": 1000, "arg1": 5},
     "value": 5,
     "git_commit_timestamp": "2019-02-08 22:35:53 +0100",
     "git_hash": "324d3cf198444a",
@@ -35,12 +35,12 @@
     "mac_address": "08:00:2b:01:02:03",
     "benchmark_language": "Python",
     "language_implementation_version": "CPython 2.7",
-    "dependencies": "{\"six\": \"\", \"numpy\": \"1.14\", \"other_lib\": \"1.0\"}"
+    "dependencies": {"six": "", "numpy": "1.14", "other_lib": "1.0"}
   },
   {
     "benchmark_name": "Benchmark 2",
     "benchmark_version": "version 0",
-    "parameter_values": "{\"arg0\": 100, \"arg1\": 5}",
+    "parameter_values": {"arg0": 100, "arg1": 5},
     "value": 2.5,
     "git_commit_timestamp": "2019-02-08 22:35:53 +0100",
     "git_hash": "324d3cf198444a",
@@ -54,12 +54,12 @@
     "mac_address": "08:00:2b:01:02:03",
     "benchmark_language": "Python",
     "language_implementation_version": "CPython 2.7",
-    "dependencies": "{\"boost\": \"1.42\", \"numpy\": \"1.15\"}"
+    "dependencies": {"boost": "1.42", "numpy": "1.15"}
   },
   {
     "benchmark_name": "Benchmark 2",
     "benchmark_version": "version 0",
-    "parameter_values": "{\"arg0\": 1000, \"arg1\": 5}",
+    "parameter_values": {"arg0": 1000, "arg1": 5},
     "value": 3,
     "git_commit_timestamp": "2019-02-08 22:35:53 +0100",
     "git_hash": "324d3cf198444a",
@@ -73,12 +73,12 @@
     "mac_address": "08:00:2b:01:02:03",
     "benchmark_language": "Python",
     "language_implementation_version": "CPython 2.7",
-    "dependencies": "{\"boost\": \"1.42\", \"numpy\": \"1.15\"}"
+    "dependencies": {"boost": "1.42", "numpy": "1.15"}
   },
   {
     "benchmark_name": "Benchmark 2",
     "benchmark_version": "version 0",
-    "parameter_values": "{\"arg0\": 1000, \"arg1\": 10}",
+    "parameter_values": {"arg0": 1000, "arg1": 10},
     "value": 3,
     "git_commit_timestamp": "2019-02-08 22:35:53 +0100",
     "git_hash": "324d3cf198444a",
@@ -92,6 +92,6 @@
     "mac_address": "08:00:2b:01:02:03",
     "benchmark_language": "Python",
     "language_implementation_version": "CPython 2.7",
-    "dependencies": "{\"six\": \"\", \"numpy\": \"1.15\", \"other_lib\": \"1.0\"}"
+    "dependencies": {"six": "", "numpy": "1.15", "other_lib": "1.0"}
   }
 ]

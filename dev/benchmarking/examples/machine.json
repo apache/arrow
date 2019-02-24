@@ -15,7 +15,7 @@
   "cpu_l1i_cache_bytes": 32768,
   "cpu_l2_cache_bytes": 262144,
   "cpu_l3_cache_bytes": 4194304,
-  "machine_other_attributes": "{\"just\": \"an example\"}",
+  "machine_other_attributes": {"just": "an example"},
   "gpu_information": "",
   "gpu_part_number": "",
   "gpu_product_name": ""
