@@ -216,7 +216,11 @@ macro_rules! filter_array {
         let mut builder = $array_type::builder(b.len());
         for i in 0..b.len() {
             if $filter.value(i) {
-                builder.append_value(b.value(i))?;
+                if b.is_null(i) {
+                    builder.append_null()?;
+                } else {
+                    builder.append_value(b.value(i))?;
+                }
             }
         }
         Ok(Arc::new(builder.finish()))
@@ -258,7 +262,11 @@ macro_rules! limit_array {
         let b = $array.as_any().downcast_ref::<$array_type>().unwrap();
         let mut builder = $array_type::builder($num_elements);
         for i in 0..$num_elements {
-            builder.append_value(b.value(i))?;
+            if b.is_null(i) {
+                builder.append_null()?;
+            } else {
+                builder.append_value(b.value(i))?;
+            }
         }
         Ok(Arc::new(builder.finish()))
     }};
@@ -475,6 +483,16 @@ mod tests {
     }
 
     #[test]
+    fn test_filter_array_with_null() {
+        let a = Int32Array::from(vec![Some(5), None]);
+        let b = BooleanArray::from(vec![false, true]);
+        let c = filter(&a, &b).unwrap();
+        let d = c.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(1, d.len());
+        assert_eq!(true, d.is_null(0));
+    }
+
+    #[test]
     fn test_limit_array() {
         let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
         let b = limit(&a, 3).unwrap();
@@ -493,6 +511,15 @@ mod tests {
         assert_eq!(2, c.len());
         assert_eq!("hello", c.get_string(0));
         assert_eq!(" ", c.get_string(1));
+    }
+
+    #[test]
+    fn test_limit_array_with_null() {
+        let a = Int32Array::from(vec![None, Some(5)]);
+        let b = limit(&a, 1).unwrap();
+        let c = b.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(1, c.len());
+        assert_eq!(true, c.is_null(0));
     }
 
     #[test]
