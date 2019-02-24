@@ -267,6 +267,9 @@ macro_rules! limit_array {
     }};
 }
 
+/// Returns the array, taking only the number of elements specified
+///
+/// Returns the whole array if the number of elements specified is larger than the length of the array
 pub fn limit(array: &Array, num_elements: usize) -> Result<ArrayRef> {
     let num_elements_safe: usize = cmp::min(array.len(), num_elements);
 
