@@ -18,7 +18,6 @@
 prelude: |-
   require "arrow"
   require "faker"
-  require "bigdecimal"
 
   state = ENV.fetch('FAKER_RANDOM_SEED', 17).to_i
   Faker::Config.random = Random.new(state)
