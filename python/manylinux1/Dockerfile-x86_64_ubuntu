@@ -36,12 +36,8 @@ RUN /install_cmake.sh
 WORKDIR /
 RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
 
-# Make multibuild work on ubuntu, ignore unicode widths
-RUN pip install virtualenv
-
 ADD scripts/build_virtualenvs.sh /
 RUN /build_virtualenvs.sh
-
 
 ADD scripts/build_openssl.sh /
 RUN /build_openssl.sh
