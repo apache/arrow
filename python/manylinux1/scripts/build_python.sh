@@ -1,3 +1,4 @@
+#!/bin/bash -e
 # This is taken from https://github.com/pypa/manylinux/blob/master/docker/build_scripts/build_env.sh
 
 PYTHON_DOWNLOAD_URL=https://www.python.org/ftp/python
