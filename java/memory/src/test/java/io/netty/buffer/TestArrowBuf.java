@@ -17,11 +17,13 @@
 
 package io.netty.buffer;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -31,19 +33,60 @@ public class TestArrowBuf {
 
   private static final int MAX_ALLOCATION = 8 * 1024;
   private static RootAllocator allocator;
-  
+
   @BeforeClass
   public static void beforeClass() {
     allocator = new RootAllocator(MAX_ALLOCATION);
   }
-  
+
   @AfterClass
   public static void afterClass() {
     if (allocator != null) {
       allocator.close();
     }
   }
-  
+
+  @Test(expected = IndexOutOfBoundsException.class)
+  public void testSliceOutOfBoundsLength_RaisesIndexOutOfBoundsException() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+         ArrowBuf buf = allocator.buffer(2)
+    ) {
+      assertEquals(2, buf.capacity());
+      buf.slice(0, 3);
+    }
+  }
+
+  @Test(expected = IndexOutOfBoundsException.class)
+  public void testSliceOutOfBoundsIndexPlusLength_RaisesIndexOutOfBoundsException() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+         ArrowBuf buf = allocator.buffer(2)
+    ) {
+      assertEquals(2, buf.capacity());
+      buf.slice(1, 2);
+    }
+  }
+
+  @Test(expected = IndexOutOfBoundsException.class)
+  public void testSliceOutOfBoundsIndex_RaisesIndexOutOfBoundsException() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+         ArrowBuf buf = allocator.buffer(2)
+    ) {
+      assertEquals(2, buf.capacity());
+      buf.slice(3, 0);
+    }
+  }
+
+  @Test
+  public void testSliceWithinBoundsLength_ReturnsSlice() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+         ArrowBuf buf = allocator.buffer(2)
+    ) {
+      assertEquals(2, buf.capacity());
+      assertEquals(1, buf.slice(1, 1).capacity());
+      assertEquals(2, buf.slice(0, 2).capacity());
+    }
+  }
+
   @Test
   public void testSetBytesSliced() {
     int arrLength = 64;
@@ -54,13 +97,13 @@ public class TestArrowBuf {
     ByteBuffer data = ByteBuffer.wrap(expecteds);
     try (ArrowBuf buf = allocator.buffer(expecteds.length)) {
       buf.setBytes(0, data, 0, data.capacity());
-      
+
       byte[] actuals = new byte[expecteds.length];
       buf.getBytes(0, actuals);
       assertArrayEquals(expecteds, actuals);
     }
   }
-  
+
   @Test
   public void testSetBytesUnsliced() {
     int arrLength = 64;
@@ -69,17 +112,17 @@ public class TestArrowBuf {
       arr[i] = (byte) i;
     }
     ByteBuffer data = ByteBuffer.wrap(arr);
-    
+
     int from = 10;
     int to = arrLength;
     byte[] expecteds = Arrays.copyOfRange(arr, from, to);
     try (ArrowBuf buf = allocator.buffer(expecteds.length)) {
       buf.setBytes(0, data, from, to - from);
-      
+
       byte[] actuals = new byte[expecteds.length];
       buf.getBytes(0, actuals);
       assertArrayEquals(expecteds, actuals);
     }
   }
-  
+
 }
