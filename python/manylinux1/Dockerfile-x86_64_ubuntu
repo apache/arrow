@@ -24,7 +24,7 @@ RUN apt install -y ccache flex wget curl build-essential python-pip python-dev g
 RUN pip install --upgrade pip
 RUN pip install cmake ninja
 
-RUN TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.12.0-cp27-none-linux_x86_64.whl pip install --upgrade $TF_BINARY_URL
+RUN pip install --upgrade https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.12.0-cp27-none-linux_x86_64.whl
 
 WORKDIR /
 RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
