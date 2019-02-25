@@ -20,19 +20,17 @@
 #include "red-arrow.hpp"
 
 namespace red_arrow {
+  VALUE mArrow;
+  VALUE cArrowRecordBatch;
+  VALUE cDate;
+  ID id_BigDecimal;
+  ID id_jd;
+  ID id_to_datetime;
 
-VALUE mArrow;
-VALUE cArrowRecordBatch;
-VALUE cDate;
-ID id_BigDecimal;
-ID id_jd;
-ID id_to_datetime;
-
-VALUE timeunit_scale_second;
-VALUE timeunit_scale_milli;
-VALUE timeunit_scale_micro;
-VALUE timeunit_scale_nano;
-
+  VALUE timeunit_scale_second;
+  VALUE timeunit_scale_milli;
+  VALUE timeunit_scale_micro;
+  VALUE timeunit_scale_nano;
 }
 
 extern "C" void Init_arrow() {
