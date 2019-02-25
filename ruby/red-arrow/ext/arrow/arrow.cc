@@ -23,7 +23,7 @@ namespace red_arrow {
 
 VALUE mArrow;
 VALUE cArrowRecordBatch;
-VALUE rb_cDate;
+VALUE cDate;
 ID id_BigDecimal;
 ID id_jd;
 ID id_to_datetime;
@@ -42,7 +42,7 @@ extern "C" void Init_arrow() {
                    reinterpret_cast<VALUE(*)(ANYARGS)>(red_arrow::record_batch_raw_records), -1);
 
   rb_require("date");
-  red_arrow::rb_cDate = rb_const_get(rb_cObject, rb_intern("Date"));
+  red_arrow::cDate = rb_const_get(rb_cObject, rb_intern("Date"));
 
   red_arrow::id_BigDecimal = rb_intern("BigDecimal");
   red_arrow::id_jd = rb_intern("jd");

@@ -210,7 +210,7 @@ class ArrayConverter : public arrow::ArrayVisitor {
     return rb::protect([&]{
       auto raw_value = array.Value(i);
       auto days_in_julian = raw_value + JD_UNIX_EPOCH;
-      return rb_funcall(rb_cDate, id_jd, 1, LONG2NUM(days_in_julian));
+      return rb_funcall(cDate, id_jd, 1, LONG2NUM(days_in_julian));
     });
   }
 
