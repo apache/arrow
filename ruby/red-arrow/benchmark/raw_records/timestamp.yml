@@ -25,7 +25,9 @@ prelude: |-
   n_rows = 1000
   n_columns = 10
   type = Arrow::TimestampDataType.new(:micro)
-  timestamp_range = [Time.now - 30*24*3600, Time.now + 30*24*3600]
+  base_timestamp = Time.at(Faker::Number.within(0 ... 1_000_000_000))
+  thirty_days_in_sec = 30*24*3600
+  timestamp_range = [base_timestamp - thirty_days_in_sec, base_timestamp + thirty_days_in_sec]
 
   fields = {}
   arrays = {}
