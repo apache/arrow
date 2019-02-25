@@ -24,6 +24,7 @@ RUN apt install -y ccache flex wget curl build-essential python-pip python-dev g
 RUN pip install --upgrade pip
 RUN pip install cmake ninja
 
+RUN pip install --ignore-installed six
 RUN pip install --upgrade https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.12.0-cp27-none-linux_x86_64.whl
 
 WORKDIR /
