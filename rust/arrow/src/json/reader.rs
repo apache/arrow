@@ -66,10 +66,10 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
         1 => Ok(dt[0].clone()),
         2 => {
             // there can be a case where a list and scalar both exist
-            if dt.contains(&&DataType::List(box DataType::Float64))
-                || dt.contains(&&DataType::List(box DataType::Int64))
-                || dt.contains(&&DataType::List(box DataType::Boolean))
-                || dt.contains(&&DataType::List(box DataType::Utf8))
+            if dt.contains(&&DataType::List(Box::new(DataType::Float64)))
+                || dt.contains(&&DataType::List(Box::new(DataType::Int64)))
+                || dt.contains(&&DataType::List(Box::new(DataType::Boolean)))
+                || dt.contains(&&DataType::List(Box::new(DataType::Utf8)))
             {
                 // we have a list and scalars, so we should get the values and coerce them
                 let mut dt = dt;
@@ -78,43 +78,43 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
                 match (dt[0], dt[1]) {
                     (t1, DataType::List(box DataType::Float64)) => {
                         if t1 == &DataType::Float64 {
-                            Ok(DataType::List(box DataType::Float64))
+                            Ok(DataType::List(Box::new(DataType::Float64)))
                         } else {
-                            Ok(DataType::List(box coerce_data_type(vec![
+                            Ok(DataType::List(Box::new(coerce_data_type(vec![
                                 t1,
                                 &DataType::Float64,
-                            ])?))
+                            ])?)))
                         }
                     }
                     (t1, DataType::List(box DataType::Int64)) => {
                         if t1 == &DataType::Int64 {
-                            Ok(DataType::List(box DataType::Int64))
+                            Ok(DataType::List(Box::new(DataType::Int64)))
                         } else {
-                            Ok(DataType::List(box coerce_data_type(vec![
+                            Ok(DataType::List(Box::new(coerce_data_type(vec![
                                 t1,
                                 &DataType::Int64,
-                            ])?))
+                            ])?)))
                         }
                     }
                     (t1, DataType::List(box DataType::Boolean)) => {
                         if t1 == &DataType::Boolean {
-                            Ok(DataType::List(box DataType::Boolean))
+                            Ok(DataType::List(Box::new(DataType::Boolean)))
                         } else {
-                            Ok(DataType::List(box coerce_data_type(vec![
+                            Ok(DataType::List(Box::new(coerce_data_type(vec![
                                 t1,
                                 &DataType::Boolean,
-                            ])?))
+                            ])?)))
                         }
                     }
                     (t1, DataType::List(box DataType::Utf8)) => {
                         if t1 == &DataType::Utf8 {
-                            Ok(DataType::List(box DataType::Utf8))
+                            Ok(DataType::List(Box::new(DataType::Utf8)))
                         } else {
                             dbg!(&t1);
-                            Ok(DataType::List(box coerce_data_type(vec![
+                            Ok(DataType::List(Box::new(coerce_data_type(vec![
                                 t1,
                                 &DataType::Utf8,
-                            ])?))
+                            ])?)))
                         }
                     }
                     (t1 @ _, t2 @ _) => Err(ArrowError::JsonError(format!(
@@ -131,7 +131,7 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
         _ => {
             // TODO(nevi_me) It's possible to have [float, int, list(float)], which should
             // return list(float). Will hash this out later
-            Ok(DataType::List(box DataType::Utf8))
+            Ok(DataType::List(Box::new(DataType::Utf8)))
         }
     }
 }
@@ -218,11 +218,11 @@ fn infer_json_schema(file: File, max_read_records: Option<usize>) -> Result<Arc<
 
                                             if values.contains_key(k) {
                                                 let x = values.get_mut(k).unwrap();
-                                                x.insert(DataType::List(box dt));
+                                                x.insert(DataType::List(Box::new(dt)));
                                             } else {
                                                 // create hashset and add value type
                                                 let mut hs = HashSet::new();
-                                                hs.insert(DataType::List(box dt));
+                                                hs.insert(DataType::List(Box::new(dt)));
                                                 values.insert(k.to_string(), hs);
                                             }
                                         }
@@ -997,21 +997,21 @@ mod tests {
         use crate::datatypes::DataType::*;
 
         assert_eq!(
-            List(box Float64),
-            coerce_data_type(vec![&Float64, &List(box Float64)]).unwrap()
+            List(Box::new(Float64)),
+            coerce_data_type(vec![&Float64, &List(Box::new(Float64))]).unwrap()
         );
         assert_eq!(
-            List(box Float64),
-            coerce_data_type(vec![&Float64, &List(box Int64)]).unwrap()
+            List(Box::new(Float64)),
+            coerce_data_type(vec![&Float64, &List(Box::new(Int64))]).unwrap()
         );
         assert_eq!(
-            List(box Int64),
-            coerce_data_type(vec![&Int64, &List(box Int64)]).unwrap()
+            List(Box::new(Int64)),
+            coerce_data_type(vec![&Int64, &List(Box::new(Int64))]).unwrap()
         );
         // boolean an number are incompatible, return utf8
         assert_eq!(
-            List(box Utf8),
-            coerce_data_type(vec![&Boolean, &List(box Float64)]).unwrap()
+            List(Box::new(Utf8)),
+            coerce_data_type(vec![&Boolean, &List(Box::new(Float64))]).unwrap()
         );
     }
 
@@ -1041,7 +1041,7 @@ mod tests {
             c.1.data_type()
         );
         let d = schema.column_with_name("d").unwrap();
-        assert_eq!(&DataType::List(box DataType::Utf8), d.1.data_type());
+        assert_eq!(&DataType::List(Box::new(DataType::Utf8)), d.1.data_type());
 
         let bb = batch
             .column(b.0)
