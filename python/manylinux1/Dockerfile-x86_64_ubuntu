@@ -20,10 +20,6 @@ FROM ubuntu:14.04
 RUN apt update
 RUN apt install -y ccache flex wget curl build-essential git libffi-dev
 
-# Install cmake manylinux1 package
-ADD scripts/install_cmake.sh /
-RUN /install_cmake.sh
-
 ADD scripts/build_zlib.sh /
 RUN /build_zlib.sh
 
@@ -32,6 +28,10 @@ ADD scripts/requirements.txt /
 ADD scripts/build_python.sh /
 ADD scripts/python-tag-abi-tag.py /
 RUN /build_python.sh
+
+# Install cmake manylinux1 package
+ADD scripts/install_cmake.sh /
+RUN /install_cmake.sh
 
 WORKDIR /
 RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
