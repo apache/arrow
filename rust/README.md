@@ -59,4 +59,3 @@ and check for lint issues:
 ```bash
 cargo +stable fmt --all -- --check
 ```
-
