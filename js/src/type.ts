@@ -39,10 +39,9 @@ export type IntBitWidth = 8 | 16 | 32 | 64;
 export type IsSigned = { 'true': true; 'false': false };
 /** @ignore */
 export type RowLike<T extends { [key: string]: DataType }> =
-      { readonly length: number }
-    & ( Iterable<T[keyof T]['TValue']> )
-    & { [P in keyof T]: T[P]['TValue'] }
-    & { get<K extends keyof T>(key: K): T[K]['TValue']; }
+      ( Iterable<T[keyof T]['TValue'] | null> )
+    & { [P in keyof T]: T[P]['TValue'] | null }
+    & { get<K extends keyof T>(key: K): T[K]['TValue'] | null; }
     ;
 
 export interface DataType<TType extends Type = Type, TChildren extends { [key: string]: DataType } = any> {
