@@ -127,7 +127,7 @@ the following in the psql command-line interface:
 An example CSV file for bulk ingestion is in
 [examples/benchmark_run_example.csv](examples/benchmark_run_example.csv).
 The columns are listed in the same order as they are defined, to avoid having
-to explicitly name every colum in ingestion. The "id" column is left empty
+to explicitly name every column in ingestion. The "id" column is left empty
 and will be automatically assigned on insert.
 
 To ingest the example CSV file from the command line,
@@ -225,7 +225,10 @@ for row in response.json()['data']['allEnvironmentViews']['edges']:
 - String variables `'have single quotes'`
 - Arrays `'{"have", "curly", "braces"}'::text[]` or `'{1, 2, 3}'::integer[]`
 - JSONb `'{"has":"this", "format":42}'::jsonb`
-- When comparing nullable values use `x IS DISTINCT FROM y` rather than `x = y`
+- Elements inserted using JSON-formatted strings can use standard
+  JSON-formatted arrays (`[1, 2, 3]`) and do not have to use the above
+  string formats.
+- When comparing nullable values use `x IS NOT DISTINCT FROM y` rather than `x = y`
 - An auto-generated summary of the [Data model][./data_model.rst].
 
 ## Data model documentation
@@ -234,14 +237,12 @@ To recreate the data model documentation,
 (1) install the [psql client][postgres-downloads]
 (sorry you need to download the whole thing),
 (2) start the docker container using `docker-compose up`,
-(3) and then type:
+(3) and then run these scripts:
 
 ```
+./make_dotfile.sh
 ./make_data_model_rst.sh
 ```
-
-It will ask you for the password (it's whatever is in the ".env" file
-as `PG_PASS`, so "benchmark" by default), and then the document should be generated.
 
 [pg-jsonb]: https://www.postgresql.org/docs/11/datatype-json.html#id-1.5.7.22.3
 [so-utf8]: https://stackoverflow.com/a/33557023

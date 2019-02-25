@@ -62,7 +62,12 @@ case "$1" in
     submit ingestBenchmarkView integers;;
 
   runs)
-    submit ingestBenchmarkRunView bigInts;;
+    if grep -q context <(head -n2 ${2})
+    then
+      submit ingestBenchmarkRunsWithContext bigInts
+    else
+      submit ingestBenchmarkRunView bigInts
+    fi;;
 
   *)
     help

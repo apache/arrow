@@ -1,0 +1,73 @@
+{
+  "context": {
+      "mac_address": "08:00:2b:01:02:03",
+      "benchmark_language": "Python",
+      "language_implementation_version": "CPython 2.7",
+      "dependencies": {"six": "", "numpy": "1.14", "other_lib": "1.0"},
+      "git_commit_timestamp": "2019-02-14 22:42:22 +0100",
+      "git_hash": "123456789abcde",
+      "run_timestamp": "2019-02-25 03:00:40 -0600",
+      "Extra stuff": "does not hurt anything and won't be added.",
+      "However": "all of the entries above 'Extra stuff' are required."
+  },
+  "benchmark_version": {
+      "Benchmark 2": "version 0",
+      "Benchmark 3": "any string is a version. (Benchmark 3 not actually used)"
+  },
+  "benchmarks": [
+    {
+      "benchmark_name": "Benchmark 2",
+      "parameter_values": {"arg0": 1, "arg1": 5},
+      "value": 2.5,
+      "val_min": 1,
+      "val_q1": 2,
+      "val_q3": 3,
+      "val_max": 4,
+      "std_dev": 1.41,
+      "n_obs": 8,
+      "run_metadata": {"any": "json object is admissible"},
+      "run_notes": "This value is an arbitray-length string."
+    },
+    {
+      "benchmark_name": "Benchmark 2",
+      "parameter_values": {"arg0": 2, "arg1": 5},
+      "value": 5,
+      "std_dev": 3.14,
+      "n_obs": 8
+    },
+    {
+      "benchmark_name": "Benchmark 2",
+      "parameter_values": {"arg0": 3, "arg1": 5},
+      "value": 2.5,
+      "val_min": 0.5,
+      "val_q1": 1,
+      "val_q3": 3,
+      "val_max": 5,
+      "std_dev": 3,
+      "n_obs": 8,
+      "run_notes": "The previous run in this list has the minimal set of keys."
+    },
+    {
+      "benchmark_name": "Benchmark 2",
+      "parameter_values": {"arg0": 4, "arg1": 5},
+      "value": 3,
+      "val_min": 2,
+      "val_q1": 2.5,
+      "val_q3": 4,
+      "val_max": 4.5,
+      "std_dev": 1.5,
+      "n_obs": 8
+    },
+    {
+      "benchmark_name": "Benchmark 2",
+      "parameter_values": {"arg0": 5, "arg1": 5},
+      "value": 3,
+      "val_min": 1,
+      "val_q1": 2,
+      "val_q3": 4,
+      "val_max": 5,
+      "std_dev": 2,
+      "n_obs": 8
+    }
+  ]
+}
