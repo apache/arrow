@@ -17,7 +17,7 @@
  * under the License.
  */
 
-#include "red_arrow.hpp"
+#include "red-arrow.hpp"
 
 namespace red_arrow {
 
