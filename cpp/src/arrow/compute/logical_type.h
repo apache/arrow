@@ -109,6 +109,9 @@ class Integer : public TypeClass {
   bool IsInstance(const Expr& expr) const override;
 };
 
-  class Int32 :
+class Int32 : public Integer {
+ public:
+
+};
 
 };
