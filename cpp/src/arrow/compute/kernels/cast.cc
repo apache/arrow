@@ -531,6 +531,9 @@ struct CastFunctor<Date64Type, TimestampType> {
 
     ShiftTime<int64_t, int64_t>(ctx, options, conversion.first, conversion.second, input,
                                 output);
+    if (!ctx->status().ok()) {
+      return;
+    }
 
     // Ensure that intraday milliseconds have been zeroed out
     auto out_data = output->GetMutableValues<int64_t>(1);
@@ -634,7 +637,7 @@ Status InvokeWithAllocation(FunctionContext* ctx, UnaryKernel* func, const Datum
   std::vector<Datum> result;
   if (NeedToPreallocate(*func->out_type())) {
     // Create wrapper that allocates output memory for primitive types
-    detail::PrimitiveAllocatingUnaryKernel wrapper(func, func->out_type());
+    detail::PrimitiveAllocatingUnaryKernel wrapper(func);
     RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, &wrapper, input, &result));
   } else {
     RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, func, input, &result));

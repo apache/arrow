@@ -49,7 +49,7 @@ class TestBooleanKernel : public ComputeFixture, public TestBase {
     ASSERT_OK(kernel(&this->ctx_, left, right, &result));
     ASSERT_EQ(Datum::ARRAY, result.kind());
     std::shared_ptr<Array> result_array = result.make_array();
-    ASSERT_TRUE(result_array->Equals(expected));
+    ASSERT_ARRAYS_EQUAL(*expected, *result_array);
   }
 
   void TestChunkedArrayBinary(const BinaryKernelFunc& kernel,
@@ -99,25 +99,23 @@ class TestBooleanKernel : public ComputeFixture, public TestBase {
 };
 
 TEST_F(TestBooleanKernel, Invert) {
-  vector<bool> values1 = {true, false, true};
-  vector<bool> values2 = {false, true, false};
+  vector<bool> values1 = {true, false, true, false};
+  vector<bool> values2 = {false, true, false, true};
 
   auto type = boolean();
-  auto a1 = _MakeArray<BooleanType, bool>(type, values1, {});
-  auto a2 = _MakeArray<BooleanType, bool>(type, values2, {});
+  auto a1 = _MakeArray<BooleanType, bool>(type, values1, {true, true, true, false});
+  auto a2 = _MakeArray<BooleanType, bool>(type, values2, {true, true, true, false});
 
   // Plain array
   Datum result;
   ASSERT_OK(Invert(&this->ctx_, a1, &result));
   ASSERT_EQ(Datum::ARRAY, result.kind());
-  std::shared_ptr<Array> result_array = result.make_array();
-  ASSERT_TRUE(result_array->Equals(a2));
+  ASSERT_ARRAYS_EQUAL(*a2, *result.make_array());
 
   // Array with offset
   ASSERT_OK(Invert(&this->ctx_, a1->Slice(1), &result));
   ASSERT_EQ(Datum::ARRAY, result.kind());
-  result_array = result.make_array();
-  ASSERT_TRUE(result_array->Equals(a2->Slice(1)));
+  ASSERT_ARRAYS_EQUAL(*a2->Slice(1), *result.make_array());
 
   // ChunkedArray
   std::vector<std::shared_ptr<Array>> ca1_arrs = {a1, a1->Slice(1)};
@@ -127,7 +125,7 @@ TEST_F(TestBooleanKernel, Invert) {
   ASSERT_OK(Invert(&this->ctx_, ca1, &result));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
   std::shared_ptr<ChunkedArray> result_ca = result.chunked_array();
-  ASSERT_TRUE(result_ca->Equals(ca2));
+  ASSERT_ARRAYS_EQUAL(*ca2, *result_ca);
 }
 
 TEST_F(TestBooleanKernel, InvertEmptyArray) {
@@ -139,7 +137,20 @@ TEST_F(TestBooleanKernel, InvertEmptyArray) {
 
   Datum result;
   ASSERT_OK(Invert(&this->ctx_, input, &result));
-  ASSERT_TRUE(result.make_array()->Equals(input.make_array()));
+  ASSERT_ARRAYS_EQUAL(*input.make_array(), *result.make_array());
+}
+
+TEST_F(TestBooleanKernel, BinaryOpOnEmptyArray) {
+  auto type = boolean();
+  std::vector<std::shared_ptr<Buffer>> data_buffers(2);
+  Datum input;
+  input.value = ArrayData::Make(boolean(), 0 /* length */, std::move(data_buffers),
+                                0 /* null_count */);
+
+  Datum result;
+  ASSERT_OK(And(&this->ctx_, input, input, &result));
+  // Result should be empty as well.
+  ASSERT_ARRAYS_EQUAL(*input.make_array(), *result.make_array());
 }
 
 TEST_F(TestBooleanKernel, And) {
