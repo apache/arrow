@@ -27,7 +27,6 @@
 
 namespace red_arrow {
   extern VALUE mArrow;
-  extern VALUE cArrowRecordBatch;
   extern VALUE cDate;
 
   extern ID id_BigDecimal;

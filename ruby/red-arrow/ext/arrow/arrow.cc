@@ -23,7 +23,6 @@
 
 namespace red_arrow {
   VALUE mArrow;
-  VALUE cArrowRecordBatch;
   VALUE cDate;
   ID id_BigDecimal;
   ID id_jd;
@@ -37,8 +36,8 @@ namespace red_arrow {
 
 extern "C" void Init_arrow() {
   red_arrow::mArrow = rb_const_get_at(rb_cObject, rb_intern("Arrow"));
-  red_arrow::cArrowRecordBatch = rb_const_get_at(red_arrow::mArrow, rb_intern("RecordBatch"));
-  rb_define_method(red_arrow::cArrowRecordBatch, "raw_records",
+  VALUE cArrowRecordBatch = rb_const_get_at(red_arrow::mArrow, rb_intern("RecordBatch"));
+  rb_define_method(cArrowRecordBatch, "raw_records",
                    reinterpret_cast<rb::RawMethod>(red_arrow::record_batch_raw_records), -1);
 
   red_arrow::cDate = rb_const_get(rb_cObject, rb_intern("Date"));
