@@ -40,7 +40,7 @@ fnv = "1.0.3"
 arrow = { path = "../arrow" }
 parquet = { path = "../parquet" }
 datafusion-rustyline = "2.0.0-alpha-20180628"
-serde = { version = "1.0.80", features = ["alloc", "rc"] }
+serde = { version = "1.0.80", features = ["rc"] }
 serde_derive = "1.0.80"
 serde_json = "1.0.33"
 sqlparser = "0.2.0"
