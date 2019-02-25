@@ -208,9 +208,9 @@ namespace red_arrow {
 
       inline VALUE ConvertValue(const arrow::Date32Array& array, const int64_t i) {
         const static int32_t JD_UNIX_EPOCH = 2440588; // UNIX epoch in Julian date
+        auto raw_value = array.Value(i);
+        auto days_in_julian = raw_value + JD_UNIX_EPOCH;
         return rb::protect([&]{
-          auto raw_value = array.Value(i);
-          auto days_in_julian = raw_value + JD_UNIX_EPOCH;
           return rb_funcall(cDate, id_jd, 1, LONG2NUM(days_in_julian));
         });
       }
