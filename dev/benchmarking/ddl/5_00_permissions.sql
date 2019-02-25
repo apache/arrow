@@ -70,5 +70,4 @@ GRANT INSERT ON
   , public.language_implementation_version_view
   , public.machine_view
   , public.unit_view
-  , public.summarized_tables
 TO arrow_anonymous;

@@ -17,8 +17,6 @@
   under the License.
 */
 
--- For future fine-grained control over function execution by user group.
-ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON functions FROM public;
 
 -------------------------- TRIGGER FUNCTIONS --------------------------
 -- Views that do not select from a single table or view are not
@@ -571,57 +569,6 @@ $$
     ) returning benchmark_run_id INTO NEW.benchmark_run_id;
 
     RETURN NEW;
-  END
-$$
-LANGUAGE plpgsql;
-
-
--------------------------- IMPORT HELPERS  --------------------------
--- Load from JSON (from https://stackoverflow.com/a/48396608)
--- How to use it in the psql client:
---   \set content `cat /examples/machine.json`
---   select ingest_machine(:'content'::jsonb);
--- INGEST_MACHINE_VIEW
-CREATE OR REPLACE FUNCTION public.ingest_machine_view(from_jsonb jsonb)
-RETURNS integer AS
-$$
-  DECLARE
-    result integer;
-  BEGIN
-    INSERT INTO public.machine_view
-    SELECT * FROM jsonb_populate_record(null::public.machine_view, from_jsonb)
-    RETURNING machine_id INTO result;
-    RETURN result;
-  END
-$$
-LANGUAGE plpgsql;
-
--- INGEST_BENCHMARK_VIEW
-CREATE OR REPLACE FUNCTION public.ingest_benchmark_view(from_jsonb jsonb)
-RETURNS setof integer AS
-$$
-  BEGIN
-    RETURN QUERY
-    INSERT INTO public.benchmark_view
-    SELECT * FROM jsonb_populate_recordset(
-      null::public.benchmark_view
-      , from_jsonb
-    )
-    RETURNING benchmark_id;
-  END
-$$
-LANGUAGE plpgsql;
-
--- INGEST_BENCHMARK_RUN_VIEW
-CREATE OR REPLACE FUNCTION public.ingest_benchmark_run_view(from_jsonb jsonb)
-RETURNS setof bigint AS
-$$
-  BEGIN
-    RETURN QUERY
-    INSERT INTO public.benchmark_run_view
-    SELECT * FROM
-    jsonb_populate_recordset(null::public.benchmark_run_view, from_jsonb)
-    RETURNING benchmark_run_id;
   END
 $$
 LANGUAGE plpgsql;
