@@ -26,7 +26,7 @@
 #'
 #' @export
 read_parquet <- function(file, as_tibble = TRUE, use_threads = TRUE, ...) {
-  tab <- shared_ptr(`arrow::Table`, read_parquet_file(f))
+  tab <- shared_ptr(`arrow::Table`, read_parquet_file(file))
   if (isTRUE(as_tibble)) {
     tab <- as_tibble(tab, use_threads = use_threads)
   }
