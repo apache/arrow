@@ -273,14 +273,14 @@ namespace red_arrow {
 
       inline VALUE ConvertValue(const arrow::StructArray& array, const int64_t i) {
         const auto* struct_type = array.struct_type();
-        const auto nf = struct_type->num_children();
+        const auto n = struct_type->num_children();
         return rb::protect([&] {
           VALUE record = rb_hash_new();
-          for (int k = 0; k < nf; ++k) {
-            auto field_type = struct_type->child(k);
+          for (int j = 0; j < n; ++j) {
+            auto field_type = struct_type->child(j);
             auto& field_name = field_type->name();
             VALUE key = rb_str_new_cstr(field_name.c_str());
-            const auto& field_array = *array.field(k);
+            const auto& field_array = *array.field(j);
             VALUE val = ConvertValue(field_array, i);
             rb_hash_aset(record, key, val);
           }
