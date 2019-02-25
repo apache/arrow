@@ -16,7 +16,6 @@
 // under the License.
 
 #![feature(type_ascription)]
-#![feature(rustc_private)]
 #![feature(specialization)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]

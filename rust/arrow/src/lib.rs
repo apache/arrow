@@ -22,7 +22,6 @@
 //! about the status of Arrow in Rust, see `README.md`.
 
 #![feature(type_ascription)]
-#![feature(rustc_private)]
 #![feature(specialization)]
 // required for matching box in lists
 #![feature(box_syntax, box_patterns)]
