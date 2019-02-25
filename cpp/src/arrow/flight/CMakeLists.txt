@@ -72,16 +72,6 @@ set(ARROW_FLIGHT_SRCS
     server.cc
     types.cc)
 
-if(UNIX)
-  # ARROW-4641: Our gRPC optimizations trigger -Wstrict-aliasing in gcc
-  set_property(SOURCE client.cc
-               APPEND_STRING
-               PROPERTY COMPILE_FLAGS " -fno-strict-aliasing ")
-  set_property(SOURCE server.cc
-               APPEND_STRING
-               PROPERTY COMPILE_FLAGS " -fno-strict-aliasing ")
-endif()
-
 add_arrow_lib(arrow_flight
               SOURCES
               ${ARROW_FLIGHT_SRCS}
