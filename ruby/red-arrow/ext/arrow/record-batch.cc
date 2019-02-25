@@ -156,7 +156,7 @@ namespace red_arrow {
         return rb::protect([&]{
           auto raw_value = std::make_shared<arrow::Decimal128>(array.GetValue(i));
           auto gobj_value = garrow_decimal128_new_raw(&raw_value);
-          return GOBJ2RVAL(gobj_value);
+          return GOBJ2RVAL_UNREF(gobj_value);
         });
       }
 
