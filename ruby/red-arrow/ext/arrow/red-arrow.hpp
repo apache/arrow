@@ -32,7 +32,7 @@ namespace red_arrow {
   extern ID id_jd;
   extern ID id_to_datetime;
 
-  VALUE record_batch_raw_records(int argc, VALUE* argv, VALUE obj);
+  VALUE record_batch_raw_records(VALUE obj);
 
   extern VALUE timeunit_scale_second;
   extern VALUE timeunit_scale_milli;

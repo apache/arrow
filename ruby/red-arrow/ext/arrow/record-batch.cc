@@ -32,7 +32,7 @@ namespace red_arrow {
 
     class ArrayConverter : public arrow::ArrayVisitor {
      public:
-      ArrayConverter(bool convert_decimal) : convert_decimal_(convert_decimal) {}
+      ArrayConverter() {}
 
      protected:
       inline VALUE ConvertValue(const arrow::Array& array, const int64_t i) {
@@ -148,28 +148,12 @@ namespace red_arrow {
         });
       }
 
-      inline VALUE ConvertDecimal128(const arrow::Decimal128Array& array, const int64_t i) {
-        return rb::protect([&]{
-          auto raw_value = std::make_shared<arrow::Decimal128>(array.GetValue(i));
-          auto gobj_value = garrow_decimal128_new_raw(&raw_value);
-          return GOBJ2RVAL_UNREF(gobj_value);
-        });
-      }
-
-      inline VALUE ConvertDecimal128ToBigDecimal(const arrow::Decimal128Array& array, const int64_t i) {
+      inline VALUE ConvertValue(const arrow::Decimal128Array& array, const int64_t i) {
         auto decimal_str = array.FormatValue(i);
         return rb::protect([&]{
           return rb_funcall(rb_cObject, id_BigDecimal, 1,
                             rb_enc_str_new(decimal_str.c_str(), decimal_str.length(), rb_ascii8bit_encoding()));
         });
-      }
-
-      inline VALUE ConvertValue(const arrow::Decimal128Array& array, const int64_t i) {
-        if (convert_decimal_) {
-          return ConvertDecimal128ToBigDecimal(array, i);
-        } else {
-          return ConvertDecimal128(array, i);
-        }
       }
 
       inline VALUE ConvertValue(const arrow::FixedSizeBinaryArray& array, const int64_t i, VALUE buffer) {
@@ -420,15 +404,9 @@ namespace red_arrow {
       }
 
       Status Visit(const arrow::Decimal128Array& array) override {
-        if (convert_decimal_) {
-          return VisitColumn(array, [&](const int64_t i) {
-            return ConvertDecimal128ToBigDecimal(array, i);
-          });
-        } else {
-          return VisitColumn(array, [&](const int64_t i) {
-            return ConvertDecimal128(array, i);
-          });
-        }
+        return VisitColumn(array, [&](const int64_t i) {
+          return ConvertValue(array, i);
+        });
       }
 
       Status Visit(const arrow::DictionaryArray& array) override {
@@ -437,17 +415,14 @@ namespace red_arrow {
       }
 
       virtual Status VisitValue(const int64_t row_index, VALUE value) = 0;
-
-      // Convert Decimal to BigDecimal.
-      const bool convert_decimal_;
     };
 
     class StructArrayConverter : public ArrayConverter {
      public:
       using VisitValueFunc = std::function<Status(const int64_t, VALUE, VALUE)>;
 
-      explicit StructArrayConverter(bool convert_decimal, VisitValueFunc visit_value_func)
-          : ArrayConverter(convert_decimal), visit_value_func_(visit_value_func) {}
+      explicit StructArrayConverter(VisitValueFunc visit_value_func)
+          : ArrayConverter(), visit_value_func_(visit_value_func) {}
 
       Status Convert(const arrow::StructArray& array) {
         const auto* struct_type = array.struct_type();
@@ -500,8 +475,8 @@ namespace red_arrow {
 
     class RawRecordsBuilder : public ArrayConverter {
      public:
-      RawRecordsBuilder(VALUE records, int num_columns, bool convert_decimal=false)
-          : ArrayConverter(convert_decimal), records_(records), num_columns_(num_columns) {}
+      RawRecordsBuilder(VALUE records, int num_columns)
+          : ArrayConverter(), records_(records), num_columns_(num_columns) {}
 
       Status Add(const arrow::RecordBatch& record_batch) {
         const int num_columns = record_batch.num_columns();
@@ -518,7 +493,6 @@ namespace red_arrow {
 
       Status Visit(const arrow::StructArray& array) override {
         StructArrayConverter converter(
-            convert_decimal_,
             [&](const int64_t row_index, VALUE key, VALUE val) {
               VALUE hash = GetValue(row_index);
               (void)rb::protect([&]{
@@ -567,25 +541,7 @@ namespace red_arrow {
   }
 
   VALUE
-  record_batch_raw_records(int argc, VALUE* argv, VALUE obj)
-  {
-    VALUE kwargs;
-    bool convert_decimal = true;
-
-    rb_scan_args(argc, argv, ":", &kwargs);
-    if (!NIL_P(kwargs)) {
-      enum { k_convert_decimal, num_kwargs };
-      static ID kwarg_keys[num_kwargs];
-      VALUE kwarg_vals[num_kwargs];
-      kwarg_keys[k_convert_decimal] = rb_intern("convert_decimal");
-
-      rb_get_kwargs(kwargs, kwarg_keys, 0, num_kwargs, kwarg_vals);
-
-      if (kwarg_vals[k_convert_decimal] != Qundef && !NIL_P(kwarg_vals[k_convert_decimal])) {
-        convert_decimal = RTEST(kwarg_vals[k_convert_decimal]);
-      }
-    }
-
+  record_batch_raw_records(VALUE obj) {
     try {
       const auto gobj_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(obj));
       const auto record_batch = garrow_record_batch_get_raw(gobj_record_batch);
@@ -594,7 +550,7 @@ namespace red_arrow {
       const auto schema = record_batch->schema();
 
       VALUE records = rb::protect([&]{ return rb_ary_new2(num_rows); });
-      RawRecordsBuilder builder(records, num_columns, convert_decimal);
+      RawRecordsBuilder builder(records, num_columns);
       builder.Add(*record_batch);
       return records;
     } catch (rb::State& state) {
