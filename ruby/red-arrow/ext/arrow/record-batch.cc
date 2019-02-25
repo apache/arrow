@@ -163,7 +163,8 @@ namespace red_arrow {
       inline VALUE ConvertDecimal128ToBigDecimal(const arrow::Decimal128Array& array, const int64_t i) {
         auto decimal_str = array.FormatValue(i);
         return rb::protect([&]{
-          return rb_funcall(rb_cObject, id_BigDecimal, 1, rb_str_new_cstr(decimal_str.c_str()));
+          return rb_funcall(rb_cObject, id_BigDecimal, 1,
+                            rb_enc_str_new(decimal_str.c_str(), decimal_str.length(), rb_ascii8bit_encoding()));
         });
       }
 
@@ -279,7 +280,7 @@ namespace red_arrow {
           for (int j = 0; j < n; ++j) {
             auto field_type = struct_type->child(j);
             auto& field_name = field_type->name();
-            VALUE key = rb_str_new_cstr(field_name.c_str());
+            VALUE key = rb_utf8_str_new(field_name.c_str(), field_name.length());
             const auto& field_array = *array.field(j);
             VALUE val = ConvertValue(field_array, i);
             rb_hash_aset(record, key, val);
@@ -489,7 +490,7 @@ namespace red_arrow {
           for (int i = 0; i < nf; ++i) {
             auto field = type->child(i);
             auto& name = field->name();
-            field_names_.push_back(rb_str_new_cstr(name.c_str()));
+            field_names_.push_back(rb_utf8_str_new(name.c_str(), name.length()));
           }
           return Qnil;
         });
