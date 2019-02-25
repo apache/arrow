@@ -296,10 +296,12 @@ def test_union_type():
         ty = pa.union(fields, mode=mode)
         assert ty.mode == 'sparse'
         check_fields(ty, fields)
+        assert ty.type_codes == [0, 1]
     for mode in ('dense', pa.lib.UnionMode_DENSE):
         ty = pa.union(fields, mode=mode)
         assert ty.mode == 'dense'
         check_fields(ty, fields)
+        assert ty.type_codes == [0, 1]
     for mode in ('unknown', 2):
         with pytest.raises(ValueError, match='Invalid union mode'):
             pa.union(fields, mode=mode)
