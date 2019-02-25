@@ -76,7 +76,7 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
                 // sorting guarantees that the list will be the second value
                 dt.sort();
                 match (dt[0], dt[1]) {
-                    (t1, DataType::List(box DataType::Float64)) => {
+                    (t1, DataType::List(e)) if **e == DataType::Float64 => {
                         if t1 == &DataType::Float64 {
                             Ok(DataType::List(Box::new(DataType::Float64)))
                         } else {
@@ -86,7 +86,7 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
                             ])?)))
                         }
                     }
-                    (t1, DataType::List(box DataType::Int64)) => {
+                    (t1, DataType::List(e)) if **e == DataType::Int64 => {
                         if t1 == &DataType::Int64 {
                             Ok(DataType::List(Box::new(DataType::Int64)))
                         } else {
@@ -96,7 +96,7 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
                             ])?)))
                         }
                     }
-                    (t1, DataType::List(box DataType::Boolean)) => {
+                    (t1, DataType::List(e)) if **e == DataType::Boolean => {
                         if t1 == &DataType::Boolean {
                             Ok(DataType::List(Box::new(DataType::Boolean)))
                         } else {
@@ -106,7 +106,7 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
                             ])?)))
                         }
                     }
-                    (t1, DataType::List(box DataType::Utf8)) => {
+                    (t1, DataType::List(e)) if **e == DataType::Utf8 => {
                         if t1 == &DataType::Utf8 {
                             Ok(DataType::List(Box::new(DataType::Utf8)))
                         } else {
@@ -411,19 +411,19 @@ impl<R: Read> Reader<R> {
                         }
                         Ok(Arc::new(builder.finish()) as ArrayRef)
                     }
-                    DataType::List(ref t) => match t {
-                        box DataType::Int8 => self.build_list_array::<Int8Type>(rows, field.name()),
-                        box DataType::Int16 => self.build_list_array::<Int16Type>(rows, field.name()),
-                        box DataType::Int32 => self.build_list_array::<Int32Type>(rows, field.name()),
-                        box DataType::Int64 => self.build_list_array::<Int64Type>(rows, field.name()),
-                        box DataType::UInt8 => self.build_list_array::<UInt8Type>(rows, field.name()),
-                        box DataType::UInt16 => self.build_list_array::<UInt16Type>(rows, field.name()),
-                        box DataType::UInt32 => self.build_list_array::<UInt32Type>(rows, field.name()),
-                        box DataType::UInt64 => self.build_list_array::<UInt64Type>(rows, field.name()),
-                        box DataType::Float32 => self.build_list_array::<Float32Type>(rows, field.name()),
-                        box DataType::Float64 => self.build_list_array::<Float64Type>(rows, field.name()),
-                        box DataType::Boolean => self.build_boolean_list_array(rows, field.name()),
-                        box DataType::Utf8 => {
+                    DataType::List(ref t) => match **t {
+                        DataType::Int8 => self.build_list_array::<Int8Type>(rows, field.name()),
+                        DataType::Int16 => self.build_list_array::<Int16Type>(rows, field.name()),
+                        DataType::Int32 => self.build_list_array::<Int32Type>(rows, field.name()),
+                        DataType::Int64 => self.build_list_array::<Int64Type>(rows, field.name()),
+                        DataType::UInt8 => self.build_list_array::<UInt8Type>(rows, field.name()),
+                        DataType::UInt16 => self.build_list_array::<UInt16Type>(rows, field.name()),
+                        DataType::UInt32 => self.build_list_array::<UInt32Type>(rows, field.name()),
+                        DataType::UInt64 => self.build_list_array::<UInt64Type>(rows, field.name()),
+                        DataType::Float32 => self.build_list_array::<Float32Type>(rows, field.name()),
+                        DataType::Float64 => self.build_list_array::<Float64Type>(rows, field.name()),
+                        DataType::Boolean => self.build_boolean_list_array(rows, field.name()),
+                        DataType::Utf8 => {
                             let values_builder = BinaryBuilder::new(rows.len() * 5);
                             let mut builder = ListBuilder::new(values_builder);
                             for row_index in 0..rows.len() {

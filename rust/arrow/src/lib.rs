@@ -23,8 +23,6 @@
 
 #![feature(type_ascription)]
 #![feature(specialization)]
-// required for matching box in lists
-#![feature(box_patterns)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 
