@@ -18,7 +18,7 @@ FROM ubuntu:14.04
 
 # Install dependencies
 RUN apt update
-RUN apt install -y ccache flex wget curl build-essential python-pip python-dev git libffi-dev
+RUN apt install -y ccache flex wget curl build-essential python-pip git libffi-dev
 
 # Install cmake manylinux1 package
 RUN pip install --upgrade pip
