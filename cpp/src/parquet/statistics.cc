@@ -192,8 +192,7 @@ void TypedRowGroupStatistics<DType>::Update(const T* values, int64_t num_not_nul
   }
 
   T min, max;
-  this->comparator_->minmax_element(values + begin_offset, values + end_offset,
-                                     min, max);
+  this->comparator_->minmax(values + begin_offset, values + end_offset, &min, &max);
 
   SetMinMax(min, max);
 }
@@ -241,7 +240,7 @@ void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
   T min = values[i];
   T max = values[i];
 
-  this->comparator_->minmax_spaced(valid_bits_reader, values, i, length, min, max);
+  this->comparator_->minmax_spaced(valid_bits_reader, values, i, length, &min, &max);
 
   SetMinMax(min, max);
 }

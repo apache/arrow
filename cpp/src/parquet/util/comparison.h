@@ -47,21 +47,22 @@ class CompareDefault : public Comparator {
 
   virtual bool operator()(const T& a, const T& b) { return a < b; }
 
-  virtual void  minmax_element(const T* a, const T* b, T& min, T& max) {
+  virtual void minmax(const T* a, const T* b, T* min, T* max) {
     auto batch_minmax = std::minmax_element(a, b, std::ref(*(this)));
-    min = *batch_minmax.first;
-    max = *batch_minmax.second;
+    *min = *batch_minmax.first;
+    *max = *batch_minmax.second;
   }
 
   virtual void minmax_spaced(::arrow::internal::BitmapReader& valid_bits_reader,
-                             const T* values, int64_t offset, int64_t length,
-                             T& min, T& max) {
-    for (; offset < length; offset++) {
+                             const T* values, const int64_t offset, const int64_t length,
+                             T* min, T* max) {
+    int64_t i = offset;
+    for (; i < length; i++) {
       if (valid_bits_reader.IsSet()) {
-        if ((std::ref(*(this)))(values[offset], min)) {
-          min = values[offset];
-        } else if ((std::ref(*(this)))(max, values[offset])) {
-          max = values[offset];
+        if ((std::ref(*(this)))(values[i], *min)) {
+          *min = values[i];
+        } else if ((std::ref(*(this)))(*max, values[i])) {
+          *max = values[i];
         }
       }
       valid_bits_reader.Next();
