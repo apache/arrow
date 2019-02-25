@@ -39,25 +39,6 @@ prelude: |-
     n_rows = record_batch.n_rows
     n_columns = record_batch.n_columns
     columns = record_batch.columns
-    records = Array.new(n_rows)
-    i = 0
-    while i < n_rows
-      record = Array.new(n_columns)
-      j = 0
-      while j < n_columns
-        record << columns[j][i]
-        j += 1
-      end
-      records << record
-      i += 1
-    end
-    records
-  end
-
-  def pure_ruby_raw_records_convert(record_batch)
-    n_rows = record_batch.n_rows
-    n_columns = record_batch.n_columns
-    columns = record_batch.columns
     records = []
     i = 0
     while i < n_rows
@@ -76,9 +57,5 @@ prelude: |-
 benchmark:
   pure_ruby: |-
     pure_ruby_raw_records(record_batch)
-  pure_ruby_convert: |-
-    pure_ruby_raw_records_convert(record_batch)
   raw_records: |-
-    record_batch.raw_records(convert_decimal: false)
-  raw_records_convert: |-
-    record_batch.raw_records(convert_decimal: true)
+    record_batch.raw_records()
