@@ -94,22 +94,21 @@ namespace type {
 class Any : public TypeClass {
  public:
   Any() : LogicalType(LogicalType::ANY) {}
-
   bool IsInstance(const Expr& expr) const override;
-}
+};
 
 class Null : public TypeClass {
  public:
   Null() : LogicalType(LogicalType::NULL_) {}
-
   bool IsInstance(const Expr& expr) const override;
-}
+};
 
 class Integer : public TypeClass {
  public:
   Integer() : LogicalType(LogicalType::INTEGER) {}
-
   bool IsInstance(const Expr& expr) const override;
-}
+};
+
+  class Int32 :
 
 };

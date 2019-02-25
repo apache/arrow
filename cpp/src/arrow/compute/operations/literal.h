@@ -19,6 +19,7 @@
 
 #include <memory>
 
+#include "arrow/compute/operation.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -37,6 +38,29 @@ class ARROW_EXPORT Literal : public Operation {
  private:
   std::shared_ptr<Scalar> value_;
 };
+
+/// \brief Convert a Scalar into an Array with length 1. Inverse of UnboxScalar
+// class ARROW_EXPORT PromoteScalar : public Operation {
+//  public:
+//   UnboxScalar(std::shared_ptr<ArrayExpr> array);
+
+//   Status ToExpr(std::shared_ptr<Expr>* out) const override;
+
+//  private:
+//   std::shared_ptr<ArrayExpr> array_;
+// };
+
+/// \brief Convert an Array with length 1 into a Scalar value. Inverse of
+/// PromoteScalar
+// class ARROW_EXPORT UnboxScalar : public Operation {
+//  public:
+//   UnboxScalar(std::shared_ptr<ArrayExpr> array);
+
+//   Status ToExpr(std::shared_ptr<Expr>* out) const override;
+
+//  private:
+//   std::shared_ptr<ArrayExpr> array_;
+// };
 
 }  // namespace compute
 }  // namespace arrow

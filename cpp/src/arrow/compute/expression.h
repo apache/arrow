@@ -116,18 +116,15 @@ class ARROW_EXPORT ArrayExpr : public ValueExpr {
             const std::shared_ptr<TypeClass>& type);
 };
 
-// auto op = ops::Cast(expr1, "string");
-// std::shared_ptr<Expr> out_expr;
-// RETURN_NOT_OK(op.ToExpr(&out_expr));
-// auto expr = ops::Cast(expr, "string").ToExpr();
+template <typename T, typename ObjectType>
+inline bool IsInstance(const ObjectType* obj) {
+  return dynamic_cast<const T*>(obj) != nullptr;
+}
 
-// ops::AnotherOp(expr)
-
-// Status s = expr->Validate();
-// if (!s.ok()) {
-//   expr->op()->Print();
-//   return s;
-// }
+template <typename T, typename ObjectType>
+inline bool IsInstance(const ObjectType& obj) {
+  return dynamic_cast<const T*>(&obj) != nullptr;
+}
 
 // auto string_expr = LiteralString("foo");
 // auto int32_expr = LiteralInt32(5);
@@ -139,17 +136,6 @@ class ARROW_EXPORT ArrayExpr : public ValueExpr {
 // auto op2 = ops::Cast(out_expr, "double");
 // std::shared_ptr<Expr> out_expr2;
 // RETURN_NOT_OK(op2.ToExpr(&out_expr2));
-
-// if (Is<AnyScalar>(expr)) {
-
-// }
-
-// expr.type().id() expr.arity() == ValueExpr::SCALAR
-
-// if (expr.type().id() == ::arrow::Type::NA) {
-
-// }
-
 
 }  // namespace compute
 }  // namespace arrow
