@@ -466,6 +466,14 @@ impl RleDecoder {
                 let mut num_values =
                     cmp::min(max_values - values_read, self.bit_packed_left as usize);
                 if let Some(ref mut bit_reader) = self.bit_reader {
+                    // Previously this buffer was initialized to 0 safely, once per
+                    // RleDecoder. This bloated the struct size to 4KiB, sometimes
+                    // triggering stack overflows. The fix is to only have a single 4KiB
+                    // buffer on the stack at a time; however initializing it every usage
+                    // has a significant performance impact. The usage of unsafe here is a
+                    // compromise that mitigates that impact.
+                    // [i32; N] is a type for which all bit-patterns are valid, which
+                    // means that this use of unsafe is sound. See https://github.com/rust-lang/unsafe-code-guidelines/issues/71
                     let mut index_buf = unsafe {
                         std::mem::MaybeUninit::<[i32; 1024]>::uninit().assume_init()
                     };

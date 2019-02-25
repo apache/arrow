@@ -27,7 +27,7 @@
 //!
 //! let file = File::open(&Path::new("/path/to/file")).unwrap();
 //! let reader = SerializedFileReader::new(file).unwrap();
-//! let iter = reader.get_row_iter::<Row>(None).unwrap();
+//! let iter = reader.get_row_iter::<Row>().unwrap();
 //! for record in iter.map(Result::unwrap) {
 //!     println!("{:?}", record);
 //! }
@@ -58,12 +58,6 @@ pub mod _private {
     /// This is used by `#[derive(Record)]`
     pub use super::display::DisplaySchemaGroup;
 }
-mod predicate {
-    /// This is for forward compatibility when Predicate pushdown and dynamic schemas are
-    /// implemented.
-    pub struct Predicate;
-}
-pub(crate) use self::predicate::Predicate;
 
 /// This trait is implemented on all types that can be read from/written to Parquet files.
 ///

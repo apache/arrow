@@ -40,7 +40,7 @@ use parquet::record::types::Row;
 
 let file = File::open(&Path::new("/path/to/file")).unwrap();
 let reader = SerializedFileReader::new(file).unwrap();
-let iter = reader.get_row_iter::<Row>(None).unwrap();
+let iter = reader.get_row_iter::<Row>().unwrap();
 for record in iter.map(Result::unwrap) {
     println!("{:?}", record);
 }
@@ -62,7 +62,7 @@ struct MyRow {
 
 let file = File::open(&Path::new("/path/to/file")).unwrap();
 let reader = SerializedFileReader::new(file).unwrap();
-let iter = reader.get_row_iter::<MyRow>(None).unwrap();
+let iter = reader.get_row_iter::<MyRow>().unwrap();
 for record in iter.map(Result::unwrap) {
     println!("{}: {}", record.time, record.event);
 }

@@ -35,12 +35,12 @@ mod value_required;
 use super::schemas::ValueSchema;
 use crate::errors::Result;
 
+pub(crate) use self::root::Root;
 pub use self::{
     array::{Bson, Enum, Json},
     group::{Group, Row},
     list::List,
     map::Map,
-    root::Root,
     time::{Date, Time, Timestamp},
     value::Value,
     value_required::ValueRequired,

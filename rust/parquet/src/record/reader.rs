@@ -37,7 +37,7 @@ use super::{
         Bson, Date, Enum, Group, Json, List, Map, Root, Time, Timestamp, Value,
         ValueRequired,
     },
-    Predicate, Reader, Record,
+    Reader, Record,
 };
 use crate::column::reader::ColumnReader;
 use crate::data_type::{
@@ -764,7 +764,7 @@ where
     }
 
     /// Creates row iterator for all row groups in a file.
-    pub fn from_file(_proj: Option<Predicate>, reader: R) -> Result<Self> {
+    pub fn from_file(reader: R) -> Result<Self> {
         let file_schema = reader.metadata().file_metadata().schema_descr_ptr();
         let file_schema = file_schema.root_schema();
         let schema = <Root<T> as Record>::parse(file_schema, None)?.1;
@@ -773,10 +773,7 @@ where
     }
 
     /// Creates row iterator for a specific row group.
-    pub fn from_row_group(
-        _proj: Option<Predicate>,
-        row_group_reader: &RowGroupReader,
-    ) -> Result<Self> {
+    pub fn from_row_group(row_group_reader: &RowGroupReader) -> Result<Self> {
         let file_schema = row_group_reader.metadata().schema_descr_ptr();
         let file_schema = file_schema.root_schema();
         let schema = <Root<T> as Record>::parse(file_schema, None)?.1;
@@ -1052,7 +1049,7 @@ mod tests {
 
     #[test]
     fn test_file_reader_rows_nulls() {
-        let rows = test_file_reader_rows::<Row>("nulls.snappy.parquet", None).unwrap();
+        let rows = test_file_reader_rows::<Row>("nulls.snappy.parquet").unwrap();
 
         let expected_rows = vec![
             row![(
@@ -1096,8 +1093,7 @@ mod tests {
     fn test_file_reader_rows_nulls_typed() {
         type RowTyped = (Option<(Option<i32>,)>,);
 
-        let rows =
-            test_file_reader_rows::<RowTyped>("nulls.snappy.parquet", None).unwrap();
+        let rows = test_file_reader_rows::<RowTyped>("nulls.snappy.parquet").unwrap();
 
         let expected_rows: Vec<RowTyped> = vec![
             (Some((None,)),),
@@ -1115,8 +1111,7 @@ mod tests {
 
     #[test]
     fn test_file_reader_rows_nonnullable() {
-        let rows =
-            test_file_reader_rows::<Row>("nonnullable.impala.parquet", None).unwrap();
+        let rows = test_file_reader_rows::<Row>("nonnullable.impala.parquet").unwrap();
 
         let expected_rows = vec![row![
             ("ID".to_string(), Value::I64(8)),
@@ -1180,8 +1175,8 @@ mod tests {
             ),
         );
 
-        let rows = test_file_reader_rows::<RowTyped>("nonnullable.impala.parquet", None)
-            .unwrap();
+        let rows =
+            test_file_reader_rows::<RowTyped>("nonnullable.impala.parquet").unwrap();
 
         let expected_rows: Vec<RowTyped> = vec![(
             8,
@@ -1202,7 +1197,7 @@ mod tests {
 
     #[test]
     fn test_file_reader_rows_nullable() {
-        let rows = test_file_reader_rows::<Row>("nullable.impala.parquet", None).unwrap();
+        let rows = test_file_reader_rows::<Row>("nullable.impala.parquet").unwrap();
 
         let expected_rows = vec![
             row![
@@ -1581,8 +1576,7 @@ mod tests {
             )>,
         );
 
-        let rows =
-            test_file_reader_rows::<RowTyped>("nullable.impala.parquet", None).unwrap();
+        let rows = test_file_reader_rows::<RowTyped>("nullable.impala.parquet").unwrap();
 
         let expected_rows: Vec<RowTyped> = vec![
             (
@@ -1993,10 +1987,9 @@ mod tests {
         // Array field `phoneNumbers` does not contain LIST annotation.
         // We parse it as struct with `phone` repeated field as array.
         let rows =
-            test_file_reader_rows::<Row>("repeated_no_annotation.parquet", None).unwrap();
+            test_file_reader_rows::<Row>("repeated_no_annotation.parquet").unwrap();
         let rows_typed = test_file_reader_rows::<RepeatedNoAnnotation>(
             "repeated_no_annotation.parquet",
-            None,
         )
         .unwrap();
 
@@ -2080,23 +2073,17 @@ mod tests {
         assert_eq!(expected_rows, rows_typed);
     }
 
-    fn test_file_reader_rows<T>(
-        file_name: &str,
-        schema: Option<Predicate>,
-    ) -> Result<Vec<T>>
+    fn test_file_reader_rows<T>(file_name: &str) -> Result<Vec<T>>
     where
         T: Record,
     {
         let file = get_test_file(file_name);
         let file_reader: SerializedFileReader<_> = SerializedFileReader::new(file)?;
-        let iter = file_reader.get_row_iter(schema)?;
+        let iter = file_reader.get_row_iter()?;
         Ok(iter.map(Result::unwrap).collect())
     }
 
-    fn test_row_group_rows<T>(
-        file_name: &str,
-        schema: Option<Predicate>,
-    ) -> Result<Vec<T>>
+    fn test_row_group_rows<T>(file_name: &str) -> Result<Vec<T>>
     where
         T: Record,
     {
@@ -2105,7 +2092,7 @@ mod tests {
         // Check the first row group only, because files will contain only single row
         // group
         let row_group_reader = file_reader.get_row_group(0).unwrap();
-        let iter = row_group_reader.get_row_iter(schema)?;
+        let iter = row_group_reader.get_row_iter()?;
         Ok(iter.map(Result::unwrap).collect())
     }
 }
