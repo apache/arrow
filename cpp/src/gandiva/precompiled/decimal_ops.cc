@@ -20,98 +20,12 @@
 #include "gandiva/precompiled/decimal_ops.h"
 
 #include <algorithm>
-#include <boost/multiprecision/cpp_int.hpp>
 
 #include "gandiva/decimal_type_util.h"
+#include "gandiva/decimal_xlarge.h"
 #include "gandiva/logging.h"
 
 namespace gandiva {
-
-namespace xlarge {
-
-// Operations that can deal with very large values (256-bit).
-//
-// The intermediate results with decimal can be larger than what can fit into 128-bit,
-// but the final results can fit in 128-bit after scaling down. These functions deal
-// with operations on the intermediate values.
-//
-using boost::multiprecision::int256_t;
-
-// Convert to 256-bit integer from 128-bit decimal.
-static int256_t ConvertToInt256(BasicDecimal128 in) {
-  int256_t v = in.high_bits();
-  v <<= 64;
-  v |= in.low_bits();
-  return v;
-}
-
-// Convert to 128-bit decimal from 256-bit integer.
-// If there is an overflow, the output is undefined.
-static BasicDecimal128 ConvertToDecimal128(int256_t in, bool* overflow) {
-  BasicDecimal128 result;
-  constexpr uint64_t mask = std::numeric_limits<uint64_t>::max();
-
-  int256_t in_abs = abs(in);
-  bool is_negative = in < 0;
-  uint64_t low = in_abs.convert_to<uint64_t>() & mask;
-  in_abs >>= 64;
-  uint64_t high = in_abs.convert_to<uint64_t>() & mask;
-  in_abs >>= 64;
-
-  if (in_abs > 0) {
-    // we've shifted in by 128-bit, so nothing should be left.
-    *overflow = true;
-  } else if (high > std::numeric_limits<int64_t>::max()) {
-    // the high-bit must not be set (signed 128-bit).
-    *overflow = true;
-  } else {
-    result = BasicDecimal128(static_cast<int64_t>(high), low);
-    if (result > BasicDecimal128::GetMaxValue()) {
-      *overflow = true;
-    }
-  }
-  return is_negative ? -result : result;
-}
-
-// Similar to BasicDecimal128::ReduceScaleBy
-static int256_t ReduceScaleBy(int256_t in, int32_t reduce_by) {
-  int256_t divisor;
-
-  if (reduce_by <= DecimalTypeUtil::kMaxPrecision) {
-    divisor = ConvertToInt256(BasicDecimal128::GetScaleMultiplier(reduce_by));
-  } else {
-    DCHECK_LE(reduce_by, 2 * DecimalTypeUtil::kMaxPrecision);
-    divisor = ConvertToInt256(
-        BasicDecimal128::GetScaleMultiplier(DecimalTypeUtil::kMaxPrecision));
-    for (auto i = DecimalTypeUtil::kMaxPrecision; i < reduce_by; i++) {
-      divisor *= 10;
-    }
-  }
-
-  DCHECK_GT(divisor, 0);
-  DCHECK_EQ(divisor % 2, 0);  // multiple of 10.
-  auto result = in / divisor;
-  auto remainder = in % divisor;
-  if (abs(remainder) >= (divisor >> 1)) {
-    result += (in > 0 ? 1 : -1);
-  }
-  return result;
-}
-
-static void MultiplyAndScaleDown(int64_t x_high, uint64_t x_low, int64_t y_high,
-                                 uint64_t y_low, int32_t reduce_scale_by,
-                                 int64_t* out_high, uint64_t* out_low, bool* overflow) {
-  BasicDecimal128 x{x_high, x_low};
-  BasicDecimal128 y{y_high, y_low};
-  auto intermediate_result = ConvertToInt256(x) * ConvertToInt256(y);
-  intermediate_result = ReduceScaleBy(intermediate_result, reduce_scale_by);
-  auto result = ConvertToDecimal128(intermediate_result, overflow);
-  *out_high = result.high_bits();
-  *out_low = result.low_bits();
-}
-
-}  // namespace xlarge
-
 namespace decimalops {
 
 using arrow::BasicDecimal128;
@@ -346,9 +260,9 @@ static BasicDecimal128 MultiplyMaxPrecision(const BasicDecimalScalar128& x,
     int64_t result_high;
     uint64_t result_low;
 
-    gandiva::xlarge::MultiplyAndScaleDown(
-        x.value().high_bits(), x.value().low_bits(), y.value().high_bits(),
-        y.value().low_bits(), delta_scale, &result_high, &result_low, overflow);
+    gdv_multiply_and_scale_down(x.value().high_bits(), x.value().low_bits(),
+                                y.value().high_bits(), y.value().low_bits(), delta_scale,
+                                &result_high, &result_low, overflow);
     result = BasicDecimal128(result_high, result_low);
   } else {
     if (ARROW_PREDICT_TRUE(delta_scale <= 38)) {
