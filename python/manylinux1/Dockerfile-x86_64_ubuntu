@@ -24,6 +24,18 @@ RUN apt install -y ccache flex wget curl build-essential python-pip git
 RUN pip install --upgrade pip
 RUN pip install cmake ninja
 
+
+WORKDIR /
+RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
+
+# Make multibuild work on ubuntu, ignore unicode widths
+RUN mkdir -p /opt/python/cp27-cp27m/bin
+RUN sudo ln /usr/bin/pip -s /opt/python/cp27-cp27m/bin/pip
+
+ADD scripts/build_virtualenvs.sh /
+RUN /build_virtualenvs.sh
+
+
 ADD scripts/build_zlib.sh /
 RUN /build_zlib.sh
 
@@ -75,11 +87,6 @@ ADD scripts/build_glog.sh /
 RUN /build_glog.sh
 ENV GLOG_HOME /usr
 
-WORKDIR /
-RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
-
-ADD scripts/build_virtualenvs.sh /
-RUN /build_virtualenvs.sh
 
 ADD scripts/build_llvm.sh /
 RUN /build_llvm.sh
