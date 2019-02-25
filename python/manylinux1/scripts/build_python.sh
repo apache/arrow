@@ -112,7 +112,6 @@ function build_cpython {
     local py_dist_dir=$(pyver_dist_dir $py_ver)
     curl -fsSLO $PYTHON_DOWNLOAD_URL/$py_dist_dir/Python-$py_ver.tgz
     curl -fsSLO $PYTHON_DOWNLOAD_URL/$py_dist_dir/Python-$py_ver.tgz.asc
-    gpg --verify Python-$py_ver.tgz.asc
     if [ $(lex_pyver $py_ver) -lt $(lex_pyver 3.3) ]; then
         do_cpython_build $py_ver ucs2
         do_cpython_build $py_ver ucs4
@@ -127,14 +126,9 @@ function build_cpython {
 function build_cpythons {
     check_var $GET_PIP_URL
     curl -fsSLO $GET_PIP_URL
-    # Import public keys used to verify downloaded Python source tarballs.
-    # https://www.python.org/static/files/pubkeys.txt
-    gpg --import ${MY_DIR}/cpython-pubkeys.txt
     for py_ver in $@; do
         build_cpython $py_ver
     done
-    # Remove GPG hidden directory.
-    rm -rf /root/.gnupg/
     rm -f get-pip.py
 }
 
