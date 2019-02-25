@@ -182,7 +182,7 @@ function build_openssl {
     local openssl_sha256=$2
     check_var ${openssl_sha256}
     # Can't use curl here because we don't have it yet, OpenSSL must be prefetched
-    check_required_source ${openssl_fname}.tar.gz
+    fetch_source ${openssl_fname}.tar.gz ${OPENSSL_DOWNLOAD_URL}
     check_sha256sum ${openssl_fname}.tar.gz ${openssl_sha256}
     tar -xzf ${openssl_fname}.tar.gz
     (cd ${openssl_fname} && do_openssl_build)
