@@ -17,8 +17,7 @@
  * under the License.
  */
 
-#ifndef RED_ARROW_HPP
-#define RED_ARROW_HPP 1
+#pragma once
 
 #include <arrow/api.h>
 
@@ -56,5 +55,3 @@ namespace red_arrow {
     return Qnil;
   }
 }
-
-#endif  /* RED_ARROW_HPP */
