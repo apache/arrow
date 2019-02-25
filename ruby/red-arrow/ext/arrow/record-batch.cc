@@ -35,10 +35,6 @@ namespace red_arrow {
       ArrayConverter(bool convert_decimal) : convert_decimal_(convert_decimal) {}
 
      protected:
-      Status NotImplemented(char const* message) {
-        return Status::NotImplemented(message);
-      }
-
       inline VALUE ConvertValue(const arrow::Array& array, const int64_t i) {
 #define ARRAY_CONVERT_VALUE_INLINE(TYPE_CLASS) \
   case arrow::TYPE_CLASS::type_id: \
@@ -474,7 +470,7 @@ namespace red_arrow {
 
       Status Visit(const arrow::StructArray& array) override {
         // FIXME
-        return NotImplemented("Struct in Struct is not supported");
+        return Status::NotImplemented("Struct in Struct is not supported");
       }
 
       Status VisitValue(const int64_t row_index, VALUE value) override {
