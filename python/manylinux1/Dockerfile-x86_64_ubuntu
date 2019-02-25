@@ -18,7 +18,7 @@ FROM ubuntu:14.04
 
 # Install dependencies
 RUN apt update
-RUN apt install -y ccache flex wget curl build-essential
+RUN apt install -y ccache flex wget curl build-essential python-pip
 
 ADD scripts/build_zlib.sh /
 RUN /build_zlib.sh
@@ -30,8 +30,7 @@ ADD scripts/build_boost.sh /
 RUN /build_boost.sh
 
 # Install cmake manylinux1 package
-ADD scripts/install_cmake.sh /
-RUN /install_cmake.sh
+RUN pip install cmake ninja
 
 ADD scripts/build_gtest.sh /
 RUN /build_gtest.sh
