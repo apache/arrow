@@ -33,6 +33,7 @@ RUN /build_zlib.sh
 # Install python
 ADD scripts/requirements.txt /
 ADD scripts/build_python.sh /
+ADD scripts/python-tag-abi-tag.py /
 RUN /build_python.sh
 
 WORKDIR /
