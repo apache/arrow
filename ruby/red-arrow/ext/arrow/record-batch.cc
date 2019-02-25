@@ -23,7 +23,7 @@
 
 #include <arrow-glib/decimal128.hpp>
 
-#include <cassert>
+#include <arrow/util/logging.h>
 
 namespace red_arrow {
   namespace {
@@ -286,14 +286,14 @@ namespace red_arrow {
       }
 
       inline VALUE ConvertSparseUnionArray(const arrow::UnionArray& array, const int64_t i) {
-        assert(array.mode() == arrow::UnionMode::SPARSE);
+        DCHECK(array.mode() == arrow::UnionMode::SPARSE);
         const auto* type_ids = array.raw_type_ids();
         const auto& child_array = *array.UnsafeChild(type_ids[i]);
         return ConvertValue(child_array, i);
       }
 
       inline VALUE ConvertDenseUnionArray(const arrow::UnionArray& array, const int64_t i) {
-        assert(array.mode() == arrow::UnionMode::DENSE);
+        DCHECK(array.mode() == arrow::UnionMode::DENSE);
         const auto* type_ids = array.raw_type_ids();
         const auto* value_offsets = array.raw_value_offsets();
         const auto offset = value_offsets[i];
