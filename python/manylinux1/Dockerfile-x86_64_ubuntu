@@ -17,6 +17,7 @@
 FROM ubuntu:14.04
 
 # Install dependencies
+RUN apt update
 RUN apt install -y xz ccache flex wget
 
 ADD scripts/build_zlib.sh /
