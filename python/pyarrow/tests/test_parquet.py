@@ -1900,7 +1900,8 @@ def test_read_table_doesnt_warn(datadir):
 
 def _test_write_to_dataset_with_partitions(base_path,
                                            filesystem=None,
-                                           schema=None):
+                                           schema=None,
+                                           index_name=None):
     # ARROW-1400
     output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
                               'group2': list('eefeffgeee'),
@@ -1908,9 +1909,13 @@ def _test_write_to_dataset_with_partitions(base_path,
                               'nan': [pd.np.nan] * 10,
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
+    # ARROW-4538
+    output_df.index.name = index_name
+
     cols = output_df.columns.tolist()
     partition_by = ['group1', 'group2']
-    output_table = pa.Table.from_pandas(output_df, schema=schema, safe=False)
+    output_table = pa.Table.from_pandas(output_df, schema=schema, safe=False,
+                                        preserve_index=True)
     pq.write_to_dataset(output_table, base_path, partition_by,
                         filesystem=filesystem)
 
@@ -1930,6 +1935,10 @@ def _test_write_to_dataset_with_partitions(base_path,
     # ARROW-2209: Ensure the dataset schema also includes the partition columns
     dataset_cols = set(dataset.schema.to_arrow_schema().names)
     assert dataset_cols == set(output_table.schema.names)
+
+    # ARROW-4538
+    if index_name is not None:
+        assert index_name in dataset_cols
 
     input_table = dataset.read()
     input_df = input_table.to_pandas()
@@ -1989,6 +1998,11 @@ def test_write_to_dataset_with_partitions_and_schema(tempdir):
                         pa.field('nan', type=pa.int32()),
                         pa.field('date', type=pa.timestamp(unit='us'))])
     _test_write_to_dataset_with_partitions(str(tempdir), schema=schema)
+
+
+def test_write_to_dataset_with_partitions_and_index_name(tempdir):
+    _test_write_to_dataset_with_partitions(str(tempdir),
+                                           index_name='index_name')
 
 
 def test_write_to_dataset_no_partitions(tempdir):
