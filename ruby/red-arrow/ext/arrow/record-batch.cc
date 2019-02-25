@@ -585,10 +585,6 @@ namespace red_arrow {
       }
     }
 
-    if (convert_decimal) {
-      rb_require("bigdecimal");
-    }
-
     try {
       const auto gobj_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(obj));
       const auto record_batch = garrow_record_batch_get_raw(gobj_record_batch);

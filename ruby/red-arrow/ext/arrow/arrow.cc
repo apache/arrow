@@ -39,7 +39,6 @@ extern "C" void Init_arrow() {
   rb_define_method(red_arrow::cArrowRecordBatch, "raw_records",
                    reinterpret_cast<VALUE(*)(ANYARGS)>(red_arrow::record_batch_raw_records), -1);
 
-  rb_require("date");
   red_arrow::cDate = rb_const_get(rb_cObject, rb_intern("Date"));
 
   red_arrow::id_BigDecimal = rb_intern("BigDecimal");
