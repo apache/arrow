@@ -27,7 +27,7 @@
 
 namespace gandiva {
 
-namespace verylarge {
+namespace xlarge {
 
 // Operations that can deal with very large values (256-bit).
 //
@@ -110,7 +110,7 @@ static void MultiplyAndScaleDown(int64_t x_high, uint64_t x_low, int64_t y_high,
   *out_low = result.low_bits();
 }
 
-}  // namespace verylarge
+}  // namespace xlarge
 
 namespace decimalops {
 
@@ -346,7 +346,7 @@ static BasicDecimal128 MultiplyMaxPrecision(const BasicDecimalScalar128& x,
     int64_t result_high;
     uint64_t result_low;
 
-    gandiva::verylarge::MultiplyAndScaleDown(
+    gandiva::xlarge::MultiplyAndScaleDown(
         x.value().high_bits(), x.value().low_bits(), y.value().high_bits(),
         y.value().low_bits(), delta_scale, &result_high, &result_low, overflow);
     result = BasicDecimal128(result_high, result_low);
