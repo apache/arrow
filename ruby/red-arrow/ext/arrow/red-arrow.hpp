@@ -58,6 +58,6 @@ inline VALUE time_unit_to_scale(arrow::TimeUnit::type unit) {
   return Qnil;
 }
 
-}  // namesapce red_arrow
+}
 
 #endif  /* RED_ARROW_HPP */

@@ -33,7 +33,7 @@ VALUE timeunit_scale_milli;
 VALUE timeunit_scale_micro;
 VALUE timeunit_scale_nano;
 
-}  // namespace rb
+}
 
 extern "C" void Init_arrow() {
   red_arrow::mArrow = rb_const_get_at(rb_cObject, rb_intern("Arrow"));

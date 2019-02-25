@@ -566,7 +566,7 @@ class RawRecordsBuilder : public ArrayConverter {
   const int num_columns_;
 };
 
-}  // namespace
+}
 
 VALUE
 record_batch_raw_records(int argc, VALUE* argv, VALUE obj)
@@ -610,4 +610,4 @@ record_batch_raw_records(int argc, VALUE* argv, VALUE obj)
   return Qnil; // unreachable
 }
 
-}  // namespace red_arrow
+}
