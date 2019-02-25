@@ -218,9 +218,9 @@ namespace red_arrow {
       inline VALUE ConvertValue(const arrow::Date64Array& array, const int64_t i) {
         return rb::protect([&]{
           auto raw_value = array.Value(i);
-          VALUE msec = LL2NUM(raw_value);
-          VALUE sec = rb_rational_new(msec, INT2NUM(1000));
-          VALUE time_value = rb_time_num_new(sec, Qnil);
+          auto msec = LL2NUM(raw_value);
+          auto sec = rb_rational_new(msec, INT2NUM(1000));
+          auto time_value = rb_time_num_new(sec, Qnil);
           return rb_funcall(time_value, id_to_datetime, 0, 0);
         });
       }
