@@ -92,7 +92,7 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
         timestamp_sec: @timestamp_sec_array.value_data_type,
         timestamp_msec: @timestamp_msec_array.value_data_type,
         timestamp_usec: @timestamp_usec_array.value_data_type,
-        dict: @dict_array.value_data_type
+        dict: @dictionary_array.value_data_type
       )
 
       @record_batch = Arrow::RecordBatch.new(
@@ -107,7 +107,7 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
           @timestamp_sec_array,
           @timestamp_msec_array,
           @timestamp_usec_array,
-          @dict_array
+          @dictionary_array
         ]
       )
 
@@ -121,7 +121,7 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
         @timestamp_values,
         @timestamp_values,
         @timestamp_values,
-        @dict_indices
+        @dictionary_indices
       ]
     end
 
@@ -325,7 +325,7 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
             sub_offset = sub_union_offsets[offset]
             sub_union_children[sub_tid][sub_offset]
           when Arrow::DictionaryArray
-            dict_indices[offset]
+            dictionary_indices[offset]
           when Arrow::StructArray
             child.value_data_type.fields.map {|f|
               [f.name, child.find_field(f.name)[offset]]
