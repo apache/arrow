@@ -75,7 +75,18 @@ static BasicDecimal128 ConvertToDecimal128(int256_t in, bool* overflow) {
 
 // Similar to BasicDecimal128::ReduceScaleBy
 static int256_t ReduceScaleBy(int256_t in, int32_t reduce_by) {
-  auto divisor = ConvertToInt256(BasicDecimal128::GetScaleMultiplier(reduce_by));
+  int256_t divisor;
+
+  if (reduce_by <= DecimalTypeUtil::kMaxPrecision) {
+    divisor = ConvertToInt256(BasicDecimal128::GetScaleMultiplier(reduce_by));
+  } else {
+    DCHECK_LE(reduce_by, 2 * DecimalTypeUtil::kMaxPrecision);
+    divisor = ConvertToInt256(
+        BasicDecimal128::GetScaleMultiplier(DecimalTypeUtil::kMaxPrecision));
+    for (auto i = DecimalTypeUtil::kMaxPrecision; i < reduce_by; i++) {
+      divisor *= 10;
+    }
+  }
 
   DCHECK_GT(divisor, 0);
   DCHECK_EQ(divisor % 2, 0);  // multiple of 10.
@@ -371,9 +382,7 @@ BasicDecimal128 Multiply(const BasicDecimalScalar128& x, const BasicDecimalScala
   if (out_precision < DecimalTypeUtil::kMaxPrecision) {
     // fast-path multiply
     result = x.value() * y.value();
-
-    auto reduce_by = x.scale() + y.scale() - out_scale;
-    result = result.ReduceScaleBy(reduce_by);
+    DCHECK_EQ(x.scale() + y.scale(), out_scale);
     DCHECK(BasicDecimal128::Abs(result) <= BasicDecimal128::GetMaxValue());
   } else if (x.value() == 0 || y.value() == 0) {
     // Handle this separately to avoid divide-by-zero errors.

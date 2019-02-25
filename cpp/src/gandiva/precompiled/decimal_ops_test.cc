@@ -50,6 +50,10 @@ class TestDecimalSql : public ::testing::Test {
                          bool expected_overflow) {
     return Verify(DecimalTypeUtil::kOpMultiply, x, y, expected_result, expected_overflow);
   }
+
+  void MultiplyAndVerifyAllSign(const DecimalScalar128& x, const DecimalScalar128& y,
+                                const DecimalScalar128& expected_result,
+                                bool expected_overflow);
 };
 
 #define EXPECT_DECIMAL_EQ(op, x, y, expected_result, expected_overflow, actual_result, \
@@ -152,58 +156,128 @@ TEST_F(TestDecimalSql, Subtract) {
       DecimalScalar128{"-99999999999999999999999999999989999990", 38, 6});
 }
 
+void TestDecimalSql::MultiplyAndVerifyAllSign(const DecimalScalar128& left,
+                                              const DecimalScalar128& right,
+                                              const DecimalScalar128& expected_output,
+                                              bool expected_overflow) {
+  // both +ve
+  MultiplyAndVerify(left, right, expected_output, expected_overflow);
+
+  // left -ve
+  MultiplyAndVerify(-left, right, -expected_output, expected_overflow);
+
+  // right -ve
+  MultiplyAndVerify(left, -right, -expected_output, expected_overflow);
+
+  // both -ve
+  MultiplyAndVerify(-left, -right, expected_output, expected_overflow);
+}
+
 TEST_F(TestDecimalSql, Multiply) {
-#if 0
-  // fast-path : both +ve
-  MultiplyAndVerify(DecimalScalar128{"201", 10, 3},    // x
-                    DecimalScalar128{"301", 10, 2},    // y
-                    DecimalScalar128{"60501", 21, 5},  // expected
+  const std::string thirty_five_9s(35, '9');
+  const std::string thirty_six_9s(36, '9');
+  const std::string thirty_eight_9s(38, '9');
+
+  // fast-path : out_precision < 38
+  MultiplyAndVerifyAllSign(DecimalScalar128{"201", 10, 3},    // x
+                           DecimalScalar128{"301", 10, 2},    // y
+                           DecimalScalar128{"60501", 21, 5},  // expected
+                           false);                            // overflow
+
+  // right 0
+  MultiplyAndVerify(DecimalScalar128{"201", 20, 3},  // x
+                    DecimalScalar128{"0", 20, 2},    // y
+                    DecimalScalar128{"0", 38, 5},    // expected
+                    false);                          // overflow
+
+  // left 0
+  MultiplyAndVerify(DecimalScalar128{"0", 20, 3},    // x
+                    DecimalScalar128{"301", 20, 2},  // y
+                    DecimalScalar128{"0", 38, 5},    // expected
+                    false);                          // overflow
+
+  // out_precision == 38, small input values, no trimming of scale (scale <= 6 doesn't
+  // get trimmed).
+  MultiplyAndVerify(DecimalScalar128{"201", 20, 3},    // x
+                    DecimalScalar128{"301", 20, 2},    // y
+                    DecimalScalar128{"60501", 38, 5},  // expected
                     false);                            // overflow
 
-  // fast-path : right -ve
-  MultiplyAndVerify(DecimalScalar128{"201", 10, 3},    // x
-                    DecimalScalar128{"-301", 10, 2},    // y
-                    DecimalScalar128{"-60501", 21, 5},  // expected
-                    false);                            // overflow
-
-  // fast-path : left -ve
-  MultiplyAndVerify(DecimalScalar128{"-201", 10, 3},    // x
-                    DecimalScalar128{"301", 10, 2},    // y
-                    DecimalScalar128{"-60501", 21, 5},  // expected
-                    false);                            // overflow
-#endif
-
-  // fast-path : both -ve
-  MultiplyAndVerify(DecimalScalar128{"-201", 10, 3},    // x
-                    DecimalScalar128{"-301", 10, 2},    // y
-                    DecimalScalar128{"60501", 21, 5},  // expected
-                    false);                            // overflow
-#if 0
-  MultiplyAndVerify(DecimalScalar128{"201", 30, 3},    // x
-                    DecimalScalar128{"301", 30, 3},    // y
-                    DecimalScalar128{"60501", 38, 6},  // expected
-                    false);                            // overflow
-
-  // max precision
-  MultiplyAndVerify(
-      DecimalScalar128{"09999999999999999999999999999999000000", 38, 5},  // x
-      DecimalScalar128{"100", 38, 7},                                     // y
-      DecimalScalar128{"999999999999999999999999999999900", 38, 6},  // expected
+  // out_precision == 38, large values, no trimming of scale (scale <= 6 doesn't
+  // get trimmed).
+  MultiplyAndVerifyAllSign(
+      DecimalScalar128{"201", 20, 3},                                     // x
+      DecimalScalar128{thirty_five_9s, 35, 2},                            // y
+      DecimalScalar128{"20099999999999999999999999999999999799", 38, 5},  // expected
       false);                                                             // overflow
 
-  // Both -ve
-  MultiplyAndVerify(DecimalScalar128{"-201", 30, 3},   // x
-                    DecimalScalar128{"-301", 30, 2},   // y
-                    DecimalScalar128{"605010", 38, 5},  // expected
-                    false);                            // overflow
+  // out_precision == 38, very large values, no trimming of scale (scale <= 6 doesn't
+  // get trimmed). overflow expected.
+  MultiplyAndVerifyAllSign(DecimalScalar128{"201", 20, 3},          // x
+                           DecimalScalar128{thirty_six_9s, 35, 2},  // y
+                           DecimalScalar128{"0", 38, 5},            // expected
+                           true);                                   // overflow
 
-  // -ve and max precision
-  MultiplyAndVerify(
-      DecimalScalar128{"-09999999999999999999999999999999000000", 38, 5},  // x
-      DecimalScalar128{"-100", 38, 7},                                     // y
-      DecimalScalar128{"999999999999999999999999999999900", 38, 6},  // expected
-      false);                                                              // overflow
-#endif
+  MultiplyAndVerifyAllSign(DecimalScalar128{"201", 20, 3},            // x
+                           DecimalScalar128{thirty_eight_9s, 35, 2},  // y
+                           DecimalScalar128{"0", 38, 5},              // expected
+                           true);                                     // overflow
+
+  // out_precision == 38, small input values, trimming of scale.
+  MultiplyAndVerifyAllSign(DecimalScalar128{"201", 20, 5},  // x
+                           DecimalScalar128{"301", 20, 5},  // y
+                           DecimalScalar128{"61", 38, 7},   // expected
+                           false);                          // overflow
+
+  // out_precision == 38, large values, trimming of scale.
+  MultiplyAndVerifyAllSign(
+      DecimalScalar128{"201", 20, 5},                                 // x
+      DecimalScalar128{thirty_five_9s, 35, 5},                        // y
+      DecimalScalar128{"2010000000000000000000000000000000", 38, 6},  // expected
+      false);                                                         // overflow
+
+  // out_precision == 38, very large values, trimming of scale (requires convert to 256).
+  MultiplyAndVerifyAllSign(
+      DecimalScalar128{thirty_five_9s, 38, 20},                          // x
+      DecimalScalar128{thirty_six_9s, 38, 20},                           // y
+      DecimalScalar128{"9999999999999999999999999999999999890", 38, 6},  // expected
+      false);                                                            // overflow
+
+  // out_precision == 38, very large values, trimming of scale (requires convert to 256).
+  // should cause overflow.
+  MultiplyAndVerifyAllSign(DecimalScalar128{thirty_five_9s, 38, 4},  // x
+                           DecimalScalar128{thirty_six_9s, 38, 4},   // y
+                           DecimalScalar128{"0", 38, 6},             // expected
+                           true);                                    // overflow
+
+  // corner cases.
+  MultiplyAndVerifyAllSign(
+      DecimalScalar128{0, UINT64_MAX, 38, 4},                            // x
+      DecimalScalar128{0, UINT64_MAX, 38, 4},                            // y
+      DecimalScalar128{"3402823669209384634264811192843491082", 38, 6},  // expected
+      false);                                                            // overflow
+
+  MultiplyAndVerifyAllSign(
+      DecimalScalar128{0, UINT64_MAX, 38, 4},                            // x
+      DecimalScalar128{0, INT64_MAX, 38, 4},                             // y
+      DecimalScalar128{"1701411834604692317040171876053197783", 38, 6},  // expected
+      false);                                                            // overflow
+
+  MultiplyAndVerifyAllSign(DecimalScalar128{"201", 38, 38},  // x
+                           DecimalScalar128{"301", 38, 38},  // y
+                           DecimalScalar128{"0", 38, 37},    // expected
+                           false);                           // overflow
+
+  MultiplyAndVerifyAllSign(DecimalScalar128{0, UINT64_MAX, 38, 38},  // x
+                           DecimalScalar128{0, UINT64_MAX, 38, 38},  // y
+                           DecimalScalar128{"0", 38, 37},            // expected
+                           false);                                   // overflow
+
+  MultiplyAndVerifyAllSign(
+      DecimalScalar128{thirty_five_9s, 38, 38},                       // x
+      DecimalScalar128{thirty_six_9s, 38, 38},                        // y
+      DecimalScalar128{"100000000000000000000000000000000", 38, 37},  // expected
+      false);                                                         // overflow
 }
 
 }  // namespace gandiva

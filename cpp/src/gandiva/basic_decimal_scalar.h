@@ -55,4 +55,8 @@ inline bool operator==(const BasicDecimalScalar128& left,
          left.scale() == right.scale();
 }
 
+inline BasicDecimalScalar128 operator-(const BasicDecimalScalar128& operand) {
+  return BasicDecimalScalar128{-operand.value(), operand.precision(), operand.scale()};
+}
+
 }  // namespace gandiva
