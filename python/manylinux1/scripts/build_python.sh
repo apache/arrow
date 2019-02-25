@@ -132,5 +132,64 @@ function build_cpythons {
     rm -f get-pip.py
 }
 
+function do_openssl_build {
+    ./config no-ssl2 no-shared -fPIC --prefix=/usr/local/ssl > /dev/null
+    make > /dev/null
+    make install_sw > /dev/null
+}
+
+
+function check_required_source {
+    local file=$1
+    check_var ${file}
+    if [ ! -f $file ]; then
+        echo "Required source archive must be prefetched to docker/sources/ with prefetch.sh: $file"
+        return 1
+    fi
+}
+
+
+function fetch_source {
+    # This is called both inside and outside the build context (e.g. in Travis) to prefetch
+    # source tarballs, where curl exists (and works)
+    local file=$1
+    check_var ${file}
+    local url=$2
+    check_var ${url}
+    if [ -f ${file} ]; then
+        echo "${file} exists, skipping fetch"
+    else
+        curl -fsSL -o ${file} ${url}/${file}
+    fi
+}
+
+
+function check_sha256sum {
+    local fname=$1
+    check_var ${fname}
+    local sha256=$2
+    check_var ${sha256}
+
+    echo "${sha256}  ${fname}" > ${fname}.sha256
+    sha256sum -c ${fname}.sha256
+    rm -f ${fname}.sha256
+}
+
+
+function build_openssl {
+    local openssl_fname=$1
+    check_var ${openssl_fname}
+    local openssl_sha256=$2
+    check_var ${openssl_sha256}
+    # Can't use curl here because we don't have it yet, OpenSSL must be prefetched
+    check_required_source ${openssl_fname}.tar.gz
+    check_sha256sum ${openssl_fname}.tar.gz ${openssl_sha256}
+    tar -xzf ${openssl_fname}.tar.gz
+    (cd ${openssl_fname} && do_openssl_build)
+    rm -rf ${openssl_fname} ${openssl_fname}.tar.gz
+}
+
+build_openssl $OPENSSL_ROOT $OPENSSL_HASH
+
 mkdir -p /opt/python
 build_cpythons $CPYTHON_VERSIONS
