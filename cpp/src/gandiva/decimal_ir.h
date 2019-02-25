@@ -146,6 +146,9 @@ class DecimalIR : public FunctionIRBuilder {
   // Build the function for decimal subtraction.
   Status BuildSubtract();
 
+  // Build the function for decimal multiplication.
+  Status BuildMultiply();
+
   // Add a trace in IR code.
   void AddTrace(const std::string& fmt, std::vector<llvm::Value*> args);
 

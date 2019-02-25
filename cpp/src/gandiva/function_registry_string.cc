@@ -26,6 +26,9 @@ namespace gandiva {
 #define BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(name) \
   BINARY_RELATIONAL_SAFE_NULL_IF_NULL(name, utf8)
 
+#define UNARY_OCTET_LEN_FN(name) \
+  UNARY_SAFE_NULL_IF_NULL(name, utf8, int32), UNARY_SAFE_NULL_IF_NULL(name, binary, int32)
+
 std::vector<NativeFunction> GetStringFunctionRegistry() {
   static std::vector<NativeFunction> string_fn_registry_ = {
       BINARY_RELATIONAL_SAFE_NULL_IF_NULL_FN(equal),
@@ -37,6 +40,13 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(starts_with),
       BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(ends_with),
+
+      UNARY_OCTET_LEN_FN(octet_length),
+      UNARY_OCTET_LEN_FN(bit_length),
+
+      UNARY_UNSAFE_NULL_IF_NULL(char_length, utf8, int32),
+      UNARY_UNSAFE_NULL_IF_NULL(length, utf8, int32),
+      UNARY_UNSAFE_NULL_IF_NULL(lengthUtf8, binary, int32),
 
       NativeFunction("upper", DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "upper_utf8", NativeFunction::kNeedsContext),

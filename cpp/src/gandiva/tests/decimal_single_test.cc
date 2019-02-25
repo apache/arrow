@@ -61,6 +61,11 @@ class TestDecimalOps : public ::testing::Test {
     Verify(DecimalTypeUtil::kOpSubtract, "subtract", x, y, expected);
   }
 
+  void MultiplyAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
+                         const DecimalScalar128& expected) {
+    Verify(DecimalTypeUtil::kOpMultiply, "multiply", x, y, expected);
+  }
+
  protected:
   arrow::MemoryPool* pool_;
 };
@@ -251,6 +256,19 @@ TEST_F(TestDecimalOps, TestSubtract) {
   SubtractAndVerify(decimal_literal("-201", 30, 3),    // x
                     decimal_literal("301", 30, 2),     // y
                     decimal_literal("-3211", 32, 3));  // expected
+}
+
+// Lots of unit tests for multiply in decimal_ops_test.cc. So, keeping this basic.
+TEST_F(TestDecimalOps, TestMultiply) {
+  // fast-path
+  MultiplyAndVerify(decimal_literal("201", 10, 3),     // x
+                    decimal_literal("301", 10, 2),     // y
+                    decimal_literal("60501", 21, 5));  // expected
+
+  // max precision
+  MultiplyAndVerify(DecimalScalar128(std::string(35, '9'), 38, 20),  // x
+                    DecimalScalar128(std::string(36, '9'), 38, 20),  // x
+                    DecimalScalar128("9999999999999999999999999999999999890", 38, 6));
 }
 
 }  // namespace gandiva
