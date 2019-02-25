@@ -36,11 +36,13 @@ where
             b.append_null()?;
         } else {
             match array.data_type() {
-                &DataType::Time32(_) | &DataType::Time64(_) => match array.time(i) {
-                    Some(time) => b.append_value(time.hour() as i32)?,
-                    None => b.append_null()?,
-                },
-                _ => match array.datetime(i) {
+                &DataType::Time32(_) | &DataType::Time64(_) => {
+                    match array.value_as_time(i) {
+                        Some(time) => b.append_value(time.hour() as i32)?,
+                        None => b.append_null()?,
+                    }
+                }
+                _ => match array.value_as_datetime(i) {
                     Some(dt) => b.append_value(dt.hour() as i32)?,
                     None => b.append_null()?,
                 },

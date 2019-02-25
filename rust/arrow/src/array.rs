@@ -269,12 +269,10 @@ where
 {
     /// Returns value as a chrono `NaiveDateTime`, handling time resolution
     ///
-    /// If a data type cannot be converted to `NaiveDateTime`, a `None` is returned
+    /// If a data type cannot be converted to `NaiveDateTime`, a `None` is returned.
+    /// A valid value is expected, thus the user should first check for validity.
     /// TODO: extract constants into static variables
-    pub fn datetime(&self, i: usize) -> Option<NaiveDateTime> {
-        if !self.is_valid(i) {
-            return None;
-        }
+    pub fn value_as_datetime(&self, i: usize) -> Option<NaiveDateTime> {
         let v = i64::from(self.value(i));
         match &self.data_type() {
             &DataType::Date32(_) => {
@@ -311,8 +309,8 @@ where
     /// Returns value as a chrono `NaiveDate` by using `Self::datetime()`
     ///
     /// If a data type cannot be converted to `NaiveDate`, a `None` is returned
-    pub fn date(&self, i: usize) -> Option<NaiveDate> {
-        match self.datetime(i) {
+    pub fn value_as_date(&self, i: usize) -> Option<NaiveDate> {
+        match self.value_as_datetime(i) {
             Some(datetime) => Some(datetime.date()),
             None => None,
         }
@@ -321,10 +319,7 @@ where
     /// Returns a value as a chrono `NaiveTime`
     ///
     /// `Date32` and `Date64` return UTC midnight as they do not have time resolution
-    pub fn time(&self, i: usize) -> Option<NaiveTime> {
-        if !self.is_valid(i) {
-            return None;
-        }
+    pub fn value_as_time(&self, i: usize) -> Option<NaiveTime> {
         match &self.data_type() {
             &DataType::Time32(unit) => {
                 // safe to immediately cast to u32 as `self.value(i)` is i32
@@ -360,7 +355,7 @@ where
                     _ => None,
                 }
             }
-            &DataType::Timestamp(_) => match self.datetime(i) {
+            &DataType::Timestamp(_) => match self.value_as_datetime(i) {
                 Some(datetime) => Some(datetime.time()),
                 None => None,
             },
@@ -374,13 +369,48 @@ where
 }
 
 impl<T: ArrowNumericType> fmt::Debug for PrimitiveArray<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
         for i in 0..self.len() {
             if self.is_null(i) {
                 write!(f, "  null,\n")?;
             } else {
                 write!(f, "  {:?},\n", self.value(i))?;
+            }
+        }
+        write!(f, "]")
+    }
+}
+
+impl<T: ArrowNumericType + ArrowTemporalType> fmt::Debug for PrimitiveArray<T>
+where
+    i64: std::convert::From<T::Native>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
+        for i in 0..self.len() {
+            if self.is_null(i) {
+                write!(f, "  null,\n")?;
+            } else {
+                match T::get_data_type() {
+                    DataType::Date32(_) | DataType::Date64(_) => {
+                        match self.value_as_date(i) {
+                            Some(date) => write!(f, "  {:?},\n", date)?,
+                            None => write!(f, "  null,\n")?,
+                        }
+                    }
+                    DataType::Time32(_) | DataType::Time64(_) => {
+                        match self.value_as_time(i) {
+                            Some(time) => write!(f, "  {:?},\n", time)?,
+                            None => write!(f, "  null,\n")?,
+                        }
+                    }
+                    DataType::Timestamp(_) => match self.value_as_datetime(i) {
+                        Some(datetime) => write!(f, "  {:?},\n", datetime)?,
+                        None => write!(f, "  null,\n")?,
+                    },
+                    _ => write!(f, "  {:?},\n", "null,\n")?,
+                }
             }
         }
         write!(f, "]")
@@ -1019,7 +1049,7 @@ mod tests {
     #[test]
     fn test_date64_array_from_vec_option() {
         // Test building a primitive array with null values
-        // we use Int32 and Int64 as a backing array, so all Int32 and Int64 convensions work
+        // we use Int32 and Int64 as a backing array, so all Int32 and Int64 conventions work
         let arr: PrimitiveArray<Date64Type> =
             vec![Some(1550902545147), None, Some(1550902545147)].into();
         assert_eq!(3, arr.len());
@@ -1031,7 +1061,10 @@ mod tests {
                 assert!(arr.is_valid(i));
                 assert_eq!(1550902545147, arr.value(i));
                 // roundtrip to and from datetime
-                assert_eq!(1550902545147, arr.datetime(i).unwrap().timestamp_millis());
+                assert_eq!(
+                    1550902545147,
+                    arr.value_as_datetime(i).unwrap().timestamp_millis()
+                );
             } else {
                 assert!(arr.is_null(i));
                 assert!(!arr.is_valid(i));
@@ -1041,9 +1074,6 @@ mod tests {
 
     #[test]
     fn test_time32_millisecond_array_from_vec() {
-        // Test building a primitive array with null values
-        // we use Int32 and Int64 as a backing array, so all Int32 and Int64 convensions work
-
         // 1:        00:00:00.001
         // 37800005: 10:30:00.005
         // 86399210: 23:59:59.210
@@ -1055,9 +1085,9 @@ mod tests {
         let formatted = vec!["00:00:00.001", "10:30:00.005", "23:59:59.210"];
         for i in 0..3 {
             // check that we can't create dates or datetimes from time instances
-            assert_eq!(None, arr.datetime(i));
-            assert_eq!(None, arr.date(i));
-            let time = arr.time(i).unwrap();
+            assert_eq!(None, arr.value_as_datetime(i));
+            assert_eq!(None, arr.value_as_date(i));
+            let time = arr.value_as_time(i).unwrap();
             assert_eq!(formatted[i], time.format("%H:%M:%S%.3f").to_string());
         }
     }
@@ -1078,9 +1108,9 @@ mod tests {
         let formatted = vec!["00:00:00.001", "10:30:00.005", "23:59:59.210"];
         for i in 0..3 {
             // check that we can't create dates or datetimes from time instances
-            assert_eq!(None, arr.datetime(i));
-            assert_eq!(None, arr.date(i));
-            let time = arr.time(i).unwrap();
+            assert_eq!(None, arr.value_as_datetime(i));
+            assert_eq!(None, arr.value_as_date(i));
+            let time = arr.value_as_time(i).unwrap();
             dbg!(time);
             assert_eq!(formatted[i], time.format("%H:%M:%S%.3f").to_string());
         }
@@ -1098,17 +1128,6 @@ mod tests {
         let arr = Int32Array::new(5, buf, 0, 0);
         assert_eq!(
             "PrimitiveArray<Int32>\n[\n  0,\n  1,\n  2,\n  3,\n  4,\n]",
-            format!("{:?}", arr)
-        );
-    }
-
-    #[test]
-    fn test_timestamp_fmt_debug() {
-        // TODO might be preferable to format these as datetime strings
-        let arr: PrimitiveArray<TimestampMillisecondType> =
-            vec![1546214400000, 1546214400000].into();
-        assert_eq!(
-            "PrimitiveArray<Timestamp(Millisecond)>\n[\n  1546214400000,\n  1546214400000,\n]",
             format!("{:?}", arr)
         );
     }
@@ -1145,6 +1164,34 @@ mod tests {
         let arr = builder.finish();
         assert_eq!(
             "PrimitiveArray<Boolean>\n[\n  true,\n  null,\n  false,\n]",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_timestamp_fmt_debug() {
+        let arr: PrimitiveArray<TimestampMillisecondType> =
+            vec![1546214400000, 1546214400000].into();
+        assert_eq!(
+            "PrimitiveArray<Timestamp(Millisecond)>\n[\n  2018-12-31T00:00:00,\n  2018-12-31T00:00:00,\n]",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_date32_fmt_debug() {
+        let arr: PrimitiveArray<Date32Type> = vec![12356, 13548].into();
+        assert_eq!(
+            "PrimitiveArray<Date32(Day)>\n[\n  2003-10-31,\n  2007-02-04,\n]",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_time32second_fmt_debug() {
+        let arr: PrimitiveArray<Time32SecondType> = vec![7201, 60054].into();
+        assert_eq!(
+            "PrimitiveArray<Time32(Second)>\n[\n  02:00:01,\n  16:40:54,\n]",
             format!("{:?}", arr)
         );
     }
