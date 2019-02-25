@@ -28,6 +28,7 @@ module Arrow
     private
     def post_load(repository, namespace)
       require_libraries
+      require_extension_library
     end
 
     def require_libraries
@@ -77,6 +78,10 @@ module Arrow
       require "arrow/timestamp-array-builder"
       require "arrow/timestamp-data-type"
       require "arrow/writable"
+    end
+
+    def require_extension_library
+      require "arrow.so"
     end
 
     def load_object_info(info)

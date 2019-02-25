@@ -27,5 +27,3 @@ module Arrow
 
   Loader.load
 end
-
-require "arrow.so"
