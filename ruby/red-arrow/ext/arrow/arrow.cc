@@ -19,6 +19,8 @@
 
 #include "red-arrow.hpp"
 
+#include <ruby.hpp>
+
 namespace red_arrow {
   VALUE mArrow;
   VALUE cArrowRecordBatch;
@@ -37,7 +39,7 @@ extern "C" void Init_arrow() {
   red_arrow::mArrow = rb_const_get_at(rb_cObject, rb_intern("Arrow"));
   red_arrow::cArrowRecordBatch = rb_const_get_at(red_arrow::mArrow, rb_intern("RecordBatch"));
   rb_define_method(red_arrow::cArrowRecordBatch, "raw_records",
-                   reinterpret_cast<VALUE(*)(ANYARGS)>(red_arrow::record_batch_raw_records), -1);
+                   reinterpret_cast<rb::RawMethod>(red_arrow::record_batch_raw_records), -1);
 
   red_arrow::cDate = rb_const_get(rb_cObject, rb_intern("Date"));
 
