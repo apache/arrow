@@ -17,97 +17,39 @@
   under the License.
 */
 
--- SUMMARIZED_TABLES
-CREATE VIEW public.summarized_tables AS
-    WITH chosen AS (
-          SELECT
-            cls.oid AS id
-            , cls.relname as tbl_name
-          FROM pg_catalog.pg_class AS cls
-          JOIN pg_catalog.pg_namespace AS ns ON cls.relnamespace = ns.oid
-          WHERE
-            cls.relkind = 'r'
-            AND ns.nspname = 'public'
-        ), all_constraints AS (
-          SELECT
-            chosen.id AS tbl_id
-            , chosen.tbl_name
-            , unnest(conkey) AS col_id
-            , 'foreign key' AS col_constraint
-            FROM pg_catalog.pg_constraint
-            JOIN chosen ON chosen.id = conrelid
-            WHERE contype = 'f'
 
-          UNION
-
-          SELECT
-            chosen.id
-            , chosen.tbl_name
-            , unnest(indkey)
-            , 'unique'
-            FROM pg_catalog.pg_index i
-            JOIN chosen ON chosen.id = i.indrelid
-            WHERE i.indisunique
-
-          UNION
-
-          SELECT
-            chosen.id
-            , chosen.tbl_name
-            , unnest(indkey)
-            , 'primary key'
-            FROM pg_catalog.pg_index i
-            JOIN chosen on chosen.id = i.indrelid
-            WHERE i.indisprimary
-        ), gathered_constraints AS (
-          SELECT
-            tbl_id
-            , tbl_name
-            , col_id
-            , string_agg(col_constraint, ', ' ORDER BY col_constraint)
-              AS  col_constraint
-          FROM all_constraints
-          GROUP BY tbl_id, tbl_name, col_id
-    )
+-- _DOCUMENTATION_INGESTION
+CREATE OR REPLACE FUNCTION public._documentation_ingestion()
+RETURNS text AS
+$$
+  WITH ingestion_docs AS (
     SELECT
-      chosen.tbl_name AS table_name
-      , columns.attnum AS column_number
-      , columns.attname AS column_name
-      , typ.typname AS type_name
-      , CASE
-          WHEN columns.attnotnull
-            THEN 'not null'
-          ELSE ''
-        END AS nullable
-      , CASE
-          WHEN defaults.adsrc like 'nextval%'
-            THEN 'serial'
-          ELSE defaults.adsrc
-        END AS default_value
-      , CASE
-          WHEN gc.col_constraint = '' OR gc.col_constraint IS NULL
-            THEN cnstrnt.consrc
-          WHEN cnstrnt.consrc IS NULL
-            THEN gc.col_constraint
-          ELSE gc.col_constraint || ', ' || cnstrnt.consrc
-        END AS description
-    FROM pg_catalog.pg_attribute AS columns
-      JOIN chosen ON columns.attrelid = chosen.id
-      JOIN pg_catalog.pg_type AS typ
-        ON typ.oid = columns.atttypid
-      LEFT JOIN gathered_constraints AS gc
-        ON gc.col_id = columns.attnum
-        AND gc.tbl_id = columns.attrelid
-      LEFT JOIN pg_attrdef AS defaults
-        ON defaults.adrelid = chosen.id
-        AND defaults.adnum = columns.attnum
-      LEFT JOIN pg_catalog.pg_constraint AS cnstrnt
-        ON cnstrnt.conrelid = columns.attrelid
-        AND columns.attrelid = ANY(cnstrnt.conkey)
-    WHERE
-      columns.attnum > 0
-    ORDER BY table_name, column_number;
-
+      proname || E'\n'
+      || rpad('', character_length(proname), '-')
+      || E'\n\n:code:`'
+      || proname || '('
+      || string_agg(a.argname || ' ' || typname , ', ')
+      || E')`\n\n'
+      || description
+      || E'\n\n\nback to `Benchmark data model <benchmark-data-model>`_\n'
+      AS docs
+    FROM pg_catalog.pg_proc
+    JOIN pg_catalog.pg_namespace
+      ON nspname='public'
+      AND pg_namespace.oid = pronamespace
+      AND proname LIKE '%ingest%'
+    JOIN pg_catalog.pg_description
+      ON pg_description.objoid=pg_proc.oid,
+    LATERAL unnest(proargnames, proargtypes) AS a(argname, argtype)
+      JOIN pg_catalog.pg_type
+        ON pg_type.oid = a.argtype
+    GROUP BY proname, description
+  )
+  SELECT
+    string_agg(docs, E'\n\n') AS docs
+  FROM ingestion_docs;
+$$
+LANGUAGE sql STABLE;
 
 -- _DOCUMENTATION_VIEW_DETAILS
 CREATE OR REPLACE FUNCTION public._documentation_view_details(view_name citext)
@@ -132,7 +74,7 @@ $$
       , coalesce(nullable, '')
       , coalesce(default_value, '')
       , coalesce(description, '')
-    FROM public.summarized_tables AS t
+    FROM public.summarized_tables_view AS t
     JOIN view_columns AS v ON v.column_name = t.column_name
     WHERE t.table_name || '_view' = view_name OR t.column_name NOT LIKE '%_id'
     ORDER BY column_order;
@@ -155,20 +97,22 @@ DECLARE
   border text;
 BEGIN
 
-  SELECT greatest(6, max(character_length(v.column_name)))
-  FROM _documentation_view_details(view_name) AS v INTO column_length;
+  -- All of the hard-coded constants here are the string length of the table
+  -- column headers: 'Column', 'Type', 'Nullable', 'Default', 'Description'
+  SELECT greatest(6, max(character_length(column_name)))
+  FROM public._documentation_view_details(view_name) INTO column_length;
 
-  SELECT greatest(4, max(character_length(v.type_name)))
-  FROM _documentation_view_details(view_name) AS v INTO type_length;
+  SELECT greatest(4, max(character_length(type_name)))
+  FROM public._documentation_view_details(view_name) INTO type_length;
 
-  SELECT greatest(8, max(character_length(v.nullable)))
-  FROM _documentation_view_details(view_name) AS v INTO nullable_length;
+  SELECT greatest(8, max(character_length(nullable)))
+  FROM public._documentation_view_details(view_name) INTO nullable_length;
 
-  SELECT greatest(7, max(character_length(v.default_value)))
-  FROM _documentation_view_details(view_name) AS v INTO default_length;
+  SELECT greatest(7, max(character_length(default_value)))
+  FROM public._documentation_view_details(view_name) INTO default_length;
 
-  SELECT greatest(11, max(character_length(v.description)))
-  FROM _documentation_view_details(view_name) AS v INTO description_length;
+  SELECT greatest(11, max(character_length(description)))
+  FROM public._documentation_view_details(view_name) INTO description_length;
 
   SELECT '  ' INTO sep;
 
@@ -182,7 +126,6 @@ BEGIN
       )
     INTO border;
 
-  --WITH entries AS (
   RETURN QUERY
   SELECT
     border
@@ -206,7 +149,7 @@ BEGIN
       , rpad(v.default_value, default_length, ' ')
       , rpad(v.description, description_length, ' ')
     )
-  FROM _documentation_view_details(view_name) AS v
+  FROM public._documentation_view_details(view_name) AS v
   UNION ALL
   SELECT border;
 
@@ -223,21 +166,25 @@ $$
     view_description text;
     view_table_markup text;
   BEGIN
-    SELECT description FROM pg_description
-    WHERE pg_description.objoid=view_name::regclass
+    SELECT description FROM pg_catalog.pg_description
+    WHERE pg_description.objoid = view_name::regclass
     INTO view_description;
 
     SELECT
-      view_name || rpad(E'\n', length(view_name), '-') || E'\n\n' ||
+      view_name || E'\n' || rpad('', length(view_name), '-') || E'\n\n' ||
       view_description || E'\n\n' ||
       string_agg(rst_formatted, E'\n')
     INTO view_table_markup
-    FROM _documentation_view_pieces(view_name);
+    FROM public._documentation_view_pieces(view_name);
 
     RETURN view_table_markup;
   END
 $$
 LANGUAGE plpgsql STABLE;
+COMMENT ON FUNCTION public.documentation_for(citext)
+IS E'Create an ".rst"-formatted table describing a specific view.\n'
+  'Example: SELECT public.documentation_for(''endpoint'');';
+
 
 -- DOCUMENTATION
 CREATE OR REPLACE FUNCTION public.documentation(dotfile_name text)
@@ -245,20 +192,36 @@ RETURNS TABLE (full_text text) AS
 $$
   WITH v AS (
       SELECT
-        relname::citext AS view_name
-      FROM pg_trigger
-      JOIN pg_class ON pg_trigger.tgrelid=pg_class.oid
+        public.documentation_for(relname::citext)
+        || E'\n\nback to `Benchmark data model <benchmark-data-model>`_\n'
+        AS view_documentation
+      FROM pg_catalog.pg_trigger
+      JOIN pg_catalog.pg_class ON pg_trigger.tgrelid = pg_class.oid
       WHERE NOT tgisinternal
   )
   SELECT
-    E'\n\n.. _data-model:\n\nData model\n==========\n\n\n.. graphviz:: '
+    E'\n.. _benchmark-data-model:\n\n'
+    'Benchmark data model\n'
+    '====================\n\n\n'
+    '.. graphviz:: '
     || dotfile_name
-    || E'\n\n\n'
-    || documentation_for(v.view_name)
-    || E'\n\n\nback to `Data model <data-model>`_\n'
-  FROM v;
+    || E'\n\n\n.. _benchmark-ingestion:\n\n'
+      'Benchmark ingestion helper functions\n'
+      '====================================\n\n'
+    || public._documentation_ingestion()
+    || E'\n\n\n.. _benchmark-views:\n\n'
+      'Benchmark views\n'
+      '===============\n\n\n'
+    || string_agg(v.view_documentation, E'\n')
+  FROM v
+  GROUP BY True;
 $$
 LANGUAGE sql STABLE;
+COMMENT ON FUNCTION public.documentation(text)
+IS E'Create an ".rst"-formatted file that shows the columns in '
+  'every insertable view in the "public" schema.\n'
+  'The text argument is the name of the generated dotfile to be included.\n'
+  'Example: SELECT public.documentation(''data_model.dot'');';
 
 
 -- _DOCUMENTATION_DOTFILE_NODE_FOR
@@ -287,7 +250,7 @@ BEGIN
     '    <tr><td port="' || column_name || '"><b>'
     || column_name
     || ' (pk)</b></td></tr>'
-  FROM public.summarized_tables
+  FROM public.summarized_tables_view
   WHERE table_name = tablename
     AND description LIKE '%primary key%'
   UNION ALL
@@ -298,7 +261,7 @@ BEGIN
     || CASE WHEN description LIKE '%unique' THEN ' (u)' ELSE '' END
     || CASE WHEN nullable <> 'not null' THEN ' (o)' ELSE '' END
     || '</td></tr>'
-  FROM public.summarized_tables
+  FROM public.summarized_tables_view
   WHERE table_name = tablename
     AND (description IS NULL OR description  not like '%key%')
   UNION ALL
@@ -308,7 +271,7 @@ BEGIN
     || column_name
     || CASE WHEN description LIKE '%unique' THEN ' (u)' ELSE '' END
     || ' (fk) </td></tr>'
-  FROM public.summarized_tables
+  FROM public.summarized_tables_view
   WHERE table_name = tablename
     AND description LIKE '%foreign key%'
     AND description NOT LIKE '%primary key%'
@@ -379,6 +342,7 @@ CREATE OR REPLACE FUNCTION public.documentation_dotfile()
 RETURNS text AS
 $$
 DECLARE
+  schemaname name := 'public';
   result text;
 BEGIN
   WITH file_contents AS (
@@ -393,16 +357,23 @@ BEGIN
     SELECT
       E'legend\n[fontsize = "14"\nlabel =\n'
       '<<table border="0" cellpadding="0">\n'
-      '  <tr><td><font point-size="16">Legend</font></td></tr>\n'
-      '  <tr><td>pk = primary key</td></tr>\n'
-      '  <tr><td>fk = foreign key</td></tr>\n'
-      '  <tr><td>u = unique</td></tr>\n'
-      '  <tr><td>o = optional</td></tr>\n'
+      '  <tr><td align="left"><font point-size="16">Legend</font></td></tr>\n'
+      '  <tr><td align="left">pk = primary key</td></tr>\n'
+      '  <tr><td align="left">fk = foreign key</td></tr>\n'
+      '  <tr><td align="left">u = unique*</td></tr>\n'
+      '  <tr><td align="left">o = optional</td></tr>\n'
+      '  <tr><td align="left">'
+      '* multiple uniques in the same table are a unique group</td></tr>\n'
       '</table>>\n];'
     UNION ALL
     SELECT
-      public._documentation_dotfile_node_for(relname)
-    FROM pg_class WHERE relkind='r' AND relnamespace = 'public'::regnamespace
+      string_agg(
+        public._documentation_dotfile_node_for(relname),
+        E'\n'  -- Forcing the 'env' table to the end makes a better image
+        ORDER BY (CASE WHEN relname LIKE 'env%' THEN 'z' ELSE relname END)
+    )
+    FROM pg_catalog.pg_class
+      WHERE relkind='r' AND relnamespace = schemaname::regnamespace
     UNION ALL
     SELECT
       public._documentation_dotfile_edges()
@@ -418,3 +389,7 @@ BEGIN
 END
 $$
 LANGUAGE plpgsql STABLE;
+COMMENT ON FUNCTION public.documentation_dotfile()
+IS E'Create a Graphviz dotfile of the data model: '
+  'every table in the "public" schema.\n'
+  'Example: SELECT public.documentation_dotfile();';

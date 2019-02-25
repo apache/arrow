@@ -228,3 +228,97 @@ CREATE OR REPLACE VIEW public.full_benchmark_run_view AS
       ON run.machine_id = machine.machine_id
     JOIN public.environment_view AS env
       ON run.environment_id = env.environment_id;
+
+-- SUMMARIZED_TABLES_VIEW
+CREATE VIEW public.summarized_tables_view AS
+    WITH chosen AS (
+          SELECT
+            cls.oid AS id
+            , cls.relname as tbl_name
+          FROM pg_catalog.pg_class AS cls
+          JOIN pg_catalog.pg_namespace AS ns ON cls.relnamespace = ns.oid
+          WHERE
+            cls.relkind = 'r'
+            AND ns.nspname = 'public'
+        ), all_constraints AS (
+          SELECT
+            chosen.id AS tbl_id
+            , chosen.tbl_name
+            , unnest(conkey) AS col_id
+            , 'foreign key' AS col_constraint
+            FROM pg_catalog.pg_constraint
+            JOIN chosen ON chosen.id = conrelid
+            WHERE contype = 'f'
+
+          UNION
+
+          SELECT
+            chosen.id
+            , chosen.tbl_name
+            , unnest(indkey)
+            , 'unique'
+            FROM pg_catalog.pg_index i
+            JOIN chosen ON chosen.id = i.indrelid
+            WHERE i.indisunique AND NOT i.indisprimary
+
+          UNION
+
+          SELECT
+            chosen.id
+            , chosen.tbl_name
+            , unnest(indkey)
+            , 'primary key'
+            FROM pg_catalog.pg_index i
+            JOIN chosen on chosen.id = i.indrelid
+            WHERE i.indisprimary
+        ), gathered_constraints AS (
+          SELECT
+            tbl_id
+            , tbl_name
+            , col_id
+            , string_agg(col_constraint, ', ' ORDER BY col_constraint)
+              AS  col_constraint
+          FROM all_constraints
+          GROUP BY tbl_id, tbl_name, col_id
+    )
+    SELECT
+      chosen.tbl_name AS table_name
+      , columns.attnum AS column_number
+      , columns.attname AS column_name
+      , typ.typname AS type_name
+      , CASE
+          WHEN columns.attnotnull
+            THEN 'not null'
+          ELSE ''
+        END AS nullable
+      , CASE
+          WHEN defaults.adsrc like 'nextval%'
+            THEN 'serial'
+          ELSE defaults.adsrc
+        END AS default_value
+      , CASE
+          WHEN gc.col_constraint = '' OR gc.col_constraint IS NULL
+            THEN cnstrnt.consrc
+          WHEN cnstrnt.consrc IS NULL
+            THEN gc.col_constraint
+          ELSE gc.col_constraint || ', ' || cnstrnt.consrc
+        END AS description
+    FROM pg_catalog.pg_attribute AS columns
+      JOIN chosen ON columns.attrelid = chosen.id
+      JOIN pg_catalog.pg_type AS typ
+        ON typ.oid = columns.atttypid
+      LEFT JOIN gathered_constraints AS gc
+        ON gc.col_id = columns.attnum
+        AND gc.tbl_id = columns.attrelid
+      LEFT JOIN pg_attrdef AS defaults
+        ON defaults.adrelid = chosen.id
+        AND defaults.adnum = columns.attnum
+      LEFT JOIN pg_catalog.pg_constraint AS cnstrnt
+        ON cnstrnt.conrelid = columns.attrelid
+        AND columns.attrelid = ANY(cnstrnt.conkey)
+    WHERE
+      columns.attnum > 0
+    ORDER BY table_name, column_number;
+COMMENT ON VIEW public.summarized_tables_view
+  IS 'A summary of all columns from all tables in the public schema, '
+  ' identifying nullability, primary/foreign keys, and data type.';

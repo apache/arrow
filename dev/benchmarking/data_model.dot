@@ -37,50 +37,13 @@ legend
 [fontsize = "14"
 label =
 <<table border="0" cellpadding="0">
-  <tr><td><font point-size="16">Legend</font></td></tr>
-  <tr><td>pk = primary key</td></tr>
-  <tr><td>fk = foreign key</td></tr>
-  <tr><td>u = unique</td></tr>
-  <tr><td>o = optional</td></tr>
+  <tr><td align="left"><font point-size="16">Legend</font></td></tr>
+  <tr><td align="left">pk = primary key</td></tr>
+  <tr><td align="left">fk = foreign key</td></tr>
+  <tr><td align="left">u = unique*</td></tr>
+  <tr><td align="left">o = optional</td></tr>
+  <tr><td align="left">* multiple uniques in the same table are a unique group</td></tr>
 </table>>
-];
-project
-[label =
-  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
-    <tr><td border="0"><font point-size="14">project</font></td></tr>
-    <tr><td port="project_id"><b>project_id (pk)</b></td></tr>
-    <tr><td>project_name (u)</td></tr>
-    <tr><td>project_url (u)</td></tr>
-    <tr><td>repo_url (u)</td></tr>
-    <tr><td>last_changed</td></tr>
-  </table>>
-];
-dependencies
-[label =
-  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
-    <tr><td border="0"><font point-size="14">dependencies</font></td></tr>
-    <tr><td port="dependencies_id"><b>dependencies_id (pk)</b></td></tr>
-    <tr><td>dependencies (u)</td></tr>
-  </table>>
-];
-language_implementation_version
-[label =
-  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
-    <tr><td border="0"><font point-size="14">language_implementation_version</font></td></tr>
-    <tr><td port="language_implementation_version_id"><b>language_implementation_version_id (pk)</b></td></tr>
-    <tr><td port="benchmark_language_id"><b>benchmark_language_id (pk)</b></td></tr>
-    <tr><td>language_implementation_version (u)</td></tr>
-  </table>>
-];
-gpu
-[label =
-  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
-    <tr><td border="0"><font point-size="14">gpu</font></td></tr>
-    <tr><td port="gpu_id"><b>gpu_id (pk)</b></td></tr>
-    <tr><td>gpu_information (u)</td></tr>
-    <tr><td>gpu_part_number</td></tr>
-    <tr><td>gpu_product_name</td></tr>
-  </table>>
 ];
 benchmark
 [label =
@@ -95,63 +58,12 @@ benchmark
     <tr><td port="unit_id">unit_id (fk) </td></tr>
   </table>>
 ];
-benchmark_type
+benchmark_language
 [label =
   <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
-    <tr><td border="0"><font point-size="14">benchmark_type</font></td></tr>
-    <tr><td port="benchmark_type_id"><b>benchmark_type_id (pk)</b></td></tr>
-    <tr><td>benchmark_type (u)</td></tr>
-    <tr><td>lessisbetter</td></tr>
-  </table>>
-];
-cpu
-[label =
-  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
-    <tr><td border="0"><font point-size="14">cpu</font></td></tr>
-    <tr><td port="cpu_id"><b>cpu_id (pk)</b></td></tr>
-    <tr><td>cpu_model_name (u)</td></tr>
-    <tr><td>cpu_core_count</td></tr>
-    <tr><td>cpu_thread_count</td></tr>
-    <tr><td>cpu_frequency_max_hz</td></tr>
-    <tr><td>cpu_frequency_min_hz</td></tr>
-    <tr><td>cpu_l1d_cache_bytes</td></tr>
-    <tr><td>cpu_l1i_cache_bytes</td></tr>
-    <tr><td>cpu_l2_cache_bytes</td></tr>
-    <tr><td>cpu_l3_cache_bytes</td></tr>
-  </table>>
-];
-machine
-[label =
-  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
-    <tr><td border="0"><font point-size="14">machine</font></td></tr>
-    <tr><td port="machine_id"><b>machine_id (pk)</b></td></tr>
-    <tr><td>machine_name</td></tr>
-    <tr><td>mac_address (u)</td></tr>
-    <tr><td>memory_bytes</td></tr>
-    <tr><td>cpu_actual_frequency_hz</td></tr>
-    <tr><td>machine_other_attributes (o)</td></tr>
-    <tr><td port="cpu_id">cpu_id (fk) </td></tr>
-    <tr><td port="gpu_id">gpu_id (fk) </td></tr>
-    <tr><td port="os_id">os_id (fk) </td></tr>
-  </table>>
-];
-os
-[label =
-  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
-    <tr><td border="0"><font point-size="14">os</font></td></tr>
-    <tr><td port="os_id"><b>os_id (pk)</b></td></tr>
-    <tr><td>os_name (u)</td></tr>
-    <tr><td>architecture_name (u)</td></tr>
-    <tr><td>kernel_name (u)</td></tr>
-  </table>>
-];
-unit
-[label =
-  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
-    <tr><td border="0"><font point-size="14">unit</font></td></tr>
-    <tr><td port="unit_id"><b>unit_id (pk)</b></td></tr>
-    <tr><td>units (u)</td></tr>
-    <tr><td port="benchmark_type_id">benchmark_type_id (fk) </td></tr>
+    <tr><td border="0"><font point-size="14">benchmark_language</font></td></tr>
+    <tr><td port="benchmark_language_id"><b>benchmark_language_id (pk)</b></td></tr>
+    <tr><td>benchmark_language (u)</td></tr>
   </table>>
 ];
 benchmark_run
@@ -179,12 +91,101 @@ benchmark_run
     <tr><td port="benchmark_id">benchmark_id (u) (fk) </td></tr>
   </table>>
 ];
-benchmark_language
+benchmark_type
 [label =
   <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
-    <tr><td border="0"><font point-size="14">benchmark_language</font></td></tr>
+    <tr><td border="0"><font point-size="14">benchmark_type</font></td></tr>
+    <tr><td port="benchmark_type_id"><b>benchmark_type_id (pk)</b></td></tr>
+    <tr><td>benchmark_type (u)</td></tr>
+    <tr><td>lessisbetter</td></tr>
+  </table>>
+];
+cpu
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">cpu</font></td></tr>
+    <tr><td port="cpu_id"><b>cpu_id (pk)</b></td></tr>
+    <tr><td>cpu_model_name (u)</td></tr>
+    <tr><td>cpu_core_count</td></tr>
+    <tr><td>cpu_thread_count</td></tr>
+    <tr><td>cpu_frequency_max_hz</td></tr>
+    <tr><td>cpu_frequency_min_hz</td></tr>
+    <tr><td>cpu_l1d_cache_bytes</td></tr>
+    <tr><td>cpu_l1i_cache_bytes</td></tr>
+    <tr><td>cpu_l2_cache_bytes</td></tr>
+    <tr><td>cpu_l3_cache_bytes</td></tr>
+  </table>>
+];
+dependencies
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">dependencies</font></td></tr>
+    <tr><td port="dependencies_id"><b>dependencies_id (pk)</b></td></tr>
+    <tr><td>dependencies (u)</td></tr>
+  </table>>
+];
+gpu
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">gpu</font></td></tr>
+    <tr><td port="gpu_id"><b>gpu_id (pk)</b></td></tr>
+    <tr><td>gpu_information (u)</td></tr>
+    <tr><td>gpu_part_number</td></tr>
+    <tr><td>gpu_product_name</td></tr>
+  </table>>
+];
+language_implementation_version
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">language_implementation_version</font></td></tr>
+    <tr><td port="language_implementation_version_id"><b>language_implementation_version_id (pk)</b></td></tr>
     <tr><td port="benchmark_language_id"><b>benchmark_language_id (pk)</b></td></tr>
-    <tr><td>benchmark_language (u)</td></tr>
+    <tr><td>language_implementation_version (u)</td></tr>
+  </table>>
+];
+machine
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">machine</font></td></tr>
+    <tr><td port="machine_id"><b>machine_id (pk)</b></td></tr>
+    <tr><td>machine_name</td></tr>
+    <tr><td>mac_address (u)</td></tr>
+    <tr><td>memory_bytes</td></tr>
+    <tr><td>cpu_actual_frequency_hz</td></tr>
+    <tr><td>machine_other_attributes (o)</td></tr>
+    <tr><td port="cpu_id">cpu_id (fk) </td></tr>
+    <tr><td port="gpu_id">gpu_id (fk) </td></tr>
+    <tr><td port="os_id">os_id (fk) </td></tr>
+  </table>>
+];
+os
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">os</font></td></tr>
+    <tr><td port="os_id"><b>os_id (pk)</b></td></tr>
+    <tr><td>os_name (u)</td></tr>
+    <tr><td>architecture_name (u)</td></tr>
+    <tr><td>kernel_name (u)</td></tr>
+  </table>>
+];
+project
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">project</font></td></tr>
+    <tr><td port="project_id"><b>project_id (pk)</b></td></tr>
+    <tr><td>project_name (u)</td></tr>
+    <tr><td>project_url (u)</td></tr>
+    <tr><td>repo_url (u)</td></tr>
+    <tr><td>last_changed</td></tr>
+  </table>>
+];
+unit
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">unit</font></td></tr>
+    <tr><td port="unit_id"><b>unit_id (pk)</b></td></tr>
+    <tr><td>units (u)</td></tr>
+    <tr><td port="benchmark_type_id">benchmark_type_id (fk) </td></tr>
   </table>>
 ];
 environment
