@@ -18,7 +18,7 @@ FROM ubuntu:14.04
 
 # Install dependencies
 RUN apt update
-RUN apt install -y ccache flex wget curl build-essential python-pip python-dev git zlib1g-dev
+RUN apt install -y ccache flex wget curl build-essential python-pip python-dev git
 
 # Install cmake manylinux1 package
 RUN pip install --upgrade pip
@@ -26,6 +26,12 @@ RUN pip install cmake ninja
 
 # RUN pip install --ignore-installed six
 # RUN pip install --upgrade https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.11.0-cp27-none-linux_x86_64.whl
+
+ADD scripts/build_zlib.sh /
+RUN /build_zlib.sh
+
+ADD scripts/build_openssl.sh /
+RUN /build_openssl.sh
 
 # Install python
 ADD scripts/build_python.sh /
@@ -50,12 +56,6 @@ RUN sudo ln /usr/local/bin/virtualenv -s /opt/python/cp27-cp27mu/bin/virtualenv
 ADD scripts/build_virtualenvs.sh /
 RUN /build_virtualenvs.sh
 
-
-ADD scripts/build_zlib.sh /
-RUN /build_zlib.sh
-
-ADD scripts/build_openssl.sh /
-RUN /build_openssl.sh
 
 ADD scripts/build_boost.sh /
 RUN /build_boost.sh
