@@ -19,6 +19,7 @@
 # under the License.
 #
 set -e
+set -u
 set -o pipefail
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -34,7 +35,6 @@ gpg_key_id=$3
 artifact_dir=$4
 
 docker_image_name=apache-arrow/release-binary
-docker_gpg_ssh_port=10022
 gpg_agent_extra_socket="$(gpgconf --list-dirs agent-extra-socket)"
 if [ $(uname) = "Darwin" ]; then
   docker_uid=10000
@@ -80,27 +80,26 @@ docker_run() {
 }
 
 docker_gpg_ssh() {
+  local ssh_port=$1
+  shift
   ssh \
     -o StrictHostKeyChecking=no \
     -i "${docker_ssh_key}" \
-    -p ${docker_gpg_ssh_port} \
+    -p ${ssh_port} \
     -R "/home/arrow/.gnupg/S.gpg-agent:${gpg_agent_extra_socket}" \
     arrow@127.0.0.1 \
     "$@"
 }
 
 docker_run_gpg_ready() {
-  local docker_container_id_file=/tmp/arrow-binary-gpg-container-id
-  if [ -f ${docker_container_id_file} ]; then
-    docker kill $(cat ${docker_container_id_file}) || :
-    rm -rf ${docker_container_id_file}
-  fi
+  local container_id_dir=$(mktemp -d -t "arrow-binary-gpg-container.XXXXX")
+  local container_id_file=${container_id_dir}/id
   docker \
     run \
     --rm \
     --detach \
-    --cidfile ${docker_container_id_file} \
-    --publish ${docker_gpg_ssh_port}:22 \
+    --cidfile ${container_id_file} \
+    --publish-all \
     --volume "$PWD":/host \
     ${docker_image_name} \
     bash -c "
@@ -110,11 +109,16 @@ if [ \$(id -u) -ne ${docker_uid} ]; then
 fi
 /usr/sbin/sshd -D
 "
-  sleep 1 # Wait for sshd available
-  gpg --export ${gpg_key_id} | docker_gpg_ssh gpg --import
-  docker_gpg_ssh "cd /host && $@"
-  docker kill $(cat ${docker_container_id_file})
-  rm -f ${docker_container_id_file}
+  local container_id=$(cat ${container_id_file})
+  local ssh_port=$(docker port ${container_id} | grep -E -o '[0-9]+$')
+  # Wait for sshd available
+  while ! docker_gpg_ssh ${ssh_port} : > /dev/null 2>&1; do
+    sleep 0.1
+  done
+  gpg --export ${gpg_key_id} | docker_gpg_ssh ${ssh_port} gpg --import
+  docker_gpg_ssh ${ssh_port} "cd /host && $@"
+  docker kill ${container_id}
+  rm -rf ${container_id_dir}
 }
 
 jq() {
@@ -183,7 +187,7 @@ download_files() {
       --fail \
       --location \
       --output ${file} \
-      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file}
+      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file} &
   done
 }
 
@@ -238,10 +242,11 @@ sign_and_upload_file() {
   for suffix in asc sha256 sha512; do
     pushd $(dirname ${local_path})
     local local_path_base=$(basename ${local_path})
-    local output=tmp.${suffix}
+    local output_dir=$(mktemp -d -t "arrow-binary-sign.XXXXX")
+    local output=${output_dir}/tmp.${suffix}
     case $suffix in
       asc)
-        docker_run_gpg_ready gpg \
+        gpg \
           --local-user ${gpg_key_id} \
           --detach-sig \
           --output ${output} \
@@ -254,9 +259,32 @@ sign_and_upload_file() {
         ;;
     esac
     upload_file ${version} ${rc} ${target} ${output} ${upload_path}.${suffix}
-    rm -f ${output}
+    rm -rf ${output_dir}
     popd
   done
+}
+
+upload_deb_file() {
+  local version=$1
+  local rc=$2
+  local distribution=$3
+  local code_name=$4
+  local base_path=$5
+
+  case ${base_path} in
+    *.dsc|*.changes)
+      docker_run_gpg_ready debsign -k${gpg_key_id} --re-sign ${base_path}
+      ;;
+    *.asc|*.sha256|*.sha512)
+      return
+      ;;
+  esac
+  sign_and_upload_file \
+    ${version} \
+    ${rc} \
+    ${distribution} \
+    ${base_path} \
+    pool/${code_name}/main/a/apache-arrow/${base_path}
 }
 
 upload_deb() {
@@ -265,23 +293,8 @@ upload_deb() {
   local distribution=$3
   local code_name=$4
 
-  ensure_version ${version} ${rc} ${distribution}
-
   for base_path in *; do
-    case ${base_path} in
-      *.dsc|*.changes)
-        docker_run_gpg_ready debsign -k${gpg_key_id} --re-sign ${base_path}
-        ;;
-      *.asc|*.sha256|*.sha512)
-        continue
-        ;;
-    esac
-    sign_and_upload_file \
-      ${version} \
-      ${rc} \
-      ${distribution} \
-      ${base_path} \
-      pool/${code_name}/main/a/apache-arrow/${base_path}
+    upload_deb_file ${version} ${rc} ${distribution} ${code_name} ${base_path} &
   done
 }
 
@@ -296,6 +309,7 @@ upload_apt() {
   pushd ${tmp_dir}
 
   download_files ${version} ${rc} ${distribution}
+  wait
 
   pushd ${distribution}-rc
 
@@ -311,7 +325,7 @@ upload_apt() {
     ${rc} \
     ${distribution} \
     ${keyring_name} \
-    ${keyring_name}
+    ${keyring_name} &
 
   for pool_code_name in pool/*; do
     local code_name=$(basename ${pool_code_name})
@@ -355,14 +369,44 @@ upload_apt() {
         ${rc} \
         ${distribution} \
         ${path} \
-        ${path}
+        ${path} &
     done
+    wait
   done
-
   popd
 
   popd
   rm -rf ${tmp_dir}
+}
+
+upload_rpm_file() {
+  local version=$1
+  local rc=$2
+  local distribution=$3
+  local distribution_version=$4
+  local rpm_path=$5
+
+  local upload_path=${distribution_version}
+
+  case ${rpm_path} in
+    *.src.rpm)
+      upload_path=${upload_path}/Source/SPackages
+      ;;
+    *)
+      upload_path=${upload_path}/x86_64/Packages
+      ;;
+  esac
+  upload_path=${upload_path}/${rpm_path}
+  docker_run_gpg_ready rpm \
+    -D "_gpg_name\\ ${gpg_key_id}" \
+    --addsign \
+    ${rpm_path}
+  sign_and_upload_file \
+    ${version} \
+    ${rc} \
+    ${distribution} \
+    ${rpm_path} \
+    ${upload_path}
 }
 
 upload_rpm() {
@@ -371,31 +415,13 @@ upload_rpm() {
   local distribution=$3
   local distribution_version=$4
 
-  local version_name=${version}-rc${rc}
-
-  ensure_version ${version} ${rc} ${distribution}
-
   for rpm_path in *.rpm; do
-    local upload_path=${distribution_version}
-    case ${base_path} in
-      *.src.rpm)
-        upload_path=${upload_path}/Source/SPackages
-        ;;
-      *)
-        upload_path=${upload_path}/x86_64/Packages
-        ;;
-    esac
-    upload_path=${upload_path}/${rpm_path}
-    docker_run_gpg_ready rpm \
-      -D "_gpg_name\\ ${gpg_key_id}" \
-      --addsign \
-      ${rpm_path}
-    sign_and_upload_file \
+    upload_rpm_file \
       ${version} \
       ${rc} \
       ${distribution} \
-      ${rpm_path} \
-      ${upload_path}
+      ${distribution_version} \
+      ${rpm_path} &
   done
 }
 
@@ -412,6 +438,7 @@ upload_yum() {
   pushd ${tmp_dir}
 
   download_files ${version} ${rc} ${distribution}
+  wait
 
   pushd ${distribution}-rc
   local keyring_name=RPM-GPG-KEY-apache-arrow
@@ -421,7 +448,7 @@ upload_yum() {
     ${rc} \
     ${distribution} \
     ${keyring_name} \
-    ${keyring_name}
+    ${keyring_name} &
   for version_dir in $(find . -mindepth 1 -maxdepth 1 -type d); do
     for arch_dir in ${version_dir}/*; do
       mkdir -p ${arch_dir}/repodata/
@@ -432,10 +459,11 @@ upload_yum() {
           ${rc} \
           ${distribution} \
           ${repo_path} \
-          ${repo_path}
+          ${repo_path} &
       done
     done
   done
+  wait
   popd
 
   popd
@@ -446,8 +474,6 @@ upload_python() {
   local version=$1
   local rc=$2
   local target=python
-
-  ensure_version ${version} ${rc} ${target}
 
   for base_path in *; do
     case ${base_path} in
@@ -460,7 +486,7 @@ upload_python() {
       ${rc} \
       ${target} \
       ${base_path} \
-      ${version}-rc${rc}/${base_path}
+      ${version}-rc${rc}/${base_path} &
   done
 }
 
@@ -504,18 +530,22 @@ for dir in *; do
 
   if [ ${is_deb} = "yes" ]; then
     pushd ${dir}
-    upload_deb ${version} ${rc} ${distribution} ${code_name}
+    ensure_version ${version} ${rc} ${distribution}
+    upload_deb ${version} ${rc} ${distribution} ${code_name} &
     popd
   elif [ ${is_rpm} = "yes" ]; then
     pushd ${dir}
-    upload_rpm ${version} ${rc} ${distribution} ${distribution_version}
+    ensure_version ${version} ${rc} ${distribution}
+    upload_rpm ${version} ${rc} ${distribution} ${distribution_version} &
     popd
   elif [ ${is_python} = "yes" ]; then
     pushd ${dir}
-    upload_python ${version} ${rc}
+    ensure_version ${version} ${rc} python
+    upload_python ${version} ${rc} &
     popd
   fi
 done
+wait
 popd
 
 if [ ${have_debian} = "yes" ]; then
