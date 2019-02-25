@@ -401,7 +401,7 @@ Status FileRead(int fd, uint8_t* buffer, int64_t nbytes, int64_t* bytes_read) {
   while (*bytes_read < nbytes) {
     int64_t chunksize =
         std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - *bytes_read);
-#if defined(_MSC_VER)
+#if defined(_WIN32)
     int64_t ret =
         static_cast<int64_t>(_read(fd, buffer, static_cast<uint32_t>(chunksize)));
 #else
@@ -468,7 +468,7 @@ Status FileWrite(int fd, const uint8_t* buffer, const int64_t nbytes) {
   while (ret != -1 && bytes_written < nbytes) {
     int64_t chunksize =
         std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - bytes_written);
-#if defined(_MSC_VER)
+#if defined(_WIN32)
     ret = static_cast<int>(
         _write(fd, buffer + bytes_written, static_cast<uint32_t>(chunksize)));
 #else
