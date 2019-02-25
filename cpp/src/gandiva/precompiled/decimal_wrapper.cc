@@ -45,7 +45,7 @@ void multiply_internal_decimal128_decimal128(int64_t x_high, uint64_t x_low,
   gandiva::BasicDecimalScalar128 y(y_high, y_low, y_precision, y_scale);
   bool overflow;
 
-  // TODO ravindra: handle overflows (ARROW-4570).
+  // TODO ravindra: generate error on overflows (ARROW-4570).
   arrow::BasicDecimal128 out =
       gandiva::decimalops::Multiply(x, y, out_precision, out_scale, &overflow);
   *out_high = out.high_bits();

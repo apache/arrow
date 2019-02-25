@@ -102,14 +102,20 @@ static BasicDecimal128 ConvertToDecimal128(int256_t in, bool* overflow) {
   return is_negative ? -result : result;
 }
 
-// Similar to BasicDecimal128::ReduceScaleBy
+// divide input by 10^reduce_by, and round up the fractional part.
 static int256_t ReduceScaleBy(int256_t in, int32_t reduce_by) {
-  int256_t divisor;
+  DCHECK_GE(reduce_by, 0);
+  DCHECK_LE(reduce_by, 2 * DecimalTypeUtil::kMaxPrecision);
 
+  if (reduce_by == 0) {
+    // nothing to do.
+    return in;
+  }
+
+  int256_t divisor;
   if (reduce_by <= DecimalTypeUtil::kMaxPrecision) {
     divisor = ConvertToInt256(BasicDecimal128::GetScaleMultiplier(reduce_by));
   } else {
-    DCHECK_LE(reduce_by, 2 * DecimalTypeUtil::kMaxPrecision);
     divisor = ConvertToInt256(
         BasicDecimal128::GetScaleMultiplier(DecimalTypeUtil::kMaxPrecision));
     for (auto i = DecimalTypeUtil::kMaxPrecision; i < reduce_by; i++) {
@@ -121,6 +127,7 @@ static int256_t ReduceScaleBy(int256_t in, int32_t reduce_by) {
   DCHECK_EQ(divisor % 2, 0);  // multiple of 10.
   auto result = in / divisor;
   auto remainder = in % divisor;
+  // round up (same as BasicDecimal128::ReduceScaleBy)
   if (abs(remainder) >= (divisor >> 1)) {
     result += (in > 0 ? 1 : -1);
   }
