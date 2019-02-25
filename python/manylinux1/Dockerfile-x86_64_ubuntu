@@ -18,7 +18,7 @@ FROM ubuntu:14.04
 
 # Install dependencies
 RUN apt update
-RUN apt install -y ccache flex wget curl build-essential python-pip python-dev git virtualenv
+RUN apt install -y ccache flex wget curl build-essential python-pip python-dev git
 
 # Install cmake manylinux1 package
 RUN pip install --upgrade pip
@@ -29,9 +29,10 @@ WORKDIR /
 RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
 
 # Make multibuild work on ubuntu, ignore unicode widths
+RUN pip install virtualenv
 RUN mkdir -p /opt/python/cp27-cp27m/bin
 RUN sudo ln /usr/bin/pip -s /opt/python/cp27-cp27m/bin/pip
-RUN sudo ln /usr/bin/virtualenv -s /opt/python/cp27-cp27m/bin/virtualenv
+RUN sudo ln /usr/local/bin/virtualenv -s /opt/python/cp27-cp27m/bin/virtualenv
 
 ADD scripts/build_virtualenvs.sh /
 RUN /build_virtualenvs.sh
