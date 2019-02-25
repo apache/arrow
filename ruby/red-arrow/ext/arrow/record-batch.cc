@@ -20,6 +20,7 @@
 #include "red-arrow.hpp"
 
 #include <ruby.hpp>
+#include <ruby/encoding.h>
 
 #include <arrow-glib/decimal128.hpp>
 
@@ -183,14 +184,16 @@ namespace red_arrow {
         const auto byte_width = array.byte_width();
         const auto offset = i * byte_width;
         const auto ptr = reinterpret_cast<const char*>(array.raw_values());
-        return rb::protect([&]{ return rb_str_new(ptr + offset, byte_width); });
+        return rb::protect([&]{
+          return rb_enc_str_new(ptr + offset, byte_width, rb_ascii8bit_encoding());
+        });
       }
 
       inline VALUE ConvertValue(const arrow::BinaryArray& array, const int64_t i) {
         int32_t length;
         const uint8_t* ptr = array.GetValue(i, &length);
         return rb::protect([&]{
-          return rb_str_new(reinterpret_cast<const char*>(ptr), length);
+          return rb_enc_str_new(reinterpret_cast<const char*>(ptr), length, rb_ascii8bit_encoding());
         });
       }
 
@@ -409,9 +412,10 @@ namespace red_arrow {
 
       Status Visit(const arrow::FixedSizeBinaryArray& array) override {
         const auto byte_width = array.byte_width();
+        const auto ptr = reinterpret_cast<const char*>(array.raw_values());
         VALUE buffer = rb::protect([&]{
           long length = byte_width * array.length();
-          return rb_str_new(reinterpret_cast<const char*>(array.raw_values()), length);
+          return rb_enc_str_new(ptr, length, rb_ascii8bit_encoding());
         });
         return VisitColumn(array, [&](const int64_t i) {
           return ConvertValue(array, i, buffer);
