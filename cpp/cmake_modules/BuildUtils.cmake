@@ -106,7 +106,9 @@ endfunction()
 # \arg OUTPUTS list to append built targets to
 function(ADD_ARROW_LIB LIB_NAME)
   set(options BUILD_SHARED BUILD_STATIC)
-  set(one_value_args SHARED_LINK_FLAGS)
+  set(one_value_args SHARED_LINK_FLAGS
+                     FULL_SO_VERSION
+                     SO_VERSION)
   set(multi_value_args SOURCES OUTPUTS
                        STATIC_LINK_LIBS
                        SHARED_LINK_LIBS
@@ -135,6 +137,18 @@ function(ADD_ARROW_LIB LIB_NAME)
     set(BUILD_STATIC ${ARG_BUILD_STATIC})
   else ()
     set(BUILD_STATIC ${ARROW_BUILD_STATIC})
+  endif()
+
+  # Allow overriding ARROW_FULL_SO_VERSION and ARROW_SO_VERSION
+  if (ARG_FULL_SO_VERSION)
+    set(FULL_SO_VERSION ${ARG_FULL_SO_VERSION})
+  else()
+    set(FULL_SO_VERSION ${ARROW_FULL_SO_VERSION})
+  endif()
+  if (ARG_SO_VERSION)
+    set(SO_VERSION ${ARG_SO_VERSION})
+  else()
+    set(SO_VERSION ${ARROW_SO_VERSION})
   endif()
 
   if(MSVC OR (CMAKE_GENERATOR STREQUAL Xcode))
@@ -219,8 +233,8 @@ function(ADD_ARROW_LIB LIB_NAME)
       PDB_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
       LINK_FLAGS "${ARG_SHARED_LINK_FLAGS}"
       OUTPUT_NAME ${LIB_NAME}
-      VERSION "${ARROW_FULL_SO_VERSION}"
-      SOVERSION "${ARROW_SO_VERSION}")
+      VERSION "${FULL_SO_VERSION}"
+      SOVERSION "${SO_VERSION}")
 
     target_link_libraries(${LIB_NAME}_shared
       LINK_PUBLIC

@@ -81,7 +81,9 @@ endfunction()
 # ----------------------------------------------------------------------
 # Link libraries setup
 
-# TODO(wesm): Handling of ABI/SO version
+project(parquet VERSION ${VERSION})
+set(PARQUET_SO_VERSION ${parquet_VERSION_MAJOR})
+set(PARQUET_FULL_SO_VERSION ${VERSION})
 
 if(ARROW_BUILD_STATIC)
   set(PARQUET_STATIC_LINK_LIBS arrow_static)
@@ -235,7 +237,11 @@ add_arrow_lib(parquet
               SHARED_PRIVATE_LINK_LIBS
               ${PARQUET_SHARED_PRIVATE_LINK_LIBS}
               STATIC_LINK_LIBS
-              ${PARQUET_STATIC_LINK_LIBS})
+              ${PARQUET_STATIC_LINK_LIBS}
+              FULL_SO_VERSION
+              ${PARQUET_FULL_SO_VERSION}
+              SO_VERSION
+              ${PARQUET_SO_VERSION})
 
 add_dependencies(parquet ${PARQUET_LIBRARIES})
 
