@@ -31,6 +31,7 @@ RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild &
 # Make multibuild work on ubuntu, ignore unicode widths
 RUN pip install virtualenv
 RUN mkdir -p /opt/python/cp27-cp27m/bin
+RUN sudo ln /usr/bin/python -s /opt/python/cp27-cp27m/bin/python
 RUN sudo ln /usr/bin/pip -s /opt/python/cp27-cp27m/bin/pip
 RUN sudo ln /usr/local/bin/virtualenv -s /opt/python/cp27-cp27m/bin/virtualenv
 
