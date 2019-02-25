@@ -538,13 +538,21 @@ namespace red_arrow {
       // The number of columns.
       const int num_columns_;
     };
+
+    inline std::shared_ptr<arrow::RecordBatch> record_batch_from_ruby_object(VALUE obj) {
+      GArrowRecordBatch* gobj_record_batch;
+      (void)rb::protect([&]{
+        gobj_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(obj));
+        return Qnil;
+      });
+      return garrow_record_batch_get_raw(gobj_record_batch);
+    }
   }
 
   VALUE
   record_batch_raw_records(VALUE obj) {
     try {
-      const auto gobj_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(obj));
-      const auto record_batch = garrow_record_batch_get_raw(gobj_record_batch);
+      const auto record_batch = record_batch_from_ruby_object(obj);
       const auto num_rows = record_batch->num_rows();
       const auto num_columns = record_batch->num_columns();
       const auto schema = record_batch->schema();
