@@ -228,9 +228,14 @@ class CommandInput(object):
         return getpass.getpass(prompt)
 
     def continue_maybe(self, prompt):
-        result = input("\n%s (y/n): " % prompt)
-        if result.lower() != "y":
-            self.fail("Okay, exiting")
+        while True:
+            result = input("\n%s (y/n): " % prompt)
+            if result.lower() == "y":
+                return
+            elif result.lower() == "n":
+                self.fail("Okay, exiting")
+            else:
+                prompt = "Please input 'y' or 'n'"
 
 
 class PullRequest(object):
