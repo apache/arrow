@@ -54,31 +54,10 @@ struct FindAccumulatorType<I, enable_if_floating_point<I>> {
   using Type = DoubleType;
 };
 
-template <typename I, typename Enable = void>
-struct MaskedValue {};
-
-template <typename I>
-struct MaskedValue<I, enable_if_floating_point<I>> {
-  using CType = typename I::c_type;
-
-  // Floating point masking cannot use multiplication due to NaN propagation. A
-  // better mask would be to cast to the corresponding unsigned integer of same
-  // width, then apply bit mask and cast back.
-  constexpr static CType Apply(bool mask, CType value) { return mask ? value : 0.0; }
-};
-
-template <typename I>
-struct MaskedValue<I, enable_if_integer<I>> {
-  using CType = typename I::c_type;
-
-  constexpr static CType Apply(bool mask, CType value) { return mask * value; }
-};
-
 template <typename ArrowType, typename StateType>
 class SumAggregateFunction final : public AggregateFunctionStaticState<StateType> {
   using CType = typename TypeTraits<ArrowType>::CType;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using Mask = MaskedValue<ArrowType>;
 
   // A small number of elements rounded to the next cacheline. This should
   // amount to a maximum of 4 cachelines when dealing with 8 bytes elements.
@@ -148,13 +127,20 @@ class SumAggregateFunction final : public AggregateFunctionStaticState<StateType
     return local;
   }
 
+  // While this is not branchless, gcc needs this to be in a different function
+  // for it to generate cmov which ends to be slightly faster than
+  // multiplication but safe for handling NaN with doubles.
+  inline CType MaskedValue(bool valid, CType value) const {
+    return valid ? value : 0;
+  }
+
   inline StateType UnrolledSum(uint8_t bits, const CType* values) const {
     StateType local;
 
     if (bits < 0xFF) {
       // Some nulls
       for (size_t i = 0; i < 8; i++) {
-        local.sum += Mask::Apply((bits >> i) & 1U, values[i]);
+        local.sum += MaskedValue(bits & (1U << i), values[i]);
       }
       local.count += BitUtil::kBytePopcount[bits];
     } else {
@@ -217,7 +203,7 @@ class SumAggregateFunction final : public AggregateFunctionStaticState<StateType
 
     return local;
   }
-};
+};  // namespace compute
 
 }  // namespace compute
 }  // namespace arrow
