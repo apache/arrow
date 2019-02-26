@@ -15,7 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from distutils import sysconfig
 import os
+import pprint
 import shutil
 import subprocess
 import sys
@@ -91,9 +93,14 @@ def test_cython_api(tmpdir):
         subprocess_env = test_util.get_modified_env_with_pythonpath()
 
         # Compile extension module
-        subprocess.check_call([sys.executable, 'setup.py',
-                               'build_ext', '--inplace'],
-                              env=subprocess_env)
+        try:
+            subprocess.check_call([sys.executable, 'setup.py',
+                                   'build_ext', '--inplace'],
+                                  env=subprocess_env)
+        except Exception:
+            # Dump debug information
+            pprint.pprint(sysconfig.get_config_vars())
+            raise
 
         # Check basic functionality
         orig_path = sys.path[:]
