@@ -130,9 +130,7 @@ class SumAggregateFunction final : public AggregateFunctionStaticState<StateType
   // While this is not branchless, gcc needs this to be in a different function
   // for it to generate cmov which ends to be slightly faster than
   // multiplication but safe for handling NaN with doubles.
-  inline CType MaskedValue(bool valid, CType value) const {
-    return valid ? value : 0;
-  }
+  inline CType MaskedValue(bool valid, CType value) const { return valid ? value : 0; }
 
   inline StateType UnrolledSum(uint8_t bits, const CType* values) const {
     StateType local;
