@@ -19,8 +19,6 @@ package csv
 
 import (
 	"encoding/csv"
-	"errors"
-	"fmt"
 	"io"
 	"strconv"
 	"sync/atomic"
@@ -29,10 +27,6 @@ import (
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/internal/debug"
 	"github.com/apache/arrow/go/arrow/memory"
-)
-
-var (
-	ErrMismatchFields = errors.New("arrow/csv: number of records mismatch")
 )
 
 // Option configures a CSV reader.
@@ -388,20 +382,6 @@ func (r *Reader) Release() {
 	if atomic.AddInt64(&r.refs, -1) == 0 {
 		if r.cur != nil {
 			r.cur.Release()
-		}
-	}
-}
-
-func validate(schema *arrow.Schema) {
-	for i, f := range schema.Fields() {
-		switch ft := f.Type.(type) {
-		case *arrow.BooleanType:
-		case *arrow.Int8Type, *arrow.Int16Type, *arrow.Int32Type, *arrow.Int64Type:
-		case *arrow.Uint8Type, *arrow.Uint16Type, *arrow.Uint32Type, *arrow.Uint64Type:
-		case *arrow.Float32Type, *arrow.Float64Type:
-		case *arrow.StringType:
-		default:
-			panic(fmt.Errorf("arrow/csv: field %d (%s) has invalid data type %T", i, f.Name, ft))
 		}
 	}
 }
