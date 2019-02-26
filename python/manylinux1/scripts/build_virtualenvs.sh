@@ -38,11 +38,11 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     $PIP install "pandas==0.24.0"
 
     # TensorFlow is not supported for Python 2.7 with unicode width 16 or with Python 3.7
-    # if [ $PYTHON != "2.7" ] || [ $U_WIDTH = "32" ]; then
-    #   if [ $PYTHON != "3.7" ]; then
-    #     $PIP install "tensorflow==1.11.0" "Keras-Preprocessing==1.0.5"
-    #   fi
-    # fi
+    if [ $PYTHON != "2.7" ] || [ $U_WIDTH = "32" ]; then
+      if [ $PYTHON != "3.7" ]; then
+        $PIP install "tensorflow==1.11.0" "Keras-Preprocessing==1.0.5"
+      fi
+    fi
 
 
     echo "=== (${PYTHON}, ${U_WIDTH}) Preparing virtualenv for tests ==="
