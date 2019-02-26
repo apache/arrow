@@ -29,27 +29,6 @@ use arrow::record_batch::RecordBatch;
 use crate::datasource::{RecordBatchIterator, Table};
 use crate::execution::error::Result;
 
-pub struct MemBatchIterator {
-    schema: Arc<Schema>,
-    index: usize,
-    batches: Vec<RecordBatch>,
-}
-
-impl RecordBatchIterator for MemBatchIterator {
-    fn schema(&self) -> &Arc<Schema> {
-        &self.schema
-    }
-
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
-        if self.index < self.batches.len() {
-            self.index += 1;
-            Ok(Some(self.batches[self.index - 1].clone()))
-        } else {
-            Ok(None)
-        }
-    }
-}
-
 pub struct MemTable {
     schema: Arc<Schema>,
     batches: Vec<RecordBatch>,
@@ -58,6 +37,20 @@ pub struct MemTable {
 impl MemTable {
     pub fn new(schema: Arc<Schema>, batches: Vec<RecordBatch>) -> Self {
         Self { schema, batches }
+    }
+
+    /// Create a mem table by reading from another data source
+    pub fn load(t: &Table) -> Self {
+        let schema = t.schema();
+        let it = t.scan(&None, 1024 * 1024);
+        let mut it_mut = it.borrow_mut();
+
+        let mut data: Vec<RecordBatch> = vec![];
+
+        while let Ok(Some(batch)) = it_mut.next() {
+            data.push(batch);
+        }
+        MemTable::new(schema.clone(), data)
     }
 }
 
@@ -91,7 +84,7 @@ impl Table for MemTable {
         ));
 
         Rc::new(RefCell::new(MemBatchIterator {
-            schema: self.schema.clone(),
+            schema: projected_schema.clone(),
             index: 0,
             batches: self
                 .batches
@@ -104,6 +97,27 @@ impl Table for MemTable {
                 })
                 .collect(),
         }))
+    }
+}
+
+pub struct MemBatchIterator {
+    schema: Arc<Schema>,
+    index: usize,
+    batches: Vec<RecordBatch>,
+}
+
+impl RecordBatchIterator for MemBatchIterator {
+    fn schema(&self) -> &Arc<Schema> {
+        &self.schema
+    }
+
+    fn next(&mut self) -> Result<Option<RecordBatch>> {
+        if self.index < self.batches.len() {
+            self.index += 1;
+            Ok(Some(self.batches[self.index - 1].clone()))
+        } else {
+            Ok(None)
+        }
     }
 }
 

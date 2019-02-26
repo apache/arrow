@@ -88,10 +88,7 @@ impl ExecutionContext {
         schema: &Schema,
         has_header: bool,
     ) {
-        self.register_table(
-            name,
-            Rc::new(CsvFile::new(filename, schema, has_header)),
-        );
+        self.register_table(name, Rc::new(CsvFile::new(filename, schema, has_header)));
     }
 
     /// Register a table so that it can be queried from SQL
