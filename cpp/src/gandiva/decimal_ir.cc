@@ -383,6 +383,7 @@ Status DecimalIR::BuildMultiply() {
   ir_builder()->SetInsertPoint(entry);
 
   // Make call to pre-compiled IR function.
+  // TODO: add fast paths.
   auto block = ir_builder()->GetInsertBlock();
   auto out_high_ptr = new llvm::AllocaInst(types()->i64_type(), 0, "out_hi", block);
   auto out_low_ptr = new llvm::AllocaInst(types()->i64_type(), 0, "out_low", block);

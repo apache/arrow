@@ -52,9 +52,9 @@ void ExportedDecimalFunctions::AddMappings(Engine* engine) const {
           types->i64_ptr_type(),  // uint64_t* out_low
           types->i8_ptr_type()};  // bool* overflow
 
-  engine->AddGlobalMappingForFunc("gdv_multiply_and_scale_down",
+  engine->AddGlobalMappingForFunc("gdv_xlarge_multiply_and_scale_down",
                                   types->void_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_multiply_and_scale_down));
+                                  reinterpret_cast<void*>(gdv_xlarge_multiply_and_scale_down));
 }
 }  // namespace gandiva
 
@@ -139,7 +139,7 @@ static int256_t ReduceScaleBy(int256_t in, int32_t reduce_by) {
 
 extern "C" {
 
-void gdv_multiply_and_scale_down(int64_t x_high, uint64_t x_low, int64_t y_high,
+void gdv_xlarge_multiply_and_scale_down(int64_t x_high, uint64_t x_low, int64_t y_high,
                                  uint64_t y_low, int32_t reduce_scale_by,
                                  int64_t* out_high, uint64_t* out_low, bool* overflow) {
   BasicDecimal128 x{x_high, x_low};

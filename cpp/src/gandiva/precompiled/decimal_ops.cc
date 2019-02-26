@@ -227,26 +227,40 @@ BasicDecimal128 Subtract(const BasicDecimalScalar128& x, const BasicDecimalScala
   return Add(x, {-y.value(), y.precision(), y.scale()}, out_precision, out_scale);
 }
 
-// Multiply when the out_precision is 38.
-static BasicDecimal128 MultiplyMaxPrecision(const BasicDecimalScalar128& x,
-                                            const BasicDecimalScalar128& y,
-                                            int32_t out_scale, bool* overflow) {
-  *overflow = false;
+
+// Multiply when the out_precision is 38, and there is no trimming of the scale i.e
+// the intermediate value is the same as the final value.
+static BasicDecimal128 MultiplyMaxPrecisionNoScaleDown(const BasicDecimalScalar128& x,
+                                                       const BasicDecimalScalar128& y,
+                                                       int32_t out_scale, bool* overflow) {
+  DCHECK_EQ(x.scale() + y.scale(), out_scale);
+
   BasicDecimal128 result;
   auto x_abs = BasicDecimal128::Abs(x.value());
   auto y_abs = BasicDecimal128::Abs(y.value());
 
-  auto delta_scale = x.scale() + y.scale() - out_scale;
-  DCHECK_GE(delta_scale, 0);
-  if (delta_scale == 0) {
-    if (x_abs > BasicDecimal128::GetMaxValue() / y_abs) {
-      *overflow = true;
-    } else {
-      // We've verified that the final value will fit into 128 bits.
-      result = x.value() * y.value();
-    }
-    return result;
+  if (x_abs > BasicDecimal128::GetMaxValue() / y_abs) {
+    *overflow = true;
+  } else {
+    // We've verified that the result will fit into 128 bits.
+    *overflow = false;
+    result = x.value() * y.value();
   }
+  return result;
+}
+
+// Multiply when the out_precision is 38, and there is trimming of the scale i.e
+// the intermediate value could be larger than the final value.
+static BasicDecimal128 MultiplyMaxPrecisionAndScaleDown(const BasicDecimalScalar128& x,
+                                            const BasicDecimalScalar128& y,
+                                            int32_t out_scale, bool* overflow) {
+  auto delta_scale = x.scale() + y.scale() - out_scale;
+  DCHECK_GT(delta_scale, 0);
+
+  *overflow = false;
+  BasicDecimal128 result;
+  auto x_abs = BasicDecimal128::Abs(x.value());
+  auto y_abs = BasicDecimal128::Abs(y.value());
 
   // It's possible that the intermediate value does not fit in 128-bits, but the
   // final value will (after scaling down).
@@ -260,7 +274,10 @@ static BasicDecimal128 MultiplyMaxPrecision(const BasicDecimalScalar128& x,
     int64_t result_high;
     uint64_t result_low;
 
-    gdv_multiply_and_scale_down(x.value().high_bits(), x.value().low_bits(),
+    // This requires converting to 256-bit, and we use the boost library for that. To
+    // avoid references to boost from the precompiled-to-ir code (this causes issues
+    // with symbol resolution at runtime), we use a wrapper exported from the CPP code.
+    gdv_xlarge_multiply_and_scale_down(x.value().high_bits(), x.value().low_bits(),
                                 y.value().high_bits(), y.value().low_bits(), delta_scale,
                                 &result_high, &result_low, overflow);
     result = BasicDecimal128(result_high, result_low);
@@ -289,6 +306,20 @@ static BasicDecimal128 MultiplyMaxPrecision(const BasicDecimalScalar128& x,
   return result;
 }
 
+// Multiply when the out_precision is 38.
+static BasicDecimal128 MultiplyMaxPrecision(const BasicDecimalScalar128& x,
+                                            const BasicDecimalScalar128& y,
+                                            int32_t out_scale, bool* overflow) {
+
+  auto delta_scale = x.scale() + y.scale() - out_scale;
+  DCHECK_GE(delta_scale, 0);
+  if (delta_scale == 0) {
+    return MultiplyMaxPrecisionNoScaleDown(x, y, out_scale, overflow);
+  } else {
+    return MultiplyMaxPrecisionAndScaleDown(x, y, out_scale, overflow);
+  }
+}
+
 BasicDecimal128 Multiply(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y,
                          int32_t out_precision, int32_t out_scale, bool* overflow) {
   BasicDecimal128 result;
@@ -297,7 +328,7 @@ BasicDecimal128 Multiply(const BasicDecimalScalar128& x, const BasicDecimalScala
     // fast-path multiply
     result = x.value() * y.value();
     DCHECK_EQ(x.scale() + y.scale(), out_scale);
-    DCHECK(BasicDecimal128::Abs(result) <= BasicDecimal128::GetMaxValue());
+    DCHECK_LE(BasicDecimal128::Abs(result), BasicDecimal128::GetMaxValue());
   } else if (x.value() == 0 || y.value() == 0) {
     // Handle this separately to avoid divide-by-zero errors.
     result = BasicDecimal128(0, 0);
