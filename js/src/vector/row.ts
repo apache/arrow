@@ -108,6 +108,5 @@ export class RowProxyGenerator<T extends { [key: string]: DataType }> {
         const bound = Object.create(this.rowPrototype);
         bound[kRowIndex] = rowIndex;
         return bound;
-        //return new this.RowProxy(rowIndex);
     }
 }
