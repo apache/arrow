@@ -136,7 +136,6 @@ else
 
   # More thorough testing happens outsite of the build to prevent
   # packaging issues like ARROW-4372
-  # mv dist/*.tar.gz /io/dist
-  mv dist/pyarrow-*.whl /io/dist
+  mv dist/*.tar.gz /io/dist
   mv repaired_wheels/*.whl /io/dist
 fi
