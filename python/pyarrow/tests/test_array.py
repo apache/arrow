@@ -421,7 +421,8 @@ def test_union_from_dense_with_field_name():
     types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
     value_offsets = pa.array([0, 0, 2, 1, 1, 2, 3], type='int32')
 
-    result = pa.UnionArray.from_dense(types, value_offsets, [binary, int64], ['bin', 'int'])
+    result = pa.UnionArray.from_dense(types, value_offsets, [binary, int64],
+                                      ['bin', 'int'])
     ty = result.type
 
     assert result.to_pylist() == [b'a', 1, b'c', b'b', 2, 3, b'd']
@@ -435,7 +436,8 @@ def test_union_from_dense_with_type_codes():
     types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
     value_offsets = pa.array([0, 0, 2, 1, 1, 2, 3], type='int32')
 
-    result = pa.UnionArray.from_dense(types, value_offsets, [binary, int64], type_codes=[11, 13])
+    result = pa.UnionArray.from_dense(types, value_offsets, [binary, int64],
+                                      type_codes=[11, 13])
     ty = result.type
 
     assert result.to_pylist() == [b'a', 1, b'c', b'b', 2, 3, b'd']
@@ -449,7 +451,8 @@ def test_union_from_dense_with_field_names_and_type_codes():
     types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
     value_offsets = pa.array([0, 0, 2, 1, 1, 2, 3], type='int32')
 
-    result = pa.UnionArray.from_dense(types, value_offsets, [binary, int64], ['bin', 'int'], [11, 13])
+    result = pa.UnionArray.from_dense(types, value_offsets, [binary, int64],
+                                      ['bin', 'int'], [11, 13])
     ty = result.type
 
     assert result.to_pylist() == [b'a', 1, b'c', b'b', 2, 3, b'd']
@@ -491,7 +494,8 @@ def test_union_from_sparse_with_type_codes():
     int64 = pa.array([0, 1, 0, 0, 2, 3, 0], type='int64')
     types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
 
-    result = pa.UnionArray.from_sparse(types, [binary, int64], type_codes=[11, 13])
+    result = pa.UnionArray.from_sparse(types, [binary, int64],
+                                       type_codes=[11, 13])
     ty = result.type
 
     assert result.to_pylist() == [b'a', 1, b'b', b'c', 2, 3, b'd']
@@ -505,7 +509,8 @@ def test_union_from_sparse_with_field_name_and_type_codes():
     int64 = pa.array([0, 1, 0, 0, 2, 3, 0], type='int64')
     types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
 
-    result = pa.UnionArray.from_sparse(types, [binary, int64], ['bin', 'int'], [11, 13])
+    result = pa.UnionArray.from_sparse(types, [binary, int64], ['bin', 'int'],
+                                       [11, 13])
     ty = result.type
 
     assert result.to_pylist() == [b'a', 1, b'b', b'c', 2, 3, b'd']

@@ -1091,7 +1091,8 @@ cdef class UnionArray(Array):
         return pyarrow_wrap_array(out)
 
     @staticmethod
-    def from_sparse(Array types, list children, list field_names=None, list type_codes=None):
+    def from_sparse(Array types, list children, list field_names=None,
+                    list type_codes=None):
         """
         Construct sparse UnionArray from arrays of int8 types and children
         arrays
@@ -1121,7 +1122,8 @@ cdef class UnionArray(Array):
             for x in type_codes:
                 tc.push_back(x)
         with nogil:
-            check_status(CUnionArray.MakeSparse(deref(types.ap), c, fn, tc, &out))
+            check_status(CUnionArray.MakeSparse(deref(types.ap), c, fn, tc,
+                                                &out))
         return pyarrow_wrap_array(out)
 
 
