@@ -24,6 +24,7 @@
 extern "C" {
 
 void gdv_xlarge_multiply_and_scale_down(int64_t x_high, uint64_t x_low, int64_t y_high,
-                                 uint64_t y_low, int32_t reduce_scale_by,
-                                 int64_t* out_high, uint64_t* out_low, bool* overflow);
+                                        uint64_t y_low, int32_t reduce_scale_by,
+                                        int64_t* out_high, uint64_t* out_low,
+                                        bool* overflow);
 }

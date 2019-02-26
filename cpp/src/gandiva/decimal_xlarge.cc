@@ -24,9 +24,9 @@
 
 #include "gandiva/decimal_xlarge.h"
 
-#include <boost/multiprecision/cpp_int.hpp>
 #include <limits>
 #include <vector>
+#include "boost/multiprecision/cpp_int.hpp"
 
 #include "arrow/util/basic_decimal.h"
 #include "gandiva/decimal_type_util.h"
@@ -52,9 +52,9 @@ void ExportedDecimalFunctions::AddMappings(Engine* engine) const {
           types->i64_ptr_type(),  // uint64_t* out_low
           types->i8_ptr_type()};  // bool* overflow
 
-  engine->AddGlobalMappingForFunc("gdv_xlarge_multiply_and_scale_down",
-                                  types->void_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_xlarge_multiply_and_scale_down));
+  engine->AddGlobalMappingForFunc(
+      "gdv_xlarge_multiply_and_scale_down", types->void_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_xlarge_multiply_and_scale_down));
 }
 }  // namespace gandiva
 
@@ -78,19 +78,20 @@ static int256_t ConvertToInt256(BasicDecimal128 in) {
 // If there is an overflow, the output is undefined.
 static BasicDecimal128 ConvertToDecimal128(int256_t in, bool* overflow) {
   BasicDecimal128 result;
-  constexpr uint64_t mask = std::numeric_limits<uint64_t>::max();
+  constexpr int256_t UINT64_MASK = std::numeric_limits<uint64_t>::max();
 
   int256_t in_abs = abs(in);
   bool is_negative = in < 0;
-  uint64_t low = in_abs.convert_to<uint64_t>() & mask;
+
+  uint64_t low = (in_abs & UINT64_MASK).convert_to<uint64_t>();
   in_abs >>= 64;
-  uint64_t high = in_abs.convert_to<uint64_t>() & mask;
+  uint64_t high = (in_abs & UINT64_MASK).convert_to<uint64_t>();
   in_abs >>= 64;
 
   if (in_abs > 0) {
     // we've shifted in by 128-bit, so nothing should be left.
     *overflow = true;
-  } else if (high > std::numeric_limits<int64_t>::max()) {
+  } else if (high > INT64_MAX) {
     // the high-bit must not be set (signed 128-bit).
     *overflow = true;
   } else {
@@ -140,8 +141,9 @@ static int256_t ReduceScaleBy(int256_t in, int32_t reduce_by) {
 extern "C" {
 
 void gdv_xlarge_multiply_and_scale_down(int64_t x_high, uint64_t x_low, int64_t y_high,
-                                 uint64_t y_low, int32_t reduce_scale_by,
-                                 int64_t* out_high, uint64_t* out_low, bool* overflow) {
+                                        uint64_t y_low, int32_t reduce_scale_by,
+                                        int64_t* out_high, uint64_t* out_low,
+                                        bool* overflow) {
   BasicDecimal128 x{x_high, x_low};
   BasicDecimal128 y{y_high, y_low};
   auto intermediate_result =
