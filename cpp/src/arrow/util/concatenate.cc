@@ -289,24 +289,27 @@ struct ConcatenateImpl {
                             std::vector<range>* ranges) {
     RETURN_NOT_OK(
         AllocateBuffer(pool_, (out_->length + 1) * sizeof(int32_t), offset_buffer));
-    auto dst_offsets_begin = reinterpret_cast<int32_t*>((*offset_buffer)->mutable_data());
-    int32_t values_length = 0;
+    auto dst_offsets = reinterpret_cast<int32_t*>((*offset_buffer)->mutable_data());
+    int32_t total_length = 0;
     ranges->resize(in_size_);
     for (int i = 0; i != in_size_; ++i) {
       auto src_offsets_begin = in_[i]->GetValues<int32_t>(index) + offsets_[i];
       auto src_offsets_end = src_offsets_begin + lengths_[i];
       auto first_offset = src_offsets_begin[0];
+      auto length = *src_offsets_end - first_offset;
       ranges->at(i).offset = first_offset;
-      std::transform(src_offsets_begin, src_offsets_end, dst_offsets_begin,
-                     [values_length, first_offset](int32_t offset) {
-                       return offset - first_offset + values_length;
+      ranges->at(i).length = length;
+      if (total_length > std::numeric_limits<int32_t>::max() - length) {
+        return Status::Invalid("offset overflow while concatenating arrays");
+      }
+      std::transform(src_offsets_begin, src_offsets_end, dst_offsets,
+                     [total_length, first_offset](int32_t offset) {
+                       return offset - first_offset + total_length;
                      });
-      auto last_offset = *src_offsets_end;
-      ranges->at(i).length = last_offset - first_offset;
-      values_length += last_offset - first_offset;
-      dst_offsets_begin += lengths_[i];
+      total_length += length;
+      dst_offsets += lengths_[i];
     }
-    *dst_offsets_begin = values_length;
+    *dst_offsets = total_length;
     return Status::OK();
   }
 

@@ -1835,4 +1835,15 @@ INSTANTIATE_TEST_CASE_P(
             {R"([{"strings":"a", "ints":0}, {"strings":"b", "ints":1}])",
              R"([{"strings":"c", "ints":2}, {"strings":"d", "ints":3}])"})));
 
+TEST(Concatenate, OffsetOverflow) {
+  auto fake_long = ArrayFromJSON(utf8(), "[\"\"]");
+  fake_long->data()->GetMutableValues<int32_t>(1)[1] =
+      std::numeric_limits<int32_t>::max();
+  std::shared_ptr<Array> concatenated;
+  // XX since the data fake_long claims to own isn't there, this will segfault if
+  // Concatenate doesn't detect overflow and raise an error.
+  ASSERT_RAISES(
+      Invalid, Concatenate({fake_long, fake_long}, default_memory_pool(), &concatenated));
+}
+
 }  // namespace arrow
