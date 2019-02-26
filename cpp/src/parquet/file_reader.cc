@@ -162,13 +162,15 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     // file is non-uniform encrypted and the column is encrypted with its own key
 
     std::string column_key_metadata = crypto_metadata->key_metadata();
+    std::shared_ptr<schema::ColumnPath> column_path =
+    std::make_shared<schema::ColumnPath>(crypto_metadata->path_in_schema());
     // encrypted with column key
     std::string column_key =
-        file_decryption->GetColumnKey(col->path_in_schema(), column_key_metadata);
+        file_decryption->GetColumnKey(column_path, column_key_metadata);
 
     if (column_key.empty()) {
       throw ParquetException("column is encrypted with null key, path=" +
-                             col->path_in_schema()->ToDotString());
+                             column_path->ToDotString());
     }
     auto column_encryption = std::make_shared<EncryptionProperties>(
         file_crypto_metadata_->encryption_algorithm().algorithm, column_key,
