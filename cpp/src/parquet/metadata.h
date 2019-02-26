@@ -189,6 +189,8 @@ class PARQUET_EXPORT FileMetaData {
 
   ~FileMetaData();
 
+  bool verify(std::shared_ptr<EncryptionProperties> encryption,
+              const void* tail, uint32_t tail_len);
   // file metadata
   uint32_t size() const;
 
@@ -197,6 +199,9 @@ class PARQUET_EXPORT FileMetaData {
   int64_t num_rows() const;
 
   int num_row_groups() const;
+  bool is_plaintext_mode() const;
+  EncryptionAlgorithm encryption_algorithm() const;
+  const std::string& footer_signing_key_metadata() const;
   ParquetVersion::type version() const;
   const std::string& created_by() const;
   int num_schema_elements() const;
@@ -332,7 +337,8 @@ class PARQUET_EXPORT FileMetaDataBuilder {
   RowGroupMetaDataBuilder* AppendRowGroup();
 
   // Complete the Thrift structure
-  std::unique_ptr<FileMetaData> Finish();
+  std::unique_ptr<FileMetaData> Finish(const EncryptionAlgorithm* signing_algorithm = NULLPTR,
+                                       const std::string& footer_signing_key_metadata = "");
 
   // crypto metadata
   std::unique_ptr<FileCryptoMetaData> GetCryptoMetaData();

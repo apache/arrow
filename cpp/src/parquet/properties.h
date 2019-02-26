@@ -283,9 +283,10 @@ class PARQUET_EXPORT FileEncryptionProperties {
       return this;
     }
 
-    Builder* footer_key(const std::string& key) {
+    Builder* footer_key(const std::string& key, bool encrypt_footer=true) {
       DCHECK(key.length() == 16 || key.length() == 24 || key.length() == 32);
       footer_key_ = key;
+      encrypt_footer_ = encrypt_footer;
       return this;
     }
 
@@ -357,13 +358,14 @@ class PARQUET_EXPORT FileEncryptionProperties {
         footer_encryption.reset(new EncryptionProperties(algorithm_, footer_key_, aad_));
       }
       return std::make_shared<FileEncryptionProperties>(
-          footer_encryption, footer_key_metadata_, aad_metadata_,
+          footer_encryption, encrypt_footer_, footer_key_metadata_, aad_metadata_,
           column_properties_, encrypt_the_rest_);
     }
 
    private:
     Encryption::type algorithm_;
     std::string footer_key_;
+    bool encrypt_footer_;
     std::string footer_key_metadata_;
 
     std::string aad_;
@@ -374,12 +376,13 @@ class PARQUET_EXPORT FileEncryptionProperties {
   };
 
   FileEncryptionProperties(
-      const std::shared_ptr<EncryptionProperties>& footer_encryption,
+      const std::shared_ptr<EncryptionProperties>& footer_encryption, bool encrypt_footer,
       const std::string& footer_key_metadata, const std::string& aad_metadata,
       const std::map<std::string, std::shared_ptr<ColumnEncryptionProperties>>&
           column_properties,
       bool encrypt_the_rest)
       : footer_encryption_(footer_encryption),
+        encrypt_footer_(encrypt_footer),
         footer_key_metadata_(footer_key_metadata),
         aad_metadata_(aad_metadata),
         column_properties_(column_properties),
@@ -388,6 +391,8 @@ class PARQUET_EXPORT FileEncryptionProperties {
   std::shared_ptr<EncryptionProperties> GetFooterEncryptionProperties() {
     return footer_encryption_;
   }
+
+  bool encrypt_footer() const { return encrypt_footer_; }
 
   const std::string& footer_key_metadata() const { return footer_key_metadata_; }
 
@@ -431,6 +436,7 @@ class PARQUET_EXPORT FileEncryptionProperties {
 
  private:
   std::shared_ptr<EncryptionProperties> footer_encryption_;
+  bool encrypt_footer_;
   std::string footer_key_metadata_;
   std::string aad_metadata_;
 
