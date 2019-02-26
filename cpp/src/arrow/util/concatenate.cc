@@ -322,7 +322,11 @@ Status Concatenate(const std::vector<std::shared_ptr<Array>>& arrays, MemoryPool
   DCHECK_GT(arrays.size(), 0);
   std::vector<std::shared_ptr<ArrayData>> data(arrays.size());
   for (std::size_t i = 0; i != arrays.size(); ++i) {
-    DCHECK(arrays[i]->type()->Equals(*arrays[0]->type()));
+    if (!arrays[i]->type()->Equals(*arrays[0]->type())) {
+      return Status::Invalid("arrays to be concatentated must be identically typed, but ",
+                             *arrays[0]->type(), " and ", *arrays[i]->type(),
+                             " were encountered.");
+    }
     data[i] = arrays[i]->data();
   }
   std::shared_ptr<ArrayData> out_data;
