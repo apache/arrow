@@ -156,6 +156,9 @@ struct ConcatenateImpl {
     for (int i = 0; i != in_size_; ++i) {
       indices_slices[i] = SliceData(*in_[i], offsets_[i], lengths_[i]);
       indices_slices[i]->type = d.index_type();
+      // don't bother concatenating null bitmaps again
+      indices_slices[i]->null_count = 0;
+      indices_slices[i]->buffers[0] = nullptr;
     }
     std::shared_ptr<ArrayData> indices;
     RETURN_NOT_OK(ConcatenateImpl(indices_slices, pool_).Concatenate(&indices));
@@ -241,6 +244,11 @@ struct ConcatenateImpl {
     }
     out_->buffers.push_back(offsets_buffer);
     return Status::OK();
+  }
+
+  Status Visit(const ExtensionType&) {
+    // XXX can we just concatenate their storage in general?
+    return Status::NotImplemented("concatenation of extension arrays");
   }
 
   Status Concatenate(std::shared_ptr<ArrayData>* out) && {
