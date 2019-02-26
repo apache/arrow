@@ -31,7 +31,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
-#include "arrow/visitor.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -74,7 +74,7 @@ bool Field::Equals(const Field& other, bool check_metadata) const {
     return true;
   }
   if (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
-      this->type_->Equals(*other.type_.get())) {
+      this->type_->Equals(*other.type_.get(), check_metadata)) {
     if (!check_metadata) {
       return true;
     } else if (this->HasMetadata() && other.HasMetadata()) {
@@ -103,7 +103,9 @@ std::string Field::ToString() const {
 
 DataType::~DataType() {}
 
-bool DataType::Equals(const DataType& other) const { return TypeEquals(*this, other); }
+bool DataType::Equals(const DataType& other, bool check_metadata) const {
+  return TypeEquals(*this, other, check_metadata);
+}
 
 bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
   if (!other) {
@@ -507,25 +509,9 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>>&& fields,
 // ----------------------------------------------------------------------
 // Visitors and factory functions
 
-#define ACCEPT_VISITOR(TYPE) \
-  Status TYPE::Accept(TypeVisitor* visitor) const { return visitor->Visit(*this); }
-
-ACCEPT_VISITOR(NullType)
-ACCEPT_VISITOR(BooleanType)
-ACCEPT_VISITOR(BinaryType)
-ACCEPT_VISITOR(FixedSizeBinaryType)
-ACCEPT_VISITOR(StringType)
-ACCEPT_VISITOR(ListType)
-ACCEPT_VISITOR(StructType)
-ACCEPT_VISITOR(Decimal128Type)
-ACCEPT_VISITOR(UnionType)
-ACCEPT_VISITOR(Date32Type)
-ACCEPT_VISITOR(Date64Type)
-ACCEPT_VISITOR(Time32Type)
-ACCEPT_VISITOR(Time64Type)
-ACCEPT_VISITOR(TimestampType)
-ACCEPT_VISITOR(IntervalType)
-ACCEPT_VISITOR(DictionaryType)
+Status DataType::Accept(TypeVisitor* visitor) const {
+  return VisitTypeInline(*this, visitor);
+}
 
 #define TYPE_FACTORY(NAME, KLASS)                                        \
   std::shared_ptr<DataType> NAME() {                                     \

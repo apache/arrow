@@ -134,6 +134,7 @@ void ArrowToProtobuf(DataTypePtr type, types::ExtGandivaType* gandiva_data_type)
     case arrow::Type::type::STRUCT:
     case arrow::Type::type::UNION:
     case arrow::Type::type::DICTIONARY:
+    case arrow::Type::type::EXTENSION:
       // un-supported types. test ensures that
       // when one of these are added build breaks.
       DCHECK(false);

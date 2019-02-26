@@ -265,6 +265,12 @@ struct TypeTraits<DictionaryType> {
   constexpr static bool is_parameter_free = false;
 };
 
+template <>
+struct TypeTraits<ExtensionType> {
+  using ArrayType = ExtensionArray;
+  constexpr static bool is_parameter_free = false;
+};
+
 //
 // Useful type predicates
 //

@@ -26,6 +26,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/extension_type.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/dictionary.h"
@@ -447,6 +448,10 @@ class RecordBatchSerializer : public ArrayVisitor {
   Status Visit(const DictionaryArray& array) override {
     // Dictionary written out separately. Slice offset contained in the indices
     return array.indices()->Accept(this);
+  }
+
+  Status Visit(const ExtensionArray& array) override {
+    return array.storage()->Accept(this);
   }
 
   // Destination for output buffers

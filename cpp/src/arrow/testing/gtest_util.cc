@@ -142,8 +142,9 @@ void AssertTablesEqual(const Table& expected, const Table& actual,
   }
 }
 
-void CompareBatch(const RecordBatch& left, const RecordBatch& right) {
-  if (!left.schema()->Equals(*right.schema())) {
+void CompareBatch(const RecordBatch& left, const RecordBatch& right,
+                  bool compare_metadata) {
+  if (!left.schema()->Equals(*right.schema(), compare_metadata)) {
     FAIL() << "Left schema: " << left.schema()->ToString()
            << "\nRight schema: " << right.schema()->ToString();
   }

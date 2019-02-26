@@ -260,6 +260,12 @@ class ArrayLoader {
     return Status::OK();
   }
 
+  Status Visit(const ExtensionType& type) {
+    RETURN_NOT_OK(LoadArray(type.storage_type(), context_, out_));
+    out_->type = type_;
+    return Status::OK();
+  }
+
  private:
   const std::shared_ptr<DataType> type_;
   ArrayLoaderContext* context_;

@@ -299,6 +299,14 @@ class RangeEqualsVisitor {
     return Status::OK();
   }
 
+  Status Visit(const ExtensionArray& left) {
+    result_ = (right_.type()->Equals(*left.type()) &&
+               ArrayRangeEquals(*left.storage(),
+                                *static_cast<const ExtensionArray&>(right_).storage(),
+                                left_start_idx_, left_end_idx_, right_start_idx_));
+    return Status::OK();
+  }
+
   bool result() const { return result_; }
 
  protected:
@@ -502,6 +510,13 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
   Visit(const T& left) {
     return RangeEqualsVisitor::Visit(left);
   }
+
+  Status Visit(const ExtensionArray& left) {
+    result_ = (right_.type()->Equals(*left.type()) &&
+               ArrayEquals(*left.storage(),
+                           *static_cast<const ExtensionArray&>(right_).storage()));
+    return Status::OK();
+  }
 };
 
 template <typename TYPE>
@@ -556,7 +571,7 @@ static bool BaseDataEquals(const Array& left, const Array& right) {
   }
   // ARROW-2567: Ensure that not only the type id but also the type equality
   // itself is checked.
-  if (!TypeEquals(*left.type(), *right.type())) {
+  if (!TypeEquals(*left.type(), *right.type(), false /* check_metadata */)) {
     return false;
   }
   if (left.null_count() > 0 && left.null_count() < left.length()) {
@@ -591,7 +606,8 @@ inline bool ArrayEqualsImpl(const Array& left, const Array& right) {
 
 class TypeEqualsVisitor {
  public:
-  explicit TypeEqualsVisitor(const DataType& right) : right_(right), result_(false) {}
+  explicit TypeEqualsVisitor(const DataType& right, bool check_metadata)
+      : right_(right), check_metadata_(check_metadata), result_(false) {}
 
   Status VisitChildren(const DataType& left) {
     if (left.num_children() != right_.num_children()) {
@@ -600,7 +616,7 @@ class TypeEqualsVisitor {
     }
 
     for (int i = 0; i < left.num_children(); ++i) {
-      if (!left.child(i)->Equals(right_.child(i))) {
+      if (!left.child(i)->Equals(right_.child(i), check_metadata_)) {
         result_ = false;
         return Status::OK();
       }
@@ -670,7 +686,7 @@ class TypeEqualsVisitor {
     }
 
     for (int i = 0; i < left.num_children(); ++i) {
-      if (!left.child(i)->Equals(right_.child(i))) {
+      if (!left.child(i)->Equals(right_.child(i), check_metadata_)) {
         result_ = false;
         return Status::OK();
       }
@@ -688,10 +704,16 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
+  Status Visit(const ExtensionType& left) {
+    result_ = left.ExtensionEquals(static_cast<const ExtensionType&>(right_));
+    return Status::OK();
+  }
+
   bool result() const { return result_; }
 
  protected:
   const DataType& right_;
+  bool check_metadata_;
   bool result_;
 };
 
@@ -875,7 +897,7 @@ bool SparseTensorEquals(const SparseTensor& left, const SparseTensor& right) {
   }
 }
 
-bool TypeEquals(const DataType& left, const DataType& right) {
+bool TypeEquals(const DataType& left, const DataType& right, bool check_metadata) {
   bool are_equal;
   // The arrays are the same object
   if (&left == &right) {
@@ -883,7 +905,7 @@ bool TypeEquals(const DataType& left, const DataType& right) {
   } else if (left.id() != right.id()) {
     are_equal = false;
   } else {
-    internal::TypeEqualsVisitor visitor(right);
+    internal::TypeEqualsVisitor visitor(right, check_metadata);
     auto error = VisitTypeInline(left, &visitor);
     if (!error.ok()) {
       DCHECK(false) << "Types are not comparable: " << error.ToString();

@@ -114,10 +114,9 @@ void PrettyPrinter::Indent() {
 
 class ArrayPrinter : public PrettyPrinter {
  public:
-  ArrayPrinter(const Array& array, int indent, int indent_size, int window,
-               const std::string& null_rep, bool skip_new_lines, std::ostream* sink)
+  ArrayPrinter(int indent, int indent_size, int window, const std::string& null_rep,
+               bool skip_new_lines, std::ostream* sink)
       : PrettyPrinter(indent, indent_size, window, skip_new_lines, sink),
-        array_(array),
         null_rep_(null_rep) {}
 
   template <typename FormatFunction>
@@ -247,6 +246,8 @@ class ArrayPrinter : public PrettyPrinter {
 
   Status Visit(const IntervalArray&) { return Status::NotImplemented("interval"); }
 
+  Status Visit(const ExtensionArray& array) { return Print(*array.storage()); }
+
   Status WriteValidityBitmap(const Array& array);
 
   Status PrintChildren(const std::vector<std::shared_ptr<Array>>& fields, int64_t offset,
@@ -312,14 +313,13 @@ class ArrayPrinter : public PrettyPrinter {
     return PrettyPrint(*array.indices(), indent_ + indent_size_, sink_);
   }
 
-  Status Print() {
-    RETURN_NOT_OK(VisitArrayInline(array_, this));
+  Status Print(const Array& array) {
+    RETURN_NOT_OK(VisitArrayInline(array, this));
     Flush();
     return Status::OK();
   }
 
  private:
-  const Array& array_;
   std::string null_rep_;
 };
 
@@ -339,15 +339,15 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
 }
 
 Status PrettyPrint(const Array& arr, int indent, std::ostream* sink) {
-  ArrayPrinter printer(arr, indent, 2, 10, "null", false, sink);
-  return printer.Print();
+  ArrayPrinter printer(indent, 2, 10, "null", false, sink);
+  return printer.Print(arr);
 }
 
 Status PrettyPrint(const Array& arr, const PrettyPrintOptions& options,
                    std::ostream* sink) {
-  ArrayPrinter printer(arr, options.indent, options.indent_size, options.window,
+  ArrayPrinter printer(options.indent, options.indent_size, options.window,
                        options.null_rep, options.skip_new_lines, sink);
-  return printer.Print();
+  return printer.Print(arr);
 }
 
 Status PrettyPrint(const Array& arr, const PrettyPrintOptions& options,
@@ -383,10 +383,9 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
       i = num_chunks - window - 1;
       skip_comma = true;
     } else {
-      ArrayPrinter printer(*chunked_arr.chunk(i), indent + options.indent_size,
-                           options.indent_size, window, options.null_rep,
-                           options.skip_new_lines, sink);
-      RETURN_NOT_OK(printer.Print());
+      ArrayPrinter printer(indent + options.indent_size, options.indent_size, window,
+                           options.null_rep, options.skip_new_lines, sink);
+      RETURN_NOT_OK(printer.Print(*chunked_arr.chunk(i)));
     }
   }
   (*sink) << "\n";

@@ -20,11 +20,13 @@
 #include <cstdint>
 #include <memory>
 #include <sstream>
+#include <unordered_map>
 #include <utility>
 
 #include <flatbuffers/flatbuffers.h>
 
 #include "arrow/array.h"
+#include "arrow/extension_type.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/File_generated.h"  // IWYU pragma: keep
 #include "arrow/ipc/Message_generated.h"
@@ -38,6 +40,7 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -55,6 +58,10 @@ using RecordBatchOffset = flatbuffers::Offset<flatbuf::RecordBatch>;
 using SparseTensorOffset = flatbuffers::Offset<flatbuf::SparseTensor>;
 using Offset = flatbuffers::Offset<void>;
 using FBString = flatbuffers::Offset<flatbuffers::String>;
+using KVVector = flatbuffers::Vector<KeyValueOffset>;
+
+static const char kExtensionTypeKeyName[] = "arrow_extension_name";
+static const char kExtensionDataKeyName[] = "arrow_extension_data";
 
 MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version) {
   switch (version) {
@@ -139,22 +146,6 @@ static Status AppendChildFields(FBB& fbb, const DataType& type,
   return Status::OK();
 }
 
-static Status ListToFlatbuffer(FBB& fbb, const DataType& type,
-                               std::vector<FieldOffset>* out_children,
-                               DictionaryMemo* dictionary_memo, Offset* offset) {
-  RETURN_NOT_OK(AppendChildFields(fbb, type, out_children, dictionary_memo));
-  *offset = flatbuf::CreateList(fbb).Union();
-  return Status::OK();
-}
-
-static Status StructToFlatbuffer(FBB& fbb, const DataType& type,
-                                 std::vector<FieldOffset>* out_children,
-                                 DictionaryMemo* dictionary_memo, Offset* offset) {
-  RETURN_NOT_OK(AppendChildFields(fbb, type, out_children, dictionary_memo));
-  *offset = flatbuf::CreateStruct_(fbb).Union();
-  return Status::OK();
-}
-
 // ----------------------------------------------------------------------
 // Union implementation
 
@@ -180,29 +171,6 @@ static Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
   }
 
   *out = union_(children, type_codes, mode);
-  return Status::OK();
-}
-
-static Status UnionToFlatBuffer(FBB& fbb, const DataType& type,
-                                std::vector<FieldOffset>* out_children,
-                                DictionaryMemo* dictionary_memo, Offset* offset) {
-  RETURN_NOT_OK(AppendChildFields(fbb, type, out_children, dictionary_memo));
-
-  const auto& union_type = checked_cast<const UnionType&>(type);
-
-  flatbuf::UnionMode mode = union_type.mode() == UnionMode::SPARSE
-                                ? flatbuf::UnionMode_Sparse
-                                : flatbuf::UnionMode_Dense;
-
-  std::vector<int32_t> type_ids;
-  type_ids.reserve(union_type.type_codes().size());
-  for (uint8_t code : union_type.type_codes()) {
-    type_ids.push_back(code);
-  }
-
-  auto fb_type_ids = fbb.CreateVector(type_ids);
-
-  *offset = flatbuf::CreateUnion(fbb, mode, fb_type_ids).Union();
   return Status::OK();
 }
 
@@ -244,9 +212,9 @@ static inline TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit) {
   return TimeUnit::SECOND;
 }
 
-static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
-                                 const std::vector<std::shared_ptr<Field>>& children,
-                                 std::shared_ptr<DataType>* out) {
+static Status ConcreteTypeFromFlatbuffer(
+    flatbuf::Type type, const void* type_data,
+    const std::vector<std::shared_ptr<Field>>& children, std::shared_ptr<DataType>* out) {
   switch (type) {
     case flatbuf::Type_NONE:
       return Status::Invalid("Type metadata cannot be none");
@@ -336,117 +304,31 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
   }
 }
 
-// TODO(wesm): Convert this to visitor pattern
-static Status TypeToFlatbuffer(FBB& fbb, const DataType& type,
-                               std::vector<FieldOffset>* children,
-                               flatbuf::Type* out_type, DictionaryMemo* dictionary_memo,
-                               Offset* offset) {
-  const DataType* value_type = &type;
+static Status TypeFromFlatbuffer(const flatbuf::Field* field,
+                                 const std::vector<std::shared_ptr<Field>>& children,
+                                 const KeyValueMetadata* field_metadata,
+                                 std::shared_ptr<DataType>* out) {
+  RETURN_NOT_OK(
+      ConcreteTypeFromFlatbuffer(field->type_type(), field->type(), children, out));
 
-  if (type.id() == Type::DICTIONARY) {
-    // In this library, the dictionary "type" is a logical construct. Here we
-    // pass through to the value type, as we've already captured the index
-    // type in the DictionaryEncoding metadata in the parent field
-    value_type = checked_cast<const DictionaryType&>(type).dictionary()->type().get();
-  }
+  // Look for extension metadata in custom_metadata field
+  // TODO(wesm): Should this be part of the Field Flatbuffers table?
+  if (field_metadata != nullptr) {
+    int name_index = field_metadata->FindKey(kExtensionTypeKeyName);
+    if (name_index == -1) {
+      return Status::OK();
+    }
+    std::string type_name = field_metadata->value(name_index);
+    int data_index = field_metadata->FindKey(kExtensionDataKeyName);
+    std::string type_data = data_index == -1 ? "" : field_metadata->value(data_index);
 
-  switch (value_type->id()) {
-    case Type::NA:
-      *out_type = flatbuf::Type_Null;
-      *offset = flatbuf::CreateNull(fbb).Union();
-      break;
-    case Type::BOOL:
-      *out_type = flatbuf::Type_Bool;
-      *offset = flatbuf::CreateBool(fbb).Union();
-      break;
-    case Type::UINT8:
-      INT_TO_FB_CASE(8, false);
-    case Type::INT8:
-      INT_TO_FB_CASE(8, true);
-    case Type::UINT16:
-      INT_TO_FB_CASE(16, false);
-    case Type::INT16:
-      INT_TO_FB_CASE(16, true);
-    case Type::UINT32:
-      INT_TO_FB_CASE(32, false);
-    case Type::INT32:
-      INT_TO_FB_CASE(32, true);
-    case Type::UINT64:
-      INT_TO_FB_CASE(64, false);
-    case Type::INT64:
-      INT_TO_FB_CASE(64, true);
-    case Type::HALF_FLOAT:
-      *out_type = flatbuf::Type_FloatingPoint;
-      *offset = FloatToFlatbuffer(fbb, flatbuf::Precision_HALF);
-      break;
-    case Type::FLOAT:
-      *out_type = flatbuf::Type_FloatingPoint;
-      *offset = FloatToFlatbuffer(fbb, flatbuf::Precision_SINGLE);
-      break;
-    case Type::DOUBLE:
-      *out_type = flatbuf::Type_FloatingPoint;
-      *offset = FloatToFlatbuffer(fbb, flatbuf::Precision_DOUBLE);
-      break;
-    case Type::FIXED_SIZE_BINARY: {
-      const auto& fw_type = checked_cast<const FixedSizeBinaryType&>(*value_type);
-      *out_type = flatbuf::Type_FixedSizeBinary;
-      *offset = flatbuf::CreateFixedSizeBinary(fbb, fw_type.byte_width()).Union();
-    } break;
-    case Type::BINARY:
-      *out_type = flatbuf::Type_Binary;
-      *offset = flatbuf::CreateBinary(fbb).Union();
-      break;
-    case Type::STRING:
-      *out_type = flatbuf::Type_Utf8;
-      *offset = flatbuf::CreateUtf8(fbb).Union();
-      break;
-    case Type::DATE32:
-      *out_type = flatbuf::Type_Date;
-      *offset = flatbuf::CreateDate(fbb, flatbuf::DateUnit_DAY).Union();
-      break;
-    case Type::DATE64:
-      *out_type = flatbuf::Type_Date;
-      *offset = flatbuf::CreateDate(fbb, flatbuf::DateUnit_MILLISECOND).Union();
-      break;
-    case Type::TIME32: {
-      const auto& time_type = checked_cast<const Time32Type&>(*value_type);
-      *out_type = flatbuf::Type_Time;
-      *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit()), 32).Union();
-    } break;
-    case Type::TIME64: {
-      const auto& time_type = checked_cast<const Time64Type&>(*value_type);
-      *out_type = flatbuf::Type_Time;
-      *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit()), 64).Union();
-    } break;
-    case Type::TIMESTAMP: {
-      const auto& ts_type = checked_cast<const TimestampType&>(*value_type);
-      *out_type = flatbuf::Type_Timestamp;
-
-      flatbuf::TimeUnit fb_unit = ToFlatbufferUnit(ts_type.unit());
-      FBString fb_timezone = 0;
-      if (ts_type.timezone().size() > 0) {
-        fb_timezone = fbb.CreateString(ts_type.timezone());
-      }
-      *offset = flatbuf::CreateTimestamp(fbb, fb_unit, fb_timezone).Union();
-    } break;
-    case Type::DECIMAL: {
-      const auto& dec_type = checked_cast<const Decimal128Type&>(*value_type);
-      *out_type = flatbuf::Type_Decimal;
-      *offset =
-          flatbuf::CreateDecimal(fbb, dec_type.precision(), dec_type.scale()).Union();
-    } break;
-    case Type::LIST:
-      *out_type = flatbuf::Type_List;
-      return ListToFlatbuffer(fbb, *value_type, children, dictionary_memo, offset);
-    case Type::STRUCT:
-      *out_type = flatbuf::Type_Struct_;
-      return StructToFlatbuffer(fbb, *value_type, children, dictionary_memo, offset);
-    case Type::UNION:
-      *out_type = flatbuf::Type_Union;
-      return UnionToFlatBuffer(fbb, *value_type, children, dictionary_memo, offset);
-    default:
-      *out_type = flatbuf::Type_NONE;  // Make clang-tidy happy
-      return Status::NotImplemented("Unable to convert type: ", type.ToString());
+    std::shared_ptr<ExtensionType> type = GetExtensionType(type_name);
+    if (type == nullptr) {
+      // TODO(wesm): Extension type is unknown; we do not raise here and simply
+      // return the raw data
+      return Status::OK();
+    }
+    RETURN_NOT_OK(type->Deserialize(*out, type_data, out));
   }
   return Status::OK();
 }
@@ -505,26 +387,21 @@ static DictionaryOffset GetDictionaryEncoding(FBB& fbb, const DictionaryType& ty
                                            type.ordered());
 }
 
-static flatbuffers::Offset<flatbuffers::Vector<KeyValueOffset>>
-KeyValueMetadataToFlatbuffer(FBB& fbb, const KeyValueMetadata& metadata) {
-  std::vector<KeyValueOffset> key_value_offsets;
-
-  size_t metadata_size = metadata.size();
-  key_value_offsets.reserve(metadata_size);
-
-  for (size_t i = 0; i < metadata_size; ++i) {
-    const auto& key = metadata.key(i);
-    const auto& value = metadata.value(i);
-    key_value_offsets.push_back(
-        flatbuf::CreateKeyValue(fbb, fbb.CreateString(key), fbb.CreateString(value)));
-  }
-
-  return fbb.CreateVector(key_value_offsets);
+KeyValueOffset AppendKeyValue(FBB& fbb, const std::string& key,
+                              const std::string& value) {
+  return flatbuf::CreateKeyValue(fbb, fbb.CreateString(key), fbb.CreateString(value));
 }
 
-static Status KeyValueMetadataFromFlatbuffer(
-    const flatbuffers::Vector<KeyValueOffset>* fb_metadata,
-    std::shared_ptr<KeyValueMetadata>* out) {
+void AppendKeyValueMetadata(FBB& fbb, const KeyValueMetadata& metadata,
+                            std::vector<KeyValueOffset>* key_values) {
+  key_values->reserve(metadata.size());
+  for (int i = 0; i < metadata.size(); ++i) {
+    key_values->push_back(AppendKeyValue(fbb, metadata.key(i), metadata.value(i)));
+  }
+}
+
+static Status KeyValueMetadataFromFlatbuffer(const KVVector* fb_metadata,
+                                             std::shared_ptr<KeyValueMetadata>* out) {
   auto metadata = std::make_shared<KeyValueMetadata>();
 
   metadata->reserve(fb_metadata->size());
@@ -545,34 +422,225 @@ static Status KeyValueMetadataFromFlatbuffer(
   return Status::OK();
 }
 
+class FieldToFlatbufferVisitor {
+ public:
+  FieldToFlatbufferVisitor(FBB& fbb, DictionaryMemo* dictionary_memo)
+      : fbb_(fbb), dictionary_memo_(dictionary_memo) {}
+
+  Status VisitType(const DataType& type) { return VisitTypeInline(type, this); }
+
+  Status Visit(const NullType& type) {
+    fb_type_ = flatbuf::Type_Null;
+    type_offset_ = flatbuf::CreateNull(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanType& type) {
+    fb_type_ = flatbuf::Type_Bool;
+    type_offset_ = flatbuf::CreateBool(fbb_).Union();
+    return Status::OK();
+  }
+
+  template <int BitWidth, bool IsSigned, typename T>
+  Status Visit(const T& type) {
+    fb_type_ = flatbuf::Type_Int;
+    type_offset_ = IntToFlatbuffer(fbb_, BitWidth, IsSigned);
+    return Status::OK();
+  }
+
+  template <typename T>
+  typename std::enable_if<IsInteger<T>::value, Status>::type Visit(const T& type) {
+    return Visit<sizeof(typename T::c_type) * 8, IsSignedInt<T>::value>(type);
+  }
+
+  Status Visit(const HalfFloatType& type) {
+    fb_type_ = flatbuf::Type_FloatingPoint;
+    type_offset_ = FloatToFlatbuffer(fbb_, flatbuf::Precision_HALF);
+    return Status::OK();
+  }
+
+  Status Visit(const FloatType& type) {
+    fb_type_ = flatbuf::Type_FloatingPoint;
+    type_offset_ = FloatToFlatbuffer(fbb_, flatbuf::Precision_SINGLE);
+    return Status::OK();
+  }
+
+  Status Visit(const DoubleType& type) {
+    fb_type_ = flatbuf::Type_FloatingPoint;
+    type_offset_ = FloatToFlatbuffer(fbb_, flatbuf::Precision_DOUBLE);
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeBinaryType& type) {
+    const auto& fw_type = checked_cast<const FixedSizeBinaryType&>(type);
+    fb_type_ = flatbuf::Type_FixedSizeBinary;
+    type_offset_ = flatbuf::CreateFixedSizeBinary(fbb_, fw_type.byte_width()).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const BinaryType& type) {
+    fb_type_ = flatbuf::Type_Binary;
+    type_offset_ = flatbuf::CreateBinary(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const StringType& type) {
+    fb_type_ = flatbuf::Type_Utf8;
+    type_offset_ = flatbuf::CreateUtf8(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const Date32Type& type) {
+    fb_type_ = flatbuf::Type_Date;
+    type_offset_ = flatbuf::CreateDate(fbb_, flatbuf::DateUnit_DAY).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const Date64Type& type) {
+    fb_type_ = flatbuf::Type_Date;
+    type_offset_ = flatbuf::CreateDate(fbb_, flatbuf::DateUnit_MILLISECOND).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const Time32Type& type) {
+    const auto& time_type = checked_cast<const Time32Type&>(type);
+    fb_type_ = flatbuf::Type_Time;
+    type_offset_ =
+        flatbuf::CreateTime(fbb_, ToFlatbufferUnit(time_type.unit()), 32).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const Time64Type& type) {
+    const auto& time_type = checked_cast<const Time64Type&>(type);
+    fb_type_ = flatbuf::Type_Time;
+    type_offset_ =
+        flatbuf::CreateTime(fbb_, ToFlatbufferUnit(time_type.unit()), 64).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const TimestampType& type) {
+    const auto& ts_type = checked_cast<const TimestampType&>(type);
+    fb_type_ = flatbuf::Type_Timestamp;
+    flatbuf::TimeUnit fb_unit = ToFlatbufferUnit(ts_type.unit());
+    FBString fb_timezone = 0;
+    if (ts_type.timezone().size() > 0) {
+      fb_timezone = fbb_.CreateString(ts_type.timezone());
+    }
+    type_offset_ = flatbuf::CreateTimestamp(fbb_, fb_unit, fb_timezone).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const DecimalType& type) {
+    const auto& dec_type = checked_cast<const Decimal128Type&>(type);
+    fb_type_ = flatbuf::Type_Decimal;
+    type_offset_ =
+        flatbuf::CreateDecimal(fbb_, dec_type.precision(), dec_type.scale()).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const ListType& type) {
+    fb_type_ = flatbuf::Type_List;
+    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    type_offset_ = flatbuf::CreateList(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const StructType& type) {
+    fb_type_ = flatbuf::Type_Struct_;
+    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    type_offset_ = flatbuf::CreateStruct_(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const UnionType& type) {
+    fb_type_ = flatbuf::Type_Union;
+    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+
+    const auto& union_type = checked_cast<const UnionType&>(type);
+
+    flatbuf::UnionMode mode = union_type.mode() == UnionMode::SPARSE
+                                  ? flatbuf::UnionMode_Sparse
+                                  : flatbuf::UnionMode_Dense;
+
+    std::vector<int32_t> type_ids;
+    type_ids.reserve(union_type.type_codes().size());
+    for (uint8_t code : union_type.type_codes()) {
+      type_ids.push_back(code);
+    }
+
+    auto fb_type_ids = fbb_.CreateVector(type_ids);
+
+    type_offset_ = flatbuf::CreateUnion(fbb_, mode, fb_type_ids).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const DictionaryType& type) {
+    // In this library, the dictionary "type" is a logical construct. Here we
+    // pass through to the value type, as we've already captured the index
+    // type in the DictionaryEncoding metadata in the parent field
+    return VisitType(*checked_cast<const DictionaryType&>(type).dictionary()->type());
+  }
+
+  Status Visit(const ExtensionType& type) {
+    RETURN_NOT_OK(VisitType(*type.storage_type()));
+    extra_type_metadata_[kExtensionTypeKeyName] = type.extension_name();
+    extra_type_metadata_[kExtensionDataKeyName] = type.Serialize();
+    return Status::OK();
+  }
+
+  Status GetResult(const Field& field, FieldOffset* offset) {
+    auto fb_name = fbb_.CreateString(field.name());
+    RETURN_NOT_OK(VisitType(*field.type()));
+    auto fb_children = fbb_.CreateVector(children_);
+
+    DictionaryOffset dictionary = 0;
+    if (field.type()->id() == Type::DICTIONARY) {
+      dictionary = GetDictionaryEncoding(
+          fbb_, checked_cast<const DictionaryType&>(*field.type()), dictionary_memo_);
+    }
+
+    auto metadata = field.metadata();
+
+    flatbuffers::Offset<KVVector> fb_custom_metadata;
+    std::vector<KeyValueOffset> key_values;
+    if (metadata != nullptr) {
+      AppendKeyValueMetadata(fbb_, *metadata, &key_values);
+    }
+
+    for (auto it : extra_type_metadata_) {
+      key_values.push_back(AppendKeyValue(fbb_, it.first, it.second));
+    }
+
+    if (key_values.size() > 0) {
+      fb_custom_metadata = fbb_.CreateVector(key_values);
+    }
+    *offset =
+        flatbuf::CreateField(fbb_, fb_name, field.nullable(), fb_type_, type_offset_,
+                             dictionary, fb_children, fb_custom_metadata);
+    return Status::OK();
+  }
+
+ private:
+  FBB& fbb_;
+  DictionaryMemo* dictionary_memo_;
+  flatbuf::Type fb_type_;
+  Offset type_offset_;
+  std::vector<FieldOffset> children_;
+  std::unordered_map<std::string, std::string> extra_type_metadata_;
+};
+
 static Status FieldToFlatbuffer(FBB& fbb, const Field& field,
                                 DictionaryMemo* dictionary_memo, FieldOffset* offset) {
-  auto fb_name = fbb.CreateString(field.name());
+  FieldToFlatbufferVisitor field_visitor(fbb, dictionary_memo);
+  return field_visitor.GetResult(field, offset);
+}
 
-  flatbuf::Type type_enum;
-  Offset type_offset;
-  std::vector<FieldOffset> children;
-
-  RETURN_NOT_OK(TypeToFlatbuffer(fbb, *field.type(), &children, &type_enum,
-                                 dictionary_memo, &type_offset));
-  auto fb_children = fbb.CreateVector(children);
-
-  DictionaryOffset dictionary = 0;
-  if (field.type()->id() == Type::DICTIONARY) {
-    dictionary = GetDictionaryEncoding(
-        fbb, checked_cast<const DictionaryType&>(*field.type()), dictionary_memo);
+static Status GetFieldMetadata(const flatbuf::Field* field,
+                               std::shared_ptr<KeyValueMetadata>* metadata) {
+  auto fb_metadata = field->custom_metadata();
+  if (fb_metadata != nullptr) {
+    RETURN_NOT_OK(KeyValueMetadataFromFlatbuffer(fb_metadata, metadata));
   }
-
-  auto metadata = field.metadata();
-  if (metadata != nullptr) {
-    auto fb_custom_metadata = KeyValueMetadataToFlatbuffer(fbb, *metadata);
-    *offset = flatbuf::CreateField(fbb, fb_name, field.nullable(), type_enum, type_offset,
-                                   dictionary, fb_children, fb_custom_metadata);
-  } else {
-    *offset = flatbuf::CreateField(fbb, fb_name, field.nullable(), type_enum, type_offset,
-                                   dictionary, fb_children);
-  }
-
   return Status::OK();
 }
 
@@ -583,6 +651,9 @@ static Status FieldFromFlatbuffer(const flatbuf::Field* field,
 
   const flatbuf::DictionaryEncoding* encoding = field->dictionary();
 
+  std::shared_ptr<KeyValueMetadata> metadata;
+  RETURN_NOT_OK(GetFieldMetadata(field, &metadata));
+
   if (encoding == nullptr) {
     // The field is not dictionary encoded. We must potentially visit its
     // children to fully reconstruct the data type
@@ -592,8 +663,7 @@ static Status FieldFromFlatbuffer(const flatbuf::Field* field,
       RETURN_NOT_OK(
           FieldFromFlatbuffer(children->Get(i), dictionary_memo, &child_fields[i]));
     }
-    RETURN_NOT_OK(
-        TypeFromFlatbuffer(field->type_type(), field->type(), child_fields, &type));
+    RETURN_NOT_OK(TypeFromFlatbuffer(field, child_fields, metadata.get(), &type));
   } else {
     // The field is dictionary encoded. The type of the dictionary values has
     // been determined elsewhere, and is stored in the DictionaryMemo. Here we
@@ -605,13 +675,6 @@ static Status FieldFromFlatbuffer(const flatbuf::Field* field,
     std::shared_ptr<DataType> index_type;
     RETURN_NOT_OK(IntFromFlatbuffer(encoding->indexType(), &index_type));
     type = ::arrow::dictionary(index_type, dictionary, encoding->isOrdered());
-  }
-
-  auto fb_metadata = field->custom_metadata();
-  std::shared_ptr<KeyValueMetadata> metadata;
-
-  if (fb_metadata != nullptr) {
-    RETURN_NOT_OK(KeyValueMetadataFromFlatbuffer(fb_metadata, &metadata));
   }
 
   *out = std::make_shared<Field>(field->name()->str(), type, field->nullable(), metadata);
@@ -633,10 +696,11 @@ static Status FieldFromFlatbufferDictionary(const flatbuf::Field* field,
     RETURN_NOT_OK(FieldFromFlatbuffer(children->Get(i), dummy_memo, &child_fields[i]));
   }
 
-  RETURN_NOT_OK(
-      TypeFromFlatbuffer(field->type_type(), field->type(), child_fields, &type));
+  std::shared_ptr<KeyValueMetadata> metadata;
+  RETURN_NOT_OK(GetFieldMetadata(field, &metadata));
 
-  *out = std::make_shared<Field>(field->name()->str(), type, field->nullable());
+  RETURN_NOT_OK(TypeFromFlatbuffer(field, child_fields, metadata.get(), &type));
+  *out = std::make_shared<Field>(field->name()->str(), type, field->nullable(), metadata);
   return Status::OK();
 }
 
@@ -666,13 +730,14 @@ static Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
 
   /// Custom metadata
   auto metadata = schema.metadata();
-  if (metadata != nullptr) {
-    auto fb_custom_metadata = KeyValueMetadataToFlatbuffer(fbb, *metadata);
-    *out = flatbuf::CreateSchema(fbb, endianness(), fb_offsets, fb_custom_metadata);
-  } else {
-    *out = flatbuf::CreateSchema(fbb, endianness(), fb_offsets);
-  }
 
+  flatbuffers::Offset<KVVector> fb_custom_metadata;
+  std::vector<KeyValueOffset> key_values;
+  if (metadata != nullptr) {
+    AppendKeyValueMetadata(fbb, *metadata, &key_values);
+    fb_custom_metadata = fbb.CreateVector(key_values);
+  }
+  *out = flatbuf::CreateSchema(fbb, endianness(), fb_offsets, fb_custom_metadata);
   return Status::OK();
 }
 
@@ -1033,7 +1098,7 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
     }
   }
 
-  return TypeFromFlatbuffer(tensor->type_type(), tensor->type(), {}, type);
+  return ConcreteTypeFromFlatbuffer(tensor->type_type(), tensor->type(), {}, type);
 }
 
 Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
@@ -1079,7 +1144,8 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
       return Status::Invalid("Unrecognized sparse index type");
   }
 
-  return TypeFromFlatbuffer(sparse_tensor->type_type(), sparse_tensor->type(), {}, type);
+  return ConcreteTypeFromFlatbuffer(sparse_tensor->type_type(), sparse_tensor->type(), {},
+                                    type);
 }
 
 // ----------------------------------------------------------------------

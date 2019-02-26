@@ -343,6 +343,10 @@ class SchemaWriter {
     return VisitType(*type.dictionary()->type());
   }
 
+  Status Visit(const ExtensionType& type) {
+    return Status::NotImplemented("extension type");
+  }
+
  private:
   DictionaryMemo dictionary_memo_;
 
@@ -578,6 +582,10 @@ class ArrayWriter {
       children.emplace_back(array.child(i));
     }
     return WriteChildren(type.children(), children);
+  }
+
+  Status Visit(const ExtensionArray& array) {
+    return Status::NotImplemented("extension array");
   }
 
  private:
@@ -1200,6 +1208,10 @@ class ArrayReader {
   Status Visit(const NullType& type) {
     result_ = std::make_shared<NullArray>(length_);
     return Status::OK();
+  }
+
+  Status Visit(const ExtensionType& type) {
+    return Status::NotImplemented("extension type");
   }
 
   Status Visit(const DictionaryType& type) {

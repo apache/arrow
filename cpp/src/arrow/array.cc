@@ -26,6 +26,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
+#include "arrow/extension_type.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -866,6 +867,8 @@ struct ValidateVisitor {
     }
     return Status::OK();
   }
+
+  Status Visit(const ExtensionArray& array) { return ValidateArray(*array.storage()); }
 };
 
 }  // namespace internal
@@ -889,6 +892,11 @@ class ArrayDataWrapper {
   Status Visit(const T&) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
     *out_ = std::make_shared<ArrayType>(data_);
+    return Status::OK();
+  }
+
+  Status Visit(const ExtensionType& type) {
+    *out_ = type.MakeArray(data_);
     return Status::OK();
   }
 

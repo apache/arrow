@@ -49,7 +49,12 @@ bool ARROW_EXPORT ArrayRangeEquals(const Array& left, const Array& right,
                                    int64_t other_start_idx);
 
 /// Returns true if the type metadata are exactly equal
-bool ARROW_EXPORT TypeEquals(const DataType& left, const DataType& right);
+/// \param[in] left a DataType
+/// \param[in] right a DataType
+/// \param[in] check_metadata whether to compare KeyValueMetadata for child
+/// fields
+bool ARROW_EXPORT TypeEquals(const DataType& left, const DataType& right,
+                             bool check_metadata = true);
 
 }  // namespace arrow
 

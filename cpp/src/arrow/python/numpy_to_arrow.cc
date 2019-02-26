@@ -240,6 +240,8 @@ class NumPyConverter {
 
   Status Visit(const NestedType& type) { return TypeNotImplemented(type.ToString()); }
 
+  Status Visit(const ExtensionType& type) { return TypeNotImplemented(type.ToString()); }
+
  protected:
   Status InitNullBitmap() {
     RETURN_NOT_OK(AllocateNullBitmap(pool_, length_, &null_bitmap_));

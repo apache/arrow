@@ -133,7 +133,10 @@ struct Type {
     DICTIONARY,
 
     /// Map, a repeated struct logical type
-    MAP
+    MAP,
+
+    /// Custom data type, implemented by user
+    EXTENSION
   };
 };
 
@@ -155,7 +158,8 @@ class ARROW_EXPORT DataType {
   ///
   /// Types that are logically convertible from one to another (e.g. List<UInt8>
   /// and Binary) are NOT equal.
-  virtual bool Equals(const DataType& other) const;
+  bool Equals(const DataType& other, bool check_metadata = true) const;
+
   /// \brief Return whether the types are equal
   bool Equals(const std::shared_ptr<DataType>& other) const;
 
@@ -165,7 +169,7 @@ class ARROW_EXPORT DataType {
 
   int num_children() const { return static_cast<int>(children_.size()); }
 
-  virtual Status Accept(TypeVisitor* visitor) const = 0;
+  Status Accept(TypeVisitor* visitor) const;
 
   /// \brief A string representation of the type, including any children
   virtual std::string ToString() const = 0;
@@ -307,10 +311,6 @@ class ARROW_EXPORT CTypeImpl : public BASE {
 
   int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * CHAR_BIT); }
 
-  Status Accept(TypeVisitor* visitor) const override {
-    return visitor->Visit(internal::checked_cast<const DERIVED&>(*this));
-  }
-
   std::string ToString() const override { return this->name(); }
 };
 
@@ -328,7 +328,6 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
 
   NullType() : DataType(Type::NA) {}
 
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
   std::string name() const override { return "null"; }
@@ -341,7 +340,6 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
 
   BooleanType() : FixedWidthType(Type::BOOL) {}
 
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
   int bit_width() const override { return 1; }
@@ -449,7 +447,6 @@ class ARROW_EXPORT ListType : public NestedType {
 
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
   std::string name() const override { return "list"; }
@@ -462,7 +459,6 @@ class ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
 
   BinaryType() : BinaryType(Type::BINARY) {}
 
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "binary"; }
 
@@ -481,7 +477,6 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
   explicit FixedSizeBinaryType(int32_t byte_width, Type::type override_type_id)
       : FixedWidthType(override_type_id), byte_width_(byte_width) {}
 
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "fixed_size_binary"; }
 
@@ -499,7 +494,6 @@ class ARROW_EXPORT StringType : public BinaryType {
 
   StringType() : BinaryType(Type::STRING) {}
 
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "utf8"; }
 };
@@ -511,7 +505,6 @@ class ARROW_EXPORT StructType : public NestedType {
 
   explicit StructType(const std::vector<std::shared_ptr<Field>>& fields);
 
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "struct"; }
 
@@ -561,7 +554,6 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
 
   explicit Decimal128Type(int32_t precision, int32_t scale);
 
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "decimal"; }
 };
@@ -581,7 +573,6 @@ class ARROW_EXPORT UnionType : public NestedType {
 
   std::string ToString() const override;
   std::string name() const override { return "union"; }
-  Status Accept(TypeVisitor* visitor) const override;
 
   const std::vector<uint8_t>& type_codes() const { return type_codes_; }
 
@@ -622,7 +613,6 @@ class ARROW_EXPORT Date32Type : public DateType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
   std::string name() const override { return "date32"; }
@@ -641,7 +631,6 @@ class ARROW_EXPORT Date64Type : public DateType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
   std::string name() const override { return "date64"; }
@@ -690,7 +679,6 @@ class ARROW_EXPORT Time32Type : public TimeType {
 
   explicit Time32Type(TimeUnit::type unit = TimeUnit::MILLI);
 
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
   std::string name() const override { return "time32"; }
@@ -705,7 +693,6 @@ class ARROW_EXPORT Time64Type : public TimeType {
 
   explicit Time64Type(TimeUnit::type unit = TimeUnit::MILLI);
 
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
   std::string name() const override { return "time64"; }
@@ -726,7 +713,6 @@ class ARROW_EXPORT TimestampType : public FixedWidthType, public ParametricType 
   explicit TimestampType(TimeUnit::type unit, const std::string& timezone)
       : FixedWidthType(Type::TIMESTAMP), unit_(unit), timezone_(timezone) {}
 
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "timestamp"; }
 
@@ -750,7 +736,6 @@ class ARROW_EXPORT IntervalType : public FixedWidthType {
   explicit IntervalType(Unit unit = Unit::YEAR_MONTH)
       : FixedWidthType(Type::INTERVAL), unit_(unit) {}
 
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override { return name(); }
   std::string name() const override { return "date"; }
 
@@ -777,7 +762,6 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 
   std::shared_ptr<Array> dictionary() const;
 
-  Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "dictionary"; }
 

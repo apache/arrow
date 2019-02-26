@@ -152,6 +152,9 @@ class IntervalType;
 using IntervalArray = NumericArray<IntervalType>;
 class IntervalScalar;
 
+class ExtensionType;
+class ExtensionArray;
+
 // ----------------------------------------------------------------------
 // (parameter-free) Factory functions
 // Other factory functions are in type.h
