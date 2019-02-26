@@ -58,7 +58,7 @@ fn aggregate_query(sql: &str) {
     );
 
     // execute the query
-    let relation = ctx.sql(&sql).unwrap();
+    let relation = ctx.sql(&sql, 1024 * 1024).unwrap();
 
     // display the relation
     let mut results = relation.borrow_mut();

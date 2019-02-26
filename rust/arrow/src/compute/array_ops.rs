@@ -78,23 +78,28 @@ where
     T: ArrowNumericType,
     T::Native: Add<Output = T::Native>,
 {
-    let mut n: T::Native = T::default_value();
-    // iteratively track whether all values are null (or array is empty)
-    let mut all_nulls = true;
-    let data = array.data();
-    for i in 0..data.len() {
-        if data.is_null(i) {
-            continue;
-        }
-        if all_nulls {
-            all_nulls = false;
-        }
-        let m = array.value(i);
-        n = n + m;
-    }
-    if all_nulls {
+    let null_count = array.null_count();
+
+    if null_count == array.len() {
         None
+    } else if null_count == 0 {
+        // optimized path for arrays without null values
+        let mut n: T::Native = T::default_value();
+        let data = array.data();
+        let m = array.value_slice(0, data.len());
+        for i in 0..data.len() {
+            n = n + m[i];
+        }
+        Some(n)
     } else {
+        let mut n: T::Native = T::default_value();
+        let data = array.data();
+        let m = array.value_slice(0, data.len());
+        for i in 0..data.len() {
+            if data.is_valid(i) {
+                n = n + m[i];
+            }
+        }
         Some(n)
     }
 }
