@@ -42,6 +42,7 @@
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/concatenate.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/lazy.h"
 

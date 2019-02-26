@@ -118,6 +118,7 @@ set(ARROW_SRCS
     testing/util.cc
     util/basic_decimal.cc
     util/bit-util.cc
+    util/concatenate.cc
     util/compression.cc
     util/cpu-info.cc
     util/decimal.cc
