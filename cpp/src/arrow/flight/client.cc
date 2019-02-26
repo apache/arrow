@@ -123,8 +123,15 @@ class FlightPutWriter::FlightPutWriterImpl : public ipc::RecordBatchWriter {
     RETURN_NOT_OK(
         ipc::internal::GetRecordBatchPayload(batch, pool_, &payload.ipc_message));
 
+#ifndef _WIN32
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
     if (!writer_->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
                         grpc::WriteOptions())) {
+#ifndef _WIN32
+#pragma GCC diagnostic pop
+#endif
       std::stringstream ss;
       ss << "Could not write record batch to stream: "
          << rpc_->context.debug_error_string();
@@ -307,8 +314,15 @@ class FlightClient::FlightClientImpl {
     pb_descr.SerializeToString(&str_descr);
     RETURN_NOT_OK(Buffer::FromString(str_descr, &payload.descriptor));
 
+#ifndef _WIN32
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
     if (!write_stream->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
                              grpc::WriteOptions())) {
+#ifndef _WIN32
+#pragma GCC diagnostic pop
+#endif
       std::stringstream ss;
       ss << "Could not write descriptor and schema to stream: "
          << rpc->context.debug_error_string();
