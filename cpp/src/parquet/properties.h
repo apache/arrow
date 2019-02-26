@@ -52,6 +52,7 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
     Builder* key(const std::string& key) {
       DCHECK(key.length() == 16 || key.length() == 24 || key.length() == 32);
       DCHECK(encrypt_);
+      encrypted_with_footer_key_ = false;
 
       key_ = key;
       return this;
@@ -269,10 +270,10 @@ class PARQUET_EXPORT FileEncryptionProperties {
  public:
   class Builder {
    public:
-    Builder() : algorithm_(DEFAULT_ENCRYPTION_ALGORITHM), uniform_encryption_(true) {}
+    Builder() : algorithm_(DEFAULT_ENCRYPTION_ALGORITHM) {}
 
     Builder(const std::string& key)
-        : algorithm_(DEFAULT_ENCRYPTION_ALGORITHM), uniform_encryption_(true) {
+        : algorithm_(DEFAULT_ENCRYPTION_ALGORITHM) {
       DCHECK(key.length() == 16 || key.length() == 24 || key.length() == 32);
       footer_key_ = key;
     }
@@ -324,11 +325,8 @@ class PARQUET_EXPORT FileEncryptionProperties {
       column_properties_ = column_properties;
 
       if (!footer_key_.empty()) {
-        uniform_encryption_ = true;
-
         for (const auto& col : column_properties) {
           if (col.second->key().compare(footer_key_) != 0) {
-            uniform_encryption_ = false;
             break;
           }
         }
@@ -359,7 +357,7 @@ class PARQUET_EXPORT FileEncryptionProperties {
         footer_encryption.reset(new EncryptionProperties(algorithm_, footer_key_, aad_));
       }
       return std::make_shared<FileEncryptionProperties>(
-          footer_encryption, footer_key_metadata_, aad_metadata_, uniform_encryption_,
+          footer_encryption, footer_key_metadata_, aad_metadata_,
           column_properties_, encrypt_the_rest_);
     }
 
@@ -371,8 +369,6 @@ class PARQUET_EXPORT FileEncryptionProperties {
     std::string aad_;
     std::string aad_metadata_;
 
-    bool uniform_encryption_;
-
     std::map<std::string, std::shared_ptr<ColumnEncryptionProperties>> column_properties_;
     bool encrypt_the_rest_;
   };
@@ -380,14 +376,12 @@ class PARQUET_EXPORT FileEncryptionProperties {
   FileEncryptionProperties(
       const std::shared_ptr<EncryptionProperties>& footer_encryption,
       const std::string& footer_key_metadata, const std::string& aad_metadata,
-      bool uniform_encryption,
       const std::map<std::string, std::shared_ptr<ColumnEncryptionProperties>>&
           column_properties,
       bool encrypt_the_rest)
       : footer_encryption_(footer_encryption),
         footer_key_metadata_(footer_key_metadata),
         aad_metadata_(aad_metadata),
-        uniform_encryption_(uniform_encryption),
         column_properties_(column_properties),
         encrypt_the_rest_(encrypt_the_rest) {}
 
@@ -401,11 +395,6 @@ class PARQUET_EXPORT FileEncryptionProperties {
 
   std::shared_ptr<ColumnEncryptionProperties> GetColumnCryptoMetaData(
       const std::shared_ptr<schema::ColumnPath>& path) {
-    // uniform encryption
-    if (uniform_encryption_) {
-      return ColumnEncryptionProperties::Builder(path->ToDotString(), true).build();
-    }
-
     // non-uniform encryption
     std::string path_str = path->ToDotString();
     if (column_properties_.find(path_str) != column_properties_.end()) {
@@ -417,17 +406,12 @@ class PARQUET_EXPORT FileEncryptionProperties {
       return ColumnEncryptionProperties::Builder(path->ToDotString(), true).build();
     }
 
-    // unencrypted
+    // uniform encryption or unencrypted
     return ColumnEncryptionProperties::Builder(path->ToDotString(), false).build();
   }
 
   std::shared_ptr<EncryptionProperties> GetColumnEncryptionProperties(
       const std::shared_ptr<schema::ColumnPath>& path) {
-    // uniform encryption
-    if (uniform_encryption_) {
-      return footer_encryption_;
-    }
-
     // non-uniform encryption
     std::string path_str = path->ToDotString();
     if (column_properties_.find(path_str) != column_properties_.end()) {
@@ -436,10 +420,12 @@ class PARQUET_EXPORT FileEncryptionProperties {
                                                     footer_encryption_->aad());
     }
 
+    // encrypted with footer key
     if (encrypt_the_rest_) {
       return footer_encryption_;
     }
 
+    // uniform encryption or unencrypted
     return NULLPTR;
   }
 
@@ -447,8 +433,6 @@ class PARQUET_EXPORT FileEncryptionProperties {
   std::shared_ptr<EncryptionProperties> footer_encryption_;
   std::string footer_key_metadata_;
   std::string aad_metadata_;
-
-  bool uniform_encryption_;
 
   std::map<std::string, std::shared_ptr<ColumnEncryptionProperties>> column_properties_;
   bool encrypt_the_rest_;
