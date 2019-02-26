@@ -22,7 +22,7 @@ use std::sync::Arc;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::DataSource;
+use crate::datasource::RecordBatchIterator;
 use crate::execution::error::Result;
 
 /// trait for all relations (a relation is essentially just an iterator over rows with
@@ -36,11 +36,11 @@ pub trait Relation {
 
 pub struct DataSourceRelation {
     schema: Arc<Schema>,
-    ds: Rc<RefCell<DataSource>>,
+    ds: Rc<RefCell<RecordBatchIterator>>,
 }
 
 impl DataSourceRelation {
-    pub fn new(ds: Rc<RefCell<DataSource>>) -> Self {
+    pub fn new(ds: Rc<RefCell<RecordBatchIterator>>) -> Self {
         let schema = ds.borrow().schema().clone();
         Self { ds, schema }
     }

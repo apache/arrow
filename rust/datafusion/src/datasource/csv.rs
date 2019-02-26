@@ -27,16 +27,53 @@ use arrow::csv;
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::{DataSource, DataSourceProvider};
+use crate::datasource::{RecordBatchIterator, Table};
 use crate::execution::error::Result;
 
-/// CSV data source
-pub struct CsvDataSource {
+/// Represents a CSV file with a provided schema
+pub struct CsvFile {
+    filename: String,
+    schema: Arc<Schema>,
+    has_header: bool,
+}
+
+impl CsvFile {
+    pub fn new(filename: &str, schema: &Schema, has_header: bool) -> Self {
+        Self {
+            filename: String::from(filename),
+            schema: Arc::new(schema.clone()),
+            has_header,
+        }
+    }
+}
+
+impl Table for CsvFile {
+    fn schema(&self) -> &Arc<Schema> {
+        &self.schema
+    }
+
+    fn scan(
+        &self,
+        projection: &Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Rc<RefCell<RecordBatchIterator>> {
+        Rc::new(RefCell::new(CsvBatchIterator::new(
+            &self.filename,
+            self.schema.clone(),
+            self.has_header,
+            projection,
+            batch_size,
+        )))
+    }
+}
+
+/// CSV result set
+pub struct CsvBatchIterator {
     schema: Arc<Schema>,
     reader: csv::Reader<File>,
 }
 
-impl CsvDataSource {
+impl CsvBatchIterator {
     pub fn new(
         filename: &str,
         schema: Arc<Schema>,
@@ -70,49 +107,12 @@ impl CsvDataSource {
     }
 }
 
-impl DataSource for CsvDataSource {
+impl RecordBatchIterator for CsvBatchIterator {
     fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }
 
     fn next(&mut self) -> Result<Option<RecordBatch>> {
         Ok(self.reader.next()?)
-    }
-}
-
-/// Represents a CSV file with a provided schema
-pub struct CsvDataSourceProvider {
-    filename: String,
-    schema: Arc<Schema>,
-    has_header: bool,
-}
-
-impl CsvDataSourceProvider {
-    pub fn new(filename: &str, schema: &Schema, has_header: bool) -> Self {
-        Self {
-            filename: String::from(filename),
-            schema: Arc::new(schema.clone()),
-            has_header,
-        }
-    }
-}
-
-impl DataSourceProvider for CsvDataSourceProvider {
-    fn schema(&self) -> &Arc<Schema> {
-        &self.schema
-    }
-
-    fn scan(
-        &self,
-        projection: &Option<Vec<usize>>,
-        batch_size: usize,
-    ) -> Rc<RefCell<DataSource>> {
-        Rc::new(RefCell::new(CsvDataSource::new(
-            &self.filename,
-            self.schema.clone(),
-            self.has_header,
-            projection,
-            batch_size,
-        )))
     }
 }

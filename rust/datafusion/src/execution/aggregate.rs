@@ -1015,7 +1015,7 @@ impl AggregateRelation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::datasource::CsvDataSource;
+    use crate::datasource::CsvBatchIterator;
     use crate::execution::context::ExecutionContext;
     use crate::execution::expression;
     use crate::execution::relation::DataSourceRelation;
@@ -1208,7 +1208,7 @@ mod tests {
     }
 
     fn load_csv(filename: &str, schema: &Arc<Schema>) -> Rc<RefCell<Relation>> {
-        let ds = CsvDataSource::new(filename, schema.clone(), true, &None, 1024);
+        let ds = CsvBatchIterator::new(filename, schema.clone(), true, &None, 1024);
         Rc::new(RefCell::new(DataSourceRelation::new(Rc::new(
             RefCell::new(ds),
         ))))

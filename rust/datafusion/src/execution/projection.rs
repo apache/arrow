@@ -80,7 +80,7 @@ impl Relation for ProjectRelation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::datasource::CsvDataSource;
+    use crate::datasource::CsvBatchIterator;
     use crate::execution::context::ExecutionContext;
     use crate::execution::expression;
     use crate::execution::relation::DataSourceRelation;
@@ -105,7 +105,7 @@ mod tests {
             Field::new("c12", DataType::Utf8, false),
         ]));
 
-        let ds = CsvDataSource::new(
+        let ds = CsvBatchIterator::new(
             "../../testing/data/csv/aggregate_test_100.csv",
             schema.clone(),
             true,

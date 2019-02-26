@@ -25,8 +25,8 @@ use std::sync::Arc;
 
 use arrow::datatypes::*;
 
-use crate::datasource::csv::CsvDataSourceProvider;
-use crate::datasource::datasource::DataSourceProvider;
+use crate::datasource::csv::CsvFile;
+use crate::datasource::datasource::Table;
 use crate::dfparser::{DFASTNode, DFParser};
 use crate::execution::aggregate::AggregateRelation;
 use crate::execution::error::{ExecutionError, Result};
@@ -41,7 +41,7 @@ use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::sqlplanner::{SchemaProvider, SqlToRel};
 
 pub struct ExecutionContext {
-    datasources: Rc<RefCell<HashMap<String, Rc<DataSourceProvider>>>>,
+    datasources: Rc<RefCell<HashMap<String, Rc<Table>>>>,
 }
 
 impl ExecutionContext {
@@ -88,10 +88,17 @@ impl ExecutionContext {
         schema: &Schema,
         has_header: bool,
     ) {
-        self.datasources.borrow_mut().insert(
-            name.to_string(),
-            Rc::new(CsvDataSourceProvider::new(filename, schema, has_header)),
+        self.register_table(
+            name,
+            Rc::new(CsvFile::new(filename, schema, has_header)),
         );
+    }
+
+    /// Register a table so that it can be queried from SQL
+    pub fn register_table(&mut self, name: &str, provider: Rc<Table>) {
+        self.datasources
+            .borrow_mut()
+            .insert(name.to_string(), provider);
     }
 
     /// Optimize the logical plan by applying optimizer rules
@@ -270,7 +277,7 @@ pub fn exprlist_to_fields(expr: &Vec<Expr>, input_schema: &Schema) -> Vec<Field>
 }
 
 struct ExecutionContextSchemaProvider {
-    datasources: Rc<RefCell<HashMap<String, Rc<DataSourceProvider>>>>,
+    datasources: Rc<RefCell<HashMap<String, Rc<Table>>>>,
 }
 impl SchemaProvider for ExecutionContextSchemaProvider {
     fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>> {

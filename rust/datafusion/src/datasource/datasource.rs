@@ -26,16 +26,22 @@ use arrow::record_batch::RecordBatch;
 
 use crate::execution::error::Result;
 
-pub trait DataSource {
+/// Source table
+pub trait Table {
+    /// Get a reference to the schema for this table
     fn schema(&self) -> &Arc<Schema>;
-    fn next(&mut self) -> Result<Option<RecordBatch>>;
-}
 
-pub trait DataSourceProvider {
-    fn schema(&self) -> &Arc<Schema>;
+    /// Perform a scan of a table and return one or more iterators (one iterator per
+    /// partition)
     fn scan(
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
-    ) -> Rc<RefCell<DataSource>>;
+    ) -> Rc<RefCell<RecordBatchIterator>>;
+}
+
+/// Iterator for reading a series of record batches with a known schema
+pub trait RecordBatchIterator {
+    fn schema(&self) -> &Arc<Schema>;
+    fn next(&mut self) -> Result<Option<RecordBatch>>;
 }

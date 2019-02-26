@@ -19,6 +19,6 @@ pub mod csv;
 pub mod datasource;
 pub mod memory;
 
-pub use self::csv::{CsvDataSource, CsvDataSourceProvider};
-pub use self::datasource::{DataSource, DataSourceProvider};
-pub use self::memory::{InMemoryDataSource, InMemoryDataSourceProvider};
+pub use self::csv::{CsvBatchIterator, CsvFile};
+pub use self::datasource::{RecordBatchIterator, Table};
+pub use self::memory::{MemBatchIterator, MemTable};

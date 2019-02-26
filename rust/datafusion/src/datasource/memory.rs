@@ -26,16 +26,16 @@ use std::sync::Arc;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::{DataSource, DataSourceProvider};
+use crate::datasource::{RecordBatchIterator, Table};
 use crate::execution::error::Result;
 
-pub struct InMemoryDataSource {
+pub struct MemBatchIterator {
     schema: Arc<Schema>,
     index: usize,
     batches: Vec<RecordBatch>,
 }
 
-impl DataSource for InMemoryDataSource {
+impl RecordBatchIterator for MemBatchIterator {
     fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }
@@ -50,18 +50,18 @@ impl DataSource for InMemoryDataSource {
     }
 }
 
-pub struct InMemoryDataSourceProvider {
+pub struct MemTable {
     schema: Arc<Schema>,
     batches: Vec<RecordBatch>,
 }
 
-impl InMemoryDataSourceProvider {
+impl MemTable {
     pub fn new(schema: Arc<Schema>, batches: Vec<RecordBatch>) -> Self {
         Self { schema, batches }
     }
 }
 
-impl DataSourceProvider for InMemoryDataSourceProvider {
+impl Table for MemTable {
     fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }
@@ -70,7 +70,7 @@ impl DataSourceProvider for InMemoryDataSourceProvider {
         &self,
         projection: &Option<Vec<usize>>,
         _batch_size: usize,
-    ) -> Rc<RefCell<DataSource>> {
+    ) -> Rc<RefCell<RecordBatchIterator>> {
         let columns: Vec<usize> = match projection {
             Some(p) => p.clone(),
             None => {
@@ -90,7 +90,7 @@ impl DataSourceProvider for InMemoryDataSourceProvider {
                 .collect(),
         ));
 
-        Rc::new(RefCell::new(InMemoryDataSource {
+        Rc::new(RefCell::new(MemBatchIterator {
             schema: self.schema.clone(),
             index: 0,
             batches: self
@@ -130,7 +130,7 @@ mod tests {
             ],
         );
 
-        let provider = InMemoryDataSourceProvider::new(schema, vec![batch]);
+        let provider = MemTable::new(schema, vec![batch]);
 
         // scan with no projection
         let scan1 = provider.scan(&None, 1024);
