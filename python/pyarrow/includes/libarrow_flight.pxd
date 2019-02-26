@@ -33,6 +33,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         shared_ptr[CBuffer] body
 
     cdef cppclass CResult" arrow::flight::Result":
+        CResult()
+        CResult(CResult)
         shared_ptr[CBuffer] body
 
     cdef cppclass CResultStream" arrow::flight::ResultStream":
@@ -58,6 +60,10 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CTicket()
         c_string ticket
 
+    cdef cppclass CCriteria" arrow::flight::Criteria":
+        CCriteria()
+        c_string expression
+
     cdef cppclass CLocation" arrow::flight::Location":
         CLocation()
 
@@ -71,6 +77,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         vector[CLocation] locations
 
     cdef cppclass CFlightInfo" arrow::flight::FlightInfo":
+        CFlightInfo(CFlightInfo info)
         uint64_t total_records()
         uint64_t total_bytes()
         CStatus GetSchema(shared_ptr[CSchema]* out)
@@ -79,6 +86,9 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFlightListing" arrow::flight::FlightListing":
         CStatus Next(unique_ptr[CFlightInfo]* info)
+
+    cdef cppclass CSimpleFlightListing" arrow::flight::SimpleFlightListing":
+        CSimpleFlightListing(vector[CFlightInfo]&& info)
 
     cdef cppclass CFlightMessageReader \
             " arrow::flight::FlightMessageReader"(CRecordBatchReader):
@@ -112,23 +122,37 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
 # Callbacks for implementing Flight servers
 # Use typedef to emulate syntax for std::function<void(...)>
+ctypedef void cb_list_flights(object, const CCriteria*,
+                              unique_ptr[CFlightListing]*)
 ctypedef void cb_get_flight_info(object, const CFlightDescriptor&,
                                  unique_ptr[CFlightInfo]*)
 ctypedef void cb_do_put(object, unique_ptr[CFlightMessageReader])
 ctypedef void cb_do_get(object, const CTicket&,
                         unique_ptr[CFlightDataStream]*)
+ctypedef void cb_do_action(object, const CAction&,
+                           unique_ptr[CResultStream]*)
+ctypedef void cb_list_actions(object, vector[CActionType]*)
+ctypedef void cb_result_next(object, unique_ptr[CResult]*)
 
 cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef cppclass PyFlightServerVtable:
         PyFlightServerVtable()
+        function[cb_list_flights] list_flights
         function[cb_get_flight_info] get_flight_info
         function[cb_do_put] do_put
         function[cb_do_get] do_get
+        function[cb_do_action] do_action
+        function[cb_list_actions] list_actions
 
     cdef cppclass PyFlightServer:
         PyFlightServer(object server, PyFlightServerVtable vtable)
         void Run(int port)
         void Shutdown()
+
+    cdef cppclass CPyFlightResultStream\
+            " arrow::py::flight::PyFlightResultStream"(CResultStream):
+        CPyFlightResultStream(object generator,
+                              function[cb_result_next] callback)
 
     cdef CStatus CreateFlightInfo" arrow::py::flight::CreateFlightInfo"(
         shared_ptr[CSchema] schema,
@@ -137,6 +161,3 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         uint64_t total_records,
         uint64_t total_bytes,
         unique_ptr[CFlightInfo]* out)
-
-cdef extern from "<utility>" namespace "std":
-    unique_ptr[CFlightDataStream] move(unique_ptr[CFlightDataStream])

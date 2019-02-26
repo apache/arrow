@@ -33,7 +33,9 @@ PyFlightServer::PyFlightServer(PyObject* server, PyFlightServerVtable vtable)
 Status PyFlightServer::ListFlights(
     const arrow::flight::Criteria* criteria,
     std::unique_ptr<arrow::flight::FlightListing>* listings) {
-  return Status::NotImplemented("NYI");
+  PyAcquireGIL lock;
+  vtable_.list_flights(server_.obj(), criteria, listings);
+  return CheckPyError();
 }
 
 Status PyFlightServer::GetFlightInfo(const arrow::flight::FlightDescriptor& request,
@@ -58,11 +60,28 @@ Status PyFlightServer::DoPut(std::unique_ptr<arrow::flight::FlightMessageReader>
 
 Status PyFlightServer::DoAction(const arrow::flight::Action& action,
                                 std::unique_ptr<arrow::flight::ResultStream>* result) {
-  return Status::NotImplemented("NYI");
+  PyAcquireGIL lock;
+  vtable_.do_action(server_.obj(), action, result);
+  return CheckPyError();
 }
 
 Status PyFlightServer::ListActions(std::vector<arrow::flight::ActionType>* actions) {
-  return Status::NotImplemented("NYI");
+  PyAcquireGIL lock;
+  vtable_.list_actions(server_.obj(), actions);
+  return CheckPyError();
+}
+
+PyFlightResultStream::PyFlightResultStream(PyObject* generator,
+                                           PyFlightResultStreamCallback callback)
+    : callback_(callback) {
+  Py_INCREF(generator);
+  generator_.reset(generator);
+}
+
+Status PyFlightResultStream::Next(std::unique_ptr<arrow::flight::Result>* result) {
+  PyAcquireGIL lock;
+  callback_(generator_.obj(), result);
+  return CheckPyError();
 }
 
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,

@@ -35,14 +35,21 @@ namespace flight {
 /// Python.
 class ARROW_PYTHON_EXPORT PyFlightServerVtable {
  public:
+  std::function<void(PyObject*, const arrow::flight::Criteria*,
+                     std::unique_ptr<arrow::flight::FlightListing>*)>
+      list_flights;
   std::function<void(PyObject*, const arrow::flight::FlightDescriptor&,
                      std::unique_ptr<arrow::flight::FlightInfo>*)>
       get_flight_info;
-  std::function<void(PyObject*, std::unique_ptr<arrow::flight::FlightMessageReader>)>
-      do_put;
   std::function<void(PyObject*, const arrow::flight::Ticket&,
                      std::unique_ptr<arrow::flight::FlightDataStream>*)>
       do_get;
+  std::function<void(PyObject*, std::unique_ptr<arrow::flight::FlightMessageReader>)>
+      do_put;
+  std::function<void(PyObject*, const arrow::flight::Action&,
+                     std::unique_ptr<arrow::flight::ResultStream>*)>
+      do_action;
+  std::function<void(PyObject*, std::vector<arrow::flight::ActionType>*)> list_actions;
 };
 
 class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBase {
@@ -63,6 +70,22 @@ class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBas
  private:
   OwnedRefNoGIL server_;
   PyFlightServerVtable vtable_;
+};
+
+/// \brief A callback that obtains the next result from a Flight action.
+typedef std::function<void(PyObject*, std::unique_ptr<arrow::flight::Result>*)>
+    PyFlightResultStreamCallback;
+
+/// \brief A ResultStream built around a Python callback.
+class ARROW_PYTHON_EXPORT PyFlightResultStream : public arrow::flight::ResultStream {
+ public:
+  explicit PyFlightResultStream(PyObject* generator,
+                                PyFlightResultStreamCallback callback);
+  Status Next(std::unique_ptr<arrow::flight::Result>* result) override;
+
+ private:
+  OwnedRefNoGIL generator_;
+  PyFlightResultStreamCallback callback_;
 };
 
 ARROW_PYTHON_EXPORT

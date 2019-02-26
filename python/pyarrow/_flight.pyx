@@ -47,32 +47,25 @@ cdef class Action:
         return pyarrow_wrap_buffer(self.action.body)
 
 
-cdef class ActionType:
+_ActionType = collections.namedtuple('_ActionType', ['type', 'description'])
+
+
+class ActionType(_ActionType):
     """A type of action executable on a Flight service."""
-    cdef:
-        CActionType action_type
-
-    @property
-    def type(self):
-        return frombytes(self.action_type.type)
-
-    @property
-    def description(self):
-        return frombytes(self.action_type.description)
 
     def make_action(self, buf):
         """Create an Action with this type."""
         return Action(self.type, buf)
-
-    def __repr__(self):
-        return '<ActionType type={} description={}>'.format(
-            self.type, self.description)
 
 
 cdef class Result:
     """A result from executing an Action."""
     cdef:
         unique_ptr[CResult] result
+
+    def __init__(self, buf):
+        self.result.reset(new CResult())
+        self.result.get().body = pyarrow_unwrap_buffer(as_buffer(buf))
 
     @property
     def body(self):
@@ -140,7 +133,7 @@ cdef class FlightDescriptor:
         return self.descriptor.path
 
     def __repr__(self):
-        return "<FlightDescriptor type: {!r}>".format(self.descriptor_type())
+        return "<FlightDescriptor type: {!r}>".format(self.descriptor_type)
 
 
 class Ticket:
@@ -175,9 +168,9 @@ cdef class FlightEndpoint:
             CLocation c_location = CLocation()
 
         if isinstance(ticket, Ticket):
-            self.endpoint.ticket.ticket = ticket.ticket
+            self.endpoint.ticket.ticket = tobytes(ticket.ticket)
         else:
-            self.endpoint.ticket.ticket = ticket
+            self.endpoint.ticket.ticket = tobytes(ticket)
 
         for location in locations:
             # Accepts Location namedtuple or tuple
@@ -270,7 +263,7 @@ cdef class FlightInfo:
 
         result = []
         for endpoint in endpoints:
-            py_endpoint = FlightEndpoint.__new__()
+            py_endpoint = FlightEndpoint.__new__(FlightEndpoint)
             py_endpoint.endpoint = endpoint
             result.append(py_endpoint)
         return result
@@ -329,8 +322,8 @@ cdef class FlightClient:
 
         result = []
         for action_type in results:
-            py_action = ActionType()
-            py_action.action_type = action_type
+            py_action = ActionType(frombytes(action_type.type),
+                                   frombytes(action_type.description))
             result.append(py_action)
 
         return result
@@ -339,11 +332,12 @@ cdef class FlightClient:
         """Execute an action on a service."""
         cdef:
             unique_ptr[CResultStream] results
+            Result result
         with nogil:
             check_status(self.client.get().DoAction(action.action, &results))
 
         while True:
-            result = Result()
+            result = Result.__new__(Result)
             with nogil:
                 check_status(results.get().Next(&result.result))
                 if result.result == NULL:
@@ -408,23 +402,81 @@ cdef class FlightClient:
 
 
 cdef class FlightDataStream:
-    cdef:
-        unique_ptr[CFlightDataStream] stream
+    """Abstract base class for Flight data streams."""
+
+    cdef CFlightDataStream* to_stream(self):
+        """Create the C++ data stream for the backing Python object.
+
+        We don't expose the C++ object to Python, so we can manage its
+        lifetime from the Cython/C++ side.
+        """
+        raise NotImplementedError
 
 
 cdef class RecordBatchStream(FlightDataStream):
-    def __init__(self, reader):
-        # TODO: we don't really expose the readers in Python.
-        pass
+    """A Flight data stream backed by RecordBatches."""
+    cdef:
+        object data_source
+
+    def __init__(self, data_source):
+        """Create a RecordBatchStream from a data source.
+
+        Parameters
+        ----------
+        data_source : RecordBatchReader or Table
+        """
+        if (not isinstance(data_source, _CRecordBatchReader) and
+                not isinstance(data_source, lib.Table)):
+            raise TypeError("Expected RecordBatchReader or Table, "
+                            "but got: {}".format(type(data_source)))
+        self.data_source = data_source
+
+    cdef CFlightDataStream* to_stream(self):
+        cdef:
+            shared_ptr[CRecordBatchReader] reader
+        if isinstance(self.data_source, _CRecordBatchReader):
+            reader = (<_CRecordBatchReader> self.data_source).reader
+        elif isinstance(self.data_source, lib.Table):
+            table = (<Table> self.data_source).table
+            reader.reset(new TableBatchReader(deref(table)))
+        else:
+            raise RuntimeError("Can't construct RecordBatchStream "
+                               "from type {}".format(type(self.data_source)))
+        return new CRecordBatchStream(reader)
+
+
+cdef void _list_flights(void* self, const CCriteria* c_criteria,
+                        unique_ptr[CFlightListing]* listing) except *:
+    """Callback for implementing ListFlights in Python."""
+    cdef:
+        vector[CFlightInfo] flights
+    result = (<object> self).list_flights(c_criteria.expression)
+    for info in result:
+        if not isinstance(info, FlightInfo):
+            raise TypeError("FlightServerBase.list_flights must return "
+                            "FlightInfo instances, but got {}".format(
+                                type(info)))
+        flights.push_back(deref((<FlightInfo> info).info.get()))
+    listing.reset(new CSimpleFlightListing(flights))
 
 
 cdef void _get_flight_info(void* self, CFlightDescriptor c_descriptor,
-                           unique_ptr[CFlightInfo]* info):
+                           unique_ptr[CFlightInfo]* info) except *:
     """Callback for implementing Flight servers in Python."""
-    raise NotImplementedError("GetFlightInfo is not implemented")
+    cdef:
+        FlightDescriptor py_descriptor = \
+            FlightDescriptor.__new__(FlightDescriptor)
+    py_descriptor.descriptor = c_descriptor
+    result = (<object> self).get_flight_info(py_descriptor)
+    if not isinstance(result, FlightInfo):
+        raise TypeError("FlightServerBase.get_flight_info must return "
+                        "a FlightInfo instance, but got {}".format(
+                            type(result)))
+    info.reset(new CFlightInfo(deref((<FlightInfo> result).info.get())))
 
 
-cdef void _do_put(void* self, unique_ptr[CFlightMessageReader] reader):
+cdef void _do_put(void* self,
+                  unique_ptr[CFlightMessageReader] reader) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         FlightRecordBatchReader py_reader = FlightRecordBatchReader()
@@ -437,15 +489,50 @@ cdef void _do_put(void* self, unique_ptr[CFlightMessageReader] reader):
 
 
 cdef void _do_get(void* self, CTicket ticket,
-                  unique_ptr[CFlightDataStream]* stream):
+                  unique_ptr[CFlightDataStream]* stream) except *:
     """Callback for implementing Flight servers in Python."""
-    py_ticket = Ticket()
-    py_ticket.ticket = ticket.ticket
+    py_ticket = Ticket(ticket.ticket)
     result = (<object> self).do_get(py_ticket)
     if not isinstance(result, FlightDataStream):
         raise TypeError("FlightServerBase.do_get must return "
                         "a FlightDataStream")
-    stream[0] = move((<FlightDataStream> result).stream)
+    stream[0] = unique_ptr[CFlightDataStream](
+        (<FlightDataStream> result).to_stream())
+
+
+cdef void _do_action_result_next(void* self,
+                                 unique_ptr[CResult]* result) except *:
+    """Callback for implementing Flight servers in Python."""
+    try:
+        action_result = next(<object> self)
+        if not isinstance(action_result, Result):
+            raise TypeError("Result of FlightServerBase.do_action must "
+                            "return an iterator of Result objects")
+        result.reset(new CResult(deref((<Result> action_result).result.get())))
+    except StopIteration:
+        result.reset(nullptr)
+
+
+cdef void _do_action(void* self, const CAction& action,
+                     unique_ptr[CResultStream]* result) except *:
+    """Callback for implementing Flight servers in Python."""
+    cdef:
+        function[cb_result_next] ptr = &_do_action_result_next
+    py_action = Action(action.type, pyarrow_wrap_buffer(action.body))
+    responses = (<object> self).do_action(py_action)
+    result.reset(new CPyFlightResultStream(responses, ptr))
+
+
+cdef void _list_actions(void* self, vector[CActionType]* actions) except *:
+    """Callback for implementing Flight servers in Python."""
+    cdef:
+        CActionType action_type
+    # Method should return a list of ActionTypes or similar tuple
+    result = (<object> self).list_actions()
+    for action in result:
+        action_type.type = tobytes(action[0])
+        action_type.description = tobytes(action[1])
+        actions.push_back(action_type)
 
 
 cdef class FlightServerBase:
@@ -458,12 +545,18 @@ cdef class FlightServerBase:
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             int c_port = port
+        vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info
         vtable.do_put = &_do_put
         vtable.do_get = &_do_get
+        vtable.list_actions = &_list_actions
+        vtable.do_action = &_do_action
         self.server.reset(new PyFlightServer(self, vtable))
         with nogil:
             self.server.get().Run(c_port)
+
+    def list_flights(self, criteria):
+        raise NotImplementedError
 
     def get_flight_info(self, descriptor):
         raise NotImplementedError
@@ -471,6 +564,22 @@ cdef class FlightServerBase:
     def do_put(self, descriptor, reader):
         raise NotImplementedError
 
+    def do_get(self, ticket):
+        raise NotImplementedError
+
+    def list_actions(self):
+        raise NotImplementedError
+
+    def do_action(self, action):
+        raise NotImplementedError
+
     def shutdown(self):
+        """Shut down the server, blocking until current requests finish.
+
+        Do not call this directly from the implementation of a Flight
+        method, as then the server will block forever waiting for that
+        request to finish. Instead, call this method from a background
+        thread.
+        """
         if self.server.get() != NULL:
             self.server.get().Shutdown()
