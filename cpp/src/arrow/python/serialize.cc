@@ -91,6 +91,7 @@ class SequenceBuilder {
     if (!*child_builder) {
       child_builder->reset(make_builder());
       std::ostringstream convert;
+      convert.imbue(std::locale::classic());
       convert << static_cast<int>(tag);
       type_map_[tag] = builder_->AppendChild(*child_builder, convert.str());
     }
