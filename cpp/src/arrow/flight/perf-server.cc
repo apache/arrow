@@ -192,12 +192,11 @@ void Shutdown(int signal) {
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  // SIGTERM shuts down the server
-  signal(SIGTERM, Shutdown);
-
   g_server.reset(new arrow::flight::FlightPerfServer);
 
-  // TODO(wesm): How can we tell if the server failed to start for some reason?
-  g_server->Run(FLAGS_port);
+  ARROW_CHECK_OK(g_server->Init(FLAGS_port));
+  // Exit with a clean error code (0) on SIGTERM
+  ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
+  ARROW_CHECK_OK(g_server->Serve());
   return 0;
 }

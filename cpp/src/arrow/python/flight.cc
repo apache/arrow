@@ -15,10 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <signal.h>
 #include <utility>
 
 #include "arrow/flight/internal.h"
 #include "arrow/python/flight.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace py {
@@ -69,6 +71,37 @@ Status PyFlightServer::ListActions(std::vector<arrow::flight::ActionType>* actio
   PyAcquireGIL lock;
   vtable_.list_actions(server_.obj(), actions);
   return CheckPyError();
+}
+
+Status PyFlightServer::ServeWithSignals() {
+  // Respect the current Python settings, i.e. only interrupt the server if there is
+  // an active signal handler for SIGINT and SIGTERM.
+  std::vector<int> signals;
+  for (const int signum : {SIGINT, SIGTERM}) {
+    struct sigaction handler;
+    int ret = sigaction(signum, nullptr, &handler);
+    if (ret != 0) {
+      return Status::IOError("sigaction call failed");
+    }
+    if (handler.sa_handler != SIG_DFL && handler.sa_handler != SIG_IGN) {
+      signals.push_back(signum);
+    }
+  }
+  RETURN_NOT_OK(SetShutdownOnSignals(signals));
+
+  // Serve until we got told to shutdown or a signal interrupted us
+  RETURN_NOT_OK(Serve());
+  int signum = GotSignal();
+  if (signum != 0) {
+    // Issue the signal again with Python's signal handlers restored
+    PyAcquireGIL lock;
+    raise(signum);
+    // XXX Ideally we would loop and serve again if no exception was raised.
+    // Unfortunately, gRPC will return immediately if Serve() is called again.
+    ARROW_UNUSED(PyErr_CheckSignals());
+  }
+
+  return Status::OK();
 }
 
 PyFlightResultStream::PyFlightResultStream(PyObject* generator,

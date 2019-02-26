@@ -56,6 +56,10 @@ class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBas
  public:
   explicit PyFlightServer(PyObject* server, PyFlightServerVtable vtable);
 
+  // Like Serve(), but set up signals and invoke Python signal handlers
+  // if necessary.  This function may return with a Python exception set.
+  Status ServeWithSignals();
+
   Status ListFlights(const arrow::flight::Criteria* criteria,
                      std::unique_ptr<arrow::flight::FlightListing>* listings) override;
   Status GetFlightInfo(const arrow::flight::FlightDescriptor& request,
