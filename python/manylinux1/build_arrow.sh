@@ -28,6 +28,9 @@ source /multibuild/manylinux_utils.sh
 # Quit on failure
 set -e
 
+# Print commands for debugging
+set -x
+
 cd /arrow/python
 
 # PyArrow build configuration
