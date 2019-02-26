@@ -18,7 +18,6 @@
 #![feature(type_ascription)]
 #![feature(rustc_private)]
 #![feature(specialization)]
-#![feature(try_from)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 
