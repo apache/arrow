@@ -179,9 +179,7 @@ export class Table<T extends { [key: string]: DataType } = any>
             throw new TypeError('Table must be initialized with a Schema or at least one RecordBatch');
         }
 
-        if (!chunks[0]) { chunks[0] = new RecordBatch(schema, 0, []); }
-
-        super(chunks[0].type, chunks);
+        super(new Struct<T>(schema.fields), chunks);
 
         this._schema = schema;
         this._chunks = chunks;

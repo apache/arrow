@@ -30,6 +30,15 @@ function createTable<T extends { [key: string]: DataType } = any>(schema: Schema
 }
 
 describe('Table#serialize()', () => {
+
+    test(`Table#empty round-trips through serialization`, () => {
+        const source = Table.empty();
+        expect(source.length).toBe(0);
+        expect(source.numCols).toBe(0);
+        const result = Table.from(source.serialize());
+        expect(result).toEqualTable(source);
+    });
+
     const chunkLengths = [] as number[];
     for (let i = -1; ++i < 3;) {
         chunkLengths[i] = (Math.random() * 100) | 0;
