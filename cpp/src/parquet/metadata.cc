@@ -412,6 +412,22 @@ class FileMetaData::FileMetaDataImpl {
     InitKeyValueMetadata();
   }
 
+  bool verify(std::shared_ptr<EncryptionProperties> encryption,
+              const void* tail, uint32_t tail_len) {
+    // re-encrypt the footer
+    uint8_t* encrypted_file_metadata;
+    uint32_t encrypted_file_metadata_len;
+    ThriftSerializer serializer;
+    serializer.SerializeToBuffer(metadata_.get(), &encrypted_file_metadata_len,
+                                 &encrypted_file_metadata, encryption);
+    // compare
+    if (0 != memcmp(encrypted_file_metadata + encrypted_file_metadata_len - tail_len,
+        reinterpret_cast<const uint8_t*>(tail), tail_len)) {
+      return false;
+    }
+    return true;
+  }
+
   inline uint32_t size() const { return metadata_len_; }
   inline int num_columns() const { return schema_.num_columns(); }
   inline int64_t num_rows() const { return metadata_->num_rows; }
@@ -423,12 +439,32 @@ class FileMetaData::FileMetaDataImpl {
   inline int num_schema_elements() const {
     return static_cast<int>(metadata_->schema.size());
   }
+  inline bool is_plaintext_mode() const { return metadata_->__isset.encryption_algorithm; }
+  inline EncryptionAlgorithm encryption_algorithm() {
+    return FromThrift(metadata_->encryption_algorithm);
+  }
+  inline const std::string& footer_signing_key_metadata() {
+    return metadata_->footer_signing_key_metadata;
+  }
 
   const ApplicationVersion& writer_version() const { return writer_version_; }
 
   void WriteTo(::arrow::io::OutputStream* dst,  const std::shared_ptr<EncryptionProperties>& encryption) const {
     ThriftSerializer serializer;
-    serializer.Serialize(metadata_.get(), dst, encryption, false);
+    if (is_plaintext_mode()) {
+      serializer.Serialize(metadata_.get(), dst);
+      // 1. encrypt the footer key
+      uint8_t* encrypted_file_metadata;
+      uint32_t encrypted_file_metadata_len;
+      ThriftSerializer serializer;
+      serializer.SerializeToBuffer(metadata_.get(), &encrypted_file_metadata_len,
+                                   &encrypted_file_metadata, encryption);
+      // 2. write 28 bytes of nonce_and_tag (at the end of encrypted file metadata)
+      dst->Write(encrypted_file_metadata+encrypted_file_metadata_len-28, 28);
+    }
+    else {
+      serializer.Serialize(metadata_.get(), dst, encryption, false);
+    }
   }
 
   std::unique_ptr<RowGroupMetaData> RowGroup(int i) {
@@ -534,6 +570,11 @@ std::unique_ptr<RowGroupMetaData> FileMetaData::RowGroup(int i) const {
   return impl_->RowGroup(i);
 }
 
+bool FileMetaData::verify(std::shared_ptr<EncryptionProperties> encryption,
+              const void* tail, uint32_t tail_len) {
+  return impl_->verify(encryption, tail, tail_len);
+}
+
 uint32_t FileMetaData::size() const { return impl_->size(); }
 
 int FileMetaData::num_columns() const { return impl_->num_columns(); }
@@ -541,6 +582,16 @@ int FileMetaData::num_columns() const { return impl_->num_columns(); }
 int64_t FileMetaData::num_rows() const { return impl_->num_rows(); }
 
 int FileMetaData::num_row_groups() const { return impl_->num_row_groups(); }
+
+bool FileMetaData::is_plaintext_mode() const { return impl_->is_plaintext_mode(); }
+
+EncryptionAlgorithm FileMetaData::encryption_algorithm() const {
+  return impl_->encryption_algorithm();
+}
+
+const std::string& FileMetaData::footer_signing_key_metadata() const {
+  return impl_->footer_signing_key_metadata();
+}
 
 ParquetVersion::type FileMetaData::version() const {
   switch (impl_->version()) {
@@ -1051,7 +1102,8 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     return current_row_group_builder_.get();
   }
 
-  std::unique_ptr<FileMetaData> Finish() {
+  std::unique_ptr<FileMetaData> Finish(const EncryptionAlgorithm* signing_algorithm,
+                                       const std::string& footer_signing_key_metadata) {
     int64_t total_rows = 0;
     for (auto row_group : row_groups_) {
       total_rows += row_group.num_rows;
@@ -1096,6 +1148,13 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     column_order.__isset.TYPE_ORDER = true;
     metadata_->column_orders.resize(schema_->num_columns(), column_order);
     metadata_->__isset.column_orders = true;
+
+    if (signing_algorithm != NULLPTR) {
+      metadata_->__set_encryption_algorithm(ToThrift(*signing_algorithm));
+      if (footer_signing_key_metadata.size() > 0) {
+        metadata_->__set_footer_signing_key_metadata(footer_signing_key_metadata);
+      }
+    }
 
     parquet::schema::SchemaFlattener flattener(
         static_cast<parquet::schema::GroupNode*>(schema_->schema_root().get()),
@@ -1165,7 +1224,11 @@ RowGroupMetaDataBuilder* FileMetaDataBuilder::AppendRowGroup() {
   return impl_->AppendRowGroup();
 }
 
-std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish() { return impl_->Finish(); }
+std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish(
+    const EncryptionAlgorithm* signing_algorithm,
+    const std::string& footer_signing_key_metadata) {
+  return impl_->Finish(signing_algorithm, footer_signing_key_metadata);
+}
 
 std::unique_ptr<FileCryptoMetaData> FileMetaDataBuilder::GetCryptoMetaData() {
   return impl_->BuildFileCryptoMetaData();

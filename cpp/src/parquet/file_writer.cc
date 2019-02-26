@@ -264,23 +264,39 @@ class FileSerializer : public ParquetFileWriter::Contents {
       row_group_writer_.reset();
 
       // Write magic bytes and metadata
-      file_metadata_ = metadata_->Finish();
-
       auto file_encryption = properties_->file_encryption();
       if (file_encryption == nullptr) {
+        file_metadata_ = metadata_->Finish();
         WriteFileMetaData(*file_metadata_, sink_.get());
-      } else {
-        uint64_t metadata_start = static_cast<uint64_t>(sink_->Tell());
-        auto crypto_metadata = metadata_->GetCryptoMetaData();
-        WriteFileCryptoMetaData(*crypto_metadata, sink_.get());
+      }
+      else {
+        if (file_encryption->encrypt_footer()) {
+          // encrypted footer
+          file_metadata_ = metadata_->Finish();
 
-        std::shared_ptr<EncryptionProperties> footer_encryption =
-          file_encryption->GetFooterEncryptionProperties();
-        WriteFileMetaData(*file_metadata_, sink_.get(), footer_encryption);
-        uint32_t footer_and_crypto_len = static_cast<uint32_t>(sink_->Tell() - metadata_start);
-        sink_->Write(reinterpret_cast<uint8_t*>(&footer_and_crypto_len), 4);
+          uint64_t metadata_start = static_cast<uint64_t>(sink_->Tell());
+          auto crypto_metadata = metadata_->GetCryptoMetaData();
+          WriteFileCryptoMetaData(*crypto_metadata, sink_.get());
 
-        sink_->Write(PARQUET_EMAGIC, 4);
+          std::shared_ptr<EncryptionProperties> footer_encryption =
+            file_encryption->GetFooterEncryptionProperties();
+          WriteFileMetaData(*file_metadata_, sink_.get(), footer_encryption, true);
+          uint32_t footer_and_crypto_len = static_cast<uint32_t>(sink_->Tell() - metadata_start);
+          sink_->Write(reinterpret_cast<uint8_t*>(&footer_and_crypto_len), 4);
+
+          sink_->Write(PARQUET_EMAGIC, 4);
+        }
+        else {
+          // footer plain mode
+          EncryptionAlgorithm signing_encryption;
+          signing_encryption.algorithm = Encryption::AES_GCM_V1;
+          // TODO: AAD
+          file_metadata_ = metadata_->Finish(&signing_encryption, file_encryption->footer_key_metadata());
+
+          std::shared_ptr<EncryptionProperties> footer_encryption =
+            file_encryption->GetFooterEncryptionProperties();
+          WriteFileMetaData(*file_metadata_, sink_.get(), footer_encryption, false);
+        }
       }
 
       sink_->Close();
@@ -387,7 +403,8 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
 }
 
 void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sink,
-                       const std::shared_ptr<EncryptionProperties>& footer_encryption) {
+                       const std::shared_ptr<EncryptionProperties>& footer_encryption,
+                       bool encrypt_footer) {
   if (footer_encryption == nullptr) {
     // Write MetaData
     int64_t position = -1;
@@ -402,8 +419,18 @@ void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sin
     PARQUET_THROW_NOT_OK(sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4));
     PARQUET_THROW_NOT_OK(sink->Write(PARQUET_MAGIC, 4));
   } else {
-    // encrypt and write to sink
-    file_metadata.WriteTo(sink, footer_encryption);
+    if (encrypt_footer) {
+      // encrypt and write to sink
+      file_metadata.WriteTo(sink, footer_encryption);
+    }
+    else {
+      uint32_t metadata_len = static_cast<uint32_t>(sink->Tell());
+      file_metadata.WriteTo(sink, footer_encryption);
+      metadata_len = static_cast<uint32_t>(sink->Tell()) - metadata_len;
+
+      sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4);
+      sink->Write(PARQUET_MAGIC, 4);
+    }
   }
 }
 

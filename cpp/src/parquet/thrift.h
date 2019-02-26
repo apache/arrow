@@ -259,9 +259,28 @@ class ThriftSerializer {
   /// memory returned is owned by this object and will be invalid when another object
   /// is serialized.
   template <class T>
-  void SerializeToBuffer(const T* obj, uint32_t* len, uint8_t** buffer) {
+  void SerializeToBuffer(const T* obj, uint32_t* len, uint8_t** buffer,
+                         const std::shared_ptr<EncryptionProperties>& encryption = NULLPTR) {
     SerializeObject(obj);
-    mem_buffer_->getBuffer(buffer, len);
+    if (encryption == NULLPTR) {
+      mem_buffer_->getBuffer(buffer, len);
+    }
+    else {
+      uint8_t* out_buffer;
+      uint32_t out_length;
+      mem_buffer_->getBuffer(&out_buffer, &out_length);
+      // encrypt
+      std::vector<uint8_t> cipher_buffer(encryption->CalculateCipherSize(out_length));
+      int cipher_buffer_len = parquet_encryption::Encrypt(
+          encryption, true, out_buffer, out_length, cipher_buffer.data());
+      if (cipher_buffer_len > cipher_buffer.size()) {
+        std::stringstream ss;
+        ss << "cipher length is greater than cipher buffer capacity: " << cipher_buffer_len << cipher_buffer.size() << "\n";
+        throw ParquetException(ss.str());
+      }
+      *len = cipher_buffer_len;
+      *buffer = cipher_buffer.data();
+    }
   }
 
   template <class T>
