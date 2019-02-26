@@ -1,14 +1,51 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Xunit;
+﻿// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 using Apache.Arrow.Types;
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using Xunit;
 
 namespace Apache.Arrow.Tests
 {
+    public class FieldComparer
+    {
+        public static bool Equals(Field f1, Field f2)
+        {
+            if (ReferenceEquals(f1, f2))
+            {
+                return true;
+            }
+            if (f2 != null && f1 != null && f1.Name == f2.Name && f1.IsNullable == f2.IsNullable &&
+                f1.DataType.TypeId == f2.DataType.TypeId && f1.HasMetadata == f2.HasMetadata)
+            {
+                if (f1.HasMetadata && f2.HasMetadata)
+                {
+                    return f1.Metadata.Keys.Count() == f2.Metadata.Keys.Count() &&
+                           f1.Metadata.Keys.All(k => f2.Metadata.ContainsKey(k) && f1.Metadata[k] == f2.Metadata[k]) &&
+                           f2.Metadata.Keys.All(k => f1.Metadata.ContainsKey(k) && f2.Metadata[k] == f1.Metadata[k]);
+                }
+                return true;
+            }
+            return false;
+        }
+    }
     public class TypeTests
     {
+
         [Fact]
         public void Basics()
         {
@@ -31,9 +68,9 @@ namespace Apache.Arrow.Tests
             Field f0_other = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
             Field f0_with_meta = new Field.Builder().Name("f0").DataType(Int32Type.Default).Nullable(true).Metadata("a", "1").Metadata("b", "2").Build();
 
-            Assert.True(f0_nullable.Equals(f0_other));
-            Assert.False(f0_nullable.Equals(f0_nonnullable));
-            Assert.False(f0_nullable.Equals(f0_with_meta));
+            Assert.True(FieldComparer.Equals(f0_nullable, f0_other));
+            Assert.False(FieldComparer.Equals(f0_nullable, f0_nonnullable));
+            Assert.False(FieldComparer.Equals(f0_nullable, f0_with_meta));
         }
 
         [Fact]
@@ -44,7 +81,7 @@ namespace Apache.Arrow.Tests
             Field f0_nullable = new Field.Builder().Name("f0").DataType(Int32Type.Default).Metadata(metadata).Build();
             Field f1_nullable = new Field.Builder().Name("f0").DataType(Int32Type.Default).Metadata(metadata1).Build();
             Assert.True(metadata.Keys.SequenceEqual(f0_nullable.Metadata.Keys) && metadata.Values.SequenceEqual(f0_nullable.Metadata.Values));
-            Assert.True(f0_nullable.Equals(f1_nullable));
+            Assert.True(FieldComparer.Equals(f0_nullable, f1_nullable));
         }
 
         [Fact]
@@ -59,9 +96,9 @@ namespace Apache.Arrow.Tests
             StructType struct_type = new StructType(fields);
 
             var structFields = struct_type.Fields;
-            Assert.True(structFields.ElementAt(0).Equals(f0_nullable));
-            Assert.True(structFields.ElementAt(1).Equals(f1_nullable));
-            Assert.True(structFields.ElementAt(2).Equals(f2_nullable));
+            Assert.True(FieldComparer.Equals(structFields.ElementAt(0), f0_nullable));
+            Assert.True(FieldComparer.Equals(structFields.ElementAt(1), f1_nullable));
+            Assert.True(FieldComparer.Equals(structFields.ElementAt(2), f2_nullable));
         }
 
         [Fact]
@@ -76,9 +113,9 @@ namespace Apache.Arrow.Tests
             StructType struct_type = new StructType(fields);
 
             var structFields = struct_type.Fields;
-            Assert.True(struct_type.GetFieldByName("f0").Equals(f0_nullable));
-            Assert.True(struct_type.GetFieldByName("f1").Equals(f1_nullable));
-            Assert.True(struct_type.GetFieldByName("f2").Equals(f2_nullable));
+            Assert.True(FieldComparer.Equals(struct_type.GetFieldByName("f0"), f0_nullable));
+            Assert.True(FieldComparer.Equals(struct_type.GetFieldByName("f1"), f1_nullable));
+            Assert.True(FieldComparer.Equals(struct_type.GetFieldByName("f2"), f2_nullable));
             Assert.True(struct_type.GetFieldByName("not_found") == null);
         }
 

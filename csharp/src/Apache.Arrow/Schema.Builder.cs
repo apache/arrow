@@ -67,11 +67,7 @@ namespace Apache.Arrow
             {
                 foreach (KeyValuePair<string, string> entry in dict)
                 {
-                    if (string.IsNullOrWhiteSpace(entry.Key))
-                    {
-                        throw new ArgumentNullException(nameof(entry.Key));
-                    }
-                    _metadata[entry.Key] = entry.Value;
+                    this.Metadata(entry.Key, entry.Value);
                 }
                 return this;
             }

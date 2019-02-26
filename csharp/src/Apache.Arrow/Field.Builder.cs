@@ -70,15 +70,15 @@ namespace Apache.Arrow
                 return this;
             }
 
-            public Builder Metadata(IEnumerable<KeyValuePair<string, string>> dict)
+            public Builder Metadata(IEnumerable<KeyValuePair<string, string>> dictionary)
             {
-                foreach (KeyValuePair<string, string> entry in dict)
+                if (dictionary == null)
                 {
-                    if (string.IsNullOrWhiteSpace(entry.Key))
-                    {
-                        throw new ArgumentNullException(nameof(entry.Key));
-                    }
-                    _metadata[entry.Key] = entry.Value;
+                    throw new ArgumentNullException("Cannot build Field.Metadata with a null dictionary");
+                }
+                foreach (KeyValuePair<string, string> entry in dictionary)
+                {
+                    Metadata(entry.Key, entry.Value);
                 }
                 return this;
             }
