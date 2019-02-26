@@ -75,6 +75,8 @@ add_arrow_lib(arrow_python
               ${ARROW_PYTHON_SRCS}
               OUTPUTS
               ARROW_PYTHON_LIBRARIES
+              DEPENDENCIES
+              arrow_dependencies
               SHARED_LINK_FLAGS
               ""
               SHARED_LINK_LIBS

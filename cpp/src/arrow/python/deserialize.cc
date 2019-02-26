@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -36,6 +37,7 @@
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/parsing.h"
 
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
@@ -47,6 +49,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::StringConverter;
 
 namespace py {
 
@@ -194,14 +197,20 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
   return Status::OK();
 }
 
-std::vector<int8_t> GetPythonTypes(const UnionArray& data) {
-  std::vector<int8_t> result;
+Status GetPythonTypes(const UnionArray& data, std::vector<int8_t>* result) {
+  ARROW_CHECK(result != nullptr);
   auto type = data.type();
   for (int i = 0; i < type->num_children(); ++i) {
-    // stoi is locale dependent, but should be ok for small integers
-    result.push_back(static_cast<int8_t>(std::stoi(type->child(i)->name())));
+    StringConverter<Int8Type> converter;
+    int8_t tag = 0;
+    const std::string& data = type->child(i)->name();
+    if (!converter(data.c_str(), data.size(), &tag)) {
+      return Status::SerializationError("Cannot convert string: \"",
+                                        type->child(i)->name(), "\" to int8_t");
+    }
+    result->push_back(tag);
   }
-  return result;
+  return Status::OK();
 }
 
 template <typename CreateSequenceFn, typename SetItemFn>
@@ -215,7 +224,8 @@ Status DeserializeSequence(PyObject* context, const Array& array, int64_t start_
   RETURN_IF_PYERROR();
   const uint8_t* type_ids = data.raw_type_ids();
   const int32_t* value_offsets = data.raw_value_offsets();
-  auto python_types = GetPythonTypes(data);
+  std::vector<int8_t> python_types;
+  RETURN_NOT_OK(GetPythonTypes(data, &python_types));
   for (int64_t i = start_idx; i < stop_idx; ++i) {
     if (data.IsNull(i)) {
       Py_INCREF(Py_None);
