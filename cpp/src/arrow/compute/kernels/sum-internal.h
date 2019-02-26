@@ -54,10 +54,31 @@ struct FindAccumulatorType<I, enable_if_floating_point<I>> {
   using Type = DoubleType;
 };
 
+template <typename I, typename Enable = void>
+struct MaskedValue {};
+
+template <typename I>
+struct MaskedValue<I, enable_if_floating_point<I>> {
+  using CType = typename I::c_type;
+
+  // Floating point masking cannot use multiplication due to NaN propagation. A
+  // better mask would be to cast to the corresponding unsigned integer of same
+  // width, then apply bit mask and cast back.
+  constexpr static CType Apply(bool mask, CType value) { return mask ? value : 0.0; }
+};
+
+template <typename I>
+struct MaskedValue<I, enable_if_integer<I>> {
+  using CType = typename I::c_type;
+
+  constexpr static CType Apply(bool mask, CType value) { return mask * value; }
+};
+
 template <typename ArrowType, typename StateType>
 class SumAggregateFunction final : public AggregateFunctionStaticState<StateType> {
   using CType = typename TypeTraits<ArrowType>::CType;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  using Mask = MaskedValue<ArrowType>;
 
   // A small number of elements rounded to the next cacheline. This should
   // amount to a maximum of 4 cachelines when dealing with 8 bytes elements.
@@ -131,18 +152,11 @@ class SumAggregateFunction final : public AggregateFunctionStaticState<StateType
     StateType local;
 
     if (bits < 0xFF) {
-#define SUM_SHIFT(ITEM) values[ITEM] * static_cast<CType>(((bits >> ITEM) & 1U))
       // Some nulls
-      local.sum += SUM_SHIFT(0);
-      local.sum += SUM_SHIFT(1);
-      local.sum += SUM_SHIFT(2);
-      local.sum += SUM_SHIFT(3);
-      local.sum += SUM_SHIFT(4);
-      local.sum += SUM_SHIFT(5);
-      local.sum += SUM_SHIFT(6);
-      local.sum += SUM_SHIFT(7);
+      for (size_t i = 0; i < 8; i++) {
+        local.sum += Mask::Apply((bits >> i) & 1U, values[i]);
+      }
       local.count += BitUtil::kBytePopcount[bits];
-#undef SUM_SHIFT
     } else {
       // No nulls
       for (size_t i = 0; i < 8; i++) {
