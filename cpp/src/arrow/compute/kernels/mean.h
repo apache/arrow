@@ -44,23 +44,23 @@ std::shared_ptr<AggregateFunction> MakeMeanAggregateFunction(const DataType& typ
 ///
 /// \param[in] context the FunctionContext
 /// \param[in] value datum to compute the mean, expecting Array
-/// \param[out] out resulting datum
+/// \param[out] mean datum of the computed mean as a DoubleScalar
 ///
 /// \since 0.13.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Status Mean(FunctionContext* context, const Datum& value, Datum* out);
+Status Mean(FunctionContext* context, const Datum& value, Datum* mean);
 
 /// \brief Compute the mean of a numeric array.
 ///
 /// \param[in] context the FunctionContext
 /// \param[in] array to compute the mean
-/// \param[out] out resulting datum
+/// \param[out] mean datum of the computed mean as a DoubleScalar
 ///
 /// \since 0.13.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Status Mean(FunctionContext* context, const Array& array, Datum* out);
+Status Mean(FunctionContext* context, const Array& array, Datum* mean);
 
 }  // namespace compute
 };  // namespace arrow

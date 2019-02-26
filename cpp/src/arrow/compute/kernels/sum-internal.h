@@ -26,6 +26,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -58,9 +59,12 @@ class SumAggregateFunction final : public AggregateFunctionStaticState<StateType
   using CType = typename TypeTraits<ArrowType>::CType;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
+  // A small number of elements rounded to the next cacheline. This should
+  // amount to a maximum of 4 cachelines when dealing with 8 bytes elements.
   static constexpr int64_t kTinyThreshold = 32;
-  static_assert(kTinyThreshold > 18,
-                "ConsumeSparse requires at least 18 elements to fit 3 bytes");
+  static_assert(kTinyThreshold >= (2 * CHAR_BIT) + 1,
+                "ConsumeSparse requires 3 bytes of null bitmap, and 17 is the"
+                "required minimum number of bits/elements to cover 3 bytes.");
 
  public:
   Status Consume(const Array& input, StateType* state) const override {
@@ -172,6 +176,7 @@ class SumAggregateFunction final : public AggregateFunctionStaticState<StateType
     // This number bounded by `<= (length / 8) + 2`, e.g. a possible extra byte
     // on the left, and on the right.
     const int64_t covering_bytes = BitUtil::CoveringBytes(offset, length);
+    DCHECK_GE(covering_bytes, 3);
 
     // Align values to the first batch of 8 elements. Note that raw_values() is
     // already adjusted with the offset, thus we rewind a little to align to
