@@ -24,7 +24,6 @@
 #![feature(type_ascription)]
 #![feature(rustc_private)]
 #![feature(specialization)]
-#![feature(try_from)]
 // required for matching box in lists
 #![feature(box_syntax, box_patterns)]
 #![allow(dead_code)]
