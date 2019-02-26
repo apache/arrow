@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
 
     // non-uniform with column keys
     std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>> encryption_cols;
-    parquet::ColumnEncryptionProperties::Builder encryption_col_builder0("column_0", true);
+    parquet::ColumnEncryptionProperties::Builder encryption_col_builder0("ba_field", true);
     encryption_col_builder0.key(COLUMN_ENCRYPTION_KEY);
     auto encryption_col0 = encryption_col_builder0.build();
 
@@ -199,7 +199,7 @@ int main(int argc, char** argv) {
     // decryption properties
     std::shared_ptr<parquet::FileDecryptionProperties> decryption_properties =
         std::make_shared<parquet::FileDecryptionProperties>(FOOTER_ENCRYPTION_KEY);
-    decryption_properties->SetColumnKey("column_0", COLUMN_ENCRYPTION_KEY);
+    decryption_properties->SetColumnKey("ba_field", COLUMN_ENCRYPTION_KEY);
 
     parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
     reader_properties.file_decryption(decryption_properties);
