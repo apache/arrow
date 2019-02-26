@@ -15,18 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! DataFusion is a modern distributed compute platform implemented in Rust that uses
-//! Apache Arrow as the memory model
+//! Data source traits
 
-extern crate arrow;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-extern crate sqlparser;
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::Arc;
 
-pub mod datasource;
-pub mod dfparser;
-pub mod execution;
-pub mod logicalplan;
-pub mod optimizer;
-pub mod sqlplanner;
+use arrow::datatypes::Schema;
+use arrow::record_batch::RecordBatch;
+
+use crate::execution::error::Result;
+
+pub trait DataSource {
+    fn schema(&self) -> &Arc<Schema>;
+    fn next(&mut self) -> Result<Option<RecordBatch>>;
+}
+
+pub trait DataSourceProvider {
+    fn schema(&self) -> &Arc<Schema>;
+    fn scan(
+        &self,
+        projection: &Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Rc<RefCell<DataSource>>;
+}

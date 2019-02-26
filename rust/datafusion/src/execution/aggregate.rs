@@ -29,9 +29,9 @@ use arrow::compute;
 use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
-use super::error::{ExecutionError, Result};
-use super::expression::{AggregateType, RuntimeExpr};
-use super::relation::Relation;
+use crate::execution::error::{ExecutionError, Result};
+use crate::execution::expression::{AggregateType, RuntimeExpr};
+use crate::execution::relation::Relation;
 use crate::logicalplan::ScalarValue;
 
 use fnv::FnvHashMap;
@@ -1014,12 +1014,12 @@ impl AggregateRelation {
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::logicalplan::Expr;
-    use super::super::context::ExecutionContext;
-    use super::super::datasource::CsvDataSource;
-    use super::super::expression;
-    use super::super::relation::DataSourceRelation;
     use super::*;
+    use crate::datasource::CsvDataSource;
+    use crate::execution::context::ExecutionContext;
+    use crate::execution::expression;
+    use crate::execution::relation::DataSourceRelation;
+    use crate::logicalplan::Expr;
     use arrow::datatypes::{DataType, Field, Schema};
 
     #[test]

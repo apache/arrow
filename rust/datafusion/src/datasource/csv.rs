@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Data sources
+//! CSV Data source
 
 use std::cell::RefCell;
 use std::fs::File;
@@ -27,12 +27,8 @@ use arrow::csv;
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
-use super::error::Result;
-
-pub trait DataSource {
-    fn schema(&self) -> &Arc<Schema>;
-    fn next(&mut self) -> Result<Option<RecordBatch>>;
-}
+use crate::datasource::{DataSource, DataSourceProvider};
+use crate::execution::error::Result;
 
 /// CSV data source
 pub struct CsvDataSource {
@@ -84,23 +80,14 @@ impl DataSource for CsvDataSource {
     }
 }
 
-pub trait DataSourceProvider {
-    fn schema(&self) -> &Arc<Schema>;
-    fn scan(
-        &self,
-        projection: &Option<Vec<usize>>,
-        batch_size: usize,
-    ) -> Rc<RefCell<DataSource>>;
-}
-
 /// Represents a CSV file with a provided schema
-pub struct CsvProvider {
+pub struct CsvDataSourceProvider {
     filename: String,
     schema: Arc<Schema>,
     has_header: bool,
 }
 
-impl CsvProvider {
+impl CsvDataSourceProvider {
     pub fn new(filename: &str, schema: &Schema, has_header: bool) -> Self {
         Self {
             filename: String::from(filename),
@@ -110,7 +97,7 @@ impl CsvProvider {
     }
 }
 
-impl DataSourceProvider for CsvProvider {
+impl DataSourceProvider for CsvDataSourceProvider {
     fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }

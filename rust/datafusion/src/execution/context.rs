@@ -25,19 +25,20 @@ use std::sync::Arc;
 
 use arrow::datatypes::*;
 
-use super::super::dfparser::{DFASTNode, DFParser};
-use super::super::logicalplan::*;
-use super::super::optimizer::optimizer::OptimizerRule;
-use super::super::optimizer::projection_push_down::ProjectionPushDown;
-use super::super::sqlplanner::{SchemaProvider, SqlToRel};
-use super::aggregate::AggregateRelation;
-use super::datasource::{CsvProvider, DataSourceProvider};
-use super::error::{ExecutionError, Result};
-use super::expression::*;
-use super::filter::FilterRelation;
-use super::limit::LimitRelation;
-use super::projection::ProjectRelation;
-use super::relation::{DataSourceRelation, Relation};
+use crate::datasource::csv::CsvDataSourceProvider;
+use crate::datasource::datasource::DataSourceProvider;
+use crate::dfparser::{DFASTNode, DFParser};
+use crate::execution::aggregate::AggregateRelation;
+use crate::execution::error::{ExecutionError, Result};
+use crate::execution::expression::*;
+use crate::execution::filter::FilterRelation;
+use crate::execution::limit::LimitRelation;
+use crate::execution::projection::ProjectRelation;
+use crate::execution::relation::{DataSourceRelation, Relation};
+use crate::logicalplan::*;
+use crate::optimizer::optimizer::OptimizerRule;
+use crate::optimizer::projection_push_down::ProjectionPushDown;
+use crate::sqlplanner::{SchemaProvider, SqlToRel};
 
 pub struct ExecutionContext {
     datasources: Rc<RefCell<HashMap<String, Rc<DataSourceProvider>>>>,
@@ -89,7 +90,7 @@ impl ExecutionContext {
     ) {
         self.datasources.borrow_mut().insert(
             name.to_string(),
-            Rc::new(CsvProvider::new(filename, schema, has_header)),
+            Rc::new(CsvDataSourceProvider::new(filename, schema, has_header)),
         );
     }
 

@@ -27,6 +27,7 @@ use crate::array::*;
 use crate::datatypes::*;
 
 /// A batch of column-oriented data
+#[derive(Clone)]
 pub struct RecordBatch {
     schema: Arc<Schema>,
     columns: Vec<Arc<Array>>,
