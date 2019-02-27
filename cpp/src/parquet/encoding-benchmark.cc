@@ -186,7 +186,7 @@ std::shared_ptr<::arrow::Array> MakeRandomStringsWithRepeats(size_t num_unique,
   std::vector<std::string> dictionary(num_unique);
 
   uint32_t seed = 0;
-  std::default_random_engine gen(seed);
+  std::mt19937 gen(seed);
   std::uniform_int_distribution<int64_t> length_dist(min_length, max_length);
 
   std::generate(dictionary.begin(), dictionary.end(), [&] {
