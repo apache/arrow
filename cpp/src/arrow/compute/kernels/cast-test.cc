@@ -424,6 +424,7 @@ TEST_F(TestCast, FloatingPointToInt) {
                                                     options);
 }
 
+#if ARROW_BITNESS >= 64
 TEST_F(TestCast, IntToFloatingPoint) {
   auto options = CastOptions::Safe();
 
@@ -438,6 +439,7 @@ TEST_F(TestCast, IntToFloatingPoint) {
                                                     UnsafeVectorCast<double, int64_t>(v1),
                                                     options);
 }
+#endif
 
 TEST_F(TestCast, TimestampToTimestamp) {
   CastOptions options;
