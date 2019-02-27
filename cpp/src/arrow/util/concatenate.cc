@@ -17,7 +17,10 @@
 
 #include "arrow/util/concatenate.h"
 
+#include <algorithm>
+#include <limits>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"
