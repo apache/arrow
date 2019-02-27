@@ -28,7 +28,7 @@
 #' @section Usage:
 #'
 #' ```
-#' a <- array(...)
+#' a <- array(x)
 #'
 #' a$IsNull(i)
 #' a$IsValid(i)
@@ -119,16 +119,13 @@
 
 #' create an [arrow::Array][arrow__Array] from an R vector
 #'
-#' @param \dots Vectors to coerce
-#' @param type currently ignored
+#' @param x R object
+#' @param type Explicit [type][arrow__DataType], or NULL (the default) to infer from the data
 #'
 #' @importFrom rlang warn
 #' @export
-array <- function(..., type){
-  if (!missing(type)) {
-    warn("The `type` argument is currently ignored")
-  }
-  `arrow::Array`$dispatch(Array__from_vector(vctrs::vec_c(...)))
+array <- function(x, type = NULL){
+  `arrow::Array`$dispatch(Array__from_vector(x, type))
 }
 
 `arrow::DictionaryArray` <- R6Class("arrow::DictionaryArray", inherit = `arrow::Array`,

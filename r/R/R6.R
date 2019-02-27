@@ -130,6 +130,31 @@ unique_ptr <- function(class, xp) {
   shared_ptr(`arrow::DataType`, xp)$..dispatch()
 }
 
+#' infer the arrow Array type from an R vector
+#'
+#' @param x an R vector
+#'
+#' @return an arrow logical type
+#' @export
+type <- function(x) {
+  UseMethod("type")
+}
+
+#' @export
+type.default <- function(x) {
+  `arrow::DataType`$dispatch(Array__infer_type(x))
+}
+
+#' @export
+`type.arrow::Array` <- function(x) x$type
+
+#' @export
+`type.arrow::ChunkedArray` <- function(x) x$type
+
+#' @export
+`type.arrow::Column` <- function(x) x$type
+
+
 #----- metadata
 
 #' @title class arrow::FixedWidthType

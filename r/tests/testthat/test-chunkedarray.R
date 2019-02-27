@@ -160,12 +160,6 @@ test_that("ChunkedArray supports difftime", {
   expect_equal(a$as_vector(), c(time, time))
 })
 
-test_that("chunked_array ignores the type argument (ARROW-3784)", {
-  a <- expect_warning(chunked_array(1:10, type = int16()))
-  b <- chunked_array(1:10)
-  expect_equal(a, b)
-})
-
 test_that("integer types casts for ChunkedArray (ARROW-3741)", {
   a <- chunked_array(1:10, 1:10)
   a_int8 <- a$cast(int8())
@@ -196,4 +190,78 @@ test_that("integer types casts for ChunkedArray (ARROW-3741)", {
   expect_equal(a_uint16$type, uint16())
   expect_equal(a_uint32$type, uint32())
   expect_equal(a_uint64$type, uint64())
+})
+
+test_that("chunked_array() supports the type= argument. conversion from INTSXP and int64 to all int types", {
+  num_int32 <- 12L
+  num_int64 <- bit64::as.integer64(10)
+
+  types <- list(
+    int8(), int16(), int32(), int64(),
+    uint8(), uint16(), uint32(), uint64(),
+    float32(), float64()
+  )
+  for(type in types) {
+    expect_equal(chunked_array(num_int32, type = type)$type, type)
+    expect_equal(chunked_array(num_int64, type = type)$type, type)
+  }
+})
+
+test_that("array() aborts on overflow", {
+  expect_error(chunked_array(128L, type = int8())$type, "Invalid.*downsize")
+  expect_error(chunked_array(-129L, type = int8())$type, "Invalid.*downsize")
+
+  expect_error(chunked_array(256L, type = uint8())$type, "Invalid.*downsize")
+  expect_error(chunked_array(-1L, type = uint8())$type, "Invalid.*downsize")
+
+  expect_error(chunked_array(32768L, type = int16())$type, "Invalid.*downsize")
+  expect_error(chunked_array(-32769L, type = int16())$type, "Invalid.*downsize")
+
+  expect_error(chunked_array(65536L, type = uint16())$type, "Invalid.*downsize")
+  expect_error(chunked_array(-1L, type = uint16())$type, "Invalid.*downsize")
+
+  expect_error(chunked_array(65536L, type = uint16())$type, "Invalid.*downsize")
+  expect_error(chunked_array(-1L, type = uint16())$type, "Invalid.*downsize")
+
+  expect_error(chunked_array(bit64::as.integer64(2^31), type = int32()), "Invalid.*downsize")
+  expect_error(chunked_array(bit64::as.integer64(2^32), type = uint32()), "Invalid.*downsize")
+})
+
+test_that("chunked_array() does not convert doubles to integer", {
+  types <- list(
+    int8(), int16(), int32(), int64(),
+    uint8(), uint16(), uint32(), uint64()
+  )
+  for(type in types) {
+    expect_error(chunked_array(10, type = type)$type, "Cannot convert.*REALSXP")
+  }
+})
+
+test_that("chunked_array() uses the first ... to infer type", {
+  a <- chunked_array(10, 10L)
+  expect_equal(a$type, float64())
+})
+
+test_that("chunked_array() fails if need downcast", {
+  expect_error(chunked_array(10L, 10))
+})
+
+test_that("chunked_array() makes chunks of the same type", {
+  a <- chunked_array(10L, bit64::as.integer64(13), type = int64())
+  for(chunk in a$chunks) {
+    expect_equal(chunk$type, int64())
+  }
+})
+
+test_that("chunked_array() handles 0 chunks if given a type", {
+  types <- list(
+    int8(), int16(), int32(), int64(),
+    uint8(), uint16(), uint32(), uint64(),
+    float32(), float64()
+  )
+  for(type in types) {
+    a <- chunked_array(type = type)
+    expect_equal(a$type, type)
+    expect_equal(a$length(), 0L)
+  }
 })

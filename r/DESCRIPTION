@@ -22,14 +22,13 @@ Imports:
     assertthat,
     glue,
     R6,
-    vctrs (>= 0.1.0.9000),
+    vctrs (>= 0.1.0),
     fs,
     tibble,
     crayon,
     withr,
     bit64
 Remotes:
-    r-lib/vctrs, 
     r-lib/withr
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1

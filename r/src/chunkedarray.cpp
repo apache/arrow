@@ -63,12 +63,3 @@ std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice2(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset, int length) {
   return chunked_array->Slice(offset, length);
 }
-
-// [[Rcpp::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks) {
-  std::vector<std::shared_ptr<arrow::Array>> vec;
-  for (SEXP chunk : chunks) {
-    vec.push_back(Array__from_vector(chunk));
-  }
-  return std::make_shared<arrow::ChunkedArray>(std::move(vec));
-}

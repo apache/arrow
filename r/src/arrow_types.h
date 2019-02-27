@@ -35,9 +35,9 @@
 #include <arrow/type.h>
 #include <arrow/util/compression.h>
 
-#define STOP_IF_NOT(TEST, MSG)  \
-  do {                          \
-    if (!TEST) Rcpp::stop(MSG); \
+#define STOP_IF_NOT(TEST, MSG)    \
+  do {                            \
+    if (!(TEST)) Rcpp::stop(MSG); \
   } while (0)
 
 #define STOP_IF_NOT_OK(s) STOP_IF_NOT(s.ok(), s.ToString())
@@ -177,8 +177,9 @@ inline constexpr Rbyte default_value<RAWSXP>() {
 
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
-std::shared_ptr<arrow::Array> Array__from_vector(SEXP x);
+std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type);
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl);
+std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x);
 
 namespace arrow {
 namespace r {
@@ -200,6 +201,11 @@ class RBuffer : public MutableBuffer {
   // vec_ holds the memory
   Vec vec_;
 };
+
+template <typename T>
+inline std::shared_ptr<T> extract(SEXP x) {
+  return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>>(x);
+}
 
 }  // namespace r
 }  // namespace arrow

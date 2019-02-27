@@ -26,7 +26,7 @@
 #' @section Usage:
 #'
 #' ```
-#' data <- array(...)$data()
+#' data <- array(x)$data()
 #'
 #' data$type()
 #' data$length()
