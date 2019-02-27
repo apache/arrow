@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <limits>
+#include <memory>
+
 #include <RcppCommon.h>
 
 #undef Free
@@ -46,7 +49,7 @@ inline void STOP_IF_NULL(T* ptr) {
 
 template <typename T>
 struct NoDelete {
-  inline void operator()(T* ptr){};
+  inline void operator()(T* ptr) {}
 };
 
 namespace arrow {
@@ -76,7 +79,7 @@ class ConstReferenceSmartPtrInputParameter {
  public:
   using const_reference = const T&;
 
-  ConstReferenceSmartPtrInputParameter(SEXP self)
+  explicit ConstReferenceSmartPtrInputParameter(SEXP self)
       : ptr(internal::r6_to_smart_pointer<const T*>(self)) {}
 
   inline operator const_reference() { return *ptr; }
@@ -188,7 +191,7 @@ constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
 template <int RTYPE, typename Vec = Rcpp::Vector<RTYPE>>
 class RBuffer : public MutableBuffer {
  public:
-  RBuffer(Vec vec)
+  explicit RBuffer(Vec vec)
       : MutableBuffer(reinterpret_cast<uint8_t*>(vec.begin()),
                       vec.size() * sizeof(typename Vec::stored_type)),
         vec_(vec) {}

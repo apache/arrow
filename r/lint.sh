@@ -20,9 +20,17 @@
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CPP_BUILD_SUPPORT=$SOURCE_DIR/../cpp/build-support
 
+# Run clang-format
 CLANG_FORMAT=clang-format-7
-
 $CPP_BUILD_SUPPORT/run_clang_format.py \
     --clang_format_binary=$CLANG_FORMAT \
+    --exclude_glob=$CPP_BUILD_SUPPORT/lint_exclusions.txt \
+    --source_dir=$SOURCE_DIR/src --quiet $1
+
+
+# Run cpplint
+CPPLINT=$CPP_BUILD_SUPPORT/cpplint.py
+$CPP_BUILD_SUPPORT/run_cpplint.py \
+    --cpplint_binary=$CPPLINT \
     --exclude_glob=$CPP_BUILD_SUPPORT/lint_exclusions.txt \
     --source_dir=$SOURCE_DIR/src --quiet $1
