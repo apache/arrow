@@ -124,14 +124,14 @@ else
 
   # Test that the modules are importable
   $PYTHON_INTERPRETER -c "
-  import sys
-  import pyarrow
-  import pyarrow.orc
-  import pyarrow.parquet
-  import pyarrow.plasma
+import sys
+import pyarrow
+import pyarrow.orc
+import pyarrow.parquet
+import pyarrow.plasma
 
-  if sys.version_info.major > 2:
-      import pyarrow.gandiva
+if sys.version_info.major > 2:
+    import pyarrow.gandiva
   "
 
   # More thorough testing happens outsite of the build to prevent
