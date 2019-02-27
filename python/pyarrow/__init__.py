@@ -44,13 +44,6 @@ except ImportError:
 
 import pyarrow.compat as compat
 
-# Workaround for https://issues.apache.org/jira/browse/ARROW-2657
-# and https://issues.apache.org/jira/browse/ARROW-2920
-if _sys.platform in ('linux', 'linux2'):
-    compat.import_tensorflow_extension()
-    compat.import_pytorch_extension()
-
-
 from pyarrow.lib import cpu_count, set_cpu_count
 from pyarrow.lib import (null, bool_,
                          int8, int16, int32, int64,
