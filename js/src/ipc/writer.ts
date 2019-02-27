@@ -162,9 +162,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         }
 
         if (payload instanceof RecordBatch) {
-            if (payload.length > 0) {
-                this._writeRecordBatch(payload);
-            }
+            this._writeRecordBatch(payload);
         } else if (payload instanceof Table) {
             this.writeAll(payload.chunks);
         } else if (isIterable(payload)) {
