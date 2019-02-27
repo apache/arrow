@@ -35,7 +35,6 @@ import pyarrow
 import pyarrow.orc
 import pyarrow.parquet
 import pyarrow.plasma
-import tensorflow
 
 if sys.version_info.major > 2:
     import pyarrow.gandiva
