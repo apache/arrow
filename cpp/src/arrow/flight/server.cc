@@ -19,6 +19,7 @@
 #include "arrow/flight/protocol-internal.h"
 
 #include <signal.h>
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -295,6 +296,10 @@ class FlightServiceImpl : public FlightService::Service {
   FlightServerBase* server_;
 };
 
+#if (ATOMIC_INT_LOCK_FREE != 2 || ATOMIC_POINTER_LOCK_FREE != 2)
+#error "atomic ints and atomic pointers not always lock-free!"
+#endif
+
 struct FlightServerBase::Impl {
   std::string address_;
   std::unique_ptr<FlightServiceImpl> service_;
@@ -303,8 +308,8 @@ struct FlightServerBase::Impl {
   // Signal handling
   std::vector<int> signals_;
   std::vector<struct sigaction> old_signal_handlers_;
-  volatile int got_signal_;
-  static volatile thread_local Impl* running_instance_;
+  std::atomic<int> got_signal_;
+  static thread_local std::atomic<Impl*> running_instance_;
 
   static void HandleSignal(int signum);
 
@@ -314,11 +319,11 @@ struct FlightServerBase::Impl {
   }
 };
 
-volatile thread_local FlightServerBase::Impl* FlightServerBase::Impl::running_instance_ =
-    nullptr;
+thread_local std::atomic<FlightServerBase::Impl*>
+    FlightServerBase::Impl::running_instance_;
 
 void FlightServerBase::Impl::HandleSignal(int signum) {
-  auto instance = const_cast<Impl*>(running_instance_);  // remove volatile
+  auto instance = running_instance_.load();
   if (instance != nullptr) {
     instance->DoHandleSignal(signum);
   }
