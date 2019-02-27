@@ -57,7 +57,6 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
   - name: "C++ unit tests w/ Valgrind, clang 7.0"
-    language: cpp
     os: linux
     env:
     - ARROW_TRAVIS_VALGRIND=1
