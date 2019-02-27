@@ -86,6 +86,7 @@ function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]:
         }
     }
     return [
+        schema = new Schema<T>(fields, schema.metadata),
         batchArgs.map((xs) => new RecordBatch(schema, ...xs))
     ];
 }
