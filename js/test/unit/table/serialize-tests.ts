@@ -54,7 +54,7 @@ describe('Table#serialize()', () => {
     });
 
     test(`Table#assign an empty Table to a Table with a zero-length Null column round-trips through serialization`, () => {
-        const table1 = new Table(nullSchema)
+        const table1 = new Table(nullSchema);
         const table2 = Table.empty();
         const source = table1.assign(table2);
         expect(source.length).toBe(0);
@@ -87,7 +87,7 @@ describe('Table#serialize()', () => {
             expect(result.schema.metadata.get('foo')).toEqual('bar');
         });
         test(`Table#assign with an empty table round-trips through serialization`, () => {
-            const table1 = table(schema1)
+            const table1 = table(schema1);
             const source = table1.assign(Table.empty());
             expect(source.numCols).toBe(table1.numCols);
             expect(source.length).toBe(table1.length);
@@ -96,7 +96,7 @@ describe('Table#serialize()', () => {
             expect(result.schema.metadata.get('foo')).toEqual('bar');
         });
         test(`Table#assign with a zero-length Null column round-trips through serialization`, () => {
-            const table1 = new Table(nullSchema)
+            const table1 = new Table(nullSchema);
             const table2 = table(schema1);
             const source = table1.assign(table2);
             expect(source.length).toBe(table2.length);
