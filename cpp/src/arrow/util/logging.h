@@ -83,34 +83,40 @@ enum class ArrowLogLevel : int {
 
 #define DCHECK(condition)       \
   ARROW_IGNORE_EXPR(condition); \
-  while (false) ::arrow::util::ArrowLogBase()
+  ARROW_CHECK(true)
 #define DCHECK_OK(status)    \
   ARROW_IGNORE_EXPR(status); \
-  while (false) ::arrow::util::ArrowLogBase()
+  ARROW_CHECK(true)
 #define DCHECK_EQ(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::util::ArrowLogBase()
+  ARROW_IGNORE_EXPR(val2);    \
+  ARROW_CHECK(true)
 #define DCHECK_NE(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::util::ArrowLogBase()
+  ARROW_IGNORE_EXPR(val2);    \
+  ARROW_CHECK(true)
 #define DCHECK_LE(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::util::ArrowLogBase()
+  ARROW_IGNORE_EXPR(val2);    \
+  ARROW_CHECK(true)
 #define DCHECK_LT(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::util::ArrowLogBase()
+  ARROW_IGNORE_EXPR(val2);    \
+  ARROW_CHECK(true)
 #define DCHECK_GE(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::util::ArrowLogBase()
+  ARROW_IGNORE_EXPR(val2);    \
+  ARROW_CHECK(true)
 #define DCHECK_GT(val1, val2) \
   ARROW_IGNORE_EXPR(val1);    \
-  while (false) ::arrow::util::ArrowLogBase()
+  ARROW_IGNORE_EXPR(val2);    \
+  ARROW_CHECK(true)
 
 #else
 #define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_FATAL
 
 #define DCHECK(condition) ARROW_CHECK(condition)
-#define DCHECK_OK(status) (ARROW_CHECK((status).ok()) << (status).message())
+#define DCHECK_OK(status) ARROW_CHECK_OK(status)
 #define DCHECK_EQ(val1, val2) ARROW_CHECK((val1) == (val2))
 #define DCHECK_NE(val1, val2) ARROW_CHECK((val1) != (val2))
 #define DCHECK_LE(val1, val2) ARROW_CHECK((val1) <= (val2))
