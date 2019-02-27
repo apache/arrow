@@ -17,6 +17,7 @@
 
 from collections import defaultdict
 from concurrent import futures
+from functional import partial
 
 from six.moves.urllib.parse import urlparse
 import json
@@ -439,8 +440,7 @@ class ParquetDatasetPiece(object):
     row_group : int, default None
         Row group to load. By default, reads all row groups
     """
-
-    def __init__(self, path, open_file_func=lambda p: open(p, 'rb'),
+    def __init__(self, path, open_file_func=partial(open, mode='rb'),
                  row_group=None, partition_keys=None):
         self.path = _stringify_path(path)
         self.open_file_func = open_file_func
