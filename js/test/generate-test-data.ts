@@ -152,7 +152,7 @@ export type GeneratedVector<TVec extends Vector = Vector> = {
     values: () => (TVec['TValue'] | null)[];
 };
 
-export const table = (lengths = [100], schema: Schema = new Schema(defaultRecordBatchChildren.slice())): GeneratedTable => {
+export const table = (lengths = [100], schema: Schema = new Schema(defaultRecordBatchChildren.slice(), new Map([['foo', 'bar']]))): GeneratedTable => {
     const generated = lengths.map((length) => recordBatch(length, schema));
     const rowBatches = generated.map(({ rows }) => rows);
     const colBatches = generated.map(({ cols }) => cols);

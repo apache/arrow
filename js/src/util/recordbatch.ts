@@ -65,14 +65,14 @@ export function distributeVectorsIntoRecordBatches<T extends { [key: string]: Da
 /** @ignore */
 function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]: DataType } = any>(schema: Schema<T>, columns: Data<T[keyof T]>[][]): [Schema<T>, RecordBatch<T>[]] {
 
-    let numBatches = 0;
     const fields = [...schema.fields];
-    const batches = [] as [number, Data<T[keyof T]>[]][];
+    const batchArgs = [] as [number, Data<T[keyof T]>[]][];
     const memo = { numBatches: columns.reduce((n, c) => Math.max(n, c.length), 0) };
+    let sameLength = false, numBatches = 0, batchLength = 0, batchData: Data<T[keyof T]>[];
 
-    while (memo.numBatches > 0) {
+    while (memo.numBatches-- > 0) {
 
-        const [sameLength, batchLength] = columns.reduce((memo, [chunk]) => {
+        [sameLength, batchLength] = columns.reduce((memo, [chunk]) => {
             const [same, batchLength] = memo;
             const chunkLength = chunk ? chunk.length : batchLength;
             isFinite(batchLength) && same && (memo[0] = chunkLength === batchLength);
@@ -81,18 +81,18 @@ function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]:
         }, [true, Number.POSITIVE_INFINITY] as [boolean, number]);
 
         if (isFinite(batchLength) && !(sameLength && batchLength <= 0)) {
-            batches[numBatches++] = [batchLength, distributeChildData(fields, batchLength, columns, memo)];
+            batchData = distributeChildData(fields, batchLength, columns, memo);
+            batchLength > 0 && (batchArgs[numBatches++] = [batchLength, batchData]);
         }
     }
     return [
-        schema = new Schema<T>(fields),
-        batches.map((xs) => new RecordBatch(schema, ...xs))
+        schema = new Schema<T>(fields, schema.metadata),
+        batchArgs.map((xs) => new RecordBatch(schema, ...xs))
     ];
 }
 
 /** @ignore */
 function distributeChildData<T extends { [key: string]: DataType } = any>(fields: Field<T[keyof T]>[], batchLength: number, columns: Data<T[keyof T]>[][], memo: { numBatches: number }) {
-    memo.numBatches -= 1;
     let data: Data<T[keyof T]>;
     let field: Field<T[keyof T]>;
     let chunks: Data<T[keyof T]>[];

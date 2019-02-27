@@ -33,7 +33,7 @@ import { JSONTypeAssembler } from '../visitor/jsontypeassembler';
 import { JSONVectorAssembler } from '../visitor/jsonvectorassembler';
 import { ArrayBufferViewInput, toUint8Array } from '../util/buffer';
 import { Writable, ReadableInterop, ReadableDOMStreamOptions } from '../io/interfaces';
-import { isPromise, isAsyncIterable, isWritableDOMStream, isWritableNodeStream } from '../util/compat';
+import { isPromise, isAsyncIterable, isWritableDOMStream, isWritableNodeStream, isIterable } from '../util/compat';
 
 export class RecordBatchWriter<T extends { [key: string]: DataType } = any> extends ReadableInterop<Uint8Array> implements Writable<RecordBatch<T>> {
 
@@ -140,21 +140,34 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         return this;
     }
 
-    public write(chunk?: Table<T> | RecordBatch<T> | null) {
-        let schema: Schema<T> | null;
+    public write(payload?: Table<T> | RecordBatch<T> | Iterable<RecordBatch<T>> | null) {
+
+        let schema: Schema<T> | null = null;
+
         if (!this._sink) {
             throw new Error(`RecordBatchWriter is closed`);
-        } else if (!chunk || !(schema = chunk.schema)) {
+        } else if (payload === null || payload === undefined) {
             return this.finish() && undefined;
-        } else if (schema !== this._schema) {
+        } else if (payload instanceof Table && !(schema = payload.schema)) {
+            return this.finish() && undefined;
+        } else if (payload instanceof RecordBatch && !(schema = payload.schema)) {
+            return this.finish() && undefined;
+        }
+
+        if (schema && !schema.compareTo(this._schema)) {
             if (this._started && this._autoDestroy) {
                 return this.close();
             }
             this.reset(this._sink, schema);
         }
-        (chunk instanceof Table)
-            ? this.writeAll(chunk.chunks)
-            : this._writeRecordBatch(chunk);
+
+        if (payload instanceof RecordBatch) {
+            this._writeRecordBatch(payload);
+        } else if (payload instanceof Table) {
+            this.writeAll(payload.chunks);
+        } else if (isIterable(payload)) {
+            this.writeAll(payload);
+        }
     }
 
     protected _writeMessage<T extends MessageHeader>(message: Message<T>, alignment = 8) {
@@ -363,7 +376,11 @@ export class RecordBatchJSONWriter<T extends { [key: string]: DataType } = any> 
 
 /** @ignore */
 function writeAll<T extends { [key: string]: DataType } = any>(writer: RecordBatchWriter<T>, input: Table<T> | Iterable<RecordBatch<T>>) {
-    const chunks = (input instanceof Table) ? input.chunks : input;
+    let chunks = input as Iterable<RecordBatch<T>>;
+    if (input instanceof Table) {
+        chunks = input.chunks;
+        writer.reset(undefined, input.schema);
+    }
     for (const batch of chunks) {
         writer.write(batch);
     }

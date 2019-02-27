@@ -179,9 +179,11 @@ export class Table<T extends { [key: string]: DataType } = any>
             throw new TypeError('Table must be initialized with a Schema or at least one RecordBatch');
         }
 
-        if (!chunks[0]) { chunks[0] = new RecordBatch(schema, 0, []); }
+        if (!chunks[0]) {
+            chunks[0] = new RecordBatch(schema, 0, schema.fields.map((f) => new Data(f.type, 0, 0)));
+        }
 
-        super(chunks[0].type, chunks);
+        super(new Struct<T>(schema.fields), chunks);
 
         this._schema = schema;
         this._chunks = chunks;
@@ -252,7 +254,7 @@ export class Table<T extends { [key: string]: DataType } = any>
         const fields = this._schema.fields;
         const [indices, oldToNew] = other.schema.fields.reduce((memo, f2, newIdx) => {
             const [indices, oldToNew] = memo;
-            const i = fields.findIndex((f) => f.compareTo(f2));
+            const i = fields.findIndex((f) => f.name === f2.name);
             ~i ? (oldToNew[i] = newIdx) : indices.push(newIdx);
             return memo;
         }, [[], []] as number[][]);

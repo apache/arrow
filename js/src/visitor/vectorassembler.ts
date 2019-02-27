@@ -59,7 +59,10 @@ export class VectorAssembler extends Visitor {
 
     /** @nocollapse */
     public static assemble<T extends Vector | RecordBatch>(...args: (T | T[])[]) {
-        return new VectorAssembler().visitMany(selectVectorChildrenArgs(RecordBatch, args))[0];
+        const assembler = new VectorAssembler();
+        const vectorChildren = selectVectorChildrenArgs(RecordBatch, args);
+        const [assembleResult = assembler] = assembler.visitMany(vectorChildren);
+        return assembleResult;
     }
 
     private constructor() { super(); }

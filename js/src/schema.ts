@@ -92,8 +92,8 @@ export class Schema<T extends { [key: string]: DataType } = any> {
         const curDictionaryFields = this.dictionaryFields;
         const metadata = mergeMaps(mergeMaps(new Map(), this.metadata), other.metadata);
         const newFields = other.fields.filter((f2) => {
-            const i = curFields.findIndex((f) => f.compareTo(f2));
-            return ~i ? (curFields[i] = curFields[i].clone({
+            const i = curFields.findIndex((f) => f.name === f2.name);
+            return ~i ? (curFields[i] = f2.clone({
                 metadata: mergeMaps(mergeMaps(new Map(), curFields[i].metadata), f2.metadata)
             })) && false : true;
         }) as Field[];
@@ -102,7 +102,7 @@ export class Schema<T extends { [key: string]: DataType } = any> {
         const newDictionaries = [...dictionaries].filter(([y]) => !curDictionaries.every(([x]) => x === y));
         const newDictionaryFields = [...dictionaryFields].map(([id, newDictFields]) => {
             return [id, [...(curDictionaryFields.get(id) || []), ...newDictFields.map((f) => {
-                const i = newFields.findIndex((f2) => f2.compareTo(f));
+                const i = newFields.findIndex((f2) => f.name === f2.name);
                 const { dictionary, indices, isOrdered, dictionaryVector } = f.type;
                 const type = new Dictionary(dictionary, indices, id, isOrdered, dictionaryVector);
                 return newFields[i] = f.clone({ type });
