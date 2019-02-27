@@ -33,6 +33,14 @@
 namespace arrow {
 namespace compute {
 
+// A placeholder operator implementation to use for testing various Expr
+// behavior
+class DummyOp : public Operation {
+ public:
+  Status ToExpr(std::shared_ptr<Expr>* out) const override {
+    return Status::NotImplemented("NYI");
+  }
+}
 
 }  // namespace compute
 }  // namespace arrow

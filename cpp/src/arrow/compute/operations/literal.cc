@@ -15,27 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
+#pragma once
+
+#include "arrow/compute/operations/literal.h"
+
 #include <memory>
-#include <string>
-#include <vector>
 
-#include <gtest/gtest.h>
-
-#include "arrow/status.h"
-#include "arrow/table.h"
-#include "arrow/test-common.h"
-#include "arrow/test-util.h"
-#include "arrow/type.h"
-
-#include "arrow/compute/expression.h"
-#include "arrow/compute/operation.h"
 #include "arrow/scalar.h"
 
 namespace arrow {
 namespace compute {
 
-TEST(TestLiteralOperation, Basics) {}
+Literal::Literal(const std::shared_ptr<Scalar>& value) : value_(value) {}
+
+// Status Literal::ToExpr(std::shared_ptr<Expr>* out) const {
+//   *out = MakeScalarExpression(value_->
+//   switch (value->type->id()) {
+//     default:
+//     break;
+//   }
+// }
 
 }  // namespace compute
 }  // namespace arrow
