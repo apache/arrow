@@ -17,7 +17,7 @@
 
 from collections import defaultdict
 from concurrent import futures
-from functional import partial
+from functools import partial
 
 from six.moves.urllib.parse import urlparse
 import json
