@@ -566,121 +566,183 @@ TEST_F(RecursionLimits, StressLimit) {
 }
 #endif  // !defined(_WIN32) || defined(NDEBUG)
 
-class TestFileFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
- public:
-  void SetUp() {
-    pool_ = default_memory_pool();
-    ASSERT_OK(AllocateResizableBuffer(pool_, 0, &buffer_));
+struct FileWriterHelper {
+  Status Init(const std::shared_ptr<Schema>& schema) {
+    num_batches_written_ = 0;
+
+    RETURN_NOT_OK(AllocateResizableBuffer(0, &buffer_));
     sink_.reset(new io::BufferOutputStream(buffer_));
+
+    return RecordBatchFileWriter::Open(sink_.get(), schema, &writer_);
   }
-  void TearDown() {}
 
-  Status RoundTripHelper(const BatchVector& in_batches, BatchVector* out_batches) {
-    // Write the file
-    std::shared_ptr<RecordBatchWriter> writer;
-    RETURN_NOT_OK(
-        RecordBatchFileWriter::Open(sink_.get(), in_batches[0]->schema(), &writer));
+  Status WriteBatch(const std::shared_ptr<RecordBatch>& batch) {
+    RETURN_NOT_OK(writer_->WriteRecordBatch(*batch));
+    num_batches_written_++;
+    return Status::OK();
+  }
 
-    const int num_batches = static_cast<int>(in_batches.size());
-
-    for (const auto& batch : in_batches) {
-      RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
-    }
-    RETURN_NOT_OK(writer->Close());
+  Status Finish() {
+    RETURN_NOT_OK(writer_->Close());
     RETURN_NOT_OK(sink_->Close());
-
     // Current offset into stream is the end of the file
-    int64_t footer_offset;
-    RETURN_NOT_OK(sink_->Tell(&footer_offset));
+    return sink_->Tell(&footer_offset_);
+  }
 
-    // Open the file
+  Status ReadBatches(BatchVector* out_batches) {
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
     std::shared_ptr<RecordBatchFileReader> reader;
-    RETURN_NOT_OK(RecordBatchFileReader::Open(buf_reader.get(), footer_offset, &reader));
+    RETURN_NOT_OK(RecordBatchFileReader::Open(buf_reader.get(), footer_offset_, &reader));
 
-    EXPECT_EQ(num_batches, reader->num_record_batches());
-    for (int i = 0; i < num_batches; ++i) {
+    EXPECT_EQ(num_batches_written_, reader->num_record_batches());
+    for (int i = 0; i < num_batches_written_; ++i) {
       std::shared_ptr<RecordBatch> chunk;
       RETURN_NOT_OK(reader->ReadRecordBatch(i, &chunk));
-      out_batches->emplace_back(chunk);
+      out_batches->push_back(chunk);
     }
 
     return Status::OK();
   }
 
- protected:
-  MemoryPool* pool_;
-
-  std::unique_ptr<io::BufferOutputStream> sink_;
   std::shared_ptr<ResizableBuffer> buffer_;
+  std::unique_ptr<io::BufferOutputStream> sink_;
+  std::shared_ptr<RecordBatchWriter> writer_;
+  int num_batches_written_;
+  int64_t footer_offset_;
 };
 
-TEST_P(TestFileFormat, RoundTrip) {
-  std::shared_ptr<RecordBatch> batch1;
-  std::shared_ptr<RecordBatch> batch2;
-  ASSERT_OK((*GetParam())(&batch1));  // NOLINT clang-tidy gtest issue
-  ASSERT_OK((*GetParam())(&batch2));  // NOLINT clang-tidy gtest issue
-
-  BatchVector in_batches = {batch1, batch2};
-  BatchVector out_batches;
-
-  ASSERT_OK(RoundTripHelper(in_batches, &out_batches));
-
-  // Compare batches
-  for (size_t i = 0; i < in_batches.size(); ++i) {
-    CompareBatch(*in_batches[i], *out_batches[i]);
-  }
-}
-
-class TestStreamFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
- public:
-  void SetUp() {
-    pool_ = default_memory_pool();
-    ASSERT_OK(AllocateResizableBuffer(pool_, 0, &buffer_));
+struct StreamWriterHelper {
+  Status Init(const std::shared_ptr<Schema>& schema) {
+    RETURN_NOT_OK(AllocateResizableBuffer(0, &buffer_));
     sink_.reset(new io::BufferOutputStream(buffer_));
+
+    return RecordBatchStreamWriter::Open(sink_.get(), schema, &writer_);
   }
-  void TearDown() {}
 
-  Status RoundTripHelper(const BatchVector& batches, BatchVector* out_batches) {
-    // Write the file
-    std::shared_ptr<RecordBatchWriter> writer;
-    RETURN_NOT_OK(
-        RecordBatchStreamWriter::Open(sink_.get(), batches[0]->schema(), &writer));
+  Status WriteBatch(const std::shared_ptr<RecordBatch>& batch) {
+    RETURN_NOT_OK(writer_->WriteRecordBatch(*batch));
+    return Status::OK();
+  }
 
-    for (const auto& batch : batches) {
-      RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
-    }
-    RETURN_NOT_OK(writer->Close());
-    RETURN_NOT_OK(sink_->Close());
+  Status Finish() {
+    RETURN_NOT_OK(writer_->Close());
+    return sink_->Close();
+  }
 
-    // Open the file
-    io::BufferReader buf_reader(buffer_);
-
+  Status ReadBatches(BatchVector* out_batches) {
+    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
     std::shared_ptr<RecordBatchReader> reader;
-    RETURN_NOT_OK(RecordBatchStreamReader::Open(&buf_reader, &reader));
+    RETURN_NOT_OK(RecordBatchStreamReader::Open(buf_reader, &reader));
     return reader->ReadAll(out_batches);
   }
 
- protected:
-  MemoryPool* pool_;
-
-  std::unique_ptr<io::BufferOutputStream> sink_;
   std::shared_ptr<ResizableBuffer> buffer_;
+  std::unique_ptr<io::BufferOutputStream> sink_;
+  std::shared_ptr<RecordBatchWriter> writer_;
 };
 
-TEST_P(TestStreamFormat, RoundTrip) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
+// Parameterized mixin with tests for RecordBatchStreamWriter / RecordBatchFileWriter
 
-  BatchVector out_batches;
+template <class WriterHelperType>
+class ReaderWriterMixin {
+ public:
+  using WriterHelper = WriterHelperType;
 
-  ASSERT_OK(RoundTripHelper({batch, batch, batch}, &out_batches));
+  // Check simple RecordBatch roundtripping
+  template <typename Param>
+  void TestRoundTrip(Param&& param) {
+    std::shared_ptr<RecordBatch> batch1;
+    std::shared_ptr<RecordBatch> batch2;
+    ASSERT_OK(param(&batch1));  // NOLINT clang-tidy gtest issue
+    ASSERT_OK(param(&batch2));  // NOLINT clang-tidy gtest issue
 
-  // Compare batches. Same
-  for (size_t i = 0; i < out_batches.size(); ++i) {
-    CompareBatch(*batch, *out_batches[i]);
+    BatchVector in_batches = {batch1, batch2};
+    BatchVector out_batches;
+
+    ASSERT_OK(RoundTripHelper(in_batches, &out_batches));
+    ASSERT_EQ(out_batches.size(), in_batches.size());
+
+    // Compare batches
+    for (size_t i = 0; i < in_batches.size(); ++i) {
+      CompareBatch(*in_batches[i], *out_batches[i]);
+    }
   }
-}
+
+  void TestDictionaryRoundtrip() {
+    std::shared_ptr<RecordBatch> batch;
+    ASSERT_OK(MakeDictionary(&batch));
+
+    BatchVector out_batches;
+    ASSERT_OK(RoundTripHelper({batch}, &out_batches));
+    ASSERT_EQ(out_batches.size(), 1);
+
+    CheckBatchDictionaries(*out_batches[0]);
+  }
+
+  void TestWriteDifferentSchema() {
+    // Test writing batches with a different schema than the RecordBatchWriter
+    // was initialized with.
+    std::shared_ptr<RecordBatch> batch_ints, batch_bools;
+    ASSERT_OK(MakeIntRecordBatch(&batch_ints));
+    ASSERT_OK(MakeBooleanBatch(&batch_bools));
+
+    std::shared_ptr<Schema> schema = batch_bools->schema();
+    ASSERT_FALSE(schema->HasMetadata());
+    schema = schema->AddMetadata(key_value_metadata({"some_key"}, {"some_value"}));
+
+    WriterHelper writer_helper;
+    ASSERT_OK(writer_helper.Init(schema));
+    // Writing a record batch with a different schema
+    ASSERT_RAISES(Invalid, writer_helper.WriteBatch(batch_ints));
+    // Writing a record batch with the same schema (except metadata)
+    ASSERT_OK(writer_helper.WriteBatch(batch_bools));
+    ASSERT_OK(writer_helper.Finish());
+
+    // The single successful batch can be read again
+    BatchVector out_batches;
+    ASSERT_OK(writer_helper.ReadBatches(&out_batches));
+    ASSERT_EQ(out_batches.size(), 1);
+    CompareBatch(*out_batches[0], *batch_bools, false /* compare_metadata */);
+    // Metadata from the RecordBatchWriter initialization schema was kept
+    ASSERT_TRUE(out_batches[0]->schema()->Equals(*schema));
+  }
+
+ private:
+  Status RoundTripHelper(const BatchVector& in_batches, BatchVector* out_batches) {
+    WriterHelper writer_helper;
+    RETURN_NOT_OK(writer_helper.Init(in_batches[0]->schema()));
+    for (const auto& batch : in_batches) {
+      RETURN_NOT_OK(writer_helper.WriteBatch(batch));
+    }
+    RETURN_NOT_OK(writer_helper.Finish());
+    return writer_helper.ReadBatches(out_batches);
+  }
+
+  void CheckBatchDictionaries(const RecordBatch& batch) {
+    // Check that dictionaries that should be the same are the same
+    auto schema = batch.schema();
+
+    const auto& t0 = checked_cast<const DictionaryType&>(*schema->field(0)->type());
+    const auto& t1 = checked_cast<const DictionaryType&>(*schema->field(1)->type());
+
+    ASSERT_EQ(t0.dictionary().get(), t1.dictionary().get());
+
+    // Same dictionary used for list values
+    const auto& t3 = checked_cast<const ListType&>(*schema->field(3)->type());
+    const auto& t3_value = checked_cast<const DictionaryType&>(*t3.value_type());
+    ASSERT_EQ(t0.dictionary().get(), t3_value.dictionary().get());
+  }
+};
+
+class TestFileFormat : public ReaderWriterMixin<FileWriterHelper>,
+                       public ::testing::TestWithParam<MakeRecordBatch*> {};
+
+class TestStreamFormat : public ReaderWriterMixin<StreamWriterHelper>,
+                         public ::testing::TestWithParam<MakeRecordBatch*> {};
+
+TEST_P(TestFileFormat, RoundTrip) { TestRoundTrip(*GetParam()); }
+
+TEST_P(TestStreamFormat, RoundTrip) { TestRoundTrip(*GetParam()); }
 
 INSTANTIATE_TEST_CASE_P(GenericIpcRoundTripTests, TestIpcRoundTrip, BATCH_CASES());
 INSTANTIATE_TEST_CASE_P(FileRoundTripTests, TestFileFormat, BATCH_CASES());
@@ -719,54 +781,13 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
 }
 #endif
 
-void CheckBatchDictionaries(const RecordBatch& batch) {
-  // Check that dictionaries that should be the same are the same
-  auto schema = batch.schema();
+TEST_F(TestStreamFormat, DictionaryRoundTrip) { TestDictionaryRoundtrip(); }
 
-  const auto& t0 = checked_cast<const DictionaryType&>(*schema->field(0)->type());
-  const auto& t1 = checked_cast<const DictionaryType&>(*schema->field(1)->type());
+TEST_F(TestFileFormat, DictionaryRoundTrip) { TestDictionaryRoundtrip(); }
 
-  ASSERT_EQ(t0.dictionary().get(), t1.dictionary().get());
+TEST_F(TestStreamFormat, DifferentSchema) { TestWriteDifferentSchema(); }
 
-  // Same dictionary used for list values
-  const auto& t3 = checked_cast<const ListType&>(*schema->field(3)->type());
-  const auto& t3_value = checked_cast<const DictionaryType&>(*t3.value_type());
-  ASSERT_EQ(t0.dictionary().get(), t3_value.dictionary().get());
-}
-
-TEST_F(TestStreamFormat, DictionaryRoundTrip) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeDictionary(&batch));
-
-  BatchVector out_batches;
-  ASSERT_OK(RoundTripHelper({batch}, &out_batches));
-
-  CheckBatchDictionaries(*out_batches[0]);
-}
-
-TEST_F(TestStreamFormat, WriteTable) {
-  std::shared_ptr<RecordBatch> b1, b2, b3;
-  ASSERT_OK(MakeIntRecordBatch(&b1));
-  ASSERT_OK(MakeIntRecordBatch(&b2));
-  ASSERT_OK(MakeIntRecordBatch(&b3));
-
-  BatchVector out_batches;
-  ASSERT_OK(RoundTripHelper({b1, b2, b3}, &out_batches));
-
-  ASSERT_TRUE(b1->Equals(*out_batches[0]));
-  ASSERT_TRUE(b2->Equals(*out_batches[1]));
-  ASSERT_TRUE(b3->Equals(*out_batches[2]));
-}
-
-TEST_F(TestFileFormat, DictionaryRoundTrip) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeDictionary(&batch));
-
-  BatchVector out_batches;
-  ASSERT_OK(RoundTripHelper({batch}, &out_batches));
-
-  CheckBatchDictionaries(*out_batches[0]);
-}
+TEST_F(TestFileFormat, DifferentSchema) { TestWriteDifferentSchema(); }
 
 class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
  public:

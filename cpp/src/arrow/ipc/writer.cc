@@ -995,6 +995,10 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl : public StreamBookKe
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit) {
     // Push an empty FileBlock. Can be written in the footer later
+    if (!batch.schema()->Equals(*schema_, false /* check_metadata */)) {
+      return Status::Invalid("Tried to write record batch with different schema");
+    }
+
     record_batches_.push_back({0, 0, 0});
     return WriteRecordBatch(batch, allow_64bit,
                             &record_batches_[record_batches_.size() - 1]);
