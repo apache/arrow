@@ -53,3 +53,35 @@ build the sources are removed again so that only the binary installation of a
 dependency is persisted in the docker image. When you do local adjustments to
 this image, you need to change the name of the docker image in the `docker run`
 command.
+
+## TensorFlow compatible wheels for Arrow
+
+As TensorFlow is not compatible with the manylinux1 standard, the above
+wheels can cause segfaults if they are used together with the TensorFlow wheels
+from https://www.tensorflow.org/install/pip. The combination of TensorFlow
+wheels with the arrow manylinux1 wheels might work for you or they might
+produce segfaults. We do not recommend using TensorFlow wheels
+with pyarrow manylinux1 wheels until these incompatibilities are addressed [1]
+by the TensorFlow team. For most end-users, the recommended way to use Arrow
+together with TensorFlow through conda (e.g. the Anaconda distribution).
+If this is not an option for you, there is also a way to produce TensorFlow
+compatible Arrow wheels that however do not conform to the manylinux1 standard
+and are not officially supported by the Arrow community.
+
+Similar to the manylinux1 wheels, there is a base image that can be built with
+
+```bash
+docker build -t arrow_linux_x86_64_base -f Dockerfile-x86_64_ubuntu .
+```
+
+Once the image has been built, you can then build the wheels with
+
+```bash
+# Build the python packages
+docker run --env UBUNTU_WHEELS=1 --shm-size=2g --rm -t -i -v $PWD:/io -v $PWD/../../:/arrow arrow_linux_x86_64_base:latest /io/build_arrow.sh
+# Now the new packages are located in the dist/ folder
+ls -l dist/
+echo "Please note that these wheels are not manylinux1 compliant"
+```
+
+[1] https://groups.google.com/a/tensorflow.org/d/topic/developers/TMqRaT-H2bI/discussion
