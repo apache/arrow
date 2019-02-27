@@ -1786,27 +1786,6 @@ TEST(TestRechunkArraysConsistently, Plain) {
   }
 }
 
-// TODO this could be made much better.
-// First, if the concatenation of addends equals the expected then
-// the concatenation of their JSON representations must equal that of the
-// expected array, so we only need to provide the addends as strings.
-// More generally, Concatenate is an excellent candidate for property testing:
-// generate random addends then concatenate them using their json repr and
-// Concatenate, then compare.
-struct ConcatenateParam {
-  std::shared_ptr<Array> expected;
-  std::vector<std::shared_ptr<Array>> addends;
-
-  ConcatenateParam(std::shared_ptr<DataType> expected_type,
-                   const std::string& expected_json,
-                   const std::vector<std::string>& addends_json)
-      : expected(ArrayFromJSON(expected_type, expected_json)) {
-    for (const auto& addend : addends_json) {
-      addends.push_back(ArrayFromJSON(expected_type, addend));
-    }
-  }
-};
-
 class ConcatenateTest : public ::testing::Test {
  protected:
   ConcatenateTest()

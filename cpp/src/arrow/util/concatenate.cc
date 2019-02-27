@@ -151,7 +151,7 @@ struct ConcatenateImpl {
   Status Visit(const DictionaryType& d) {
     std::vector<ArrayData> indices_slices(in_size_);
     for (int i = 0; i != in_size_; ++i) {
-      indices_slices[i] = SliceData(in_[i], offsets_[i], lengths_[i]);
+      indices_slices[i] = ArrayData(in_[i]);
       indices_slices[i].type = d.index_type();
       // don't bother concatenating null bitmaps again
       indices_slices[i].null_count = 0;
