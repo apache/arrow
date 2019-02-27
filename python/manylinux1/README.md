@@ -31,9 +31,14 @@ for all supported Python versions and place them in the `dist` folder.
 
 ### Build instructions
 
+You can build the wheels with the following
+command (this is for Python 2.7 with unicode width 16, similarly you can pass
+in `PYTHON_VERSION="3.5"`, `PYTHON_VERSION="3.6"` or `PYTHON_VERSION="3.7"` or
+use `PYTHON_VERSION="2.7"` with `UNICODE_WIDTH=32`):
+
 ```bash
 # Build the python packages
-docker run --shm-size=2g --rm -t -i -v $PWD:/io -v $PWD/../../:/arrow quay.io/xhochy/arrow_manylinux1_x86_64_base:latest /io/build_arrow.sh
+docker run --env PYTHON_VERSION="2.7" --env UNICODE_WIDTH=16 --shm-size=2g --rm -t -i -v $PWD:/io -v $PWD/../../:/arrow quay.io/xhochy/arrow_manylinux1_x86_64_base:latest /io/build_arrow.sh
 # Now the new packages are located in the dist/ folder
 ls -l dist/
 ```
@@ -72,11 +77,14 @@ Similar to the manylinux1 wheels, there is a base image that can be built with
 docker build -t arrow_linux_x86_64_base -f Dockerfile-x86_64_ubuntu .
 ```
 
-Once the image has been built, you can then build the wheels with
+Once the image has been built, you can then build the wheels with the following
+command (this is for Python 2.7 with unicode width 16, similarly you can pass
+in `PYTHON_VERSION="3.5"`, `PYTHON_VERSION="3.6"` or `PYTHON_VERSION="3.7"` or
+use `PYTHON_VERSION="2.7"` with `UNICODE_WIDTH=32`)
 
 ```bash
 # Build the python packages
-docker run --env UBUNTU_WHEELS=1 --shm-size=2g --rm -t -i -v $PWD:/io -v $PWD/../../:/arrow arrow_linux_x86_64_base:latest /io/build_arrow.sh
+sudo docker run --env UBUNTU_WHEELS=1 --env PYTHON_VERSION="2.7" --env UNICODE_WIDTH=16 --rm -t -i -v $PWD:/io -v $PWD/../../:/arrow arrow_linux_x86_64_base:latest /io/build_arrow.sh
 # Now the new packages are located in the dist/ folder
 ls -l dist/
 echo "Please note that these wheels are not manylinux1 compliant"
