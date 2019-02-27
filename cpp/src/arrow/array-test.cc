@@ -1807,35 +1807,147 @@ struct ConcatenateParam {
   }
 };
 
-class ConcatenateTest : public ::testing::TestWithParam<ConcatenateParam> {
- public:
-  ConcatenateTest() {}
+class ConcatenateTest : public ::testing::Test {
+ protected:
+  ConcatenateTest()
+      : rng_(seed_),
+        sizes_({0, 1, 2, 4, 16, 31, 1234}),
+        null_probabilities_({0.0, 0.1, 0.5, 0.9, 1.0}) {}
+
+  std::vector<int32_t> Offsets(int32_t length, int32_t slice_count) {
+    std::vector<int32_t> offsets(static_cast<std::size_t>(slice_count + 1));
+    std::mt19937_64 gen(seed_);
+    std::uniform_int_distribution<int32_t> dist(0, length);
+    std::generate(offsets.begin(), offsets.end(), [&] { return dist(gen); });
+    std::sort(offsets.begin(), offsets.end());
+    return offsets;
+  }
+
+  std::vector<std::shared_ptr<Array>> Slices(const std::shared_ptr<Array>& array,
+                                             const std::vector<int32_t>& offsets) {
+    std::vector<std::shared_ptr<Array>> slices(offsets.size() - 1);
+    for (size_t i = 0; i != slices.size(); ++i) {
+      slices[i] = array->Slice(offsets[i], offsets[i + 1] - offsets[i]);
+    }
+    return slices;
+  }
+
+  template <typename PrimitiveType>
+  std::shared_ptr<Array> GeneratePrimitive(int64_t size, double null_probability) {
+    if (std::is_same<PrimitiveType, BooleanType>::value) {
+      return rng_.Boolean(size, 0.5, null_probability);
+    }
+    return rng_.Numeric<PrimitiveType, uint8_t>(size, 0, 127, null_probability);
+  }
+
+  template <typename ArrayFactory>
+  void Check(ArrayFactory&& factory) {
+    for (auto size : this->sizes_) {
+      auto offsets = this->Offsets(size, 3);
+      for (auto null_probability : this->null_probabilities_) {
+        std::shared_ptr<Array> array;
+        factory(size, null_probability, &array);
+        auto expected = array->Slice(offsets.front(), offsets.back() - offsets.front());
+        auto slices = this->Slices(array, offsets);
+        std::shared_ptr<Array> actual;
+        ASSERT_OK(Concatenate(slices, default_memory_pool(), &actual));
+        // force computation of null_count for both arrays
+        ARROW_IGNORE_EXPR(expected->null_count());
+        ARROW_IGNORE_EXPR(actual->null_count());
+        AssertArraysEqual(*expected, *actual);
+      }
+    }
+  }
+
+  random::SeedType seed_ = 0xdeadbeef;
+  random::RandomArrayGenerator rng_;
+  std::vector<int32_t> sizes_;
+  std::vector<double> null_probabilities_;
 };
 
-TEST_P(ConcatenateTest, Basics) {
-  auto param = GetParam();
-  std::shared_ptr<Array> actual;
-  ASSERT_OK(Concatenate(param.addends, default_memory_pool(), &actual));
-  AssertArraysEqual(*param.expected, *actual);
+template <typename PrimitiveType>
+class PrimitiveConcatenateTest : public ConcatenateTest {
+ public:
+  void operator()(int64_t size, double null_probability, std::shared_ptr<Array>* out) {
+    *out = this->GeneratePrimitive<PrimitiveType>(size, null_probability);
+  }
+};
+
+using PrimitiveTypes =
+    ::testing::Types<BooleanType, Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
+                     UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType>;
+TYPED_TEST_CASE(PrimitiveConcatenateTest, PrimitiveTypes);
+
+TYPED_TEST(PrimitiveConcatenateTest, Primitives) { this->Check(*this); }
+
+TEST_F(ConcatenateTest, StringType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    auto values_size = size * 4;
+    auto char_array = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
+    std::shared_ptr<Buffer> offsets;
+    auto offsets_vector = this->Offsets(values_size, size);
+    // ensure the first offset is 0, which is expected for StringType
+    offsets_vector[0] = 0;
+    ASSERT_OK(CopyBufferFromVector(offsets_vector, default_memory_pool(), &offsets));
+    *out = MakeArray(ArrayData::Make(
+        utf8(), size,
+        {char_array->data()->buffers[0], offsets, char_array->data()->buffers[1]}));
+  });
 }
 
-INSTANTIATE_TEST_CASE_P(
-    ConcatenateTest, ConcatenateTest,
-    ::testing::Values(
-        ConcatenateParam(int32(), "[0, 1, 2, 3]", {"[0, 1]", "[2, 3]"}),
-        ConcatenateParam(float64(), "[0, 1, 2, 3]", {"[0, 1]", "[2, 3]"}),
-        ConcatenateParam(uint8(), "[0, 1, 2, 3]", {"[0, 1]", "[2, 3]"}),
-        ConcatenateParam(list(uint8()), "[[], [0, 1], [2], [3]]",
-                         {"[[], [0, 1]]", "[[2], [3]]"}),
-        ConcatenateParam(utf8(), R"(["a", "b", "c", "d"])",
-                         {R"(["a", "b"])", R"(["c", "d"])"}),
-        ConcatenateParam(
-            struct_({field("strings", utf8()), field("ints", int64())}),
-            R"([{"strings":"a", "ints":0}, {"strings":"b", "ints":1}, {"strings":"c", "ints":2}, {"strings":"d", "ints":3}])",
-            {R"([{"strings":"a", "ints":0}, {"strings":"b", "ints":1}])",
-             R"([{"strings":"c", "ints":2}, {"strings":"d", "ints":3}])"})));
+TEST_F(ConcatenateTest, ListType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    auto values_size = size * 4;
+    auto values = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
+    auto offsets_vector = this->Offsets(values_size, size);
+    // ensure the first offset is 0, which is expected for ListType
+    offsets_vector[0] = 0;
+    std::shared_ptr<Array> offsets;
+    ArrayFromVector<Int32Type>(offsets_vector, &offsets);
+    ASSERT_OK(ListArray::FromArrays(*offsets, *values, default_memory_pool(), out));
+  });
+}
 
-TEST(Concatenate, OffsetOverflow) {
+TEST_F(ConcatenateTest, StructType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    auto foo = this->GeneratePrimitive<Int8Type>(size, null_probability);
+    auto bar = this->GeneratePrimitive<DoubleType>(size, null_probability);
+    auto baz = this->GeneratePrimitive<BooleanType>(size, null_probability);
+    *out = std::make_shared<StructArray>(
+        struct_({field("foo", int8()), field("bar", float64()), field("baz", boolean())}),
+        size, ArrayVector{foo, bar, baz});
+  });
+}
+
+TEST_F(ConcatenateTest, DictionaryType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    auto indices = this->GeneratePrimitive<Int32Type>(size, null_probability);
+    auto type = dictionary(int32(), this->GeneratePrimitive<DoubleType>(128, 0));
+    *out = std::make_shared<DictionaryArray>(type, indices);
+  });
+}
+
+TEST_F(ConcatenateTest, DISABLED_UnionType) {
+  // sparse mode
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    auto foo = this->GeneratePrimitive<Int8Type>(size, null_probability);
+    auto bar = this->GeneratePrimitive<DoubleType>(size, null_probability);
+    auto baz = this->GeneratePrimitive<BooleanType>(size, null_probability);
+    auto type_ids = rng_.Numeric<Int8Type>(size, 0, 2, null_probability);
+    ASSERT_OK(UnionArray::MakeSparse(*type_ids, {foo, bar, baz}, out));
+  });
+  // dense mode
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    auto foo = this->GeneratePrimitive<Int8Type>(size, null_probability);
+    auto bar = this->GeneratePrimitive<DoubleType>(size, null_probability);
+    auto baz = this->GeneratePrimitive<BooleanType>(size, null_probability);
+    auto type_ids = rng_.Numeric<Int8Type>(size, 0, 2, null_probability);
+    auto value_offsets = rng_.Numeric<Int32Type>(size, 0, size, 0);
+    ASSERT_OK(UnionArray::MakeDense(*type_ids, *value_offsets, {foo, bar, baz}, out));
+  });
+}
+
+TEST_F(ConcatenateTest, OffsetOverflow) {
   auto fake_long = ArrayFromJSON(utf8(), "[\"\"]");
   fake_long->data()->GetMutableValues<int32_t>(1)[1] =
       std::numeric_limits<int32_t>::max();

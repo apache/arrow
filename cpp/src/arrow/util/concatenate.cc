@@ -165,6 +165,8 @@ struct ConcatenateImpl {
 
   Status Visit(const UnionType& u) {
     // type_codes are an index into child_data
+    return Status::NotImplemented("concatenation of ", u);
+    /*
     std::vector<std::shared_ptr<Buffer>> codes_slices(in_size_);
     for (int i = 0; i != in_size_; ++i) {
       codes_slices[i] = SliceBuffer(in_[i].buffers[1], offsets_[i], lengths_[i]);
@@ -236,6 +238,7 @@ struct ConcatenateImpl {
     }
     out_.buffers.push_back(offsets_buffer);
     return Status::OK();
+    */
   }
 
   Status Visit(const ExtensionType&) {
@@ -259,7 +262,7 @@ struct ConcatenateImpl {
     uint8_t* bitmap_data = (*bitmap_buffer)->mutable_data();
     int64_t bitmap_offset = 0;
     for (int i = 0; i != in_size_; ++i) {
-      if (auto bitmap = in_[i].buffers[0]) {
+      if (auto bitmap = in_[i].buffers[index]) {
         internal::CopyBitmap(bitmap->data(), offsets_[i], lengths_[i], bitmap_data,
                              bitmap_offset);
       } else {
@@ -273,10 +276,6 @@ struct ConcatenateImpl {
     return Status::OK();
   }
 
-  // FIXME the below assumes that the first offset in the inputs will always be 0, which
-  // isn't necessarily correct. Accumulating first and last offsets will be necessary
-  // because we need to slice the referenced data (child_data for lists, values_buffer for
-  // strings)
   Status ConcatenateOffsets(int index, std::shared_ptr<Buffer>* offset_buffer,
                             std::vector<range>* ranges) {
     RETURN_NOT_OK(
@@ -285,7 +284,7 @@ struct ConcatenateImpl {
     int32_t total_length = 0;
     ranges->resize(in_size_);
     for (int i = 0; i != in_size_; ++i) {
-      auto src_offsets_begin = in_[i].GetValues<int32_t>(index) + offsets_[i];
+      auto src_offsets_begin = in_[i].GetValues<int32_t>(index);
       auto src_offsets_end = src_offsets_begin + lengths_[i];
       auto first_offset = src_offsets_begin[0];
       auto length = *src_offsets_end - first_offset;
