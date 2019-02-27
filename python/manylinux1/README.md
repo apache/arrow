@@ -58,12 +58,10 @@ command.
 
 As TensorFlow is not compatible with the manylinux1 standard, the above
 wheels can cause segfaults if they are used together with the TensorFlow wheels
-from https://www.tensorflow.org/install/pip. The combination of TensorFlow
-wheels with the arrow manylinux1 wheels might work for you or they might
-produce segfaults. We do not recommend using TensorFlow wheels
-with pyarrow manylinux1 wheels until these incompatibilities are addressed [1]
-by the TensorFlow team. For most end-users, the recommended way to use Arrow
-together with TensorFlow through conda (e.g. the Anaconda distribution).
+from https://www.tensorflow.org/install/pip. We do not recommend using
+TensorFlow wheels with pyarrow manylinux1 wheels until these incompatibilities
+are addressed by the TensorFlow team [1]. For most end-users, the recommended
+way to use Arrow together with TensorFlow is through conda.
 If this is not an option for you, there is also a way to produce TensorFlow
 compatible Arrow wheels that however do not conform to the manylinux1 standard
 and are not officially supported by the Arrow community.
