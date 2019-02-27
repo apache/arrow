@@ -1,0 +1,219 @@
+/*
+ Licensed to the Apache Software Foundation (ASF) under one
+ or more contributor license agreements.See the NOTICE file
+ distributed with this work for additional information
+ regarding copyright ownership.The ASF licenses this file
+ to you under the Apache License, Version 2.0 (the
+ "License"); you may not use this file except in compliance
+ with the License.You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing,
+ software distributed under the License is distributed on an
+ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ KIND, either express or implied.See the License for the
+ specific language governing permissions and limitations
+ under the License.
+*/
+
+/*
+ WARNING
+   This is an auto-generated file. Please do not edit.
+
+   To reproduce, please run :code:`./make_data_model_rst.sh`.
+   (This requires you have the
+   `psql client <https://www.postgresql.org/download/>`_
+   and have started the docker containers using
+   :code:`docker-compose up`).
+*/
+digraph database {
+  concentrate = true;
+  rankdir = LR;
+  ratio = ".75";
+  node [shape = none, fontsize="11", fontname="Helvetica"];
+  edge [fontsize="8", fontname="Helvetica"];
+legend
+[fontsize = "14"
+label =
+<<table border="0" cellpadding="0">
+  <tr><td align="left"><font point-size="16">Legend</font></td></tr>
+  <tr><td align="left">pk = primary key</td></tr>
+  <tr><td align="left">fk = foreign key</td></tr>
+  <tr><td align="left">u = unique*</td></tr>
+  <tr><td align="left">o = optional</td></tr>
+  <tr><td align="left">* multiple uniques in the same table are a unique group</td></tr>
+</table>>
+];
+benchmark
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">benchmark</font></td></tr>
+    <tr><td port="benchmark_id"><b>benchmark_id (pk)</b></td></tr>
+    <tr><td port="benchmark_language_id"><b>benchmark_language_id (pk)</b></td></tr>
+    <tr><td>benchmark_name (u)</td></tr>
+    <tr><td>parameter_names (o)</td></tr>
+    <tr><td>benchmark_description</td></tr>
+    <tr><td>benchmark_version (u)</td></tr>
+    <tr><td port="unit_id">unit_id (fk) </td></tr>
+  </table>>
+];
+benchmark_language
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">benchmark_language</font></td></tr>
+    <tr><td port="benchmark_language_id"><b>benchmark_language_id (pk)</b></td></tr>
+    <tr><td>benchmark_language (u)</td></tr>
+  </table>>
+];
+benchmark_run
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">benchmark_run</font></td></tr>
+    <tr><td port="benchmark_run_id"><b>benchmark_run_id (pk)</b></td></tr>
+    <tr><td>parameter_values (u)</td></tr>
+    <tr><td>value</td></tr>
+    <tr><td>git_commit_timestamp (u)</td></tr>
+    <tr><td>git_hash</td></tr>
+    <tr><td>val_min (o)</td></tr>
+    <tr><td>val_q1 (o)</td></tr>
+    <tr><td>val_q3 (o)</td></tr>
+    <tr><td>val_max (o)</td></tr>
+    <tr><td>std_dev</td></tr>
+    <tr><td>n_obs</td></tr>
+    <tr><td>run_timestamp (u)</td></tr>
+    <tr><td>run_metadata (o)</td></tr>
+    <tr><td>run_notes (o)</td></tr>
+    <tr><td port="machine_id">machine_id (u) (fk) </td></tr>
+    <tr><td port="environment_id">environment_id (u) (fk) </td></tr>
+    <tr><td port="language_implementation_version_id">language_implementation_version_id (fk) </td></tr>
+    <tr><td port="benchmark_language_id">benchmark_language_id (fk) </td></tr>
+    <tr><td port="benchmark_id">benchmark_id (u) (fk) </td></tr>
+  </table>>
+];
+benchmark_type
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">benchmark_type</font></td></tr>
+    <tr><td port="benchmark_type_id"><b>benchmark_type_id (pk)</b></td></tr>
+    <tr><td>benchmark_type (u)</td></tr>
+    <tr><td>lessisbetter</td></tr>
+  </table>>
+];
+cpu
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">cpu</font></td></tr>
+    <tr><td port="cpu_id"><b>cpu_id (pk)</b></td></tr>
+    <tr><td>cpu_model_name (u)</td></tr>
+    <tr><td>cpu_core_count</td></tr>
+    <tr><td>cpu_thread_count</td></tr>
+    <tr><td>cpu_frequency_max_hz</td></tr>
+    <tr><td>cpu_frequency_min_hz</td></tr>
+    <tr><td>cpu_l1d_cache_bytes</td></tr>
+    <tr><td>cpu_l1i_cache_bytes</td></tr>
+    <tr><td>cpu_l2_cache_bytes</td></tr>
+    <tr><td>cpu_l3_cache_bytes</td></tr>
+  </table>>
+];
+dependencies
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">dependencies</font></td></tr>
+    <tr><td port="dependencies_id"><b>dependencies_id (pk)</b></td></tr>
+    <tr><td>dependencies (u)</td></tr>
+  </table>>
+];
+gpu
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">gpu</font></td></tr>
+    <tr><td port="gpu_id"><b>gpu_id (pk)</b></td></tr>
+    <tr><td>gpu_information (u)</td></tr>
+    <tr><td>gpu_part_number</td></tr>
+    <tr><td>gpu_product_name</td></tr>
+  </table>>
+];
+language_implementation_version
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">language_implementation_version</font></td></tr>
+    <tr><td port="language_implementation_version_id"><b>language_implementation_version_id (pk)</b></td></tr>
+    <tr><td port="benchmark_language_id"><b>benchmark_language_id (pk)</b></td></tr>
+    <tr><td>language_implementation_version (u)</td></tr>
+  </table>>
+];
+machine
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">machine</font></td></tr>
+    <tr><td port="machine_id"><b>machine_id (pk)</b></td></tr>
+    <tr><td>machine_name</td></tr>
+    <tr><td>mac_address (u)</td></tr>
+    <tr><td>memory_bytes</td></tr>
+    <tr><td>cpu_actual_frequency_hz</td></tr>
+    <tr><td>machine_other_attributes (o)</td></tr>
+    <tr><td port="cpu_id">cpu_id (fk) </td></tr>
+    <tr><td port="gpu_id">gpu_id (fk) </td></tr>
+    <tr><td port="os_id">os_id (fk) </td></tr>
+  </table>>
+];
+os
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">os</font></td></tr>
+    <tr><td port="os_id"><b>os_id (pk)</b></td></tr>
+    <tr><td>os_name (u)</td></tr>
+    <tr><td>architecture_name (u)</td></tr>
+    <tr><td>kernel_name (u)</td></tr>
+  </table>>
+];
+project
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">project</font></td></tr>
+    <tr><td port="project_id"><b>project_id (pk)</b></td></tr>
+    <tr><td>project_name (u)</td></tr>
+    <tr><td>project_url (u)</td></tr>
+    <tr><td>repo_url (u)</td></tr>
+    <tr><td>last_changed</td></tr>
+  </table>>
+];
+unit
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">unit</font></td></tr>
+    <tr><td port="unit_id"><b>unit_id (pk)</b></td></tr>
+    <tr><td>units (u)</td></tr>
+    <tr><td port="benchmark_type_id">benchmark_type_id (fk) </td></tr>
+  </table>>
+];
+environment
+[label =
+  <<table border="0" cellborder="1" cellspacing="0" cellpadding="2">
+    <tr><td border="0"><font point-size="14">environment</font></td></tr>
+    <tr><td port="environment_id"><b>environment_id (pk)</b></td></tr>
+    <tr><td port="language_implementation_version_id"><b>language_implementation_version_id (pk)</b></td></tr>
+    <tr><td port="benchmark_language_id"><b>benchmark_language_id (pk)</b></td></tr>
+    <tr><td port="dependencies_id">dependencies_id (u) (fk) </td></tr>
+  </table>>
+];
+machine:cpu_id -> cpu:cpu_id;
+machine:gpu_id -> gpu:gpu_id;
+machine:os_id -> os:os_id;
+benchmark:benchmark_language_id -> benchmark_language:benchmark_language_id;
+environment:benchmark_language_id -> benchmark_language:benchmark_language_id;
+language_implementation_version:benchmark_language_id -> benchmark_language:benchmark_language_id;
+environment:dependencies_id -> dependencies:dependencies_id;
+environment:benchmark_language_id -> language_implementation_version:benchmark_language_id;
+environment:language_implementation_version_id -> language_implementation_version:language_implementation_version_id;
+unit:benchmark_type_id -> benchmark_type:benchmark_type_id;
+benchmark_run:machine_id -> machine:machine_id;
+benchmark:unit_id -> unit:unit_id;
+benchmark_run:language_implementation_version_id -> environment:language_implementation_version_id;
+benchmark_run:benchmark_language_id -> environment:benchmark_language_id;
+benchmark_run:environment_id -> environment:environment_id;
+benchmark_run:benchmark_language_id -> benchmark:benchmark_language_id;
+benchmark_run:benchmark_id -> benchmark:benchmark_id;
+}
+
