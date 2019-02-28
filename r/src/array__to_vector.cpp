@@ -468,8 +468,7 @@ class Converter_Decimal : public Converter {
         *p_data = bitmap_reader.IsSet() ? std::stod(decimals_arr.FormatValue(i).c_str())
                                         : NA_REAL;
       }
-    }
-    else {
+    } else {
       for (size_t i = 0; i < n; i++, ++p_data) {
         *p_data = std::stod(decimals_arr.FormatValue(i).c_str());
       }

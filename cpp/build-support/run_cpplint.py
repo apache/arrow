@@ -110,8 +110,6 @@ if __name__ == "__main__":
         # distill a list of problematic files
         for problem_files, stdout in pool.imap(checker, chunks):
             if problem_files:
-                msg = "{} had cpplint issues"
-                print("\n".join(map(msg.format, problem_files)))
                 if isinstance(stdout, bytes):
                     stdout = stdout.decode('utf8')
                 print(stdout, file=sys.stderr)
