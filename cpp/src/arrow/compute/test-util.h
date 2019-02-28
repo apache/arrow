@@ -69,6 +69,41 @@ std::shared_ptr<Array> _MakeArray(const std::shared_ptr<DataType>& type,
   return result;
 }
 
+template <typename Type, typename Enable = void>
+struct DatumEqual {};
+
+template <typename Type>
+struct DatumEqual<Type, typename std::enable_if<IsFloatingPoint<Type>::value>::type> {
+  static constexpr double kArbitraryDoubleErrorBound = 1.0;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+
+  static void EnsureEqual(const Datum& lhs, const Datum& rhs) {
+    ASSERT_EQ(lhs.kind(), rhs.kind());
+    if (lhs.kind() == Datum::SCALAR) {
+      auto left = internal::checked_cast<const ScalarType*>(lhs.scalar().get());
+      auto right = internal::checked_cast<const ScalarType*>(rhs.scalar().get());
+      ASSERT_EQ(left->is_valid, right->is_valid);
+      ASSERT_EQ(left->type->id(), right->type->id());
+      ASSERT_NEAR(left->value, right->value, kArbitraryDoubleErrorBound);
+    }
+  }
+};
+
+template <typename Type>
+struct DatumEqual<Type, typename std::enable_if<!IsFloatingPoint<Type>::value>::type> {
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  static void EnsureEqual(const Datum& lhs, const Datum& rhs) {
+    ASSERT_EQ(lhs.kind(), rhs.kind());
+    if (lhs.kind() == Datum::SCALAR) {
+      auto left = internal::checked_cast<const ScalarType*>(lhs.scalar().get());
+      auto right = internal::checked_cast<const ScalarType*>(rhs.scalar().get());
+      ASSERT_EQ(left->is_valid, right->is_valid);
+      ASSERT_EQ(left->type->id(), right->type->id());
+      ASSERT_EQ(left->value, right->value);
+    }
+  }
+};
+
 }  // namespace compute
 }  // namespace arrow
 

@@ -18,14 +18,17 @@
 #pragma once
 
 #include <memory>
+#include <type_traits>
 
+#include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Array;
 class DataType;
-class Status;
 
 namespace compute {
 
@@ -33,38 +36,31 @@ struct Datum;
 class FunctionContext;
 class AggregateFunction;
 
-/// \brief Return a Sum Kernel
-///
-/// \param[in] type required to specialize the kernel
-/// \param[in] context the FunctionContext
-///
-/// \since 0.13.0
-/// \note API not yet finalized
 ARROW_EXPORT
-std::shared_ptr<AggregateFunction> MakeSumAggregateFunction(const DataType& type,
-                                                            FunctionContext* context);
+std::shared_ptr<AggregateFunction> MakeMeanAggregateFunction(const DataType& type,
+                                                             FunctionContext* context);
 
-/// \brief Sum values of a numeric array.
+/// \brief Compute the mean of a numeric array.
 ///
 /// \param[in] context the FunctionContext
-/// \param[in] value datum to sum, expecting Array or ChunkedArray
-/// \param[out] out resulting datum
+/// \param[in] value datum to compute the mean, expecting Array
+/// \param[out] mean datum of the computed mean as a DoubleScalar
 ///
 /// \since 0.13.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Status Sum(FunctionContext* context, const Datum& value, Datum* out);
+Status Mean(FunctionContext* context, const Datum& value, Datum* mean);
 
-/// \brief Sum values of a numeric array.
+/// \brief Compute the mean of a numeric array.
 ///
 /// \param[in] context the FunctionContext
-/// \param[in] array to sum
-/// \param[out] out resulting datum
+/// \param[in] array to compute the mean
+/// \param[out] mean datum of the computed mean as a DoubleScalar
 ///
 /// \since 0.13.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Status Sum(FunctionContext* context, const Array& array, Datum* out);
+Status Mean(FunctionContext* context, const Array& array, Datum* mean);
 
 }  // namespace compute
-}  // namespace arrow
+};  // namespace arrow

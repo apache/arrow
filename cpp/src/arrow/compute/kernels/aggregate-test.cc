@@ -15,13 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <memory>
 #include <string>
 #include <type_traits>
+#include <utility>
 
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/mean.h"
+#include "arrow/compute/kernels/sum-internal.h"
 #include "arrow/compute/kernels/sum.h"
 #include "arrow/compute/test-util.h"
 #include "arrow/type.h"
@@ -38,44 +43,48 @@ using std::vector;
 namespace arrow {
 namespace compute {
 
-template <typename Type, typename Enable = void>
-struct DatumEqual {
-  static void EnsureEqual(const Datum& lhs, const Datum& rhs) {}
-};
+template <typename ArrowType>
+using SumResult =
+    std::pair<typename FindAccumulatorType<ArrowType>::Type::c_type, size_t>;
 
-template <typename Type>
-struct DatumEqual<Type, typename std::enable_if<IsFloatingPoint<Type>::Value>::type> {
-  static constexpr double kArbitraryDoubleErrorBound = 1.0;
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
+template <typename ArrowType>
+static SumResult<ArrowType> NaiveSumPartial(const Array& array) {
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  using ResultType = SumResult<ArrowType>;
 
-  static void EnsureEqual(const Datum& lhs, const Datum& rhs) {
-    ASSERT_EQ(lhs.kind(), rhs.kind());
-    if (lhs.kind() == Datum::SCALAR) {
-      auto left = static_cast<const ScalarType*>(lhs.scalar().get());
-      auto right = static_cast<const ScalarType*>(rhs.scalar().get());
-      ASSERT_EQ(left->type->id(), right->type->id());
-      ASSERT_NEAR(left->value, right->value, kArbitraryDoubleErrorBound);
+  ResultType result;
+
+  auto data = array.data();
+  internal::BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
+  const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
+  const auto values = array_numeric.raw_values();
+  for (int64_t i = 0; i < array.length(); i++) {
+    if (reader.IsSet()) {
+      result.first += values[i];
+      result.second++;
     }
-  }
-};
 
-template <typename Type>
-struct DatumEqual<Type, typename std::enable_if<!IsFloatingPoint<Type>::value>::type> {
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
-  static void EnsureEqual(const Datum& lhs, const Datum& rhs) {
-    ASSERT_EQ(lhs.kind(), rhs.kind());
-    if (lhs.kind() == Datum::SCALAR) {
-      auto left = static_cast<const ScalarType*>(lhs.scalar().get());
-      auto right = static_cast<const ScalarType*>(rhs.scalar().get());
-      ASSERT_EQ(left->type->id(), right->type->id());
-      ASSERT_EQ(left->value, right->value);
-    }
+    reader.Next();
   }
-};
+
+  return result;
+}
+
+template <typename ArrowType>
+static Datum NaiveSum(const Array& array) {
+  using SumType = typename FindAccumulatorType<ArrowType>::Type;
+  using SumScalarType = typename TypeTraits<SumType>::ScalarType;
+
+  auto result = NaiveSumPartial<ArrowType>(array);
+  bool is_valid = result.second > 0;
+
+  return Datum(std::make_shared<SumScalarType>(result.first, is_valid));
+}
 
 template <typename ArrowType>
 void ValidateSum(FunctionContext* ctx, const Array& input, Datum expected) {
   using OutputType = typename FindAccumulatorType<ArrowType>::Type;
+
   Datum result;
   ASSERT_OK(Sum(ctx, input, &result));
   DatumEqual<OutputType>::EnsureEqual(result, expected);
@@ -88,44 +97,15 @@ void ValidateSum(FunctionContext* ctx, const char* json, Datum expected) {
 }
 
 template <typename ArrowType>
-static Datum DummySum(const Array& array) {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using SumType = typename FindAccumulatorType<ArrowType>::Type;
-  using SumScalarType = typename TypeTraits<SumType>::ScalarType;
-
-  typename SumType::c_type sum = 0;
-  int64_t count = 0;
-
-  auto data = array.data();
-  internal::BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
-  const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
-  const auto values = array_numeric.raw_values();
-  for (int64_t i = 0; i < array.length(); i++) {
-    if (reader.IsSet()) {
-      sum += values[i];
-      count++;
-    }
-
-    reader.Next();
-  }
-
-  if (count > 0) {
-    return Datum(std::make_shared<SumScalarType>(sum));
-  } else {
-    return Datum(std::make_shared<SumScalarType>(0, false));
-  }
-}
-
-template <typename ArrowType>
 void ValidateSum(FunctionContext* ctx, const Array& array) {
-  ValidateSum<ArrowType>(ctx, array, DummySum<ArrowType>(array));
+  ValidateSum<ArrowType>(ctx, array, NaiveSum<ArrowType>(array));
 }
 
 template <typename ArrowType>
-class TestSumKernelNumeric : public ComputeFixture, public TestBase {};
+class TestNumericSumKernel : public ComputeFixture, public TestBase {};
 
-TYPED_TEST_CASE(TestSumKernelNumeric, NumericArrowTypes);
-TYPED_TEST(TestSumKernelNumeric, SimpleSum) {
+TYPED_TEST_CASE(TestNumericSumKernel, NumericArrowTypes);
+TYPED_TEST(TestNumericSumKernel, SimpleSum) {
   using SumType = typename FindAccumulatorType<TypeParam>::Type;
   using ScalarType = typename TypeTraits<SumType>::ScalarType;
   using T = typename TypeParam::c_type;
@@ -145,10 +125,10 @@ TYPED_TEST(TestSumKernelNumeric, SimpleSum) {
 }
 
 template <typename ArrowType>
-class TestRandomSumKernelNumeric : public ComputeFixture, public TestBase {};
+class TestRandomNumericSumKernel : public ComputeFixture, public TestBase {};
 
-TYPED_TEST_CASE(TestRandomSumKernelNumeric, NumericArrowTypes);
-TYPED_TEST(TestRandomSumKernelNumeric, RandomArraySum) {
+TYPED_TEST_CASE(TestRandomNumericSumKernel, NumericArrowTypes);
+TYPED_TEST(TestRandomNumericSumKernel, RandomArraySum) {
   auto rand = random::RandomArrayGenerator(0x5487655);
   for (size_t i = 3; i < 14; i++) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
@@ -161,7 +141,7 @@ TYPED_TEST(TestRandomSumKernelNumeric, RandomArraySum) {
   }
 }
 
-TYPED_TEST(TestRandomSumKernelNumeric, RandomSliceArraySum) {
+TYPED_TEST(TestRandomNumericSumKernel, RandomSliceArraySum) {
   auto arithmetic = ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(),
                                   "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]");
   ValidateSum<TypeParam>(&this->ctx_, *arithmetic);
@@ -175,9 +155,84 @@ TYPED_TEST(TestRandomSumKernelNumeric, RandomSliceArraySum) {
   const int64_t length = 1U << 6;
   auto array = rand.Numeric<TypeParam>(length, 0, 10, 0.5);
   for (size_t i = 1; i < 16; i++) {
-    for (size_t j = 1; i < 16; i++) {
+    for (size_t j = 1; j < 16; j++) {
       auto slice = array->Slice(i, length - j);
       ValidateSum<TypeParam>(&this->ctx_, *slice);
+    }
+  }
+}
+
+template <typename ArrowType>
+static Datum NaiveMean(const Array& array) {
+  using MeanScalarType = typename TypeTraits<DoubleType>::ScalarType;
+
+  const auto result = NaiveSumPartial<ArrowType>(array);
+  const double mean = static_cast<double>(result.first) /
+                      static_cast<double>(result.second ? result.second : 1UL);
+  const bool is_valid = result.second > 0;
+
+  return Datum(std::make_shared<MeanScalarType>(mean, is_valid));
+}
+
+template <typename ArrowType>
+void ValidateMean(FunctionContext* ctx, const Array& input, Datum expected) {
+  using OutputType = typename FindAccumulatorType<DoubleType>::Type;
+
+  Datum result;
+  ASSERT_OK(Mean(ctx, input, &result));
+  DatumEqual<OutputType>::EnsureEqual(result, expected);
+}
+
+template <typename ArrowType>
+void ValidateMean(FunctionContext* ctx, const char* json, Datum expected) {
+  auto array = ArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), json);
+  ValidateMean<ArrowType>(ctx, *array, expected);
+}
+
+template <typename ArrowType>
+void ValidateMean(FunctionContext* ctx, const Array& array) {
+  ValidateMean<ArrowType>(ctx, array, NaiveMean<ArrowType>(array));
+}
+
+template <typename ArrowType>
+class TestMeanKernelNumeric : public ComputeFixture, public TestBase {};
+
+TYPED_TEST_CASE(TestMeanKernelNumeric, NumericArrowTypes);
+TYPED_TEST(TestMeanKernelNumeric, SimpleMean) {
+  using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
+
+  ValidateMean<TypeParam>(&this->ctx_, "[]",
+                          Datum(std::make_shared<ScalarType>(0.0, false)));
+
+  ValidateMean<TypeParam>(&this->ctx_, "[null]",
+                          Datum(std::make_shared<ScalarType>(0.0, false)));
+
+  ValidateMean<TypeParam>(&this->ctx_, "[1, null, 1]",
+                          Datum(std::make_shared<ScalarType>(1.0)));
+
+  ValidateMean<TypeParam>(&this->ctx_, "[1, 2, 3, 4, 5, 6, 7, 8]",
+                          Datum(std::make_shared<ScalarType>(4.5)));
+
+  ValidateMean<TypeParam>(&this->ctx_, "[0, 0, 0, 0, 0, 0, 0, 0]",
+                          Datum(std::make_shared<ScalarType>(0.0)));
+
+  ValidateMean<TypeParam>(&this->ctx_, "[1, 1, 1, 1, 1, 1, 1, 1]",
+                          Datum(std::make_shared<ScalarType>(1.0)));
+}
+
+template <typename ArrowType>
+class TestRandomNumericMeanKernel : public ComputeFixture, public TestBase {};
+
+TYPED_TEST_CASE(TestRandomNumericMeanKernel, NumericArrowTypes);
+TYPED_TEST(TestRandomNumericMeanKernel, RandomArrayMean) {
+  auto rand = random::RandomArrayGenerator(0x8afc055);
+  for (size_t i = 3; i < 14; i++) {
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+      for (auto length_adjust : {-2, -1, 0, 1, 2}) {
+        int64_t length = (1UL << i) + length_adjust;
+        auto array = rand.Numeric<TypeParam>(length, 0, 100, null_probability);
+        ValidateMean<TypeParam>(&this->ctx_, *array);
+      }
     }
   }
 }
