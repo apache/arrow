@@ -474,7 +474,7 @@ class SmallScalarMemoTable {
   // Copy values starting from index `start` into `out_data`
   void CopyValues(int32_t start, Scalar* out_data) const {
     DCHECK_GE(start, 0);
-    DCHECK_LE(start, index_to_value_.size());
+    DCHECK_LE(static_cast<size_t>(start), index_to_value_.size());
     std::copy(index_to_value_.begin() + start, index_to_value_.end(), out_data);
   }
 
