@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package csv reads CSV files and presents the extracted data as records.
 package csv
 
 import (
@@ -28,40 +27,40 @@ import (
 // WriterOption configures a CSV writer.
 type WriterOption func(*Writer)
 
-// WithComma specifies the fields separation character used while writing CSV files.
+// WithFieldSeparator specifies the fields separation character used while writing CSV files.
 func WithFieldSeparator(c rune) WriterOption {
 	return func(w *Writer) {
 		w.w.Comma = c
 	}
 }
 
-// UseCRLF specifies the line terminator used while writing CSV files.
-func WithLineTerminator(b bool) WriterOption {
+// WithLineTerminator specifies the line terminator used while writing CSV files.
+func WithLineTerminator(useCRLF bool) WriterOption {
 	return func(w *Writer) {
-		w.w.UseCRLF = b
+		w.w.UseCRLF = useCRLF
 	}
 }
 
-// Reader wraps encoding/csv.Reader and creates array.Records from a schema.
+// Writer wraps encoding/csv.Writer and writes array.Record based on a schema.
 type Writer struct {
 	w      *csv.Writer
 	schema *arrow.Schema
 }
 
-// NewWriter returns a writer that write array.Records to the CSV file
+// NewWriter returns a writer that writes array.Records to the CSV file
 // with the given schema.
 //
 // NewWriter panics if the given schema contains fields that have types that are not
 // primitive types.
-func NewWriter(r io.Writer, schema *arrow.Schema, opts ...WriterOption) *Writer {
+func NewWriter(w io.Writer, schema *arrow.Schema, opts ...WriterOption) *Writer {
 	validate(schema)
 
-	rr := &Writer{w: csv.NewWriter(r), schema: schema}
+	ww := &Writer{w: csv.NewWriter(w), schema: schema}
 	for _, opt := range opts {
-		opt(rr)
+		opt(ww)
 	}
 
-	return rr
+	return ww
 }
 
 func (w *Writer) Schema() *arrow.Schema { return w.schema }
@@ -71,7 +70,6 @@ func (w *Writer) Write(record array.Record) error {
 	if !record.Schema().Equal(w.schema) {
 		return ErrMismatchFields
 	}
-
 
 	recs := make([][]string, record.NumRows())
 	for i := range recs {

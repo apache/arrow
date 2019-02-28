@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package csv reads CSV files and presents the extracted data as records.
 package csv
 
 import (
