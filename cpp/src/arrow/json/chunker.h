@@ -40,7 +40,7 @@ class ARROW_EXPORT Chunker {
   virtual ~Chunker() = default;
 
   /// \brief Carve up a chunk in a block of data to contain only whole objects
-  /// \param[in] block json data to be chunked, must end with '\0'
+  /// \param[in] block json data to be chunked
   /// \param[out] chunked subrange of block containing whole json objects
   virtual Status Process(util::string_view block, util::string_view* chunked) = 0;
 
