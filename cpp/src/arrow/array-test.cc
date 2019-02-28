@@ -1819,6 +1819,14 @@ class ConcatenateTest : public ::testing::Test {
     return rng_.Numeric<PrimitiveType, uint8_t>(size, 0, 127, null_probability);
   }
 
+  void CheckTrailingBitsAreZeroed(const std::shared_ptr<Buffer>& bitmap, int64_t length) {
+    if (auto preceding_bits = BitUtil::kPrecedingBitmask[length % 8]) {
+      auto last_byte = bitmap->data()[length / 8];
+      ASSERT_EQ(static_cast<uint8_t>(last_byte & preceding_bits), last_byte)
+          << length << " " << int(preceding_bits);
+    }
+  }
+
   template <typename ArrayFactory>
   void Check(ArrayFactory&& factory) {
     for (auto size : this->sizes_) {
@@ -1834,6 +1842,12 @@ class ConcatenateTest : public ::testing::Test {
         ARROW_IGNORE_EXPR(expected->null_count());
         ARROW_IGNORE_EXPR(actual->null_count());
         AssertArraysEqual(*expected, *actual);
+        if (actual->data()->buffers[0]) {
+          CheckTrailingBitsAreZeroed(actual->data()->buffers[0], actual->length());
+        }
+        if (actual->type_id() == Type::BOOL) {
+          CheckTrailingBitsAreZeroed(actual->data()->buffers[1], actual->length());
+        }
       }
     }
   }

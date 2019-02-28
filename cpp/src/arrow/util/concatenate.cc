@@ -267,7 +267,7 @@ struct ConcatenateImpl {
     for (int i = 0; i != in_size_; ++i) {
       if (auto bitmap = in_[i].buffers[index]) {
         internal::CopyBitmap(bitmap->data(), offsets_[i], lengths_[i], bitmap_data,
-                             bitmap_offset);
+                             bitmap_offset, false);
       } else {
         BitUtil::SetBitsTo(bitmap_data, bitmap_offset, lengths_[i], true);
       }
