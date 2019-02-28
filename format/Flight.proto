@@ -288,7 +288,9 @@ message FlightData {
 
   /*
    * The actual batch of Arrow data. Preferably handled with minimal-copies
-   * coming last in the definition to help with sidecar patterns.
+   * coming last in the definition to help with sidecar patterns (it is
+   * expected that some implementations will fetch this field off the wire
+   * with specialized code to avoid extra memory copies).
    */
   bytes data_body = 1000;
 }
