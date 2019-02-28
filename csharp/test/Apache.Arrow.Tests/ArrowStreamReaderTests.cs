@@ -59,7 +59,7 @@ namespace Apache.Arrow.Tests
                 IArrowArray expectedArray = expectedBatch.Arrays.ElementAt(i);
                 IArrowArray actualArray = actualBatch.Arrays.ElementAt(i);
 
-                CompareArrays(expectedArray, actualArray);
+                actualArray.Accept(new ArrayComparer(expectedArray));
             }
         }
 
@@ -69,29 +69,64 @@ namespace Apache.Arrow.Tests
             // TODO: compare fields
         }
 
-        private void CompareArrays(IArrowArray expectedArray, IArrowArray actualArray)
+        private class ArrayComparer :
+            IArrowArrayVisitor<Int8Array>,
+            IArrowArrayVisitor<Int16Array>,
+            IArrowArrayVisitor<Int32Array>,
+            IArrowArrayVisitor<Int64Array>,
+            IArrowArrayVisitor<UInt8Array>,
+            IArrowArrayVisitor<UInt16Array>,
+            IArrowArrayVisitor<UInt32Array>,
+            IArrowArrayVisitor<UInt64Array>,
+            IArrowArrayVisitor<FloatArray>,
+            IArrowArrayVisitor<DoubleArray>,
+            IArrowArrayVisitor<BooleanArray>,
+            IArrowArrayVisitor<TimestampArray>,
+            IArrowArrayVisitor<Date32Array>,
+            IArrowArrayVisitor<Date64Array>,
+            IArrowArrayVisitor<ListArray>,
+            IArrowArrayVisitor<StringArray>,
+            IArrowArrayVisitor<BinaryArray>
         {
-            Assert.Equal(expectedArray.Length, actualArray.Length);
-            Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
-            Assert.Equal(expectedArray.Offset, actualArray.Offset);
-            CompareArrayData(expectedArray.Data, actualArray.Data);
-        }
+            private readonly IArrowArray _expectedArray;
 
-        private void CompareArrayData(ArrayData expectedData, ArrayData actualData)
-        {
-            Assert.Equal(expectedData.Length, actualData.Length);
-            Assert.Equal(expectedData.Buffers.Length, actualData.Buffers.Length);
-
-            for (int i = 0; i < expectedData.Buffers.Length; i++)
+            public ArrayComparer(IArrowArray expectedArray)
             {
-                CompareBuffers(expectedData.Buffers[i], actualData.Buffers[i]);
+                _expectedArray = expectedArray;
             }
-        }
 
-        private void CompareBuffers(ArrowBuffer expectedBuffer, ArrowBuffer actualBuffer)
-        {
-            Assert.Equal(expectedBuffer.Length, actualBuffer.Length);
-            Assert.True(expectedBuffer.Span.SequenceEqual(actualBuffer.Span));
+            public void Visit(Int8Array array) => CompareArrays(array);
+            public void Visit(Int16Array array) => CompareArrays(array);
+            public void Visit(Int32Array array) => CompareArrays(array);
+            public void Visit(Int64Array array) => CompareArrays(array);
+            public void Visit(UInt8Array array) => CompareArrays(array);
+            public void Visit(UInt16Array array) => CompareArrays(array);
+            public void Visit(UInt32Array array) => CompareArrays(array);
+            public void Visit(UInt64Array array) => CompareArrays(array);
+            public void Visit(FloatArray array) => CompareArrays(array);
+            public void Visit(DoubleArray array) => CompareArrays(array);
+            public void Visit(BooleanArray array) => CompareArrays(array);
+            public void Visit(TimestampArray array) => CompareArrays(array);
+            public void Visit(Date32Array array) => CompareArrays(array);
+            public void Visit(Date64Array array) => CompareArrays(array);
+            public void Visit(ListArray array) => throw new NotImplementedException();
+            public void Visit(StringArray array) => throw new NotImplementedException();
+            public void Visit(BinaryArray array) => throw new NotImplementedException();
+            public void Visit(IArrowArray array) => throw new NotImplementedException();
+
+            private void CompareArrays<T>(PrimitiveArray<T> actualArray)
+                where T : struct, IEquatable<T>
+            {
+                Assert.IsAssignableFrom<PrimitiveArray<T>>(_expectedArray);
+                PrimitiveArray<T> expectedArray = (PrimitiveArray<T>)_expectedArray;
+
+                Assert.Equal(expectedArray.Length, actualArray.Length);
+                Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
+                Assert.Equal(expectedArray.Offset, actualArray.Offset);
+
+                Assert.True(expectedArray.NullBitmapBuffer.Span.SequenceEqual(actualArray.NullBitmapBuffer.Span));
+                Assert.True(expectedArray.Values.Slice(0, expectedArray.Length).SequenceEqual(actualArray.Values.Slice(0, actualArray.Length)));
+            }
         }
 
         private static RecordBatch CreateSampleRecordBatch()
@@ -104,18 +139,18 @@ namespace Apache.Arrow.Tests
             //builder.Field(CreateField(DoubleType.Default));
             //builder.Field(CreateField(FloatType.Default));
             //builder.Field(CreateField(HalfFloatType.Default));
-            //builder.Field(CreateField(Int16Type.Default));
-            //builder.Field(CreateField(Int32Type.Default));
+            builder.Field(CreateField(Int8Type.Default));
+            builder.Field(CreateField(Int16Type.Default));
+            builder.Field(CreateField(Int32Type.Default));
             builder.Field(CreateField(Int64Type.Default));
-            //builder.Field(CreateField(Int8Type.Default));
             //builder.Field(CreateField(StringType.Default));
             //builder.Field(CreateField(Time32Type.Default));
             //builder.Field(CreateField(Time64Type.Default));
             //builder.Field(CreateField(TimestampType.Default));
-            //builder.Field(CreateField(UInt16Type.Default));
-            //builder.Field(CreateField(UInt32Type.Default));
-            //builder.Field(CreateField(UInt64Type.Default));
-            //builder.Field(CreateField(UInt8Type.Default));
+            builder.Field(CreateField(UInt8Type.Default));
+            builder.Field(CreateField(UInt16Type.Default));
+            builder.Field(CreateField(UInt32Type.Default));
+            builder.Field(CreateField(UInt64Type.Default));
 
             Schema schema = builder.Build();
 
@@ -141,7 +176,7 @@ namespace Apache.Arrow.Tests
             }
             return arrays;
         }
-        
+
         private static IArrowArray CreateArray(Field field, int length)
         {
             switch (field.DataType.TypeId)
@@ -152,20 +187,41 @@ namespace Apache.Arrow.Tests
                         boolBuilder.Append(i % 2 == 0);
                     return new BooleanArray(boolBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
 
-                //case ArrowTypeId.UInt8:
-                //    break;
-                //case ArrowTypeId.Int8:
-                //    break;
-                //case ArrowTypeId.UInt16:
-                //    break;
-                //case ArrowTypeId.Int16:
-                //    break;
-                //case ArrowTypeId.UInt32:
-                //    break;
-                //case ArrowTypeId.Int32:
-                //    break;
-                //case ArrowTypeId.UInt64:
-                //    break;
+                case ArrowTypeId.UInt8:
+                    ArrowBuffer.Builder<byte> byteBuilder = new ArrowBuffer.Builder<byte>(length);
+                    for (byte i = 0; i < length; i++)
+                        byteBuilder.Append(i);
+                    return new UInt8Array(byteBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
+                case ArrowTypeId.Int8:
+                    ArrowBuffer.Builder<sbyte> sbyteBuilder = new ArrowBuffer.Builder<sbyte>(length);
+                    for (sbyte i = 0; i < length; i++)
+                        sbyteBuilder.Append(i);
+                    return new Int8Array(sbyteBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
+                case ArrowTypeId.UInt16:
+                    ArrowBuffer.Builder<ushort> ushortBuilder = new ArrowBuffer.Builder<ushort>(length);
+                    for (ushort i = 0; i < length; i++)
+                        ushortBuilder.Append(i);
+                    return new UInt16Array(ushortBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
+                case ArrowTypeId.Int16:
+                    ArrowBuffer.Builder<short> shortBuilder = new ArrowBuffer.Builder<short>(length);
+                    for (short i = 0; i < length; i++)
+                        shortBuilder.Append(i);
+                    return new Int16Array(shortBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
+                case ArrowTypeId.UInt32:
+                    ArrowBuffer.Builder<uint> uintBuilder = new ArrowBuffer.Builder<uint>(length);
+                    for (uint i = 0; i < length; i++)
+                        uintBuilder.Append(i);
+                    return new UInt32Array(uintBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
+                case ArrowTypeId.Int32:
+                    ArrowBuffer.Builder<int> intBuilder = new ArrowBuffer.Builder<int>(length);
+                    for (int i = 0; i < length; i++)
+                        intBuilder.Append(i);
+                    return new Int32Array(intBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
+                case ArrowTypeId.UInt64:
+                    ArrowBuffer.Builder<ulong> ulongBuilder = new ArrowBuffer.Builder<ulong>(length);
+                    for (uint i = 0; i < length; i++)
+                        ulongBuilder.Append(i);
+                    return new UInt64Array(ulongBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
                 case ArrowTypeId.Int64:
                     ArrowBuffer.Builder<long> longBuilder = new ArrowBuffer.Builder<long>(length);
                     for (int i = 0; i < length; i++)

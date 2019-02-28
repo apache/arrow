@@ -272,7 +272,7 @@ namespace Apache.Arrow.Ipc
                 var span = arrowBuffer.Span;
                 buffer = ArrayPool<byte>.Shared.Rent(span.Length);
                 span.CopyTo(buffer);
-                return BaseStream.WriteAsync(buffer, 0, buffer.Length, cancellationToken);
+                return BaseStream.WriteAsync(buffer, 0, span.Length, cancellationToken);
             }
             finally
             {
