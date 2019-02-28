@@ -52,7 +52,7 @@ HERE=$(cd `dirname "${BASH_SOURCE[0]:-$0}"` && pwd)
 ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
 
 detect_cuda() {
-  if ! (which nvcc && which nvidia-smi); then
+  if ! (which nvcc && which nvidia-smi) > /dev/null; then
     return 1
   fi
 
@@ -63,6 +63,7 @@ detect_cuda() {
 if [ -z "${ARROW_CUDA:-}" ] && detect_cuda; then
   ARROW_CUDA=ON
 fi
+: ${ARROW_CUDA:=OFF}
 
 download_dist_file() {
   curl \
@@ -208,7 +209,7 @@ ${ARROW_CMAKE_OPTIONS}
 -DARROW_BOOST_USE_SHARED=ON
 -DCMAKE_BUILD_TYPE=release
 -DARROW_BUILD_TESTS=ON
--DARROW_CUDA=${ARROW_CUDA:-OFF}
+-DARROW_CUDA=${ARROW_CUDA}
 "
   cmake $ARROW_CMAKE_OPTIONS ..
 
@@ -277,7 +278,7 @@ test_ruby() {
   pushd ruby
 
   local modules="red-arrow red-plasma red-gandiva red-parquet"
-  if [ "${ARROW_CUDA:-OFF}" = "ON" ]; then
+  if [ "${ARROW_CUDA}" = "ON" ]; then
     modules="${modules} red-arrow-cuda"
   fi
 
