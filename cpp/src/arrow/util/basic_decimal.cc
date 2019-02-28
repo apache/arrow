@@ -692,6 +692,8 @@ BasicDecimal128 BasicDecimal128::ReduceScaleBy(int32_t reduce_by, bool round) co
   return result;
 }
 
+int32_t BasicDecimal128::Sign() const { return 1 | (high_bits_ >> 63); }
+
 int32_t BasicDecimal128::CountLeadingBinaryZeros() const {
   DCHECK_GE(*this, BasicDecimal128(0));
 

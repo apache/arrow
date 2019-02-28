@@ -149,6 +149,10 @@ class DecimalIR : public FunctionIRBuilder {
   // Build the function for decimal multiplication.
   Status BuildMultiply();
 
+  // Build the function for decimal division/mod.
+  Status BuildDivideOrMod(const std::string& function_name,
+                          const std::string& internal_name);
+
   // Add a trace in IR code.
   void AddTrace(const std::string& fmt, std::vector<llvm::Value*> args);
 

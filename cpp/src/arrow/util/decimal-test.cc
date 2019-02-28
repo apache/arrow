@@ -482,6 +482,49 @@ TEST(Decimal128Test, Multiply) {
   ASSERT_EQ(result.ToIntegerString(), "60501");
 }
 
+TEST(Decimal128Test, Divide) {
+  Decimal128 result;
+
+  result = Decimal128("20100") / Decimal128("301");
+  ASSERT_EQ(result.ToIntegerString(), "66");
+
+  result = Decimal128("-20100") / Decimal128("301");
+  ASSERT_EQ(result.ToIntegerString(), "-66");
+
+  result = Decimal128("20100") / Decimal128("-301");
+  ASSERT_EQ(result.ToIntegerString(), "-66");
+
+  result = Decimal128("-20100") / Decimal128("-301");
+  ASSERT_EQ(result.ToIntegerString(), "66");
+}
+
+TEST(Decimal128Test, Mod) {
+  Decimal128 result;
+
+  result = Decimal128("20100") % Decimal128("301");
+  ASSERT_EQ(result.ToIntegerString(), "234");
+
+  result = Decimal128("-20100") % Decimal128("301");
+  ASSERT_EQ(result.ToIntegerString(), "-234");
+
+  result = Decimal128("20100") % Decimal128("-301");
+  ASSERT_EQ(result.ToIntegerString(), "234");
+
+  result = Decimal128("-20100") % Decimal128("-301");
+  ASSERT_EQ(result.ToIntegerString(), "-234");
+}
+
+TEST(Decimal128Test, Sign) {
+  auto sign = Decimal128("999999").Sign();
+  ASSERT_EQ(sign, 1);
+
+  sign = Decimal128("-999999").Sign();
+  ASSERT_EQ(sign, -1);
+
+  sign = Decimal128("0").Sign();
+  ASSERT_EQ(sign, 1);
+}
+
 TEST(Decimal128Test, GetWholeAndFraction) {
   Decimal128 value("123456");
   Decimal128 whole;

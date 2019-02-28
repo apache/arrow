@@ -66,6 +66,16 @@ class TestDecimalOps : public ::testing::Test {
     Verify(DecimalTypeUtil::kOpMultiply, "multiply", x, y, expected);
   }
 
+  void DivideAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
+                       const DecimalScalar128& expected) {
+    Verify(DecimalTypeUtil::kOpDivide, "divide", x, y, expected);
+  }
+
+  void ModAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
+                    const DecimalScalar128& expected) {
+    Verify(DecimalTypeUtil::kOpMod, "mod", x, y, expected);
+  }
+
  protected:
   arrow::MemoryPool* pool_;
 };
@@ -258,7 +268,8 @@ TEST_F(TestDecimalOps, TestSubtract) {
                     decimal_literal("-3211", 32, 3));  // expected
 }
 
-// Lots of unit tests for multiply in decimal_ops_test.cc. So, keeping this basic.
+// Lots of unit tests for multiply/divide/mod in decimal_ops_test.cc. So, keeping these
+// basic.
 TEST_F(TestDecimalOps, TestMultiply) {
   // fast-path
   MultiplyAndVerify(decimal_literal("201", 10, 3),     // x
@@ -269,6 +280,26 @@ TEST_F(TestDecimalOps, TestMultiply) {
   MultiplyAndVerify(DecimalScalar128(std::string(35, '9'), 38, 20),  // x
                     DecimalScalar128(std::string(36, '9'), 38, 20),  // x
                     DecimalScalar128("9999999999999999999999999999999999890", 38, 6));
+}
+
+TEST_F(TestDecimalOps, TestDivide) {
+  DivideAndVerify(decimal_literal("201", 10, 3),              // x
+                  decimal_literal("301", 10, 2),              // y
+                  decimal_literal("6677740863787", 23, 14));  // expected
+
+  DivideAndVerify(DecimalScalar128(std::string(38, '9'), 38, 20),  // x
+                  DecimalScalar128(std::string(35, '9'), 38, 20),  // x
+                  DecimalScalar128("1000000000", 38, 6));
+}
+
+TEST_F(TestDecimalOps, TestMod) {
+  ModAndVerify(decimal_literal("201", 20, 2),   // x
+               decimal_literal("301", 20, 3),   // y
+               decimal_literal("204", 20, 3));  // expected
+
+  ModAndVerify(DecimalScalar128(std::string(38, '9'), 38, 20),  // x
+               DecimalScalar128(std::string(35, '9'), 38, 21),  // x
+               DecimalScalar128("9990", 38, 21));
 }
 
 }  // namespace gandiva
