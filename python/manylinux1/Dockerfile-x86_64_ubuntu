@@ -1,0 +1,95 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+FROM ubuntu:14.04
+
+# Install dependencies
+RUN apt update
+RUN apt install -y ccache flex wget curl build-essential git libffi-dev autoconf pkg-config
+
+ADD scripts/build_zlib.sh /
+RUN /build_zlib.sh
+
+# Install python
+ADD scripts/requirements.txt /
+ADD scripts/build_python.sh /
+ADD scripts/python-tag-abi-tag.py /
+RUN /build_python.sh
+
+# Install cmake manylinux1 package
+ADD scripts/install_cmake.sh /
+RUN /install_cmake.sh
+
+WORKDIR /
+RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
+
+ADD scripts/build_virtualenvs.sh /
+RUN /build_virtualenvs.sh
+
+ADD scripts/build_openssl.sh /
+RUN /build_openssl.sh
+
+ADD scripts/build_boost.sh /
+RUN /build_boost.sh
+
+ADD scripts/build_gtest.sh /
+RUN /build_gtest.sh
+ENV GTEST_HOME /usr
+
+ADD scripts/build_flatbuffers.sh /
+RUN /build_flatbuffers.sh
+ENV FLATBUFFERS_HOME /usr
+
+ADD scripts/build_bison.sh /
+RUN /build_bison.sh
+
+ADD scripts/build_thrift.sh /
+RUN /build_thrift.sh
+ENV THRIFT_HOME /usr
+
+ADD scripts/build_brotli.sh /
+RUN /build_brotli.sh
+ENV BROTLI_HOME /usr
+
+ADD scripts/build_snappy.sh /
+RUN /build_snappy.sh
+ENV SNAPPY_HOME /usr
+
+ADD scripts/build_lz4.sh /
+RUN /build_lz4.sh
+ENV LZ4_HOME /usr
+
+ADD scripts/build_zstd.sh /
+RUN /build_zstd.sh
+ENV ZSTD_HOME /usr
+
+ADD scripts/build_ccache.sh /
+RUN /build_ccache.sh
+
+ADD scripts/build_protobuf.sh /
+RUN /build_protobuf.sh
+ENV PROTOBUF_HOME /usr
+
+ADD scripts/build_glog.sh /
+RUN /build_glog.sh
+ENV GLOG_HOME /usr
+
+
+ADD scripts/build_llvm.sh /
+RUN /build_llvm.sh
+
+ADD scripts/build_clang.sh /
+RUN /build_clang.sh

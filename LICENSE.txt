@@ -826,3 +826,14 @@ This project includes code from Snappy.
 Copyright: 2009 Google Inc. All rights reserved.
 Homepage: https://github.com/google/snappy
 License: 3-clause BSD
+
+--------------------------------------------------------------------------------
+
+This project includes code from the manylinux project.
+
+* python/manylinux1/scripts/{build_python.sh,python-tag-abi-tag.py,
+  requirements.txt} are based on code from the manylinux project.
+
+Copyright: 2016 manylinux
+Homepage: https://github.com/pypa/manylinux
+License: The MIT License (MIT)

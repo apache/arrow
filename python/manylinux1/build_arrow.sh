@@ -28,6 +28,9 @@ source /multibuild/manylinux_utils.sh
 # Quit on failure
 set -e
 
+# Print commands for debugging
+set -x
+
 cd /arrow/python
 
 # PyArrow build configuration
@@ -108,15 +111,19 @@ PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext \
 PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
 PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py sdist
 
-echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux1 ==="
-mkdir -p repaired_wheels/
-auditwheel -v repair -L . dist/pyarrow-*.whl -w repaired_wheels/
+if [ -n "$UBUNTU_WHEELS" ]; then
+  echo "=== (${PYTHON_VERSION}) Wheels are not compatible with manylinux1 ==="
+  mv dist/pyarrow-*.whl /io/dist
+else
+  echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux1 ==="
+  mkdir -p repaired_wheels/
+  auditwheel -v repair -L . dist/pyarrow-*.whl -w repaired_wheels/
 
-# Install the built wheels
-$PIP install repaired_wheels/*.whl
+  # Install the built wheels
+  $PIP install repaired_wheels/*.whl
 
-# Test that the modules are importable
-$PYTHON_INTERPRETER -c "
+  # Test that the modules are importable
+  $PYTHON_INTERPRETER -c "
 import sys
 import pyarrow
 import pyarrow.orc
@@ -125,9 +132,10 @@ import pyarrow.plasma
 
 if sys.version_info.major > 2:
     import pyarrow.gandiva
-"
+  "
 
-# More thorough testing happens outsite of the build to prevent
-# packaging issues like ARROW-4372
-mv dist/*.tar.gz /io/dist
-mv repaired_wheels/*.whl /io/dist
+  # More thorough testing happens outsite of the build to prevent
+  # packaging issues like ARROW-4372
+  mv dist/*.tar.gz /io/dist
+  mv repaired_wheels/*.whl /io/dist
+fi
