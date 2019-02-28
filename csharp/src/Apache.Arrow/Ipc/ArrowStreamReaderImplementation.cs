@@ -69,6 +69,13 @@ namespace Apache.Arrow.Ipc
                 lengthBuffer = Buffers.Rent(4);
                 bytesRead += await BaseStream.ReadAsync(lengthBuffer, 0, 4, cancellationToken)
                     .ConfigureAwait(false);
+
+                if (bytesRead != 4)
+                {
+                    //reached the end
+                    return null;
+                }
+
                 var messageLength = BitConverter.ToInt32(lengthBuffer, 0);
 
                 if (messageLength == 0)
