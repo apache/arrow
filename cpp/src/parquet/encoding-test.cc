@@ -341,24 +341,36 @@ class TestDecodeArrow : public ::testing::TestWithParam<const char*> {
     null_count_ = static_cast<int>(expected_dense_->null_count());
     valid_bits_ = expected_dense_->null_bitmap()->data();
 
-    // Use builder to create the expected dictionary encoded array as well as initialize
-    // input_data_ for the encoder from the expected_array_ values
-    ::arrow::BinaryDictionaryBuilder builder(default_memory_pool());
+    // Build both binary and string dictionary arrays from the dense array.
+    BuildDict<::arrow::BinaryDictionaryBuilder>(&expected_bin_dict_);
+    BuildDict<::arrow::StringDictionaryBuilder>(&expected_str_dict_);
+
+    // Initialize input_data_ for the encoder from the expected_array_ values
     const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*expected_dense_);
+    input_data_.reserve(binary_array.length());
 
     for (int64_t i = 0; i < binary_array.length(); ++i) {
       auto view = binary_array.GetView(i);
       input_data_.emplace_back(static_cast<uint32_t>(view.length()),
                                reinterpret_cast<const uint8_t*>(view.data()));
+    }
+  }
 
+  // Builds a dictionary encoded array from the dense array using BuilderType
+  template <typename BuilderType>
+  void BuildDict(std::shared_ptr<::arrow::Array>* result) {
+    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*expected_dense_);
+    BuilderType builder(default_memory_pool());
+
+    for (int64_t i = 0; i < binary_array.length(); ++i) {
       if (binary_array.IsNull(i)) {
         ASSERT_OK(builder.AppendNull());
       } else {
-        ASSERT_OK(builder.Append(view));
+        ASSERT_OK(builder.Append(binary_array.GetView(i)));
       }
     }
 
-    ASSERT_OK(builder.Finish(&expected_dict_));
+    ASSERT_OK(builder.Finish(result));
   }
 
   // Setup encoder/decoder pair for testing with
@@ -378,11 +390,20 @@ class TestDecodeArrow : public ::testing::TestWithParam<const char*> {
     ASSERT_EQ(actual_num_values, num_values_);
     std::shared_ptr<::arrow::Array> actual;
     ASSERT_OK(builder.Finish(&actual));
-    ASSERT_ARRAYS_EQUAL(*actual, *expected_dict_);
+    ASSERT_ARRAYS_EQUAL(*actual, *expected_bin_dict_);
+  }
+
+  void CheckDecodeDict(const int actual_num_values,
+                       ::arrow::StringDictionaryBuilder& builder) {
+    ASSERT_EQ(actual_num_values, num_values_);
+    std::shared_ptr<::arrow::Array> actual;
+    ASSERT_OK(builder.Finish(&actual));
+    ASSERT_ARRAYS_EQUAL(*actual, *expected_str_dict_);
   }
 
  protected:
-  std::shared_ptr<::arrow::Array> expected_dict_;
+  std::shared_ptr<::arrow::Array> expected_bin_dict_;
+  std::shared_ptr<::arrow::Array> expected_str_dict_;
   std::shared_ptr<::arrow::Array> expected_dense_;
   int num_values_;
   int null_count_;
@@ -425,17 +446,32 @@ TEST_P(FromPlainEncoding, DecodeNonNullDense) {
   CheckDecodeDense(actual_num_values, builder);
 }
 
-TEST_P(FromPlainEncoding, DecodeDict) {
+TEST_P(FromPlainEncoding, DecodeBinaryDict) {
   ::arrow::BinaryDictionaryBuilder builder(default_memory_pool());
   auto actual_num_values =
       decoder_->DecodeArrow(num_values_, null_count_, valid_bits_, 0, &builder);
   CheckDecodeDict(actual_num_values, builder);
 }
 
-TEST_P(FromPlainEncoding, DecodeNonNullDict) {
+TEST_P(FromPlainEncoding, DecodeStringDict) {
+  ::arrow::StringDictionaryBuilder builder(default_memory_pool());
+  auto actual_num_values =
+      decoder_->DecodeArrow(num_values_, null_count_, valid_bits_, 0, &builder);
+  CheckDecodeDict(actual_num_values, builder);
+}
+
+TEST_P(FromPlainEncoding, DecodeNonNullBinaryDict) {
   // Skip this test if input data contains nulls (optionals)
   SKIP_TEST_IF(null_count_ > 0)
   ::arrow::BinaryDictionaryBuilder builder(default_memory_pool());
+  auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, &builder);
+  CheckDecodeDict(actual_num_values, builder);
+}
+
+TEST_P(FromPlainEncoding, DecodeNonNullStringDict) {
+  // Skip this test if input data contains nulls (optionals)
+  SKIP_TEST_IF(null_count_ > 0)
+  ::arrow::StringDictionaryBuilder builder(default_memory_pool());
   auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, &builder);
   CheckDecodeDict(actual_num_values, builder);
 }
@@ -498,7 +534,7 @@ TEST_P(FromDictEncoding, DecodeNonNullDense) {
   CheckDecodeDense(actual_num_values, builder);
 }
 
-TEST_P(FromDictEncoding, DecodeDict) {
+TEST_P(FromDictEncoding, DecodeBinaryDict) {
   ::arrow::BinaryDictionaryBuilder builder(default_memory_pool());
   auto byte_array_decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder_.get());
   ASSERT_NE(byte_array_decoder, nullptr);
@@ -507,10 +543,28 @@ TEST_P(FromDictEncoding, DecodeDict) {
   CheckDecodeDict(actual_num_values, builder);
 }
 
-TEST_P(FromDictEncoding, DecodeNonNullDict) {
+TEST_P(FromDictEncoding, DecodeStringDict) {
+  ::arrow::StringDictionaryBuilder builder(default_memory_pool());
+  auto byte_array_decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder_.get());
+  ASSERT_NE(byte_array_decoder, nullptr);
+  auto actual_num_values =
+      byte_array_decoder->DecodeArrow(num_values_, null_count_, valid_bits_, 0, &builder);
+  CheckDecodeDict(actual_num_values, builder);
+}
+
+TEST_P(FromDictEncoding, DecodeNonNullBinaryDict) {
   // Skip this test if input data contains nulls (optionals)
   SKIP_TEST_IF(null_count_ > 0)
   ::arrow::BinaryDictionaryBuilder builder(default_memory_pool());
+  auto byte_array_decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder_.get());
+  ASSERT_NE(byte_array_decoder, nullptr);
+  auto actual_num_values = byte_array_decoder->DecodeArrowNonNull(num_values_, &builder);
+  CheckDecodeDict(actual_num_values, builder);
+}
+TEST_P(FromDictEncoding, DecodeNonNullStringDict) {
+  // Skip this test if input data contains nulls (optionals)
+  SKIP_TEST_IF(null_count_ > 0)
+  ::arrow::StringDictionaryBuilder builder(default_memory_pool());
   auto byte_array_decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder_.get());
   ASSERT_NE(byte_array_decoder, nullptr);
   auto actual_num_values = byte_array_decoder->DecodeArrowNonNull(num_values_, &builder);

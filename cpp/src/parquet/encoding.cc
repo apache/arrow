@@ -715,6 +715,15 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     return result;
   }
 
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  ::arrow::StringDictionaryBuilder* out) override {
+    int result = 0;
+    PARQUET_THROW_NOT_OK(
+        DecodeArrow(num_values, null_count, valid_bits, valid_bits_offset, out, &result));
+    return result;
+  }
+
   int DecodeArrowNonNull(int num_values,
                          ::arrow::internal::ChunkedBinaryBuilder* out) override {
     int result = 0;
@@ -723,6 +732,12 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
   }
 
   int DecodeArrowNonNull(int num_values, ::arrow::BinaryDictionaryBuilder* out) override {
+    int result = 0;
+    PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, out, &result));
+    return result;
+  }
+
+  int DecodeArrowNonNull(int num_values, ::arrow::StringDictionaryBuilder* out) override {
     int result = 0;
     PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, out, &result));
     return result;
@@ -941,6 +956,15 @@ class DictByteArrayDecoder : public DictDecoderImpl<ByteArrayType>,
     return result;
   }
 
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  ::arrow::StringDictionaryBuilder* out) override {
+    int result = 0;
+    PARQUET_THROW_NOT_OK(
+        DecodeArrow(num_values, null_count, valid_bits, valid_bits_offset, out, &result));
+    return result;
+  }
+
   int DecodeArrowNonNull(int num_values,
                          ::arrow::internal::ChunkedBinaryBuilder* out) override {
     int result = 0;
@@ -949,6 +973,12 @@ class DictByteArrayDecoder : public DictDecoderImpl<ByteArrayType>,
   }
 
   int DecodeArrowNonNull(int num_values, ::arrow::BinaryDictionaryBuilder* out) override {
+    int result = 0;
+    PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, out, &result));
+    return result;
+  }
+
+  int DecodeArrowNonNull(int num_values, ::arrow::StringDictionaryBuilder* out) override {
     int result = 0;
     PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, out, &result));
     return result;
