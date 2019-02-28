@@ -48,7 +48,7 @@ cmake ^
     -DARROW_PYTHON=OFF ^
     .. || exit /B
 make -j4 || exit /B
-make test || exit /B
+ctest --output-on-failure -j2 || exit /B
 make install || exit /B
 popd
 
