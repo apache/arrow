@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 
 #include "arrow/util/visibility.h"
@@ -32,14 +33,16 @@ class Status;
 
 namespace compute {
 
+class Expr;
+
 /// \brief An object that represents either a single concrete value type or a
 /// group of related types, to help with expression type validation and other
 /// purposes
-class LogicalType : public std::enable_shared_from_this<Operation> {
+class LogicalType {
  public:
   enum Id {
     ANY,
-    NUMERIC,
+    NUMBER,
     INTEGER,
     SIGNED_INTEGER,
     UNSIGNED_INTEGER,
@@ -54,6 +57,7 @@ class LogicalType : public std::enable_shared_from_this<Operation> {
     INT32,
     UINT64,
     INT64,
+    HALF_FLOAT,
     FLOAT,
     DOUBLE,
     BINARY,
@@ -80,75 +84,211 @@ class LogicalType : public std::enable_shared_from_this<Operation> {
 
 namespace type {
 
+/// \brief Logical type for any value type
 class Any : public LogicalType {
  public:
   Any() : LogicalType(LogicalType::ANY) {}
   bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
 };
 
+/// \brief Logical type for null
 class Null : public LogicalType {
  public:
   Null() : LogicalType(LogicalType::NULL_) {}
   bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
 };
 
-class Integer : public LogicalType {
+/// \brief Logical type for concrete boolean
+class Bool : public LogicalType {
  public:
-  Integer() : LogicalType(LogicalType::INTEGER) {}
+  Bool() : LogicalType(LogicalType::BOOL) {}
   bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
 };
 
+/// \brief Logical type for any number (integer or floating point)
+class Number : public LogicalType {
+ public:
+  Number() : Number(LogicalType::NUMBER) {}
+  bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
+
+ protected:
+  explicit Number(Id type_id) : LogicalType(type_id) {}
+};
+
+/// \brief Logical type for any integer
+class Integer : public Number {
+ public:
+  Integer() : Integer(LogicalType::INTEGER) {}
+  bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
+
+ protected:
+  explicit Integer(Id type_id) : Number(type_id) {}
+};
+
+/// \brief Logical type for any floating point number
+class Floating : public Number {
+ public:
+  Floating() : Floating(LogicalType::FLOATING) {}
+  bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
+
+ protected:
+  explicit Floating(Id type_id) : Number(type_id) {}
+};
+
+/// \brief Logical type for any signed integer
 class SignedInteger : public Integer {
  public:
-  SignedInteger() : LogicalType(LogicalType::SIGNED_INTEGER) {}
+  SignedInteger() : SignedInteger(LogicalType::SIGNED_INTEGER) {}
   bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
+
+ protected:
+  explicit SignedInteger(Id type_id) : Integer(type_id) {}
 };
 
+/// \brief Logical type for any unsigned integer
 class UnsignedInteger : public Integer {
  public:
-  UnsignedInteger() : LogicalType(LogicalType::UNSIGNED_INTEGER) {}
+  UnsignedInteger() : UnsignedInteger(LogicalType::UNSIGNED_INTEGER) {}
   bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
+
+ protected:
+  explicit UnsignedInteger(Id type_id) : Integer(type_id) {}
 };
 
-class Int8 : public Integer {
+/// \brief Logical type for int8
+class Int8 : public SignedInteger {
  public:
+  Int8() : SignedInteger(LogicalType::INT8) {}
   bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
 };
 
-class Int16 : public Integer {
+/// \brief Logical type for int16
+class Int16 : public SignedInteger {
  public:
+  Int16() : SignedInteger(LogicalType::INT16) {}
   bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
 };
 
-class Int32 : public Integer {
+/// \brief Logical type for int32
+class Int32 : public SignedInteger {
  public:
+  Int32() : SignedInteger(LogicalType::INT32) {}
   bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
 };
 
-class Int64 : public Integer {
+/// \brief Logical type for int64
+class Int64 : public SignedInteger {
  public:
+  Int64() : SignedInteger(LogicalType::INT64) {}
   bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
 };
 
-class Int8 : public Integer {
+/// \brief Logical type for uint8
+class UInt8 : public UnsignedInteger {
  public:
+  UInt8() : UnsignedInteger(LogicalType::UINT8) {}
   bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
 };
 
-class Int16 : public Integer {
+/// \brief Logical type for uint16
+class UInt16 : public UnsignedInteger {
  public:
+  UInt16() : UnsignedInteger(LogicalType::UINT16) {}
   bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
 };
 
-class Int32 : public Integer {
+/// \brief Logical type for uint32
+class UInt32 : public UnsignedInteger {
  public:
+  UInt32() : UnsignedInteger(LogicalType::UINT32) {}
   bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
 };
 
-class Int64 : public Integer {
+/// \brief Logical type for uint64
+class UInt64 : public UnsignedInteger {
  public:
+  UInt64() : UnsignedInteger(LogicalType::UINT64) {}
   bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
 };
+
+/// \brief Logical type for 16-bit floating point
+class HalfFloat : public Floating {
+ public:
+  HalfFloat() : Floating(LogicalType::HALF_FLOAT) {}
+  bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
+};
+
+/// \brief Logical type for 32-bit floating point
+class Float : public Floating {
+ public:
+  Float() : Floating(LogicalType::FLOAT) {}
+  bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
+};
+
+/// \brief Logical type for 64-bit floating point
+class Double : public Floating {
+ public:
+  Double() : Floating(LogicalType::DOUBLE) {}
+  bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
+};
+
+/// \brief Logical type for variable-size binary
+class Binary : public LogicalType {
+ public:
+  Binary() : Binary(LogicalType::BINARY) {}
+  bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
+
+ protected:
+  explicit Binary(Id type_id) : LogicalType(type_id) {}
+};
+
+/// \brief Logical type for variable-size binary
+class Utf8 : public Binary {
+ public:
+  Utf8() : Binary(LogicalType::UTF8) {}
+  bool IsInstance(const Expr& expr) const override;
+  std::string ToString() const override;
+};
+
+#define SIMPLE_TYPE_FACTORY(NAME, TYPE) \
+  static inline std::shared_ptr<LogicalType> NAME() { return std::make_shared<TYPE>(); }
+
+SIMPLE_TYPE_FACTORY(any, Any);
+SIMPLE_TYPE_FACTORY(null, Null);
+SIMPLE_TYPE_FACTORY(boolean, Any);
+SIMPLE_TYPE_FACTORY(number, Number);
+SIMPLE_TYPE_FACTORY(floating, Floating);
+SIMPLE_TYPE_FACTORY(int8, Int8);
+SIMPLE_TYPE_FACTORY(int16, Int16);
+SIMPLE_TYPE_FACTORY(int32, Int32);
+SIMPLE_TYPE_FACTORY(int64, Int64);
+SIMPLE_TYPE_FACTORY(uint8, UInt8);
+SIMPLE_TYPE_FACTORY(uint16, UInt16);
+SIMPLE_TYPE_FACTORY(uint32, UInt32);
+SIMPLE_TYPE_FACTORY(uint64, UInt64);
+SIMPLE_TYPE_FACTORY(half_float, HalfFloat);
+SIMPLE_TYPE_FACTORY(float_, Float);
+SIMPLE_TYPE_FACTORY(double_, Double);
 
 }  // namespace type
 }  // namespace compute

@@ -18,6 +18,7 @@
 #include "arrow/compute/expression.h"
 
 #include <memory>
+#include <sstream>
 #include <utility>
 
 #include "arrow/compute/logical_type.h"
@@ -26,57 +27,88 @@
 namespace arrow {
 namespace compute {
 
-ValueExpr::ValueExpr(std::shared_ptr<Operation> op, std::shared_ptr<TypeClass>& type,
+ValueExpr::ValueExpr(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type,
                      Rank rank)
     : Expr(std::move(op)), type_(std::move(type)), rank_(rank) {}
 
-ScalarExpr::ScalarExpr(std::shared_ptr<Operation> op, std::shared_ptr<TypeClass> type)
+std::shared_ptr<LogicalType> ValueExpr::type() const { return type_; }
+
+ScalarExpr::ScalarExpr(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type)
     : ValueExpr(std::move(op), std::move(type), ValueExpr::SCALAR) {}
 
-ArrayExpr::ArrayExpr(std::shared_ptr<Operation> op, std::shared_ptr<TypeClass> type)
+ArrayExpr::ArrayExpr(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type)
     : ValueExpr(std::move(op), std::move(type), ValueExpr::ARRAY) {}
+
+std::string ArrayExpr::kind() const {
+  std::stringstream ss;
+  ss << "array[" << type_->ToString() << "]";
+  return ss.str();
+}
+
+std::string ScalarExpr::kind() const {
+  std::stringstream ss;
+  ss << "scalar[" << type_->ToString() << "]";
+  return ss.str();
+}
 
 // ----------------------------------------------------------------------
 
-const std::string& Int8Array::kind() const { return "array[int8]"; }
+namespace scalar {
 
-const std::string& Int8Scalar::kind() const { return "scalar[int8]"; }
+#define SCALAR_EXPR_METHODS(NAME)           \
+  NAME::NAME(std::shared_ptr<Operation> op) \
+      : ScalarExpr(std::move(op), std::make_shared<type::NAME>()) {}
 
-const std::string& Int16Array::kind() const { return "array[int16]"; }
+SCALAR_EXPR_METHODS(Null)
+SCALAR_EXPR_METHODS(Bool)
+SCALAR_EXPR_METHODS(Int8)
+SCALAR_EXPR_METHODS(Int16)
+SCALAR_EXPR_METHODS(Int32)
+SCALAR_EXPR_METHODS(Int64)
+SCALAR_EXPR_METHODS(UInt8)
+SCALAR_EXPR_METHODS(UInt16)
+SCALAR_EXPR_METHODS(UInt32)
+SCALAR_EXPR_METHODS(UInt64)
+SCALAR_EXPR_METHODS(Float)
+SCALAR_EXPR_METHODS(Double)
+SCALAR_EXPR_METHODS(Binary)
+SCALAR_EXPR_METHODS(Utf8)
 
-const std::string& Int16Scalar::kind() const { return "scalar[int16]"; }
+List::List(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type)
+    : ScalarExpr(std::move(op), std::move(type)) {}
 
-const std::string& Int32Array::kind() const { return "array[int32]"; }
+Struct::Struct(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type)
+    : ScalarExpr(std::move(op), std::move(type)) {}
 
-const std::string& Int32Scalar::kind() const { return "scalar[int32]"; }
+}  // namespace scalar
 
-const std::string& Int64Array::kind() const { return "array[int64]"; }
+namespace array {
 
-const std::string& Int64Scalar::kind() const { return "scalar[int64]"; }
+#define ARRAY_EXPR_METHODS(NAME)            \
+  NAME::NAME(std::shared_ptr<Operation> op) \
+      : ArrayExpr(std::move(op), std::make_shared<type::NAME>()) {}
 
-const std::string& UInt8Array::kind() const { return "array[uint8]"; }
+ARRAY_EXPR_METHODS(Null)
+ARRAY_EXPR_METHODS(Bool)
+ARRAY_EXPR_METHODS(Int8)
+ARRAY_EXPR_METHODS(Int16)
+ARRAY_EXPR_METHODS(Int32)
+ARRAY_EXPR_METHODS(Int64)
+ARRAY_EXPR_METHODS(UInt8)
+ARRAY_EXPR_METHODS(UInt16)
+ARRAY_EXPR_METHODS(UInt32)
+ARRAY_EXPR_METHODS(UInt64)
+ARRAY_EXPR_METHODS(Float)
+ARRAY_EXPR_METHODS(Double)
+ARRAY_EXPR_METHODS(Binary)
+ARRAY_EXPR_METHODS(Utf8)
 
-const std::string& UInt8Scalar::kind() const { return "scalar[uint8]"; }
+List::List(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type)
+    : ArrayExpr(std::move(op), std::move(type)) {}
 
-const std::string& UInt16Array::kind() const { return "array[uint16]"; }
+Struct::Struct(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type)
+    : ArrayExpr(std::move(op), std::move(type)) {}
 
-const std::string& UInt16Scalar::kind() const { return "scalar[uint16]"; }
-
-const std::string& UInt32Array::kind() const { return "array[uint32]"; }
-
-const std::string& UInt32Scalar::kind() const { return "scalar[uint32]"; }
-
-const std::string& UInt64Array::kind() const { return "array[uint64]"; }
-
-const std::string& UInt64Scalar::kind() const { return "scalar[uint64]"; }
-
-const std::string& FloatArray::kind() const { return "array[float]"; }
-
-const std::string& FloatScalar::kind() const { return "scalar[float]"; }
-
-const std::string& DoubleArray::kind() const { return "array[double]"; }
-
-const std::string& DoubleScalar::kind() const { return "scalar[double]"; }
-
+}  // namespace array
 }  // namespace compute
 }  // namespace arrow

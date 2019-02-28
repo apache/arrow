@@ -24,11 +24,13 @@
 
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/test-common.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 
 #include "arrow/compute/expression.h"
+#include "arrow/compute/logical_type.h"
+#include "arrow/compute/operation.h"
 
 namespace arrow {
 namespace compute {
@@ -40,7 +42,24 @@ class DummyOp : public Operation {
   Status ToExpr(std::shared_ptr<Expr>* out) const override {
     return Status::NotImplemented("NYI");
   }
+};
+
+TEST(TestLogicalType, Names) {
+  std::vector<std::pair<std::shared_ptr<LogicalType>, std::string>> cases = {
+      {type::any(), "Any"},       {type::boolean(), "Bool"},
+      {type::number(), "Number"}, {type::floating(), "Floating"},
+      {type::int8(), "Int8"},     {type::int16(), "Int16"},
+      {type::int32(), "Int32"},   {type::int64(), "Int64"},
+      {type::uint8(), "UInt8"},   {type::uint16(), "UInt16"},
+      {type::uint32(), "UInt32"}, {type::uint64(), "UInt64"},
+      {type::float_(), "Float"},  {type::double_(), "Double"}};
+
+  for (auto& case_ : cases) {
+    ASSERT_EQ(case_.second, case_.first->ToString());
+  }
 }
+
+TEST(TestLogicalType, ConcreteTypes) { auto op = std::make_shared<DummyOp>(); }
 
 }  // namespace compute
 }  // namespace arrow

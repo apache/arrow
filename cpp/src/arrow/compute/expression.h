@@ -29,7 +29,7 @@ class Status;
 
 namespace compute {
 
-class ExprName;
+class LogicalType;
 class ExprVisitor;
 class Operation;
 
@@ -40,7 +40,7 @@ class ARROW_EXPORT Expr {
   virtual ~Expr() = default;
 
   /// \brief A unique string identifier for the kind of expression
-  virtual const std::string& kind() const = 0;
+  virtual std::string kind() const = 0;
 
   /// \brief Accept expression visitor
   virtual Status Accept(ExprVisitor* visitor) const = 0;
@@ -61,11 +61,11 @@ class ARROW_EXPORT ValueExpr : public Expr {
  public:
   /// The value cardinality: one or many. These correspond to the arrow::Scalar
   /// and arrow::Array types
-  enum { SCALAR, ARRAY } Rank;
+  enum Rank { SCALAR, ARRAY };
   /// \brief The name of the expression, if any. The default is unnamed
   // virtual const ExprName& name() const;
 
-  std::shared_ptr<LogicalType> type() const { return type_; }
+  std::shared_ptr<LogicalType> type() const;
 
   /// \brief The value cardinality (scalar or array) of the expression
   Rank rank() const { return rank_; }
@@ -82,139 +82,217 @@ class ARROW_EXPORT ValueExpr : public Expr {
 class ARROW_EXPORT ArrayExpr : public ValueExpr {
  protected:
   ArrayExpr(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type);
+  std::string kind() const override;
 };
 
 class ARROW_EXPORT ScalarExpr : public ValueExpr {
  protected:
   ScalarExpr(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type);
+  std::string kind() const override;
 };
 
-class ARROW_EXPORT NumericValue : public ValueExpr {};
+namespace value {
 
-// ----------------------------------------------------------------------
-// Integer expr types
+class Null : public ValueExpr {};
+class Bool : public ValueExpr {};
+class Number : public ValueExpr {};
+class Integer : public Number {};
+class SignedInteger : public Integer {};
+class Int8 : public SignedInteger {};
+class Int16 : public SignedInteger {};
+class Int32 : public SignedInteger {};
+class Int64 : public SignedInteger {};
+class UnsignedInteger : public Integer {};
+class UInt8 : public UnsignedInteger {};
+class UInt16 : public UnsignedInteger {};
+class UInt32 : public UnsignedInteger {};
+class UInt64 : public UnsignedInteger {};
+class Floating : public Number {};
+class HalfFloat : public Floating {};
+class Float : public Floating {};
+class Double : public Floating {};
+class Binary : public ValueExpr {};
+class Utf8 : public Binary {};
+class List : public ValueExpr {};
+class Struct : public ValueExpr {};
 
-class ARROW_EXPORT IntegerValue : public NumericValue {};
+}  // namespace value
 
-class Int8Array : virtual public ArrayExpr, virtual public IntegerValue {
+namespace scalar {
+
+class ARROW_EXPORT Null : virtual public ScalarExpr, virtual public value::Null {
  public:
-  explicit Int8Array(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  explicit Null(std::shared_ptr<Operation> op);
 };
 
-class Int8Scalar : virtual public ScalarExpr, virtual public IntegerValue {
+class ARROW_EXPORT Bool : virtual public ScalarExpr, virtual public value::Bool {
  public:
-  explicit Int8Scalar(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  explicit Bool(std::shared_ptr<Operation> op);
 };
 
-class Int16Array : virtual public ArrayExpr, virtual public IntegerValue {
+class ARROW_EXPORT Int8 : virtual public ScalarExpr, virtual public value::Int8 {
  public:
-  explicit Int16Array(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  explicit Int8(std::shared_ptr<Operation> op);
 };
 
-class Int16Scalar : virtual public ScalarExpr, virtual public IntegerValue {
+class ARROW_EXPORT Int16 : virtual public ScalarExpr, virtual public value::Int16 {
  public:
-  explicit Int16Scalar(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  explicit Int16(std::shared_ptr<Operation> op);
 };
 
-class Int32Array : virtual public ArrayExpr, virtual public IntegerValue {
+class ARROW_EXPORT Int32 : virtual public ScalarExpr, virtual public value::Int32 {
  public:
-  explicit Int32Array(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  explicit Int32(std::shared_ptr<Operation> op);
 };
 
-class Int32Scalar : virtual public ScalarExpr, virtual public IntegerValue {
+class ARROW_EXPORT Int64 : virtual public ScalarExpr, virtual public value::Int64 {
  public:
-  explicit Int32Scalar(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  explicit Int64(std::shared_ptr<Operation> op);
 };
 
-class Int64Array : virtual public ArrayExpr, virtual public IntegerValue {
+class ARROW_EXPORT UInt8 : virtual public ScalarExpr, virtual public value::UInt8 {
  public:
-  explicit Int64Array(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  explicit UInt8(std::shared_ptr<Operation> op);
 };
 
-class Int64Scalar : virtual public ScalarExpr, virtual public IntegerValue {
+class ARROW_EXPORT UInt16 : virtual public ScalarExpr, virtual public value::UInt16 {
  public:
-  explicit Int64Scalar(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  explicit UInt16(std::shared_ptr<Operation> op);
 };
 
-class UInt8Array : virtual public ArrayExpr, virtual public IntegerValue {
+class ARROW_EXPORT UInt32 : virtual public ScalarExpr, virtual public value::UInt32 {
  public:
-  explicit UInt8Array(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  explicit UInt32(std::shared_ptr<Operation> op);
 };
 
-class UInt8Scalar : virtual public ScalarExpr, virtual public IntegerValue {
+class ARROW_EXPORT UInt64 : virtual public ScalarExpr, virtual public value::UInt64 {
  public:
-  explicit UInt8Scalar(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  explicit UInt64(std::shared_ptr<Operation> op);
 };
 
-class UInt16Array : virtual public ArrayExpr, virtual public IntegerValue {
+class ARROW_EXPORT Float : virtual public ScalarExpr, virtual public value::Float {
  public:
-  explicit UInt16Array(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  explicit Float(std::shared_ptr<Operation> op);
 };
 
-class UInt16Scalar : virtual public ScalarExpr, virtual public IntegerValue {
+class ARROW_EXPORT Double : virtual public ScalarExpr, virtual public value::Double {
  public:
-  explicit UInt16Scalar(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  explicit Double(std::shared_ptr<Operation> op);
 };
 
-class UInt32Array : virtual public ArrayExpr, virtual public IntegerValue {
+class ARROW_EXPORT Binary : virtual public ScalarExpr, virtual public value::Binary {
  public:
-  explicit UInt32Array(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  explicit Binary(std::shared_ptr<Operation> op);
 };
 
-class UInt32Scalar : virtual public ScalarExpr, virtual public IntegerValue {
+class ARROW_EXPORT Utf8 : virtual public ScalarExpr, virtual public value::Utf8 {
  public:
-  explicit UInt32Scalar(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  explicit Utf8(std::shared_ptr<Operation> op);
 };
 
-class UInt64Array : virtual public ArrayExpr, virtual public IntegerValue {
+class ARROW_EXPORT List : virtual public ScalarExpr, virtual public value::List {
  public:
-  explicit UInt64Array(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  List(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type);
 };
 
-class UInt64Scalar : virtual public ScalarExpr, virtual public IntegerValue {
+class ARROW_EXPORT Struct : virtual public ScalarExpr, virtual public value::Struct {
  public:
-  explicit UInt64Scalar(std::shared_ptr<Operation> op);
-  const std::string& kind() const override;
+  Struct(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type);
 };
 
-// ----------------------------------------------------------------------
-// Floating point expr types
+}  // namespace scalar
 
-class ARROW_EXPORT FloatingValue : public NumericValue {};
+namespace array {
 
-// ----------------------------------------------------------------------
-// Binary expr types
+class ARROW_EXPORT Null : virtual public ArrayExpr, virtual public value::Null {
+ public:
+  explicit Null(std::shared_ptr<Operation> op);
+};
 
-class ARROW_EXPORT BinaryValue : public ValueExpr {};
+class ARROW_EXPORT Bool : virtual public ArrayExpr, virtual public value::Bool {
+ public:
+  explicit Bool(std::shared_ptr<Operation> op);
+};
 
-class ARROW_EXPORT Utf8Value : public BinaryValue {};
+class ARROW_EXPORT Int8 : virtual public ArrayExpr, virtual public value::Int8 {
+ public:
+  explicit Int8(std::shared_ptr<Operation> op);
+};
 
-class BinaryScalar : virtual public ScalarExpr, virtual public BinaryValue {};
+class ARROW_EXPORT Int16 : virtual public ArrayExpr, virtual public value::Int16 {
+ public:
+  explicit Int16(std::shared_ptr<Operation> op);
+};
 
-class Utf8Scalar : virtual public ScalarExpr, virtual public Utf8Value {};
+class ARROW_EXPORT Int32 : virtual public ArrayExpr, virtual public value::Int32 {
+ public:
+  explicit Int32(std::shared_ptr<Operation> op);
+};
+
+class ARROW_EXPORT Int64 : virtual public ArrayExpr, virtual public value::Int64 {
+ public:
+  explicit Int64(std::shared_ptr<Operation> op);
+};
+
+class ARROW_EXPORT UInt8 : virtual public ArrayExpr, virtual public value::UInt8 {
+ public:
+  explicit UInt8(std::shared_ptr<Operation> op);
+};
+
+class ARROW_EXPORT UInt16 : virtual public ArrayExpr, virtual public value::UInt16 {
+ public:
+  explicit UInt16(std::shared_ptr<Operation> op);
+};
+
+class ARROW_EXPORT UInt32 : virtual public ArrayExpr, virtual public value::UInt32 {
+ public:
+  explicit UInt32(std::shared_ptr<Operation> op);
+};
+
+class ARROW_EXPORT UInt64 : virtual public ArrayExpr, virtual public value::UInt64 {
+ public:
+  explicit UInt64(std::shared_ptr<Operation> op);
+};
+
+class ARROW_EXPORT Float : virtual public ArrayExpr, virtual public value::Float {
+ public:
+  explicit Float(std::shared_ptr<Operation> op);
+};
+
+class ARROW_EXPORT Double : virtual public ArrayExpr, virtual public value::Double {
+ public:
+  explicit Double(std::shared_ptr<Operation> op);
+};
+
+class ARROW_EXPORT Binary : virtual public ArrayExpr, virtual public value::Binary {
+ public:
+  explicit Binary(std::shared_ptr<Operation> op);
+};
+
+class ARROW_EXPORT Utf8 : virtual public ArrayExpr, virtual public value::Utf8 {
+ public:
+  explicit Utf8(std::shared_ptr<Operation> op);
+};
+
+class ARROW_EXPORT List : virtual public ArrayExpr, virtual public value::List {
+ public:
+  List(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type);
+};
+
+class ARROW_EXPORT Struct : virtual public ArrayExpr, virtual public value::Struct {
+ public:
+  Struct(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type);
+};
+
+}  // namespace array
 
 template <typename T, typename ObjectType>
-inline bool IsInstance(const ObjectType* obj) {
+inline bool InheritsFrom(const ObjectType* obj) {
   return dynamic_cast<const T*>(obj) != NULLPTR;
 }
 
 template <typename T, typename ObjectType>
-inline bool IsInstance(const ObjectType& obj) {
+inline bool InheritsFrom(const ObjectType& obj) {
   return dynamic_cast<const T*>(&obj) != NULLPTR;
 }
 

@@ -144,6 +144,7 @@ if(ARROW_COMPUTE)
       ${ARROW_SRCS}
       compute/context.cc
       compute/expression.cc
+      compute/logical_type.cc
       compute/operation.cc
       compute/kernels/aggregate.cc
       compute/kernels/boolean.cc

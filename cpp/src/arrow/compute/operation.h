@@ -34,7 +34,7 @@ class Expr;
 /// expression dependencies and emitting an output expression
 class ARROW_EXPORT Operation : public std::enable_shared_from_this<Operation> {
  public:
-  virtual ~Operation = default;
+  virtual ~Operation() = default;
 
   /// \brief Check input expression arguments and output the type of resulting
   /// expression that this operation produces. If the input arguments are
