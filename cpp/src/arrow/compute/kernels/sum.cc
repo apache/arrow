@@ -15,8 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/kernels/sum.h"
+#include <utility>
+
 #include "arrow/compute/kernels/sum-internal.h"
+#include "arrow/compute/kernels/sum.h"
 
 namespace arrow {
 namespace compute {
@@ -46,7 +48,7 @@ struct SumState {
       boxed->is_valid = false;
     }
 
-    return boxed;
+    return std::move(boxed);
   }
 
   static std::shared_ptr<DataType> out_type() {
