@@ -19,11 +19,17 @@ use std::{env, fs, io::Write, path::PathBuf, str::FromStr};
 
 /// Returns path to the test parquet file in 'data' directory
 pub fn get_test_path(file_name: &str) -> PathBuf {
-    let result = env::var("PARQUET_TEST_DATA");
-    if result.is_err() {
-        panic!("Please point PARQUET_TEST_DATA environment variable to the test data directory");
-    }
-    let mut pathbuf = PathBuf::from_str(result.unwrap().as_str()).unwrap();
+    let mut pathbuf = match env::var("PARQUET_TEST_DATA") {
+        Ok(path) => PathBuf::from_str(path.as_str()).unwrap(),
+        Err(_) => {
+            let mut pathbuf = env::current_dir().unwrap();
+            pathbuf.pop();
+            pathbuf.pop();
+            pathbuf
+                .push(PathBuf::from_str("cpp/submodules/parquet-testing/data").unwrap());
+            pathbuf
+        }
+    };
     pathbuf.push(file_name);
     pathbuf
 }
