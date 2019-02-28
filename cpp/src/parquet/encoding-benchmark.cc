@@ -210,22 +210,26 @@ std::shared_ptr<::arrow::Array> MakeRandomStringsWithRepeats(size_t num_unique,
   return result;
 }
 
-class BM_PlainDecodingByteArray : public ::benchmark::Fixture {
+// ----------------------------------------------------------------------
+// Shared benchmarks for decoding using arrow builders
+class BenchmarkDecodeArrow : public ::benchmark::Fixture {
  public:
   void SetUp(const ::benchmark::State& state) override {
     num_values_ = static_cast<int>(state.range());
-    constexpr int repeat_factor = 8;
-    input_array_ = MakeRandomStringsWithRepeats(num_values_ / repeat_factor, num_values_);
-    PlainEncodeInputArray();
+    InitDataInputs();
+    DoEncodeData();
   }
 
   void TearDown(const ::benchmark::State& state) override {}
 
-  void PlainEncodeInputArray() {
-    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*input_array_);
+  void InitDataInputs() {
+    constexpr int repeat_factor = 8;
+    input_array_ = MakeRandomStringsWithRepeats(num_values_ / repeat_factor, num_values_);
+    valid_bits_ = input_array_->null_bitmap()->data();
     values_ = std::vector<ByteArray>();
     values_.reserve(num_values_);
     total_size_ = 0;
+    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*input_array_);
 
     for (int64_t i = 0; i < binary_array.length(); i++) {
       auto view = binary_array.GetView(i);
@@ -233,22 +237,28 @@ class BM_PlainDecodingByteArray : public ::benchmark::Fixture {
                            reinterpret_cast<const uint8_t*>(view.data()));
       total_size_ += view.length();
     }
-
-    valid_bits_ =
-        std::vector<uint8_t>(::arrow::BitUtil::BytesForBits(num_values_) + 1, 255);
-
-    auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
-    encoder->Put(values_.data(), num_values_);
-    buffer_ = encoder->FlushValues();
   }
+
+  virtual void DoEncodeData() = 0;
 
  protected:
   int num_values_;
   std::shared_ptr<::arrow::Array> input_array_;
   uint64_t total_size_;
   std::vector<ByteArray> values_;
-  std::vector<uint8_t> valid_bits_;
+  const uint8_t* valid_bits_;
   std::shared_ptr<Buffer> buffer_;
+};
+
+// ----------------------------------------------------------------------
+// Benchmark Decoding from Plain Encoding
+class BM_PlainDecodingByteArray : public BenchmarkDecodeArrow {
+ public:
+  void DoEncodeData() override {
+    auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
+    encoder->Put(values_.data(), num_values_);
+    buffer_ = encoder->FlushValues();
+  }
 };
 
 BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrow_Dense)
@@ -258,7 +268,7 @@ BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrow_Dense)
     decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
     ::arrow::internal::ChunkedBinaryBuilder builder(static_cast<int>(buffer_->size()),
                                                     ::arrow::default_memory_pool());
-    decoder->DecodeArrow(num_values_, 0, valid_bits_.data(), 0, &builder);
+    decoder->DecodeArrow(num_values_, 0, valid_bits_, 0, &builder);
   }
 
   state.SetBytesProcessed(state.iterations() * total_size_);
@@ -289,7 +299,7 @@ BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrow_Dict)
     auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
     decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
     ::arrow::BinaryDictionaryBuilder builder(::arrow::default_memory_pool());
-    decoder->DecodeArrow(num_values_, 0, valid_bits_.data(), 0, &builder);
+    decoder->DecodeArrow(num_values_, 0, valid_bits_, 0, &builder);
   }
 
   state.SetBytesProcessed(state.iterations() * total_size_);
@@ -311,6 +321,123 @@ BENCHMARK_DEFINE_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dict)
 }
 
 BENCHMARK_REGISTER_F(BM_PlainDecodingByteArray, DecodeArrowNonNull_Dict)
+    ->Range(MIN_RANGE, MAX_RANGE);
+
+// ----------------------------------------------------------------------
+// Benchmark Decoding from Dictionary Encoding
+class BM_DictDecodingByteArray : public BenchmarkDecodeArrow {
+ public:
+  void DoEncodeData() override {
+    auto node = schema::ByteArray("name");
+    descr_ = std::unique_ptr<ColumnDescriptor>(new ColumnDescriptor(node, 0, 0));
+    auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN,
+                                                   /*use_dictionary=*/true, descr_.get());
+    ASSERT_NO_THROW(encoder->Put(values_.data(), num_values_));
+    buffer_ = encoder->FlushValues();
+
+    auto dict_encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(encoder.get());
+    ASSERT_NE(dict_encoder, nullptr);
+    dict_buffer_ =
+        AllocateBuffer(default_memory_pool(), dict_encoder->dict_encoded_size());
+    dict_encoder->WriteDict(dict_buffer_->mutable_data());
+    num_dict_entries_ = dict_encoder->num_entries();
+  }
+
+ protected:
+  std::unique_ptr<ColumnDescriptor> descr_;
+  std::unique_ptr<DictDecoder<ByteArrayType>> dict_decoder_;
+  std::shared_ptr<Buffer> dict_buffer_;
+  int num_dict_entries_;
+};
+
+BENCHMARK_DEFINE_F(BM_DictDecodingByteArray, DecodeArrow_Dense)
+(benchmark::State& state) {
+  for (auto _ : state) {
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN, descr_.get());
+    decoder->SetData(num_dict_entries_, dict_buffer_->data(),
+                     static_cast<int>(dict_buffer_->size()));
+    auto dict_decoder = MakeDictDecoder<ByteArrayType>(descr_.get());
+    dict_decoder->SetDict(decoder.get());
+    dict_decoder->SetData(num_values_, buffer_->data(),
+                          static_cast<int>(buffer_->size()));
+    auto byte_array_decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder.get());
+
+    ::arrow::internal::ChunkedBinaryBuilder builder(
+        static_cast<int>(dict_buffer_->size()), ::arrow::default_memory_pool());
+    byte_array_decoder->DecodeArrow(num_values_, 0, valid_bits_, 0, &builder);
+  }
+
+  state.SetBytesProcessed(state.iterations() * total_size_);
+}
+
+BENCHMARK_REGISTER_F(BM_DictDecodingByteArray, DecodeArrow_Dense)
+    ->Range(MIN_RANGE, MAX_RANGE);
+
+BENCHMARK_DEFINE_F(BM_DictDecodingByteArray, DecodeArrowNonNull_Dense)
+(benchmark::State& state) {
+  for (auto _ : state) {
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN, descr_.get());
+    decoder->SetData(num_dict_entries_, dict_buffer_->data(),
+                     static_cast<int>(dict_buffer_->size()));
+    auto dict_decoder = MakeDictDecoder<ByteArrayType>(descr_.get());
+    dict_decoder->SetDict(decoder.get());
+    dict_decoder->SetData(num_values_, buffer_->data(),
+                          static_cast<int>(buffer_->size()));
+    auto byte_array_decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder.get());
+
+    ::arrow::internal::ChunkedBinaryBuilder builder(
+        static_cast<int>(dict_buffer_->size()), ::arrow::default_memory_pool());
+    byte_array_decoder->DecodeArrowNonNull(num_values_, &builder);
+  }
+
+  state.SetBytesProcessed(state.iterations() * total_size_);
+}
+
+BENCHMARK_REGISTER_F(BM_DictDecodingByteArray, DecodeArrowNonNull_Dense)
+    ->Range(MIN_RANGE, MAX_RANGE);
+
+BENCHMARK_DEFINE_F(BM_DictDecodingByteArray, DecodeArrow_Dict)
+(benchmark::State& state) {
+  for (auto _ : state) {
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN, descr_.get());
+    decoder->SetData(num_dict_entries_, dict_buffer_->data(),
+                     static_cast<int>(dict_buffer_->size()));
+    auto dict_decoder = MakeDictDecoder<ByteArrayType>(descr_.get());
+    dict_decoder->SetDict(decoder.get());
+    dict_decoder->SetData(num_values_, buffer_->data(),
+                          static_cast<int>(buffer_->size()));
+    auto byte_array_decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder.get());
+
+    ::arrow::BinaryDictionaryBuilder builder(::arrow::default_memory_pool());
+    byte_array_decoder->DecodeArrow(num_values_, 0, valid_bits_, 0, &builder);
+  }
+
+  state.SetBytesProcessed(state.iterations() * total_size_);
+}
+
+BENCHMARK_REGISTER_F(BM_DictDecodingByteArray, DecodeArrow_Dict)
+    ->Range(MIN_RANGE, MAX_RANGE);
+
+BENCHMARK_DEFINE_F(BM_DictDecodingByteArray, DecodeArrowNonNull_Dict)
+(benchmark::State& state) {
+  for (auto _ : state) {
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN, descr_.get());
+    decoder->SetData(num_dict_entries_, dict_buffer_->data(),
+                     static_cast<int>(dict_buffer_->size()));
+    auto dict_decoder = MakeDictDecoder<ByteArrayType>(descr_.get());
+    dict_decoder->SetDict(decoder.get());
+    dict_decoder->SetData(num_values_, buffer_->data(),
+                          static_cast<int>(buffer_->size()));
+    auto byte_array_decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder.get());
+
+    ::arrow::BinaryDictionaryBuilder builder(::arrow::default_memory_pool());
+    byte_array_decoder->DecodeArrowNonNull(num_values_, &builder);
+  }
+
+  state.SetBytesProcessed(state.iterations() * total_size_);
+}
+
+BENCHMARK_REGISTER_F(BM_DictDecodingByteArray, DecodeArrowNonNull_Dict)
     ->Range(MIN_RANGE, MAX_RANGE);
 
 }  // namespace parquet
