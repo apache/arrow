@@ -70,10 +70,8 @@ impl Relation for FilterRelation {
                             })
                             .collect();
 
-                        let filtered_batch: RecordBatch = RecordBatch::new(
-                            Arc::new(Schema::empty()),
-                            filtered_columns?,
-                        );
+                        let filtered_batch: RecordBatch =
+                            RecordBatch::new(self.schema.clone(), filtered_columns?);
 
                         Ok(Some(filtered_batch))
                     }
