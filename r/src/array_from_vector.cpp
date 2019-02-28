@@ -298,14 +298,13 @@ struct Unbox<Type, enable_if_integer<Type>> {
           return IngestRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)),
                                       XLENGTH(obj), NA_INT64);
         }
-      // TODO: handle aw and logical
+      // TODO: handle raw and logical
       default:
         break;
     }
 
-    return Status::Invalid(
-        tfm::format("Cannot convert R vector of type %s to integer Arrow array",
-                    Rcpp::type2name(obj)));
+    return Status::Invalid(tfm::format(
+        "Cannot convert R vector of type %s to integer Arrow array", Rcpp::type2name(obj)));
   }
 
   template <typename T>
@@ -593,7 +592,11 @@ class TimeConverter : public VectorConverter {
   using BuilderType = typename TypeTraits<Type>::BuilderType;
 
  public:
+<<<<<<< HEAD
   explicit TimeConverter(TimeUnit::type unit)
+=======
+  TimeConverter(TimeUnit::type unit)
+>>>>>>> Also run cpplint and clang-format on .cpp files
       : unit_(unit), multiplier_(get_time_multiplier(unit)) {}
 
   Status Init(ArrayBuilder* builder) override {
@@ -655,10 +658,17 @@ class TimeConverter : public VectorConverter {
 
 class TimestampConverter : public TimeConverter<TimestampType> {
  public:
+<<<<<<< HEAD
   explicit TimestampConverter(TimeUnit::type unit) : TimeConverter<TimestampType>(unit) {}
 
  protected:
   bool valid_R_object(SEXP obj) override {
+=======
+  TimestampConverter(TimeUnit::type unit) : TimeConverter<TimestampType>(unit) {}
+
+ protected:
+  virtual bool valid_R_object(SEXP obj) override {
+>>>>>>> Also run cpplint and clang-format on .cpp files
     return TYPEOF(obj) == REALSXP && Rf_inherits(obj, "POSIXct");
   }
 
@@ -670,20 +680,34 @@ class TimestampConverter : public TimeConverter<TimestampType> {
 
 class Time32Converter : public TimeConverter<Time32Type> {
  public:
+<<<<<<< HEAD
   explicit Time32Converter(TimeUnit::type unit) : TimeConverter<Time32Type>(unit) {}
 
  protected:
   bool valid_R_object(SEXP obj) override {
+=======
+  Time32Converter(TimeUnit::type unit) : TimeConverter<Time32Type>(unit) {}
+
+ protected:
+  virtual bool valid_R_object(SEXP obj) override {
+>>>>>>> Also run cpplint and clang-format on .cpp files
     return TYPEOF(obj) == REALSXP && Rf_inherits(obj, "difftime");
   }
 };
 
 class Time64Converter : public TimeConverter<Time64Type> {
  public:
+<<<<<<< HEAD
   explicit Time64Converter(TimeUnit::type unit) : TimeConverter<Time64Type>(unit) {}
 
  protected:
   bool valid_R_object(SEXP obj) override {
+=======
+  Time64Converter(TimeUnit::type unit) : TimeConverter<Time64Type>(unit) {}
+
+ protected:
+  virtual bool valid_R_object(SEXP obj) override {
+>>>>>>> Also run cpplint and clang-format on .cpp files
     return TYPEOF(obj) == REALSXP && Rf_inherits(obj, "difftime");
   }
 };
@@ -879,8 +903,14 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
     buffers[0] = std::move(null_bitmap);
   }
 
+<<<<<<< HEAD
   auto data = ArrayData::Make(std::make_shared<Type>(), LENGTH(x), std::move(buffers),
                               null_count, 0);
+=======
+  auto data = ArrayData::Make(
+      std::make_shared<Type>(), LENGTH(x), std::move(buffers), null_count, 0 /*offset*/
+  );
+>>>>>>> Also run cpplint and clang-format on .cpp files
 
   // return the right Array class
   return std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
