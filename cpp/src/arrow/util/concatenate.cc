@@ -47,7 +47,7 @@ struct ConcatenateImpl {
   ConcatenateImpl(const std::vector<ArrayData>& in, MemoryPool* pool)
       : in_(in), pool_(pool) {
     out_.type = in[0].type;
-    for (int i = 0; i != in_size(); ++i) {
+    for (int i = 0; i < in_size(); ++i) {
       out_.length += in[i].length;
       if (out_.null_count == kUnknownNullCount || in[i].null_count == kUnknownNullCount) {
         out_.null_count = kUnknownNullCount;
@@ -80,7 +80,7 @@ struct ConcatenateImpl {
     DCHECK_EQ(fixed.bit_width() % 8, 0);
     const int byte_width = fixed.bit_width() / 8;
     std::vector<std::shared_ptr<Buffer>> values_slices(in_size());
-    for (int i = 0; i != in_size(); ++i) {
+    for (int i = 0; i < in_size(); ++i) {
       auto byte_length = byte_width * in_length(i);
       auto byte_offset = byte_width * in_offset(i);
       values_slices[i] = SliceBuffer(in_[i].buffers[1], byte_offset, byte_length);
@@ -93,7 +93,7 @@ struct ConcatenateImpl {
     std::vector<Range> value_ranges;
     RETURN_NOT_OK(ConcatenateOffsets(1, &out_.buffers[1], &value_ranges));
     std::vector<std::shared_ptr<Buffer>> values_slices(in_size());
-    for (int i = 0; i != in_size(); ++i) {
+    for (int i = 0; i < in_size(); ++i) {
       values_slices[i] =
           SliceBuffer(in_[i].buffers[2], value_ranges[i].offset, value_ranges[i].length);
     }
@@ -105,7 +105,7 @@ struct ConcatenateImpl {
     std::vector<Range> value_ranges;
     RETURN_NOT_OK(ConcatenateOffsets(1, &out_.buffers[1], &value_ranges));
     std::vector<ArrayData> values_slices(in_size());
-    for (int i = 0; i != in_size(); ++i) {
+    for (int i = 0; i < in_size(); ++i) {
       values_slices[i] = SliceData(*in_[i].child_data[0], value_ranges[i].offset,
                                    value_ranges[i].length);
     }
@@ -117,8 +117,8 @@ struct ConcatenateImpl {
 
   Status Visit(const StructType& s) {
     std::vector<ArrayData> values_slices(in_size());
-    for (int field_index = 0; field_index != s.num_children(); ++field_index) {
-      for (int i = 0; i != in_size(); ++i) {
+    for (int field_index = 0; field_index < s.num_children(); ++field_index) {
+      for (int i = 0; i < in_size(); ++i) {
         values_slices[i] =
             SliceData(*in_[i].child_data[field_index], in_offset(i), in_length(i));
       }
@@ -131,7 +131,7 @@ struct ConcatenateImpl {
 
   Status Visit(const DictionaryType& d) {
     std::vector<ArrayData> indices_slices(in_size());
-    for (int i = 0; i != in_size(); ++i) {
+    for (int i = 0; i < in_size(); ++i) {
       indices_slices[i] = ArrayData(in_[i]);
       indices_slices[i].type = d.index_type();
       // don't bother concatenating null bitmaps again
@@ -169,7 +169,7 @@ struct ConcatenateImpl {
     RETURN_NOT_OK(AllocateBitmap(pool_, out_.length, bitmap_buffer));
     uint8_t* bitmap_data = (*bitmap_buffer)->mutable_data();
     int64_t bitmap_offset = 0;
-    for (int i = 0; i != in_size(); ++i) {
+    for (int i = 0; i < in_size(); ++i) {
       if (auto bitmap = in_[i].buffers[index]) {
         internal::CopyBitmap(bitmap->data(), in_offset(i), in_length(i), bitmap_data,
                              bitmap_offset, false);
@@ -191,7 +191,7 @@ struct ConcatenateImpl {
     auto dst_offsets = reinterpret_cast<int32_t*>((*offset_buffer)->mutable_data());
     int32_t total_length = 0;
     ranges->resize(in_size());
-    for (int i = 0; i != in_size(); ++i) {
+    for (int i = 0; i < in_size(); ++i) {
       auto src_offsets_begin = in_[i].GetValues<int32_t>(index);
       auto src_offsets_end = src_offsets_begin + in_length(i);
       auto first_offset = src_offsets_begin[0];
@@ -225,7 +225,7 @@ Status Concatenate(const std::vector<std::shared_ptr<Array>>& arrays, MemoryPool
                    std::shared_ptr<Array>* out) {
   DCHECK_GT(arrays.size(), 0);
   std::vector<ArrayData> data(arrays.size());
-  for (std::size_t i = 0; i != arrays.size(); ++i) {
+  for (std::size_t i = 0; i < arrays.size(); ++i) {
     if (!arrays[i]->type()->Equals(*arrays[0]->type())) {
       return Status::Invalid("arrays to be concatentated must be identically typed, but ",
                              *arrays[0]->type(), " and ", *arrays[i]->type(),
