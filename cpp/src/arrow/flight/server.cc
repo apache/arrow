@@ -18,6 +18,8 @@
 #include "arrow/flight/server.h"
 #include "arrow/flight/protocol-internal.h"
 
+#include <signal.h>
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -294,30 +296,101 @@ class FlightServiceImpl : public FlightService::Service {
   FlightServerBase* server_;
 };
 
-struct FlightServerBase::FlightServerBaseImpl {
-  std::unique_ptr<grpc::Server> server;
+#if (ATOMIC_INT_LOCK_FREE != 2 || ATOMIC_POINTER_LOCK_FREE != 2)
+#error "atomic ints and atomic pointers not always lock-free!"
+#endif
+
+struct FlightServerBase::Impl {
+  std::string address_;
+  std::unique_ptr<FlightServiceImpl> service_;
+  std::unique_ptr<grpc::Server> server_;
+
+  // Signal handling
+  std::vector<int> signals_;
+  std::vector<struct sigaction> old_signal_handlers_;
+  std::atomic<int> got_signal_;
+  static thread_local std::atomic<Impl*> running_instance_;
+
+  static void HandleSignal(int signum);
+
+  void DoHandleSignal(int signum) {
+    got_signal_ = signum;
+    server_->Shutdown();
+  }
 };
 
-FlightServerBase::FlightServerBase() { impl_.reset(new FlightServerBaseImpl); }
+thread_local std::atomic<FlightServerBase::Impl*>
+    FlightServerBase::Impl::running_instance_;
+
+void FlightServerBase::Impl::HandleSignal(int signum) {
+  auto instance = running_instance_.load();
+  if (instance != nullptr) {
+    instance->DoHandleSignal(signum);
+  }
+}
+
+FlightServerBase::FlightServerBase() { impl_.reset(new Impl); }
 
 FlightServerBase::~FlightServerBase() {}
 
-void FlightServerBase::Run(int port) {
-  std::string address = "localhost:" + std::to_string(port);
+Status FlightServerBase::Init(int port) {
+  impl_->address_ = "localhost:" + std::to_string(port);
+  impl_->service_.reset(new FlightServiceImpl(this));
 
-  FlightServiceImpl service(this);
   grpc::ServerBuilder builder;
-  builder.AddListeningPort(address, grpc::InsecureServerCredentials());
-  builder.RegisterService(&service);
+  builder.AddListeningPort(impl_->address_, grpc::InsecureServerCredentials());
+  builder.RegisterService(impl_->service_.get());
 
-  impl_->server = builder.BuildAndStart();
-  std::cout << "Server listening on " << address << std::endl;
-  impl_->server->Wait();
+  impl_->server_ = builder.BuildAndStart();
+  return Status::OK();
 }
 
+Status FlightServerBase::SetShutdownOnSignals(const std::vector<int> sigs) {
+  impl_->signals_ = sigs;
+  impl_->old_signal_handlers_.clear();
+  return Status::OK();
+}
+
+Status FlightServerBase::Serve() {
+  impl_->got_signal_ = 0;
+  impl_->running_instance_ = impl_.get();
+
+  // Setup signal handlers
+  impl_->old_signal_handlers_.clear();
+  for (size_t i = 0; i < impl_->signals_.size(); ++i) {
+    int signum = impl_->signals_[i];
+    // Override with our own handler so as to stop the server.
+    struct sigaction sa, old_handler;
+    sa.sa_handler = &Impl::HandleSignal;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+    int ret = sigaction(signum, &sa, &old_handler);
+    if (ret != 0) {
+      return Status::IOError("sigaction call failed");
+    }
+    impl_->old_signal_handlers_.push_back(old_handler);
+  }
+
+  // TODO(wesm): How can we tell if the server failed to start for some reason?
+  impl_->server_->Wait();
+  impl_->running_instance_ = nullptr;
+
+  // Restore signal handlers
+  for (size_t i = 0; i < impl_->signals_.size(); ++i) {
+    int ret = sigaction(impl_->signals_[i], &impl_->old_signal_handlers_[i], nullptr);
+    if (ret != 0) {
+      return Status::IOError("sigaction call failed");
+    }
+  }
+
+  return Status::OK();
+}
+
+int FlightServerBase::GotSignal() const { return impl_->got_signal_; }
+
 void FlightServerBase::Shutdown() {
-  DCHECK(impl_->server);
-  impl_->server->Shutdown();
+  DCHECK(impl_->server_);
+  impl_->server_->Shutdown();
 }
 
 Status FlightServerBase::ListFlights(const Criteria* criteria,
@@ -327,7 +400,6 @@ Status FlightServerBase::ListFlights(const Criteria* criteria,
 
 Status FlightServerBase::GetFlightInfo(const FlightDescriptor& request,
                                        std::unique_ptr<FlightInfo>* info) {
-  std::cout << "GetFlightInfo" << std::endl;
   return Status::NotImplemented("NYI");
 }
 

@@ -94,6 +94,7 @@ class FlightServer(pyarrow.flight.FlightServerBase):
 
     def _shutdown(self):
         """Shut down after a delay."""
+        print("Server is shutting down...")
         time.sleep(2)
         self.shutdown()
 

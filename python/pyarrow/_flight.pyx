@@ -545,15 +545,20 @@ cdef class FlightServerBase:
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             int c_port = port
+            PyFlightServer* c_server
+
         vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info
         vtable.do_put = &_do_put
         vtable.do_get = &_do_get
         vtable.list_actions = &_list_actions
         vtable.do_action = &_do_action
-        self.server.reset(new PyFlightServer(self, vtable))
+
+        c_server = new PyFlightServer(self, vtable)
+        self.server.reset(c_server)
         with nogil:
-            self.server.get().Run(c_port)
+            check_status(c_server.Init(c_port))
+            check_status(c_server.ServeWithSignals())
 
     def list_flights(self, criteria):
         raise NotImplementedError

@@ -117,20 +117,16 @@ class FlightIntegrationTestServer : public FlightServerBase {
 
 std::unique_ptr<arrow::flight::FlightIntegrationTestServer> g_server;
 
-void Shutdown(int signal) {
-  if (g_server != nullptr) {
-    g_server->Shutdown();
-  }
-}
-
 int main(int argc, char** argv) {
   gflags::SetUsageMessage("Integration testing server for Flight.");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  // SIGTERM shuts down the server
-  signal(SIGTERM, Shutdown);
-
   g_server.reset(new arrow::flight::FlightIntegrationTestServer);
-  g_server->Run(FLAGS_port);
+  ARROW_CHECK_OK(g_server->Init(FLAGS_port));
+  // Exit with a clean error code (0) on SIGTERM
+  ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
+
+  std::cout << "Server listening on localhost:" << FLAGS_port << std::endl;
+  ARROW_CHECK_OK(g_server->Serve());
   return 0;
 }

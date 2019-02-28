@@ -146,7 +146,9 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
 
     cdef cppclass PyFlightServer:
         PyFlightServer(object server, PyFlightServerVtable vtable)
-        void Run(int port)
+
+        CStatus Init(int port)
+        CStatus ServeWithSignals() except *
         void Shutdown()
 
     cdef cppclass CPyFlightResultStream\

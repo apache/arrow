@@ -79,13 +79,31 @@ class ARROW_EXPORT FlightServerBase {
   FlightServerBase();
   virtual ~FlightServerBase();
 
-  /// \brief Run an insecure server on localhost at the indicated port. Block
-  /// until server is shut down or otherwise terminates
-  /// \param[in] port the port to bind to
-  void Run(int port);
+  // Lifecycle methods.
+
+  /// \brief Initialize an insecure TCP server listening on localhost
+  /// at the given port.
+  /// This method must be called before any other method.
+  Status Init(int port);
+
+  /// \brief Set the server to stop when receiving any of the given signal
+  /// numbers.
+  /// This method must be called before Serve().
+  Status SetShutdownOnSignals(const std::vector<int> sigs);
+
+  /// \brief Start serving.
+  /// This method blocks until either Shutdown() is called or one of the signals
+  /// registered in SetShutdownOnSignals() is received.
+  Status Serve();
+
+  /// \brief Query whether Serve() was interrupted by a signal.
+  /// This method must be called after Serve() has returned.
+  ///
+  /// \return int the signal number that interrupted Serve(), if any, otherwise 0
+  int GotSignal() const;
 
   /// \brief Shut down the server. Can be called from signal handler or another
-  /// thread while Run blocks
+  /// thread while Serve() blocks.
   ///
   /// TODO(wesm): Shutdown with deadline
   void Shutdown();
@@ -132,8 +150,8 @@ class ARROW_EXPORT FlightServerBase {
   virtual Status ListActions(std::vector<ActionType>* actions);
 
  private:
-  struct FlightServerBaseImpl;
-  std::unique_ptr<FlightServerBaseImpl> impl_;
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace flight
