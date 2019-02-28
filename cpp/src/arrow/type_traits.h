@@ -43,7 +43,10 @@ struct TypeTraits<NullType> {
   using ArrayType = NullArray;
   using BuilderType = NullBuilder;
   using ScalarType = NullScalar;
-  constexpr static bool is_parameter_free = false;
+
+  static constexpr int64_t bytes_required(int64_t) { return 0; }
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return null(); }
 };
 
 template <>
