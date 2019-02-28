@@ -44,7 +44,7 @@ namespace Apache.Arrow.Ipc
         {
             // TODO: Loop until a record batch is read.
             cancellationToken.ThrowIfCancellationRequested();
-            return await ReadRecordBatchAsync(cancellationToken);
+            return await ReadRecordBatchAsync(cancellationToken).ConfigureAwait(false);
         }
 
         public override RecordBatch ReadNextRecordBatch()
@@ -54,7 +54,7 @@ namespace Apache.Arrow.Ipc
 
         protected async Task<RecordBatch> ReadRecordBatchAsync(CancellationToken cancellationToken = default)
         {
-            await ReadSchemaAsync();
+            await ReadSchemaAsync().ConfigureAwait(false);
 
             var bytesRead = 0;
 
@@ -67,7 +67,8 @@ namespace Apache.Arrow.Ipc
                 // Get Length of record batch for message header.
 
                 lengthBuffer = Buffers.Rent(4);
-                bytesRead += await BaseStream.ReadAsync(lengthBuffer, 0, 4, cancellationToken);
+                bytesRead += await BaseStream.ReadAsync(lengthBuffer, 0, 4, cancellationToken)
+                    .ConfigureAwait(false);
                 var messageLength = BitConverter.ToInt32(lengthBuffer, 0);
 
                 if (messageLength == 0)
@@ -77,12 +78,14 @@ namespace Apache.Arrow.Ipc
                 }
 
                 messageBuff = Buffers.Rent(messageLength);
-                bytesRead += await BaseStream.ReadAsync(messageBuff, 0, messageLength, cancellationToken);
+                bytesRead += await BaseStream.ReadAsync(messageBuff, 0, messageLength, cancellationToken)
+                    .ConfigureAwait(false);
                 var message = Flatbuf.Message.GetRootAsMessage(new FlatBuffers.ByteBuffer(messageBuff));
 
                 bodyBuff = Buffers.Rent((int)message.BodyLength);
                 var bodybb = new FlatBuffers.ByteBuffer(bodyBuff);
-                bytesRead += await BaseStream.ReadAsync(bodyBuff, 0, (int)message.BodyLength, cancellationToken);
+                bytesRead += await BaseStream.ReadAsync(bodyBuff, 0, (int)message.BodyLength, cancellationToken)
+                    .ConfigureAwait(false);
 
                 return CreateArrowObjectFromMessage(message, bodybb);
             }
@@ -119,7 +122,7 @@ namespace Apache.Arrow.Ipc
                 // Figure out length of schema
 
                 buff = Buffers.Rent(4);
-                await BaseStream.ReadAsync(buff, 0, 4);
+                await BaseStream.ReadAsync(buff, 0, 4).ConfigureAwait(false);
                 var schemaMessageLength = BitConverter.ToInt32(buff, 0);
                 Buffers.Return(buff);
 
@@ -130,7 +133,7 @@ namespace Apache.Arrow.Ipc
 
                 // Read in schema
 
-                await BaseStream.ReadAsync(buff, 0, schemaMessageLength);
+                await BaseStream.ReadAsync(buff, 0, schemaMessageLength).ConfigureAwait(false);
                 Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb));
             }
             finally

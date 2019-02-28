@@ -174,7 +174,7 @@ namespace Apache.Arrow.Ipc
 
             if (!HasWrittenSchema)
             {
-                await WriteSchemaAsync(Schema, cancellationToken);
+                await WriteSchemaAsync(Schema, cancellationToken).ConfigureAwait(false);
                 HasWrittenSchema = true;
             }
 
@@ -229,7 +229,7 @@ namespace Apache.Arrow.Ipc
 
             await WriteMessageAsync(Flatbuf.MessageHeader.RecordBatch,
                 recordBatchOffset, recordBatchBuilder.TotalLength,
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
 
             var metadataLength = BaseStream.Position - metadataOffset;
 
@@ -243,7 +243,7 @@ namespace Apache.Arrow.Ipc
                     continue;
 
                 
-                await WriteBufferAsync(buffers[i].DataBuffer, cancellationToken);
+                await WriteBufferAsync(buffers[i].DataBuffer, cancellationToken).ConfigureAwait(false);
             }
 
             // Write padding so the record batch message body length is a multiple of 8 bytes
@@ -251,7 +251,7 @@ namespace Apache.Arrow.Ipc
             var bodyLength = Convert.ToInt32(BaseStream.Position - lengthOffset);
             var bodyPaddingLength = CalculatePadding(bodyLength);
 
-            await WritePaddingAsync(bodyPaddingLength);
+            await WritePaddingAsync(bodyPaddingLength).ConfigureAwait(false);
 
             return new Block(
                 offset: Convert.ToInt32(metadataOffset),
@@ -323,7 +323,8 @@ namespace Apache.Arrow.Ipc
 
             // Build message
 
-            await WriteMessageAsync(Flatbuf.MessageHeader.Schema, schemaOffset, 0, cancellationToken);
+            await WriteMessageAsync(Flatbuf.MessageHeader.Schema, schemaOffset, 0, cancellationToken)
+                .ConfigureAwait(false);
 
             return schemaOffset;
         }
@@ -347,17 +348,17 @@ namespace Apache.Arrow.Ipc
                 var metadataSize = messageData.Length + messagePaddingLength;
                 BinaryPrimitives.WriteInt32LittleEndian(buffer, metadataSize);
                 return BaseStream.WriteAsync(buffer, 0, 4, cancellationToken);
-            });
+            }).ConfigureAwait(false);
 
-            await BaseStream.WriteAsync(messageData, cancellationToken);
-            await WritePaddingAsync(messagePaddingLength);
+            await BaseStream.WriteAsync(messageData, cancellationToken).ConfigureAwait(false);
+            await WritePaddingAsync(messagePaddingLength).ConfigureAwait(false);
         }
 
         private protected async Task WriteFlatBufferAsync(CancellationToken cancellationToken = default)
         {
             var segment = Builder.DataBuffer.ToReadOnlyMemory(Builder.DataBuffer.Position, Builder.Offset);
 
-            await BaseStream.WriteAsync(segment, cancellationToken);
+            await BaseStream.WriteAsync(segment, cancellationToken).ConfigureAwait(false);
         }
 
         protected int CalculatePadding(int offset, int alignment = 8) =>

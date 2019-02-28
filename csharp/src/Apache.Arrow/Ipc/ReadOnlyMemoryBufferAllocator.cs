@@ -20,7 +20,7 @@ namespace Apache.Arrow.Ipc
 {
     internal sealed class ReadOnlyMemoryBufferAllocator : ByteBufferAllocator
     {
-        private ReadOnlyMemory<byte> _buffer;
+        private readonly ReadOnlyMemory<byte> _buffer;
 
         public ReadOnlyMemoryBufferAllocator(ReadOnlyMemory<byte> buffer)
         {

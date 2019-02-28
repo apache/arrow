@@ -66,7 +66,7 @@ namespace Apache.Arrow.Tests
         private void CompareSchemas(Schema expectedSchema, Schema actualSchema)
         {
             Assert.Equal(expectedSchema.Fields.Count, actualSchema.Fields.Count);
-            // TODO: compare fields
+            // TODO: compare fields once https://github.com/apache/arrow/pull/3662 is in
         }
 
         private class ArrayComparer :
@@ -133,24 +133,24 @@ namespace Apache.Arrow.Tests
         {
             Schema.Builder builder = new Schema.Builder();
             builder.Field(CreateField(BooleanType.Default));
+            builder.Field(CreateField(UInt8Type.Default));
+            builder.Field(CreateField(Int8Type.Default));
+            builder.Field(CreateField(UInt16Type.Default));
+            builder.Field(CreateField(Int16Type.Default));
+            builder.Field(CreateField(UInt32Type.Default));
+            builder.Field(CreateField(Int32Type.Default));
+            builder.Field(CreateField(UInt64Type.Default));
+            builder.Field(CreateField(Int64Type.Default));
+            builder.Field(CreateField(FloatType.Default));
+            builder.Field(CreateField(DoubleType.Default));
+            //builder.Field(CreateField(new DecimalType(19, 2)));
+            //builder.Field(CreateField(HalfFloatType.Default));
+            //builder.Field(CreateField(StringType.Default));
             //builder.Field(CreateField(Date32Type.Default));
             //builder.Field(CreateField(Date64Type.Default));
-            //builder.Field(CreateField(new DecimalType(19, 2)));
-            //builder.Field(CreateField(DoubleType.Default));
-            //builder.Field(CreateField(FloatType.Default));
-            //builder.Field(CreateField(HalfFloatType.Default));
-            builder.Field(CreateField(Int8Type.Default));
-            builder.Field(CreateField(Int16Type.Default));
-            builder.Field(CreateField(Int32Type.Default));
-            builder.Field(CreateField(Int64Type.Default));
-            //builder.Field(CreateField(StringType.Default));
             //builder.Field(CreateField(Time32Type.Default));
             //builder.Field(CreateField(Time64Type.Default));
             //builder.Field(CreateField(TimestampType.Default));
-            builder.Field(CreateField(UInt8Type.Default));
-            builder.Field(CreateField(UInt16Type.Default));
-            builder.Field(CreateField(UInt32Type.Default));
-            builder.Field(CreateField(UInt64Type.Default));
 
             Schema schema = builder.Build();
 
@@ -186,31 +186,30 @@ namespace Apache.Arrow.Tests
                     for (int i = 0; i < length; i++)
                         boolBuilder.Append(i % 2 == 0);
                     return new BooleanArray(boolBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
-
                 case ArrowTypeId.UInt8:
                     ArrowBuffer.Builder<byte> byteBuilder = new ArrowBuffer.Builder<byte>(length);
-                    for (byte i = 0; i < length; i++)
-                        byteBuilder.Append(i);
+                    for (int i = 0; i < length; i++)
+                        byteBuilder.Append((byte)i);
                     return new UInt8Array(byteBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
                 case ArrowTypeId.Int8:
                     ArrowBuffer.Builder<sbyte> sbyteBuilder = new ArrowBuffer.Builder<sbyte>(length);
-                    for (sbyte i = 0; i < length; i++)
-                        sbyteBuilder.Append(i);
+                    for (int i = 0; i < length; i++)
+                        sbyteBuilder.Append((sbyte)i);
                     return new Int8Array(sbyteBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
                 case ArrowTypeId.UInt16:
                     ArrowBuffer.Builder<ushort> ushortBuilder = new ArrowBuffer.Builder<ushort>(length);
-                    for (ushort i = 0; i < length; i++)
-                        ushortBuilder.Append(i);
+                    for (int i = 0; i < length; i++)
+                        ushortBuilder.Append((ushort)i);
                     return new UInt16Array(ushortBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
                 case ArrowTypeId.Int16:
                     ArrowBuffer.Builder<short> shortBuilder = new ArrowBuffer.Builder<short>(length);
-                    for (short i = 0; i < length; i++)
-                        shortBuilder.Append(i);
+                    for (int i = 0; i < length; i++)
+                        shortBuilder.Append((short)i);
                     return new Int16Array(shortBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
                 case ArrowTypeId.UInt32:
                     ArrowBuffer.Builder<uint> uintBuilder = new ArrowBuffer.Builder<uint>(length);
-                    for (uint i = 0; i < length; i++)
-                        uintBuilder.Append(i);
+                    for (int i = 0; i < length; i++)
+                        uintBuilder.Append((uint)i);
                     return new UInt32Array(uintBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
                 case ArrowTypeId.Int32:
                     ArrowBuffer.Builder<int> intBuilder = new ArrowBuffer.Builder<int>(length);
@@ -219,19 +218,33 @@ namespace Apache.Arrow.Tests
                     return new Int32Array(intBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
                 case ArrowTypeId.UInt64:
                     ArrowBuffer.Builder<ulong> ulongBuilder = new ArrowBuffer.Builder<ulong>(length);
-                    for (uint i = 0; i < length; i++)
-                        ulongBuilder.Append(i);
+                    for (int i = 0; i < length; i++)
+                        ulongBuilder.Append((ulong)i);
                     return new UInt64Array(ulongBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
                 case ArrowTypeId.Int64:
                     ArrowBuffer.Builder<long> longBuilder = new ArrowBuffer.Builder<long>(length);
                     for (int i = 0; i < length; i++)
                         longBuilder.Append(i);
                     return new Int64Array(longBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
+                case ArrowTypeId.Float:
+                    ArrowBuffer.Builder<float> floatBuilder = new ArrowBuffer.Builder<float>(length);
+                    for (int i = 0; i < length; i++)
+                        floatBuilder.Append(i);
+                    return new FloatArray(floatBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
+                case ArrowTypeId.Double:
+                    ArrowBuffer.Builder<double> doubleBuilder = new ArrowBuffer.Builder<double>(length);
+                    for (int i = 0; i < length; i++)
+                        doubleBuilder.Append(i);
+                    return new DoubleArray(doubleBuilder.Build(), ArrowBuffer.Empty, length, 0, 0);
+                //TODO: there is no DecimalArray
+                //case ArrowTypeId.Decimal:
+                //    ArrowBuffer.Builder<decimal> builder = new ArrowBuffer.Builder<decimal>(length);
+                //    for (int i = 0; i < length; i++)
+                //        builder.Append(i);
+                //    return new DecimalArray
+                //    break;
+
                 //case ArrowTypeId.HalfFloat:
-                //    break;
-                //case ArrowTypeId.Float:
-                //    break;
-                //case ArrowTypeId.Double:
                 //    break;
                 //case ArrowTypeId.String:
                 //    break;
@@ -239,19 +252,11 @@ namespace Apache.Arrow.Tests
                 //    break;
                 //case ArrowTypeId.Date64:
                 //    break;
-                //case ArrowTypeId.Timestamp:
-                //    break;
                 //case ArrowTypeId.Time32:
                 //    break;
                 //case ArrowTypeId.Time64:
                 //    break;
-
-                //TODO: there is no DecimalArray
-                //case ArrowTypeId.Decimal:
-                //    ArrowBuffer.Builder<decimal> builder = new ArrowBuffer.Builder<decimal>(length);
-                //    for (int i = 0; i < length; i++)
-                //        builder.Append(i);
-                //    return new DecimalArray
+                //case ArrowTypeId.Timestamp:
                 //    break;
 
                 default:

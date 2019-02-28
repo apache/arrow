@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace Apache.Arrow
@@ -49,6 +50,17 @@ namespace Apache.Arrow
             _arrays = data?.ToList() ?? throw new ArgumentNullException(nameof(data));
 
             Schema = schema ?? throw new ArgumentNullException(nameof(schema));
+            Length = length;
+        }
+
+        internal RecordBatch(Schema schema, List<IArrowArray> arrays, int length)
+        {
+            Debug.Assert(schema != null);
+            Debug.Assert(arrays != null);
+            Debug.Assert(length >= 0);
+
+            _arrays = arrays;
+            Schema = schema;
             Length = length;
         }
     }

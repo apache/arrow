@@ -23,7 +23,7 @@ using System.Threading.Tasks;
 
 namespace Apache.Arrow.Ipc
 {
-    internal class ArrowFileReaderImplementation : ArrowStreamReaderImplementation
+    internal sealed class ArrowFileReaderImplementation : ArrowStreamReaderImplementation
     {
         public bool IsFileValid { get; private set; }
 
@@ -48,7 +48,7 @@ namespace Apache.Arrow.Ipc
         {
             if (!HasReadSchema)
             {
-                await ReadSchemaAsync();
+                await ReadSchemaAsync().ConfigureAwait(false);
             }
 
             return _footer.RecordBatchCount;
@@ -61,7 +61,7 @@ namespace Apache.Arrow.Ipc
                 return;
             }
 
-            await ValidateFileAsync();
+            await ValidateFileAsync().ConfigureAwait(false);
 
             var bytesRead = 0;
             var footerLength = 0;
@@ -70,7 +70,7 @@ namespace Apache.Arrow.Ipc
             {
                 BaseStream.Position = BaseStream.Length - ArrowFileConstants.Magic.Length - 4;
 
-                bytesRead = await BaseStream.ReadAsync(buffer, 0, 4);
+                bytesRead = await BaseStream.ReadAsync(buffer, 0, 4).ConfigureAwait(false);
                 footerLength = BinaryPrimitives.ReadInt32LittleEndian(buffer);
 
                 if (bytesRead != 4) throw new InvalidDataException(
@@ -78,7 +78,7 @@ namespace Apache.Arrow.Ipc
 
                 if (footerLength <= 0) throw new InvalidDataException(
                     $"Footer length has invalid size <{footerLength}>");
-            });
+            }).ConfigureAwait(false);
 
             await Buffers.RentReturnAsync(footerLength, async (buffer) =>
             {
@@ -86,7 +86,7 @@ namespace Apache.Arrow.Ipc
 
                 BaseStream.Position = _footerStartPostion;
 
-                bytesRead = await BaseStream.ReadAsync(buffer, 0, footerLength);
+                bytesRead = await BaseStream.ReadAsync(buffer, 0, footerLength).ConfigureAwait(false);
 
                 if (bytesRead != footerLength)
                 {
@@ -99,12 +99,12 @@ namespace Apache.Arrow.Ipc
                 _footer = new ArrowFooter(Flatbuf.Footer.GetRootAsFooter(new ByteBuffer(buffer)));
 
                 Schema = _footer.Schema;
-            });
+            }).ConfigureAwait(false);
         }
 
         public async Task<RecordBatch> ReadRecordBatchAsync(int index, CancellationToken cancellationToken)
         {
-            await ReadSchemaAsync();
+            await ReadSchemaAsync().ConfigureAwait(false);
 
             if (index >= _footer.RecordBatchCount)
             {
@@ -115,19 +115,19 @@ namespace Apache.Arrow.Ipc
 
             BaseStream.Position = block.Offset;
 
-            return await ReadRecordBatchAsync(cancellationToken);
+            return await ReadRecordBatchAsync(cancellationToken).ConfigureAwait(false);
         }
 
         public override async Task<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
         {
-            await ReadSchemaAsync();
+            await ReadSchemaAsync().ConfigureAwait(false);
 
             if (_recordBatchIndex >= _footer.RecordBatchCount)
             {
                 return null;
             }
 
-            var result = await ReadRecordBatchAsync(_recordBatchIndex, cancellationToken);
+            var result = await ReadRecordBatchAsync(_recordBatchIndex, cancellationToken).ConfigureAwait(false);
             _recordBatchIndex++;
 
             return result;
@@ -143,7 +143,7 @@ namespace Apache.Arrow.Ipc
                 return;
             }
 
-            await ValidateMagicAsync();
+            await ValidateMagicAsync().ConfigureAwait(false);
 
             IsFileValid = true;
         }
@@ -163,7 +163,7 @@ namespace Apache.Arrow.Ipc
 
                     // Read beginning of stream
 
-                    await BaseStream.ReadAsync(buffer, 0, magicLength);
+                    await BaseStream.ReadAsync(buffer, 0, magicLength).ConfigureAwait(false);
 
                     if (!ArrowFileConstants.Magic.SequenceEqual(buffer.Take(magicLength)))
                     {
@@ -177,14 +177,14 @@ namespace Apache.Arrow.Ipc
 
                     // Read the end of the stream
 
-                    await BaseStream.ReadAsync(buffer, 0, magicLength);
+                    await BaseStream.ReadAsync(buffer, 0, magicLength).ConfigureAwait(false);
 
                     if (!ArrowFileConstants.Magic.SequenceEqual(buffer.Take(magicLength)))
                     {
                         throw new InvalidDataException(
                             $"Invalid magic at offset <{BaseStream.Position}>");
                     }
-                });
+                }).ConfigureAwait(false);
             }
             finally
             {

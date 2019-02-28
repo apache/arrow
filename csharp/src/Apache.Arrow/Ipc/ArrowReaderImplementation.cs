@@ -93,7 +93,7 @@ namespace Apache.Arrow.Ipc
                     break;
                 case Flatbuf.MessageHeader.RecordBatch:
                     var rb = message.Header<Flatbuf.RecordBatch>().Value;
-                    var arrays = BuildArrays(Schema, bodyByteBuffer, rb);
+                    List<IArrowArray> arrays = BuildArrays(Schema, bodyByteBuffer, rb);
                     return new RecordBatch(Schema, arrays, (int)rb.Length);
                 default:
                     // NOTE: Skip unsupported message type
@@ -104,26 +104,27 @@ namespace Apache.Arrow.Ipc
             return null;
         }
 
-        private IEnumerable<IArrowArray> BuildArrays(
+        private List<IArrowArray> BuildArrays(
             Schema schema,
             ByteBuffer messageBuffer,
             Flatbuf.RecordBatch recordBatchMessage)
         {
-            var arrays = new List<ArrayData>();
-            var bufferIndex = 0;
+            var arrays = new List<IArrowArray>(recordBatchMessage.NodesLength);
+            int bufferIndex = 0;
 
             for (var n = 0; n < recordBatchMessage.NodesLength; n++)
             {
-                var field = schema.GetFieldByIndex(n);
-                var fieldNode = recordBatchMessage.Nodes(n).GetValueOrDefault();
+                Field field = schema.GetFieldByIndex(n);
+                Flatbuf.FieldNode fieldNode = recordBatchMessage.Nodes(n).GetValueOrDefault();
 
-                if (field.DataType.IsFixedPrimitive())
-                    arrays.Add(LoadPrimitiveField(field, fieldNode, recordBatchMessage, messageBuffer, ref bufferIndex));
-                else
-                    arrays.Add(LoadVariableField(field, fieldNode, recordBatchMessage, messageBuffer, ref bufferIndex));
+                ArrayData arrayData = field.DataType.IsFixedPrimitive() ?
+                    LoadPrimitiveField(field, fieldNode, recordBatchMessage, messageBuffer, ref bufferIndex) :
+                    LoadVariableField(field, fieldNode, recordBatchMessage, messageBuffer, ref bufferIndex);
+
+                arrays.Add(ArrowArrayFactory.BuildArray(arrayData));
             }
 
-            return arrays.Select(ArrowArrayFactory.BuildArray);
+            return arrays;
         }
 
         private ArrayData LoadPrimitiveField(
