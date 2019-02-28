@@ -46,7 +46,7 @@ struct SumState {
       boxed->is_valid = false;
     }
 
-    return boxed;
+    return std::move(boxed);
   }
 
   static std::shared_ptr<DataType> out_type() {
@@ -57,10 +57,10 @@ struct SumState {
   typename SumType::c_type sum = 0;
 };
 
-#define SUM_AGG_FN_CASE(T)                              \
-  case T::type_id:                                      \
-    return std::static_pointer_cast<AggregateFunction>( \
-        std::make_shared<SumAggregateFunction<T, SumState<T>>>());
+#define SUM_AGG_FN_CASE(T)                                        \
+  case T::type_id:                                                \
+    return std::move(std::static_pointer_cast<AggregateFunction>( \
+        std::make_shared<SumAggregateFunction<T, SumState<T>>>()));
 
 std::shared_ptr<AggregateFunction> MakeSumAggregateFunction(const DataType& type,
                                                             FunctionContext* ctx) {
