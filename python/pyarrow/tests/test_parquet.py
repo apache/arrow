@@ -1736,6 +1736,22 @@ def test_dataset_read_pandas(tempdir):
     tm.assert_frame_equal(result, expected)
 
 
+def test_dataset_no_memory_map(tempdir):
+    # ARROW-2627: Check that we can use ParquetDataset without memory-mapping
+    dirpath = tempdir / guid()
+    dirpath.mkdir()
+
+    df = _test_dataframe(10, seed=0)
+    path = dirpath / '{}.parquet'.format(0)
+    table = pa.Table.from_pandas(df)
+    _write_table(table, path, version='2.0')
+
+    # TODO(wesm): Not sure how to easily check that memory mapping is _not_
+    # used. Mocking is not especially easy for pa.memory_map
+    dataset = pq.ParquetDataset(dirpath, memory_map=False)
+    assert dataset.pieces[0].read().equals(table)
+
+
 @pytest.mark.parametrize('preserve_index', [True, False])
 def test_dataset_read_pandas_common_metadata(tempdir, preserve_index):
     # ARROW-1103
