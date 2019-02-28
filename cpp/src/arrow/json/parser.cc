@@ -44,6 +44,7 @@
 namespace arrow {
 namespace json {
 
+using internal::BitsetStack;
 using internal::checked_cast;
 using util::string_view;
 
@@ -104,34 +105,6 @@ class UnsafeStringBuilder {
   int64_t values_end_ = 0;
   TypedBufferBuilder<int32_t> offsets_builder_;
   std::shared_ptr<Buffer> values_buffer_;
-};
-
-/// Store a stack of bitsets efficiently. The top bitset may be accessed and its bits may
-/// be modified, but it may not be resized.
-class BitsetStack {
- public:
-  using reference = typename std::vector<bool>::reference;
-
-  void Push(int size, bool value) {
-    offsets_.push_back(bit_count());
-    bits_.resize(bit_count() + size, value);
-  }
-
-  int TopSize() const { return bit_count() - offsets_.back(); }
-
-  void Pop() {
-    bits_.resize(offsets_.back());
-    offsets_.pop_back();
-  }
-
-  reference operator[](int i) { return bits_[offsets_.back() + i]; }
-
-  bool operator[](int i) const { return bits_[offsets_.back() + i]; }
-
- private:
-  int bit_count() const { return static_cast<int>(bits_.size()); }
-  std::vector<bool> bits_;
-  std::vector<int> offsets_;
 };
 
 /// \brief ArrayBuilder for parsed but unconverted arrays
