@@ -21,11 +21,7 @@
 //! Currently the project is developed and tested against nightly Rust. To learn more
 //! about the status of Arrow in Rust, see `README.md`.
 
-#![feature(type_ascription)]
-#![feature(rustc_private)]
 #![feature(specialization)]
-// required for matching box in lists
-#![feature(box_syntax, box_patterns)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 
