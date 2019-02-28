@@ -55,6 +55,8 @@ struct ConcatenateImpl {
       }
       out_.null_count += in[i].null_count;
     }
+    out_.buffers.resize(in[0].buffers.size());
+    out_.child_data.resize(in[0].child_data.size());
   }
 
   /// offset, length pair for representing a Range of a buffer or array
@@ -69,8 +71,7 @@ struct ConcatenateImpl {
 
   Status Visit(const BooleanType&) {
     std::shared_ptr<Buffer> values_buffer;
-    RETURN_NOT_OK(ConcatenateBitmaps(1, &values_buffer));
-    out_.buffers.push_back(values_buffer);
+    RETURN_NOT_OK(ConcatenateBitmaps(1, &out_.buffers[1]));
     return Status::OK();
   }
 
@@ -78,46 +79,39 @@ struct ConcatenateImpl {
   Status Visit(const FixedWidthType& fixed) {
     DCHECK_EQ(fixed.bit_width() % 8, 0);
     const int byte_width = fixed.bit_width() / 8;
-    std::shared_ptr<Buffer> values_buffer;
     std::vector<std::shared_ptr<Buffer>> values_slices(in_size());
     for (int i = 0; i != in_size(); ++i) {
       auto byte_length = byte_width * in_length(i);
       auto byte_offset = byte_width * in_offset(i);
       values_slices[i] = SliceBuffer(in_[i].buffers[1], byte_offset, byte_length);
     }
-    RETURN_NOT_OK(arrow::Concatenate(values_slices, pool_, &values_buffer));
-    out_.buffers.push_back(values_buffer);
+    RETURN_NOT_OK(arrow::Concatenate(values_slices, pool_, &out_.buffers[1]));
     return Status::OK();
   }
 
   Status Visit(const BinaryType&) {
-    std::shared_ptr<Buffer> values_buffer, offset_buffer;
     std::vector<Range> value_ranges;
-    RETURN_NOT_OK(ConcatenateOffsets(1, &offset_buffer, &value_ranges));
-    out_.buffers.push_back(offset_buffer);
+    RETURN_NOT_OK(ConcatenateOffsets(1, &out_.buffers[1], &value_ranges));
     std::vector<std::shared_ptr<Buffer>> values_slices(in_size());
     for (int i = 0; i != in_size(); ++i) {
       values_slices[i] =
           SliceBuffer(in_[i].buffers[2], value_ranges[i].offset, value_ranges[i].length);
     }
-    RETURN_NOT_OK(arrow::Concatenate(values_slices, pool_, &values_buffer));
-    out_.buffers.push_back(values_buffer);
+    RETURN_NOT_OK(arrow::Concatenate(values_slices, pool_, &out_.buffers[2]));
     return Status::OK();
   }
 
   Status Visit(const ListType&) {
-    std::shared_ptr<Buffer> offset_buffer;
     std::vector<Range> value_ranges;
-    RETURN_NOT_OK(ConcatenateOffsets(1, &offset_buffer, &value_ranges));
-    out_.buffers.push_back(offset_buffer);
+    RETURN_NOT_OK(ConcatenateOffsets(1, &out_.buffers[1], &value_ranges));
     std::vector<ArrayData> values_slices(in_size());
     for (int i = 0; i != in_size(); ++i) {
       values_slices[i] = SliceData(*in_[i].child_data[0], value_ranges[i].offset,
                                    value_ranges[i].length);
     }
-    auto values = std::make_shared<ArrayData>();
-    RETURN_NOT_OK(ConcatenateImpl(values_slices, pool_).Concatenate(values.get()));
-    out_.child_data = {values};
+    out_.child_data[0] = std::make_shared<ArrayData>();
+    RETURN_NOT_OK(
+        ConcatenateImpl(values_slices, pool_).Concatenate(out_.child_data[0].get()));
     return Status::OK();
   }
 
@@ -128,9 +122,9 @@ struct ConcatenateImpl {
         values_slices[i] =
             SliceData(*in_[i].child_data[field_index], in_offset(i), in_length(i));
       }
-      auto values = std::make_shared<ArrayData>();
-      RETURN_NOT_OK(ConcatenateImpl(values_slices, pool_).Concatenate(values.get()));
-      out_.child_data.push_back(values);
+      out_.child_data[field_index] = std::make_shared<ArrayData>();
+      RETURN_NOT_OK(ConcatenateImpl(values_slices, pool_)
+                        .Concatenate(out_.child_data[field_index].get()));
     }
     return Status::OK();
   }
@@ -146,7 +140,7 @@ struct ConcatenateImpl {
     }
     ArrayData indices;
     RETURN_NOT_OK(ConcatenateImpl(indices_slices, pool_).Concatenate(&indices));
-    out_.buffers.push_back(indices.buffers[1]);
+    out_.buffers[1] = indices.buffers[1];
     return Status::OK();
   }
 
@@ -165,7 +159,7 @@ struct ConcatenateImpl {
     if (out_.null_count != 0) {
       RETURN_NOT_OK(ConcatenateBitmaps(0, &null_bitmap));
     }
-    out_.buffers = {null_bitmap};
+    out_.buffers[0] = null_bitmap;
     RETURN_NOT_OK(VisitTypeInline(*out_.type, this));
     *out = std::move(out_);
     return Status::OK();
