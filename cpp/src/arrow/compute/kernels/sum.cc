@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <utility>
+
 #include "arrow/compute/kernels/sum.h"
 #include "arrow/compute/kernels/sum-internal.h"
 
