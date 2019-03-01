@@ -31,18 +31,6 @@
 
 namespace arrow {
 
-static inline ArrayData SliceData(const ArrayData& data, int64_t offset, int64_t length) {
-  DCHECK_LE(offset, data.length);
-  length = std::min(data.length - offset, length);
-  offset += data.offset;
-
-  auto copy = data;
-  copy.length = length;
-  copy.offset = offset;
-  copy.null_count = data.null_count != 0 ? kUnknownNullCount : 0;
-  return copy;
-}
-
 struct ConcatenateImpl {
   ConcatenateImpl(const std::vector<ArrayData>& in, MemoryPool* pool)
       : in_(in), pool_(pool) {
@@ -106,8 +94,8 @@ struct ConcatenateImpl {
     RETURN_NOT_OK(ConcatenateOffsets(1, &out_.buffers[1], &value_ranges));
     std::vector<ArrayData> values_slices(in_size());
     for (int i = 0; i < in_size(); ++i) {
-      values_slices[i] = SliceData(*in_[i].child_data[0], value_ranges[i].offset,
-                                   value_ranges[i].length);
+      values_slices[i] =
+          in_[i].child_data[0]->Slice(value_ranges[i].offset, value_ranges[i].length);
     }
     out_.child_data[0] = std::make_shared<ArrayData>();
     RETURN_NOT_OK(
@@ -120,7 +108,7 @@ struct ConcatenateImpl {
     for (int field_index = 0; field_index < s.num_children(); ++field_index) {
       for (int i = 0; i < in_size(); ++i) {
         values_slices[i] =
-            SliceData(*in_[i].child_data[field_index], in_offset(i), in_length(i));
+            in_[i].child_data[field_index]->Slice(in_offset(i), in_length(i));
       }
       out_.child_data[field_index] = std::make_shared<ArrayData>();
       RETURN_NOT_OK(ConcatenateImpl(values_slices, pool_)

@@ -197,6 +197,9 @@ struct ARROW_EXPORT ArrayData {
     return GetMutableValues<T>(i, offset);
   }
 
+  // Construct a zero-copy slice of the data with the indicated offset and length
+  ArrayData Slice(int64_t offset, int64_t length) const;
+
   /// \brief Return null count, or compute and set it if it's not known
   int64_t GetNullCount() const;
 
