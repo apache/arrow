@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "arrow/compute/logical_type.h"
+#include "arrow/compute/operation.h"
 #include "arrow/status.h"
 
 namespace arrow {
@@ -55,6 +56,11 @@ std::string ScalarExpr::kind() const {
 
 // ----------------------------------------------------------------------
 
+#define SIMPLE_EXPR_FACTORY(NAME, TYPE)                       \
+  std::shared_ptr<Expr> NAME(std::shared_ptr<Operation> op) { \
+    return std::make_shared<TYPE>(std::move(op));             \
+  }
+
 namespace scalar {
 
 #define SCALAR_EXPR_METHODS(NAME)           \
@@ -71,10 +77,27 @@ SCALAR_EXPR_METHODS(UInt8)
 SCALAR_EXPR_METHODS(UInt16)
 SCALAR_EXPR_METHODS(UInt32)
 SCALAR_EXPR_METHODS(UInt64)
+SCALAR_EXPR_METHODS(HalfFloat)
 SCALAR_EXPR_METHODS(Float)
 SCALAR_EXPR_METHODS(Double)
 SCALAR_EXPR_METHODS(Binary)
 SCALAR_EXPR_METHODS(Utf8)
+
+SIMPLE_EXPR_FACTORY(null, Null);
+SIMPLE_EXPR_FACTORY(boolean, Bool);
+SIMPLE_EXPR_FACTORY(int8, Int8);
+SIMPLE_EXPR_FACTORY(int16, Int16);
+SIMPLE_EXPR_FACTORY(int32, Int32);
+SIMPLE_EXPR_FACTORY(int64, Int64);
+SIMPLE_EXPR_FACTORY(uint8, UInt8);
+SIMPLE_EXPR_FACTORY(uint16, UInt16);
+SIMPLE_EXPR_FACTORY(uint32, UInt32);
+SIMPLE_EXPR_FACTORY(uint64, UInt64);
+SIMPLE_EXPR_FACTORY(half_float, HalfFloat);
+SIMPLE_EXPR_FACTORY(float_, Float);
+SIMPLE_EXPR_FACTORY(double_, Double);
+SIMPLE_EXPR_FACTORY(binary, Binary);
+SIMPLE_EXPR_FACTORY(utf8, Utf8);
 
 List::List(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type)
     : ScalarExpr(std::move(op), std::move(type)) {}
@@ -100,10 +123,27 @@ ARRAY_EXPR_METHODS(UInt8)
 ARRAY_EXPR_METHODS(UInt16)
 ARRAY_EXPR_METHODS(UInt32)
 ARRAY_EXPR_METHODS(UInt64)
+ARRAY_EXPR_METHODS(HalfFloat)
 ARRAY_EXPR_METHODS(Float)
 ARRAY_EXPR_METHODS(Double)
 ARRAY_EXPR_METHODS(Binary)
 ARRAY_EXPR_METHODS(Utf8)
+
+SIMPLE_EXPR_FACTORY(null, Null);
+SIMPLE_EXPR_FACTORY(boolean, Bool);
+SIMPLE_EXPR_FACTORY(int8, Int8);
+SIMPLE_EXPR_FACTORY(int16, Int16);
+SIMPLE_EXPR_FACTORY(int32, Int32);
+SIMPLE_EXPR_FACTORY(int64, Int64);
+SIMPLE_EXPR_FACTORY(uint8, UInt8);
+SIMPLE_EXPR_FACTORY(uint16, UInt16);
+SIMPLE_EXPR_FACTORY(uint32, UInt32);
+SIMPLE_EXPR_FACTORY(uint64, UInt64);
+SIMPLE_EXPR_FACTORY(half_float, HalfFloat);
+SIMPLE_EXPR_FACTORY(float_, Float);
+SIMPLE_EXPR_FACTORY(double_, Double);
+SIMPLE_EXPR_FACTORY(binary, Binary);
+SIMPLE_EXPR_FACTORY(utf8, Utf8);
 
 List::List(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type)
     : ArrayExpr(std::move(op), std::move(type)) {}

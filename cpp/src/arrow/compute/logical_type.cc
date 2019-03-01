@@ -57,10 +57,36 @@ SIMPLE_LOGICAL_TYPE(UInt8)
 SIMPLE_LOGICAL_TYPE(UInt16)
 SIMPLE_LOGICAL_TYPE(UInt32)
 SIMPLE_LOGICAL_TYPE(UInt64)
+SIMPLE_LOGICAL_TYPE(HalfFloat)
 SIMPLE_LOGICAL_TYPE(Float)
 SIMPLE_LOGICAL_TYPE(Double)
 SIMPLE_LOGICAL_TYPE(Binary)
 SIMPLE_LOGICAL_TYPE(Utf8)
+
+#define SIMPLE_TYPE_FACTORY(NAME, TYPE) \
+  std::shared_ptr<LogicalType> NAME() { return std::make_shared<TYPE>(); }
+
+SIMPLE_TYPE_FACTORY(any, Any);
+SIMPLE_TYPE_FACTORY(null, Null);
+SIMPLE_TYPE_FACTORY(boolean, Bool);
+SIMPLE_TYPE_FACTORY(number, Number);
+SIMPLE_TYPE_FACTORY(integer, Integer);
+SIMPLE_TYPE_FACTORY(signed_integer, SignedInteger);
+SIMPLE_TYPE_FACTORY(unsigned_integer, UnsignedInteger);
+SIMPLE_TYPE_FACTORY(floating, Floating);
+SIMPLE_TYPE_FACTORY(int8, Int8);
+SIMPLE_TYPE_FACTORY(int16, Int16);
+SIMPLE_TYPE_FACTORY(int32, Int32);
+SIMPLE_TYPE_FACTORY(int64, Int64);
+SIMPLE_TYPE_FACTORY(uint8, UInt8);
+SIMPLE_TYPE_FACTORY(uint16, UInt16);
+SIMPLE_TYPE_FACTORY(uint32, UInt32);
+SIMPLE_TYPE_FACTORY(uint64, UInt64);
+SIMPLE_TYPE_FACTORY(half_float, HalfFloat);
+SIMPLE_TYPE_FACTORY(float_, Float);
+SIMPLE_TYPE_FACTORY(double_, Double);
+SIMPLE_TYPE_FACTORY(binary, Binary);
+SIMPLE_TYPE_FACTORY(utf8, Utf8);
 
 }  // namespace type
 }  // namespace compute

@@ -85,7 +85,7 @@ class LogicalType {
 namespace type {
 
 /// \brief Logical type for any value type
-class Any : public LogicalType {
+class ARROW_EXPORT Any : public LogicalType {
  public:
   Any() : LogicalType(LogicalType::ANY) {}
   bool IsInstance(const Expr& expr) const override;
@@ -93,7 +93,7 @@ class Any : public LogicalType {
 };
 
 /// \brief Logical type for null
-class Null : public LogicalType {
+class ARROW_EXPORT Null : public LogicalType {
  public:
   Null() : LogicalType(LogicalType::NULL_) {}
   bool IsInstance(const Expr& expr) const override;
@@ -101,7 +101,7 @@ class Null : public LogicalType {
 };
 
 /// \brief Logical type for concrete boolean
-class Bool : public LogicalType {
+class ARROW_EXPORT Bool : public LogicalType {
  public:
   Bool() : LogicalType(LogicalType::BOOL) {}
   bool IsInstance(const Expr& expr) const override;
@@ -109,7 +109,7 @@ class Bool : public LogicalType {
 };
 
 /// \brief Logical type for any number (integer or floating point)
-class Number : public LogicalType {
+class ARROW_EXPORT Number : public LogicalType {
  public:
   Number() : Number(LogicalType::NUMBER) {}
   bool IsInstance(const Expr& expr) const override;
@@ -120,7 +120,7 @@ class Number : public LogicalType {
 };
 
 /// \brief Logical type for any integer
-class Integer : public Number {
+class ARROW_EXPORT Integer : public Number {
  public:
   Integer() : Integer(LogicalType::INTEGER) {}
   bool IsInstance(const Expr& expr) const override;
@@ -131,7 +131,7 @@ class Integer : public Number {
 };
 
 /// \brief Logical type for any floating point number
-class Floating : public Number {
+class ARROW_EXPORT Floating : public Number {
  public:
   Floating() : Floating(LogicalType::FLOATING) {}
   bool IsInstance(const Expr& expr) const override;
@@ -142,7 +142,7 @@ class Floating : public Number {
 };
 
 /// \brief Logical type for any signed integer
-class SignedInteger : public Integer {
+class ARROW_EXPORT SignedInteger : public Integer {
  public:
   SignedInteger() : SignedInteger(LogicalType::SIGNED_INTEGER) {}
   bool IsInstance(const Expr& expr) const override;
@@ -153,7 +153,7 @@ class SignedInteger : public Integer {
 };
 
 /// \brief Logical type for any unsigned integer
-class UnsignedInteger : public Integer {
+class ARROW_EXPORT UnsignedInteger : public Integer {
  public:
   UnsignedInteger() : UnsignedInteger(LogicalType::UNSIGNED_INTEGER) {}
   bool IsInstance(const Expr& expr) const override;
@@ -164,7 +164,7 @@ class UnsignedInteger : public Integer {
 };
 
 /// \brief Logical type for int8
-class Int8 : public SignedInteger {
+class ARROW_EXPORT Int8 : public SignedInteger {
  public:
   Int8() : SignedInteger(LogicalType::INT8) {}
   bool IsInstance(const Expr& expr) const override;
@@ -172,7 +172,7 @@ class Int8 : public SignedInteger {
 };
 
 /// \brief Logical type for int16
-class Int16 : public SignedInteger {
+class ARROW_EXPORT Int16 : public SignedInteger {
  public:
   Int16() : SignedInteger(LogicalType::INT16) {}
   bool IsInstance(const Expr& expr) const override;
@@ -180,7 +180,7 @@ class Int16 : public SignedInteger {
 };
 
 /// \brief Logical type for int32
-class Int32 : public SignedInteger {
+class ARROW_EXPORT Int32 : public SignedInteger {
  public:
   Int32() : SignedInteger(LogicalType::INT32) {}
   bool IsInstance(const Expr& expr) const override;
@@ -188,7 +188,7 @@ class Int32 : public SignedInteger {
 };
 
 /// \brief Logical type for int64
-class Int64 : public SignedInteger {
+class ARROW_EXPORT Int64 : public SignedInteger {
  public:
   Int64() : SignedInteger(LogicalType::INT64) {}
   bool IsInstance(const Expr& expr) const override;
@@ -196,7 +196,7 @@ class Int64 : public SignedInteger {
 };
 
 /// \brief Logical type for uint8
-class UInt8 : public UnsignedInteger {
+class ARROW_EXPORT UInt8 : public UnsignedInteger {
  public:
   UInt8() : UnsignedInteger(LogicalType::UINT8) {}
   bool IsInstance(const Expr& expr) const override;
@@ -204,7 +204,7 @@ class UInt8 : public UnsignedInteger {
 };
 
 /// \brief Logical type for uint16
-class UInt16 : public UnsignedInteger {
+class ARROW_EXPORT UInt16 : public UnsignedInteger {
  public:
   UInt16() : UnsignedInteger(LogicalType::UINT16) {}
   bool IsInstance(const Expr& expr) const override;
@@ -212,7 +212,7 @@ class UInt16 : public UnsignedInteger {
 };
 
 /// \brief Logical type for uint32
-class UInt32 : public UnsignedInteger {
+class ARROW_EXPORT UInt32 : public UnsignedInteger {
  public:
   UInt32() : UnsignedInteger(LogicalType::UINT32) {}
   bool IsInstance(const Expr& expr) const override;
@@ -220,7 +220,7 @@ class UInt32 : public UnsignedInteger {
 };
 
 /// \brief Logical type for uint64
-class UInt64 : public UnsignedInteger {
+class ARROW_EXPORT UInt64 : public UnsignedInteger {
  public:
   UInt64() : UnsignedInteger(LogicalType::UINT64) {}
   bool IsInstance(const Expr& expr) const override;
@@ -228,7 +228,7 @@ class UInt64 : public UnsignedInteger {
 };
 
 /// \brief Logical type for 16-bit floating point
-class HalfFloat : public Floating {
+class ARROW_EXPORT HalfFloat : public Floating {
  public:
   HalfFloat() : Floating(LogicalType::HALF_FLOAT) {}
   bool IsInstance(const Expr& expr) const override;
@@ -236,7 +236,7 @@ class HalfFloat : public Floating {
 };
 
 /// \brief Logical type for 32-bit floating point
-class Float : public Floating {
+class ARROW_EXPORT Float : public Floating {
  public:
   Float() : Floating(LogicalType::FLOAT) {}
   bool IsInstance(const Expr& expr) const override;
@@ -244,7 +244,7 @@ class Float : public Floating {
 };
 
 /// \brief Logical type for 64-bit floating point
-class Double : public Floating {
+class ARROW_EXPORT Double : public Floating {
  public:
   Double() : Floating(LogicalType::DOUBLE) {}
   bool IsInstance(const Expr& expr) const override;
@@ -252,7 +252,7 @@ class Double : public Floating {
 };
 
 /// \brief Logical type for variable-size binary
-class Binary : public LogicalType {
+class ARROW_EXPORT Binary : public LogicalType {
  public:
   Binary() : Binary(LogicalType::BINARY) {}
   bool IsInstance(const Expr& expr) const override;
@@ -263,37 +263,38 @@ class Binary : public LogicalType {
 };
 
 /// \brief Logical type for variable-size binary
-class Utf8 : public Binary {
+class ARROW_EXPORT Utf8 : public Binary {
  public:
   Utf8() : Binary(LogicalType::UTF8) {}
   bool IsInstance(const Expr& expr) const override;
   std::string ToString() const override;
 };
 
-#define SIMPLE_TYPE_FACTORY(NAME, TYPE) \
-  static inline std::shared_ptr<LogicalType> NAME() { return std::make_shared<TYPE>(); }
+#define SIMPLE_TYPE_FACTORY(NAME) ARROW_EXPORT std::shared_ptr<LogicalType> NAME();
 
-SIMPLE_TYPE_FACTORY(any, Any);
-SIMPLE_TYPE_FACTORY(null, Null);
-SIMPLE_TYPE_FACTORY(boolean, Bool);
-SIMPLE_TYPE_FACTORY(number, Number);
-SIMPLE_TYPE_FACTORY(integer, Integer);
-SIMPLE_TYPE_FACTORY(signed_integer, SignedInteger);
-SIMPLE_TYPE_FACTORY(unsigned_integer, UnsignedInteger);
-SIMPLE_TYPE_FACTORY(floating, Floating);
-SIMPLE_TYPE_FACTORY(int8, Int8);
-SIMPLE_TYPE_FACTORY(int16, Int16);
-SIMPLE_TYPE_FACTORY(int32, Int32);
-SIMPLE_TYPE_FACTORY(int64, Int64);
-SIMPLE_TYPE_FACTORY(uint8, UInt8);
-SIMPLE_TYPE_FACTORY(uint16, UInt16);
-SIMPLE_TYPE_FACTORY(uint32, UInt32);
-SIMPLE_TYPE_FACTORY(uint64, UInt64);
-SIMPLE_TYPE_FACTORY(half_float, HalfFloat);
-SIMPLE_TYPE_FACTORY(float_, Float);
-SIMPLE_TYPE_FACTORY(double_, Double);
-SIMPLE_TYPE_FACTORY(binary, Binary);
-SIMPLE_TYPE_FACTORY(utf8, Utf8);
+SIMPLE_TYPE_FACTORY(any);
+SIMPLE_TYPE_FACTORY(null);
+SIMPLE_TYPE_FACTORY(boolean);
+SIMPLE_TYPE_FACTORY(number);
+SIMPLE_TYPE_FACTORY(integer);
+SIMPLE_TYPE_FACTORY(signed_integer);
+SIMPLE_TYPE_FACTORY(unsigned_integer);
+SIMPLE_TYPE_FACTORY(floating);
+SIMPLE_TYPE_FACTORY(int8);
+SIMPLE_TYPE_FACTORY(int16);
+SIMPLE_TYPE_FACTORY(int32);
+SIMPLE_TYPE_FACTORY(int64);
+SIMPLE_TYPE_FACTORY(uint8);
+SIMPLE_TYPE_FACTORY(uint16);
+SIMPLE_TYPE_FACTORY(uint32);
+SIMPLE_TYPE_FACTORY(uint64);
+SIMPLE_TYPE_FACTORY(half_float);
+SIMPLE_TYPE_FACTORY(float_);
+SIMPLE_TYPE_FACTORY(double_);
+SIMPLE_TYPE_FACTORY(binary);
+SIMPLE_TYPE_FACTORY(utf8);
+
+#undef SIMPLE_TYPE_FACTORY
 
 }  // namespace type
 }  // namespace compute

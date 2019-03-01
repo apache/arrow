@@ -28,6 +28,7 @@ from functools import partial
 
 _filters = '''
 -whitespace/comments
+-readability/casting
 -readability/todo
 -build/header_guard
 -build/c++11

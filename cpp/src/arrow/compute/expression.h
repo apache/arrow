@@ -120,6 +120,9 @@ class Struct : public ValueClass {};
 
 }  // namespace value
 
+#define SIMPLE_EXPR_FACTORY(NAME) \
+  ARROW_EXPORT std::shared_ptr<Expr> NAME(std::shared_ptr<Operation> op);
+
 namespace scalar {
 
 #define DECLARE_SCALAR_EXPR(TYPE)                                   \
@@ -139,10 +142,27 @@ DECLARE_SCALAR_EXPR(UInt8)
 DECLARE_SCALAR_EXPR(UInt16)
 DECLARE_SCALAR_EXPR(UInt32)
 DECLARE_SCALAR_EXPR(UInt64)
+DECLARE_SCALAR_EXPR(HalfFloat)
 DECLARE_SCALAR_EXPR(Float)
 DECLARE_SCALAR_EXPR(Double)
 DECLARE_SCALAR_EXPR(Binary)
 DECLARE_SCALAR_EXPR(Utf8)
+
+SIMPLE_EXPR_FACTORY(null);
+SIMPLE_EXPR_FACTORY(boolean);
+SIMPLE_EXPR_FACTORY(int8);
+SIMPLE_EXPR_FACTORY(int16);
+SIMPLE_EXPR_FACTORY(int32);
+SIMPLE_EXPR_FACTORY(int64);
+SIMPLE_EXPR_FACTORY(uint8);
+SIMPLE_EXPR_FACTORY(uint16);
+SIMPLE_EXPR_FACTORY(uint32);
+SIMPLE_EXPR_FACTORY(uint64);
+SIMPLE_EXPR_FACTORY(half_float);
+SIMPLE_EXPR_FACTORY(float_);
+SIMPLE_EXPR_FACTORY(double_);
+SIMPLE_EXPR_FACTORY(binary);
+SIMPLE_EXPR_FACTORY(utf8);
 
 class ARROW_EXPORT List : public ScalarExpr, public value::List {
  public:
@@ -177,10 +197,27 @@ DECLARE_ARRAY_EXPR(UInt8)
 DECLARE_ARRAY_EXPR(UInt16)
 DECLARE_ARRAY_EXPR(UInt32)
 DECLARE_ARRAY_EXPR(UInt64)
+DECLARE_ARRAY_EXPR(HalfFloat)
 DECLARE_ARRAY_EXPR(Float)
 DECLARE_ARRAY_EXPR(Double)
 DECLARE_ARRAY_EXPR(Binary)
 DECLARE_ARRAY_EXPR(Utf8)
+
+SIMPLE_EXPR_FACTORY(null);
+SIMPLE_EXPR_FACTORY(boolean);
+SIMPLE_EXPR_FACTORY(int8);
+SIMPLE_EXPR_FACTORY(int16);
+SIMPLE_EXPR_FACTORY(int32);
+SIMPLE_EXPR_FACTORY(int64);
+SIMPLE_EXPR_FACTORY(uint8);
+SIMPLE_EXPR_FACTORY(uint16);
+SIMPLE_EXPR_FACTORY(uint32);
+SIMPLE_EXPR_FACTORY(uint64);
+SIMPLE_EXPR_FACTORY(half_float);
+SIMPLE_EXPR_FACTORY(float_);
+SIMPLE_EXPR_FACTORY(double_);
+SIMPLE_EXPR_FACTORY(binary);
+SIMPLE_EXPR_FACTORY(utf8);
 
 class ARROW_EXPORT List : public ArrayExpr, public value::List {
  public:
@@ -195,6 +232,8 @@ class ARROW_EXPORT Struct : public ArrayExpr, public value::Struct {
 };
 
 }  // namespace array
+
+#undef SIMPLE_EXPR_FACTORY
 
 template <typename T, typename ObjectType>
 inline bool InheritsFrom(const ObjectType* obj) {
