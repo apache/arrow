@@ -68,21 +68,23 @@ function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]:
     const fields = [...schema.fields];
     const batchArgs = [] as [number, Data<T[keyof T]>[]][];
     const memo = { numBatches: columns.reduce((n, c) => Math.max(n, c.length), 0) };
-    let sameLength = false, numBatches = 0, batchLength = 0, batchData: Data<T[keyof T]>[];
+
+    let numBatches = 0, batchLength = 0;
+    let i: number = -1, numColumns = columns.length;
+    let child: Data<T[keyof T]>, childData: Data<T[keyof T]>[] = [];
 
     while (memo.numBatches-- > 0) {
 
-        [sameLength, batchLength] = columns.reduce((memo, [chunk]) => {
-            const [same, batchLength] = memo;
-            const chunkLength = chunk ? chunk.length : batchLength;
-            isFinite(batchLength) && same && (memo[0] = chunkLength === batchLength);
-            memo[1] = Math.min(batchLength, chunkLength);
-            return memo;
-        }, [true, Number.POSITIVE_INFINITY] as [boolean, number]);
+        for (batchLength = Number.POSITIVE_INFINITY, i = -1; ++i < numColumns;) {
+            childData[i] = child = columns[i].shift()!;
+            batchLength = Math.min(batchLength, child ? child.length : batchLength);
+        }
 
-        if (isFinite(batchLength) && !(sameLength && batchLength <= 0)) {
-            batchData = distributeChildData(fields, batchLength, columns, memo);
-            batchLength > 0 && (batchArgs[numBatches++] = [batchLength, batchData]);
+        if (isFinite(batchLength)) {
+            childData = distributeChildData(fields, batchLength, childData, columns, memo);
+            if (batchLength > 0) {
+                batchArgs[numBatches++] = [batchLength, childData.slice()];
+            }
         }
     }
     return [
@@ -92,27 +94,25 @@ function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]:
 }
 
 /** @ignore */
-function distributeChildData<T extends { [key: string]: DataType } = any>(fields: Field<T[keyof T]>[], batchLength: number, columns: Data<T[keyof T]>[][], memo: { numBatches: number }) {
+function distributeChildData<T extends { [key: string]: DataType } = any>(fields: Field<T[keyof T]>[], batchLength: number, childData: Data<T[keyof T]>[], columns: Data<T[keyof T]>[][], memo: { numBatches: number }) {
     let data: Data<T[keyof T]>;
     let field: Field<T[keyof T]>;
-    let chunks: Data<T[keyof T]>[];
     let length = 0, i = -1, n = columns.length;
-    const batchData = [] as Data<T[keyof T]>[];
     const bitmapLength = ((batchLength + 63) & ~63) >> 3;
     while (++i < n) {
-        if ((data = (chunks = columns[i]).shift()!) && ((length = data.length) >= batchLength)) {
+        if ((data = childData[i]) && ((length = data.length) >= batchLength)) {
             if (length === batchLength) {
-                batchData[i] = data;
+                childData[i] = data;
             } else {
-                batchData[i] = data.slice(0, batchLength);
+                childData[i] = data.slice(0, batchLength);
                 data = data.slice(batchLength, length - batchLength);
-                memo.numBatches = Math.max(memo.numBatches, chunks.push(data));
+                memo.numBatches = Math.max(memo.numBatches, columns[i].unshift(data));
             }
         } else {
             (field = fields[i]).nullable || (fields[i] = field.clone({ nullable: true }) as Field<T[keyof T]>);
-            batchData[i] = data ? data._changeLengthAndBackfillNullBitmap(batchLength)
+            childData[i] = data ? data._changeLengthAndBackfillNullBitmap(batchLength)
                 : new Data(field.type, 0, batchLength, batchLength, nullBufs(bitmapLength)) as Data<T[keyof T]>;
         }
     }
-    return batchData;
+    return childData;
 }

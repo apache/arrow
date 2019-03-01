@@ -65,7 +65,8 @@ describe('Table#serialize()', () => {
 
     const chunkLengths = [] as number[];
     for (let i = -1; ++i < 3;) {
-        chunkLengths[i] = (Math.random() * 100) | 0;
+        chunkLengths[i * 2] = (Math.random() * 100) | 0;
+        chunkLengths[i * 2 + 1] = 0;
         const table = <T extends { [key: string]: DataType } = any>(schema: Schema<T>) => createTable(schema, chunkLengths);
         test(`Table#select round-trips through serialization`, () => {
             const source = table(schema1).select('a', 'c');
