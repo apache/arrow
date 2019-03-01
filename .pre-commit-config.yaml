@@ -29,6 +29,14 @@ repos:
         entry: bash -c "git archive HEAD --prefix=apache-arrow/ --output=arrow-src.tar && ./dev/release/run-rat.sh arrow-src.tar"
         always_run: true
         pass_filenames: false
+      - id: rustfmt
+        name: rustfmt
+        language: system
+        entry: bash -c "cd rust && cargo +stable fmt --all -- --check"
+        files: ^rust/.*\.rs$
+        types:
+          - file
+          - rust
   - repo: git://github.com/pre-commit/pre-commit-hooks
     sha: v1.2.3
     hooks:
