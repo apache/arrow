@@ -45,95 +45,58 @@ struct ConcatenateImpl {
     }
     out_.buffers.resize(in[0].buffers.size());
     out_.child_data.resize(in[0].child_data.size());
+    for (auto& data : out_.child_data) {
+      data = std::make_shared<ArrayData>();
+    }
   }
 
   /// offset, length pair for representing a Range of a buffer or array
   struct Range {
-    int32_t offset, length;
+    int64_t offset, length;
 
     Range() : offset(-1), length(0) {}
-    Range(int32_t o, int32_t l) : offset(o), length(l) {}
+    Range(int64_t o, int64_t l) : offset(o), length(l) {}
   };
 
   Status Visit(const NullType&) { return Status::OK(); }
 
-  Status Visit(const BooleanType&) {
-    std::shared_ptr<Buffer> values_buffer;
-    RETURN_NOT_OK(ConcatenateBitmaps(1, &out_.buffers[1]));
-    return Status::OK();
-  }
+  Status Visit(const BooleanType&) { return ConcatenateBitmaps(1, &out_.buffers[1]); }
 
   // handle numbers, decimal128, fixed_size_binary
   Status Visit(const FixedWidthType& fixed) {
-    DCHECK_EQ(fixed.bit_width() % 8, 0);
-    const int byte_width = fixed.bit_width() / 8;
-    std::vector<std::shared_ptr<Buffer>> values_slices(in_size());
-    for (int i = 0; i < in_size(); ++i) {
-      auto byte_length = byte_width * in_length(i);
-      auto byte_offset = byte_width * in_offset(i);
-      values_slices[i] = SliceBuffer(in_[i].buffers[1], byte_offset, byte_length);
-    }
-    RETURN_NOT_OK(arrow::Concatenate(values_slices, pool_, &out_.buffers[1]));
-    return Status::OK();
+    return arrow::Concatenate(Slices(Buffers(1), FixedWidthRanges(fixed)), pool_,
+                              &out_.buffers[1]);
   }
 
   Status Visit(const BinaryType&) {
     std::vector<Range> value_ranges;
     RETURN_NOT_OK(ConcatenateOffsets(1, &out_.buffers[1], &value_ranges));
-    std::vector<std::shared_ptr<Buffer>> values_slices(in_size());
-    for (int i = 0; i < in_size(); ++i) {
-      values_slices[i] =
-          SliceBuffer(in_[i].buffers[2], value_ranges[i].offset, value_ranges[i].length);
-    }
-    RETURN_NOT_OK(arrow::Concatenate(values_slices, pool_, &out_.buffers[2]));
-    return Status::OK();
+    return arrow::Concatenate(Slices(Buffers(2), value_ranges), pool_, &out_.buffers[2]);
   }
 
   Status Visit(const ListType&) {
     std::vector<Range> value_ranges;
     RETURN_NOT_OK(ConcatenateOffsets(1, &out_.buffers[1], &value_ranges));
-    std::vector<ArrayData> values_slices(in_size());
-    for (int i = 0; i < in_size(); ++i) {
-      values_slices[i] =
-          in_[i].child_data[0]->Slice(value_ranges[i].offset, value_ranges[i].length);
-    }
-    out_.child_data[0] = std::make_shared<ArrayData>();
-    RETURN_NOT_OK(
-        ConcatenateImpl(values_slices, pool_).Concatenate(out_.child_data[0].get()));
-    return Status::OK();
+    return ConcatenateImpl(Slices(ChildData(0), value_ranges), pool_)
+        .Concatenate(out_.child_data[0].get());
   }
 
   Status Visit(const StructType& s) {
-    std::vector<ArrayData> values_slices(in_size());
-    for (int field_index = 0; field_index < s.num_children(); ++field_index) {
-      for (int i = 0; i < in_size(); ++i) {
-        values_slices[i] =
-            in_[i].child_data[field_index]->Slice(in_offset(i), in_length(i));
-      }
-      out_.child_data[field_index] = std::make_shared<ArrayData>();
-      RETURN_NOT_OK(ConcatenateImpl(values_slices, pool_)
-                        .Concatenate(out_.child_data[field_index].get()));
+    auto ranges = Ranges();
+    for (int i = 0; i < s.num_children(); ++i) {
+      RETURN_NOT_OK(ConcatenateImpl(Slices(ChildData(i), ranges), pool_)
+                        .Concatenate(out_.child_data[i].get()));
     }
     return Status::OK();
   }
 
   Status Visit(const DictionaryType& d) {
-    std::vector<ArrayData> indices_slices(in_size());
-    for (int i = 0; i < in_size(); ++i) {
-      indices_slices[i] = ArrayData(in_[i]);
-      indices_slices[i].type = d.index_type();
-      // don't bother concatenating null bitmaps again
-      indices_slices[i].null_count = 0;
-      indices_slices[i].buffers[0] = nullptr;
-    }
-    ArrayData indices;
-    RETURN_NOT_OK(ConcatenateImpl(indices_slices, pool_).Concatenate(&indices));
-    out_.buffers[1] = indices.buffers[1];
-    return Status::OK();
+    auto fixed = internal::checked_cast<const FixedWidthType*>(d.index_type().get());
+    return arrow::Concatenate(Slices(Buffers(1), FixedWidthRanges(*fixed)), pool_,
+                              &out_.buffers[1]);
   }
 
   Status Visit(const UnionType& u) {
-    // type_codes are an index into child_data
     return Status::NotImplemented("concatenation of ", u);
   }
 
@@ -151,6 +114,57 @@ struct ConcatenateImpl {
     RETURN_NOT_OK(VisitTypeInline(*out_.type, this));
     *out = std::move(out_);
     return Status::OK();
+  }
+
+  std::vector<std::shared_ptr<Buffer>> Buffers(int index) {
+    std::vector<std::shared_ptr<Buffer>> buffers(in_size());
+    for (int i = 0; i != in_size(); ++i) {
+      buffers[i] = in_[i].buffers[index];
+    }
+    return buffers;
+  }
+
+  std::vector<ArrayData> ChildData(int index) {
+    std::vector<ArrayData> child_data(in_size());
+    for (int i = 0; i != in_size(); ++i) {
+      child_data[i] = *in_[i].child_data[index];
+    }
+    return child_data;
+  }
+
+  ArrayData Slice(const ArrayData& d, Range r) { return d.Slice(r.offset, r.length); }
+
+  std::shared_ptr<Buffer> Slice(const std::shared_ptr<Buffer>& b, Range r) {
+    return SliceBuffer(b, r.offset, r.length);
+  }
+
+  template <typename Slicable>
+  std::vector<Slicable> Slices(const std::vector<Slicable>& slicable,
+                               const std::vector<Range>& ranges) {
+    std::vector<Slicable> values_slices(in_size());
+    for (int i = 0; i < in_size(); ++i) {
+      values_slices[i] = Slice(slicable[i], ranges[i]);
+    }
+    return values_slices;
+  }
+
+  std::vector<Range> Ranges() {
+    std::vector<Range> ranges(in_size());
+    for (int i = 0; i < in_size(); ++i) {
+      ranges[i] = Range(in_offset(i), in_length(i));
+    }
+    return ranges;
+  }
+
+  std::vector<Range> FixedWidthRanges(const FixedWidthType& fixed) {
+    DCHECK_EQ(fixed.bit_width() % 8, 0);
+    auto byte_width = fixed.bit_width() / 8;
+    auto ranges = Ranges();
+    for (Range& range : ranges) {
+      range.offset *= byte_width;
+      range.length *= byte_width;
+    }
+    return ranges;
   }
 
   Status ConcatenateBitmaps(int index, std::shared_ptr<Buffer>* bitmap_buffer) {

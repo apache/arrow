@@ -67,7 +67,7 @@ class Status;
 /// could cast from int64 to float64 like so:
 ///
 /// Int64Array arr = GetMyData();
-/// auto new_data = arr.data()->ShallowCopy();
+/// auto new_data = arr.data()->Copy();
 /// new_data->type = arrow::float64();
 /// DoubleArray double_arr(new_data);
 ///
@@ -75,7 +75,7 @@ class Status;
 /// reused. For example, if we had a group of operations all returning doubles,
 /// say:
 ///
-/// Log(Sqrt(Expr(arr))
+/// Log(Sqrt(Expr(arr)))
 ///
 /// Then the low-level implementations of each of these functions could have
 /// the signatures
@@ -146,6 +146,7 @@ struct ARROW_EXPORT ArrayData {
         buffers(std::move(other.buffers)),
         child_data(std::move(other.child_data)) {}
 
+  // Copy constructor
   ArrayData(const ArrayData& other) noexcept
       : type(other.type),
         length(other.length),
@@ -155,15 +156,10 @@ struct ARROW_EXPORT ArrayData {
         child_data(other.child_data) {}
 
   // Move assignment
-  ArrayData& operator=(ArrayData&& other) {
-    type = std::move(other.type);
-    length = other.length;
-    null_count = other.null_count;
-    offset = other.offset;
-    buffers = std::move(other.buffers);
-    child_data = std::move(other.child_data);
-    return *this;
-  }
+  ArrayData& operator=(ArrayData&& other) = default;
+
+  // Copy assignment
+  ArrayData& operator=(const ArrayData& other) = default;
 
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
 
