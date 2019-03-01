@@ -174,7 +174,7 @@ export class Data<T extends DataType = DataType> {
     // Convenience methods for creating Data instances for each of the Arrow Vector types
     //
     /** @nocollapse */
-    public static Null<T extends Null>(type: T, offset: number, length: number, nullCount: number, nullBitmap: NullBuffer) {
+    public static Null<T extends Null>(type: T, offset: number, length: number, nullCount: number, nullBitmap: NullBuffer, _data?: NullBuffer) {
         return new Data(type, offset, length, nullCount, [undefined, undefined, toUint8Array(nullBitmap)]);
     }
     /** @nocollapse */
