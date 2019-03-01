@@ -44,8 +44,11 @@ cmake ^
     -DARROW_PYTHON=ON ^
     -DPythonInterp_FIND_VERSION=ON ^
     -DPythonInterp_FIND_VERSION_MAJOR=3 ^
+    -DARROW_BUILD_TESTS=ON ^
+    -DARROW_PYTHON=OFF ^
     .. || exit /B
 make -j4 || exit /B
+ctest --output-on-failure -j2 || exit /B
 make install || exit /B
 popd
 

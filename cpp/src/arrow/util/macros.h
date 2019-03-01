@@ -18,6 +18,8 @@
 #ifndef ARROW_UTIL_MACROS_H
 #define ARROW_UTIL_MACROS_H
 
+#include <cstdint>
+
 #define ARROW_STRINGIFY(x) #x
 #define ARROW_CONCAT(x, y) x##y
 
@@ -121,6 +123,17 @@
 #define ARROW_DISABLE_UBSAN(feature) __attribute__((no_sanitize(feature)))
 #else
 #define ARROW_DISABLE_UBSAN(feature)
+#endif
+
+// ----------------------------------------------------------------------
+// Machine information
+
+#if INTPTR_MAX == INT64_MAX
+#define ARROW_BITNESS 64
+#elif INTPTR_MAX == INT32_MAX
+#define ARROW_BITNESS 32
+#else
+#error Unexpected INTPTR_MAX
 #endif
 
 // ----------------------------------------------------------------------

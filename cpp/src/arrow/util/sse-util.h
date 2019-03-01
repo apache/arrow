@@ -110,7 +110,11 @@ static inline uint32_t SSE4_crc32_u32(uint32_t crc, uint32_t v) {
 }
 
 static inline uint32_t SSE4_crc32_u64(uint32_t crc, uint64_t v) {
+#if ARROW_BITNESS == 32
+  return 0;
+#else
   return static_cast<uint32_t>(_mm_crc32_u64(crc, v));
+#endif
 }
 
 #else  // without SSE 4.2.
