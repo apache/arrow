@@ -111,6 +111,14 @@ class NumericBuilder : public ArrayBuilder {
     return reinterpret_cast<value_type*>(data_builder_.mutable_data())[index];
   }
 
+  Status AppendValues(const value_type value, int64_t num_copies) {
+    ARROW_RETURN_NOT_OK(Reserve(num_copies));
+    data_builder_.Append(num_copies, value);
+    ArrayBuilder::UnsafeSetNotNull(num_copies);
+    return Status::OK();
+  }
+
+
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
   /// \param[in] length the number of values to append
