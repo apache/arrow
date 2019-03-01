@@ -187,6 +187,103 @@ table Interval {
   unit: IntervalUnit;
 }
 
+
+/// ----------------------------------------------------------------------
+/// user defined key value pairs to add custom metadata to arrow
+/// key namespacing is the responsibility of the user
+
+table KeyValue {
+  key: string;
+  value: string;
+}
+
+/// ------------------------------------------------------------------------
+/// Types used to represent a packed c-like structs.  These are experimental
+/// and maybe subject to change.
+/// IMPORTANT: COMPATIBILITY MAY BE BROKEN IN FUTURE release.
+/// They are not required to be implemented.
+
+/// Similar to a c-union, takes the byte-width
+/// of its longest sub-type.  To record type of union
+/// use the "tagged union" pattern.
+table PackedUnion {
+}
+
+/// A binary string of a maximum size.  Fields are layed out as
+/// [length][UTF8 bytes].  The number of bytes used is maxSize +
+/// lengthType.bitWidth/8.
+table PackedBinary {
+  /// Maximum number of bytes (not characters) used.  This
+  /// amount of bytes will always be used.
+  maxSize: int;
+
+  /// If not set all binary data are of maxSize.  If set use specified
+  /// numeric type to specify a length less then or equal to
+  /// max size.
+  lengthType: Int;
+}
+
+
+/// A UTF-8 string of a maximum size.  Fields are layed out as
+/// [length][UTF8 bytes].  The number of bytes used is maxSize +
+/// lengthType.bitWidth/8.
+table PackedUtf8 {
+  /// Maximum number of bytes (not characters) used.  This
+  /// amount of bytes will always be used.
+  maxSize: int;
+
+  /// If not set all strings are maxSize.  If set use specified
+  /// numeric type to specify a length less then or equal to
+  /// max size.
+  lengthType: Int;
+}
+
+// Supported types for PackedStructs.
+union PackedType {
+  /// Booleans use 1 byte, 0 is defined as false, all other
+  /// values are true.
+  Bool,
+  Int,
+  FloatingPoint,
+  FixedSizeList,
+  FixedSizeBinary,
+  PackedBinary,
+  PackedUnion,
+  PackedUtf8,
+  /// For nested structs.
+  Struct_
+}
+
+// A field in a packed struct.
+table PackedStructField {
+  // Name is not required, in i.e. a List
+  name: string;
+
+  // This is the type of the decoded value if the field is dictionary encoded
+  type: PackedType;
+
+  // Number of bytes to reserve after this field.
+  padding: int = 0;
+
+  // children apply only to Nested data types like Struct, List and Union
+  children: [PackedStructField];
+
+  // User-defined metadata
+  custom_metadata: [ KeyValue ];
+}
+
+// A "c"-like struct object that has a fixed byte-width
+// for each slot in the array.  The slot is layed out by doing
+// a depth first traversal of all PackedStructFields and placing
+// them one after another.
+table PackedStruct {
+  fields : [ PackedStructField ];
+  /// Number in size in bytes of each slot. This serves
+  /// as a sanity check to make sure implementations
+  /// are performing the same layout.
+  size: Int;
+}
+
 /// ----------------------------------------------------------------------
 /// Top-level Type value, enabling extensible type-specific metadata. We can
 /// add new logical types to Type without breaking backwards compatibility
@@ -208,16 +305,10 @@ union Type {
   Union,
   FixedSizeBinary,
   FixedSizeList,
-  Map
-}
+  Map,
 
-/// ----------------------------------------------------------------------
-/// user defined key value pairs to add custom metadata to arrow
-/// key namespacing is the responsibility of the user
-
-table KeyValue {
-  key: string;
-  value: string;
+  /// EXPERIMENTAL: COMPATIBILITY NOT GUARANTEED.
+  PackedStruct
 }
 
 /// ----------------------------------------------------------------------
