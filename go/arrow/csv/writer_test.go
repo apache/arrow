@@ -30,8 +30,8 @@ import (
 func TestCSVWriter(t *testing.T) {
 	f := new(bytes.Buffer)
 
-	pool := memory.NewGoAllocator()
-
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
 	schema := arrow.NewSchema(
 		[]arrow.Field{
 			{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
