@@ -27,20 +27,31 @@ use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
 use crate::datasource::{RecordBatchIterator, Table};
-use crate::execution::error::Result;
+use crate::execution::error::{ExecutionError, Result};
 
+/// In-memory table
 pub struct MemTable {
     schema: Arc<Schema>,
     batches: Vec<RecordBatch>,
 }
 
 impl MemTable {
-    pub fn new(schema: Arc<Schema>, batches: Vec<RecordBatch>) -> Self {
-        Self { schema, batches }
+    /// Create a new in-memory table from the provided schema and record batches
+    pub fn new(schema: Arc<Schema>, batches: Vec<RecordBatch>) -> Result<Self> {
+        if batches
+            .iter()
+            .all(|batch| batch.num_columns() == schema.fields().len())
+        {
+            Ok(Self { schema, batches })
+        } else {
+            Err(ExecutionError::General(
+                "Mismatch between schema and batch column count".to_string(),
+            ))
+        }
     }
 
     /// Create a mem table by reading from another data source
-    pub fn load(t: &Table) -> Self {
+    pub fn load(t: &Table) -> Result<Self> {
         let schema = t.schema();
         let it = t.scan(&None, 1024 * 1024);
         let mut it_mut = it.borrow_mut();
@@ -100,6 +111,7 @@ impl Table for MemTable {
     }
 }
 
+/// Iterator over an in-memory table
 pub struct MemBatchIterator {
     schema: Arc<Schema>,
     index: usize,
@@ -128,7 +140,7 @@ mod tests {
     use arrow::datatypes::{DataType, Field, Schema};
 
     #[test]
-    fn test1() {
+    fn test_with_projection() {
         let schema = Arc::new(Schema::new(vec![
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Int32, false),
@@ -144,13 +156,7 @@ mod tests {
             ],
         );
 
-        let provider = MemTable::new(schema, vec![batch]);
-
-        // scan with no projection
-        let scan1 = provider.scan(&None, 1024);
-        let batch1 = scan1.borrow_mut().next().unwrap().unwrap();
-        assert_eq!(3, batch1.schema().fields().len());
-        assert_eq!(3, batch1.num_columns());
+        let provider = MemTable::new(schema, vec![batch]).unwrap();
 
         // scan with projection
         let scan2 = provider.scan(&Some(vec![2, 1]), 1024);
@@ -159,5 +165,30 @@ mod tests {
         assert_eq!("c", batch2.schema().field(0).name());
         assert_eq!("b", batch2.schema().field(1).name());
         assert_eq!(2, batch2.num_columns());
+    }
+
+    #[test]
+    fn test_without_projection() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Int32, false),
+            Field::new("c", DataType::Int32, false),
+        ]));
+
+        let batch = RecordBatch::new(
+            schema.clone(),
+            vec![
+                Arc::new(Int32Array::from(vec![1, 2, 3])),
+                Arc::new(Int32Array::from(vec![4, 5, 6])),
+                Arc::new(Int32Array::from(vec![7, 8, 9])),
+            ],
+        );
+
+        let provider = MemTable::new(schema, vec![batch]).unwrap();
+
+        let scan1 = provider.scan(&None, 1024);
+        let batch1 = scan1.borrow_mut().next().unwrap().unwrap();
+        assert_eq!(3, batch1.schema().fields().len());
+        assert_eq!(3, batch1.num_columns());
     }
 }

@@ -67,7 +67,7 @@ impl Table for CsvFile {
     }
 }
 
-/// CSV result set
+/// Iterator over CSV batches
 pub struct CsvBatchIterator {
     schema: Arc<Schema>,
     reader: csv::Reader<File>,

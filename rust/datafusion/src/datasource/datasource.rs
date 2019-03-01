@@ -41,6 +41,9 @@ pub trait Table {
 
 /// Iterator for reading a series of record batches with a known schema
 pub trait RecordBatchIterator {
+    /// Get the schema of this iterator
     fn schema(&self) -> &Arc<Schema>;
+
+    /// Get the next batch in this iterator
     fn next(&mut self) -> Result<Option<RecordBatch>>;
 }
