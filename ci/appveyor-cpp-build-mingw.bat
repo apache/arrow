@@ -24,15 +24,6 @@ set INSTALL_DIR=%HOMEDRIVE%%HOMEPATH%\install
 set PATH=%INSTALL_DIR%\bin;%PATH%
 set PKG_CONFIG_PATH=%INSTALL_DIR%\lib\pkgconfig
 
-for /f "usebackq" %%v in (`python3 -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))"`) do (
-  set PYTHON_VERSION=%%v
-)
-
-set PYTHONHOME=%MINGW_PREFIX%\lib\python%PYTHON_VERSION%
-set PYTHONPATH=%PYTHONHOME%
-set PYTHONPATH=%PYTHONPATH%;%MINGW_PREFIX%\lib\python%PYTHON_VERSION%\lib-dynload
-set PYTHONPATH=%PYTHONPATH%;%MINGW_PREFIX%\lib\python%PYTHON_VERSION%\site-packages
-
 set CPP_BUILD_DIR=cpp\build
 mkdir %CPP_BUILD_DIR%
 pushd %CPP_BUILD_DIR%
@@ -54,6 +45,7 @@ cmake ^
     -DPythonInterp_FIND_VERSION=ON ^
     -DPythonInterp_FIND_VERSION_MAJOR=3 ^
     -DARROW_BUILD_TESTS=ON ^
+    -DARROW_PYTHON=OFF ^
     .. || exit /B
 make -j4 || exit /B
 ctest --output-on-failure -j2 || exit /B
