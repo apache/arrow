@@ -44,19 +44,69 @@ class DummyOp : public Operation {
   }
 };
 
-TEST(TestLogicalType, Names) {
+TEST(TestLogicalType, NonNestedToString) {
   std::vector<std::pair<std::shared_ptr<LogicalType>, std::string>> cases = {
-      {type::any(), "Any"},       {type::boolean(), "Bool"},
-      {type::number(), "Number"}, {type::floating(), "Floating"},
-      {type::int8(), "Int8"},     {type::int16(), "Int16"},
-      {type::int32(), "Int32"},   {type::int64(), "Int64"},
-      {type::uint8(), "UInt8"},   {type::uint16(), "UInt16"},
-      {type::uint32(), "UInt32"}, {type::uint64(), "UInt64"},
-      {type::float_(), "Float"},  {type::double_(), "Double"}};
+      {type::any(), "Any"},
+      {type::null(), "Null"},
+      {type::boolean(), "Bool"},
+      {type::number(), "Number"},
+      {type::floating(), "Floating"},
+      {type::integer(), "Integer"},
+      {type::signed_integer(), "SignedInteger"},
+      {type::unsigned_integer(), "UnsignedInteger"},
+      {type::int8(), "Int8"},
+      {type::int16(), "Int16"},
+      {type::int32(), "Int32"},
+      {type::int64(), "Int64"},
+      {type::uint8(), "UInt8"},
+      {type::uint16(), "UInt16"},
+      {type::uint32(), "UInt32"},
+      {type::uint64(), "UInt64"},
+      {type::float_(), "Float"},
+      {type::double_(), "Double"},
+      {type::binary(), "Binary"},
+      {type::utf8(), "Utf8"}};
 
   for (auto& case_ : cases) {
     ASSERT_EQ(case_.second, case_.first->ToString());
   }
+}
+
+TEST(TestLogicalType, Any) {
+  auto op = std::make_shared<DummyOp>();
+  auto t = type::any();
+  ASSERT_TRUE(t->IsInstance(*std::make_shared<scalar::Int32>(op)));
+  ASSERT_TRUE(t->IsInstance(*std::make_shared<array::Binary>(op)));
+}
+
+TEST(TestLogicalType, Number) {
+  auto op = std::make_shared<DummyOp>();
+  auto t = type::number();
+
+  ASSERT_TRUE(t->IsInstance(*std::make_shared<scalar::Int32>(op)));
+  ASSERT_TRUE(t->IsInstance(*std::make_shared<scalar::Double>(op)));
+  ASSERT_FALSE(t->IsInstance(*std::make_shared<scalar::Bool>(op)));
+  ASSERT_FALSE(t->IsInstance(*std::make_shared<scalar::Null>(op)));
+  ASSERT_FALSE(t->IsInstance(*std::make_shared<scalar::Binary>(op)));
+}
+
+TEST(TestLogicalType, IntegerBaseTypes) {
+  auto op = std::make_shared<DummyOp>();
+  auto all_ty = type::integer();
+  auto signed_ty = type::signed_integer();
+  auto unsigned_ty = type::unsigned_integer();
+
+  ASSERT_TRUE(all_ty->IsInstance(*std::make_shared<scalar::Int32>(op)));
+  ASSERT_TRUE(all_ty->IsInstance(*std::make_shared<scalar::UInt32>(op)));
+  ASSERT_FALSE(all_ty->IsInstance(*std::make_shared<array::Double>(op)));
+  ASSERT_FALSE(all_ty->IsInstance(*std::make_shared<array::Binary>(op)));
+
+  ASSERT_TRUE(signed_ty->IsInstance(*std::make_shared<array::Int32>(op)));
+  ASSERT_FALSE(signed_ty->IsInstance(*std::make_shared<scalar::UInt32>(op)));
+
+  ASSERT_TRUE(unsigned_ty->IsInstance(*std::make_shared<scalar::UInt32>(op)));
+  ASSERT_TRUE(unsigned_ty->IsInstance(*std::make_shared<array::UInt32>(op)));
+  ASSERT_FALSE(unsigned_ty->IsInstance(*std::make_shared<array::Int8>(op)));
 }
 
 TEST(TestLogicalType, ConcreteTypes) { auto op = std::make_shared<DummyOp>(); }

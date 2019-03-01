@@ -34,13 +34,13 @@ namespace type {
 
 bool Any::IsInstance(const Expr& expr) const { return true; }
 
-std::string Any::ToString() const { return "any"; }
+std::string Any::ToString() const { return "Any"; }
 
 #define SIMPLE_LOGICAL_TYPE(NAME)                 \
   bool NAME::IsInstance(const Expr& expr) const { \
     return InheritsFrom<value::NAME>(expr);       \
   }                                               \
-  std::string NAME::ToString() const { return "NAME"; }
+  std::string NAME::ToString() const { return "" #NAME; }
 
 SIMPLE_LOGICAL_TYPE(Null)
 SIMPLE_LOGICAL_TYPE(Bool)

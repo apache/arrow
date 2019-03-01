@@ -26,13 +26,14 @@ namespace compute {
 
 Literal::Literal(const std::shared_ptr<Scalar>& value) : value_(value) {}
 
-// Status Literal::ToExpr(std::shared_ptr<Expr>* out) const {
-//   *out = MakeScalarExpression(value_->
-//   switch (value->type->id()) {
-//     default:
-//     break;
-//   }
-// }
+Status Literal::ToExpr(std::shared_ptr<Expr>* out) const {
+  // *out = MakeScalarExpression(value_->
+  // switch (value->type->id()) {
+  //   default:
+  //   break;
+  // }
+  return Status::NotImplemented("NYI");
+}
 
 }  // namespace compute
 }  // namespace arrow

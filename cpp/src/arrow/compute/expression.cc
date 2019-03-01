@@ -27,6 +27,8 @@
 namespace arrow {
 namespace compute {
 
+Expr::Expr(std::shared_ptr<Operation> op) : op_(std::move(op)) {}
+
 ValueExpr::ValueExpr(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type,
                      Rank rank)
     : Expr(std::move(op)), type_(std::move(type)), rank_(rank) {}
