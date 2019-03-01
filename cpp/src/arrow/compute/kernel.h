@@ -95,6 +95,19 @@ struct ARROW_EXPORT Datum {
   Datum(const std::shared_ptr<T>& value)  // NOLINT implicit conversion
       : Datum(std::shared_ptr<Array>(value)) {}
 
+  // Convenience constructors
+  explicit Datum(bool value) : value(std::make_shared<BooleanScalar>(value)) {}
+  explicit Datum(int8_t value) : value(std::make_shared<Int8Scalar>(value)) {}
+  explicit Datum(uint8_t value) : value(std::make_shared<UInt8Scalar>(value)) {}
+  explicit Datum(int16_t value) : value(std::make_shared<Int16Scalar>(value)) {}
+  explicit Datum(uint16_t value) : value(std::make_shared<UInt16Scalar>(value)) {}
+  explicit Datum(int32_t value) : value(std::make_shared<Int32Scalar>(value)) {}
+  explicit Datum(uint32_t value) : value(std::make_shared<UInt32Scalar>(value)) {}
+  explicit Datum(int64_t value) : value(std::make_shared<Int64Scalar>(value)) {}
+  explicit Datum(uint64_t value) : value(std::make_shared<UInt64Scalar>(value)) {}
+  explicit Datum(float value) : value(std::make_shared<FloatScalar>(value)) {}
+  explicit Datum(double value) : value(std::make_shared<DoubleScalar>(value)) {}
+
   ~Datum() {}
 
   Datum(const Datum& other) noexcept { this->value = other.value; }

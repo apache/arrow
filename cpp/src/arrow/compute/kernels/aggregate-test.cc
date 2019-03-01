@@ -25,6 +25,7 @@
 
 #include "arrow/array.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/count.h"
 #include "arrow/compute/kernels/mean.h"
 #include "arrow/compute/kernels/sum-internal.h"
 #include "arrow/compute/kernels/sum.h"
@@ -42,6 +43,10 @@ using std::vector;
 
 namespace arrow {
 namespace compute {
+
+///
+/// Sum
+///
 
 template <typename ArrowType>
 using SumResult =
@@ -162,6 +167,10 @@ TYPED_TEST(TestRandomNumericSumKernel, RandomSliceArraySum) {
   }
 }
 
+///
+/// Mean
+///
+
 template <typename ArrowType>
 static Datum NaiveMean(const Array& array) {
   using MeanScalarType = typename TypeTraits<DoubleType>::ScalarType;
@@ -232,6 +241,72 @@ TYPED_TEST(TestRandomNumericMeanKernel, RandomArrayMean) {
         int64_t length = (1UL << i) + length_adjust;
         auto array = rand.Numeric<TypeParam>(length, 0, 100, null_probability);
         ValidateMean<TypeParam>(&this->ctx_, *array);
+      }
+    }
+  }
+}
+
+///
+/// Count
+///
+//
+using CountPair = std::pair<int64_t, int64_t>;
+
+static CountPair NaiveCount(const Array& array) {
+  CountPair count;
+
+  count.first = array.length() - array.null_count();
+  count.second = array.null_count();
+
+  return count;
+}
+
+void ValidateCount(FunctionContext* ctx, const Array& input, CountPair expected) {
+  CountOptions all = CountOptions(CountOptions::COUNT_ALL);
+  CountOptions nulls = CountOptions(CountOptions::COUNT_NULL);
+  Datum result;
+
+  ASSERT_OK(Count(ctx, all, input, &result));
+  DatumEqual<Int64Type>::EnsureEqual(result, Datum(expected.first));
+
+  ASSERT_OK(Count(ctx, nulls, input, &result));
+  DatumEqual<Int64Type>::EnsureEqual(result, Datum(expected.second));
+}
+
+template <typename ArrowType>
+void ValidateCount(FunctionContext* ctx, const char* json, CountPair expected) {
+  auto array = ArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), json);
+  ValidateCount(ctx, *array, expected);
+}
+
+void ValidateCount(FunctionContext* ctx, const Array& input) {
+  ValidateCount(ctx, input, NaiveCount(input));
+}
+
+template <typename ArrowType>
+class TestCountKernel : public ComputeFixture, public TestBase {};
+
+TYPED_TEST_CASE(TestCountKernel, NumericArrowTypes);
+TYPED_TEST(TestCountKernel, SimpleCount) {
+  ValidateCount<TypeParam>(&this->ctx_, "[]", {0, 0});
+  ValidateCount<TypeParam>(&this->ctx_, "[null]", {0, 1});
+  ValidateCount<TypeParam>(&this->ctx_, "[1, null, 2]", {2, 1});
+  ValidateCount<TypeParam>(&this->ctx_, "[null, null, null]", {0, 3});
+  ValidateCount<TypeParam>(&this->ctx_, "[1, 2, 3, 4, 5, 6, 7, 8, 9]", {9, 0});
+}
+
+template <typename ArrowType>
+class TestRandomNumericCountKernel : public ComputeFixture, public TestBase {};
+
+TYPED_TEST_CASE(TestRandomNumericCountKernel, NumericArrowTypes);
+TYPED_TEST(TestRandomNumericCountKernel, RandomArrayCount) {
+  auto rand = random::RandomArrayGenerator(0x1205643);
+  for (size_t i = 3; i < 14; i++) {
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+      for (auto length_adjust : {-2, -1, 0, 1, 2}) {
+        int64_t length = (1UL << i) + length_adjust;
+        auto array = rand.Numeric<TypeParam>(length, 0, 100, null_probability);
+        ValidateCount(&this->ctx_, *array);
       }
     }
   }
