@@ -68,6 +68,7 @@ static struct {
 };
 static const int64_t num_flags = sizeof(flag_mappings) / sizeof(flag_mappings[0]);
 
+#ifndef _WIN32
 namespace {
 
 // Helper function to parse for hardware flags.
@@ -85,6 +86,7 @@ int64_t ParseCPUFlags(const std::string& values) {
 }
 
 }  // namespace
+#endif
 
 #ifdef _WIN32
 bool RetrieveCacheSize(int64_t* cache_sizes) {
@@ -94,7 +96,7 @@ bool RetrieveCacheSize(int64_t* cache_sizes) {
   PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = nullptr;
   PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer_position = nullptr;
   DWORD buffer_size = 0;
-  DWORD offset = 0;
+  size_t offset = 0;
   typedef BOOL(WINAPI * GetLogicalProcessorInformationFuncPointer)(void*, void*);
   GetLogicalProcessorInformationFuncPointer func_pointer =
       (GetLogicalProcessorInformationFuncPointer)GetProcAddress(
@@ -156,9 +158,9 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
   highest_extended_valid_id = cpu_info[0];
 
   // Retrieve CPU model name
-  if (highest_extended_valid_id >= 0x80000004) {
+  if (highest_extended_valid_id >= static_cast<int>(0x80000004)) {
     model_name->clear();
-    for (int i = 0x80000002; i <= 0x80000004; ++i) {
+    for (int i = 0x80000002; i <= static_cast<int>(0x80000004); ++i) {
       __cpuidex(cpu_info.data(), i, 0);
       *model_name +=
           std::string(reinterpret_cast<char*>(cpu_info.data()), sizeof(cpu_info));
