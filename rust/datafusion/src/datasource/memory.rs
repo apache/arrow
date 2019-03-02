@@ -38,14 +38,11 @@ pub struct MemTable {
 impl MemTable {
     /// Create a new in-memory table from the provided schema and record batches
     pub fn new(schema: Arc<Schema>, batches: Vec<RecordBatch>) -> Result<Self> {
-        if batches
-            .iter()
-            .all(|batch| batch.num_columns() == schema.fields().len())
-        {
+        if batches.iter().all(|batch| batch.schema() == schema) {
             Ok(Self { schema, batches })
         } else {
             Err(ExecutionError::General(
-                "Mismatch between schema and batch column count".to_string(),
+                "Mismatch between schema and batches".to_string(),
             ))
         }
     }
@@ -190,5 +187,34 @@ mod tests {
         let batch1 = scan1.borrow_mut().next().unwrap().unwrap();
         assert_eq!(3, batch1.schema().fields().len());
         assert_eq!(3, batch1.num_columns());
+    }
+
+    #[test]
+    fn test_schema_validation() {
+        let schema1 = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Int32, false),
+            Field::new("c", DataType::Int32, false),
+        ]));
+
+        let schema2 = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Float64, false),
+            Field::new("c", DataType::Int32, false),
+        ]));
+
+        let batch = RecordBatch::new(
+            schema1.clone(),
+            vec![
+                Arc::new(Int32Array::from(vec![1, 2, 3])),
+                Arc::new(Int32Array::from(vec![4, 5, 6])),
+                Arc::new(Int32Array::from(vec![7, 8, 9])),
+            ],
+        );
+
+        match MemTable::new(schema2, vec![batch]) {
+            Err(_) => {}
+            _ => panic!("MemTable::new should have failed due to schema mismatch"),
+        }
     }
 }
