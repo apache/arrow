@@ -77,7 +77,7 @@ export class JSONVectorAssembler extends Visitor {
             ...super.visit(Vector.new(data.clone(type, offset, length, 0, buffers)))
         };
     }
-    public visitNull() { return {}; }
+    public visitNull() { return { 'DATA': [] }; }
     public visitBool<T extends Bool>({ values, offset, length }: VType<T>) {
         return { 'DATA': [...iterateBits(values, offset, length, null, getBool)] };
     }

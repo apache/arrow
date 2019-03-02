@@ -82,7 +82,9 @@ export class VectorAssembler extends Visitor {
         return super.visit(vector);
     }
 
-    public visitNull<T extends Null>(_nullV: VType<T>) { return this; }
+    public visitNull<T extends Null>(_nullV: VType<T>) {
+        return addBuffer.call(this, new Uint8Array(0));
+    }
     public visitDictionary<T extends Dictionary>(vector: VType<T>) {
         // Assemble the indices here, Dictionary assembled separately.
         return this.visit(vector.indices);
