@@ -527,7 +527,7 @@ impl fmt::Display for Field {
 ///
 /// Note that this information is only part of the meta-data and not part of the physical
 /// memory layout.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Schema {
     pub(crate) fields: Vec<Field>,
 }
@@ -819,4 +819,32 @@ mod tests {
         assert_eq!(_person.fields()[0].is_nullable(), false);
     }
 
+    #[test]
+    fn schema_equality() {
+        let schema1 = Schema::new(vec![
+            Field::new("c1", DataType::Utf8, false),
+            Field::new("c2", DataType::Float64, true),
+        ]);
+        let schema2 = Schema::new(vec![
+            Field::new("c1", DataType::Utf8, false),
+            Field::new("c2", DataType::Float64, true),
+        ]);
+
+        assert_eq!(schema1, schema2);
+
+        let schema3 = Schema::new(vec![
+            Field::new("c1", DataType::Utf8, false),
+            Field::new("c2", DataType::Float32, true),
+        ]);
+        let schema4 = Schema::new(vec![
+            Field::new("C1", DataType::Utf8, false),
+            Field::new("C2", DataType::Float64, true),
+        ]);
+
+        assert!(schema1 != schema3);
+        assert!(schema1 != schema4);
+        assert!(schema2 != schema3);
+        assert!(schema2 != schema4);
+        assert!(schema3 != schema4);
+    }
 }
