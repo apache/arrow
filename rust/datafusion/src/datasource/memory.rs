@@ -23,10 +23,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use arrow::datatypes::Schema;
+use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::{RecordBatchIterator, Table};
+use crate::datasource::{RecordBatchIterator, ScanResult, Table};
 use crate::execution::error::{ExecutionError, Result};
 
 /// In-memory table
@@ -38,7 +38,10 @@ pub struct MemTable {
 impl MemTable {
     /// Create a new in-memory table from the provided schema and record batches
     pub fn new(schema: Arc<Schema>, batches: Vec<RecordBatch>) -> Result<Self> {
-        if batches.iter().all(|batch| batch.schema() == schema) {
+        if batches
+            .iter()
+            .all(|batch| batch.schema().as_ref() == schema.as_ref())
+        {
             Ok(Self { schema, batches })
         } else {
             Err(ExecutionError::General(
@@ -50,7 +53,7 @@ impl MemTable {
     /// Create a mem table by reading from another data source
     pub fn load(t: &Table) -> Result<Self> {
         let schema = t.schema();
-        let it = t.scan(&None, 1024 * 1024);
+        let it = t.scan(&None, 1024 * 1024)?;
         let mut it_mut = it.borrow_mut();
 
         let mut data: Vec<RecordBatch> = vec![];
@@ -71,7 +74,7 @@ impl Table for MemTable {
         &self,
         projection: &Option<Vec<usize>>,
         _batch_size: usize,
-    ) -> Rc<RefCell<RecordBatchIterator>> {
+    ) -> Result<ScanResult> {
         let columns: Vec<usize> = match projection {
             Some(p) => p.clone(),
             None => {
@@ -84,14 +87,22 @@ impl Table for MemTable {
             }
         };
 
-        let projected_schema = Arc::new(Schema::new(
-            columns
-                .iter()
-                .map(|i| self.schema.field(*i).clone())
-                .collect(),
-        ));
+        let projected_columns: Result<Vec<Field>> = columns
+            .iter()
+            .map(|i| {
+                if *i < self.schema.fields().len() {
+                    Ok(self.schema.field(*i).clone())
+                } else {
+                    Err(ExecutionError::General(
+                        "Projection index out of range".to_string(),
+                    ))
+                }
+            })
+            .collect();
 
-        Rc::new(RefCell::new(MemBatchIterator {
+        let projected_schema = Arc::new(Schema::new(projected_columns?));
+
+        Ok(Rc::new(RefCell::new(MemBatchIterator {
             schema: projected_schema.clone(),
             index: 0,
             batches: self
@@ -104,7 +115,7 @@ impl Table for MemTable {
                     )
                 })
                 .collect(),
-        }))
+        })))
     }
 }
 
@@ -156,7 +167,7 @@ mod tests {
         let provider = MemTable::new(schema, vec![batch]).unwrap();
 
         // scan with projection
-        let scan2 = provider.scan(&Some(vec![2, 1]), 1024);
+        let scan2 = provider.scan(&Some(vec![2, 1]), 1024).unwrap();
         let batch2 = scan2.borrow_mut().next().unwrap().unwrap();
         assert_eq!(2, batch2.schema().fields().len());
         assert_eq!("c", batch2.schema().field(0).name());
@@ -183,10 +194,37 @@ mod tests {
 
         let provider = MemTable::new(schema, vec![batch]).unwrap();
 
-        let scan1 = provider.scan(&None, 1024);
+        let scan1 = provider.scan(&None, 1024).unwrap();
         let batch1 = scan1.borrow_mut().next().unwrap().unwrap();
         assert_eq!(3, batch1.schema().fields().len());
         assert_eq!(3, batch1.num_columns());
+    }
+
+    #[test]
+    fn test_invalid_projection() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Int32, false),
+            Field::new("c", DataType::Int32, false),
+        ]));
+
+        let batch = RecordBatch::new(
+            schema.clone(),
+            vec![
+                Arc::new(Int32Array::from(vec![1, 2, 3])),
+                Arc::new(Int32Array::from(vec![4, 5, 6])),
+                Arc::new(Int32Array::from(vec![7, 8, 9])),
+            ],
+        );
+
+        let provider = MemTable::new(schema, vec![batch]).unwrap();
+
+        let projection: Vec<usize> = vec![0, 4];
+
+        match provider.scan(&Some(projection), 1024) {
+            Err(_) => {}
+            _ => panic!("Scan should failed on invalid projection"),
+        };
     }
 
     #[test]

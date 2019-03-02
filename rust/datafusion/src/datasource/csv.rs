@@ -27,7 +27,7 @@ use arrow::csv;
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::{RecordBatchIterator, Table};
+use crate::datasource::{RecordBatchIterator, ScanResult, Table};
 use crate::execution::error::Result;
 
 /// Represents a CSV file with a provided schema
@@ -56,14 +56,14 @@ impl Table for CsvFile {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
-    ) -> Rc<RefCell<RecordBatchIterator>> {
-        Rc::new(RefCell::new(CsvBatchIterator::new(
+    ) -> Result<ScanResult> {
+        Ok(Rc::new(RefCell::new(CsvBatchIterator::new(
             &self.filename,
             self.schema.clone(),
             self.has_header,
             projection,
             batch_size,
-        )))
+        ))))
     }
 }
 

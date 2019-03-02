@@ -26,6 +26,8 @@ use arrow::record_batch::RecordBatch;
 
 use crate::execution::error::Result;
 
+pub type ScanResult = Rc<RefCell<RecordBatchIterator>>;
+
 /// Source table
 pub trait Table {
     /// Get a reference to the schema for this table
@@ -36,7 +38,7 @@ pub trait Table {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
-    ) -> Rc<RefCell<RecordBatchIterator>>;
+    ) -> Result<ScanResult>;
 }
 
 /// Iterator for reading a series of record batches with a known schema

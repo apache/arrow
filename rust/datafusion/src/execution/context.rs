@@ -118,7 +118,7 @@ impl ExecutionContext {
                 ..
             } => match self.datasources.borrow().get(table_name) {
                 Some(provider) => {
-                    let ds = provider.scan(projection, batch_size);
+                    let ds = provider.scan(projection, batch_size)?;
                     Ok(Rc::new(RefCell::new(DataSourceRelation::new(ds))))
                 }
                 _ => Err(ExecutionError::General(format!(
