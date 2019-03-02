@@ -395,8 +395,8 @@ pub struct ReaderBuilder {
 }
 
 impl Default for ReaderBuilder {
-    fn default() -> ReaderBuilder {
-        ReaderBuilder {
+    fn default() -> Self {
+        Self {
             schema: None,
             has_headers: false,
             delimiter: None,
@@ -431,8 +431,8 @@ impl ReaderBuilder {
     ///     reader
     /// }
     /// ```
-    pub fn new() -> ReaderBuilder {
-        ReaderBuilder::default()
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Set the CSV file's schema
@@ -473,7 +473,7 @@ impl ReaderBuilder {
         self
     }
 
-    /// Create a new `Reader` from the `ReaderBuilder`
+    /// Create a new `Reader`
     pub fn build<R: Read + Seek>(self, reader: R) -> Result<Reader<R>> {
         // check if schema should be inferred
         let mut buf_reader = BufReader::new(reader);
