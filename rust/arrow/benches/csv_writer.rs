@@ -28,43 +28,46 @@ use std::fs::File;
 use std::sync::Arc;
 
 fn record_batches_to_csv() {
-  let schema = Schema::new(vec![
-    Field::new("c1", DataType::Utf8, false),
-    Field::new("c2", DataType::Float64, true),
-    Field::new("c3", DataType::UInt32, false),
-    Field::new("c3", DataType::Boolean, true),
-  ]);
+    let schema = Schema::new(vec![
+        Field::new("c1", DataType::Utf8, false),
+        Field::new("c2", DataType::Float64, true),
+        Field::new("c3", DataType::UInt32, false),
+        Field::new("c3", DataType::Boolean, true),
+    ]);
 
-  let c1 = BinaryArray::from(vec![
-    "Lorem ipsum dolor sit amet",
-    "consectetur adipiscing elit",
-    "sed do eiusmod tempor",
-  ]);
-  let c2 =
-    PrimitiveArray::<Float64Type>::from(vec![Some(123.564532), None, Some(-556132.25)]);
-  let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
-  let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
+    let c1 = BinaryArray::from(vec![
+        "Lorem ipsum dolor sit amet",
+        "consectetur adipiscing elit",
+        "sed do eiusmod tempor",
+    ]);
+    let c2 = PrimitiveArray::<Float64Type>::from(vec![
+        Some(123.564532),
+        None,
+        Some(-556132.25),
+    ]);
+    let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
+    let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
 
-  let b = RecordBatch::new(
-    Arc::new(schema),
-    vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
-  );
-  let file = File::create("/tmp/bench_write_csv.csv").unwrap();
-  let writer = csv::Writer::new(file);
-  criterion::black_box(
-    writer
-      .write(vec![&b, &b, &b, &b, &b, &b, &b, &b, &b, &b, &b])
-      .unwrap(),
-  );
+    let b = RecordBatch::new(
+        Arc::new(schema),
+        vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
+    );
+    let file = File::create("/tmp/bench_write_csv.csv").unwrap();
+    let writer = csv::Writer::new(file);
+    criterion::black_box(
+        writer
+            .write(vec![&b, &b, &b, &b, &b, &b, &b, &b, &b, &b, &b])
+            .unwrap(),
+    );
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-  c.bench(
-    "record_batches_to_csv",
-    Benchmark::new("record_batches_to_csv", move |b| {
-      b.iter(|| record_batches_to_csv())
-    }),
-  );
+    c.bench(
+        "record_batches_to_csv",
+        Benchmark::new("record_batches_to_csv", move |b| {
+            b.iter(|| record_batches_to_csv())
+        }),
+    );
 }
 
 criterion_group!(benches, criterion_benchmark);
