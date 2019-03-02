@@ -17,7 +17,13 @@
 
 package org.apache.arrow.memory;
 
-
+/**
+ * Indicates memory could not be allocated for Arrow buffers.
+ *
+ * <p>This is different from {@linkplain OutOfMemoryError} which indicates the JVM
+ * is out of memory.  However, allocation of buffers is generally capped to a fixed
+ * size in application level code.
+ */
 public class OutOfMemoryException extends RuntimeException {
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(OutOfMemoryException

@@ -17,6 +17,12 @@
 
 package org.apache.arrow.memory;
 
+/**
+ * Configuration class to determine if bounds checking should be turned on or off.
+ *
+ * <p>Bounds checking is turned on by setting the system property
+ * "arrow.enable_unsafe_memory_access" equal to "true" and enabling java assertions.
+ */
 public class BoundsChecking {
 
   public static final boolean BOUNDS_CHECKING_ENABLED;
