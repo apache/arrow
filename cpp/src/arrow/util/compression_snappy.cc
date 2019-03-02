@@ -24,6 +24,7 @@
 #include <snappy.h>
 
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 using std::size_t;
@@ -73,7 +74,8 @@ Status SnappyCodec::Decompress(int64_t input_len, const uint8_t* input,
 
 int64_t SnappyCodec::MaxCompressedLen(int64_t input_len,
                                       const uint8_t* ARROW_ARG_UNUSED(input)) {
-  return snappy::MaxCompressedLength(input_len);
+  DCHECK_GE(input_len, 0);
+  return snappy::MaxCompressedLength(static_cast<size_t>(input_len));
 }
 
 Status SnappyCodec::Compress(int64_t input_len, const uint8_t* input,
