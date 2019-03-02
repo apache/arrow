@@ -47,6 +47,11 @@ class FunctionContext;
 ARROW_EXPORT
 Status Unique(FunctionContext* context, const Datum& datum, std::shared_ptr<Array>* out);
 
+// Constants for accessing the output of ValueCounts
+ARROW_EXPORT extern const char kValuesFieldName[];
+ARROW_EXPORT extern const char kCountsFieldName[];
+ARROW_EXPORT extern const int32_t kValuesFieldIndex;
+ARROW_EXPORT extern const int32_t kCountsFieldIndex;
 /// \brief Return counts of unique elements from an array-like object.
 ///
 /// Note that the counts do not include counts for nulls in the array.  These can be

@@ -506,6 +506,10 @@ Status DictionaryEncode(FunctionContext* ctx, const Datum& value, Datum* out) {
   return Status::OK();
 }
 
+const char kValuesFieldName[] = "Values";
+const char kCountsFieldName[] = "Counts";
+const int32_t kValuesFieldIndex = 0;
+const int32_t kCountsFieldIndex = 1;
 Status ValueCounts(FunctionContext* ctx, const Datum& value,
                    std::shared_ptr<Array>* counts) {
   std::unique_ptr<HashKernel> func;

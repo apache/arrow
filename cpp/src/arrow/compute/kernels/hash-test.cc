@@ -79,8 +79,8 @@ void CheckValueCountsNull(FunctionContext* ctx, const shared_ptr<DataType>& type
   ASSERT_OK(ValueCounts(ctx, input, &result));
   auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
   // TODO: We probably shouldn't rely on value ordering.
-  ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->GetFieldByName("Values"));
-  ASSERT_ARRAYS_EQUAL(*ex_counts, *result_struct->GetFieldByName("Counts"));
+  ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->GetFieldByName(kValuesFieldName));
+  ASSERT_ARRAYS_EQUAL(*ex_counts, *result_struct->GetFieldByName(kCountsFieldName));
 }
 
 template <typename Type, typename T>
@@ -97,8 +97,8 @@ void CheckValueCounts(FunctionContext* ctx, const shared_ptr<DataType>& type,
   ASSERT_OK(ValueCounts(ctx, Datum(input), &result));
   auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
   // TODO: We probably shouldn't rely on value ordering.
-  ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->GetFieldByName("Values"));
-  ASSERT_ARRAYS_EQUAL(*ex_counts, *result_struct->GetFieldByName("Counts"));
+  ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->field(kValuesFieldIndex));
+  ASSERT_ARRAYS_EQUAL(*ex_counts, *result_struct->field(kCountsFieldIndex));
 }
 
 template <typename Type, typename T>
