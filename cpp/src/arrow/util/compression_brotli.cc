@@ -217,7 +217,8 @@ Status BrotliCodec::Decompress(int64_t input_len, const uint8_t* input,
 
 int64_t BrotliCodec::MaxCompressedLen(int64_t input_len,
                                       const uint8_t* ARROW_ARG_UNUSED(input)) {
-  return BrotliEncoderMaxCompressedSize(input_len);
+  DCHECK_GE(input_len, 0);
+  return BrotliEncoderMaxCompressedSize(static_cast<size_t>(input_len));
 }
 
 Status BrotliCodec::Compress(int64_t input_len, const uint8_t* input,
