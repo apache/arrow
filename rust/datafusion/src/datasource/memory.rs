@@ -222,7 +222,9 @@ mod tests {
         let projection: Vec<usize> = vec![0, 4];
 
         match provider.scan(&Some(projection), 1024) {
-            Err(_) => {}
+            Err(ExecutionError::General(e)) => {
+                assert_eq!("\"Projection index out of range\"", format!("{:?}", e))
+            }
             _ => panic!("Scan should failed on invalid projection"),
         };
     }
@@ -251,7 +253,10 @@ mod tests {
         );
 
         match MemTable::new(schema2, vec![batch]) {
-            Err(_) => {}
+            Err(ExecutionError::General(e)) => assert_eq!(
+                "\"Mismatch between schema and batches\"",
+                format!("{:?}", e)
+            ),
             _ => panic!("MemTable::new should have failed due to schema mismatch"),
         }
     }
