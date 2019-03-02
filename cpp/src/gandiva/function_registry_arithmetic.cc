@@ -28,9 +28,6 @@ namespace gandiva {
 #define BINARY_RELATIONAL_BOOL_DATE_FN(name) \
   NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, name)
 
-#define UNARY_OCTET_LEN_FN(name) \
-  UNARY_SAFE_NULL_IF_NULL(name, utf8, int32), UNARY_SAFE_NULL_IF_NULL(name, binary, int32)
-
 #define UNARY_CAST_TO_FLOAT64(name) UNARY_SAFE_NULL_IF_NULL(castFLOAT8, name, float64)
 
 #define UNARY_CAST_TO_FLOAT32(name) UNARY_SAFE_NULL_IF_NULL(castFLOAT4, name, float32)
@@ -59,6 +56,7 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
 
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(add, decimal128),
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(subtract, decimal128),
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(multiply, decimal128),
 
       BINARY_RELATIONAL_BOOL_FN(equal),
       BINARY_RELATIONAL_BOOL_FN(not_equal),
@@ -66,14 +64,7 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_RELATIONAL_BOOL_DATE_FN(less_than),
       BINARY_RELATIONAL_BOOL_DATE_FN(less_than_or_equal_to),
       BINARY_RELATIONAL_BOOL_DATE_FN(greater_than),
-      BINARY_RELATIONAL_BOOL_DATE_FN(greater_than_or_equal_to),
-
-      UNARY_OCTET_LEN_FN(octet_length),
-      UNARY_OCTET_LEN_FN(bit_length),
-
-      UNARY_UNSAFE_NULL_IF_NULL(char_length, utf8, int32),
-      UNARY_UNSAFE_NULL_IF_NULL(length, utf8, int32),
-      UNARY_UNSAFE_NULL_IF_NULL(lengthUtf8, binary, int32)};
+      BINARY_RELATIONAL_BOOL_DATE_FN(greater_than_or_equal_to)};
 
   return arithmetic_fn_registry_;
 }

@@ -548,6 +548,10 @@ TEST(Decimal128Test, IncreaseScale) {
   Decimal128 result;
   int32_t out;
 
+  result = Decimal128("1234").IncreaseScaleBy(0);
+  ASSERT_OK(result.ToInteger(&out));
+  ASSERT_EQ(1234, out);
+
   result = Decimal128("1234").IncreaseScaleBy(3);
   ASSERT_OK(result.ToInteger(&out));
   ASSERT_EQ(1234000, out);
@@ -560,6 +564,10 @@ TEST(Decimal128Test, IncreaseScale) {
 TEST(Decimal128Test, ReduceScaleAndRound) {
   Decimal128 result;
   int32_t out;
+
+  result = Decimal128("123456").ReduceScaleBy(0);
+  ASSERT_OK(result.ToInteger(&out));
+  ASSERT_EQ(123456, out);
 
   result = Decimal128("123456").ReduceScaleBy(1, false);
   ASSERT_OK(result.ToInteger(&out));

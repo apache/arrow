@@ -22,6 +22,7 @@
 #include <algorithm>
 
 #include "gandiva/decimal_type_util.h"
+#include "gandiva/decimal_xlarge.h"
 #include "gandiva/logging.h"
 
 namespace gandiva {
@@ -224,6 +225,118 @@ BasicDecimal128 Add(const BasicDecimalScalar128& x, const BasicDecimalScalar128&
 BasicDecimal128 Subtract(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y,
                          int32_t out_precision, int32_t out_scale) {
   return Add(x, {-y.value(), y.precision(), y.scale()}, out_precision, out_scale);
+}
+
+// Multiply when the out_precision is 38, and there is no trimming of the scale i.e
+// the intermediate value is the same as the final value.
+static BasicDecimal128 MultiplyMaxPrecisionNoScaleDown(const BasicDecimalScalar128& x,
+                                                       const BasicDecimalScalar128& y,
+                                                       int32_t out_scale,
+                                                       bool* overflow) {
+  DCHECK_EQ(x.scale() + y.scale(), out_scale);
+
+  BasicDecimal128 result;
+  auto x_abs = BasicDecimal128::Abs(x.value());
+  auto y_abs = BasicDecimal128::Abs(y.value());
+
+  if (x_abs > BasicDecimal128::GetMaxValue() / y_abs) {
+    *overflow = true;
+  } else {
+    // We've verified that the result will fit into 128 bits.
+    *overflow = false;
+    result = x.value() * y.value();
+  }
+  return result;
+}
+
+// Multiply when the out_precision is 38, and there is trimming of the scale i.e
+// the intermediate value could be larger than the final value.
+static BasicDecimal128 MultiplyMaxPrecisionAndScaleDown(const BasicDecimalScalar128& x,
+                                                        const BasicDecimalScalar128& y,
+                                                        int32_t out_scale,
+                                                        bool* overflow) {
+  auto delta_scale = x.scale() + y.scale() - out_scale;
+  DCHECK_GT(delta_scale, 0);
+
+  *overflow = false;
+  BasicDecimal128 result;
+  auto x_abs = BasicDecimal128::Abs(x.value());
+  auto y_abs = BasicDecimal128::Abs(y.value());
+
+  // It's possible that the intermediate value does not fit in 128-bits, but the
+  // final value will (after scaling down).
+  bool needs_int256 = false;
+  int32_t total_leading_zeros =
+      x_abs.CountLeadingBinaryZeros() + y_abs.CountLeadingBinaryZeros();
+  // This check is quick, but conservative. In some cases it will indicate that
+  // converting to 256 bits is necessary, when it's not actually the case.
+  needs_int256 = total_leading_zeros <= 128;
+  if (ARROW_PREDICT_FALSE(needs_int256)) {
+    int64_t result_high;
+    uint64_t result_low;
+
+    // This requires converting to 256-bit, and we use the boost library for that. To
+    // avoid references to boost from the precompiled-to-ir code (this causes issues
+    // with symbol resolution at runtime), we use a wrapper exported from the CPP code.
+    gdv_xlarge_multiply_and_scale_down(x.value().high_bits(), x.value().low_bits(),
+                                       y.value().high_bits(), y.value().low_bits(),
+                                       delta_scale, &result_high, &result_low, overflow);
+    result = BasicDecimal128(result_high, result_low);
+  } else {
+    if (ARROW_PREDICT_TRUE(delta_scale <= 38)) {
+      // The largest value that result can have here is (2^64 - 1) * (2^63 - 1), which is
+      // greater than BasicDecimal128::kMaxValue.
+      result = x.value() * y.value();
+      // Since delta_scale is greater than zero, result can now be at most
+      // ((2^64 - 1) * (2^63 - 1)) / 10, which is less than BasicDecimal128::kMaxValue, so
+      // there cannot be any overflow.
+      result = result.ReduceScaleBy(delta_scale);
+    } else {
+      // We are multiplying decimal(38, 38) by decimal(38, 38). The result should be a
+      // decimal(38, 37), so delta scale = 38 + 38 - 37 = 39. Since we are not in the
+      // 256 bit intermediate value case and we are scaling down by 39, then we are
+      // guaranteed that the result is 0 (even if we try to round). The largest possible
+      // intermediate result is 38 "9"s. If we scale down by 39, the leftmost 9 is now
+      // two digits to the right of the rightmost "visible" one. The reason why we have
+      // to handle this case separately is because a scale multiplier with a delta_scale
+      // 39 does not fit into 128 bit.
+      DCHECK_EQ(delta_scale, 39);
+      result = 0;
+    }
+  }
+  return result;
+}
+
+// Multiply when the out_precision is 38.
+static BasicDecimal128 MultiplyMaxPrecision(const BasicDecimalScalar128& x,
+                                            const BasicDecimalScalar128& y,
+                                            int32_t out_scale, bool* overflow) {
+  auto delta_scale = x.scale() + y.scale() - out_scale;
+  DCHECK_GE(delta_scale, 0);
+  if (delta_scale == 0) {
+    return MultiplyMaxPrecisionNoScaleDown(x, y, out_scale, overflow);
+  } else {
+    return MultiplyMaxPrecisionAndScaleDown(x, y, out_scale, overflow);
+  }
+}
+
+BasicDecimal128 Multiply(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y,
+                         int32_t out_precision, int32_t out_scale, bool* overflow) {
+  BasicDecimal128 result;
+  *overflow = false;
+  if (out_precision < DecimalTypeUtil::kMaxPrecision) {
+    // fast-path multiply
+    result = x.value() * y.value();
+    DCHECK_EQ(x.scale() + y.scale(), out_scale);
+    DCHECK_LE(BasicDecimal128::Abs(result), BasicDecimal128::GetMaxValue());
+  } else if (x.value() == 0 || y.value() == 0) {
+    // Handle this separately to avoid divide-by-zero errors.
+    result = BasicDecimal128(0, 0);
+  } else {
+    result = MultiplyMaxPrecision(x, y, out_scale, overflow);
+  }
+  DCHECK(*overflow || BasicDecimal128::Abs(result) <= BasicDecimal128::GetMaxValue());
+  return result;
 }
 
 }  // namespace decimalops

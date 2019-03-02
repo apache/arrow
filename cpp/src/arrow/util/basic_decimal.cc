@@ -122,6 +122,10 @@ static const BasicDecimal128 ScaleMultipliersHalf[] = {
 static constexpr uint64_t kIntMask = 0xFFFFFFFF;
 static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
 
+// same as ScaleMultipliers[38] - 1
+static constexpr BasicDecimal128 kMaxValue =
+    BasicDecimal128(5421010862427522170LL, 687399551400673280ULL - 1);
+
 BasicDecimal128::BasicDecimal128(const uint8_t* bytes)
     : BasicDecimal128(
           BitUtil::FromLittleEndian(reinterpret_cast<const int64_t*>(bytes)[1]),
@@ -149,6 +153,11 @@ BasicDecimal128& BasicDecimal128::Negate() {
 }
 
 BasicDecimal128& BasicDecimal128::Abs() { return *this < 0 ? Negate() : *this; }
+
+BasicDecimal128 BasicDecimal128::Abs(const BasicDecimal128& in) {
+  BasicDecimal128 result(in);
+  return result.Abs();
+}
 
 BasicDecimal128& BasicDecimal128::operator+=(const BasicDecimal128& right) {
   const uint64_t sum = low_bits_ + right.low_bits_;
@@ -649,6 +658,8 @@ const BasicDecimal128& BasicDecimal128::GetScaleMultiplier(int32_t scale) {
   return ScaleMultipliers[scale];
 }
 
+const BasicDecimal128& BasicDecimal128::GetMaxValue() { return kMaxValue; }
+
 BasicDecimal128 BasicDecimal128::IncreaseScaleBy(int32_t increase_by) const {
   DCHECK_GE(increase_by, 0);
   DCHECK_LE(increase_by, 38);
@@ -659,6 +670,10 @@ BasicDecimal128 BasicDecimal128::IncreaseScaleBy(int32_t increase_by) const {
 BasicDecimal128 BasicDecimal128::ReduceScaleBy(int32_t reduce_by, bool round) const {
   DCHECK_GE(reduce_by, 0);
   DCHECK_LE(reduce_by, 38);
+
+  if (reduce_by == 0) {
+    return *this;
+  }
 
   BasicDecimal128 divisor(ScaleMultipliers[reduce_by]);
   BasicDecimal128 result;

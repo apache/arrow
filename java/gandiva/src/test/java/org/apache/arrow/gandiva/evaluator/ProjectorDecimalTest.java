@@ -154,4 +154,63 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
     releaseValueVectors(output);
     eval.close();
   }
+
+  @Test
+  public void test_multiply() throws GandivaException {
+    int precision = 38;
+    int scale = 8;
+    ArrowType.Decimal decimal = new ArrowType.Decimal(precision, scale);
+    Field a = Field.nullable("a", decimal);
+    Field b = Field.nullable("b", decimal);
+    List<Field> args = Lists.newArrayList(a, b);
+
+    ArrowType.Decimal outputType = DecimalTypeUtil.getResultTypeForOperation(DecimalTypeUtil
+        .OperationType.MULTIPLY, decimal, decimal);
+    Field retType = Field.nullable("c", outputType);
+    ExpressionTree root = TreeBuilder.makeExpression("multiply", args, retType);
+
+    List<ExpressionTree> exprs = Lists.newArrayList(root);
+
+    Schema schema = new Schema(args);
+    Projector eval = Projector.make(schema, exprs);
+
+    int numRows = 4;
+    byte[] validity = new byte[]{(byte) 255};
+    String[] aValues = new String[]{"1.12345678","2.12345678","3.12345678", "999999999999.99999999"};
+    String[] bValues = new String[]{"2.12345678","3.12345678","4.12345678", "999999999999.99999999"};
+
+    DecimalVector valuesa = decimalVector(aValues, precision, scale);
+    DecimalVector valuesb = decimalVector(bValues, precision, scale);
+    ArrowRecordBatch batch =
+        new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(new ArrowFieldNode(numRows, 0), new ArrowFieldNode(numRows, 0)),
+            Lists.newArrayList(valuesa.getValidityBuffer(), valuesa.getDataBuffer(),
+                valuesb.getValidityBuffer(), valuesb.getDataBuffer()));
+
+    DecimalVector outVector = new DecimalVector("decimal_output", allocator, outputType.getPrecision(),
+        outputType.getScale());
+    outVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(outVector);
+    eval.evaluate(batch, output);
+
+    // should have scaled down.
+    BigDecimal[] expOutput = new BigDecimal[]{BigDecimal.valueOf(2.385612),
+        BigDecimal.valueOf(6.632525),
+        BigDecimal.valueOf(12.879439),
+        new BigDecimal("999999999999999999980000.000000")};
+
+    for (int i = 0; i < 4; i++) {
+      assertFalse(outVector.isNull(i));
+      assertTrue("index : " + i + " failed compare", expOutput[i].compareTo(outVector.getObject(i)
+      ) == 0);
+    }
+
+    // free buffers
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
+  }
 }

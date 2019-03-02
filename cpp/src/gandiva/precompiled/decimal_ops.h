@@ -35,5 +35,10 @@ arrow::BasicDecimal128 Subtract(const BasicDecimalScalar128& x,
                                 const BasicDecimalScalar128& y, int32_t out_precision,
                                 int32_t out_scale);
 
+/// Multiply 'x' from 'y', and return the result.
+arrow::BasicDecimal128 Multiply(const BasicDecimalScalar128& x,
+                                const BasicDecimalScalar128& y, int32_t out_precision,
+                                int32_t out_scale, bool* overflow);
+
 }  // namespace decimalops
 }  // namespace gandiva

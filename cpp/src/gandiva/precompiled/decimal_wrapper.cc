@@ -34,4 +34,22 @@ void add_large_decimal128_decimal128(int64_t x_high, uint64_t x_low, int32_t x_p
   *out_low = out.low_bits();
 }
 
+FORCE_INLINE
+void multiply_internal_decimal128_decimal128(int64_t x_high, uint64_t x_low,
+                                             int32_t x_precision, int32_t x_scale,
+                                             int64_t y_high, uint64_t y_low,
+                                             int32_t y_precision, int32_t y_scale,
+                                             int32_t out_precision, int32_t out_scale,
+                                             int64_t* out_high, uint64_t* out_low) {
+  gandiva::BasicDecimalScalar128 x(x_high, x_low, x_precision, x_scale);
+  gandiva::BasicDecimalScalar128 y(y_high, y_low, y_precision, y_scale);
+  bool overflow;
+
+  // TODO ravindra: generate error on overflows (ARROW-4570).
+  arrow::BasicDecimal128 out =
+      gandiva::decimalops::Multiply(x, y, out_precision, out_scale, &overflow);
+  *out_high = out.high_bits();
+  *out_low = out.low_bits();
+}
+
 }  // extern "C"

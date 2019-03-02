@@ -25,7 +25,7 @@ mkdir /arrow_boost
 pushd /boost_${BOOST_VERSION_UNDERSCORE}
 ./bootstrap.sh
 ./b2 tools/bcp
-./dist/bin/bcp --namespace=arrow_boost --namespace-alias filesystem date_time system regex build algorithm locale format variant multi_precision/cpp_int /arrow_boost
+./dist/bin/bcp --namespace=arrow_boost --namespace-alias filesystem date_time system regex build algorithm locale format variant multiprecision/cpp_int /arrow_boost
 popd
 
 pushd /arrow_boost
