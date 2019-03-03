@@ -67,7 +67,7 @@ fn create_context() -> Rc<RefCell<ExecutionContext>> {
         true,
     );
 
-    let mem_table = MemTable::load(&csv);
+    let mem_table = MemTable::load(&csv).unwrap();
 
     // create local execution context
     let ctx = Rc::new(RefCell::new(ExecutionContext::new()));
