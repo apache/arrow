@@ -75,7 +75,7 @@ struct CTypeTraits<bool> : public TypeTraits<BooleanType> {
     using TensorType = ArrowTensorType;                                                  \
     using CType = CType_;                                                                \
     static constexpr int64_t bytes_required(int64_t elements) {                          \
-      return elements * sizeof(CType_);                                                  \
+      return elements * static_cast<int64_t>(sizeof(CType_));                            \
     }                                                                                    \
     constexpr static bool is_parameter_free = true;                                      \
     static inline std::shared_ptr<DataType> type_singleton() { return SingletonFn(); }   \
@@ -113,7 +113,7 @@ struct TypeTraits<Date64Type> {
   using ScalarType = Date64Scalar;
 
   static constexpr int64_t bytes_required(int64_t elements) {
-    return elements * sizeof(int64_t);
+    return elements * static_cast<int64_t>(sizeof(int64_t));
   }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return date64(); }
@@ -126,7 +126,7 @@ struct TypeTraits<Date32Type> {
   using ScalarType = Date32Scalar;
 
   static constexpr int64_t bytes_required(int64_t elements) {
-    return elements * sizeof(int32_t);
+    return elements * static_cast<int64_t>(sizeof(int32_t));
   }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return date32(); }
@@ -139,7 +139,7 @@ struct TypeTraits<TimestampType> {
   using ScalarType = TimestampScalar;
 
   static constexpr int64_t bytes_required(int64_t elements) {
-    return elements * sizeof(int64_t);
+    return elements * static_cast<int64_t>(sizeof(int64_t));
   }
   constexpr static bool is_parameter_free = false;
 };
@@ -151,7 +151,7 @@ struct TypeTraits<Time32Type> {
   using ScalarType = Time32Scalar;
 
   static constexpr int64_t bytes_required(int64_t elements) {
-    return elements * sizeof(int32_t);
+    return elements * static_cast<int64_t>(sizeof(int32_t));
   }
   constexpr static bool is_parameter_free = false;
 };
@@ -163,7 +163,7 @@ struct TypeTraits<Time64Type> {
   using ScalarType = Time64Scalar;
 
   static constexpr int64_t bytes_required(int64_t elements) {
-    return elements * sizeof(int64_t);
+    return elements * static_cast<int64_t>(sizeof(int64_t));
   }
   constexpr static bool is_parameter_free = false;
 };
@@ -176,7 +176,7 @@ struct TypeTraits<HalfFloatType> {
   using TensorType = HalfFloatTensor;
 
   static constexpr int64_t bytes_required(int64_t elements) {
-    return elements * sizeof(uint16_t);
+    return elements * static_cast<int64_t>(sizeof(uint16_t));
   }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return float16(); }

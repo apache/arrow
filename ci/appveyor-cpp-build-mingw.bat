@@ -17,8 +17,8 @@
 
 @echo on
 
-set CMAKE_BUILD_TYPE=debug
-set MESON_BUILD_TYPE=debug
+set CMAKE_BUILD_TYPE=release
+set MESON_BUILD_TYPE=release
 
 set INSTALL_DIR=%HOMEDRIVE%%HOMEPATH%\install
 set PATH=%INSTALL_DIR%\bin;%PATH%
