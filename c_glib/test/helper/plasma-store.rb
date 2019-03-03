@@ -44,6 +44,13 @@ module Helper
     def stop
       return if @pid.nil?
       Process.kill(:TERM, @pid)
+      timeout = 1
+      limit = Time.now + timeout
+      while Time.now < limit
+        return if Process.waitpid(@pid, Process::WNOHANG)
+        sleep(0.1)
+      end
+      Process.kill(:KILL, @pid)
       Process.waitpid(@pid)
     end
   end
