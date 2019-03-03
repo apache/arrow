@@ -204,9 +204,11 @@ Status BrotliCodec::Decompress(int64_t input_len, const uint8_t* input,
 Status BrotliCodec::Decompress(int64_t input_len, const uint8_t* input,
                                int64_t output_buffer_len, uint8_t* output_buffer,
                                int64_t* output_len) {
-  std::size_t output_size = output_buffer_len;
-  if (BrotliDecoderDecompress(input_len, input, &output_size, output_buffer) !=
-      BROTLI_DECODER_RESULT_SUCCESS) {
+  DCHECK_GE(input_len, 0);
+  DCHECK_GE(output_buffer_len, 0);
+  std::size_t output_size = static_cast<size_t>(output_buffer_len);
+  if (BrotliDecoderDecompress(static_cast<size_t>(input_len), input, &output_size,
+                              output_buffer) != BROTLI_DECODER_RESULT_SUCCESS) {
     return Status::IOError("Corrupt brotli compressed data.");
   }
   if (output_len) {
@@ -217,16 +219,19 @@ Status BrotliCodec::Decompress(int64_t input_len, const uint8_t* input,
 
 int64_t BrotliCodec::MaxCompressedLen(int64_t input_len,
                                       const uint8_t* ARROW_ARG_UNUSED(input)) {
-  return BrotliEncoderMaxCompressedSize(input_len);
+  DCHECK_GE(input_len, 0);
+  return BrotliEncoderMaxCompressedSize(static_cast<size_t>(input_len));
 }
 
 Status BrotliCodec::Compress(int64_t input_len, const uint8_t* input,
                              int64_t output_buffer_len, uint8_t* output_buffer,
                              int64_t* output_len) {
-  std::size_t output_size = output_buffer_len;
+  DCHECK_GE(input_len, 0);
+  DCHECK_GE(output_buffer_len, 0);
+  std::size_t output_size = static_cast<size_t>(output_buffer_len);
   if (BrotliEncoderCompress(kBrotliDefaultCompressionLevel, BROTLI_DEFAULT_WINDOW,
-                            BROTLI_DEFAULT_MODE, input_len, input, &output_size,
-                            output_buffer) == BROTLI_FALSE) {
+                            BROTLI_DEFAULT_MODE, static_cast<size_t>(input_len), input,
+                            &output_size, output_buffer) == BROTLI_FALSE) {
     return Status::IOError("Brotli compression failure.");
   }
   *output_len = output_size;
