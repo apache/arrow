@@ -58,9 +58,23 @@ struct ConcatenateImpl {
     Range(int64_t o, int64_t l) : offset(o), length(l) {}
   };
 
+  struct Bitmap {
+    Bitmap() = default;
+    Bitmap(const uint8_t* d, Range r) : data(d), range(r) {}
+    explicit Bitmap(const std::shared_ptr<Buffer>& buffer, Range r = Range())
+        : Bitmap(buffer ? buffer->data() : nullptr, r) {}
+
+    const uint8_t* data;
+    Range range;
+
+    bool AllSet() const { return data == nullptr; }
+  };
+
   Status Visit(const NullType&) { return Status::OK(); }
 
-  Status Visit(const BooleanType&) { return ConcatenateBitmaps(1, &out_.buffers[1]); }
+  Status Visit(const BooleanType&) {
+    return ConcatenateBitmaps(Slices(Bitmaps(1), Ranges()), &out_.buffers[1]);
+  }
 
   // handle numbers, decimal128, fixed_size_binary
   Status Visit(const FixedWidthType& fixed) {
@@ -70,13 +84,13 @@ struct ConcatenateImpl {
 
   Status Visit(const BinaryType&) {
     std::vector<Range> value_ranges;
-    RETURN_NOT_OK(ConcatenateOffsets(1, &out_.buffers[1], &value_ranges));
+    RETURN_NOT_OK(ConcatenateOffsets(Buffers(1), &out_.buffers[1], &value_ranges));
     return arrow::Concatenate(Slices(Buffers(2), value_ranges), pool_, &out_.buffers[2]);
   }
 
   Status Visit(const ListType&) {
     std::vector<Range> value_ranges;
-    RETURN_NOT_OK(ConcatenateOffsets(1, &out_.buffers[1], &value_ranges));
+    RETURN_NOT_OK(ConcatenateOffsets(Buffers(1), &out_.buffers[1], &value_ranges));
     return ConcatenateImpl(Slices(ChildData(0), value_ranges), pool_)
         .Concatenate(out_.child_data[0].get());
   }
@@ -106,11 +120,9 @@ struct ConcatenateImpl {
   }
 
   Status Concatenate(ArrayData* out) && {
-    std::shared_ptr<Buffer> null_bitmap;
     if (out_.null_count != 0) {
-      RETURN_NOT_OK(ConcatenateBitmaps(0, &null_bitmap));
+      RETURN_NOT_OK(ConcatenateBitmaps(Slices(Bitmaps(0), Ranges()), &out_.buffers[0]));
     }
-    out_.buffers[0] = null_bitmap;
     RETURN_NOT_OK(VisitTypeInline(*out_.type, this));
     *out = std::move(out_);
     return Status::OK();
@@ -122,6 +134,14 @@ struct ConcatenateImpl {
       buffers[i] = in_[i].buffers[index];
     }
     return buffers;
+  }
+
+  std::vector<Bitmap> Bitmaps(int index) {
+    std::vector<Bitmap> bitmaps(in_size());
+    for (int i = 0; i != in_size(); ++i) {
+      bitmaps[i] = Bitmap(in_[i].buffers[index]);
+    }
+    return bitmaps;
   }
 
   std::vector<ArrayData> ChildData(int index) {
@@ -138,20 +158,22 @@ struct ConcatenateImpl {
     return SliceBuffer(b, r.offset, r.length);
   }
 
+  Bitmap Slice(Bitmap b, Range r) { return Bitmap(b.data, r); }
+
   template <typename Slicable>
   std::vector<Slicable> Slices(const std::vector<Slicable>& slicable,
                                const std::vector<Range>& ranges) {
-    std::vector<Slicable> values_slices(in_size());
+    std::vector<Slicable> slices(in_size());
     for (int i = 0; i < in_size(); ++i) {
-      values_slices[i] = Slice(slicable[i], ranges[i]);
+      slices[i] = Slice(slicable[i], ranges[i]);
     }
-    return values_slices;
+    return slices;
   }
 
   std::vector<Range> Ranges() {
     std::vector<Range> ranges(in_size());
     for (int i = 0; i < in_size(); ++i) {
-      ranges[i] = Range(in_offset(i), in_length(i));
+      ranges[i] = in_range(i);
     }
     return ranges;
   }
@@ -167,18 +189,20 @@ struct ConcatenateImpl {
     return ranges;
   }
 
-  Status ConcatenateBitmaps(int index, std::shared_ptr<Buffer>* bitmap_buffer) {
-    RETURN_NOT_OK(AllocateBitmap(pool_, out_.length, bitmap_buffer));
-    uint8_t* bitmap_data = (*bitmap_buffer)->mutable_data();
+  Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps,
+                            std::shared_ptr<Buffer>* out) {
+    RETURN_NOT_OK(AllocateBitmap(pool_, out_.length, out));
+    uint8_t* bitmap_data = (*out)->mutable_data();
     int64_t bitmap_offset = 0;
     for (int i = 0; i < in_size(); ++i) {
-      if (auto bitmap = in_[i].buffers[index]) {
-        internal::CopyBitmap(bitmap->data(), in_offset(i), in_length(i), bitmap_data,
-                             bitmap_offset, false);
+      auto bitmap = bitmaps[i];
+      if (bitmap.AllSet()) {
+        BitUtil::SetBitsTo(bitmap_data, bitmap_offset, bitmap.range.length, true);
       } else {
-        BitUtil::SetBitsTo(bitmap_data, bitmap_offset, in_length(i), true);
+        internal::CopyBitmap(bitmap.data, bitmap.range.offset, bitmap.range.length,
+                             bitmap_data, bitmap_offset, false);
       }
-      bitmap_offset += in_length(i);
+      bitmap_offset += bitmap.range.length;
     }
     if (auto preceding_bits = BitUtil::kPrecedingBitmask[out_.length % 8]) {
       bitmap_data[out_.length / 8] &= preceding_bits;
@@ -186,37 +210,44 @@ struct ConcatenateImpl {
     return Status::OK();
   }
 
-  Status ConcatenateOffsets(int index, std::shared_ptr<Buffer>* offset_buffer,
-                            std::vector<Range>* ranges) {
-    RETURN_NOT_OK(
-        AllocateBuffer(pool_, (out_.length + 1) * sizeof(int32_t), offset_buffer));
-    auto dst_offsets = reinterpret_cast<int32_t*>((*offset_buffer)->mutable_data());
-    int32_t total_length = 0;
+  Status PutOffsets(const std::shared_ptr<Buffer>& src, Range range,
+                    int32_t values_length, int32_t* dst_begin, Range* values_range) {
+    auto src_begin = reinterpret_cast<const int32_t*>(src->data()) + range.offset;
+    auto src_end = src_begin + range.length;
+    auto first_offset = src_begin[0];
+    values_range->offset = first_offset;
+    values_range->length = *src_end - values_range->offset;
+    if (values_length > std::numeric_limits<int32_t>::max() - values_range->length) {
+      return Status::Invalid("offset overflow while concatenating arrays");
+    }
+    std::transform(src_begin, src_end, dst_begin,
+                   [values_length, first_offset](int32_t offset) {
+                     return offset - first_offset + values_length;
+                   });
+    return Status::OK();
+  }
+
+  Status ConcatenateOffsets(const std::vector<std::shared_ptr<Buffer>>& buffers,
+                            std::shared_ptr<Buffer>* out, std::vector<Range>* ranges) {
+    RETURN_NOT_OK(AllocateBuffer(pool_, (out_.length + 1) * sizeof(int32_t), out));
+    auto dst = reinterpret_cast<int32_t*>((*out)->mutable_data());
+    int64_t elements_length = 0;
+    int32_t values_length = 0;
     ranges->resize(in_size());
     for (int i = 0; i < in_size(); ++i) {
-      auto src_offsets_begin = in_[i].GetValues<int32_t>(index);
-      auto src_offsets_end = src_offsets_begin + in_length(i);
-      auto first_offset = src_offsets_begin[0];
-      auto length = *src_offsets_end - first_offset;
-      ranges->at(i).offset = first_offset;
-      ranges->at(i).length = length;
-      if (total_length > std::numeric_limits<int32_t>::max() - length) {
-        return Status::Invalid("offset overflow while concatenating arrays");
-      }
-      std::transform(src_offsets_begin, src_offsets_end, dst_offsets,
-                     [total_length, first_offset](int32_t offset) {
-                       return offset - first_offset + total_length;
-                     });
-      total_length += length;
-      dst_offsets += in_length(i);
+      RETURN_NOT_OK(PutOffsets(buffers[i], in_range(i), values_length,
+                               &dst[elements_length], &ranges->at(i)));
+      elements_length += in_length(i);
+      values_length += ranges->at(i).length;
     }
-    *dst_offsets = total_length;
+    dst[elements_length] = values_length;
     return Status::OK();
   }
 
   int in_size() const { return static_cast<int>(in_.size()); }
   int64_t in_offset(int i) const { return in_[i].offset; }
   int64_t in_length(int i) const { return in_[i].length; }
+  Range in_range(int i) const { return Range(in_offset(i), in_length(i)); }
 
   const std::vector<ArrayData>& in_;
   MemoryPool* pool_;
@@ -235,9 +266,9 @@ Status Concatenate(const std::vector<std::shared_ptr<Array>>& arrays, MemoryPool
     }
     data[i] = ArrayData(*arrays[i]->data());
   }
-  auto out_data = std::make_shared<ArrayData>();
-  RETURN_NOT_OK(ConcatenateImpl(data, pool).Concatenate(out_data.get()));
-  *out = MakeArray(std::move(out_data));
+  ArrayData out_data;
+  RETURN_NOT_OK(ConcatenateImpl(data, pool).Concatenate(&out_data));
+  *out = MakeArray(std::make_shared<ArrayData>(std::move(out_data)));
   return Status::OK();
 }
 
