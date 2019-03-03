@@ -29,6 +29,13 @@ if "%JOB%" == "Rust" (
         echo ===
         appveyor exit
     )
+) else if "%JOB%" == "C#" (
+    if "%ARROW_CI_CSHARP_AFFECTED%" == "0" (
+        echo ===
+        echo === No C# changes, exiting job
+        echo ===
+        appveyor exit
+    )
 ) else (
     if "%ARROW_CI_PYTHON_AFFECTED%" == "0" (
         echo ===
