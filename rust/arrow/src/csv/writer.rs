@@ -36,7 +36,6 @@
 //!     Field::new("c3", DataType::UInt32, false),
 //!     Field::new("c3", DataType::Boolean, true),
 //! ]);
-//!
 //! let c1 = BinaryArray::from(vec![
 //!     "Lorem ipsum dolor sit amet",
 //!     "consectetur adipiscing elit",
@@ -55,7 +54,7 @@
 //!     vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
 //! );
 //!
-//! let file = File::create("/tmp/out.csv").unwrap();
+//! let file = File::create("target/out.csv").unwrap();
 //!
 //! let writer = csv::Writer::new(file);
 //! writer.write(vec![&batch, &batch]).unwrap();
@@ -83,7 +82,7 @@ where
 pub struct Writer {
     /// The file to write to
     file: File,
-    /// Column delimiter. Defauits to `b','`
+    /// Column delimiter. Defaults to `b','`
     delimiter: u8,
     /// Whether file should be written with headers. Defaults to `true`
     has_headers: bool,
@@ -101,27 +100,21 @@ impl Writer {
 
     /// Write a vector of record batches to a file
     pub fn write(&self, batches: Vec<&RecordBatch>) -> Result<()> {
-        let mut builder = csv_crate::WriterBuilder::new();
-
-        let mut wtr = builder.delimiter(self.delimiter).from_writer(&self.file);
-
         if batches.is_empty() {
             return Err(ArrowError::CsvError(
                 "No record batches supplied to the CSV writer".to_string(),
             ));
         }
-
+        let mut builder = csv_crate::WriterBuilder::new();
+        let mut wtr = builder.delimiter(self.delimiter).from_writer(&self.file);
         let num_columns = batches[0].num_columns();
-
         if self.has_headers {
             let mut headers: Vec<String> = Vec::with_capacity(num_columns);
-
             &batches[0]
                 .schema()
                 .fields()
                 .iter()
                 .for_each(|field| headers.push(field.name().to_string()));
-
             wtr.write_record(&headers[..])?;
         }
 
@@ -227,11 +220,10 @@ impl WriterBuilder {
     /// use std::fs::File;
     ///
     /// fn example() -> csv::Writer {
-    ///     let file = File::create("/tmp/out.csv").unwrap();
+    ///     let file = File::create("target/out.csv").unwrap();
     ///
     ///     // create a builder that doesn't write headers
     ///     let builder = csv::WriterBuilder::new().has_headers(false);
-    ///
     ///     let writer = builder.build(file);
     ///
     ///     writer
@@ -298,13 +290,13 @@ mod tests {
             vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
         );
 
-        let file = File::create("/tmp/columns.csv").unwrap();
+        let file = File::create("target/columns.csv").unwrap();
 
         let writer = Writer::new(file);
         writer.write(vec![&batch, &batch]).unwrap();
 
         // check that file was written successfully
-        let mut file = File::open("/tmp/columns.csv").unwrap();
+        let mut file = File::open("target/columns.csv").unwrap();
         let mut buffer: Vec<u8> = vec![];
         file.read_to_end(&mut buffer).unwrap();
 
@@ -342,7 +334,7 @@ mod tests {
             vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
         );
 
-        let file = File::create("/tmp/custom_options.csv").unwrap();
+        let file = File::create("target/custom_options.csv").unwrap();
 
         let builder = WriterBuilder::new().has_headers(false).with_delimiter(b'|');
 
@@ -350,7 +342,7 @@ mod tests {
         writer.write(vec![&batch]).unwrap();
 
         // check that file was written successfully
-        let mut file = File::open("/tmp/custom_options.csv").unwrap();
+        let mut file = File::open("target/custom_options.csv").unwrap();
         let mut buffer: Vec<u8> = vec![];
         file.read_to_end(&mut buffer).unwrap();
 
