@@ -51,7 +51,7 @@ func TestCSVWriter(t *testing.T) {
 	rec := b.NewRecord()
 	defer rec.Release()
 
-	w := csv.NewWriter(f, schema, csv.WithFieldSeparator(';'))
+	w := csv.NewWriter(f, schema, csv.WithComma(';'), csv.WithCRLF(false))
 	err := w.Write(rec)
 	if err != nil {
 		t.Fatal(err)
@@ -70,6 +70,6 @@ func TestCSVWriter(t *testing.T) {
 `
 
 	if got, want := f.String(), want; strings.Compare(got, want) != 0 {
-		t.Fatalf("invalid output:\ngot=%s\nwant=%s\n\n", got, want)
+		t.Fatalf("invalid output:\ngot=%s\nwant=%s\n", got, want)
 	}
 }

@@ -24,23 +24,6 @@ import (
 	"io"
 )
 
-// WriterOption configures a CSV writer.
-type WriterOption func(*Writer)
-
-// WithFieldSeparator specifies the fields separation character used while writing CSV files.
-func WithFieldSeparator(c rune) WriterOption {
-	return func(w *Writer) {
-		w.w.Comma = c
-	}
-}
-
-// WithLineTerminator specifies the line terminator used while writing CSV files.
-func WithLineTerminator(useCRLF bool) WriterOption {
-	return func(w *Writer) {
-		w.w.UseCRLF = useCRLF
-	}
-}
-
 // Writer wraps encoding/csv.Writer and writes array.Record based on a schema.
 type Writer struct {
 	w      *csv.Writer
@@ -52,7 +35,7 @@ type Writer struct {
 //
 // NewWriter panics if the given schema contains fields that have types that are not
 // primitive types.
-func NewWriter(w io.Writer, schema *arrow.Schema, opts ...WriterOption) *Writer {
+func NewWriter(w io.Writer, schema *arrow.Schema, opts ...Option) *Writer {
 	validate(schema)
 
 	ww := &Writer{w: csv.NewWriter(w), schema: schema}
