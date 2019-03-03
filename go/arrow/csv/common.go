@@ -113,7 +113,7 @@ func validate(schema *arrow.Schema) {
 		case *arrow.Float32Type, *arrow.Float64Type:
 		case *arrow.StringType:
 		default:
-			panic(fmt.Errorf("arrow/csv: field %d (%s) has invalid data type %T\n", i, f.Name, ft))
+			panic(fmt.Errorf("arrow/csv: field %d (%s) has invalid data type %T", i, f.Name, ft))
 		}
 	}
 }
