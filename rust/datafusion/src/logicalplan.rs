@@ -623,6 +623,24 @@ pub fn can_coerce_from(left: &DataType, other: &DataType) -> bool {
 mod tests {
     use super::*;
     use serde_json;
+    use std::thread;
+
+    #[test]
+    fn logical_plan_can_be_shared_between_threads() {
+        let schema = Schema::new(vec![]);
+        let plan = Arc::new(LogicalPlan::TableScan {
+            schema_name: "".to_string(),
+            table_name: "people".to_string(),
+            schema: Arc::new(schema),
+            projection: Some(vec![0, 1, 4]),
+        });
+
+        // prove that a plan can be passed to a thread
+        let plan1 = plan.clone();
+        thread::spawn(move || {
+            println!("plan: {:?}", plan1);
+        });
+    }
 
     #[test]
     fn serialize_plan() {
