@@ -21,6 +21,7 @@ package csv
 import (
 	"errors"
 	"fmt"
+
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/memory"
 )
@@ -90,8 +91,8 @@ func WithChunk(n int) Option {
 }
 
 // WithCRLF specifies the line terminator used while writing CSV files.
-// if useCRLF is True, \r\n is used as the line terminator/
-// The default value is False
+// If useCRLF is true, \r\n is used as the line terminator, otherwise \n is used.
+// The default value is false.
 func WithCRLF(useCRLF bool) Option {
 	return func(cfg config) {
 		switch cfg := cfg.(type) {
@@ -102,7 +103,6 @@ func WithCRLF(useCRLF bool) Option {
 		}
 	}
 }
-
 
 func validate(schema *arrow.Schema) {
 	for i, f := range schema.Fields() {

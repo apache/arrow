@@ -19,9 +19,10 @@ package csv
 import (
 	"encoding/csv"
 	"fmt"
+	"io"
+
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
-	"io"
 )
 
 // Writer wraps encoding/csv.Writer and writes array.Record based on a schema.
