@@ -179,12 +179,6 @@ where
     /// Loads a slice into a SIMD register
     fn load(slice: &[Self::Native]) -> Self::Simd;
 
-    /// Creates a new SIMD mask for this SIMD type filling it with `value`
-    fn new_mask(value: bool) -> Self::SimdMask;
-
-    /// Sets a single lane of a SIMD mask
-    fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask;
-
     /// Gets the value of a single lane in a SIMD mask
     fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool;
 
@@ -234,14 +228,6 @@ macro_rules! make_numeric_type {
 
             fn load(slice: &[Self::Native]) -> Self::Simd {
                 unsafe { Self::Simd::from_slice_unaligned_unchecked(slice) }
-            }
-
-            fn new_mask(value: bool) -> Self::SimdMask {
-                Self::SimdMask::splat(value)
-            }
-
-            fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask {
-                unsafe { mask.replace_unchecked(idx, value) }
             }
 
             fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool {
