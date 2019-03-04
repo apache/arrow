@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines basic arithmetic kernels for `PrimitiveArrays`.
+//! Defines basic comparison kernels for `PrimitiveArrays`.
 //!
 //! These kernels can leverage SIMD if available on your system.  Currently no runtime
 //! detection is provided, you should enable the specific SIMD intrinsics using
