@@ -67,3 +67,7 @@ harness = false
 [[bench]]
 name = "arithmetic_kernels"
 harness = false
+
+[[bench]]
+name = "comparison_kernels"
+harness = false

@@ -159,6 +159,7 @@ make_type!(Float64Type, f64, DataType::Float64, 64, 0.0f64);
 /// A subtype of primitive type that represents numeric values.
 ///
 /// SIMD operations are defined in this trait if available on the target system.
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub trait ArrowNumericType: ArrowPrimitiveType
 where
     Self::Simd: Add<Output = Self::Simd>
@@ -167,73 +168,123 @@ where
         + Div<Output = Self::Simd>,
 {
     /// Defines the SIMD type that should be used for this numeric type
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     type Simd;
 
+    /// Defines the SIMD Mask type that should be used for this numeric type
+    type SimdMask;
+
     /// The number of SIMD lanes available
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn lanes() -> usize;
 
     /// Loads a slice into a SIMD register
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn load(slice: &[Self::Native]) -> Self::Simd;
 
+    /// Gets the value of a single lane in a SIMD mask
+    fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool;
+
     /// Performs a SIMD binary operation
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn bin_op<F: Fn(Self::Simd, Self::Simd) -> Self::Simd>(
         left: Self::Simd,
         right: Self::Simd,
         op: F,
     ) -> Self::Simd;
 
+    // SIMD version of equal
+    fn eq(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
+
+    // SIMD version of not equal
+    fn ne(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
+
+    // SIMD version of less than
+    fn lt(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
+
+    // SIMD version of less than or equal to
+    fn le(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
+
+    // SIMD version of greater than
+    fn gt(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
+
+    // SIMD version of greater than or equal to
+    fn ge(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
+
     /// Writes a SIMD result back to a slice
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn write(simd_result: Self::Simd, slice: &mut [Self::Native]);
 }
 
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+pub trait ArrowNumericType: ArrowPrimitiveType {}
+
 macro_rules! make_numeric_type {
-    ($impl_ty:ty, $native_ty:ty, $simd_ty:ident) => {
+    ($impl_ty:ty, $native_ty:ty, $simd_ty:ident, $simd_mask_ty:ident) => {
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         impl ArrowNumericType for $impl_ty {
-            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             type Simd = $simd_ty;
 
-            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            type SimdMask = $simd_mask_ty;
+
             fn lanes() -> usize {
-                $simd_ty::lanes()
+                Self::Simd::lanes()
             }
 
-            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-            fn load(slice: &[$native_ty]) -> $simd_ty {
-                unsafe { $simd_ty::from_slice_unaligned_unchecked(slice) }
+            fn load(slice: &[Self::Native]) -> Self::Simd {
+                unsafe { Self::Simd::from_slice_unaligned_unchecked(slice) }
             }
 
-            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-            fn bin_op<F: Fn($simd_ty, $simd_ty) -> $simd_ty>(
-                left: $simd_ty,
-                right: $simd_ty,
+            fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool {
+                unsafe { mask.extract_unchecked(idx) }
+            }
+
+            fn bin_op<F: Fn(Self::Simd, Self::Simd) -> Self::Simd>(
+                left: Self::Simd,
+                right: Self::Simd,
                 op: F,
-            ) -> $simd_ty {
+            ) -> Self::Simd {
                 op(left, right)
             }
 
-            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-            fn write(simd_result: $simd_ty, slice: &mut [$native_ty]) {
+            fn eq(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
+                left.eq(right)
+            }
+
+            fn ne(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
+                left.ne(right)
+            }
+
+            fn lt(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
+                left.lt(right)
+            }
+
+            fn le(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
+                left.le(right)
+            }
+
+            fn gt(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
+                left.gt(right)
+            }
+
+            fn ge(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
+                left.ge(right)
+            }
+
+            fn write(simd_result: Self::Simd, slice: &mut [Self::Native]) {
                 unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
             }
         }
+        #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+        impl ArrowNumericType for $impl_ty {}
     };
 }
 
-make_numeric_type!(Int8Type, i8, i8x64);
-make_numeric_type!(Int16Type, i16, i16x32);
-make_numeric_type!(Int32Type, i32, i32x16);
-make_numeric_type!(Int64Type, i64, i64x8);
-make_numeric_type!(UInt8Type, u8, u8x64);
-make_numeric_type!(UInt16Type, u16, u16x32);
-make_numeric_type!(UInt32Type, u32, u32x16);
-make_numeric_type!(UInt64Type, u64, u64x8);
-make_numeric_type!(Float32Type, f32, f32x16);
-make_numeric_type!(Float64Type, f64, f64x8);
+make_numeric_type!(Int8Type, i8, i8x64, m8x64);
+make_numeric_type!(Int16Type, i16, i16x32, m16x32);
+make_numeric_type!(Int32Type, i32, i32x16, m32x16);
+make_numeric_type!(Int64Type, i64, i64x8, m64x8);
+make_numeric_type!(UInt8Type, u8, u8x64, m8x64);
+make_numeric_type!(UInt16Type, u16, u16x32, m16x32);
+make_numeric_type!(UInt32Type, u32, u32x16, m32x16);
+make_numeric_type!(UInt64Type, u64, u64x8, m64x8);
+make_numeric_type!(Float32Type, f32, f32x16, m32x16);
+make_numeric_type!(Float64Type, f64, f64x8, m64x8);
 
 /// Allows conversion from supported Arrow types to a byte slice.
 pub trait ToByteSlice {
