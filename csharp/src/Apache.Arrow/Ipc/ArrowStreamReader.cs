@@ -65,6 +65,11 @@ namespace Apache.Arrow.Ipc
                 bytesRead += await BaseStream.ReadAsync(lengthBuffer, 0, 4, cancellationToken);
                 var messageLength = BitConverter.ToInt32(lengthBuffer, 0);
 
+                if (messageLength == 0)
+                {
+                    // End of stream
+                    return null;
+                }
                 messageBuff = Buffers.Rent(messageLength);
                 bytesRead += await BaseStream.ReadAsync(messageBuff, 0, messageLength, cancellationToken);
                 var message = Flatbuf.Message.GetRootAsMessage(new FlatBuffers.ByteBuffer(messageBuff));
