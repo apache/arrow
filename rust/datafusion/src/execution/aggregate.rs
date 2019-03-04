@@ -800,7 +800,7 @@ impl AggregateRelation {
             }
         }
 
-        Ok(Some(RecordBatch::new(self.schema.clone(), result_columns)))
+        Ok(Some(RecordBatch::new(self.schema.clone(), result_columns)?))
     }
 
     fn with_group_by(&mut self) -> Result<Option<RecordBatch>> {
@@ -1008,7 +1008,7 @@ impl AggregateRelation {
             result_arrays.push(array?);
         }
 
-        Ok(Some(RecordBatch::new(self.schema.clone(), result_arrays)))
+        Ok(Some(RecordBatch::new(self.schema.clone(), result_arrays)?))
     }
 }
 
@@ -1136,7 +1136,7 @@ mod tests {
         .unwrap();
 
         let aggr_schema = Arc::new(Schema::new(vec![
-            Field::new("c2", DataType::Int32, false),
+            Field::new("c2", DataType::UInt32, false),
             Field::new("min", DataType::Float64, false),
             Field::new("max", DataType::Float64, false),
             Field::new("sum", DataType::Float64, false),

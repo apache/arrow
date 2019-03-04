@@ -58,7 +58,8 @@ fn main() {
     ]);
 
     // build a record batch
-    let batch = RecordBatch::new(Arc::new(schema), vec![Arc::new(id), Arc::new(nested)]);
+    let batch =
+        RecordBatch::new(Arc::new(schema), vec![Arc::new(id), Arc::new(nested)]).unwrap();
 
     process(&batch);
 }
