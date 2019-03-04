@@ -74,11 +74,20 @@ int main(int argc, char** argv) {
       std::make_shared<parquet::FileDecryptionProperties>(FOOTER_ENCRYPTION_KEY);
   decryption_properties_2->SetColumnKey("ba_field", COLUMN_ENCRYPTION_KEY);
 
+  // plain mode footer =  unencrypted footer
+  parquet::FileEncryptionProperties::Builder file_encryption_builder_3;
+  file_encryption_builder_3.footer_key(FOOTER_ENCRYPTION_KEY, false);
+
+  std::shared_ptr<parquet::FileDecryptionProperties> decryption_properties_3 =
+      std::make_shared<parquet::FileDecryptionProperties>(FOOTER_ENCRYPTION_KEY);
+
   file_encryption_properties.push_back(file_encryption_builder_1.build());
   file_encryption_properties.push_back(file_encryption_builder_2.build());
+  file_encryption_properties.push_back(file_encryption_builder_3.build());
 
   file_decryption_properties.push_back(decryption_properties_1);
   file_decryption_properties.push_back(decryption_properties_2);
+  file_decryption_properties.push_back(decryption_properties_3);
 
   for (int i = 0; i < file_encryption_properties.size(); ++i) {
     /**********************************************************************************
