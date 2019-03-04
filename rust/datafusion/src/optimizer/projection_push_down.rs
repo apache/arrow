@@ -24,7 +24,6 @@ use crate::optimizer::optimizer::OptimizerRule;
 use arrow::datatypes::{Field, Schema};
 use arrow::error::{ArrowError, Result};
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Projection Push Down optimizer rule ensures that only referenced columns are
@@ -32,7 +31,7 @@ use std::sync::Arc;
 pub struct ProjectionPushDown {}
 
 impl OptimizerRule for ProjectionPushDown {
-    fn optimize(&mut self, plan: &LogicalPlan) -> Result<Rc<LogicalPlan>> {
+    fn optimize(&mut self, plan: &LogicalPlan) -> Result<Arc<LogicalPlan>> {
         let mut accum: HashSet<usize> = HashSet::new();
         let mut mapping: HashMap<usize, usize> = HashMap::new();
         self.optimize_plan(plan, &mut accum, &mut mapping)
@@ -49,7 +48,7 @@ impl ProjectionPushDown {
         plan: &LogicalPlan,
         accum: &mut HashSet<usize>,
         mapping: &mut HashMap<usize, usize>,
-    ) -> Result<Rc<LogicalPlan>> {
+    ) -> Result<Arc<LogicalPlan>> {
         match plan {
             LogicalPlan::Projection {
                 expr,
@@ -65,7 +64,7 @@ impl ProjectionPushDown {
                 // rewrite projection expressions to use new column indexes
                 let new_expr = self.rewrite_exprs(expr, mapping)?;
 
-                Ok(Rc::new(LogicalPlan::Projection {
+                Ok(Arc::new(LogicalPlan::Projection {
                     expr: new_expr,
                     input,
                     schema: schema.clone(),
@@ -81,7 +80,7 @@ impl ProjectionPushDown {
                 // rewrite filter expression to use new column indexes
                 let new_expr = self.rewrite_expr(expr, mapping)?;
 
-                Ok(Rc::new(LogicalPlan::Selection {
+                Ok(Arc::new(LogicalPlan::Selection {
                     expr: new_expr,
                     input,
                 }))
@@ -103,7 +102,7 @@ impl ProjectionPushDown {
                 let new_group_expr = self.rewrite_exprs(group_expr, mapping)?;
                 let new_aggr_expr = self.rewrite_exprs(aggr_expr, mapping)?;
 
-                Ok(Rc::new(LogicalPlan::Aggregate {
+                Ok(Arc::new(LogicalPlan::Aggregate {
                     input,
                     group_expr: new_group_expr,
                     aggr_expr: new_aggr_expr,
@@ -124,14 +123,14 @@ impl ProjectionPushDown {
                 // rewrite sort expressions to use new column indexes
                 let new_expr = self.rewrite_exprs(expr, mapping)?;
 
-                Ok(Rc::new(LogicalPlan::Sort {
+                Ok(Arc::new(LogicalPlan::Sort {
                     expr: new_expr,
                     input,
                     schema: schema.clone(),
                 }))
             }
             LogicalPlan::EmptyRelation { schema } => {
-                Ok(Rc::new(LogicalPlan::EmptyRelation {
+                Ok(Arc::new(LogicalPlan::EmptyRelation {
                     schema: schema.clone(),
                 }))
             }
@@ -172,7 +171,7 @@ impl ProjectionPushDown {
                 }
 
                 // return the table scan with projection
-                Ok(Rc::new(LogicalPlan::TableScan {
+                Ok(Arc::new(LogicalPlan::TableScan {
                     schema_name: schema_name.to_string(),
                     table_name: table_name.to_string(),
                     schema: Arc::new(projected_schema),
@@ -183,7 +182,7 @@ impl ProjectionPushDown {
                 expr,
                 input,
                 schema,
-            } => Ok(Rc::new(LogicalPlan::Limit {
+            } => Ok(Arc::new(LogicalPlan::Limit {
                 expr: expr.clone(),
                 input: input.clone(),
                 schema: schema.clone(),
@@ -229,21 +228,21 @@ impl ProjectionPushDown {
         match expr {
             Expr::Column(i) => Ok(Expr::Column(self.new_index(mapping, i)?)),
             Expr::Literal(_) => Ok(expr.clone()),
-            Expr::IsNull(e) => Ok(Expr::IsNull(Rc::new(self.rewrite_expr(e, mapping)?))),
+            Expr::IsNull(e) => Ok(Expr::IsNull(Arc::new(self.rewrite_expr(e, mapping)?))),
             Expr::IsNotNull(e) => {
-                Ok(Expr::IsNotNull(Rc::new(self.rewrite_expr(e, mapping)?)))
+                Ok(Expr::IsNotNull(Arc::new(self.rewrite_expr(e, mapping)?)))
             }
             Expr::BinaryExpr { left, op, right } => Ok(Expr::BinaryExpr {
-                left: Rc::new(self.rewrite_expr(left, mapping)?),
+                left: Arc::new(self.rewrite_expr(left, mapping)?),
                 op: op.clone(),
-                right: Rc::new(self.rewrite_expr(right, mapping)?),
+                right: Arc::new(self.rewrite_expr(right, mapping)?),
             }),
             Expr::Cast { expr, data_type } => Ok(Expr::Cast {
-                expr: Rc::new(self.rewrite_expr(expr, mapping)?),
+                expr: Arc::new(self.rewrite_expr(expr, mapping)?),
                 data_type: data_type.clone(),
             }),
             Expr::Sort { expr, asc } => Ok(Expr::Sort {
-                expr: Rc::new(self.rewrite_expr(expr, mapping)?),
+                expr: Arc::new(self.rewrite_expr(expr, mapping)?),
                 asc: *asc,
             }),
             Expr::AggregateFunction {
@@ -285,7 +284,6 @@ mod tests {
     use crate::logicalplan::LogicalPlan::*;
     use arrow::datatypes::{DataType, Field, Schema};
     use std::borrow::Borrow;
-    use std::rc::Rc;
     use std::sync::Arc;
 
     #[test]
@@ -300,7 +298,7 @@ mod tests {
                 DataType::UInt32,
                 false,
             )])),
-            input: Rc::new(table_scan),
+            input: Arc::new(table_scan),
         };
 
         assert_optimized_plan_eq(&aggregate, "Aggregate: groupBy=[[]], aggr=[[#0]]\n  TableScan: test projection=Some([1])");
@@ -317,7 +315,7 @@ mod tests {
                 Field::new("c", DataType::UInt32, false),
                 Field::new("MAX(b)", DataType::UInt32, false),
             ])),
-            input: Rc::new(table_scan),
+            input: Arc::new(table_scan),
         };
 
         assert_optimized_plan_eq(&aggregate, "Aggregate: groupBy=[[#1]], aggr=[[#0]]\n  TableScan: test projection=Some([1, 2])");
@@ -329,7 +327,7 @@ mod tests {
 
         let selection = Selection {
             expr: Column(2),
-            input: Rc::new(table_scan),
+            input: Arc::new(table_scan),
         };
 
         let aggregate = Aggregate {
@@ -340,7 +338,7 @@ mod tests {
                 DataType::UInt32,
                 false,
             )])),
-            input: Rc::new(selection),
+            input: Arc::new(selection),
         };
 
         assert_optimized_plan_eq(&aggregate, "Aggregate: groupBy=[[]], aggr=[[#0]]\n  Selection: #1\n    TableScan: test projection=Some([1, 2])");
@@ -352,10 +350,10 @@ mod tests {
 
         let projection = Projection {
             expr: vec![Cast {
-                expr: Rc::new(Column(2)),
+                expr: Arc::new(Column(2)),
                 data_type: DataType::Float64,
             }],
-            input: Rc::new(table_scan),
+            input: Arc::new(table_scan),
             schema: Arc::new(Schema::new(vec![Field::new(
                 "CAST(c AS float)",
                 DataType::Float64,
@@ -376,7 +374,7 @@ mod tests {
 
         let projection = Projection {
             expr: vec![Column(0), Column(1)],
-            input: Rc::new(table_scan),
+            input: Arc::new(table_scan),
             schema: Arc::new(Schema::new(vec![
                 Field::new("a", DataType::UInt32, false),
                 Field::new("b", DataType::UInt32, false),
@@ -403,7 +401,7 @@ mod tests {
         assert_eq!(formatted_plan, expected);
     }
 
-    fn optimize(plan: &LogicalPlan) -> Rc<LogicalPlan> {
+    fn optimize(plan: &LogicalPlan) -> Arc<LogicalPlan> {
         let mut rule = ProjectionPushDown::new();
         rule.optimize(plan).unwrap()
     }

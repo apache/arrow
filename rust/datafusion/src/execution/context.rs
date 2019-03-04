@@ -59,8 +59,8 @@ impl ExecutionContext {
 
         match ast {
             DFASTNode::ANSI(ansi) => {
-                let schema_provider: Rc<SchemaProvider> =
-                    Rc::new(ExecutionContextSchemaProvider {
+                let schema_provider: Arc<SchemaProvider> =
+                    Arc::new(ExecutionContextSchemaProvider {
                         datasources: self.datasources.clone(),
                     });
 
@@ -99,7 +99,7 @@ impl ExecutionContext {
     }
 
     /// Optimize the logical plan by applying optimizer rules
-    fn optimize(&self, plan: &LogicalPlan) -> Result<Rc<LogicalPlan>> {
+    fn optimize(&self, plan: &LogicalPlan) -> Result<Arc<LogicalPlan>> {
         let mut rule = ProjectionPushDown::new();
         Ok(rule.optimize(plan)?)
     }
