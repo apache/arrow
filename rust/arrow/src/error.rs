@@ -62,4 +62,10 @@ impl From<csv_crate::Error> for ArrowError {
     }
 }
 
+impl From<::std::string::FromUtf8Error> for ArrowError {
+    fn from(error: ::std::string::FromUtf8Error) -> Self {
+        ArrowError::ParseError(error.description().to_string())
+    }
+}
+
 pub type Result<T> = ::std::result::Result<T, ArrowError>;
