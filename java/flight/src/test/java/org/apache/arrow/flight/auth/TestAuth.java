@@ -19,12 +19,12 @@ package org.apache.arrow.flight.auth;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Random;
 
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.memory.BufferAllocator;
@@ -95,37 +95,17 @@ public class TestAuth {
       }
     };
 
-    // choose a port from the random/private range (https://en.wikipedia.org/wiki/Registered_port)
-    // we see flakiness when we use the same port each time.
-    Location location = null;
-    IOException lastThrown = null;
-    Random random = new Random();
-    for (int x = 0; x < 3; x++) {
-      final int port = 49152 + random.nextInt(5000);
-      location = new Location("localhost", port);
-      lastThrown = null;
-      try {
-        server = new FlightServer(
-            allocator,
-            port,
-            new NoOpFlightProducer() {
-              @Override
-              public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
-                listener.onCompleted();
-              }
-            },
-            new BasicServerAuthHandler(validator));
-        server.start();
-        break;
-      } catch (IOException e) {
-        lastThrown = e;
-      }
-    }
-    if (lastThrown != null) {
-      throw lastThrown;
-    }
-
-    client = new FlightClient(allocator, location);
+    server = FlightTestUtil.getStartedServer((port) -> new FlightServer(
+        allocator,
+        port,
+        new NoOpFlightProducer() {
+          @Override
+          public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
+            listener.onCompleted();
+          }
+        },
+        new BasicServerAuthHandler(validator)));
+    client = new FlightClient(allocator, new Location(FlightTestUtil.LOCALHOST, server.getPort()));
   }
 
   @After
