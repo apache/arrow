@@ -20,9 +20,11 @@
 pub mod arithmetic_kernels;
 pub mod array_ops;
 pub mod boolean_kernels;
+pub mod comparison_kernels;
 
 mod util;
 
 pub use self::arithmetic_kernels::*;
 pub use self::array_ops::*;
 pub use self::boolean_kernels::*;
+pub use self::comparison_kernels::*;
