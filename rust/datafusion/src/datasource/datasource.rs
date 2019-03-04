@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Data source traits
+
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -22,36 +24,28 @@ use std::sync::Arc;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::RecordBatchIterator;
 use crate::execution::error::Result;
 
-/// trait for all relations (a relation is essentially just an iterator over rows with
-/// a known schema)
-pub trait Relation {
-    fn next(&mut self) -> Result<Option<RecordBatch>>;
+pub type ScanResult = Rc<RefCell<RecordBatchIterator>>;
 
-    /// get the schema for this relation
+/// Source table
+pub trait Table {
+    /// Get a reference to the schema for this table
     fn schema(&self) -> &Arc<Schema>;
+
+    /// Perform a scan of a table and return an iterator over the data
+    fn scan(
+        &self,
+        projection: &Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Result<ScanResult>;
 }
 
-pub struct DataSourceRelation {
-    schema: Arc<Schema>,
-    ds: Rc<RefCell<RecordBatchIterator>>,
-}
+/// Iterator for reading a series of record batches with a known schema
+pub trait RecordBatchIterator {
+    /// Get the schema of this iterator
+    fn schema(&self) -> &Arc<Schema>;
 
-impl DataSourceRelation {
-    pub fn new(ds: Rc<RefCell<RecordBatchIterator>>) -> Self {
-        let schema = ds.borrow().schema().clone();
-        Self { ds, schema }
-    }
-}
-
-impl Relation for DataSourceRelation {
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
-        self.ds.borrow_mut().next()
-    }
-
-    fn schema(&self) -> &Arc<Schema> {
-        &self.schema
-    }
+    /// Get the next batch in this iterator
+    fn next(&mut self) -> Result<Option<RecordBatch>>;
 }

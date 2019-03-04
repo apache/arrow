@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Data sources
+//! CSV Data source
 
 use std::cell::RefCell;
 use std::fs::File;
@@ -27,20 +27,53 @@ use arrow::csv;
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
-use super::error::Result;
+use crate::datasource::{RecordBatchIterator, ScanResult, Table};
+use crate::execution::error::Result;
 
-pub trait DataSource {
-    fn schema(&self) -> &Arc<Schema>;
-    fn next(&mut self) -> Result<Option<RecordBatch>>;
+/// Represents a CSV file with a provided schema
+pub struct CsvFile {
+    filename: String,
+    schema: Arc<Schema>,
+    has_header: bool,
 }
 
-/// CSV data source
-pub struct CsvDataSource {
+impl CsvFile {
+    pub fn new(filename: &str, schema: &Schema, has_header: bool) -> Self {
+        Self {
+            filename: String::from(filename),
+            schema: Arc::new(schema.clone()),
+            has_header,
+        }
+    }
+}
+
+impl Table for CsvFile {
+    fn schema(&self) -> &Arc<Schema> {
+        &self.schema
+    }
+
+    fn scan(
+        &self,
+        projection: &Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Result<ScanResult> {
+        Ok(Rc::new(RefCell::new(CsvBatchIterator::new(
+            &self.filename,
+            self.schema.clone(),
+            self.has_header,
+            projection,
+            batch_size,
+        ))))
+    }
+}
+
+/// Iterator over CSV batches
+pub struct CsvBatchIterator {
     schema: Arc<Schema>,
     reader: csv::Reader<File>,
 }
 
-impl CsvDataSource {
+impl CsvBatchIterator {
     pub fn new(
         filename: &str,
         schema: Arc<Schema>,
@@ -74,58 +107,12 @@ impl CsvDataSource {
     }
 }
 
-impl DataSource for CsvDataSource {
+impl RecordBatchIterator for CsvBatchIterator {
     fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }
 
     fn next(&mut self) -> Result<Option<RecordBatch>> {
         Ok(self.reader.next()?)
-    }
-}
-
-pub trait DataSourceProvider {
-    fn schema(&self) -> &Arc<Schema>;
-    fn scan(
-        &self,
-        projection: &Option<Vec<usize>>,
-        batch_size: usize,
-    ) -> Rc<RefCell<DataSource>>;
-}
-
-/// Represents a CSV file with a provided schema
-pub struct CsvProvider {
-    filename: String,
-    schema: Arc<Schema>,
-    has_header: bool,
-}
-
-impl CsvProvider {
-    pub fn new(filename: &str, schema: &Schema, has_header: bool) -> Self {
-        Self {
-            filename: String::from(filename),
-            schema: Arc::new(schema.clone()),
-            has_header,
-        }
-    }
-}
-
-impl DataSourceProvider for CsvProvider {
-    fn schema(&self) -> &Arc<Schema> {
-        &self.schema
-    }
-
-    fn scan(
-        &self,
-        projection: &Option<Vec<usize>>,
-        batch_size: usize,
-    ) -> Rc<RefCell<DataSource>> {
-        Rc::new(RefCell::new(CsvDataSource::new(
-            &self.filename,
-            self.schema.clone(),
-            self.has_header,
-            projection,
-            batch_size,
-        )))
     }
 }

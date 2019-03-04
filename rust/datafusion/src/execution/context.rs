@@ -25,22 +25,23 @@ use std::sync::Arc;
 
 use arrow::datatypes::*;
 
-use super::super::dfparser::{DFASTNode, DFParser};
-use super::super::logicalplan::*;
-use super::super::optimizer::optimizer::OptimizerRule;
-use super::super::optimizer::projection_push_down::ProjectionPushDown;
-use super::super::sqlplanner::{SchemaProvider, SqlToRel};
-use super::aggregate::AggregateRelation;
-use super::datasource::{CsvProvider, DataSourceProvider};
-use super::error::{ExecutionError, Result};
-use super::expression::*;
-use super::filter::FilterRelation;
-use super::limit::LimitRelation;
-use super::projection::ProjectRelation;
-use super::relation::{DataSourceRelation, Relation};
+use crate::datasource::csv::CsvFile;
+use crate::datasource::datasource::Table;
+use crate::dfparser::{DFASTNode, DFParser};
+use crate::execution::aggregate::AggregateRelation;
+use crate::execution::error::{ExecutionError, Result};
+use crate::execution::expression::*;
+use crate::execution::filter::FilterRelation;
+use crate::execution::limit::LimitRelation;
+use crate::execution::projection::ProjectRelation;
+use crate::execution::relation::{DataSourceRelation, Relation};
+use crate::logicalplan::*;
+use crate::optimizer::optimizer::OptimizerRule;
+use crate::optimizer::projection_push_down::ProjectionPushDown;
+use crate::sqlplanner::{SchemaProvider, SqlToRel};
 
 pub struct ExecutionContext {
-    datasources: Rc<RefCell<HashMap<String, Rc<DataSourceProvider>>>>,
+    datasources: Rc<RefCell<HashMap<String, Rc<Table>>>>,
 }
 
 impl ExecutionContext {
@@ -87,10 +88,14 @@ impl ExecutionContext {
         schema: &Schema,
         has_header: bool,
     ) {
-        self.datasources.borrow_mut().insert(
-            name.to_string(),
-            Rc::new(CsvProvider::new(filename, schema, has_header)),
-        );
+        self.register_table(name, Rc::new(CsvFile::new(filename, schema, has_header)));
+    }
+
+    /// Register a table so that it can be queried from SQL
+    pub fn register_table(&mut self, name: &str, provider: Rc<Table>) {
+        self.datasources
+            .borrow_mut()
+            .insert(name.to_string(), provider);
     }
 
     /// Optimize the logical plan by applying optimizer rules
@@ -113,7 +118,7 @@ impl ExecutionContext {
                 ..
             } => match self.datasources.borrow().get(table_name) {
                 Some(provider) => {
-                    let ds = provider.scan(projection, batch_size);
+                    let ds = provider.scan(projection, batch_size)?;
                     Ok(Rc::new(RefCell::new(DataSourceRelation::new(ds))))
                 }
                 _ => Err(ExecutionError::General(format!(
@@ -269,7 +274,7 @@ pub fn exprlist_to_fields(expr: &Vec<Expr>, input_schema: &Schema) -> Vec<Field>
 }
 
 struct ExecutionContextSchemaProvider {
-    datasources: Rc<RefCell<HashMap<String, Rc<DataSourceProvider>>>>,
+    datasources: Rc<RefCell<HashMap<String, Rc<Table>>>>,
 }
 impl SchemaProvider for ExecutionContextSchemaProvider {
     fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>> {

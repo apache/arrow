@@ -15,18 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! DataFusion is a modern distributed compute platform implemented in Rust that uses
-//! Apache Arrow as the memory model
-
-extern crate arrow;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-extern crate sqlparser;
-
+pub mod csv;
 pub mod datasource;
-pub mod dfparser;
-pub mod execution;
-pub mod logicalplan;
-pub mod optimizer;
-pub mod sqlplanner;
+pub mod memory;
+
+pub use self::csv::{CsvBatchIterator, CsvFile};
+pub use self::datasource::{RecordBatchIterator, ScanResult, Table};
+pub use self::memory::{MemBatchIterator, MemTable};

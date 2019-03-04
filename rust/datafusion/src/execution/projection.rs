@@ -25,9 +25,9 @@ use arrow::array::ArrayRef;
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
-use super::error::Result;
-use super::expression::RuntimeExpr;
-use super::relation::Relation;
+use crate::execution::error::Result;
+use crate::execution::expression::RuntimeExpr;
+use crate::execution::relation::Relation;
 
 pub struct ProjectRelation {
     schema: Arc<Schema>,
@@ -79,12 +79,12 @@ impl Relation for ProjectRelation {
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::logicalplan::Expr;
-    use super::super::context::ExecutionContext;
-    use super::super::datasource::CsvDataSource;
-    use super::super::expression;
-    use super::super::relation::DataSourceRelation;
     use super::*;
+    use crate::datasource::CsvBatchIterator;
+    use crate::execution::context::ExecutionContext;
+    use crate::execution::expression;
+    use crate::execution::relation::DataSourceRelation;
+    use crate::logicalplan::Expr;
     use arrow::datatypes::{DataType, Field, Schema};
 
     #[test]
@@ -105,7 +105,7 @@ mod tests {
             Field::new("c12", DataType::Utf8, false),
         ]));
 
-        let ds = CsvDataSource::new(
+        let ds = CsvBatchIterator::new(
             "../../testing/data/csv/aggregate_test_100.csv",
             schema.clone(),
             true,
