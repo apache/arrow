@@ -427,7 +427,8 @@ where
 
 /// Cast Boolean types to numeric
 ///
-/// Any zero value returns `false` while non-zero returns `true`
+/// `false` returns 0 while `true` returns 1. Although this cast supports floats, they are
+/// unsupported in the upstream cast
 fn cast_bool_to_numeric<T>(from: &BooleanArray) -> Result<PrimitiveArray<T>>
 where
     T: ArrowPrimitiveType + ArrowNumericType,
