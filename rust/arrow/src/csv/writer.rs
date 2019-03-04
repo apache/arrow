@@ -53,7 +53,7 @@
 //! let batch = RecordBatch::new(
 //!     Arc::new(schema),
 //!     vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
-//! );
+//! ).unwrap();
 //!
 //! let file = get_temp_file("out.csv", &[]);
 //!
@@ -290,7 +290,8 @@ mod tests {
         let batch = RecordBatch::new(
             Arc::new(schema),
             vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
-        );
+        )
+        .unwrap();
 
         let file = get_temp_file("columns.csv", &[]);
 
@@ -334,7 +335,8 @@ mod tests {
         let batch = RecordBatch::new(
             Arc::new(schema),
             vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
-        );
+        )
+        .unwrap();
 
         let file = get_temp_file("custom_options.csv", &[]);
 
