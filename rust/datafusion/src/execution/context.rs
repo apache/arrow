@@ -55,12 +55,18 @@ impl ExecutionContext {
     /// Execute a SQL query and produce a Relation (a schema-aware iterator over a series
     /// of RecordBatch instances)
     pub fn sql(&mut self, sql: &str, batch_size: usize) -> Result<Rc<RefCell<Relation>>> {
+        let plan = self.create_logical_plan(sql)?;
+        Ok(self.execute(&plan, batch_size)?)
+    }
+
+    /// Creates a logical plan
+    pub fn create_logical_plan(&mut self, sql: &str) -> Result<Arc<LogicalPlan>> {
         let ast = DFParser::parse_sql(String::from(sql))?;
 
         match ast {
             DFASTNode::ANSI(ansi) => {
-                let schema_provider: Rc<SchemaProvider> =
-                    Rc::new(ExecutionContextSchemaProvider {
+                let schema_provider: Arc<SchemaProvider> =
+                    Arc::new(ExecutionContextSchemaProvider {
                         datasources: self.datasources.clone(),
                     });
 
@@ -70,11 +76,7 @@ impl ExecutionContext {
                 // plan the query (create a logical relational plan)
                 let plan = query_planner.sql_to_rel(&ansi)?;
 
-                let optimized_plan = self.optimize(&plan)?;
-
-                let relation = self.execute(&optimized_plan, batch_size)?;
-
-                Ok(relation)
+                Ok(self.optimize(&plan)?)
             }
             _ => unimplemented!(),
         }
@@ -99,7 +101,7 @@ impl ExecutionContext {
     }
 
     /// Optimize the logical plan by applying optimizer rules
-    fn optimize(&self, plan: &LogicalPlan) -> Result<Rc<LogicalPlan>> {
+    fn optimize(&self, plan: &LogicalPlan) -> Result<Arc<LogicalPlan>> {
         let mut rule = ProjectionPushDown::new();
         Ok(rule.optimize(plan)?)
     }

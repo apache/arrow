@@ -19,7 +19,6 @@
 
 use std::fmt;
 use std::fmt::{Error, Formatter};
-use std::rc::Rc;
 use std::sync::Arc;
 
 use arrow::datatypes::*;
@@ -109,7 +108,7 @@ pub enum ScalarValue {
     UInt16(u16),
     UInt32(u32),
     UInt64(u64),
-    Utf8(Rc<String>),
+    Utf8(Arc<String>),
     Struct(Vec<ScalarValue>),
 }
 
@@ -143,18 +142,21 @@ pub enum Expr {
     Literal(ScalarValue),
     /// binary expression e.g. "age > 21"
     BinaryExpr {
-        left: Rc<Expr>,
+        left: Arc<Expr>,
         op: Operator,
-        right: Rc<Expr>,
+        right: Arc<Expr>,
     },
     /// unary IS NOT NULL
-    IsNotNull(Rc<Expr>),
+    IsNotNull(Arc<Expr>),
     /// unary IS NULL
-    IsNull(Rc<Expr>),
+    IsNull(Arc<Expr>),
     /// cast a value to a different type
-    Cast { expr: Rc<Expr>, data_type: DataType },
+    Cast {
+        expr: Arc<Expr>,
+        data_type: DataType,
+    },
     /// sort expression
-    Sort { expr: Rc<Expr>, asc: bool },
+    Sort { expr: Arc<Expr>, asc: bool },
     /// scalar function
     ScalarFunction {
         name: String,
@@ -210,7 +212,7 @@ impl Expr {
             Ok(self.clone())
         } else if can_coerce_from(cast_to_type, &this_type) {
             Ok(Expr::Cast {
-                expr: Rc::new(self.clone()),
+                expr: Arc::new(self.clone()),
                 data_type: cast_to_type.clone(),
             })
         } else {
@@ -223,49 +225,49 @@ impl Expr {
 
     pub fn eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Rc::new(self.clone()),
+            left: Arc::new(self.clone()),
             op: Operator::Eq,
-            right: Rc::new(other.clone()),
+            right: Arc::new(other.clone()),
         }
     }
 
     pub fn not_eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Rc::new(self.clone()),
+            left: Arc::new(self.clone()),
             op: Operator::NotEq,
-            right: Rc::new(other.clone()),
+            right: Arc::new(other.clone()),
         }
     }
 
     pub fn gt(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Rc::new(self.clone()),
+            left: Arc::new(self.clone()),
             op: Operator::Gt,
-            right: Rc::new(other.clone()),
+            right: Arc::new(other.clone()),
         }
     }
 
     pub fn gt_eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Rc::new(self.clone()),
+            left: Arc::new(self.clone()),
             op: Operator::GtEq,
-            right: Rc::new(other.clone()),
+            right: Arc::new(other.clone()),
         }
     }
 
     pub fn lt(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Rc::new(self.clone()),
+            left: Arc::new(self.clone()),
             op: Operator::Lt,
-            right: Rc::new(other.clone()),
+            right: Arc::new(other.clone()),
         }
     }
 
     pub fn lt_eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
-            left: Rc::new(self.clone()),
+            left: Arc::new(self.clone()),
             op: Operator::LtEq,
-            right: Rc::new(other.clone()),
+            right: Arc::new(other.clone()),
         }
     }
 }
@@ -323,14 +325,14 @@ pub enum LogicalPlan {
     /// A Projection (essentially a SELECT with an expression list)
     Projection {
         expr: Vec<Expr>,
-        input: Rc<LogicalPlan>,
+        input: Arc<LogicalPlan>,
         schema: Arc<Schema>,
     },
     /// A Selection (essentially a WHERE clause with a predicate expression)
-    Selection { expr: Expr, input: Rc<LogicalPlan> },
+    Selection { expr: Expr, input: Arc<LogicalPlan> },
     /// Represents a list of aggregate expressions with optional grouping expressions
     Aggregate {
-        input: Rc<LogicalPlan>,
+        input: Arc<LogicalPlan>,
         group_expr: Vec<Expr>,
         aggr_expr: Vec<Expr>,
         schema: Arc<Schema>,
@@ -338,7 +340,7 @@ pub enum LogicalPlan {
     /// Represents a list of sort expressions to be applied to a relation
     Sort {
         expr: Vec<Expr>,
-        input: Rc<LogicalPlan>,
+        input: Arc<LogicalPlan>,
         schema: Arc<Schema>,
     },
     /// A table scan against a table that has been registered on a context
@@ -353,7 +355,7 @@ pub enum LogicalPlan {
     // Represents the maximum number of records to return
     Limit {
         expr: Expr,
-        input: Rc<LogicalPlan>,
+        input: Arc<LogicalPlan>,
         schema: Arc<Schema>,
     },
 }
@@ -621,6 +623,24 @@ pub fn can_coerce_from(left: &DataType, other: &DataType) -> bool {
 mod tests {
     use super::*;
     use serde_json;
+    use std::thread;
+
+    #[test]
+    fn logical_plan_can_be_shared_between_threads() {
+        let schema = Schema::new(vec![]);
+        let plan = Arc::new(LogicalPlan::TableScan {
+            schema_name: "".to_string(),
+            table_name: "people".to_string(),
+            schema: Arc::new(schema),
+            projection: Some(vec![0, 1, 4]),
+        });
+
+        // prove that a plan can be passed to a thread
+        let plan1 = plan.clone();
+        thread::spawn(move || {
+            println!("plan: {:?}", plan1);
+        });
+    }
 
     #[test]
     fn serialize_plan() {

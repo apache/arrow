@@ -18,7 +18,6 @@
 //! SQL Query Planner (produces logical plan from SQL AST)
 
 use std::collections::HashSet;
-use std::rc::Rc;
 use std::string::String;
 use std::sync::Arc;
 
@@ -36,17 +35,17 @@ pub trait SchemaProvider {
 
 /// SQL query planner
 pub struct SqlToRel {
-    schema_provider: Rc<SchemaProvider>,
+    schema_provider: Arc<SchemaProvider>,
 }
 
 impl SqlToRel {
     /// Create a new query planner
-    pub fn new(schema_provider: Rc<SchemaProvider>) -> Self {
+    pub fn new(schema_provider: Arc<SchemaProvider>) -> Self {
         SqlToRel { schema_provider }
     }
 
     /// Generate a logic plan from a SQL AST node
-    pub fn sql_to_rel(&self, sql: &ASTNode) -> Result<Rc<LogicalPlan>> {
+    pub fn sql_to_rel(&self, sql: &ASTNode) -> Result<Arc<LogicalPlan>> {
         match sql {
             &ASTNode::SQLSelect {
                 ref projection,
@@ -61,7 +60,7 @@ impl SqlToRel {
                 // parse the input relation so we have access to the row type
                 let input = match relation {
                     &Some(ref r) => self.sql_to_rel(r)?,
-                    &None => Rc::new(LogicalPlan::EmptyRelation {
+                    &None => Arc::new(LogicalPlan::EmptyRelation {
                         schema: Arc::new(Schema::empty()),
                     }),
                 };
@@ -93,8 +92,8 @@ impl SqlToRel {
                     .collect();
 
                 if aggr_expr.len() > 0 {
-                    let aggregate_input: Rc<LogicalPlan> = match selection_plan {
-                        Some(s) => Rc::new(s),
+                    let aggregate_input: Arc<LogicalPlan> = match selection_plan {
+                        Some(s) => Arc::new(s),
                         _ => input.clone(),
                     };
 
@@ -114,15 +113,15 @@ impl SqlToRel {
                         Schema::new(exprlist_to_fields(&all_fields, input_schema));
 
                     //TODO: selection, projection, everything else
-                    Ok(Rc::new(LogicalPlan::Aggregate {
+                    Ok(Arc::new(LogicalPlan::Aggregate {
                         input: aggregate_input,
                         group_expr,
                         aggr_expr,
                         schema: Arc::new(aggr_schema),
                     }))
                 } else {
-                    let projection_input: Rc<LogicalPlan> = match selection_plan {
-                        Some(s) => Rc::new(s),
+                    let projection_input: Arc<LogicalPlan> = match selection_plan {
+                        Some(s) => Arc::new(s),
                         _ => input.clone(),
                     };
 
@@ -150,7 +149,7 @@ impl SqlToRel {
                                 .iter()
                                 .map(|e| {
                                     Ok(Expr::Sort {
-                                        expr: Rc::new(
+                                        expr: Arc::new(
                                             self.sql_to_rex(&e.expr, &input_schema)
                                                 .unwrap(),
                                         ),
@@ -161,7 +160,7 @@ impl SqlToRel {
 
                             LogicalPlan::Sort {
                                 expr: order_by_rex?,
-                                input: Rc::new(projection.clone()),
+                                input: Arc::new(projection.clone()),
                                 schema: input_schema.clone(),
                             }
                         }
@@ -176,20 +175,20 @@ impl SqlToRel {
 
                             LogicalPlan::Limit {
                                 expr: limit_rex,
-                                input: Rc::new(order_by_plan.clone()),
+                                input: Arc::new(order_by_plan.clone()),
                                 schema: input_schema.clone(),
                             }
                         }
                         _ => order_by_plan,
                     };
 
-                    Ok(Rc::new(limit_plan))
+                    Ok(Arc::new(limit_plan))
                 }
             }
 
             &ASTNode::SQLIdentifier(ref id) => {
                 match self.schema_provider.get_table_meta(id.as_ref()) {
-                    Some(schema) => Ok(Rc::new(LogicalPlan::TableScan {
+                    Some(schema) => Ok(Arc::new(LogicalPlan::TableScan {
                         schema_name: String::from("default"),
                         table_name: id.clone(),
                         schema: schema.clone(),
@@ -219,7 +218,7 @@ impl SqlToRel {
                 Ok(Expr::Literal(ScalarValue::Float64(n)))
             }
             &ASTNode::SQLValue(sqlparser::sqlast::Value::SingleQuotedString(ref s)) => {
-                Ok(Expr::Literal(ScalarValue::Utf8(Rc::new(s.clone()))))
+                Ok(Expr::Literal(ScalarValue::Utf8(Arc::new(s.clone()))))
             }
 
             &ASTNode::SQLIdentifier(ref id) => {
@@ -243,16 +242,16 @@ impl SqlToRel {
                 ref expr,
                 ref data_type,
             } => Ok(Expr::Cast {
-                expr: Rc::new(self.sql_to_rex(&expr, schema)?),
+                expr: Arc::new(self.sql_to_rex(&expr, schema)?),
                 data_type: convert_data_type(data_type)?,
             }),
 
             &ASTNode::SQLIsNull(ref expr) => {
-                Ok(Expr::IsNull(Rc::new(self.sql_to_rex(expr, schema)?)))
+                Ok(Expr::IsNull(Arc::new(self.sql_to_rex(expr, schema)?)))
             }
 
             &ASTNode::SQLIsNotNull(ref expr) => {
-                Ok(Expr::IsNotNull(Rc::new(self.sql_to_rex(expr, schema)?)))
+                Ok(Expr::IsNotNull(Arc::new(self.sql_to_rex(expr, schema)?)))
             }
 
             &ASTNode::SQLBinaryExpr {
@@ -286,9 +285,9 @@ impl SqlToRel {
 
                 match get_supertype(&left_type, &right_type) {
                     Some(supertype) => Ok(Expr::BinaryExpr {
-                        left: Rc::new(left_expr.cast_to(&supertype, schema)?),
+                        left: Arc::new(left_expr.cast_to(&supertype, schema)?),
                         op: operator,
-                        right: Rc::new(right_expr.cast_to(&supertype, schema)?),
+                        right: Arc::new(right_expr.cast_to(&supertype, schema)?),
                     }),
                     None => {
                         return Err(ExecutionError::General(format!(
@@ -301,7 +300,7 @@ impl SqlToRel {
             }
 
             //            &ASTNode::SQLOrderBy { ref expr, asc } => Ok(Expr::Sort {
-            //                expr: Rc::new(self.sql_to_rex(&expr, &schema)?),
+            //                expr: Arc::new(self.sql_to_rex(&expr, &schema)?),
             //                asc,
             //            }),
             &ASTNode::SQLFunction { ref id, ref args } => {
@@ -463,9 +462,9 @@ fn collect_expr(e: &Expr, accum: &mut HashSet<usize>) {
 }
 
 pub fn push_down_projection(
-    plan: &Rc<LogicalPlan>,
+    plan: &Arc<LogicalPlan>,
     projection: &HashSet<usize>,
-) -> Rc<LogicalPlan> {
+) -> Arc<LogicalPlan> {
     //println!("push_down_projection() projection={:?}", projection);
     match plan.as_ref() {
         LogicalPlan::Aggregate {
@@ -478,7 +477,7 @@ pub fn push_down_projection(
             let mut accum: HashSet<usize> = HashSet::new();
             group_expr.iter().for_each(|e| collect_expr(e, &mut accum));
             aggr_expr.iter().for_each(|e| collect_expr(e, &mut accum));
-            Rc::new(LogicalPlan::Aggregate {
+            Arc::new(LogicalPlan::Aggregate {
                 input: push_down_projection(&input, &accum),
                 group_expr: group_expr.clone(),
                 aggr_expr: aggr_expr.clone(),
@@ -491,7 +490,7 @@ pub fn push_down_projection(
         } => {
             let mut accum: HashSet<usize> = projection.clone();
             collect_expr(expr, &mut accum);
-            Rc::new(LogicalPlan::Selection {
+            Arc::new(LogicalPlan::Selection {
                 expr: expr.clone(),
                 input: push_down_projection(&input, &accum),
             })
@@ -501,7 +500,7 @@ pub fn push_down_projection(
             ref table_name,
             ref schema,
             ..
-        } => Rc::new(LogicalPlan::TableScan {
+        } => Arc::new(LogicalPlan::TableScan {
             schema_name: schema_name.to_string(),
             table_name: table_name.to_string(),
             schema: schema.clone(),
@@ -646,14 +645,14 @@ mod tests {
         let mut accum: HashSet<usize> = HashSet::new();
         collect_expr(
             &Expr::Cast {
-                expr: Rc::new(Expr::Column(3)),
+                expr: Arc::new(Expr::Column(3)),
                 data_type: DataType::Float64,
             },
             &mut accum,
         );
         collect_expr(
             &Expr::Cast {
-                expr: Rc::new(Expr::Column(3)),
+                expr: Arc::new(Expr::Column(3)),
                 data_type: DataType::Float64,
             },
             &mut accum,
@@ -667,7 +666,7 @@ mod tests {
     fn quick_test(sql: &str, expected: &str) {
         use sqlparser::dialect::*;
         let dialect = GenericSqlDialect {};
-        let planner = SqlToRel::new(Rc::new(MockSchemaProvider {}));
+        let planner = SqlToRel::new(Arc::new(MockSchemaProvider {}));
         let ast = Parser::parse_sql(&dialect, sql.to_string()).unwrap();
         let plan = planner.sql_to_rel(&ast).unwrap();
         assert_eq!(expected, format!("{:?}", plan));
