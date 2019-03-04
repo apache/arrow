@@ -41,6 +41,7 @@ public class TestBackPressure {
   /**
    * Make sure that failing to consume one stream doesn't block other streams.
    */
+  @Ignore
   @Test
   public void ensureIndependentSteams() throws Exception {
 
