@@ -102,20 +102,25 @@ impl Table for MemTable {
 
         let projected_schema = Arc::new(Schema::new(projected_columns?));
 
-        Ok(Rc::new(RefCell::new(MemBatchIterator {
-            schema: projected_schema.clone(),
-            index: 0,
-            batches: self
-                .batches
-                .iter()
-                .map(|batch| {
-                    RecordBatch::new(
-                        projected_schema.clone(),
-                        columns.iter().map(|i| batch.column(*i).clone()).collect(),
-                    )
-                })
-                .collect(),
-        })))
+        let batches = self
+            .batches
+            .iter()
+            .map(|batch| {
+                RecordBatch::new(
+                    projected_schema.clone(),
+                    columns.iter().map(|i| batch.column(*i).clone()).collect(),
+                )
+            })
+            .collect();
+
+        match batches {
+            Ok(batches) => Ok(Rc::new(RefCell::new(MemBatchIterator {
+                schema: projected_schema.clone(),
+                index: 0,
+                batches,
+            }))),
+            Err(e) => Err(ExecutionError::ArrowError(e)),
+        }
     }
 }
 
@@ -162,7 +167,8 @@ mod tests {
                 Arc::new(Int32Array::from(vec![4, 5, 6])),
                 Arc::new(Int32Array::from(vec![7, 8, 9])),
             ],
-        );
+        )
+        .unwrap();
 
         let provider = MemTable::new(schema, vec![batch]).unwrap();
 
@@ -190,7 +196,8 @@ mod tests {
                 Arc::new(Int32Array::from(vec![4, 5, 6])),
                 Arc::new(Int32Array::from(vec![7, 8, 9])),
             ],
-        );
+        )
+        .unwrap();
 
         let provider = MemTable::new(schema, vec![batch]).unwrap();
 
@@ -215,7 +222,8 @@ mod tests {
                 Arc::new(Int32Array::from(vec![4, 5, 6])),
                 Arc::new(Int32Array::from(vec![7, 8, 9])),
             ],
-        );
+        )
+        .unwrap();
 
         let provider = MemTable::new(schema, vec![batch]).unwrap();
 
@@ -250,7 +258,8 @@ mod tests {
                 Arc::new(Int32Array::from(vec![4, 5, 6])),
                 Arc::new(Int32Array::from(vec![7, 8, 9])),
             ],
-        );
+        )
+        .unwrap();
 
         match MemTable::new(schema2, vec![batch]) {
             Err(ExecutionError::General(e)) => assert_eq!(
