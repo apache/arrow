@@ -238,7 +238,7 @@ struct ConcatenateImpl {
       RETURN_NOT_OK(PutOffsets(buffers[i], in_range(i), values_length,
                                &dst[elements_length], &ranges->at(i)));
       elements_length += in_length(i);
-      values_length += ranges->at(i).length;
+      values_length += static_cast<int32_t>(ranges->at(i).length);
     }
     dst[elements_length] = values_length;
     return Status::OK();
