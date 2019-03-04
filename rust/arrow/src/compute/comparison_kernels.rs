@@ -31,7 +31,8 @@ use crate::compute::util::apply_bin_op_to_option_bitmap;
 use crate::datatypes::{ArrowNumericType, BooleanType, DataType};
 use crate::error::{ArrowError, Result};
 
-/// Helper function to perform boolean lambda function on values from two arrays.
+/// Helper function to perform boolean lambda function on values from two arrays, this
+/// version does not attempt to use SIMD.
 pub fn compare_op<T, F>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -64,6 +65,8 @@ where
     Ok(b.finish())
 }
 
+/// Helper function to perform boolean lambda function on values from two arrays using
+/// SIMD.
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 fn simd_compare_op<T, F>(
     left: &PrimitiveArray<T>,
@@ -94,7 +97,7 @@ where
         let simd_right = T::load(right.value_slice(i, lanes));
         let simd_result = op(simd_left, simd_right);
         for i in 0..lanes {
-            result.append(T::mask_get(&simd_result, i)).unwrap();
+            result.append(T::mask_get(&simd_result, i))?;
         }
     }
 
