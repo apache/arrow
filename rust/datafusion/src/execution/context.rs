@@ -187,8 +187,15 @@ impl ExecutionContext {
                     .collect();
                 let compiled_aggr_expr = compiled_aggr_expr_result?;
 
+                let mut output_fields: Vec<Field> = vec![];
+                for expr in group_expr {
+                    output_fields.push(expr_to_field(expr, input_schema.as_ref()));
+                }
+                for expr in aggr_expr {
+                    output_fields.push(expr_to_field(expr, input_schema.as_ref()));
+                }
                 let rel = AggregateRelation::new(
-                    Arc::new(Schema::empty()), //(expr_to_field(&compiled_group_expr, &input_schema))),
+                    Arc::new(Schema::new(output_fields)),
                     input_rel,
                     compiled_group_expr,
                     compiled_aggr_expr,
