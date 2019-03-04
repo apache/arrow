@@ -58,8 +58,12 @@ macro_rules! cast_numeric_to_string {
 /// Cast array to provided data type
 pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
     use DataType::*;
-    // to and from have to be compatible
     let from_type = array.data_type();
+
+    // clone array if types are the same
+    if from_type == to_type {
+        return Ok(array.clone());
+    }
     match (from_type, to_type) {
         (Struct(_), _) => Err(ArrowError::ComputeError(
             "Cannot cast from struct to other types".to_string(),
@@ -249,5 +253,18 @@ mod tests {
         assert_eq!(7.0, c.value(2));
         assert_eq!(8.0, c.value(3));
         assert_eq!(9.0, c.value(4));
+    }
+
+    #[test]
+    fn test_cast_i32_to_i32() {
+        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Int32).unwrap();
+        let c = b.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(5, c.value(0));
+        assert_eq!(6, c.value(1));
+        assert_eq!(7, c.value(2));
+        assert_eq!(8, c.value(3));
+        assert_eq!(9, c.value(4));
     }
 }
