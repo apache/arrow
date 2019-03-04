@@ -61,6 +61,8 @@ public class JniWrapper {
    */
   native void evaluateProjector(long moduleId, int numRows,
                                 long[] bufAddrs, long[] bufSizes,
+                                int selectionVectorType, int selectionVectorSize,
+                                long selectionVectorBufferAddr, long selectionVectorBufferSize,
                                 long[] outAddrs, long[] outSizes) throws GandivaException;
 
   /**

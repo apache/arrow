@@ -37,6 +37,7 @@
 #include "gandiva/jni/id_to_module_map.h"
 #include "gandiva/jni/module_holder.h"
 #include "gandiva/projector.h"
+#include "gandiva/selection_vector.h"
 #include "gandiva/tree_expr_builder.h"
 #include "jni/org_apache_arrow_gandiva_evaluator_JniWrapper.h"
 
@@ -585,7 +586,8 @@ err_out:
 JNIEXPORT void JNICALL
 Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evaluateProjector(
     JNIEnv* env, jobject cls, jlong module_id, jint num_rows, jlongArray buf_addrs,
-    jlongArray buf_sizes, jlongArray out_buf_addrs, jlongArray out_buf_sizes) {
+    jlongArray buf_sizes, jint sel_vec_type, jint sel_vec_rows, jlong sel_vec_addr,
+    jlong sel_vec_size, jlongArray out_buf_addrs, jlongArray out_buf_sizes) {
   Status status;
   std::shared_ptr<ProjectorHolder> holder = projector_modules_.Lookup(module_id);
   if (holder == nullptr) {
@@ -622,6 +624,32 @@ Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evaluateProjector(
       break;
     }
 
+    std::shared_ptr<gandiva::SelectionVector> selection_vector;
+    auto selection_buffer = std::make_shared<arrow::Buffer>(
+        reinterpret_cast<uint8_t*>(sel_vec_addr), sel_vec_size);
+    int output_row_count = 0;
+    switch (sel_vec_type) {
+      case types::SV_NONE: {
+        output_row_count = num_rows;
+        break;
+      }
+      case types::SV_INT16: {
+        status = gandiva::SelectionVector::MakeImmutableInt16(
+            sel_vec_rows, selection_buffer, &selection_vector);
+        output_row_count = sel_vec_rows;
+        break;
+      }
+      case types::SV_INT32: {
+        status = gandiva::SelectionVector::MakeImmutableInt32(
+            sel_vec_rows, selection_buffer, &selection_vector);
+        output_row_count = sel_vec_rows;
+        break;
+      }
+    }
+    if (!status.ok()) {
+      break;
+    }
+
     auto ret_types = holder->rettypes();
     ArrayDataVector output;
     int buf_idx = 0;
@@ -640,14 +668,10 @@ Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evaluateProjector(
           std::make_shared<arrow::MutableBuffer>(value_buf, data_sz);
 
       auto array_data =
-          arrow::ArrayData::Make(field->type(), num_rows, {bitmap_buf, data_buf});
+          arrow::ArrayData::Make(field->type(), output_row_count, {bitmap_buf, data_buf});
       output.push_back(array_data);
     }
-    if (!status.ok()) {
-      break;
-    }
-
-    status = holder->projector()->Evaluate(*in_batch, output);
+    status = holder->projector()->Evaluate(*in_batch, selection_vector.get(), output);
   } while (0);
 
   env->ReleaseLongArrayElements(buf_addrs, in_buf_addrs, JNI_ABORT);

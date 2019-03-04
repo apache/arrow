@@ -27,6 +27,7 @@
 #include "gandiva/arrow.h"
 #include "gandiva/configuration.h"
 #include "gandiva/expression.h"
+#include "gandiva/selection_vector.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
@@ -80,6 +81,28 @@ class GANDIVA_EXPORT Projector {
   /// \param[in,out] output vector of arrays, the arrays are allocated by the caller and
   ///                populated by Evaluate.
   Status Evaluate(const arrow::RecordBatch& batch, const ArrayDataVector& output);
+
+  /// Evaluate the specified record batch, and return the allocated and populated output
+  /// arrays. The output arrays will be allocated from the memory pool 'pool', and added
+  /// to the vector 'output'.
+  ///
+  /// \param[in] batch the record batch. schema should be the same as the one in 'Make'
+  /// \param[in] selection_vector selection vector which has filtered row posisitons.
+  /// \param[in] pool memory pool used to allocate output arrays (if required).
+  /// \param[out] output the vector of allocated/populated arrays.
+  Status Evaluate(const arrow::RecordBatch& batch,
+                  const SelectionVector* selection_vector, arrow::MemoryPool* pool,
+                  arrow::ArrayVector* output);
+
+  /// Evaluate the specified record batch, and populate the output arrays at the filtered
+  /// positions. The output arrays of sufficient capacity must be allocated by the caller.
+  ///
+  /// \param[in] batch the record batch. schema should be the same as the one in 'Make'
+  /// \param[in] selection_vector selection vector which has the filtered row posisitons
+  /// \param[in,out] output vector of arrays, the arrays are allocated by the caller and
+  ///                 populated by Evaluate.
+  Status Evaluate(const arrow::RecordBatch& batch,
+                  const SelectionVector* selection_vector, const ArrayDataVector& output);
 
  private:
   Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
