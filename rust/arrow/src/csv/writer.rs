@@ -27,6 +27,7 @@
 //! use arrow::csv;
 //! use arrow::datatypes::*;
 //! use arrow::record_batch::RecordBatch;
+//! use arrow::util::test_util::get_temp_file;
 //! use std::fs::File;
 //! use std::sync::Arc;
 //!
@@ -54,7 +55,7 @@
 //!     vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
 //! );
 //!
-//! let file = File::create("target/out.csv").unwrap();
+//! let file = get_temp_file("out.csv", &[]);
 //!
 //! let writer = csv::Writer::new(file);
 //! writer.write(vec![&batch, &batch]).unwrap();
@@ -260,6 +261,7 @@ mod tests {
     use super::*;
 
     use crate::datatypes::{Field, Schema};
+    use crate::util::test_util::get_temp_file;
     use std::io::Read;
     use std::sync::Arc;
 
@@ -290,13 +292,13 @@ mod tests {
             vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
         );
 
-        let file = File::create("target/columns.csv").unwrap();
+        let file = get_temp_file("columns.csv", &[]);
 
         let writer = Writer::new(file);
         writer.write(vec![&batch, &batch]).unwrap();
 
         // check that file was written successfully
-        let mut file = File::open("target/columns.csv").unwrap();
+        let mut file = File::open("target/debug/testdata/columns.csv").unwrap();
         let mut buffer: Vec<u8> = vec![];
         file.read_to_end(&mut buffer).unwrap();
 
@@ -334,7 +336,7 @@ mod tests {
             vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
         );
 
-        let file = File::create("target/custom_options.csv").unwrap();
+        let file = get_temp_file("custom_options.csv", &[]);
 
         let builder = WriterBuilder::new().has_headers(false).with_delimiter(b'|');
 
@@ -342,7 +344,7 @@ mod tests {
         writer.write(vec![&batch]).unwrap();
 
         // check that file was written successfully
-        let mut file = File::open("target/custom_options.csv").unwrap();
+        let mut file = File::open("target/debug/testdata/custom_options.csv").unwrap();
         let mut buffer: Vec<u8> = vec![];
         file.read_to_end(&mut buffer).unwrap();
 
