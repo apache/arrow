@@ -215,7 +215,7 @@ simplifies run-time loading of 3rd parties. (Recommended)
 
 Command line to build Arrow in Debug might look as following:
 
-```
+```shell
 cd cpp
 mkdir build
 cd build
