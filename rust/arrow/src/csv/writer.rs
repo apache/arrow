@@ -50,7 +50,7 @@
 //! let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
 //! let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
 //!
-//! let batch = RecordBatch::new(
+//! let batch = RecordBatch::try_new(
 //!     Arc::new(schema),
 //!     vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
 //! ).unwrap();
@@ -287,7 +287,7 @@ mod tests {
         let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
         let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
 
-        let batch = RecordBatch::new(
+        let batch = RecordBatch::try_new(
             Arc::new(schema),
             vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
         )
@@ -332,7 +332,7 @@ mod tests {
         let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
         let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
 
-        let batch = RecordBatch::new(
+        let batch = RecordBatch::try_new(
             Arc::new(schema),
             vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
         )

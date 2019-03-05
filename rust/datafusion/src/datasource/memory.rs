@@ -106,7 +106,7 @@ impl Table for MemTable {
             .batches
             .iter()
             .map(|batch| {
-                RecordBatch::new(
+                RecordBatch::try_new(
                     projected_schema.clone(),
                     columns.iter().map(|i| batch.column(*i).clone()).collect(),
                 )
@@ -160,7 +160,7 @@ mod tests {
             Field::new("c", DataType::Int32, false),
         ]));
 
-        let batch = RecordBatch::new(
+        let batch = RecordBatch::try_new(
             schema.clone(),
             vec![
                 Arc::new(Int32Array::from(vec![1, 2, 3])),
@@ -189,7 +189,7 @@ mod tests {
             Field::new("c", DataType::Int32, false),
         ]));
 
-        let batch = RecordBatch::new(
+        let batch = RecordBatch::try_new(
             schema.clone(),
             vec![
                 Arc::new(Int32Array::from(vec![1, 2, 3])),
@@ -215,7 +215,7 @@ mod tests {
             Field::new("c", DataType::Int32, false),
         ]));
 
-        let batch = RecordBatch::new(
+        let batch = RecordBatch::try_new(
             schema.clone(),
             vec![
                 Arc::new(Int32Array::from(vec![1, 2, 3])),
@@ -251,7 +251,7 @@ mod tests {
             Field::new("c", DataType::Int32, false),
         ]));
 
-        let batch = RecordBatch::new(
+        let batch = RecordBatch::try_new(
             schema1.clone(),
             vec![
                 Arc::new(Int32Array::from(vec![1, 2, 3])),

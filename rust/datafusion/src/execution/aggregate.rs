@@ -800,7 +800,10 @@ impl AggregateRelation {
             }
         }
 
-        Ok(Some(RecordBatch::new(self.schema.clone(), result_columns)?))
+        Ok(Some(RecordBatch::try_new(
+            self.schema.clone(),
+            result_columns,
+        )?))
     }
 
     fn with_group_by(&mut self) -> Result<Option<RecordBatch>> {
@@ -1008,7 +1011,10 @@ impl AggregateRelation {
             result_arrays.push(array?);
         }
 
-        Ok(Some(RecordBatch::new(self.schema.clone(), result_arrays)?))
+        Ok(Some(RecordBatch::try_new(
+            self.schema.clone(),
+            result_arrays,
+        )?))
     }
 }
 

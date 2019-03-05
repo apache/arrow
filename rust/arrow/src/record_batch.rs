@@ -41,17 +41,17 @@ impl RecordBatch {
     ///  * the vec of columns to not be empty
     ///  * the schema and column data types to have equal lengths and match
     ///  * each array in columns to have the same length
-    pub fn new(schema: Arc<Schema>, columns: Vec<ArrayRef>) -> Result<Self> {
+    pub fn try_new(schema: Arc<Schema>, columns: Vec<ArrayRef>) -> Result<Self> {
         // check that there are some columns
         if columns.is_empty() {
-            return Err(ArrowError::ParseError(
+            return Err(ArrowError::InvalidArgumentError(
                 "at least one column must be defined to create a record batch"
                     .to_string(),
             ));
         }
         // check that number of fields in schema match column length
         if schema.fields().len() != columns.len() {
-            return Err(ArrowError::ParseError(
+            return Err(ArrowError::InvalidArgumentError(
                 "number of columns must match number of fields in schema".to_string(),
             ));
         }
@@ -59,12 +59,12 @@ impl RecordBatch {
         let len = columns[0].data().len();
         for i in 0..columns.len() {
             if columns[i].len() != len {
-                return Err(ArrowError::ParseError(
+                return Err(ArrowError::InvalidArgumentError(
                     "all columns in a record batch must have the same length".to_string(),
                 ));
             }
             if columns[i].data_type() != schema.field(i).data_type() {
-                return Err(ArrowError::ParseError(format!(
+                return Err(ArrowError::InvalidArgumentError(format!(
                     "column types must match schema types, expected {:?} but found {:?} at column index {}", 
                     schema.field(i).data_type(),
                     columns[i].data_type(),
@@ -129,7 +129,8 @@ mod tests {
         let b = BinaryArray::from(array_data);
 
         let record_batch =
-            RecordBatch::new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)]).unwrap();
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])
+                .unwrap();
 
         assert_eq!(5, record_batch.num_rows());
         assert_eq!(2, record_batch.num_columns());
@@ -145,7 +146,7 @@ mod tests {
 
         let a = Int64Array::from(vec![1, 2, 3, 4, 5]);
 
-        let batch = RecordBatch::new(Arc::new(schema), vec![Arc::new(a)]);
+        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)]);
         assert!(!batch.is_ok());
     }
 
@@ -156,7 +157,8 @@ mod tests {
         let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
         let b = Int32Array::from(vec![1, 2, 3, 4, 5]);
 
-        let batch = RecordBatch::new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)]);
+        let batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)]);
         assert!(!batch.is_ok());
     }
 }
