@@ -40,6 +40,7 @@ namespace arrow {
 using internal::BitmapAnd;
 using internal::BitmapOr;
 using internal::BitmapXor;
+using internal::BitsetStack;
 using internal::CopyBitmap;
 using internal::CountSetBits;
 using internal::InvertBitmap;
@@ -939,6 +940,27 @@ TEST(BitUtil, RoundTripBigEndianTest) {
 
   uint64_t from_big_endian = BitUtil::FromBigEndian(big_endian_result);
   ASSERT_EQ(value, from_big_endian);
+}
+
+TEST(BitUtil, BitsetStack) {
+  BitsetStack stack;
+  ASSERT_EQ(stack.TopSize(), 0);
+  stack.Push(3, false);
+  ASSERT_EQ(stack.TopSize(), 3);
+  stack[1] = true;
+  stack.Push(5, true);
+  ASSERT_EQ(stack.TopSize(), 5);
+  stack[1] = false;
+  for (int i = 0; i != 5; ++i) {
+    ASSERT_EQ(stack[i], i != 1);
+  }
+  stack.Pop();
+  ASSERT_EQ(stack.TopSize(), 3);
+  for (int i = 0; i != 3; ++i) {
+    ASSERT_EQ(stack[i], i == 1);
+  }
+  stack.Pop();
+  ASSERT_EQ(stack.TopSize(), 0);
 }
 
 }  // namespace arrow

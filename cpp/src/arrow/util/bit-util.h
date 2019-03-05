@@ -808,6 +808,46 @@ ARROW_EXPORT
 void BitmapXor(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out);
 
+/// \brief Store a stack of bitsets efficiently. The top bitset may be
+/// accessed and its bits may be modified, but it may not be resized.
+class BitsetStack {
+ public:
+  using reference = typename std::vector<bool>::reference;
+
+  /// \brief push a bitset onto the stack
+  /// \param size number of bits in the next bitset
+  /// \param value initial value for bits in the pushed bitset
+  void Push(int size, bool value) {
+    offsets_.push_back(bit_count());
+    bits_.resize(bit_count() + size, value);
+  }
+
+  /// \brief number of bits in the bitset at the top of the stack
+  int TopSize() const {
+    if (offsets_.size() == 0) return 0;
+    return bit_count() - offsets_.back();
+  }
+
+  /// \brief pop a bitset off the stack
+  void Pop() {
+    bits_.resize(offsets_.back());
+    offsets_.pop_back();
+  }
+
+  /// \brief get the value of a bit in the top bitset
+  /// \param i index of the bit to access
+  bool operator[](int i) const { return bits_[offsets_.back() + i]; }
+
+  /// \brief get a mutable reference to a bit in the top bitset
+  /// \param i index of the bit to access
+  reference operator[](int i) { return bits_[offsets_.back() + i]; }
+
+ private:
+  int bit_count() const { return static_cast<int>(bits_.size()); }
+  std::vector<bool> bits_;
+  std::vector<int> offsets_;
+};
+
 }  // namespace internal
 }  // namespace arrow
 
