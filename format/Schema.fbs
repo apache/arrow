@@ -212,7 +212,7 @@ union PackedType {
   FloatingPoint,
   FixedSizeList,
   FixedSizeBinary,
-  /// For nested structs.
+  /// For nested packed structs.
   Struct_
 }
 
