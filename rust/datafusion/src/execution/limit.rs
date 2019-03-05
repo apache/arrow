@@ -59,7 +59,7 @@ impl Relation for LimitRelation {
 
                 if batch.num_rows() >= capacity {
                     let limited_columns: Result<Vec<ArrayRef>> = (0..batch.num_columns())
-                        .map(|i| match limit(batch.column(i).as_ref(), capacity) {
+                        .map(|i| match limit(batch.column(i), capacity) {
                             Ok(result) => Ok(result),
                             Err(error) => Err(ExecutionError::from(error)),
                         })

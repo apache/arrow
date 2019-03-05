@@ -19,12 +19,14 @@
 extern crate criterion;
 use criterion::Criterion;
 
+use std::sync::Arc;
+
 extern crate arrow;
 
 use arrow::array::*;
 use arrow::builder::*;
 use arrow::compute::arithmetic_kernels::*;
-use arrow::compute::array_ops::sum;
+use arrow::compute::array_ops::{limit, sum};
 use arrow::error::Result;
 
 fn create_array(size: usize) -> Float32Array {
@@ -67,6 +69,11 @@ fn sum_no_simd(size: usize) {
     criterion::black_box(sum(&arr_a).unwrap());
 }
 
+fn limit_no_simd(size: usize, max: usize) {
+    let arr_a: ArrayRef = Arc::new(create_array(size));
+    criterion::black_box(limit(&arr_a, max).unwrap());
+}
+
 fn add_benchmark(c: &mut Criterion) {
     c.bench_function("add 512", |b| {
         b.iter(|| bin_op_no_simd(512, |a, b| Ok(a + b)))
@@ -81,6 +88,12 @@ fn add_benchmark(c: &mut Criterion) {
     });
     c.bench_function("multiply 512 simd", |b| b.iter(|| multiply_simd(512)));
     c.bench_function("sum 512 no simd", |b| b.iter(|| sum_no_simd(512)));
+    c.bench_function("limit 512, 256 no simd", |b| {
+        b.iter(|| limit_no_simd(512, 256))
+    });
+    c.bench_function("limit 512, 512 no simd", |b| {
+        b.iter(|| limit_no_simd(512, 512))
+    });
 }
 
 criterion_group!(benches, add_benchmark);
