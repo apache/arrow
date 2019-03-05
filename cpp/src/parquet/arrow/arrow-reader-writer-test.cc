@@ -2465,7 +2465,7 @@ INSTANTIATE_TEST_CASE_P(
 
 // direct-as-possible translation of
 // pyarrow/tests/test_parquet.py::test_validate_schema_write_table
-TEST(TestSerialize, SchemaMismatch) {
+TEST(TestArrowWriterAdHoc, SchemaMismatch) {
   auto pool = ::arrow::default_memory_pool();
   auto writer_schm = ::arrow::schema({field("POS", ::arrow::uint32())});
   auto table_schm = ::arrow::schema({field("POS", ::arrow::int64())});
