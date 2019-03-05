@@ -203,41 +203,6 @@ table KeyValue {
 /// IMPORTANT: COMPATIBILITY MAY BE BROKEN IN FUTURE release.
 /// They are not required to be implemented.
 
-/// Similar to a c-union, takes the byte-width
-/// of its longest sub-type.  To record type of union
-/// use the "tagged union" pattern.
-table PackedUnion {
-}
-
-/// A binary string of a maximum size.  Fields are layed out as
-/// [length][UTF8 bytes].  The number of bytes used is maxSize +
-/// lengthType.bitWidth/8.
-table PackedBinary {
-  /// Maximum number of bytes (not characters) used.  This
-  /// amount of bytes will always be used.
-  maxSize: int;
-
-  /// If not set all binary data are of maxSize.  If set use specified
-  /// numeric type to specify a length less then or equal to
-  /// max size.
-  lengthType: Int;
-}
-
-
-/// A UTF-8 string of a maximum size.  Fields are layed out as
-/// [length][UTF8 bytes].  The number of bytes used is maxSize +
-/// lengthType.bitWidth/8.
-table PackedUtf8 {
-  /// Maximum number of bytes (not characters) used.  This
-  /// amount of bytes will always be used.
-  maxSize: int;
-
-  /// If not set all strings are maxSize.  If set use specified
-  /// numeric type to specify a length less then or equal to
-  /// max size.
-  lengthType: Int;
-}
-
 // Supported types for PackedStructs.
 union PackedType {
   /// Booleans use 1 byte, 0 is defined as false, all other
@@ -247,9 +212,6 @@ union PackedType {
   FloatingPoint,
   FixedSizeList,
   FixedSizeBinary,
-  PackedBinary,
-  PackedUnion,
-  PackedUtf8,
   /// For nested structs.
   Struct_
 }
