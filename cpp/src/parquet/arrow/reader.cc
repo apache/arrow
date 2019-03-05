@@ -236,8 +236,9 @@ using FileColumnIteratorFactory =
 
 class FileReader::Impl {
  public:
-  Impl(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader)
-      : pool_(pool), reader_(std::move(reader)), use_threads_(false) {}
+  Impl(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
+       const ArrowReaderProperties& properties)
+      : pool_(pool), reader_(std::move(reader)), reader_properties_(properties) {}
 
   virtual ~Impl() {}
 
@@ -279,14 +280,16 @@ class FileReader::Impl {
 
   int num_columns() const { return reader_->metadata()->num_columns(); }
 
-  void set_use_threads(bool use_threads) { use_threads_ = use_threads; }
+  void set_use_threads(bool use_threads) {
+    reader_properties_.set_use_threads(use_threads);
+  }
 
   ParquetFileReader* reader() { return reader_.get(); }
 
  private:
   MemoryPool* pool_;
   std::unique_ptr<ParquetFileReader> reader_;
-  bool use_threads_;
+  ArrowReaderProperties reader_properties_;
 };
 
 class ColumnReader::ColumnReaderImpl {
@@ -302,9 +305,10 @@ class ColumnReader::ColumnReaderImpl {
 // Reader implementation for primitive arrays
 class PARQUET_NO_EXPORT PrimitiveImpl : public ColumnReader::ColumnReaderImpl {
  public:
-  PrimitiveImpl(MemoryPool* pool, std::unique_ptr<FileColumnIterator> input)
+  PrimitiveImpl(MemoryPool* pool, std::unique_ptr<FileColumnIterator> input,
+                const bool read_dictionary)
       : pool_(pool), input_(std::move(input)), descr_(input_->descr()) {
-    record_reader_ = RecordReader::Make(descr_, pool_);
+    record_reader_ = RecordReader::Make(descr_, pool_, read_dictionary);
     Status s = NodeToField(*input_->descr()->schema_node(), &field_);
     DCHECK_OK(s);
     NextRowGroup();
@@ -358,17 +362,19 @@ class PARQUET_NO_EXPORT StructImpl : public ColumnReader::ColumnReaderImpl {
                  const std::vector<std::shared_ptr<ColumnReaderImpl>>& children);
 };
 
-FileReader::FileReader(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader)
-    : impl_(new FileReader::Impl(pool, std::move(reader))) {}
+FileReader::FileReader(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
+                       const ArrowReaderProperties& properties)
+    : impl_(new FileReader::Impl(pool, std::move(reader), properties)) {}
 
 FileReader::~FileReader() {}
 
 Status FileReader::Impl::GetColumn(int i, FileColumnIteratorFactory iterator_factory,
                                    std::unique_ptr<ColumnReader>* out) {
   std::unique_ptr<FileColumnIterator> input(iterator_factory(i, reader_.get()));
+  bool read_dict = reader_properties_.read_dictionary(i);
 
   std::unique_ptr<ColumnReader::ColumnReaderImpl> impl(
-      new PrimitiveImpl(pool_, std::move(input)));
+      new PrimitiveImpl(pool_, std::move(input), read_dict));
   *out = std::unique_ptr<ColumnReader>(new ColumnReader(std::move(impl)));
   return Status::OK();
 }
@@ -552,7 +558,7 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
     return Status::OK();
   };
 
-  if (use_threads_) {
+  if (reader_properties_.use_threads()) {
     std::vector<std::future<Status>> futures;
     auto pool = ::arrow::internal::GetCpuThreadPool();
     for (int i = 0; i < num_fields; i++) {
@@ -599,7 +605,7 @@ Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
     return Status::OK();
   };
 
-  if (use_threads_) {
+  if (reader_properties_.use_threads()) {
     std::vector<std::future<Status>> futures;
     auto pool = ::arrow::internal::GetCpuThreadPool();
     for (int i = 0; i < num_fields; i++) {
@@ -681,6 +687,18 @@ Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                 MemoryPool* allocator, std::unique_ptr<FileReader>* reader) {
   return OpenFile(file, allocator, ::parquet::default_reader_properties(), nullptr,
                   reader);
+}
+
+Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
+                ::arrow::MemoryPool* allocator, const ArrowReaderProperties& properties,
+                std::unique_ptr<FileReader>* reader) {
+  std::unique_ptr<RandomAccessSource> io_wrapper(new ArrowInputFile(file));
+  std::unique_ptr<ParquetReader> pq_reader;
+  PARQUET_CATCH_NOT_OK(
+      pq_reader = ParquetReader::Open(std::move(io_wrapper),
+                                      ::parquet::default_reader_properties(), nullptr));
+  reader->reset(new FileReader(allocator, std::move(pq_reader), properties));
+  return Status::OK();
 }
 
 Status FileReader::GetColumn(int i, std::unique_ptr<ColumnReader>* out) {
@@ -1138,15 +1156,6 @@ struct TransferFunctor<
   Status operator()(RecordReader* reader, MemoryPool* pool,
                     const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     std::vector<std::shared_ptr<Array>> chunks = reader->GetBuilderChunks();
-
-    if (type->id() == ::arrow::Type::STRING) {
-      // Convert from BINARY type to STRING
-      for (size_t i = 0; i < chunks.size(); ++i) {
-        auto new_data = chunks[i]->data()->Copy();
-        new_data->type = type;
-        chunks[i] = ::arrow::MakeArray(new_data);
-      }
-    }
     *out = std::make_shared<ChunkedArray>(chunks);
     return Status::OK();
   }
