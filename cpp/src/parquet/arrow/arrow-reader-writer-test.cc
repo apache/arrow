@@ -2439,6 +2439,81 @@ TEST(TestArrowWriterAdHoc, SchemaMismatch) {
   ASSERT_RAISES(Invalid, writer->WriteTable(*tbl, 1));
 }
 
+// ----------------------------------------------------------------------
+// Tests for directly reading DictionaryArray
+class TestArrowReadDictionary : public ::testing::TestWithParam<const char*> {
+ public:
+  void SetUp() override {
+    InitFromJSON(GetParam());
+    ASSERT_NO_FATAL_FAILURE(
+        WriteTableToBuffer(expected_dense_, expected_dense_->num_rows() / 2,
+                           default_arrow_writer_properties(), &buffer_));
+
+    properties_ = default_arrow_reader_properties();
+  }
+
+  void InitFromJSON(const char* jsonStr) {
+    auto dense_array = ::arrow::ArrayFromJSON(::arrow::utf8(), jsonStr);
+    expected_dense_ = MakeSimpleTable(dense_array, /*nullable=*/true);
+
+    ::arrow::StringDictionaryBuilder builder(default_memory_pool());
+    const auto& string_array = static_cast<const ::arrow::StringArray&>(*dense_array);
+
+    for (int64_t i = 0; i < string_array.length(); ++i) {
+      if (string_array.IsNull(i)) {
+        ASSERT_OK(builder.AppendNull());
+      } else {
+        ASSERT_OK(builder.Append(string_array.GetView(i)));
+      }
+    }
+
+    std::shared_ptr<::arrow::Array> dict_array;
+    ASSERT_OK(builder.Finish(&dict_array));
+    expected_dict_ = MakeSimpleTable(dict_array, /*nullable=*/true);
+
+    // TODO(hatemhelal): Figure out if we can use the following to init the expected_dict_
+    // Currently fails due to DataType mismatch for indices array.
+    //    Datum out;
+    //    FunctionContext ctx(default_memory_pool());
+    //    ASSERT_OK(DictionaryEncode(&ctx, Datum(dense_array), &out));
+    //    expected_dict_ = MakeSimpleTable(out.make_array(), /*nullable=*/true);
+  }
+
+  void TearDown() override {}
+
+  void CheckReadWholeFile(const Table& expected) {
+    std::unique_ptr<FileReader> reader;
+    ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer_),
+                                ::arrow::default_memory_pool(), properties_, &reader));
+
+    std::shared_ptr<Table> actual;
+    ASSERT_OK_NO_THROW(reader->ReadTable(&actual));
+    ::arrow::AssertTablesEqual(*actual, expected, false);
+  }
+
+ protected:
+  std::shared_ptr<Table> expected_dense_;
+  std::shared_ptr<Table> expected_dict_;
+  std::shared_ptr<Buffer> buffer_;
+  ArrowReaderProperties properties_;
+};
+
+TEST_P(TestArrowReadDictionary, ReadWholeFileDict) {
+  properties_.set_read_dictionary(0, true);
+  CheckReadWholeFile(*expected_dict_);
+}
+
+TEST_P(TestArrowReadDictionary, ReadWholeFileDense) {
+  properties_.set_read_dictionary(0, false);
+  CheckReadWholeFile(*expected_dense_);
+}
+
+const char* jsonInputs[] = {"[\"foo\", \"bar\", \"foo\", \"foo\"]",
+                            "[\"foo\", \"bar\", \"foo\", \"null\"]"};
+
+INSTANTIATE_TEST_CASE_P(ReadDictionary, TestArrowReadDictionary,
+                        ::testing::ValuesIn(jsonInputs));
+
 }  // namespace arrow
 
 }  // namespace parquet
