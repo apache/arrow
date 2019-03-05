@@ -138,13 +138,12 @@ public class TestBasicOperation {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
-        FlightServer s = new FlightServer(a, 12233, producer, ServerAuthHandler.NO_OP);) {
-
-      s.start();
+        FlightServer s =
+            FlightTestUtil.getStartedServer((port) -> new FlightServer(a, port, producer, ServerAuthHandler.NO_OP))) {
 
       try (
-          FlightClient c = new FlightClient(a, new Location("localhost", 12233));
-        ) {
+          FlightClient c = new FlightClient(a, new Location(FlightTestUtil.LOCALHOST, s.getPort()));
+      ) {
         try (BufferAllocator testAllocator = a.newChildAllocator("testcase", 0, Long.MAX_VALUE)) {
           consumer.accept(c, testAllocator);
         }

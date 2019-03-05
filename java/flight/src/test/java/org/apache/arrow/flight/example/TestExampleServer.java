@@ -67,7 +67,7 @@ public class TestExampleServer {
   }
 
   @Test
-  public void putStream() throws Exception {
+  public void putStream() {
     BufferAllocator a = caseAllocator;
     final int size = 10;
 

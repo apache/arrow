@@ -24,12 +24,14 @@ import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -53,7 +55,8 @@ public class TestAuth {
   @Test
   public void validAuth() {
     client.authenticateBasic(USERNAME, PASSWORD);
-    ImmutableList.copyOf(client.listFlights(Criteria.ALL));
+    Assert.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() >= 0);
+
   }
 
   @Test
@@ -75,8 +78,6 @@ public class TestAuth {
   @Before
   public void setup() throws IOException {
     allocator = new RootAllocator(Long.MAX_VALUE);
-    final Location l = new Location("localhost", 12233);
-
     final BasicServerAuthHandler.BasicAuthValidator validator = new BasicServerAuthHandler.BasicAuthValidator() {
 
       @Override
@@ -85,7 +86,7 @@ public class TestAuth {
       }
 
       @Override
-      public byte[] getToken(String username, String password) throws Exception {
+      public byte[] getToken(String username, String password) {
         if (USERNAME.equals(username) && PASSWORD.equals(password)) {
           return VALID_TOKEN;
         } else {
@@ -94,22 +95,18 @@ public class TestAuth {
       }
     };
 
-    server = new FlightServer(
+    server = FlightTestUtil.getStartedServer((port) -> new FlightServer(
         allocator,
-        l.getPort(),
+        port,
         new NoOpFlightProducer() {
           @Override
           public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
             listener.onCompleted();
           }
         },
-        new BasicServerAuthHandler(validator));
-
-    server.start();
-    client = new FlightClient(allocator, l);
+        new BasicServerAuthHandler(validator)));
+    client = new FlightClient(allocator, new Location(FlightTestUtil.LOCALHOST, server.getPort()));
   }
-
-
 
   @After
   public void shutdown() throws Exception {

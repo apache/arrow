@@ -44,16 +44,12 @@ public class TestBackPressure {
   @Ignore
   @Test
   public void ensureIndependentSteams() throws Exception {
-
-    final Location l = new Location("localhost", 12233);
     try (
         final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-        final PerformanceTestServer server = new PerformanceTestServer(a, l);
-        final FlightClient client = new FlightClient(a, l);
-        ) {
-
-      server.start();
-
+        final PerformanceTestServer server = FlightTestUtil.getStartedServer(
+            (port) -> (new PerformanceTestServer(a, new Location(FlightTestUtil.LOCALHOST, port))));
+        final FlightClient client = new FlightClient(a, server.getLocation())
+    ) {
       FlightStream fs1 = client.getStream(client.getInfo(
           TestPerf.getPerfFlightDescriptor(110L * BATCH_SIZE, BATCH_SIZE, 1))
           .getEndpoints().get(0).getTicket());
@@ -87,7 +83,6 @@ public class TestBackPressure {
     final long wait = 3000;
     final long epsilon = 1000;
 
-    final Location l = new Location("localhost", 12233);
     AtomicLong sleepTime = new AtomicLong(0);
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
 
@@ -125,12 +120,13 @@ public class TestBackPressure {
 
       try (
           BufferAllocator serverAllocator = allocator.newChildAllocator("server", 0, Long.MAX_VALUE);
-          FlightServer server = new FlightServer(serverAllocator, l.getPort(), producer, ServerAuthHandler.NO_OP);
+          FlightServer server =
+              FlightTestUtil.getStartedServer(
+                  (port) -> new FlightServer(serverAllocator, port, producer, ServerAuthHandler.NO_OP));
           BufferAllocator clientAllocator = allocator.newChildAllocator("client", 0, Long.MAX_VALUE);
-          FlightClient client = new FlightClient(clientAllocator, l)
-        ) {
-
-        server.start();
+          FlightClient client =
+              new FlightClient(clientAllocator, new Location(FlightTestUtil.LOCALHOST, server.getPort()))
+      ) {
         FlightStream stream = client.getStream(new Ticket(new byte[1]));
         VectorSchemaRoot root = stream.getRoot();
         root.clear();

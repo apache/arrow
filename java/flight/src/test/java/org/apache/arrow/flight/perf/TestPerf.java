@@ -27,6 +27,7 @@ import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.perf.impl.PerfOuterClass.Perf;
@@ -60,7 +61,7 @@ public class TestPerf {
         Field.nullable("b", MinorType.BIGINT.getType()),
         Field.nullable("c", MinorType.BIGINT.getType()),
         Field.nullable("d", MinorType.BIGINT.getType())
-        ));
+    ));
 
     FlatBufferBuilder builder = new FlatBufferBuilder();
     pojoSchema.getSchema(builder);
@@ -77,12 +78,13 @@ public class TestPerf {
   @Test
   public void throughput() throws Exception {
     for (int i = 0; i < 10; i++) {
-      final Location l = new Location("localhost", 12233);
       try (
           final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-          final PerformanceTestServer server = new PerformanceTestServer(a, l);
-          final FlightClient client = new FlightClient(a, l);
-          ) {
+          final PerformanceTestServer server =
+              FlightTestUtil.getStartedServer((port) -> new PerformanceTestServer(a,
+                  new Location(FlightTestUtil.LOCALHOST, port)));
+          final FlightClient client = new FlightClient(a, server.getLocation());
+      ) {
 
         server.start();
 
@@ -108,7 +110,7 @@ public class TestPerf {
             (r.bytes * 1.0d / 1024 / 1024) / seconds,
             (r.rows * 1.0d) / seconds,
             (r.batches * 1.0d) / seconds
-            ));
+        ));
       }
     }
   }
