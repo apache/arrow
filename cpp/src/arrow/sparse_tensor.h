@@ -64,12 +64,14 @@ class ARROW_EXPORT SparseIndex {
   int64_t non_zero_length_;
 };
 
+namespace internal {
 template <typename SparseIndexType>
 class SparseIndexBase : public SparseIndex {
  public:
   explicit SparseIndexBase(int64_t non_zero_length)
       : SparseIndex(SparseIndexType::format_id, non_zero_length) {}
 };
+}  // namespace internal
 
 // ----------------------------------------------------------------------
 // SparseCOOIndex class
@@ -78,7 +80,7 @@ class SparseIndexBase : public SparseIndex {
 ///
 /// A COO sparse index manages the location of its non-zero values by their
 /// coordinates.
-class ARROW_EXPORT SparseCOOIndex : public SparseIndexBase<SparseCOOIndex> {
+class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIndex> {
  public:
   using CoordsTensor = NumericTensor<Int64Type>;
 
@@ -117,7 +119,7 @@ class ARROW_EXPORT SparseCOOIndex : public SparseIndexBase<SparseCOOIndex> {
 /// The other vector, called indices, represents the column indices of the
 /// corresponding non-zero values.  So the length of an indices vector is same
 /// as the number of non-zero-values.
-class ARROW_EXPORT SparseCSRIndex : public SparseIndexBase<SparseCSRIndex> {
+class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIndex> {
  public:
   using IndexTensor = NumericTensor<Int64Type>;
 
