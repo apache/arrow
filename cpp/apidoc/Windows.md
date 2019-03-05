@@ -228,11 +228,64 @@ cmake -G "Visual Studio 14 2015 Win64" ^
 cmake --build . --config Debug
 ```
 
-To get the latest build instructions, you can reference [cpp-python-msvc-build.bat][5], which is used by automated Appveyor builds.
+To get the latest build instructions, you can reference [ci/appveyor-built.bat][5], which is used by automated Appveyor builds.
 
+## Replicating Appveyor Builds
+
+For people more familiar with linux development but need to replicate a failing appveyor build, here are some rough notes from
+replicating the Static_Crt_Builds (make unittest will probably still fail but many unit tests can be made with there individual
+make targets).
+
+1.  Microsoft offers trial VMs for [Windows with Microsoft Visual Studio][6].  Download and install a version.
+2.  Run the VM and install CMake and Miniconda or Anaconda (these instructions assume Anaconda).
+3.  Download boost from [6] and install it (run from command prompt opened by "Developer Command Prompt for MSVC 2017"):
+
+```shell
+cd $EXTRACT_BOOST_DIRECTORY
+.\bootstrap.bat
+@rem This is for static libraries needed for static_crt_build in appvyor
+.\b2 link=static -with-filesystem -with-regex -with-system install
+@rem this should put libraries and headers in c:\Boost
+```
+
+4. Activate ananaconda/miniconda:
+
+```
+@rem this might differ for miniconda
+C:\Users\User\Anaconda3\Scripts\activate
+```
+
+5. Clone and change directories to the arrow source code (you might need to install git).
+6. Setup environment variables:
+
+```shell
+@rem Change the build type based on which appveyor job you want.
+SET JOB=Static_Crt_Build
+SET GENERATOR=Ninja
+SET APPVEYOR_BUILD_WORKER_IMAGE=Visual Studio 2017
+SET USE_CLCACHE=false
+SET ARROW_BUILD_GANDIVA=OFF
+SET ARROW_LLVM_VERSION=7.0.*
+SET PYTHON=3.6
+SET ARCH=64
+SET ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
+SET PATH=C:\Users\User\Anaconda3;C:\Users\User\Anaconda3\Scripts;C:\Users\User\Anaconda3\Library\bin;%PATH%
+SET BOOST_LIBRARYDIR=C:\Boost\lib
+SET BOOST_ROOT=C:\Boost
+```
+7. Run appveyor scripts:
+
+```shell
+.\ci\appveyor-install.bat
+@rem this might fail but at this point most unit tests should be buildable by there individual targets
+@rem see next line for example.
+.\ci\appveyor-build.bat
+cmake --build . --config Release --target arrow-compute-hash-test
+```
 
 [1]: https://conda.io/miniconda.html
 [2]: https://conda-forge.github.io/
 [3]: http://cmder.net/
 [4]: https://cmake.org/
-[5]: https://github.com/apache/arrow/blob/master/ci/cpp-python-msvc-build.bat
+[5]: https://github.com/apache/arrow/blob/master/ci/appveyor-cpp-build.bat
+[6]: https://developer.microsoft.com/en-us/windows/downloads/virtual-machines 
