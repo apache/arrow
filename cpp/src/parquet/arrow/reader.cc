@@ -554,6 +554,14 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
                          this](int i) {
     std::shared_ptr<ChunkedArray> array;
     RETURN_NOT_OK(ReadColumnChunk(field_indices[i], indices, row_group_index, &array));
+
+    // Update the schema when reading dictionary array
+    if (reader_properties_.read_dictionary(i)) {
+      auto dict_field =
+          std::make_shared<::arrow::Field>(schema->field(i)->name(), array->type());
+      RETURN_NOT_OK(schema->SetField(i, dict_field, &schema));
+    }
+
     columns[i] = std::make_shared<Column>(schema->field(i), array);
     return Status::OK();
   };
@@ -601,6 +609,14 @@ Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
   auto ReadColumnFunc = [&indices, &field_indices, &schema, &columns, this](int i) {
     std::shared_ptr<ChunkedArray> array;
     RETURN_NOT_OK(ReadSchemaField(field_indices[i], indices, &array));
+
+    // Update the schema when reading dictionary array
+    if (reader_properties_.read_dictionary(i)) {
+      auto dict_field =
+          std::make_shared<::arrow::Field>(schema->field(i)->name(), array->type());
+      RETURN_NOT_OK(schema->SetField(i, dict_field, &schema));
+    }
+
     columns[i] = std::make_shared<Column>(schema->field(i), array);
     return Status::OK();
   };
