@@ -221,13 +221,13 @@ table PackedStructField {
   // Name is not required, in i.e. a List
   name: string;
 
-  // This is the type of the decoded value if the field is dictionary encoded
+  // The type of this field.
   type: PackedType;
 
   // Number of bytes to reserve after this field.
   padding: int = 0;
 
-  // children apply only to Nested data types like Struct, List and Union
+  // children apply only to Nested data types like Struct, FixedSizeList and FixedSizeUnion
   children: [PackedStructField];
 
   // User-defined metadata
@@ -240,10 +240,11 @@ table PackedStructField {
 // them one after another.
 table PackedStruct {
   fields : [ PackedStructField ];
-  /// Number in size in bytes of each slot. This serves
+  /// Number in size in bytes of each slot including padding. This serves
   /// as a sanity check to make sure implementations
-  /// are performing the same layout.
-  size: Int;
+  /// are performing the same layout, and allows for implementation that don't
+  /// support the type to handle the field as a fixed size list of bytes.
+  size: int;
 }
 
 /// ----------------------------------------------------------------------
