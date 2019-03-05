@@ -77,6 +77,7 @@ add_arrow_lib(arrow_flight
               ${ARROW_FLIGHT_SRCS}
               DEPENDENCIES
               flight_grpc_gen
+              metadata_fbs
               SHARED_LINK_LIBS
               arrow_shared
               ${ARROW_FLIGHT_STATIC_LINK_LIBS}
