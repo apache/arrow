@@ -110,6 +110,8 @@ struct CastFunctor<T, BooleanType, enable_if_number<T>> {
     constexpr auto kOne = static_cast<c_type>(1);
     constexpr auto kZero = static_cast<c_type>(0);
 
+    if (input.length == 0) return;
+
     internal::BitmapReader bit_reader(input.buffers[1]->data(), input.offset,
                                       input.length);
     auto out = output->GetMutableValues<c_type>(1);
