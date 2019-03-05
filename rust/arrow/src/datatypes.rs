@@ -388,18 +388,18 @@ make_numeric_type!(UInt64Type, u64, u64x8, m64x8);
 make_numeric_type!(Float32Type, f32, f32x16, m32x16);
 make_numeric_type!(Float64Type, f64, f64x8, m64x8);
 
-make_numeric_type!(TimestampSecondType, i64, i64x8);
-make_numeric_type!(TimestampMillisecondType, i64, i64x8);
-make_numeric_type!(TimestampMicrosecondType, i64, i64x8);
-make_numeric_type!(TimestampNanosecondType, i64, i64x8);
-make_numeric_type!(Date32Type, i32, i32x16);
-make_numeric_type!(Date64Type, i64, i64x8);
-make_numeric_type!(Time32SecondType, i32, i32x16);
-make_numeric_type!(Time32MillisecondType, i32, i32x16);
-make_numeric_type!(Time64MicrosecondType, i64, i64x8);
-make_numeric_type!(Time64NanosecondType, i64, i64x8);
-make_numeric_type!(IntervalYearMonthType, i64, i64x8);
-make_numeric_type!(IntervalDayTimeType, i64, i64x8);
+make_numeric_type!(TimestampSecondType, i64, i64x8, m64x8);
+make_numeric_type!(TimestampMillisecondType, i64, i64x8, m64x8);
+make_numeric_type!(TimestampMicrosecondType, i64, i64x8, m64x8);
+make_numeric_type!(TimestampNanosecondType, i64, i64x8, m64x8);
+make_numeric_type!(Date32Type, i32, i32x16, m32x16);
+make_numeric_type!(Date64Type, i64, i64x8, m64x8);
+make_numeric_type!(Time32SecondType, i32, i32x16, m32x16);
+make_numeric_type!(Time32MillisecondType, i32, i32x16, m32x16);
+make_numeric_type!(Time64MicrosecondType, i64, i64x8, m64x8);
+make_numeric_type!(Time64NanosecondType, i64, i64x8, m64x8);
+make_numeric_type!(IntervalYearMonthType, i64, i64x8, m64x8);
+make_numeric_type!(IntervalDayTimeType, i64, i64x8, m64x8);
 
 /// A subtype of primitive type that represents temporal values.
 pub trait ArrowTemporalType: ArrowPrimitiveType {}
