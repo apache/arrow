@@ -17,7 +17,6 @@
 
 //! Defines primitive computations on arrays, e.g. addition, equality, boolean logic.
 
-use std::cmp;
 use std::ops::Add;
 use std::sync::Arc;
 
@@ -201,26 +200,29 @@ macro_rules! limit_array {
 
 /// Returns the array, taking only the number of elements specified
 ///
-/// Returns the whole array if the number of elements specified is larger than the length of the array
-pub fn limit(array: &Array, num_elements: usize) -> Result<ArrayRef> {
-    let num_elements_safe: usize = cmp::min(array.len(), num_elements);
+/// Returns the whole array if the number of elements specified is larger than the length
+/// of the array
+pub fn limit(array: &ArrayRef, num_elements: usize) -> Result<ArrayRef> {
+    if num_elements >= array.len() {
+        return Ok(array.clone());
+    }
 
     match array.data_type() {
-        DataType::UInt8 => limit_array!(array, num_elements_safe, UInt8Array),
-        DataType::UInt16 => limit_array!(array, num_elements_safe, UInt16Array),
-        DataType::UInt32 => limit_array!(array, num_elements_safe, UInt32Array),
-        DataType::UInt64 => limit_array!(array, num_elements_safe, UInt64Array),
-        DataType::Int8 => limit_array!(array, num_elements_safe, Int8Array),
-        DataType::Int16 => limit_array!(array, num_elements_safe, Int16Array),
-        DataType::Int32 => limit_array!(array, num_elements_safe, Int32Array),
-        DataType::Int64 => limit_array!(array, num_elements_safe, Int64Array),
-        DataType::Float32 => limit_array!(array, num_elements_safe, Float32Array),
-        DataType::Float64 => limit_array!(array, num_elements_safe, Float64Array),
-        DataType::Boolean => limit_array!(array, num_elements_safe, BooleanArray),
+        DataType::UInt8 => limit_array!(array, num_elements, UInt8Array),
+        DataType::UInt16 => limit_array!(array, num_elements, UInt16Array),
+        DataType::UInt32 => limit_array!(array, num_elements, UInt32Array),
+        DataType::UInt64 => limit_array!(array, num_elements, UInt64Array),
+        DataType::Int8 => limit_array!(array, num_elements, Int8Array),
+        DataType::Int16 => limit_array!(array, num_elements, Int16Array),
+        DataType::Int32 => limit_array!(array, num_elements, Int32Array),
+        DataType::Int64 => limit_array!(array, num_elements, Int64Array),
+        DataType::Float32 => limit_array!(array, num_elements, Float32Array),
+        DataType::Float64 => limit_array!(array, num_elements, Float64Array),
+        DataType::Boolean => limit_array!(array, num_elements, BooleanArray),
         DataType::Utf8 => {
             let b = array.as_any().downcast_ref::<BinaryArray>().unwrap();
-            let mut values: Vec<&[u8]> = Vec::with_capacity(num_elements_safe);
-            for i in 0..num_elements_safe {
+            let mut values: Vec<&[u8]> = Vec::with_capacity(num_elements);
+            for i in 0..num_elements {
                 values.push(b.value(i));
             }
             Ok(Arc::new(BinaryArray::from(values)))
@@ -235,7 +237,9 @@ pub fn limit(array: &Array, num_elements: usize) -> Result<ArrayRef> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::array::{Float64Array, Int32Array};
+    use crate::array::{ArrayRef, Float64Array, Int32Array};
+
+    use std::sync::Arc;
 
     #[test]
     fn test_primitive_array_sum() {
@@ -309,7 +313,7 @@ mod tests {
 
     #[test]
     fn test_limit_array() {
-        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![5, 6, 7, 8, 9]));
         let b = limit(&a, 3).unwrap();
         let c = b.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(3, c.len());
@@ -320,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_limit_binary_array() {
-        let a = BinaryArray::from(vec!["hello", " ", "world", "!"]);
+        let a: ArrayRef = Arc::new(BinaryArray::from(vec!["hello", " ", "world", "!"]));
         let b = limit(&a, 2).unwrap();
         let c = b.as_ref().as_any().downcast_ref::<BinaryArray>().unwrap();
         assert_eq!(2, c.len());
@@ -330,7 +334,7 @@ mod tests {
 
     #[test]
     fn test_limit_array_with_null() {
-        let a = Int32Array::from(vec![None, Some(5)]);
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![None, Some(5)]));
         let b = limit(&a, 1).unwrap();
         let c = b.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(1, c.len());
@@ -340,14 +344,15 @@ mod tests {
     #[test]
     fn test_limit_array_with_limit_too_large() {
         let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
-        let b = limit(&a, 6).unwrap();
+        let a_ref: ArrayRef = Arc::new(a);
+        let b = limit(&a_ref, 6).unwrap();
         let c = b.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
 
         assert_eq!(5, c.len());
-        assert_eq!(a.value(0), c.value(0));
-        assert_eq!(a.value(1), c.value(1));
-        assert_eq!(a.value(2), c.value(2));
-        assert_eq!(a.value(3), c.value(3));
-        assert_eq!(a.value(4), c.value(4));
+        assert_eq!(5, c.value(0));
+        assert_eq!(6, c.value(1));
+        assert_eq!(7, c.value(2));
+        assert_eq!(8, c.value(3));
+        assert_eq!(9, c.value(4));
     }
 }
