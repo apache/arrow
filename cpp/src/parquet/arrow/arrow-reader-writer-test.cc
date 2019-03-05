@@ -140,6 +140,69 @@ LogicalType::type get_logical_type(const ::DataType& type) {
   return LogicalType::NONE;
 }
 
+std::shared_ptr<::arrow::DataType> get_arrow_type(const PrimitiveNode& p) {
+  // try to determine type from logical_type
+  switch (p.logical_type()) {
+    case LogicalType::UINT_8:
+      return ::arrow::uint8();
+    case LogicalType::INT_8:
+      return ::arrow::int8();
+    case LogicalType::UINT_16:
+      return ::arrow::uint16();
+    case LogicalType::INT_16:
+      return ::arrow::int16();
+    case LogicalType::UINT_32:
+      return ::arrow::uint32();
+    case LogicalType::INT_32:
+      return ::arrow::int32();
+    case LogicalType::UINT_64:
+      return ::arrow::uint64();
+    case LogicalType::INT_64:
+      return ::arrow::int64();
+    case LogicalType::UTF8:
+    case LogicalType::JSON:
+      return ::arrow::utf8();
+    case LogicalType::DATE:
+      // FIXME this won't roundtrip correctly for DATE64
+      return ::arrow::date32();
+    case LogicalType::TIMESTAMP_MILLIS:
+      return ::arrow::timestamp(::arrow::TimeUnit::MILLI);
+    case LogicalType::TIMESTAMP_MICROS:
+      return ::arrow::timestamp(::arrow::TimeUnit::MICRO);
+    case LogicalType::TIME_MILLIS:
+      return ::arrow::time32(::arrow::TimeUnit::MILLI);
+    case LogicalType::TIME_MICROS:
+      return ::arrow::time64(::arrow::TimeUnit::MICRO);
+    case LogicalType::DECIMAL:
+      return ::arrow::decimal(p.decimal_metadata().precision, p.decimal_metadata().scale);
+    default:
+      break;
+  }
+  // fallback to examining physical type
+  switch (p.physical_type()) {
+    case ParquetType::BOOLEAN:
+      return ::arrow::boolean();
+    case ParquetType::INT32:
+    case ParquetType::INT64:
+      // should never get here
+      return nullptr;
+    case ParquetType::BYTE_ARRAY:
+      return ::arrow::binary();
+    case ParquetType::DOUBLE:
+      return ::arrow::float64();
+    case ParquetType::FLOAT:
+      return ::arrow::float32();
+    case ParquetType::INT96:
+    case ParquetType::FIXED_LEN_BYTE_ARRAY:
+      return ::arrow::fixed_size_binary(p.type_length());
+  }
+  return nullptr;
+}
+
+std::shared_ptr<::arrow::Field> get_arrow_field(const PrimitiveNode& p) {
+  return ::arrow::field(p.name(), get_arrow_type(p));
+}
+
 ParquetType::type get_physical_type(const ::DataType& type) {
   switch (type.id()) {
     case ArrowId::BOOL:
@@ -441,6 +504,16 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const ::DataType& type,
   return std::static_pointer_cast<GroupNode>(node_);
 }
 
+std::shared_ptr<::arrow::Schema> ToArrowSchema(const GroupNode& schema_node) {
+  std::vector<std::shared_ptr<::arrow::Field>> fields;
+  for (int i = 0; i < schema_node.field_count(); ++i) {
+    DCHECK(schema_node.field(i)->is_primitive());
+    auto field = static_cast<const PrimitiveNode*>(schema_node.field(i).get());
+    fields.push_back(get_arrow_field(*field));
+  }
+  return ::arrow::schema(std::move(fields));
+}
+
 template <typename TestType>
 class TestParquetIO : public ::testing::Test {
  public:
@@ -549,7 +622,8 @@ class TestParquetIO : public ::testing::Test {
   template <typename ArrayType>
   void WriteColumn(const std::shared_ptr<GroupNode>& schema,
                    const std::shared_ptr<ArrayType>& values) {
-    FileWriter writer(::arrow::default_memory_pool(), MakeWriter(schema));
+    FileWriter writer(::arrow::default_memory_pool(), MakeWriter(schema),
+                      ToArrowSchema(*schema));
     ASSERT_OK_NO_THROW(writer.NewRowGroup(values->length()));
     ASSERT_OK_NO_THROW(writer.WriteColumnChunk(*values));
     ASSERT_OK_NO_THROW(writer.Close());
@@ -733,7 +807,8 @@ TYPED_TEST(TestParquetIO, SingleColumnRequiredChunkedWrite) {
 
   std::shared_ptr<GroupNode> schema =
       MakeSimpleSchema(*values->type(), Repetition::REQUIRED);
-  FileWriter writer(default_memory_pool(), this->MakeWriter(schema));
+  FileWriter writer(default_memory_pool(), this->MakeWriter(schema),
+                    ToArrowSchema(*schema));
   for (int i = 0; i < 4; i++) {
     ASSERT_OK_NO_THROW(writer.NewRowGroup(chunk_size));
     std::shared_ptr<Array> sliced_array = values->Slice(i * chunk_size, chunk_size);
@@ -796,7 +871,8 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalChunkedWrite) {
 
   std::shared_ptr<GroupNode> schema =
       MakeSimpleSchema(*values->type(), Repetition::OPTIONAL);
-  FileWriter writer(::arrow::default_memory_pool(), this->MakeWriter(schema));
+  FileWriter writer(::arrow::default_memory_pool(), this->MakeWriter(schema),
+                    ToArrowSchema(*schema));
   for (int i = 0; i < 4; i++) {
     ASSERT_OK_NO_THROW(writer.NewRowGroup(chunk_size));
     std::shared_ptr<Array> sliced_array = values->Slice(i * chunk_size, chunk_size);
@@ -2386,6 +2462,26 @@ INSTANTIATE_TEST_CASE_P(
         std::make_tuple("fixed_length_decimal.parquet", ::arrow::decimal(25, 2)),
         std::make_tuple("fixed_length_decimal_legacy.parquet", ::arrow::decimal(13, 2)),
         std::make_tuple("byte_array_decimal.parquet", ::arrow::decimal(4, 2))));
+
+// direct-as-possible translation of
+// pyarrow/tests/test_parquet.py::test_validate_schema_write_table
+TEST(TestSerialize, SchemaMismatch) {
+  auto pool = ::arrow::default_memory_pool();
+  auto writer_schm = ::arrow::schema({field("POS", ::arrow::uint32())});
+  auto table_schm = ::arrow::schema({field("POS", ::arrow::int64())});
+  using ::arrow::io::BufferOutputStream;
+  std::shared_ptr<BufferOutputStream> outs;
+  ASSERT_OK(BufferOutputStream::Create(1 << 10, pool, &outs));
+  auto props = default_writer_properties();
+  std::unique_ptr<arrow::FileWriter> writer;
+  ASSERT_OK(arrow::FileWriter::Open(*writer_schm, pool, outs, props, &writer));
+  std::shared_ptr<::arrow::Array> col;
+  ::arrow::Int64Builder builder;
+  ASSERT_OK(builder.Append(1));
+  ASSERT_OK(builder.Finish(&col));
+  auto tbl = ::arrow::Table::Make(table_schm, {col});
+  ASSERT_RAISES(Invalid, writer->WriteTable(*tbl, 1));
+}
 
 }  // namespace arrow
 
