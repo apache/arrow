@@ -59,6 +59,30 @@ dependency is persisted in the docker image. When you do local adjustments to
 this image, you need to change the name of the docker image in the `docker run`
 command.
 
+### Using quay.io to trigger and build the docker image
+
+1.  Make the change in the build scripts (eg. to modify the boost build, update `scripts/boost.sh`).
+
+2.  Setup an account on quay.io and link to your GitHub account
+
+3.  In quay.io,  Add a new repository using :
+
+    1.  Link to GitHub repository push
+    2.  Trigger build on changes to a specific branch (eg. myquay) of the repo (eg. `pravindra/arrow`)
+    3.  Set Dockerfile location to `/python/manylinux1/Dockerfile-x86_64_base`
+    4.  Set Context location to `/python/manylinux1`
+
+4.  Push change (in step 1) to the branch specified in step 3.ii
+
+    *  This should trigger a build in quay.io, the build takes about 2 hrs to finish.
+
+5.  Add a tag `latest` to the build after step 4 finishes, save the build ID (eg. `quay.io/pravindra/arrow_manylinux1_x86_64_base:latest`)
+
+6.  In your arrow PR,
+
+    *  include the change from 1.
+    *  modify `travis_script_manylinux.sh` to switch to the location from step 5 for the docker image.
+
 ## TensorFlow compatible wheels for Arrow
 
 As TensorFlow is not compatible with the manylinux1 standard, the above
