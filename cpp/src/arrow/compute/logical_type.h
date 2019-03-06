@@ -39,7 +39,7 @@ class Expr;
 /// \brief An object that represents either a single concrete value type or a
 /// group of related types, to help with expression type validation and other
 /// purposes
-class LogicalType {
+class ARROW_EXPORT LogicalType {
  public:
   enum Id {
     ANY,

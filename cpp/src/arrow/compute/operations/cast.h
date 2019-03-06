@@ -23,9 +23,6 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Scalar;
-
 namespace compute {
 
 class LogicalType;

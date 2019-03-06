@@ -24,7 +24,7 @@
 
 namespace arrow {
 
-class Scalar;
+struct Scalar;
 
 namespace compute {
 namespace ops {
