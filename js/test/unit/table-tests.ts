@@ -103,6 +103,19 @@ describe(`Table`, () => {
             return arr;
         };
 
+        test(`creates an empty Table with Columns`, () => {
+            let i32 = Column.new('i32', Data.new(new Int32(), 0, 0));
+            let f32 = Column.new('f32', Data.new(new Float32(), 0, 0));
+            const table = Table.new(i32, f32);
+            i32 = table.getColumn('i32')!;
+            f32 = table.getColumn('f32')!;
+            expect(table.length).toBe(0);
+            expect(i32.length).toBe(0);
+            expect(f32.length).toBe(0);
+            expect(i32.toArray()).toBeInstanceOf(Int32Array);
+            expect(f32.toArray()).toBeInstanceOf(Float32Array);
+        });
+
         test(`creates a new Table from a Column`, () => {
 
             const i32s = new Int32Array(arange(new Array<number>(10)));
