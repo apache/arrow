@@ -177,9 +177,8 @@ inline int64_t time_cast<double>(double value) {
 
 // ---------------- new api
 
-namespace arrow {
+namespace arrow{
 using internal::checked_cast;
-
 namespace internal {
 
 template <typename T, typename Target>
@@ -549,9 +548,6 @@ template <typename Type>
 class NumericVectorConverter
     : public TypedVectorConverter<Type, NumericVectorConverter<Type>> {};
 
-class BooleanVectorConverter
-    : public TypedVectorConverter<BooleanType, BooleanVectorConverter> {};
-
 class Date32Converter : public TypedVectorConverter<Date32Type, Date32Converter> {};
 class Date64Converter : public TypedVectorConverter<Date64Type, Date64Converter> {};
 
@@ -690,7 +686,7 @@ class Time64Converter : public TimeConverter<Time64Type> {
 Status GetConverter(const std::shared_ptr<DataType>& type,
                     std::unique_ptr<VectorConverter>* out) {
   switch (type->id()) {
-    SIMPLE_CONVERTER_CASE(BOOL, BooleanVectorConverter);
+    NUMERIC_CONVERTER(BOOL, BooleanType);
     NUMERIC_CONVERTER(INT8, Int8Type);
     NUMERIC_CONVERTER(INT16, Int16Type);
     NUMERIC_CONVERTER(INT32, Int32Type);
@@ -712,16 +708,14 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
       // TODO: probably after we merge ARROW-3628
       // case Type::DECIMAL:
 
-    case Type::DICTIONARY:
+    TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
+    TIME_CONVERTER_CASE(TIME64, Time64Type, Time64Converter);
+    TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
 
-      TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
-      TIME_CONVERTER_CASE(TIME64, Time64Type, Time64Converter);
-      TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
-
-    default:
-      break;
+  default:
+    break;
   }
-  return Status::NotImplemented("type not implemented");
+  return arrow::Status::Invalid("Cannot handle");
 }
 
 template <typename Type>
