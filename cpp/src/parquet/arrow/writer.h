@@ -137,6 +137,7 @@ std::shared_ptr<ArrowWriterProperties> PARQUET_EXPORT default_arrow_writer_prope
 class PARQUET_EXPORT FileWriter {
  public:
   FileWriter(::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
+             const std::shared_ptr<::arrow::Schema>& schema,
              const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
                  default_arrow_writer_properties());
 
@@ -183,6 +184,7 @@ class PARQUET_EXPORT FileWriter {
  private:
   class PARQUET_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
+  std::shared_ptr<::arrow::Schema> schema_;
 };
 
 /// \brief Write Parquet file metadata only to indicated OutputStream

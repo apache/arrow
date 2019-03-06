@@ -1092,8 +1092,10 @@ MemoryPool* FileWriter::memory_pool() const { return impl_->memory_pool(); }
 FileWriter::~FileWriter() {}
 
 FileWriter::FileWriter(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
+                       const std::shared_ptr<::arrow::Schema>& schema,
                        const std::shared_ptr<ArrowWriterProperties>& arrow_properties)
-    : impl_(new FileWriter::Impl(pool, std::move(writer), arrow_properties)) {}
+    : impl_(new FileWriter::Impl(pool, std::move(writer), arrow_properties)),
+      schema_(schema) {}
 
 Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                         const std::shared_ptr<OutputStream>& sink,
@@ -1116,7 +1118,9 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
   std::unique_ptr<ParquetFileWriter> base_writer =
       ParquetFileWriter::Open(sink, schema_node, properties, schema.metadata());
 
-  writer->reset(new FileWriter(pool, std::move(base_writer), arrow_properties));
+  auto schema_ptr = std::make_shared<::arrow::Schema>(schema);
+  writer->reset(
+      new FileWriter(pool, std::move(base_writer), schema_ptr, arrow_properties));
   return Status::OK();
 }
 
@@ -1148,11 +1152,13 @@ Status WriteFileMetaData(const FileMetaData& file_metadata,
   return ::parquet::arrow::WriteFileMetaData(file_metadata, &wrapper);
 }
 
-namespace {}  // namespace
-
 Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {
   if (chunk_size <= 0 && table.num_rows() > 0) {
     return Status::Invalid("chunk size per row_group must be greater than 0");
+  } else if (!table.schema()->Equals(*schema_, false)) {
+    return Status::Invalid("table schema does not match this writer's. table:'",
+                           table.schema()->ToString(), "' this:'", schema_->ToString(),
+                           "'");
   } else if (chunk_size > impl_->properties().max_row_group_length()) {
     chunk_size = impl_->properties().max_row_group_length();
   }

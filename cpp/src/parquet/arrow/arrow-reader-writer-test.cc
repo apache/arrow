@@ -549,7 +549,11 @@ class TestParquetIO : public ::testing::Test {
   template <typename ArrayType>
   void WriteColumn(const std::shared_ptr<GroupNode>& schema,
                    const std::shared_ptr<ArrayType>& values) {
-    FileWriter writer(::arrow::default_memory_pool(), MakeWriter(schema));
+    SchemaDescriptor descriptor;
+    ASSERT_NO_THROW(descriptor.Init(schema));
+    std::shared_ptr<::arrow::Schema> arrow_schema;
+    ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, &arrow_schema));
+    FileWriter writer(::arrow::default_memory_pool(), MakeWriter(schema), arrow_schema);
     ASSERT_OK_NO_THROW(writer.NewRowGroup(values->length()));
     ASSERT_OK_NO_THROW(writer.WriteColumnChunk(*values));
     ASSERT_OK_NO_THROW(writer.Close());
@@ -733,7 +737,11 @@ TYPED_TEST(TestParquetIO, SingleColumnRequiredChunkedWrite) {
 
   std::shared_ptr<GroupNode> schema =
       MakeSimpleSchema(*values->type(), Repetition::REQUIRED);
-  FileWriter writer(default_memory_pool(), this->MakeWriter(schema));
+  SchemaDescriptor descriptor;
+  ASSERT_NO_THROW(descriptor.Init(schema));
+  std::shared_ptr<::arrow::Schema> arrow_schema;
+  ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, &arrow_schema));
+  FileWriter writer(default_memory_pool(), this->MakeWriter(schema), arrow_schema);
   for (int i = 0; i < 4; i++) {
     ASSERT_OK_NO_THROW(writer.NewRowGroup(chunk_size));
     std::shared_ptr<Array> sliced_array = values->Slice(i * chunk_size, chunk_size);
@@ -796,7 +804,12 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalChunkedWrite) {
 
   std::shared_ptr<GroupNode> schema =
       MakeSimpleSchema(*values->type(), Repetition::OPTIONAL);
-  FileWriter writer(::arrow::default_memory_pool(), this->MakeWriter(schema));
+  SchemaDescriptor descriptor;
+  ASSERT_NO_THROW(descriptor.Init(schema));
+  std::shared_ptr<::arrow::Schema> arrow_schema;
+  ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, &arrow_schema));
+  FileWriter writer(::arrow::default_memory_pool(), this->MakeWriter(schema),
+                    arrow_schema);
   for (int i = 0; i < 4; i++) {
     ASSERT_OK_NO_THROW(writer.NewRowGroup(chunk_size));
     std::shared_ptr<Array> sliced_array = values->Slice(i * chunk_size, chunk_size);
@@ -2386,6 +2399,26 @@ INSTANTIATE_TEST_CASE_P(
         std::make_tuple("fixed_length_decimal.parquet", ::arrow::decimal(25, 2)),
         std::make_tuple("fixed_length_decimal_legacy.parquet", ::arrow::decimal(13, 2)),
         std::make_tuple("byte_array_decimal.parquet", ::arrow::decimal(4, 2))));
+
+// direct-as-possible translation of
+// pyarrow/tests/test_parquet.py::test_validate_schema_write_table
+TEST(TestArrowWriterAdHoc, SchemaMismatch) {
+  auto pool = ::arrow::default_memory_pool();
+  auto writer_schm = ::arrow::schema({field("POS", ::arrow::uint32())});
+  auto table_schm = ::arrow::schema({field("POS", ::arrow::int64())});
+  using ::arrow::io::BufferOutputStream;
+  std::shared_ptr<BufferOutputStream> outs;
+  ASSERT_OK(BufferOutputStream::Create(1 << 10, pool, &outs));
+  auto props = default_writer_properties();
+  std::unique_ptr<arrow::FileWriter> writer;
+  ASSERT_OK(arrow::FileWriter::Open(*writer_schm, pool, outs, props, &writer));
+  std::shared_ptr<::arrow::Array> col;
+  ::arrow::Int64Builder builder;
+  ASSERT_OK(builder.Append(1));
+  ASSERT_OK(builder.Finish(&col));
+  auto tbl = ::arrow::Table::Make(table_schm, {col});
+  ASSERT_RAISES(Invalid, writer->WriteTable(*tbl, 1));
+}
 
 }  // namespace arrow
 
