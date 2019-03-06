@@ -226,7 +226,7 @@ matrix:
     language: cpp
     env:
     - PYTHON_VERSIONS="2.7,32 3.6,16"
-    - MANYLINUX_IMAGE1="quay.io/xhochy/arrow_manylinux1_x86_64_base:ARROW-4778"
+    - MANYLINUX1_IMAGE="quay.io/xhochy/arrow_manylinux1_x86_64_base:ARROW-4778"
     before_script:
     - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then docker pull $MANYLINUX1_IMAGE; fi
     script:
