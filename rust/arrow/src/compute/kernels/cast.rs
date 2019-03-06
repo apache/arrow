@@ -15,23 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines cast kernels for `ArrayRef`.
-//!
-//! Allows casting arrays between supported datatypes.
-//!
-//! ## Behavior
-//!
-//! * Boolean to Utf8: `true` => '1', `false` => `0`
-//! * Utf8 to numeric: strings that can't be parsed to numbers return null, float strings
-//!   in integer casts return null
-//! * Numeric to boolean: 0 returns `false`, any other value returns `true`
-//!
-//! ## Unsupported Casts
-//!
-//! * To or from `StructArray`
-//! * To or from `ListArray`
-//! * Boolean to float
-//! * Utf8 to boolean
+//! Defines cast kernels for `ArrayRef`, allowing casting arrays between supported datatypes.
 //!
 //! Example:
 //!
@@ -123,6 +107,18 @@ macro_rules! cast_bool_to_numeric {
 }
 
 /// Cast array to provided data type
+///
+/// Behavior:
+/// * Boolean to Utf8: `true` => '1', `false` => `0`
+/// * Utf8 to numeric: strings that can't be parsed to numbers return null, float strings
+///   in integer casts return null
+/// * Numeric to boolean: 0 returns `false`, any other value returns `true`
+///
+/// Unsupported Casts
+/// * To or from `StructArray`
+/// * To or from `ListArray`
+/// * Boolean to float
+/// * Utf8 to boolean
 pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
     use DataType::*;
     let from_type = array.data_type();
