@@ -1249,10 +1249,18 @@ def write_to_dataset(table, root_path, partition_cols=None,
             raise ValueError('No data left to save outside partition columns')
 
         subschema = table.schema
+        # ARROW-4538: Remove index column from subschema in write_to_dataframe
+        metadata = subschema.metadata
+        has_pandas_metadata = (metadata is not None and b'pandas' in metadata)
+        index_columns = []
+        if has_pandas_metadata:
+            pandas_metadata = json.loads(metadata[b'pandas'].decode('utf8'))
+            index_columns = pandas_metadata['index_columns']
         # ARROW-2891: Ensure the output_schema is preserved when writing a
         # partitioned dataset
         for col in table.schema.names:
-            if (col.startswith('__index_level_') or col in partition_cols):
+            if (col.startswith('__index_level_') or col in partition_cols or
+                    col in index_columns):
                 subschema = subschema.remove(subschema.get_field_index(col))
 
         for keys, subgroup in data_df.groupby(partition_keys):
