@@ -140,10 +140,19 @@ Status check_consistent_array_size(const std::vector<std::shared_ptr<arrow::Arra
 
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__knwon_schema(const std::shared_ptr<arrow::Schema>& schema, SEXP lst) {
   R_xlen_t n_arrays = XLENGTH(lst);
+  if(schema->num_fields() != n_arrays) {
+    Rcpp::stop("incompatible. schema has %d fields, and %d arrays are supplied", schema->num_fields(), n_arrays);
+  }
 
   // convert lst to a vector of arrow::Array
   std::vector<std::shared_ptr<arrow::Array>> arrays(n_arrays);
+  SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
+  bool has_names = !Rf_isNull(names);
+
   for(R_xlen_t i=0; i<n_arrays; i++) {
+    if (has_names && schema->field(i)->name() != CHAR(STRING_ELT(names, i))) {
+      Rcpp::stop("field at index %d has name '%s' != '%s'", i+1, schema->field(i)->name(), CHAR(STRING_ELT(names, i)));
+    }
     arrays[i] = arrow::r::Array__from_vector(VECTOR_ELT(lst, i), schema->field(i)->type(), false);
   }
 

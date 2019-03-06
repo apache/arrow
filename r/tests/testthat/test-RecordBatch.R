@@ -134,6 +134,12 @@ test_that("record_batch() handles schema= argument", {
   expect_error(record_batch(x = 1:10, y = 1:10, schema = s))
 })
 
+test_that("record_batch(schema=) does some basic consistency checking of the schema", {
+  s <- schema(x = int32())
+  expect_error(record_batch(x = 1:10, y = 1:10, schema = s))
+  expect_error(record_batch(z = 1:10, schema = s))
+})
+
 test_that("RecordBatch dim() and nrow() (ARROW-3816)", {
   batch <- record_batch(x = 1:10, y  = 1:10)
   expect_equal(dim(batch), c(10L, 2L))
