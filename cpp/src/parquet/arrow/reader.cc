@@ -101,6 +101,11 @@ Status GetSingleChunk(const ChunkedArray& chunked, std::shared_ptr<Array>* out) 
 
 }  // namespace
 
+ArrowReaderProperties default_arrow_reader_properties() {
+  static ArrowReaderProperties default_reader_props;
+  return default_reader_props;
+}
+
 // ----------------------------------------------------------------------
 // Iteration utilities
 

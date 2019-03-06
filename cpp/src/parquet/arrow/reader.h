@@ -87,10 +87,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
 };
 
 PARQUET_EXPORT
-ArrowReaderProperties default_arrow_reader_properties() {
-  static ArrowReaderProperties default_reader_props;
-  return default_reader_props;
-}
+ArrowReaderProperties default_arrow_reader_properties();
 
 // Arrow read adapter class for deserializing Parquet files as Arrow row
 // batches.
