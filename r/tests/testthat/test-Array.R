@@ -400,11 +400,23 @@ test_that("array() does not convert doubles to integer", {
 })
 
 test_that("array supports decimal128", {
-  dec <- vctrs::vec_c(1:10, new_decimal128())
-  a <- array(dec)
+  a <- array(1:10, type = decimal())
   expect_equal(a$length(), 10L)
   expect_equal(a$type, decimal())
-
   x <- a$as_vector()
   expect_equal(as.integer(x), 1:10)
+
+  i64 <- bit64::as.integer64(1:10)
+  a <- array(i64, type = decimal())
+  expect_equal(a$length(), 10L)
+  expect_equal(a$type, decimal())
+  x <- a$as_vector()
+  expect_equal(vctrs::vec_cast(x, i64), i64)
+
+  d128 <- vctrs::vec_cast(1:10, new_decimal128())
+  a <- array(1:10, type = decimal())
+  expect_equal(a$length(), 10L)
+  expect_equal(a$type, decimal())
+  x <- a$as_vector()
+  expect_equal(x, d128)
 })
