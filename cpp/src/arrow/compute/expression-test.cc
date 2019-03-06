@@ -72,11 +72,18 @@ TEST(TestLogicalType, NonNestedToString) {
   }
 }
 
+class DummyExpr : public Expr {
+ public:
+  using Expr::Expr;
+  std::string kind() const override { return "dummy"; }
+};
+
 TEST(TestLogicalType, Any) {
   auto op = std::make_shared<DummyOp>();
   auto t = type::any();
   ASSERT_TRUE(t->IsInstance(*scalar::int32(op)));
   ASSERT_TRUE(t->IsInstance(*array::binary(op)));
+  ASSERT_FALSE(t->IsInstance(*std::make_shared<DummyExpr>(op)));
 }
 
 TEST(TestLogicalType, Number) {
@@ -109,7 +116,39 @@ TEST(TestLogicalType, IntegerBaseTypes) {
   ASSERT_FALSE(unsigned_ty->IsInstance(*array::int8(op)));
 }
 
-TEST(TestLogicalType, ConcreteTypes) { auto op = std::make_shared<DummyOp>(); }
+TEST(TestLogicalType, NumberConcreteIsinstance) {
+  auto op = std::make_shared<DummyOp>();
+
+  std::vector<std::shared_ptr<LogicalType>> types = {
+      type::null(),    type::boolean(), type::int8(),       type::int16(),
+      type::int32(),   type::int64(),   type::uint8(),      type::uint16(),
+      type::uint32(),  type::uint64(),  type::half_float(), type::float_(),
+      type::double_(), type::binary(),  type::utf8()};
+
+  std::vector<std::shared_ptr<Expr>> exprs = {
+      scalar::null(op),      array::null(op),    scalar::boolean(op),
+      array::boolean(op),    scalar::int8(op),   array::int8(op),
+      scalar::int16(op),     array::int16(op),   scalar::int32(op),
+      array::int32(op),      scalar::int64(op),  array::int64(op),
+      scalar::uint8(op),     array::uint8(op),   scalar::uint16(op),
+      array::uint16(op),     scalar::uint32(op), array::uint32(op),
+      scalar::uint64(op),    array::uint64(op),  scalar::half_float(op),
+      array::half_float(op), scalar::float_(op), array::float_(op),
+      scalar::double_(op),   array::double_(op)};
+
+  for (auto ty : types) {
+    int num_matches = 0;
+    for (auto expr : exprs) {
+      const auto& v_expr = static_cast<const ValueExpr&>(*expr);
+      const bool ty_matches = v_expr.type()->id() == ty->id();
+      ASSERT_EQ(ty_matches, ty->IsInstance(v_expr))
+          << "Expr: " << expr->kind() << " Type: " << ty->ToString();
+      num_matches += ty_matches;
+    }
+    // No more than 2 matches per type
+    ASSERT_LE(num_matches, 2);
+  }
+}
 
 }  // namespace compute
 }  // namespace arrow

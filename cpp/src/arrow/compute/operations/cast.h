@@ -15,25 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/operations/literal.h"
+#pragma once
 
 #include <memory>
 
-#include "arrow/compute/expression.h"
-#include "arrow/compute/logical_type.h"
-#include "arrow/scalar.h"
+#include "arrow/compute/operation.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Scalar;
+
 namespace compute {
 namespace ops {
 
-Literal::Literal(const std::shared_ptr<Scalar>& value) : value_(value) {}
+/// \brief A cast operation creates an expression from a known constant
+/// scalar value
+class ARROW_EXPORT Cast : public Operation {
+ public:
+  Cast(std::shared_ptr<Expr> value, std::shared_ptr<LogicalType> out_type);
+  Status ToExpr(std::shared_ptr<Expr>* out) const override;
 
-Status Literal::ToExpr(std::shared_ptr<Expr>* out) const {
-  std::shared_ptr<LogicalType> ty;
-  RETURN_NOT_OK(LogicalType::FromArrow(value_->type, &ty));
-  return GetScalarExpr(shared_from_this(), ty, out);
-}
+ private:
+  std::shared_ptr<Expr> value_;
+  std::shared_ptr<LogicalType> out_type_;
+};
 
 }  // namespace ops
 }  // namespace compute

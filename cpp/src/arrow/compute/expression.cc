@@ -28,18 +28,20 @@
 namespace arrow {
 namespace compute {
 
-Expr::Expr(std::shared_ptr<Operation> op) : op_(std::move(op)) {}
+Expr::Expr(std::shared_ptr<const Operation> op) : op_(std::move(op)) {}
 
-ValueExpr::ValueExpr(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type,
-                     Rank rank)
+ValueExpr::ValueExpr(std::shared_ptr<const Operation> op,
+                     std::shared_ptr<LogicalType> type, Rank rank)
     : Expr(std::move(op)), type_(std::move(type)), rank_(rank) {}
 
 std::shared_ptr<LogicalType> ValueExpr::type() const { return type_; }
 
-ScalarExpr::ScalarExpr(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type)
+ScalarExpr::ScalarExpr(std::shared_ptr<const Operation> op,
+                       std::shared_ptr<LogicalType> type)
     : ValueExpr(std::move(op), std::move(type), ValueExpr::SCALAR) {}
 
-ArrayExpr::ArrayExpr(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type)
+ArrayExpr::ArrayExpr(std::shared_ptr<const Operation> op,
+                     std::shared_ptr<LogicalType> type)
     : ValueExpr(std::move(op), std::move(type), ValueExpr::ARRAY) {}
 
 std::string ArrayExpr::kind() const {
@@ -56,15 +58,15 @@ std::string ScalarExpr::kind() const {
 
 // ----------------------------------------------------------------------
 
-#define SIMPLE_EXPR_FACTORY(NAME, TYPE)                       \
-  std::shared_ptr<Expr> NAME(std::shared_ptr<Operation> op) { \
-    return std::make_shared<TYPE>(std::move(op));             \
+#define SIMPLE_EXPR_FACTORY(NAME, TYPE)                             \
+  std::shared_ptr<Expr> NAME(std::shared_ptr<const Operation> op) { \
+    return std::make_shared<TYPE>(std::move(op));                   \
   }
 
 namespace scalar {
 
-#define SCALAR_EXPR_METHODS(NAME)           \
-  NAME::NAME(std::shared_ptr<Operation> op) \
+#define SCALAR_EXPR_METHODS(NAME)                 \
+  NAME::NAME(std::shared_ptr<const Operation> op) \
       : ScalarExpr(std::move(op), std::make_shared<type::NAME>()) {}
 
 SCALAR_EXPR_METHODS(Null)
@@ -99,18 +101,18 @@ SIMPLE_EXPR_FACTORY(double_, Double);
 SIMPLE_EXPR_FACTORY(binary, Binary);
 SIMPLE_EXPR_FACTORY(utf8, Utf8);
 
-List::List(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type)
+List::List(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type)
     : ScalarExpr(std::move(op), std::move(type)) {}
 
-Struct::Struct(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type)
+Struct::Struct(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type)
     : ScalarExpr(std::move(op), std::move(type)) {}
 
 }  // namespace scalar
 
 namespace array {
 
-#define ARRAY_EXPR_METHODS(NAME)            \
-  NAME::NAME(std::shared_ptr<Operation> op) \
+#define ARRAY_EXPR_METHODS(NAME)                  \
+  NAME::NAME(std::shared_ptr<const Operation> op) \
       : ArrayExpr(std::move(op), std::make_shared<type::NAME>()) {}
 
 ARRAY_EXPR_METHODS(Null)
@@ -145,12 +147,121 @@ SIMPLE_EXPR_FACTORY(double_, Double);
 SIMPLE_EXPR_FACTORY(binary, Binary);
 SIMPLE_EXPR_FACTORY(utf8, Utf8);
 
-List::List(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type)
+List::List(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type)
     : ArrayExpr(std::move(op), std::move(type)) {}
 
-Struct::Struct(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type)
+Struct::Struct(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type)
     : ArrayExpr(std::move(op), std::move(type)) {}
 
 }  // namespace array
+
+Status GetScalarExpr(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> ty,
+                     std::shared_ptr<Expr>* out) {
+  switch (ty->id()) {
+    case LogicalType::NULL_:
+      *out = scalar::null(op);
+      break;
+    case LogicalType::BOOL:
+      *out = scalar::boolean(op);
+      break;
+    case LogicalType::UINT8:
+      *out = scalar::uint8(op);
+      break;
+    case LogicalType::INT8:
+      *out = scalar::int8(op);
+      break;
+    case LogicalType::UINT16:
+      *out = scalar::uint16(op);
+      break;
+    case LogicalType::INT16:
+      *out = scalar::int16(op);
+      break;
+    case LogicalType::UINT32:
+      *out = scalar::uint32(op);
+      break;
+    case LogicalType::INT32:
+      *out = scalar::int32(op);
+      break;
+    case LogicalType::UINT64:
+      *out = scalar::uint64(op);
+      break;
+    case LogicalType::INT64:
+      *out = scalar::int64(op);
+      break;
+    case LogicalType::HALF_FLOAT:
+      *out = scalar::half_float(op);
+      break;
+    case LogicalType::FLOAT:
+      *out = scalar::float_(op);
+      break;
+    case LogicalType::DOUBLE:
+      *out = scalar::double_(op);
+      break;
+    case LogicalType::UTF8:
+      *out = scalar::utf8(op);
+      break;
+    case LogicalType::BINARY:
+      *out = scalar::binary(op);
+      break;
+    default:
+      return Status::NotImplemented("Scalar expr for ", ty->ToString());
+  }
+  return Status::OK();
+}
+
+Status GetArrayExpr(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> ty,
+                    std::shared_ptr<Expr>* out) {
+  switch (ty->id()) {
+    case LogicalType::NULL_:
+      *out = array::null(op);
+      break;
+    case LogicalType::BOOL:
+      *out = array::boolean(op);
+      break;
+    case LogicalType::UINT8:
+      *out = array::uint8(op);
+      break;
+    case LogicalType::INT8:
+      *out = array::int8(op);
+      break;
+    case LogicalType::UINT16:
+      *out = array::uint16(op);
+      break;
+    case LogicalType::INT16:
+      *out = array::int16(op);
+      break;
+    case LogicalType::UINT32:
+      *out = array::uint32(op);
+      break;
+    case LogicalType::INT32:
+      *out = array::int32(op);
+      break;
+    case LogicalType::UINT64:
+      *out = array::uint64(op);
+      break;
+    case LogicalType::INT64:
+      *out = array::int64(op);
+      break;
+    case LogicalType::HALF_FLOAT:
+      *out = array::half_float(op);
+      break;
+    case LogicalType::FLOAT:
+      *out = array::float_(op);
+      break;
+    case LogicalType::DOUBLE:
+      *out = array::double_(op);
+      break;
+    case LogicalType::UTF8:
+      *out = array::utf8(op);
+      break;
+    case LogicalType::BINARY:
+      *out = array::binary(op);
+      break;
+    default:
+      return Status::NotImplemented("Array expr for ", ty->ToString());
+  }
+  return Status::OK();
+}
+
 }  // namespace compute
 }  // namespace arrow

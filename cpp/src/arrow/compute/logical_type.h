@@ -29,6 +29,7 @@
 
 namespace arrow {
 
+class DataType;
 class Status;
 
 namespace compute {
@@ -76,6 +77,11 @@ class LogicalType {
 
   /// \brief Check if expression is an instance of this type class
   virtual bool IsInstance(const Expr& expr) const = 0;
+
+  /// \brief Get a logical expression type from a concrete Arrow in-memory
+  /// array type
+  static Status FromArrow(std::shared_ptr<::arrow::DataType> type,
+                          std::shared_ptr<LogicalType>* out);
 
  protected:
   explicit LogicalType(Id id) : id_(id) {}

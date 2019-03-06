@@ -37,6 +37,10 @@ class Operation;
 /// data values (scalars, arrays, tables)
 class ARROW_EXPORT Expr {
  public:
+  /// \brief Instantiate expression from an abstract operation
+  /// \param[in] op the operation that generates the expression
+  explicit Expr(std::shared_ptr<const Operation> op);
+
   virtual ~Expr() = default;
 
   /// \brief A unique string identifier for the kind of expression
@@ -47,13 +51,10 @@ class ARROW_EXPORT Expr {
   // virtual Status Accept(ExprVisitor* visitor) const = 0;
 
   /// \brief
-  std::shared_ptr<Operation> op() const { return op_; }
+  std::shared_ptr<const Operation> op() const { return op_; }
 
  protected:
-  /// \brief Instantiate expression from an abstract operation
-  /// \param[in] op the operation that generates the expression
-  explicit Expr(std::shared_ptr<Operation> op);
-  std::shared_ptr<Operation> op_;
+  std::shared_ptr<const Operation> op_;
 };
 
 /// \brief Base class for a data-generated expression with a fixed and known
@@ -72,7 +73,8 @@ class ARROW_EXPORT ValueExpr : public Expr {
   Rank rank() const { return rank_; }
 
  protected:
-  ValueExpr(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type, Rank rank);
+  ValueExpr(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type,
+            Rank rank);
 
   /// \brief The semantic data type of the expression
   std::shared_ptr<LogicalType> type_;
@@ -82,13 +84,13 @@ class ARROW_EXPORT ValueExpr : public Expr {
 
 class ARROW_EXPORT ArrayExpr : public ValueExpr {
  protected:
-  ArrayExpr(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type);
+  ArrayExpr(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type);
   std::string kind() const override;
 };
 
 class ARROW_EXPORT ScalarExpr : public ValueExpr {
  protected:
-  ScalarExpr(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type);
+  ScalarExpr(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type);
   std::string kind() const override;
 };
 
@@ -121,14 +123,14 @@ class Struct : public ValueClass {};
 }  // namespace value
 
 #define SIMPLE_EXPR_FACTORY(NAME) \
-  ARROW_EXPORT std::shared_ptr<Expr> NAME(std::shared_ptr<Operation> op);
+  ARROW_EXPORT std::shared_ptr<Expr> NAME(std::shared_ptr<const Operation> op);
 
 namespace scalar {
 
 #define DECLARE_SCALAR_EXPR(TYPE)                                   \
   class ARROW_EXPORT TYPE : public ScalarExpr, public value::TYPE { \
    public:                                                          \
-    explicit TYPE(std::shared_ptr<Operation> op);                   \
+    explicit TYPE(std::shared_ptr<const Operation> op);             \
     using ScalarExpr::kind;                                         \
   };
 
@@ -166,13 +168,13 @@ SIMPLE_EXPR_FACTORY(utf8);
 
 class ARROW_EXPORT List : public ScalarExpr, public value::List {
  public:
-  List(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type);
+  List(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type);
   using ScalarExpr::kind;
 };
 
 class ARROW_EXPORT Struct : public ScalarExpr, public value::Struct {
  public:
-  Struct(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type);
+  Struct(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type);
   using ScalarExpr::kind;
 };
 
@@ -183,7 +185,7 @@ namespace array {
 #define DECLARE_ARRAY_EXPR(TYPE)                                   \
   class ARROW_EXPORT TYPE : public ArrayExpr, public value::TYPE { \
    public:                                                         \
-    explicit TYPE(std::shared_ptr<Operation> op);                  \
+    explicit TYPE(std::shared_ptr<const Operation> op);            \
     using ArrayExpr::kind;                                         \
   };
 
@@ -221,13 +223,13 @@ SIMPLE_EXPR_FACTORY(utf8);
 
 class ARROW_EXPORT List : public ArrayExpr, public value::List {
  public:
-  List(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type);
+  List(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type);
   using ArrayExpr::kind;
 };
 
 class ARROW_EXPORT Struct : public ArrayExpr, public value::Struct {
  public:
-  Struct(std::shared_ptr<Operation> op, std::shared_ptr<LogicalType> type);
+  Struct(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type);
   using ArrayExpr::kind;
 };
 
@@ -244,6 +246,16 @@ template <typename T, typename ObjectType>
 inline bool InheritsFrom(const ObjectType& obj) {
   return dynamic_cast<const T*>(&obj) != NULLPTR;
 }
+
+/// \brief Construct a ScalarExpr containing an Operation given a logical type
+ARROW_EXPORT
+Status GetScalarExpr(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> ty,
+                     std::shared_ptr<Expr>* out);
+
+/// \brief Construct an ArrayExpr containing an Operation given a logical type
+ARROW_EXPORT
+Status GetArrayExpr(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> ty,
+                    std::shared_ptr<Expr>* out);
 
 }  // namespace compute
 }  // namespace arrow

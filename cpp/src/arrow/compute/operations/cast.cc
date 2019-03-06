@@ -15,24 +15,36 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/operations/literal.h"
+#include "arrow/compute/operations/cast.h"
 
 #include <memory>
+#include <utility>
 
 #include "arrow/compute/expression.h"
-#include "arrow/compute/logical_type.h"
 #include "arrow/scalar.h"
 
 namespace arrow {
 namespace compute {
 namespace ops {
 
-Literal::Literal(const std::shared_ptr<Scalar>& value) : value_(value) {}
+Cast::Cast(std::shared_ptr<Expr> value, std::shared_ptr<LogicalType> out_type)
+    : value_(std::move(value)), out_type_(std::move(out_type)) {}
 
-Status Literal::ToExpr(std::shared_ptr<Expr>* out) const {
-  std::shared_ptr<LogicalType> ty;
-  RETURN_NOT_OK(LogicalType::FromArrow(value_->type, &ty));
-  return GetScalarExpr(shared_from_this(), ty, out);
+Status Cast::ToExpr(std::shared_ptr<Expr>* out) const {
+  // TODO(wesm): Add reusable type-checking rules
+  auto value_ty = type::any();
+  if (!value_ty->IsInstance(*value_)) {
+    return Status::Invalid("Cast only applies to value expressions");
+  }
+
+  auto op = shared_from_this();
+
+  const auto& value_expr = static_cast<const ValueExpr&>(*value_);
+  if (value_expr.rank() == ValueExpr::SCALAR) {
+    return util::GetScalarExpr(op, out_type_, out);
+  } else {
+    return util::GetArrayExpr(op, out_type_, out);
+  }
 }
 
 }  // namespace ops

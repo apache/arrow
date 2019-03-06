@@ -26,13 +26,69 @@
 
 #include "arrow/compute/expression.h"
 #include "arrow/status.h"
+#include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace compute {
+
+Status LogicalType::FromArrow(std::shared_ptr<::arrow::DataType> type,
+                              std::shared_ptr<LogicalType>* out) {
+  switch (type->id()) {
+    case Type::NA:
+      *out = type::null();
+      break;
+    case Type::BOOL:
+      *out = type::boolean();
+      break;
+    case Type::UINT8:
+      *out = type::uint8();
+      break;
+    case Type::INT8:
+      *out = type::int8();
+      break;
+    case Type::UINT16:
+      *out = type::uint16();
+      break;
+    case Type::INT16:
+      *out = type::int16();
+      break;
+    case Type::UINT32:
+      *out = type::uint32();
+      break;
+    case Type::INT32:
+      *out = type::int32();
+      break;
+    case Type::UINT64:
+      *out = type::uint64();
+      break;
+    case Type::INT64:
+      *out = type::int64();
+      break;
+    case Type::HALF_FLOAT:
+      *out = type::half_float();
+      break;
+    case Type::FLOAT:
+      *out = type::float_();
+      break;
+    case Type::DOUBLE:
+      *out = type::double_();
+      break;
+    case Type::STRING:
+      *out = type::utf8();
+      break;
+    case Type::BINARY:
+      *out = type::binary();
+      break;
+    default:
+      return Status::NotImplemented("Loigcal expr for ", type->ToString());
+  }
+  return Status::OK();
+}
+
 namespace type {
 
-bool Any::IsInstance(const Expr& expr) const { return true; }
+bool Any::IsInstance(const Expr& expr) const { return InheritsFrom<ValueExpr>(expr); }
 
 std::string Any::ToString() const { return "Any"; }
 
