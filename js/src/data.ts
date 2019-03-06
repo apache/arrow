@@ -170,6 +170,10 @@ export class Data<T extends DataType = DataType> {
         return childData.map((child) => child.slice(offset, length));
     }
 
+    //
+    // Convenience methods for creating Data instances for each of the Arrow Vector types
+    //
+    /** @nocollapse */
     public static new<T extends DataType>(type: T, offset: number, length: number, nullCount?: number, buffers?: Partial<Buffers<T>> | Data<T>, childData?: (Data | Vector)[]): Data<T> {
         if (buffers instanceof Data) { buffers = buffers.buffers; } else if (!buffers) { buffers = [] as Partial<Buffers<T>>; }
         switch (type.typeId) {
@@ -195,9 +199,6 @@ export class Data<T extends DataType = DataType> {
         throw new Error(`Unrecognized typeId ${type.typeId}`);
     }
 
-    //
-    // Convenience methods for creating Data instances for each of the Arrow Vector types
-    //
     /** @nocollapse */
     public static Null<T extends Null>(type: T, offset: number, length: number, nullCount: number, nullBitmap: NullBuffer, _data?: NullBuffer) {
         return new Data(type, offset, length, nullCount, [undefined, undefined, toUint8Array(nullBitmap)]);

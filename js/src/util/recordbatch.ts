@@ -46,7 +46,7 @@ export function ensureSameLengthData<T extends { [key: string]: DataType } = any
         } else {
             (field = fields[i]).nullable || (fields[i] = fields[i].clone({ nullable: true }) as Field<T[keyof T]>);
             batchData[i] = data ? data._changeLengthAndBackfillNullBitmap(batchLength)
-                : new Data(field.type, 0, batchLength, batchLength, nullBufs(bitmapLength)) as Data<T[keyof T]>;
+                : Data.new(field.type, 0, batchLength, batchLength, nullBufs(bitmapLength)) as Data<T[keyof T]>;
         }
     }
     return [new Schema<T>(fields), batchLength, batchData] as [Schema<T>, number, Data<T[keyof T]>[]];
@@ -111,7 +111,7 @@ function distributeChildData<T extends { [key: string]: DataType } = any>(fields
         } else {
             (field = fields[i]).nullable || (fields[i] = field.clone({ nullable: true }) as Field<T[keyof T]>);
             childData[i] = data ? data._changeLengthAndBackfillNullBitmap(batchLength)
-                : new Data(field.type, 0, batchLength, batchLength, nullBufs(bitmapLength)) as Data<T[keyof T]>;
+                : Data.new(field.type, 0, batchLength, batchLength, nullBufs(bitmapLength)) as Data<T[keyof T]>;
         }
     }
     return childData;
