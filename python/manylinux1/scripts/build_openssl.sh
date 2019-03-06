@@ -17,12 +17,13 @@
 # under the License.
 
 OPENSSL_VERSION="1.0.2q"
+NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
 
 wget --no-check-certificate https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz -O openssl-${OPENSSL_VERSION}.tar.gz
 tar xf openssl-${OPENSSL_VERSION}.tar.gz
 pushd openssl-${OPENSSL_VERSION}
 ./config -fpic shared --prefix=/usr
-make -j5
+make -j${NCORES}
 make install
 popd
 rm -rf openssl-${OPENSSL_VERSION}.tar.gz openssl-${OPENSSL_VERSION}
