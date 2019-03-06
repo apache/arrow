@@ -90,6 +90,21 @@ class TestPageSerde : public ::testing::Test {
     ASSERT_NO_THROW(serializer.Serialize(&page_header_, out_stream_.get()));
   }
 
+  void WriteDataPageHeaderV2(int max_serialized_len = 1024, int32_t uncompressed_size = 0,
+                             int32_t compressed_size = 0) {
+    // Simplifying writing serialized data page V2 headers which may or may not
+    // have meaningful data associated with them
+
+    // Serialize the Page header
+    page_header_.__set_data_page_header_v2(data_page_header_v2_);
+    page_header_.uncompressed_page_size = uncompressed_size;
+    page_header_.compressed_page_size = compressed_size;
+    page_header_.type = format::PageType::DATA_PAGE_V2;
+
+    ThriftSerializer serializer;
+    ASSERT_NO_THROW(serializer.Serialize(&page_header_, out_stream_.get()));
+  }
+
   void ResetStream() { out_stream_.reset(new InMemoryOutputStream); }
 
   void EndStream() { out_buffer_ = out_stream_->GetBuffer(); }
@@ -101,12 +116,13 @@ class TestPageSerde : public ::testing::Test {
   std::unique_ptr<PageReader> page_reader_;
   format::PageHeader page_header_;
   format::DataPageHeader data_page_header_;
+  format::DataPageHeaderV2 data_page_header_v2_;
 };
 
 void CheckDataPageHeader(const format::DataPageHeader expected, const Page* page) {
   ASSERT_EQ(PageType::DATA_PAGE, page->type());
 
-  const DataPage* data_page = static_cast<const DataPage*>(page);
+  const DataPageV1* data_page = static_cast<const DataPageV1*>(page);
   ASSERT_EQ(expected.num_values, data_page->num_values());
   ASSERT_EQ(expected.encoding, data_page->encoding());
   ASSERT_EQ(expected.definition_level_encoding, data_page->definition_level_encoding());
@@ -120,7 +136,25 @@ void CheckDataPageHeader(const format::DataPageHeader expected, const Page* page
   }
 }
 
-TEST_F(TestPageSerde, DataPage) {
+// Overload for DataPageV2 tests.
+void CheckDataPageHeader(const format::DataPageHeaderV2 expected, const Page* page) {
+  ASSERT_EQ(PageType::DATA_PAGE_V2, page->type());
+
+  const DataPageV2* data_page = static_cast<const DataPageV2*>(page);
+  ASSERT_EQ(expected.num_values, data_page->num_values());
+  ASSERT_EQ(expected.num_nulls, data_page->num_nulls());
+  ASSERT_EQ(expected.num_rows, data_page->num_rows());
+  ASSERT_EQ(expected.encoding, data_page->encoding());
+  ASSERT_EQ(expected.definition_levels_byte_length,
+            data_page->definition_levels_byte_length());
+  ASSERT_EQ(expected.repetition_levels_byte_length,
+            data_page->repetition_levels_byte_length());
+  ASSERT_EQ(expected.is_compressed, data_page->is_compressed());
+
+  // TODO: Tests for DataPageHeaderV2 statistics.
+}
+
+TEST_F(TestPageSerde, DataPageV1) {
   format::PageHeader out_page_header;
 
   int stats_size = 512;
@@ -132,6 +166,18 @@ TEST_F(TestPageSerde, DataPage) {
   InitSerializedPageReader(num_rows);
   std::shared_ptr<Page> current_page = page_reader_->NextPage();
   ASSERT_NO_FATAL_FAILURE(CheckDataPageHeader(data_page_header_, current_page.get()));
+}
+
+TEST_F(TestPageSerde, DataPageV2) {
+  format::PageHeader out_page_header;
+
+  const int32_t num_rows = 4444;
+  data_page_header_.num_values = num_rows;
+
+  ASSERT_NO_FATAL_FAILURE(WriteDataPageHeaderV2());
+  InitSerializedPageReader(num_rows);
+  std::shared_ptr<Page> current_page = page_reader_->NextPage();
+  ASSERT_NO_FATAL_FAILURE(CheckDataPageHeader(data_page_header_v2_, current_page.get()));
 }
 
 TEST_F(TestPageSerde, TestLargePageHeaders) {
@@ -218,11 +264,11 @@ TEST_F(TestPageSerde, Compression) {
     InitSerializedPageReader(num_rows * num_pages, codec_type);
 
     std::shared_ptr<Page> page;
-    const DataPage* data_page;
+    const DataPageV1* data_page;
     for (int i = 0; i < num_pages; ++i) {
       int data_size = static_cast<int>(faux_data[i].size());
       page = page_reader_->NextPage();
-      data_page = static_cast<const DataPage*>(page.get());
+      data_page = static_cast<const DataPageV1*>(page.get());
       ASSERT_EQ(data_size, data_page->size());
       ASSERT_EQ(0, memcmp(faux_data[i].data(), data_page->data(), data_size));
     }
