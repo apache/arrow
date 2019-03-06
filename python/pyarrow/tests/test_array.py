@@ -20,6 +20,7 @@ import collections
 import datetime
 import hypothesis as h
 import hypothesis.strategies as st
+import itertools
 import pickle
 import pytest
 import struct
@@ -1268,6 +1269,37 @@ def test_struct_array_field():
     for invalid_name in ['z', '']:
         with pytest.raises(KeyError):
             a.field(invalid_name)
+
+
+def test_empty_cast():
+    types = [
+        pa.null(),
+        pa.bool_(),
+        pa.int8(),
+        pa.int16(),
+        pa.int32(),
+        pa.int64(),
+        pa.uint8(),
+        pa.uint16(),
+        pa.uint32(),
+        pa.uint64(),
+        pa.float16(),
+        pa.float32(),
+        pa.float64(),
+        pa.date32(),
+        pa.date64(),
+        pa.binary(),
+        pa.binary(length=4),
+        pa.string(),
+    ]
+
+    for (t1, t2) in itertools.product(types, types):
+        try:
+            # ARROW-4766: Ensure that supported types conversion don't segfault
+            # on empty arrays of common types
+            pa.array([], type=t1).cast(t2)
+        except pa.lib.ArrowNotImplementedError:
+            continue
 
 
 def test_nested_dictionary_array():

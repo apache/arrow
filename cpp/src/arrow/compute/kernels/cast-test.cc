@@ -1230,5 +1230,24 @@ TEST_F(TestCast, IdentityCasts) {
   }
 }
 
+TEST_F(TestCast, EmptyCasts) {
+  // ARROW-4766: 0-length arrays should not segfault
+  auto CheckEmptyCast = [this](std::shared_ptr<DataType> from,
+                               std::shared_ptr<DataType> to) {
+    CastOptions options;
+
+    // Python creates array with nullptr instead of 0-length (valid) buffers.
+    auto data = ArrayData::Make(from, /* length */ 0, /* buffers */ {nullptr, nullptr});
+    auto input = MakeArray(data);
+    auto expected = ArrayFromJSON(to, "[]");
+    CheckPass(*input, *expected, to, CastOptions{});
+  };
+
+  for (auto numeric : kNumericTypes) {
+    CheckEmptyCast(boolean(), numeric);
+    CheckEmptyCast(numeric, boolean());
+  }
+}
+
 }  // namespace compute
 }  // namespace arrow
