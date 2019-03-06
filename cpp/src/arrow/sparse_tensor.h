@@ -36,12 +36,11 @@ struct SparseTensorFormat {
 
 /// \brief EXPERIMENTAL: The base class for the index of a sparse tensor
 ///
-/// SparseIndex are used to represent where is non-zero values in a
-/// SparseTensor.
+/// SparseIndex describes where the non-zero elements are within a SparseTensor.
 ///
 /// There are several ways of the index representation.  The format_id is used
-/// to distinguish what kind of representation is used.  And the concrete
-/// implementation will be done in subclasses.
+/// to distinguish what kind of representation is used.  Each possible value of
+/// format_id must have only one corresponding concrete subclass of SparseIndex.
 class ARROW_EXPORT SparseIndex {
  public:
   explicit SparseIndex(SparseTensorFormat::type format_id, int64_t non_zero_length)
