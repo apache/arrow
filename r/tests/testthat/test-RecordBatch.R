@@ -109,7 +109,7 @@ test_that("RecordBatch with 0 rows are supported", {
 })
 
 test_that("RecordBatch cast (ARROW-3741)", {
-  batch <- record_batch(x = 1:10, y  = 1:10)
+  batch <- record_batch(x = 1:10, y = 1:10)
 
   expect_error(batch$cast(schema(x = int32())))
   expect_error(batch$cast(schema(x = int32(), z = int32())))
@@ -119,6 +119,19 @@ test_that("RecordBatch cast (ARROW-3741)", {
   expect_equal(batch2$schema, s2)
   expect_equal(batch2$column(0L)$type, int16())
   expect_equal(batch2$column(1L)$type, int64())
+})
+
+test_that("record_batch() handles schema= argument", {
+  s <- schema(x = int32(), y = int32())
+  batch <- record_batch(x = 1:10, y = 1:10, schema = s)
+  expect_equal(s, batch$schema)
+
+  s <- schema(x = int32(), y = float64())
+  batch <- record_batch(x = 1:10, y = 1:10, schema = s)
+  expect_equal(s, batch$schema)
+
+  s <- schema(x = int32(), y = utf8())
+  expect_error(record_batch(x = 1:10, y = 1:10, schema = s))
 })
 
 test_that("RecordBatch dim() and nrow() (ARROW-3816)", {
