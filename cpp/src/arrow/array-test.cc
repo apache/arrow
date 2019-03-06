@@ -73,6 +73,10 @@ TEST_F(TestArray, TestNullCount) {
 
   std::unique_ptr<Int32Array> arr_no_nulls(new Int32Array(100, data));
   ASSERT_EQ(0, arr_no_nulls->null_count());
+
+  std::unique_ptr<Int32Array> arr_default_null_count(
+      new Int32Array(100, data, null_bitmap));
+  ASSERT_EQ(kUnknownNullCount, arr_default_null_count->data()->null_count);
 }
 
 TEST_F(TestArray, TestLength) {
