@@ -59,6 +59,8 @@ struct symbols {
   static SEXP xp;
   static SEXP dot_Internal;
   static SEXP inspect;
+  static SEXP precision;
+  static SEXP scale;
 };
 }  // namespace r
 }  // namespace arrow

@@ -746,39 +746,46 @@ std::shared_ptr<arrow::DataType> GetFactorType(SEXP factor) {
 
 std::shared_ptr<arrow::DataType> InferType(SEXP x) {
   switch (TYPEOF(x)) {
-    case LGLSXP:
-      return boolean();
-    case INTSXP:
-      if (Rf_isFactor(x)) {
-        return GetFactorType(x);
-      }
-      if (Rf_inherits(x, "Date")) {
-        return date32();
-      }
-      if (Rf_inherits(x, "POSIXct")) {
-        return timestamp(TimeUnit::MICRO, "GMT");
-      }
-      return int32();
-    case REALSXP:
-      if (Rf_inherits(x, "Date")) {
-        return date32();
-      }
-      if (Rf_inherits(x, "POSIXct")) {
-        return timestamp(TimeUnit::MICRO, "GMT");
-      }
-      if (Rf_inherits(x, "integer64")) {
-        return int64();
-      }
-      if (Rf_inherits(x, "difftime")) {
-        return time32(TimeUnit::SECOND);
-      }
-      return float64();
-    case RAWSXP:
-      return int8();
-    case STRSXP:
-      return utf8();
-    default:
-      break;
+  case LGLSXP:
+    return boolean();
+  case INTSXP:
+    if (Rf_isFactor(x)) {
+      return GetFactorType(x);
+    }
+    if (Rf_inherits(x, "Date")) {
+      return date32();
+    }
+    if (Rf_inherits(x, "POSIXct")) {
+      return timestamp(TimeUnit::MICRO, "GMT");
+    }
+    return int32();
+  case REALSXP:
+    if (Rf_inherits(x, "Date")) {
+      return date32();
+    }
+    if (Rf_inherits(x, "POSIXct")) {
+      return timestamp(TimeUnit::MICRO, "GMT");
+    }
+    if (Rf_inherits(x, "integer64")) {
+      return int64();
+    }
+    if (Rf_inherits(x, "difftime")) {
+      return time32(TimeUnit::SECOND);
+    }
+    return float64();
+  case RAWSXP:
+    return int8();
+  case STRSXP:
+    return utf8();
+  case VECSXP:
+    if (Rf_inherits(x, "arrow_decimal128")) {
+      int precision = Rcpp::as<int>(Rf_getAttrib(x, symbols::precision));
+      int scale = Rcpp::as<int>(Rf_getAttrib(x, symbols::scale));
+
+      return decimal(precision, scale);
+    }
+  default:
+    break;
   }
 
   Rcpp::stop("cannot infer type from data");

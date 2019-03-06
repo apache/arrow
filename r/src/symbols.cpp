@@ -23,6 +23,8 @@ SEXP symbols::units = Rf_install("units");
 SEXP symbols::xp = Rf_install(".:xp:.");
 SEXP symbols::dot_Internal = Rf_install(".Internal");
 SEXP symbols::inspect = Rf_install("inspect");
+SEXP symbols::precision = Rf_install("precision");
+SEXP symbols::scale = Rf_install("scale");
 
 void inspect(SEXP obj) {
   Rcpp::Shield<SEXP> call_inspect(Rf_lang2(symbols::inspect, obj));
