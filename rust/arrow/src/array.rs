@@ -96,6 +96,11 @@ pub trait Array: Send + Sync {
         self.data_ref().data_type()
     }
 
+    /// Returns a zero-copy slice of this array with the indicated offset and length.
+    fn slice(&self, offset: usize, length: usize) -> ArrayRef {
+        make_array(slice_data(self.data(), offset, length))
+    }
+
     /// Returns the length (i.e., number of elements) of this array
     fn len(&self) -> usize {
         self.data().len()
@@ -146,6 +151,28 @@ fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::Struct(_) => Arc::new(StructArray::from(data)) as ArrayRef,
         dt => panic!("Unexpected data type {:?}", dt),
     }
+}
+
+fn slice_data(data: ArrayDataRef, mut offset: usize, length: usize) -> ArrayDataRef {
+    assert!((offset + length) <= data.len());
+
+    let mut new_data = data.as_ref().clone();
+    let len = ::std::cmp::min(new_data.len - offset, length);
+
+    offset += data.offset;
+    new_data.len = len;
+    new_data.offset = offset;
+
+    // Calculate the new null count based on the offset
+    new_data.null_count = if let Some(bitmap) = new_data.null_bitmap() {
+        let valid_bits = bitmap.bits.data();
+        len.checked_sub(bit_util::count_set_bits_offset(valid_bits, offset, length))
+            .unwrap()
+    } else {
+        0
+    };
+
+    Arc::new(new_data)
 }
 
 /// ----------------------------------------------------------------------------
@@ -1092,6 +1119,40 @@ mod tests {
             dbg!(time);
             assert_eq!(formatted[i], time.format("%H:%M:%S%.3f").to_string());
         }
+    }
+
+    #[test]
+    fn test_primitive_array_slice() {
+        let arr = Int32Array::from(vec![
+            Some(0),
+            None,
+            Some(2),
+            None,
+            Some(4),
+            Some(5),
+            Some(6),
+            None,
+            None,
+        ]);
+        assert_eq!(9, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(4, arr.null_count());
+
+        let arr2 = arr.slice(2, 5);
+        assert_eq!(5, arr2.len());
+        assert_eq!(2, arr2.offset());
+        assert_eq!(1, arr2.null_count());
+        assert!(arr2.is_null(1));
+
+        let arr3 = arr2.slice(2, 3);
+        assert_eq!(3, arr3.len());
+        assert_eq!(4, arr3.offset());
+        assert_eq!(0, arr3.null_count());
+
+        let int_arr = arr3.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(4, int_arr.value(0));
+        assert_eq!(5, int_arr.value(1));
+        assert_eq!(6, int_arr.value(2));
     }
 
     #[test]
