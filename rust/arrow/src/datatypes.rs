@@ -121,10 +121,20 @@ pub trait ArrowPrimitiveType: 'static {
     fn default_value() -> Self::Native;
 }
 
-macro_rules! make_type {
-    ($name:ident, $native_ty:ty, $data_ty:path, $bit_width:expr, $default_val:expr) => {
-        impl ArrowNativeType for $native_ty {}
+impl ArrowNativeType for bool {}
+impl ArrowNativeType for i8 {}
+impl ArrowNativeType for i16 {}
+impl ArrowNativeType for i32 {}
+impl ArrowNativeType for i64 {}
+impl ArrowNativeType for u8 {}
+impl ArrowNativeType for u16 {}
+impl ArrowNativeType for u32 {}
+impl ArrowNativeType for u64 {}
+impl ArrowNativeType for f32 {}
+impl ArrowNativeType for f64 {}
 
+macro_rules! make_type {
+    ($name:ident, $native_ty:ty, $data_ty:expr, $bit_width:expr, $default_val:expr) => {
         pub struct $name {}
 
         impl ArrowPrimitiveType for $name {
@@ -156,101 +166,78 @@ make_type!(UInt32Type, u32, DataType::UInt32, 32, 0u32);
 make_type!(UInt64Type, u64, DataType::UInt64, 64, 0u64);
 make_type!(Float32Type, f32, DataType::Float32, 32, 0.0f32);
 make_type!(Float64Type, f64, DataType::Float64, 64, 0.0f64);
-
-macro_rules! make_temporal_type {
-    ($name:ident, $native_ty:ty, $data_ty:expr, $bit_width:expr, $default_val:expr) => {
-        pub struct $name {}
-
-        impl ArrowPrimitiveType for $name {
-            type Native = $native_ty;
-
-            fn get_data_type() -> DataType {
-                $data_ty
-            }
-
-            fn get_bit_width() -> usize {
-                $bit_width
-            }
-
-            fn default_value() -> Self::Native {
-                $default_val
-            }
-        }
-    };
-}
-
-make_temporal_type!(
+make_type!(
     TimestampSecondType,
     i64,
     DataType::Timestamp(TimeUnit::Second),
     64,
     0i64
 );
-make_temporal_type!(
+make_type!(
     TimestampMillisecondType,
     i64,
     DataType::Timestamp(TimeUnit::Millisecond),
     64,
     0i64
 );
-make_temporal_type!(
+make_type!(
     TimestampMicrosecondType,
     i64,
     DataType::Timestamp(TimeUnit::Microsecond),
     64,
     0i64
 );
-make_temporal_type!(
+make_type!(
     TimestampNanosecondType,
     i64,
     DataType::Timestamp(TimeUnit::Nanosecond),
     64,
     0i64
 );
-make_temporal_type!(Date32Type, i32, DataType::Date32(DateUnit::Day), 32, 0i32);
-make_temporal_type!(
+make_type!(Date32Type, i32, DataType::Date32(DateUnit::Day), 32, 0i32);
+make_type!(
     Date64Type,
     i64,
     DataType::Date64(DateUnit::Millisecond),
     64,
     0i64
 );
-make_temporal_type!(
+make_type!(
     Time32SecondType,
     i32,
     DataType::Time32(TimeUnit::Second),
     32,
     0i32
 );
-make_temporal_type!(
+make_type!(
     Time32MillisecondType,
     i32,
     DataType::Time32(TimeUnit::Millisecond),
     32,
     0i32
 );
-make_temporal_type!(
+make_type!(
     Time64MicrosecondType,
     i64,
     DataType::Time64(TimeUnit::Microsecond),
     64,
     0i64
 );
-make_temporal_type!(
+make_type!(
     Time64NanosecondType,
     i64,
     DataType::Time64(TimeUnit::Nanosecond),
     64,
     0i64
 );
-make_temporal_type!(
+make_type!(
     IntervalYearMonthType,
     i64,
     DataType::Interval(IntervalUnit::YearMonth),
     64,
     0i64
 );
-make_temporal_type!(
+make_type!(
     IntervalDayTimeType,
     i64,
     DataType::Interval(IntervalUnit::DayTime),

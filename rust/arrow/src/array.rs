@@ -274,18 +274,18 @@ where
     /// TODO: extract constants into static variables
     pub fn value_as_datetime(&self, i: usize) -> Option<NaiveDateTime> {
         let v = i64::from(self.value(i));
-        match &self.data_type() {
-            &DataType::Date32(_) => {
+        match self.data_type() {
+            DataType::Date32(_) => {
                 // convert days into seconds
                 Some(NaiveDateTime::from_timestamp(v * 86_400, 0))
             }
-            &DataType::Date64(_) => Some(NaiveDateTime::from_timestamp(
+            DataType::Date64(_) => Some(NaiveDateTime::from_timestamp(
                 v / 1_000,
                 (v % 1_000) as u32 * 1_000_000,
             )),
-            &DataType::Time32(_) => None,
-            &DataType::Time64(_) => None,
-            &DataType::Timestamp(unit) => match unit {
+            DataType::Time32(_) => None,
+            DataType::Time64(_) => None,
+            DataType::Timestamp(unit) => match unit {
                 TimeUnit::Second => Some(NaiveDateTime::from_timestamp(v * 86_400, 0)),
                 TimeUnit::Millisecond => Some(NaiveDateTime::from_timestamp(
                     v / 1_000,
@@ -301,7 +301,7 @@ where
                 )),
             },
             // interval is not yet fully documented [ARROW-3097]
-            &DataType::Interval(_) => None,
+            DataType::Interval(_) => None,
             _ => None,
         }
     }
@@ -467,7 +467,7 @@ impl fmt::Debug for PrimitiveArray<BooleanType> {
 // otherwise with both `From<Vec<T::Native>>` and `From<Vec<Option<T::Native>>>`.
 // We should revisit this in future.
 macro_rules! def_numeric_from_vec {
-    ( $ty:ident, $native_ty:ident, $ty_id:path ) => {
+    ( $ty:ident, $native_ty:ident, $ty_id:expr ) => {
         impl From<Vec<$native_ty>> for PrimitiveArray<$ty> {
             fn from(data: Vec<$native_ty>) -> Self {
                 let array_data = ArrayData::builder($ty_id)
@@ -526,88 +526,40 @@ def_numeric_from_vec!(Float32Type, f32, DataType::Float32);
 def_numeric_from_vec!(Float64Type, f64, DataType::Float64);
 // TODO: add temporal arrays
 
-macro_rules! def_temporal_from_vec {
-    ( $ty:ident, $native_ty:ident, $ty_id:expr ) => {
-        impl From<Vec<$native_ty>> for PrimitiveArray<$ty> {
-            fn from(data: Vec<$native_ty>) -> Self {
-                let array_data = ArrayData::builder($ty_id)
-                    .len(data.len())
-                    .add_buffer(Buffer::from(data.to_byte_slice()))
-                    .build();
-                PrimitiveArray::from(array_data)
-            }
-        }
-
-        // Constructs a primitive array from a vector. Should only be used for testing.
-        impl From<Vec<Option<$native_ty>>> for PrimitiveArray<$ty> {
-            fn from(data: Vec<Option<$native_ty>>) -> Self {
-                let data_len = data.len();
-                let num_bytes = bit_util::ceil(data_len, 8);
-                let mut null_buf =
-                    MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-                let mut val_buf =
-                    MutableBuffer::new(data_len * mem::size_of::<$native_ty>());
-
-                {
-                    let null = vec![0; mem::size_of::<$native_ty>()];
-                    let null_slice = null_buf.data_mut();
-                    for (i, v) in data.iter().enumerate() {
-                        if let Some(n) = v {
-                            bit_util::set_bit(null_slice, i);
-                            // unwrap() in the following should be safe here since we've
-                            // made sure enough space is allocated for the values.
-                            val_buf.write(&n.to_byte_slice()).unwrap();
-                        } else {
-                            val_buf.write(&null).unwrap();
-                        }
-                    }
-                }
-
-                let array_data = ArrayData::builder($ty_id)
-                    .len(data_len)
-                    .add_buffer(val_buf.freeze())
-                    .null_bit_buffer(null_buf.freeze())
-                    .build();
-                PrimitiveArray::from(array_data)
-            }
-        }
-    };
-}
-
-def_temporal_from_vec!(
+def_numeric_from_vec!(
     TimestampSecondType,
     i64,
     DataType::Timestamp(TimeUnit::Second)
 );
-def_temporal_from_vec!(
+def_numeric_from_vec!(
     TimestampMillisecondType,
     i64,
     DataType::Timestamp(TimeUnit::Millisecond)
 );
-def_temporal_from_vec!(
+def_numeric_from_vec!(
     TimestampMicrosecondType,
     i64,
     DataType::Timestamp(TimeUnit::Microsecond)
 );
-def_temporal_from_vec!(
+def_numeric_from_vec!(
     TimestampNanosecondType,
     i64,
     DataType::Timestamp(TimeUnit::Nanosecond)
 );
-def_temporal_from_vec!(Date32Type, i32, DataType::Date32(DateUnit::Day));
-def_temporal_from_vec!(Date64Type, i64, DataType::Date64(DateUnit::Millisecond));
-def_temporal_from_vec!(Time32SecondType, i32, DataType::Time32(TimeUnit::Second));
-def_temporal_from_vec!(
+def_numeric_from_vec!(Date32Type, i32, DataType::Date32(DateUnit::Day));
+def_numeric_from_vec!(Date64Type, i64, DataType::Date64(DateUnit::Millisecond));
+def_numeric_from_vec!(Time32SecondType, i32, DataType::Time32(TimeUnit::Second));
+def_numeric_from_vec!(
     Time32MillisecondType,
     i32,
     DataType::Time32(TimeUnit::Millisecond)
 );
-def_temporal_from_vec!(
+def_numeric_from_vec!(
     Time64MicrosecondType,
     i64,
     DataType::Time64(TimeUnit::Microsecond)
 );
-def_temporal_from_vec!(
+def_numeric_from_vec!(
     Time64NanosecondType,
     i64,
     DataType::Time64(TimeUnit::Nanosecond)
@@ -1049,7 +1001,8 @@ mod tests {
     #[test]
     fn test_date64_array_from_vec_option() {
         // Test building a primitive array with null values
-        // we use Int32 and Int64 as a backing array, so all Int32 and Int64 conventions work
+        // we use Int32 and Int64 as a backing array, so all Int32 and Int64 conventions
+        // work
         let arr: PrimitiveArray<Date64Type> =
             vec![Some(1550902545147), None, Some(1550902545147)].into();
         assert_eq!(3, arr.len());
@@ -1095,7 +1048,8 @@ mod tests {
     #[test]
     fn test_time64_nanosecond_array_from_vec() {
         // Test building a primitive array with null values
-        // we use Int32 and Int64 as a backing array, so all Int32 and Int64 convensions work
+        // we use Int32 and Int64 as a backing array, so all Int32 and Int64 convensions
+        // work
 
         // 1e6:        00:00:00.001
         // 37800005e6: 10:30:00.005
