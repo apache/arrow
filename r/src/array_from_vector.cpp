@@ -16,6 +16,7 @@
 // under the License.
 
 #include "./arrow_types.h"
+#include <arrow/util/decimal.h>
 
 namespace arrow {
 namespace r {
@@ -325,8 +326,8 @@ struct Unbox<DoubleType> {
   template <typename T>
   static inline Status IngestIntRange(DoubleBuilder* builder, T* p, R_xlen_t n, T na) {
     RETURN_NOT_OK(builder->Resize(n));
-    for (R_xlen_t i = 0; i < n; i++, ++p) {
-      if (*p == NA_INTEGER) {
+    for (R_xlen_t i=0; i<n; i++, ++p) {
+      if(*p == na) {
         builder->UnsafeAppendNull();
       } else {
         double value;
@@ -370,8 +371,8 @@ struct Unbox<FloatType> {
   template <typename T>
   static inline Status IngestIntRange(FloatBuilder* builder, T* p, R_xlen_t n, T na) {
     RETURN_NOT_OK(builder->Resize(n));
-    for (R_xlen_t i = 0; i < n; i++, ++p) {
-      if (*p == NA_INTEGER) {
+    for (R_xlen_t i=0; i<n; i++, ++p) {
+      if(*p == na) {
         builder->UnsafeAppendNull();
       } else {
         float value;
@@ -526,6 +527,57 @@ struct Unbox<Date64Type> {
     return Status::OK();
   }
 };
+
+template<>
+struct Unbox<Decimal128Type> {
+
+  static inline Status Ingest(Decimal128Builder* builder, SEXP obj) {
+    switch(TYPEOF(obj)) {
+    // TODO: handle RAW
+    case INTSXP:
+      return IngestIntRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
+    case REALSXP:
+      if(Rf_inherits(obj, "integer64")) {
+        return IngestIntRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)), XLENGTH(obj), NA_INT64);
+      }
+      break;
+    case VECSXP:
+      if (Rf_inherits(obj, "arrow_decimal128")) {
+        SEXP cplx = VECTOR_ELT(obj, 0);
+        return IngestDecimal128Range(builder, reinterpret_cast<arrow::Decimal128*>(COMPLEX(cplx)), XLENGTH(cplx));
+      }
+      break;
+    }
+    return Status::Invalid("Cannot convert R object to decimal128 type");
+  }
+
+  template <typename T>
+  static inline Status IngestIntRange(Decimal128Builder* builder, T* p, R_xlen_t n, T na) {
+    RETURN_NOT_OK(builder->Resize(n));
+    for (R_xlen_t i=0; i<n; i++, ++p) {
+      if(*p == na) {
+        RETURN_NOT_OK(builder->AppendNull());
+      } else {
+        RETURN_NOT_OK(builder->Append(*p));
+      }
+    }
+    return Status::OK();
+  }
+
+  static inline Status IngestDecimal128Range(Decimal128Builder* builder, arrow::Decimal128* p, R_xlen_t n) {
+    RETURN_NOT_OK(builder->Resize(n));
+    for (R_xlen_t i=0; i<n; i++, ++p) {
+      // TODO: not sure yet how to handle NA values in the R representation
+      //       so for now pretending there are no NA
+
+      // TODO: handle different precision and scale
+      RETURN_NOT_OK(builder->Append(*p));
+    }
+    return Status::OK();
+  }
+
+};
+
 
 template <typename Type, class Derived>
 class TypedVectorConverter : public VectorConverter {
@@ -711,7 +763,6 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
     TIME_CONVERTER_CASE(TIME64, Time64Type, Time64Converter);
     TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
-
   default:
     break;
   }

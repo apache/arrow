@@ -216,7 +216,7 @@ inline std::shared_ptr<T> extract(SEXP x) {
 struct Decimal128Record {
   SEXP record_;
 
-  inline Decimal128Record(SEXP record) : record_(record) {}
+  inline explicit Decimal128Record(SEXP record) : record_(record) {}
 
   inline Rcpp::ComplexVector_ data() const { return VECTOR_ELT(record_, 0); }
 
