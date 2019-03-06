@@ -332,7 +332,7 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
 
   shared_ptr<DictionaryPage> dict_page =
       std::make_shared<DictionaryPage>(dummy, 0, Encoding::PLAIN);
-  shared_ptr<DataPage> data_page = MakeDataPage<Int32Type>(
+  shared_ptr<DataPageV1> data_page = MakeDataPage<Int32Type>(
       &descr, {}, 0, Encoding::RLE_DICTIONARY, {}, 0, {}, 0, {}, 0);
   pages_.push_back(dict_page);
   pages_.push_back(data_page);

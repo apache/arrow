@@ -234,7 +234,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
       seen_num_rows_ += header.num_values;
 
-      return std::make_shared<DataPage>(
+      return std::make_shared<DataPageV1>(
           page_buffer, header.num_values, FromThrift(header.encoding),
           FromThrift(header.definition_level_encoding),
           FromThrift(header.repetition_level_encoding), page_statistics);
@@ -613,27 +613,27 @@ bool TypedColumnReaderImpl<DType>::ReadNewPage() {
       ConfigureDictionary(static_cast<const DictionaryPage*>(current_page_.get()));
       continue;
     } else if (current_page_->type() == PageType::DATA_PAGE) {
-      const DataPage* page = static_cast<const DataPage*>(current_page_.get());
+      const DataPageV1& page = static_cast<const DataPageV1&>(*current_page_);
 
       // Read a data page.
-      num_buffered_values_ = page->num_values();
+      num_buffered_values_ = page.num_values();
 
       // Have not decoded any values from the data page yet
       num_decoded_values_ = 0;
 
-      buffer = page->data();
+      buffer = page.data();
 
       // If the data page includes repetition and definition levels, we
       // initialize the level decoder and subtract the encoded level bytes from
       // the page size to determine the number of bytes in the encoded data.
-      int64_t data_size = page->size();
+      int64_t data_size = page.size();
 
       // Data page Layout: Repetition Levels - Definition Levels - encoded values.
       // Levels are encoded as rle or bit-packed.
       // Init repetition levels
       if (descr_->max_repetition_level() > 0) {
         int64_t rep_levels_bytes = repetition_level_decoder_.SetData(
-            page->repetition_level_encoding(), descr_->max_repetition_level(),
+            page.repetition_level_encoding(), descr_->max_repetition_level(),
             static_cast<int>(num_buffered_values_), buffer);
         buffer += rep_levels_bytes;
         data_size -= rep_levels_bytes;
@@ -644,7 +644,7 @@ bool TypedColumnReaderImpl<DType>::ReadNewPage() {
       // Init definition levels
       if (descr_->max_definition_level() > 0) {
         int64_t def_levels_bytes = definition_level_decoder_.SetData(
-            page->definition_level_encoding(), descr_->max_definition_level(),
+            page.definition_level_encoding(), descr_->max_definition_level(),
             static_cast<int>(num_buffered_values_), buffer);
         buffer += def_levels_bytes;
         data_size -= def_levels_bytes;
@@ -652,7 +652,7 @@ bool TypedColumnReaderImpl<DType>::ReadNewPage() {
 
       // Get a decoder object for this page or create a new decoder if this is the
       // first page with this encoding.
-      Encoding::type encoding = page->encoding();
+      Encoding::type encoding = page.encoding();
 
       if (IsDictionaryIndexEncoding(encoding)) {
         encoding = Encoding::RLE_DICTIONARY;

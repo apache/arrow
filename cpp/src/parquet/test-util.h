@@ -216,7 +216,7 @@ void DataPageBuilder<BooleanType>::AppendValues(const ColumnDescriptor* d,
 }
 
 template <typename Type>
-static shared_ptr<DataPage> MakeDataPage(
+static shared_ptr<DataPageV1> MakeDataPage(
     const ColumnDescriptor* d, const vector<typename Type::c_type>& values, int num_vals,
     Encoding::type encoding, const uint8_t* indices, int indices_size,
     const vector<int16_t>& def_levels, int16_t max_def_level,
@@ -243,9 +243,9 @@ static shared_ptr<DataPage> MakeDataPage(
 
   auto buffer = page_stream.GetBuffer();
 
-  return std::make_shared<DataPage>(buffer, num_values, encoding,
-                                    page_builder.def_level_encoding(),
-                                    page_builder.rep_level_encoding());
+  return std::make_shared<DataPageV1>(buffer, num_values, encoding,
+                                      page_builder.def_level_encoding(),
+                                      page_builder.rep_level_encoding());
 }
 
 template <typename TYPE>
@@ -357,7 +357,7 @@ static void PaginateDict(const ColumnDescriptor* d,
       rep_level_start = i * num_levels_per_page;
       rep_level_end = (i + 1) * num_levels_per_page;
     }
-    shared_ptr<DataPage> data_page = MakeDataPage<Int32Type>(
+    shared_ptr<DataPageV1> data_page = MakeDataPage<Int32Type>(
         d, {}, values_per_page[i], encoding, rle_indices[i]->data(),
         static_cast<int>(rle_indices[i]->size()),
         slice(def_levels, def_level_start, def_level_end), max_def_level,

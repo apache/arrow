@@ -122,7 +122,7 @@ class TestPageSerde : public ::testing::Test {
 void CheckDataPageHeader(const format::DataPageHeader expected, const Page* page) {
   ASSERT_EQ(PageType::DATA_PAGE, page->type());
 
-  const DataPage* data_page = static_cast<const DataPage*>(page);
+  const DataPageV1* data_page = static_cast<const DataPageV1*>(page);
   ASSERT_EQ(expected.num_values, data_page->num_values());
   ASSERT_EQ(expected.encoding, data_page->encoding());
   ASSERT_EQ(expected.definition_level_encoding, data_page->definition_level_encoding());
@@ -154,7 +154,7 @@ void CheckDataPageHeader(const format::DataPageHeaderV2 expected, const Page* pa
   // TODO: Tests for DataPageHeaderV2 statistics.
 }
 
-TEST_F(TestPageSerde, DataPage) {
+TEST_F(TestPageSerde, DataPageV1) {
   format::PageHeader out_page_header;
 
   int stats_size = 512;
@@ -264,11 +264,11 @@ TEST_F(TestPageSerde, Compression) {
     InitSerializedPageReader(num_rows * num_pages, codec_type);
 
     std::shared_ptr<Page> page;
-    const DataPage* data_page;
+    const DataPageV1* data_page;
     for (int i = 0; i < num_pages; ++i) {
       int data_size = static_cast<int>(faux_data[i].size());
       page = page_reader_->NextPage();
-      data_page = static_cast<const DataPage*>(page.get());
+      data_page = static_cast<const DataPageV1*>(page.get());
       ASSERT_EQ(data_size, data_page->size());
       ASSERT_EQ(0, memcmp(faux_data[i].data(), data_page->data(), data_size));
     }

@@ -48,7 +48,7 @@ namespace BitUtil = ::arrow::BitUtil;
 
 // PLAIN_DICTIONARY is deprecated but used to be used as a dictionary index
 // encoding.
-static bool IsDictionaryIndexEncoding(const Encoding::type& e) {
+static bool IsDictionaryIndexEncoding(Encoding::type e) {
   return e == Encoding::RLE_DICTIONARY || e == Encoding::PLAIN_DICTIONARY;
 }
 
@@ -86,7 +86,7 @@ class RecordReader::RecordReaderImpl {
 
   virtual ~RecordReaderImpl() = default;
 
-  virtual int64_t ReadRecordData(const int64_t num_records) = 0;
+  virtual int64_t ReadRecordData(int64_t num_records) = 0;
 
   // Returns true if there are still values in this column.
   bool HasNext() {
@@ -494,7 +494,7 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
   }
 
   // Return number of logical records read
-  int64_t ReadRecordData(const int64_t num_records) override {
+  int64_t ReadRecordData(int64_t num_records) override {
     // Conservative upper bound
     const int64_t possible_num_values =
         std::max(num_records, levels_written_ - levels_position_);
@@ -581,14 +581,11 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
   DecoderType* current_decoder_;
 
   // Initialize repetition and definition level decoders on the next data page.
-  template <typename PageType>
-  int64_t InitializeLevelDecoders(const std::shared_ptr<PageType> page,
-                                  const Encoding::type repetition_level_encoding,
-                                  const Encoding::type definition_level_encoding);
+  int64_t InitializeLevelDecoders(const DataPage& page,
+                                  Encoding::type repetition_level_encoding,
+                                  Encoding::type definition_level_encoding);
 
-  template <typename PageType>
-  void InitializeDataDecoder(const std::shared_ptr<PageType> page,
-                             const int64_t levels_bytes);
+  void InitializeDataDecoder(const DataPage& page, int64_t levels_bytes);
 
   // Advance to the next data page
   bool ReadNewPage() override;
@@ -731,17 +728,16 @@ inline void TypedRecordReader<DType>::ConfigureDictionary(const DictionaryPage* 
 // initialize the level decoders and return the number of encoded level bytes.
 // The return value helps determine the number of bytes in the encoded data.
 template <typename DType>
-template <typename PageType>
 int64_t TypedRecordReader<DType>::InitializeLevelDecoders(
-    const std::shared_ptr<PageType> page, const Encoding::type repetition_level_encoding,
-    const Encoding::type definition_level_encoding) {
+    const DataPage& page, Encoding::type repetition_level_encoding,
+    Encoding::type definition_level_encoding) {
   // Read a data page.
-  num_buffered_values_ = page->num_values();
+  num_buffered_values_ = page.num_values();
 
   // Have not decoded any values from the data page yet
   num_decoded_values_ = 0;
 
-  const uint8_t* buffer = page->data();
+  const uint8_t* buffer = page.data();
   int64_t levels_byte_size = 0;
 
   // Data page Layout: Repetition Levels - Definition Levels - encoded values.
@@ -771,13 +767,12 @@ int64_t TypedRecordReader<DType>::InitializeLevelDecoders(
 // Get a decoder object for this page or create a new decoder if this is the
 // first page with this encoding.
 template <typename DType>
-template <typename PageType>
-void TypedRecordReader<DType>::InitializeDataDecoder(const std::shared_ptr<PageType> page,
-                                                     const int64_t levels_byte_size) {
-  const uint8_t* buffer = page->data() + levels_byte_size;
-  const int64_t data_size = page->size() - levels_byte_size;
+void TypedRecordReader<DType>::InitializeDataDecoder(const DataPage& page,
+                                                     int64_t levels_byte_size) {
+  const uint8_t* buffer = page.data() + levels_byte_size;
+  const int64_t data_size = page.size() - levels_byte_size;
 
-  Encoding::type encoding = page->encoding();
+  Encoding::type encoding = page.encoding();
 
   if (IsDictionaryIndexEncoding(encoding)) {
     encoding = Encoding::RLE_DICTIONARY;
@@ -828,18 +823,18 @@ bool TypedRecordReader<DType>::ReadNewPage() {
       ConfigureDictionary(static_cast<const DictionaryPage*>(current_page_.get()));
       continue;
     } else if (current_page_->type() == PageType::DATA_PAGE) {
-      const auto page = std::static_pointer_cast<DataPage>(current_page_);
+      const auto page = std::static_pointer_cast<DataPageV1>(current_page_);
       const int64_t levels_byte_size = InitializeLevelDecoders(
-          page, page->repetition_level_encoding(), page->definition_level_encoding());
-      InitializeDataDecoder(page, levels_byte_size);
+          *page, page->repetition_level_encoding(), page->definition_level_encoding());
+      InitializeDataDecoder(*page, levels_byte_size);
       return true;
     } else if (current_page_->type() == PageType::DATA_PAGE_V2) {
       const auto page = std::static_pointer_cast<DataPageV2>(current_page_);
       // Repetition and definition levels are always encoded using RLE encoding
       // in the DataPageV2 format.
       const int64_t levels_byte_size =
-          InitializeLevelDecoders(page, Encoding::RLE, Encoding::RLE);
-      InitializeDataDecoder(page, levels_byte_size);
+          InitializeLevelDecoders(*page, Encoding::RLE, Encoding::RLE);
+      InitializeDataDecoder(*page, levels_byte_size);
       return true;
     } else {
       // We don't know what this page type is. We're allowed to skip non-data

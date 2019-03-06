@@ -59,45 +59,54 @@ class Page {
   PageType::type type_;
 };
 
+/// \brief Base type for DataPageV1 and DataPageV2 including common attributes
 class DataPage : public Page {
  public:
-  DataPage(const std::shared_ptr<Buffer>& buffer, int32_t num_values,
-           Encoding::type encoding, Encoding::type definition_level_encoding,
-           Encoding::type repetition_level_encoding,
+  int32_t num_values() const { return num_values_; }
+  Encoding::type encoding() const { return encoding_; }
+  const EncodedStatistics& statistics() const { return statistics_; }
+
+ protected:
+  DataPage(PageType::type type, const std::shared_ptr<Buffer>& buffer, int32_t num_values,
+           Encoding::type encoding,
            const EncodedStatistics& statistics = EncodedStatistics())
-      : Page(buffer, PageType::DATA_PAGE),
+      : Page(buffer, type),
         num_values_(num_values),
         encoding_(encoding),
-        definition_level_encoding_(definition_level_encoding),
-        repetition_level_encoding_(repetition_level_encoding),
         statistics_(statistics) {}
 
-  int32_t num_values() const { return num_values_; }
+  int32_t num_values_;
+  Encoding::type encoding_;
+  EncodedStatistics statistics_;
+};
 
-  Encoding::type encoding() const { return encoding_; }
+class DataPageV1 : public DataPage {
+ public:
+  DataPageV1(const std::shared_ptr<Buffer>& buffer, int32_t num_values,
+             Encoding::type encoding, Encoding::type definition_level_encoding,
+             Encoding::type repetition_level_encoding,
+             const EncodedStatistics& statistics = EncodedStatistics())
+      : DataPage(PageType::DATA_PAGE, buffer, num_values, encoding, statistics),
+        definition_level_encoding_(definition_level_encoding),
+        repetition_level_encoding_(repetition_level_encoding) {}
 
   Encoding::type repetition_level_encoding() const { return repetition_level_encoding_; }
 
   Encoding::type definition_level_encoding() const { return definition_level_encoding_; }
 
-  const EncodedStatistics& statistics() const { return statistics_; }
-
  private:
-  int32_t num_values_;
-  Encoding::type encoding_;
   Encoding::type definition_level_encoding_;
   Encoding::type repetition_level_encoding_;
-  EncodedStatistics statistics_;
 };
 
-class CompressedDataPage : public DataPage {
+class CompressedDataPage : public DataPageV1 {
  public:
   CompressedDataPage(const std::shared_ptr<Buffer>& buffer, int32_t num_values,
                      Encoding::type encoding, Encoding::type definition_level_encoding,
                      Encoding::type repetition_level_encoding, int64_t uncompressed_size,
                      const EncodedStatistics& statistics = EncodedStatistics())
-      : DataPage(buffer, num_values, encoding, definition_level_encoding,
-                 repetition_level_encoding, statistics),
+      : DataPageV1(buffer, num_values, encoding, definition_level_encoding,
+                   repetition_level_encoding, statistics),
         uncompressed_size_(uncompressed_size) {}
 
   int64_t uncompressed_size() const { return uncompressed_size_; }
@@ -106,28 +115,22 @@ class CompressedDataPage : public DataPage {
   int64_t uncompressed_size_;
 };
 
-class DataPageV2 : public Page {
+class DataPageV2 : public DataPage {
  public:
   DataPageV2(const std::shared_ptr<Buffer>& buffer, int32_t num_values, int32_t num_nulls,
              int32_t num_rows, Encoding::type encoding,
              int32_t definition_levels_byte_length, int32_t repetition_levels_byte_length,
              bool is_compressed = false)
-      : Page(buffer, PageType::DATA_PAGE_V2),
-        num_values_(num_values),
+      : DataPage(PageType::DATA_PAGE_V2, buffer, num_values, encoding),
         num_nulls_(num_nulls),
         num_rows_(num_rows),
-        encoding_(encoding),
         definition_levels_byte_length_(definition_levels_byte_length),
         repetition_levels_byte_length_(repetition_levels_byte_length),
         is_compressed_(is_compressed) {}
 
-  int32_t num_values() const { return num_values_; }
-
   int32_t num_nulls() const { return num_nulls_; }
 
   int32_t num_rows() const { return num_rows_; }
-
-  Encoding::type encoding() const { return encoding_; }
 
   int32_t definition_levels_byte_length() const { return definition_levels_byte_length_; }
 
@@ -136,10 +139,8 @@ class DataPageV2 : public Page {
   bool is_compressed() const { return is_compressed_; }
 
  private:
-  int32_t num_values_;
   int32_t num_nulls_;
   int32_t num_rows_;
-  Encoding::type encoding_;
   int32_t definition_levels_byte_length_;
   int32_t repetition_levels_byte_length_;
   bool is_compressed_;
