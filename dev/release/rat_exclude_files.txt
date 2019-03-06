@@ -171,6 +171,7 @@ csharp/Apache.Arrow.sln
 csharp/src/Apache.Arrow/Apache.Arrow.csproj
 csharp/src/Apache.Arrow/Properties/Resources.Designer.cs
 csharp/src/Apache.Arrow/Properties/Resources.resx
+csharp/test/Apache.Arrow.Benchmarks/Apache.Arrow.Benchmarks.csproj
 csharp/test/Apache.Arrow.Tests/Apache.Arrow.Tests.csproj
 csharp/test/Apache.Arrow.Tests/app.config
 *.html
