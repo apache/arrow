@@ -226,8 +226,9 @@ matrix:
     language: cpp
     env:
     - PYTHON_VERSIONS="2.7,32 3.6,16"
+    - MANYLINUX1_IMAGE="quay.io/xhochy/arrow_manylinux1_x86_64_base:ARROW-4778"
     before_script:
-    - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:llvm-7-manylinux1; fi
+    - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then docker pull $MANYLINUX1_IMAGE; fi
     script:
     - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_manylinux.sh; fi
   - name: "Java w/ OpenJDK 8"

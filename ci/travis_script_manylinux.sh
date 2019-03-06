@@ -53,7 +53,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     -e UNICODE_WIDTH=$UNICODE_WIDTH \
     -v $PWD:/io \
     -v $PWD/../../:/arrow \
-    quay.io/pravindra/arrow_manylinux1_x86_64_base:latest \
+    $MANYLINUX1_IMAGE \
     /io/build_arrow.sh
 
   # create a testing conda environment
