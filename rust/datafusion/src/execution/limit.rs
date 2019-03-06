@@ -66,7 +66,7 @@ impl Relation for LimitRelation {
                         .collect();
 
                     let limited_batch: RecordBatch =
-                        RecordBatch::new(self.schema.clone(), limited_columns?);
+                        RecordBatch::try_new(self.schema.clone(), limited_columns?)?;
                     self.num_consumed_rows += capacity;
 
                     Ok(Some(limited_batch))

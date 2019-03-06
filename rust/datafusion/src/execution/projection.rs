@@ -64,7 +64,7 @@ impl Relation for ProjectRelation {
                 );
 
                 let projected_batch: RecordBatch =
-                    RecordBatch::new(Arc::new(schema), projected_columns?);
+                    RecordBatch::try_new(Arc::new(schema), projected_columns?)?;
 
                 Ok(Some(projected_batch))
             }

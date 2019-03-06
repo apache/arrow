@@ -30,6 +30,7 @@ pub enum ArrowError {
     CsvError(String),
     JsonError(String),
     IoError(String),
+    InvalidArgumentError(String),
 }
 
 impl From<::std::io::Error> for ArrowError {
