@@ -27,6 +27,9 @@ namespace arrow {
 class Scalar;
 
 namespace compute {
+
+class LogicalType;
+
 namespace ops {
 
 /// \brief A cast operation creates an expression from a known constant

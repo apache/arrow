@@ -21,7 +21,8 @@
 #include <utility>
 
 #include "arrow/compute/expression.h"
-#include "arrow/scalar.h"
+#include "arrow/compute/logical_type.h"
+#include "arrow/status.h"
 
 namespace arrow {
 namespace compute {
@@ -37,13 +38,13 @@ Status Cast::ToExpr(std::shared_ptr<Expr>* out) const {
     return Status::Invalid("Cast only applies to value expressions");
   }
 
+  // TODO(wesm): implement "shaped like" output type rule like Ibis
   auto op = shared_from_this();
-
   const auto& value_expr = static_cast<const ValueExpr&>(*value_);
   if (value_expr.rank() == ValueExpr::SCALAR) {
-    return util::GetScalarExpr(op, out_type_, out);
+    return GetScalarExpr(op, out_type_, out);
   } else {
-    return util::GetArrayExpr(op, out_type_, out);
+    return GetArrayExpr(op, out_type_, out);
   }
 }
 
