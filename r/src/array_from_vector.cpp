@@ -270,8 +270,7 @@ class VectorConverter {
   virtual Status Ingest(SEXP obj) = 0;
 
   virtual Status GetResult(std::shared_ptr<arrow::Array>* result) {
-    RETURN_NOT_OK(builder_->Finish(result));
-    return Status::OK();
+    return builder_->Finish(result);
   }
 
   ArrayBuilder* builder() const { return builder_; }
