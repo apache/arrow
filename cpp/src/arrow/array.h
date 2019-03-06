@@ -325,7 +325,7 @@ class ARROW_EXPORT Array {
     } else {
       null_bitmap_data_ = NULLPTR;
     }
-    data_ = data->Copy();
+    data_ = data;
   }
 
  private:
@@ -367,8 +367,8 @@ class ARROW_EXPORT NullArray : public FlatArray {
  private:
   inline void SetData(const std::shared_ptr<ArrayData>& data) {
     null_bitmap_data_ = NULLPTR;
-    data_ = data->Copy();
-    data_->null_count = data->length;
+    data->null_count = data->length;
+    data_ = data;
   }
 };
 
