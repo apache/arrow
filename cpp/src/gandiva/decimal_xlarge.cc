@@ -104,7 +104,7 @@ static BasicDecimal128 ConvertToDecimal128(int256_t in, bool* overflow) {
 }
 
 static int256_t GetScaleMultiplier(int scale) {
-  constexpr int32_t kMaxScaleMultiplier = 2 * DecimalTypeUtil::kMaxPrecision;
+  static constexpr int32_t kMaxScaleMultiplier = 2 * DecimalTypeUtil::kMaxPrecision;
   DCHECK_GE(scale, 0);
   DCHECK_LE(scale, kMaxScaleMultiplier);
 
