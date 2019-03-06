@@ -101,7 +101,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
         fields[i] = std::make_shared<arrow::Field>(std::string(names[i]), array->type());
         columns[i] = std::make_shared<arrow::Column>(fields[i], array);
       } else {
-        auto array = Array__from_vector(x);
+        auto array = Array__from_vector(x, R_NilValue);
         fields[i] = std::make_shared<arrow::Field>(std::string(names[i]), array->type());
         columns[i] = std::make_shared<arrow::Column>(fields[i], array);
       }
@@ -122,7 +122,8 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
         auto array = arrow::r::extract<arrow::Array>(x);
         columns[i] = std::make_shared<arrow::Column>(schema->field(i), array);
       } else {
-        auto array = Array__from_vector(x);
+        auto type = schema->field(i)->type();
+        auto array = arrow::r::Array__from_vector(x, type, false);
         columns[i] = std::make_shared<arrow::Column>(schema->field(i), array);
       }
     }

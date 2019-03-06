@@ -128,8 +128,36 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(
   return batch;
 }
 
+Status check_consistent_array_size(const std::vector<std::shared_ptr<arrow::Array>>& arrays, int64_t* num_rows) {
+  *num_rows = arrays[0]->length();
+  for(int64_t i = 1; i<arrays.size(); i++) {
+    if (arrays[i]->length() != *num_rows) {
+      return Status::Invalid("All arrays must have the same length");
+    }
+  }
+  return Status::OK();
+}
+
+std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__knwon_schema(const std::shared_ptr<arrow::Schema>& schema, SEXP lst) {
+  R_xlen_t n_arrays = XLENGTH(lst);
+
+  // convert lst to a vector of arrow::Array
+  std::vector<std::shared_ptr<arrow::Array>> arrays(n_arrays);
+  for(R_xlen_t i=0; i<n_arrays; i++) {
+    arrays[i] = arrow::r::Array__from_vector(VECTOR_ELT(lst, i), schema->field(i)->type(), false);
+  }
+
+  int64_t num_rows;
+  STOP_IF_NOT_OK(check_consistent_array_size(arrays, &num_rows));
+  return arrow::RecordBatch::Make(schema, num_rows, arrays);
+}
+
 // [[Rcpp::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SEXP lst) {
+  if (Rf_inherits(schema_sxp, "arrow::Schema")) {
+    return RecordBatch__from_arrays__knwon_schema(arrow::r::extract<arrow::Schema>(schema_sxp), lst);
+  }
+
   R_xlen_t n_arrays = XLENGTH(lst);
 
   // convert lst to a vector of arrow::Array
@@ -138,7 +166,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
     arrays[i] = Array__from_vector(VECTOR_ELT(lst, i), R_NilValue);
   }
 
-  // extract or generate schema
+  // generate schema from the types that have been infered
   std::shared_ptr<arrow::Schema> schema;
   if( Rf_inherits(schema_sxp, "arrow::Schema")) {
     schema = arrow::r::extract<arrow::Schema>(schema_sxp);
@@ -151,13 +179,16 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
     schema = std::make_shared<arrow::Schema>(std::move(fields));
   }
 
-  // check all sizes are the same
-  int64_t num_rows= arrays[0]->length();
-  for(int64_t i = 1; i<arrays.size(); i++) {
-    if (arrays[i]->length() != num_rows) {
-      Rcpp::stop("All arrays must have the same length");
-    }
+  Rcpp::CharacterVector names(Rf_getAttrib(lst, R_NamesSymbol));
+  std::vector<std::shared_ptr<arrow::Field>> fields(n_arrays);
+  for (R_xlen_t i=0; i<n_arrays; i++) {
+    fields[i] = std::make_shared<arrow::Field>(std::string(names[i]), arrays[i]->type());
   }
+  schema = std::make_shared<arrow::Schema>(std::move(fields));
+
+  // check all sizes are the same
+  int64_t num_rows;
+  STOP_IF_NOT_OK(check_consistent_array_size(arrays, &num_rows));
 
   return arrow::RecordBatch::Make(schema, num_rows, arrays);
 }

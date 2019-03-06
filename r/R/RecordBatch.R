@@ -89,14 +89,6 @@
   RecordBatch__to_dataframe(x, use_threads = use_threads)
 }
 
-to_array <- function(x) {
-  if (inherits(x, "arrow::Array")) {
-    x
-  } else {
-    array(x)
-  }
-}
-
 #' Create an [arrow::RecordBatch][arrow__RecordBatch] from a data frame
 #'
 #' @param ... A variable number of arrow::Array
@@ -107,5 +99,5 @@ to_array <- function(x) {
 record_batch <- function(..., schema = NULL){
   arrays <- tibble::lst(...)
   stopifnot(length(arrays) > 0)
-  shared_ptr(`arrow::RecordBatch`, RecordBatch__from_arrays(schema, arrays) )
+  shared_ptr(`arrow::RecordBatch`, RecordBatch__from_arrays(schema, arrays))
 }

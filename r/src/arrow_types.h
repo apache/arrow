@@ -216,5 +216,7 @@ std::vector<std::shared_ptr<T>> list_to_shared_ptr_vector(SEXP lst) {
   return res;
 }
 
+std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered);
+
 }  // namespace r
 }  // namespace arrow
