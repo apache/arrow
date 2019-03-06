@@ -73,6 +73,8 @@ class ARROW_EXPORT LogicalType {
 
   Id id() const { return id_; }
 
+  virtual ~LogicalType() = 0;
+
   virtual std::string ToString() const = 0;
 
   /// \brief Check if expression is an instance of this type class

@@ -50,7 +50,7 @@ class ARROW_EXPORT Expr {
   /// TODO(wesm)
   // virtual Status Accept(ExprVisitor* visitor) const = 0;
 
-  /// \brief
+  /// \brief The underlying operation
   std::shared_ptr<const Operation> op() const { return op_; }
 
  protected:
