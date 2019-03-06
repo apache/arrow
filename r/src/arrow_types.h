@@ -36,11 +36,12 @@
 #include <arrow/type.h>
 #include <arrow/util/compression.h>
 
-#define STOP_IF_NOT(TEST, MSG)    \
-  do {                            \
-    if (!(TEST)) Rcpp::stop(MSG); \
-  } while (0)
+#define STOP_IF(TEST, MSG)    \
+do {                              \
+  if (TEST) Rcpp::stop(MSG);   \
+} while (0)
 
+#define STOP_IF_NOT(TEST, MSG) STOP_IF(!(TEST), MSG)
 #define STOP_IF_NOT_OK(s) STOP_IF_NOT(s.ok(), s.ToString())
 
 template <typename T>
