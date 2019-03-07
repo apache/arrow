@@ -56,13 +56,14 @@ namespace Apache.Arrow.Ipc
 
             if (!HasWrittenHeader)
             {
-                await WriteHeaderAsync(cancellationToken);
+                await WriteHeaderAsync(cancellationToken).ConfigureAwait(false);
                 HasWrittenHeader = true;
             }
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            var block = await WriteRecordBatchInternalAsync(recordBatch, cancellationToken);
+            var block = await WriteRecordBatchInternalAsync(recordBatch, cancellationToken)
+                .ConfigureAwait(false);
 
             RecordBatchBlocks.Add(block);
         }
@@ -71,11 +72,11 @@ namespace Apache.Arrow.Ipc
         {
             if (!HasWrittenFooter)
             {
-                await WriteFooterAsync(Schema, cancellationToken);
+                await WriteFooterAsync(Schema, cancellationToken).ConfigureAwait(false);
                 HasWrittenFooter = true;
             }
 
-            await BaseStream.FlushAsync(cancellationToken);
+            await BaseStream.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
 
         private async Task WriteHeaderAsync(CancellationToken cancellationToken)
@@ -84,8 +85,9 @@ namespace Apache.Arrow.Ipc
 
             // Write magic number and empty padding up to the 8-byte boundary
 
-            await WriteMagicAsync();
-            await WritePaddingAsync(CalculatePadding(ArrowFileConstants.Magic.Length));
+            await WriteMagicAsync().ConfigureAwait(false);
+            await WritePaddingAsync(CalculatePadding(ArrowFileConstants.Magic.Length))
+                .ConfigureAwait(false);
         }
 
         private async Task WriteFooterAsync(Schema schema, CancellationToken cancellationToken)
@@ -126,7 +128,7 @@ namespace Apache.Arrow.Ipc
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            await WriteFlatBufferAsync(cancellationToken);
+            await WriteFlatBufferAsync(cancellationToken).ConfigureAwait(false);
 
             // Write footer length
 
@@ -137,14 +139,14 @@ namespace Apache.Arrow.Ipc
                 BinaryPrimitives.WriteInt32LittleEndian(buffer,
                     Convert.ToInt32(BaseStream.Position - offset));
 
-                await BaseStream.WriteAsync(buffer, 0, 4, cancellationToken);
-            });
+                await BaseStream.WriteAsync(buffer, 0, 4, cancellationToken).ConfigureAwait(false);
+            }).ConfigureAwait(false);
 
             // Write magic
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            await WriteMagicAsync();
+            await WriteMagicAsync().ConfigureAwait(false);
         }
 
         private Task WriteMagicAsync()

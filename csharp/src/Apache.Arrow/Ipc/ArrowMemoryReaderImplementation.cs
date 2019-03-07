@@ -1,0 +1,98 @@
+﻿// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+using Apache.Arrow.Flatbuf;
+using FlatBuffers;
+using System;
+using System.Buffers.Binary;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Apache.Arrow.Ipc
+{
+    internal sealed class ArrowMemoryReaderImplementation : ArrowReaderImplementation
+    {
+        private readonly ReadOnlyMemory<byte> _buffer;
+        private int _bufferPosition;
+
+        public ArrowMemoryReaderImplementation(ReadOnlyMemory<byte> buffer)
+        {
+            _buffer = buffer;
+        }
+
+        public override Task<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(ReadNextRecordBatch());
+        }
+
+        public override RecordBatch ReadNextRecordBatch()
+        {
+            ReadSchema();
+
+            if (_buffer.Length <= _bufferPosition + sizeof(int))
+            {
+                // reached the end
+                return null;
+            }
+
+            // Get Length of record batch for message header.
+            int messageLength = BinaryPrimitives.ReadInt32LittleEndian(_buffer.Span.Slice(_bufferPosition));
+            _bufferPosition += sizeof(int);
+
+            if (messageLength == 0)
+            {
+                //reached the end
+                return null;
+            }
+
+            Message message = Message.GetRootAsMessage(
+                CreateByteBuffer(_buffer.Slice(_bufferPosition, messageLength)));
+            _bufferPosition += messageLength;
+
+            int bodyLength = (int)message.BodyLength;
+            ByteBuffer bodybb = CreateByteBuffer(_buffer.Slice(_bufferPosition, bodyLength));
+            _bufferPosition += bodyLength;
+
+            return CreateArrowObjectFromMessage(message, bodybb);
+        }
+
+        protected override ArrowBuffer CreateArrowBuffer(ReadOnlyMemory<byte> data)
+        {
+            return new ArrowBuffer(data);
+        }
+
+        private static ByteBuffer CreateByteBuffer(ReadOnlyMemory<byte> buffer)
+        {
+            return new ByteBuffer(new ReadOnlyMemoryBufferAllocator(buffer), 0);
+        }
+
+        private void ReadSchema()
+        {
+            if (HasReadSchema)
+            {
+                return;
+            }
+
+            // Figure out length of schema
+            int schemaMessageLength = BinaryPrimitives.ReadInt32LittleEndian(_buffer.Span.Slice(_bufferPosition));
+            _bufferPosition += sizeof(int);
+
+            ByteBuffer schemaBuffer = CreateByteBuffer(_buffer.Slice(_bufferPosition));
+            Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemaBuffer));
+            _bufferPosition += schemaMessageLength;
+        }
+    }
+}
