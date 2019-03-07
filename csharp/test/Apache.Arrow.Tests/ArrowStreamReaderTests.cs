@@ -63,7 +63,6 @@ namespace Apache.Arrow.Tests
 
         private void CompareSchemas(Schema expectedSchema, Schema actualSchema)
         {
-            Assert.Equal(expectedSchema.Fields.Count, actualSchema.Fields.Count);
             Assert.True(SchemaComparer.Equals(expectedSchema, actualSchema));
         }
 
