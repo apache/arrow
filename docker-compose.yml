@@ -234,8 +234,6 @@ services:
 
   ######################### Package Builder ###################################
 
-  # Usage:
-
   python-manylinux1:
     # Usage:
     #   either build:

@@ -39,7 +39,7 @@ script:
 
   # build wheel
   - pushd arrow
-  # don't attempt to build it, because the base image by pypi is updated
+  # don't attempt to build it, because the base image by pypa is updated
   # regularly and would cause undeterministic builds
   - docker-compose pull python-manylinux1
   - docker-compose run
