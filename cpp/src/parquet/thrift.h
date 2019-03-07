@@ -271,7 +271,7 @@ class ThriftSerializer {
       mem_buffer_->getBuffer(&out_buffer, &out_length);
       // encrypt
       std::vector<uint8_t> cipher_buffer(encryption->CalculateCipherSize(out_length));
-      int cipher_buffer_len = parquet_encryption::Encrypt(
+      unsigned cipher_buffer_len = parquet_encryption::Encrypt(
           encryption, true, out_buffer, out_length, cipher_buffer.data());
       if (cipher_buffer_len > cipher_buffer.size()) {
         std::stringstream ss;
@@ -302,7 +302,7 @@ class ThriftSerializer {
       return static_cast<int64_t>(out_length);
     } else {
       std::vector<uint8_t> cipher_buffer(encryption->CalculateCipherSize(out_length));
-      int cipher_buffer_len = parquet_encryption::Encrypt(
+      unsigned cipher_buffer_len = parquet_encryption::Encrypt(
           encryption, true, out_buffer, out_length, cipher_buffer.data());
       if (cipher_buffer_len > cipher_buffer.size()) {
         std::stringstream ss;
