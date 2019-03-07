@@ -182,15 +182,14 @@ class ARROW_EXPORT WritableFile : public OutputStream, public Seekable {
   WritableFile() = default;
 };
 
-// TODO(wesm): remove this after 0.11
-using WriteableFile = WritableFile;
-
 class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile, public WritableFile {
  protected:
   ReadWriteFileInterface() { RandomAccessFile::set_mode(FileMode::READWRITE); }
 };
 
-using ReadableFileInterface = RandomAccessFile;
+// TODO(kszucs): remove this after 0.13
+using WriteableFile ARROW_DEPRECATED("Use WritableFile") = WritableFile;
+using ReadableFileInterface ARROW_DEPRECATED("Use RandomAccessFile") = RandomAccessFile;
 
 }  // namespace io
 }  // namespace arrow
