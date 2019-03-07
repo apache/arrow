@@ -21,6 +21,9 @@ to_arrow <- function(x) {
 
 `to_arrow.arrow::RecordBatch` <- function(x) x
 `to_arrow.arrow::Table` <- function(x) x
+
+# splice the data frame as arguments of table()
+# see ?rlang::list2()
 `to_arrow.data.frame` <- function(x) table(!!!x)
 
 #' serialize an [arrow::Table][arrow__Table], an [arrow::RecordBatch][arrow__RecordBatch], or a
