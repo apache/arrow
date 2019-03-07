@@ -15,41 +15,38 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Arrow
-  class Column
-    include Enumerable
-
-    alias_method :equal_raw, :==
-    def ==(other)
-      other.is_a?(self.class) and equal_raw(other)
+class Decimal128Test < Test::Unit::TestCase
+  sub_test_case("instance methods") do
+    def setup
+      @decimal128 = Arrow::Decimal128.new("10.1")
     end
 
-    def null?(i)
-      data.null?(i)
+    sub_test_case("#==") do
+      test("Arrow::Decimal128") do
+        assert do
+          @decimal128 == @decimal128
+        end
+      end
+
+      test("not Arrow::Decimal128") do
+        assert do
+          not (@decimal128 == 10.1)
+        end
+      end
     end
 
-    def valid?(i)
-      data.valid?(i)
-    end
+    sub_test_case("#!=") do
+      test("Arrow::Decimal128") do
+        assert do
+          not(@decimal128 != @decimal128)
+        end
+      end
 
-    def [](i)
-      data[i]
-    end
-
-    def each(&block)
-      return to_enum(__method__) unless block_given?
-
-      data.each(&block)
-    end
-
-    def reverse_each(&block)
-      return to_enum(__method__) unless block_given?
-
-      data.reverse_each(&block)
-    end
-
-    def pack
-      self.class.new(field, data.pack)
+      test("not Arrow::Decimal128") do
+        assert do
+          not (@decimal128 != 10.1)
+        end
+      end
     end
   end
 end

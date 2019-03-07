@@ -93,5 +93,10 @@ module Arrow
     end
 
     alias_method :[], :find_field
+
+    alias_method :equal_raw, :==
+    def ==(other)
+      other.is_a?(self.class) and equal_raw(other)
+    end
   end
 end

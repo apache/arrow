@@ -17,6 +17,11 @@
 
 module Arrow
   class Tensor
+    alias_method :equal_raw, :==
+    def ==(other)
+      other.is_a?(self.class) and equal_raw(other)
+    end
+
     def to_arrow
       self
     end

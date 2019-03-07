@@ -114,5 +114,10 @@ module Arrow
 
       initialize_raw(name, data_type)
     end
+
+    alias_method :equal_raw, :==
+    def ==(other)
+      other.is_a?(self.class) and equal_raw(other)
+    end
   end
 end

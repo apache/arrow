@@ -33,6 +33,7 @@ module Arrow
     def require_libraries
       require "arrow/array"
       require "arrow/array-builder"
+      require "arrow/buffer"
       require "arrow/chunked-array"
       require "arrow/column"
       require "arrow/compression-type"
@@ -43,6 +44,7 @@ module Arrow
       require "arrow/date32-array-builder"
       require "arrow/date64-array"
       require "arrow/date64-array-builder"
+      require "arrow/decimal128"
       require "arrow/decimal128-array-builder"
       require "arrow/decimal128-data-type"
       require "arrow/dense-union-data-type"

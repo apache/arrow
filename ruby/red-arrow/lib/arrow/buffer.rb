@@ -16,40 +16,10 @@
 # under the License.
 
 module Arrow
-  class Column
-    include Enumerable
-
+  class Buffer
     alias_method :equal_raw, :==
     def ==(other)
       other.is_a?(self.class) and equal_raw(other)
-    end
-
-    def null?(i)
-      data.null?(i)
-    end
-
-    def valid?(i)
-      data.valid?(i)
-    end
-
-    def [](i)
-      data[i]
-    end
-
-    def each(&block)
-      return to_enum(__method__) unless block_given?
-
-      data.each(&block)
-    end
-
-    def reverse_each(&block)
-      return to_enum(__method__) unless block_given?
-
-      data.reverse_each(&block)
-    end
-
-    def pack
-      self.class.new(field, data.pack)
     end
   end
 end

@@ -15,41 +15,42 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Arrow
-  class Column
-    include Enumerable
+class TensorTest < Test::Unit::TestCase
+  sub_test_case("instance methods") do
+    def setup
+      raw_data = [
+        1, 2,
+        3, 4,
 
-    alias_method :equal_raw, :==
-    def ==(other)
-      other.is_a?(self.class) and equal_raw(other)
+        5, 6,
+        7, 8,
+
+        9, 10,
+        11, 12,
+      ]
+      data = Arrow::Buffer.new(raw_data.pack("c*"))
+      shape = [3, 2, 2]
+      strides = []
+      names = ["a", "b", "c"]
+      @tensor = Arrow::Tensor.new(Arrow::Int8DataType.new,
+                                  data,
+                                  shape,
+                                  strides,
+                                  names)
     end
 
-    def null?(i)
-      data.null?(i)
-    end
+    sub_test_case("#==") do
+      test("Arrow::Tensor") do
+        assert do
+          @tensor == @tensor
+        end
+      end
 
-    def valid?(i)
-      data.valid?(i)
-    end
-
-    def [](i)
-      data[i]
-    end
-
-    def each(&block)
-      return to_enum(__method__) unless block_given?
-
-      data.each(&block)
-    end
-
-    def reverse_each(&block)
-      return to_enum(__method__) unless block_given?
-
-      data.reverse_each(&block)
-    end
-
-    def pack
-      self.class.new(field, data.pack)
+      test("not Arrow::Tensor") do
+        assert do
+          not (@tensor == 29)
+        end
+      end
     end
   end
 end

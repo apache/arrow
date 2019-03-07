@@ -71,6 +71,11 @@ module Arrow
 
     alias_method :[], :find_column
 
+    alias_method :equal_raw, :==
+    def ==(other)
+      other.is_a?(self.class) and equal_raw(other)
+    end
+
     # TODO
     #
     # @return [Arrow::Table]

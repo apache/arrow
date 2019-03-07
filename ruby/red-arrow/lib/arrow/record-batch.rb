@@ -54,6 +54,11 @@ module Arrow
       Table.new(schema, [self])
     end
 
+    alias_method :equal_raw, :==
+    def ==(other)
+      other.is_a?(self.class) and equal_raw(other)
+    end
+
     def respond_to_missing?(name, include_private)
       return true if find_column(name)
       super

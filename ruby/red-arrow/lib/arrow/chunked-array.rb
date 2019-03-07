@@ -80,5 +80,10 @@ module Arrow
         first_chunk.class.new(to_a)
       end
     end
+
+    alias_method :equal_raw, :==
+    def ==(other)
+      other.is_a?(self.class) and equal_raw(other)
+    end
   end
 end

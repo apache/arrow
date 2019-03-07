@@ -15,41 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Arrow
-  class Column
-    include Enumerable
-
-    alias_method :equal_raw, :==
-    def ==(other)
-      other.is_a?(self.class) and equal_raw(other)
+class BufferTest < Test::Unit::TestCase
+  sub_test_case("instance methods") do
+    def setup
+      @buffer = Arrow::Buffer.new("Hello")
     end
 
-    def null?(i)
-      data.null?(i)
-    end
+    sub_test_case("#==") do
+      test("Arrow::Buffer") do
+        assert do
+          @buffer == @buffer
+        end
+      end
 
-    def valid?(i)
-      data.valid?(i)
-    end
-
-    def [](i)
-      data[i]
-    end
-
-    def each(&block)
-      return to_enum(__method__) unless block_given?
-
-      data.each(&block)
-    end
-
-    def reverse_each(&block)
-      return to_enum(__method__) unless block_given?
-
-      data.reverse_each(&block)
-    end
-
-    def pack
-      self.class.new(field, data.pack)
+      test("not Arrow::Buffer") do
+        assert do
+          not (@buffer == 29)
+        end
+      end
     end
   end
 end

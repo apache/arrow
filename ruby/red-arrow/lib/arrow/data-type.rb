@@ -131,5 +131,10 @@ module Arrow
         Arrow.const_get(data_type_class_name)
       end
     end
+
+    alias_method :equal_raw, :==
+    def ==(other)
+      other.is_a?(self.class) and equal_raw(other)
+    end
   end
 end
