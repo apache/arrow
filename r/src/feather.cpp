@@ -142,7 +142,7 @@ std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(
     default:
       Rcpp::stop("incompatible column specification");
       break;
-  };
+  }
 
   return table;
 }
