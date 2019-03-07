@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
+#include "./arrow_types.h"
 
 // [[Rcpp::export]]
 void ipc___RecordBatchWriter__WriteRecordBatch(

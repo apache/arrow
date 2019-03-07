@@ -15,10 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
-
-using namespace Rcpp;
-using namespace arrow;
+#include "./arrow_types.h"
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(

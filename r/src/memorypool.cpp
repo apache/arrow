@@ -15,9 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
-
-using namespace Rcpp;
+#include "./arrow_types.h"
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::MemoryPool> MemoryPool__default() {

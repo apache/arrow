@@ -15,15 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
-
-using namespace Rcpp;
-using namespace arrow;
+#include "./arrow_types.h"
 
 namespace arrow {
 namespace r {
 
-std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
+std::shared_ptr<Array> MakeStringArray(Rcpp::StringVector_ vec) {
   R_xlen_t n = vec.size();
 
   std::shared_ptr<Buffer> null_buffer;
@@ -90,12 +87,13 @@ std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
   }
 
   auto data = ArrayData::Make(arrow::utf8(), n,
-  {null_buffer, offset_buffer, value_buffer}, null_count, 0);
+                              {null_buffer, offset_buffer, value_buffer}, null_count, 0);
   return MakeArray(data);
 }
 
 template <typename Type>
-std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor, const std::shared_ptr<arrow::DataType>& type) {
+std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
+                                           const std::shared_ptr<arrow::DataType>& type) {
   using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
   auto n = factor.size();
 
@@ -140,7 +138,7 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor, const st
   }
 
   auto array_indices_data =
-    ArrayData::Make(std::make_shared<Type>(), n, std::move(buffers), null_count, 0);
+      ArrayData::Make(std::make_shared<Type>(), n, std::move(buffers), null_count, 0);
   auto array_indices = MakeArray(array_indices_data);
 
   std::shared_ptr<Array> out;
@@ -148,7 +146,8 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor, const st
   return out;
 }
 
-std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor, const std::shared_ptr<arrow::DataType>& type) {
+std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor,
+                                       const std::shared_ptr<arrow::DataType>& type) {
   SEXP levels = factor.attr("levels");
   int n = Rf_length(levels);
   if (n < 128) {
@@ -173,19 +172,15 @@ inline int64_t time_cast<double>(double value) {
   return static_cast<int64_t>(value * 1000);
 }
 
-}
-}
+}  // namespace r
+}  // namespace arrow
 
 // ---------------- new api
 
-
-
-
-
-namespace arrow{
+namespace arrow {
 using internal::checked_cast;
 
-namespace internal{
+namespace internal {
 
 template <typename T, typename Target>
 Status int_cast(T x, Target* out) {
@@ -209,7 +204,7 @@ Status double_cast<int64_t>(int64_t x, double* out) {
 
   if (x < kDoubleMin || x > kDoubleMax) {
     return Status::Invalid("integer value ", x, " is outside of the range exactly",
-      " representable by a IEEE 754 double precision value");
+                           " representable by a IEEE 754 double precision value");
   }
   *out = static_cast<double>(x);
   return Status::OK();
@@ -224,7 +219,7 @@ Status float_cast(T x, float* out) {
   int64_t x64 = static_cast<int64_t>(x);
   if (x64 < kHalfFloatMin || x64 > kHalfFloatMax) {
     return Status::Invalid("integer value ", x, " is outside of the range exactly",
-      " representable by a IEEE 754 half precision value");
+                           " representable by a IEEE 754 half precision value");
   }
 
   *out = static_cast<float>(x);
@@ -233,21 +228,22 @@ Status float_cast(T x, float* out) {
 
 template <>
 Status float_cast<double>(double x, float* out) {
-  //  TODO: is there some sort of floating point overflow ?
+  // TODO: is there some sort of floating point overflow ?
   *out = static_cast<float>(x);
   return Status::OK();
 }
 
-}
+}  // namespace internal
 
-namespace r{
+namespace r {
 
 class VectorConverter;
 
-Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<VectorConverter>* out);
+Status GetConverter(const std::shared_ptr<DataType>& type,
+                    std::unique_ptr<VectorConverter>* out);
 
 class VectorConverter {
-public:
+ public:
   virtual ~VectorConverter() = default;
 
   virtual Status Init(ArrayBuilder* builder) = 0;
@@ -261,7 +257,7 @@ public:
 
   ArrayBuilder* builder() const { return builder_; }
 
-protected:
+ protected:
   ArrayBuilder* builder_;
 };
 
@@ -270,35 +266,35 @@ struct Unbox {};
 
 // unboxer for int type
 template <typename Type>
-struct Unbox<Type, enable_if_integer<Type>>  {
+struct Unbox<Type, enable_if_integer<Type>> {
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using CType = typename ArrayType::value_type;
 
   static inline Status Ingest(BuilderType* builder, SEXP obj) {
-    switch(TYPEOF(obj)) {
-    case INTSXP:
-      return IngestRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
-    case REALSXP:
-      if (Rf_inherits(obj, "integer64")) {
-        return IngestRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)), XLENGTH(obj), NA_INT64);
-      }
-    // TODO: handle aw and logical
-    default:
-      break;
+    switch (TYPEOF(obj)) {
+      case INTSXP:
+        return IngestRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
+      case REALSXP:
+        if (Rf_inherits(obj, "integer64")) {
+          return IngestRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)),
+                                      XLENGTH(obj), NA_INT64);
+        }
+      // TODO: handle aw and logical
+      default:
+        break;
     }
 
     return Status::Invalid(
-      tfm::format("Cannot convert R vector of type %s to integer Arrow array", type2name(obj))
-    );
-
+        tfm::format("Cannot convert R vector of type %s to integer Arrow array",
+                    Rcpp::type2name(obj)));
   }
 
   template <typename T>
   static inline Status IngestRange(BuilderType* builder, T* p, R_xlen_t n, T na) {
     RETURN_NOT_OK(builder->Resize(n));
-    for (R_xlen_t i=0; i<n; i++, ++p) {
-      if(*p == na) {
+    for (R_xlen_t i = 0; i < n; i++, ++p) {
+      if (*p == na) {
         builder->UnsafeAppendNull();
       } else {
         CType value;
@@ -310,19 +306,19 @@ struct Unbox<Type, enable_if_integer<Type>>  {
   }
 };
 
-template<>
+template <>
 struct Unbox<DoubleType> {
-
   static inline Status Ingest(DoubleBuilder* builder, SEXP obj) {
-    switch(TYPEOF(obj)) {
-    // TODO: handle RAW
-    case INTSXP:
-    return IngestIntRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
-    case REALSXP:
-      if(Rf_inherits(obj, "integer64")) {
-        return IngestIntRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)), XLENGTH(obj), NA_INT64);
-      }
-      return IngestDoubleRange(builder, REAL(obj), XLENGTH(obj));
+    switch (TYPEOF(obj)) {
+      // TODO: handle RAW
+      case INTSXP:
+        return IngestIntRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
+      case REALSXP:
+        if (Rf_inherits(obj, "integer64")) {
+          return IngestIntRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)),
+                                         XLENGTH(obj), NA_INT64);
+        }
+        return IngestDoubleRange(builder, REAL(obj), XLENGTH(obj));
     }
     return Status::Invalid("Cannot convert R object to double type");
   }
@@ -330,8 +326,8 @@ struct Unbox<DoubleType> {
   template <typename T>
   static inline Status IngestIntRange(DoubleBuilder* builder, T* p, R_xlen_t n, T na) {
     RETURN_NOT_OK(builder->Resize(n));
-    for (R_xlen_t i=0; i<n; i++, ++p) {
-      if(*p == NA_INTEGER) {
+    for (R_xlen_t i = 0; i < n; i++, ++p) {
+      if (*p == NA_INTEGER) {
         builder->UnsafeAppendNull();
       } else {
         double value;
@@ -344,8 +340,8 @@ struct Unbox<DoubleType> {
 
   static inline Status IngestDoubleRange(DoubleBuilder* builder, double* p, R_xlen_t n) {
     RETURN_NOT_OK(builder->Resize(n));
-    for (R_xlen_t i=0; i<n; i++, ++p) {
-      if(ISNA(*p)) {
+    for (R_xlen_t i = 0; i < n; i++, ++p) {
+      if (ISNA(*p)) {
         builder->UnsafeAppendNull();
       } else {
         builder->UnsafeAppend(*p);
@@ -353,22 +349,21 @@ struct Unbox<DoubleType> {
     }
     return Status::OK();
   }
-
 };
 
-template<>
+template <>
 struct Unbox<FloatType> {
-
   static inline Status Ingest(FloatBuilder* builder, SEXP obj) {
-    switch(TYPEOF(obj)) {
-    // TODO: handle RAW
-    case INTSXP:
-      return IngestIntRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
-    case REALSXP:
-      if(Rf_inherits(obj, "integer64")) {
-        return IngestIntRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)), XLENGTH(obj), NA_INT64);
-      }
-      return IngestDoubleRange(builder, REAL(obj), XLENGTH(obj));
+    switch (TYPEOF(obj)) {
+      // TODO: handle RAW
+      case INTSXP:
+        return IngestIntRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
+      case REALSXP:
+        if (Rf_inherits(obj, "integer64")) {
+          return IngestIntRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)),
+                                         XLENGTH(obj), NA_INT64);
+        }
+        return IngestDoubleRange(builder, REAL(obj), XLENGTH(obj));
     }
     return Status::Invalid("Cannot convert R object to double type");
   }
@@ -376,8 +371,8 @@ struct Unbox<FloatType> {
   template <typename T>
   static inline Status IngestIntRange(FloatBuilder* builder, T* p, R_xlen_t n, T na) {
     RETURN_NOT_OK(builder->Resize(n));
-    for (R_xlen_t i=0; i<n; i++, ++p) {
-      if(*p == NA_INTEGER) {
+    for (R_xlen_t i = 0; i < n; i++, ++p) {
+      if (*p == NA_INTEGER) {
         builder->UnsafeAppendNull();
       } else {
         float value;
@@ -390,8 +385,8 @@ struct Unbox<FloatType> {
 
   static inline Status IngestDoubleRange(FloatBuilder* builder, double* p, R_xlen_t n) {
     RETURN_NOT_OK(builder->Resize(n));
-    for (R_xlen_t i=0; i<n; i++, ++p) {
-      if(ISNA(*p)) {
+    for (R_xlen_t i = 0; i < n; i++, ++p) {
+      if (ISNA(*p)) {
         builder->UnsafeAppendNull();
       } else {
         float value;
@@ -401,63 +396,59 @@ struct Unbox<FloatType> {
     }
     return Status::OK();
   }
-
 };
 
 template <>
 struct Unbox<BooleanType> {
-
   static inline Status Ingest(BooleanBuilder* builder, SEXP obj) {
-    switch(TYPEOF(obj)) {
-    case LGLSXP:
-    {
-      R_xlen_t n = XLENGTH(obj);
-      RETURN_NOT_OK(builder->Resize(n));
-      int* p = LOGICAL(obj);
-      for (R_xlen_t i=0; i<n; i++, ++p) {
-        if(*p == NA_LOGICAL) {
-          builder->UnsafeAppendNull();
-        } else {
-          builder->UnsafeAppend(*p == 1);
+    switch (TYPEOF(obj)) {
+      case LGLSXP: {
+        R_xlen_t n = XLENGTH(obj);
+        RETURN_NOT_OK(builder->Resize(n));
+        int* p = LOGICAL(obj);
+        for (R_xlen_t i = 0; i < n; i++, ++p) {
+          if (*p == NA_LOGICAL) {
+            builder->UnsafeAppendNull();
+          } else {
+            builder->UnsafeAppend(*p == 1);
+          }
         }
+        return Status::OK();
       }
-      return Status::OK();
-    }
 
-    default: break;
+      default:
+        break;
     }
 
     // TODO: include more information about the R object and the target type
     return Status::Invalid("Cannot convert R object to boolean type");
   }
-
 };
 
 template <>
 struct Unbox<Date32Type> {
-
   static inline Status Ingest(Date32Builder* builder, SEXP obj) {
-    switch(TYPEOF(obj)) {
-    case INTSXP:
-      if (Rf_inherits(obj, "Date")) {
-        return IngestIntRange(builder, INTEGER(obj), XLENGTH(obj));
-      }
-      break;
-    case REALSXP:
-      if (Rf_inherits(obj, "Date")) {
-        return IngestDoubleRange(builder, REAL(obj), XLENGTH(obj));
-      }
-      break;
-    default:
-      break;
+    switch (TYPEOF(obj)) {
+      case INTSXP:
+        if (Rf_inherits(obj, "Date")) {
+          return IngestIntRange(builder, INTEGER(obj), XLENGTH(obj));
+        }
+        break;
+      case REALSXP:
+        if (Rf_inherits(obj, "Date")) {
+          return IngestDoubleRange(builder, REAL(obj), XLENGTH(obj));
+        }
+        break;
+      default:
+        break;
     }
     return Status::Invalid("Cannot convert R object to date32 type");
   }
 
   static inline Status IngestIntRange(Date32Builder* builder, int* p, R_xlen_t n) {
     RETURN_NOT_OK(builder->Resize(n));
-    for (R_xlen_t i=0; i<n; i++, ++p) {
-      if(*p == NA_INTEGER) {
+    for (R_xlen_t i = 0; i < n; i++, ++p) {
+      if (*p == NA_INTEGER) {
         builder->UnsafeAppendNull();
       } else {
         builder->UnsafeAppend(*p);
@@ -468,8 +459,8 @@ struct Unbox<Date32Type> {
 
   static inline Status IngestDoubleRange(Date32Builder* builder, double* p, R_xlen_t n) {
     RETURN_NOT_OK(builder->Resize(n));
-    for (R_xlen_t i=0; i<n; i++, ++p) {
-      if(ISNA(*p)) {
+    for (R_xlen_t i = 0; i < n; i++, ++p) {
+      if (ISNA(*p)) {
         builder->UnsafeAppendNull();
       } else {
         builder->UnsafeAppend(static_cast<int>(*p));
@@ -477,33 +468,32 @@ struct Unbox<Date32Type> {
     }
     return Status::OK();
   }
-
 };
 
 template <>
 struct Unbox<Date64Type> {
-
   constexpr static int64_t kMillisecondsPerDay = 86400000;
 
   static inline Status Ingest(Date64Builder* builder, SEXP obj) {
-    switch(TYPEOF(obj)) {
-    case INTSXP:
-      // number of days since epoch
-      if (Rf_inherits(obj, "Date")) {
-        return IngestDateInt32Range(builder, INTEGER(obj), XLENGTH(obj));
-      }
-      break;
+    switch (TYPEOF(obj)) {
+      case INTSXP:
+        // number of days since epoch
+        if (Rf_inherits(obj, "Date")) {
+          return IngestDateInt32Range(builder, INTEGER(obj), XLENGTH(obj));
+        }
+        break;
 
-    case REALSXP:
-      // (fractional number of days since epoch)
-      if (Rf_inherits(obj, "Date")) {
-        return IngestDateDoubleRange<kMillisecondsPerDay>(builder, REAL(obj), XLENGTH(obj));
-      }
+      case REALSXP:
+        // (fractional number of days since epoch)
+        if (Rf_inherits(obj, "Date")) {
+          return IngestDateDoubleRange<kMillisecondsPerDay>(builder, REAL(obj),
+                                                            XLENGTH(obj));
+        }
 
-      // number of seconds since epoch
-      if (Rf_inherits(obj, "POSIXct")) {
-        return IngestDateDoubleRange<1000>(builder, REAL(obj), XLENGTH(obj));
-      }
+        // number of seconds since epoch
+        if (Rf_inherits(obj, "POSIXct")) {
+          return IngestDateDoubleRange<1000>(builder, REAL(obj), XLENGTH(obj));
+        }
     }
     return Status::Invalid("Cannot convert R object to date64 type");
   }
@@ -511,8 +501,8 @@ struct Unbox<Date64Type> {
   // ingest a integer vector that represents number of days since epoch
   static inline Status IngestDateInt32Range(Date64Builder* builder, int* p, R_xlen_t n) {
     RETURN_NOT_OK(builder->Resize(n));
-    for (R_xlen_t i=0; i<n; i++, ++p) {
-      if(*p == NA_INTEGER) {
+    for (R_xlen_t i = 0; i < n; i++, ++p) {
+      if (*p == NA_INTEGER) {
         builder->UnsafeAppendNull();
       } else {
         builder->UnsafeAppend(*p * kMillisecondsPerDay);
@@ -523,11 +513,12 @@ struct Unbox<Date64Type> {
 
   // ingest a numeric vector that represents (fractional) number of days since epoch
   template <int64_t MULTIPLIER>
-  static inline Status IngestDateDoubleRange(Date64Builder* builder, double* p, R_xlen_t n) {
+  static inline Status IngestDateDoubleRange(Date64Builder* builder, double* p,
+                                             R_xlen_t n) {
     RETURN_NOT_OK(builder->Resize(n));
 
-    for (R_xlen_t i=0; i<n; i++, ++p) {
-      if(ISNA(*p)) {
+    for (R_xlen_t i = 0; i < n; i++, ++p) {
+      if (ISNA(*p)) {
         builder->UnsafeAppendNull();
       } else {
         builder->UnsafeAppend(static_cast<int64_t>(*p * MULTIPLIER));
@@ -535,12 +526,11 @@ struct Unbox<Date64Type> {
     }
     return Status::OK();
   }
-
 };
 
 template <typename Type, class Derived>
 class TypedVectorConverter : public VectorConverter {
-public:
+ public:
   using BuilderType = typename TypeTraits<Type>::BuilderType;
 
   Status Init(ArrayBuilder* builder) override {
@@ -549,28 +539,32 @@ public:
     return Status::OK();
   }
 
-  Status Ingest(SEXP obj) override {
-    return Unbox<Type>::Ingest(typed_builder_, obj);
-  }
+  Status Ingest(SEXP obj) override { return Unbox<Type>::Ingest(typed_builder_, obj); }
 
-protected:
+ protected:
   BuilderType* typed_builder_;
 };
 
 template <typename Type>
-class NumericVectorConverter : public TypedVectorConverter<Type, NumericVectorConverter<Type>>{};
+class NumericVectorConverter
+    : public TypedVectorConverter<Type, NumericVectorConverter<Type>> {};
 
-class BooleanVectorConverter : public TypedVectorConverter<BooleanType, BooleanVectorConverter>{};
+class BooleanVectorConverter
+    : public TypedVectorConverter<BooleanType, BooleanVectorConverter> {};
 
 class Date32Converter : public TypedVectorConverter<Date32Type, Date32Converter> {};
 class Date64Converter : public TypedVectorConverter<Date64Type, Date64Converter> {};
 
-inline int64_t get_time_multiplier(TimeUnit::type unit){
-  switch(unit){
-  case TimeUnit::SECOND: return 1;
-  case TimeUnit::MILLI: return 1000;
-  case TimeUnit::MICRO: return 1000000;
-  case TimeUnit::NANO: return 1000000000;
+inline int64_t get_time_multiplier(TimeUnit::type unit) {
+  switch (unit) {
+    case TimeUnit::SECOND:
+      return 1;
+    case TimeUnit::MILLI:
+      return 1000;
+    case TimeUnit::MICRO:
+      return 1000000;
+    case TimeUnit::NANO:
+      return 1000000000;
   }
 }
 
@@ -578,8 +572,9 @@ template <typename Type>
 class TimeConverter : public VectorConverter {
   using BuilderType = typename TypeTraits<Type>::BuilderType;
 
-public:
-  TimeConverter(TimeUnit::type unit) : unit_(unit), multiplier_(get_time_multiplier(unit)){}
+ public:
+  explicit TimeConverter(TimeUnit::type unit)
+      : unit_(unit), multiplier_(get_time_multiplier(unit)) {}
 
   Status Init(ArrayBuilder* builder) override {
     builder_ = builder;
@@ -588,8 +583,7 @@ public:
   }
 
   Status Ingest(SEXP obj) override {
-
-    if(valid_R_object(obj)) {
+    if (valid_R_object(obj)) {
       int difftime_multiplier;
       RETURN_NOT_OK(GetDifftimeMultiplier(obj, &difftime_multiplier));
       return Ingest_POSIXct(REAL(obj), XLENGTH(obj), difftime_multiplier);
@@ -598,7 +592,7 @@ public:
     return Status::Invalid("Cannot convert R object to timestamp type");
   }
 
-protected:
+ protected:
   TimeUnit::type unit_;
   BuilderType* typed_builder_;
   int64_t multiplier_;
@@ -606,17 +600,18 @@ protected:
   Status Ingest_POSIXct(double* p, R_xlen_t n, int difftime_multiplier) {
     RETURN_NOT_OK(typed_builder_->Resize(n));
 
-    for (R_xlen_t i=0; i<n; i++, ++p) {
-      if(ISNA(*p)) {
+    for (R_xlen_t i = 0; i < n; i++, ++p) {
+      if (ISNA(*p)) {
         typed_builder_->UnsafeAppendNull();
       } else {
-        typed_builder_->UnsafeAppend(static_cast<int64_t>(*p * multiplier_ * difftime_multiplier));
+        typed_builder_->UnsafeAppend(
+            static_cast<int64_t>(*p * multiplier_ * difftime_multiplier));
       }
     }
     return Status::OK();
   }
 
-  virtual bool valid_R_object(SEXP obj)  = 0 ;
+  virtual bool valid_R_object(SEXP obj) = 0;
 
   // only used for Time32 and Time64
   virtual Status GetDifftimeMultiplier(SEXP obj, int* res) {
@@ -639,101 +634,99 @@ protected:
 };
 
 class TimestampConverter : public TimeConverter<TimestampType> {
-public:
-  TimestampConverter(TimeUnit::type unit) : TimeConverter<TimestampType>(unit){}
+ public:
+  explicit TimestampConverter(TimeUnit::type unit) : TimeConverter<TimestampType>(unit) {}
 
-protected:
-  virtual bool valid_R_object(SEXP obj) override {
+ protected:
+  bool valid_R_object(SEXP obj) override {
     return TYPEOF(obj) == REALSXP && Rf_inherits(obj, "POSIXct");
   }
 
-  virtual Status GetDifftimeMultiplier(SEXP obj, int* res) override {
+  Status GetDifftimeMultiplier(SEXP obj, int* res) override {
     *res = 1;
     return Status::OK();
   }
-
 };
 
 class Time32Converter : public TimeConverter<Time32Type> {
-public:
-  Time32Converter(TimeUnit::type unit) : TimeConverter<Time32Type>(unit){}
+ public:
+  explicit Time32Converter(TimeUnit::type unit) : TimeConverter<Time32Type>(unit) {}
 
-protected:
-  virtual bool valid_R_object(SEXP obj) override {
+ protected:
+  bool valid_R_object(SEXP obj) override {
     return TYPEOF(obj) == REALSXP && Rf_inherits(obj, "difftime");
   }
 };
 
 class Time64Converter : public TimeConverter<Time64Type> {
-public:
-  Time64Converter(TimeUnit::type unit) : TimeConverter<Time64Type>(unit){}
+ public:
+  explicit Time64Converter(TimeUnit::type unit) : TimeConverter<Time64Type>(unit) {}
 
-protected:
-  virtual bool valid_R_object(SEXP obj) override {
+ protected:
+  bool valid_R_object(SEXP obj) override {
     return TYPEOF(obj) == REALSXP && Rf_inherits(obj, "difftime");
   }
-
 };
 
+#define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                                               \
+  case Type::TYPE_ENUM:                                                                  \
+    *out =                                                                               \
+        std::unique_ptr<NumericVectorConverter<TYPE>>(new NumericVectorConverter<TYPE>); \
+    return Status::OK()
 
-#define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                     \
-case Type::TYPE_ENUM:                                                \
-  *out = std::unique_ptr<NumericVectorConverter<TYPE>>(new NumericVectorConverter<TYPE>); \
-  return Status::OK()
+#define SIMPLE_CONVERTER_CASE(TYPE_ENUM, TYPE) \
+  case Type::TYPE_ENUM:                        \
+    *out = std::unique_ptr<TYPE>(new TYPE);    \
+    return Status::OK()
 
-#define SIMPLE_CONVERTER_CASE(TYPE_ENUM, TYPE)                      \
-case Type::TYPE_ENUM:                                               \
-  *out = std::unique_ptr<TYPE>(new TYPE);                      \
-  return Status::OK()
+#define TIME_CONVERTER_CASE(TYPE_ENUM, DATA_TYPE, TYPE)                                \
+  case Type::TYPE_ENUM:                                                                \
+    *out =                                                                             \
+        std::unique_ptr<TYPE>(new TYPE(checked_cast<DATA_TYPE*>(type.get())->unit())); \
+    return Status::OK()
 
-#define TIME_CONVERTER_CASE(TYPE_ENUM, DATA_TYPE, TYPE)                      \
-case Type::TYPE_ENUM:                                               \
-  *out = std::unique_ptr<TYPE>(new TYPE(checked_cast<DATA_TYPE*>(type.get())->unit()));                           \
-  return Status::OK()
+Status GetConverter(const std::shared_ptr<DataType>& type,
+                    std::unique_ptr<VectorConverter>* out) {
+  switch (type->id()) {
+    SIMPLE_CONVERTER_CASE(BOOL, BooleanVectorConverter);
+    NUMERIC_CONVERTER(INT8, Int8Type);
+    NUMERIC_CONVERTER(INT16, Int16Type);
+    NUMERIC_CONVERTER(INT32, Int32Type);
+    NUMERIC_CONVERTER(INT64, Int64Type);
+    NUMERIC_CONVERTER(UINT8, UInt8Type);
+    NUMERIC_CONVERTER(UINT16, UInt16Type);
+    NUMERIC_CONVERTER(UINT32, UInt32Type);
+    NUMERIC_CONVERTER(UINT64, UInt64Type);
 
-Status GetConverter(const std::shared_ptr<DataType>& type, std::unique_ptr<VectorConverter>* out) {
+    // TODO: not sure how to handle half floats
+    //       the python code uses npy_half
+    // NUMERIC_CONVERTER(HALF_FLOAT, HalfFloatType);
+    NUMERIC_CONVERTER(FLOAT, FloatType);
+    NUMERIC_CONVERTER(DOUBLE, DoubleType);
 
-  switch(type->id()){
-  SIMPLE_CONVERTER_CASE(BOOL, BooleanVectorConverter);
-  NUMERIC_CONVERTER(INT8  , Int8Type);
-  NUMERIC_CONVERTER(INT16 , Int16Type);
-  NUMERIC_CONVERTER(INT32 , Int32Type);
-  NUMERIC_CONVERTER(INT64 , Int64Type);
-  NUMERIC_CONVERTER(UINT8 , UInt8Type);
-  NUMERIC_CONVERTER(UINT16, UInt16Type);
-  NUMERIC_CONVERTER(UINT32, UInt32Type);
-  NUMERIC_CONVERTER(UINT64, UInt64Type);
+    SIMPLE_CONVERTER_CASE(DATE32, Date32Converter);
+    SIMPLE_CONVERTER_CASE(DATE64, Date64Converter);
 
-  // TODO: not sure how to handle half floats
-  //       the python code uses npy_half
-  // NUMERIC_CONVERTER(HALF_FLOAT, HalfFloatType);
-  NUMERIC_CONVERTER(FLOAT, FloatType);
-  NUMERIC_CONVERTER(DOUBLE, DoubleType);
+      // TODO: probably after we merge ARROW-3628
+      // case Type::DECIMAL:
 
-  SIMPLE_CONVERTER_CASE(DATE32, Date32Converter);
-  SIMPLE_CONVERTER_CASE(DATE64, Date64Converter);
+    case Type::DICTIONARY:
 
-  // TODO: probably after we merge ARROW-3628
-  // case Type::DECIMAL:
+      TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
+      TIME_CONVERTER_CASE(TIME64, Time64Type, Time64Converter);
+      TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
 
-  case Type::DICTIONARY:
-
-  TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
-  TIME_CONVERTER_CASE(TIME64, Time64Type, Time64Converter);
-  TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
-
-  default:
-    break;
+    default:
+      break;
   }
   return Status::NotImplemented("type not implemented");
 }
-
 
 template <typename Type>
 std::shared_ptr<arrow::DataType> GetFactorTypeImpl(Rcpp::IntegerVector_ factor) {
   auto dict_values = MakeStringArray(Rf_getAttrib(factor, R_LevelsSymbol));
   auto dict_type =
-    dictionary(std::make_shared<Type>(), dict_values, Rf_inherits(factor, "ordered"));
+      dictionary(std::make_shared<Type>(), dict_values, Rf_inherits(factor, "ordered"));
   return dict_type;
 }
 
@@ -751,39 +744,39 @@ std::shared_ptr<arrow::DataType> GetFactorType(SEXP factor) {
 
 std::shared_ptr<arrow::DataType> InferType(SEXP x) {
   switch (TYPEOF(x)) {
-  case LGLSXP:
-    return boolean();
-  case INTSXP:
-    if (Rf_isFactor(x)) {
-      return GetFactorType(x);
-    }
-    if (Rf_inherits(x, "Date")) {
-      return date32();
-    }
-    if (Rf_inherits(x, "POSIXct")) {
-      return timestamp(TimeUnit::MICRO, "GMT");
-    }
-    return int32();
-  case REALSXP:
-    if (Rf_inherits(x, "Date")) {
-      return date32();
-    }
-    if (Rf_inherits(x, "POSIXct")) {
-      return timestamp(TimeUnit::MICRO, "GMT");
-    }
-    if (Rf_inherits(x, "integer64")) {
-      return int64();
-    }
-    if (Rf_inherits(x, "difftime")) {
-      return time32(TimeUnit::SECOND);
-    }
-    return float64();
-  case RAWSXP:
-    return int8();
-  case STRSXP:
-    return utf8();
-  default:
-    break;
+    case LGLSXP:
+      return boolean();
+    case INTSXP:
+      if (Rf_isFactor(x)) {
+        return GetFactorType(x);
+      }
+      if (Rf_inherits(x, "Date")) {
+        return date32();
+      }
+      if (Rf_inherits(x, "POSIXct")) {
+        return timestamp(TimeUnit::MICRO, "GMT");
+      }
+      return int32();
+    case REALSXP:
+      if (Rf_inherits(x, "Date")) {
+        return date32();
+      }
+      if (Rf_inherits(x, "POSIXct")) {
+        return timestamp(TimeUnit::MICRO, "GMT");
+      }
+      if (Rf_inherits(x, "integer64")) {
+        return int64();
+      }
+      if (Rf_inherits(x, "difftime")) {
+        return time32(TimeUnit::SECOND);
+      }
+      return float64();
+    case RAWSXP:
+      return int8();
+    case STRSXP:
+      return utf8();
+    default:
+      break;
   }
 
   Rcpp::stop("cannot infer type from data");
@@ -792,13 +785,17 @@ std::shared_ptr<arrow::DataType> InferType(SEXP x) {
 // in some situations we can just use the memory of the R object in an RBuffer
 // instead of going through ArrayBuilder, etc ...
 bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
-  switch(type->id()) {
-  case Type::INT32: return TYPEOF(x) == INTSXP && !OBJECT(x);
-  case Type::DOUBLE: return TYPEOF(x) == REALSXP && !OBJECT(x);
-  case Type::INT8: return TYPEOF(x) == RAWSXP && !OBJECT(x);
-  case Type::INT64: return TYPEOF(x) == REALSXP && Rf_inherits(x, "integer64");
-  default:
-    break;
+  switch (type->id()) {
+    case Type::INT32:
+      return TYPEOF(x) == INTSXP && !OBJECT(x);
+    case Type::DOUBLE:
+      return TYPEOF(x) == REALSXP && !OBJECT(x);
+    case Type::INT8:
+      return TYPEOF(x) == RAWSXP && !OBJECT(x);
+    case Type::INT64:
+      return TYPEOF(x) == REALSXP && Rf_inherits(x, "integer64");
+    default:
+      break;
   }
   return false;
 }
@@ -809,30 +806,30 @@ inline bool is_na(T value) {
 }
 
 template <>
-inline bool is_na<int64_t>(int64_t value){
+inline bool is_na<int64_t>(int64_t value) {
   return value == NA_INT64;
 }
 
 template <>
-inline bool is_na<double>(double value){
+inline bool is_na<double>(double value) {
   return ISNA(value);
 }
 
 template <>
-inline bool is_na<int>(int value){
+inline bool is_na<int>(int value) {
   return value == NA_INTEGER;
 }
-// this is only used on some special cases when the arrow Array can just use the memory of the R
-// object, via an RBuffer, hence be zero copy
+// this is only used on some special cases when the arrow Array can just use the memory of
+// the R object, via an RBuffer, hence be zero copy
 template <int RTYPE, typename Type>
 std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
   using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
-  Rcpp::Vector<RTYPE, NoProtectStorage> vec(x);
+  Rcpp::Vector<RTYPE, Rcpp::NoProtectStorage> vec(x);
   auto n = vec.size();
   auto p_vec_start = reinterpret_cast<value_type*>(vec.begin());
   auto p_vec_end = p_vec_start + n;
   std::vector<std::shared_ptr<Buffer>> buffers{nullptr,
-    std::make_shared<RBuffer<RTYPE>>(vec)};
+                                               std::make_shared<RBuffer<RTYPE>>(vec)};
 
   int null_count = 0;
   std::shared_ptr<Buffer> null_bitmap;
@@ -864,27 +861,26 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
     buffers[0] = std::move(null_bitmap);
   }
 
-  auto data = ArrayData::Make(
-    std::make_shared<Type>(), LENGTH(x), std::move(buffers), null_count, 0 /*offset*/
-  );
+  auto data = ArrayData::Make(std::make_shared<Type>(), LENGTH(x), std::move(buffers),
+                              null_count, 0);
 
   // return the right Array class
   return std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
 }
 
 std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
-  switch(TYPEOF(x)) {
-  case INTSXP:
-    return MakeSimpleArray<INTSXP, Int32Type>(x);
-  case REALSXP:
-    if (Rf_inherits(x, "integer64")) {
-      return MakeSimpleArray<REALSXP, Int64Type>(x);
-    }
-    return MakeSimpleArray<REALSXP, DoubleType>(x);
-  case RAWSXP:
-    return MakeSimpleArray<RAWSXP, Int8Type>(x);
-  default:
-    break;
+  switch (TYPEOF(x)) {
+    case INTSXP:
+      return MakeSimpleArray<INTSXP, Int32Type>(x);
+    case REALSXP:
+      if (Rf_inherits(x, "integer64")) {
+        return MakeSimpleArray<REALSXP, Int64Type>(x);
+      }
+      return MakeSimpleArray<REALSXP, DoubleType>(x);
+    case RAWSXP:
+      return MakeSimpleArray<RAWSXP, Int8Type>(x);
+    default:
+      break;
   }
 
   Rcpp::stop("not implemented");
@@ -893,9 +889,10 @@ std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
 bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& type) {
   if (!Rf_inherits(obj, "factor")) return false;
 
-  arrow::DictionaryType* dict_type = arrow::checked_cast<arrow::DictionaryType*>(type.get());
+  arrow::DictionaryType* dict_type =
+      arrow::checked_cast<arrow::DictionaryType*>(type.get());
   auto dictionary = dict_type->dictionary();
-  if(dictionary->type() != utf8()) return false;
+  if (dictionary->type() != utf8()) return false;
 
   // then compare levels
   auto typed_dict = checked_cast<arrow::StringArray*>(dictionary.get());
@@ -904,14 +901,15 @@ bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& typ
   R_xlen_t n = XLENGTH(levels);
   if (n != typed_dict->length()) return false;
 
-  for( R_xlen_t i=0; i<n; i++) {
-    if(typed_dict->GetString(i) != CHAR(STRING_ELT(levels, i))) return false;
+  for (R_xlen_t i = 0; i < n; i++) {
+    if (typed_dict->GetString(i) != CHAR(STRING_ELT(levels, i))) return false;
   }
 
   return true;
 }
 
-std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered){
+std::shared_ptr<arrow::Array> Array__from_vector(
+    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered) {
   // special case when we can just use the data from the R vector
   // directly. This still needs to handle the null bitmap
   if (arrow::r::can_reuse_memory(x, type)) {
@@ -930,7 +928,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, const std::shared_ptr<a
       return arrow::r::MakeFactorArray(x, type);
     }
 
-    stop("Object incompatible with dictionary type");
+    Rcpp::stop("Object incompatible with dictionary type");
   }
 
   // general conversion with converter and builder
@@ -974,7 +972,8 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks, SEXP s_type) {
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
+                                                             SEXP s_type) {
   std::vector<std::shared_ptr<arrow::Array>> vec;
 
   // the type might be NULL, in which case we need to infer it from the data
@@ -985,7 +984,7 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks, SEXP s
   std::shared_ptr<arrow::DataType> type;
   if (type_infered) {
     if (n == 0) {
-      stop("type must be specified for empty list");
+      Rcpp::stop("type must be specified for empty list");
     }
     type = arrow::r::InferType(VECTOR_ELT(chunks, 0));
   } else {
@@ -1003,9 +1002,10 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks, SEXP s
     // because we might have infered the type from the first element of the list
     //
     // this only really matters for dictionary arrays
-    vec.push_back(arrow::r::Array__from_vector(VECTOR_ELT(chunks, 0), type, type_infered));
+    vec.push_back(
+        arrow::r::Array__from_vector(VECTOR_ELT(chunks, 0), type, type_infered));
 
-    for (R_xlen_t i=1; i<n; i++) {
+    for (R_xlen_t i = 1; i < n; i++) {
       vec.push_back(arrow::r::Array__from_vector(VECTOR_ELT(chunks, i), type, false));
     }
   }

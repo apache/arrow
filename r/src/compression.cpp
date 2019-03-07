@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
+#include "./arrow_types.h"
 
 // [[Rcpp::export]]
 std::unique_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec) {

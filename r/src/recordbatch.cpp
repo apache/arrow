@@ -19,10 +19,7 @@
 #include <arrow/io/memory.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
-#include "arrow_types.h"
-
-using namespace Rcpp;
-using namespace arrow;
+#include "./arrow_types.h"
 
 // [[Rcpp::export]]
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x) {
@@ -44,7 +41,7 @@ std::shared_ptr<arrow::Schema> RecordBatch__schema(
 arrow::ArrayVector RecordBatch__columns(
     const std::shared_ptr<arrow::RecordBatch>& batch) {
   auto nc = batch->num_columns();
-  ArrayVector res(nc);
+  arrow::ArrayVector res(nc);
   for (int i = 0; i < nc; i++) {
     res[i] = batch->column(i);
   }
@@ -58,8 +55,8 @@ std::shared_ptr<arrow::Array> RecordBatch__column(
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl) {
-  CharacterVector names = tbl.names();
+std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl) {
+  Rcpp::CharacterVector names = tbl.names();
 
   std::vector<std::shared_ptr<arrow::Field>> fields;
   std::vector<std::shared_ptr<arrow::Array>> arrays;
@@ -96,9 +93,10 @@ std::string RecordBatch__column_name(const std::shared_ptr<arrow::RecordBatch>& 
 }
 
 // [[Rcpp::export]]
-CharacterVector RecordBatch__names(const std::shared_ptr<arrow::RecordBatch>& batch) {
+Rcpp::CharacterVector RecordBatch__names(
+    const std::shared_ptr<arrow::RecordBatch>& batch) {
   int n = batch->num_columns();
-  CharacterVector names(n);
+  Rcpp::CharacterVector names(n);
   for (int i = 0; i < n; i++) {
     names[i] = batch->column_name(i);
   }
@@ -118,17 +116,17 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(
 }
 
 // [[Rcpp::export]]
-RawVector ipc___SerializeRecordBatch__Raw(
+Rcpp::RawVector ipc___SerializeRecordBatch__Raw(
     const std::shared_ptr<arrow::RecordBatch>& batch) {
   // how many bytes do we need ?
   int64_t size;
   STOP_IF_NOT_OK(arrow::ipc::GetRecordBatchSize(*batch, &size));
 
   // allocate the result raw vector
-  RawVector out(no_init(size));
+  Rcpp::RawVector out(Rcpp::no_init(size));
 
   // serialize into the bytes of the raw vector
-  auto buffer = std::make_shared<arrow::r::RBuffer<RAWSXP, RawVector>>(out);
+  auto buffer = std::make_shared<arrow::r::RBuffer<RAWSXP, Rcpp::RawVector>>(out);
   arrow::io::FixedSizeBufferWriter stream(buffer);
   STOP_IF_NOT_OK(
       arrow::ipc::SerializeRecordBatch(*batch, arrow::default_memory_pool(), &stream));
