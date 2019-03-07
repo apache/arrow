@@ -200,6 +200,8 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   bool IsInUse(const ObjectID& object_id);
 
+  int64_t store_capacity() { return store_capacity_; }
+
  private:
   /// Check if store_fd has already been received from the store. If yes,
   /// return it. Otherwise, receive it from the store (see analogous logic
@@ -967,5 +969,7 @@ Status PlasmaClient::Disconnect() { return impl_->Disconnect(); }
 bool PlasmaClient::IsInUse(const ObjectID& object_id) {
   return impl_->IsInUse(object_id);
 }
+
+int64_t PlasmaClient::store_capacity() { return impl_->store_capacity(); }
 
 }  // namespace plasma

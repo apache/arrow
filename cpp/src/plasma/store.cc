@@ -1131,14 +1131,17 @@ int main(int argc, char* argv[]) {
     // shm_vfs_stats.f_bavail is the number of available blocks.
     int64_t shm_mem_avail = shm_vfs_stats.f_bsize * shm_vfs_stats.f_bavail;
     close(shm_fd);
+    // Keep some safety margin for allocator fragmentation.
+    shm_mem_avail = 9 * shm_mem_avail / 10;
     if (system_memory > shm_mem_avail) {
-      ARROW_LOG(FATAL)
+      ARROW_LOG(WARNING)
           << "System memory request exceeds memory available in " << plasma_directory
           << ". The request is for " << system_memory
           << " bytes, and the amount available is " << shm_mem_avail
           << " bytes. You may be able to free up space by deleting files in "
              "/dev/shm. If you are inside a Docker container, you may need to "
              "pass an argument with the flag '--shm-size' to 'docker run'.";
+      system_memory = shm_mem_avail;
     }
   } else {
     SetMallocGranularity(1024 * 1024 * 1024);  // 1 GB
