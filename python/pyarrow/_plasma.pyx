@@ -135,6 +135,8 @@ cdef extern from "plasma/client.h" nogil:
 
         CStatus Delete(const c_vector[CUniqueID] object_ids)
 
+        int64_t store_capacity()
+
 cdef extern from "plasma/client.h" nogil:
 
     cdef struct CObjectBuffer" plasma::ObjectBuffer":
@@ -757,6 +759,18 @@ cdef class PlasmaClient:
             }
             inc(it)
         return result
+
+    def store_capacity(self):
+        """
+        Get the memory capacity of the store.
+
+        Returns
+        -------
+
+        int
+            The memory capacity of the store in bytes.
+        """
+        return self.client.get().store_capacity()
 
 
 def connect(store_socket_name, manager_socket_name=None, int release_delay=0,
