@@ -138,7 +138,7 @@ Status check_consistent_array_size(const std::vector<std::shared_ptr<arrow::Arra
   return Status::OK();
 }
 
-std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__knwon_schema(const std::shared_ptr<arrow::Schema>& schema, SEXP lst) {
+std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(const std::shared_ptr<arrow::Schema>& schema, SEXP lst) {
   R_xlen_t n_arrays = XLENGTH(lst);
   if(schema->num_fields() != n_arrays) {
     Rcpp::stop("incompatible. schema has %d fields, and %d arrays are supplied", schema->num_fields(), n_arrays);
@@ -164,7 +164,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__knwon_schema(const
 // [[Rcpp::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SEXP lst) {
   if (Rf_inherits(schema_sxp, "arrow::Schema")) {
-    return RecordBatch__from_arrays__knwon_schema(arrow::r::extract<arrow::Schema>(schema_sxp), lst);
+    return RecordBatch__from_arrays__known_schema(arrow::r::extract<arrow::Schema>(schema_sxp), lst);
   }
 
   R_xlen_t n_arrays = XLENGTH(lst);
