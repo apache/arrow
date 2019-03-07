@@ -167,9 +167,10 @@ class ParsingChunker : public Chunker {
     }
     std::size_t total_length = 0;
     for (auto consumed = block;; consumed = block.substr(total_length)) {
-      rapidjson::MemoryStream ms(consumed.data(), consumed.size());
-      auto length = ConsumeWholeObject(
-          rapidjson::EncodedInputStream<rapidjson::UTF8<>, rapidjson::MemoryStream>(ms));
+      using rapidjson::MemoryStream;
+      MemoryStream ms(consumed.data(), consumed.size());
+      using InputStream = rapidjson::EncodedInputStream<rapidjson::UTF8<>, MemoryStream>;
+      auto length = ConsumeWholeObject(InputStream(ms));
       if (length == string_view::npos || length == 0) {
         // found incomplete object or consumed is empty
         break;

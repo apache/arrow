@@ -49,9 +49,9 @@ std::string join(Lines&& lines, std::string delimiter) {
   return joined;
 }
 
-std::string PrettyPrint(std::string one_line) {
+std::string PrettyPrint(string_view one_line) {
   rapidjson::Document document;
-  document.ParseInsitu(const_cast<char*>(one_line.data()));
+  document.Parse(one_line.data());
   rapidjson::StringBuffer sb;
   rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(sb);
   document.Accept(writer);
@@ -172,7 +172,8 @@ TEST(ChunkerTest, PrettyPrinted) {
 
 TEST(ChunkerTest, SingleLine) {
   auto chunker = MakeChunker(true);
-  AssertChunking(*chunker, join(lines(), ""), object_count);
+  auto single_line = join(lines(), "");
+  AssertChunking(*chunker, single_line, object_count);
 }
 
 TEST_P(BaseChunkerTest, Straddling) {
