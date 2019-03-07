@@ -35,7 +35,6 @@ name = "arrow"
 path = "src/lib.rs"
 
 [dependencies]
-bytes = "0.4"
 libc = "0.2"
 serde = { version = "1.0.80", features = ["rc"] }
 serde_derive = "1.0.80"

@@ -35,7 +35,6 @@ name = "datafusion"
 path = "src/lib.rs"
 
 [dependencies]
-clap = "2.31.2"
 fnv = "1.0.3"
 arrow = { path = "../arrow" }
 parquet = { path = "../parquet" }
