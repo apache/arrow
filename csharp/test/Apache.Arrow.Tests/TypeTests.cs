@@ -21,31 +21,8 @@ using Xunit;
 
 namespace Apache.Arrow.Tests
 {
-    public class FieldComparer
-    {
-        public static bool Equals(Field f1, Field f2)
-        {
-            if (ReferenceEquals(f1, f2))
-            {
-                return true;
-            }
-            if (f2 != null && f1 != null && f1.Name == f2.Name && f1.IsNullable == f2.IsNullable &&
-                f1.DataType.TypeId == f2.DataType.TypeId && f1.HasMetadata == f2.HasMetadata)
-            {
-                if (f1.HasMetadata && f2.HasMetadata)
-                {
-                    return f1.Metadata.Keys.Count() == f2.Metadata.Keys.Count() &&
-                           f1.Metadata.Keys.All(k => f2.Metadata.ContainsKey(k) && f1.Metadata[k] == f2.Metadata[k]) &&
-                           f2.Metadata.Keys.All(k => f1.Metadata.ContainsKey(k) && f2.Metadata[k] == f1.Metadata[k]);
-                }
-                return true;
-            }
-            return false;
-        }
-    }
     public class TypeTests
     {
-
         [Fact]
         public void Basics()
         {

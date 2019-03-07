@@ -74,7 +74,7 @@ namespace Apache.Arrow
             {
                 if (dictionary == null)
                 {
-                    throw new ArgumentNullException("Cannot build Field.Metadata with a null dictionary");
+                    throw new ArgumentNullException(nameof(dictionary));
                 }
                 foreach (KeyValuePair<string, string> entry in dictionary)
                 {
