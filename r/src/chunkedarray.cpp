@@ -17,9 +17,6 @@
 
 #include "./arrow_types.h"
 
-using namespace Rcpp;
-using namespace arrow;
-
 // [[Rcpp::export]]
 int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return chunked_array->length();
@@ -42,8 +39,8 @@ std::shared_ptr<arrow::Array> ChunkedArray__chunk(
 }
 
 // [[Rcpp::export]]
-List ChunkedArray__chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  return wrap(chunked_array->chunks());
+Rcpp::List ChunkedArray__chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  return Rcpp::wrap(chunked_array->chunks());
 }
 
 // [[Rcpp::export]]
