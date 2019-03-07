@@ -102,6 +102,15 @@ function build_wheel {
 
     pip install $(pip_opts) -r python/requirements-wheel.txt cython
 
+    if [ ${MB_PYTHON_VERSION} != "2.7" ]; then
+      # Gandiva is not supported on Python 2.7
+      export PYARROW_WITH_GANDIVA=1
+      export BUILD_ARROW_GANDIVA=ON
+    else
+      export PYARROW_WITH_GANDIVA=0
+      export BUILD_ARROW_GANDIVA=OFF
+    fi
+
     pushd cpp
     mkdir build
     pushd build
@@ -115,6 +124,7 @@ function build_wheel {
           -DARROW_RPATH_ORIGIN=ON \
           -DARROW_PYTHON=ON \
           -DARROW_PARQUET=ON \
+          -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
           -DARROW_ORC=ON \
           -DBOOST_ROOT="$arrow_boost_dist" \
           -DBoost_NAMESPACE=arrow_boost \
@@ -132,6 +142,7 @@ function build_wheel {
     unset ARROW_HOME
     unset PARQUET_HOME
 
+    export PYARROW_WITH_PLASMA=1
     export PYARROW_WITH_PARQUET=1
     export PYARROW_WITH_ORC=1
     export PYARROW_WITH_JEMALLOC=1
@@ -139,13 +150,11 @@ function build_wheel {
     export PYARROW_BUNDLE_BOOST=1
     export PYARROW_BUNDLE_ARROW_CPP=1
     export PYARROW_BUILD_TYPE='release'
+    export PYARROW_BOOST_NAMESPACE='arrow_boost'
     export PYARROW_CMAKE_OPTIONS="-DBOOST_ROOT=$arrow_boost_dist"
     export SETUPTOOLS_SCM_PRETEND_VERSION=$PYARROW_VERSION
     pushd python
-    python setup.py build_ext \
-           --with-plasma --with-orc --with-parquet \
-           --bundle-arrow-cpp --bundle-boost --boost-namespace=arrow_boost \
-           bdist_wheel
+    python setup.py build_ext bdist_wheel
     ls -l dist/
     popd
 
@@ -168,10 +177,16 @@ function install_run {
     python --version
 
     # Test optional dependencies
-    python -c "import pyarrow"
-    python -c "import pyarrow.orc"
-    python -c "import pyarrow.parquet"
-    python -c "import pyarrow.plasma"
+    python -c "
+import sys
+import pyarrow
+import pyarrow.orc
+import pyarrow.parquet
+import pyarrow.plasma
+
+if sys.version_info.major > 2:
+    import pyarrow.gandiva
+"
 
     # Run pyarrow tests
     pip install $(pip_opts) -r python/requirements-test.txt
