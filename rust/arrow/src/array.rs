@@ -70,6 +70,15 @@ use crate::datatypes::*;
 use crate::memory;
 use crate::util::bit_util;
 
+/// Number of seconds in a day
+const SECONDS_IN_DAY: i64 = 86_400;
+/// Number of milliseconds in a second
+const MILLISECONDS: i64 = 1_000;
+/// Number of microseconds in a second
+const MICROSECONDS: i64 = 1_000_000;
+/// Number of nanoseconds in a second
+const NANOSECONDS: i64 = 1_000_000_000;
+
 /// Trait for dealing with different types of array at runtime when the type of the
 /// array is not known in advance
 pub trait Array: Send + Sync {
@@ -277,27 +286,34 @@ where
         match self.data_type() {
             DataType::Date32(_) => {
                 // convert days into seconds
-                Some(NaiveDateTime::from_timestamp(v * 86_400, 0))
+                Some(NaiveDateTime::from_timestamp(v as i64 * SECONDS_IN_DAY, 0))
             }
             DataType::Date64(_) => Some(NaiveDateTime::from_timestamp(
-                v / 1_000,
-                (v % 1_000) as u32 * 1_000_000,
+                // extract seconds from milliseconds
+                v / MILLISECONDS,
+                // discard extracted seconds and convert milliseconds to nanoseconds
+                (v % MILLISECONDS * MICROSECONDS) as u32,
             )),
-            DataType::Time32(_) => None,
-            DataType::Time64(_) => None,
+            DataType::Time32(_) | DataType::Time64(_) => None,
             DataType::Timestamp(unit) => match unit {
-                TimeUnit::Second => Some(NaiveDateTime::from_timestamp(v * 86_400, 0)),
+                TimeUnit::Second => Some(NaiveDateTime::from_timestamp(v, 0)),
                 TimeUnit::Millisecond => Some(NaiveDateTime::from_timestamp(
-                    v / 1_000,
-                    (v % 1_000) as u32 * 1_000_000,
+                    // extract seconds from milliseconds
+                    v / MILLISECONDS,
+                    // discard extracted seconds and convert milliseconds to nanoseconds
+                    (v % MILLISECONDS * MICROSECONDS) as u32,
                 )),
                 TimeUnit::Microsecond => Some(NaiveDateTime::from_timestamp(
-                    v / 1_000_000,
-                    (v % 1_000_000) as u32 * 1_000,
+                    // extract seconds from microseconds
+                    v / MICROSECONDS,
+                    // discard extracted seconds and convert microseconds to nanoseconds
+                    (v % MICROSECONDS * MILLISECONDS) as u32,
                 )),
                 TimeUnit::Nanosecond => Some(NaiveDateTime::from_timestamp(
-                    v / 1_000_000_000,
-                    (v % 1_000_000_000) as u32,
+                    // extract seconds from nanoseconds
+                    v / NANOSECONDS,
+                    // discard extracted seconds
+                    (v % NANOSECONDS) as u32,
                 )),
             },
             // interval is not yet fully documented [ARROW-3097]
@@ -320,9 +336,9 @@ where
     ///
     /// `Date32` and `Date64` return UTC midnight as they do not have time resolution
     pub fn value_as_time(&self, i: usize) -> Option<NaiveTime> {
-        match &self.data_type() {
-            &DataType::Time32(unit) => {
-                // safe to immediately cast to u32 as `self.value(i)` is i32
+        match self.data_type() {
+            DataType::Time32(unit) => {
+                // safe to immediately cast to u32 as `self.value(i)` is positive i32
                 let v = i64::from(self.value(i)) as u32;
                 match unit {
                     TimeUnit::Second => {
@@ -330,39 +346,47 @@ where
                     }
                     TimeUnit::Millisecond => {
                         Some(NaiveTime::from_num_seconds_from_midnight(
-                            v / 1_000,
-                            (v % 1_000) * 1_000_000,
+                            // extract seconds from milliseconds
+                            v / MILLISECONDS as u32,
+                            // discard extracted seconds and convert milliseconds to
+                            // nanoseconds
+                            v % MILLISECONDS as u32 * MICROSECONDS as u32,
                         ))
                     }
                     _ => None,
                 }
             }
-            &DataType::Time64(unit) => {
+            DataType::Time64(unit) => {
                 let v = i64::from(self.value(i));
                 match unit {
                     TimeUnit::Microsecond => {
                         Some(NaiveTime::from_num_seconds_from_midnight(
-                            (v / 1_000_000) as u32,
-                            (v % 1_000_000) as u32 * 1_000,
+                            // extract seconds from microseconds
+                            (v / MICROSECONDS) as u32,
+                            // discard extracted seconds and convert microseconds to
+                            // nanoseconds
+                            (v % MICROSECONDS * MILLISECONDS) as u32,
                         ))
                     }
                     TimeUnit::Nanosecond => {
                         Some(NaiveTime::from_num_seconds_from_midnight(
-                            (v / 1_000_000_000) as u32,
-                            (v % 1_000_000_000) as u32,
+                            // extract seconds from nanoseconds
+                            (v / NANOSECONDS) as u32,
+                            // discard extracted seconds
+                            (v % NANOSECONDS) as u32,
                         ))
                     }
                     _ => None,
                 }
             }
-            &DataType::Timestamp(_) => match self.value_as_datetime(i) {
+            DataType::Timestamp(_) => match self.value_as_datetime(i) {
                 Some(datetime) => Some(datetime.time()),
                 None => None,
             },
-            &DataType::Date32(_) | &DataType::Date64(_) => {
+            DataType::Date32(_) | DataType::Date64(_) => {
                 Some(NaiveTime::from_hms(0, 0, 0))
             }
-            &DataType::Interval(_) => None,
+            DataType::Interval(_) => None,
             _ => None,
         }
     }
