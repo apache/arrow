@@ -21,7 +21,7 @@
 # $ make -f Makefile.docker cpp
 
 LANGUAGES = cpp cpp-alpine cpp-cmake32 c_glib go java js python python-alpine rust r
-MISC = lint iwyu clang-format docs pandas-master
+MISC = lint iwyu clang-format docs pandas-master python-nopandas
 SERVERS = dask hdfs-integration spark-integration
 
 # declare images dependencies

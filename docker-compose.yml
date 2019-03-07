@@ -274,6 +274,22 @@ services:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
     volumes: *alpine-volumes
 
+  python-nopandas:
+    # Usage:
+    #   export PYTHON_VERSION=2.7|3.6|3.7
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build python-nopandas
+    #   docker-compose run python-nopandas
+    image: arrow:python-${PYTHON_VERSION:-3.6}-nopandas
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: python/Dockerfile.nopandas
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+    volumes: *ubuntu-volumes
+
   rust:
     # Usage:
     #   docker-compose build rust
