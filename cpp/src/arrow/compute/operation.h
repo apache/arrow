@@ -20,6 +20,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/compute/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -27,8 +28,6 @@ namespace arrow {
 class Status;
 
 namespace compute {
-
-class Expr;
 
 /// \brief An operation is a node in a computation graph, taking input data
 /// expression dependencies and emitting an output expression
@@ -41,12 +40,12 @@ class ARROW_EXPORT Operation : public std::enable_shared_from_this<Operation> {
   /// invalid, error Status is returned
   /// \param[out] out the returned well-typed expression
   /// \return success or failure
-  virtual Status ToExpr(std::shared_ptr<Expr>* out) const = 0;
+  virtual Status ToExpr(ExprPtr* out) const = 0;
 
   /// \brief Return the input expressions used to instantiate the
   /// operation. The default implementation returns an empty vector
   /// \return a vector of expressions
-  virtual std::vector<std::shared_ptr<Expr>> input_args() const;
+  virtual std::vector<ExprPtr> input_args() const;
 };
 
 }  // namespace compute

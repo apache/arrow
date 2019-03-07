@@ -41,7 +41,7 @@ Status Cast::ToExpr(std::shared_ptr<Expr>* out) const {
   // TODO(wesm): implement "shaped like" output type rule like Ibis
   auto op = shared_from_this();
   const auto& value_expr = static_cast<const ValueExpr&>(*value_);
-  if (value_expr.rank() == ValueExpr::SCALAR) {
+  if (value_expr.rank() == ValueRank::SCALAR) {
     return GetScalarExpr(op, out_type_, out);
   } else {
     return GetArrayExpr(op, out_type_, out);

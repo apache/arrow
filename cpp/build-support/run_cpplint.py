@@ -26,6 +26,11 @@ import platform
 from functools import partial
 
 
+# NOTE(wesm):
+#
+# * readability/casting is disabled as it aggressively warns about functions
+#   with names like "int32", so "int32(x)", where int32 is a function name,
+#   warns with
 _filters = '''
 -whitespace/comments
 -readability/casting

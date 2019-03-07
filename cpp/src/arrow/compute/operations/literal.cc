@@ -31,7 +31,7 @@ Literal::Literal(const std::shared_ptr<Scalar>& value) : value_(value) {}
 
 Status Literal::ToExpr(std::shared_ptr<Expr>* out) const {
   std::shared_ptr<LogicalType> ty;
-  RETURN_NOT_OK(LogicalType::FromArrow(value_->type, &ty));
+  RETURN_NOT_OK(LogicalType::FromArrow(*value_->type, &ty));
   return GetScalarExpr(shared_from_this(), ty, out);
 }
 

@@ -25,7 +25,7 @@
 namespace arrow {
 namespace compute {
 
-std::vector<std::shared_ptr<Expr>> Operation::input_args() const { return {}; }
+std::vector<ExprPtr> Operation::input_args() const { return {}; }
 
 }  // namespace compute
 }  // namespace arrow

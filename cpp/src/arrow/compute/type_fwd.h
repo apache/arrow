@@ -15,27 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
+#pragma once
+
 #include <memory>
-#include <string>
-#include <vector>
 
-#include <gtest/gtest.h>
-
-#include "arrow/status.h"
-#include "arrow/table.h"
-#include "arrow/test-common.h"
-#include "arrow/test-util.h"
-#include "arrow/type.h"
-
-#include "arrow/compute/expression.h"
-#include "arrow/compute/operation.h"
-#include "arrow/scalar.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace compute {
 
-TEST(TestLiteralOperation, Basics) {}
+class Expr;
+class LogicalType;
+class Operation;
+
+using ArrowTypePtr = std::shared_ptr<::arrow::DataType>;
+using ExprPtr = std::shared_ptr<Expr>;
+using ConstOpPtr = std::shared_ptr<const Operation>;
+using OpPtr = std::shared_ptr<Operation>;
+using LogicalTypePtr = std::shared_ptr<LogicalType>;
 
 }  // namespace compute
 }  // namespace arrow

@@ -25,11 +25,11 @@
 #include <memory>
 #include <string>
 
+#include "arrow/compute/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
-class DataType;
 class Status;
 
 namespace compute {
@@ -58,9 +58,9 @@ class ARROW_EXPORT LogicalType {
     INT32,
     UINT64,
     INT64,
-    HALF_FLOAT,
-    FLOAT,
-    DOUBLE,
+    FLOAT16,
+    FLOAT32,
+    FLOAT64,
     BINARY,
     UTF8,
     DATE,
@@ -73,7 +73,7 @@ class ARROW_EXPORT LogicalType {
 
   Id id() const { return id_; }
 
-  virtual ~LogicalType() = 0;
+  virtual ~LogicalType() = default;
 
   virtual std::string ToString() const = 0;
 
@@ -82,8 +82,7 @@ class ARROW_EXPORT LogicalType {
 
   /// \brief Get a logical expression type from a concrete Arrow in-memory
   /// array type
-  static Status FromArrow(std::shared_ptr<::arrow::DataType> type,
-                          std::shared_ptr<LogicalType>* out);
+  static Status FromArrow(const ::arrow::DataType& type, LogicalTypePtr* out);
 
  protected:
   explicit LogicalType(Id id) : id_(id) {}
@@ -236,25 +235,25 @@ class ARROW_EXPORT UInt64 : public UnsignedInteger {
 };
 
 /// \brief Logical type for 16-bit floating point
-class ARROW_EXPORT HalfFloat : public Floating {
+class ARROW_EXPORT Float16 : public Floating {
  public:
-  HalfFloat() : Floating(LogicalType::HALF_FLOAT) {}
+  Float16() : Floating(LogicalType::FLOAT16) {}
   bool IsInstance(const Expr& expr) const override;
   std::string ToString() const override;
 };
 
 /// \brief Logical type for 32-bit floating point
-class ARROW_EXPORT Float : public Floating {
+class ARROW_EXPORT Float32 : public Floating {
  public:
-  Float() : Floating(LogicalType::FLOAT) {}
+  Float32() : Floating(LogicalType::FLOAT32) {}
   bool IsInstance(const Expr& expr) const override;
   std::string ToString() const override;
 };
 
 /// \brief Logical type for 64-bit floating point
-class ARROW_EXPORT Double : public Floating {
+class ARROW_EXPORT Float64 : public Floating {
  public:
-  Double() : Floating(LogicalType::DOUBLE) {}
+  Float64() : Floating(LogicalType::FLOAT64) {}
   bool IsInstance(const Expr& expr) const override;
   std::string ToString() const override;
 };
@@ -278,7 +277,7 @@ class ARROW_EXPORT Utf8 : public Binary {
   std::string ToString() const override;
 };
 
-#define SIMPLE_TYPE_FACTORY(NAME) ARROW_EXPORT std::shared_ptr<LogicalType> NAME();
+#define SIMPLE_TYPE_FACTORY(NAME) ARROW_EXPORT LogicalTypePtr NAME();
 
 SIMPLE_TYPE_FACTORY(any);
 SIMPLE_TYPE_FACTORY(null);
@@ -296,9 +295,9 @@ SIMPLE_TYPE_FACTORY(uint8);
 SIMPLE_TYPE_FACTORY(uint16);
 SIMPLE_TYPE_FACTORY(uint32);
 SIMPLE_TYPE_FACTORY(uint64);
-SIMPLE_TYPE_FACTORY(half_float);
-SIMPLE_TYPE_FACTORY(float_);
-SIMPLE_TYPE_FACTORY(double_);
+SIMPLE_TYPE_FACTORY(float16);
+SIMPLE_TYPE_FACTORY(float32);
+SIMPLE_TYPE_FACTORY(float64);
 SIMPLE_TYPE_FACTORY(binary);
 SIMPLE_TYPE_FACTORY(utf8);
 

@@ -47,20 +47,17 @@ class DummyOp : public Operation {
 
 TEST(Literal, Basics) {
   auto val = std::make_shared<DoubleScalar>(3.14159);
-  auto op = std::make_shared<ops::Literal>(val);
   std::shared_ptr<Expr> expr;
-  ASSERT_OK(op->ToExpr(&expr));
-  ASSERT_TRUE(InheritsFrom<scalar::Double>(*expr));
+  ASSERT_OK(std::make_shared<ops::Literal>(val)->ToExpr(&expr));
+  ASSERT_TRUE(InheritsFrom<scalar::Float64>(*expr));
 }
 
 TEST(Cast, Basics) {
   auto dummy_op = std::make_shared<DummyOp>();
-
   auto expr = array::int32(dummy_op);
-  auto casted = std::make_shared<ops::Cast>(expr, type::double_());
   std::shared_ptr<Expr> out_expr;
-  ASSERT_OK(casted->ToExpr(&out_expr));
-  ASSERT_TRUE(InheritsFrom<array::Double>(*out_expr));
+  ASSERT_OK(std::make_shared<ops::Cast>(expr, type::float64())->ToExpr(&out_expr));
+  ASSERT_TRUE(InheritsFrom<array::Float64>(*out_expr));
 }
 
 }  // namespace compute

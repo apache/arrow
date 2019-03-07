@@ -20,13 +20,12 @@
 #include <memory>
 #include <string>
 
+#include "arrow/compute/type_fwd.h"
+#include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Status;
-
 namespace compute {
 
 class LogicalType;
@@ -39,7 +38,7 @@ class ARROW_EXPORT Expr {
  public:
   /// \brief Instantiate expression from an abstract operation
   /// \param[in] op the operation that generates the expression
-  explicit Expr(std::shared_ptr<const Operation> op);
+  explicit Expr(ConstOpPtr op);
 
   virtual ~Expr() = default;
 
@@ -51,55 +50,55 @@ class ARROW_EXPORT Expr {
   // virtual Status Accept(ExprVisitor* visitor) const = 0;
 
   /// \brief The underlying operation
-  std::shared_ptr<const Operation> op() const { return op_; }
+  ConstOpPtr op() const { return op_; }
 
  protected:
-  std::shared_ptr<const Operation> op_;
+  ConstOpPtr op_;
 };
+
+/// The value cardinality: one or many. These correspond to the arrow::Scalar
+/// and arrow::Array types
+enum class ValueRank { SCALAR, ARRAY };
 
 /// \brief Base class for a data-generated expression with a fixed and known
 /// type. This includes arrays and scalars
 class ARROW_EXPORT ValueExpr : public Expr {
  public:
-  /// The value cardinality: one or many. These correspond to the arrow::Scalar
-  /// and arrow::Array types
-  enum Rank { SCALAR, ARRAY };
   /// \brief The name of the expression, if any. The default is unnamed
   // virtual const ExprName& name() const;
-
-  std::shared_ptr<LogicalType> type() const;
+  LogicalTypePtr type() const;
 
   /// \brief The value cardinality (scalar or array) of the expression
-  Rank rank() const { return rank_; }
+  virtual ValueRank rank() const = 0;
 
  protected:
-  ValueExpr(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type,
-            Rank rank);
+  ValueExpr(ConstOpPtr op, LogicalTypePtr type);
 
   /// \brief The semantic data type of the expression
-  std::shared_ptr<LogicalType> type_;
-
-  Rank rank_;
+  LogicalTypePtr type_;
 };
 
 class ARROW_EXPORT ArrayExpr : public ValueExpr {
  protected:
-  ArrayExpr(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type);
+  using ValueExpr::ValueExpr;
   std::string kind() const override;
+  ValueRank rank() const override;
 };
 
 class ARROW_EXPORT ScalarExpr : public ValueExpr {
  protected:
-  ScalarExpr(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type);
+  using ValueExpr::ValueExpr;
   std::string kind() const override;
+  ValueRank rank() const override;
 };
 
 namespace value {
 
-class ValueClass {};
-class Null : public ValueClass {};
-class Bool : public ValueClass {};
-class Number : public ValueClass {};
+// These are mixin classes to provide a type hierarchy for values identify
+class ValueMixin {};
+class Null : public ValueMixin {};
+class Bool : public ValueMixin {};
+class Number : public ValueMixin {};
 class Integer : public Number {};
 class SignedInteger : public Integer {};
 class Int8 : public SignedInteger {};
@@ -112,25 +111,24 @@ class UInt16 : public UnsignedInteger {};
 class UInt32 : public UnsignedInteger {};
 class UInt64 : public UnsignedInteger {};
 class Floating : public Number {};
-class HalfFloat : public Floating {};
-class Float : public Floating {};
-class Double : public Floating {};
-class Binary : public ValueClass {};
+class Float16 : public Floating {};
+class Float32 : public Floating {};
+class Float64 : public Floating {};
+class Binary : public ValueMixin {};
 class Utf8 : public Binary {};
-class List : public ValueClass {};
-class Struct : public ValueClass {};
+class List : public ValueMixin {};
+class Struct : public ValueMixin {};
 
 }  // namespace value
 
-#define SIMPLE_EXPR_FACTORY(NAME) \
-  ARROW_EXPORT std::shared_ptr<Expr> NAME(std::shared_ptr<const Operation> op);
+#define SIMPLE_EXPR_FACTORY(NAME) ARROW_EXPORT ExprPtr NAME(ConstOpPtr op);
 
 namespace scalar {
 
 #define DECLARE_SCALAR_EXPR(TYPE)                                   \
   class ARROW_EXPORT TYPE : public ScalarExpr, public value::TYPE { \
    public:                                                          \
-    explicit TYPE(std::shared_ptr<const Operation> op);             \
+    explicit TYPE(ConstOpPtr op);                                   \
     using ScalarExpr::kind;                                         \
   };
 
@@ -144,11 +142,13 @@ DECLARE_SCALAR_EXPR(UInt8)
 DECLARE_SCALAR_EXPR(UInt16)
 DECLARE_SCALAR_EXPR(UInt32)
 DECLARE_SCALAR_EXPR(UInt64)
-DECLARE_SCALAR_EXPR(HalfFloat)
-DECLARE_SCALAR_EXPR(Float)
-DECLARE_SCALAR_EXPR(Double)
+DECLARE_SCALAR_EXPR(Float16)
+DECLARE_SCALAR_EXPR(Float32)
+DECLARE_SCALAR_EXPR(Float64)
 DECLARE_SCALAR_EXPR(Binary)
 DECLARE_SCALAR_EXPR(Utf8)
+
+#undef DECLARE_SCALAR_EXPR
 
 SIMPLE_EXPR_FACTORY(null);
 SIMPLE_EXPR_FACTORY(boolean);
@@ -160,21 +160,21 @@ SIMPLE_EXPR_FACTORY(uint8);
 SIMPLE_EXPR_FACTORY(uint16);
 SIMPLE_EXPR_FACTORY(uint32);
 SIMPLE_EXPR_FACTORY(uint64);
-SIMPLE_EXPR_FACTORY(half_float);
-SIMPLE_EXPR_FACTORY(float_);
-SIMPLE_EXPR_FACTORY(double_);
+SIMPLE_EXPR_FACTORY(float16);
+SIMPLE_EXPR_FACTORY(float32);
+SIMPLE_EXPR_FACTORY(float64);
 SIMPLE_EXPR_FACTORY(binary);
 SIMPLE_EXPR_FACTORY(utf8);
 
 class ARROW_EXPORT List : public ScalarExpr, public value::List {
  public:
-  List(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type);
+  List(ConstOpPtr op, LogicalTypePtr type);
   using ScalarExpr::kind;
 };
 
 class ARROW_EXPORT Struct : public ScalarExpr, public value::Struct {
  public:
-  Struct(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type);
+  Struct(ConstOpPtr op, LogicalTypePtr type);
   using ScalarExpr::kind;
 };
 
@@ -185,7 +185,7 @@ namespace array {
 #define DECLARE_ARRAY_EXPR(TYPE)                                   \
   class ARROW_EXPORT TYPE : public ArrayExpr, public value::TYPE { \
    public:                                                         \
-    explicit TYPE(std::shared_ptr<const Operation> op);            \
+    explicit TYPE(ConstOpPtr op);                                  \
     using ArrayExpr::kind;                                         \
   };
 
@@ -199,11 +199,13 @@ DECLARE_ARRAY_EXPR(UInt8)
 DECLARE_ARRAY_EXPR(UInt16)
 DECLARE_ARRAY_EXPR(UInt32)
 DECLARE_ARRAY_EXPR(UInt64)
-DECLARE_ARRAY_EXPR(HalfFloat)
-DECLARE_ARRAY_EXPR(Float)
-DECLARE_ARRAY_EXPR(Double)
+DECLARE_ARRAY_EXPR(Float16)
+DECLARE_ARRAY_EXPR(Float32)
+DECLARE_ARRAY_EXPR(Float64)
 DECLARE_ARRAY_EXPR(Binary)
 DECLARE_ARRAY_EXPR(Utf8)
+
+#undef DECLARE_ARRAY_EXPR
 
 SIMPLE_EXPR_FACTORY(null);
 SIMPLE_EXPR_FACTORY(boolean);
@@ -215,21 +217,21 @@ SIMPLE_EXPR_FACTORY(uint8);
 SIMPLE_EXPR_FACTORY(uint16);
 SIMPLE_EXPR_FACTORY(uint32);
 SIMPLE_EXPR_FACTORY(uint64);
-SIMPLE_EXPR_FACTORY(half_float);
-SIMPLE_EXPR_FACTORY(float_);
-SIMPLE_EXPR_FACTORY(double_);
+SIMPLE_EXPR_FACTORY(float16);
+SIMPLE_EXPR_FACTORY(float32);
+SIMPLE_EXPR_FACTORY(float64);
 SIMPLE_EXPR_FACTORY(binary);
 SIMPLE_EXPR_FACTORY(utf8);
 
 class ARROW_EXPORT List : public ArrayExpr, public value::List {
  public:
-  List(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type);
+  List(ConstOpPtr op, LogicalTypePtr type);
   using ArrayExpr::kind;
 };
 
 class ARROW_EXPORT Struct : public ArrayExpr, public value::Struct {
  public:
-  Struct(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> type);
+  Struct(ConstOpPtr op, LogicalTypePtr type);
   using ArrayExpr::kind;
 };
 
@@ -249,13 +251,11 @@ inline bool InheritsFrom(const ObjectType& obj) {
 
 /// \brief Construct a ScalarExpr containing an Operation given a logical type
 ARROW_EXPORT
-Status GetScalarExpr(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> ty,
-                     std::shared_ptr<Expr>* out);
+Status GetScalarExpr(ConstOpPtr op, LogicalTypePtr ty, ExprPtr* out);
 
 /// \brief Construct an ArrayExpr containing an Operation given a logical type
 ARROW_EXPORT
-Status GetArrayExpr(std::shared_ptr<const Operation> op, std::shared_ptr<LogicalType> ty,
-                    std::shared_ptr<Expr>* out);
+Status GetArrayExpr(ConstOpPtr op, LogicalTypePtr ty, ExprPtr* out);
 
 }  // namespace compute
 }  // namespace arrow

@@ -32,9 +32,8 @@
 namespace arrow {
 namespace compute {
 
-Status LogicalType::FromArrow(std::shared_ptr<::arrow::DataType> type,
-                              std::shared_ptr<LogicalType>* out) {
-  switch (type->id()) {
+Status LogicalType::FromArrow(const ::arrow::DataType& type, LogicalTypePtr* out) {
+  switch (type.id()) {
     case Type::NA:
       *out = type::null();
       break;
@@ -66,13 +65,13 @@ Status LogicalType::FromArrow(std::shared_ptr<::arrow::DataType> type,
       *out = type::int64();
       break;
     case Type::HALF_FLOAT:
-      *out = type::half_float();
+      *out = type::float16();
       break;
     case Type::FLOAT:
-      *out = type::float_();
+      *out = type::float32();
       break;
     case Type::DOUBLE:
-      *out = type::double_();
+      *out = type::float64();
       break;
     case Type::STRING:
       *out = type::utf8();
@@ -81,7 +80,7 @@ Status LogicalType::FromArrow(std::shared_ptr<::arrow::DataType> type,
       *out = type::binary();
       break;
     default:
-      return Status::NotImplemented("Loigcal expr for ", type->ToString());
+      return Status::NotImplemented("Logical expr for ", type.ToString());
   }
   return Status::OK();
 }
@@ -113,14 +112,14 @@ SIMPLE_LOGICAL_TYPE(UInt8)
 SIMPLE_LOGICAL_TYPE(UInt16)
 SIMPLE_LOGICAL_TYPE(UInt32)
 SIMPLE_LOGICAL_TYPE(UInt64)
-SIMPLE_LOGICAL_TYPE(HalfFloat)
-SIMPLE_LOGICAL_TYPE(Float)
-SIMPLE_LOGICAL_TYPE(Double)
+SIMPLE_LOGICAL_TYPE(Float16)
+SIMPLE_LOGICAL_TYPE(Float32)
+SIMPLE_LOGICAL_TYPE(Float64)
 SIMPLE_LOGICAL_TYPE(Binary)
 SIMPLE_LOGICAL_TYPE(Utf8)
 
 #define SIMPLE_TYPE_FACTORY(NAME, TYPE) \
-  std::shared_ptr<LogicalType> NAME() { return std::make_shared<TYPE>(); }
+  LogicalTypePtr NAME() { return std::make_shared<TYPE>(); }
 
 SIMPLE_TYPE_FACTORY(any, Any);
 SIMPLE_TYPE_FACTORY(null, Null);
@@ -138,9 +137,9 @@ SIMPLE_TYPE_FACTORY(uint8, UInt8);
 SIMPLE_TYPE_FACTORY(uint16, UInt16);
 SIMPLE_TYPE_FACTORY(uint32, UInt32);
 SIMPLE_TYPE_FACTORY(uint64, UInt64);
-SIMPLE_TYPE_FACTORY(half_float, HalfFloat);
-SIMPLE_TYPE_FACTORY(float_, Float);
-SIMPLE_TYPE_FACTORY(double_, Double);
+SIMPLE_TYPE_FACTORY(float16, Float16);
+SIMPLE_TYPE_FACTORY(float32, Float32);
+SIMPLE_TYPE_FACTORY(float64, Float64);
 SIMPLE_TYPE_FACTORY(binary, Binary);
 SIMPLE_TYPE_FACTORY(utf8, Utf8);
 

@@ -39,13 +39,11 @@ namespace compute {
 // behavior
 class DummyOp : public Operation {
  public:
-  Status ToExpr(std::shared_ptr<Expr>* out) const override {
-    return Status::NotImplemented("NYI");
-  }
+  Status ToExpr(ExprPtr* out) const override { return Status::NotImplemented("NYI"); }
 };
 
 TEST(TestLogicalType, NonNestedToString) {
-  std::vector<std::pair<std::shared_ptr<LogicalType>, std::string>> cases = {
+  std::vector<std::pair<LogicalTypePtr, std::string>> type_to_name = {
       {type::any(), "Any"},
       {type::null(), "Null"},
       {type::boolean(), "Bool"},
@@ -62,13 +60,14 @@ TEST(TestLogicalType, NonNestedToString) {
       {type::uint16(), "UInt16"},
       {type::uint32(), "UInt32"},
       {type::uint64(), "UInt64"},
-      {type::float_(), "Float"},
-      {type::double_(), "Double"},
+      {type::float16(), "Float16"},
+      {type::float32(), "Float32"},
+      {type::float64(), "Float64"},
       {type::binary(), "Binary"},
       {type::utf8(), "Utf8"}};
 
-  for (auto& case_ : cases) {
-    ASSERT_EQ(case_.second, case_.first->ToString());
+  for (auto& entry : type_to_name) {
+    ASSERT_EQ(entry.second, entry.first->ToString());
   }
 }
 
@@ -91,7 +90,7 @@ TEST(TestLogicalType, Number) {
   auto t = type::number();
 
   ASSERT_TRUE(t->IsInstance(*scalar::int32(op)));
-  ASSERT_TRUE(t->IsInstance(*scalar::double_(op)));
+  ASSERT_TRUE(t->IsInstance(*scalar::float64(op)));
   ASSERT_FALSE(t->IsInstance(*scalar::boolean(op)));
   ASSERT_FALSE(t->IsInstance(*scalar::null(op)));
   ASSERT_FALSE(t->IsInstance(*scalar::binary(op)));
@@ -105,7 +104,7 @@ TEST(TestLogicalType, IntegerBaseTypes) {
 
   ASSERT_TRUE(all_ty->IsInstance(*scalar::int32(op)));
   ASSERT_TRUE(all_ty->IsInstance(*scalar::uint32(op)));
-  ASSERT_FALSE(all_ty->IsInstance(*array::double_(op)));
+  ASSERT_FALSE(all_ty->IsInstance(*array::float64(op)));
   ASSERT_FALSE(all_ty->IsInstance(*array::binary(op)));
 
   ASSERT_TRUE(signed_ty->IsInstance(*array::int32(op)));
@@ -119,22 +118,19 @@ TEST(TestLogicalType, IntegerBaseTypes) {
 TEST(TestLogicalType, NumberConcreteIsinstance) {
   auto op = std::make_shared<DummyOp>();
 
-  std::vector<std::shared_ptr<LogicalType>> types = {
-      type::null(),    type::boolean(), type::int8(),       type::int16(),
-      type::int32(),   type::int64(),   type::uint8(),      type::uint16(),
-      type::uint32(),  type::uint64(),  type::half_float(), type::float_(),
-      type::double_(), type::binary(),  type::utf8()};
+  std::vector<LogicalTypePtr> types = {
+      type::null(),    type::boolean(), type::int8(),    type::int16(),  type::int32(),
+      type::int64(),   type::uint8(),   type::uint16(),  type::uint32(), type::uint64(),
+      type::float16(), type::float32(), type::float64(), type::binary(), type::utf8()};
 
-  std::vector<std::shared_ptr<Expr>> exprs = {
-      scalar::null(op),      array::null(op),    scalar::boolean(op),
-      array::boolean(op),    scalar::int8(op),   array::int8(op),
-      scalar::int16(op),     array::int16(op),   scalar::int32(op),
-      array::int32(op),      scalar::int64(op),  array::int64(op),
-      scalar::uint8(op),     array::uint8(op),   scalar::uint16(op),
-      array::uint16(op),     scalar::uint32(op), array::uint32(op),
-      scalar::uint64(op),    array::uint64(op),  scalar::half_float(op),
-      array::half_float(op), scalar::float_(op), array::float_(op),
-      scalar::double_(op),   array::double_(op)};
+  std::vector<ExprPtr> exprs = {
+      scalar::null(op),    array::null(op),    scalar::boolean(op), array::boolean(op),
+      scalar::int8(op),    array::int8(op),    scalar::int16(op),   array::int16(op),
+      scalar::int32(op),   array::int32(op),   scalar::int64(op),   array::int64(op),
+      scalar::uint8(op),   array::uint8(op),   scalar::uint16(op),  array::uint16(op),
+      scalar::uint32(op),  array::uint32(op),  scalar::uint64(op),  array::uint64(op),
+      scalar::float16(op), array::float16(op), scalar::float32(op), array::float32(op),
+      scalar::float64(op), array::float64(op)};
 
   for (auto ty : types) {
     int num_matches = 0;
@@ -145,7 +141,8 @@ TEST(TestLogicalType, NumberConcreteIsinstance) {
           << "Expr: " << expr->kind() << " Type: " << ty->ToString();
       num_matches += ty_matches;
     }
-    // No more than 2 matches per type
+    // Each logical type is represented twice in the list of exprs, once in
+    // array form, the other in scalar form
     ASSERT_LE(num_matches, 2);
   }
 }
