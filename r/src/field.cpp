@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-using namespace Rcpp;
-
 // [[Rcpp::export]]
 std::shared_ptr<arrow::Field> Field__initialize(
     const std::string& name, const std::shared_ptr<arrow::DataType>& field,

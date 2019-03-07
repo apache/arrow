@@ -17,7 +17,7 @@
 
 #include "./arrow_types.h"
 
-using namespace Rcpp;
+using Rcpp::RawVector_;
 
 // ------ arrow::io::Readable
 

@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-using namespace Rcpp;
-
 // [[Rcpp::export]]
 std::shared_ptr<arrow::MemoryPool> MemoryPool__default() {
   return std::shared_ptr<arrow::MemoryPool>(arrow::default_memory_pool(),

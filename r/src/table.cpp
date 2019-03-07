@@ -20,8 +20,7 @@
 #include <arrow/ipc/writer.h>
 #include "./arrow_types.h"
 
-using namespace Rcpp;
-using namespace arrow;
+using Rcpp::DataFrame;
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl) {

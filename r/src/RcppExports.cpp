@@ -227,7 +227,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // RecordBatch__to_dataframe
-List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch, bool use_threads);
+Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch, bool use_threads);
 RcppExport SEXP _arrow_RecordBatch__to_dataframe(SEXP batchSEXP, SEXP use_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -239,7 +239,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // Table__to_dataframe
-List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_threads);
+Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_threads);
 RcppExport SEXP _arrow_Table__to_dataframe(SEXP tableSEXP, SEXP use_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -274,12 +274,12 @@ BEGIN_RCPP
 END_RCPP
 }
 // ChunkedArray__from_list
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks, SEXP s_type);
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks, SEXP s_type);
 RcppExport SEXP _arrow_ChunkedArray__from_list(SEXP chunksSEXP, SEXP s_typeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< List >::type chunks(chunksSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type chunks(chunksSEXP);
     Rcpp::traits::input_parameter< SEXP >::type s_type(s_typeSEXP);
     rcpp_result_gen = Rcpp::wrap(ChunkedArray__from_list(chunks, s_type));
     return rcpp_result_gen;
@@ -1941,12 +1941,12 @@ BEGIN_RCPP
 END_RCPP
 }
 // RecordBatch__from_dataframe
-std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(DataFrame tbl);
+std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl);
 RcppExport SEXP _arrow_RecordBatch__from_dataframe(SEXP tblSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< DataFrame >::type tbl(tblSEXP);
+    Rcpp::traits::input_parameter< Rcpp::DataFrame >::type tbl(tblSEXP);
     rcpp_result_gen = Rcpp::wrap(RecordBatch__from_dataframe(tbl));
     return rcpp_result_gen;
 END_RCPP
@@ -1988,7 +1988,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // RecordBatch__names
-CharacterVector RecordBatch__names(const std::shared_ptr<arrow::RecordBatch>& batch);
+Rcpp::CharacterVector RecordBatch__names(const std::shared_ptr<arrow::RecordBatch>& batch);
 RcppExport SEXP _arrow_RecordBatch__names(SEXP batchSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -2024,7 +2024,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // ipc___SerializeRecordBatch__Raw
-RawVector ipc___SerializeRecordBatch__Raw(const std::shared_ptr<arrow::RecordBatch>& batch);
+Rcpp::RawVector ipc___SerializeRecordBatch__Raw(const std::shared_ptr<arrow::RecordBatch>& batch);
 RcppExport SEXP _arrow_ipc___SerializeRecordBatch__Raw(SEXP batchSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;

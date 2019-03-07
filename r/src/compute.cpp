@@ -17,9 +17,6 @@
 
 #include "./arrow_types.h"
 
-using namespace Rcpp;
-using namespace arrow;
-
 // [[Rcpp::export]]
 std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(
     bool allow_int_overflow, bool allow_time_truncate, bool allow_float_truncate) {

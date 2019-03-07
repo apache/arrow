@@ -17,7 +17,8 @@
 
 #include "./arrow_types.h"
 
-using namespace Rcpp;
+using Rcpp::CharacterVector;
+using Rcpp::List_;
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(List_ options) {

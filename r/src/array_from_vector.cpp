@@ -17,13 +17,10 @@
 
 #include "./arrow_types.h"
 
-using namespace Rcpp;
-using namespace arrow;
-
 namespace arrow {
 namespace r {
 
-std::shared_ptr<Array> MakeStringArray(StringVector_ vec) {
+std::shared_ptr<Array> MakeStringArray(Rcpp::StringVector_ vec) {
   R_xlen_t n = vec.size();
 
   std::shared_ptr<Buffer> null_buffer;
@@ -231,7 +228,7 @@ Status float_cast(T x, float* out) {
 
 template <>
 Status float_cast<double>(double x, float* out) {
-  //  TODO: is there some sort of floating point overflow ?
+  // TODO: is there some sort of floating point overflow ?
   *out = static_cast<float>(x);
   return Status::OK();
 }
@@ -288,8 +285,9 @@ struct Unbox<Type, enable_if_integer<Type>> {
         break;
     }
 
-    return Status::Invalid(tfm::format(
-        "Cannot convert R vector of type %s to integer Arrow array", type2name(obj)));
+    return Status::Invalid(
+        tfm::format("Cannot convert R vector of type %s to integer Arrow array",
+                    Rcpp::type2name(obj)));
   }
 
   template <typename T>
@@ -575,7 +573,7 @@ class TimeConverter : public VectorConverter {
   using BuilderType = typename TypeTraits<Type>::BuilderType;
 
  public:
-  TimeConverter(TimeUnit::type unit)
+  explicit TimeConverter(TimeUnit::type unit)
       : unit_(unit), multiplier_(get_time_multiplier(unit)) {}
 
   Status Init(ArrayBuilder* builder) override {
@@ -637,14 +635,14 @@ class TimeConverter : public VectorConverter {
 
 class TimestampConverter : public TimeConverter<TimestampType> {
  public:
-  TimestampConverter(TimeUnit::type unit) : TimeConverter<TimestampType>(unit) {}
+  explicit TimestampConverter(TimeUnit::type unit) : TimeConverter<TimestampType>(unit) {}
 
  protected:
-  virtual bool valid_R_object(SEXP obj) override {
+  bool valid_R_object(SEXP obj) override {
     return TYPEOF(obj) == REALSXP && Rf_inherits(obj, "POSIXct");
   }
 
-  virtual Status GetDifftimeMultiplier(SEXP obj, int* res) override {
+  Status GetDifftimeMultiplier(SEXP obj, int* res) override {
     *res = 1;
     return Status::OK();
   }
@@ -652,20 +650,20 @@ class TimestampConverter : public TimeConverter<TimestampType> {
 
 class Time32Converter : public TimeConverter<Time32Type> {
  public:
-  Time32Converter(TimeUnit::type unit) : TimeConverter<Time32Type>(unit) {}
+  explicit Time32Converter(TimeUnit::type unit) : TimeConverter<Time32Type>(unit) {}
 
  protected:
-  virtual bool valid_R_object(SEXP obj) override {
+  bool valid_R_object(SEXP obj) override {
     return TYPEOF(obj) == REALSXP && Rf_inherits(obj, "difftime");
   }
 };
 
 class Time64Converter : public TimeConverter<Time64Type> {
  public:
-  Time64Converter(TimeUnit::type unit) : TimeConverter<Time64Type>(unit) {}
+  explicit Time64Converter(TimeUnit::type unit) : TimeConverter<Time64Type>(unit) {}
 
  protected:
-  virtual bool valid_R_object(SEXP obj) override {
+  bool valid_R_object(SEXP obj) override {
     return TYPEOF(obj) == REALSXP && Rf_inherits(obj, "difftime");
   }
 };
@@ -826,7 +824,7 @@ inline bool is_na<int>(int value) {
 template <int RTYPE, typename Type>
 std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
   using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
-  Rcpp::Vector<RTYPE, NoProtectStorage> vec(x);
+  Rcpp::Vector<RTYPE, Rcpp::NoProtectStorage> vec(x);
   auto n = vec.size();
   auto p_vec_start = reinterpret_cast<value_type*>(vec.begin());
   auto p_vec_end = p_vec_start + n;
@@ -863,9 +861,8 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
     buffers[0] = std::move(null_bitmap);
   }
 
-  auto data = ArrayData::Make(
-      std::make_shared<Type>(), LENGTH(x), std::move(buffers), null_count, 0 /*offset*/
-  );
+  auto data = ArrayData::Make(std::make_shared<Type>(), LENGTH(x), std::move(buffers),
+                              null_count, 0);
 
   // return the right Array class
   return std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
@@ -931,7 +928,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(
       return arrow::r::MakeFactorArray(x, type);
     }
 
-    stop("Object incompatible with dictionary type");
+    Rcpp::stop("Object incompatible with dictionary type");
   }
 
   // general conversion with converter and builder
@@ -975,7 +972,8 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks, SEXP s_type) {
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
+                                                             SEXP s_type) {
   std::vector<std::shared_ptr<arrow::Array>> vec;
 
   // the type might be NULL, in which case we need to infer it from the data
@@ -986,7 +984,7 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks, SEXP s
   std::shared_ptr<arrow::DataType> type;
   if (type_infered) {
     if (n == 0) {
-      stop("type must be specified for empty list");
+      Rcpp::stop("type must be specified for empty list");
     }
     type = arrow::r::InferType(VECTOR_ELT(chunks, 0));
   } else {

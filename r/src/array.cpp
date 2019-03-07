@@ -17,8 +17,8 @@
 
 #include "./arrow_types.h"
 
-using namespace Rcpp;
-using namespace arrow;
+using Rcpp::LogicalVector;
+using Rcpp::no_init;
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array,
