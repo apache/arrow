@@ -1084,6 +1084,7 @@ def test_object_id_randomness():
     second_object_id = subprocess.check_output(["python", "-c", cmd])
     assert first_object_id != second_object_id
 
+
 @pytest.mark.plasma
 def test_store_capacity():
     import pyarrow.plasma as plasma
