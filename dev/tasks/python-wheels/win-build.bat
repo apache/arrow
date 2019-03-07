@@ -19,8 +19,8 @@
 
 conda update --yes --quiet conda
 
-conda create -n arrow -q -y python=%PYTHON% ^
-      six pytest setuptools numpy=%NUMPY% pandas
+conda create -n arrow -q -y python=%PYTHON_VERSION% ^
+      six pytest setuptools numpy=%NUMPY_VERSION% pandas
 
 conda install -n arrow -q -y -c conda-forge ^
       git flatbuffers rapidjson ^
@@ -42,6 +42,15 @@ popd
 set ARROW_HOME=%CONDA_PREFIX%\Library
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 
+IF NOT "%PYTHON_VERSION%" == "2.7" (
+  @rem Gandiva is not supported on Python 2.7
+  set PYARROW_WITH_GANDIVA=1
+  set BUILD_ARROW_GANDIVA=ON
+) else (
+  set PYARROW_WITH_GANDIVA=0
+  set BUILD_ARROW_GANDIVA=OFF
+)
+
 echo %ARROW_HOME%
 
 @rem Build and test Arrow C++ libraries
@@ -56,6 +65,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
+      -DARROW_GANDIVA=%BUILD_ARROW_GANDIVA%
       ..  || exit /B
 cmake --build . --target INSTALL --config Release  || exit /B
 
@@ -69,17 +79,16 @@ set PYTHONPATH=
 
 pushd %ARROW_SRC%\python
 set PYARROW_BUILD_TYPE=Release
+set PYARROW_WITH_PARQUET=1
+set PYARROW_WITH_STATIC_BOOST=1
+set PYARROW_BUNDLE_ARROW_CPP=1
 set SETUPTOOLS_SCM_PRETEND_VERSION=%PYARROW_VERSION%
 
 @rem Newer Cython versions are not available on conda-forge
 pip install -U pip
 pip install "Cython>=0.29"
 
-python setup.py build_ext ^
-       --with-parquet ^
-       --with-static-boost ^
-       --bundle-arrow-cpp ^
-       bdist_wheel  || exit /B
+python setup.py build_ext bdist_wheel || exit /B
 popd
 
 @rem test the wheel
@@ -89,5 +98,16 @@ conda create -n wheel-test -q -y python=%PYTHON% ^
 call activate wheel-test
 
 pip install --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow
-python -c "import pyarrow; import pyarrow.parquet"
+
+@rem test the imports
+python -c "
+import sys
+import pyarrow
+import pyarrow.parquet
+
+if sys.version_info.major > 2:
+    import pyarrow.gandiva
+"
+
+@rem run the python tests
 pytest --pyargs pyarrow
