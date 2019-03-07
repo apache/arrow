@@ -42,15 +42,6 @@ popd
 set ARROW_HOME=%CONDA_PREFIX%\Library
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 
-IF NOT "%PYTHON_VERSION%" == "2.7" (
-  @rem Gandiva is not supported on Python 2.7
-  set PYARROW_WITH_GANDIVA=1
-  set BUILD_ARROW_GANDIVA=ON
-) else (
-  set PYARROW_WITH_GANDIVA=0
-  set BUILD_ARROW_GANDIVA=OFF
-)
-
 echo %ARROW_HOME%
 
 @rem Build and test Arrow C++ libraries
@@ -65,7 +56,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
-      -DARROW_GANDIVA=%BUILD_ARROW_GANDIVA%
+      -DARROW_GANDIVA=ON ^
       ..  || exit /B
 cmake --build . --target INSTALL --config Release  || exit /B
 
@@ -79,6 +70,8 @@ set PYTHONPATH=
 
 pushd %ARROW_SRC%\python
 set PYARROW_BUILD_TYPE=Release
+@rem Gandiva is not supported on Python 2.7, but We don't build 2.7 wheel for windows
+set PYARROW_WITH_GANDIVA=0
 set PYARROW_WITH_PARQUET=1
 set PYARROW_WITH_STATIC_BOOST=1
 set PYARROW_BUNDLE_ARROW_CPP=1
@@ -101,12 +94,9 @@ pip install --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow
 
 @rem test the imports
 python -c "
-import sys
 import pyarrow
 import pyarrow.parquet
-
-if sys.version_info.major > 2:
-    import pyarrow.gandiva
+import pyarrow.gandiva
 "
 
 @rem run the python tests
