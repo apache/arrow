@@ -15,9 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
-
-using namespace Rcpp;
+#include "./arrow_types.h"
 
 // ---------- TableWriter
 

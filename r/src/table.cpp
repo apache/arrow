@@ -18,7 +18,7 @@
 #include <arrow/io/file.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
-#include "arrow_types.h"
+#include "./arrow_types.h"
 
 using namespace Rcpp;
 using namespace arrow;

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
+#include "./arrow_types.h"
 
 // [[Rcpp::export]]
 bool Buffer__is_mutable(const std::shared_ptr<arrow::Buffer>& buffer) {

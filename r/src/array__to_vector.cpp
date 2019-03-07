@@ -17,7 +17,7 @@
 
 #include <arrow/util/parallel.h>
 #include <arrow/util/task-group.h>
-#include "arrow_types.h"
+#include "./arrow_types.h"
 
 using namespace Rcpp;
 using namespace arrow;
