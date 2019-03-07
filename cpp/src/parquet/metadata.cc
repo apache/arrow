@@ -427,12 +427,12 @@ class FileMetaData::FileMetaDataImpl {
               const void* tail, uint32_t tail_len) {
     // re-encrypt the footer
     uint8_t* encrypted_file_metadata;
-    uint32_t encrypted_file_metadata_len;
+    uint32_t encrypted_file_metadata_len = metadata_len_;
     ThriftSerializer serializer;
     serializer.SerializeToBuffer(metadata_.get(), &encrypted_file_metadata_len,
                                  &encrypted_file_metadata, encryption);
-    // compare
-    if (0 != memcmp(encrypted_file_metadata + encrypted_file_metadata_len - tail_len,
+    // compare (not count 4 bytes at the end for length)
+    if (0 != memcmp(encrypted_file_metadata + encrypted_file_metadata_len - tail_len - 4,
         reinterpret_cast<const uint8_t*>(tail), tail_len)) {
       return false;
     }
@@ -471,7 +471,8 @@ class FileMetaData::FileMetaDataImpl {
       serializer.SerializeToBuffer(metadata_.get(), &encrypted_file_metadata_len,
                                    &encrypted_file_metadata, encryption);
       // 2. write 28 bytes of nonce_and_tag (at the end of encrypted file metadata)
-      dst->Write(encrypted_file_metadata+encrypted_file_metadata_len-28, 28);
+      // (not count 4 bytes at the end for length)
+      dst->Write(encrypted_file_metadata+encrypted_file_metadata_len-32, 28);
     }
     else {
       serializer.Serialize(metadata_.get(), dst, encryption, false);

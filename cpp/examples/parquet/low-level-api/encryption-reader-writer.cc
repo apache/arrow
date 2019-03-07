@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
   file_decryption_properties.push_back(decryption_properties_2);
   file_decryption_properties.push_back(decryption_properties_3);
 
-  for (int i = 0; i < file_encryption_properties.size(); ++i) {
+  for (unsigned i = 0; i < file_encryption_properties.size(); ++i) {
     /**********************************************************************************
                                PARQUET WRITER EXAMPLE
     **********************************************************************************/
