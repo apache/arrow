@@ -170,9 +170,9 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
       )
 
       @expected_columnar_result = [
-        @boolean_values.map {|x| x && Arrow::BooleanArray.new(x) },
+        @boolean_values,
         @decimal128_values.map {|x|
-          x && Arrow::Decimal128Array.new(@decimal128_data_type, x)
+          x && x.map {|y| y && BigDecimal(y)}
         }
       ]
     end
@@ -216,9 +216,13 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
       struct_field_names = @struct_array.value_data_type.fields.map(&:name)
       @expected_columnar_result = [
         @struct_values.map {|x|
-          h = struct_field_names.zip(x || []).to_h
-          h['decimal'] &&= BigDecimal(h['decimal'])
-          h
+          if x
+            h = struct_field_names.zip(x || []).to_h
+            h['decimal'] &&= BigDecimal(h['decimal'])
+            h
+          else
+            nil
+          end
         }
       ]
     end
@@ -310,6 +314,8 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
             child.value_data_type.fields.map {|f|
               [f.name, child.find_field(f.name)[offset]]
             }.to_h
+          when Arrow::ListArray
+            child[offset].to_a
           else
             child[offset]
           end

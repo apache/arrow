@@ -22,7 +22,7 @@
 #include <ruby.hpp>
 #include <ruby/encoding.h>
 
-#include <arrow-glib/decimal128.hpp>
+#include <arrow-glib/error.hpp>
 
 #include <arrow/util/logging.h>
 
@@ -30,504 +30,657 @@ namespace red_arrow {
   namespace {
     using Status = arrow::Status;
 
-    class ArrayConverter : public arrow::ArrayVisitor {
-     public:
-      ArrayConverter() {}
-
-     protected:
-      inline VALUE ConvertValue(const arrow::Array& array, const int64_t i) {
-#define ARRAY_CONVERT_VALUE_INLINE(TYPE_CLASS) \
-  case arrow::TYPE_CLASS::type_id: \
-    { \
-      using ArrayType = typename arrow::TypeTraits<arrow::TYPE_CLASS>::ArrayType; \
-      return ConvertValue(arrow::internal::checked_cast<const ArrayType&>(array), i); \
+    void check_status(const Status&& status, const char* context) {
+      GError* error = nullptr;
+      if (!garrow_error_check(&error, status, context)) {
+        RG_RAISE_ERROR(error);
+      }
     }
 
-        switch (array.type_id()) {
-          ARRAY_CONVERT_VALUE_INLINE(NullType);
-          ARRAY_CONVERT_VALUE_INLINE(BooleanType);
-          ARRAY_CONVERT_VALUE_INLINE(Int8Type);
-          ARRAY_CONVERT_VALUE_INLINE(UInt8Type);
-          ARRAY_CONVERT_VALUE_INLINE(Int16Type);
-          ARRAY_CONVERT_VALUE_INLINE(UInt16Type);
-          ARRAY_CONVERT_VALUE_INLINE(Int32Type);
-          ARRAY_CONVERT_VALUE_INLINE(UInt32Type);
-          ARRAY_CONVERT_VALUE_INLINE(Int64Type);
-          ARRAY_CONVERT_VALUE_INLINE(UInt64Type);
-          ARRAY_CONVERT_VALUE_INLINE(HalfFloatType); // TODO: test
-          ARRAY_CONVERT_VALUE_INLINE(FloatType);
-          ARRAY_CONVERT_VALUE_INLINE(DoubleType);
-          ARRAY_CONVERT_VALUE_INLINE(Decimal128Type);
-          ARRAY_CONVERT_VALUE_INLINE(FixedSizeBinaryType); // TODO: test
-          ARRAY_CONVERT_VALUE_INLINE(StringType);
-          ARRAY_CONVERT_VALUE_INLINE(BinaryType);
-          ARRAY_CONVERT_VALUE_INLINE(Date32Type);
-          ARRAY_CONVERT_VALUE_INLINE(Date64Type);
-          ARRAY_CONVERT_VALUE_INLINE(TimestampType);
-          ARRAY_CONVERT_VALUE_INLINE(Time32Type); // TODO: test
-          ARRAY_CONVERT_VALUE_INLINE(Time64Type); // TODO: test
-          ARRAY_CONVERT_VALUE_INLINE(ListType);
-          ARRAY_CONVERT_VALUE_INLINE(StructType);
-          ARRAY_CONVERT_VALUE_INLINE(DictionaryType);
-          ARRAY_CONVERT_VALUE_INLINE(UnionType);
-          default:
-            break;
-        }
-#undef ARRAY_CONVERT_VALUE_INLINE
+    class ListArrayValueConverter;
+    class StructArrayValueConverter;
+    class UnionArrayValueConverter;
+    class DictionaryArrayValueConverter;
 
-        // TODO: NotImplemented("Unsupported array in ConvertValue");
-        return rb::protect([] {
-          rb_raise(rb_eNotImpError,
-                   "Unsupported array in ConvertValue");
-          return Qnil;
-        });
+    class ArrayValueConverter {
+    public:
+      ArrayValueConverter()
+        : decimal_buffer_(),
+          list_array_value_converter_(nullptr),
+          struct_array_value_converter_(nullptr),
+          union_array_value_converter_(nullptr),
+          dictionary_array_value_converter_(nullptr) {
       }
 
-      inline VALUE ConvertValue(const arrow::NullArray& array, const int64_t i) {
-        return Qnil;
+      void set_sub_value_converters(ListArrayValueConverter* list_array_value_converter,
+                                    StructArrayValueConverter* struct_array_value_converter,
+                                    UnionArrayValueConverter* union_array_value_converter,
+                                    DictionaryArrayValueConverter* dictionary_array_value_converter) {
+        list_array_value_converter_ = list_array_value_converter;
+        struct_array_value_converter_ = struct_array_value_converter;
+        union_array_value_converter_ = union_array_value_converter;
+        dictionary_array_value_converter_ = dictionary_array_value_converter;
       }
 
-      inline VALUE ConvertValue(const arrow::BooleanArray& array, const int64_t i) {
-        bool value = array.Value(i);
-        return value ? Qtrue : Qfalse;
+      inline VALUE convert(const arrow::BooleanArray& array,
+                           const int64_t i) {
+        return array.Value(i) ? Qtrue : Qfalse;
       }
 
-      template <typename ArrayType>
-      inline VALUE ConvertSignedIntegerValue(const ArrayType& array, const int64_t i) {
-        return rb::protect([&]{ return LL2NUM(array.Value(i)); });
+      inline VALUE convert(const arrow::Int8Array& array,
+                           const int64_t i) {
+        return INT2NUM(array.Value(i));
       }
 
-#define CONVERT_SIGNED_INTEGER(TYPE) \
-  VALUE ConvertValue(const TYPE& array, const int64_t i) { \
-    return ConvertSignedIntegerValue<TYPE>(array, i); \
-  }
-
-      CONVERT_SIGNED_INTEGER(arrow::Int8Array)
-      CONVERT_SIGNED_INTEGER(arrow::Int16Array)
-      CONVERT_SIGNED_INTEGER(arrow::Int32Array)
-      CONVERT_SIGNED_INTEGER(arrow::Int64Array)
-
-#undef CONVERT_SIGNED_INTEGER
-
-      template <typename ArrayType>
-      inline VALUE ConvertUnsignedIntegerValue(const ArrayType& array, const int64_t i) {
-        return rb::protect([&]{ return ULL2NUM(array.Value(i)); });
+      inline VALUE convert(const arrow::Int16Array& array,
+                           const int64_t i) {
+        return INT2NUM(array.Value(i));
       }
 
-#define CONVERT_UNSIGNED_INTEGER(TYPE) \
-  VALUE ConvertValue(const TYPE& array, const int64_t i) { \
-    return ConvertUnsignedIntegerValue<TYPE>(array, i); \
-  }
-
-      CONVERT_UNSIGNED_INTEGER(arrow::UInt8Array)
-      CONVERT_UNSIGNED_INTEGER(arrow::UInt16Array)
-      CONVERT_UNSIGNED_INTEGER(arrow::UInt32Array)
-      CONVERT_UNSIGNED_INTEGER(arrow::UInt64Array)
-
-#undef CONVERT_UNSIGNED_INTEGER
-
-      template <typename ArrayType>
-      inline VALUE ConvertFloatValue(const ArrayType& array, const int64_t i) {
-        return rb::protect([&]{ return DBL2NUM(array.Value(i)); });
+      inline VALUE convert(const arrow::Int32Array& array,
+                           const int64_t i) {
+        return INT2NUM(array.Value(i));
       }
 
-#define CONVERT_FLOAT(TYPE) \
-  VALUE ConvertValue(const TYPE& array, const int64_t i) { \
-    return ConvertFloatValue<TYPE>(array, i); \
-  }
-
-      CONVERT_FLOAT(arrow::FloatArray)
-      CONVERT_FLOAT(arrow::DoubleArray)
-
-#undef CONVERT_FLOAT
-
-      inline VALUE ConvertValue(const arrow::HalfFloatArray& array, const int64_t i) {
-        // FIXME: should convert to Float
-        return rb::protect([&]{
-          return LONG2FIX(static_cast<long>(array.Value(i)));
-        });
+      inline VALUE convert(const arrow::Int64Array& array,
+                           const int64_t i) {
+        return LL2NUM(array.Value(i));
       }
 
-      inline VALUE ConvertValue(const arrow::Decimal128Array& array, const int64_t i) {
-        auto decimal_str = array.FormatValue(i);
-        return rb::protect([&]{
-          return rb_funcall(rb_cObject, id_BigDecimal, 1,
-                            rb_enc_str_new(decimal_str.c_str(), decimal_str.length(), rb_ascii8bit_encoding()));
-        });
+      inline VALUE convert(const arrow::UInt8Array& array,
+                           const int64_t i) {
+        return UINT2NUM(array.Value(i));
       }
 
-      inline VALUE ConvertValue(const arrow::FixedSizeBinaryArray& array, const int64_t i, VALUE buffer) {
-        const auto byte_width = array.byte_width();
-        return rb::protect([&]{ return rb_str_substr(buffer, i*byte_width, byte_width); });
+      inline VALUE convert(const arrow::UInt16Array& array,
+                           const int64_t i) {
+        return UINT2NUM(array.Value(i));
       }
 
-      inline VALUE ConvertValue(const arrow::FixedSizeBinaryArray& array, const int64_t i) {
-        const auto byte_width = array.byte_width();
-        const auto offset = i * byte_width;
-        const auto ptr = reinterpret_cast<const char*>(array.raw_values());
-        return rb::protect([&]{
-          return rb_enc_str_new(ptr + offset, byte_width, rb_ascii8bit_encoding());
-        });
+      inline VALUE convert(const arrow::UInt32Array& array,
+                           const int64_t i) {
+        return UINT2NUM(array.Value(i));
       }
 
-      inline VALUE ConvertValue(const arrow::BinaryArray& array, const int64_t i) {
+      inline VALUE convert(const arrow::UInt64Array& array,
+                           const int64_t i) {
+        return ULL2NUM(array.Value(i));
+      }
+
+      // TODO
+      // inline VALUE convert(const arrow::HalfFloatArray& array,
+      //                      const int64_t i) {
+      // }
+
+      inline VALUE convert(const arrow::FloatArray& array,
+                           const int64_t i) {
+        return DBL2NUM(array.Value(i));
+      }
+
+      inline VALUE convert(const arrow::DoubleArray& array,
+                           const int64_t i) {
+        return DBL2NUM(array.Value(i));
+      }
+
+      inline VALUE convert(const arrow::BinaryArray& array,
+                           const int64_t i) {
         int32_t length;
-        const uint8_t* ptr = array.GetValue(i, &length);
-        return rb::protect([&]{
-          return rb_enc_str_new(reinterpret_cast<const char*>(ptr), length, rb_ascii8bit_encoding());
-        });
-      }
-
-      inline VALUE ConvertValue(const arrow::StringArray& array, const int64_t i) {
-        int32_t length;
-        const uint8_t* ptr = array.GetValue(i, &length);
+        const auto value = array.GetValue(i, &length);
         // TODO: encoding support
-        return rb::protect([&]{
-          return rb_utf8_str_new(reinterpret_cast<const char*>(ptr), length);
-        });
+        return rb_enc_str_new(reinterpret_cast<const char*>(value),
+                              length,
+                              rb_ascii8bit_encoding());
       }
 
-      inline VALUE ConvertValue(const arrow::Date32Array& array, const int64_t i) {
-        const static int32_t JD_UNIX_EPOCH = 2440588; // UNIX epoch in Julian date
-        auto raw_value = array.Value(i);
-        auto days_in_julian = raw_value + JD_UNIX_EPOCH;
-        return rb::protect([&]{
-          return rb_funcall(cDate, id_jd, 1, LONG2NUM(days_in_julian));
-        });
+      inline VALUE convert(const arrow::StringArray& array,
+                           const int64_t i) {
+        int32_t length;
+        const auto value = array.GetValue(i, &length);
+        return rb_utf8_str_new(reinterpret_cast<const char*>(value),
+                               length);
       }
 
-      inline VALUE ConvertValue(const arrow::Date64Array& array, const int64_t i) {
-        return rb::protect([&]{
-          auto raw_value = array.Value(i);
-          auto msec = LL2NUM(raw_value);
-          auto sec = rb_rational_new(msec, INT2NUM(1000));
-          auto time_value = rb_time_num_new(sec, Qnil);
-          return rb_funcall(time_value, id_to_datetime, 0, 0);
-        });
+      inline VALUE convert(const arrow::FixedSizeBinaryArray& array,
+                           const int64_t i) {
+        return rb_enc_str_new(reinterpret_cast<const char*>(array.Value(i)),
+                              array.byte_width(),
+                              rb_ascii8bit_encoding());
       }
 
-      inline VALUE ConvertValue(const arrow::Time32Array& array, const int64_t i) {
+      const int32_t JULIAN_DATE_UNIX_EPOCH = 2440588;
+      inline VALUE convert(const arrow::Date32Array& array,
+                           const int64_t i) {
+        const auto value = array.Value(i);
+        const auto days_in_julian = value + JULIAN_DATE_UNIX_EPOCH;
+        return rb_funcall(cDate, id_jd, 1, LONG2NUM(days_in_julian));
+      }
+
+      inline VALUE convert(const arrow::Date64Array& array,
+                           const int64_t i) {
+        const auto value = array.Value(i);
+        auto msec = LL2NUM(value);
+        auto sec = rb_rational_new(msec, INT2NUM(1000));
+        auto time_value = rb_time_num_new(sec, Qnil);
+        return rb_funcall(time_value, id_to_datetime, 0, 0);
+      }
+
+      inline VALUE convert(const arrow::Time32Array& array,
+                           const int64_t i) {
         // TODO: must test this function
         // TODO: unit treatment
-        return rb::protect([&]{
-          auto raw_value = array.Value(i);
-          return LONG2NUM(raw_value);
-        });
+        const auto value = array.Value(i);
+        return INT2NUM(value);
       }
 
-      inline VALUE ConvertValue(const arrow::Time64Array& array, const int64_t i) {
+      inline VALUE convert(const arrow::Time64Array& array,
+                           const int64_t i) {
         // TODO: must test this function
         // TODO: unit treatment
-        return rb::protect([&]{
-          auto raw_value = array.Value(i);
-          return LL2NUM(raw_value);
-        });
+        const auto value = array.Value(i);
+        return LL2NUM(value);
       }
 
-      inline VALUE ConvertValue(const arrow::TimestampArray& array, const int64_t i, VALUE scale) {
-        return rb::protect([&]{
-          auto raw_value = array.Value(i);
-          VALUE sec = rb_rational_new(LL2NUM(raw_value), scale);
-          return rb_time_num_new(sec, Qnil);
-        });
-      }
-
-      inline VALUE ConvertValue(const arrow::TimestampArray& array, const int64_t i) {
-        const auto& type = arrow::internal::checked_cast<const arrow::TimestampType&>(*array.type());
-        VALUE scale = time_unit_to_scale(type.unit());
+      inline VALUE convert(const arrow::TimestampArray& array,
+                           const int64_t i) {
+        const arrow::TimestampType* type;
+        {
+          auto type_shared = array.type();
+          type =
+            arrow::internal::checked_cast<const arrow::TimestampType*>(&(*type_shared));
+        }
+        VALUE scale = time_unit_to_scale(type->unit());
         if (NIL_P(scale)) {
-          rb::protect([] {
-            rb_raise(rb_eArgError, "Invalid TimeUnit");
-            return Qnil;
-          });
+          rb_raise(rb_eArgError, "Invalid TimeUnit");
         }
-        return ConvertValue(array, i, scale);
+        auto value = array.Value(i);
+        VALUE sec = rb_rational_new(LL2NUM(value), scale);
+        return rb_time_num_new(sec, Qnil);
       }
 
-      inline VALUE ConvertValue(const arrow::ListArray& array, const int64_t i) {
-        return rb::protect([&]{
-          auto list = array.values()->Slice(array.value_offset(i), array.value_length(i));
-          auto gobj = garrow_array_new_raw(&list);
-          return GOBJ2RVAL(gobj);
-        });
+      // TODO
+      // inline VALUE convert(const arrow::IntervalArray& array,
+      //                      const int64_t i) {
+      // };
+
+      VALUE convert(const arrow::ListArray& array,
+                    const int64_t i);
+
+      VALUE convert(const arrow::StructArray& array,
+                    const int64_t i);
+
+      VALUE convert(const arrow::UnionArray& array,
+                    const int64_t i);
+
+      VALUE convert(const arrow::DictionaryArray& array,
+                    const int64_t i);
+
+      inline VALUE convert(const arrow::Decimal128Array& array,
+                           const int64_t i) {
+        decimal_buffer_ = array.FormatValue(i);
+        return rb_funcall(rb_cObject,
+                          id_BigDecimal,
+                          1,
+                          rb_enc_str_new(decimal_buffer_.data(),
+                                         decimal_buffer_.length(),
+                                         rb_ascii8bit_encoding()));
       }
 
-      inline VALUE ConvertValue(const arrow::StructArray& array, const int64_t i) {
-        const auto* struct_type = array.struct_type();
-        const auto n = struct_type->num_children();
-        return rb::protect([&] {
-          VALUE record = rb_hash_new();
-          for (int j = 0; j < n; ++j) {
-            auto field_type = struct_type->child(j);
-            auto& field_name = field_type->name();
-            VALUE key = rb_utf8_str_new(field_name.c_str(), field_name.length());
-            const auto& field_array = *array.field(j);
-            VALUE val = ConvertValue(field_array, i);
-            rb_hash_aset(record, key, val);
-          }
-          return record;
-        });
-      }
+    private:
+      std::string decimal_buffer_;
+      ListArrayValueConverter* list_array_value_converter_;
+      StructArrayValueConverter* struct_array_value_converter_;
+      UnionArrayValueConverter* union_array_value_converter_;
+      DictionaryArrayValueConverter* dictionary_array_value_converter_;
+    };
 
-      inline VALUE ConvertSparseUnionArray(const arrow::UnionArray& array, const int64_t i) {
-        DCHECK(array.mode() == arrow::UnionMode::SPARSE);
-        const auto* type_ids = array.raw_type_ids();
-        const auto& child_array = *array.UnsafeChild(type_ids[i]);
-        return ConvertValue(child_array, i);
-      }
+    class ListArrayValueConverter : public arrow::ArrayVisitor {
+    public:
+      explicit ListArrayValueConverter(ArrayValueConverter* converter)
+        : array_value_converter_(converter),
+          offset_(0),
+          length_(0),
+          result_(Qnil) {}
 
-      inline VALUE ConvertDenseUnionArray(const arrow::UnionArray& array, const int64_t i) {
-        DCHECK(array.mode() == arrow::UnionMode::DENSE);
-        const auto* type_ids = array.raw_type_ids();
-        const auto* value_offsets = array.raw_value_offsets();
-        const auto offset = value_offsets[i];
-        const auto& child_array = *array.UnsafeChild(type_ids[i]);
-        return ConvertValue(child_array, offset);
-      }
-
-      inline VALUE ConvertValue(const arrow::UnionArray& array, const int64_t i) {
-        switch (array.mode()) {
-          case arrow::UnionMode::SPARSE:
-            return ConvertSparseUnionArray(array, i);
-
-          case arrow::UnionMode::DENSE:
-            return ConvertDenseUnionArray(array, i);
+      VALUE convert(const arrow::ListArray& array, const int64_t index) {
+        arrow::Array* values;
+        {
+          values = &(*array.values());
         }
-
-        // TODO: return Status::Invalid("Invalid union mode");
-        return rb::protect([] {
-          rb_raise(rb_eArgError, "Invalid union mode");
-          return Qnil;
-        });
+        offset_ = array.value_offset(index);
+        length_ = array.value_length(index);
+        result_ = rb_ary_new_capa(length_);
+        check_status(values->Accept(this),
+                     "[raw-records][list-array]");
+        return result_;
       }
 
-      inline VALUE ConvertValue(const arrow::DictionaryArray& array, const int64_t i) {
-        auto indices = array.indices();
-        return ConvertValue(*indices, i);
+#define VISIT(TYPE)                                                     \
+      Status Visit(const arrow::TYPE ## Array& array) override {        \
+        return visit_value(array);                                      \
       }
 
-      Status Visit(const arrow::NullArray& array) override {
-        const int64_t nr = array.length();
-        for (int64_t i = 0; i < nr; ++i) {
-          // FIXME: Explicit storing Qnil can be cancelled
-          RETURN_NOT_OK(VisitValue(i, Qnil));
-        }
-        return Status::OK();
+      VISIT(Boolean)
+      VISIT(Int8)
+      VISIT(Int16)
+      VISIT(Int32)
+      VISIT(Int64)
+      VISIT(UInt8)
+      VISIT(UInt16)
+      VISIT(UInt32)
+      VISIT(UInt64)
+      // TODO
+      // VISIT(HalfFloat)
+      VISIT(Float)
+      VISIT(Double)
+      VISIT(Binary)
+      VISIT(String)
+      VISIT(FixedSizeBinary)
+      VISIT(Date32)
+      VISIT(Date64)
+      VISIT(Time32)
+      VISIT(Time64)
+      VISIT(Timestamp)
+      // TODO
+      // VISIT(Interval)
+      VISIT(List)
+      VISIT(Struct)
+      VISIT(Union)
+      VISIT(Dictionary)
+      VISIT(Decimal128)
+      // TODO
+      // VISIT(Extension)
+
+#undef VISIT
+
+    private:
+      template <typename ArrayType>
+      inline VALUE convert_value(const ArrayType& array,
+                                 const int64_t i) {
+        return array_value_converter_->convert(array, i);
       }
-
-      template <typename TYPE>
-      inline Status VisitConvertValue(const TYPE& array) {
-        const int64_t nr = array.length();
-        if (array.null_count() > 0) {
-          for (int64_t i = 0; i < nr; ++i) {
-            if (array.IsNull(i)) {
-              RETURN_NOT_OK(VisitValue(i, Qnil));
-            } else {
-              RETURN_NOT_OK(VisitValue(i, ConvertValue(array, i)));
-            }
-          }
-        } else {
-          for (int64_t i = 0; i < nr; ++i) {
-            RETURN_NOT_OK(VisitValue(i, ConvertValue(array, i)));
-          }
-        }
-        return Status::OK();
-      }
-
-#define VISIT_CONVERT_VALUE(TYPE) \
-  Status Visit(const arrow::TYPE ## Array& array) override { \
-    return VisitConvertValue<arrow::TYPE ## Array>(array); \
-  }
-
-      VISIT_CONVERT_VALUE(Boolean)
-      VISIT_CONVERT_VALUE(Int8)
-      VISIT_CONVERT_VALUE(Int16)
-      VISIT_CONVERT_VALUE(Int32)
-      VISIT_CONVERT_VALUE(Int64)
-      VISIT_CONVERT_VALUE(UInt8)
-      VISIT_CONVERT_VALUE(UInt16)
-      VISIT_CONVERT_VALUE(UInt32)
-      VISIT_CONVERT_VALUE(UInt64)
-      VISIT_CONVERT_VALUE(Float)
-      VISIT_CONVERT_VALUE(Double)
-      VISIT_CONVERT_VALUE(HalfFloat)
-      VISIT_CONVERT_VALUE(String)
-      VISIT_CONVERT_VALUE(Date32)
-      VISIT_CONVERT_VALUE(Date64)
-      VISIT_CONVERT_VALUE(Time32)
-      VISIT_CONVERT_VALUE(Time64)
-      VISIT_CONVERT_VALUE(List)
-      VISIT_CONVERT_VALUE(Union)
-
-#undef VISIT_CONVERT_VALUE
 
       template <typename ArrayType>
-      Status VisitColumn(const ArrayType& array, std::function<VALUE(const int64_t)> fetch_value) {
-        const int64_t nr = array.length();
+      Status visit_value(const ArrayType& array) {
         if (array.null_count() > 0) {
-          for (int64_t i = 0; i < nr; ++i) {
-            if (array.IsNull(i)) {
-              RETURN_NOT_OK(VisitValue(i, Qnil));
-            } else {
-              RETURN_NOT_OK(VisitValue(i, fetch_value(i)));
+          for (int64_t i = 0; i < length_; ++i) {
+            VALUE value = Qnil;
+            if (!array.IsNull(i + offset_)) {
+              value = convert_value(array, i + offset_);
             }
+            rb_ary_push(result_, value);
           }
         } else {
-          for (int64_t i = 0; i < nr; ++i) {
-            RETURN_NOT_OK(VisitValue(i, fetch_value(i)));
+          for (int64_t i = 0; i < length_; ++i) {
+            rb_ary_push(result_, convert_value(array, i + offset_));
           }
         }
         return Status::OK();
       }
 
-      Status Visit(const arrow::TimestampArray& array) override {
-        const auto& type = arrow::internal::checked_cast<const arrow::TimestampType&>(*array.type());
-        VALUE scale = time_unit_to_scale(type.unit());
-        if (NIL_P(scale)) {
-          return Status::Invalid("Invalid TimeUnit");
-        }
-        return VisitColumn(array, [&](const int64_t i) {
-          return ConvertValue(array, i, scale);
-        });
-      }
-
-      Status Visit(const arrow::FixedSizeBinaryArray& array) override {
-        const auto byte_width = array.byte_width();
-        const auto ptr = reinterpret_cast<const char*>(array.raw_values());
-        VALUE buffer = rb::protect([&]{
-          long length = byte_width * array.length();
-          return rb_enc_str_new(ptr, length, rb_ascii8bit_encoding());
-        });
-        return VisitColumn(array, [&](const int64_t i) {
-          return ConvertValue(array, i, buffer);
-        });
-      }
-
-      Status Visit(const arrow::Decimal128Array& array) override {
-        return VisitColumn(array, [&](const int64_t i) {
-          return ConvertValue(array, i);
-        });
-      }
-
-      Status Visit(const arrow::DictionaryArray& array) override {
-        auto indices = array.indices();
-        return indices->Accept(this);
-      }
-
-      virtual Status VisitValue(const int64_t row_index, VALUE value) = 0;
+      ArrayValueConverter* array_value_converter_;
+      int32_t offset_;
+      int32_t length_;
+      VALUE result_;
     };
 
-    class StructArrayConverter : public ArrayConverter {
-     public:
-      using VisitValueFunc = std::function<Status(const int64_t, VALUE, VALUE)>;
+    class StructArrayValueConverter : public arrow::ArrayVisitor {
+    public:
+      explicit StructArrayValueConverter(ArrayValueConverter* converter)
+        : array_value_converter_(converter),
+          key_(Qnil),
+          index_(0),
+          result_(Qnil) {}
 
-      explicit StructArrayConverter(VisitValueFunc visit_value_func)
-          : ArrayConverter(), visit_value_func_(visit_value_func) {}
-
-      Status Convert(const arrow::StructArray& array) {
-        const auto* struct_type = array.struct_type();
-        const auto nf = struct_type->num_children();
-
-        RETURN_NOT_OK(collect_field_names(struct_type));
-
-        for (int k = 0; k < nf; ++k) {
-          field_index_ = k;
-
-          auto field_array = array.field(k);
-          RETURN_NOT_OK(field_array->Accept(this));
+      VALUE convert(const arrow::StructArray& array,
+                    const int64_t index) {
+        index_ = index;
+        result_ = rb_hash_new();
+        const auto struct_type = array.struct_type();
+        const auto n = struct_type->num_children();
+        for (int i = 0; i < n; ++i) {
+          const arrow::Field* field_type;
+          {
+            field_type = &(*struct_type->child(i));
+          }
+          const auto& field_name = field_type->name();
+          key_ = rb_utf8_str_new(field_name.data(), field_name.length());
+          const arrow::Array* field_array;
+          {
+            field_array = &(*array.field(i));
+          }
+          check_status(field_array->Accept(this),
+                       "[raw-records][struct-array]");
         }
-
-        return Status::OK();
+        return result_;
       }
 
-     protected:
-      using ArrayConverter::Visit;
-
-      Status Visit(const arrow::StructArray& array) override {
-        // FIXME
-        return Status::NotImplemented("Struct in Struct is not supported");
+#define VISIT(TYPE)                                                     \
+      Status Visit(const arrow::TYPE ## Array& array) override {        \
+        fill_field(array);                                              \
+        return Status::OK();                                            \
       }
 
-      Status VisitValue(const int64_t row_index, VALUE value) override {
-        VALUE field_name = field_names_[field_index_];
-        return visit_value_func_(row_index, field_name, value);
+      VISIT(Boolean)
+      VISIT(Int8)
+      VISIT(Int16)
+      VISIT(Int32)
+      VISIT(Int64)
+      VISIT(UInt8)
+      VISIT(UInt16)
+      VISIT(UInt32)
+      VISIT(UInt64)
+      // TODO
+      // VISIT(HalfFloat)
+      VISIT(Float)
+      VISIT(Double)
+      VISIT(Binary)
+      VISIT(String)
+      VISIT(FixedSizeBinary)
+      VISIT(Date32)
+      VISIT(Date64)
+      VISIT(Time32)
+      VISIT(Time64)
+      VISIT(Timestamp)
+      // TODO
+      // VISIT(Interval)
+      VISIT(List)
+      VISIT(Struct)
+      VISIT(Union)
+      VISIT(Dictionary)
+      VISIT(Decimal128)
+      // TODO
+      // VISIT(Extension)
+
+#undef VISIT
+
+    private:
+      template <typename ArrayType>
+      inline VALUE convert_value(const ArrayType& array,
+                                 const int64_t i) {
+        return array_value_converter_->convert(array, i);
       }
 
-     private:
-      Status collect_field_names(const arrow::StructType* type) {
-        const auto nf = type->num_children();
-        field_names_.reserve(nf);
-        (void)rb::protect([&]{
-          for (int i = 0; i < nf; ++i) {
-            auto field = type->child(i);
-            auto& name = field->name();
-            field_names_.push_back(rb_utf8_str_new(name.c_str(), name.length()));
+      template <typename ArrayType>
+      void fill_field(const ArrayType& array) {
+        if (array.IsNull(index_)) {
+          rb_hash_aset(result_, key_, Qnil);
+        } else {
+          rb_hash_aset(result_, key_, convert_value(array, index_));
+        }
+      }
+
+      ArrayValueConverter* array_value_converter_;
+      VALUE key_;
+      int64_t index_;
+      VALUE result_;
+    };
+
+    class UnionArrayValueConverter : public arrow::ArrayVisitor {
+    public:
+      explicit UnionArrayValueConverter(ArrayValueConverter* converter)
+        : array_value_converter_(converter),
+          index_(0),
+          result_(Qnil) {}
+
+      VALUE convert(const arrow::UnionArray& array,
+                    const int64_t index) {
+        index_ = index;
+        switch (array.mode()) {
+        case arrow::UnionMode::SPARSE:
+          convert_sparse(array);
+          break;
+        case arrow::UnionMode::DENSE:
+          convert_dense(array);
+          break;
+        default:
+          rb_raise(rb_eArgError, "Invalid union mode");
+          break;
+        }
+        return result_;
+      }
+
+#define VISIT(TYPE)                                                     \
+      Status Visit(const arrow::TYPE ## Array& array) override {        \
+        result_ = convert_value(array, index_);                         \
+        return Status::OK();                                            \
+      }
+
+      VISIT(Boolean)
+      VISIT(Int8)
+      VISIT(Int16)
+      VISIT(Int32)
+      VISIT(Int64)
+      VISIT(UInt8)
+      VISIT(UInt16)
+      VISIT(UInt32)
+      VISIT(UInt64)
+      // TODO
+      // VISIT(HalfFloat)
+      VISIT(Float)
+      VISIT(Double)
+      VISIT(Binary)
+      VISIT(String)
+      VISIT(FixedSizeBinary)
+      VISIT(Date32)
+      VISIT(Date64)
+      VISIT(Time32)
+      VISIT(Time64)
+      VISIT(Timestamp)
+      // TODO
+      // VISIT(Interval)
+      VISIT(List)
+      VISIT(Struct)
+      VISIT(Union)
+      VISIT(Dictionary)
+      VISIT(Decimal128)
+      // TODO
+      // VISIT(Extension)
+
+#undef VISIT
+    private:
+      template <typename ArrayType>
+      inline VALUE convert_value(const ArrayType& array,
+                                 const int64_t i) {
+        return array_value_converter_->convert(array, i);
+      }
+
+      void convert_sparse(const arrow::UnionArray& array) {
+        const auto* type_ids = array.raw_type_ids();
+        const auto& child_array = *array.UnsafeChild(type_ids[index_]);
+        check_status(child_array.Accept(this),
+                     "[raw-records][union-sparse-array]");
+      }
+
+      void convert_dense(const arrow::UnionArray& array) {
+        const auto type_id = array.raw_type_ids()[index_];
+        const auto offset = array.value_offset(index_);
+        const auto child_array = array.UnsafeChild(type_id);
+        const auto i = index_;
+        index_ = offset;
+        check_status(child_array->Accept(this),
+                     "[raw-records][union-dense-array]");
+        index_ = i;
+      }
+
+      ArrayValueConverter *array_value_converter_;
+      int64_t index_;
+      VALUE result_;
+    };
+
+    class DictionaryArrayValueConverter : public arrow::ArrayVisitor {
+    public:
+      explicit DictionaryArrayValueConverter(ArrayValueConverter* converter)
+        : array_value_converter_(converter),
+          index_(0),
+          result_(Qnil) {
+      }
+
+      VALUE convert(const arrow::DictionaryArray& array,
+                    const int64_t index) {
+        index_ = index;
+        arrow::Array* indices;
+        {
+          indices = &(*array.indices());
+        }
+        check_status(indices->Accept(this),
+                     "[raw-records][dictionary-array]");
+        return result_;
+      }
+
+      // TODO: Convert to real value.
+#define VISIT(TYPE)                                                     \
+      Status Visit(const arrow::TYPE ## Array& array) override {        \
+        result_ = convert_value(array, index_);                         \
+        return Status::OK();                                            \
+      }
+
+      VISIT(Int8)
+      VISIT(Int16)
+      VISIT(Int32)
+      VISIT(Int64)
+
+#undef VISIT
+
+    private:
+      template <typename ArrayType>
+      inline VALUE convert_value(const ArrayType& array,
+                                 const int64_t i) {
+        return array_value_converter_->convert(array, i);
+      }
+
+      ArrayValueConverter* array_value_converter_;
+      int64_t index_;
+      VALUE result_;
+    };
+
+    VALUE ArrayValueConverter::convert(const arrow::ListArray& array,
+                                       const int64_t i) {
+      return list_array_value_converter_->convert(array, i);
+    }
+
+    VALUE ArrayValueConverter::convert(const arrow::StructArray& array,
+                                       const int64_t i) {
+      return struct_array_value_converter_->convert(array, i);
+    }
+
+    VALUE ArrayValueConverter::convert(const arrow::UnionArray& array,
+                                       const int64_t i) {
+      return union_array_value_converter_->convert(array, i);
+    }
+
+    VALUE ArrayValueConverter::convert(const arrow::DictionaryArray& array,
+                                       const int64_t i) {
+      return dictionary_array_value_converter_->convert(array, i);
+    }
+
+    class RawRecordsBuilder : public arrow::ArrayVisitor {
+    public:
+      explicit RawRecordsBuilder(VALUE records, int n_columns)
+        : array_value_converter_(),
+          list_array_value_converter_(&array_value_converter_),
+          struct_array_value_converter_(&array_value_converter_),
+          union_array_value_converter_(&array_value_converter_),
+          dictionary_array_value_converter_(&array_value_converter_),
+          records_(records),
+          n_columns_(n_columns) {
+        array_value_converter_.
+          set_sub_value_converters(&list_array_value_converter_,
+                                   &struct_array_value_converter_,
+                                   &union_array_value_converter_,
+                                   &dictionary_array_value_converter_);
+      }
+
+      void build(const arrow::RecordBatch& record_batch) {
+        rb::protect([&] {
+          const auto n_rows = record_batch.num_rows();
+          for (int64_t i = 0; i < n_rows; ++i) {
+            VALUE record = rb_ary_new_capa(n_columns_);
+            rb_ary_push(records_, record);
+          }
+          for (int i = 0; i < n_columns_; ++i) {
+            const arrow::Array* array;
+            {
+              array = &(*record_batch.column(i));
+            }
+            column_index_ = i;
+            check_status(array->Accept(this),
+                         "[raw-records]");
           }
           return Qnil;
         });
-        return Status::OK();
       }
 
-      VisitValueFunc visit_value_func_;
-      std::vector<VALUE> field_names_;
-      int field_index_;
-    };
-
-    class RawRecordsBuilder : public ArrayConverter {
-     public:
-      RawRecordsBuilder(VALUE records, int num_columns)
-          : ArrayConverter(), records_(records), num_columns_(num_columns) {}
-
-      Status Add(const arrow::RecordBatch& record_batch) {
-        const int num_columns = record_batch.num_columns();
-        for (int i = 0; i < num_columns; ++i) {
-          auto array = record_batch.column(i);
-          column_index_ = i;
-          RETURN_NOT_OK(array->Accept(this));
-        }
-        return Status::OK();
+#define VISIT(TYPE)                                                     \
+      Status Visit(const arrow::TYPE ## Array& array) override {        \
+        convert(array);                                                 \
+        return Status::OK();                                            \
       }
 
-     protected:
-      using ArrayConverter::Visit;
+      VISIT(Boolean)
+      VISIT(Int8)
+      VISIT(Int16)
+      VISIT(Int32)
+      VISIT(Int64)
+      VISIT(UInt8)
+      VISIT(UInt16)
+      VISIT(UInt32)
+      VISIT(UInt64)
+      // TODO
+      // VISIT(HalfFloat)
+      VISIT(Float)
+      VISIT(Double)
+      VISIT(Binary)
+      VISIT(String)
+      VISIT(FixedSizeBinary)
+      VISIT(Date32)
+      VISIT(Date64)
+      VISIT(Time32)
+      VISIT(Time64)
+      VISIT(Timestamp)
+      // TODO
+      // VISIT(Interval)
+      VISIT(List)
+      VISIT(Struct)
+      VISIT(Union)
+      VISIT(Dictionary)
+      VISIT(Decimal128)
+      // TODO
+      // VISIT(Extension)
 
-      Status Visit(const arrow::StructArray& array) override {
-        StructArrayConverter converter(
-            [&](const int64_t row_index, VALUE key, VALUE val) {
-              VALUE hash = GetValue(row_index);
-              (void)rb::protect([&]{
-                if (NIL_P(hash)) {
-                  hash = rb_hash_new();
-                  VisitValue(row_index, hash);
-                }
-                return rb_hash_aset(hash, key, val);
-              });
-              return Status::OK();
-            });
-        return converter.Convert(array);
+#undef VISIT
+
+    private:
+      template <typename ArrayType>
+      inline VALUE convert_value(const ArrayType& array,
+                                 const int64_t i) {
+        return array_value_converter_.convert(array, i);
       }
 
-     private:
-      inline VALUE GetValue(const int64_t row_index) {
-        return rb::protect([&] {
-          VALUE record = rb_ary_entry(records_, row_index);
-          if (NIL_P(record)) return Qnil;
-          return rb_ary_entry(record, column_index_);
-        });
-      }
-
-      Status VisitValue(const int64_t row_index, VALUE val) override {
-        (void)rb::protect([&] {
-          VALUE record = rb_ary_entry(records_, row_index);
-          if (NIL_P(record)) {
-            record = rb_ary_new_capa(num_columns_);
-            rb_ary_store(records_, row_index, record);
+      template <typename ArrayType>
+      void convert(const ArrayType& array) {
+        const int64_t n = array.length();
+        if (array.null_count() > 0) {
+          for (int64_t i = 0; i < n; ++i) {
+            VALUE value = Qnil;
+            if (!array.IsNull(i)) {
+              value = convert_value(array, i);
+            }
+            VALUE record = rb_ary_entry(records_, i);
+            rb_ary_store(record, column_index_, value);
           }
-          rb_ary_store(record, column_index_, val);
-          return Qnil;
-        });
-        return Status::OK();
+        } else {
+          for (int64_t i = 0; i < n; ++i) {
+            VALUE record = rb_ary_entry(records_, i);
+            rb_ary_store(record, column_index_, convert_value(array, i));
+          }
+        }
       }
+
+      ArrayValueConverter array_value_converter_;
+      ListArrayValueConverter list_array_value_converter_;
+      StructArrayValueConverter struct_array_value_converter_;
+      UnionArrayValueConverter union_array_value_converter_;
+      DictionaryArrayValueConverter dictionary_array_value_converter_;
 
       // Destination for converted records.
       VALUE records_;
@@ -536,35 +689,28 @@ namespace red_arrow {
       int column_index_;
 
       // The number of columns.
-      const int num_columns_;
+      const int n_columns_;
     };
-
-    inline std::shared_ptr<arrow::RecordBatch> record_batch_from_ruby_object(VALUE obj) {
-      GArrowRecordBatch* gobj_record_batch;
-      (void)rb::protect([&]{
-        gobj_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(obj));
-        return Qnil;
-      });
-      return garrow_record_batch_get_raw(gobj_record_batch);
-    }
   }
 
   VALUE
-  record_batch_raw_records(VALUE obj) {
-    try {
-      const auto record_batch = record_batch_from_ruby_object(obj);
-      const auto num_rows = record_batch->num_rows();
-      const auto num_columns = record_batch->num_columns();
-      const auto schema = record_batch->schema();
+  record_batch_raw_records(VALUE rb_record_batch) {
+    arrow::RecordBatch *record_batch;
+    {
+      auto garrow_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(rb_record_batch));
+      record_batch = &(*garrow_record_batch_get_raw(garrow_record_batch));
+    }
+    const auto n_rows = record_batch->num_rows();
+    const auto n_columns = record_batch->num_columns();
+    VALUE records = rb_ary_new_capa(n_rows);
 
-      VALUE records = rb::protect([&]{ return rb_ary_new2(num_rows); });
-      RawRecordsBuilder builder(records, num_columns);
-      builder.Add(*record_batch);
-      return records;
+    try {
+      RawRecordsBuilder builder(records, n_columns);
+      builder.build(*record_batch);
     } catch (rb::State& state) {
       state.jump();
     }
 
-    return Qnil; // unreachable
+    return records;
   }
 }
