@@ -156,6 +156,11 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         CPyFlightResultStream(object generator,
                               function[cb_result_next] callback)
 
+    cdef cppclass CPyFlightDataStream\
+            " arrow::py::flight::PyFlightDataStream"(CFlightDataStream):
+        CPyFlightDataStream(object data_source,
+                            unique_ptr[CFlightDataStream] stream)
+
     cdef CStatus CreateFlightInfo" arrow::py::flight::CreateFlightInfo"(
         shared_ptr[CSchema] schema,
         CFlightDescriptor& descriptor,
@@ -163,3 +168,6 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         uint64_t total_records,
         uint64_t total_bytes,
         unique_ptr[CFlightInfo]* out)
+
+cdef extern from "<utility>" namespace "std":
+    unique_ptr[CFlightDataStream] move(unique_ptr[CFlightDataStream])
