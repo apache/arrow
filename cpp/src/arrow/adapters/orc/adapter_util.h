@@ -18,7 +18,6 @@
 #ifndef ARROW_ADAPATER_UTIL_HH
 #define ARROW_ADAPATER_UTIL_HH
 
-
 #include <cstdint>
 #include <memory>
 
@@ -35,7 +34,6 @@ class AdapaterUtil {
   static Status AppendBatch(const orc::Type* type, orc::ColumnVectorBatch* batch,
                             int64_t offset, int64_t length, ArrayBuilder* builder);
 };
-}
+}  // namespace arrow
 
-
-#endif //ARROW_ADAPATER_UTIL_HH
+#endif  // ARROW_ADAPATER_UTIL_HH

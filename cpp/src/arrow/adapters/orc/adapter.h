@@ -41,7 +41,6 @@ class ARROW_EXPORT ORCFileReader {
  public:
   ~ORCFileReader();
 
-
   /// \brief Create a new ORC reader with default read size as 1024
   ///
   /// \param[in] file the data source

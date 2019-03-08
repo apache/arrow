@@ -30,124 +30,99 @@ const int DEFAULT_MEM_STREAM_SIZE = 100 * 1024 * 1024;
 
 class MemoryOutputStream : public liborc::OutputStream {
  public:
-    explicit MemoryOutputStream(ssize_t capacity) : name("MemoryOutputStream") {
-      data = new char[capacity];
-      length = 0;
-    }
-
-    ~MemoryOutputStream() override { delete[] data; }
-
-    uint64_t getLength() const override { return length; }
-
-    uint64_t getNaturalWriteSize() const override { return naturalWriteSize; }
-
-    void write(const void* buf, size_t size) override  {
-      memcpy(data + length, buf, size);
-      length += size;
-    }
-
-    const std::string& getName() const override { return name; }
-
-    const char * getData() const { return data; }
-
-    void close() override {}
-
-    void reset()  { length = 0; }
-
- private:
-    char * data;
-    std::string name;
-    uint64_t length, naturalWriteSize;
-};
-
-  std::unique_ptr<liborc::Writer> createWriter(
-          uint64_t stripeSize,
-          const liborc::Type& type,
-          liborc::OutputStream* stream) {
-    liborc::WriterOptions options;
-    options.setStripeSize(stripeSize);
-    options.setCompressionBlockSize(1024);
-    options.setMemoryPool(liborc::getDefaultPool());
-    options.setRowIndexStride(0);
-    return liborc::createWriter(type, stream, options);
+  explicit MemoryOutputStream(ssize_t capacity) : name("MemoryOutputStream") {
+    data = new char[capacity];
+    length = 0;
   }
 
-  TEST(TestAdapter, readIntFileMultipleStripes) {
-    MemoryOutputStream memStream(DEFAULT_MEM_STREAM_SIZE);
-    ORC_UNIQUE_PTR<liborc::Type> type(
-            liborc::Type::buildTypeFromString("struct<col1:int,col2:string>"));
+  ~MemoryOutputStream() override { delete[] data; }
 
-    const uint64_t stripeSize = 1024; // 1K
-    const uint64_t stripeCount = 10;
+  uint64_t getLength() const override { return length; }
 
-    auto writer = createWriter(stripeSize, *type, &memStream);
-    auto batch = writer->createRowBatch(65535);
-    auto structBatch = dynamic_cast<liborc::StructVectorBatch*>(batch.get());
-    auto longBatch = dynamic_cast<liborc::LongVectorBatch*>(structBatch->fields[0]);
-    auto strBatch = dynamic_cast<liborc::StringVectorBatch*>(structBatch->fields[1]);
-    int64_t accumulated = 0;
+  uint64_t getNaturalWriteSize() const override { return naturalWriteSize; }
 
+  void write(const void* buf, size_t size) override {
+    memcpy(data + length, buf, size);
+    length += size;
+  }
 
-    for (uint64_t j = 0; j < stripeCount; ++j) {
-      char dataBuffer[327675];
-      uint64_t offset = 0;
-      for (uint64_t i = 0; i < 65535; ++i) {
-        std::ostringstream os;
-        os << accumulated % 65535;
-        longBatch->data[i] = static_cast<int64_t>(accumulated % 65535);
-        strBatch->data[i] = dataBuffer + offset;
-        strBatch->length[i] = static_cast<int64_t>(os.str().size());
-        memcpy(dataBuffer + offset, os.str().c_str(), os.str().size());
-        accumulated++;
-        offset += os.str().size();
-      }
-      structBatch->numElements = 65535;
-      longBatch->numElements = 65535;
-      strBatch->numElements = 65535;
+  const std::string& getName() const override { return name; }
 
-      writer->add(*batch);
+  const char* getData() const { return data; }
+
+  void close() override {}
+
+  void reset() { length = 0; }
+
+ private:
+  char* data;
+  std::string name;
+  uint64_t length, naturalWriteSize;
+};
+
+std::unique_ptr<liborc::Writer> createWriter(uint64_t stripeSize,
+                                             const liborc::Type& type,
+                                             liborc::OutputStream* stream) {
+  liborc::WriterOptions options;
+  options.setStripeSize(stripeSize);
+  options.setCompressionBlockSize(1024);
+  options.setMemoryPool(liborc::getDefaultPool());
+  options.setRowIndexStride(0);
+  return liborc::createWriter(type, stream, options);
+}
+
+TEST(TestAdapter, readIntFileMultipleStripes) {
+  MemoryOutputStream memStream(DEFAULT_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> type(
+      liborc::Type::buildTypeFromString("struct<col1:int,col2:string>"));
+
+  const uint64_t stripeSize = 1024;  // 1K
+  const uint64_t stripeCount = 10;
+
+  auto writer = createWriter(stripeSize, *type, &memStream);
+  auto batch = writer->createRowBatch(65535);
+  auto structBatch = dynamic_cast<liborc::StructVectorBatch*>(batch.get());
+  auto longBatch = dynamic_cast<liborc::LongVectorBatch*>(structBatch->fields[0]);
+  auto strBatch = dynamic_cast<liborc::StringVectorBatch*>(structBatch->fields[1]);
+  int64_t accumulated = 0;
+
+  for (uint64_t j = 0; j < stripeCount; ++j) {
+    char dataBuffer[327675];
+    uint64_t offset = 0;
+    for (uint64_t i = 0; i < 65535; ++i) {
+      std::ostringstream os;
+      os << accumulated % 65535;
+      longBatch->data[i] = static_cast<int64_t>(accumulated % 65535);
+      strBatch->data[i] = dataBuffer + offset;
+      strBatch->length[i] = static_cast<int64_t>(os.str().size());
+      memcpy(dataBuffer + offset, os.str().c_str(), os.str().size());
+      accumulated++;
+      offset += os.str().size();
     }
+    structBatch->numElements = 65535;
+    longBatch->numElements = 65535;
+    strBatch->numElements = 65535;
 
-    writer->close();
+    writer->add(*batch);
+  }
 
-    std::shared_ptr<io::ReadableFileInterface> inStream(
-            new io::BufferReader(std::make_shared<Buffer>(
-                    reinterpret_cast<const uint8_t*>(memStream.getData()),
-                    static_cast<int64_t>(memStream.getLength()))));
+  writer->close();
 
-    std::unique_ptr<adapters::orc::ORCFileReader> reader;
-    EXPECT_EQ(Status::OK().code(),
-            adapters::orc::ORCFileReader::Open(
-                    inStream, default_memory_pool(), &reader).code());
+  std::shared_ptr<io::ReadableFileInterface> inStream(new io::BufferReader(
+      std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(memStream.getData()),
+                               static_cast<int64_t>(memStream.getLength()))));
 
-    EXPECT_EQ(655350, reader->NumberOfRows());
-    EXPECT_EQ(stripeCount, reader->NumberOfStripes());
-    accumulated = 0;
-    std::shared_ptr<RecordBatchReader> stripeReader;
-    EXPECT_TRUE(reader->NextStripeReader(1024, &stripeReader).ok());
-    while (stripeReader) {
-      std::shared_ptr<RecordBatch> recordBatch;
-      EXPECT_TRUE(stripeReader->ReadNext(&recordBatch).ok());
-      while (recordBatch) {
-        auto int32Array = std::dynamic_pointer_cast<Int32Array>(recordBatch->column(0));
-        auto strArray = std::dynamic_pointer_cast<StringArray>(recordBatch->column(1));
-        for (int j = 0; j < recordBatch->num_rows(); ++j) {
-          std::ostringstream os;
-          os << accumulated % 65535;
-          EXPECT_EQ(accumulated % 65535, int32Array->Value(j));
-          EXPECT_EQ(os.str(), strArray->GetString(j));
-          accumulated++;
-        }
-        EXPECT_TRUE(stripeReader->ReadNext(&recordBatch).ok());
-      }
-      EXPECT_TRUE(reader->NextStripeReader(1024, &stripeReader).ok());
-    }
+  std::unique_ptr<adapters::orc::ORCFileReader> reader;
+  EXPECT_EQ(Status::OK().code(),
+            adapters::orc::ORCFileReader::Open(inStream, default_memory_pool(), &reader)
+                .code());
 
-    // test seek operation
-    int64_t startOffset = 830;
-    EXPECT_TRUE(reader->Seek(65535 + startOffset).ok());
-
-    EXPECT_TRUE(reader->NextStripeReader(1024, &stripeReader).ok());
+  EXPECT_EQ(655350, reader->NumberOfRows());
+  EXPECT_EQ(stripeCount, reader->NumberOfStripes());
+  accumulated = 0;
+  std::shared_ptr<RecordBatchReader> stripeReader;
+  EXPECT_TRUE(reader->NextStripeReader(1024, &stripeReader).ok());
+  while (stripeReader) {
     std::shared_ptr<RecordBatch> recordBatch;
     EXPECT_TRUE(stripeReader->ReadNext(&recordBatch).ok());
     while (recordBatch) {
@@ -155,13 +130,34 @@ class MemoryOutputStream : public liborc::OutputStream {
       auto strArray = std::dynamic_pointer_cast<StringArray>(recordBatch->column(1));
       for (int j = 0; j < recordBatch->num_rows(); ++j) {
         std::ostringstream os;
-        os << startOffset % 65535;
-        EXPECT_EQ(startOffset % 65535, int32Array->Value(j));
+        os << accumulated % 65535;
+        EXPECT_EQ(accumulated % 65535, int32Array->Value(j));
         EXPECT_EQ(os.str(), strArray->GetString(j));
-        startOffset++;
+        accumulated++;
       }
       EXPECT_TRUE(stripeReader->ReadNext(&recordBatch).ok());
     }
+    EXPECT_TRUE(reader->NextStripeReader(1024, &stripeReader).ok());
   }
-}  // namespace arrow
 
+  // test seek operation
+  int64_t startOffset = 830;
+  EXPECT_TRUE(reader->Seek(65535 + startOffset).ok());
+
+  EXPECT_TRUE(reader->NextStripeReader(1024, &stripeReader).ok());
+  std::shared_ptr<RecordBatch> recordBatch;
+  EXPECT_TRUE(stripeReader->ReadNext(&recordBatch).ok());
+  while (recordBatch) {
+    auto int32Array = std::dynamic_pointer_cast<Int32Array>(recordBatch->column(0));
+    auto strArray = std::dynamic_pointer_cast<StringArray>(recordBatch->column(1));
+    for (int j = 0; j < recordBatch->num_rows(); ++j) {
+      std::ostringstream os;
+      os << startOffset % 65535;
+      EXPECT_EQ(startOffset % 65535, int32Array->Value(j));
+      EXPECT_EQ(os.str(), strArray->GetString(j));
+      startOffset++;
+    }
+    EXPECT_TRUE(stripeReader->ReadNext(&recordBatch).ok());
+  }
+}
+}  // namespace arrow
