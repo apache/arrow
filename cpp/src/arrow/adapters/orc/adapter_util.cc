@@ -15,8 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "adapter_util.h"
+#include <string>
+#include <vector>
 
+#include "arrow/adapters/orc/adapter_util.h"
 #include "arrow/builder.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/util/checked_cast.h"
@@ -48,8 +50,9 @@ constexpr int64_t kOneSecondNanos = 1000000000LL;
     RETURN_NOT_OK(builder->AppendValues(length, valid_bytes));
 
     for (int i = 0; i < builder->num_fields(); i++) {
-      RETURN_NOT_OK(AdapaterUtil::AppendBatch(type->getSubtype(i), batch->fields[i], offset, length,
-                                builder->field_builder(i)));
+      RETURN_NOT_OK(AdapaterUtil::AppendBatch(
+              type->getSubtype(i), batch->fields[i],
+              offset, length, builder->field_builder(i)));
     }
     return Status::OK();
   }
@@ -160,7 +163,7 @@ constexpr int64_t kOneSecondNanos = 1000000000LL;
     const int64_t* source = batch->data.data() + offset;
 
     auto cast_iter = internal::MakeLazyRange(
-            [&source](int64_t index) { return static_cast<bool>(source[index]); }, length);
+           [&source](int64_t index) { return static_cast<bool>(source[index]); }, length);
 
     RETURN_NOT_OK(builder->AppendValues(cast_iter.begin(), cast_iter.end(), valid_bytes));
 
@@ -239,7 +242,7 @@ constexpr int64_t kOneSecondNanos = 1000000000LL;
       for (int64_t i = offset; i < length + offset; i++) {
         if (!has_nulls || batch->notNull[i]) {
           RETURN_NOT_OK(builder->Append(
-                  Decimal128(batch->values[i].getHighBits(), batch->values[i].getLowBits())));
+             Decimal128(batch->values[i].getHighBits(), batch->values[i].getLowBits())));
         } else {
           RETURN_NOT_OK(builder->AppendNull());
         }
@@ -257,8 +260,9 @@ constexpr int64_t kOneSecondNanos = 1000000000LL;
     return Status::OK();
   }
 
-  Status AdapaterUtil::AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
-                     int64_t offset, int64_t length, ArrayBuilder* builder) {
+  Status AdapaterUtil::AppendBatch(
+          const liborc::Type* type, liborc::ColumnVectorBatch* batch,
+          int64_t offset, int64_t length, ArrayBuilder* builder) {
     if (type == nullptr) {
       return Status::OK();
     }
@@ -309,7 +313,8 @@ constexpr int64_t kOneSecondNanos = 1000000000LL;
     }
   }
 
-  Status AdapaterUtil::GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
+  Status AdapaterUtil::GetArrowType(
+          const liborc::Type* type, std::shared_ptr<DataType>* out) {
     // When subselecting fields on read, liborc will set some nodes to nullptr,
     // so we need to check for nullptr before progressing
     if (type == nullptr) {

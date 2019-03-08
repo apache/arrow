@@ -15,12 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "adapter.h"
+#include "arrow/adapters/orc/adapter.h"
 #include "arrow/array.h"
 #include "arrow/io/api.h"
 #include "orc/OrcFile.hh"
 
 #include <gtest/gtest.h>
+
 namespace liborc = orc;
 
 namespace arrow {
@@ -28,24 +29,24 @@ namespace arrow {
 const int DEFAULT_MEM_STREAM_SIZE = 100 * 1024 * 1024;
 
 class MemoryOutputStream : public liborc::OutputStream {
-  public:
-    MemoryOutputStream(ssize_t capacity) : name("MemoryOutputStream") {
+ public:
+    explicit MemoryOutputStream(ssize_t capacity) : name("MemoryOutputStream") {
       data = new char[capacity];
       length = 0;
     }
 
-    virtual ~MemoryOutputStream() override { delete[] data; }
+    ~MemoryOutputStream() override { delete[] data; }
 
-    virtual uint64_t getLength() const override { return length; }
+    uint64_t getLength() const override { return length; }
 
-    virtual uint64_t getNaturalWriteSize() const override { return naturalWriteSize; }
+    uint64_t getNaturalWriteSize() const override { return naturalWriteSize; }
 
-    virtual void write(const void* buf, size_t size) override  {
+    void write(const void* buf, size_t size) override  {
       memcpy(data + length, buf, size);
       length += size;
     }
 
-    virtual const std::string& getName() const override { return name; }
+    const std::string& getName() const override { return name; }
 
     const char * getData() const { return data; }
 
@@ -53,16 +54,16 @@ class MemoryOutputStream : public liborc::OutputStream {
 
     void reset()  { length = 0; }
 
-  private:
+ private:
     char * data;
     std::string name;
     uint64_t length, naturalWriteSize;
-  };
+};
 
   std::unique_ptr<liborc::Writer> createWriter(
           uint64_t stripeSize,
           const liborc::Type& type,
-          liborc::OutputStream* stream){
+          liborc::OutputStream* stream) {
     liborc::WriterOptions options;
     options.setStripeSize(stripeSize);
     options.setCompressionBlockSize(1024);
@@ -116,7 +117,8 @@ class MemoryOutputStream : public liborc::OutputStream {
 
     std::unique_ptr<adapters::orc::ORCFileReader> reader;
     EXPECT_EQ(Status::OK().code(),
-            adapters::orc::ORCFileReader::Open(inStream, default_memory_pool(), &reader).code());
+            adapters::orc::ORCFileReader::Open(
+                    inStream, default_memory_pool(), &reader).code());
 
     EXPECT_EQ(655350, reader->NumberOfRows());
     EXPECT_EQ(stripeCount, reader->NumberOfStripes());
@@ -161,5 +163,5 @@ class MemoryOutputStream : public liborc::OutputStream {
       EXPECT_TRUE(stripeReader->ReadNext(&recordBatch).ok());
     }
   }
-}
+}  // namespace arrow
 

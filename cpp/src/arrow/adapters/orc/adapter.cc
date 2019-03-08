@@ -110,7 +110,7 @@ struct StripeInformation {
 constexpr int64_t kReadRowsBatch = 1000;
 
 class ORCStripeReader : public RecordBatchReader {
-public:
+ public:
   ORCStripeReader(
           std::unique_ptr<liborc::RowReader> rowReader,
           std::shared_ptr<Schema> schema,
@@ -121,11 +121,11 @@ public:
     pool_(pool),
     readSize_{readSize} {}
 
-  virtual std::shared_ptr<Schema> schema() const override {
+  std::shared_ptr<Schema> schema() const override {
     return schema_;
   }
 
-  virtual Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
+  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
     std::unique_ptr<liborc::ColumnVectorBatch> batch;
     try {
       batch = rowReader_->createRowBatch(readSize_);
@@ -140,21 +140,23 @@ public:
     }
 
     std::unique_ptr<RecordBatchBuilder> builder;
-    RETURN_NOT_OK(RecordBatchBuilder::Make(schema_, pool_, batch->numElements, &builder));
+    RETURN_NOT_OK(RecordBatchBuilder::Make(
+            schema_, pool_, batch->numElements, &builder));
 
     // The top-level type must be a struct to read into an arrow table
     const auto& struct_batch = checked_cast<liborc::StructVectorBatch&>(*batch);
 
     for (int i = 0; i < builder->num_fields(); i++) {
-      RETURN_NOT_OK(AdapaterUtil::AppendBatch(type.getSubtype(i), struct_batch.fields[i], 0,
-                                              batch->numElements, builder->GetField(i)));
+      RETURN_NOT_OK(AdapaterUtil::AppendBatch(
+              type.getSubtype(i), struct_batch.fields[i], 0,
+              batch->numElements, builder->GetField(i)));
     }
 
     RETURN_NOT_OK(builder->Flush(out));
     return Status::OK();
   }
 
-private:
+ private:
   std::unique_ptr<liborc::RowReader> rowReader_;
   std::shared_ptr<Schema> schema_;
   MemoryPool* pool_;
@@ -190,7 +192,8 @@ class ORCFileReader::Impl {
     for (int i = 0; i < nstripes; ++i) {
       stripe = reader_->getStripe(i);
       stripes_[i] = StripeInformation(
-          {stripe->getOffset(), stripe->getLength(), stripe->getNumberOfRows(), firstRowOfStripe});
+          {stripe->getOffset(), stripe->getLength(),
+           stripe->getNumberOfRows(), firstRowOfStripe});
       firstRowOfStripe += stripe->getNumberOfRows();
     }
     return Status::OK();
@@ -205,7 +208,8 @@ class ORCFileReader::Impl {
     return GetArrowSchema(type, out);
   }
 
-  Status ReadSchema(const liborc::RowReaderOptions& opts, std::shared_ptr<Schema>* out) {
+  Status ReadSchema(const liborc::RowReaderOptions& opts,
+                    std::shared_ptr<Schema>* out) {
     std::unique_ptr<liborc::RowReader> row_reader;
     try {
       row_reader = reader_->createRowReader(opts);
@@ -296,7 +300,8 @@ class ORCFileReader::Impl {
     return Status::OK();
   }
 
-  Status SelectStripeWithRowNumber(liborc::RowReaderOptions* opts, int64_t rowNumber, StripeInformation* out) {
+  Status SelectStripeWithRowNumber(liborc::RowReaderOptions* opts,
+                  int64_t rowNumber, StripeInformation* out) {
     ARROW_RETURN_IF(rowNumber >= NumberOfRows(),
                     Status::Invalid("Out of bounds row number: ", rowNumber));
 
@@ -354,8 +359,9 @@ class ORCFileReader::Impl {
     const liborc::Type& type = rowreader->getSelectedType();
     while (rowreader->next(*batch)) {
       for (int i = 0; i < builder->num_fields(); i++) {
-        RETURN_NOT_OK(AdapaterUtil::AppendBatch(type.getSubtype(i), struct_batch.fields[i], 0,
-                                  batch->numElements, builder->GetField(i)));
+        RETURN_NOT_OK(AdapaterUtil::AppendBatch(type.getSubtype(i),
+                struct_batch.fields[i], 0,
+                batch->numElements, builder->GetField(i)));
       }
     }
     RETURN_NOT_OK(builder->Flush(out));
@@ -394,7 +400,8 @@ class ORCFileReader::Impl {
       return Status::Invalid(e.what());
     }
 
-    *out = std::shared_ptr<RecordBatchReader>(new ORCStripeReader(std::move(rowreader), schema, readSize, pool_));
+    *out = std::shared_ptr<RecordBatchReader>(
+            new ORCStripeReader(std::move(rowreader), schema, readSize, pool_));
     return Status::OK();
   }
 
@@ -456,11 +463,13 @@ Status ORCFileReader::Seek(int64_t rowNumber) {
   return impl_->Seek(rowNumber);
 }
 
-Status ORCFileReader::NextStripeReader(int64_t readSize, std::shared_ptr<RecordBatchReader>* out) {
+Status ORCFileReader::NextStripeReader(
+        int64_t readSize, std::shared_ptr<RecordBatchReader>* out) {
   return impl_->NextStripeReader(readSize, out);
 }
 
-Status ORCFileReader::NextStripeReader(int64_t readSize, const std::vector<int>& include_indices,
+Status ORCFileReader::NextStripeReader(
+        int64_t readSize, const std::vector<int>& include_indices,
                         std::shared_ptr<RecordBatchReader>* out) {
   return impl_->NextStripeReader(readSize, include_indices, out);
 }

@@ -20,6 +20,7 @@
 
 
 #include <cstdint>
+#include <memory>
 
 #include "arrow/array/builder_base.h"
 #include "arrow/status.h"
@@ -28,7 +29,7 @@
 namespace arrow {
 
 class AdapaterUtil {
-public:
+ public:
   static Status GetArrowType(const orc::Type* type, std::shared_ptr<DataType>* out);
 
   static Status AppendBatch(const orc::Type* type, orc::ColumnVectorBatch* batch,
