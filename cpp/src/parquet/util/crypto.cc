@@ -136,18 +136,12 @@ class EvpCipher {
 };
 
 int gcm_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int key_len,
-                uint8_t* aad, int aad_len, uint8_t* ciphertext) {
+                uint8_t* nonce, int nonce_len, uint8_t* aad, int aad_len, uint8_t* ciphertext) {
   int len;
   int ciphertext_len;
 
   uint8_t tag[gcmTagLen];
   memset(tag, 0, gcmTagLen);
-  uint8_t nonce[nonceLen];
-  memset(nonce, 0, nonceLen);
-
-  // Random nonce
-  RAND_load_file("/dev/urandom", rndMaxBytes);
-  RAND_bytes(nonce, sizeof(nonce));
 
   // Init cipher context
   EvpCipher cipher(aesGcm, key_len, encryptType);
@@ -172,7 +166,7 @@ int gcm_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
   ciphertext_len = len;
 
   // Finalization
-  if (1 != EVP_EncryptFinal_ex(cipher.get(), ciphertext + bufferSizeLen + nonceLen + len, &len)) {
+  if (1 != EVP_EncryptFinal_ex(cipher.get(), ciphertext + bufferSizeLen + nonce_len + len, &len)) {
     throw ParquetException("Failed encryption finalization");
   }
 
@@ -184,13 +178,13 @@ int gcm_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
   }
 
   // Copying the buffer size, nonce and tag to ciphertext
-  int bufferSize = nonceLen + ciphertext_len + gcmTagLen;
+  int bufferSize = nonce_len + ciphertext_len + gcmTagLen;
   ciphertext[3] = 0xff & (bufferSize >> 24);
   ciphertext[2] = 0xff & (bufferSize >> 16);
   ciphertext[1] = 0xff & (bufferSize >> 8);
   ciphertext[0] = 0xff & (bufferSize);
-  std::copy(nonce, nonce + nonceLen, ciphertext + bufferSizeLen);
-  std::copy(tag, tag + gcmTagLen, ciphertext + bufferSizeLen + nonceLen + ciphertext_len);
+  std::copy(nonce, nonce + nonce_len, ciphertext + bufferSizeLen);
+  std::copy(tag, tag + gcmTagLen, ciphertext + bufferSizeLen + nonce_len + ciphertext_len);
 
   return bufferSizeLen + bufferSize;
 }
@@ -248,6 +242,13 @@ int ctr_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
   return bufferSizeLen + bufferSize;
 }
 
+int SignedFooterEncrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, 
+                        int key_len, uint8_t* aad, int aad_len, uint8_t* nonce, int nonce_len,
+                        uint8_t* ciphertext) {
+
+    return gcm_encrypt(plaintext, plaintext_len, key, key_len, aad, aad_len, nonce, nonce_len, ciphertext);
+}
+
 int Encrypt(Encryption::type alg_id, bool metadata, const uint8_t* plaintext,
             int plaintext_len, uint8_t* key, int key_len, uint8_t* aad, int aad_len,
             uint8_t* ciphertext) {
@@ -258,7 +259,13 @@ int Encrypt(Encryption::type alg_id, bool metadata, const uint8_t* plaintext,
   }
 
   if (metadata || (Encryption::AES_GCM_V1 == alg_id)) {
-    return gcm_encrypt(plaintext, plaintext_len, key, key_len, aad, aad_len, ciphertext);
+    uint8_t nonce[nonceLen];
+    memset(nonce, 0, nonceLen);
+
+    // Random nonce
+    RAND_load_file("/dev/urandom", rndMaxBytes);
+    RAND_bytes(nonce, sizeof(nonce));
+    return gcm_encrypt(plaintext, plaintext_len, key, key_len, aad, aad_len, nonce, nonceLen, ciphertext);
   }
 
   // Data (page) encryption with AES_GCM_CTR_V1

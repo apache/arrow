@@ -28,6 +28,10 @@ using parquet::EncryptionProperties;
 
 namespace parquet_encryption {
 
+int SignedFooterEncrypt(const uint8_t* plaintext,
+            int plaintext_len, uint8_t* key, int key_len, uint8_t* aad, int aad_len,
+            uint8_t* nonce, int nonce_len, uint8_t* ciphertext);
+
 int Encrypt(Encryption::type alg_id, bool metadata, const uint8_t* plaintext,
             int plaintext_len, uint8_t* key, int key_len, uint8_t* aad, int aad_len,
             uint8_t* ciphertext);
