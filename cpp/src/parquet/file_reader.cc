@@ -246,7 +246,7 @@ std::unique_ptr<ParquetFileReader::Contents> ParquetFileReader::Contents::Open(
 }
 
 std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
-    const std::shared_ptr<::arrow::io::ReadableFileInterface>& source,
+    const std::shared_ptr<::arrow::io::RandomAccessFile>& source,
     const ReaderProperties& props, const std::shared_ptr<FileMetaData>& metadata) {
   std::unique_ptr<RandomAccessSource> io_wrapper(new ArrowInputFile(source));
   return Open(std::move(io_wrapper), props, metadata);
@@ -264,7 +264,7 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
 std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(
     const std::string& path, bool memory_map, const ReaderProperties& props,
     const std::shared_ptr<FileMetaData>& metadata) {
-  std::shared_ptr<::arrow::io::ReadableFileInterface> source;
+  std::shared_ptr<::arrow::io::RandomAccessFile> source;
   if (memory_map) {
     std::shared_ptr<::arrow::io::MemoryMappedFile> handle;
     PARQUET_THROW_NOT_OK(
@@ -305,7 +305,7 @@ std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
 // File metadata helpers
 
 std::shared_ptr<FileMetaData> ReadMetaData(
-    const std::shared_ptr<::arrow::io::ReadableFileInterface>& source) {
+    const std::shared_ptr<::arrow::io::RandomAccessFile>& source) {
   return ParquetFileReader::Open(source)->metadata();
 }
 
