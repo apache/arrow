@@ -1172,7 +1172,6 @@ cdef class Table(_PandasConvertible):
             vector[shared_ptr[CColumn]] columns
             Schema cy_schema
             shared_ptr[CSchema] c_schema
-            shared_ptr[CTable] table
             int i, K = <int> len(arrays)
 
         if schema is None:

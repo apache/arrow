@@ -822,8 +822,8 @@ def test_table_negative_indexing():
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
-        pa.array([1.0, 2.0, 3.0]),
-        pa.array(['ab', 'bc', 'cd']),
+        pa.array([1.0, 2.0, 3.0, 4.0, 5.0]),
+        pa.array(['ab', 'bc', 'cd', 'de', 'ef']),
     ]
     table = pa.Table.from_arrays(data, names=tuple('abcd'))
 
@@ -865,16 +865,16 @@ def test_table_safe_casting():
     data = [
         pa.array(range(5), type=pa.int64()),
         pa.array([-10, -5, 0, 5, 10], type=pa.int32()),
-        pa.array([1.0, 2.0, 3.0], type=pa.float64()),
-        pa.array(['ab', 'bc', 'cd'], type=pa.string())
+        pa.array([1.0, 2.0, 3.0, 4.0, 5.0], type=pa.float64()),
+        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
     ]
     table = pa.Table.from_arrays(data, names=tuple('abcd'))
 
     expected_data = [
         pa.array(range(5), type=pa.int32()),
         pa.array([-10, -5, 0, 5, 10], type=pa.int16()),
-        pa.array([1, 2, 3], type=pa.int64()),
-        pa.array(['ab', 'bc', 'cd'], type=pa.string())
+        pa.array([1, 2, 3, 4, 5], type=pa.int64()),
+        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
     ]
     expected_table = pa.Table.from_arrays(expected_data, names=tuple('abcd'))
 
@@ -893,16 +893,16 @@ def test_table_unsafe_casting():
     data = [
         pa.array(range(5), type=pa.int64()),
         pa.array([-10, -5, 0, 5, 10], type=pa.int32()),
-        pa.array([1.1, 2.2, 3.3], type=pa.float64()),
-        pa.array(['ab', 'bc', 'cd'], type=pa.string())
+        pa.array([1.1, 2.2, 3.3, 4.4, 5.5], type=pa.float64()),
+        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
     ]
     table = pa.Table.from_arrays(data, names=tuple('abcd'))
 
     expected_data = [
         pa.array(range(5), type=pa.int32()),
         pa.array([-10, -5, 0, 5, 10], type=pa.int16()),
-        pa.array([1, 2, 3], type=pa.int64()),
-        pa.array(['ab', 'bc', 'cd'], type=pa.string())
+        pa.array([1, 2, 3, 4, 5], type=pa.int64()),
+        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
     ]
     expected_table = pa.Table.from_arrays(expected_data, names=tuple('abcd'))
 
@@ -919,3 +919,12 @@ def test_table_unsafe_casting():
 
     casted_table = table.cast(target_schema, safe=False)
     assert casted_table.equals(expected_table)
+
+
+def test_invalid_table_construct():
+    array = np.array([0, 1], dtype=np.uint8)
+    u8 = pa.uint8()
+    arrays = [pa.array(array, type=u8), pa.array(array[1:], type=u8)]
+
+    with pytest.raises(pa.lib.ArrowInvalid):
+        pa.Table.from_arrays(arrays, names=["a1", "a2"])

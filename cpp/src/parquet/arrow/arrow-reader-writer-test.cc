@@ -1809,6 +1809,27 @@ auto GenerateList = [](int length, std::shared_ptr<::DataType>* type,
   MakeListArray(length, 100, type, array);
 };
 
+std::shared_ptr<Table> InvalidTable() {
+  auto type = ::arrow::int8();
+  auto field = ::arrow::field("a", type);
+  auto schema = ::arrow::schema({field, field});
+
+  // Invalid due to array size not matching
+  auto array1 = ArrayFromJSON(type, "[1, 2]");
+  auto array2 = ArrayFromJSON(type, "[1]");
+  return Table::Make(schema, {array1, array2});
+}
+
+TEST(TestArrowReadWrite, InvalidTable) {
+  // ARROW-4774: Shouldn't segfault on writing an invalid table.
+  auto sink = std::make_shared<InMemoryOutputStream>();
+  auto invalid_table = InvalidTable();
+
+  ASSERT_RAISES(Invalid, WriteTable(*invalid_table, ::arrow::default_memory_pool(), sink,
+                                    1, default_writer_properties(),
+                                    default_arrow_writer_properties()));
+}
+
 TEST(TestArrowReadWrite, TableWithChunkedColumns) {
   std::vector<ArrayFactory> functions = {GenerateInt32, GenerateList};
 
@@ -1889,17 +1910,17 @@ TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
       std::make_shared<::arrow::DictionaryArray>(dict_type, f1_values)};
 
   std::vector<std::shared_ptr<::arrow::Column>> columns;
-  auto column = MakeColumn("column", dict_arrays, false);
+  auto column = MakeColumn("dictionary", dict_arrays, true);
   columns.emplace_back(column);
 
   auto table = Table::Make(schema, columns);
 
   std::shared_ptr<Table> result;
-  DoSimpleRoundtrip(table, 1,
-                    // Just need to make sure that we make
-                    // a chunk size that is smaller than the
-                    // total number of values
-                    2, {}, &result);
+  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(table, 1,
+                                            // Just need to make sure that we make
+                                            // a chunk size that is smaller than the
+                                            // total number of values
+                                            2, {}, &result));
 
   std::vector<std::string> expected_values = {"first",  "second", "first", "third",
                                               "second", "third",  "first", "second",
@@ -1913,9 +1934,7 @@ TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
   // field, and it also turns into a nullable column
   columns.emplace_back(MakeColumn("dictionary", expected_array, true));
 
-  fields.clear();
-  fields.emplace_back(::arrow::field("dictionary", ::arrow::utf8()));
-  schema = ::arrow::schema(fields);
+  schema = ::arrow::schema({::arrow::field("dictionary", ::arrow::utf8())});
 
   auto expected_table = Table::Make(schema, columns);
 

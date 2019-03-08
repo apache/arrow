@@ -1153,6 +1153,8 @@ Status WriteFileMetaData(const FileMetaData& file_metadata,
 }
 
 Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {
+  RETURN_NOT_OK(table.Validate());
+
   if (chunk_size <= 0 && table.num_rows() > 0) {
     return Status::Invalid("chunk size per row_group must be greater than 0");
   } else if (!table.schema()->Equals(*schema_, false)) {
