@@ -198,6 +198,8 @@ class ARROW_EXPORT Buffer {
   ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
 };
 
+using BufferVector = std::vector<std::shared_ptr<Buffer>>;
+
 /// \defgroup buffer-slicing-functions Functions for slicing buffers
 ///
 /// @{
@@ -410,7 +412,7 @@ Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out);
 ///
 /// \return Status
 ARROW_EXPORT
-Status Concatenate(const std::vector<std::shared_ptr<Buffer>>& buffers, MemoryPool* pool,
+Status Concatenate(const BufferVector& buffers, MemoryPool* pool,
                    std::shared_ptr<Buffer>* out);
 
 /// @}

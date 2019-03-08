@@ -40,8 +40,6 @@ namespace arrow {
 class Array;
 class ArrayVisitor;
 
-using BufferVector = std::vector<std::shared_ptr<Buffer>>;
-
 // When slicing, we do not know the null count of the sliced range without
 // doing some computation. To avoid doing this eagerly, we set the null count
 // to -1 (any negative number will do). When Array::null_count is called the
