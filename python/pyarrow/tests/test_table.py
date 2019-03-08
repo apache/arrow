@@ -874,7 +874,7 @@ def test_table_safe_casting():
         pa.array(range(5), type=pa.int32()),
         pa.array([-10, -5, 0, 5, 10], type=pa.int16()),
         pa.array([1, 2, 3, 4, 5], type=pa.int64()),
-        pa.array(['ab', 'bc', 'cd', 'de' , 'ef'], type=pa.string())
+        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
     ]
     expected_table = pa.Table.from_arrays(expected_data, names=tuple('abcd'))
 
@@ -926,5 +926,5 @@ def test_invalid_table_construct():
     u8 = pa.uint8()
     arrays = [pa.array(array, type=u8), pa.array(array[1:], type=u8)]
 
-    with pytest.raises(pa.lib.ArrowInvalid) as e:
+    with pytest.raises(pa.lib.ArrowInvalid):
         pa.Table.from_arrays(arrays, names=["a1", "a2"])
