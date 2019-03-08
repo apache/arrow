@@ -425,15 +425,23 @@ class FileMetaData::FileMetaDataImpl {
 
   bool verify(std::shared_ptr<EncryptionProperties> encryption,
               const void* tail, uint32_t tail_len) {
-    // re-encrypt the footer
-    uint8_t* encrypted_file_metadata;
-    uint32_t encrypted_file_metadata_len = metadata_len_;
+    // serialize the footer
+    uint8_t* serialized_data;
+    uint32_t serialized_len = metadata_len_;
     ThriftSerializer serializer;
-    serializer.SerializeToBuffer(metadata_.get(), &encrypted_file_metadata_len,
-                                 &encrypted_file_metadata, encryption);
-    // compare (not count 4 bytes at the end for length)
-    if (0 != memcmp(encrypted_file_metadata + encrypted_file_metadata_len - tail_len - 4,
-        reinterpret_cast<const uint8_t*>(tail), tail_len)) {
+    serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
+
+    // encrypt with nonce
+    uint8_t* nonce = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(tail));
+    uint8_t* tag = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(tail)) + 12;
+
+    std::vector<uint8_t> encrypted_buffer(encryption->CalculateCipherSize(serialized_len));
+    uint32_t encrypted_len = parquet_encryption::SignedFooterEncrypt(
+        serialized_data, serialized_len, encryption->key_bytes(),
+        encryption->key_length(), encryption->aad_bytes(), encryption->aad_length(),
+        nonce, 12, encrypted_buffer.data());
+
+    if (0 != memcmp(encrypted_buffer.data() + encrypted_len - 16, tag, 16)) {
       return false;
     }
     return true;
@@ -470,9 +478,10 @@ class FileMetaData::FileMetaDataImpl {
       ThriftSerializer serializer;
       serializer.SerializeToBuffer(metadata_.get(), &encrypted_file_metadata_len,
                                    &encrypted_file_metadata, encryption);
-      // 2. write 28 bytes of nonce_and_tag (at the end of encrypted file metadata)
-      // (not count 4 bytes at the end for length)
-      dst->Write(encrypted_file_metadata+encrypted_file_metadata_len-32, 28);
+      // write nonce
+      dst->Write(encrypted_file_metadata + 4, 12);
+      // write tag
+      dst->Write(encrypted_file_metadata + encrypted_file_metadata_len - 16, 16);
     }
     else {
       serializer.Serialize(metadata_.get(), dst, encryption, false);
