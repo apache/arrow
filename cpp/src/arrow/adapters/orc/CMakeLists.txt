@@ -30,20 +30,18 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-orc.pc"
 set(ORC_MIN_TEST_LIBS ${GTEST_MAIN_LIBRARY} ${GTEST_LIBRARY})
 
 if(ARROW_BUILD_STATIC)
-    set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static)
+  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static)
 else()
-    set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
+  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
 endif()
 
 if(APPLE)
-    set(ORC_MIN_TEST_LIBS ${ORC_MIN_TEST_LIBS} ${CMAKE_DL_LIBS})
+  set(ORC_MIN_TEST_LIBS ${ORC_MIN_TEST_LIBS} ${CMAKE_DL_LIBS})
 elseif(NOT MSVC)
-    set(ORC_MIN_TEST_LIBS ${ORC_MIN_TEST_LIBS} pthread ${CMAKE_DL_LIBS})
+  set(ORC_MIN_TEST_LIBS ${ORC_MIN_TEST_LIBS} pthread ${CMAKE_DL_LIBS})
 endif()
 
-set(ORC_STATIC_TEST_LINK_LIBS ${ORC_MIN_TEST_LIBS}
-        ${ARROW_LIBRARIES_FOR_STATIC_TESTS} orc_static)
+set(ORC_STATIC_TEST_LINK_LIBS ${ORC_MIN_TEST_LIBS} ${ARROW_LIBRARIES_FOR_STATIC_TESTS}
+    orc_static)
 
-add_arrow_test(adapter-test PREFIX "orc"
-        STATIC_LINK_LIBS
-        ${ORC_STATIC_TEST_LINK_LIBS})
+add_arrow_test(adapter-test PREFIX "orc" STATIC_LINK_LIBS ${ORC_STATIC_TEST_LINK_LIBS})
