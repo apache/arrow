@@ -1795,16 +1795,16 @@ class ConcatenateTest : public ::testing::Test {
 
   std::vector<int32_t> Offsets(int32_t length, int32_t slice_count) {
     std::vector<int32_t> offsets(static_cast<std::size_t>(slice_count + 1));
-    std::mt19937_64 gen(seed_);
+    std::default_random_engine gen(seed_);
     std::uniform_int_distribution<int32_t> dist(0, length);
     std::generate(offsets.begin(), offsets.end(), [&] { return dist(gen); });
     std::sort(offsets.begin(), offsets.end());
     return offsets;
   }
 
-  std::vector<std::shared_ptr<Array>> Slices(const std::shared_ptr<Array>& array,
-                                             const std::vector<int32_t>& offsets) {
-    std::vector<std::shared_ptr<Array>> slices(offsets.size() - 1);
+  ArrayVector Slices(const std::shared_ptr<Array>& array,
+                     const std::vector<int32_t>& offsets) {
+    ArrayVector slices(offsets.size() - 1);
     for (size_t i = 0; i != slices.size(); ++i) {
       slices[i] = array->Slice(offsets[i], offsets[i + 1] - offsets[i]);
     }

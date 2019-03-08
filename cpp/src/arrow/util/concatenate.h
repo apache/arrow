@@ -33,7 +33,7 @@ namespace arrow {
 /// \param[out] out the resulting concatenated array
 /// \return Status
 ARROW_EXPORT
-Status Concatenate(const std::vector<std::shared_ptr<Array>>& arrays, MemoryPool* pool,
+Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
                    std::shared_ptr<Array>* out);
 
 }  // namespace arrow

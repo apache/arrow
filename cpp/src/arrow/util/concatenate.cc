@@ -128,8 +128,8 @@ struct ConcatenateImpl {
     return Status::OK();
   }
 
-  std::vector<std::shared_ptr<Buffer>> Buffers(int index) {
-    std::vector<std::shared_ptr<Buffer>> buffers(in_size());
+  BufferVector Buffers(int index) {
+    BufferVector buffers(in_size());
     for (int i = 0; i != in_size(); ++i) {
       buffers[i] = in_[i].buffers[index];
     }
@@ -227,8 +227,8 @@ struct ConcatenateImpl {
     return Status::OK();
   }
 
-  Status ConcatenateOffsets(const std::vector<std::shared_ptr<Buffer>>& buffers,
-                            std::shared_ptr<Buffer>* out, std::vector<Range>* ranges) {
+  Status ConcatenateOffsets(const BufferVector& buffers, std::shared_ptr<Buffer>* out,
+                            std::vector<Range>* ranges) {
     RETURN_NOT_OK(AllocateBuffer(pool_, (out_.length + 1) * sizeof(int32_t), out));
     auto dst = reinterpret_cast<int32_t*>((*out)->mutable_data());
     int64_t elements_length = 0;
@@ -254,7 +254,7 @@ struct ConcatenateImpl {
   ArrayData out_;
 };
 
-Status Concatenate(const std::vector<std::shared_ptr<Array>>& arrays, MemoryPool* pool,
+Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
                    std::shared_ptr<Array>* out) {
   DCHECK_GT(arrays.size(), 0);
   std::vector<ArrayData> data(arrays.size());
