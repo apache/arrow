@@ -16,33 +16,31 @@
 // under the License.
 
 #include <arrow/util/decimal.h>
-#include "arrow_types.h"
-
-using namespace Rcpp;
+#include "./arrow_types.h"
 
 template <typename Vector, typename value_type>
-ComplexVector IntVector_to_Decimal128(Vector x) {
+Rcpp::ComplexVector IntVector_to_Decimal128(Vector x) {
   auto n = x.size();
-  ComplexVector res(no_init(n));
+  Rcpp::ComplexVector res(Rcpp::no_init(n));
   std::copy_n(reinterpret_cast<value_type*>(x.begin()), n,
               reinterpret_cast<arrow::Decimal128*>(res.begin()));
   return res;
 }
 
 // [[Rcpp::export]]
-ComplexVector IntegerVector_to_Decimal128(IntegerVector_ x) {
-  return IntVector_to_Decimal128<IntegerVector_, int32_t>(x);
+Rcpp::ComplexVector IntegerVector_to_Decimal128(Rcpp::IntegerVector_ x) {
+  return IntVector_to_Decimal128<Rcpp::IntegerVector_, int32_t>(x);
 }
 
 // [[Rcpp::export]]
-ComplexVector Integer64Vector_to_Decimal128(Integer64Vector_ x) {
-  return IntVector_to_Decimal128<Integer64Vector_, int64_t>(x);
+Rcpp::ComplexVector Integer64Vector_to_Decimal128(Rcpp::Integer64Vector_ x) {
+  return IntVector_to_Decimal128<Rcpp::Integer64Vector_, int64_t>(x);
 }
 
 template <typename OutputVector, typename value_type>
-OutputVector Decimal128_To_Int(ComplexVector_ x, value_type NA) {
+OutputVector Decimal128_To_Int(Rcpp::ComplexVector_ x, value_type NA) {
   auto n = x.size();
-  OutputVector res(no_init(n));
+  OutputVector res(Rcpp::no_init(n));
 
   auto p_res = reinterpret_cast<value_type*>(res.begin());
   auto p_x = reinterpret_cast<arrow::Decimal128*>(x.begin());
@@ -61,25 +59,25 @@ OutputVector Decimal128_To_Int(ComplexVector_ x, value_type NA) {
 }
 
 // [[Rcpp::export]]
-NumericVector Decimal128_To_Integer64(ComplexVector_ x) {
-  Integer64Vector res =
-      Decimal128_To_Int<Integer64Vector, int64_t>(x, arrow::r::NA_INT64);
+Rcpp::NumericVector Decimal128_To_Integer64(Rcpp::ComplexVector_ x) {
+  Rcpp::Integer64Vector res =
+      Decimal128_To_Int<Rcpp::Integer64Vector, int64_t>(x, arrow::r::NA_INT64);
   res.attr("class") = "integer64";
   return res;
 }
 
 // [[Rcpp::export]]
-IntegerVector Decimal128_To_Integer(ComplexVector_ x) {
-  return Decimal128_To_Int<IntegerVector, int32_t>(x, NA_INTEGER);
+Rcpp::IntegerVector Decimal128_To_Integer(Rcpp::ComplexVector_ x) {
+  return Decimal128_To_Int<Rcpp::IntegerVector, int32_t>(x, NA_INTEGER);
 }
 
 // [[Rcpp::export]]
-CharacterVector format_decimal128(arrow::r::Decimal128Record record) {
+Rcpp::CharacterVector format_decimal128(arrow::r::Decimal128Record record) {
   auto data = record.data();
   auto n = data.size();
   auto p = reinterpret_cast<arrow::Decimal128*>(data.begin());
 
-  CharacterVector res(p, p + n, [record](arrow::Decimal128 decimal) {
+  Rcpp::CharacterVector res(p, p + n, [record](arrow::Decimal128 decimal) {
     return decimal.ToString(record.scale());
   });
   return res;

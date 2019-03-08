@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/util/checked_cast.h>
+#include <arrow/util/decimal.h>
 #include <arrow/util/parallel.h>
 #include <arrow/util/task-group.h>
 #include "./arrow_types.h"
-#include <arrow/util/decimal.h>
-#include <arrow/util/checked_cast.h>
 
 namespace arrow {
 namespace r {
@@ -456,8 +456,9 @@ class Converter_Timestamp : public Converter_Time<value_type> {
 
 class Converter_Decimal : public Converter {
  public:
-  explicit Converter_Decimal(const ArrayVector& arrays) : Converter(arrays){
-    const auto& type = internal::checked_cast<const arrow::Decimal128Type&>(*arrays[0]->type().get());
+  explicit Converter_Decimal(const ArrayVector& arrays) : Converter(arrays) {
+    const auto& type =
+        internal::checked_cast<const arrow::Decimal128Type&>(*arrays[0]->type().get());
     precision = type.precision();
     scale = type.scale();
   }
@@ -482,7 +483,9 @@ class Converter_Decimal : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n) const {
-    auto p_data = reinterpret_cast<arrow::Decimal128*>(Rcpp::internal::r_vector_start<CPLXSXP>(VECTOR_ELT(data, 0))) + start;
+    auto p_data = reinterpret_cast<arrow::Decimal128*>(
+                      Rcpp::internal::r_vector_start<CPLXSXP>(VECTOR_ELT(data, 0))) +
+                  start;
     auto p_values = array->data()->GetValues<arrow::Decimal128>(1);
     if (!p_values) {
       return Status::Invalid("Invalid data buffer");
@@ -492,21 +495,20 @@ class Converter_Decimal : public Converter {
     return Status::OK();
   }
 
-private:
-
+ private:
   int precision;
   int scale;
 
-  static SEXP classes(){
-    static Rcpp::CharacterVector res(Rcpp::CharacterVector::create("arrow_decimal128", "vctrs_rcrd", "vctrs_vctr"));
+  static SEXP classes() {
+    static Rcpp::CharacterVector res(
+        Rcpp::CharacterVector::create("arrow_decimal128", "vctrs_rcrd", "vctrs_vctr"));
     return res;
   }
 
-  static SEXP names(){
+  static SEXP names() {
     static Rcpp::CharacterVector res(Rcpp::CharacterVector::create("data"));
     return res;
   }
-
 };
 
 class Converter_Int64 : public Converter {

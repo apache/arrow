@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "./arrow_types.h"
 #include <arrow/util/decimal.h>
+#include "./arrow_types.h"
 
 namespace arrow {
 namespace r {
@@ -178,7 +178,7 @@ inline int64_t time_cast<double>(double value) {
 
 // ---------------- new api
 
-namespace arrow{
+namespace arrow {
 using internal::checked_cast;
 namespace internal {
 
@@ -326,8 +326,8 @@ struct Unbox<DoubleType> {
   template <typename T>
   static inline Status IngestIntRange(DoubleBuilder* builder, T* p, R_xlen_t n, T na) {
     RETURN_NOT_OK(builder->Resize(n));
-    for (R_xlen_t i=0; i<n; i++, ++p) {
-      if(*p == na) {
+    for (R_xlen_t i = 0; i < n; i++, ++p) {
+      if (*p == na) {
         builder->UnsafeAppendNull();
       } else {
         double value;
@@ -371,8 +371,8 @@ struct Unbox<FloatType> {
   template <typename T>
   static inline Status IngestIntRange(FloatBuilder* builder, T* p, R_xlen_t n, T na) {
     RETURN_NOT_OK(builder->Resize(n));
-    for (R_xlen_t i=0; i<n; i++, ++p) {
-      if(*p == na) {
+    for (R_xlen_t i = 0; i < n; i++, ++p) {
+      if (*p == na) {
         builder->UnsafeAppendNull();
       } else {
         float value;
@@ -528,34 +528,37 @@ struct Unbox<Date64Type> {
   }
 };
 
-template<>
+template <>
 struct Unbox<Decimal128Type> {
-
   static inline Status Ingest(Decimal128Builder* builder, SEXP obj) {
-    switch(TYPEOF(obj)) {
-    // TODO: handle RAW
-    case INTSXP:
-      return IngestIntRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
-    case REALSXP:
-      if(Rf_inherits(obj, "integer64")) {
-        return IngestIntRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)), XLENGTH(obj), NA_INT64);
-      }
-      break;
-    case VECSXP:
-      if (Rf_inherits(obj, "arrow_decimal128")) {
-        SEXP cplx = VECTOR_ELT(obj, 0);
-        return IngestDecimal128Range(builder, reinterpret_cast<arrow::Decimal128*>(COMPLEX(cplx)), XLENGTH(cplx));
-      }
-      break;
+    switch (TYPEOF(obj)) {
+      // TODO: handle RAW
+      case INTSXP:
+        return IngestIntRange<int>(builder, INTEGER(obj), XLENGTH(obj), NA_INTEGER);
+      case REALSXP:
+        if (Rf_inherits(obj, "integer64")) {
+          return IngestIntRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)),
+                                         XLENGTH(obj), NA_INT64);
+        }
+        break;
+      case VECSXP:
+        if (Rf_inherits(obj, "arrow_decimal128")) {
+          SEXP cplx = VECTOR_ELT(obj, 0);
+          return IngestDecimal128Range(
+              builder, reinterpret_cast<arrow::Decimal128*>(COMPLEX(cplx)),
+              XLENGTH(cplx));
+        }
+        break;
     }
     return Status::Invalid("Cannot convert R object to decimal128 type");
   }
 
   template <typename T>
-  static inline Status IngestIntRange(Decimal128Builder* builder, T* p, R_xlen_t n, T na) {
+  static inline Status IngestIntRange(Decimal128Builder* builder, T* p, R_xlen_t n,
+                                      T na) {
     RETURN_NOT_OK(builder->Resize(n));
-    for (R_xlen_t i=0; i<n; i++, ++p) {
-      if(*p == na) {
+    for (R_xlen_t i = 0; i < n; i++, ++p) {
+      if (*p == na) {
         RETURN_NOT_OK(builder->AppendNull());
       } else {
         RETURN_NOT_OK(builder->Append(*p));
@@ -564,9 +567,10 @@ struct Unbox<Decimal128Type> {
     return Status::OK();
   }
 
-  static inline Status IngestDecimal128Range(Decimal128Builder* builder, arrow::Decimal128* p, R_xlen_t n) {
+  static inline Status IngestDecimal128Range(Decimal128Builder* builder,
+                                             arrow::Decimal128* p, R_xlen_t n) {
     RETURN_NOT_OK(builder->Resize(n));
-    for (R_xlen_t i=0; i<n; i++, ++p) {
+    for (R_xlen_t i = 0; i < n; i++, ++p) {
       // TODO: not sure yet how to handle NA values in the R representation
       //       so for now pretending there are no NA
 
@@ -575,9 +579,7 @@ struct Unbox<Decimal128Type> {
     }
     return Status::OK();
   }
-
 };
-
 
 template <typename Type, class Derived>
 class TypedVectorConverter : public VectorConverter {
@@ -747,6 +749,7 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     NUMERIC_CONVERTER(UINT16, UInt16Type);
     NUMERIC_CONVERTER(UINT32, UInt32Type);
     NUMERIC_CONVERTER(UINT64, UInt64Type);
+    NUMERIC_CONVERTER(DECIMAL, Decimal128Type);
 
     // TODO: not sure how to handle half floats
     //       the python code uses npy_half
@@ -757,16 +760,13 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(DATE32, Date32Converter);
     SIMPLE_CONVERTER_CASE(DATE64, Date64Converter);
 
-      // TODO: probably after we merge ARROW-3628
-      // case Type::DECIMAL:
-
     TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
     TIME_CONVERTER_CASE(TIME64, Time64Type, Time64Converter);
     TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
-  default:
-    break;
+    default:
+      break;
   }
-  return arrow::Status::Invalid("Cannot handle");
+  return arrow::Status::NotImplemented("type not implemented");
 }
 
 template <typename Type>
@@ -791,46 +791,46 @@ std::shared_ptr<arrow::DataType> GetFactorType(SEXP factor) {
 
 std::shared_ptr<arrow::DataType> InferType(SEXP x) {
   switch (TYPEOF(x)) {
-  case LGLSXP:
-    return boolean();
-  case INTSXP:
-    if (Rf_isFactor(x)) {
-      return GetFactorType(x);
-    }
-    if (Rf_inherits(x, "Date")) {
-      return date32();
-    }
-    if (Rf_inherits(x, "POSIXct")) {
-      return timestamp(TimeUnit::MICRO, "GMT");
-    }
-    return int32();
-  case REALSXP:
-    if (Rf_inherits(x, "Date")) {
-      return date32();
-    }
-    if (Rf_inherits(x, "POSIXct")) {
-      return timestamp(TimeUnit::MICRO, "GMT");
-    }
-    if (Rf_inherits(x, "integer64")) {
-      return int64();
-    }
-    if (Rf_inherits(x, "difftime")) {
-      return time32(TimeUnit::SECOND);
-    }
-    return float64();
-  case RAWSXP:
-    return int8();
-  case STRSXP:
-    return utf8();
-  case VECSXP:
-    if (Rf_inherits(x, "arrow_decimal128")) {
-      int precision = Rcpp::as<int>(Rf_getAttrib(x, symbols::precision));
-      int scale = Rcpp::as<int>(Rf_getAttrib(x, symbols::scale));
+    case LGLSXP:
+      return boolean();
+    case INTSXP:
+      if (Rf_isFactor(x)) {
+        return GetFactorType(x);
+      }
+      if (Rf_inherits(x, "Date")) {
+        return date32();
+      }
+      if (Rf_inherits(x, "POSIXct")) {
+        return timestamp(TimeUnit::MICRO, "GMT");
+      }
+      return int32();
+    case REALSXP:
+      if (Rf_inherits(x, "Date")) {
+        return date32();
+      }
+      if (Rf_inherits(x, "POSIXct")) {
+        return timestamp(TimeUnit::MICRO, "GMT");
+      }
+      if (Rf_inherits(x, "integer64")) {
+        return int64();
+      }
+      if (Rf_inherits(x, "difftime")) {
+        return time32(TimeUnit::SECOND);
+      }
+      return float64();
+    case RAWSXP:
+      return int8();
+    case STRSXP:
+      return utf8();
+    case VECSXP:
+      if (Rf_inherits(x, "arrow_decimal128")) {
+        int precision = Rcpp::as<int>(Rf_getAttrib(x, symbols::precision));
+        int scale = Rcpp::as<int>(Rf_getAttrib(x, symbols::scale));
 
-      return decimal(precision, scale);
-    }
-  default:
-    break;
+        return decimal(precision, scale);
+      }
+    default:
+      break;
   }
 
   Rcpp::stop("cannot infer type from data");

@@ -2312,51 +2312,51 @@ BEGIN_RCPP
 END_RCPP
 }
 // IntegerVector_to_Decimal128
-ComplexVector IntegerVector_to_Decimal128(IntegerVector_ x);
+Rcpp::ComplexVector IntegerVector_to_Decimal128(Rcpp::IntegerVector_ x);
 RcppExport SEXP _arrow_IntegerVector_to_Decimal128(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< IntegerVector_ >::type x(xSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector_ >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(IntegerVector_to_Decimal128(x));
     return rcpp_result_gen;
 END_RCPP
 }
 // Integer64Vector_to_Decimal128
-ComplexVector Integer64Vector_to_Decimal128(Integer64Vector_ x);
+Rcpp::ComplexVector Integer64Vector_to_Decimal128(Rcpp::Integer64Vector_ x);
 RcppExport SEXP _arrow_Integer64Vector_to_Decimal128(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Integer64Vector_ >::type x(xSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Integer64Vector_ >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(Integer64Vector_to_Decimal128(x));
     return rcpp_result_gen;
 END_RCPP
 }
 // Decimal128_To_Integer64
-NumericVector Decimal128_To_Integer64(ComplexVector_ x);
+Rcpp::NumericVector Decimal128_To_Integer64(Rcpp::ComplexVector_ x);
 RcppExport SEXP _arrow_Decimal128_To_Integer64(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< ComplexVector_ >::type x(xSEXP);
+    Rcpp::traits::input_parameter< Rcpp::ComplexVector_ >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(Decimal128_To_Integer64(x));
     return rcpp_result_gen;
 END_RCPP
 }
 // Decimal128_To_Integer
-IntegerVector Decimal128_To_Integer(ComplexVector_ x);
+Rcpp::IntegerVector Decimal128_To_Integer(Rcpp::ComplexVector_ x);
 RcppExport SEXP _arrow_Decimal128_To_Integer(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< ComplexVector_ >::type x(xSEXP);
+    Rcpp::traits::input_parameter< Rcpp::ComplexVector_ >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(Decimal128_To_Integer(x));
     return rcpp_result_gen;
 END_RCPP
 }
 // format_decimal128
-CharacterVector format_decimal128(arrow::r::Decimal128Record record);
+Rcpp::CharacterVector format_decimal128(arrow::r::Decimal128Record record);
 RcppExport SEXP _arrow_format_decimal128(SEXP recordSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
