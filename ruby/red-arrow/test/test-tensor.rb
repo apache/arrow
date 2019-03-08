@@ -15,51 +15,40 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class ArrayTest < Test::Unit::TestCase
-  sub_test_case(".new") do
-    test("Boolean") do
-      array = Arrow::BooleanArray.new([true, false, true])
-      assert_equal([true, false, true],
-                   array.to_a)
-    end
-  end
-
+class TensorTest < Test::Unit::TestCase
   sub_test_case("instance methods") do
     def setup
-      @values = [true, false, nil, true]
-      @array = Arrow::BooleanArray.new(@values)
-    end
+      raw_data = [
+        1, 2,
+        3, 4,
 
-    test("#each") do
-      assert_equal(@values, @array.to_a)
-    end
+        5, 6,
+        7, 8,
 
-    sub_test_case("#[]") do
-      test("valid range") do
-        assert_equal(@values,
-                     @array.length.times.collect {|i| @array[i]})
-      end
-
-      test("out of range") do
-        assert_nil(@array[@array.length])
-      end
-
-      test("negative index") do
-        assert_equal(@values.last,
-                     @array[-1])
-      end
+        9, 10,
+        11, 12,
+      ]
+      data = Arrow::Buffer.new(raw_data.pack("c*"))
+      shape = [3, 2, 2]
+      strides = []
+      names = ["a", "b", "c"]
+      @tensor = Arrow::Tensor.new(Arrow::Int8DataType.new,
+                                  data,
+                                  shape,
+                                  strides,
+                                  names)
     end
 
     sub_test_case("#==") do
-      test("Arrow::Array") do
+      test("Arrow::Tensor") do
         assert do
-          @array == @array
+          @tensor == @tensor
         end
       end
 
-      test("not Arrow::Array") do
+      test("not Arrow::Tensor") do
         assert do
-          not (@array == 29)
+          not (@tensor == 29)
         end
       end
     end

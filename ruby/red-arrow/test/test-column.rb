@@ -40,4 +40,28 @@ class ColumnTest < Test::Unit::TestCase
     assert_equal([1, [true, false, nil, true]],
                  [packed_column.data.n_chunks, packed_column.to_a])
   end
+
+  sub_test_case("#==") do
+    def setup
+      arrays = [
+        Arrow::BooleanArray.new([true]),
+        Arrow::BooleanArray.new([false, true]),
+      ]
+      chunked_array = Arrow::ChunkedArray.new(arrays)
+      @column = Arrow::Column.new(Arrow::Field.new("visible", :boolean),
+                                  chunked_array)
+    end
+
+    test("Arrow::Column") do
+      assert do
+        @column == @column
+      end
+    end
+
+    test("not Arrow::Column") do
+      assert do
+        not (@column == 29)
+      end
+    end
+  end
 end
