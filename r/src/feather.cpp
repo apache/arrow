@@ -15,9 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
-
-using namespace Rcpp;
+#include "./arrow_types.h"
 
 // ---------- TableWriter
 
@@ -144,7 +142,7 @@ std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(
     default:
       Rcpp::stop("incompatible column specification");
       break;
-  };
+  }
 
   return table;
 }

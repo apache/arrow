@@ -35,7 +35,6 @@ name = "arrow"
 path = "src/lib.rs"
 
 [dependencies]
-bytes = "0.4"
 libc = "0.2"
 serde = { version = "1.0.80", features = ["rc"] }
 serde_derive = "1.0.80"
@@ -47,6 +46,7 @@ num = "0.2"
 regex = "1.1"
 lazy_static = "1.2"
 packed_simd = "0.3.1"
+chrono = "0.4"
 
 [dev-dependencies]
 criterion = "0.2"

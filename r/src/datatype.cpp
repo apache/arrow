@@ -15,9 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
+#include "./arrow_types.h"
 
-using namespace Rcpp;
+using Rcpp::CharacterVector;
+using Rcpp::List;
+using Rcpp::stop;
+using Rcpp::wrap;
 
 // [[Rcpp::export]]
 bool shared_ptr_is_null(SEXP xp) {

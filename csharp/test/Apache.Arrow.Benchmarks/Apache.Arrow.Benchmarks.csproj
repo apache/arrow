@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.11.3" />
+    <PackageReference Include="BenchmarkDotNet.Diagnostics.Windows" Version="0.11.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Apache.Arrow\Apache.Arrow.csproj" />
+    <ProjectReference Include="..\Apache.Arrow.Tests\Apache.Arrow.Tests.csproj" />
+  </ItemGroup>
+
+</Project>

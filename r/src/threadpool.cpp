@@ -16,7 +16,7 @@
 // under the License.
 
 #include <arrow/util/parallel.h>
-#include "arrow_types.h"
+#include "./arrow_types.h"
 
 //' Get the capacity of the global thread pool
 //'

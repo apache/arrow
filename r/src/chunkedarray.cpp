@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
+#include "./arrow_types.h"
 
-using namespace Rcpp;
-using namespace arrow;
+using Rcpp::List;
+using Rcpp::wrap;
 
 // [[Rcpp::export]]
 int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {

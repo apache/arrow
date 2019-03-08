@@ -50,6 +50,17 @@ pub type UInt64BufferBuilder = BufferBuilder<UInt64Type>;
 pub type Float32BufferBuilder = BufferBuilder<Float32Type>;
 pub type Float64BufferBuilder = BufferBuilder<Float64Type>;
 
+pub type TimestampSecondBufferBuilder = BufferBuilder<TimestampSecondType>;
+pub type TimestampMillisecondBufferBuilder = BufferBuilder<TimestampMillisecondType>;
+pub type TimestampMicrosecondBufferBuilder = BufferBuilder<TimestampMicrosecondType>;
+pub type TimestampNanosecondBufferBuilder = BufferBuilder<TimestampNanosecondType>;
+pub type Date32BufferBuilder = BufferBuilder<Date32Type>;
+pub type Date64BufferBuilder = BufferBuilder<Date64Type>;
+pub type Time32SecondBufferBuilder = BufferBuilder<Time32SecondType>;
+pub type Time32MillisecondBufferBuilder = BufferBuilder<Time32MillisecondType>;
+pub type Time64MicrosecondBufferBuilder = BufferBuilder<Time64MicrosecondType>;
+pub type Time64NanosecondBufferBuilder = BufferBuilder<Time64NanosecondType>;
+
 // Trait for buffer builder. This is used mainly to offer separate implementations for
 // numeric types and boolean types, while still be able to call methods on buffer builder
 // with generic primitive type.
@@ -255,6 +266,17 @@ pub type UInt32Builder = PrimitiveBuilder<UInt32Type>;
 pub type UInt64Builder = PrimitiveBuilder<UInt64Type>;
 pub type Float32Builder = PrimitiveBuilder<Float32Type>;
 pub type Float64Builder = PrimitiveBuilder<Float64Type>;
+
+pub type TimestampSecondBuilder = PrimitiveBuilder<TimestampSecondType>;
+pub type TimestampMillisecondBuilder = PrimitiveBuilder<TimestampMillisecondType>;
+pub type TimestampMicrosecondBuilder = PrimitiveBuilder<TimestampMicrosecondType>;
+pub type TimestampNanosecondBuilder = PrimitiveBuilder<TimestampNanosecondType>;
+pub type Date32Builder = PrimitiveBuilder<Date32Type>;
+pub type Date64Builder = PrimitiveBuilder<Date64Type>;
+pub type Time32SecondBuilder = PrimitiveBuilder<Time32SecondType>;
+pub type Time32MillisecondBuilder = PrimitiveBuilder<Time32MillisecondType>;
+pub type Time64MicrosecondBuilder = PrimitiveBuilder<Time64MicrosecondType>;
+pub type Time64NanosecondBuilder = PrimitiveBuilder<Time64NanosecondType>;
 
 impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
     /// Returns the builder as an non-mutable `Any` reference.
@@ -857,6 +879,40 @@ mod tests {
             assert!(!arr.is_null(i));
             assert!(arr.is_valid(i));
             assert_eq!(i as i32, arr.value(i));
+        }
+    }
+
+    #[test]
+    fn test_primitive_array_builder_date32() {
+        let mut builder = Date32Array::builder(5);
+        for i in 0..5 {
+            builder.append_value(i).unwrap();
+        }
+        let arr = builder.finish();
+        assert_eq!(5, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
+        for i in 0..5 {
+            assert!(!arr.is_null(i));
+            assert!(arr.is_valid(i));
+            assert_eq!(i as i32, arr.value(i));
+        }
+    }
+
+    #[test]
+    fn test_primitive_array_builder_timestamp_second() {
+        let mut builder = TimestampSecondArray::builder(5);
+        for i in 0..5 {
+            builder.append_value(i).unwrap();
+        }
+        let arr = builder.finish();
+        assert_eq!(5, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
+        for i in 0..5 {
+            assert!(!arr.is_null(i));
+            assert!(arr.is_valid(i));
+            assert_eq!(i as i64, arr.value(i));
         }
     }
 

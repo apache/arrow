@@ -378,7 +378,7 @@ class ARROW_EXPORT PrimitiveArray : public FlatArray {
   PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t length,
                  const std::shared_ptr<Buffer>& data,
                  const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-                 int64_t null_count = 0, int64_t offset = 0);
+                 int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   /// Does not account for any slice offset
   std::shared_ptr<Buffer> values() const { return data_->buffers[1]; }
@@ -414,8 +414,8 @@ class NumericArray : public PrimitiveArray {
   NumericArray(
       typename std::enable_if<TypeTraits<T1>::is_parameter_free, int64_t>::type length,
       const std::shared_ptr<Buffer>& data,
-      const std::shared_ptr<Buffer>& null_bitmap = NULLPTR, int64_t null_count = 0,
-      int64_t offset = 0)
+      const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount, int64_t offset = 0)
       : PrimitiveArray(TypeTraits<T1>::type_singleton(), length, data, null_bitmap,
                        null_count, offset) {}
 
@@ -441,7 +441,7 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
 
   BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
                const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-               int64_t null_count = 0, int64_t offset = 0);
+               int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   bool Value(int64_t i) const {
     return BitUtil::GetBit(reinterpret_cast<const uint8_t*>(raw_values_),
@@ -467,8 +467,8 @@ class ARROW_EXPORT ListArray : public Array {
   ListArray(const std::shared_ptr<DataType>& type, int64_t length,
             const std::shared_ptr<Buffer>& value_offsets,
             const std::shared_ptr<Array>& values,
-            const std::shared_ptr<Buffer>& null_bitmap = NULLPTR, int64_t null_count = 0,
-            int64_t offset = 0);
+            const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+            int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   /// \brief Construct ListArray from array of offsets and child value array
   ///
@@ -527,7 +527,7 @@ class ARROW_EXPORT BinaryArray : public FlatArray {
   BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
               const std::shared_ptr<Buffer>& data,
               const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-              int64_t null_count = 0, int64_t offset = 0);
+              int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   /// Return the pointer to the given elements bytes
   // XXX should GetValue(int64_t i) return a string_view?
@@ -585,7 +585,7 @@ class ARROW_EXPORT BinaryArray : public FlatArray {
               const std::shared_ptr<Buffer>& value_offsets,
               const std::shared_ptr<Buffer>& data,
               const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-              int64_t null_count = 0, int64_t offset = 0);
+              int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   const int32_t* raw_value_offsets_;
   const uint8_t* raw_data_;
@@ -601,7 +601,7 @@ class ARROW_EXPORT StringArray : public BinaryArray {
   StringArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
               const std::shared_ptr<Buffer>& data,
               const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-              int64_t null_count = 0, int64_t offset = 0);
+              int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 };
 
 // ----------------------------------------------------------------------
@@ -617,7 +617,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
   FixedSizeBinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
                        const std::shared_ptr<Buffer>& data,
                        const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-                       int64_t null_count = 0, int64_t offset = 0);
+                       int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   const uint8_t* GetValue(int64_t i) const;
   const uint8_t* Value(int64_t i) const { return GetValue(i); }
@@ -673,8 +673,8 @@ class ARROW_EXPORT StructArray : public Array {
 
   StructArray(const std::shared_ptr<DataType>& type, int64_t length,
               const std::vector<std::shared_ptr<Array>>& children,
-              std::shared_ptr<Buffer> null_bitmap = NULLPTR, int64_t null_count = 0,
-              int64_t offset = 0);
+              std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+              int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   const StructType* struct_type() const;
 
@@ -712,8 +712,8 @@ class ARROW_EXPORT UnionArray : public Array {
              const std::vector<std::shared_ptr<Array>>& children,
              const std::shared_ptr<Buffer>& type_ids,
              const std::shared_ptr<Buffer>& value_offsets = NULLPTR,
-             const std::shared_ptr<Buffer>& null_bitmap = NULLPTR, int64_t null_count = 0,
-             int64_t offset = 0);
+             const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+             int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   /// \brief Construct Dense UnionArray from types_ids, value_offsets and children
   ///

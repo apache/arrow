@@ -23,7 +23,7 @@ namespace Apache.Arrow
     {
         public static ArrowBuffer Empty => new ArrowBuffer(Memory<byte>.Empty);
 
-        private ArrowBuffer(Memory<byte> data)
+        internal ArrowBuffer(ReadOnlyMemory<byte> data)
         {
             Memory = data;
         }

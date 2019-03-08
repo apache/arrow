@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,9 +17,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class BigDecimalTest < Test::Unit::TestCase
-  test("#to_arrow") do
-    assert_equal(Arrow::Decimal128.new("3.14"),
-                 BigDecimal("3.14").to_arrow)
-  end
-end
+SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+CPP_BUILD_SUPPORT=$SOURCE_DIR/../cpp/build-support
+
+# Run clang-format
+CLANG_FORMAT=clang-format-7
+$CPP_BUILD_SUPPORT/run_clang_format.py \
+    --clang_format_binary=$CLANG_FORMAT \
+    --exclude_glob=$CPP_BUILD_SUPPORT/lint_exclusions.txt \
+    --source_dir=$SOURCE_DIR/src --quiet --fix $1

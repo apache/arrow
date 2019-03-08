@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
+#include "./arrow_types.h"
 
-using namespace Rcpp;
+using Rcpp::RawVector_;
 
 // ------ arrow::io::Readable
 
