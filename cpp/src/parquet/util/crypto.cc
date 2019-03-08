@@ -246,7 +246,7 @@ int SignedFooterEncrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* ke
                         int key_len, uint8_t* aad, int aad_len, uint8_t* nonce, int nonce_len,
                         uint8_t* ciphertext) {
 
-    return gcm_encrypt(plaintext, plaintext_len, key, key_len, aad, aad_len, nonce, nonce_len, ciphertext);
+    return gcm_encrypt(plaintext, plaintext_len, key, key_len, nonce, nonce_len, aad, aad_len, ciphertext);
 }
 
 int Encrypt(Encryption::type alg_id, bool metadata, const uint8_t* plaintext,
@@ -265,7 +265,7 @@ int Encrypt(Encryption::type alg_id, bool metadata, const uint8_t* plaintext,
     // Random nonce
     RAND_load_file("/dev/urandom", rndMaxBytes);
     RAND_bytes(nonce, sizeof(nonce));
-    return gcm_encrypt(plaintext, plaintext_len, key, key_len, aad, aad_len, nonce, nonceLen, ciphertext);
+    return gcm_encrypt(plaintext, plaintext_len, key, key_len, nonce, nonceLen, aad, aad_len, ciphertext);
   }
 
   // Data (page) encryption with AES_GCM_CTR_V1
