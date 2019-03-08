@@ -670,7 +670,7 @@ public class DateUtility {
   }
 
   /**
-   * Convert milliseconds from epoch to a LocalDateTime with UTC offset
+   * Convert milliseconds from epoch to a LocalDateTime with UTC offset.
    *
    * @param epochMillis milliseconds from epoch
    * @return LocalDateTime object with UTC offset
@@ -682,7 +682,7 @@ public class DateUtility {
   }
 
   /**
-   * Convert microseconds from epoch to a LocalDateTime with UTC offset
+   * Convert microseconds from epoch to a LocalDateTime with UTC offset.
    *
    * @param epochMicros microseconds from epoch
    * @return LocalDateTime object with UTC offset
@@ -694,7 +694,7 @@ public class DateUtility {
   }
 
   /**
-   * Convert nanoseconds from epoch to a LocalDateTime with UTC offset
+   * Convert nanoseconds from epoch to a LocalDateTime with UTC offset.
    *
    * @param epochNanos nanoseconds from epoch
    * @return LocalDateTime object with UTC offset
