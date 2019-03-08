@@ -25,16 +25,18 @@ namespace Apache.Arrow.Ipc
     {
         public Stream BaseStream { get; }
         protected ArrayPool<byte> Buffers { get; }
+        private readonly bool _leaveOpen;
 
-        public ArrowStreamReaderImplementation(Stream stream)
+        public ArrowStreamReaderImplementation(Stream stream, bool leaveOpen)
         {
             BaseStream = stream;
+            _leaveOpen = leaveOpen;
             Buffers = ArrayPool<byte>.Create();
         }
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing)
+            if (disposing && !_leaveOpen)
             {
                 BaseStream.Dispose();
             }

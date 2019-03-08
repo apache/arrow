@@ -30,11 +30,16 @@ namespace Apache.Arrow.Ipc
         public Schema Schema => _implementation.Schema;
 
         public ArrowStreamReader(Stream stream)
+            : this(stream, leaveOpen: false)
+        {
+        }
+
+        public ArrowStreamReader(Stream stream, bool leaveOpen)
         {
             if (stream == null)
                 throw new ArgumentNullException(nameof(stream));
 
-            _implementation = new ArrowStreamReaderImplementation(stream);
+            _implementation = new ArrowStreamReaderImplementation(stream, leaveOpen);
         }
 
         public ArrowStreamReader(ReadOnlyMemory<byte> buffer)
