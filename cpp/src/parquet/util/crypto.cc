@@ -179,10 +179,10 @@ int gcm_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
 
   // Copying the buffer size, nonce and tag to ciphertext
   int bufferSize = nonce_len + ciphertext_len + gcmTagLen;
-  ciphertext[3] = 0xff & (bufferSize >> 24);
-  ciphertext[2] = 0xff & (bufferSize >> 16);
-  ciphertext[1] = 0xff & (bufferSize >> 8);
-  ciphertext[0] = 0xff & (bufferSize);
+  ciphertext[3] = (uint8_t)(0xff & (bufferSize >> 24));
+  ciphertext[2] = (uint8_t)(0xff & (bufferSize >> 16));
+  ciphertext[1] = (uint8_t)(0xff & (bufferSize >> 8));
+  ciphertext[0] = (uint8_t)(0xff & (bufferSize));
   std::copy(nonce, nonce + nonce_len, ciphertext + bufferSizeLen);
   std::copy(tag, tag + gcmTagLen, ciphertext + bufferSizeLen + nonce_len + ciphertext_len);
 
@@ -233,10 +233,10 @@ int ctr_encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int k
 
   // Copying the buffer size and nonce to ciphertext
   int bufferSize = nonceLen + ciphertext_len;
-  ciphertext[3] = 0xff & (bufferSize >> 24);
-  ciphertext[2] = 0xff & (bufferSize >> 16);
-  ciphertext[1] = 0xff & (bufferSize >> 8);
-  ciphertext[0] = 0xff & (bufferSize);
+  ciphertext[3] = (uint8_t)(0xff & (bufferSize >> 24));
+  ciphertext[2] = (uint8_t)(0xff & (bufferSize >> 16));
+  ciphertext[1] = (uint8_t)(0xff & (bufferSize >> 8));
+  ciphertext[0] = (uint8_t)(0xff & (bufferSize));
   std::copy(nonce, nonce + nonceLen, ciphertext + bufferSizeLen);
 
   return bufferSizeLen + bufferSize;
