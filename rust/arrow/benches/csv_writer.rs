@@ -51,7 +51,8 @@ fn record_batches_to_csv() {
     let b = RecordBatch::try_new(
         Arc::new(schema),
         vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
-    );
+    )
+    .unwrap();
     let file = File::create("target/bench_write_csv.csv").unwrap();
     let writer = csv::Writer::new(file);
     criterion::black_box(
