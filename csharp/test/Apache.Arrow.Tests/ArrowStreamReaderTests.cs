@@ -25,6 +25,30 @@ namespace Apache.Arrow.Tests
     public class ArrowStreamReaderTests
     {
         [Fact]
+        public void Ctor_LeaveOpenDefault_StreamClosedOnDispose()
+        {
+            var stream = new MemoryStream();
+            new ArrowStreamReader(stream).Dispose();
+            Assert.Throws<ObjectDisposedException>(() => stream.Position);
+        }
+
+        [Fact]
+        public void Ctor_LeaveOpenFalse_StreamClosedOnDispose()
+        {
+            var stream = new MemoryStream();
+            new ArrowStreamReader(stream, leaveOpen: false).Dispose();
+            Assert.Throws<ObjectDisposedException>(() => stream.Position);
+        }
+
+        [Fact]
+        public void Ctor_LeaveOpenTrue_StreamValidOnDispose()
+        {
+            var stream = new MemoryStream();
+            new ArrowStreamReader(stream, leaveOpen: true).Dispose();
+            Assert.Equal(0, stream.Position);
+        }
+
+        [Fact]
         public async Task ReadRecordBatch()
         {
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);

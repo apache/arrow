@@ -30,7 +30,12 @@ namespace Apache.Arrow.Ipc
         private List<Block> RecordBatchBlocks { get; }
 
         public ArrowFileWriter(Stream stream, Schema schema)
-            : base(stream, schema)
+            : this(stream, schema, leaveOpen: false)
+        {
+        }
+
+        public ArrowFileWriter(Stream stream, Schema schema, bool leaveOpen)
+            : base(stream, schema, leaveOpen)
         {
             if (!stream.CanWrite)
             {

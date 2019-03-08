@@ -149,16 +149,23 @@ namespace Apache.Arrow.Ipc
 
         protected Schema Schema { get; }
 
+        private readonly bool _leaveOpen;
+
         private protected const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V4;
 
         private static readonly byte[] Padding = new byte[64];
 
         private readonly ArrowTypeFlatbufferBuilder _fieldTypeBuilder;
 
-        public ArrowStreamWriter(Stream baseStream, Schema schema)
+        public ArrowStreamWriter(Stream baseStream, Schema schema) : this(baseStream, schema, leaveOpen: false)
+        {
+        }
+
+        public ArrowStreamWriter(Stream baseStream, Schema schema, bool leaveOpen)
         {
             BaseStream = baseStream ?? throw new ArgumentNullException(nameof(baseStream));
             Schema = schema ?? throw new ArgumentNullException(nameof(schema));
+            _leaveOpen = leaveOpen;
 
             Buffers = ArrayPool<byte>.Create();
             Builder = new FlatBufferBuilder(1024);
@@ -373,7 +380,10 @@ namespace Apache.Arrow.Ipc
 
         public virtual void Dispose()
         {
-            BaseStream.Dispose();
+            if (!_leaveOpen)
+            {
+                BaseStream.Dispose();
+            }
         }
     }
 }

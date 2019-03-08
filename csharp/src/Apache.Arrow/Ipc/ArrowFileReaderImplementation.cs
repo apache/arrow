@@ -40,7 +40,7 @@ namespace Apache.Arrow.Ipc
 
         private ArrowFooter _footer;
 
-        public ArrowFileReaderImplementation(Stream stream) : base(stream)
+        public ArrowFileReaderImplementation(Stream stream, bool leaveOpen) : base(stream, leaveOpen)
         {
         }
 

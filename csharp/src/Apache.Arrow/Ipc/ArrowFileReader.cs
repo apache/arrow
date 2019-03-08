@@ -30,7 +30,12 @@ namespace Apache.Arrow.Ipc
         public bool IsFileValid => Implementation.IsFileValid;
 
         public ArrowFileReader(Stream stream)
-            : base(new ArrowFileReaderImplementation(stream))
+            : this(stream, leaveOpen: false)
+        {
+        }
+
+        public ArrowFileReader(Stream stream, bool leaveOpen)
+            : base(new ArrowFileReaderImplementation(stream, leaveOpen))
         {
         }
 
