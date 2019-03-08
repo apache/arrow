@@ -41,7 +41,8 @@ class ARROW_EXPORT ORCFileReader {
  public:
   ~ORCFileReader();
 
-  /// \brief Create a new ORC reader
+
+  /// \brief Create a new ORC reader with default read size as 1024
   ///
   /// \param[in] file the data source
   /// \param[in] pool a MemoryPool to use for buffer allocations
@@ -101,6 +102,26 @@ class ARROW_EXPORT ORCFileReader {
   /// \param[out] out the returned RecordBatch
   Status ReadStripe(int64_t stripe, const std::vector<int>& include_indices,
                     std::shared_ptr<RecordBatch>* out);
+
+  /// \brief Seek to designated row. Invoke NextStripeReader() after seek
+  ///        will return stripe reader starting from designed row.
+  ///
+  /// \param[in] rowNumber the rows number to seek
+  Status Seek(int64_t rowNumber);
+
+  /// \brief Get stripe reader
+  ///
+  /// \param[in] readSize the record batch reader default read size
+  /// \param[out] out the returned stripe reader
+  Status NextStripeReader(int64_t readSize, std::shared_ptr<RecordBatchReader>* out);
+
+  /// \brief Get stripe reader
+  ///
+  /// \param[in] readSize the record batch reader default read size
+  /// \param[in] include_indices the selected field indices to read
+  /// \param[out] out the returned stripe reader
+  Status NextStripeReader(int64_t readSize, const std::vector<int>& include_indices,
+                          std::shared_ptr<RecordBatchReader>* out);
 
   /// \brief The number of stripes in the file
   int64_t NumberOfStripes();
