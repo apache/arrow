@@ -17,8 +17,7 @@
 
 add_arrow_test(parser-test PREFIX "arrow-json")
 
-# TODO(wesm): ARROW-694 this fails valgrind
-# add_arrow_test(chunker-test PREFIX "arrow-json")
+add_arrow_test(chunker-test PREFIX "arrow-json")
 
 add_arrow_benchmark(parser-benchmark PREFIX "arrow-json")
 
