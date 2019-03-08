@@ -25,6 +25,8 @@ arrow_add_pkg_config("arrow-compute")
 #
 
 add_arrow_test(compute-test)
+add_arrow_test(expression-test PREFIX "arrow-compute")
+add_arrow_test(operations/operations-test PREFIX "arrow-compute")
 add_arrow_benchmark(compute-benchmark)
 
 add_subdirectory(kernels)

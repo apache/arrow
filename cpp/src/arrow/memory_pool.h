@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -54,8 +55,6 @@ class MemoryPoolStats {
 };
 
 }  // namespace internal
-
-class Status;
 
 /// Base class for memory allocation.
 ///
