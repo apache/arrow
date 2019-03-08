@@ -279,13 +279,14 @@ public class DecimalVector extends BaseFixedWidthVector {
   public void setSafe(int index, int start, ArrowBuf buffer, int length) {
     handleSafe(index);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-    valueBuffer.setBytes(index * TYPE_WIDTH, buffer, start, length);
+    int startIndexInVector = index * TYPE_WIDTH;
+    valueBuffer.setBytes(startIndexInVector, buffer, start, length);
     // sign extend
     if (length < 16) {
       byte msb = buffer.getByte(start + length - 1);
       final byte pad = (byte) (msb < 0 ? 0xFF : 0x00);
-      int startIndex = (index * TYPE_WIDTH) + length;
-      int endIndex = (index * TYPE_WIDTH) + TYPE_WIDTH;
+      int startIndex = startIndexInVector + length;
+      int endIndex = startIndexInVector + TYPE_WIDTH;
       for (int i = startIndex; i < endIndex; i++) {
         valueBuffer.setByte(i, pad);
       }
@@ -304,16 +305,15 @@ public class DecimalVector extends BaseFixedWidthVector {
     handleSafe(index);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
     int startIndexInVector = index * TYPE_WIDTH;
-    int startOfInputBuffer = start;
-    for (int i = length - 1; i >= 0; i--) {
+    for (int i = start + length - 1; i >= start; i--) {
       valueBuffer.setByte(startIndexInVector, buffer.getByte(i));
       startIndexInVector++;
     }
     // sign extend
     if (length < 16) {
-      byte msb = buffer.getByte(startOfInputBuffer);
+      byte msb = buffer.getByte(start);
       final byte pad = (byte) (msb < 0 ? 0xFF : 0x00);
-      int endIndex = startIndexInVector + TYPE_WIDTH;
+      int endIndex = startIndexInVector + TYPE_WIDTH - length;
       for (int i = startIndexInVector; i < endIndex; i++) {
         valueBuffer.setByte(i, pad);
       }
