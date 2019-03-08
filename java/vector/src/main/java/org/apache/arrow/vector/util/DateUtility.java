@@ -17,14 +17,12 @@
 
 package org.apache.arrow.vector.util;
 
-import org.joda.time.DateTimeZone;
-import org.joda.time.LocalDateTime;
-import org.joda.time.LocalDateTimes;
-import org.joda.time.Period;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.DateTimeFormatterBuilder;
-import org.joda.time.format.DateTimeParser;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoUnit;
 
 import com.carrotsearch.hppc.ObjectIntHashMap;
 
@@ -620,10 +618,10 @@ public class DateUtility {
     }
   }
 
-  public static final DateTimeFormatter formatDate = DateTimeFormat.forPattern("yyyy-MM-dd");
-  public static final DateTimeFormatter formatTimeStampMilli = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
-  public static final DateTimeFormatter formatTimeStampTZ = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ");
-  public static final DateTimeFormatter formatTime = DateTimeFormat.forPattern("HH:mm:ss.SSS");
+  public static final DateTimeFormatter formatDate = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+  public static final DateTimeFormatter formatTimeStampMilli = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+  public static final DateTimeFormatter formatTimeStampTZ = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ");
+  public static final DateTimeFormatter formatTime = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
 
   public static DateTimeFormatter dateTimeTZFormat = null;
   public static DateTimeFormatter timeFormat = null;
@@ -649,10 +647,10 @@ public class DateUtility {
   public static DateTimeFormatter getDateTimeFormatter() {
 
     if (dateTimeTZFormat == null) {
-      DateTimeFormatter dateFormatter = DateTimeFormat.forPattern("yyyy-MM-dd");
-      DateTimeParser optionalTime = DateTimeFormat.forPattern(" HH:mm:ss").getParser();
-      DateTimeParser optionalSec = DateTimeFormat.forPattern(".SSS").getParser();
-      DateTimeParser optionalZone = DateTimeFormat.forPattern(" ZZZ").getParser();
+      DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+      DateTimeFormatter optionalTime = DateTimeFormatter.ofPattern(" HH:mm:ss");
+      DateTimeFormatter optionalSec = DateTimeFormatter.ofPattern(".SSS");
+      DateTimeFormatter optionalZone = DateTimeFormatter.ofPattern(" ZZZ");
 
       dateTimeTZFormat = new DateTimeFormatterBuilder().append(dateFormatter).appendOptional(optionalTime)
         .appendOptional(optionalSec).appendOptional(optionalZone).toFormatter();
@@ -664,29 +662,46 @@ public class DateUtility {
   // Function returns time formatter used to parse time strings
   public static DateTimeFormatter getTimeFormatter() {
     if (timeFormat == null) {
-      DateTimeFormatter timeFormatter = DateTimeFormat.forPattern("HH:mm:ss");
-      DateTimeParser optionalSec = DateTimeFormat.forPattern(".SSS").getParser();
+      DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+      DateTimeFormatter optionalSec = DateTimeFormatter.ofPattern(".SSS");
       timeFormat = new DateTimeFormatterBuilder().append(timeFormatter).appendOptional(optionalSec).toFormatter();
     }
     return timeFormat;
   }
 
-  public static int monthsFromPeriod(Period period) {
-    return (period.getYears() * yearsToMonths) + period.getMonths();
+  /**
+   * Convert milliseconds from epoch to a LocalDateTime with UTC offset.
+   *
+   * @param epochMillis milliseconds from epoch
+   * @return LocalDateTime object with UTC offset
+   */
+  public static LocalDateTime getLocalDateTimeFromEpochMilli(long epochMillis) {
+    final LocalDateTime localDateTime = LocalDateTime.ofInstant(
+         Instant.ofEpochMilli(epochMillis), ZoneOffset.UTC.normalized());
+    return localDateTime;
   }
 
-  public static int millisFromPeriod(final Period period) {
-    return (period.getHours() * hoursToMillis) +
-        (period.getMinutes() * minutesToMillis) +
-        (period.getSeconds() * secondsToMillis) +
-        (period.getMillis());
+  /**
+   * Convert microseconds from epoch to a LocalDateTime with UTC offset.
+   *
+   * @param epochMicros microseconds from epoch
+   * @return LocalDateTime object with UTC offset
+   */
+  public static LocalDateTime getLocalDateTimeFromEpochMicro(long epochMicros) {
+    final long millis = java.util.concurrent.TimeUnit.MICROSECONDS.toMillis(epochMicros);
+    final long addl_micros = epochMicros - (millis * 1000);
+    return DateUtility.getLocalDateTimeFromEpochMilli(millis).plus(addl_micros, ChronoUnit.MICROS);
   }
 
-  public static long toMillis(LocalDateTime localDateTime) {
-    return LocalDateTimes.getLocalMillis(localDateTime);
-  }
-
-  public static int toMillisOfDay(final LocalDateTime localDateTime) {
-    return localDateTime.toDateTime(DateTimeZone.UTC).millisOfDay().get();
+  /**
+   * Convert nanoseconds from epoch to a LocalDateTime with UTC offset.
+   *
+   * @param epochNanos nanoseconds from epoch
+   * @return LocalDateTime object with UTC offset
+   */
+  public static LocalDateTime getLocalDateTimeFromEpochNano(long epochNanos) {
+    final long millis = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(epochNanos);
+    final long addl_nanos = epochNanos - (millis * 1000 * 1000);
+    return DateUtility.getLocalDateTimeFromEpochMilli(millis).plusNanos(addl_nanos);
   }
 }

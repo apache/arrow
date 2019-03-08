@@ -106,7 +106,7 @@
       javaType: "ArrowBuf",
       boxedType: "ArrowBuf",
       minor: [
-        { class: "IntervalDay", millisecondsOffset: 4, friendlyType: "Period", fields: [ {name: "days", type:"int"}, {name: "milliseconds", type:"int"}] }
+        { class: "IntervalDay", millisecondsOffset: 4, friendlyType: "Duration", fields: [ {name: "days", type:"int"}, {name: "milliseconds", type:"int"}] }
       ]
     },
     {

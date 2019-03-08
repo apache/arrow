@@ -20,6 +20,7 @@ package org.apache.arrow.vector.complex.writer;
 import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -70,7 +71,6 @@ import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
-import org.joda.time.LocalDateTime;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -654,7 +654,7 @@ public class TestComplexWriter {
   public void timeStampSecWriter() throws Exception {
     // test values
     final long expectedSecs = 981173106L;
-    final LocalDateTime expectedSecDateTime = new LocalDateTime(2001, 2, 3, 4, 5, 6, 0);
+    final LocalDateTime expectedSecDateTime = LocalDateTime.of(2001, 2, 3, 4, 5, 6, 0);
 
     // write
     NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator);
@@ -698,7 +698,7 @@ public class TestComplexWriter {
   public void timeStampMilliWriters() throws Exception {
     // test values
     final long expectedMillis = 981173106123L;
-    final LocalDateTime expectedMilliDateTime = new LocalDateTime(2001, 2, 3, 4, 5, 6, 123);
+    final LocalDateTime expectedMilliDateTime = LocalDateTime.of(2001, 2, 3, 4, 5, 6, 123 * 1_000_000);
 
     // write
     NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator);
@@ -754,7 +754,7 @@ public class TestComplexWriter {
   public void timeStampMicroWriters() throws Exception {
     // test values
     final long expectedMicros = 981173106123456L;
-    final LocalDateTime expectedMicroDateTime = new LocalDateTime(2001, 2, 3, 4, 5, 6, 123);
+    final LocalDateTime expectedMicroDateTime = LocalDateTime.of(2001, 2, 3, 4, 5, 6, 123456 * 1000);
 
     // write
     NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator);
@@ -801,7 +801,7 @@ public class TestComplexWriter {
   public void timeStampNanoWriters() throws Exception {
     // test values
     final long expectedNanos = 981173106123456789L;
-    final LocalDateTime expectedNanoDateTime = new LocalDateTime(2001, 2, 3, 4, 5, 6, 123);
+    final LocalDateTime expectedNanoDateTime = LocalDateTime.of(2001, 2, 3, 4, 5, 6, 123456789);
 
     // write
     NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator);
