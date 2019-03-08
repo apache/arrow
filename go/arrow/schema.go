@@ -64,17 +64,17 @@ func (md Metadata) Len() int         { return len(md.keys) }
 func (md Metadata) Keys() []string   { return md.keys }
 func (md Metadata) Values() []string { return md.values }
 
-func (kv Metadata) clone() Metadata {
-	if len(kv.keys) == 0 {
+func (md Metadata) clone() Metadata {
+	if len(md.keys) == 0 {
 		return Metadata{}
 	}
 
 	o := Metadata{
-		keys:   make([]string, len(kv.keys)),
-		values: make([]string, len(kv.values)),
+		keys:   make([]string, len(md.keys)),
+		values: make([]string, len(md.values)),
 	}
-	copy(o.keys, kv.keys)
-	copy(o.values, kv.values)
+	copy(o.keys, md.keys)
+	copy(o.values, md.values)
 
 	return o
 }
