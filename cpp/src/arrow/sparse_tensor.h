@@ -38,8 +38,8 @@ struct SparseTensorFormat {
 ///
 /// SparseIndex describes where the non-zero elements are within a SparseTensor.
 ///
-/// There are several ways of the index representation.  The format_id is used
-/// to distinguish what kind of representation is used.  Each possible value of
+/// There are several ways to represent this.  The format_id is used to
+/// distinguish what kind of representation is used.  Each possible value of
 /// format_id must have only one corresponding concrete subclass of SparseIndex.
 class ARROW_EXPORT SparseIndex {
  public:
