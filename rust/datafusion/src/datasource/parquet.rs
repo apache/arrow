@@ -54,6 +54,7 @@ impl ParquetTable {
 }
 
 impl Table for ParquetTable {
+
     fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }

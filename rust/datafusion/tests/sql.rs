@@ -16,6 +16,7 @@
 // under the License.
 
 use std::cell::RefCell;
+use std::env;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -27,8 +28,21 @@ use arrow::datatypes::{DataType, Field, Schema};
 
 use datafusion::execution::context::ExecutionContext;
 use datafusion::execution::relation::Relation;
+use datafusion::datasource::parquet::ParquetFile;
+use datafusion::datasource::parquet::ParquetTable;
+use datafusion::datasource::{RecordBatchIterator, Table};
 
 const DEFAULT_BATCH_SIZE: usize = 1024 * 1024;
+
+#[test]
+fn parquet_query() {
+    let mut ctx = ExecutionContext::new();
+    ctx.register_table("alltypes_plain", load_parquet_table("alltypes_plain.parquet"));
+    let sql = "SELECT id, string_col FROM alltypes_plain";
+    let actual = execute(&mut ctx, sql);
+    let expected = "tbd".to_string();
+    assert_eq!(expected, actual);
+}
 
 #[test]
 fn csv_query_with_predicate() {
@@ -161,6 +175,14 @@ fn register_csv(
     schema: &Arc<Schema>,
 ) {
     ctx.register_csv(name, filename, &schema, true);
+}
+
+fn load_parquet_table(name: &str) -> Rc<Table> {
+    let testdata = env::var("PARQUET_TEST_DATA").unwrap();
+    let filename = format!("{}/{}", testdata, name);
+    let table = ParquetTable::new(&filename);
+    println!("{:?}", table.schema());
+    Rc::new(table)
 }
 
 /// Execute query and return result set as tab delimited string
