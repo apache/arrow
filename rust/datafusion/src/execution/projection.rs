@@ -86,6 +86,7 @@ mod tests {
     use crate::execution::relation::DataSourceRelation;
     use crate::logicalplan::Expr;
     use arrow::datatypes::{DataType, Field, Schema};
+    use std::sync::Mutex;
 
     #[test]
     fn project_first_column() {
@@ -112,9 +113,9 @@ mod tests {
             &None,
             1024,
         );
-        let relation = Rc::new(RefCell::new(DataSourceRelation::new(Rc::new(
-            RefCell::new(ds),
-        ))));
+        let relation = Rc::new(RefCell::new(DataSourceRelation::new(vec![Arc::new(
+            Mutex::new(ds),
+        )])));
         let context = ExecutionContext::new();
 
         let projection_expr =
