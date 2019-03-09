@@ -348,17 +348,12 @@ impl RecordBatchIterator for ParquetFile {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use arrow::array::Int32Array;
+    use arrow::array::{BinaryArray, Int32Array};
     use std::env;
 
     #[test]
     fn read_read_i32_column() {
-        let testdata = env::var("PARQUET_TEST_DATA").unwrap();
-        let filename = format!("{}/alltypes_plain.parquet", testdata);
-
-        let table = ParquetTable::new(&filename);
-
-        println!("{:?}", table.schema());
+        let table = load_table("alltypes_plain.parquet");
 
         let projection = Some(vec![0]);
         let scan = table.scan(&projection, 1024).unwrap();
@@ -382,5 +377,42 @@ mod tests {
             "[4, 5, 6, 7, 2, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]",
             format!("{:?}", values)
         );
+    }
+
+    #[test]
+    fn read_read_string_column() {
+        let table = load_table("alltypes_plain.parquet");
+
+        let projection = Some(vec![9]);
+        let scan = table.scan(&projection, 1024).unwrap();
+        let mut it = scan.borrow_mut();
+        let batch = it.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(8, batch.num_rows());
+
+        let array = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<BinaryArray>()
+            .unwrap();
+        let mut values: Vec<String> = vec![];
+        for i in 0..8 {
+            let str: String = String::from_utf8(array.value(i).to_vec()).unwrap();
+            values.push(str);
+        }
+
+        assert_eq!(
+            "[\"0\", \"1\", \"0\", \"1\", \"0\", \"1\", \"0\", \"1\"]",
+            format!("{:?}", values)
+        );
+    }
+
+    fn load_table(name: &str) -> Box<Table> {
+        let testdata = env::var("PARQUET_TEST_DATA").unwrap();
+        let filename = format!("{}/{}", testdata, name);
+        let table = ParquetTable::new(&filename);
+        println!("{:?}", table.schema());
+        Box::new(table)
     }
 }
