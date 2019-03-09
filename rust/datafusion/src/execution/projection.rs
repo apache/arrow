@@ -113,9 +113,9 @@ mod tests {
             &None,
             1024,
         );
-        let relation = Rc::new(RefCell::new(DataSourceRelation::new(vec![Arc::new(
+        let relation = Rc::new(RefCell::new(DataSourceRelation::new(Arc::new(
             Mutex::new(ds),
-        )])));
+        ))));
         let context = ExecutionContext::new();
 
         let projection_expr =

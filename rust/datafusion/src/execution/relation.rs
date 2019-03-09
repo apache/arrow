@@ -34,20 +34,19 @@ pub trait Relation {
 
 pub struct DataSourceRelation {
     schema: Arc<Schema>,
-    ds: Vec<Arc<Mutex<RecordBatchIterator>>>,
+    ds: Arc<Mutex<RecordBatchIterator>>,
 }
 
 impl DataSourceRelation {
-    pub fn new(ds: Vec<Arc<Mutex<RecordBatchIterator>>>) -> Self {
-        let schema = ds[0].lock().unwrap().schema().clone();
+    pub fn new(ds: Arc<Mutex<RecordBatchIterator>>) -> Self {
+        let schema = ds.lock().unwrap().schema().clone();
         Self { ds, schema }
     }
 }
 
 impl Relation for DataSourceRelation {
     fn next(&mut self) -> Result<Option<RecordBatch>> {
-        //TODO: assert only one partition for now
-        self.ds[0].lock().unwrap().next()
+        self.ds.lock().unwrap().next()
     }
 
     fn schema(&self) -> &Arc<Schema> {
