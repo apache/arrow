@@ -26,6 +26,7 @@ use std::mem::size_of;
 use std::ops::{Add, Div, Mul, Sub};
 use std::slice::from_raw_parts;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use packed_simd::*;
 use serde_derive::{Deserialize, Serialize};
@@ -750,6 +751,13 @@ impl Schema {
         json!({
             "fields": self.fields.iter().map(|field| field.to_json()).collect::<Vec<Value>>(),
         })
+    }
+
+    /// Create a new schema by applying a projection to this schema's fields
+    pub fn projection(&self, i: &Vec<usize>) -> Result<Arc<Schema>> {
+        //TODO bounds checks
+        let fields = i.iter().map(|index| self.field(*index).clone()).collect();
+        Ok(Arc::new(Schema::new(fields)))
     }
 }
 
