@@ -18,6 +18,7 @@
 pub mod csv;
 pub mod datasource;
 pub mod memory;
+pub mod parquet;
 
 pub use self::csv::{CsvBatchIterator, CsvFile};
 pub use self::datasource::{RecordBatchIterator, ScanResult, Table};
