@@ -141,7 +141,8 @@ void MakeSparseTensorFromTensor(const Tensor& tensor,
                                 std::shared_ptr<Buffer>* data) {
   NumericTensor<TYPE> numeric_tensor(tensor.data(), tensor.shape(), tensor.strides());
   SparseTensorConverter<TYPE, SparseIndexType> converter(numeric_tensor);
-  DCHECK_OK(converter.Convert());
+  Status s = converter.Convert();
+  DCHECK_OK(s);
   *sparse_index = converter.sparse_index;
   *data = converter.data;
 }
@@ -319,7 +320,8 @@ SparseTensorImpl<SparseIndexType>::SparseTensorImpl(const NumericTensor<TYPE>& t
     : SparseTensorImpl(nullptr, tensor.type(), nullptr, tensor.shape(),
                        tensor.dim_names_) {
   SparseTensorConverter<TYPE, SparseIndexType> converter(tensor);
-  DCHECK_OK(converter.Convert());
+  Status s = converter.Convert();
+  DCHECK_OK(s);
   sparse_index_ = converter.sparse_index;
   data_ = converter.data;
 }

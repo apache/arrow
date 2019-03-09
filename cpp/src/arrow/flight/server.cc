@@ -78,6 +78,9 @@ class FlightMessageReaderImpl : public FlightMessageReader {
     internal::FlightData data;
     // Pretend to be pb::FlightData and intercept in SerializationTraits
     if (reader_->Read(reinterpret_cast<pb::FlightData*>(&data))) {
+#ifndef _WIN32
+#pragma GCC diagnostic pop
+#endif
       std::unique_ptr<ipc::Message> message;
 
       // Validate IPC message
@@ -207,6 +210,10 @@ class FlightServiceImpl : public FlightService::Service {
 
     // Pretend to be pb::FlightData, we cast back to FlightPayload in
     // SerializationTraits
+#ifndef _WIN32
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
     writer->Write(*reinterpret_cast<const pb::FlightData*>(&schema_payload),
                   grpc::WriteOptions());
 
@@ -221,6 +228,9 @@ class FlightServiceImpl : public FlightService::Service {
         break;
       }
     }
+#ifndef _WIN32
+#pragma GCC diagnostic pop
+#endif
     return grpc::Status::OK;
   }
 

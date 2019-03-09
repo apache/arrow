@@ -83,8 +83,8 @@ enum class ArrowLogLevel : int {
 
 #define DCHECK(condition) \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_OK(s)   \
-  ARROW_IGNORE_EXPR(s) \
+#define DCHECK_OK(s)    \
+  ARROW_IGNORE_EXPR(s); \
   while (false) ::arrow::util::detail::NullLog()
 #define DCHECK_EQ(val1, val2) \
   while (false) ::arrow::util::detail::NullLog()

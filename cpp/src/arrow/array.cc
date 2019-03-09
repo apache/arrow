@@ -149,7 +149,8 @@ std::shared_ptr<Array> Array::Slice(int64_t offset) const {
 
 std::string Array::ToString() const {
   std::stringstream ss;
-  DCHECK(PrettyPrint(*this, 0, &ss).ok());
+  Status s = PrettyPrint(*this, 0, &ss);
+  DCHECK_OK(s);
   return ss.str();
 }
 
