@@ -121,7 +121,15 @@ impl ExecutionContext {
             } => match self.datasources.borrow().get(table_name) {
                 Some(provider) => {
                     let ds = provider.scan(projection, batch_size)?;
-                    Ok(Rc::new(RefCell::new(DataSourceRelation::new(ds))))
+                    if ds.len() == 1 {
+                        Ok(Rc::new(RefCell::new(DataSourceRelation::new(
+                            ds[0].clone(),
+                        ))))
+                    } else {
+                        Err(ExecutionError::General(
+                            "Execution engine only supports single partition".to_string(),
+                        ))
+                    }
                 }
                 _ => Err(ExecutionError::General(format!(
                     "No table registered as '{}'",
