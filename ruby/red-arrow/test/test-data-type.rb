@@ -44,4 +44,24 @@ class DataTypeTest < Test::Unit::TestCase
                    Arrow::DataType.resolve(type: :list, field: field))
     end
   end
+
+  sub_test_case("instance methods") do
+    def setup
+      @data_type = Arrow::StringDataType.new
+    end
+
+    sub_test_case("#==") do
+      test("Arrow::DataType") do
+        assert do
+          @data_type == @data_type
+        end
+      end
+
+      test("not Arrow::DataType") do
+        assert do
+          not (@data_type == 29)
+        end
+      end
+    end
+  end
 end

@@ -15,51 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class ArrayTest < Test::Unit::TestCase
-  sub_test_case(".new") do
-    test("Boolean") do
-      array = Arrow::BooleanArray.new([true, false, true])
-      assert_equal([true, false, true],
-                   array.to_a)
-    end
-  end
-
+class BufferTest < Test::Unit::TestCase
   sub_test_case("instance methods") do
     def setup
-      @values = [true, false, nil, true]
-      @array = Arrow::BooleanArray.new(@values)
-    end
-
-    test("#each") do
-      assert_equal(@values, @array.to_a)
-    end
-
-    sub_test_case("#[]") do
-      test("valid range") do
-        assert_equal(@values,
-                     @array.length.times.collect {|i| @array[i]})
-      end
-
-      test("out of range") do
-        assert_nil(@array[@array.length])
-      end
-
-      test("negative index") do
-        assert_equal(@values.last,
-                     @array[-1])
-      end
+      @buffer = Arrow::Buffer.new("Hello")
     end
 
     sub_test_case("#==") do
-      test("Arrow::Array") do
+      test("Arrow::Buffer") do
         assert do
-          @array == @array
+          @buffer == @buffer
         end
       end
 
-      test("not Arrow::Array") do
+      test("not Arrow::Buffer") do
         assert do
-          not (@array == 29)
+          not (@buffer == 29)
         end
       end
     end
