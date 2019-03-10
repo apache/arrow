@@ -26,21 +26,23 @@ extern crate datafusion;
 use arrow::array::*;
 use arrow::datatypes::{DataType, Field, Schema};
 
+use datafusion::datasource::parquet::ParquetTable;
+use datafusion::datasource::Table;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::execution::relation::Relation;
-use datafusion::datasource::parquet::ParquetFile;
-use datafusion::datasource::parquet::ParquetTable;
-use datafusion::datasource::{RecordBatchIterator, Table};
 
 const DEFAULT_BATCH_SIZE: usize = 1024 * 1024;
 
 #[test]
 fn parquet_query() {
     let mut ctx = ExecutionContext::new();
-    ctx.register_table("alltypes_plain", load_parquet_table("alltypes_plain.parquet"));
+    ctx.register_table(
+        "alltypes_plain",
+        load_parquet_table("alltypes_plain.parquet"),
+    );
     let sql = "SELECT id, string_col FROM alltypes_plain";
     let actual = execute(&mut ctx, sql);
-    let expected = "tbd".to_string();
+    let expected = "4\t\"0\"\n5\t\"1\"\n6\t\"0\"\n7\t\"1\"\n2\t\"0\"\n3\t\"1\"\n0\t\"0\"\n1\t\"1\"\n".to_string();
     assert_eq!(expected, actual);
 }
 
@@ -187,7 +189,9 @@ fn load_parquet_table(name: &str) -> Rc<Table> {
 
 /// Execute query and return result set as tab delimited string
 fn execute(ctx: &mut ExecutionContext, sql: &str) -> String {
-    let results = ctx.sql(&sql, DEFAULT_BATCH_SIZE).unwrap();
+    let plan = ctx.create_logical_plan(&sql).unwrap();
+    println!("Plan: {:?}", plan);
+    let results = ctx.execute(&plan, DEFAULT_BATCH_SIZE).unwrap();
     result_str(&results)
 }
 
