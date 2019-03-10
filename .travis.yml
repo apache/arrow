@@ -348,7 +348,7 @@ matrix:
     - pushd ${TRAVIS_BUILD_DIR}/rust
     # Run coverage for codecov.io
     - mkdir -p target/kcov
-    - RUST_BACKTRACE=1 RUSTUP_TOOLCHAIN=nightly cargo coverage --verbose
+    - RUST_BACKTRACE=1 RUSTUP_TOOLCHAIN=nightly RUSTFLAGS="-D warnings" cargo coverage --verbose
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
   - name: Go
     language: go
