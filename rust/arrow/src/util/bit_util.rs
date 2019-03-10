@@ -87,26 +87,33 @@ pub fn count_set_bits(data: &[u8]) -> usize {
     count
 }
 
-/// Returns the number of 1-bits in `data`, starting from `offset`.
+/// Returns the number of 1-bits in `data`, starting from `offset` with `length` bits
+/// inspected. Note that both `offset` and `length` are measured in bits.
 #[inline]
-pub fn count_set_bits_offset(data: &[u8], offset: usize) -> usize {
-    debug_assert!(offset <= (data.len() << 3));
+pub fn count_set_bits_offset(data: &[u8], offset: usize, length: usize) -> usize {
+    let bit_end = offset + length;
+    assert!(bit_end <= (data.len() << 3));
 
-    let start_byte_pos = offset >> 3;
-    let start_bit_pos = offset & 7;
+    let byte_start = ::std::cmp::min(round_upto_power_of_2(offset, 8), bit_end);
+    let num_bytes = (bit_end - byte_start) >> 3;
 
-    if start_bit_pos == 0 {
-        count_set_bits(&data[start_byte_pos..])
-    } else {
-        let mut result = 0;
-        result += count_set_bits(&data[start_byte_pos + 1..]);
-        for i in start_bit_pos..8 {
-            if get_bit(&data[start_byte_pos..start_byte_pos + 1], i) {
-                result += 1;
-            }
+    let mut result = 0;
+
+    for i in offset..byte_start {
+        if get_bit(data, i) {
+            result += 1;
         }
-        result
     }
+    for i in 0..num_bytes {
+        result += POPCOUNT_TABLE[data[(byte_start >> 3) + i] as usize] as usize;
+    }
+    for i in (byte_start + (num_bytes << 3))..bit_end {
+        if get_bit(data, i) {
+            result += 1;
+        }
+    }
+
+    result
 }
 
 /// Returns the ceil of `value`/`divisor`
@@ -264,14 +271,20 @@ mod tests {
 
     #[test]
     fn test_count_bits_offset_slice() {
-        assert_eq!(8, count_set_bits_offset(&[0b11111111], 0));
-        assert_eq!(5, count_set_bits_offset(&[0b11111111], 3));
-        assert_eq!(0, count_set_bits_offset(&[0b11111111], 8));
-        assert_eq!(16, count_set_bits_offset(&[0b11111111, 0b11111111], 0));
-        assert_eq!(13, count_set_bits_offset(&[0b11111111, 0b11111111], 3));
-        assert_eq!(8, count_set_bits_offset(&[0b11111111, 0b11111111], 8));
-        assert_eq!(5, count_set_bits_offset(&[0b11111111, 0b11111111], 11));
-        assert_eq!(0, count_set_bits_offset(&[0b11111111, 0b11111111], 16));
+        assert_eq!(8, count_set_bits_offset(&[0b11111111], 0, 8));
+        assert_eq!(3, count_set_bits_offset(&[0b11111111], 0, 3));
+        assert_eq!(5, count_set_bits_offset(&[0b11111111], 3, 5));
+        assert_eq!(1, count_set_bits_offset(&[0b11111111], 3, 1));
+        assert_eq!(0, count_set_bits_offset(&[0b11111111], 8, 0));
+        assert_eq!(2, count_set_bits_offset(&[0b01010101], 0, 3));
+        assert_eq!(16, count_set_bits_offset(&[0b11111111, 0b11111111], 0, 16));
+        assert_eq!(10, count_set_bits_offset(&[0b11111111, 0b11111111], 0, 10));
+        assert_eq!(10, count_set_bits_offset(&[0b11111111, 0b11111111], 3, 10));
+        assert_eq!(8, count_set_bits_offset(&[0b11111111, 0b11111111], 8, 8));
+        assert_eq!(5, count_set_bits_offset(&[0b11111111, 0b11111111], 11, 5));
+        assert_eq!(0, count_set_bits_offset(&[0b11111111, 0b11111111], 16, 0));
+        assert_eq!(2, count_set_bits_offset(&[0b01101101, 0b10101010], 7, 5));
+        assert_eq!(4, count_set_bits_offset(&[0b01101101, 0b10101010], 7, 9));
     }
 
     #[test]

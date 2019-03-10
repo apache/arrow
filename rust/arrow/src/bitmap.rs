@@ -24,7 +24,7 @@ use crate::util::bit_util;
 
 use std::ops::{BitAnd, BitOr};
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Bitmap {
     pub(crate) bits: Buffer,
 }
