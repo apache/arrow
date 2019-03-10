@@ -49,7 +49,7 @@ impl MemTable {
     }
 
     /// Create a mem table by reading from another data source
-    pub fn load(t: &Table) -> Result<Self> {
+    pub fn load(t: &TableProvider) -> Result<Self> {
         let schema = t.schema();
         let partitions = t.scan(&None, 1024 * 1024)?;
 
@@ -64,7 +64,7 @@ impl MemTable {
     }
 }
 
-impl Table for MemTable {
+impl TableProvider for MemTable {
     fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }

@@ -23,5 +23,5 @@ pub mod memory;
 pub mod parquet;
 
 pub use self::csv::{CsvBatchIterator, CsvFile};
-pub use self::datasource::{RecordBatchIterator, ScanResult, Table};
+pub use self::datasource::{RecordBatchIterator, ScanResult, TableProvider};
 pub use self::memory::{MemBatchIterator, MemTable};

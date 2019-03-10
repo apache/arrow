@@ -34,6 +34,7 @@ use crate::execution::filter::FilterRelation;
 use crate::execution::limit::LimitRelation;
 use crate::execution::projection::ProjectRelation;
 use crate::execution::relation::{DataSourceRelation, Relation};
+use crate::execution::table_impl::TableImpl;
 use crate::logicalplan::*;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
@@ -41,10 +42,11 @@ use crate::optimizer::type_coercion::TypeCoercionRule;
 use crate::optimizer::utils;
 use crate::sql::parser::{DFASTNode, DFParser};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
+use crate::datasource::TableProvider;
 
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
-    datasources: Rc<RefCell<HashMap<String, Rc<Table>>>>,
+    datasources: Rc<RefCell<HashMap<String, Rc<TableProvider>>>>,
 }
 
 impl ExecutionContext {
@@ -100,10 +102,27 @@ impl ExecutionContext {
     }
 
     /// Register a table so that it can be queried from SQL
-    pub fn register_table(&mut self, name: &str, provider: Rc<Table>) {
+    pub fn register_table(&mut self, name: &str, provider: Rc<TableProvider>) {
         self.datasources
             .borrow_mut()
             .insert(name.to_string(), provider);
+    }
+
+    pub fn table(&mut self, table_name: &str) -> Result<Arc<Table>> {
+        match self.datasources.borrow().get(table_name) {
+            Some(provider) => {
+                Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::TableScan {
+                    schema_name: "".to_string(),
+                    table_name: table_name.to_string(),
+                    schema: provider.schema().clone(),
+                    projection: None,
+                }))))
+            }
+            _ => Err(ExecutionError::General(format!(
+                "No table named '{}'",
+                table_name
+            ))),
+        }
     }
 
     /// Optimize the logical plan by applying optimizer rules
@@ -268,7 +287,7 @@ impl ExecutionContext {
 }
 
 struct ExecutionContextSchemaProvider {
-    datasources: Rc<RefCell<HashMap<String, Rc<Table>>>>,
+    datasources: Rc<RefCell<HashMap<String, Rc<TableProvider>>>>,
 }
 impl SchemaProvider for ExecutionContextSchemaProvider {
     fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>> {

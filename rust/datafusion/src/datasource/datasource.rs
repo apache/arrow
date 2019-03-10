@@ -29,7 +29,7 @@ use crate::error::Result;
 pub type ScanResult = Arc<Mutex<RecordBatchIterator>>;
 
 /// Source table
-pub trait Table {
+pub trait TableProvider {
     /// Get a reference to the schema for this table
     fn schema(&self) -> &Arc<Schema>;
 
