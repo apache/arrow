@@ -44,14 +44,14 @@ pub struct ParquetTable {
 }
 
 impl ParquetTable {
-    pub fn new(filename: &str) -> Self {
-        let file = File::open(filename).unwrap();
-        let parquet_file = ParquetFile::open(file, None).unwrap();
+    pub fn try_new(filename: &str) -> Result<Self> {
+        let file = File::open(filename)?;
+        let parquet_file = ParquetFile::open(file, None)?;
         let schema = parquet_file.schema.clone();
-        Self {
+        Ok(Self {
             filename: filename.to_string(),
             schema,
-        }
+        })
     }
 }
 
@@ -65,8 +65,8 @@ impl Table for ParquetTable {
         projection: &Option<Vec<usize>>,
         _batch_size: usize,
     ) -> Result<Vec<ScanResult>> {
-        let file = File::open(self.filename.clone()).unwrap();
-        let parquet_file = ParquetFile::open(file, projection.clone()).unwrap();
+        let file = File::open(self.filename.clone())?;
+        let parquet_file = ParquetFile::open(file, projection.clone())?;
         Ok(vec![Arc::new(Mutex::new(parquet_file))])
     }
 }
@@ -84,9 +84,7 @@ pub struct ParquetFile {
 
 impl ParquetFile {
     pub fn open(file: File, projection: Option<Vec<usize>>) -> Result<Self> {
-        println!("open()");
-
-        let reader = SerializedFileReader::new(file).unwrap();
+        let reader = SerializedFileReader::new(file)?;
 
         let metadata = reader.metadata();
         let file_type = to_arrow(metadata.file_metadata().schema())?;
@@ -94,7 +92,6 @@ impl ParquetFile {
         match file_type.data_type() {
             DataType::Struct(fields) => {
                 let schema = Schema::new(fields.clone());
-                //println!("Parquet schema: {:?}", schema);
 
                 let projection = match projection {
                     Some(p) => p,
@@ -130,21 +127,24 @@ impl ParquetFile {
         }
     }
 
-    fn load_next_row_group(&mut self) {
+    fn load_next_row_group(&mut self) -> Result<()> {
         if self.row_group_index < self.reader.num_row_groups() {
-            let reader = self.reader.get_row_group(self.row_group_index).unwrap();
+            let reader = self.reader.get_row_group(self.row_group_index)?;
 
-            self.column_readers = vec![];
+            self.column_readers = Vec::with_capacity(self.projection.len());
 
             for i in &self.projection {
-                self.column_readers
-                    .push(reader.get_column_reader(*i).unwrap());
+                self.column_readers.push(reader.get_column_reader(*i)?);
             }
 
             self.current_row_group = Some(reader);
             self.row_group_index += 1;
+
+            Ok(())
         } else {
-            panic!()
+            Err(ExecutionError::General(
+                "Attempt to read past final row group".to_string(),
+            ))
         }
     }
 
@@ -171,7 +171,7 @@ impl ParquetFile {
                             ) {
                                 Ok((count, _)) => {
                                     let mut builder = BooleanBuilder::new(count);
-                                    builder.append_slice(&read_buffer[0..count]).unwrap();
+                                    builder.append_slice(&read_buffer[0..count])?;
                                     row_count = count;
                                     Arc::new(builder.finish())
                                 }
@@ -199,7 +199,7 @@ impl ParquetFile {
                             ) {
                                 Ok((count, _)) => {
                                     let mut builder = Int32Builder::new(count);
-                                    builder.append_slice(&read_buffer[0..count]).unwrap();
+                                    builder.append_slice(&read_buffer[0..count])?;
                                     row_count = count;
                                     Arc::new(builder.finish())
                                 }
@@ -227,7 +227,7 @@ impl ParquetFile {
                             ) {
                                 Ok((count, _)) => {
                                     let mut builder = Int64Builder::new(count);
-                                    builder.append_slice(&read_buffer[0..count]).unwrap();
+                                    builder.append_slice(&read_buffer[0..count])?;
                                     row_count = count;
                                     Arc::new(builder.finish())
                                 }
@@ -262,7 +262,7 @@ impl ParquetFile {
                                             | (v[1] as u128) << 32
                                             | (v[2] as u128);
                                         let ms: i64 = (value / 1000000) as i64;
-                                        builder.append_value(ms).unwrap();
+                                        builder.append_value(ms)?;
                                     }
                                     row_count = count;
                                     Arc::new(builder.finish())
@@ -289,7 +289,7 @@ impl ParquetFile {
                                 &mut read_buffer,
                             ) {
                                 Ok((count, _)) => {
-                                    builder.append_slice(&read_buffer[0..count]).unwrap();
+                                    builder.append_slice(&read_buffer[0..count])?;
                                     row_count = count;
                                     Arc::new(builder.finish())
                                 }
@@ -315,7 +315,7 @@ impl ParquetFile {
                                 &mut read_buffer,
                             ) {
                                 Ok((count, _)) => {
-                                    builder.append_slice(&read_buffer[0..count]).unwrap();
+                                    builder.append_slice(&read_buffer[0..count])?;
                                     row_count = count;
                                     Arc::new(builder.finish())
                                 }
@@ -339,12 +339,10 @@ impl ParquetFile {
                                     let mut builder = BinaryBuilder::new(row_count);
                                     for j in 0..row_count {
                                         let slice = b[j].slice(0, b[j].len());
-                                        builder
-                                            .append_string(
-                                                &String::from_utf8(slice.data().to_vec())
-                                                    .unwrap(),
-                                            )
-                                            .unwrap();
+                                        builder.append_string(
+                                            &String::from_utf8(slice.data().to_vec())
+                                                .unwrap(),
+                                        )?;
                                     }
                                     Arc::new(builder.finish())
                                 }
@@ -368,12 +366,10 @@ impl ParquetFile {
                                     let mut builder = BinaryBuilder::new(row_count);
                                     for j in 0..row_count {
                                         let slice = b[j].slice(0, b[j].len());
-                                        builder
-                                            .append_string(
-                                                &String::from_utf8(slice.data().to_vec())
-                                                    .unwrap(),
-                                            )
-                                            .unwrap();
+                                        builder.append_string(
+                                            &String::from_utf8(slice.data().to_vec())
+                                                .unwrap(),
+                                        )?;
                                     }
                                     Arc::new(builder.finish())
                                 }
@@ -387,11 +383,8 @@ impl ParquetFile {
                         }
                     };
 
-                    println!("Adding array to batch");
                     batch.push(array);
                 }
-
-                println!("Loaded batch of {} rows", row_count);
 
                 if row_count == 0 {
                     Ok(None)
@@ -445,14 +438,14 @@ impl RecordBatchIterator for ParquetFile {
     fn next(&mut self) -> Result<Option<RecordBatch>> {
         // advance the row group reader if necessary
         if self.current_row_group.is_none() {
-            self.load_next_row_group();
+            self.load_next_row_group()?;
             self.load_batch()
         } else {
             match self.load_batch() {
                 Ok(Some(b)) => Ok(Some(b)),
                 Ok(None) => {
                     if self.row_group_index < self.reader.num_row_groups() {
-                        self.load_next_row_group();
+                        self.load_next_row_group()?;
                         self.load_batch()
                     } else {
                         Ok(None)
@@ -678,7 +671,7 @@ mod tests {
     fn load_table(name: &str) -> Box<Table> {
         let testdata = env::var("PARQUET_TEST_DATA").unwrap();
         let filename = format!("{}/{}", testdata, name);
-        let table = ParquetTable::new(&filename);
+        let table = ParquetTable::try_new(&filename).unwrap();
         println!("Loading file {} with schema:", name);
         for field in table.schema().fields() {
             println!("\t{:?}", field);

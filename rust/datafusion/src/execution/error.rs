@@ -21,6 +21,7 @@ use std::io::Error;
 use std::result;
 
 use arrow::error::ArrowError;
+use parquet::errors::ParquetError;
 
 use sqlparser::sqlparser::ParserError;
 
@@ -35,6 +36,7 @@ pub enum ExecutionError {
     NotImplemented(String),
     InternalError(String),
     ArrowError(ArrowError),
+    ParquetError(ParquetError),
     ExecutionError(String),
 }
 
@@ -59,6 +61,12 @@ impl From<&'static str> for ExecutionError {
 impl From<ArrowError> for ExecutionError {
     fn from(e: ArrowError) -> Self {
         ExecutionError::ArrowError(e)
+    }
+}
+
+impl From<ParquetError> for ExecutionError {
+    fn from(e: ParquetError) -> Self {
+        ExecutionError::ParquetError(e)
     }
 }
 

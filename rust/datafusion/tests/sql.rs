@@ -182,7 +182,7 @@ fn register_csv(
 fn load_parquet_table(name: &str) -> Rc<Table> {
     let testdata = env::var("PARQUET_TEST_DATA").unwrap();
     let filename = format!("{}/{}", testdata, name);
-    let table = ParquetTable::new(&filename);
+    let table = ParquetTable::try_new(&filename).unwrap();
     println!("{:?}", table.schema());
     Rc::new(table)
 }
