@@ -754,9 +754,18 @@ impl Schema {
     }
 
     /// Create a new schema by applying a projection to this schema's fields
-    pub fn projection(&self, i: &Vec<usize>) -> Result<Arc<Schema>> {
-        //TODO bounds checks
-        let fields = i.iter().map(|index| self.field(*index).clone()).collect();
+    pub fn projection(&self, projection: &Vec<usize>) -> Result<Arc<Schema>> {
+        let mut fields: Vec<Field> = Vec::with_capacity(projection.len());
+        for i in projection {
+            if *i < self.fields().len() {
+                fields.push(self.field(*i).clone());
+            } else {
+                return Err(ArrowError::InvalidArgumentError(format!(
+                    "Invalid column index {} in projection",
+                    i
+                )));
+            }
+        }
         Ok(Arc::new(Schema::new(fields)))
     }
 }
