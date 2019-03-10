@@ -139,7 +139,6 @@ impl ParquetFile {
             self.column_readers = vec![];
 
             for i in &self.projection {
-                //TODO validate index in bounds
                 self.column_readers
                     .push(reader.get_column_reader(*i).unwrap());
             }
