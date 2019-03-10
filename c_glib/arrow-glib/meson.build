@@ -208,12 +208,12 @@ arrow_glib = declare_dependency(link_with: libarrow_glib,
                                 dependencies: dependencies,
                                 sources: enums_header)
 
-pkgconfig.generate(filebase: meson.project_name(),
+pkgconfig.generate(libarrow_glib,
+                   filebase: meson.project_name(),
                    name: 'Apache Arrow GLib',
                    description: 'C API for Apache Arrow based on GLib',
                    version: version,
-                   requires: ['gio-2.0', 'arrow'],
-                   libraries: [libarrow_glib])
+                   requires: ['gio-2.0', 'arrow'])
 if have_arrow_orc
   pkgconfig.generate(filebase: 'arrow-orc-glib',
                      name: 'Apache Arrow GLib ORC',

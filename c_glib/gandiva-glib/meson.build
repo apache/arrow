@@ -58,12 +58,12 @@ gandiva_glib = declare_dependency(link_with: libgandiva_glib,
                                   dependencies: dependencies,
                                   sources: enums_header)
 
-pkgconfig.generate(filebase: project_name,
+pkgconfig.generate(libgandiva_glib,
+                   filebase: project_name,
                    name: 'Apache Arrow Gandiva GLib',
                    description: 'C API for Apache Arrow Gandiva based on GLib',
                    version: version,
-                   requires: ['gandiva', 'arrow-glib'],
-                   libraries: [libgandiva_glib])
+                   requires: ['gandiva', 'arrow-glib'])
 
 gnome.generate_gir(libgandiva_glib,
                    dependencies: declare_dependency(sources: arrow_glib_gir),
