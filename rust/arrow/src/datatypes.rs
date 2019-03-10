@@ -754,7 +754,7 @@ impl Schema {
     }
 
     /// Create a new schema by applying a projection to this schema's fields
-    pub fn projection(&self, projection: &Vec<usize>) -> Result<Arc<Schema>> {
+    pub fn projection(&self, projection: &[usize]) -> Result<Arc<Schema>> {
         let mut fields: Vec<Field> = Vec::with_capacity(projection.len());
         for i in projection {
             if *i < self.fields().len() {
