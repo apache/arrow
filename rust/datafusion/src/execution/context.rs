@@ -108,6 +108,7 @@ impl ExecutionContext {
             .insert(name.to_string(), provider);
     }
 
+    /// Get a table by name
     pub fn table(&mut self, table_name: &str) -> Result<Arc<Table>> {
         match self.datasources.borrow().get(table_name) {
             Some(provider) => {
