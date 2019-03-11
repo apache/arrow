@@ -162,23 +162,16 @@ func TestCSVWriter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = w.Flush()
-	if err != nil {
-		t.Fatal(err)
+	want := `true;-1;-1;-1;-1;0;0;0;0;0;0;str-0
+false;0;0;0;0;1;1;1;1;0.1;0.1;str-1
+true;1;1;1;1;2;2;2;2;0.2;0.2;str-2`
+	if got, want := f.String(), want; strings.Compare(got, want) != 0 {
+		t.Fatalf("invalid output:\ngot=%s\nwant=%s\n", got, want)
 	}
 
 	err = w.Error()
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	want := `true;-1;-1;-1;-1;0;0;0;0;0;0;str-0
-false;0;0;0;0;1;1;1;1;0.1;0.1;str-1
-true;1;1;1;1;2;2;2;2;0.2;0.2;str-2
-`
-
-	if got, want := f.String(), want; strings.Compare(got, want) != 0 {
-		t.Fatalf("invalid output:\ngot=%s\nwant=%s\n", got, want)
 	}
 }
 
