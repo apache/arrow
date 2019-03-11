@@ -147,10 +147,10 @@ def _derive_hadoop_classpath():
                                   stdin=find.stdout,
                                   stdout=subprocess.PIPE)
     classpath_jars = subprocess.check_output(('tr', "' '", "':'"),
-                                  stdin=xargs_echo.stdout)
+                                             stdin=xargs_echo.stdout)
     classpath_conf = os.environ["HADOOP_CONF_DIR"] \
-                     if "HADOOP_CONF_DIR" in os.environ \
-                     else os.environ['HADOOP_HOME'] + "/etc/hadoop"
+        if "HADOOP_CONF_DIR" in os.environ \
+        else os.environ['HADOOP_HOME'] + "/etc/hadoop"
     return (classpath_conf + ":").encode('utf-8') + classpath_jars
 
 
