@@ -146,7 +146,13 @@ func TestCSVWriter(t *testing.T) {
 	defer rec.Release()
 
 	w := csv.NewWriter(f, schema, csv.WithComma(';'), csv.WithCRLF(false))
-	err := w.Write(rec)
+	w.Flush()
+	err := w.Error()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = w.Write(rec)
 	if err != nil {
 		t.Fatal(err)
 	}
