@@ -53,39 +53,38 @@ class ColumnReader;
 class RowGroupReader;
 
 static constexpr bool DEFAULT_USE_THREADS = false;
-static constexpr bool DEFAULT_READ_DICTIONARY = false;
 
+/// EXPERIMENTAL: Properties for configuring FileReader behavior.
 class PARQUET_EXPORT ArrowReaderProperties {
  public:
-  explicit ArrowReaderProperties(const bool use_threads = DEFAULT_USE_THREADS,
-                                 bool read_dict = DEFAULT_READ_DICTIONARY)
-      : use_threads_(use_threads), default_read_dict_(read_dict), read_dict_indices_() {}
+  explicit ArrowReaderProperties(bool use_threads = DEFAULT_USE_THREADS)
+      : use_threads_(use_threads), read_dict_indices_() {}
 
-  void set_use_threads(const bool use_threads) { use_threads_ = use_threads; }
+  void set_use_threads(bool use_threads) { use_threads_ = use_threads; }
 
   bool use_threads() const { return use_threads_; }
 
-  void set_read_dictionary(const int column_index, const bool read_dict) {
+  void set_read_dictionary(int column_index, bool read_dict) {
     if (read_dict) {
-      read_dict_indices_.emplace(column_index);
+      read_dict_indices_.insert(column_index);
     } else {
       read_dict_indices_.erase(column_index);
     }
   }
-  bool read_dictionary(const int column_index) const {
+  bool read_dictionary(int column_index) const {
     if (read_dict_indices_.find(column_index) != read_dict_indices_.end()) {
       return true;
     } else {
-      return default_read_dict_;
+      return false;
     }
   }
 
  private:
   bool use_threads_;
-  bool default_read_dict_;
   std::unordered_set<int> read_dict_indices_;
 };
 
+/// EXPERIMENTAL: Constructs the default ArrowReaderProperties
 PARQUET_EXPORT
 ArrowReaderProperties default_arrow_reader_properties();
 
