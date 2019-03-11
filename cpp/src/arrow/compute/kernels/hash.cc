@@ -82,17 +82,13 @@ class UniqueAction : public ActionBase {
 
   Status Reserve(const int64_t length) { return Status::OK(); }
 
-  Status ObserveNull() { return Status::OK(); }
+  void ObserveNull() {}
 
   template <class Index>
-  Status ObserveFound(Index index) {
-    return Status::OK();
-  }
+  void ObserveFound(Index index) {}
 
   template <class Index>
-  Status ObserveNotFound(Index index) {
-    return Status::OK();
-  }
+  void ObserveNotFound(Index index, Status* err_status) {}
 
   Status Flush(Datum* out) { return Status::OK(); }
 
@@ -115,12 +111,13 @@ class ValueCountsAction : ActionBase {
     // builder size is independent of input array size.
     return Status::OK();
   }
+
   Status Reset() {
     count_builder_.Reset();
     return Status::OK();
   }
 
-  // Don't do anything on flush beceause we don't want to finalize the builder
+  // Don't do anything on flush because we don't want to finalize the builder
   // or incur the cost of memory copies.
   Status Flush(Datum* out) { return Status::OK(); }
 
@@ -134,17 +131,19 @@ class ValueCountsAction : ActionBase {
     return Status::OK();
   }
 
-  Status ObserveNull() { return Status::OK(); }
+  void ObserveNull() {}
 
   template <class Index>
-  Status ObserveFound(Index slot) {
+  void ObserveFound(Index slot) {
     count_builder_[slot]++;
-    return Status::OK();
   }
 
   template <class Index>
-  Status ObserveNotFound(Index slot) {
-    return count_builder_.Append(1);
+  void ObserveNotFound(Index slot, Status* status) {
+    Status s = count_builder_.Append(1);
+    if (ARROW_PREDICT_FALSE(!s.ok())) {
+      *status = s;
+    }
   }
 
  private:
@@ -166,20 +165,16 @@ class DictEncodeAction : public ActionBase {
 
   Status Reserve(const int64_t length) { return indices_builder_.Reserve(length); }
 
-  Status ObserveNull() {
-    indices_builder_.UnsafeAppendNull();
-    return Status::OK();
-  }
+  void ObserveNull() { indices_builder_.UnsafeAppendNull(); }
 
   template <class Index>
-  Status ObserveFound(Index index) {
+  void ObserveFound(Index index) {
     indices_builder_.UnsafeAppend(index);
-    return Status::OK();
   }
 
   template <class Index>
-  Status ObserveNotFound(Index index) {
-    return ObserveFound(index);
+  void ObserveNotFound(Index index, Status* status) {
+    ObserveFound(index);
   }
 
   Status Flush(Datum* out) {
@@ -268,15 +263,17 @@ class RegularHashKernelImpl : public HashKernelImpl {
                                                           0 /* start_offset */, out);
   }
 
-  Status VisitNull() { return action_.ObserveNull(); }
+  Status VisitNull() {
+    action_.ObserveNull();
+    return Status::Status::OK();
+  }
 
   Status VisitValue(const Scalar& value) {
+    auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
+
     Status status;
-    auto on_found = [this, &status](int32_t memo_index) {
-      status = action_.ObserveFound(memo_index);
-    };
     auto on_not_found = [this, &status](int32_t memo_index) {
-      status = action_.ObserveNotFound(memo_index);
+      action_.ObserveNotFound(memo_index, &status);
     };
     memo_table_->GetOrInsert(value, on_found, on_not_found);
     return status;
@@ -307,7 +304,7 @@ class NullHashKernelImpl : public HashKernelImpl {
   Status Append(const ArrayData& arr) override {
     RETURN_NOT_OK(action_.Reserve(arr.length));
     for (int64_t i = 0; i < arr.length; ++i) {
-      RETURN_NOT_OK(action_.ObserveNull());
+      action_.ObserveNull();
     }
     return Status::OK();
   }
@@ -363,27 +360,27 @@ struct HashKernelTraits<Type, Action, enable_if_fixed_size_binary<Type>> {
 
 }  // namespace
 
-#define PROCESS_SUPPORTED_HASH_TYPES \
-  PROCESS(NullType)                  \
-  PROCESS(BooleanType)               \
-  PROCESS(UInt8Type)                 \
-  PROCESS(Int8Type)                  \
-  PROCESS(UInt16Type)                \
-  PROCESS(Int16Type)                 \
-  PROCESS(UInt32Type)                \
-  PROCESS(Int32Type)                 \
-  PROCESS(UInt64Type)                \
-  PROCESS(Int64Type)                 \
-  PROCESS(FloatType)                 \
-  PROCESS(DoubleType)                \
-  PROCESS(Date32Type)                \
-  PROCESS(Date64Type)                \
-  PROCESS(Time32Type)                \
-  PROCESS(Time64Type)                \
-  PROCESS(TimestampType)             \
-  PROCESS(BinaryType)                \
-  PROCESS(StringType)                \
-  PROCESS(FixedSizeBinaryType)       \
+#define PROCESS_SUPPORTED_HASH_TYPES(PROCESS) \
+  PROCESS(NullType)                           \
+  PROCESS(BooleanType)                        \
+  PROCESS(UInt8Type)                          \
+  PROCESS(Int8Type)                           \
+  PROCESS(UInt16Type)                         \
+  PROCESS(Int16Type)                          \
+  PROCESS(UInt32Type)                         \
+  PROCESS(Int32Type)                          \
+  PROCESS(UInt64Type)                         \
+  PROCESS(Int64Type)                          \
+  PROCESS(FloatType)                          \
+  PROCESS(DoubleType)                         \
+  PROCESS(Date32Type)                         \
+  PROCESS(Date64Type)                         \
+  PROCESS(Time32Type)                         \
+  PROCESS(Time64Type)                         \
+  PROCESS(TimestampType)                      \
+  PROCESS(BinaryType)                         \
+  PROCESS(StringType)                         \
+  PROCESS(FixedSizeBinaryType)                \
   PROCESS(Decimal128Type)
 
 Status GetUniqueKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
@@ -396,7 +393,7 @@ Status GetUniqueKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& ty
         type, ctx->memory_pool()));                                                   \
     break;
 
-    PROCESS_SUPPORTED_HASH_TYPES
+    PROCESS_SUPPORTED_HASH_TYPES(PROCESS)
 #undef PROCESS
     default:
       break;
@@ -421,7 +418,7 @@ Status GetDictionaryEncodeKernel(FunctionContext* ctx,
                      type, ctx->memory_pool()));                                      \
     break;
 
-    PROCESS_SUPPORTED_HASH_TYPES
+    PROCESS_SUPPORTED_HASH_TYPES(PROCESS)
 #undef PROCESS
     default:
       break;
@@ -447,7 +444,7 @@ Status GetValueCountsKernel(FunctionContext* ctx, const std::shared_ptr<DataType
                      type, ctx->memory_pool()));                                       \
     break;
 
-    PROCESS_SUPPORTED_HASH_TYPES
+    PROCESS_SUPPORTED_HASH_TYPES(PROCESS)
 #undef PROCESS
     default:
       break;
@@ -506,8 +503,8 @@ Status DictionaryEncode(FunctionContext* ctx, const Datum& value, Datum* out) {
   return Status::OK();
 }
 
-const char kValuesFieldName[] = "Values";
-const char kCountsFieldName[] = "Counts";
+const char kValuesFieldName[] = "values";
+const char kCountsFieldName[] = "counts";
 const int32_t kValuesFieldIndex = 0;
 const int32_t kCountsFieldIndex = 1;
 Status ValueCounts(FunctionContext* ctx, const Datum& value,
@@ -524,8 +521,8 @@ Status ValueCounts(FunctionContext* ctx, const Datum& value,
   RETURN_NOT_OK(func->FlushFinal(&value_counts));
 
   auto data_type = std::make_shared<StructType>(std::vector<std::shared_ptr<Field>>{
-      std::make_shared<Field>("Values", uniques->type()),
-      std::make_shared<Field>("Counts", int64())});
+      std::make_shared<Field>(kValuesFieldName, uniques->type()),
+      std::make_shared<Field>(kCountsFieldName, int64())});
   *counts = std::make_shared<StructArray>(
       data_type, uniques->length(),
       std::vector<std::shared_ptr<Array>>{uniques, MakeArray(value_counts.array())});

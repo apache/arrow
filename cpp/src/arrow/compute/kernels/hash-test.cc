@@ -43,6 +43,8 @@
 #include "arrow/compute/kernels/util-internal.h"
 #include "arrow/compute/test-util.h"
 
+#include "arrow/ipc/json-simple.h"
+
 using std::shared_ptr;
 using std::vector;
 
@@ -72,12 +74,13 @@ void CheckValueCountsNull(FunctionContext* ctx, const shared_ptr<DataType>& type
   input.value =
       ArrayData::Make(type, 0 /* length */, std::move(data_buffers), 0 /* null_count */);
 
-  shared_ptr<Array> ex_values = _MakeArray<Type, T>(type, {}, {});
-  shared_ptr<Array> ex_counts = _MakeArray<Int64Type, int64_t>(int64(), {}, {});
+  shared_ptr<Array> ex_values = ArrayFromJSON(type, "[]");
+  shared_ptr<Array> ex_counts = ArrayFromJSON(int64(), "[]");
 
   shared_ptr<Array> result;
   ASSERT_OK(ValueCounts(ctx, input, &result));
   auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
+  ASSERT_NE(result_struct->GetFieldByName(kValuesFieldName), nullptr);
   // TODO: We probably shouldn't rely on value ordering.
   ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->GetFieldByName(kValuesFieldName));
   ASSERT_ARRAYS_EQUAL(*ex_counts, *result_struct->GetFieldByName(kCountsFieldName));
@@ -94,7 +97,7 @@ void CheckValueCounts(FunctionContext* ctx, const shared_ptr<DataType>& type,
       _MakeArray<Int64Type, int64_t>(int64(), out_counts, out_is_valid);
 
   shared_ptr<Array> result;
-  ASSERT_OK(ValueCounts(ctx, Datum(input), &result));
+  ASSERT_OK(ValueCounts(ctx, input, &result));
   auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
   // TODO: We probably shouldn't rely on value ordering.
   ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->field(kValuesFieldIndex));
@@ -453,7 +456,7 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
 
   // Unique counts
   shared_ptr<Array> counts_array;
-  ASSERT_OK(ValueCounts(&this->ctx_, Datum(carr), &counts_array));
+  ASSERT_OK(ValueCounts(&this->ctx_, carr, &counts_array));
   auto counts_struct = std::dynamic_pointer_cast<StructArray>(counts_array);
   ASSERT_ARRAYS_EQUAL(*ex_dict, *counts_struct->field(0));
   ASSERT_ARRAYS_EQUAL(*ex_counts, *counts_struct->field(1));
