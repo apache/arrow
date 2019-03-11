@@ -38,15 +38,15 @@ script:
   - mkdir -p dist
 
   # build wheel
-  - pushd arrow/python/manylinux1
-  - docker run --shm-size=2g
+  - pushd arrow
+  # don't attempt to build it, because the base image by pypa is updated
+  # regularly and would cause undeterministic builds
+  - docker-compose pull python-manylinux1
+  - docker-compose run
       -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }}
       -e PYTHON_VERSION="{{ python_version }}"
       -e UNICODE_WIDTH="{{ unicode_width }}"
-      -v $PWD:/io
-      -v $PWD/../../:/arrow
-      quay.io/xhochy/arrow_manylinux1_x86_64_base:llvm-7-manylinux1
-      /io/build_arrow.sh
+      python-manylinux1
   - popd
 
   # test on multiple distributions

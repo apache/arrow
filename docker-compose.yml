@@ -232,6 +232,30 @@ services:
       dockerfile: docs/Dockerfile
     volumes: *ubuntu-volumes
 
+  ######################### Package Builder ###################################
+
+  python-manylinux1:
+    # Usage:
+    #   either build:
+    #     $ docker-compose build python-manylinux1
+    #   or pull:
+    #     $ docker-compose pull python-manylinux1
+    #   an then run:
+    #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux1
+    image: quay.io/xhochy/arrow_manylinux1_x86_64_base:ARROW-4778
+    build:
+      context: .
+      dockerfile: python/manylinux1/Dockerfile-x86_64_base
+    shm_size: 2G
+    environment:
+      PYARROW_PARALLEL: 3
+      PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+      UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
+    volumes:
+      - .:/arrow:delegated
+      - ./python/manylinux1:/io:delegated
+    command: /io/build_arrow.sh
+
   ######################### Integration Tests #################################
 
   # impala:
