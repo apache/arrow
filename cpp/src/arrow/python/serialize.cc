@@ -71,7 +71,7 @@ class SequenceBuilder {
         types_(::arrow::int8(), pool),
         offsets_(::arrow::int32(), pool),
         type_map_(PythonType::NUM_PYTHON_TYPES, -1) {
-    builder_.reset(new DenseUnionBuilder(pool));
+    builder_.reset(new arrow::internal::ChunkedDenseUnionBuilder(std::numeric_limits<int32_t>::max() - 1, pool));
   }
 
   // Appending a none to the sequence
@@ -225,9 +225,9 @@ class SequenceBuilder {
 
   // Finish building the sequence and return the result.
   // Input arrays may be nullptr
-  Status Finish(std::shared_ptr<Array>* out) { return builder_->Finish(out); }
+  Status Finish(ArrayVector* out) { return builder_->Finish(out); }
 
-  std::shared_ptr<DenseUnionBuilder> builder() { return builder_; }
+  std::shared_ptr<arrow::DenseUnionBuilder> builder() { return builder_->builder(); }
 
  private:
   MemoryPool* pool_;
@@ -261,7 +261,7 @@ class SequenceBuilder {
   std::shared_ptr<Int32Builder> ndarray_indices_;
   std::shared_ptr<Int32Builder> buffer_indices_;
 
-  std::shared_ptr<DenseUnionBuilder> builder_;
+  std::shared_ptr<arrow::internal::ChunkedDenseUnionBuilder> builder_;
 };
 
 // Constructing dictionaries of key/value pairs. Sequences of
@@ -531,10 +531,14 @@ Status AppendArray(PyObject* context, PyArrayObject* array, SequenceBuilder* bui
   return Status::OK();
 }
 
-std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
-  auto field = std::make_shared<Field>("list", data->type());
-  auto schema = ::arrow::schema({field});
-  return RecordBatch::Make(schema, data->length(), {data});
+std::vector<std::shared_ptr<RecordBatch>> MakeBatches(const ArrayVector& data) {
+  std::vector<std::shared_ptr<RecordBatch>> result;
+  for (size_t i = 0; i < data.size(); ++i) {
+    auto field = std::make_shared<Field>("list", data[i]->type());
+    auto schema = ::arrow::schema({field});
+    result.push_back(RecordBatch::Make(schema, data[i]->length(), {data[i]}));
+  }
+  return result;
 }
 
 Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out) {
@@ -546,19 +550,19 @@ Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject
       sequence, [&](PyObject* obj, bool* keep_going /* unused */) {
         return Append(context, obj, &builder, 0, out);
       }));
-  std::shared_ptr<Array> array;
-  RETURN_NOT_OK(builder.Finish(&array));
-  out->batch = MakeBatch(array);
+  ArrayVector arrays;
+  RETURN_NOT_OK(builder.Finish(&arrays));
+  out->batches = MakeBatches(arrays);
   return Status::OK();
 }
 
 Status SerializeNdarray(std::shared_ptr<Tensor> tensor, SerializedPyObject* out) {
-  std::shared_ptr<Array> array;
+  ArrayVector arrays;
   SequenceBuilder builder;
   RETURN_NOT_OK(builder.AppendNdarray(static_cast<int32_t>(out->ndarrays.size())));
   out->ndarrays.push_back(tensor);
-  RETURN_NOT_OK(builder.Finish(&array));
-  out->batch = MakeBatch(array);
+  RETURN_NOT_OK(builder.Finish(&arrays));
+  out->batches = MakeBatches(arrays);
   return Status::OK();
 }
 
@@ -573,9 +577,12 @@ Status WriteNdarrayHeader(std::shared_ptr<DataType> dtype,
 }
 
 Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
+  int32_t num_batches = static_cast<int32_t>(this->batches.size());
   int32_t num_tensors = static_cast<int32_t>(this->tensors.size());
   int32_t num_ndarrays = static_cast<int32_t>(this->ndarrays.size());
   int32_t num_buffers = static_cast<int32_t>(this->buffers.size());
+  RETURN_NOT_OK(
+      dst->Write(reinterpret_cast<const uint8_t*>(&num_batches), sizeof(int32_t)));
   RETURN_NOT_OK(
       dst->Write(reinterpret_cast<const uint8_t*>(&num_tensors), sizeof(int32_t)));
   RETURN_NOT_OK(
@@ -585,7 +592,7 @@ Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
 
   // Align stream to 8-byte offset
   RETURN_NOT_OK(ipc::AlignStream(dst, ipc::kArrowIpcAlignment));
-  RETURN_NOT_OK(ipc::WriteRecordBatchStream({this->batch}, dst));
+  RETURN_NOT_OK(ipc::WriteRecordBatchStream(this->batches, dst));
 
   // Align stream to 64-byte offset so tensor bodies are 64-byte aligned
   RETURN_NOT_OK(ipc::AlignStream(dst, ipc::kTensorAlignment));
@@ -651,7 +658,7 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
 
   py_gil.release();
   RETURN_NOT_OK(io::BufferOutputStream::Create(kInitialCapacity, memory_pool, &stream));
-  RETURN_NOT_OK(ipc::WriteRecordBatchStream({this->batch}, stream.get()));
+  RETURN_NOT_OK(ipc::WriteRecordBatchStream(this->batches, stream.get()));
   RETURN_NOT_OK(stream->Finish(&buffer));
   py_gil.acquire();
 

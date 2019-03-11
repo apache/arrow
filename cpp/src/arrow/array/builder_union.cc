@@ -54,7 +54,38 @@ Status DenseUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
   *out = ArrayData::Make(type_, length(), {null_bitmap, types, offsets}, null_count_);
   (*out)->child_data = std::move(child_data);
+  Reset();
   return Status::OK();
 }
+
+namespace internal {
+
+ChunkedDenseUnionBuilder::ChunkedDenseUnionBuilder(int32_t max_chunk_size, MemoryPool* pool)
+    : max_chunk_size_(max_chunk_size),
+      chunk_data_size_(0),
+      builder_(new DenseUnionBuilder(pool)) {}
+
+Status ChunkedDenseUnionBuilder::Finish(ArrayVector* out) {
+  if (builder_->length() > 0 || chunks_.size() == 0) {
+    std::shared_ptr<Array> chunk;
+    RETURN_NOT_OK(builder_->Finish(&chunk));
+    chunks_.emplace_back(std::move(chunk));
+  }
+  *out = std::move(chunks_);
+  return Status::OK();
+}
+
+Status ChunkedDenseUnionBuilder::NextChunk() {
+  std::shared_ptr<Array> chunk;
+  RETURN_NOT_OK(builder_->Finish(&chunk));
+  chunks_.emplace_back(std::move(chunk));
+
+  chunk_data_size_ = 0;
+  return Status::OK();
+}
+
+
+
+}  // namespace internal
 
 }  // namespace arrow

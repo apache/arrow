@@ -48,7 +48,7 @@ class OutputStream;
 namespace py {
 
 struct ARROW_PYTHON_EXPORT SerializedPyObject {
-  std::shared_ptr<RecordBatch> batch;
+  std::vector<std::shared_ptr<RecordBatch>> batches;
   std::vector<std::shared_ptr<Tensor>> tensors;
   std::vector<std::shared_ptr<Tensor>> ndarrays;
   std::vector<std::shared_ptr<Buffer>> buffers;

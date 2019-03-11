@@ -44,8 +44,7 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
  public:
   /// Use this constructor to incrementally build the union array along
   /// with types, offsets, and null bitmap.
-  explicit DenseUnionBuilder(MemoryPool* pool,
-                             const std::shared_ptr<DataType>& type = NULLPTR);
+  explicit DenseUnionBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type = NULLPTR);
 
   Status AppendNull() {
     ARROW_RETURN_NOT_OK(types_builder_.Append(0));
@@ -85,5 +84,53 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
   TypedBufferBuilder<int32_t> offsets_builder_;
   std::vector<std::string> field_names_;
 };
+
+namespace internal {
+
+class ARROW_EXPORT ChunkedDenseUnionBuilder {
+ public:
+  ChunkedDenseUnionBuilder(int32_t max_chunk_size,
+                           MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+
+  virtual ~ChunkedDenseUnionBuilder() = default;
+
+  Status Append(int8_t type, int32_t offset) {
+    if (ARROW_PREDICT_FALSE(chunk_data_size_ + 1 > max_chunk_size_)) {
+      ARROW_RETURN_NOT_OK(NextChunk());
+    }
+
+    chunk_data_size_ += 1;
+    return builder_->Append(type, offset);
+  }
+
+  Status AppendNull() {
+    if (ARROW_PREDICT_FALSE(builder_->length() == std::numeric_limits<int32_t>::max())) {
+      ARROW_RETURN_NOT_OK(NextChunk());
+    }
+    return builder_->AppendNull();
+  }
+
+  int8_t AppendChild(const std::shared_ptr<ArrayBuilder>& child,
+                     const std::string& field_name = "") {
+    return builder_->AppendChild(child, field_name);
+  }
+
+  virtual Status Finish(ArrayVector* out);
+
+  std::shared_ptr<DenseUnionBuilder> builder() {
+    return builder_;
+  }
+
+ protected:
+   Status NextChunk();
+
+   int32_t max_chunk_size_;
+   int32_t chunk_data_size_;
+
+   std::shared_ptr<DenseUnionBuilder> builder_;
+   std::vector<std::shared_ptr<Array>> chunks_;
+};
+
+}  // namespace internal
 
 }  // namespace arrow

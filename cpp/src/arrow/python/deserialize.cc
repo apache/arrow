@@ -285,11 +285,14 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
 
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) {
   int64_t bytes_read;
+  int32_t num_batches;
   int32_t num_tensors;
   int32_t num_ndarrays;
   int32_t num_buffers;
 
-  // Read number of tensors
+
+  RETURN_NOT_OK(
+      src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_batches)));
   RETURN_NOT_OK(
       src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_tensors)));
   RETURN_NOT_OK(
@@ -301,7 +304,11 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
   RETURN_NOT_OK(ipc::AlignStream(src, ipc::kArrowIpcAlignment));
   std::shared_ptr<RecordBatchReader> reader;
   RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(src, &reader));
-  RETURN_NOT_OK(reader->ReadNext(&out->batch));
+  for (int i = 0; i < num_batches; ++i) {
+    std::shared_ptr<RecordBatch> batch;
+    RETURN_NOT_OK(reader->ReadNext(&batch));
+    out->batches.push_back(batch);
+  }
 
   /// Skip EOS marker
   RETURN_NOT_OK(src->Advance(4));
@@ -344,8 +351,15 @@ Status DeserializeObject(PyObject* context, const SerializedPyObject& obj, PyObj
   PyAcquireGIL lock;
   PyDateTime_IMPORT;
   import_pyarrow();
-  return DeserializeList(context, *obj.batch->column(0), 0, obj.batch->num_rows(), base,
-                         obj, out);
+  // XXX fix this
+  *out = PyList_New(0);
+  for (size_t i = 0; i < obj.batches.size(); ++i) {
+    PyObject *seq;
+    RETURN_NOT_OK(DeserializeList(context, *obj.batches[i]->column(0), 0, obj.batches[i]->num_rows(), base,
+                                  obj, &seq));
+    *out = PySequence_Concat(*out, seq);
+  }
+  return Status::OK();
 }
 
 Status GetSerializedFromComponents(int num_tensors, int num_ndarrays, int num_buffers,
@@ -375,7 +389,8 @@ Status GetSerializedFromComponents(int num_tensors, int num_ndarrays, int num_bu
     io::BufferReader buf_reader(data_buffer);
     std::shared_ptr<RecordBatchReader> reader;
     RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(&buf_reader, &reader));
-    RETURN_NOT_OK(reader->ReadNext(&out->batch));
+    // XXX support multiple batches
+    RETURN_NOT_OK(reader->ReadNext(&out->batches[0]));
     gil.acquire();
   }
 
