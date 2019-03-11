@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_ADAPATER_UTIL_HH
-#define ARROW_ADAPATER_UTIL_HH
+#ifndef ARROW_ADAPATER_UTIL_H
+#define ARROW_ADAPATER_UTIL_H
 
 #include <cstdint>
 #include <memory>
@@ -25,15 +25,20 @@
 #include "arrow/status.h"
 #include "orc/OrcFile.hh"
 
+namespace liborc = orc;
+
 namespace arrow {
 
-class AdapaterUtil {
- public:
-  static Status GetArrowType(const orc::Type* type, std::shared_ptr<DataType>* out);
+namespace adapters {
 
-  static Status AppendBatch(const orc::Type* type, orc::ColumnVectorBatch* batch,
-                            int64_t offset, int64_t length, ArrayBuilder* builder);
-};
+namespace orc {
+
+Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out);
+
+Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
+                   int64_t offset, int64_t length, ArrayBuilder* builder);
+}  // namespace orc
+}  // namespace adapters
 }  // namespace arrow
 
-#endif  // ARROW_ADAPATER_UTIL_HH
+#endif  // ARROW_ADAPATER_UTIL_H

@@ -33,6 +33,10 @@ namespace liborc = orc;
 
 namespace arrow {
 
+namespace adapters {
+
+namespace orc {
+
 using internal::checked_cast;
 
 // The numer of nanoseconds in a second
@@ -50,8 +54,8 @@ Status AppendStructBatch(const liborc::Type* type, liborc::ColumnVectorBatch* cb
   RETURN_NOT_OK(builder->AppendValues(length, valid_bytes));
 
   for (int i = 0; i < builder->num_fields(); i++) {
-    RETURN_NOT_OK(AdapaterUtil::AppendBatch(type->getSubtype(i), batch->fields[i], offset,
-                                            length, builder->field_builder(i)));
+    RETURN_NOT_OK(AppendBatch(type->getSubtype(i), batch->fields[i], offset, length,
+                              builder->field_builder(i)));
   }
   return Status::OK();
 }
@@ -69,8 +73,8 @@ Status AppendListBatch(const liborc::Type* type, liborc::ColumnVectorBatch* cbat
       int64_t start = batch->offsets[i];
       int64_t end = batch->offsets[i + 1];
       RETURN_NOT_OK(builder->Append());
-      RETURN_NOT_OK(AdapaterUtil::AppendBatch(elemtype, elements, start, end - start,
-                                              builder->value_builder()));
+      RETURN_NOT_OK(
+          AppendBatch(elemtype, elements, start, end - start, builder->value_builder()));
     } else {
       RETURN_NOT_OK(builder->AppendNull());
     }
@@ -95,10 +99,10 @@ Status AppendMapBatch(const liborc::Type* type, liborc::ColumnVectorBatch* cbatc
     int64_t list_length = batch->offsets[i + 1] - start;
     if (list_length && (!has_nulls || batch->notNull[i])) {
       RETURN_NOT_OK(struct_builder->AppendValues(list_length, nullptr));
-      RETURN_NOT_OK(AdapaterUtil::AppendBatch(keytype, keys, start, list_length,
-                                              struct_builder->field_builder(0)));
-      RETURN_NOT_OK(AdapaterUtil::AppendBatch(valtype, vals, start, list_length,
-                                              struct_builder->field_builder(1)));
+      RETURN_NOT_OK(AppendBatch(keytype, keys, start, list_length,
+                                struct_builder->field_builder(0)));
+      RETURN_NOT_OK(AppendBatch(valtype, vals, start, list_length,
+                                struct_builder->field_builder(1)));
     }
   }
   return Status::OK();
@@ -259,9 +263,8 @@ Status AppendDecimalBatch(const liborc::Type* type, liborc::ColumnVectorBatch* c
   return Status::OK();
 }
 
-Status AdapaterUtil::AppendBatch(const liborc::Type* type,
-                                 liborc::ColumnVectorBatch* batch, int64_t offset,
-                                 int64_t length, ArrayBuilder* builder) {
+Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
+                   int64_t offset, int64_t length, ArrayBuilder* builder) {
   if (type == nullptr) {
     return Status::OK();
   }
@@ -312,8 +315,7 @@ Status AdapaterUtil::AppendBatch(const liborc::Type* type,
   }
 }
 
-Status AdapaterUtil::GetArrowType(const liborc::Type* type,
-                                  std::shared_ptr<DataType>* out) {
+Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
   // When subselecting fields on read, liborc will set some nodes to nullptr,
   // so we need to check for nullptr before progressing
   if (type == nullptr) {
@@ -419,4 +421,7 @@ Status AdapaterUtil::GetArrowType(const liborc::Type* type,
   }
   return Status::OK();
 }
+
+}  // namespace orc
+}  // namespace adapters
 }  // namespace arrow
