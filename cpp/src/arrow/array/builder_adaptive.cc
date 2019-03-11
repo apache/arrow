@@ -38,7 +38,6 @@ using internal::AdaptiveIntBuilderBase;
 AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(MemoryPool* pool)
     : ArrayBuilder(int64(), pool),
       data_(nullptr),
-      raw_data_(nullptr),
       int_size_(1),
       pending_pos_(0),
       pending_has_nulls_(false) {}
@@ -46,7 +45,6 @@ AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(MemoryPool* pool)
 void AdaptiveIntBuilderBase::Reset() {
   ArrayBuilder::Reset();
   data_.reset();
-  raw_data_ = nullptr;
   pending_pos_ = 0;
   pending_has_nulls_ = false;
 }
@@ -61,7 +59,6 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
   } else {
     RETURN_NOT_OK(data_->Resize(nbytes));
   }
-  raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
 
   return ArrayBuilder::Resize(capacity);
 }
@@ -133,21 +130,22 @@ Status AdaptiveIntBuilder::AppendValuesInternal(const int64_t* values, int64_t l
       RETURN_NOT_OK(ExpandIntSize(new_int_size));
     }
 
+    auto raw_data = data_->mutable_data();
     switch (int_size_) {
       case 1:
-        internal::DowncastInts(values, reinterpret_cast<int8_t*>(raw_data_) + length_,
+        internal::DowncastInts(values, reinterpret_cast<int8_t*>(raw_data) + length_,
                                chunk_size);
         break;
       case 2:
-        internal::DowncastInts(values, reinterpret_cast<int16_t*>(raw_data_) + length_,
+        internal::DowncastInts(values, reinterpret_cast<int16_t*>(raw_data) + length_,
                                chunk_size);
         break;
       case 4:
-        internal::DowncastInts(values, reinterpret_cast<int32_t*>(raw_data_) + length_,
+        internal::DowncastInts(values, reinterpret_cast<int32_t*>(raw_data) + length_,
                                chunk_size);
         break;
       case 8:
-        internal::DowncastInts(values, reinterpret_cast<int64_t*>(raw_data_) + length_,
+        internal::DowncastInts(values, reinterpret_cast<int64_t*>(raw_data) + length_,
                                chunk_size);
         break;
       default:
@@ -198,9 +196,9 @@ typename std::enable_if<__LESS(sizeof(old_type), sizeof(new_type)), Status>::typ
 AdaptiveIntBuilder::ExpandIntSizeInternal() {
   int_size_ = sizeof(new_type);
   RETURN_NOT_OK(Resize(data_->size() / sizeof(old_type)));
-  raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
-  const old_type* src = reinterpret_cast<old_type*>(raw_data_);
-  new_type* dst = reinterpret_cast<new_type*>(raw_data_);
+  auto raw_data = data_->mutable_data();
+  const old_type* src = reinterpret_cast<old_type*>(raw_data);
+  new_type* dst = reinterpret_cast<new_type*>(raw_data);
 
   // By doing the backward copy, we ensure that no element is overriden during
   // the copy process and the copy stays in-place.
@@ -302,21 +300,22 @@ Status AdaptiveUIntBuilder::AppendValuesInternal(const uint64_t* values, int64_t
       RETURN_NOT_OK(ExpandIntSize(new_int_size));
     }
 
+    auto raw_data = data_->mutable_data();
     switch (int_size_) {
       case 1:
-        internal::DowncastUInts(values, reinterpret_cast<uint8_t*>(raw_data_) + length_,
+        internal::DowncastUInts(values, reinterpret_cast<uint8_t*>(raw_data) + length_,
                                 chunk_size);
         break;
       case 2:
-        internal::DowncastUInts(values, reinterpret_cast<uint16_t*>(raw_data_) + length_,
+        internal::DowncastUInts(values, reinterpret_cast<uint16_t*>(raw_data) + length_,
                                 chunk_size);
         break;
       case 4:
-        internal::DowncastUInts(values, reinterpret_cast<uint32_t*>(raw_data_) + length_,
+        internal::DowncastUInts(values, reinterpret_cast<uint32_t*>(raw_data) + length_,
                                 chunk_size);
         break;
       case 8:
-        internal::DowncastUInts(values, reinterpret_cast<uint64_t*>(raw_data_) + length_,
+        internal::DowncastUInts(values, reinterpret_cast<uint64_t*>(raw_data) + length_,
                                 chunk_size);
         break;
       default:
@@ -355,8 +354,9 @@ AdaptiveUIntBuilder::ExpandIntSizeInternal() {
   int_size_ = sizeof(new_type);
   RETURN_NOT_OK(Resize(data_->size() / sizeof(old_type)));
 
-  old_type* src = reinterpret_cast<old_type*>(raw_data_);
-  new_type* dst = reinterpret_cast<new_type*>(raw_data_);
+  auto raw_data = data_->mutable_data();
+  old_type* src = reinterpret_cast<old_type*>(raw_data);
+  new_type* dst = reinterpret_cast<new_type*>(raw_data);
   // By doing the backward copy, we ensure that no element is overriden during
   // the copy process and the copy stays in-place.
   std::copy_backward(src, src + length_, dst + length_);

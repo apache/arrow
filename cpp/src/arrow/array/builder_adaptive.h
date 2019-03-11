@@ -58,7 +58,6 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
   virtual Status CommitPendingData() = 0;
 
   std::shared_ptr<ResizableBuffer> data_;
-  uint8_t* raw_data_;
   uint8_t int_size_;
 
   static constexpr int32_t pending_size_ = 1024;
