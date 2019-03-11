@@ -56,42 +56,42 @@ func Example() {
 	for r.Next() {
 		rec := r.Record()
 		for i, col := range rec.Columns() {
-			fmt.Printf("rec[%d][%q]: %v\n", i, rec.ColumnName(i), col)
+			fmt.Printf("rec[%d][%q]: %v\n", n, rec.ColumnName(i), col)
 		}
 		n++
 	}
 
 	// Output:
 	// rec[0]["i64"]: [0]
-	// rec[1]["f64"]: [0]
-	// rec[2]["str"]: ["str-0"]
-	// rec[0]["i64"]: [1]
+	// rec[0]["f64"]: [0]
+	// rec[0]["str"]: ["str-0"]
+	// rec[1]["i64"]: [1]
 	// rec[1]["f64"]: [1]
-	// rec[2]["str"]: ["str-1"]
-	// rec[0]["i64"]: [2]
-	// rec[1]["f64"]: [2]
+	// rec[1]["str"]: ["str-1"]
+	// rec[2]["i64"]: [2]
+	// rec[2]["f64"]: [2]
 	// rec[2]["str"]: ["str-2"]
-	// rec[0]["i64"]: [3]
-	// rec[1]["f64"]: [3]
-	// rec[2]["str"]: ["str-3"]
-	// rec[0]["i64"]: [4]
-	// rec[1]["f64"]: [4]
-	// rec[2]["str"]: ["str-4"]
-	// rec[0]["i64"]: [5]
-	// rec[1]["f64"]: [5]
-	// rec[2]["str"]: ["str-5"]
-	// rec[0]["i64"]: [6]
-	// rec[1]["f64"]: [6]
-	// rec[2]["str"]: ["str-6"]
-	// rec[0]["i64"]: [7]
-	// rec[1]["f64"]: [7]
-	// rec[2]["str"]: ["str-7"]
-	// rec[0]["i64"]: [8]
-	// rec[1]["f64"]: [8]
-	// rec[2]["str"]: ["str-8"]
-	// rec[0]["i64"]: [9]
-	// rec[1]["f64"]: [9]
-	// rec[2]["str"]: ["str-9"]
+	// rec[3]["i64"]: [3]
+	// rec[3]["f64"]: [3]
+	// rec[3]["str"]: ["str-3"]
+	// rec[4]["i64"]: [4]
+	// rec[4]["f64"]: [4]
+	// rec[4]["str"]: ["str-4"]
+	// rec[5]["i64"]: [5]
+	// rec[5]["f64"]: [5]
+	// rec[5]["str"]: ["str-5"]
+	// rec[6]["i64"]: [6]
+	// rec[6]["f64"]: [6]
+	// rec[6]["str"]: ["str-6"]
+	// rec[7]["i64"]: [7]
+	// rec[7]["f64"]: [7]
+	// rec[7]["str"]: ["str-7"]
+	// rec[8]["i64"]: [8]
+	// rec[8]["f64"]: [8]
+	// rec[8]["str"]: ["str-8"]
+	// rec[9]["i64"]: [9]
+	// rec[9]["f64"]: [9]
+	// rec[9]["str"]: ["str-9"]
 }
 
 func Example_withChunk() {
@@ -127,24 +127,24 @@ func Example_withChunk() {
 	for r.Next() {
 		rec := r.Record()
 		for i, col := range rec.Columns() {
-			fmt.Printf("rec[%d][%q]: %v\n", i, rec.ColumnName(i), col)
+			fmt.Printf("rec[%d][%q]: %v\n", n, rec.ColumnName(i), col)
 		}
 		n++
 	}
 
 	// Output:
 	// rec[0]["i64"]: [0 1 2]
-	// rec[1]["f64"]: [0 1 2]
-	// rec[2]["str"]: ["str-0" "str-1" "str-2"]
-	// rec[0]["i64"]: [3 4 5]
+	// rec[0]["f64"]: [0 1 2]
+	// rec[0]["str"]: ["str-0" "str-1" "str-2"]
+	// rec[1]["i64"]: [3 4 5]
 	// rec[1]["f64"]: [3 4 5]
-	// rec[2]["str"]: ["str-3" "str-4" "str-5"]
-	// rec[0]["i64"]: [6 7 8]
-	// rec[1]["f64"]: [6 7 8]
+	// rec[1]["str"]: ["str-3" "str-4" "str-5"]
+	// rec[2]["i64"]: [6 7 8]
+	// rec[2]["f64"]: [6 7 8]
 	// rec[2]["str"]: ["str-6" "str-7" "str-8"]
-	// rec[0]["i64"]: [9]
-	// rec[1]["f64"]: [9]
-	// rec[2]["str"]: ["str-9"]
+	// rec[3]["i64"]: [9]
+	// rec[3]["f64"]: [9]
+	// rec[3]["str"]: ["str-9"]
 }
 
 func TestCSVReader(t *testing.T) {
