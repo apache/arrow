@@ -151,6 +151,11 @@ func TestCSVWriter(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	err = w.Error()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	err = w.Write(rec)
 	if err != nil {
 		t.Fatal(err)

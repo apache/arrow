@@ -129,8 +129,13 @@ func (w *Writer) Write(record array.Record) error {
 }
 
 // Flush writes any buffered data to the underlying csv Writer.
+// If an error occurred during the Flush, return it
 func (w *Writer) Flush() error {
 	w.w.Flush()
 	return w.w.Error()
 }
 
+// Error reports any error that has occurred during a previous Write or Flush.
+func (w *Writer) Error() error {
+	return w.w.Error()
+}
