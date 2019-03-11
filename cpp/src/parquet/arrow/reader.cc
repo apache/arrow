@@ -710,7 +710,7 @@ Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                   reader);
 }
 
-Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
+Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                 ::arrow::MemoryPool* allocator, const ArrowReaderProperties& properties,
                 std::unique_ptr<FileReader>* reader) {
   std::unique_ptr<RandomAccessSource> io_wrapper(new ArrowInputFile(file));

@@ -330,7 +330,7 @@ class PARQUET_EXPORT ColumnReader {
 };
 
 // Helper function to create a file reader from an implementation of an Arrow
-// readable file
+// random access file
 //
 // metadata : separately-computed file metadata, can be nullptr
 PARQUET_EXPORT
@@ -346,7 +346,7 @@ PARQUET_EXPORT
                          std::unique_ptr<FileReader>* reader);
 
 PARQUET_EXPORT
-::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
+::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                          ::arrow::MemoryPool* allocator,
                          const ArrowReaderProperties& properties,
                          std::unique_ptr<FileReader>* reader);
