@@ -103,23 +103,24 @@ static BasicDecimal128 ConvertToDecimal128(int256_t in, bool* overflow) {
   return is_negative ? -result : result;
 }
 
+static constexpr int32_t kMaxLargeScale = 2 * DecimalTypeUtil::kMaxPrecision;
+
+// Compute the scale multipliers once.
+static std::array<int256_t, kMaxLargeScale + 1> kLargeScaleMultipliers =
+    ([]() -> std::array<int256_t, kMaxLargeScale + 1> {
+      std::array<int256_t, kMaxLargeScale + 1> values;
+      values[0] = 1;
+      for (int32_t idx = 1; idx <= kMaxLargeScale; idx++) {
+        values[idx] = values[idx - 1] * 10;
+      }
+      return values;
+    })();
+
 static int256_t GetScaleMultiplier(int scale) {
-  static constexpr int32_t kMaxScaleMultiplier = 2 * DecimalTypeUtil::kMaxPrecision;
   DCHECK_GE(scale, 0);
-  DCHECK_LE(scale, kMaxScaleMultiplier);
+  DCHECK_LE(scale, kMaxLargeScale);
 
-  // Compute the scale multipliers once.
-  static std::array<int256_t, kMaxScaleMultiplier + 1> multipliers =
-      ([]() -> std::array<int256_t, kMaxScaleMultiplier + 1> {
-        std::array<int256_t, kMaxScaleMultiplier + 1> values;
-        values[0] = 1;
-        for (auto idx = 1; idx <= kMaxScaleMultiplier; idx++) {
-          values[idx] = values[idx - 1] * 10;
-        }
-        return values;
-      })();
-
-  return multipliers[scale];
+  return kLargeScaleMultipliers[scale];
 }
 
 // divide input by 10^reduce_by, and round up the fractional part.
@@ -183,7 +184,13 @@ void gdv_xlarge_scale_up_and_divide(int64_t x_high, uint64_t x_low, int64_t y_hi
   int256_t result_large = x_large_scaled_up / y_large;
   int256_t remainder_large = x_large_scaled_up % y_large;
 
+  // Since we are scaling up and then, scaling down, round-up the result (+1 for +ve,
+  // -1 for -ve), if the remainder is >= 2 * divisor.
   if (abs(2 * remainder_large) >= abs(y_large)) {
+    // x +ve and y +ve, result is +ve =>   (1 ^ 1)  + 1 =  0 + 1 = +1
+    // x +ve and y -ve, result is -ve =>  (-1 ^ 1)  + 1 = -2 + 1 = -1
+    // x +ve and y -ve, result is -ve =>   (1 ^ -1) + 1 = -2 + 1 = -1
+    // x -ve and y -ve, result is +ve =>  (-1 ^ -1) + 1 =  0 + 1 = +1
     result_large += (x.Sign() ^ y.Sign()) + 1;
   }
   auto result = gandiva::internal::ConvertToDecimal128(result_large, overflow);

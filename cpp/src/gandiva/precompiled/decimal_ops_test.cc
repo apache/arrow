@@ -451,7 +451,7 @@ TEST_F(TestDecimalSql, DivideByZero) {
   decimalops::Divide(reinterpret_cast<int64>(&context), DecimalScalar128{"201", 20, 3},
                      DecimalScalar128{"0", 20, 2}, result_precision, result_scale,
                      &overflow);
-  EXPECT_EQ(context.has_error(), true);
+  EXPECT_TRUE(context.has_error());
   EXPECT_EQ(context.get_error(), "divide by zero error");
 
   // divide-by-nonzero should not cause an error.
@@ -459,7 +459,7 @@ TEST_F(TestDecimalSql, DivideByZero) {
   decimalops::Divide(reinterpret_cast<int64>(&context), DecimalScalar128{"201", 20, 3},
                      DecimalScalar128{"1", 20, 2}, result_precision, result_scale,
                      &overflow);
-  EXPECT_EQ(context.has_error(), false);
+  EXPECT_FALSE(context.has_error());
 
   // mod-by-zero should cause an error.
   context.Reset();
@@ -468,7 +468,7 @@ TEST_F(TestDecimalSql, DivideByZero) {
   decimalops::Mod(reinterpret_cast<int64>(&context), DecimalScalar128{"201", 20, 3},
                   DecimalScalar128{"0", 20, 2}, result_precision, result_scale,
                   &overflow);
-  EXPECT_EQ(context.has_error(), true);
+  EXPECT_TRUE(context.has_error());
   EXPECT_EQ(context.get_error(), "divide by zero error");
 
   // mod-by-nonzero should not cause an error.
@@ -476,7 +476,7 @@ TEST_F(TestDecimalSql, DivideByZero) {
   decimalops::Mod(reinterpret_cast<int64>(&context), DecimalScalar128{"201", 20, 3},
                   DecimalScalar128{"1", 20, 2}, result_precision, result_scale,
                   &overflow);
-  EXPECT_EQ(context.has_error(), false);
+  EXPECT_FALSE(context.has_error());
 }
 
 }  // namespace gandiva

@@ -355,7 +355,7 @@ BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
   }
 
   // scale upto the output scale, and do an integer division.
-  auto delta_scale = out_scale + y.scale() - x.scale();
+  int32_t delta_scale = out_scale + y.scale() - x.scale();
   DCHECK_GE(delta_scale, 0);
 
   BasicDecimal128 result;

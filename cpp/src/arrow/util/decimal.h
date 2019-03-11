@@ -123,6 +123,11 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
     return Status::OK();
   }
 
+  friend std::ostream& operator<<(std::ostream& os, const Decimal128& decimal) {
+    os << decimal.ToIntegerString();
+    return os;
+  }
+
  private:
   /// Converts internal error code to Status
   Status ToArrowStatus(DecimalStatus dstatus) const;
