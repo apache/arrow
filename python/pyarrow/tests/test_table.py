@@ -149,6 +149,8 @@ def test_chunked_array_equals():
     eq([a, c], [d])
     ne([c, a], [a, c])
 
+    assert not pa.chunked_array([], type=pa.int32()).equals(None)
+
 
 @pytest.mark.parametrize(
     ('data', 'typ'),
@@ -230,6 +232,7 @@ def test_column_basics():
     assert column == pa.Column.from_array("a", column.data)
     assert column != pa.Column.from_array("b", column.data)
     assert column != column.data
+    assert not column.equals(None)
 
 
 def test_column_factory_function():
@@ -503,6 +506,14 @@ def test_recordbatchlist_schema_equals():
 
     with pytest.raises(pa.ArrowInvalid):
         pa.Table.from_batches([batch1, batch2])
+
+
+def test_table_equals():
+    table = pa.Table.from_arrays([])
+
+    assert table.equals(table)
+    # ARROW-4822
+    assert not table.equals(None)
 
 
 def test_table_from_batches_and_schema():
