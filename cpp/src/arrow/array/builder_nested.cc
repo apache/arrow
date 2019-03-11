@@ -125,6 +125,86 @@ ArrayBuilder* ListBuilder::value_builder() const {
   return value_builder_.get();
 }
 
+LargeListBuilder::LargeListBuilder(MemoryPool* pool,
+                                   std::shared_ptr<ArrayBuilder> const& value_builder,
+                                   const std::shared_ptr<DataType>& type)
+    : ArrayBuilder(type ? type
+                        : std::static_pointer_cast<DataType>(
+                              std::make_shared<LargeListType>(value_builder->type())),
+                   pool),
+      offsets_builder_(pool),
+      value_builder_(value_builder) {}
+
+Status LargeListBuilder::AppendValues(const int64_t* offsets, int64_t length,
+                                      const uint8_t* valid_bytes) {
+  RETURN_NOT_OK(Reserve(length));
+  UnsafeAppendToBitmap(valid_bytes, length);
+  offsets_builder_.UnsafeAppend(offsets, length);
+  return Status::OK();
+}
+
+Status LargeListBuilder::AppendNextOffset() {
+  return offsets_builder_.Append(value_builder_->length());
+}
+
+Status LargeListBuilder::Append(bool is_valid) {
+  RETURN_NOT_OK(Reserve(1));
+  UnsafeAppendToBitmap(is_valid);
+  return AppendNextOffset();
+}
+
+Status LargeListBuilder::Resize(int64_t capacity) {
+  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
+
+  // one more then requested for offsets
+  RETURN_NOT_OK(offsets_builder_.Resize(capacity + 1));
+  return ArrayBuilder::Resize(capacity);
+}
+
+Status LargeListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  RETURN_NOT_OK(AppendNextOffset());
+
+  // Offset padding zeroed by BufferBuilder
+  std::shared_ptr<Buffer> offsets;
+  RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
+
+  std::shared_ptr<ArrayData> items;
+  if (values_) {
+    items = values_->data();
+  } else {
+    if (value_builder_->length() == 0) {
+      // Try to make sure we get a non-null values buffer (ARROW-2744)
+      RETURN_NOT_OK(value_builder_->Resize(0));
+    }
+    RETURN_NOT_OK(value_builder_->FinishInternal(&items));
+  }
+
+  // If the type has not been specified in the constructor, infer it
+  // This is the case if the value_builder contains a DenseUnionBuilder
+  if (!arrow::internal::checked_cast<LargeListType&>(*type_).value_type()) {
+    type_ = std::static_pointer_cast<DataType>(
+        std::make_shared<LargeListType>(value_builder_->type()));
+  }
+  std::shared_ptr<Buffer> null_bitmap;
+  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+  *out = ArrayData::Make(type_, length_, {null_bitmap, offsets}, null_count_);
+  (*out)->child_data.emplace_back(std::move(items));
+  Reset();
+  return Status::OK();
+}
+
+void LargeListBuilder::Reset() {
+  ArrayBuilder::Reset();
+  values_.reset();
+  offsets_builder_.Reset();
+  value_builder_->Reset();
+}
+
+ArrayBuilder* LargeListBuilder::value_builder() const {
+  DCHECK(!values_) << "Using value builder is pointless when values_ is set";
+  return value_builder_.get();
+}
+
 // ----------------------------------------------------------------------
 // Struct
 

@@ -51,6 +51,7 @@ using arrow::Field;
 using arrow::FixedSizeBinaryArray;
 using arrow::Int16Array;
 using arrow::Int16Builder;
+using arrow::LargeListArray;
 using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::NumericArray;
@@ -116,6 +117,7 @@ class LevelBuilder {
                                   " not supported yet");                   \
   }
 
+  NOT_IMPLEMENTED_VISIT(LargeList)
   NOT_IMPLEMENTED_VISIT(Struct)
   NOT_IMPLEMENTED_VISIT(Union)
   NOT_IMPLEMENTED_VISIT(Dictionary)

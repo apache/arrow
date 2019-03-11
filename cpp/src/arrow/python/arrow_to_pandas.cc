@@ -1868,6 +1868,10 @@ class ArrowDeserializer {
 #undef CONVERTVALUES_LISTSLIKE_CASE
   }
 
+  Status Visit(const LargeListType& type) {
+    return Status::NotImplemented("large list type");
+  }
+
   Status Visit(const DictionaryType& type) {
     auto block = std::make_shared<CategoricalBlock>(options_, nullptr, col_->length());
     RETURN_NOT_OK(block->Write(col_, 0, 0));

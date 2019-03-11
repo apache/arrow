@@ -69,13 +69,40 @@ class TestListArray : public TestBuilder {
   std::shared_ptr<ListArray> result_;
 };
 
-TEST_F(TestListArray, Equality) {
+class TestLargeListArray : public TestBuilder {
+ public:
+  void SetUp() {
+    TestBuilder::SetUp();
+
+    value_type_ = int32();
+    type_ = large_list(value_type_);
+
+    std::unique_ptr<ArrayBuilder> tmp;
+    ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
+    builder_.reset(checked_cast<LargeListBuilder*>(tmp.release()));
+  }
+
+  void Done() {
+    std::shared_ptr<Array> out;
+    FinishAndCheckPadding(builder_.get(), &out);
+    result_ = std::dynamic_pointer_cast<LargeListArray>(out);
+  }
+
+ protected:
+  std::shared_ptr<DataType> value_type_;
+
+  std::shared_ptr<LargeListBuilder> builder_;
+  std::shared_ptr<LargeListArray> result_;
+};
+
+template <typename ListBuilderType, typename OffsetType>
+void TestListEquality(std::shared_ptr<ListBuilderType> builder_) {
   Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
 
   std::shared_ptr<Array> array, equal_array, unequal_array;
-  vector<int32_t> equal_offsets = {0, 1, 2, 5, 6, 7, 8, 10};
+  vector<OffsetType> equal_offsets = {0, 1, 2, 5, 6, 7, 8, 10};
   vector<int32_t> equal_values = {1, 2, 3, 4, 5, 2, 2, 2, 5, 6};
-  vector<int32_t> unequal_offsets = {0, 1, 4, 7};
+  vector<OffsetType> unequal_offsets = {0, 1, 4, 7};
   vector<int32_t> unequal_values = {1, 2, 2, 2, 3, 4, 5};
 
   // setup two equal arrays
@@ -128,9 +155,17 @@ TEST_F(TestListArray, Equality) {
   ASSERT_TRUE(array->RangeEquals(1, 5, 0, slice));
 }
 
+TEST_F(TestListArray, Equality) { TestListEquality<ListBuilder, int32_t>(builder_); }
+
+TEST_F(TestLargeListArray, Equality) {
+  TestListEquality<LargeListBuilder, int64_t>(builder_);
+}
+
 TEST_F(TestListArray, TestResize) {}
 
-TEST_F(TestListArray, TestFromArrays) {
+template <typename ListType, typename ListBuilderType, typename OffsetType,
+          typename ArrowOffsetType>
+void TestListFromArrays(MemoryPool* pool_, std::shared_ptr<ListBuilderType> builder_) {
   std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, values;
 
   std::vector<bool> offsets_is_valid3 = {true, false, true, true};
@@ -138,26 +173,28 @@ TEST_F(TestListArray, TestFromArrays) {
 
   std::vector<bool> values_is_valid = {true, false, true, true, true, true};
 
-  std::vector<int32_t> offset1_values = {0, 2, 2, 6};
-  std::vector<int32_t> offset2_values = {0, 2, 6, 6};
+  std::vector<OffsetType> offset1_values = {0, 2, 2, 6};
+  std::vector<OffsetType> offset2_values = {0, 2, 6, 6};
 
   std::vector<int8_t> values_values = {0, 1, 2, 3, 4, 5};
   const int length = 3;
 
-  ArrayFromVector<Int32Type, int32_t>(offset1_values, &offsets1);
-  ArrayFromVector<Int32Type, int32_t>(offset2_values, &offsets2);
+  ArrayFromVector<ArrowOffsetType, OffsetType>(offset1_values, &offsets1);
+  ArrayFromVector<ArrowOffsetType, OffsetType>(offset2_values, &offsets2);
 
-  ArrayFromVector<Int32Type, int32_t>(offsets_is_valid3, offset1_values, &offsets3);
-  ArrayFromVector<Int32Type, int32_t>(offsets_is_valid4, offset2_values, &offsets4);
+  ArrayFromVector<ArrowOffsetType, OffsetType>(offsets_is_valid3, offset1_values,
+                                               &offsets3);
+  ArrayFromVector<ArrowOffsetType, OffsetType>(offsets_is_valid4, offset2_values,
+                                               &offsets4);
 
   ArrayFromVector<Int8Type, int8_t>(values_is_valid, values_values, &values);
 
   auto list_type = list(int8());
 
   std::shared_ptr<Array> list1, list3, list4;
-  ASSERT_OK(ListArray::FromArrays(*offsets1, *values, pool_, &list1));
-  ASSERT_OK(ListArray::FromArrays(*offsets3, *values, pool_, &list3));
-  ASSERT_OK(ListArray::FromArrays(*offsets4, *values, pool_, &list4));
+  ASSERT_OK(ListType::FromArrays(*offsets1, *values, pool_, &list1));
+  ASSERT_OK(ListType::FromArrays(*offsets3, *values, pool_, &list3));
+  ASSERT_OK(ListType::FromArrays(*offsets4, *values, pool_, &list4));
 
   ListArray expected1(list_type, length, offsets1->data()->buffers[1], values,
                       offsets1->data()->buffers[0], 0);
@@ -187,6 +224,15 @@ TEST_F(TestListArray, TestFromArrays) {
   ASSERT_RAISES(Invalid, ListArray::FromArrays(*values, *offsets1, pool_, &tmp));
 }
 
+TEST_F(TestListArray, TestFromArrays) {
+  TestListFromArrays<ListArray, ListBuilder, int32_t, Int32Type>(pool_, builder_);
+}
+
+TEST_F(TestLargeListArray, TestFromArrays) {
+  TestListFromArrays<LargeListArray, LargeListBuilder, int64_t, Int64Type>(pool_,
+                                                                           builder_);
+}
+
 TEST_F(TestListArray, TestAppendNull) {
   ASSERT_OK(builder_->AppendNull());
   ASSERT_OK(builder_->AppendNull());
@@ -207,14 +253,35 @@ TEST_F(TestListArray, TestAppendNull) {
   ASSERT_NE(nullptr, values->data()->buffers[1]);
 }
 
-void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& values,
+TEST_F(TestLargeListArray, TestAppendNull) {
+  ASSERT_OK(builder_->AppendNull());
+  ASSERT_OK(builder_->AppendNull());
+
+  Done();
+
+  ASSERT_OK(ValidateArray(*result_));
+  ASSERT_TRUE(result_->IsNull(0));
+  ASSERT_TRUE(result_->IsNull(1));
+
+  ASSERT_EQ(0, result_->raw_value_offsets()[0]);
+  ASSERT_EQ(0, result_->value_offset(1));
+  ASSERT_EQ(0, result_->value_offset(2));
+
+  auto values = result_->values();
+  ASSERT_EQ(0, values->length());
+  // Values buffer should be non-null
+  ASSERT_NE(nullptr, values->data()->buffers[1]);
+}
+
+template <typename ListArrayType, typename OffsetType>
+void ValidateBasicListArray(const ListArrayType* result, const vector<int32_t>& values,
                             const vector<uint8_t>& is_valid) {
   ASSERT_OK(ValidateArray(*result));
   ASSERT_EQ(1, result->null_count());
   ASSERT_EQ(0, result->values()->null_count());
 
   ASSERT_EQ(3, result->length());
-  vector<int32_t> ex_offsets = {0, 3, 3, 7};
+  vector<OffsetType> ex_offsets = {0, 3, 3, 7};
   for (size_t i = 0; i < ex_offsets.size(); ++i) {
     ASSERT_EQ(ex_offsets[i], result->value_offset(i));
   }
@@ -250,7 +317,29 @@ TEST_F(TestListArray, TestBasics) {
   }
 
   Done();
-  ValidateBasicListArray(result_.get(), values, is_valid);
+  ValidateBasicListArray<ListArray, int32_t>(result_.get(), values, is_valid);
+}
+
+TEST_F(TestLargeListArray, TestBasics) {
+  vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
+  vector<int64_t> lengths = {3, 0, 4};
+  vector<uint8_t> is_valid = {1, 0, 1};
+
+  Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
+
+  ASSERT_OK(builder_->Reserve(lengths.size()));
+  ASSERT_OK(vb->Reserve(values.size()));
+
+  int pos = 0;
+  for (size_t i = 0; i < lengths.size(); ++i) {
+    ASSERT_OK(builder_->Append(is_valid[i] > 0));
+    for (int j = 0; j < lengths[i]; ++j) {
+      ASSERT_OK(vb->Append(values[pos++]));
+    }
+  }
+
+  Done();
+  ValidateBasicListArray<LargeListArray, int64_t>(result_.get(), values, is_valid);
 }
 
 TEST_F(TestListArray, BulkAppend) {
@@ -267,7 +356,24 @@ TEST_F(TestListArray, BulkAppend) {
     ASSERT_OK(vb->Append(value));
   }
   Done();
-  ValidateBasicListArray(result_.get(), values, is_valid);
+  ValidateBasicListArray<ListArray, int32_t>(result_.get(), values, is_valid);
+}
+
+TEST_F(TestLargeListArray, BulkAppend) {
+  vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
+  vector<int64_t> lengths = {3, 0, 4};
+  vector<uint8_t> is_valid = {1, 0, 1};
+  vector<int64_t> offsets = {0, 3, 3};
+
+  Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
+  ASSERT_OK(vb->Reserve(values.size()));
+
+  ASSERT_OK(builder_->AppendValues(offsets.data(), offsets.size(), is_valid.data()));
+  for (int32_t value : values) {
+    ASSERT_OK(vb->Append(value));
+  }
+  Done();
+  ValidateBasicListArray<LargeListArray, int64_t>(result_.get(), values, is_valid);
 }
 
 TEST_F(TestListArray, BulkAppendInvalid) {
@@ -290,7 +396,33 @@ TEST_F(TestListArray, BulkAppendInvalid) {
   ASSERT_RAISES(Invalid, ValidateArray(*result_));
 }
 
+TEST_F(TestLargeListArray, BulkAppendInvalid) {
+  vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
+  vector<int> lengths = {3, 0, 4};
+  vector<uint8_t> is_null = {0, 1, 0};
+  vector<uint8_t> is_valid = {1, 0, 1};
+  vector<int64_t> offsets = {0, 2, 4};  // should be 0, 3, 3 given the is_null array
+
+  Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
+  ASSERT_OK(vb->Reserve(values.size()));
+
+  ASSERT_OK(builder_->AppendValues(offsets.data(), offsets.size(), is_valid.data()));
+  ASSERT_OK(builder_->AppendValues(offsets.data(), offsets.size(), is_valid.data()));
+  for (int32_t value : values) {
+    ASSERT_OK(vb->Append(value));
+  }
+
+  Done();
+  ASSERT_RAISES(Invalid, ValidateArray(*result_));
+}
+
 TEST_F(TestListArray, TestZeroLength) {
+  // All buffers are null
+  Done();
+  ASSERT_OK(ValidateArray(*result_));
+}
+
+TEST_F(TestLargeListArray, TestZeroLength) {
   // All buffers are null
   Done();
   ASSERT_OK(ValidateArray(*result_));
@@ -310,6 +442,23 @@ TEST_F(TestListArray, TestBuilderPreserveFieleName) {
   ASSERT_OK(builder_->Finish(&list_array));
 
   const auto& type = checked_cast<ListType&>(*list_array->type());
+  ASSERT_EQ("counts", type.value_field()->name());
+}
+
+TEST_F(TestLargeListArray, TestBuilderPreserveFieleName) {
+  auto list_type_with_name = large_list(field("counts", int32()));
+
+  std::unique_ptr<ArrayBuilder> tmp;
+  ASSERT_OK(MakeBuilder(pool_, list_type_with_name, &tmp));
+  builder_.reset(checked_cast<LargeListBuilder*>(tmp.release()));
+
+  vector<int64_t> values = {1, 2, 4, 8};
+  ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
+
+  std::shared_ptr<Array> list_array;
+  ASSERT_OK(builder_->Finish(&list_array));
+
+  const auto& type = checked_cast<LargeListType&>(*list_array->type());
   ASSERT_EQ("counts", type.value_field()->name());
 }
 

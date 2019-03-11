@@ -218,7 +218,7 @@ class RecordBatchSerializer : public ArrayVisitor {
     return Status::OK();
   }
 
-  template <typename ArrayType>
+  template <typename ArrayType, typename OffsetType>
   Status GetZeroBasedValueOffsets(const ArrayType& array,
                                   std::shared_ptr<Buffer>* value_offsets) {
     // Share slicing logic between ListArray and BinaryArray
@@ -231,13 +231,14 @@ class RecordBatchSerializer : public ArrayVisitor {
       // b) slice the values array accordingly
 
       std::shared_ptr<Buffer> shifted_offsets;
-      RETURN_NOT_OK(AllocateBuffer(pool_, sizeof(int32_t) * (array.length() + 1),
+      RETURN_NOT_OK(AllocateBuffer(pool_, sizeof(OffsetType) * (array.length() + 1),
                                    &shifted_offsets));
 
-      int32_t* dest_offsets = reinterpret_cast<int32_t*>(shifted_offsets->mutable_data());
-      const int32_t start_offset = array.value_offset(0);
+      OffsetType* dest_offsets =
+          reinterpret_cast<OffsetType*>(shifted_offsets->mutable_data());
+      const OffsetType start_offset = array.value_offset(0);
 
-      for (int i = 0; i < array.length(); ++i) {
+      for (int64_t i = 0; i < array.length(); ++i) {
         dest_offsets[i] = array.value_offset(i) - start_offset;
       }
       // Final offset
@@ -251,7 +252,8 @@ class RecordBatchSerializer : public ArrayVisitor {
 
   Status VisitBinary(const BinaryArray& array) {
     std::shared_ptr<Buffer> value_offsets;
-    RETURN_NOT_OK(GetZeroBasedValueOffsets<BinaryArray>(array, &value_offsets));
+    Status s = GetZeroBasedValueOffsets<BinaryArray, int32_t>(array, &value_offsets);
+    RETURN_NOT_OK(s);
     auto data = array.value_data();
 
     int64_t total_data_bytes = 0;
@@ -312,16 +314,18 @@ class RecordBatchSerializer : public ArrayVisitor {
 
   Status Visit(const BinaryArray& array) override { return VisitBinary(array); }
 
-  Status Visit(const ListArray& array) override {
+  template <typename ListArrayType, typename OffsetType>
+  Status VisitList(const ListArrayType& array) {
     std::shared_ptr<Buffer> value_offsets;
-    RETURN_NOT_OK(GetZeroBasedValueOffsets<ListArray>(array, &value_offsets));
+    Status s = GetZeroBasedValueOffsets<ListArrayType, OffsetType>(array, &value_offsets);
+    RETURN_NOT_OK(s);
     out_->body_buffers.emplace_back(value_offsets);
 
     --max_recursion_depth_;
     std::shared_ptr<Array> values = array.values();
 
-    int32_t values_offset = 0;
-    int32_t values_length = 0;
+    OffsetType values_offset = 0;
+    OffsetType values_length = 0;
     if (value_offsets) {
       values_offset = array.value_offset(0);
       values_length = array.value_offset(array.length()) - values_offset;
@@ -334,6 +338,14 @@ class RecordBatchSerializer : public ArrayVisitor {
     RETURN_NOT_OK(VisitArray(*values));
     ++max_recursion_depth_;
     return Status::OK();
+  }
+
+  Status Visit(const ListArray& array) override {
+    return VisitList<ListArray, int32_t>(array);
+  }
+
+  Status Visit(const LargeListArray& array) override {
+    return VisitList<LargeListArray, int64_t>(array);
   }
 
   Status Visit(const StructArray& array) override {

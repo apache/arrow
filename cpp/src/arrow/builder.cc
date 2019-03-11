@@ -78,6 +78,14 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       out->reset(new ListBuilder(pool, std::move(value_builder), type));
       return Status::OK();
     }
+    case Type::LARGE_LIST: {
+      std::unique_ptr<ArrayBuilder> value_builder;
+      std::shared_ptr<DataType> value_type =
+          internal::checked_cast<const LargeListType&>(*type).value_type();
+      RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
+      out->reset(new LargeListBuilder(pool, std::move(value_builder), type));
+      return Status::OK();
+    }
 
     case Type::STRUCT: {
       const std::vector<std::shared_ptr<Field>>& fields = type->children();

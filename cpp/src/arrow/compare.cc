@@ -106,8 +106,9 @@ class RangeEqualsVisitor {
     return true;
   }
 
-  bool CompareLists(const ListArray& left) {
-    const auto& right = checked_cast<const ListArray&>(right_);
+  template <typename ListArrayType, typename OffsetType>
+  bool CompareLists(const ListArrayType& left) {
+    const auto& right = checked_cast<const ListArrayType&>(right_);
 
     const std::shared_ptr<Array>& left_values = left.values();
     const std::shared_ptr<Array>& right_values = right.values();
@@ -119,10 +120,10 @@ class RangeEqualsVisitor {
         return false;
       }
       if (is_null) continue;
-      const int32_t begin_offset = left.value_offset(i);
-      const int32_t end_offset = left.value_offset(i + 1);
-      const int32_t right_begin_offset = right.value_offset(o_i);
-      const int32_t right_end_offset = right.value_offset(o_i + 1);
+      const OffsetType begin_offset = left.value_offset(i);
+      const OffsetType end_offset = left.value_offset(i + 1);
+      const OffsetType right_begin_offset = right.value_offset(o_i);
+      const OffsetType right_end_offset = right.value_offset(o_i + 1);
       // Underlying can't be equal if the size isn't equal
       if (end_offset - begin_offset != right_end_offset - right_begin_offset) {
         return false;
@@ -274,7 +275,12 @@ class RangeEqualsVisitor {
   }
 
   Status Visit(const ListArray& left) {
-    result_ = CompareLists(left);
+    result_ = CompareLists<ListArray, int32_t>(left);
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListArray& left) {
+    result_ = CompareLists<LargeListArray, int64_t>(left);
     return Status::OK();
   }
 
@@ -403,20 +409,21 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
     return Status::OK();
   }
 
-  template <typename ArrayType>
+  template <typename ArrayType, typename OffsetType>
   bool ValueOffsetsEqual(const ArrayType& left) {
     const auto& right = checked_cast<const ArrayType&>(right_);
 
     if (left.offset() == 0 && right.offset() == 0) {
       return left.value_offsets()->Equals(*right.value_offsets(),
-                                          (left.length() + 1) * sizeof(int32_t));
+                                          (left.length() + 1) * sizeof(OffsetType));
     } else {
       // One of the arrays is sliced; logic is more complicated because the
       // value offsets are not both 0-based
       auto left_offsets =
-          reinterpret_cast<const int32_t*>(left.value_offsets()->data()) + left.offset();
+          reinterpret_cast<const OffsetType*>(left.value_offsets()->data()) +
+          left.offset();
       auto right_offsets =
-          reinterpret_cast<const int32_t*>(right.value_offsets()->data()) +
+          reinterpret_cast<const OffsetType*>(right.value_offsets()->data()) +
           right.offset();
 
       for (int64_t i = 0; i < left.length() + 1; ++i) {
@@ -431,7 +438,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
   bool CompareBinary(const BinaryArray& left) {
     const auto& right = checked_cast<const BinaryArray&>(right_);
 
-    bool equal_offsets = ValueOffsetsEqual<BinaryArray>(left);
+    bool equal_offsets = ValueOffsetsEqual<BinaryArray, int32_t>(left);
     if (!equal_offsets) {
       return false;
     }
@@ -482,7 +489,21 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
 
   Status Visit(const ListArray& left) {
     const auto& right = checked_cast<const ListArray&>(right_);
-    bool equal_offsets = ValueOffsetsEqual<ListArray>(left);
+    bool equal_offsets = ValueOffsetsEqual<ListArray, int32_t>(left);
+    if (!equal_offsets) {
+      result_ = false;
+      return Status::OK();
+    }
+
+    result_ = left.values()->RangeEquals(
+        left.value_offset(0), left.value_offset(left.length()) - left.value_offset(0),
+        right.value_offset(0), right.values());
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListArray& left) {
+    const auto& right = checked_cast<const LargeListArray&>(right_);
+    bool equal_offsets = ValueOffsetsEqual<LargeListArray, int64_t>(left);
     if (!equal_offsets) {
       result_ = false;
       return Status::OK();
@@ -663,6 +684,8 @@ class TypeEqualsVisitor {
   }
 
   Status Visit(const ListType& left) { return VisitChildren(left); }
+
+  Status Visit(const LargeListType& left) { return VisitChildren(left); }
 
   Status Visit(const StructType& left) { return VisitChildren(left); }
 

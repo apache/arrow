@@ -183,42 +183,27 @@ BooleanArray::BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
 // ----------------------------------------------------------------------
 // ListArray
 
-ListArray::ListArray(const std::shared_ptr<ArrayData>& data) {
-  DCHECK_EQ(data->type->id(), Type::LIST);
-  SetData(data);
-}
-
-ListArray::ListArray(const std::shared_ptr<DataType>& type, int64_t length,
-                     const std::shared_ptr<Buffer>& value_offsets,
-                     const std::shared_ptr<Array>& values,
-                     const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
-                     int64_t offset) {
-  auto internal_data =
-      ArrayData::Make(type, length, {null_bitmap, value_offsets}, null_count, offset);
-  internal_data->child_data.emplace_back(values->data());
-  SetData(internal_data);
-}
-
-Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
-                             std::shared_ptr<Array>* out) {
+template <Type::type type, typename OffsetType, typename OffsetArray>
+Status ListArrayFromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
+                           std::shared_ptr<Array>* out) {
   if (offsets.length() == 0) {
     return Status::Invalid("List offsets must have non-zero length");
   }
 
-  if (offsets.type_id() != Type::INT32) {
+  if (offsets.type_id() != type) {
     return Status::Invalid("List offsets must be signed int32");
   }
 
   BufferVector buffers = {};
 
-  const auto& typed_offsets = checked_cast<const Int32Array&>(offsets);
+  const auto& typed_offsets = checked_cast<const OffsetArray&>(offsets);
 
   const int64_t num_offsets = offsets.length();
 
   if (offsets.null_count() > 0) {
     std::shared_ptr<Buffer> clean_offsets, clean_valid_bits;
 
-    RETURN_NOT_OK(AllocateBuffer(pool, num_offsets * sizeof(int32_t), &clean_offsets));
+    RETURN_NOT_OK(AllocateBuffer(pool, num_offsets * sizeof(OffsetType), &clean_offsets));
 
     // Copy valid bits, zero out the bit for the final offset
     RETURN_NOT_OK(offsets.null_bitmap()->Copy(0, BitUtil::BytesForBits(num_offsets - 1),
@@ -226,12 +211,12 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPo
     BitUtil::ClearBit(clean_valid_bits->mutable_data(), num_offsets);
     buffers.emplace_back(std::move(clean_valid_bits));
 
-    const int32_t* raw_offsets = typed_offsets.raw_values();
-    auto clean_raw_offsets = reinterpret_cast<int32_t*>(clean_offsets->mutable_data());
+    const OffsetType* raw_offsets = typed_offsets.raw_values();
+    auto clean_raw_offsets = reinterpret_cast<OffsetType*>(clean_offsets->mutable_data());
 
     // Must work backwards so we can tell how many values were in the last non-null value
     DCHECK(offsets.IsValid(num_offsets - 1));
-    int32_t current_offset = raw_offsets[num_offsets - 1];
+    OffsetType current_offset = raw_offsets[num_offsets - 1];
     for (int64_t i = num_offsets - 1; i >= 0; --i) {
       if (offsets.IsValid(i)) {
         current_offset = raw_offsets[i];
@@ -252,6 +237,28 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPo
 
   *out = std::make_shared<ListArray>(internal_data);
   return Status::OK();
+}
+
+ListArray::ListArray(const std::shared_ptr<ArrayData>& data) {
+  DCHECK_EQ(data->type->id(), Type::LIST);
+  SetData(data);
+}
+
+ListArray::ListArray(const std::shared_ptr<DataType>& type, int64_t length,
+                     const std::shared_ptr<Buffer>& value_offsets,
+                     const std::shared_ptr<Array>& values,
+                     const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
+                     int64_t offset) {
+  auto internal_data =
+      ArrayData::Make(type, length, {null_bitmap, value_offsets}, null_count, offset);
+  internal_data->child_data.emplace_back(values->data());
+  SetData(internal_data);
+}
+
+Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
+                             std::shared_ptr<Array>* out) {
+  return ListArrayFromArrays<Type::INT32, int32_t, Int32Array>(offsets, values, pool,
+                                                               out);
 }
 
 void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
@@ -276,6 +283,54 @@ std::shared_ptr<DataType> ListArray::value_type() const {
 }
 
 std::shared_ptr<Array> ListArray::values() const { return values_; }
+
+// ----------------------------------------------------------------------
+// LargeListArray
+
+LargeListArray::LargeListArray(const std::shared_ptr<ArrayData>& data) {
+  DCHECK_EQ(data->type->id(), Type::LARGE_LIST);
+  SetData(data);
+}
+
+LargeListArray::LargeListArray(const std::shared_ptr<DataType>& type, int64_t length,
+                               const std::shared_ptr<Buffer>& value_offsets,
+                               const std::shared_ptr<Array>& values,
+                               const std::shared_ptr<Buffer>& null_bitmap,
+                               int64_t null_count, int64_t offset) {
+  auto internal_data =
+      ArrayData::Make(type, length, {null_bitmap, value_offsets}, null_count, offset);
+  internal_data->child_data.emplace_back(values->data());
+  SetData(internal_data);
+}
+
+Status LargeListArray::FromArrays(const Array& offsets, const Array& values,
+                                  MemoryPool* pool, std::shared_ptr<Array>* out) {
+  return ListArrayFromArrays<Type::INT64, int64_t, Int64Array>(offsets, values, pool,
+                                                               out);
+}
+
+void LargeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  this->Array::SetData(data);
+  DCHECK_EQ(data->buffers.size(), 2);
+
+  auto value_offsets = data->buffers[1];
+  raw_value_offsets_ = value_offsets == nullptr
+                           ? nullptr
+                           : reinterpret_cast<const int64_t*>(value_offsets->data());
+
+  DCHECK_EQ(data_->child_data.size(), 1);
+  values_ = MakeArray(data_->child_data[0]);
+}
+
+const LargeListType* LargeListArray::list_type() const {
+  return checked_cast<const LargeListType*>(data_->type.get());
+}
+
+std::shared_ptr<DataType> LargeListArray::value_type() const {
+  return list_type()->value_type();
+}
+
+std::shared_ptr<Array> LargeListArray::values() const { return values_; }
 
 // ----------------------------------------------------------------------
 // String and binary
@@ -764,7 +819,8 @@ struct ValidateVisitor {
     return Status::OK();
   }
 
-  Status Visit(const ListArray& array) {
+  template <typename ListArrayType, typename OffsetType>
+  Status VisitList(const ListArrayType& array) {
     if (array.length() < 0) {
       return Status::Invalid("Length was negative");
     }
@@ -773,7 +829,7 @@ struct ValidateVisitor {
     if (array.length() && !value_offsets) {
       return Status::Invalid("value_offsets_ was null");
     }
-    if (value_offsets->size() / static_cast<int>(sizeof(int32_t)) < array.length()) {
+    if (value_offsets->size() / static_cast<int>(sizeof(OffsetType)) < array.length()) {
       return Status::Invalid("offset buffer size (bytes): ", value_offsets->size(),
                              " isn't large enough for length: ", array.length());
     }
@@ -782,7 +838,7 @@ struct ValidateVisitor {
       return Status::Invalid("values was null");
     }
 
-    const int32_t last_offset = array.value_offset(array.length());
+    const OffsetType last_offset = array.value_offset(array.length());
     if (array.values()->length() != last_offset) {
       return Status::Invalid("Final offset invariant not equal to values length: ",
                              last_offset, "!=", array.values()->length());
@@ -793,12 +849,12 @@ struct ValidateVisitor {
       return Status::Invalid("Child array invalid: ", child_valid.ToString());
     }
 
-    int32_t prev_offset = array.value_offset(0);
+    OffsetType prev_offset = array.value_offset(0);
     if (prev_offset != 0) {
       return Status::Invalid("The first offset wasn't zero");
     }
     for (int64_t i = 1; i <= array.length(); ++i) {
-      int32_t current_offset = array.value_offset(i);
+      OffsetType current_offset = array.value_offset(i);
       if (array.IsNull(i - 1) && current_offset != prev_offset) {
         return Status::Invalid("Offset invariant failure at: ", i,
                                " inconsistent value_offsets for null slot",
@@ -812,6 +868,12 @@ struct ValidateVisitor {
       prev_offset = current_offset;
     }
     return Status::OK();
+  }
+
+  Status Visit(const ListArray& array) { return VisitList<ListArray, int32_t>(array); }
+
+  Status Visit(const LargeListArray& array) {
+    return VisitList<LargeListArray, int64_t>(array);
   }
 
   Status Visit(const StructArray& array) {

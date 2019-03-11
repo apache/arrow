@@ -130,6 +130,12 @@ std::string ListType::ToString() const {
   return s.str();
 }
 
+std::string LargeListType::ToString() const {
+  std::stringstream s;
+  s << "large_list<" << value_field()->ToString() << ">";
+  return s.str();
+}
+
 std::string BinaryType::ToString() const { return std::string("binary"); }
 
 int FixedSizeBinaryType::bit_width() const { return CHAR_BIT * byte_width(); }
@@ -563,6 +569,14 @@ std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type) {
 
 std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_field) {
   return std::make_shared<ListType>(value_field);
+}
+
+std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type) {
+  return std::make_shared<LargeListType>(value_type);
+}
+
+std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_field) {
+  return std::make_shared<LargeListType>(value_field);
 }
 
 std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fields) {

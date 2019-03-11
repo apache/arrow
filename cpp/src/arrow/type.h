@@ -123,6 +123,9 @@ struct Type {
     /// A list of some logical data type
     LIST,
 
+    /// A list of some logical data type, using 64-bit offsets
+    LARGE_LIST,
+
     /// Struct of logical types
     STRUCT,
 
@@ -450,6 +453,33 @@ class ARROW_EXPORT ListType : public NestedType {
   std::string ToString() const override;
 
   std::string name() const override { return "list"; }
+};
+
+/// \brief Concrete type class for large list data
+///
+/// List data is nested data where each value is a variable number of
+/// child items.  Lists can be recursively nested, for example
+/// list(list(int32)).
+class ARROW_EXPORT LargeListType : public NestedType {
+ public:
+  static constexpr Type::type type_id = Type::LARGE_LIST;
+
+  // List can contain any other logical value type
+  explicit LargeListType(const std::shared_ptr<DataType>& value_type)
+      : LargeListType(std::make_shared<Field>("item", value_type)) {}
+
+  explicit LargeListType(const std::shared_ptr<Field>& value_field)
+      : NestedType(Type::LARGE_LIST) {
+    children_ = {value_field};
+  }
+
+  std::shared_ptr<Field> value_field() const { return children_[0]; }
+
+  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "large_list"; }
 };
 
 /// \brief Concrete type class for variable-size binary data
@@ -889,6 +919,14 @@ std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
 /// \brief Create a ListType instance from its child DataType
 ARROW_EXPORT
 std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
+
+/// \brief Create a LargeListType instance from its child Field type
+ARROW_EXPORT
+std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_type);
+
+/// \brief Create a LargeListType instance from its child DataType
+ARROW_EXPORT
+std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type);
 
 /// \brief Create a TimestampType instance from its unit
 ARROW_EXPORT

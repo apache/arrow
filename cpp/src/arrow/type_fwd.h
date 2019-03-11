@@ -77,6 +77,10 @@ class ListArray;
 class ListBuilder;
 struct ListScalar;
 
+class LargeListType;
+class LargeListArray;
+class LargeListBuilder;
+
 class StructType;
 class StructArray;
 class StructBuilder;

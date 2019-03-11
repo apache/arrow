@@ -237,6 +237,14 @@ struct TypeTraits<ListType> {
   constexpr static bool is_parameter_free = false;
 };
 
+template <>
+struct TypeTraits<LargeListType> {
+  using ArrayType = LargeListArray;
+  using BuilderType = LargeListBuilder;
+  using ScalarType = ListScalar;
+  constexpr static bool is_parameter_free = false;
+};
+
 template <typename CType>
 struct CTypeTraits<std::vector<CType>> : public TypeTraits<ListType> {
   using ArrowType = ListType;

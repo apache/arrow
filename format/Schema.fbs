@@ -44,7 +44,13 @@ table Null {
 table Struct_ {
 }
 
+/// List with 32-bit offsets
 table List {
+}
+
+// List with 64-bit offsets. This type is optional and currently
+// only supported by the C++ implementation.
+table LargeList {
 }
 
 table FixedSizeList {
@@ -208,7 +214,8 @@ union Type {
   Union,
   FixedSizeBinary,
   FixedSizeList,
-  Map
+  Map,
+  LargeList
 }
 
 /// ----------------------------------------------------------------------

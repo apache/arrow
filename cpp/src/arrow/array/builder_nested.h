@@ -77,6 +77,55 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   Status AppendNextOffset();
 };
 
+/// \class LargeListBuilder
+/// \brief Builder class for large variable-length list array value types
+///
+/// To use this class, you must append values to the child array builder and use
+/// the Append function to delimit each distinct list value (once the values
+/// have been appended to the child array) or use the bulk API to append
+/// a sequence of offests and null values.
+///
+/// A note on types.  Per arrow/type.h all types in the c++ implementation are
+/// logical so even though this class always builds list array, this can
+/// represent multiple different logical types.  If no logical type is provided
+/// at construction time, the class defaults to List<T> where t is taken from the
+/// value_builder/values that the object is constructed with.
+class ARROW_EXPORT LargeListBuilder : public ArrayBuilder {
+ public:
+  /// Use this constructor to incrementally build the value array along with offsets and
+  /// null bitmap.
+  LargeListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
+                   const std::shared_ptr<DataType>& type = NULLPTR);
+
+  Status Resize(int64_t capacity) override;
+  void Reset() override;
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \brief Vector append
+  ///
+  /// If passed, valid_bytes is of equal length to values, and any zero byte
+  /// will be considered as a null for that slot
+  Status AppendValues(const int64_t* offsets, int64_t length,
+                      const uint8_t* valid_bytes = NULLPTR);
+
+  /// \brief Start a new variable-length list slot
+  ///
+  /// This function should be called before beginning to append elements to the
+  /// value builder
+  Status Append(bool is_valid = true);
+
+  Status AppendNull() { return Append(false); }
+
+  ArrayBuilder* value_builder() const;
+
+ protected:
+  TypedBufferBuilder<int64_t> offsets_builder_;
+  std::shared_ptr<ArrayBuilder> value_builder_;
+  std::shared_ptr<Array> values_;
+
+  Status AppendNextOffset();
+};
+
 // ----------------------------------------------------------------------
 // Struct
 

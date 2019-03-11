@@ -185,6 +185,7 @@ class SchemaWriter {
   template <typename T>
   typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value ||
                               std::is_base_of<ListType, T>::value ||
+                              std::is_base_of<LargeListType, T>::value ||
                               std::is_base_of<StructType, T>::value,
                           void>::type
   WriteTypeMetadata(const T& type) {}
@@ -326,6 +327,11 @@ class SchemaWriter {
 
   Status Visit(const ListType& type) {
     WriteName("list", type);
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListType& type) {
+    WriteName("large_list", type);
     return Status::OK();
   }
 
@@ -554,6 +560,13 @@ class ArrayWriter {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
     const auto& type = checked_cast<const ListType&>(*array.type());
+    return WriteChildren(type.children(), {array.values()});
+  }
+
+  Status Visit(const LargeListArray& array) {
+    WriteValidityField(array);
+    WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
+    const auto& type = checked_cast<const LargeListType&>(*array.type());
     return WriteChildren(type.children(), {array.values()});
   }
 
@@ -958,16 +971,17 @@ class ArrayReader {
 
   Status ParseTypeValues(const DataType& type);
 
-  Status GetValidityBuffer(const std::vector<bool>& is_valid, int32_t* null_count,
+  template <typename LengthType>
+  Status GetValidityBuffer(const std::vector<bool>& is_valid, LengthType* null_count,
                            std::shared_ptr<Buffer>* validity_buffer) {
-    int length = static_cast<int>(is_valid.size());
+    int64_t length = is_valid.size();
 
     std::shared_ptr<Buffer> out_buffer;
     RETURN_NOT_OK(AllocateEmptyBitmap(pool_, length, &out_buffer));
     uint8_t* bitmap = out_buffer->mutable_data();
 
     *null_count = 0;
-    for (int i = 0; i < length; ++i) {
+    for (int64_t i = 0; i < length; ++i) {
       if (!is_valid[i]) {
         ++(*null_count);
         continue;
@@ -1157,6 +1171,27 @@ class ArrayReader {
 
     result_ = std::make_shared<ListArray>(type_, length_, offsets_buffer, children[0],
                                           validity_buffer, null_count);
+
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListType& type) {
+    int64_t null_count = 0;
+    std::shared_ptr<Buffer> validity_buffer;
+    RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
+
+    const auto& json_offsets = obj_->FindMember("OFFSET");
+    RETURN_NOT_ARRAY("OFFSET", json_offsets, *obj_);
+    std::shared_ptr<Buffer> offsets_buffer;
+    RETURN_NOT_OK(GetIntArray<int64_t>(json_offsets->value.GetArray(), length_ + 1,
+                                       &offsets_buffer));
+
+    std::vector<std::shared_ptr<Array>> children;
+    RETURN_NOT_OK(GetChildren(*obj_, type, &children));
+    DCHECK_EQ(children.size(), 1);
+
+    result_ = std::make_shared<LargeListArray>(type_, length_, offsets_buffer,
+                                               children[0], validity_buffer, null_count);
 
     return Status::OK();
   }

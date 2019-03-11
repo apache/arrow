@@ -174,7 +174,9 @@ TEST_F(TestSchemaMetadata, NestedFields) {
       new StructType({field("k1", INT32), field("k2", INT32), field("k3", INT32)}));
   auto f1 = field("f1", type2);
 
-  Schema schema({f0, f1});
+  auto f2 = field("f2", large_list(int32()));
+
+  Schema schema({f0, f1, f2});
   CheckRoundtrip(schema);
 }
 
@@ -189,11 +191,12 @@ TEST_F(TestSchemaMetadata, KeyValueMetadata) {
   CheckRoundtrip(schema);
 }
 
-#define BATCH_CASES()                                                                   \
-  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
-                    &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,                  \
-                    &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion,      \
-                    &MakeDictionary, &MakeDates, &MakeTimestamps, &MakeTimes,           \
+#define BATCH_CASES()                                                              \
+  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch,                     \
+                    &MakeLargeListRecordBatch, &MakeNonNullRecordBatch,            \
+                    &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,             \
+                    &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion, \
+                    &MakeDictionary, &MakeDates, &MakeTimestamps, &MakeTimes,      \
                     &MakeFWBinary, &MakeNull, &MakeDecimal, &MakeBooleanBatch);
 
 static int g_file_number = 0;

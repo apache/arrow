@@ -131,6 +131,7 @@ void ArrowToProtobuf(DataTypePtr type, types::ExtGandivaType* gandiva_data_type)
     case arrow::Type::type::MAP:
     case arrow::Type::type::INTERVAL:
     case arrow::Type::type::LIST:
+    case arrow::Type::type::LARGE_LIST:
     case arrow::Type::type::STRUCT:
     case arrow::Type::type::UNION:
     case arrow::Type::type::DICTIONARY:
