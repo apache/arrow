@@ -257,7 +257,9 @@ class ParquetFile(object):
                 index_columns = []
 
             if indices is not None and index_columns:
-                indices += map(self.reader.column_name_idx, index_columns)
+                indices += [self.reader.column_name_idx(descr['field_name'])
+                            for descr in index_columns
+                            if descr['kind'] == 'serialized']
 
         return indices
 
@@ -1200,8 +1202,8 @@ def _mkdir_if_not_exists(fs, path):
             assert fs.exists(path)
 
 
-def write_to_dataset(table, root_path, partition_cols=None,
-                     filesystem=None, preserve_index=True, **kwargs):
+def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
+                     **kwargs):
     """
     Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
@@ -1232,8 +1234,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
     partition_cols : list,
         Column names by which to partition the dataset
         Columns are partitioned in the order they are given
-    preserve_index : bool,
-        Parameter for instantiating Table; preserve pandas index or not.
     **kwargs : dict, kwargs for write_table function.
     """
     fs, root_path = _get_filesystem_and_path(filesystem, root_path)
@@ -1241,7 +1241,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
     _mkdir_if_not_exists(fs, root_path)
 
     if partition_cols is not None and len(partition_cols) > 0:
-        df = table.to_pandas()
+        df = table.to_pandas(ignore_metadata=True)
         partition_keys = [df[col] for col in partition_cols]
         data_df = df.drop(partition_cols, axis='columns')
         data_cols = df.columns.drop(partition_cols)
@@ -1249,18 +1249,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
             raise ValueError('No data left to save outside partition columns')
 
         subschema = table.schema
-        # ARROW-4538: Remove index column from subschema in write_to_dataframe
-        metadata = subschema.metadata
-        has_pandas_metadata = (metadata is not None and b'pandas' in metadata)
-        index_columns = []
-        if has_pandas_metadata:
-            pandas_metadata = json.loads(metadata[b'pandas'].decode('utf8'))
-            index_columns = pandas_metadata['index_columns']
+
         # ARROW-2891: Ensure the output_schema is preserved when writing a
         # partitioned dataset
         for col in table.schema.names:
-            if (col.startswith('__index_level_') or col in partition_cols or
-                    col in index_columns):
+            if col in partition_cols:
                 subschema = subschema.remove(subschema.get_field_index(col))
 
         for keys, subgroup in data_df.groupby(partition_keys):
@@ -1269,10 +1262,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
             subdir = '/'.join(
                 ['{colname}={value}'.format(colname=name, value=val)
                  for name, val in zip(partition_cols, keys)])
-            subtable = pa.Table.from_pandas(subgroup,
-                                            preserve_index=preserve_index,
-                                            schema=subschema,
-                                            safe=False)
+            subtable = pa.Table.from_pandas(subgroup, preserve_index=False,
+                                            schema=subschema, safe=False)
             prefix = '/'.join([root_path, subdir])
             _mkdir_if_not_exists(fs, prefix)
             outfile = guid() + '.parquet'

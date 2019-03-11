@@ -155,6 +155,33 @@ class TestConvertMetadata(object):
         df.columns.names = ['a']
         _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_range_index_shortcut(self):
+        # ARROW-1639
+        index_name = 'foo'
+        df = pd.DataFrame({'a': [1, 2, 3, 4]},
+                          index=pd.RangeIndex(0, 8, step=2, name=index_name))
+
+        df2 = pd.DataFrame({'a': [4, 5, 6, 7]},
+                           index=pd.RangeIndex(0, 4))
+
+        table = pa.Table.from_pandas(df)
+        table_no_index_name = pa.Table.from_pandas(df2)
+
+        # The RangeIndex is tracked in the metadata only
+        assert len(table.schema) == 1
+
+        result = table.to_pandas()
+        tm.assert_frame_equal(result, df)
+        assert isinstance(result.index, pd.RangeIndex)
+        assert result.index._step == 2
+        assert result.index.name == index_name
+
+        result2 = table_no_index_name.to_pandas()
+        tm.assert_frame_equal(result2, df2)
+        assert isinstance(result2.index, pd.RangeIndex)
+        assert result2.index._step == 1
+        assert result2.index.name is None
+
     def test_multiindex_columns(self):
         columns = pd.MultiIndex.from_arrays([
             ['one', 'two'], ['X', 'Y']
@@ -218,11 +245,14 @@ class TestConvertMetadata(object):
         assert col3['name'] == '__index_level_0__'
         assert col3['name'] == col3['field_name']
 
-        idx0_name, foo_name = js['index_columns']
+        idx0_descr, foo_descr = js['index_columns']
+        assert idx0_descr['kind'] == 'serialized'
+        idx0_name = idx0_descr['field_name']
         assert idx0_name == '__index_level_0__'
         assert idx0['field_name'] == idx0_name
         assert idx0['name'] is None
 
+        foo_name = foo_descr['field_name']
         assert foo_name == 'foo'
         assert foo['field_name'] == foo_name
         assert foo['name'] == foo_name
@@ -419,19 +449,6 @@ class TestConvertMetadata(object):
 
     def test_table_column_subset_metadata(self):
         # ARROW-1883
-        df = pd.DataFrame({
-            'a': [1, 2, 3],
-            'b': pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')})
-        table = pa.Table.from_pandas(df)
-
-        table_subset = table.remove_column(1)
-        result = table_subset.to_pandas()
-        tm.assert_frame_equal(result, df[['a']])
-
-        table_subset2 = table_subset.remove_column(1)
-        result = table_subset2.to_pandas()
-        tm.assert_frame_equal(result, df[['a']])
-
         # non-default index
         for index in [
                 pd.Index(['a', 'b', 'c'], name='index'),
@@ -489,13 +506,6 @@ class TestConvertMetadata(object):
                 'metadata': None,
                 'numpy_type': 'object',
                 'pandas_type': 'list[empty]',
-            },
-            {
-                'name': None,
-                'field_name': '__index_level_0__',
-                'metadata': None,
-                'numpy_type': 'int64',
-                'pandas_type': 'int64',
             }
         ]
 

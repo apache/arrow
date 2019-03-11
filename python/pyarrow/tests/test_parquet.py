@@ -280,7 +280,10 @@ def test_pandas_parquet_custom_metadata(tempdir):
     assert b'pandas' in metadata
 
     js = json.loads(metadata[b'pandas'].decode('utf8'))
-    assert js['index_columns'] == ['__index_level_0__']
+    assert js['index_columns'] == [{'kind': 'range',
+                                    'name': None,
+                                    'start': 0, 'stop': 10000,
+                                    'step': 1}]
 
 
 def test_pandas_parquet_column_multiindex(tempdir):
@@ -561,6 +564,7 @@ def make_sample_file(table_or_df):
 def test_parquet_metadata_api():
     df = alltypes_sample(size=10000)
     df = df.reindex(columns=sorted(df.columns))
+    df.index = np.random.randint(0, 1000000, size=len(df))
 
     fileh = make_sample_file(df)
     ncols = len(df.columns)
@@ -1909,13 +1913,10 @@ def _test_write_to_dataset_with_partitions(base_path,
                               'nan': [pd.np.nan] * 10,
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
-    # ARROW-4538
-    output_df.index.name = index_name
-
     cols = output_df.columns.tolist()
     partition_by = ['group1', 'group2']
     output_table = pa.Table.from_pandas(output_df, schema=schema, safe=False,
-                                        preserve_index=True)
+                                        preserve_index=False)
     pq.write_to_dataset(output_table, base_path, partition_by,
                         filesystem=filesystem)
 
@@ -1935,10 +1936,6 @@ def _test_write_to_dataset_with_partitions(base_path,
     # ARROW-2209: Ensure the dataset schema also includes the partition columns
     dataset_cols = set(dataset.schema.to_arrow_schema().names)
     assert dataset_cols == set(output_table.schema.names)
-
-    # ARROW-4538
-    if index_name is not None:
-        assert index_name in dataset_cols
 
     input_table = dataset.read()
     input_df = input_table.to_pandas()
