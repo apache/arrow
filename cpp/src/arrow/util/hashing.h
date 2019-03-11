@@ -475,7 +475,8 @@ class SmallScalarMemoTable {
   void CopyValues(int32_t start, Scalar* out_data) const {
     DCHECK_GE(start, 0);
     DCHECK_LE(static_cast<size_t>(start), index_to_value_.size());
-    std::copy(index_to_value_.begin() + start, index_to_value_.end(), out_data);
+    int offset = start * sizeof(Scalar);
+    memcpy(out_data, index_to_value_.data() + offset, (size() - start) * sizeof(Scalar));
   }
 
   void CopyValues(Scalar* out_data) const { CopyValues(0, out_data); }
