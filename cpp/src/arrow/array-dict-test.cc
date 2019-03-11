@@ -63,12 +63,36 @@ TYPED_TEST(TestDictionaryBuilder, Basic) {
   ASSERT_EQ(builder.length(), 4);
   ASSERT_EQ(builder.null_count(), 1);
 
+  // Build expected data
+  auto dict_array = ArrayFromJSON(std::make_shared<TypeParam>(), "[1, 2]");
+  auto dict_type = dictionary(int8(), dict_array);
+
   std::shared_ptr<Array> result;
   ASSERT_OK(builder.Finish(&result));
 
-  // Build expected data
+  auto int_array = ArrayFromJSON(int8(), "[0, 1, 0, null]");
+  DictionaryArray expected(dict_type, int_array);
+
+  ASSERT_TRUE(expected.Equals(result));
+}
+
+TYPED_TEST(TestDictionaryBuilder, ArrayInit) {
   auto dict_array = ArrayFromJSON(std::make_shared<TypeParam>(), "[1, 2]");
-  auto dict_type = std::make_shared<DictionaryType>(int8(), dict_array);
+  auto dict_type = dictionary(int8(), dict_array);
+
+  DictionaryBuilder<TypeParam> builder(dict_array, default_memory_pool());
+  ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
+  ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(2)));
+  ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
+  ASSERT_OK(builder.AppendNull());
+
+  ASSERT_EQ(builder.length(), 4);
+  ASSERT_EQ(builder.null_count(), 1);
+
+  // Build expected data
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
 
   auto int_array = ArrayFromJSON(int8(), "[0, 1, 0, null]");
   DictionaryArray expected(dict_type, int_array);
@@ -87,7 +111,7 @@ TYPED_TEST(TestDictionaryBuilder, ArrayConversion) {
 
   // Build expected data
   auto dict_array = ArrayFromJSON(type, "[1, 2]");
-  auto dict_type = std::make_shared<DictionaryType>(int8(), dict_array);
+  auto dict_type = dictionary(int8(), dict_array);
 
   auto int_array = ArrayFromJSON(int8(), "[0, 1, 0]");
   DictionaryArray expected(dict_type, int_array);
@@ -235,6 +259,25 @@ TEST(TestStringDictionaryBuilder, Basic) {
   auto dtype = dictionary(int8(), ArrayFromJSON(utf8(), "[\"test\", \"test2\"]"));
   auto int_array = ArrayFromJSON(int8(), "[0, 1, 0]");
   DictionaryArray expected(dtype, int_array);
+
+  ASSERT_TRUE(expected.Equals(result));
+}
+
+TEST(TestStringDictionaryBuilder, ArrayInit) {
+  auto dict_array = ArrayFromJSON(utf8(), "[\"test\", \"test2\"]");
+  auto int_array = ArrayFromJSON(int8(), "[0, 1, 0]");
+
+  // Build the dictionary Array
+  StringDictionaryBuilder builder(dict_array, default_memory_pool());
+  ASSERT_OK(builder.Append("test"));
+  ASSERT_OK(builder.Append("test2"));
+  ASSERT_OK(builder.Append("test"));
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+
+  // Build expected data
+  DictionaryArray expected(dictionary(int8(), dict_array), int_array);
 
   ASSERT_TRUE(expected.Equals(result));
 }
@@ -440,6 +483,24 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, Basic) {
   ASSERT_OK(int_builder.Finish(&int_array));
 
   DictionaryArray expected(dtype, int_array);
+  ASSERT_TRUE(expected.Equals(result));
+}
+
+TEST(TestFixedSizeBinaryDictionaryBuilder, ArrayInit) {
+  // Build the dictionary Array
+  auto dict_array = ArrayFromJSON(fixed_size_binary(4), R"(["abcd", "wxyz"])");
+  util::string_view test = "abcd", test2 = "wxyz";
+  DictionaryBuilder<FixedSizeBinaryType> builder(dict_array, default_memory_pool());
+  ASSERT_OK(builder.Append(test));
+  ASSERT_OK(builder.Append(test2));
+  ASSERT_OK(builder.Append(test));
+
+  std::shared_ptr<Array> result;
+  FinishAndCheckPadding(&builder, &result);
+
+  // Build expected data
+  auto indices = ArrayFromJSON(int8(), "[0, 1, 0]");
+  DictionaryArray expected(dictionary(int8(), dict_array), indices);
   ASSERT_TRUE(expected.Equals(result));
 }
 
