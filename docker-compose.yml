@@ -244,8 +244,8 @@ services:
     #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux1
     image: quay.io/xhochy/arrow_manylinux1_x86_64_base:ARROW-4778
     build:
-      context: .
-      dockerfile: python/manylinux1/Dockerfile-x86_64_base
+      context: python/manylinux1
+      dockerfile: Dockerfile-x86_64_base
     shm_size: 2G
     environment:
       PYARROW_PARALLEL: 3
