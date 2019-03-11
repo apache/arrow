@@ -160,6 +160,7 @@ set(PARQUET_SRCS
     column_reader.cc
     column_scanner.cc
     column_writer.cc
+    crypto_keytools/wrapped_key_manager.cc
     encoding.cc
     file_reader.cc
     file_writer.cc
