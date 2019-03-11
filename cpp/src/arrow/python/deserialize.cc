@@ -159,22 +159,22 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
       return Status::OK();
     }
     case PythonType::LIST: {
-      const auto& l = checked_cast<const ListArray&>(arr);
+      const auto& l = checked_cast<const LargeListArray&>(arr);
       return DeserializeList(context, *l.values(), l.value_offset(index),
                              l.value_offset(index + 1), base, blobs, result);
     }
     case PythonType::DICT: {
-      const auto& l = checked_cast<const ListArray&>(arr);
+      const auto& l = checked_cast<const LargeListArray&>(arr);
       return DeserializeDict(context, *l.values(), l.value_offset(index),
                              l.value_offset(index + 1), base, blobs, result);
     }
     case PythonType::TUPLE: {
-      const auto& l = checked_cast<const ListArray&>(arr);
+      const auto& l = checked_cast<const LargeListArray&>(arr);
       return DeserializeTuple(context, *l.values(), l.value_offset(index),
                               l.value_offset(index + 1), base, blobs, result);
     }
     case PythonType::SET: {
-      const auto& l = checked_cast<const ListArray&>(arr);
+      const auto& l = checked_cast<const LargeListArray&>(arr);
       return DeserializeSet(context, *l.values(), l.value_offset(index),
                             l.value_offset(index + 1), base, blobs, result);
     }

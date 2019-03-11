@@ -183,7 +183,7 @@ class SequenceBuilder {
   }
 
   Status AppendSequence(PyObject* context, PyObject* sequence, int8_t tag,
-                        std::shared_ptr<ListBuilder>& target_sequence,
+                        std::shared_ptr<LargeListBuilder>& target_sequence,
                         std::unique_ptr<SequenceBuilder>& values, int32_t recursion_depth,
                         SerializedPyObject* blobs_out) {
     if (recursion_depth >= kMaxRecursionDepth) {
@@ -193,7 +193,7 @@ class SequenceBuilder {
     }
     RETURN_NOT_OK(CreateAndUpdate(&target_sequence, tag, [this, &values]() {
       values.reset(new SequenceBuilder(pool_));
-      return new ListBuilder(pool_, values->builder());
+      return new LargeListBuilder(pool_, values->builder());
     }));
     RETURN_NOT_OK(target_sequence->Append());
     return internal::VisitIterable(
@@ -249,13 +249,13 @@ class SequenceBuilder {
   std::shared_ptr<Date64Builder> date64s_;
 
   std::unique_ptr<SequenceBuilder> list_values_;
-  std::shared_ptr<ListBuilder> lists_;
+  std::shared_ptr<LargeListBuilder> lists_;
   std::unique_ptr<DictBuilder> dict_values_;
-  std::shared_ptr<ListBuilder> dicts_;
+  std::shared_ptr<LargeListBuilder> dicts_;
   std::unique_ptr<SequenceBuilder> tuple_values_;
-  std::shared_ptr<ListBuilder> tuples_;
+  std::shared_ptr<LargeListBuilder> tuples_;
   std::unique_ptr<SequenceBuilder> set_values_;
-  std::shared_ptr<ListBuilder> sets_;
+  std::shared_ptr<LargeListBuilder> sets_;
 
   std::shared_ptr<Int32Builder> tensor_indices_;
   std::shared_ptr<Int32Builder> ndarray_indices_;
@@ -301,7 +301,7 @@ Status SequenceBuilder::AppendDict(PyObject* context, PyObject* dict,
   }
   RETURN_NOT_OK(CreateAndUpdate(&dicts_, PythonType::DICT, [this]() {
     dict_values_.reset(new DictBuilder(pool_));
-    return new ListBuilder(pool_, dict_values_->builder());
+    return new LargeListBuilder(pool_, dict_values_->builder());
   }));
   RETURN_NOT_OK(dicts_->Append());
   PyObject* key;
