@@ -18,12 +18,10 @@
 #include <chrono>
 #include <cstdint>
 #include <iostream>
-#include <thread>
 
 #include <gtest/gtest.h>
 
 #include "arrow/util/logging.h"
-#include "arrow/util/stopwatch.h"
 
 // This code is adapted from
 // https://github.com/ray-project/ray/blob/master/src/ray/util/logging_test.cc.
@@ -107,19 +105,28 @@ TEST(LogPerfTest, PerfTest) {
 
 }  // namespace util
 
-static inline void sleep_for(double seconds) {
-  std::this_thread::sleep_for(
-      std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
-}
-
 TEST(DcheckMacros, DoNotEvaluateReleaseMode) {
 #ifdef NDEBUG
-  internal::StopWatch watch;
-  watch.Start();
-  auto Function = [&]() { sleep_for(1.); };
-  DCHECK(Function());
-  auto time = watch.Stop();
-  ASSERT_LT(time, 1000000000ULL);
+  int i = 0;
+  auto f1 = [&]() {
+    ++i;
+    return true;
+  };
+  DCHECK(f1());
+  ASSERT_EQ(0, i);
+  auto f2 = [&]() {
+    ++i;
+    return i;
+  };
+  DCHECK_EQ(f2(), 0);
+  DCHECK_NE(f2(), 0);
+  DCHECK_LT(f2(), 0);
+  DCHECK_LE(f2(), 0);
+  DCHECK_GE(f2(), 0);
+  DCHECK_GT(f2(), 0);
+  ASSERT_EQ(0, i);
+  ARROW_UNUSED(f1);
+  ARROW_UNUSED(f2);
 #endif
 }
 

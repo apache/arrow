@@ -193,11 +193,6 @@ else()
   elseif (("${COMPILER_FAMILY}" STREQUAL "clang") OR
           ("${COMPILER_FAMILY}" STREQUAL "gcc"))
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
-    if ("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
-      # Quiet some warnings that show up due to variables only used in DCHECK
-      # expressions
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-variable")
-    endif()
   else()
     message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
   endif()
