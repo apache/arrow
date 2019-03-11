@@ -458,7 +458,7 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
 
   void ResetDecoders() override { decoders_.clear(); }
 
-  virtual inline void ReadValuesSpaced(int64_t values_with_nulls, int64_t null_count) {
+  virtual void ReadValuesSpaced(int64_t values_with_nulls, int64_t null_count) {
     uint8_t* valid_bits = valid_bits_->mutable_data();
     const int64_t valid_bits_offset = values_written_;
 
@@ -468,7 +468,7 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
     DCHECK_EQ(num_decoded, values_with_nulls);
   }
 
-  virtual inline void ReadValuesDense(int64_t values_to_read) {
+  virtual void ReadValuesDense(int64_t values_to_read) {
     int64_t num_decoded =
         current_decoder_->Decode(ValuesHead<T>(), static_cast<int>(values_to_read));
     DCHECK_EQ(num_decoded, values_to_read);
