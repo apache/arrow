@@ -23,6 +23,7 @@ from pyarrow._flight import (Action,  # noqa
                              FlightEndpoint,
                              FlightInfo,
                              FlightServerBase,
+                             GeneratorStream,
                              Location,
                              Ticket,
                              RecordBatchStream,
