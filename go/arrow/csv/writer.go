@@ -18,8 +18,8 @@ package csv
 
 import (
 	"encoding/csv"
-	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
@@ -65,62 +65,62 @@ func (w *Writer) Write(record array.Record) error {
 		case *arrow.BooleanType:
 			arr := col.(*array.Boolean)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = fmt.Sprintf("%v", arr.Value(i))
+				recs[i][j] = strconv.FormatBool(arr.Value(i))
 			}
 		case *arrow.Int8Type:
 			arr := col.(*array.Int8)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = fmt.Sprintf("%v", arr.Value(i))
+				recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
 			}
 		case *arrow.Int16Type:
 			arr := col.(*array.Int16)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = fmt.Sprintf("%v", arr.Value(i))
+				recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
 			}
 		case *arrow.Int32Type:
 			arr := col.(*array.Int32)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = fmt.Sprintf("%v", arr.Value(i))
+				recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
 			}
 		case *arrow.Int64Type:
 			arr := col.(*array.Int64)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = fmt.Sprintf("%v", arr.Value(i))
+				recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
 			}
 		case *arrow.Uint8Type:
 			arr := col.(*array.Uint8)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = fmt.Sprintf("%v", arr.Value(i))
+				recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
 			}
 		case *arrow.Uint16Type:
 			arr := col.(*array.Uint16)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = fmt.Sprintf("%v", arr.Value(i))
+				recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
 			}
 		case *arrow.Uint32Type:
 			arr := col.(*array.Uint32)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = fmt.Sprintf("%v", arr.Value(i))
+				recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
 			}
 		case *arrow.Uint64Type:
 			arr := col.(*array.Uint64)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = fmt.Sprintf("%v", arr.Value(i))
+				recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
 			}
 		case *arrow.Float32Type:
 			arr := col.(*array.Float32)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = fmt.Sprintf("%v", arr.Value(i))
+				recs[i][j] = strconv.FormatFloat(float64(arr.Value(i)), 'g', -1, 32)
 			}
 		case *arrow.Float64Type:
 			arr := col.(*array.Float64)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = fmt.Sprintf("%v", arr.Value(i))
+				recs[i][j] = strconv.FormatFloat(float64(arr.Value(i)), 'g', -1, 64)
 			}
 		case *arrow.StringType:
 			arr := col.(*array.String)
 			for i := 0; i < arr.Len(); i++ {
-				recs[i][j] = fmt.Sprintf("%v", arr.Value(i))
+				recs[i][j] = arr.Value(i)
 			}
 		}
 	}
