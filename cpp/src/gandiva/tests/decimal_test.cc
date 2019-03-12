@@ -39,7 +39,7 @@ class TestDecimal : public ::testing::Test {
                                             int32_t scale);
 
  protected:
-  arrow::MemoryPool* pool_;
+  std::shared_ptr<arrow::MemoryPool> pool_;
 };
 
 std::vector<Decimal128> TestDecimal::MakeDecimalVector(std::vector<std::string> values,

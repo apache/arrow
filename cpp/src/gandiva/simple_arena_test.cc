@@ -27,7 +27,8 @@ class TestSimpleArena : public ::testing::Test {};
 
 TEST_F(TestSimpleArena, TestAlloc) {
   int64_t chunk_size = 4096;
-  SimpleArena arena(arrow::default_memory_pool(), chunk_size);
+  auto pool = arrow::default_memory_pool();
+  SimpleArena arena(pool, chunk_size);
 
   // Small allocations should come from the same chunk.
   int64_t small_size = 100;
@@ -50,7 +51,8 @@ TEST_F(TestSimpleArena, TestAlloc) {
 // small followed by big, then reset
 TEST_F(TestSimpleArena, TestReset1) {
   int64_t chunk_size = 4096;
-  SimpleArena arena(arrow::default_memory_pool(), chunk_size);
+  auto pool = arrow::default_memory_pool();
+  SimpleArena arena(pool, chunk_size);
 
   int64_t small_size = 100;
   auto p = arena.Allocate(small_size);
@@ -76,7 +78,8 @@ TEST_F(TestSimpleArena, TestReset1) {
 // big followed by small, then reset
 TEST_F(TestSimpleArena, TestReset2) {
   int64_t chunk_size = 4096;
-  SimpleArena arena(arrow::default_memory_pool(), chunk_size);
+  auto pool = arrow::default_memory_pool();
+  SimpleArena arena(pool, chunk_size);
 
   int64_t large_size = 100 * chunk_size;
   auto p = arena.Allocate(large_size);

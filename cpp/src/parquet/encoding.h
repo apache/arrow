@@ -56,7 +56,7 @@ class Encoder {
   virtual std::shared_ptr<Buffer> FlushValues() = 0;
   virtual Encoding::type encoding() const = 0;
 
-  virtual ::arrow::MemoryPool* memory_pool() const = 0;
+  virtual std::shared_ptr<::arrow::MemoryPool> memory_pool() const = 0;
 };
 
 // Base class for value encoders. Since encoders may or not have state (e.g.,
@@ -73,8 +73,9 @@ class TypedEncoder : virtual public Encoder {
   virtual void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                          int64_t valid_bits_offset) {
     std::shared_ptr<ResizableBuffer> buffer;
+    std::shared_ptr<::arrow::MemoryPool> pool = this->memory_pool();
     PARQUET_THROW_NOT_OK(::arrow::AllocateResizableBuffer(
-        this->memory_pool(), num_values * sizeof(T), &buffer));
+        pool, num_values * sizeof(T), &buffer));
     int32_t num_valid_values = 0;
     ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
                                                       num_values);
@@ -286,13 +287,13 @@ PARQUET_EXPORT
 std::unique_ptr<Encoder> MakeEncoder(
     Type::type type_num, Encoding::type encoding, bool use_dictionary = false,
     const ColumnDescriptor* descr = NULLPTR,
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+    std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool());
 
 template <typename DType>
 std::unique_ptr<typename EncodingTraits<DType>::Encoder> MakeTypedEncoder(
     Encoding::type encoding, bool use_dictionary = false,
     const ColumnDescriptor* descr = NULLPTR,
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+    std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool()) {
   using OutType = typename EncodingTraits<DType>::Encoder;
   std::unique_ptr<Encoder> base =
       MakeEncoder(DType::type_num, encoding, use_dictionary, descr, pool);
@@ -308,14 +309,14 @@ namespace detail {
 PARQUET_EXPORT
 std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
                                          const ColumnDescriptor* descr,
-                                         ::arrow::MemoryPool* pool);
+                                         std::shared_ptr<::arrow::MemoryPool>& pool);
 
 }  // namespace detail
 
 template <typename DType>
 std::unique_ptr<DictDecoder<DType>> MakeDictDecoder(
     const ColumnDescriptor* descr,
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+    std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool()) {
   using OutType = DictDecoder<DType>;
   auto decoder = detail::MakeDictDecoder(DType::type_num, descr, pool);
   return std::unique_ptr<OutType>(dynamic_cast<OutType*>(decoder.release()));

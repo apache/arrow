@@ -42,7 +42,7 @@ namespace gandiva {
 ///
 class SimpleArena {
  public:
-  explicit SimpleArena(arrow::MemoryPool* pool, int64_t min_chunk_size = 4096);
+  explicit SimpleArena(std::shared_ptr<::arrow::MemoryPool>& pool, int64_t min_chunk_size = 4096);
 
   ~SimpleArena();
 
@@ -73,7 +73,7 @@ class SimpleArena {
   void ReleaseChunks(bool retain_first);
 
   // Memory pool used for allocs.
-  arrow::MemoryPool* pool_;
+  std::shared_ptr<::arrow::MemoryPool> pool_;
 
   // The chunk-size used for allocations from system.
   int64_t min_chunk_size_;
@@ -91,7 +91,7 @@ class SimpleArena {
   std::vector<Chunk> chunks_;
 };
 
-inline SimpleArena::SimpleArena(arrow::MemoryPool* pool, int64_t min_chunk_size)
+inline SimpleArena::SimpleArena(std::shared_ptr<::arrow::MemoryPool>& pool, int64_t min_chunk_size)
     : pool_(pool),
       min_chunk_size_(min_chunk_size),
       total_bytes_(0),

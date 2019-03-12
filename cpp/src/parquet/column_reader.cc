@@ -105,7 +105,7 @@ ReaderProperties default_reader_properties() {
 class SerializedPageReader : public PageReader {
  public:
   SerializedPageReader(std::unique_ptr<InputStream> stream, int64_t total_num_rows,
-                       Compression::type codec, ::arrow::MemoryPool* pool)
+                       Compression::type codec, std::shared_ptr<::arrow::MemoryPool>& pool)
       : stream_(std::move(stream)),
         decompression_buffer_(AllocateBuffer(pool, 0)),
         seen_num_rows_(0),
@@ -260,7 +260,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 std::unique_ptr<PageReader> PageReader::Open(std::unique_ptr<InputStream> stream,
                                              int64_t total_num_rows,
                                              Compression::type codec,
-                                             ::arrow::MemoryPool* pool) {
+                                             std::shared_ptr<::arrow::MemoryPool> pool) {
   return std::unique_ptr<PageReader>(
       new SerializedPageReader(std::move(stream), total_num_rows, codec, pool));
 }
@@ -274,7 +274,7 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType> {
   using T = typename DType::c_type;
 
   TypedColumnReaderImpl(const ColumnDescriptor* descr, std::unique_ptr<PageReader> pager,
-                        ::arrow::MemoryPool* pool)
+                        std::shared_ptr<::arrow::MemoryPool>& pool)
       : descr_(descr),
         pager_(std::move(pager)),
         num_buffered_values_(0),
@@ -361,7 +361,7 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType> {
   // into memory
   int64_t num_decoded_values_;
 
-  ::arrow::MemoryPool* pool_;
+  std::shared_ptr<::arrow::MemoryPool> pool_;
 
   // Read up to batch_size values from the current data page into the
   // pre-allocated memory T*
@@ -701,7 +701,7 @@ bool TypedColumnReaderImpl<DType>::ReadNewPage() {
 
 std::shared_ptr<ColumnReader> ColumnReader::Make(const ColumnDescriptor* descr,
                                                  std::unique_ptr<PageReader> pager,
-                                                 MemoryPool* pool) {
+                                                 std::shared_ptr<MemoryPool> pool) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::make_shared<TypedColumnReaderImpl<BooleanType>>(descr, std::move(pager),

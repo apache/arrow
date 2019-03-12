@@ -93,7 +93,7 @@ Status SelectionVector::MakeInt16(int64_t max_slots,
   return Status::OK();
 }
 
-Status SelectionVector::MakeInt16(int64_t max_slots, arrow::MemoryPool* pool,
+Status SelectionVector::MakeInt16(int64_t max_slots, std::shared_ptr<::arrow::MemoryPool>& pool,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   std::shared_ptr<arrow::Buffer> buffer;
   ARROW_RETURN_NOT_OK(SelectionVectorInt16::AllocateBuffer(max_slots, pool, &buffer));
@@ -118,7 +118,7 @@ Status SelectionVector::MakeInt32(int64_t max_slots,
   return Status::OK();
 }
 
-Status SelectionVector::MakeInt32(int64_t max_slots, arrow::MemoryPool* pool,
+Status SelectionVector::MakeInt32(int64_t max_slots, std::shared_ptr<::arrow::MemoryPool>& pool,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   std::shared_ptr<arrow::Buffer> buffer;
   ARROW_RETURN_NOT_OK(SelectionVectorInt32::AllocateBuffer(max_slots, pool, &buffer));
@@ -144,7 +144,7 @@ Status SelectionVector::MakeInt64(int64_t max_slots,
   return Status::OK();
 }
 
-Status SelectionVector::MakeInt64(int64_t max_slots, arrow::MemoryPool* pool,
+Status SelectionVector::MakeInt64(int64_t max_slots, std::shared_ptr<::arrow::MemoryPool>& pool,
                                   std::shared_ptr<SelectionVector>* selection_vector) {
   std::shared_ptr<arrow::Buffer> buffer;
   ARROW_RETURN_NOT_OK(SelectionVectorInt64::AllocateBuffer(max_slots, pool, &buffer));
@@ -155,7 +155,7 @@ Status SelectionVector::MakeInt64(int64_t max_slots, arrow::MemoryPool* pool,
 
 template <typename C_TYPE, typename A_TYPE, SelectionVector::Mode mode>
 Status SelectionVectorImpl<C_TYPE, A_TYPE, mode>::AllocateBuffer(
-    int64_t max_slots, arrow::MemoryPool* pool, std::shared_ptr<arrow::Buffer>* buffer) {
+    int64_t max_slots, std::shared_ptr<::arrow::MemoryPool>& pool, std::shared_ptr<arrow::Buffer>* buffer) {
   auto buffer_len = max_slots * sizeof(C_TYPE);
   ARROW_RETURN_NOT_OK(arrow::AllocateBuffer(pool, buffer_len, buffer));
 

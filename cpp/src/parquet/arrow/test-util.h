@@ -90,8 +90,9 @@ NonNullArray(size_t size, std::shared_ptr<Array>* out) {
   ::arrow::randint(size, 0, 64, &values);
 
   // Passing data type so this will work with TimestampType too
+  auto pool = ::arrow::default_memory_pool();
   ::arrow::NumericBuilder<ArrowType> builder(std::make_shared<ArrowType>(),
-                                             ::arrow::default_memory_pool());
+                                             pool);
   RETURN_NOT_OK(builder.AppendValues(values.data(), values.size()));
   return builder.Finish(out);
 }
@@ -106,8 +107,9 @@ typename std::enable_if<is_arrow_date<ArrowType>::value, Status>::type NonNullAr
   }
 
   // Passing data type so this will work with TimestampType too
+  auto pool = ::arrow::default_memory_pool();
   ::arrow::NumericBuilder<ArrowType> builder(std::make_shared<ArrowType>(),
-                                             ::arrow::default_memory_pool());
+                                             pool);
   builder.AppendValues(values.data(), values.size());
   return builder.Finish(out);
 }
@@ -172,7 +174,8 @@ NonNullArray(size_t size, std::shared_ptr<Array>* out) {
   constexpr int32_t seed = 0;
 
   std::shared_ptr<Buffer> out_buf;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(::arrow::default_memory_pool(), size * byte_width,
+  auto pool = ::arrow::default_memory_pool();
+  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, size * byte_width,
                                         &out_buf));
   random_decimals(size, seed, kDecimalPrecision, out_buf->mutable_data());
 
@@ -226,8 +229,9 @@ NullableArray(size_t size, size_t num_nulls, uint32_t seed, std::shared_ptr<Arra
   }
 
   // Passing data type so this will work with TimestampType too
+  auto pool = ::arrow::default_memory_pool();
   ::arrow::NumericBuilder<ArrowType> builder(std::make_shared<ArrowType>(),
-                                             ::arrow::default_memory_pool());
+                                             pool);
   RETURN_NOT_OK(builder.AppendValues(values.data(), values.size(), valid_bytes.data()));
   return builder.Finish(out);
 }
@@ -250,8 +254,9 @@ typename std::enable_if<is_arrow_date<ArrowType>::value, Status>::type NullableA
   }
 
   // Passing data type so this will work with TimestampType too
+  auto pool = ::arrow::default_memory_pool();
   ::arrow::NumericBuilder<ArrowType> builder(std::make_shared<ArrowType>(),
-                                             ::arrow::default_memory_pool());
+                                             pool);
   builder.AppendValues(values.data(), values.size(), valid_bytes.data());
   return builder.Finish(out);
 }
@@ -331,7 +336,8 @@ NullableArray(size_t size, size_t num_nulls, uint32_t seed,
       static_cast<const ::arrow::Decimal128Type&>(*type).byte_width();
 
   std::shared_ptr<::arrow::Buffer> out_buf;
-  RETURN_NOT_OK(::arrow::AllocateBuffer(::arrow::default_memory_pool(), size * byte_width,
+  auto pool = ::arrow::default_memory_pool();
+  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, size * byte_width,
                                         &out_buf));
 
   random_decimals(size, seed, precision, out_buf->mutable_data());
@@ -407,7 +413,8 @@ Status MakeEmptyListsArray(int64_t size, std::shared_ptr<Array>* out_array) {
   // Allocate an offsets buffer containing only zeroes
   std::shared_ptr<Buffer> offsets_buffer;
   const int64_t offsets_nbytes = (size + 1) * sizeof(int32_t);
-  RETURN_NOT_OK(::arrow::AllocateBuffer(::arrow::default_memory_pool(), offsets_nbytes,
+  auto pool = ::arrow::default_memory_pool();
+  RETURN_NOT_OK(::arrow::AllocateBuffer(pool, offsets_nbytes,
                                         &offsets_buffer));
   memset(offsets_buffer->mutable_data(), 0, offsets_nbytes);
 

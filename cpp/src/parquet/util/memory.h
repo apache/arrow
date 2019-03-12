@@ -59,7 +59,7 @@ using ResizableBuffer = ::arrow::ResizableBuffer;
 template <class T>
 class PARQUET_EXPORT Vector {
  public:
-  explicit Vector(int64_t size, ::arrow::MemoryPool* pool);
+  explicit Vector(int64_t size, std::shared_ptr<::arrow::MemoryPool>& pool);
   void Resize(int64_t new_size);
   void Reserve(int64_t new_capacity);
   void Assign(int64_t size, const T val);
@@ -190,8 +190,8 @@ class PARQUET_EXPORT ArrowOutputStream : public ArrowFileMethods, public OutputS
 class PARQUET_EXPORT InMemoryOutputStream : public OutputStream {
  public:
   explicit InMemoryOutputStream(
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      int64_t initial_capacity = kInMemoryDefaultCapacity);
+     std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool(),
+     int64_t initial_capacity = kInMemoryDefaultCapacity);
 
   virtual ~InMemoryOutputStream();
 
@@ -270,7 +270,7 @@ class PARQUET_EXPORT InMemoryInputStream : public InputStream {
 // Implementation of an InputStream when only some of the bytes are in memory.
 class PARQUET_EXPORT BufferedInputStream : public InputStream {
  public:
-  BufferedInputStream(::arrow::MemoryPool* pool, int64_t buffer_size,
+  BufferedInputStream(std::shared_ptr<::arrow::MemoryPool>& pool, int64_t buffer_size,
                       RandomAccessSource* source, int64_t start, int64_t end);
   virtual const uint8_t* Peek(int64_t num_to_peek, int64_t* num_bytes);
   virtual const uint8_t* Read(int64_t num_to_read, int64_t* num_bytes);
@@ -287,7 +287,7 @@ class PARQUET_EXPORT BufferedInputStream : public InputStream {
 };
 
 std::shared_ptr<ResizableBuffer> PARQUET_EXPORT AllocateBuffer(
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(), int64_t size = 0);
+    std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool(), int64_t size = 0);
 
 }  // namespace parquet
 

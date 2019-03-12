@@ -32,7 +32,7 @@ class TestProjector : public ::testing::Test {
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
  protected:
-  arrow::MemoryPool* pool_;
+  std::shared_ptr<arrow::MemoryPool> pool_;
 };
 
 TEST_F(TestProjector, TestProjectCache) {
@@ -200,7 +200,7 @@ TEST_F(TestProjector, TestIntSumSub) {
 }
 
 template <typename TYPE, typename C_TYPE>
-static void TestArithmeticOpsForType(arrow::MemoryPool* pool) {
+static void TestArithmeticOpsForType(std::shared_ptr<arrow::MemoryPool>& pool) {
   auto atype = arrow::TypeTraits<TYPE>::type_singleton();
 
   // schema for input fields

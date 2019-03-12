@@ -27,7 +27,7 @@ namespace gandiva {
 /// Execution context during llvm evaluation
 class ExecutionContext {
  public:
-  explicit ExecutionContext(arrow::MemoryPool* pool = arrow::default_memory_pool())
+  explicit ExecutionContext(std::shared_ptr<::arrow::MemoryPool> pool = arrow::default_memory_pool())
       : arena_(pool) {}
   std::string get_error() const { return error_msg_; }
 

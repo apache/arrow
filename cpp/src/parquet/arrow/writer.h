@@ -136,30 +136,30 @@ std::shared_ptr<ArrowWriterProperties> PARQUET_EXPORT default_arrow_writer_prope
  */
 class PARQUET_EXPORT FileWriter {
  public:
-  FileWriter(::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
+  FileWriter(std::shared_ptr<::arrow::MemoryPool>& pool, std::unique_ptr<ParquetFileWriter> writer,
              const std::shared_ptr<::arrow::Schema>& schema,
              const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
                  default_arrow_writer_properties());
 
-  static ::arrow::Status Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+  static ::arrow::Status Open(const ::arrow::Schema& schema, std::shared_ptr<::arrow::MemoryPool>& pool,
                               const std::shared_ptr<OutputStream>& sink,
                               const std::shared_ptr<WriterProperties>& properties,
                               std::unique_ptr<FileWriter>* writer);
 
   static ::arrow::Status Open(
-      const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+      const ::arrow::Schema& schema, std::shared_ptr<::arrow::MemoryPool>& pool,
       const std::shared_ptr<OutputStream>& sink,
       const std::shared_ptr<WriterProperties>& properties,
       const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
       std::unique_ptr<FileWriter>* writer);
 
-  static ::arrow::Status Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+  static ::arrow::Status Open(const ::arrow::Schema& schema, std::shared_ptr<::arrow::MemoryPool>& pool,
                               const std::shared_ptr<::arrow::io::OutputStream>& sink,
                               const std::shared_ptr<WriterProperties>& properties,
                               std::unique_ptr<FileWriter>* writer);
 
   static ::arrow::Status Open(
-      const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+      const ::arrow::Schema& schema, std::shared_ptr<::arrow::MemoryPool>& pool,
       const std::shared_ptr<::arrow::io::OutputStream>& sink,
       const std::shared_ptr<WriterProperties>& properties,
       const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
@@ -179,7 +179,7 @@ class PARQUET_EXPORT FileWriter {
 
   virtual ~FileWriter();
 
-  ::arrow::MemoryPool* memory_pool() const;
+  std::shared_ptr<::arrow::MemoryPool> memory_pool() const;
 
  private:
   class PARQUET_NO_EXPORT Impl;
@@ -202,14 +202,14 @@ PARQUET_EXPORT
  * The table shall only consist of columns of primitive type or of primitive lists.
  */
 ::arrow::Status PARQUET_EXPORT WriteTable(
-    const ::arrow::Table& table, ::arrow::MemoryPool* pool,
+    const ::arrow::Table& table, std::shared_ptr<::arrow::MemoryPool>& pool,
     const std::shared_ptr<OutputStream>& sink, int64_t chunk_size,
     const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
     const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
         default_arrow_writer_properties());
 
 ::arrow::Status PARQUET_EXPORT WriteTable(
-    const ::arrow::Table& table, ::arrow::MemoryPool* pool,
+    const ::arrow::Table& table, std::shared_ptr<::arrow::MemoryPool>& pool,
     const std::shared_ptr<::arrow::io::OutputStream>& sink, int64_t chunk_size,
     const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
     const std::shared_ptr<ArrowWriterProperties>& arrow_properties =

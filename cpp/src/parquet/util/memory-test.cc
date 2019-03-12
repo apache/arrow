@@ -39,8 +39,9 @@ TEST(TestBufferedInputStream, Basics) {
   int64_t stream_offset = 10;
   int64_t stream_size = source_size - stream_offset;
   int64_t chunk_size = 50;
+  auto pool = ::arrow::default_memory_pool();
   std::shared_ptr<ResizableBuffer> buf =
-      AllocateBuffer(default_memory_pool(), source_size);
+      AllocateBuffer(pool, source_size);
   ASSERT_EQ(source_size, buf->size());
   for (int i = 0; i < source_size; i++) {
     buf->mutable_data()[i] = static_cast<uint8_t>(i);
@@ -50,7 +51,7 @@ TEST(TestBufferedInputStream, Basics) {
       std::make_shared<ArrowInputFile>(std::make_shared<::arrow::io::BufferReader>(buf));
 
   std::unique_ptr<BufferedInputStream> stream(new BufferedInputStream(
-      default_memory_pool(), chunk_size, wrapper.get(), stream_offset, stream_size));
+      pool, chunk_size, wrapper.get(), stream_offset, stream_size));
 
   const uint8_t* output;
   int64_t bytes_read;

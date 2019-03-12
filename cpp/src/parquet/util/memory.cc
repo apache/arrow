@@ -66,7 +66,7 @@ std::unique_ptr<Codec> GetCodecFromArrow(Compression::type codec) {
 }
 
 template <class T>
-Vector<T>::Vector(int64_t size, MemoryPool* pool)
+Vector<T>::Vector(int64_t size, std::shared_ptr<MemoryPool>& pool)
     : buffer_(AllocateBuffer(pool, size * sizeof(T))), size_(size), capacity_(size) {
   if (size > 0) {
     data_ = reinterpret_cast<T*>(buffer_->mutable_data());
@@ -212,7 +212,7 @@ void InMemoryInputStream::Advance(int64_t num_bytes) { offset_ += num_bytes; }
 // ----------------------------------------------------------------------
 // In-memory output stream
 
-InMemoryOutputStream::InMemoryOutputStream(MemoryPool* pool, int64_t initial_capacity)
+InMemoryOutputStream::InMemoryOutputStream(std::shared_ptr<MemoryPool> pool, int64_t initial_capacity)
     : size_(0), capacity_(initial_capacity) {
   if (initial_capacity == 0) {
     initial_capacity = kInMemoryDefaultCapacity;
@@ -252,7 +252,7 @@ std::shared_ptr<Buffer> InMemoryOutputStream::GetBuffer() {
 // ----------------------------------------------------------------------
 // BufferedInputStream
 
-BufferedInputStream::BufferedInputStream(MemoryPool* pool, int64_t buffer_size,
+BufferedInputStream::BufferedInputStream(std::shared_ptr<MemoryPool>& pool, int64_t buffer_size,
                                          RandomAccessSource* source, int64_t start,
                                          int64_t num_bytes)
     : source_(source), stream_offset_(start), stream_end_(start + num_bytes) {
@@ -295,7 +295,7 @@ void BufferedInputStream::Advance(int64_t num_bytes) {
   buffer_offset_ += num_bytes;
 }
 
-std::shared_ptr<ResizableBuffer> AllocateBuffer(MemoryPool* pool, int64_t size) {
+std::shared_ptr<ResizableBuffer> AllocateBuffer(std::shared_ptr<MemoryPool> pool, int64_t size) {
   std::shared_ptr<ResizableBuffer> result;
   PARQUET_THROW_NOT_OK(arrow::AllocateResizableBuffer(pool, size, &result));
   return result;

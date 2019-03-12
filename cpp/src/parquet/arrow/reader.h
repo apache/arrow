@@ -109,7 +109,7 @@ class RowGroupReader;
 // arrays
 class PARQUET_EXPORT FileReader {
  public:
-  FileReader(::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader);
+  FileReader(std::shared_ptr<::arrow::MemoryPool>& pool, std::unique_ptr<ParquetFileReader> reader);
 
   // Since the distribution of columns amongst a Parquet file's row groups may
   // be uneven (the number of values in each column chunk can be different), we
@@ -296,14 +296,14 @@ class PARQUET_EXPORT ColumnReader {
 // metadata : separately-computed file metadata, can be nullptr
 PARQUET_EXPORT
 ::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
-                         ::arrow::MemoryPool* allocator,
+                         std::shared_ptr<::arrow::MemoryPool>& allocator,
                          const ReaderProperties& properties,
                          const std::shared_ptr<FileMetaData>& metadata,
                          std::unique_ptr<FileReader>* reader);
 
 PARQUET_EXPORT
 ::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
-                         ::arrow::MemoryPool* allocator,
+                         std::shared_ptr<::arrow::MemoryPool>& allocator,
                          std::unique_ptr<FileReader>* reader);
 
 }  // namespace arrow

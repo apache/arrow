@@ -71,7 +71,7 @@ class GANDIVA_EXPORT Projector {
   /// \param[in] batch the record batch. schema should be the same as the one in 'Make'
   /// \param[in] pool memory pool used to allocate output arrays (if required).
   /// \param[out] output the vector of allocated/populated arrays.
-  Status Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* pool,
+  Status Evaluate(const arrow::RecordBatch& batch, std::shared_ptr<::arrow::MemoryPool>& pool,
                   arrow::ArrayVector* output);
 
   /// Evaluate the specified record batch, and populate the output arrays. The output
@@ -91,7 +91,7 @@ class GANDIVA_EXPORT Projector {
   /// \param[in] pool memory pool used to allocate output arrays (if required).
   /// \param[out] output the vector of allocated/populated arrays.
   Status Evaluate(const arrow::RecordBatch& batch,
-                  const SelectionVector* selection_vector, arrow::MemoryPool* pool,
+                  const SelectionVector* selection_vector, std::shared_ptr<::arrow::MemoryPool>& pool,
                   arrow::ArrayVector* output);
 
   /// Evaluate the specified record batch, and populate the output arrays at the filtered
@@ -109,7 +109,7 @@ class GANDIVA_EXPORT Projector {
             const FieldVector& output_fields, std::shared_ptr<Configuration>);
 
   /// Allocate an ArrowData of length 'length'.
-  Status AllocArrayData(const DataTypePtr& type, int64_t length, arrow::MemoryPool* pool,
+  Status AllocArrayData(const DataTypePtr& type, int64_t length, std::shared_ptr<::arrow::MemoryPool>& pool,
                         ArrayDataPtr* array_data);
 
   /// Validate that the ArrayData has sufficient capacity to accomodate 'num_records'.

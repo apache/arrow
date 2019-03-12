@@ -67,7 +67,7 @@ class TestDecimalOps : public ::testing::Test {
   }
 
  protected:
-  arrow::MemoryPool* pool_;
+  std::shared_ptr<arrow::MemoryPool> pool_;
 };
 
 ArrayPtr TestDecimalOps::MakeDecimalVector(const DecimalScalar128& in) {

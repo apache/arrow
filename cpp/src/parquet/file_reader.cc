@@ -272,8 +272,9 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(
     source = handle;
   } else {
     std::shared_ptr<::arrow::io::ReadableFile> handle;
+    std::shared_ptr<::arrow::MemoryPool> pool = props.memory_pool();
     PARQUET_THROW_NOT_OK(
-        ::arrow::io::ReadableFile::Open(path, props.memory_pool(), &handle));
+        ::arrow::io::ReadableFile::Open(path, pool, &handle));
     source = handle;
   }
 

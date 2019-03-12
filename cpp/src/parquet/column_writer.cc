@@ -140,7 +140,7 @@ class SerializedPageWriter : public PageWriter {
  public:
   SerializedPageWriter(OutputStream* sink, Compression::type codec,
                        ColumnChunkMetaDataBuilder* metadata,
-                       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+                       std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool())
       : sink_(sink),
         metadata_(metadata),
         pool_(pool),
@@ -271,7 +271,7 @@ class SerializedPageWriter : public PageWriter {
  private:
   OutputStream* sink_;
   ColumnChunkMetaDataBuilder* metadata_;
-  ::arrow::MemoryPool* pool_;
+  std::shared_ptr<::arrow::MemoryPool> pool_;
   int64_t num_values_;
   int64_t dictionary_page_offset_;
   int64_t data_page_offset_;
@@ -289,7 +289,7 @@ class BufferedPageWriter : public PageWriter {
  public:
   BufferedPageWriter(OutputStream* sink, Compression::type codec,
                      ColumnChunkMetaDataBuilder* metadata,
-                     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+                     std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool())
       : final_sink_(sink),
         metadata_(metadata),
         in_memory_sink_(new InMemoryOutputStream(pool)),
@@ -333,7 +333,7 @@ class BufferedPageWriter : public PageWriter {
 
 std::unique_ptr<PageWriter> PageWriter::Open(OutputStream* sink, Compression::type codec,
                                              ColumnChunkMetaDataBuilder* metadata,
-                                             ::arrow::MemoryPool* pool,
+                                             std::shared_ptr<::arrow::MemoryPool> pool,
                                              bool buffered_row_group) {
   if (buffered_row_group) {
     return std::unique_ptr<PageWriter>(
@@ -444,7 +444,7 @@ class ColumnWriterImpl {
 
   LevelEncoder level_encoder_;
 
-  ::arrow::MemoryPool* allocator_;
+  std::shared_ptr<::arrow::MemoryPool> allocator_;
 
   // The total number of values stored in the data page. This is the maximum of
   // the number of encoded definition levels or encoded values. For

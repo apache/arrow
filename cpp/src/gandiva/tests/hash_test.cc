@@ -37,7 +37,7 @@ class TestHash : public ::testing::Test {
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
  protected:
-  arrow::MemoryPool* pool_;
+  std::shared_ptr<arrow::MemoryPool> pool_;
 };
 
 TEST_F(TestHash, TestSimple) {

@@ -33,7 +33,7 @@ class DISABLED_TestHugeProjector : public ::testing::Test {
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
  protected:
-  arrow::MemoryPool* pool_;
+  std::shared_ptr<arrow::MemoryPool> pool_;
 };
 
 class DISABLED_TestHugeFilter : public ::testing::Test {
@@ -41,7 +41,7 @@ class DISABLED_TestHugeFilter : public ::testing::Test {
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
  protected:
-  arrow::MemoryPool* pool_;
+  std::shared_ptr<arrow::MemoryPool> pool_;
 };
 
 TEST_F(DISABLED_TestHugeProjector, SimpleTestSumHuge) {

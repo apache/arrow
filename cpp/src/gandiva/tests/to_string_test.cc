@@ -35,7 +35,7 @@ class TestToString : public ::testing::Test {
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
  protected:
-  arrow::MemoryPool* pool_;
+  std::shared_ptr<arrow::MemoryPool> pool_;
 };
 
 #define CHECK_EXPR_TO_STRING(e, str) EXPECT_STREQ(e->ToString().c_str(), str)

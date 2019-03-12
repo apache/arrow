@@ -104,7 +104,7 @@ static void DecodeDict(std::vector<typename Type::c_type>& values,
   typedef typename Type::c_type T;
   int num_values = static_cast<int>(values.size());
 
-  MemoryPool* allocator = default_memory_pool();
+  std::shared_ptr<MemoryPool> allocator = default_memory_pool();
   std::shared_ptr<ColumnDescriptor> descr = Int64Schema(Repetition::REQUIRED);
 
   auto base_encoder =

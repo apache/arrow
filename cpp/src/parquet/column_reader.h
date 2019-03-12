@@ -90,7 +90,7 @@ class PARQUET_EXPORT PageReader {
   static std::unique_ptr<PageReader> Open(
       std::unique_ptr<InputStream> stream, int64_t total_num_rows,
       Compression::type codec,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+      std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool());
 
   // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>
   // containing new Page otherwise
@@ -105,7 +105,7 @@ class PARQUET_EXPORT ColumnReader {
 
   static std::shared_ptr<ColumnReader> Make(
       const ColumnDescriptor* descr, std::unique_ptr<PageReader> pager,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+      std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool());
 
   // Returns true if there are still values in this column.
   virtual bool HasNext() = 0;

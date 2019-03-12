@@ -36,7 +36,7 @@ class TestProjector : public ::testing::Test {
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
  protected:
-  arrow::MemoryPool* pool_;
+  std::shared_ptr<arrow::MemoryPool> pool_;
 };
 
 int32_t MillisInDay(int32_t hh, int32_t mm, int32_t ss, int32_t millis) {

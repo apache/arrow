@@ -51,7 +51,7 @@ class RecordReader {
 
   static std::shared_ptr<RecordReader> Make(
       const ColumnDescriptor* descr,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+      std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool());
 
   virtual ~RecordReader();
 

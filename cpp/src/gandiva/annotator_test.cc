@@ -34,12 +34,13 @@ ArrayPtr TestAnnotator::MakeInt32Array(int length) {
   arrow::Status status;
 
   std::shared_ptr<arrow::Buffer> validity;
+  auto pool = arrow::default_memory_pool();
   status =
-      arrow::AllocateBuffer(arrow::default_memory_pool(), (length + 63) / 8, &validity);
+      arrow::AllocateBuffer(pool, (length + 63) / 8, &validity);
   DCHECK_EQ(status.ok(), true);
 
   std::shared_ptr<arrow::Buffer> value;
-  status = AllocateBuffer(arrow::default_memory_pool(), length * sizeof(int32_t), &value);
+  status = AllocateBuffer(pool, length * sizeof(int32_t), &value);
   DCHECK_EQ(status.ok(), true);
 
   auto array_data = arrow::ArrayData::Make(arrow::int32(), length, {validity, value});

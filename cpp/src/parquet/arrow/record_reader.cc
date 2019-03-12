@@ -58,7 +58,7 @@ constexpr int64_t kMinLevelBatchSize = 1024;
 
 class RecordReader::RecordReaderImpl {
  public:
-  RecordReaderImpl(const ColumnDescriptor* descr, MemoryPool* pool)
+  RecordReaderImpl(const ColumnDescriptor* descr, std::shared_ptr<MemoryPool>& pool)
       : descr_(descr),
         pool_(pool),
         num_buffered_values_(0),
@@ -394,7 +394,7 @@ class RecordReader::RecordReaderImpl {
   virtual bool ReadNewPage() = 0;
 
   const ColumnDescriptor* descr_;
-  ::arrow::MemoryPool* pool_;
+  std::shared_ptr<::arrow::MemoryPool> pool_;
 
   std::unique_ptr<PageReader> pager_;
   std::shared_ptr<Page> current_page_;
@@ -470,7 +470,7 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
 
   using BuilderType = typename RecordReaderTraits<DType>::BuilderType;
 
-  TypedRecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
+  TypedRecordReader(const ColumnDescriptor* descr, std::shared_ptr<::arrow::MemoryPool>& pool)
       : RecordReader::RecordReaderImpl(descr, pool), current_decoder_(nullptr) {
     InitializeBuilder();
   }
@@ -846,7 +846,7 @@ bool TypedRecordReader<DType>::ReadNewPage() {
 }
 
 std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
-                                                 MemoryPool* pool) {
+                                                 std::shared_ptr<MemoryPool> pool) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::shared_ptr<RecordReader>(

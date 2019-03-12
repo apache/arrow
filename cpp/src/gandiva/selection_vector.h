@@ -93,7 +93,7 @@ class GANDIVA_EXPORT SelectionVector {
   /// \param[in] pool memory pool to allocate buffer
   /// \param[out] selection_vector selection vector backed by a buffer allocated from the
   ///              pool.
-  static Status MakeInt16(int64_t max_slots, arrow::MemoryPool* pool,
+  static Status MakeInt16(int64_t max_slots, std::shared_ptr<::arrow::MemoryPool>& pool,
                           std::shared_ptr<SelectionVector>* selection_vector);
 
   /// \brief creates a selection vector with pre populated buffer.
@@ -119,7 +119,7 @@ class GANDIVA_EXPORT SelectionVector {
   /// \param[in] pool memory pool to allocate buffer
   /// \param[out] selection_vector selection vector backed by a buffer allocated from the
   ///             pool.
-  static Status MakeInt32(int64_t max_slots, arrow::MemoryPool* pool,
+  static Status MakeInt32(int64_t max_slots, std::shared_ptr<::arrow::MemoryPool>& pool,
                           std::shared_ptr<SelectionVector>* selection_vector);
 
   /// \brief creates a selection vector with pre populated buffer.
@@ -145,7 +145,7 @@ class GANDIVA_EXPORT SelectionVector {
   /// \param[in] pool memory pool to allocate buffer
   /// \param[out] selection_vector selection vector backed by a buffer allocated from the
   ///             pool.
-  static Status MakeInt64(int64_t max_slots, arrow::MemoryPool* pool,
+  static Status MakeInt64(int64_t max_slots, std::shared_ptr<::arrow::MemoryPool>& pool,
                           std::shared_ptr<SelectionVector>* selection_vector);
 };
 

@@ -236,7 +236,7 @@ using FileColumnIteratorFactory =
 
 class FileReader::Impl {
  public:
-  Impl(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader)
+  Impl(std::shared_ptr<MemoryPool>& pool, std::unique_ptr<ParquetFileReader> reader)
       : pool_(pool), reader_(std::move(reader)), use_threads_(false) {}
 
   virtual ~Impl() {}
@@ -284,7 +284,7 @@ class FileReader::Impl {
   ParquetFileReader* reader() { return reader_.get(); }
 
  private:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   std::unique_ptr<ParquetFileReader> reader_;
   bool use_threads_;
 };
@@ -302,7 +302,7 @@ class ColumnReader::ColumnReaderImpl {
 // Reader implementation for primitive arrays
 class PARQUET_NO_EXPORT PrimitiveImpl : public ColumnReader::ColumnReaderImpl {
  public:
-  PrimitiveImpl(MemoryPool* pool, std::unique_ptr<FileColumnIterator> input)
+  PrimitiveImpl(std::shared_ptr<MemoryPool>& pool, std::unique_ptr<FileColumnIterator> input)
       : pool_(pool), input_(std::move(input)), descr_(input_->descr()) {
     record_reader_ = RecordReader::Make(descr_, pool_);
     DCHECK(NodeToField(*input_->descr()->schema_node(), &field_).ok());
@@ -322,7 +322,7 @@ class PARQUET_NO_EXPORT PrimitiveImpl : public ColumnReader::ColumnReaderImpl {
  private:
   void NextRowGroup();
 
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   std::unique_ptr<FileColumnIterator> input_;
   const ColumnDescriptor* descr_;
 
@@ -335,7 +335,7 @@ class PARQUET_NO_EXPORT PrimitiveImpl : public ColumnReader::ColumnReaderImpl {
 class PARQUET_NO_EXPORT StructImpl : public ColumnReader::ColumnReaderImpl {
  public:
   explicit StructImpl(const std::vector<std::shared_ptr<ColumnReaderImpl>>& children,
-                      int16_t struct_def_level, MemoryPool* pool, const Node* node)
+                      int16_t struct_def_level, std::shared_ptr<MemoryPool>& pool, const Node* node)
       : children_(children), struct_def_level_(struct_def_level), pool_(pool) {
     InitField(node, children);
   }
@@ -348,7 +348,7 @@ class PARQUET_NO_EXPORT StructImpl : public ColumnReader::ColumnReaderImpl {
  private:
   std::vector<std::shared_ptr<ColumnReaderImpl>> children_;
   int16_t struct_def_level_;
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   std::shared_ptr<Field> field_;
   std::shared_ptr<ResizableBuffer> def_levels_buffer_;
 
@@ -357,7 +357,7 @@ class PARQUET_NO_EXPORT StructImpl : public ColumnReader::ColumnReaderImpl {
                  const std::vector<std::shared_ptr<ColumnReaderImpl>>& children);
 };
 
-FileReader::FileReader(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader)
+FileReader::FileReader(std::shared_ptr<MemoryPool>& pool, std::unique_ptr<ParquetFileReader> reader)
     : impl_(new FileReader::Impl(pool, std::move(reader))) {}
 
 FileReader::~FileReader() {}
@@ -665,7 +665,7 @@ Status FileReader::Impl::ReadRowGroup(int i, std::shared_ptr<Table>* table) {
 
 // Static ctor
 Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
-                MemoryPool* allocator, const ReaderProperties& props,
+                std::shared_ptr<MemoryPool>& allocator, const ReaderProperties& props,
                 const std::shared_ptr<FileMetaData>& metadata,
                 std::unique_ptr<FileReader>* reader) {
   std::unique_ptr<RandomAccessSource> io_wrapper(new ArrowInputFile(file));
@@ -677,7 +677,7 @@ Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
 }
 
 Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
-                MemoryPool* allocator, std::unique_ptr<FileReader>* reader) {
+                std::shared_ptr<MemoryPool>& allocator, std::unique_ptr<FileReader>* reader) {
   return OpenFile(file, allocator, ::parquet::default_reader_properties(), nullptr,
                   reader);
 }
@@ -996,7 +996,7 @@ struct TransferFunctor {
   using ArrowCType = typename ArrowType::c_type;
   using ParquetCType = typename ParquetType::c_type;
 
-  Status operator()(RecordReader* reader, MemoryPool* pool,
+  Status operator()(RecordReader* reader, std::shared_ptr<MemoryPool>& pool,
                     const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     static_assert(!std::is_same<ArrowType, ::arrow::Int32Type>::value,
                   "The fast path transfer functor should be used "
@@ -1024,7 +1024,7 @@ struct TransferFunctor {
 template <typename ArrowType, typename ParquetType>
 struct TransferFunctor<ArrowType, ParquetType,
                        supports_fast_path<ArrowType, ParquetType>> {
-  Status operator()(RecordReader* reader, MemoryPool* pool,
+  Status operator()(RecordReader* reader, std::shared_ptr<MemoryPool>& pool,
                     const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     int64_t length = reader->values_written();
     std::shared_ptr<ResizableBuffer> values = reader->ReleaseValues();
@@ -1042,7 +1042,7 @@ struct TransferFunctor<ArrowType, ParquetType,
 
 template <>
 struct TransferFunctor<::arrow::BooleanType, BooleanType> {
-  Status operator()(RecordReader* reader, MemoryPool* pool,
+  Status operator()(RecordReader* reader, std::shared_ptr<MemoryPool>& pool,
                     const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     int64_t length = reader->values_written();
     std::shared_ptr<Buffer> data;
@@ -1075,7 +1075,7 @@ struct TransferFunctor<::arrow::BooleanType, BooleanType> {
 
 template <>
 struct TransferFunctor<::arrow::TimestampType, Int96Type> {
-  Status operator()(RecordReader* reader, MemoryPool* pool,
+  Status operator()(RecordReader* reader, std::shared_ptr<MemoryPool>& pool,
                     const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     int64_t length = reader->values_written();
     auto values = reinterpret_cast<const Int96*>(reader->values());
@@ -1102,7 +1102,7 @@ struct TransferFunctor<::arrow::TimestampType, Int96Type> {
 
 template <>
 struct TransferFunctor<::arrow::Date64Type, Int32Type> {
-  Status operator()(RecordReader* reader, MemoryPool* pool,
+  Status operator()(RecordReader* reader, std::shared_ptr<MemoryPool>& pool,
                     const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     int64_t length = reader->values_written();
     auto values = reinterpret_cast<const int32_t*>(reader->values());
@@ -1134,7 +1134,7 @@ struct TransferFunctor<
          std::is_same<::arrow::FixedSizeBinaryType, ArrowType>::value) &&
         (std::is_same<ParquetType, ByteArrayType>::value ||
          std::is_same<ParquetType, FLBAType>::value)>::type> {
-  Status operator()(RecordReader* reader, MemoryPool* pool,
+  Status operator()(RecordReader* reader, std::shared_ptr<MemoryPool>& pool,
                     const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     std::vector<std::shared_ptr<Array>> chunks = reader->GetBuilderChunks();
 
@@ -1274,14 +1274,14 @@ static inline void RawBytesToDecimalBytes(const uint8_t* value, int32_t byte_wid
 
 template <typename T>
 Status ConvertToDecimal128(const Array& array, const std::shared_ptr<::arrow::DataType>&,
-                           MemoryPool* pool, std::shared_ptr<Array>*) {
+                           std::shared_ptr<MemoryPool>& pool, std::shared_ptr<Array>*) {
   return Status::NotImplemented("not implemented");
 }
 
 template <>
 Status ConvertToDecimal128<FLBAType>(const Array& array,
                                      const std::shared_ptr<::arrow::DataType>& type,
-                                     MemoryPool* pool, std::shared_ptr<Array>* out) {
+                                     std::shared_ptr<MemoryPool>& pool, std::shared_ptr<Array>* out) {
   const auto& fixed_size_binary_array =
       static_cast<const ::arrow::FixedSizeBinaryArray&>(array);
 
@@ -1329,7 +1329,7 @@ Status ConvertToDecimal128<FLBAType>(const Array& array,
 template <>
 Status ConvertToDecimal128<ByteArrayType>(const Array& array,
                                           const std::shared_ptr<::arrow::DataType>& type,
-                                          MemoryPool* pool, std::shared_ptr<Array>* out) {
+                                          std::shared_ptr<MemoryPool>& pool, std::shared_ptr<Array>* out) {
   const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(array);
   const int64_t length = binary_array.length();
 
@@ -1381,7 +1381,7 @@ struct TransferFunctor<
     typename std::enable_if<std::is_same<ArrowType, ::arrow::Decimal128Type>::value &&
                             (std::is_same<ParquetType, ByteArrayType>::value ||
                              std::is_same<ParquetType, FLBAType>::value)>::type> {
-  Status operator()(RecordReader* reader, MemoryPool* pool,
+  Status operator()(RecordReader* reader, std::shared_ptr<MemoryPool>& pool,
                     const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);
 
@@ -1408,7 +1408,7 @@ template <typename ParquetIntegerType,
           typename = typename std::enable_if<
               std::is_same<ParquetIntegerType, Int32Type>::value ||
               std::is_same<ParquetIntegerType, Int64Type>::value>::type>
-static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
+static Status DecimalIntegerTransfer(RecordReader* reader, std::shared_ptr<MemoryPool>& pool,
                                      const std::shared_ptr<::arrow::DataType>& type,
                                      Datum* out) {
   DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);
@@ -1456,7 +1456,7 @@ static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
 
 template <>
 struct TransferFunctor<::arrow::Decimal128Type, Int32Type> {
-  Status operator()(RecordReader* reader, MemoryPool* pool,
+  Status operator()(RecordReader* reader, std::shared_ptr<MemoryPool>& pool,
                     const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     return DecimalIntegerTransfer<Int32Type>(reader, pool, type, out);
   }
@@ -1464,7 +1464,7 @@ struct TransferFunctor<::arrow::Decimal128Type, Int32Type> {
 
 template <>
 struct TransferFunctor<::arrow::Decimal128Type, Int64Type> {
-  Status operator()(RecordReader* reader, MemoryPool* pool,
+  Status operator()(RecordReader* reader, std::shared_ptr<MemoryPool>& pool,
                     const std::shared_ptr<::arrow::DataType>& type, Datum* out) {
     return DecimalIntegerTransfer<Int64Type>(reader, pool, type, out);
   }

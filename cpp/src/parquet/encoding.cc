@@ -46,7 +46,7 @@ namespace BitUtil = ::arrow::BitUtil;
 class EncoderImpl : virtual public Encoder {
  public:
   EncoderImpl(const ColumnDescriptor* descr, Encoding::type encoding,
-              ::arrow::MemoryPool* pool)
+              std::shared_ptr<::arrow::MemoryPool>& pool)
       : descr_(descr),
         encoding_(encoding),
         pool_(pool),
@@ -54,13 +54,13 @@ class EncoderImpl : virtual public Encoder {
 
   Encoding::type encoding() const override { return encoding_; }
 
-  ::arrow::MemoryPool* memory_pool() const override { return pool_; }
+  std::shared_ptr<::arrow::MemoryPool> memory_pool() const override { return pool_; }
 
  protected:
   // For accessing type-specific metadata, like FIXED_LEN_BYTE_ARRAY
   const ColumnDescriptor* descr_;
   const Encoding::type encoding_;
-  ::arrow::MemoryPool* pool_;
+  std::shared_ptr<::arrow::MemoryPool> pool_;
 
   /// Type length from descr
   int type_length_;
@@ -75,7 +75,7 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   using T = typename DType::c_type;
 
   explicit PlainEncoder(const ColumnDescriptor* descr,
-                        ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+                        std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool());
 
   int64_t EstimatedDataEncodedSize() override;
   std::shared_ptr<Buffer> FlushValues() override;
@@ -88,7 +88,7 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
 template <typename DType>
 PlainEncoder<DType>::PlainEncoder(const ColumnDescriptor* descr,
-                                  ::arrow::MemoryPool* pool)
+                                  std::shared_ptr<::arrow::MemoryPool> pool)
     : EncoderImpl(descr, Encoding::PLAIN, pool) {
   values_sink_.reset(new InMemoryOutputStream(pool));
 }
@@ -152,7 +152,7 @@ class PlainBooleanEncoder : public EncoderImpl,
  public:
   explicit PlainBooleanEncoder(
       const ColumnDescriptor* descr,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+      std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool());
 
   int64_t EstimatedDataEncodedSize() override;
   std::shared_ptr<Buffer> FlushValues() override;
@@ -209,7 +209,7 @@ void PlainBooleanEncoder::PutImpl(const SequenceType& src, int num_values) {
 }
 
 PlainBooleanEncoder::PlainBooleanEncoder(const ColumnDescriptor* descr,
-                                         ::arrow::MemoryPool* pool)
+                                         std::shared_ptr<::arrow::MemoryPool> pool)
     : EncoderImpl(descr, Encoding::PLAIN, pool),
       bits_available_(kInMemoryDefaultCapacity * 8),
       bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity)),
@@ -276,7 +276,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   explicit DictEncoderImpl(
       const ColumnDescriptor* desc,
-      ::arrow::MemoryPool* allocator = ::arrow::default_memory_pool());
+      std::shared_ptr<::arrow::MemoryPool> allocator = ::arrow::default_memory_pool());
 
   ~DictEncoderImpl() override { DCHECK(buffered_indices_.empty()); }
 
@@ -342,7 +342,7 @@ static constexpr int32_t INITIAL_HASH_TABLE_SIZE = 1 << 10;
 
 template <typename DType>
 DictEncoderImpl<DType>::DictEncoderImpl(const ColumnDescriptor* desc,
-                                        ::arrow::MemoryPool* pool)
+                                        std::shared_ptr<::arrow::MemoryPool> pool)
     : EncoderImpl(desc, Encoding::PLAIN_DICTIONARY, pool),
       dict_encoded_size_(0),
       memo_table_(INITIAL_HASH_TABLE_SIZE) {}
@@ -484,7 +484,7 @@ class DictFLBAEncoder : public DictEncoderImpl<FLBAType>, virtual public FLBAEnc
 
 std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encoding,
                                      bool use_dictionary, const ColumnDescriptor* descr,
-                                     ::arrow::MemoryPool* pool) {
+                                     std::shared_ptr<::arrow::MemoryPool> pool) {
   if (use_dictionary) {
     switch (type_num) {
       case Type::INT32:
@@ -807,7 +807,7 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
   // dictionary is not guaranteed to persist in memory after this call so the
   // dictionary decoder needs to copy the data out if necessary.
   explicit DictDecoderImpl(const ColumnDescriptor* descr,
-                           ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+                           std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::RLE_DICTIONARY),
         dictionary_(0, pool),
         byte_array_data_(AllocateBuffer(pool, 0)) {}
@@ -1033,7 +1033,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   typedef typename DType::c_type T;
 
   explicit DeltaBitPackDecoder(const ColumnDescriptor* descr,
-                               ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+                               std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::DELTA_BINARY_PACKED), pool_(pool) {
     if (DType::type_num != Type::INT32 && DType::type_num != Type::INT64) {
       throw ParquetException("Delta bit pack encoding should only be for integer data.");
@@ -1105,7 +1105,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
     return max_values;
   }
 
-  ::arrow::MemoryPool* pool_;
+  std::shared_ptr<::arrow::MemoryPool> pool_;
   ::arrow::BitUtil::BitReader decoder_;
   int32_t values_current_block_;
   int32_t num_mini_blocks_;
@@ -1128,7 +1128,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
  public:
   explicit DeltaLengthByteArrayDecoder(
       const ColumnDescriptor* descr,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+      std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY),
         len_decoder_(nullptr, pool) {}
 
@@ -1168,7 +1168,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
  public:
   explicit DeltaByteArrayDecoder(
       const ColumnDescriptor* descr,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+      std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::DELTA_BYTE_ARRAY),
         prefix_len_decoder_(nullptr, pool),
         suffix_decoder_(nullptr, pool),
@@ -1250,7 +1250,7 @@ namespace detail {
 
 std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
                                          const ColumnDescriptor* descr,
-                                         ::arrow::MemoryPool* pool) {
+                                         std::shared_ptr<::arrow::MemoryPool>& pool) {
   switch (type_num) {
     case Type::BOOLEAN:
       ParquetException::NYI("Dictionary encoding not implemented for boolean type");

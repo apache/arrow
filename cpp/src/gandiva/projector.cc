@@ -125,14 +125,14 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch,
   return llvm_generator_->Execute(batch, selection_vector, output_data_vecs);
 }
 
-Status Projector::Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* pool,
+Status Projector::Evaluate(const arrow::RecordBatch& batch, std::shared_ptr<::arrow::MemoryPool>& pool,
                            arrow::ArrayVector* output) {
   return Evaluate(batch, nullptr, pool, output);
 }
 
 Status Projector::Evaluate(const arrow::RecordBatch& batch,
                            const SelectionVector* selection_vector,
-                           arrow::MemoryPool* pool, arrow::ArrayVector* output) {
+                           std::shared_ptr<::arrow::MemoryPool>& pool, arrow::ArrayVector* output) {
   ARROW_RETURN_NOT_OK(ValidateEvaluateArgsCommon(batch));
   ARROW_RETURN_IF(output == nullptr, Status::Invalid("Output must be non-null."));
   ARROW_RETURN_IF(pool == nullptr, Status::Invalid("Memory pool must be non-null."));
@@ -162,7 +162,7 @@ Status Projector::Evaluate(const arrow::RecordBatch& batch,
 
 // TODO : handle variable-len vectors
 Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
-                                 arrow::MemoryPool* pool, ArrayDataPtr* array_data) {
+                                 std::shared_ptr<::arrow::MemoryPool>& pool, ArrayDataPtr* array_data) {
   const auto* fw_type = dynamic_cast<const arrow::FixedWidthType*>(type.get());
   ARROW_RETURN_IF(fw_type == nullptr,
                   Status::Invalid("Unsupported output data type ", type));

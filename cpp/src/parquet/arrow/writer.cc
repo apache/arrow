@@ -83,7 +83,7 @@ namespace {
 
 class LevelBuilder {
  public:
-  explicit LevelBuilder(MemoryPool* pool)
+  explicit LevelBuilder(std::shared_ptr<::arrow::MemoryPool>& pool)
       : def_levels_(::arrow::int16(), pool), rep_levels_(::arrow::int16(), pool) {}
 
   Status VisitInline(const Array& array);
@@ -280,7 +280,7 @@ Status LevelBuilder::VisitInline(const Array& array) {
 }
 
 struct ColumnWriterContext {
-  ColumnWriterContext(MemoryPool* memory_pool, ArrowWriterProperties* properties)
+  ColumnWriterContext(std::shared_ptr<::arrow::MemoryPool>& memory_pool, ArrowWriterProperties* properties)
       : memory_pool(memory_pool), properties(properties) {
     this->data_buffer = AllocateBuffer(memory_pool);
     this->def_levels_buffer = AllocateBuffer(memory_pool);
@@ -293,7 +293,7 @@ struct ColumnWriterContext {
     return Status::OK();
   }
 
-  MemoryPool* memory_pool;
+  std::shared_ptr<::arrow::MemoryPool> memory_pool;
   ArrowWriterProperties* properties;
 
   // Buffer used for storing the data of an array converted to the physical type
@@ -976,7 +976,7 @@ Status ArrowColumnWriter::Write(const Array& data) {
 
 class FileWriter::Impl {
  public:
-  Impl(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
+  Impl(std::shared_ptr<::arrow::MemoryPool>& pool, std::unique_ptr<ParquetFileWriter> writer,
        const std::shared_ptr<ArrowWriterProperties>& arrow_properties)
       : writer_(std::move(writer)),
         row_group_writer_(nullptr),
@@ -1054,7 +1054,7 @@ class FileWriter::Impl {
 
   const WriterProperties& properties() const { return *writer_->properties(); }
 
-  ::arrow::MemoryPool* memory_pool() const { return column_write_context_.memory_pool; }
+  std::shared_ptr<::arrow::MemoryPool> memory_pool() const { return column_write_context_.memory_pool; }
 
   virtual ~Impl() {}
 
@@ -1087,24 +1087,24 @@ Status FileWriter::WriteColumnChunk(const std::shared_ptr<::arrow::ChunkedArray>
 
 Status FileWriter::Close() { return impl_->Close(); }
 
-MemoryPool* FileWriter::memory_pool() const { return impl_->memory_pool(); }
+std::shared_ptr<::arrow::MemoryPool> FileWriter::memory_pool() const { return impl_->memory_pool(); }
 
 FileWriter::~FileWriter() {}
 
-FileWriter::FileWriter(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
+FileWriter::FileWriter(std::shared_ptr<::arrow::MemoryPool>& pool, std::unique_ptr<ParquetFileWriter> writer,
                        const std::shared_ptr<::arrow::Schema>& schema,
                        const std::shared_ptr<ArrowWriterProperties>& arrow_properties)
     : impl_(new FileWriter::Impl(pool, std::move(writer), arrow_properties)),
       schema_(schema) {}
 
-Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+Status FileWriter::Open(const ::arrow::Schema& schema, std::shared_ptr<::arrow::MemoryPool>& pool,
                         const std::shared_ptr<OutputStream>& sink,
                         const std::shared_ptr<WriterProperties>& properties,
                         std::unique_ptr<FileWriter>* writer) {
   return Open(schema, pool, sink, properties, default_arrow_writer_properties(), writer);
 }
 
-Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+Status FileWriter::Open(const ::arrow::Schema& schema, std::shared_ptr<::arrow::MemoryPool>& pool,
                         const std::shared_ptr<OutputStream>& sink,
                         const std::shared_ptr<WriterProperties>& properties,
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
@@ -1124,7 +1124,7 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
   return Status::OK();
 }
 
-Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+Status FileWriter::Open(const ::arrow::Schema& schema, std::shared_ptr<::arrow::MemoryPool>& pool,
                         const std::shared_ptr<::arrow::io::OutputStream>& sink,
                         const std::shared_ptr<WriterProperties>& properties,
                         std::unique_ptr<FileWriter>* writer) {
@@ -1132,7 +1132,7 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
   return Open(schema, pool, wrapper, properties, writer);
 }
 
-Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+Status FileWriter::Open(const ::arrow::Schema& schema, std::shared_ptr<::arrow::MemoryPool>& pool,
                         const std::shared_ptr<::arrow::io::OutputStream>& sink,
                         const std::shared_ptr<WriterProperties>& properties,
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
@@ -1189,7 +1189,7 @@ Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {
   return Status::OK();
 }
 
-Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
+Status WriteTable(const ::arrow::Table& table, std::shared_ptr<::arrow::MemoryPool>& pool,
                   const std::shared_ptr<OutputStream>& sink, int64_t chunk_size,
                   const std::shared_ptr<WriterProperties>& properties,
                   const std::shared_ptr<ArrowWriterProperties>& arrow_properties) {
@@ -1200,7 +1200,7 @@ Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
   return writer->Close();
 }
 
-Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
+Status WriteTable(const ::arrow::Table& table, std::shared_ptr<::arrow::MemoryPool>& pool,
                   const std::shared_ptr<::arrow::io::OutputStream>& sink,
                   int64_t chunk_size, const std::shared_ptr<WriterProperties>& properties,
                   const std::shared_ptr<ArrowWriterProperties>& arrow_properties) {

@@ -234,7 +234,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   void SetMask(uint32_t key, BlockMask& mask) const;
 
   // Memory pool to allocate aligned buffer for bitset
-  ::arrow::MemoryPool* pool_;
+  std::shared_ptr<::arrow::MemoryPool> pool_;
 
   // The underlying buffer of bitset.
   std::shared_ptr<Buffer> data_;

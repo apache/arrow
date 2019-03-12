@@ -146,7 +146,7 @@ class PARQUET_TEMPLATE_CLASS_EXPORT TypedRowGroupStatistics : public RowGroupSta
   using T = typename DType::c_type;
 
   TypedRowGroupStatistics(const ColumnDescriptor* schema,
-                          ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+                          std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool());
 
   TypedRowGroupStatistics(const T& min, const T& max, int64_t num_values,
                           int64_t null_count, int64_t distinct_count);
@@ -154,7 +154,7 @@ class PARQUET_TEMPLATE_CLASS_EXPORT TypedRowGroupStatistics : public RowGroupSta
   TypedRowGroupStatistics(const ColumnDescriptor* schema, const std::string& encoded_min,
                           const std::string& encoded_max, int64_t num_values,
                           int64_t null_count, int64_t distinct_count, bool has_min_max,
-                          ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+                          std::shared_ptr<::arrow::MemoryPool> pool = ::arrow::default_memory_pool());
 
   bool HasMinMax() const override;
   void Reset() override;
@@ -177,7 +177,7 @@ class PARQUET_TEMPLATE_CLASS_EXPORT TypedRowGroupStatistics : public RowGroupSta
   bool has_min_max_ = false;
   T min_;
   T max_;
-  ::arrow::MemoryPool* pool_;
+  std::shared_ptr<::arrow::MemoryPool> pool_;
   std::shared_ptr<CompareDefault<DType> > comparator_;
 
   void PlainEncode(const T& src, std::string* dst);

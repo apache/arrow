@@ -28,7 +28,7 @@ class TestSelectionVector : public ::testing::Test {
  protected:
   virtual void SetUp() { pool_ = arrow::default_memory_pool(); }
 
-  arrow::MemoryPool* pool_;
+  std::shared_ptr<::arrow::MemoryPool> pool_;
 };
 
 static inline uint32_t RoundUpNumi64(uint32_t value) { return (value + 63) >> 6; }

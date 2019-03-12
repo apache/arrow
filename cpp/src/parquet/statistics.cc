@@ -34,7 +34,7 @@ namespace parquet {
 
 template <typename DType>
 TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(const ColumnDescriptor* schema,
-                                                        MemoryPool* pool)
+                                                        std::shared_ptr<MemoryPool> pool)
     : pool_(pool),
       min_buffer_(AllocateBuffer(pool_, 0)),
       max_buffer_(AllocateBuffer(pool_, 0)) {
@@ -64,7 +64,7 @@ template <typename DType>
 TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(
     const ColumnDescriptor* schema, const std::string& encoded_min,
     const std::string& encoded_max, int64_t num_values, int64_t null_count,
-    int64_t distinct_count, bool has_min_max, MemoryPool* pool)
+    int64_t distinct_count, bool has_min_max, std::shared_ptr<MemoryPool> pool)
     : pool_(pool),
       min_buffer_(AllocateBuffer(pool_, 0)),
       max_buffer_(AllocateBuffer(pool_, 0)) {

@@ -73,7 +73,7 @@ class SelectionVectorImpl : public SelectionVector {
 
   arrow::Buffer& GetBuffer() const override { return *buffer_; }
 
-  static Status AllocateBuffer(int64_t max_slots, arrow::MemoryPool* pool,
+  static Status AllocateBuffer(int64_t max_slots, std::shared_ptr<::arrow::MemoryPool>& pool,
                                std::shared_ptr<arrow::Buffer>* buffer);
 
   static Status ValidateBuffer(int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer);

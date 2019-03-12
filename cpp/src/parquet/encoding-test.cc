@@ -183,7 +183,7 @@ class TestEncodingBase : public ::testing::Test {
   }
 
  protected:
-  MemoryPool* allocator_;
+  std::shared_ptr<MemoryPool> allocator_;
 
   int num_values_;
   int type_length_;
