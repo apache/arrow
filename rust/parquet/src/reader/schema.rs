@@ -182,7 +182,7 @@ impl ParquetTypeConverter {
             PhysicalType::DOUBLE => Ok(DataType::Float64),
             PhysicalType::BYTE_ARRAY => self.to_byte_array(),
             other => Err(ArrowError(format!(
-                "Unable to convert parquet type d {}",
+                "Unable to convert parquet type {}",
                 other
             ))),
         }
@@ -198,7 +198,7 @@ impl ParquetTypeConverter {
             LogicalType::INT_16 => Ok(DataType::Int16),
             LogicalType::INT_32 => Ok(DataType::Int32),
             other => Err(ArrowError(format!(
-                "Unable to convert parquet logical type a {}",
+                "Unable to convert parquet logical type {}",
                 other
             ))),
         }
@@ -210,7 +210,7 @@ impl ParquetTypeConverter {
             LogicalType::INT_64 => Ok(DataType::Int64),
             LogicalType::UINT_64 => Ok(DataType::UInt64),
             other => Err(ArrowError(format!(
-                "Unable to convert parquet logical type b {}",
+                "Unable to convert parquet logical type {}",
                 other
             ))),
         }
@@ -221,7 +221,7 @@ impl ParquetTypeConverter {
             LogicalType::NONE => Ok(DataType::Utf8),
             LogicalType::UTF8 => Ok(DataType::Utf8),
             other => Err(ArrowError(format!(
-                "Unable to convert parquet logical type c {}",
+                "Unable to convert parquet logical type {}",
                 other
             ))),
         }
