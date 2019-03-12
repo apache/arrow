@@ -22,14 +22,12 @@ use std::string::String;
 use std::sync::{Arc, Mutex};
 
 use arrow::array::Array;
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
-use parquet::basic;
 use parquet::column::reader::*;
 use parquet::data_type::ByteArray;
 use parquet::file::reader::*;
-use parquet::schema::types::Type;
 
 use crate::datasource::{RecordBatchIterator, ScanResult, Table};
 use crate::execution::error::{ExecutionError, Result};
@@ -37,6 +35,7 @@ use arrow::builder::BooleanBuilder;
 use arrow::builder::Int64Builder;
 use arrow::builder::{BinaryBuilder, Float32Builder, Float64Builder, Int32Builder};
 use parquet::data_type::Int96;
+use parquet::reader::schema::parquet_to_arrow_schema;
 
 pub struct ParquetTable {
     filename: String,
@@ -87,44 +86,36 @@ impl ParquetFile {
         let reader = SerializedFileReader::new(file)?;
 
         let metadata = reader.metadata();
-        let file_type = to_arrow(metadata.file_metadata().schema())?;
+        let schema =
+            parquet_to_arrow_schema(metadata.file_metadata().schema_descr_ptr())?;
 
-        match file_type.data_type() {
-            DataType::Struct(fields) => {
-                let schema = Schema::new(fields.clone());
-
-                let projection = match projection {
-                    Some(p) => p,
-                    None => {
-                        let mut p = Vec::with_capacity(schema.fields().len());
-                        for i in 0..schema.fields().len() {
-                            p.push(i);
-                        }
-                        p
-                    }
-                };
-
-                let projected_fields: Vec<Field> = projection
-                    .iter()
-                    .map(|i| schema.fields()[*i].clone())
-                    .collect();
-
-                let projected_schema = Arc::new(Schema::new(projected_fields));
-
-                Ok(ParquetFile {
-                    reader: reader,
-                    row_group_index: 0,
-                    schema: projected_schema,
-                    projection,
-                    batch_size: 64 * 1024,
-                    current_row_group: None,
-                    column_readers: vec![],
-                })
+        let projection = match projection {
+            Some(p) => p,
+            None => {
+                let mut p = Vec::with_capacity(schema.fields().len());
+                for i in 0..schema.fields().len() {
+                    p.push(i);
+                }
+                p
             }
-            _ => Err(ExecutionError::General(
-                "Failed to read Parquet schema".to_string(),
-            )),
-        }
+        };
+
+        let projected_fields: Vec<Field> = projection
+            .iter()
+            .map(|i| schema.fields()[*i].clone())
+            .collect();
+
+        let projected_schema = Arc::new(Schema::new(projected_fields));
+
+        Ok(ParquetFile {
+            reader: reader,
+            row_group_index: 0,
+            schema: projected_schema,
+            projection,
+            batch_size: 64 * 1024,
+            current_row_group: None,
+            column_readers: vec![],
+        })
     }
 
     fn load_next_row_group(&mut self) -> Result<()> {
@@ -394,39 +385,6 @@ impl ParquetFile {
             }
             _ => Ok(None),
         }
-    }
-}
-
-fn to_arrow(t: &Type) -> Result<Field> {
-    match t {
-        Type::PrimitiveType {
-            basic_info,
-            physical_type,
-            ..
-        } => {
-            let arrow_type = match physical_type {
-                basic::Type::BOOLEAN => DataType::Boolean,
-                basic::Type::INT32 => DataType::Int32,
-                basic::Type::INT64 => DataType::Int64,
-                basic::Type::INT96 => DataType::Int64,
-                basic::Type::FLOAT => DataType::Float32,
-                basic::Type::DOUBLE => DataType::Float64,
-                basic::Type::BYTE_ARRAY => DataType::Utf8,
-                basic::Type::FIXED_LEN_BYTE_ARRAY => DataType::Utf8,
-            };
-
-            Ok(Field::new(basic_info.name(), arrow_type, false))
-        }
-        Type::GroupType { basic_info, fields } => Ok(Field::new(
-            basic_info.name(),
-            DataType::Struct(
-                fields
-                    .iter()
-                    .map(|f| to_arrow(f))
-                    .collect::<Result<Vec<Field>>>()?,
-            ),
-            false,
-        )),
     }
 }
 
