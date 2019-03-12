@@ -17,10 +17,6 @@
 
 FROM arrow:python-3.6
 
-# installing libhdfs3, it needs to be pinned, see ARROW-1465 and ARROW-1445
-RUN conda install -y -c conda-forge hdfs3 libhdfs3=2.2.31 && \
-    conda clean --all
-
 # installing libhdfs (JNI)
 ARG HADOOP_VERSION=2.6.5
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
@@ -34,6 +30,12 @@ RUN apt-get update -y && \
     rm /hadoop-$HADOOP_VERSION.tar.gz && \
     mv /hadoop-$HADOOP_VERSION /usr/local/hadoop
 ADD integration/hdfs/hdfs-site.xml $HADOOP_HOME/etc/hadoop/
+
+# installing libhdfs3, it needs to be pinned, see ARROW-1465 and ARROW-1445
+# after the conda-forge migration it's failing with abi incompatibilities, so
+# turning it off for now
+# RUN conda install -y -c conda-forge libhdfs3=2.2.31 && \
+#     conda clean --all
 
 # build cpp with tests
 ENV CC=gcc \
