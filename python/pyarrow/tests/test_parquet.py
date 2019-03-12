@@ -153,12 +153,12 @@ def test_pandas_parquet_2_0_rountrip(tempdir, chunk_size):
 
     filename = tempdir / 'pandas_rountrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
-    assert b'pandas' in arrow_table.schema.metadata
+    assert arrow_table.schema.pandas_metadata is not None
 
     _write_table(arrow_table, filename, version="2.0",
                  coerce_timestamps='ms', chunk_size=chunk_size)
     table_read = pq.read_pandas(filename)
-    assert b'pandas' in table_read.schema.metadata
+    assert table_read.schema.pandas_metadata is not None
 
     assert arrow_table.schema.metadata == table_read.schema.metadata
 
@@ -295,7 +295,7 @@ def test_pandas_parquet_column_multiindex(tempdir):
 
     filename = tempdir / 'pandas_rountrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
-    assert b'pandas' in arrow_table.schema.metadata
+    assert arrow_table.schema.pandas_metadata is not None
 
     _write_table(arrow_table, filename, version='2.0', coerce_timestamps='ms')
 
@@ -309,7 +309,7 @@ def test_pandas_parquet_2_0_rountrip_read_pandas_no_index_written(tempdir):
 
     filename = tempdir / 'pandas_rountrip.parquet'
     arrow_table = pa.Table.from_pandas(df, preserve_index=False)
-    js = json.loads(arrow_table.schema.metadata[b'pandas'].decode('utf8'))
+    js = arrow_table.schema.pandas_metadata
     assert not js['index_columns']
     # ARROW-2170
     # While index_columns should be empty, columns needs to be filled still.
@@ -318,7 +318,7 @@ def test_pandas_parquet_2_0_rountrip_read_pandas_no_index_written(tempdir):
     _write_table(arrow_table, filename, version='2.0', coerce_timestamps='ms')
     table_read = pq.read_pandas(filename)
 
-    js = json.loads(table_read.schema.metadata[b'pandas'].decode('utf8'))
+    js = table_read.schema.pandas_metadata
     assert not js['index_columns']
 
     assert arrow_table.schema.metadata == table_read.schema.metadata

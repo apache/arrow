@@ -603,12 +603,9 @@ def table_to_blockmanager(options, table, categories=None,
                           ignore_metadata=False):
     all_columns = []
     column_indexes = []
-    metadata = table.schema.metadata
-    has_pandas_metadata = (not ignore_metadata and metadata is not None
-                           and b'pandas' in metadata)
+    pandas_metadata = table.schema.pandas_metadata
 
-    if has_pandas_metadata:
-        pandas_metadata = json.loads(metadata[b'pandas'].decode('utf8'))
+    if not ignore_metadata and pandas_metadata is not None:
         all_columns = pandas_metadata['columns']
         column_indexes = pandas_metadata.get('column_indexes', [])
         index_descriptors = pandas_metadata['index_columns']

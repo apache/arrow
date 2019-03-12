@@ -230,9 +230,7 @@ class TestConvertMetadata(object):
             columns=['a', None, '__index_level_0__'],
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
-        raw_metadata = t.schema.metadata
-
-        js = json.loads(raw_metadata[b'pandas'].decode('utf8'))
+        js = t.schema.pandas_metadata
 
         col1, col2, col3, idx0, foo = js['columns']
 
@@ -263,8 +261,7 @@ class TestConvertMetadata(object):
             columns=pd.Index(list('def'), dtype='category')
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
-        raw_metadata = t.schema.metadata
-        js = json.loads(raw_metadata[b'pandas'].decode('utf8'))
+        js = t.schema.pandas_metadata
 
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] is None
@@ -281,8 +278,7 @@ class TestConvertMetadata(object):
             columns=pd.Index(list('def'), name='stringz')
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
-        raw_metadata = t.schema.metadata
-        js = json.loads(raw_metadata[b'pandas'].decode('utf8'))
+        js = t.schema.pandas_metadata
 
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] == 'stringz'
@@ -308,8 +304,7 @@ class TestConvertMetadata(object):
             )
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
-        raw_metadata = t.schema.metadata
-        js = json.loads(raw_metadata[b'pandas'].decode('utf8'))
+        js = t.schema.pandas_metadata
 
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] is None
@@ -399,10 +394,8 @@ class TestConvertMetadata(object):
     def test_metadata_with_mixed_types(self):
         df = pd.DataFrame({'data': [b'some_bytes', u'some_unicode']})
         table = pa.Table.from_pandas(df)
-        metadata = table.schema.metadata
-        assert b'mixed' not in metadata[b'pandas']
-
-        js = json.loads(metadata[b'pandas'].decode('utf8'))
+        js = table.schema.pandas_metadata
+        assert 'mixed' not in js
         data_column = js['columns'][0]
         assert data_column['pandas_type'] == 'bytes'
         assert data_column['numpy_type'] == 'object'
@@ -422,10 +415,8 @@ class TestConvertMetadata(object):
         df = pd.DataFrame({'data': [[1], [2, 3, 4], [5] * 7]})
         schema = pa.schema([pa.field('data', type=pa.list_(pa.int64()))])
         table = pa.Table.from_pandas(df, schema=schema)
-        metadata = table.schema.metadata
-        assert b'mixed' not in metadata[b'pandas']
-
-        js = json.loads(metadata[b'pandas'].decode('utf8'))
+        js = table.schema.pandas_metadata
+        assert 'mixed' not in js
         data_column = js['columns'][0]
         assert data_column['pandas_type'] == 'list[int64]'
         assert data_column['numpy_type'] == 'object'
@@ -438,10 +429,8 @@ class TestConvertMetadata(object):
             ]
         })
         table = pa.Table.from_pandas(expected)
-        metadata = table.schema.metadata
-        assert b'mixed' not in metadata[b'pandas']
-
-        js = json.loads(metadata[b'pandas'].decode('utf8'))
+        js = table.schema.pandas_metadata
+        assert 'mixed' not in js
         data_column = js['columns'][0]
         assert data_column['pandas_type'] == 'decimal'
         assert data_column['numpy_type'] == 'object'
@@ -484,7 +473,7 @@ class TestConvertMetadata(object):
         # type of empty lists
         df = tbl.to_pandas()
         tbl2 = pa.Table.from_pandas(df, preserve_index=True)
-        md2 = json.loads(tbl2.schema.metadata[b'pandas'].decode('utf8'))
+        md2 = tbl2.schema.pandas_metadata
 
         # Second roundtrip
         df2 = tbl2.to_pandas()

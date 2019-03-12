@@ -629,6 +629,19 @@ cdef class Schema:
         return hash((tuple(self), self.metadata))
 
     @property
+    def pandas_metadata(self):
+        """
+        Return deserialized-from-JSON pandas metadata field (if it exists)
+        """
+        metadata = self.metadata
+        key = b'pandas'
+        if metadata is None or key not in metadata:
+            return None
+
+        import json
+        return json.loads(metadata[key].decode('utf8'))
+
+    @property
     def names(self):
         """
         The schema's field names.
