@@ -64,6 +64,17 @@ func (md Metadata) Len() int         { return len(md.keys) }
 func (md Metadata) Keys() []string   { return md.keys }
 func (md Metadata) Values() []string { return md.values }
 
+// FindKey returns the index of the key-value pair with the provided key name,
+// or -1 if such a key does not exist.
+func (md Metadata) FindKey(k string) int {
+	for i, v := range md.keys {
+		if v == k {
+			return i
+		}
+	}
+	return -1
+}
+
 func (md Metadata) clone() Metadata {
 	if len(md.keys) == 0 {
 		return Metadata{}

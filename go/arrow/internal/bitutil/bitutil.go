@@ -27,6 +27,9 @@ var (
 	FlippedBitMask = [8]byte{254, 253, 251, 247, 239, 223, 191, 127}
 )
 
+// IsMultipleOf8 returns whether v is a multiple of 8.
+func IsMultipleOf8(v int64) bool { return v&7 == 0 }
+
 // NextPowerOf2 rounds x to the next power of two.
 func NextPowerOf2(x int) int { return 1 << uint(bits.Len(uint(x))) }
 
