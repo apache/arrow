@@ -21,6 +21,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 
@@ -178,38 +179,6 @@ static void BM_DictDecodingInt64_literals(benchmark::State& state) {
 
 BENCHMARK(BM_DictDecodingInt64_literals)->Range(MIN_RANGE, MAX_RANGE);
 
-std::shared_ptr<::arrow::Array> MakeRandomStringsWithRepeats(size_t num_unique,
-                                                             size_t num_values) {
-  const int64_t min_length = 2;
-  const int64_t max_length = 10;
-  std::vector<uint8_t> buffer(max_length);
-  std::vector<std::string> dictionary(num_unique);
-
-  uint32_t seed = 0;
-  std::default_random_engine gen(seed);
-  std::uniform_int_distribution<int64_t> length_dist(min_length, max_length);
-
-  std::generate(dictionary.begin(), dictionary.end(), [&] {
-    auto length = length_dist(gen);
-    ::arrow::random_ascii(length, seed++, buffer.data());
-    return std::string(buffer.begin(), buffer.begin() + length);
-  });
-
-  std::uniform_int_distribution<int64_t> indices_dist(0, num_unique - 1);
-  ::arrow::StringBuilder builder;
-  ABORT_NOT_OK(builder.Reserve(num_values));
-
-  for (size_t i = 0; i < num_values; i++) {
-    const auto index = indices_dist(gen);
-    const auto value = dictionary[index];
-    ABORT_NOT_OK(builder.Append(value));
-  }
-
-  std::shared_ptr<::arrow::Array> result;
-  ABORT_NOT_OK(builder.Finish(&result));
-  return result;
-}
-
 // ----------------------------------------------------------------------
 // Shared benchmarks for decoding using arrow builders
 class BenchmarkDecodeArrow : public ::benchmark::Fixture {
@@ -223,8 +192,14 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
   void TearDown(const ::benchmark::State& state) override {}
 
   void InitDataInputs() {
+    // Generate a random string dictionary without any nulls so that this dataset can be
+    // used for benchmarking the DecodeArrowNonNull API
     constexpr int repeat_factor = 8;
-    input_array_ = MakeRandomStringsWithRepeats(num_values_ / repeat_factor, num_values_);
+    constexpr int64_t min_length = 2;
+    constexpr int64_t max_length = 10;
+    ::arrow::random::RandomArrayGenerator rag(0);
+    input_array_ = rag.StringWithRepeats(num_values_, num_values_ / repeat_factor,
+                                         min_length, max_length, /*null_probability=*/0);
     valid_bits_ = input_array_->null_bitmap()->data();
     values_ = std::vector<ByteArray>();
     values_.reserve(num_values_);
