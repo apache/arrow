@@ -58,6 +58,16 @@ func Example_writer() {
 		log.Fatal(err)
 	}
 
+	err = w.Flush()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = w.Error()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	r := csv.NewReader(f, schema, csv.WithComment('#'), csv.WithComma(';'))
 	defer r.Release()
 
@@ -146,17 +156,17 @@ func TestCSVWriter(t *testing.T) {
 	defer rec.Release()
 
 	w := csv.NewWriter(f, schema, csv.WithComma(';'), csv.WithCRLF(false))
-	err := w.Flush()
+	err := w.Write(rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = w.Flush()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	err = w.Error()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = w.Write(rec)
 	if err != nil {
 		t.Fatal(err)
 	}
