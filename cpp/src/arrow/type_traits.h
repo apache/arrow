@@ -304,9 +304,9 @@ using enable_if_primitive_ctype =
 template <typename T>
 using enable_if_date = typename std::enable_if<std::is_base_of<DateType, T>::value>::type;
 
-template <typename T>
+template <typename T, typename U = void>
 using enable_if_integer =
-    typename std::enable_if<std::is_base_of<Integer, T>::value>::type;
+    typename std::enable_if<std::is_base_of<Integer, T>::value, U>::type;
 
 template <typename T>
 using enable_if_signed_integer =

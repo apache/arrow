@@ -189,6 +189,18 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
     return byte_builder_.Append(value, byte_width_);
   }
 
+  void UnsafeAppend(const uint8_t* value) {
+    UnsafeAppendToBitmap(true);
+    byte_builder_.UnsafeAppend(value, byte_width_);
+  }
+
+  void UnsafeAppend(util::string_view value) {
+#ifndef NDEBUG
+    CheckValueSize(static_cast<int64_t>(value.size()));
+#endif
+    UnsafeAppend(reinterpret_cast<const uint8_t*>(value.data()));
+  }
+
   Status Append(const char* value) {
     return Append(reinterpret_cast<const uint8_t*>(value));
   }
@@ -217,6 +229,11 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   Status AppendValues(const uint8_t* data, int64_t length,
                       const uint8_t* valid_bytes = NULLPTR);
   Status AppendNull();
+
+  void UnsafeAppendNull() {
+    UnsafeAppendToBitmap(false);
+    byte_builder_.UnsafeAdvance(byte_width_);
+  }
 
   void Reset() override;
   Status Resize(int64_t capacity) override;
