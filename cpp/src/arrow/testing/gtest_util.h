@@ -106,7 +106,7 @@ class Column;
 class Table;
 
 namespace compute {
-class Datum;
+struct Datum;
 }
 
 using Datum = compute::Datum;

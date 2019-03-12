@@ -21,6 +21,8 @@
 #include <cstdint>
 #include <memory>
 
+#include "arrow/util/macros.h"
+
 namespace arrow {
 namespace internal {
 
@@ -34,7 +36,7 @@ void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
 template <typename T>
 bool SharedPtrEquals(const std::shared_ptr<T>& left, const std::shared_ptr<T>& right) {
   if (left == right) return true;
-  if (left == nullptr || right == nullptr) return false;
+  if (left == NULLPTR || right == NULLPTR) return false;
   return left->Equals(*right);
 }
 
