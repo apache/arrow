@@ -43,18 +43,18 @@ class ConstantFlightServer(flight.FlightServerBase):
         return flight.RecordBatchStream(table)
 
 
-class LargeMessageFlightServer(flight.FlightServerBase):
-    """A Flight server that returns a single large message.
+class EchoFlightServer(flight.FlightServerBase):
+    """A Flight server that returns the last data uploaded."""
 
-    See ARROW-4421: by default, gRPC won't allow us to send messages >
-    4MiB in size.
-    """
-    data = pa.Table.from_arrays([
-        pa.array(range(0, 10 * 1024 * 1024))
-    ], names=['a'])
+    def __init__(self):
+        super(EchoFlightServer, self).__init__()
+        self.last_message = None
 
     def do_get(self, ticket):
-        return flight.RecordBatchStream(self.data)
+        return flight.RecordBatchStream(self.last_message)
+
+    def do_put(self, descriptor, reader):
+        self.last_message = reader.read_all()
 
 
 @contextlib.contextmanager
@@ -94,10 +94,23 @@ def test_flight_do_get():
         assert data.equals(table)
 
 
-def test_flight_get_large_message():
-    """Try sending a large message via Flight."""
-    with flight_server(LargeMessageFlightServer) as server_port:
+@pytest.mark.slow
+def test_flight_large_message():
+    """Try sending/receiving a large message via Flight.
+
+    See ARROW-4421: by default, gRPC won't allow us to send messages >
+    4MiB in size.
+    """
+    data = pa.Table.from_arrays([
+        pa.array(range(0, 10 * 1024 * 1024))
+    ], names=['a'])
+
+    with flight_server(EchoFlightServer) as server_port:
         client = flight.FlightClient.connect('localhost', server_port)
-        schema = LargeMessageFlightServer.data.schema
-        data = client.do_get(flight.Ticket(b''), schema).read_all()
-        assert data.equals(LargeMessageFlightServer.data)
+        writer = client.do_put(flight.FlightDescriptor.for_path('test'),
+                               data.schema)
+        # Write a single giant chunk
+        writer.write_table(data, 10 * 1024 * 1024)
+        writer.close()
+        result = client.do_get(flight.Ticket(b''), data.schema).read_all()
+        assert result.equals(data)
