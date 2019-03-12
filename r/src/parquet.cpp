@@ -26,7 +26,12 @@
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::Table> read_parquet_file(std::string filename) {
-#ifndef ARROW_R_PARQUET_OFF
+#ifdef ARROW_R_PARQUET_OFF
+  Rcpp::stop("Support for Parquet is not available.");
+
+  std::shared_ptr<arrow::Table> table;
+  return table;
+#else
   std::shared_ptr<arrow::io::ReadableFile> infile;
   PARQUET_THROW_NOT_OK(
       arrow::io::ReadableFile::Open(filename, arrow::default_memory_pool(), &infile));
@@ -37,11 +42,6 @@ std::shared_ptr<arrow::Table> read_parquet_file(std::string filename) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
 
-  return table;
-#else
-  Rcpp::stop("Support for Parquet is not available.");
-
-  std::shared_ptr<arrow::Table> table;
   return table;
 #endif
 }
