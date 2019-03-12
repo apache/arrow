@@ -77,6 +77,10 @@ class FlightMessageReaderImpl : public FlightMessageReader {
 
     internal::FlightData data;
     // Pretend to be pb::FlightData and intercept in SerializationTraits
+#ifndef _WIN32
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
     if (reader_->Read(reinterpret_cast<pb::FlightData*>(&data))) {
 #ifndef _WIN32
 #pragma GCC diagnostic pop
