@@ -19,6 +19,7 @@ package csv_test
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"strings"
 	"testing"
@@ -178,5 +179,64 @@ true;1;1;1;1;2;2;2;2;0.2;0.2;str-2
 
 	if got, want := f.String(), want; strings.Compare(got, want) != 0 {
 		t.Fatalf("invalid output:\ngot=%s\nwant=%s\n", got, want)
+	}
+}
+
+func BenchmarkWrite(b *testing.B) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(b, 0)
+
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "bool", Type: arrow.FixedWidthTypes.Boolean},
+			{Name: "i8", Type: arrow.PrimitiveTypes.Int8},
+			{Name: "i16", Type: arrow.PrimitiveTypes.Int16},
+			{Name: "i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
+			{Name: "u8", Type: arrow.PrimitiveTypes.Uint8},
+			{Name: "u16", Type: arrow.PrimitiveTypes.Uint16},
+			{Name: "u32", Type: arrow.PrimitiveTypes.Uint32},
+			{Name: "u64", Type: arrow.PrimitiveTypes.Uint64},
+			{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
+			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "str", Type: arrow.BinaryTypes.String},
+		},
+		nil,
+	)
+
+	bldr := array.NewRecordBuilder(pool, schema)
+	defer bldr.Release()
+
+	const N = 1000
+	for i := 0; i < N; i++ {
+		bldr.Field(0).(*array.BooleanBuilder).Append(i%10 == 0)
+		bldr.Field(1).(*array.Int8Builder).Append(int8(i))
+		bldr.Field(2).(*array.Int16Builder).Append(int16(i))
+		bldr.Field(3).(*array.Int32Builder).Append(int32(i))
+		bldr.Field(4).(*array.Int64Builder).Append(int64(i))
+		bldr.Field(5).(*array.Uint8Builder).Append(uint8(i))
+		bldr.Field(6).(*array.Uint16Builder).Append(uint16(i))
+		bldr.Field(7).(*array.Uint32Builder).Append(uint32(i))
+		bldr.Field(8).(*array.Uint64Builder).Append(uint64(i))
+		bldr.Field(9).(*array.Float32Builder).Append(float32(i))
+		bldr.Field(10).(*array.Float64Builder).Append(float64(i))
+		bldr.Field(11).(*array.StringBuilder).Append(fmt.Sprintf("str-%d", i))
+	}
+
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	w := csv.NewWriter(ioutil.Discard, schema, csv.WithComma(';'), csv.WithCRLF(false))
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err := w.Write(rec)
+		if err != nil {
+			b.Fatal(err)
+		}
+		err = w.Flush()
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 }
