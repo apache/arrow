@@ -39,7 +39,7 @@ class MemoryOutputStream : public liborc::OutputStream {
 
   uint64_t getLength() const override { return length_; }
 
-  uint64_t getNaturalWriteSize() const override { return naturalWriteSize_; }
+  uint64_t getNaturalWriteSize() const override { return natural_write_size_; }
 
   void write(const void* buf, size_t size) override {
     memcpy(data_ + length_, buf, size);
@@ -57,7 +57,7 @@ class MemoryOutputStream : public liborc::OutputStream {
  private:
   char* data_;
   std::string name_;
-  uint64_t length_, naturalWriteSize_;
+  uint64_t length_, natural_write_size_;
 };
 
 std::unique_ptr<liborc::Writer> CreateWriter(uint64_t stripe_size,
@@ -126,11 +126,11 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
     std::shared_ptr<RecordBatch> record_batch;
     EXPECT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
     while (record_batch) {
-      auto int32Array = std::dynamic_pointer_cast<Int32Array>(record_batch->column(0));
-      auto strArray = std::dynamic_pointer_cast<StringArray>(record_batch->column(1));
+      auto int32_array = std::dynamic_pointer_cast<Int32Array>(record_batch->column(0));
+      auto str_array = std::dynamic_pointer_cast<StringArray>(record_batch->column(1));
       for (int j = 0; j < record_batch->num_rows(); ++j) {
-        EXPECT_EQ(accumulated % stripe_row_count, int32Array->Value(j));
-        EXPECT_EQ(std::to_string(accumulated % stripe_row_count), strArray->GetString(j));
+        EXPECT_EQ(accumulated % stripe_row_count, int32_array->Value(j));
+        EXPECT_EQ(std::to_string(accumulated % stripe_row_count), str_array->GetString(j));
         accumulated++;
       }
       EXPECT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
@@ -146,13 +146,13 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
   std::shared_ptr<RecordBatch> record_batch;
   EXPECT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
   while (record_batch) {
-    auto int32Array = std::dynamic_pointer_cast<Int32Array>(record_batch->column(0));
-    auto strArray = std::dynamic_pointer_cast<StringArray>(record_batch->column(1));
+    auto int32_array = std::dynamic_pointer_cast<Int32Array>(record_batch->column(0));
+    auto str_array = std::dynamic_pointer_cast<StringArray>(record_batch->column(1));
     for (int j = 0; j < record_batch->num_rows(); ++j) {
       std::ostringstream os;
       os << start_offset % stripe_row_count;
-      EXPECT_EQ(start_offset % stripe_row_count, int32Array->Value(j));
-      EXPECT_EQ(os.str(), strArray->GetString(j));
+      EXPECT_EQ(start_offset % stripe_row_count, int32_array->Value(j));
+      EXPECT_EQ(os.str(), str_array->GetString(j));
       start_offset++;
     }
     EXPECT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
