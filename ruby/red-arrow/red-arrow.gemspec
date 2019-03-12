@@ -55,5 +55,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency("test-unit")
   spec.add_development_dependency("yard")
 
-  spec.metadata["msys2_mingw_dependencies"] = "apache-arrow"
+  spec.metadata["msys2_mingw_dependencies"] = "arrow"
 end
