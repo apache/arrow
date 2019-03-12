@@ -270,6 +270,57 @@ public class DecimalVector extends BaseFixedWidthVector {
   }
 
   /**
+   * Sets the element at given index using the buffer whose size maybe <= 16 bytes.
+   * @param index index to write the decimal to
+   * @param start start of value in the buffer
+   * @param buffer contains the decimal in little endian bytes
+   * @param length length of the value in the buffer
+   */
+  public void setSafe(int index, int start, ArrowBuf buffer, int length) {
+    handleSafe(index);
+    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    int startIndexInVector = index * TYPE_WIDTH;
+    valueBuffer.setBytes(startIndexInVector, buffer, start, length);
+    // sign extend
+    if (length < 16) {
+      byte msb = buffer.getByte(start + length - 1);
+      final byte pad = (byte) (msb < 0 ? 0xFF : 0x00);
+      int startIndex = startIndexInVector + length;
+      int endIndex = startIndexInVector + TYPE_WIDTH;
+      for (int i = startIndex; i < endIndex; i++) {
+        valueBuffer.setByte(i, pad);
+      }
+    }
+  }
+
+
+  /**
+   * Sets the element at given index using the buffer whose size maybe <= 16 bytes.
+   * @param index index to write the decimal to
+   * @param start start of value in the buffer
+   * @param buffer contains the decimal in big endian bytes
+   * @param length length of the value in the buffer
+   */
+  public void setBigEndianSafe(int index, int start, ArrowBuf buffer, int length) {
+    handleSafe(index);
+    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    int startIndexInVector = index * TYPE_WIDTH;
+    for (int i = start + length - 1; i >= start; i--) {
+      valueBuffer.setByte(startIndexInVector, buffer.getByte(i));
+      startIndexInVector++;
+    }
+    // sign extend
+    if (length < 16) {
+      byte msb = buffer.getByte(start);
+      final byte pad = (byte) (msb < 0 ? 0xFF : 0x00);
+      int endIndex = startIndexInVector + TYPE_WIDTH - length;
+      for (int i = startIndexInVector; i < endIndex; i++) {
+        valueBuffer.setByte(i, pad);
+      }
+    }
+  }
+
+  /**
    * Set the element at the given index to the given value.
    *
    * @param index   position of element
