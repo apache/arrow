@@ -43,12 +43,12 @@ class MemoryPool;
 struct DictionaryBuilderCase {
   template <typename ValueType>
   Status Visit(const ValueType&, typename ValueType::c_type* = nullptr) {
-    return Create<ValueType>();
+    return CreateFor<ValueType>();
   }
 
-  Status Visit(const BinaryType&) { return Create<BinaryType>(); }
-  Status Visit(const StringType&) { return Create<StringType>(); }
-  Status Visit(const FixedSizeBinaryType&) { return Create<FixedSizeBinaryType>(); }
+  Status Visit(const BinaryType&) { return Create<BinaryDictionaryBuilder>(); }
+  Status Visit(const StringType&) { return Create<StringDictionaryBuilder>(); }
+  Status Visit(const FixedSizeBinaryType&) { return CreateFor<FixedSizeBinaryType>(); }
 
   Status Visit(const DataType& value_type) { return NotImplemented(value_type); }
   Status Visit(const HalfFloatType& value_type) { return NotImplemented(value_type); }
@@ -59,8 +59,13 @@ struct DictionaryBuilderCase {
   }
 
   template <typename ValueType>
+  Status CreateFor() {
+    return Create<DictionaryBuilder<ValueType>>();
+  }
+
+  template <typename BuilderType>
   Status Create() {
-    out->reset(new DictionaryBuilder<ValueType>(dict_type.dictionary(), pool));
+    out->reset(new BuilderType(dict_type.dictionary(), pool));
     return Status::OK();
   }
 
