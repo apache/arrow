@@ -245,6 +245,10 @@ def construct_metadata(df, column_names, index_levels, index_descriptors,
             'index_columns': index_descriptors,
             'column_indexes': column_indexes,
             'columns': column_metadata + index_column_metadata,
+            'creator': {
+                'library': 'pyarrow',
+                'version': pa.__version__
+            },
             'pandas_version': pd.__version__
         }).encode('utf8')
     }
