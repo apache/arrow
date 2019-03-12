@@ -27,11 +27,6 @@ namespace red_arrow {
   ID id_BigDecimal;
   ID id_jd;
   ID id_to_datetime;
-
-  VALUE timeunit_scale_second;
-  VALUE timeunit_scale_milli;
-  VALUE timeunit_scale_micro;
-  VALUE timeunit_scale_nano;
 }
 
 extern "C" void Init_arrow() {
@@ -45,10 +40,4 @@ extern "C" void Init_arrow() {
   red_arrow::id_BigDecimal = rb_intern("BigDecimal");
   red_arrow::id_jd = rb_intern("jd");
   red_arrow::id_to_datetime = rb_intern("to_datetime");
-
-  red_arrow::timeunit_scale_second = INT2FIX(1);
-  red_arrow::timeunit_scale_milli  = INT2FIX(1000);
-  red_arrow::timeunit_scale_micro  = INT2FIX(1000 * 1000);
-  // NOTE: INT2FIX works for 1e+9 because: FIXNUM_MAX >= (1<<30) - 1 > 1e+9
-  red_arrow::timeunit_scale_nano   = INT2FIX(1000 * 1000 * 1000);
 }
