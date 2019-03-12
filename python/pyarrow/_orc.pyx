@@ -36,7 +36,7 @@ import six
 cdef class ORCReader:
     cdef:
         object source
-        CMemoryPool* allocator
+        shared_ptr[CMemoryPool] allocator
         unique_ptr[ORCFileReader] reader
 
     def __cinit__(self, MemoryPool memory_pool=None):

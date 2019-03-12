@@ -464,7 +464,7 @@ cdef class Column(_PandasConvertible):
         """
         cdef:
             vector[shared_ptr[CColumn]] flattened
-            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            shared_ptr[CMemoryPool] pool = maybe_unbox_memory_pool(memory_pool)
 
         with nogil:
             check_status(self.column.Flatten(pool, &flattened))
@@ -778,7 +778,7 @@ cdef class RecordBatch(_PandasConvertible):
         """
         cdef:
             shared_ptr[CBuffer] buffer
-            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            shared_ptr[CMemoryPool] pool = maybe_unbox_memory_pool(memory_pool)
 
         with nogil:
             check_status(SerializeRecordBatch(deref(self.batch),
@@ -929,7 +929,7 @@ def table_to_blocks(PandasOptions options, Table table,
     cdef:
         PyObject* result_obj
         shared_ptr[CTable] c_table = table.sp_table
-        CMemoryPool* pool
+        shared_ptr[CMemoryPool] pool
         unordered_set[c_string] categorical_columns
 
     if categories is not None:
@@ -1026,7 +1026,7 @@ cdef class Table(_PandasConvertible):
         """
         cdef:
             shared_ptr[CTable] flattened
-            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            shared_ptr[CMemoryPool] pool = maybe_unbox_memory_pool(memory_pool)
 
         with nogil:
             check_status(self.table.Flatten(pool, &flattened))

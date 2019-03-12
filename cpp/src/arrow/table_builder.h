@@ -43,7 +43,7 @@ class ARROW_EXPORT RecordBatchBuilder {
   /// \param[in] schema The schema for the record batch
   /// \param[in] pool A MemoryPool to use for allocations
   /// \param[in] builder the created builder instance
-  static Status Make(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
+  static Status Make(const std::shared_ptr<Schema>& schema, std::shared_ptr<MemoryPool>& pool,
                      std::unique_ptr<RecordBatchBuilder>* builder);
 
   /// \brief Create an initialize a RecordBatchBuilder
@@ -51,7 +51,7 @@ class ARROW_EXPORT RecordBatchBuilder {
   /// \param[in] pool A MemoryPool to use for allocations
   /// \param[in] initial_capacity The initial capacity for the builders
   /// \param[in] builder the created builder instance
-  static Status Make(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
+  static Status Make(const std::shared_ptr<Schema>& schema, std::shared_ptr<MemoryPool>& pool,
                      int64_t initial_capacity,
                      std::unique_ptr<RecordBatchBuilder>* builder);
 
@@ -94,7 +94,7 @@ class ARROW_EXPORT RecordBatchBuilder {
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(RecordBatchBuilder);
 
-  RecordBatchBuilder(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
+  RecordBatchBuilder(const std::shared_ptr<Schema>& schema, std::shared_ptr<MemoryPool>& pool,
                      int64_t initial_capacity);
 
   Status CreateBuilders();
@@ -102,7 +102,7 @@ class ARROW_EXPORT RecordBatchBuilder {
 
   std::shared_ptr<Schema> schema_;
   int64_t initial_capacity_;
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 
   std::vector<std::unique_ptr<ArrayBuilder>> field_builders_;
   std::vector<ArrayBuilder*> raw_field_builders_;

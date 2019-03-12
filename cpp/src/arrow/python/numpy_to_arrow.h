@@ -49,7 +49,7 @@ namespace py {
 /// \param[in] cast_options casting options
 /// \param[out] out a ChunkedArray, to accommodate chunked output
 ARROW_PYTHON_EXPORT
-Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pandas,
+Status NdarrayToArrow(std::shared_ptr<MemoryPool>& pool, PyObject* ao, PyObject* mo, bool from_pandas,
                       const std::shared_ptr<DataType>& type,
                       const compute::CastOptions& cast_options,
                       std::shared_ptr<ChunkedArray>* out);
@@ -65,7 +65,7 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
 /// \param[in] type a specific type to cast to, may be null
 /// \param[out] out a ChunkedArray, to accommodate chunked output
 ARROW_PYTHON_EXPORT
-Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pandas,
+Status NdarrayToArrow(std::shared_ptr<MemoryPool>& pool, PyObject* ao, PyObject* mo, bool from_pandas,
                       const std::shared_ptr<DataType>& type,
                       std::shared_ptr<ChunkedArray>* out);
 

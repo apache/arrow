@@ -891,7 +891,7 @@ cdef class Schema:
         """
         cdef:
             shared_ptr[CBuffer] buffer
-            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            shared_ptr[CMemoryPool] pool = maybe_unbox_memory_pool(memory_pool)
 
         with nogil:
             check_status(SerializeSchema(deref(self.schema),

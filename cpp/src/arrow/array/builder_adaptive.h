@@ -27,7 +27,7 @@ namespace internal {
 
 class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
  public:
-  explicit AdaptiveIntBuilderBase(MemoryPool* pool);
+  explicit AdaptiveIntBuilderBase(std::shared_ptr<MemoryPool>& pool);
 
   /// \brief Append multiple nulls
   /// \param[in] length the number of nulls to append
@@ -72,7 +72,7 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
 
 class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase {
  public:
-  explicit AdaptiveUIntBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit AdaptiveUIntBuilder(std::shared_ptr<MemoryPool> pool ARROW_MEMORY_POOL_DEFAULT);
 
   using ArrayBuilder::Advance;
   using internal::AdaptiveIntBuilderBase::Reset;
@@ -122,7 +122,7 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
 
 class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase {
  public:
-  explicit AdaptiveIntBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit AdaptiveIntBuilder(std::shared_ptr<MemoryPool> pool ARROW_MEMORY_POOL_DEFAULT);
 
   using ArrayBuilder::Advance;
   using internal::AdaptiveIntBuilderBase::Reset;

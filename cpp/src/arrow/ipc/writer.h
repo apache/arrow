@@ -82,7 +82,7 @@ class ARROW_EXPORT RecordBatchWriter {
   /// memory pool, but provide the option to override
   ///
   /// \param pool the memory pool to use for required allocations
-  virtual void set_memory_pool(MemoryPool* pool) = 0;
+  virtual void set_memory_pool(std::shared_ptr<MemoryPool>& pool) = 0;
 };
 
 /// \class RecordBatchStreamWriter
@@ -113,7 +113,7 @@ class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
   /// \return Status
   Status Close() override;
 
-  void set_memory_pool(MemoryPool* pool) override;
+  void set_memory_pool(std::shared_ptr<MemoryPool>& pool) override;
 
  protected:
   RecordBatchStreamWriter();
@@ -188,7 +188,7 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
 ARROW_EXPORT
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                         io::OutputStream* dst, int32_t* metadata_length,
-                        int64_t* body_length, MemoryPool* pool,
+                        int64_t* body_length, std::shared_ptr<MemoryPool>& pool,
                         int max_recursion_depth = kMaxNestingDepth,
                         bool allow_64bit = false);
 
@@ -199,7 +199,7 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
 /// \param[out] out the serialized message
 /// \return Status
 ARROW_EXPORT
-Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
+Status SerializeRecordBatch(const RecordBatch& batch, std::shared_ptr<MemoryPool>& pool,
                             std::shared_ptr<Buffer>* out);
 
 /// \brief Write record batch to OutputStream
@@ -212,7 +212,7 @@ Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
 /// If writing to pre-allocated memory, you can use
 /// arrow::ipc::GetRecordBatchSize to compute how much space is required
 ARROW_EXPORT
-Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
+Status SerializeRecordBatch(const RecordBatch& batch, std::shared_ptr<MemoryPool>& pool,
                             io::OutputStream* out);
 
 /// \brief Serialize schema using stream writer as a sequence of one or more
@@ -223,7 +223,7 @@ Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
 /// \param[out] out the serialized schema
 /// \return Status
 ARROW_EXPORT
-Status SerializeSchema(const Schema& schema, MemoryPool* pool,
+Status SerializeSchema(const Schema& schema, std::shared_ptr<MemoryPool>& pool,
                        std::shared_ptr<Buffer>* out);
 
 /// \brief Write multiple record batches to OutputStream, including schema
@@ -258,7 +258,7 @@ Status GetTensorSize(const Tensor& tensor, int64_t* size);
 /// \param[out] out the resulting Message
 /// \return Status
 ARROW_EXPORT
-Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
+Status GetTensorMessage(const Tensor& tensor, std::shared_ptr<MemoryPool>& pool,
                         std::unique_ptr<Message>* out);
 
 /// \brief Write arrow::Tensor as a contiguous message.
@@ -293,7 +293,7 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
 ARROW_EXPORT
 Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
                          int32_t* metadata_length, int64_t* body_length,
-                         MemoryPool* pool);
+                         std::shared_ptr<MemoryPool>& pool);
 
 namespace internal {
 
@@ -322,7 +322,7 @@ Status GetDictionaryPayloads(const Schema& schema,
 /// \param[out] out the returned IpcPayload
 /// \return Status
 ARROW_EXPORT
-Status GetSchemaPayload(const Schema& schema, MemoryPool* pool,
+Status GetSchemaPayload(const Schema& schema, std::shared_ptr<MemoryPool>& pool,
                         DictionaryMemo* dictionary_memo, IpcPayload* out);
 
 /// \brief Compute IpcPayload for the given record batch
@@ -331,7 +331,7 @@ Status GetSchemaPayload(const Schema& schema, MemoryPool* pool,
 /// \param[out] out the returned IpcPayload
 /// \return Status
 ARROW_EXPORT
-Status GetRecordBatchPayload(const RecordBatch& batch, MemoryPool* pool, IpcPayload* out);
+Status GetRecordBatchPayload(const RecordBatch& batch, std::shared_ptr<MemoryPool>& pool, IpcPayload* out);
 
 }  // namespace internal
 

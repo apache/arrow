@@ -44,7 +44,7 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
  public:
   /// Use this constructor to incrementally build the union array along
   /// with types, offsets, and null bitmap.
-  explicit DenseUnionBuilder(MemoryPool* pool,
+  explicit DenseUnionBuilder(std::shared_ptr<MemoryPool>& pool,
                              const std::shared_ptr<DataType>& type = NULLPTR);
 
   Status AppendNull() {

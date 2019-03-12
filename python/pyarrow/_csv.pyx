@@ -384,13 +384,13 @@ def read_csv(input_file, read_options=None, parse_options=None,
         CCSVConvertOptions c_convert_options
         shared_ptr[CCSVReader] reader
         shared_ptr[CTable] table
-
+        shared_ptr[CMemoryPool] pool = maybe_unbox_memory_pool(memory_pool)
     _get_reader(input_file, &stream)
     _get_read_options(read_options, &c_read_options)
     _get_parse_options(parse_options, &c_parse_options)
     _get_convert_options(convert_options, &c_convert_options)
 
-    check_status(CCSVReader.Make(maybe_unbox_memory_pool(memory_pool),
+    check_status(CCSVReader.Make(pool,
                                  stream, c_read_options, c_parse_options,
                                  c_convert_options, &reader))
     with nogil:

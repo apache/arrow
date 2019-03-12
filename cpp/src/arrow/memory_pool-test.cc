@@ -28,7 +28,7 @@ namespace arrow {
 
 class TestDefaultMemoryPool : public ::arrow::TestMemoryPoolBase {
  public:
-  ::arrow::MemoryPool* memory_pool() override { return ::arrow::default_memory_pool(); }
+  std::shared_ptr<::arrow::MemoryPool> memory_pool() override { return ::arrow::default_memory_pool(); }
 };
 
 TEST_F(TestDefaultMemoryPool, MemoryTracking) { this->TestMemoryTracking(); }
@@ -46,7 +46,7 @@ TEST_F(TestDefaultMemoryPool, Reallocate) { this->TestReallocate(); }
 #if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
 
 TEST(DefaultMemoryPoolDeathTest, MaxMemory) {
-  MemoryPool* pool = default_memory_pool();
+  MemoryPool* pool = default_memory_pool().get();
   uint8_t* data1;
   uint8_t* data2;
 
@@ -63,9 +63,10 @@ TEST(DefaultMemoryPoolDeathTest, MaxMemory) {
 #endif  // ARROW_VALGRIND
 
 TEST(LoggingMemoryPool, Logging) {
-  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<MemoryPool> pool_ = default_memory_pool();
+  MemoryPool* pool = pool_.get();
 
-  LoggingMemoryPool lp(pool);
+  LoggingMemoryPool lp(pool_);
 
   uint8_t* data;
   ASSERT_OK(pool->Allocate(100, &data));
@@ -80,9 +81,10 @@ TEST(LoggingMemoryPool, Logging) {
 }
 
 TEST(ProxyMemoryPool, Logging) {
-  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<MemoryPool> pool_ = default_memory_pool();
+  MemoryPool* pool = pool_.get();
 
-  ProxyMemoryPool pp(pool);
+  ProxyMemoryPool pp(pool_);
 
   uint8_t* data;
   ASSERT_OK(pool->Allocate(100, &data));

@@ -52,7 +52,7 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::cuda" nogil:
         @staticmethod
         CStatus FromBuffer(const void* opaque_handle,
                            shared_ptr[CCudaIpcMemHandle]* handle)
-        CStatus Serialize(CMemoryPool* pool, shared_ptr[CBuffer]* out) const
+        CStatus Serialize(shared_ptr[CMemoryPool]& pool, shared_ptr[CBuffer]* out) const
 
     cdef cppclass CCudaBuffer" arrow::cuda::CudaBuffer"(CBuffer):
         CCudaBuffer(uint8_t* data, int64_t size,
@@ -111,9 +111,9 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::cuda" nogil:
          shared_ptr[CCudaBuffer]* out)
     CStatus CudaReadMessage" arrow::cuda::ReadMessage"\
         (CCudaBufferReader* reader,
-         CMemoryPool* pool,
+         shared_ptr[CMemoryPool]& pool,
          unique_ptr[CMessage]* message)
     CStatus CudaReadRecordBatch" arrow::cuda::ReadRecordBatch"\
         (const shared_ptr[CSchema]& schema,
          const shared_ptr[CCudaBuffer]& buffer,
-         CMemoryPool* pool, shared_ptr[CRecordBatch]* out)
+         shared_ptr[CMemoryPool]& pool, shared_ptr[CRecordBatch]* out)

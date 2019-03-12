@@ -122,7 +122,7 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
   /// \param[in] pool a MemoryPool for memory allocations
   /// \param[out] file ReadableFile instance
   /// Open file with one's own memory pool for memory allocations
-  static Status Open(const std::string& path, MemoryPool* pool,
+  static Status Open(const std::string& path, std::shared_ptr<MemoryPool>& pool,
                      std::shared_ptr<ReadableFile>* file);
 
   /// \brief Open a local file for reading
@@ -142,7 +142,7 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
   ///
   /// The file descriptor becomes owned by the ReadableFile, and will be closed
   /// on Close() or destruction.
-  static Status Open(int fd, MemoryPool* pool, std::shared_ptr<ReadableFile>* file);
+  static Status Open(int fd, std::shared_ptr<MemoryPool>& pool, std::shared_ptr<ReadableFile>* file);
 
   Status Close() override;
   bool closed() const override;
@@ -165,7 +165,7 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
   int file_descriptor() const;
 
  private:
-  explicit ReadableFile(MemoryPool* pool);
+  explicit ReadableFile(std::shared_ptr<MemoryPool>& pool);
 
   class ARROW_NO_EXPORT ReadableFileImpl;
   std::unique_ptr<ReadableFileImpl> impl_;

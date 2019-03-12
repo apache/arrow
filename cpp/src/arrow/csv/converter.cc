@@ -284,11 +284,11 @@ class TimestampConverter : public ConcreteConverter {
 // Base Converter class implementation
 
 Converter::Converter(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
-                     MemoryPool* pool)
+                     std::shared_ptr<MemoryPool>& pool)
     : options_(options), pool_(pool), type_(type) {}
 
 Status Converter::Make(const std::shared_ptr<DataType>& type,
-                       const ConvertOptions& options, MemoryPool* pool,
+                       const ConvertOptions& options, std::shared_ptr<MemoryPool>& pool,
                        std::shared_ptr<Converter>* out) {
   Converter* result;
 
@@ -335,7 +335,8 @@ Status Converter::Make(const std::shared_ptr<DataType>& type,
 
 Status Converter::Make(const std::shared_ptr<DataType>& type,
                        const ConvertOptions& options, std::shared_ptr<Converter>* out) {
-  return Make(type, options, default_memory_pool(), out);
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  return Make(type, options, pool, out);
 }
 
 }  // namespace csv

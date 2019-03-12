@@ -38,12 +38,12 @@ cdef class Message:
 
 cdef class MemoryPool:
     cdef:
-        CMemoryPool* pool
+        shared_ptr[CMemoryPool] pool
 
-    cdef void init(self, CMemoryPool* pool)
+    cdef void init(self, shared_ptr[CMemoryPool]& pool)
 
 
-cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool)
+cdef shared_ptr[CMemoryPool] maybe_unbox_memory_pool(MemoryPool memory_pool)
 
 
 cdef class DataType:

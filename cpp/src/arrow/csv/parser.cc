@@ -52,7 +52,7 @@ class SpecializedOptions {
 // without any further resizes, except at the end.
 class BlockParser::PresizedParsedWriter {
  public:
-  PresizedParsedWriter(MemoryPool* pool, uint32_t size)
+  PresizedParsedWriter(std::shared_ptr<MemoryPool>& pool, uint32_t size)
       : parsed_size_(0), parsed_capacity_(size) {
     ARROW_CHECK_OK(AllocateResizableBuffer(pool, parsed_capacity_, &parsed_buffer_));
     parsed_ = parsed_buffer_->mutable_data();
@@ -89,7 +89,7 @@ class BlockParser::PresizedParsedWriter {
 // efficiently presize the target area for a given number of rows.
 class BlockParser::ResizableValuesWriter {
  public:
-  explicit ResizableValuesWriter(MemoryPool* pool)
+  explicit ResizableValuesWriter(std::shared_ptr<MemoryPool>& pool)
       : values_size_(0), values_capacity_(256) {
     ARROW_CHECK_OK(AllocateResizableBuffer(pool, values_capacity_ * sizeof(*values_),
                                            &values_buffer_));
@@ -143,7 +143,7 @@ class BlockParser::ResizableValuesWriter {
 // faster CSV parsing code.
 class BlockParser::PresizedValuesWriter {
  public:
-  PresizedValuesWriter(MemoryPool* pool, int32_t num_rows, int32_t num_cols)
+  PresizedValuesWriter(std::shared_ptr<MemoryPool>& pool, int32_t num_rows, int32_t num_cols)
       : values_size_(0), values_capacity_(1 + num_rows * num_cols) {
     ARROW_CHECK_OK(AllocateResizableBuffer(pool, values_capacity_ * sizeof(*values_),
                                            &values_buffer_));
@@ -472,7 +472,7 @@ Status BlockParser::ParseFinal(const char* data, uint32_t size, uint32_t* out_si
   return DoParse(data, size, true /* is_final */, out_size);
 }
 
-BlockParser::BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_cols,
+BlockParser::BlockParser(std::shared_ptr<MemoryPool> pool, ParseOptions options, int32_t num_cols,
                          int32_t max_num_rows)
     : pool_(pool), options_(options), num_cols_(num_cols), max_num_rows_(max_num_rows) {}
 

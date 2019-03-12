@@ -45,10 +45,10 @@ Status NullBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
-BooleanBuilder::BooleanBuilder(MemoryPool* pool)
+BooleanBuilder::BooleanBuilder(std::shared_ptr<MemoryPool> pool)
     : ArrayBuilder(boolean(), pool), data_builder_(pool) {}
 
-BooleanBuilder::BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+BooleanBuilder::BooleanBuilder(const std::shared_ptr<DataType>& type, std::shared_ptr<MemoryPool>& pool)
     : BooleanBuilder(pool) {
   DCHECK_EQ(Type::BOOL, type->id());
 }

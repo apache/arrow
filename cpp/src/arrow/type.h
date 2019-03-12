@@ -780,7 +780,7 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   ///     of input type indices into unified type indices.
   // XXX Should we return something special (an empty transpose map?) when
   // the transposition is the identity function?
-  static Status Unify(MemoryPool* pool, const std::vector<const DataType*>& types,
+  static Status Unify(std::shared_ptr<MemoryPool>& pool, const std::vector<const DataType*>& types,
                       std::shared_ptr<DataType>* out_type,
                       std::vector<std::vector<int32_t>>* out_transpose_maps = NULLPTR);
 

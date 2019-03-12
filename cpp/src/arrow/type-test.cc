@@ -585,12 +585,13 @@ TEST(TestDictionaryType, UnifyNumeric) {
   auto expected = dictionary(int8(), ArrayFromJSON(int64(), "[3, 4, 7, 1, 8, -200]"));
 
   std::shared_ptr<DataType> dict_type;
-  ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get(), t3.get()},
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  ASSERT_OK(DictionaryType::Unify(pool, {t1.get(), t2.get(), t3.get()},
                                   &dict_type));
   ASSERT_TRUE(dict_type->Equals(expected));
 
   std::vector<std::vector<int32_t>> transpose_maps;
-  ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get(), t3.get()},
+  ASSERT_OK(DictionaryType::Unify(pool, {t1.get(), t2.get(), t3.get()},
                                   &dict_type, &transpose_maps));
   ASSERT_TRUE(dict_type->Equals(expected));
   ASSERT_EQ(transpose_maps.size(), 3);
@@ -607,12 +608,13 @@ TEST(TestDictionaryType, UnifyString) {
       dictionary(int8(), ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"quux\"]"));
 
   std::shared_ptr<DataType> dict_type;
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   ASSERT_OK(
-      DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()}, &dict_type));
+      DictionaryType::Unify(pool, {t1.get(), t2.get()}, &dict_type));
   ASSERT_TRUE(dict_type->Equals(expected));
 
   std::vector<std::vector<int32_t>> transpose_maps;
-  ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()}, &dict_type,
+  ASSERT_OK(DictionaryType::Unify(pool, {t1.get(), t2.get()}, &dict_type,
                                   &transpose_maps));
   ASSERT_TRUE(dict_type->Equals(expected));
 
@@ -638,12 +640,13 @@ TEST(TestDictionaryType, UnifyFixedSizeBinary) {
   auto expected = dictionary(int8(), expected_dict);
 
   std::shared_ptr<DataType> dict_type;
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   ASSERT_OK(
-      DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()}, &dict_type));
+      DictionaryType::Unify(pool, {t1.get(), t2.get()}, &dict_type));
   ASSERT_TRUE(dict_type->Equals(expected));
 
   std::vector<std::vector<int32_t>> transpose_maps;
-  ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()}, &dict_type,
+  ASSERT_OK(DictionaryType::Unify(pool, {t1.get(), t2.get()}, &dict_type,
                                   &transpose_maps));
   ASSERT_TRUE(dict_type->Equals(expected));
   ASSERT_EQ(transpose_maps.size(), 2);
@@ -682,8 +685,9 @@ TEST(TestDictionaryType, UnifyLarge) {
   auto expected = dictionary(int16(), expected_dict);
 
   std::shared_ptr<DataType> dict_type;
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   ASSERT_OK(
-      DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()}, &dict_type));
+      DictionaryType::Unify(pool, {t1.get(), t2.get()}, &dict_type));
   ASSERT_TRUE(dict_type->Equals(expected));
 }
 

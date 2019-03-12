@@ -398,7 +398,8 @@ TYPED_TEST(TestHadoopFileSystem, LargeFile) {
   ASSERT_FALSE(file->closed());
 
   std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(AllocateBuffer(nullptr, size, &buffer));
+  std::shared_ptr<MemoryPool> pool;
+  ASSERT_OK(AllocateBuffer(pool, size, &buffer));
 
   int64_t bytes_read = 0;
 
@@ -411,7 +412,7 @@ TYPED_TEST(TestHadoopFileSystem, LargeFile) {
   ASSERT_OK(this->client_->OpenReadable(path, 1 << 18, &file2));
 
   std::shared_ptr<Buffer> buffer2;
-  ASSERT_OK(AllocateBuffer(nullptr, size, &buffer2));
+  ASSERT_OK(AllocateBuffer(pool, size, &buffer2));
 
   ASSERT_OK(file2->Read(size, &bytes_read, buffer2->mutable_data()));
   ASSERT_EQ(0, std::memcmp(buffer2->data(), data.data(), size));

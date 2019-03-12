@@ -87,7 +87,7 @@ class ARROW_EXPORT JsonReader {
   /// \param[in] data a Buffer containing the JSON data
   /// \param[out] reader the returned reader object
   /// \return Status
-  static Status Open(MemoryPool* pool, const std::shared_ptr<Buffer>& data,
+  static Status Open(std::shared_ptr<MemoryPool>& pool, const std::shared_ptr<Buffer>& data,
                      std::unique_ptr<JsonReader>* reader);
 
   /// \brief Create a new JSON reader that uses the default memory pool
@@ -104,7 +104,7 @@ class ARROW_EXPORT JsonReader {
   /// \param[in] in_file a ReadableFile containing JSON data
   /// \param[out] reader the returned reader object
   /// \return Status
-  static Status Open(MemoryPool* pool, const std::shared_ptr<io::ReadableFile>& in_file,
+  static Status Open(std::shared_ptr<MemoryPool>& pool, const std::shared_ptr<io::ReadableFile>& in_file,
                      std::unique_ptr<JsonReader>* reader);
 
   /// \brief Return the schema read from the JSON
@@ -120,7 +120,7 @@ class ARROW_EXPORT JsonReader {
   Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const;
 
  private:
-  JsonReader(MemoryPool* pool, const std::shared_ptr<Buffer>& data);
+  JsonReader(std::shared_ptr<MemoryPool>& pool, const std::shared_ptr<Buffer>& data);
 
   // Hide RapidJSON details from public API
   class JsonReaderImpl;

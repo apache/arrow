@@ -244,7 +244,8 @@ Status AssignNullIntersection(FunctionContext* ctx, const ArrayData& left,
   }
 
   if (left.GetNullCount() > 0 && right.GetNullCount() > 0) {
-    RETURN_NOT_OK(BitmapAnd(ctx->memory_pool(), left.buffers[0]->data(), left.offset,
+    std::shared_ptr<MemoryPool> pool = ctx->memory_pool();
+    RETURN_NOT_OK(BitmapAnd(pool, left.buffers[0]->data(), left.offset,
                             right.buffers[0]->data(), right.offset, right.length, 0,
                             &(output->buffers[0])));
     // Force computation of null count.

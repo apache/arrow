@@ -39,7 +39,7 @@ class BlockParser;
 class ARROW_EXPORT Converter {
  public:
   Converter(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
-            MemoryPool* pool);
+            std::shared_ptr<MemoryPool>& pool);
   virtual ~Converter() = default;
 
   virtual Status Convert(const BlockParser& parser, int32_t col_index,
@@ -50,7 +50,7 @@ class ARROW_EXPORT Converter {
   static Status Make(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
                      std::shared_ptr<Converter>* out);
   static Status Make(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
-                     MemoryPool* pool, std::shared_ptr<Converter>* out);
+                     std::shared_ptr<MemoryPool>& pool, std::shared_ptr<Converter>* out);
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Converter);
@@ -58,7 +58,7 @@ class ARROW_EXPORT Converter {
   virtual Status Initialize() = 0;
 
   const ConvertOptions options_;
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   std::shared_ptr<DataType> type_;
 };
 

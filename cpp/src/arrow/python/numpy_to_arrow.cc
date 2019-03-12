@@ -74,7 +74,7 @@ using internal::NumPyTypeSize;
 
 namespace {
 
-Status AllocateNullBitmap(MemoryPool* pool, int64_t length,
+Status AllocateNullBitmap(std::shared_ptr<MemoryPool>& pool, int64_t length,
                           std::shared_ptr<ResizableBuffer>* out) {
   int64_t null_bytes = BitUtil::BytesForBits(length);
   std::shared_ptr<ResizableBuffer> null_bitmap;
@@ -112,7 +112,7 @@ class NumPyNullsConverter {
  public:
   /// Convert the given array's null values to a null bitmap.
   /// The null bitmap is only allocated if null values are ever possible.
-  static Status Convert(MemoryPool* pool, PyArrayObject* arr, bool from_pandas,
+  static Status Convert(std::shared_ptr<MemoryPool>& pool, PyArrayObject* arr, bool from_pandas,
                         std::shared_ptr<ResizableBuffer>* out_null_bitmap_,
                         int64_t* out_null_count) {
     NumPyNullsConverter converter(pool, arr, from_pandas);
@@ -140,14 +140,14 @@ class NumPyNullsConverter {
   }
 
  protected:
-  NumPyNullsConverter(MemoryPool* pool, PyArrayObject* arr, bool from_pandas)
+  NumPyNullsConverter(std::shared_ptr<MemoryPool>& pool, PyArrayObject* arr, bool from_pandas)
       : pool_(pool),
         arr_(arr),
         from_pandas_(from_pandas),
         null_bitmap_data_(nullptr),
         null_count_(0) {}
 
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   PyArrayObject* arr_;
   bool from_pandas_;
   std::shared_ptr<ResizableBuffer> null_bitmap_;
@@ -180,7 +180,7 @@ int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
 
 class NumPyConverter {
  public:
-  NumPyConverter(MemoryPool* pool, PyObject* arr, PyObject* mo,
+  NumPyConverter(std::shared_ptr<MemoryPool>& pool, PyObject* arr, PyObject* mo,
                  const std::shared_ptr<DataType>& type, bool from_pandas,
                  const compute::CastOptions& cast_options = compute::CastOptions())
       : pool_(pool),
@@ -295,7 +295,7 @@ class NumPyConverter {
                                   "> conversion. ");
   }
 
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   std::shared_ptr<DataType> type_;
   PyArrayObject* arr_;
   PyArray_Descr* dtype_;
@@ -347,7 +347,7 @@ Status CastBuffer(const std::shared_ptr<DataType>& in_type,
                   const std::shared_ptr<Buffer>& input, const int64_t length,
                   const std::shared_ptr<Buffer>& valid_bitmap, const int64_t null_count,
                   const std::shared_ptr<DataType>& out_type,
-                  const compute::CastOptions& cast_options, MemoryPool* pool,
+                  const compute::CastOptions& cast_options, std::shared_ptr<MemoryPool>& pool,
                   std::shared_ptr<Buffer>* out) {
   // Must cast
   auto tmp_data = ArrayData::Make(in_type, length, {valid_bitmap, input}, null_count);
@@ -364,7 +364,7 @@ Status CastBuffer(const std::shared_ptr<DataType>& in_type,
 }
 
 template <typename FromType, typename ToType>
-Status StaticCastBuffer(const Buffer& input, const int64_t length, MemoryPool* pool,
+Status StaticCastBuffer(const Buffer& input, const int64_t length, std::shared_ptr<MemoryPool>& pool,
                         std::shared_ptr<Buffer>* out) {
   std::shared_ptr<Buffer> result;
   RETURN_NOT_OK(AllocateBuffer(pool, sizeof(ToType) * length, &result));
@@ -399,7 +399,7 @@ void CopyStridedNatural(T* input_data, int64_t length, int64_t stride, T* output
 }
 
 template <typename ArrowType>
-Status CopyStridedArray(PyArrayObject* arr, const int64_t length, MemoryPool* pool,
+Status CopyStridedArray(PyArrayObject* arr, const int64_t length, std::shared_ptr<MemoryPool>& pool,
                         std::shared_ptr<Buffer>* out) {
   using traits = internal::arrow_traits<ArrowType::type_id>;
   using T = typename traits::T;
@@ -799,7 +799,7 @@ Status NumPyConverter::Visit(const StructType& type) {
   return Status::OK();
 }
 
-Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pandas,
+Status NdarrayToArrow(std::shared_ptr<MemoryPool>& pool, PyObject* ao, PyObject* mo, bool from_pandas,
                       const std::shared_ptr<DataType>& type,
                       const compute::CastOptions& cast_options,
                       std::shared_ptr<ChunkedArray>* out) {
@@ -815,7 +815,7 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
   return Status::OK();
 }
 
-Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pandas,
+Status NdarrayToArrow(std::shared_ptr<MemoryPool>& pool, PyObject* ao, PyObject* mo, bool from_pandas,
                       const std::shared_ptr<DataType>& type,
                       std::shared_ptr<ChunkedArray>* out) {
   return NdarrayToArrow(pool, ao, mo, from_pandas, type, compute::CastOptions(), out);

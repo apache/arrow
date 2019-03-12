@@ -201,7 +201,7 @@ struct SchemaFromTuple<Tuple, 0> {
 namespace internal {
 template <typename Tuple, std::size_t N = std::tuple_size<Tuple>::value>
 struct CreateBuildersRecursive {
-  static Status Make(MemoryPool* pool,
+  static Status Make(std::shared_ptr<MemoryPool>& pool,
                      std::vector<std::unique_ptr<ArrayBuilder>>* builders) {
     using Element = typename std::tuple_element<N - 1, Tuple>::type;
     std::shared_ptr<DataType> type = ConversionTraits<Element>::type_singleton();
@@ -213,7 +213,7 @@ struct CreateBuildersRecursive {
 
 template <typename Tuple>
 struct CreateBuildersRecursive<Tuple, 0> {
-  static Status Make(MemoryPool*, std::vector<std::unique_ptr<ArrayBuilder>>*) {
+  static Status Make(std::shared_ptr<MemoryPool>&, std::vector<std::unique_ptr<ArrayBuilder>>*) {
     return Status::OK();
   }
 };
@@ -307,7 +307,7 @@ struct TupleSetter<Range, Tuple, 0> {
 }  // namespace internal
 
 template <typename Range>
-Status TableFromTupleRange(MemoryPool* pool, const Range& rows,
+Status TableFromTupleRange(std::shared_ptr<MemoryPool>& pool, const Range& rows,
                            const std::vector<std::string>& names,
                            std::shared_ptr<Table>* table) {
   using row_type = typename std::iterator_traits<decltype(std::begin(rows))>::value_type;

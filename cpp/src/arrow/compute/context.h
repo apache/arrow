@@ -46,8 +46,8 @@ namespace compute {
 /// \brief Container for variables and options used by function evaluation
 class ARROW_EXPORT FunctionContext {
  public:
-  explicit FunctionContext(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
-  MemoryPool* memory_pool() const;
+  explicit FunctionContext(std::shared_ptr<MemoryPool> pool ARROW_MEMORY_POOL_DEFAULT);
+  std::shared_ptr<MemoryPool> memory_pool() const;
 
   /// \brief Allocate buffer from the context's memory pool
   Status Allocate(const int64_t nbytes, std::shared_ptr<Buffer>* out);
@@ -72,7 +72,7 @@ class ARROW_EXPORT FunctionContext {
 
  private:
   Status status_;
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   internal::CpuInfo* cpu_info_;
 };
 

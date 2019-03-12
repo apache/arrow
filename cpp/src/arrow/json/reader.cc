@@ -72,7 +72,8 @@ struct ConvertImpl {
     const StringArray& dict = static_cast<const StringArray&>(*dict_array->dictionary());
     const Int32Array& indices = static_cast<const Int32Array&>(*dict_array->indices());
     using Builder = typename TypeTraits<T>::BuilderType;
-    Builder builder(out_type, default_memory_pool());
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
+    Builder builder(out_type, pool);
     RETURN_NOT_OK(builder.Resize(indices.length()));
     for (int64_t i = 0; i != indices.length(); ++i) {
       if (indices.IsNull(i)) {
@@ -125,7 +126,8 @@ struct ConvertImpl {
     const StringArray& dict = static_cast<const StringArray&>(*dict_array->dictionary());
     const Int32Array& indices = static_cast<const Int32Array&>(*dict_array->indices());
     using Builder = typename TypeTraits<T>::BuilderType;
-    Builder builder(out_type, default_memory_pool());
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
+    Builder builder(out_type, pool);
     RETURN_NOT_OK(builder.Resize(indices.length()));
     int64_t values_length = 0;
     for (int64_t i = 0; i != indices.length(); ++i) {

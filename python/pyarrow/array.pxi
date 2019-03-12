@@ -22,7 +22,7 @@ if HAVE_PANDAS:
 
 
 cdef _sequence_to_array(object sequence, object mask, object size,
-                        DataType type, CMemoryPool* pool, c_bool from_pandas):
+                        DataType type, shared_ptr[CMemoryPool]& pool, c_bool from_pandas):
     cdef int64_t c_size
     cdef PyConversionOptions options
 
@@ -75,7 +75,7 @@ cdef shared_ptr[CDataType] _ndarray_to_type(object values,
 
 
 cdef _ndarray_to_array(object values, object mask, DataType type,
-                       c_bool from_pandas, c_bool safe, CMemoryPool* pool):
+                       c_bool from_pandas, c_bool safe, shared_ptr[CMemoryPool]& pool):
     cdef:
         shared_ptr[CChunkedArray] chunked_out
         shared_ptr[CDataType] c_type = _ndarray_to_type(values, type)
@@ -155,7 +155,7 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
     overflowed binary storage)
     """
     type = ensure_type(type, allow_none=True)
-    cdef CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+    cdef shared_ptr[CMemoryPool] pool = maybe_unbox_memory_pool(memory_pool)
 
     if _is_array_like(obj):
         if mask is not None:
@@ -247,7 +247,8 @@ cdef class _FunctionContext:
         unique_ptr[CFunctionContext] ctx
 
     def __cinit__(self):
-        self.ctx.reset(new CFunctionContext(c_default_memory_pool()))
+        cdef shared_ptr[CMemoryPool] cpool = c_default_memory_pool()
+        self.ctx.reset(new CFunctionContext(cpool))
 
 cdef _FunctionContext _global_ctx = _FunctionContext()
 
@@ -773,8 +774,9 @@ strides: {0.strides}""".format(self)
     @staticmethod
     def from_numpy(obj):
         cdef shared_ptr[CTensor] ctensor
+        cdef shared_ptr[CMemoryPool] cpool = c_default_memory_pool()
         with nogil:
-            check_status(NdarrayToTensor(c_default_memory_pool(), obj,
+            check_status(NdarrayToTensor(cpool, obj,
                                          &ctensor))
         return pyarrow_wrap_tensor(ctensor)
 
@@ -1019,7 +1021,7 @@ cdef class ListArray(Array):
         cdef:
             Array _offsets, _values
             shared_ptr[CArray] out
-        cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+        cdef shared_ptr[CMemoryPool] cpool = maybe_unbox_memory_pool(pool)
 
         _offsets = asarray(offsets, type='int32')
         _values = asarray(values)
@@ -1290,7 +1292,7 @@ cdef class StructArray(Array):
         """
         cdef:
             vector[shared_ptr[CArray]] arrays
-            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            shared_ptr[CMemoryPool] pool = maybe_unbox_memory_pool(memory_pool)
             CStructArray* sarr = <CStructArray*> self.ap
 
         with nogil:

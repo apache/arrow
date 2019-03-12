@@ -693,7 +693,7 @@ struct DictionaryTraits<BooleanType> {
   using T = BooleanType;
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Status GetDictionaryArrayData(MemoryPool* pool,
+  static Status GetDictionaryArrayData(std::shared_ptr<MemoryPool>& pool,
                                        const std::shared_ptr<DataType>& type,
                                        const MemoTableType& memo_table,
                                        int64_t start_offset,
@@ -713,7 +713,7 @@ struct DictionaryTraits<T, enable_if_has_c_type<T>> {
   using c_type = typename T::c_type;
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Status GetDictionaryArrayData(MemoryPool* pool,
+  static Status GetDictionaryArrayData(std::shared_ptr<MemoryPool>& pool,
                                        const std::shared_ptr<DataType>& type,
                                        const MemoTableType& memo_table,
                                        int64_t start_offset,
@@ -737,7 +737,7 @@ template <typename T>
 struct DictionaryTraits<T, enable_if_binary<T>> {
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Status GetDictionaryArrayData(MemoryPool* pool,
+  static Status GetDictionaryArrayData(std::shared_ptr<MemoryPool>& pool,
                                        const std::shared_ptr<DataType>& type,
                                        const MemoTableType& memo_table,
                                        int64_t start_offset,
@@ -768,7 +768,7 @@ template <typename T>
 struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Status GetDictionaryArrayData(MemoryPool* pool,
+  static Status GetDictionaryArrayData(std::shared_ptr<MemoryPool>& pool,
                                        const std::shared_ptr<DataType>& type,
                                        const MemoTableType& memo_table,
                                        int64_t start_offset,

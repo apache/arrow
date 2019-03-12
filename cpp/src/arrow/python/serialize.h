@@ -71,7 +71,7 @@ struct ARROW_PYTHON_EXPORT SerializedPyObject {
   /// the body. Therefore, the number of buffers in 'data' is 2 * N + K + 1,
   /// with the first buffer containing the serialized record batch containing
   /// the UnionArray that describes the whole object
-  Status GetComponents(MemoryPool* pool, PyObject** out);
+  Status GetComponents(std::shared_ptr<MemoryPool>& pool, PyObject** out);
 };
 
 /// \brief Serialize Python sequence as a SerializedPyObject.

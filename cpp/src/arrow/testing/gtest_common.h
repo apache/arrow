@@ -59,7 +59,7 @@ class TestBase : public ::testing::Test {
 
  protected:
   uint32_t random_seed_;
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 };
 
 template <typename ArrayType>
@@ -124,7 +124,7 @@ class TestBuilder : public ::testing::Test {
   void SetUp() { pool_ = default_memory_pool(); }
 
  protected:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   std::shared_ptr<DataType> type_;
 };
 

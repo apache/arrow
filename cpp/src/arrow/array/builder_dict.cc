@@ -43,7 +43,7 @@ using internal::checked_cast;
 // DictionaryType unification
 
 struct UnifyDictionaryValues {
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool>& pool_;
   std::shared_ptr<DataType> value_type_;
   const std::vector<const DictionaryType*>& types_;
   std::shared_ptr<Array>* out_values_;
@@ -95,7 +95,7 @@ struct UnifyDictionaryValues {
   }
 };
 
-Status DictionaryType::Unify(MemoryPool* pool, const std::vector<const DataType*>& types,
+Status DictionaryType::Unify(std::shared_ptr<MemoryPool>& pool, const std::vector<const DataType*>& types,
                              std::shared_ptr<DataType>* out_type,
                              std::vector<std::vector<int32_t>>* out_transpose_maps) {
   if (types.size() == 0) {
@@ -160,7 +160,7 @@ DictionaryBuilder<T>::~DictionaryBuilder() {}
 
 template <typename T>
 DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
-                                        MemoryPool* pool)
+                                        std::shared_ptr<MemoryPool>& pool)
     : ArrayBuilder(type, pool),
       memo_table_(new MemoTableImpl(0)),
       delta_offset_(0),
@@ -170,14 +170,14 @@ DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
 }
 
 DictionaryBuilder<NullType>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
-                                               MemoryPool* pool)
+                                               std::shared_ptr<MemoryPool>& pool)
     : ArrayBuilder(type, pool), values_builder_(pool) {
   DCHECK_EQ(Type::NA, type->id()) << "inconsistent type passed to DictionaryBuilder";
 }
 
 template <>
 DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(
-    const std::shared_ptr<DataType>& type, MemoryPool* pool)
+    const std::shared_ptr<DataType>& type, std::shared_ptr<MemoryPool>& pool)
     : ArrayBuilder(type, pool),
       memo_table_(new MemoTableImpl(0)),
       delta_offset_(0),

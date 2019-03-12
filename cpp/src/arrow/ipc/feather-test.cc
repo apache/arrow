@@ -280,7 +280,8 @@ void CheckBatches(const RecordBatch& expected, const RecordBatch& result) {
 class TestTableReader : public ::testing::Test {
  public:
   void SetUp() {
-    ASSERT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &stream_));
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
+    ASSERT_OK(io::BufferOutputStream::Create(1024, pool, &stream_));
     ASSERT_OK(TableWriter::Open(stream_, &writer_));
   }
 
@@ -355,7 +356,8 @@ TEST_F(TestTableReader, ReadNames) {
 class TestTableWriter : public ::testing::Test {
  public:
   void SetUp() {
-    ASSERT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &stream_));
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
+    ASSERT_OK(io::BufferOutputStream::Create(1024, pool, &stream_));
     ASSERT_OK(TableWriter::Open(stream_, &writer_));
   }
 

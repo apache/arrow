@@ -66,12 +66,12 @@ namespace {
 
 class ActionBase {
  public:
-  ActionBase(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+  ActionBase(const std::shared_ptr<DataType>& type, std::shared_ptr<MemoryPool>& pool)
       : type_(type), pool_(pool) {}
 
  protected:
   std::shared_ptr<DataType> type_;
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 };
 
 class UniqueAction : public ActionBase {
@@ -100,7 +100,7 @@ class UniqueAction : public ActionBase {
 
 class DictEncodeAction : public ActionBase {
  public:
-  DictEncodeAction(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+  DictEncodeAction(const std::shared_ptr<DataType>& type, std::shared_ptr<MemoryPool>& pool)
       : ActionBase(type, pool), indices_builder_(pool) {}
 
   Status Reset() {
@@ -164,7 +164,7 @@ class HashKernelImpl : public HashKernel {
 template <typename Type, typename Scalar, typename Action>
 class RegularHashKernelImpl : public HashKernelImpl {
  public:
-  RegularHashKernelImpl(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+  RegularHashKernelImpl(const std::shared_ptr<DataType>& type, std::shared_ptr<MemoryPool>& pool)
       : pool_(pool), type_(type), action_(type, pool) {}
 
   Status Reset() override {
@@ -203,7 +203,7 @@ class RegularHashKernelImpl : public HashKernelImpl {
  protected:
   using MemoTable = typename HashTraits<Type>::MemoTableType;
 
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   std::shared_ptr<DataType> type_;
   Action action_;
   std::unique_ptr<MemoTable> memo_table_;
@@ -215,7 +215,7 @@ class RegularHashKernelImpl : public HashKernelImpl {
 template <typename Action>
 class NullHashKernelImpl : public HashKernelImpl {
  public:
-  NullHashKernelImpl(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+  NullHashKernelImpl(const std::shared_ptr<DataType>& type, std::shared_ptr<MemoryPool>& pool)
       : pool_(pool), type_(type), action_(type, pool) {}
 
   Status Reset() override { return action_.Reset(); }
@@ -240,7 +240,7 @@ class NullHashKernelImpl : public HashKernelImpl {
   std::shared_ptr<DataType> out_type() const override { return null(); }
 
  protected:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   std::shared_ptr<DataType> type_;
   Action action_;
 };
@@ -282,10 +282,13 @@ Status GetUniqueKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& ty
                        std::unique_ptr<HashKernel>* out) {
   std::unique_ptr<HashKernel> kernel;
 
-#define UNIQUE_CASE(InType)                                                           \
-  case InType::type_id:                                                               \
-    kernel.reset(new typename HashKernelTraits<InType, UniqueAction>::HashKernelImpl( \
-        type, ctx->memory_pool()));                                                   \
+#define UNIQUE_CASE(InType)                                             \
+  case InType::type_id:                                                 \
+    {                                                                   \
+      std::shared_ptr<MemoryPool> pool = ctx->memory_pool();            \
+      kernel.reset(new typename HashKernelTraits<InType,                \
+                   UniqueAction>::HashKernelImpl(type, pool));          \
+    }                                                                   \
     break
 
   switch (type->id()) {
@@ -327,11 +330,14 @@ Status GetDictionaryEncodeKernel(FunctionContext* ctx,
                                  std::unique_ptr<HashKernel>* out) {
   std::unique_ptr<HashKernel> kernel;
 
-#define DICTIONARY_ENCODE_CASE(InType)                                                \
-  case InType::type_id:                                                               \
-    kernel.reset(new                                                                  \
-                 typename HashKernelTraits<InType, DictEncodeAction>::HashKernelImpl( \
-                     type, ctx->memory_pool()));                                      \
+#define DICTIONARY_ENCODE_CASE(InType)                                  \
+  case InType::type_id:                                                 \
+    {                                                                   \
+    std::shared_ptr<MemoryPool> pool = ctx->memory_pool();              \
+    kernel.reset(new                                                    \
+                 typename HashKernelTraits<InType,                      \
+                                           DictEncodeAction>::HashKernelImpl(type, pool)); \
+    }                                                                   \
     break
 
   switch (type->id()) {

@@ -119,7 +119,7 @@ class ARROW_EXPORT FlightPutWriter : public ipc::RecordBatchWriter {
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
   Status Close() override;
-  void set_memory_pool(MemoryPool* pool) override;
+  void set_memory_pool(std::shared_ptr<MemoryPool>& pool) override;
 
  private:
   class FlightPutWriterImpl;

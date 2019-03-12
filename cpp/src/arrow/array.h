@@ -483,7 +483,7 @@ class ARROW_EXPORT ListArray : public Array {
   /// \param[in] pool MemoryPool in case new offsets array needs to be
   /// allocated because of null values
   /// \param[out] out Will have length equal to offsets.length() - 1
-  static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
+  static Status FromArrays(const Array& offsets, const Array& values, std::shared_ptr<MemoryPool>& pool,
                            std::shared_ptr<Array>* out);
 
   const ListType* list_type() const;
@@ -690,7 +690,7 @@ class ARROW_EXPORT StructArray : public Array {
   ///
   /// \param[in] pool The pool to allocate null bitmaps from, if necessary
   /// \param[out] out The resulting vector of arrays
-  Status Flatten(MemoryPool* pool, ArrayVector* out) const;
+  Status Flatten(std::shared_ptr<MemoryPool>& pool, ArrayVector* out) const;
 
  private:
   // For caching boxed child data
@@ -832,7 +832,7 @@ class ARROW_EXPORT DictionaryArray : public Array {
   /// \param[in] transpose_map a vector transposing this array's indices
   /// into the target array's indices
   /// \param[out] out the resulting DictionaryArray instance
-  Status Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+  Status Transpose(std::shared_ptr<MemoryPool>& pool, const std::shared_ptr<DataType>& type,
                    const std::vector<int32_t>& transpose_map,
                    std::shared_ptr<Array>* out) const;
   // XXX Do we also want an unsafe in-place Transpose?

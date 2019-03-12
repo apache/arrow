@@ -20,6 +20,9 @@
 # cython: embedsignature = True
 
 
+from libcpp.memory cimport static_pointer_cast
+
+
 cdef class MemoryPool:
     """
     Base class for memory allocation.
@@ -33,7 +36,7 @@ cdef class MemoryPool:
                         "use pyarrow.*_memory_pool instead."
                         .format(self.__class__.__name__))
 
-    cdef void init(self, CMemoryPool* pool):
+    cdef void init(self, shared_ptr[CMemoryPool]& pool):
         self.pool = pool
 
     def bytes_allocated(self):
@@ -41,7 +44,7 @@ cdef class MemoryPool:
         Return the number of bytes that are currently allocated from this
         memory pool.
         """
-        return self.pool.bytes_allocated()
+        return self.pool.get().bytes_allocated()
 
     def max_memory(self):
         """
@@ -51,11 +54,11 @@ cdef class MemoryPool:
         None is returned if the pool implementation doesn't know how to
         compute this number.
         """
-        ret = self.pool.max_memory()
+        ret = self.pool.get().max_memory()
         return ret if ret >= 0 else None
 
 
-cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool):
+cdef shared_ptr[CMemoryPool] maybe_unbox_memory_pool(MemoryPool memory_pool):
     if memory_pool is None:
         return c_get_memory_pool()
     else:
@@ -64,7 +67,7 @@ cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool):
 
 cdef class LoggingMemoryPool(MemoryPool):
     cdef:
-        unique_ptr[CLoggingMemoryPool] logging_pool
+        shared_ptr[CLoggingMemoryPool] logging_pool
 
     def __init__(self):
         raise TypeError("Do not call {}'s constructor directly, "
@@ -79,7 +82,7 @@ cdef class ProxyMemoryPool(MemoryPool):
     to another memory pool.
     """
     cdef:
-        unique_ptr[CProxyMemoryPool] proxy_pool
+        shared_ptr[CProxyMemoryPool] proxy_pool
 
     def __init__(self):
         raise TypeError("Do not call {}'s constructor directly, "
@@ -93,7 +96,8 @@ def default_memory_pool():
     """
     cdef:
         MemoryPool pool = MemoryPool.__new__(MemoryPool)
-    pool.init(c_get_memory_pool())
+        shared_ptr[CMemoryPool] cpool = c_get_memory_pool()
+    pool.init(cpool)
     return pool
 
 
@@ -102,9 +106,12 @@ def proxy_memory_pool(MemoryPool parent):
     Create and return a MemoryPool instance that redirects to the
     *parent*, but with separate allocation statistics.
     """
-    cdef ProxyMemoryPool out = ProxyMemoryPool.__new__(ProxyMemoryPool)
+    cdef:
+        ProxyMemoryPool out = ProxyMemoryPool.__new__(ProxyMemoryPool)
     out.proxy_pool.reset(new CProxyMemoryPool(parent.pool))
-    out.init(out.proxy_pool.get())
+    cdef:
+        shared_ptr[CMemoryPool] cpool = static_pointer_cast[CMemoryPool, CProxyMemoryPool](out.proxy_pool)
+    out.init(cpool)
     return out
 
 
@@ -116,7 +123,9 @@ def logging_memory_pool(MemoryPool parent):
     cdef LoggingMemoryPool out = LoggingMemoryPool.__new__(
         LoggingMemoryPool, parent)
     out.logging_pool.reset(new CLoggingMemoryPool(parent.pool))
-    out.init(out.logging_pool.get())
+    cdef:
+        shared_ptr[CMemoryPool] cpool = static_pointer_cast[CMemoryPool, CLoggingMemoryPool](out.logging_pool)
+    out.init(cpool)
     return out
 
 
@@ -149,5 +158,5 @@ def total_allocated_bytes():
     Return the currently allocated bytes from the default memory pool.
     Other memory pools may not be accounted for.
     """
-    cdef CMemoryPool* pool = c_get_memory_pool()
-    return pool.bytes_allocated()
+    cdef shared_ptr[CMemoryPool] pool = c_get_memory_pool()
+    return pool.get().bytes_allocated()

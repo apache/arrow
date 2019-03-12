@@ -42,7 +42,7 @@ namespace arrow {
 /// data
 class ARROW_EXPORT BufferBuilder {
  public:
-  explicit BufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+  explicit BufferBuilder(std::shared_ptr<MemoryPool> pool ARROW_MEMORY_POOL_DEFAULT)
       : pool_(pool), data_(NULLPTR), capacity_(0), size_(0) {}
 
   /// \brief Resize the buffer to the nearest multiple of 64 bytes
@@ -174,7 +174,7 @@ class ARROW_EXPORT BufferBuilder {
 
  private:
   std::shared_ptr<ResizableBuffer> buffer_;
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   uint8_t* data_;
   int64_t capacity_;
   int64_t size_;
@@ -187,7 +187,7 @@ class TypedBufferBuilder;
 template <typename T>
 class TypedBufferBuilder<T, typename std::enable_if<std::is_arithmetic<T>::value>::type> {
  public:
-  explicit TypedBufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+  explicit TypedBufferBuilder(std::shared_ptr<MemoryPool> pool ARROW_MEMORY_POOL_DEFAULT)
       : bytes_builder_(pool) {}
 
   Status Append(T value) {
@@ -262,7 +262,7 @@ class TypedBufferBuilder<T, typename std::enable_if<std::is_arithmetic<T>::value
 template <>
 class TypedBufferBuilder<bool> {
  public:
-  explicit TypedBufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+  explicit TypedBufferBuilder(std::shared_ptr<MemoryPool> pool ARROW_MEMORY_POOL_DEFAULT)
       : bytes_builder_(pool) {}
 
   Status Append(bool value) {

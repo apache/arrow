@@ -222,7 +222,7 @@ class ORCFileReader::Impl {
   Impl() {}
   ~Impl() {}
 
-  Status Open(const std::shared_ptr<io::ReadableFileInterface>& file, MemoryPool* pool) {
+  Status Open(const std::shared_ptr<io::ReadableFileInterface>& file, std::shared_ptr<MemoryPool>& pool) {
     std::unique_ptr<ArrowInputFile> io_wrapper(new ArrowInputFile(file));
     liborc::ReaderOptions options;
     std::unique_ptr<liborc::Reader> liborc_reader;
@@ -673,7 +673,7 @@ class ORCFileReader::Impl {
   }
 
  private:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   std::unique_ptr<liborc::Reader> reader_;
   std::vector<StripeInformation> stripes_;
 };
@@ -683,7 +683,7 @@ ORCFileReader::ORCFileReader() { impl_.reset(new ORCFileReader::Impl()); }
 ORCFileReader::~ORCFileReader() {}
 
 Status ORCFileReader::Open(const std::shared_ptr<io::ReadableFileInterface>& file,
-                           MemoryPool* pool, std::unique_ptr<ORCFileReader>* reader) {
+                           std::shared_ptr<MemoryPool>& pool, std::unique_ptr<ORCFileReader>* reader) {
   auto result = std::unique_ptr<ORCFileReader>(new ORCFileReader());
   RETURN_NOT_OK(result->impl_->Open(file, pool));
   *reader = std::move(result);

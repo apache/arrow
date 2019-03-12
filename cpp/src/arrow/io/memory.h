@@ -47,7 +47,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   /// the OutputStream
   /// \param[in,out] pool a MemoryPool to use for allocations
   /// \param[out] out the created stream
-  static Status Create(int64_t initial_capacity, MemoryPool* pool,
+  static Status Create(int64_t initial_capacity, std::shared_ptr<MemoryPool>& pool,
                        std::shared_ptr<BufferOutputStream>* out);
 
   ~BufferOutputStream() override;
@@ -68,7 +68,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   /// \param[in] initial_capacity the starting allocated capacity
   /// \param[in,out] pool the memory pool to use for allocations
   /// \return Status
-  Status Reset(int64_t initial_capacity = 1024, MemoryPool* pool = default_memory_pool());
+  Status Reset(int64_t initial_capacity = 1024, std::shared_ptr<MemoryPool> pool = default_memory_pool());
 
   int64_t capacity() const { return capacity_; }
 

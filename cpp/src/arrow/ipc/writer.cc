@@ -60,7 +60,7 @@ using internal::kArrowMagicBytes;
 
 static inline Status GetTruncatedBitmap(int64_t offset, int64_t length,
                                         const std::shared_ptr<Buffer> input,
-                                        MemoryPool* pool,
+                                        std::shared_ptr<MemoryPool>& pool,
                                         std::shared_ptr<Buffer>* buffer) {
   if (!input) {
     *buffer = input;
@@ -78,7 +78,7 @@ static inline Status GetTruncatedBitmap(int64_t offset, int64_t length,
 
 template <typename T>
 inline Status GetTruncatedBuffer(int64_t offset, int64_t length,
-                                 const std::shared_ptr<Buffer> input, MemoryPool* pool,
+                                 const std::shared_ptr<Buffer> input, std::shared_ptr<MemoryPool>& pool,
                                  std::shared_ptr<Buffer>* buffer) {
   if (!input) {
     *buffer = input;
@@ -108,7 +108,7 @@ namespace internal {
 
 class RecordBatchSerializer : public ArrayVisitor {
  public:
-  RecordBatchSerializer(MemoryPool* pool, int64_t buffer_start_offset,
+  RecordBatchSerializer(std::shared_ptr<MemoryPool>& pool, int64_t buffer_start_offset,
                         int max_recursion_depth, bool allow_64bit, IpcPayload* out)
       : out_(out),
         pool_(pool),
@@ -458,7 +458,7 @@ class RecordBatchSerializer : public ArrayVisitor {
   IpcPayload* out_;
 
   // In some cases, intermediate buffers may need to be allocated (with sliced arrays)
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 
   std::vector<internal::FieldMetadata> field_nodes_;
   std::vector<internal::BufferMetadata> buffer_meta_;
@@ -470,7 +470,7 @@ class RecordBatchSerializer : public ArrayVisitor {
 
 class DictionaryWriter : public RecordBatchSerializer {
  public:
-  DictionaryWriter(int64_t dictionary_id, MemoryPool* pool, int64_t buffer_start_offset,
+  DictionaryWriter(int64_t dictionary_id, std::shared_ptr<MemoryPool>& pool, int64_t buffer_start_offset,
                    int max_recursion_depth, bool allow_64bit, IpcPayload* out)
       : RecordBatchSerializer(pool, buffer_start_offset, max_recursion_depth, allow_64bit,
                               out),
@@ -529,7 +529,7 @@ Status WriteIpcPayload(const IpcPayload& payload, io::OutputStream* dst,
   return Status::OK();
 }
 
-Status GetSchemaPayload(const Schema& schema, MemoryPool* pool,
+Status GetSchemaPayload(const Schema& schema, std::shared_ptr<MemoryPool>& pool,
                         DictionaryMemo* dictionary_memo, IpcPayload* out) {
   out->type = Message::Type::SCHEMA;
   out->body_buffers.clear();
@@ -538,7 +538,7 @@ Status GetSchemaPayload(const Schema& schema, MemoryPool* pool,
   return WriteSchemaMessage(schema, dictionary_memo, &out->metadata);
 }
 
-Status GetRecordBatchPayload(const RecordBatch& batch, MemoryPool* pool,
+Status GetRecordBatchPayload(const RecordBatch& batch, std::shared_ptr<MemoryPool>& pool,
                              IpcPayload* out) {
   RecordBatchSerializer writer(pool, 0, kMaxNestingDepth, true, out);
   return writer.Assemble(batch);
@@ -548,7 +548,7 @@ Status GetRecordBatchPayload(const RecordBatch& batch, MemoryPool* pool,
 
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                         io::OutputStream* dst, int32_t* metadata_length,
-                        int64_t* body_length, MemoryPool* pool, int max_recursion_depth,
+                        int64_t* body_length, std::shared_ptr<MemoryPool>& pool, int max_recursion_depth,
                         bool allow_64bit) {
   internal::IpcPayload payload;
   internal::RecordBatchSerializer writer(pool, buffer_start_offset, max_recursion_depth,
@@ -579,7 +579,7 @@ Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& b
 
 Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                              io::OutputStream* dst, int32_t* metadata_length,
-                             int64_t* body_length, MemoryPool* pool) {
+                             int64_t* body_length, std::shared_ptr<MemoryPool>& pool) {
   return WriteRecordBatch(batch, buffer_start_offset, dst, metadata_length, body_length,
                           pool, kMaxNestingDepth, true);
 }
@@ -613,7 +613,7 @@ Status WriteStridedTensorData(int dim_index, int64_t offset, int elem_size,
   return Status::OK();
 }
 
-Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
+Status GetContiguousTensor(const Tensor& tensor, std::shared_ptr<MemoryPool>& pool,
                            std::unique_ptr<Tensor>* out) {
   const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
   const int elem_size = type.bit_width() / 8;
@@ -671,7 +671,7 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
   return Status::OK();
 }
 
-Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
+Status GetTensorMessage(const Tensor& tensor, std::shared_ptr<MemoryPool>& pool,
                         std::unique_ptr<Message>* out) {
   const Tensor* tensor_to_write = &tensor;
   std::unique_ptr<Tensor> temp_tensor;
@@ -767,7 +767,7 @@ class SparseTensorSerializer {
   int64_t buffer_start_offset_;
 };
 
-Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* pool,
+Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, std::shared_ptr<MemoryPool>& pool,
                               IpcPayload* out) {
   SparseTensorSerializer writer(0, out);
   return writer.Assemble(sparse_tensor);
@@ -777,7 +777,7 @@ Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* poo
 
 Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
                          int32_t* metadata_length, int64_t* body_length,
-                         MemoryPool* pool) {
+                         std::shared_ptr<MemoryPool>& pool) {
   internal::IpcPayload payload;
   internal::SparseTensorSerializer writer(0, &payload);
   RETURN_NOT_OK(writer.Assemble(sparse_tensor));
@@ -788,7 +788,7 @@ Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* ds
 
 Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
                        int64_t buffer_start_offset, io::OutputStream* dst,
-                       int32_t* metadata_length, int64_t* body_length, MemoryPool* pool) {
+                       int32_t* metadata_length, int64_t* body_length, std::shared_ptr<MemoryPool>& pool) {
   internal::IpcPayload payload;
   internal::DictionaryWriter writer(dictionary_id, pool, buffer_start_offset,
                                     kMaxNestingDepth, true, &payload);
@@ -804,8 +804,9 @@ Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
   int32_t metadata_length = 0;
   int64_t body_length = 0;
   io::MockOutputStream dst;
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   RETURN_NOT_OK(WriteRecordBatch(batch, 0, &dst, &metadata_length, &body_length,
-                                 default_memory_pool(), kMaxNestingDepth, true));
+                                 pool, kMaxNestingDepth, true));
   *size = dst.GetExtentBytesWritten();
   return Status::OK();
 }
@@ -885,7 +886,7 @@ class StreamBookKeeper {
 
 class SchemaWriter : public StreamBookKeeper {
  public:
-  SchemaWriter(const Schema& schema, DictionaryMemo* dictionary_memo, MemoryPool* pool,
+  SchemaWriter(const Schema& schema, DictionaryMemo* dictionary_memo, std::shared_ptr<MemoryPool>& pool,
                io::OutputStream* sink)
       : StreamBookKeeper(sink),
         pool_(pool),
@@ -937,7 +938,7 @@ class SchemaWriter : public StreamBookKeeper {
   }
 
  private:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   const Schema& schema_;
   DictionaryMemo* dictionary_memo_;
 };
@@ -1004,11 +1005,11 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl : public StreamBookKe
                             &record_batches_[record_batches_.size() - 1]);
   }
 
-  void set_memory_pool(MemoryPool* pool) { pool_ = pool; }
+  void set_memory_pool(std::shared_ptr<MemoryPool>& pool) { pool_ = pool; }
 
  protected:
   std::shared_ptr<Schema> schema_;
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   bool started_;
 
   // When writing out the schema, we keep track of all the dictionaries we
@@ -1028,7 +1029,7 @@ Status RecordBatchStreamWriter::WriteRecordBatch(const RecordBatch& batch,
   return impl_->WriteRecordBatch(batch, allow_64bit);
 }
 
-void RecordBatchStreamWriter::set_memory_pool(MemoryPool* pool) {
+void RecordBatchStreamWriter::set_memory_pool(std::shared_ptr<MemoryPool>& pool) {
   impl_->set_memory_pool(pool);
 }
 
@@ -1121,7 +1122,7 @@ Status RecordBatchFileWriter::Close() { return file_impl_->Close(); }
 // ----------------------------------------------------------------------
 // Serialization public APIs
 
-Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
+Status SerializeRecordBatch(const RecordBatch& batch, std::shared_ptr<MemoryPool>& pool,
                             std::shared_ptr<Buffer>* out) {
   int64_t size = 0;
   RETURN_NOT_OK(GetRecordBatchSize(batch, &size));
@@ -1134,7 +1135,7 @@ Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
   return Status::OK();
 }
 
-Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
+Status SerializeRecordBatch(const RecordBatch& batch, std::shared_ptr<MemoryPool>& pool,
                             io::OutputStream* out) {
   int32_t metadata_length = 0;
   int64_t body_length = 0;
@@ -1142,7 +1143,7 @@ Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
                           kMaxNestingDepth, true);
 }
 
-Status SerializeSchema(const Schema& schema, MemoryPool* pool,
+Status SerializeSchema(const Schema& schema, std::shared_ptr<MemoryPool>& pool,
                        std::shared_ptr<Buffer>* out) {
   std::shared_ptr<io::BufferOutputStream> stream;
   RETURN_NOT_OK(io::BufferOutputStream::Create(1024, pool, &stream));

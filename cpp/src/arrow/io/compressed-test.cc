@@ -116,7 +116,8 @@ void CheckCompressedOutputStream(Codec* codec, const std::vector<uint8_t>& data,
                                  bool do_flush) {
   // Create compressed output stream
   std::shared_ptr<BufferOutputStream> buffer_writer;
-  ASSERT_OK(BufferOutputStream::Create(1024, default_memory_pool(), &buffer_writer));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  ASSERT_OK(BufferOutputStream::Create(1024, pool, &buffer_writer));
   std::shared_ptr<CompressedOutputStream> stream;
   ASSERT_OK(CompressedOutputStream::Make(codec, buffer_writer, &stream));
 

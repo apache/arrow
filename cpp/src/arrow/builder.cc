@@ -42,7 +42,7 @@ class MemoryPool;
 // difficult
 //
 // TODO(wesm): come up with a less monolithic strategy
-Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+Status MakeBuilder(std::shared_ptr<MemoryPool> pool, const std::shared_ptr<DataType>& type,
                    std::unique_ptr<ArrayBuilder>* out) {
   switch (type->id()) {
     case Type::NA: {

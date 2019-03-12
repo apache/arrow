@@ -224,8 +224,8 @@ struct PyBytesView {
 };
 
 // Return the common PyArrow memory pool
-ARROW_PYTHON_EXPORT void set_default_memory_pool(MemoryPool* pool);
-ARROW_PYTHON_EXPORT MemoryPool* get_memory_pool();
+ARROW_PYTHON_EXPORT void set_default_memory_pool(std::shared_ptr<MemoryPool>& pool);
+ARROW_PYTHON_EXPORT std::shared_ptr<MemoryPool> get_memory_pool();
 
 class ARROW_PYTHON_EXPORT PyBuffer : public Buffer {
  public:

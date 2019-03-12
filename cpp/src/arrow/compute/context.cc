@@ -25,10 +25,10 @@
 namespace arrow {
 namespace compute {
 
-FunctionContext::FunctionContext(MemoryPool* pool)
+FunctionContext::FunctionContext(std::shared_ptr<MemoryPool> pool)
     : pool_(pool), cpu_info_(internal::CpuInfo::GetInstance()) {}
 
-MemoryPool* FunctionContext::memory_pool() const { return pool_; }
+std::shared_ptr<MemoryPool> FunctionContext::memory_pool() const { return pool_; }
 
 Status FunctionContext::Allocate(const int64_t nbytes, std::shared_ptr<Buffer>* out) {
   return AllocateBuffer(pool_, nbytes, out);

@@ -49,7 +49,7 @@ class ARROW_EXPORT ReadaheadSpooler {
   /// of fixed-size blocks in advance from the underlying stream.
   /// The buffers returned by Read() will be padded at the beginning and the end
   /// with the configured amount of (zeroed) bytes.
-  ReadaheadSpooler(MemoryPool* pool, std::shared_ptr<InputStream> raw,
+  ReadaheadSpooler(std::shared_ptr<MemoryPool> pool, std::shared_ptr<InputStream> raw,
                    int64_t read_size = kDefaultReadSize, int32_t readahead_queue_size = 1,
                    int64_t left_padding = 0, int64_t right_padding = 0);
 

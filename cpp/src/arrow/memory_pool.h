@@ -102,7 +102,7 @@ class ARROW_EXPORT MemoryPool {
 
 class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
  public:
-  explicit LoggingMemoryPool(MemoryPool* pool);
+  explicit LoggingMemoryPool(std::shared_ptr<MemoryPool>& pool);
   ~LoggingMemoryPool() override = default;
 
   Status Allocate(int64_t size, uint8_t** out) override;
@@ -115,7 +115,7 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
   int64_t max_memory() const override;
 
  private:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 };
 
 /// Derived class for memory allocation.
@@ -124,7 +124,7 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
 /// calls. Actual allocation is delegated to MemoryPool class.
 class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
  public:
-  explicit ProxyMemoryPool(MemoryPool* pool);
+  explicit ProxyMemoryPool(std::shared_ptr<MemoryPool>& pool);
   ~ProxyMemoryPool() override;
 
   Status Allocate(int64_t size, uint8_t** out) override;
@@ -142,7 +142,7 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
 };
 
 /// Return the process-wide default memory pool.
-ARROW_EXPORT MemoryPool* default_memory_pool();
+ARROW_EXPORT std::shared_ptr<MemoryPool> default_memory_pool();
 
 #ifdef ARROW_NO_DEFAULT_MEMORY_POOL
 #define ARROW_MEMORY_POOL_DEFAULT

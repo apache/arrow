@@ -145,7 +145,7 @@ std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset) const {
   return Slice(offset, length_);
 }
 
-Status ChunkedArray::Flatten(MemoryPool* pool,
+Status ChunkedArray::Flatten(std::shared_ptr<MemoryPool>& pool,
                              std::vector<std::shared_ptr<ChunkedArray>>* out) const {
   std::vector<std::shared_ptr<ChunkedArray>> flattened;
   if (type()->id() != Type::STRUCT) {
@@ -201,7 +201,7 @@ Column::Column(const std::shared_ptr<Field>& field,
                const std::shared_ptr<ChunkedArray>& data)
     : field_(field), data_(data) {}
 
-Status Column::Flatten(MemoryPool* pool,
+Status Column::Flatten(std::shared_ptr<MemoryPool>& pool,
                        std::vector<std::shared_ptr<Column>>* out) const {
   std::vector<std::shared_ptr<Column>> flattened;
   std::vector<std::shared_ptr<Field>> flattened_fields = field_->Flatten();
@@ -337,7 +337,7 @@ class SimpleTable : public Table {
     return Table::Make(new_schema, columns_);
   }
 
-  Status Flatten(MemoryPool* pool, std::shared_ptr<Table>* out) const override {
+  Status Flatten(std::shared_ptr<MemoryPool>& pool, std::shared_ptr<Table>* out) const override {
     std::vector<std::shared_ptr<Field>> flattened_fields;
     std::vector<std::shared_ptr<Column>> flattened_columns;
     for (const auto& column : columns_) {

@@ -46,7 +46,7 @@ class ARROW_EXPORT CompressedOutputStream : public OutputStream {
   /// \brief Create a compressed output stream wrapping the given output stream.
   static Status Make(util::Codec* codec, const std::shared_ptr<OutputStream>& raw,
                      std::shared_ptr<CompressedOutputStream>* out);
-  static Status Make(MemoryPool* pool, util::Codec* codec,
+  static Status Make(std::shared_ptr<MemoryPool>& pool, util::Codec* codec,
                      const std::shared_ptr<OutputStream>& raw,
                      std::shared_ptr<CompressedOutputStream>* out);
 
@@ -81,7 +81,7 @@ class ARROW_EXPORT CompressedInputStream : public InputStream {
   /// \brief Create a compressed input stream wrapping the given input stream.
   static Status Make(util::Codec* codec, const std::shared_ptr<InputStream>& raw,
                      std::shared_ptr<CompressedInputStream>* out);
-  static Status Make(MemoryPool* pool, util::Codec* codec,
+  static Status Make(std::shared_ptr<MemoryPool>& pool, util::Codec* codec,
                      const std::shared_ptr<InputStream>& raw,
                      std::shared_ptr<CompressedInputStream>* out);
 

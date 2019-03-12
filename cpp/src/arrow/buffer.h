@@ -96,7 +96,7 @@ class ARROW_EXPORT Buffer {
   bool Equals(const Buffer& other) const;
 
   /// Copy a section of the buffer into a new Buffer.
-  Status Copy(const int64_t start, const int64_t nbytes, MemoryPool* pool,
+  Status Copy(const int64_t start, const int64_t nbytes, std::shared_ptr<MemoryPool>& pool,
               std::shared_ptr<Buffer>* out) const;
 
   /// Copy a section of the buffer using the default memory pool into a new Buffer.
@@ -121,7 +121,7 @@ class ARROW_EXPORT Buffer {
   /// \param[out] out the created buffer
   ///
   /// \return Status message
-  static Status FromString(const std::string& data, MemoryPool* pool,
+  static Status FromString(const std::string& data, std::shared_ptr<MemoryPool>& pool,
                            std::shared_ptr<Buffer>* out);
 
   /// \brief Construct a new buffer that owns its memory from a std::string
@@ -301,7 +301,7 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
 ///
 /// \return Status message
 ARROW_EXPORT
-Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::shared_ptr<Buffer>* out);
+Status AllocateBuffer(std::shared_ptr<MemoryPool>& pool, const int64_t size, std::shared_ptr<Buffer>* out);
 
 /// \brief Allocate a fixed size mutable buffer from a memory pool, zero its padding.
 ///
@@ -311,7 +311,7 @@ Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::shared_ptr<Buff
 ///
 /// \return Status message
 ARROW_EXPORT
-Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::unique_ptr<Buffer>* out);
+Status AllocateBuffer(std::shared_ptr<MemoryPool>& pool, const int64_t size, std::unique_ptr<Buffer>* out);
 
 /// \brief Allocate a fixed-size mutable buffer from the default memory pool
 ///
@@ -339,7 +339,7 @@ Status AllocateBuffer(const int64_t size, std::unique_ptr<Buffer>* out);
 ///
 /// \return Status message
 ARROW_EXPORT
-Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
+Status AllocateResizableBuffer(std::shared_ptr<MemoryPool>& pool, const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out);
 
 /// \brief Allocate a resizeable buffer from a memory pool, zero its padding.
@@ -350,7 +350,7 @@ Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
 ///
 /// \return Status message
 ARROW_EXPORT
-Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
+Status AllocateResizableBuffer(std::shared_ptr<MemoryPool>& pool, const int64_t size,
                                std::unique_ptr<ResizableBuffer>* out);
 
 /// \brief Allocate a resizeable buffer from the default memory pool
@@ -380,7 +380,7 @@ Status AllocateResizableBuffer(const int64_t size, std::unique_ptr<ResizableBuff
 ///
 /// \return Status message
 ARROW_EXPORT
-Status AllocateBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* out);
+Status AllocateBitmap(std::shared_ptr<MemoryPool>& pool, int64_t length, std::shared_ptr<Buffer>* out);
 
 /// \brief Allocate a zero-initialized bitmap buffer from a memory pool
 ///
@@ -390,7 +390,7 @@ Status AllocateBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>*
 ///
 /// \return Status message
 ARROW_EXPORT
-Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
+Status AllocateEmptyBitmap(std::shared_ptr<MemoryPool>& pool, int64_t length,
                            std::shared_ptr<Buffer>* out);
 
 /// \brief Allocate a zero-initialized bitmap buffer from the default memory pool

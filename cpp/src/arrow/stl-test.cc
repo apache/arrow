@@ -85,7 +85,8 @@ TEST(TestTableFromTupleVector, PrimitiveTypes) {
       primitive_types_tuple(-1, -2, -3, -4, 1, 2, 3, 4, true, "Tests"),
       primitive_types_tuple(-10, -20, -30, -40, 10, 20, 30, 40, false, "Other")};
   std::shared_ptr<Table> table;
-  ASSERT_OK(TableFromTupleRange(default_memory_pool(), rows, names, &table));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  ASSERT_OK(TableFromTupleRange(pool, rows, names, &table));
 
   std::shared_ptr<Schema> expected_schema =
       schema({field("column1", int8(), false), field("column2", int16(), false),
@@ -127,7 +128,8 @@ TEST(TestTableFromTupleVector, ListType) {
   std::vector<std::string> names{"column1"};
 
   std::shared_ptr<Table> table;
-  ASSERT_OK(TableFromTupleRange(default_memory_pool(), rows, names, &table));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  ASSERT_OK(TableFromTupleRange(pool, rows, names, &table));
   ASSERT_TRUE(expected_table->Equals(*table));
 }
 

@@ -58,7 +58,7 @@ Status SerializeRecordBatch(const RecordBatch& batch, CudaContext* ctx,
 /// This function reads the message metadata into host memory, but leaves the
 /// message body on the device
 ARROW_EXPORT
-Status ReadMessage(CudaBufferReader* reader, MemoryPool* pool,
+Status ReadMessage(CudaBufferReader* reader, std::shared_ptr<MemoryPool>& pool,
                    std::unique_ptr<ipc::Message>* message);
 
 /// \brief ReadRecordBatch specialized to handle metadata on CUDA device
@@ -68,7 +68,7 @@ Status ReadMessage(CudaBufferReader* reader, MemoryPool* pool,
 /// \param[out] out the reconstructed RecordBatch, with device pointers
 ARROW_EXPORT
 Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
-                       const std::shared_ptr<CudaBuffer>& buffer, MemoryPool* pool,
+                       const std::shared_ptr<CudaBuffer>& buffer, std::shared_ptr<MemoryPool>& pool,
                        std::shared_ptr<RecordBatch>* out);
 
 }  // namespace cuda

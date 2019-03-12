@@ -43,7 +43,7 @@ struct PyConversionOptions {
   PyConversionOptions() : type(NULLPTR), size(-1), pool(NULLPTR), from_pandas(false) {}
 
   PyConversionOptions(const std::shared_ptr<DataType>& type, int64_t size,
-                      MemoryPool* pool, bool from_pandas)
+                      std::shared_ptr<MemoryPool>& pool, bool from_pandas)
       : type(type), size(size), pool(default_memory_pool()), from_pandas(from_pandas) {}
 
   // Set to null if to be inferred
@@ -53,7 +53,7 @@ struct PyConversionOptions {
   int64_t size;
 
   // Memory pool to use for allocations
-  MemoryPool* pool;
+  std::shared_ptr<MemoryPool> pool;
 
   // Default false
   bool from_pandas;

@@ -187,7 +187,7 @@ Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out) {
 
 #undef TO_ARROW_TYPE_CASE
 
-Status NdarrayToTensor(MemoryPool* pool, PyObject* ao, std::shared_ptr<Tensor>* out) {
+Status NdarrayToTensor(std::shared_ptr<MemoryPool>& pool, PyObject* ao, std::shared_ptr<Tensor>* out) {
   if (!PyArray_Check(ao)) {
     return Status::TypeError("Did not pass ndarray object");
   }

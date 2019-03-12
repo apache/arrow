@@ -1064,7 +1064,7 @@ class DatetimeTZBlock : public DatetimeBlock {
 
 class CategoricalBlock : public PandasBlock {
  public:
-  explicit CategoricalBlock(const PandasOptions& options, MemoryPool* pool,
+  explicit CategoricalBlock(const PandasOptions& options, std::shared_ptr<MemoryPool>& pool,
                             int64_t num_rows)
       : PandasBlock(options, num_rows, 1),
         pool_(pool),
@@ -1259,7 +1259,7 @@ class CategoricalBlock : public PandasBlock {
     return Status::OK();
   }
 
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   OwnedRefNoGIL dictionary_;
   bool ordered_;
   bool needs_copy_;
@@ -1391,7 +1391,7 @@ static Status GetPandasBlockType(const Column& col, const PandasOptions& options
 class DataFrameBlockCreator {
  public:
   explicit DataFrameBlockCreator(const PandasOptions& options,
-                                 const std::shared_ptr<Table>& table, MemoryPool* pool)
+                                 const std::shared_ptr<Table>& table, std::shared_ptr<MemoryPool>& pool)
       : table_(table), options_(options), pool_(pool) {}
 
   Status Convert(PyObject** output) {
@@ -1534,7 +1534,7 @@ class DataFrameBlockCreator {
   PandasOptions options_;
 
   // Memory pool for dictionary encoding
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 
   // block type -> block
   BlockMap blocks_;
@@ -1869,7 +1869,8 @@ class ArrowDeserializer {
   }
 
   Status Visit(const DictionaryType& type) {
-    auto block = std::make_shared<CategoricalBlock>(options_, nullptr, col_->length());
+    std::shared_ptr<MemoryPool> pool;
+    auto block = std::make_shared<CategoricalBlock>(options_, pool, col_->length());
     RETURN_NOT_OK(block->Write(col_, 0, 0));
 
     PyAcquireGIL lock;
@@ -1936,7 +1937,7 @@ Status ConvertColumnToPandas(const PandasOptions& options,
 }
 
 Status ConvertTableToPandas(const PandasOptions& options,
-                            const std::shared_ptr<Table>& table, MemoryPool* pool,
+                            const std::shared_ptr<Table>& table, std::shared_ptr<MemoryPool>& pool,
                             PyObject** out) {
   return ConvertTableToPandas(options, std::unordered_set<std::string>(), table, pool,
                               out);
@@ -1944,7 +1945,7 @@ Status ConvertTableToPandas(const PandasOptions& options,
 
 Status ConvertTableToPandas(const PandasOptions& options,
                             const std::unordered_set<std::string>& categorical_columns,
-                            const std::shared_ptr<Table>& table, MemoryPool* pool,
+                            const std::shared_ptr<Table>& table, std::shared_ptr<MemoryPool>& pool,
                             PyObject** out) {
   std::shared_ptr<Table> current_table = table;
   if (!categorical_columns.empty()) {

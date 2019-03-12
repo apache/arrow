@@ -771,15 +771,16 @@ cdef class OSFile(NativeFile):
             FileMode c_mode
             shared_ptr[Readable] handle
             c_string c_path = encode_file_path(path)
+            shared_ptr[CMemoryPool] cpool = maybe_unbox_memory_pool(memory_pool)
 
         if mode in ('r', 'rb'):
-            self._open_readable(c_path, maybe_unbox_memory_pool(memory_pool))
+            self._open_readable(c_path, cpool)
         elif mode in ('w', 'wb'):
             self._open_writable(c_path)
         else:
             raise ValueError('Invalid file mode: {0}'.format(mode))
 
-    cdef _open_readable(self, c_string path, CMemoryPool* pool):
+    cdef _open_readable(self, c_string path, shared_ptr[CMemoryPool]& pool):
         cdef shared_ptr[ReadableFile] handle
 
         with nogil:
@@ -1025,7 +1026,7 @@ cdef class ResizableBuffer(Buffer):
                          .Resize(new_size, c_shrink_to_fit))
 
 
-cdef shared_ptr[CResizableBuffer] _allocate_buffer(CMemoryPool* pool):
+cdef shared_ptr[CResizableBuffer] _allocate_buffer(shared_ptr[CMemoryPool]& pool):
     cdef shared_ptr[CResizableBuffer] result
     with nogil:
         check_status(AllocateResizableBuffer(pool, 0, &result))
@@ -1054,7 +1055,7 @@ def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
     cdef:
         shared_ptr[CBuffer] buffer
         shared_ptr[CResizableBuffer] rz_buffer
-        CMemoryPool* cpool = maybe_unbox_memory_pool(memory_pool)
+        shared_ptr[CMemoryPool] cpool = maybe_unbox_memory_pool(memory_pool)
 
     if resizable:
         with nogil:
@@ -1072,7 +1073,8 @@ cdef class BufferOutputStream(NativeFile):
         shared_ptr[CResizableBuffer] buffer
 
     def __cinit__(self, MemoryPool memory_pool=None):
-        self.buffer = _allocate_buffer(maybe_unbox_memory_pool(memory_pool))
+        cdef shared_ptr[CMemoryPool] cpool = maybe_unbox_memory_pool(memory_pool)
+        self.buffer = _allocate_buffer(cpool)
         self.output_stream.reset(new CBufferOutputStream(
             <shared_ptr[CResizableBuffer]> self.buffer))
         self.is_writable = True
@@ -1184,12 +1186,13 @@ cdef class BufferedInputStream(NativeFile):
 
     def __init__(self, NativeFile stream, int buffer_size,
                  MemoryPool memory_pool=None):
-        cdef shared_ptr[CBufferedInputStream] buffered_stream
-
+        cdef:
+            shared_ptr[CBufferedInputStream] buffered_stream
+            shared_ptr[CMemoryPool] cpool = maybe_unbox_memory_pool(memory_pool)
         if buffer_size <= 0:
             raise ValueError('Buffer size must be larger than zero')
         check_status(CBufferedInputStream.Create(
-            buffer_size, maybe_unbox_memory_pool(memory_pool),
+            buffer_size, cpool,
             stream.get_input_stream(), &buffered_stream))
 
         self.set_input_stream(<shared_ptr[InputStream]> buffered_stream)
@@ -1200,12 +1203,13 @@ cdef class BufferedOutputStream(NativeFile):
 
     def __init__(self, NativeFile stream, int buffer_size,
                  MemoryPool memory_pool=None):
-        cdef shared_ptr[CBufferedOutputStream] buffered_stream
-
+        cdef:
+            shared_ptr[CBufferedOutputStream] buffered_stream
+            shared_ptr[CMemoryPool] cpool = maybe_unbox_memory_pool(memory_pool)
         if buffer_size <= 0:
             raise ValueError('Buffer size must be larger than zero')
         check_status(CBufferedOutputStream.Create(
-            buffer_size, maybe_unbox_memory_pool(memory_pool),
+            buffer_size, cpool,
             stream.get_output_stream(), &buffered_stream))
 
         self.set_output_stream(<shared_ptr[OutputStream]> buffered_stream)

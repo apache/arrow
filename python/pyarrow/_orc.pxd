@@ -36,7 +36,7 @@ cdef extern from "arrow/adapters/orc/adapter.h" \
     cdef cppclass ORCFileReader:
         @staticmethod
         CStatus Open(const shared_ptr[RandomAccessFile]& file,
-                     CMemoryPool* pool,
+                     shared_ptr[CMemoryPool]& pool,
                      unique_ptr[ORCFileReader]* reader)
 
         CStatus ReadSchema(shared_ptr[CSchema]* out)

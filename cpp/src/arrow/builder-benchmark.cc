@@ -316,8 +316,9 @@ template <class DictionaryBuilderType, class Scalar>
 static void BenchmarkScalarDictionaryArray(
     benchmark::State& state,  // NOLINT non-const reference
     const std::vector<Scalar>& fodder) {
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   while (state.KeepRunning()) {
-    DictionaryBuilder<Int64Type> builder(default_memory_pool());
+    DictionaryBuilder<Int64Type> builder(pool);
     for (const auto value : fodder) {
       ABORT_NOT_OK(builder.Append(value));
     }
@@ -352,9 +353,9 @@ static void BM_BuildStringDictionaryArray(
   auto fodder_size =
       std::accumulate(fodder.begin(), fodder.end(), static_cast<size_t>(0),
                       [&](size_t acc, const std::string& s) { return acc + s.size(); });
-
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   while (state.KeepRunning()) {
-    BinaryDictionaryBuilder builder(default_memory_pool());
+    BinaryDictionaryBuilder builder(pool);
     for (const auto& value : fodder) {
       ABORT_NOT_OK(builder.Append(value));
     }

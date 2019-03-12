@@ -56,7 +56,8 @@ void TestSchemaRoundTrip(const Schema& schema) {
   d.Parse(json_schema);
 
   std::shared_ptr<Schema> out;
-  if (!ReadSchema(d, default_memory_pool(), &out).ok()) {
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  if (!ReadSchema(d, pool, &out).ok()) {
     FAIL() << "Unable to read JSON schema: " << json_schema;
   }
 
@@ -83,7 +84,8 @@ void TestArrayRoundTrip(const Array& array) {
   }
 
   std::shared_ptr<Array> out;
-  ASSERT_OK(ReadArray(default_memory_pool(), d, array.type(), &out));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  ASSERT_OK(ReadArray(pool, d, array.type(), &out));
 
   // std::cout << array_as_json << std::endl;
   CompareArraysDetailed(0, *out, array);
@@ -93,7 +95,7 @@ template <typename T, typename ValueType>
 void CheckPrimitive(const std::shared_ptr<DataType>& type,
                     const std::vector<bool>& is_valid,
                     const std::vector<ValueType>& values) {
-  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   typename TypeTraits<T>::BuilderType builder(pool);
 
   for (size_t i = 0; i < values.size(); ++i) {

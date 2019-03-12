@@ -187,7 +187,7 @@ class OSFile {
 
 class ReadableFile::ReadableFileImpl : public OSFile {
  public:
-  explicit ReadableFileImpl(MemoryPool* pool) : OSFile(), pool_(pool) {}
+  explicit ReadableFileImpl(std::shared_ptr<MemoryPool>& pool) : OSFile(), pool_(pool) {}
 
   Status Open(const std::string& path) { return OpenReadable(path); }
   Status Open(int fd) { return OpenReadable(fd); }
@@ -221,31 +221,33 @@ class ReadableFile::ReadableFileImpl : public OSFile {
   }
 
  private:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 };
 
-ReadableFile::ReadableFile(MemoryPool* pool) { impl_.reset(new ReadableFileImpl(pool)); }
+ReadableFile::ReadableFile(std::shared_ptr<MemoryPool>& pool) { impl_.reset(new ReadableFileImpl(pool)); }
 
 ReadableFile::~ReadableFile() { DCHECK(impl_->Close().ok()); }
 
 Status ReadableFile::Open(const std::string& path, std::shared_ptr<ReadableFile>* file) {
-  return Open(path, default_memory_pool(), file);
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  return Open(path, pool, file);
 }
 
-Status ReadableFile::Open(const std::string& path, MemoryPool* memory_pool,
+Status ReadableFile::Open(const std::string& path, std::shared_ptr<MemoryPool>& memory_pool,
                           std::shared_ptr<ReadableFile>* file) {
   *file = std::shared_ptr<ReadableFile>(new ReadableFile(memory_pool));
   return (*file)->impl_->Open(path);
 }
 
-Status ReadableFile::Open(int fd, MemoryPool* memory_pool,
+Status ReadableFile::Open(int fd, std::shared_ptr<MemoryPool>& memory_pool,
                           std::shared_ptr<ReadableFile>* file) {
   *file = std::shared_ptr<ReadableFile>(new ReadableFile(memory_pool));
   return (*file)->impl_->Open(fd);
 }
 
 Status ReadableFile::Open(int fd, std::shared_ptr<ReadableFile>* file) {
-  return Open(fd, default_memory_pool(), file);
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  return Open(fd, pool, file);
 }
 
 Status ReadableFile::Close() { return impl_->Close(); }

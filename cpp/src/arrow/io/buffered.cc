@@ -37,7 +37,7 @@ namespace io {
 
 class BufferedBase {
  public:
-  explicit BufferedBase(MemoryPool* pool)
+  explicit BufferedBase(std::shared_ptr<MemoryPool>& pool)
       : pool_(pool),
         is_open_(true),
         buffer_data_(nullptr),
@@ -77,7 +77,7 @@ class BufferedBase {
   int64_t buffer_size() const { return buffer_size_; }
 
  protected:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   bool is_open_;
 
   std::shared_ptr<ResizableBuffer> buffer_;
@@ -91,7 +91,7 @@ class BufferedBase {
 
 class BufferedOutputStream::Impl : public BufferedBase {
  public:
-  explicit Impl(std::shared_ptr<OutputStream> raw, MemoryPool* pool)
+  explicit Impl(std::shared_ptr<OutputStream> raw, std::shared_ptr<MemoryPool>& pool)
       : BufferedBase(pool), raw_(std::move(raw)) {}
 
   Status Close() {
@@ -174,11 +174,11 @@ class BufferedOutputStream::Impl : public BufferedBase {
 };
 
 BufferedOutputStream::BufferedOutputStream(std::shared_ptr<OutputStream> raw,
-                                           MemoryPool* pool) {
+                                           std::shared_ptr<MemoryPool>& pool) {
   impl_.reset(new Impl(std::move(raw), pool));
 }
 
-Status BufferedOutputStream::Create(int64_t buffer_size, MemoryPool* pool,
+Status BufferedOutputStream::Create(int64_t buffer_size, std::shared_ptr<MemoryPool>& pool,
                                     std::shared_ptr<OutputStream> raw,
                                     std::shared_ptr<BufferedOutputStream>* out) {
   auto result = std::shared_ptr<BufferedOutputStream>(
@@ -221,7 +221,7 @@ std::shared_ptr<OutputStream> BufferedOutputStream::raw() const { return impl_->
 
 class BufferedInputStream::Impl : public BufferedBase {
  public:
-  Impl(std::shared_ptr<InputStream> raw, MemoryPool* pool)
+  Impl(std::shared_ptr<InputStream> raw, std::shared_ptr<MemoryPool>& pool)
       : BufferedBase(pool), raw_(std::move(raw)), bytes_buffered_(0) {}
 
   ~Impl() { DCHECK_OK(Close()); }
@@ -351,13 +351,13 @@ class BufferedInputStream::Impl : public BufferedBase {
 };
 
 BufferedInputStream::BufferedInputStream(std::shared_ptr<InputStream> raw,
-                                         MemoryPool* pool) {
+                                         std::shared_ptr<MemoryPool>& pool) {
   impl_.reset(new Impl(std::move(raw), pool));
 }
 
 BufferedInputStream::~BufferedInputStream() { DCHECK_OK(impl_->Close()); }
 
-Status BufferedInputStream::Create(int64_t buffer_size, MemoryPool* pool,
+Status BufferedInputStream::Create(int64_t buffer_size, std::shared_ptr<MemoryPool>& pool,
                                    std::shared_ptr<InputStream> raw,
                                    std::shared_ptr<BufferedInputStream>* out) {
   auto result =

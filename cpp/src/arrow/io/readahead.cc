@@ -41,7 +41,7 @@ namespace internal {
 
 class ReadaheadSpooler::Impl {
  public:
-  Impl(MemoryPool* pool, std::shared_ptr<InputStream> raw, int64_t read_size,
+  Impl(std::shared_ptr<MemoryPool>& pool, std::shared_ptr<InputStream> raw, int64_t read_size,
        int32_t readahead_queue_size, int64_t left_padding, int64_t right_padding)
       : pool_(pool),
         raw_(raw),
@@ -178,7 +178,7 @@ class ReadaheadSpooler::Impl {
     return Status::OK();
   }
 
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   std::shared_ptr<InputStream> raw_;
   int64_t read_size_;
   int32_t readahead_queue_size_;
@@ -195,7 +195,7 @@ class ReadaheadSpooler::Impl {
   Status read_status_;
 };
 
-ReadaheadSpooler::ReadaheadSpooler(MemoryPool* pool, std::shared_ptr<InputStream> raw,
+ReadaheadSpooler::ReadaheadSpooler(std::shared_ptr<MemoryPool> pool, std::shared_ptr<InputStream> raw,
                                    int64_t read_size, int32_t readahead_queue_size,
                                    int64_t left_padding, int64_t right_padding)
     : impl_(new ReadaheadSpooler::Impl(pool, raw, read_size, readahead_queue_size,

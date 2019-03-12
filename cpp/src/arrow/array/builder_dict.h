@@ -66,11 +66,11 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
 
   // WARNING: the type given below is the value type, not the DictionaryType.
   // The DictionaryType is instantiated on the Finish() call.
-  DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
+  DictionaryBuilder(const std::shared_ptr<DataType>& type, std::shared_ptr<MemoryPool>& pool);
 
   template <typename T1 = T>
   explicit DictionaryBuilder(
-      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool)
+      typename std::enable_if<TypeTraits<T1>::is_parameter_free, std::shared_ptr<MemoryPool>&>::type pool)
       : DictionaryBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
   ~DictionaryBuilder() override;
@@ -119,8 +119,8 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
 template <>
 class ARROW_EXPORT DictionaryBuilder<NullType> : public ArrayBuilder {
  public:
-  DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
-  explicit DictionaryBuilder(MemoryPool* pool);
+  DictionaryBuilder(const std::shared_ptr<DataType>& type, std::shared_ptr<MemoryPool>& pool);
+  explicit DictionaryBuilder(std::shared_ptr<MemoryPool>& pool);
 
   /// \brief Append a scalar null value
   Status AppendNull();

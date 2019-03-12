@@ -63,7 +63,7 @@ Status KindChangeError(Kind::type from, Kind::type to) {
 /// resizing. This builder does not support appending nulls.
 class UnsafeStringBuilder {
  public:
-  UnsafeStringBuilder(MemoryPool* pool, const std::shared_ptr<Buffer>& buffer)
+  UnsafeStringBuilder(std::shared_ptr<MemoryPool>& pool, const std::shared_ptr<Buffer>& buffer)
       : offsets_builder_(pool), values_buffer_(buffer) {
     DCHECK_NE(values_buffer_, nullptr);
   }
@@ -152,7 +152,7 @@ const BuilderPtr BuilderPtr::null(Kind::kNull, 0, false);
 template <>
 class RawArrayBuilder<Kind::kBoolean> {
  public:
-  explicit RawArrayBuilder(MemoryPool* pool)
+  explicit RawArrayBuilder(std::shared_ptr<MemoryPool>& pool)
       : data_builder_(pool), null_bitmap_builder_(pool) {}
 
   Status Append(bool value) {
@@ -199,7 +199,7 @@ class RawArrayBuilder<Kind::kBoolean> {
 /// into another array.
 class ScalarBuilder {
  public:
-  explicit ScalarBuilder(MemoryPool* pool)
+  explicit ScalarBuilder(std::shared_ptr<MemoryPool>& pool)
       : data_builder_(pool), null_bitmap_builder_(pool) {}
 
   Status Append(int32_t index) {
@@ -251,7 +251,7 @@ class RawArrayBuilder<Kind::kString> : public ScalarBuilder {
 template <>
 class RawArrayBuilder<Kind::kArray> {
  public:
-  explicit RawArrayBuilder(MemoryPool* pool)
+  explicit RawArrayBuilder(std::shared_ptr<MemoryPool>& pool)
       : offset_builder_(pool), null_bitmap_builder_(pool) {}
 
   Status Append(int32_t child_length) {
@@ -303,7 +303,7 @@ class RawArrayBuilder<Kind::kArray> {
 template <>
 class RawArrayBuilder<Kind::kObject> {
  public:
-  explicit RawArrayBuilder(MemoryPool* pool) : null_bitmap_builder_(pool) {}
+  explicit RawArrayBuilder(std::shared_ptr<MemoryPool>& pool) : null_bitmap_builder_(pool) {}
 
   Status Append() { return null_bitmap_builder_.Append(true); }
 
@@ -473,7 +473,7 @@ class HandlerBase : public BlockParser::Impl,
   int32_t num_rows() override { return num_rows_; }
 
  protected:
-  HandlerBase(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
+  HandlerBase(std::shared_ptr<MemoryPool>& pool, const std::shared_ptr<Buffer>& scalar_storage)
       : pool_(pool),
         builder_(Kind::kObject, 0, false),
         scalar_values_builder_(pool, scalar_storage) {
@@ -730,7 +730,7 @@ class HandlerBase : public BlockParser::Impl,
   }
 
   Status status_;
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   std::tuple<std::tuple<>, std::vector<RawArrayBuilder<Kind::kBoolean>>,
              std::vector<RawArrayBuilder<Kind::kNumber>>,
              std::vector<RawArrayBuilder<Kind::kString>>,
@@ -758,7 +758,7 @@ class Handler;
 template <>
 class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
  public:
-  Handler(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
+  Handler(std::shared_ptr<MemoryPool>& pool, const std::shared_ptr<Buffer>& scalar_storage)
       : HandlerBase(pool, scalar_storage) {}
 
   Status Parse(const std::shared_ptr<Buffer>& json) override {
@@ -780,7 +780,7 @@ class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
 template <>
 class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
  public:
-  Handler(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
+  Handler(std::shared_ptr<MemoryPool>& pool, const std::shared_ptr<Buffer>& scalar_storage)
       : HandlerBase(pool, scalar_storage) {}
 
   Status Parse(const std::shared_ptr<Buffer>& json) override {
@@ -877,7 +877,7 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
 template <>
 class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
  public:
-  Handler(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
+  Handler(std::shared_ptr<MemoryPool>& pool, const std::shared_ptr<Buffer>& scalar_storage)
       : HandlerBase(pool, scalar_storage) {}
 
   Status Parse(const std::shared_ptr<Buffer>& json) override {
@@ -967,7 +967,7 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
   }
 };
 
-BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
+BlockParser::BlockParser(std::shared_ptr<MemoryPool> pool, ParseOptions options,
                          const std::shared_ptr<Buffer>& scalar_storage)
     : pool_(pool), options_(options) {
   DCHECK(options_.unexpected_field_behavior == UnexpectedFieldBehavior::InferType ||

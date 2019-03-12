@@ -39,7 +39,7 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // ListBuilder
 
-ListBuilder::ListBuilder(MemoryPool* pool,
+ListBuilder::ListBuilder(std::shared_ptr<MemoryPool>& pool,
                          std::shared_ptr<ArrayBuilder> const& value_builder,
                          const std::shared_ptr<DataType>& type)
     : ArrayBuilder(type ? type
@@ -128,7 +128,7 @@ ArrayBuilder* ListBuilder::value_builder() const {
 // ----------------------------------------------------------------------
 // Struct
 
-StructBuilder::StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
+StructBuilder::StructBuilder(const std::shared_ptr<DataType>& type, std::shared_ptr<MemoryPool>& pool,
                              std::vector<std::shared_ptr<ArrayBuilder>>&& field_builders)
     : ArrayBuilder(type, pool) {
   children_ = std::move(field_builders);

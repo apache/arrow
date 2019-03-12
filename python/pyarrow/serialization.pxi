@@ -312,7 +312,7 @@ cdef class SerializedPyObject:
 
         """
         cdef PyObject* result
-        cdef CMemoryPool* c_pool = maybe_unbox_memory_pool(memory_pool)
+        cdef shared_ptr[CMemoryPool] c_pool = maybe_unbox_memory_pool(memory_pool)
 
         with nogil:
             check_status(self.data.GetComponents(c_pool, &result))

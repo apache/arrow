@@ -207,10 +207,10 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
   Status Seek(int64_t position) override;
   Status Tell(int64_t* position) const override;
 
-  void set_memory_pool(MemoryPool* pool);
+  void set_memory_pool(std::shared_ptr<MemoryPool>& pool);
 
  private:
-  explicit HdfsReadableFile(MemoryPool* pool = NULLPTR);
+  explicit HdfsReadableFile(std::shared_ptr<MemoryPool> pool = default_memory_pool());
 
   class ARROW_NO_EXPORT HdfsReadableFileImpl;
   std::unique_ptr<HdfsReadableFileImpl> impl_;

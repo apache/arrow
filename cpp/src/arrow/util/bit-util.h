@@ -461,7 +461,7 @@ static inline void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length
 
 /// \brief Convert vector of bytes to bitmap buffer
 ARROW_EXPORT
-Status BytesToBits(const std::vector<uint8_t>&, MemoryPool*, std::shared_ptr<Buffer>*);
+Status BytesToBits(const std::vector<uint8_t>&, std::shared_ptr<MemoryPool>&, std::shared_ptr<Buffer>*);
 
 }  // namespace BitUtil
 
@@ -699,7 +699,7 @@ void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
 ///
 /// \return Status message
 ARROW_EXPORT
-Status CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset, int64_t length,
+Status CopyBitmap(std::shared_ptr<MemoryPool>& pool, const uint8_t* bitmap, int64_t offset, int64_t length,
                   std::shared_ptr<Buffer>* out);
 
 /// Copy a bit range of an existing bitmap into an existing bitmap
@@ -736,7 +736,7 @@ void InvertBitmap(const uint8_t* bitmap, int64_t offset, int64_t length, uint8_t
 ///
 /// \return Status message
 ARROW_EXPORT
-Status InvertBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset,
+Status InvertBitmap(std::shared_ptr<MemoryPool>& pool, const uint8_t* bitmap, int64_t offset,
                     int64_t length, std::shared_ptr<Buffer>* out);
 
 /// Compute the number of 1's in the given data array
@@ -761,7 +761,7 @@ bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right
 /// out_buffer will be allocated and initialized to zeros using pool before
 /// the operation.
 ARROW_EXPORT
-Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
+Status BitmapAnd(std::shared_ptr<MemoryPool>& pool, const uint8_t* left, int64_t left_offset,
                  const uint8_t* right, int64_t right_offset, int64_t length,
                  int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
 
@@ -779,7 +779,7 @@ void BitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
 /// out_buffer will be allocated and initialized to zeros using pool before
 /// the operation.
 ARROW_EXPORT
-Status BitmapOr(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
+Status BitmapOr(std::shared_ptr<MemoryPool>& pool, const uint8_t* left, int64_t left_offset,
                 const uint8_t* right, int64_t right_offset, int64_t length,
                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
 
@@ -797,7 +797,7 @@ void BitmapOr(const uint8_t* left, int64_t left_offset, const uint8_t* right,
 /// out_buffer will be allocated and initialized to zeros using pool before
 /// the operation.
 ARROW_EXPORT
-Status BitmapXor(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
+Status BitmapXor(std::shared_ptr<MemoryPool>& pool, const uint8_t* left, int64_t left_offset,
                  const uint8_t* right, int64_t right_offset, int64_t length,
                  int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
 

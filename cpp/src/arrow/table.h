@@ -86,7 +86,7 @@ class ARROW_EXPORT ChunkedArray {
   ///
   /// \param[in] pool The pool for buffer allocations, if any
   /// \param[out] out The resulting vector of arrays
-  Status Flatten(MemoryPool* pool, std::vector<std::shared_ptr<ChunkedArray>>* out) const;
+  Status Flatten(std::shared_ptr<MemoryPool>& pool, std::vector<std::shared_ptr<ChunkedArray>>* out) const;
 
   std::shared_ptr<DataType> type() const { return type_; }
 
@@ -175,7 +175,7 @@ class ARROW_EXPORT Column {
   ///
   /// \param[in] pool The pool for buffer allocations, if any
   /// \param[out] out The resulting vector of arrays
-  Status Flatten(MemoryPool* pool, std::vector<std::shared_ptr<Column>>* out) const;
+  Status Flatten(std::shared_ptr<MemoryPool>& pool, std::vector<std::shared_ptr<Column>>* out) const;
 
   /// \brief Determine if two columns are equal.
   ///
@@ -280,7 +280,7 @@ class ARROW_EXPORT Table {
   ///
   /// \param[in] pool The pool for buffer allocations, if any
   /// \param[out] out The returned table
-  virtual Status Flatten(MemoryPool* pool, std::shared_ptr<Table>* out) const = 0;
+  virtual Status Flatten(std::shared_ptr<MemoryPool>& pool, std::shared_ptr<Table>* out) const = 0;
 
   /// \brief Perform any checks to validate the input arguments
   virtual Status Validate() const = 0;

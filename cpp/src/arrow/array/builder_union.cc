@@ -23,7 +23,7 @@
 
 namespace arrow {
 
-DenseUnionBuilder::DenseUnionBuilder(MemoryPool* pool,
+DenseUnionBuilder::DenseUnionBuilder(std::shared_ptr<MemoryPool>& pool,
                                      const std::shared_ptr<DataType>& type)
     : ArrayBuilder(type, pool), types_builder_(pool), offsets_builder_(pool) {}
 

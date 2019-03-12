@@ -611,7 +611,7 @@ cdef ParquetCompression compression_from_name(name):
 cdef class ParquetReader:
     cdef:
         object source
-        CMemoryPool* allocator
+        shared_ptr[CMemoryPool] allocator
         unique_ptr[FileReader] reader
         FileMetaData _metadata
 
@@ -809,7 +809,7 @@ cdef class ParquetWriter:
         cdef:
             shared_ptr[WriterProperties] properties
             c_string c_where
-            CMemoryPool* pool
+            shared_ptr[CMemoryPool] pool
 
         try:
             where = _stringify_path(where)

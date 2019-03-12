@@ -60,7 +60,8 @@ class TestStringArray : public ::testing::Test {
     length_ = static_cast<int64_t>(offsets_.size()) - 1;
     value_buf_ = Buffer::Wrap(chars_);
     offsets_buf_ = Buffer::Wrap(offsets_);
-    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
+    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, pool, &null_bitmap_));
     null_count_ = CountNulls(valid_bytes_);
 
     strings_ = std::make_shared<StringArray>(length_, offsets_buf_, value_buf_,
@@ -373,7 +374,8 @@ class TestBinaryArray : public ::testing::Test {
     value_buf_ = Buffer::Wrap(chars_);
     offsets_buf_ = Buffer::Wrap(offsets_);
 
-    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
+    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, pool, &null_bitmap_));
     null_count_ = CountNulls(valid_bytes_);
 
     strings_ = std::make_shared<BinaryArray>(length_, offsets_buf_, value_buf_,

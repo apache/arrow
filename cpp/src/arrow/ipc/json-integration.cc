@@ -99,7 +99,7 @@ Status JsonWriter::WriteRecordBatch(const RecordBatch& batch) {
 
 class JsonReader::JsonReaderImpl {
  public:
-  JsonReaderImpl(MemoryPool* pool, const std::shared_ptr<Buffer>& data)
+  JsonReaderImpl(std::shared_ptr<MemoryPool>& pool, const std::shared_ptr<Buffer>& data)
       : pool_(pool), data_(data), record_batches_(nullptr) {}
 
   Status ParseAndReadSchema() {
@@ -118,7 +118,7 @@ class JsonReader::JsonReaderImpl {
     return Status::OK();
   }
 
-  Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const {
+  Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
     DCHECK_GE(i, 0) << "i out of bounds";
     DCHECK_LT(i, static_cast<int>(record_batches_->GetArray().Size()))
         << "i out of bounds";
@@ -133,7 +133,7 @@ class JsonReader::JsonReaderImpl {
   }
 
  private:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   std::shared_ptr<Buffer> data_;
   rj::Document doc_;
 
@@ -141,7 +141,7 @@ class JsonReader::JsonReaderImpl {
   std::shared_ptr<Schema> schema_;
 };
 
-JsonReader::JsonReader(MemoryPool* pool, const std::shared_ptr<Buffer>& data) {
+JsonReader::JsonReader(std::shared_ptr<MemoryPool>& pool, const std::shared_ptr<Buffer>& data) {
   impl_.reset(new JsonReaderImpl(pool, data));
 }
 
@@ -149,16 +149,17 @@ JsonReader::~JsonReader() {}
 
 Status JsonReader::Open(const std::shared_ptr<Buffer>& data,
                         std::unique_ptr<JsonReader>* reader) {
-  return Open(default_memory_pool(), data, reader);
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  return Open(pool, data, reader);
 }
 
-Status JsonReader::Open(MemoryPool* pool, const std::shared_ptr<Buffer>& data,
+Status JsonReader::Open(std::shared_ptr<MemoryPool>& pool, const std::shared_ptr<Buffer>& data,
                         std::unique_ptr<JsonReader>* reader) {
   *reader = std::unique_ptr<JsonReader>(new JsonReader(pool, data));
   return (*reader)->impl_->ParseAndReadSchema();
 }
 
-Status JsonReader::Open(MemoryPool* pool,
+Status JsonReader::Open(std::shared_ptr<MemoryPool>& pool,
                         const std::shared_ptr<io::ReadableFile>& in_file,
                         std::unique_ptr<JsonReader>* reader) {
   int64_t file_size = 0;

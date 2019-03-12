@@ -71,7 +71,7 @@ Status CudaIpcMemHandle::FromBuffer(const void* opaque_handle,
   return Status::OK();
 }
 
-Status CudaIpcMemHandle::Serialize(MemoryPool* pool, std::shared_ptr<Buffer>* out) const {
+Status CudaIpcMemHandle::Serialize(std::shared_ptr<MemoryPool>& pool, std::shared_ptr<Buffer>* out) const {
   std::shared_ptr<Buffer> buffer;
   int64_t size = impl_->memory_size;
   size_t kHandleSize =

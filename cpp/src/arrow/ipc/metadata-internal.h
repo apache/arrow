@@ -164,7 +164,8 @@ static inline Status WriteFlatbufferBuilder(flatbuffers::FlatBufferBuilder& fbb,
   int32_t size = fbb.GetSize();
 
   std::shared_ptr<Buffer> result;
-  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), size, &result));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  RETURN_NOT_OK(AllocateBuffer(pool, size, &result));
 
   uint8_t* dst = result->mutable_data();
   memcpy(dst, fbb.GetBufferPointer(), size);

@@ -66,7 +66,7 @@ static constexpr int64_t kDefaultRightPadding = 16;
 
 class BaseTableReader : public csv::TableReader {
  public:
-  BaseTableReader(MemoryPool* pool, const ReadOptions& read_options,
+  BaseTableReader(std::shared_ptr<MemoryPool>& pool, const ReadOptions& read_options,
                   const ParseOptions& parse_options,
                   const ConvertOptions& convert_options)
       : pool_(pool),
@@ -208,7 +208,7 @@ class BaseTableReader : public csv::TableReader {
     return Status::OK();
   }
 
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   ReadOptions read_options_;
   ParseOptions parse_options_;
   ConvertOptions convert_options_;
@@ -238,7 +238,7 @@ class BaseTableReader : public csv::TableReader {
 
 class SerialTableReader : public BaseTableReader {
  public:
-  SerialTableReader(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
+  SerialTableReader(std::shared_ptr<MemoryPool>& pool, std::shared_ptr<io::InputStream> input,
                     const ReadOptions& read_options, const ParseOptions& parse_options,
                     const ConvertOptions& convert_options)
       : BaseTableReader(pool, read_options, parse_options, convert_options) {
@@ -302,7 +302,7 @@ class SerialTableReader : public BaseTableReader {
 
 class ThreadedTableReader : public BaseTableReader {
  public:
-  ThreadedTableReader(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
+  ThreadedTableReader(std::shared_ptr<MemoryPool>& pool, std::shared_ptr<io::InputStream> input,
                       ThreadPool* thread_pool, const ReadOptions& read_options,
                       const ParseOptions& parse_options,
                       const ConvertOptions& convert_options)
@@ -403,7 +403,7 @@ class ThreadedTableReader : public BaseTableReader {
 /////////////////////////////////////////////////////////////////////////
 // TableReader factory function
 
-Status TableReader::Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
+Status TableReader::Make(std::shared_ptr<MemoryPool>& pool, std::shared_ptr<io::InputStream> input,
                          const ReadOptions& read_options,
                          const ParseOptions& parse_options,
                          const ConvertOptions& convert_options,

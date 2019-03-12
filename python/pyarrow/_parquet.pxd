@@ -265,13 +265,13 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
 
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
     CStatus OpenFile(const shared_ptr[RandomAccessFile]& file,
-                     CMemoryPool* allocator,
+                     shared_ptr[CMemoryPool]& allocator,
                      const ReaderProperties& properties,
                      const shared_ptr[CFileMetaData]& metadata,
                      unique_ptr[FileReader]* reader)
 
     cdef cppclass FileReader:
-        FileReader(CMemoryPool* pool, unique_ptr[ParquetFileReader] reader)
+        FileReader(shared_ptr[CMemoryPool]& pool, unique_ptr[ParquetFileReader] reader)
         CStatus ReadColumn(int i, shared_ptr[CChunkedArray]* out)
         CStatus ReadSchemaField(int i, shared_ptr[CChunkedArray]* out)
 
@@ -308,7 +308,7 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
     cdef cppclass FileWriter:
 
         @staticmethod
-        CStatus Open(const CSchema& schema, CMemoryPool* pool,
+        CStatus Open(const CSchema& schema, shared_ptr[CMemoryPool]& pool,
                      const shared_ptr[OutputStream]& sink,
                      const shared_ptr[WriterProperties]& properties,
                      const shared_ptr[ArrowWriterProperties]& arrow_properties,

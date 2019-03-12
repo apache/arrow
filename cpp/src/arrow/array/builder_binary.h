@@ -42,9 +42,9 @@ constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
 /// \brief Builder class for variable-length binary data
 class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
  public:
-  explicit BinaryBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit BinaryBuilder(std::shared_ptr<MemoryPool> pool ARROW_MEMORY_POOL_DEFAULT);
 
-  BinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
+  BinaryBuilder(const std::shared_ptr<DataType>& type, std::shared_ptr<MemoryPool>& pool);
 
   Status Append(const uint8_t* value, int32_t length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
@@ -147,7 +147,7 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
 class ARROW_EXPORT StringBuilder : public BinaryBuilder {
  public:
   using BinaryBuilder::BinaryBuilder;
-  explicit StringBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit StringBuilder(std::shared_ptr<MemoryPool> pool ARROW_MEMORY_POOL_DEFAULT);
 
   using BinaryBuilder::Append;
   using BinaryBuilder::Reset;
@@ -181,7 +181,7 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
 class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
  public:
   FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
-                         MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+                         std::shared_ptr<MemoryPool> pool ARROW_MEMORY_POOL_DEFAULT);
 
   Status Append(const uint8_t* value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
@@ -255,7 +255,7 @@ namespace internal {
 class ARROW_EXPORT ChunkedBinaryBuilder {
  public:
   ChunkedBinaryBuilder(int32_t max_chunk_size,
-                       MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+                       std::shared_ptr<MemoryPool> pool ARROW_MEMORY_POOL_DEFAULT);
 
   virtual ~ChunkedBinaryBuilder() = default;
 

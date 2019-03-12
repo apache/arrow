@@ -46,14 +46,14 @@ BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& b
       position_(0),
       mutable_data_(buffer->mutable_data()) {}
 
-Status BufferOutputStream::Create(int64_t initial_capacity, MemoryPool* pool,
+Status BufferOutputStream::Create(int64_t initial_capacity, std::shared_ptr<MemoryPool>& pool,
                                   std::shared_ptr<BufferOutputStream>* out) {
   // ctor is private, so cannot use make_shared
   *out = std::shared_ptr<BufferOutputStream>(new BufferOutputStream);
   return (*out)->Reset(initial_capacity, pool);
 }
 
-Status BufferOutputStream::Reset(int64_t initial_capacity, MemoryPool* pool) {
+Status BufferOutputStream::Reset(int64_t initial_capacity, std::shared_ptr<MemoryPool> pool) {
   RETURN_NOT_OK(AllocateResizableBuffer(pool, initial_capacity, &buffer_));
   is_open_ = true;
   capacity_ = initial_capacity;

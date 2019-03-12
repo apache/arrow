@@ -120,7 +120,8 @@ static Status Generate(const std::vector<std::shared_ptr<Field>>& fields, Engine
 }
 
 Status MakeBuffer(util::string_view data, std::shared_ptr<Buffer>* out) {
-  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), data.size(), out));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  RETURN_NOT_OK(AllocateBuffer(pool, data.size(), out));
   std::copy(std::begin(data), std::end(data), (*out)->mutable_data());
   return Status::OK();
 }

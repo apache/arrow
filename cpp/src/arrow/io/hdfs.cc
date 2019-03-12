@@ -123,7 +123,7 @@ Status GetPathInfoFailed(const std::string& path) {
 // Private implementation for read-only files
 class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
  public:
-  explicit HdfsReadableFileImpl(MemoryPool* pool) : pool_(pool) {}
+  explicit HdfsReadableFileImpl(std::shared_ptr<MemoryPool>& pool) : pool_(pool) {}
 
   Status Close() {
     if (is_open_) {
@@ -209,19 +209,16 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     return Status::OK();
   }
 
-  void set_memory_pool(MemoryPool* pool) { pool_ = pool; }
+  void set_memory_pool(std::shared_ptr<MemoryPool>& pool) { pool_ = pool; }
 
   void set_buffer_size(int32_t buffer_size) { buffer_size_ = buffer_size; }
 
  private:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   int32_t buffer_size_;
 };
 
-HdfsReadableFile::HdfsReadableFile(MemoryPool* pool) {
-  if (pool == nullptr) {
-    pool = default_memory_pool();
-  }
+HdfsReadableFile::HdfsReadableFile(std::shared_ptr<MemoryPool> pool) {
   impl_.reset(new HdfsReadableFileImpl(pool));
 }
 

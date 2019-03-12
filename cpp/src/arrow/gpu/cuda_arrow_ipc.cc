@@ -60,7 +60,7 @@ Status SerializeRecordBatch(const RecordBatch& batch, CudaContext* ctx,
   return Status::OK();
 }
 
-Status ReadMessage(CudaBufferReader* reader, MemoryPool* pool,
+Status ReadMessage(CudaBufferReader* reader, std::shared_ptr<MemoryPool>& pool,
                    std::unique_ptr<ipc::Message>* out) {
   int32_t message_length = 0;
   int64_t bytes_read = 0;
@@ -90,7 +90,7 @@ Status ReadMessage(CudaBufferReader* reader, MemoryPool* pool,
 }
 
 Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
-                       const std::shared_ptr<CudaBuffer>& buffer, MemoryPool* pool,
+                       const std::shared_ptr<CudaBuffer>& buffer, std::shared_ptr<MemoryPool>& pool,
                        std::shared_ptr<RecordBatch>* out) {
   CudaBufferReader cuda_reader(buffer);
 

@@ -44,7 +44,7 @@ namespace arrow {
 // Decimal128Builder
 
 Decimal128Builder::Decimal128Builder(const std::shared_ptr<DataType>& type,
-                                     MemoryPool* pool)
+                                     std::shared_ptr<MemoryPool> pool)
     : FixedSizeBinaryBuilder(type, pool) {}
 
 Status Decimal128Builder::Append(const Decimal128& value) {

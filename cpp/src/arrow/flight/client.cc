@@ -115,7 +115,7 @@ class FlightPutWriter::FlightPutWriterImpl : public ipc::RecordBatchWriter {
   explicit FlightPutWriterImpl(std::unique_ptr<ClientRpc> rpc,
                                const FlightDescriptor& descriptor,
                                const std::shared_ptr<Schema>& schema,
-                               MemoryPool* pool = default_memory_pool())
+                               std::shared_ptr<MemoryPool> pool = default_memory_pool())
       : rpc_(std::move(rpc)), descriptor_(descriptor), schema_(schema), pool_(pool) {}
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override {
@@ -150,7 +150,7 @@ class FlightPutWriter::FlightPutWriterImpl : public ipc::RecordBatchWriter {
     return Status::OK();
   }
 
-  void set_memory_pool(MemoryPool* pool) override { pool_ = pool; }
+  void set_memory_pool(std::shared_ptr<MemoryPool>& pool) override { pool_ = pool; }
 
  private:
   /// \brief Set the gRPC writer backing this Flight stream.
@@ -165,7 +165,7 @@ class FlightPutWriter::FlightPutWriterImpl : public ipc::RecordBatchWriter {
   FlightDescriptor descriptor_;
   std::shared_ptr<Schema> schema_;
   std::unique_ptr<grpc::ClientWriter<pb::FlightData>> writer_;
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 
   // We need to reference some fields
   friend class FlightClient;
@@ -183,7 +183,7 @@ Status FlightPutWriter::WriteRecordBatch(const RecordBatch& batch, bool allow_64
 
 Status FlightPutWriter::Close() { return impl_->Close(); }
 
-void FlightPutWriter::set_memory_pool(MemoryPool* pool) {
+void FlightPutWriter::set_memory_pool(std::shared_ptr<MemoryPool>& pool) {
   return impl_->set_memory_pool(pool);
 }
 

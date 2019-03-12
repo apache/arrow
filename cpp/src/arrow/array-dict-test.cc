@@ -54,7 +54,8 @@ typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
 TYPED_TEST_CASE(TestDictionaryBuilder, PrimitiveDictionaries);
 
 TYPED_TEST(TestDictionaryBuilder, Basic) {
-  DictionaryBuilder<TypeParam> builder(default_memory_pool());
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  DictionaryBuilder<TypeParam> builder(pool);
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(2)));
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
@@ -80,7 +81,8 @@ TYPED_TEST(TestDictionaryBuilder, ArrayConversion) {
   auto type = std::make_shared<TypeParam>();
 
   auto intermediate_result = ArrayFromJSON(type, "[1, 2, 1]");
-  DictionaryBuilder<TypeParam> dictionary_builder(default_memory_pool());
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  DictionaryBuilder<TypeParam> dictionary_builder(pool);
   ASSERT_OK(dictionary_builder.AppendArray(*intermediate_result));
   std::shared_ptr<Array> result;
   ASSERT_OK(dictionary_builder.Finish(&result));
@@ -100,7 +102,8 @@ TYPED_TEST(TestDictionaryBuilder, DoubleTableSize) {
   // Skip this test for (u)int8
   if (sizeof(Scalar) > 1) {
     // Build the dictionary Array
-    DictionaryBuilder<TypeParam> builder(default_memory_pool());
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
+    DictionaryBuilder<TypeParam> builder(pool);
     // Build expected data
     NumericBuilder<TypeParam> dict_builder;
     Int16Builder int_builder;
@@ -137,7 +140,8 @@ TYPED_TEST(TestDictionaryBuilder, DeltaDictionary) {
   using c_type = typename TypeParam::c_type;
   auto type = std::make_shared<TypeParam>();
 
-  DictionaryBuilder<TypeParam> builder(default_memory_pool());
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  DictionaryBuilder<TypeParam> builder(pool);
 
   ASSERT_OK(builder.Append(static_cast<c_type>(1)));
   ASSERT_OK(builder.Append(static_cast<c_type>(2)));
@@ -173,7 +177,8 @@ TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
   using c_type = typename TypeParam::c_type;
   auto type = std::make_shared<TypeParam>();
 
-  DictionaryBuilder<TypeParam> builder(default_memory_pool());
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  DictionaryBuilder<TypeParam> builder(pool);
 
   ASSERT_OK(builder.Append(static_cast<c_type>(1)));
   ASSERT_OK(builder.Append(static_cast<c_type>(2)));
@@ -223,7 +228,8 @@ TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
 
 TEST(TestStringDictionaryBuilder, Basic) {
   // Build the dictionary Array
-  StringDictionaryBuilder builder(default_memory_pool());
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  StringDictionaryBuilder builder(pool);
   ASSERT_OK(builder.Append("test"));
   ASSERT_OK(builder.Append("test2"));
   ASSERT_OK(builder.Append("test"));
@@ -242,7 +248,8 @@ TEST(TestStringDictionaryBuilder, Basic) {
 // ARROW-4367
 TEST(TestStringDictionaryBuilder, OnlyNull) {
   // Build the dictionary Array
-  StringDictionaryBuilder builder(default_memory_pool());
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  StringDictionaryBuilder builder(pool);
   ASSERT_OK(builder.AppendNull());
 
   std::shared_ptr<Array> result;
@@ -258,7 +265,8 @@ TEST(TestStringDictionaryBuilder, OnlyNull) {
 
 TEST(TestStringDictionaryBuilder, DoubleTableSize) {
   // Build the dictionary Array
-  StringDictionaryBuilder builder(default_memory_pool());
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  StringDictionaryBuilder builder(pool);
   // Build expected data
   StringBuilder str_builder;
   Int16Builder int_builder;
@@ -294,7 +302,8 @@ TEST(TestStringDictionaryBuilder, DoubleTableSize) {
 
 TEST(TestStringDictionaryBuilder, DeltaDictionary) {
   // Build the dictionary Array
-  StringDictionaryBuilder builder(default_memory_pool());
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  StringDictionaryBuilder builder(pool);
   ASSERT_OK(builder.Append("test"));
   ASSERT_OK(builder.Append("test2"));
   ASSERT_OK(builder.Append("test"));
@@ -328,7 +337,8 @@ TEST(TestStringDictionaryBuilder, DeltaDictionary) {
 TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
   constexpr int16_t kTestLength = 2048;
   // Build the dictionary Array
-  StringDictionaryBuilder builder(default_memory_pool());
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  StringDictionaryBuilder builder(pool);
 
   StringBuilder str_builder1;
   Int16Builder int_builder1;
@@ -413,8 +423,9 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
 
 TEST(TestFixedSizeBinaryDictionaryBuilder, Basic) {
   // Build the dictionary Array
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   DictionaryBuilder<FixedSizeBinaryType> builder(arrow::fixed_size_binary(4),
-                                                 default_memory_pool());
+                                                 pool);
   std::vector<uint8_t> test{12, 12, 11, 12};
   std::vector<uint8_t> test2{12, 12, 11, 11};
   ASSERT_OK(builder.Append(test.data()));
@@ -445,8 +456,9 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, Basic) {
 
 TEST(TestFixedSizeBinaryDictionaryBuilder, DeltaDictionary) {
   // Build the dictionary Array
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   DictionaryBuilder<FixedSizeBinaryType> builder(arrow::fixed_size_binary(4),
-                                                 default_memory_pool());
+                                                 pool);
   std::vector<uint8_t> test{12, 12, 11, 12};
   std::vector<uint8_t> test2{12, 12, 11, 11};
   std::vector<uint8_t> test3{12, 12, 11, 10};
@@ -504,8 +516,9 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DeltaDictionary) {
 
 TEST(TestFixedSizeBinaryDictionaryBuilder, DoubleTableSize) {
   // Build the dictionary Array
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   DictionaryBuilder<FixedSizeBinaryType> builder(arrow::fixed_size_binary(4),
-                                                 default_memory_pool());
+                                                 pool);
   // Build expected data
   FixedSizeBinaryBuilder fsb_builder(arrow::fixed_size_binary(4));
   Int16Builder int_builder;
@@ -542,8 +555,9 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DoubleTableSize) {
 
 TEST(TestFixedSizeBinaryDictionaryBuilder, InvalidTypeAppend) {
   // Build the dictionary Array
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   DictionaryBuilder<FixedSizeBinaryType> builder(arrow::fixed_size_binary(4),
-                                                 default_memory_pool());
+                                                 pool);
   // Build an array with different byte width
   FixedSizeBinaryBuilder fsb_builder(arrow::fixed_size_binary(5));
   std::vector<uint8_t> value{100, 1, 1, 1, 1};
@@ -557,7 +571,8 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, InvalidTypeAppend) {
 TEST(TestDecimalDictionaryBuilder, Basic) {
   // Build the dictionary Array
   auto decimal_type = arrow::decimal(2, 0);
-  DictionaryBuilder<FixedSizeBinaryType> builder(decimal_type, default_memory_pool());
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  DictionaryBuilder<FixedSizeBinaryType> builder(decimal_type, pool);
 
   // Test data
   std::vector<Decimal128> test{12, 12, 11, 12};
@@ -579,7 +594,8 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
   const auto& decimal_type = arrow::decimal(21, 0);
 
   // Build the dictionary Array
-  DictionaryBuilder<FixedSizeBinaryType> builder(decimal_type, default_memory_pool());
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  DictionaryBuilder<FixedSizeBinaryType> builder(decimal_type, pool);
 
   // Build expected data
   FixedSizeBinaryBuilder fsb_builder(decimal_type);
@@ -779,8 +795,9 @@ TEST(TestDictionary, TransposeBasic) {
     auto out_dict_type = dictionary(int16(), out_dict);
 
     const std::vector<int32_t> transpose_map{1, 3, 2};
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
     ASSERT_OK(internal::checked_cast<const DictionaryArray&>(*arr).Transpose(
-        default_memory_pool(), out_dict_type, transpose_map, &out));
+        pool, out_dict_type, transpose_map, &out));
 
     auto expected_indices = ArrayFromJSON(int16(), "[3, 2, 1, 1]");
     ASSERT_OK(DictionaryArray::FromArrays(out_dict_type, expected_indices, &expected));
@@ -793,8 +810,9 @@ TEST(TestDictionary, TransposeBasic) {
     auto out_dict_type = dictionary(int8(), out_dict);
 
     const std::vector<int32_t> transpose_map{1, 3, 2};
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
     ASSERT_OK(internal::checked_cast<const DictionaryArray&>(*arr).Transpose(
-        default_memory_pool(), out_dict_type, transpose_map, &out));
+        pool, out_dict_type, transpose_map, &out));
 
     auto expected_indices = ArrayFromJSON(int8(), "[3, 2, 1, 1]");
     ASSERT_OK(DictionaryArray::FromArrays(out_dict_type, expected_indices, &expected));
@@ -815,8 +833,9 @@ TEST(TestDictionary, TransposeNulls) {
   auto out_dict_type = dictionary(int16(), out_dict);
 
   const std::vector<int32_t> transpose_map{1, 3, 2};
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   ASSERT_OK(internal::checked_cast<const DictionaryArray&>(*arr).Transpose(
-      default_memory_pool(), out_dict_type, transpose_map, &out));
+      pool, out_dict_type, transpose_map, &out));
 
   auto expected_indices = ArrayFromJSON(int16(), "[3, 2, null, 1]");
   ASSERT_OK(DictionaryArray::FromArrays(out_dict_type, expected_indices, &expected));

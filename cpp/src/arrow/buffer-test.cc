@@ -38,14 +38,16 @@ namespace arrow {
 
 TEST(TestAllocate, Bitmap) {
   std::shared_ptr<Buffer> new_buffer;
-  EXPECT_OK(AllocateBitmap(default_memory_pool(), 100, &new_buffer));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  EXPECT_OK(AllocateBitmap(pool, 100, &new_buffer));
   EXPECT_GE(new_buffer->size(), 13);
   EXPECT_EQ(new_buffer->capacity() % 8, 0);
 }
 
 TEST(TestAllocate, EmptyBitmap) {
   std::shared_ptr<Buffer> new_buffer;
-  EXPECT_OK(AllocateEmptyBitmap(default_memory_pool(), 100, &new_buffer));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  EXPECT_OK(AllocateEmptyBitmap(pool, 100, &new_buffer));
   EXPECT_EQ(new_buffer->size(), 13);
   EXPECT_EQ(new_buffer->capacity() % 8, 0);
   EXPECT_TRUE(std::all_of(new_buffer->data(), new_buffer->data() + new_buffer->capacity(),
@@ -78,16 +80,16 @@ TEST(TestBuffer, FromStdStringWithMemory) {
 }
 
 TEST(TestBuffer, EqualsWithSameContent) {
-  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   const int32_t bufferSize = 128 * 1024;
   uint8_t* rawBuffer1;
-  ASSERT_OK(pool->Allocate(bufferSize, &rawBuffer1));
+  ASSERT_OK(pool.get()->Allocate(bufferSize, &rawBuffer1));
   memset(rawBuffer1, 12, bufferSize);
   uint8_t* rawBuffer2;
-  ASSERT_OK(pool->Allocate(bufferSize, &rawBuffer2));
+  ASSERT_OK(pool.get()->Allocate(bufferSize, &rawBuffer2));
   memset(rawBuffer2, 12, bufferSize);
   uint8_t* rawBuffer3;
-  ASSERT_OK(pool->Allocate(bufferSize, &rawBuffer3));
+  ASSERT_OK(pool.get()->Allocate(bufferSize, &rawBuffer3));
   memset(rawBuffer3, 3, bufferSize);
 
   Buffer buffer1(rawBuffer1, bufferSize);
@@ -96,16 +98,16 @@ TEST(TestBuffer, EqualsWithSameContent) {
   ASSERT_TRUE(buffer1.Equals(buffer2));
   ASSERT_FALSE(buffer1.Equals(buffer3));
 
-  pool->Free(rawBuffer1, bufferSize);
-  pool->Free(rawBuffer2, bufferSize);
-  pool->Free(rawBuffer3, bufferSize);
+  pool.get()->Free(rawBuffer1, bufferSize);
+  pool.get()->Free(rawBuffer2, bufferSize);
+  pool.get()->Free(rawBuffer3, bufferSize);
 }
 
 TEST(TestBuffer, EqualsWithSameBuffer) {
-  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   const int32_t bufferSize = 128 * 1024;
   uint8_t* rawBuffer;
-  ASSERT_OK(pool->Allocate(bufferSize, &rawBuffer));
+  ASSERT_OK(pool.get()->Allocate(bufferSize, &rawBuffer));
   memset(rawBuffer, 111, bufferSize);
 
   Buffer buffer1(rawBuffer, bufferSize);
@@ -117,7 +119,7 @@ TEST(TestBuffer, EqualsWithSameBuffer) {
   ASSERT_TRUE(buffer1.Equals(buffer3, nbytes));
   ASSERT_FALSE(buffer1.Equals(buffer3, nbytes + 1));
 
-  pool->Free(rawBuffer, bufferSize);
+  pool.get()->Free(rawBuffer, bufferSize);
 }
 
 TEST(TestBuffer, Copy) {
@@ -194,8 +196,8 @@ TEST(TestBuffer, SliceMutableBuffer) {
 }
 
 template <typename AllocateFunction>
-void TestZeroSizeAllocateBuffer(MemoryPool* pool, AllocateFunction&& allocate_func) {
-  auto allocated_bytes = pool->bytes_allocated();
+void TestZeroSizeAllocateBuffer(std::shared_ptr<MemoryPool>& pool, AllocateFunction&& allocate_func) {
+  auto allocated_bytes = pool.get()->bytes_allocated();
   {
     std::shared_ptr<Buffer> buffer;
 
@@ -205,22 +207,22 @@ void TestZeroSizeAllocateBuffer(MemoryPool* pool, AllocateFunction&& allocate_fu
     ASSERT_NE(buffer->data(), nullptr);
     ASSERT_EQ(buffer->mutable_data(), buffer->data());
 
-    ASSERT_GE(pool->bytes_allocated(), allocated_bytes);
+    ASSERT_GE(pool.get()->bytes_allocated(), allocated_bytes);
   }
-  ASSERT_EQ(pool->bytes_allocated(), allocated_bytes);
+  ASSERT_EQ(pool.get()->bytes_allocated(), allocated_bytes);
 }
 
 TEST(TestAllocateBuffer, ZeroSize) {
-  MemoryPool* pool = default_memory_pool();
-  auto allocate_func = [](MemoryPool* pool, int64_t size, std::shared_ptr<Buffer>* out) {
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  auto allocate_func = [](std::shared_ptr<MemoryPool>& pool, int64_t size, std::shared_ptr<Buffer>* out) {
     return AllocateBuffer(pool, size, out);
   };
   TestZeroSizeAllocateBuffer(pool, allocate_func);
 }
 
 TEST(TestAllocateResizableBuffer, ZeroSize) {
-  MemoryPool* pool = default_memory_pool();
-  auto allocate_func = [](MemoryPool* pool, int64_t size, std::shared_ptr<Buffer>* out) {
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  auto allocate_func = [](std::shared_ptr<MemoryPool>& pool, int64_t size, std::shared_ptr<Buffer>* out) {
     std::shared_ptr<ResizableBuffer> res;
     RETURN_NOT_OK(AllocateResizableBuffer(pool, size, &res));
     *out = res;
@@ -230,8 +232,8 @@ TEST(TestAllocateResizableBuffer, ZeroSize) {
 }
 
 TEST(TestAllocateResizableBuffer, ZeroResize) {
-  MemoryPool* pool = default_memory_pool();
-  auto allocated_bytes = pool->bytes_allocated();
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  auto allocated_bytes = pool.get()->bytes_allocated();
   {
     std::shared_ptr<ResizableBuffer> buffer;
 
@@ -240,16 +242,16 @@ TEST(TestAllocateResizableBuffer, ZeroResize) {
     ASSERT_NE(buffer->data(), nullptr);
     ASSERT_EQ(buffer->mutable_data(), buffer->data());
 
-    ASSERT_GE(pool->bytes_allocated(), allocated_bytes + 1000);
+    ASSERT_GE(pool.get()->bytes_allocated(), allocated_bytes + 1000);
 
     ASSERT_OK(buffer->Resize(0));
     ASSERT_NE(buffer->data(), nullptr);
     ASSERT_EQ(buffer->mutable_data(), buffer->data());
 
-    ASSERT_GE(pool->bytes_allocated(), allocated_bytes);
-    ASSERT_LT(pool->bytes_allocated(), allocated_bytes + 1000);
+    ASSERT_GE(pool.get()->bytes_allocated(), allocated_bytes);
+    ASSERT_LT(pool.get()->bytes_allocated(), allocated_bytes + 1000);
   }
-  ASSERT_EQ(pool->bytes_allocated(), allocated_bytes);
+  ASSERT_EQ(pool.get()->bytes_allocated(), allocated_bytes);
 }
 
 TEST(TestBufferBuilder, ResizeReserve) {

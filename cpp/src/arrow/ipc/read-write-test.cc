@@ -60,7 +60,8 @@ class TestSchemaMetadata : public ::testing::Test {
 
   void CheckRoundtrip(const Schema& schema) {
     std::shared_ptr<Buffer> buffer;
-    ASSERT_OK(SerializeSchema(schema, default_memory_pool(), &buffer));
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
+    ASSERT_OK(SerializeSchema(schema, pool, &buffer));
 
     std::shared_ptr<Schema> result;
     io::BufferReader reader(buffer);
@@ -118,8 +119,8 @@ TEST(TestMessage, SerializeTo) {
 
   {
     const int32_t alignment = 8;
-
-    ASSERT_OK(io::BufferOutputStream::Create(1 << 10, default_memory_pool(), &stream));
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
+    ASSERT_OK(io::BufferOutputStream::Create(1 << 10, pool, &stream));
     ASSERT_OK(message->SerializeTo(stream.get(), alignment, &output_length));
     ASSERT_OK(stream->Tell(&position));
     ASSERT_EQ(BitUtil::RoundUp(metadata->size() + 4, alignment) + body_length,
@@ -129,8 +130,8 @@ TEST(TestMessage, SerializeTo) {
 
   {
     const int32_t alignment = 64;
-
-    ASSERT_OK(io::BufferOutputStream::Create(1 << 10, default_memory_pool(), &stream));
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
+    ASSERT_OK(io::BufferOutputStream::Create(1 << 10, pool, &stream));
     ASSERT_OK(message->SerializeTo(stream.get(), alignment, &output_length));
     ASSERT_OK(stream->Tell(&position));
     ASSERT_EQ(BitUtil::RoundUp(metadata->size() + 4, alignment) + body_length,
@@ -276,7 +277,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
 
  protected:
   std::shared_ptr<io::MemoryMappedFile> mmap_;
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 };
 
 class TestWriteRecordBatch : public ::testing::Test, public IpcTestFixture {
@@ -412,7 +413,7 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
   auto union_type = union_({field("f0", a0->type())}, {0});
   std::vector<int32_t> type_ids(a0->length());
   std::shared_ptr<Buffer> ids_buffer;
-  ASSERT_OK(CopyBufferFromVector(type_ids, default_memory_pool(), &ids_buffer));
+  ASSERT_OK(CopyBufferFromVector(type_ids, pool, &ids_buffer));
   a1 =
       std::make_shared<UnionArray>(union_type, a0->length(), struct_children, ids_buffer);
   CheckArray(a1);
@@ -424,7 +425,7 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
     type_offsets.push_back(i);
   }
   std::shared_ptr<Buffer> offsets_buffer;
-  ASSERT_OK(CopyBufferFromVector(type_offsets, default_memory_pool(), &offsets_buffer));
+  ASSERT_OK(CopyBufferFromVector(type_offsets, pool, &offsets_buffer));
   a1 = std::make_shared<UnionArray>(dense_union_type, a0->length(), struct_children,
                                     ids_buffer, offsets_buffer);
   CheckArray(a1);
@@ -435,8 +436,9 @@ void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
   int32_t mock_metadata_length = -1;
   int64_t mock_body_length = -1;
   int64_t size = -1;
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   ASSERT_OK(WriteRecordBatch(*batch, 0, &mock, &mock_metadata_length, &mock_body_length,
-                             default_memory_pool()));
+                             pool));
   ASSERT_OK(GetRecordBatchSize(*batch, &size));
   ASSERT_EQ(mock.GetExtentBytesWritten(), size);
 }
@@ -501,7 +503,7 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
 
  protected:
   std::shared_ptr<io::MemoryMappedFile> mmap_;
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 };
 
 TEST_F(RecursionLimits, WriteLimit) {
@@ -753,8 +755,8 @@ INSTANTIATE_TEST_CASE_P(StreamRoundTripTests, TestStreamFormat, BATCH_CASES());
 #if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
 TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   const int64_t length = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
-
-  BooleanBuilder builder(default_memory_pool());
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  BooleanBuilder builder(pool);
   ASSERT_OK(builder.Reserve(length));
   ASSERT_OK(builder.Advance(length));
 
@@ -887,9 +889,9 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCOOIndex>(
   int64_t body_length;
 
   ASSERT_OK(mmap_->Seek(0));
-
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   ASSERT_OK(WriteSparseTensor(tensor, mmap_.get(), &metadata_length, &body_length,
-                              default_memory_pool()));
+                              pool));
 
   const auto& sparse_index = checked_cast<const SparseCOOIndex&>(*tensor.sparse_index());
   const int64_t indices_length = elem_size * sparse_index.indices()->size();
@@ -919,9 +921,9 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCSRIndex>(
   int64_t body_length;
 
   ASSERT_OK(mmap_->Seek(0));
-
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   ASSERT_OK(WriteSparseTensor(tensor, mmap_.get(), &metadata_length, &body_length,
-                              default_memory_pool()));
+                              pool));
 
   const auto& sparse_index = checked_cast<const SparseCSRIndex&>(*tensor.sparse_index());
   const int64_t indptr_length = elem_size * sparse_index.indptr()->size();

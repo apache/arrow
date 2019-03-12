@@ -66,7 +66,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
 // scalar Python types, lists, tuples, dictionaries and tensors.
 class SequenceBuilder {
  public:
-  explicit SequenceBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+  explicit SequenceBuilder(std::shared_ptr<MemoryPool> pool ARROW_MEMORY_POOL_DEFAULT)
       : pool_(pool),
         types_(::arrow::int8(), pool),
         offsets_(::arrow::int32(), pool),
@@ -230,7 +230,7 @@ class SequenceBuilder {
   std::shared_ptr<DenseUnionBuilder> builder() { return builder_; }
 
  private:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 
   Int8Builder types_;
   Int32Builder offsets_;
@@ -270,7 +270,7 @@ class SequenceBuilder {
 // can be obtained via the Finish method.
 class DictBuilder {
  public:
-  explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {
+  explicit DictBuilder(std::shared_ptr<MemoryPool> pool = nullptr) : keys_(pool), vals_(pool) {
     builder_.reset(new StructBuilder(nullptr, pool, {keys_.builder(), vals_.builder()}));
   }
 
@@ -515,7 +515,8 @@ Status AppendArray(PyObject* context, PyArrayObject* array, SequenceBuilder* bui
       RETURN_NOT_OK(
           builder->AppendNdarray(static_cast<int32_t>(blobs_out->ndarrays.size())));
       std::shared_ptr<Tensor> tensor;
-      RETURN_NOT_OK(NdarrayToTensor(default_memory_pool(),
+      std::shared_ptr<MemoryPool> pool = default_memory_pool();
+      RETURN_NOT_OK(NdarrayToTensor(pool,
                                     reinterpret_cast<PyObject*>(array), &tensor));
       blobs_out->ndarrays.push_back(tensor);
     } break;
@@ -611,7 +612,7 @@ Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
   return Status::OK();
 }
 
-Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out) {
+Status SerializedPyObject::GetComponents(std::shared_ptr<MemoryPool>& memory_pool, PyObject** out) {
   PyAcquireGIL py_gil;
 
   OwnedRef result(PyDict_New());

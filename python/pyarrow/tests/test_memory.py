@@ -83,3 +83,9 @@ def test_set_memory_pool():
         assert pool.bytes_allocated() == allocated_before
     finally:
         pa.set_memory_pool(old_pool)
+
+
+def test_memory_pool_destruction():
+    pool = pa.logging_memory_pool(pa.default_memory_pool())
+    buf = pa.allocate_buffer(512, memory_pool=pool)
+    del pool

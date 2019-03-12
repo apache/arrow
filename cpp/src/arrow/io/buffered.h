@@ -45,7 +45,7 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   /// \param[in] raw another OutputStream
   /// \param[out] out the created BufferedOutputStream
   /// \return Status
-  static Status Create(int64_t buffer_size, MemoryPool* pool,
+  static Status Create(int64_t buffer_size, std::shared_ptr<MemoryPool>& pool,
                        std::shared_ptr<OutputStream> raw,
                        std::shared_ptr<BufferedOutputStream>* out);
 
@@ -80,7 +80,7 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   std::shared_ptr<OutputStream> raw() const;
 
  private:
-  explicit BufferedOutputStream(std::shared_ptr<OutputStream> raw, MemoryPool* pool);
+  explicit BufferedOutputStream(std::shared_ptr<OutputStream> raw, std::shared_ptr<MemoryPool>& pool);
 
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
@@ -99,7 +99,7 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   /// \param[in] pool a MemoryPool to use for allocations
   /// \param[in] raw a raw InputStream
   /// \param[out] out the created BufferedInputStream
-  static Status Create(int64_t buffer_size, MemoryPool* pool,
+  static Status Create(int64_t buffer_size, std::shared_ptr<MemoryPool>& pool,
                        std::shared_ptr<InputStream> raw,
                        std::shared_ptr<BufferedInputStream>* out);
 
@@ -138,7 +138,7 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
  private:
-  explicit BufferedInputStream(std::shared_ptr<InputStream> raw, MemoryPool* pool);
+  explicit BufferedInputStream(std::shared_ptr<InputStream> raw, std::shared_ptr<MemoryPool>& pool);
 
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;

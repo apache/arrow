@@ -145,7 +145,7 @@ int64_t CountNulls(const std::vector<uint8_t>& valid_bytes) {
   return static_cast<int64_t>(std::count(valid_bytes.cbegin(), valid_bytes.cend(), '\0'));
 }
 
-Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
+Status MakeRandomByteBuffer(int64_t length, std::shared_ptr<MemoryPool>& pool,
                             std::shared_ptr<ResizableBuffer>* out, uint32_t seed) {
   std::shared_ptr<ResizableBuffer> result;
   RETURN_NOT_OK(AllocateResizableBuffer(pool, length, &result));

@@ -132,7 +132,7 @@ class ARROW_EXPORT CudaIpcMemHandle {
   /// \param[in] pool a MemoryPool to allocate memory from
   /// \param[out] out the serialized buffer
   /// \return Status
-  Status Serialize(MemoryPool* pool, std::shared_ptr<Buffer>* out) const;
+  Status Serialize(std::shared_ptr<MemoryPool>& pool, std::shared_ptr<Buffer>* out) const;
 
  private:
   explicit CudaIpcMemHandle(const void* handle);

@@ -56,7 +56,7 @@ void ColumnBuilder::Append(const std::shared_ptr<BlockParser>& parser) {
 class TypedColumnBuilder : public ColumnBuilder {
  public:
   TypedColumnBuilder(const std::shared_ptr<DataType>& type, int32_t col_index,
-                     const ConvertOptions& options, MemoryPool* pool,
+                     const ConvertOptions& options, std::shared_ptr<MemoryPool>& pool,
                      const std::shared_ptr<internal::TaskGroup>& task_group)
       : ColumnBuilder(task_group),
         type_(type),
@@ -85,7 +85,7 @@ class TypedColumnBuilder : public ColumnBuilder {
   std::shared_ptr<DataType> type_;
   int32_t col_index_;
   ConvertOptions options_;
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 
   std::shared_ptr<Converter> converter_;
 };
@@ -140,7 +140,7 @@ Status TypedColumnBuilder::Finish(std::shared_ptr<ChunkedArray>* out) {
 class InferringColumnBuilder : public ColumnBuilder {
  public:
   InferringColumnBuilder(int32_t col_index, const ConvertOptions& options,
-                         MemoryPool* pool,
+                         std::shared_ptr<MemoryPool>& pool,
                          const std::shared_ptr<internal::TaskGroup>& task_group)
       : ColumnBuilder(task_group),
         col_index_(col_index),
@@ -163,7 +163,7 @@ class InferringColumnBuilder : public ColumnBuilder {
 
   int32_t col_index_;
   ConvertOptions options_;
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   std::shared_ptr<Converter> converter_;
 
   // Current inference status
@@ -352,8 +352,9 @@ Status ColumnBuilder::Make(const std::shared_ptr<DataType>& type, int32_t col_in
                            const ConvertOptions& options,
                            const std::shared_ptr<TaskGroup>& task_group,
                            std::shared_ptr<ColumnBuilder>* out) {
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   auto ptr =
-      new TypedColumnBuilder(type, col_index, options, default_memory_pool(), task_group);
+      new TypedColumnBuilder(type, col_index, options, pool, task_group);
   auto res = std::shared_ptr<ColumnBuilder>(ptr);
   RETURN_NOT_OK(ptr->Init());
   *out = res;
@@ -363,8 +364,9 @@ Status ColumnBuilder::Make(const std::shared_ptr<DataType>& type, int32_t col_in
 Status ColumnBuilder::Make(int32_t col_index, const ConvertOptions& options,
                            const std::shared_ptr<TaskGroup>& task_group,
                            std::shared_ptr<ColumnBuilder>* out) {
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   auto ptr =
-      new InferringColumnBuilder(col_index, options, default_memory_pool(), task_group);
+      new InferringColumnBuilder(col_index, options, pool, task_group);
   auto res = std::shared_ptr<ColumnBuilder>(ptr);
   RETURN_NOT_OK(ptr->Init());
   *out = res;

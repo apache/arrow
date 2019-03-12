@@ -30,7 +30,7 @@ cdef class StringBuilder:
         unique_ptr[CStringBuilder] builder
 
     def __cinit__(self, MemoryPool memory_pool=None):
-        cdef CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+        cdef shared_ptr[CMemoryPool] pool = maybe_unbox_memory_pool(memory_pool)
         self.builder.reset(new CStringBuilder(pool))
 
     def append(self, value):

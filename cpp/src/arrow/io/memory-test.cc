@@ -203,7 +203,8 @@ TEST(TestBufferReader, RetainParentReference) {
   std::shared_ptr<Buffer> slice2;
   {
     std::shared_ptr<Buffer> buffer;
-    ASSERT_OK(AllocateBuffer(nullptr, static_cast<int64_t>(data.size()), &buffer));
+    std::shared_ptr<MemoryPool> pool;
+    ASSERT_OK(AllocateBuffer(pool, static_cast<int64_t>(data.size()), &buffer));
     std::memcpy(buffer->mutable_data(), data.c_str(), data.size());
     BufferReader reader(buffer);
     ASSERT_OK(reader.Read(4, &slice1));

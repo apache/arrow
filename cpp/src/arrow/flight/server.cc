@@ -200,7 +200,7 @@ class FlightServiceImpl : public FlightService::Service {
 
     // Write the schema as the first message in the stream
     FlightPayload schema_payload;
-    MemoryPool* pool = default_memory_pool();
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
     ipc::DictionaryMemo dictionary_memo;
     GRPC_RETURN_NOT_OK(ipc::internal::GetSchemaPayload(
         *data_stream->schema(), pool, &dictionary_memo, &schema_payload.ipc_message));

@@ -30,7 +30,7 @@ namespace arrow {
 
 class TestMemoryPoolBase : public ::testing::Test {
  public:
-  virtual ::arrow::MemoryPool* memory_pool() = 0;
+  virtual std::shared_ptr<::arrow::MemoryPool> memory_pool() = 0;
 
   void TestMemoryTracking() {
     auto pool = memory_pool();

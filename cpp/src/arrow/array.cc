@@ -199,7 +199,7 @@ ListArray::ListArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(internal_data);
 }
 
-Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
+Status ListArray::FromArrays(const Array& offsets, const Array& values, std::shared_ptr<MemoryPool>& pool,
                              std::shared_ptr<Array>* out) {
   if (offsets.length() == 0) {
     return Status::Invalid("List offsets must have non-zero length");
@@ -399,7 +399,7 @@ std::shared_ptr<Array> StructArray::GetFieldByName(const std::string& name) cons
   return i == -1 ? nullptr : field(i);
 }
 
-Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
+Status StructArray::Flatten(std::shared_ptr<MemoryPool>& pool, ArrayVector* out) const {
   ArrayVector flattened;
   std::shared_ptr<Buffer> null_bitmap = data_->buffers[0];
 
@@ -664,7 +664,7 @@ std::shared_ptr<Array> DictionaryArray::dictionary() const {
 }
 
 template <typename InType, typename OutType>
-static Status TransposeDictIndices(MemoryPool* pool, const ArrayData& in_data,
+static Status TransposeDictIndices(std::shared_ptr<MemoryPool>& pool, const ArrayData& in_data,
                                    const std::shared_ptr<DataType>& type,
                                    const std::vector<int32_t>& transpose_map,
                                    std::shared_ptr<Array>* out) {
@@ -683,7 +683,7 @@ static Status TransposeDictIndices(MemoryPool* pool, const ArrayData& in_data,
   return Status::OK();
 }
 
-Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+Status DictionaryArray::Transpose(std::shared_ptr<MemoryPool>& pool, const std::shared_ptr<DataType>& type,
                                   const std::vector<int32_t>& transpose_map,
                                   std::shared_ptr<Array>* out) const {
   DCHECK_EQ(type->id(), Type::DICTIONARY);

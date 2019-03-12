@@ -290,7 +290,8 @@ class StringConverter final : public ConcreteConverter<StringConverter> {
  public:
   explicit StringConverter(const std::shared_ptr<DataType>& type) {
     this->type_ = type;
-    builder_ = std::make_shared<BinaryBuilder>(type, default_memory_pool());
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
+    builder_ = std::make_shared<BinaryBuilder>(type, pool);
   }
 
   Status AppendNull() override { return builder_->AppendNull(); }
@@ -321,7 +322,8 @@ class FixedSizeBinaryConverter final
  public:
   explicit FixedSizeBinaryConverter(const std::shared_ptr<DataType>& type) {
     this->type_ = type;
-    builder_ = std::make_shared<FixedSizeBinaryBuilder>(type, default_memory_pool());
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
+    builder_ = std::make_shared<FixedSizeBinaryBuilder>(type, pool);
   }
 
   Status AppendNull() override { return builder_->AppendNull(); }
@@ -361,7 +363,8 @@ class ListConverter final : public ConcreteConverter<ListConverter> {
     const auto& list_type = checked_cast<const ListType&>(*type_);
     RETURN_NOT_OK(GetConverter(list_type.value_type(), &child_converter_));
     auto child_builder = child_converter_->builder();
-    builder_ = std::make_shared<ListBuilder>(default_memory_pool(), child_builder, type_);
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
+    builder_ = std::make_shared<ListBuilder>(pool, child_builder, type_);
     return Status::OK();
   }
 
@@ -398,7 +401,8 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
       child_converters_.push_back(child_converter);
       child_builders.push_back(child_converter->builder());
     }
-    builder_ = std::make_shared<StructBuilder>(type_, default_memory_pool(),
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
+    builder_ = std::make_shared<StructBuilder>(type_, pool,
                                                std::move(child_builders));
     return Status::OK();
   }

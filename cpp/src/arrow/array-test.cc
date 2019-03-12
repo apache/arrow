@@ -60,7 +60,7 @@ class TestArray : public ::testing::Test {
   void SetUp() { pool_ = default_memory_pool(); }
 
  protected:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 };
 
 TEST_F(TestArray, TestNullCount) {
@@ -87,12 +87,13 @@ TEST_F(TestArray, TestLength) {
   ASSERT_EQ(arr->length(), 100);
 }
 
-Status MakeArrayFromValidBytes(const vector<uint8_t>& v, MemoryPool* pool,
+Status MakeArrayFromValidBytes(const vector<uint8_t>& v, std::shared_ptr<MemoryPool>& pool,
                                std::shared_ptr<Array>* out) {
   int64_t null_count = v.size() - std::accumulate(v.begin(), v.end(), 0);
 
   std::shared_ptr<Buffer> null_buf;
-  RETURN_NOT_OK(BitUtil::BytesToBits(v, default_memory_pool(), &null_buf));
+  std::shared_ptr<MemoryPool> pool_ = default_memory_pool();
+  RETURN_NOT_OK(BitUtil::BytesToBits(v, pool_, &null_buf));
 
   TypedBufferBuilder<int32_t> value_builder(pool);
   for (size_t i = 0; i < v.size(); ++i) {
@@ -197,7 +198,8 @@ TEST_F(TestArray, TestIsNullIsValid) {
   }
 
   std::shared_ptr<Buffer> null_buf;
-  ASSERT_OK(BitUtil::BytesToBits(null_bitmap, default_memory_pool(), &null_buf));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  ASSERT_OK(BitUtil::BytesToBits(null_bitmap, pool, &null_buf));
 
   std::unique_ptr<Array> arr;
   arr.reset(new Int32Array(null_bitmap.size(), nullptr, null_buf, null_count));
@@ -327,8 +329,9 @@ class TestPrimitiveBuilder : public TestBuilder {
     int64_t ex_null_count = 0;
 
     if (nullable) {
+      std::shared_ptr<MemoryPool> pool = default_memory_pool();
       ASSERT_OK(
-          BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &ex_null_bitmap));
+          BitUtil::BytesToBits(valid_bytes_, pool, &ex_null_bitmap));
       ex_null_count = CountNulls(valid_bytes_);
     } else {
       ex_null_bitmap = nullptr;
@@ -450,10 +453,10 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
   std::shared_ptr<Buffer> ex_data;
   std::shared_ptr<Buffer> ex_null_bitmap;
   int64_t ex_null_count = 0;
-
-  ASSERT_OK(BitUtil::BytesToBits(draws_, default_memory_pool(), &ex_data));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  ASSERT_OK(BitUtil::BytesToBits(draws_, pool, &ex_data));
   if (nullable) {
-    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &ex_null_bitmap));
+    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, pool, &ex_null_bitmap));
     ex_null_count = CountNulls(valid_bytes_);
   } else {
     ex_null_bitmap = nullptr;
@@ -544,7 +547,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
   vector<T>& draws = this->draws_;
   vector<uint8_t>& valid_bytes = this->valid_bytes_;
 
-  int64_t memory_before = this->pool_->bytes_allocated();
+  int64_t memory_before = this->pool_.get()->bytes_allocated();
 
   this->RandomData(size);
   ASSERT_OK(this->builder_->Reserve(size));
@@ -563,7 +566,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
     FinishAndCheckPadding(this->builder_.get(), &result);
   } while (false);
 
-  ASSERT_EQ(memory_before, this->pool_->bytes_allocated());
+  ASSERT_EQ(memory_before, this->pool_.get()->bytes_allocated());
 }
 
 TYPED_TEST(TestPrimitiveBuilder, Equality) {
@@ -1032,7 +1035,8 @@ class TestFWBinaryArray : public ::testing::Test {
 
   void InitBuilder(int byte_width) {
     auto type = fixed_size_binary(byte_width);
-    builder_.reset(new FixedSizeBinaryBuilder(type, default_memory_pool()));
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
+    builder_.reset(new FixedSizeBinaryBuilder(type, pool));
   }
 
  protected:
@@ -1647,8 +1651,9 @@ class DecimalTest : public ::testing::TestWithParam<int> {
 
     auto expected_data = std::make_shared<Buffer>(raw_bytes.data(), BYTE_WIDTH);
     std::shared_ptr<Buffer> expected_null_bitmap;
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
     ASSERT_OK(
-        BitUtil::BytesToBits(valid_bytes, default_memory_pool(), &expected_null_bitmap));
+        BitUtil::BytesToBits(valid_bytes, pool, &expected_null_bitmap));
 
     int64_t expected_null_count = CountNulls(valid_bytes);
     auto expected = std::make_shared<Decimal128Array>(

@@ -191,42 +191,42 @@ std::unique_ptr<MemoryPool> MemoryPool::CreateDefault() {
   return std::unique_ptr<MemoryPool>(new DefaultMemoryPool);
 }
 
-MemoryPool* default_memory_pool() {
-  static DefaultMemoryPool default_memory_pool_;
-  return &default_memory_pool_;
+std::shared_ptr<MemoryPool> default_memory_pool() {
+  static std::shared_ptr<DefaultMemoryPool> default_memory_pool_ = std::make_shared<DefaultMemoryPool>();
+  return default_memory_pool_;
 }
 
 ///////////////////////////////////////////////////////////////////////
 // LoggingMemoryPool implementation
 
-LoggingMemoryPool::LoggingMemoryPool(MemoryPool* pool) : pool_(pool) {}
+LoggingMemoryPool::LoggingMemoryPool(std::shared_ptr<MemoryPool>& pool) : pool_(pool) {}
 
 Status LoggingMemoryPool::Allocate(int64_t size, uint8_t** out) {
-  Status s = pool_->Allocate(size, out);
+  Status s = pool_.get()->Allocate(size, out);
   std::cout << "Allocate: size = " << size << std::endl;
   return s;
 }
 
 Status LoggingMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
-  Status s = pool_->Reallocate(old_size, new_size, ptr);
+  Status s = pool_.get()->Reallocate(old_size, new_size, ptr);
   std::cout << "Reallocate: old_size = " << old_size << " - new_size = " << new_size
             << std::endl;
   return s;
 }
 
 void LoggingMemoryPool::Free(uint8_t* buffer, int64_t size) {
-  pool_->Free(buffer, size);
+  pool_.get()->Free(buffer, size);
   std::cout << "Free: size = " << size << std::endl;
 }
 
 int64_t LoggingMemoryPool::bytes_allocated() const {
-  int64_t nb_bytes = pool_->bytes_allocated();
+  int64_t nb_bytes = pool_.get()->bytes_allocated();
   std::cout << "bytes_allocated: " << nb_bytes << std::endl;
   return nb_bytes;
 }
 
 int64_t LoggingMemoryPool::max_memory() const {
-  int64_t mem = pool_->max_memory();
+  int64_t mem = pool_.get()->max_memory();
   std::cout << "max_memory: " << mem << std::endl;
   return mem;
 }
@@ -236,22 +236,22 @@ int64_t LoggingMemoryPool::max_memory() const {
 
 class ProxyMemoryPool::ProxyMemoryPoolImpl {
  public:
-  explicit ProxyMemoryPoolImpl(MemoryPool* pool) : pool_(pool) {}
+  explicit ProxyMemoryPoolImpl(std::shared_ptr<MemoryPool>& pool) : pool_(pool) {}
 
   Status Allocate(int64_t size, uint8_t** out) {
-    RETURN_NOT_OK(pool_->Allocate(size, out));
+    RETURN_NOT_OK(pool_.get()->Allocate(size, out));
     stats_.UpdateAllocatedBytes(size);
     return Status::OK();
   }
 
   Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
-    RETURN_NOT_OK(pool_->Reallocate(old_size, new_size, ptr));
+    RETURN_NOT_OK(pool_.get()->Reallocate(old_size, new_size, ptr));
     stats_.UpdateAllocatedBytes(new_size - old_size);
     return Status::OK();
   }
 
   void Free(uint8_t* buffer, int64_t size) {
-    pool_->Free(buffer, size);
+    pool_.get()->Free(buffer, size);
     stats_.UpdateAllocatedBytes(-size);
   }
 
@@ -260,14 +260,14 @@ class ProxyMemoryPool::ProxyMemoryPoolImpl {
   int64_t max_memory() const { return stats_.max_memory(); }
 
  private:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   internal::MemoryPoolStats stats_;
 };
 
-ProxyMemoryPool::ProxyMemoryPool(MemoryPool* pool) {
+ProxyMemoryPool::ProxyMemoryPool(std::shared_ptr<MemoryPool>& pool) {
   impl_.reset(new ProxyMemoryPoolImpl(pool));
 }
-
+  
 ProxyMemoryPool::~ProxyMemoryPool() {}
 
 Status ProxyMemoryPool::Allocate(int64_t size, uint8_t** out) {

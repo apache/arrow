@@ -45,17 +45,17 @@ cdef extern from "gandiva/selection_vector.h" namespace "gandiva" nogil:
 
     cdef CStatus SelectionVector_MakeInt16\
         "gandiva::SelectionVector::MakeInt16"(
-            int64_t max_slots, CMemoryPool* pool,
+            int64_t max_slots, shared_ptr[CMemoryPool]& pool,
             shared_ptr[CSelectionVector]* selection_vector)
 
     cdef CStatus SelectionVector_MakeInt32\
         "gandiva::SelectionVector::MakeInt32"(
-            int64_t max_slots, CMemoryPool* pool,
+            int64_t max_slots, shared_ptr[CMemoryPool]& pool,
             shared_ptr[CSelectionVector]* selection_vector)
 
     cdef CStatus SelectionVector_MakeInt64\
         "gandiva::SelectionVector::MakeInt64"(
-            int64_t max_slots, CMemoryPool* pool,
+            int64_t max_slots, shared_ptr[CMemoryPool]& pool,
             shared_ptr[CSelectionVector]* selection_vector)
 
 cdef extern from "gandiva/condition.h" namespace "gandiva" nogil:
@@ -182,7 +182,7 @@ cdef extern from "gandiva/projector.h" namespace "gandiva" nogil:
     cdef cppclass CProjector" gandiva::Projector":
 
         CStatus Evaluate(
-            const CRecordBatch& batch, CMemoryPool* pool,
+            const CRecordBatch& batch, shared_ptr[CMemoryPool]& pool,
             const CArrayVector* output)
 
 cdef extern from "gandiva/filter.h" namespace "gandiva" nogil:

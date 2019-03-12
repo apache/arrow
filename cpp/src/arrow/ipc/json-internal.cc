@@ -953,7 +953,7 @@ UnboxValue(const rj::Value& val) {
 class ArrayReader {
  public:
   explicit ArrayReader(const rj::Value& json_array, const std::shared_ptr<DataType>& type,
-                       MemoryPool* pool)
+                       std::shared_ptr<MemoryPool>& pool)
       : json_array_(json_array), type_(type), pool_(pool) {}
 
   Status ParseTypeValues(const DataType& type);
@@ -1284,7 +1284,7 @@ class ArrayReader {
   const rj::Value& json_array_;
   const RjObject* obj_;
   std::shared_ptr<DataType> type_;
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 
   // Parsed common attributes
   std::vector<bool> is_valid_;
@@ -1328,7 +1328,7 @@ static Status GetDictionaryTypes(const RjArray& fields, DictionaryTypeMap* id_to
 }
 
 static Status ReadDictionary(const RjObject& obj, const DictionaryTypeMap& id_to_field,
-                             MemoryPool* pool, int64_t* dictionary_id,
+                             std::shared_ptr<MemoryPool>& pool, int64_t* dictionary_id,
                              std::shared_ptr<Array>* out) {
   int id;
   RETURN_NOT_OK(GetObjectInt(obj, "id", &id));
@@ -1359,7 +1359,7 @@ static Status ReadDictionary(const RjObject& obj, const DictionaryTypeMap& id_to
 }
 
 static Status ReadDictionaries(const rj::Value& doc, const DictionaryTypeMap& id_to_field,
-                               MemoryPool* pool, DictionaryMemo* dictionary_memo) {
+                               std::shared_ptr<MemoryPool>& pool, DictionaryMemo* dictionary_memo) {
   auto it = doc.FindMember("dictionaries");
   if (it == doc.MemberEnd()) {
     // No dictionaries
@@ -1381,7 +1381,7 @@ static Status ReadDictionaries(const rj::Value& doc, const DictionaryTypeMap& id
   return Status::OK();
 }
 
-Status ReadSchema(const rj::Value& json_schema, MemoryPool* pool,
+Status ReadSchema(const rj::Value& json_schema, std::shared_ptr<MemoryPool>& pool,
                   std::shared_ptr<Schema>* schema) {
   auto it = json_schema.FindMember("schema");
   RETURN_NOT_OBJECT("schema", it, json_schema);
@@ -1406,7 +1406,7 @@ Status ReadSchema(const rj::Value& json_schema, MemoryPool* pool,
 }
 
 Status ReadRecordBatch(const rj::Value& json_obj, const std::shared_ptr<Schema>& schema,
-                       MemoryPool* pool, std::shared_ptr<RecordBatch>* batch) {
+                       std::shared_ptr<MemoryPool>& pool, std::shared_ptr<RecordBatch>* batch) {
   DCHECK(json_obj.IsObject());
   const auto& batch_obj = json_obj.GetObject();
 
@@ -1455,13 +1455,13 @@ Status WriteArray(const std::string& name, const Array& array, RjWriter* json_wr
   return converter.Write();
 }
 
-Status ReadArray(MemoryPool* pool, const rj::Value& json_array,
+Status ReadArray(std::shared_ptr<MemoryPool>& pool, const rj::Value& json_array,
                  const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
   ArrayReader converter(json_array, type, pool);
   return converter.GetArray(array);
 }
 
-Status ReadArray(MemoryPool* pool, const rj::Value& json_array, const Schema& schema,
+Status ReadArray(std::shared_ptr<MemoryPool>& pool, const rj::Value& json_array, const Schema& schema,
                  std::shared_ptr<Array>* array) {
   if (!json_array.IsObject()) {
     return Status::Invalid("Element was not a JSON object");

@@ -477,14 +477,15 @@ class MyMemoryPool : public MemoryPool {
 TEST_F(TestReadableFile, CustomMemoryPool) {
   MakeTestFile();
 
-  MyMemoryPool pool;
-  ASSERT_OK(ReadableFile::Open(path_, &pool, &file_));
+  std::shared_ptr<MyMemoryPool> pool = std::make_shared<MyMemoryPool>();
+  std::shared_ptr<MemoryPool> pool_ = std::static_pointer_cast<MemoryPool>(pool);
+  ASSERT_OK(ReadableFile::Open(path_, pool_, &file_));
 
   std::shared_ptr<Buffer> buffer;
   ASSERT_OK(file_->ReadAt(0, 4, &buffer));
   ASSERT_OK(file_->ReadAt(4, 8, &buffer));
 
-  ASSERT_EQ(2, pool.num_allocations());
+  ASSERT_EQ(2, pool.get()->num_allocations());
 }
 
 TEST_F(TestReadableFile, ThreadSafety) {
@@ -494,9 +495,9 @@ TEST_F(TestReadableFile, ThreadSafety) {
     stream.open(path_.c_str());
     stream << data;
   }
-
-  MyMemoryPool pool;
-  ASSERT_OK(ReadableFile::Open(path_, &pool, &file_));
+  std::shared_ptr<MyMemoryPool> pool = std::make_shared<MyMemoryPool>();
+  std::shared_ptr<MemoryPool> pool_ = std::static_pointer_cast<MemoryPool>(pool);
+  ASSERT_OK(ReadableFile::Open(path_, pool_, &file_));
 
   std::atomic<int> correct_count(0);
   int niter = 30000;

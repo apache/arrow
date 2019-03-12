@@ -366,7 +366,7 @@ cdef class IpcMemHandle:
         buf : Buffer
           The serialized buffer.
         """
-        cdef CMemoryPool* pool_ = maybe_unbox_memory_pool(pool)
+        cdef shared_ptr[CMemoryPool] pool_ = maybe_unbox_memory_pool(pool)
         cdef shared_ptr[CBuffer] buf
         cdef CCudaIpcMemHandle* h = self.handle.get()
         check_status(h.Serialize(pool_, &buf))
@@ -900,7 +900,7 @@ def read_message(object source, pool=None):
     """
     cdef:
         Message result = Message.__new__(Message)
-    cdef CMemoryPool* pool_ = maybe_unbox_memory_pool(pool)
+    cdef shared_ptr[CMemoryPool] pool_ = maybe_unbox_memory_pool(pool)
     if not isinstance(source, BufferReader):
         reader = BufferReader(source)
     check_status(CudaReadMessage(reader.reader, pool_, &result.message))
@@ -930,7 +930,7 @@ def read_record_batch(object buffer, object schema, pool=None):
     """
     cdef shared_ptr[CSchema] schema_ = pyarrow_unwrap_schema(schema)
     cdef shared_ptr[CCudaBuffer] buffer_ = pyarrow_unwrap_cudabuffer(buffer)
-    cdef CMemoryPool* pool_ = maybe_unbox_memory_pool(pool)
+    cdef shared_ptr[CMemoryPool] pool_ = maybe_unbox_memory_pool(pool)
     cdef shared_ptr[CRecordBatch] batch
     check_status(CudaReadRecordBatch(schema_, buffer_, pool_, &batch))
     return pyarrow_wrap_batch(batch)

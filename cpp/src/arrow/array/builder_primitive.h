@@ -29,7 +29,7 @@ namespace arrow {
 
 class ARROW_EXPORT NullBuilder : public ArrayBuilder {
  public:
-  explicit NullBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+  explicit NullBuilder(std::shared_ptr<MemoryPool> pool ARROW_MEMORY_POOL_DEFAULT)
       : ArrayBuilder(null(), pool) {}
 
   Status AppendNull() {
@@ -52,7 +52,7 @@ class NumericBuilder : public ArrayBuilder {
 
   template <typename T1 = T>
   explicit NumericBuilder(
-      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool
+      typename std::enable_if<TypeTraits<T1>::is_parameter_free, std::shared_ptr<MemoryPool>>::type pool
           ARROW_MEMORY_POOL_DEFAULT)
       : ArrayBuilder(TypeTraits<T1>::type_singleton(), pool) {}
 
@@ -247,9 +247,9 @@ using DoubleBuilder = NumericBuilder<DoubleType>;
 class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
  public:
   using value_type = bool;
-  explicit BooleanBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit BooleanBuilder(std::shared_ptr<MemoryPool> pool ARROW_MEMORY_POOL_DEFAULT);
 
-  explicit BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
+  explicit BooleanBuilder(const std::shared_ptr<DataType>& type, std::shared_ptr<MemoryPool>& pool);
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   Status AppendNulls(int64_t length) {

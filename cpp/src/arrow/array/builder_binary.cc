@@ -44,10 +44,10 @@ using internal::checked_cast;
 // ----------------------------------------------------------------------
 // String and binary
 
-BinaryBuilder::BinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+BinaryBuilder::BinaryBuilder(const std::shared_ptr<DataType>& type, std::shared_ptr<MemoryPool>& pool)
     : ArrayBuilder(type, pool), offsets_builder_(pool), value_data_builder_(pool) {}
 
-BinaryBuilder::BinaryBuilder(MemoryPool* pool) : BinaryBuilder(binary(), pool) {}
+BinaryBuilder::BinaryBuilder(std::shared_ptr<MemoryPool> pool) : BinaryBuilder(binary(), pool) {}
 
 Status BinaryBuilder::Resize(int64_t capacity) {
   DCHECK_LE(capacity, kListMaximumElements);
@@ -119,7 +119,7 @@ util::string_view BinaryBuilder::GetView(int64_t i) const {
       reinterpret_cast<const char*>(value_data_builder_.data() + offset), value_length);
 }
 
-StringBuilder::StringBuilder(MemoryPool* pool) : BinaryBuilder(utf8(), pool) {}
+StringBuilder::StringBuilder(std::shared_ptr<MemoryPool> pool) : BinaryBuilder(utf8(), pool) {}
 
 Status StringBuilder::AppendValues(const std::vector<std::string>& values,
                                    const uint8_t* valid_bytes) {
@@ -212,7 +212,7 @@ Status StringBuilder::AppendValues(const char** values, int64_t length,
 // Fixed width binary
 
 FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
-                                               MemoryPool* pool)
+                                               std::shared_ptr<MemoryPool> pool)
     : ArrayBuilder(type, pool),
       byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()),
       byte_builder_(pool) {}
@@ -275,7 +275,7 @@ util::string_view FixedSizeBinaryBuilder::GetView(int64_t i) const {
 
 namespace internal {
 
-ChunkedBinaryBuilder::ChunkedBinaryBuilder(int32_t max_chunk_size, MemoryPool* pool)
+ChunkedBinaryBuilder::ChunkedBinaryBuilder(int32_t max_chunk_size, std::shared_ptr<MemoryPool> pool)
     : max_chunk_size_(max_chunk_size),
       chunk_data_size_(0),
       builder_(new BinaryBuilder(pool)) {}

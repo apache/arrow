@@ -49,12 +49,12 @@ class stl_allocator {
   /// \brief Construct an allocator from the default MemoryPool
   stl_allocator() noexcept : pool_(default_memory_pool()) {}
   /// \brief Construct an allocator from the given MemoryPool
-  explicit stl_allocator(MemoryPool* pool) noexcept : pool_(pool) {}
+  explicit stl_allocator(std::shared_ptr<MemoryPool>& pool) noexcept : pool_(pool) {}
 
   template <class U>
   stl_allocator(const stl_allocator<U>& rhs) noexcept : pool_(rhs.pool_) {}
 
-  ~stl_allocator() { pool_ = NULLPTR; }
+  ~stl_allocator() { pool_ = nullptr; }
 
   pointer address(reference r) const noexcept { return std::addressof(r); }
 
@@ -62,13 +62,13 @@ class stl_allocator {
 
   pointer allocate(size_type n, const void* /*hint*/ = NULLPTR) {
     uint8_t* data;
-    Status s = pool_->Allocate(n * sizeof(T), &data);
+    Status s = pool_.get()->Allocate(n * sizeof(T), &data);
     if (!s.ok()) throw std::bad_alloc();
     return reinterpret_cast<pointer>(data);
   }
 
   void deallocate(pointer p, size_type n) {
-    pool_->Free(reinterpret_cast<uint8_t*>(p), n * sizeof(T));
+    pool_.get()->Free(reinterpret_cast<uint8_t*>(p), n * sizeof(T));
   }
 
   size_type size_max() const noexcept { return size_type(-1) / sizeof(T); }
@@ -83,10 +83,10 @@ class stl_allocator {
     p->~U();
   }
 
-  MemoryPool* pool() const noexcept { return pool_; }
+  std::shared_ptr<MemoryPool> pool() const noexcept { return pool_; }
 
  private:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 };
 
 /// \brief A MemoryPool implementation delegating allocations to a STL allocator

@@ -53,7 +53,7 @@ class ARROW_EXPORT BlockParser {
  public:
   explicit BlockParser(ParseOptions options, int32_t num_cols = -1,
                        int32_t max_num_rows = kMaxParserNumRows);
-  explicit BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_cols = -1,
+  explicit BlockParser(std::shared_ptr<MemoryPool> pool, ParseOptions options, int32_t num_cols = -1,
                        int32_t max_num_rows = kMaxParserNumRows);
 
   /// \brief Parse a block of data
@@ -115,7 +115,7 @@ class ARROW_EXPORT BlockParser {
                    const char* data, const char* data_end, bool is_final,
                    const char** out_data);
 
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   const ParseOptions options_;
   // The number of rows parsed from the block
   int32_t num_rows_;

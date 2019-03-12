@@ -252,7 +252,8 @@ TEST(ReadaheadSpooler, StressReads) {
   const int64_t READ_SIZE = 2;
 
   std::shared_ptr<ResizableBuffer> data;
-  ASSERT_OK(MakeRandomByteBuffer(NBYTES, default_memory_pool(), &data));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  ASSERT_OK(MakeRandomByteBuffer(NBYTES, pool, &data));
   auto data_reader = std::make_shared<BufferReader>(data);
 
   ReadaheadSpooler spooler(data_reader, READ_SIZE, 7);

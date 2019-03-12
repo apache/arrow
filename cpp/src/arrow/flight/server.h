@@ -61,7 +61,7 @@ class ARROW_EXPORT RecordBatchStream : public FlightDataStream {
   Status Next(FlightPayload* payload) override;
 
  private:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   std::shared_ptr<RecordBatchReader> reader_;
 };
 

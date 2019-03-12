@@ -96,6 +96,7 @@ class TestBufferedOutputStream : public FileTestFixture<BufferedOutputStream> {
 
     std::shared_ptr<FileOutputStream> file;
     ASSERT_OK(FileOutputStream::Open(path_, append, &file));
+    std::shared_ptr<MemoryPool> pool = default_memory_pool();
     fd_ = file->file_descriptor();
     if (append) {
       // Workaround for ARROW-2466 ("append" flag doesn't set file pos)
@@ -105,7 +106,7 @@ class TestBufferedOutputStream : public FileTestFixture<BufferedOutputStream> {
       lseek(fd_, 0, SEEK_END);
 #endif
     }
-    ASSERT_OK(BufferedOutputStream::Create(buffer_size, default_memory_pool(), file,
+    ASSERT_OK(BufferedOutputStream::Create(buffer_size, pool, file,
                                            &buffered_));
   }
 
@@ -311,7 +312,7 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
     local_pool_ = MemoryPool::CreateDefault();
   }
 
-  void MakeExample1(int64_t buffer_size, MemoryPool* pool = default_memory_pool()) {
+  void MakeExample1(int64_t buffer_size, std::shared_ptr<MemoryPool> pool = default_memory_pool()) {
     test_data_ = kExample1;
 
     std::shared_ptr<FileOutputStream> file_out;

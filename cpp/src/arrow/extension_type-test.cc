@@ -218,7 +218,8 @@ TEST_F(TestExtensionType, ExtensionTypeTest) {
 auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,
                          std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<io::BufferOutputStream> out_stream;
-  ASSERT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &out_stream));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  ASSERT_OK(io::BufferOutputStream::Create(1024, pool, &out_stream));
   ASSERT_OK(ipc::WriteRecordBatchStream({batch}, out_stream.get()));
 
   std::shared_ptr<Buffer> complete_ipc_stream;
@@ -254,8 +255,9 @@ TEST_F(TestExtensionType, IpcRoundtrip) {
   // Wrap type in a ListArray and ensure it also makes it
   auto offsets_arr = ArrayFromJSON(int32(), "[0, 0, 2, 4]");
   std::shared_ptr<Array> list_arr;
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   ASSERT_OK(
-      ListArray::FromArrays(*offsets_arr, *ext_arr, default_memory_pool(), &list_arr));
+      ListArray::FromArrays(*offsets_arr, *ext_arr, pool, &list_arr));
   batch = RecordBatch::Make(schema({field("f0", list(uuid()))}), 3, {list_arr});
   RoundtripBatch(batch, &read_batch);
   CompareBatch(*batch, *read_batch, false /* compare_metadata */);
@@ -270,7 +272,8 @@ TEST_F(TestExtensionType, UnrecognizedExtension) {
   // Write full IPC stream including schema, then unregister type, then read
   // and ensure that a plain instance of the storage type is created
   std::shared_ptr<io::BufferOutputStream> out_stream;
-  ASSERT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &out_stream));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  ASSERT_OK(io::BufferOutputStream::Create(1024, pool, &out_stream));
   ASSERT_OK(ipc::WriteRecordBatchStream({batch}, out_stream.get()));
 
   std::shared_ptr<Buffer> complete_ipc_stream;

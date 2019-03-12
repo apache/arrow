@@ -71,7 +71,7 @@ void random_real(int64_t n, uint32_t seed, T min_value, T max_value,
 }
 
 template <typename T>
-inline Status CopyBufferFromVector(const std::vector<T>& values, MemoryPool* pool,
+inline Status CopyBufferFromVector(const std::vector<T>& values, std::shared_ptr<MemoryPool>& pool,
                                    std::shared_ptr<Buffer>* result) {
   int64_t nbytes = static_cast<int>(values.size()) * sizeof(T);
 
@@ -98,7 +98,7 @@ ARROW_EXPORT void random_decimals(int64_t n, uint32_t seed, int32_t precision,
 ARROW_EXPORT void random_ascii(int64_t n, uint32_t seed, uint8_t* out);
 ARROW_EXPORT int64_t CountNulls(const std::vector<uint8_t>& valid_bytes);
 
-ARROW_EXPORT Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
+ARROW_EXPORT Status MakeRandomByteBuffer(int64_t length, std::shared_ptr<MemoryPool>& pool,
                                          std::shared_ptr<ResizableBuffer>* out,
                                          uint32_t seed = 0);
 
@@ -122,7 +122,7 @@ struct GenerateRandom<T, typename std::enable_if<std::is_integral<T>::value>::ty
 };
 
 template <typename T>
-Status MakeRandomBuffer(int64_t length, MemoryPool* pool,
+Status MakeRandomBuffer(int64_t length, std::shared_ptr<MemoryPool>& pool,
                         std::shared_ptr<ResizableBuffer>* out, uint32_t seed = 0) {
   DCHECK(pool);
   std::shared_ptr<ResizableBuffer> result;

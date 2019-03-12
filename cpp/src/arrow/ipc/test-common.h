@@ -67,7 +67,7 @@ static inline void CompareBatchColumnsDetailed(const RecordBatch& result,
 const auto kListInt32 = list(int32());
 const auto kListListInt32 = list(kListInt32);
 
-Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool,
+Status MakeRandomInt32Array(int64_t length, bool include_nulls, std::shared_ptr<MemoryPool>& pool,
                             std::shared_ptr<Array>* out, uint32_t seed = 0) {
   random::RandomArrayGenerator rand(seed);
   const double null_probability = include_nulls ? 0.5 : 0.0;
@@ -78,7 +78,7 @@ Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool
 }
 
 Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_lists,
-                           bool include_nulls, MemoryPool* pool,
+                           bool include_nulls, std::shared_ptr<MemoryPool>& pool,
                            std::shared_ptr<Array>* out) {
   // Create the null list values
   std::vector<uint8_t> valid_lists(num_lists);
@@ -128,12 +128,13 @@ Status MakeRandomBooleanArray(const int length, bool include_nulls,
   std::vector<uint8_t> values(length);
   random_null_bytes(length, 0.5, values.data());
   std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(BitUtil::BytesToBits(values, default_memory_pool(), &data));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  RETURN_NOT_OK(BitUtil::BytesToBits(values, pool, &data));
 
   if (include_nulls) {
     std::vector<uint8_t> valid_bytes(length);
     std::shared_ptr<Buffer> null_bitmap;
-    RETURN_NOT_OK(BitUtil::BytesToBits(valid_bytes, default_memory_pool(), &null_bitmap));
+    RETURN_NOT_OK(BitUtil::BytesToBits(valid_bytes, pool, &null_bitmap));
     random_null_bytes(length, 0.1, valid_bytes.data());
     *out = std::make_shared<BooleanArray>(length, data, null_bitmap, -1);
   } else {
@@ -168,7 +169,7 @@ Status MakeIntBatchSized(int length, std::shared_ptr<RecordBatch>* out,
 
   // Example data
   std::shared_ptr<Array> a0, a1;
-  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   RETURN_NOT_OK(MakeRandomInt32Array(length, false, pool, &a0, seed));
   RETURN_NOT_OK(MakeRandomInt32Array(length, true, pool, &a1, seed + 1));
   *out = RecordBatch::Make(schema, length, {a0, a1});
@@ -180,7 +181,7 @@ Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
 }
 
 template <class Builder, class RawType>
-Status MakeRandomBinaryArray(int64_t length, bool include_nulls, MemoryPool* pool,
+Status MakeRandomBinaryArray(int64_t length, bool include_nulls, std::shared_ptr<MemoryPool>& pool,
                              std::shared_ptr<Array>* out) {
   const std::vector<std::string> values = {"",    "",          "abc",  "123",
                                            "efg", "456!@#!@#", "12312"};
@@ -201,7 +202,7 @@ Status MakeRandomBinaryArray(int64_t length, bool include_nulls, MemoryPool* poo
 
 template <class Builder, class RawType>
 Status MakeBinaryArrayWithUniqueValues(int64_t length, bool include_nulls,
-                                       MemoryPool* pool, std::shared_ptr<Array>* out) {
+                                       std::shared_ptr<MemoryPool>& pool, std::shared_ptr<Array>* out) {
   Builder builder(pool);
   for (int64_t i = 0; i < length; ++i) {
     if (include_nulls && (i % 7 == 0)) {
@@ -225,7 +226,7 @@ Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out,
   auto schema = ::arrow::schema({f0, f1});
 
   std::shared_ptr<Array> a0, a1;
-  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
 
   // Quirk with RETURN_NOT_OK macro and templated functions
   {
@@ -265,7 +266,7 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
 
   // Example data
 
-  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   const int length = 200;
   std::shared_ptr<Array> leaf_values, list_array, list_list_array, flat_array;
   const bool include_nulls = true;
@@ -287,7 +288,7 @@ Status MakeZeroLengthRecordBatch(std::shared_ptr<RecordBatch>* out) {
   auto schema = ::arrow::schema({f0, f1, f2});
 
   // Example data
-  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   const bool include_nulls = true;
   std::shared_ptr<Array> leaf_values, list_array, list_list_array, flat_array;
   RETURN_NOT_OK(MakeRandomInt32Array(0, include_nulls, pool, &leaf_values));
@@ -307,7 +308,7 @@ Status MakeNonNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
   auto schema = ::arrow::schema({f0, f1, f2});
 
   // Example data
-  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   const int length = 50;
   std::shared_ptr<Array> leaf_values, list_array, list_list_array, flat_array;
 
@@ -326,7 +327,7 @@ Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
   const int batch_length = 5;
   auto type = int32();
 
-  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
   std::shared_ptr<Array> array;
   const bool include_nulls = true;
   RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &array));
@@ -362,7 +363,8 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   std::vector<uint8_t> null_bytes(list_batch->num_rows(), 1);
   null_bytes[0] = 0;
   std::shared_ptr<Buffer> null_bitmask;
-  RETURN_NOT_OK(BitUtil::BytesToBits(null_bytes, default_memory_pool(), &null_bitmask));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  RETURN_NOT_OK(BitUtil::BytesToBits(null_bytes, pool, &null_bitmask));
   std::shared_ptr<Array> with_nulls(
       new StructArray(type, list_batch->num_rows(), columns, null_bitmask, 1));
 
@@ -398,7 +400,8 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
 
   std::shared_ptr<Buffer> type_ids_buffer;
   std::vector<uint8_t> type_ids = {5, 10, 5, 5, 10, 10, 5};
-  RETURN_NOT_OK(CopyBufferFromVector(type_ids, default_memory_pool(), &type_ids_buffer));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  RETURN_NOT_OK(CopyBufferFromVector(type_ids, pool, &type_ids_buffer));
 
   std::vector<int32_t> u0_values = {0, 1, 2, 3, 4, 5, 6};
   ArrayFromVector<Int32Type, int32_t>(u0_values, &sparse_children[0]);
@@ -415,12 +418,12 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
 
   std::shared_ptr<Buffer> offsets_buffer;
   std::vector<int32_t> offsets = {0, 0, 1, 2, 1, 2, 3};
-  RETURN_NOT_OK(CopyBufferFromVector(offsets, default_memory_pool(), &offsets_buffer));
+  RETURN_NOT_OK(CopyBufferFromVector(offsets, pool, &offsets_buffer));
 
   std::vector<uint8_t> null_bytes(length, 1);
   null_bytes[2] = 0;
   std::shared_ptr<Buffer> null_bitmask;
-  RETURN_NOT_OK(BitUtil::BytesToBits(null_bytes, default_memory_pool(), &null_bitmask));
+  RETURN_NOT_OK(BitUtil::BytesToBits(null_bytes, pool, &null_bitmask));
 
   // construct individual nullable/non-nullable struct arrays
   auto sparse_no_nulls =
@@ -672,8 +675,8 @@ Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
 
   random_decimals(length, 1, kDecimalPrecision, data->mutable_data());
   random_null_bytes(length, 0.1, is_valid_bytes.data());
-
-  RETURN_NOT_OK(BitUtil::BytesToBits(is_valid_bytes, default_memory_pool(), &is_valid));
+  std::shared_ptr<MemoryPool> pool = default_memory_pool();
+  RETURN_NOT_OK(BitUtil::BytesToBits(is_valid_bytes, pool, &is_valid));
 
   auto a1 = std::make_shared<Decimal128Array>(f0->type(), length, data, is_valid,
                                               kUnknownNullCount);

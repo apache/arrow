@@ -766,7 +766,8 @@ Status UnpackBinaryDictionary(FunctionContext* ctx, const Array& indices,
                               const BinaryArray& dictionary, ArrayData* output) {
   using index_c_type = typename IndexType::c_type;
   std::unique_ptr<ArrayBuilder> builder;
-  RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), output->type, &builder));
+  std::shared_ptr<MemoryPool> pool = ctx->memory_pool();
+  RETURN_NOT_OK(MakeBuilder(pool, output->type, &builder));
   BinaryBuilder* binary_builder = checked_cast<BinaryBuilder*>(builder.get());
 
   const index_c_type* in = indices.data()->GetValues<index_c_type>(1);

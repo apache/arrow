@@ -35,7 +35,7 @@ namespace arrow {
 
 using internal::AdaptiveIntBuilderBase;
 
-AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(MemoryPool* pool)
+AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(std::shared_ptr<MemoryPool>& pool)
     : ArrayBuilder(int64(), pool),
       data_(nullptr),
       raw_data_(nullptr),
@@ -66,7 +66,7 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
   return ArrayBuilder::Resize(capacity);
 }
 
-AdaptiveIntBuilder::AdaptiveIntBuilder(MemoryPool* pool) : AdaptiveIntBuilderBase(pool) {}
+AdaptiveIntBuilder::AdaptiveIntBuilder(std::shared_ptr<MemoryPool> pool) : AdaptiveIntBuilderBase(pool) {}
 
 Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(CommitPendingData());
@@ -251,7 +251,7 @@ Status AdaptiveIntBuilder::ExpandIntSize(uint8_t new_int_size) {
   return Status::OK();
 }
 
-AdaptiveUIntBuilder::AdaptiveUIntBuilder(MemoryPool* pool)
+AdaptiveUIntBuilder::AdaptiveUIntBuilder(std::shared_ptr<MemoryPool> pool)
     : AdaptiveIntBuilderBase(pool) {}
 
 Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {

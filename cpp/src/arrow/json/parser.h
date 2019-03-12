@@ -93,7 +93,7 @@ constexpr int32_t kMaxParserNumRows = 100000;
 /// parser, so the original buffer can be discarded after Parse() returns.
 class ARROW_EXPORT BlockParser {
  public:
-  BlockParser(MemoryPool* pool, ParseOptions options,
+  BlockParser(std::shared_ptr<MemoryPool> pool, ParseOptions options,
               const std::shared_ptr<Buffer>& scalar_storage);
   BlockParser(ParseOptions options, const std::shared_ptr<Buffer>& scalar_storage);
 
@@ -117,7 +117,7 @@ class ARROW_EXPORT BlockParser {
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(BlockParser);
 
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
   const ParseOptions options_;
   std::unique_ptr<Impl> impl_;
 };

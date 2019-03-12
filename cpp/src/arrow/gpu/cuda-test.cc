@@ -315,7 +315,7 @@ class TestCudaArrowIpc : public TestCudaBufferBase {
   }
 
  protected:
-  MemoryPool* pool_;
+  std::shared_ptr<MemoryPool> pool_;
 };
 
 TEST_F(TestCudaArrowIpc, BasicWriteRead) {

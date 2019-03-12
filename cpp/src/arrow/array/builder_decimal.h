@@ -29,7 +29,7 @@ class Decimal128;
 class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
  public:
   explicit Decimal128Builder(const std::shared_ptr<DataType>& type,
-                             MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+                             std::shared_ptr<MemoryPool> pool ARROW_MEMORY_POOL_DEFAULT);
 
   using FixedSizeBinaryBuilder::Append;
   using FixedSizeBinaryBuilder::AppendValues;
