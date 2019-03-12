@@ -182,12 +182,8 @@ namespace red_arrow {
 
       inline VALUE convert(const arrow::TimestampArray& array,
                            const int64_t i) {
-        const arrow::TimestampType* type;
-        {
-          auto type_shared = array.type();
-          type =
-            arrow::internal::checked_cast<const arrow::TimestampType*>(&(*type_shared));
-        }
+        const arrow::TimestampType* type =
+          arrow::internal::checked_cast<const arrow::TimestampType*>(array.type().get());
         VALUE scale = time_unit_to_scale(type->unit());
         if (NIL_P(scale)) {
           rb_raise(rb_eArgError, "Invalid TimeUnit");
@@ -242,10 +238,7 @@ namespace red_arrow {
           result_(Qnil) {}
 
       VALUE convert(const arrow::ListArray& array, const int64_t index) {
-        arrow::Array* values;
-        {
-          values = &(*array.values());
-        }
+        arrow::Array* values = array.values().get();
         offset_ = array.value_offset(index);
         length_ = array.value_length(index);
         result_ = rb_ary_new_capa(length_);
@@ -338,16 +331,10 @@ namespace red_arrow {
         const auto struct_type = array.struct_type();
         const auto n = struct_type->num_children();
         for (int i = 0; i < n; ++i) {
-          const arrow::Field* field_type;
-          {
-            field_type = &(*struct_type->child(i));
-          }
+          const arrow::Field* field_type = struct_type->child(i).get();
           const auto& field_name = field_type->name();
           key_ = rb_utf8_str_new(field_name.data(), field_name.length());
-          const arrow::Array* field_array;
-          {
-            field_array = &(*array.field(i));
-          }
+          const arrow::Array* field_array = array.field(i).get();
           check_status(field_array->Accept(this),
                        "[raw-records][struct-array]");
         }
@@ -518,10 +505,7 @@ namespace red_arrow {
       VALUE convert(const arrow::DictionaryArray& array,
                     const int64_t index) {
         index_ = index;
-        arrow::Array* indices;
-        {
-          indices = &(*array.indices());
-        }
+        arrow::Array* indices = array.indices().get();
         check_status(indices->Accept(this),
                      "[raw-records][dictionary-array]");
         return result_;
@@ -598,10 +582,7 @@ namespace red_arrow {
             rb_ary_push(records_, record);
           }
           for (int i = 0; i < n_columns_; ++i) {
-            const arrow::Array* array;
-            {
-              array = &(*record_batch.column(i));
-            }
+            const arrow::Array* array = record_batch.column(i).get();
             column_index_ = i;
             check_status(array->Accept(this),
                          "[raw-records]");
@@ -695,11 +676,9 @@ namespace red_arrow {
 
   VALUE
   record_batch_raw_records(VALUE rb_record_batch) {
-    arrow::RecordBatch *record_batch;
-    {
-      auto garrow_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(rb_record_batch));
-      record_batch = &(*garrow_record_batch_get_raw(garrow_record_batch));
-    }
+    auto garrow_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(rb_record_batch));
+    arrow::RecordBatch *record_batch =
+      garrow_record_batch_get_raw(garrow_record_batch).get();
     const auto n_rows = record_batch->num_rows();
     const auto n_columns = record_batch->num_columns();
     VALUE records = rb_ary_new_capa(n_rows);
