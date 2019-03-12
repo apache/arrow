@@ -92,6 +92,20 @@ class ARROW_PYTHON_EXPORT PyFlightResultStream : public arrow::flight::ResultStr
   PyFlightResultStreamCallback callback_;
 };
 
+/// \brief A wrapper around a FlightDataStream that keeps alive a
+/// Python object backing it.
+class ARROW_PYTHON_EXPORT PyFlightDataStream : public arrow::flight::FlightDataStream {
+ public:
+  explicit PyFlightDataStream(PyObject* data_source,
+                              std::unique_ptr<arrow::flight::FlightDataStream> stream);
+  std::shared_ptr<arrow::Schema> schema() override;
+  Status Next(arrow::flight::FlightPayload* payload) override;
+
+ private:
+  OwnedRefNoGIL data_source_;
+  std::unique_ptr<arrow::flight::FlightDataStream> stream_;
+};
+
 ARROW_PYTHON_EXPORT
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         const arrow::flight::FlightDescriptor& descriptor,
