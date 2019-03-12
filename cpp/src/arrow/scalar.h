@@ -48,6 +48,12 @@ struct ARROW_EXPORT Scalar {
   /// \brief Whether the value is valid (not null) or not
   bool is_valid;
 
+  bool Equals(const Scalar& other) const;
+  bool Equals(const std::shared_ptr<Scalar>& other) const {
+    if (other) return Equals(*other);
+    return false;
+  }
+
  protected:
   Scalar(const std::shared_ptr<DataType>& type, bool is_valid)
       : type(type), is_valid(is_valid) {}

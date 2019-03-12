@@ -30,6 +30,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/scalar.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
@@ -38,6 +39,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/memory.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -717,6 +719,83 @@ class TypeEqualsVisitor {
   bool result_;
 };
 
+#define VISIT_SIMPLE(SCALAR_TYPE)                                 \
+  Status Visit(const SCALAR_TYPE& left) {                         \
+    const auto& right = checked_cast<const SCALAR_TYPE&>(right_); \
+    result_ = right.value == left.value;                          \
+    return Status::OK();                                          \
+  }
+
+class ScalarEqualsVisitor {
+ public:
+  explicit ScalarEqualsVisitor(const Scalar& right) : right_(right), result_(false) {}
+
+  Status Visit(const NullScalar& left) {
+    result_ = true;
+    return Status::OK();
+  }
+
+  VISIT_SIMPLE(BooleanScalar)
+  VISIT_SIMPLE(Int8Scalar)
+  VISIT_SIMPLE(UInt8Scalar)
+  VISIT_SIMPLE(Int16Scalar)
+  VISIT_SIMPLE(UInt16Scalar)
+  VISIT_SIMPLE(Int32Scalar)
+  VISIT_SIMPLE(UInt32Scalar)
+  VISIT_SIMPLE(Int64Scalar)
+  VISIT_SIMPLE(UInt64Scalar)
+  VISIT_SIMPLE(FloatScalar)
+  VISIT_SIMPLE(DoubleScalar)
+  VISIT_SIMPLE(Date32Scalar)
+  VISIT_SIMPLE(Date64Scalar)
+  VISIT_SIMPLE(Time32Scalar)
+  VISIT_SIMPLE(Time64Scalar)
+  VISIT_SIMPLE(TimestampScalar)
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<BinaryScalar, T>::value, Status>::type Visit(
+      const T& left_) {
+    const auto& left = checked_cast<const BinaryScalar&>(left_);
+    const auto& right = checked_cast<const BinaryScalar&>(right_);
+    result_ = internal::SharedPtrEquals(left.value, right.value);
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal128Scalar& left) {
+    const auto& right = checked_cast<const Decimal128Scalar&>(right_);
+    result_ = left.value == right.value;
+    return Status::OK();
+  }
+
+  Status Visit(const ListScalar& left) {
+    const auto& right = checked_cast<const ListScalar&>(right_);
+    result_ = internal::SharedPtrEquals(left.value, right.value);
+    return Status::OK();
+  }
+
+  Status Visit(const StructScalar& left) {
+    const auto& right = checked_cast<const StructScalar&>(right_);
+
+    if (right.value.size() != left.value.size()) {
+      result_ = false;
+    } else {
+      bool all_equals = true;
+      for (size_t i = 0; i < left.value.size() && all_equals; i++) {
+        all_equals &= internal::SharedPtrEquals(left.value[i], right.value[i]);
+      }
+      result_ = all_equals;
+    }
+
+    return Status::OK();
+  }
+
+  bool result() const { return result_; }
+
+ protected:
+  const Scalar& right_;
+  bool result_;
+};
+
 }  // namespace internal
 
 bool ArrayEquals(const Array& left, const Array& right) {
@@ -910,6 +989,23 @@ bool TypeEquals(const DataType& left, const DataType& right, bool check_metadata
     if (!error.ok()) {
       DCHECK(false) << "Types are not comparable: " << error.ToString();
     }
+    are_equal = visitor.result();
+  }
+  return are_equal;
+}
+
+bool ScalarEquals(const Scalar& left, const Scalar& right) {
+  bool are_equal = false;
+  if (&left == &right) {
+    are_equal = true;
+  } else if (!left.type->Equals(right.type)) {
+    are_equal = false;
+  } else if (left.is_valid != right.is_valid) {
+    are_equal = false;
+  } else {
+    internal::ScalarEqualsVisitor visitor(right);
+    auto error = VisitScalarInline(left, &visitor);
+    DCHECK_OK(error);
     are_equal = visitor.result();
   }
   return are_equal;

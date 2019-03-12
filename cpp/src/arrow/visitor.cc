@@ -21,6 +21,7 @@
 
 #include "arrow/array.h"
 #include "arrow/extension_type.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 
@@ -100,5 +101,43 @@ TYPE_VISITOR_DEFAULT(DictionaryType)
 TYPE_VISITOR_DEFAULT(ExtensionType)
 
 #undef TYPE_VISITOR_DEFAULT
+
+// ----------------------------------------------------------------------
+// Default implementations of ScalarVisitor methods
+
+#define SCALAR_VISITOR_DEFAULT(SCALAR_CLASS)                                 \
+  Status ScalarVisitor::Visit(const SCALAR_CLASS& scalar) {                  \
+    return Status::NotImplemented(                                           \
+        "ScalarVisitor not implemented for " ARROW_STRINGIFY(SCALAR_CLASS)); \
+  }
+
+SCALAR_VISITOR_DEFAULT(NullScalar)
+SCALAR_VISITOR_DEFAULT(BooleanScalar)
+SCALAR_VISITOR_DEFAULT(Int8Scalar)
+SCALAR_VISITOR_DEFAULT(Int16Scalar)
+SCALAR_VISITOR_DEFAULT(Int32Scalar)
+SCALAR_VISITOR_DEFAULT(Int64Scalar)
+SCALAR_VISITOR_DEFAULT(UInt8Scalar)
+SCALAR_VISITOR_DEFAULT(UInt16Scalar)
+SCALAR_VISITOR_DEFAULT(UInt32Scalar)
+SCALAR_VISITOR_DEFAULT(UInt64Scalar)
+SCALAR_VISITOR_DEFAULT(HalfFloatScalar)
+SCALAR_VISITOR_DEFAULT(FloatScalar)
+SCALAR_VISITOR_DEFAULT(DoubleScalar)
+SCALAR_VISITOR_DEFAULT(StringScalar)
+SCALAR_VISITOR_DEFAULT(BinaryScalar)
+SCALAR_VISITOR_DEFAULT(FixedSizeBinaryScalar)
+SCALAR_VISITOR_DEFAULT(Date64Scalar)
+SCALAR_VISITOR_DEFAULT(Date32Scalar)
+SCALAR_VISITOR_DEFAULT(Time32Scalar)
+SCALAR_VISITOR_DEFAULT(Time64Scalar)
+SCALAR_VISITOR_DEFAULT(TimestampScalar)
+SCALAR_VISITOR_DEFAULT(IntervalScalar)
+SCALAR_VISITOR_DEFAULT(Decimal128Scalar)
+SCALAR_VISITOR_DEFAULT(ListScalar)
+SCALAR_VISITOR_DEFAULT(StructScalar)
+SCALAR_VISITOR_DEFAULT(DictionaryScalar)
+
+#undef SCALAR_VISITOR_DEFAULT
 
 }  // namespace arrow

@@ -22,6 +22,7 @@
 
 #include "arrow/array.h"
 #include "arrow/extension_type.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
@@ -231,6 +232,48 @@ struct ArrayDataVisitor<T, enable_if_fixed_size_binary<T>> {
     return Status::OK();
   }
 };
+
+#define ARROW_GENERATE_FOR_SCALAR_TYPES(ACTION) \
+  ACTION(Null);                                 \
+  ACTION(Boolean);                              \
+  ACTION(Int8);                                 \
+  ACTION(UInt8);                                \
+  ACTION(Int16);                                \
+  ACTION(UInt16);                               \
+  ACTION(Int32);                                \
+  ACTION(UInt32);                               \
+  ACTION(Int64);                                \
+  ACTION(UInt64);                               \
+  ACTION(Float);                                \
+  ACTION(Double);                               \
+  ACTION(String);                               \
+  ACTION(Binary);                               \
+  ACTION(FixedSizeBinary);                      \
+  ACTION(Date32);                               \
+  ACTION(Date64);                               \
+  ACTION(Timestamp);                            \
+  ACTION(Time32);                               \
+  ACTION(Time64);                               \
+  ACTION(Decimal128);                           \
+  ACTION(List);                                 \
+  ACTION(Struct);
+
+#define SCALAR_VISIT_INLINE(TYPE_CLASS) \
+  case TYPE_CLASS##Type::type_id:       \
+    return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Scalar&>(scalar));
+
+template <typename VISITOR>
+inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
+  switch (scalar.type->id()) {
+    ARROW_GENERATE_FOR_SCALAR_TYPES(SCALAR_VISIT_INLINE);
+    default:
+      break;
+  }
+  return Status::NotImplemented("Scalar visitor for type not implemented ",
+                                scalar.type->ToString());
+}
+
+#undef TYPE_VISIT_INLINE
 
 }  // namespace arrow
 

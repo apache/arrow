@@ -21,6 +21,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/compare.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
@@ -29,6 +30,8 @@
 namespace arrow {
 
 using internal::checked_cast;
+
+bool Scalar::Equals(const Scalar& other) const { return ScalarEquals(*this, other); }
 
 Time32Scalar::Time32Scalar(int32_t value, const std::shared_ptr<DataType>& type,
                            bool is_valid)

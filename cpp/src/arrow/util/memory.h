@@ -19,6 +19,7 @@
 #define ARROW_UTIL_MEMORY_H
 
 #include <cstdint>
+#include <memory>
 
 namespace arrow {
 namespace internal {
@@ -27,6 +28,15 @@ namespace internal {
 // to saturate the memory bandwidth of modern cpus.
 void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
                       uintptr_t block_size, int num_threads);
+
+// A helper function for checking if two wrapped objects implementing `Equals`
+// are equal.
+template <typename T>
+bool SharedPtrEquals(const std::shared_ptr<T>& left, const std::shared_ptr<T>& right) {
+  if (left == right) return true;
+  if (left == nullptr || right == nullptr) return false;
+  return left->Equals(*right);
+}
 
 }  // namespace internal
 }  // namespace arrow
