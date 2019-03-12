@@ -287,13 +287,12 @@ class RegularHashKernelImpl : public HashKernelImpl {
     auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
 
     if (with_error_status) {
-
-    Status status;
+      Status status;
       auto on_not_found = [this, &status](int32_t memo_index) {
         action_.ObserveNotFound(memo_index, &status);
       };
       memo_table_->GetOrInsert(value, on_found, on_not_found);
-    return status;
+      return status;
     } else {
       auto on_not_found = [this](int32_t memo_index) {
         action_.ObserveNotFound(memo_index);
@@ -381,7 +380,8 @@ struct HashKernelTraits<Type, Action, with_error_status, enable_if_binary<Type>>
 };
 
 template <typename Type, typename Action, bool with_error_status>
-struct HashKernelTraits<Type, Action, with_error_status, enable_if_fixed_size_binary<Type>> {
+struct HashKernelTraits<Type, Action, with_error_status,
+                        enable_if_fixed_size_binary<Type>> {
   using HashKernelImpl =
       RegularHashKernelImpl<Type, util::string_view, Action, with_error_status>;
 };
