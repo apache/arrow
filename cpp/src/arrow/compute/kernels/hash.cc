@@ -88,7 +88,12 @@ class UniqueAction : public ActionBase {
   void ObserveFound(Index index) {}
 
   template <class Index>
-  void ObserveNotFound(Index index, Status* err_status) {}
+  void ObserveNotFound(Index index, Status* err_status) {
+    ARROW_LOG(FATAL) << "ObserveNotFound with err_status should not be called";
+  }
+
+  template <class Index>
+  void ObserveNotFound(Index index) {}
 
   Status Flush(Datum* out) { return Status::OK(); }
 
@@ -139,6 +144,11 @@ class ValueCountsAction : ActionBase {
   }
 
   template <class Index>
+  void ObserveNotFound(Index slot) {
+    ARROW_LOG(FATAL) << "ObserveNotFound without err_status should not be called";
+  }
+
+  template <class Index>
   void ObserveNotFound(Index slot, Status* status) {
     Status s = count_builder_.Append(1);
     if (ARROW_PREDICT_FALSE(!s.ok())) {
@@ -173,8 +183,13 @@ class DictEncodeAction : public ActionBase {
   }
 
   template <class Index>
-  void ObserveNotFound(Index index, Status* status) {
+  void ObserveNotFound(Index index) {
     ObserveFound(index);
+  }
+
+  template <class Index>
+  void ObserveNotFound(Index index, Status* err_status) {
+    ARROW_LOG(FATAL) << "ObserveNotFound with err_status should not be called";
   }
 
   Status Flush(Datum* out) {
@@ -238,7 +253,7 @@ class HashKernelImpl : public HashKernel {
 // Base class for all "regular" hash kernel implementations
 // (NullType has a separate implementation)
 
-template <typename Type, typename Scalar, typename Action>
+template <typename Type, typename Scalar, typename Action, bool with_error_status = false>
 class RegularHashKernelImpl : public HashKernelImpl {
  public:
   RegularHashKernelImpl(const std::shared_ptr<DataType>& type, MemoryPool* pool)
@@ -271,12 +286,22 @@ class RegularHashKernelImpl : public HashKernelImpl {
   Status VisitValue(const Scalar& value) {
     auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
 
+    if (with_error_status) {
+
     Status status;
-    auto on_not_found = [this, &status](int32_t memo_index) {
-      action_.ObserveNotFound(memo_index, &status);
-    };
-    memo_table_->GetOrInsert(value, on_found, on_not_found);
+      auto on_not_found = [this, &status](int32_t memo_index) {
+        action_.ObserveNotFound(memo_index, &status);
+      };
+      memo_table_->GetOrInsert(value, on_found, on_not_found);
     return status;
+    } else {
+      auto on_not_found = [this](int32_t memo_index) {
+        action_.ObserveNotFound(memo_index);
+      };
+
+      memo_table_->GetOrInsert(value, on_found, on_not_found);
+    }
+    return Status::OK();
   }
 
   std::shared_ptr<DataType> out_type() const override { return action_.out_type(); }
@@ -330,32 +355,35 @@ class NullHashKernelImpl : public HashKernelImpl {
 // ----------------------------------------------------------------------
 // Kernel wrapper for generic hash table kernels
 
-template <typename Type, typename Action, typename Enable = void>
+template <typename Type, typename Action, bool with_error_status, typename Enable = void>
 struct HashKernelTraits {};
 
-template <typename Type, typename Action>
-struct HashKernelTraits<Type, Action, enable_if_null<Type>> {
+template <typename Type, typename Action, bool with_error_status>
+struct HashKernelTraits<Type, Action, with_error_status, enable_if_null<Type>> {
   using HashKernelImpl = NullHashKernelImpl<Action>;
 };
 
-template <typename Type, typename Action>
-struct HashKernelTraits<Type, Action, enable_if_has_c_type<Type>> {
-  using HashKernelImpl = RegularHashKernelImpl<Type, typename Type::c_type, Action>;
+template <typename Type, typename Action, bool with_error_status>
+struct HashKernelTraits<Type, Action, with_error_status, enable_if_has_c_type<Type>> {
+  using HashKernelImpl =
+      RegularHashKernelImpl<Type, typename Type::c_type, Action, with_error_status>;
 };
 
-template <typename Type, typename Action>
-struct HashKernelTraits<Type, Action, enable_if_boolean<Type>> {
-  using HashKernelImpl = RegularHashKernelImpl<Type, bool, Action>;
+template <typename Type, typename Action, bool with_error_status>
+struct HashKernelTraits<Type, Action, with_error_status, enable_if_boolean<Type>> {
+  using HashKernelImpl = RegularHashKernelImpl<Type, bool, Action, with_error_status>;
 };
 
-template <typename Type, typename Action>
-struct HashKernelTraits<Type, Action, enable_if_binary<Type>> {
-  using HashKernelImpl = RegularHashKernelImpl<Type, util::string_view, Action>;
+template <typename Type, typename Action, bool with_error_status>
+struct HashKernelTraits<Type, Action, with_error_status, enable_if_binary<Type>> {
+  using HashKernelImpl =
+      RegularHashKernelImpl<Type, util::string_view, Action, with_error_status>;
 };
 
-template <typename Type, typename Action>
-struct HashKernelTraits<Type, Action, enable_if_fixed_size_binary<Type>> {
-  using HashKernelImpl = RegularHashKernelImpl<Type, util::string_view, Action>;
+template <typename Type, typename Action, bool with_error_status>
+struct HashKernelTraits<Type, Action, with_error_status, enable_if_fixed_size_binary<Type>> {
+  using HashKernelImpl =
+      RegularHashKernelImpl<Type, util::string_view, Action, with_error_status>;
 };
 
 }  // namespace
@@ -387,10 +415,11 @@ Status GetUniqueKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& ty
                        std::unique_ptr<HashKernel>* out) {
   std::unique_ptr<HashKernel> kernel;
   switch (type->id()) {
-#define PROCESS(InType)                                                               \
-  case InType::type_id:                                                               \
-    kernel.reset(new typename HashKernelTraits<InType, UniqueAction>::HashKernelImpl( \
-        type, ctx->memory_pool()));                                                   \
+#define PROCESS(InType)                                                                  \
+  case InType::type_id:                                                                  \
+    kernel.reset(new                                                                     \
+                 typename HashKernelTraits<InType, UniqueAction, false>::HashKernelImpl( \
+                     type, ctx->memory_pool()));                                         \
     break;
 
     PROCESS_SUPPORTED_HASH_TYPES(PROCESS)
@@ -411,11 +440,11 @@ Status GetDictionaryEncodeKernel(FunctionContext* ctx,
   std::unique_ptr<HashKernel> kernel;
 
   switch (type->id()) {
-#define PROCESS(InType)                                                               \
-  case InType::type_id:                                                               \
-    kernel.reset(new                                                                  \
-                 typename HashKernelTraits<InType, DictEncodeAction>::HashKernelImpl( \
-                     type, ctx->memory_pool()));                                      \
+#define PROCESS(InType)                                                                 \
+  case InType::type_id:                                                                 \
+    kernel.reset(                                                                       \
+        new typename HashKernelTraits<InType, DictEncodeAction, false>::HashKernelImpl( \
+            type, ctx->memory_pool()));                                                 \
     break;
 
     PROCESS_SUPPORTED_HASH_TYPES(PROCESS)
@@ -437,11 +466,11 @@ Status GetValueCountsKernel(FunctionContext* ctx, const std::shared_ptr<DataType
   std::unique_ptr<HashKernel> kernel;
 
   switch (type->id()) {
-#define PROCESS(InType)                                                                \
-  case InType::type_id:                                                                \
-    kernel.reset(new                                                                   \
-                 typename HashKernelTraits<InType, ValueCountsAction>::HashKernelImpl( \
-                     type, ctx->memory_pool()));                                       \
+#define PROCESS(InType)                                                                 \
+  case InType::type_id:                                                                 \
+    kernel.reset(                                                                       \
+        new typename HashKernelTraits<InType, ValueCountsAction, true>::HashKernelImpl( \
+            type, ctx->memory_pool()));                                                 \
     break;
 
     PROCESS_SUPPORTED_HASH_TYPES(PROCESS)
