@@ -36,17 +36,17 @@ namespace red_arrow {
 
   inline VALUE time_unit_to_scale(arrow::TimeUnit::type unit) {
     switch (unit) {
-      case arrow::TimeUnit::SECOND:
-        return INT2FIX(1);
-      case arrow::TimeUnit::MILLI:
-        return INT2FIX(1000);
-      case arrow::TimeUnit::MICRO:
-        return INT2FIX(1000 * 1000);
-      case arrow::TimeUnit::NANO:
-        // NOTE: INT2FIX works for 1e+9 because: FIXNUM_MAX >= (1<<30) - 1 > 1e+9
-        return INT2FIX(1000 * 1000 * 1000);
-      default:
-        break; // NOT REACHED
+    case arrow::TimeUnit::SECOND:
+      return INT2FIX(1);
+    case arrow::TimeUnit::MILLI:
+      return INT2FIX(1000);
+    case arrow::TimeUnit::MICRO:
+      return INT2FIX(1000 * 1000);
+    case arrow::TimeUnit::NANO:
+      // NOTE: INT2FIX works for 1e+9 because: FIXNUM_MAX >= (1<<30) - 1 > 1e+9
+      return INT2FIX(1000 * 1000 * 1000);
+    default:
+      break; // NOT REACHED
     }
     return Qnil;
   }
