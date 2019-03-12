@@ -70,6 +70,19 @@ namespace Apache.Arrow
                 return this;
             }
 
+            public Builder Metadata(IEnumerable<KeyValuePair<string, string>> dictionary)
+            {
+                if (dictionary == null)
+                {
+                    throw new ArgumentNullException(nameof(dictionary));
+                }
+                foreach (KeyValuePair<string, string> entry in dictionary)
+                {
+                    Metadata(entry.Key, entry.Value);
+                }
+                return this;
+            }
+
             public Field Build()
             {
                 return new Field(_name, _type, _nullable, _metadata);

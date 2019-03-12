@@ -87,8 +87,7 @@ namespace Apache.Arrow.Tests
 
         private void CompareSchemas(Schema expectedSchema, Schema actualSchema)
         {
-            Assert.Equal(expectedSchema.Fields.Count, actualSchema.Fields.Count);
-            // TODO: compare fields once https://github.com/apache/arrow/pull/3662 is in
+            Assert.True(SchemaComparer.Equals(expectedSchema, actualSchema));
         }
 
         private class ArrayComparer :
