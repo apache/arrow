@@ -21,7 +21,8 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
       @string_values = ["apple", "orange", "watermelon", nil, "タコ"]
       @string_array = Arrow::StringArray.new(@string_values)
 
-      @uint32_values = [1, 2, 4, 8, 16]
+      base_value = 2**20
+      @uint32_values = [1, 2, 4, 8, 16].map {|x| x + base_value }
       @uint32_array = Arrow::UInt32Array.new(@uint32_values)
 
       @double_values = [10.1, 11.2, 12.3, 13.4, 14.4]
