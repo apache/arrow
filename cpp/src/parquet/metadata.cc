@@ -29,7 +29,7 @@
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift.h"
-
+#include <inttypes.h>
 #include <boost/regex.hpp>  // IWYU pragma: keep
 
 namespace parquet {
@@ -430,10 +430,7 @@ class FileMetaData::FileMetaDataImpl {
         encryption->key_length(), encryption->aad_bytes(), encryption->aad_length(),
         nonce, 12, encrypted_buffer.data());
 
-    if (0 != memcmp(encrypted_buffer.data() + encrypted_len - 16, tag, 16)) {
-      return false;
-    }
-    return true;
+    return 0 == memcmp(encrypted_buffer.data() + encrypted_len - 16, tag, 16);
   }
 
   inline uint32_t size() const { return metadata_len_; }
@@ -460,17 +457,21 @@ class FileMetaData::FileMetaDataImpl {
   void WriteTo(::arrow::io::OutputStream* dst,  const std::shared_ptr<EncryptionProperties>& encryption) const {
     ThriftSerializer serializer;
     if (is_plaintext_mode()) {
-      serializer.Serialize(metadata_.get(), dst);
-      // 1. encrypt the footer key
-      uint8_t* encrypted_file_metadata;
-      uint32_t encrypted_file_metadata_len;
-      ThriftSerializer serializer;
-      serializer.SerializeToBuffer(metadata_.get(), &encrypted_file_metadata_len,
-                                   &encrypted_file_metadata, encryption);
+      uint8_t* serialized_data;
+      uint32_t serialized_len;
+      serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
+
+      // encrypt the footer key
+      std::vector<uint8_t> encrypted_data(encryption->CalculateCipherSize(serialized_len));
+      unsigned encrypted_len = parquet_encryption::Encrypt(
+          encryption, true, serialized_data, serialized_len, encrypted_data.data());
+
+      // write unencrypted footer
+      dst->Write(serialized_data, serialized_len);
       // write nonce
-      dst->Write(encrypted_file_metadata + 4, 12);
+      dst->Write(encrypted_data.data() + 4, 12);
       // write tag
-      dst->Write(encrypted_file_metadata + encrypted_file_metadata_len - 16, 16);
+      dst->Write(encrypted_data.data() + encrypted_len - 16, 16);
     }
     else {
       serializer.Serialize(metadata_.get(), dst, encryption, false);
