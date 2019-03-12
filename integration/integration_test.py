@@ -1030,6 +1030,7 @@ def get_generated_json_files(tempdir=None, flight=False):
         return
 
     file_objs = [
+        generate_primitive_case([], name='primitive_no_batches'),
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
         generate_decimal_case(),
@@ -1498,6 +1499,8 @@ def write_js_test_json(directory):
     generate_datetime_case().write(os.path.join(directory, 'datetime.json'))
     (generate_dictionary_case()
      .write(os.path.join(directory, 'dictionary.json')))
+    (generate_primitive_case([])
+     .write(os.path.join(directory, 'primitive_no_batches.json')))
     (generate_primitive_case([7, 10])
      .write(os.path.join(directory, 'primitive.json')))
     (generate_primitive_case([0, 0, 0])
