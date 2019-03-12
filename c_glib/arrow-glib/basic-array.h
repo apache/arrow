@@ -181,6 +181,25 @@ gboolean       garrow_boolean_array_get_value (GArrowBooleanArray *array,
                                                gint64 i);
 gboolean      *garrow_boolean_array_get_values(GArrowBooleanArray *array,
                                                gint64 *length);
+GARROW_AVAILABLE_IN_0_13
+GArrowBooleanArray *
+garrow_boolean_array_invert(GArrowBooleanArray *array,
+                            GError **error);
+GARROW_AVAILABLE_IN_0_13
+GArrowBooleanArray *
+garrow_boolean_array_and(GArrowBooleanArray *left,
+                         GArrowBooleanArray *right,
+                         GError **error);
+GARROW_AVAILABLE_IN_0_13
+GArrowBooleanArray *
+garrow_boolean_array_or(GArrowBooleanArray *left,
+                        GArrowBooleanArray *right,
+                        GError **error);
+GARROW_AVAILABLE_IN_0_13
+GArrowBooleanArray *
+garrow_boolean_array_xor(GArrowBooleanArray *left,
+                         GArrowBooleanArray *right,
+                         GError **error);
 
 #define GARROW_TYPE_NUMERIC_ARRAY (garrow_numeric_array_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowNumericArray,
