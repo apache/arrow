@@ -51,7 +51,6 @@ struct UnifyDictionaryValues {
 
   Status Visit(const DataType&, void* = nullptr) {
     // Default implementation for non-dictionary-supported datatypes
-    std::stringstream ss;
     return Status::NotImplemented("Unification of ", value_type_,
                                   " dictionaries is not implemented");
   }
