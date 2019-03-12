@@ -305,7 +305,8 @@ class PARQUET_NO_EXPORT PrimitiveImpl : public ColumnReader::ColumnReaderImpl {
   PrimitiveImpl(MemoryPool* pool, std::unique_ptr<FileColumnIterator> input)
       : pool_(pool), input_(std::move(input)), descr_(input_->descr()) {
     record_reader_ = RecordReader::Make(descr_, pool_);
-    DCHECK(NodeToField(*input_->descr()->schema_node(), &field_).ok());
+    Status s = NodeToField(*input_->descr()->schema_node(), &field_);
+    DCHECK_OK(s);
     NextRowGroup();
   }
 

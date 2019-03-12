@@ -81,36 +81,23 @@ enum class ArrowLogLevel : int {
 #ifdef NDEBUG
 #define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_WARNING
 
-#define DCHECK(condition)       \
-  ARROW_IGNORE_EXPR(condition); \
-  ARROW_CHECK(true)
-#define DCHECK_OK(status)    \
-  ARROW_IGNORE_EXPR(status); \
-  ARROW_CHECK(true)
+#define DCHECK(condition) \
+  while (false) ::arrow::util::detail::NullLog()
+#define DCHECK_OK(s)    \
+  ARROW_IGNORE_EXPR(s); \
+  while (false) ::arrow::util::detail::NullLog()
 #define DCHECK_EQ(val1, val2) \
-  ARROW_IGNORE_EXPR(val1);    \
-  ARROW_IGNORE_EXPR(val2);    \
-  ARROW_CHECK(true)
+  while (false) ::arrow::util::detail::NullLog()
 #define DCHECK_NE(val1, val2) \
-  ARROW_IGNORE_EXPR(val1);    \
-  ARROW_IGNORE_EXPR(val2);    \
-  ARROW_CHECK(true)
+  while (false) ::arrow::util::detail::NullLog()
 #define DCHECK_LE(val1, val2) \
-  ARROW_IGNORE_EXPR(val1);    \
-  ARROW_IGNORE_EXPR(val2);    \
-  ARROW_CHECK(true)
+  while (false) ::arrow::util::detail::NullLog()
 #define DCHECK_LT(val1, val2) \
-  ARROW_IGNORE_EXPR(val1);    \
-  ARROW_IGNORE_EXPR(val2);    \
-  ARROW_CHECK(true)
+  while (false) ::arrow::util::detail::NullLog()
 #define DCHECK_GE(val1, val2) \
-  ARROW_IGNORE_EXPR(val1);    \
-  ARROW_IGNORE_EXPR(val2);    \
-  ARROW_CHECK(true)
+  while (false) ::arrow::util::detail::NullLog()
 #define DCHECK_GT(val1, val2) \
-  ARROW_IGNORE_EXPR(val1);    \
-  ARROW_IGNORE_EXPR(val2);    \
-  ARROW_CHECK(true)
+  while (false) ::arrow::util::detail::NullLog()
 
 #else
 #define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_FATAL
@@ -214,8 +201,29 @@ class ARROW_EXPORT Voidify {
   void operator&(ArrowLogBase&) {}
 };
 
+namespace detail {
+
+/// @brief A helper for the nil log sink.
+///
+/// Using this helper is analogous to sending log messages to /dev/null:
+/// nothing gets logged.
+class NullLog {
+ public:
+  /// The no-op output operator.
+  ///
+  /// @param [in] t
+  ///   The object to send into the nil sink.
+  /// @return Reference to the updated object.
+  template <class T>
+  NullLog& operator<<(const T& t) {
+    return *this;
+  }
+};
+
+}  // namespace detail
 }  // namespace util
 }  // namespace arrow
+
 #endif  // GANDIVA_IR
 
 #endif  // ARROW_UTIL_LOGGING_H

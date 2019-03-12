@@ -648,7 +648,8 @@ void BasicDecimal128::GetWholeAndFraction(int scale, BasicDecimal128* whole,
   DCHECK_LE(scale, 38);
 
   BasicDecimal128 multiplier(ScaleMultipliers[scale]);
-  DCHECK_EQ(Divide(multiplier, whole, fraction), DecimalStatus::kSuccess);
+  auto s = Divide(multiplier, whole, fraction);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
 }
 
 const BasicDecimal128& BasicDecimal128::GetScaleMultiplier(int32_t scale) {
@@ -678,7 +679,8 @@ BasicDecimal128 BasicDecimal128::ReduceScaleBy(int32_t reduce_by, bool round) co
   BasicDecimal128 divisor(ScaleMultipliers[reduce_by]);
   BasicDecimal128 result;
   BasicDecimal128 remainder;
-  DCHECK_EQ(Divide(divisor, &result, &remainder), DecimalStatus::kSuccess);
+  auto s = Divide(divisor, &result, &remainder);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
   if (round) {
     auto divisor_half = ScaleMultipliersHalf[reduce_by];
     if (remainder.Abs() >= divisor_half) {
