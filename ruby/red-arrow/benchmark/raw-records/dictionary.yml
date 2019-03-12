@@ -25,7 +25,7 @@ prelude: |-
   n_rows = 1000
   n_columns = 10
   dictionary = Arrow::StringArray.new(
-    100.times.map { Faker::Book.genre }.uniq
+    100.times.map { Faker::Book.genre }.uniq.sort
   )
   type = Arrow::DictionaryDataType.new(:int8, dictionary, true)
 
