@@ -54,20 +54,22 @@ void write_parquet_file(const arrow::Table& table) {
   // The last argument to the function call is the size of the RowGroup in
   // the parquet file. Normally you would choose this to be rather large but
   // for the example, we use a small value to have multiple RowGroups.
+  auto pool = arrow::default_memory_pool();
   PARQUET_THROW_NOT_OK(
-      parquet::arrow::WriteTable(table, arrow::default_memory_pool(), outfile, 3));
+      parquet::arrow::WriteTable(table, pool, outfile, 3));
 }
 
 // #2: Fully read in the file
 void read_whole_file() {
   std::cout << "Reading parquet-arrow-example.parquet at once" << std::endl;
   std::shared_ptr<arrow::io::ReadableFile> infile;
+  auto pool = arrow::default_memory_pool();
   PARQUET_THROW_NOT_OK(arrow::io::ReadableFile::Open(
-      "parquet-arrow-example.parquet", arrow::default_memory_pool(), &infile));
+      "parquet-arrow-example.parquet", pool, &infile));
 
   std::unique_ptr<parquet::arrow::FileReader> reader;
   PARQUET_THROW_NOT_OK(
-      parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
+      parquet::arrow::OpenFile(infile, pool, &reader));
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
   std::cout << "Loaded " << table->num_rows() << " rows in " << table->num_columns()
@@ -78,12 +80,13 @@ void read_whole_file() {
 void read_single_rowgroup() {
   std::cout << "Reading first RowGroup of parquet-arrow-example.parquet" << std::endl;
   std::shared_ptr<arrow::io::ReadableFile> infile;
+  auto pool = arrow::default_memory_pool();
   PARQUET_THROW_NOT_OK(arrow::io::ReadableFile::Open(
-      "parquet-arrow-example.parquet", arrow::default_memory_pool(), &infile));
+      "parquet-arrow-example.parquet", pool, &infile));
 
   std::unique_ptr<parquet::arrow::FileReader> reader;
   PARQUET_THROW_NOT_OK(
-      parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
+      parquet::arrow::OpenFile(infile, pool, &reader));
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->RowGroup(0)->ReadTable(&table));
   std::cout << "Loaded " << table->num_rows() << " rows in " << table->num_columns()
@@ -94,12 +97,13 @@ void read_single_rowgroup() {
 void read_single_column() {
   std::cout << "Reading first column of parquet-arrow-example.parquet" << std::endl;
   std::shared_ptr<arrow::io::ReadableFile> infile;
+  auto pool = arrow::default_memory_pool();
   PARQUET_THROW_NOT_OK(arrow::io::ReadableFile::Open(
-      "parquet-arrow-example.parquet", arrow::default_memory_pool(), &infile));
+      "parquet-arrow-example.parquet", pool, &infile));
 
   std::unique_ptr<parquet::arrow::FileReader> reader;
   PARQUET_THROW_NOT_OK(
-      parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
+      parquet::arrow::OpenFile(infile, pool, &reader));
   std::shared_ptr<arrow::ChunkedArray> array;
   PARQUET_THROW_NOT_OK(reader->ReadColumn(0, &array));
   PARQUET_THROW_NOT_OK(arrow::PrettyPrint(*array, 4, &std::cout));
@@ -113,12 +117,13 @@ void read_single_column_chunk() {
                "parquet-arrow-example.parquet"
             << std::endl;
   std::shared_ptr<arrow::io::ReadableFile> infile;
+  auto pool = arrow::default_memory_pool();
   PARQUET_THROW_NOT_OK(arrow::io::ReadableFile::Open(
-      "parquet-arrow-example.parquet", arrow::default_memory_pool(), &infile));
+      "parquet-arrow-example.parquet", pool, &infile));
 
   std::unique_ptr<parquet::arrow::FileReader> reader;
   PARQUET_THROW_NOT_OK(
-      parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
+      parquet::arrow::OpenFile(infile, pool, &reader));
   std::shared_ptr<arrow::ChunkedArray> array;
   PARQUET_THROW_NOT_OK(reader->RowGroup(0)->Column(0)->Read(&array));
   PARQUET_THROW_NOT_OK(arrow::PrettyPrint(*array, 4, &std::cout));

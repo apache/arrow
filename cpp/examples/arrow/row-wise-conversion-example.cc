@@ -58,7 +58,7 @@ arrow::Status VectorToColumnarTable(const std::vector<struct data_row>& rows,
   // arrow::jemalloc::MemoryPool::default_pool() as this can increase the size of
   // the underlying memory regions in-place. At the moment, arrow::jemalloc is only
   // supported on Unix systems, not Windows.
-  arrow::MemoryPool* pool = arrow::default_memory_pool();
+  auto pool = arrow::default_memory_pool();
 
   Int64Builder id_builder(pool);
   DoubleBuilder cost_builder(pool);

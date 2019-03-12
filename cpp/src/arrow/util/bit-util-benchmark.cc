@@ -224,8 +224,9 @@ static void BM_CopyBitmap(benchmark::State& state) {  // NOLINT non-const refere
   const uint8_t* src = buffer->data();
 
   std::shared_ptr<Buffer> copy;
+  auto pool = default_memory_pool();
   while (state.KeepRunning()) {
-    ABORT_NOT_OK(CopyBitmap(default_memory_pool(), src, state.range(1), num_bits, &copy));
+    ABORT_NOT_OK(CopyBitmap(pool, src, state.range(1), num_bits, &copy));
   }
   state.SetBytesProcessed(state.iterations() * kBufferSize * sizeof(int8_t));
 }

@@ -312,9 +312,9 @@ static void DoDecimalAdd3(benchmark::State& state, int32_t precision, int32_t sc
 
   Decimal128DataGenerator data_generator(large);
   ProjectEvaluator evaluator(projector);
-
+  auto pool = ::arrow::default_memory_pool();
   status = TimedEvaluate<arrow::Decimal128Type, arrow::Decimal128>(
-      schema, evaluator, data_generator, arrow::default_memory_pool(), 1 * MILLION,
+      schema, evaluator, data_generator, pool, 1 * MILLION,
       16 * THOUSAND, state);
   ASSERT_OK(status);
 }
@@ -343,9 +343,9 @@ static void DoDecimalAdd2(benchmark::State& state, int32_t precision, int32_t sc
 
   Decimal128DataGenerator data_generator(large);
   ProjectEvaluator evaluator(projector);
-
+  auto pool = ::arrow::default_memory_pool();
   status = TimedEvaluate<arrow::Decimal128Type, arrow::Decimal128>(
-      schema, evaluator, data_generator, arrow::default_memory_pool(), 1 * MILLION,
+      schema, evaluator, data_generator, pool, 1 * MILLION,
       16 * THOUSAND, state);
   ASSERT_OK(status);
 }

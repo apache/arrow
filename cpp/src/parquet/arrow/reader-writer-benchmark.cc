@@ -145,11 +145,11 @@ static void BM_WriteColumn(::benchmark::State& state) {
   using T = typename ParquetType::c_type;
   std::vector<T> values(BENCHMARK_SIZE, static_cast<T>(128));
   std::shared_ptr<::arrow::Table> table = TableFromVector<ParquetType>(values, nullable);
-
+  auto pool = ::arrow::default_memory_pool();
   while (state.KeepRunning()) {
     auto output = std::make_shared<InMemoryOutputStream>();
     EXIT_NOT_OK(
-        WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));
+        WriteTable(*table, pool, output, BENCHMARK_SIZE));
   }
   SetBytesProcessed<nullable, ParquetType>(state);
 }
@@ -173,13 +173,14 @@ static void BM_ReadColumn(::benchmark::State& state) {
   std::vector<T> values(BENCHMARK_SIZE, static_cast<T>(128));
   std::shared_ptr<::arrow::Table> table = TableFromVector<ParquetType>(values, nullable);
   auto output = std::make_shared<InMemoryOutputStream>();
-  EXIT_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));
+  auto pool = ::arrow::default_memory_pool();
+  EXIT_NOT_OK(WriteTable(*table, pool, output, BENCHMARK_SIZE));
   std::shared_ptr<Buffer> buffer = output->GetBuffer();
 
   while (state.KeepRunning()) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    FileReader filereader(::arrow::default_memory_pool(), std::move(reader));
+    FileReader filereader(pool, std::move(reader));
     std::shared_ptr<::arrow::Table> table;
     EXIT_NOT_OK(filereader.ReadTable(&table));
   }
@@ -203,14 +204,15 @@ static void BM_ReadIndividualRowGroups(::benchmark::State& state) {
   std::shared_ptr<::arrow::Table> table = TableFromVector<Int64Type>(values, true);
   auto output = std::make_shared<InMemoryOutputStream>();
   // This writes 10 RowGroups
+  auto pool = ::arrow::default_memory_pool();
   EXIT_NOT_OK(
-      WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE / 10));
+      WriteTable(*table, pool, output, BENCHMARK_SIZE / 10));
   std::shared_ptr<Buffer> buffer = output->GetBuffer();
 
   while (state.KeepRunning()) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    FileReader filereader(::arrow::default_memory_pool(), std::move(reader));
+    FileReader filereader(pool, std::move(reader));
 
     std::vector<std::shared_ptr<::arrow::Table>> tables;
     for (int i = 0; i < filereader.num_row_groups(); i++) {
@@ -235,14 +237,15 @@ static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
   std::shared_ptr<::arrow::Table> table = TableFromVector<Int64Type>(values, true);
   auto output = std::make_shared<InMemoryOutputStream>();
   // This writes 10 RowGroups
+  auto pool = ::arrow::default_memory_pool();
   EXIT_NOT_OK(
-      WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE / 10));
+      WriteTable(*table, pool, output, BENCHMARK_SIZE / 10));
   std::shared_ptr<Buffer> buffer = output->GetBuffer();
 
   while (state.KeepRunning()) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    FileReader filereader(::arrow::default_memory_pool(), std::move(reader));
+    FileReader filereader(pool, std::move(reader));
 
     std::vector<std::shared_ptr<::arrow::Table>> tables;
     std::vector<int> rgs;

@@ -54,13 +54,13 @@ static void BM_WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const 
   std::shared_ptr<ResizableBuffer> buffer;
   ABORT_NOT_OK(AllocateResizableBuffer(kTotalSize & 2, &buffer));
   auto record_batch = MakeRecordBatch(kTotalSize, state.range(0));
-
+  auto pool = default_memory_pool();
   while (state.KeepRunning()) {
     io::BufferOutputStream stream(buffer);
     int32_t metadata_length;
     int64_t body_length;
     if (!ipc::WriteRecordBatch(*record_batch, 0, &stream, &metadata_length, &body_length,
-                               default_memory_pool())
+                               pool)
              .ok()) {
       state.SkipWithError("Failed to write!");
     }
@@ -80,8 +80,9 @@ static void BM_ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const r
 
   int32_t metadata_length;
   int64_t body_length;
+  auto pool = default_memory_pool();
   if (!ipc::WriteRecordBatch(*record_batch, 0, &stream, &metadata_length, &body_length,
-                             default_memory_pool())
+                             pool)
            .ok()) {
     state.SkipWithError("Failed to write!");
   }

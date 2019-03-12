@@ -47,7 +47,7 @@ class BaseEvaluator {
  public:
   virtual ~BaseEvaluator() = default;
 
-  virtual Status Evaluate(arrow::RecordBatch& batch, arrow::MemoryPool* pool) = 0;
+  virtual Status Evaluate(arrow::RecordBatch& batch, std::shared_ptr<arrow::MemoryPool>& pool) = 0;
 };
 
 class ProjectEvaluator : public BaseEvaluator {
@@ -55,7 +55,7 @@ class ProjectEvaluator : public BaseEvaluator {
   explicit ProjectEvaluator(std::shared_ptr<Projector> projector)
       : projector_(projector) {}
 
-  Status Evaluate(arrow::RecordBatch& batch, arrow::MemoryPool* pool) override {
+  Status Evaluate(arrow::RecordBatch& batch, std::shared_ptr<arrow::MemoryPool>& pool) override {
     arrow::ArrayVector outputs;
     return projector_->Evaluate(batch, pool, &outputs);
   }
@@ -68,7 +68,7 @@ class FilterEvaluator : public BaseEvaluator {
  public:
   explicit FilterEvaluator(std::shared_ptr<Filter> filter) : filter_(filter) {}
 
-  Status Evaluate(arrow::RecordBatch& batch, arrow::MemoryPool* pool) override {
+  Status Evaluate(arrow::RecordBatch& batch, std::shared_ptr<arrow::MemoryPool>& pool) override {
     if (selection_ == nullptr || selection_->GetMaxSlots() < batch.num_rows()) {
       auto status = SelectionVector::MakeInt16(batch.num_rows(), pool, &selection_);
       if (!status.ok()) {
@@ -85,7 +85,7 @@ class FilterEvaluator : public BaseEvaluator {
 
 template <typename TYPE, typename C_TYPE>
 Status TimedEvaluate(SchemaPtr schema, BaseEvaluator& evaluator,
-                     DataGenerator<C_TYPE>& data_generator, arrow::MemoryPool* pool,
+                     DataGenerator<C_TYPE>& data_generator, std::shared_ptr<arrow::MemoryPool>& pool,
                      int num_records, int batch_size, benchmark::State& state) {
   int num_remaining = num_records;
   int num_fields = schema->num_fields();
