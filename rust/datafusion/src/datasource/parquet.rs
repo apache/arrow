@@ -83,9 +83,8 @@ pub struct ParquetFile {
 
 fn create_binary_array(b: &Vec<ByteArray>, row_count: usize) -> Result<Arc<BinaryArray>> {
     let mut builder = BinaryBuilder::new(b.len());
-    for j in 0..row_count {
-        let slice = b[j].slice(0, b[j].len());
-        builder.append_string(&String::from_utf8(slice.data().to_vec()).unwrap())?;
+    for i in 0..row_count {
+        builder.append_string(&String::from_utf8(b[i].data().to_vec()).unwrap())?;
     }
     Ok(Arc::new(builder.finish()))
 }
@@ -167,14 +166,16 @@ where
                 &mut read_buffer,
             )?;
             let mut builder = PrimitiveBuilder::<A>::new(levels_read);
+            let converted_buffer: Vec<A::Native> =
+                read_buffer.into_iter().map(|v| v.into()).collect();
             if values_read == levels_read {
-                let converted_buffer: Vec<A::Native> =
-                    read_buffer.into_iter().map(|v| v.into()).collect();
                 builder.append_slice(&converted_buffer[0..values_read])?;
             } else {
-                for (v, l) in read_buffer.into_iter().zip(def_levels) {
-                    if l == 0 {
-                        builder.append_value(v.into())?;
+                let mut vi = 0;
+                for i in 0..def_levels.len() {
+                    if def_levels[i] != 0 {
+                        builder.append_value(converted_buffer[vi].into())?;
+                        vi += 1;
                     } else {
                         builder.append_null()?;
                     }
