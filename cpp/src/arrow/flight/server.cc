@@ -352,6 +352,8 @@ Status FlightServerBase::Init(int port) {
   impl_->service_.reset(new FlightServiceImpl(this));
 
   grpc::ServerBuilder builder;
+  // Allow uploading messages of any length
+  builder.SetMaxReceiveMessageSize(-1);
   builder.AddListeningPort(impl_->address_, grpc::InsecureServerCredentials());
   builder.RegisterService(impl_->service_.get());
 
