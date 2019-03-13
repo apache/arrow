@@ -61,8 +61,22 @@ class EchoStreamFlightServer(EchoFlightServer):
     """An echo server that streams individual record batches."""
 
     def do_get(self, ticket):
-        return flight.GeneratorStream(self.last_message.schema,
-                                      self.last_message.to_batches(chunksize=1024))
+        return flight.GeneratorStream(
+            self.last_message.schema,
+            self.last_message.to_batches(chunksize=1024))
+
+
+class InvalidStreamFlightServer(flight.FlightServerBase):
+    """A Flight server that tries to return messages with differing schemas."""
+    data1 = [pa.array([-10, -5, 0, 5, 10])]
+    data2 = [pa.array([-10.0, -5.0, 0.0, 5.0, 10.0])]
+    table1 = pa.Table.from_arrays(data1, names=['a'])
+    table2 = pa.Table.from_arrays(data2, names=['a'])
+
+    schema = table1.schema
+
+    def do_get(self, ticket):
+        return flight.GeneratorStream(self.schema, [self.table1, self.table2])
 
 
 @contextlib.contextmanager
@@ -138,3 +152,12 @@ def test_flight_generator_stream():
         writer.close()
         result = client.do_get(flight.Ticket(b''), data.schema).read_all()
         assert result.equals(data)
+
+
+def test_flight_invalid_generator_stream():
+    """Try streaming data with mismatched schemas."""
+    with flight_server(InvalidStreamFlightServer) as server_port:
+        client = flight.FlightClient.connect('localhost', server_port)
+        schema = InvalidStreamFlightServer.schema
+        with pytest.raises(pa.ArrowException):
+            client.do_get(flight.Ticket(b''), schema).read_all()

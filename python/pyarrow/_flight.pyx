@@ -475,7 +475,7 @@ cdef class GeneratorStream(FlightDataStream):
         return new CPyGeneratorFlightDataStream(self, self.schema, callback)
 
 
-cdef void _data_stream_next(void* self, CFlightPayload* payload):
+cdef void _data_stream_next(void* self, CFlightPayload* payload) except *:
     """Callback for implementing FlightDataStream in Python."""
     cdef:
         unique_ptr[CFlightDataStream] data_stream
@@ -502,14 +502,28 @@ cdef void _data_stream_next(void* self, CFlightPayload* payload):
     if isinstance(result, (Table, _CRecordBatchReader)):
         result = RecordBatchStream(result)
 
+    stream_schema = pyarrow_wrap_schema(stream.schema)
     if isinstance(result, FlightDataStream):
         data_stream = unique_ptr[CFlightDataStream](
             (<FlightDataStream> result).to_stream())
+        substream_schema = pyarrow_wrap_schema(data_stream.get().schema())
+        if substream_schema != stream_schema:
+            raise ValueError("Got a FlightDataStream whose schema does not "
+                             "match the declared schema of this "
+                             "GeneratorStream. "
+                             "Got: {}\nExpected: {}".format(substream_schema,
+                                                            stream_schema))
         stream.current_stream.reset(
             new CPyFlightDataStream(result, move(data_stream)))
         _data_stream_next(self, payload)
     elif isinstance(result, RecordBatch):
         batch = <RecordBatch> result
+        if batch.schema != stream_schema:
+            raise ValueError("Got a RecordBatch whose schema does not "
+                             "match the declared schema of this "
+                             "GeneratorStream. "
+                             "Got: {}\nExpected: {}".format(batch.schema,
+                                                            stream_schema))
         check_status(_GetRecordBatchPayload(
             deref(batch.batch),
             c_default_memory_pool(),
