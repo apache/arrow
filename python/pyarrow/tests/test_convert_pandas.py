@@ -155,6 +155,33 @@ class TestConvertMetadata(object):
         df.columns.names = ['a']
         _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_range_index_shortcut(self):
+        # ARROW-1639
+        index_name = 'foo'
+        df = pd.DataFrame({'a': [1, 2, 3, 4]},
+                          index=pd.RangeIndex(0, 8, step=2, name=index_name))
+
+        df2 = pd.DataFrame({'a': [4, 5, 6, 7]},
+                           index=pd.RangeIndex(0, 4))
+
+        table = pa.Table.from_pandas(df)
+        table_no_index_name = pa.Table.from_pandas(df2)
+
+        # The RangeIndex is tracked in the metadata only
+        assert len(table.schema) == 1
+
+        result = table.to_pandas()
+        tm.assert_frame_equal(result, df)
+        assert isinstance(result.index, pd.RangeIndex)
+        assert result.index._step == 2
+        assert result.index.name == index_name
+
+        result2 = table_no_index_name.to_pandas()
+        tm.assert_frame_equal(result2, df2)
+        assert isinstance(result2.index, pd.RangeIndex)
+        assert result2.index._step == 1
+        assert result2.index.name is None
+
     def test_multiindex_columns(self):
         columns = pd.MultiIndex.from_arrays([
             ['one', 'two'], ['X', 'Y']
@@ -203,9 +230,7 @@ class TestConvertMetadata(object):
             columns=['a', None, '__index_level_0__'],
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
-        raw_metadata = t.schema.metadata
-
-        js = json.loads(raw_metadata[b'pandas'].decode('utf8'))
+        js = t.schema.pandas_metadata
 
         col1, col2, col3, idx0, foo = js['columns']
 
@@ -218,11 +243,14 @@ class TestConvertMetadata(object):
         assert col3['name'] == '__index_level_0__'
         assert col3['name'] == col3['field_name']
 
-        idx0_name, foo_name = js['index_columns']
+        idx0_descr, foo_descr = js['index_columns']
+        assert idx0_descr['kind'] == 'serialized'
+        idx0_name = idx0_descr['field_name']
         assert idx0_name == '__index_level_0__'
         assert idx0['field_name'] == idx0_name
         assert idx0['name'] is None
 
+        foo_name = foo_descr['field_name']
         assert foo_name == 'foo'
         assert foo['field_name'] == foo_name
         assert foo['name'] == foo_name
@@ -233,8 +261,7 @@ class TestConvertMetadata(object):
             columns=pd.Index(list('def'), dtype='category')
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
-        raw_metadata = t.schema.metadata
-        js = json.loads(raw_metadata[b'pandas'].decode('utf8'))
+        js = t.schema.pandas_metadata
 
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] is None
@@ -251,8 +278,7 @@ class TestConvertMetadata(object):
             columns=pd.Index(list('def'), name='stringz')
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
-        raw_metadata = t.schema.metadata
-        js = json.loads(raw_metadata[b'pandas'].decode('utf8'))
+        js = t.schema.pandas_metadata
 
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] == 'stringz'
@@ -278,8 +304,7 @@ class TestConvertMetadata(object):
             )
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
-        raw_metadata = t.schema.metadata
-        js = json.loads(raw_metadata[b'pandas'].decode('utf8'))
+        js = t.schema.pandas_metadata
 
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] is None
@@ -369,10 +394,8 @@ class TestConvertMetadata(object):
     def test_metadata_with_mixed_types(self):
         df = pd.DataFrame({'data': [b'some_bytes', u'some_unicode']})
         table = pa.Table.from_pandas(df)
-        metadata = table.schema.metadata
-        assert b'mixed' not in metadata[b'pandas']
-
-        js = json.loads(metadata[b'pandas'].decode('utf8'))
+        js = table.schema.pandas_metadata
+        assert 'mixed' not in js
         data_column = js['columns'][0]
         assert data_column['pandas_type'] == 'bytes'
         assert data_column['numpy_type'] == 'object'
@@ -392,10 +415,8 @@ class TestConvertMetadata(object):
         df = pd.DataFrame({'data': [[1], [2, 3, 4], [5] * 7]})
         schema = pa.schema([pa.field('data', type=pa.list_(pa.int64()))])
         table = pa.Table.from_pandas(df, schema=schema)
-        metadata = table.schema.metadata
-        assert b'mixed' not in metadata[b'pandas']
-
-        js = json.loads(metadata[b'pandas'].decode('utf8'))
+        js = table.schema.pandas_metadata
+        assert 'mixed' not in js
         data_column = js['columns'][0]
         assert data_column['pandas_type'] == 'list[int64]'
         assert data_column['numpy_type'] == 'object'
@@ -408,10 +429,8 @@ class TestConvertMetadata(object):
             ]
         })
         table = pa.Table.from_pandas(expected)
-        metadata = table.schema.metadata
-        assert b'mixed' not in metadata[b'pandas']
-
-        js = json.loads(metadata[b'pandas'].decode('utf8'))
+        js = table.schema.pandas_metadata
+        assert 'mixed' not in js
         data_column = js['columns'][0]
         assert data_column['pandas_type'] == 'decimal'
         assert data_column['numpy_type'] == 'object'
@@ -419,19 +438,6 @@ class TestConvertMetadata(object):
 
     def test_table_column_subset_metadata(self):
         # ARROW-1883
-        df = pd.DataFrame({
-            'a': [1, 2, 3],
-            'b': pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')})
-        table = pa.Table.from_pandas(df)
-
-        table_subset = table.remove_column(1)
-        result = table_subset.to_pandas()
-        tm.assert_frame_equal(result, df[['a']])
-
-        table_subset2 = table_subset.remove_column(1)
-        result = table_subset2.to_pandas()
-        tm.assert_frame_equal(result, df[['a']])
-
         # non-default index
         for index in [
                 pd.Index(['a', 'b', 'c'], name='index'),
@@ -467,7 +473,7 @@ class TestConvertMetadata(object):
         # type of empty lists
         df = tbl.to_pandas()
         tbl2 = pa.Table.from_pandas(df, preserve_index=True)
-        md2 = json.loads(tbl2.schema.metadata[b'pandas'].decode('utf8'))
+        md2 = tbl2.schema.pandas_metadata
 
         # Second roundtrip
         df2 = tbl2.to_pandas()
@@ -489,13 +495,6 @@ class TestConvertMetadata(object):
                 'metadata': None,
                 'numpy_type': 'object',
                 'pandas_type': 'list[empty]',
-            },
-            {
-                'name': None,
-                'field_name': '__index_level_0__',
-                'metadata': None,
-                'numpy_type': 'int64',
-                'pandas_type': 'int64',
             }
         ]
 
@@ -2529,3 +2528,176 @@ def test_table_from_pandas_columns_and_schema_are_mutually_exclusive():
 
     with pytest.raises(ValueError):
         pa.Table.from_pandas(df, schema=schema, columns=columns)
+
+
+# ----------------------------------------------------------------------
+# Legacy metadata compatibility tests
+
+
+def test_range_index_pre_0_12():
+    # Forward compatibility for metadata created from pandas.RangeIndex
+    # prior to pyarrow 0.13.0
+    a_values = [u'foo', u'bar', None, u'baz']
+    b_values = [u'a', u'a', u'b', u'b']
+    a_arrow = pa.array(a_values, type='utf8')
+    b_arrow = pa.array(b_values, type='utf8')
+
+    rng_index_arrow = pa.array([0, 2, 4, 6], type='int64')
+
+    gen_name_0 = '__index_level_0__'
+    gen_name_1 = '__index_level_1__'
+
+    # Case 1: named RangeIndex
+    e1 = pd.DataFrame({
+        'a': a_values
+    }, index=pd.RangeIndex(0, 8, step=2, name='qux'))
+    t1 = pa.Table.from_arrays([a_arrow, rng_index_arrow],
+                              names=['a', 'qux'])
+    t1 = t1.replace_schema_metadata({
+        b'pandas': json.dumps(
+            {'index_columns': ['qux'],
+             'column_indexes': [{'name': None,
+                                 'field_name': None,
+                                 'pandas_type': 'unicode',
+                                 'numpy_type': 'object',
+                                 'metadata': {'encoding': 'UTF-8'}}],
+             'columns': [{'name': 'a',
+                          'field_name': 'a',
+                          'pandas_type': 'unicode',
+                          'numpy_type': 'object',
+                          'metadata': None},
+                         {'name': 'qux',
+                          'field_name': 'qux',
+                          'pandas_type': 'int64',
+                          'numpy_type': 'int64',
+                          'metadata': None}],
+             'pandas_version': '0.23.4'}
+        )})
+    r1 = t1.to_pandas()
+    tm.assert_frame_equal(r1, e1)
+
+    # Case 2: named RangeIndex, but conflicts with an actual column
+    e2 = pd.DataFrame({
+        'qux': a_values
+    }, index=pd.RangeIndex(0, 8, step=2, name='qux'))
+    t2 = pa.Table.from_arrays([a_arrow, rng_index_arrow],
+                              names=['qux', gen_name_0])
+    t2 = t2.replace_schema_metadata({
+        b'pandas': json.dumps(
+            {'index_columns': [gen_name_0],
+             'column_indexes': [{'name': None,
+                                 'field_name': None,
+                                 'pandas_type': 'unicode',
+                                 'numpy_type': 'object',
+                                 'metadata': {'encoding': 'UTF-8'}}],
+             'columns': [{'name': 'a',
+                          'field_name': 'a',
+                          'pandas_type': 'unicode',
+                          'numpy_type': 'object',
+                          'metadata': None},
+                         {'name': 'qux',
+                          'field_name': gen_name_0,
+                          'pandas_type': 'int64',
+                          'numpy_type': 'int64',
+                          'metadata': None}],
+             'pandas_version': '0.23.4'}
+        )})
+    r2 = t2.to_pandas()
+    tm.assert_frame_equal(r2, e2)
+
+    # Case 3: unnamed RangeIndex
+    e3 = pd.DataFrame({
+        'a': a_values
+    }, index=pd.RangeIndex(0, 8, step=2, name=None))
+    t3 = pa.Table.from_arrays([a_arrow, rng_index_arrow],
+                              names=['a', gen_name_0])
+    t3 = t3.replace_schema_metadata({
+        b'pandas': json.dumps(
+            {'index_columns': [gen_name_0],
+             'column_indexes': [{'name': None,
+                                 'field_name': None,
+                                 'pandas_type': 'unicode',
+                                 'numpy_type': 'object',
+                                 'metadata': {'encoding': 'UTF-8'}}],
+             'columns': [{'name': 'a',
+                          'field_name': 'a',
+                          'pandas_type': 'unicode',
+                          'numpy_type': 'object',
+                          'metadata': None},
+                         {'name': None,
+                          'field_name': gen_name_0,
+                          'pandas_type': 'int64',
+                          'numpy_type': 'int64',
+                          'metadata': None}],
+             'pandas_version': '0.23.4'}
+        )})
+    r3 = t3.to_pandas()
+    tm.assert_frame_equal(r3, e3)
+
+    # Case 4: MultiIndex with named RangeIndex
+    e4 = pd.DataFrame({
+        'a': a_values
+    }, index=[pd.RangeIndex(0, 8, step=2, name='qux'), b_values])
+    t4 = pa.Table.from_arrays([a_arrow, rng_index_arrow, b_arrow],
+                              names=['a', 'qux', gen_name_1])
+    t4 = t4.replace_schema_metadata({
+        b'pandas': json.dumps(
+            {'index_columns': ['qux', gen_name_1],
+             'column_indexes': [{'name': None,
+                                 'field_name': None,
+                                 'pandas_type': 'unicode',
+                                 'numpy_type': 'object',
+                                 'metadata': {'encoding': 'UTF-8'}}],
+             'columns': [{'name': 'a',
+                          'field_name': 'a',
+                          'pandas_type': 'unicode',
+                          'numpy_type': 'object',
+                          'metadata': None},
+                         {'name': 'qux',
+                          'field_name': 'qux',
+                          'pandas_type': 'int64',
+                          'numpy_type': 'int64',
+                          'metadata': None},
+                         {'name': None,
+                          'field_name': gen_name_1,
+                          'pandas_type': 'unicode',
+                          'numpy_type': 'object',
+                          'metadata': None}],
+             'pandas_version': '0.23.4'}
+        )})
+    r4 = t4.to_pandas()
+    tm.assert_frame_equal(r4, e4)
+
+    # Case 4: MultiIndex with unnamed RangeIndex
+    e5 = pd.DataFrame({
+        'a': a_values
+    }, index=[pd.RangeIndex(0, 8, step=2, name=None), b_values])
+    t5 = pa.Table.from_arrays([a_arrow, rng_index_arrow, b_arrow],
+                              names=['a', gen_name_0, gen_name_1])
+    t5 = t5.replace_schema_metadata({
+        b'pandas': json.dumps(
+            {'index_columns': [gen_name_0, gen_name_1],
+             'column_indexes': [{'name': None,
+                                 'field_name': None,
+                                 'pandas_type': 'unicode',
+                                 'numpy_type': 'object',
+                                 'metadata': {'encoding': 'UTF-8'}}],
+             'columns': [{'name': 'a',
+                          'field_name': 'a',
+                          'pandas_type': 'unicode',
+                          'numpy_type': 'object',
+                          'metadata': None},
+                         {'name': None,
+                          'field_name': gen_name_0,
+                          'pandas_type': 'int64',
+                          'numpy_type': 'int64',
+                          'metadata': None},
+                         {'name': None,
+                          'field_name': gen_name_1,
+                          'pandas_type': 'unicode',
+                          'numpy_type': 'object',
+                          'metadata': None}],
+             'pandas_version': '0.23.4'}
+        )})
+    r5 = t5.to_pandas()
+    tm.assert_frame_equal(r5, e5)

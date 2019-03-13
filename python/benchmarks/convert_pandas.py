@@ -90,3 +90,18 @@ class ZeroCopyPandasRead(object):
 
     def time_deserialize_from_components(self):
         pa.deserialize_components(self.as_components)
+
+
+class SerializeDeserializePandas(object):
+
+    def setup(self):
+        # 10 million length
+        n = 10000000
+        self.df = pd.DataFrame({'data': np.random.randn(n)})
+        self.serialized = pa.serialize_pandas(self.df)
+
+    def time_serialize_pandas(self):
+        pa.serialize_pandas(self.df)
+
+    def time_deserialize_pandas(self):
+        pa.deserialize_pandas(self.serialized)

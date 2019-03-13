@@ -173,7 +173,7 @@ def test_file_read_pandas(file_fixture):
     reader = pa.ipc.open_file(file_contents)
     result = reader.read_pandas()
 
-    expected = pd.concat(frames)
+    expected = pd.concat(frames).reset_index(drop=True)
     assert_frame_equal(result, expected)
 
 
@@ -314,7 +314,7 @@ def test_stream_read_pandas(stream_fixture):
     reader = pa.ipc.open_stream(file_contents)
     result = reader.read_pandas()
 
-    expected = pd.concat(frames)
+    expected = pd.concat(frames).reset_index(drop=True)
     assert_frame_equal(result, expected)
 
 
