@@ -2,20 +2,35 @@
 
   <Import Project="../../build/Common.props" />
 
+  <!-- Compile properties -->
   <PropertyGroup>
     <TargetFrameworks>netstandard1.3;netcoreapp2.1</TargetFrameworks>
     <LangVersion>7.2</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Authors>Apache</Authors>
+    <DefineConstants>$(DefineConstants);UNSAFE_BYTEBUFFER;BYTEBUFFER_NO_BOUNDS_CHECK;ENABLE_SPAN_T</DefineConstants>
+  </PropertyGroup>
+
+  <!-- AssemblyInfo properties -->
+  <PropertyGroup>
     <Product>Apache Arrow library</Product>
     <Copyright>2018 Apache Software Foundation</Copyright>
-    <PackageProjectUrl>https://fzcorp.visualstudio.com/digital-products</PackageProjectUrl>
-    <RepositoryUrl>https://fzcorp.visualstudio.com/digital-products/_git/fz-arrow</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageTags>apache arrow</PackageTags>
     <Company>Apache</Company>
-    <Version>0.0.1</Version>
-    <DefineConstants>$(DefineConstants);UNSAFE_BYTEBUFFER;BYTEBUFFER_NO_BOUNDS_CHECK;ENABLE_SPAN_T</DefineConstants>
+    <VersionPrefix>0.13.0</VersionPrefix>
+    <VersionSuffix>preview</VersionSuffix>
+  </PropertyGroup>
+
+  <!-- NuGet properties -->
+  <PropertyGroup>
+    <Authors>Apache</Authors>
+    <Description>Apache Arrow is a cross-language development platform for in-memory data. It specifies a standardized language-independent columnar memory format for flat and hierarchical data, organized for efficient analytic operations on modern hardware. It also provides computational libraries and zero-copy streaming messaging and interprocess communication.</Description>
+    <PackageIconUrl>https://www.apache.org/images/feather.png</PackageIconUrl>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageProjectUrl>https://arrow.apache.org/</PackageProjectUrl>
+    <PackageTags>apache arrow</PackageTags>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/apache/arrow</RepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +38,8 @@
     <PackageReference Include="System.Memory" Version="4.5.1" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="4.5.1" />
     <PackageReference Include="System.Text.Encoding" Version="4.3.0" />
+
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta2-18618-05" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>
@@ -38,6 +55,10 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\..\LICENSE.txt" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1'">

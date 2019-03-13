@@ -21,4 +21,6 @@ pushd csharp
 
 dotnet test || exit /B
 
+dotnet pack -c Release || exit /B
+
 popd
