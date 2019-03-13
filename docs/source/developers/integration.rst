@@ -46,7 +46,7 @@ build mount is used for caching and sharing state between staged images.
 - *r*: Builds the R bindings
 - *rust*: Builds the rust project
 - *lint*: Run various lint on the C++ sources
-- *iwuy*: Run include-what-you-use on the C++ sources
+- *iwyu*: Run include-what-you-use on the C++ sources
 - *clang-format*: Run clang-format on the C++ sources
 - *docs*: Builds this documentation
 
@@ -63,5 +63,5 @@ simplify this, we provide a Makefile.
    docker-compose build python
    docker-compose run python
 
-   # Using the makefile, the target order is important
-   make -f Makefile.docker python run
+   # Using the makefile with proper image dependency resolution
+   make -f Makefile.docker python
