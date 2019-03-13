@@ -55,7 +55,35 @@ void ExportedDecimalFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_xlarge_multiply_and_scale_down", types->void_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_xlarge_multiply_and_scale_down));
+
+  // gdv_xlarge_scale_up_and_divide
+  args = {types->i64_type(),      // int64_t x_high
+          types->i64_type(),      // uint64_t x_low
+          types->i64_type(),      // int64_t y_high
+          types->i64_type(),      // uint64_t y_low
+          types->i32_type(),      // int32_t increase_scale_by
+          types->i64_ptr_type(),  // int64_t* out_high
+          types->i64_ptr_type(),  // uint64_t* out_low
+          types->i8_ptr_type()};  // bool* overflow
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_xlarge_scale_up_and_divide", types->void_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_xlarge_scale_up_and_divide));
+
+  // gdv_xlarge_mod
+  args = {types->i64_type(),       // int64_t x_high
+          types->i64_type(),       // uint64_t x_low
+          types->i32_type(),       // int32_t x_scale
+          types->i64_type(),       // int64_t y_high
+          types->i64_type(),       // uint64_t y_low
+          types->i32_type(),       // int32_t y_scale
+          types->i64_ptr_type(),   // int64_t* out_high
+          types->i64_ptr_type()};  // uint64_t* out_low
+
+  engine->AddGlobalMappingForFunc("gdv_xlarge_mod", types->void_type() /*return_type*/,
+                                  args, reinterpret_cast<void*>(gdv_xlarge_mod));
 }
+
 }  // namespace gandiva
 
 #endif  // !GANDIVA_UNIT_TEST
