@@ -212,6 +212,10 @@ struct _GArrowNumericArrayClass
   GArrowPrimitiveArrayClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_0_13
+gdouble garrow_numeric_array_mean(GArrowNumericArray *array,
+                                  GError **error);
+
 #define GARROW_TYPE_INT8_ARRAY (garrow_int8_array_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowInt8Array,
                          garrow_int8_array,
