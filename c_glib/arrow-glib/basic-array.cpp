@@ -962,7 +962,7 @@ garrow_numeric_array_mean(GArrowNumericArray *array,
     auto arrow_numeric_scalar = std::dynamic_pointer_cast<ScalarType>(mean_datum.scalar());
     return arrow_numeric_scalar->value;
   } else {
-    return 0;
+    return 0.0;
   }
 }
 
