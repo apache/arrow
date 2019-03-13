@@ -561,10 +561,6 @@ mod tests {
         let testdata = env::var("PARQUET_TEST_DATA").unwrap();
         let filename = format!("{}/{}", testdata, name);
         let table = ParquetTable::try_new(&filename).unwrap();
-        println!("Loading file {} with schema:", name);
-        for field in table.schema().fields() {
-            println!("\t{:?}", field);
-        }
         Box::new(table)
     }
 }
