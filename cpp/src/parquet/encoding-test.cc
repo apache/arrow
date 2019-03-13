@@ -350,15 +350,15 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   using DenseBuilder = typename BuilderTraits<DType>::DenseArrayBuilder;
   using DictBuilder = typename BuilderTraits<DType>::DictArrayBuilder;
 
-  void SetUp() override { null_probabilities_ = {0.1}; }
+  void SetUp() override { null_probabilities_ = {0.0, 0.5, 1.0}; }
   void TearDown() override {}
 
   void InitTestCase(double null_probability) {
-    InitFromJSON(null_probability);
+    GenerateInputData(null_probability);
     SetupEncoderDecoder();
   }
 
-  void InitFromJSON(double null_probability) {
+  void GenerateInputData(double null_probability) {
     constexpr int num_unique = 100;
     constexpr int repeat = 10;
     constexpr int64_t min_length = 2;
@@ -484,6 +484,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   using TestArrowBuilderDecoding<DType>::encoder_;    \
   using TestArrowBuilderDecoding<DType>::decoder_;    \
   using TestArrowBuilderDecoding<DType>::input_data_; \
+  using TestArrowBuilderDecoding<DType>::valid_bits_; \
   using TestArrowBuilderDecoding<DType>::num_values_; \
   using TestArrowBuilderDecoding<DType>::buffer_
 
@@ -530,7 +531,7 @@ class DictEncoding : public TestArrowBuilderDecoding<DType> {
     descr_ = std::unique_ptr<ColumnDescriptor>(new ColumnDescriptor(node, 0, 0));
     encoder_ = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN, /*use_dictionary=*/true,
                                                descr_.get());
-    ASSERT_NO_THROW(encoder_->Put(input_data_.data(), num_values_));
+    ASSERT_NO_THROW(encoder_->PutSpaced(input_data_.data(), num_values_, valid_bits_, 0));
     buffer_ = encoder_->FlushValues();
 
     auto dict_encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(encoder_.get());
@@ -562,21 +563,21 @@ class DictEncoding : public TestArrowBuilderDecoding<DType> {
 
 TYPED_TEST_CASE(DictEncoding, BuilderArrayTypes);
 
-//TYPED_TEST(DictEncoding, CheckDecodeArrowUsingDenseBuilder) {
-//  this->CheckDecodeArrowUsingDenseBuilder();
-//}
-//
-// TYPED_TEST(DictEncoding, CheckDecodeArrowUsingDictBuilder) {
-//  this->CheckDecodeArrowUsingDictBuilder();
-//}
-//
-// TYPED_TEST(DictEncoding, CheckDecodeArrowNonNullDenseBuilder) {
-//  this->CheckDecodeArrowNonNullUsingDenseBuilder();
-//}
-//
-// TYPED_TEST(DictEncoding, CheckDecodeArrowNonNullDictBuilder) {
-//  this->CheckDecodeArrowNonNullUsingDictBuilder();
-//}
+TYPED_TEST(DictEncoding, CheckDecodeArrowUsingDenseBuilder) {
+  this->CheckDecodeArrowUsingDenseBuilder();
+}
+
+TYPED_TEST(DictEncoding, CheckDecodeArrowUsingDictBuilder) {
+  this->CheckDecodeArrowUsingDictBuilder();
+}
+
+TYPED_TEST(DictEncoding, CheckDecodeArrowNonNullDenseBuilder) {
+  this->CheckDecodeArrowNonNullUsingDenseBuilder();
+}
+
+TYPED_TEST(DictEncoding, CheckDecodeArrowNonNullDictBuilder) {
+  this->CheckDecodeArrowNonNullUsingDictBuilder();
+}
 
 }  // namespace test
 
