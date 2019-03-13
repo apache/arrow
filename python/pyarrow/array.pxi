@@ -15,10 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.compat import HAVE_PANDAS
-
-if HAVE_PANDAS:
-    import pyarrow.pandas_compat as pdcompat
+from pyarrow.compat import PandasAPI
+_pandas_api = PandasAPI.get_instance()
 
 
 cdef _sequence_to_array(object sequence, object mask, object size,
@@ -47,11 +45,10 @@ cdef _sequence_to_array(object sequence, object mask, object size,
 
 
 cdef _is_array_like(obj):
-    try:
-        import pandas
-        return isinstance(obj, (np.ndarray, pd.Series, pd.Index, Categorical))
-    except ImportError:
-        return isinstance(obj, np.ndarray)
+    is_ndarray = isinstance(obj, np.ndarray)
+    if _pandas_api.have_pandas:
+        return is_ndarray or _pandas_api.is_array_like(obj)
+    return is_ndarray
 
 
 def _ndarray_to_arrow_type(object values, DataType type):
@@ -163,15 +160,15 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
 
         values = get_series_values(obj)
 
-        if isinstance(values, Categorical):
+        if _pandas_api.is_categorical(values):
             return DictionaryArray.from_arrays(
                 values.codes, values.categories.values,
                 mask=mask, ordered=values.ordered,
                 from_pandas=True, safe=safe,
                 memory_pool=memory_pool)
         else:
-            if HAVE_PANDAS:
-                values, type = pdcompat.get_datetimetz_type(
+            if _pandas_api.have_pandas:
+                values, type = _pandas_api.compat.get_datetimetz_type(
                     values, obj.dtype, type)
             return _ndarray_to_array(values, mask, type, from_pandas, safe,
                                      pool)
@@ -852,9 +849,10 @@ cdef wrap_array_output(PyObject* output):
     cdef object obj = PyObject_to_object(output)
 
     if isinstance(obj, dict):
-        return Categorical(obj['indices'],
-                           categories=obj['dictionary'],
-                           ordered=obj['ordered'], fastpath=True)
+        return _pandas_api.categorical_type(obj['indices'],
+                                            categories=obj['dictionary'],
+                                            ordered=obj['ordered'],
+                                            fastpath=True)
     else:
         return obj
 
@@ -1385,11 +1383,11 @@ cdef dict _array_classes = {
 
 
 cdef object get_series_values(object obj):
-    if isinstance(obj, PandasSeries):
+    if _pandas_api.is_series(obj):
         result = obj.values
     elif isinstance(obj, np.ndarray):
         result = obj
     else:
-        result = PandasSeries(obj).values
+        result = _pandas_api.make_series(obj).values
 
     return result

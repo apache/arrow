@@ -21,22 +21,13 @@ import json
 import operator
 import re
 
-import pandas.core.internals as _int
 import numpy as np
-import pandas as pd
 
 import six
 
 import pyarrow as pa
-from pyarrow.compat import (builtin_pickle, DatetimeTZDtype,  # noqa
-                            PY2, zip_longest)
-
-
-def infer_dtype(column):
-    try:
-        return pd.api.types.infer_dtype(column, skipna=False)
-    except AttributeError:
-        return pd.lib.infer_dtype(column)
+from pyarrow.compat import (builtin_pickle, PY2, zip_longest,
+                            _pandas_api)  # noqa
 
 
 _logical_type_map = {}
@@ -515,6 +506,7 @@ def get_datetimetz_type(values, dtype, type_):
 
 
 def dataframe_to_serialized_dict(frame):
+    import pandas.core.internals as _int
     block_manager = frame._data
 
     blocks = []
@@ -554,11 +546,12 @@ def dataframe_to_serialized_dict(frame):
 
 
 def serialized_dict_to_dataframe(data):
+    import pandas.core.internals as _int
     reconstructed_blocks = [_reconstruct_block(block)
                             for block in data['blocks']]
 
     block_mgr = _int.BlockManager(reconstructed_blocks, data['axes'])
-    return pd.DataFrame(block_mgr)
+    return _pandas_api.data_frame(block_mgr)
 
 
 def _reconstruct_block(item):

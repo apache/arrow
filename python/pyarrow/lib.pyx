@@ -25,7 +25,7 @@ import multiprocessing
 import numpy as np
 import os
 import six
-from pyarrow.compat import frombytes, tobytes, PandasSeries, Categorical
+from pyarrow.compat import frombytes, tobytes
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *
