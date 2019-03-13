@@ -142,11 +142,7 @@ where
     fn read(&mut self, batch_size: usize, is_nullable: bool) -> Result<Arc<PrimitiveArray<A>>> {
 
         // create read buffer
-        let mut read_buffer: Vec<P::T> = Vec::with_capacity(batch_size);
-
-        for _ in 0..batch_size {
-            read_buffer.push(A::default_value().into());
-        }
+        let mut read_buffer: Vec<P::T> = vec![A::default_value().into(); batch_size];
 
         if is_nullable {
             let mut def_levels: Vec<i16> = Vec::with_capacity(batch_size);
