@@ -28,7 +28,7 @@ use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
 use crate::errors::{ParquetError::ArrowError, Result};
 use crate::schema::types::{SchemaDescPtr, Type, TypePtr};
 
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::{DataType, DateUnit, Field, Schema};
 
 /// Convert parquet schema to arrow schema.
 pub fn parquet_to_arrow_schema(parquet_schema: SchemaDescPtr) -> Result<Schema> {
@@ -197,6 +197,7 @@ impl ParquetTypeConverter {
             LogicalType::INT_8 => Ok(DataType::Int8),
             LogicalType::INT_16 => Ok(DataType::Int16),
             LogicalType::INT_32 => Ok(DataType::Int32),
+            LogicalType::DATE => Ok(DataType::Date32(DateUnit::Millisecond)),
             other => Err(ArrowError(format!(
                 "Unable to convert parquet logical type {}",
                 other
@@ -209,6 +210,7 @@ impl ParquetTypeConverter {
             LogicalType::NONE => Ok(DataType::Int64),
             LogicalType::INT_64 => Ok(DataType::Int64),
             LogicalType::UINT_64 => Ok(DataType::UInt64),
+            LogicalType::DATE => Ok(DataType::Date64(DateUnit::Millisecond)),
             other => Err(ArrowError(format!(
                 "Unable to convert parquet logical type {}",
                 other
