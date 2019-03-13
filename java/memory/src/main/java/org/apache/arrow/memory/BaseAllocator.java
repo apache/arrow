@@ -32,7 +32,7 @@ import io.netty.buffer.UnsafeDirectLittleEndian;
 import io.netty.util.internal.OutOfDirectMemoryError;
 
 /**
- * A base-class that that implements all functionality of {@plainlink BufferAllocator}s.
+ * A base-class that implements all functionality of {@linkplain BufferAllocator}s.
  *
  * <p>The class is abstract to enforce usage of {@linkplain RootAllocator}/{@linkplain ChildAllocator}
  * facades.

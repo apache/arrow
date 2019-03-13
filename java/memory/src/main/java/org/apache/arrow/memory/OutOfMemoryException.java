@@ -21,8 +21,8 @@ package org.apache.arrow.memory;
  * Indicates memory could not be allocated for Arrow buffers.
  *
  * <p>This is different from {@linkplain OutOfMemoryError} which indicates the JVM
- * is out of memory.  However, allocation of buffers is generally capped to a fixed
- * size in application level code.
+ * is out of memory.  This error indicates that static limit of one of Arrow's
+ * allocators (e.g. {@linkplain BaseAllocator}) has been exceeded.
  */
 public class OutOfMemoryException extends RuntimeException {
 

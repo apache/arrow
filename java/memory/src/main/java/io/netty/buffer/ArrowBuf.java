@@ -42,12 +42,13 @@ import org.apache.arrow.util.Preconditions;
 import io.netty.util.internal.PlatformDependent;
 
 /**
- * ArrowBuf is the abstraction around raw byte byte arrays that
+ * ArrowBuf is the abstraction around raw byte arrays that
  * comprise arrow data structures.
  *
- * <p>The memory an ArrowBuf uses is backed
- * by {@linkplain UnsafeDirectLittleEndian} buffers, and this class
- * maintains an offset and length into the  backing memory.
+ *
+ * <p>Specifically, it serves as a facade over
+ * {@linkplain UnsafeDirectLittleEndian} memory objects that hides the details
+ * of raw memory addresses.
  *
  * <p>ArrowBuf supports reference counting and ledgering to closely track where
  * memory is being used.
@@ -957,7 +958,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * Copies length bytes from src starting as srcIndex
+   * Copies length bytes from src starting at srcIndex
    * to this buffer starting at index.
    */
   public ArrowBuf setBytes(int index, ByteBuffer src, int srcIndex, int length) {
