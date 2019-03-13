@@ -20,6 +20,7 @@ class TestNumericArray < Test::Unit::TestCase
 
   def test_mean
     array = build_double_array([1.1, 2.2, nil])
-    assert_equal(1.6500000000000001, array.mean)
+    assert_in_delta(array.values.sum / 2,
+                    array.mean)
   end
 end
