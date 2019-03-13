@@ -113,7 +113,17 @@ macro_rules! read_binary_column {
             if values_read == levels_read {
                 create_binary_array(&read_buffer, values_read)?
             } else {
-                return Err(ExecutionError::NotImplemented("Parquet datasource does not support null values".to_string()))
+                let mut builder = BinaryBuilder::new(levels_read);
+                let mut value_index = 0;
+                for i in 0..levels_read {
+                    if def_levels[i] > 0 {
+                        builder.append_string(&String::from_utf8(read_buffer[value_index].data().to_vec()).unwrap())?;
+                        value_index += 1;
+                    } else {
+                        builder.append_null()?;
+                    }
+                }
+                Arc::new(builder.finish())
             }
         } else {
             let (values_read, _) = $R.read_batch(
@@ -171,11 +181,11 @@ where
             if values_read == levels_read {
                 builder.append_slice(&converted_buffer[0..values_read])?;
             } else {
-                let mut vi = 0;
+                let mut value_index = 0;
                 for i in 0..def_levels.len() {
                     if def_levels[i] != 0 {
-                        builder.append_value(converted_buffer[vi].into())?;
-                        vi += 1;
+                        builder.append_value(converted_buffer[value_index].into())?;
+                        value_index += 1;
                     } else {
                         builder.append_null()?;
                     }
@@ -202,6 +212,24 @@ impl ParquetFile {
         let metadata = reader.metadata();
         let schema =
             parquet_to_arrow_schema(metadata.file_metadata().schema_descr_ptr())?;
+
+        // even if we aren't referencing structs or lists in our projection, column reader
+        // indexes will be off until we have support for nested schemas
+        for i in 0..schema.fields().len() {
+            match schema.field(i).data_type() {
+                DataType::List(_) => {
+                    return Err(ExecutionError::NotImplemented(
+                        "Parquet datasource does not support LIST".to_string(),
+                    ));
+                }
+                DataType::Struct(_) => {
+                    return Err(ExecutionError::NotImplemented(
+                        "Parquet datasource does not support STRUCT".to_string(),
+                    ));
+                }
+                _ => {}
+            }
+        }
 
         let projection = match projection {
             Some(p) => p,
@@ -234,20 +262,6 @@ impl ParquetFile {
             self.column_readers = Vec::with_capacity(self.projection.len());
 
             for i in 0..self.projection.len() {
-                match self.schema().field(i).data_type() {
-                    DataType::List(_) => {
-                        return Err(ExecutionError::NotImplemented(
-                            "Parquet datasource does not support LIST".to_string(),
-                        ));
-                    }
-                    DataType::Struct(_) => {
-                        return Err(ExecutionError::NotImplemented(
-                            "Parquet datasource does not support STRUCT".to_string(),
-                        ));
-                    }
-                    _ => {}
-                }
-
                 self.column_readers
                     .push(reader.get_column_reader(self.projection[i])?);
             }
@@ -612,45 +626,6 @@ mod tests {
         assert_eq!(
             "[\"0\", \"1\", \"0\", \"1\", \"0\", \"1\", \"0\", \"1\"]",
             format!("{:?}", values)
-        );
-    }
-
-    #[test]
-    fn read_int64_nullable_impala_parquet() {
-        let table = load_table("nullable.impala.parquet");
-        let projection = Some(vec![0]);
-
-        let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
-        let batch = it.next().unwrap().unwrap();
-
-        assert_eq!(1, batch.num_columns());
-        assert_eq!(7, batch.num_rows());
-
-        let array = batch
-            .column(0)
-            .as_any()
-            .downcast_ref::<Int64Array>()
-            .unwrap();
-        let mut values: Vec<i64> = vec![];
-        for i in 0..batch.num_rows() {
-            values.push(array.value(i));
-        }
-
-        assert_eq!("[1, 2, 3, 4, 5, 6, 7]", format!("{:?}", values));
-    }
-
-    #[test]
-    fn read_array_nullable_impala_parquet() {
-        let table = load_table("nullable.impala.parquet");
-        let projection = Some(vec![1]);
-        let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
-        let batch = it.next();
-
-        assert_eq!(
-            "NotImplemented(\"Parquet datasource does not support LIST\")",
-            format!("{:?}", batch.err().unwrap())
         );
     }
 
