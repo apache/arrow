@@ -71,6 +71,7 @@ iwyu: lint
 clang-format: lint
 
 docs: python
+	$(DC) build docs
 
 dask: python
 	$(DC) build dask
