@@ -104,6 +104,19 @@ func WithCRLF(useCRLF bool) Option {
 	}
 }
 
+func WithHeader() Option {
+	return func(cfg config) {
+		switch cfg := cfg.(type) {
+		case *Reader:
+			cfg.withHeader = true
+		case *Writer:
+			cfg.withHeader = true
+		default:
+			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
+		}
+	}
+}
+
 func validate(schema *arrow.Schema) {
 	for i, f := range schema.Fields() {
 		switch ft := f.Type.(type) {

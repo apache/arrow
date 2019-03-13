@@ -18,6 +18,8 @@ package csv
 
 import (
 	"encoding/csv"
+	"errors"
+	"fmt"
 	"io"
 	"strconv"
 	"sync/atomic"
@@ -43,6 +45,8 @@ type Reader struct {
 	next  func() bool
 
 	mem memory.Allocator
+
+	withHeader bool
 }
 
 // NewReader returns a reader that reads from the CSV file and creates
@@ -51,13 +55,19 @@ type Reader struct {
 // NewReader panics if the given schema contains fields that have types that are not
 // primitive types.
 func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
-	validate(schema)
-
 	rr := &Reader{r: csv.NewReader(r), schema: schema, refs: 1, chunk: 1}
 	rr.r.ReuseRecord = true
 	for _, opt := range opts {
 		opt(rr)
 	}
+
+	if rr.withHeader {
+		if err := rr.readHeader(); err != nil {
+			panic(fmt.Errorf("failed to read header %v", err))
+		}
+	}
+
+	validate(rr.schema)
 
 	if rr.mem == nil {
 		rr.mem = memory.DefaultAllocator
@@ -74,6 +84,49 @@ func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 		rr.next = rr.next1
 	}
 	return rr
+}
+
+func (r *Reader) readHeader() error {
+	records, err := r.r.Read()
+	if err != nil {
+		return errors.New("failed to read file")
+	}
+
+	var fields []arrow.Field
+	for _, name := range records {
+		var dt arrow.DataType
+		switch name {
+		case "bool":
+			dt = arrow.FixedWidthTypes.Boolean
+		case "i8":
+			dt = arrow.PrimitiveTypes.Int8
+		case "i16":
+			dt = arrow.PrimitiveTypes.Int16
+		case "i32":
+			dt = arrow.PrimitiveTypes.Int32
+		case "i64":
+			dt = arrow.PrimitiveTypes.Int64
+		case "u8":
+			dt = arrow.PrimitiveTypes.Uint8
+		case "u16":
+			dt = arrow.PrimitiveTypes.Uint16
+		case "u32":
+			dt = arrow.PrimitiveTypes.Uint32
+		case "u64":
+			dt = arrow.PrimitiveTypes.Uint64
+		case "f32":
+			dt = arrow.PrimitiveTypes.Float32
+		case "f64":
+			dt = arrow.PrimitiveTypes.Float64
+		case "str":
+			dt = arrow.BinaryTypes.String
+		default:
+			return errors.New("invalid data type in header")
+		}
+		fields = append(fields, arrow.Field{Name: name, Type: dt})
+	}
+	r.schema = arrow.NewSchema(fields, nil)
+	return nil
 }
 
 // Err returns the last error encountered during the iteration over the

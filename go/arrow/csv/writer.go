@@ -18,6 +18,7 @@ package csv
 
 import (
 	"encoding/csv"
+	"fmt"
 	"io"
 	"strconv"
 
@@ -27,8 +28,9 @@ import (
 
 // Writer wraps encoding/csv.Writer and writes array.Record based on a schema.
 type Writer struct {
-	w      *csv.Writer
-	schema *arrow.Schema
+	w          *csv.Writer
+	schema     *arrow.Schema
+	withHeader bool
 }
 
 // NewWriter returns a writer that writes array.Records to the CSV file
@@ -42,6 +44,12 @@ func NewWriter(w io.Writer, schema *arrow.Schema, opts ...Option) *Writer {
 	ww := &Writer{w: csv.NewWriter(w), schema: schema}
 	for _, opt := range opts {
 		opt(ww)
+	}
+
+	if ww.withHeader {
+		if err := ww.writeHeader(); err != nil {
+			panic(fmt.Errorf("failed to write header %v", err))
+		}
 	}
 
 	return ww
@@ -138,4 +146,15 @@ func (w *Writer) Flush() error {
 // Error reports any error that has occurred during a previous Write or Flush.
 func (w *Writer) Error() error {
 	return w.w.Error()
+}
+
+func (w *Writer) writeHeader() error {
+	headers := make([]string, len(w.schema.Fields()))
+	for i := range headers {
+		headers[i] = w.schema.Field(i).Name
+	}
+	if err := w.w.Write(headers); err != nil {
+		return err
+	}
+	return nil
 }

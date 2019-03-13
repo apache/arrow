@@ -249,6 +249,75 @@ rec[1]["str"]: ["str-2"]
 	}
 }
 
+func TestCSVReaderWithHeader(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	raw, err := ioutil.ReadFile("testdata/header.csv")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r := csv.NewReader(bytes.NewReader(raw), nil,
+		csv.WithAllocator(mem),
+		csv.WithComment('#'), csv.WithComma(';'),
+		csv.WithHeader(),
+	)
+	defer r.Release()
+
+	r.Retain()
+	r.Release()
+
+	out := new(bytes.Buffer)
+
+	n := 0
+	for r.Next() {
+		rec := r.Record()
+		for i, col := range rec.Columns() {
+			fmt.Fprintf(out, "rec[%d][%q]: %v\n", n, rec.ColumnName(i), col)
+		}
+		n++
+	}
+
+	if got, want := n, 2; got != want {
+		t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
+	}
+
+	want := `rec[0]["bool"]: [true]
+rec[0]["i8"]: [-1]
+rec[0]["i16"]: [-1]
+rec[0]["i32"]: [-1]
+rec[0]["i64"]: [-1]
+rec[0]["u8"]: [1]
+rec[0]["u16"]: [1]
+rec[0]["u32"]: [1]
+rec[0]["u64"]: [1]
+rec[0]["f32"]: [1.1]
+rec[0]["f64"]: [1.1]
+rec[0]["str"]: ["str-1"]
+rec[1]["bool"]: [false]
+rec[1]["i8"]: [-2]
+rec[1]["i16"]: [-2]
+rec[1]["i32"]: [-2]
+rec[1]["i64"]: [-2]
+rec[1]["u8"]: [2]
+rec[1]["u16"]: [2]
+rec[1]["u32"]: [2]
+rec[1]["u64"]: [2]
+rec[1]["f32"]: [2.2]
+rec[1]["f64"]: [2.2]
+rec[1]["str"]: ["str-2"]
+`
+
+	if got, want := out.String(), want; got != want {
+		t.Fatalf("invalid output:\ngot= %s\nwant=%s\n", got, want)
+	}
+
+	if r.Err() != nil {
+		t.Fatalf("unexpected error: %v", r.Err())
+	}
+}
+
 func TestCSVReaderWithChunk(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
