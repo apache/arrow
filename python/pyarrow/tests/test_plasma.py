@@ -32,7 +32,6 @@ import time
 
 import numpy as np
 import pyarrow as pa
-import pandas as pd
 
 
 DEFAULT_PLASMA_STORE_MEMORY = 10 ** 8
@@ -408,7 +407,9 @@ class TestPlasmaClient(object):
         # Assert that they are equal.
         np.testing.assert_equal(data, array)
 
+    @pytest.mark.pandas
     def test_store_pandas_dataframe(self):
+        import pandas as pd
         import pyarrow.plasma as plasma
         d = {'one': pd.Series([1., 2., 3.], index=['a', 'b', 'c']),
              'two': pd.Series([1., 2., 3., 4.], index=['a', 'b', 'c', 'd'])}

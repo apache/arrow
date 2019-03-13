@@ -33,6 +33,8 @@ from pyarrow.compat import (builtin_pickle, PY2, zip_longest)  # noqa
 def _imported_property(f):
     @property
     def wrapper(self):
+        if self._have_pandas:
+            return f(self)
         self._check_import()
         return f(self)
     return wrapper
@@ -53,7 +55,7 @@ class _PandasAPI(object):
 
     def __init__(self):
         self._imported_pandas = False
-        self._have_pandas = False
+        self._have_pandas = None
         self._pd = None
         self._loose_version = None
         self._version = None
@@ -75,7 +77,8 @@ class _PandasAPI(object):
 
     @property
     def have_pandas(self):
-        self._check_import(raise_=False)
+        if self._have_pandas is None:
+            self._check_import(raise_=False)
         return self._have_pandas
 
     @_imported_property
@@ -119,6 +122,8 @@ class _PandasAPI(object):
         except ImportError:
             if raise_:
                 raise
+            else:
+                return
 
         self._pd = pd
         self._compat_module = pdcompat
@@ -146,16 +151,28 @@ class _PandasAPI(object):
                                 self._categorical_type))
 
     def is_categorical(self, obj):
-        self._check_import()
-        return isinstance(obj, self._categorical_type)
+        if self.have_pandas:
+            return isinstance(obj, self._categorical_type)
+        else:
+            return False
 
     def is_datetimetz(self, obj):
-        self._check_import()
-        return isinstance(obj, self._datetimetz_type)
+        if self.have_pandas:
+            return isinstance(obj, self._datetimetz_type)
+        else:
+            return False
+
+    def is_data_frame(self, obj):
+        if self.have_pandas:
+            return isinstance(obj, self._data_frame)
+        else:
+            return False
 
     def is_series(self, obj):
-        self._check_import()
-        return isinstance(obj, self._series)
+        if self.have_pandas:
+            return isinstance(obj, self._series)
+        else:
+            return False
 
     def dataframe_to_arrays(self, *args, **kwargs):
         return _dataframe_to_arrays(*args, **kwargs)
@@ -168,6 +185,10 @@ class _PandasAPI(object):
 
     def make_datetimetz(self, tz):
         return _make_datetimetz(tz)
+
+    def assert_frame_equal(self, *args, **kwargs):
+        self._check_import()
+        return self._pd.util.testing.assert_frame_equal
 
 
 _pandas_api = _PandasAPI.get_instance()

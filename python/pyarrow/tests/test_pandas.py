@@ -30,13 +30,22 @@ import hypothesis.extra.pytz as tzst
 import hypothesis.strategies as st
 import numpy as np
 import numpy.testing as npt
-import pandas as pd
-import pandas.util.testing as tm
 import pytest
 import pytz
 
+from pyarrow.pandas_compat import get_logical_type
 import pyarrow as pa
-from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
+
+try:
+    import pandas as pd
+    import pandas.util.testing as tm
+    from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
+except ImportError:
+    pass
+
+
+# Marks all of the tests in this module
+pytestmark = pytest.mark.pandas
 
 
 def _alltypes_example(size=100):
@@ -2529,6 +2538,180 @@ def test_table_from_pandas_columns_and_schema_are_mutually_exclusive():
 
     with pytest.raises(ValueError):
         pa.Table.from_pandas(df, schema=schema, columns=columns)
+
+
+# ----------------------------------------------------------------------
+# RecordBatch, Table
+
+
+def test_recordbatch_from_to_pandas():
+    data = pd.DataFrame({
+        'c1': np.array([1, 2, 3, 4, 5], dtype='int64'),
+        'c2': np.array([1, 2, 3, 4, 5], dtype='uint32'),
+        'c3': np.random.randn(5),
+        'c4': ['foo', 'bar', None, 'baz', 'qux'],
+        'c5': [False, True, False, True, False]
+    })
+
+    batch = pa.RecordBatch.from_pandas(data)
+    result = batch.to_pandas()
+    tm.assert_frame_equal(data, result)
+
+
+def test_recordbatchlist_to_pandas():
+    data1 = pd.DataFrame({
+        'c1': np.array([1, 1, 2], dtype='uint32'),
+        'c2': np.array([1.0, 2.0, 3.0], dtype='float64'),
+        'c3': [True, None, False],
+        'c4': ['foo', 'bar', None]
+    })
+
+    data2 = pd.DataFrame({
+        'c1': np.array([3, 5], dtype='uint32'),
+        'c2': np.array([4.0, 5.0], dtype='float64'),
+        'c3': [True, True],
+        'c4': ['baz', 'qux']
+    })
+
+    batch1 = pa.RecordBatch.from_pandas(data1)
+    batch2 = pa.RecordBatch.from_pandas(data2)
+
+    table = pa.Table.from_batches([batch1, batch2])
+    result = table.to_pandas()
+    data = pd.concat([data1, data2]).reset_index(drop=True)
+    tm.assert_frame_equal(data, result)
+
+
+# ----------------------------------------------------------------------
+# Metadata serialization
+
+
+@pytest.mark.parametrize(
+    ('type', 'expected'),
+    [
+        (pa.null(), 'empty'),
+        (pa.bool_(), 'bool'),
+        (pa.int8(), 'int8'),
+        (pa.int16(), 'int16'),
+        (pa.int32(), 'int32'),
+        (pa.int64(), 'int64'),
+        (pa.uint8(), 'uint8'),
+        (pa.uint16(), 'uint16'),
+        (pa.uint32(), 'uint32'),
+        (pa.uint64(), 'uint64'),
+        (pa.float16(), 'float16'),
+        (pa.float32(), 'float32'),
+        (pa.float64(), 'float64'),
+        (pa.date32(), 'date'),
+        (pa.date64(), 'date'),
+        (pa.binary(), 'bytes'),
+        (pa.binary(length=4), 'bytes'),
+        (pa.string(), 'unicode'),
+        (pa.list_(pa.list_(pa.int16())), 'list[list[int16]]'),
+        (pa.decimal128(18, 3), 'decimal'),
+        (pa.timestamp('ms'), 'datetime'),
+        (pa.timestamp('us', 'UTC'), 'datetimetz'),
+        (pa.time32('s'), 'time'),
+        (pa.time64('us'), 'time')
+    ]
+)
+def test_logical_type(type, expected):
+    assert get_logical_type(type) == expected
+
+
+# ----------------------------------------------------------------------
+# Some nested array tests array tests
+
+
+def test_array_from_py_float32():
+    data = [[1.2, 3.4], [9.0, 42.0]]
+
+    t = pa.float32()
+
+    arr1 = pa.array(data[0], type=t)
+    arr2 = pa.array(data, type=pa.list_(t))
+
+    expected1 = np.array(data[0], dtype=np.float32)
+    expected2 = pd.Series([np.array(data[0], dtype=np.float32),
+                           np.array(data[1], dtype=np.float32)])
+
+    assert arr1.type == t
+    assert arr1.equals(pa.array(expected1))
+    assert arr2.equals(pa.array(expected2))
+
+
+# ----------------------------------------------------------------------
+# Timestamp tests
+
+
+def test_cast_timestamp_unit():
+    # ARROW-1680
+    val = datetime.now()
+    s = pd.Series([val])
+    s_nyc = s.dt.tz_localize('tzlocal()').dt.tz_convert('America/New_York')
+
+    us_with_tz = pa.timestamp('us', tz='America/New_York')
+
+    arr = pa.Array.from_pandas(s_nyc, type=us_with_tz)
+
+    # ARROW-1906
+    assert arr.type == us_with_tz
+
+    arr2 = pa.Array.from_pandas(s, type=pa.timestamp('us'))
+
+    assert arr[0].as_py() == s_nyc[0]
+    assert arr2[0].as_py() == s[0]
+
+    # Disallow truncation
+    arr = pa.array([123123], type='int64').cast(pa.timestamp('ms'))
+    expected = pa.array([123], type='int64').cast(pa.timestamp('s'))
+
+    target = pa.timestamp('s')
+    with pytest.raises(ValueError):
+        arr.cast(target)
+
+    result = arr.cast(target, safe=False)
+    assert result.equals(expected)
+
+    # ARROW-1949
+    series = pd.Series([pd.Timestamp(1), pd.Timestamp(10), pd.Timestamp(1000)])
+    expected = pa.array([0, 0, 1], type=pa.timestamp('us'))
+
+    with pytest.raises(ValueError):
+        pa.array(series, type=pa.timestamp('us'))
+
+    with pytest.raises(ValueError):
+        pa.Array.from_pandas(series, type=pa.timestamp('us'))
+
+    result = pa.Array.from_pandas(series, type=pa.timestamp('us'), safe=False)
+    assert result.equals(expected)
+
+    result = pa.array(series, type=pa.timestamp('us'), safe=False)
+    assert result.equals(expected)
+
+
+# ----------------------------------------------------------------------
+# DictionaryArray tests
+
+
+def test_dictionary_with_pandas():
+    indices = np.repeat([0, 1, 2], 2)
+    dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
+    mask = np.array([False, False, True, False, False, False])
+
+    d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
+    d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
+
+    pandas1 = d1.to_pandas()
+    ex_pandas1 = pd.Categorical.from_codes(indices, categories=dictionary)
+
+    tm.assert_series_equal(pd.Series(pandas1), pd.Series(ex_pandas1))
+
+    pandas2 = d2.to_pandas()
+    ex_pandas2 = pd.Categorical.from_codes(np.where(mask, -1, indices),
+                                           categories=dictionary)
+
+    tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
 
 
 # ----------------------------------------------------------------------

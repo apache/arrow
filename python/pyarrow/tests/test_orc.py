@@ -19,14 +19,23 @@ import pytest
 import decimal
 import datetime
 
-import pandas as pd
 import pyarrow as pa
-
-from pandas.util.testing import assert_frame_equal
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not orc'
 pytestmark = pytest.mark.orc
+
+
+try:
+    from pandas.util.testing import assert_frame_equal
+    import pandas as pd
+except ImportError:
+    pass
+
+
+# TODO(wesm): The ORC tests depend a lot on pandas currently, so all excluded
+# when it is not installed
+pytestmark = pytest.mark.pandas
 
 
 @pytest.fixture(scope='module')

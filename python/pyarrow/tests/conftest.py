@@ -43,6 +43,7 @@ groups = [
     'hdfs',
     'large_memory',
     'orc',
+    'pandas',
     'parquet',
     'plasma',
     's3',
@@ -56,6 +57,7 @@ defaults = {
     'hdfs': False,
     'large_memory': False,
     'orc': False,
+    'pandas': False,
     'parquet': False,
     'plasma': False,
     's3': False,
@@ -73,6 +75,14 @@ try:
     defaults['orc'] = True
 except ImportError:
     pass
+
+
+try:
+    import pandas  # noqa
+    defaults['pandas'] = True
+except ImportError:
+    pass
+
 
 try:
     import pyarrow.parquet  # noqa
