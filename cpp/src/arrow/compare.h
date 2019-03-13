@@ -30,7 +30,7 @@ class Array;
 class DataType;
 class Tensor;
 class SparseTensor;
-class Scalar;
+struct Scalar;
 
 /// Returns true if the arrays are exactly equal
 bool ARROW_EXPORT ArrayEquals(const Array& left, const Array& right);
