@@ -388,7 +388,7 @@ cdef class TimestampType(DataType):
             return _pandas_type_map[_Type_TIMESTAMP]
         else:
             # Return DatetimeTZ
-            return pdcompat.make_datetimetz(self.tz)
+            return _pandas_api.make_datetimetz(self.tz)
 
     def __reduce__(self):
         return timestamp, (self.unit, self.tz)
@@ -745,7 +745,7 @@ cdef class Schema:
         str: string
         __index_level_0__: int64
         """
-        names, types, metadata = pdcompat.dataframe_to_types(
+        names, types, metadata = _pandas_api.dataframe_to_types(
             df,
             preserve_index=preserve_index
         )

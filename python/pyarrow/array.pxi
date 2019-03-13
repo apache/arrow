@@ -15,9 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.compat import PandasAPI
-_pandas_api = PandasAPI.get_instance()
-
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):

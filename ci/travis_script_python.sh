@@ -166,6 +166,9 @@ python -c "import pyarrow.parquet"
 python -c "import pyarrow.plasma"
 python -c "import pyarrow.orc"
 
+# Ensure we do eagerly import pandas (or other expensive imports)
+python < scripts/test_imports.py
+
 echo "PLASMA_VALGRIND: $PLASMA_VALGRIND"
 
 # Set up huge pages for plasma test

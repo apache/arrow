@@ -300,10 +300,12 @@ cdef _datetime_conversion_functions():
                 datetime.datetime.utcfromtimestamp(x).replace(tzinfo=tzinfo)
             ),
             TimeUnit_MILLI: lambda x, tzinfo: (
-                datetime.datetime.utcfromtimestamp(x / 1e3).replace(tzinfo=tzinfo)
+                (datetime.datetime.utcfromtimestamp(x / 1e3)
+                 .replace(tzinfo=tzinfo))
             ),
             TimeUnit_MICRO: lambda x, tzinfo: (
-                datetime.datetime.utcfromtimestamp(x / 1e6).replace(tzinfo=tzinfo)
+                (datetime.datetime.utcfromtimestamp(x / 1e6)
+                 .replace(tzinfo=tzinfo))
             ),
         })
     else:

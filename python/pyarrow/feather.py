@@ -18,19 +18,15 @@
 import os
 
 import six
-import pandas as pd
 
-from pyarrow.compat import PandasAPI as _PandasAPI  # noqa
+from pyarrow.pandas_compat import _pandas_api  # noqa
 from pyarrow.lib import FeatherError  # noqa
 from pyarrow.lib import Table, concat_tables
 import pyarrow.lib as ext
 
 
-_pandas_api = _PandasAPI.get_instance()
-
-
 def _check_pandas_version():
-    if _pandas_api.version < '0.17.0':
+    if _pandas_api.loose_version < '0.17.0':
         raise ImportError("feather requires pandas >= 0.17.0")
 
 
@@ -84,7 +80,7 @@ class FeatherWriter(object):
         self.writer.open(dest)
 
     def write(self, df):
-        if isinstance(df, pd.SparseDataFrame):
+        if isinstance(df, _pandas_api.pd.SparseDataFrame):
             df = df.to_dense()
 
         if not df.columns.is_unique:

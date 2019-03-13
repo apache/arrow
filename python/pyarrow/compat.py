@@ -17,7 +17,6 @@
 
 # flake8: noqa
 
-from distutils.version import LooseVersion
 import itertools
 
 import numpy as np
@@ -30,103 +29,6 @@ import socket
 
 PY26 = sys.version_info[:2] == (2, 6)
 PY2 = sys.version_info[0] == 2
-
-
-class PandasAPI(object):
-    """
-
-    """
-    _instance = None
-
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            cls._instance = PandasAPI()
-        return cls._instance
-
-    def __init__(self):
-        self._imported_pandas = False
-        self._have_pandas = False
-        self._pd = None
-        self._compat_module = None
-        self._types_api = None
-        self._series = None
-        self._categorical_type = None
-        self._datetimetz_type = None
-        self._get_datetimetz_type = None
-
-    @property
-    def make_series(self, *args, **kwargs):
-        self._check_import()
-        return self._series(*args, **kwargs)
-
-    @property
-    def have_pandas(self):
-        self._check_import(raise_=False)
-        return self._have_pandas
-
-    @property
-    def compat(self):
-        self._check_import()
-        return self._compat_module
-
-    def infer_dtype(self, obj):
-        try:
-            return self._types_api.infer_dtype(obj, skipna=False)
-        except AttributeError:
-            return self._pd.lib.infer_dtype(obj)
-
-    @property
-    def version(self):
-        self._check_import()
-        return self._version
-
-    @property
-    def categorical_type(self):
-        self._check_import()
-        return self._categorical_type
-
-    def _check_import(self, raise_=True):
-        if self._imported_pandas:
-            return
-
-        try:
-            import pandas as pd
-            import pyarrow.pandas_compat as pdcompat
-            self._pd = pd
-            self._compat_module = pdcompat
-            self._series = pd.Series
-            self._have_pandas = True
-
-            self._version = LooseVersion(pd.__version__)
-            if self._version >= '0.20.0':
-                from pandas.api.types import DatetimeTZDtype
-                self._types_api = pd.api.types
-            elif pdver >= '0.19.0':
-                from pandas.types.dtypes import DatetimeTZDtype
-                self._types_api = pd.api.types
-            else:
-                from pandas.types.dtypes import DatetimeTZDtype
-                self._types_api = pd.core.common
-
-            self._datetimetz_type = DatetimeTZDtype
-            self._categorical_type = pd.Categorical
-        except ImportError:
-            if raise_:
-                raise
-
-    def is_array_like(self, obj):
-        self._check_import()
-        return isinstance(obj, (self._pd.Series, self._pd.Index,
-                                self._categorical_type))
-
-    def is_categorical(self, obj):
-        self._check_import()
-        return isinstance(obj, self._categorical_type)
-
-    def is_series(self, obj):
-        self._check_import()
-        return isinstance(obj, self._series)
 
 
 if PY26:

@@ -19,14 +19,6 @@ import json
 
 from collections import OrderedDict
 
-try:
-    import pandas as pd
-except ImportError:
-    # The pure-Python based API works without a pandas installation
-    pass
-else:
-    import pyarrow.pandas_compat as pdcompat
-
 
 cdef class ChunkedArray(_PandasConvertible):
     """
@@ -473,7 +465,7 @@ cdef class Column(_PandasConvertible):
 
     def _to_pandas(self, options, **kwargs):
         values = self.data._to_pandas(options)
-        result = pd.Series(values, name=self.name)
+        result = _pandas_api.make_series(values, name=self.name)
 
         if isinstance(self.type, TimestampType):
             tz = self.type.tz
@@ -867,7 +859,7 @@ cdef class RecordBatch(_PandasConvertible):
         -------
         pyarrow.RecordBatch
         """
-        names, arrays, metadata = pdcompat.dataframe_to_arrays(
+        names, arrays, metadata = _pandas_api.dataframe_to_arrays(
             df, schema, preserve_index, nthreads=nthreads, columns=columns
         )
         return cls.from_arrays(arrays, names, metadata)
@@ -1147,7 +1139,7 @@ cdef class Table(_PandasConvertible):
         >>> pa.Table.from_pandas(df)
         <pyarrow.lib.Table object at 0x7f05d1fb1b40>
         """
-        names, arrays, metadata = pdcompat.dataframe_to_arrays(
+        names, arrays, metadata = _pandas_api.dataframe_to_arrays(
             df,
             schema=schema,
             preserve_index=preserve_index,
@@ -1303,9 +1295,10 @@ cdef class Table(_PandasConvertible):
         return result
 
     def _to_pandas(self, options, categories=None, ignore_metadata=False):
-        mgr = pdcompat.table_to_blockmanager(options, self, categories,
-                                             ignore_metadata=ignore_metadata)
-        return pd.DataFrame(mgr)
+        mgr = _pandas_api.table_to_blockmanager(
+            options, self, categories,
+            ignore_metadata=ignore_metadata)
+        return _pandas_api.data_frame(mgr)
 
     def to_pydict(self):
         """

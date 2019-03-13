@@ -26,6 +26,7 @@ import numpy as np
 import os
 import six
 from pyarrow.compat import frombytes, tobytes
+from pyarrow.pandas_compat import _pandas_api
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *

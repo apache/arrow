@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from distutils.version import LooseVersion
 import ast
 import collections
 import json
@@ -26,8 +27,150 @@ import numpy as np
 import six
 
 import pyarrow as pa
-from pyarrow.compat import (builtin_pickle, PY2, zip_longest,
-                            _pandas_api)  # noqa
+from pyarrow.compat import (builtin_pickle, PY2, zip_longest)  # noqa
+
+
+def _imported_property(f):
+    @property
+    def wrapper(self):
+        self._check_import()
+        return f(self)
+    return wrapper
+
+
+class _PandasAPI(object):
+    """
+    Lazy pandas importer that isolates usages of pandas APIs and avoids
+    importing pandas until it's actually needed
+    """
+    _instance = None
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = _PandasAPI()
+        return cls._instance
+
+    def __init__(self):
+        self._imported_pandas = False
+        self._have_pandas = False
+        self._pd = None
+        self._loose_version = None
+        self._version = None
+        self._compat_module = None
+        self._types_api = None
+        self._data_frame = None
+        self._series = None
+        self._categorical_type = None
+        self._datetimetz_type = None
+        self._get_datetimetz_type = None
+
+    def make_series(self, *args, **kwargs):
+        self._check_import()
+        return self._series(*args, **kwargs)
+
+    def data_frame(self, *args, **kwargs):
+        self._check_import()
+        return self._data_frame(*args, **kwargs)
+
+    @property
+    def have_pandas(self):
+        self._check_import(raise_=False)
+        return self._have_pandas
+
+    @_imported_property
+    def compat(self):
+        return self._compat_module
+
+    @_imported_property
+    def pd(self):
+        return self._pd
+
+    def infer_dtype(self, obj):
+        self._check_import()
+        try:
+            return self._types_api.infer_dtype(obj, skipna=False)
+        except AttributeError:
+            return self._pd.lib.infer_dtype(obj)
+
+    @_imported_property
+    def loose_version(self):
+        return self._loose_version
+
+    @_imported_property
+    def version(self):
+        return self._version
+
+    @_imported_property
+    def categorical_type(self):
+        return self._categorical_type
+
+    @_imported_property
+    def datetimetz_type(self):
+        return self._datetimetz_type
+
+    def _check_import(self, raise_=True):
+        if self._imported_pandas:
+            return
+
+        try:
+            import pandas as pd
+            import pyarrow.pandas_compat as pdcompat
+        except ImportError:
+            if raise_:
+                raise
+
+        self._pd = pd
+        self._compat_module = pdcompat
+        self._data_frame = pd.DataFrame
+        self._series = pd.Series
+        self._have_pandas = True
+
+        self._loose_version = LooseVersion(pd.__version__)
+        if self._loose_version >= '0.20.0':
+            from pandas.api.types import DatetimeTZDtype
+            self._types_api = pd.api.types
+        elif self._loose_version >= '0.19.0':
+            from pandas.types.dtypes import DatetimeTZDtype
+            self._types_api = pd.api.types
+        else:
+            from pandas.types.dtypes import DatetimeTZDtype
+            self._types_api = pd.core.common
+
+        self._datetimetz_type = DatetimeTZDtype
+        self._categorical_type = pd.Categorical
+
+    def is_array_like(self, obj):
+        self._check_import()
+        return isinstance(obj, (self._pd.Series, self._pd.Index,
+                                self._categorical_type))
+
+    def is_categorical(self, obj):
+        self._check_import()
+        return isinstance(obj, self._categorical_type)
+
+    def is_datetimetz(self, obj):
+        self._check_import()
+        return isinstance(obj, self._datetimetz_type)
+
+    def is_series(self, obj):
+        self._check_import()
+        return isinstance(obj, self._series)
+
+    def dataframe_to_arrays(self, *args, **kwargs):
+        return _dataframe_to_arrays(*args, **kwargs)
+
+    def dataframe_to_types(self, *args, **kwargs):
+        return _dataframe_to_types(*args, **kwargs)
+
+    def table_to_blockmanager(self, *args, **kwargs):
+        return _table_to_blockmanager(*args, **kwargs)
+
+    def make_datetimetz(self, tz):
+        return _make_datetimetz(tz)
+
+
+_pandas_api = _PandasAPI.get_instance()
 
 
 _logical_type_map = {}
@@ -106,8 +249,7 @@ def get_logical_type_from_numpy(pandas_collection):
         # See https://github.com/pandas-dev/pandas/issues/24739
         if str(pandas_collection.dtype) == 'datetime64[ns]':
             return 'datetime64[ns]'
-        result = infer_dtype(pandas_collection)
-
+        result = _pandas_api.infer_dtype(pandas_collection)
         if result == 'string':
             return 'bytes' if PY2 else 'unicode'
         return result
@@ -240,7 +382,7 @@ def construct_metadata(df, column_names, index_levels, index_descriptors,
                 'library': 'pyarrow',
                 'version': pa.__version__
             },
-            'pandas_version': pd.__version__
+            'pandas_version': _pandas_api.version
         }).encode('utf8')
     }
 
@@ -350,7 +492,7 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     index_column_names = []
     for i, index_level in enumerate(index_levels):
         name = _index_level_name(index_level, i, column_names)
-        if isinstance(index_level, pd.RangeIndex):
+        if isinstance(index_level, _pandas_api.pd.RangeIndex):
             descr = _get_range_index_descriptor(index_level)
         else:
             columns_to_convert.append(index_level)
@@ -409,7 +551,7 @@ def _resolve_columns_of_interest(df, schema, columns):
     return columns
 
 
-def dataframe_to_types(df, preserve_index, columns=None):
+def _dataframe_to_types(df, preserve_index, columns=None):
     (all_names,
      column_names,
      index_descriptors,
@@ -421,7 +563,7 @@ def dataframe_to_types(df, preserve_index, columns=None):
     # If pandas knows type, skip conversion
     for c in columns_to_convert:
         values = c.values
-        if isinstance(values, pd.Categorical):
+        if _pandas_api.is_categorical(values):
             type_ = pa.array(c, from_pandas=True).type
         else:
             values, type_ = get_datetimetz_type(values, c.dtype, None)
@@ -436,8 +578,8 @@ def dataframe_to_types(df, preserve_index, columns=None):
     return all_names, types, metadata
 
 
-def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
-                        safe=True):
+def _dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
+                         safe=True):
     (all_names,
      column_names,
      index_descriptors,
@@ -489,7 +631,7 @@ def get_datetimetz_type(values, dtype, type_):
     if values.dtype.type != np.datetime64:
         return values, type_
 
-    if isinstance(dtype, DatetimeTZDtype) and type_ is None:
+    if _pandas_api.is_datetimetz(dtype) and type_ is None:
         # If no user type passed, construct a tz-aware timestamp type
         tz = dtype.tz
         unit = dtype.unit
@@ -555,6 +697,7 @@ def serialized_dict_to_dataframe(data):
 
 
 def _reconstruct_block(item):
+    import pandas.core.internals as _int
     # Construct the individual blocks converting dictionary types to pandas
     # categorical types and Timestamps-with-timezones types to the proper
     # pandas Blocks
@@ -562,9 +705,9 @@ def _reconstruct_block(item):
     block_arr = item['block']
     placement = item['placement']
     if 'dictionary' in item:
-        cat = pd.Categorical.from_codes(block_arr,
-                                        categories=item['dictionary'],
-                                        ordered=item['ordered'])
+        cat = _pandas_api.categorical_type.from_codes(
+            block_arr, categories=item['dictionary'],
+            ordered=item['ordered'])
         block = _int.make_block(cat, placement=placement,
                                 klass=_int.CategoricalBlock)
     elif 'timezone' in item:
@@ -583,15 +726,17 @@ def _reconstruct_block(item):
 
 def _make_datetimetz(tz):
     tz = pa.lib.string_to_tzinfo(tz)
-    return DatetimeTZDtype('ns', tz=tz)
+    return _pandas_api.datetimetz_type('ns', tz=tz)
 
 
 # ----------------------------------------------------------------------
 # Converting pyarrow.Table efficiently to pandas.DataFrame
 
 
-def table_to_blockmanager(options, table, categories=None,
-                          ignore_metadata=False):
+def _table_to_blockmanager(options, table, categories=None,
+                           ignore_metadata=False):
+    from pandas.core.internals import BlockManager
+
     all_columns = []
     column_indexes = []
     pandas_metadata = table.schema.pandas_metadata
@@ -604,7 +749,7 @@ def table_to_blockmanager(options, table, categories=None,
         table, index = _reconstruct_index(table, index_descriptors,
                                           all_columns)
     else:
-        index = pd.RangeIndex(table.num_rows)
+        index = _pandas_api.pd.RangeIndex(table.num_rows)
 
     _check_data_column_metadata_consistency(all_columns)
     blocks = _table_to_blocks(options, table, pa.default_memory_pool(),
@@ -612,7 +757,7 @@ def table_to_blockmanager(options, table, categories=None,
     columns = _deserialize_column_index(table, all_columns, column_indexes)
 
     axes = [columns, index]
-    return _int.BlockManager(blocks, axes)
+    return BlockManager(blocks, axes)
 
 
 def _check_data_column_metadata_consistency(all_columns):
@@ -648,9 +793,9 @@ def _deserialize_column_index(block_table, all_columns, column_indexes):
 
     # Construct the base index
     if not columns_values:
-        columns = pd.Index(columns_values)
+        columns = _pandas_api.pd.Index(columns_values)
     else:
-        columns = pd.MultiIndex.from_tuples(
+        columns = _pandas_api.pd.MultiIndex.from_tuples(
             list(map(to_pair, columns_values)),
             names=[col_index['name'] for col_index in column_indexes] or None,
         )
@@ -702,8 +847,10 @@ def _reconstruct_index(table, index_descriptors, all_columns):
                 continue
         elif descr['kind'] == 'range':
             index_name = descr['name']
-            index_level = pd.RangeIndex(descr['start'], descr['stop'],
-                                        step=descr['step'], name=index_name)
+            index_level = _pandas_api.pd.RangeIndex(descr['start'],
+                                                    descr['stop'],
+                                                    step=descr['step'],
+                                                    name=index_name)
             if len(index_level) != len(table):
                 # Possibly the result of munged metadata
                 continue
@@ -712,6 +859,8 @@ def _reconstruct_index(table, index_descriptors, all_columns):
                              .format(descr['kind']))
         index_arrays.append(index_level)
         index_names.append(index_name)
+
+    pd = _pandas_api.pd
 
     # Reconstruct the row index
     if len(index_arrays) > 1:
@@ -746,7 +895,9 @@ def _extract_index_level(table, result_table, descr,
         # non-writeable arrays when calling MultiIndex.from_arrays
         values = values.copy()
 
-    if isinstance(col_pandas.dtype, DatetimeTZDtype):
+    pd = _pandas_api.pd
+
+    if _pandas_api.is_datetimetz(col_pandas.dtype):
         index_level = (pd.Series(values).dt.tz_localize('utc')
                        .dt.tz_convert(col_pandas.dtype.tz))
     else:
@@ -842,7 +993,7 @@ def _pandas_type_to_numpy_type(pandas_type):
 
 def _get_multiindex_codes(mi):
     # compat for pandas < 0.24 (MI labels renamed to codes).
-    if isinstance(mi, pd.MultiIndex):
+    if isinstance(mi, _pandas_api.pd.MultiIndex):
         return mi.codes if hasattr(mi, 'codes') else mi.labels
     else:
         return None
@@ -870,7 +1021,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
     -----
     * Part of :func:`~pyarrow.pandas_compat.table_to_blockmanager`
     """
-
+    pd = _pandas_api.pd
     # Get levels and labels, and provide sane defaults if the index has a
     # single level to avoid if/else spaghetti.
     levels = getattr(columns, 'levels', None) or [columns]
@@ -916,6 +1067,7 @@ def _table_to_blocks(options, block_table, memory_pool, categories):
 
 
 def _flatten_single_level_multiindex(index):
+    pd = _pandas_api.pd
     if isinstance(index, pd.MultiIndex) and index.nlevels == 1:
         levels, = index.levels
         labels, = _get_multiindex_codes(index)
