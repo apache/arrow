@@ -24,7 +24,6 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/builder.h"
 #include "arrow/status.h"
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/bit-util.h"

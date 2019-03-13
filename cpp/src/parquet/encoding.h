@@ -32,18 +32,6 @@
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
-namespace arrow {
-
-class BinaryDictionaryBuilder;
-class StringDictionaryBuilder;
-
-namespace internal {
-
-class ChunkedBinaryBuilder;
-
-}  // namespace internal
-}  // namespace arrow
-
 namespace parquet {
 
 class ColumnDescriptor;
