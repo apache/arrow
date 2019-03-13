@@ -81,6 +81,13 @@ environment:
     - JOB: "C#"
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       USE_CLCACHE: false
+    - JOB: "Go"
+      TARGET: x86_64-pc-windows-msvc
+      GOROOT: 'c:\go111'
+      GOPATH: c:\gopath
+      GOTOOLDIR: '%GOROOT%\pkg\tool\windows_amd64'
+      PATH: '%GOPATH%\bin;%GOROOT%\bin;%PATH%'
+
 
   MSVC_DEFAULT_OPTIONS: ON
   APPVEYOR_SAVE_CACHE_ON_ERROR: true
