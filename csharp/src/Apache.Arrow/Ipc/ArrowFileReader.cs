@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Memory;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,8 +35,18 @@ namespace Apache.Arrow.Ipc
         {
         }
 
+        public ArrowFileReader(Stream stream, MemoryPool memoryPool)
+            : this(stream, memoryPool, leaveOpen: false)
+        {
+        }
+
         public ArrowFileReader(Stream stream, bool leaveOpen)
-            : base(new ArrowFileReaderImplementation(stream, leaveOpen))
+            : this(stream, memoryPool: null, leaveOpen)
+        {
+        }
+
+        public ArrowFileReader(Stream stream, MemoryPool memoryPool, bool leaveOpen)
+            : base(new ArrowFileReaderImplementation(stream, memoryPool, leaveOpen))
         {
         }
 

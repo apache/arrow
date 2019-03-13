@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using Apache.Arrow.Ipc;
+using Apache.Arrow.Memory;
 using System;
 using System.IO;
 using System.Threading;
@@ -46,6 +47,55 @@ namespace Apache.Arrow.Tests
             var stream = new MemoryStream();
             new ArrowStreamReader(stream, leaveOpen: true).Dispose();
             Assert.Equal(0, stream.Position);
+        }
+
+        [Fact]
+        public async Task Ctor_MemoryPool_AllocatesFromPool()
+        {
+            await Ctor_MemoryPool_AllocatesFromPoolHelper(
+                shouldLeaveOpen: false,
+                (stream, memoryPool) => new ArrowStreamReader(stream, memoryPool));
+        }
+
+        [Fact]
+        public async Task Ctor_MemoryPool_LeaveOpen_AllocatesFromPool()
+        {
+            await Ctor_MemoryPool_AllocatesFromPoolHelper(
+                shouldLeaveOpen: true,
+                (stream, memoryPool) => new ArrowStreamReader(stream, memoryPool, true));
+        }
+
+        private async Task Ctor_MemoryPool_AllocatesFromPoolHelper(
+            bool shouldLeaveOpen,
+            Func<Stream, MemoryPool, ArrowStreamReader> createReaderFunc)
+        {
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+
+            using (MemoryStream stream = new MemoryStream())
+            {
+                ArrowStreamWriter writer = new ArrowStreamWriter(stream, originalBatch.Schema);
+                await writer.WriteRecordBatchAsync(originalBatch);
+
+                stream.Position = 0;
+
+                var memoryPool = new TestMemoryPool();
+                ArrowStreamReader reader = createReaderFunc(stream, memoryPool);
+                reader.ReadNextRecordBatch();
+
+                Assert.Equal(1, memoryPool.Statistics.Allocations);
+                Assert.True(memoryPool.Statistics.BytesAllocated > 0);
+
+                reader.Dispose();
+
+                if (shouldLeaveOpen)
+                {
+                    Assert.True(stream.Position > 0);
+                }
+                else
+                {
+                    Assert.Throws<ObjectDisposedException>(() => stream.Position);
+                }
+            }
         }
 
         [Fact]

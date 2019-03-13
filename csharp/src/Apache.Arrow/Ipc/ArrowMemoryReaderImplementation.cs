@@ -69,11 +69,6 @@ namespace Apache.Arrow.Ipc
             return CreateArrowObjectFromMessage(message, bodybb);
         }
 
-        protected override ArrowBuffer CreateArrowBuffer(ReadOnlyMemory<byte> data)
-        {
-            return new ArrowBuffer(data);
-        }
-
         private void ReadSchema()
         {
             if (HasReadSchema)

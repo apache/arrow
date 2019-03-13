@@ -18,7 +18,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -41,8 +40,6 @@ namespace Apache.Arrow.Ipc
 
         public abstract ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken);
         public abstract RecordBatch ReadNextRecordBatch();
-
-        protected abstract ArrowBuffer CreateArrowBuffer(ReadOnlyMemory<byte> data);
 
         protected static T ReadMessage<T>(ByteBuffer bb)
             where T : struct, IFlatbufferObject
@@ -207,7 +204,7 @@ namespace Apache.Arrow.Ipc
             int length = (int)buffer.Length;
 
             var data = bodyData.ToReadOnlyMemory(offset, length);
-            return CreateArrowBuffer(data);
+            return new ArrowBuffer(data);
         }
     }
 }

@@ -13,7 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Memory;
+using FlatBuffers;
 using System;
+using System.Buffers.Binary;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -38,7 +41,8 @@ namespace Apache.Arrow.Ipc
 
         private ArrowFooter _footer;
 
-        public ArrowFileReaderImplementation(Stream stream, bool leaveOpen) : base(stream, leaveOpen)
+        public ArrowFileReaderImplementation(Stream stream, MemoryPool memoryPool, bool leaveOpen)
+            : base(stream, memoryPool, leaveOpen)
         {
         }
 

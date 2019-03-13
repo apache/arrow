@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Memory;
 using System;
 using System.Buffers;
 using System.IO;
@@ -26,12 +27,14 @@ namespace Apache.Arrow.Ipc
         public Stream BaseStream { get; }
         protected ArrayPool<byte> Buffers { get; }
         private readonly bool _leaveOpen;
+        private readonly MemoryPool _memoryPool;
 
-        public ArrowStreamReaderImplementation(Stream stream, bool leaveOpen)
+        public ArrowStreamReaderImplementation(Stream stream, MemoryPool memoryPool, bool leaveOpen)
         {
             BaseStream = stream;
+            _memoryPool = memoryPool ?? MemoryPool.Default.Value;
             _leaveOpen = leaveOpen;
-            Buffers = ArrayPool<byte>.Create();
+            Buffers = ArrayPool<byte>.Shared;
         }
 
         protected override void Dispose(bool disposing)
@@ -86,15 +89,19 @@ namespace Apache.Arrow.Ipc
 
                 Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
 
-                await Buffers.RentReturnAsync((int)message.BodyLength, async (bodyBuff) =>
+                int bodyLength;
+                checked
                 {
-                    int bodyBytesRead = await BaseStream.ReadFullBufferAsync(bodyBuff, cancellationToken)
-                        .ConfigureAwait(false);
-                    EnsureFullRead(bodyBuff, bodyBytesRead);
+                    bodyLength = (int)message.BodyLength;
+                }
 
-                    FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
-                    result = CreateArrowObjectFromMessage(message, bodybb);
-                }).ConfigureAwait(false);
+                Memory<byte> bodyBuff = _memoryPool.Allocate(bodyLength);
+                bytesRead = await BaseStream.ReadFullBufferAsync(bodyBuff, cancellationToken)
+                    .ConfigureAwait(false);
+                EnsureFullRead(bodyBuff, bytesRead);
+
+                FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
+                result = CreateArrowObjectFromMessage(message, bodybb);
             }).ConfigureAwait(false);
 
             return result;
@@ -129,14 +136,17 @@ namespace Apache.Arrow.Ipc
 
                 Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
 
-                Buffers.RentReturn((int)message.BodyLength, bodyBuff =>
+                int bodyLength;
+                checked
                 {
-                    int bodyBytesRead = BaseStream.ReadFullBuffer(bodyBuff);
-                    EnsureFullRead(bodyBuff, bodyBytesRead);
+                    bodyLength = (int)message.BodyLength;
+                }
+                Memory<byte> bodyBuff = _memoryPool.Allocate(bodyLength);
+                bytesRead = BaseStream.ReadFullBuffer(bodyBuff);
+                EnsureFullRead(bodyBuff, bytesRead);
 
-                    FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
-                    result = CreateArrowObjectFromMessage(message, bodybb);
-                });
+                FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
+                result = CreateArrowObjectFromMessage(message, bodybb);
             });
 
             return result;
@@ -195,15 +205,6 @@ namespace Apache.Arrow.Ipc
                 var schemabb = CreateByteBuffer(buff);
                 Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb));
             });
-        }
-
-        protected override ArrowBuffer CreateArrowBuffer(ReadOnlyMemory<byte> data)
-        {
-            // need to use the Buffer.Builder because we are currently renting the memory to
-            // read messages
-            return new ArrowBuffer.Builder<byte>(data.Length)
-                .Append(data.Span)
-                .Build();
         }
 
         /// <summary>
