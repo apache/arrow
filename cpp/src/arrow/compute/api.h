@@ -21,7 +21,8 @@
 #include "arrow/compute/context.h"  // IWYU pragma: export
 #include "arrow/compute/kernel.h"   // IWYU pragma: export
 
-#include "arrow/compute/kernels/cast.h"  // IWYU pragma: export
-#include "arrow/compute/kernels/hash.h"  // IWYU pragma: export
+#include "arrow/compute/kernels/boolean.h"  // IWYU pragma: export
+#include "arrow/compute/kernels/cast.h"     // IWYU pragma: export
+#include "arrow/compute/kernels/hash.h"     // IWYU pragma: export
 
 #endif  // ARROW_COMPUTE_API_H
