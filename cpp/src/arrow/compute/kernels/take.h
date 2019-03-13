@@ -43,6 +43,14 @@ struct ARROW_EXPORT TakeOptions {
 };
 
 /// \brief Take from one array type to another
+///
+/// The output array will be of the same type as the input values
+/// array, with elements taken from the values array at the given
+/// indices.
+///
+/// For example given values ["a", "b", "c"] and indices
+/// [2, 1], the output will be ["c", "b"].
+///
 /// \param[in] context the FunctionContext
 /// \param[in] values array from which to take
 /// \param[in] indices which values to take
