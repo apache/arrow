@@ -21,6 +21,7 @@
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernels/take.h"
+#include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -31,7 +32,7 @@ Status Take(FunctionContext* context, const Array& values, const Array& indices,
   TakeKernel kernel(values.type(), options);
   Datum out_datum;
   RETURN_NOT_OK(kernel.Call(context, values.data(), indices.data(), &out_datum));
-  *out = MakeArray(out_datum.array());
+  *out = out_datum.make_array();
   return Status::OK();
 }
 
@@ -119,8 +120,8 @@ Status TakeImpl(FunctionContext* context, const ValueArray& values,
     case TakeOptions::UNSAFE:
       return TakeImpl<TakeOptions::UNSAFE>(context, values, indices, builder);
     default:
-      ARROW_LOG(FATAL) << "how did we get here?";
-      return Status::OK();
+      ARROW_LOG(FATAL) << "how did we get here";
+      return Status::NotImplemented("how did we get here");
   }
 }
 
@@ -202,8 +203,8 @@ Status TakeKernel::Call(FunctionContext* ctx, const Datum& values, const Datum& 
   std::shared_ptr<Array> out_array;
   TakeParameters params;
   params.context = ctx;
-  params.values = MakeArray(values.array());
-  params.indices = MakeArray(indices.array());
+  params.values = values.make_array();
+  params.indices = indices.make_array();
   params.options = options_;
   params.out = &out_array;
   UnpackIndices unpack = {params};
