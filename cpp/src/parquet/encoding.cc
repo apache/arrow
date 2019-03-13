@@ -759,19 +759,19 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     int64_t data_size = len_;
     int bytes_decoded = 0;
     while (i < num_values) {
-      uint32_t len = *reinterpret_cast<const uint32_t*>(data);
-      increment = static_cast<int>(sizeof(uint32_t) + len);
-      if (data_size < increment) {
-        ParquetException::EofException();
-      }
       if (bit_reader.IsSet()) {
+        uint32_t len = *reinterpret_cast<const uint32_t*>(data);
+        increment = static_cast<int>(sizeof(uint32_t) + len);
+        if (data_size < increment) {
+          ParquetException::EofException();
+        }
         ARROW_RETURN_NOT_OK(out->Append(data + sizeof(uint32_t), len));
+        data += increment;
+        data_size -= increment;
+        bytes_decoded += increment;
       } else {
         ARROW_RETURN_NOT_OK(out->AppendNull());
       }
-      data += increment;
-      data_size -= increment;
-      bytes_decoded += increment;
       bit_reader.Next();
       ++i;
     }
