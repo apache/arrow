@@ -118,6 +118,9 @@ Status TakeImpl(FunctionContext* context, const ValueArray& values,
       return TakeImpl<TakeOptions::TONULL>(context, values, indices, builder);
     case TakeOptions::UNSAFE:
       return TakeImpl<TakeOptions::UNSAFE>(context, values, indices, builder);
+    default:
+      ARROW_LOG(FATAL) << "how did we get here?";
+      return Status::OK();
   }
 }
 
