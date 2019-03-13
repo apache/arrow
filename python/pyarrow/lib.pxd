@@ -349,6 +349,7 @@ cdef class Buffer:
         shared_ptr[CBuffer] buffer
         Py_ssize_t shape[1]
         Py_ssize_t strides[1]
+        object allocator
 
     cdef void init(self, const shared_ptr[CBuffer]& buffer)
     cdef getitem(self, int64_t i)

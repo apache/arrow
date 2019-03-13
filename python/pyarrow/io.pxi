@@ -843,12 +843,23 @@ cdef class Buffer:
                         "`pyarrow.py_buffer` function instead.")
 
     cdef void init(self, const shared_ptr[CBuffer]& buffer):
+        self.allocator = None
         self.buffer = buffer
         self.shape[0] = self.size
         self.strides[0] = <Py_ssize_t>(1)
 
     def __len__(self):
         return self.size
+
+    def set_allocator(self, allocator):
+        """Attach allocator instance to buffer.
+
+        Attaching allocator to buffer ensures that buffer and
+        allocator instances are destructed in correct order.
+        """
+        if self.allocator is not None:
+            raise RuntimeError('buffer already has an allocator attached')
+        self.allocator = allocator
 
     @property
     def size(self):
@@ -1059,11 +1070,13 @@ def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
     if resizable:
         with nogil:
             check_status(AllocateResizableBuffer(cpool, size, &rz_buffer))
-        return pyarrow_wrap_resizable_buffer(rz_buffer)
+        buf = pyarrow_wrap_resizable_buffer(rz_buffer)
     else:
         with nogil:
             check_status(AllocateBuffer(cpool, size, &buffer))
-        return pyarrow_wrap_buffer(buffer)
+        buf = pyarrow_wrap_buffer(buffer)
+    buf.set_allocator(memory_pool)
+    return buf
 
 
 cdef class BufferOutputStream(NativeFile):
