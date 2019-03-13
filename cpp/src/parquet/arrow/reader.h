@@ -295,14 +295,14 @@ class PARQUET_EXPORT ColumnReader {
 //
 // metadata : separately-computed file metadata, can be nullptr
 PARQUET_EXPORT
-::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
+::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                          ::arrow::MemoryPool* allocator,
                          const ReaderProperties& properties,
                          const std::shared_ptr<FileMetaData>& metadata,
                          std::unique_ptr<FileReader>* reader);
 
 PARQUET_EXPORT
-::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
+::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                          ::arrow::MemoryPool* allocator,
                          std::unique_ptr<FileReader>* reader);
 

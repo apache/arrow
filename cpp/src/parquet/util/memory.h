@@ -138,8 +138,7 @@ class PARQUET_EXPORT ArrowFileMethods : virtual public FileInterface {
 /// This interface depends on the threadsafety of the underlying Arrow file interface
 class PARQUET_EXPORT ArrowInputFile : public ArrowFileMethods, public RandomAccessSource {
  public:
-  explicit ArrowInputFile(
-      const std::shared_ptr<::arrow::io::ReadableFileInterface>& file);
+  explicit ArrowInputFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file);
 
   int64_t Size() const override;
 
@@ -153,7 +152,7 @@ class PARQUET_EXPORT ArrowInputFile : public ArrowFileMethods, public RandomAcce
   /// Returns bytes read
   int64_t ReadAt(int64_t position, int64_t nbytes, uint8_t* out) override;
 
-  std::shared_ptr<::arrow::io::ReadableFileInterface> file() const { return file_; }
+  std::shared_ptr<::arrow::io::RandomAccessFile> file() const { return file_; }
 
   // Diamond inheritance
   using ArrowFileMethods::Close;
@@ -161,7 +160,7 @@ class PARQUET_EXPORT ArrowInputFile : public ArrowFileMethods, public RandomAcce
 
  private:
   ::arrow::io::FileInterface* file_interface() override;
-  std::shared_ptr<::arrow::io::ReadableFileInterface> file_;
+  std::shared_ptr<::arrow::io::RandomAccessFile> file_;
 };
 
 class PARQUET_EXPORT ArrowOutputStream : public ArrowFileMethods, public OutputStream {

@@ -130,8 +130,7 @@ int64_t ArrowFileMethods::Tell() {
   return position;
 }
 
-ArrowInputFile::ArrowInputFile(
-    const std::shared_ptr<::arrow::io::ReadableFileInterface>& file)
+ArrowInputFile::ArrowInputFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file)
     : file_(file) {}
 
 ::arrow::io::FileInterface* ArrowInputFile::file_interface() { return file_.get(); }

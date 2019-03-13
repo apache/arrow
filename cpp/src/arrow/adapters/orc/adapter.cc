@@ -68,7 +68,7 @@ namespace orc {
 
 class ArrowInputFile : public liborc::InputStream {
  public:
-  explicit ArrowInputFile(const std::shared_ptr<io::ReadableFileInterface>& file)
+  explicit ArrowInputFile(const std::shared_ptr<io::RandomAccessFile>& file)
       : file_(file) {}
 
   uint64_t getLength() const override {
@@ -95,7 +95,7 @@ class ArrowInputFile : public liborc::InputStream {
   }
 
  private:
-  std::shared_ptr<io::ReadableFileInterface> file_;
+  std::shared_ptr<io::RandomAccessFile> file_;
 };
 
 struct StripeInformation {
@@ -222,7 +222,7 @@ class ORCFileReader::Impl {
   Impl() {}
   ~Impl() {}
 
-  Status Open(const std::shared_ptr<io::ReadableFileInterface>& file, MemoryPool* pool) {
+  Status Open(const std::shared_ptr<io::RandomAccessFile>& file, MemoryPool* pool) {
     std::unique_ptr<ArrowInputFile> io_wrapper(new ArrowInputFile(file));
     liborc::ReaderOptions options;
     std::unique_ptr<liborc::Reader> liborc_reader;
@@ -682,7 +682,7 @@ ORCFileReader::ORCFileReader() { impl_.reset(new ORCFileReader::Impl()); }
 
 ORCFileReader::~ORCFileReader() {}
 
-Status ORCFileReader::Open(const std::shared_ptr<io::ReadableFileInterface>& file,
+Status ORCFileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
                            MemoryPool* pool, std::unique_ptr<ORCFileReader>* reader) {
   auto result = std::unique_ptr<ORCFileReader>(new ORCFileReader());
   RETURN_NOT_OK(result->impl_->Open(file, pool));
