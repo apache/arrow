@@ -21,8 +21,9 @@ use std::fs::File;
 use std::string::String;
 use std::sync::{Arc, Mutex};
 
-use arrow::array::Array;
-use arrow::datatypes::{DataType, Schema};
+use arrow::array::{Array, PrimitiveArray};
+use arrow::builder::PrimitiveBuilder;
+use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
 use parquet::column::reader::*;
@@ -32,9 +33,7 @@ use parquet::file::reader::*;
 use crate::datasource::{RecordBatchIterator, ScanResult, Table};
 use crate::execution::error::{ExecutionError, Result};
 use arrow::array::BinaryArray;
-use arrow::builder::BooleanBuilder;
-use arrow::builder::Int64Builder;
-use arrow::builder::{BinaryBuilder, Float32Builder, Float64Builder, Int32Builder};
+use arrow::builder::{BinaryBuilder, Int64Builder};
 use parquet::data_type::Int96;
 use parquet::reader::schema::parquet_to_arrow_schema;
 
@@ -91,47 +90,6 @@ fn create_binary_array(b: &Vec<ByteArray>, row_count: usize) -> Result<Arc<Binar
     Ok(Arc::new(builder.finish()))
 }
 
-macro_rules! read_column {
-    ($SELF:ident, $R:ident, $INDEX:expr, $BUILDER:ident, $TY:ident, $DEFAULT:expr) => {{
-        //TODO: should be able to get num_rows in row group instead of defaulting to batch size
-        let mut read_buffer: Vec<$TY> = Vec::with_capacity($SELF.batch_size);
-        for _ in 0..$SELF.batch_size {
-            read_buffer.push($DEFAULT);
-        }
-        if $SELF.schema.field($INDEX).is_nullable() {
-
-            let mut def_levels: Vec<i16> = Vec::with_capacity($SELF.batch_size);
-            for _ in 0..$SELF.batch_size {
-                def_levels.push(0);
-            }
-
-            let (values_read, levels_read) = $R.read_batch(
-                    $SELF.batch_size,
-                    Some(&mut def_levels),
-                    None,
-                    &mut read_buffer,
-            )?;
-            let mut builder = $BUILDER::new(levels_read);
-            if values_read == levels_read {
-                builder.append_slice(&read_buffer[0..values_read])?;
-            } else {
-                return Err(ExecutionError::NotImplemented("Parquet datasource does not support null values".to_string()))
-            }
-            Arc::new(builder.finish())
-        } else {
-            let (values_read, _) = $R.read_batch(
-                    $SELF.batch_size,
-                    None,
-                    None,
-                    &mut read_buffer,
-            )?;
-            let mut builder = $BUILDER::new(values_read);
-            builder.append_slice(&read_buffer[0..values_read])?;
-            Arc::new(builder.finish())
-        }
-    }}
-}
-
 macro_rules! read_binary_column {
     ($SELF:ident, $R:ident, $INDEX:expr) => {{
         //TODO: should be able to get num_rows in row group instead of defaulting to batch size
@@ -168,6 +126,68 @@ macro_rules! read_binary_column {
             create_binary_array(&read_buffer, values_read)?
         }
     }}
+}
+
+trait ArrowReader<T> where T: ArrowPrimitiveType {
+    fn read(&mut self, batch_size: usize, is_nullable: bool) -> Result<Arc<PrimitiveArray<T>>>;
+}
+
+impl<A,P> ArrowReader<A> for ColumnReaderImpl<P> 
+where
+    A: ArrowPrimitiveType, 
+    P: parquet::data_type::DataType,
+    P::T: std::convert::From<A::Native>,
+    A::Native: std::convert::From<P::T>,
+{
+    fn read(&mut self, batch_size: usize, is_nullable: bool) -> Result<Arc<PrimitiveArray<A>>> {
+
+        // create read buffer
+        let mut read_buffer: Vec<P::T> = Vec::with_capacity(batch_size);
+
+        for _ in 0..batch_size {
+            read_buffer.push(A::default_value().into());
+        }
+
+        if is_nullable {
+            let mut def_levels: Vec<i16> = Vec::with_capacity(batch_size);
+            for _ in 0..batch_size {
+                def_levels.push(0);
+            }
+
+            let (values_read, levels_read) = self.read_batch(
+                    batch_size,
+                    Some(&mut def_levels),
+                    None,
+                    &mut read_buffer,
+            )?;
+            let mut builder = PrimitiveBuilder::<A>::new(levels_read);
+            if values_read == levels_read {
+                let converted_buffer: Vec<A::Native> = read_buffer.into_iter().map(|v| v.into()).collect();
+                builder.append_slice(&converted_buffer[0..values_read])?;
+            } else {
+                for (v, l) in read_buffer.into_iter().zip(def_levels) {
+                    if l == 0 {
+                        builder.append_value(v.into())?;
+                    } else {
+                        builder.append_null()?;
+                    }
+                }
+            }
+            Ok(Arc::new(builder.finish()))
+        } else {
+            let (values_read, _) = self.read_batch(
+                batch_size,
+                None,
+                None,
+                &mut read_buffer,
+            )?;
+
+            let mut builder = PrimitiveBuilder::<A>::new(values_read);
+            let converted_buffer: Vec<A::Native> = read_buffer.into_iter().map(|v| v.into()).collect();
+            builder.append_slice(&converted_buffer[0..values_read])?;
+            Ok(Arc::new(builder.finish()))
+        }
+    }
 }
 
 impl ParquetFile {
@@ -243,15 +263,25 @@ impl ParquetFile {
             Some(reader) => {
                 let mut batch: Vec<Arc<Array>> = Vec::with_capacity(reader.num_columns());
                 for i in 0..self.column_readers.len() {
+                    let is_nullable = self.schema().field(i).is_nullable();
                     let array: Arc<Array> = match self.column_readers[i] {
                         ColumnReader::BoolColumnReader(ref mut r) => {
-                            read_column!(self, r, i, BooleanBuilder, bool, false)
+                            match ArrowReader::<BooleanType>::read(r, self.batch_size, is_nullable) {
+                                Ok(array) => array,
+                                Err(e) => return Err(e)
+                            }
                         }
                         ColumnReader::Int32ColumnReader(ref mut r) => {
-                            read_column!(self, r, i, Int32Builder, i32, 0)
+                            match ArrowReader::<Int32Type>::read(r, self.batch_size, is_nullable) {
+                                Ok(array) => array,
+                                Err(e) => return Err(e)
+                            }
                         }
                         ColumnReader::Int64ColumnReader(ref mut r) => {
-                            read_column!(self, r, i, Int64Builder, i64, 0)
+                            match ArrowReader::<Int64Type>::read(r, self.batch_size, is_nullable) {
+                                Ok(array) => array,
+                                Err(e) => return Err(e)
+                            }
                         }
                         ColumnReader::Int96ColumnReader(ref mut r) => {
                             let mut read_buffer: Vec<Int96> =
@@ -314,10 +344,16 @@ impl ParquetFile {
                             }
                         }
                         ColumnReader::FloatColumnReader(ref mut r) => {
-                            read_column!(self, r, i, Float32Builder, f32, 0_f32)
+                            match ArrowReader::<Float32Type>::read(r, self.batch_size, is_nullable) {
+                                Ok(array) => array,
+                                Err(e) => return Err(e)
+                            }
                         }
                         ColumnReader::DoubleColumnReader(ref mut r) => {
-                            read_column!(self, r, i, Float64Builder, f64, 0_f64)
+                            match ArrowReader::<Float64Type>::read(r, self.batch_size, is_nullable) {
+                                Ok(array) => array,
+                                Err(e) => return Err(e)
+                            }
                         }
                         ColumnReader::FixedLenByteArrayColumnReader(ref mut r) => {
                             read_binary_column!(self, r, i)
