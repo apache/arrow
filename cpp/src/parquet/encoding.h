@@ -202,6 +202,7 @@ class ByteArrayDecoder : virtual public TypedDecoder<ByteArrayType> {
     virtual void Reserve(int64_t values) = 0;
     virtual void Append(const uint8_t* value, uint32_t length) = 0;
     virtual void AppendNull() = 0;
+    virtual ~WrappedBuilderInterface() = default;
   };
 
   template <typename Builder>
