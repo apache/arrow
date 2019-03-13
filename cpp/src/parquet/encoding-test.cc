@@ -494,7 +494,7 @@ class PlainEncoding : public TestArrowBuilderDecoding<DType> {
   void SetupEncoderDecoder() override {
     encoder_ = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
     decoder_ = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
-    ASSERT_NO_THROW(encoder_->Put(input_data_.data(), num_values_));
+    ASSERT_NO_THROW(encoder_->PutSpaced(input_data_.data(), num_values_, valid_bits_, 0));
     buffer_ = encoder_->FlushValues();
     decoder_->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
   }
