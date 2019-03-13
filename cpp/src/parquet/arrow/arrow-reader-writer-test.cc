@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "arrow/api.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
@@ -2441,10 +2442,10 @@ TEST(TestArrowWriterAdHoc, SchemaMismatch) {
 
 // ----------------------------------------------------------------------
 // Tests for directly reading DictionaryArray
-class TestArrowReadDictionary : public ::testing::TestWithParam<const char*> {
+class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
  public:
   void SetUp() override {
-    InitFromJSON(GetParam());
+    GenerateData(GetParam());
     ASSERT_NO_FATAL_FAILURE(
         WriteTableToBuffer(expected_dense_, expected_dense_->num_rows() / 2,
                            default_arrow_writer_properties(), &buffer_));
@@ -2452,20 +2453,19 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<const char*> {
     properties_ = default_arrow_reader_properties();
   }
 
-  void InitFromJSON(const char* jsonStr) {
-    auto dense_array = ::arrow::ArrayFromJSON(::arrow::utf8(), jsonStr);
+  void GenerateData(double null_probability) {
+    constexpr int num_unique = 100;
+    constexpr int repeat = 10;
+    constexpr int64_t min_length = 2;
+    constexpr int64_t max_length = 10;
+    ::arrow::random::RandomArrayGenerator rag(0);
+    auto dense_array = rag.StringWithRepeats(repeat * num_unique, num_unique, min_length,
+                                             max_length, null_probability);
     expected_dense_ = MakeSimpleTable(dense_array, /*nullable=*/true);
 
     ::arrow::StringDictionaryBuilder builder(default_memory_pool());
     const auto& string_array = static_cast<const ::arrow::StringArray&>(*dense_array);
-
-    for (int64_t i = 0; i < string_array.length(); ++i) {
-      if (string_array.IsNull(i)) {
-        ASSERT_OK(builder.AppendNull());
-      } else {
-        ASSERT_OK(builder.Append(string_array.GetView(i)));
-      }
-    }
+    ASSERT_OK(builder.AppendArray(string_array));
 
     std::shared_ptr<::arrow::Array> dict_array;
     ASSERT_OK(builder.Finish(&dict_array));
@@ -2488,8 +2488,10 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<const char*> {
 
     std::shared_ptr<Table> actual;
     ASSERT_OK_NO_THROW(reader->ReadTable(&actual));
-    ::arrow::AssertTablesEqual(*actual, expected, false);
+    ::arrow::AssertTablesEqual(*actual, expected, /*same_chunk_layout=*/false);
   }
+
+  static std::vector<double> null_probabilites() { return {0.0, 0.5, 1}; }
 
  protected:
   std::shared_ptr<Table> expected_dense_;
@@ -2508,11 +2510,9 @@ TEST_P(TestArrowReadDictionary, ReadWholeFileDense) {
   CheckReadWholeFile(*expected_dense_);
 }
 
-const char* jsonInputs[] = {"[\"foo\", \"bar\", \"foo\", \"foo\"]",
-                            "[\"foo\", \"bar\", \"foo\", \"null\"]"};
-
-INSTANTIATE_TEST_CASE_P(ReadDictionary, TestArrowReadDictionary,
-                        ::testing::ValuesIn(jsonInputs));
+INSTANTIATE_TEST_CASE_P(
+    ReadDictionary, TestArrowReadDictionary,
+    ::testing::ValuesIn(TestArrowReadDictionary::null_probabilites()));
 
 }  // namespace arrow
 
