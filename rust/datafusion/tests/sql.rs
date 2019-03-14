@@ -183,14 +183,12 @@ fn load_parquet_table(name: &str) -> Rc<Table> {
     let testdata = env::var("PARQUET_TEST_DATA").unwrap();
     let filename = format!("{}/{}", testdata, name);
     let table = ParquetTable::try_new(&filename).unwrap();
-    println!("{:?}", table.schema());
     Rc::new(table)
 }
 
 /// Execute query and return result set as tab delimited string
 fn execute(ctx: &mut ExecutionContext, sql: &str) -> String {
     let plan = ctx.create_logical_plan(&sql).unwrap();
-    println!("Plan: {:?}", plan);
     let results = ctx.execute(&plan, DEFAULT_BATCH_SIZE).unwrap();
     result_str(&results)
 }
