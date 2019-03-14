@@ -192,6 +192,23 @@ sudo yum install -y --enablerepo=epel parquet-devel # For Apache Parquet C++
 sudo yum install -y --enablerepo=epel parquet-glib-devel # For Parquet GLib (C)
 ```
 
+### C++ and GLib (C) Packages for MSYS2 (Unofficial)
+
+The official MSYS2 packages include [Apache Arrow C++ and GLib (C)
+package][16]. You can install the package by `pacman`.
+
+64bit version:
+
+```shell
+pacman -S --noconfirm mingw-w64-x86_64-arrow
+```
+
+32bit version:
+
+```shell
+pacman -S --noconfirm mingw-w64-i686-arrow
+```
+
 [1]: {{site.data.versions['current'].mirrors}}
 [2]: {{site.data.versions['current'].github-tag-link}}
 [4]: {{site.data.versions['current'].java-artifacts}}
@@ -203,3 +220,4 @@ sudo yum install -y --enablerepo=epel parquet-glib-devel # For Parquet GLib (C)
 [13]: {{site.data.versions['current'].asc}}
 [14]: {{site.data.versions['current'].sha256}}
 [15]: {{site.data.versions['current'].sha512}}
+[16]: https://github.com/msys2/MINGW-packages/tree/master/mingw-w64-arrow
