@@ -939,6 +939,33 @@ garrow_numeric_array_class_init(GArrowNumericArrayClass *klass)
 {
 }
 
+/**
+ * garrow_numeric_array_mean:
+ * @array: A #GArrowNumericArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The value of the computed mean.
+ *
+ * Since: 0.13.0
+ */
+gdouble
+garrow_numeric_array_mean(GArrowNumericArray *array,
+                          GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  arrow::compute::Datum mean_datum;
+  auto status = arrow::compute::Mean(&context, arrow_array, &mean_datum);
+  if (garrow_error_check(error, status, "[numeric-array][mean]")) {
+    using ScalarType = typename arrow::TypeTraits<arrow::DoubleType>::ScalarType;
+    auto arrow_numeric_scalar = std::dynamic_pointer_cast<ScalarType>(mean_datum.scalar());
+    return arrow_numeric_scalar->value;
+  } else {
+    return 0.0;
+  }
+}
+
 
 G_DEFINE_TYPE(GArrowInt8Array,
               garrow_int8_array,
