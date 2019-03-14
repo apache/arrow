@@ -237,7 +237,7 @@ impl<R: Read> Reader<R> {
             projection,
             record_iter,
             batch_size,
-            line_number: 0,
+            line_number: if has_headers { 1 } else { 0 },
         }
     }
 
@@ -534,7 +534,7 @@ impl ReaderBuilder {
             projection: self.projection.clone(),
             record_iter,
             batch_size: self.batch_size,
-            line_number: 0,
+            line_number: if self.has_headers { 1 } else { 0 },
         })
     }
 }
@@ -772,7 +772,7 @@ mod tests {
         let mut csv = builder.build(file).unwrap();
         match csv.next() {
             Err(e) => assert_eq!(
-                "ParseError(\"Error while parsing value 4.x4 at line 3\")",
+                "ParseError(\"Error while parsing value 4.x4 at line 4\")",
                 format!("{:?}", e)
             ),
             Ok(_) => panic!("should have failed"),
