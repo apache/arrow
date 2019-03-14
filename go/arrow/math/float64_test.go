@@ -33,6 +33,14 @@ func TestFloat64Funcs_Sum(t *testing.T) {
 	assert.Equal(t, res, float64(49995000))
 }
 
+func TestFloat64Funcs_SumEmpty(t *testing.T) {
+	b := array.NewFloat64Builder(memory.NewGoAllocator())
+	vec := b.NewFloat64Array()
+	b.Release()
+	res := math.Float64.Sum(vec)
+	assert.Equal(t, res, float64(0))
+}
+
 func makeArrayFloat64(l int) *array.Float64 {
 	fb := array.NewFloat64Builder(memory.NewGoAllocator())
 	fb.Reserve(l)

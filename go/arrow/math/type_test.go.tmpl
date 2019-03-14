@@ -33,6 +33,14 @@ func Test{{.Name}}Funcs_Sum(t *testing.T) {
 	assert.Equal(t, res, {{.Type}}(49995000))
 }
 
+func Test{{.Name}}Funcs_SumEmpty(t *testing.T) {
+	b := array.New{{.Name}}Builder(memory.NewGoAllocator())
+	vec := b.New{{.Name}}Array()
+	b.Release()
+	res := math.{{.Name}}.Sum(vec)
+	assert.Equal(t, res, {{.Type}}(0))
+}
+
 func makeArray{{.Name}}(l int) *array.{{.Name}} {
 	fb := array.New{{.Name}}Builder(memory.NewGoAllocator())
 	fb.Reserve(l)
