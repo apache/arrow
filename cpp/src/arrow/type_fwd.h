@@ -89,6 +89,7 @@ struct Decimal128Scalar;
 
 class UnionType;
 class UnionArray;
+class UnionScalar;
 
 template <typename TypeClass>
 class NumericArray;
@@ -154,6 +155,7 @@ class IntervalScalar;
 
 class ExtensionType;
 class ExtensionArray;
+class ExtensionScalar;
 
 // ----------------------------------------------------------------------
 // (parameter-free) Factory functions

@@ -35,19 +35,19 @@ bool Scalar::Equals(const Scalar& other) const { return ScalarEquals(*this, othe
 
 Time32Scalar::Time32Scalar(int32_t value, const std::shared_ptr<DataType>& type,
                            bool is_valid)
-    : Scalar{type, is_valid}, value(value) {
+    : internal::PrimitiveScalar{type, is_valid}, value(value) {
   DCHECK_EQ(Type::TIME32, type->id());
 }
 
 Time64Scalar::Time64Scalar(int64_t value, const std::shared_ptr<DataType>& type,
                            bool is_valid)
-    : Scalar{type, is_valid}, value(value) {
+    : internal::PrimitiveScalar{type, is_valid}, value(value) {
   DCHECK_EQ(Type::TIME64, type->id());
 }
 
 TimestampScalar::TimestampScalar(int64_t value, const std::shared_ptr<DataType>& type,
                                  bool is_valid)
-    : Scalar{type, is_valid}, value(value) {
+    : internal::PrimitiveScalar{type, is_valid}, value(value) {
   DCHECK_EQ(Type::TIMESTAMP, type->id());
 }
 

@@ -719,13 +719,6 @@ class TypeEqualsVisitor {
   bool result_;
 };
 
-#define VISIT_SIMPLE(SCALAR_TYPE)                                 \
-  Status Visit(const SCALAR_TYPE& left) {                         \
-    const auto& right = checked_cast<const SCALAR_TYPE&>(right_); \
-    result_ = right.value == left.value;                          \
-    return Status::OK();                                          \
-  }
-
 class ScalarEqualsVisitor {
  public:
   explicit ScalarEqualsVisitor(const Scalar& right) : right_(right), result_(false) {}
@@ -735,22 +728,14 @@ class ScalarEqualsVisitor {
     return Status::OK();
   }
 
-  VISIT_SIMPLE(BooleanScalar)
-  VISIT_SIMPLE(Int8Scalar)
-  VISIT_SIMPLE(UInt8Scalar)
-  VISIT_SIMPLE(Int16Scalar)
-  VISIT_SIMPLE(UInt16Scalar)
-  VISIT_SIMPLE(Int32Scalar)
-  VISIT_SIMPLE(UInt32Scalar)
-  VISIT_SIMPLE(Int64Scalar)
-  VISIT_SIMPLE(UInt64Scalar)
-  VISIT_SIMPLE(FloatScalar)
-  VISIT_SIMPLE(DoubleScalar)
-  VISIT_SIMPLE(Date32Scalar)
-  VISIT_SIMPLE(Date64Scalar)
-  VISIT_SIMPLE(Time32Scalar)
-  VISIT_SIMPLE(Time64Scalar)
-  VISIT_SIMPLE(TimestampScalar)
+  template <typename T>
+  typename std::enable_if<std::is_base_of<internal::PrimitiveScalar, T>::value,
+                          Status>::type
+  Visit(const T& left_) {
+    const auto& right = checked_cast<const T&>(right_);
+    result_ = right.value == left_.value;
+    return Status::OK();
+  }
 
   template <typename T>
   typename std::enable_if<std::is_base_of<BinaryScalar, T>::value, Status>::type Visit(
@@ -787,6 +772,16 @@ class ScalarEqualsVisitor {
     }
 
     return Status::OK();
+  }
+
+  Status Visit(const UnionScalar& left) { return Status::NotImplemented("union"); }
+
+  Status Visit(const DictionaryScalar& left) {
+    return Status::NotImplemented("dictionary");
+  }
+
+  Status Visit(const ExtensionScalar& left) {
+    return Status::NotImplemented("extension");
   }
 
   bool result() const { return result_; }
