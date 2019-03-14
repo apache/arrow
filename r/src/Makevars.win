@@ -1,0 +1,9 @@
+PKG_CPPFLAGS = -DARROW_STATIC -DPARQUET_STATIC
+PKG_LIBS = -lparquet -larrow -lthrift -lboost_regex-mt-s -ldouble-conversion -lWs2_32
+CXX_STD = CXX11
+
+all: clean
+
+clean:
+	rm -f $(SHLIB) $(OBJECTS)
+
