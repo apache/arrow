@@ -20,8 +20,9 @@ package org.apache.arrow.memory;
 import org.apache.arrow.util.VisibleForTesting;
 
 /**
- * The root allocator for using direct memory inside a Drillbit. Supports creating a
- * tree of descendant child allocators.
+ * A root allocator for using direct memory for Arrow Vectors/Arrays. Supports creating a
+ * tree of descendant child allocators to facilitate better instrumentation of memory
+ * allocations.
  */
 public class RootAllocator extends BaseAllocator {
 

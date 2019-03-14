@@ -41,6 +41,18 @@ import org.apache.arrow.util.Preconditions;
 
 import io.netty.util.internal.PlatformDependent;
 
+/**
+ * ArrowBuf is the abstraction around raw byte arrays that
+ * comprise arrow data structures.
+ *
+ *
+ * <p>Specifically, it serves as a facade over
+ * {@linkplain UnsafeDirectLittleEndian} memory objects that hides the details
+ * of raw memory addresses.
+ *
+ * <p>ArrowBuf supports reference counting and ledgering to closely track where
+ * memory is being used.
+ */
 public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ArrowBuf.class);
@@ -60,6 +72,17 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
       new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH, "ArrowBuf[%d]", id) : null;
   private volatile int length;
 
+  /**
+   * Constructs a new ArrowBuf
+   * @param refCnt The atomic integer to use for reference counting this buffer.
+   * @param ledger The ledger to use for tracking memory usage of this buffer.
+   * @param byteBuf The underlying storage for this buffer.
+   * @param manager The manager that handles replacing this buffer.
+   * @param alloc The allocator for the buffer (needed for superclass compatibility)
+   * @param offset The byte offset into <code>byteBuf</code> this buffer starts at.
+   * @param length The  byte length of this buffer
+   * @param isEmpty  Indicates if this buffer is empty which enables some optimizations.
+   */
   public ArrowBuf(
       final AtomicInteger refCnt,
       final BufferLedger ledger,
@@ -69,6 +92,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
       final int offset,
       final int length,
       boolean isEmpty) {
+    // TODO(emkornfield): Should this be byteBuf.maxCapacity - offset?
     super(byteBuf.maxCapacity());
     this.refCnt = refCnt;
     this.udle = byteBuf;
@@ -86,6 +110,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   }
 
+  /** Returns a debug friendly string for the given ByteBuf. */
   public static String bufferState(final ByteBuf buf) {
     final int cap = buf.capacity();
     final int mcap = buf.maxCapacity();
@@ -97,6 +122,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
         cap, mcap, ri, rb, wi, wb);
   }
 
+  /**
+   * Returns <code>this</code> if size is less then {@link #capacity()}, otherwise
+   * delegates to {@link BufferManager#replace(ArrowBuf, int)} to get a new buffer.
+   */
   public ArrowBuf reallocIfNeeded(final int size) {
     Preconditions.checkArgument(size >= 0, "reallocation size must be non-negative");
 
@@ -928,6 +957,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
+  /**
+   * Copies length bytes from src starting at srcIndex
+   * to this buffer starting at index.
+   */
   public ArrowBuf setBytes(int index, ByteBuffer src, int srcIndex, int length) {
     if (src.isDirect()) {
       checkIndex(index, length);
@@ -1050,6 +1083,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return id;
   }
 
+  /** Returns all ledger information with stack traces as a string. */
   public String toVerboseString() {
     if (isEmpty) {
       return toString();
@@ -1060,6 +1094,14 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return sb.toString();
   }
 
+  /**
+   * Prints information of this buffer into <code>sb</code> at the given
+   * indentation and verbosity level.
+   *
+   * <p>It will include history if BaseAllocator.DEBUG is true and
+   * the verbosity.includeHistoricalLog are true.
+   *
+   */
   public void print(StringBuilder sb, int indent, Verbosity verbosity) {
     BaseAllocator.indent(sb, indent).append(toString());
 
