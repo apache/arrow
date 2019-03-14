@@ -52,4 +52,30 @@ class TestBooleanArray < Test::Unit::TestCase
     array = builder.finish
     assert_equal([true, false, true], array.values)
   end
+
+  def test_invert
+    assert_equal(build_boolean_array([true, nil, false]),
+                 build_boolean_array([false, nil, true]).invert)
+  end
+
+  def test_and
+    left = build_boolean_array([true, false, nil, true])
+    right = build_boolean_array([true, nil, true, false])
+    assert_equal(build_boolean_array([true, nil, nil, false]),
+                 left.and(right))
+  end
+
+  def test_or
+    left = build_boolean_array([true, false, nil, false])
+    right = build_boolean_array([false, nil, true, false])
+    assert_equal(build_boolean_array([true, nil, nil, false]),
+                 left.or(right))
+  end
+
+  def test_xor
+    left = build_boolean_array([true, false, nil, true])
+    right = build_boolean_array([false, nil, true, true])
+    assert_equal(build_boolean_array([true, nil, nil, false]),
+                 left.xor(right))
+  end
 end

@@ -100,7 +100,7 @@ class PARQUET_EXPORT ParquetFileReader {
   // Create a file reader instance from an Arrow file object. Thread-safety is
   // the responsibility of the file implementation
   static std::unique_ptr<ParquetFileReader> Open(
-      const std::shared_ptr<::arrow::io::ReadableFileInterface>& source,
+      const std::shared_ptr<::arrow::io::RandomAccessFile>& source,
       const ReaderProperties& props = default_reader_properties(),
       const std::shared_ptr<FileMetaData>& metadata = NULLPTR);
 
@@ -127,7 +127,7 @@ class PARQUET_EXPORT ParquetFileReader {
 
 // Read only Parquet file metadata
 std::shared_ptr<FileMetaData> PARQUET_EXPORT
-ReadMetaData(const std::shared_ptr<::arrow::io::ReadableFileInterface>& source);
+ReadMetaData(const std::shared_ptr<::arrow::io::RandomAccessFile>& source);
 
 /// \brief Scan all values in file. Useful for performance testing
 /// \param[in] columns the column numbers to scan. If empty scans all

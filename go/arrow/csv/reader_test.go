@@ -192,7 +192,7 @@ func TestCSVReader(t *testing.T) {
 	for r.Next() {
 		rec := r.Record()
 		for i, col := range rec.Columns() {
-			fmt.Fprintf(out, "rec[%d][%q]: %v\n", i, rec.ColumnName(i), col)
+			fmt.Fprintf(out, "rec[%d][%q]: %v\n", n, rec.ColumnName(i), col)
 		}
 		n++
 	}
@@ -202,29 +202,29 @@ func TestCSVReader(t *testing.T) {
 	}
 
 	want := `rec[0]["bool"]: [true]
-rec[1]["i8"]: [-1]
-rec[2]["i16"]: [-1]
-rec[3]["i32"]: [-1]
-rec[4]["i64"]: [-1]
-rec[5]["u8"]: [1]
-rec[6]["u16"]: [1]
-rec[7]["u32"]: [1]
-rec[8]["u64"]: [1]
-rec[9]["f32"]: [1.1]
-rec[10]["f64"]: [1.1]
-rec[11]["str"]: ["str-1"]
-rec[0]["bool"]: [false]
+rec[0]["i8"]: [-1]
+rec[0]["i16"]: [-1]
+rec[0]["i32"]: [-1]
+rec[0]["i64"]: [-1]
+rec[0]["u8"]: [1]
+rec[0]["u16"]: [1]
+rec[0]["u32"]: [1]
+rec[0]["u64"]: [1]
+rec[0]["f32"]: [1.1]
+rec[0]["f64"]: [1.1]
+rec[0]["str"]: ["str-1"]
+rec[1]["bool"]: [false]
 rec[1]["i8"]: [-2]
-rec[2]["i16"]: [-2]
-rec[3]["i32"]: [-2]
-rec[4]["i64"]: [-2]
-rec[5]["u8"]: [2]
-rec[6]["u16"]: [2]
-rec[7]["u32"]: [2]
-rec[8]["u64"]: [2]
-rec[9]["f32"]: [2.2]
-rec[10]["f64"]: [2.2]
-rec[11]["str"]: ["str-2"]
+rec[1]["i16"]: [-2]
+rec[1]["i32"]: [-2]
+rec[1]["i64"]: [-2]
+rec[1]["u8"]: [2]
+rec[1]["u16"]: [2]
+rec[1]["u32"]: [2]
+rec[1]["u64"]: [2]
+rec[1]["f32"]: [2.2]
+rec[1]["f64"]: [2.2]
+rec[1]["str"]: ["str-2"]
 `
 
 	if got, want := out.String(), want; got != want {
@@ -278,35 +278,35 @@ func TestCSVReaderWithChunk(t *testing.T) {
 			opts:    []csv.Option{csv.WithAllocator(mem), csv.WithComment('#'), csv.WithComma(';')},
 			records: 10,
 			want: `rec[0]["i64"]: [0]
-rec[1]["f64"]: [0]
-rec[2]["str"]: ["str-0"]
-rec[0]["i64"]: [1]
+rec[0]["f64"]: [0]
+rec[0]["str"]: ["str-0"]
+rec[1]["i64"]: [1]
 rec[1]["f64"]: [1]
-rec[2]["str"]: ["str-1"]
-rec[0]["i64"]: [2]
-rec[1]["f64"]: [2]
+rec[1]["str"]: ["str-1"]
+rec[2]["i64"]: [2]
+rec[2]["f64"]: [2]
 rec[2]["str"]: ["str-2"]
-rec[0]["i64"]: [3]
-rec[1]["f64"]: [3]
-rec[2]["str"]: ["str-3"]
-rec[0]["i64"]: [4]
-rec[1]["f64"]: [4]
-rec[2]["str"]: ["str-4"]
-rec[0]["i64"]: [5]
-rec[1]["f64"]: [5]
-rec[2]["str"]: ["str-5"]
-rec[0]["i64"]: [6]
-rec[1]["f64"]: [6]
-rec[2]["str"]: ["str-6"]
-rec[0]["i64"]: [7]
-rec[1]["f64"]: [7]
-rec[2]["str"]: ["str-7"]
-rec[0]["i64"]: [8]
-rec[1]["f64"]: [8]
-rec[2]["str"]: ["str-8"]
-rec[0]["i64"]: [9]
-rec[1]["f64"]: [9]
-rec[2]["str"]: ["str-9"]
+rec[3]["i64"]: [3]
+rec[3]["f64"]: [3]
+rec[3]["str"]: ["str-3"]
+rec[4]["i64"]: [4]
+rec[4]["f64"]: [4]
+rec[4]["str"]: ["str-4"]
+rec[5]["i64"]: [5]
+rec[5]["f64"]: [5]
+rec[5]["str"]: ["str-5"]
+rec[6]["i64"]: [6]
+rec[6]["f64"]: [6]
+rec[6]["str"]: ["str-6"]
+rec[7]["i64"]: [7]
+rec[7]["f64"]: [7]
+rec[7]["str"]: ["str-7"]
+rec[8]["i64"]: [8]
+rec[8]["f64"]: [8]
+rec[8]["str"]: ["str-8"]
+rec[9]["i64"]: [9]
+rec[9]["f64"]: [9]
+rec[9]["str"]: ["str-9"]
 `,
 		},
 		{
@@ -317,35 +317,35 @@ rec[2]["str"]: ["str-9"]
 			},
 			records: 10,
 			want: `rec[0]["i64"]: [0]
-rec[1]["f64"]: [0]
-rec[2]["str"]: ["str-0"]
-rec[0]["i64"]: [1]
+rec[0]["f64"]: [0]
+rec[0]["str"]: ["str-0"]
+rec[1]["i64"]: [1]
 rec[1]["f64"]: [1]
-rec[2]["str"]: ["str-1"]
-rec[0]["i64"]: [2]
-rec[1]["f64"]: [2]
+rec[1]["str"]: ["str-1"]
+rec[2]["i64"]: [2]
+rec[2]["f64"]: [2]
 rec[2]["str"]: ["str-2"]
-rec[0]["i64"]: [3]
-rec[1]["f64"]: [3]
-rec[2]["str"]: ["str-3"]
-rec[0]["i64"]: [4]
-rec[1]["f64"]: [4]
-rec[2]["str"]: ["str-4"]
-rec[0]["i64"]: [5]
-rec[1]["f64"]: [5]
-rec[2]["str"]: ["str-5"]
-rec[0]["i64"]: [6]
-rec[1]["f64"]: [6]
-rec[2]["str"]: ["str-6"]
-rec[0]["i64"]: [7]
-rec[1]["f64"]: [7]
-rec[2]["str"]: ["str-7"]
-rec[0]["i64"]: [8]
-rec[1]["f64"]: [8]
-rec[2]["str"]: ["str-8"]
-rec[0]["i64"]: [9]
-rec[1]["f64"]: [9]
-rec[2]["str"]: ["str-9"]
+rec[3]["i64"]: [3]
+rec[3]["f64"]: [3]
+rec[3]["str"]: ["str-3"]
+rec[4]["i64"]: [4]
+rec[4]["f64"]: [4]
+rec[4]["str"]: ["str-4"]
+rec[5]["i64"]: [5]
+rec[5]["f64"]: [5]
+rec[5]["str"]: ["str-5"]
+rec[6]["i64"]: [6]
+rec[6]["f64"]: [6]
+rec[6]["str"]: ["str-6"]
+rec[7]["i64"]: [7]
+rec[7]["f64"]: [7]
+rec[7]["str"]: ["str-7"]
+rec[8]["i64"]: [8]
+rec[8]["f64"]: [8]
+rec[8]["str"]: ["str-8"]
+rec[9]["i64"]: [9]
+rec[9]["f64"]: [9]
+rec[9]["str"]: ["str-9"]
 `,
 		},
 		{
@@ -356,35 +356,35 @@ rec[2]["str"]: ["str-9"]
 			},
 			records: 10,
 			want: `rec[0]["i64"]: [0]
-rec[1]["f64"]: [0]
-rec[2]["str"]: ["str-0"]
-rec[0]["i64"]: [1]
+rec[0]["f64"]: [0]
+rec[0]["str"]: ["str-0"]
+rec[1]["i64"]: [1]
 rec[1]["f64"]: [1]
-rec[2]["str"]: ["str-1"]
-rec[0]["i64"]: [2]
-rec[1]["f64"]: [2]
+rec[1]["str"]: ["str-1"]
+rec[2]["i64"]: [2]
+rec[2]["f64"]: [2]
 rec[2]["str"]: ["str-2"]
-rec[0]["i64"]: [3]
-rec[1]["f64"]: [3]
-rec[2]["str"]: ["str-3"]
-rec[0]["i64"]: [4]
-rec[1]["f64"]: [4]
-rec[2]["str"]: ["str-4"]
-rec[0]["i64"]: [5]
-rec[1]["f64"]: [5]
-rec[2]["str"]: ["str-5"]
-rec[0]["i64"]: [6]
-rec[1]["f64"]: [6]
-rec[2]["str"]: ["str-6"]
-rec[0]["i64"]: [7]
-rec[1]["f64"]: [7]
-rec[2]["str"]: ["str-7"]
-rec[0]["i64"]: [8]
-rec[1]["f64"]: [8]
-rec[2]["str"]: ["str-8"]
-rec[0]["i64"]: [9]
-rec[1]["f64"]: [9]
-rec[2]["str"]: ["str-9"]
+rec[3]["i64"]: [3]
+rec[3]["f64"]: [3]
+rec[3]["str"]: ["str-3"]
+rec[4]["i64"]: [4]
+rec[4]["f64"]: [4]
+rec[4]["str"]: ["str-4"]
+rec[5]["i64"]: [5]
+rec[5]["f64"]: [5]
+rec[5]["str"]: ["str-5"]
+rec[6]["i64"]: [6]
+rec[6]["f64"]: [6]
+rec[6]["str"]: ["str-6"]
+rec[7]["i64"]: [7]
+rec[7]["f64"]: [7]
+rec[7]["str"]: ["str-7"]
+rec[8]["i64"]: [8]
+rec[8]["f64"]: [8]
+rec[8]["str"]: ["str-8"]
+rec[9]["i64"]: [9]
+rec[9]["f64"]: [9]
+rec[9]["str"]: ["str-9"]
 `,
 		},
 		{
@@ -395,17 +395,17 @@ rec[2]["str"]: ["str-9"]
 			},
 			records: 4,
 			want: `rec[0]["i64"]: [0 1 2]
-rec[1]["f64"]: [0 1 2]
-rec[2]["str"]: ["str-0" "str-1" "str-2"]
-rec[0]["i64"]: [3 4 5]
+rec[0]["f64"]: [0 1 2]
+rec[0]["str"]: ["str-0" "str-1" "str-2"]
+rec[1]["i64"]: [3 4 5]
 rec[1]["f64"]: [3 4 5]
-rec[2]["str"]: ["str-3" "str-4" "str-5"]
-rec[0]["i64"]: [6 7 8]
-rec[1]["f64"]: [6 7 8]
+rec[1]["str"]: ["str-3" "str-4" "str-5"]
+rec[2]["i64"]: [6 7 8]
+rec[2]["f64"]: [6 7 8]
 rec[2]["str"]: ["str-6" "str-7" "str-8"]
-rec[0]["i64"]: [9]
-rec[1]["f64"]: [9]
-rec[2]["str"]: ["str-9"]
+rec[3]["i64"]: [9]
+rec[3]["f64"]: [9]
+rec[3]["str"]: ["str-9"]
 `,
 		},
 		{
@@ -416,11 +416,11 @@ rec[2]["str"]: ["str-9"]
 			},
 			records: 2,
 			want: `rec[0]["i64"]: [0 1 2 3 4 5]
-rec[1]["f64"]: [0 1 2 3 4 5]
-rec[2]["str"]: ["str-0" "str-1" "str-2" "str-3" "str-4" "str-5"]
-rec[0]["i64"]: [6 7 8 9]
+rec[0]["f64"]: [0 1 2 3 4 5]
+rec[0]["str"]: ["str-0" "str-1" "str-2" "str-3" "str-4" "str-5"]
+rec[1]["i64"]: [6 7 8 9]
 rec[1]["f64"]: [6 7 8 9]
-rec[2]["str"]: ["str-6" "str-7" "str-8" "str-9"]
+rec[1]["str"]: ["str-6" "str-7" "str-8" "str-9"]
 `,
 		},
 		{
@@ -431,8 +431,8 @@ rec[2]["str"]: ["str-6" "str-7" "str-8" "str-9"]
 			},
 			records: 1,
 			want: `rec[0]["i64"]: [0 1 2 3 4 5 6 7 8 9]
-rec[1]["f64"]: [0 1 2 3 4 5 6 7 8 9]
-rec[2]["str"]: ["str-0" "str-1" "str-2" "str-3" "str-4" "str-5" "str-6" "str-7" "str-8" "str-9"]
+rec[0]["f64"]: [0 1 2 3 4 5 6 7 8 9]
+rec[0]["str"]: ["str-0" "str-1" "str-2" "str-3" "str-4" "str-5" "str-6" "str-7" "str-8" "str-9"]
 `,
 		},
 		{
@@ -443,8 +443,8 @@ rec[2]["str"]: ["str-0" "str-1" "str-2" "str-3" "str-4" "str-5" "str-6" "str-7" 
 			},
 			records: 1,
 			want: `rec[0]["i64"]: [0 1 2 3 4 5 6 7 8 9]
-rec[1]["f64"]: [0 1 2 3 4 5 6 7 8 9]
-rec[2]["str"]: ["str-0" "str-1" "str-2" "str-3" "str-4" "str-5" "str-6" "str-7" "str-8" "str-9"]
+rec[0]["f64"]: [0 1 2 3 4 5 6 7 8 9]
+rec[0]["str"]: ["str-0" "str-1" "str-2" "str-3" "str-4" "str-5" "str-6" "str-7" "str-8" "str-9"]
 `,
 		},
 		{
@@ -455,8 +455,8 @@ rec[2]["str"]: ["str-0" "str-1" "str-2" "str-3" "str-4" "str-5" "str-6" "str-7" 
 			},
 			records: 1,
 			want: `rec[0]["i64"]: [0 1 2 3 4 5 6 7 8 9]
-rec[1]["f64"]: [0 1 2 3 4 5 6 7 8 9]
-rec[2]["str"]: ["str-0" "str-1" "str-2" "str-3" "str-4" "str-5" "str-6" "str-7" "str-8" "str-9"]
+rec[0]["f64"]: [0 1 2 3 4 5 6 7 8 9]
+rec[0]["str"]: ["str-0" "str-1" "str-2" "str-3" "str-4" "str-5" "str-6" "str-7" "str-8" "str-9"]
 `,
 		},
 	} {
@@ -478,7 +478,7 @@ rec[2]["str"]: ["str-0" "str-1" "str-2" "str-3" "str-4" "str-5" "str-6" "str-7" 
 			for r.Next() {
 				rec := r.Record()
 				for i, col := range rec.Columns() {
-					fmt.Fprintf(out, "rec[%d][%q]: %v\n", i, rec.ColumnName(i), col)
+					fmt.Fprintf(out, "rec[%d][%q]: %v\n", n, rec.ColumnName(i), col)
 				}
 				n++
 			}

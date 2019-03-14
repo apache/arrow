@@ -1307,17 +1307,14 @@ def run_all_tests(run_flight=False, debug=False, tempdir=None):
     if run_flight:
         failures.extend(runner.run_flight())
 
-    print()
-    print('##########################################################')
-    if not failures:
-        print('-- All tests passed!')
-    else:
-        print('-- Tests completed, failures:')
-    for producer, consumer, exc_info in failures:
-        print("FAILED TEST:", producer.name, "producing, ",
-              consumer.name, "consuming")
-        traceback.print_exception(*exc_info)
-        print()
+    if failures:
+        print("################# FAILURES #################")
+        for producer, consumer, exc_info in failures:
+            print("FAILED TEST:", producer.name, "producing, ",
+                  consumer.name, "consuming")
+            traceback.print_exception(*exc_info)
+            print()
+        sys.exit(1)
 
 
 def write_js_test_json(directory):

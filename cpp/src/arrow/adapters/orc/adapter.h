@@ -47,8 +47,8 @@ class ARROW_EXPORT ORCFileReader {
   /// \param[in] pool a MemoryPool to use for buffer allocations
   /// \param[out] reader the returned reader object
   /// \return Status
-  static Status Open(const std::shared_ptr<io::ReadableFileInterface>& file,
-                     MemoryPool* pool, std::unique_ptr<ORCFileReader>* reader);
+  static Status Open(const std::shared_ptr<io::RandomAccessFile>& file, MemoryPool* pool,
+                     std::unique_ptr<ORCFileReader>* reader);
 
   /// \brief Return the schema read from the ORC file
   ///

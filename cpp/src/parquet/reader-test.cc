@@ -190,8 +190,8 @@ class TestLocalFile : public ::testing::Test {
 
 class HelperFileClosed : public ArrowInputFile {
  public:
-  explicit HelperFileClosed(
-      const std::shared_ptr<::arrow::io::ReadableFileInterface>& file, bool* close_called)
+  explicit HelperFileClosed(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
+                            bool* close_called)
       : ArrowInputFile(file), close_called_(close_called) {}
 
   void Close() override { *close_called_ = true; }

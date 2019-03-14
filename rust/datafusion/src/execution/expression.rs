@@ -245,51 +245,6 @@ macro_rules! literal_array {
     }};
 }
 
-/// Casts a column to an array with a different data type
-macro_rules! cast_column {
-    ($INDEX:expr, $FROM_TYPE:ty, $TO_TYPE:ident, $DT:ty) => {{
-        Rc::new(move |batch: &RecordBatch| {
-            // get data and cast to known type
-            match batch.column($INDEX).as_any().downcast_ref::<$FROM_TYPE>() {
-                Some(array) => {
-                    // create builder for desired type
-                    let mut builder = $TO_TYPE::builder(batch.num_rows());
-                    for i in 0..batch.num_rows() {
-                        if array.is_null(i) {
-                            builder.append_null()?;
-                        } else {
-                            builder.append_value(array.value(i) as $DT)?;
-                        }
-                    }
-                    Ok(Arc::new(builder.finish()) as ArrayRef)
-                }
-                None => Err(ExecutionError::InternalError(format!(
-                    "Column at index {} is not of expected type",
-                    $INDEX
-                ))),
-            }
-        })
-    }};
-}
-
-macro_rules! cast_column_outer {
-    ($INDEX:expr, $FROM_TYPE:ty, $TO_TYPE:expr) => {{
-        match $TO_TYPE {
-            DataType::UInt8 => cast_column!($INDEX, $FROM_TYPE, UInt8Array, u8),
-            DataType::UInt16 => cast_column!($INDEX, $FROM_TYPE, UInt16Array, u16),
-            DataType::UInt32 => cast_column!($INDEX, $FROM_TYPE, UInt32Array, u32),
-            DataType::UInt64 => cast_column!($INDEX, $FROM_TYPE, UInt64Array, u64),
-            DataType::Int8 => cast_column!($INDEX, $FROM_TYPE, Int8Array, i8),
-            DataType::Int16 => cast_column!($INDEX, $FROM_TYPE, Int16Array, i16),
-            DataType::Int32 => cast_column!($INDEX, $FROM_TYPE, Int32Array, i32),
-            DataType::Int64 => cast_column!($INDEX, $FROM_TYPE, Int64Array, i64),
-            DataType::Float32 => cast_column!($INDEX, $FROM_TYPE, Float32Array, f32),
-            DataType::Float64 => cast_column!($INDEX, $FROM_TYPE, Float64Array, f64),
-            _ => unimplemented!(),
-        }
-    }};
-}
-
 /// Compiles a scalar expression into a closure
 pub fn compile_scalar_expr(
     ctx: &ExecutionContext,
@@ -331,47 +286,14 @@ pub fn compile_scalar_expr(
         } => match expr.as_ref() {
             &Expr::Column(index) => {
                 let col = input_schema.field(index);
+                let dt = data_type.clone();
                 Ok(RuntimeExpr::Compiled {
                     name: col.name().clone(),
                     t: col.data_type().clone(),
-                    f: match col.data_type() {
-                        DataType::Int8 => {
-                            cast_column_outer!(index, Int8Array, &data_type)
-                        }
-                        DataType::Int16 => {
-                            cast_column_outer!(index, Int16Array, &data_type)
-                        }
-                        DataType::Int32 => {
-                            cast_column_outer!(index, Int32Array, &data_type)
-                        }
-                        DataType::Int64 => {
-                            cast_column_outer!(index, Int64Array, &data_type)
-                        }
-                        DataType::UInt8 => {
-                            cast_column_outer!(index, UInt8Array, &data_type)
-                        }
-                        DataType::UInt16 => {
-                            cast_column_outer!(index, UInt16Array, &data_type)
-                        }
-                        DataType::UInt32 => {
-                            cast_column_outer!(index, UInt32Array, &data_type)
-                        }
-                        DataType::UInt64 => {
-                            cast_column_outer!(index, UInt64Array, &data_type)
-                        }
-                        DataType::Float32 => {
-                            cast_column_outer!(index, Float32Array, &data_type)
-                        }
-                        DataType::Float64 => {
-                            cast_column_outer!(index, Float64Array, &data_type)
-                        }
-                        _ => panic!("unsupported CAST operation"), /*TODO */
-                                                                   /*Err(ExecutionError::NotImplemented(format!(
-                                                                       "CAST column from {:?} to {:?}",
-                                                                       col.data_type(),
-                                                                       data_type
-                                                                   )))*/
-                    },
+                    f: Rc::new(move |batch: &RecordBatch| {
+                        compute::cast(batch.column(index), &dt)
+                            .map_err(|e| ExecutionError::ArrowError(e))
+                    }),
                 })
             }
             &Expr::Literal(ref value) => {

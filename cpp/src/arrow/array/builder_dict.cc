@@ -51,10 +51,8 @@ struct UnifyDictionaryValues {
 
   Status Visit(const DataType&, void* = nullptr) {
     // Default implementation for non-dictionary-supported datatypes
-    std::stringstream ss;
-    ss << "Unification of " << value_type_->ToString()
-       << " dictionaries is not implemented";
-    return Status::NotImplemented(ss.str());
+    return Status::NotImplemented("Unification of ", value_type_,
+                                  " dictionaries is not implemented");
   }
 
   template <typename T>
@@ -153,10 +151,30 @@ class DictionaryBuilder<T>::MemoTableImpl
  public:
   using MemoTableType = typename internal::HashTraits<T>::MemoTableType;
   using MemoTableType::MemoTableType;
+
+  MemoTableImpl(const std::shared_ptr<Array>& dictionary)
+      : MemoTableImpl(dictionary->length()) {
+    const auto& values =
+        static_cast<const typename TypeTraits<T>::ArrayType&>(*dictionary);
+    for (int64_t i = 0; i < values.length(); ++i) {
+      ARROW_IGNORE_EXPR(this->GetOrInsert(values.GetView(i)));
+    }
+  }
 };
 
 template <typename T>
 DictionaryBuilder<T>::~DictionaryBuilder() {}
+
+template <typename T>
+DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<Array>& dictionary,
+                                        MemoryPool* pool)
+    : ArrayBuilder(dictionary->type(), pool),
+      memo_table_(new MemoTableImpl(dictionary)),
+      delta_offset_(0),
+      byte_width_(-1),
+      values_builder_(pool) {
+  DCHECK_EQ(T::type_id, type_->id()) << "inconsistent type passed to DictionaryBuilder";
+}
 
 template <typename T>
 DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
@@ -173,6 +191,12 @@ DictionaryBuilder<NullType>::DictionaryBuilder(const std::shared_ptr<DataType>& 
                                                MemoryPool* pool)
     : ArrayBuilder(type, pool), values_builder_(pool) {
   DCHECK_EQ(Type::NA, type->id()) << "inconsistent type passed to DictionaryBuilder";
+}
+
+DictionaryBuilder<NullType>::DictionaryBuilder(const std::shared_ptr<Array>& dictionary,
+                                               MemoryPool* pool)
+    : ArrayBuilder(dictionary->type(), pool), values_builder_(pool) {
+  DCHECK_EQ(Type::NA, type_->id()) << "inconsistent type passed to DictionaryBuilder";
 }
 
 template <>
@@ -202,7 +226,8 @@ Status DictionaryBuilder<T>::Resize(int64_t capacity) {
     delta_offset_ = 0;
   }
   RETURN_NOT_OK(values_builder_.Resize(capacity));
-  return ArrayBuilder::Resize(capacity);
+  capacity_ = values_builder_.capacity();
+  return Status::OK();
 }
 
 Status DictionaryBuilder<NullType>::Resize(int64_t capacity) {
@@ -210,7 +235,8 @@ Status DictionaryBuilder<NullType>::Resize(int64_t capacity) {
   capacity = std::max(capacity, kMinBuilderCapacity);
 
   RETURN_NOT_OK(values_builder_.Resize(capacity));
-  return ArrayBuilder::Resize(capacity);
+  capacity_ = values_builder_.capacity();
+  return Status::OK();
 }
 
 template <typename T>

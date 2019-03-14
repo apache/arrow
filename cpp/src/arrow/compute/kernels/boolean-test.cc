@@ -129,7 +129,6 @@ TEST_F(TestBooleanKernel, Invert) {
 }
 
 TEST_F(TestBooleanKernel, InvertEmptyArray) {
-  auto type = boolean();
   std::vector<std::shared_ptr<Buffer>> data_buffers(2);
   Datum input;
   input.value = ArrayData::Make(boolean(), 0 /* length */, std::move(data_buffers),

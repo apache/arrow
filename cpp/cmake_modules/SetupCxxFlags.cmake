@@ -190,9 +190,8 @@ else()
     # /wdnnnn disables a warning where "nnnn" is a warning number
     string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
-  elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
-  elseif ("${COMPILER_FAMILY}" STREQUAL "gcc")
+  elseif (("${COMPILER_FAMILY}" STREQUAL "clang") OR
+          ("${COMPILER_FAMILY}" STREQUAL "gcc"))
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
   else()
     message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")

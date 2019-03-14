@@ -140,6 +140,9 @@ cdef class ChunkedArray(_PandasConvertible):
             CChunkedArray* other_arr = other.chunked_array
             c_bool result
 
+        if other is None:
+            return False
+
         with nogil:
             result = this_arr.Equals(deref(other_arr))
 
@@ -506,6 +509,9 @@ cdef class Column(_PandasConvertible):
             CColumn* this_col = self.column
             CColumn* other_col = other.column
             c_bool result
+
+        if other is None:
+            return False
 
         with nogil:
             result = this_col.Equals(deref(other_col))
@@ -1049,6 +1055,9 @@ cdef class Table(_PandasConvertible):
             CTable* this_table = self.table
             CTable* other_table = other.table
             c_bool result
+
+        if other is None:
+            return False
 
         with nogil:
             result = this_table.Equals(deref(other_table))

@@ -787,6 +787,143 @@ garrow_boolean_array_get_values(GArrowBooleanArray *array,
   return values;
 }
 
+/**
+ * garrow_boolean_array_invert:
+ * @array: A #GArrowBooleanArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full): The element-wise inverted boolean array.
+ *
+ *   It should be freed with g_object_unref() when no longer needed.
+ *
+ * Since: 0.13.0
+ */
+GArrowBooleanArray *
+garrow_boolean_array_invert(GArrowBooleanArray *array,
+                            GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto datum = arrow::compute::Datum(arrow_array);
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  arrow::compute::Datum inverted_datum;
+  auto status = arrow::compute::Invert(&context, datum, &inverted_datum);
+  if (garrow_error_check(error, status, "[boolean-array][invert]")) {
+    auto arrow_inverted_array = inverted_datum.make_array();
+    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_inverted_array));
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_boolean_array_and:
+ * @left: A left hand side #GArrowBooleanArray.
+ * @right: A right hand side #GArrowBooleanArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full): The element-wise AND operated boolean array.
+ *
+ *   It should be freed with g_object_unref() when no longer needed.
+ *
+ * Since: 0.13.0
+ */
+GArrowBooleanArray *
+garrow_boolean_array_and(GArrowBooleanArray *left,
+                         GArrowBooleanArray *right,
+                         GError **error)
+{
+  auto arrow_left = garrow_array_get_raw(GARROW_ARRAY(left));
+  auto left_datum = arrow::compute::Datum(arrow_left);
+  auto arrow_right = garrow_array_get_raw(GARROW_ARRAY(right));
+  auto right_datum = arrow::compute::Datum(arrow_right);
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  arrow::compute::Datum operated_datum;
+  auto status = arrow::compute::And(&context,
+                                    left_datum,
+                                    right_datum,
+                                    &operated_datum);
+  if (garrow_error_check(error, status, "[boolean-array][and]")) {
+    auto arrow_operated_array = operated_datum.make_array();
+    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_operated_array));
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_boolean_array_or:
+ * @left: A left hand side #GArrowBooleanArray.
+ * @right: A right hand side #GArrowBooleanArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full): The element-wise OR operated boolean array.
+ *
+ *   It should be freed with g_object_unref() when no longer needed.
+ *
+ * Since: 0.13.0
+ */
+GArrowBooleanArray *
+garrow_boolean_array_or(GArrowBooleanArray *left,
+                        GArrowBooleanArray *right,
+                        GError **error)
+{
+  auto arrow_left = garrow_array_get_raw(GARROW_ARRAY(left));
+  auto left_datum = arrow::compute::Datum(arrow_left);
+  auto arrow_right = garrow_array_get_raw(GARROW_ARRAY(right));
+  auto right_datum = arrow::compute::Datum(arrow_right);
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  arrow::compute::Datum operated_datum;
+  auto status = arrow::compute::Or(&context,
+                                   left_datum,
+                                   right_datum,
+                                   &operated_datum);
+  if (garrow_error_check(error, status, "[boolean-array][or]")) {
+    auto arrow_operated_array = operated_datum.make_array();
+    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_operated_array));
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_boolean_array_xor:
+ * @left: A left hand side #GArrowBooleanArray.
+ * @right: A right hand side #GArrowBooleanArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full): The element-wise XOR operated boolean array.
+ *
+ *   It should be freed with g_object_unref() when no longer needed.
+ *
+ * Since: 0.13.0
+ */
+GArrowBooleanArray *
+garrow_boolean_array_xor(GArrowBooleanArray *left,
+                         GArrowBooleanArray *right,
+                         GError **error)
+{
+  auto arrow_left = garrow_array_get_raw(GARROW_ARRAY(left));
+  auto left_datum = arrow::compute::Datum(arrow_left);
+  auto arrow_right = garrow_array_get_raw(GARROW_ARRAY(right));
+  auto right_datum = arrow::compute::Datum(arrow_right);
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  arrow::compute::Datum operated_datum;
+  auto status = arrow::compute::Xor(&context,
+                                    left_datum,
+                                    right_datum,
+                                    &operated_datum);
+  if (garrow_error_check(error, status, "[boolean-array][xor]")) {
+    auto arrow_operated_array = operated_datum.make_array();
+    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_operated_array));
+  } else {
+    return NULL;
+  }
+}
+
 
 G_DEFINE_TYPE(GArrowNumericArray,
               garrow_numeric_array,

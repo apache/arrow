@@ -92,6 +92,12 @@ class NumericBuilder : public ArrayBuilder {
     return ArrayBuilder::Resize(capacity);
   }
 
+  value_type operator[](int64_t index) const { return GetValue(index); }
+
+  value_type& operator[](int64_t index) {
+    return reinterpret_cast<value_type*>(data_builder_.mutable_data())[index];
+  }
+
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
   /// \param[in] length the number of values to append

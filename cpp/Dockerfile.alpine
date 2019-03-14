@@ -45,4 +45,4 @@ ENV CC=gcc \
 
 # build and test
 CMD arrow/ci/docker_build_cpp.sh && \
-    cd /build/cpp && ctest -j2 --output-on-failure -L unittest
+    cd /build/cpp && ninja test

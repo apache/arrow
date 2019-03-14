@@ -44,9 +44,11 @@ set(ARROW_PYTHON_SRCS
     pyarrow.cc
     serialize.cc)
 
+set(ARROW_PYTHON_DEPENDENCIES arrow_dependencies)
+
 if(ARROW_FLIGHT)
+  set(ARROW_PYTHON_DEPENDENCIES ${ARROW_PYTHON_DEPENDENCIES} flight_grpc_gen)
   set(ARROW_PYTHON_SRCS ${ARROW_PYTHON_SRCS} flight.cc)
-  set_source_files_properties(flight.cc PROPERTIES OBJECT_DEPENDS flight_grpc_gen)
 endif()
 
 if("${COMPILER_FAMILY}" STREQUAL "clang")
@@ -76,7 +78,7 @@ add_arrow_lib(arrow_python
               OUTPUTS
               ARROW_PYTHON_LIBRARIES
               DEPENDENCIES
-              arrow_dependencies
+              ${ARROW_PYTHON_DEPENDENCIES}
               SHARED_LINK_FLAGS
               ""
               SHARED_LINK_LIBS

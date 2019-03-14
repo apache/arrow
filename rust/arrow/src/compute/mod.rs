@@ -29,4 +29,5 @@ pub use self::arithmetic_kernels::*;
 pub use self::array_ops::*;
 pub use self::boolean_kernels::*;
 pub use self::comparison_kernels::*;
+pub use self::kernels::cast::*;
 pub use self::kernels::temporal::*;
