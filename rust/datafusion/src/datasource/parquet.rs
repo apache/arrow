@@ -22,7 +22,7 @@ use std::string::String;
 use std::sync::{Arc, Mutex};
 
 use arrow::array::{Array, PrimitiveArray};
-use arrow::builder::{BinaryBuilder, PrimitiveBuilder};
+use arrow::builder::{BinaryBuilder, PrimitiveBuilder, TimestampNanosecondBuilder};
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
@@ -33,7 +33,6 @@ use parquet::reader::schema::parquet_to_arrow_schema;
 
 use crate::datasource::{RecordBatchIterator, ScanResult, Table};
 use crate::execution::error::{ExecutionError, Result};
-use arrow::builder::TimestampNanosecondBuilder;
 
 pub struct ParquetTable {
     filename: String,
@@ -338,7 +337,7 @@ impl ParquetFile {
     }
 }
 
-/// convert a parquet timestamp in nanoseconds to a timestamp with milliseconds
+/// convert a Parquet INT96 to an Arrow timestamp in nanoseconds
 fn convert_int96_timestamp(v: &[u32]) -> i64 {
     const JULIAN_DAY_OF_EPOCH: i64 = 2_440_588;
     const SECONDS_PER_DAY: i64 = 86_400;
@@ -347,7 +346,7 @@ fn convert_int96_timestamp(v: &[u32]) -> i64 {
     let day = v[2] as i64;
     let nanoseconds = ((v[1] as i64) << 32) + v[0] as i64;
     let seconds = (day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY;
-    seconds * MILLIS_PER_SECOND + nanoseconds / 1_000_000
+    seconds * MILLIS_PER_SECOND * 1_000_000 + nanoseconds
 }
 
 impl RecordBatchIterator for ParquetFile {
@@ -474,7 +473,7 @@ mod tests {
             values.push(array.value(i));
         }
 
-        assert_eq!("[1235865600000, 1235865660000, 1238544000000, 1238544060000, 1233446400000, 1233446460000, 1230768000000, 1230768060000]", format!("{:?}", values));
+        assert_eq!("[1235865600000000000, 1235865660000000000, 1238544000000000000, 1238544060000000000, 1233446400000000000, 1233446460000000000, 1230768000000000000, 1230768060000000000]", format!("{:?}", values));
     }
 
     #[test]
