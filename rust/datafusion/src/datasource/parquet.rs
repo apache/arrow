@@ -340,8 +340,14 @@ impl ParquetFile {
 
 /// convert a parquet timestamp in nanoseconds to a timestamp with milliseconds
 fn convert_int96_timestamp(v: &[u32]) -> i64 {
-    let value: u128 = (v[0] as u128) << 64 | (v[1] as u128) << 32 | (v[2] as u128);
-    (value / 1000000) as i64
+    const JULIAN_DAY_OF_EPOCH: i64 = 2_440_588;
+    const SECONDS_PER_DAY: i64 = 86_400;
+    const MILLIS_PER_SECOND: i64 = 1_000;
+
+    let day = v[2] as i64;
+    let nanoseconds = ((v[1] as i64) << 32) + v[0] as i64;
+    let seconds = (day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY;
+    seconds * MILLIS_PER_SECOND + nanoseconds / 1_000_000
 }
 
 impl RecordBatchIterator for ParquetFile {
@@ -469,7 +475,7 @@ mod tests {
             values.push(array.value(i));
         }
 
-        assert_eq!("[2, 7842670136425819125, 2, 7842670136425819125, 2, 7842670136425819125, 2, 7842670136425819125]", format!("{:?}", values));
+        assert_eq!("[1235865600000, 1235865660000, 1238544000000, 1238544060000, 1233446400000, 1233446460000, 1230768000000, 1230768060000]", format!("{:?}", values));
     }
 
     #[test]
