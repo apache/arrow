@@ -21,6 +21,12 @@ language: cpp
 services:
   - docker
 
+# Update docker to support newer docker-compose versions
+addons:
+  apt:
+    packages:
+      - docker-ce
+
 # don't build twice
 if: tag IS blank
 
@@ -30,7 +36,7 @@ env:
     - TRAVIS_TAG={{ task.tag }}
 
 before_script:
-  - docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
+  - sudo pip install -U docker-compose
 
 script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
