@@ -283,51 +283,29 @@ impl<R: Read> Reader<R> {
             .map(|i| {
                 let field = self.schema.field(*i);
                 match field.data_type() {
-                    &DataType::Boolean => self.build_primitive_array::<BooleanType>(
-                        self.line_number,
-                        rows,
-                        i,
-                    ),
-                    &DataType::Int8 => {
-                        self.build_primitive_array::<Int8Type>(self.line_number, rows, i)
+                    &DataType::Boolean => {
+                        self.build_primitive_array::<BooleanType>(rows, i)
                     }
-                    &DataType::Int16 => {
-                        self.build_primitive_array::<Int16Type>(self.line_number, rows, i)
+                    &DataType::Int8 => self.build_primitive_array::<Int8Type>(rows, i),
+                    &DataType::Int16 => self.build_primitive_array::<Int16Type>(rows, i),
+                    &DataType::Int32 => self.build_primitive_array::<Int32Type>(rows, i),
+                    &DataType::Int64 => self.build_primitive_array::<Int64Type>(rows, i),
+                    &DataType::UInt8 => self.build_primitive_array::<UInt8Type>(rows, i),
+                    &DataType::UInt16 => {
+                        self.build_primitive_array::<UInt16Type>(rows, i)
                     }
-                    &DataType::Int32 => {
-                        self.build_primitive_array::<Int32Type>(self.line_number, rows, i)
+                    &DataType::UInt32 => {
+                        self.build_primitive_array::<UInt32Type>(rows, i)
                     }
-                    &DataType::Int64 => {
-                        self.build_primitive_array::<Int64Type>(self.line_number, rows, i)
+                    &DataType::UInt64 => {
+                        self.build_primitive_array::<UInt64Type>(rows, i)
                     }
-                    &DataType::UInt8 => {
-                        self.build_primitive_array::<UInt8Type>(self.line_number, rows, i)
+                    &DataType::Float32 => {
+                        self.build_primitive_array::<Float32Type>(rows, i)
                     }
-                    &DataType::UInt16 => self.build_primitive_array::<UInt16Type>(
-                        self.line_number,
-                        rows,
-                        i,
-                    ),
-                    &DataType::UInt32 => self.build_primitive_array::<UInt32Type>(
-                        self.line_number,
-                        rows,
-                        i,
-                    ),
-                    &DataType::UInt64 => self.build_primitive_array::<UInt64Type>(
-                        self.line_number,
-                        rows,
-                        i,
-                    ),
-                    &DataType::Float32 => self.build_primitive_array::<Float32Type>(
-                        self.line_number,
-                        rows,
-                        i,
-                    ),
-                    &DataType::Float64 => self.build_primitive_array::<Float64Type>(
-                        self.line_number,
-                        rows,
-                        i,
-                    ),
+                    &DataType::Float64 => {
+                        self.build_primitive_array::<Float64Type>(rows, i)
+                    }
                     &DataType::Utf8 => {
                         let mut builder = BinaryBuilder::new(rows.len());
                         for row_index in 0..rows.len() {
@@ -368,7 +346,6 @@ impl<R: Read> Reader<R> {
 
     fn build_primitive_array<T: ArrowPrimitiveType>(
         &self,
-        line_number: usize,
         rows: &[StringRecord],
         col_idx: &usize,
     ) -> Result<ArrayRef> {
@@ -390,7 +367,7 @@ impl<R: Read> Reader<R> {
                             return Err(ArrowError::ParseError(format!(
                                 "Error while parsing value {} at line {}",
                                 s,
-                                line_number + row_index
+                                self.line_number + row_index
                             )));
                         }
                     }
