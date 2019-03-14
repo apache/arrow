@@ -191,6 +191,8 @@ pub struct Reader<R: Read> {
     record_iter: StringRecordsIntoIter<BufReader<R>>,
     /// Batch size (number of records to load each time)
     batch_size: usize,
+    /// Current line number, used in error reporting
+    line_number: usize,
 }
 
 impl<R: Read> Reader<R> {
@@ -235,6 +237,7 @@ impl<R: Read> Reader<R> {
             projection,
             record_iter,
             batch_size,
+            line_number: 0,
         }
     }
 
@@ -242,15 +245,17 @@ impl<R: Read> Reader<R> {
     pub fn next(&mut self) -> Result<Option<RecordBatch>> {
         // read a batch of rows into memory
         let mut rows: Vec<StringRecord> = Vec::with_capacity(self.batch_size);
-        for _ in 0..self.batch_size {
+        for i in 0..self.batch_size {
             match self.record_iter.next() {
                 Some(Ok(r)) => {
                     rows.push(r);
                 }
-                Some(Err(_)) => {
-                    return Err(ArrowError::ParseError(
-                        "Error reading CSV file".to_string(),
-                    ));
+                Some(Err(e)) => {
+                    return Err(ArrowError::ParseError(format!(
+                        "Error parsing line {}: {:?}",
+                        self.line_number + i,
+                        e
+                    )));
                 }
                 None => break,
             }
@@ -278,29 +283,51 @@ impl<R: Read> Reader<R> {
             .map(|i| {
                 let field = self.schema.field(*i);
                 match field.data_type() {
-                    &DataType::Boolean => {
-                        self.build_primitive_array::<BooleanType>(rows, i)
+                    &DataType::Boolean => self.build_primitive_array::<BooleanType>(
+                        self.line_number,
+                        rows,
+                        i,
+                    ),
+                    &DataType::Int8 => {
+                        self.build_primitive_array::<Int8Type>(self.line_number, rows, i)
                     }
-                    &DataType::Int8 => self.build_primitive_array::<Int8Type>(rows, i),
-                    &DataType::Int16 => self.build_primitive_array::<Int16Type>(rows, i),
-                    &DataType::Int32 => self.build_primitive_array::<Int32Type>(rows, i),
-                    &DataType::Int64 => self.build_primitive_array::<Int64Type>(rows, i),
-                    &DataType::UInt8 => self.build_primitive_array::<UInt8Type>(rows, i),
-                    &DataType::UInt16 => {
-                        self.build_primitive_array::<UInt16Type>(rows, i)
+                    &DataType::Int16 => {
+                        self.build_primitive_array::<Int16Type>(self.line_number, rows, i)
                     }
-                    &DataType::UInt32 => {
-                        self.build_primitive_array::<UInt32Type>(rows, i)
+                    &DataType::Int32 => {
+                        self.build_primitive_array::<Int32Type>(self.line_number, rows, i)
                     }
-                    &DataType::UInt64 => {
-                        self.build_primitive_array::<UInt64Type>(rows, i)
+                    &DataType::Int64 => {
+                        self.build_primitive_array::<Int64Type>(self.line_number, rows, i)
                     }
-                    &DataType::Float32 => {
-                        self.build_primitive_array::<Float32Type>(rows, i)
+                    &DataType::UInt8 => {
+                        self.build_primitive_array::<UInt8Type>(self.line_number, rows, i)
                     }
-                    &DataType::Float64 => {
-                        self.build_primitive_array::<Float64Type>(rows, i)
-                    }
+                    &DataType::UInt16 => self.build_primitive_array::<UInt16Type>(
+                        self.line_number,
+                        rows,
+                        i,
+                    ),
+                    &DataType::UInt32 => self.build_primitive_array::<UInt32Type>(
+                        self.line_number,
+                        rows,
+                        i,
+                    ),
+                    &DataType::UInt64 => self.build_primitive_array::<UInt64Type>(
+                        self.line_number,
+                        rows,
+                        i,
+                    ),
+                    &DataType::Float32 => self.build_primitive_array::<Float32Type>(
+                        self.line_number,
+                        rows,
+                        i,
+                    ),
+                    &DataType::Float64 => self.build_primitive_array::<Float64Type>(
+                        self.line_number,
+                        rows,
+                        i,
+                    ),
                     &DataType::Utf8 => {
                         let mut builder = BinaryBuilder::new(rows.len());
                         for row_index in 0..rows.len() {
@@ -318,6 +345,8 @@ impl<R: Read> Reader<R> {
                 }
             })
             .collect();
+
+        self.line_number += rows.len();
 
         let schema_fields = self.schema.fields();
 
@@ -339,6 +368,7 @@ impl<R: Read> Reader<R> {
 
     fn build_primitive_array<T: ArrowPrimitiveType>(
         &self,
+        line_number: usize,
         rows: &[StringRecord],
         col_idx: &usize,
     ) -> Result<ArrayRef> {
@@ -358,8 +388,9 @@ impl<R: Read> Reader<R> {
                         Err(_) => {
                             // TODO: we should surface the underlying error here.
                             return Err(ArrowError::ParseError(format!(
-                                "Error while parsing value {}",
-                                s
+                                "Error while parsing value {} at line {}",
+                                s,
+                                line_number + row_index
                             )));
                         }
                     }
@@ -503,6 +534,7 @@ impl ReaderBuilder {
             projection: self.projection.clone(),
             record_iter,
             batch_size: self.batch_size,
+            line_number: 0,
         })
     }
 }
@@ -717,5 +749,33 @@ mod tests {
         assert_eq!(true, batch.column(1).is_null(2));
         assert_eq!(false, batch.column(1).is_null(3));
         assert_eq!(false, batch.column(1).is_null(4));
+    }
+
+    #[test]
+    fn test_parse_invalid_csv() {
+        let file = File::open("test/data/various_types_invalid.csv").unwrap();
+
+        let schema = Schema::new(vec![
+            Field::new("c_int", DataType::UInt64, false),
+            Field::new("c_float", DataType::Float32, false),
+            Field::new("c_string", DataType::Utf8, false),
+            Field::new("c_bool", DataType::Boolean, false),
+        ]);
+
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .has_headers(true)
+            .with_delimiter(b'|')
+            .with_batch_size(512)
+            .with_projection(vec![0, 1, 2, 3]);
+
+        let mut csv = builder.build(file).unwrap();
+        match csv.next() {
+            Err(e) => assert_eq!(
+                "ParseError(\"Error while parsing value 4.x4 at line 3\")",
+                format!("{:?}", e)
+            ),
+            Ok(_) => panic!("should have failed"),
+        }
     }
 }
