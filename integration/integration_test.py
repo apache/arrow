@@ -912,7 +912,8 @@ def get_generated_json_files(tempdir=None, flight=False):
     ]
 
     if flight:
-        file_objs.append(generate_primitive_case([32 * 1024], name='large_batch'))
+        file_objs.append(generate_primitive_case([32 * 1024],
+                                                 name='large_batch'))
 
     generated_paths = []
     for file_obj in file_objs:
@@ -954,11 +955,9 @@ class IntegrationRunner(object):
         clients = filter(lambda t: (t.FLIGHT_CLIENT and t.CONSUMER),
                          self.testers)
         for server, client in itertools.product(servers, clients):
-            try:
-                self._compare_flight_implementations(server, client)
-            except Exception:
-                traceback.print_exc()
-                failures.append((server, client, sys.exc_info()))
+            for failure in self._compare_flight_implementations(server,
+                                                                client):
+                failures.append(failure)
         return failures
 
     def _compare_implementations(self, producer, consumer):
@@ -1007,15 +1006,19 @@ class IntegrationRunner(object):
         )
         print('##########################################################')
 
-        with producer.flight_server():
-            for json_path in self.json_files:
-                print('=' * 58)
-                print('Testing file {0}'.format(json_path))
-                print('=' * 58)
+        for json_path in self.json_files:
+            print('=' * 58)
+            print('Testing file {0}'.format(json_path))
+            print('=' * 58)
 
+            with producer.flight_server():
                 # Have the client upload the file, then download and
                 # compare
-                consumer.flight_request(producer.FLIGHT_PORT, json_path)
+                try:
+                    consumer.flight_request(producer.FLIGHT_PORT, json_path)
+                except Exception:
+                    traceback.print_exc()
+                    yield (producer, consumer, sys.exc_info())
 
 
 class Tester(object):
