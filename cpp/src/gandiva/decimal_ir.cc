@@ -406,6 +406,60 @@ Status DecimalIR::BuildMultiply() {
   return Status::OK();
 }
 
+Status DecimalIR::BuildDivideOrMod(const std::string& function_name,
+                                   const std::string& internal_fname) {
+  // Create fn prototype :
+  // int128_t
+  // divide_decimal128_decimal128(int64_t execution_context,
+  //                              int128_t x_value, int32_t x_precision, int32_t x_scale,
+  //                              int128_t y_value, int32_t y_precision, int32_t y_scale
+  //                              int32_t out_precision, int32_t out_scale)
+  auto i32 = types()->i32_type();
+  auto i128 = types()->i128_type();
+  auto function = BuildFunction(function_name, i128,
+                                {
+                                    {"execution_context", types()->i64_type()},
+                                    {"x_value", i128},
+                                    {"x_precision", i32},
+                                    {"x_scale", i32},
+                                    {"y_value", i128},
+                                    {"y_precision", i32},
+                                    {"y_scale", i32},
+                                    {"out_precision", i32},
+                                    {"out_scale", i32},
+                                });
+
+  auto arg_iter = function->arg_begin();
+  auto execution_context = &arg_iter[0];
+  ValueFull x(&arg_iter[1], &arg_iter[2], &arg_iter[3]);
+  ValueFull y(&arg_iter[4], &arg_iter[5], &arg_iter[6]);
+  ValueFull out(nullptr, &arg_iter[7], &arg_iter[8]);
+
+  auto entry = llvm::BasicBlock::Create(*context(), "entry", function);
+  ir_builder()->SetInsertPoint(entry);
+
+  // Make call to pre-compiled IR function.
+  auto block = ir_builder()->GetInsertBlock();
+  auto out_high_ptr = new llvm::AllocaInst(types()->i64_type(), 0, "out_hi", block);
+  auto out_low_ptr = new llvm::AllocaInst(types()->i64_type(), 0, "out_low", block);
+  auto x_split = ValueSplit::MakeFromInt128(this, x.value());
+  auto y_split = ValueSplit::MakeFromInt128(this, y.value());
+
+  std::vector<llvm::Value*> args = {
+      execution_context, x_split.high(), x_split.low(), x.precision(), x.scale(),
+      y_split.high(),    y_split.low(),  y.precision(), y.scale(),     out.precision(),
+      out.scale(),       out_high_ptr,   out_low_ptr,
+  };
+  ir_builder()->CreateCall(module()->getFunction(internal_fname), args);
+
+  auto out_high = ir_builder()->CreateLoad(out_high_ptr);
+  auto out_low = ir_builder()->CreateLoad(out_low_ptr);
+  auto result = ValueSplit(out_high, out_low).AsInt128(this);
+
+  ir_builder()->CreateRet(result);
+  return Status::OK();
+}
+
 Status DecimalIR::AddFunctions(Engine* engine) {
   auto decimal_ir = std::make_shared<DecimalIR>(engine);
 
@@ -418,6 +472,10 @@ Status DecimalIR::AddFunctions(Engine* engine) {
   ARROW_RETURN_NOT_OK(decimal_ir->BuildAdd());
   ARROW_RETURN_NOT_OK(decimal_ir->BuildSubtract());
   ARROW_RETURN_NOT_OK(decimal_ir->BuildMultiply());
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDivideOrMod(
+      "divide_decimal128_decimal128", "divide_internal_decimal128_decimal128"));
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDivideOrMod("mod_decimal128_decimal128",
+                                                   "mod_internal_decimal128_decimal128"));
   return Status::OK();
 }
 

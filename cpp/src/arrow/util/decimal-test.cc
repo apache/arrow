@@ -23,11 +23,15 @@
 #include <tuple>
 
 #include <gtest/gtest.h>
+#include <boost/multiprecision/cpp_int.hpp>
 
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/macros.h"
+
+using boost::multiprecision::int128_t;
 
 namespace arrow {
 
@@ -466,20 +470,113 @@ TEST(Decimal128Test, TestToInteger) {
   ASSERT_RAISES(Invalid, invalid_int64.ToInteger(&out2));
 }
 
+template <typename ArrowType, typename CType = typename ArrowType::c_type>
+std::vector<CType> GetRandomNumbers(int32_t size) {
+  auto rand = random::RandomArrayGenerator(0x5487655);
+  auto x_array = rand.Numeric<ArrowType>(size, 0, std::numeric_limits<CType>::max(), 0);
+
+  auto x_ptr = x_array->data()->template GetValues<CType>(1);
+  std::vector<CType> ret;
+  for (int i = 0; i < size; ++i) {
+    ret.push_back(x_ptr[i]);
+  }
+  return ret;
+}
+
 TEST(Decimal128Test, Multiply) {
-  Decimal128 result;
+  ASSERT_EQ(Decimal128(60501), Decimal128(301) * Decimal128(201));
 
-  result = Decimal128("301") * Decimal128("201");
-  ASSERT_EQ(result.ToIntegerString(), "60501");
+  ASSERT_EQ(Decimal128(-60501), Decimal128(-301) * Decimal128(201));
 
-  result = Decimal128("-301") * Decimal128("201");
-  ASSERT_EQ(result.ToIntegerString(), "-60501");
+  ASSERT_EQ(Decimal128(-60501), Decimal128(301) * Decimal128(-201));
 
-  result = Decimal128("301") * Decimal128("-201");
-  ASSERT_EQ(result.ToIntegerString(), "-60501");
+  ASSERT_EQ(Decimal128(60501), Decimal128(-301) * Decimal128(-201));
 
-  result = Decimal128("-301") * Decimal128("-201");
-  ASSERT_EQ(result.ToIntegerString(), "60501");
+  // Test some random numbers.
+  for (auto x : GetRandomNumbers<Int32Type>(16)) {
+    for (auto y : GetRandomNumbers<Int32Type>(16)) {
+      Decimal128 result = Decimal128(x) * Decimal128(y);
+      ASSERT_EQ(Decimal128(static_cast<int64_t>(x) * y), result)
+          << " x: " << x << " y: " << y;
+    }
+  }
+
+  // Test some edge cases
+  for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
+    for (auto y :
+         std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 0, 1, 2, 32, INT32_MAX}) {
+      Decimal128 result = Decimal128(x.str()) * Decimal128(y.str());
+      ASSERT_EQ(Decimal128((x * y).str()), result) << " x: " << x << " y: " << y;
+    }
+  }
+}
+
+TEST(Decimal128Test, Divide) {
+  ASSERT_EQ(Decimal128(66), Decimal128(20100) / Decimal128(301));
+
+  ASSERT_EQ(Decimal128(-66), Decimal128(-20100) / Decimal128(301));
+
+  ASSERT_EQ(Decimal128(-66), Decimal128(20100) / Decimal128(-301));
+
+  ASSERT_EQ(Decimal128(66), Decimal128(-20100) / Decimal128(-301));
+
+  // Test some random numbers.
+  for (auto x : GetRandomNumbers<Int32Type>(16)) {
+    for (auto y : GetRandomNumbers<Int32Type>(16)) {
+      if (y == 0) {
+        continue;
+      }
+
+      Decimal128 result = Decimal128(x) / Decimal128(y);
+      ASSERT_EQ(Decimal128(static_cast<int64_t>(x) / y), result)
+          << " x: " << x << " y: " << y;
+    }
+  }
+
+  // Test some edge cases
+  for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
+    for (auto y : std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 1, 2, 32, INT32_MAX}) {
+      Decimal128 result = Decimal128(x.str()) * Decimal128(y.str());
+      ASSERT_EQ(Decimal128((x * y).str()), result) << " x: " << x << " y: " << y;
+    }
+  }
+}
+
+TEST(Decimal128Test, Mod) {
+  ASSERT_EQ(Decimal128(234), Decimal128(20100) % Decimal128(301));
+
+  ASSERT_EQ(Decimal128(-234), Decimal128(-20100) % Decimal128(301));
+
+  ASSERT_EQ(Decimal128(234), Decimal128(20100) % Decimal128(-301));
+
+  ASSERT_EQ(Decimal128(-234), Decimal128(-20100) % Decimal128(-301));
+
+  // Test some random numbers.
+  for (auto x : GetRandomNumbers<Int32Type>(16)) {
+    for (auto y : GetRandomNumbers<Int32Type>(16)) {
+      if (y == 0) {
+        continue;
+      }
+
+      Decimal128 result = Decimal128(x) % Decimal128(y);
+      ASSERT_EQ(Decimal128(static_cast<int64_t>(x) % y), result)
+          << " x: " << x << " y: " << y;
+    }
+  }
+
+  // Test some edge cases
+  for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
+    for (auto y : std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 1, 2, 32, INT32_MAX}) {
+      Decimal128 result = Decimal128(x.str()) * Decimal128(y.str());
+      ASSERT_EQ(Decimal128((x * y).str()), result) << " x: " << x << " y: " << y;
+    }
+  }
+}
+
+TEST(Decimal128Test, Sign) {
+  ASSERT_EQ(1, Decimal128(999999).Sign());
+  ASSERT_EQ(-1, Decimal128(-999999).Sign());
+  ASSERT_EQ(1, Decimal128(0).Sign());
 }
 
 TEST(Decimal128Test, GetWholeAndFraction) {

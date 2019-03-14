@@ -128,6 +128,9 @@ if(ARROW_BUILD_TESTS)
   add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc ../context_helper.cc)
   add_precompiled_unit_test(extended_math_ops_test.cc extended_math_ops.cc
                             ../context_helper.cc)
-  add_precompiled_unit_test(decimal_ops_test.cc decimal_ops.cc ../decimal_type_util.cc
-                            ../decimal_xlarge.cc)
+  add_precompiled_unit_test(decimal_ops_test.cc
+                            decimal_ops.cc
+                            ../decimal_type_util.cc
+                            ../decimal_xlarge.cc
+                            ../context_helper.cc)
 endif()

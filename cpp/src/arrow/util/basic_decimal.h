@@ -138,6 +138,9 @@ class ARROW_EXPORT BasicDecimal128 {
   /// - If 'round' is false, the right-most digits are simply dropped.
   BasicDecimal128 ReduceScaleBy(int32_t reduce_by, bool round = true) const;
 
+  // returns 1 for positive and zero decimal values, -1 for negative decimal values.
+  inline int64_t Sign() const { return 1 | (high_bits_ >> 63); }
+
   /// \brief count the number of leading binary zeroes.
   int32_t CountLeadingBinaryZeros() const;
 
