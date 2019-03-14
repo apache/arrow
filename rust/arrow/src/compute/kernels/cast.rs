@@ -97,7 +97,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             "Cannot cast list to non-list data types".to_string(),
         )),
         (_, List(ref to)) => {
-            // converts item to
+            // cast primitive to list's primitive
             let cast_array = cast(array, &*to)?;
             // create offsets, where if array.len() = 2, we have [0,1,2]
             let offsets: Vec<i32> = (0..array.len() as i32 + 1).collect();
