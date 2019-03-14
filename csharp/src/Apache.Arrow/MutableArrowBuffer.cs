@@ -13,27 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using FlatBuffers;
 using System;
 
-namespace Apache.Arrow.Ipc
+namespace Apache.Arrow
 {
-    internal class ReadOnlyMemoryBufferAllocator : ByteBufferAllocator
+    public class MutableArrowBuffer : ArrowBuffer
     {
-        protected readonly Memory<byte> _buffer;
-
-        public ReadOnlyMemoryBufferAllocator(Memory<byte> buffer)
-        {
-            _buffer = buffer;
-            Length = buffer.Length;
-        }
-
-        public override ReadOnlySpan<byte> ReadOnlySpan => _buffer.Span;
-        public override ReadOnlyMemory<byte> ReadOnlyMemory => _buffer;
-
-        // since this is read-only, the following are not supported
-        public override Memory<byte> Memory => throw new NotSupportedException();
-        public override Span<byte> Span => throw new NotSupportedException();
-        public override void GrowFront(int newSize) => throw new NotSupportedException();
+        public MutableArrowBuffer(Memory<byte> memory) : base(memory) { }
+        public Memory<byte> MutableMemory => _memory;
     }
 }

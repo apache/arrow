@@ -42,7 +42,7 @@ namespace Apache.Arrow.Ipc
         public abstract Task<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken);
         public abstract RecordBatch ReadNextRecordBatch();
 
-        protected abstract ArrowBuffer CreateArrowBuffer(ReadOnlyMemory<byte> data);
+        protected abstract ArrowBuffer CreateArrowBuffer(Memory<byte> data);
 
         protected static T ReadMessage<T>(ByteBuffer bb)
             where T : struct, IFlatbufferObject
@@ -201,7 +201,7 @@ namespace Apache.Arrow.Ipc
             int offset = (int)buffer.Offset;
             int length = (int)buffer.Length;
 
-            var data = bodyData.ToReadOnlyMemory(offset, length);
+            var data = bodyData.ToMemory(offset, length);
             return CreateArrowBuffer(data);
         }
     }

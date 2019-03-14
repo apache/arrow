@@ -24,10 +24,10 @@ namespace Apache.Arrow.Ipc
 {
     internal sealed class ArrowMemoryReaderImplementation : ArrowReaderImplementation
     {
-        private readonly ReadOnlyMemory<byte> _buffer;
+        private readonly Memory<byte> _buffer;
         private int _bufferPosition;
 
-        public ArrowMemoryReaderImplementation(ReadOnlyMemory<byte> buffer)
+        public ArrowMemoryReaderImplementation(Memory<byte> buffer)
         {
             _buffer = buffer;
         }
@@ -69,14 +69,14 @@ namespace Apache.Arrow.Ipc
             return CreateArrowObjectFromMessage(message, bodybb);
         }
 
-        protected override ArrowBuffer CreateArrowBuffer(ReadOnlyMemory<byte> data)
+        protected override ArrowBuffer CreateArrowBuffer(Memory<byte> data)
         {
-            return new ArrowBuffer(data);
+            return new MutableArrowBuffer(data);
         }
 
-        private static ByteBuffer CreateByteBuffer(ReadOnlyMemory<byte> buffer)
+        private static ByteBuffer CreateByteBuffer(Memory<byte> buffer)
         {
-            return new ByteBuffer(new ReadOnlyMemoryBufferAllocator(buffer), 0);
+            return new ByteBuffer(new MemoryBufferAllocator(buffer), 0);
         }
 
         private void ReadSchema()

@@ -152,7 +152,7 @@ namespace Apache.Arrow.Ipc
             }
         }
 
-        protected override ArrowBuffer CreateArrowBuffer(ReadOnlyMemory<byte> data)
+        protected override ArrowBuffer CreateArrowBuffer(Memory<byte> data)
         {
             // need to use the Buffer.Builder because we are currently renting the memory to
             // read messages

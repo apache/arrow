@@ -20,7 +20,7 @@ using System.Runtime.CompilerServices;
 
 namespace Apache.Arrow
 {
-    public partial struct ArrowBuffer
+    public partial class ArrowBuffer
     {
         public class Builder<T>
             where T : struct
@@ -117,7 +117,7 @@ namespace Apache.Arrow
 
                 Memory.CopyTo(memory);
 
-                return new ArrowBuffer(memory);
+                return new MutableArrowBuffer(memory);
             }
 
             private Span<T> EnsureCapacity(int len)

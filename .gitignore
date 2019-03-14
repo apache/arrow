@@ -58,3 +58,5 @@ pkgs
 .Rproj.user
 arrow.Rcheck/
 docker_cache
+
+.vs/*

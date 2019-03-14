@@ -37,7 +37,7 @@ namespace Apache.Arrow.Ipc
             _implementation = new ArrowStreamReaderImplementation(stream);
         }
 
-        public ArrowStreamReader(ReadOnlyMemory<byte> buffer)
+        public ArrowStreamReader(Memory<byte> buffer)
         {
             _implementation = new ArrowMemoryReaderImplementation(buffer);
         }

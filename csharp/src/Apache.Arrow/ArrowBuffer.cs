@@ -19,16 +19,17 @@ using Apache.Arrow.Memory;
 
 namespace Apache.Arrow
 {
-    public readonly partial struct ArrowBuffer: IEquatable<ArrowBuffer>
+    public partial class ArrowBuffer : IEquatable<ArrowBuffer>
     {
         public static ArrowBuffer Empty => new ArrowBuffer(Memory<byte>.Empty);
 
-        internal ArrowBuffer(ReadOnlyMemory<byte> data)
+        internal ArrowBuffer(Memory<byte> data)
         {
-            Memory = data;
+            _memory = data;
         }
 
-        public ReadOnlyMemory<byte> Memory { get; }
+        protected readonly Memory<byte> _memory;
+        public ReadOnlyMemory<byte> Memory => _memory;
 
         public bool IsEmpty => Memory.IsEmpty;
 
@@ -52,4 +53,5 @@ namespace Apache.Arrow
             return Span.SequenceEqual(other.Span);
         }
     }
+
 }
