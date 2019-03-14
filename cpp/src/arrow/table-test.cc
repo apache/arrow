@@ -830,4 +830,51 @@ TEST_F(TestTableBatchReader, Chunksize) {
   ASSERT_EQ(nullptr, batch);
 }
 
+TEST_F(TestTableBatchReader, DifferentChunking) {
+  auto ints = MakeRandomArray<Int32Array>(50);
+  auto ints_field = field("ints", int32());
+  auto chars = MakeRandomArray<Int8Array>(100);
+  int32_t offsets[26];
+  for (int i = 0; i < 26; ++i) {
+    offsets[i] = i * 4;
+  }
+  auto strings = std::make_shared<StringArray>(25, Buffer::Wrap(offsets, 26),
+                                               chars->data()->buffers[1]);
+  auto strings_field = field("strings", utf8());
+  auto ints_column = column(ints_field, {ints});
+  auto strings_column = column(strings_field, {strings, strings});
+  auto t1 = Table::Make(arrow::schema({ints_field, strings_field}),
+                        {ints_column, strings_column});
+  TableBatchReader i1(*t1);
+  i1.set_chunksize(15);
+
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_OK(batch->Validate());
+  ASSERT_EQ(15, batch->num_rows());
+  AssertArraysEqual(*ints->Slice(0, 15), *batch->column(0));
+  AssertArraysEqual(*strings->Slice(0, 15), *batch->column(1));
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_OK(batch->Validate());
+  ASSERT_EQ(10, batch->num_rows());
+  AssertArraysEqual(*ints->Slice(15, 10), *batch->column(0));
+  AssertArraysEqual(*strings->Slice(15, 10), *batch->column(1));
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_OK(batch->Validate());
+  ASSERT_EQ(15, batch->num_rows());
+  AssertArraysEqual(*ints->Slice(25, 15), *batch->column(0));
+  AssertArraysEqual(*strings->Slice(0, 15), *batch->column(1));
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_OK(batch->Validate());
+  ASSERT_EQ(10, batch->num_rows());
+  AssertArraysEqual(*ints->Slice(40, 10), *batch->column(0));
+  AssertArraysEqual(*strings->Slice(15, 10), *batch->column(1));
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_EQ(nullptr, batch);
+}
+
 }  // namespace arrow
