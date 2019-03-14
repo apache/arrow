@@ -25,10 +25,10 @@ MISC = lint iwyu clang-format docs pandas-master
 SERVERS = dask hdfs-integration spark-integration
 
 # declare images dependencies
-DEPENDS_ON_CPP = c_glib python r
-DEPENDS_ON_CPP_ALPINE = python-alpine
-DEPENDS_ON_PYTHON = lint docs dask hdfs-integration spark-integration
-DEPENDS_ON_LINT = iwyu clang-format
+DEPENDS_ON_CPP = build-c_glib build-python build-r
+DEPENDS_ON_CPP_ALPINE = build-python-alpine
+DEPENDS_ON_PYTHON = build-lint build-docs build-dask build-hdfs-integration build-spark-integration
+DEPENDS_ON_LINT = build-iwyu build-clang-format
 
 SERVICES = $(LANGUAGES) $(MISC) $(SERVERS)
 .PHONY: clean build-% run-% $(SERVICES)
@@ -40,24 +40,24 @@ clean:
 
 # Default build target if no dependencies
 build-%:
-	$(DC) build $(subst build-,,$@)
+	$(DC) build $*
 
 # The following targets create the dependencies of the form `build-X: build-Y`
-$(addprefix build-,$(DEPENDS_ON_CPP)): build-cpp
-	$(DC) build $(subst build-,,$@)
-$(addprefix build-,$(DEPENDS_ON_CPP_ALPINE)): build-cpp-alpine
-	$(DC) build $(subst build-,,$@)
-$(addprefix build-,$(DEPENDS_ON_PYTHON)): build-python
-	$(DC) build $(subst build-,,$@)
+$(DEPENDS_ON_CPP): build-%: build-cpp
+	$(DC) build $*
+$(DEPENDS_ON_CPP_ALPINE): build-%: build-cpp-alpine
+	$(DC) build $*
+$(DEPENDS_ON_PYTHON): build-%: build-python
+	$(DC) build $*
 # The dependents of lint image don't build anything
-$(addprefix build-,$(DEPENDS_ON_LINT)): build-lint
+$(DEPENDS_ON_LINT): build-%: build-lint
 
 # panda master is a special case due to --no-cache
 build-pandas-master: build-python
 	$(DC) build --no-cache pandas-master
 
 run-%: build-%
-	$(DC) run --rm $(subst run-,,$@)
+	$(DC) run --rm $*
 
 # Trick to get `service` expand to `run-service`
 $(SERVICES): % : run-%
