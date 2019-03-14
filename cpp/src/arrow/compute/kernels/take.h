@@ -42,14 +42,16 @@ struct ARROW_EXPORT TakeOptions {
   } out_of_bounds = ERROR;
 };
 
-/// \brief Take from one array type to another
+/// \brief Take from an array of values at indices in another array
 ///
 /// The output array will be of the same type as the input values
 /// array, with elements taken from the values array at the given
-/// indices.
+/// indices. If an index is null then the taken element will null.
 ///
-/// For example given values ["a", "b", "c"] and indices
-/// [2, 1], the output will be ["c", "b"].
+/// For example given values = ["a", "b", "c", null, "e", "f"] and
+/// indices = [2, 1, null, 3], the output will be
+/// = [values[2], values[1], null, values[3]]
+/// = ["c", "b", null, null]
 ///
 /// \param[in] context the FunctionContext
 /// \param[in] values array from which to take
