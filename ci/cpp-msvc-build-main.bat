@@ -28,7 +28,6 @@ if "%JOB%" == "Toolchain" (
       -DARROW_WITH_BZ2=ON ^
       -DARROW_DEPENDENCY_SOURCE=CONDA ^
       -DGTest_SOURCE=BUNDLED
-  set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 ) else (
   @rem We're in a conda enviroment but don't want to use it for the dependencies
   set CMAKE_ARGS=%CMAKE_ARGE% -DARROW_DEPENDENCY_SOURCE=AUTO
