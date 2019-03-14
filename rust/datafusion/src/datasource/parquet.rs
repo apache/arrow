@@ -22,7 +22,7 @@ use std::string::String;
 use std::sync::{Arc, Mutex};
 
 use arrow::array::{Array, PrimitiveArray};
-use arrow::builder::{BinaryBuilder, Int64Builder, PrimitiveBuilder};
+use arrow::builder::{BinaryBuilder, PrimitiveBuilder};
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
@@ -33,6 +33,7 @@ use parquet::reader::schema::parquet_to_arrow_schema;
 
 use crate::datasource::{RecordBatchIterator, ScanResult, Table};
 use crate::execution::error::{ExecutionError, Result};
+use arrow::builder::TimestampNanosecondBuilder;
 
 pub struct ParquetTable {
     filename: String,
@@ -283,7 +284,8 @@ impl ParquetFile {
                                 &mut read_buffer,
                             )?;
 
-                            let mut builder = Int64Builder::new(levels_read);
+                            let mut builder =
+                                TimestampNanosecondBuilder::new(levels_read);
                             let mut value_index = 0;
                             for i in 0..levels_read {
                                 if def_levels[i] > 0 {
@@ -378,11 +380,10 @@ impl RecordBatchIterator for ParquetFile {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use arrow::array::BooleanArray;
-    use arrow::array::Float32Array;
-    use arrow::array::Float64Array;
-    use arrow::array::Int64Array;
-    use arrow::array::{BinaryArray, Int32Array};
+    use arrow::array::{
+        BinaryArray, BooleanArray, Float32Array, Float64Array, Int32Array,
+        TimestampNanosecondArray,
+    };
     use std::env;
 
     #[test]
@@ -466,7 +467,7 @@ mod tests {
         let array = batch
             .column(0)
             .as_any()
-            .downcast_ref::<Int64Array>()
+            .downcast_ref::<TimestampNanosecondArray>()
             .unwrap();
         let mut values: Vec<i64> = vec![];
         for i in 0..batch.num_rows() {
