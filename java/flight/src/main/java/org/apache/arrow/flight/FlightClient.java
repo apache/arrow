@@ -69,7 +69,7 @@ public class FlightClient implements AutoCloseable {
    */
   public FlightClient(BufferAllocator incomingAllocator, Location location) {
     final ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder.forAddress(location.getHost(),
-        location.getPort()).maxTraceEvents(0).usePlaintext();
+        location.getPort()).maxTraceEvents(0).maxInboundMessageSize(Integer.MAX_VALUE).usePlaintext();
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     channel = channelBuilder.build();
     blockingStub = FlightServiceGrpc.newBlockingStub(channel).withInterceptors(authInterceptor);

@@ -42,6 +42,7 @@ public class FlightServer implements AutoCloseable {
       FlightProducer producer,
       ServerAuthHandler authHandler) {
     this.server = ServerBuilder.forPort(port)
+        .maxInboundMessageSize(Integer.MAX_VALUE)
         .addService(
             ServerInterceptors.intercept(
                 new FlightBindingService(allocator, producer, authHandler),
