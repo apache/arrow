@@ -35,6 +35,7 @@ llvmdev=7
 libprotobuf
 lz4-c
 ninja
+pkg-config
 python
 rapidjson
 re2
