@@ -21,12 +21,15 @@ add_custom_target(arrow_flight)
 arrow_install_all_headers("arrow/flight")
 
 set(ARROW_FLIGHT_STATIC_LINK_LIBS
-    ${PROTOBUF_LIBRARY}
-    grpc_grpcpp_static
-    grpc_grpc_static
-    grpc_gpr_static
-    grpc_address_sorting_static
-    cares_static)
+    protobuf::libprotobuf
+    gRPC::grpc++
+    gRPC::grpc
+    gRPC::gpr
+    c-ares::cares)
+
+if(GRPC_HAS_ADDRESS_SORTING)
+  list(APPEND ARROW_FLIGHT_STATIC_LINK_LIBS gRPC::address_sorting)
+endif()
 
 set(ARROW_FLIGHT_TEST_LINK_LIBS
     arrow_flight_shared
@@ -45,14 +48,14 @@ set(FLIGHT_GENERATED_PROTO_FILES
     "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.cc"
     "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.h")
 
-set(PROTO_DEPENDS ${FLIGHT_PROTO} ${PROTOBUF_LIBRARY} grpc)
+set(PROTO_DEPENDS ${FLIGHT_PROTO} protobuf::libprotobuf gRPC::grpc)
 
 add_custom_command(
   OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
-  COMMAND ${PROTOBUF_EXECUTABLE} "-I${FLIGHT_PROTO_PATH}"
+  COMMAND protobuf::protoc "-I${FLIGHT_PROTO_PATH}"
           "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
   DEPENDS ${PROTO_DEPENDS} ARGS
-  COMMAND ${PROTOBUF_EXECUTABLE} "-I${FLIGHT_PROTO_PATH}"
+  COMMAND protobuf::protoc "-I${FLIGHT_PROTO_PATH}"
           "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
           "--plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN}" "${FLIGHT_PROTO}")
 
@@ -91,15 +94,16 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
                 SOURCES
                 test-util.cc
                 DEPENDENCIES
-                ${GTEST_LIBRARY}
+                GTest::GTest
                 flight_grpc_gen
                 arrow_dependencies
+                metadata_fbs
                 SHARED_LINK_LIBS
                 arrow_shared
                 arrow_flight_shared
                 ${BOOST_FILESYSTEM_LIBRARY}
                 ${BOOST_SYSTEM_LIBRARY}
-                ${GTEST_LIBRARY}
+                GTest::GTest
                 STATIC_LINK_LIBS
                 arrow_static
                 arrow_flight_static)
@@ -115,15 +119,15 @@ add_arrow_test(flight-test
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_executable(flight-test-server test-server.cc)
   target_link_libraries(flight-test-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARY} ${GTEST_LIBRARY})
+                        ${GFLAGS_LIBRARIES} GTest::GTest)
 
   add_executable(flight-test-integration-server test-integration-server.cc)
   target_link_libraries(flight-test-integration-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARY} ${GTEST_LIBRARY})
+                        ${GFLAGS_LIBRARIES} GTest::GTest)
 
   add_executable(flight-test-integration-client test-integration-client.cc)
   target_link_libraries(flight-test-integration-client ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARY} ${GTEST_LIBRARY})
+                        ${GFLAGS_LIBRARIES} GTest::GTest)
 
   # This is needed for the unit tests
   if(ARROW_BUILD_TESTS)
@@ -140,7 +144,7 @@ if(ARROW_BUILD_BENCHMARKS)
       "${CMAKE_CURRENT_BINARY_DIR}/perf.pb.h")
 
   add_custom_command(OUTPUT ${PERF_PROTO_GENERATED_FILES}
-                     COMMAND ${PROTOBUF_EXECUTABLE} "-I${CMAKE_CURRENT_SOURCE_DIR}"
+                     COMMAND protobuf::protoc "-I${CMAKE_CURRENT_SOURCE_DIR}"
                              "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "perf.proto"
                      DEPENDS ${PROTO_DEPENDS})
 
@@ -149,16 +153,16 @@ if(ARROW_BUILD_BENCHMARKS)
                         arrow_flight_shared
                         arrow_flight_testing_shared
                         ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARY}
-                        ${GTEST_LIBRARY})
+                        ${GFLAGS_LIBRARIES}
+                        GTest::GTest)
 
   add_executable(arrow-flight-benchmark flight-benchmark.cc perf.pb.cc)
   target_link_libraries(arrow-flight-benchmark
                         arrow_flight_static
                         arrow_testing_static
                         ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARY}
-                        ${GTEST_LIBRARY})
+                        ${GFLAGS_LIBRARIES}
+                        GTest::GTest)
 
   add_dependencies(arrow-flight-benchmark arrow-flight-perf-server)
 

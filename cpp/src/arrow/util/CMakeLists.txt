@@ -26,19 +26,6 @@ arrow_install_all_headers("arrow/util")
 # arrow_test_main
 #
 
-if(ARROW_BUILD_BENCHMARKS)
-  add_library(arrow_benchmark_main benchmark_main.cc)
-  if(APPLE)
-    target_link_libraries(arrow_benchmark_main gbenchmark_static)
-  elseif(MSVC)
-    target_link_libraries(arrow_benchmark_main gbenchmark_static Shlwapi.lib)
-  else()
-    target_link_libraries(arrow_benchmark_main gbenchmark_static Threads::Threads)
-  endif()
-
-  add_dependencies(arrow_benchmark_main arrow_benchmark_dependencies)
-endif()
-
 add_arrow_test(bit-util-test)
 add_arrow_test(checked-cast-test)
 add_arrow_test(compression-test)

@@ -118,7 +118,7 @@ void TestDecimalSql::Verify(DecimalTypeUtil::Op op, const DecimalScalar128& x,
   int64_t context = 0;
 
   Decimal128TypePtr out_type;
-  EXPECT_OK(DecimalTypeUtil::GetResultType(op, {t1, t2}, &out_type));
+  ARROW_EXPECT_OK(DecimalTypeUtil::GetResultType(op, {t1, t2}, &out_type));
 
   arrow::BasicDecimal128 out_value;
   std::string op_name;

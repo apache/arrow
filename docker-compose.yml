@@ -32,14 +32,38 @@ x-ubuntu-volumes:
   - .:/arrow:delegated
   - ubuntu-cache:/build:delegated
 
+x-ubuntu-xenial-volumes:
+  &ubuntu-xenial-volumes
+  - .:/arrow:delegated
+  - ubuntu-xenial-cache:/build:delegated
+
+x-ubuntu-bionic-volumes:
+  &ubuntu-bionic-volumes
+  - .:/arrow:delegated
+  - ubuntu-bionic-cache:/build:delegated
+
 x-alpine-volumes:
   &alpine-volumes
   - .:/arrow:delegated
   - alpine-cache:/build:delegated
 
+x-fedora-volumes:
+  &fedora-volumes
+  - .:/arrow:delegated
+  - fedora-cache:/build:delegated
+
+x-debian-testing-volumes:
+  &debian-testing-volumes
+  - .:/arrow:delegated
+  - debian-testing-cache:/build:delegated
+
 volumes:
   ubuntu-cache:
+  ubuntu-xenial-cache:
+  ubuntu-bionic-cache:
   alpine-cache:
+  fedora-cache:
+  debian-testing-cache:
   maven-cache:
   spark-cache:
 
@@ -98,6 +122,58 @@ services:
     environment:
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *alpine-volumes
+
+  cpp-fedora:
+    # Usage:
+    #   docker-compose build cpp-fedora
+    #   docker-compose run cpp-fedora
+    image: arrow:cpp-fedora
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.fedora
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *fedora-volumes
+
+  cpp-debian-testing:
+    # Usage:
+    #   docker-compose build cpp-debian-testing
+    #   docker-compose run cpp-debian-testing
+    image: arrow:cpp-debian-testing
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.debian-testing
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *debian-testing-volumes
+
+  cpp-ubuntu-xenial:
+    # Usage:
+    #   docker-compose build cpp-ubuntu-xenial
+    #   docker-compose run cpp-ubuntu-xenial
+    image: arrow:cpp-ubuntu-xenial
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.ubuntu-xenial
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-xenial-volumes
+
+  cpp-ubuntu-bionic:
+    # Usage:
+    #   docker-compose build cpp-ubuntu-bionic
+    #   docker-compose run cpp-ubuntu-bionic
+    image: arrow:cpp-ubuntu-bionic
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.ubuntu-bionic
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-bionic-volumes
 
   go:
     # Usage:
@@ -242,7 +318,7 @@ services:
     #     $ docker-compose pull python-manylinux1
     #   an then run:
     #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux1
-    image: quay.io/xhochy/arrow_manylinux1_x86_64_base:ARROW-4778
+    image: quay.io/xhochy/arrow_manylinux1_x86_64_base:build-on-fedora
     build:
       context: python/manylinux1
       dockerfile: Dockerfile-x86_64_base

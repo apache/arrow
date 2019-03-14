@@ -96,7 +96,7 @@ if(MSVC)
   set(PARQUET_BOOST_LINK_LIBS ${PARQUET_BOOST_LINK_LIBS} ${BOOST_SYSTEM_LIBRARY})
 endif()
 
-set(PARQUET_MIN_TEST_LIBS ${GTEST_MAIN_LIBRARY} ${GTEST_LIBRARY})
+set(PARQUET_MIN_TEST_LIBS GTest::Main GTest::GTest)
 
 if(APPLE)
   set(PARQUET_MIN_TEST_LIBS ${PARQUET_MIN_TEST_LIBS} ${CMAKE_DL_LIBS})
@@ -108,14 +108,15 @@ set(PARQUET_SHARED_TEST_LINK_LIBS
     arrow_testing_shared
     ${PARQUET_MIN_TEST_LIBS}
     parquet_shared
-    thriftstatic)
+    Thrift::thrift)
 
 set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS}
     ${ARROW_LIBRARIES_FOR_STATIC_TESTS} parquet_static)
 
 if(WIN32)
   # The benchmarks depend on some static Thrift symbols
-  set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS arrow_benchmark_main parquet_static)
+  set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS benchmark::benchmark_main
+      parquet_static)
 else()
   set(PARQUET_BENCHMARK_LINK_OPTION EXTRA_LINK_LIBS parquet_shared)
 endif()
@@ -144,7 +145,7 @@ add_custom_command(OUTPUT ${THRIFT_OUTPUT_FILES}
                    COMMAND ${THRIFT_COMPILER}
                            --gen cpp -out ${THRIFT_OUTPUT_DIR}
                                  ${CMAKE_CURRENT_SOURCE_DIR}/parquet.thrift
-                   DEPENDS ${ABS_PARQUET_THRIFT} thriftstatic
+                   DEPENDS ${ABS_PARQUET_THRIFT} Thrift::thrift
                    COMMENT "Running thrift compiler on parquet.thrift"
                    VERBATIM)
 
@@ -184,12 +185,12 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
 
   # These are libraries that we will link privately with parquet_shared (as they
   # do not need to be linked transitively by other linkers)
-  set(PARQUET_SHARED_PRIVATE_LINK_LIBS ${PARQUET_BOOST_LINK_LIBS} thriftstatic)
+  set(PARQUET_SHARED_PRIVATE_LINK_LIBS ${PARQUET_BOOST_LINK_LIBS} Thrift::thrift)
 
   # Link publicly with # parquet_static (because internal users need to
   # transitively link all dependencies)
   set(PARQUET_STATIC_LINK_LIBS ${PARQUET_STATIC_LINK_LIBS} ${PARQUET_BOOST_LINK_LIBS}
-      thriftstatic)
+      Thrift::thrift)
 
   # Although we don't link parquet_objlib against anything, we need it to depend
   # on these libs as we may generate their headers via ExternalProject_Add

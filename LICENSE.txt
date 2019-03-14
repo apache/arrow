@@ -837,3 +837,13 @@ This project includes code from the manylinux project.
 Copyright: 2016 manylinux
 Homepage: https://github.com/pypa/manylinux
 License: The MIT License (MIT)
+
+--------------------------------------------------------------------------------
+
+This project include code from CMake.
+
+* cpp/cmake_modules/FindGTest.cmake is based on code from CMake.
+
+Copyright: Copyright 2000-2019 Kitware, Inc. and Contributors
+Homepage: https://gitlab.kitware.com/cmake/cmake
+License: 3-clause BSD

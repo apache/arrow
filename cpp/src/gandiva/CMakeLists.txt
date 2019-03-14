@@ -25,6 +25,9 @@ add_custom_target(gandiva-benchmarks)
 
 add_dependencies(gandiva-all gandiva gandiva-tests gandiva-benchmarks)
 
+if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
+  set(LLVM_ROOT $ENV{CONDA_PREFIX})
+endif()
 find_package(LLVM)
 
 # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
@@ -73,9 +76,9 @@ set(SRC_FILES
     to_date_holder.cc
     ${GANDIVA_PRECOMPILED_CC_PATH})
 
-set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE ${RE2_LIBRARY})
+set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE RE2::re2)
 
-set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE ${RE2_LIBRARY})
+set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE RE2::re2)
 
 if(ARROW_GANDIVA_STATIC_LIBSTDCPP
    AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX))
@@ -130,9 +133,9 @@ arrow_install_all_headers("gandiva")
 # pkg-config support
 arrow_add_pkg_config("gandiva")
 
-set(GANDIVA_STATIC_TEST_LINK_LIBS gandiva_static ${RE2_LIBRARY} ${ARROW_TEST_LINK_LIBS})
+set(GANDIVA_STATIC_TEST_LINK_LIBS gandiva_static RE2::re2 ${ARROW_TEST_LINK_LIBS})
 
-set(GANDIVA_SHARED_TEST_LINK_LIBS gandiva_shared ${RE2_LIBRARY} ${ARROW_TEST_LINK_LIBS})
+set(GANDIVA_SHARED_TEST_LINK_LIBS gandiva_shared RE2::re2 ${ARROW_TEST_LINK_LIBS})
 
 function(ADD_GANDIVA_TEST REL_TEST_NAME)
   set(options USE_STATIC_LINKING)

@@ -165,7 +165,7 @@ if(ARROW_CUDA)
 endif()
 
 if(ARROW_JEMALLOC AND JEMALLOC_VENDORED)
-  add_dependencies(arrow_dependencies jemalloc_static)
+  add_dependencies(arrow_dependencies jemalloc::jemalloc)
 endif()
 
 if(ARROW_WITH_BROTLI)
@@ -277,7 +277,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
                 arrow_test_dependencies
                 SHARED_LINK_LIBS
                 arrow_shared
-                ${GTEST_LIBRARY}
+                GTest::GTest
                 STATIC_LINK_LIBS
                 arrow_static)
 

@@ -56,16 +56,15 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
-  - name: "C++ unit tests w/ Valgrind, clang 7.0"
+  - name: "C++ unit tests w/ clang 7.0, system packages"
     os: linux
     env:
-    - ARROW_TRAVIS_VALGRIND=1
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
-    - ARROW_TRAVIS_FLIGHT=1
+    - ARROW_TRAVIS_USE_SYSTEM=1
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_GANDIVA=1
+    - ARROW_TRAVIS_VERBOSE=1
     - ARROW_TRAVIS_USE_SYSTEM_JAVA=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - CC="clang-7"
@@ -80,22 +79,25 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
   # Separating Valgrind and C++ coverage makes individual jobs shorter
-  - name: "C++ unit tests w/ gcc 5.4, coverage"
+  - name: "C++ unit tests w/ conda-forge toolchain, coverage"
     compiler: gcc
     language: cpp
     os: linux
     jdk: openjdk8
     env:
+    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - ARROW_TRAVIS_COVERAGE=1
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_FLIGHT=1
-    - ARROW_TRAVIS_PLASMA=1
-    - ARROW_TRAVIS_ORC=1
-    - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_GANDIVA=1
     - ARROW_TRAVIS_GANDIVA_JAVA=1
+    - ARROW_TRAVIS_ORC=1
+    - ARROW_TRAVIS_PARQUET=1
+    - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_USE_SYSTEM_JAVA=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    - ARROW_TRAVIS_USE_TOOLCHAIN=1
+    # TODO: This fails in re2 code
+    # - ARROW_TRAVIS_VALGRIND=1
+    - ARROW_TRAVIS_VERBOSE=1
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
@@ -107,54 +109,22 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh || travis_terminate 1
-  - name: "C++ unit tests w/ gcc 4.8, trusty"
-    dist: trusty
-    compiler: gcc
-    language: cpp
-    os: linux
-    jdk: openjdk8
-    env:
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
-    - ARROW_TRAVIS_PLASMA=1
-    - ARROW_TRAVIS_ORC=1
-    - ARROW_TRAVIS_PARQUET=1
-    - ARROW_TRAVIS_GANDIVA=1
-    - ARROW_TRAVIS_GANDIVA_JAVA=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    before_install:
-    - ulimit -c unlimited -S
-    - |
-        if [ $TRAVIS_OS_NAME == "linux" ]; then
-          sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"
-          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-          sudo apt-get update -qq
-        fi
-    - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
-    before_script:
-    - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    # If either C++ or Python changed, we must install the C++ libraries
-    - git submodule update --init
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
-    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh || travis_terminate 1
-  - name: "Python 2.7 and 3.6 unit tests w/ Valgrind, gcc 5.4, coverage"
+  - name: "Python 2.7 and 3.6 unit tests w/ Valgrind, conda-forge toolchain, coverage"
     compiler: gcc
     language: cpp
     os: linux
     jdk: openjdk8
     env:
     # Valgrind is needed for the Plasma store tests
-    - ARROW_TRAVIS_VALGRIND=1
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
+    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - ARROW_TRAVIS_COVERAGE=1
+    - ARROW_TRAVIS_FLIGHT=1
+    - ARROW_TRAVIS_OPTIONAL_INSTALL=1
     - ARROW_TRAVIS_PYTHON_DOCS=1
     - ARROW_TRAVIS_PYTHON_JVM=1
-    - ARROW_TRAVIS_OPTIONAL_INSTALL=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - ARROW_TRAVIS_USE_SYSTEM_JAVA=1
+    - ARROW_TRAVIS_USE_TOOLCHAIN=1
+    - ARROW_TRAVIS_VALGRIND=1
     # TODO(wesm): Run the benchmarks outside of Travis
     # - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
     before_script:
@@ -172,10 +142,9 @@ matrix:
     - export PLASMA_VALGRIND=1
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6 || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
-  - name: "[OS X] C++ w/ XCode 8.3"
+  - name: "[OS X] C++ w/ XCode 9.3"
     compiler: clang
-    language: cpp
-    osx_image: xcode8.3
+    osx_image: xcode9.3
     os: osx
     cache:
     addons:
@@ -185,17 +154,13 @@ matrix:
     - ARROW_TRAVIS_FLIGHT=1
     - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_PARQUET=1
-    - ARROW_TRAVIS_GANDIVA=1
-    - ARROW_TRAVIS_GANDIVA_JAVA=1
+    # TODO(ARROW-4763): llvm and llvmdev packages are in conflict:
+    # https://github.com/conda-forge/llvmdev-feedstock/issues/60
+    # - ARROW_TRAVIS_GANDIVA=1
+    # - ARROW_TRAVIS_GANDIVA_JAVA=1
     - ARROW_TRAVIS_OPTIONAL_INSTALL=1
-    - ARROW_TRAVIS_VERBOSE=0
+    - ARROW_TRAVIS_VERBOSE=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    # ARROW-3803: The Xcode 8.3 image has Boost libraries in /usr/local/lib
-    # which can get loaded before the toolchain Boost libraries. These seem to
-    # get loaded even though we are modifying LD_LIBRARY_PATH. We build our own
-    # Boost and statically link to get around the issue until this can be
-    # investigated further
-    - ARROW_TRAVIS_VENDORED_BOOST=1
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     # If either C++ or Python changed, we must install the C++ libraries
@@ -203,23 +168,24 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
-    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh
-  - name: "[OS X] Python w/ XCode 7.3"
+    # Disabled because of ARROW-4763
+    # - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh
+  - name: "[OS X] Python w/ XCode 9.3"
     compiler: clang
-    language: cpp
-    osx_image: xcode7.3
+    osx_image: xcode9.3
     os: osx
     cache:
     addons:
     env:
+    - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - ARROW_TRAVIS_OPTIONAL_INSTALL=1
+    - ARROW_TRAVIS_VERBOSE=1
     - MACOSX_DEPLOYMENT_TARGET="10.9"
     before_script:
     script:
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7 || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
   - name: "[manylinux1] Python"
@@ -256,7 +222,7 @@ matrix:
     - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
-  - name: "Integration w/ OpenJDK 8, clang 7"
+  - name: "Integration w/ OpenJDK 8, conda-forge toolchain"
     language: java
     os: linux
     env: ARROW_TEST_GROUP=integration
@@ -264,8 +230,7 @@ matrix:
     env:
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_PLASMA_JAVA_CLIENT=1
-    - CC="clang-7"
-    - CXX="clang++-7"
+    - ARROW_TRAVIS_USE_TOOLCHAIN=1
     before_script:
     - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
@@ -275,7 +240,8 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_script_plasma_java_client.sh
+    # TODO(ARROW-4764): Using system java and plasma built with conda doesn't work
+    # - $TRAVIS_BUILD_DIR/ci/travis_script_plasma_java_client.sh
   - name: "NodeJS"
     language: node_js
     os: linux
@@ -289,7 +255,6 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
   - name: "C++ & GLib & Ruby w/ gcc 5.4"
     compiler: gcc
-    language: cpp
     os: linux
     env:
     - ARROW_TRAVIS_ORC=1
@@ -369,6 +334,7 @@ matrix:
     dist: trusty
     env:
     - ARROW_TRAVIS_PARQUET=1
+    - ARROW_TRAVIS_USE_SYSTEM=1
     before_install:
     # Have to copy-paste this here because of how R's build steps work
     - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
@@ -379,6 +345,7 @@ matrix:
           sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
           sudo apt-get update -qq
         fi
+    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib

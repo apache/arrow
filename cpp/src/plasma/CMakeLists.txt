@@ -31,8 +31,7 @@ find_package(Threads)
 set(PLASMA_SO_VERSION "${ARROW_SO_VERSION}")
 set(PLASMA_FULL_SO_VERSION "${ARROW_FULL_SO_VERSION}")
 
-include_directories("${FLATBUFFERS_INCLUDE_DIR}" "${CMAKE_CURRENT_LIST_DIR}/"
-                    "${CMAKE_CURRENT_LIST_DIR}/thirdparty/"
+include_directories("${CMAKE_CURRENT_LIST_DIR}/" "${CMAKE_CURRENT_LIST_DIR}/thirdparty/"
                     "${CMAKE_CURRENT_LIST_DIR}/../")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion")
@@ -48,9 +47,7 @@ set(PLASMA_FBS_OUTPUT_FILES "${OUTPUT_DIR}/common_generated.h"
 
 add_custom_target(gen_plasma_fbs DEPENDS ${PLASMA_FBS_OUTPUT_FILES})
 
-if(FLATBUFFERS_VENDORED)
-  add_dependencies(gen_plasma_fbs flatbuffers_ep)
-endif()
+add_dependencies(gen_plasma_fbs flatbuffers::flatc)
 
 add_custom_command(
   OUTPUT ${PLASMA_FBS_OUTPUT_FILES}
@@ -58,7 +55,7 @@ add_custom_command(
          # flatbuffers message Message, which can be used to store deserialized
          # messages in data structures. This is currently used for ObjectInfo for
          # example.
-  COMMAND ${FLATBUFFERS_COMPILER} -c -o ${OUTPUT_DIR} ${PLASMA_FBS_SRC}
+  COMMAND flatbuffers::flatc -c -o ${OUTPUT_DIR} ${PLASMA_FBS_SRC}
           --gen-object-api
           --scoped-enums
   DEPENDS ${PLASMA_FBS_SRC}
@@ -140,6 +137,21 @@ if(ARROW_RPATH_ORIGIN)
   endif()
   set_target_properties(plasma_store_server
                         PROPERTIES INSTALL_RPATH ${_lib_install_rpath})
+elseif(APPLE)
+  # With OSX and conda, we need to set the correct RPATH so that dependencies
+  # are found. The installed libraries with conda have an RPATH that matches
+  # for executables and libraries lying in $ENV{CONDA_PREFIX}/bin or
+  # $ENV{CONDA_PREFIX}/lib but our test libraries and executables are not
+  # installed there.
+  if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "" AND APPLE)
+    set_target_properties(plasma_store_server
+                          PROPERTIES BUILD_WITH_INSTALL_RPATH
+                                     TRUE
+                                     INSTALL_RPATH_USE_LINK_PATH
+                                     TRUE
+                                     INSTALL_RPATH
+                                     "$ENV{CONDA_PREFIX}/lib")
+  endif()
 endif()
 
 install(FILES common.h
@@ -189,17 +201,17 @@ if(ARROW_PLASMA_JAVA_CLIENT)
                           plasma_shared
                           ${PLASMA_LINK_LIBS}
                           "-undefined dynamic_lookup"
-                          -Wl,-force_load,${FLATBUFFERS_STATIC_LIB}
-                          ${FLATBUFFERS_STATIC_LIB}
+                          -Wl,-force_load,flatbuffers::flatbuffers
+                          flatbuffers::flatbuffers
                           ${PTHREAD_LIBRARY})
   else(APPLE)
     target_link_libraries(plasma_java
                           plasma_shared
                           ${PLASMA_LINK_LIBS}
                           -Wl,--whole-archive
-                          ${FLATBUFFERS_STATIC_LIB}
+                          flatbuffers::flatbuffers
                           -Wl,--no-whole-archive
-                          ${FLATBUFFERS_STATIC_LIB}
+                          flatbuffers::flatbuffers
                           ${PTHREAD_LIBRARY})
   endif(APPLE)
 endif()

@@ -25,7 +25,12 @@
 #include <string>
 #include <utility>
 
+#include "arrow/util/config.h"
+#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
+#else
+#include <grpc++/grpc++.h>
+#endif
 
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"

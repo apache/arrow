@@ -387,6 +387,18 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(NO_COLOR "")
   endif()
 
+  # With OSX and conda, we need to set the correct RPATH so that dependencies
+  # are found. The installed libraries with conda have an RPATH that matches
+  # for executables and libraries lying in $ENV{CONDA_PREFIX}/bin or
+  # $ENV{CONDA_PREFIX}/lib but our test libraries and executables are not
+  # installed there.
+  if (NOT "$ENV{CONDA_PREFIX}" STREQUAL "" AND APPLE)
+    set_target_properties(${BENCHMARK_NAME} PROPERTIES
+      BUILD_WITH_INSTALL_RPATH TRUE
+      INSTALL_RPATH_USE_LINK_PATH TRUE
+      INSTALL_RPATH "$ENV{CONDA_PREFIX}/lib;${EXECUTABLE_OUTPUT_PATH}")
+  endif()
+
   # Add test as dependency of relevant label targets
   add_dependencies(all-benchmarks ${BENCHMARK_NAME})
   foreach (TARGET ${ARG_LABELS})
@@ -464,6 +476,18 @@ function(ADD_TEST_CASE REL_TEST_NAME)
 
   set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
   add_executable(${TEST_NAME} ${SOURCES})
+
+  # With OSX and conda, we need to set the correct RPATH so that dependencies
+  # are found. The installed libraries with conda have an RPATH that matches
+  # for executables and libraries lying in $ENV{CONDA_PREFIX}/bin or
+  # $ENV{CONDA_PREFIX}/lib but our test libraries and executables are not
+  # installed there.
+  if (NOT "$ENV{CONDA_PREFIX}" STREQUAL "" AND APPLE)
+    set_target_properties(${TEST_NAME} PROPERTIES
+      BUILD_WITH_INSTALL_RPATH TRUE
+      INSTALL_RPATH_USE_LINK_PATH TRUE
+      INSTALL_RPATH "$ENV{CONDA_PREFIX}/lib;${EXECUTABLE_OUTPUT_PATH}")
+  endif()
 
   if (ARG_STATIC_LINK_LIBS)
     # Customize link libraries

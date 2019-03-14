@@ -15,38 +15,47 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# - Find ZSTD (zstd.h, libzstd.a, libzstd.so, and libzstd.so.0)
-# This module defines
-#  ZSTD_INCLUDE_DIR, directory containing headers
-#  ZSTD_STATIC_LIB, path to libzstd static library
-#  ZSTD_FOUND, whether zstd has been found
-
-if( NOT "${ZSTD_HOME}" STREQUAL "")
-    file( TO_CMAKE_PATH "${ZSTD_HOME}" _native_path )
-    list( APPEND _zstd_roots ${_native_path} )
-elseif ( ZStd_HOME )
-    list( APPEND _zstd_roots ${ZStd_HOME} )
-endif()
-
 if (MSVC AND NOT DEFINED ZSTD_MSVC_STATIC_LIB_SUFFIX)
   set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static")
 endif()
 
-set(ZSTD_STATIC_LIB_SUFFIX
-  "${ZSTD_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+set(ZSTD_STATIC_LIB_SUFFIX "${ZSTD_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+set(ZSTD_STATIC_LIB_NAME ${CMAKE_STATIC_LIBRARY_PREFIX}zstd${ZSTD_STATIC_LIB_SUFFIX})
 
-set(ZSTD_STATIC_LIB_NAME
-  ${CMAKE_STATIC_LIBRARY_PREFIX}zstd${ZSTD_STATIC_LIB_SUFFIX})
+pkg_check_modules(ZSTD_PC libzstd)
+if (ZSTD_PC_FOUND)
+  set(ZSTD_INCLUDE_DIR "${ZSTD_PC_INCLUDEDIR}")
 
-find_path(ZSTD_INCLUDE_DIR NAMES zstd.h
-  PATHS ${_zstd_roots}
-  NO_DEFAULT_PATH
-  PATH_SUFFIXES "include" )
-find_library(ZSTD_STATIC_LIB NAMES ${ZSTD_STATIC_LIB_NAME} lib${ZSTD_STATIC_LIB_NAME}
-  PATHS ${_zstd_roots}
-  NO_DEFAULT_PATH
-  PATH_SUFFIXES "lib" )
+  list(APPEND ZSTD_PC_LIBRARY_DIRS "${ZSTD_PC_LIBDIR}")
+  find_library(ZSTD_LIB zstd
+    PATHS ${ZSTD_PC_LIBRARY_DIRS}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES "${CMAKE_LIBRARY_ARCHITECTURE}")
+elseif(ZSTD_ROOT)
+  message(STATUS "Using ZSTD_ROOT: ${ZSTD_ROOT}")
+  find_library(ZSTD_LIB
+    NAMES zstd "${ZSTD_STATIC_LIB_NAME}" "lib${ZSTD_STATIC_LIB_NAME}" "${CMAKE_SHARED_LIBRARY_PREFIX}zstd${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    PATHS ${ZSTD_ROOT} "${ZSTD_ROOT}/Library"
+    PATH_SUFFIXES "lib64" "lib" "bin"
+    NO_DEFAULT_PATH)
+  find_path(ZSTD_INCLUDE_DIR NAMES zstd.h
+    PATHS ${ZSTD_ROOT} "${ZSTD_ROOT}/Library" NO_DEFAULT_PATH
+    PATH_SUFFIXES "include")
+else()
+  find_library(ZSTD_LIB
+    NAMES zstd "${ZSTD_STATIC_LIB_NAME}" "lib${ZSTD_STATIC_LIB_NAME}" "${CMAKE_SHARED_LIBRARY_PREFIX}zstd${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    PATH_SUFFIXES "lib64" "lib" "bin")
+  find_path(ZSTD_INCLUDE_DIR NAMES zstd.h
+    PATH_SUFFIXES "include")
+endif()
 
-include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(ZSTD REQUIRED_VARS
-  ZSTD_STATIC_LIB ZSTD_INCLUDE_DIR)
+find_package_handle_standard_args(ZSTD
+  REQUIRED_VARS ZSTD_LIB ZSTD_INCLUDE_DIR)
+
+if (ZSTD_FOUND)
+  add_library(ZSTD::zstd UNKNOWN IMPORTED)
+  set_target_properties(ZSTD::zstd PROPERTIES
+          IMPORTED_LOCATION "${ZSTD_LIB}"
+          INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_INCLUDE_DIR}"
+  )
+endif()

@@ -260,8 +260,8 @@ void CheckArrays(const Array& expected, const Array& result) {
     std::stringstream pp_result;
     std::stringstream pp_expected;
 
-    EXPECT_OK(PrettyPrint(result, 0, &pp_result));
-    EXPECT_OK(PrettyPrint(expected, 0, &pp_expected));
+    ARROW_EXPECT_OK(PrettyPrint(result, 0, &pp_result));
+    ARROW_EXPECT_OK(PrettyPrint(expected, 0, &pp_expected));
     FAIL() << "Got: " << pp_result.str() << "\nExpected: " << pp_expected.str();
   }
 }
@@ -271,8 +271,8 @@ void CheckBatches(const RecordBatch& expected, const RecordBatch& result) {
     std::stringstream pp_result;
     std::stringstream pp_expected;
 
-    EXPECT_OK(PrettyPrint(result, 0, &pp_result));
-    EXPECT_OK(PrettyPrint(expected, 0, &pp_expected));
+    ARROW_EXPECT_OK(PrettyPrint(result, 0, &pp_result));
+    ARROW_EXPECT_OK(PrettyPrint(expected, 0, &pp_expected));
     FAIL() << "Got: " << pp_result.str() << "\nExpected: " << pp_expected.str();
   }
 }
