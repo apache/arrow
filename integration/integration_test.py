@@ -896,7 +896,7 @@ def generate_dictionary_case():
                           dictionaries=[dict1, dict2])
 
 
-def get_generated_json_files(tempdir=None):
+def get_generated_json_files(tempdir=None, flight=False):
     tempdir = tempdir or tempfile.mkdtemp()
 
     def _temp_path():
@@ -910,6 +910,9 @@ def get_generated_json_files(tempdir=None):
         generate_nested_case(),
         generate_dictionary_case()
     ]
+
+    if flight:
+        file_objs.append(generate_primitive_case([32 * 1024], name='large_batch'))
 
     generated_paths = []
     for file_obj in file_objs:
@@ -1297,7 +1300,8 @@ def run_all_tests(run_flight=False, debug=False, tempdir=None):
                JavaTester(debug=debug),
                JSTester(debug=debug)]
     static_json_files = get_static_json_files()
-    generated_json_files = get_generated_json_files(tempdir=tempdir)
+    generated_json_files = get_generated_json_files(tempdir=tempdir,
+                                                    flight=run_flight)
     json_files = static_json_files + generated_json_files
 
     runner = IntegrationRunner(json_files, testers,
