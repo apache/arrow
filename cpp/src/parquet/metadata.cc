@@ -162,10 +162,38 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
  public:
   explicit ColumnChunkMetaDataImpl(const format::ColumnChunk* column,
                                    const ColumnDescriptor* descr,
-                                   const ApplicationVersion* writer_version)
+                                   const ApplicationVersion* writer_version,
+                                   FileDecryptionProperties* file_decryption = NULLPTR)
       : column_(column), descr_(descr), writer_version_(writer_version) {
-    const format::ColumnMetaData& meta_data = column->meta_data;
-    for (auto encoding : meta_data.encodings) {
+
+    metadata_ = column->meta_data;
+
+    if (column->__isset.crypto_metadata) {
+      format::ColumnCryptoMetaData ccmd = column->crypto_metadata;
+
+      if (ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
+        if (file_decryption == NULLPTR) {
+          throw ParquetException("Cannot decrypt ColumnMetadata. FileDecryptionProperties must be provided.");
+        }
+        // should decrypt metadata
+        std::shared_ptr<schema::ColumnPath> path = std::make_shared<schema::ColumnPath>(
+          ccmd.ENCRYPTION_WITH_COLUMN_KEY.path_in_schema);
+        std::string key_metadata = ccmd.ENCRYPTION_WITH_COLUMN_KEY.key_metadata;
+        const std::string& key = file_decryption->GetColumnKey(path, key_metadata);
+        if (key.empty()) {
+          throw ParquetException("Cannot decrypt ColumnMetadata. Column encryption key must be provided.");
+        }
+
+        // TODO: get algorithm from FileCryptoMetadata???
+        auto encryption = std::make_shared<EncryptionProperties>(Encryption::AES_GCM_V1, key);
+
+        uint32_t len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
+        DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(column->encrypted_column_metadata.c_str()),
+            &len, &metadata_, encryption, false);
+      }
+    }
+
+    for (auto encoding : metadata_.encodings) {
       encodings_.push_back(FromThrift(encoding));
     }
     possible_stats_ = nullptr;
@@ -176,12 +204,12 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   inline const std::string& file_path() const { return column_->file_path; }
 
   // column metadata
-  inline Type::type type() const { return FromThrift(column_->meta_data.type); }
+  inline Type::type type() const { return FromThrift(metadata_.type); }
 
-  inline int64_t num_values() const { return column_->meta_data.num_values; }
+  inline int64_t num_values() const { return metadata_.num_values; }
 
   std::shared_ptr<schema::ColumnPath> path_in_schema() {
-    return std::make_shared<schema::ColumnPath>(column_->meta_data.path_in_schema);
+    return std::make_shared<schema::ColumnPath>(metadata_.path_in_schema);
   }
 
   // Check if statistics are set and are valid
@@ -191,12 +219,12 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     DCHECK(writer_version_ != nullptr);
     // If the column statistics don't exist or column sort order is unknown
     // we cannot use the column stats
-    if (!column_->meta_data.__isset.statistics ||
+    if (!metadata_.__isset.statistics ||
         descr_->sort_order() == SortOrder::UNKNOWN) {
       return false;
     }
     if (possible_stats_ == nullptr) {
-      possible_stats_ = MakeColumnStats(column_->meta_data, descr_);
+      possible_stats_ = MakeColumnStats(metadata_, descr_);
     }
     EncodedStatistics encodedStatistics = possible_stats_->Encode();
     return writer_version_->HasCorrectStatistics(type(), encodedStatistics,
@@ -208,35 +236,35 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   inline Compression::type compression() const {
-    return FromThrift(column_->meta_data.codec);
+    return FromThrift(metadata_.codec);
   }
 
   const std::vector<Encoding::type>& encodings() const { return encodings_; }
 
   inline bool has_dictionary_page() const {
-    return column_->meta_data.__isset.dictionary_page_offset;
+    return metadata_.__isset.dictionary_page_offset;
   }
 
   inline int64_t dictionary_page_offset() const {
-    return column_->meta_data.dictionary_page_offset;
+    return metadata_.dictionary_page_offset;
   }
 
-  inline int64_t data_page_offset() const { return column_->meta_data.data_page_offset; }
+  inline int64_t data_page_offset() const { return metadata_.data_page_offset; }
 
   inline bool has_index_page() const {
-    return column_->meta_data.__isset.index_page_offset;
+    return metadata_.__isset.index_page_offset;
   }
 
   inline int64_t index_page_offset() const {
-    return column_->meta_data.index_page_offset;
+    return metadata_.index_page_offset;
   }
 
   inline int64_t total_compressed_size() const {
-    return column_->meta_data.total_compressed_size;
+    return metadata_.total_compressed_size;
   }
 
   inline int64_t total_uncompressed_size() const {
-    return column_->meta_data.total_uncompressed_size;
+    return metadata_.total_uncompressed_size;
   }
 
   inline std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const {
@@ -252,23 +280,26 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   mutable std::shared_ptr<Statistics> possible_stats_;
   std::vector<Encoding::type> encodings_;
   const format::ColumnChunk* column_;
+  format::ColumnMetaData metadata_;
   const ColumnDescriptor* descr_;
   const ApplicationVersion* writer_version_;
 };
 
 std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
     const void* metadata, const ColumnDescriptor* descr,
-    const ApplicationVersion* writer_version) {
+    const ApplicationVersion* writer_version,
+    FileDecryptionProperties* file_decryption) {
   return std::unique_ptr<ColumnChunkMetaData>(
-      new ColumnChunkMetaData(metadata, descr, writer_version));
+      new ColumnChunkMetaData(metadata, descr, writer_version, file_decryption));
 }
 
 ColumnChunkMetaData::ColumnChunkMetaData(const void* metadata,
                                          const ColumnDescriptor* descr,
-                                         const ApplicationVersion* writer_version)
+                                         const ApplicationVersion* writer_version,
+                                         FileDecryptionProperties* file_decryption)
     : impl_{std::unique_ptr<ColumnChunkMetaDataImpl>(new ColumnChunkMetaDataImpl(
           reinterpret_cast<const format::ColumnChunk*>(metadata), descr,
-          writer_version))} {}
+          writer_version, file_decryption))} {}
 ColumnChunkMetaData::~ColumnChunkMetaData() {}
 
 // column chunk
@@ -345,7 +376,7 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
 
   inline const SchemaDescriptor* schema() const { return schema_; }
 
-  std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) {
+  std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i, FileDecryptionProperties* file_decryption = NULLPTR) {
     if (!(i < num_columns())) {
       std::stringstream ss;
       ss << "The file only has " << num_columns()
@@ -353,7 +384,7 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
       throw ParquetException(ss.str());
     }
     return ColumnChunkMetaData::Make(&row_group_->columns[i], schema_->Column(i),
-                                     writer_version_);
+                                     writer_version_, file_decryption);
   }
 
  private:
@@ -384,8 +415,8 @@ int64_t RowGroupMetaData::total_byte_size() const { return impl_->total_byte_siz
 
 const SchemaDescriptor* RowGroupMetaData::schema() const { return impl_->schema(); }
 
-std::unique_ptr<ColumnChunkMetaData> RowGroupMetaData::ColumnChunk(int i) const {
-  return impl_->ColumnChunk(i);
+std::unique_ptr<ColumnChunkMetaData> RowGroupMetaData::ColumnChunk(int i, FileDecryptionProperties* file_decryption) const {
+  return impl_->ColumnChunk(i, file_decryption);
 }
 
 // file metadata
@@ -901,12 +932,22 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         column_chunk_->__isset.meta_data = false;
 
         // Thrift-serialize the ColumnMetaData structure,
-        // encrypt it with the column key, and write the result to the output stream
-        // (first length, then buffer)
+        // encrypt it with the column key, and write to encrypted_column_metadata
         auto encrypt_props = properties_->encryption(column_->path());
         uint64_t metadata_start = sink->Tell();
 
-        serializer.Serialize(&column_metadata_, sink, encrypt_props);
+        uint8_t* serialized_data;
+        uint32_t serialized_len;
+        serializer.SerializeToBuffer(&column_metadata_, &serialized_len, &serialized_data);
+
+        // encrypt the footer key
+        std::vector<uint8_t> encrypted_data(encrypt_props->CalculateCipherSize(serialized_len));
+        unsigned encrypted_len = parquet_encryption::Encrypt(
+            encrypt_props, true, serialized_data, serialized_len, encrypted_data.data());
+        // TODO
+        const char* temp = const_cast<const char*>(reinterpret_cast<char*>(encrypted_data.data()));
+        std::string encrypted_column_metadata(temp, encrypted_len);
+        column_chunk_->__set_encrypted_column_metadata(encrypted_column_metadata);
 
         // Set the ColumnMetaData offset at the “file_offset” field in the ColumnChunk.
         column_chunk_->__set_file_offset(metadata_start);
@@ -924,6 +965,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
  private:
   void Init(format::ColumnChunk* column_chunk) {
     column_chunk_ = column_chunk;
+
     column_metadata_ = column_chunk_->meta_data;
     column_metadata_.__set_type(ToThrift(column_->physical_type()));
     column_metadata_.__set_path_in_schema(column_->path()->ToDotVector());

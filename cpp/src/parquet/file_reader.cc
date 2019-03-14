@@ -99,7 +99,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   std::unique_ptr<PageReader> GetColumnPageReader(int i) override {
     // Read column chunk from the file
-    auto col = row_group_metadata_->ColumnChunk(i);
+    auto col = row_group_metadata_->ColumnChunk(i, properties_.file_decryption());
 
     int64_t col_start = col->data_page_offset();
     if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
