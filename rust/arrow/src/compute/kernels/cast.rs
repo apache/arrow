@@ -37,6 +37,8 @@
 use std::sync::Arc;
 
 use crate::array::*;
+use crate::array_data::ArrayData;
+use crate::buffer::Buffer;
 use crate::builder::*;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
@@ -48,10 +50,12 @@ use crate::error::{ArrowError, Result};
 /// * Utf8 to numeric: strings that can't be parsed to numbers return null, float strings
 ///   in integer casts return null
 /// * Numeric to boolean: 0 returns `false`, any other value returns `true`
+/// * List to List: the underlying data type is cast
+/// * Primitive to List: a list array with 1 value per slot is created
 ///
 /// Unsupported Casts
 /// * To or from `StructArray`
-/// * To or from `ListArray`
+/// * List to primitive
 /// * Utf8 to boolean
 pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
     use DataType::*;
@@ -68,15 +72,53 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (_, Struct(_)) => Err(ArrowError::ComputeError(
             "Cannot cast to struct from other types".to_string(),
         )),
-        (List(_), List(_)) => Err(ArrowError::ComputeError(
-            "Casting between lists not yet supported".to_string(),
-        )),
+        (List(_), List(ref to)) => {
+            let data = array.data_ref();
+            let underlying_array = make_array(data.child_data()[0].clone());
+            let cast_array = cast(&underlying_array, &*to)?;
+            let array_data = ArrayData::new(
+                *to.clone(),
+                array.len(),
+                Some(cast_array.null_count()),
+                cast_array
+                    .data()
+                    .null_bitmap()
+                    .clone()
+                    .map(|bitmap| bitmap.bits),
+                array.offset(),
+                // reuse offset buffer
+                data.buffers().to_vec(),
+                vec![cast_array.data()],
+            );
+            let list = ListArray::from(Arc::new(array_data));
+            Ok(Arc::new(list) as ArrayRef)
+        }
         (List(_), _) => Err(ArrowError::ComputeError(
             "Cannot cast list to non-list data types".to_string(),
         )),
-        (_, List(_)) => Err(ArrowError::ComputeError(
-            "Cannot cast primitive types to lists".to_string(),
-        )),
+        (_, List(ref to)) => {
+            // converts item to
+            let cast_array = cast(array, &*to)?;
+            // create offsets, where if array.len() = 2, we have [0,1,2]
+            let offsets: Vec<i32> = (0..array.len() as i32 + 1).collect();
+            let value_offsets = Buffer::from(offsets[..].to_byte_slice());
+            let list_data = ArrayData::new(
+                *to.clone(),
+                array.len(),
+                Some(cast_array.null_count()),
+                cast_array
+                    .data()
+                    .null_bitmap()
+                    .clone()
+                    .map(|bitmap| bitmap.bits),
+                array.offset(),
+                vec![value_offsets],
+                vec![cast_array.data()],
+            );
+            let list_array = Arc::new(ListArray::from(Arc::new(list_data))) as ArrayRef;
+
+            Ok(list_array)
+        }
         (_, Boolean) => match from_type {
             UInt8 => cast_numeric_to_bool::<UInt8Type>(array),
             UInt16 => cast_numeric_to_bool::<UInt16Type>(array),
@@ -458,6 +500,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::buffer::Buffer;
 
     #[test]
     fn test_cast_i32_to_f64() {
@@ -494,6 +537,40 @@ mod tests {
         let c = b.as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(5, c.value(0));
         assert_eq!(6, c.value(1));
+        assert_eq!(7, c.value(2));
+        assert_eq!(8, c.value(3));
+        assert_eq!(9, c.value(4));
+    }
+
+    #[test]
+    fn test_cast_i32_to_list_i32() {
+        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::List(Box::new(DataType::Int32))).unwrap();
+        assert_eq!(5, b.len());
+        let arr = b.as_any().downcast_ref::<ListArray>().unwrap();
+        let values = arr.values();
+        let c = values.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(5, c.value(0));
+        assert_eq!(6, c.value(1));
+        assert_eq!(7, c.value(2));
+        assert_eq!(8, c.value(3));
+        assert_eq!(9, c.value(4));
+    }
+
+    #[test]
+    fn test_cast_i32_to_list_i32_nullable() {
+        let a = Int32Array::from(vec![Some(5), None, Some(7), Some(8), Some(9)]);
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::List(Box::new(DataType::Int32))).unwrap();
+        assert_eq!(5, b.len());
+        assert_eq!(1, b.null_count());
+        let arr = b.as_any().downcast_ref::<ListArray>().unwrap();
+        let values = arr.values();
+        let c = values.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(1, c.null_count());
+        assert_eq!(5, c.value(0));
+        assert_eq!(false, c.is_valid(1));
         assert_eq!(7, c.value(2));
         assert_eq!(8, c.value(3));
         assert_eq!(9, c.value(4));
@@ -542,5 +619,68 @@ mod tests {
         let a = Int32Array::from(vec![Some(2), Some(10), None]);
         let array = Arc::new(a) as ArrayRef;
         cast(&array, &DataType::Timestamp(TimeUnit::Microsecond)).unwrap();
+    }
+
+    #[test]
+    fn test_cast_list_i32_to_list_u16() {
+        // Construct a value array
+        let value_data =
+            Int32Array::from(vec![0, 0, 0, -1, -2, -1, 2, 8, 100000000]).data();
+
+        let value_offsets = Buffer::from(&[0, 3, 6, 9].to_byte_slice());
+
+        // Construct a list array from the above two
+        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(3)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .build();
+        let list_array = Arc::new(ListArray::from(list_data)) as ArrayRef;
+
+        let cast_array =
+            cast(&list_array, &DataType::List(Box::new(DataType::UInt16))).unwrap();
+        // 3 negative values should get lost when casting to unsigned,
+        // 1 value should overflow
+        assert_eq!(4, cast_array.null_count());
+        // offsets should be the same
+        assert_eq!(
+            list_array.data().buffers().to_vec(),
+            cast_array.data().buffers().to_vec()
+        );
+        let array = cast_array
+            .as_ref()
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        assert_eq!(DataType::UInt16, array.value_type());
+        assert_eq!(4, array.values().null_count());
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Casting from Int32 to Timestamp(Microsecond) not supported"
+    )]
+    fn test_cast_list_i32_to_list_timestamp() {
+        // Construct a value array
+        let value_data =
+            Int32Array::from(vec![0, 0, 0, -1, -2, -1, 2, 8, 100000000]).data();
+
+        let value_offsets = Buffer::from(&[0, 3, 6, 9].to_byte_slice());
+
+        // Construct a list array from the above two
+        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(3)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .build();
+        let list_array = Arc::new(ListArray::from(list_data)) as ArrayRef;
+
+        cast(
+            &list_array,
+            &DataType::List(Box::new(DataType::Timestamp(TimeUnit::Microsecond))),
+        )
+        .unwrap();
     }
 }
