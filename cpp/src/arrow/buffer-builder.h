@@ -29,6 +29,7 @@
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -43,7 +44,9 @@ namespace arrow {
 class ARROW_EXPORT BufferBuilder {
  public:
   explicit BufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
-      : pool_(pool), capacity_(0), size_(0) {}
+      : pool_(pool), capacity_(0), size_(0) {
+    ARROW_IGNORE_EXPR(AllocateResizableBuffer(pool_, 0, &buffer_));
+  }
 
   /// \brief Resize the buffer to the nearest multiple of 64 bytes
   ///
@@ -58,11 +61,7 @@ class ARROW_EXPORT BufferBuilder {
       return Status::OK();
     }
     int64_t old_capacity = capacity_;
-    if (buffer_ == NULLPTR) {
-      ARROW_RETURN_NOT_OK(AllocateResizableBuffer(pool_, new_capacity, &buffer_));
-    } else {
-      ARROW_RETURN_NOT_OK(buffer_->Resize(new_capacity, shrink_to_fit));
-    }
+    ARROW_RETURN_NOT_OK(buffer_->Resize(new_capacity, shrink_to_fit));
     capacity_ = buffer_->capacity();
     if (capacity_ > old_capacity) {
       memset(mutable_data() + old_capacity, 0, capacity_ - old_capacity);
@@ -163,6 +162,7 @@ class ARROW_EXPORT BufferBuilder {
 
   void Reset() {
     buffer_ = NULLPTR;
+    ARROW_IGNORE_EXPR(AllocateResizableBuffer(pool_, 0, &buffer_));
     capacity_ = size_ = 0;
   }
 

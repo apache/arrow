@@ -227,6 +227,9 @@ TEST(TestAllocateResizableBuffer, ZeroSize) {
     return Status::OK();
   };
   TestZeroSizeAllocateBuffer(pool, allocate_func);
+  std::shared_ptr<ResizableBuffer> buffer;
+  ASSERT_OK(AllocateResizableBuffer(pool, 0, &buffer));
+  ASSERT_OK(buffer->Resize(64));
 }
 
 TEST(TestAllocateResizableBuffer, ZeroResize) {
