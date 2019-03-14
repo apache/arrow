@@ -48,6 +48,9 @@ public class PooledByteBufAllocatorL {
     empty = new UnsafeDirectLittleEndian(new DuplicatedByteBuf(Unpooled.EMPTY_BUFFER));
   }
 
+  /**
+   * Returns a {@linkplain io.netty.buffer.UnsafeDirectLittleEndian} of the given size.
+   */
   public UnsafeDirectLittleEndian allocate(int size) {
     try {
       return allocator.directBuffer(size, Integer.MAX_VALUE);

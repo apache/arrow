@@ -165,9 +165,9 @@ TEST_F(TestStructBuilder, TestBasics) {
   Int32Builder* int_vb = checked_cast<Int32Builder*>(builder_->field_builder(1));
   ASSERT_EQ(2, static_cast<int>(builder_->num_fields()));
 
-  EXPECT_OK(builder_->Resize(list_lengths.size()));
-  EXPECT_OK(char_vb->Resize(list_values.size()));
-  EXPECT_OK(int_vb->Resize(int_values.size()));
+  ARROW_EXPECT_OK(builder_->Resize(list_lengths.size()));
+  ARROW_EXPECT_OK(char_vb->Resize(list_values.size()));
+  ARROW_EXPECT_OK(int_vb->Resize(int_values.size()));
 
   int pos = 0;
   for (size_t i = 0; i < list_lengths.size(); ++i) {

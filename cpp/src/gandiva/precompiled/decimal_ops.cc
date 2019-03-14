@@ -23,7 +23,13 @@
 
 #include "gandiva/decimal_type_util.h"
 #include "gandiva/decimal_xlarge.h"
+#include "gandiva/gdv_function_stubs.h"
 #include "gandiva/logging.h"
+
+// Several operations (multiply, divide, mod, ..) require converting to 256-bit, and we
+// use the boost library for doing 256-bit operations. To avoid references to boost from
+// the precompiled-to-ir code (this causes issues with symbol resolution at runtime), we
+// use a wrapper exported from the CPP code. The wrapper functions are named gdv_xlarge_xx
 
 namespace gandiva {
 namespace decimalops {
@@ -336,6 +342,84 @@ BasicDecimal128 Multiply(const BasicDecimalScalar128& x, const BasicDecimalScala
     result = MultiplyMaxPrecision(x, y, out_scale, overflow);
   }
   DCHECK(*overflow || BasicDecimal128::Abs(result) <= BasicDecimal128::GetMaxValue());
+  return result;
+}
+
+BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
+                       const BasicDecimalScalar128& y, int32_t out_precision,
+                       int32_t out_scale, bool* overflow) {
+  if (y.value() == 0) {
+    char const* err_msg = "divide by zero error";
+    gdv_fn_context_set_error_msg(context, err_msg);
+    return 0;
+  }
+
+  // scale upto the output scale, and do an integer division.
+  int32_t delta_scale = out_scale + y.scale() - x.scale();
+  DCHECK_GE(delta_scale, 0);
+
+  BasicDecimal128 result;
+  auto num_bits_required_after_scaling = MaxBitsRequiredAfterScaling(x, delta_scale);
+  if (num_bits_required_after_scaling <= 127) {
+    // fast-path. The dividend fits in 128-bit after scaling too.
+    *overflow = false;
+
+    // do the division.
+    auto x_scaled = CheckAndIncreaseScale(x.value(), delta_scale);
+    BasicDecimal128 remainder;
+    auto status = x_scaled.Divide(y.value(), &result, &remainder);
+    DCHECK_EQ(status, arrow::DecimalStatus::kSuccess);
+
+    // round-up
+    if (BasicDecimal128::Abs(2 * remainder) >= BasicDecimal128::Abs(y.value())) {
+      result += (x.value().Sign() ^ y.value().Sign()) + 1;
+    }
+  } else {
+    // convert to 256-bit and do the divide.
+    *overflow = delta_scale > 38 && num_bits_required_after_scaling > 255;
+    if (!*overflow) {
+      int64_t result_high;
+      uint64_t result_low;
+
+      gdv_xlarge_scale_up_and_divide(x.value().high_bits(), x.value().low_bits(),
+                                     y.value().high_bits(), y.value().low_bits(),
+                                     delta_scale, &result_high, &result_low, overflow);
+      result = BasicDecimal128(result_high, result_low);
+    }
+  }
+  return result;
+}
+
+BasicDecimal128 Mod(int64_t context, const BasicDecimalScalar128& x,
+                    const BasicDecimalScalar128& y, int32_t out_precision,
+                    int32_t out_scale, bool* overflow) {
+  if (y.value() == 0) {
+    char const* err_msg = "divide by zero error";
+    gdv_fn_context_set_error_msg(context, err_msg);
+    return 0;
+  }
+
+  // Adsjust x and y to the same scale (higher one), and then, do a integer mod.
+  *overflow = false;
+  BasicDecimal128 result;
+  int32_t min_lz = MinLeadingZeros(x, y);
+  if (min_lz >= 2) {
+    auto higher_scale = std::max(x.scale(), y.scale());
+    auto x_scaled = CheckAndIncreaseScale(x.value(), higher_scale - x.scale());
+    auto y_scaled = CheckAndIncreaseScale(y.value(), higher_scale - y.scale());
+    result = x_scaled % y_scaled;
+    DCHECK_LE(BasicDecimal128::Abs(result), BasicDecimal128::GetMaxValue());
+  } else {
+    int64_t result_high;
+    uint64_t result_low;
+
+    gdv_xlarge_mod(x.value().high_bits(), x.value().low_bits(), x.scale(),
+                   y.value().high_bits(), y.value().low_bits(), y.scale(), &result_high,
+                   &result_low);
+    result = BasicDecimal128(result_high, result_low);
+  }
+  DCHECK(BasicDecimal128::Abs(result) <= BasicDecimal128::Abs(x.value()) ||
+         BasicDecimal128::Abs(result) <= BasicDecimal128::Abs(y.value()));
   return result;
 }
 

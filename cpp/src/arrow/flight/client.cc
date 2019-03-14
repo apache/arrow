@@ -23,7 +23,12 @@
 #include <string>
 #include <utility>
 
+#include "arrow/util/config.h"
+#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
+#else
+#include <grpc++/grpc++.h>
+#endif
 
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/metadata-internal.h"
@@ -198,6 +203,8 @@ class FlightClient::FlightClientImpl {
     grpc::ChannelArguments args;
     // Try to reconnect quickly at first, in case the server is still starting up
     args.SetInt(GRPC_ARG_INITIAL_RECONNECT_BACKOFF_MS, 100);
+    // Receive messages of any size
+    args.SetMaxReceiveMessageSize(-1);
     stub_ = pb::FlightService::NewStub(
         grpc::CreateCustomChannel(ss.str(), grpc::InsecureChannelCredentials(), args));
     return Status::OK();

@@ -16,70 +16,48 @@
 # under the License.
 
 # build docker compose images:
+# $ make -f Makefile.docker build-cpp
+# To run the test suite
 # $ make -f Makefile.docker cpp
-# run the built image:
-# $ make -f Makefile.docker run cpp
 
-.PHONY: clean run cpp cpp-alpine go js java rust r
+LANGUAGES = cpp cpp-alpine cpp-cmake32 c_glib go java js python python-alpine rust r
+MISC = lint iwyu clang-format docs pandas-master
+SERVERS = dask hdfs-integration spark-integration
+
+# declare images dependencies
+DEPENDS_ON_CPP = build-c_glib build-python build-r
+DEPENDS_ON_CPP_ALPINE = build-python-alpine
+DEPENDS_ON_PYTHON = build-lint build-docs build-dask build-hdfs-integration build-spark-integration
+DEPENDS_ON_LINT = build-iwyu build-clang-format
+
+SERVICES = $(LANGUAGES) $(MISC) $(SERVERS)
+.PHONY: clean build-% run-% $(SERVICES)
 
 DC := docker-compose
 
 clean:
 	$(DC) down -v
 
-run:
-	$(DC) run --rm $(filter-out $@,$(MAKECMDGOALS))
+# Default build target if no dependencies
+build-%:
+	$(DC) build $*
 
-go:
-	$(DC) build go
+# The following targets create the dependencies of the form `build-X: build-Y`
+$(DEPENDS_ON_CPP): build-%: build-cpp
+	$(DC) build $*
+$(DEPENDS_ON_CPP_ALPINE): build-%: build-cpp-alpine
+	$(DC) build $*
+$(DEPENDS_ON_PYTHON): build-%: build-python
+	$(DC) build $*
+# The dependents of lint image don't build anything
+$(DEPENDS_ON_LINT): build-%: build-lint
 
-js:
-	$(DC) build js
-
-java:
-	$(DC) build java
-
-rust:
-	$(DC) build rust
-
-cpp:
-	$(DC) build cpp
-
-cpp-alpine:
-	$(DC) build cpp-alpine
-
-cpp-cmake32:
-	$(DC) build cpp-cmake32
-
-c_glib: cpp
-	$(DC) build c_glib
-
-r: cpp
-	$(DC) build r
-
-python: cpp
-	$(DC) build python
-
-python-alpine: cpp-alpine
-	$(DC) build python-alpine
-
-lint: python
-	$(DC) build lint
-
-iwyu: lint
-
-clang-format: lint
-
-docs: python
-
-dask: python
-	$(DC) build dask
-
-hdfs: python
-	$(DC) build hdfs-integration
-
-spark: python
-	$(DC) build spark-integration
-
-pandas-master: python
+# panda master is a special case due to --no-cache
+build-pandas-master: build-python
 	$(DC) build --no-cache pandas-master
+
+run-%: build-%
+	$(DC) run --rm $*
+
+# Trick to get `service` expand to `run-service`
+$(SERVICES): % : run-%

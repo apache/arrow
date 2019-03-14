@@ -81,12 +81,12 @@ plasma_glib = declare_dependency(link_with: libplasma_glib,
                                  include_directories: base_include_directories,
                                  dependencies: dependencies)
 
-pkgconfig.generate(filebase: project_name,
+pkgconfig.generate(libplasma_glib,
+                   filebase: project_name,
                    name: 'Apache Arrow Plasma GLib',
                    description: 'C API for Apache Arrow Plasma based on GLib',
                    version: version,
-                   requires: pkg_config_requires,
-                   libraries: [libplasma_glib])
+                   requires: pkg_config_requires)
 
 gnome.generate_gir(libplasma_glib,
                    dependencies: gir_dependencies,

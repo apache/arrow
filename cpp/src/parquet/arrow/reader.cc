@@ -305,7 +305,8 @@ class PARQUET_NO_EXPORT PrimitiveImpl : public ColumnReader::ColumnReaderImpl {
   PrimitiveImpl(MemoryPool* pool, std::unique_ptr<FileColumnIterator> input)
       : pool_(pool), input_(std::move(input)), descr_(input_->descr()) {
     record_reader_ = RecordReader::Make(descr_, pool_);
-    DCHECK(NodeToField(*input_->descr()->schema_node(), &field_).ok());
+    Status s = NodeToField(*input_->descr()->schema_node(), &field_);
+    DCHECK_OK(s);
     NextRowGroup();
   }
 
@@ -664,7 +665,7 @@ Status FileReader::Impl::ReadRowGroup(int i, std::shared_ptr<Table>* table) {
 }
 
 // Static ctor
-Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
+Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                 MemoryPool* allocator, const ReaderProperties& props,
                 const std::shared_ptr<FileMetaData>& metadata,
                 std::unique_ptr<FileReader>* reader) {
@@ -676,7 +677,7 @@ Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
   return Status::OK();
 }
 
-Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
+Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                 MemoryPool* allocator, std::unique_ptr<FileReader>* reader) {
   return OpenFile(file, allocator, ::parquet::default_reader_properties(), nullptr,
                   reader);

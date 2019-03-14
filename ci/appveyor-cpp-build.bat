@@ -30,7 +30,7 @@ if "%JOB%" == "Static_Crt_Build" (
   pushd cpp\build-debug
 
   cmake -G "%GENERATOR%" ^
-        -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
+        -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
         -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_SHARED=OFF ^
@@ -108,7 +108,7 @@ if "%JOB%" == "Toolchain" (
   set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.yml
 )
 
-conda create -n arrow -q -y %CONDA_PACKAGES% -c conda-forge
+conda create -n arrow -q -y %CONDA_PACKAGES% -c conda-forge || exit /B
 
 call activate arrow
 

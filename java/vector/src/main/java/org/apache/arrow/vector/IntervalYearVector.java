@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import java.time.Period;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.IntervalYearReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -25,7 +27,6 @@ import org.apache.arrow.vector.holders.NullableIntervalYearHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.joda.time.Period;
 
 /**
  * IntervalYearVector implements a fixed width (4 bytes) vector of
@@ -129,10 +130,8 @@ public class IntervalYearVector extends BaseFixedWidthVector {
       return null;
     } else {
       final int interval = valueBuffer.getInt(index * TYPE_WIDTH);
-      final int years = (interval / org.apache.arrow.vector.util.DateUtility.yearsToMonths);
-      final int months = (interval % org.apache.arrow.vector.util.DateUtility.yearsToMonths);
-      final Period p = new Period();
-      return p.plusYears(years).plusMonths(months);
+      // TODO: verify interval is in months
+      return Period.ofMonths(interval);
     }
   }
 

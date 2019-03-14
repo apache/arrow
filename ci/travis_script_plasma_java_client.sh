@@ -21,6 +21,10 @@ set -e
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
+source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
+
+conda activate $CPP_TOOLCHAIN
+
 PLASMA_JAVA_DIR=${TRAVIS_BUILD_DIR}/java/plasma
 
 pushd $PLASMA_JAVA_DIR

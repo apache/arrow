@@ -90,9 +90,6 @@ You can use Docker to build the documentation:
 
 .. code-block:: shell
 
-  docker-compose build cpp
-  docker-compose build python
-  docker-compose build docs
-  docker-compose run docs
+  make -f Makefile.docker docs
 
 The final output is located under ``docs/_build/html``.

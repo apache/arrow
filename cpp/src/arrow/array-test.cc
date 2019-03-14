@@ -494,6 +494,22 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
   ASSERT_EQ(0, builder->null_count());
 }
 
+TEST(NumericBuilderAccessors, TestSettersGetters) {
+  int64_t datum = 42;
+  int64_t new_datum = 43;
+  NumericBuilder<Int64Type> builder(int64(), default_memory_pool());
+
+  builder.Reset();
+  ASSERT_OK(builder.Append(datum));
+  ASSERT_EQ(builder.GetValue(0), datum);
+
+  // Now update the value.
+  builder[0] = new_datum;
+
+  ASSERT_EQ(builder.GetValue(0), new_datum);
+  ASSERT_EQ(((const NumericBuilder<Int64Type>&)builder)[0], new_datum);
+}
+
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
                          PInt32, PInt64, PFloat, PDouble>
     Primitives;

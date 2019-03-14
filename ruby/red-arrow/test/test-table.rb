@@ -596,5 +596,19 @@ visible: false
         end
       end
     end
+
+    sub_test_case("#==") do
+      test("Arrow::Table") do
+        assert do
+          @table == @table
+        end
+      end
+
+      test("not Arrow::Table") do
+        assert do
+          not (@table == 29)
+        end
+      end
+    end
   end
 end

@@ -17,28 +17,26 @@
 
 //! Data source traits
 
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
 use crate::execution::error::Result;
 
-pub type ScanResult = Rc<RefCell<RecordBatchIterator>>;
+pub type ScanResult = Arc<Mutex<RecordBatchIterator>>;
 
 /// Source table
 pub trait Table {
     /// Get a reference to the schema for this table
     fn schema(&self) -> &Arc<Schema>;
 
-    /// Perform a scan of a table and return an iterator over the data
+    /// Perform a scan of a table and return a sequence of iterators over the data (one iterator per partition)
     fn scan(
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
-    ) -> Result<ScanResult>;
+    ) -> Result<Vec<ScanResult>>;
 }
 
 /// Iterator for reading a series of record batches with a known schema

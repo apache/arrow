@@ -473,7 +473,10 @@ class SmallScalarMemoTable {
 
   // Copy values starting from index `start` into `out_data`
   void CopyValues(int32_t start, Scalar* out_data) const {
-    memcpy(out_data, &index_to_value_[start], size() - start);
+    DCHECK_GE(start, 0);
+    DCHECK_LE(static_cast<size_t>(start), index_to_value_.size());
+    int64_t offset = start * static_cast<int32_t>(sizeof(Scalar));
+    memcpy(out_data, index_to_value_.data() + offset, (size() - start) * sizeof(Scalar));
   }
 
   void CopyValues(Scalar* out_data) const { CopyValues(0, out_data); }

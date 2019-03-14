@@ -23,11 +23,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Period;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.Types.MinorType;
-import org.joda.time.Period;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -575,9 +576,9 @@ public class TestCopyFrom {
         if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
-          final Period p = vector1.getObject(i);
-          assertEquals(days + i, p.getDays());
-          assertEquals(milliseconds + i, p.getMillis());
+          final Duration d = vector1.getObject(i);
+          assertEquals(days + i, d.toDays());
+          assertEquals(milliseconds + i, d.minusDays(days + i).toMillis());
         }
       }
 
@@ -604,9 +605,9 @@ public class TestCopyFrom {
         if (((i & 1) == 0) || (i >= initialCapacity)) {
           assertNull(vector2.getObject(i));
         } else {
-          final Period p = vector2.getObject(i);
-          assertEquals(days + i, p.getDays());
-          assertEquals(milliseconds + i, p.getMillis());
+          final Duration d = vector2.getObject(i);
+          assertEquals(days + i, d.toDays());
+          assertEquals(milliseconds + i, d.minusDays(days + i).toMillis());
         }
       }
     }
@@ -629,11 +630,9 @@ public class TestCopyFrom {
           continue;
         }
         vector1.setSafe(i, interval + i);
-        final Period p = new Period();
         final int years = (interval + i) / org.apache.arrow.vector.util.DateUtility.yearsToMonths;
         final int months = (interval + i) % org.apache.arrow.vector.util.DateUtility.yearsToMonths;
-        periods[i] = p.plusYears(years).plusMonths(months);
-        ;
+        periods[i] = Period.ofYears(years).plusMonths(months).normalized();
       }
 
       vector1.setValueCount(initialCapacity);
@@ -648,7 +647,7 @@ public class TestCopyFrom {
         if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
-          final Period p = vector1.getObject(i);
+          final Period p = vector1.getObject(i).normalized();
           assertEquals(interval + i, vector1.get(i));
           assertEquals(periods[i], p);
         }
@@ -677,7 +676,7 @@ public class TestCopyFrom {
         if (((i & 1) == 0) || (i >= initialCapacity)) {
           assertNull(vector2.getObject(i));
         } else {
-          final Period p = vector2.getObject(i);
+          final Period p = vector2.getObject(i).normalized();
           assertEquals(periods[i], p);
         }
       }

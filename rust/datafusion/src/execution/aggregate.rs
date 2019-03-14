@@ -1027,6 +1027,7 @@ mod tests {
     use crate::execution::relation::DataSourceRelation;
     use crate::logicalplan::Expr;
     use arrow::datatypes::{DataType, Field, Schema};
+    use std::sync::Mutex;
 
     #[test]
     fn min_f64_group_by_string() {
@@ -1215,9 +1216,9 @@ mod tests {
 
     fn load_csv(filename: &str, schema: &Arc<Schema>) -> Rc<RefCell<Relation>> {
         let ds = CsvBatchIterator::new(filename, schema.clone(), true, &None, 1024);
-        Rc::new(RefCell::new(DataSourceRelation::new(Rc::new(
-            RefCell::new(ds),
-        ))))
+        Rc::new(RefCell::new(DataSourceRelation::new(Arc::new(Mutex::new(
+            ds,
+        )))))
     }
 
 }

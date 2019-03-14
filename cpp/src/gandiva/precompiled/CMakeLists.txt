@@ -101,7 +101,7 @@ function(add_precompiled_unit_test REL_TEST_NAME)
 
   add_executable(${TEST_NAME} ${REL_TEST_NAME} ${ARGN})
   target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
-  target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_TEST_LINK_LIBS} ${RE2_LIBRARY})
+  target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_TEST_LINK_LIBS} RE2::re2)
   target_compile_definitions(${TEST_NAME}
                              PRIVATE
                              GANDIVA_UNIT_TEST=1
@@ -128,6 +128,9 @@ if(ARROW_BUILD_TESTS)
   add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc ../context_helper.cc)
   add_precompiled_unit_test(extended_math_ops_test.cc extended_math_ops.cc
                             ../context_helper.cc)
-  add_precompiled_unit_test(decimal_ops_test.cc decimal_ops.cc ../decimal_type_util.cc
-                            ../decimal_xlarge.cc)
+  add_precompiled_unit_test(decimal_ops_test.cc
+                            decimal_ops.cc
+                            ../decimal_type_util.cc
+                            ../decimal_xlarge.cc
+                            ../context_helper.cc)
 endif()

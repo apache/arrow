@@ -16,12 +16,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export SNAPPY_VERSION="1.1.3"
-curl -sL "https://github.com/google/snappy/releases/download/${SNAPPY_VERSION}/snappy-${SNAPPY_VERSION}.tar.gz" -o snappy-${SNAPPY_VERSION}.tar.gz
+export SNAPPY_VERSION="1.1.7"
+curl -sL "https://github.com/google/snappy/archive/${SNAPPY_VERSION}.tar.gz" -o snappy-${SNAPPY_VERSION}.tar.gz
 tar xf snappy-${SNAPPY_VERSION}.tar.gz
 pushd snappy-${SNAPPY_VERSION}
-./configure --with-pic "--prefix=/usr" CXXFLAGS='-DNDEBUG -O2'
-make -j5
-make install
+CXXFLAGS='-DNDEBUG -O2' cmake -GNinja -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DSNAPPY_BUILD_TESTS=OFF .
+ninja install
 popd
 rm -rf snappy-${SNAPPY_VERSION}.tar.gz snappy-${SNAPPY_VERSION}

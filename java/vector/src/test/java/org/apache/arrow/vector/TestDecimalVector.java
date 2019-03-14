@@ -32,6 +32,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import io.netty.buffer.ArrowBuf;
+
 public class TestDecimalVector {
 
   private static long[] intValues;
@@ -246,6 +248,99 @@ public class TestDecimalVector {
       }
       assertTrue(decimalVector.isNull(outputIdx++));
       assertEquals(BigInteger.valueOf(0), decimalVector.getObject(outputIdx).unscaledValue());
+    }
+  }
+
+  @Test
+  public void setUsingArrowBufOfLEInts() {
+    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
+            new ArrowType.Decimal(5, 2), allocator);
+         ArrowBuf buf = allocator.buffer(8);) {
+      decimalVector.allocateNew();
+
+      // add a positive value equivalen to 705.32
+      int val = 70532;
+      buf.setInt(0, val);
+      decimalVector.setSafe(0, 0, buf, 4);
+
+      // add a -ve value equivalen to -705.32
+      val = -70532;
+      buf.setInt(4, val);
+      decimalVector.setSafe(1, 4, buf, 4);
+
+      decimalVector.setValueCount(2);
+
+      BigDecimal [] expectedValues = new BigDecimal[] {BigDecimal.valueOf(705.32), BigDecimal
+              .valueOf(-705.32)};
+      for (int i = 0; i < 2; i ++) {
+        BigDecimal value = decimalVector.getObject(i);
+        assertEquals(expectedValues[i], value);
+      }
+    }
+
+  }
+
+  @Test
+  public void setUsingArrowLongLEBytes() {
+    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
+            new ArrowType.Decimal(18, 0), allocator);
+         ArrowBuf buf = allocator.buffer(16);) {
+      decimalVector.allocateNew();
+
+      long val = Long.MAX_VALUE;
+      buf.setLong(0, val);
+      decimalVector.setSafe(0, 0, buf, 8);
+
+      val = Long.MIN_VALUE;
+      buf.setLong(8, val);
+      decimalVector.setSafe(1, 8, buf, 8);
+
+      decimalVector.setValueCount(2);
+
+      BigDecimal [] expectedValues = new BigDecimal[] {BigDecimal.valueOf(Long.MAX_VALUE), BigDecimal
+              .valueOf(Long.MIN_VALUE)};
+      for (int i = 0; i < 2; i ++) {
+        BigDecimal value = decimalVector.getObject(i);
+        assertEquals(expectedValues[i], value);
+      }
+    }
+  }
+
+  @Test
+  public void setUsingArrowBufOfBEBytes() {
+    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
+            new ArrowType.Decimal(5, 2), allocator);
+         ArrowBuf buf = allocator.buffer(9);) {
+      BigDecimal [] expectedValues = new BigDecimal[] {BigDecimal.valueOf(705.32), BigDecimal
+              .valueOf(-705.32),BigDecimal.valueOf(705.32)};
+      verifyWritingArrowBufWithBigEndianBytes(decimalVector, buf, expectedValues, 3);
+    }
+
+    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
+            new ArrowType.Decimal(36, 2), allocator);
+         ArrowBuf buf = allocator.buffer(45);) {
+      BigDecimal[] expectedValues = new BigDecimal[] {new BigDecimal("2982346298346289346293467923465345.63"),
+                                                      new BigDecimal("-2982346298346289346293467923465345.63"),
+                                                      new BigDecimal("2982346298346289346293467923465345.63")};
+      verifyWritingArrowBufWithBigEndianBytes(decimalVector, buf, expectedValues, 15);
+    }
+  }
+
+  private void verifyWritingArrowBufWithBigEndianBytes(DecimalVector decimalVector,
+                                                       ArrowBuf buf, BigDecimal[] expectedValues,
+                                                       int length) {
+    decimalVector.allocateNew();
+    for (int i = 0; i < expectedValues.length; i++) {
+      byte []bigEndianBytes = expectedValues[i].unscaledValue().toByteArray();
+      buf.setBytes(length * i , bigEndianBytes, 0 , bigEndianBytes.length);
+      decimalVector.setBigEndianSafe(i, length * i, buf, bigEndianBytes.length);
+    }
+
+    decimalVector.setValueCount(3);
+
+    for (int i = 0; i < expectedValues.length; i ++) {
+      BigDecimal value = decimalVector.getObject(i);
+      assertEquals(expectedValues[i], value);
     }
   }
 }

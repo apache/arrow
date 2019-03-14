@@ -34,6 +34,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/vendored/datetime.h"
 
 namespace arrow {
@@ -119,8 +120,13 @@ class StringToFloatConverterMixin {
   }
 
  protected:
+// This is only support in double-conversion 3.1+
+#ifdef DOUBLE_CONVERSION_HAS_CASE_INSENSIBILITY
   static const int flags_ =
       double_conversion::StringToDoubleConverter::ALLOW_CASE_INSENSIBILITY;
+#else
+  static const int flags_ = double_conversion::StringToDoubleConverter::NO_FLAGS;
+#endif
   // Two unlikely values to signal a parsing error
   static constexpr double main_junk_value_ = 0.7066424364107089;
   static constexpr double fallback_junk_value_ = 0.40088499148279166;

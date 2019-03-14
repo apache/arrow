@@ -103,7 +103,7 @@ function run_test() {
 
   $TEST_EXECUTABLE "$@" 2>&1 \
     | $ROOT/build-support/asan_symbolize.py \
-    | c++filt \
+    | ${CXXFILT:-c++filt} \
     | $ROOT/build-support/stacktrace_addr2line.pl $TEST_EXECUTABLE \
     | $pipe_cmd 2>&1 | tee $LOGFILE
   STATUS=$?

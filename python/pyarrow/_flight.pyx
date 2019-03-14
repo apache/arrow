@@ -491,13 +491,18 @@ cdef void _do_put(void* self,
 cdef void _do_get(void* self, CTicket ticket,
                   unique_ptr[CFlightDataStream]* stream) except *:
     """Callback for implementing Flight servers in Python."""
+    cdef:
+        unique_ptr[CFlightDataStream] data_stream
+
     py_ticket = Ticket(ticket.ticket)
     result = (<object> self).do_get(py_ticket)
     if not isinstance(result, FlightDataStream):
         raise TypeError("FlightServerBase.do_get must return "
                         "a FlightDataStream")
-    stream[0] = unique_ptr[CFlightDataStream](
+    data_stream = unique_ptr[CFlightDataStream](
         (<FlightDataStream> result).to_stream())
+    stream[0] = unique_ptr[CFlightDataStream](
+        new CPyFlightDataStream(result, move(data_stream)))
 
 
 cdef void _do_action_result_next(void* self,

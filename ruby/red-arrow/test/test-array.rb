@@ -49,5 +49,19 @@ class ArrayTest < Test::Unit::TestCase
                      @array[-1])
       end
     end
+
+    sub_test_case("#==") do
+      test("Arrow::Array") do
+        assert do
+          @array == @array
+        end
+      end
+
+      test("not Arrow::Array") do
+        assert do
+          not (@array == 29)
+        end
+      end
+    end
   end
 end

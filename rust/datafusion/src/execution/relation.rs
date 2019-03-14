@@ -15,9 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
@@ -36,19 +34,19 @@ pub trait Relation {
 
 pub struct DataSourceRelation {
     schema: Arc<Schema>,
-    ds: Rc<RefCell<RecordBatchIterator>>,
+    ds: Arc<Mutex<RecordBatchIterator>>,
 }
 
 impl DataSourceRelation {
-    pub fn new(ds: Rc<RefCell<RecordBatchIterator>>) -> Self {
-        let schema = ds.borrow().schema().clone();
+    pub fn new(ds: Arc<Mutex<RecordBatchIterator>>) -> Self {
+        let schema = ds.lock().unwrap().schema().clone();
         Self { ds, schema }
     }
 }
 
 impl Relation for DataSourceRelation {
     fn next(&mut self) -> Result<Option<RecordBatch>> {
-        self.ds.borrow_mut().next()
+        self.ds.lock().unwrap().next()
     }
 
     fn schema(&self) -> &Arc<Schema> {

@@ -146,8 +146,12 @@ def _derive_hadoop_classpath():
     xargs_echo = subprocess.Popen(('xargs', 'echo'),
                                   stdin=find.stdout,
                                   stdout=subprocess.PIPE)
-    return subprocess.check_output(('tr', "' '", "':'"),
+    jars = subprocess.check_output(('tr', "' '", "':'"),
                                    stdin=xargs_echo.stdout)
+    hadoop_conf = os.environ["HADOOP_CONF_DIR"] \
+        if "HADOOP_CONF_DIR" in os.environ \
+        else os.environ["HADOOP_HOME"] + "/etc/hadoop"
+    return (hadoop_conf + ":").encode("utf-8") + jars
 
 
 def _hadoop_classpath_glob(hadoop_bin):

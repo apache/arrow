@@ -25,7 +25,12 @@
 #include <string>
 #include <utility>
 
+#include "arrow/util/config.h"
+#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
+#else
+#include <grpc++/grpc++.h>
+#endif
 
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
@@ -77,7 +82,14 @@ class FlightMessageReaderImpl : public FlightMessageReader {
 
     internal::FlightData data;
     // Pretend to be pb::FlightData and intercept in SerializationTraits
+#ifndef _WIN32
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
     if (reader_->Read(reinterpret_cast<pb::FlightData*>(&data))) {
+#ifndef _WIN32
+#pragma GCC diagnostic pop
+#endif
       std::unique_ptr<ipc::Message> message;
 
       // Validate IPC message
@@ -207,6 +219,10 @@ class FlightServiceImpl : public FlightService::Service {
 
     // Pretend to be pb::FlightData, we cast back to FlightPayload in
     // SerializationTraits
+#ifndef _WIN32
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
     writer->Write(*reinterpret_cast<const pb::FlightData*>(&schema_payload),
                   grpc::WriteOptions());
 
@@ -221,6 +237,9 @@ class FlightServiceImpl : public FlightService::Service {
         break;
       }
     }
+#ifndef _WIN32
+#pragma GCC diagnostic pop
+#endif
     return grpc::Status::OK;
   }
 
@@ -338,6 +357,8 @@ Status FlightServerBase::Init(int port) {
   impl_->service_.reset(new FlightServiceImpl(this));
 
   grpc::ServerBuilder builder;
+  // Allow uploading messages of any length
+  builder.SetMaxReceiveMessageSize(-1);
   builder.AddListeningPort(impl_->address_, grpc::InsecureServerCredentials());
   builder.RegisterService(impl_->service_.get());
 

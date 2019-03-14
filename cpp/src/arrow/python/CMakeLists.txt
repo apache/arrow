@@ -44,9 +44,11 @@ set(ARROW_PYTHON_SRCS
     pyarrow.cc
     serialize.cc)
 
+set(ARROW_PYTHON_DEPENDENCIES arrow_dependencies)
+
 if(ARROW_FLIGHT)
+  set(ARROW_PYTHON_DEPENDENCIES ${ARROW_PYTHON_DEPENDENCIES} flight_grpc_gen)
   set(ARROW_PYTHON_SRCS ${ARROW_PYTHON_SRCS} flight.cc)
-  set_source_files_properties(flight.cc PROPERTIES OBJECT_DEPENDS flight_grpc_gen)
 endif()
 
 if("${COMPILER_FAMILY}" STREQUAL "clang")
@@ -76,7 +78,7 @@ add_arrow_lib(arrow_python
               OUTPUTS
               ARROW_PYTHON_LIBRARIES
               DEPENDENCIES
-              arrow_dependencies
+              ${ARROW_PYTHON_DEPENDENCIES}
               SHARED_LINK_FLAGS
               ""
               SHARED_LINK_LIBS
@@ -113,7 +115,7 @@ arrow_add_pkg_config("arrow-python")
 if(ARROW_BUILD_TESTS)
   add_library(arrow_python_test_main STATIC util/test_main.cc)
 
-  target_link_libraries(arrow_python_test_main ${GTEST_LIBRARY})
+  target_link_libraries(arrow_python_test_main GTest::GTest)
   target_include_directories(arrow_python_test_main SYSTEM
                              PUBLIC ${ARROW_PYTHON_INCLUDES})
 

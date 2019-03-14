@@ -19,9 +19,7 @@
 //! queried by DataFusion. This allows data to be pre-loaded into memory and then repeatedly
 //! queried without incurring additional file I/O overhead.
 
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
@@ -53,14 +51,15 @@ impl MemTable {
     /// Create a mem table by reading from another data source
     pub fn load(t: &Table) -> Result<Self> {
         let schema = t.schema();
-        let it = t.scan(&None, 1024 * 1024)?;
-        let mut it_mut = it.borrow_mut();
+        let partitions = t.scan(&None, 1024 * 1024)?;
 
         let mut data: Vec<RecordBatch> = vec![];
-
-        while let Ok(Some(batch)) = it_mut.next() {
-            data.push(batch);
+        for it in &partitions {
+            while let Ok(Some(batch)) = it.lock().unwrap().next() {
+                data.push(batch);
+            }
         }
+
         MemTable::new(schema.clone(), data)
     }
 }
@@ -74,7 +73,7 @@ impl Table for MemTable {
         &self,
         projection: &Option<Vec<usize>>,
         _batch_size: usize,
-    ) -> Result<ScanResult> {
+    ) -> Result<Vec<ScanResult>> {
         let columns: Vec<usize> = match projection {
             Some(p) => p.clone(),
             None => {
@@ -114,11 +113,11 @@ impl Table for MemTable {
             .collect();
 
         match batches {
-            Ok(batches) => Ok(Rc::new(RefCell::new(MemBatchIterator {
+            Ok(batches) => Ok(vec![Arc::new(Mutex::new(MemBatchIterator {
                 schema: projected_schema.clone(),
                 index: 0,
                 batches,
-            }))),
+            }))]),
             Err(e) => Err(ExecutionError::ArrowError(e)),
         }
     }
@@ -173,8 +172,8 @@ mod tests {
         let provider = MemTable::new(schema, vec![batch]).unwrap();
 
         // scan with projection
-        let scan2 = provider.scan(&Some(vec![2, 1]), 1024).unwrap();
-        let batch2 = scan2.borrow_mut().next().unwrap().unwrap();
+        let partitions = provider.scan(&Some(vec![2, 1]), 1024).unwrap();
+        let batch2 = partitions[0].lock().unwrap().next().unwrap().unwrap();
         assert_eq!(2, batch2.schema().fields().len());
         assert_eq!("c", batch2.schema().field(0).name());
         assert_eq!("b", batch2.schema().field(1).name());
@@ -201,8 +200,8 @@ mod tests {
 
         let provider = MemTable::new(schema, vec![batch]).unwrap();
 
-        let scan1 = provider.scan(&None, 1024).unwrap();
-        let batch1 = scan1.borrow_mut().next().unwrap().unwrap();
+        let partitions = provider.scan(&None, 1024).unwrap();
+        let batch1 = partitions[0].lock().unwrap().next().unwrap().unwrap();
         assert_eq!(3, batch1.schema().fields().len());
         assert_eq!(3, batch1.num_columns());
     }

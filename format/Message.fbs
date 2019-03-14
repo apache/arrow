@@ -95,6 +95,7 @@ table Message {
   version: org.apache.arrow.flatbuf.MetadataVersion;
   header: MessageHeader;
   bodyLength: long;
+  custom_metadata: [ KeyValue ];
 }
 
 root_type Message;

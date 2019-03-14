@@ -14,13 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package csv reads CSV files and presents the extracted data as records.
 package csv
 
 import (
 	"encoding/csv"
-	"errors"
-	"fmt"
 	"io"
 	"strconv"
 	"sync/atomic"
@@ -30,47 +27,6 @@ import (
 	"github.com/apache/arrow/go/arrow/internal/debug"
 	"github.com/apache/arrow/go/arrow/memory"
 )
-
-var (
-	ErrMismatchFields = errors.New("arrow/csv: number of records mismatch")
-)
-
-// Option configures a CSV reader.
-type Option func(*Reader)
-
-// WithComment specifies the comment character used while parsing CSV files.
-func WithComment(c rune) Option {
-	return func(r *Reader) {
-		r.r.Comment = c
-	}
-}
-
-// WithComma specifies the fields separation character used while parsing CSV files.
-func WithComma(c rune) Option {
-	return func(r *Reader) {
-		r.r.Comma = c
-	}
-}
-
-// WithAllocator specifies the Arrow memory allocator used while building records.
-func WithAllocator(mem memory.Allocator) Option {
-	return func(r *Reader) {
-		r.mem = mem
-	}
-}
-
-// WithChunk specifies the chunk size used while parsing CSV files.
-//
-// If n is zero or 1, no chunking will take place and the reader will create
-// one record per row.
-// If n is greater than 1, chunks of n rows will be read.
-// If n is negative, the reader will load the whole CSV file into memory and
-// create one big record with all the rows.
-func WithChunk(n int) Option {
-	return func(r *Reader) {
-		r.chunk = n
-	}
-}
 
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
 type Reader struct {
@@ -388,20 +344,6 @@ func (r *Reader) Release() {
 	if atomic.AddInt64(&r.refs, -1) == 0 {
 		if r.cur != nil {
 			r.cur.Release()
-		}
-	}
-}
-
-func validate(schema *arrow.Schema) {
-	for i, f := range schema.Fields() {
-		switch ft := f.Type.(type) {
-		case *arrow.BooleanType:
-		case *arrow.Int8Type, *arrow.Int16Type, *arrow.Int32Type, *arrow.Int64Type:
-		case *arrow.Uint8Type, *arrow.Uint16Type, *arrow.Uint32Type, *arrow.Uint64Type:
-		case *arrow.Float32Type, *arrow.Float64Type:
-		case *arrow.StringType:
-		default:
-			panic(fmt.Errorf("arrow/csv: field %d (%s) has invalid data type %T", i, f.Name, ft))
 		}
 	}
 }

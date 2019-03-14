@@ -50,10 +50,10 @@ ENV CC=gcc \
     CXX=g++ \
     ARROW_GANDIVA=OFF \
     ARROW_BUILD_TESTS=ON \
-    ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX \
+    ARROW_DEPENDENCY_SOURCE=CONDA \
     ARROW_HOME=$CONDA_PREFIX \
     PARQUET_HOME=$CONDA_PREFIX
 
 # build and test
 CMD arrow/ci/docker_build_cpp.sh && \
-    cd /build/cpp && ctest -j2 --output-on-failure -L unittest
+    cd /build/cpp && ninja test

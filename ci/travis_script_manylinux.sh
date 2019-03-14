@@ -47,14 +47,11 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
   sudo rm -rf dist
 
   # build the wheels
-  docker run --shm-size=2g --rm \
+  docker-compose run \
     -e PYARROW_PARALLEL=3 \
     -e PYTHON_VERSION=$PYTHON_VERSION \
     -e UNICODE_WIDTH=$UNICODE_WIDTH \
-    -v $PWD:/io \
-    -v $PWD/../../:/arrow \
-    $MANYLINUX1_IMAGE \
-    /io/build_arrow.sh
+    python-manylinux1
 
   # create a testing conda environment
   CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION

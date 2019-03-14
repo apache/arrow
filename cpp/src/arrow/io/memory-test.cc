@@ -54,7 +54,7 @@ TEST_F(TestBufferOutputStream, DtorCloses) {
 
   const int K = 100;
   for (int i = 0; i < K; ++i) {
-    EXPECT_OK(stream_->Write(data));
+    ARROW_EXPECT_OK(stream_->Write(data));
   }
 
   stream_ = nullptr;
@@ -66,7 +66,7 @@ TEST_F(TestBufferOutputStream, CloseResizes) {
 
   const int K = 100;
   for (int i = 0; i < K; ++i) {
-    EXPECT_OK(stream_->Write(data));
+    ARROW_EXPECT_OK(stream_->Write(data));
   }
 
   ASSERT_OK(stream_->Close());

@@ -77,7 +77,7 @@
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
 
-#define EXPECT_OK(expr)         \
+#define ARROW_EXPECT_OK(expr)   \
   do {                          \
     ::arrow::Status s = (expr); \
     EXPECT_TRUE(s.ok());        \
@@ -113,8 +113,8 @@ using ArrayVector = std::vector<std::shared_ptr<Array>>;
       std::stringstream pp_result;                                                     \
       std::stringstream pp_expected;                                                   \
                                                                                        \
-      EXPECT_OK(PrettyPrint(RIGHT, 0, &pp_result));                                    \
-      EXPECT_OK(PrettyPrint(LEFT, 0, &pp_expected));                                   \
+      ARROW_EXPECT_OK(PrettyPrint(RIGHT, 0, &pp_result));                              \
+      ARROW_EXPECT_OK(PrettyPrint(LEFT, 0, &pp_expected));                             \
       FAIL() << "Got: \n" << pp_result.str() << "\nExpected: \n" << pp_expected.str(); \
     }                                                                                  \
   } while (false)

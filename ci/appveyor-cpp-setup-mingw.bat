@@ -23,6 +23,7 @@ pacman -S --noconfirm ^
     "%MINGW_PACKAGE_PREFIX%-boost" ^
     "%MINGW_PACKAGE_PREFIX%-brotli" ^
     "%MINGW_PACKAGE_PREFIX%-cmake" ^
+    "%MINGW_PACKAGE_PREFIX%-double-conversion" ^
     "%MINGW_PACKAGE_PREFIX%-flatbuffers" ^
     "%MINGW_PACKAGE_PREFIX%-gcc" ^
     "%MINGW_PACKAGE_PREFIX%-gflags" ^
@@ -32,6 +33,7 @@ pacman -S --noconfirm ^
     "%MINGW_PACKAGE_PREFIX%-meson" ^
     "%MINGW_PACKAGE_PREFIX%-protobuf" ^
     "%MINGW_PACKAGE_PREFIX%-python3-numpy" ^
+    "%MINGW_PACKAGE_PREFIX%-rapidjson" ^
     "%MINGW_PACKAGE_PREFIX%-snappy" ^
     "%MINGW_PACKAGE_PREFIX%-zlib" ^
     "%MINGW_PACKAGE_PREFIX%-zstd" || exit /B

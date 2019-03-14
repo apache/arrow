@@ -46,12 +46,14 @@ if [ "$ARROW_TRAVIS_PYTHON_JVM" == "1" ]; then
 fi
 
 conda create -y -q -p $CONDA_ENV_DIR \
+      --file $TRAVIS_BUILD_DIR/ci/conda_env_cpp.yml \
       --file $TRAVIS_BUILD_DIR/ci/conda_env_python.yml \
       nomkl \
       pip \
       numpy=1.14 \
       'libgfortran<4' \
       python=${PYTHON_VERSION} \
+      compilers \
       ${CONDA_JVM_DEPS}
 
 conda activate $CONDA_ENV_DIR
@@ -79,11 +81,12 @@ if [ $TRAVIS_OS_NAME != "osx" ]; then
 fi
 
 # Re-build C++ libraries with the right Python setup
+
+# Clear out prior build files
+rm -rf $ARROW_CPP_BUILD_DIR
 mkdir -p $ARROW_CPP_BUILD_DIR
 pushd $ARROW_CPP_BUILD_DIR
 
-# Clear out prior build files
-rm -rf *
 
 # XXX Can we simply reuse CMAKE_COMMON_FLAGS from travis_before_script_cpp.sh?
 CMAKE_COMMON_FLAGS="-DARROW_EXTRA_ERROR_CONTEXT=ON"
@@ -98,6 +101,18 @@ if [ "$ARROW_TRAVIS_PYTHON_GANDIVA" == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_GANDIVA=ON"
   PYTHON_CPP_BUILD_TARGETS="$PYTHON_CPP_BUILD_TARGETS gandiva"
 fi
+
+if [ "$ARROW_TRAVIS_VERBOSE" == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_VERBOSE_THIRDPARTY_BUILD=ON"
+fi
+
+if [ $TRAVIS_OS_NAME == "osx" ]; then
+  source $TRAVIS_BUILD_DIR/ci/travis_install_osx_sdk.sh
+fi
+
+# conda-forge sets the build flags by default to -02, skip this to speed up the build
+export CFLAGS=${CFLAGS//-O2}
+export CXXFLAGS=${CXXFLAGS//-O2}
 
 cmake -GNinja \
       $CMAKE_COMMON_FLAGS \

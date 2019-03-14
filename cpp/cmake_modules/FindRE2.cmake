@@ -1,4 +1,3 @@
-##############################################################################
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,92 +14,48 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-##############################################################################
 
-# - Find re2 headers and lib.
-# RE2_HOME hints the location
-# This module defines
-#  RE2_INCLUDE_DIR, directory containing headers
-#  RE2_STATIC_LIB, path to libre2.a
-#  RE2_SHARED_LIB, path to libre2.so
-#  RE2_FOUND, whether re2 has been found
+pkg_check_modules(RE2_PC re2)
+if (RE2_PC_FOUND)
+  set(RE2_INCLUDE_DIR "${RE2_PC_INCLUDEDIR}")
 
-if( NOT "${RE2_HOME}" STREQUAL "")
-    file (TO_CMAKE_PATH "${RE2_HOME}" _re2_path)
-endif()
-message (STATUS "RE2_HOME: ${RE2_HOME}")
+  list(APPEND RE2_PC_LIBRARY_DIRS "${RE2_PC_LIBDIR}")
+  find_library(RE2_LIB re2 PATHS ${RE2_PC_LIBRARY_DIRS} NO_DEFAULT_PATH)
 
-find_path(RE2_INCLUDE_DIR re2/re2.h
-  HINTS ${_re2_path}
-  NO_DEFAULT_PATH
-  PATH_SUFFIXES "include"
-  DOC  "Google's re2 regex header path"
-)
-
-set (lib_dirs "lib")
-if (EXISTS "${_re2_path}/lib64")
-  set (lib_dirs "lib64" ${lib_dirs})
-endif ()
-if (EXISTS "${_re2_path}/lib/${CMAKE_LIBRARY_ARCHITECTURE}")
-  set (lib_dirs "lib/${CMAKE_LIBRARY_ARCHITECTURE}" ${lib_dirs})
-endif ()
-
-set(RE2_LIB_NAME re2)
-set(RE2_STATIC_LIB_NAME ${CMAKE_STATIC_LIBRARY_PREFIX}${RE2_LIB_NAME}${RE2_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX})
-set(RE2_SHARED_LIB_NAME ${CMAKE_SHARED_LIBRARY_PREFIX}${RE2_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
-
-find_library(RE2_STATIC_LIB NAMES ${RE2_STATIC_LIB_NAME}
-  PATHS ${_re2_path}
-        NO_DEFAULT_PATH
-  PATH_SUFFIXES ${lib_dirs}
-  DOC   "Google's re2 regex static library"
-)
-
-find_library(RE2_SHARED_LIB NAMES ${RE2_SHARED_LIB_NAME}
-  PATHS ${_re2_path}
-        NO_DEFAULT_PATH
-  PATH_SUFFIXES ${lib_dirs}
-  DOC   "Google's re2 regex static library"
-)
-
-if (ARROW_RE2_LINKAGE STREQUAL "static" AND (NOT RE2_STATIC_LIB))
-  set(RE2_LIB_NOT_FOUND TRUE)
-  set(RE2_MISSING "static lib")
-elseif(ARROW_RE2_LINKAGE STREQUAL "shared" AND (NOT RE2_SHARED_LIB))
-  set(RE2_LIB_NOT_FOUND TRUE)
-  set(RE2_MISSING "shared lib")
-endif()
-
-if (NOT RE2_INCLUDE_DIR OR RE2_LIB_NOT_FOUND)
-  if (NOT RE2_INCLUDE_DIR)
-    if (RE2_MISSING)
-      set(RE2_MISSING "${RE2_MISSING}, headers")
-    else ()
-      set(RE2_MISSING "headers")
-    endif ()
-  endif ()
-
-  set(RE2_FOUND FALSE)
-  if (_re2_path)
-    set (RE2_ERR_MSG "Could not find re2 (missing ${RE2_MISSING}). Looked in ${_re2_path}.")
-  else ()
-    set (RE2_ERR_MSG "Could not find re2 (missing ${RE2_MISSING}). Looked in system search paths.")
+  # On Fedora, the reported prefix is wrong. As users likely run into this,
+  # workaround.
+  # https://bugzilla.redhat.com/show_bug.cgi?id=1652589
+  if(UNIX AND NOT APPLE AND NOT RE2_LIB)
+    if (RE2_PC_PREFIX STREQUAL "/usr/local")
+      find_library(RE2_LIB re2)
+    endif()
   endif()
-
-  if (RE2_FIND_REQUIRED)
-    message(FATAL_ERROR "${RE2_ERR_MSG})")
-  else ()
-    message (STATUS "${RE2_ERR_MSG}")
-  endif ()
+elseif(RE2_ROOT)
+  find_library(RE2_LIB
+    NAMES re2 "${CMAKE_STATIC_LIBRARY_PREFIX}re2${RE2_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}" "${CMAKE_SHARED_LIBRARY_PREFIX}re2${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    PATHS ${RE2_ROOT} "${RE2_ROOT}/Library"
+    PATH_SUFFIXES "lib64" "lib" "bin"
+    NO_DEFAULT_PATH)
+  find_path(RE2_INCLUDE_DIR NAMES re2/re2.h
+    PATHS ${RE2_ROOT} "${RE2_ROOT}/Library"
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES "include")
 else()
-    set(RE2_FOUND TRUE)
-    message(STATUS "RE2 headers : ${RE2_INCLUDE_DIR}")
-    message(STATUS "RE2 static library : ${RE2_STATIC_LIB}")
-    message(STATUS "RE2 shared library : ${RE2_SHARED_LIB}")
+  find_library(RE2_LIB
+    NAMES re2 "${CMAKE_STATIC_LIBRARY_PREFIX}re2${RE2_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}" "${CMAKE_SHARED_LIBRARY_PREFIX}re2${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    PATH_SUFFIXES "lib64" "lib" "bin")
+  find_path(RE2_INCLUDE_DIR NAMES re2/re2.h
+    PATH_SUFFIXES "include")
 endif()
 
-mark_as_advanced(
-  RE2_INCLUDE_DIR
-  RE2_SHARED_LIB
-  RE2_STATIC_LIB
-)
+find_package_handle_standard_args(RE2
+  REQUIRED_VARS RE2_LIB RE2_INCLUDE_DIR)
+
+if (RE2_FOUND)
+  add_library(RE2::re2 UNKNOWN IMPORTED)
+  set_target_properties(RE2::re2 PROPERTIES
+          IMPORTED_LOCATION "${RE2_LIB}"
+          INTERFACE_INCLUDE_DIRECTORIES "${RE2_INCLUDE_DIR}"
+  )
+endif()
+

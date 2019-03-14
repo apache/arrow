@@ -141,6 +141,18 @@ if [ "$ARROW_TRAVIS_OPTIONAL_INSTALL" == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_OPTIONAL_INSTALL=ON"
 fi
 
+if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
+  conda activate $CPP_TOOLCHAIN
+fi
+
+# conda-forge sets the build flags by default to -02, skip this to speed up the build
+export CFLAGS=${CFLAGS//-O2}
+export CXXFLAGS=${CXXFLAGS//-O2}
+
+if [ $TRAVIS_OS_NAME == "osx" ]; then
+  source $TRAVIS_BUILD_DIR/ci/travis_install_osx_sdk.sh
+fi
+
 if [ $TRAVIS_OS_NAME == "linux" ]; then
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_LINUX_FLAGS \
@@ -164,7 +176,7 @@ fi
 # Build and install libraries. Configure ARROW_CPP_BUILD_TARGETS environment
 # variable to only build certain targets. If you use this, you must also set
 # the environment variable ARROW_TRAVIS_OPTIONAL_INSTALL=1
-$TRAVIS_MAKE -j4 $ARROW_CPP_BUILD_TARGETS
-$TRAVIS_MAKE install
+time $TRAVIS_MAKE -j4 $ARROW_CPP_BUILD_TARGETS
+time $TRAVIS_MAKE install
 
 popd

@@ -128,10 +128,11 @@ if ("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
 -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
 -Wno-implicit-fallthrough -Wno-unreachable-code-return \
 -Wno-float-equal -Wno-missing-prototypes -Wno-documentation-unknown-command \
+-Wno-documentation \
 -Wno-old-style-cast -Wno-covered-switch-default \
 -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
 -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
--Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
+-Wno-gnu-zero-variadic-macro-arguments -Wno-conversion -Wno-sign-conversion \
 -Wno-disabled-macro-expansion -Wno-format-nonliteral -Wno-missing-noreturn")
 
     # Version numbers where warnings are introduced
@@ -155,7 +156,7 @@ if ("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option -Werror")
   elseif ("${COMPILER_FAMILY}" STREQUAL "gcc")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall \
--Wconversion -Wno-sign-conversion")
+-Wno-conversion -Wno-sign-conversion")
 
     # Treat all compiler warnings as errors
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Werror")
@@ -190,9 +191,8 @@ else()
     # /wdnnnn disables a warning where "nnnn" is a warning number
     string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
-  elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
-  elseif ("${COMPILER_FAMILY}" STREQUAL "gcc")
+  elseif (("${COMPILER_FAMILY}" STREQUAL "clang") OR
+          ("${COMPILER_FAMILY}" STREQUAL "gcc"))
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
   else()
     message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")

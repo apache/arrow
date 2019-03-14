@@ -265,6 +265,33 @@ def test_context_from_object(size):
         ctx.buffer_from_object(np.array([1, 2, 3]))
 
 
+def test_foreign_buffer():
+    ctx = global_context
+    dtype = np.dtype(np.uint8)
+    size = 10
+    hbuf = cuda.new_host_buffer(size * dtype.itemsize)
+
+    # test host buffer memory reference counting
+    rc = sys.getrefcount(hbuf)
+    fbuf = ctx.foreign_buffer(hbuf.address, hbuf.size, hbuf)
+    assert sys.getrefcount(hbuf) == rc + 1
+    del fbuf
+    assert sys.getrefcount(hbuf) == rc
+
+    # test postponed dealloction of host buffer memory
+    fbuf = ctx.foreign_buffer(hbuf.address, hbuf.size, hbuf)
+    del hbuf
+    fbuf.copy_to_host()
+
+    # test deallocating the host buffer memory making it inaccessible
+    hbuf = cuda.new_host_buffer(size * dtype.itemsize)
+    fbuf = ctx.foreign_buffer(hbuf.address, hbuf.size)
+    del hbuf
+    with pytest.raises(pa.ArrowIOError,
+                       match=('Cuda Driver API call in')):
+        fbuf.copy_to_host()
+
+
 @pytest.mark.parametrize("size", [0, 1, 1000])
 def test_CudaBuffer(size):
     arr, buf = make_random_buffer(size)

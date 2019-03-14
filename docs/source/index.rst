@@ -43,6 +43,6 @@ messaging and interprocess communication.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Other Topics
+   :caption: Developers
 
-   building
+   developers/index

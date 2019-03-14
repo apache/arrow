@@ -524,6 +524,18 @@ def test_cast_integers_safe():
             in_arr.cast(out_type)
 
 
+def test_cast_none():
+    # ARROW-3735: Ensure that calling cast(None) doesn't segfault.
+    arr = pa.array([1, 2, 3])
+    col = pa.column('foo', [arr])
+
+    with pytest.raises(TypeError):
+        arr.cast(None)
+
+    with pytest.raises(TypeError):
+        col.cast(None)
+
+
 def test_cast_column():
     arrays = [pa.array([1, 2, 3]), pa.array([4, 5, 6])]
 

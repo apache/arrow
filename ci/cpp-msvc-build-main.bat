@@ -22,8 +22,16 @@ set ARROW_HOME=%CONDA_PREFIX%\Library
 set CMAKE_ARGS=-DARROW_VERBOSE_THIRDPARTY_BUILD=OFF
 
 if "%JOB%" == "Toolchain" (
-  set CMAKE_ARGS=%CMAKE_ARGS% -DARROW_WITH_BZ2=ON
+  @rem Toolchain gtest does not currently work with Visual Studio 2015
+  set CMAKE_ARGS=^
+      %CMAKE_ARGS% ^
+      -DARROW_WITH_BZ2=ON ^
+      -DARROW_DEPENDENCY_SOURCE=CONDA ^
+      -DGTest_SOURCE=BUNDLED
   set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
+) else (
+  @rem We're in a conda enviroment but don't want to use it for the dependencies
+  set CMAKE_ARGS=%CMAKE_ARGE% -DARROW_DEPENDENCY_SOURCE=AUTO
 )
 
 @rem Retrieve git submodules, configure env var for Parquet unit tests

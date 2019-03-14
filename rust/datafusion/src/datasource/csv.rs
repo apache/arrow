@@ -17,11 +17,9 @@
 
 //! CSV Data source
 
-use std::cell::RefCell;
 use std::fs::File;
-use std::rc::Rc;
 use std::string::String;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use arrow::csv;
 use arrow::datatypes::{Field, Schema};
@@ -56,14 +54,14 @@ impl Table for CsvFile {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
-    ) -> Result<ScanResult> {
-        Ok(Rc::new(RefCell::new(CsvBatchIterator::new(
+    ) -> Result<Vec<ScanResult>> {
+        Ok(vec![Arc::new(Mutex::new(CsvBatchIterator::new(
             &self.filename,
             self.schema.clone(),
             self.has_header,
             projection,
             batch_size,
-        ))))
+        )))])
     }
 }
 
