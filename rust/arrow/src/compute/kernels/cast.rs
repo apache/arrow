@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines cast kernels for `ArrayRef`, allowing casting arrays between supported datatypes.
+//! Defines cast kernels for `ArrayRef`, allowing casting arrays between supported
+//! datatypes.
 //!
 //! Example:
 //!
@@ -75,7 +76,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (List(_), List(ref to)) => {
             let data = array.data_ref();
             let underlying_array = make_array(data.child_data()[0].clone());
-            let cast_array = cast(&underlying_array, &*to)?;
+            let cast_array = cast(&underlying_array, &to)?;
             let array_data = ArrayData::new(
                 *to.clone(),
                 array.len(),
@@ -98,7 +99,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         )),
         (_, List(ref to)) => {
             // cast primitive to list's primitive
-            let cast_array = cast(array, &*to)?;
+            let cast_array = cast(array, &to)?;
             // create offsets, where if array.len() = 2, we have [0,1,2]
             let offsets: Vec<i32> = (0..array.len() as i32 + 1).collect();
             let value_offsets = Buffer::from(offsets[..].to_byte_slice());
@@ -549,6 +550,16 @@ mod tests {
         let b = cast(&array, &DataType::List(Box::new(DataType::Int32))).unwrap();
         assert_eq!(5, b.len());
         let arr = b.as_any().downcast_ref::<ListArray>().unwrap();
+        assert_eq!(0, arr.value_offset(0));
+        assert_eq!(1, arr.value_offset(1));
+        assert_eq!(2, arr.value_offset(2));
+        assert_eq!(3, arr.value_offset(3));
+        assert_eq!(4, arr.value_offset(4));
+        assert_eq!(1, arr.value_length(0));
+        assert_eq!(1, arr.value_length(1));
+        assert_eq!(1, arr.value_length(2));
+        assert_eq!(1, arr.value_length(3));
+        assert_eq!(1, arr.value_length(4));
         let values = arr.values();
         let c = values.as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(5, c.value(0));
@@ -566,6 +577,16 @@ mod tests {
         assert_eq!(5, b.len());
         assert_eq!(1, b.null_count());
         let arr = b.as_any().downcast_ref::<ListArray>().unwrap();
+        assert_eq!(0, arr.value_offset(0));
+        assert_eq!(1, arr.value_offset(1));
+        assert_eq!(2, arr.value_offset(2));
+        assert_eq!(3, arr.value_offset(3));
+        assert_eq!(4, arr.value_offset(4));
+        assert_eq!(1, arr.value_length(0));
+        assert_eq!(1, arr.value_length(1));
+        assert_eq!(1, arr.value_length(2));
+        assert_eq!(1, arr.value_length(3));
+        assert_eq!(1, arr.value_length(4));
         let values = arr.values();
         let c = values.as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(1, c.null_count());
@@ -624,10 +645,9 @@ mod tests {
     #[test]
     fn test_cast_list_i32_to_list_u16() {
         // Construct a value array
-        let value_data =
-            Int32Array::from(vec![0, 0, 0, -1, -2, -1, 2, 8, 100000000]).data();
+        let value_data = Int32Array::from(vec![0, 0, 0, -1, -2, -1, 2, 100000000]).data();
 
-        let value_offsets = Buffer::from(&[0, 3, 6, 9].to_byte_slice());
+        let value_offsets = Buffer::from(&[0, 3, 6, 8].to_byte_slice());
 
         // Construct a list array from the above two
         let list_data_type = DataType::List(Box::new(DataType::Int32));
@@ -655,6 +675,22 @@ mod tests {
             .unwrap();
         assert_eq!(DataType::UInt16, array.value_type());
         assert_eq!(4, array.values().null_count());
+        assert_eq!(3, array.value_length(0));
+        assert_eq!(3, array.value_length(1));
+        assert_eq!(2, array.value_length(2));
+        let values = array.values();
+        let u16arr = values.as_any().downcast_ref::<UInt16Array>().unwrap();
+        assert_eq!(8, u16arr.len());
+        assert_eq!(4, u16arr.null_count());
+
+        assert_eq!(0, u16arr.value(0));
+        assert_eq!(0, u16arr.value(1));
+        assert_eq!(0, u16arr.value(2));
+        assert_eq!(false, u16arr.is_valid(3));
+        assert_eq!(false, u16arr.is_valid(4));
+        assert_eq!(false, u16arr.is_valid(5));
+        assert_eq!(2, u16arr.value(6));
+        assert_eq!(false, u16arr.is_valid(7));
     }
 
     #[test]
