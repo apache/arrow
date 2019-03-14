@@ -291,6 +291,11 @@ class FileReader::Impl {
 
   ParquetFileReader* reader() { return reader_.get(); }
 
+  std::vector<int> GetDictionaryIndices(const std::vector<int>& indices);
+  std::shared_ptr<::arrow::Schema> FixSchema(
+      const ::arrow::Schema& old_schema, const std::vector<int>& dict_indices,
+      std::vector<std::shared_ptr<::arrow::Column>>& columns);
+
  private:
   MemoryPool* pool_;
   std::unique_ptr<ParquetFileReader> reader_;
@@ -559,14 +564,6 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
                          this](int i) {
     std::shared_ptr<ChunkedArray> array;
     RETURN_NOT_OK(ReadColumnChunk(field_indices[i], indices, row_group_index, &array));
-
-    // Update the schema when reading dictionary array
-    if (reader_properties_.read_dictionary(i)) {
-      auto dict_field =
-          std::make_shared<::arrow::Field>(schema->field(i)->name(), array->type());
-      RETURN_NOT_OK(schema->SetField(i, dict_field, &schema));
-    }
-
     columns[i] = std::make_shared<Column>(schema->field(i), array);
     return Status::OK();
   };
@@ -591,7 +588,15 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
     }
   }
 
-  *out = Table::Make(schema, columns);
+  auto dict_indices = GetDictionaryIndices(indices);
+
+  if (!dict_indices.empty()) {
+    schema = FixSchema(*schema, dict_indices, columns);
+  }
+
+  std::shared_ptr<Table> table = Table::Make(schema, columns);
+  RETURN_NOT_OK(table->Validate());
+  *out = table;
   return Status::OK();
 }
 
@@ -614,14 +619,6 @@ Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
   auto ReadColumnFunc = [&indices, &field_indices, &schema, &columns, this](int i) {
     std::shared_ptr<ChunkedArray> array;
     RETURN_NOT_OK(ReadSchemaField(field_indices[i], indices, &array));
-
-    // Update the schema when reading dictionary array
-    if (reader_properties_.read_dictionary(i)) {
-      auto dict_field =
-          std::make_shared<::arrow::Field>(schema->field(i)->name(), array->type());
-      RETURN_NOT_OK(schema->SetField(i, dict_field, &schema));
-    }
-
     columns[i] = std::make_shared<Column>(schema->field(i), array);
     return Status::OK();
   };
@@ -644,6 +641,12 @@ Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
     for (int i = 0; i < num_fields; i++) {
       RETURN_NOT_OK(ReadColumnFunc(i));
     }
+  }
+
+  auto dict_indices = GetDictionaryIndices(indices);
+
+  if (!dict_indices.empty()) {
+    schema = FixSchema(*schema, dict_indices, columns);
   }
 
   std::shared_ptr<Table> table = Table::Make(schema, columns);
@@ -689,6 +692,32 @@ Status FileReader::Impl::ReadRowGroup(int i, std::shared_ptr<Table>* table) {
     indices[i] = static_cast<int>(i);
   }
   return ReadRowGroup(i, indices, table);
+}
+
+std::vector<int> FileReader::Impl::GetDictionaryIndices(const std::vector<int>& indices) {
+  // Select the column indices that were read as DictionaryArray
+  std::vector<int> dict_indices(indices);
+  auto remove_func = [this](int i) { return !reader_properties_.read_dictionary(i); };
+  auto it = std::remove_if(dict_indices.begin(), dict_indices.end(), remove_func);
+  dict_indices.erase(it, dict_indices.end());
+  return dict_indices;
+}
+
+std::shared_ptr<::arrow::Schema> FileReader::Impl::FixSchema(
+    const ::arrow::Schema& old_schema, const std::vector<int>& dict_indices,
+    std::vector<std::shared_ptr<::arrow::Column>>& columns) {
+  // Fix the schema with the actual DictionaryType that was read
+  auto fields = old_schema.fields();
+
+  for (int idx : dict_indices) {
+    auto name = columns[idx]->name();
+    auto dict_array = columns[idx]->data();
+    auto dict_field = std::make_shared<::arrow::Field>(name, dict_array->type());
+    fields[idx] = dict_field;
+    columns[idx] = std::make_shared<Column>(dict_field, dict_array);
+  }
+
+  return std::make_shared<::arrow::Schema>(fields, old_schema.metadata());
 }
 
 // Static ctor
