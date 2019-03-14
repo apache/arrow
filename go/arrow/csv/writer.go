@@ -18,9 +18,9 @@ package csv
 
 import (
 	"encoding/csv"
-	"fmt"
 	"io"
 	"strconv"
+	"sync"
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
@@ -28,9 +28,10 @@ import (
 
 // Writer wraps encoding/csv.Writer and writes array.Record based on a schema.
 type Writer struct {
-	w          *csv.Writer
-	schema     *arrow.Schema
-	withHeader bool
+	w      *csv.Writer
+	schema *arrow.Schema
+	header bool
+	once   sync.Once
 }
 
 // NewWriter returns a writer that writes array.Records to the CSV file
@@ -46,21 +47,24 @@ func NewWriter(w io.Writer, schema *arrow.Schema, opts ...Option) *Writer {
 		opt(ww)
 	}
 
-	if ww.withHeader {
-		if err := ww.writeHeader(); err != nil {
-			panic(fmt.Errorf("failed to write header %v", err))
-		}
-	}
-
 	return ww
 }
 
 func (w *Writer) Schema() *arrow.Schema { return w.schema }
 
 // Write writes a single Record as one row to the CSV file
-func (w *Writer) Write(record array.Record) error {
+func (w *Writer) Write(record array.Record) (err error) {
 	if !record.Schema().Equal(w.schema) {
 		return ErrMismatchFields
+	}
+
+	if w.header {
+		w.once.Do(func() {
+			err = w.writeHeader()
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	recs := make([][]string, record.NumRows())

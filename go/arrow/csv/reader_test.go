@@ -258,7 +258,25 @@ func TestCSVReaderWithHeader(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r := csv.NewReader(bytes.NewReader(raw), nil,
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			arrow.Field{Name: "0", Type: arrow.FixedWidthTypes.Boolean},
+			arrow.Field{Name: "1", Type: arrow.PrimitiveTypes.Int8},
+			arrow.Field{Name: "2", Type: arrow.PrimitiveTypes.Int16},
+			arrow.Field{Name: "3", Type: arrow.PrimitiveTypes.Int32},
+			arrow.Field{Name: "4", Type: arrow.PrimitiveTypes.Int64},
+			arrow.Field{Name: "5", Type: arrow.PrimitiveTypes.Uint8},
+			arrow.Field{Name: "6", Type: arrow.PrimitiveTypes.Uint16},
+			arrow.Field{Name: "7", Type: arrow.PrimitiveTypes.Uint32},
+			arrow.Field{Name: "8", Type: arrow.PrimitiveTypes.Uint64},
+			arrow.Field{Name: "9", Type: arrow.PrimitiveTypes.Float32},
+			arrow.Field{Name: "10", Type: arrow.PrimitiveTypes.Float64},
+			arrow.Field{Name: "11", Type: arrow.BinaryTypes.String},
+		},
+		nil,
+	)
+
+	r := csv.NewReader(bytes.NewReader(raw), schema,
 		csv.WithAllocator(mem),
 		csv.WithComment('#'), csv.WithComma(';'),
 		csv.WithHeader(),

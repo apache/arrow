@@ -112,9 +112,10 @@ func NewSchema(fields []Field, metadata *Metadata) *Schema {
 	return sc
 }
 
-func (sc *Schema) Metadata() Metadata { return sc.meta }
-func (sc *Schema) Fields() []Field    { return sc.fields }
-func (sc *Schema) Field(i int) Field  { return sc.fields[i] }
+func (sc *Schema) Metadata() Metadata           { return sc.meta }
+func (sc *Schema) Fields() []Field              { return sc.fields }
+func (sc *Schema) Field(i int) Field            { return sc.fields[i] }
+func (sc *Schema) SetFieldName(i int, n string) { sc.fields[i].Name = n }
 
 func (sc *Schema) FieldByName(n string) (Field, bool) {
 	i, ok := sc.index[n]

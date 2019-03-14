@@ -28,6 +28,7 @@ import (
 
 var (
 	ErrMismatchFields = errors.New("arrow/csv: number of records mismatch")
+	ErrFailedFileRead = errors.New("arrow/csv: file read failed")
 )
 
 // Option configures a CSV reader/writer.
@@ -108,9 +109,9 @@ func WithHeader() Option {
 	return func(cfg config) {
 		switch cfg := cfg.(type) {
 		case *Reader:
-			cfg.withHeader = true
+			cfg.header = true
 		case *Writer:
-			cfg.withHeader = true
+			cfg.header = true
 		default:
 			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
 		}
