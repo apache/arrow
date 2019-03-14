@@ -35,9 +35,6 @@ endif()
 # ----------------------------------------------------------------------
 # Resolve the dependencies
 
-message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
-
-set(ARROW_ACTUAL_DEPENDENCY_SOURCE "${ARROW_DEPENDENCY_SOURCE}")
 set(ARROW_THIRDPARTY_DEPENDENCIES
   double-conversion
   BROTLI
@@ -58,15 +55,15 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
   LLVM
   BOOST)
 
+message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
+
 # TODO: double-conversion check fails for conda, it should not
-if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
-  message(STATUS "Using CONDA_PREFIX: $ENV{CONDA_PREFIX}")
-  if (MSVC)
-    set(ARROW_PACKAGE_PREFIX "$ENV{CONDA_PREFIX}/Library")
-  else()
-    set(ARROW_PACKAGE_PREFIX $ENV{CONDA_PREFIX})
-  endif()
+if (ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
+  set(ARROW_PACKAGE_PREFIX $ENV{CONDA_PREFIX})
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "SYSTEM")
+  message(STATUS "Using CONDA_PREFIX as ARROW_PACKAGE_PREFIX: $ENV{CONDA_PREFIX}")
+else()
+  set(ARROW_ACTUAL_DEPENDENCY_SOURCE "${ARROW_DEPENDENCY_SOURCE}")
 endif()
 
 if (ARROW_PACKAGE_PREFIX)
