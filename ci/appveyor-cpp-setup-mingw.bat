@@ -33,5 +33,6 @@ pacman -S --noconfirm ^
     "%MINGW_PACKAGE_PREFIX%-protobuf" ^
     "%MINGW_PACKAGE_PREFIX%-python3-numpy" ^
     "%MINGW_PACKAGE_PREFIX%-snappy" ^
+    "%MINGW_PACKAGE_PREFIX%-thrift" ^
     "%MINGW_PACKAGE_PREFIX%-zlib" ^
     "%MINGW_PACKAGE_PREFIX%-zstd" || exit /B
