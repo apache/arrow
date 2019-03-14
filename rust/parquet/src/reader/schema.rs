@@ -28,6 +28,7 @@ use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
 use crate::errors::{ParquetError::ArrowError, Result};
 use crate::schema::types::{SchemaDescPtr, Type, TypePtr};
 
+use arrow::datatypes::TimeUnit;
 use arrow::datatypes::{DataType, DateUnit, Field, Schema};
 
 /// Convert parquet schema to arrow schema.
@@ -177,12 +178,12 @@ impl ParquetTypeConverter {
             PhysicalType::BOOLEAN => Ok(DataType::Boolean),
             PhysicalType::INT32 => self.to_int32(),
             PhysicalType::INT64 => self.to_int64(),
-            PhysicalType::INT96 => self.to_int64(),
+            PhysicalType::INT96 => self.to_int96(),
             PhysicalType::FLOAT => Ok(DataType::Float32),
             PhysicalType::DOUBLE => Ok(DataType::Float64),
             PhysicalType::BYTE_ARRAY => self.to_byte_array(),
             other => Err(ArrowError(format!(
-                "Unable to convert parquet type {}",
+                "Unable to convert parquet physical type {}",
                 other
             ))),
         }
@@ -198,8 +199,10 @@ impl ParquetTypeConverter {
             LogicalType::INT_16 => Ok(DataType::Int16),
             LogicalType::INT_32 => Ok(DataType::Int32),
             LogicalType::DATE => Ok(DataType::Date32(DateUnit::Millisecond)),
+            LogicalType::TIME_MICROS => Ok(DataType::Time32(TimeUnit::Microsecond)),
+            LogicalType::TIME_MILLIS => Ok(DataType::Time32(TimeUnit::Millisecond)),
             other => Err(ArrowError(format!(
-                "Unable to convert parquet logical type {}",
+                "Unable to convert parquet INT32 logical type {}",
                 other
             ))),
         }
@@ -211,8 +214,35 @@ impl ParquetTypeConverter {
             LogicalType::INT_64 => Ok(DataType::Int64),
             LogicalType::UINT_64 => Ok(DataType::UInt64),
             LogicalType::DATE => Ok(DataType::Date64(DateUnit::Millisecond)),
+            LogicalType::TIME_MICROS => Ok(DataType::Time64(TimeUnit::Microsecond)),
+            LogicalType::TIME_MILLIS => Ok(DataType::Time64(TimeUnit::Millisecond)),
+            LogicalType::TIMESTAMP_MICROS => {
+                Ok(DataType::Timestamp(TimeUnit::Microsecond))
+            }
+            LogicalType::TIMESTAMP_MILLIS => {
+                Ok(DataType::Timestamp(TimeUnit::Millisecond))
+            }
             other => Err(ArrowError(format!(
-                "Unable to convert parquet logical type {}",
+                "Unable to convert parquet INT64 logical type {}",
+                other
+            ))),
+        }
+    }
+
+    fn to_int96(&self) -> Result<DataType> {
+        match self.schema.get_basic_info().logical_type() {
+            LogicalType::NONE => Ok(DataType::Int64),
+            LogicalType::DATE => Ok(DataType::Date64(DateUnit::Millisecond)),
+            LogicalType::TIME_MICROS => Ok(DataType::Time64(TimeUnit::Microsecond)),
+            LogicalType::TIME_MILLIS => Ok(DataType::Time64(TimeUnit::Millisecond)),
+            LogicalType::TIMESTAMP_MICROS => {
+                Ok(DataType::Timestamp(TimeUnit::Microsecond))
+            }
+            LogicalType::TIMESTAMP_MILLIS => {
+                Ok(DataType::Timestamp(TimeUnit::Millisecond))
+            }
+            other => Err(ArrowError(format!(
+                "Unable to convert parquet INT96 logical type {}",
                 other
             ))),
         }
