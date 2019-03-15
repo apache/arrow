@@ -39,7 +39,7 @@ Gem::Specification.new do |spec|
   spec.license = "Apache-2.0"
   spec.files = ["README.md", "Rakefile", "Gemfile", "#{spec.name}.gemspec"]
   spec.files += ["LICENSE.txt", "NOTICE.txt"]
-  spec.files += Dir.glob("ext/**/*.{cc,hpp,rb}")
+  spec.files += Dir.glob("ext/**/*.{cpp,hpp,rb}")
   spec.files += Dir.glob("lib/**/*.rb")
   spec.files += Dir.glob("image/*.*")
   spec.files += Dir.glob("doc/text/*")
