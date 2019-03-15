@@ -147,7 +147,7 @@ To build the NuGet package run the following command to build a debug flavor, pr
 
 When building the officially released version run: (see Note below about current `git` repository)
 
-    dotnet pack -c Release -p:VersionSuffix=''
+    dotnet pack -c Release
 
 Which will build the final/stable package.
 

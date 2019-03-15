@@ -58,7 +58,7 @@ update_versions() {
 
   cd "${SOURCE_DIR}/../../csharp"
   sed -i.bak -E -e \
-    "s/^    <VersionPrefix>.+<\/VersionPrefix>/    <VersionPrefix>${version}<\/VersionPrefix>/" \
+    "s/^    <Version>.+<\/Version>/    <Version>${version}<\/Version>/" \
     Directory.Build.props
   rm -f Directory.Build.props.bak
   git add Directory.Build.props

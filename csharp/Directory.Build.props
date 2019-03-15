@@ -4,7 +4,7 @@
   <PropertyGroup>
     <RepoRoot>$(MSBuildThisFileDirectory)../</RepoRoot>
     <CSharpDir>$(MSBuildThisFileDirectory)</CSharpDir>
-    <BaseOutputPath>$(CSharpDir)/artifacts/$(AssemblyName)</BaseOutputPath>
+    <BaseOutputPath>$(CSharpDir)/artifacts/$(MSBuildProjectName)</BaseOutputPath>
   </PropertyGroup>
 
   <!-- AssemblyInfo properties -->
@@ -12,8 +12,7 @@
     <Product>Apache Arrow library</Product>
     <Copyright>2018 Apache Software Foundation</Copyright>
     <Company>Apache</Company>
-    <VersionPrefix>0.13.0</VersionPrefix>
-    <VersionSuffix>preview</VersionSuffix>
+    <Version>0.13.0-SNAPSHOT</Version>
   </PropertyGroup>
 
   <PropertyGroup>
