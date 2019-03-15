@@ -147,7 +147,7 @@ namespace red_arrow {
                               rb_ascii8bit_encoding());
       }
 
-      const int32_t JULIAN_DATE_UNIX_EPOCH = 2440588;
+      constexpr static int32_t JULIAN_DATE_UNIX_EPOCH = 2440588;
       inline VALUE convert(const arrow::Date32Array& array,
                            const int64_t i) {
         const auto value = array.Value(i);
