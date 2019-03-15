@@ -29,7 +29,6 @@
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -45,7 +44,7 @@ class ARROW_EXPORT BufferBuilder {
  public:
   explicit BufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
       : pool_(pool), capacity_(0), size_(0) {
-    ARROW_IGNORE_EXPR(AllocateResizableBuffer(pool_, 0, &buffer_));
+    static_cast<void>(AllocateResizableBuffer(pool_, 0, &buffer_));
   }
 
   /// \brief Resize the buffer to the nearest multiple of 64 bytes
@@ -128,7 +127,6 @@ class ARROW_EXPORT BufferBuilder {
 
   // Advance pointer and zero out memory
   Status Advance(const int64_t length) { return Append(length, 0); }
-
   // Advance pointer, but don't allocate or zero memory
   void UnsafeAdvance(const int64_t length) { size_ += length; }
 
@@ -162,7 +160,7 @@ class ARROW_EXPORT BufferBuilder {
 
   void Reset() {
     buffer_ = NULLPTR;
-    ARROW_IGNORE_EXPR(AllocateResizableBuffer(pool_, 0, &buffer_));
+    static_cast<void>(AllocateResizableBuffer(pool_, 0, &buffer_));
     capacity_ = size_ = 0;
   }
 
