@@ -60,7 +60,7 @@ impl RuntimeExpr {
     pub fn get_func(&self) -> CompiledExpr {
         match self {
             &RuntimeExpr::Compiled { ref f, .. } => f.clone(),
-            _ => panic!(),
+            _ => ARROWpanic!(),
         }
     }
 

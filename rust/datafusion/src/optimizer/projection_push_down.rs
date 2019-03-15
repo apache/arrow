@@ -389,9 +389,9 @@ mod tests {
                 LogicalPlan::TableScan { ref schema, .. } => {
                     assert_eq!(2, schema.fields().len());
                 }
-                _ => panic!(),
+                _ => assert!(false),
             },
-            _ => panic!(),
+            _ => assert!(false),
         }
     }
 
