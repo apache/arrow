@@ -27,7 +27,6 @@ use arrow::datatypes::*;
 
 use crate::datasource::csv::CsvFile;
 use crate::datasource::datasource::Table;
-use crate::dfparser::{DFASTNode, DFParser};
 use crate::execution::aggregate::AggregateRelation;
 use crate::execution::error::{ExecutionError, Result};
 use crate::execution::expression::*;
@@ -38,7 +37,8 @@ use crate::execution::relation::{DataSourceRelation, Relation};
 use crate::logicalplan::*;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
-use crate::sqlplanner::{SchemaProvider, SqlToRel};
+use crate::sql::parser::{DFASTNode, DFParser};
+use crate::sql::planner::{SchemaProvider, SqlToRel};
 
 pub struct ExecutionContext {
     datasources: Rc<RefCell<HashMap<String, Rc<Table>>>>,
