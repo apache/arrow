@@ -131,7 +131,7 @@ pub type ArrayRef = Arc<Array>;
 
 /// Constructs an array using the input `data`. Returns a reference-counted `Array`
 /// instance.
-fn make_array(data: ArrayDataRef) -> ArrayRef {
+pub(crate) fn make_array(data: ArrayDataRef) -> ArrayRef {
     // TODO: here data_type() needs to clone the type - maybe add a type tag enum to
     // avoid the cloning.
     match data.data_type().clone() {
