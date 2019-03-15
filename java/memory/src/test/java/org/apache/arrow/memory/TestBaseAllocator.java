@@ -228,7 +228,9 @@ public class TestBaseAllocator {
   // It counts the number of times it has been invoked, and how much memory allocation it has seen
   // When set to 'expand on fail', it attempts to expand the associated allocator's limit
   private static final class TestAllocationListener implements AllocationListener {
+    private int numPreCalls;
     private int numCalls;
+    private int numReleaseCalls;
     private int numChildren;
     private long totalMem;
     private boolean expandOnFail;
@@ -245,6 +247,11 @@ public class TestBaseAllocator {
     }
 
     @Override
+    public void onPreAllocation(long size) {
+      numPreCalls++;
+    }
+
+    @Override
     public void onAllocation(long size) {
       numCalls++;
       totalMem += size;
@@ -257,6 +264,12 @@ public class TestBaseAllocator {
         return true;
       }
       return false;
+    }
+
+
+    @Override
+    public void onRelease(long size) {
+      numReleaseCalls++;
     }
 
     @Override
@@ -275,6 +288,14 @@ public class TestBaseAllocator {
       this.expandLimit = expandLimit;
     }
 
+    int getNumPreCalls() {
+      return numPreCalls;
+    }
+
+    int getNumReleaseCalls() {
+      return numReleaseCalls;
+    }
+
     int getNumCalls() {
       return numCalls;
     }
@@ -291,11 +312,15 @@ public class TestBaseAllocator {
   @Test
   public void testRootAllocator_listeners() throws Exception {
     TestAllocationListener l1 = new TestAllocationListener();
+    assertEquals(0, l1.getNumPreCalls());
     assertEquals(0, l1.getNumCalls());
+    assertEquals(0, l1.getNumReleaseCalls());
     assertEquals(0, l1.getNumChildren());
     assertEquals(0, l1.getTotalMem());
     TestAllocationListener l2 = new TestAllocationListener();
+    assertEquals(0, l2.getNumPreCalls());
     assertEquals(0, l2.getNumCalls());
+    assertEquals(0, l2.getNumReleaseCalls());
     assertEquals(0, l2.getNumChildren());
     assertEquals(0, l2.getTotalMem());
     // root and first-level child share the first listener
@@ -305,7 +330,9 @@ public class TestBaseAllocator {
         assertEquals(1, l1.getNumChildren());
         final ArrowBuf buf1 = c1.buffer(16);
         assertNotNull("allocation failed", buf1);
+        assertEquals(1, l1.getNumPreCalls());
         assertEquals(1, l1.getNumCalls());
+        assertEquals(0, l1.getNumReleaseCalls());
         assertEquals(16, l1.getTotalMem());
         buf1.release();
         try (final BufferAllocator c2 = c1.newChildAllocator("c2", l2, 0, MAX_ALLOCATION)) {
@@ -315,7 +342,9 @@ public class TestBaseAllocator {
           assertNotNull("allocation failed", buf2);
           assertEquals(1, l1.getNumCalls());
           assertEquals(16, l1.getTotalMem());
+          assertEquals(1, l2.getNumPreCalls());
           assertEquals(1, l2.getNumCalls());
+          assertEquals(0, l2.getNumReleaseCalls());
           assertEquals(32, l2.getTotalMem());
           buf2.release();
           try (final BufferAllocator c3 = c2.newChildAllocator("c3", 0, MAX_ALLOCATION)) {
@@ -323,9 +352,13 @@ public class TestBaseAllocator {
             assertEquals(1, l2.getNumChildren());
             final ArrowBuf buf3 = c3.buffer(64);
             assertNotNull("allocation failed", buf3);
+            assertEquals(1, l1.getNumPreCalls());
             assertEquals(1, l1.getNumCalls());
+            assertEquals(1, l1.getNumReleaseCalls());
             assertEquals(16, l1.getTotalMem());
+            assertEquals(2, l2.getNumPreCalls());
             assertEquals(2, l2.getNumCalls());
+            assertEquals(1, l2.getNumReleaseCalls());
             assertEquals(32 + 64, l2.getTotalMem());
             buf3.release();
           }
@@ -336,6 +369,8 @@ public class TestBaseAllocator {
         assertEquals(0, l2.getNumChildren());
       }
       assertEquals(0, l1.getNumChildren()); // first-level child removed
+
+      assertEquals(2, l2.getNumReleaseCalls());
     }
   }
 
@@ -505,7 +540,7 @@ public class TestBaseAllocator {
       assertEquals(0, arrowBuf.writerIndex());
       assertEquals(256, arrowBuf.writableBytes());
 
-      final ArrowBuf slice3 = (ArrowBuf) arrowBuf.slice();
+      final ArrowBuf slice3 = arrowBuf.slice();
       assertEquals(0, slice3.readerIndex());
       assertEquals(0, slice3.readableBytes());
       assertEquals(0, slice3.writerIndex());
@@ -520,7 +555,7 @@ public class TestBaseAllocator {
       assertEquals(256, arrowBuf.writerIndex());
       assertEquals(0, arrowBuf.writableBytes());
 
-      final ArrowBuf slice1 = (ArrowBuf) arrowBuf.slice();
+      final ArrowBuf slice1 = arrowBuf.slice();
       assertEquals(0, slice1.readerIndex());
       assertEquals(256, slice1.readableBytes());
       for (int i = 0; i < 10; ++i) {

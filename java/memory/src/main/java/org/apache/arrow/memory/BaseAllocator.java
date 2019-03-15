@@ -49,7 +49,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   final String name;
   final RootAllocator root;
   private final Object DEBUG_LOCK = DEBUG ? new Object() : null;
-  private final AllocationListener listener;
+  final AllocationListener listener;
   private final BaseAllocator parentAllocator;
   private final ArrowByteBufAllocator thisAsByteBufAllocator;
   private final IdentityHashMap<BaseAllocator, Object> childAllocators;
@@ -277,6 +277,9 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     final int actualRequestSize = initialRequestSize < AllocationManager.CHUNK_SIZE ?
         nextPowerOfTwo(initialRequestSize)
         : initialRequestSize;
+
+    listener.onPreAllocation(actualRequestSize);
+
     AllocationOutcome outcome = this.allocateBytes(actualRequestSize);
     if (!outcome.isOk()) {
       if (listener.onFailedAllocation(actualRequestSize, outcome)) {

@@ -147,6 +147,7 @@ public class AllocationManager {
         // no one else owns, lets release.
         oldLedger.allocator.releaseBytes(size);
         underlying.release();
+        oldLedger.allocator.listener.onRelease(size);
         amDestructionTime = System.nanoTime();
         owningLedger = null;
       } else {
