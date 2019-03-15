@@ -60,13 +60,6 @@ use crate::error::{ArrowError, Result};
 /// * Utf8 to boolean
 pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
     use DataType::*;
-
-    if array.offset() != 0 {
-        return Err(ArrowError::ComputeError(
-            "Cast kernel does not yet support sliced (non-zero offset) arrays"
-                .to_string(),
-        ));
-    }
     let from_type = array.data_type();
 
     // clone array if types are the same
@@ -105,12 +98,17 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             "Cannot cast list to non-list data types".to_string(),
         )),
         (_, List(ref to)) => {
+            // see ARROW-4886 for this limitation
+            if array.offset() != 0 {
+                return Err(ArrowError::ComputeError(
+                    "Cast kernel does not yet support sliced (non-zero offset) arrays"
+                        .to_string(),
+                ));
+            }
             // cast primitive to list's primitive
             let cast_array = cast(array, &to)?;
             // create offsets, where if array.len() = 2, we have [0,1,2]
-            dbg!(array.len());
             let offsets: Vec<i32> = (0..array.len() as i32 + 1).collect();
-            dbg!(&offsets);
             let value_offsets = Buffer::from(offsets[..].to_byte_slice());
             let list_data = ArrayData::new(
                 *to.clone(),
@@ -540,6 +538,23 @@ mod tests {
     }
 
     #[test]
+    fn test_cast_i32_to_u8_sliced() {
+        let a = Int32Array::from(vec![-5, 6, -7, 8, 100000000]);
+        let array = Arc::new(a) as ArrayRef;
+        assert_eq!(0, array.offset());
+        let array = array.slice(2, 3);
+        assert_eq!(2, array.offset());
+        let b = cast(&array, &DataType::UInt8).unwrap();
+        assert_eq!(3, b.len());
+        assert_eq!(0, b.offset());
+        let c = b.as_any().downcast_ref::<UInt8Array>().unwrap();
+        assert_eq!(false, c.is_valid(0));
+        assert_eq!(8, c.value(1));
+        // overflows return None
+        assert_eq!(false, c.is_valid(2));
+    }
+
+    #[test]
     fn test_cast_i32_to_i32() {
         let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
         let array = Arc::new(a) as ArrayRef;
@@ -629,6 +644,8 @@ mod tests {
         assert_eq!(1, c.null_count());
         assert_eq!(7, c.value(0));
         assert_eq!(8, c.value(1));
+        // if one removes the non-zero-offset limitation, this assertion passes when it
+        // shouldn't
         assert_eq!(0, c.value(2));
     }
 
