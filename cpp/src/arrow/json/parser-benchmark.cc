@@ -20,6 +20,7 @@
 #include <iostream>
 #include <string>
 
+#include "arrow/json/chunker.h"
 #include "arrow/json/options.h"
 #include "arrow/json/parser.h"
 #include "arrow/json/test-common.h"
@@ -27,6 +28,16 @@
 
 namespace arrow {
 namespace json {
+
+static void BenchmarkJSONChunking(benchmark::State& state,  // NOLINT non-const reference
+                                  const std::string& json, ParseOptions options) {
+  auto chunker = Chunker::Make(options);
+  for (auto _ : state) {
+    util::string_view chunked;
+    ABORT_NOT_OK(chunker->Process(json, &chunked));
+  }
+  state.SetBytesProcessed(state.iterations() * json.size());
+}
 
 static void BenchmarkJSONParsing(benchmark::State& state,  // NOLINT non-const reference
                                  const std::string& json, int32_t num_rows,
@@ -46,13 +57,31 @@ static void BenchmarkJSONParsing(benchmark::State& state,  // NOLINT non-const r
   state.SetBytesProcessed(state.iterations() * json.size());
 }
 
+static void BM_ChunkJSONLineDelimited(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const int32_t num_rows = 5000;
+  auto options = ParseOptions::Defaults();
+  options.newlines_in_values = false;
+  options.explicit_schema = schema({field("int", int32()), field("str", utf8())});
+  std::default_random_engine engine;
+  std::string json;
+  for (int i = 0; i != num_rows; ++i) {
+    StringBuffer sb;
+    Writer writer(sb);
+    ABORT_NOT_OK(Generate(options.explicit_schema, engine, &writer));
+    json += sb.GetString();
+    json += "\n";
+  }
+  BenchmarkJSONChunking(state, json, options);
+}
+
 static void BM_ParseJSONBlockWithSchema(
     benchmark::State& state) {  // NOLINT non-const reference
   const int32_t num_rows = 5000;
   auto options = ParseOptions::Defaults();
   options.unexpected_field_behavior = UnexpectedFieldBehavior::Error;
   options.explicit_schema = schema({field("int", int32()), field("str", utf8())});
-  std::mt19937_64 engine;
+  std::default_random_engine engine;
   std::string json;
   for (int i = 0; i != num_rows; ++i) {
     StringBuffer sb;
