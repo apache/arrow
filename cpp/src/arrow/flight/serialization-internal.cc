@@ -296,7 +296,7 @@ grpc::Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
         }
       } break;
       default:
-        DCHECK(false) << "cannot happen";
+        DCHECK(false);  // cannot happen
     }
   }
   buffer->Clear();
