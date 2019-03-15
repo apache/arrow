@@ -157,7 +157,11 @@ struct UnpackValues {
   }
 
   Status Visit(const DictionaryType& t) {
-    UnpackValues<IndexType> unpack = {params_};
+    auto dictionary_indices = params_.values->data()->Copy();
+    dictionary_indices->type = t.index_type();
+    TakeParameters params = params_;
+    params.values = MakeArray(dictionary_indices);
+    UnpackValues<IndexType> unpack = {params};
     RETURN_NOT_OK(VisitTypeInline(*t.index_type(), &unpack));
     (*params_.out)->data()->type = dictionary(t.index_type(), t.dictionary());
     return Status::OK();

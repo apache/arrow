@@ -34,6 +34,13 @@ using util::string_view;
 template <typename ArrowType>
 class TestTakeKernel : public ComputeFixture, public TestBase {
  protected:
+  void AssertTake(const std::shared_ptr<Array>& values,
+                  const std::shared_ptr<Array>& indices, TakeOptions options,
+                  const std::shared_ptr<Array>& expected) {
+    std::shared_ptr<Array> actual;
+    ASSERT_OK(arrow::compute::Take(&this->ctx_, *values, *indices, options, actual));
+    AssertArraysEqual(*expected, *actual);
+  }
   void AssertTake(const std::shared_ptr<DataType>& type, const std::string& values,
                   const std::string& indices, TakeOptions options,
                   const std::string& expected) {
@@ -123,6 +130,20 @@ class TestTakeKernelWithString : public TestTakeKernel<StringType> {
                   TakeOptions options, const std::string& expected) {
     TestTakeKernel<StringType>::AssertTake(utf8(), values, indices, options, expected);
   }
+  void AssertTakeDictionary(const std::string& dictionary_values,
+                            const std::string& dictionary_indices,
+                            const std::string& indices, TakeOptions options,
+                            const std::string& expected_indices) {
+    auto type = dictionary(int8(), ArrayFromJSON(utf8(), dictionary_values));
+    std::shared_ptr<Array> values, actual, expected;
+    ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), dictionary_indices),
+                                          &values));
+    ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_indices),
+                                          &expected));
+    ASSERT_OK(arrow::compute::Take(&this->ctx_, *values, *ArrayFromJSON(int8(), indices),
+                                   options, &actual));
+    AssertArraysEqual(*expected, *actual);
+  }
 };
 
 TEST_F(TestTakeKernelWithString, TakeString) {
@@ -137,6 +158,18 @@ TEST_F(TestTakeKernelWithString, TakeString) {
 
   options.out_of_bounds = TakeOptions::TONULL;
   this->AssertTake(R"(["a", "b", "c"])", "[0, 9, 0]", options, R"(["a", null, "a"])");
+}
+
+TEST_F(TestTakeKernelWithString, TakeDictionary) {
+  TakeOptions options;
+  auto dict = R"(["a", "b", "c", "d", "e"])";
+  this->AssertTakeDictionary(dict, "[0, 1, 4]", "[0, 1, 0]", options, "[0, 1, 0]");
+  this->AssertTakeDictionary(dict, "[null, 1, 4]", "[0, 1, 0]", options,
+                             "[null, 1, null]");
+  this->AssertTakeDictionary(dict, "[0, 1, 4]", "[null, 1, 0]", options, "[null, 1, 0]");
+
+  options.out_of_bounds = TakeOptions::TONULL;
+  this->AssertTakeDictionary(dict, "[0, 1, 4]", "[0, 9, 0]", options, "[0, null, 0]");
 }
 
 }  // namespace compute
