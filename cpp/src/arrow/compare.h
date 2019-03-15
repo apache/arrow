@@ -30,6 +30,7 @@ class Array;
 class DataType;
 class Tensor;
 class SparseTensor;
+struct Scalar;
 
 /// Returns true if the arrays are exactly equal
 bool ARROW_EXPORT ArrayEquals(const Array& left, const Array& right);
@@ -55,6 +56,11 @@ bool ARROW_EXPORT ArrayRangeEquals(const Array& left, const Array& right,
 /// fields
 bool ARROW_EXPORT TypeEquals(const DataType& left, const DataType& right,
                              bool check_metadata = true);
+
+/// Returns true if scalars are equal
+/// \param[in] left a Scalar
+/// \param[in] right a Scalar
+bool ARROW_EXPORT ScalarEquals(const Scalar& left, const Scalar& right);
 
 }  // namespace arrow
 

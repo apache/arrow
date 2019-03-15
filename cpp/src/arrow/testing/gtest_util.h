@@ -105,6 +105,12 @@ class ChunkedArray;
 class Column;
 class Table;
 
+namespace compute {
+struct Datum;
+}
+
+using Datum = compute::Datum;
+
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
 #define ASSERT_PP_EQUAL(LEFT, RIGHT)                                                   \
@@ -136,6 +142,8 @@ ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs);
 ARROW_EXPORT void PrintColumn(const Column& col, std::stringstream* ss);
 ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
                                     bool same_chunk_layout = true);
+
+ARROW_EXPORT void AssertDatumsEqual(const Datum& expected, const Datum& actual);
 
 template <typename C_TYPE>
 void AssertNumericDataEqual(const C_TYPE* raw_data,

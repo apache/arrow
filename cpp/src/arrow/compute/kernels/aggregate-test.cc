@@ -267,10 +267,10 @@ void ValidateCount(FunctionContext* ctx, const Array& input, CountPair expected)
   Datum result;
 
   ASSERT_OK(Count(ctx, all, input, &result));
-  DatumEqual<Int64Type>::EnsureEqual(result, Datum(expected.first));
+  AssertDatumsEqual(result, Datum(expected.first));
 
   ASSERT_OK(Count(ctx, nulls, input, &result));
-  DatumEqual<Int64Type>::EnsureEqual(result, Datum(expected.second));
+  AssertDatumsEqual(result, Datum(expected.second));
 }
 
 template <typename ArrowType>

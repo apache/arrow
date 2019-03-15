@@ -36,6 +36,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/ipc/json-simple.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
@@ -102,6 +103,11 @@ void AssertSchemaEqual(const Schema& lhs, const Schema& rhs) {
        << "right schema: " << rhs.ToString() << std::endl;
     FAIL() << ss.str();
   }
+}
+
+void AssertDatumsEqual(const Datum& expected, const Datum& actual) {
+  // TODO: Implements better print.
+  ASSERT_TRUE(actual.Equals(expected));
 }
 
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
