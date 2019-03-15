@@ -23,6 +23,20 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
 
+cdef extern from "arrow/ipc/api.h" namespace "arrow" nogil:
+    cdef cppclass CIpcPayload" arrow::ipc::internal::IpcPayload":
+        MessageType type
+        shared_ptr[CBuffer] metadata
+        vector[shared_ptr[CBuffer]] body_buffers
+        int64_t body_length
+
+    cdef CStatus _GetRecordBatchPayload\
+        " arrow::ipc::internal::GetRecordBatchPayload"(
+            const CRecordBatch& batch,
+            CMemoryPool* pool,
+            CIpcPayload* out)
+
+
 cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CActionType" arrow::flight::ActionType":
         c_string type
@@ -94,8 +108,13 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
             " arrow::flight::FlightMessageReader"(CRecordBatchReader):
         CFlightDescriptor& descriptor()
 
+    cdef cppclass CFlightPayload" arrow::flight::FlightPayload":
+        shared_ptr[CBuffer] descriptor
+        CIpcPayload ipc_message
+
     cdef cppclass CFlightDataStream" arrow::flight::FlightDataStream":
-        pass
+        shared_ptr[CSchema] schema()
+        CStatus Next(CFlightPayload*)
 
     cdef cppclass CRecordBatchStream \
             " arrow::flight::RecordBatchStream"(CFlightDataStream):
@@ -133,6 +152,7 @@ ctypedef void cb_do_action(object, const CAction&,
                            unique_ptr[CResultStream]*)
 ctypedef void cb_list_actions(object, vector[CActionType]*)
 ctypedef void cb_result_next(object, unique_ptr[CResult]*)
+ctypedef void cb_data_stream_next(object, CFlightPayload*)
 
 cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef cppclass PyFlightServerVtable:
@@ -160,6 +180,13 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
             " arrow::py::flight::PyFlightDataStream"(CFlightDataStream):
         CPyFlightDataStream(object data_source,
                             unique_ptr[CFlightDataStream] stream)
+
+    cdef cppclass CPyGeneratorFlightDataStream\
+            " arrow::py::flight::PyGeneratorFlightDataStream"\
+            (CFlightDataStream):
+        CPyGeneratorFlightDataStream(object generator,
+                                     shared_ptr[CSchema] schema,
+                                     function[cb_data_stream_next] callback)
 
     cdef CStatus CreateFlightInfo" arrow::py::flight::CreateFlightInfo"(
         shared_ptr[CSchema] schema,

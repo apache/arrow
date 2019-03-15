@@ -445,6 +445,96 @@ cdef class RecordBatchStream(FlightDataStream):
         return new CRecordBatchStream(reader)
 
 
+cdef class GeneratorStream(FlightDataStream):
+    """A Flight data stream backed by a Python generator."""
+    cdef:
+        shared_ptr[CSchema] schema
+        object generator
+        # A substream currently being consumed by the client, if
+        # present. Produced by the generator.
+        unique_ptr[CFlightDataStream] current_stream
+
+    def __init__(self, schema, generator):
+        """Create a GeneratorStream from a Python generator.
+
+        Parameters
+        ----------
+        schema : Schema
+            The schema for the data to be returned.
+
+        generator : iterator or iterable
+            The generator should yield other FlightDataStream objects,
+            Tables, RecordBatches, or RecordBatchReaders.
+        """
+        self.schema = pyarrow_unwrap_schema(schema)
+        self.generator = iter(generator)
+
+    cdef CFlightDataStream* to_stream(self):
+        cdef:
+            function[cb_data_stream_next] callback = &_data_stream_next
+        return new CPyGeneratorFlightDataStream(self, self.schema, callback)
+
+
+cdef void _data_stream_next(void* self, CFlightPayload* payload) except *:
+    """Callback for implementing FlightDataStream in Python."""
+    cdef:
+        unique_ptr[CFlightDataStream] data_stream
+
+    py_stream = <object> self
+    if not isinstance(py_stream, GeneratorStream):
+        raise RuntimeError("self object in callback is not GeneratorStream")
+    stream = <GeneratorStream> py_stream
+
+    if stream.current_stream != nullptr:
+        check_status(stream.current_stream.get().Next(payload))
+        # If the stream ended, see if there's another stream from the
+        # generator
+        if payload.ipc_message.metadata != nullptr:
+            return
+        stream.current_stream.reset(nullptr)
+
+    try:
+        result = next(stream.generator)
+    except StopIteration:
+        payload.ipc_message.metadata.reset(<CBuffer*> nullptr)
+        return
+
+    if isinstance(result, (Table, _CRecordBatchReader)):
+        result = RecordBatchStream(result)
+
+    stream_schema = pyarrow_wrap_schema(stream.schema)
+    if isinstance(result, FlightDataStream):
+        data_stream = unique_ptr[CFlightDataStream](
+            (<FlightDataStream> result).to_stream())
+        substream_schema = pyarrow_wrap_schema(data_stream.get().schema())
+        if substream_schema != stream_schema:
+            raise ValueError("Got a FlightDataStream whose schema does not "
+                             "match the declared schema of this "
+                             "GeneratorStream. "
+                             "Got: {}\nExpected: {}".format(substream_schema,
+                                                            stream_schema))
+        stream.current_stream.reset(
+            new CPyFlightDataStream(result, move(data_stream)))
+        _data_stream_next(self, payload)
+    elif isinstance(result, RecordBatch):
+        batch = <RecordBatch> result
+        if batch.schema != stream_schema:
+            raise ValueError("Got a RecordBatch whose schema does not "
+                             "match the declared schema of this "
+                             "GeneratorStream. "
+                             "Got: {}\nExpected: {}".format(batch.schema,
+                                                            stream_schema))
+        check_status(_GetRecordBatchPayload(
+            deref(batch.batch),
+            c_default_memory_pool(),
+            &payload.ipc_message))
+    else:
+        raise TypeError("GeneratorStream must be initialized with "
+                        "an iterator of FlightDataStream, Table, "
+                        "RecordBatch, or RecordBatchStreamReader objects, "
+                        "not {}.".format(type(result)))
+
+
 cdef void _list_flights(void* self, const CCriteria* c_criteria,
                         unique_ptr[CFlightListing]* listing) except *:
     """Callback for implementing ListFlights in Python."""
