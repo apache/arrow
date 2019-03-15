@@ -29,10 +29,15 @@ use arrow::record_batch::RecordBatch;
 use super::error::{ExecutionError, Result};
 use super::relation::Relation;
 
-pub struct LimitRelation {
+/// Implementation of a LIMIT relation
+pub(super) struct LimitRelation {
+    /// The relation which the limit is being applied to
     input: Rc<RefCell<Relation>>,
+    /// The schema for the limit relation, which is always the same as the schema of the input relation
     schema: Arc<Schema>,
+    /// The number of rows returned by this relation
     limit: usize,
+    /// The number of rows that have been returned so far
     num_consumed_rows: usize,
 }
 

@@ -30,6 +30,7 @@ use super::error::{ExecutionError, Result};
 use super::expression::RuntimeExpr;
 use super::relation::Relation;
 
+/// Implementation of a filter relation
 pub(super) struct FilterRelation {
     /// The schema for the filter relation. This is always the same as the schema of the input relation.
     schema: Arc<Schema>,

@@ -87,6 +87,7 @@ trait AggregateFunction {
     fn data_type(&self) -> &DataType;
 }
 
+/// Implemntation of MIN aggregate function
 #[derive(Debug)]
 struct MinFunction {
     data_type: DataType,
@@ -161,6 +162,7 @@ impl AggregateFunction for MinFunction {
     }
 }
 
+/// Implemntation of MAX aggregate function
 #[derive(Debug)]
 struct MaxFunction {
     data_type: DataType,
@@ -235,6 +237,7 @@ impl AggregateFunction for MaxFunction {
     }
 }
 
+/// Implemntation of SUM aggregate function
 #[derive(Debug)]
 struct SumFunction {
     data_type: DataType,

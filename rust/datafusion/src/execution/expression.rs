@@ -34,6 +34,7 @@ pub type CompiledExpr = Rc<Fn(&RecordBatch) -> Result<ArrayRef>>;
 
 pub type CompiledCastFunction = Rc<Fn(&ArrayRef) -> Result<ArrayRef>>;
 
+/// Enumeration of supported aggregate functions
 pub enum AggregateType {
     Min,
     Max,
@@ -44,7 +45,7 @@ pub enum AggregateType {
 }
 
 /// Runtime expression
-pub enum RuntimeExpr {
+pub(super) enum RuntimeExpr {
     Compiled {
         name: String,
         f: CompiledExpr,
@@ -84,7 +85,7 @@ impl RuntimeExpr {
 }
 
 /// Compiles a scalar expression into a closure
-pub fn compile_expr(
+pub(super) fn compile_expr(
     ctx: &ExecutionContext,
     expr: &Expr,
     input_schema: &Schema,
@@ -252,7 +253,7 @@ macro_rules! literal_array {
 }
 
 /// Compiles a scalar expression into a closure
-pub fn compile_scalar_expr(
+pub(super) fn compile_scalar_expr(
     ctx: &ExecutionContext,
     expr: &Expr,
     input_schema: &Schema,
