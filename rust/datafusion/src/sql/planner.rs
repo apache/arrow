@@ -27,6 +27,8 @@ use arrow::datatypes::*;
 
 use sqlparser::sqlast::*;
 
+/// The SchemaProvider trait allows the query planner to obtain meta-data about tables and
+/// functions referenced in SQL statements
 pub trait SchemaProvider {
     fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>>;
     fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>>;
@@ -429,6 +431,8 @@ pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Field {
     }
 }
 
+/// Derive field meta-data for a list of expressions, for use in creating schemas that result from
+/// evaluating expressions against an input schema.
 pub fn exprlist_to_fields(expr: &Vec<Expr>, input_schema: &Schema) -> Vec<Field> {
     expr.iter()
         .map(|e| expr_to_field(e, input_schema))
