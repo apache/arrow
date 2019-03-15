@@ -20,6 +20,7 @@
 IF /i "%JOB%" == "C#" goto csharp
 IF "%JOB:~,5%" == "MinGW" goto mingw
 IF /i "%JOB%" == "rust" goto rust
+IF /i "%JOB%" == "go" goto golang
 
 @rem all else are C++
 goto cpp
@@ -43,6 +44,9 @@ goto scriptexit
 
 :mingw
 call ci\appveyor-cpp-setup-mingw.bat
+goto scriptexit
+
+:golang
 goto scriptexit
 
 :csharp

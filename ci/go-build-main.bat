@@ -15,35 +15,12 @@
 @rem specific language governing permissions and limitations
 @rem under the License.
 
-@echo on
+@rem The "main" Go build script for Windows CI
 
-IF /i "%JOB%" == "C#" goto csharp
-IF /i "%JOB%" == "rust" goto rust
-IF /i "%JOB%" == "go" goto golang
+pushd go\arrow
 
-@rem All other builds are C++ builds
-goto cpp
+%GOROOT%\bin\go version
+%GOROOT%\bin\go get -v ./... || exit /B
+%GOROOT%\bin\go test -race ./... || exit /B
 
-:cpp
-git config core.symlinks true
-git reset --hard
-if "%JOB:~,5%" == "MinGW" (
-    call ci\appveyor-cpp-build-mingw.bat
-) else (
-    call ci\appveyor-cpp-build.bat
-)
-goto scriptexit
-
-:csharp
-call ci\appveyor-csharp-build.bat
-goto scriptexit
-
-:rust
-call ci\rust-build-main.bat
-goto scriptexit
-
-:golang
-call ci\go-build-main.bat
-goto scriptexit
-
-:scriptexit
+popd

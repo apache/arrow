@@ -19,7 +19,7 @@
 os: Visual Studio 2015
 
 only_commits:
-  # Skip commits not related to Python, C++, C#, or Rust
+  # Skip commits not related to Python, C++, C#, Go or Rust
   files:
     - appveyor.yml
     - c_glib/
@@ -27,6 +27,7 @@ only_commits:
     - cpp/
     - csharp/
     - format/
+    - go/
     - python/
     - rust/
 
@@ -76,6 +77,14 @@ environment:
       USE_CLCACHE: false
     - JOB: "C#"
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      USE_CLCACHE: false
+    - JOB: "Go"
+      TARGET: x86_64-pc-windows-msvc
+      GOROOT: 'c:\go111'
+      GOPATH: c:\gopath
+      GO111MODULE: on
+      GOTOOLDIR: '%GOROOT%\pkg\tool\windows_amd64'
+      PATH: '%GOPATH%\bin;%GOROOT%\bin;%PATH%'
       USE_CLCACHE: false
 
   MSVC_DEFAULT_OPTIONS: ON
