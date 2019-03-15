@@ -31,7 +31,7 @@ if(GRPC_HAS_ADDRESS_SORTING)
   list(APPEND ARROW_FLIGHT_STATIC_LINK_LIBS gRPC::address_sorting)
 endif()
 
-if (ARROW_TEST_LINKAGE STREQUAL "static")
+if(ARROW_TEST_LINKAGE STREQUAL "static")
   set(ARROW_FLIGHT_TEST_LINK_LIBS
       arrow_flight_static
       arrow_flight_testing_static
@@ -157,16 +157,12 @@ if(ARROW_BUILD_BENCHMARKS)
                      DEPENDS ${PROTO_DEPENDS})
 
   add_executable(arrow-flight-perf-server perf-server.cc perf.pb.cc)
-  target_link_libraries(arrow-flight-perf-server
-                        ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES}
-                        GTest::GTest)
+  target_link_libraries(arrow-flight-perf-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
+                        ${GFLAGS_LIBRARIES} GTest::GTest)
 
   add_executable(arrow-flight-benchmark flight-benchmark.cc perf.pb.cc)
-  target_link_libraries(arrow-flight-benchmark
-                        ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES}
-                        GTest::GTest)
+  target_link_libraries(arrow-flight-benchmark ${ARROW_FLIGHT_TEST_LINK_LIBS}
+                        ${GFLAGS_LIBRARIES} GTest::GTest)
 
   add_dependencies(arrow-flight-benchmark arrow-flight-perf-server)
 
