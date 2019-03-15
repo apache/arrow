@@ -152,6 +152,17 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
     assert_equal(records, record_batch.raw_records)
   end
 
+  test("BinaryArray") do
+    records = [
+      ["\x00".b],
+      [nil],
+      ["\xff".b],
+    ]
+    record_batch = Arrow::RecordBatch.new({column: :binary},
+                                          records)
+    assert_equal(records, record_batch.raw_records)
+  end
+
   sub_test_case("with basic arrays") do
     def setup
       @string_values = ["apple", "orange", "watermelon", nil, "タコ"]
