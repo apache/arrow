@@ -208,7 +208,7 @@ impl ParquetFile {
             }
         };
 
-        let projected_schema = schema.projection(&projection)?;
+        let projected_schema = schema_projection(&schema, &projection)?;
 
         Ok(ParquetFile {
             reader: reader,
@@ -335,6 +335,22 @@ impl ParquetFile {
             _ => Ok(None),
         }
     }
+}
+
+/// Create a new schema by applying a projection to this schema's fields
+fn schema_projection(schema: &Schema, projection: &[usize]) -> Result<Arc<Schema>> {
+    let mut fields: Vec<Field> = Vec::with_capacity(projection.len());
+    for i in projection {
+        if *i < schema.fields().len() {
+            fields.push(schema.field(*i).clone());
+        } else {
+            return Err(ExecutionError::InvalidColumn(format!(
+                "Invalid column index {} in projection",
+                i
+            )));
+        }
+    }
+    Ok(Arc::new(Schema::new(fields)))
 }
 
 /// convert a Parquet INT96 to an Arrow timestamp in nanoseconds
