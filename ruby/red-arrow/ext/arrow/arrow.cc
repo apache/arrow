@@ -33,7 +33,8 @@ extern "C" void Init_arrow() {
   red_arrow::mArrow = rb_const_get_at(rb_cObject, rb_intern("Arrow"));
   auto cArrowRecordBatch = rb_const_get_at(red_arrow::mArrow, rb_intern("RecordBatch"));
   rb_define_method(cArrowRecordBatch, "raw_records",
-                   reinterpret_cast<rb::RawMethod>(red_arrow::record_batch_raw_records), 0);
+                   reinterpret_cast<rb::RawMethod>(red_arrow::record_batch_raw_records),
+                   0);
 
   red_arrow::cDate = rb_const_get(rb_cObject, rb_intern("Date"));
 
