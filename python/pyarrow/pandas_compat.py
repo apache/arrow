@@ -411,9 +411,7 @@ def _resolve_columns_of_interest(df, schema, columns):
     elif schema is not None:
         columns = schema.names
     elif columns is not None:
-        # columns is only for filtering, the function must keep the column
-        # ordering of either the dataframe or the passed schema
-        columns = [c for c in df.columns if c in columns]
+        columns = [c for c in columns if c in df.columns]
     else:
         columns = df.columns
 

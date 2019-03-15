@@ -140,7 +140,8 @@ class TestConvertMetadata(object):
         assert table.column(0).name == '0'
 
     def test_from_pandas_with_columns(self):
-        df = pd.DataFrame({0: [1, 2, 3], 1: [1, 3, 3], 2: [2, 4, 5]})
+        df = pd.DataFrame({0: [1, 2, 3], 1: [1, 3, 3], 2: [2, 4, 5]},
+                          columns=[1, 0])
 
         table = pa.Table.from_pandas(df, columns=[0, 1])
         expected = pa.Table.from_pandas(df[[0, 1]])
@@ -2495,15 +2496,15 @@ def test_table_from_pandas_columns_argument_only_does_filtering():
 
     columns1 = ['arrays', 'floats', 'partition']
     schema1 = pa.schema([
-        ('partition', pa.int64()),
         ('arrays', pa.list_(pa.int64())),
         ('floats', pa.float64()),
+        ('partition', pa.int64())
     ])
 
     columns2 = ['floats', 'partition']
     schema2 = pa.schema([
-        ('partition', pa.int64()),
-        ('floats', pa.float64())
+        ('floats', pa.float64()),
+        ('partition', pa.int64())
     ])
 
     table1 = pa.Table.from_pandas(df, columns=columns1, preserve_index=False)
