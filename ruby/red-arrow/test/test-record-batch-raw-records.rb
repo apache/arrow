@@ -821,58 +821,6 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case("with list arrays") do
-    def setup
-      @boolean_values = [
-        [true, false],
-        nil,
-        [false, true, false, false],
-        [true],
-        [false, true, true]
-      ]
-      @boolean_list_array = Arrow::ListArray.new(
-        Arrow::ListDataType.new(name: "flags", type: :boolean),
-        @boolean_values
-      )
-      @decimal128_values = [
-        ['123.45', '234.56'],
-        ['234.56', '345.67'],
-        nil,
-        ['345.67'],
-        ['456.78', nil, '567.89']
-      ]
-      @decimal128_data_type = Arrow::Decimal128DataType.new(8, 2)
-      @decimal128_list_array = Arrow::ListArray.new(
-        Arrow::ListDataType.new(name: "decimal", data_type: @decimal128_data_type),
-        @decimal128_values
-      )
-
-      @record_batch = Arrow::RecordBatch.new(
-        Arrow::Schema.new(
-          boolean: @boolean_list_array.value_data_type,
-          decimal: @decimal128_list_array.value_data_type
-        ),
-        @boolean_values.length,
-        [
-          @boolean_list_array,
-          @decimal128_list_array
-        ]
-      )
-
-      @expected_columnar_result = [
-        @boolean_values,
-        @decimal128_values.map {|x|
-          x && x.map {|y| y && BigDecimal(y)}
-        }
-      ]
-    end
-
-    test("default") do
-      raw_records = @record_batch.raw_records
-      assert_equal(@expected_columnar_result.transpose, raw_records)
-    end
-  end
-
   sub_test_case('with struct array') do
     def setup
       @struct_values = [
