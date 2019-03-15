@@ -407,6 +407,25 @@ mod tests {
     use std::env;
 
     #[test]
+    fn read_small_batches() {
+        let table = load_table("alltypes_plain.parquet");
+
+        let projection = None;
+        let scan = table.scan(&projection, 2).unwrap();
+        let mut it = scan[0].lock().unwrap();
+
+        let mut count = 0;
+        while let Some(batch) = it.next().unwrap() {
+            assert_eq!(11, batch.num_columns());
+            assert_eq!(2, batch.num_rows());
+            count += 1;
+        }
+
+        // we should have seen 4 batches of 2 rows
+        assert_eq!(4, count);
+    }
+
+    #[test]
     fn read_alltypes_plain_parquet() {
         let table = load_table("alltypes_plain.parquet");
 
