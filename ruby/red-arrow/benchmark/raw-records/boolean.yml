@@ -15,6 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+contexts:
+  - name: master
+    prelude: |
+      $LOAD_PATH.unshift(File.expand_path("ext/arrow"))
+      $LOAD_PATH.unshift(File.expand_path("lib"))
 prelude: |-
   require "arrow"
   require "faker"
