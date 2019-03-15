@@ -21,6 +21,8 @@
 #include <inttypes.h>
 #include <stddef.h>
 
+#include <unordered_map>
+
 /// Gap between two consecutive mmap regions allocated by fake_mmap.
 /// This ensures that the segments of memory returned by
 /// fake_mmap are never contiguous and dlmalloc does not coalesce it
@@ -35,6 +37,14 @@ void GetMallocMapinfo(void* addr, int* fd, int64_t* map_length, ptrdiff_t* offse
 /// @return The size of the corresponding memory-mapped file.
 int64_t GetMmapSize(int fd);
 
-void SetMallocGranularity(int value);
+struct mmap_record {
+  int fd;
+  int64_t size;
+};
+
+/// Hashtable that contains one entry per segment that we got from the OS
+/// via mmap. Associates the address of that segment with its file descriptor
+/// and size.
+extern std::unordered_map<void*, mmap_record> mmap_records;
 
 #endif  // MALLOC_H
