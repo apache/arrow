@@ -22,7 +22,7 @@ unless required_pkg_config_package("arrow",
                                    debian: "libarrow-dev",
                                    redhat: "arrow-devel",
                                    homebrew: "apache-arrow",
-                                   msys2: "apache-arrow")
+                                   msys2: "arrow")
   exit(false)
 end
 
@@ -30,7 +30,7 @@ unless required_pkg_config_package("arrow-glib",
                                    debian: "libarrow-glib-dev",
                                    redhat: "arrow-glib-devel",
                                    homebrew: "apache-arrow-glib",
-                                   msys2: "apache-arrow")
+                                   msys2: "arrow")
   exit(false)
 end
 
