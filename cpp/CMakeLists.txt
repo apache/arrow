@@ -191,13 +191,16 @@ static|shared (default shared)")
   #   dependencies from there. Build any missing ones through the
   #   ExternalProject setup. This is the default unless the CONDA_PREFIX
   #   environment variable is set, in which case the CONDA method is used
-  # * BUNDLED: Build all dependencies through CMake's ExternalProject facility.
+  # * BUNDLED: Build dependencies through CMake's ExternalProject facility. If
+  #   you wish to build individual dependencies from source instead of using
+  #   one of the other methods, pass -D$NAME_SOURCE=BUNDLED
   # * SYSTEM: Use CMake's find_package and find_library without any custom
-  #   paths. If packages are on non-default locations, let the user indicate it
-  #   from the outside using the *_ROOT variables.  If your system packages are
-  #   in a non-default location, or if you are using a non-standard toolchain,
-  #   you can also pass ARROW_PACKAGE_PREFIX to set the *_ROOT variables to
-  #   look in that directory
+  #   paths. If individual packages are on non-default locations, you can pass
+  #   $NAME_ROOT arguments to CMake, or set environment variables for the same
+  #   with CMake 3.11 and higher.  If your system packages are in a non-default
+  #   location, or if you are using a non-standard toolchain, you can also pass
+  #   ARROW_PACKAGE_PREFIX to set the *_ROOT variables to look in that
+  #   directory
   # * CONDA: Same as system but set all *_ROOT variables to
   #   ENV{CONDA_PREFIX}. If this is run within an active conda environment,
   #   then ENV{CONDA_PREFIX} will be used for dependencies unless
