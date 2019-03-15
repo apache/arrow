@@ -232,7 +232,7 @@ mod tests {
             Err(ExecutionError::General(e)) => {
                 assert_eq!("\"Projection index out of range\"", format!("{:?}", e))
             }
-            _ => panic!("Scan should failed on invalid projection"),
+            _ => assert!(false, "Scan should failed on invalid projection"),
         };
     }
 
@@ -265,7 +265,10 @@ mod tests {
                 "\"Mismatch between schema and batches\"",
                 format!("{:?}", e)
             ),
-            _ => panic!("MemTable::new should have failed due to schema mismatch"),
+            _ => assert!(
+                false,
+                "MemTable::new should have failed due to schema mismatch"
+            ),
         }
     }
 }
