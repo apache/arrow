@@ -145,7 +145,7 @@ impl ExecutionContext {
                 let runtime_expr = compile_scalar_expr(&self, expr, &input_schema)?;
                 let rel = FilterRelation::new(
                     input_rel,
-                    runtime_expr, /* .get_func().clone() */
+                    runtime_expr, /* .get_func()?.clone() */
                     input_schema,
                 );
                 Ok(Rc::new(RefCell::new(rel)))

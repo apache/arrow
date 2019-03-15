@@ -54,7 +54,7 @@ impl Relation for ProjectRelation {
         match self.input.borrow_mut().next()? {
             Some(batch) => {
                 let projected_columns: Result<Vec<ArrayRef>> =
-                    self.expr.iter().map(|e| e.get_func()(&batch)).collect();
+                    self.expr.iter().map(|e| e.get_func()?(&batch)).collect();
 
                 let schema = Schema::new(
                     self.expr

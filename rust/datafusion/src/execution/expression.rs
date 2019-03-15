@@ -57,10 +57,12 @@ pub enum RuntimeExpr {
 }
 
 impl RuntimeExpr {
-    pub fn get_func(&self) -> CompiledExpr {
+    pub fn get_func(&self) -> Result<CompiledExpr> {
         match self {
-            &RuntimeExpr::Compiled { ref f, .. } => f.clone(),
-            _ => panic!(),
+            &RuntimeExpr::Compiled { ref f, .. } => Ok(f.clone()),
+            _ => Err(ExecutionError::InternalError(
+                "Invalid runtime expression".to_string(),
+            )),
         }
     }
 
@@ -109,13 +111,15 @@ pub fn compile_expr(
                 ))),
             };
 
+            let mut args = vec![];
+            for arg in compiled_args? {
+                args.push(arg.get_func()?.clone());
+            }
+
             Ok(RuntimeExpr::AggregateFunction {
                 name: name.to_string(),
                 f: func?,
-                args: compiled_args?
-                    .iter()
-                    .map(|e| e.get_func().clone())
-                    .collect(),
+                args,
                 t: return_type.clone(),
             })
         }
@@ -133,8 +137,8 @@ macro_rules! binary_op {
 
 macro_rules! math_ops {
     ($LEFT:expr, $RIGHT:expr, $BATCH:expr, $OP:ident) => {{
-        let left_values = $LEFT.get_func()($BATCH)?;
-        let right_values = $RIGHT.get_func()($BATCH)?;
+        let left_values = $LEFT.get_func()?($BATCH)?;
+        let right_values = $RIGHT.get_func()?($BATCH)?;
         match (left_values.data_type(), right_values.data_type()) {
             (DataType::Int8, DataType::Int8) => {
                 binary_op!(left_values, right_values, $OP, Int8Array)
@@ -173,8 +177,8 @@ macro_rules! math_ops {
 
 macro_rules! comparison_ops {
     ($LEFT:expr, $RIGHT:expr, $BATCH:expr, $OP:ident) => {{
-        let left_values = $LEFT.get_func()($BATCH)?;
-        let right_values = $RIGHT.get_func()($BATCH)?;
+        let left_values = $LEFT.get_func()?($BATCH)?;
+        let right_values = $RIGHT.get_func()?($BATCH)?;
         match (left_values.data_type(), right_values.data_type()) {
             (DataType::Int8, DataType::Int8) => {
                 binary_op!(left_values, right_values, $OP, Int8Array)
@@ -214,8 +218,8 @@ macro_rules! comparison_ops {
 
 macro_rules! boolean_ops {
     ($LEFT:expr, $RIGHT:expr, $BATCH:expr, $OP:ident) => {{
-        let left_values = $LEFT.get_func()($BATCH)?;
-        let right_values = $RIGHT.get_func()($BATCH)?;
+        let left_values = $LEFT.get_func()?($BATCH)?;
+        let right_values = $RIGHT.get_func()?($BATCH)?;
         Ok(Arc::new(compute::$OP(
             left_values.as_any().downcast_ref::<BooleanArray>().unwrap(),
             right_values

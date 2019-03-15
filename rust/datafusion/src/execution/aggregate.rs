@@ -846,7 +846,7 @@ impl AggregateRelation {
             let group_by_keys: Vec<ArrayRef> = self
                 .group_expr
                 .iter()
-                .map(|e| e.get_func()(&batch))
+                .map(|e| e.get_func()?(&batch))
                 .collect::<Result<Vec<ArrayRef>>>()?;
 
             // iterate over each row in the batch
