@@ -21,8 +21,8 @@ use std::collections::HashSet;
 use std::string::String;
 use std::sync::Arc;
 
-use super::execution::error::*;
-use super::logicalplan::*;
+use crate::execution::error::*;
+use crate::logicalplan::*;
 
 use arrow::datatypes::*;
 
