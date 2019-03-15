@@ -1388,6 +1388,10 @@ endmacro()
 
 if(ARROW_WITH_ZLIB)
   resolve_dependency(ZLIB)
+
+  # TODO: Don't use global includes but rather target_include_directories
+  get_target_property(ZLIB_INCLUDE_DIR ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${ZLIB_INCLUDE_DIR})
 endif()
 
 macro(build_lz4)
