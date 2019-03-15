@@ -169,10 +169,7 @@ class ARROW_EXPORT BufferBuilder {
   int64_t capacity() const { return capacity_; }
   int64_t length() const { return size_; }
   const uint8_t* data() const { return buffer_->data(); }
-  uint8_t* mutable_data() {
-    return buffer_->mutable_data();
-    ;
-  }
+  uint8_t* mutable_data() { return buffer_->mutable_data(); }
 
  private:
   std::shared_ptr<ResizableBuffer> buffer_;
