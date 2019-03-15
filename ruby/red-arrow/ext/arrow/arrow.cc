@@ -31,7 +31,7 @@ namespace red_arrow {
 
 extern "C" void Init_arrow() {
   red_arrow::mArrow = rb_const_get_at(rb_cObject, rb_intern("Arrow"));
-  VALUE cArrowRecordBatch = rb_const_get_at(red_arrow::mArrow, rb_intern("RecordBatch"));
+  auto cArrowRecordBatch = rb_const_get_at(red_arrow::mArrow, rb_intern("RecordBatch"));
   rb_define_method(cArrowRecordBatch, "raw_records",
                    reinterpret_cast<rb::RawMethod>(red_arrow::record_batch_raw_records), 0);
 
