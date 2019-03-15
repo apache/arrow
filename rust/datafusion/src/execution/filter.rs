@@ -55,7 +55,7 @@ impl Relation for FilterRelation {
         match self.input.borrow_mut().next()? {
             Some(batch) => {
                 // evaluate the filter expression against the batch
-                match self.expr.get_func()(&batch)?
+                match self.expr.get_func()?(&batch)?
                     .as_any()
                     .downcast_ref::<BooleanArray>()
                 {
