@@ -60,6 +60,13 @@ use crate::error::{ArrowError, Result};
 /// * Utf8 to boolean
 pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
     use DataType::*;
+
+    if array.offset() != 0 {
+        return Err(ArrowError::ComputeError(
+            "Cast kernel does not yet support sliced (non-zero offset) arrays"
+                .to_string(),
+        ));
+    }
     let from_type = array.data_type();
 
     // clone array if types are the same
@@ -101,7 +108,9 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             // cast primitive to list's primitive
             let cast_array = cast(array, &to)?;
             // create offsets, where if array.len() = 2, we have [0,1,2]
+            dbg!(array.len());
             let offsets: Vec<i32> = (0..array.len() as i32 + 1).collect();
+            dbg!(&offsets);
             let value_offsets = Buffer::from(offsets[..].to_byte_slice());
             let list_data = ArrayData::new(
                 *to.clone(),
@@ -112,7 +121,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                     .null_bitmap()
                     .clone()
                     .map(|bitmap| bitmap.bits),
-                array.offset(),
+                0,
                 vec![value_offsets],
                 vec![cast_array.data()],
             );
@@ -595,6 +604,32 @@ mod tests {
         assert_eq!(7, c.value(2));
         assert_eq!(8, c.value(3));
         assert_eq!(9, c.value(4));
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Cast kernel does not yet support sliced (non-zero offset) arrays"
+    )]
+    fn test_cast_i32_to_list_i32_nullable_sliced() {
+        let a = Int32Array::from(vec![Some(5), None, Some(7), Some(8), None]);
+        let array = Arc::new(a) as ArrayRef;
+        let array = array.slice(2, 3);
+        let b = cast(&array, &DataType::List(Box::new(DataType::Int32))).unwrap();
+        assert_eq!(3, b.len());
+        assert_eq!(1, b.null_count());
+        let arr = b.as_any().downcast_ref::<ListArray>().unwrap();
+        assert_eq!(0, arr.value_offset(0));
+        assert_eq!(1, arr.value_offset(1));
+        assert_eq!(2, arr.value_offset(2));
+        assert_eq!(1, arr.value_length(0));
+        assert_eq!(1, arr.value_length(1));
+        assert_eq!(1, arr.value_length(2));
+        let values = arr.values();
+        let c = values.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(1, c.null_count());
+        assert_eq!(7, c.value(0));
+        assert_eq!(8, c.value(1));
+        assert_eq!(0, c.value(2));
     }
 
     #[test]
