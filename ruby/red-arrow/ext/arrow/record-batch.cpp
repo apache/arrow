@@ -62,6 +62,11 @@ namespace red_arrow {
         dictionary_array_value_converter_ = dictionary_array_value_converter;
       }
 
+      inline VALUE convert(const arrow::NullArray& array,
+                           const int64_t i) {
+        return Qnil;
+      }
+
       inline VALUE convert(const arrow::BooleanArray& array,
                            const int64_t i) {
         return array.Value(i) ? Qtrue : Qfalse;
@@ -252,6 +257,7 @@ namespace red_arrow {
         return visit_value(array);                                      \
       }
 
+      VISIT(Null)
       VISIT(Boolean)
       VISIT(Int8)
       VISIT(Int16)
@@ -347,6 +353,7 @@ namespace red_arrow {
         return Status::OK();                                            \
       }
 
+      VISIT(Null)
       VISIT(Boolean)
       VISIT(Int8)
       VISIT(Int16)
@@ -432,6 +439,7 @@ namespace red_arrow {
         return Status::OK();                                            \
       }
 
+      VISIT(Null)
       VISIT(Boolean)
       VISIT(Int8)
       VISIT(Int16)
@@ -597,6 +605,7 @@ namespace red_arrow {
         return Status::OK();                                            \
       }
 
+      VISIT(Null)
       VISIT(Boolean)
       VISIT(Int8)
       VISIT(Int16)

@@ -16,6 +16,21 @@
 # under the License.
 
 class RecordBatchRawRecordsTest < Test::Unit::TestCase
+  test("NullArray") do
+    records = [
+      [nil],
+      [nil],
+      [nil],
+      [nil],
+    ]
+    array = Arrow::NullArray.new(records.size)
+    schema = Arrow::Schema.new(column: :null)
+    record_batch = Arrow::RecordBatch.new(schema,
+                                          records.size,
+                                          [array])
+    assert_equal(records, record_batch.raw_records)
+  end
+
   sub_test_case("with basic arrays") do
     def setup
       @string_values = ["apple", "orange", "watermelon", nil, "タコ"]
