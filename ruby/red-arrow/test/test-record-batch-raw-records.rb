@@ -31,6 +31,127 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
     assert_equal(records, record_batch.raw_records)
   end
 
+  test("BooleanArray") do
+    records = [
+      [true],
+      [nil],
+      [false],
+    ]
+    record_batch = Arrow::RecordBatch.new({column: :boolean},
+                                          records)
+    assert_equal(records, record_batch.raw_records)
+  end
+
+  test("Int8Array") do
+    records = [
+      [-(2 ** 7)],
+      [nil],
+      [(2 ** 7) - 1],
+    ]
+    record_batch = Arrow::RecordBatch.new({column: :int8},
+                                          records)
+    assert_equal(records, record_batch.raw_records)
+  end
+
+  test("UInt8Array") do
+    records = [
+      [0],
+      [nil],
+      [(2 ** 8) - 1],
+    ]
+    record_batch = Arrow::RecordBatch.new({column: :uint8},
+                                          records)
+    assert_equal(records, record_batch.raw_records)
+  end
+
+  test("Int16Array") do
+    records = [
+      [-(2 ** 15)],
+      [nil],
+      [(2 ** 15) - 1],
+    ]
+    record_batch = Arrow::RecordBatch.new({column: :int16},
+                                          records)
+    assert_equal(records, record_batch.raw_records)
+  end
+
+  test("UInt16Array") do
+    records = [
+      [0],
+      [nil],
+      [(2 ** 16) - 1],
+    ]
+    record_batch = Arrow::RecordBatch.new({column: :uint16},
+                                          records)
+    assert_equal(records, record_batch.raw_records)
+  end
+
+  test("Int32Array") do
+    records = [
+      [-(2 ** 31)],
+      [nil],
+      [(2 ** 31) - 1],
+    ]
+    record_batch = Arrow::RecordBatch.new({column: :int32},
+                                          records)
+    assert_equal(records, record_batch.raw_records)
+  end
+
+  test("UInt32Array") do
+    records = [
+      [0],
+      [nil],
+      [(2 ** 32) - 1],
+    ]
+    record_batch = Arrow::RecordBatch.new({column: :uint32},
+                                          records)
+    assert_equal(records, record_batch.raw_records)
+  end
+
+  test("Int64Array") do
+    records = [
+      [-(2 ** 63)],
+      [nil],
+      [(2 ** 63) - 1],
+    ]
+    record_batch = Arrow::RecordBatch.new({column: :int64},
+                                          records)
+    assert_equal(records, record_batch.raw_records)
+  end
+
+  test("UInt64Array") do
+    records = [
+      [0],
+      [nil],
+      [(2 ** 64) - 1],
+    ]
+    record_batch = Arrow::RecordBatch.new({column: :uint64},
+                                          records)
+    assert_equal(records, record_batch.raw_records)
+  end
+
+  test("FloatArray") do
+    records = [
+      [-1.0],
+      [nil],
+      [1.0],
+    ]
+    record_batch = Arrow::RecordBatch.new({column: :float},
+                                          records)
+    assert_equal(records, record_batch.raw_records)
+  end
+
+  test("DoubleArray") do
+    records = [
+      [-1.0],
+      [nil],
+      [1.0],
+    ]
+    record_batch = Arrow::RecordBatch.new({column: :double},
+                                          records)
+    assert_equal(records, record_batch.raw_records)
+  end
+
   sub_test_case("with basic arrays") do
     def setup
       @string_values = ["apple", "orange", "watermelon", nil, "タコ"]
