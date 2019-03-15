@@ -489,7 +489,7 @@ namespace red_arrow {
         index_ = i;
       }
 
-      ArrayValueConverter *array_value_converter_;
+      ArrayValueConverter* array_value_converter_;
       int64_t index_;
       VALUE result_;
     };
