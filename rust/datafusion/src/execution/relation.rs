@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Trait for Relation. A relation is a representation of a set of tuples. A database table is a
+//! type of relation. During query execution, each operation on a relation (such as projection,
+//! selection, aggregation) results in a new relation.
+
 use std::sync::{Arc, Mutex};
 
 use arrow::datatypes::Schema;
@@ -32,7 +36,8 @@ pub trait Relation {
     fn schema(&self) -> &Arc<Schema>;
 }
 
-pub struct DataSourceRelation {
+/// Implementation of a relation that represents a DataFusion data source
+pub(super) struct DataSourceRelation {
     schema: Arc<Schema>,
     ds: Arc<Mutex<RecordBatchIterator>>,
 }

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Runtime expression support
+
 use std::rc::Rc;
 use std::sync::Arc;
 

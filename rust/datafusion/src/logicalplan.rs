@@ -23,17 +23,23 @@ use std::sync::Arc;
 
 use arrow::datatypes::*;
 
+/// Enumeration of supported function types (Scalar and Aggregate)
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum FunctionType {
     Scalar,
     Aggregate,
 }
 
+/// Logical representation of a UDF
 #[derive(Debug, Clone)]
 pub struct FunctionMeta {
+    /// Function name
     name: String,
+    /// Function arguments
     args: Vec<Field>,
+    /// Function return type
     return_type: DataType,
+    /// Function type (Scalar or Aggregate)
     function_type: FunctionType,
 }
 
@@ -133,7 +139,7 @@ impl ScalarValue {
     }
 }
 
-/// Relation Expression
+/// Relation expression
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum Expr {
     /// index into a value within the row or complex value

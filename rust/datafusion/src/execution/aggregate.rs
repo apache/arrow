@@ -38,7 +38,7 @@ use fnv::FnvHashMap;
 
 /// An aggregate relation is made up of zero or more grouping expressions and one
 /// or more aggregate expressions
-pub struct AggregateRelation {
+pub(super) struct AggregateRelation {
     schema: Arc<Schema>,
     input: Rc<RefCell<Relation>>,
     group_expr: Vec<RuntimeExpr>,

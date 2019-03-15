@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Execution of a projection
+//! Execution of a projection. A projection determines which columns or expressions are returned
+//! from a query. The SQL statement `SELECT a, b, a+b FROM t1` is an example of a projection
+//! on table `t1` where the expressions `a`, `b`, and `a+b` are the projection expressions.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -29,9 +31,13 @@ use crate::execution::error::Result;
 use crate::execution::expression::RuntimeExpr;
 use crate::execution::relation::Relation;
 
-pub struct ProjectRelation {
+/// Projection relation
+pub(super) struct ProjectRelation {
+    /// Schema for the result of the projection
     schema: Arc<Schema>,
+    /// The relation that the projection is being applied to
     input: Rc<RefCell<Relation>>,
+    /// Projection expressions
     expr: Vec<RuntimeExpr>,
 }
 

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Execution of a limit (predicate)
+//! Execution of a SQL LIMIT clause to limit the number of rows returned by a relation
 
 use std::cell::RefCell;
 use std::rc::Rc;
