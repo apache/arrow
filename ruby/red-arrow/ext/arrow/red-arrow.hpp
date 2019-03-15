@@ -25,7 +25,6 @@
 #include <rbgobject.h>
 
 namespace red_arrow {
-  extern VALUE mArrow;
   extern VALUE cDate;
 
   extern ID id_BigDecimal;
