@@ -265,7 +265,10 @@ mod tests {
                 "\"Mismatch between schema and batches\"",
                 format!("{:?}", e)
             ),
-            _ => assert!(false, "MemTable::new should have failed due to schema mismatch"),
+            _ => assert!(
+                false,
+                "MemTable::new should have failed due to schema mismatch"
+            ),
         }
     }
 }
