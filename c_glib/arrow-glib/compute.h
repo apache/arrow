@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow-glib/gobject-type.h>
+#include <arrow-glib/version.h>
 
 G_BEGIN_DECLS
 
@@ -35,5 +36,33 @@ struct _GArrowCastOptionsClass
 };
 
 GArrowCastOptions *garrow_cast_options_new(void);
+
+
+/**
+ * GArrowCountMode:
+ * @GARROW_COUNT_ALL: Count all non-null values.
+ * @GARROW_COUNT_NULL: Count all null values.
+ *
+ * They are corresponding to `arrow::compute::CountOptions::mode` values.
+ */
+typedef enum {
+  GARROW_COUNT_ALL,
+  GARROW_COUNT_NULL,
+} GArrowCountMode;
+
+#define GARROW_TYPE_COUNT_OPTIONS (garrow_count_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowCountOptions,
+                         garrow_count_options,
+                         GARROW,
+                         COUNT_OPTIONS,
+                         GObject)
+struct _GArrowCountOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_13
+GArrowCountOptions *
+garrow_count_options_new(void);
 
 G_END_DECLS

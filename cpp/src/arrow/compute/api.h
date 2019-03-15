@@ -23,6 +23,7 @@
 
 #include "arrow/compute/kernels/boolean.h"  // IWYU pragma: export
 #include "arrow/compute/kernels/cast.h"     // IWYU pragma: export
+#include "arrow/compute/kernels/count.h"    // IWYU pragma: export
 #include "arrow/compute/kernels/hash.h"     // IWYU pragma: export
 #include "arrow/compute/kernels/mean.h"     // IWYU pragma: export
 
