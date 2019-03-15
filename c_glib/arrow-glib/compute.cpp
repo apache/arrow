@@ -42,7 +42,8 @@ enum {
   PROP_0,
   PROP_ALLOW_INT_OVERFLOW,
   PROP_ALLOW_TIME_TRUNCATE,
-  PROP_ALLOW_FLOAT_TRUNCATE
+  PROP_ALLOW_FLOAT_TRUNCATE,
+  PROP_ALLOW_INVALID_UTF8,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowCastOptions,
@@ -72,6 +73,9 @@ garrow_cast_options_set_property(GObject *object,
   case PROP_ALLOW_FLOAT_TRUNCATE:
     priv->options.allow_float_truncate = g_value_get_boolean(value);
     break;
+  case PROP_ALLOW_INVALID_UTF8:
+    priv->options.allow_invalid_utf8 = g_value_get_boolean(value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -95,6 +99,9 @@ garrow_cast_options_get_property(GObject *object,
     break;
   case PROP_ALLOW_FLOAT_TRUNCATE:
     g_value_set_boolean(value, priv->options.allow_float_truncate);
+    break;
+  case PROP_ALLOW_INVALID_UTF8:
+    g_value_set_boolean(value, priv->options.allow_invalid_utf8);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -157,6 +164,20 @@ garrow_cast_options_class_init(GArrowCastOptionsClass *klass)
                               FALSE,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_ALLOW_FLOAT_TRUNCATE, spec);
+
+  /**
+   * GArrowCastOptions:allow-invalid-utf8:
+   *
+   * Whether invalid UTF-8 string value is allowed or not.
+   *
+   * Since: 0.13.0
+   */
+  spec = g_param_spec_boolean("allow-invalid-utf8",
+                              "Allow invalid UTF-8",
+                              "Whether invalid UTF-8 string value is allowed or not",
+                              FALSE,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_ALLOW_INVALID_UTF8, spec);
 }
 
 /**
@@ -183,6 +204,7 @@ garrow_cast_options_new_raw(arrow::compute::CastOptions *arrow_cast_options)
                  "allow-int-overflow", arrow_cast_options->allow_int_overflow,
                  "allow-time-truncate", arrow_cast_options->allow_time_truncate,
                  "allow-float-truncate", arrow_cast_options->allow_float_truncate,
+                 "allow-invalid-utf8", arrow_cast_options->allow_invalid_utf8,
                  NULL);
   return GARROW_CAST_OPTIONS(cast_options);
 }
