@@ -38,6 +38,6 @@ python
 rapidjson
 re2
 snappy
-thrift-cpp
+thrift-cpp=0.12.0
 zlib
 zstd

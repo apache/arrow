@@ -26,5 +26,5 @@ Instructions for building the documentation site are found in
 [docs/source/building.rst][1]. The build depends on the API
 documentation for some of the project subcomponents.
 
-[1]: https://github.com/apache/arrow/blob/master/docs/source/building.rst
+[1]: https://github.com/apache/arrow/blob/master/docs/source/developers/documentation.rst
 [2]: https://github.com/apache/arrow/tree/master/docs/source/format
