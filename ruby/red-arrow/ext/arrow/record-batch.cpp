@@ -473,8 +473,8 @@ namespace red_arrow {
 
       void convert_sparse(const arrow::UnionArray& array) {
         const auto type_ids = array.raw_type_ids();
-        const auto& child_array = *array.UnsafeChild(type_ids[index_]);
-        check_status(child_array.Accept(this),
+        const auto child_array = array.UnsafeChild(type_ids[index_]);
+        check_status(child_array->Accept(this),
                      "[raw-records][union-sparse-array]");
       }
 
