@@ -974,6 +974,7 @@ endmacro()
 
 if (ARROW_WITH_PROTOBUF)
   resolve_dependency(Protobuf)
+
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${PROTOBUF_INCLUDE_DIR})
 
@@ -1001,6 +1002,16 @@ if (ARROW_WITH_PROTOBUF)
             IMPORTED_LOCATION "${PROTOBUF_PROTOC_EXECUTABLE}"
     )
   endif()
+
+  # Log protobuf paths as we often see issues with mixed sources for
+  # the libraries and protoc.
+  get_target_property(PROTOBUF_PROTOC_EXECUTABLE protobuf::protoc IMPORTED_LOCATION)
+  message(STATUS "Found protoc: ${PROTOBUF_PROTOC_EXECUTABLE}")
+  # Protobuf_PROTOC_LIBRARY is set by all versions of FindProtobuf.cmake
+  message(STATUS "Found libprotoc: ${Protobuf_PROTOC_LIBRARY}")
+  get_target_property(PROTOBUF_LIBRARY protobuf::libprotobuf IMPORTED_LOCATION)
+  message(STATUS "Found libprotobuf: ${PROTOBUF_LIBRARY}")
+  message(STATUS "Found protobuf headers: ${PROTOBUF_INCLUDE_DIR}")
 endif()
 
 if (MSVC)
