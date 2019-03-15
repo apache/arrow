@@ -53,11 +53,12 @@ func NewWriter(w io.Writer, schema *arrow.Schema, opts ...Option) *Writer {
 func (w *Writer) Schema() *arrow.Schema { return w.schema }
 
 // Write writes a single Record as one row to the CSV file
-func (w *Writer) Write(record array.Record) (err error) {
+func (w *Writer) Write(record array.Record) error {
 	if !record.Schema().Equal(w.schema) {
 		return ErrMismatchFields
 	}
 
+	var err error
 	if w.header {
 		w.once.Do(func() {
 			err = w.writeHeader()

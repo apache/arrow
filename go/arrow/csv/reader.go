@@ -90,10 +90,15 @@ func (r *Reader) readHeader() error {
 		return ErrMismatchFields
 	}
 
+	fields := make([]arrow.Field, len(records))
 	for idx, name := range records {
-		r.schema.SetFieldName(idx, name)
+		fields[idx] = r.schema.Field(idx)
+		fields[idx].Name = name
 	}
 
+	meta := r.schema.Metadata()
+	r.schema = arrow.NewSchema(fields, &meta)
+	r.bld = array.NewRecordBuilder(r.mem, r.schema)
 	return nil
 }
 
