@@ -61,7 +61,11 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
 # TODO: double-conversion check fails for conda, it should not
 if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
   message(STATUS "Using CONDA_PREFIX: $ENV{CONDA_PREFIX}")
-  set(ARROW_PACKAGE_PREFIX $ENV{CONDA_PREFIX})
+  if (MSVC)
+    set(ARROW_PACKAGE_PREFIX "$ENV{CONDA_PREFIX}/Library")
+  else()
+    set(ARROW_PACKAGE_PREFIX $ENV{CONDA_PREFIX})
+  endif()
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "SYSTEM")
 endif()
 
@@ -69,13 +73,14 @@ if (ARROW_PACKAGE_PREFIX)
   message(STATUS "Setting (unset) dependency *_ROOT variables: ${ARROW_PACKAGE_PREFIX}")
   set(ENV{PKG_CONFIG_PATH} "${ARROW_PACKAGE_PREFIX}/lib/pkgconfig/")
 
-  if (NOT MSVC)
-    if (NOT ENV{BOOST_ROOT})
-      set(ENV{BOOST_ROOT} ${ARROW_PACKAGE_PREFIX})
-    endif()
-    if (NOT Boost_ROOT})
-      set(ENV{Boost_ROOT} ${ARROW_PACKAGE_PREFIX})
-    endif()
+  if (NOT BOOST_ROOT)
+    set(BOOST_ROOT ${ARROW_PACKAGE_PREFIX})
+  endif()
+  if (NOT ENV{BOOST_ROOT})
+    set(ENV{BOOST_ROOT} ${ARROW_PACKAGE_PREFIX})
+  endif()
+  if (NOT ENV{Boost_ROOT})
+    set(ENV{Boost_ROOT} ${ARROW_PACKAGE_PREFIX})
   endif()
 
   foreach(DEPENDENCY ${ARROW_THIRDPARTY_DEPENDENCIES})
@@ -1144,14 +1149,6 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
 #     set(CMAKE_REQUIRED_LIBRARIES)
   endif()
 
-  get_property(GTEST_LOCATION TARGET GTest::GTest
-    PROPERTY LOCATION)
-  get_property(GMOCK_LOCATION TARGET GTest::GMock
-    PROPERTY LOCATION)
-
-  message(STATUS "Using gtest library at ${GTEST_LOCATION}")
-  message(STATUS "Using gmock library at ${GMOCK_LOCATION}")
-
   # TODO: Don't use global includes but rather target_include_directories
   get_target_property(GTEST_INCLUDE_DIR GTest::GTest INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
@@ -1795,7 +1792,6 @@ if (ARROW_WITH_GRPC)
     message(FATAL_ERROR "Cannot find grpc++ headers in ${GRPC_INCLUDE_DIR}")
   endif()
 endif()
-
 
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu (incubating))
