@@ -171,7 +171,6 @@ namespace red_arrow {
 
       inline VALUE convert(const arrow::Time32Array& array,
                            const int64_t i) {
-        // TODO: must test this function
         // TODO: unit treatment
         const auto value = array.Value(i);
         return INT2NUM(value);
@@ -179,7 +178,6 @@ namespace red_arrow {
 
       inline VALUE convert(const arrow::Time64Array& array,
                            const int64_t i) {
-        // TODO: must test this function
         // TODO: unit treatment
         const auto value = array.Value(i);
         return LL2NUM(value);
