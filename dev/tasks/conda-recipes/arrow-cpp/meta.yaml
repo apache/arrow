@@ -38,28 +38,32 @@ requirements:
     - {{ compiler('cxx') }}
   host:
     - boost-cpp
-    - double-conversion
-    - thrift-cpp >=0.11
-    - libprotobuf
-    - flatbuffers
-    - rapidjson
-    - zlib
-    - glog
-    - gflags
-    - snappy
     - brotli
-    - zstd
+    - double-conversion
+    - flatbuffers
+    - gflags
+    - glog
+    - libprotobuf
     - lz4-c
-    - python
     - numpy 1.14.*
+    - python
+    - rapidjson
+    - snappy
+    - thrift-cpp >=0.11
+    - zlib
+    - zstd
 
   run:
-    - boost-cpp
-    - python
     - {{ pin_compatible('numpy', lower_bound='1.14') }}
+    - boost-cpp
+    - brotli
     - gflags
-    - snappy  # [win and py>=35]
+    - glog
+    - lz4-c
+    - python
+    - snappy
     - zlib
+    - zstd
 
 test:
   commands:
