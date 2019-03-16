@@ -430,6 +430,8 @@ namespace red_arrow {
 
       VALUE convert(const arrow::UnionArray& array,
                     const int64_t index) {
+        const auto index_keep = index_;
+        const auto result_keep = result_;
         index_ = index;
         switch (array.mode()) {
         case arrow::UnionMode::SPARSE:
@@ -442,7 +444,10 @@ namespace red_arrow {
           rb_raise(rb_eArgError, "Invalid union mode");
           break;
         }
-        return result_;
+        auto result_return = result_;
+        index_ = index_keep;
+        result_ = result_keep;
+        return result_return;
       }
 
 #define VISIT(TYPE)                                                     \
@@ -487,14 +492,15 @@ namespace red_arrow {
     private:
       template <typename ArrayType>
       inline void convert_value(const ArrayType& array) {
-        result_ = rb_hash_new();
+        auto result = rb_hash_new();
         if (array.IsNull(index_)) {
-          rb_hash_aset(result_, field_name_, Qnil);
+          rb_hash_aset(result, field_name_, Qnil);
         } else {
-          rb_hash_aset(result_,
+          rb_hash_aset(result,
                        field_name_,
                        array_value_converter_->convert(array, index_));
         }
+        result_ = result;
       }
 
       uint8_t compute_child_index(const arrow::UnionArray& array,
@@ -519,9 +525,11 @@ namespace red_arrow {
         const auto child_index = compute_child_index(array, type, tag);
         const auto child_field = type->child(child_index).get();
         const auto& field_name = child_field->name();
+        const auto field_name_keep = field_name_;
         field_name_ = rb_utf8_str_new(field_name.data(), field_name.length());
         const auto child_array = array.child(child_index).get();
         check_status(child_array->Accept(this), tag);
+        field_name_ = field_name_keep;
       }
 
       void convert_dense(const arrow::UnionArray& array) {
@@ -531,12 +539,14 @@ namespace red_arrow {
         const auto child_index = compute_child_index(array, type, tag);
         const auto child_field = type->child(child_index).get();
         const auto& field_name = child_field->name();
+        const auto field_name_keep = field_name_;
         field_name_ = rb_utf8_str_new(field_name.data(), field_name.length());
         const auto child_array = array.child(child_index);
         const auto index_keep = index_;
         index_ = array.value_offset(index_);
         check_status(child_array->Accept(this), tag);
         index_ = index_keep;
+        field_name_ = field_name_keep;
       }
 
       ArrayValueConverter* array_value_converter_;
