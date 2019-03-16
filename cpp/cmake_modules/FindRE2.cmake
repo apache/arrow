@@ -16,7 +16,7 @@
 # under the License.
 
 pkg_check_modules(RE2_PC re2)
-if (RE2_PC_FOUND)
+if(RE2_PC_FOUND)
   set(RE2_INCLUDE_DIR "${RE2_PC_INCLUDEDIR}")
 
   list(APPEND RE2_PC_LIBRARY_DIRS "${RE2_PC_LIBDIR}")
@@ -26,36 +26,41 @@ if (RE2_PC_FOUND)
   # workaround.
   # https://bugzilla.redhat.com/show_bug.cgi?id=1652589
   if(UNIX AND NOT APPLE AND NOT RE2_LIB)
-    if (RE2_PC_PREFIX STREQUAL "/usr/local")
+    if(RE2_PC_PREFIX STREQUAL "/usr/local")
       find_library(RE2_LIB re2)
     endif()
   endif()
 elseif(RE2_ROOT)
-  find_library(RE2_LIB
-    NAMES re2 "${CMAKE_STATIC_LIBRARY_PREFIX}re2${RE2_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}" "${CMAKE_SHARED_LIBRARY_PREFIX}re2${CMAKE_SHARED_LIBRARY_SUFFIX}"
+  find_library(
+    RE2_LIB
+    NAMES
+      re2
+      "${CMAKE_STATIC_LIBRARY_PREFIX}re2${RE2_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${CMAKE_SHARED_LIBRARY_PREFIX}re2${CMAKE_SHARED_LIBRARY_SUFFIX}"
     PATHS ${RE2_ROOT} "${RE2_ROOT}/Library"
     PATH_SUFFIXES "lib64" "lib" "bin"
     NO_DEFAULT_PATH)
-  find_path(RE2_INCLUDE_DIR NAMES re2/re2.h
-    PATHS ${RE2_ROOT} "${RE2_ROOT}/Library"
-    NO_DEFAULT_PATH
-    PATH_SUFFIXES "include")
+  find_path(RE2_INCLUDE_DIR
+            NAMES re2/re2.h
+            PATHS ${RE2_ROOT} "${RE2_ROOT}/Library"
+            NO_DEFAULT_PATH
+            PATH_SUFFIXES "include")
 else()
-  find_library(RE2_LIB
-    NAMES re2 "${CMAKE_STATIC_LIBRARY_PREFIX}re2${RE2_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}" "${CMAKE_SHARED_LIBRARY_PREFIX}re2${CMAKE_SHARED_LIBRARY_SUFFIX}"
+  find_library(
+    RE2_LIB
+    NAMES
+      re2
+      "${CMAKE_STATIC_LIBRARY_PREFIX}re2${RE2_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${CMAKE_SHARED_LIBRARY_PREFIX}re2${CMAKE_SHARED_LIBRARY_SUFFIX}"
     PATH_SUFFIXES "lib64" "lib" "bin")
-  find_path(RE2_INCLUDE_DIR NAMES re2/re2.h
-    PATH_SUFFIXES "include")
+  find_path(RE2_INCLUDE_DIR NAMES re2/re2.h PATH_SUFFIXES "include")
 endif()
 
-find_package_handle_standard_args(RE2
-  REQUIRED_VARS RE2_LIB RE2_INCLUDE_DIR)
+find_package_handle_standard_args(RE2 REQUIRED_VARS RE2_LIB RE2_INCLUDE_DIR)
 
-if (RE2_FOUND)
+if(RE2_FOUND)
   add_library(RE2::re2 UNKNOWN IMPORTED)
-  set_target_properties(RE2::re2 PROPERTIES
-          IMPORTED_LOCATION "${RE2_LIB}"
-          INTERFACE_INCLUDE_DIRECTORIES "${RE2_INCLUDE_DIR}"
-  )
+  set_target_properties(RE2::re2
+                        PROPERTIES IMPORTED_LOCATION "${RE2_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${RE2_INCLUDE_DIR}")
 endif()
-

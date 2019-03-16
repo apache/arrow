@@ -16,13 +16,13 @@
 # under the License.
 
 if(RapidJSON_ROOT)
-  find_path(RAPIDJSON_INCLUDE_DIR NAMES rapidjson/rapidjson.h
-    PATHS ${RapidJSON_ROOT} NO_DEFAULT_PATH
-    PATH_SUFFIXES "include")
+  find_path(RAPIDJSON_INCLUDE_DIR
+            NAMES rapidjson/rapidjson.h
+            PATHS ${RapidJSON_ROOT}
+            NO_DEFAULT_PATH
+            PATH_SUFFIXES "include")
 else()
-  find_path(RAPIDJSON_INCLUDE_DIR NAMES rapidjson/rapidjson.h
-    PATH_SUFFIXES "include")
+  find_path(RAPIDJSON_INCLUDE_DIR NAMES rapidjson/rapidjson.h PATH_SUFFIXES "include")
 endif()
 
-find_package_handle_standard_args(RapidJSONAlt
-  REQUIRED_VARS RAPIDJSON_INCLUDE_DIR)
+find_package_handle_standard_args(RapidJSONAlt REQUIRED_VARS RAPIDJSON_INCLUDE_DIR)
