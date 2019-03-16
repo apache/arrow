@@ -94,7 +94,9 @@ garrow_numeric_array_sum(GArrowArrayType array,
   auto memory_pool = arrow::default_memory_pool();
   arrow::compute::FunctionContext context(memory_pool);
   arrow::compute::Datum sum_datum;
-  auto status = arrow::compute::Sum(&context, arrow_array, &sum_datum);
+  auto status = arrow::compute::Sum(&context,
+                                    arrow_array,
+                                    &sum_datum);
   if (garrow_error_check(error, status, tag)) {
     using ScalarType = typename arrow::TypeTraits<ArrowType>::ScalarType;
     auto arrow_numeric_scalar =
