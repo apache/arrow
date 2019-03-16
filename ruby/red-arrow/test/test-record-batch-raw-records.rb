@@ -1156,6 +1156,25 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
                                             records)
       assert_equal(records, record_batch.raw_records)
     end
+
+    test("StructArray") do
+      records = [
+        [{"field" => {"sub_field" => true}}],
+        [nil],
+        [{"field" => nil}],
+        [{"field" => {"sub_field" => nil}}],
+      ]
+      record_batch = Arrow::RecordBatch.new(fields(type: :struct,
+                                                   fields: [
+                                                     {
+                                                       name: :sub_field,
+                                                       type: :boolean,
+                                                     },
+                                                   ]),
+                                            records)
+      assert_equal(records, record_batch.raw_records)
+    end
+
   end
 
   sub_test_case("with basic arrays") do

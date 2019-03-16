@@ -242,17 +242,17 @@ namespace red_arrow {
 
       VALUE convert(const arrow::ListArray& array, const int64_t index) {
         auto values = array.values().get();
-        int32_t offset_keep = offset_;
-        int32_t length_keep = length_;
+        auto offset_keep = offset_;
+        auto length_keep = length_;
         offset_ = array.value_offset(index);
         length_ = array.value_length(index);
-        VALUE result_keep = result_;
+        auto result_keep = result_;
         result_ = rb_ary_new_capa(length_);
         check_status(values->Accept(this),
                      "[raw-records][list-array]");
         offset_ = offset_keep;
         length_ = length_keep;
-        VALUE result_return = result_;
+        auto result_return = result_;
         result_ = result_keep;
         return result_return;
       }
@@ -337,6 +337,8 @@ namespace red_arrow {
 
       VALUE convert(const arrow::StructArray& array,
                     const int64_t index) {
+        auto index_keep = index_;
+        auto result_keep = result_;
         index_ = index;
         result_ = rb_hash_new();
         const auto struct_type = array.struct_type();
@@ -344,12 +346,17 @@ namespace red_arrow {
         for (int i = 0; i < n; ++i) {
           const auto field_type = struct_type->child(i).get();
           const auto& field_name = field_type->name();
+          auto key_keep = key_;
           key_ = rb_utf8_str_new(field_name.data(), field_name.length());
           const auto field_array = array.field(i).get();
           check_status(field_array->Accept(this),
                        "[raw-records][struct-array]");
+          key_ = key_keep;
         }
-        return result_;
+        auto result_return = result_;
+        result_ = result_keep;
+        index_ = index_keep;
+        return result_return;
       }
 
 #define VISIT(TYPE)                                                     \
