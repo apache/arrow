@@ -126,7 +126,12 @@ list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external_store.cc" "hash_table_store.
 # We use static libraries for the plasma_store_server executable so that it can
 # be copied around and used in different locations.
 add_executable(plasma_store_server ${PLASMA_EXTERNAL_STORE_SOURCES} store.cc)
-target_link_libraries(plasma_store_server plasma_static ${PLASMA_STATIC_LINK_LIBS})
+if(ARROW_BUILD_STATIC)
+  target_link_libraries(plasma_store_server plasma_static ${PLASMA_STATIC_LINK_LIBS})
+else()
+  # Fallback to shared libs in the case that static libraries are not build.
+  target_link_libraries(plasma_store_server plasma_shared ${PLASMA_LINK_LIBS})
+endif()
 add_dependencies(plasma plasma_store_server)
 
 if(ARROW_RPATH_ORIGIN)
@@ -237,17 +242,20 @@ function(ADD_PLASMA_TEST REL_TEST_NAME)
                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
-add_plasma_test(test/serialization_tests EXTRA_LINK_LIBS plasma_shared
-                ${PLASMA_LINK_LIBS})
+if(ARROW_BUILD_SHARED)
+  set(PLASMA_TEST_LIBS plasma_shared ${PLASMA_LINK_LIBS})
+else()
+  set(PLASMA_TEST_LIBS plasma_static ${PLASMA_STATIC_LINK_LIBS})
+endif()
+
+add_plasma_test(test/serialization_tests EXTRA_LINK_LIBS ${PLASMA_TEST_LIBS})
 add_plasma_test(test/client_tests
                 EXTRA_LINK_LIBS
-                plasma_shared
-                ${PLASMA_LINK_LIBS}
+                ${PLASMA_TEST_LIBS}
                 EXTRA_DEPENDENCIES
                 plasma_store_server)
 add_plasma_test(test/external_store_tests
                 EXTRA_LINK_LIBS
-                plasma_shared
-                ${PLASMA_LINK_LIBS}
+                ${PLASMA_TEST_LIBS}
                 EXTRA_DEPENDENCIES
                 plasma_store_server)

@@ -94,6 +94,29 @@ services:
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-volumes
 
+  cpp-static-only:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose run cpp-static-only
+    image: arrow:cpp
+    shm_size: 2G
+    environment:
+      ARROW_BUILD_SHARED: "OFF"
+      ARROW_TEST_LINKAGE: "static"
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-volumes
+
+  cpp-shared-only:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose run cpp-static-only
+    image: arrow:cpp
+    shm_size: 2G
+    environment:
+      ARROW_BUILD_STATIC: "OFF"
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-volumes
+
   cpp-cmake32:
     # Usage:
     #   docker-compose build cpp-cmake32

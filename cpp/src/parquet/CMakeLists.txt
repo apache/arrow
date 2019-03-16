@@ -46,7 +46,7 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
   # By default we prefer shared linking with libparquet, as it's faster
   # and uses less disk space, but in some cases we need to force static
   # linking (see rationale below).
-  if(ARG_USE_STATIC_LINKING)
+  if(ARG_USE_STATIC_LINKING OR ARROW_TEST_LINKAGE STREQUAL "static")
     add_test_case(${REL_TEST_NAME} STATIC_LINK_LIBS ${PARQUET_STATIC_TEST_LINK_LIBS}
                   ${TEST_ARGUMENTS})
   else()
@@ -110,10 +110,10 @@ set(PARQUET_SHARED_TEST_LINK_LIBS
     parquet_shared
     Thrift::thrift)
 
-set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS}
-    ${ARROW_LIBRARIES_FOR_STATIC_TESTS} parquet_static)
+set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static
+    ${ARROW_LIBRARIES_FOR_STATIC_TESTS})
 
-if(WIN32)
+if(WIN32 OR NOT ARROW_BUILD_SHARED)
   # The benchmarks depend on some static Thrift symbols
   set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS benchmark::benchmark_main
       parquet_static)
@@ -237,6 +237,11 @@ add_arrow_lib(parquet
               ${PARQUET_SHARED_PRIVATE_LINK_LIBS}
               STATIC_LINK_LIBS
               ${PARQUET_STATIC_LINK_LIBS})
+
+if(ARROW_BUILD_STATIC AND WIN32)
+  # ARROW-4848: Static Parquet lib needs to import static symbols on Windows
+  target_compile_definitions(parquet_static PUBLIC ARROW_STATIC)
+endif()
 
 add_dependencies(parquet ${PARQUET_LIBRARIES})
 
