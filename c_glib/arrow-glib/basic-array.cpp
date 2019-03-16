@@ -649,7 +649,8 @@ garrow_array_dictionary_encode(GArrowArray *array,
  * @options: (nullable): A #GArrowCountOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: The number of target values on success, %NULL on error.
+ * Returns: The number of target values on success. If an error is occurred,
+ *   the returned value is untrustful value.
  *
  * Since: 0.13.0
  */
