@@ -67,8 +67,9 @@ static inline void CompareBatchColumnsDetailed(const RecordBatch& result,
 const auto kListInt32 = list(int32());
 const auto kListListInt32 = list(kListInt32);
 
-static inline Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool,
-                            std::shared_ptr<Array>* out, uint32_t seed = 0) {
+static inline Status MakeRandomInt32Array(int64_t length, bool include_nulls,
+                                          MemoryPool* pool, std::shared_ptr<Array>* out,
+                                          uint32_t seed = 0) {
   random::RandomArrayGenerator rand(seed);
   const double null_probability = include_nulls ? 0.5 : 0.0;
 
@@ -77,9 +78,9 @@ static inline Status MakeRandomInt32Array(int64_t length, bool include_nulls, Me
   return Status::OK();
 }
 
-static inline Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_lists,
-                           bool include_nulls, MemoryPool* pool,
-                           std::shared_ptr<Array>* out) {
+static inline Status MakeRandomListArray(const std::shared_ptr<Array>& child_array,
+                                         int num_lists, bool include_nulls,
+                                         MemoryPool* pool, std::shared_ptr<Array>* out) {
   // Create the null list values
   std::vector<uint8_t> valid_lists(num_lists);
   const double null_percent = include_nulls ? 0.1 : 0;
@@ -124,7 +125,7 @@ static inline Status MakeRandomListArray(const std::shared_ptr<Array>& child_arr
 typedef Status MakeRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 static inline Status MakeRandomBooleanArray(const int length, bool include_nulls,
-                              std::shared_ptr<Array>* out) {
+                                            std::shared_ptr<Array>* out) {
   std::vector<uint8_t> values(length);
   random_null_bytes(length, 0.5, values.data());
   std::shared_ptr<Buffer> data;
@@ -142,7 +143,8 @@ static inline Status MakeRandomBooleanArray(const int length, bool include_nulls
   return Status::OK();
 }
 
-static inline Status MakeBooleanBatchSized(const int length, std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeBooleanBatchSized(const int length,
+                                           std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", boolean());
   auto f1 = field("f1", boolean());
@@ -160,7 +162,7 @@ static inline Status MakeBooleanBatch(std::shared_ptr<RecordBatch>* out) {
 }
 
 static inline Status MakeIntBatchSized(int length, std::shared_ptr<RecordBatch>* out,
-                         uint32_t seed = 0) {
+                                       uint32_t seed = 0) {
   // Make the schema
   auto f0 = field("f0", int32());
   auto f1 = field("f1", int32());
@@ -216,7 +218,7 @@ Status MakeBinaryArrayWithUniqueValues(int64_t length, bool include_nulls,
 }
 
 static inline Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out,
-                                  bool with_nulls = true) {
+                                                bool with_nulls = true) {
   const int64_t length = 500;
   auto string_type = utf8();
   auto binary_type = binary();
@@ -243,7 +245,8 @@ static inline Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* ou
   return Status::OK();
 }
 
-static inline Status MakeStringTypesRecordBatchWithNulls(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeStringTypesRecordBatchWithNulls(
+    std::shared_ptr<RecordBatch>* out) {
   return MakeStringTypesRecordBatch(out, true);
 }
 
