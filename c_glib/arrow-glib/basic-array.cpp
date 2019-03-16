@@ -1111,8 +1111,8 @@ garrow_int8_array_get_values(GArrowInt8Array *array,
  * @array: A #GArrowInt8Array.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: Returns: The value of the computed sum on success,
- *   0 on error.
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
  *
  * Since: 0.13.0
  */
@@ -1204,8 +1204,8 @@ garrow_uint8_array_get_values(GArrowUInt8Array *array,
  * @array: A #GArrowUInt8Array.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: Returns: The value of the computed sum on success,
- *   0 on error.
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
  *
  * Since: 0.13.0
  */
@@ -1297,8 +1297,8 @@ garrow_int16_array_get_values(GArrowInt16Array *array,
  * @array: A #GArrowInt16Array.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: Returns: The value of the computed sum on success,
- *   0 on error.
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
  *
  * Since: 0.13.0
  */
@@ -1390,8 +1390,8 @@ garrow_uint16_array_get_values(GArrowUInt16Array *array,
  * @array: A #GArrowUInt16Array.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: Returns: The value of the computed sum on success,
- *   0 on error.
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
  *
  * Since: 0.13.0
  */
@@ -1483,8 +1483,8 @@ garrow_int32_array_get_values(GArrowInt32Array *array,
  * @array: A #GArrowInt32Array.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: Returns: The value of the computed sum on success,
- *   0 on error.
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
  *
  * Since: 0.13.0
  */
@@ -1576,8 +1576,8 @@ garrow_uint32_array_get_values(GArrowUInt32Array *array,
  * @array: A #GArrowUInt32Array.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: Returns: The value of the computed sum on success,
- *   0 on error.
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
  *
  * Since: 0.13.0
  */
@@ -1671,8 +1671,8 @@ garrow_int64_array_get_values(GArrowInt64Array *array,
  * @array: A #GArrowInt64Array.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: Returns: The value of the computed sum on success,
- *   0 on error.
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
  *
  * Since: 0.13.0
  */
@@ -1766,8 +1766,8 @@ garrow_uint64_array_get_values(GArrowUInt64Array *array,
  * @array: A #GArrowUInt64Array.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: Returns: The value of the computed sum on success,
- *   0 on error.
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
  *
  * Since: 0.13.0
  */
@@ -1859,8 +1859,8 @@ garrow_float_array_get_values(GArrowFloatArray *array,
  * @array: A #GArrowFloatArray.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: Returns: The value of the computed sum on success,
- *   0.0 on error.
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
  *
  * Since: 0.13.0
  */
@@ -1952,8 +1952,8 @@ garrow_double_array_get_values(GArrowDoubleArray *array,
  * @array: A #GArrowDoubleArray.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: Returns: The value of the computed sum on success,
- *   0.0 on error.
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
  *
  * Since: 0.13.0
  */
