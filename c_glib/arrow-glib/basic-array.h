@@ -242,8 +242,8 @@ gint8 garrow_int8_array_get_value(GArrowInt8Array *array,
 const gint8 *garrow_int8_array_get_values(GArrowInt8Array *array,
                                           gint64 *length);
 GARROW_AVAILABLE_IN_0_13
-gint8 garrow_int8_array_sum(GArrowInt8Array *array,
-                            GError **error);
+gint64 garrow_int8_array_sum(GArrowInt8Array *array,
+                             GError **error);
 
 
 #define GARROW_TYPE_UINT8_ARRAY (garrow_uint8_array_get_type())
@@ -267,8 +267,8 @@ guint8 garrow_uint8_array_get_value(GArrowUInt8Array *array,
 const guint8 *garrow_uint8_array_get_values(GArrowUInt8Array *array,
                                             gint64 *length);
 GARROW_AVAILABLE_IN_0_13
-guint8 garrow_uint8_array_sum(GArrowUInt8Array *array,
-                              GError **error);
+guint64 garrow_uint8_array_sum(GArrowUInt8Array *array,
+                               GError **error);
 
 
 #define GARROW_TYPE_INT16_ARRAY (garrow_int16_array_get_type())
@@ -292,7 +292,7 @@ gint16 garrow_int16_array_get_value(GArrowInt16Array *array,
 const gint16 *garrow_int16_array_get_values(GArrowInt16Array *array,
                                             gint64 *length);
 GARROW_AVAILABLE_IN_0_13
-gint16 garrow_int16_array_sum(GArrowInt16Array *array,
+gint64 garrow_int16_array_sum(GArrowInt16Array *array,
                               GError **error);
 
 
@@ -317,7 +317,7 @@ guint16 garrow_uint16_array_get_value(GArrowUInt16Array *array,
 const guint16 *garrow_uint16_array_get_values(GArrowUInt16Array *array,
                                               gint64 *length);
 GARROW_AVAILABLE_IN_0_13
-guint16 garrow_uint16_array_sum(GArrowUInt16Array *array,
+guint64 garrow_uint16_array_sum(GArrowUInt16Array *array,
                                 GError **error);
 
 
@@ -342,7 +342,7 @@ gint32 garrow_int32_array_get_value(GArrowInt32Array *array,
 const gint32 *garrow_int32_array_get_values(GArrowInt32Array *array,
                                             gint64 *length);
 GARROW_AVAILABLE_IN_0_13
-gint32 garrow_int32_array_sum(GArrowInt32Array *array,
+gint64 garrow_int32_array_sum(GArrowInt32Array *array,
                               GError **error);
 
 
@@ -367,7 +367,7 @@ guint32 garrow_uint32_array_get_value(GArrowUInt32Array *array,
 const guint32 *garrow_uint32_array_get_values(GArrowUInt32Array *array,
                                               gint64 *length);
 GARROW_AVAILABLE_IN_0_13
-guint32 garrow_uint32_array_sum(GArrowUInt32Array *array,
+guint64 garrow_uint32_array_sum(GArrowUInt32Array *array,
                                 GError **error);
 
 
@@ -442,8 +442,8 @@ gfloat garrow_float_array_get_value(GArrowFloatArray *array,
 const gfloat *garrow_float_array_get_values(GArrowFloatArray *array,
                                             gint64 *length);
 GARROW_AVAILABLE_IN_0_13
-gfloat garrow_float_array_sum(GArrowFloatArray *array,
-                              GError **error);
+gdouble garrow_float_array_sum(GArrowFloatArray *array,
+                               GError **error);
 
 
 #define GARROW_TYPE_DOUBLE_ARRAY (garrow_double_array_get_type())

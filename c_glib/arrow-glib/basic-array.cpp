@@ -83,14 +83,27 @@ garrow_primitive_array_new(GArrowDataType *data_type,
   return garrow_array_new_raw(&arrow_array);
 };
 
-template <typename T>
-typename T::c_type
-garrow_numeric_array_get_sum_value_raw(std::shared_ptr<arrow::Scalar> scalar)
+template <typename ArrowType, typename GArrowArrayType>
+typename ArrowType::c_type
+garrow_numeric_array_sum(GArrowArrayType array,
+                         GError **error,
+                         const gchar *tag,
+                         typename ArrowType::c_type default_value)
 {
-  using ScalarType = typename arrow::TypeTraits<T>::ScalarType;
-  auto arrow_numeric_scalar = std::dynamic_pointer_cast<ScalarType>(scalar);
-  return arrow_numeric_scalar->value;
-};
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  arrow::compute::Datum sum_datum;
+  auto status = arrow::compute::Sum(&context, arrow_array, &sum_datum);
+  if (garrow_error_check(error, status, tag)) {
+    using ScalarType = typename arrow::TypeTraits<ArrowType>::ScalarType;
+    auto arrow_numeric_scalar =
+      std::dynamic_pointer_cast<ScalarType>(sum_datum.scalar());
+    return arrow_numeric_scalar->value;
+  } else {
+    return default_value;
+  }
+}
 
 G_BEGIN_DECLS
 
@@ -1103,20 +1116,14 @@ garrow_int8_array_get_values(GArrowInt8Array *array,
  *
  * Since: 0.13.0
  */
-gint8
+gint64
 garrow_int8_array_sum(GArrowInt8Array *array,
                       GError **error)
 {
-  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum sum_datum;
-  auto status = arrow::compute::Sum(&context, arrow_array, &sum_datum);
-  if (garrow_error_check(error, status, "[int8-array][sum]")) {
-    return garrow_numeric_array_get_sum_value_raw<arrow::Int64Type>(sum_datum.scalar());
-  } else {
-    return 0;
-  }
+  return garrow_numeric_array_sum<arrow::Int64Type>(array,
+                                                    error,
+                                                    "[int8-array][sum]",
+                                                    0);
 }
 
 
@@ -1202,20 +1209,14 @@ garrow_uint8_array_get_values(GArrowUInt8Array *array,
  *
  * Since: 0.13.0
  */
-guint8
+guint64
 garrow_uint8_array_sum(GArrowUInt8Array *array,
                        GError **error)
 {
-  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum sum_datum;
-  auto status = arrow::compute::Sum(&context, arrow_array, &sum_datum);
-  if (garrow_error_check(error, status, "[uint8-array][sum]")) {
-    return garrow_numeric_array_get_sum_value_raw<arrow::UInt64Type>(sum_datum.scalar());
-  } else {
-    return 0;
-  }
+  return garrow_numeric_array_sum<arrow::UInt64Type>(array,
+                                                     error,
+                                                     "[uint8-array][sum]",
+                                                     0);
 }
 
 
@@ -1301,20 +1302,14 @@ garrow_int16_array_get_values(GArrowInt16Array *array,
  *
  * Since: 0.13.0
  */
-gint16
+gint64
 garrow_int16_array_sum(GArrowInt16Array *array,
                        GError **error)
 {
-  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum sum_datum;
-  auto status = arrow::compute::Sum(&context, arrow_array, &sum_datum);
-  if (garrow_error_check(error, status, "[int16-array][sum]")) {
-    return garrow_numeric_array_get_sum_value_raw<arrow::Int64Type>(sum_datum.scalar());
-  } else {
-    return 0;
-  }
+  return garrow_numeric_array_sum<arrow::Int64Type>(array,
+                                                    error,
+                                                    "[int16-array][sum]",
+                                                    0);
 }
 
 
@@ -1400,20 +1395,14 @@ garrow_uint16_array_get_values(GArrowUInt16Array *array,
  *
  * Since: 0.13.0
  */
-guint16
+guint64
 garrow_uint16_array_sum(GArrowUInt16Array *array,
                         GError **error)
 {
-  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum sum_datum;
-  auto status = arrow::compute::Sum(&context, arrow_array, &sum_datum);
-  if (garrow_error_check(error, status, "[uint16-array][sum]")) {
-    return garrow_numeric_array_get_sum_value_raw<arrow::UInt64Type>(sum_datum.scalar());
-  } else {
-    return 0;
-  }
+  return garrow_numeric_array_sum<arrow::UInt64Type>(array,
+                                                     error,
+                                                     "[uint16-array][sum]",
+                                                     0);
 }
 
 
@@ -1499,20 +1488,14 @@ garrow_int32_array_get_values(GArrowInt32Array *array,
  *
  * Since: 0.13.0
  */
-gint32
+gint64
 garrow_int32_array_sum(GArrowInt32Array *array,
                        GError **error)
 {
-  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum sum_datum;
-  auto status = arrow::compute::Sum(&context, arrow_array, &sum_datum);
-  if (garrow_error_check(error, status, "[int32-array][sum]")) {
-    return garrow_numeric_array_get_sum_value_raw<arrow::Int64Type>(sum_datum.scalar());
-  } else {
-    return 0;
-  }
+  return garrow_numeric_array_sum<arrow::Int64Type>(array,
+                                                    error,
+                                                    "[int64-array][sum]",
+                                                    0);
 }
 
 
@@ -1598,20 +1581,14 @@ garrow_uint32_array_get_values(GArrowUInt32Array *array,
  *
  * Since: 0.13.0
  */
-guint32
+guint64
 garrow_uint32_array_sum(GArrowUInt32Array *array,
                         GError **error)
 {
-  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum sum_datum;
-  auto status = arrow::compute::Sum(&context, arrow_array, &sum_datum);
-  if (garrow_error_check(error, status, "[uint32-array][sum]")) {
-    return garrow_numeric_array_get_sum_value_raw<arrow::UInt64Type>(sum_datum.scalar());
-  } else {
-    return 0;
-  }
+  return garrow_numeric_array_sum<arrow::UInt64Type>(array,
+                                                    error,
+                                                    "[uint32-array][sum]",
+                                                    0);
 }
 
 
@@ -1703,16 +1680,10 @@ gint64
 garrow_int64_array_sum(GArrowInt64Array *array,
                        GError **error)
 {
-  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum sum_datum;
-  auto status = arrow::compute::Sum(&context, arrow_array, &sum_datum);
-  if (garrow_error_check(error, status, "[int64-array][sum]")) {
-    return garrow_numeric_array_get_sum_value_raw<arrow::Int64Type>(sum_datum.scalar());
-  } else {
-    return 0;
-  }
+  return garrow_numeric_array_sum<arrow::Int64Type>(array,
+                                                    error,
+                                                    "[int64-array][sum]",
+                                                    0);
 }
 
 
@@ -1804,16 +1775,10 @@ guint64
 garrow_uint64_array_sum(GArrowUInt64Array *array,
                         GError **error)
 {
-  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum sum_datum;
-  auto status = arrow::compute::Sum(&context, arrow_array, &sum_datum);
-  if (garrow_error_check(error, status, "[uint64-array][sum]")) {
-    return garrow_numeric_array_get_sum_value_raw<arrow::UInt64Type>(sum_datum.scalar());
-  } else {
-    return 0;
-  }
+  return garrow_numeric_array_sum<arrow::UInt64Type>(array,
+                                                    error,
+                                                    "[uint64-array][sum]",
+                                                    0);
 }
 
 
@@ -1899,20 +1864,14 @@ garrow_float_array_get_values(GArrowFloatArray *array,
  *
  * Since: 0.13.0
  */
-gfloat
+gdouble
 garrow_float_array_sum(GArrowFloatArray *array,
                        GError **error)
 {
-  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum sum_datum;
-  auto status = arrow::compute::Sum(&context, arrow_array, &sum_datum);
-  if (garrow_error_check(error, status, "[float-array][sum]")) {
-    return garrow_numeric_array_get_sum_value_raw<arrow::DoubleType>(sum_datum.scalar());
-  } else {
-    return 0.0;
-  }
+  return garrow_numeric_array_sum<arrow::DoubleType>(array,
+                                                     error,
+                                                     "[double-array][sum]",
+                                                     0);
 }
 
 
@@ -2002,16 +1961,10 @@ gdouble
 garrow_double_array_sum(GArrowDoubleArray *array,
                         GError **error)
 {
-  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum sum_datum;
-  auto status = arrow::compute::Sum(&context, arrow_array, &sum_datum);
-  if (garrow_error_check(error, status, "[double-array][sum]")) {
-    return garrow_numeric_array_get_sum_value_raw<arrow::DoubleType>(sum_datum.scalar());
-  } else {
-    return 0.0;
-  }
+  return garrow_numeric_array_sum<arrow::DoubleType>(array,
+                                                     error,
+                                                     "[double-array][sum]",
+                                                     0);
 }
 
 
