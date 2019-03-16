@@ -48,5 +48,17 @@ class Decimal128Test < Test::Unit::TestCase
         end
       end
     end
+
+    sub_test_case("#to_s") do
+      test("default") do
+        assert_equal("101",
+                     @decimal128.to_s)
+      end
+
+      test("scale") do
+        assert_equal("10.1",
+                     @decimal128.to_s(1))
+      end
+    end
   end
 end
