@@ -1496,7 +1496,7 @@ garrow_int32_array_sum(GArrowInt32Array *array,
 {
   return garrow_numeric_array_sum<arrow::Int64Type>(array,
                                                     error,
-                                                    "[int64-array][sum]",
+                                                    "[int32-array][sum]",
                                                     0);
 }
 
@@ -1872,7 +1872,7 @@ garrow_float_array_sum(GArrowFloatArray *array,
 {
   return garrow_numeric_array_sum<arrow::DoubleType>(array,
                                                      error,
-                                                     "[double-array][sum]",
+                                                     "[float-array][sum]",
                                                      0);
 }
 
