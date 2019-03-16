@@ -1175,6 +1175,70 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
       assert_equal(records, record_batch.raw_records)
     end
 
+    test("SparseUnionArray") do
+      omit("Need to add support for SparseUnionArrayBuilder")
+      records = [
+        [{"field" => {"field1" => true}}],
+        [nil],
+        [{"field" => nil}],
+        [{"field" => {"field2" => nil}}],
+      ]
+      record_batch = Arrow::RecordBatch.new(fields(type: :sparse_union,
+                                                   fields: [
+                                                     {
+                                                       name: :field1,
+                                                       type: :boolean,
+                                                     },
+                                                     {
+                                                       name: :field2,
+                                                       type: :uint8,
+                                                     },
+                                                   ],
+                                                   type_codes: [0, 1]),
+                                            records)
+      assert_equal(records, record_batch.raw_records)
+    end
+
+    test("DenseUnionArray") do
+      omit("Need to add support for DenseUnionArrayBuilder")
+      records = [
+        [{"field" => {"field1" => true}}],
+        [nil],
+        [{"field" => nil}],
+        [{"field" => {"field2" => nil}}],
+      ]
+      record_batch = Arrow::RecordBatch.new(fields(type: :dense_union,
+                                                   fields: [
+                                                     {
+                                                       name: :field1,
+                                                       type: :boolean,
+                                                     },
+                                                     {
+                                                       name: :field2,
+                                                       type: :uint8,
+                                                     },
+                                                   ],
+                                                   type_codes: [0, 1]),
+                                            records)
+      assert_equal(records, record_batch.raw_records)
+    end
+
+    test("DictionaryArray") do
+      omit("Need to add support for DictionaryArrayBuilder")
+      records = [
+        [{"field" => "Ruby"}],
+        [nil],
+        [{"field" => nil}],
+        [{"field" => "GLib"}],
+      ]
+      dictionary = Arrow::StringArray.new(["GLib", "Ruby"])
+      record_batch = Arrow::RecordBatch.new(fields(type: :dictionary,
+                                                   index_data_type: :int8,
+                                                   dictionary: dictionary,
+                                                   ordered: true),
+                                            records)
+      assert_equal(records, record_batch.raw_records)
+    end
   end
 
   sub_test_case("with basic arrays") do
@@ -1284,56 +1348,6 @@ class RecordBatchRawRecordsTest < Test::Unit::TestCase
         @timestamp_values,
         @timestamp_values,
         @dictionary_indices
-      ]
-    end
-
-    test("default") do
-      raw_records = @record_batch.raw_records
-      assert_equal(@expected_columnar_result.transpose, raw_records)
-    end
-  end
-
-  sub_test_case('with struct array') do
-    def setup
-      @struct_values = [
-        [true, 1, 3.14, 'a', '10.10'],
-        nil,
-        [false, 3, 2.71, 'c', '11.10'],
-        nil,
-        [true, 4, Float::INFINITY, 'z', '12.30'],
-      ]
-      @struct_array = Arrow::StructArray.new(
-        Arrow::StructDataType.new(
-          bool: :boolean,
-          int: :int32,
-          float: :double,
-          str: :string,
-          decimal: { type: :decimal128, precision: 8, scale: 2 }
-        ),
-        @struct_values
-      )
-
-      @record_batch = Arrow::RecordBatch.new(
-        Arrow::Schema.new(
-          struct: @struct_array.value_data_type
-        ),
-        @struct_values.length,
-        [
-          @struct_array,
-        ]
-      )
-
-      struct_field_names = @struct_array.value_data_type.fields.map(&:name)
-      @expected_columnar_result = [
-        @struct_values.map {|x|
-          if x
-            h = struct_field_names.zip(x || []).to_h
-            h['decimal'] &&= BigDecimal(h['decimal'])
-            h
-          else
-            nil
-          end
-        }
       ]
     end
 
