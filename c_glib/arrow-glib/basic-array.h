@@ -76,6 +76,26 @@ garrow_array_count(GArrowArray *array,
                    GArrowCountOptions *options,
                    GError **error);
 
+/* GArrowStructArray definition should exist in composite-array.h but
+ * we define here to use the return value of
+ * garrow_array_count_values(). */
+
+#define GARROW_TYPE_STRUCT_ARRAY (garrow_struct_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowStructArray,
+                         garrow_struct_array,
+                         GARROW,
+                         STRUCT_ARRAY,
+                         GArrowArray)
+struct _GArrowStructArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_13
+GArrowStructArray *
+garrow_array_count_values(GArrowArray *array,
+                          GError **error);
+
 #define GARROW_TYPE_NULL_ARRAY                  \
   (garrow_null_array_get_type())
 #define GARROW_NULL_ARRAY(obj)                          \

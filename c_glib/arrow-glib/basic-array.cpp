@@ -716,6 +716,34 @@ garrow_array_count(GArrowArray *array,
   }
 }
 
+/**
+ * garrow_array_count_values:
+ * @array: A #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full): A #GArrowStructArray of `<input type "values",
+ *   int64_t "counts"> on success, %NULL on error.
+ *
+ * Since: 0.13.0
+ */
+GArrowStructArray *
+garrow_array_count_values(GArrowArray *array,
+                          GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::Array> arrow_counted_values;
+  auto status = arrow::compute::ValueCounts(&context,
+                                            arrow::compute::Datum(arrow_array),
+                                            &arrow_counted_values);
+  if (garrow_error_check(error, status, "[array][count-values]")) {
+    return GARROW_STRUCT_ARRAY(garrow_array_new_raw(&arrow_counted_values));
+  } else {
+    return NULL;
+  }
+}
+
 
 G_DEFINE_TYPE(GArrowNullArray,
               garrow_null_array,
