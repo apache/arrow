@@ -242,12 +242,19 @@ namespace red_arrow {
 
       VALUE convert(const arrow::ListArray& array, const int64_t index) {
         auto values = array.values().get();
+        int32_t offset_keep = offset_;
+        int32_t length_keep = length_;
         offset_ = array.value_offset(index);
         length_ = array.value_length(index);
+        VALUE result_keep = result_;
         result_ = rb_ary_new_capa(length_);
         check_status(values->Accept(this),
                      "[raw-records][list-array]");
-        return result_;
+        offset_ = offset_keep;
+        length_ = length_keep;
+        VALUE result_return = result_;
+        result_ = result_keep;
+        return result_return;
       }
 
 #define VISIT(TYPE)                                                     \
