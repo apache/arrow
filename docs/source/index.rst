@@ -48,7 +48,7 @@ such topics as:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Library Usage
+   :caption: Arrow Libraries
 
    cpp/index
    python/index

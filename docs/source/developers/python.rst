@@ -22,7 +22,77 @@
 Python Development
 ******************
 
-Developing on Linux and MacOS
+This page provides general Python development guidelines and source build
+instructions for all platforms.
+
+Coding Style
+============
+
+We follow a similar PEP8-like coding style to the `pandas project
+<https://github.com/pandas-dev/pandas>`_.
+
+The code must pass ``flake8`` (available from pip or conda) or it will fail the
+build. Check for style errors before submitting your pull request with:
+
+.. code-block:: shell
+
+   flake8 .
+   flake8 --config=.flake8.cython .
+
+Unit Testing
+============
+
+We are using `pytest <https://docs.pytest.org/en/latest/>`_ to develop our unit
+test suite. After building the project (see below) you can run its unit tests
+like so:
+
+.. code-block:: shell
+
+   pytest pyarrow
+
+Package requirements to run the unit tests are found in
+``requirements-test.txt`` and can be installed if needed with ``pip -r
+requirements-test.txt``.
+
+The project has a number of custom command line options for its test
+suite. Some tests are disabled by default, for example. To see all the options,
+run
+
+.. code-block:: shell
+
+   pytest pyarrow --help
+
+and look for the "custom options" section.
+
+Test Groups
+-----------
+
+We have many tests that are grouped together using pytest marks. Some of these
+are disabled by default. To enable a test group, pass ``--$GROUP_NAME``,
+e.g. ``--parquet``. To disable a test group, prepend ``disable``, so
+``--disable-parquet`` for example. To run **only** the unit tests for a
+particular group, prepend ``only-`` instead, for example ``--only-parquet``.
+
+The test groups currently include:
+
+* ``gandiva``: tests for Gandiva expression compiler (uses LLVM)
+* ``hdfs``: tests that use libhdfs or libhdfs3 to access the Hadoop filesystem
+* ``hypothesis``: tests that use the ``hypothesis`` module for generating
+  random test cases. Note that ``--hypothesis`` doesn't work due to a quirk
+  with pytest, so you have to pass ``--enable-hypothesis``
+* ``large_memory``: Test requiring a large amount of system RAM
+* ``orc``: Apache ORC tests
+* ``parquet``: Apache Parquet tests
+* ``plasma``: Plasma Object Store tests
+* ``s3``: Tests for Amazon S3
+* ``tensorflow``: Tests that involve TensorFlow
+
+Benchmarking
+------------
+
+For running the benchmarks, see :ref:`python-benchmarks`.
+
+Building on Linux and MacOS
 =============================
 
 System Requirements
@@ -88,7 +158,7 @@ With this out of the way, you can now activate the conda environment
 
    conda activate pyarrow-dev
 
-For Windows, see the `Developing on Windows`_ section below.
+For Windows, see the `Building on Windows`_ section below.
 
 We need to set some environment variables to let Arrow's build system know
 about our build toolchain:
@@ -261,8 +331,8 @@ environment variable when building pyarrow:
 
    export PYARROW_WITH_CUDA=1
 
-Developing on Windows
-=====================
+Building on Windows
+===================
 
 First, we bootstrap a conda environment similar to above, but skipping some of
 the Linux/macOS-only packages:
@@ -337,8 +407,3 @@ Some components are not supported yet on Windows:
 
 * Flight RPC
 * Plasma
-
-Building the Documentation
-==========================
-
-See :ref:`building-docs` for instructions to build the HTML documentation.
