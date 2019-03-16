@@ -38,16 +38,23 @@ RUN \
     libboost-filesystem-dev \
     libboost-regex-dev \
     libboost-system-dev \
+    libbrotli-dev \
+    libdouble-conversion-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
-    libjemalloc-dev \
+    libgoogle-glog-dev \
+    liblz4-dev \
     libprotobuf-dev \
     libprotoc-dev \
+    libre2-dev \
+    libsnappy-dev \
+    libzstd-dev \
     lsb-release \
     nvidia-cuda-toolkit \
     pkg-config \
     protobuf-compiler \
     python3-dev \
-    python3-numpy && \
+    python3-numpy \
+    rapidjson-dev && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*

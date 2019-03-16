@@ -46,10 +46,17 @@ RUN \
     libboost-filesystem-dev \
     libboost-regex-dev \
     libboost-system-dev \
+    libbrotli-dev \
+    libdouble-conversion-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
+    libgoogle-glog-dev \
+    liblz4-dev \
     libprotobuf-dev \
     libprotoc-dev \
+    libre2-dev \
+    libsnappy-dev \
+    libzstd-dev \
     lsb-release \
     nvidia-cuda-toolkit \
     pkg-config \
