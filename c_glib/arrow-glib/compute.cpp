@@ -22,6 +22,7 @@
 #endif
 
 #include <arrow-glib/compute.hpp>
+#include <arrow-glib/enums.h>
 
 G_BEGIN_DECLS
 
@@ -31,7 +32,9 @@ G_BEGIN_DECLS
  * @title: Classes for computation
  * @include: arrow-glib/arrow-glib.h
  *
- * #GArrowCastOptions is a class to custom garrow_array_cast().
+ * #GArrowCastOptions is a class to customize garrow_array_cast().
+ *
+ * #GArrowCountOptions is a class to customize garrow_array_count().
  */
 
 typedef struct GArrowCastOptionsPrivate_ {
@@ -39,8 +42,7 @@ typedef struct GArrowCastOptionsPrivate_ {
 } GArrowCastOptionsPrivate;
 
 enum {
-  PROP_0,
-  PROP_ALLOW_INT_OVERFLOW,
+  PROP_ALLOW_INT_OVERFLOW = 1,
   PROP_ALLOW_TIME_TRUNCATE,
   PROP_ALLOW_FLOAT_TRUNCATE,
   PROP_ALLOW_INVALID_UTF8,
@@ -194,6 +196,105 @@ garrow_cast_options_new(void)
   return GARROW_CAST_OPTIONS(cast_options);
 }
 
+
+typedef struct GArrowCountOptionsPrivate_ {
+  arrow::compute::CountOptions options;
+} GArrowCountOptionsPrivate;
+
+enum {
+  PROP_MODE = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowCountOptions,
+                           garrow_count_options,
+                           G_TYPE_OBJECT)
+
+#define GARROW_COUNT_OPTIONS_GET_PRIVATE(object)        \
+  static_cast<GArrowCountOptionsPrivate *>(             \
+    garrow_count_options_get_instance_private(          \
+      GARROW_COUNT_OPTIONS(object)))
+
+static void
+garrow_count_options_set_property(GObject *object,
+                                  guint prop_id,
+                                  const GValue *value,
+                                  GParamSpec *pspec)
+{
+  auto priv = GARROW_COUNT_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_MODE:
+    priv->options.count_mode =
+      static_cast<arrow::compute::CountOptions::mode>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_count_options_get_property(GObject *object,
+                                 guint prop_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto priv = GARROW_COUNT_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_MODE:
+    g_value_set_enum(value, priv->options.count_mode);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_count_options_init(GArrowCountOptions *object)
+{
+}
+
+static void
+garrow_count_options_class_init(GArrowCountOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_count_options_set_property;
+  gobject_class->get_property = garrow_count_options_get_property;
+
+  GParamSpec *spec;
+  /**
+   * GArrowCountOptions:mode:
+   *
+   * How to count values.
+   *
+   * Since: 0.13.0
+   */
+  spec = g_param_spec_enum("mode",
+                           "Mode",
+                           "How to count values",
+                           GARROW_TYPE_COUNT_MODE,
+                           GARROW_COUNT_ALL,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_MODE, spec);
+}
+
+/**
+ * garrow_count_options_new:
+ *
+ * Returns: A newly created #GArrowCountOptions.
+ *
+ * Since: 0.13.0
+ */
+GArrowCountOptions *
+garrow_count_options_new(void)
+{
+  auto count_options = g_object_new(GARROW_TYPE_COUNT_OPTIONS, NULL);
+  return GARROW_COUNT_OPTIONS(count_options);
+}
+
 G_END_DECLS
 
 GArrowCastOptions *
@@ -213,5 +314,22 @@ arrow::compute::CastOptions *
 garrow_cast_options_get_raw(GArrowCastOptions *cast_options)
 {
   auto priv = GARROW_CAST_OPTIONS_GET_PRIVATE(cast_options);
+  return &(priv->options);
+}
+
+GArrowCountOptions *
+garrow_count_options_new_raw(arrow::compute::CountOptions *arrow_count_options)
+{
+  auto count_options =
+    g_object_new(GARROW_TYPE_COUNT_OPTIONS,
+                 "mode", arrow_count_options->count_mode,
+                 NULL);
+  return GARROW_COUNT_OPTIONS(count_options);
+}
+
+arrow::compute::CountOptions *
+garrow_count_options_get_raw(GArrowCountOptions *count_options)
+{
+  auto priv = GARROW_COUNT_OPTIONS_GET_PRIVATE(count_options);
   return &(priv->options);
 }

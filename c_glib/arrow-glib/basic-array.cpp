@@ -643,6 +643,51 @@ garrow_array_dictionary_encode(GArrowArray *array,
   return garrow_array_new_raw(&arrow_dictionary_encoded_array);
 }
 
+/**
+ * garrow_array_count:
+ * @array: A #GArrowArray.
+ * @options: (nullable): A #GArrowCountOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The number of target values on success. If an error is occurred,
+ *   the returned value is untrustful value.
+ *
+ * Since: 0.13.0
+ */
+gint64
+garrow_array_count(GArrowArray *array,
+                   GArrowCountOptions *options,
+                   GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_array_raw = arrow_array.get();
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  arrow::compute::Datum counted_datum;
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_count_options_get_raw(options);
+    status = arrow::compute::Count(&context,
+                                   *arrow_options,
+                                   *arrow_array_raw,
+                                   &counted_datum);
+  } else {
+    arrow::compute::CountOptions arrow_options(arrow::compute::CountOptions::COUNT_ALL);
+    status = arrow::compute::Count(&context,
+                                   arrow_options,
+                                   *arrow_array_raw,
+                                   &counted_datum);
+  }
+
+  if (garrow_error_check(error, status, "[array][count]")) {
+    using ScalarType = typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
+    auto counted_scalar = std::dynamic_pointer_cast<ScalarType>(counted_datum.scalar());
+    return counted_scalar->value;
+  } else {
+    return 0;
+  }
+}
+
 
 G_DEFINE_TYPE(GArrowNullArray,
               garrow_null_array,

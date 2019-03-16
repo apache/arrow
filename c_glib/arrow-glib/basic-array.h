@@ -70,6 +70,11 @@ GArrowArray   *garrow_array_unique      (GArrowArray *array,
                                          GError **error);
 GArrowArray   *garrow_array_dictionary_encode(GArrowArray *array,
                                               GError **error);
+GARROW_AVAILABLE_IN_0_13
+gint64
+garrow_array_count(GArrowArray *array,
+                   GArrowCountOptions *options,
+                   GError **error);
 
 #define GARROW_TYPE_NULL_ARRAY                  \
   (garrow_null_array_get_type())
