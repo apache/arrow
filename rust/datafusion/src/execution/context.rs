@@ -40,6 +40,7 @@ use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::sql::parser::{DFASTNode, DFParser};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
 
+/// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
     datasources: Rc<RefCell<HashMap<String, Rc<Table>>>>,
 }

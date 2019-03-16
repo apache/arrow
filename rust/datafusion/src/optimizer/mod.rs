@@ -15,5 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Query optimizer module
+
 pub mod optimizer;
 pub mod projection_push_down;

@@ -17,7 +17,6 @@
 
 //! SQL Query Planner (produces logical plan from SQL AST)
 
-use std::collections::HashSet;
 use std::string::String;
 use std::sync::Arc;
 
@@ -28,6 +27,8 @@ use arrow::datatypes::*;
 
 use sqlparser::sqlast::*;
 
+/// The SchemaProvider trait allows the query planner to obtain meta-data about tables and
+/// functions referenced in SQL statements
 pub trait SchemaProvider {
     fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>>;
     fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>>;
@@ -396,6 +397,8 @@ pub fn convert_data_type(sql: &SQLType) -> Result<DataType> {
     }
 }
 
+/// Derive field meta-data for an expression, for use in creating schemas that result from
+/// evaluating expressions against an input schema.
 pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Field {
     match e {
         Expr::Column(i) => input_schema.fields()[*i].clone(),
@@ -428,89 +431,12 @@ pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Field {
     }
 }
 
+/// Derive field meta-data for a list of expressions, for use in creating schemas that result from
+/// evaluating expressions against an input schema.
 pub fn exprlist_to_fields(expr: &Vec<Expr>, input_schema: &Schema) -> Vec<Field> {
     expr.iter()
         .map(|e| expr_to_field(e, input_schema))
         .collect()
-}
-
-fn collect_expr(e: &Expr, accum: &mut HashSet<usize>) {
-    match e {
-        Expr::Column(i) => {
-            accum.insert(*i);
-        }
-        Expr::Cast { ref expr, .. } => collect_expr(expr, accum),
-        Expr::Literal(_) => {}
-        Expr::IsNotNull(ref expr) => collect_expr(expr, accum),
-        Expr::IsNull(ref expr) => collect_expr(expr, accum),
-        Expr::BinaryExpr {
-            ref left,
-            ref right,
-            ..
-        } => {
-            collect_expr(left, accum);
-            collect_expr(right, accum);
-        }
-        Expr::AggregateFunction { ref args, .. } => {
-            args.iter().for_each(|e| collect_expr(e, accum));
-        }
-        Expr::ScalarFunction { ref args, .. } => {
-            args.iter().for_each(|e| collect_expr(e, accum));
-        }
-        Expr::Sort { ref expr, .. } => collect_expr(expr, accum),
-    }
-}
-
-pub fn push_down_projection(
-    plan: &Arc<LogicalPlan>,
-    projection: &HashSet<usize>,
-) -> Arc<LogicalPlan> {
-    //println!("push_down_projection() projection={:?}", projection);
-    match plan.as_ref() {
-        LogicalPlan::Aggregate {
-            ref input,
-            ref group_expr,
-            ref aggr_expr,
-            ref schema,
-        } => {
-            //TODO: apply projection first
-            let mut accum: HashSet<usize> = HashSet::new();
-            group_expr.iter().for_each(|e| collect_expr(e, &mut accum));
-            aggr_expr.iter().for_each(|e| collect_expr(e, &mut accum));
-            Arc::new(LogicalPlan::Aggregate {
-                input: push_down_projection(&input, &accum),
-                group_expr: group_expr.clone(),
-                aggr_expr: aggr_expr.clone(),
-                schema: schema.clone(),
-            })
-        }
-        LogicalPlan::Selection {
-            ref expr,
-            ref input,
-        } => {
-            let mut accum: HashSet<usize> = projection.clone();
-            collect_expr(expr, &mut accum);
-            Arc::new(LogicalPlan::Selection {
-                expr: expr.clone(),
-                input: push_down_projection(&input, &accum),
-            })
-        }
-        LogicalPlan::TableScan {
-            ref schema_name,
-            ref table_name,
-            ref schema,
-            ..
-        } => Arc::new(LogicalPlan::TableScan {
-            schema_name: schema_name.to_string(),
-            table_name: table_name.to_string(),
-            schema: schema.clone(),
-            projection: Some(projection.iter().cloned().collect()),
-        }),
-        LogicalPlan::Projection { .. } => plan.clone(),
-        LogicalPlan::Sort { .. } => plan.clone(),
-        LogicalPlan::Limit { .. } => plan.clone(),
-        LogicalPlan::EmptyRelation { .. } => plan.clone(),
-    }
 }
 
 #[cfg(test)]
@@ -638,28 +564,6 @@ mod tests {
                         \n  Projection: #0\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
-    }
-
-    #[test]
-    fn test_collect_expr() {
-        let mut accum: HashSet<usize> = HashSet::new();
-        collect_expr(
-            &Expr::Cast {
-                expr: Arc::new(Expr::Column(3)),
-                data_type: DataType::Float64,
-            },
-            &mut accum,
-        );
-        collect_expr(
-            &Expr::Cast {
-                expr: Arc::new(Expr::Column(3)),
-                data_type: DataType::Float64,
-            },
-            &mut accum,
-        );
-        println!("accum: {:?}", accum);
-        assert_eq!(1, accum.len());
-        assert!(accum.contains(&3));
     }
 
     /// Create logical plan, write with formatter, compare to expected output

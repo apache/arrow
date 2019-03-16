@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! A relation is a representation of a set of tuples. A database table is a
+//! type of relation. During query execution, each operation on a relation (such as projection,
+//! selection, aggregation) results in a new relation.
+
 use std::sync::{Arc, Mutex};
 
 use arrow::datatypes::Schema;
@@ -23,8 +27,8 @@ use arrow::record_batch::RecordBatch;
 use crate::datasource::RecordBatchIterator;
 use crate::execution::error::Result;
 
-/// trait for all relations (a relation is essentially just an iterator over rows with
-/// a known schema)
+/// trait for all relations (a relation is essentially just an iterator over batches
+/// of data, with a known schema)
 pub trait Relation {
     fn next(&mut self) -> Result<Option<RecordBatch>>;
 
@@ -32,7 +36,8 @@ pub trait Relation {
     fn schema(&self) -> &Arc<Schema>;
 }
 
-pub struct DataSourceRelation {
+/// Implementation of a relation that represents a DataFusion data source
+pub(super) struct DataSourceRelation {
     schema: Arc<Schema>,
     ds: Arc<Mutex<RecordBatchIterator>>,
 }

@@ -27,6 +27,7 @@ use sqlparser::sqlparser::ParserError;
 
 pub type Result<T> = result::Result<T, ExecutionError>;
 
+/// DataFusion execution error
 #[derive(Debug)]
 pub enum ExecutionError {
     IoError(Error),
