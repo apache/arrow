@@ -49,6 +49,24 @@ Major components of the project include:
 Arrow is an [Apache Software Foundation](https://www.apache.org) project. Learn more at
 [arrow.apache.org](https://arrow.apache.org).
 
+## What's in the Arrow libraries?
+
+The reference Arrow libraries contain a number of distinct software components:
+
+- Columnar vector and table-like containers (similar to data frames) supporting
+  flat or nested types
+- Fast, language agnostic metadata messaging layer (using Google's Flatbuffers
+  library)
+- Reference-counted off-heap buffer memory management, for zero-copy memory
+  sharing and handling memory-mapped files
+- IO interfaces to local and remote filesystems
+- Self-describing binary wire formats (streaming and batch/file-like) for
+  remote procedure calls (RPC) and
+  interprocess communication (IPC)
+- Integration tests for verifying binary compatibility between the
+  implementations (e.g. sending data from Java to C++)
+- Conversions to and from other in-memory data structures
+
 ## How to Contribute
 
 Please read our latest [project contribution guide][5].
