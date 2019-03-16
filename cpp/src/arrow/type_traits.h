@@ -76,9 +76,9 @@ struct CTypeTraits<bool> : public TypeTraits<BooleanType> {
     using BuilderType = ArrowBuilderType;                                                \
     using ScalarType = ArrowScalarType;                                                  \
     using TensorType = ArrowTensorType;                                                  \
-    using CType = CType_;                                                                \
+    using CType = ArrowType_::c_type;                                                    \
     static constexpr int64_t bytes_required(int64_t elements) {                          \
-      return elements * static_cast<int64_t>(sizeof(CType_));                            \
+      return elements * static_cast<int64_t>(sizeof(CType));                             \
     }                                                                                    \
     constexpr static bool is_parameter_free = true;                                      \
     static inline std::shared_ptr<DataType> type_singleton() { return SingletonFn(); }   \
@@ -114,6 +114,7 @@ struct TypeTraits<Date64Type> {
   using ArrayType = Date64Array;
   using BuilderType = Date64Builder;
   using ScalarType = Date64Scalar;
+  using CType = Date64Type::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * static_cast<int64_t>(sizeof(int64_t));
@@ -127,6 +128,7 @@ struct TypeTraits<Date32Type> {
   using ArrayType = Date32Array;
   using BuilderType = Date32Builder;
   using ScalarType = Date32Scalar;
+  using CType = Date32Type::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * static_cast<int64_t>(sizeof(int32_t));
@@ -140,6 +142,7 @@ struct TypeTraits<TimestampType> {
   using ArrayType = TimestampArray;
   using BuilderType = TimestampBuilder;
   using ScalarType = TimestampScalar;
+  using CType = TimestampType::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * static_cast<int64_t>(sizeof(int64_t));
@@ -152,6 +155,7 @@ struct TypeTraits<Time32Type> {
   using ArrayType = Time32Array;
   using BuilderType = Time32Builder;
   using ScalarType = Time32Scalar;
+  using CType = Time32Type::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * static_cast<int64_t>(sizeof(int32_t));
@@ -164,6 +168,7 @@ struct TypeTraits<Time64Type> {
   using ArrayType = Time64Array;
   using BuilderType = Time64Builder;
   using ScalarType = Time64Scalar;
+  using CType = Time64Type::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * static_cast<int64_t>(sizeof(int64_t));
