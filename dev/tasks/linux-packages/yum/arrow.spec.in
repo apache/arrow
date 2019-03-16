@@ -36,7 +36,21 @@ BuildRequires:	pkgconfig
 BuildRequires:	gcc-c++
 BuildRequires:	cmake3
 BuildRequires:	boost-devel
+%if %{_centos_ver} >= 7
+BuildRequires:	double-conversion-devel
+%endif
+BuildRequires:	gflags-devel
 BuildRequires:	git
+%if %{_centos_ver} >= 7
+BuildRequires:	glog-devel
+%endif
+BuildRequires:	libzstd-devel
+BuildRequires:	lz4-devel
+%if %{_centos_ver} >= 7
+BuildRequires:	rapidjson-devel
+%endif
+BuildRequires:	snappy-devel
+BuildRequires:	zlib-devel
 %if %{use_python}
 BuildRequires:	python34-devel
 BuildRequires:	python34-numpy
@@ -44,6 +58,7 @@ BuildRequires:	python34-numpy
 %if %{use_parquet}
 BuildRequires:	bison
 BuildRequires:	flex
+BuildRequires:	thrift-devel
 %endif
 %if %{use_glib}
 BuildRequires:	autoconf-archive
@@ -114,6 +129,13 @@ License:	Apache-2.0
 Requires:	boost-system
 Requires:	boost-filesystem
 Requires:	boost-regex
+Requires:	double-conversion
+Requires:	gflags
+Requires:	glog
+Requires:	libzstd
+Requires:	lz4
+Requires:	snappy
+Requires:	zlib
 
 %description libs
 This package contains the libraries for Apache Arrow C++.
@@ -225,6 +247,7 @@ Requires:	boost-system
 Requires:	boost-filesystem
 Requires:	boost-program-options
 Requires:	boost-regex
+Requires:	thrift
 Requires:	%{name}-libs = %{version}-%{release}
 
 %description -n parquet-libs
