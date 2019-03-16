@@ -39,17 +39,21 @@ Gem::Specification.new do |spec|
   spec.license = "Apache-2.0"
   spec.files = ["README.md", "Rakefile", "Gemfile", "#{spec.name}.gemspec"]
   spec.files += ["LICENSE.txt", "NOTICE.txt"]
+  spec.files += Dir.glob("ext/**/*.{cpp,hpp,rb}")
   spec.files += Dir.glob("lib/**/*.rb")
   spec.files += Dir.glob("image/*.*")
   spec.files += Dir.glob("doc/text/*")
   spec.test_files += Dir.glob("test/**/*")
-  spec.extensions = ["dependency-check/Rakefile"]
+  spec.extensions = ["ext/arrow/extconf.rb"]
 
+  spec.add_runtime_dependency("extpp")
   spec.add_runtime_dependency("gobject-introspection", ">= 3.3.5")
-  spec.add_runtime_dependency("pkg-config")
   spec.add_runtime_dependency("native-package-installer")
+  spec.add_runtime_dependency("pkg-config")
 
+  spec.add_development_dependency("benchmark-driver")
   spec.add_development_dependency("bundler")
+  spec.add_development_dependency("faker")
   spec.add_development_dependency("rake")
   spec.add_development_dependency("redcarpet")
   spec.add_development_dependency("test-unit")

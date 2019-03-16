@@ -26,8 +26,29 @@ require "pathname"
 base_dir = Pathname.new(__dir__).parent.expand_path
 
 lib_dir = base_dir + "lib"
+ext_dir = base_dir + "ext" + "arrow"
 test_dir = base_dir + "test"
 
+make = nil
+if ENV["NO_MAKE"] != "yes"
+  if ENV["MAKE"]
+    make = ENV["MAKE"]
+  elsif system("type gmake > /dev/null")
+    make = "gmake"
+  elsif system("type make > /dev/null")
+    make = "make"
+  end
+end
+if make
+  Dir.chdir(ext_dir.to_s) do
+    unless File.exist?("Makefile")
+      system(RbConfig.ruby, "extconf.rb", "--enable-debug-build") or exit(false)
+    end
+    system("#{make} > /dev/null") or exit(false)
+  end
+end
+
+$LOAD_PATH.unshift(ext_dir.to_s)
 $LOAD_PATH.unshift(lib_dir.to_s)
 
 require_relative "helper"

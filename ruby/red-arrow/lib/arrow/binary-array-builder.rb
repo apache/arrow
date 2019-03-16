@@ -1,5 +1,3 @@
-# -*- ruby -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,26 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "pkg-config"
-require "native-package-installer"
-
-case RUBY_PLATFORM
-when /mingw|mswin/
-  task :default => "nothing"
-else
-  task :default => "dependency:check"
-end
-
-task :nothing do
-end
-
-namespace :dependency do
-  desc "Check dependency"
-  task :check do
-    unless PKGConfig.check_version?("arrow-glib", 0, 9, 0)
-      unless NativePackageInstaller.install(:debian => "libarrow-glib-dev",
-                                            :redhat => "arrow-glib-devel")
-        exit(false)
+module Arrow
+  class BinaryArrayBuilder
+    def append_values(values, is_valids=nil)
+      if is_valids
+        is_valids.each_with_index do |is_valid, i|
+          if is_valid
+            append_value(values[i])
+          else
+            append_null
+          end
+        end
+      else
+        values.each do |value|
+          append_value(value)
+        end
       end
     end
   end
