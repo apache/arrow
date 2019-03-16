@@ -20,8 +20,8 @@
 use std::string::String;
 use std::sync::Arc;
 
-use crate::error::*;
-use crate::logicalplan::*;
+use crate::error::{ExecutionError, Result};
+use crate::logicalplan::{Expr, FunctionMeta, LogicalPlan, Operator, ScalarValue};
 use crate::optimizer::utils;
 
 use arrow::datatypes::*;
@@ -279,25 +279,11 @@ impl SqlToRel {
                     &SQLOperator::NotLike => Operator::NotLike,
                 };
 
-                let left_expr = self.sql_to_rex(&left, &schema)?;
-                let right_expr = self.sql_to_rex(&right, &schema)?;
-                let left_type = left_expr.get_type(schema);
-                let right_type = right_expr.get_type(schema);
-
-                match utils::get_supertype(&left_type, &right_type) {
-                    Ok(supertype) => Ok(Expr::BinaryExpr {
-                        left: Arc::new(left_expr.cast_to(&supertype, schema)?),
-                        op: operator,
-                        right: Arc::new(right_expr.cast_to(&supertype, schema)?),
-                    }),
-                    Err(_) => {
-                        return Err(ExecutionError::General(format!(
-                            "No common supertype found for binary operator {:?} \
-                             with input types {:?} and {:?}",
-                            operator, left_type, right_type
-                        )));
-                    }
-                }
+                Ok(Expr::BinaryExpr {
+                    left: Arc::new(self.sql_to_rex(&left, &schema)?),
+                    op: operator,
+                    right: Arc::new(self.sql_to_rex(&right, &schema)?),
+                })
             }
 
             //            &ASTNode::SQLOrderBy { ref expr, asc } => Ok(Expr::Sort {
@@ -401,6 +387,7 @@ pub fn convert_data_type(sql: &SQLType) -> Result<DataType> {
 mod tests {
 
     use super::*;
+    use crate::logicalplan::FunctionType;
     use sqlparser::sqlparser::*;
 
     #[test]
@@ -437,7 +424,7 @@ mod tests {
                    FROM person WHERE state = 'CO' AND age >= 21 AND age <= 65";
         let expected =
             "Projection: #0, #1, #2\
-            \n  Selection: #4 Eq Utf8(\"CO\") And CAST(#3 AS Int64) GtEq Int64(21) And CAST(#3 AS Int64) LtEq Int64(65)\
+            \n  Selection: #4 Eq Utf8(\"CO\") And #3 GtEq Int64(21) And #3 LtEq Int64(65)\
             \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -453,12 +440,12 @@ mod tests {
                    AND age < 65 \
                    AND age <= 65";
         let expected = "Projection: #3, #1, #2\
-                        \n  Selection: CAST(#3 AS Int64) Eq Int64(21) \
-                        And CAST(#3 AS Int64) NotEq Int64(21) \
-                        And CAST(#3 AS Int64) Gt Int64(21) \
-                        And CAST(#3 AS Int64) GtEq Int64(21) \
-                        And CAST(#3 AS Int64) Lt Int64(65) \
-                        And CAST(#3 AS Int64) LtEq Int64(65)\
+                        \n  Selection: #3 Eq Int64(21) \
+                        And #3 NotEq Int64(21) \
+                        And #3 Gt Int64(21) \
+                        And #3 GtEq Int64(21) \
+                        And #3 Lt Int64(65) \
+                        And #3 LtEq Int64(65)\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }

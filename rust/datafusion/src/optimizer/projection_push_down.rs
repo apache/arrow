@@ -18,11 +18,12 @@
 //! Projection Push Down optimizer rule ensures that only referenced columns are
 //! loaded into memory
 
+use crate::error::{ExecutionError, Result};
 use crate::logicalplan::Expr;
 use crate::logicalplan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
+use crate::optimizer::utils;
 use arrow::datatypes::{Field, Schema};
-use arrow::error::{ArrowError, Result};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -56,7 +57,7 @@ impl ProjectionPushDown {
                 schema,
             } => {
                 // collect all columns referenced by projection expressions
-                self.collect_exprs(&expr, accum);
+                utils::exprlist_to_column_indices(&expr, accum);
 
                 // push projection down
                 let input = self.optimize_plan(&input, accum, mapping)?;
@@ -72,7 +73,7 @@ impl ProjectionPushDown {
             }
             LogicalPlan::Selection { expr, input } => {
                 // collect all columns referenced by filter expression
-                self.collect_expr(expr, accum);
+                utils::expr_to_column_indices(expr, accum);
 
                 // push projection down
                 let input = self.optimize_plan(&input, accum, mapping)?;
@@ -92,8 +93,8 @@ impl ProjectionPushDown {
                 schema,
             } => {
                 // collect all columns referenced by grouping and aggregate expressions
-                self.collect_exprs(&group_expr, accum);
-                self.collect_exprs(&aggr_expr, accum);
+                utils::exprlist_to_column_indices(&group_expr, accum);
+                utils::exprlist_to_column_indices(&aggr_expr, accum);
 
                 // push projection down
                 let input = self.optimize_plan(&input, accum, mapping)?;
@@ -115,7 +116,7 @@ impl ProjectionPushDown {
                 schema,
             } => {
                 // collect all columns referenced by sort expressions
-                self.collect_exprs(&expr, accum);
+                utils::exprlist_to_column_indices(&expr, accum);
 
                 // push projection down
                 let input = self.optimize_plan(&input, accum, mapping)?;
@@ -161,7 +162,9 @@ impl ProjectionPushDown {
                 // can rewrite expressions as we walk back up the tree
 
                 if mapping.len() != 0 {
-                    return Err(ArrowError::ComputeError("illegal state".to_string()));
+                    return Err(ExecutionError::InternalError(
+                        "illegal state".to_string(),
+                    ));
                 }
 
                 for i in 0..schema.fields().len() {
@@ -187,29 +190,6 @@ impl ProjectionPushDown {
                 input: input.clone(),
                 schema: schema.clone(),
             })),
-        }
-    }
-
-    fn collect_exprs(&self, expr: &Vec<Expr>, accum: &mut HashSet<usize>) {
-        expr.iter().for_each(|e| self.collect_expr(e, accum));
-    }
-
-    fn collect_expr(&self, expr: &Expr, accum: &mut HashSet<usize>) {
-        match expr {
-            Expr::Column(i) => {
-                accum.insert(*i);
-            }
-            Expr::Literal(_) => { /* not needed */ }
-            Expr::IsNull(e) => self.collect_expr(e, accum),
-            Expr::IsNotNull(e) => self.collect_expr(e, accum),
-            Expr::BinaryExpr { left, right, .. } => {
-                self.collect_expr(left, accum);
-                self.collect_expr(right, accum);
-            }
-            Expr::Cast { expr, .. } => self.collect_expr(expr, accum),
-            Expr::Sort { expr, .. } => self.collect_expr(expr, accum),
-            Expr::AggregateFunction { args, .. } => self.collect_exprs(args, accum),
-            Expr::ScalarFunction { args, .. } => self.collect_exprs(args, accum),
         }
     }
 
@@ -269,7 +249,7 @@ impl ProjectionPushDown {
     fn new_index(&self, mapping: &HashMap<usize, usize>, i: &usize) -> Result<usize> {
         match mapping.get(i) {
             Some(j) => Ok(*j),
-            _ => Err(ArrowError::ComputeError(
+            _ => Err(ExecutionError::InternalError(
                 "Internal error computing new column index".to_string(),
             )),
         }
