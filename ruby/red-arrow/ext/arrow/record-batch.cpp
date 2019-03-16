@@ -447,7 +447,7 @@ namespace red_arrow {
 
 #define VISIT(TYPE)                                                     \
       Status Visit(const arrow::TYPE ## Array& array) override {        \
-        result_ = convert_value(array, index_);                         \
+        convert_value(array);                                           \
         return Status::OK();                                            \
       }
 
@@ -486,31 +486,62 @@ namespace red_arrow {
 #undef VISIT
     private:
       template <typename ArrayType>
-      inline VALUE convert_value(const ArrayType& array,
-                                 const int64_t i) {
-        return array_value_converter_->convert(array, i);
+      inline void convert_value(const ArrayType& array) {
+        result_ = rb_hash_new();
+        if (array.IsNull(index_)) {
+          rb_hash_aset(result_, field_name_, Qnil);
+        } else {
+          rb_hash_aset(result_,
+                       field_name_,
+                       array_value_converter_->convert(array, index_));
+        }
+      }
+
+      uint8_t compute_child_index(const arrow::UnionArray& array,
+                                  arrow::UnionType* type,
+                                  const char* tag) {
+        const auto type_id = array.raw_type_ids()[index_];
+        const auto& type_codes = type->type_codes();
+        for (uint8_t i = 0; i < type_codes.size(); ++i) {
+          if (type_codes[i] == type_id) {
+            return i;
+          }
+        }
+        check_status(Status::Invalid("Unknown type ID: ", type_id),
+                     tag);
+        return 0;
       }
 
       void convert_sparse(const arrow::UnionArray& array) {
-        const auto type_ids = array.raw_type_ids();
-        const auto child_array = array.UnsafeChild(type_ids[index_]);
-        check_status(child_array->Accept(this),
-                     "[raw-records][union-sparse-array]");
+        const auto type =
+          std::static_pointer_cast<arrow::UnionType>(array.type()).get();
+        const auto tag = "[raw-records][union-sparse-array]";
+        const auto child_index = compute_child_index(array, type, tag);
+        const auto child_field = type->child(child_index).get();
+        const auto& field_name = child_field->name();
+        field_name_ = rb_utf8_str_new(field_name.data(), field_name.length());
+        const auto child_array = array.child(child_index).get();
+        check_status(child_array->Accept(this), tag);
       }
 
       void convert_dense(const arrow::UnionArray& array) {
-        const auto type_id = array.raw_type_ids()[index_];
-        const auto offset = array.value_offset(index_);
-        const auto child_array = array.UnsafeChild(type_id);
-        const auto i = index_;
-        index_ = offset;
-        check_status(child_array->Accept(this),
-                     "[raw-records][union-dense-array]");
-        index_ = i;
+        const auto type =
+          std::static_pointer_cast<arrow::UnionType>(array.type()).get();
+        const auto tag = "[raw-records][union-dense-array]";
+        const auto child_index = compute_child_index(array, type, tag);
+        const auto child_field = type->child(child_index).get();
+        const auto& field_name = child_field->name();
+        field_name_ = rb_utf8_str_new(field_name.data(), field_name.length());
+        const auto child_array = array.child(child_index);
+        const auto index_keep = index_;
+        index_ = array.value_offset(index_);
+        check_status(child_array->Accept(this), tag);
+        index_ = index_keep;
       }
 
       ArrayValueConverter* array_value_converter_;
       int64_t index_;
+      VALUE field_name_;
       VALUE result_;
     };
 
