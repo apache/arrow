@@ -101,7 +101,11 @@ garrow_numeric_array_sum(GArrowArrayType array,
     using ScalarType = typename arrow::TypeTraits<ArrowType>::ScalarType;
     auto arrow_numeric_scalar =
       std::dynamic_pointer_cast<ScalarType>(sum_datum.scalar());
-    return arrow_numeric_scalar->value;
+    if (arrow_numeric_scalar->is_valid) {
+      return arrow_numeric_scalar->value;
+    } else {
+      return default_value;
+    }
   } else {
     return default_value;
   }
@@ -1028,8 +1032,13 @@ garrow_numeric_array_mean(GArrowNumericArray *array,
   auto status = arrow::compute::Mean(&context, arrow_array, &mean_datum);
   if (garrow_error_check(error, status, "[numeric-array][mean]")) {
     using ScalarType = typename arrow::TypeTraits<arrow::DoubleType>::ScalarType;
-    auto arrow_numeric_scalar = std::dynamic_pointer_cast<ScalarType>(mean_datum.scalar());
-    return arrow_numeric_scalar->value;
+    auto arrow_numeric_scalar =
+      std::dynamic_pointer_cast<ScalarType>(mean_datum.scalar());
+    if (arrow_numeric_scalar->is_valid) {
+      return arrow_numeric_scalar->value;
+    } else {
+      return 0.0;
+    }
   } else {
     return 0.0;
   }
