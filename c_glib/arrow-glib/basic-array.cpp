@@ -83,6 +83,34 @@ garrow_primitive_array_new(GArrowDataType *data_type,
   return garrow_array_new_raw(&arrow_array);
 };
 
+template <typename ArrowType, typename GArrowArrayType>
+typename ArrowType::c_type
+garrow_numeric_array_sum(GArrowArrayType array,
+                         GError **error,
+                         const gchar *tag,
+                         typename ArrowType::c_type default_value)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  arrow::compute::Datum sum_datum;
+  auto status = arrow::compute::Sum(&context,
+                                    arrow_array,
+                                    &sum_datum);
+  if (garrow_error_check(error, status, tag)) {
+    using ScalarType = typename arrow::TypeTraits<ArrowType>::ScalarType;
+    auto arrow_numeric_scalar =
+      std::dynamic_pointer_cast<ScalarType>(sum_datum.scalar());
+    if (arrow_numeric_scalar->is_valid) {
+      return arrow_numeric_scalar->value;
+    } else {
+      return default_value;
+    }
+  } else {
+    return default_value;
+  }
+}
+
 G_BEGIN_DECLS
 
 /**
@@ -106,7 +134,7 @@ G_BEGIN_DECLS
  * more null values. You need to specify an array length to create a
  * new array.
  *
- * #GArrowBooleanArray is a class for binary array. It can store zero
+ * #GArrowBooleanArray is a class for boolean array. It can store zero
  * or more boolean data. If you don't have Arrow format data, you need
  * to use #GArrowBooleanArrayBuilder to create a new array.
  *
@@ -1004,8 +1032,13 @@ garrow_numeric_array_mean(GArrowNumericArray *array,
   auto status = arrow::compute::Mean(&context, arrow_array, &mean_datum);
   if (garrow_error_check(error, status, "[numeric-array][mean]")) {
     using ScalarType = typename arrow::TypeTraits<arrow::DoubleType>::ScalarType;
-    auto arrow_numeric_scalar = std::dynamic_pointer_cast<ScalarType>(mean_datum.scalar());
-    return arrow_numeric_scalar->value;
+    auto arrow_numeric_scalar =
+      std::dynamic_pointer_cast<ScalarType>(mean_datum.scalar());
+    if (arrow_numeric_scalar->is_valid) {
+      return arrow_numeric_scalar->value;
+    } else {
+      return 0.0;
+    }
   } else {
     return 0.0;
   }
@@ -1084,6 +1117,26 @@ garrow_int8_array_get_values(GArrowInt8Array *array,
   return garrow_array_get_values_raw<arrow::Int8Type>(arrow_array, length);
 }
 
+/**
+ * garrow_int8_array_sum:
+ * @array: A #GArrowInt8Array.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
+ *
+ * Since: 0.13.0
+ */
+gint64
+garrow_int8_array_sum(GArrowInt8Array *array,
+                      GError **error)
+{
+  return garrow_numeric_array_sum<arrow::Int64Type>(array,
+                                                    error,
+                                                    "[int8-array][sum]",
+                                                    0);
+}
+
 
 G_DEFINE_TYPE(GArrowUInt8Array,
               garrow_uint8_array,
@@ -1155,6 +1208,26 @@ garrow_uint8_array_get_values(GArrowUInt8Array *array,
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::UInt8Type>(arrow_array, length);
+}
+
+/**
+ * garrow_uint8_array_sum:
+ * @array: A #GArrowUInt8Array.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
+ *
+ * Since: 0.13.0
+ */
+guint64
+garrow_uint8_array_sum(GArrowUInt8Array *array,
+                       GError **error)
+{
+  return garrow_numeric_array_sum<arrow::UInt64Type>(array,
+                                                     error,
+                                                     "[uint8-array][sum]",
+                                                     0);
 }
 
 
@@ -1230,6 +1303,26 @@ garrow_int16_array_get_values(GArrowInt16Array *array,
   return garrow_array_get_values_raw<arrow::Int16Type>(arrow_array, length);
 }
 
+/**
+ * garrow_int16_array_sum:
+ * @array: A #GArrowInt16Array.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
+ *
+ * Since: 0.13.0
+ */
+gint64
+garrow_int16_array_sum(GArrowInt16Array *array,
+                       GError **error)
+{
+  return garrow_numeric_array_sum<arrow::Int64Type>(array,
+                                                    error,
+                                                    "[int16-array][sum]",
+                                                    0);
+}
+
 
 G_DEFINE_TYPE(GArrowUInt16Array,
               garrow_uint16_array,
@@ -1301,6 +1394,26 @@ garrow_uint16_array_get_values(GArrowUInt16Array *array,
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::UInt16Type>(arrow_array, length);
+}
+
+/**
+ * garrow_uint16_array_sum:
+ * @array: A #GArrowUInt16Array.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
+ *
+ * Since: 0.13.0
+ */
+guint64
+garrow_uint16_array_sum(GArrowUInt16Array *array,
+                        GError **error)
+{
+  return garrow_numeric_array_sum<arrow::UInt64Type>(array,
+                                                     error,
+                                                     "[uint16-array][sum]",
+                                                     0);
 }
 
 
@@ -1376,6 +1489,26 @@ garrow_int32_array_get_values(GArrowInt32Array *array,
   return garrow_array_get_values_raw<arrow::Int32Type>(arrow_array, length);
 }
 
+/**
+ * garrow_int32_array_sum:
+ * @array: A #GArrowInt32Array.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
+ *
+ * Since: 0.13.0
+ */
+gint64
+garrow_int32_array_sum(GArrowInt32Array *array,
+                       GError **error)
+{
+  return garrow_numeric_array_sum<arrow::Int64Type>(array,
+                                                    error,
+                                                    "[int32-array][sum]",
+                                                    0);
+}
+
 
 G_DEFINE_TYPE(GArrowUInt32Array,
               garrow_uint32_array,
@@ -1447,6 +1580,26 @@ garrow_uint32_array_get_values(GArrowUInt32Array *array,
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::UInt32Type>(arrow_array, length);
+}
+
+/**
+ * garrow_uint32_array_sum:
+ * @array: A #GArrowUInt32Array.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
+ *
+ * Since: 0.13.0
+ */
+guint64
+garrow_uint32_array_sum(GArrowUInt32Array *array,
+                        GError **error)
+{
+  return garrow_numeric_array_sum<arrow::UInt64Type>(array,
+                                                    error,
+                                                    "[uint32-array][sum]",
+                                                    0);
 }
 
 
@@ -1524,6 +1677,26 @@ garrow_int64_array_get_values(GArrowInt64Array *array,
   return reinterpret_cast<const gint64 *>(values);
 }
 
+/**
+ * garrow_int64_array_sum:
+ * @array: A #GArrowInt64Array.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
+ *
+ * Since: 0.13.0
+ */
+gint64
+garrow_int64_array_sum(GArrowInt64Array *array,
+                       GError **error)
+{
+  return garrow_numeric_array_sum<arrow::Int64Type>(array,
+                                                    error,
+                                                    "[int64-array][sum]",
+                                                    0);
+}
+
 
 G_DEFINE_TYPE(GArrowUInt64Array,
               garrow_uint64_array,
@@ -1599,6 +1772,26 @@ garrow_uint64_array_get_values(GArrowUInt64Array *array,
   return reinterpret_cast<const guint64 *>(values);
 }
 
+/**
+ * garrow_uint64_array_sum:
+ * @array: A #GArrowUInt64Array.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
+ *
+ * Since: 0.13.0
+ */
+guint64
+garrow_uint64_array_sum(GArrowUInt64Array *array,
+                        GError **error)
+{
+  return garrow_numeric_array_sum<arrow::UInt64Type>(array,
+                                                    error,
+                                                    "[uint64-array][sum]",
+                                                    0);
+}
+
 
 G_DEFINE_TYPE(GArrowFloatArray,
               garrow_float_array,
@@ -1672,6 +1865,26 @@ garrow_float_array_get_values(GArrowFloatArray *array,
   return garrow_array_get_values_raw<arrow::FloatType>(arrow_array, length);
 }
 
+/**
+ * garrow_float_array_sum:
+ * @array: A #GArrowFloatArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
+ *
+ * Since: 0.13.0
+ */
+gdouble
+garrow_float_array_sum(GArrowFloatArray *array,
+                       GError **error)
+{
+  return garrow_numeric_array_sum<arrow::DoubleType>(array,
+                                                     error,
+                                                     "[float-array][sum]",
+                                                     0);
+}
+
 
 G_DEFINE_TYPE(GArrowDoubleArray,
               garrow_double_array,
@@ -1743,6 +1956,26 @@ garrow_double_array_get_values(GArrowDoubleArray *array,
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::DoubleType>(arrow_array, length);
+}
+
+/**
+ * garrow_double_array_sum:
+ * @array: A #GArrowDoubleArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The value of the computed sum on success,
+ *   If an error is occurred, the returned value is untrustful value.
+ *
+ * Since: 0.13.0
+ */
+gdouble
+garrow_double_array_sum(GArrowDoubleArray *array,
+                        GError **error)
+{
+  return garrow_numeric_array_sum<arrow::DoubleType>(array,
+                                                     error,
+                                                     "[double-array][sum]",
+                                                     0);
 }
 
 
