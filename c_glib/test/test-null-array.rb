@@ -16,18 +16,37 @@
 # under the License.
 
 class TestNullArray < Test::Unit::TestCase
+  include Helper::Buildable
+
+  def test_new
+    assert_equal(build_null_array([nil, nil, nil]),
+                 Arrow::NullArray.new(3))
+  end
+
   def test_length
-    array = Arrow::NullArray.new(3)
+    builder = Arrow::NullArrayBuilder.new
+    builder.append_null
+    builder.append_null
+    builder.append_null
+    array = builder.finish
     assert_equal(3, array.length)
   end
 
   def test_n_nulls
-    array = Arrow::NullArray.new(3)
+    builder = Arrow::NullArrayBuilder.new
+    builder.append_null
+    builder.append_null
+    builder.append_null
+    array = builder.finish
     assert_equal(3, array.n_nulls)
   end
 
   def test_slice
-    array = Arrow::NullArray.new(3)
+    builder = Arrow::NullArrayBuilder.new
+    builder.append_null
+    builder.append_null
+    builder.append_null
+    array = builder.finish
     assert_equal(2, array.slice(1, 2).length)
   end
 end

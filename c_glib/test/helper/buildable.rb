@@ -17,6 +17,10 @@
 
 module Helper
   module Buildable
+    def build_null_array(values)
+      build_array(Arrow::NullArrayBuilder.new, values)
+    end
+
     def build_boolean_array(values)
       build_array(Arrow::BooleanArrayBuilder.new, values)
     end
