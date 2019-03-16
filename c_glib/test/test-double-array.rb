@@ -55,6 +55,6 @@ class TestDoubleArray < Test::Unit::TestCase
 
   def test_sum
     array = build_float_array([1.5, 3.0, nil])
-    assert_equal(4.5, array.sum)
+    assert_in_delta(4.5, array.sum)
   end
 end
