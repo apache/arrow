@@ -196,6 +196,13 @@ make_type!(
 );
 make_type!(Date32Type, i32, DataType::Date32(DateUnit::Day), 32, 0i32);
 make_type!(
+    Date32MillisecondType,
+    i32,
+    DataType::Date32(DateUnit::Millisecond),
+    32,
+    0i32
+);
+make_type!(
     Date64Type,
     i64,
     DataType::Date64(DateUnit::Millisecond),
