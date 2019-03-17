@@ -198,7 +198,7 @@ impl ParquetTypeConverter {
             LogicalType::INT_8 => Ok(DataType::Int8),
             LogicalType::INT_16 => Ok(DataType::Int16),
             LogicalType::INT_32 => Ok(DataType::Int32),
-            LogicalType::DATE => Ok(DataType::Date32(DateUnit::Millisecond)),
+            LogicalType::DATE => Ok(DataType::Date32(DateUnit::Day)),
             LogicalType::TIME_MILLIS => Ok(DataType::Time32(TimeUnit::Millisecond)),
             other => Err(ArrowError(format!(
                 "Unable to convert parquet INT32 logical type {}",
@@ -213,11 +213,11 @@ impl ParquetTypeConverter {
             LogicalType::INT_64 => Ok(DataType::Int64),
             LogicalType::UINT_64 => Ok(DataType::UInt64),
             LogicalType::TIME_MICROS => Ok(DataType::Time64(TimeUnit::Microsecond)),
-            LogicalType::TIMESTAMP_MICROS => {
-                Ok(DataType::Timestamp(TimeUnit::Microsecond))
-            }
             LogicalType::TIMESTAMP_MILLIS => {
                 Ok(DataType::Timestamp(TimeUnit::Millisecond))
+            }
+            LogicalType::TIMESTAMP_MICROS => {
+                Ok(DataType::Timestamp(TimeUnit::Microsecond))
             }
             other => Err(ArrowError(format!(
                 "Unable to convert parquet INT64 logical type {}",
