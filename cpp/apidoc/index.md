@@ -20,23 +20,4 @@ Apache Arrow C++ API documentation      {#index}
   under the License.
 -->
 
-Apache Arrow is a columnar in-memory analytics layer designed to accelerate
-big data. It houses a set of canonical in-memory representations of flat and
-hierarchical data along with multiple language-bindings for structure
-manipulation. It also provides IPC and common algorithm implementations.
-
-This is the documentation of the C++ API of Apache Arrow. For more details
-on the format and other language bindings see
-the [main page for Arrow](https://arrow.apache.org/). Here will we only detail
-the usage of the C++ API for Arrow and the leaf libraries that add additional
-functionality such as using [jemalloc](http://jemalloc.net/) as an allocator
-for Arrow structures.
-
-Table of Contents
------------------
-
- * Instructions on how to build Arrow C++ on [Windows](Windows.md)
- * How to access [HDFS](HDFS.md)
- * Tutorials
-   * [Using the Plasma In-Memory Object Store](tutorials/plasma.md)
-   * [Use Plasma to Access Tensors from C++ in Python](tutorials/tensor_to_py.md)
+TODO(wesm): Port remaining Markdown pages to Sphinx project
