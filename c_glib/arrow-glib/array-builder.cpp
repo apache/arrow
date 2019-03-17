@@ -481,7 +481,7 @@ garrow_null_array_builder_append_nulls(GArrowNullArrayBuilder *builder,
     (GARROW_ARRAY_BUILDER(builder),
      n,
      error,
-     "[boolean-array-builder][append-nulls]");
+     "[null-array-builder][append-nulls]");
 }
 
 
