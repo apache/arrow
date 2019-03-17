@@ -479,20 +479,27 @@ mod tests {
     fn read_alltypes_plain_parquet() {
         let table = load_table("alltypes_plain.parquet");
 
-        let x: Vec<String> = table.schema().fields().iter().map(|f| format!("{}: {:?}", f.name(), f.data_type())).collect();
-        let y =  x.join("\n");
+        let x: Vec<String> = table
+            .schema()
+            .fields()
+            .iter()
+            .map(|f| format!("{}: {:?}", f.name(), f.data_type()))
+            .collect();
+        let y = x.join("\n");
         assert_eq!(
-        "id: Int32\n\
-        bool_col: Boolean\n\
-        tinyint_col: Int32\n\
-        smallint_col: Int32\n\
-        int_col: Int32\n\
-        bigint_col: Int64\n\
-        float_col: Float32\n\
-        double_col: Float64\n\
-        date_string_col: Utf8\n\
-        string_col: Utf8\n\
-        timestamp_col: Timestamp(Nanosecond)", y);
+            "id: Int32\n\
+             bool_col: Boolean\n\
+             tinyint_col: Int32\n\
+             smallint_col: Int32\n\
+             int_col: Int32\n\
+             bigint_col: Int64\n\
+             float_col: Float32\n\
+             double_col: Float64\n\
+             date_string_col: Utf8\n\
+             string_col: Utf8\n\
+             timestamp_col: Timestamp(Nanosecond)",
+            y
+        );
 
         let projection = None;
         let scan = table.scan(&projection, 1024).unwrap();
