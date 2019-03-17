@@ -1979,6 +1979,7 @@ macro(build_grpc)
   add_dependencies(gRPC::grpc grpc_ep)
   add_dependencies(gRPC::grpc++ grpc_ep)
   add_dependencies(gRPC::address_sorting grpc_ep)
+  set(GRPC_VENDORED TRUE)
 endmacro()
 
 if(ARROW_WITH_GRPC)
@@ -2017,14 +2018,18 @@ if(ARROW_WITH_GRPC)
   get_target_property(GRPC_INCLUDE_DIR gRPC::grpc INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${GRPC_INCLUDE_DIR})
 
-  # grpc++ headers may reside in ${GRPC_INCLUDE_DIR}/grpc++ or ${GRPC_INCLUDE_DIR}/grpcpp
-  # depending on the gRPC version.
-  if(EXISTS "${GRPC_INCLUDE_DIR}/grpcpp/impl/codegen/config_protobuf.h")
+  if(GRPC_VENDORED)
     set(GRPCPP_PP_INCLUDE TRUE)
-  elseif(EXISTS "${GRPC_INCLUDE_DIR}/grpc++/impl/codegen/config_protobuf.h")
-    set(GRPCPP_PP_INCLUDE FALSE)
   else()
-    message(FATAL_ERROR "Cannot find grpc++ headers in ${GRPC_INCLUDE_DIR}")
+    # grpc++ headers may reside in ${GRPC_INCLUDE_DIR}/grpc++ or ${GRPC_INCLUDE_DIR}/grpcpp
+    # depending on the gRPC version.
+    if(EXISTS "${GRPC_INCLUDE_DIR}/grpcpp/impl/codegen/config_protobuf.h")
+      set(GRPCPP_PP_INCLUDE TRUE)
+    elseif(EXISTS "${GRPC_INCLUDE_DIR}/grpc++/impl/codegen/config_protobuf.h")
+      set(GRPCPP_PP_INCLUDE FALSE)
+    else()
+      message(FATAL_ERROR "Cannot find grpc++ headers in ${GRPC_INCLUDE_DIR}")
+    endif()
   endif()
 endif()
 
