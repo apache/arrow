@@ -36,6 +36,7 @@ pub struct CsvFile {
 }
 
 impl CsvFile {
+    /// Initializer
     pub fn new(filename: &str, schema: &Schema, has_header: bool) -> Self {
         Self {
             filename: String::from(filename),
@@ -72,6 +73,7 @@ pub struct CsvBatchIterator {
 }
 
 impl CsvBatchIterator {
+    /// Initializer
     pub fn new(
         filename: &str,
         schema: Arc<Schema>,

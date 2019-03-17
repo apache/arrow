@@ -18,6 +18,8 @@
 //! DataFusion is a modern distributed compute platform implemented in Rust that uses
 //! Apache Arrow as the memory model
 
+#![warn(missing_docs)]
+
 extern crate arrow;
 #[macro_use]
 extern crate serde_derive;

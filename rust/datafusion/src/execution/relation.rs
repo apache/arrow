@@ -30,6 +30,7 @@ use crate::error::Result;
 /// trait for all relations (a relation is essentially just an iterator over batches
 /// of data, with a known schema)
 pub trait Relation {
+    /// Get the next `RecordBatch`, or `None` if the iterator is exhausted
     fn next(&mut self) -> Result<Option<RecordBatch>>;
 
     /// get the schema for this relation

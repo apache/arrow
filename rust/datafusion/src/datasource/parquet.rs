@@ -34,12 +34,14 @@ use parquet::reader::schema::parquet_to_arrow_schema;
 use crate::datasource::{RecordBatchIterator, ScanResult, Table};
 use crate::error::{ExecutionError, Result};
 
+/// Table-based representation of a `ParquetFile`
 pub struct ParquetTable {
     filename: String,
     schema: Arc<Schema>,
 }
 
 impl ParquetTable {
+    /// Attempt to initialize a new `ParquetTable` from a file path
     pub fn try_new(filename: &str) -> Result<Self> {
         let file = File::open(filename)?;
         let parquet_file = ParquetFile::open(file, None, 0)?;
@@ -67,6 +69,7 @@ impl Table for ParquetTable {
     }
 }
 
+/// Loader and reader for parquet data
 pub struct ParquetFile {
     reader: SerializedFileReader<File>,
     /// Projection expressed as column indices into underlying parquet reader
@@ -172,6 +175,7 @@ where
 }
 
 impl ParquetFile {
+    /// Read parquet data from a `File`
     pub fn open(
         file: File,
         projection: Option<Vec<usize>>,

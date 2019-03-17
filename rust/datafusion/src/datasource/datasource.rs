@@ -24,6 +24,7 @@ use arrow::record_batch::RecordBatch;
 
 use crate::error::Result;
 
+/// Iterator of record batches, wrapped in a mutex
 pub type ScanResult = Arc<Mutex<RecordBatchIterator>>;
 
 /// Source table
