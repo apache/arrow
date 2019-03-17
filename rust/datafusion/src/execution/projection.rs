@@ -28,7 +28,7 @@ use arrow::array::ArrayRef;
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
-use crate::execution::error::Result;
+use crate::error::Result;
 use crate::execution::expression::RuntimeExpr;
 use crate::execution::relation::Relation;
 

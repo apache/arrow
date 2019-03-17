@@ -26,8 +26,8 @@ use arrow::compute::array_ops::limit;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
-use super::error::{ExecutionError, Result};
-use super::relation::Relation;
+use crate::error::{ExecutionError, Result};
+use crate::execution::relation::Relation;
 
 /// Implementation of a LIMIT relation
 pub(super) struct LimitRelation {

@@ -32,7 +32,7 @@ use parquet::file::reader::*;
 use parquet::reader::schema::parquet_to_arrow_schema;
 
 use crate::datasource::{RecordBatchIterator, ScanResult, Table};
-use crate::execution::error::{ExecutionError, Result};
+use crate::error::{ExecutionError, Result};
 
 pub struct ParquetTable {
     filename: String,

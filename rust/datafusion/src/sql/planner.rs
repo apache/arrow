@@ -20,7 +20,7 @@
 use std::string::String;
 use std::sync::Arc;
 
-use crate::execution::error::*;
+use crate::error::*;
 use crate::logicalplan::*;
 
 use arrow::datatypes::*;

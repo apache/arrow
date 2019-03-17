@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Error types
+//! DataFusion error types
 
 use std::io::Error;
 use std::result;
@@ -27,17 +27,26 @@ use sqlparser::sqlparser::ParserError;
 
 pub type Result<T> = result::Result<T, ExecutionError>;
 
-/// DataFusion execution error
+/// DataFusion error
 #[derive(Debug)]
 pub enum ExecutionError {
-    IoError(Error),
-    ParserError(ParserError),
-    General(String),
-    InvalidColumn(String),
-    NotImplemented(String),
-    InternalError(String),
+    /// Wraps an error from the Arrow crate
     ArrowError(ArrowError),
+    /// Wraps an error from the Parquet crate
     ParquetError(ParquetError),
+    /// I/O error
+    IoError(Error),
+    /// SQL parser error
+    ParserError(ParserError),
+    /// General error
+    General(String),
+    /// Invalid column error
+    InvalidColumn(String),
+    /// Missing functionality
+    NotImplemented(String),
+    /// Internal error
+    InternalError(String),
+    /// Query engine execution error
     ExecutionError(String),
 }
 

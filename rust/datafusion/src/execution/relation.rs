@@ -25,7 +25,7 @@ use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
 use crate::datasource::RecordBatchIterator;
-use crate::execution::error::Result;
+use crate::error::Result;
 
 /// trait for all relations (a relation is essentially just an iterator over batches
 /// of data, with a known schema)
