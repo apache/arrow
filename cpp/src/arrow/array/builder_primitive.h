@@ -43,6 +43,7 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
 
   /// \brief Append a single null element
   Status AppendNull() {
+    ARROW_RETURN_NOT_OK(CheckCapacity(length_ + 1, length_));
     ++null_count_;
     ++length_;
     return Status::OK();
