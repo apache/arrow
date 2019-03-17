@@ -37,7 +37,7 @@ which includes a native, multithreaded C++ adapter to and from in-memory Arrow
 data. PyArrow includes Python bindings to this code, which thus enables reading
 and writing Parquet files with pandas as well.
 
-Obtaining PyArrow with Parquet Support
+Obtaining pyarrow with Parquet Support
 --------------------------------------
 
 If you installed ``pyarrow`` with pip or conda, it should be built with Parquet
@@ -49,8 +49,8 @@ support bundled:
 
 If you are building ``pyarrow`` from source, you must use
 ``-DARROW_PARQUET=ON`` when compiling the C++ libraries and enable the Parquet
-extensions when building ``pyarrow``. See the :ref:`Development <development>`
-page for more details.
+extensions when building ``pyarrow``. See the :ref:`Python Development
+<python-development>` page for more details.
 
 Reading and Writing Single Files
 --------------------------------

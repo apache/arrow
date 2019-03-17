@@ -16,13 +16,83 @@
 .. under the License.
 
 .. currentmodule:: pyarrow
-.. _development:
+.. _python-development:
 
-***********
-Development
-***********
+******************
+Python Development
+******************
 
-Developing on Linux and MacOS
+This page provides general Python development guidelines and source build
+instructions for all platforms.
+
+Coding Style
+============
+
+We follow a similar PEP8-like coding style to the `pandas project
+<https://github.com/pandas-dev/pandas>`_.
+
+The code must pass ``flake8`` (available from pip or conda) or it will fail the
+build. Check for style errors before submitting your pull request with:
+
+.. code-block:: shell
+
+   flake8 .
+   flake8 --config=.flake8.cython .
+
+Unit Testing
+============
+
+We are using `pytest <https://docs.pytest.org/en/latest/>`_ to develop our unit
+test suite. After building the project (see below) you can run its unit tests
+like so:
+
+.. code-block:: shell
+
+   pytest pyarrow
+
+Package requirements to run the unit tests are found in
+``requirements-test.txt`` and can be installed if needed with ``pip -r
+requirements-test.txt``.
+
+The project has a number of custom command line options for its test
+suite. Some tests are disabled by default, for example. To see all the options,
+run
+
+.. code-block:: shell
+
+   pytest pyarrow --help
+
+and look for the "custom options" section.
+
+Test Groups
+-----------
+
+We have many tests that are grouped together using pytest marks. Some of these
+are disabled by default. To enable a test group, pass ``--$GROUP_NAME``,
+e.g. ``--parquet``. To disable a test group, prepend ``disable``, so
+``--disable-parquet`` for example. To run **only** the unit tests for a
+particular group, prepend ``only-`` instead, for example ``--only-parquet``.
+
+The test groups currently include:
+
+* ``gandiva``: tests for Gandiva expression compiler (uses LLVM)
+* ``hdfs``: tests that use libhdfs or libhdfs3 to access the Hadoop filesystem
+* ``hypothesis``: tests that use the ``hypothesis`` module for generating
+  random test cases. Note that ``--hypothesis`` doesn't work due to a quirk
+  with pytest, so you have to pass ``--enable-hypothesis``
+* ``large_memory``: Test requiring a large amount of system RAM
+* ``orc``: Apache ORC tests
+* ``parquet``: Apache Parquet tests
+* ``plasma``: Plasma Object Store tests
+* ``s3``: Tests for Amazon S3
+* ``tensorflow``: Tests that involve TensorFlow
+
+Benchmarking
+------------
+
+For running the benchmarks, see :ref:`python-benchmarks`.
+
+Building on Linux and MacOS
 =============================
 
 System Requirements
@@ -31,25 +101,20 @@ System Requirements
 On macOS, any modern XCode (6.4 or higher; the current version is 8.3.1) is
 sufficient.
 
-On Linux, for this guide, we recommend using gcc 4.8 or 4.9, or clang 3.7 or
+On Linux, for this guide, we require a minimum of gcc 4.8, or clang 3.7 or
 higher. You can check your version by running
 
 .. code-block:: shell
 
    $ gcc --version
 
-On Ubuntu 16.04 and higher, you can obtain gcc 4.9 with:
+If the system compiler is older than gcc 4.8, it can be set to a newer version
+using the ``$CC`` and ``$CXX`` environment variables:
 
 .. code-block:: shell
 
-   $ sudo apt-get install g++-4.9
-
-Finally, set gcc 4.9 as the active compiler using:
-
-.. code-block:: shell
-
-   export CC=gcc-4.9
-   export CXX=g++-4.9
+   export CC=gcc-4.8
+   export CXX=g++-4.8
 
 Environment Setup and Build
 ---------------------------
@@ -74,7 +139,7 @@ Using Conda
 ~~~~~~~~~~~
 
 Let's create a conda environment with all the C++ build and Python dependencies
-from conda-forge:
+from conda-forge, targeting development for Python 3.7:
 
 On Linux and OSX:
 
@@ -84,22 +149,23 @@ On Linux and OSX:
         --file arrow/ci/conda_env_unix.yml \
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_python.yml \
-        python=3.6
+        compilers \
+        python=3.7
+
+As of January 2019, the `compilers` package is needed on many Linux distributions to use packages from conda-forge.
+
+With this out of the way, you can now activate the conda environment
 
    conda activate pyarrow-dev
 
-For Windows, see the `Developing on Windows`_ section below.
+For Windows, see the `Building on Windows`_ section below.
 
 We need to set some environment variables to let Arrow's build system know
 about our build toolchain:
 
 .. code-block:: shell
 
-   export ARROW_BUILD_TYPE=release
-   export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
    export ARROW_HOME=$CONDA_PREFIX
-   export PARQUET_HOME=$CONDA_PREFIX
-   export BOOST_HOME=$CONDA_PREFIX
 
 Using pip
 ~~~~~~~~~
@@ -161,10 +227,7 @@ about our build toolchain:
 
 .. code-block:: shell
 
-   export ARROW_BUILD_TYPE=release
-
    export ARROW_HOME=$(pwd)/dist
-   export PARQUET_HOME=$(pwd)/dist
    export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
 
 Build and test
@@ -177,26 +240,34 @@ Now build and install the Arrow C++ libraries:
    mkdir arrow/cpp/build
    pushd arrow/cpp/build
 
-   cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
-         -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+   cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
          -DCMAKE_INSTALL_LIBDIR=lib \
-         -DARROW_PARQUET=on \
-         -DARROW_PYTHON=on \
-         -DARROW_PLASMA=on \
-         -DARROW_BUILD_TESTS=OFF \
+         -DARROW_FLIGHT=ON \
+         -DARROW_GANDIVA=ON \
+         -DARROW_ORC=ON \
+         -DARROW_PARQUET=ON \
+         -DARROW_PYTHON=ON \
+         -DARROW_PLASMA=ON \
+         -DARROW_BUILD_TESTS=ON \
          ..
    make -j4
    make install
    popd
 
-If you don't want to build and install the Plasma in-memory object store,
-you can omit the ``-DARROW_PLASMA=on`` flag.
-Also, if multiple versions of Python are installed in your environment,
-you may have to pass additional parameters to cmake so that
-it can find the right executable, headers and libraries.
-For example, specifying `-DPYTHON_EXECUTABLE=$VIRTUAL_ENV/bin/python`
-(assuming that you're in virtualenv) enables cmake to choose
-the python executable which you are using.
+Many of these components are optional, and can be switched off by setting them
+to ``OFF``:
+
+* ``ARROW_FLIGHT``: RPC framework
+* ``ARROW_GANDIVA``: LLVM-based expression compiler
+* ``ARROW_ORC``: Support for Apache ORC file format
+* ``ARROW_PARQUET``: Support for Apache Parquet file format
+* ``ARROW_PLASMA``: Shared memory object store
+
+If multiple versions of Python are installed in your environment, you may have
+to pass additional parameters to cmake so that it can find the right
+executable, headers and libraries.  For example, specifying
+`-DPYTHON_EXECUTABLE=$VIRTUAL_ENV/bin/python` (assuming that you're in
+virtualenv) enables cmake to choose the python executable which you are using.
 
 .. note::
 
@@ -210,11 +281,15 @@ Now, build pyarrow:
 .. code-block:: shell
 
    pushd arrow/python
-   python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
-          --with-parquet --with-plasma --inplace
+   export PYARROW_WITH_FLIGHT=1
+   export PYARROW_WITH_GANDIVA=1
+   export PYARROW_WITH_ORC=1
+   export PYARROW_WITH_PARQUET=1
+   python setup.py build_ext --build-type=$ARROW_BUILD_TYPE --inplace
    popd
 
-If you did not build with plasma, you can omit ``--with-plasma``.
+If you did not build one of the optional components, set the corresponding
+``PYARROW_WITH_$COMPONENT`` environment variable to 0.
 
 You should be able to run the unit tests with:
 
@@ -242,56 +317,25 @@ libraries), one can set ``--bundle-arrow-cpp``:
 
    pip install wheel  # if not installed
    python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
-          --with-parquet --with-plasma --bundle-arrow-cpp bdist_wheel
+          --bundle-arrow-cpp bdist_wheel
 
-Again, if you did not build with plasma, you should omit ``--with-plasma``.
+Building with CUDA support
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Building with optional ORC integration
---------------------------------------
-
-To build Arrow with support for the `Apache ORC file format <https://orc.apache.org/>`_,
-we recommend the following:
-
-#. Install the ORC C++ libraries and tools using ``conda``:
-
-   .. code-block:: shell
-
-      conda install -c conda-forge orc
-
-#. Set ``ORC_HOME`` and ``PROTOBUF_HOME`` to the location of the installed
-   Orc and protobuf C++ libraries, respectively (otherwise Arrow will try
-   to download source versions of those libraries and recompile them):
-
-   .. code-block:: shell
-
-      export ORC_HOME=$CONDA_PREFIX
-      export PROTOBUF_HOME=$CONDA_PREFIX
-
-#. Add ``-DARROW_ORC=on`` to the CMake flags.
-#. Add ``--with-orc`` to the ``setup.py`` flags.
-
-Known issues
-------------
-
-If using packages provided by conda-forge (see "Using Conda" above)
-together with a reasonably recent compiler, you may get "undefined symbol"
-errors when importing pyarrow.  In that case you'll need to force the C++
-ABI version to the older version used by conda-forge binaries:
+The :mod:`pyarrow.cuda` module offers support for using Arrow platform
+components with Nvidia's CUDA-enabled GPU devices. To build with this support,
+pass ``-DARROW_CUDA=ON`` when building the C++ libraries, and set the following
+environment variable when building pyarrow:
 
 .. code-block:: shell
 
-   export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"
-   export PYARROW_CXXFLAGS=$CXXFLAGS
+   export PYARROW_WITH_CUDA=1
 
-Be sure to add ``-DCMAKE_CXX_FLAGS=$CXXFLAGS`` to the cmake invocations
-when rebuilding.
+Building on Windows
+===================
 
-Developing on Windows
-=====================
-
-First, we bootstrap a conda environment similar to the `C++ build instructions
-<https://github.com/apache/arrow/blob/master/cpp/apidoc/Windows.md>`_. This
-includes all the dependencies for Arrow and the Apache Parquet C++ libraries.
+First, we bootstrap a conda environment similar to above, but skipping some of
+the Linux/macOS-only packages:
 
 First, starting from fresh clones of Apache Arrow:
 
@@ -313,19 +357,17 @@ Now, we build and install Arrow C++ libraries
 
    mkdir cpp\build
    cd cpp\build
-   set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
    set ARROW_HOME=C:\thirdparty
    cmake -G "Visual Studio 14 2015 Win64" ^
          -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
          -DCMAKE_BUILD_TYPE=Release ^
          -DARROW_BUILD_TESTS=on ^
          -DARROW_CXXFLAGS="/WX /MP" ^
+         -DARROW_GANDIVA=on ^
          -DARROW_PARQUET=on ^
          -DARROW_PYTHON=on ..
    cmake --build . --target INSTALL --config Release
    cd ..\..
-
-If building with LLVM, also add `-DARROW_GANDIVA=ON`.
 
 After that, we must put the install directory's bin path in our ``%PATH%``:
 
@@ -358,7 +400,10 @@ Getting ``python-test.exe`` to run is a bit tricky because your
 
 Now ``python-test.exe`` or simply ``ctest`` (to run all tests) should work.
 
-Building the Documentation
-==========================
+Windows Caveats
+---------------
 
-See :ref:`building-docs` for instructions to build the HTML documentation.
+Some components are not supported yet on Windows:
+
+* Flight RPC
+* Plasma

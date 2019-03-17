@@ -1,4 +1,4 @@
-<!---
+y<!---
   Licensed to the Apache Software Foundation (ASF) under one
   or more contributor license agreements.  See the NOTICE file
   distributed with this work for additional information
@@ -40,52 +40,13 @@ pip install pyarrow
 
 ## Development
 
-### Coding Style
-
-We follow a similar PEP8-like coding style to the [pandas project][3].
-
-The code must pass `flake8` (available from pip or conda) or it will fail the
-build. Check for style errors before submitting your pull request with:
-
-```
-flake8 .
-flake8 --config=.flake8.cython .
-```
-
-### Building from Source
-
-See the [Development][2] page in the documentation.
-
-### Running the unit tests
-
-We are using [pytest][4] to develop our unit test suite. After building the
-project using `setup.py build_ext --inplace`, you can run its unit tests like
-so:
-
-```bash
-pytest pyarrow
-```
-
-The project has a number of custom command line options for its test
-suite. Some tests are disabled by default, for example. To see all the options,
-run
-
-```bash
-pytest pyarrow --help
-```
-
-and look for the "custom options" section.
-
-For running the benchmarks, see the [Sphinx documentation][5].
+See [Python Development][2] in the documentation subproject.
 
 ### Building the documentation
 
-```bash
-pip install -r ../docs/requirements.txt
-python setup.py build_sphinx -s ../docs/source
-```
+See [documentation build instructions][1] in the documentation subproject.
 
-[2]: https://github.com/apache/arrow/blob/master/docs/source/python/development.rst
+[1]: https://github.com/apache/arrow/blob/master/docs/source/developers/documentation.rst
+[2]: https://github.com/apache/arrow/blob/master/docs/source/developers/python.rst
 [3]: https://github.com/pandas-dev/pandas
-[4]: https://docs.pytest.org/en/latest/
 [5]: https://arrow.apache.org/docs/latest/python/benchmarks.html
