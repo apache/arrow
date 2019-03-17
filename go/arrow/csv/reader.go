@@ -27,6 +27,7 @@ import (
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/internal/debug"
 	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/pkg/errors"
 )
 
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
@@ -83,7 +84,7 @@ func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 func (r *Reader) readHeader() error {
 	records, err := r.r.Read()
 	if err != nil {
-		return ErrFailedFileRead
+		return errors.Wrapf(err, "arrow/csv: file read failed when reading header")
 	}
 
 	if len(records) != len(r.schema.Fields()) {

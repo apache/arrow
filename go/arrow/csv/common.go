@@ -28,7 +28,6 @@ import (
 
 var (
 	ErrMismatchFields = errors.New("arrow/csv: number of records mismatch")
-	ErrFailedFileRead = errors.New("arrow/csv: file read failed")
 )
 
 // Option configures a CSV reader/writer.
