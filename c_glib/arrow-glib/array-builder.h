@@ -45,47 +45,16 @@ GArrowArray        *garrow_array_builder_finish   (GArrowArrayBuilder *builder,
                                                    GError **error);
 
 
-#define GARROW_TYPE_NULL_ARRAY_BUILDER       \
-  (garrow_null_array_builder_get_type())
-#define GARROW_NULL_ARRAY_BUILDER(obj)                                  \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                                    \
-                              GARROW_TYPE_NULL_ARRAY_BUILDER,           \
-                              GArrowNullArrayBuilder))
-#define GARROW_NULL_ARRAY_BUILDER_CLASS(klass)                  \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
-                           GARROW_TYPE_NULL_ARRAY_BUILDER,      \
-                           GArrowNullArrayBuilderClass))
-#define GARROW_IS_NULL_ARRAY_BUILDER(obj)                               \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
-                              GARROW_TYPE_NULL_ARRAY_BUILDER))
-#define GARROW_IS_NULL_ARRAY_BUILDER_CLASS(klass)               \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
-                           GARROW_TYPE_NULL_ARRAY_BUILDER))
-#define GARROW_NULL_ARRAY_BUILDER_GET_CLASS(obj)                \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_NULL_ARRAY_BUILDER,    \
-                             GArrowNullArrayBuilderClass))
-
-typedef struct _GArrowNullArrayBuilder         GArrowNullArrayBuilder;
-typedef struct _GArrowNullArrayBuilderClass    GArrowNullArrayBuilderClass;
-
-/**
- * GArrowNullArrayBuilder:
- *
- * It wraps `arrow::NullBuilder`.
- */
-struct _GArrowNullArrayBuilder
-{
-  /*< private >*/
-  GArrowArrayBuilder parent_instance;
-};
-
+#define GARROW_TYPE_NULL_ARRAY_BUILDER (garrow_null_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowNullArrayBuilder,
+                         garrow_null_array_builder,
+                         GARROW,
+                         NULL_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
 struct _GArrowNullArrayBuilderClass
 {
   GArrowArrayBuilderClass parent_class;
 };
-
-GType garrow_null_array_builder_get_type(void) G_GNUC_CONST;
 
 GArrowNullArrayBuilder *garrow_null_array_builder_new(void);
 
