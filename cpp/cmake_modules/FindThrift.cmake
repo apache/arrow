@@ -28,29 +28,32 @@
 #  THRIFT_FOUND, If false, do not try to use ant
 
 # TODO: Add this back to global
-if (APPLE)
+if(APPLE)
   # Also look in homebrew for a matching llvm version
   find_program(BREW_BIN brew)
-  if (BREW_BIN)
-    execute_process(
-      COMMAND ${BREW_BIN} --prefix "thrift"
-      OUTPUT_VARIABLE THRIFT_BREW_PREFIX
-      OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
+  if(BREW_BIN)
+    execute_process(COMMAND ${BREW_BIN} --prefix "thrift"
+                    OUTPUT_VARIABLE THRIFT_BREW_PREFIX
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
   endif()
 endif()
 
 function(EXTRACT_THRIFT_VERSION)
   exec_program(${THRIFT_COMPILER}
-    ARGS -version OUTPUT_VARIABLE THRIFT_VERSION RETURN_VALUE THRIFT_RETURN)
+               ARGS
+               -version
+               OUTPUT_VARIABLE
+               THRIFT_VERSION
+               RETURN_VALUE
+               THRIFT_RETURN)
   # We're expecting OUTPUT_VARIABLE to look like one of these:
   #   0.9.3
   #   Thrift version 0.11.0
-  if (THRIFT_VERSION MATCHES "Thrift version")
+  if(THRIFT_VERSION MATCHES "Thrift version")
     string(REGEX MATCH "Thrift version (([0-9]+\\.?)+)" _ "${THRIFT_VERSION}")
-    if (NOT CMAKE_MATCH_1)
+    if(NOT CMAKE_MATCH_1)
       message(SEND_ERROR "Could not extract Thrift version. "
-        "Version output: ${THRIFT_VERSION}")
+                         "Version output: ${THRIFT_VERSION}")
     endif()
     set(THRIFT_VERSION "${CMAKE_MATCH_1}" PARENT_SCOPE)
   else()
@@ -58,7 +61,7 @@ function(EXTRACT_THRIFT_VERSION)
   endif()
 endfunction(EXTRACT_THRIFT_VERSION)
 
-if (MSVC AND NOT THRIFT_MSVC_STATIC_LIB_SUFFIX)
+if(MSVC AND NOT THRIFT_MSVC_STATIC_LIB_SUFFIX)
   set(THRIFT_MSVC_STATIC_LIB_SUFFIX md)
 endif()
 
@@ -66,35 +69,39 @@ pkg_check_modules(THRIFT_PC thrift)
 
 # THRIFT-4760: The pkgconfig files are currently only installed when using autotools.
 # Starting with 0.13, they are also installed for the CMake-based installations of Thrift.
-if (THRIFT_PC_FOUND)
+if(THRIFT_PC_FOUND)
   set(THRIFT_INCLUDE_DIR "${THRIFT_PC_INCLUDEDIR}")
 
   list(APPEND THRIFT_PC_LIBRARY_DIRS "${THRIFT_PC_LIBDIR}")
 
-  find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX} PATHS ${THRIFT_PC_LIBRARY_DIRS} NO_DEFAULT_PATH)
-  find_program(THRIFT_COMPILER thrift HINTS
-    ${THRIFT_PC_PREFIX}
-    NO_DEFAULT_PATH
-    PATH_SUFFIXES "bin"
-  )
+  find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX}
+               PATHS ${THRIFT_PC_LIBRARY_DIRS}
+               NO_DEFAULT_PATH)
+  find_program(THRIFT_COMPILER thrift
+               HINTS ${THRIFT_PC_PREFIX}
+               NO_DEFAULT_PATH
+               PATH_SUFFIXES "bin")
 else()
-  find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX} HINTS ${Thrift_ROOT} PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
-  find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h HINTS ${Thrift_ROOT} PATH_SUFFIXES "include")
-  find_program(THRIFT_COMPILER thrift HINTS
-    ${Thrift_ROOT}
-    PATH_SUFFIXES "bin"
-  )
+  find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX}
+               HINTS ${Thrift_ROOT}
+               PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
+  find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h
+            HINTS ${Thrift_ROOT}
+            PATH_SUFFIXES "include")
+  find_program(THRIFT_COMPILER thrift HINTS ${Thrift_ROOT} PATH_SUFFIXES "bin")
 endif()
 
 find_package_handle_standard_args(Thrift
-  REQUIRED_VARS THRIFT_STATIC_LIB THRIFT_INCLUDE_DIR THRIFT_COMPILER)
+                                  REQUIRED_VARS
+                                  THRIFT_STATIC_LIB
+                                  THRIFT_INCLUDE_DIR
+                                  THRIFT_COMPILER)
 
-if (Thrift_FOUND)
+if(Thrift_FOUND)
   add_library(Thrift::thrift STATIC IMPORTED)
-  set_target_properties(Thrift::thrift PROPERTIES
-          IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
-          INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}"
-  )
+  set_target_properties(Thrift::thrift
+                        PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
 
-  EXTRACT_THRIFT_VERSION()
+  extract_thrift_version()
 endif()

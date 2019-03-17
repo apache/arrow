@@ -37,6 +37,12 @@ repos:
         types:
           - file
           - rust
+      - id: cmake-format
+        name: cmake-format
+        language: python
+        entry: bash -c "pip install cmake-format && python run-cmake-format.py --check"
+        entry: echo
+        files: ^(.*/CMakeLists.txt|.*.cmake)$
   - repo: git://github.com/pre-commit/pre-commit-hooks
     sha: v1.2.3
     hooks:

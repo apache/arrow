@@ -17,13 +17,13 @@
 #
 # Sets COMPILER_FAMILY to 'clang' or 'gcc'
 # Sets COMPILER_VERSION to the version
-if (NOT MSVC)
+if(NOT MSVC)
   set(COMPILER_GET_VERSION_SWITCH "-v")
 endif()
 
 set(COMPILER_VERSION_COMMAND "${CMAKE_CXX_COMPILER}" "${COMPILER_GET_VERSION_SWITCH}")
 
-if (UNIX OR APPLE)
+if(UNIX OR APPLE)
   set(COMPILER_VERSION_COMMAND "env" "LANG=C" ${COMPILER_VERSION_COMMAND})
 endif()
 
@@ -40,61 +40,66 @@ string(TOLOWER "${COMPILER_VERSION_FULL}" COMPILER_VERSION_FULL_LOWER)
 
 if(MSVC)
   set(COMPILER_FAMILY "msvc")
-  if ("${COMPILER_VERSION_FULL}" MATCHES ".*Microsoft ?\\(R\\) C/C\\+\\+ Optimizing Compiler Version 19.*x64")
-    string(REGEX REPLACE ".*Optimizing Compiler Version ([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+).*" "\\1"
-      COMPILER_VERSION "${COMPILER_VERSION_FULL}")
+  if("${COMPILER_VERSION_FULL}" MATCHES
+     ".*Microsoft ?\\(R\\) C/C\\+\\+ Optimizing Compiler Version 19.*x64")
+    string(REGEX
+           REPLACE ".*Optimizing Compiler Version ([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+).*"
+                   "\\1" COMPILER_VERSION "${COMPILER_VERSION_FULL}")
   elseif(NOT "${COMPILER_VERSION_FULL}" STREQUAL "")
     message(FATAL_ERROR "Not supported MSVC compiler:\n${COMPILER_VERSION_FULL}\n"
-      "Supported MSVC versions: Visual Studio 2015 2017 x64")
+                        "Supported MSVC versions: Visual Studio 2015 2017 x64")
   endif()
 
-# clang on Linux and Mac OS X before 10.9
+  # clang on Linux and Mac OS X before 10.9
 elseif("${COMPILER_VERSION_FULL}" MATCHES ".*clang version.*")
   set(COMPILER_FAMILY "clang")
-  string(REGEX REPLACE ".*clang version ([0-9]+\\.[0-9]+).*" "\\1"
-    COMPILER_VERSION "${COMPILER_VERSION_FULL}")
+  string(REGEX
+         REPLACE ".*clang version ([0-9]+\\.[0-9]+).*" "\\1" COMPILER_VERSION
+                 "${COMPILER_VERSION_FULL}")
 
-# LLVM 3.6 on Mac OS X 10.9 and later
+  # LLVM 3.6 on Mac OS X 10.9 and later
 elseif("${COMPILER_VERSION_FULL}" MATCHES ".*based on LLVM 3\\.6\\..*")
   set(COMPILER_FAMILY "clang")
   set(COMPILER_VERSION "3.6.0svn")
 
-# clang on Mac OS X 10.9 and later
+  # clang on Mac OS X 10.9 and later
 elseif("${COMPILER_VERSION_FULL}" MATCHES ".*based on LLVM.*")
   set(COMPILER_FAMILY "clang")
-  string(REGEX REPLACE ".*based on LLVM ([0-9]+\\.[0.9]+).*" "\\1"
-    COMPILER_VERSION "${COMPILER_VERSION_FULL}")
+  string(REGEX
+         REPLACE ".*based on LLVM ([0-9]+\\.[0.9]+).*" "\\1" COMPILER_VERSION
+                 "${COMPILER_VERSION_FULL}")
 
-# clang on Mac OS X, XCode 7.
+  # clang on Mac OS X, XCode 7.
 elseif("${COMPILER_VERSION_FULL}" MATCHES ".*clang-7")
   set(COMPILER_FAMILY "clang")
   set(COMPILER_VERSION "3.7.0svn")
 
-# clang on Mac OS X, XCode 8.
+  # clang on Mac OS X, XCode 8.
 elseif("${COMPILER_VERSION_FULL}" MATCHES ".*clang-802")
   set(COMPILER_FAMILY "clang")
   set(COMPILER_VERSION "3.9.0svn")
 
-# clang on Mac OS X, XCode 8.
+  # clang on Mac OS X, XCode 8.
 elseif("${COMPILER_VERSION_FULL}" MATCHES ".*clang-8")
   set(COMPILER_FAMILY "clang")
   set(COMPILER_VERSION "3.8.0svn")
 
-# clang on Mac OS X, XCode 8.
+  # clang on Mac OS X, XCode 8.
 elseif("${COMPILER_VERSION_FULL}" MATCHES ".*clang-9")
   set(COMPILER_FAMILY "clang")
   set(COMPILER_VERSION "4.0.0svn")
 
-# clang on Mac OS X, XCode 9.
+  # clang on Mac OS X, XCode 9.
 elseif("${COMPILER_VERSION_FULL}" MATCHES ".*clang-10")
   set(COMPILER_FAMILY "clang")
   set(COMPILER_VERSION "4.1.0svn")
 
-# gcc
+  # gcc
 elseif("${COMPILER_VERSION_FULL_LOWER}" MATCHES ".*gcc[ -]version.*")
   set(COMPILER_FAMILY "gcc")
-  string(REGEX REPLACE ".*gcc[ -]version ([0-9\\.]+).*" "\\1"
-      COMPILER_VERSION "${COMPILER_VERSION_FULL_LOWER}")
+  string(REGEX
+         REPLACE ".*gcc[ -]version ([0-9\\.]+).*" "\\1" COMPILER_VERSION
+                 "${COMPILER_VERSION_FULL_LOWER}")
 else()
   message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
 endif()

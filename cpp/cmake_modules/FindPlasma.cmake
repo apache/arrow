@@ -26,9 +26,9 @@
 
 include(FindPkgConfig)
 
-if ("$ENV{ARROW_HOME}" STREQUAL "")
+if("$ENV{ARROW_HOME}" STREQUAL "")
   pkg_check_modules(PLASMA plasma)
-  if (PLASMA_FOUND)
+  if(PLASMA_FOUND)
     pkg_get_variable(PLASMA_EXECUTABLE plasma executable)
     pkg_get_variable(PLASMA_SO_VERSION plasma so_version)
     set(PLASMA_ABI_VERSION ${PLASMA_SO_VERSION})
@@ -44,57 +44,46 @@ else()
 
   set(PLASMA_EXECUTABLE ${PLASMA_HOME}/bin/plasma_store_server)
 
-  set(PLASMA_SEARCH_HEADER_PATHS
-    ${PLASMA_HOME}/include
-    )
+  set(PLASMA_SEARCH_HEADER_PATHS ${PLASMA_HOME}/include)
 
-  set(PLASMA_SEARCH_LIB_PATH
-    ${PLASMA_HOME}/lib
-    )
+  set(PLASMA_SEARCH_LIB_PATH ${PLASMA_HOME}/lib)
 
-  find_path(PLASMA_INCLUDE_DIR plasma/client.h PATHS
-    ${PLASMA_SEARCH_HEADER_PATHS}
-    # make sure we don't accidentally pick up a different version
-    NO_DEFAULT_PATH
-    )
+  find_path(PLASMA_INCLUDE_DIR plasma/client.h
+            PATHS ${PLASMA_SEARCH_HEADER_PATHS}
+                  # make sure we don't accidentally pick up a different version
+            NO_DEFAULT_PATH)
 endif()
 
-find_library(PLASMA_LIB_PATH NAMES plasma
-  PATHS
-  ${PLASMA_SEARCH_LIB_PATH}
-  NO_DEFAULT_PATH)
+find_library(PLASMA_LIB_PATH NAMES plasma PATHS ${PLASMA_SEARCH_LIB_PATH} NO_DEFAULT_PATH)
 get_filename_component(PLASMA_LIBS ${PLASMA_LIB_PATH} DIRECTORY)
 
-if (PLASMA_INCLUDE_DIR AND PLASMA_LIBS)
+if(PLASMA_INCLUDE_DIR AND PLASMA_LIBS)
   set(PLASMA_FOUND TRUE)
   set(PLASMA_LIB_NAME plasma)
 
   set(PLASMA_STATIC_LIB ${PLASMA_LIBS}/lib${PLASMA_LIB_NAME}.a)
 
-  set(PLASMA_SHARED_LIB ${PLASMA_LIBS}/lib${PLASMA_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+  set(PLASMA_SHARED_LIB
+      ${PLASMA_LIBS}/lib${PLASMA_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
 endif()
 
-if (PLASMA_FOUND)
-  if (NOT Plasma_FIND_QUIETLY)
+if(PLASMA_FOUND)
+  if(NOT Plasma_FIND_QUIETLY)
     message(STATUS "Found the Plasma core library: ${PLASMA_LIB_PATH}")
     message(STATUS "Found Plasma executable: ${PLASMA_EXECUTABLE}")
-  endif ()
-else ()
-  if (NOT Plasma_FIND_QUIETLY)
+  endif()
+else()
+  if(NOT Plasma_FIND_QUIETLY)
     set(PLASMA_ERR_MSG "Could not find the Plasma library. Looked for headers")
     set(PLASMA_ERR_MSG "${PLASMA_ERR_MSG} in ${PLASMA_SEARCH_HEADER_PATHS}, and for libs")
     set(PLASMA_ERR_MSG "${PLASMA_ERR_MSG} in ${PLASMA_SEARCH_LIB_PATH}")
-    if (Plasma_FIND_REQUIRED)
+    if(Plasma_FIND_REQUIRED)
       message(FATAL_ERROR "${PLASMA_ERR_MSG}")
-    else (Plasma_FIND_REQUIRED)
+    else(Plasma_FIND_REQUIRED)
       message(STATUS "${PLASMA_ERR_MSG}")
-    endif (Plasma_FIND_REQUIRED)
-  endif ()
+    endif(Plasma_FIND_REQUIRED)
+  endif()
   set(PLASMA_FOUND FALSE)
-endif ()
+endif()
 
-mark_as_advanced(
-  PLASMA_INCLUDE_DIR
-  PLASMA_STATIC_LIB
-  PLASMA_SHARED_LIB
-)
+mark_as_advanced(PLASMA_INCLUDE_DIR PLASMA_STATIC_LIB PLASMA_SHARED_LIB)
