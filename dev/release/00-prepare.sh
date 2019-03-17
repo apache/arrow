@@ -56,6 +56,14 @@ update_versions() {
   git add configure.ac meson.build
   cd -
 
+  cd "${SOURCE_DIR}/../../csharp"
+  sed -i.bak -E -e \
+    "s/^    <Version>.+<\/Version>/    <Version>${version}<\/Version>/" \
+    Directory.Build.props
+  rm -f Directory.Build.props.bak
+  git add Directory.Build.props
+  cd -
+
   # We can enable this when Arrow JS uses the same version.
   # cd "${SOURCE_DIR}/../../js"
   # sed -i.bak -E -e \

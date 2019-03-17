@@ -1,0 +1,41 @@
+<Project>
+
+  <!-- Common repo directories -->
+  <PropertyGroup>
+    <RepoRoot>$(MSBuildThisFileDirectory)../</RepoRoot>
+    <CSharpDir>$(MSBuildThisFileDirectory)</CSharpDir>
+    <BaseOutputPath>$(CSharpDir)/artifacts/$(MSBuildProjectName)</BaseOutputPath>
+  </PropertyGroup>
+
+  <!-- AssemblyInfo properties -->
+  <PropertyGroup>
+    <Product>Apache Arrow library</Product>
+    <Copyright>2018 Apache Software Foundation</Copyright>
+    <Company>Apache</Company>
+    <Version>0.13.0-SNAPSHOT</Version>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LangVersion>7.2</LangVersion>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(CSharpDir)ApacheArrow.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <!-- NuGet properties -->
+  <PropertyGroup>
+    <Authors>Apache</Authors>
+    <PackageIconUrl>https://www.apache.org/images/feather.png</PackageIconUrl>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageProjectUrl>https://arrow.apache.org/</PackageProjectUrl>
+    <PackageTags>apache arrow</PackageTags>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/apache/arrow</RepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <Content Include="$(RepoRoot)LICENSE.txt" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>
