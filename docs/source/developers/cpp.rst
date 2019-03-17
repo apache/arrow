@@ -123,6 +123,14 @@ environment variable (which requires the `locales` package or equivalent):
 
    export LC_ALL="en_US.UTF-8"
 
+Faster builds with Ninja
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Many contributors use the `Ninja build system <https://ninja-build.org/>`_ to
+get faster builds. It especially speeds up incremental builds. To use
+``ninja``, pass ``-GNinja`` when calling ``cmake`` and then use the ``ninja``
+command instead of ``make``.
+
 Optional Components
 ~~~~~~~~~~~~~~~~~~~
 
@@ -217,7 +225,7 @@ variable), in which case it is ``CONDA``.
 Individual Dependency Resolution
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-While `-DARROW_DEPENDENCY_SOURCE=$SOURCE`` sets a global default for all
+While ``-DARROW_DEPENDENCY_SOURCE=$SOURCE`` sets a global default for all
 packages, the resolution strategy can be overridden for individual packages by
 setting ``-D$PACKAGE_NAME_SOURCE=..``. For example, to build Protocol Buffers
 from source, set
@@ -238,14 +246,27 @@ version number from ``cpp/thirdparty/versions.txt`` is used. There is also a
 dependency source downloader script (see below), which can be used to set up
 offline builds.
 
-Setting the Boost path
-~~~~~~~~~~~~~~~~~~~~~~
+Boost-related Options
+~~~~~~~~~~~~~~~~~~~~~
+
+We depend on some Boost C++ libraries for cross-platform suport. In most cases,
+the Boost version available in your package manager may be new enough, and the
+build system will find it automatically. If you have Boost installed in a
+non-standard location, you can specify it by passing
+``-DBOOST_ROOT=$MY_BOOST_ROOT`` or setting the ``BOOST_ROOT`` environment
+variable.
+
+Unlike most of the other dependencies, if Boost is not found by the build
+system it will not be built automatically from source. To opt-in to a vendored
+Boost build, pass ``-DARROW_BOOST_VENDORED=ON``. This automatically sets the
+option ``-DARROW_BOOST_USE_SHARED=OFF`` to statically-link Boost into the
+produced libraries and executables.
 
 Offline Builds
 ~~~~~~~~~~~~~~
 
 If you do not use the above variables to direct the Arrow build system to
-preinstalled dependencies, they will be built automatically by the build
+preinstalled dependencies, they will be built automatically by the Arrow build
 system. The source archive for each dependency will be downloaded via the
 internet, which can cause issues in environments with limited access to the
 internet.
@@ -288,8 +309,8 @@ This project follows `Google's C++ Style Guide
 <https://google.github.io/styleguide/cppguide.html>`_ with minor exceptions:
 
 * We relax the line length restriction to 90 characters.
-* We use doxygen style comments ("///") instead of line comments ("//")
-  in header files.
+* We use doxygen style comments ("///") in header files for comments that we
+  wish to show up in API documentation
 * We use the ``NULLPTR`` macro in header files (instead of ``nullptr``) defined
   in ``src/arrow/util/macros.h`` to support building C++/CLI (ARROW-1134)
 
@@ -420,7 +441,9 @@ by generating random input data and observing the behavior of the executed
 code. To build the fuzzer code, LLVM is required (GCC-based compilers won't
 work). You can build them using the following code:
 
-    cmake -DARROW_FUZZING=ON -DARROW_USE_ASAN=ON ..
+.. code-block:: shell
+
+   cmake -DARROW_FUZZING=ON -DARROW_USE_ASAN=ON ..
 
 ``ARROW_FUZZING`` will enable building of fuzzer executables as well as enable the
 addition of coverage helpers via ``ARROW_USE_COVERAGE``, so that the fuzzer can observe
@@ -434,7 +457,9 @@ in very long execution times, which will slow down the fuzzing procedure.
 
 Now you can start one of the fuzzer, e.g.:
 
-    ./debug/debug/ipc-fuzzing-test
+.. code-block:: shell
+
+   ./debug/debug/ipc-fuzzing-test
 
 This will try to find a malformed input that crashes the payload and will show the
 stack trace as well as the input data. After a problem was found this way, it should
@@ -474,15 +499,15 @@ outputs like:
 
    ../src/arrow/ipc/ipc-read-write-test.cc:609: Failure
    Failed
-   NotImplemented: ../src/arrow/ipc/ipc-read-write-test.cc:574 code: writer->WriteRecordBatch(batch)
-   ../src/arrow/ipc/writer.cc:778 code: CheckStarted()
-   ../src/arrow/ipc/writer.cc:755 code: schema_writer.Write(&dictionaries_)
-   ../src/arrow/ipc/writer.cc:730 code: WriteSchema()
-   ../src/arrow/ipc/writer.cc:697 code: WriteSchemaMessage(schema_, dictionary_memo_, &schema_fb)
-   ../src/arrow/ipc/metadata-internal.cc:651 code: SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema)
-   ../src/arrow/ipc/metadata-internal.cc:598 code: FieldToFlatbuffer(fbb, *schema.field(i), dictionary_memo, &offset)
    ../src/arrow/ipc/metadata-internal.cc:508 code: TypeToFlatbuffer(fbb, *field.type(), &children, &layout, &type_enum, dictionary_memo, &type_offset)
-   Unable to convert type: decimal(19, 4)
+   ../src/arrow/ipc/metadata-internal.cc:598 code: FieldToFlatbuffer(fbb, *schema.field(i), dictionary_memo, &offset)
+   ../src/arrow/ipc/metadata-internal.cc:651 code: SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema)
+   ../src/arrow/ipc/writer.cc:697 code: WriteSchemaMessage(schema_, dictionary_memo_, &schema_fb)
+   ../src/arrow/ipc/writer.cc:730 code: WriteSchema()
+   ../src/arrow/ipc/writer.cc:755 code: schema_writer.Write(&dictionaries_)
+   ../src/arrow/ipc/writer.cc:778 code: CheckStarted()
+   ../src/arrow/ipc/ipc-read-write-test.cc:574 code: writer->WriteRecordBatch(batch)
+   NotImplemented: Unable to convert type: decimal(19, 4)
 
 Deprecations and API Changes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
