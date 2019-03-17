@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,18 +16,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM node:11
+set -e
 
-# install dependencies
-COPY js/.npmrc js/package.json /arrow/js/
-WORKDIR /arrow/js
-RUN npm install -g npm@latest && \
-    npm install
-
-# build
-COPY LICENSE.txt /arrow/
-COPY NOTICE.txt /arrow/
-COPY js /arrow/js
-RUN npm run lint && npm run build
-
-CMD ["npm", "run", "test"]
+/arrow/ci/docker_build_cpp.sh
+pushd /build/cpp
+ninja test
+popd

@@ -19,7 +19,7 @@ FROM arrow:cpp
 
 # install python specific packages
 ARG PYTHON_VERSION=3.6
-ADD ci/conda_env_python.yml /arrow/ci/
+COPY ci/conda_env_python.yml /arrow/ci/
 RUN conda install -q \
         --file arrow/ci/conda_env_python.yml \
         python=$PYTHON_VERSION \
@@ -30,6 +30,4 @@ ENV ARROW_PYTHON=ON \
     ARROW_BUILD_TESTS=OFF
 
 # build and test
-CMD arrow/ci/docker_build_cpp.sh && \
-    arrow/ci/docker_build_python.sh && \
-    pytest -v --pyargs pyarrow
+CMD ["arrow/ci/docker_build_and_test_python.sh"]

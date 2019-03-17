@@ -23,6 +23,13 @@ set -ex
 export ARROW_TRAVIS_USE_TOOLCHAIN=0
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
+pip install pre_commit
+pre-commit install
+
+# TODO: Move more checks into pre-commit as this gives a nice summary
+# and doesn't abort on the first failed check.
+pre-commit run hadolint -a
+
 # CMake formatting check
 pip install cmake_format
 $TRAVIS_BUILD_DIR/run-cmake-format.py --check

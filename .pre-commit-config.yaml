@@ -43,15 +43,24 @@ repos:
         entry: bash -c "pip install cmake-format && python run-cmake-format.py --check"
         entry: echo
         files: ^(.*/CMakeLists.txt|.*.cmake)$
+      - id: hadolint
+        name: hadolint
+        language: docker_image
+        types:
+         - dockerfile
+        entry: --entrypoint /bin/hadolint hadolint/hadolint:latest -
+        exclude: ^dev/.*$
   - repo: git://github.com/pre-commit/pre-commit-hooks
     sha: v1.2.3
     hooks:
      - id: flake8
+       name: Flake8 Python
        files: ^(python|crossbow|integration)/
        types:
          - file
          - python
      - id: flake8
+       name: Flake8 Cython
        files: ^python/
        types:
          - file

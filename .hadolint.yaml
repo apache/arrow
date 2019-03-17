@@ -15,18 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM node:11
-
-# install dependencies
-COPY js/.npmrc js/package.json /arrow/js/
-WORKDIR /arrow/js
-RUN npm install -g npm@latest && \
-    npm install
-
-# build
-COPY LICENSE.txt /arrow/
-COPY NOTICE.txt /arrow/
-COPY js /arrow/js
-RUN npm run lint && npm run build
-
-CMD ["npm", "run", "test"]
+ignored:
+  - DL3008
+  - DL3013
+  - DL3018
