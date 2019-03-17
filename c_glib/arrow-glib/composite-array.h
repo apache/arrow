@@ -80,9 +80,16 @@ GArrowArray *garrow_list_array_get_value(GArrowListArray *array,
                                          gint64 i);
 
 
-/* GArrowStructArray definition exists in basic-array.h to use
- * GArrowStructArray for the return value of
- * garrow_array_count_values(). */
+#define GARROW_TYPE_STRUCT_ARRAY (garrow_struct_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowStructArray,
+                         garrow_struct_array,
+                         GARROW,
+                         STRUCT_ARRAY,
+                         GArrowArray)
+struct _GArrowStructArrayClass
+{
+  GArrowArrayClass parent_class;
+};
 
 GArrowStructArray *garrow_struct_array_new(GArrowDataType *data_type,
                                            gint64 length,
