@@ -89,8 +89,6 @@ GType garrow_null_array_builder_get_type(void) G_GNUC_CONST;
 
 GArrowNullArrayBuilder *garrow_null_array_builder_new(void);
 
-/* TODO: should wrap AppendValue? */
-
 gboolean garrow_null_array_builder_append_null(GArrowNullArrayBuilder *builder,
                                                GError **error);
 gboolean garrow_null_array_builder_append_nulls(GArrowNullArrayBuilder *builder,
