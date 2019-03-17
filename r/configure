@@ -32,13 +32,26 @@ PKG_RPM_NAME="arrow"
 PKG_CSW_NAME="arrow"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
-PKG_LIBS="-larrow -lparquet"
+PKG_LIBS=""
 
 # Use pkg-config if available
 pkg-config --version >/dev/null 2>&1
 if [ $? -eq 0 ]; then
   PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
   PKGCONFIG_LIBS=`pkg-config --libs ${PKG_CONFIG_NAME}`
+  PKGCONFIG_CFLAGS=$(pkg-config --cflags arrow)
+  if [ $? -ne 0 ]; then
+    echo "Apache Arrow C++ was not found using pkg-config"
+    exit 1
+  fi
+  PKGCONFIG_LIBS=$(pkg-config --libs arrow)
+  PKGCONFIG_CFLAGS_PARQUET=$(pkg-config --cflags parquet)
+  if [ $? -eq 0 ]; then
+    PKGCONFIG_CFLAGS="${PKGCONFIG_CFLAGS} ${PKGCONFIG_CFLAGS_PARQUET} -DARROW_R_WITH_PARQUET"
+    PKGCONFIG_LIBS="${PKGCONFIG_LIBS} $(pkg-config --libs parquet)"
+  fi
+else
+  PKG_LIBS="-larrow -lparquet"
 fi
 
 # Note that cflags may be empty in case of success
