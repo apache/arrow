@@ -54,6 +54,7 @@ module Arrow
       require "arrow/file-output-stream"
       require "arrow/list-array-builder"
       require "arrow/list-data-type"
+      require "arrow/null-array-builder"
       require "arrow/path-extension"
       require "arrow/record"
       require "arrow/record-batch"

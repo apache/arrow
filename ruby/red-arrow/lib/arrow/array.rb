@@ -24,7 +24,7 @@ module Arrow
         builder_class_name = "#{name}Builder"
         if const_defined?(builder_class_name)
           builder_class = const_get(builder_class_name)
-          if args.size == builder_class.method(:build).arity
+          if builder_class.buildable?(args)
             builder_class.build(*args)
           else
             super

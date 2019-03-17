@@ -113,6 +113,39 @@ class TestArrayBuilder < Test::Unit::TestCase
     super(create_builder, values)
   end
 
+  sub_test_case("NullArrayBuilder") do
+    def create_builder
+      Arrow::NullArrayBuilder.new
+    end
+
+    def value_data_type
+      Arrow::NullDataType.new
+    end
+
+    def builder_class_name
+      "null-array-builder"
+    end
+
+    def sample_values
+      [nil, nil, nil]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    test("#append_null") do
+      builder = create_builder
+      builder.append_null
+      assert_equal(build_array([nil]),
+                   builder.finish)
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+  end
+
   sub_test_case("BooleanArrayBuilder") do
     def create_builder
       Arrow::BooleanArrayBuilder.new

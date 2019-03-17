@@ -45,6 +45,29 @@ GArrowArray        *garrow_array_builder_finish   (GArrowArrayBuilder *builder,
                                                    GError **error);
 
 
+#define GARROW_TYPE_NULL_ARRAY_BUILDER (garrow_null_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowNullArrayBuilder,
+                         garrow_null_array_builder,
+                         GARROW,
+                         NULL_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowNullArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_13
+GArrowNullArrayBuilder *garrow_null_array_builder_new(void);
+
+GARROW_AVAILABLE_IN_0_13
+gboolean garrow_null_array_builder_append_null(GArrowNullArrayBuilder *builder,
+                                               GError **error);
+GARROW_AVAILABLE_IN_0_13
+gboolean garrow_null_array_builder_append_nulls(GArrowNullArrayBuilder *builder,
+                                                gint64 n,
+                                                GError **error);
+
+
 #define GARROW_TYPE_BOOLEAN_ARRAY_BUILDER       \
   (garrow_boolean_array_builder_get_type())
 #define GARROW_BOOLEAN_ARRAY_BUILDER(obj)                               \

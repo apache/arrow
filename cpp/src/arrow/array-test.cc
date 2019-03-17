@@ -259,11 +259,12 @@ TEST(TestNullBuilder, Basics) {
   ASSERT_OK(builder.AppendNull());
   ASSERT_OK(builder.Append(nullptr));
   ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.AppendNulls(2));
   ASSERT_OK(builder.Finish(&array));
 
   const auto& null_array = checked_cast<NullArray&>(*array);
-  ASSERT_EQ(null_array.length(), 3);
-  ASSERT_EQ(null_array.null_count(), 3);
+  ASSERT_EQ(null_array.length(), 5);
+  ASSERT_EQ(null_array.null_count(), 5);
 }
 
 // ----------------------------------------------------------------------
