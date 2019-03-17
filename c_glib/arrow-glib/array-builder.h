@@ -554,7 +554,7 @@ G_DECLARE_DERIVABLE_TYPE(GArrowStringArrayBuilder,
                          garrow_string_array_builder,
                          GARROW,
                          STRING_ARRAY_BUILDER,
-                         GArrowArrayBuilder)
+                         GArrowBinaryArrayBuilder)
 struct _GArrowStringArrayBuilderClass
 {
   GArrowBinaryArrayBuilderClass parent_class;
