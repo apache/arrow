@@ -127,6 +127,9 @@ from pyarrow.lib import (deserialize_from, deserialize,
                          SerializationCallbackError,
                          DeserializationCallbackError)
 
+# Compute
+from pyarrow.lib import sum
+
 from pyarrow.filesystem import FileSystem, LocalFileSystem
 
 from pyarrow.hdfs import HadoopFileSystem

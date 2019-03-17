@@ -1046,6 +1046,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     CStatus DictionaryEncode(CFunctionContext* context, const CDatum& value,
                              CDatum* out)
 
+    CStatus Sum(CFunctionContext* context, const CDatum& value, CDatum* out)
+
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
