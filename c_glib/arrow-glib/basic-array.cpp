@@ -721,8 +721,9 @@ garrow_array_count(GArrowArray *array,
  * @array: A #GArrowArray.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (transfer full): A #GArrowStructArray of `<input type "values",
- *   int64_t "counts">` on success, %NULL on error.
+ * Returns: (nullable) (transfer full):
+ *   A #GArrowStructArray of `<input type "values", int64_t "counts">`
+ *   on success, %NULL on error.
  *
  * Since: 0.13.0
  */
