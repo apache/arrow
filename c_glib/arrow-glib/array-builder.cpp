@@ -430,6 +430,8 @@ garrow_null_array_builder_class_init(GArrowNullArrayBuilderClass *klass)
  * garrow_null_array_builder_new:
  *
  * Returns: A newly created #GArrowNullArrayBuilder.
+ *
+ * Since: 0.13.0
  */
 GArrowNullArrayBuilder *
 garrow_null_array_builder_new(void)
@@ -447,7 +449,7 @@ garrow_null_array_builder_new(void)
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 0.14.0
+ * Since: 0.13.0
  */
 gboolean
 garrow_null_array_builder_append_null(GArrowNullArrayBuilder *builder,
@@ -470,7 +472,7 @@ garrow_null_array_builder_append_null(GArrowNullArrayBuilder *builder,
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 0.14.0
+ * Since: 0.13.0
  */
 gboolean
 garrow_null_array_builder_append_nulls(GArrowNullArrayBuilder *builder,

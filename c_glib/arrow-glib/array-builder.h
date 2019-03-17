@@ -56,10 +56,13 @@ struct _GArrowNullArrayBuilderClass
   GArrowArrayBuilderClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_0_13
 GArrowNullArrayBuilder *garrow_null_array_builder_new(void);
 
+GARROW_AVAILABLE_IN_0_13
 gboolean garrow_null_array_builder_append_null(GArrowNullArrayBuilder *builder,
                                                GError **error);
+GARROW_AVAILABLE_IN_0_13
 gboolean garrow_null_array_builder_append_nulls(GArrowNullArrayBuilder *builder,
                                                 gint64 n,
                                                 GError **error);
