@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from distutils.version import LooseVersion
 import ast
 import collections
 import json
@@ -27,171 +26,8 @@ import numpy as np
 import six
 
 import pyarrow as pa
+from pyarrow.lib import _pandas_api
 from pyarrow.compat import (builtin_pickle, PY2, zip_longest)  # noqa
-
-
-def _imported_property(f):
-    @property
-    def wrapper(self):
-        if self._have_pandas:
-            return f(self)
-        self._check_import()
-        return f(self)
-    return wrapper
-
-
-class _PandasAPI(object):
-    """
-    Lazy pandas importer that isolates usages of pandas APIs and avoids
-    importing pandas until it's actually needed
-    """
-    _instance = None
-
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            cls._instance = _PandasAPI()
-        return cls._instance
-
-    def __init__(self):
-        self._imported_pandas = False
-        self._have_pandas = None
-        self._pd = None
-        self._loose_version = None
-        self._version = None
-        self._compat_module = None
-        self._types_api = None
-        self._data_frame = None
-        self._series = None
-        self._categorical_type = None
-        self._datetimetz_type = None
-        self._get_datetimetz_type = None
-
-    def make_series(self, *args, **kwargs):
-        self._check_import()
-        return self._series(*args, **kwargs)
-
-    def data_frame(self, *args, **kwargs):
-        self._check_import()
-        return self._data_frame(*args, **kwargs)
-
-    @property
-    def have_pandas(self):
-        if self._have_pandas is None:
-            self._check_import(raise_=False)
-        return self._have_pandas
-
-    @_imported_property
-    def compat(self):
-        return self._compat_module
-
-    @_imported_property
-    def pd(self):
-        return self._pd
-
-    def infer_dtype(self, obj):
-        self._check_import()
-        try:
-            return self._types_api.infer_dtype(obj, skipna=False)
-        except AttributeError:
-            return self._pd.lib.infer_dtype(obj)
-
-    @_imported_property
-    def loose_version(self):
-        return self._loose_version
-
-    @_imported_property
-    def version(self):
-        return self._version
-
-    @_imported_property
-    def categorical_type(self):
-        return self._categorical_type
-
-    @_imported_property
-    def datetimetz_type(self):
-        return self._datetimetz_type
-
-    def _check_import(self, raise_=True):
-        if self._imported_pandas:
-            return
-
-        try:
-            import pandas as pd
-            import pyarrow.pandas_compat as pdcompat
-        except ImportError:
-            if raise_:
-                raise
-            else:
-                return
-
-        self._pd = pd
-        self._compat_module = pdcompat
-        self._data_frame = pd.DataFrame
-        self._series = pd.Series
-        self._have_pandas = True
-
-        self._loose_version = LooseVersion(pd.__version__)
-        if self._loose_version >= '0.20.0':
-            from pandas.api.types import DatetimeTZDtype
-            self._types_api = pd.api.types
-        elif self._loose_version >= '0.19.0':
-            from pandas.types.dtypes import DatetimeTZDtype
-            self._types_api = pd.api.types
-        else:
-            from pandas.types.dtypes import DatetimeTZDtype
-            self._types_api = pd.core.common
-
-        self._datetimetz_type = DatetimeTZDtype
-        self._categorical_type = pd.Categorical
-
-    def is_array_like(self, obj):
-        self._check_import()
-        return isinstance(obj, (self._pd.Series, self._pd.Index,
-                                self._categorical_type))
-
-    def is_categorical(self, obj):
-        if self.have_pandas:
-            return isinstance(obj, self._categorical_type)
-        else:
-            return False
-
-    def is_datetimetz(self, obj):
-        if self.have_pandas:
-            return isinstance(obj, self._datetimetz_type)
-        else:
-            return False
-
-    def is_data_frame(self, obj):
-        if self.have_pandas:
-            return isinstance(obj, self._data_frame)
-        else:
-            return False
-
-    def is_series(self, obj):
-        if self.have_pandas:
-            return isinstance(obj, self._series)
-        else:
-            return False
-
-    def dataframe_to_arrays(self, *args, **kwargs):
-        return _dataframe_to_arrays(*args, **kwargs)
-
-    def dataframe_to_types(self, *args, **kwargs):
-        return _dataframe_to_types(*args, **kwargs)
-
-    def table_to_blockmanager(self, *args, **kwargs):
-        return _table_to_blockmanager(*args, **kwargs)
-
-    def make_datetimetz(self, tz):
-        return _make_datetimetz(tz)
-
-    def assert_frame_equal(self, *args, **kwargs):
-        self._check_import()
-        return self._pd.util.testing.assert_frame_equal
-
-
-_pandas_api = _PandasAPI.get_instance()
 
 
 _logical_type_map = {}
@@ -572,7 +408,7 @@ def _resolve_columns_of_interest(df, schema, columns):
     return columns
 
 
-def _dataframe_to_types(df, preserve_index, columns=None):
+def dataframe_to_types(df, preserve_index, columns=None):
     (all_names,
      column_names,
      index_descriptors,
@@ -599,8 +435,8 @@ def _dataframe_to_types(df, preserve_index, columns=None):
     return all_names, types, metadata
 
 
-def _dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
-                         safe=True):
+def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
+                        safe=True):
     (all_names,
      column_names,
      index_descriptors,
@@ -732,7 +568,7 @@ def _reconstruct_block(item):
         block = _int.make_block(cat, placement=placement,
                                 klass=_int.CategoricalBlock)
     elif 'timezone' in item:
-        dtype = _make_datetimetz(item['timezone'])
+        dtype = make_datetimetz(item['timezone'])
         block = _int.make_block(block_arr, placement=placement,
                                 klass=_int.DatetimeTZBlock,
                                 dtype=dtype)
@@ -745,7 +581,7 @@ def _reconstruct_block(item):
     return block
 
 
-def _make_datetimetz(tz):
+def make_datetimetz(tz):
     tz = pa.lib.string_to_tzinfo(tz)
     return _pandas_api.datetimetz_type('ns', tz=tz)
 
@@ -754,8 +590,8 @@ def _make_datetimetz(tz):
 # Converting pyarrow.Table efficiently to pandas.DataFrame
 
 
-def _table_to_blockmanager(options, table, categories=None,
-                           ignore_metadata=False):
+def table_to_blockmanager(options, table, categories=None,
+                          ignore_metadata=False):
     from pandas.core.internals import BlockManager
 
     all_columns = []
