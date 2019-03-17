@@ -84,7 +84,7 @@ func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 func (r *Reader) readHeader() error {
 	records, err := r.r.Read()
 	if err != nil {
-		return errors.Wrapf(err, "arrow/csv: file read failed when reading header")
+		return errors.Wrapf(err, "arrow/csv: could not read header from file")
 	}
 
 	if len(records) != len(r.schema.Fields()) {
