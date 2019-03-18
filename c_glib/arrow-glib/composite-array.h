@@ -26,47 +26,16 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_LIST_ARRAY                  \
-  (garrow_list_array_get_type())
-#define GARROW_LIST_ARRAY(obj)                          \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
-                              GARROW_TYPE_LIST_ARRAY,   \
-                              GArrowListArray))
-#define GARROW_LIST_ARRAY_CLASS(klass)                  \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_LIST_ARRAY,      \
-                           GArrowListArrayClass))
-#define GARROW_IS_LIST_ARRAY(obj)                       \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
-                              GARROW_TYPE_LIST_ARRAY))
-#define GARROW_IS_LIST_ARRAY_CLASS(klass)               \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_LIST_ARRAY))
-#define GARROW_LIST_ARRAY_GET_CLASS(obj)                \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_LIST_ARRAY,    \
-                             GArrowListArrayClass))
-
-typedef struct _GArrowListArray         GArrowListArray;
-typedef struct _GArrowListArrayClass    GArrowListArrayClass;
-
-/**
- * GArrowListArray:
- *
- * It wraps `arrow::ListArray`.
- */
-struct _GArrowListArray
-{
-  /*< private >*/
-  GArrowArray parent_instance;
-};
-
+#define GARROW_TYPE_LIST_ARRAY (garrow_list_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowListArray,
+                         garrow_list_array,
+                         GARROW,
+                         LIST_ARRAY,
+                         GArrowArray)
 struct _GArrowListArrayClass
 {
   GArrowArrayClass parent_class;
 };
-
-GType garrow_list_array_get_type(void) G_GNUC_CONST;
 
 GArrowListArray *garrow_list_array_new(GArrowDataType *data_type,
                                        gint64 length,

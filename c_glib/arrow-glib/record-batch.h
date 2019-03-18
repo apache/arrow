@@ -24,47 +24,16 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_RECORD_BATCH                \
-  (garrow_record_batch_get_type())
-#define GARROW_RECORD_BATCH(obj)                        \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
-                              GARROW_TYPE_RECORD_BATCH, \
-                              GArrowRecordBatch))
-#define GARROW_RECORD_BATCH_CLASS(klass)                \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_RECORD_BATCH,    \
-                           GArrowRecordBatchClass))
-#define GARROW_IS_RECORD_BATCH(obj)                             \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_RECORD_BATCH))
-#define GARROW_IS_RECORD_BATCH_CLASS(klass)             \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_RECORD_BATCH))
-#define GARROW_RECORD_BATCH_GET_CLASS(obj)              \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_RECORD_BATCH,  \
-                             GArrowRecordBatchClass))
-
-typedef struct _GArrowRecordBatch         GArrowRecordBatch;
-typedef struct _GArrowRecordBatchClass    GArrowRecordBatchClass;
-
-/**
- * GArrowRecordBatch:
- *
- * It wraps `arrow::RecordBatch`.
- */
-struct _GArrowRecordBatch
-{
-  /*< private >*/
-  GObject parent_instance;
-};
-
+#define GARROW_TYPE_RECORD_BATCH (garrow_record_batch_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowRecordBatch,
+                         garrow_record_batch,
+                         GARROW,
+                         RECORD_BATCH,
+                         GObject)
 struct _GArrowRecordBatchClass
 {
   GObjectClass parent_class;
 };
-
-GType garrow_record_batch_get_type(void) G_GNUC_CONST;
 
 GArrowRecordBatch *garrow_record_batch_new(GArrowSchema *schema,
                                            guint32 n_rows,

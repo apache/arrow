@@ -62,47 +62,16 @@ gchar         *garrow_array_to_string   (GArrowArray *array,
                                          GError **error);
 
 
-#define GARROW_TYPE_NULL_ARRAY                  \
-  (garrow_null_array_get_type())
-#define GARROW_NULL_ARRAY(obj)                          \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
-                              GARROW_TYPE_NULL_ARRAY,   \
-                              GArrowNullArray))
-#define GARROW_NULL_ARRAY_CLASS(klass)                  \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_NULL_ARRAY,      \
-                           GArrowNullArrayClass))
-#define GARROW_IS_NULL_ARRAY(obj)                       \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
-                              GARROW_TYPE_NULL_ARRAY))
-#define GARROW_IS_NULL_ARRAY_CLASS(klass)               \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_NULL_ARRAY))
-#define GARROW_NULL_ARRAY_GET_CLASS(obj)                \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_NULL_ARRAY,    \
-                             GArrowNullArrayClass))
-
-typedef struct _GArrowNullArray         GArrowNullArray;
-typedef struct _GArrowNullArrayClass    GArrowNullArrayClass;
-
-/**
- * GArrowNullArray:
- *
- * It wraps `arrow::NullArray`.
- */
-struct _GArrowNullArray
-{
-  /*< private >*/
-  GArrowArray parent_instance;
-};
-
+#define GARROW_TYPE_NULL_ARRAY (garrow_null_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowNullArray,
+                         garrow_null_array,
+                         GARROW,
+                         NULL_ARRAY,
+                         GArrowArray)
 struct _GArrowNullArrayClass
 {
   GArrowArrayClass parent_class;
 };
-
-GType garrow_null_array_get_type(void) G_GNUC_CONST;
 
 GArrowNullArray *garrow_null_array_new(gint64 length);
 
@@ -121,47 +90,16 @@ struct _GArrowPrimitiveArrayClass
 GArrowBuffer *garrow_primitive_array_get_buffer(GArrowPrimitiveArray *array);
 
 
-#define GARROW_TYPE_BOOLEAN_ARRAY               \
-  (garrow_boolean_array_get_type())
-#define GARROW_BOOLEAN_ARRAY(obj)                               \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_BOOLEAN_ARRAY,        \
-                              GArrowBooleanArray))
-#define GARROW_BOOLEAN_ARRAY_CLASS(klass)               \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_BOOLEAN_ARRAY,   \
-                           GArrowBooleanArrayClass))
-#define GARROW_IS_BOOLEAN_ARRAY(obj)                            \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_BOOLEAN_ARRAY))
-#define GARROW_IS_BOOLEAN_ARRAY_CLASS(klass)            \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_BOOLEAN_ARRAY))
-#define GARROW_BOOLEAN_ARRAY_GET_CLASS(obj)             \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_BOOLEAN_ARRAY, \
-                             GArrowBooleanArrayClass))
-
-typedef struct _GArrowBooleanArray         GArrowBooleanArray;
-typedef struct _GArrowBooleanArrayClass    GArrowBooleanArrayClass;
-
-/**
- * GArrowBooleanArray:
- *
- * It wraps `arrow::BooleanArray`.
- */
-struct _GArrowBooleanArray
-{
-  /*< private >*/
-  GArrowPrimitiveArray parent_instance;
-};
-
+#define GARROW_TYPE_BOOLEAN_ARRAY (garrow_boolean_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowBooleanArray,
+                         garrow_boolean_array,
+                         GARROW,
+                         BOOLEAN_ARRAY,
+                         GArrowPrimitiveArray)
 struct _GArrowBooleanArrayClass
 {
   GArrowPrimitiveArrayClass parent_class;
 };
-
-GType          garrow_boolean_array_get_type  (void) G_GNUC_CONST;
 
 GArrowBooleanArray *garrow_boolean_array_new(gint64 length,
                                              GArrowBuffer *data,
@@ -405,47 +343,16 @@ const gdouble *garrow_double_array_get_values(GArrowDoubleArray *array,
                                               gint64 *length);
 
 
-#define GARROW_TYPE_BINARY_ARRAY                \
-  (garrow_binary_array_get_type())
-#define GARROW_BINARY_ARRAY(obj)                        \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
-                              GARROW_TYPE_BINARY_ARRAY, \
-                              GArrowBinaryArray))
-#define GARROW_BINARY_ARRAY_CLASS(klass)                \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_BINARY_ARRAY,    \
-                           GArrowBinaryArrayClass))
-#define GARROW_IS_BINARY_ARRAY(obj)                             \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_BINARY_ARRAY))
-#define GARROW_IS_BINARY_ARRAY_CLASS(klass)             \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_BINARY_ARRAY))
-#define GARROW_BINARY_ARRAY_GET_CLASS(obj)              \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_BINARY_ARRAY,  \
-                             GArrowBinaryArrayClass))
-
-typedef struct _GArrowBinaryArray         GArrowBinaryArray;
-typedef struct _GArrowBinaryArrayClass    GArrowBinaryArrayClass;
-
-/**
- * GArrowBinaryArray:
- *
- * It wraps `arrow::BinaryArray`.
- */
-struct _GArrowBinaryArray
-{
-  /*< private >*/
-  GArrowArray parent_instance;
-};
-
+#define GARROW_TYPE_BINARY_ARRAY (garrow_binary_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowBinaryArray,
+                         garrow_binary_array,
+                         GARROW,
+                         BINARY_ARRAY,
+                         GArrowArray)
 struct _GArrowBinaryArrayClass
 {
   GArrowArrayClass parent_class;
 };
-
-GType garrow_binary_array_get_type(void) G_GNUC_CONST;
 
 GArrowBinaryArray *garrow_binary_array_new(gint64 length,
                                            GArrowBuffer *value_offsets,
@@ -458,47 +365,16 @@ GBytes *garrow_binary_array_get_value(GArrowBinaryArray *array,
 GArrowBuffer *garrow_binary_array_get_buffer(GArrowBinaryArray *array);
 GArrowBuffer *garrow_binary_array_get_offsets_buffer(GArrowBinaryArray *array);
 
-#define GARROW_TYPE_STRING_ARRAY                \
-  (garrow_string_array_get_type())
-#define GARROW_STRING_ARRAY(obj)                        \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
-                              GARROW_TYPE_STRING_ARRAY, \
-                              GArrowStringArray))
-#define GARROW_STRING_ARRAY_CLASS(klass)                \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_STRING_ARRAY,    \
-                           GArrowStringArrayClass))
-#define GARROW_IS_STRING_ARRAY(obj)                             \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_STRING_ARRAY))
-#define GARROW_IS_STRING_ARRAY_CLASS(klass)             \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_STRING_ARRAY))
-#define GARROW_STRING_ARRAY_GET_CLASS(obj)              \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_STRING_ARRAY,  \
-                             GArrowStringArrayClass))
-
-typedef struct _GArrowStringArray         GArrowStringArray;
-typedef struct _GArrowStringArrayClass    GArrowStringArrayClass;
-
-/**
- * GArrowStringArray:
- *
- * It wraps `arrow::StringArray`.
- */
-struct _GArrowStringArray
-{
-  /*< private >*/
-  GArrowBinaryArray parent_instance;
-};
-
+#define GARROW_TYPE_STRING_ARRAY (garrow_string_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowStringArray,
+                         garrow_string_array,
+                         GARROW,
+                         STRING_ARRAY,
+                         GArrowBinaryArray)
 struct _GArrowStringArrayClass
 {
   GArrowBinaryArrayClass parent_class;
 };
-
-GType garrow_string_array_get_type(void) G_GNUC_CONST;
 
 GArrowStringArray *garrow_string_array_new(gint64 length,
                                            GArrowBuffer *value_offsets,

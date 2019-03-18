@@ -23,47 +23,16 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_CHUNKED_ARRAY               \
-  (garrow_chunked_array_get_type())
-#define GARROW_CHUNKED_ARRAY(obj)                               \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_CHUNKED_ARRAY,        \
-                              GArrowChunkedArray))
-#define GARROW_CHUNKED_ARRAY_CLASS(klass)               \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_CHUNKED_ARRAY,   \
-                           GArrowChunkedArrayClass))
-#define GARROW_IS_CHUNKED_ARRAY(obj)                            \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_CHUNKED_ARRAY))
-#define GARROW_IS_CHUNKED_ARRAY_CLASS(klass)            \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_CHUNKED_ARRAY))
-#define GARROW_CHUNKED_ARRAY_GET_CLASS(obj)             \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_CHUNKED_ARRAY, \
-                             GArrowChunkedArrayClass))
-
-typedef struct _GArrowChunkedArray         GArrowChunkedArray;
-typedef struct _GArrowChunkedArrayClass    GArrowChunkedArrayClass;
-
-/**
- * GArrowChunkedArray:
- *
- * It wraps `arrow::ChunkedArray`.
- */
-struct _GArrowChunkedArray
-{
-  /*< private >*/
-  GObject parent_instance;
-};
-
+#define GARROW_TYPE_CHUNKED_ARRAY (garrow_chunked_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowChunkedArray,
+                         garrow_chunked_array,
+                         GARROW,
+                         CHUNKED_ARRAY,
+                         GObject)
 struct _GArrowChunkedArrayClass
 {
   GObjectClass parent_class;
 };
-
-GType garrow_chunked_array_get_type(void) G_GNUC_CONST;
 
 GArrowChunkedArray *garrow_chunked_array_new(GList *chunks);
 
