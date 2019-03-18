@@ -68,6 +68,24 @@ volumes:
   spark-cache:
 
 services:
+  ######################### Helper Containers #################################
+
+  build-context:
+    # The performance of the docker containers often depends on the size of the
+    # build context. This is a helper container that adds the full build context
+    # into the /context folder.
+    #
+    # One can inspect the folder and add files that should not be in the context
+    # to .dockerignore.
+    #
+    # Usage:
+    #   docker-compose build build-context
+    #   docker-compose run build-context
+    image: arrow:build-context
+    build:
+      context: .
+      dockerfile: dev/Dockerfile.context
+
   ######################### Language Containers ###############################
 
   c_glib:
