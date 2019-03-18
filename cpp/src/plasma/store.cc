@@ -1151,7 +1151,7 @@ int main(int argc, char* argv[]) {
       system_memory = shm_mem_avail;
     }
   } else {
-    SetMallocGranularity(1024 * 1024 * 1024);  // 1 GB
+    plasma::SetMallocGranularity(1024 * 1024 * 1024);  // 1 GB
   }
 #endif
   // Get external store
