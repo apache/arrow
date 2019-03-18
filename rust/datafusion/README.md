@@ -34,32 +34,32 @@ datafusion = "0.12"
 
 ## General
 
-[x] SQL Parser
-[x] SQL Query Planner
-[x] Query Optimizer
-[x] Projection push down
-[ ] Predicate push down
-[x] Type coercion
-[ ] Parallel query execution
+- [x] SQL Parser
+- [x] SQL Query Planner
+- [x] Query Optimizer
+- [x] Projection push down
+- [ ] Predicate push down
+- [x] Type coercion
+- [ ] Parallel query execution
 
 ## SQL Support
 
-[x] Projection
-[x] Selection
-[x] Aggregate
-[ ] Sorting
-[x] Limit
-[ ] Nested types and dot notation
-[ ] Lists
-[ ] UDFs
-[ ] Subqueries
-[ ] Joins
+- [x] Projection
+- [x] Selection
+- [x] Aggregate
+- [ ] Sorting
+- [x] Limit
+- [ ] Nested types and dot notation
+- [ ] Lists
+- [ ] UDFs
+- [ ] Subqueries
+- [ ] Joins
 
 ## Data Sources
 
-[x] CSV
-[x] Parquet primitive types
-[ ] Parquet nested types
+- [x] CSV
+- [x] Parquet primitive types
+- [ ] Parquet nested types
 
 # Example
 
@@ -134,4 +134,3 @@ fn main() {
     }
 }
 ```
-
