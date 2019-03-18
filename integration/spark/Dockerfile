@@ -23,11 +23,13 @@ ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
     M2_HOME=/root/.m2 \
     PATH=/root/.m2/bin:/usr/local/maven/bin:$PATH
 RUN apt-get update -q -y && \
-    apt-get install -q -y openjdk-8-jdk && \
+    apt-get install -q -y --no-install-recommends openjdk-8-jdk && \
     wget -q -O maven-$MAVEN_VERSION.tar.gz "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.tar.gz" && \
     tar -zxf /maven-$MAVEN_VERSION.tar.gz && \
     rm /maven-$MAVEN_VERSION.tar.gz && \
-    mv /apache-maven-$MAVEN_VERSION /usr/local/maven
+    mv /apache-maven-$MAVEN_VERSION /usr/local/maven \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # installing specific version of spark
 ARG SPARK_VERSION=master
@@ -44,7 +46,7 @@ ENV CC=gcc \
     ARROW_BUILD_TESTS=OFF
 
 # build and test
-CMD arrow/ci/docker_build_cpp.sh && \
+CMD ["/bin/bash", "-c", "arrow/ci/docker_build_cpp.sh && \
     arrow/ci/docker_build_python.sh && \
     arrow/ci/docker_build_java.sh && \
-    arrow/integration/spark/runtest.sh
+    arrow/integration/spark/runtest.sh"]

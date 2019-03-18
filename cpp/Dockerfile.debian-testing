@@ -57,7 +57,9 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         rapidjson-dev \
         thrift-compiler \
         tzdata \
-        wget
+        wget \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV CC=gcc \
      CXX=g++ \
@@ -71,6 +73,4 @@ ENV CC=gcc \
      CMAKE_ARGS="-DFlatbuffers_SOURCE=BUNDLED -Dc-ares_SOURCE=BUNDLED -DgRPC_SOURCE=BUNDLED"
 
 # build and test
-CMD arrow/ci/docker_build_cpp.sh && \
-    cd /build/cpp && ctest -j2 --output-on-failure -L unittest
-
+CMD ["arrow/ci/docker_build_and_test_cpp.sh"]

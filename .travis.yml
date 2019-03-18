@@ -46,7 +46,7 @@ before_install:
 matrix:
   fast_finish: true
   include:
-  - name: "Lint C++, Python, R"
+  - name: "Lint C++, Python, R, Docker"
     os: linux
     language: python
     python: "3.6"

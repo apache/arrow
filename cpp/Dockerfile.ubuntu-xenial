@@ -17,13 +17,13 @@
 
 FROM ubuntu:xenial
 
-# install build essentials
-RUN export DEBIAN_FRONTEND=noninteractive && \
-    apt-get update -y -q && \
-    apt-get install -y wget software-properties-common
-RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
-RUN apt-add-repository -y "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main"
-RUN export DEBIAN_FRONTEND=noninteractive && \
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ENV DEBIAN_FRONTEND noninteractive
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends wget software-properties-common && \
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    apt-add-repository -y "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
@@ -44,6 +44,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         libgflags-dev \
         libgoogle-glog-dev \
         liblz4-dev \
+        libprotoc-dev \
         libprotobuf-dev \
         libre2-dev \
         libsnappy-dev \
@@ -54,7 +55,9 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         ninja-build \
         pkg-config \
         protobuf-compiler \
-        tzdata
+        tzdata \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Benchmark is deactivated as the external project requires CMake 3.6+
 # Flight is deactivated as Ubuntu provides gflags but not the CMake config for it.
@@ -74,5 +77,4 @@ ENV CC=gcc \
      CMAKE_ARGS="-DThrift_SOURCE=BUNDLED -DGTest_SOURCE=BUNDLED -DFlatbuffers_SOURCE=BUNDLED -DRapidJSON_SOURCE=BUNDLED"
 
 # build and test
-CMD arrow/ci/docker_build_cpp.sh && \
-    cd /build/cpp && ctest -j2 --output-on-failure -L unittest
+CMD ["arrow/ci/docker_build_and_test_cpp.sh"]

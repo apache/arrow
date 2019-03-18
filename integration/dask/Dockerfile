@@ -17,15 +17,11 @@
 
 FROM arrow:python-3.6
 
-# setup /etc/localtime
-RUN DEBIAN_FRONTEND=noninteractive \
-    apt-get install -y -q tzdata
-
 # install dask release from conda
 RUN conda install -c conda-forge dask pytest=3 && \
     conda clean --all
 
 # build and test
-CMD arrow/ci/docker_build_cpp.sh && \
+CMD ["/bin/bash", "-c", "arrow/ci/docker_build_cpp.sh && \
     arrow/ci/docker_build_python.sh && \
-    arrow/integration/dask/runtest.sh
+    arrow/integration/dask/runtest.sh"]

@@ -24,13 +24,13 @@ repos:
   - repo: local
     hooks:
       - id: rat
-        name: rat
+        name: Release Audit Tool
         language: system
         entry: bash -c "git archive HEAD --prefix=apache-arrow/ --output=arrow-src.tar && ./dev/release/run-rat.sh arrow-src.tar"
         always_run: true
         pass_filenames: false
       - id: rustfmt
-        name: rustfmt
+        name: Rust Format
         language: system
         entry: bash -c "cd rust && cargo +stable fmt --all -- --check"
         files: ^rust/.*\.rs$
@@ -38,20 +38,29 @@ repos:
           - file
           - rust
       - id: cmake-format
-        name: cmake-format
+        name: CMake Format
         language: python
         entry: bash -c "pip install cmake-format && python run-cmake-format.py --check"
         entry: echo
         files: ^(.*/CMakeLists.txt|.*.cmake)$
+      - id: hadolint
+        name: Docker Format
+        language: docker_image
+        types:
+         - dockerfile
+        entry: --entrypoint /bin/hadolint hadolint/hadolint:latest -
+        exclude: ^dev/.*$
   - repo: git://github.com/pre-commit/pre-commit-hooks
     sha: v1.2.3
     hooks:
      - id: flake8
+       name: Python Format
        files: ^(python|crossbow|integration)/
        types:
          - file
          - python
      - id: flake8
+       name: Cython Format
        files: ^python/
        types:
          - file
