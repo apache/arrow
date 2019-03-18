@@ -18,8 +18,8 @@
 #include "arrow/adapters/orc/adapter.h"
 #include "arrow/array.h"
 #include "arrow/io/api.h"
-#include "orc/OrcFile.hh"
 
+#include <orc/OrcFile.hh>
 #include <gtest/gtest.h>
 
 namespace liborc = orc;
@@ -30,32 +30,31 @@ constexpr int DEFAULT_MEM_STREAM_SIZE = 100 * 1024 * 1024;
 
 class MemoryOutputStream : public liborc::OutputStream {
  public:
-  explicit MemoryOutputStream(ssize_t capacity) : name_("MemoryOutputStream") {
-    data_ = new char[capacity];
-    length_ = 0;
+  explicit MemoryOutputStream(ssize_t capacity) :
+  data_(capacity),
+  name_("MemoryOutputStream"),
+  length_(0) {
   }
-
-  ~MemoryOutputStream() override { delete[] data_; }
 
   uint64_t getLength() const override { return length_; }
 
   uint64_t getNaturalWriteSize() const override { return natural_write_size_; }
 
   void write(const void* buf, size_t size) override {
-    memcpy(data_ + length_, buf, size);
+    memcpy(data_.data() + length_, buf, size);
     length_ += size;
   }
 
   const std::string& getName() const override { return name_; }
 
-  const char* getData() const { return data_; }
+  const char* getData() const { return data_.data(); }
 
   void close() override {}
 
   void reset() { length_ = 0; }
 
  private:
-  char* data_;
+  std::vector<char> data_;
   std::string name_;
   uint64_t length_, natural_write_size_;
 };
@@ -130,7 +129,8 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
       auto str_array = std::dynamic_pointer_cast<StringArray>(record_batch->column(1));
       for (int j = 0; j < record_batch->num_rows(); ++j) {
         EXPECT_EQ(accumulated % stripe_row_count, int32_array->Value(j));
-        EXPECT_EQ(std::to_string(accumulated % stripe_row_count), str_array->GetString(j));
+        EXPECT_EQ(std::to_string(accumulated % stripe_row_count),
+                  str_array->GetString(j));
         accumulated++;
       }
       EXPECT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
