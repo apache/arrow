@@ -103,6 +103,23 @@ where
     }
 }
 
+/// Returns the number of not-null values in the array.
+///
+/// Returns `None` if the array is empty.
+pub fn count<T>(array: &PrimitiveArray<T>) -> Option<usize>
+where
+    T: ArrowNumericType,
+    T::Native: Add<Output = T::Native>,
+{
+    let null_count = array.null_count();
+    let n = array.len();
+    if n == 0 {
+        None
+    } else {
+        Some(n - null_count)
+    }
+}
+
 /// Helper function to perform boolean lambda function on values from two arrays.
 fn bool_op<T, F>(
     left: &PrimitiveArray<T>,
