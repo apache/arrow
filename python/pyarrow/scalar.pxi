@@ -660,10 +660,123 @@ cdef class ScalarValue(Scalar):
     cdef void init(self, const shared_ptr[CScalar]& sp_scalar):
         self.sp_scalar = sp_scalar
 
+
+cdef class UInt8Scalar(ScalarValue):
+    """
+    Concrete class for uint8 scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python int.
+        """
+        cdef CUInt8Scalar* sp = <CUInt8Scalar*> self.sp_scalar.get()
+        return sp.value
+
+
+cdef class Int8Scalar(ScalarValue):
+    """
+    Concrete class for int8 scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python int.
+        """
+        cdef CInt8Scalar* sp = <CInt8Scalar*> self.sp_scalar.get()
+        return sp.value
+
+
+cdef class UInt16Scalar(ScalarValue):
+    """
+    Concrete class for uint16 scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python int.
+        """
+        cdef CUInt16Scalar* sp = <CUInt16Scalar*> self.sp_scalar.get()
+        return sp.value
+
+
+cdef class Int16Scalar(ScalarValue):
+    """
+    Concrete class for int16 scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python int.
+        """
+        cdef CInt16Scalar* sp = <CInt16Scalar*> self.sp_scalar.get()
+        return sp.value
+
+
+cdef class UInt32Scalar(ScalarValue):
+    """
+    Concrete class for uint32 scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python int.
+        """
+        cdef CUInt32Scalar* sp = <CUInt32Scalar*> self.sp_scalar.get()
+        return sp.value
+
+
+cdef class Int32Scalar(ScalarValue):
+    """
+    Concrete class for int32 scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python int.
+        """
+        cdef CInt32Scalar* sp = <CInt32Scalar*> self.sp_scalar.get()
+        return sp.value
+
+
+cdef class UInt64Scalar(ScalarValue):
+    """
+    Concrete class for uint64 scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python int.
+        """
+        cdef CUInt64Scalar* sp = <CUInt64Scalar*> self.sp_scalar.get()
+        return sp.value
+
+
+cdef class Int64Scalar(ScalarValue):
+    """
+    Concrete class for int64 scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python int.
+        """
+        cdef CInt64Scalar* sp = <CInt64Scalar*> self.sp_scalar.get()
+        return sp.value
+
+
 cdef class FloatScalar(ScalarValue):
     """
     Concrete class for float scalars.
     """
+
+    def as_py(self):
+        """
+        Return this value as a Python float.
+        """
+        cdef CFloatScalar* sp = <CFloatScalar*> self.sp_scalar.get()
+        return sp.value
+
 
 cdef class DoubleScalar(ScalarValue):
     """
@@ -672,12 +785,21 @@ cdef class DoubleScalar(ScalarValue):
 
     def as_py(self):
         """
-        Return this value as a Python int.
+        Return this value as a Python float.
         """
         cdef CDoubleScalar* sp = <CDoubleScalar*> self.sp_scalar.get()
         return sp.value
 
+
 cdef dict _scalar_classes = {
+    _Type_UINT8: UInt8Scalar,
+    _Type_UINT16: UInt16Scalar,
+    _Type_UINT32: UInt32Scalar,
+    _Type_UINT64: UInt64Scalar,
+    _Type_INT8: Int8Scalar,
+    _Type_INT16: Int16Scalar,
+    _Type_INT32: Int32Scalar,
+    _Type_INT64: Int64Scalar,
     _Type_FLOAT: FloatScalar,
     _Type_DOUBLE: DoubleScalar,
 }
