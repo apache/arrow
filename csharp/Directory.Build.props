@@ -10,8 +10,8 @@
   <!-- AssemblyInfo properties -->
   <PropertyGroup>
     <Product>Apache Arrow library</Product>
-    <Copyright>2018 Apache Software Foundation</Copyright>
-    <Company>Apache</Company>
+    <Copyright>Copyright 2016-2019 The Apache Software Foundation</Copyright>
+    <Company>The Apache Software Foundation</Company>
     <Version>0.13.0-SNAPSHOT</Version>
   </PropertyGroup>
 
@@ -23,7 +23,7 @@
 
   <!-- NuGet properties -->
   <PropertyGroup>
-    <Authors>Apache</Authors>
+    <Authors>The Apache Software Foundation</Authors>
     <PackageIconUrl>https://www.apache.org/images/feather.png</PackageIconUrl>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageProjectUrl>https://arrow.apache.org/</PackageProjectUrl>
