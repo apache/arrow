@@ -52,6 +52,14 @@ TEST(Uri, ParsePath) {
 
   Uri uri;
 
+  // Relative path
+  ASSERT_OK(uri.Parse("unix:tmp/flight.sock"));
+  ASSERT_EQ(uri.scheme(), "unix");
+  ASSERT_FALSE(uri.has_host());
+  ASSERT_EQ(uri.host(), "");
+  ASSERT_EQ(uri.path(), "tmp/flight.sock");
+
+  // Absolute path
   ASSERT_OK(uri.Parse("unix:/tmp/flight.sock"));
   ASSERT_EQ(uri.scheme(), "unix");
   ASSERT_FALSE(uri.has_host());
@@ -70,7 +78,7 @@ TEST(Uri, ParsePath) {
   ASSERT_EQ(uri.host(), "");
   ASSERT_EQ(uri.path(), "/tmp/flight.sock");
 
-  // Empty paths
+  // Empty path
   ASSERT_OK(uri.Parse("unix:"));
   ASSERT_EQ(uri.scheme(), "unix");
   ASSERT_FALSE(uri.has_host());
@@ -89,6 +97,12 @@ TEST(Uri, ParsePath) {
   ASSERT_FALSE(uri.has_host());
   ASSERT_EQ(uri.host(), "");
   ASSERT_EQ(uri.path(), "/");
+
+  ASSERT_OK(uri.Parse("unix:tmp/"));
+  ASSERT_EQ(uri.scheme(), "unix");
+  ASSERT_FALSE(uri.has_host());
+  ASSERT_EQ(uri.host(), "");
+  ASSERT_EQ(uri.path(), "tmp/");
 
   ASSERT_OK(uri.Parse("unix://localhost/"));
   ASSERT_EQ(uri.scheme(), "unix");

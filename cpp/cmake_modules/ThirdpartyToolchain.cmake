@@ -567,6 +567,8 @@ macro(build_uriparser)
                       ${EP_LOG_OPTIONS})
 
   add_library(uriparser::uriparser STATIC IMPORTED)
+  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+  file(MAKE_DIRECTORY ${URIPARSER_INCLUDE_DIRS})
   set_target_properties(
     uriparser::uriparser
     PROPERTIES IMPORTED_LOCATION ${URIPARSER_STATIC_LIB} INTERFACE_INCLUDE_DIRECTORIES
