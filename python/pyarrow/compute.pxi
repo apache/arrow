@@ -1,4 +1,15 @@
 def sum(Array values):
+    """
+    Sum the values in a numerical array.
+
+    Parameters
+    ----------
+    values : numerical pyarrow.Array
+
+    Returns
+    -------
+    scalar : Scalar representing the sum of values.
+    """
     cdef CDatum out
 
     with nogil:
