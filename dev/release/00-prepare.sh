@@ -121,7 +121,6 @@ update_versions() {
       parquet/README.md
   rm -f parquet/README.md.bak
   git add parquet/README.md
-  cd -
 
   # Update version number for datafusion README
   sed -i.bak -E -e \
