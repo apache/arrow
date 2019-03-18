@@ -34,7 +34,6 @@ class RawRecordsRecordBatchListArrayTest < Test::Unit::TestCase
   end
 
   test("NullArray") do
-    omit("Need to add support for NullArrayBuilder")
     records = [
       [[nil, nil, nil]],
       [nil],
