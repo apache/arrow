@@ -29,7 +29,8 @@
 
   <properties>
     <target.gen.source.path>${project.basedir}/target/generated-sources</target.gen.source.path>
-    <dep.junit.version>4.11</dep.junit.version>
+    <dep.junit.platform.version>1.4.0</dep.junit.platform.version>
+    <dep.junit.jupiter.version>5.4.0</dep.junit.jupiter.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava.version>20.0</dep.guava.version>
     <dep.netty.version>4.1.22.Final</dep.netty.version>
@@ -565,31 +566,43 @@
       <scope>test</scope>
     </dependency>
 
+
     <dependency>
-      <!-- JMockit needs to be on class path before JUnit. -->
-      <groupId>org.jmockit</groupId>
-      <artifactId>jmockit</artifactId>
-      <version>1.33</version>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-runner</artifactId>
+      <version>${dep.junit.platform.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <version>${dep.junit.jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <version>${dep.junit.jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.vintage</groupId>
+      <artifactId>junit-vintage-engine</artifactId>
+      <version>${dep.junit.jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Use to keep older tests running -->
+    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>${dep.junit.version}</version>
+      <version>4.12</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
-      <artifactId>mockito-core</artifactId>
-      <version>2.7.22</version>
+      <artifactId>mockito-junit-jupiter</artifactId>
+      <version>2.25.1</version>
       <scope>test</scope>
-      <!-- Mockito  contains old Hamcrest classes, causes issues with JUNIT -->
-      <exclusions>
-        <exclusion>
-         <groupId>org.hamcrest</groupId>
-          <artifactId>hamcrest-core</artifactId>
-	</exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>ch.qos.logback</groupId>
