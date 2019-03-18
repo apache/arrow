@@ -281,8 +281,8 @@ impl SqlToRel {
 
                 let left_expr = self.sql_to_rex(&left, &schema)?;
                 let right_expr = self.sql_to_rex(&right, &schema)?;
-                let left_type = left_expr.get_type(schema)?;
-                let right_type = right_expr.get_type(schema)?;
+                let left_type = left_expr.get_type(schema);
+                let right_type = right_expr.get_type(schema);
 
                 match utils::get_supertype(&left_type, &right_type) {
                     Ok(supertype) => Ok(Expr::BinaryExpr {
@@ -315,7 +315,7 @@ impl SqlToRel {
 
                         // return type is same as the argument type for these aggregate
                         // functions
-                        let return_type = rex_args[0].get_type(schema)?.clone();
+                        let return_type = rex_args[0].get_type(schema).clone();
 
                         Ok(Expr::AggregateFunction {
                             name: id.clone(),

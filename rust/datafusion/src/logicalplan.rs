@@ -113,24 +113,24 @@ pub enum ScalarValue {
 }
 
 impl ScalarValue {
-    pub fn get_datatype(&self) -> Result<DataType> {
+    pub fn get_datatype(&self) -> DataType {
         match *self {
-            ScalarValue::Boolean(_) => Ok(DataType::Boolean),
-            ScalarValue::UInt8(_) => Ok(DataType::UInt8),
-            ScalarValue::UInt16(_) => Ok(DataType::UInt16),
-            ScalarValue::UInt32(_) => Ok(DataType::UInt32),
-            ScalarValue::UInt64(_) => Ok(DataType::UInt64),
-            ScalarValue::Int8(_) => Ok(DataType::Int8),
-            ScalarValue::Int16(_) => Ok(DataType::Int16),
-            ScalarValue::Int32(_) => Ok(DataType::Int32),
-            ScalarValue::Int64(_) => Ok(DataType::Int64),
-            ScalarValue::Float32(_) => Ok(DataType::Float32),
-            ScalarValue::Float64(_) => Ok(DataType::Float64),
-            ScalarValue::Utf8(_) => Ok(DataType::Utf8),
-            _ => Err(ExecutionError::General(format!(
+            ScalarValue::Boolean(_) => DataType::Boolean,
+            ScalarValue::UInt8(_) => DataType::UInt8,
+            ScalarValue::UInt16(_) => DataType::UInt16,
+            ScalarValue::UInt32(_) => DataType::UInt32,
+            ScalarValue::UInt64(_) => DataType::UInt64,
+            ScalarValue::Int8(_) => DataType::Int8,
+            ScalarValue::Int16(_) => DataType::Int16,
+            ScalarValue::Int32(_) => DataType::Int32,
+            ScalarValue::Int64(_) => DataType::Int64,
+            ScalarValue::Float32(_) => DataType::Float32,
+            ScalarValue::Float64(_) => DataType::Float64,
+            ScalarValue::Utf8(_) => DataType::Utf8,
+            _ => panic!(
                 "Cannot treat {:?} as scalar value",
                 self
-            ))),
+            ),
         }
     }
 }
@@ -174,28 +174,28 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn get_type(&self, schema: &Schema) -> Result<DataType> {
+    pub fn get_type(&self, schema: &Schema) -> DataType {
         match self {
-            Expr::Column(n) => Ok(schema.field(*n).data_type().clone()),
+            Expr::Column(n) => schema.field(*n).data_type().clone(),
             Expr::Literal(l) => l.get_datatype(),
-            Expr::Cast { data_type, .. } => Ok(data_type.clone()),
-            Expr::ScalarFunction { return_type, .. } => Ok(return_type.clone()),
-            Expr::AggregateFunction { return_type, .. } => Ok(return_type.clone()),
-            Expr::IsNull(_) => Ok(DataType::Boolean),
-            Expr::IsNotNull(_) => Ok(DataType::Boolean),
+            Expr::Cast { data_type, .. } => data_type.clone(),
+            Expr::ScalarFunction { return_type, .. } => return_type.clone(),
+            Expr::AggregateFunction { return_type, .. } => return_type.clone(),
+            Expr::IsNull(_) => DataType::Boolean,
+            Expr::IsNotNull(_) => DataType::Boolean,
             Expr::BinaryExpr {
                 ref left,
                 ref right,
                 ref op,
             } => match op {
-                Operator::Eq | Operator::NotEq => Ok(DataType::Boolean),
-                Operator::Lt | Operator::LtEq => Ok(DataType::Boolean),
-                Operator::Gt | Operator::GtEq => Ok(DataType::Boolean),
-                Operator::And | Operator::Or => Ok(DataType::Boolean),
+                Operator::Eq | Operator::NotEq => DataType::Boolean,
+                Operator::Lt | Operator::LtEq => DataType::Boolean,
+                Operator::Gt | Operator::GtEq => DataType::Boolean,
+                Operator::And | Operator::Or => DataType::Boolean,
                 _ => {
-                    let left_type = left.get_type(schema)?;
-                    let right_type = right.get_type(schema)?;
-                    utils::get_supertype(&left_type, &right_type)
+                    let left_type = left.get_type(schema);
+                    let right_type = right.get_type(schema);
+                    utils::get_supertype(&left_type, &right_type).unwrap()
                 }
             },
             Expr::Sort { ref expr, .. } => expr.get_type(schema),
@@ -203,7 +203,7 @@ impl Expr {
     }
 
     pub fn cast_to(&self, cast_to_type: &DataType, schema: &Schema) -> Result<Expr> {
-        let this_type = self.get_type(schema)?;
+        let this_type = self.get_type(schema);
         if this_type == *cast_to_type {
             Ok(self.clone())
         } else if can_coerce_from(cast_to_type, &this_type) {

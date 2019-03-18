@@ -26,7 +26,7 @@ use crate::logicalplan::Expr;
 pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
     match e {
         Expr::Column(i) => Ok(input_schema.fields()[*i].clone()),
-        Expr::Literal(ref lit) => Ok(Field::new("lit", lit.get_datatype()?, true)),
+        Expr::Literal(ref lit) => Ok(Field::new("lit", lit.get_datatype(), true)),
         Expr::ScalarFunction {
             ref name,
             ref return_type,
@@ -45,8 +45,8 @@ pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
             ref right,
             ..
         } => {
-            let left_type = left.get_type(input_schema)?;
-            let right_type = right.get_type(input_schema)?;
+            let left_type = left.get_type(input_schema);
+            let right_type = right.get_type(input_schema);
             Ok(Field::new(
                 "binary_expr",
                 get_supertype(&left_type, &right_type).unwrap(),
