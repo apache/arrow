@@ -18,13 +18,13 @@ knitr::opts_chunk$set(
 
 R integration with Apache Arrow.
 
-## Installation 
+## Installation
 
 You first need to install the C++ library:
 
-### macOS 
+### macOS
 
-On macOS, you may install using homebrew: 
+On macOS, you may install using homebrew:
 
 ```
 brew install apache-arrow
@@ -45,7 +45,10 @@ make install
 
 ## Then the R package
 
+### From github (defaults to master branch)
+
 ```r
+library("devtools")
 devtools::install_github("apache/arrow/r")
 ```
 
@@ -61,3 +64,27 @@ tab
 as_tibble(tab)
 ```
 
+## Developing
+
+The arrow package is using devtools for package related manipulations. To install:
+
+```r
+library.packages("devtools")
+```
+
+Within a local clone, one can test changes by running the test suite.
+
+### Running the test suite
+
+```r
+library("devtools")
+devtools::install_dev_deps()
+devtools::test()
+```
+
+### Full package validation
+
+```shell
+R CMD build --keep-empty-dirs .
+R CMD check arrow_*.tar.gz --as-cran --no-manual
+```
