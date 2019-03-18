@@ -24,4 +24,4 @@ def test_sum():
              pa.float32(), pa.float64()]
     for type in types:
         arr = pa.array([1, 2, 3, 4], type=type)
-        assert pa.sum().as_py() == 10
+        assert pa.sum(arr).as_py() == 10
