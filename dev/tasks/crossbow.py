@@ -34,7 +34,7 @@ from pathlib import Path
 from textwrap import dedent
 from datetime import datetime
 from jinja2 import Template, StrictUndefined
-from setuptools_scm import get_version
+from setuptools_scm.git import parse as parse_git_version
 from ruamel.yaml import YAML
 
 
@@ -382,6 +382,16 @@ class Queue(Repo):
                                      content_type=content_type)
 
 
+def get_version(root, **kwargs):
+    """
+    Parse function for setuptools_scm that ignores tags for non-C++
+    subprojects, e.g. apache-arrow-js-XXX tags.
+    """
+    kwargs['describe_command'] =\
+        'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
+    return parse_git_version(root, **kwargs)
+
+
 class Target:
     """Describes target repository and revision the builds run against
 
@@ -402,12 +412,13 @@ class Target:
     def from_repo(cls, repo, version=None):
         assert isinstance(repo, Repo)
         if version is None:
-            version = get_version(repo.path, local_scheme=lambda v: '')
+            version = get_version(repo.path)
+            formatted_version = version.format_with('{tag}.dev{distance}')
         return cls(head=str(repo.head.target),
                    email=repo.email,
                    branch=repo.branch.branch_name,
                    remote=repo.remote_url,
-                   version=version)
+                   version=formatted_version)
 
 
 class Task:
