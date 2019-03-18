@@ -75,9 +75,9 @@ using arrow::util::ArrowLogLevel;
 
 namespace fb = plasma::flatbuf;
 
-void SetMallocGranularity(int value);
-
 namespace plasma {
+
+void SetMallocGranularity(int value);
 
 struct GetRequest {
   GetRequest(Client* client, const std::vector<ObjectID>& object_ids);
