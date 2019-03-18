@@ -63,8 +63,6 @@ datafusion = "0.12"
 
 # Example
 
-The current code supports single-threaded execution of limited SQL queries (projection, selection, and aggregates) against CSV files.
-
 Here is a brief example for running a SQL query against a CSV file. See the [examples](examples) directory for full examples.
 
 ```rust
