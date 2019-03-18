@@ -321,20 +321,9 @@ struct CountFunction {
 
 impl CountFunction {
     fn new(data_type: &DataType) -> Self {
-        let value = match data_type {
-            DataType::Int8 => Some(ScalarValue::Int8(0)),
-            DataType::Int16 => Some(ScalarValue::Int16(0)),
-            DataType::Int32 => Some(ScalarValue::Int32(0)),
-            DataType::Int64 => Some(ScalarValue::Int64(0)),
-            DataType::UInt8 => Some(ScalarValue::UInt8(0)),
-            DataType::UInt16 => Some(ScalarValue::UInt16(0)),
-            DataType::UInt32 => Some(ScalarValue::UInt32(0)),
-            DataType::UInt64 => Some(ScalarValue::UInt64(0)),
-            _ => None,
-        };
         Self {
             data_type: data_type.clone(),
-            value,
+            value: None,
         }
     }
 }
@@ -345,6 +334,31 @@ impl AggregateFunction for CountFunction {
     }
 
     fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()> {
+        if self.value.is_none() {
+            self.value = match (data_type, value) {
+                (DataType::Int8, Some(_)) => Some(ScalarValue::Int8(1)),
+                (DataType::Int16, Some(_)) => Some(ScalarValue::Int16(1)),
+                (DataType::Int32, Some(_)) => Some(ScalarValue::Int32(1)),
+                (DataType::Int64, Some(_)) => Some(ScalarValue::Int64(1)),
+                (DataType::UInt8, Some(_)) => Some(ScalarValue::UInt8(1)),
+                (DataType::UInt16, Some(_)) => Some(ScalarValue::UInt16(1)),
+                (DataType::UInt32, Some(_)) => Some(ScalarValue::UInt32(1)),
+                (DataType::UInt64, Some(_)) => Some(ScalarValue::UInt64(1)),
+                (DataType::Int8, None) => Some(ScalarValue::Int8(0)),
+                (DataType::Int16, None) => Some(ScalarValue::Int16(0)),
+                (DataType::Int32, None) => Some(ScalarValue::Int32(0)),
+                (DataType::Int64, None) => Some(ScalarValue::Int64(0)),
+                (DataType::UInt8, None) => Some(ScalarValue::UInt8(0)),
+                (DataType::UInt16, None) => Some(ScalarValue::UInt16(0)),
+                (DataType::UInt32, None) => Some(ScalarValue::UInt32(0)),
+                (DataType::UInt64, None) => Some(ScalarValue::UInt64(0)),
+                _ => {
+                    return Err(ExecutionError::ExecutionError(
+                        "unsupported data type for COUNT".to_string(),
+                    ));
+                }
+            };
+        }
         self.value = match (&self.value, value) {
             (Some(ScalarValue::UInt8(a)), Some(_)) => {
                 Some(ScalarValue::UInt8(*a + 1))
