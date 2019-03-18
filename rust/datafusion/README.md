@@ -19,11 +19,39 @@
 
 # DataFusion
 
-DataFusion is an in-memory query engine that uses Apache Arrow as the memory model
+DataFusion is an in-memory query engine that uses Apache Arrow as the memory model. It supports executing SQL queries against CSV and Parquet files as well as querying directly against in-memory data.
 
 # Status
 
-The current code supports single-threaded execution of limited SQL queries (projection, selection, and aggregates) against CSV files. Parquet files will be supported shortly.
+## General
+
+[x] SQL Parser
+[x] SQL Query Planner
+[x] Query Optimizer
+[x] Projection push down
+[ ] Predicate push down
+[x] Type coercion
+[ ] Parallel query execution
+
+## SQL Support
+
+[x] Projection
+[x] Selection
+[x] Aggregate
+[ ] Sorting
+[x] Limit
+[ ] UDFs
+[ ] Subqueries
+[ ] Joins
+
+## Data Sources
+
+[x] Support for all Parquet primitive types
+[ ] Support for Parquet nested types
+
+# Example
+
+The current code supports single-threaded execution of limited SQL queries (projection, selection, and aggregates) against CSV files.
 
 Here is a brief example for running a SQL query against a CSV file. See the [examples](examples) directory for full examples.
 
