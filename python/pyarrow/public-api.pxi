@@ -211,7 +211,7 @@ cdef api object pyarrow_wrap_scalar(const shared_ptr[CScalar]& sp_scalar):
 
     klass = _scalar_classes[data_type.id()]
 
-    cdef ScalarValue scalar = ScalarValue.__new__(klass)
+    cdef ScalarValue scalar = klass.__new__(klass)
     scalar.init(sp_scalar)
     return scalar
 
