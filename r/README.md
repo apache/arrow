@@ -3,6 +3,8 @@
 
 # arrow
 
+[![conda-forge](https://img.shields.io/conda/vn/conda-forge/r-arrow.svg)](https://anaconda.org/conda-forge/r-arrow)
+
 R integration with Apache Arrow.
 
 ## Installation
