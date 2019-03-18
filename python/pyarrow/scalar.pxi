@@ -624,7 +624,7 @@ cdef class DictionaryValue(ArrayValue):
         return dictionary[self.index_value.as_py()]
 
 
-cdef dict _scalar_classes = {
+cdef dict _array_value_classes = {
     _Type_BOOL: BooleanValue,
     _Type_UINT8: UInt8Value,
     _Type_UINT16: UInt16Value,
@@ -652,6 +652,28 @@ cdef dict _scalar_classes = {
     _Type_DICTIONARY: DictionaryValue,
 }
 
+cdef class ScalarValue(Scalar):
+    def __init__(self):
+        raise TypeError("Do not call {}'s constructor directly."
+                        .format(self.__class__.__name__))
+
+    cdef void init(self, const shared_ptr[CScalar]& sp_scalar):
+        self.sp_scalar = sp_scalar
+
+cdef class FloatScalar(ScalarValue):
+    """
+    Concrete class for float scalars.
+    """
+
+cdef class DoubleScalar(ScalarValue):
+    """
+    Concrete class for double scalars.
+    """
+
+cdef dict _scalar_classes = {
+    _Type_FLOAT: FloatScalar,
+    _Type_DOUBLE: DoubleScalar,
+}
 
 cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,
                        int64_t index):
@@ -662,7 +684,7 @@ cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,
     elif sp_array.get().IsNull(index):
         return _NULL
     else:
-        klass = _scalar_classes[type.type.id()]
+        klass = _array_value_classes[type.type.id()]
         value = klass.__new__(klass)
         value.init(type, sp_array, index)
         return value

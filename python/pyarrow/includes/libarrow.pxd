@@ -568,6 +568,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type type_id()
         c_bool Equals(const CTensor& other)
 
+    cdef cppclass CScalar" arrow::Scalar":
+        shared_ptr[CDataType] type
+
     CStatus ConcatenateTables(const vector[shared_ptr[CTable]]& tables,
                               shared_ptr[CTable]* result)
 
@@ -1030,6 +1033,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
         shared_ptr[CArrayData] array()
         shared_ptr[CChunkedArray] chunked_array()
+        shared_ptr[CScalar] scalar()
 
     CStatus Cast(CFunctionContext* context, const CArray& array,
                  const shared_ptr[CDataType]& to_type,

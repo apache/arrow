@@ -260,6 +260,8 @@ cdef wrap_datum(const CDatum& datum):
         return pyarrow_wrap_array(MakeArray(datum.array()))
     elif datum.kind() == DatumType_CHUNKED_ARRAY:
         return pyarrow_wrap_chunked_array(datum.chunked_array())
+    elif datum.kind() == DatumType_SCALAR:
+        return pyarrow_wrap_scalar(datum.scalar())
     else:
         raise ValueError("Unable to wrap Datum in a Python object")
 
