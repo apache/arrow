@@ -896,6 +896,8 @@ impl AggregateRelation {
                                     .accumulate_scalar(i, array_max(array, &t)?)?,
                                 AggregateType::Sum => accumulator_set
                                     .accumulate_scalar(i, array_sum(array, &t)?)?,
+                                AggregateType::Count => accumlator_set
+                                    .accumulate_scalar(i, array_count(array, &t)?)?,
                                 _ => {
                                     return Err(ExecutionError::NotImplemented(
                                         "Unsupported aggregate function".to_string(),
