@@ -87,13 +87,6 @@ int create_buffer(int64_t size) {
     ARROW_LOG(FATAL) << "create_buffer failed to open file " << &file_name[0];
     return -1;
   }
-
-  FILE* file = fdopen(fd, "a+");
-  if (!file) {
-    close(fd);
-    ARROW_LOG(FATAL) << "create_buffer: fdopen failed for " << &file_name[0];
-    return -1;
-  }
   // Immediately unlink the file so we do not leave traces in the system.
   if (unlink(&file_name[0]) != 0) {
     ARROW_LOG(FATAL) << "failed to unlink file " << &file_name[0];
@@ -107,13 +100,6 @@ int create_buffer(int64_t size) {
       ARROW_LOG(FATAL) << "failed to ftruncate file " << &file_name[0];
       return -1;
     }
-  }
-  int ret = dup(fd);
-  if (ret < 0) {
-    ARROW_LOG(FATAL) << "failed to dup the descriptor";
-  } else {
-    fclose(file);
-    fd = ret;
   }
 #endif
   return fd;
