@@ -28,13 +28,28 @@ import (
 )
 
 func TestUint64Funcs_Sum(t *testing.T) {
-	vec := makeArrayUint64(10000)
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+	vec := makeArrayUint64(10000, mem)
+	defer vec.Release()
 	res := math.Uint64.Sum(vec)
 	assert.Equal(t, res, uint64(49995000))
 }
 
-func makeArrayUint64(l int) *array.Uint64 {
-	fb := array.NewUint64Builder(memory.NewGoAllocator())
+func TestUint64Funcs_SumEmpty(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+	b := array.NewUint64Builder(mem)
+	defer b.Release()
+	vec := b.NewUint64Array()
+	defer vec.Release()
+	res := math.Uint64.Sum(vec)
+	assert.Equal(t, res, uint64(0))
+}
+
+func makeArrayUint64(l int, mem memory.Allocator) *array.Uint64 {
+	fb := array.NewUint64Builder(mem)
+	defer fb.Release()
 	fb.Reserve(l)
 	for i := 0; i < l; i++ {
 		fb.Append(uint64(i))
@@ -43,7 +58,9 @@ func makeArrayUint64(l int) *array.Uint64 {
 }
 
 func benchmarkUint64Funcs_Sum(b *testing.B, n int) {
-	vec := makeArrayUint64(n)
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(b, 0)
+	vec := makeArrayUint64(n, mem)
 	b.SetBytes(int64(vec.Len() * 8))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
