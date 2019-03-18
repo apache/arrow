@@ -571,6 +571,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CScalar" arrow::Scalar":
         shared_ptr[CDataType] type
 
+    cdef cppclass CDoubleScalar" arrow::DoubleScalar"(CScalar):
+        double value
+
+    cdef cppclass C
+
     CStatus ConcatenateTables(const vector[shared_ptr[CTable]]& tables,
                               shared_ptr[CTable]* result)
 

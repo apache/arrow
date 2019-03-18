@@ -670,6 +670,13 @@ cdef class DoubleScalar(ScalarValue):
     Concrete class for double scalars.
     """
 
+    def as_py(self):
+        """
+        Return this value as a Python int.
+        """
+        cdef CDoubleScalar* sp = <CDoubleScalar*> self.sp_scalar.get()
+        return sp.value
+
 cdef dict _scalar_classes = {
     _Type_FLOAT: FloatScalar,
     _Type_DOUBLE: DoubleScalar,
