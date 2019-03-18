@@ -22,6 +22,7 @@ import sys
 from pyarrow.util import implements
 from pyarrow.filesystem import FileSystem
 import pyarrow.lib as lib
+import six
 
 
 class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
@@ -34,6 +35,12 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
                  driver='libhdfs', extra_conf=None):
         if driver == 'libhdfs':
             _maybe_set_hadoop_classpath()
+
+        if not isinstance(host, six.text_type):
+            host = host.decode('utf-8')
+
+        if not isinstance(driver, six.text_type):
+            driver = driver.decode('utf-8')
 
         self._connect(host, port, user, kerb_ticket, driver, extra_conf)
 
