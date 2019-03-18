@@ -32,7 +32,9 @@
 #include "plasma/common.h"
 #include "plasma/plasma.h"
 
-std::unordered_map<void*, mmap_record> mmap_records;
+namespace plasma {
+
+std::unordered_map<void*, MmapRecord> mmap_records;
 
 static void* pointer_advance(void* p, ptrdiff_t n) { return (unsigned char*)p + n; }
 
@@ -64,3 +66,5 @@ int64_t GetMmapSize(int fd) {
   ARROW_LOG(FATAL) << "failed to find entry in mmap_records for fd " << fd;
   return -1;  // This code is never reached.
 }
+
+}  // namespace plasma

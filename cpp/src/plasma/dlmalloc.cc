@@ -32,7 +32,8 @@
 #include "plasma/common.h"
 #include "plasma/plasma.h"
 
-extern "C" {
+namespace plasma {
+
 void* fake_mmap(size_t);
 int fake_munmap(void*, int64_t);
 
@@ -54,7 +55,6 @@ int fake_munmap(void*, int64_t);
 #undef USE_DL_PREFIX
 #undef HAVE_MORECORE
 #undef DEFAULT_GRANULARITY
-}
 
 // dlmalloc.c defined DEBUG which will conflict with ARROW_LOG(DEBUG).
 #ifdef DEBUG
@@ -71,7 +71,7 @@ static void* pointer_retreat(void* p, ptrdiff_t n) { return (unsigned char*)p - 
 // immediately unlinking it so we do not leave traces in the system.
 int create_buffer(int64_t size) {
   int fd;
-  std::string file_template = plasma::plasma_config->directory;
+  std::string file_template = plasma_config->directory;
 #ifdef _WIN32
   if (!CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
                          (DWORD)((uint64_t)size >> (CHAR_BIT * sizeof(DWORD))),
@@ -99,7 +99,7 @@ int create_buffer(int64_t size) {
     ARROW_LOG(FATAL) << "failed to unlink file " << &file_name[0];
     return -1;
   }
-  if (!plasma::plasma_config->hugepages_enabled) {
+  if (!plasma_config->hugepages_enabled) {
     // Increase the size of the file to the desired size. This seems not to be
     // needed for files that are backed by the huge page fs, see also
     // http://www.mail-archive.com/kvm-devel@lists.sourceforge.net/msg14737.html
@@ -133,7 +133,7 @@ void* fake_mmap(size_t size) {
   void* pointer = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (pointer == MAP_FAILED) {
     ARROW_LOG(ERROR) << "mmap failed with error: " << std::strerror(errno);
-    if (errno == ENOMEM && plasma::plasma_config->hugepages_enabled) {
+    if (errno == ENOMEM && plasma_config->hugepages_enabled) {
       ARROW_LOG(ERROR)
           << "  (this probably means you have to increase /proc/sys/vm/nr_hugepages)";
     }
@@ -143,7 +143,7 @@ void* fake_mmap(size_t size) {
   // Increase dlmalloc's allocation granularity directly.
   mparams.granularity *= GRANULARITY_MULTIPLIER;
 
-  mmap_record& record = mmap_records[pointer];
+  MmapRecord& record = mmap_records[pointer];
   record.fd = fd;
   record.size = size;
 
@@ -176,3 +176,5 @@ int fake_munmap(void* addr, int64_t size) {
 }
 
 void SetMallocGranularity(int value) { change_mparam(M_GRANULARITY, value); }
+
+}  // namespace plasma
