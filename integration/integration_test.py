@@ -1266,8 +1266,8 @@ class CPPTester(Tester):
 
 
 class JSTester(Tester):
-    PRODUCER = False
-    CONSUMER = False
+    PRODUCER = True
+    CONSUMER = True
 
     EXE_PATH = os.path.join(ARROW_HOME, 'js/bin')
     VALIDATE = os.path.join(EXE_PATH, 'integration.js')
