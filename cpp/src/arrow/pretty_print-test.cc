@@ -215,12 +215,12 @@ TEST_F(TestPrettyPrint, StructTypeAdvanced) {
 }
 
 TEST_F(TestPrettyPrint, BinaryType) {
-  std::vector<bool> is_valid = {true, true, false, true, false};
-  std::vector<std::string> values = {"foo", "bar", "", "baz", ""};
-  static const char* ex = "[\n  666F6F,\n  626172,\n  null,\n  62617A,\n  null\n]";
+  std::vector<bool> is_valid = {true, true, false, true, true, true};
+  std::vector<std::string> values = {"foo", "bar", "", "baz", "", "\xff"};
+  static const char* ex = "[\n  666F6F,\n  626172,\n  null,\n  62617A,\n  ,\n  FF\n]";
   CheckPrimitive<BinaryType, std::string>({0}, is_valid, values, ex);
   static const char* ex_in2 =
-      "  [\n    666F6F,\n    626172,\n    null,\n    62617A,\n    null\n  ]";
+      "  [\n    666F6F,\n    626172,\n    null,\n    62617A,\n    ,\n    FF\n  ]";
   CheckPrimitive<BinaryType, std::string>({2}, is_valid, values, ex_in2);
 }
 
