@@ -106,10 +106,8 @@ where
 /// Returns the number of not-null values in the array.
 ///
 /// Returns `None` if the array is empty.
-pub fn count<T>(array: &PrimitiveArray<T>) -> Option<usize>
+pub fn count(array: &Array) -> Option<usize>
 where
-    T: ArrowNumericType,
-    T::Native: Add<Output = T::Native>,
 {
     let null_count = array.null_count();
     let n = array.len();

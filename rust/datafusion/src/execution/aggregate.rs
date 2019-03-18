@@ -22,6 +22,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::str;
 use std::sync::Arc;
+use std::ops::Deref;
 
 use arrow::array::*;
 use arrow::builder::*;
@@ -660,56 +661,59 @@ fn array_sum(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
 fn array_count(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
     match dt {
         DataType::UInt8 => {
-            match compute::count(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
+            match compute::count(array.deref()) {
                 Some(n) => Ok(Some(ScalarValue::UInt8(n as u8))),
                 None => Ok(None),
             }
         }
         DataType::UInt16 => {
-            match compute::count(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
+            match compute::count(array.deref()) {
                 Some(n) => Ok(Some(ScalarValue::UInt16(n as u16))),
                 None => Ok(None),
             }
         }
         DataType::UInt32 => {
-            match compute::count(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
+            match compute::count(array.deref()) {
                 Some(n) => Ok(Some(ScalarValue::UInt32(n as u32))),
                 None => Ok(None),
             }
         }
         DataType::UInt64 => {
-            match compute::count(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
+            match compute::count(array.deref()) {
                 Some(n) => Ok(Some(ScalarValue::UInt64(n as u64))),
                 None => Ok(None),
             }
         }
         DataType::Int8 => {
-            match compute::count(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
+            match compute::count(array.deref()) {
                 Some(n) => Ok(Some(ScalarValue::Int8(n as i8))),
                 None => Ok(None),
             }
         }
         DataType::Int16 => {
-            match compute::count(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
+            match compute::count(array.deref()) {
                 Some(n) => Ok(Some(ScalarValue::Int16(n as i16))),
                 None => Ok(None),
             }
         }
         DataType::Int32 => {
-            match compute::count(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
+            match compute::count(array.deref()) {
                 Some(n) => Ok(Some(ScalarValue::Int32(n as i32))),
                 None => Ok(None),
             }
         }
         DataType::Int64 => {
-            match compute::count(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
+            match compute::count(array.deref()) {
                 Some(n) => Ok(Some(ScalarValue::Int64(n as i64))),
                 None => Ok(None),
             }
         }
-        _ => Err(ExecutionError::ExecutionError(
-            "Unsupported data type for SUM".to_string(),
-        )),
+        _ => {
+            match compute::count(array.deref()) {
+                Some(n) => Ok(Some(ScalarValue::UInt64(n as u64))),
+                None => Ok(None),
+            }
+        }
     }
 }
 
@@ -1277,7 +1281,7 @@ mod tests {
         let count = batch
             .column(0)
             .as_any()
-            .downcast_ref::<UInt16Array>()
+            .downcast_ref::<UInt64Array>()
             .unwrap();
         assert_eq!(100, count.value(0));
     }
