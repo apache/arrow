@@ -486,7 +486,7 @@ cdef class Array(_PandasConvertible):
         cdef CDatum out
 
         with nogil:
-            check_status(Sum(_context(), CDatum(values.sp_array), &out))
+            check_status(Sum(_context(), CDatum(self.sp_array), &out))
 
         return wrap_datum(out)
 
