@@ -27,8 +27,8 @@ use arrow::datatypes::*;
 
 use crate::datasource::csv::CsvFile;
 use crate::datasource::datasource::Table;
+use crate::error::{ExecutionError, Result};
 use crate::execution::aggregate::AggregateRelation;
-use crate::execution::error::{ExecutionError, Result};
 use crate::execution::expression::*;
 use crate::execution::filter::FilterRelation;
 use crate::execution::limit::LimitRelation;

@@ -26,7 +26,7 @@ use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
 use crate::datasource::{RecordBatchIterator, ScanResult, Table};
-use crate::execution::error::Result;
+use crate::error::Result;
 
 /// Represents a CSV file with a provided schema
 pub struct CsvFile {

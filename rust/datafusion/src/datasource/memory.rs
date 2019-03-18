@@ -25,7 +25,7 @@ use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
 use crate::datasource::{RecordBatchIterator, ScanResult, Table};
-use crate::execution::error::{ExecutionError, Result};
+use crate::error::{ExecutionError, Result};
 
 /// In-memory table
 pub struct MemTable {

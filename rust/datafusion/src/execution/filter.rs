@@ -26,9 +26,9 @@ use arrow::compute::array_ops::filter;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
-use super::error::{ExecutionError, Result};
-use super::expression::RuntimeExpr;
-use super::relation::Relation;
+use crate::error::{ExecutionError, Result};
+use crate::execution::expression::RuntimeExpr;
+use crate::execution::relation::Relation;
 
 /// Implementation of a filter relation
 pub(super) struct FilterRelation {

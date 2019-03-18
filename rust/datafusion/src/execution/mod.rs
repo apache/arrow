@@ -19,7 +19,6 @@
 
 pub mod aggregate;
 pub mod context;
-pub mod error;
 pub mod expression;
 pub mod filter;
 pub mod limit;

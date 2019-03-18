@@ -29,7 +29,7 @@ use arrow::compute;
 use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
-use crate::execution::error::{ExecutionError, Result};
+use crate::error::{ExecutionError, Result};
 use crate::execution::expression::{AggregateType, RuntimeExpr};
 use crate::execution::relation::Relation;
 use crate::logicalplan::ScalarValue;

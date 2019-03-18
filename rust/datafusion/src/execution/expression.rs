@@ -25,9 +25,9 @@ use arrow::compute;
 use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
-use super::super::logicalplan::{Expr, Operator, ScalarValue};
-use super::context::ExecutionContext;
-use super::error::{ExecutionError, Result};
+use crate::error::{ExecutionError, Result};
+use crate::execution::context::ExecutionContext;
+use crate::logicalplan::{Expr, Operator, ScalarValue};
 
 /// Compiled Expression (basically just a closure to evaluate the expression at runtime)
 pub type CompiledExpr = Rc<Fn(&RecordBatch) -> Result<ArrayRef>>;

@@ -22,7 +22,7 @@ use std::sync::{Arc, Mutex};
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
-use crate::execution::error::Result;
+use crate::error::Result;
 
 pub type ScanResult = Arc<Mutex<RecordBatchIterator>>;
 
