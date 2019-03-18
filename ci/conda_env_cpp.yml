@@ -16,18 +16,18 @@
 # under the License.
 
 benchmark
-boost-cpp
+boost-cpp>=1.68.0
 brotli
 bzip2
 c-ares
-cmake
+cmake>=3.12
 double-conversion
 flatbuffers
 gflags
 glog
-gmock
+gmock>=1.8.1
 grpc-cpp
-gtest
+gtest>=1.8.1
 clangdev=7
 llvmdev=7
 libprotobuf
@@ -38,6 +38,6 @@ python
 rapidjson
 re2
 snappy
-thrift-cpp=0.12.0
+thrift-cpp>=0.11.0
 zlib
 zstd
