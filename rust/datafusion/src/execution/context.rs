@@ -37,6 +37,7 @@ use crate::execution::relation::{DataSourceRelation, Relation};
 use crate::logicalplan::*;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
+use crate::optimizer::utils;
 use crate::sql::parser::{DFASTNode, DFParser};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
 
@@ -79,7 +80,10 @@ impl ExecutionContext {
 
                 Ok(self.optimize(&plan)?)
             }
-            _ => unimplemented!(),
+            other => Err(ExecutionError::General(format!(
+                "Cannot create logical plan from {:?}",
+                other
+            ))),
         }
     }
 
@@ -161,7 +165,7 @@ impl ExecutionContext {
                 let input_schema = input_rel.as_ref().borrow().schema().clone();
 
                 let project_columns: Vec<Field> =
-                    exprlist_to_fields(&expr, &input_schema);
+                    utils::exprlist_to_fields(&expr, &input_schema)?;
 
                 let project_schema = Arc::new(Schema::new(project_columns));
 
@@ -198,10 +202,12 @@ impl ExecutionContext {
 
                 let mut output_fields: Vec<Field> = vec![];
                 for expr in group_expr {
-                    output_fields.push(expr_to_field(expr, input_schema.as_ref()));
+                    output_fields
+                        .push(utils::expr_to_field(expr, input_schema.as_ref())?);
                 }
                 for expr in aggr_expr {
-                    output_fields.push(expr_to_field(expr, input_schema.as_ref()));
+                    output_fields
+                        .push(utils::expr_to_field(expr, input_schema.as_ref())?);
                 }
                 let rel = AggregateRelation::new(
                     Arc::new(Schema::new(output_fields)),
@@ -246,49 +252,11 @@ impl ExecutionContext {
                 }
             }
 
-            _ => unimplemented!(),
+            _ => Err(ExecutionError::NotImplemented(
+                "Unsupported logical plan for execution".to_string(),
+            )),
         }
     }
-}
-
-/// Create field meta-data from an expression, for use in a result set schema
-pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Field {
-    match e {
-        Expr::Column(i) => input_schema.fields()[*i].clone(),
-        Expr::Literal(ref lit) => Field::new("lit", lit.get_datatype(), true),
-        Expr::ScalarFunction {
-            ref name,
-            ref return_type,
-            ..
-        } => Field::new(&name, return_type.clone(), true),
-        Expr::AggregateFunction {
-            ref name,
-            ref return_type,
-            ..
-        } => Field::new(&name, return_type.clone(), true),
-        Expr::Cast { ref data_type, .. } => Field::new("cast", data_type.clone(), true),
-        Expr::BinaryExpr {
-            ref left,
-            ref right,
-            ..
-        } => {
-            let left_type = left.get_type(input_schema);
-            let right_type = right.get_type(input_schema);
-            Field::new(
-                "binary_expr",
-                get_supertype(&left_type, &right_type).unwrap(),
-                true,
-            )
-        }
-        _ => unimplemented!("Cannot determine schema type for expression {:?}", e),
-    }
-}
-
-/// Create field meta-data from an expression, for use in a result set schema
-pub fn exprlist_to_fields(expr: &Vec<Expr>, input_schema: &Schema) -> Vec<Field> {
-    expr.iter()
-        .map(|e| expr_to_field(e, input_schema))
-        .collect()
 }
 
 struct ExecutionContextSchemaProvider {
@@ -303,6 +271,6 @@ impl SchemaProvider for ExecutionContextSchemaProvider {
     }
 
     fn get_function_meta(&self, _name: &str) -> Option<Arc<FunctionMeta>> {
-        unimplemented!()
+        None
     }
 }
