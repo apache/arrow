@@ -335,7 +335,7 @@ impl AggregateFunction for CountFunction {
 
     fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()> {
         if self.value.is_none() {
-            self.value = match (data_type, value) {
+            self.value = match (&self.data_type, value) {
                 (DataType::Int8, Some(_)) => Some(ScalarValue::Int8(1)),
                 (DataType::Int16, Some(_)) => Some(ScalarValue::Int16(1)),
                 (DataType::Int32, Some(_)) => Some(ScalarValue::Int32(1)),
@@ -910,7 +910,7 @@ impl AggregateRelation {
                                     .accumulate_scalar(i, array_max(array, &t)?)?,
                                 AggregateType::Sum => accumulator_set
                                     .accumulate_scalar(i, array_sum(array, &t)?)?,
-                                AggregateType::Count => accumlator_set
+                                AggregateType::Count => accumulator_set
                                     .accumulate_scalar(i, array_count(array, &t)?)?,
                                 _ => {
                                     return Err(ExecutionError::NotImplemented(
@@ -1245,6 +1245,41 @@ mod tests {
             .downcast_ref::<Float64Array>()
             .unwrap();
         assert_eq!(0.01479305307777301, min_lat.value(0));
+    }
+
+    #[test]
+    fn count() {
+        let schema = aggr_test_schema();
+        let relation = load_csv("../../testing/data/csv/aggregate_test_100.csv", &schema);
+        let context = ExecutionContext::new();
+
+        let aggr_expr = vec![expression::compile_expr(
+            &context,
+            &Expr::AggregateFunction {
+                name: String::from("count"),
+                args: vec![Expr::Column(11)],
+                return_type: DataType::UInt64,
+            },
+            &schema,
+        )
+            .unwrap()];
+
+        let aggr_schema = Arc::new(Schema::new(vec![Field::new(
+            "count",
+            DataType::UInt64,
+            false,
+        )]));
+
+        let mut projection =
+            AggregateRelation::new(aggr_schema, relation, vec![], aggr_expr);
+        let batch = projection.next().unwrap().unwrap();
+        assert_eq!(1, batch.num_columns());
+        let count = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<UInt16Array>()
+            .unwrap();
+        assert_eq!(100, count.value(0));
     }
 
     #[test]
