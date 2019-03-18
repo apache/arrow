@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
   file_decryption_properties.push_back(decryption_properties_2);
   file_decryption_properties.push_back(decryption_properties_3);
 
-  for (unsigned i = 0; i < file_encryption_properties.size(); ++i) {
+  for (unsigned example_id = 0; example_id < file_encryption_properties.size(); ++example_id) {
     /**********************************************************************************
                                PARQUET WRITER EXAMPLE
     **********************************************************************************/
@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
       // Add writer properties
       parquet::WriterProperties::Builder builder;
       builder.compression(parquet::Compression::SNAPPY);
-      builder.encryption(file_encryption_properties[i]);
+      builder.encryption(file_encryption_properties[example_id]);
 
       std::shared_ptr<parquet::WriterProperties> props = builder.build();
 
@@ -226,7 +226,7 @@ int main(int argc, char** argv) {
 
     try {
       parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
-      reader_properties.file_decryption(file_decryption_properties[i]);
+      reader_properties.file_decryption(file_decryption_properties[example_id]);
 
       // Create a ParquetReader instance
       std::unique_ptr<parquet::ParquetFileReader> parquet_reader =
@@ -453,7 +453,7 @@ int main(int argc, char** argv) {
       std::cerr << "Parquet read error: " << e.what() << std::endl;
     }
 
-    std::cout << "Example [" << (i+1) << "] Parquet Writing and Reading Complete" << std::endl;
+    std::cout << "Example [" << (example_id+1) << "] Parquet Writing and Reading Complete" << std::endl;
   }
   return 0;
 }
