@@ -530,22 +530,25 @@ double_conversion_compability()
 macro(build_uriparser)
   message(STATUS "Building uriparser from source")
   set(URIPARSER_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/uriparser_ep-install")
-  set(URIPARSER_STATIC_LIB "${URIPARSER_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}uriparser${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(
+    URIPARSER_STATIC_LIB
+    "${URIPARSER_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}uriparser${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
   set(URIPARSER_INCLUDE_DIRS "${URIPARSER_PREFIX}/include")
 
   set(URIPARSER_CMAKE_ARGS
-    ${EP_COMMON_CMAKE_ARGS}
-    "-DURIPARSER_BUILD_DOCS=off"
-    "-DURIPARSER_BUILD_TESTS=off"
-    "-DURIPARSER_BUILD_TOOLS=off"
-    "-DURIPARSER_BUILD_WCHAR_T=off"
-    "-DBUILD_SHARED_LIBS=off"
-    "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
-    "-DCMAKE_POSITION_INDEPENDENT_CODE=on"
-    "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>")
+      ${EP_COMMON_CMAKE_ARGS}
+      "-DURIPARSER_BUILD_DOCS=off"
+      "-DURIPARSER_BUILD_TESTS=off"
+      "-DURIPARSER_BUILD_TOOLS=off"
+      "-DURIPARSER_BUILD_WCHAR_T=off"
+      "-DBUILD_SHARED_LIBS=off"
+      "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+      "-DCMAKE_POSITION_INDEPENDENT_CODE=on"
+      "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>")
 
-  if (MSVC AND ARROW_USE_STATIC_CRT)
-    if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+  if(MSVC AND ARROW_USE_STATIC_CRT)
+    if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
       list(APPEND URIPARSER_CMAKE_ARGS "-DURIPARSER_MSVC_RUNTIME=/MTd")
     else()
       list(APPEND URIPARSER_CMAKE_ARGS "-DURIPARSER_MSVC_RUNTIME=/MT")
@@ -553,25 +556,35 @@ macro(build_uriparser)
   endif()
 
   externalproject_add(uriparser_ep
-    URL ${URIPARSER_SOURCE_URL}
-    CMAKE_ARGS ${URIPARSER_CMAKE_ARGS}
-    BUILD_BYPRODUCTS ${URIPARSER_STATIC_LIB}
-    INSTALL_DIR ${URIPARSER_PREFIX}
-    ${EP_LOG_OPTIONS})
+                      URL
+                      ${URIPARSER_SOURCE_URL}
+                      CMAKE_ARGS
+                      ${URIPARSER_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS
+                      ${URIPARSER_STATIC_LIB}
+                      INSTALL_DIR
+                      ${URIPARSER_PREFIX}
+                      ${EP_LOG_OPTIONS})
 
   add_library(uriparser::uriparser STATIC IMPORTED)
-  set_target_properties(uriparser::uriparser
-                        PROPERTIES IMPORTED_LOCATION ${URIPARSER_STATIC_LIB}
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   ${URIPARSER_INCLUDE_DIRS})
+  set_target_properties(
+    uriparser::uriparser
+    PROPERTIES IMPORTED_LOCATION ${URIPARSER_STATIC_LIB} INTERFACE_INCLUDE_DIRECTORIES
+               ${URIPARSER_INCLUDE_DIRS})
 
   add_dependencies(toolchain uriparser_ep)
   add_dependencies(uriparser::uriparser uriparser_ep)
 endmacro()
 
+# Unless the user overrides uriparser_SOURCE, build uriparser ourselves
+if("${uriparser_SOURCE}" STREQUAL "")
+  set(uriparser_SOURCE "BUNDLED")
+endif()
+
 resolve_dependency(uriparser)
 
-get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser INTERFACE_INCLUDE_DIRECTORIES)
+get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser
+                    INTERFACE_INCLUDE_DIRECTORIES)
 include_directories(SYSTEM ${URIPARSER_INCLUDE_DIRS})
 
 # ----------------------------------------------------------------------
