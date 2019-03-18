@@ -288,9 +288,7 @@ Status PrimitiveAllocatingBinaryKernel::Call(FunctionContext* ctx, const Datum& 
                                              const Datum& right, Datum* out) {
   std::vector<std::shared_ptr<Buffer>> data_buffers;
   DCHECK_EQ(left.kind(), Datum::ARRAY);
-  DCHECK_EQ(right.kind(), Datum::ARRAY);
   const ArrayData& left_data = *left.array();
-  DCHECK_EQ(left_data.length, right.array()->length);
 
   DCHECK_EQ(out->kind(), Datum::ARRAY);
 
