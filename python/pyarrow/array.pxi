@@ -263,7 +263,7 @@ cdef wrap_datum(const CDatum& datum):
     elif datum.kind() == DatumType_SCALAR:
         return pyarrow_wrap_scalar(datum.scalar())
     else:
-        raise ValueError("Unable to wrap Datum in a Python object, kind = " + str(datum.kind()))
+        raise ValueError("Unable to wrap Datum in a Python object")
 
 
 cdef _append_array_buffers(const CArrayData* ad, list res):
