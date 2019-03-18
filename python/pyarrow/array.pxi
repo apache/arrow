@@ -479,6 +479,17 @@ cdef class Array(_PandasConvertible):
 
         return pyarrow_wrap_array(result)
 
+    def sum(self):
+        """
+        Sum the values in a numerical array.
+        """
+        cdef CDatum out
+
+        with nogil:
+            check_status(Sum(_context(), CDatum(values.sp_array), &out))
+
+        return wrap_datum(out)
+
     def unique(self):
         """
         Compute distinct elements in array

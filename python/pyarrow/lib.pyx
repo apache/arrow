@@ -127,8 +127,5 @@ include "serialization.pxi"
 # Micro-benchmark routines
 include "benchmark.pxi"
 
-# Arrow compute library
-include "compute.pxi"
-
 # Public API
 include "public-api.pxi"
