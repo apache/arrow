@@ -449,35 +449,16 @@ class RecordReader::RecordReaderImpl {
 };
 
 template <typename DType>
-struct RecordReaderTraits {
-  using BuilderType = ::arrow::ArrayBuilder;
-};
-
-template <>
-struct RecordReaderTraits<ByteArrayType> {
-  using BuilderType = ::arrow::internal::ChunkedBinaryBuilder;
-};
-
-template <>
-struct RecordReaderTraits<FLBAType> {
-  using BuilderType = ::arrow::FixedSizeBinaryBuilder;
-};
-
-template <typename DType>
 class TypedRecordReader : public RecordReader::RecordReaderImpl {
  public:
   using T = typename DType::c_type;
 
-  using BuilderType = typename RecordReaderTraits<DType>::BuilderType;
-
   TypedRecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
-      : RecordReader::RecordReaderImpl(descr, pool), current_decoder_(nullptr) {
-    InitializeBuilder();
-  }
+      : RecordReader::RecordReaderImpl(descr, pool), current_decoder_(nullptr) {}
 
   void ResetDecoders() override { decoders_.clear(); }
 
-  inline void ReadValuesSpaced(int64_t values_with_nulls, int64_t null_count) {
+  virtual void ReadValuesSpaced(int64_t values_with_nulls, int64_t null_count) {
     uint8_t* valid_bits = valid_bits_->mutable_data();
     const int64_t valid_bits_offset = values_written_;
 
@@ -487,7 +468,7 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
     DCHECK_EQ(num_decoded, values_with_nulls);
   }
 
-  inline void ReadValuesDense(int64_t values_to_read) {
+  virtual void ReadValuesDense(int64_t values_to_read) {
     int64_t num_decoded =
         current_decoder_->Decode(ValuesHead<T>(), static_cast<int>(values_to_read));
     DCHECK_EQ(num_decoded, values_to_read);
@@ -568,17 +549,16 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
     throw ParquetException("GetChunks only implemented for binary types");
   }
 
- private:
+ protected:
   using DecoderType = typename EncodingTraits<DType>::Decoder;
 
+  DecoderType* current_decoder_;
+
+ private:
   // Map of encoding type to the respective decoder object. For example, a
   // column chunk's data pages may include both dictionary-encoded and
   // plain-encoded data.
   std::unordered_map<int, std::unique_ptr<DecoderType>> decoders_;
-
-  std::unique_ptr<BuilderType> builder_;
-
-  DecoderType* current_decoder_;
 
   // Initialize repetition and definition level decoders on the next data page.
   int64_t InitializeLevelDecoders(const DataPage& page,
@@ -590,9 +570,132 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
   // Advance to the next data page
   bool ReadNewPage() override;
 
-  void InitializeBuilder() {}
-
   void ConfigureDictionary(const DictionaryPage* page);
+};
+
+class FLBARecordReader : public TypedRecordReader<FLBAType> {
+ public:
+  FLBARecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
+      : TypedRecordReader<FLBAType>(descr, pool), builder_(nullptr) {
+    DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
+    int byte_width = descr_->type_length();
+    std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
+    builder_.reset(new ::arrow::FixedSizeBinaryBuilder(type, pool_));
+  }
+
+  ::arrow::ArrayVector GetBuilderChunks() override {
+    std::shared_ptr<::arrow::Array> chunk;
+    PARQUET_THROW_NOT_OK(builder_->Finish(&chunk));
+    return ::arrow::ArrayVector({chunk});
+  }
+
+  void ReadValuesDense(int64_t values_to_read) override {
+    auto values = ValuesHead<FLBA>();
+    int64_t num_decoded =
+        current_decoder_->Decode(values, static_cast<int>(values_to_read));
+    DCHECK_EQ(num_decoded, values_to_read);
+
+    for (int64_t i = 0; i < num_decoded; i++) {
+      PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
+    }
+    ResetValues();
+  }
+
+  void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
+    uint8_t* valid_bits = valid_bits_->mutable_data();
+    const int64_t valid_bits_offset = values_written_;
+    auto values = ValuesHead<FLBA>();
+
+    int64_t num_decoded = current_decoder_->DecodeSpaced(
+        values, static_cast<int>(values_to_read), static_cast<int>(null_count),
+        valid_bits, valid_bits_offset);
+    DCHECK_EQ(num_decoded, values_to_read);
+
+    for (int64_t i = 0; i < num_decoded; i++) {
+      if (::arrow::BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
+        PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
+      } else {
+        PARQUET_THROW_NOT_OK(builder_->AppendNull());
+      }
+    }
+    ResetValues();
+  }
+
+ private:
+  std::unique_ptr<::arrow::FixedSizeBinaryBuilder> builder_;
+};
+
+class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType> {
+ public:
+  ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
+      : TypedRecordReader<ByteArrayType>(descr, pool), builder_(nullptr) {
+    // Maximum of 16MB chunks
+    constexpr int32_t kBinaryChunksize = 1 << 24;
+    DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
+    if (descr_->logical_type() == LogicalType::UTF8) {
+      builder_.reset(
+          new ::arrow::internal::ChunkedStringBuilder(kBinaryChunksize, pool_));
+    } else {
+      builder_.reset(
+          new ::arrow::internal::ChunkedBinaryBuilder(kBinaryChunksize, pool_));
+    }
+  }
+
+  ::arrow::ArrayVector GetBuilderChunks() override {
+    ::arrow::ArrayVector chunks;
+    PARQUET_THROW_NOT_OK(builder_->Finish(&chunks));
+    return chunks;
+  }
+
+  void ReadValuesDense(int64_t values_to_read) override {
+    int64_t num_decoded = current_decoder_->DecodeArrowNonNull(
+        static_cast<int>(values_to_read), builder_.get());
+    DCHECK_EQ(num_decoded, values_to_read);
+    ResetValues();
+  }
+
+  void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
+    int64_t num_decoded = current_decoder_->DecodeArrow(
+        static_cast<int>(values_to_read), static_cast<int>(null_count),
+        valid_bits_->mutable_data(), values_written_, builder_.get());
+    DCHECK_EQ(num_decoded, values_to_read);
+    ResetValues();
+  }
+
+ private:
+  std::unique_ptr<::arrow::internal::ChunkedBinaryBuilder> builder_;
+};
+
+template <typename BuilderType>
+class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType> {
+ public:
+  ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr,
+                                  ::arrow::MemoryPool* pool)
+      : TypedRecordReader<ByteArrayType>(descr, pool), builder_(new BuilderType(pool)) {}
+
+  ::arrow::ArrayVector GetBuilderChunks() override {
+    std::shared_ptr<::arrow::Array> chunk;
+    PARQUET_THROW_NOT_OK(builder_->Finish(&chunk));
+    return ::arrow::ArrayVector({chunk});
+  }
+
+  void ReadValuesDense(int64_t values_to_read) override {
+    int64_t num_decoded = current_decoder_->DecodeArrowNonNull(
+        static_cast<int>(values_to_read), builder_.get());
+    DCHECK_EQ(num_decoded, values_to_read);
+    ResetValues();
+  }
+
+  void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
+    int64_t num_decoded = current_decoder_->DecodeArrow(
+        static_cast<int>(values_to_read), static_cast<int>(null_count),
+        valid_bits_->mutable_data(), values_written_, builder_.get());
+    DCHECK_EQ(num_decoded, values_to_read);
+    ResetValues();
+  }
+
+ private:
+  std::unique_ptr<BuilderType> builder_;
 };
 
 // TODO(wesm): Implement these to some satisfaction
@@ -604,89 +707,6 @@ void TypedRecordReader<ByteArrayType>::DebugPrintState() {}
 
 template <>
 void TypedRecordReader<FLBAType>::DebugPrintState() {}
-
-template <>
-void TypedRecordReader<ByteArrayType>::InitializeBuilder() {
-  // Maximum of 16MB chunks
-  constexpr int32_t kBinaryChunksize = 1 << 24;
-  DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-  builder_.reset(new ::arrow::internal::ChunkedBinaryBuilder(kBinaryChunksize, pool_));
-}
-
-template <>
-void TypedRecordReader<FLBAType>::InitializeBuilder() {
-  DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
-  int byte_width = descr_->type_length();
-  std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
-  builder_.reset(new ::arrow::FixedSizeBinaryBuilder(type, pool_));
-}
-
-template <>
-::arrow::ArrayVector TypedRecordReader<ByteArrayType>::GetBuilderChunks() {
-  ::arrow::ArrayVector chunks;
-  PARQUET_THROW_NOT_OK(builder_->Finish(&chunks));
-  return chunks;
-}
-
-template <>
-::arrow::ArrayVector TypedRecordReader<FLBAType>::GetBuilderChunks() {
-  std::shared_ptr<::arrow::Array> chunk;
-  PARQUET_THROW_NOT_OK(builder_->Finish(&chunk));
-  return ::arrow::ArrayVector({chunk});
-}
-
-template <>
-inline void TypedRecordReader<ByteArrayType>::ReadValuesDense(int64_t values_to_read) {
-  int64_t num_decoded = current_decoder_->DecodeArrowNonNull(
-      static_cast<int>(values_to_read), builder_.get());
-  DCHECK_EQ(num_decoded, values_to_read);
-  ResetValues();
-}
-
-template <>
-inline void TypedRecordReader<FLBAType>::ReadValuesDense(int64_t values_to_read) {
-  auto values = ValuesHead<FLBA>();
-  int64_t num_decoded =
-      current_decoder_->Decode(values, static_cast<int>(values_to_read));
-  DCHECK_EQ(num_decoded, values_to_read);
-
-  for (int64_t i = 0; i < num_decoded; i++) {
-    PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
-  }
-  ResetValues();
-}
-
-template <>
-inline void TypedRecordReader<ByteArrayType>::ReadValuesSpaced(int64_t values_to_read,
-                                                               int64_t null_count) {
-  int64_t num_decoded = current_decoder_->DecodeArrow(
-      static_cast<int>(values_to_read), static_cast<int>(null_count),
-      valid_bits_->mutable_data(), values_written_, builder_.get());
-  DCHECK_EQ(num_decoded, values_to_read);
-  ResetValues();
-}
-
-template <>
-inline void TypedRecordReader<FLBAType>::ReadValuesSpaced(int64_t values_to_read,
-                                                          int64_t null_count) {
-  uint8_t* valid_bits = valid_bits_->mutable_data();
-  const int64_t valid_bits_offset = values_written_;
-  auto values = ValuesHead<FLBA>();
-
-  int64_t num_decoded = current_decoder_->DecodeSpaced(
-      values, static_cast<int>(values_to_read), static_cast<int>(null_count), valid_bits,
-      valid_bits_offset);
-  DCHECK_EQ(num_decoded, values_to_read);
-
-  for (int64_t i = 0; i < num_decoded; i++) {
-    if (::arrow::BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
-      PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
-    } else {
-      PARQUET_THROW_NOT_OK(builder_->AppendNull());
-    }
-  }
-  ResetValues();
-}
 
 template <typename DType>
 inline void TypedRecordReader<DType>::ConfigureDictionary(const DictionaryPage* page) {
@@ -845,8 +865,27 @@ bool TypedRecordReader<DType>::ReadNewPage() {
   return true;
 }
 
+std::shared_ptr<RecordReader> RecordReader::MakeByteArrayRecordReader(
+    const ColumnDescriptor* descr, arrow::MemoryPool* pool, bool read_dictionary) {
+  if (read_dictionary) {
+    if (descr->logical_type() == LogicalType::UTF8) {
+      using Builder = ::arrow::StringDictionaryBuilder;
+      return std::shared_ptr<RecordReader>(
+          new RecordReader(new ByteArrayDictionaryRecordReader<Builder>(descr, pool)));
+    } else {
+      using Builder = ::arrow::BinaryDictionaryBuilder;
+      return std::shared_ptr<RecordReader>(
+          new RecordReader(new ByteArrayDictionaryRecordReader<Builder>(descr, pool)));
+    }
+  } else {
+    return std::shared_ptr<RecordReader>(
+        new RecordReader(new ByteArrayChunkedRecordReader(descr, pool)));
+  }
+}
+
 std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
-                                                 MemoryPool* pool) {
+                                                 MemoryPool* pool,
+                                                 const bool read_dictionary) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::shared_ptr<RecordReader>(
@@ -867,11 +906,10 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
       return std::shared_ptr<RecordReader>(
           new RecordReader(new TypedRecordReader<DoubleType>(descr, pool)));
     case Type::BYTE_ARRAY:
-      return std::shared_ptr<RecordReader>(
-          new RecordReader(new TypedRecordReader<ByteArrayType>(descr, pool)));
+      return RecordReader::MakeByteArrayRecordReader(descr, pool, read_dictionary);
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::shared_ptr<RecordReader>(
-          new RecordReader(new TypedRecordReader<FLBAType>(descr, pool)));
+          new RecordReader(new FLBARecordReader(descr, pool)));
     default: {
       // PARQUET-1481: This can occur if the file is corrupt
       std::stringstream ss;
