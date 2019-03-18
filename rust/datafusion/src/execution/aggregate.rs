@@ -312,6 +312,46 @@ impl AggregateFunction for SumFunction {
     }
 }
 
+/// Implemntation of COUNT aggregate function
+#[derive(Debug)]
+struct CountFunction {
+    data_type: DataType,
+    value: Option<ScalarValue>,
+}
+
+impl CountFunction {
+    fn new(data_type: &DataType) -> Self {
+        Self {
+            data_type: data_type.clone(),
+            value: Some(ScalarValue::UInt64(0)),
+        }
+    }
+}
+
+impl AggregateFunction for CountFunction {
+    fn name(&self) -> &str {
+        "count"
+    }
+
+    fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()> {
+        if value.is_some() {
+            // Always true
+            if let Some(ScalarValue::UInt64(current_count)) = self.value {
+                self.value = Some(ScalarValue::UInt64(current_count + 1))
+            }
+        }
+        Ok(())
+    }
+
+    fn result(&self) -> &Option<ScalarValue> {
+        &self.value
+    }
+
+    fn data_type(&self) -> &DataType {
+        &self.data_type
+    }
+}
+
 struct AccumulatorSet {
     aggr_values: Vec<Rc<RefCell<AggregateFunction>>>,
 }
