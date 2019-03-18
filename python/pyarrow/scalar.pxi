@@ -653,6 +653,10 @@ cdef dict _array_value_classes = {
 }
 
 cdef class ScalarValue(Scalar):
+    """
+    The base class for scalars.
+    """
+
     def __init__(self):
         raise TypeError("Do not call {}'s constructor directly."
                         .format(self.__class__.__name__))
@@ -660,6 +664,29 @@ cdef class ScalarValue(Scalar):
     cdef void init(self, const shared_ptr[CScalar]& sp_scalar):
         self.sp_scalar = sp_scalar
 
+    def __repr__(self):
+        if hasattr(self, 'as_py'):
+            return repr(self.as_py())
+        else:
+            return super(Scalar, self).__repr__()
+
+    def __str__(self):
+        if hasattr(self, 'as_py'):
+            return str(self.as_py())
+        else:
+            return super(Scalar, self).__str__()
+
+    def __eq__(self, other):
+        if hasattr(self, 'as_py'):
+            if isinstance(other, ScalarValue):
+                other = other.as_py()
+            return self.as_py() == other
+        else:
+            raise NotImplemented(
+                "Cannot compare scalars that don't support as_py()")
+
+    def __hash__(self):
+        return hash(self.as_py())
 
 cdef class UInt8Scalar(ScalarValue):
     """
