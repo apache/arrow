@@ -321,9 +321,20 @@ struct CountFunction {
 
 impl CountFunction {
     fn new(data_type: &DataType) -> Self {
+        let value = match data_type {
+            DataType::Int8 => Some(ScalarValue::Int8(0)),
+            DataType::Int16 => Some(ScalarValue::Int16(0)),
+            DataType::Int32 => Some(ScalarValue::Int32(0)),
+            DataType::Int64 => Some(ScalarValue::Int64(0)),
+            DataType::UInt8 => Some(ScalarValue::UInt8(0)),
+            DataType::UInt16 => Some(ScalarValue::UInt16(0)),
+            DataType::UInt32 => Some(ScalarValue::UInt32(0)),
+            DataType::UInt64 => Some(ScalarValue::UInt64(0)),
+            _ => None,
+        };
         Self {
             data_type: data_type.clone(),
-            value: Some(ScalarValue::UInt64(0)),
+            value,
         }
     }
 }
@@ -334,12 +345,37 @@ impl AggregateFunction for CountFunction {
     }
 
     fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()> {
-        if value.is_some() {
-            // Always true
-            if let Some(ScalarValue::UInt64(current_count)) = self.value {
-                self.value = Some(ScalarValue::UInt64(current_count + 1))
+        self.value = match (&self.value, value) {
+            (Some(ScalarValue::UInt8(a)), Some(_)) => {
+                Some(ScalarValue::UInt8(*a + 1))
             }
-        }
+            (Some(ScalarValue::UInt16(a)), Some(_)) => {
+                Some(ScalarValue::UInt16(*a + 1))
+            }
+            (Some(ScalarValue::UInt32(a)), Some(_)) => {
+                Some(ScalarValue::UInt32(*a + 1))
+            }
+            (Some(ScalarValue::UInt64(a)), Some(_)) => {
+                Some(ScalarValue::UInt64(*a + 1))
+            }
+            (Some(ScalarValue::Int8(a)), Some(_)) => {
+                Some(ScalarValue::Int8(*a + 1))
+            }
+            (Some(ScalarValue::Int16(a)), Some(_)) => {
+                Some(ScalarValue::Int16(*a + 1))
+            }
+            (Some(ScalarValue::Int32(a)), Some(_)) => {
+                Some(ScalarValue::Int32(*a + 1))
+            }
+            (Some(ScalarValue::Int64(a)), Some(_)) => {
+                Some(ScalarValue::Int64(*a + 1))
+            }
+            _ => {
+                return Err(ExecutionError::ExecutionError(
+                    "unsupported data type for COUNT".to_string(),
+                ));
+            }
+        };
         Ok(())
     }
 
@@ -387,6 +423,8 @@ fn create_accumulators(aggr_expr: &Vec<RuntimeExpr>) -> Result<AccumulatorSet> {
                 AggregateType::Max => Ok(Rc::new(RefCell::new(MaxFunction::new(t)))
                     as Rc<RefCell<AggregateFunction>>),
                 AggregateType::Sum => Ok(Rc::new(RefCell::new(SumFunction::new(t)))
+                    as Rc<RefCell<AggregateFunction>>),
+                AggregateType::Count => Ok(Rc::new(RefCell::new(CountFunction::new(t)))
                     as Rc<RefCell<AggregateFunction>>),
                 _ => Err(ExecutionError::ExecutionError(
                     "unsupported aggregate function".to_string(),
