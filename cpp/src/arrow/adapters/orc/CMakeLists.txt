@@ -27,7 +27,7 @@ configure_file(arrow-orc.pc.in "${CMAKE_CURRENT_BINARY_DIR}/arrow-orc.pc" @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-orc.pc"
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
-set(ORC_MIN_TEST_LIBS ${GTEST_MAIN_LIBRARY} ${GTEST_LIBRARY})
+set(ORC_MIN_TEST_LIBS GTest::Main GTest::GTest)
 
 if(ARROW_BUILD_STATIC)
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static)

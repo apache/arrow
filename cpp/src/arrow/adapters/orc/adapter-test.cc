@@ -19,8 +19,8 @@
 #include "arrow/array.h"
 #include "arrow/io/api.h"
 
-#include <orc/OrcFile.hh>
 #include <gtest/gtest.h>
+#include <orc/OrcFile.hh>
 
 namespace liborc = orc;
 
@@ -30,11 +30,8 @@ constexpr int DEFAULT_MEM_STREAM_SIZE = 100 * 1024 * 1024;
 
 class MemoryOutputStream : public liborc::OutputStream {
  public:
-  explicit MemoryOutputStream(ssize_t capacity) :
-  data_(capacity),
-  name_("MemoryOutputStream"),
-  length_(0) {
-  }
+  explicit MemoryOutputStream(ssize_t capacity)
+      : data_(capacity), name_("MemoryOutputStream"), length_(0) {}
 
   uint64_t getLength() const override { return length_; }
 
@@ -108,7 +105,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 
   writer->close();
 
-  std::shared_ptr<io::ReadableFileInterface> in_stream(new io::BufferReader(
+  std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(
       std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(mem_stream.getData()),
                                static_cast<int64_t>(mem_stream.getLength()))));
 
