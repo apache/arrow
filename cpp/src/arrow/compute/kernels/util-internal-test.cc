@@ -149,7 +149,7 @@ TEST(AssignNullIntersection, IntersectsNullsWhenSomeOnBoth) {
 
 TEST(PrimitiveAllocatingUnaryKernel, BooleanFunction) {
   MockUnaryKernel mock;
-  EXPECT_CALL(mock, out_type).WillRepeatedly(Return(boolean()));
+  EXPECT_CALL(mock, out_type()).WillRepeatedly(Return(boolean()));
   EXPECT_CALL(mock, Call(_, _, _)).WillOnce(Return(Status::OK()));
   PrimitiveAllocatingUnaryKernel kernel(&mock);
 
@@ -170,7 +170,7 @@ TEST(PrimitiveAllocatingUnaryKernel, BooleanFunction) {
 
 TEST(PrimitiveAllocatingUnaryKernel, NonBoolean) {
   MockUnaryKernel mock;
-  EXPECT_CALL(mock, out_type).WillRepeatedly(Return(int32()));
+  EXPECT_CALL(mock, out_type()).WillRepeatedly(Return(int32()));
   EXPECT_CALL(mock, Call(_, _, _)).WillOnce(Return(Status::OK()));
   PrimitiveAllocatingUnaryKernel kernel(&mock);
 
@@ -189,7 +189,7 @@ TEST(PrimitiveAllocatingUnaryKernel, NonBoolean) {
 
 TEST(PrimitiveAllocatingBinaryKernel, BooleanFunction) {
   MockBinaryKernel mock;
-  EXPECT_CALL(mock, out_type).WillRepeatedly(Return(boolean()));
+  EXPECT_CALL(mock, out_type()).WillRepeatedly(Return(boolean()));
   EXPECT_CALL(mock, Call(_, _, _, _)).WillOnce(Return(Status::OK()));
   PrimitiveAllocatingBinaryKernel kernel(&mock);
 
@@ -210,7 +210,7 @@ TEST(PrimitiveAllocatingBinaryKernel, BooleanFunction) {
 
 TEST(PrimitiveAllocatingBinaryKernel, NonBoolean) {
   MockBinaryKernel mock;
-  EXPECT_CALL(mock, out_type).WillRepeatedly(Return(int32()));
+  EXPECT_CALL(mock, out_type()).WillRepeatedly(Return(int32()));
   EXPECT_CALL(mock, Call(_, _, _, _)).WillOnce(Return(Status::OK()));
   PrimitiveAllocatingBinaryKernel kernel(&mock);
 
