@@ -37,15 +37,19 @@ static inline Status CopyOrTransferBitmap(const Array& array, MemoryPool* pool,
   auto length = array.length();
   auto null_bitmap = array.null_bitmap();
 
-  if (null_bitmap == nullptr || offset == 0 || length == 0) {
+  if (offset == 0) {
+    // No offset adjustment to be done, take a zero-copy reference to the buffer.
     *bitmap = null_bitmap;
+    return Status::OK();
+  } else if (null_bitmap == nullptr || length == 0) {
+    *bitmap = nullptr;
     return Status::OK();
   }
 
   return internal::CopyBitmap(pool, null_bitmap->data(), offset, length, bitmap);
 }
 
-template <typename ArrowType, CompareOperator Operator,
+template <typename ArrowType, CompareOperator Op,
           typename ArrayType = typename TypeTraits<ArrowType>::ArrayType,
           typename ScalarType = typename TypeTraits<ArrowType>::ScalarType,
           typename T = typename TypeTraits<ArrowType>::CType>
@@ -57,7 +61,7 @@ static Status CompareArrayScalar(const ArrayType& input, const ScalarType& scala
   // Bitmap is not sliced like the original array, thus offset=0
   auto writer = internal::BitmapWriter(bitmap, 0, input.length());
   for (int64_t i = 0; i < input.length(); i++, writer.Next()) {
-    if (Comparator<T, Operator>::Compare(values[i], right)) {
+    if (Comparator<T, Op>::Compare(values[i], right)) {
       writer.Set();
     } else {
       writer.Clear();
@@ -104,8 +108,7 @@ class CompareFunction final : public FilterFunction {
 template <typename ArrowType, CompareOperator Op>
 static inline std::shared_ptr<FilterFunction> MakeCompareFunctionTypeOp(
     FunctionContext* ctx) {
-  return std::static_pointer_cast<FilterFunction>(
-      std::make_shared<CompareFunction<ArrowType, Op>>(ctx));
+  return std::make_shared<CompareFunction<ArrowType, Op>>(ctx);
 }
 
 template <typename ArrowType>

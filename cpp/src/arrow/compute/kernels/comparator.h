@@ -43,39 +43,36 @@ enum CompareOperator {
   LOWER_EQUAL,
 };
 
-template <CompareOperator lhs, CompareOperator rhs>
-using enable_if_op = typename std::enable_if<lhs == rhs>::type;
-
-template <typename T, CompareOperator Op, typename Enable = void>
-struct Comparator {};
-
 template <typename T, CompareOperator Op>
-struct Comparator<T, Op, enable_if_op<Op, CompareOperator::EQUAL>> {
+struct Comparator;
+
+template <typename T>
+struct Comparator<T, CompareOperator::EQUAL> {
   constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs == rhs; }
 };
 
-template <typename T, CompareOperator Op>
-struct Comparator<T, Op, enable_if_op<Op, CompareOperator::NOT_EQUAL>> {
+template <typename T>
+struct Comparator<T, CompareOperator::NOT_EQUAL> {
   constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs != rhs; }
 };
 
-template <typename T, CompareOperator Op>
-struct Comparator<T, Op, enable_if_op<Op, CompareOperator::GREATER>> {
+template <typename T>
+struct Comparator<T, CompareOperator::GREATER> {
   constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs > rhs; }
 };
 
-template <typename T, CompareOperator Op>
-struct Comparator<T, Op, enable_if_op<Op, CompareOperator::GREATER_EQUAL>> {
+template <typename T>
+struct Comparator<T, CompareOperator::GREATER_EQUAL> {
   constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs >= rhs; }
 };
 
-template <typename T, CompareOperator Op>
-struct Comparator<T, Op, enable_if_op<Op, CompareOperator::LOWER>> {
+template <typename T>
+struct Comparator<T, CompareOperator::LOWER> {
   constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs < rhs; }
 };
 
-template <typename T, CompareOperator Op>
-struct Comparator<T, Op, enable_if_op<Op, CompareOperator::LOWER_EQUAL>> {
+template <typename T>
+struct Comparator<T, CompareOperator::LOWER_EQUAL> {
   constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs <= rhs; }
 };
 

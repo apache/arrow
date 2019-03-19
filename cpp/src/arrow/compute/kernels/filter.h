@@ -44,6 +44,8 @@ class ARROW_EXPORT FilterFunction {
 
   /// By default, FilterFunction emits a result bitmap.
   virtual std::shared_ptr<DataType> out_type() const { return boolean(); }
+
+  virtual ~FilterFunction() {};
 };
 
 /// \brief BinaryKernel bound to a filter function
