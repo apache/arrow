@@ -56,8 +56,11 @@ class ARROW_EXPORT BufferBuilder {
   /// \return Status
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
     // Resize(0) is a no-op
-    if (new_capacity == 0) {
+    if (ARROW_UNLIKELY(new_capacity == 0)) {
       return Status::OK();
+    }
+    if (ARROW_UNLIKELY(buffer_ == NULLPTR)) {
+      return Status::Invalid("memory pool failed to allocate empty resizable buffer");
     }
     int64_t old_capacity = capacity_;
     ARROW_RETURN_NOT_OK(buffer_->Resize(new_capacity, shrink_to_fit));
