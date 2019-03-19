@@ -25,7 +25,7 @@ namespace arrow {
 
 class Array;
 class DataType;
-class Scalar;
+struct Scalar;
 class Status;
 
 namespace compute {
