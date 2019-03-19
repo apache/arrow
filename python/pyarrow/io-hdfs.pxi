@@ -59,10 +59,10 @@ cdef class HadoopFileSystem:
 
     cdef readonly:
         bint is_open
-        str host
-        str user
-        str kerb_ticket
-        str driver
+        object host
+        object user
+        object kerb_ticket
+        object driver
         int port
         dict extra_conf
 
