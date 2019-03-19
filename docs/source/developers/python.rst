@@ -360,8 +360,6 @@ Now, we build and install Arrow C++ libraries
    set ARROW_HOME=C:\thirdparty
    cmake -G "Visual Studio 14 2015 Win64" ^
          -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-         -DCMAKE_BUILD_TYPE=Release ^
-         -DARROW_BUILD_TESTS=on ^
          -DARROW_CXXFLAGS="/WX /MP" ^
          -DARROW_GANDIVA=on ^
          -DARROW_PARQUET=on ^
@@ -380,7 +378,9 @@ Now, we can build pyarrow:
 .. code-block:: shell
 
    cd python
-   python setup.py build_ext --inplace --with-parquet
+   set PYARROW_WITH_GANDIVA=1
+   set PYARROW_WITH_PARQUET=1
+   python setup.py build_ext --inplace
 
 Then run the unit tests with:
 

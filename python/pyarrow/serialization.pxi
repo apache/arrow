@@ -217,6 +217,16 @@ cdef class SerializationContext:
 
 
 _default_serialization_context = SerializationContext()
+_default_context_initialized = False
+
+
+def _get_default_context():
+    global _default_context_initialized
+    from pyarrow.serialization import register_default_serialization_handlers
+    if not _default_context_initialized:
+        register_default_serialization_handlers(_default_serialization_context)
+        _default_context_initialized = True
+    return _default_serialization_context
 
 
 cdef class SerializedPyObject:
@@ -256,7 +266,7 @@ cdef class SerializedPyObject:
         cdef PyObject* result
 
         if context is None:
-            context = _default_serialization_context
+            context = _get_default_context()
 
         with nogil:
             check_status(DeserializeObject(context, self.data,
@@ -339,7 +349,7 @@ def serialize(object value, SerializationContext context=None):
     wrapped_value = [value]
 
     if context is None:
-        context = _default_serialization_context
+        context = _get_default_context()
 
     with nogil:
         check_status(SerializeObject(context, wrapped_value, &serialized.data))
