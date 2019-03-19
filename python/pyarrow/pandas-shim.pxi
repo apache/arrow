@@ -60,10 +60,10 @@ cdef class _PandasAPIShim(object):
 
         from distutils.version import LooseVersion
         self._loose_version = LooseVersion(pd.__version__)
-        if self._loose_version >= '0.20.0':
+        if self._loose_version >= LooseVersion('0.20.0'):
             from pandas.api.types import DatetimeTZDtype
             self._types_api = pd.api.types
-        elif self._loose_version >= '0.19.0':
+        elif self._loose_version >= LooseVersion('0.19.0'):
             from pandas.types.dtypes import DatetimeTZDtype
             self._types_api = pd.api.types
         else:
