@@ -113,13 +113,16 @@ class PARQUET_EXPORT ColumnCryptoMetaData {
   std::unique_ptr<ColumnCryptoMetaDataImpl> impl_;
 };
 
+class FileCryptoMetaData;
+
 class PARQUET_EXPORT ColumnChunkMetaData {
  public:
   // API convenience to get a MetaData accessor
   static std::unique_ptr<ColumnChunkMetaData> Make(
       const void* metadata, const ColumnDescriptor* descr,
       const ApplicationVersion* writer_version = NULLPTR,
-      FileDecryptionProperties* file_decryption = NULLPTR);
+      FileDecryptionProperties* file_decryption = NULLPTR,
+      const EncryptionAlgorithm* algorithm = NULLPTR);
 
   ~ColumnChunkMetaData();
 
@@ -149,7 +152,8 @@ class PARQUET_EXPORT ColumnChunkMetaData {
  private:
   explicit ColumnChunkMetaData(const void* metadata, const ColumnDescriptor* descr,
                                const ApplicationVersion* writer_version = NULLPTR,
-                               FileDecryptionProperties* file_decryption = NULLPTR);
+                               FileDecryptionProperties* file_decryption = NULLPTR,
+                               const EncryptionAlgorithm* algorithm = NULLPTR);
   // PIMPL Idiom
   class ColumnChunkMetaDataImpl;
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
@@ -170,7 +174,8 @@ class PARQUET_EXPORT RowGroupMetaData {
   int64_t total_byte_size() const;
   // Return const-pointer to make it clear that this object is not to be copied
   const SchemaDescriptor* schema() const;
-  std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i, FileDecryptionProperties* file_decryption = NULLPTR) const;
+  std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i, FileDecryptionProperties* file_decryption = NULLPTR,
+      const EncryptionAlgorithm* algorithm = NULLPTR) const;
 
  private:
   explicit RowGroupMetaData(const void* metadata, const SchemaDescriptor* schema,
