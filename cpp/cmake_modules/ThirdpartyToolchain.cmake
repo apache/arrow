@@ -1485,6 +1485,9 @@ if(ARROW_WITH_FLATBUFFERS)
   get_dependency_source(Flatbuffers)
   if(Flatbuffers_SOURCE STREQUAL "AUTO")
     find_package(Flatbuffers QUIET)
+    # Older versions of Flatbuffers (that are not built using CMake)
+    # don't install a FlatbuffersConfig.cmake
+    # This is only supported from 1.10+ on, we support at least 1.7
     if(NOT Flatbuffers_FOUND)
       find_package(FlatbuffersAlt)
     endif()
