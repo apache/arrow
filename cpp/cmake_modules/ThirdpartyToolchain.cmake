@@ -1482,7 +1482,26 @@ macro(build_flatbuffers)
 endmacro()
 
 if(ARROW_WITH_FLATBUFFERS)
-  resolve_dependency(Flatbuffers)
+  get_dependency_source(Flatbuffers)
+  if(Flatbuffers_SOURCE STREQUAL "AUTO")
+    find_package(Flatbuffers QUIET)
+    # Older versions of Flatbuffers (that are not built using CMake)
+    # don't install a FlatbuffersConfig.cmake
+    # This is only supported from 1.10+ on, we support at least 1.7
+    if(NOT Flatbuffers_FOUND)
+      find_package(FlatbuffersAlt)
+    endif()
+    if(NOT Flatbuffers_FOUND AND NOT FlatbuffersAlt_FOUND)
+      build_flatbuffers()
+    endif()
+  elseif(Flatbuffers_SOURCE STREQUAL "BUNDLED")
+    build_flatbuffers()
+  elseif(Flatbuffers_SOURCE STREQUAL "SYSTEM")
+    find_package(Flatbuffers QUIET)
+    if(NOT Flatbuffers_FOUND)
+      find_package(FlatbuffersAlt REQUIRED)
+    endif()
+  endif()
 
   if(TARGET flatbuffers::flatbuffers_shared AND NOT TARGET flatbuffers::flatbuffers)
     get_target_property(FLATBUFFERS_INCLUDE_DIR flatbuffers::flatbuffers_shared
