@@ -116,7 +116,7 @@ set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static
 if(WIN32 OR NOT ARROW_BUILD_SHARED)
   # The benchmarks depend on some static Thrift symbols
   set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS benchmark::benchmark_main
-      parquet_static)
+      ${PARQUET_STATIC_TEST_LINK_LIBS})
 else()
   set(PARQUET_BENCHMARK_LINK_OPTION EXTRA_LINK_LIBS parquet_shared)
 endif()
