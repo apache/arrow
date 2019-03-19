@@ -127,10 +127,7 @@ impl ScalarValue {
             ScalarValue::Float32(_) => DataType::Float32,
             ScalarValue::Float64(_) => DataType::Float64,
             ScalarValue::Utf8(_) => DataType::Utf8,
-            _ => panic!(
-                "Cannot treat {:?} as scalar value",
-                self
-            ),
+            _ => panic!("Cannot treat {:?} as scalar value", self),
         }
     }
 }
