@@ -32,6 +32,7 @@ patterns = [
     'cpp/cmake_modules/FindBrotli.cmake',
     'cpp/cmake_modules/FindClangTools.cmake',
     'cpp/cmake_modules/FindDoubleConversion.cmake',
+    'cpp/cmake_modules/FindFlatbuffersAlt.cmake',
     'cpp/cmake_modules/FindGLOG.cmake',
     'cpp/cmake_modules/FindGandiva.cmake',
     'cpp/cmake_modules/FindInferTools.cmake',
