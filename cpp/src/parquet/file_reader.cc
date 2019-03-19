@@ -98,8 +98,16 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   const ReaderProperties* properties() const override { return &properties_; }
 
   std::unique_ptr<PageReader> GetColumnPageReader(int i) override {
+    EncryptionAlgorithm algorithm;
+    if (file_crypto_metadata_) {
+      algorithm = file_crypto_metadata_->encryption_algorithm();
+    }
+    else if (file_metadata_->is_plaintext_mode()) {
+      algorithm = file_metadata_->encryption_algorithm();
+    }
     // Read column chunk from the file
-    auto col = row_group_metadata_->ColumnChunk(i, properties_.file_decryption());
+    auto col = row_group_metadata_->ColumnChunk(i, properties_.file_decryption(),
+        &algorithm);
 
     int64_t col_start = col->data_page_offset();
     if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
