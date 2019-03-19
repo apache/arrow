@@ -99,6 +99,20 @@ def test_long_array_format():
     assert result == expected
 
 
+def test_binary_format():
+    arr = pa.array([b'\x00', b'', None, b'\x01foo', b'\x80\xff'])
+    result = arr.format()
+    expected = """\
+[
+  00,
+  ,
+  null,
+  01666F6F,
+  80FF
+]"""
+    assert result == expected
+
+
 def test_to_numpy_zero_copy():
     arr = pa.array(range(10))
     old_refcount = sys.getrefcount(arr)

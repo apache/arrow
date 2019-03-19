@@ -34,7 +34,7 @@ h.settings.register_profile('debug', max_examples=10,
 # load default hypothesis profile, either set HYPOTHESIS_PROFILE environment
 # variable or pass --hypothesis-profile option to pytest, to see the generated
 # examples try: pytest pyarrow -sv --only-hypothesis --hypothesis-profile=debug
-h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'default'))
+h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
 
 
 groups = [
