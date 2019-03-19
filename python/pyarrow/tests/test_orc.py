@@ -33,11 +33,6 @@ except ImportError:
     pass
 
 
-# TODO(wesm): The ORC tests depend a lot on pandas currently, so all excluded
-# when it is not installed
-pytestmark = pytest.mark.pandas
-
-
 @pytest.fixture(scope='module')
 def datadir(datadir):
     return datadir / 'orc'
@@ -119,6 +114,7 @@ def check_example_file(orc_path, expected_df, need_fix=False):
     assert json_pos == orc_file.nrows
 
 
+@pytest.mark.pandas
 @pytest.mark.parametrize('filename', [
     'TestOrcFile.test1.orc',
     'TestOrcFile.testDate1900.orc',

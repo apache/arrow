@@ -20,6 +20,7 @@ from numbers import Integral
 
 from pyarrow import types
 from pyarrow.lib import Schema
+import pyarrow._orc as _orc
 
 
 def _is_map(typ):
@@ -69,8 +70,7 @@ class ORCFile(object):
         see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     """
     def __init__(self, source):
-        from pyarrow._orc import ORCReader
-        self.reader = ORCReader()
+        self.reader = _orc.ORCReader()
         self.reader.open(source)
         self._column_index_lookup = _schema_to_indices(self.schema)
 
