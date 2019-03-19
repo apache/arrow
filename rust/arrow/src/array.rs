@@ -113,12 +113,12 @@ pub trait Array: Send + Sync {
 
     /// Returns whether the element at index `i` is null
     fn is_null(&self, i: usize) -> bool {
-        self.data().is_null(i)
+        self.data().is_null(self.data().offset() + i)
     }
 
     /// Returns whether the element at index `i` is not null
     fn is_valid(&self, i: usize) -> bool {
-        self.data().is_valid(i)
+        self.data().is_valid(self.data().offset() + i)
     }
 
     /// Returns the total number of nulls in this array
@@ -751,11 +751,6 @@ impl From<ArrayDataRef> for ListArray {
         let value_offsets = raw_value_offsets as *const i32;
         unsafe {
             assert_eq!(*value_offsets.offset(0), 0, "offsets do not start at zero");
-            assert_eq!(
-                *value_offsets.offset(data.len() as isize),
-                values.data().len() as i32,
-                "inconsistent offsets buffer and values array"
-            );
         }
         Self {
             data: data.clone(),
@@ -975,7 +970,7 @@ impl Array for StructArray {
 
     /// Returns the length (i.e., number of elements) of this array
     fn len(&self) -> usize {
-        self.boxed_fields[0].len()
+        self.data().len()
     }
 }
 
@@ -1142,7 +1137,11 @@ mod tests {
         assert_eq!(5, arr2.len());
         assert_eq!(2, arr2.offset());
         assert_eq!(1, arr2.null_count());
-        assert!(arr2.is_null(1));
+
+        for i in 0..arr2.len() {
+            assert_eq!(i == 1, arr2.is_null(i));
+            assert_eq!(i != 1, arr2.is_valid(i));
+        }
 
         let arr3 = arr2.slice(2, 3);
         assert_eq!(3, arr3.len());
@@ -1392,6 +1391,71 @@ mod tests {
         assert_eq!(0, list_array.null_count());
         assert_eq!(6, list_array.value_offset(1));
         assert_eq!(2, list_array.value_length(1));
+    }
+
+    #[test]
+
+    fn test_list_array_slice() {
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(10)
+            .add_buffer(Buffer::from(
+                &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].to_byte_slice(),
+            ))
+            .build();
+
+        // Construct a buffer for value offsets, for the nested array:
+        //  [[0, 1], null, null, [2, 3], [4, 5], null, [6, 7, 8], null, [9]]
+        let value_offsets =
+            Buffer::from(&[0, 2, 2, 2, 4, 6, 6, 9, 9, 10].to_byte_slice());
+        // 01011001 00000001
+        let mut null_bits: [u8; 2] = [0; 2];
+        bit_util::set_bit(&mut null_bits, 0);
+        bit_util::set_bit(&mut null_bits, 3);
+        bit_util::set_bit(&mut null_bits, 4);
+        bit_util::set_bit(&mut null_bits, 6);
+        bit_util::set_bit(&mut null_bits, 8);
+
+        // Construct a list array from the above two
+        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(9)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .null_bit_buffer(Buffer::from(null_bits))
+            .build();
+        let list_array = ListArray::from(list_data);
+
+        let values = list_array.values();
+        assert_eq!(value_data, values.data());
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(9, list_array.len());
+        assert_eq!(4, list_array.null_count());
+        assert_eq!(2, list_array.value_offset(3));
+        assert_eq!(2, list_array.value_length(3));
+
+        let sliced_array = list_array.slice(1, 6);
+        assert_eq!(6, sliced_array.len());
+        assert_eq!(1, sliced_array.offset());
+        assert_eq!(3, sliced_array.null_count());
+
+        for i in 0..sliced_array.len() {
+            if bit_util::get_bit(&null_bits, sliced_array.offset() + i) {
+                assert!(sliced_array.is_valid(i));
+            } else {
+                assert!(sliced_array.is_null(i));
+            }
+        }
+
+        // Check offset and length for each non-null value.
+        let sliced_list_array =
+            sliced_array.as_any().downcast_ref::<ListArray>().unwrap();
+        assert_eq!(2, sliced_list_array.value_offset(2));
+        assert_eq!(2, sliced_list_array.value_length(2));
+        assert_eq!(4, sliced_list_array.value_offset(3));
+        assert_eq!(2, sliced_list_array.value_length(3));
+        assert_eq!(6, sliced_list_array.value_offset(5));
+        assert_eq!(3, sliced_list_array.value_length(5));
     }
 
     #[test]
@@ -1666,6 +1730,51 @@ mod tests {
 
         assert_eq!(boolean_data, struct_array.column(0).data());
         assert_eq!(int_data, struct_array.column(1).data());
+    }
+
+    #[test]
+    fn test_struct_array_slice() {
+        let mut null_bits: [u8; 1] = [0; 1];
+        bit_util::set_bit(&mut null_bits, 0);
+        bit_util::set_bit(&mut null_bits, 2);
+        bit_util::set_bit(&mut null_bits, 4);
+        let null_bit_buffer = Buffer::from(null_bits);
+
+        let boolean_data = ArrayData::builder(DataType::Boolean)
+            .len(5)
+            .add_buffer(Buffer::from(
+                [false, false, false, true, false].to_byte_slice(),
+            ))
+            .null_bit_buffer(null_bit_buffer.clone())
+            .build();
+        let int_data = ArrayData::builder(DataType::Int64)
+            .len(5)
+            .add_buffer(Buffer::from([42, 28, 19, 31, 54].to_byte_slice()))
+            .null_bit_buffer(null_bit_buffer.clone())
+            .build();
+
+        let mut field_types = vec![];
+        field_types.push(Field::new("a", DataType::Boolean, false));
+        field_types.push(Field::new("b", DataType::Int64, false));
+        let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
+            .len(5)
+            .add_child_data(boolean_data.clone())
+            .add_child_data(int_data.clone())
+            .null_bit_buffer(null_bit_buffer)
+            .build();
+        let struct_array = StructArray::from(struct_array_data);
+
+        assert_eq!(5, struct_array.len());
+        assert_eq!(boolean_data, struct_array.column(0).data());
+        assert_eq!(int_data, struct_array.column(1).data());
+
+        let sliced_array = struct_array.slice(2, 2);
+        assert_eq!(2, sliced_array.len());
+        assert_eq!(2, sliced_array.offset());
+        assert_eq!(1, sliced_array.null_count());
+        assert!(sliced_array.is_valid(0));
+        assert!(sliced_array.is_null(1));
+        assert!(sliced_array.is_valid(2));
     }
 
     #[test]
