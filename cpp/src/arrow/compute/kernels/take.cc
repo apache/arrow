@@ -29,10 +29,17 @@ namespace compute {
 
 Status Take(FunctionContext* context, const Array& values, const Array& indices,
             const TakeOptions& options, std::shared_ptr<Array>* out) {
-  TakeKernel kernel(values.type(), options);
   Datum out_datum;
-  RETURN_NOT_OK(kernel.Call(context, values.data(), indices.data(), &out_datum));
+  RETURN_NOT_OK(
+      Take(context, Datum(values.data()), Datum(indices.data()), options, &out_datum));
   *out = out_datum.make_array();
+  return Status::OK();
+}
+
+Status Take(FunctionContext* context, const Datum& values, const Datum& indices,
+            const TakeOptions& options, Datum* out) {
+  TakeKernel kernel(values.type(), options);
+  RETURN_NOT_OK(kernel.Call(context, values, indices, out));
   return Status::OK();
 }
 
@@ -61,22 +68,21 @@ Status UnsafeAppend(StringBuilder* builder, util::string_view value) {
   return Status::OK();
 }
 
-template <int OutOfBounds, bool AllValuesValid, bool AllIndicesValid, typename ValueArray,
-          typename IndexArray, typename OutBuilder>
+template <TakeOptions::OutOfBoundsBehavior B, bool AllValuesValid, bool AllIndicesValid,
+          typename ValueArray, typename IndexArray, typename OutBuilder>
 Status TakeImpl(FunctionContext*, const ValueArray& values, const IndexArray& indices,
                 OutBuilder* builder) {
-  for (int64_t i = 0; i != indices.length(); ++i) {
+  auto raw_indices = indices.raw_values();
+  for (int64_t i = 0; i < indices.length(); ++i) {
     if (!AllIndicesValid && indices.IsNull(i)) {
       builder->UnsafeAppendNull();
       continue;
     }
-    auto index = indices.raw_values()[i];
-    if (OutOfBounds == TakeOptions::ERROR &&
-        static_cast<int64_t>(index) >= values.length()) {
+    auto index = static_cast<int64_t>(raw_indices[i]);
+    if (B == TakeOptions::ERROR && (index < 0 || index >= values.length())) {
       return Status::Invalid("take index out of bounds");
     }
-    if (OutOfBounds == TakeOptions::TONULL &&
-        static_cast<int64_t>(index) >= values.length()) {
+    if (B == TakeOptions::TO_NULL && (index < 0 || index >= values.length())) {
       builder->UnsafeAppendNull();
       continue;
     }
@@ -89,23 +95,24 @@ Status TakeImpl(FunctionContext*, const ValueArray& values, const IndexArray& in
   return Status::OK();
 }
 
-template <int OutOfBounds, bool AllValuesValid, typename ValueArray, typename IndexArray,
-          typename OutBuilder>
+template <TakeOptions::OutOfBoundsBehavior B, bool AllValuesValid, typename ValueArray,
+          typename IndexArray, typename OutBuilder>
 Status TakeImpl(FunctionContext* context, const ValueArray& values,
                 const IndexArray& indices, OutBuilder* builder) {
   if (indices.null_count() == 0) {
-    return TakeImpl<OutOfBounds, AllValuesValid, true>(context, values, indices, builder);
+    return TakeImpl<B, AllValuesValid, true>(context, values, indices, builder);
   }
-  return TakeImpl<OutOfBounds, AllValuesValid, false>(context, values, indices, builder);
+  return TakeImpl<B, AllValuesValid, false>(context, values, indices, builder);
 }
 
-template <int OutOfBounds, typename ValueArray, typename IndexArray, typename OutBuilder>
+template <TakeOptions::OutOfBoundsBehavior B, typename ValueArray, typename IndexArray,
+          typename OutBuilder>
 Status TakeImpl(FunctionContext* context, const ValueArray& values,
                 const IndexArray& indices, OutBuilder* builder) {
   if (values.null_count() == 0) {
-    return TakeImpl<OutOfBounds, true>(context, values, indices, builder);
+    return TakeImpl<B, true>(context, values, indices, builder);
   }
-  return TakeImpl<OutOfBounds, false>(context, values, indices, builder);
+  return TakeImpl<B, false>(context, values, indices, builder);
 }
 
 template <typename ValueArray, typename IndexArray, typename OutBuilder>
@@ -115,8 +122,8 @@ Status TakeImpl(FunctionContext* context, const ValueArray& values,
   switch (options.out_of_bounds) {
     case TakeOptions::ERROR:
       return TakeImpl<TakeOptions::ERROR>(context, values, indices, builder);
-    case TakeOptions::TONULL:
-      return TakeImpl<TakeOptions::TONULL>(context, values, indices, builder);
+    case TakeOptions::TO_NULL:
+      return TakeImpl<TakeOptions::TO_NULL>(context, values, indices, builder);
     case TakeOptions::UNSAFE:
       return TakeImpl<TakeOptions::UNSAFE>(context, values, indices, builder);
     default:
@@ -147,8 +154,10 @@ struct UnpackValues {
     auto indices_length = params_.indices->length();
     if (params_.options.out_of_bounds == TakeOptions::ERROR && indices_length != 0) {
       auto indices = static_cast<IndexArrayRef>(*params_.indices).raw_values();
-      auto max = *std::max_element(indices, indices + indices_length);
-      if (static_cast<int64_t>(max) > params_.values->length()) {
+      auto minmax = std::minmax_element(indices, indices + indices_length);
+      auto min = static_cast<int64_t>(*minmax.first);
+      auto max = static_cast<int64_t>(*minmax.second);
+      if (min < 0 || max >= params_.values->length()) {
         return Status::Invalid("out of bounds index");
       }
     }
@@ -157,14 +166,20 @@ struct UnpackValues {
   }
 
   Status Visit(const DictionaryType& t) {
-    auto dictionary_indices = params_.values->data()->Copy();
-    dictionary_indices->type = t.index_type();
-    TakeParameters params = params_;
-    params.values = MakeArray(dictionary_indices);
-    UnpackValues<IndexType> unpack = {params};
-    RETURN_NOT_OK(VisitTypeInline(*t.index_type(), &unpack));
-    (*params_.out)->data()->type = dictionary(t.index_type(), t.dictionary());
-    return Status::OK();
+    std::shared_ptr<Array> taken_indices;
+    {
+      // To take from a dictionary, apply the current kernel to the dictionary's
+      // indices. (Use UnpackValues<IndexType> since IndexType is already unpacked)
+      auto indices = static_cast<const DictionaryArray*>(params_.values.get())->indices();
+      TakeParameters params = params_;
+      params.values = indices;
+      params.out = &taken_indices;
+      UnpackValues<IndexType> unpack = {params};
+      RETURN_NOT_OK(VisitTypeInline(*t.index_type(), &unpack));
+    }
+    // create output dictionary from taken indices
+    return DictionaryArray::FromArrays(dictionary(t.index_type(), t.dictionary()),
+                                       taken_indices, params_.out);
   }
 
   Status Visit(const ExtensionType& t) {
@@ -193,9 +208,11 @@ struct UnpackIndices {
     UnpackValues<IndexType> unpack = {params_};
     return VisitTypeInline(*params_.values->type(), &unpack);
   }
+
   Status Visit(const DataType& other) {
     return Status::Invalid("index type not supported: ", other);
   }
+
   const TakeParameters& params_;
 };
 

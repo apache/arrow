@@ -195,9 +195,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   }
 
   void UnsafeAppend(util::string_view value) {
-#ifndef NDEBUG
-    CheckValueSize(static_cast<int64_t>(value.size()));
-#endif
+    CheckValueSize(value);
     UnsafeAppend(reinterpret_cast<const uint8_t*>(value.data()));
   }
 
@@ -206,16 +204,12 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   }
 
   Status Append(const util::string_view& view) {
-#ifndef NDEBUG
-    CheckValueSize(static_cast<int64_t>(view.size()));
-#endif
+    CheckValueSize(view);
     return Append(reinterpret_cast<const uint8_t*>(view.data()));
   }
 
   Status Append(const std::string& s) {
-#ifndef NDEBUG
-    CheckValueSize(static_cast<int64_t>(s.size()));
-#endif
+    CheckValueSize(s);
     return Append(reinterpret_cast<const uint8_t*>(s.data()));
   }
 
@@ -257,6 +251,13 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
  protected:
   int32_t byte_width_;
   BufferBuilder byte_builder_;
+
+  template <typename Sized>
+  void CheckValueSize(const Sized& s, decltype(s.size())* = nullptr) {
+#ifndef NDEBUG
+    CheckValueSize(static_cast<size_t>(s.size()));
+#endif
+  }
 
 #ifndef NDEBUG
   void CheckValueSize(int64_t size);

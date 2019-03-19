@@ -32,12 +32,14 @@ namespace compute {
 class FunctionContext;
 
 struct ARROW_EXPORT TakeOptions {
-  enum {
-    // indices out of bounds will raise an error
+  enum OutOfBoundsBehavior {
+    // Out of bounds indices will raise an error
     ERROR,
-    // indices out of bounds will result in a null value
-    TONULL,
-    // indices out of bounds is undefined behavior
+    // Out of bounds indices will result in a null value
+    TO_NULL,
+    // Bounds checking will be skipped, which is faster.
+    // Only use this if indices are known to be within bounds;
+    // out of bounds indices will result in undefined behavior
     UNSAFE
   } out_of_bounds = ERROR;
 };
@@ -61,6 +63,17 @@ struct ARROW_EXPORT TakeOptions {
 ARROW_EXPORT
 Status Take(FunctionContext* context, const Array& values, const Array& indices,
             const TakeOptions& options, std::shared_ptr<Array>* out);
+
+/// \brief Take from an array of values at indices in another array
+///
+/// \param[in] context the FunctionContext
+/// \param[in] values datum from which to take
+/// \param[in] indices which values to take
+/// \param[in] options options
+/// \param[out] out resulting datum
+ARROW_EXPORT
+Status Take(FunctionContext* context, const Datum& values, const Datum& indices,
+            const TakeOptions& options, Datum* out);
 
 /// \brief BinaryKernel implementing Take operation
 class ARROW_EXPORT TakeKernel : public BinaryKernel {

@@ -92,7 +92,7 @@ TEST_F(TestTakeKernelWithBoolean, TakeBoolean) {
   ASSERT_RAISES(Invalid,
                 this->Take(boolean(), "[true, false, true]", "[0, 9, 0]", options, &arr));
 
-  options.out_of_bounds = TakeOptions::TONULL;
+  options.out_of_bounds = TakeOptions::TO_NULL;
   this->AssertTake("[true, false, true]", "[0, 9, 0]", options, "[true, null, true]");
 }
 
@@ -120,7 +120,7 @@ TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
   ASSERT_RAISES(Invalid, this->Take(this->type_singleton(), "[7, 8, 9]", "[0, 9, 0]",
                                     options, &arr));
 
-  options.out_of_bounds = TakeOptions::TONULL;
+  options.out_of_bounds = TakeOptions::TO_NULL;
   this->AssertTake("[7, 8, 9]", "[0, 9, 0]", options, "[7, null, 7]");
 }
 
@@ -155,7 +155,7 @@ TEST_F(TestTakeKernelWithString, TakeString) {
   ASSERT_RAISES(Invalid,
                 this->Take(utf8(), R"(["a", "b", "c"])", "[0, 9, 0]", options, &arr));
 
-  options.out_of_bounds = TakeOptions::TONULL;
+  options.out_of_bounds = TakeOptions::TO_NULL;
   this->AssertTake(R"(["a", "b", "c"])", "[0, 9, 0]", options, R"(["a", null, "a"])");
 }
 
@@ -167,7 +167,7 @@ TEST_F(TestTakeKernelWithString, TakeDictionary) {
                              "[null, 1, null]");
   this->AssertTakeDictionary(dict, "[0, 1, 4]", "[null, 1, 0]", options, "[null, 1, 0]");
 
-  options.out_of_bounds = TakeOptions::TONULL;
+  options.out_of_bounds = TakeOptions::TO_NULL;
   this->AssertTakeDictionary(dict, "[0, 1, 4]", "[0, 9, 0]", options, "[0, null, 0]");
 }
 
