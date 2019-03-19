@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-///! Collection of utility functions that are leveraged by the query optimizer rules
+//! Collection of utility functions that are leveraged by the query optimizer rules
+
 use std::collections::HashSet;
 
 use arrow::datatypes::{DataType, Field, Schema};
