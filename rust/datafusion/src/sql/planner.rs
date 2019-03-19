@@ -340,7 +340,7 @@ impl SqlToRel {
                             for i in 0..rex_args.len() {
                                 safe_args.push(
                                     rex_args[i]
-                                        .cast_to(fm.args()[i].data_type(), schema),
+                                        .cast_to(fm.args()[i].data_type(), schema)?,
                                 );
                             }
 
