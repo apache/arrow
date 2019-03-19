@@ -842,15 +842,22 @@ struct CastFunctor<T, DictionaryType,
 template <typename IndexType, typename c_type>
 void UnpackPrimitiveDictionary(const Array& indices, const c_type* dictionary,
                                c_type* out) {
-  internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
-                                           indices.length());
+  const auto& in = indices.data()->GetValues<typename IndexType::c_type>(1);
+  int64_t length = indices.length();
 
-  auto in = indices.data()->GetValues<typename IndexType::c_type>(1);
-  for (int64_t i = 0; i < indices.length(); ++i) {
-    if (valid_bits_reader.IsSet()) {
+  if (indices.null_count() == 0) {
+    for (int64_t i = 0; i < length; ++i) {
       out[i] = dictionary[in[i]];
     }
-    valid_bits_reader.Next();
+  } else {
+    auto null_bitmap = indices.null_bitmap_data();
+    internal::BitmapReader valid_bits_reader(null_bitmap, indices.offset(), length);
+    for (int64_t i = 0; i < length; ++i) {
+      if (valid_bits_reader.IsSet()) {
+        out[i] = dictionary[in[i]];
+      }
+      valid_bits_reader.Next();
+    }
   }
 }
 
