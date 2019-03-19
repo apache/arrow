@@ -170,9 +170,14 @@ class ARROW_EXPORT ArrayBuilder {
     if (new_capacity < 0) {
       return Status::Invalid("Resize capacity must be positive");
     }
+// gcc is aggressively complaining about overflows (due to Resize and
+// GrowByFactor). Overflowing int64_t is an indication of other problems.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-overflow"
     if (new_capacity < old_capacity) {
       return Status::Invalid("Resize cannot downsize");
     }
+#pragma GCC diagnostic pop
     return Status::OK();
   }
 
