@@ -81,7 +81,10 @@ impl ExecutionContext {
 
                 Ok(self.optimize(&plan)?)
             }
-            _ => unimplemented!(),
+            other => Err(ExecutionError::General(format!(
+                "Cannot create logical plan from {:?}",
+                other
+            ))),
         }
     }
 
@@ -257,7 +260,9 @@ impl ExecutionContext {
                 }
             }
 
-            _ => unimplemented!(),
+            _ => Err(ExecutionError::NotImplemented(
+                "Unsupported logical plan for execution".to_string(),
+            )),
         }
     }
 }
@@ -274,6 +279,6 @@ impl SchemaProvider for ExecutionContextSchemaProvider {
     }
 
     fn get_function_meta(&self, _name: &str) -> Option<Arc<FunctionMeta>> {
-        unimplemented!()
+        None
     }
 }

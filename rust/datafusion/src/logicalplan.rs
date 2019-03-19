@@ -93,14 +93,6 @@ pub enum Operator {
     NotLike,
 }
 
-impl Operator {
-    /// Get the result type of applying this operation to its left and right inputs
-    pub fn get_datatype(&self, l: &Expr, _r: &Expr, schema: &Schema) -> DataType {
-        //TODO: implement correctly, just go with left side for now
-        l.get_type(schema).clone()
-    }
-}
-
 /// ScalarValue enumeration
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ScalarValue {
