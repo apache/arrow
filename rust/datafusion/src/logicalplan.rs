@@ -18,11 +18,11 @@
 //! Logical query plan
 
 use std::fmt;
+use std::fmt::{Error, Formatter};
 use std::sync::Arc;
 
 use arrow::datatypes::{DataType, Field, Schema};
 
-use crate::error::{ExecutionError, Result};
 use crate::optimizer::utils;
 
 /// Enumeration of supported function types (Scalar and Aggregate)
@@ -91,6 +91,14 @@ pub enum Operator {
     Not,
     Like,
     NotLike,
+}
+
+impl Operator {
+    /// Get the result type of applying this operation to its left and right inputs
+    pub fn get_datatype(&self, l: &Expr, _r: &Expr, schema: &Schema) -> DataType {
+        //TODO: implement correctly, just go with left side for now
+        l.get_type(schema).clone()
+    }
 }
 
 /// ScalarValue enumeration
@@ -184,6 +192,7 @@ impl Expr {
                 ref left,
                 ref right,
                 ref op,
+<<<<<<< HEAD
             } => match op {
                 Operator::Eq | Operator::NotEq => DataType::Boolean,
                 Operator::Lt | Operator::LtEq => DataType::Boolean,
@@ -193,12 +202,27 @@ impl Expr {
                     let left_type = left.get_type(schema);
                     let right_type = right.get_type(schema);
                     utils::get_supertype(&left_type, &right_type).unwrap()
+=======
+            } => {
+                match op {
+                    Operator::Eq | Operator::NotEq => DataType::Boolean,
+                    Operator::Lt | Operator::LtEq => DataType::Boolean,
+                    Operator::Gt | Operator::GtEq => DataType::Boolean,
+                    Operator::And | Operator::Or => DataType::Boolean,
+                    _ => {
+                        let left_type = left.get_type(schema);
+                        let right_type = right.get_type(schema);
+                        utils::get_supertype(&left_type, &right_type)
+                            .unwrap_or(DataType::Utf8) //TODO ???
+                    }
+>>>>>>> Roll back some changes to reduce scope of PR
                 }
-            },
+            }
             Expr::Sort { ref expr, .. } => expr.get_type(schema),
         }
     }
 
+<<<<<<< HEAD
     pub fn cast_to(&self, cast_to_type: &DataType, schema: &Schema) -> Result<Expr> {
         let this_type = self.get_type(schema);
         if this_type == *cast_to_type {
@@ -213,6 +237,17 @@ impl Expr {
                 "Cannot automatically convert {:?} to {:?}",
                 this_type, cast_to_type
             )))
+=======
+    pub fn cast_to(&self, cast_to_type: &DataType, schema: &Schema) -> Expr {
+        let this_type = self.get_type(schema);
+        if this_type == *cast_to_type {
+            self.clone()
+        } else {
+            Expr::Cast {
+                expr: Arc::new(self.clone()),
+                data_type: cast_to_type.clone(),
+            }
+>>>>>>> Roll back some changes to reduce scope of PR
         }
     }
 
@@ -266,7 +301,7 @@ impl Expr {
 }
 
 impl fmt::Debug for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         match self {
             Expr::Column(i) => write!(f, "#{}", i),
             Expr::Literal(v) => write!(f, "{:?}", v),
@@ -369,7 +404,7 @@ impl LogicalPlan {
 }
 
 impl LogicalPlan {
-    fn fmt_with_indent(&self, f: &mut fmt::Formatter, indent: usize) -> fmt::Result {
+    fn fmt_with_indent(&self, f: &mut Formatter, indent: usize) -> Result<(), Error> {
         if indent > 0 {
             writeln!(f)?;
             for _ in 0..indent {
@@ -445,7 +480,7 @@ impl LogicalPlan {
 }
 
 impl fmt::Debug for LogicalPlan {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         self.fmt_with_indent(f, 0)
     }
 }

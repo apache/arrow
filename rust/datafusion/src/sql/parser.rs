@@ -215,6 +215,6 @@ impl DFParser {
         _expr: DFASTNode,
         _precedence: u8,
     ) -> Result<Option<DFASTNode>, ParserError> {
-        Ok(None)
+        unimplemented!()
     }
 }
