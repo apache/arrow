@@ -18,7 +18,6 @@
 from itertools import count
 from numbers import Integral
 
-from pyarrow import _orc
 from pyarrow import types
 from pyarrow.lib import Schema
 
@@ -70,7 +69,8 @@ class ORCFile(object):
         see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     """
     def __init__(self, source):
-        self.reader = _orc.ORCReader()
+        from pyarrow._orc import ORCReader
+        self.reader = ORCReader()
         self.reader.open(source)
         self._column_index_lookup = _schema_to_indices(self.schema)
 
