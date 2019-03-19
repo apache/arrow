@@ -97,7 +97,8 @@ find_package_handle_standard_args(Thrift
                                   THRIFT_INCLUDE_DIR
                                   THRIFT_COMPILER)
 
-if(Thrift_FOUND)
+if(Thrift_FOUND OR THRIFT_FOUND)
+  set(Thrift_FOUND TRUE)
   add_library(Thrift::thrift STATIC IMPORTED)
   set_target_properties(Thrift::thrift
                         PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
