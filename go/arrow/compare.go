@@ -30,34 +30,3 @@ func TypeEquals(left DataType, right DataType) bool {
 
 	return reflect.DeepEqual(left, right)
 }
-
-/*
-func TypeEquals(left DataType, right DataType) bool {
-	switch {
-	case left == nil || right == nil:
-		return false
-	case left.ID() != right.ID():
-		return false
-	}
-
-	switch l := left.(type) {
-	case *FixedSizeBinaryType:
-		r := right.(*FixedSizeBinaryType)
-		return l.ByteWidth == r.ByteWidth
-	case *Time32Type:
-		r := right.(*Time32Type)
-		return l.Unit == r.Unit
-	case *Time64Type:
-		r := right.(*Time64Type)
-		return l.Unit == r.Unit
-	case *TimestampType:
-		r := right.(*TimestampType)
-		return l.Unit == r.Unit && l.TimeZone == r.TimeZone
-	case *ListType:
-		r := right.(*ListType)
-		return TypeEquals(l.elem, r.elem)
-	default:
-		return true
-	}
-}
-*/
