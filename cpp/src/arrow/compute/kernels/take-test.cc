@@ -34,11 +34,11 @@ using util::string_view;
 template <typename ArrowType>
 class TestTakeKernel : public ComputeFixture, public TestBase {
  protected:
-  void AssertTake(const std::shared_ptr<Array>& values,
-                  const std::shared_ptr<Array>& indices, TakeOptions options,
-                  const std::shared_ptr<Array>& expected) {
+  void AssertTakeArrays(const std::shared_ptr<Array>& values,
+                        const std::shared_ptr<Array>& indices, TakeOptions options,
+                        const std::shared_ptr<Array>& expected) {
     std::shared_ptr<Array> actual;
-    ASSERT_OK(arrow::compute::Take(&this->ctx_, *values, *indices, options, actual));
+    ASSERT_OK(arrow::compute::Take(&this->ctx_, *values, *indices, options, &actual));
     AssertArraysEqual(*expected, *actual);
   }
   void AssertTake(const std::shared_ptr<DataType>& type, const std::string& values,
@@ -140,9 +140,8 @@ class TestTakeKernelWithString : public TestTakeKernel<StringType> {
                                           &values));
     ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_indices),
                                           &expected));
-    ASSERT_OK(arrow::compute::Take(&this->ctx_, *values, *ArrayFromJSON(int8(), indices),
-                                   options, &actual));
-    AssertArraysEqual(*expected, *actual);
+    auto take_indices = ArrayFromJSON(int8(), indices);
+    this->AssertTakeArrays(values, take_indices, options, expected);
   }
 };
 
