@@ -1509,25 +1509,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "inconsistent offsets buffer and values array")]
-    fn test_list_array_invalid_value_offset_end() {
-        let value_data = ArrayData::builder(DataType::Int32)
-            .len(8)
-            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
-            .build();
-
-        let value_offsets = Buffer::from(&[0, 2, 5, 7].to_byte_slice());
-
-        let list_data_type = DataType::List(Box::new(DataType::Int32));
-        let list_data = ArrayData::builder(list_data_type.clone())
-            .len(3)
-            .add_buffer(value_offsets.clone())
-            .add_child_data(value_data.clone())
-            .build();
-        ListArray::from(list_data);
-    }
-
-    #[test]
     fn test_binary_array() {
         let values: [u8; 12] = [
             b'h', b'e', b'l', b'l', b'o', b'p', b'a', b'r', b'q', b'u', b'e', b't',

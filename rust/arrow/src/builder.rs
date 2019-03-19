@@ -686,6 +686,10 @@ impl StructBuilder {
             child_data.push(arr.data());
         }
 
+        if child_data.len() > 0 {
+            self.len = child_data[0].len()
+        }
+
         let null_bit_buffer = self.bitmap_builder.finish();
         let null_count = self.len - bit_util::count_set_bits(null_bit_buffer.data());
         let mut builder = ArrayData::builder(DataType::Struct(self.fields.clone()))
@@ -1357,7 +1361,7 @@ mod tests {
 
         let arr = builder.finish();
         assert_eq!(10, arr.len());
-        assert_eq!(0, builder.len());
+        assert_eq!(10, builder.len());
 
         builder
             .field_builder::<Int32Builder>(0)
@@ -1372,7 +1376,7 @@ mod tests {
 
         let arr = builder.finish();
         assert_eq!(5, arr.len());
-        assert_eq!(0, builder.len());
+        assert_eq!(5, builder.len());
     }
 
     #[test]
