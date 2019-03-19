@@ -22,6 +22,7 @@ use std::sync::Arc;
 
 use crate::error::*;
 use crate::logicalplan::*;
+use crate::optimizer::utils;
 
 use arrow::datatypes::*;
 
@@ -110,8 +111,10 @@ impl SqlToRel {
                     let mut all_fields: Vec<Expr> = group_expr.clone();
                     aggr_expr.iter().for_each(|x| all_fields.push(x.clone()));
 
-                    let aggr_schema =
-                        Schema::new(exprlist_to_fields(&all_fields, input_schema));
+                    let aggr_schema = Schema::new(utils::exprlist_to_fields(
+                        &all_fields,
+                        input_schema,
+                    )?);
 
                     //TODO: selection, projection, everything else
                     Ok(Arc::new(LogicalPlan::Aggregate {
@@ -126,10 +129,9 @@ impl SqlToRel {
                         _ => input.clone(),
                     };
 
-                    let projection_schema = Arc::new(Schema::new(exprlist_to_fields(
-                        &expr,
-                        input_schema.as_ref(),
-                    )));
+                    let projection_schema = Arc::new(Schema::new(
+                        utils::exprlist_to_fields(&expr, input_schema.as_ref())?,
+                    ));
 
                     let projection = LogicalPlan::Projection {
                         expr: expr,
@@ -234,9 +236,7 @@ impl SqlToRel {
             }
 
             &ASTNode::SQLWildcard => {
-                //                schema.columns().iter().enumerate()
-                //                    .map(|(i,c)| Ok(Expr::Column(i))).collect()
-                unimplemented!("SQL wildcard operator is not supported in projection - please use explicit column names")
+                Err(ExecutionError::NotImplemented("SQL wildcard operator is not supported in projection - please use explicit column names".to_string()))
             }
 
             &ASTNode::SQLCast {
@@ -284,13 +284,13 @@ impl SqlToRel {
                 let left_type = left_expr.get_type(schema);
                 let right_type = right_expr.get_type(schema);
 
-                match get_supertype(&left_type, &right_type) {
-                    Some(supertype) => Ok(Expr::BinaryExpr {
+                match utils::get_supertype(&left_type, &right_type) {
+                    Ok(supertype) => Ok(Expr::BinaryExpr {
                         left: Arc::new(left_expr.cast_to(&supertype, schema)?),
                         op: operator,
                         right: Arc::new(right_expr.cast_to(&supertype, schema)?),
                     }),
-                    None => {
+                    Err(_) => {
                         return Err(ExecutionError::General(format!(
                             "No common supertype found for binary operator {:?} \
                              with input types {:?} and {:?}",
@@ -395,48 +395,6 @@ pub fn convert_data_type(sql: &SQLType) -> Result<DataType> {
             other
         ))),
     }
-}
-
-/// Derive field meta-data for an expression, for use in creating schemas that result from
-/// evaluating expressions against an input schema.
-pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Field {
-    match e {
-        Expr::Column(i) => input_schema.fields()[*i].clone(),
-        Expr::Literal(ref lit) => Field::new("lit", lit.get_datatype(), true),
-        Expr::ScalarFunction {
-            ref name,
-            ref return_type,
-            ..
-        } => Field::new(name, return_type.clone(), true),
-        Expr::AggregateFunction {
-            ref name,
-            ref return_type,
-            ..
-        } => Field::new(name, return_type.clone(), true),
-        Expr::Cast { ref data_type, .. } => Field::new("cast", data_type.clone(), true),
-        Expr::BinaryExpr {
-            ref left,
-            ref right,
-            ..
-        } => {
-            let left_type = left.get_type(input_schema);
-            let right_type = right.get_type(input_schema);
-            Field::new(
-                "binary_expr",
-                get_supertype(&left_type, &right_type).unwrap(),
-                true,
-            )
-        }
-        _ => unimplemented!("Cannot determine schema type for expression {:?}", e),
-    }
-}
-
-/// Derive field meta-data for a list of expressions, for use in creating schemas that result from
-/// evaluating expressions against an input schema.
-pub fn exprlist_to_fields(expr: &Vec<Expr>, input_schema: &Schema) -> Vec<Field> {
-    expr.iter()
-        .map(|e| expr_to_field(e, input_schema))
-        .collect()
 }
 
 #[cfg(test)]

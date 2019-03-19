@@ -19,3 +19,4 @@
 
 pub mod optimizer;
 pub mod projection_push_down;
+pub mod utils;

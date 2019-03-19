@@ -18,10 +18,12 @@
 //! Logical query plan
 
 use std::fmt;
-use std::fmt::{Error, Formatter};
 use std::sync::Arc;
 
-use arrow::datatypes::*;
+use arrow::datatypes::{DataType, Field, Schema};
+
+use crate::error::{ExecutionError, Result};
+use crate::optimizer::utils;
 
 /// Enumeration of supported function types (Scalar and Aggregate)
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -91,14 +93,6 @@ pub enum Operator {
     NotLike,
 }
 
-impl Operator {
-    /// Get the result type of applying this operation to its left and right inputs
-    pub fn get_datatype(&self, l: &Expr, _r: &Expr, schema: &Schema) -> DataType {
-        //TODO: implement correctly, just go with left side for now
-        l.get_type(schema).clone()
-    }
-}
-
 /// ScalarValue enumeration
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ScalarValue {
@@ -133,8 +127,7 @@ impl ScalarValue {
             ScalarValue::Float32(_) => DataType::Float32,
             ScalarValue::Float64(_) => DataType::Float64,
             ScalarValue::Utf8(_) => DataType::Utf8,
-            ScalarValue::Struct(_) => unimplemented!(),
-            ScalarValue::Null => unimplemented!(),
+            _ => panic!("Cannot treat {:?} as scalar value", self),
         }
     }
 }
@@ -191,28 +184,22 @@ impl Expr {
                 ref left,
                 ref right,
                 ref op,
-            } => {
-                match op {
-                    Operator::Eq | Operator::NotEq => DataType::Boolean,
-                    Operator::Lt | Operator::LtEq => DataType::Boolean,
-                    Operator::Gt | Operator::GtEq => DataType::Boolean,
-                    Operator::And | Operator::Or => DataType::Boolean,
-                    _ => {
-                        let left_type = left.get_type(schema);
-                        let right_type = right.get_type(schema);
-                        get_supertype(&left_type, &right_type).unwrap_or(DataType::Utf8) //TODO ???
-                    }
+            } => match op {
+                Operator::Eq | Operator::NotEq => DataType::Boolean,
+                Operator::Lt | Operator::LtEq => DataType::Boolean,
+                Operator::Gt | Operator::GtEq => DataType::Boolean,
+                Operator::And | Operator::Or => DataType::Boolean,
+                _ => {
+                    let left_type = left.get_type(schema);
+                    let right_type = right.get_type(schema);
+                    utils::get_supertype(&left_type, &right_type).unwrap()
                 }
-            }
+            },
             Expr::Sort { ref expr, .. } => expr.get_type(schema),
         }
     }
 
-    pub fn cast_to(
-        &self,
-        cast_to_type: &DataType,
-        schema: &Schema,
-    ) -> Result<Expr, String> {
+    pub fn cast_to(&self, cast_to_type: &DataType, schema: &Schema) -> Result<Expr> {
         let this_type = self.get_type(schema);
         if this_type == *cast_to_type {
             Ok(self.clone())
@@ -222,10 +209,10 @@ impl Expr {
                 data_type: cast_to_type.clone(),
             })
         } else {
-            Err(format!(
+            Err(ExecutionError::General(format!(
                 "Cannot automatically convert {:?} to {:?}",
                 this_type, cast_to_type
-            ))
+            )))
         }
     }
 
@@ -279,7 +266,7 @@ impl Expr {
 }
 
 impl fmt::Debug for Expr {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Expr::Column(i) => write!(f, "#{}", i),
             Expr::Literal(v) => write!(f, "{:?}", v),
@@ -382,7 +369,7 @@ impl LogicalPlan {
 }
 
 impl LogicalPlan {
-    fn fmt_with_indent(&self, f: &mut Formatter, indent: usize) -> Result<(), Error> {
+    fn fmt_with_indent(&self, f: &mut fmt::Formatter, indent: usize) -> fmt::Result {
         if indent > 0 {
             writeln!(f)?;
             for _ in 0..indent {
@@ -458,119 +445,8 @@ impl LogicalPlan {
 }
 
 impl fmt::Debug for LogicalPlan {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.fmt_with_indent(f, 0)
-    }
-}
-
-//TODO move to Arrow DataType impl?
-pub fn get_supertype(l: &DataType, r: &DataType) -> Option<DataType> {
-    match _get_supertype(l, r) {
-        Some(dt) => Some(dt),
-        None => match _get_supertype(r, l) {
-            Some(dt) => Some(dt),
-            None => None,
-        },
-    }
-}
-
-fn _get_supertype(l: &DataType, r: &DataType) -> Option<DataType> {
-    use self::DataType::*;
-    match (l, r) {
-        (UInt8, Int8) => Some(Int8),
-        (UInt8, Int16) => Some(Int16),
-        (UInt8, Int32) => Some(Int32),
-        (UInt8, Int64) => Some(Int64),
-
-        (UInt16, Int16) => Some(Int16),
-        (UInt16, Int32) => Some(Int32),
-        (UInt16, Int64) => Some(Int64),
-
-        (UInt32, Int32) => Some(Int32),
-        (UInt32, Int64) => Some(Int64),
-
-        (UInt64, Int64) => Some(Int64),
-
-        (Int8, UInt8) => Some(Int8),
-
-        (Int16, UInt8) => Some(Int16),
-        (Int16, UInt16) => Some(Int16),
-
-        (Int32, UInt8) => Some(Int32),
-        (Int32, UInt16) => Some(Int32),
-        (Int32, UInt32) => Some(Int32),
-
-        (Int64, UInt8) => Some(Int64),
-        (Int64, UInt16) => Some(Int64),
-        (Int64, UInt32) => Some(Int64),
-        (Int64, UInt64) => Some(Int64),
-
-        (UInt8, UInt8) => Some(UInt8),
-        (UInt8, UInt16) => Some(UInt16),
-        (UInt8, UInt32) => Some(UInt32),
-        (UInt8, UInt64) => Some(UInt64),
-        (UInt8, Float32) => Some(Float32),
-        (UInt8, Float64) => Some(Float64),
-
-        (UInt16, UInt8) => Some(UInt16),
-        (UInt16, UInt16) => Some(UInt16),
-        (UInt16, UInt32) => Some(UInt32),
-        (UInt16, UInt64) => Some(UInt64),
-        (UInt16, Float32) => Some(Float32),
-        (UInt16, Float64) => Some(Float64),
-
-        (UInt32, UInt8) => Some(UInt32),
-        (UInt32, UInt16) => Some(UInt32),
-        (UInt32, UInt32) => Some(UInt32),
-        (UInt32, UInt64) => Some(UInt64),
-        (UInt32, Float32) => Some(Float32),
-        (UInt32, Float64) => Some(Float64),
-
-        (UInt64, UInt8) => Some(UInt64),
-        (UInt64, UInt16) => Some(UInt64),
-        (UInt64, UInt32) => Some(UInt64),
-        (UInt64, UInt64) => Some(UInt64),
-        (UInt64, Float32) => Some(Float32),
-        (UInt64, Float64) => Some(Float64),
-
-        (Int8, Int8) => Some(Int8),
-        (Int8, Int16) => Some(Int16),
-        (Int8, Int32) => Some(Int32),
-        (Int8, Int64) => Some(Int64),
-        (Int8, Float32) => Some(Float32),
-        (Int8, Float64) => Some(Float64),
-
-        (Int16, Int8) => Some(Int16),
-        (Int16, Int16) => Some(Int16),
-        (Int16, Int32) => Some(Int32),
-        (Int16, Int64) => Some(Int64),
-        (Int16, Float32) => Some(Float32),
-        (Int16, Float64) => Some(Float64),
-
-        (Int32, Int8) => Some(Int32),
-        (Int32, Int16) => Some(Int32),
-        (Int32, Int32) => Some(Int32),
-        (Int32, Int64) => Some(Int64),
-        (Int32, Float32) => Some(Float32),
-        (Int32, Float64) => Some(Float64),
-
-        (Int64, Int8) => Some(Int64),
-        (Int64, Int16) => Some(Int64),
-        (Int64, Int32) => Some(Int64),
-        (Int64, Int64) => Some(Int64),
-        (Int64, Float32) => Some(Float32),
-        (Int64, Float64) => Some(Float64),
-
-        (Float32, Float32) => Some(Float32),
-        (Float32, Float64) => Some(Float64),
-        (Float64, Float32) => Some(Float64),
-        (Float64, Float64) => Some(Float64),
-
-        (Utf8, Utf8) => Some(Utf8),
-
-        (Boolean, Boolean) => Some(Boolean),
-
-        _ => None,
     }
 }
 
