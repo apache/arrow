@@ -412,8 +412,8 @@ Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out);
 ///
 /// \return Status
 ARROW_EXPORT
-Status Concatenate(const BufferVector& buffers, MemoryPool* pool,
-                   std::shared_ptr<Buffer>* out);
+Status ConcatenateBuffers(const BufferVector& buffers, MemoryPool* pool,
+                          std::shared_ptr<Buffer>* out);
 
 /// @}
 

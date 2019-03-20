@@ -31,11 +31,122 @@
 
 namespace arrow {
 
-struct ConcatenateImpl {
+/// offset, length pair for representing a Range of a buffer or array
+struct Range {
+  int64_t offset, length;
+
+  Range() : offset(-1), length(0) {}
+  Range(int64_t o, int64_t l) : offset(o), length(l) {}
+};
+
+/// non-owning view into a range of bits
+struct Bitmap {
+  Bitmap() = default;
+  Bitmap(const uint8_t* d, Range r) : data(d), range(r) {}
+  explicit Bitmap(const std::shared_ptr<Buffer>& buffer, Range r)
+      : Bitmap(buffer ? buffer->data() : nullptr, r) {}
+
+  const uint8_t* data;
+  Range range;
+
+  bool AllSet() const { return data == nullptr; }
+};
+
+// Allocate a buffer and concatenate bitmaps into it.
+static Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps, MemoryPool* pool,
+                                 std::shared_ptr<Buffer>* out) {
+  int64_t out_length = 0;
+  for (size_t i = 0; i < bitmaps.size(); ++i) {
+    out_length += bitmaps[i].range.length;
+  }
+  RETURN_NOT_OK(AllocateBitmap(pool, out_length, out));
+  uint8_t* dst = (*out)->mutable_data();
+
+  int64_t bitmap_offset = 0;
+  for (size_t i = 0; i < bitmaps.size(); ++i) {
+    auto bitmap = bitmaps[i];
+    if (bitmap.AllSet()) {
+      BitUtil::SetBitsTo(dst, bitmap_offset, bitmap.range.length, true);
+    } else {
+      internal::CopyBitmap(bitmap.data, bitmap.range.offset, bitmap.range.length, dst,
+                           bitmap_offset, false);
+    }
+    bitmap_offset += bitmap.range.length;
+  }
+
+  // finally (if applicable) zero out any trailing bits
+  if (auto preceding_bits = BitUtil::kPrecedingBitmask[out_length % 8]) {
+    dst[out_length / 8] &= preceding_bits;
+  }
+  return Status::OK();
+}
+
+// Write offsets in src into dst, adjusting them such that first_offset
+// will be the first offset written.
+template <typename Offset>
+static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset,
+                         Offset* dst, Range* values_range);
+
+// Concatenate buffers holding offsets into a single buffer of offsets,
+// also computing the ranges of values spanned by each buffer of offsets.
+template <typename Offset>
+static Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
+                                 std::shared_ptr<Buffer>* out,
+                                 std::vector<Range>* values_ranges) {
+  values_ranges->resize(buffers.size());
+
+  // allocate output buffer
+  int64_t out_length = 0;
+  for (size_t i = 0; i < buffers.size(); ++i) {
+    out_length += buffers[i]->size() / sizeof(Offset);
+  }
+  RETURN_NOT_OK(AllocateBuffer(pool, (out_length + 1) * sizeof(Offset), out));
+  auto dst = reinterpret_cast<Offset*>((*out)->mutable_data());
+
+  int64_t elements_length = 0;
+  Offset values_length = 0;
+  for (size_t i = 0; i < buffers.size(); ++i) {
+    // the first offset from buffers[i] will be adjusted to values_length
+    // (the cumulative length of values spanned by offsets in previous buffers)
+    RETURN_NOT_OK(PutOffsets<Offset>(buffers[i], values_length, &dst[elements_length],
+                                     &values_ranges->at(i)));
+    elements_length += buffers[i]->size() / sizeof(Offset);
+    values_length += static_cast<Offset>(values_ranges->at(i).length);
+  }
+
+  // the final element in dst is the length of all values spanned by the offsets
+  dst[out_length] = values_length;
+  return Status::OK();
+}
+
+template <typename Offset>
+static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset,
+                         Offset* dst, Range* values_range) {
+  // Get the range of offsets to transfer from src
+  auto src_begin = reinterpret_cast<const Offset*>(src->data());
+  auto src_end = reinterpret_cast<const Offset*>(src->data() + src->size());
+
+  // Compute the range of values which is spanned by this range of offsets
+  values_range->offset = src_begin[0];
+  values_range->length = *src_end - values_range->offset;
+  if (first_offset > std::numeric_limits<Offset>::max() - values_range->length) {
+    return Status::Invalid("offset overflow while concatenating arrays");
+  }
+
+  // Write offsets into dst, ensuring that the first offset written is
+  // first_offset
+  auto adjustment = first_offset - src_begin[0];
+  std::transform(src_begin, src_end, dst,
+                 [adjustment](Offset offset) { return offset + adjustment; });
+  return Status::OK();
+}
+
+class ConcatenateImpl {
+ public:
   ConcatenateImpl(const std::vector<ArrayData>& in, MemoryPool* pool)
       : in_(in), pool_(pool) {
     out_.type = in[0].type;
-    for (int i = 0; i < in_size(); ++i) {
+    for (size_t i = 0; i < in_.size(); ++i) {
       out_.length += in[i].length;
       if (out_.null_count == kUnknownNullCount || in[i].null_count == kUnknownNullCount) {
         out_.null_count = kUnknownNullCount;
@@ -50,64 +161,52 @@ struct ConcatenateImpl {
     }
   }
 
-  /// offset, length pair for representing a Range of a buffer or array
-  struct Range {
-    int64_t offset, length;
-
-    Range() : offset(-1), length(0) {}
-    Range(int64_t o, int64_t l) : offset(o), length(l) {}
-  };
-
-  struct Bitmap {
-    Bitmap() = default;
-    Bitmap(const uint8_t* d, Range r) : data(d), range(r) {}
-    explicit Bitmap(const std::shared_ptr<Buffer>& buffer, Range r = Range())
-        : Bitmap(buffer ? buffer->data() : nullptr, r) {}
-
-    const uint8_t* data;
-    Range range;
-
-    bool AllSet() const { return data == nullptr; }
-  };
+  Status Concatenate(ArrayData* out) && {
+    if (out_.null_count != 0) {
+      RETURN_NOT_OK(ConcatenateBitmaps(Bitmaps(0), pool_, &out_.buffers[0]));
+    }
+    RETURN_NOT_OK(VisitTypeInline(*out_.type, this));
+    *out = std::move(out_);
+    return Status::OK();
+  }
 
   Status Visit(const NullType&) { return Status::OK(); }
 
   Status Visit(const BooleanType&) {
-    return ConcatenateBitmaps(Slices(Bitmaps(1), Ranges()), &out_.buffers[1]);
+    return ConcatenateBitmaps(Bitmaps(1), pool_, &out_.buffers[1]);
   }
 
-  // handle numbers, decimal128, fixed_size_binary
   Status Visit(const FixedWidthType& fixed) {
-    return arrow::Concatenate(Slices(Buffers(1), FixedWidthRanges(fixed)), pool_,
-                              &out_.buffers[1]);
+    // handles numbers, decimal128, fixed_size_binary
+    return ConcatenateBuffers(Buffers(1, fixed), pool_, &out_.buffers[1]);
   }
 
   Status Visit(const BinaryType&) {
     std::vector<Range> value_ranges;
-    RETURN_NOT_OK(ConcatenateOffsets(Buffers(1), &out_.buffers[1], &value_ranges));
-    return arrow::Concatenate(Slices(Buffers(2), value_ranges), pool_, &out_.buffers[2]);
+    RETURN_NOT_OK(ConcatenateOffsets<int32_t>(Buffers(1, *offset_type), pool_,
+                                              &out_.buffers[1], &value_ranges));
+    return ConcatenateBuffers(Buffers(2, value_ranges), pool_, &out_.buffers[2]);
   }
 
   Status Visit(const ListType&) {
     std::vector<Range> value_ranges;
-    RETURN_NOT_OK(ConcatenateOffsets(Buffers(1), &out_.buffers[1], &value_ranges));
-    return ConcatenateImpl(Slices(ChildData(0), value_ranges), pool_)
+    RETURN_NOT_OK(ConcatenateOffsets<int32_t>(Buffers(1, *offset_type), pool_,
+                                              &out_.buffers[1], &value_ranges));
+    return ConcatenateImpl(ChildData(0, value_ranges), pool_)
         .Concatenate(out_.child_data[0].get());
   }
 
   Status Visit(const StructType& s) {
-    auto ranges = Ranges();
     for (int i = 0; i < s.num_children(); ++i) {
-      RETURN_NOT_OK(ConcatenateImpl(Slices(ChildData(i), ranges), pool_)
-                        .Concatenate(out_.child_data[i].get()));
+      RETURN_NOT_OK(
+          ConcatenateImpl(ChildData(i), pool_).Concatenate(out_.child_data[i].get()));
     }
     return Status::OK();
   }
 
   Status Visit(const DictionaryType& d) {
     auto fixed = internal::checked_cast<const FixedWidthType*>(d.index_type().get());
-    return arrow::Concatenate(Slices(Buffers(1), FixedWidthRanges(*fixed)), pool_,
-                              &out_.buffers[1]);
+    return ConcatenateBuffers(Buffers(1, *fixed), pool_, &out_.buffers[1]);
   }
 
   Status Visit(const UnionType& u) {
@@ -119,153 +218,100 @@ struct ConcatenateImpl {
     return Status::NotImplemented("concatenation of ", e);
   }
 
-  Status Concatenate(ArrayData* out) && {
-    if (out_.null_count != 0) {
-      RETURN_NOT_OK(ConcatenateBitmaps(Slices(Bitmaps(0), Ranges()), &out_.buffers[0]));
-    }
-    RETURN_NOT_OK(VisitTypeInline(*out_.type, this));
-    *out = std::move(out_);
-    return Status::OK();
-  }
-
-  BufferVector Buffers(int index) {
-    BufferVector buffers(in_size());
-    for (int i = 0; i != in_size(); ++i) {
-      buffers[i] = in_[i].buffers[index];
+ private:
+  // Gather the index-th buffer of each input into a vector.
+  // Bytes are sliced with that input's offset and length.
+  BufferVector Buffers(size_t index) {
+    BufferVector buffers(in_.size());
+    for (size_t i = 0; i < in_.size(); ++i) {
+      buffers[i] = SliceBuffer(in_[i].buffers[index], in_[i].offset, in_[i].length);
     }
     return buffers;
   }
 
-  std::vector<Bitmap> Bitmaps(int index) {
-    std::vector<Bitmap> bitmaps(in_size());
-    for (int i = 0; i != in_size(); ++i) {
-      bitmaps[i] = Bitmap(in_[i].buffers[index]);
+  // Gather the index-th buffer of each input into a vector.
+  // Bytes are sliced with the explicitly passed ranges.
+  BufferVector Buffers(size_t index, const std::vector<Range>& ranges) {
+    DCHECK_EQ(in_.size(), ranges.size());
+    BufferVector buffers(in_.size());
+    for (size_t i = 0; i < in_.size(); ++i) {
+      buffers[i] = SliceBuffer(in_[i].buffers[index], ranges[i].offset, ranges[i].length);
+    }
+    return buffers;
+  }
+
+  // Gather the index-th buffer of each input into a vector.
+  // Buffers are assumed to contain elements of fixed.bit_width(),
+  // those elements are sliced with that input's offset and length.
+  BufferVector Buffers(size_t index, const FixedWidthType& fixed) {
+    DCHECK_EQ(fixed.bit_width() % 8, 0);
+    auto byte_width = fixed.bit_width() / 8;
+    BufferVector buffers(in_.size());
+    for (size_t i = 0; i < in_.size(); ++i) {
+      buffers[i] = SliceBuffer(in_[i].buffers[index], in_[i].offset * byte_width,
+                               in_[i].length * byte_width);
+    }
+    return buffers;
+  }
+
+  // Gather the index-th buffer of each input as a Bitmap
+  // into a vector of Bitmaps.
+  std::vector<Bitmap> Bitmaps(size_t index) {
+    std::vector<Bitmap> bitmaps(in_.size());
+    for (size_t i = 0; i < in_.size(); ++i) {
+      Range range(in_[i].offset, in_[i].length);
+      bitmaps[i] = Bitmap(in_[i].buffers[index], range);
     }
     return bitmaps;
   }
 
-  std::vector<ArrayData> ChildData(int index) {
-    std::vector<ArrayData> child_data(in_size());
-    for (int i = 0; i != in_size(); ++i) {
-      child_data[i] = *in_[i].child_data[index];
+  // Gather the index-th child_data of each input into a vector.
+  // Elements are sliced with that input's offset and length.
+  std::vector<ArrayData> ChildData(size_t index) {
+    std::vector<ArrayData> child_data(in_.size());
+    for (size_t i = 0; i < in_.size(); ++i) {
+      child_data[i] = in_[i].child_data[index]->Slice(in_[i].offset, in_[i].length);
     }
     return child_data;
   }
 
-  ArrayData Slice(const ArrayData& d, Range r) { return d.Slice(r.offset, r.length); }
-
-  std::shared_ptr<Buffer> Slice(const std::shared_ptr<Buffer>& b, Range r) {
-    return SliceBuffer(b, r.offset, r.length);
+  // Gather the index-th child_data of each input into a vector.
+  // Elements are sliced with the explicitly passed ranges.
+  std::vector<ArrayData> ChildData(size_t index, const std::vector<Range>& ranges) {
+    DCHECK_EQ(in_.size(), ranges.size());
+    std::vector<ArrayData> child_data(in_.size());
+    for (size_t i = 0; i < in_.size(); ++i) {
+      child_data[i] = in_[i].child_data[index]->Slice(ranges[i].offset, ranges[i].length);
+    }
+    return child_data;
   }
 
-  Bitmap Slice(Bitmap b, Range r) { return Bitmap(b.data, r); }
-
-  template <typename Slicable>
-  std::vector<Slicable> Slices(const std::vector<Slicable>& slicable,
-                               const std::vector<Range>& ranges) {
-    std::vector<Slicable> slices(in_size());
-    for (int i = 0; i < in_size(); ++i) {
-      slices[i] = Slice(slicable[i], ranges[i]);
-    }
-    return slices;
-  }
-
-  std::vector<Range> Ranges() {
-    std::vector<Range> ranges(in_size());
-    for (int i = 0; i < in_size(); ++i) {
-      ranges[i] = in_range(i);
-    }
-    return ranges;
-  }
-
-  std::vector<Range> FixedWidthRanges(const FixedWidthType& fixed) {
-    DCHECK_EQ(fixed.bit_width() % 8, 0);
-    auto byte_width = fixed.bit_width() / 8;
-    auto ranges = Ranges();
-    for (Range& range : ranges) {
-      range.offset *= byte_width;
-      range.length *= byte_width;
-    }
-    return ranges;
-  }
-
-  Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps,
-                            std::shared_ptr<Buffer>* out) {
-    RETURN_NOT_OK(AllocateBitmap(pool_, out_.length, out));
-    uint8_t* bitmap_data = (*out)->mutable_data();
-    int64_t bitmap_offset = 0;
-    for (int i = 0; i < in_size(); ++i) {
-      auto bitmap = bitmaps[i];
-      if (bitmap.AllSet()) {
-        BitUtil::SetBitsTo(bitmap_data, bitmap_offset, bitmap.range.length, true);
-      } else {
-        internal::CopyBitmap(bitmap.data, bitmap.range.offset, bitmap.range.length,
-                             bitmap_data, bitmap_offset, false);
-      }
-      bitmap_offset += bitmap.range.length;
-    }
-    if (auto preceding_bits = BitUtil::kPrecedingBitmask[out_.length % 8]) {
-      bitmap_data[out_.length / 8] &= preceding_bits;
-    }
-    return Status::OK();
-  }
-
-  Status PutOffsets(const std::shared_ptr<Buffer>& src, Range range,
-                    int32_t values_length, int32_t* dst_begin, Range* values_range) {
-    auto src_begin = reinterpret_cast<const int32_t*>(src->data()) + range.offset;
-    auto src_end = src_begin + range.length;
-    auto first_offset = src_begin[0];
-    values_range->offset = first_offset;
-    values_range->length = *src_end - values_range->offset;
-    if (values_length > std::numeric_limits<int32_t>::max() - values_range->length) {
-      return Status::Invalid("offset overflow while concatenating arrays");
-    }
-    std::transform(src_begin, src_end, dst_begin,
-                   [values_length, first_offset](int32_t offset) {
-                     return offset - first_offset + values_length;
-                   });
-    return Status::OK();
-  }
-
-  Status ConcatenateOffsets(const BufferVector& buffers, std::shared_ptr<Buffer>* out,
-                            std::vector<Range>* ranges) {
-    RETURN_NOT_OK(AllocateBuffer(pool_, (out_.length + 1) * sizeof(int32_t), out));
-    auto dst = reinterpret_cast<int32_t*>((*out)->mutable_data());
-    int64_t elements_length = 0;
-    int32_t values_length = 0;
-    ranges->resize(in_size());
-    for (int i = 0; i < in_size(); ++i) {
-      RETURN_NOT_OK(PutOffsets(buffers[i], in_range(i), values_length,
-                               &dst[elements_length], &ranges->at(i)));
-      elements_length += in_length(i);
-      values_length += static_cast<int32_t>(ranges->at(i).length);
-    }
-    dst[elements_length] = values_length;
-    return Status::OK();
-  }
-
-  int in_size() const { return static_cast<int>(in_.size()); }
-  int64_t in_offset(int i) const { return in_[i].offset; }
-  int64_t in_length(int i) const { return in_[i].length; }
-  Range in_range(int i) const { return Range(in_offset(i), in_length(i)); }
-
+  static const std::shared_ptr<FixedWidthType> offset_type;
   const std::vector<ArrayData>& in_;
   MemoryPool* pool_;
   ArrayData out_;
 };
 
+const std::shared_ptr<FixedWidthType> ConcatenateImpl::offset_type =
+    std::static_pointer_cast<FixedWidthType>(int32());
+
 Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
                    std::shared_ptr<Array>* out) {
-  DCHECK_GT(arrays.size(), 0);
+  if (arrays.size() == 0) {
+    return Status::Invalid("Must pass at least one array");
+  }
+
+  // gather ArrayData of input arrays
   std::vector<ArrayData> data(arrays.size());
-  for (std::size_t i = 0; i < arrays.size(); ++i) {
+  for (size_t i = 0; i < arrays.size(); ++i) {
     if (!arrays[i]->type()->Equals(*arrays[0]->type())) {
-      return Status::Invalid("arrays to be concatentated must be identically typed, but ",
+      return Status::Invalid("arrays to be concatenated must be identically typed, but ",
                              *arrays[0]->type(), " and ", *arrays[i]->type(),
                              " were encountered.");
     }
     data[i] = ArrayData(*arrays[i]->data());
   }
+
   ArrayData out_data;
   RETURN_NOT_OK(ConcatenateImpl(data, pool).Concatenate(&out_data));
   *out = MakeArray(std::make_shared<ArrayData>(std::move(out_data)));

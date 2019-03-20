@@ -227,8 +227,8 @@ Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out) {
   return AllocateEmptyBitmap(default_memory_pool(), length, out);
 }
 
-Status Concatenate(const std::vector<std::shared_ptr<Buffer>>& buffers, MemoryPool* pool,
-                   std::shared_ptr<Buffer>* out) {
+Status ConcatenateBuffers(const std::vector<std::shared_ptr<Buffer>>& buffers,
+                          MemoryPool* pool, std::shared_ptr<Buffer>* out) {
   int64_t out_length = 0;
   for (const auto& buffer : buffers) {
     out_length += buffer->size();
@@ -236,7 +236,7 @@ Status Concatenate(const std::vector<std::shared_ptr<Buffer>>& buffers, MemoryPo
   RETURN_NOT_OK(AllocateBuffer(pool, out_length, out));
   auto out_data = (*out)->mutable_data();
   for (const auto& buffer : buffers) {
-    std::copy(buffer->data(), buffer->data() + buffer->size(), out_data);
+    std::memcpy(out_data, buffer->data(), buffer->size());
     out_data += buffer->size();
   }
   return Status::OK();

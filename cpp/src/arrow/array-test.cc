@@ -1838,9 +1838,6 @@ class ConcatenateTest : public ::testing::Test {
         auto slices = this->Slices(array, offsets);
         std::shared_ptr<Array> actual;
         ASSERT_OK(Concatenate(slices, default_memory_pool(), &actual));
-        // force computation of null_count for both arrays
-        ARROW_IGNORE_EXPR(expected->null_count());
-        ARROW_IGNORE_EXPR(actual->null_count());
         AssertArraysEqual(*expected, *actual);
         if (actual->data()->buffers[0]) {
           CheckTrailingBitsAreZeroed(actual->data()->buffers[0], actual->length());
@@ -1861,9 +1858,6 @@ class ConcatenateTest : public ::testing::Test {
 template <typename PrimitiveType>
 class PrimitiveConcatenateTest : public ConcatenateTest {
  public:
-  void operator()(int64_t size, double null_probability, std::shared_ptr<Array>* out) {
-    *out = this->GeneratePrimitive<PrimitiveType>(size, null_probability);
-  }
 };
 
 using PrimitiveTypes =
@@ -1871,7 +1865,11 @@ using PrimitiveTypes =
                      UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType>;
 TYPED_TEST_CASE(PrimitiveConcatenateTest, PrimitiveTypes);
 
-TYPED_TEST(PrimitiveConcatenateTest, Primitives) { this->Check(*this); }
+TYPED_TEST(PrimitiveConcatenateTest, Primitives) {
+  this->Check([this](int64_t size, double null_probability, std::shared_ptr<Array>* out) {
+    *out = this->template GeneratePrimitive<TypeParam>(size, null_probability);
+  });
+}
 
 TEST_F(ConcatenateTest, StringType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
