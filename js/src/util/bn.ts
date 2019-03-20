@@ -108,13 +108,16 @@ export interface BN<T extends BigNumArray> extends TypedArrayLike<T> {
 }
 
 /** @ignore */
-function bignumToNumber<T extends BN<BigNumArray>>({ buffer, byteOffset, length }: T) {
-    let int64 = 0;
-    let words = new Uint32Array(buffer, byteOffset, length);
-    for (let i = 0, n = words.length; i < n;) {
-        int64 += words[i++] + (words[i++] * (i ** 32));
+function bignumToNumber<T extends BN<BigNumArray>>({ buffer, byteOffset, length, signed }: T) {
+    let words = new Int32Array(buffer, byteOffset, length);
+    let number = 0, i = 0, n = words.length, hi, lo;
+    while (i < n) {
+        lo = words[i++];
+        hi = words[i++];
+        number += signed ? (lo >>> 0) + (hi         * (i ** 32))
+                         : (lo >>> 0) + ((hi >>> 0) * (i ** 32));
     }
-    return int64;
+    return number;
 }
 
 /** @ignore */
