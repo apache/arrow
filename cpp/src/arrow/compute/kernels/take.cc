@@ -97,8 +97,8 @@ Status TakeImpl(FunctionContext*, const ValueArray& values, const IndexArray& in
 
 template <TakeOptions::OutOfBoundsBehavior B, bool AllValuesValid, typename ValueArray,
           typename IndexArray, typename OutBuilder>
-Status TakeImpl(FunctionContext* context, const ValueArray& values,
-                const IndexArray& indices, OutBuilder* builder) {
+Status UnpackIndicesNullCount(FunctionContext* context, const ValueArray& values,
+                              const IndexArray& indices, OutBuilder* builder) {
   if (indices.null_count() == 0) {
     return TakeImpl<B, AllValuesValid, true>(context, values, indices, builder);
   }
@@ -107,27 +107,28 @@ Status TakeImpl(FunctionContext* context, const ValueArray& values,
 
 template <TakeOptions::OutOfBoundsBehavior B, typename ValueArray, typename IndexArray,
           typename OutBuilder>
-Status TakeImpl(FunctionContext* context, const ValueArray& values,
-                const IndexArray& indices, OutBuilder* builder) {
+Status UnpackValuesNullCount(FunctionContext* context, const ValueArray& values,
+                             const IndexArray& indices, OutBuilder* builder) {
   if (values.null_count() == 0) {
-    return TakeImpl<B, true>(context, values, indices, builder);
+    return UnpackIndicesNullCount<B, true>(context, values, indices, builder);
   }
-  return TakeImpl<B, false>(context, values, indices, builder);
+  return UnpackIndicesNullCount<B, false>(context, values, indices, builder);
 }
 
 template <typename ValueArray, typename IndexArray, typename OutBuilder>
-Status TakeImpl(FunctionContext* context, const ValueArray& values,
-                const IndexArray& indices, const TakeOptions& options,
-                OutBuilder* builder) {
+Status UnpackOutOfBoundsBehavior(FunctionContext* context, const ValueArray& values,
+                                 const IndexArray& indices, const TakeOptions& options,
+                                 OutBuilder* builder) {
   switch (options.out_of_bounds) {
     case TakeOptions::RAISE:
-      return TakeImpl<TakeOptions::RAISE>(context, values, indices, builder);
+      return UnpackValuesNullCount<TakeOptions::RAISE>(context, values, indices, builder);
     case TakeOptions::TO_NULL:
-      return TakeImpl<TakeOptions::TO_NULL>(context, values, indices, builder);
+      return UnpackValuesNullCount<TakeOptions::TO_NULL>(context, values, indices,
+                                                         builder);
     case TakeOptions::UNSAFE:
-      return TakeImpl<TakeOptions::UNSAFE>(context, values, indices, builder);
+      return UnpackValuesNullCount<TakeOptions::UNSAFE>(context, values, indices,
+                                                        builder);
     default:
-      ARROW_LOG(FATAL) << "how did we get here";
       return Status::NotImplemented("how did we get here");
   }
 }
@@ -145,8 +146,9 @@ struct UnpackValues {
     std::unique_ptr<ArrayBuilder> builder;
     RETURN_NOT_OK(MakeBuilder(params_.context->memory_pool(), values.type(), &builder));
     RETURN_NOT_OK(builder->Reserve(indices.length()));
-    RETURN_NOT_OK(TakeImpl(params_.context, values, indices, params_.options,
-                           static_cast<OutBuilder*>(builder.get())));
+    RETURN_NOT_OK(UnpackOutOfBoundsBehavior(params_.context, values, indices,
+                                            params_.options,
+                                            static_cast<OutBuilder*>(builder.get())));
     return builder->Finish(params_.out);
   }
 
