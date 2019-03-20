@@ -33,6 +33,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
@@ -1114,6 +1115,22 @@ TYPED_TEST(TestDictionaryCast, Basic) {
   ASSERT_OK(DictionaryEncode(&this->ctx_, plain_array->data(), &out));
 
   this->CheckPass(*MakeArray(out.array()), *plain_array, plain_array->type(), options);
+}
+
+TEST_F(TestCast, DictToNumericNoNulls) {
+  // ARROW-3208
+  CastOptions options;
+
+  // Convoluted way to create an array with nullptr bitmap buffer
+  auto array_ = _MakeArray<Int32Type, int32_t>(int32(), {1, 2, 3, 4, 5, 6}, {});
+  auto data = array_->data();
+  data->buffers[0] = nullptr;
+  auto array = MakeArray(data);
+
+  Datum encoded;
+  ASSERT_OK(DictionaryEncode(&this->ctx_, array->data(), &encoded));
+
+  this->CheckPass(*MakeArray(encoded.array()), *array, array->type(), options);
 }
 
 TEST_F(TestCast, DictToNonDictNoNulls) {

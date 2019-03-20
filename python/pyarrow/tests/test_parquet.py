@@ -2479,3 +2479,19 @@ def test_write_nested_zero_length_array_chunk_failure():
                   for batch in my_arrays]
     tbl = pa.Table.from_batches(my_batches, pa.schema(cols))
     _check_roundtrip(tbl)
+
+
+def test_partitioned_dataset(tempdir):
+    # ARROW-3208: Segmentation fault when reading a Parquet partitioned dataset
+    # to a Parquet file
+    path = tempdir / "ARROW-3208"
+    df = pd.DataFrame({
+        'one': [-1, 10, 2.5, 100, 1000, 1, 29.2],
+        'two': [-1, 10, 2, 100, 1000, 1, 11],
+        'three': [0, 0, 0, 0, 0, 0, 0]
+    })
+    table = pa.Table.from_pandas(df)
+    pq.write_to_dataset(table, root_path=str(path),
+                        partition_cols=['one', 'two'])
+    table = pq.ParquetDataset(path).read()
+    pq.write_table(table, path / "output.parquet")
