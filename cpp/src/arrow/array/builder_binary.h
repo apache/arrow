@@ -253,7 +253,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   BufferBuilder byte_builder_;
 
   template <typename Sized>
-  void CheckValueSize(const Sized& s, decltype(s.size())* = nullptr) {
+  void CheckValueSize(const Sized& s, decltype(s.size())* = NULLPTR) {
 #ifndef NDEBUG
     CheckValueSize(static_cast<size_t>(s.size()));
 #endif
