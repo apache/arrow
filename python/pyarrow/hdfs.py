@@ -141,7 +141,7 @@ def _maybe_set_hadoop_classpath():
 def _derive_hadoop_classpath():
     import subprocess
 
-    find_args = ('find', os.environ['HADOOP_HOME'], '-name', '*.jar')
+    find_args = ('find', '-L', os.environ['HADOOP_HOME'], '-name', '*.jar')
     find = subprocess.Popen(find_args, stdout=subprocess.PIPE)
     xargs_echo = subprocess.Popen(('xargs', 'echo'),
                                   stdin=find.stdout,
