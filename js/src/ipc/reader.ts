@@ -95,6 +95,8 @@ export class RecordBatchReader<T extends { [key: string]: DataType } = any> exte
     }
     public reset(schema?: Schema<T> | null): this {
         this._impl.reset(schema);
+        this._DOMStream = undefined;
+        this._nodeStream = undefined;
         return this;
     }
     public open(options?: OpenOptions) {

@@ -27,7 +27,6 @@ import { Schema } from '../schema';
 
 const padLeft = require('pad-left');
 const bignumJSONParse = require('json-bignum').parse;
-const pipeline = require('util').promisify(stream.pipeline);
 const argv = require(`command-line-args`)(cliOpts(), { partial: true });
 const files = argv.help ? [] : [...(argv.file || []), ...(argv._unknown || [])].filter(Boolean);
 
@@ -56,11 +55,11 @@ type ToStringState = {
         if (state.closed) { break; }
         for await (reader of recordBatchReaders(source)) {
             hasReaders = true;
-            const source = reader.toNodeStream();
-            const xform = batchesToString(state, reader.schema);
-            const sink = new stream.PassThrough();
-            sink.pipe(process.stdout, { end: false });
-            await pipeline(source, xform, sink).catch(() => state.closed = true);
+            const transformToString = batchesToString(state, reader.schema);
+            await pipeTo(
+                reader.pipe(transformToString),
+                process.stdout, { end: false }
+            ).catch(() => state.closed = true); // Handle EPIPE errors
         }
         if (state.closed) { break; }
     }
@@ -73,6 +72,21 @@ type ToStringState = {
     }
     return process.exitCode || 1;
 }).then((code) => process.exit(code));
+
+function pipeTo(source: NodeJS.ReadableStream, sink: NodeJS.WritableStream, opts?: { end: boolean }) {
+    return new Promise((resolve, reject) => {
+
+        source.on('end', onEnd).pipe(sink, opts).on('error', onErr);
+
+        function onEnd() { done(undefined, resolve); }
+        function onErr(err:any) { done(err, reject); }
+        function done(e: any, cb: (e?: any) => void) {
+            source.removeListener('end', onEnd);
+            sink.removeListener('error', onErr);
+            cb(e);
+        }
+    });
+}
 
 async function *recordBatchReaders(createSourceStream: () => NodeJS.ReadableStream) {
 
@@ -117,11 +131,10 @@ function batchesToString(state: ToStringState, schema: Schema) {
     state.maxColWidths = header.map((x, i) => Math.max(maxColWidths[i] || 0, x.length));
 
     return new stream.Transform({
-        transform,
         encoding: 'utf8',
         writableObjectMode: true,
         readableObjectMode: false,
-        final(this: stream.Transform, cb: (error?: Error | null) => void) {
+        final(cb: (error?: Error | null) => void) {
             // if there were no batches, then print the Schema, and metadata
             if (batchId === -1) {
                 this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n\n`);
@@ -132,46 +145,45 @@ function batchesToString(state: ToStringState, schema: Schema) {
             }
             this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n\n`);
             cb();
+        },
+        transform(batch: RecordBatch, _enc: string, cb: (error?: Error, data?: any) => void) {
+    
+            batch = !(state.schema && state.schema.length) ? batch : batch.select(...state.schema);
+    
+            if (state.closed) { return cb(undefined, null); }
+    
+            // Pass one to convert to strings and count max column widths
+            state.maxColWidths = measureColumnWidths(rowId, batch, header.map((x, i) => Math.max(maxColWidths[i] || 0, x.length)));
+    
+            // If this is the first batch in a stream, print a top horizontal rule, schema metadata, and 
+            if (++batchId === 0) {
+                this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n`);
+                if (state.metadata && batch.schema.metadata.size > 0) {
+                    this.push(`metadata:\n${formatMetadata(batch.schema.metadata)}\n`);
+                    this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n`);
+                }
+                if (batch.length <= 0 || batch.numCols <= 0) {
+                    this.push(`${formatRow(header, maxColWidths = state.maxColWidths, sep)}\n`);
+                }
+            }
+    
+            if (batch.length > 0 && batch.numCols > 0) {
+                // If any of the column widths changed, print the header again
+                if (rowId % 350 !== 0 && JSON.stringify(state.maxColWidths) !== JSON.stringify(maxColWidths)) {
+                    this.push(`${formatRow(header, state.maxColWidths, sep)}\n`);
+                }
+                maxColWidths = state.maxColWidths;
+                for (const row of batch) {
+                    if (state.closed) { break; } else if (!row) { continue; }
+                    if (rowId++ % 350 === 0) {
+                        this.push(`${formatRow(header, maxColWidths, sep)}\n`);
+                    }
+                    this.push(`${formatRow([rowId, ...row].map(valueToString), maxColWidths, sep)}\n`);
+                }
+            }
+            cb();
         }
     });
-
-    function transform(this: stream.Transform, batch: RecordBatch, _enc: string, cb: (error?: Error, data?: any) => void) {
-
-        batch = !(state.schema && state.schema.length) ? batch : batch.select(...state.schema);
-
-        if (state.closed) { return cb(undefined, null); }
-
-        // Pass one to convert to strings and count max column widths
-        state.maxColWidths = measureColumnWidths(rowId, batch, header.map((x, i) => Math.max(maxColWidths[i] || 0, x.length)));
-
-        // If this is the first batch in a stream, print a top horizontal rule, schema metadata, and 
-        if (++batchId === 0) {
-            this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n`);
-            if (state.metadata && batch.schema.metadata.size > 0) {
-                this.push(`metadata:\n${formatMetadata(batch.schema.metadata)}\n`);
-                this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n`);
-            }
-            if (batch.length <= 0 || batch.numCols <= 0) {
-                this.push(`${formatRow(header, maxColWidths = state.maxColWidths, sep)}\n`);
-            }
-        }
-
-        if (batch.length > 0 && batch.numCols > 0) {
-            // If any of the column widths changed, print the header again
-            if (rowId % 350 !== 0 && JSON.stringify(state.maxColWidths) !== JSON.stringify(maxColWidths)) {
-                this.push(`${formatRow(header, state.maxColWidths, sep)}\n`);
-            }
-            maxColWidths = state.maxColWidths;
-            for (const row of batch) {
-                if (state.closed) { break; } else if (!row) { continue; }
-                if (rowId++ % 350 === 0) {
-                    this.push(`${formatRow(header, maxColWidths, sep)}\n`);
-                }
-                this.push(`${formatRow([rowId, ...row].map(valueToString), maxColWidths, sep)}\n`);
-            }
-        }
-        cb();
-    }
 }
 
 function horizontalRule(maxColWidths: number[], hr = '-', sep = ' |') {
