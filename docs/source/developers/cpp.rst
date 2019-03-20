@@ -565,7 +565,7 @@ System Setup
 ~~~~~~~~~~~~
 
 Microsoft provides the free Visual Studio Community edition. When doing
-development in teh the shell, you must initialize the development
+development in the the shell, you must initialize the development
 environment.
 
 For Visual Studio 2015, execute the following batch script:
@@ -647,8 +647,16 @@ an out of source build by generating a MSVC solution:
    cd cpp
    mkdir build
    cd build
-   cmake -G "Visual Studio 14 2015 Win64" ..
+   cmake .. -G "Visual Studio 14 2015 Win64" ^
+         -DARROW_BUILD_TESTS=ON ^
+         -DGTest_SOURCE=BUNDLED
    cmake --build . --config Release
+
+.. note::
+
+   Currently building the unit tests does not work properly with googletest
+   from conda-forge, so we must use the ``BUNDLED`` source for building that
+   dependency
 
 Building with Ninja and clcache
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -675,7 +683,8 @@ do an out of source build by generating Ninja files:
    cd cpp
    mkdir build
    cd build
-   cmake -G "Ninja" ..
+   cmake -G "Ninja" -DARROW_BUILD_TESTS=ON ^
+         -DGTest_SOURCE=BUNDLED ..
    cmake --build . --config Release
 
 Building with NMake
