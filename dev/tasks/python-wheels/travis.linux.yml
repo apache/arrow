@@ -56,6 +56,7 @@ script:
   # test on multiple distributions
   {%- for image in test_docker_images %}
   - docker run -it --shm-size 2G --volume $(pwd)/arrow:/arrow {{ image }}
+      # TODO(kszucs): install llvm to test gandiva
       /arrow/dev/tasks/python-wheels/linux-test.sh
   {%- endfor %}
 

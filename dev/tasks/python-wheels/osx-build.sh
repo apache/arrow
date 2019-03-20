@@ -127,7 +127,7 @@ function build_wheel {
           -DARROW_PARQUET=ON \
           -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
           -DARROW_ORC=ON \
-          -DBoost_ROOT="$arrow_boost_dist" \
+          -DBOOST_ROOT="$arrow_boost_dist" \
           -DBoost_NAMESPACE=arrow_boost \
           -DMAKE=make \
           ..
