@@ -18,6 +18,12 @@
 require "extpp"
 require "mkmf-gnome2"
 
+arrow_pkg_config_path = ENV["ARROW_PKG_CONFIG_PATH"]
+if arrow_pkg_config_path
+  pkg_config_paths = [arrow_pkg_config_path, ENV["PKG_CONFIG_PATH"]].compact
+  ENV["PKG_CONFIG_PATH"] = pkg_config_paths.join(File::PATH_SEPARATOR)
+end
+
 unless required_pkg_config_package("arrow",
                                    debian: "libarrow-dev",
                                    redhat: "arrow-devel",
