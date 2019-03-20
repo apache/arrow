@@ -133,6 +133,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_grpc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "BZip2")
     build_bzip2()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "uriparser")
+    build_uriparser()
   else()
     message(FATAL_ERROR "Unknown thirdparty dependency to build: ${DEPENDENCY_NAME}")
   endif()
@@ -341,6 +343,13 @@ else()
     )
 endif()
 
+if(DEFINED ENV{ARROW_URIPARSER_URL})
+  set(URIPARSER_SOURCE_URL "$ENV{ARROW_URIPARSER_URL}")
+else()
+  set(URIPARSER_SOURCE_URL
+      "https://github.com/uriparser/uriparser/archive/${URIPARSER_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_ZLIB_URL})
   set(ZLIB_SOURCE_URL "$ENV{ARROW_ZLIB_URL}")
 else()
@@ -514,6 +523,72 @@ endif()
 include_directories(SYSTEM ${double-conversion_INCLUDE_DIRS})
 
 double_conversion_compability()
+
+# ----------------------------------------------------------------------
+# uriparser library
+
+macro(build_uriparser)
+  message(STATUS "Building uriparser from source")
+  set(URIPARSER_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/uriparser_ep-install")
+  set(
+    URIPARSER_STATIC_LIB
+    "${URIPARSER_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}uriparser${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  set(URIPARSER_INCLUDE_DIRS "${URIPARSER_PREFIX}/include")
+
+  set(URIPARSER_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      "-DURIPARSER_BUILD_DOCS=off"
+      "-DURIPARSER_BUILD_TESTS=off"
+      "-DURIPARSER_BUILD_TOOLS=off"
+      "-DURIPARSER_BUILD_WCHAR_T=off"
+      "-DBUILD_SHARED_LIBS=off"
+      "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+      "-DCMAKE_INSTALL_LIBDIR=lib"
+      "-DCMAKE_POSITION_INDEPENDENT_CODE=on"
+      "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>")
+
+  if(MSVC AND ARROW_USE_STATIC_CRT)
+    if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+      list(APPEND URIPARSER_CMAKE_ARGS "-DURIPARSER_MSVC_RUNTIME=/MTd")
+    else()
+      list(APPEND URIPARSER_CMAKE_ARGS "-DURIPARSER_MSVC_RUNTIME=/MT")
+    endif()
+  endif()
+
+  externalproject_add(uriparser_ep
+                      URL
+                      ${URIPARSER_SOURCE_URL}
+                      CMAKE_ARGS
+                      ${URIPARSER_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS
+                      ${URIPARSER_STATIC_LIB}
+                      INSTALL_DIR
+                      ${URIPARSER_PREFIX}
+                      ${EP_LOG_OPTIONS})
+
+  add_library(uriparser::uriparser STATIC IMPORTED)
+  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+  file(MAKE_DIRECTORY ${URIPARSER_INCLUDE_DIRS})
+  set_target_properties(
+    uriparser::uriparser
+    PROPERTIES IMPORTED_LOCATION ${URIPARSER_STATIC_LIB} INTERFACE_INCLUDE_DIRECTORIES
+               ${URIPARSER_INCLUDE_DIRS})
+
+  add_dependencies(toolchain uriparser_ep)
+  add_dependencies(uriparser::uriparser uriparser_ep)
+endmacro()
+
+# Unless the user overrides uriparser_SOURCE, build uriparser ourselves
+if("${uriparser_SOURCE}" STREQUAL "")
+  set(uriparser_SOURCE "BUNDLED")
+endif()
+
+resolve_dependency(uriparser)
+
+get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser
+                    INTERFACE_INCLUDE_DIRECTORIES)
+include_directories(SYSTEM ${URIPARSER_INCLUDE_DIRS})
 
 # ----------------------------------------------------------------------
 # Snappy

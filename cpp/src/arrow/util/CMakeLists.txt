@@ -41,6 +41,7 @@ add_arrow_test(stl-util-test)
 add_arrow_test(task-group-test)
 add_arrow_test(thread-pool-test)
 add_arrow_test(trie-test)
+add_arrow_test(uri-test)
 add_arrow_test(utf8-util-test)
 
 add_arrow_benchmark(bit-util-benchmark)
