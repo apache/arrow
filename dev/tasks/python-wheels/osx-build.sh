@@ -35,7 +35,7 @@ function build_wheel {
 
     pushd $1
 
-    boost_version="1.65.1"
+    boost_version="1.66.0"
     boost_directory_name="boost_${boost_version//\./_}"
     boost_tarball_name="${boost_directory_name}.tar.gz"
     wget --no-check-certificate \
@@ -60,7 +60,7 @@ function build_wheel {
     ./b2 tools/bcp > /dev/null 2>&1
     ./dist/bin/bcp --namespace=arrow_boost --namespace-alias \
         filesystem date_time system regex build algorithm locale format \
-        "$arrow_boost" > /dev/null 2>&1
+        multiprecision/cpp_int "$arrow_boost" > /dev/null 2>&1
     popd
 
     # Now build our custom namespaced Boost version.
@@ -116,6 +116,7 @@ function build_wheel {
     pushd build
     cmake -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+          -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
           -DARROW_BUILD_TESTS=OFF \
           -DARROW_BUILD_SHARED=ON \
           -DARROW_BOOST_USE_SHARED=ON \
@@ -126,7 +127,7 @@ function build_wheel {
           -DARROW_PARQUET=ON \
           -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
           -DARROW_ORC=ON \
-          -DBOOST_ROOT="$arrow_boost_dist" \
+          -DBoost_ROOT="$arrow_boost_dist" \
           -DBoost_NAMESPACE=arrow_boost \
           -DMAKE=make \
           ..
