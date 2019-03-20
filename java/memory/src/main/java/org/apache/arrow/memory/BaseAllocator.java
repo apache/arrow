@@ -31,6 +31,12 @@ import io.netty.buffer.ArrowBuf;
 import io.netty.buffer.UnsafeDirectLittleEndian;
 import io.netty.util.internal.OutOfDirectMemoryError;
 
+/**
+ * A base-class that implements all functionality of {@linkplain BufferAllocator}s.
+ *
+ * <p>The class is abstract to enforce usage of {@linkplain RootAllocator}/{@linkplain ChildAllocator}
+ * facades.
+ */
 public abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
   public static final String DEBUG_ALLOCATOR = "arrow.memory.debug.allocator";
@@ -690,6 +696,10 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
   }
 
+  /**
+   * Implementation of {@link AllocationReservation} that supports
+   * history tracking under {@linkplain #DEBUG} is true.
+   */
   public class Reservation implements AllocationReservation {
 
     private final HistoricalLog historicalLog;
@@ -697,6 +707,12 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     private boolean used = false;
     private boolean closed = false;
 
+    /**
+     * Creates a new reservation.
+     *
+     * <p>If {@linkplain #DEBUG} is true this will capture a historical
+     * log of events relevant to this Reservation.
+     */
     public Reservation() {
       if (DEBUG) {
         historicalLog = new HistoricalLog("Reservation[allocator[%s], %d]", name, System

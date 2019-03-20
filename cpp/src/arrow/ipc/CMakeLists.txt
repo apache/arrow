@@ -28,7 +28,7 @@ add_arrow_test(json-simple-test PREFIX "arrow-ipc")
 add_arrow_test(json-test PREFIX "arrow-ipc")
 
 if(NOT ARROW_BOOST_HEADER_ONLY)
-  add_arrow_test(json-integration-test EXTRA_LINK_LIBS ${GFLAGS_LIBRARY})
+  add_arrow_test(json-integration-test EXTRA_LINK_LIBS ${GFLAGS_LIBRARIES})
 
   # Test is being built
   if(TARGET arrow-json-integration-test)
@@ -66,15 +66,14 @@ foreach(FIL ${FBS_SRC})
   list(APPEND ABS_FBS_SRC ${ABS_FIL})
 endforeach()
 
-if(FLATBUFFERS_VENDORED)
-  set(FBS_DEPENDS ${ABS_FBS_SRC} flatbuffers_ep)
-else()
-  set(FBS_DEPENDS ${ABS_FBS_SRC})
+get_target_property(FLATC_EXECUTABLE flatbuffers::flatc IMPORTED_LOCATION)
+if(NOT FLATC_EXECUTABLE)
+  get_target_property(FLATC_EXECUTABLE flatbuffers::flatc IMPORTED_LOCATION_RELEASE)
 endif()
-
+message(STATUS "flatc: ${FLATC_EXECUTABLE}")
 add_custom_command(OUTPUT ${FBS_OUTPUT_FILES}
-                   COMMAND ${FLATBUFFERS_COMPILER} -c -o ${OUTPUT_DIR} ${ABS_FBS_SRC}
-                   DEPENDS ${FBS_DEPENDS}
+                   COMMAND ${FLATC_EXECUTABLE} -c -o ${OUTPUT_DIR} ${ABS_FBS_SRC}
+                   DEPENDS flatbuffers::flatc
                    COMMENT "Running flatc compiler on ${ABS_FBS_SRC}"
                    VERBATIM)
 

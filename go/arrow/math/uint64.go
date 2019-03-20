@@ -32,6 +32,9 @@ var (
 
 // Sum returns the summation of all elements in a.
 func (f Uint64Funcs) Sum(a *array.Uint64) uint64 {
+	if a.Len() == 0 {
+		return uint64(0)
+	}
 	return f.sum(a)
 }
 

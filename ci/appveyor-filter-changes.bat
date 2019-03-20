@@ -36,6 +36,13 @@ if "%JOB%" == "Rust" (
         echo ===
         appveyor exit
     )
+) else if "%JOB%" == "Go" (
+    if "%ARROW_CI_GO_AFFECTED%" == "0" (
+        echo ===
+        echo === No Go changes, exiting job
+        echo ===
+        appveyor exit
+    )
 ) else (
     if "%ARROW_CI_PYTHON_AFFECTED%" == "0" (
         echo ===

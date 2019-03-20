@@ -60,6 +60,9 @@
     FSE_*;
     FSEv*;
     ZBUFFv*;
+    ZSTDMT*;
+    POOL_*;
+    HIST_*;
     ERR_getErrorString;
     # jemalloc
     je_arrow_*;

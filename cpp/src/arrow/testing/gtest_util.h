@@ -77,7 +77,7 @@
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
 
-#define EXPECT_OK(expr)         \
+#define ARROW_EXPECT_OK(expr)   \
   do {                          \
     ::arrow::Status s = (expr); \
     EXPECT_TRUE(s.ok());        \
@@ -105,6 +105,12 @@ class ChunkedArray;
 class Column;
 class Table;
 
+namespace compute {
+struct Datum;
+}
+
+using Datum = compute::Datum;
+
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
 #define ASSERT_PP_EQUAL(LEFT, RIGHT)                                                   \
@@ -113,8 +119,8 @@ using ArrayVector = std::vector<std::shared_ptr<Array>>;
       std::stringstream pp_result;                                                     \
       std::stringstream pp_expected;                                                   \
                                                                                        \
-      EXPECT_OK(PrettyPrint(RIGHT, 0, &pp_result));                                    \
-      EXPECT_OK(PrettyPrint(LEFT, 0, &pp_expected));                                   \
+      ARROW_EXPECT_OK(PrettyPrint(RIGHT, 0, &pp_result));                              \
+      ARROW_EXPECT_OK(PrettyPrint(LEFT, 0, &pp_expected));                             \
       FAIL() << "Got: \n" << pp_result.str() << "\nExpected: \n" << pp_expected.str(); \
     }                                                                                  \
   } while (false)
@@ -136,6 +142,8 @@ ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs);
 ARROW_EXPORT void PrintColumn(const Column& col, std::stringstream* ss);
 ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
                                     bool same_chunk_layout = true);
+
+ARROW_EXPORT void AssertDatumsEqual(const Datum& expected, const Datum& actual);
 
 template <typename C_TYPE>
 void AssertNumericDataEqual(const C_TYPE* raw_data,

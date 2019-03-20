@@ -138,9 +138,9 @@ class TestHadoopFileSystem : public ::testing::Test {
   void TearDown() {
     if (client_) {
       if (client_->Exists(scratch_dir_)) {
-        EXPECT_OK(client_->Delete(scratch_dir_, true));
+        ARROW_EXPECT_OK(client_->Delete(scratch_dir_, true));
       }
-      EXPECT_OK(client_->Disconnect());
+      ARROW_EXPECT_OK(client_->Disconnect());
     }
   }
 
@@ -208,9 +208,9 @@ TYPED_TEST(TestHadoopFileSystem, MakeDirectory) {
   ASSERT_OK(this->client_->MakeDirectory(path));
   ASSERT_TRUE(this->client_->Exists(path));
   std::vector<HdfsPathInfo> listing;
-  EXPECT_OK(this->client_->ListDirectory(path, &listing));
+  ARROW_EXPECT_OK(this->client_->ListDirectory(path, &listing));
   ASSERT_EQ(0, listing.size());
-  EXPECT_OK(this->client_->Delete(path, true));
+  ARROW_EXPECT_OK(this->client_->Delete(path, true));
   ASSERT_FALSE(this->client_->Exists(path));
   ASSERT_RAISES(IOError, this->client_->ListDirectory(path, &listing));
 }

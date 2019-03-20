@@ -22,11 +22,18 @@
 #include <string>
 #include <vector>
 
+#include "arrow/util/config.h"
+
 #include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 #include <google/protobuf/wire_format_lite.h>
 #include <grpc/byte_buffer_reader.h>
+#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/impl/codegen/proto_utils.h>
+#else
+#include <grpc++/grpc++.h>
+#include <grpc++/impl/codegen/proto_utils.h>
+#endif
 
 #include "arrow/buffer.h"
 #include "arrow/flight/server.h"

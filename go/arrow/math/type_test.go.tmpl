@@ -28,13 +28,28 @@ import (
 {{$name := printf "%s_%s" .In.Type .D.arch}}
 {{with .In}}
 func Test{{.Name}}Funcs_Sum(t *testing.T) {
-	vec := makeArray{{.Name}}(10000)
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+	vec := makeArray{{.Name}}(10000, mem)
+	defer vec.Release()
 	res := math.{{.Name}}.Sum(vec)
 	assert.Equal(t, res, {{.Type}}(49995000))
 }
 
-func makeArray{{.Name}}(l int) *array.{{.Name}} {
-	fb := array.New{{.Name}}Builder(memory.NewGoAllocator())
+func Test{{.Name}}Funcs_SumEmpty(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+	b := array.New{{.Name}}Builder(mem)
+	defer b.Release()
+	vec := b.New{{.Name}}Array()
+	defer vec.Release()
+	res := math.{{.Name}}.Sum(vec)
+	assert.Equal(t, res, {{.Type}}(0))
+}
+
+func makeArray{{.Name}}(l int, mem memory.Allocator) *array.{{.Name}} {
+	fb := array.New{{.Name}}Builder(mem)
+	defer fb.Release()
 	fb.Reserve(l)
 	for i := 0; i < l; i++ {
 		fb.Append({{.Type}}(i))
@@ -43,7 +58,9 @@ func makeArray{{.Name}}(l int) *array.{{.Name}} {
 }
 
 func benchmark{{.Name}}Funcs_Sum(b *testing.B, n int) {
-	vec := makeArray{{.Name}}(n)
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(b, 0)
+	vec := makeArray{{.Name}}(n, mem)
 	b.SetBytes(int64(vec.Len() * 8))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

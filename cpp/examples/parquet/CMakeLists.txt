@@ -23,7 +23,12 @@ target_link_libraries(parquet-low-level-example parquet_static)
 target_link_libraries(parquet-low-level-example2 parquet_static)
 
 add_executable(parquet-arrow-example parquet-arrow/reader-writer.cc)
-target_link_libraries(parquet-arrow-example parquet_shared)
+# Prefer shared linkage but use static if shared build is deactivated
+if (ARROW_BUILD_SHARED)
+  target_link_libraries(parquet-arrow-example parquet_shared)
+else()
+  target_link_libraries(parquet-arrow-example parquet_static)
+endif()
 
 add_dependencies(parquet
   parquet-low-level-example

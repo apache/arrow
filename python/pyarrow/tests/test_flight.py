@@ -57,6 +57,31 @@ class EchoFlightServer(flight.FlightServerBase):
         self.last_message = reader.read_all()
 
 
+class EchoStreamFlightServer(EchoFlightServer):
+    """An echo server that streams individual record batches."""
+
+    def do_get(self, ticket):
+        return flight.GeneratorStream(
+            self.last_message.schema,
+            self.last_message.to_batches(chunksize=1024))
+
+
+class InvalidStreamFlightServer(flight.FlightServerBase):
+    """A Flight server that tries to return messages with differing schemas."""
+
+    schema = pa.schema([('a', pa.int32())])
+
+    def do_get(self, ticket):
+        data1 = [pa.array([-10, -5, 0, 5, 10], type=pa.int32())]
+        data2 = [pa.array([-10.0, -5.0, 0.0, 5.0, 10.0], type=pa.float64())]
+        assert data1.type != data2.type
+        table1 = pa.Table.from_arrays(data1, names=['a'])
+        table2 = pa.Table.from_arrays(data2, names=['a'])
+        assert table1.schema == self.schema
+
+        return flight.GeneratorStream(self.schema, [table1, table2])
+
+
 @contextlib.contextmanager
 def flight_server(server_base, *args, **kwargs):
     """Spawn a Flight server on a free port, shutting it down when done."""
@@ -114,3 +139,28 @@ def test_flight_large_message():
         writer.close()
         result = client.do_get(flight.Ticket(b''), data.schema).read_all()
         assert result.equals(data)
+
+
+def test_flight_generator_stream():
+    """Try downloading a flight of RecordBatches in a GeneratorStream."""
+    data = pa.Table.from_arrays([
+        pa.array(range(0, 10 * 1024))
+    ], names=['a'])
+
+    with flight_server(EchoStreamFlightServer) as server_port:
+        client = flight.FlightClient.connect('localhost', server_port)
+        writer = client.do_put(flight.FlightDescriptor.for_path('test'),
+                               data.schema)
+        writer.write_table(data)
+        writer.close()
+        result = client.do_get(flight.Ticket(b''), data.schema).read_all()
+        assert result.equals(data)
+
+
+def test_flight_invalid_generator_stream():
+    """Try streaming data with mismatched schemas."""
+    with flight_server(InvalidStreamFlightServer) as server_port:
+        client = flight.FlightClient.connect('localhost', server_port)
+        schema = InvalidStreamFlightServer.schema
+        with pytest.raises(pa.ArrowException):
+            client.do_get(flight.Ticket(b''), schema).read_all()

@@ -44,6 +44,8 @@ static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::L3_CACHE);
 constexpr size_t kMemoryPerCore = 32 * 1024 * 1024;
 using BufferPtr = std::shared_ptr<Buffer>;
 
+#ifndef _MSC_VER
+
 #ifdef ARROW_AVX512
 
 using VectorType = __m512i;
@@ -70,7 +72,7 @@ using VectorType = __m256i;
   asm volatile("vmovntdqa %[src], %[dst]" : [dst] "=v"(DST) : [src] "m"(SRC) :)
 #define VectorStreamWrite _mm256_stream_si256
 
-#else
+#else  // ARROW_AVX2 not set
 
 using VectorType = __m128i;
 #define VectorSet _mm_set1_epi32
@@ -82,8 +84,8 @@ using VectorType = __m128i;
   asm volatile("movntdqa %[src], %[dst]" : [dst] "=x"(DST) : [src] "m"(SRC) :)
 #define VectorStreamWrite _mm_stream_si128
 
-#endif
-#endif
+#endif  // ARROW_AVX2
+#endif  // ARROW_AVX512
 
 static void Read(void* src, void* dst, size_t size) {
   const auto simd = static_cast<VectorType*>(src);
@@ -196,6 +198,8 @@ BENCHMARK_TEMPLATE(MemoryBandwidth, StreamRead)->Apply(SetMemoryBandwidthArgs);
 BENCHMARK_TEMPLATE(MemoryBandwidth, StreamWrite)->Apply(SetMemoryBandwidthArgs);
 BENCHMARK_TEMPLATE(MemoryBandwidth, StreamReadWrite)->Apply(SetMemoryBandwidthArgs);
 BENCHMARK_TEMPLATE(MemoryBandwidth, PlatformMemcpy)->Apply(SetMemoryBandwidthArgs);
+
+#endif  // _MSC_VER
 
 static void ParallelMemoryCopy(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t n_threads = state.range(0);

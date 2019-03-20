@@ -308,12 +308,26 @@ void BenchSum(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(T));
 }
 
+template <typename Func>
+struct BenchmarkArgsType;
+
+template <typename Values>
+struct BenchmarkArgsType<benchmark::internal::Benchmark* (
+    benchmark::internal::Benchmark::*)(const std::vector<Values>&)> {
+  using type = Values;
+};
+
 static void SetArgs(benchmark::internal::Benchmark* bench) {
+  // Benchmark changed its parameter type between releases from
+  // int to int64_t. As it doesn't have version macros, we need
+  // to apply C++ template magic.
+  using ArgsType =
+      typename BenchmarkArgsType<decltype(&benchmark::internal::Benchmark::Args)>::type;
   bench->Unit(benchmark::kMicrosecond);
 
   for (auto size : {kL1Size, kL2Size, kL3Size, kL3Size * 4})
-    for (auto nulls : std::vector<int64_t>({0, 1, 10, 50}))
-      bench->Args({static_cast<int64_t>(size), nulls});
+    for (auto nulls : std::vector<ArgsType>({0, 1, 10, 50}))
+      bench->Args({static_cast<ArgsType>(size), nulls});
 }
 
 BENCHMARK_TEMPLATE(BenchSum, SumNoNulls<int64_t>)->Apply(SetArgs);

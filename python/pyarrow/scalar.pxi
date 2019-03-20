@@ -284,37 +284,47 @@ cdef class Time64Value(ArrayValue):
                     datetime.timedelta(microseconds=val / 1000)).time()
 
 
-cdef dict DATETIME_CONVERSION_FUNCTIONS
+cdef dict _DATETIME_CONVERSION_FUNCTIONS = {}
+cdef c_bool _datetime_conversion_initialized = False
 
-try:
-    import pandas as pd
-except ImportError:
-    DATETIME_CONVERSION_FUNCTIONS = {
-        TimeUnit_SECOND: lambda x, tzinfo: (
-            datetime.datetime.utcfromtimestamp(x).replace(tzinfo=tzinfo)
-        ),
-        TimeUnit_MILLI: lambda x, tzinfo: (
-            datetime.datetime.utcfromtimestamp(x / 1e3).replace(tzinfo=tzinfo)
-        ),
-        TimeUnit_MICRO: lambda x, tzinfo: (
-            datetime.datetime.utcfromtimestamp(x / 1e6).replace(tzinfo=tzinfo)
-        ),
-    }
-else:
-    DATETIME_CONVERSION_FUNCTIONS = {
-        TimeUnit_SECOND: lambda x, tzinfo: pd.Timestamp(
-            x * 1000000000, tz=tzinfo, unit='ns',
-        ),
-        TimeUnit_MILLI: lambda x, tzinfo: pd.Timestamp(
-            x * 1000000, tz=tzinfo, unit='ns',
-        ),
-        TimeUnit_MICRO: lambda x, tzinfo: pd.Timestamp(
-            x * 1000, tz=tzinfo, unit='ns',
-        ),
-        TimeUnit_NANO: lambda x, tzinfo: pd.Timestamp(
-            x, tz=tzinfo, unit='ns',
-        )
-    }
+cdef _datetime_conversion_functions():
+    global _datetime_conversion_initialized
+    if _datetime_conversion_initialized:
+        return _DATETIME_CONVERSION_FUNCTIONS
+
+    try:
+        import pandas as pd
+    except ImportError:
+        _DATETIME_CONVERSION_FUNCTIONS.update({
+            TimeUnit_SECOND: lambda x, tzinfo: (
+                datetime.datetime.utcfromtimestamp(x).replace(tzinfo=tzinfo)
+            ),
+            TimeUnit_MILLI: lambda x, tzinfo: (
+                (datetime.datetime.utcfromtimestamp(x / 1e3)
+                 .replace(tzinfo=tzinfo))
+            ),
+            TimeUnit_MICRO: lambda x, tzinfo: (
+                (datetime.datetime.utcfromtimestamp(x / 1e6)
+                 .replace(tzinfo=tzinfo))
+            ),
+        })
+    else:
+        _DATETIME_CONVERSION_FUNCTIONS.update({
+            TimeUnit_SECOND: lambda x, tzinfo: pd.Timestamp(
+                x * 1000000000, tz=tzinfo, unit='ns',
+            ),
+            TimeUnit_MILLI: lambda x, tzinfo: pd.Timestamp(
+                x * 1000000, tz=tzinfo, unit='ns',
+            ),
+            TimeUnit_MICRO: lambda x, tzinfo: pd.Timestamp(
+                x * 1000, tz=tzinfo, unit='ns',
+            ),
+            TimeUnit_NANO: lambda x, tzinfo: pd.Timestamp(
+                x, tz=tzinfo, unit='ns',
+            )
+        })
+    _datetime_conversion_initialized = True
+    return _DATETIME_CONVERSION_FUNCTIONS
 
 
 cdef class TimestampValue(ArrayValue):
@@ -344,7 +354,7 @@ cdef class TimestampValue(ArrayValue):
             tzinfo = None
 
         try:
-            converter = DATETIME_CONVERSION_FUNCTIONS[dtype.unit()]
+            converter = _datetime_conversion_functions()[dtype.unit()]
         except KeyError:
             raise ValueError(
                 'Cannot convert nanosecond timestamps without pandas'

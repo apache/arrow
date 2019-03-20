@@ -30,9 +30,9 @@
 using arrow::Status;
 
 /// Number of times we try connecting to a socket.
-constexpr int64_t kNumConnectAttempts = 50;
+constexpr int64_t kNumConnectAttempts = 20;
 /// Time to wait between connection attempts to a socket.
-constexpr int64_t kConnectTimeoutMs = 100;
+constexpr int64_t kConnectTimeoutMs = 400;
 
 namespace plasma {
 

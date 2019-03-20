@@ -471,10 +471,11 @@ void ExpectArrayT(void* expected, Array* result) {
 template <>
 void ExpectArrayT<::arrow::BooleanType>(void* expected, Array* result) {
   ::arrow::BooleanBuilder builder;
-  EXPECT_OK(builder.AppendValues(reinterpret_cast<uint8_t*>(expected), result->length()));
+  ARROW_EXPECT_OK(
+      builder.AppendValues(reinterpret_cast<uint8_t*>(expected), result->length()));
 
   std::shared_ptr<Array> expected_array;
-  EXPECT_OK(builder.Finish(&expected_array));
+  ARROW_EXPECT_OK(builder.Finish(&expected_array));
   EXPECT_TRUE(result->Equals(*expected_array));
 }
 

@@ -22,6 +22,7 @@
 
 #include "arrow/array.h"
 #include "arrow/extension_type.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
@@ -231,6 +232,23 @@ struct ArrayDataVisitor<T, enable_if_fixed_size_binary<T>> {
     return Status::OK();
   }
 };
+
+#define SCALAR_VISIT_INLINE(TYPE_CLASS) \
+  case TYPE_CLASS##Type::type_id:       \
+    return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Scalar&>(scalar));
+
+template <typename VISITOR>
+inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
+  switch (scalar.type->id()) {
+    ARROW_GENERATE_FOR_ALL_TYPES(SCALAR_VISIT_INLINE);
+    default:
+      break;
+  }
+  return Status::NotImplemented("Scalar visitor for type not implemented ",
+                                scalar.type->ToString());
+}
+
+#undef TYPE_VISIT_INLINE
 
 }  // namespace arrow
 

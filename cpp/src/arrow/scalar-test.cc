@@ -76,8 +76,12 @@ TYPED_TEST(TestNumericScalar, Basics) {
   ASSERT_TRUE(scalar_val->type->Equals(*expected_type));
 
   T other_value = static_cast<T>(2);
+  auto scalar_other = std::make_shared<ScalarType>(other_value);
+  ASSERT_FALSE(scalar_other->Equals(scalar_val));
+
   scalar_val->value = other_value;
   ASSERT_EQ(other_value, scalar_val->value);
+  ASSERT_TRUE(scalar_other->Equals(scalar_val));
 
   ScalarType stack_val = ScalarType(0, false);
   ASSERT_FALSE(stack_val.is_valid);
@@ -105,6 +109,13 @@ TEST(TestBinaryScalar, Basics) {
   ASSERT_TRUE(value2.value->Equals(*buf));
   ASSERT_TRUE(value2.is_valid);
   ASSERT_TRUE(value2.type->Equals(*utf8()));
+
+  // Same buffer, different type.
+  ASSERT_FALSE(value2.Equals(value));
+
+  StringScalar value3(buf);
+  // Same buffer, same type.
+  ASSERT_TRUE(value2.Equals(value3));
 
   StringScalar null_value2(nullptr, false);
   ASSERT_FALSE(null_value2.is_valid);
@@ -182,6 +193,10 @@ TEST(TestTimestampScalars, Basics) {
   ASSERT_TRUE(ts_val1.is_valid);
   ASSERT_FALSE(ts_null.is_valid);
   ASSERT_TRUE(ts_null.type->Equals(*type1));
+
+  ASSERT_FALSE(ts_val1.Equals(ts_val2));
+  ASSERT_FALSE(ts_val1.Equals(ts_null));
+  ASSERT_FALSE(ts_val2.Equals(ts_null));
 }
 
 // TODO test HalfFloatScalar

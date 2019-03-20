@@ -54,6 +54,15 @@ using boost::algorithm::contains;
 using boost::algorithm::trim;
 using std::max;
 
+#if defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR < 5
+void __cpuidex(int CPUInfo[4], int function_id, int subfunction_id) {
+  __asm__ __volatile__("cpuid"
+                       : "=a"(CPUInfo[0]), "=b"(CPUInfo[1]), "=c"(CPUInfo[2]),
+                         "=d"(CPUInfo[3])
+                       : "a"(function_id), "c"(subfunction_id));
+}
+#endif
+
 namespace arrow {
 namespace internal {
 

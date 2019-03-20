@@ -1,0 +1,65 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+contexts:
+  - name: master
+    prelude: |
+      $LOAD_PATH.unshift(File.expand_path("ext/arrow"))
+      $LOAD_PATH.unshift(File.expand_path("lib"))
+prelude: |-
+  require "arrow"
+  require "faker"
+
+  state = ENV.fetch("FAKER_RANDOM_SEED", 17).to_i
+  Faker::Config.random = Random.new(state)
+
+  n_rows = 1000
+  n_columns = 10
+  type = :string
+
+  fields = {}
+  arrays = {}
+  n_columns.times do |i|
+    column_name = "column_#{i}"
+    fields[column_name] = type
+    arrays[column_name] = n_rows.times.map { Faker::Name.name }
+  end
+  record_batch = Arrow::RecordBatch.new(fields, arrays)
+
+  def pure_ruby_raw_records(record_batch)
+    n_rows = record_batch.n_rows
+    n_columns = record_batch.n_columns
+    columns = record_batch.columns
+    records = []
+    i = 0
+    while i < n_rows
+      record = []
+      j = 0
+      while j < n_columns
+        record << columns[j][i]
+        j += 1
+      end
+      records << record
+      i += 1
+    end
+    records
+  end
+benchmark:
+  pure_ruby: |-
+    pure_ruby_raw_records(record_batch)
+  raw_records: |-
+    record_batch.raw_records

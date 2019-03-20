@@ -92,6 +92,38 @@ class ARROW_EXPORT TypeVisitor {
   virtual Status Visit(const ExtensionType& type);
 };
 
+class ARROW_EXPORT ScalarVisitor {
+ public:
+  virtual ~ScalarVisitor() = default;
+
+  virtual Status Visit(const NullScalar& scalar);
+  virtual Status Visit(const BooleanScalar& scalar);
+  virtual Status Visit(const Int8Scalar& scalar);
+  virtual Status Visit(const Int16Scalar& scalar);
+  virtual Status Visit(const Int32Scalar& scalar);
+  virtual Status Visit(const Int64Scalar& scalar);
+  virtual Status Visit(const UInt8Scalar& scalar);
+  virtual Status Visit(const UInt16Scalar& scalar);
+  virtual Status Visit(const UInt32Scalar& scalar);
+  virtual Status Visit(const UInt64Scalar& scalar);
+  virtual Status Visit(const HalfFloatScalar& scalar);
+  virtual Status Visit(const FloatScalar& scalar);
+  virtual Status Visit(const DoubleScalar& scalar);
+  virtual Status Visit(const StringScalar& scalar);
+  virtual Status Visit(const BinaryScalar& scalar);
+  virtual Status Visit(const FixedSizeBinaryScalar& scalar);
+  virtual Status Visit(const Date64Scalar& scalar);
+  virtual Status Visit(const Date32Scalar& scalar);
+  virtual Status Visit(const Time32Scalar& scalar);
+  virtual Status Visit(const Time64Scalar& scalar);
+  virtual Status Visit(const TimestampScalar& scalar);
+  virtual Status Visit(const IntervalScalar& scalar);
+  virtual Status Visit(const Decimal128Scalar& scalar);
+  virtual Status Visit(const ListScalar& scalar);
+  virtual Status Visit(const StructScalar& scalar);
+  virtual Status Visit(const DictionaryScalar& scalar);
+};
+
 }  // namespace arrow
 
 #endif  // ARROW_VISITOR_H

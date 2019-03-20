@@ -28,7 +28,9 @@ lib_dir = base_dir + "lib"
 test_dir = base_dir + "test"
 
 arrow_lib_dir = arrow_base_dir + "lib"
+arrow_ext_dir = arrow_base_dir + "ext" + "arrow"
 
+$LOAD_PATH.unshift(arrow_ext_dir.to_s)
 $LOAD_PATH.unshift(arrow_lib_dir.to_s)
 $LOAD_PATH.unshift(lib_dir.to_s)
 

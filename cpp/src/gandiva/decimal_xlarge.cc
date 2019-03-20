@@ -55,7 +55,35 @@ void ExportedDecimalFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_xlarge_multiply_and_scale_down", types->void_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_xlarge_multiply_and_scale_down));
+
+  // gdv_xlarge_scale_up_and_divide
+  args = {types->i64_type(),      // int64_t x_high
+          types->i64_type(),      // uint64_t x_low
+          types->i64_type(),      // int64_t y_high
+          types->i64_type(),      // uint64_t y_low
+          types->i32_type(),      // int32_t increase_scale_by
+          types->i64_ptr_type(),  // int64_t* out_high
+          types->i64_ptr_type(),  // uint64_t* out_low
+          types->i8_ptr_type()};  // bool* overflow
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_xlarge_scale_up_and_divide", types->void_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_xlarge_scale_up_and_divide));
+
+  // gdv_xlarge_mod
+  args = {types->i64_type(),       // int64_t x_high
+          types->i64_type(),       // uint64_t x_low
+          types->i32_type(),       // int32_t x_scale
+          types->i64_type(),       // int64_t y_high
+          types->i64_type(),       // uint64_t y_low
+          types->i32_type(),       // int32_t y_scale
+          types->i64_ptr_type(),   // int64_t* out_high
+          types->i64_ptr_type()};  // uint64_t* out_low
+
+  engine->AddGlobalMappingForFunc("gdv_xlarge_mod", types->void_type() /*return_type*/,
+                                  args, reinterpret_cast<void*>(gdv_xlarge_mod));
 }
+
 }  // namespace gandiva
 
 #endif  // !GANDIVA_UNIT_TEST
@@ -103,27 +131,34 @@ static BasicDecimal128 ConvertToDecimal128(int256_t in, bool* overflow) {
   return is_negative ? -result : result;
 }
 
+static constexpr int32_t kMaxLargeScale = 2 * DecimalTypeUtil::kMaxPrecision;
+
+// Compute the scale multipliers once.
+static std::array<int256_t, kMaxLargeScale + 1> kLargeScaleMultipliers =
+    ([]() -> std::array<int256_t, kMaxLargeScale + 1> {
+      std::array<int256_t, kMaxLargeScale + 1> values;
+      values[0] = 1;
+      for (int32_t idx = 1; idx <= kMaxLargeScale; idx++) {
+        values[idx] = values[idx - 1] * 10;
+      }
+      return values;
+    })();
+
+static int256_t GetScaleMultiplier(int scale) {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, kMaxLargeScale);
+
+  return kLargeScaleMultipliers[scale];
+}
+
 // divide input by 10^reduce_by, and round up the fractional part.
 static int256_t ReduceScaleBy(int256_t in, int32_t reduce_by) {
-  DCHECK_GE(reduce_by, 0);
-  DCHECK_LE(reduce_by, 2 * DecimalTypeUtil::kMaxPrecision);
-
   if (reduce_by == 0) {
     // nothing to do.
     return in;
   }
 
-  int256_t divisor;
-  if (reduce_by <= DecimalTypeUtil::kMaxPrecision) {
-    divisor = ConvertToInt256(BasicDecimal128::GetScaleMultiplier(reduce_by));
-  } else {
-    divisor = ConvertToInt256(
-        BasicDecimal128::GetScaleMultiplier(DecimalTypeUtil::kMaxPrecision));
-    for (auto i = DecimalTypeUtil::kMaxPrecision; i < reduce_by; i++) {
-      divisor *= 10;
-    }
-  }
-
+  int256_t divisor = GetScaleMultiplier(reduce_by);
   DCHECK_GT(divisor, 0);
   DCHECK_EQ(divisor % 2, 0);  // multiple of 10.
   auto result = in / divisor;
@@ -133,6 +168,14 @@ static int256_t ReduceScaleBy(int256_t in, int32_t reduce_by) {
     result += (in > 0 ? 1 : -1);
   }
   return result;
+}
+
+// multiply input by 10^increase_by.
+static int256_t IncreaseScaleBy(int256_t in, int32_t increase_by) {
+  DCHECK_GE(increase_by, 0);
+  DCHECK_LE(increase_by, 2 * DecimalTypeUtil::kMaxPrecision);
+
+  return in * GetScaleMultiplier(increase_by);
 }
 
 }  // namespace internal
@@ -151,6 +194,56 @@ void gdv_xlarge_multiply_and_scale_down(int64_t x_high, uint64_t x_low, int64_t 
   intermediate_result =
       gandiva::internal::ReduceScaleBy(intermediate_result, reduce_scale_by);
   auto result = gandiva::internal::ConvertToDecimal128(intermediate_result, overflow);
+  *out_high = result.high_bits();
+  *out_low = result.low_bits();
+}
+
+void gdv_xlarge_scale_up_and_divide(int64_t x_high, uint64_t x_low, int64_t y_high,
+                                    uint64_t y_low, int32_t increase_scale_by,
+                                    int64_t* out_high, uint64_t* out_low,
+                                    bool* overflow) {
+  BasicDecimal128 x{x_high, x_low};
+  BasicDecimal128 y{y_high, y_low};
+
+  int256_t x_large = gandiva::internal::ConvertToInt256(x);
+  int256_t x_large_scaled_up =
+      gandiva::internal::IncreaseScaleBy(x_large, increase_scale_by);
+  int256_t y_large = gandiva::internal::ConvertToInt256(y);
+  int256_t result_large = x_large_scaled_up / y_large;
+  int256_t remainder_large = x_large_scaled_up % y_large;
+
+  // Since we are scaling up and then, scaling down, round-up the result (+1 for +ve,
+  // -1 for -ve), if the remainder is >= 2 * divisor.
+  if (abs(2 * remainder_large) >= abs(y_large)) {
+    // x +ve and y +ve, result is +ve =>   (1 ^ 1)  + 1 =  0 + 1 = +1
+    // x +ve and y -ve, result is -ve =>  (-1 ^ 1)  + 1 = -2 + 1 = -1
+    // x +ve and y -ve, result is -ve =>   (1 ^ -1) + 1 = -2 + 1 = -1
+    // x -ve and y -ve, result is +ve =>  (-1 ^ -1) + 1 =  0 + 1 = +1
+    result_large += (x.Sign() ^ y.Sign()) + 1;
+  }
+  auto result = gandiva::internal::ConvertToDecimal128(result_large, overflow);
+  *out_high = result.high_bits();
+  *out_low = result.low_bits();
+}
+
+void gdv_xlarge_mod(int64_t x_high, uint64_t x_low, int32_t x_scale, int64_t y_high,
+                    uint64_t y_low, int32_t y_scale, int64_t* out_high,
+                    uint64_t* out_low) {
+  BasicDecimal128 x{x_high, x_low};
+  BasicDecimal128 y{y_high, y_low};
+
+  int256_t x_large = gandiva::internal::ConvertToInt256(x);
+  int256_t y_large = gandiva::internal::ConvertToInt256(y);
+  if (x_scale < y_scale) {
+    x_large = gandiva::internal::IncreaseScaleBy(x_large, y_scale - x_scale);
+  } else {
+    y_large = gandiva::internal::IncreaseScaleBy(y_large, x_scale - y_scale);
+  }
+  auto intermediate_result = x_large % y_large;
+  bool overflow = false;
+  auto result = gandiva::internal::ConvertToDecimal128(intermediate_result, &overflow);
+  DCHECK_EQ(overflow, false);
+
   *out_high = result.high_bits();
   *out_low = result.low_bits();
 }

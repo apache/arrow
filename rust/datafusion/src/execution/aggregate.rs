@@ -29,7 +29,7 @@ use arrow::compute;
 use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
-use crate::execution::error::{ExecutionError, Result};
+use crate::error::{ExecutionError, Result};
 use crate::execution::expression::{AggregateType, RuntimeExpr};
 use crate::execution::relation::Relation;
 use crate::logicalplan::ScalarValue;
@@ -38,7 +38,7 @@ use fnv::FnvHashMap;
 
 /// An aggregate relation is made up of zero or more grouping expressions and one
 /// or more aggregate expressions
-pub struct AggregateRelation {
+pub(super) struct AggregateRelation {
     schema: Arc<Schema>,
     input: Rc<RefCell<Relation>>,
     group_expr: Vec<RuntimeExpr>,
@@ -82,11 +82,12 @@ enum GroupByScalar {
 trait AggregateFunction {
     /// Get the function name (used for debugging)
     fn name(&self) -> &str;
-    fn accumulate_scalar(&mut self, value: &Option<ScalarValue>);
+    fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()>;
     fn result(&self) -> &Option<ScalarValue>;
     fn data_type(&self) -> &DataType;
 }
 
+/// Implemntation of MIN aggregate function
 #[derive(Debug)]
 struct MinFunction {
     data_type: DataType,
@@ -107,7 +108,7 @@ impl AggregateFunction for MinFunction {
         "min"
     }
 
-    fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) {
+    fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()> {
         if self.value.is_none() {
             self.value = value.clone();
         } else if value.is_some() {
@@ -142,9 +143,14 @@ impl AggregateFunction for MinFunction {
                 (Some(ScalarValue::Float64(a)), Some(ScalarValue::Float64(b))) => {
                     Some(ScalarValue::Float64(a.min(*b)))
                 }
-                _ => panic!("unsupported data type for MIN"),
+                _ => {
+                    return Err(ExecutionError::ExecutionError(
+                        "unsupported data type for MIN".to_string(),
+                    ));
+                }
             }
         }
+        Ok(())
     }
 
     fn result(&self) -> &Option<ScalarValue> {
@@ -156,6 +162,7 @@ impl AggregateFunction for MinFunction {
     }
 }
 
+/// Implemntation of MAX aggregate function
 #[derive(Debug)]
 struct MaxFunction {
     data_type: DataType,
@@ -176,7 +183,7 @@ impl AggregateFunction for MaxFunction {
         "max"
     }
 
-    fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) {
+    fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()> {
         if self.value.is_none() {
             self.value = value.clone();
         } else if value.is_some() {
@@ -211,9 +218,14 @@ impl AggregateFunction for MaxFunction {
                 (Some(ScalarValue::Float64(a)), Some(ScalarValue::Float64(b))) => {
                     Some(ScalarValue::Float64(a.max(*b)))
                 }
-                _ => panic!("unsupported data type for MAX"),
+                _ => {
+                    return Err(ExecutionError::ExecutionError(
+                        "unsupported data type for MAX".to_string(),
+                    ));
+                }
             }
         }
+        Ok(())
     }
 
     fn result(&self) -> &Option<ScalarValue> {
@@ -225,6 +237,7 @@ impl AggregateFunction for MaxFunction {
     }
 }
 
+/// Implemntation of SUM aggregate function
 #[derive(Debug)]
 struct SumFunction {
     data_type: DataType,
@@ -245,7 +258,7 @@ impl AggregateFunction for SumFunction {
         "sum"
     }
 
-    fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) {
+    fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()> {
         if self.value.is_none() {
             self.value = value.clone();
         } else if value.is_some() {
@@ -280,9 +293,14 @@ impl AggregateFunction for SumFunction {
                 (Some(ScalarValue::Float64(a)), Some(ScalarValue::Float64(b))) => {
                     Some(ScalarValue::Float64(a + *b))
                 }
-                _ => panic!("unsupported data type for SUM"),
+                _ => {
+                    return Err(ExecutionError::ExecutionError(
+                        "unsupported data type for SUM".to_string(),
+                    ));
+                }
             }
         }
+        Ok(())
     }
 
     fn result(&self) -> &Option<ScalarValue> {
@@ -299,9 +317,9 @@ struct AccumulatorSet {
 }
 
 impl AccumulatorSet {
-    fn accumulate_scalar(&mut self, i: usize, value: Option<ScalarValue>) {
+    fn accumulate_scalar(&mut self, i: usize, value: Option<ScalarValue>) -> Result<()> {
         let mut accumulator = self.aggr_values[i].borrow_mut();
-        accumulator.accumulate_scalar(&value);
+        accumulator.accumulate_scalar(&value)
     }
 
     fn values(&self) -> Vec<Option<ScalarValue>> {
@@ -552,7 +570,7 @@ fn update_accumulators(
     row: usize,
     accumulator_set: &mut AccumulatorSet,
     aggr_expr: &Vec<RuntimeExpr>,
-) {
+) -> Result<()> {
     // update the accumulators
     for j in 0..accumulator_set.aggr_values.len() {
         match &aggr_expr[j] {
@@ -615,16 +633,26 @@ fn update_accumulators(
                                     .unwrap();
                                 Some(ScalarValue::Float64(z.value(row)))
                             }
-                            _ => panic!(),
+                            other => return Err(ExecutionError::ExecutionError(format!("Unsupported data type {:?} for result of aggregate expression", other))),
                         };
-                        accumulator_set.accumulate_scalar(j, value);
+                        accumulator_set.accumulate_scalar(j, value)?;
                     }
-                    _ => panic!(),
+                    Err(e) => {
+                        return Err(ExecutionError::ExecutionError(format!(
+                            "Failed to evaluate aggregate expression: {:?}",
+                            e
+                        )));
+                    }
                 }
             }
-            _ => panic!(),
+            _ => {
+                return Err(ExecutionError::InternalError(
+                    "Invalid aggregate expression in accumulator".to_string(),
+                ));
+            }
         }
     }
+    Ok(())
 }
 
 impl Relation for AggregateRelation {
@@ -729,11 +757,11 @@ impl AggregateRelation {
                         match args[0](&batch) {
                             Ok(array) => match f {
                                 AggregateType::Min => accumulator_set
-                                    .accumulate_scalar(i, array_min(array, &t)?),
+                                    .accumulate_scalar(i, array_min(array, &t)?)?,
                                 AggregateType::Max => accumulator_set
-                                    .accumulate_scalar(i, array_max(array, &t)?),
+                                    .accumulate_scalar(i, array_max(array, &t)?)?,
                                 AggregateType::Sum => accumulator_set
-                                    .accumulate_scalar(i, array_sum(array, &t)?),
+                                    .accumulate_scalar(i, array_sum(array, &t)?)?,
                                 _ => {
                                     return Err(ExecutionError::NotImplemented(
                                         "Unsupported aggregate function".to_string(),
@@ -821,7 +849,7 @@ impl AggregateRelation {
             let group_by_keys: Vec<ArrayRef> = self
                 .group_expr
                 .iter()
-                .map(|e| e.get_func()(&batch))
+                .map(|e| e.get_func()?(&batch))
                 .collect::<Result<Vec<ArrayRef>>>()?;
 
             // iterate over each row in the batch
@@ -893,7 +921,7 @@ impl AggregateRelation {
                             row,
                             &mut accumulator_set,
                             &self.aggr_expr,
-                        );
+                        )?;
                         true
                     }
                     None => false,
@@ -904,7 +932,12 @@ impl AggregateRelation {
                         Rc::new(RefCell::new(create_accumulators(&self.aggr_expr)?));
                     {
                         let mut entry_mut = accumulator_set.borrow_mut();
-                        update_accumulators(&batch, row, &mut entry_mut, &self.aggr_expr);
+                        update_accumulators(
+                            &batch,
+                            row,
+                            &mut entry_mut,
+                            &self.aggr_expr,
+                        )?;
                     }
                     map.insert(key.clone(), accumulator_set);
                 }

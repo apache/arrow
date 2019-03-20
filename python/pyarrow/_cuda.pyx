@@ -190,7 +190,7 @@ cdef class Context:
         check_status(self.context.get().Allocate(nbytes, &cudabuf))
         return pyarrow_wrap_cudabuffer(cudabuf)
 
-    def foreign_buffer(self, address, size):
+    def foreign_buffer(self, address, size, base=None):
         """Create device buffer from address and size as a view.
 
         The caller is responsible for allocating and freeing the
@@ -206,6 +206,8 @@ cdef class Context:
           `get_device_address` method.
         size : int
           Specify the size of device buffer in bytes.
+        base : {None, object}
+          Specify object that owns the referenced memory.
 
         Returns
         -------
@@ -222,7 +224,7 @@ cdef class Context:
         check_status(self.context.get().View(<uint8_t*>c_addr,
                                              c_size,
                                              &cudabuf))
-        return pyarrow_wrap_cudabuffer(cudabuf)
+        return pyarrow_wrap_cudabuffer_base(cudabuf, base)
 
     def open_ipc_buffer(self, ipc_handle):
         """ Open existing CUDA IPC memory handle
@@ -309,7 +311,7 @@ cdef class Context:
 
         """
         if isinstance(obj, HostBuffer):
-            return self.foreign_buffer(obj.address, obj.size)
+            return self.foreign_buffer(obj.address, obj.size, base=obj)
         elif isinstance(obj, Buffer):
             return CudaBuffer.from_buffer(obj)
         elif isinstance(obj, CudaBuffer):
@@ -323,7 +325,7 @@ cdef class Context:
             start, end = get_contiguous_span(
                 desc['shape'], desc.get('strides'),
                 np.dtype(desc['typestr']).itemsize)
-            return self.foreign_buffer(addr + start, end - start)
+            return self.foreign_buffer(addr + start, end - start, base=obj)
         raise ArrowTypeError('cannot create device buffer view from'
                              ' `%s` object' % (type(obj)))
 
@@ -387,9 +389,12 @@ cdef class CudaBuffer(Buffer):
                         "`<pyarrow.Context instance>.device_buffer`"
                         " method instead.")
 
-    cdef void init_cuda(self, const shared_ptr[CCudaBuffer]& buffer):
+    cdef void init_cuda(self,
+                        const shared_ptr[CCudaBuffer]& buffer,
+                        object base):
         self.cuda_buffer = buffer
         self.init(<shared_ptr[CBuffer]> buffer)
+        self.base = base
 
     @staticmethod
     def from_buffer(buf):
@@ -426,7 +431,7 @@ cdef class CudaBuffer(Buffer):
         ctx = Context.from_numba(mem.context)
         if mem.device_pointer.value is None and mem.size==0:
             return ctx.new_buffer(0)
-        return ctx.foreign_buffer(mem.device_pointer.value, mem.size)
+        return ctx.foreign_buffer(mem.device_pointer.value, mem.size, base=mem)
 
     def to_numba(self):
         """Return numba memory pointer of CudaBuffer instance.
@@ -949,9 +954,16 @@ cdef public api bint pyarrow_is_cudabuffer(object buffer):
 
 
 cdef public api object \
+        pyarrow_wrap_cudabuffer_base(const shared_ptr[CCudaBuffer]& buf, base):
+    cdef CudaBuffer result = CudaBuffer.__new__(CudaBuffer)
+    result.init_cuda(buf, base)
+    return result
+
+
+cdef public api object \
         pyarrow_wrap_cudabuffer(const shared_ptr[CCudaBuffer]& buf):
     cdef CudaBuffer result = CudaBuffer.__new__(CudaBuffer)
-    result.init_cuda(buf)
+    result.init_cuda(buf, None)
     return result
 
 

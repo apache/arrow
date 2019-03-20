@@ -19,6 +19,7 @@
 import pytest
 
 from pyarrow.compat import unittest, u  # noqa
+from pyarrow.pandas_compat import _pandas_api  # noqa
 import pyarrow as pa
 
 import collections
@@ -643,7 +644,6 @@ def test_sequence_timestamp_with_unit():
     s = pa.timestamp('s')
     ms = pa.timestamp('ms')
     us = pa.timestamp('us')
-    ns = pa.timestamp('ns')
 
     arr_s = pa.array(data, type=s)
     assert len(arr_s) == 1
@@ -663,16 +663,16 @@ def test_sequence_timestamp_with_unit():
     assert arr_us[0].as_py() == datetime.datetime(2007, 7, 13, 1,
                                                   23, 34, 123456)
 
-    arr_ns = pa.array(data, type=ns)
-    assert len(arr_ns) == 1
-    assert arr_ns.type == ns
-    assert arr_ns[0].as_py() == datetime.datetime(2007, 7, 13, 1,
-                                                  23, 34, 123456)
+
+class MyDate(datetime.date):
+    pass
+
+
+class MyDatetime(datetime.datetime):
+    pass
 
 
 def test_datetime_subclassing():
-    class MyDate(datetime.date):
-        pass
     data = [
         MyDate(2007, 7, 13),
     ]
@@ -682,9 +682,6 @@ def test_datetime_subclassing():
     assert arr_date.type == date_type
     assert arr_date[0].as_py() == datetime.date(2007, 7, 13)
 
-    class MyDatetime(datetime.datetime):
-        pass
-
     data = [
         MyDatetime(2007, 7, 13, 1, 23, 34, 123456),
     ]
@@ -692,7 +689,6 @@ def test_datetime_subclassing():
     s = pa.timestamp('s')
     ms = pa.timestamp('ms')
     us = pa.timestamp('us')
-    ns = pa.timestamp('ns')
 
     arr_s = pa.array(data, type=s)
     assert len(arr_s) == 1
@@ -712,14 +708,29 @@ def test_datetime_subclassing():
     assert arr_us[0].as_py() == datetime.datetime(2007, 7, 13, 1,
                                                   23, 34, 123456)
 
-    arr_ns = pa.array(data, type=ns)
-    assert len(arr_ns) == 1
-    assert arr_ns.type == ns
-    assert arr_ns[0].as_py() == datetime.datetime(2007, 7, 13, 1,
-                                                  23, 34, 123456)
+
+@pytest.mark.xfail(not _pandas_api.have_pandas,
+                   reason="pandas required for nanosecond conversion")
+def test_sequence_timestamp_nanoseconds():
+    inputs = [
+        [datetime.datetime(2007, 7, 13, 1, 23, 34, 123456)],
+        [MyDatetime(2007, 7, 13, 1, 23, 34, 123456)]
+    ]
+
+    for data in inputs:
+        ns = pa.timestamp('ns')
+        arr_ns = pa.array(data, type=ns)
+        assert len(arr_ns) == 1
+        assert arr_ns.type == ns
+        assert arr_ns[0].as_py() == datetime.datetime(2007, 7, 13, 1,
+                                                      23, 34, 123456)
 
 
+@pytest.mark.pandas
 def test_sequence_timestamp_from_int_with_unit():
+    # TODO(wesm): This test might be rewritten to assert the actual behavior
+    # when pandas is not installed
+
     data = [1]
 
     s = pa.timestamp('s')

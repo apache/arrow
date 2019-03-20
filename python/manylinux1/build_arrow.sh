@@ -42,7 +42,7 @@ export PYARROW_WITH_PLASMA=1
 export PYARROW_BUNDLE_ARROW_CPP=1
 export PYARROW_BUNDLE_BOOST=1
 export PYARROW_BOOST_NAMESPACE=arrow_boost
-export PKG_CONFIG_PATH=/arrow-dist/lib/pkgconfig
+export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/arrow-dist/lib/pkgconfig
 
 export PYARROW_CMAKE_OPTIONS='-DTHRIFT_HOME=/usr -DBoost_NAMESPACE=arrow_boost -DBOOST_ROOT=/arrow_boost_dist'
 # Ensure the target directory exists
@@ -56,7 +56,7 @@ PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
 PIP="${CPYTHON_PATH}/bin/pip"
 PATH="${PATH}:${CPYTHON_PATH}"
 
-if [ ${PYTHON_VERSION} != "2.7" ]; then
+if [ "${PYTHON_VERSION}" != "2.7" ]; then
   # Gandiva is not supported on Python 2.7
   export PYARROW_WITH_GANDIVA=1
   export BUILD_ARROW_GANDIVA=ON
@@ -70,6 +70,8 @@ ARROW_BUILD_DIR=/tmp/build-PY${PYTHON_VERSION}-${UNICODE_WIDTH}
 mkdir -p "${ARROW_BUILD_DIR}"
 pushd "${ARROW_BUILD_DIR}"
 PATH="${CPYTHON_PATH}/bin:${PATH}" cmake -DCMAKE_BUILD_TYPE=Release \
+    -DARROW_DEPENDENCY_SOURCE="SYSTEM" \
+    -DZLIB_ROOT=/usr/local \
     -DCMAKE_INSTALL_PREFIX=/arrow-dist \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DARROW_BUILD_TESTS=OFF \

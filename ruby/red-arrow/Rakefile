@@ -17,27 +17,72 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "rubygems"
 require "bundler/gem_helper"
+require "rake/clean"
 require "yard"
 
 base_dir = File.join(__dir__)
 
 helper = Bundler::GemHelper.new(base_dir)
 helper.install
+spec = helper.gemspec
 
 release_task = Rake::Task["release"]
 release_task.prerequisites.replace(["build", "release:rubygem_push"])
 
+def run_extconf(extension_dir, *arguments)
+  cd(extension_dir) do
+    ruby("extconf.rb", *arguments)
+  end
+end
+
+spec.extensions.each do |extension|
+  extension_dir = File.dirname(extension)
+  CLOBBER << File.join(extension_dir, "Makefile")
+  CLOBBER << File.join(extension_dir, "mkmf.log")
+
+  makefile = File.join(extension_dir, "Makefile")
+  file makefile do
+    run_extconf(extension_dir)
+  end
+
+  desc "Configure"
+  task :configure do
+    run_extconf(extension_dir)
+  end
+
+  desc "Compile"
+  task :compile => makefile do
+    cd(extension_dir) do
+      sh("make")
+    end
+  end
+
+  task :clean do
+    cd(extension_dir) do
+      sh("make", "clean") if File.exist?("Makefile")
+    end
+  end
+end
+
 desc "Run tests"
 task :test do
-  cd("dependency-check") do
-    ruby("-S", "rake")
-  end
   ruby("test/run-test.rb")
 end
 
 task default: :test
+
+desc "Run benchmarks"
+task :benchmark do
+  benchmarks = if ENV["BENCHMARKS"]
+                 ENV["BENCHMARKS"].split
+               else
+                 FileList["benchmark/{,*/**/}*.yml"]
+               end
+  benchmarks.each do |benchmark|
+    sh("benchmark-driver", benchmark)
+  end
+end
 
 YARD::Rake::YardocTask.new do |task|
 end

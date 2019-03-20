@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
@@ -42,15 +42,9 @@ popd
 
 pushd $ARROW_INTEGRATION_DIR
 
-CONDA_ENV_NAME=arrow-integration-test
-conda create -y -q -n $CONDA_ENV_NAME python=3.6
-conda activate $CONDA_ENV_NAME
-
-# faster builds, please
-conda install -y nomkl
-
-# Expensive dependencies install from Continuum package repo
-conda install -y pip numpy six
+conda activate $CPP_TOOLCHAIN
+# Install integration test requirements
+conda install -y -q python=3.6 six numpy
 
 # ARROW-4008: Create a directory to write temporary files since /tmp can be
 # unstable in Travis CI

@@ -36,6 +36,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/ipc/json-simple.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
@@ -59,8 +60,8 @@ void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual
       auto c1 = actual.chunk(i);
       auto c2 = expected.chunk(i);
       if (!c1->Equals(*c2)) {
-        EXPECT_OK(::arrow::PrettyPrint(*c1, 0, &pp_result));
-        EXPECT_OK(::arrow::PrettyPrint(*c2, 0, &pp_expected));
+        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, &pp_result));
+        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c2, 0, &pp_expected));
         FAIL() << "Chunk " << i << " Got: " << pp_result.str()
                << "\nExpected: " << pp_expected.str();
       }
@@ -73,7 +74,8 @@ void AssertChunkedEqual(const ChunkedArray& actual, const ArrayVector& expected)
 }
 
 void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expected) {
-  ASSERT_EQ(buffer.size(), expected.size()) << "Mismatching buffer size";
+  ASSERT_EQ(static_cast<size_t>(buffer.size()), expected.size())
+      << "Mismatching buffer size";
   const uint8_t* buffer_data = buffer.data();
   for (size_t i = 0; i < expected.size(); ++i) {
     ASSERT_EQ(buffer_data[i], expected[i]);
@@ -81,7 +83,8 @@ void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expecte
 }
 
 void AssertBufferEqual(const Buffer& buffer, const std::string& expected) {
-  ASSERT_EQ(buffer.size(), expected.length()) << "Mismatching buffer size";
+  ASSERT_EQ(static_cast<size_t>(buffer.size()), expected.length())
+      << "Mismatching buffer size";
   const uint8_t* buffer_data = buffer.data();
   for (size_t i = 0; i < expected.size(); ++i) {
     ASSERT_EQ(buffer_data[i], expected[i]);
@@ -102,6 +105,11 @@ void AssertSchemaEqual(const Schema& lhs, const Schema& rhs) {
   }
 }
 
+void AssertDatumsEqual(const Datum& expected, const Datum& actual) {
+  // TODO: Implements better print.
+  ASSERT_TRUE(actual.Equals(expected));
+}
+
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
                                      const std::string& json) {
   std::shared_ptr<Array> out;
@@ -114,7 +122,7 @@ void PrintColumn(const Column& col, std::stringstream* ss) {
   for (int i = 0; i < carr.num_chunks(); ++i) {
     auto c1 = carr.chunk(i);
     *ss << "Chunk " << i << std::endl;
-    EXPECT_OK(::arrow::PrettyPrint(*c1, 0, ss));
+    ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, ss));
     *ss << std::endl;
   }
 }

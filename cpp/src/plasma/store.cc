@@ -77,6 +77,8 @@ namespace fb = plasma::flatbuf;
 
 namespace plasma {
 
+void SetMallocGranularity(int value);
+
 struct GetRequest {
   GetRequest(Client* client, const std::vector<ObjectID>& object_ids);
   /// The client that called get.
@@ -528,6 +530,12 @@ int PlasmaStore::RemoveFromClientObjectIds(const ObjectID& object_id,
   }
 }
 
+void PlasmaStore::EraseFromObjectTable(const ObjectID& object_id) {
+  auto& object = store_info_.objects[object_id];
+  PlasmaAllocator::Free(object->pointer, object->data_size + object->metadata_size);
+  store_info_.objects.erase(object_id);
+}
+
 void PlasmaStore::ReleaseObject(const ObjectID& object_id, Client* client) {
   auto entry = GetObjectTableEntry(&store_info_, object_id);
   ARROW_CHECK(entry != nullptr);
@@ -581,7 +589,7 @@ int PlasmaStore::AbortObject(const ObjectID& object_id, Client* client) {
     return 0;
   } else {
     // The client requesting the abort is the creator. Free the object.
-    store_info_.objects.erase(object_id);
+    EraseFromObjectTable(object_id);
     return 1;
   }
 }
@@ -611,8 +619,7 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
   }
 
   eviction_policy_.RemoveObject(object_id);
-
-  store_info_.objects.erase(object_id);
+  EraseFromObjectTable(object_id);
   // Inform all subscribers that the object has been deleted.
   fb::ObjectInfoT notification;
   notification.object_id = object_id.binary();
@@ -647,7 +654,7 @@ void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
     } else {
       // If there is no backing external store, just erase the object entry
       // and send a deletion notification.
-      store_info_.objects.erase(object_id);
+      EraseFromObjectTable(object_id);
       // Inform all subscribers that the object has been deleted.
       fb::ObjectInfoT notification;
       notification.object_id = object_id.binary();
@@ -1144,7 +1151,7 @@ int main(int argc, char* argv[]) {
       system_memory = shm_mem_avail;
     }
   } else {
-    SetMallocGranularity(1024 * 1024 * 1024);  // 1 GB
+    plasma::SetMallocGranularity(1024 * 1024 * 1024);  // 1 GB
   }
 #endif
   // Get external store

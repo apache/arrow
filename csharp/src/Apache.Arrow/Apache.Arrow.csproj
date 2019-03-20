@@ -1,28 +1,19 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <Import Project="../../build/Common.props" />
-
   <PropertyGroup>
     <TargetFrameworks>netstandard1.3;netcoreapp2.1</TargetFrameworks>
-    <LangVersion>7.2</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Authors>Apache</Authors>
-    <Product>Apache Arrow library</Product>
-    <Copyright>2018 Apache Software Foundation</Copyright>
-    <PackageProjectUrl>https://fzcorp.visualstudio.com/digital-products</PackageProjectUrl>
-    <RepositoryUrl>https://fzcorp.visualstudio.com/digital-products/_git/fz-arrow</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageTags>apache arrow</PackageTags>
-    <Company>Apache</Company>
-    <Version>0.0.1</Version>
     <DefineConstants>$(DefineConstants);UNSAFE_BYTEBUFFER;BYTEBUFFER_NO_BOUNDS_CHECK;ENABLE_SPAN_T</DefineConstants>
+    
+    <Description>Apache Arrow is a cross-language development platform for in-memory data. It specifies a standardized language-independent columnar memory format for flat and hierarchical data, organized for efficient analytic operations on modern hardware.</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="System.Buffers" Version="4.5.0" />
-    <PackageReference Include="System.Memory" Version="4.5.1" />
-    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="4.5.1" />
-    <PackageReference Include="System.Text.Encoding" Version="4.3.0" />
+    <PackageReference Include="System.Memory" Version="4.5.2" />
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="4.5.2" />
+
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta2-18618-05" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>

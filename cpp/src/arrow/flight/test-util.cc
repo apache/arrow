@@ -139,9 +139,9 @@ std::vector<FlightInfo> ExampleFlightInfo() {
   auto schema2 = ExampleSchema2();
 
   FlightInfo::Data flight1, flight2;
-  EXPECT_OK(
+  ARROW_EXPECT_OK(
       MakeFlightInfo(*schema1, descr1, {endpoint1, endpoint2}, 1000, 100000, &flight1));
-  EXPECT_OK(MakeFlightInfo(*schema2, descr2, {endpoint3}, 1000, 100000, &flight2));
+  ARROW_EXPECT_OK(MakeFlightInfo(*schema2, descr2, {endpoint3}, 1000, 100000, &flight2));
   return {FlightInfo(flight1), FlightInfo(flight2)};
 }
 

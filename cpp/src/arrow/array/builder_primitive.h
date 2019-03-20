@@ -32,7 +32,18 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   explicit NullBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
       : ArrayBuilder(null(), pool) {}
 
+  /// \brief Append the specified number of null elements
+  Status AppendNulls(int64_t length) {
+    auto new_length = length_ + length;
+    ARROW_RETURN_NOT_OK(CheckCapacity(new_length, length_));
+    null_count_ += length;
+    length_ = new_length;
+    return Status::OK();
+  }
+
+  /// \brief Append a single null element
   Status AppendNull() {
+    ARROW_RETURN_NOT_OK(CheckCapacity(length_ + 1, length_));
     ++null_count_;
     ++length_;
     return Status::OK();

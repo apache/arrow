@@ -17,7 +17,6 @@
 
 # flake8: noqa
 
-from distutils.version import LooseVersion
 import itertools
 
 import numpy as np
@@ -30,38 +29,6 @@ import socket
 
 PY26 = sys.version_info[:2] == (2, 6)
 PY2 = sys.version_info[0] == 2
-
-try:
-    import pandas as pd
-    pdver = LooseVersion(pd.__version__)
-    if pdver >= '0.20.0':
-        from pandas.api.types import DatetimeTZDtype
-        pdapi = pd.api.types
-    elif pdver >= '0.19.0':
-        from pandas.types.dtypes import DatetimeTZDtype
-        pdapi = pd.api.types
-    else:
-        from pandas.types.dtypes import DatetimeTZDtype
-        pdapi = pd.core.common
-
-    PandasSeries = pd.Series
-    Categorical = pd.Categorical
-    HAVE_PANDAS = True
-except:
-    HAVE_PANDAS = False
-    class DatetimeTZDtype(object):
-        pass
-
-    class ClassPlaceholder(object):
-
-        def __init__(self, *args, **kwargs):
-            raise NotImplementedError
-
-    class PandasSeries(ClassPlaceholder):
-        pass
-
-    class Categorical(ClassPlaceholder):
-        pass
 
 
 if PY26:

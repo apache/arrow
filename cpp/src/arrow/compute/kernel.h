@@ -27,6 +27,7 @@
 #include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/memory.h"
 #include "arrow/util/variant.h"  // IWYU pragma: export
 #include "arrow/util/visibility.h"
 
@@ -58,6 +59,10 @@ class ARROW_EXPORT OpKernel {
   /// \return the output type
   virtual std::shared_ptr<DataType> out_type() const = 0;
 };
+
+struct Datum;
+static inline bool CollectionEquals(const std::vector<Datum>& left,
+                                    const std::vector<Datum>& right);
 
 /// \class Datum
 /// \brief Variant type for various Arrow C++ data structures
@@ -153,6 +158,14 @@ struct ARROW_EXPORT Datum {
     return util::get<std::shared_ptr<ChunkedArray>>(this->value);
   }
 
+  std::shared_ptr<RecordBatch> record_batch() const {
+    return util::get<std::shared_ptr<RecordBatch>>(this->value);
+  }
+
+  std::shared_ptr<Table> table() const {
+    return util::get<std::shared_ptr<Table>>(this->value);
+  }
+
   const std::vector<Datum> collection() const {
     return util::get<std::vector<Datum>>(this->value);
   }
@@ -181,6 +194,29 @@ struct ARROW_EXPORT Datum {
       return util::get<std::shared_ptr<Scalar>>(this->value)->type;
     }
     return NULLPTR;
+  }
+
+  bool Equals(const Datum& other) const {
+    if (this->kind() != other.kind()) return false;
+
+    switch (this->kind()) {
+      case Datum::NONE:
+        return true;
+      case Datum::SCALAR:
+        return internal::SharedPtrEquals(this->scalar(), other.scalar());
+      case Datum::ARRAY:
+        return internal::SharedPtrEquals(this->make_array(), other.make_array());
+      case Datum::CHUNKED_ARRAY:
+        return internal::SharedPtrEquals(this->chunked_array(), other.chunked_array());
+      case Datum::RECORD_BATCH:
+        return internal::SharedPtrEquals(this->record_batch(), other.record_batch());
+      case Datum::TABLE:
+        return internal::SharedPtrEquals(this->table(), other.table());
+      case Datum::COLLECTION:
+        return CollectionEquals(this->collection(), other.collection());
+      default:
+        return false;
+    }
   }
 };
 
@@ -213,6 +249,16 @@ class ARROW_EXPORT BinaryKernel : public OpKernel {
   virtual Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
                       Datum* out) = 0;
 };
+
+static inline bool CollectionEquals(const std::vector<Datum>& left,
+                                    const std::vector<Datum>& right) {
+  if (left.size() != right.size()) return false;
+
+  for (size_t i = 0; i < left.size(); i++)
+    if (!left[i].Equals(right[i])) return false;
+
+  return true;
+}
 
 }  // namespace compute
 }  // namespace arrow

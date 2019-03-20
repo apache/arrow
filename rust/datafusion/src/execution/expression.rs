@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Runtime expression support
+
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -23,15 +25,16 @@ use arrow::compute;
 use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
-use super::super::logicalplan::{Expr, Operator, ScalarValue};
-use super::context::ExecutionContext;
-use super::error::{ExecutionError, Result};
+use crate::error::{ExecutionError, Result};
+use crate::execution::context::ExecutionContext;
+use crate::logicalplan::{Expr, Operator, ScalarValue};
 
 /// Compiled Expression (basically just a closure to evaluate the expression at runtime)
 pub type CompiledExpr = Rc<Fn(&RecordBatch) -> Result<ArrayRef>>;
 
 pub type CompiledCastFunction = Rc<Fn(&ArrayRef) -> Result<ArrayRef>>;
 
+/// Enumeration of supported aggregate functions
 pub enum AggregateType {
     Min,
     Max,
@@ -42,7 +45,7 @@ pub enum AggregateType {
 }
 
 /// Runtime expression
-pub enum RuntimeExpr {
+pub(super) enum RuntimeExpr {
     Compiled {
         name: String,
         f: CompiledExpr,
@@ -57,10 +60,12 @@ pub enum RuntimeExpr {
 }
 
 impl RuntimeExpr {
-    pub fn get_func(&self) -> CompiledExpr {
+    pub fn get_func(&self) -> Result<CompiledExpr> {
         match self {
-            &RuntimeExpr::Compiled { ref f, .. } => f.clone(),
-            _ => panic!(),
+            &RuntimeExpr::Compiled { ref f, .. } => Ok(f.clone()),
+            _ => Err(ExecutionError::InternalError(
+                "Invalid runtime expression".to_string(),
+            )),
         }
     }
 
@@ -80,7 +85,7 @@ impl RuntimeExpr {
 }
 
 /// Compiles a scalar expression into a closure
-pub fn compile_expr(
+pub(super) fn compile_expr(
     ctx: &ExecutionContext,
     expr: &Expr,
     input_schema: &Schema,
@@ -109,13 +114,15 @@ pub fn compile_expr(
                 ))),
             };
 
+            let mut args = vec![];
+            for arg in compiled_args? {
+                args.push(arg.get_func()?.clone());
+            }
+
             Ok(RuntimeExpr::AggregateFunction {
                 name: name.to_string(),
                 f: func?,
-                args: compiled_args?
-                    .iter()
-                    .map(|e| e.get_func().clone())
-                    .collect(),
+                args,
                 t: return_type.clone(),
             })
         }
@@ -133,8 +140,8 @@ macro_rules! binary_op {
 
 macro_rules! math_ops {
     ($LEFT:expr, $RIGHT:expr, $BATCH:expr, $OP:ident) => {{
-        let left_values = $LEFT.get_func()($BATCH)?;
-        let right_values = $RIGHT.get_func()($BATCH)?;
+        let left_values = $LEFT.get_func()?($BATCH)?;
+        let right_values = $RIGHT.get_func()?($BATCH)?;
         match (left_values.data_type(), right_values.data_type()) {
             (DataType::Int8, DataType::Int8) => {
                 binary_op!(left_values, right_values, $OP, Int8Array)
@@ -173,8 +180,8 @@ macro_rules! math_ops {
 
 macro_rules! comparison_ops {
     ($LEFT:expr, $RIGHT:expr, $BATCH:expr, $OP:ident) => {{
-        let left_values = $LEFT.get_func()($BATCH)?;
-        let right_values = $RIGHT.get_func()($BATCH)?;
+        let left_values = $LEFT.get_func()?($BATCH)?;
+        let right_values = $RIGHT.get_func()?($BATCH)?;
         match (left_values.data_type(), right_values.data_type()) {
             (DataType::Int8, DataType::Int8) => {
                 binary_op!(left_values, right_values, $OP, Int8Array)
@@ -214,8 +221,8 @@ macro_rules! comparison_ops {
 
 macro_rules! boolean_ops {
     ($LEFT:expr, $RIGHT:expr, $BATCH:expr, $OP:ident) => {{
-        let left_values = $LEFT.get_func()($BATCH)?;
-        let right_values = $RIGHT.get_func()($BATCH)?;
+        let left_values = $LEFT.get_func()?($BATCH)?;
+        let right_values = $RIGHT.get_func()?($BATCH)?;
         Ok(Arc::new(compute::$OP(
             left_values.as_any().downcast_ref::<BooleanArray>().unwrap(),
             right_values
@@ -246,7 +253,7 @@ macro_rules! literal_array {
 }
 
 /// Compiles a scalar expression into a closure
-pub fn compile_scalar_expr(
+pub(super) fn compile_scalar_expr(
     ctx: &ExecutionContext,
     expr: &Expr,
     input_schema: &Schema,

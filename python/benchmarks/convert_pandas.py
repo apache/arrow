@@ -105,3 +105,17 @@ class SerializeDeserializePandas(object):
 
     def time_deserialize_pandas(self):
         pa.deserialize_pandas(self.serialized)
+
+
+class TableFromPandasMicroperformance(object):
+    # ARROW-4629
+
+    def setup(self):
+        ser = pd.Series(range(10000))
+        df = pd.DataFrame({col: ser.copy(deep=True) for col in range(100)})
+        # Simulate a real dataset by converting some columns to strings
+        self.df = df.astype({col: str for col in range(50)})
+
+    def time_Table_from_pandas(self):
+        for _ in range(50):
+            pa.Table.from_pandas(self.df, nthreads=1)

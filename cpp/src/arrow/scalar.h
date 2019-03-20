@@ -48,6 +48,12 @@ struct ARROW_EXPORT Scalar {
   /// \brief Whether the value is valid (not null) or not
   bool is_valid;
 
+  bool Equals(const Scalar& other) const;
+  bool Equals(const std::shared_ptr<Scalar>& other) const {
+    if (other) return Equals(*other);
+    return false;
+  }
+
  protected:
   Scalar(const std::shared_ptr<DataType>& type, bool is_valid)
       : type(type), is_valid(is_valid) {}
@@ -59,14 +65,22 @@ struct ARROW_EXPORT NullScalar : public Scalar {
   NullScalar() : Scalar{null(), false} {}
 };
 
-struct ARROW_EXPORT BooleanScalar : public Scalar {
+namespace internal {
+
+struct ARROW_EXPORT PrimitiveScalar : public Scalar {
+  using Scalar::Scalar;
+};
+
+}  // namespace internal
+
+struct ARROW_EXPORT BooleanScalar : public internal::PrimitiveScalar {
   bool value;
   explicit BooleanScalar(bool value, bool is_valid = true)
-      : Scalar{boolean(), is_valid}, value(value) {}
+      : internal::PrimitiveScalar{boolean(), is_valid}, value(value) {}
 };
 
 template <typename Type>
-struct NumericScalar : public Scalar {
+struct NumericScalar : public internal::PrimitiveScalar {
   using T = typename Type::c_type;
   T value;
 
@@ -75,7 +89,7 @@ struct NumericScalar : public Scalar {
 
  protected:
   explicit NumericScalar(T value, const std::shared_ptr<DataType>& type, bool is_valid)
-      : Scalar{type, is_valid}, value(value) {}
+      : internal::PrimitiveScalar{type, is_valid}, value(value) {}
 };
 
 struct ARROW_EXPORT BinaryScalar : public Scalar {
@@ -109,21 +123,21 @@ class ARROW_EXPORT Date64Scalar : public NumericScalar<Date64Type> {
   using NumericScalar<Date64Type>::NumericScalar;
 };
 
-class ARROW_EXPORT Time32Scalar : public Scalar {
+class ARROW_EXPORT Time32Scalar : public internal::PrimitiveScalar {
  public:
   int32_t value;
   Time32Scalar(int32_t value, const std::shared_ptr<DataType>& type,
                bool is_valid = true);
 };
 
-class ARROW_EXPORT Time64Scalar : public Scalar {
+class ARROW_EXPORT Time64Scalar : public internal::PrimitiveScalar {
  public:
   int64_t value;
   Time64Scalar(int64_t value, const std::shared_ptr<DataType>& type,
                bool is_valid = true);
 };
 
-class ARROW_EXPORT TimestampScalar : public Scalar {
+class ARROW_EXPORT TimestampScalar : public internal::PrimitiveScalar {
  public:
   int64_t value;
   TimestampScalar(int64_t value, const std::shared_ptr<DataType>& type,
@@ -148,5 +162,9 @@ struct ARROW_EXPORT ListScalar : public Scalar {
 struct ARROW_EXPORT StructScalar : public Scalar {
   std::vector<std::shared_ptr<Scalar>> value;
 };
+
+class ARROW_EXPORT UnionScalar : public Scalar {};
+class ARROW_EXPORT DictionaryScalar : public Scalar {};
+class ARROW_EXPORT ExtensionScalar : public Scalar {};
 
 }  // namespace arrow
