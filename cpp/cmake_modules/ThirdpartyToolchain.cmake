@@ -2002,6 +2002,24 @@ macro(build_grpc)
 endmacro()
 
 if(ARROW_WITH_GRPC)
+  # gRPC requires OpenSSL but it depends on OpenSSL::SSL and OpenSSL::Crypto
+  # which are not available in older CMake versions.
+  find_package(OpenSSL REQUIRED)
+  if(NOT TARGET OpenSSL::SSL)
+    add_library(OpenSSL::SSL UNKNOWN IMPORTED)
+    set_target_properties(OpenSSL::SSL
+                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                     "${OPENSSL_INCLUDE_DIR}")
+  endif()
+  if(NOT TARGET OpenSSL::Crypto)
+    add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
+    set_target_properties(OpenSSL::Crypto
+                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                     "${OPENSSL_INCLUDE_DIR}")
+  endif()
+
   get_dependency_source(gRPC)
   if(gRPC_SOURCE STREQUAL "AUTO")
     find_package(gRPC QUIET)

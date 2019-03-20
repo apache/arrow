@@ -106,7 +106,8 @@ find_package_handle_standard_args(Brotli
                                   BROTLI_DEC_LIBRARY
                                   BROTLI_INCLUDE_DIR)
 
-if(Brotli_FOUND)
+if(Brotli_FOUND OR BROTLI_FOUND)
+  set(Brotli_FOUND TRUE)
   add_library(Brotli::brotlicommon UNKNOWN IMPORTED)
   set_target_properties(Brotli::brotlicommon
                         PROPERTIES IMPORTED_LOCATION "${BROTLI_COMMON_LIBRARY}"
