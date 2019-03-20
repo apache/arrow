@@ -489,8 +489,8 @@ impl PrimitiveArray<BooleanType> {
 
     /// Returns the boolean value at index `i`.
     pub fn value(&self, i: usize) -> bool {
+        assert!(i < self.data.len());
         let offset = i + self.offset();
-        assert!(offset < self.data.len());
         unsafe { bit_util::get_bit_raw(self.raw_values.get() as *const u8, offset) }
     }
 
@@ -949,7 +949,13 @@ impl From<ArrayDataRef> for StructArray {
     fn from(data: ArrayDataRef) -> Self {
         let mut boxed_fields = vec![];
         for cd in data.child_data() {
-            boxed_fields.push(make_array(cd.clone()));
+            let child_data =
+                if data.offset != 0 || data.len != cd.len {
+                    slice_data(cd.clone(), data.offset, data.len)
+                } else {
+                    cd.clone()
+                };
+            boxed_fields.push(make_array(child_data));
         }
         Self { data, boxed_fields }
     }
@@ -1705,6 +1711,7 @@ mod tests {
         field_types.push(Field::new("a", DataType::Boolean, false));
         field_types.push(Field::new("b", DataType::Int64, false));
         let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
+            .len(4)
             .add_child_data(boolean_data.clone())
             .add_child_data(int_data.clone())
             .build();
@@ -1729,7 +1736,7 @@ mod tests {
             ))
             .null_bit_buffer(null_bit_buffer.clone())
             .build();
-        let int_data = ArrayData::builder(DataType::Int64)
+        let int_data = ArrayData::builder(DataType::Int32)
             .len(5)
             .add_buffer(Buffer::from([42, 28, 19, 31, 54].to_byte_slice()))
             .null_bit_buffer(null_bit_buffer.clone())
@@ -1737,7 +1744,7 @@ mod tests {
 
         let mut field_types = vec![];
         field_types.push(Field::new("a", DataType::Boolean, false));
-        field_types.push(Field::new("b", DataType::Int64, false));
+        field_types.push(Field::new("b", DataType::Int32, false));
         let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
             .len(5)
             .add_child_data(boolean_data.clone())
@@ -1750,13 +1757,34 @@ mod tests {
         assert_eq!(boolean_data, struct_array.column(0).data());
         assert_eq!(int_data, struct_array.column(1).data());
 
-        let sliced_array = struct_array.slice(2, 2);
-        assert_eq!(2, sliced_array.len());
+        let sliced_array = struct_array.slice(2, 3);
+        let sliced_array = sliced_array.as_any().downcast_ref::<StructArray>().unwrap();
+        assert_eq!(3, sliced_array.len());
         assert_eq!(2, sliced_array.offset());
         assert_eq!(1, sliced_array.null_count());
         assert!(sliced_array.is_valid(0));
         assert!(sliced_array.is_null(1));
         assert!(sliced_array.is_valid(2));
+
+        let sliced_c0 = sliced_array.column(0);
+        let sliced_c0 = sliced_c0.as_any().downcast_ref::<BooleanArray>().unwrap();
+        assert_eq!(3, sliced_c0.len());
+        assert_eq!(2, sliced_c0.offset());
+        assert!(sliced_c0.is_valid(0));
+        assert_eq!(false, sliced_c0.value(0));
+        assert!(sliced_c0.is_null(1));
+        assert!(sliced_c0.is_valid(2));
+        assert_eq!(false, sliced_c0.value(2));
+
+        let sliced_c1 = sliced_array.column(1);
+        let sliced_c1 = sliced_c1.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(3, sliced_c1.len());
+        assert_eq!(2, sliced_c1.offset());
+        assert!(sliced_c1.is_valid(0));
+        assert_eq!(19, sliced_c1.value(0));
+        assert!(sliced_c1.is_null(1));
+        assert!(sliced_c1.is_valid(2));
+        assert_eq!(54, sliced_c1.value(2));
     }
 
     #[test]
