@@ -515,7 +515,7 @@ function(ADD_TEST_CASE REL_TEST_NAME)
                                      INSTALL_RPATH_USE_LINK_PATH
                                      TRUE
                                      INSTALL_RPATH
-                                     "$ENV{CONDA_PREFIX}/lib;${EXECUTABLE_OUTPUT_PATH}")
+                                     "${EXECUTABLE_OUTPUT_PATH};$ENV{CONDA_PREFIX}/lib")
   endif()
 
   if(ARG_STATIC_LINK_LIBS)
