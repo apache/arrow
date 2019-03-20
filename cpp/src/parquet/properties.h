@@ -133,6 +133,18 @@ class PARQUET_EXPORT FileDecryptionProperties {
     column_keys_[columnPath.ToDotString()] = key;
   }
 
+  bool HasColumnKey(const std::shared_ptr<schema::ColumnPath>& columnPath,
+                    const std::string& key_metadata = "") {
+    if (key_metadata.empty()) {
+      auto search = column_keys_.find(columnPath->ToDotString());
+      return search != column_keys_.end();
+    }
+    if (key_retriever_ == NULLPTR) {
+      return false;
+    }
+    return key_retriever_->GetKey(key_metadata).empty();
+  }
+
   const std::string& GetColumnKey(const std::shared_ptr<schema::ColumnPath>& columnPath,
                                   const std::string& key_metadata = "") {
     if (key_metadata.empty()) {
