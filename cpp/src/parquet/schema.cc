@@ -370,9 +370,9 @@ void PrimitiveNode::ToParquet(void* opaque_element) const {
 std::unique_ptr<Node> FlatSchemaConverter::Convert() {
   const SchemaElement& root = elements_[0];
 
-  // Validate the root node
   if (root.num_children == 0) {
-    throw ParquetException("Root node did not have children");
+    // Degenerate case of Parquet file with no columns
+    return GroupNode::FromParquet(static_cast<const void*>(&root), next_id(), {});
   }
 
   // Relaxing this restriction as some implementations don't set this

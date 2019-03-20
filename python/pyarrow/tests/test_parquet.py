@@ -236,6 +236,13 @@ def test_empty_table_roundtrip():
     _check_roundtrip(table, version='2.0')
 
 
+@pytest.mark.pandas
+def test_empty_table_no_columns():
+    df = pd.DataFrame()
+    empty = pa.Table.from_pandas(df, preserve_index=False)
+    _check_roundtrip(empty)
+
+
 def test_empty_lists_table_roundtrip():
     # ARROW-2744: Shouldn't crash when writing an array of empty lists
     arr = pa.array([[], []], type=pa.list_(pa.int32()))
