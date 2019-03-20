@@ -179,11 +179,11 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
         // should decrypt metadata
         std::shared_ptr<schema::ColumnPath> path = std::make_shared<schema::ColumnPath>(
           ccmd.ENCRYPTION_WITH_COLUMN_KEY.path_in_schema);
-        std::string key_metadata = ccmd.ENCRYPTION_WITH_COLUMN_KEY.key_metadata;
-        const std::string& key = file_decryption->GetColumnKey(path, key_metadata);
-        if (key.empty()) {
-          throw ParquetException("Cannot decrypt ColumnMetadata. Column encryption key must be provided.");
+        std::string key_metadata = ccmd.ENCRYPTION_WITH_COLUMN_KEY.key_metadata; std::cout << 1 << std::endl;
+        if (!file_decryption->HasColumnKey(path, key_metadata)) {
+          throw HiddenColumnException(path->ToDotString());
         }
+        const std::string& key = file_decryption->GetColumnKey(path, key_metadata); std::cout << 2 << std::endl;
 
         DCHECK(algorithm != NULLPTR);
         // TODO: AAD

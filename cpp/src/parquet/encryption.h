@@ -18,9 +18,11 @@
 #ifndef PARQUET_ENCRYPTION_H
 #define PARQUET_ENCRYPTION_H
 
-#include <parquet/util/visibility.h>
 #include <map>
 #include <string>
+
+#include <parquet/util/visibility.h>
+#include "parquet/exception.h"
 
 namespace parquet {
 
@@ -48,6 +50,12 @@ class PARQUET_EXPORT StringKeyIdRetriever : public DecryptionKeyRetriever {
 
  private:
   std::map<std::string, std::string> key_map_;
+};
+
+class PARQUET_EXPORT HiddenColumnException : public ParquetException {
+ public:
+  HiddenColumnException(const std::string columnPath)
+    : ParquetException(columnPath.c_str()) {}
 };
 
 }  // namespace parquet
