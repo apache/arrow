@@ -324,7 +324,7 @@ cdef class FileMetaData:
         for prop in ('schema', 'serialized_size', 'num_columns', 'num_rows',
                      'num_row_groups', 'format_version', 'created_by',
                      'metadata'):
-            if getattr(self, prop) != getattr(self, prop):
+            if getattr(self, prop) != getattr(other, prop):
                 return False
         return True
 
