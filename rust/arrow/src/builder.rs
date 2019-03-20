@@ -686,10 +686,6 @@ impl StructBuilder {
             child_data.push(arr.data());
         }
 
-        if child_data.len() > 0 {
-            self.len = child_data[0].len()
-        }
-
         let null_bit_buffer = self.bitmap_builder.finish();
         let null_count = self.len - bit_util::count_set_bits(null_bit_buffer.data());
         let mut builder = ArrayData::builder(DataType::Struct(self.fields.clone()))
@@ -700,6 +696,9 @@ impl StructBuilder {
                 .null_count(null_count)
                 .null_bit_buffer(null_bit_buffer);
         }
+
+        self.len = 0;
+
         StructArray::from(builder.build())
     }
 }
@@ -1359,9 +1358,17 @@ mod tests {
             ])
             .unwrap();
 
-        let arr = builder.finish();
-        assert_eq!(10, arr.len());
+        // Append slot values - all are valid.
+        for _ in 0..10 {
+            assert!(builder.append(true).is_ok())
+        }
+
         assert_eq!(10, builder.len());
+
+        let arr = builder.finish();
+
+        assert_eq!(10, arr.len());
+        assert_eq!(0, builder.len());
 
         builder
             .field_builder::<Int32Builder>(0)
@@ -1374,9 +1381,17 @@ mod tests {
             .append_slice(&[false, true, false, true, false])
             .unwrap();
 
-        let arr = builder.finish();
-        assert_eq!(5, arr.len());
+        // Append slot values - all are valid.
+        for _ in 0..5 {
+            assert!(builder.append(true).is_ok())
+        }
+
         assert_eq!(5, builder.len());
+
+        let arr = builder.finish();
+
+        assert_eq!(5, arr.len());
+        assert_eq!(0, builder.len());
     }
 
     #[test]
