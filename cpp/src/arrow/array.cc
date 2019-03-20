@@ -77,6 +77,18 @@ std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type
   return std::make_shared<ArrayData>(type, length, null_count, offset);
 }
 
+ArrayData ArrayData::Slice(int64_t off, int64_t len) const {
+  DCHECK_LE(off, length);
+  len = std::min(length - off, len);
+  off += offset;
+
+  auto copy = *this;
+  copy.length = len;
+  copy.offset = off;
+  copy.null_count = null_count != 0 ? kUnknownNullCount : 0;
+  return copy;
+}
+
 int64_t ArrayData::GetNullCount() const {
   if (ARROW_PREDICT_FALSE(this->null_count == kUnknownNullCount)) {
     if (this->buffers[0]) {
@@ -125,21 +137,8 @@ bool Array::RangeEquals(const Array& other, int64_t start_idx, int64_t end_idx,
   return ArrayRangeEquals(*this, other, start_idx, end_idx, other_start_idx);
 }
 
-static inline std::shared_ptr<ArrayData> SliceData(const ArrayData& data, int64_t offset,
-                                                   int64_t length) {
-  DCHECK_LE(offset, data.length);
-  length = std::min(data.length - offset, length);
-  offset += data.offset;
-
-  auto new_data = data.Copy();
-  new_data->length = length;
-  new_data->offset = offset;
-  new_data->null_count = data.null_count != 0 ? kUnknownNullCount : 0;
-  return new_data;
-}
-
 std::shared_ptr<Array> Array::Slice(int64_t offset, int64_t length) const {
-  return MakeArray(SliceData(*data_, offset, length));
+  return MakeArray(std::make_shared<ArrayData>(data_->Slice(offset, length)));
 }
 
 std::shared_ptr<Array> Array::Slice(int64_t offset) const {
@@ -385,7 +384,8 @@ std::shared_ptr<Array> StructArray::field(int i) const {
   if (!boxed_fields_[i]) {
     std::shared_ptr<ArrayData> field_data;
     if (data_->offset != 0 || data_->child_data[i]->length != data_->length) {
-      field_data = SliceData(*data_->child_data[i].get(), data_->offset, data_->length);
+      field_data = std::make_shared<ArrayData>(
+          data_->child_data[i]->Slice(data_->offset, data_->length));
     } else {
       field_data = data_->child_data[i];
     }
@@ -410,7 +410,7 @@ Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
 
     // Need to adjust for parent offset
     if (data_->offset != 0 || data_->length != child_data->length) {
-      child_data = SliceData(*child_data, data_->offset, data_->length);
+      *child_data = child_data->Slice(data_->offset, data_->length);
     }
     std::shared_ptr<Buffer> child_null_bitmap = child_data->buffers[0];
     const int64_t child_offset = child_data->offset;
@@ -540,13 +540,13 @@ Status UnionArray::MakeSparse(const Array& type_ids,
 
 std::shared_ptr<Array> UnionArray::child(int i) const {
   if (!boxed_fields_[i]) {
-    std::shared_ptr<ArrayData> child_data = data_->child_data[i];
+    std::shared_ptr<ArrayData> child_data = data_->child_data[i]->Copy();
     if (mode() == UnionMode::SPARSE) {
       // Sparse union: need to adjust child if union is sliced
       // (for dense unions, the need to lookup through the offsets
       //  makes this unnecessary)
       if (data_->offset != 0 || child_data->length > data_->length) {
-        child_data = SliceData(*child_data.get(), data_->offset, data_->length);
+        *child_data = child_data->Slice(data_->offset, data_->length);
       }
     }
     boxed_fields_[i] = MakeArray(child_data);
@@ -994,5 +994,4 @@ std::vector<ArrayVector> RechunkArraysConsistently(
 }
 
 }  // namespace internal
-
 }  // namespace arrow

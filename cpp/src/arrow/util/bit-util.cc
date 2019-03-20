@@ -210,8 +210,12 @@ Status TransferBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset,
 }
 
 void CopyBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
-                int64_t dest_offset) {
-  TransferBitmap<false, true>(data, offset, length, dest_offset, dest);
+                int64_t dest_offset, bool restore_trailing_bits) {
+  if (restore_trailing_bits) {
+    TransferBitmap<false, true>(data, offset, length, dest_offset, dest);
+  } else {
+    TransferBitmap<false, false>(data, offset, length, dest_offset, dest);
+  }
 }
 
 void InvertBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
