@@ -990,6 +990,7 @@ impl From<Vec<(Field, ArrayRef)>> for StructArray {
 
         let data = ArrayData::builder(DataType::Struct(field_types))
             .child_data(field_values.into_iter().map(|a| a.data()).collect())
+            .len(length)
             .build();
         Self::from(data)
     }
@@ -1781,6 +1782,9 @@ mod tests {
         ]);
         assert_eq!(boolean_data, struct_array.column(0).data());
         assert_eq!(int_data, struct_array.column(1).data());
+        assert_eq!(4, struct_array.len());
+        assert_eq!(0, struct_array.null_count());
+        assert_eq!(0, struct_array.offset());
     }
 
     #[test]
