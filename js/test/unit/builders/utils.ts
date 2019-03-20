@@ -1,3 +1,4 @@
+import { util } from '../../Arrow';
 import { DataBuilder } from '../../Arrow';
 import { DataType, Vector, Chunked } from '../../Arrow';
 
@@ -30,15 +31,12 @@ export const date64sNoNulls = (length = 20) => timestamp64sNoNulls(length).map((
 export const int8sNoNulls = (length = 20) => Array.from(new Int8Array(randomBytes(length * Int8Array.BYTES_PER_ELEMENT).buffer));
 export const int16sNoNulls = (length = 20) => Array.from(new Int16Array(randomBytes(length * Int16Array.BYTES_PER_ELEMENT).buffer));
 export const int32sNoNulls = (length = 20) => Array.from(new Int32Array(randomBytes(length * Int32Array.BYTES_PER_ELEMENT).buffer));
-export const int64sNoNulls = (length = 20) => Array.from({ length }, () => {
-    const [x, y] = new Int32Array(randomBytes(2 * Int32Array.BYTES_PER_ELEMENT).buffer);
-    return 4294967296 * y + (x >>> 0);
-});
+export const int64sNoNulls = (length = 20) => Array.from({ length }, () => util.BN.new(new Int32Array(randomBytes(2 * Int32Array.BYTES_PER_ELEMENT).buffer)));
 
 export const uint8sNoNulls = (length = 20) => Array.from(new Uint8Array(randomBytes(length * Uint8Array.BYTES_PER_ELEMENT).buffer));
 export const uint16sNoNulls = (length = 20) => Array.from(new Uint16Array(randomBytes(length * Uint16Array.BYTES_PER_ELEMENT).buffer));
 export const uint32sNoNulls = (length = 20) => Array.from(new Uint32Array(randomBytes(length * Uint32Array.BYTES_PER_ELEMENT).buffer));
-export const uint64sNoNulls = (length = 20) => Array.from({ length }, () => new Uint32Array(randomBytes(2 * Uint32Array.BYTES_PER_ELEMENT).buffer));
+export const uint64sNoNulls = (length = 20) => Array.from({ length }, () => util.BN.new(new Uint32Array(randomBytes(2 * Uint32Array.BYTES_PER_ELEMENT).buffer)));
 export const float16sNoNulls = (length = 20) => Array.from(new Uint16Array(randomBytes(length * Uint16Array.BYTES_PER_ELEMENT).buffer)).map((x) => (x - 32767) / 32767);
 export const float32sNoNulls = (length = 20) => Array.from(new Float32Array(randomBytes(length * Float32Array.BYTES_PER_ELEMENT).buffer));
 export const float64sNoNulls = (length = 20) => Array.from(new Float64Array(randomBytes(length * Float64Array.BYTES_PER_ELEMENT).buffer));
@@ -65,7 +63,7 @@ export const float64sWithNulls = (length = 20) => randnulls(float64sNoNulls(leng
 export const int8sWithMaxInts = (length = 20) => randnulls(int8sNoNulls(length), 0x7fffffff);
 export const int16sWithMaxInts = (length = 20) => randnulls(int16sNoNulls(length), 0x7fffffff);
 export const int32sWithMaxInts = (length = 20) => randnulls(int32sNoNulls(length), 0x7fffffff);
-export const int64sWithMaxInts = (length = 20) => randnulls(int64sNoNulls(length), 4294967296 * 0x7fffffff + 0x7fffffff);
+export const int64sWithMaxInts = (length = 20) => randnulls(int64sNoNulls(length), new Int32Array([0x7fffffff, 0x7fffffff]));
 export const uint8sWithMaxInts = (length = 20) => randnulls(uint8sNoNulls(length), 0x7fffffff);
 export const uint16sWithMaxInts = (length = 20) => randnulls(uint16sNoNulls(length), 0x7fffffff);
 export const uint32sWithMaxInts = (length = 20) => randnulls(uint32sNoNulls(length), 0x7fffffff);
@@ -100,16 +98,29 @@ export function encodeEach<T extends DataType>(typeFactory: () => T, chunkLen?: 
     }
 }
 
+const isInt64Null = (nulls: Map<any, any>, x: any) => ArrayBuffer.isView(x) && nulls.has((<any> util.BN.new(x))[Symbol.toPrimitive]('default'))
+
 export function validateVector<T extends DataType>(vals: (T['TValue'] | null)[], vec: Vector, nullVals: any[]) {
     let i = 0, x: T['TValue'] | null, y: T['TValue'] | null;
     const nulls = nullVals.reduce((m, x) => m.set(x, x), new Map());
     try {
         for (x of vec) {
-            y = vals[i];
-            expect(x).toEqual(nulls.has(y) ? null : y);
+            if (nulls.has(y = vals[i])) {
+                expect(x).toEqual(null);
+            } else if (isInt64Null(nulls, y)) {
+                expect(x).toEqual(null);
+            } else {
+                expect(x).toEqual(y);
+            }
             i++;
         }
-    } catch (e) { throw new Error(`${vec.type.constructor.name}[${i}]: ${e}`); }
+    } catch (e) {
+        throw new Error([
+            `${(vec as any).VectorName}[${i}]: ${e}`,
+            `nulls: ${JSON.stringify(nullVals || [])}`,
+            `values: ${JSON.stringify(vals)}`,
+        ].join('\n'));
+    }
 }
 
 function fillRandom<T extends TypedArrayConstructor>(ArrayType: T, length: number) {

@@ -34,17 +34,17 @@ export class Int32Builder extends IntBuilder<Int32> {
 
 export class Int64Builder extends IntBuilder<Int64> {
     constructor(nullValues?: any[], chunkSize?: number) {
-        super(new Int64(), (nullValues || []).map((x) => ArrayBuffer.isView(x) ? +BN.new(x) : x), chunkSize);
+        super(new Int64(), (nullValues || []).map((x) => ArrayBuffer.isView(x) ? (<any> BN.new(x))[Symbol.toPrimitive]('default') : x), chunkSize);
     }
     public set(value: any, index?: number) {
         if (this.nullable) {
             const nullValues = this.nullValues;
             if (ArrayBuffer.isView(value)) {
-                if (nullValues.has(+BN.new(value))) {
-                    return this.setNull(index);
+                if (nullValues.has((<any> BN.new(value))[Symbol.toPrimitive]('default'))) {
+                    return this.setValid(index, false);
                 }
             } else if (nullValues.has(value)) {
-                return this.setNull(index);
+                return this.setValid(index, false);
             }
         }
         return this.setValue(value, index);
@@ -78,10 +78,10 @@ export class Uint64Builder extends IntBuilder<Uint64> {
             const nullValues = this.nullValues;
             if (ArrayBuffer.isView(value)) {
                 if (nullValues.has(+BN.new(value))) {
-                    return this.setNull(index);
+                    return this.setValid(index, false);
                 }
             } else if (nullValues.has(value)) {
-                return this.setNull(index);
+                return this.setValid(index, false);
             }
         }
         return this.setValue(value, index);

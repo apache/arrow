@@ -46,7 +46,7 @@ export interface Buffers<T extends DataType> {
       [BufferType.OFFSET]: Int32Array;
         [BufferType.DATA]: T['TArray'];
     [BufferType.VALIDITY]: Uint8Array;
-        [BufferType.TYPE]: T['TArray'];
+        [BufferType.TYPE]: Int32Array;
 }
 
 /** @ignore */
@@ -65,6 +65,7 @@ export class Data<T extends DataType = DataType> {
     public readonly stride: number;
     public readonly childData: Data[];
     public readonly values: Buffers<T>[BufferType.DATA];
+    // @ts-ignore
     public readonly typeIds: Buffers<T>[BufferType.TYPE];
     // @ts-ignore
     public readonly nullBitmap: Buffers<T>[BufferType.VALIDITY];
@@ -285,4 +286,4 @@ export class Data<T extends DataType = DataType> {
     }
 }
 
-((Data.prototype as any).childData = Object.freeze([]));
+(Data.prototype as any).childData = Object.freeze([]);

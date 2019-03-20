@@ -43,8 +43,8 @@ export class DictionaryBuilder<T extends Dictionary> extends DataBuilder<T> {
         this.type.dictionaryVector = Vector.new(this.dictionary.finish().flush());
         return super.finish();
     }
-    public setNull(index = this.length) {
-        return (this.length = this.indices.setNull(index));
+    public setValid(index = this.length, isValid: boolean) {
+        return (this.length = this.indices.setValid(index, isValid));
     }
     public setValue(value: T['TValue'], index = this.length) {
         let id = this._hash(`${value}`);

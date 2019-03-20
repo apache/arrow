@@ -93,6 +93,7 @@ export { RecordBatch } from './recordbatch';
 export { ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions } from './io/interfaces';
 export { DataFrame, FilteredDataFrame, CountByResult, BindFunc, NextFunc } from './compute/dataframe';
 
+import * as util_bn_ from './util/bn';
 import * as util_int_ from './util/int';
 import * as util_bit_ from './util/bit';
 import * as util_buffer_ from './util/buffer';
@@ -102,6 +103,7 @@ import * as predicate from './compute/predicate';
 export { predicate };
 /** @ignore */
 export const util = {
+    ...util_bn_,
     ...util_int_,
     ...util_bit_,
     ...util_buffer_,

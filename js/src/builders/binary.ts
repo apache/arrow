@@ -12,7 +12,7 @@ export class BinaryBuilder extends FlatListBuilder<Binary> {
         super(new Binary(), nullValues, chunkSize);
     }
     public flush() {
-        this.values = this.getValuesBuffer(this.valueOffsets[this.length] || 0);
+        this.values = this._growOrRetrieveValues(this.valueOffsets[this.length] || 0);
         return super.flush();
     }
 }
