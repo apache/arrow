@@ -46,7 +46,7 @@ export interface Buffers<T extends DataType> {
       [BufferType.OFFSET]: Int32Array;
         [BufferType.DATA]: T['TArray'];
     [BufferType.VALIDITY]: Uint8Array;
-        [BufferType.TYPE]: Int32Array;
+        [BufferType.TYPE]: T['TArray'];
 }
 
 /** @ignore */

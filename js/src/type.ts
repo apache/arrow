@@ -383,7 +383,7 @@ export class Struct<T extends { [key: string]: DataType } = any> extends DataTyp
 
 /** @ignore */
 type Unions = Type.Union | Type.DenseUnion | Type.SparseUnion;
-interface Union_<T extends Unions = Unions> extends DataType<T> { TArray: Int32Array; TValue: any[]; }
+interface Union_<T extends Unions = Unions> extends DataType<T> { TArray: Int8Array; TValue: any; }
 class Union_<T extends Unions = Unions> extends DataType<T> {
     public readonly mode: UnionMode;
     public readonly typeIds: Int32Array;
