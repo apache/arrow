@@ -1173,6 +1173,35 @@ def test_parquet_piece_read(tempdir):
     assert result.equals(table)
 
 
+@pytest.mark.pandas
+def test_parquet_piece_open_and_get_metadata(tempdir):
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df)
+
+    path = tempdir / 'parquet_piece_read.parquet'
+    _write_table(table, path, version='2.0')
+
+    piece = pq.ParquetDatasetPiece(path)
+    table1 = piece.read()
+    assert isinstance(table1, pa.Table)
+    meta1 = piece.get_metadata()
+    assert isinstance(meta1, pq.FileMetaData)
+
+    def open_parquet(fn):
+        return pq.ParquetFile(open(fn, mode='rb'))
+
+    # test deprecated open_file_func
+    with pytest.warns(DeprecationWarning):
+        table2 = piece.read(open_file_func=open_parquet)
+        assert isinstance(table2, pa.Table)
+    with pytest.warns(DeprecationWarning):
+        meta2 = piece.get_metadata(open_file_func=open_parquet)
+        assert isinstance(meta2, pq.FileMetaData)
+
+    assert table == table1 == table2
+    assert meta1 == meta2
+
+
 def test_parquet_piece_basics():
     path = '/baz.parq'
 
