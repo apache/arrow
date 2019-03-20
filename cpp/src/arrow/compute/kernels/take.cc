@@ -79,7 +79,7 @@ Status TakeImpl(FunctionContext*, const ValueArray& values, const IndexArray& in
       continue;
     }
     auto index = static_cast<int64_t>(raw_indices[i]);
-    if (B == TakeOptions::ERROR && (index < 0 || index >= values.length())) {
+    if (B == TakeOptions::RAISE && (index < 0 || index >= values.length())) {
       return Status::Invalid("take index out of bounds");
     }
     if (B == TakeOptions::TO_NULL && (index < 0 || index >= values.length())) {
@@ -120,8 +120,8 @@ Status TakeImpl(FunctionContext* context, const ValueArray& values,
                 const IndexArray& indices, const TakeOptions& options,
                 OutBuilder* builder) {
   switch (options.out_of_bounds) {
-    case TakeOptions::ERROR:
-      return TakeImpl<TakeOptions::ERROR>(context, values, indices, builder);
+    case TakeOptions::RAISE:
+      return TakeImpl<TakeOptions::RAISE>(context, values, indices, builder);
     case TakeOptions::TO_NULL:
       return TakeImpl<TakeOptions::TO_NULL>(context, values, indices, builder);
     case TakeOptions::UNSAFE:
@@ -152,7 +152,7 @@ struct UnpackValues {
 
   Status Visit(const NullType& t) {
     auto indices_length = params_.indices->length();
-    if (params_.options.out_of_bounds == TakeOptions::ERROR && indices_length != 0) {
+    if (params_.options.out_of_bounds == TakeOptions::RAISE && indices_length != 0) {
       auto indices = static_cast<IndexArrayRef>(*params_.indices).raw_values();
       auto minmax = std::minmax_element(indices, indices + indices_length);
       auto min = static_cast<int64_t>(*minmax.first);
