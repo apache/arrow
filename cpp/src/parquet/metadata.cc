@@ -934,13 +934,9 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       // key
       if ((footer_encryption == nullptr && encrypt_md->encrypted()) ||
           !encrypt_md->encrypted_with_footer_key()) {
-        // don't set meta_data
-        column_chunk_->__isset.meta_data = false;
-
         // Thrift-serialize the ColumnMetaData structure,
         // encrypt it with the column key, and write to encrypted_column_metadata
         auto encrypt_props = properties_->encryption(column_->path());
-        uint64_t metadata_start = sink->Tell();
 
         uint8_t* serialized_data;
         uint32_t serialized_len;
@@ -954,8 +950,22 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         std::string encrypted_column_metadata(temp, encrypted_len);
         column_chunk_->__set_encrypted_column_metadata(encrypted_column_metadata);
 
-        // Set the ColumnMetaData offset at the “file_offset” field in the ColumnChunk.
-        column_chunk_->__set_file_offset(metadata_start);
+        // Keep redacted metadata version for old readers
+        if (footer_encryption == nullptr) {
+          format::ColumnMetaData metadata_redacted = column_metadata_;
+          if (metadata_redacted.__isset.statistics) {
+            metadata_redacted.__isset.statistics = false;
+          }
+          if (metadata_redacted.__isset.encoding_stats) {
+            metadata_redacted.__isset.encoding_stats = false;
+          }
+          column_chunk_->__isset.meta_data = true;
+          column_chunk_->__set_meta_data(metadata_redacted);
+        }
+        else {
+          // don't set meta_data
+          column_chunk_->__isset.meta_data = true;
+        }
       } else {
         column_chunk_->__isset.meta_data = true;
         column_chunk_->__set_meta_data(column_metadata_);
