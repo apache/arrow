@@ -42,7 +42,8 @@ bool ARROW_EXPORT SparseTensorEquals(const SparseTensor& left, const SparseTenso
 
 /// Returns true if the arrays are approximately equal. For non-floating point
 /// types, this is equivalent to ArrayEquals(left, right)
-bool ARROW_EXPORT ArrayApproxEquals(const Array& left, const Array& right);
+bool ARROW_EXPORT ArrayApproxEquals(const Array& left, const Array& right,
+                                    double epsilon = 1E-5);
 
 /// Returns true if indicated equal-length segment of arrays is exactly equal
 bool ARROW_EXPORT ArrayRangeEquals(const Array& left, const Array& right,

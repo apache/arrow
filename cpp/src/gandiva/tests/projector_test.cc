@@ -361,12 +361,13 @@ TEST_F(TestProjector, TestExtendedMath) {
   EXPECT_TRUE(status.ok());
 
   // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(expected_cbrt, outputs.at(0));
-  EXPECT_ARROW_ARRAY_EQUALS(expected_exp, outputs.at(1));
-  EXPECT_ARROW_ARRAY_EQUALS(expected_log, outputs.at(2));
-  EXPECT_ARROW_ARRAY_EQUALS(expected_log10, outputs.at(3));
-  EXPECT_ARROW_ARRAY_EQUALS(expected_logb, outputs.at(4));
-  EXPECT_ARROW_ARRAY_EQUALS(expected_power, outputs.at(5));
+  double epsilon = 1E-13;
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cbrt, outputs.at(0), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_exp, outputs.at(1), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_log, outputs.at(2), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_log10, outputs.at(3), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_logb, outputs.at(4), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_power, outputs.at(5), epsilon);
 }
 
 TEST_F(TestProjector, TestFloatLessThan) {
