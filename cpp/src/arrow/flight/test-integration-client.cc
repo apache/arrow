@@ -90,7 +90,7 @@ arrow::Status ConsumeFlightLocation(const arrow::flight::Location& location,
       arrow::flight::FlightClient::Connect(location.host, location.port, &read_client));
 
   std::unique_ptr<arrow::RecordBatchReader> stream;
-  RETURN_NOT_OK(read_client->DoGet(ticket, schema, &stream));
+  RETURN_NOT_OK(read_client->DoGet(ticket, &stream));
 
   return ReadToTable(stream, retrieved_data);
 }

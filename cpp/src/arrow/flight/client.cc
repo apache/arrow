@@ -86,13 +86,10 @@ class FlightStreamReader : public RecordBatchReader {
 
       // Validate IPC message
       RETURN_NOT_OK(ipc::Message::Open(data.metadata, data.body, &message));
-      // The first message is a schema; read it and then try to read a
-      // record batch.
-      if (message->type() == ipc::Message::Type::SCHEMA) {
-        RETURN_NOT_OK(ipc::ReadSchema(*message, &schema_));
-        return ReadNext(out);
-      } else if (message->type() == ipc::Message::Type::RECORD_BATCH) {
+      if (message->type() == ipc::Message::Type::RECORD_BATCH) {
         return ipc::ReadRecordBatch(*message, schema_, out);
+      } else if (message->type() == ipc::Message::Type::SCHEMA) {
+        return Status(StatusCode::Invalid, "Flight stream changed schema midway");
       } else {
         return Status(StatusCode::Invalid, "Unrecognized message in Flight stream");
       }
@@ -287,15 +284,26 @@ class FlightClient::FlightClientImpl {
     return Status::OK();
   }
 
-  Status DoGet(const Ticket& ticket, const std::shared_ptr<Schema>& schema,
-               std::unique_ptr<RecordBatchReader>* out) {
+  Status DoGet(const Ticket& ticket, std::unique_ptr<RecordBatchReader>* out) {
     pb::Ticket pb_ticket;
     internal::ToProto(ticket, &pb_ticket);
 
-    // ClientRpc rpc;
     std::unique_ptr<ClientRpc> rpc(new ClientRpc);
     std::unique_ptr<grpc::ClientReader<pb::FlightData>> stream(
         stub_->DoGet(&rpc->context, pb_ticket));
+
+    // First message must be the schema
+    std::shared_ptr<Schema> schema;
+    internal::FlightData data;
+    if (!stream->Read(reinterpret_cast<pb::FlightData*>(&data))) {
+      return Status(StatusCode::Invalid, "No data in Flight stream");
+    }
+    std::unique_ptr<ipc::Message> message;
+    RETURN_NOT_OK(ipc::Message::Open(data.metadata, data.body, &message));
+    if (message->type() != ipc::Message::Type::SCHEMA) {
+      return Status(StatusCode::Invalid, "Flight stream did not start with schema");
+    }
+    RETURN_NOT_OK(ipc::ReadSchema(*message, &schema));
 
     *out = std::unique_ptr<RecordBatchReader>(
         new FlightStreamReader(std::move(rpc), schema, std::move(stream)));
@@ -379,9 +387,9 @@ Status FlightClient::ListFlights(const Criteria& criteria,
   return impl_->ListFlights(criteria, listing);
 }
 
-Status FlightClient::DoGet(const Ticket& ticket, const std::shared_ptr<Schema>& schema,
+Status FlightClient::DoGet(const Ticket& ticket,
                            std::unique_ptr<RecordBatchReader>* stream) {
-  return impl_->DoGet(ticket, schema, stream);
+  return impl_->DoGet(ticket, stream);
 }
 
 Status FlightClient::DoPut(const FlightDescriptor& descriptor,

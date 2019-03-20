@@ -372,17 +372,16 @@ cdef class FlightClient:
 
         return result
 
-    def do_get(self, ticket: Ticket, schema: Schema):
+    def do_get(self, ticket: Ticket):
         """Request the data for a flight."""
         cdef:
             # TODO: introduce unwrap
             CTicket c_ticket
-            shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
             unique_ptr[CRecordBatchReader] reader
 
         c_ticket.ticket = ticket.ticket
         with nogil:
-            check_status(self.client.get().DoGet(c_ticket, c_schema, &reader))
+            check_status(self.client.get().DoGet(c_ticket, &reader))
         result = FlightRecordBatchReader()
         result.reader.reset(reader.release())
         return result

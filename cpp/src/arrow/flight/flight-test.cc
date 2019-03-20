@@ -204,7 +204,7 @@ TEST_F(TestFlightClient, DoGet) {
   AssertSchemaEqual(*expected_schema, *schema);
 
   std::unique_ptr<RecordBatchReader> stream;
-  ASSERT_OK(client_->DoGet(ticket, schema, &stream));
+  ASSERT_OK(client_->DoGet(ticket, &stream));
 
   BatchVector expected_batches;
   const int num_batches = 5;

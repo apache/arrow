@@ -115,7 +115,7 @@ def test_flight_do_get():
 
     with flight_server(ConstantFlightServer) as server_port:
         client = flight.FlightClient.connect('localhost', server_port)
-        data = client.do_get(flight.Ticket(b''), table.schema).read_all()
+        data = client.do_get(flight.Ticket(b'')).read_all()
         assert data.equals(table)
 
 
@@ -137,7 +137,7 @@ def test_flight_large_message():
         # Write a single giant chunk
         writer.write_table(data, 10 * 1024 * 1024)
         writer.close()
-        result = client.do_get(flight.Ticket(b''), data.schema).read_all()
+        result = client.do_get(flight.Ticket(b'')).read_all()
         assert result.equals(data)
 
 
@@ -153,7 +153,7 @@ def test_flight_generator_stream():
                                data.schema)
         writer.write_table(data)
         writer.close()
-        result = client.do_get(flight.Ticket(b''), data.schema).read_all()
+        result = client.do_get(flight.Ticket(b'')).read_all()
         assert result.equals(data)
 
 
@@ -161,6 +161,5 @@ def test_flight_invalid_generator_stream():
     """Try streaming data with mismatched schemas."""
     with flight_server(InvalidStreamFlightServer) as server_port:
         client = flight.FlightClient.connect('localhost', server_port)
-        schema = InvalidStreamFlightServer.schema
         with pytest.raises(pa.ArrowException):
-            client.do_get(flight.Ticket(b''), schema).read_all()
+            client.do_get(flight.Ticket(b'')).read_all()
