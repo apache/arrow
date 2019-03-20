@@ -1721,72 +1721,6 @@ mod tests {
     }
 
     #[test]
-    fn test_struct_array_slice() {
-        let mut null_bits: [u8; 1] = [0; 1];
-        bit_util::set_bit(&mut null_bits, 0);
-        bit_util::set_bit(&mut null_bits, 2);
-        bit_util::set_bit(&mut null_bits, 4);
-        let null_bit_buffer = Buffer::from(null_bits);
-
-        let boolean_data = ArrayData::builder(DataType::Boolean)
-            .len(5)
-            .add_buffer(Buffer::from(
-                [false, false, false, true, false].to_byte_slice(),
-            ))
-            .null_bit_buffer(null_bit_buffer.clone())
-            .build();
-        let int_data = ArrayData::builder(DataType::Int32)
-            .len(5)
-            .add_buffer(Buffer::from([42, 28, 19, 31, 54].to_byte_slice()))
-            .null_bit_buffer(null_bit_buffer.clone())
-            .build();
-
-        let mut field_types = vec![];
-        field_types.push(Field::new("a", DataType::Boolean, false));
-        field_types.push(Field::new("b", DataType::Int32, false));
-        let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
-            .len(5)
-            .add_child_data(boolean_data.clone())
-            .add_child_data(int_data.clone())
-            .null_bit_buffer(null_bit_buffer)
-            .build();
-        let struct_array = StructArray::from(struct_array_data);
-
-        assert_eq!(5, struct_array.len());
-        assert_eq!(boolean_data, struct_array.column(0).data());
-        assert_eq!(int_data, struct_array.column(1).data());
-
-        let sliced_array = struct_array.slice(2, 3);
-        let sliced_array = sliced_array.as_any().downcast_ref::<StructArray>().unwrap();
-        assert_eq!(3, sliced_array.len());
-        assert_eq!(2, sliced_array.offset());
-        assert_eq!(1, sliced_array.null_count());
-        assert!(sliced_array.is_valid(0));
-        assert!(sliced_array.is_null(1));
-        assert!(sliced_array.is_valid(2));
-
-        let sliced_c0 = sliced_array.column(0);
-        let sliced_c0 = sliced_c0.as_any().downcast_ref::<BooleanArray>().unwrap();
-        assert_eq!(3, sliced_c0.len());
-        assert_eq!(2, sliced_c0.offset());
-        assert!(sliced_c0.is_valid(0));
-        assert_eq!(false, sliced_c0.value(0));
-        assert!(sliced_c0.is_null(1));
-        assert!(sliced_c0.is_valid(2));
-        assert_eq!(false, sliced_c0.value(2));
-
-        let sliced_c1 = sliced_array.column(1);
-        let sliced_c1 = sliced_c1.as_any().downcast_ref::<Int32Array>().unwrap();
-        assert_eq!(3, sliced_c1.len());
-        assert_eq!(2, sliced_c1.offset());
-        assert!(sliced_c1.is_valid(0));
-        assert_eq!(19, sliced_c1.value(0));
-        assert!(sliced_c1.is_null(1));
-        assert!(sliced_c1.is_valid(2));
-        assert_eq!(54, sliced_c1.value(2));
-    }
-
-    #[test]
     fn test_struct_array_from() {
         let boolean_data = ArrayData::builder(DataType::Boolean)
             .len(4)
@@ -1812,6 +1746,92 @@ mod tests {
         assert_eq!(4, struct_array.len());
         assert_eq!(0, struct_array.null_count());
         assert_eq!(0, struct_array.offset());
+    }
+
+    #[test]
+    fn test_struct_array_slice() {
+        let boolean_data = ArrayData::builder(DataType::Boolean)
+            .len(5)
+            .add_buffer(Buffer::from([0b00010000]))
+            .null_bit_buffer(Buffer::from([0b00010001]))
+            .build();
+        let int_data = ArrayData::builder(DataType::Int32)
+            .len(5)
+            .add_buffer(Buffer::from([0, 28, 42, 0, 0].to_byte_slice()))
+            .null_bit_buffer(Buffer::from([0b00000110]))
+            .build();
+
+        let mut field_types = vec![];
+        field_types.push(Field::new("a", DataType::Boolean, false));
+        field_types.push(Field::new("b", DataType::Int32, false));
+        let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
+            .len(5)
+            .add_child_data(boolean_data.clone())
+            .add_child_data(int_data.clone())
+            .null_bit_buffer(Buffer::from([0b00010111]))
+            .build();
+        let struct_array = StructArray::from(struct_array_data);
+
+        assert_eq!(5, struct_array.len());
+        assert_eq!(1, struct_array.null_count());
+        assert!(struct_array.is_valid(0));
+        assert!(struct_array.is_valid(1));
+        assert!(struct_array.is_valid(2));
+        assert!(struct_array.is_null(3));
+        assert!(struct_array.is_valid(4));
+        assert_eq!(boolean_data, struct_array.column(0).data());
+        assert_eq!(int_data, struct_array.column(1).data());
+
+        let c0 = struct_array.column(0);
+        let c0 = c0.as_any().downcast_ref::<BooleanArray>().unwrap();
+        assert_eq!(5, c0.len());
+        assert_eq!(3, c0.null_count());
+        assert!(c0.is_valid(0));
+        assert_eq!(false, c0.value(0));
+        assert!(c0.is_null(1));
+        assert!(c0.is_null(2));
+        assert!(c0.is_null(3));
+        assert!(c0.is_valid(4));
+        assert_eq!(true, c0.value(4));
+
+        let c1 = struct_array.column(1);
+        let c1 = c1.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(5, c1.len());
+        assert_eq!(3, c1.null_count());
+        assert!(c1.is_null(0));
+        assert!(c1.is_valid(1));
+        assert_eq!(28, c1.value(1));
+        assert!(c1.is_valid(2));
+        assert_eq!(42, c1.value(2));
+        assert!(c1.is_null(3));
+        assert!(c1.is_null(4));
+
+        let sliced_array = struct_array.slice(2, 3);
+        let sliced_array = sliced_array.as_any().downcast_ref::<StructArray>().unwrap();
+        assert_eq!(3, sliced_array.len());
+        assert_eq!(2, sliced_array.offset());
+        assert_eq!(1, sliced_array.null_count());
+        assert!(sliced_array.is_valid(0));
+        assert!(sliced_array.is_null(1));
+        assert!(sliced_array.is_valid(2));
+
+        let sliced_c0 = sliced_array.column(0);
+        let sliced_c0 = sliced_c0.as_any().downcast_ref::<BooleanArray>().unwrap();
+        assert_eq!(3, sliced_c0.len());
+        assert_eq!(2, sliced_c0.offset());
+        assert!(sliced_c0.is_null(0));
+        assert!(sliced_c0.is_null(1));
+        assert!(sliced_c0.is_valid(2));
+        assert_eq!(true, sliced_c0.value(2));
+
+        let sliced_c1 = sliced_array.column(1);
+        let sliced_c1 = sliced_c1.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(3, sliced_c1.len());
+        assert_eq!(2, sliced_c1.offset());
+        assert!(sliced_c1.is_valid(0));
+        assert_eq!(42, sliced_c1.value(0));
+        assert!(sliced_c1.is_null(1));
+        assert!(sliced_c1.is_null(2));
     }
 
     #[test]
