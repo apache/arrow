@@ -20,7 +20,9 @@ import (
 	"reflect"
 )
 
-func TypeEquals(left DataType, right DataType) bool {
+// TypeEquals checks if two DataType are the same, optionally checking metadata
+// equality for STRUCT types.
+func TypeEquals(left DataType, right DataType, checkMetadata bool) bool {
 	switch {
 	case left == nil || right == nil:
 		return false
@@ -28,5 +30,29 @@ func TypeEquals(left DataType, right DataType) bool {
 		return false
 	}
 
-	return reflect.DeepEqual(left, right)
+	// StructType is the only type that has metadata.
+	l, ok := left.(*StructType)
+	if !ok || checkMetadata {
+		return reflect.DeepEqual(left, right)
+	}
+
+	r := right.(*StructType)
+	switch {
+	case len(l.fields) != len(r.fields):
+		return false
+	case !reflect.DeepEqual(l.index, r.index):
+		return false
+	}
+	for i, _ := range l.fields {
+		leftField, rightField := l.fields[i], r.fields[i]
+		switch {
+		case leftField.Name != rightField.Name:
+			return false
+		case leftField.Nullable != rightField.Nullable:
+			return false
+		case !TypeEquals(leftField.Type, rightField.Type, checkMetadata):
+			return false
+		}
+	}
+	return true
 }
