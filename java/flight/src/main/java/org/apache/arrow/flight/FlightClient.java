@@ -56,6 +56,8 @@ import io.grpc.stub.StreamObserver;
 
 public class FlightClient implements AutoCloseable {
   private static final int PENDING_REQUESTS = 5;
+  /** The maximum number of trace events to keep on the gRPC Channel. This value disables channel tracing. */
+  private static final int MAX_CHANNEL_TRACE_EVENTS = 0;
   private final BufferAllocator allocator;
   private final ManagedChannel channel;
   private final FlightServiceBlockingStub blockingStub;
@@ -68,8 +70,12 @@ public class FlightClient implements AutoCloseable {
    * Construct client for accessing RouteGuide server using the existing channel.
    */
   public FlightClient(BufferAllocator incomingAllocator, Location location) {
-    final ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder.forAddress(location.getHost(),
-        location.getPort()).maxTraceEvents(0).usePlaintext();
+    final ManagedChannelBuilder<?> channelBuilder =
+        ManagedChannelBuilder.forAddress(location.getHost(),
+        location.getPort())
+            .maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS)
+            .maxInboundMessageSize(FlightServer.MAX_GRPC_MESSAGE_SIZE)
+            .usePlaintext();
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     channel = channelBuilder.build();
     blockingStub = FlightServiceGrpc.newBlockingStub(channel).withInterceptors(authInterceptor);
