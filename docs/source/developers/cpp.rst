@@ -802,7 +802,6 @@ tests can be made with there individual make targets).
    SET ARROW_LLVM_VERSION=7.0.*
    SET PYTHON=3.6
    SET ARCH=64
-   SET ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
    SET PATH=C:\Users\User\Anaconda3;C:\Users\User\Anaconda3\Scripts;C:\Users\User\Anaconda3\Library\bin;%PATH%
    SET BOOST_LIBRARYDIR=C:\Boost\lib
    SET BOOST_ROOT=C:\Boost

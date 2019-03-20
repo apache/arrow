@@ -18,8 +18,6 @@
 
 set -eux
 
-export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
-
 mkdir -p /build/lint
 pushd /build/lint
 
