@@ -20,5 +20,5 @@ set -e
 
 /arrow/ci/docker_build_cpp.sh
 pushd /build/cpp
-ninja test
+ninja unittest
 popd
