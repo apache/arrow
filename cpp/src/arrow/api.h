@@ -33,6 +33,7 @@
 #include "arrow/table_builder.h"   // IYWU pragma: export
 #include "arrow/tensor.h"          // IYWU pragma: export
 #include "arrow/type.h"            // IYWU pragma: export
+#include "arrow/util/config.h"     // IYWU pragma: export
 #include "arrow/visitor.h"         // IYWU pragma: export
 
 /// \brief Top-level namespace for Apache Arrow C++ API
