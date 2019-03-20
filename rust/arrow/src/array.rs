@@ -949,12 +949,11 @@ impl From<ArrayDataRef> for StructArray {
     fn from(data: ArrayDataRef) -> Self {
         let mut boxed_fields = vec![];
         for cd in data.child_data() {
-            let child_data =
-                if data.offset != 0 || data.len != cd.len {
-                    slice_data(cd.clone(), data.offset, data.len)
-                } else {
-                    cd.clone()
-                };
+            let child_data = if data.offset != 0 || data.len != cd.len {
+                slice_data(cd.clone(), data.offset, data.len)
+            } else {
+                cd.clone()
+            };
             boxed_fields.push(make_array(child_data));
         }
         Self { data, boxed_fields }
