@@ -74,20 +74,30 @@ int main(int argc, char** argv) {
       std::make_shared<parquet::FileDecryptionProperties>(FOOTER_ENCRYPTION_KEY);
   decryption_properties_2->SetColumnKey("ba_field", COLUMN_ENCRYPTION_KEY);
 
-  // plain mode footer =  unencrypted footer
+  // plaintext mode footer = unencrypted footer
   parquet::FileEncryptionProperties::Builder file_encryption_builder_3;
   file_encryption_builder_3.footer_key(FOOTER_ENCRYPTION_KEY, false);
 
   std::shared_ptr<parquet::FileDecryptionProperties> decryption_properties_3 =
       std::make_shared<parquet::FileDecryptionProperties>(FOOTER_ENCRYPTION_KEY);
 
+  // plaintext mode footer, hidden column
+  parquet::FileEncryptionProperties::Builder file_encryption_builder_4;
+  file_encryption_builder_4.footer_key(FOOTER_ENCRYPTION_KEY, false);
+  file_encryption_builder_4.column_properties(encryption_cols, true); // reusing encryption_cols
+
+  std::shared_ptr<parquet::FileDecryptionProperties> decryption_properties_4 =
+      std::make_shared<parquet::FileDecryptionProperties>(FOOTER_ENCRYPTION_KEY);
+
   file_encryption_properties.push_back(file_encryption_builder_1.build());
   file_encryption_properties.push_back(file_encryption_builder_2.build());
   file_encryption_properties.push_back(file_encryption_builder_3.build());
+  file_encryption_properties.push_back(file_encryption_builder_4.build());
 
   file_decryption_properties.push_back(decryption_properties_1);
   file_decryption_properties.push_back(decryption_properties_2);
   file_decryption_properties.push_back(decryption_properties_3);
+  file_decryption_properties.push_back(decryption_properties_4);
 
   for (unsigned example_id = 0; example_id < file_encryption_properties.size(); ++example_id) {
     /**********************************************************************************
@@ -449,6 +459,8 @@ int main(int argc, char** argv) {
           i++;
         }
       }
+    } catch (const parquet::HiddenColumnException& e) {
+      std::cerr << "Parquet read error: hidden column: " << e.what() << std::endl;
     } catch (const std::exception& e) {
       std::cerr << "Parquet read error: " << e.what() << std::endl;
     }
