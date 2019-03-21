@@ -57,7 +57,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
-      -DARROW_GANDIVA=ON ^
+      -DARROW_GANDIVA=OFF ^
       ..  || exit /B
 cmake --build . --target INSTALL --config Release  || exit /B
 
@@ -85,8 +85,9 @@ pip install "Cython>=0.29"
 python setup.py build_ext bdist_wheel || exit /B
 popd
 
-@rem test the wheel
 call deactivate
+
+@rem test the wheel
 conda create -n wheel-test -q -y python=%PYTHON_VERSION% ^
       numpy=%NUMPY_VERSION% pandas pytest hypothesis
 call activate wheel-test
