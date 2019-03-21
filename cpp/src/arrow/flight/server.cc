@@ -363,6 +363,9 @@ Status FlightServerBase::Init(int port) {
   builder.RegisterService(impl_->service_.get());
 
   impl_->server_ = builder.BuildAndStart();
+  if (!impl_->server_) {
+    return Status::UnknownError("Server did not start properly");
+  }
   return Status::OK();
 }
 
@@ -373,6 +376,10 @@ Status FlightServerBase::SetShutdownOnSignals(const std::vector<int> sigs) {
 }
 
 Status FlightServerBase::Serve() {
+  if (!impl_->server_) {
+    return Status::UnknownError("Server did not start properly");
+  }
+
   impl_->got_signal_ = 0;
   impl_->running_instance_ = impl_.get();
 
@@ -392,7 +399,6 @@ Status FlightServerBase::Serve() {
     impl_->old_signal_handlers_.push_back(old_handler);
   }
 
-  // TODO(wesm): How can we tell if the server failed to start for some reason?
   impl_->server_->Wait();
   impl_->running_instance_ = nullptr;
 
