@@ -45,7 +45,6 @@ popd
 
 # Make Python documentation (Depends on C++ )
 # Build Arrow C++
-export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export LD_LIBRARY_PATH=/apidocs-dist/lib:${CONDA_PREFIX}/lib:${LD_LIBRARY_PATH}
 export PKG_CONFIG_PATH=${CONDA_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}
 export PKG_CONFIG_PATH=/apidocs-dist/lib/pkgconfig:${PKG_CONFIG_PATH}

@@ -33,12 +33,9 @@ PYTHON_VERSION=$1
 CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
 
 # We should use zlib in the target Python directory to avoid loading
-# wrong libpython on macOS at run-time. If we use zlib in
-# $ARROW_BUILD_TOOLCHAIN and libpython3.6m.dylib exists in both
-# $ARROW_BUILD_TOOLCHAIN and $CONDA_ENV_DIR, arrow-python-test uses
-# libpython3.6m.dylib on $ARROW_BUILD_TOOLCHAIN not $CONDA_ENV_DIR.
-# libpython3.6m.dylib on $ARROW_BUILD_TOOLCHAIN doesn't have NumPy. So
-# python-test fails.
+# the wrong libpython on macOS at run-time. Another zlib might sit in a
+# directory with a different libpython3.6m.dylib, and that libpython3.6m.dylib
+# may not have NumPy (which is required for python-test)
 export ZLIB_HOME=$CONDA_ENV_DIR
 
 if [ "$ARROW_TRAVIS_PYTHON_JVM" == "1" ]; then
