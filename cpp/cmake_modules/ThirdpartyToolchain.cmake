@@ -35,25 +35,28 @@ endif()
 # ----------------------------------------------------------------------
 # Resolve the dependencies
 
+# TODO: add uriparser here when it gets a conda package
 set(ARROW_THIRDPARTY_DEPENDENCIES
-    double-conversion
-    BROTLI
-    Snappy
-    gflags
-    Thrift
-    Protobuf
-    GTEST
     benchmark
-    RapidJSON
-    Flatbuffers
-    ZLIB
+    BOOST
+    Brotli
     BZip2
-    LZ4
-    ZSTD
-    RE2
     c-ares
+    double-conversion
+    Flatbuffers
+    gflags
+    GLOG
+    gRPC
+    GTest
     LLVM
-    BOOST)
+    Lz4
+    RE2
+    Protobuf
+    RapidJSON
+    Snappy
+    Thrift
+    ZLIB
+    ZSTD)
 
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
 
@@ -74,75 +77,64 @@ if(ARROW_PACKAGE_PREFIX)
   message(STATUS "Setting (unset) dependency *_ROOT variables: ${ARROW_PACKAGE_PREFIX}")
   set(ENV{PKG_CONFIG_PATH} "${ARROW_PACKAGE_PREFIX}/lib/pkgconfig/")
 
-  if(NOT BOOST_ROOT)
-    set(BOOST_ROOT ${ARROW_PACKAGE_PREFIX})
-  endif()
   if(NOT ENV{BOOST_ROOT})
     set(ENV{BOOST_ROOT} ${ARROW_PACKAGE_PREFIX})
   endif()
   if(NOT ENV{Boost_ROOT})
     set(ENV{Boost_ROOT} ${ARROW_PACKAGE_PREFIX})
   endif()
-
-  foreach(DEPENDENCY ${ARROW_THIRDPARTY_DEPENDENCIES})
-    if(NOT ${DEPENDENCY}_ROOT)
-      set(${DEPENDENCY}_ROOT ${ARROW_PACKAGE_PREFIX})
-    endif()
-  endforeach()
 endif()
 
-function(get_dependency_source DEPENDENCY_NAME)
-  if("${${DEPENDENCY_NAME}_SOURCE}" STREQUAL "")
-    set(${DEPENDENCY_NAME}_SOURCE ${ARROW_ACTUAL_DEPENDENCY_SOURCE} PARENT_SCOPE)
+# For each dependency, set dependency source to global default, if unset
+foreach(DEPENDENCY ${ARROW_THIRDPARTY_DEPENDENCIES})
+  if("${${DEPENDENCY}_SOURCE}" STREQUAL "")
+    set(${DEPENDENCY}_SOURCE ${ARROW_ACTUAL_DEPENDENCY_SOURCE})
+    # If no ROOT was supplied and we have a global prefix, use it
+    if(NOT ${DEPENDENCY}_ROOT AND ARROW_PACKAGE_PREFIX)
+      set(${DEPENDENCY}_ROOT ${ARROW_PACKAGE_PREFIX})
+    endif()
   endif()
-
-  # If AUTO was specified and a ROOT was supplied, use this root.
-  if(${DEPENDENCY_NAME}_ROOT AND ${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
-    set(${DEPENDENCY_NAME}_SOURCE "SYSTEM" PARENT_SCOPE)
-  endif()
-endfunction()
+endforeach()
 
 macro(build_dependency DEPENDENCY_NAME)
-  if("${DEPENDENCY_NAME}" STREQUAL "Brotli")
-    build_brotli()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "GLOG")
-    build_glog()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "gflags")
-    build_gflags()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
-    build_thrift()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
-    build_protobuf()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "GTest")
-    build_gtest()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "benchmark")
+  if("${DEPENDENCY_NAME}" STREQUAL "benchmark")
     build_benchmark()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "Flatbuffers")
-    build_flatbuffers()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "ZLIB")
-    build_zlib()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "Lz4")
-    build_lz4()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "ZSTD")
-    build_zstd()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "RE2")
-    build_re2()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "c-ares")
-    build_cares()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "gRPC")
-    build_grpc()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Brotli")
+    build_brotli()
   elseif("${DEPENDENCY_NAME}" STREQUAL "BZip2")
     build_bzip2()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "c-ares")
+    build_cares()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Flatbuffers")
+    build_flatbuffers()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "gflags")
+    build_gflags()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "GLOG")
+    build_glog()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "gRPC")
+    build_grpc()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "GTest")
+    build_gtest()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Lz4")
+    build_lz4()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
+    build_protobuf()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "RE2")
+    build_re2()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
+    build_thrift()
   elseif("${DEPENDENCY_NAME}" STREQUAL "uriparser")
     build_uriparser()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "ZLIB")
+    build_zlib()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "ZSTD")
+    build_zstd()
   else()
     message(FATAL_ERROR "Unknown thirdparty dependency to build: ${DEPENDENCY_NAME}")
   endif()
 endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)
-  get_dependency_source(${DEPENDENCY_NAME})
-
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
     find_package(${DEPENDENCY_NAME} QUIET)
     if(NOT ${DEPENDENCY_NAME}_FOUND)
@@ -493,8 +485,6 @@ const int flags_ = double_conversion::StringToDoubleConverter::ALLOW_CASE_INSENS
       }" DOUBLE_CONVERSION_HAS_CASE_INSENSIBILITY)
 endmacro()
 
-get_dependency_source(double-conversion)
-
 if(double-conversion_SOURCE STREQUAL "AUTO")
   # Debian does not ship cmake configs for double-conversion
   # TODO: Make upstream bug
@@ -682,7 +672,6 @@ macro(build_snappy)
 endmacro()
 
 if(ARROW_WITH_SNAPPY)
-  get_dependency_source(Snappy)
   if(Snappy_SOURCE STREQUAL "AUTO")
     # Normally *Config.cmake files reside in /usr/lib/cmake but Snappy
     # errornously places them in ${CMAKE_ROOT}/Modules/
@@ -921,7 +910,6 @@ macro(build_gflags)
 endmacro()
 
 if(ARROW_NEED_GFLAGS)
-  get_dependency_source(gflags)
   if(gflags_SOURCE STREQUAL "AUTO")
     find_package(gflags QUIET)
     if(NOT gflags_FOUND)
@@ -1479,7 +1467,6 @@ endmacro()
 
 # TODO: Check for 1.1.0+
 if(ARROW_WITH_RAPIDJSON)
-  get_dependency_source(RapidJSON)
   if(RapidJSON_SOURCE STREQUAL "AUTO")
     # Fedora packages place the package information at the wrong location.
     # https://bugzilla.redhat.com/show_bug.cgi?id=1680400
@@ -1557,7 +1544,6 @@ macro(build_flatbuffers)
 endmacro()
 
 if(ARROW_WITH_FLATBUFFERS)
-  get_dependency_source(Flatbuffers)
   if(Flatbuffers_SOURCE STREQUAL "AUTO")
     find_package(Flatbuffers QUIET)
     # Older versions of Flatbuffers (that are not built using CMake)
@@ -1918,7 +1904,6 @@ macro(build_cares)
 endmacro()
 
 if(ARROW_WITH_GRPC)
-  get_dependency_source(c-ares)
   if(c-ares_SOURCE STREQUAL "AUTO")
     find_package(c-ares QUIET)
     if(NOT c-ares_FOUND)
@@ -2095,7 +2080,6 @@ if(ARROW_WITH_GRPC)
                                      "${OPENSSL_INCLUDE_DIR}")
   endif()
 
-  get_dependency_source(gRPC)
   if(gRPC_SOURCE STREQUAL "AUTO")
     find_package(gRPC QUIET)
     if(NOT gRPC_FOUND)
