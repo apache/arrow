@@ -104,6 +104,8 @@ std::shared_ptr<FilterFunction> MakeCompareFilterFunction(FunctionContext* conte
 /// \param[in] options compare options
 /// \param[out] out resulting datum
 ///
+/// Note on floating point arrays, this uses ieee-754 compare semantics.
+///
 /// \since 0.13.0
 /// \note API not yet finalized
 ARROW_EXPORT

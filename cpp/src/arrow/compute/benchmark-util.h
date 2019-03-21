@@ -40,6 +40,7 @@ static CpuInfo* cpu_info = CpuInfo::GetInstance();
 static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::L1_CACHE);
 static const int64_t kL2Size = cpu_info->CacheSize(CpuInfo::L2_CACHE);
 static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::L3_CACHE);
+static const int64_t kCantFitInL3Size = kL3Size * 4;
 
 template <typename Func>
 struct BenchmarkArgsType;
@@ -58,7 +59,7 @@ void BenchmarkSetArgs(benchmark::internal::Benchmark* bench) {
       typename BenchmarkArgsType<decltype(&benchmark::internal::Benchmark::Args)>::type;
   bench->Unit(benchmark::kMicrosecond);
 
-  for (auto size : {kL1Size, kL2Size, kL3Size, kL3Size * 4})
+  for (auto size : {kL1Size, kL2Size, kL3Size, kCantFitInL3Size})
     for (auto nulls : std::vector<ArgsType>({0, 1, 10, 50}))
       bench->Args({static_cast<ArgsType>(size), nulls});
 }

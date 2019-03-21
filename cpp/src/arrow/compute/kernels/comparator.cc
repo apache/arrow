@@ -31,24 +31,6 @@ namespace compute {
 class FunctionContext;
 struct Datum;
 
-static inline Status CopyOrTransferBitmap(const Array& array, MemoryPool* pool,
-                                          std::shared_ptr<Buffer>* bitmap) {
-  auto offset = array.offset();
-  auto length = array.length();
-  auto null_bitmap = array.null_bitmap();
-
-  if (offset == 0) {
-    // No offset adjustment to be done, take a zero-copy reference to the buffer.
-    *bitmap = null_bitmap;
-    return Status::OK();
-  } else if (null_bitmap == nullptr || length == 0) {
-    *bitmap = nullptr;
-    return Status::OK();
-  }
-
-  return internal::CopyBitmap(pool, null_bitmap->data(), offset, length, bitmap);
-}
-
 template <typename ArrowType, CompareOperator Op,
           typename ArrayType = typename TypeTraits<ArrowType>::ArrayType,
           typename ScalarType = typename TypeTraits<ArrowType>::ScalarType,
@@ -91,10 +73,14 @@ class CompareFunction final : public FilterFunction {
     // Output must be of same length
     DCHECK_EQ(output->length, input.length());
 
-    // Copy null_bitmap
-    RETURN_NOT_OK(CopyOrTransferBitmap(input, ctx_->memory_pool(), &output->buffers[0]));
+    auto input_data = input.data();
 
-    DCHECK(output->buffers[1]);
+    // Scalar is null, all comparisons are null.
+    if (!scalar.is_valid) return detail::SetAllNulls(ctx_, *input_data, output);
+
+    // Copy null_bitmap
+    RETURN_NOT_OK(detail::PropagateNulls(ctx_, *input_data, output));
+
     uint8_t* bitmap_result = output->buffers[1]->mutable_data();
     return CompareArrayScalar<ArrowType, Op>(static_cast<const ArrayType&>(input),
                                              static_cast<const ScalarType&>(scalar),
@@ -176,23 +162,21 @@ Status Compare(FunctionContext* context, const Datum& left, const Datum& right,
                struct CompareOptions options, Datum* out) {
   DCHECK(out);
 
-  if (!left.is_array())
-    return Status::Invalid("Compare expects an Array as left operand");
-  if (!right.is_scalar())
-    return Status::Invalid("Compare expects an Scalar as right operand");
-  if (!left.type()->Equals(right.type()))
-    return Status::Invalid("Compare expects left and right of same type");
+  DCHECK_EQ(left.kind(), Datum::ARRAY);
+  DCHECK_EQ(right.kind(), Datum::SCALAR);
+  DCHECK(left.type()->Equals(right.type()));
 
   auto array = left.make_array();
-  auto scalar = right.scalar();
   auto type = array->type();
-  auto fn = MakeCompareFilterFunction(context, *type, options);
 
-  if (!fn) return Status::Invalid("Compare not implemented for type ", type->ToString());
+  auto fn = MakeCompareFilterFunction(context, *type, options);
+  if (fn == nullptr)
+    return Status::Invalid("Compare not implemented for type ", type->ToString());
 
   FilterBinaryKernel filter_kernel(fn);
   detail::PrimitiveAllocatingBinaryKernel kernel(&filter_kernel);
   out->value = ArrayData::Make(filter_kernel.out_type(), array->length());
+
   return kernel.Call(context, left, right, out);
 }
 

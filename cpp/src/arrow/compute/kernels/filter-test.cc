@@ -138,11 +138,13 @@ class TestNumericCompareKernel : public ComputeFixture, public TestBase {};
 TYPED_TEST_CASE(TestNumericCompareKernel, NumericArrowTypes);
 TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayScalar) {
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+  using CType = typename TypeTraits<TypeParam>::CType;
 
-  Datum one(std::make_shared<ScalarType>(1));
+  Datum one(std::make_shared<ScalarType>(CType(1)));
 
   CompareOptions eq(CompareOperator::EQUAL);
   ValidateCompare<TypeParam>(&this->ctx_, eq, "[]", one, "[]");
+  ValidateCompare<TypeParam>(&this->ctx_, eq, "[null]", one, "[null]");
   ValidateCompare<TypeParam>(&this->ctx_, eq, "[0,0,1,1,2,2]", one, "[0,0,1,1,0,0]");
   ValidateCompare<TypeParam>(&this->ctx_, eq, "[0,1,2,3,4,5]", one, "[0,1,0,0,0,0]");
   ValidateCompare<TypeParam>(&this->ctx_, eq, "[5,4,3,2,1,0]", one, "[0,0,0,0,1,0]");
@@ -150,6 +152,7 @@ TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayScalar) {
 
   CompareOptions neq(CompareOperator::NOT_EQUAL);
   ValidateCompare<TypeParam>(&this->ctx_, neq, "[]", one, "[]");
+  ValidateCompare<TypeParam>(&this->ctx_, neq, "[null]", one, "[null]");
   ValidateCompare<TypeParam>(&this->ctx_, neq, "[0,0,1,1,2,2]", one, "[1,1,0,0,1,1]");
   ValidateCompare<TypeParam>(&this->ctx_, neq, "[0,1,2,3,4,5]", one, "[1,0,1,1,1,1]");
   ValidateCompare<TypeParam>(&this->ctx_, neq, "[5,4,3,2,1,0]", one, "[1,1,1,1,0,1]");
@@ -157,6 +160,7 @@ TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayScalar) {
 
   CompareOptions gt(CompareOperator::GREATER);
   ValidateCompare<TypeParam>(&this->ctx_, gt, "[]", one, "[]");
+  ValidateCompare<TypeParam>(&this->ctx_, gt, "[null]", one, "[null]");
   ValidateCompare<TypeParam>(&this->ctx_, gt, "[0,0,1,1,2,2]", one, "[0,0,0,0,1,1]");
   ValidateCompare<TypeParam>(&this->ctx_, gt, "[0,1,2,3,4,5]", one, "[0,0,1,1,1,1]");
   ValidateCompare<TypeParam>(&this->ctx_, gt, "[4,5,6,7,8,9]", one, "[1,1,1,1,1,1]");
@@ -164,6 +168,7 @@ TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayScalar) {
 
   CompareOptions gte(CompareOperator::GREATER_EQUAL);
   ValidateCompare<TypeParam>(&this->ctx_, gte, "[]", one, "[]");
+  ValidateCompare<TypeParam>(&this->ctx_, gte, "[null]", one, "[null]");
   ValidateCompare<TypeParam>(&this->ctx_, gte, "[0,0,1,1,2,2]", one, "[0,0,1,1,1,1]");
   ValidateCompare<TypeParam>(&this->ctx_, gte, "[0,1,2,3,4,5]", one, "[0,1,1,1,1,1]");
   ValidateCompare<TypeParam>(&this->ctx_, gte, "[4,5,6,7,8,9]", one, "[1,1,1,1,1,1]");
@@ -171,6 +176,7 @@ TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayScalar) {
 
   CompareOptions lt(CompareOperator::LOWER);
   ValidateCompare<TypeParam>(&this->ctx_, lt, "[]", one, "[]");
+  ValidateCompare<TypeParam>(&this->ctx_, lt, "[null]", one, "[null]");
   ValidateCompare<TypeParam>(&this->ctx_, lt, "[0,0,1,1,2,2]", one, "[1,1,0,0,0,0]");
   ValidateCompare<TypeParam>(&this->ctx_, lt, "[0,1,2,3,4,5]", one, "[1,0,0,0,0,0]");
   ValidateCompare<TypeParam>(&this->ctx_, lt, "[4,5,6,7,8,9]", one, "[0,0,0,0,0,0]");
@@ -178,6 +184,7 @@ TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayScalar) {
 
   CompareOptions lte(CompareOperator::LOWER_EQUAL);
   ValidateCompare<TypeParam>(&this->ctx_, lte, "[]", one, "[]");
+  ValidateCompare<TypeParam>(&this->ctx_, lte, "[null]", one, "[null]");
   ValidateCompare<TypeParam>(&this->ctx_, lte, "[0,0,1,1,2,2]", one, "[1,1,1,1,0,0]");
   ValidateCompare<TypeParam>(&this->ctx_, lte, "[0,1,2,3,4,5]", one, "[1,1,0,0,0,0]");
   ValidateCompare<TypeParam>(&this->ctx_, lte, "[4,5,6,7,8,9]", one, "[0,0,0,0,0,0]");
@@ -187,6 +194,7 @@ TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayScalar) {
 TYPED_TEST_CASE(TestNumericCompareKernel, NumericArrowTypes);
 TYPED_TEST(TestNumericCompareKernel, RandomCompareArrayScalar) {
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+  using CType = typename TypeTraits<TypeParam>::CType;
 
   auto rand = random::RandomArrayGenerator(0x5416447);
   for (size_t i = 3; i < 13; i++) {
@@ -194,7 +202,7 @@ TYPED_TEST(TestNumericCompareKernel, RandomCompareArrayScalar) {
       for (auto length_adjust : {-2, -1, 0, 1, 2}) {
         int64_t length = (1UL << i) + length_adjust;
         auto array = Datum(rand.Numeric<TypeParam>(length, 0, 100, null_probability));
-        auto zero = Datum(std::make_shared<ScalarType>(50));
+        auto zero = Datum(std::make_shared<ScalarType>(CType(50)));
         auto options = CompareOptions(GREATER);
         ValidateCompare<TypeParam>(&this->ctx_, options, array, zero);
       }

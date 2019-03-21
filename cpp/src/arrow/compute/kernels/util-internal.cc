@@ -236,6 +236,27 @@ Status PropagateNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* o
   return Status::OK();
 }
 
+Status SetAllNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* output) {
+  const int64_t length = input.length;
+  if (output->buffers.size() == 0) {
+    // Ensure we can assign a buffer
+    output->buffers.resize(1);
+  }
+
+  // Handle validity bitmap
+  if (output->buffers[0] == nullptr) {
+    std::shared_ptr<Buffer> buffer;
+    RETURN_NOT_OK(ctx->Allocate(BitUtil::BytesForBits(length), &buffer));
+    buffer->ZeroPadding();
+    output->buffers[0] = std::move(buffer);
+  }
+
+  output->null_count = length;
+  BitUtil::SetBitsTo(output->buffers[0].get()->mutable_data(), 0, length, false);
+
+  return Status::OK();
+}
+
 Status AssignNullIntersection(FunctionContext* ctx, const ArrayData& left,
                               const ArrayData& right, ArrayData* output) {
   if (output->buffers.size() == 0) {
