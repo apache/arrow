@@ -477,6 +477,19 @@ services:
       dockerfile: integration/dask/Dockerfile
     volumes: *ubuntu-volumes
 
+  turbodbc-integration:
+    # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build turbodbc-integration
+    #   docker-compose run turbodbc-integration
+    image: arrow:turbodbc-integration
+    build:
+      context: .
+      dockerfile: integration/turbodbc/Dockerfile
+    volumes: *ubuntu-volumes
+
   spark-integration:
     # Usage:
     #   export PYTHON_VERSION=3.6
