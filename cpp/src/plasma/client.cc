@@ -123,6 +123,18 @@ class ARROW_NO_EXPORT PlasmaBuffer : public Buffer {
   ObjectID object_id_;
 };
 
+/// A mutable Buffer class that keeps the backing data alive by keeping a
+/// PlasmaClient shared pointer.
+class ARROW_NO_EXPORT PlasmaMutableBuffer : public MutableBuffer {
+ public:
+  PlasmaMutableBuffer(std::shared_ptr<PlasmaClient::Impl> client, uint8_t* mutable_data,
+                      int64_t data_size)
+      : MutableBuffer(mutable_data, data_size), client_(client) {}
+
+ private:
+  std::shared_ptr<PlasmaClient::Impl> client_;
+};
+
 // ----------------------------------------------------------------------
 // PlasmaClient::Impl
 
@@ -391,8 +403,9 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
     ARROW_CHECK(object.metadata_size == metadata_size);
     // The metadata should come right after the data.
     ARROW_CHECK(object.metadata_offset == object.data_offset + data_size);
-    *data = std::make_shared<MutableBuffer>(
-        LookupOrMmap(fd, store_fd, mmap_size) + object.data_offset, data_size);
+    *data = std::make_shared<PlasmaMutableBuffer>(
+        shared_from_this(), LookupOrMmap(fd, store_fd, mmap_size) + object.data_offset,
+        data_size);
     // If plasma_create is being called from a transfer, then we will not copy the
     // metadata here. The metadata will be written along with the data streamed
     // from the transfer.
