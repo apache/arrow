@@ -37,6 +37,7 @@ use crate::execution::relation::{DataSourceRelation, Relation};
 use crate::logicalplan::*;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
+use crate::optimizer::type_coercion::TypeCoercionRule;
 use crate::optimizer::utils;
 use crate::sql::parser::{DFASTNode, DFParser};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
@@ -107,8 +108,15 @@ impl ExecutionContext {
 
     /// Optimize the logical plan by applying optimizer rules
     fn optimize(&self, plan: &LogicalPlan) -> Result<Arc<LogicalPlan>> {
-        let mut rule = ProjectionPushDown::new();
-        Ok(rule.optimize(plan)?)
+        let rules: Vec<Box<OptimizerRule>> = vec![
+            Box::new(ProjectionPushDown::new()),
+            Box::new(TypeCoercionRule::new()),
+        ];
+        let mut plan = Arc::new(plan.clone());
+        for mut rule in rules {
+            plan = rule.optimize(&plan)?;
+        }
+        Ok(plan)
     }
 
     /// Execute a logical plan and produce a Relation (a schema-aware iterator over a series

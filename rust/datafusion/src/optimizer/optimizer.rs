@@ -17,8 +17,8 @@
 
 //! Query optimizer traits
 
+use crate::error::Result;
 use crate::logicalplan::LogicalPlan;
-use arrow::error::Result;
 use std::sync::Arc;
 
 /// An optimizer rules performs a transformation on a logical plan to produce an optimized logical plan.
