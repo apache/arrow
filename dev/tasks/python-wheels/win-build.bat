@@ -84,14 +84,11 @@ REM conda create -n wheel-test -q -y python=%PYTHON_VERSION% ^
 REM       numpy=%NUMPY_VERSION% pandas pytest hypothesis
 call activate wheel-test
 
-@rem install the built wheel
-@rem pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow
-@rem
-@rem ls -lah C:\Miniconda35-x64\envs\wheel-test\lib\site-packages\pyarrow
-@rem
-@rem dumpbin /dependents C:\Miniconda35-x64\envs\wheel-test\lib\site-packages\pyarrow\lib.cp36-win_amd64.pyd
-@rem
-@rem test the imports
-@rem python -c "import pyarrow; import pyarrow.parquet; import pyarrow.gandiva;"
-@rem run the python tests
-@rem pytest --pyargs pyarrow
+REM @rem install the built wheel
+REM pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow
+REM
+REM @rem test the imports
+REM python -c "import pyarrow; import pyarrow.parquet; import pyarrow.gandiva;"
+REM
+REM @rem run the python tests
+REM pytest --pyargs pyarrow
