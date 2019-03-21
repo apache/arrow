@@ -17,17 +17,17 @@
 
 @echo on
 
-conda update --yes --quiet conda
-
-conda create -n arrow -q -y python=%PYTHON_VERSION% ^
-      six pytest setuptools numpy=%NUMPY_VERSION% pandas
-
-conda install -n arrow -q -y -c conda-forge ^
-      git flatbuffers rapidjson ^
-      cmake ^
-      boost-cpp thrift-cpp ^
-      gflags snappy zlib brotli zstd lz4-c double-conversion ^
-      llvmdev libprotobuf re2
+REM conda update --yes --quiet conda
+REM
+REM conda create -n arrow -q -y python=%PYTHON_VERSION% ^
+REM       six pytest setuptools numpy=%NUMPY_VERSION% pandas
+REM
+REM conda install -n arrow -q -y -c conda-forge ^
+REM       git flatbuffers rapidjson ^
+REM       cmake ^
+REM       boost-cpp thrift-cpp ^
+REM       gflags snappy zlib brotli zstd lz4-c double-conversion ^
+REM       llvmdev libprotobuf re2
 
 call activate arrow
 
@@ -80,8 +80,8 @@ popd
 call deactivate
 
 @rem test the wheel
-conda create -n wheel-test -q -y python=%PYTHON_VERSION% ^
-      numpy=%NUMPY_VERSION% pandas pytest hypothesis
+REM conda create -n wheel-test -q -y python=%PYTHON_VERSION% ^
+REM       numpy=%NUMPY_VERSION% pandas pytest hypothesis
 call activate wheel-test
 
 @rem install the built wheel
