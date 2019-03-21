@@ -36,6 +36,7 @@ build_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} %ARROW_SRC% || exit /B
   - git -C %ARROW_SRC% checkout {{ arrow.head }} || exit /B
   - call %ARROW_SRC%\dev\tasks\python-wheels\win-build.bat
+  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
 after_build:
   xcopy %ARROW_SRC%\python\dist\* wheels\
