@@ -52,7 +52,7 @@ pushd %ARROW_SRC%\cpp\build
 cmake -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DARROW_BOOST_USE_SHARED=OFF ^
-      -DARROW_BUILD_TESTS=OFF ^
+      -DARROW_BUILD_TESTS=ON ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
@@ -63,7 +63,7 @@ cmake --build . --target INSTALL --config Release  || exit /B
 
 @rem Needed so python-test.exe works
 set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\python35.zip;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%
-ctest -VV  || exit /B
+ctest -VV unittest || exit /B
 popd
 
 @rem Build and import pyarrow
@@ -92,7 +92,12 @@ conda create -n wheel-test -q -y python=%PYTHON_VERSION% ^
       numpy=%NUMPY_VERSION% pandas pytest hypothesis
 call activate wheel-test
 
-pip install --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow
+@rem show interpreter
+which python
+which pip
+
+@rem install the built wheel
+pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow
 
 @rem test the imports
 python -c "import pyarrow; import pyarrow.parquet; import pyarrow.gandiva;"
