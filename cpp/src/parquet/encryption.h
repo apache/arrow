@@ -54,7 +54,7 @@ class PARQUET_EXPORT StringKeyIdRetriever : public DecryptionKeyRetriever {
 
 class PARQUET_EXPORT HiddenColumnException : public ParquetException {
  public:
-  HiddenColumnException(const std::string columnPath)
+  HiddenColumnException(const std::string& columnPath)
     : ParquetException(columnPath.c_str()) {}
 };
 
