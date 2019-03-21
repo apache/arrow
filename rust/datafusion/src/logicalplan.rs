@@ -450,53 +450,54 @@ impl fmt::Debug for LogicalPlan {
     }
 }
 
-pub fn can_coerce_from(left: &DataType, other: &DataType) -> bool {
+pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
     use self::DataType::*;
-    match left {
-        Int8 => match other {
+    match type_into {
+        Int8 => match type_from {
             Int8 => true,
             _ => false,
         },
-        Int16 => match other {
+        Int16 => match type_from {
             Int8 | Int16 => true,
             _ => false,
         },
-        Int32 => match other {
+        Int32 => match type_from {
             Int8 | Int16 | Int32 => true,
             _ => false,
         },
-        Int64 => match other {
+        Int64 => match type_from {
             Int8 | Int16 | Int32 | Int64 => true,
             _ => false,
         },
-        UInt8 => match other {
+        UInt8 => match type_from {
             UInt8 => true,
             _ => false,
         },
-        UInt16 => match other {
+        UInt16 => match type_from {
             UInt8 | UInt16 => true,
             _ => false,
         },
-        UInt32 => match other {
+        UInt32 => match type_from {
             UInt8 | UInt16 | UInt32 => true,
             _ => false,
         },
-        UInt64 => match other {
+        UInt64 => match type_from {
             UInt8 | UInt16 | UInt32 | UInt64 => true,
             _ => false,
         },
-        Float32 => match other {
+        Float32 => match type_from {
             Int8 | Int16 | Int32 | Int64 => true,
             UInt8 | UInt16 | UInt32 | UInt64 => true,
             Float32 => true,
             _ => false,
         },
-        Float64 => match other {
+        Float64 => match type_from {
             Int8 | Int16 | Int32 | Int64 => true,
             UInt8 | UInt16 | UInt32 | UInt64 => true,
             Float32 | Float64 => true,
             _ => false,
         },
+        Utf8 => true,
         _ => false,
     }
 }

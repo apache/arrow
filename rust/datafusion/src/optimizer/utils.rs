@@ -17,10 +17,39 @@
 
 //! Collection of utility functions that are leveraged by the query optimizer rules
 
+use std::collections::HashSet;
+
 use arrow::datatypes::{DataType, Field, Schema};
 
 use crate::error::{ExecutionError, Result};
 use crate::logicalplan::Expr;
+
+/// Recursively walk a list of expression trees, collecting the unique set of column indexes
+/// referenced in the expression
+pub fn exprlist_to_column_indices(expr: &Vec<Expr>, accum: &mut HashSet<usize>) {
+    expr.iter().for_each(|e| expr_to_column_indices(e, accum));
+}
+
+/// Recursively walk an expression tree, collecting the unique set of column indexes
+/// referenced in the expression
+pub fn expr_to_column_indices(expr: &Expr, accum: &mut HashSet<usize>) {
+    match expr {
+        Expr::Column(i) => {
+            accum.insert(*i);
+        }
+        Expr::Literal(_) => { /* not needed */ }
+        Expr::IsNull(e) => expr_to_column_indices(e, accum),
+        Expr::IsNotNull(e) => expr_to_column_indices(e, accum),
+        Expr::BinaryExpr { left, right, .. } => {
+            expr_to_column_indices(left, accum);
+            expr_to_column_indices(right, accum);
+        }
+        Expr::Cast { expr, .. } => expr_to_column_indices(expr, accum),
+        Expr::Sort { expr, .. } => expr_to_column_indices(expr, accum),
+        Expr::AggregateFunction { args, .. } => exprlist_to_column_indices(args, accum),
+        Expr::ScalarFunction { args, .. } => exprlist_to_column_indices(args, accum),
+    }
+}
 
 /// Create field meta-data from an expression, for use in a result set schema
 pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
@@ -180,5 +209,35 @@ fn _get_supertype(l: &DataType, r: &DataType) -> Option<DataType> {
         (Boolean, Boolean) => Some(Boolean),
 
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::logicalplan::Expr;
+    use arrow::datatypes::DataType;
+    use std::collections::HashSet;
+    use std::sync::Arc;
+
+    #[test]
+    fn test_collect_expr() {
+        let mut accum: HashSet<usize> = HashSet::new();
+        expr_to_column_indices(
+            &Expr::Cast {
+                expr: Arc::new(Expr::Column(3)),
+                data_type: DataType::Float64,
+            },
+            &mut accum,
+        );
+        expr_to_column_indices(
+            &Expr::Cast {
+                expr: Arc::new(Expr::Column(3)),
+                data_type: DataType::Float64,
+            },
+            &mut accum,
+        );
+        assert_eq!(1, accum.len());
+        assert!(accum.contains(&3));
     }
 }
