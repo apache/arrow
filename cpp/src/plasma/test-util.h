@@ -37,6 +37,13 @@ ObjectID random_object_id() {
   return result;
 }
 
+#define PLASMA_CHECK_SYSTEM(expr)        \
+  do {                                   \
+    int status__ = (expr);               \
+    EXPECT_TRUE(WIFEXITED(status__));    \
+    EXPECT_EQ(WEXITSTATUS(status__), 0); \
+  } while (false);
+
 }  // namespace plasma
 
 #endif  // PLASMA_TEST_UTIL_H

@@ -164,7 +164,7 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option -Werror")
   elseif("${COMPILER_FAMILY}" STREQUAL "gcc")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall \
--Wno-conversion -Wno-sign-conversion")
+-Wno-conversion -Wno-sign-conversion -Wno-unused-variable")
 
     # Treat all compiler warnings as errors
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Werror")
