@@ -57,7 +57,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
-      -DARROW_GANDIVA=OFF ^
+      -DARROW_GANDIVA=ON ^
       ..  || exit /B
 cmake --build . --target INSTALL --config Release  || exit /B
 
@@ -72,7 +72,7 @@ set PYTHONPATH=
 pushd %ARROW_SRC%\python
 set PYARROW_BUILD_TYPE=Release
 @rem Gandiva is not supported on Python 2.7, but We don't build 2.7 wheel for windows
-set PYARROW_WITH_GANDIVA=0
+set PYARROW_WITH_GANDIVA=1
 set PYARROW_WITH_PARQUET=1
 set PYARROW_WITH_STATIC_BOOST=1
 set PYARROW_BUNDLE_ARROW_CPP=1
@@ -95,11 +95,7 @@ call activate wheel-test
 pip install --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow
 
 @rem test the imports
-python -c "
-import pyarrow
-import pyarrow.parquet
-import pyarrow.gandiva
-"
+python -c "import pyarrow; import pyarrow.parquet; import pyarrow.gandiva;"
 
 @rem run the python tests
 pytest --pyargs pyarrow
