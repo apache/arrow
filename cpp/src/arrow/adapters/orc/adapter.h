@@ -103,7 +103,7 @@ class ARROW_EXPORT ORCFileReader {
                     std::shared_ptr<RecordBatch>* out);
 
   /// \brief Seek to designated row. Invoke NextStripeReader() after seek
-  ///        will return stripe reader starting from designed row.
+  ///        will return stripe reader starting from designated row.
   ///
   /// \param[in] row_number the rows number to seek
   Status Seek(int64_t row_number);
