@@ -149,6 +149,9 @@ struct ClientMmapTableEntry {
   size_t length;
 
   ~ClientMmapTableEntry() {
+    // At this point it is safe to unmap the memory, as the PlasmaBuffer
+    // keeps the PlasmaClient (and therefore the ClientMmapTableEntry)
+    // alive until it is destroyed.
     // This call corresponds to the mmap call in LookupOrMmap.
     // We don't need to close the associated file, since it has
     // already been closed there.
