@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <iterator>
@@ -1002,6 +1003,34 @@ TEST(TestBooleanBuilder, TestStdBoolVectorAppend) {
 }
 
 template <typename TYPE>
+void CheckApproxEquals() {
+  std::shared_ptr<Array> a, b;
+
+  ArrayFromVector<TYPE>({true, false}, {0.5, 1.0}, &a);
+  ArrayFromVector<TYPE>({true, false}, {0.5000001, 1.0000001}, &b);
+  ASSERT_TRUE(a->ApproxEquals(b));
+  ASSERT_TRUE(b->ApproxEquals(a));
+
+  ArrayFromVector<TYPE>({true, false}, {0.5001, 1.000001}, &b);
+  ASSERT_FALSE(a->ApproxEquals(b));
+  ASSERT_FALSE(b->ApproxEquals(a));
+
+  ArrayFromVector<TYPE>({true, false}, {0.5, 1.1}, &b);
+  ASSERT_TRUE(a->ApproxEquals(b));
+  ASSERT_TRUE(b->ApproxEquals(a));
+
+  // Mismatching validity
+  ArrayFromVector<TYPE>({true, false}, {0.5, 1.0}, &a);
+  ArrayFromVector<TYPE>({false, false}, {0.5, 1.0}, &b);
+  ASSERT_FALSE(a->ApproxEquals(b));
+  ASSERT_FALSE(b->ApproxEquals(a));
+
+  ArrayFromVector<TYPE>({false, true}, {0.5, 1.0}, &b);
+  ASSERT_FALSE(a->ApproxEquals(b));
+  ASSERT_FALSE(b->ApproxEquals(a));
+}
+
+template <typename TYPE>
 void CheckSliceApproxEquals() {
   using T = typename TYPE::c_type;
 
@@ -1032,9 +1061,53 @@ void CheckSliceApproxEquals() {
   ASSERT_TRUE(slice1->ApproxEquals(slice2));
 }
 
+template <typename TYPE>
+void CheckFloatingNanEquality() {
+  std::shared_ptr<Array> a, b;
+
+  const auto nan_value = static_cast<typename TYPE::c_type>(NAN);
+
+  // NaN in a null entry
+  ArrayFromVector<TYPE>({true, false}, {0.5, nan_value}, &a);
+  ArrayFromVector<TYPE>({true, false}, {0.5, nan_value}, &b);
+  ASSERT_TRUE(a->Equals(b));
+  ASSERT_TRUE(b->Equals(a));
+  ASSERT_TRUE(a->ApproxEquals(b));
+  ASSERT_TRUE(b->ApproxEquals(a));
+  ASSERT_TRUE(a->RangeEquals(b, 0, 2, 0));
+  ASSERT_TRUE(b->RangeEquals(a, 0, 2, 0));
+  ASSERT_TRUE(a->RangeEquals(b, 1, 2, 1));
+  ASSERT_TRUE(b->RangeEquals(a, 1, 2, 1));
+
+  // NaN in a valid entry
+  ArrayFromVector<TYPE>({false, true}, {0.5, nan_value}, &a);
+  ArrayFromVector<TYPE>({false, true}, {0.5, nan_value}, &b);
+  ASSERT_FALSE(a->Equals(b));
+  ASSERT_FALSE(b->Equals(a));
+  ASSERT_FALSE(a->ApproxEquals(b));
+  ASSERT_FALSE(b->ApproxEquals(a));
+  ASSERT_FALSE(a->RangeEquals(b, 0, 2, 0));
+  ASSERT_FALSE(b->RangeEquals(a, 0, 2, 0));
+  ASSERT_FALSE(a->RangeEquals(b, 1, 2, 1));
+  ASSERT_FALSE(b->RangeEquals(a, 1, 2, 1));
+  // NaN not in tested range
+  ASSERT_TRUE(a->RangeEquals(b, 0, 1, 0));
+  ASSERT_TRUE(b->RangeEquals(a, 0, 1, 0));
+}
+
+TEST(TestPrimitiveAdHoc, FloatingApproxEquals) {
+  CheckApproxEquals<FloatType>();
+  CheckApproxEquals<DoubleType>();
+}
+
 TEST(TestPrimitiveAdHoc, FloatingSliceApproxEquals) {
   CheckSliceApproxEquals<FloatType>();
   CheckSliceApproxEquals<DoubleType>();
+}
+
+TEST(TestPrimitiveAdHoc, FloatingNanEquality) {
+  CheckFloatingNanEquality<FloatType>();
+  CheckFloatingNanEquality<DoubleType>();
 }
 
 // ----------------------------------------------------------------------
