@@ -147,6 +147,16 @@ struct ClientMmapTableEntry {
   uint8_t* pointer;
   /// The length of the memory-mapped file.
   size_t length;
+
+  ~ClientMmapTableEntry() {
+    // This call corresponds to the mmap call in LookupOrMmap.
+    // We don't need to close the associated file, since it has
+    // already been closed there.
+    int r = munmap(pointer, length - kMmapRegionsGap);
+    if (r != 0) {
+      ARROW_LOG(ERROR) << "munmap returned " << r << ", errno = " << errno;
+    }
+  }
 };
 
 class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Impl> {
