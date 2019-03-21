@@ -33,6 +33,8 @@
 #include <arrow-glib/readable.hpp>
 #include <arrow-glib/tensor.hpp>
 
+#include <mutex>
+
 G_BEGIN_DECLS
 
 /**
@@ -525,7 +527,8 @@ namespace garrow {
   class GIOInputStream : public arrow::io::RandomAccessFile {
   public:
     GIOInputStream(GInputStream *input_stream) :
-      input_stream_(input_stream) {
+      input_stream_(input_stream),
+      lock_() {
       g_object_ref(input_stream_);
     }
 
@@ -542,6 +545,7 @@ namespace garrow {
     }
 
     arrow::Status Close() override {
+      std::lock_guard<std::mutex> guard(lock_);
       GError *error = NULL;
       if (g_input_stream_close(input_stream_, NULL, &error)) {
         return arrow::Status::OK();
@@ -568,6 +572,7 @@ namespace garrow {
     arrow::Status Read(int64_t n_bytes,
                        int64_t *n_read_bytes,
                        void *out) override {
+      std::lock_guard<std::mutex> guard(lock_);
       GError *error = NULL;
       *n_read_bytes = g_input_stream_read(input_stream_,
                                           out,
@@ -600,6 +605,7 @@ namespace garrow {
       std::shared_ptr<arrow::ResizableBuffer> buffer;
       RETURN_NOT_OK(AllocateResizableBuffer(pool, n_bytes, &buffer));
 
+      std::lock_guard<std::mutex> guard(lock_);
       GError *error = NULL;
       auto n_read_bytes = g_input_stream_read(input_stream_,
                                               buffer->mutable_data(),
@@ -628,6 +634,7 @@ namespace garrow {
         return arrow::Status::NotImplemented(message);
       }
 
+      std::lock_guard<std::mutex> guard(lock_);
       GError *error = NULL;
       if (g_seekable_seek(G_SEEKABLE(input_stream_),
                           position,
@@ -651,6 +658,7 @@ namespace garrow {
         return arrow::Status::NotImplemented(message);
       }
 
+      std::lock_guard<std::mutex> guard(lock_);
       auto current_position = g_seekable_tell(G_SEEKABLE(input_stream_));
       GError *error = NULL;
       if (!g_seekable_seek(G_SEEKABLE(input_stream_),
@@ -681,6 +689,7 @@ namespace garrow {
 
   private:
     GInputStream *input_stream_;
+    std::mutex lock_;
   };
 };
 
