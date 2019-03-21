@@ -50,7 +50,7 @@ build_script:
 
   - conda create -n wheel-test -q -y python=%PYTHON_VERSION% ^
       numpy=%NUMPY_VERSION% pandas pytest hypothesis
-  #- call %ARROW_SRC%\dev\tasks\python-wheels\win-build.bat
+  - call %ARROW_SRC%\dev\tasks\python-wheels\win-build.bat
 
 on_finish:
   - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
