@@ -52,7 +52,7 @@ pushd %ARROW_SRC%\cpp\build
 cmake -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DARROW_BOOST_USE_SHARED=OFF ^
-      -DARROW_BUILD_TESTS=ON ^
+      -DARROW_BUILD_TESTS=OFF ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
@@ -60,14 +60,6 @@ cmake -G "%GENERATOR%" ^
       -DARROW_GANDIVA=ON ^
       ..  || exit /B
 cmake --build . --target INSTALL --config Release  || exit /B
-
-@rem Needed so python-test.exe works
-set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\python35.zip;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%
-ctest -VV unittest || exit /B
-popd
-
-@rem Build and import pyarrow
-set PYTHONPATH=
 
 pushd %ARROW_SRC%\python
 set PYARROW_BUILD_TYPE=Release
