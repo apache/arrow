@@ -276,7 +276,7 @@ function(bundle_zlib)
     # zlib uses zlib.dll for Windows
     set(ZLIB_SHARED_LIB_NAME zlib.dll)
     if(DEFINED ENV{CONDA_PREFIX})
-      set(ZLIB_HOME "$ENV{CONDA_PREFIX}\Library")
+      set(ZLIB_HOME "$ENV{CONDA_PREFIX}\\Library")
     endif()
     if(DEFINED ENV{ZLIB_HOME})
       set(ZLIB_HOME "$ENV{ZLIB_HOME}")
