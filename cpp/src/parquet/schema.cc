@@ -371,8 +371,13 @@ std::unique_ptr<Node> FlatSchemaConverter::Convert() {
   const SchemaElement& root = elements_[0];
 
   if (root.num_children == 0) {
-    // Degenerate case of Parquet file with no columns
-    return GroupNode::FromParquet(static_cast<const void*>(&root), next_id(), {});
+    if (length_ == 1) {
+      // Degenerate case of Parquet file with no columns
+      return GroupNode::FromParquet(static_cast<const void*>(&root), next_id(), {});
+    } else {
+      throw ParquetException(
+          "Parquet schema had multiple nodes but root had no children");
+    }
   }
 
   // Relaxing this restriction as some implementations don't set this

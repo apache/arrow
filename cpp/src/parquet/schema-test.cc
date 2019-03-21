@@ -448,6 +448,13 @@ TEST_F(TestSchemaConverter, NestedExample) {
   ASSERT_TRUE(check_for_parent_consistency(group_));
 }
 
+TEST_F(TestSchemaConverter, ZeroColumns) {
+  // ARROW-3843
+  SchemaElement elements[1];
+  elements[0] = NewGroup("schema", FieldRepetitionType::REPEATED, 0, 0);
+  ASSERT_NO_THROW(Convert(elements, 1));
+}
+
 TEST_F(TestSchemaConverter, InvalidRoot) {
   // According to the Parquet specification, the first element in the
   // list<SchemaElement> is a group whose children (and their descendants)
