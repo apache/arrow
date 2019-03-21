@@ -93,6 +93,8 @@ pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow
 
 ls -lah C:\Miniconda35-x64\envs\wheel-test\lib\site-packages\pyarrow
 
+ldd C:\Miniconda35-x64\envs\wheel-test\lib\site-packages\pyarrow\lib.cp36-win_amd64.pyd
+
 @rem test the imports
 python -c "import pyarrow; import pyarrow.parquet; import pyarrow.gandiva;"
 
