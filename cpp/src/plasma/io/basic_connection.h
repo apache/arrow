@@ -54,10 +54,8 @@ PlasmaStream CreateLocalStream(asio::io_context& io_context, const std::string& 
 /// A message that is queued for writing asynchronously.
 struct AsyncWriteBuffer {
   virtual void ToBuffers(std::vector<asio::const_buffer>& message_buffers) = 0;
-  virtual ~AsyncWriteBuffer(){};
-  inline AsyncWriteCallbackCode Handle(const std::error_code& ec) {
-    return handler_(ec);
-  };
+  virtual ~AsyncWriteBuffer() {}
+  inline AsyncWriteCallbackCode Handle(const std::error_code& ec) { return handler_(ec); }
 
  protected:
   AsyncWriteCallback handler_;
