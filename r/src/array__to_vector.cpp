@@ -434,6 +434,8 @@ class Converter_Time : public Converter {
       case TimeUnit::NANO:
         return 1000000000;
     }
+
+    return 0;
   }
 };
 

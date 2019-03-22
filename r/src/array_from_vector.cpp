@@ -566,6 +566,8 @@ inline int64_t get_time_multiplier(TimeUnit::type unit) {
     case TimeUnit::NANO:
       return 1000000000;
   }
+
+  return 0;
 }
 
 template <typename Type>
