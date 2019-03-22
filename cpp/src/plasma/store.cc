@@ -106,14 +106,10 @@ struct GetRequest {
     if (s.ok()) {
       // Send all of the file descriptors for the present objects.
       for (int store_fd : store_fds) {
-        // Only send the file descriptor if it hasn't been sent (see analogous
-        // logic in GetStoreFd in client.cc).
-        if (client->used_fds.find(store_fd) == client->used_fds.end()) {
-          auto status = client->SendFd(store_fd);
-          if (!status.ok()) {
-            ARROW_LOG(ERROR) << "Failed to send a mmap fd to client";
-          }
-          client->used_fds.insert(store_fd);
+        auto status = client->SendFd(store_fd);
+        if (!status.ok()) {
+          // TODO(suquark): Should we close the client here?
+          ARROW_LOG(ERROR) << "Failed to send a mmap fd to client";
         }
       }
     }
@@ -797,13 +793,12 @@ Status PlasmaStore::ProcessClientMessage(const std::shared_ptr<ClientConnection>
       RETURN_NOT_OK(SendCreateReply(client, object_id, &object, error_code, mmap_size));
       // Only send the file descriptor if it hasn't been sent (see analogous
       // logic in GetStoreFd in client.cc). Similar in ReturnFromGet.
-      if (error_code == PlasmaError::OK && device_num == 0 &&
-          client->used_fds.find(object.store_fd) == client->used_fds.end()) {
+      if (error_code == PlasmaError::OK && device_num == 0) {
         auto status = client->SendFd(object.store_fd);
         if (!status.ok()) {
-          ARROW_LOG(ERROR) << "Failed to send a mmap fd to the client.";
+          // TODO(suquark): Should we close the client here?
+          ARROW_LOG(ERROR) << "Failed to send a mmap fd to client";
         }
-        client->used_fds.insert(object.store_fd);
       }
     } break;
     case MessageType::PlasmaCreateAndSealRequest: {

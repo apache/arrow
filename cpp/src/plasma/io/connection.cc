@@ -210,8 +210,13 @@ void ClientConnection::ProcessMessageHeader(const std::error_code& ec) {
   }
 
   // If there was no error, make sure the protocol version matches.
-  // TODO(suquark): Don't let server die here.
-  ARROW_CHECK(read_version_ == kPlasmaProtocolVersion);
+  if (read_version_ != kPlasmaProtocolVersion) {
+    status = Status::ProtocolError(
+        "Expected Plasma message protocol version: ", kPlasmaProtocolVersion,
+        ", got protocol version: ", read_version_);
+    ProcessError(status);
+    return;
+  }
   // Resize the message buffer to match the received length.
   read_message_.resize(read_length_);
   ServerConnection::bytes_read_ += read_length_;
@@ -298,7 +303,19 @@ struct AsyncObjectNotificationWriteBuffer : public AsyncWriteBuffer {
 };
 
 Status ClientConnection::SendFd(int fd) {
-  ARROW_CHECK(send_fd(GetNativeHandle(), fd));
+  // Only send the file descriptor if it hasn't been sent (see analogous
+  // logic in GetStoreFd in client.cc).
+  if (used_fds.find(fd) == used_fds.end()) {
+    auto ec = send_fd(GetNativeHandle(), fd);
+    if (ec <= 0) {
+      if (ec == 0) {
+        return Status::IOError("Encountered unexpected EOF");
+      } else {
+        return Status::IOError("Unknown I/O Error");
+      }
+    }
+    used_fds.insert(fd);  // Succeed, record the fd.
+  }
   return Status::OK();
 }
 
