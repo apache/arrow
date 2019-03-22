@@ -45,7 +45,7 @@ build_script:
         git flatbuffers rapidjson ^
         cmake ^
         boost-cpp thrift-cpp ^
-        gflags snappy zlib brotli zstd lz4-c double-conversion ^
+        gflags snappy zlib zstd lz4-c double-conversion ^
         llvmdev libprotobuf re2
 
   - conda create -n wheel-test -q -y python=%PYTHON_VERSION% ^

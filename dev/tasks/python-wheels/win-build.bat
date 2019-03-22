@@ -54,10 +54,11 @@ cmake -G "%GENERATOR%" ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DARROW_BUILD_TESTS=OFF ^
       -DCMAKE_BUILD_TYPE=Release ^
+      -DBrotli_SOURCE=BUNDLED ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=OFF ^
-      -DARROW_WITH_BROTLI=OFF ^
+      -DARROW_WITH_BROTLI=ON ^
       -DARROW_GANDIVA=OFF ^
       ..  || exit /B
 cmake --build . --target INSTALL --config Release  || exit /B
