@@ -34,22 +34,9 @@ init:
 
 build_script:
   - mkdir wheels
+  - git config core.symlinks true
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} %ARROW_SRC% || exit /B
   - git -C %ARROW_SRC% checkout {{ arrow.head }} || exit /B
-  - conda update --yes --quiet conda
-
-  - conda create -n arrow -q -y python=%PYTHON_VERSION% ^
-        six pytest setuptools numpy=%NUMPY_VERSION% pandas
-
-  - conda install -n arrow -q -y -c conda-forge ^
-        git flatbuffers rapidjson ^
-        cmake ^
-        boost-cpp thrift-cpp ^
-        gflags snappy zlib zstd lz4-c double-conversion ^
-        llvmdev libprotobuf re2
-
-  - conda create -n wheel-test -q -y python=%PYTHON_VERSION% ^
-      numpy=%NUMPY_VERSION% pandas pytest hypothesis
   - call %ARROW_SRC%\dev\tasks\python-wheels\win-build.bat
 
 on_finish:

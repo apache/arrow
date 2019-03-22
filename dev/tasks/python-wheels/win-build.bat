@@ -17,32 +17,23 @@
 
 @echo on
 
-REM conda update --yes --quiet conda
-REM
-REM conda create -n arrow -q -y python=%PYTHON_VERSION% ^
-REM       six pytest setuptools numpy=%NUMPY_VERSION% pandas
-REM
-REM conda install -n arrow -q -y -c conda-forge ^
-REM       git flatbuffers rapidjson ^
-REM       cmake ^
-REM       boost-cpp thrift-cpp ^
-REM       gflags snappy zlib zstd lz4-c double-conversion ^
-REM       llvmdev libprotobuf re2
+@rem create conda environment for compiling
+conda update --yes --quiet conda
+
+conda create -n arrow -q -y python=%PYTHON_VERSION% ^
+      six pytest setuptools numpy=%NUMPY_VERSION% pandas
+
+conda install -n arrow -q -y -c conda-forge ^
+      git flatbuffers rapidjson ^
+      cmake ^
+      boost-cpp thrift-cpp ^
+      gflags snappy zlib zstd lz4-c double-conversion ^
+      llvmdev libprotobuf
 
 call activate arrow
 
-pushd %ARROW_SRC%
-
-@rem fix up symlinks
-git config core.symlinks true
-git reset --hard || exit /B
-git checkout "%PYARROW_REF%" || exit /B
-
-popd
-
 set ARROW_HOME=%CONDA_PREFIX%\Library
 set PARQUET_HOME=%CONDA_PREFIX%\Library
-
 echo %ARROW_HOME%
 
 @rem Build and test Arrow C++ libraries
@@ -55,6 +46,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_BUILD_TESTS=OFF ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DBrotli_SOURCE=BUNDLED ^
+      -DRE2_SOURCE=BUNDLED ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
@@ -81,8 +73,8 @@ popd
 call deactivate
 
 @rem test the wheel
-REM conda create -n wheel-test -q -y python=%PYTHON_VERSION% ^
-REM       numpy=%NUMPY_VERSION% pandas pytest hypothesis
+conda create -n wheel-test -q -y python=%PYTHON_VERSION% ^
+      numpy=%NUMPY_VERSION% pandas pytest hypothesis
 call activate wheel-test
 
 @rem install the built wheel
@@ -90,11 +82,13 @@ pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow
 
 cd C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin
 dumpbin.exe /dependents C:\Miniconda35-x64\envs\wheel-test\lib\site-packages\pyarrow\lib.cp36-win_amd64.pyd
+dumpbin.exe /dependents C:\Miniconda35-x64\envs\wheel-test\lib\site-packages\pyarrow\gandiva.cp36-win_amd64.pyd
 dumpbin.exe /dependents C:\Miniconda35-x64\envs\wheel-test\lib\site-packages\pyarrow\arrow.dll
-dumpbin.exe /dependents C:\Miniconda35-x64\envs\wheel-test\lib\site-packages\pyarrow\arrow_python.dll
+dumpbin.exe /dependents C:\Miniconda35-x64\envs\wheel-test\lib\site-packages\pyarrow\gandiva.dll
+dumpbin.exe /dependents C:\Miniconda35-x64\envs\wheel-test\lib\site-packages\pyarrow\arrow_python.dllx
 
 @rem test the imports
-python -c "import pyarrow; import pyarrow.parquet; import pyarrow.gandiva;"
+python -c "import pyarrow; import pyarrow.parquet; import pyarrow.gandiva;" || exit /B
 
 @rem run the python tests
-pytest --pyargs pyarrow
+pytest --pyargs pyarrow || exit /B
