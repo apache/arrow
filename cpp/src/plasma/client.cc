@@ -105,7 +105,7 @@ static std::mutex gpu_mutex;
 // PlasmaBuffer
 
 /// A Buffer class that automatically releases the backing plasma object
-/// when it goes out of scope.
+/// when it goes out of scope. This is returned by Get.
 class ARROW_NO_EXPORT PlasmaBuffer : public Buffer {
  public:
   ~PlasmaBuffer();
@@ -124,7 +124,8 @@ class ARROW_NO_EXPORT PlasmaBuffer : public Buffer {
 };
 
 /// A mutable Buffer class that keeps the backing data alive by keeping a
-/// PlasmaClient shared pointer.
+/// PlasmaClient shared pointer. This is returned by Create, Release will
+/// be called in the associated Seal call.
 class ARROW_NO_EXPORT PlasmaMutableBuffer : public MutableBuffer {
  public:
   PlasmaMutableBuffer(std::shared_ptr<PlasmaClient::Impl> client, uint8_t* mutable_data,
