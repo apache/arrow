@@ -26,7 +26,7 @@ REM conda install -n arrow -q -y -c conda-forge ^
 REM       git flatbuffers rapidjson ^
 REM       cmake ^
 REM       boost-cpp thrift-cpp ^
-REM       gflags snappy zlib brotli zstd lz4-c double-conversion ^
+REM       gflags snappy zlib zstd lz4-c double-conversion ^
 REM       llvmdev libprotobuf re2
 
 call activate arrow
@@ -58,15 +58,14 @@ cmake -G "%GENERATOR%" ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
-      -DARROW_WITH_BROTLI=ON ^
-      -DARROW_GANDIVA=OFF ^
+      -DARROW_GANDIVA=ON ^
       ..  || exit /B
 cmake --build . --target INSTALL --config Release  || exit /B
 
 pushd %ARROW_SRC%\python
 set PYARROW_BUILD_TYPE=Release
 @rem Gandiva is not supported on Python 2.7, but We don't build 2.7 wheel for windows
-set PYARROW_WITH_GANDIVA=0
+set PYARROW_WITH_GANDIVA=1
 set PYARROW_WITH_PARQUET=1
 set PYARROW_WITH_STATIC_BOOST=1
 set PYARROW_BUNDLE_ARROW_CPP=1
