@@ -13,9 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using FlatBuffers;
 using System;
-using System.Buffers.Binary;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -54,7 +52,7 @@ namespace Apache.Arrow.Ipc
             return _footer.RecordBatchCount;
         }
 
-        protected override async Task ReadSchemaAsync()
+        protected override async ValueTask ReadSchemaAsync()
         {
             if (HasReadSchema)
             {
@@ -68,7 +66,9 @@ namespace Apache.Arrow.Ipc
             {
                 BaseStream.Position = GetFooterLengthPosition();
 
-                await BaseStream.EnsureReadFullBufferAsync(buffer).ConfigureAwait(false);
+                int bytesRead = await BaseStream.ReadFullBufferAsync(buffer).ConfigureAwait(false);
+                EnsureFullRead(buffer, bytesRead);
+
                 footerLength = ReadFooterLength(buffer);
             }).ConfigureAwait(false);
 
@@ -78,7 +78,9 @@ namespace Apache.Arrow.Ipc
 
                 BaseStream.Position = _footerStartPostion;
 
-                await BaseStream.EnsureReadFullBufferAsync(buffer).ConfigureAwait(false);
+                int bytesRead = await BaseStream.ReadFullBufferAsync(buffer).ConfigureAwait(false);
+                EnsureFullRead(buffer, bytesRead);
+
                 ReadSchema(buffer);
             }).ConfigureAwait(false);
         }
@@ -97,7 +99,9 @@ namespace Apache.Arrow.Ipc
             {
                 BaseStream.Position = GetFooterLengthPosition();
 
-                BaseStream.EnsureReadFullBuffer(buffer);
+                int bytesRead = BaseStream.ReadFullBuffer(buffer);
+                EnsureFullRead(buffer, bytesRead);
+
                 footerLength = ReadFooterLength(buffer);
             });
 
@@ -107,7 +111,9 @@ namespace Apache.Arrow.Ipc
 
                 BaseStream.Position = _footerStartPostion;
 
-                BaseStream.EnsureReadFullBuffer(buffer);
+                int bytesRead = BaseStream.ReadFullBuffer(buffer);
+                EnsureFullRead(buffer, bytesRead);
+
                 ReadSchema(buffer);
             });
         }
@@ -168,7 +174,7 @@ namespace Apache.Arrow.Ipc
             return ReadRecordBatch();
         }
 
-        public override async Task<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
+        public override async ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
         {
             await ReadSchemaAsync().ConfigureAwait(false);
 
@@ -201,7 +207,7 @@ namespace Apache.Arrow.Ipc
         /// <summary>
         /// Check if file format is valid. If it's valid don't run the validation again.
         /// </summary>
-        private async Task ValidateFileAsync()
+        private async ValueTask ValidateFileAsync()
         {
             if (IsFileValid)
             {
@@ -228,7 +234,7 @@ namespace Apache.Arrow.Ipc
             IsFileValid = true;
         }
 
-        private async Task ValidateMagicAsync()
+        private async ValueTask ValidateMagicAsync()
         {
             var startingPosition = BaseStream.Position;
             var magicLength = ArrowFileConstants.Magic.Length;

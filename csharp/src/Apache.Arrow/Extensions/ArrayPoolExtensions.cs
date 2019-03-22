@@ -42,7 +42,7 @@ namespace Apache.Arrow
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Task RentReturnAsync(this ArrayPool<byte> pool, int length, Func<Memory<byte>, Task> action)
+        public static ValueTask RentReturnAsync(this ArrayPool<byte> pool, int length, Func<Memory<byte>, ValueTask> action)
         {
             byte[] array = null;
 

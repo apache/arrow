@@ -22,18 +22,7 @@ namespace Apache.Arrow
 {
     internal static partial class StreamExtensions
     {
-        public static async Task EnsureReadFullBufferAsync(this Stream stream, Memory<byte> buffer, CancellationToken cancellationToken = default)
-        {
-            int bytesRead = await ReadFullBufferAsync(stream, buffer, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (bytesRead != buffer.Length)
-            {
-                throw new InvalidOperationException("Unexpectedly reached the end of the stream before a full buffer was read.");
-            }
-        }
-
-        public static async Task<int> ReadFullBufferAsync(this Stream stream, Memory<byte> buffer, CancellationToken cancellationToken = default)
+        public static async ValueTask<int> ReadFullBufferAsync(this Stream stream, Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
             int totalBytesRead = 0;
             do
@@ -55,16 +44,6 @@ namespace Apache.Arrow
             while (totalBytesRead < buffer.Length);
 
             return totalBytesRead;
-        }
-
-        public static void EnsureReadFullBuffer(this Stream stream, Memory<byte> buffer)
-        {
-            int bytesRead = ReadFullBuffer(stream, buffer);
-
-            if (bytesRead != buffer.Length)
-            {
-                throw new InvalidOperationException("Unexpectedly reached the end of the stream before a full buffer was read.");
-            }
         }
 
         public static int ReadFullBuffer(this Stream stream, Memory<byte> buffer)

@@ -47,18 +47,18 @@ namespace Apache.Arrow
             }
         }
 
-        public static Task<int> ReadAsync(this Stream stream, Memory<byte> buffer, CancellationToken cancellationToken = default)
+        public static ValueTask<int> ReadAsync(this Stream stream, Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
             if (MemoryMarshal.TryGetArray(buffer, out ArraySegment<byte> array))
             {
-                return stream.ReadAsync(array.Array, array.Offset, array.Count, cancellationToken);
+                return new ValueTask<int>(stream.ReadAsync(array.Array, array.Offset, array.Count, cancellationToken));
             }
             else
             {
                 byte[] sharedBuffer = ArrayPool<byte>.Shared.Rent(buffer.Length);
                 return FinishReadAsync(stream.ReadAsync(sharedBuffer, 0, buffer.Length, cancellationToken), sharedBuffer, buffer);
 
-                async Task<int> FinishReadAsync(Task<int> readTask, byte[] localBuffer, Memory<byte> localDestination)
+                async ValueTask<int> FinishReadAsync(Task<int> readTask, byte[] localBuffer, Memory<byte> localDestination)
                 {
                     try
                     {
@@ -74,11 +74,11 @@ namespace Apache.Arrow
             }
         }
 
-        public static Task WriteAsync(this Stream stream, ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        public static ValueTask WriteAsync(this Stream stream, ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
         {
             if (MemoryMarshal.TryGetArray(buffer, out ArraySegment<byte> array))
             {
-                return stream.WriteAsync(array.Array, array.Offset, array.Count, cancellationToken);
+                return new ValueTask(stream.WriteAsync(array.Array, array.Offset, array.Count, cancellationToken));
             }
             else
             {
@@ -88,7 +88,7 @@ namespace Apache.Arrow
             }
         }
 
-        private static async Task FinishWriteAsync(Task writeTask, byte[] localBuffer)
+        private static async ValueTask FinishWriteAsync(Task writeTask, byte[] localBuffer)
         {
             try
             {

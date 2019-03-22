@@ -32,10 +32,10 @@ namespace Apache.Arrow.Ipc
             _buffer = buffer;
         }
 
-        public override Task<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
+        public override ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(ReadNextRecordBatch());
+            return new ValueTask<RecordBatch>(ReadNextRecordBatch());
         }
 
         public override RecordBatch ReadNextRecordBatch()

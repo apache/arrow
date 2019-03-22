@@ -84,7 +84,7 @@ namespace Apache.Arrow.Ipc
             await BaseStream.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        private async Task WriteHeaderAsync(CancellationToken cancellationToken)
+        private async ValueTask WriteHeaderAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -95,7 +95,7 @@ namespace Apache.Arrow.Ipc
                 .ConfigureAwait(false);
         }
 
-        private async Task WriteFooterAsync(Schema schema, CancellationToken cancellationToken)
+        private async ValueTask WriteFooterAsync(Schema schema, CancellationToken cancellationToken)
         {
             Builder.Clear();
 
@@ -159,6 +159,5 @@ namespace Apache.Arrow.Ipc
             return BaseStream.WriteAsync(
                 ArrowFileConstants.Magic, 0, ArrowFileConstants.Magic.Length);
         }
-
     }
 }
