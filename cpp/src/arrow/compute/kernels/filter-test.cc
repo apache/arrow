@@ -25,7 +25,7 @@
 
 #include "arrow/array.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/comparator.h"
+#include "arrow/compute/kernels/compare.h"
 #include "arrow/compute/kernels/filter.h"
 #include "arrow/compute/test-util.h"
 #include "arrow/type.h"

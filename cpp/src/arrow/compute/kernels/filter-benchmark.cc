@@ -33,7 +33,7 @@
 #include "arrow/compute/benchmark-util.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/comparator.h"
+#include "arrow/compute/kernels/compare.h"
 #include "arrow/compute/test-util.h"
 
 namespace arrow {

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/kernels/comparator.h"
+#include "arrow/compute/kernels/compare.h"
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
