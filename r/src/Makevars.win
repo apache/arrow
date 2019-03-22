@@ -21,9 +21,9 @@ PKG_CPPFLAGS = -I$(RWINLIB)/include -DARROW_STATIC -DPARQUET_STATIC
 CXX_STD = CXX11
 
 PKG_LIBS = \
-	-L$(RWINLIB)/lib-4.9.3$(R_ARCH) \
+	-L$(RWINLIB)/lib$(subst gcc,,$(COMPILED_BY))$(R_ARCH) \
 	-L$(RWINLIB)/lib$(R_ARCH) \
-	-lparquet -larrow -lthrift -lboost_regex-mt-s -ldouble-conversion -lWs2_32
+	-lparquet -larrow -lthrift -lboost_regex-mt-s -ldouble-conversion -lz -lws2_32
 
 #all: clean
 all: $(SHLIB)
