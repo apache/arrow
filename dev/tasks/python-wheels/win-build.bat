@@ -57,7 +57,7 @@ cmake -G "%GENERATOR%" ^
       -DBrotli_SOURCE=BUNDLED ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
-      -DARROW_PARQUET=OFF ^
+      -DARROW_PARQUET=ON ^
       -DARROW_WITH_BROTLI=ON ^
       -DARROW_GANDIVA=OFF ^
       ..  || exit /B
@@ -67,7 +67,7 @@ pushd %ARROW_SRC%\python
 set PYARROW_BUILD_TYPE=Release
 @rem Gandiva is not supported on Python 2.7, but We don't build 2.7 wheel for windows
 set PYARROW_WITH_GANDIVA=0
-set PYARROW_WITH_PARQUET=0
+set PYARROW_WITH_PARQUET=1
 set PYARROW_WITH_STATIC_BOOST=1
 set PYARROW_BUNDLE_ARROW_CPP=1
 set SETUPTOOLS_SCM_PRETEND_VERSION=%PYARROW_VERSION%
