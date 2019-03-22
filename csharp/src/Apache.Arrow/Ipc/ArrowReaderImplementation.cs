@@ -104,6 +104,11 @@ namespace Apache.Arrow.Ipc
             return null;
         }
 
+        internal static ByteBuffer CreateByteBuffer(ReadOnlyMemory<byte> buffer)
+        {
+            return new ByteBuffer(new ReadOnlyMemoryBufferAllocator(buffer), 0);
+        }
+
         private List<IArrowArray> BuildArrays(
             Schema schema,
             ByteBuffer messageBuffer,

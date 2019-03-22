@@ -141,10 +141,10 @@ namespace Apache.Arrow.Ipc
 
             await Buffers.RentReturnAsync(4, async (buffer) =>
             {
-                BinaryPrimitives.WriteInt32LittleEndian(buffer,
+                BinaryPrimitives.WriteInt32LittleEndian(buffer.Span,
                     Convert.ToInt32(BaseStream.Position - offset));
 
-                await BaseStream.WriteAsync(buffer, 0, 4, cancellationToken).ConfigureAwait(false);
+                await BaseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
             }).ConfigureAwait(false);
 
             // Write magic

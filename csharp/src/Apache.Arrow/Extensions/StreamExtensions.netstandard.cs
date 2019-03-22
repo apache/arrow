@@ -23,8 +23,57 @@ using System.Threading.Tasks;
 namespace Apache.Arrow
 {
     // Helpers to write Memory<byte> to Stream on netstandard
-    internal static class StreamExtensions
+    internal static partial class StreamExtensions
     {
+        public static int Read(this Stream stream, Memory<byte> buffer)
+        {
+            if (MemoryMarshal.TryGetArray(buffer, out ArraySegment<byte> array))
+            {
+                return stream.Read(array.Array, array.Offset, array.Count);
+            }
+            else
+            {
+                byte[] sharedBuffer = ArrayPool<byte>.Shared.Rent(buffer.Length);
+                try
+                {
+                    int result = stream.Read(sharedBuffer, 0, buffer.Length);
+                    new Span<byte>(sharedBuffer, 0, result).CopyTo(buffer.Span);
+                    return result;
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(sharedBuffer);
+                }
+            }
+        }
+
+        public static Task<int> ReadAsync(this Stream stream, Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (MemoryMarshal.TryGetArray(buffer, out ArraySegment<byte> array))
+            {
+                return stream.ReadAsync(array.Array, array.Offset, array.Count, cancellationToken);
+            }
+            else
+            {
+                byte[] sharedBuffer = ArrayPool<byte>.Shared.Rent(buffer.Length);
+                return FinishReadAsync(stream.ReadAsync(sharedBuffer, 0, buffer.Length, cancellationToken), sharedBuffer, buffer);
+
+                async Task<int> FinishReadAsync(Task<int> readTask, byte[] localBuffer, Memory<byte> localDestination)
+                {
+                    try
+                    {
+                        int result = await readTask.ConfigureAwait(false);
+                        new Span<byte>(localBuffer, 0, result).CopyTo(localDestination.Span);
+                        return result;
+                    }
+                    finally
+                    {
+                        ArrayPool<byte>.Shared.Return(localBuffer);
+                    }
+                }
+            }
+        }
+
         public static Task WriteAsync(this Stream stream, ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
         {
             if (MemoryMarshal.TryGetArray(buffer, out ArraySegment<byte> array))

@@ -74,11 +74,6 @@ namespace Apache.Arrow.Ipc
             return new ArrowBuffer(data);
         }
 
-        private static ByteBuffer CreateByteBuffer(ReadOnlyMemory<byte> buffer)
-        {
-            return new ByteBuffer(new ReadOnlyMemoryBufferAllocator(buffer), 0);
-        }
-
         private void ReadSchema()
         {
             if (HasReadSchema)

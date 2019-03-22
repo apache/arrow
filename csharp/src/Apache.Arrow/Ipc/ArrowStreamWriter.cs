@@ -350,11 +350,11 @@ namespace Apache.Arrow.Ipc
             var messageData = Builder.DataBuffer.ToReadOnlyMemory(Builder.DataBuffer.Position, Builder.Offset);
             var messagePaddingLength = CalculatePadding(messageData.Length);
 
-            await Buffers.RentReturnAsync(4, (buffer) =>
+            await Buffers.RentReturnAsync(4, async (buffer) =>
             {
                 var metadataSize = messageData.Length + messagePaddingLength;
-                BinaryPrimitives.WriteInt32LittleEndian(buffer, metadataSize);
-                return BaseStream.WriteAsync(buffer, 0, 4, cancellationToken);
+                BinaryPrimitives.WriteInt32LittleEndian(buffer.Span, metadataSize);
+                await BaseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
             }).ConfigureAwait(false);
 
             await BaseStream.WriteAsync(messageData, cancellationToken).ConfigureAwait(false);
