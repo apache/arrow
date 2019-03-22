@@ -186,8 +186,6 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   bool is_enabled_;
 
   static ArrowLogLevel severity_threshold_;
-  // Keep the log directory.
-  static std::unique_ptr<std::string> log_dir_;
 
  protected:
   virtual std::ostream& Stream();

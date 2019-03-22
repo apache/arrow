@@ -84,7 +84,8 @@ typedef CerrLog LoggingProvider;
 #endif
 
 ArrowLogLevel ArrowLog::severity_threshold_ = ArrowLogLevel::ARROW_INFO;
-std::unique_ptr<std::string> ArrowLog::log_dir_;
+// Keep the log directory.
+static std::unique_ptr<std::string> log_dir_;
 
 #ifdef ARROW_USE_GLOG
 
