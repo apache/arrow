@@ -186,9 +186,6 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   bool is_enabled_;
 
   static ArrowLogLevel severity_threshold_;
-  // In InitGoogleLogging, it simply keeps the pointer.
-  // We need to make sure the app name passed to InitGoogleLogging exist.
-  static std::unique_ptr<std::string> app_name_;
   // Keep the log directory.
   static std::unique_ptr<std::string> log_dir_;
 

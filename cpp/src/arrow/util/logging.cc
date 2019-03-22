@@ -84,7 +84,6 @@ typedef CerrLog LoggingProvider;
 #endif
 
 ArrowLogLevel ArrowLog::severity_threshold_ = ArrowLogLevel::ARROW_INFO;
-std::unique_ptr<std::string> ArrowLog::app_name_;
 std::unique_ptr<std::string> ArrowLog::log_dir_;
 
 #ifdef ARROW_USE_GLOG
@@ -115,6 +114,10 @@ void ArrowLog::StartArrowLog(const std::string& app_name,
                              ArrowLogLevel severity_threshold,
                              const std::string& log_dir) {
   severity_threshold_ = severity_threshold;
+  // In InitGoogleLogging, it simply keeps the pointer.
+  // We need to make sure the app name passed to InitGoogleLogging exist.
+  // We should avoid using static string is a dynamic lib.
+  static std::unique_ptr<std::string> app_name_;
   app_name_.reset(new std::string(app_name));
   log_dir_.reset(new std::string(log_dir));
 #ifdef ARROW_USE_GLOG
