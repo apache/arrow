@@ -231,6 +231,7 @@ func newBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.INT64:
 		return NewInt64Builder(mem)
 	case arrow.HALF_FLOAT:
+		return NewHalfFloatBuilder(mem)
 	case arrow.FLOAT32:
 		return NewFloat32Builder(mem)
 	case arrow.FLOAT64:
