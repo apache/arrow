@@ -19,12 +19,16 @@ FROM ubuntu:18.04
 
 ENV DEBIAN_FRONTEND noninteractive
 
-RUN \
-  apt update && \
+RUN apt-get update -y -q && \
+  apt-get install -y -q --no-install-recommends wget software-properties-common gpg-agent && \
+  wget --quiet -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+  apt-add-repository -y "deb http://apt.llvm.org/bionic llvm-toolchain-bionic-7 main" && \
+  apt-get -y install clang-7
+
+RUN apt update && \
   apt install -y -V \
     autoconf-archive \
     bison \
-    clang-6.0 \
     cmake \
     flex \
     g++ \
