@@ -124,7 +124,7 @@ class ARROW_NO_EXPORT PlasmaBuffer : public Buffer {
 };
 
 /// A mutable Buffer class that keeps the backing data alive by keeping a
-/// PlasmaClient shared pointer. This is returned by Create, Release will
+/// PlasmaClient shared pointer. This is returned by Create. Release will
 /// be called in the associated Seal call.
 class ARROW_NO_EXPORT PlasmaMutableBuffer : public MutableBuffer {
  public:
