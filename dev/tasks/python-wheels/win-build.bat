@@ -80,13 +80,6 @@ call activate wheel-test
 @rem install the built wheel
 pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow
 
-cd C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin
-dumpbin.exe /dependents C:\Miniconda35-x64\envs\wheel-test\lib\site-packages\pyarrow\lib.cp36-win_amd64.pyd
-dumpbin.exe /dependents C:\Miniconda35-x64\envs\wheel-test\lib\site-packages\pyarrow\gandiva.cp36-win_amd64.pyd
-dumpbin.exe /dependents C:\Miniconda35-x64\envs\wheel-test\lib\site-packages\pyarrow\arrow.dll
-dumpbin.exe /dependents C:\Miniconda35-x64\envs\wheel-test\lib\site-packages\pyarrow\gandiva.dll
-dumpbin.exe /dependents C:\Miniconda35-x64\envs\wheel-test\lib\site-packages\pyarrow\arrow_python.dllx
-
 @rem test the imports
 python -c "import pyarrow; import pyarrow.parquet; import pyarrow.gandiva;" || exit /B
 
