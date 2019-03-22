@@ -65,8 +65,7 @@ typedef struct GArrowInputStreamPrivate_ {
 } GArrowInputStreamPrivate;
 
 enum {
-  PROP_0,
-  PROP_INPUT_STREAM
+  PROP_INPUT_STREAM = 1
 };
 
 static std::shared_ptr<arrow::io::FileInterface>
@@ -100,7 +99,7 @@ garrow_input_stream_readable_interface_init(GArrowReadableInterface *iface)
 
 G_DEFINE_TYPE_WITH_CODE(GArrowInputStream,
                         garrow_input_stream,
-                        G_TYPE_OBJECT,
+                        G_TYPE_INPUT_STREAM,
                         G_ADD_PRIVATE(GArrowInputStream)
                         G_IMPLEMENT_INTERFACE(GARROW_TYPE_FILE,
                                               garrow_input_stream_file_interface_init)
@@ -154,6 +153,58 @@ garrow_input_stream_get_property(GObject *object,
   }
 }
 
+static gssize
+garrow_input_stream_read(GInputStream *stream,
+                         void *buffer,
+                         gsize count,
+                         GCancellable *cancellable,
+                         GError **error)
+{
+  if (g_cancellable_set_error_if_cancelled(cancellable, error)) {
+    return -1;
+  }
+  auto arrow_input_stream =
+    garrow_input_stream_get_raw(GARROW_INPUT_STREAM(stream));
+  int64_t n_read_bytes;
+  auto status = arrow_input_stream->Read(count, &n_read_bytes, buffer);
+  if (!garrow_error_check(error, status, "[input-stream][read]")) {
+    return -1;
+  }
+  return n_read_bytes;
+}
+
+static gssize
+garrow_input_stream_skip(GInputStream *stream,
+                         gsize count,
+                         GCancellable *cancellable,
+                         GError **error)
+{
+  if (g_cancellable_set_error_if_cancelled(cancellable, error)) {
+    return -1;
+  }
+  auto arrow_input_stream =
+    garrow_input_stream_get_raw(GARROW_INPUT_STREAM(stream));
+  auto status = arrow_input_stream->Advance(count);
+  if (!garrow_error_check(error, status, "[input-stream][skip]")) {
+    return -1;
+  }
+  return count;
+}
+
+static gboolean
+garrow_input_stream_close(GInputStream *stream,
+                          GCancellable *cancellable,
+                          GError **error)
+{
+  if (g_cancellable_set_error_if_cancelled(cancellable, error)) {
+    return FALSE;
+  }
+  auto arrow_input_stream =
+    garrow_input_stream_get_raw(GARROW_INPUT_STREAM(stream));
+  auto status = arrow_input_stream->Close();
+  return garrow_error_check(error, status, "[input-stream][close]");
+}
+
 static void
 garrow_input_stream_init(GArrowInputStream *object)
 {
@@ -163,10 +214,14 @@ static void
 garrow_input_stream_class_init(GArrowInputStreamClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
-
   gobject_class->finalize     = garrow_input_stream_finalize;
   gobject_class->set_property = garrow_input_stream_set_property;
   gobject_class->get_property = garrow_input_stream_get_property;
+
+  auto input_stream_class = G_INPUT_STREAM_CLASS(klass);
+  input_stream_class->read_fn = garrow_input_stream_read;
+  input_stream_class->skip = garrow_input_stream_skip;
+  input_stream_class->close_fn = garrow_input_stream_close;
 
   GParamSpec *spec;
   spec = g_param_spec_pointer("input-stream",
@@ -356,8 +411,7 @@ typedef struct GArrowBufferInputStreamPrivate_ {
 } GArrowBufferInputStreamPrivate;
 
 enum {
-  PROP_0_,
-  PROP_BUFFER
+  PROP_BUFFER = 1,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowBufferInputStream,

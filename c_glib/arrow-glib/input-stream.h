@@ -32,10 +32,10 @@ G_DECLARE_DERIVABLE_TYPE(GArrowInputStream,
                          garrow_input_stream,
                          GARROW,
                          INPUT_STREAM,
-                         GObject)
+                         GInputStream)
 struct _GArrowInputStreamClass
 {
-  GObjectClass parent_class;
+  GInputStreamClass parent_class;
 };
 
 gboolean garrow_input_stream_advance(GArrowInputStream *input_stream,
