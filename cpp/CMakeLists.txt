@@ -762,7 +762,7 @@ list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS uriparser::uriparser)
 
 if(ARROW_WITH_BROTLI)
   # Order is important for static linking
-  # list(APPEND ARROW_LINK_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
+  list(APPEND ARROW_LINK_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
   list(APPEND ARROW_STATIC_LINK_LIBS Brotli::brotlienc Brotli::brotlidec
               Brotli::brotlicommon)
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS Brotli::brotlienc Brotli::brotlidec
