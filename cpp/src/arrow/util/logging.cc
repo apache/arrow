@@ -24,6 +24,7 @@
 #include <iostream>
 
 #ifdef ARROW_USE_GLOG
+#include <vector>
 #include "glog/logging.h"
 #endif
 
@@ -84,6 +85,7 @@ typedef CerrLog LoggingProvider;
 
 ArrowLogLevel ArrowLog::severity_threshold_ = ArrowLogLevel::ARROW_INFO;
 std::unique_ptr<std::string> ArrowLog::app_name_;
+std::unique_ptr<std::string> ArrowLog::log_dir_;
 
 #ifdef ARROW_USE_GLOG
 
@@ -113,10 +115,10 @@ void ArrowLog::StartArrowLog(const std::string& app_name,
                              ArrowLogLevel severity_threshold,
                              const std::string& log_dir) {
   severity_threshold_ = severity_threshold;
-  app_name_.reset(new std::string(app_name.c_str()));
+  app_name_.reset(new std::string(app_name));
+  log_dir_.reset(new std::string(log_dir));
 #ifdef ARROW_USE_GLOG
   int mapped_severity_threshold = GetMappedSeverity(severity_threshold_);
-  google::InitGoogleLogging(app_name_->c_str());
   google::SetStderrLogging(mapped_severity_threshold);
   // Enble log file if log_dir is not empty.
   if (!log_dir.empty()) {
@@ -134,15 +136,39 @@ void ArrowLog::StartArrowLog(const std::string& app_name,
         app_name_without_path = app_name.substr(pos + 1);
       }
     }
+    google::InitGoogleLogging(app_name_->c_str());
     google::SetLogFilenameExtension(app_name_without_path.c_str());
-    google::SetLogDestination(mapped_severity_threshold, log_dir.c_str());
+    for (int i = static_cast<int>(severity_threshold_);
+         i <= static_cast<int>(ArrowLogLevel::ARROW_FATAL); ++i) {
+      int level = GetMappedSeverity(static_cast<ArrowLogLevel>(i));
+      google::SetLogDestination(level, dir_ends_with_slash.c_str());
+    }
+  }
+#endif
+}
+
+void ArrowLog::UninstallSignalAction() {
+#ifdef RAY_USE_GLOG
+  RAY_LOG(DEBUG) << "Uninstall signal handlers.";
+  // This signal list comes from glog's signalhandler.cc.
+  // https://github.com/google/glog/blob/master/src/signalhandler.cc#L58-L70
+  static std::vector<int> installed_signals({SIGSEGV, SIGILL, SIGFPE, SIGABRT, SIGTERM});
+  struct sigaction sig_action;
+  memset(&sig_action, 0, sizeof(sig_action));
+  sigemptyset(&sig_action.sa_mask);
+  sig_action.sa_handler = SIG_DFL;
+  for (int signal_num : installed_signals) {
+    sigaction(signal_num, &sig_action, NULL);
   }
 #endif
 }
 
 void ArrowLog::ShutDownArrowLog() {
 #ifdef ARROW_USE_GLOG
-  google::ShutdownGoogleLogging();
+  UninstallSignalAction();
+  if (!log_dir_->empty()) {
+    google::ShutdownGoogleLogging();
+  }
 #endif
 }
 

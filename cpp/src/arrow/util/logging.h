@@ -163,6 +163,9 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   /// The shutdown function of arrow log, it should be used with StartArrowLog as a pair.
   static void ShutDownArrowLog();
 
+  /// Uninstall the signal actions installed by InstallFailureSignalHandler.
+  static void UninstallSignalAction();
+
   /// Install the failure signal handler to output call stack when crash.
   /// If glog is not installed, this function won't do anything.
   static void InstallFailureSignalHandler();
@@ -186,6 +189,8 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   // In InitGoogleLogging, it simply keeps the pointer.
   // We need to make sure the app name passed to InitGoogleLogging exist.
   static std::unique_ptr<std::string> app_name_;
+  // Keep the log directory.
+  static std::unique_ptr<std::string> log_dir_;
 
  protected:
   virtual std::ostream& Stream();
