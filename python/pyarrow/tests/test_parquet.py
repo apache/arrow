@@ -2091,6 +2091,13 @@ def test_large_table_int32_overflow():
     _write_table(table, f)
 
 
+def _simple_table_roundtrip(table):
+    stream = pa.BufferOutputStream()
+    _write_table(table, stream)
+    buf = stream.getvalue()
+    return _read_table(buf)
+
+
 @pytest.mark.pandas
 @pytest.mark.large_memory
 def test_binary_array_overflow_to_chunked():
@@ -2103,20 +2110,27 @@ def test_binary_array_overflow_to_chunked():
     df = pd.DataFrame({'byte_col': values})
 
     tbl = pa.Table.from_pandas(df, preserve_index=False)
-
-    buf = io.BytesIO()
-    _write_table(tbl, buf)
-    buf.seek(0)
-    read_tbl = _read_table(buf)
-    buf = None
+    read_tbl = _simple_table_roundtrip(tbl)
 
     col0_data = read_tbl[0].data
     assert isinstance(col0_data, pa.ChunkedArray)
 
-    # Split up into 16MB chunks. 128 * 16 = 2048, so 129
-    assert col0_data.num_chunks == 129
+    # Split up into 2GB chunks
+    assert col0_data.num_chunks == 2
 
     assert tbl.equals(read_tbl)
+
+
+@pytest.mark.pandas
+@pytest.mark.large_memory
+def test_list_of_binary_large_cell():
+    # ARROW-4688
+
+    # 2^31 - 1 bytes in a single cell
+    arr = pa.array([[b'x' * (1 << 20)] * 2047 + [b'x' * ((1 << 20) - 1)]])
+    table = pa.Table.from_arrays([arr], ['chunky_cell'])
+    read_table = _simple_table_roundtrip(table)
+    assert table.equals(read_table)
 
 
 @pytest.mark.pandas
