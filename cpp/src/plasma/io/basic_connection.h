@@ -34,7 +34,13 @@
 namespace plasma {
 namespace io {
 
-using AsyncWriteCallback = std::function<void(const std::error_code&)>;
+enum class AsyncWriteCallbackCode {
+  OK,
+  DISCONNECT,
+  UNKNOWN_ERROR,
+};
+
+using AsyncWriteCallback = std::function<AsyncWriteCallbackCode(const std::error_code&)>;
 // TODO(suquark): Change it according to the platform.
 using PlasmaStream = asio::basic_stream_socket<asio::local::stream_protocol>;
 using PlasmaAcceptor = asio::local::stream_protocol::acceptor;
@@ -47,9 +53,14 @@ PlasmaStream CreateLocalStream(asio::io_context& io_context, const std::string& 
 
 /// A message that is queued for writing asynchronously.
 struct AsyncWriteBuffer {
-  virtual void ToBuffers(std::vector<asio::const_buffer>& message_buffers) {}
-  AsyncWriteCallback handler;
-  virtual ~AsyncWriteBuffer() {}
+  virtual void ToBuffers(std::vector<asio::const_buffer>& message_buffers) = 0;
+  virtual ~AsyncWriteBuffer(){};
+  inline AsyncWriteCallbackCode Handle(const std::error_code& ec) {
+    return handler_(ec);
+  };
+
+ protected:
+  AsyncWriteCallback handler_;
 };
 
 template <typename T>

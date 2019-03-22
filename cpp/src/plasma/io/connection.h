@@ -99,11 +99,9 @@ class ClientConnection : public ServerConnection {
   ///
   /// \param stream The client stream.
   /// \param message_handler A reference to the message handler.
-  /// \param debug_label The debug label.
   /// \return std::shared_ptr<ClientConnection>.
   static std::shared_ptr<ClientConnection> Create(PlasmaStream&& stream,
-                                                  MessageHandler& message_handler,
-                                                  const std::string& debug_label);
+                                                  MessageHandler& message_handler);
 
   std::shared_ptr<ClientConnection> shared_from_this();
 
@@ -160,15 +158,11 @@ class ClientConnection : public ServerConnection {
   void ProcessMessage(int64_t type, int64_t length, const uint8_t* data);
 
   /// Process an error from reading the message from the client.
-  /// \param ec The returned error code.
-  void ProcessError(const std::error_code& ec);
+  /// \param status The status code.
+  void ProcessError(const Status& status);
 
   /// A private constructor for a node client connection.
-  ClientConnection(PlasmaStream&& stream, MessageHandler& message_handler,
-                   const std::string& debug_label);
-
-  /// A label used for debug messages.
-  const std::string debug_label_;
+  ClientConnection(PlasmaStream&& stream, MessageHandler& message_handler);
 
   /// The handler for a message from the client.
   MessageHandler message_handler_;

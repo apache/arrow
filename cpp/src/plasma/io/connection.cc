@@ -17,7 +17,6 @@
 
 #include "plasma/io/connection.h"
 
-#include <chrono>
 #include <string>
 #include <utility>
 #include <vector>
@@ -30,7 +29,7 @@
 // TODO(pcm): Replace our own custom message header (message type,
 // message length, plasma protocol verion) with one that is serialized
 // using flatbuffers.
-constexpr int64_t kPlasmaProtocolVersion = 0x0000000000000000;
+constexpr int64_t kPlasmaProtocolVersion = 0x504C41534D410000;  // PLASMA\0\0
 
 namespace plasma {
 namespace io {
@@ -55,7 +54,7 @@ struct AsyncMessageWriteBuffer : public AsyncWriteBuffer {
       : write_version(version), write_type(type), write_length(length) {
     write_message.resize(length);
     write_message.assign(message, message + length);
-    handler = callback;
+    AsyncWriteBuffer::handler_ = callback;
   }
 
   void ToBuffers(std::vector<asio::const_buffer>& message_buffers) override {
@@ -132,7 +131,7 @@ Status ServerConnection::WriteMessage(int64_t type, int64_t length,
 void ServerConnection::WriteMessageAsync(int64_t type, int64_t length,
                                          const uint8_t* message,
                                          const AsyncWriteCallback& handler) {
-  auto write_buffer = std::unique_ptr<io::AsyncWriteBuffer>(new AsyncMessageWriteBuffer(
+  auto write_buffer = std::unique_ptr<AsyncWriteBuffer>(new AsyncMessageWriteBuffer(
       kPlasmaProtocolVersion, type, length, message, handler));
   PlasmaConnection::WriteBufferAsync(std::move(write_buffer));
 }
@@ -177,17 +176,13 @@ ServerConnection::ServerConnection(PlasmaStream&& stream)
     : PlasmaConnection(std::move(stream)) {}
 
 std::shared_ptr<ClientConnection> ClientConnection::Create(
-    PlasmaStream&& stream, MessageHandler& message_handler,
-    const std::string& debug_label) {
+    PlasmaStream&& stream, MessageHandler& message_handler) {
   return std::shared_ptr<ClientConnection>(
-      new ClientConnection(std::move(stream), message_handler, debug_label));
+      new ClientConnection(std::move(stream), message_handler));
 }
 
-ClientConnection::ClientConnection(PlasmaStream&& stream, MessageHandler& message_handler,
-                                   const std::string& debug_label)
-    : ServerConnection(std::move(stream)),
-      debug_label_(debug_label),
-      message_handler_(message_handler) {}
+ClientConnection::ClientConnection(PlasmaStream&& stream, MessageHandler& message_handler)
+    : ServerConnection(std::move(stream)), message_handler_(message_handler) {}
 
 std::shared_ptr<ClientConnection> ClientConnection::shared_from_this() {
   return std::static_pointer_cast<ClientConnection>(ServerConnection::shared_from_this());
@@ -206,10 +201,11 @@ void ClientConnection::ProcessMessages() {
                              std::placeholders::_1));  // Ignore byte_transferred
 }
 
-void ClientConnection::ProcessMessageHeader(const std::error_code& error) {
-  if (error) {
+void ClientConnection::ProcessMessageHeader(const std::error_code& ec) {
+  auto status = asio_to_arrow_status(ec);
+  if (!status.ok()) {
     // If there was an error, disconnect the client.
-    ProcessError(error);
+    ProcessError(status);
     return;
   }
 
@@ -225,24 +221,20 @@ void ClientConnection::ProcessMessageHeader(const std::error_code& error) {
                              std::placeholders::_1));
 }
 
-void ClientConnection::ProcessMessageBody(const std::error_code& error) {
-  if (error) {
-    ProcessError(error);
+void ClientConnection::ProcessMessageBody(const std::error_code& ec) {
+  auto status = asio_to_arrow_status(ec);
+  if (!status.ok()) {
+    // If there was an error, disconnect the client.
+    ProcessError(status);
     return;
   }
-  auto start = std::chrono::system_clock::now();
+
   ProcessMessage(read_type_, read_length_, read_message_.data());
-  auto end = std::chrono::system_clock::now();
-  auto interval = std::chrono::duration<double, std::milli>(end - start);
-  if (interval.count() > 100.0) {
-    ARROW_LOG(WARNING) << "[" << debug_label_ << "]ProcessMessage with type "
-                       << read_type_ << " took " << interval.count() << " ms.";
-  }
 }
 
-void ClientConnection::ProcessError(const std::error_code& ec) {
-  ARROW_LOG(ERROR)
-      << "Failed when processing message. Disconnecting the client. Error code = " << ec;
+void ClientConnection::ProcessError(const Status& status) {
+  ARROW_LOG(ERROR) << "Failed when processing message. Disconnecting the client. ("
+                   << status << ")";
   // If there was an error, disconnect the client.
   PlasmaConnection::Close();
 }
@@ -252,6 +244,8 @@ void ClientConnection::ProcessMessage(int64_t type, int64_t length, const uint8_
 }
 
 struct AsyncObjectNotificationWriteBuffer : public AsyncWriteBuffer {
+  ~AsyncObjectNotificationWriteBuffer() override {}
+
   static std::unique_ptr<AsyncObjectNotificationWriteBuffer> MakeDeletion(
       const ObjectID& object_id) {
     auto message = new std::vector<uint8_t>();
@@ -281,20 +275,23 @@ struct AsyncObjectNotificationWriteBuffer : public AsyncWriteBuffer {
     // Serialize the object.
     notification_msg.reset(message);
     size = message->size();
-    handler = [](const asio::error_code& status) {
+    AsyncWriteBuffer::handler_ =
+        [](const asio::error_code& status) -> AsyncWriteCallbackCode {
       auto errno_ = status.value();
       if (!errno_) {
-        return;
+        return AsyncWriteCallbackCode::OK;
       }
       if (errno_ == EAGAIN || errno_ == EWOULDBLOCK || errno_ == EINTR) {
         ARROW_LOG(DEBUG) << "The socket's send buffer is full, so we are caching this "
                             "notification and will send it later.";
         ARROW_LOG(WARNING) << "Blocked unexpectly when sending message async.";
+        return AsyncWriteCallbackCode::OK;
       } else {
         ARROW_LOG(WARNING) << "Failed to send notification to client.";
         if (errno_ == EPIPE) {
-          // TODO(suquark): We could probably close the socket here.
+          return AsyncWriteCallbackCode::DISCONNECT;
         }
+        return AsyncWriteCallbackCode::UNKNOWN_ERROR;
       }
     };
   }
@@ -308,7 +305,7 @@ Status ClientConnection::SendFd(int fd) {
 void ClientConnection::SendObjectDeletionAsync(const ObjectID& object_id) {
   auto raw_ptr = AsyncObjectNotificationWriteBuffer::MakeDeletion(object_id).release();
   auto write_buffer =
-      std::unique_ptr<io::AsyncWriteBuffer>(static_cast<io::AsyncWriteBuffer*>(raw_ptr));
+      std::unique_ptr<AsyncWriteBuffer>(static_cast<AsyncWriteBuffer*>(raw_ptr));
   // Attempt to send a notification about this object ID.
   WriteBufferAsync(std::move(write_buffer));
 }
@@ -318,7 +315,7 @@ void ClientConnection::SendObjectReadyAsync(const ObjectID& object_id,
   auto raw_ptr =
       AsyncObjectNotificationWriteBuffer::MakeReady(object_id, entry).release();
   auto write_buffer =
-      std::unique_ptr<io::AsyncWriteBuffer>(static_cast<io::AsyncWriteBuffer*>(raw_ptr));
+      std::unique_ptr<AsyncWriteBuffer>(static_cast<AsyncWriteBuffer*>(raw_ptr));
   // Attempt to send a notification about this object ID.
   WriteBufferAsync(std::move(write_buffer));
 }

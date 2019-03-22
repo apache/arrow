@@ -91,7 +91,7 @@ template <class T>
 Connection<T>::~Connection() {
   // If there are any pending messages, invoke their callbacks with an IOError status.
   for (const auto& write_buffer : async_write_queue_) {
-    write_buffer->handler(
+    write_buffer->Handle(
         std::error_code(static_cast<int>(std::errc::io_error), std::system_category()));
   }
 }
@@ -224,15 +224,23 @@ void Connection<T>::DoAsyncWrites() {
                     [this, this_ptr, num_messages](const std::error_code& ec,
                                                    size_t bytes_transferred) {
                       bytes_written_ += bytes_transferred;
+                      bool close_connection = false;
                       // Call the handlers for the written messages.
                       for (int i = 0; i < num_messages; i++) {
                         auto write_buffer = std::move(async_write_queue_.front());
-                        write_buffer->handler(ec);
+                        auto return_code = write_buffer->Handle(ec);
+                        if (return_code != AsyncWriteCallbackCode::OK) {
+                          close_connection = true;
+                        }
                         async_write_queue_.pop_front();  // release object
                       }
                       // We finished writing, so mark that we're no longer doing an
                       // async write.
                       async_write_in_flight_ = false;
+                      if (close_connection) {
+                        Close();
+                        return;
+                      }
                       // If there is more to write, try to write the rest.
                       if (!async_write_queue_.empty()) {
                         DoAsyncWrites();

@@ -722,8 +722,7 @@ void PlasmaStore::HandleAccept(const asio::error_code& error) {
       }
     };
     // Accept a new local client and dispatch it to the store.
-    auto new_connection = ClientConnection::Create(std::move(stream_), message_handler,
-                                                   "plasma_store_client");
+    auto new_connection = ClientConnection::Create(std::move(stream_), message_handler);
     // Insert the client before processing messages.
     connected_clients_.insert(new_connection);
     // Process our new connection.

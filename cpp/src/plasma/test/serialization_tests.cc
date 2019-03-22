@@ -42,8 +42,7 @@ class TestPlasmaSerialization : public ::testing::Test {
     io::MessageHandler monk_handler = [](std::shared_ptr<ClientConnection> client,
                                          int64_t type, int64_t length,
                                          const uint8_t* msg) {};
-    server_ =
-        ClientConnection::Create(std::move(parentSocket), monk_handler, "PlasmaClient");
+    server_ = ClientConnection::Create(std::move(parentSocket), monk_handler);
   }
 
   void TearDown() override {
