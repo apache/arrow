@@ -57,6 +57,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_CXXFLAGS="/MP" ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=OFF ^
+      -DARROW_WITH_BROTLI=OFF ^
       -DARROW_GANDIVA=OFF ^
       ..  || exit /B
 cmake --build . --target INSTALL --config Release  || exit /B
