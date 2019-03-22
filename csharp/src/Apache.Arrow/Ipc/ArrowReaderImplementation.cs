@@ -39,7 +39,7 @@ namespace Apache.Arrow.Ipc
         {
         }
 
-        public abstract Task<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken);
+        public abstract ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken);
         public abstract RecordBatch ReadNextRecordBatch();
 
         protected abstract ArrowBuffer CreateArrowBuffer(ReadOnlyMemory<byte> data);
@@ -102,6 +102,11 @@ namespace Apache.Arrow.Ipc
             }
 
             return null;
+        }
+
+        internal static ByteBuffer CreateByteBuffer(ReadOnlyMemory<byte> buffer)
+        {
+            return new ByteBuffer(new ReadOnlyMemoryBufferAllocator(buffer), 0);
         }
 
         private List<IArrowArray> BuildArrays(

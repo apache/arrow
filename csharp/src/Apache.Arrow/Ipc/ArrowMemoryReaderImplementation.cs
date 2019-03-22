@@ -32,10 +32,10 @@ namespace Apache.Arrow.Ipc
             _buffer = buffer;
         }
 
-        public override Task<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
+        public override ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(ReadNextRecordBatch());
+            return new ValueTask<RecordBatch>(ReadNextRecordBatch());
         }
 
         public override RecordBatch ReadNextRecordBatch()
@@ -72,11 +72,6 @@ namespace Apache.Arrow.Ipc
         protected override ArrowBuffer CreateArrowBuffer(ReadOnlyMemory<byte> data)
         {
             return new ArrowBuffer(data);
-        }
-
-        private static ByteBuffer CreateByteBuffer(ReadOnlyMemory<byte> buffer)
-        {
-            return new ByteBuffer(new ReadOnlyMemoryBufferAllocator(buffer), 0);
         }
 
         private void ReadSchema()
