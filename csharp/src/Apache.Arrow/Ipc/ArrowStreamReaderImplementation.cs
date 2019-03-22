@@ -42,7 +42,7 @@ namespace Apache.Arrow.Ipc
             }
         }
 
-        public override async Task<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
+        public override async ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
         {
             // TODO: Loop until a record batch is read.
             cancellationToken.ThrowIfCancellationRequested();
@@ -51,107 +51,150 @@ namespace Apache.Arrow.Ipc
 
         public override RecordBatch ReadNextRecordBatch()
         {
-            throw new NotImplementedException();
+            return ReadRecordBatch();
         }
 
-        protected async Task<RecordBatch> ReadRecordBatchAsync(CancellationToken cancellationToken = default)
+        protected async ValueTask<RecordBatch> ReadRecordBatchAsync(CancellationToken cancellationToken = default)
         {
             await ReadSchemaAsync().ConfigureAwait(false);
 
-            var bytesRead = 0;
-
-            byte[] lengthBuffer = null;
-            byte[] messageBuff = null;
-            byte[] bodyBuff = null;
-
-            try
+            int messageLength = 0;
+            await Buffers.RentReturnAsync(4, async (lengthBuffer) =>
             {
                 // Get Length of record batch for message header.
-
-                lengthBuffer = Buffers.Rent(4);
-                bytesRead += await BaseStream.ReadAsync(lengthBuffer, 0, 4, cancellationToken)
+                int bytesRead = await BaseStream.ReadFullBufferAsync(lengthBuffer, cancellationToken)
                     .ConfigureAwait(false);
 
-                if (bytesRead != 4)
+                if (bytesRead == 4)
                 {
-                    //reached the end
-                    return null;
+                    messageLength = BitUtility.ReadInt32(lengthBuffer);
                 }
+            }).ConfigureAwait(false);
 
-                var messageLength = BitConverter.ToInt32(lengthBuffer, 0);
-
-                if (messageLength == 0)
-                {
-                    //reached the end
-                    return null;
-                }
-
-                messageBuff = Buffers.Rent(messageLength);
-                bytesRead += await BaseStream.ReadAsync(messageBuff, 0, messageLength, cancellationToken)
-                    .ConfigureAwait(false);
-                var message = Flatbuf.Message.GetRootAsMessage(new FlatBuffers.ByteBuffer(messageBuff));
-
-                bodyBuff = Buffers.Rent((int)message.BodyLength);
-                var bodybb = new FlatBuffers.ByteBuffer(bodyBuff);
-                bytesRead += await BaseStream.ReadAsync(bodyBuff, 0, (int)message.BodyLength, cancellationToken)
-                    .ConfigureAwait(false);
-
-                return CreateArrowObjectFromMessage(message, bodybb);
-            }
-            finally
+            if (messageLength == 0)
             {
-                if (lengthBuffer != null)
-                {
-                    Buffers.Return(lengthBuffer);
-                }
-
-                if (messageBuff != null)
-                {
-                    Buffers.Return(messageBuff);
-                }
-
-                if (bodyBuff != null)
-                {
-                    Buffers.Return(bodyBuff);
-                }
+                // reached end
+                return null;
             }
+
+            RecordBatch result = null;
+            await Buffers.RentReturnAsync(messageLength, async (messageBuff) =>
+            {
+                int bytesRead = await BaseStream.ReadFullBufferAsync(messageBuff, cancellationToken)
+                    .ConfigureAwait(false);
+                EnsureFullRead(messageBuff, bytesRead);
+
+                Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
+
+                await Buffers.RentReturnAsync((int)message.BodyLength, async (bodyBuff) =>
+                {
+                    int bodyBytesRead = await BaseStream.ReadFullBufferAsync(bodyBuff, cancellationToken)
+                        .ConfigureAwait(false);
+                    EnsureFullRead(bodyBuff, bodyBytesRead);
+
+                    FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
+                    result = CreateArrowObjectFromMessage(message, bodybb);
+                }).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+
+            return result;
         }
 
-        protected virtual async Task ReadSchemaAsync()
+        protected RecordBatch ReadRecordBatch()
+        {
+            ReadSchema();
+
+            int messageLength = 0;
+            Buffers.RentReturn(4, lengthBuffer =>
+            {
+                int bytesRead = BaseStream.ReadFullBuffer(lengthBuffer);
+
+                if (bytesRead == 4)
+                {
+                    messageLength = BitUtility.ReadInt32(lengthBuffer);
+                }
+            });
+
+            if (messageLength == 0)
+            {
+                // reached end
+                return null;
+            }
+
+            RecordBatch result = null;
+            Buffers.RentReturn(messageLength, messageBuff =>
+            {
+                int bytesRead = BaseStream.ReadFullBuffer(messageBuff);
+                EnsureFullRead(messageBuff, bytesRead);
+
+                Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
+
+                Buffers.RentReturn((int)message.BodyLength, bodyBuff =>
+                {
+                    int bodyBytesRead = BaseStream.ReadFullBuffer(bodyBuff);
+                    EnsureFullRead(bodyBuff, bodyBytesRead);
+
+                    FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
+                    result = CreateArrowObjectFromMessage(message, bodybb);
+                });
+            });
+
+            return result;
+        }
+
+        protected virtual async ValueTask ReadSchemaAsync()
         {
             if (HasReadSchema)
             {
                 return;
             }
 
-            byte[] buff = null;
-
-            try
+            // Figure out length of schema
+            int schemaMessageLength = 0;
+            await Buffers.RentReturnAsync(4, async (lengthBuffer) =>
             {
-                // Figure out length of schema
+                int bytesRead = await BaseStream.ReadFullBufferAsync(lengthBuffer).ConfigureAwait(false);
+                EnsureFullRead(lengthBuffer, bytesRead);
 
-                buff = Buffers.Rent(4);
-                await BaseStream.ReadAsync(buff, 0, 4).ConfigureAwait(false);
-                var schemaMessageLength = BitConverter.ToInt32(buff, 0);
-                Buffers.Return(buff);
+                schemaMessageLength = BitUtility.ReadInt32(lengthBuffer);
+            }).ConfigureAwait(false);
 
-                // Allocate byte array for schema flat buffer
-
-                buff = Buffers.Rent(schemaMessageLength);
-                var schemabb = new FlatBuffers.ByteBuffer(buff);
-
+            await Buffers.RentReturnAsync(schemaMessageLength, async (buff) =>
+            {
                 // Read in schema
+                int bytesRead = await BaseStream.ReadFullBufferAsync(buff).ConfigureAwait(false);
+                EnsureFullRead(buff, bytesRead);
 
-                await BaseStream.ReadAsync(buff, 0, schemaMessageLength).ConfigureAwait(false);
+                var schemabb = CreateByteBuffer(buff);
                 Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb));
-            }
-            finally
+            }).ConfigureAwait(false);
+        }
+
+        protected virtual void ReadSchema()
+        {
+            if (HasReadSchema)
             {
-                if (buff != null)
-                {
-                    Buffers.Return(buff);
-                }
+                return;
             }
+
+            // Figure out length of schema
+            int schemaMessageLength = 0;
+            Buffers.RentReturn(4, lengthBuffer =>
+            {
+                int bytesRead = BaseStream.ReadFullBuffer(lengthBuffer);
+                EnsureFullRead(lengthBuffer, bytesRead);
+
+                schemaMessageLength = BitUtility.ReadInt32(lengthBuffer);
+            });
+
+            Buffers.RentReturn(schemaMessageLength, buff =>
+            {
+                int bytesRead = BaseStream.ReadFullBuffer(buff);
+                EnsureFullRead(buff, bytesRead);
+
+                var schemabb = CreateByteBuffer(buff);
+                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb));
+            });
         }
 
         protected override ArrowBuffer CreateArrowBuffer(ReadOnlyMemory<byte> data)
@@ -161,6 +204,19 @@ namespace Apache.Arrow.Ipc
             return new ArrowBuffer.Builder<byte>(data.Length)
                 .Append(data.Span)
                 .Build();
+        }
+
+        /// <summary>
+        /// Ensures the number of bytes read matches the buffer length
+        /// and throws an exception it if doesn't. This ensures we have read
+        /// a full buffer from the stream.
+        /// </summary>
+        internal static void EnsureFullRead(Memory<byte> buffer, int bytesRead)
+        {
+            if (bytesRead != buffer.Length)
+            {
+                throw new InvalidOperationException("Unexpectedly reached the end of the stream before a full buffer was read.");
+            }
         }
     }
 }

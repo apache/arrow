@@ -15,6 +15,8 @@
 
 using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Apache.Arrow
 {
@@ -116,5 +118,11 @@ namespace Apache.Arrow
             return (n + (factor - 1)) & ~(factor - 1);
         }
             
+        internal static int ReadInt32(ReadOnlyMemory<byte> value)
+        {
+            Debug.Assert(value.Length >= sizeof(int));
+
+            return Unsafe.ReadUnaligned<int>(ref MemoryMarshal.GetReference(value.Span));
+        }
     }
 }
