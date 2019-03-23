@@ -21,6 +21,14 @@
 
 #include <arrow/api.h>
 
+#ifdef _WIN32
+#  define gmtime_r gmtime_r_ruby_win32
+#  define localtime_r localtime_r_ruby_win32
+#  include <ruby.h>
+#  undef gmtime_r
+#  undef localtime_r
+#endif
+
 #include <arrow-glib/arrow-glib.hpp>
 #include <rbgobject.h>
 
