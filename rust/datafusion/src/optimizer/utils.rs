@@ -230,14 +230,118 @@ mod tests {
         for l in &types {
             for r in &types {
                 result.push_str(&format!(
-                    "supertype of {:?} and {:?} is {:?}\n",
+                    "supertype of {:?} and {:?} is {:?}
+\n",
                     l,
                     r,
                     get_supertype(l, r).unwrap()
                 ));
             }
         }
-        assert_eq!("supertype of UInt8 and UInt8 is UInt8\nsupertype of UInt8 and UInt16 is UInt16\nsupertype of UInt8 and UInt32 is UInt32\nsupertype of UInt8 and UInt64 is UInt64\nsupertype of UInt8 and Int8 is Int8\nsupertype of UInt8 and Int16 is Int16\nsupertype of UInt8 and Int32 is Int32\nsupertype of UInt8 and Int64 is Int64\nsupertype of UInt8 and Float32 is Float32\nsupertype of UInt8 and Float64 is Float64\nsupertype of UInt16 and UInt8 is UInt16\nsupertype of UInt16 and UInt16 is UInt16\nsupertype of UInt16 and UInt32 is UInt32\nsupertype of UInt16 and UInt64 is UInt64\nsupertype of UInt16 and Int8 is Int16\nsupertype of UInt16 and Int16 is Int16\nsupertype of UInt16 and Int32 is Int32\nsupertype of UInt16 and Int64 is Int64\nsupertype of UInt16 and Float32 is Float32\nsupertype of UInt16 and Float64 is Float64\nsupertype of UInt32 and UInt8 is UInt32\nsupertype of UInt32 and UInt16 is UInt32\nsupertype of UInt32 and UInt32 is UInt32\nsupertype of UInt32 and UInt64 is UInt64\nsupertype of UInt32 and Int8 is Int32\nsupertype of UInt32 and Int16 is Int32\nsupertype of UInt32 and Int32 is Int32\nsupertype of UInt32 and Int64 is Int64\nsupertype of UInt32 and Float32 is Float32\nsupertype of UInt32 and Float64 is Float64\nsupertype of UInt64 and UInt8 is UInt64\nsupertype of UInt64 and UInt16 is UInt64\nsupertype of UInt64 and UInt32 is UInt64\nsupertype of UInt64 and UInt64 is UInt64\nsupertype of UInt64 and Int8 is Int64\nsupertype of UInt64 and Int16 is Int64\nsupertype of UInt64 and Int32 is Int64\nsupertype of UInt64 and Int64 is Int64\nsupertype of UInt64 and Float32 is Float32\nsupertype of UInt64 and Float64 is Float64\nsupertype of Int8 and UInt8 is Int8\nsupertype of Int8 and UInt16 is Int16\nsupertype of Int8 and UInt32 is Int32\nsupertype of Int8 and UInt64 is Int64\nsupertype of Int8 and Int8 is Int8\nsupertype of Int8 and Int16 is Int16\nsupertype of Int8 and Int32 is Int32\nsupertype of Int8 and Int64 is Int64\nsupertype of Int8 and Float32 is Float32\nsupertype of Int8 and Float64 is Float64\nsupertype of Int16 and UInt8 is Int16\nsupertype of Int16 and UInt16 is Int16\nsupertype of Int16 and UInt32 is Int32\nsupertype of Int16 and UInt64 is Int64\nsupertype of Int16 and Int8 is Int16\nsupertype of Int16 and Int16 is Int16\nsupertype of Int16 and Int32 is Int32\nsupertype of Int16 and Int64 is Int64\nsupertype of Int16 and Float32 is Float32\nsupertype of Int16 and Float64 is Float64\nsupertype of Int32 and UInt8 is Int32\nsupertype of Int32 and UInt16 is Int32\nsupertype of Int32 and UInt32 is Int32\nsupertype of Int32 and UInt64 is Int64\nsupertype of Int32 and Int8 is Int32\nsupertype of Int32 and Int16 is Int32\nsupertype of Int32 and Int32 is Int32\nsupertype of Int32 and Int64 is Int64\nsupertype of Int32 and Float32 is Float32\nsupertype of Int32 and Float64 is Float64\nsupertype of Int64 and UInt8 is Int64\nsupertype of Int64 and UInt16 is Int64\nsupertype of Int64 and UInt32 is Int64\nsupertype of Int64 and UInt64 is Int64\nsupertype of Int64 and Int8 is Int64\nsupertype of Int64 and Int16 is Int64\nsupertype of Int64 and Int32 is Int64\nsupertype of Int64 and Int64 is Int64\nsupertype of Int64 and Float32 is Float32\nsupertype of Int64 and Float64 is Float64\nsupertype of Float32 and UInt8 is Float32\nsupertype of Float32 and UInt16 is Float32\nsupertype of Float32 and UInt32 is Float32\nsupertype of Float32 and UInt64 is Float32\nsupertype of Float32 and Int8 is Float32\nsupertype of Float32 and Int16 is Float32\nsupertype of Float32 and Int32 is Float32\nsupertype of Float32 and Int64 is Float32\nsupertype of Float32 and Float32 is Float32\nsupertype of Float32 and Float64 is Float64\nsupertype of Float64 and UInt8 is Float64\nsupertype of Float64 and UInt16 is Float64\nsupertype of Float64 and UInt32 is Float64\nsupertype of Float64 and UInt64 is Float64\nsupertype of Float64 and Int8 is Float64\nsupertype of Float64 and Int16 is Float64\nsupertype of Float64 and Int32 is Float64\nsupertype of Float64 and Int64 is Float64\nsupertype of Float64 and Float32 is Float64\nsupertype of Float64 and Float64 is Float64\n", result);
+        assert_eq!(
+            "supertype of UInt8 and UInt8 is UInt8
+\nsupertype of UInt8 and UInt16 is UInt16
+\nsupertype of UInt8 and UInt32 is UInt32
+\nsupertype of UInt8 and UInt64 is UInt64
+\nsupertype of UInt8 and Int8 is Int8
+\nsupertype of UInt8 and Int16 is Int16
+\nsupertype of UInt8 and Int32 is Int32
+\nsupertype of UInt8 and Int64 is Int64
+\nsupertype of UInt8 and Float32 is Float32
+\nsupertype of UInt8 and Float64 is Float64
+\nsupertype of UInt16 and UInt8 is UInt16
+\nsupertype of UInt16 and UInt16 is UInt16
+\nsupertype of UInt16 and UInt32 is UInt32
+\nsupertype of UInt16 and UInt64 is UInt64
+\nsupertype of UInt16 and Int8 is Int16
+\nsupertype of UInt16 and Int16 is Int16
+\nsupertype of UInt16 and Int32 is Int32
+\nsupertype of UInt16 and Int64 is Int64
+\nsupertype of UInt16 and Float32 is Float32
+\nsupertype of UInt16 and Float64 is Float64
+\nsupertype of UInt32 and UInt8 is UInt32
+\nsupertype of UInt32 and UInt16 is UInt32
+\nsupertype of UInt32 and UInt32 is UInt32
+\nsupertype of UInt32 and UInt64 is UInt64
+\nsupertype of UInt32 and Int8 is Int32
+\nsupertype of UInt32 and Int16 is Int32
+\nsupertype of UInt32 and Int32 is Int32
+\nsupertype of UInt32 and Int64 is Int64
+\nsupertype of UInt32 and Float32 is Float32
+\nsupertype of UInt32 and Float64 is Float64
+\nsupertype of UInt64 and UInt8 is UInt64
+\nsupertype of UInt64 and UInt16 is UInt64
+\nsupertype of UInt64 and UInt32 is UInt64
+\nsupertype of UInt64 and UInt64 is UInt64
+\nsupertype of UInt64 and Int8 is Int64
+\nsupertype of UInt64 and Int16 is Int64
+\nsupertype of UInt64 and Int32 is Int64
+\nsupertype of UInt64 and Int64 is Int64
+\nsupertype of UInt64 and Float32 is Float32
+\nsupertype of UInt64 and Float64 is Float64
+\nsupertype of Int8 and UInt8 is Int8
+\nsupertype of Int8 and UInt16 is Int16
+\nsupertype of Int8 and UInt32 is Int32
+\nsupertype of Int8 and UInt64 is Int64
+\nsupertype of Int8 and Int8 is Int8
+\nsupertype of Int8 and Int16 is Int16
+\nsupertype of Int8 and Int32 is Int32
+\nsupertype of Int8 and Int64 is Int64
+\nsupertype of Int8 and Float32 is Float32
+\nsupertype of Int8 and Float64 is Float64
+\nsupertype of Int16 and UInt8 is Int16
+\nsupertype of Int16 and UInt16 is Int16
+\nsupertype of Int16 and UInt32 is Int32
+\nsupertype of Int16 and UInt64 is Int64
+\nsupertype of Int16 and Int8 is Int16
+\nsupertype of Int16 and Int16 is Int16
+\nsupertype of Int16 and Int32 is Int32
+\nsupertype of Int16 and Int64 is Int64
+\nsupertype of Int16 and Float32 is Float32
+\nsupertype of Int16 and Float64 is Float64
+\nsupertype of Int32 and UInt8 is Int32
+\nsupertype of Int32 and UInt16 is Int32
+\nsupertype of Int32 and UInt32 is Int32
+\nsupertype of Int32 and UInt64 is Int64
+\nsupertype of Int32 and Int8 is Int32
+\nsupertype of Int32 and Int16 is Int32
+\nsupertype of Int32 and Int32 is Int32
+\nsupertype of Int32 and Int64 is Int64
+\nsupertype of Int32 and Float32 is Float32
+\nsupertype of Int32 and Float64 is Float64
+\nsupertype of Int64 and UInt8 is Int64
+\nsupertype of Int64 and UInt16 is Int64
+\nsupertype of Int64 and UInt32 is Int64
+\nsupertype of Int64 and UInt64 is Int64
+\nsupertype of Int64 and Int8 is Int64
+\nsupertype of Int64 and Int16 is Int64
+\nsupertype of Int64 and Int32 is Int64
+\nsupertype of Int64 and Int64 is Int64
+\nsupertype of Int64 and Float32 is Float32
+\nsupertype of Int64 and Float64 is Float64
+\nsupertype of Float32 and UInt8 is Float32
+\nsupertype of Float32 and UInt16 is Float32
+\nsupertype of Float32 and UInt32 is Float32
+\nsupertype of Float32 and UInt64 is Float32
+\nsupertype of Float32 and Int8 is Float32
+\nsupertype of Float32 and Int16 is Float32
+\nsupertype of Float32 and Int32 is Float32
+\nsupertype of Float32 and Int64 is Float32
+\nsupertype of Float32 and Float32 is Float32
+\nsupertype of Float32 and Float64 is Float64
+\nsupertype of Float64 and UInt8 is Float64
+\nsupertype of Float64 and UInt16 is Float64
+\nsupertype of Float64 and UInt32 is Float64
+\nsupertype of Float64 and UInt64 is Float64
+\nsupertype of Float64 and Int8 is Float64
+\nsupertype of Float64 and Int16 is Float64
+\nsupertype of Float64 and Int32 is Float64
+\nsupertype of Float64 and Int64 is Float64
+\nsupertype of Float64 and Float32 is Float64
+\nsupertype of Float64 and Float64 is Float64
+\n",
+            result
+        );
     }
 
     #[test]
