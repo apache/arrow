@@ -19,10 +19,10 @@
 //! functions with optional GROUP BY columns
 
 use std::cell::RefCell;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::str;
 use std::sync::Arc;
-use std::ops::Deref;
 
 use arrow::array::*;
 use arrow::builder::*;
@@ -361,30 +361,14 @@ impl AggregateFunction for CountFunction {
             };
         }
         self.value = match (&self.value, value) {
-            (Some(ScalarValue::UInt8(a)), Some(_)) => {
-                Some(ScalarValue::UInt8(*a + 1))
-            }
-            (Some(ScalarValue::UInt16(a)), Some(_)) => {
-                Some(ScalarValue::UInt16(*a + 1))
-            }
-            (Some(ScalarValue::UInt32(a)), Some(_)) => {
-                Some(ScalarValue::UInt32(*a + 1))
-            }
-            (Some(ScalarValue::UInt64(a)), Some(_)) => {
-                Some(ScalarValue::UInt64(*a + 1))
-            }
-            (Some(ScalarValue::Int8(a)), Some(_)) => {
-                Some(ScalarValue::Int8(*a + 1))
-            }
-            (Some(ScalarValue::Int16(a)), Some(_)) => {
-                Some(ScalarValue::Int16(*a + 1))
-            }
-            (Some(ScalarValue::Int32(a)), Some(_)) => {
-                Some(ScalarValue::Int32(*a + 1))
-            }
-            (Some(ScalarValue::Int64(a)), Some(_)) => {
-                Some(ScalarValue::Int64(*a + 1))
-            }
+            (Some(ScalarValue::UInt8(a)), Some(_)) => Some(ScalarValue::UInt8(*a + 1)),
+            (Some(ScalarValue::UInt16(a)), Some(_)) => Some(ScalarValue::UInt16(*a + 1)),
+            (Some(ScalarValue::UInt32(a)), Some(_)) => Some(ScalarValue::UInt32(*a + 1)),
+            (Some(ScalarValue::UInt64(a)), Some(_)) => Some(ScalarValue::UInt64(*a + 1)),
+            (Some(ScalarValue::Int8(a)), Some(_)) => Some(ScalarValue::Int8(*a + 1)),
+            (Some(ScalarValue::Int16(a)), Some(_)) => Some(ScalarValue::Int16(*a + 1)),
+            (Some(ScalarValue::Int32(a)), Some(_)) => Some(ScalarValue::Int32(*a + 1)),
+            (Some(ScalarValue::Int64(a)), Some(_)) => Some(ScalarValue::Int64(*a + 1)),
             _ => {
                 return Err(ExecutionError::ExecutionError(
                     "unsupported data type for COUNT".to_string(),
@@ -660,60 +644,42 @@ fn array_sum(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
 
 fn array_count(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
     match dt {
-        DataType::UInt8 => {
-            match compute::count(array.deref()) {
-                Some(n) => Ok(Some(ScalarValue::UInt8(n as u8))),
-                None => Ok(None),
-            }
-        }
-        DataType::UInt16 => {
-            match compute::count(array.deref()) {
-                Some(n) => Ok(Some(ScalarValue::UInt16(n as u16))),
-                None => Ok(None),
-            }
-        }
-        DataType::UInt32 => {
-            match compute::count(array.deref()) {
-                Some(n) => Ok(Some(ScalarValue::UInt32(n as u32))),
-                None => Ok(None),
-            }
-        }
-        DataType::UInt64 => {
-            match compute::count(array.deref()) {
-                Some(n) => Ok(Some(ScalarValue::UInt64(n as u64))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int8 => {
-            match compute::count(array.deref()) {
-                Some(n) => Ok(Some(ScalarValue::Int8(n as i8))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int16 => {
-            match compute::count(array.deref()) {
-                Some(n) => Ok(Some(ScalarValue::Int16(n as i16))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int32 => {
-            match compute::count(array.deref()) {
-                Some(n) => Ok(Some(ScalarValue::Int32(n as i32))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int64 => {
-            match compute::count(array.deref()) {
-                Some(n) => Ok(Some(ScalarValue::Int64(n as i64))),
-                None => Ok(None),
-            }
-        }
-        _ => {
-            match compute::count(array.deref()) {
-                Some(n) => Ok(Some(ScalarValue::UInt64(n as u64))),
-                None => Ok(None),
-            }
-        }
+        DataType::UInt8 => match compute::count(array.deref()) {
+            Some(n) => Ok(Some(ScalarValue::UInt8(n as u8))),
+            None => Ok(None),
+        },
+        DataType::UInt16 => match compute::count(array.deref()) {
+            Some(n) => Ok(Some(ScalarValue::UInt16(n as u16))),
+            None => Ok(None),
+        },
+        DataType::UInt32 => match compute::count(array.deref()) {
+            Some(n) => Ok(Some(ScalarValue::UInt32(n as u32))),
+            None => Ok(None),
+        },
+        DataType::UInt64 => match compute::count(array.deref()) {
+            Some(n) => Ok(Some(ScalarValue::UInt64(n as u64))),
+            None => Ok(None),
+        },
+        DataType::Int8 => match compute::count(array.deref()) {
+            Some(n) => Ok(Some(ScalarValue::Int8(n as i8))),
+            None => Ok(None),
+        },
+        DataType::Int16 => match compute::count(array.deref()) {
+            Some(n) => Ok(Some(ScalarValue::Int16(n as i16))),
+            None => Ok(None),
+        },
+        DataType::Int32 => match compute::count(array.deref()) {
+            Some(n) => Ok(Some(ScalarValue::Int32(n as i32))),
+            None => Ok(None),
+        },
+        DataType::Int64 => match compute::count(array.deref()) {
+            Some(n) => Ok(Some(ScalarValue::Int64(n as i64))),
+            None => Ok(None),
+        },
+        _ => match compute::count(array.deref()) {
+            Some(n) => Ok(Some(ScalarValue::UInt64(n as u64))),
+            None => Ok(None),
+        },
     }
 }
 
@@ -1266,7 +1232,7 @@ mod tests {
             },
             &schema,
         )
-            .unwrap()];
+        .unwrap()];
 
         let aggr_schema = Arc::new(Schema::new(vec![Field::new(
             "count",

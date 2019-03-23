@@ -16,8 +16,8 @@
 // under the License.
 
 //! A relation is a representation of a set of tuples. A database table is a
-//! type of relation. During query execution, each operation on a relation (such as projection,
-//! selection, aggregation) results in a new relation.
+//! type of relation. During query execution, each operation on a relation (such as
+//! projection, selection, aggregation) results in a new relation.
 
 use std::sync::{Arc, Mutex};
 

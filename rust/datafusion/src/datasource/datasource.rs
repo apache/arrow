@@ -31,7 +31,8 @@ pub trait Table {
     /// Get a reference to the schema for this table
     fn schema(&self) -> &Arc<Schema>;
 
-    /// Perform a scan of a table and return a sequence of iterators over the data (one iterator per partition)
+    /// Perform a scan of a table and return a sequence of iterators over the data (one
+    /// iterator per partition)
     fn scan(
         &self,
         projection: &Option<Vec<usize>>,

@@ -53,7 +53,8 @@
 //! let batch = RecordBatch::try_new(
 //!     Arc::new(schema),
 //!     vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
-//! ).unwrap();
+//! )
+//! .unwrap();
 //!
 //! let file = get_temp_file("out.csv", &[]);
 //!

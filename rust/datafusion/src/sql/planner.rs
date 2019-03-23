@@ -431,8 +431,8 @@ pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Field {
     }
 }
 
-/// Derive field meta-data for a list of expressions, for use in creating schemas that result from
-/// evaluating expressions against an input schema.
+/// Derive field meta-data for a list of expressions, for use in creating schemas that
+/// result from evaluating expressions against an input schema.
 pub fn exprlist_to_fields(expr: &Vec<Expr>, input_schema: &Schema) -> Vec<Field> {
     expr.iter()
         .map(|e| expr_to_field(e, input_schema))

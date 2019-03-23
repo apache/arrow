@@ -129,7 +129,8 @@ fn csv_query_limit_zero() {
     assert_eq!(expected, actual);
 }
 
-//TODO Uncomment the following test when ORDER BY is implemented to be able to test ORDER BY + LIMIT
+//TODO Uncomment the following test when ORDER BY is implemented to be able to test ORDER
+// BY + LIMIT
 /*
 #[test]
 fn csv_query_limit_with_order_by() {
