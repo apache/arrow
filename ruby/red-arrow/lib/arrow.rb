@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "gobject-introspection"
+require "gio2"
 
 require "arrow/version"
 
