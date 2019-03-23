@@ -18,10 +18,17 @@
 
 import pyarrow as pa
 
-def test_sum():
-    types = [pa.int8(), pa.int16(), pa.int64(),
-             pa.uint8(), pa.uint16(), pa.uint64(),
-             pa.float32(), pa.float64()]
-    for type in types:
-        arr = pa.array([1, 2, 3, 4], type=type)
-        assert arr.sum() == 10
+
+@pytest.mark.parametrize('arrow_type', [
+    pa.int8(),
+    pa.int16(),
+    pa.int64(),
+    pa.uint8(),
+    pa.uint16(),
+    pa.uint64(),
+    pa.float32(),
+    pa.float64()
+])
+def test_sum(arrow_type):
+    arr = pa.array([1, 2, 3, 4], type=arrow_type)
+    assert arr.sum() == 10
