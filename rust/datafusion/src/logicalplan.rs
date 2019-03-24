@@ -48,7 +48,7 @@ pub struct FunctionMeta {
 }
 
 impl FunctionMeta {
-    /// Initializer
+    #[allow(missing_docs)]
     pub fn new(
         name: String,
         args: Vec<Field>,
