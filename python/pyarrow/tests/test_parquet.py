@@ -2125,10 +2125,17 @@ def test_binary_array_overflow_to_chunked():
 @pytest.mark.large_memory
 def test_list_of_binary_large_cell():
     # ARROW-4688
+    data = []
 
+    # TODO(wesm): handle chunked children
     # 2^31 - 1 bytes in a single cell
-    arr = pa.array([[b'x' * (1 << 20)] * 2047 + [b'x' * ((1 << 20) - 1)]])
-    table = pa.Table.from_arrays([arr], ['chunky_cell'])
+    # data.append([b'x' * (1 << 20)] * 2047 + [b'x' * ((1 << 20) - 1)])
+
+    # A little under 2GB in cell each containing approximately 10MB each
+    data.extend([[b'x' * 1000000] * 10] * 214)
+
+    arr = pa.array(data)
+    table = pa.Table.from_arrays([arr], ['chunky_cells'])
     read_table = _simple_table_roundtrip(table)
     assert table.equals(read_table)
 
