@@ -15,4 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+pub mod convert;
+
 pub mod gen;
+
+pub use self::gen::File::*;
+pub use self::gen::Message::*;
+pub use self::gen::Schema::*;
+pub use self::gen::SparseTensor::*;
+pub use self::gen::Tensor::*;

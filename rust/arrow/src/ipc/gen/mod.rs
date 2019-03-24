@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Generated code
+
 #![allow(non_snake_case)]
 
 pub mod File;
