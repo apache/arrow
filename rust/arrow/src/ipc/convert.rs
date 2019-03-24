@@ -15,11 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::datatypes::{DataType, Field, Schema};
+//! Utilities for converting between IPC types and native Arrow types
+
+use crate::datatypes::Schema;
 use crate::ipc;
 
 use flatbuffers::FlatBufferBuilder;
 
+/// Serialize a schema in IPC format
 fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
     let mut fbb = FlatBufferBuilder::new();
 
@@ -47,6 +50,7 @@ fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::datatypes::{Schema, Field, DataType};
 
     #[test]
     fn convert_schema() {
