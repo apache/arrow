@@ -17,6 +17,7 @@
 
 //! Utilities for converting between IPC types and native Arrow types
 
+use crate::datatypes::DataType::*;
 use crate::datatypes::Schema;
 use crate::ipc;
 
@@ -31,6 +32,19 @@ fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
         let fb_field_name = fbb.create_string(field.name().as_str());
         let mut field_builder = ipc::FieldBuilder::new(&mut fbb);
         field_builder.add_name(fb_field_name);
+        let ipc_type = match field.data_type() {
+            Boolean => ipc::Type::Bool,
+            UInt8 | UInt16 | UInt32 | UInt64 => ipc::Type::Int,
+            Int8 | Int16 | Int32 | Int64 => ipc::Type::Int,
+            Float32 | Float64 => ipc::Type::FloatingPoint,
+            Utf8 => ipc::Type::Utf8,
+            Date32(_) | Date64(_) => ipc::Type::Date,
+            Time32(_) | Time64(_) => ipc::Type::Time,
+            Timestamp(_) => ipc::Type::Timestamp,
+            _ => ipc::Type::NONE,
+        };
+        field_builder.add_type_type(ipc_type);
+        field_builder.add_nullable(field.is_nullable());
         fields.push(field_builder.finish());
     }
 
@@ -50,13 +64,13 @@ fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::datatypes::{Schema, Field, DataType};
+    use crate::datatypes::{DataType, Field, Schema};
 
     #[test]
     fn convert_schema() {
         let schema = Schema::new(vec![Field::new("a", DataType::UInt32, false)]);
 
         let ipc = schema_to_fb(&schema);
-        assert_eq!(52, ipc.finished_data().len());
+        assert_eq!(60, ipc.finished_data().len());
     }
 }
