@@ -115,13 +115,15 @@ bool Array::Equals(const std::shared_ptr<Array>& arr) const {
   return Equals(*arr);
 }
 
-bool Array::ApproxEquals(const Array& arr) const { return ArrayApproxEquals(*this, arr); }
+bool Array::ApproxEquals(const Array& arr, double epsilon) const {
+  return ArrayApproxEquals(*this, arr, epsilon);
+}
 
-bool Array::ApproxEquals(const std::shared_ptr<Array>& arr) const {
+bool Array::ApproxEquals(const std::shared_ptr<Array>& arr, double epsilon) const {
   if (!arr) {
     return false;
   }
-  return ApproxEquals(*arr);
+  return ApproxEquals(*arr, epsilon);
 }
 
 bool Array::RangeEquals(int64_t start_idx, int64_t end_idx, int64_t other_start_idx,

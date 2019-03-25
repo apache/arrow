@@ -26,6 +26,7 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"
@@ -523,24 +524,23 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
 
 template <typename TYPE>
 inline bool FloatingApproxEquals(const NumericArray<TYPE>& left,
-                                 const NumericArray<TYPE>& right) {
+                                 const NumericArray<TYPE>& right,
+                                 typename TYPE::c_type epsilon) {
   using T = typename TYPE::c_type;
 
   const T* left_data = left.raw_values();
   const T* right_data = right.raw_values();
 
-  static constexpr T EPSILON = static_cast<T>(1E-5);
-
   if (left.null_count() > 0) {
     for (int64_t i = 0; i < left.length(); ++i) {
       if (left.IsNull(i)) continue;
-      if (fabs(left_data[i] - right_data[i]) > EPSILON) {
+      if (fabs(left_data[i] - right_data[i]) > epsilon) {
         return false;
       }
     }
   } else {
     for (int64_t i = 0; i < left.length(); ++i) {
-      if (fabs(left_data[i] - right_data[i]) > EPSILON) {
+      if (fabs(left_data[i] - right_data[i]) > epsilon) {
         return false;
       }
     }
@@ -550,20 +550,24 @@ inline bool FloatingApproxEquals(const NumericArray<TYPE>& left,
 
 class ApproxEqualsVisitor : public ArrayEqualsVisitor {
  public:
-  using ArrayEqualsVisitor::ArrayEqualsVisitor;
+  explicit ApproxEqualsVisitor(const Array& right, double epsilon)
+      : ArrayEqualsVisitor(right), epsilon_(epsilon) {}
+
   using ArrayEqualsVisitor::Visit;
 
   Status Visit(const FloatArray& left) {
-    result_ =
-        FloatingApproxEquals<FloatType>(left, checked_cast<const FloatArray&>(right_));
+    result_ = FloatingApproxEquals<FloatType>(
+        left, checked_cast<const FloatArray&>(right_), static_cast<float>(epsilon_));
     return Status::OK();
   }
 
   Status Visit(const DoubleArray& left) {
-    result_ =
-        FloatingApproxEquals<DoubleType>(left, checked_cast<const DoubleArray&>(right_));
+    result_ = FloatingApproxEquals<DoubleType>(
+        left, checked_cast<const DoubleArray&>(right_), epsilon_);
     return Status::OK();
   }
+
+  double epsilon_;
 };
 
 static bool BaseDataEquals(const Array& left, const Array& right) {
@@ -583,8 +587,8 @@ static bool BaseDataEquals(const Array& left, const Array& right) {
   return true;
 }
 
-template <typename VISITOR>
-inline bool ArrayEqualsImpl(const Array& left, const Array& right) {
+template <typename VISITOR, typename... Extra>
+inline bool ArrayEqualsImpl(const Array& left, const Array& right, Extra&&... extra) {
   bool are_equal;
   // The arrays are the same object
   if (&left == &right) {
@@ -596,7 +600,7 @@ inline bool ArrayEqualsImpl(const Array& left, const Array& right) {
   } else if (left.null_count() == left.length()) {
     are_equal = true;
   } else {
-    VISITOR visitor(right);
+    VISITOR visitor(right, std::forward<Extra>(extra)...);
     auto error = VisitArrayInline(left, &visitor);
     if (!error.ok()) {
       DCHECK(false) << "Arrays are not comparable: " << error.ToString();
@@ -797,8 +801,8 @@ bool ArrayEquals(const Array& left, const Array& right) {
   return internal::ArrayEqualsImpl<internal::ArrayEqualsVisitor>(left, right);
 }
 
-bool ArrayApproxEquals(const Array& left, const Array& right) {
-  return internal::ArrayEqualsImpl<internal::ApproxEqualsVisitor>(left, right);
+bool ArrayApproxEquals(const Array& left, const Array& right, double epsilon) {
+  return internal::ArrayEqualsImpl<internal::ApproxEqualsVisitor>(left, right, epsilon);
 }
 
 bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
