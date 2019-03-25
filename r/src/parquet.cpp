@@ -15,14 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/api.h>
-#include <arrow/io/api.h>
+#include "./arrow_types.h"
+
 #ifdef ARROW_R_WITH_PARQUET
 #include <parquet/arrow/reader.h>
 #include <parquet/arrow/writer.h>
 #include <parquet/exception.h>
 #endif
-#include <RcppCommon.h>
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::Table> read_parquet_file(std::string filename) {
