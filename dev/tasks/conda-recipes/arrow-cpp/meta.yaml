@@ -31,9 +31,10 @@ build:
 
 requirements:
   build:
-    - cmake
     - autoconf  # [unix]
+    - cmake
     - ninja
+    - llvmdev
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
   host:
@@ -70,31 +71,38 @@ test:
     # headers
     - test -f $PREFIX/include/arrow/api.h              # [unix]
     - test -f $PREFIX/include/plasma/client.h          # [unix]
+    - test -f $PREFIX/include/gandiva/engine.h         # [unix]
     - test -f $PREFIX/include/parquet/api/reader.h     # [unix]
     - if not exist %LIBRARY_INC%\\arrow\\api.h exit 1            # [win]
+    - if not exist %LIBRARY_INC%\\gandiva\\engine.h exit 1       # [win]
     - if not exist %LIBRARY_INC%\\parquet\\api\\reader.h exit 1  # [win]
 
     # static
     - test -f $PREFIX/lib/libarrow.a         # [unix]
     - test -f $PREFIX/lib/libarrow_python.a  # [unix]
-    - test -f $PREFIX/lib/libparquet.a       # [unix]
     - test -f $PREFIX/lib/libplasma.a        # [unix]
+    - test -f $PREFIX/lib/libparquet.a       # [unix]
+    - test -f $PREFIX/lib/libgandiva.a       # [unix]
     - if not exist %PREFIX%\\Library\\lib\\arrow_static.lib exit 1         # [win]
     - if not exist %PREFIX%\\Library\\lib\\arrow_python_static.lib exit 1  # [win]
     - if not exist %PREFIX%\\Library\\lib\\parquet_static.lib exit 1       # [win]
+    - if not exist %PREFIX%\\Library\\lib\\gandiva_static.lib exit 1       # [win]
 
     # shared
     - test -f $PREFIX/lib/libarrow.so            # [linux]
     - test -f $PREFIX/lib/libarrow_python.so     # [linux]
     - test -f $PREFIX/lib/libparquet.so          # [linux]
+    - test -f $PREFIX/lib/libgandiva.so          # [linux]
     - test -f $PREFIX/lib/libplasma.so           # [linux]
     - test -f $PREFIX/lib/libarrow.dylib         # [osx]
     - test -f $PREFIX/lib/libarrow_python.dylib  # [osx]
+    - test -f $PREFIX/lib/libgandiva.dylib       # [osx]
     - test -f $PREFIX/lib/libparquet.dylib       # [osx]
     - test -f $PREFIX/lib/libplasma.dylib        # [osx]
     - if not exist %PREFIX%\\Library\\bin\\arrow.dll exit 1         # [win]
     - if not exist %PREFIX%\\Library\\bin\\arrow_python.dll exit 1  # [win]
     - if not exist %PREFIX%\\Library\\bin\\parquet.dll exit 1       # [win]
+    - if not exist %PREFIX%\\Library\\bin\\gandiva.dll exit 1       # [win]
 
 about:
   home: http://github.com/apache/arrow
