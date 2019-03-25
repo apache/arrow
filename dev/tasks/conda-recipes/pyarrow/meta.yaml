@@ -57,8 +57,9 @@ requirements:
 test:
   imports:
     - pyarrow
-    - pyarrow.parquet
     - pyarrow.plasma  # [unix]
+    - pyarrow.parquet
+    - pyarrow.gandiva  # [py>=35]
 
   requires:
     - pytest

@@ -47,6 +47,7 @@ requirements:
     - libprotobuf
     - lz4-c
     - numpy 1.14.*
+    - orc
     - python
     - re2
     - rapidjson
