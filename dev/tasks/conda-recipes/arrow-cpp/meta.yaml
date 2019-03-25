@@ -34,7 +34,6 @@ requirements:
     - autoconf  # [unix]
     - cmake
     - ninja
-    - llvmdev
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
   host:
@@ -47,6 +46,7 @@ requirements:
     - libprotobuf
     - llvmdev 7.*
     - lz4-c
+    - llvmdev
     - numpy 1.14.*
     - python
     - re2
