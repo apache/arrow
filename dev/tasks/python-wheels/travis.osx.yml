@@ -57,6 +57,9 @@ install:
 
   # the following functions are defined in osx-build.sh
   - build_wheel arrow
+
+  # test the built wheels, remove llvm to ensure it links statically
+  - brew uninstall llvm@7
   - install_run arrow
 
   # move built wheels to a top level directory

@@ -196,7 +196,6 @@ tasks:
       unicode_width: 16
       test_docker_images:
         - python:3.7-slim
-        - centos/python-37-centos7
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux1_x86_64.whl
 
