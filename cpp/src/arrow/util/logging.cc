@@ -24,6 +24,7 @@
 #include <iostream>
 
 #ifdef ARROW_USE_GLOG
+#include <signal.h>
 #include <vector>
 #include "glog/logging.h"
 #endif
@@ -140,6 +141,9 @@ void ArrowLog::StartArrowLog(const std::string& app_name,
         app_name_without_path = app_name.substr(pos + 1);
       }
     }
+    // If InitGoogleLogging is called but SetLogDestination is not called,
+    // the log will be output to /tmp besides stderr. If log_dir is not
+    // provided, we'd better not call InitGoogleLogging.
     google::InitGoogleLogging(app_name_->c_str());
     google::SetLogFilenameExtension(app_name_without_path.c_str());
     for (int i = static_cast<int>(severity_threshold_);
@@ -152,17 +156,17 @@ void ArrowLog::StartArrowLog(const std::string& app_name,
 }
 
 void ArrowLog::UninstallSignalAction() {
-#ifdef RAY_USE_GLOG
-  RAY_LOG(DEBUG) << "Uninstall signal handlers.";
+#ifdef ARROW_USE_GLOG
+  ARROW_LOG(DEBUG) << "Uninstall signal handlers.";
   // This signal list comes from glog's signalhandler.cc.
   // https://github.com/google/glog/blob/master/src/signalhandler.cc#L58-L70
-  static std::vector<int> installed_signals({SIGSEGV, SIGILL, SIGFPE, SIGABRT, SIGTERM});
+  std::vector<int> installed_signals({SIGSEGV, SIGILL, SIGFPE, SIGABRT, SIGTERM});
   struct sigaction sig_action;
   memset(&sig_action, 0, sizeof(sig_action));
   sigemptyset(&sig_action.sa_mask);
   sig_action.sa_handler = SIG_DFL;
   for (int signal_num : installed_signals) {
-    sigaction(signal_num, &sig_action, NULL);
+    ARROW_CHECK(sigaction(signal_num, &sig_action, NULL) == 0);
   }
 #endif
 }

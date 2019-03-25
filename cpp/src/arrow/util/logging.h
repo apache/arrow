@@ -163,9 +163,6 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   /// The shutdown function of arrow log, it should be used with StartArrowLog as a pair.
   static void ShutDownArrowLog();
 
-  /// Uninstall the signal actions installed by InstallFailureSignalHandler.
-  static void UninstallSignalAction();
-
   /// Install the failure signal handler to output call stack when crash.
   /// If glog is not installed, this function won't do anything.
   static void InstallFailureSignalHandler();
@@ -178,6 +175,9 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrowLog);
+
+  /// Uninstall the signal actions installed by InstallFailureSignalHandler.
+  static void UninstallSignalAction();
 
   // Hide the implementation of log provider by void *.
   // Otherwise, lib user may define the same macro to use the correct header file.
