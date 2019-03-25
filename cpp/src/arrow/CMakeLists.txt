@@ -202,7 +202,7 @@ endif()
 
 if(ARROW_ORC)
   add_subdirectory(adapters/orc)
-  set(ARROW_SRCS adapters/orc/adapter.cc ${ARROW_SRCS})
+  set(ARROW_SRCS adapters/orc/adapter.cc adapters/orc/adapter_util.cc ${ARROW_SRCS})
 endif()
 
 if(ARROW_TENSORFLOW)
