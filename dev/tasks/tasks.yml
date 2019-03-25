@@ -148,8 +148,7 @@ tasks:
     params:
       python_version: 2.7
       unicode_width: 16
-      test_docker_images:
-        - centos/python-27-centos7
+      test_docker_images: []
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27m-manylinux1_x86_64.whl
 
