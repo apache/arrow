@@ -68,7 +68,7 @@ tasks:
     platform: linux
     template: conda-recipes/travis.linux.yml
     params:
-      config: linux_c_compilergcccxx_compilergxxpython2.7
+      config: linux_python2.7
     artifacts:
       - arrow-cpp-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
@@ -77,7 +77,7 @@ tasks:
     platform: linux
     template: conda-recipes/travis.linux.yml
     params:
-      config: linux_c_compilergcccxx_compilergxxpython3.6
+      config: linux_python3.6
     artifacts:
       - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
@@ -86,7 +86,7 @@ tasks:
     platform: linux
     template: conda-recipes/travis.linux.yml
     params:
-      config: linux_c_compilergcccxx_compilergxxpython3.7
+      config: linux_python3.7
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
@@ -97,7 +97,7 @@ tasks:
     platform: osx
     template: conda-recipes/travis.osx.yml
     params:
-      config: osx_c_compilerclangcxx_compilerclangxxpython2.7
+      config: osx_python2.7
     artifacts:
       - arrow-cpp-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
@@ -106,7 +106,7 @@ tasks:
     platform: osx
     template: conda-recipes/travis.osx.yml
     params:
-      config: osx_c_compilerclangcxx_compilerclangxxpython3.6
+      config: osx_python3.6
     artifacts:
       - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
@@ -115,7 +115,7 @@ tasks:
     platform: osx
     template: conda-recipes/travis.osx.yml
     params:
-      config: osx_c_compilerclangcxx_compilerclangxxpython3.7
+      config: osx_python3.7
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
@@ -126,7 +126,7 @@ tasks:
     platform: win
     template: conda-recipes/appveyor.yml
     params:
-      config: win_c_compilervs2015cxx_compilervs2015python3.6
+      config: win_c_compilervs2015cxx_compilervs2015python3.6vc14
     artifacts:
       - arrow-cpp-{no_rc_version}-py36_vc14(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
@@ -135,7 +135,7 @@ tasks:
     platform: win
     template: conda-recipes/appveyor.yml
     params:
-      config: win_c_compilervs2015cxx_compilervs2015python3.7
+      config: win_c_compilervs2015cxx_compilervs2015python3.7vc14
     artifacts:
       - arrow-cpp-{no_rc_version}-py37_vc14(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2

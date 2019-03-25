@@ -30,7 +30,6 @@ cmake -G "%CMAKE_GENERATOR%" ^
       -DARROW_PARQUET:BOOL=ON ^
       -DARROW_GANDIVA:BOOL=ON ^
       -DARROW_ORC:BOOL=ON ^
-      -DORC_HOME="%LIBRARY_PREFIX%" ^
       ..
 
 cmake --build . --target INSTALL --config Release

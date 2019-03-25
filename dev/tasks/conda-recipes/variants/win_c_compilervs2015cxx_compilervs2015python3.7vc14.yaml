@@ -24,16 +24,21 @@ pin_run_as_build:
     max_pin: x.x
   snappy:
     max_pin: x.x.x
+  vc:
+    max_pin: x
   zlib:
     max_pin: x.x
   zstd:
     max_pin: x.x.x
 python:
-- '3.6'
+- '3.7'
 snappy:
 - 1.1.7
+vc:
+- '14'
 zip_keys:
 - - python
+  - vc
   - c_compiler
   - cxx_compiler
 zlib:
