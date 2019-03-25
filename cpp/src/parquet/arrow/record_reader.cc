@@ -629,8 +629,8 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType> {
  public:
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
       : TypedRecordReader<ByteArrayType>(descr, pool), builder_(nullptr) {
-    // Maximum of 16MB chunks
-    constexpr int32_t kBinaryChunksize = 1 << 24;
+    // ARROW-4688(wesm): Using 2^31 - 1 chunks for now
+    constexpr int32_t kBinaryChunksize = 2147483647;
     DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
     if (descr_->logical_type() == LogicalType::UTF8) {
       builder_.reset(

@@ -292,8 +292,8 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
  protected:
   Status NextChunk();
 
-  int32_t max_chunk_size_;
-  int32_t chunk_data_size_;
+  int64_t max_chunk_size_;
+  int64_t chunk_data_size_;
 
   std::unique_ptr<BinaryBuilder> builder_;
   std::vector<std::shared_ptr<Array>> chunks_;
