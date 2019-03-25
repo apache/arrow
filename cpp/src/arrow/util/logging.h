@@ -207,16 +207,6 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   virtual std::ostream& Stream();
 };
 
-// This class make ARROW_CHECK compilation pass to change the << operator to void.
-// This class is copied from glog.
-class ARROW_EXPORT Voidify {
- public:
-  Voidify() {}
-  // This has to be an operator with a precedence lower than << but
-  // higher than ?:
-  void operator&(ArrowLogBase&) {}
-};
-
 namespace detail {
 
 /// @brief A helper for the nil log sink.
@@ -237,6 +227,18 @@ class NullLog {
 };
 
 }  // namespace detail
+
+// This class make ARROW_CHECK compilation pass to change the << operator to void.
+// This class is copied from glog.
+class ARROW_EXPORT Voidify {
+ public:
+  Voidify() {}
+  // This has to be an operator with a precedence lower than << but
+  // higher than ?:
+  void operator&(ArrowLogBase&) {}
+  void operator&(const detail::NullLog&) {}
+};
+
 }  // namespace util
 }  // namespace arrow
 
