@@ -26,10 +26,7 @@ Imports:
     fs,
     tibble,
     crayon,
-    withr,
     bit64
-Remotes:
-    r-lib/withr
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
 Suggests:
@@ -61,7 +58,6 @@ Collate:
     'feather.R'
     'memory_pool.R'
     'message.R'
-    'on_exit.R'
     'parquet.R'
     'read_record_batch.R'
     'read_table.R'

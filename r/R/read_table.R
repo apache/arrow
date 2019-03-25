@@ -69,15 +69,17 @@ read_table.character <- function(stream){
 
 #' @export
 read_table.fs_path <- function(stream) {
-  stream <- close_on_exit(ReadableFile(stream))
-  batch_reader <- close_on_exit(RecordBatchFileReader(stream))
+  stream <- ReadableFile(stream)
+  on.exit(stream$close())
+  batch_reader <- RecordBatchFileReader(stream)
   shared_ptr(`arrow::Table`, Table__from_RecordBatchFileReader(batch_reader))
 }
 
 #' @export
 `read_table.raw` <- function(stream) {
-  stream <- close_on_exit(BufferReader(stream))
-  batch_reader <- close_on_exit(RecordBatchStreamReader(stream))
+  stream <- BufferReader(stream)
+  on.exit(stream$close())
+  batch_reader <- RecordBatchStreamReader(stream)
   shared_ptr(`arrow::Table`, Table__from_RecordBatchStreamReader(batch_reader))
 }
 

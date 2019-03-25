@@ -18,7 +18,8 @@
 context("arrow::csv::TableReader")
 
 test_that("Can read csv file", {
-  tf <- local_tempfile()
+  tf <- tempfile()
+
   write.csv(iris, tf, row.names = FALSE, quote = FALSE)
 
   tab1 <- read_csv_arrow(tf)
@@ -30,4 +31,6 @@ test_that("Can read csv file", {
   expect_equal(tab0, tab1)
   expect_equal(tab0, tab2)
   expect_equal(tab0, tab3)
+
+  unlink(tf)
 })

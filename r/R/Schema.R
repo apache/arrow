@@ -81,12 +81,14 @@ read_schema <- function(stream, ...) {
 
 #' @export
 `read_schema.arrow::Buffer` <- function(stream, ...) {
-  stream <- close_on_exit(BufferReader(stream))
+  stream <- BufferReader(stream)
+  on.exit(stream$close())
   shared_ptr(`arrow::Schema`, ipc___ReadSchema_InputStream(stream))
 }
 
 #' @export
 `read_schema.raw` <- function(stream, ...) {
-  stream <- close_on_exit(BufferReader(stream))
+  stream <- BufferReader(stream)
+  on.exit(stream$close())
   shared_ptr(`arrow::Schema`, ipc___ReadSchema_InputStream(stream))
 }

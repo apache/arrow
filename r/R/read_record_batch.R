@@ -41,12 +41,14 @@ read_record_batch <- function(obj, schema){
 
 #' @export
 read_record_batch.raw <- function(obj, schema){
-  stream <- close_on_exit(BufferReader(obj))
+  stream <- BufferReader(obj)
+  on.exit(stream$close())
   read_record_batch(stream, schema)
 }
 
 #' @export
 `read_record_batch.arrow::Buffer` <- function(obj, schema){
-  stream <- close_on_exit(BufferReader(obj))
+  stream <- BufferReader(obj)
+  on.exit(stream$close())
   read_record_batch(stream, schema)
 }
