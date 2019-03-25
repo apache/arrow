@@ -171,7 +171,6 @@ tasks:
       unicode_width: 16
       test_docker_images:
         - python:3.5-slim
-        - centos/python-35-centos7
     artifacts:
       - pyarrow-{no_rc_version}-cp35-cp35m-manylinux1_x86_64.whl
 
@@ -183,7 +182,6 @@ tasks:
       unicode_width: 16
       test_docker_images:
         - python:3.6-slim
-        - centos/python-36-centos7
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux1_x86_64.whl
 
