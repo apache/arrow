@@ -48,6 +48,7 @@ requirements:
     - lz4-c
     - numpy 1.14.*
     - python
+    - re2
     - rapidjson
     - snappy
     - thrift-cpp >=0.11
