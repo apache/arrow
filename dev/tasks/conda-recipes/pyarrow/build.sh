@@ -25,6 +25,7 @@ export ARROW_HOME=$PREFIX
 export PARQUET_HOME=$PREFIX
 
 cd python
+
 $PYTHON setup.py \
         build_ext --build-type=release \
                   --with-orc \
