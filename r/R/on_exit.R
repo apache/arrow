@@ -20,9 +20,3 @@ close_on_exit <- function(x, ...){
   defer_parent(x$close(), ...)
   x
 }
-
-local_tempfile <- function(...){
-  tf <- tempfile()
-  defer_parent(unlink(tf), ...)
-  tf
-}

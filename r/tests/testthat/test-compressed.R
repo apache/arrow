@@ -20,13 +20,13 @@ context("arrow::io::Compressed.*Stream")
 test_that("can write Buffer to CompressedOutputStream and read back in CompressedInputStream", {
   buf <- buffer(as.raw(sample(0:255, size = 1024, replace = TRUE)))
 
-  tf1 <- local_tempfile()
+  tf1 <- tempfile()
   stream1 <- CompressedOutputStream(tf1)
   stream1$write(buf)
   expect_error(stream1$tell())
   stream1$close()
 
-  tf2 <- local_tempfile()
+  tf2 <- tempfile()
   sink2 <- FileOutputStream(tf2)
   stream2 <- CompressedOutputStream(sink2)
   stream2$write(buf)
@@ -44,5 +44,8 @@ test_that("can write Buffer to CompressedOutputStream and read back in Compresse
 
   expect_equal(buf, buf1)
   expect_equal(buf, buf2)
+
+  unlink(tf1)
+  unlink(tf2)
 })
 

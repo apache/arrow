@@ -23,7 +23,7 @@ test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
   ))
-  tf <- local_tempfile()
+  tf <- tempfile()
 
   writer <- RecordBatchFileWriter(tf, tab$schema)
   expect_is(writer, "arrow::ipc::RecordBatchFileWriter")
@@ -39,6 +39,7 @@ test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
   writer$close()
   tab3 <- read_table(tf)
   expect_equal(tab, tab3)
+  unlink(tf)
 })
 
 test_that("read_record_batch() handles (raw|Buffer|InputStream, Schema) (ARROW-3450, ARROW-3505)", {

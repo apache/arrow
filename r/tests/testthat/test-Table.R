@@ -25,7 +25,7 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   )
   tab <- arrow::table(tbl)
 
-  tf <- local_tempfile()
+  tf <- tempfile()
   write_arrow(tab, tf)
 
   bytes <- write_arrow(tab, raw())
@@ -54,6 +54,8 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   expect_equal(tab, tab5)
   expect_equal(tab, tab6)
   expect_equal(tab, tab7)
+
+  unlink(tf)
 })
 
 test_that("Table cast (ARROW-3741)", {
