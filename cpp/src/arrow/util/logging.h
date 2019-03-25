@@ -81,23 +81,36 @@ enum class ArrowLogLevel : int {
 #ifdef NDEBUG
 #define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_WARNING
 
-#define DCHECK(condition) \
-  while (false) ::arrow::util::detail::NullLog()
+#define DCHECK(condition)       \
+  ARROW_IGNORE_EXPR(condition); \
+  while (false) ::arrow::util::Voidify() & ::arrow::util::detail::NullLog()
 #define DCHECK_OK(s)    \
   ARROW_IGNORE_EXPR(s); \
-  while (false) ::arrow::util::detail::NullLog()
+  while (false) ::arrow::util::Voidify() & ::arrow::util::detail::NullLog()
 #define DCHECK_EQ(val1, val2) \
-  while (false) ::arrow::util::detail::NullLog()
+  ARROW_IGNORE_EXPR(val1);    \
+  ARROW_IGNORE_EXPR(val2);    \
+  while (false) ::arrow::util::Voidify() & ::arrow::util::detail::NullLog()
 #define DCHECK_NE(val1, val2) \
-  while (false) ::arrow::util::detail::NullLog()
+  ARROW_IGNORE_EXPR(val1);    \
+  ARROW_IGNORE_EXPR(val2);    \
+  while (false) ::arrow::util::Voidify() & ::arrow::util::detail::NullLog()
 #define DCHECK_LE(val1, val2) \
-  while (false) ::arrow::util::detail::NullLog()
+  ARROW_IGNORE_EXPR(val1);    \
+  ARROW_IGNORE_EXPR(val2);    \
+  while (false) ::arrow::util::Voidify() & ::arrow::util::detail::NullLog()
 #define DCHECK_LT(val1, val2) \
-  while (false) ::arrow::util::detail::NullLog()
+  ARROW_IGNORE_EXPR(val1);    \
+  ARROW_IGNORE_EXPR(val2);    \
+  while (false) ::arrow::util::Voidify() & ::arrow::util::detail::NullLog()
 #define DCHECK_GE(val1, val2) \
-  while (false) ::arrow::util::detail::NullLog()
+  ARROW_IGNORE_EXPR(val1);    \
+  ARROW_IGNORE_EXPR(val2);    \
+  while (false) ::arrow::util::Voidify() & ::arrow::util::detail::NullLog()
 #define DCHECK_GT(val1, val2) \
-  while (false) ::arrow::util::detail::NullLog()
+  ARROW_IGNORE_EXPR(val1);    \
+  ARROW_IGNORE_EXPR(val2);    \
+  while (false) ::arrow::util::Voidify() & ::arrow::util::detail::NullLog()
 
 #else
 #define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_FATAL
@@ -191,16 +204,6 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   virtual std::ostream& Stream();
 };
 
-// This class make ARROW_CHECK compilation pass to change the << operator to void.
-// This class is copied from glog.
-class ARROW_EXPORT Voidify {
- public:
-  Voidify() {}
-  // This has to be an operator with a precedence lower than << but
-  // higher than ?:
-  void operator&(ArrowLogBase&) {}
-};
-
 namespace detail {
 
 /// @brief A helper for the nil log sink.
@@ -221,6 +224,18 @@ class NullLog {
 };
 
 }  // namespace detail
+
+// This class make ARROW_CHECK compilation pass to change the << operator to void.
+// This class is copied from glog.
+class ARROW_EXPORT Voidify {
+ public:
+  Voidify() {}
+  // This has to be an operator with a precedence lower than << but
+  // higher than ?:
+  void operator&(ArrowLogBase&) {}
+  void operator&(const detail::NullLog&) {}
+};
+
 }  // namespace util
 }  // namespace arrow
 
