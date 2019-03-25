@@ -63,6 +63,7 @@ requirements:
     - glog
     - lz4-c
     - python
+    - re2
     - snappy
     - zlib
     - zstd
