@@ -258,9 +258,9 @@ class ParquetFile(object):
                 index_columns = []
 
             if indices is not None and index_columns:
-                indices += [self.reader.column_name_idx(descr['field_name'])
+                indices += [self.reader.column_name_idx(descr)
                             for descr in index_columns
-                            if descr['kind'] == 'serialized']
+                            if not isinstance(descr, dict)]
 
         return indices
 
