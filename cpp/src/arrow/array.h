@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/compare.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
@@ -279,8 +280,9 @@ class ARROW_EXPORT Array {
   /// Approximate equality comparison with another array
   ///
   /// epsilon is only used if this is FloatArray or DoubleArray
-  bool ApproxEquals(const std::shared_ptr<Array>& arr, double epsilon = 1E-5) const;
-  bool ApproxEquals(const Array& arr, double epsilon = 1E-5) const;
+  bool ApproxEquals(const std::shared_ptr<Array>& arr,
+                    double epsilon = kDefaultAbsoluteTolerance) const;
+  bool ApproxEquals(const Array& arr, double epsilon = kDefaultAbsoluteTolerance) const;
 
   /// Compare if the range of slots specified are equal for the given array and
   /// this array.  end_idx exclusive.  This methods does not bounds check.
