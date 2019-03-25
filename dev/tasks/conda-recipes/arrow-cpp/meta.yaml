@@ -49,6 +49,7 @@ requirements:
     - lz4-c
     - numpy 1.14.*
     - python
+    - re2
     - rapidjson
     - re2
     - snappy
