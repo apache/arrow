@@ -24,6 +24,8 @@ use arrow::record_batch::RecordBatch;
 
 use crate::error::Result;
 
+/// Returned by implementors of `Table#scan`, this `RecordBatchIterator` is wrapped with an `Arc`
+/// and `Mutex` so that it can be shared across threads as it is used.
 pub type ScanResult = Arc<Mutex<RecordBatchIterator>>;
 
 /// Source table

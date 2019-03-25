@@ -28,11 +28,13 @@ use crate::optimizer::utils;
 /// Enumeration of supported function types (Scalar and Aggregate)
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum FunctionType {
+    /// Simple function returning a value per DataFrame
     Scalar,
+    /// Aggregate functions produce a value by sampling multiple DataFrames
     Aggregate,
 }
 
-/// Logical representation of a UDF
+/// Logical representation of a UDF (user-defined function)
 #[derive(Debug, Clone)]
 pub struct FunctionMeta {
     /// Function name
@@ -46,6 +48,7 @@ pub struct FunctionMeta {
 }
 
 impl FunctionMeta {
+    #[allow(missing_docs)]
     pub fn new(
         name: String,
         args: Vec<Field>,
@@ -59,60 +62,96 @@ impl FunctionMeta {
             function_type,
         }
     }
+    /// Getter for the function name
     pub fn name(&self) -> &String {
         &self.name
     }
+    /// Getter for the arg list
     pub fn args(&self) -> &Vec<Field> {
         &self.args
     }
+    /// Getter for the `DataType` the function returns
     pub fn return_type(&self) -> &DataType {
         &self.return_type
     }
+    /// Getter for the `FunctionType`
     pub fn function_type(&self) -> &FunctionType {
         &self.function_type
     }
 }
 
+/// Operators applied to expressions
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum Operator {
+    /// Expressions are equal
     Eq,
+    /// Expressions are not equal
     NotEq,
+    /// Left side is smaller than right side
     Lt,
+    /// Left side is smaller or equal to right side
     LtEq,
+    /// Left side is greater than right side
     Gt,
+    /// Left side is greater or equal to right side
     GtEq,
+    /// Addition
     Plus,
+    /// Subtraction
     Minus,
+    /// Multiplication operator, like `*`
     Multiply,
+    /// Division operator, like `/`
     Divide,
+    /// Remainder operator, like `%`
     Modulus,
+    /// Logical AND, like `&&`
     And,
+    /// Logical OR, like `||`
     Or,
+    /// Logical NOT, like `!`
     Not,
+    /// Matches a wildcard pattern
     Like,
+    /// Does not match a wildcard pattern
     NotLike,
 }
 
 /// ScalarValue enumeration
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ScalarValue {
+    /// null value
     Null,
+    /// true or false value
     Boolean(bool),
+    /// 32bit float
     Float32(f32),
+    /// 64bit float
     Float64(f64),
+    /// signed 8bit int
     Int8(i8),
+    /// signed 16bit int
     Int16(i16),
+    /// signed 32bit int
     Int32(i32),
+    /// signed 64bit int
     Int64(i64),
+    /// unsigned 8bit int
     UInt8(u8),
+    /// unsigned 16bit int
     UInt16(u16),
+    /// unsigned 32bit int
     UInt32(u32),
+    /// unsigned 64bit int
     UInt64(u64),
+    /// utf-8 encoded string
     Utf8(Arc<String>),
+    /// List of scalars packed as a struct
     Struct(Vec<ScalarValue>),
 }
 
 impl ScalarValue {
+    /// Getter for the `DataType` of the value
     pub fn get_datatype(&self) -> DataType {
         match *self {
             ScalarValue::Boolean(_) => DataType::Boolean,
@@ -141,8 +180,11 @@ pub enum Expr {
     Literal(ScalarValue),
     /// binary expression e.g. "age > 21"
     BinaryExpr {
+        /// Left-hand side of the expression
         left: Arc<Expr>,
+        /// The comparison operator
         op: Operator,
+        /// Right-hand side of the expression
         right: Arc<Expr>,
     },
     /// unary IS NOT NULL
@@ -151,26 +193,40 @@ pub enum Expr {
     IsNull(Arc<Expr>),
     /// cast a value to a different type
     Cast {
+        /// The expression being cast
         expr: Arc<Expr>,
+        /// The `DataType` the expression will yield
         data_type: DataType,
     },
     /// sort expression
-    Sort { expr: Arc<Expr>, asc: bool },
+    Sort {
+        /// The expression to sort on
+        expr: Arc<Expr>,
+        /// The direction of the sort
+        asc: bool,
+    },
     /// scalar function
     ScalarFunction {
+        /// Name of the function
         name: String,
+        /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
+        /// The `DataType` the expression will yield
         return_type: DataType,
     },
     /// aggregate function
     AggregateFunction {
+        /// Name of the function
         name: String,
+        /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
+        /// The `DataType` the expression will yield
         return_type: DataType,
     },
 }
 
 impl Expr {
+    /// Find the `DataType` for the expression
     pub fn get_type(&self, schema: &Schema) -> DataType {
         match self {
             Expr::Column(n) => schema.field(*n).data_type().clone(),
@@ -199,6 +255,9 @@ impl Expr {
         }
     }
 
+    /// Perform a type cast on the expression value.
+    ///
+    /// Will `Err` if the type cast cannot be performed.
     pub fn cast_to(&self, cast_to_type: &DataType, schema: &Schema) -> Result<Expr> {
         let this_type = self.get_type(schema);
         if this_type == *cast_to_type {
@@ -216,6 +275,7 @@ impl Expr {
         }
     }
 
+    /// Equal
     pub fn eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
             left: Arc::new(self.clone()),
@@ -224,6 +284,7 @@ impl Expr {
         }
     }
 
+    /// Not equal
     pub fn not_eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
             left: Arc::new(self.clone()),
@@ -232,6 +293,7 @@ impl Expr {
         }
     }
 
+    /// Greater than
     pub fn gt(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
             left: Arc::new(self.clone()),
@@ -240,6 +302,7 @@ impl Expr {
         }
     }
 
+    /// Greater than or equal to
     pub fn gt_eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
             left: Arc::new(self.clone()),
@@ -248,6 +311,7 @@ impl Expr {
         }
     }
 
+    /// Less than
     pub fn lt(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
             left: Arc::new(self.clone()),
@@ -256,6 +320,7 @@ impl Expr {
         }
     }
 
+    /// Less than or equal to
     pub fn lt_eq(&self, other: &Expr) -> Expr {
         Expr::BinaryExpr {
             left: Arc::new(self.clone()),
@@ -317,38 +382,63 @@ impl fmt::Debug for Expr {
 pub enum LogicalPlan {
     /// A Projection (essentially a SELECT with an expression list)
     Projection {
+        /// The list of expressions
         expr: Vec<Expr>,
+        /// The incoming logic plan
         input: Arc<LogicalPlan>,
+        /// The schema description
         schema: Arc<Schema>,
     },
     /// A Selection (essentially a WHERE clause with a predicate expression)
-    Selection { expr: Expr, input: Arc<LogicalPlan> },
+    Selection {
+        /// The expression
+        expr: Expr,
+        /// The incoming logic plan
+        input: Arc<LogicalPlan>,
+    },
     /// Represents a list of aggregate expressions with optional grouping expressions
     Aggregate {
+        /// The incoming logic plan
         input: Arc<LogicalPlan>,
+        /// Grouping expressions
         group_expr: Vec<Expr>,
+        /// Aggregate expressions
         aggr_expr: Vec<Expr>,
+        /// The schema description
         schema: Arc<Schema>,
     },
     /// Represents a list of sort expressions to be applied to a relation
     Sort {
+        /// The sort expressions
         expr: Vec<Expr>,
+        /// The incoming logic plan
         input: Arc<LogicalPlan>,
+        /// The schema description
         schema: Arc<Schema>,
     },
     /// A table scan against a table that has been registered on a context
     TableScan {
+        /// The name of the schema
         schema_name: String,
+        /// The name of the table
         table_name: String,
+        /// The schema description
         schema: Arc<Schema>,
+        /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
     },
     /// An empty relation with an empty schema
-    EmptyRelation { schema: Arc<Schema> },
-    // Represents the maximum number of records to return
+    EmptyRelation {
+        /// The schema description
+        schema: Arc<Schema>,
+    },
+    /// Represents the maximum number of records to return
     Limit {
+        /// The expression
         expr: Expr,
+        /// The logical plan
         input: Arc<LogicalPlan>,
+        /// The schema description
         schema: Arc<Schema>,
     },
 }
@@ -450,6 +540,7 @@ impl fmt::Debug for LogicalPlan {
     }
 }
 
+/// Verify a given type cast can be performed
 pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
     use self::DataType::*;
     match type_into {

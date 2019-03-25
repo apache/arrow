@@ -25,10 +25,12 @@ use parquet::errors::ParquetError;
 
 use sqlparser::sqlparser::ParserError;
 
+/// Result type for operations that could result in an `ExecutionError`
 pub type Result<T> = result::Result<T, ExecutionError>;
 
 /// DataFusion error
 #[derive(Debug)]
+#[allow(missing_docs)]
 pub enum ExecutionError {
     /// Wraps an error from the Arrow crate
     ArrowError(ArrowError),

@@ -40,6 +40,7 @@ impl OptimizerRule for ProjectionPushDown {
 }
 
 impl ProjectionPushDown {
+    #[allow(missing_docs)]
     pub fn new() -> Self {
         Self {}
     }

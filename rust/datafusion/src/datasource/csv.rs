@@ -29,6 +29,7 @@ use crate::datasource::{RecordBatchIterator, ScanResult, Table};
 use crate::error::Result;
 
 /// Represents a CSV file with a provided schema
+// TODO: usage example (rather than documenting `new()`)
 pub struct CsvFile {
     filename: String,
     schema: Arc<Schema>,
@@ -36,6 +37,7 @@ pub struct CsvFile {
 }
 
 impl CsvFile {
+    #[allow(missing_docs)]
     pub fn new(filename: &str, schema: &Schema, has_header: bool) -> Self {
         Self {
             filename: String::from(filename),
@@ -66,12 +68,14 @@ impl Table for CsvFile {
 }
 
 /// Iterator over CSV batches
+// TODO: usage example (rather than documenting `new()`)
 pub struct CsvBatchIterator {
     schema: Arc<Schema>,
     reader: csv::Reader<File>,
 }
 
 impl CsvBatchIterator {
+    #[allow(missing_docs)]
     pub fn new(
         filename: &str,
         schema: Arc<Schema>,

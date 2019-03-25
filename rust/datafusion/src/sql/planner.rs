@@ -31,7 +31,9 @@ use sqlparser::sqlast::*;
 /// The SchemaProvider trait allows the query planner to obtain meta-data about tables and
 /// functions referenced in SQL statements
 pub trait SchemaProvider {
+    /// Getter for a field description
     fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>>;
+    /// Getter for a UDF description
     fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>>;
 }
 

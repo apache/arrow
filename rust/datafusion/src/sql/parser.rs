@@ -31,13 +31,20 @@ macro_rules! parser_err {
     };
 }
 
+/// Types of files to parse as DataFrames
 #[derive(Debug, Clone)]
 pub enum FileType {
+    /// Newline-delimited JSON
     NdJson,
+    /// Apache Parquet columnar storage
     Parquet,
+    /// Comma separated values
     CSV,
 }
 
+/// DataFrame AST Node representations.
+///
+/// Tokens parsed by `DFParser` are converted into these values.
 #[derive(Debug, Clone)]
 pub enum DFASTNode {
     /// ANSI SQL AST node
@@ -210,6 +217,7 @@ impl DFParser {
         }
     }
 
+    /// Parse an infix operator
     pub fn parse_infix(
         &mut self,
         _expr: DFASTNode,

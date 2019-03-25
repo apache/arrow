@@ -32,9 +32,11 @@ use crate::logicalplan::{Expr, Operator, ScalarValue};
 /// Compiled Expression (basically just a closure to evaluate the expression at runtime)
 pub type CompiledExpr = Rc<Fn(&RecordBatch) -> Result<ArrayRef>>;
 
+/// Similar to `CompiledExpr` but the closure transforms `ArrayRef` to another `ArrayRef`
 pub type CompiledCastFunction = Rc<Fn(&ArrayRef) -> Result<ArrayRef>>;
 
 /// Enumeration of supported aggregate functions
+#[allow(missing_docs)] // seems like these variants are self-evident
 pub enum AggregateType {
     Min,
     Max,

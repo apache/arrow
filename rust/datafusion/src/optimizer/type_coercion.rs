@@ -83,6 +83,7 @@ impl OptimizerRule for TypeCoercionRule {
 }
 
 impl TypeCoercionRule {
+    #[allow(missing_docs)]
     pub fn new() -> Self {
         Self {}
     }
