@@ -43,7 +43,7 @@ else()
 
   set(GANDIVA_SEARCH_HEADER_PATHS ${GANDIVA_HOME}/include)
 
-  set(GANDIVA_SEARCH_LIB_PATH "${GANDIVA_HOME}")
+  set(GANDIVA_SEARCH_LIB_PATH "${GANDIVA_HOME}/lib")
 
   find_path(GANDIVA_INCLUDE_DIR gandiva/expression_registry.h
             PATHS ${GANDIVA_SEARCH_HEADER_PATHS}
@@ -54,15 +54,13 @@ endif()
 find_library(GANDIVA_LIB_PATH
              NAMES gandiva
              PATHS ${GANDIVA_SEARCH_LIB_PATH}
-             NO_DEFAULT_PATH
-             PATH_SUFFIXES "lib")
+             NO_DEFAULT_PATH)
 get_filename_component(GANDIVA_LIBS ${GANDIVA_LIB_PATH} DIRECTORY)
 
 find_library(GANDIVA_SHARED_LIB_PATH
              NAMES gandiva
              PATHS ${GANDIVA_SEARCH_LIB_PATH}
-             NO_DEFAULT_PATH
-             PATH_SUFFIXES "bin")
+             NO_DEFAULT_PATH)
 
 get_filename_component(GANDIVA_SHARED_LIBS ${GANDIVA_SHARED_LIB_PATH} PATH)
 
