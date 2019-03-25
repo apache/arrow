@@ -17,8 +17,8 @@
 
 #' @importFrom bit64 print.integer64
 #' @export
-NULL
+bit64::print.integer64
 
 #' @importFrom bit64 str.integer64
 #' @export
-NULL
+bit64::print.integer64
