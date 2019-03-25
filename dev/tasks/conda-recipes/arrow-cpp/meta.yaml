@@ -34,6 +34,7 @@ requirements:
     - autoconf  # [unix]
     - cmake
     - ninja
+    - llvmdev
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
   host:
