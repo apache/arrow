@@ -66,8 +66,10 @@ write_arrow <- function(x, stream, ...) {
 `write_arrow.fs_path` <- function(x, stream, ...) {
   assert_that(length(stream) == 1L)
   x <- to_arrow(x)
-  file_stream <- close_on_exit(FileOutputStream(stream))
-  file_writer <- close_on_exit(RecordBatchFileWriter(file_stream, x$schema))
+  file_stream <- FileOutputStream(stream)
+  on.exit(file_stream$close())
+  file_writer <- RecordBatchFileWriter(file_stream, x$schema)
+  on.exit(file_writer$close(), add = TRUE, after = FALSE)
   write_arrow(x, file_writer, ...)
 }
 
