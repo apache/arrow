@@ -38,4 +38,4 @@ if sys.version_info.major > 2:
 
 # Run pyarrow tests
 pip install -r /arrow/python/requirements-test.txt
-pytest --pyargs pyarrow
+pytest -v --pyargs pyarrow
