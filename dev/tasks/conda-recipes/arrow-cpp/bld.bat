@@ -28,6 +28,7 @@ cmake -G "%CMAKE_GENERATOR%" ^
       -DCMAKE_BUILD_TYPE=release ^
       -DARROW_PYTHON:BOOL=ON ^
       -DARROW_PARQUET:BOOL=ON ^
+      -DARROW_GANDIVA:BOOL=ON ^
       -DARROW_ORC:BOOL=ON ^
       ..
 
