@@ -16,13 +16,23 @@
 # under the License.
 
 VERSION = 0.12.0.9000
-RWINLIB = ../windows/arrow-$(VERSION)
-PKG_CPPFLAGS = -I$(RWINLIB)/include -DARROW_STATIC -DPARQUET_STATIC
+
+ifeq "$(ARROW_PATH)" ""
+  RWINLIB = ../windows/arrow-$(VERSION)
+	ARROW_INCLUDE = $(RWINLIB)/include
+	ARROW_LIBS = $(RWINLIB)/lib$(subst gcc,,$(COMPILED_BY))$(R_ARCH)
+	OTHER_LIBS = -L$(RWINLIB)/lib$(R_ARCH)
+else
+	ARROW_INCLUDE = $(ARROW_PATH)/include
+	ARROW_LIBS = $(ARROW_PATH)/lib
+endif
+
+PKG_CPPFLAGS = -I$(ARROW_INCLUDE) -DARROW_STATIC -DPARQUET_STATIC
 CXX_STD = CXX11
 
 PKG_LIBS = \
-	-L$(RWINLIB)/lib$(subst gcc,,$(COMPILED_BY))$(R_ARCH) \
-	-L$(RWINLIB)/lib$(R_ARCH) \
+	-L$(ARROW_LIBS) \
+	$(OTHER_LIBS) \
 	-lparquet -larrow -lthrift -lboost_regex-mt-s -ldouble-conversion -lz -lws2_32
 
 #all: clean
