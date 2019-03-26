@@ -44,12 +44,13 @@ requirements:
     - gflags
     - glog
     - libprotobuf
+    - llvmdev 7.*
     - lz4-c
-    - llvmdev
     - numpy 1.14.*
+    - orc  # [unix]
     - python
-    - re2
     - rapidjson
+    - re2
     - snappy
     - thrift-cpp >=0.11
     - zlib
@@ -62,6 +63,7 @@ requirements:
     - gflags
     - glog
     - lz4-c
+    - orc  # [unix]
     - python
     - re2
     - snappy
