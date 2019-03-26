@@ -21,4 +21,4 @@ bit64::print.integer64
 
 #' @importFrom bit64 str.integer64
 #' @export
-bit64::print.integer64
+bit64::str.integer64
