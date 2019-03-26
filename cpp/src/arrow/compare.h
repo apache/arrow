@@ -34,8 +34,39 @@ struct Scalar;
 
 static constexpr double kDefaultAbsoluteTolerance = 1E-5;
 
+/// A container of options for equality comparisons
+class EqualOptions {
+ public:
+  /// Whether or not NaNs are considered equal.
+  bool nans_equal() const { return nans_equal_; }
+
+  /// Return a new EqualOptions object with the "nans_equal" property changed.
+  EqualOptions nans_equal(bool v) const {
+    auto res = EqualOptions(*this);
+    res.nans_equal_ = v;
+    return res;
+  }
+
+  /// The absolute tolerance for approximate comparisons of floating-point values.
+  double atol() const { return atol_; }
+
+  /// Return a new EqualOptions object with the "atol" property changed.
+  EqualOptions atol(double v) const {
+    auto res = EqualOptions(*this);
+    res.atol_ = v;
+    return res;
+  }
+
+  static EqualOptions Defaults() { return EqualOptions(); }
+
+ protected:
+  double atol_ = kDefaultAbsoluteTolerance;
+  bool nans_equal_ = false;
+};
+
 /// Returns true if the arrays are exactly equal
-bool ARROW_EXPORT ArrayEquals(const Array& left, const Array& right);
+bool ARROW_EXPORT ArrayEquals(const Array& left, const Array& right,
+                              const EqualOptions& = EqualOptions::Defaults());
 
 bool ARROW_EXPORT TensorEquals(const Tensor& left, const Tensor& right);
 
@@ -45,7 +76,7 @@ bool ARROW_EXPORT SparseTensorEquals(const SparseTensor& left, const SparseTenso
 /// Returns true if the arrays are approximately equal. For non-floating point
 /// types, this is equivalent to ArrayEquals(left, right)
 bool ARROW_EXPORT ArrayApproxEquals(const Array& left, const Array& right,
-                                    double epsilon = kDefaultAbsoluteTolerance);
+                                    const EqualOptions& = EqualOptions::Defaults());
 
 /// Returns true if indicated equal-length segment of arrays is exactly equal
 bool ARROW_EXPORT ArrayRangeEquals(const Array& left, const Array& right,

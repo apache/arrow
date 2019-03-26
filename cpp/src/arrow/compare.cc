@@ -53,6 +53,70 @@ using internal::checked_cast;
 
 namespace internal {
 
+// These helper functions assume we already checked the arrays have equal
+// sizes and null bitmaps.
+
+template <typename ArrowType, typename EqualityFunc>
+inline bool BaseFloatingEquals(const NumericArray<ArrowType>& left,
+                               const NumericArray<ArrowType>& right,
+                               EqualityFunc&& equals) {
+  using T = typename ArrowType::c_type;
+
+  const T* left_data = left.raw_values();
+  const T* right_data = right.raw_values();
+
+  if (left.null_count() > 0) {
+    for (int64_t i = 0; i < left.length(); ++i) {
+      if (left.IsNull(i)) continue;
+      if (!equals(left_data[i], right_data[i])) {
+        return false;
+      }
+    }
+  } else {
+    for (int64_t i = 0; i < left.length(); ++i) {
+      if (!equals(left_data[i], right_data[i])) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+template <typename ArrowType>
+inline bool FloatingEquals(const NumericArray<ArrowType>& left,
+                           const NumericArray<ArrowType>& right,
+                           const EqualOptions& opts) {
+  using T = typename ArrowType::c_type;
+
+  if (opts.nans_equal()) {
+    return BaseFloatingEquals<ArrowType>(left, right, [](T x, T y) -> bool {
+      return (x == y) || (std::isnan(x) && std::isnan(y));
+    });
+  } else {
+    return BaseFloatingEquals<ArrowType>(left, right,
+                                         [](T x, T y) -> bool { return x == y; });
+  }
+}
+
+template <typename ArrowType>
+inline bool FloatingApproxEquals(const NumericArray<ArrowType>& left,
+                                 const NumericArray<ArrowType>& right,
+                                 const EqualOptions& opts) {
+  using T = typename ArrowType::c_type;
+  const T epsilon = static_cast<T>(opts.atol());
+
+  if (opts.nans_equal()) {
+    return BaseFloatingEquals<ArrowType>(left, right, [epsilon](T x, T y) -> bool {
+      return (fabs(x - y) <= epsilon) || (std::isnan(x) && std::isnan(y));
+    });
+  } else {
+    return BaseFloatingEquals<ArrowType>(
+        left, right, [epsilon](T x, T y) -> bool { return fabs(x - y) <= epsilon; });
+  }
+}
+
+// RangeEqualsVisitor assumes the range sizes are equal
+
 class RangeEqualsVisitor {
  public:
   RangeEqualsVisitor(const Array& right, int64_t left_start_idx, int64_t left_end_idx,
@@ -364,10 +428,15 @@ static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& r
   }
 }
 
+// A bit confusing: ArrayEqualsVisitor inherits from RangeEqualsVisitor but
+// doesn't share the same preconditions.
+// When RangeEqualsVisitor is called, we only know the range sizes equal.
+// When ArrayEqualsVisitor is called, we know the sizes and null bitmaps are equal.
+
 class ArrayEqualsVisitor : public RangeEqualsVisitor {
  public:
-  explicit ArrayEqualsVisitor(const Array& right)
-      : RangeEqualsVisitor(right, 0, right.length(), 0) {}
+  explicit ArrayEqualsVisitor(const Array& right, const EqualOptions& opts)
+      : RangeEqualsVisitor(right, 0, right.length(), 0), opts_(opts) {}
 
   Status Visit(const NullArray& left) {
     ARROW_UNUSED(left);
@@ -399,10 +468,26 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
 
   template <typename T>
   typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value &&
+                              !std::is_base_of<FloatArray, T>::value &&
+                              !std::is_base_of<DoubleArray, T>::value &&
                               !std::is_base_of<BooleanArray, T>::value,
                           Status>::type
   Visit(const T& left) {
     result_ = IsEqualPrimitive(left, checked_cast<const PrimitiveArray&>(right_));
+    return Status::OK();
+  }
+
+  // TODO nan-aware specialization for half-floats
+
+  Status Visit(const FloatArray& left) {
+    result_ =
+        FloatingEquals<FloatType>(left, checked_cast<const FloatArray&>(right_), opts_);
+    return Status::OK();
+  }
+
+  Status Visit(const DoubleArray& left) {
+    result_ =
+        FloatingEquals<DoubleType>(left, checked_cast<const DoubleArray&>(right_), opts_);
     return Status::OK();
   }
 
@@ -520,53 +605,33 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
                            *static_cast<const ExtensionArray&>(right_).storage()));
     return Status::OK();
   }
+
+ protected:
+  const EqualOptions opts_;
 };
-
-template <typename TYPE>
-inline bool FloatingApproxEquals(const NumericArray<TYPE>& left,
-                                 const NumericArray<TYPE>& right,
-                                 typename TYPE::c_type epsilon) {
-  using T = typename TYPE::c_type;
-
-  const T* left_data = left.raw_values();
-  const T* right_data = right.raw_values();
-
-  if (left.null_count() > 0) {
-    for (int64_t i = 0; i < left.length(); ++i) {
-      if (left.IsNull(i)) continue;
-      if (fabs(left_data[i] - right_data[i]) > epsilon) {
-        return false;
-      }
-    }
-  } else {
-    for (int64_t i = 0; i < left.length(); ++i) {
-      if (fabs(left_data[i] - right_data[i]) > epsilon) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
 
 class ApproxEqualsVisitor : public ArrayEqualsVisitor {
  public:
-  explicit ApproxEqualsVisitor(const Array& right, double epsilon)
-      : ArrayEqualsVisitor(right), epsilon_(epsilon) {}
+  explicit ApproxEqualsVisitor(const Array& right, const EqualOptions& opts)
+      : ArrayEqualsVisitor(right, opts) {}
 
   using ArrayEqualsVisitor::Visit;
 
+  // TODO half-floats
+
   Status Visit(const FloatArray& left) {
     result_ = FloatingApproxEquals<FloatType>(
-        left, checked_cast<const FloatArray&>(right_), static_cast<float>(epsilon_));
+        left, checked_cast<const FloatArray&>(right_), opts_);
     return Status::OK();
   }
 
   Status Visit(const DoubleArray& left) {
     result_ = FloatingApproxEquals<DoubleType>(
-        left, checked_cast<const DoubleArray&>(right_), epsilon_);
+        left, checked_cast<const DoubleArray&>(right_), opts_);
     return Status::OK();
   }
 
+ protected:
   double epsilon_;
 };
 
@@ -797,12 +862,12 @@ class ScalarEqualsVisitor {
 
 }  // namespace internal
 
-bool ArrayEquals(const Array& left, const Array& right) {
-  return internal::ArrayEqualsImpl<internal::ArrayEqualsVisitor>(left, right);
+bool ArrayEquals(const Array& left, const Array& right, const EqualOptions& opts) {
+  return internal::ArrayEqualsImpl<internal::ArrayEqualsVisitor>(left, right, opts);
 }
 
-bool ArrayApproxEquals(const Array& left, const Array& right, double epsilon) {
-  return internal::ArrayEqualsImpl<internal::ApproxEqualsVisitor>(left, right, epsilon);
+bool ArrayApproxEquals(const Array& left, const Array& right, const EqualOptions& opts) {
+  return internal::ArrayEqualsImpl<internal::ApproxEqualsVisitor>(left, right, opts);
 }
 
 bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
