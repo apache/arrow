@@ -68,7 +68,6 @@ inline bool BaseFloatingEquals(const NumericArray<ArrowType>& left,
   if (left.null_count() > 0) {
     for (int64_t i = 0; i < left.length(); ++i) {
       if (left.IsNull(i)) continue;
-      // The comparison is written this way so that NaNs compare unequal
       if (!equals(left_data[i], right_data[i])) {
         return false;
       }
@@ -105,8 +104,9 @@ inline bool FloatingApproxEquals(const NumericArray<ArrowType>& left,
   using T = typename ArrowType::c_type;
 
   if (nans_equal) {
-    return BaseFloatingEquals<ArrowType>(
-        left, right, [epsilon](T x, T y) -> bool { return !(fabs(x - y) > epsilon); });
+    return BaseFloatingEquals<ArrowType>(left, right, [epsilon](T x, T y) -> bool {
+      return (fabs(x - y) <= epsilon) || (std::isnan(x) && std::isnan(y));
+    });
   } else {
     return BaseFloatingEquals<ArrowType>(
         left, right, [epsilon](T x, T y) -> bool { return fabs(x - y) <= epsilon; });
