@@ -38,6 +38,7 @@ cmake \
     -DARROW_PLASMA=ON \
     -DARROW_PYTHON=ON \
     -DARROW_PARQUET=ON \
+    -DARROW_GANDIVA=ON \
     -DARROW_ORC=ON \
     -DCMAKE_AR=${AR} \
     -DCMAKE_RANLIB=${RANLIB} \
