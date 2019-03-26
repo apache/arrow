@@ -15,8 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @importFrom bit64 print.integer64
-bit64::print.integer64
+VERSION = 0.12.0.9000
 
-#' @importFrom bit64 str.integer64
-bit64::str.integer64
+ifeq "$(ARROW_PATH)" ""
+  RWINLIB = ../windows/arrow-$(VERSION)
+	ARROW_INCLUDE = $(RWINLIB)/include
+	ARROW_LIBS = $(RWINLIB)/lib$(subst gcc,,$(COMPILED_BY))$(R_ARCH)
+	OTHER_LIBS = -L$(RWINLIB)/lib$(R_ARCH)
+else
+	ARROW_INCLUDE = $(ARROW_PATH)/include
+	ARROW_LIBS = $(ARROW_PATH)/lib
+endif
+
+PKG_CPPFLAGS = -I$(ARROW_INCLUDE) -DARROW_STATIC -DPARQUET_STATIC
+CXX_STD = CXX11
+
+PKG_LIBS = \
+	-L$(ARROW_LIBS) \
+	$(OTHER_LIBS) \
+	-lparquet -larrow -lthrift -lboost_regex-mt-s -ldouble-conversion -lz -lws2_32
+
+#all: clean
+all: $(SHLIB)
+
+$(OBJECTS): winlibs
+
+winlibs:
+	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "../tools/winlibs.R" $(VERSION)
+
+clean:
+	rm -f $(SHLIB) $(OBJECTS)

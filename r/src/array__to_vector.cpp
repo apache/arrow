@@ -433,6 +433,8 @@ class Converter_Time : public Converter {
         return 1000000;
       case TimeUnit::NANO:
         return 1000000000;
+      default:
+        return 0;
     }
   }
 };
