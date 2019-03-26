@@ -84,10 +84,11 @@ inline bool BaseFloatingEquals(const NumericArray<ArrowType>& left,
 
 template <typename ArrowType>
 inline bool FloatingEquals(const NumericArray<ArrowType>& left,
-                           const NumericArray<ArrowType>& right, bool nans_equal) {
+                           const NumericArray<ArrowType>& right,
+                           const EqualOptions& opts) {
   using T = typename ArrowType::c_type;
 
-  if (nans_equal) {
+  if (opts.nans_equal()) {
     return BaseFloatingEquals<ArrowType>(left, right, [](T x, T y) -> bool {
       return (x == y) || (std::isnan(x) && std::isnan(y));
     });
@@ -100,10 +101,11 @@ inline bool FloatingEquals(const NumericArray<ArrowType>& left,
 template <typename ArrowType>
 inline bool FloatingApproxEquals(const NumericArray<ArrowType>& left,
                                  const NumericArray<ArrowType>& right,
-                                 typename ArrowType::c_type epsilon, bool nans_equal) {
+                                 const EqualOptions& opts) {
   using T = typename ArrowType::c_type;
+  const T epsilon = static_cast<T>(opts.atol());
 
-  if (nans_equal) {
+  if (opts.nans_equal()) {
     return BaseFloatingEquals<ArrowType>(left, right, [epsilon](T x, T y) -> bool {
       return (fabs(x - y) <= epsilon) || (std::isnan(x) && std::isnan(y));
     });
@@ -433,8 +435,8 @@ static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& r
 
 class ArrayEqualsVisitor : public RangeEqualsVisitor {
  public:
-  explicit ArrayEqualsVisitor(const Array& right, bool nans_equal)
-      : RangeEqualsVisitor(right, 0, right.length(), 0), nans_equal_(nans_equal) {}
+  explicit ArrayEqualsVisitor(const Array& right, const EqualOptions& opts)
+      : RangeEqualsVisitor(right, 0, right.length(), 0), opts_(opts) {}
 
   Status Visit(const NullArray& left) {
     ARROW_UNUSED(left);
@@ -478,14 +480,14 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
   // TODO nan-aware specialization for half-floats
 
   Status Visit(const FloatArray& left) {
-    result_ = FloatingEquals<FloatType>(left, checked_cast<const FloatArray&>(right_),
-                                        nans_equal_);
+    result_ =
+        FloatingEquals<FloatType>(left, checked_cast<const FloatArray&>(right_), opts_);
     return Status::OK();
   }
 
   Status Visit(const DoubleArray& left) {
-    result_ = FloatingEquals<DoubleType>(left, checked_cast<const DoubleArray&>(right_),
-                                         nans_equal_);
+    result_ =
+        FloatingEquals<DoubleType>(left, checked_cast<const DoubleArray&>(right_), opts_);
     return Status::OK();
   }
 
@@ -605,28 +607,27 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
   }
 
  protected:
-  bool nans_equal_;
+  const EqualOptions opts_;
 };
 
 class ApproxEqualsVisitor : public ArrayEqualsVisitor {
  public:
-  explicit ApproxEqualsVisitor(const Array& right, double epsilon, bool nans_equal)
-      : ArrayEqualsVisitor(right, nans_equal), epsilon_(epsilon) {}
+  explicit ApproxEqualsVisitor(const Array& right, const EqualOptions& opts)
+      : ArrayEqualsVisitor(right, opts) {}
 
   using ArrayEqualsVisitor::Visit;
 
   // TODO half-floats
 
   Status Visit(const FloatArray& left) {
-    result_ =
-        FloatingApproxEquals<FloatType>(left, checked_cast<const FloatArray&>(right_),
-                                        static_cast<float>(epsilon_), nans_equal_);
+    result_ = FloatingApproxEquals<FloatType>(
+        left, checked_cast<const FloatArray&>(right_), opts_);
     return Status::OK();
   }
 
   Status Visit(const DoubleArray& left) {
     result_ = FloatingApproxEquals<DoubleType>(
-        left, checked_cast<const DoubleArray&>(right_), epsilon_, nans_equal_);
+        left, checked_cast<const DoubleArray&>(right_), opts_);
     return Status::OK();
   }
 
@@ -861,14 +862,12 @@ class ScalarEqualsVisitor {
 
 }  // namespace internal
 
-bool ArrayEquals(const Array& left, const Array& right, bool nans_equal) {
-  return internal::ArrayEqualsImpl<internal::ArrayEqualsVisitor>(left, right, nans_equal);
+bool ArrayEquals(const Array& left, const Array& right, const EqualOptions& opts) {
+  return internal::ArrayEqualsImpl<internal::ArrayEqualsVisitor>(left, right, opts);
 }
 
-bool ArrayApproxEquals(const Array& left, const Array& right, double epsilon,
-                       bool nans_equal) {
-  return internal::ArrayEqualsImpl<internal::ApproxEqualsVisitor>(left, right, epsilon,
-                                                                  nans_equal);
+bool ArrayApproxEquals(const Array& left, const Array& right, const EqualOptions& opts) {
+  return internal::ArrayEqualsImpl<internal::ApproxEqualsVisitor>(left, right, opts);
 }
 
 bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,

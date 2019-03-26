@@ -274,17 +274,17 @@ class ARROW_EXPORT Array {
   const uint8_t* null_bitmap_data() const { return null_bitmap_data_; }
 
   /// Equality comparison with another array
-  bool Equals(const Array& arr, bool nans_equal = false) const;
-  bool Equals(const std::shared_ptr<Array>& arr, bool nans_equal = false) const;
+  bool Equals(const Array& arr, const EqualOptions& = EqualOptions::Defaults()) const;
+  bool Equals(const std::shared_ptr<Array>& arr,
+              const EqualOptions& = EqualOptions::Defaults()) const;
 
   /// Approximate equality comparison with another array
   ///
   /// epsilon is only used if this is FloatArray or DoubleArray
   bool ApproxEquals(const std::shared_ptr<Array>& arr,
-                    double epsilon = kDefaultAbsoluteTolerance,
-                    bool nans_equal = false) const;
-  bool ApproxEquals(const Array& arr, double epsilon = kDefaultAbsoluteTolerance,
-                    bool nans_equal = false) const;
+                    const EqualOptions& = EqualOptions::Defaults()) const;
+  bool ApproxEquals(const Array& arr,
+                    const EqualOptions& = EqualOptions::Defaults()) const;
 
   /// Compare if the range of slots specified are equal for the given array and
   /// this array.  end_idx exclusive.  This methods does not bounds check.
