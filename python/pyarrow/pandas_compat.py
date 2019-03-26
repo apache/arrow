@@ -194,7 +194,7 @@ def construct_metadata(df, column_names, index_levels, index_descriptors,
     dict
     """
     num_serialized_index_levels = len([descr for descr in index_descriptors
-                                       if descr['kind'] == 'serialized'])
+                                       if not isinstance(descr, dict)])
     # Use ntypes instead of Python shorthand notation [:-len(x)] as [:-0]
     # behaves differently to what we want.
     ntypes = len(types)
@@ -213,13 +213,13 @@ def construct_metadata(df, column_names, index_levels, index_descriptors,
     if preserve_index:
         for level, arrow_type, descriptor in zip(index_levels, index_types,
                                                  index_descriptors):
-            if descriptor['kind'] != 'serialized':
+            if isinstance(descriptor, dict):
                 # The index is represented in a non-serialized fashion,
                 # e.g. RangeIndex
                 continue
             metadata = get_column_metadata(level, name=level.name,
                                            arrow_type=arrow_type,
-                                           field_name=descriptor['field_name'])
+                                           field_name=descriptor)
             index_column_metadata.append(metadata)
 
         column_indexes = []
@@ -354,10 +354,7 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
         else:
             columns_to_convert.append(index_level)
             convert_types.append(None)
-            descr = {
-                'kind': 'serialized',
-                'field_name': name
-            }
+            descr = name
             index_column_names.append(name)
         index_descriptors.append(descr)
 
@@ -667,17 +664,6 @@ def _deserialize_column_index(block_table, all_columns, column_indexes):
     return columns
 
 
-def _sanitize_old_index_descr(descr):
-    if not isinstance(descr, dict):
-        # version < 0.13.0
-        return {
-            'kind': 'serialized',
-            'field_name': descr
-        }
-    else:
-        return descr
-
-
 def _reconstruct_index(table, index_descriptors, all_columns):
     # 0. 'field_name' is the name of the column in the arrow Table
     # 1. 'name' is the user-facing name of the column, that is, it came from
@@ -695,8 +681,7 @@ def _reconstruct_index(table, index_descriptors, all_columns):
     index_names = []
     result_table = table
     for descr in index_descriptors:
-        descr = _sanitize_old_index_descr(descr)
-        if descr['kind'] == 'serialized':
+        if isinstance(descr, six.string_types):
             result_table, index_level, index_name = _extract_index_level(
                 table, result_table, descr, field_name_to_metadata)
             if index_level is None:
@@ -733,9 +718,8 @@ def _reconstruct_index(table, index_descriptors, all_columns):
     return result_table, index
 
 
-def _extract_index_level(table, result_table, descr,
+def _extract_index_level(table, result_table, field_name,
                          field_name_to_metadata):
-    field_name = descr['field_name']
     logical_name = field_name_to_metadata[field_name]['name']
     index_name = _backwards_compatible_index_name(field_name, logical_name)
     i = table.schema.get_field_index(field_name)
@@ -763,30 +747,6 @@ def _extract_index_level(table, result_table, descr,
         result_table.schema.get_field_index(field_name)
     )
     return result_table, index_level, index_name
-
-
-def _get_serialized_index_names(index_descriptors, all_columns):
-    serialized_index_names = []
-    for descr in index_descriptors:
-        if not isinstance(descr, dict):
-            # version < 0.13.0
-            serialized_index_names.append(descr)
-        elif descr['kind'] != 'serialized':
-            continue
-
-        serialized_index_names.append(descr['field_name'])
-
-    index_columns_set = frozenset(serialized_index_names)
-
-    logical_index_names = [
-        c['name'] for c in all_columns
-        if c.get('field_name', c['name']) in index_columns_set
-    ]
-
-    # There must be the same number of field names and physical names
-    # (fields in the arrow Table)
-    assert len(logical_index_names) == len(index_columns_set)
-    return logical_index_names
 
 
 def _backwards_compatible_index_name(raw_name, logical_name):
