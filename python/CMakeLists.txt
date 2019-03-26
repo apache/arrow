@@ -268,30 +268,33 @@ function(bundle_boost_lib library_path)
   endif()
 endfunction()
 
-function(bundle_zlib)
-  # We can assume that manylinux1 and macosx have system zlib.
-  # See https://mail.python.org/mm3/archives/list/distutils-sig@python.org/thread/ZZG6GL3XTBLBJXSITYHEXMFKN43EREB7/
-  # for manylinux1.
+# We can assume that manylinux1 and macosx have system zlib.
+# See https://mail.python.org/mm3/archives/list/distutils-sig@python.org/thread/ZZG6GL3XTBLBJXSITYHEXMFKN43EREB7/
+# for manylinux1.
+# zlib uses zlib.dll for Windows
+function(bundle_arrow_dependency library_name)
   if(MSVC)
-    # zlib uses zlib.dll for Windows
-    set(ZLIB_SHARED_LIB_NAME zlib.dll)
+    set(SHARED_LIB_NAME "${library_name}.dll")
     if(DEFINED ENV{CONDA_PREFIX})
-      set(ZLIB_HOME "$ENV{CONDA_PREFIX}\\Library")
+      set(SHARED_LIB_HOME "$ENV{CONDA_PREFIX}\\Library")
     endif()
-    if(DEFINED ENV{ZLIB_HOME})
-      set(ZLIB_HOME "$ENV{ZLIB_HOME}")
+    if(DEFINED ENV{${library_name}_HOME})
+      set(SHARED_LIB_HOME "$ENV{${library_name}_HOME}")
     endif()
-    if("${ZLIB_HOME}" STREQUAL "")
-      find_library(ZLIB_SHARED_LIB NAMES ${ZLIB_SHARED_LIB_NAME})
+    if("${SHARED_LIB_HOME}" STREQUAL "")
+      find_library(SHARED_LIB_PATH NAMES ${SHARED_LIB_NAME})
     else()
-      find_library(ZLIB_SHARED_LIB
-                   NAMES ${ZLIB_SHARED_LIB_NAME}
-                   PATHS ${ZLIB_HOME}
+      find_library(SHARED_LIB_PATH
+                   NAMES ${SHARED_LIB_NAME}
+                   PATHS ${SHARED_LIB_HOME}
                    NO_DEFAULT_PATH
                    PATH_SUFFIXES "bin")
     endif()
-    if(ZLIB_SHARED_LIB)
-      file(COPY ${ZLIB_SHARED_LIB} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+    if(SHARED_LIB_PATH)
+      message(STATUS "Bundle dependency ${library_name}: ${SHARED_LIB_PATH}")
+      file(COPY ${SHARED_LIB_PATH} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+    else()
+      message(FATAL_ERROR "Unable to bundle dependency: ${library_name}")
     endif()
   endif()
 endfunction()
@@ -346,11 +349,10 @@ if(PYARROW_BUNDLE_ARROW_CPP)
     bundle_boost_lib(Boost_SYSTEM_LIBRARY)
   endif()
 
-  bundle_zlib()
-
   if(MSVC)
     bundle_arrow_implib(ARROW_SHARED_IMP_LIB)
     bundle_arrow_implib(ARROW_PYTHON_SHARED_IMP_LIB)
+    bundle_arrow_dependency(zlib)
   endif()
 endif()
 

@@ -41,7 +41,7 @@ before_install:
   - brew uninstall boost cgal postgis sfcgal
   - brew update
   - brew upgrade cmake
-  - brew install bison flex
+  - brew install bison flex llvm@7
 
   - export CONFIG_PATH=`pwd`/arrow/dev/tasks/python-wheels/osx-build.sh
   - source multibuild/common_utils.sh
@@ -57,6 +57,9 @@ install:
 
   # the following functions are defined in osx-build.sh
   - build_wheel arrow
+
+  # test the built wheels, remove llvm to ensure it links statically
+  - brew uninstall llvm@7
   - install_run arrow
 
   # move built wheels to a top level directory
