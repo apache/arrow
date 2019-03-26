@@ -20,12 +20,14 @@ import (
 	"encoding/csv"
 	"io"
 	"strconv"
+	"sync"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/internal/debug"
 	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/pkg/errors"
 )
 
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
@@ -43,6 +45,9 @@ type Reader struct {
 	next  func() bool
 
 	mem memory.Allocator
+
+	header bool
+	once   sync.Once
 }
 
 // NewReader returns a reader that reads from the CSV file and creates
@@ -76,6 +81,28 @@ func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 	return rr
 }
 
+func (r *Reader) readHeader() error {
+	records, err := r.r.Read()
+	if err != nil {
+		return errors.Wrapf(err, "arrow/csv: could not read header from file")
+	}
+
+	if len(records) != len(r.schema.Fields()) {
+		return ErrMismatchFields
+	}
+
+	fields := make([]arrow.Field, len(records))
+	for idx, name := range records {
+		fields[idx] = r.schema.Field(idx)
+		fields[idx].Name = name
+	}
+
+	meta := r.schema.Metadata()
+	r.schema = arrow.NewSchema(fields, &meta)
+	r.bld = array.NewRecordBuilder(r.mem, r.schema)
+	return nil
+}
+
 // Err returns the last error encountered during the iteration over the
 // underlying CSV file.
 func (r *Reader) Err() error { return r.err }
@@ -92,6 +119,12 @@ func (r *Reader) Record() array.Record { return r.cur }
 // Next panics if the number of records extracted from a CSV row does not match
 // the number of fields of the associated schema.
 func (r *Reader) Next() bool {
+	if r.header {
+		r.once.Do(func() {
+			r.err = r.readHeader()
+		})
+	}
+
 	if r.cur != nil {
 		r.cur.Release()
 		r.cur = nil

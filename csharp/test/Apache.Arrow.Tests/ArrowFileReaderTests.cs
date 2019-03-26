@@ -16,6 +16,7 @@
 using Apache.Arrow.Ipc;
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -44,6 +45,82 @@ namespace Apache.Arrow.Tests
             var stream = new MemoryStream();
             new ArrowFileReader(stream, leaveOpen: true).Dispose();
             Assert.Equal(0, stream.Position);
+        }
+
+        [Fact]
+        public async Task TestReadNextRecordBatch()
+        {
+            await TestReadRecordBatchHelper((reader, originalBatch) =>
+            {
+                ArrowReaderVerifier.VerifyReader(reader, originalBatch);
+                return Task.CompletedTask;
+            });
+        }
+
+        [Fact]
+        public async Task TestReadNextRecordBatchAsync()
+        {
+            await TestReadRecordBatchHelper(ArrowReaderVerifier.VerifyReaderAsync);
+        }
+
+        [Fact]
+        public async Task TestReadRecordBatchAsync()
+        {
+            await TestReadRecordBatchHelper(async (reader, originalBatch) =>
+            {
+                RecordBatch readBatch = await reader.ReadRecordBatchAsync(0);
+                ArrowReaderVerifier.CompareBatches(originalBatch, readBatch);
+
+                // You should be able to read the same record batch again
+                RecordBatch readBatch2 = await reader.ReadRecordBatchAsync(0);
+                ArrowReaderVerifier.CompareBatches(originalBatch, readBatch2);
+            });
+        }
+
+        private static async Task TestReadRecordBatchHelper(
+            Func<ArrowFileReader, RecordBatch, Task> verificationFunc)
+        {
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+
+            using (MemoryStream stream = new MemoryStream())
+            {
+                ArrowFileWriter writer = new ArrowFileWriter(stream, originalBatch.Schema);
+                await writer.WriteRecordBatchAsync(originalBatch);
+                await writer.WriteFooterAsync();
+                stream.Position = 0;
+
+                ArrowFileReader reader = new ArrowFileReader(stream);
+                await verificationFunc(reader, originalBatch);
+            }
+        }
+
+        [Fact]
+        public async Task TestReadMultipleRecordBatchAsync()
+        {
+            RecordBatch originalBatch1 = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch2 = TestData.CreateSampleRecordBatch(length: 50);
+
+            using (MemoryStream stream = new MemoryStream())
+            {
+                ArrowFileWriter writer = new ArrowFileWriter(stream, originalBatch1.Schema);
+                await writer.WriteRecordBatchAsync(originalBatch1);
+                await writer.WriteRecordBatchAsync(originalBatch2);
+                await writer.WriteFooterAsync();
+                stream.Position = 0;
+
+                // the recordbatches by index are in reverse order - back to front.
+                // TODO: is this a bug??
+                ArrowFileReader reader = new ArrowFileReader(stream);
+                RecordBatch readBatch1 = await reader.ReadRecordBatchAsync(0);
+                ArrowReaderVerifier.CompareBatches(originalBatch2, readBatch1);
+
+                RecordBatch readBatch2 = await reader.ReadRecordBatchAsync(1);
+                ArrowReaderVerifier.CompareBatches(originalBatch1, readBatch2);
+
+                // now read the first again, for random access
+                RecordBatch readBatch3 = await reader.ReadRecordBatchAsync(0);
+                ArrowReaderVerifier.CompareBatches(originalBatch2, readBatch3);
+            }
         }
     }
 }

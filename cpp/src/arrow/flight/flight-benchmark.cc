@@ -98,7 +98,7 @@ Status RunPerformanceTest(const int port) {
     token.ParseFromString(endpoint.ticket.ticket);
 
     std::unique_ptr<RecordBatchReader> reader;
-    RETURN_NOT_OK(client->DoGet(endpoint.ticket, schema, &reader));
+    RETURN_NOT_OK(client->DoGet(endpoint.ticket, &reader));
 
     std::shared_ptr<RecordBatch> batch;
 

@@ -68,6 +68,24 @@ volumes:
   spark-cache:
 
 services:
+  ######################### Helper Containers #################################
+
+  build-context:
+    # The performance of the docker containers often depends on the size of the
+    # build context. This is a helper container that adds the full build context
+    # into the /context folder.
+    #
+    # One can inspect the folder and add files that should not be in the context
+    # to .dockerignore.
+    #
+    # Usage:
+    #   docker-compose build build-context
+    #   docker-compose run build-context
+    image: arrow:build-context
+    build:
+      context: .
+      dockerfile: dev/Dockerfile.context
+
   ######################### Language Containers ###############################
 
   c_glib:
@@ -91,6 +109,29 @@ services:
       context: .
       dockerfile: cpp/Dockerfile
     environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-volumes
+
+  cpp-static-only:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose run cpp-static-only
+    image: arrow:cpp
+    shm_size: 2G
+    environment:
+      ARROW_BUILD_SHARED: "OFF"
+      ARROW_TEST_LINKAGE: "static"
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-volumes
+
+  cpp-shared-only:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose run cpp-static-only
+    image: arrow:cpp
+    shm_size: 2G
+    environment:
+      ARROW_BUILD_STATIC: "OFF"
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-volumes
 
@@ -232,6 +273,22 @@ services:
       args:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
     volumes: *alpine-volumes
+
+  python-nopandas:
+    # Usage:
+    #   export PYTHON_VERSION=2.7|3.6|3.7
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build python-nopandas
+    #   docker-compose run python-nopandas
+    image: arrow:python-${PYTHON_VERSION:-3.6}-nopandas
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: python/Dockerfile.nopandas
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+    volumes: *ubuntu-volumes
 
   rust:
     # Usage:

@@ -737,7 +737,7 @@ class ARROW_EXPORT IntervalType : public FixedWidthType {
       : FixedWidthType(Type::INTERVAL), unit_(unit) {}
 
   std::string ToString() const override { return name(); }
-  std::string name() const override { return "date"; }
+  std::string name() const override { return "interval"; }
 
   Unit unit() const { return unit_; }
 

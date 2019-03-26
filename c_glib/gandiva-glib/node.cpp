@@ -1323,7 +1323,7 @@ ggandiva_if_node_class_init(GGandivaIfNodeClass *klass)
  * @return_type: A #GArrowDataType.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable): A newly created #GGandivaIfNode or %NULl on error.
+ * Returns: (nullable): A newly created #GGandivaIfNode or %NULL on error.
  *
  * Since: 0.12.0
  */

@@ -18,9 +18,9 @@
 from itertools import count
 from numbers import Integral
 
-from pyarrow import _orc
 from pyarrow import types
 from pyarrow.lib import Schema
+import pyarrow._orc as _orc
 
 
 def _is_map(typ):

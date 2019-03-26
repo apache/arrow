@@ -20,6 +20,7 @@ import (
 	"encoding/csv"
 	"io"
 	"strconv"
+	"sync"
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
@@ -29,6 +30,8 @@ import (
 type Writer struct {
 	w      *csv.Writer
 	schema *arrow.Schema
+	header bool
+	once   sync.Once
 }
 
 // NewWriter returns a writer that writes array.Records to the CSV file
@@ -53,6 +56,16 @@ func (w *Writer) Schema() *arrow.Schema { return w.schema }
 func (w *Writer) Write(record array.Record) error {
 	if !record.Schema().Equal(w.schema) {
 		return ErrMismatchFields
+	}
+
+	var err error
+	if w.header {
+		w.once.Do(func() {
+			err = w.writeHeader()
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	recs := make([][]string, record.NumRows())
@@ -138,4 +151,15 @@ func (w *Writer) Flush() error {
 // Error reports any error that has occurred during a previous Write or Flush.
 func (w *Writer) Error() error {
 	return w.w.Error()
+}
+
+func (w *Writer) writeHeader() error {
+	headers := make([]string, len(w.schema.Fields()))
+	for i := range headers {
+		headers[i] = w.schema.Field(i).Name
+	}
+	if err := w.w.Write(headers); err != nil {
+		return err
+	}
+	return nil
 }

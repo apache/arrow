@@ -43,8 +43,8 @@ class GroupTest < Test::Unit::TestCase
       table = Arrow::Table.new(raw_table)
       assert_equal(<<-TABLE, table.group(:time).count.to_s)
 	                     time	int
-0	2018-01-29T00:00:00+09:00	  1
-1	2018-01-30T00:00:00+09:00	  1
+0	#{time_values[0].iso8601}	  1
+1	#{time_values[1].iso8601}	  1
       TABLE
     end
   end

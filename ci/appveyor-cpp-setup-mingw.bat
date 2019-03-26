@@ -17,6 +17,11 @@
 
 @echo on
 
+if "%MSYSTEM%" == "MINGW32" (
+  set "PATH=c:\Ruby26\bin;%PATH%"
+) else (
+  set "PATH=c:\Ruby26-x64\bin;%PATH%"
+)
 set PATH=%MINGW_PREFIX%\bin;C:\msys64\usr\bin;%PATH%
 
 pacman -S --noconfirm ^
@@ -37,3 +42,7 @@ pacman -S --noconfirm ^
     "%MINGW_PACKAGE_PREFIX%-snappy" ^
     "%MINGW_PACKAGE_PREFIX%-zlib" ^
     "%MINGW_PACKAGE_PREFIX%-zstd" || exit /B
+
+pushd c_glib
+ruby -S bundle install || exit /B
+popd

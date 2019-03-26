@@ -79,7 +79,7 @@ std::shared_ptr<Array> RandomArrayGenerator::Boolean(int64_t size, double probab
   // only calls the GenerateBitmap method.
   using GenOpt = GenerateOptions<int, std::uniform_int_distribution<int>>;
 
-  std::vector<std::shared_ptr<Buffer>> buffers{2};
+  BufferVector buffers{2};
   // Need 2 distinct generators such that probabilities are not shared.
   GenOpt value_gen(seed(), 0, 1, probability);
   GenOpt null_gen(seed(), 0, 1, null_probability);
@@ -100,7 +100,7 @@ static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(int64_t siz
                                                                      OptionType options) {
   using CType = typename ArrowType::c_type;
   auto type = TypeTraits<ArrowType>::type_singleton();
-  std::vector<std::shared_ptr<Buffer>> buffers{2};
+  BufferVector buffers{2};
 
   int64_t null_count = 0;
   ABORT_NOT_OK(AllocateEmptyBitmap(size, &buffers[0]));
@@ -145,5 +145,64 @@ PRIMITIVE_RAND_FLOAT_IMPL(Float64, double, DoubleType)
 #undef PRIMITIVE_RAND_FLOAT_IMPL
 #undef PRIMITIVE_RAND_IMPL
 
+std::shared_ptr<arrow::Array> RandomArrayGenerator::String(int64_t size,
+                                                           int32_t min_length,
+                                                           int32_t max_length,
+                                                           double null_probability) {
+  if (null_probability < 0 || null_probability > 1) {
+    ABORT_NOT_OK(Status::Invalid("null_probability must be between 0 and 1"));
+  }
+
+  auto int32_lengths = Int32(size, min_length, max_length, null_probability);
+  auto lengths = std::dynamic_pointer_cast<Int32Array>(int32_lengths);
+
+  // Visual Studio does not implement uniform_int_distribution for char types.
+  using GenOpt = GenerateOptions<uint8_t, std::uniform_int_distribution<uint16_t>>;
+  GenOpt options(seed(), static_cast<uint8_t>('A'), static_cast<uint8_t>('z'),
+                 /*null_probability=*/0);
+
+  std::vector<uint8_t> str_buffer(max_length);
+  StringBuilder builder;
+
+  for (int64_t i = 0; i < size; ++i) {
+    if (lengths->IsValid(i)) {
+      options.GenerateData(str_buffer.data(), lengths->Value(i));
+      ABORT_NOT_OK(builder.Append(str_buffer.data(), lengths->Value(i)));
+    } else {
+      ABORT_NOT_OK(builder.AppendNull());
+    }
+  }
+
+  std::shared_ptr<arrow::Array> result;
+  ABORT_NOT_OK(builder.Finish(&result));
+  return result;
+}
+
+std::shared_ptr<arrow::Array> RandomArrayGenerator::StringWithRepeats(
+    int64_t size, int64_t unique, int32_t min_length, int32_t max_length,
+    double null_probability) {
+  // Generate a random string dictionary without any nulls
+  auto array = String(unique, min_length, max_length, /*null_probability=*/0);
+  auto dictionary = std::dynamic_pointer_cast<StringArray>(array);
+
+  // Generate random indices to sample the dictionary with
+  auto id_array = Int64(size, 0, unique - 1, null_probability);
+  auto indices = std::dynamic_pointer_cast<Int64Array>(id_array);
+  StringBuilder builder;
+
+  for (int64_t i = 0; i < size; ++i) {
+    if (indices->IsValid(i)) {
+      const auto index = indices->Value(i);
+      const auto value = dictionary->GetView(index);
+      ABORT_NOT_OK(builder.Append(value));
+    } else {
+      ABORT_NOT_OK(builder.AppendNull());
+    }
+  }
+
+  std::shared_ptr<Array> result;
+  ABORT_NOT_OK(builder.Finish(&result));
+  return result;
+}
 }  // namespace random
 }  // namespace arrow

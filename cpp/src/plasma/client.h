@@ -257,6 +257,7 @@ class ARROW_EXPORT PlasmaClient {
 
  private:
   friend class PlasmaBuffer;
+  friend class PlasmaMutableBuffer;
   FRIEND_TEST(TestPlasmaStore, GetTest);
   FRIEND_TEST(TestPlasmaStore, LegacyGetTest);
   FRIEND_TEST(TestPlasmaStore, AbortTest);

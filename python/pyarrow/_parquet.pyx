@@ -313,6 +313,21 @@ cdef class FileMetaData:
                                  self.format_version,
                                  self.serialized_size)
 
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def equals(self, FileMetaData other):
+        # TODO(kszucs): use native method after ARROW-4970 is implemented
+        for prop in ('schema', 'serialized_size', 'num_columns', 'num_rows',
+                     'num_row_groups', 'format_version', 'created_by',
+                     'metadata'):
+            if getattr(self, prop) != getattr(other, prop):
+                return False
+        return True
+
     @property
     def schema(self):
         if self._schema is None:

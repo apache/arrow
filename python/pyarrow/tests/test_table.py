@@ -19,10 +19,7 @@ from collections import OrderedDict, Iterable
 import pickle
 
 import numpy as np
-from pandas.util.testing import assert_frame_equal
-import pandas as pd
 import pytest
-
 import pyarrow as pa
 
 
@@ -176,6 +173,7 @@ def test_chunked_array_pickle(data, typ):
     assert result.equals(array)
 
 
+@pytest.mark.pandas
 def test_chunked_array_to_pandas():
     data = [
         pa.array([-10, -5, 0, 5, 10])
@@ -269,6 +267,7 @@ def test_column_pickle():
     assert result.field == field
 
 
+@pytest.mark.pandas
 def test_column_to_pandas():
     data = [
         pa.array([-10, -5, 0, 5, 10])
@@ -459,50 +458,11 @@ def test_recordbatch_slice_getitem():
     assert batch.slice(len(batch) - 4, 2).equals(batch[-4:-2])
 
 
-def test_recordbatch_from_to_pandas():
-    data = pd.DataFrame({
-        'c1': np.array([1, 2, 3, 4, 5], dtype='int64'),
-        'c2': np.array([1, 2, 3, 4, 5], dtype='uint32'),
-        'c3': np.random.randn(5),
-        'c4': ['foo', 'bar', None, 'baz', 'qux'],
-        'c5': [False, True, False, True, False]
-    })
-
-    batch = pa.RecordBatch.from_pandas(data)
-    result = batch.to_pandas()
-    assert_frame_equal(data, result)
-
-
-def test_recordbatchlist_to_pandas():
-    data1 = pd.DataFrame({
-        'c1': np.array([1, 1, 2], dtype='uint32'),
-        'c2': np.array([1.0, 2.0, 3.0], dtype='float64'),
-        'c3': [True, None, False],
-        'c4': ['foo', 'bar', None]
-    })
-
-    data2 = pd.DataFrame({
-        'c1': np.array([3, 5], dtype='uint32'),
-        'c2': np.array([4.0, 5.0], dtype='float64'),
-        'c3': [True, True],
-        'c4': ['baz', 'qux']
-    })
-
-    batch1 = pa.RecordBatch.from_pandas(data1)
-    batch2 = pa.RecordBatch.from_pandas(data2)
-
-    table = pa.Table.from_batches([batch1, batch2])
-    result = table.to_pandas()
-    data = pd.concat([data1, data2]).reset_index(drop=True)
-    assert_frame_equal(data, result)
-
-
 def test_recordbatchlist_schema_equals():
-    data1 = pd.DataFrame({'c1': np.array([1], dtype='uint32')})
-    data2 = pd.DataFrame({'c1': np.array([4.0, 5.0], dtype='float64')})
-
-    batch1 = pa.RecordBatch.from_pandas(data1)
-    batch2 = pa.RecordBatch.from_pandas(data2)
+    a1 = np.array([1], dtype='uint32')
+    a2 = np.array([4.0, 5.0], dtype='float64')
+    batch1 = pa.RecordBatch.from_arrays([pa.array(a1)], ['c1'])
+    batch2 = pa.RecordBatch.from_arrays([pa.array(a2)], ['c1'])
 
     with pytest.raises(pa.ArrowInvalid):
         pa.Table.from_batches([batch1, batch2])
@@ -537,7 +497,11 @@ def test_table_from_batches_and_schema():
         pa.Table.from_batches([incompatible_batch], schema)
 
 
+@pytest.mark.pandas
 def test_table_to_batches():
+    from pandas.util.testing import assert_frame_equal
+    import pandas as pd
+
     df1 = pd.DataFrame({'a': list(range(10))})
     df2 = pd.DataFrame({'a': list(range(10, 30))})
 
@@ -809,7 +773,10 @@ def test_concat_tables():
     assert result.equals(expected)
 
 
+@pytest.mark.pandas
 def test_concat_tables_with_different_schema_metadata():
+    import pandas as pd
+
     schema = pa.schema([
         pa.field('a', pa.string()),
         pa.field('b', pa.string()),

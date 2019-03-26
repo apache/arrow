@@ -84,7 +84,7 @@ def get_flight(args, client):
         for location in endpoint.locations:
             print(location)
             get_client = pyarrow.flight.FlightClient.connect(location)
-            reader = get_client.do_get(endpoint.ticket, info.schema)
+            reader = get_client.do_get(endpoint.ticket)
             df = reader.read_pandas()
             print(df)
 

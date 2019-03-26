@@ -67,8 +67,9 @@ static inline void CompareBatchColumnsDetailed(const RecordBatch& result,
 const auto kListInt32 = list(int32());
 const auto kListListInt32 = list(kListInt32);
 
-Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool,
-                            std::shared_ptr<Array>* out, uint32_t seed = 0) {
+static inline Status MakeRandomInt32Array(int64_t length, bool include_nulls,
+                                          MemoryPool* pool, std::shared_ptr<Array>* out,
+                                          uint32_t seed = 0) {
   random::RandomArrayGenerator rand(seed);
   const double null_probability = include_nulls ? 0.5 : 0.0;
 
@@ -77,9 +78,9 @@ Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool
   return Status::OK();
 }
 
-Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_lists,
-                           bool include_nulls, MemoryPool* pool,
-                           std::shared_ptr<Array>* out) {
+static inline Status MakeRandomListArray(const std::shared_ptr<Array>& child_array,
+                                         int num_lists, bool include_nulls,
+                                         MemoryPool* pool, std::shared_ptr<Array>* out) {
   // Create the null list values
   std::vector<uint8_t> valid_lists(num_lists);
   const double null_percent = include_nulls ? 0.1 : 0;
@@ -123,8 +124,8 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
 
 typedef Status MakeRecordBatch(std::shared_ptr<RecordBatch>* out);
 
-Status MakeRandomBooleanArray(const int length, bool include_nulls,
-                              std::shared_ptr<Array>* out) {
+static inline Status MakeRandomBooleanArray(const int length, bool include_nulls,
+                                            std::shared_ptr<Array>* out) {
   std::vector<uint8_t> values(length);
   random_null_bytes(length, 0.5, values.data());
   std::shared_ptr<Buffer> data;
@@ -142,7 +143,8 @@ Status MakeRandomBooleanArray(const int length, bool include_nulls,
   return Status::OK();
 }
 
-Status MakeBooleanBatchSized(const int length, std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeBooleanBatchSized(const int length,
+                                           std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", boolean());
   auto f1 = field("f1", boolean());
@@ -155,12 +157,12 @@ Status MakeBooleanBatchSized(const int length, std::shared_ptr<RecordBatch>* out
   return Status::OK();
 }
 
-Status MakeBooleanBatch(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeBooleanBatch(std::shared_ptr<RecordBatch>* out) {
   return MakeBooleanBatchSized(1000, out);
 }
 
-Status MakeIntBatchSized(int length, std::shared_ptr<RecordBatch>* out,
-                         uint32_t seed = 0) {
+static inline Status MakeIntBatchSized(int length, std::shared_ptr<RecordBatch>* out,
+                                       uint32_t seed = 0) {
   // Make the schema
   auto f0 = field("f0", int32());
   auto f1 = field("f1", int32());
@@ -175,7 +177,7 @@ Status MakeIntBatchSized(int length, std::shared_ptr<RecordBatch>* out,
   return Status::OK();
 }
 
-Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return MakeIntBatchSized(10, out);
 }
 
@@ -215,8 +217,8 @@ Status MakeBinaryArrayWithUniqueValues(int64_t length, bool include_nulls,
   return builder.Finish(out);
 }
 
-Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out,
-                                  bool with_nulls = true) {
+static inline Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out,
+                                                bool with_nulls = true) {
   const int64_t length = 500;
   auto string_type = utf8();
   auto binary_type = binary();
@@ -243,11 +245,12 @@ Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out,
   return Status::OK();
 }
 
-Status MakeStringTypesRecordBatchWithNulls(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeStringTypesRecordBatchWithNulls(
+    std::shared_ptr<RecordBatch>* out) {
   return MakeStringTypesRecordBatch(out, true);
 }
 
-Status MakeNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
   const int64_t length = 500;
   auto f0 = field("f0", null());
   auto schema = ::arrow::schema({f0});
@@ -256,7 +259,7 @@ Status MakeNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", kListInt32);
   auto f1 = field("f1", kListListInt32);
@@ -279,7 +282,7 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeZeroLengthRecordBatch(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeZeroLengthRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", kListInt32);
   auto f1 = field("f1", kListListInt32);
@@ -299,7 +302,7 @@ Status MakeZeroLengthRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeNonNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeNonNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", kListInt32);
   auto f1 = field("f1", kListListInt32);
@@ -322,7 +325,7 @@ Status MakeNonNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
   const int batch_length = 5;
   auto type = int32();
 
@@ -342,7 +345,7 @@ Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   // reuse constructed list columns
   std::shared_ptr<RecordBatch> list_batch;
   RETURN_NOT_OK(MakeListRecordBatch(&list_batch));
@@ -372,7 +375,7 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   // Define schema
   std::vector<std::shared_ptr<Field>> union_types(
       {field("u0", int32()), field("u1", uint8())});
@@ -438,7 +441,7 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   const int64_t length = 6;
 
   std::vector<bool> is_valid = {true, true, false, true, true, true};
@@ -519,7 +522,7 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeDictionaryFlat(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeDictionaryFlat(std::shared_ptr<RecordBatch>* out) {
   const int64_t length = 6;
 
   std::vector<bool> is_valid = {true, true, false, true, true, true};
@@ -557,7 +560,7 @@ Status MakeDictionaryFlat(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeDates(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeDates(std::shared_ptr<RecordBatch>* out) {
   std::vector<bool> is_valid = {true, true, true, false, true, true, true};
   auto f0 = field("f0", date32());
   auto f1 = field("f1", date64());
@@ -577,7 +580,7 @@ Status MakeDates(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeTimestamps(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeTimestamps(std::shared_ptr<RecordBatch>* out) {
   std::vector<bool> is_valid = {true, true, true, false, true, true, true};
   auto f0 = field("f0", timestamp(TimeUnit::MILLI));
   auto f1 = field("f1", timestamp(TimeUnit::NANO, "America/New_York"));
@@ -596,7 +599,7 @@ Status MakeTimestamps(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeTimes(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeTimes(std::shared_ptr<RecordBatch>* out) {
   std::vector<bool> is_valid = {true, true, true, false, true, true, true};
   auto f0 = field("f0", time32(TimeUnit::MILLI));
   auto f1 = field("f1", time64(TimeUnit::NANO));
@@ -631,7 +634,7 @@ void AppendValues(const std::vector<bool>& is_valid, const std::vector<T>& value
   }
 }
 
-Status MakeFWBinary(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeFWBinary(std::shared_ptr<RecordBatch>* out) {
   std::vector<bool> is_valid = {true, true, true, false};
   auto f0 = field("f0", fixed_size_binary(4));
   auto f1 = field("f1", fixed_size_binary(0));
@@ -655,7 +658,7 @@ Status MakeFWBinary(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
   constexpr int kDecimalPrecision = 38;
   auto type = decimal(kDecimalPrecision, 4);
   auto f0 = field("f0", type);
@@ -684,7 +687,7 @@ Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeNull(std::shared_ptr<RecordBatch>* out) {
+static inline Status MakeNull(std::shared_ptr<RecordBatch>* out) {
   auto f0 = field("f0", null());
 
   // Also put a non-null field to make sure we handle the null array buffers properly

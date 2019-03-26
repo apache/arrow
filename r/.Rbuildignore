@@ -7,3 +7,5 @@ LICENSE.md
 lint.sh
 Dockerfile
 .*\.tar\.gz
+^windows
+clang_format.sh

@@ -23,8 +23,7 @@ import numpy as np
 
 import pyarrow
 from pyarrow.compat import builtin_pickle
-from pyarrow.lib import (SerializationContext, _default_serialization_context,
-                         py_buffer)
+from pyarrow.lib import SerializationContext, py_buffer
 
 try:
     import cloudpickle
@@ -326,6 +325,3 @@ def default_serialization_context():
     context = SerializationContext()
     register_default_serialization_handlers(context)
     return context
-
-
-register_default_serialization_handlers(_default_serialization_context)

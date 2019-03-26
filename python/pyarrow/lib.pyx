@@ -19,13 +19,15 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+from collections import OrderedDict
 import datetime
 import decimal as _pydecimal
+import json
 import multiprocessing
 import numpy as np
 import os
 import six
-from pyarrow.compat import frombytes, tobytes, PandasSeries, Categorical
+from pyarrow.compat import frombytes, tobytes
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *
@@ -89,6 +91,9 @@ Type_MAP = _Type_MAP
 
 UnionMode_SPARSE = _UnionMode_SPARSE
 UnionMode_DENSE = _UnionMode_DENSE
+
+# pandas API shim
+include "pandas-shim.pxi"
 
 # Exception types
 include "error.pxi"

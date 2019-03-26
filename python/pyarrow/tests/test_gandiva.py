@@ -19,7 +19,6 @@ import datetime
 import pytest
 
 import pyarrow as pa
-import pandas as pd
 
 
 @pytest.mark.gandiva
@@ -60,8 +59,8 @@ def test_tree_exp_builder():
 def test_table():
     import pyarrow.gandiva as gandiva
 
-    df = pd.DataFrame({"a": [1.0, 2.0], "b": [3.0, 4.0]})
-    table = pa.Table.from_pandas(df)
+    table = pa.Table.from_arrays([pa.array([1.0, 2.0]), pa.array([3.0, 4.0])],
+                                 ['a', 'b'])
 
     builder = gandiva.TreeExprBuilder()
     node_a = builder.make_field(table.schema.field_by_name("a"))
@@ -79,7 +78,7 @@ def test_table():
     # RecordBatches
     r, = projector.evaluate(table.to_batches()[0])
 
-    e = pa.Array.from_pandas(df["a"] + df["b"])
+    e = pa.array([4.0, 6.0])
     assert r.equals(e)
 
 
@@ -87,8 +86,8 @@ def test_table():
 def test_filter():
     import pyarrow.gandiva as gandiva
 
-    df = pd.DataFrame({"a": [1.0 * i for i in range(10000)]})
-    table = pa.Table.from_pandas(df)
+    table = pa.Table.from_arrays([pa.array([1.0 * i for i in range(10000)])],
+                                 ['a'])
 
     builder = gandiva.TreeExprBuilder()
     node_a = builder.make_field(table.schema.field_by_name("a"))
@@ -216,9 +215,10 @@ def test_in_expr_todo():
 def test_boolean():
     import pyarrow.gandiva as gandiva
 
-    df = pd.DataFrame({"a": [1., 31., 46., 3., 57., 44., 22.],
-                       "b": [5., 45., 36., 73., 83., 23., 76.]})
-    table = pa.Table.from_pandas(df)
+    table = pa.Table.from_arrays([pa.array([1., 31., 46., 3., 57., 44., 22.]),
+                                  pa.array([5., 45., 36., 73.,
+                                            83., 23., 76.])],
+                                 ['a', 'b'])
 
     builder = gandiva.TreeExprBuilder()
     node_a = builder.make_field(table.schema.field_by_name("a"))

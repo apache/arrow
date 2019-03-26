@@ -13,9 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using FlatBuffers;
 using System;
-using System.Buffers.Binary;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -54,7 +52,7 @@ namespace Apache.Arrow.Ipc
             return _footer.RecordBatchCount;
         }
 
-        protected override async Task ReadSchemaAsync()
+        protected override async ValueTask ReadSchemaAsync()
         {
             if (HasReadSchema)
             {
@@ -63,43 +61,85 @@ namespace Apache.Arrow.Ipc
 
             await ValidateFileAsync().ConfigureAwait(false);
 
-            var bytesRead = 0;
-            var footerLength = 0;
-
+            int footerLength = 0;
             await Buffers.RentReturnAsync(4, async (buffer) =>
             {
-                BaseStream.Position = BaseStream.Length - ArrowFileConstants.Magic.Length - 4;
+                BaseStream.Position = GetFooterLengthPosition();
 
-                bytesRead = await BaseStream.ReadAsync(buffer, 0, 4).ConfigureAwait(false);
-                footerLength = BinaryPrimitives.ReadInt32LittleEndian(buffer);
+                int bytesRead = await BaseStream.ReadFullBufferAsync(buffer).ConfigureAwait(false);
+                EnsureFullRead(buffer, bytesRead);
 
-                if (bytesRead != 4) throw new InvalidDataException(
-                    $"Failed to read footer length. Read <{bytesRead}>, expected 4.");
-
-                if (footerLength <= 0) throw new InvalidDataException(
-                    $"Footer length has invalid size <{footerLength}>");
+                footerLength = ReadFooterLength(buffer);
             }).ConfigureAwait(false);
 
             await Buffers.RentReturnAsync(footerLength, async (buffer) =>
             {
-                _footerStartPostion = (int)BaseStream.Length - footerLength - ArrowFileConstants.Magic.Length - 4;
+                _footerStartPostion = (int)GetFooterLengthPosition() - footerLength;
 
                 BaseStream.Position = _footerStartPostion;
 
-                bytesRead = await BaseStream.ReadAsync(buffer, 0, footerLength).ConfigureAwait(false);
+                int bytesRead = await BaseStream.ReadFullBufferAsync(buffer).ConfigureAwait(false);
+                EnsureFullRead(buffer, bytesRead);
 
-                if (bytesRead != footerLength)
-                {
-                    throw new InvalidDataException(
-                        $"Failed to read footer. Read <{bytesRead}> bytes, expected <{footerLength}>.");
-                }
-
-                // Deserialize the footer from the footer flatbuffer
-
-                _footer = new ArrowFooter(Flatbuf.Footer.GetRootAsFooter(new ByteBuffer(buffer)));
-
-                Schema = _footer.Schema;
+                ReadSchema(buffer);
             }).ConfigureAwait(false);
+        }
+
+        protected override void ReadSchema()
+        {
+            if (HasReadSchema)
+            {
+                return;
+            }
+
+            ValidateFile();
+
+            int footerLength = 0;
+            Buffers.RentReturn(4, (buffer) =>
+            {
+                BaseStream.Position = GetFooterLengthPosition();
+
+                int bytesRead = BaseStream.ReadFullBuffer(buffer);
+                EnsureFullRead(buffer, bytesRead);
+
+                footerLength = ReadFooterLength(buffer);
+            });
+
+            Buffers.RentReturn(footerLength, (buffer) =>
+            {
+                _footerStartPostion = (int)GetFooterLengthPosition() - footerLength;
+
+                BaseStream.Position = _footerStartPostion;
+
+                int bytesRead = BaseStream.ReadFullBuffer(buffer);
+                EnsureFullRead(buffer, bytesRead);
+
+                ReadSchema(buffer);
+            });
+        }
+
+        private long GetFooterLengthPosition()
+        {
+            return BaseStream.Length - ArrowFileConstants.Magic.Length - 4;
+        }
+
+        private static int ReadFooterLength(Memory<byte> buffer)
+        {
+            int footerLength = BitUtility.ReadInt32(buffer);
+
+            if (footerLength <= 0)
+                throw new InvalidDataException(
+                    $"Footer length has invalid size <{footerLength}>");
+
+            return footerLength;
+        }
+
+        private void ReadSchema(Memory<byte> buffer)
+        {
+            // Deserialize the footer from the footer flatbuffer
+            _footer = new ArrowFooter(Flatbuf.Footer.GetRootAsFooter(CreateByteBuffer(buffer)));
+
+            Schema = _footer.Schema;
         }
 
         public async Task<RecordBatch> ReadRecordBatchAsync(int index, CancellationToken cancellationToken)
@@ -118,7 +158,23 @@ namespace Apache.Arrow.Ipc
             return await ReadRecordBatchAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        public override async Task<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
+        public RecordBatch ReadRecordBatch(int index)
+        {
+            ReadSchema();
+
+            if (index >= _footer.RecordBatchCount)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            var block = _footer.GetRecordBatchBlock(index);
+
+            BaseStream.Position = block.Offset;
+
+            return ReadRecordBatch();
+        }
+
+        public override async ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
         {
             await ReadSchemaAsync().ConfigureAwait(false);
 
@@ -133,10 +189,25 @@ namespace Apache.Arrow.Ipc
             return result;
         }
 
+        public override RecordBatch ReadNextRecordBatch()
+        {
+            ReadSchema();
+
+            if (_recordBatchIndex >= _footer.RecordBatchCount)
+            {
+                return null;
+            }
+
+            RecordBatch result = ReadRecordBatch(_recordBatchIndex);
+            _recordBatchIndex++;
+
+            return result;
+        }
+
         /// <summary>
         /// Check if file format is valid. If it's valid don't run the validation again.
         /// </summary>
-        private async Task ValidateFileAsync()
+        private async ValueTask ValidateFileAsync()
         {
             if (IsFileValid)
             {
@@ -148,7 +219,22 @@ namespace Apache.Arrow.Ipc
             IsFileValid = true;
         }
 
-        private async Task ValidateMagicAsync()
+        /// <summary>
+        /// Check if file format is valid. If it's valid don't run the validation again.
+        /// </summary>
+        private void ValidateFile()
+        {
+            if (IsFileValid)
+            {
+                return;
+            }
+
+            ValidateMagic();
+
+            IsFileValid = true;
+        }
+
+        private async ValueTask ValidateMagicAsync()
         {
             var startingPosition = BaseStream.Position;
             var magicLength = ArrowFileConstants.Magic.Length;
@@ -158,37 +244,66 @@ namespace Apache.Arrow.Ipc
                 await Buffers.RentReturnAsync(magicLength, async (buffer) =>
                 {
                     // Seek to the beginning of the stream
-
                     BaseStream.Position = 0;
 
                     // Read beginning of stream
+                    await BaseStream.ReadAsync(buffer).ConfigureAwait(false);
 
-                    await BaseStream.ReadAsync(buffer, 0, magicLength).ConfigureAwait(false);
-
-                    if (!ArrowFileConstants.Magic.SequenceEqual(buffer.Take(magicLength)))
-                    {
-                        throw new InvalidDataException(
-                            $"Invalid magic at offset <{BaseStream.Position}>");
-                    }
+                    VerifyMagic(buffer);
 
                     // Move stream position to magic-length bytes away from the end of the stream
-
                     BaseStream.Position = BaseStream.Length - magicLength;
 
                     // Read the end of the stream
+                    await BaseStream.ReadAsync(buffer).ConfigureAwait(false);
 
-                    await BaseStream.ReadAsync(buffer, 0, magicLength).ConfigureAwait(false);
-
-                    if (!ArrowFileConstants.Magic.SequenceEqual(buffer.Take(magicLength)))
-                    {
-                        throw new InvalidDataException(
-                            $"Invalid magic at offset <{BaseStream.Position}>");
-                    }
+                    VerifyMagic(buffer);
                 }).ConfigureAwait(false);
             }
             finally
             {
                 BaseStream.Position = startingPosition;
+            }
+        }
+
+        private void ValidateMagic()
+        {
+            var startingPosition = BaseStream.Position;
+            var magicLength = ArrowFileConstants.Magic.Length;
+
+            try
+            {
+                Buffers.RentReturn(magicLength, buffer =>
+                {
+                    // Seek to the beginning of the stream
+                    BaseStream.Position = 0;
+
+                    // Read beginning of stream
+                    BaseStream.Read(buffer);
+
+                    VerifyMagic(buffer);
+
+                    // Move stream position to magic-length bytes away from the end of the stream
+                    BaseStream.Position = BaseStream.Length - magicLength;
+
+                    // Read the end of the stream
+                    BaseStream.Read(buffer);
+
+                    VerifyMagic(buffer);
+                });
+            }
+            finally
+            {
+                BaseStream.Position = startingPosition;
+            }
+        }
+
+        private void VerifyMagic(Memory<byte> buffer)
+        {
+            if (!ArrowFileConstants.Magic.AsSpan().SequenceEqual(buffer.Span))
+            {
+                throw new InvalidDataException(
+                    $"Invalid magic at offset <{BaseStream.Position}>");
             }
         }
     }

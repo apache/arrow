@@ -324,7 +324,7 @@ Example Layout: ``List<List<byte>>``
 
 ``[[[1, 2], [3, 4]], [[5, 6, 7], null, [8]], [[9, 10]]]``
 
-will be be represented as follows: ::
+will be represented as follows: ::
 
     * Length 3
     * Nulls count: 0
@@ -356,6 +356,8 @@ will be be represented as follows: ::
           | Bytes 0-9                     | Bytes 10-63 |
           |-------------------------------|-------------|
           | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 | unspecified |
+
+Note that while the inner offsets buffer encodes the start position in the inner values array, the outer offsets buffer encodes the start position of corresponding outer element in the inner offsets buffer.
 
 Struct type
 -----------

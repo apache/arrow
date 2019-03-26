@@ -170,9 +170,11 @@ class ARROW_EXPORT ArrayBuilder {
     if (new_capacity < 0) {
       return Status::Invalid("Resize capacity must be positive");
     }
+
     if (new_capacity < old_capacity) {
       return Status::Invalid("Resize cannot downsize");
     }
+
     return Status::OK();
   }
 

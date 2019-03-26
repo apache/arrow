@@ -132,7 +132,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CStatus GetFlightInfo(CFlightDescriptor& descriptor,
                               unique_ptr[CFlightInfo]* info)
 
-        CStatus DoGet(CTicket& ticket, shared_ptr[CSchema]& schema,
+        CStatus DoGet(CTicket& ticket,
                       unique_ptr[CRecordBatchReader]* stream)
         CStatus DoPut(CFlightDescriptor& descriptor,
                       shared_ptr[CSchema]& schema,

@@ -29,7 +29,7 @@ use arrow::compute;
 use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
-use crate::execution::error::{ExecutionError, Result};
+use crate::error::{ExecutionError, Result};
 use crate::execution::expression::{AggregateType, RuntimeExpr};
 use crate::execution::relation::Relation;
 use crate::logicalplan::ScalarValue;
@@ -38,7 +38,7 @@ use fnv::FnvHashMap;
 
 /// An aggregate relation is made up of zero or more grouping expressions and one
 /// or more aggregate expressions
-pub struct AggregateRelation {
+pub(super) struct AggregateRelation {
     schema: Arc<Schema>,
     input: Rc<RefCell<Relation>>,
     group_expr: Vec<RuntimeExpr>,
@@ -87,6 +87,7 @@ trait AggregateFunction {
     fn data_type(&self) -> &DataType;
 }
 
+/// Implemntation of MIN aggregate function
 #[derive(Debug)]
 struct MinFunction {
     data_type: DataType,
@@ -161,6 +162,7 @@ impl AggregateFunction for MinFunction {
     }
 }
 
+/// Implemntation of MAX aggregate function
 #[derive(Debug)]
 struct MaxFunction {
     data_type: DataType,
@@ -235,6 +237,7 @@ impl AggregateFunction for MaxFunction {
     }
 }
 
+/// Implemntation of SUM aggregate function
 #[derive(Debug)]
 struct SumFunction {
     data_type: DataType,

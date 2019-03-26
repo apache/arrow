@@ -31,9 +31,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 
-using std::shared_ptr;
-using std::vector;
-
 namespace arrow {
 
 using internal::checked_cast;
@@ -144,7 +141,7 @@ TEST_F(TestSchema, Basics) {
 
   auto schema2 = ::arrow::schema({f0, f1, f2});
 
-  vector<shared_ptr<Field>> fields3 = {f0, f1_optional, f2};
+  std::vector<std::shared_ptr<Field>> fields3 = {f0, f1_optional, f2};
   auto schema3 = std::make_shared<Schema>(fields3);
   ASSERT_TRUE(schema->Equals(*schema2));
   ASSERT_FALSE(schema->Equals(*schema3));
@@ -269,7 +266,7 @@ TEST_F(TestSchema, TestAddMetadata) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);
   auto f2 = field("f2", utf8());
-  vector<shared_ptr<Field>> fields = {f0, f1, f2};
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
   auto metadata = std::shared_ptr<KeyValueMetadata>(
       new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
   auto schema = std::make_shared<Schema>(fields);
@@ -284,7 +281,7 @@ TEST_F(TestSchema, TestRemoveMetadata) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);
   auto f2 = field("f2", utf8());
-  vector<shared_ptr<Field>> fields = {f0, f1, f2};
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
   KeyValueMetadata metadata({"foo", "bar"}, {"bizz", "buzz"});
   auto schema = std::make_shared<Schema>(fields);
   std::shared_ptr<Schema> new_schema = schema->RemoveMetadata();
@@ -438,18 +435,18 @@ TEST(TestTimestampType, ToString) {
 
 TEST(TestNestedType, Equals) {
   auto create_struct = [](std::string inner_name,
-                          std::string struct_name) -> shared_ptr<Field> {
+                          std::string struct_name) -> std::shared_ptr<Field> {
     auto f_type = field(inner_name, int32());
-    vector<shared_ptr<Field>> fields = {f_type};
+    std::vector<std::shared_ptr<Field>> fields = {f_type};
     auto s_type = std::make_shared<StructType>(fields);
     return field(struct_name, s_type);
   };
 
   auto create_union = [](std::string inner_name,
-                         std::string union_name) -> shared_ptr<Field> {
+                         std::string union_name) -> std::shared_ptr<Field> {
     auto f_type = field(inner_name, int32());
-    vector<shared_ptr<Field>> fields = {f_type};
-    vector<uint8_t> codes = {Type::INT32};
+    std::vector<std::shared_ptr<Field>> fields = {f_type};
+    std::vector<uint8_t> codes = {Type::INT32};
     auto u_type = std::make_shared<UnionType>(fields, codes, UnionMode::SPARSE);
     return field(union_name, u_type);
   };
@@ -483,7 +480,7 @@ TEST(TestStructType, Basics) {
   auto f2_type = uint8();
   auto f2 = field("f2", f2_type);
 
-  vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
 
   StructType struct_type(fields);
 

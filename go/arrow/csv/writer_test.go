@@ -182,6 +182,65 @@ true;1;1;1;1;2;2;2;2;0.2;0.2;str-2
 	}
 }
 
+func TestCSVWriterWithHeader(t *testing.T) {
+	f := new(bytes.Buffer)
+
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "bool", Type: arrow.FixedWidthTypes.Boolean},
+			{Name: "i8", Type: arrow.PrimitiveTypes.Int8},
+			{Name: "i16", Type: arrow.PrimitiveTypes.Int16},
+			{Name: "i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "i64", Type: arrow.PrimitiveTypes.Int64},
+			{Name: "u8", Type: arrow.PrimitiveTypes.Uint8},
+			{Name: "u16", Type: arrow.PrimitiveTypes.Uint16},
+			{Name: "u32", Type: arrow.PrimitiveTypes.Uint32},
+			{Name: "u64", Type: arrow.PrimitiveTypes.Uint64},
+			{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
+			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "str", Type: arrow.BinaryTypes.String},
+		},
+		nil,
+	)
+
+	b := array.NewRecordBuilder(pool, schema)
+	defer b.Release()
+
+	b.Field(0).(*array.BooleanBuilder).AppendValues([]bool{true, false, true}, nil)
+	b.Field(1).(*array.Int8Builder).AppendValues([]int8{-1, 0, 1}, nil)
+	b.Field(2).(*array.Int16Builder).AppendValues([]int16{-1, 0, 1}, nil)
+	b.Field(3).(*array.Int32Builder).AppendValues([]int32{-1, 0, 1}, nil)
+	b.Field(4).(*array.Int64Builder).AppendValues([]int64{-1, 0, 1}, nil)
+	b.Field(5).(*array.Uint8Builder).AppendValues([]uint8{0, 1, 2}, nil)
+	b.Field(6).(*array.Uint16Builder).AppendValues([]uint16{0, 1, 2}, nil)
+	b.Field(7).(*array.Uint32Builder).AppendValues([]uint32{0, 1, 2}, nil)
+	b.Field(8).(*array.Uint64Builder).AppendValues([]uint64{0, 1, 2}, nil)
+	b.Field(9).(*array.Float32Builder).AppendValues([]float32{0.0, 0.1, 0.2}, nil)
+	b.Field(10).(*array.Float64Builder).AppendValues([]float64{0.0, 0.1, 0.2}, nil)
+	b.Field(11).(*array.StringBuilder).AppendValues([]string{"str-0", "str-1", "str-2"}, nil)
+
+	rec := b.NewRecord()
+	defer rec.Release()
+
+	w := csv.NewWriter(f, schema, csv.WithComma(';'), csv.WithCRLF(false), csv.WithHeader())
+	err := w.Write(rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := `bool;i8;i16;i32;i64;u8;u16;u32;u64;f32;f64;str
+true;-1;-1;-1;-1;0;0;0;0;0;0;str-0
+false;0;0;0;0;1;1;1;1;0.1;0.1;str-1
+true;1;1;1;1;2;2;2;2;0.2;0.2;str-2
+`
+
+	if got, want := f.String(), want; strings.Compare(got, want) != 0 {
+		t.Fatalf("invalid output:\ngot=%s\nwant=%s\n", got, want)
+	}
+}
+
 func BenchmarkWrite(b *testing.B) {
 	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer pool.AssertSize(b, 0)

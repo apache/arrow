@@ -68,15 +68,18 @@ class EchoStreamFlightServer(EchoFlightServer):
 
 class InvalidStreamFlightServer(flight.FlightServerBase):
     """A Flight server that tries to return messages with differing schemas."""
-    data1 = [pa.array([-10, -5, 0, 5, 10])]
-    data2 = [pa.array([-10.0, -5.0, 0.0, 5.0, 10.0])]
-    table1 = pa.Table.from_arrays(data1, names=['a'])
-    table2 = pa.Table.from_arrays(data2, names=['a'])
 
-    schema = table1.schema
+    schema = pa.schema([('a', pa.int32())])
 
     def do_get(self, ticket):
-        return flight.GeneratorStream(self.schema, [self.table1, self.table2])
+        data1 = [pa.array([-10, -5, 0, 5, 10], type=pa.int32())]
+        data2 = [pa.array([-10.0, -5.0, 0.0, 5.0, 10.0], type=pa.float64())]
+        assert data1.type != data2.type
+        table1 = pa.Table.from_arrays(data1, names=['a'])
+        table2 = pa.Table.from_arrays(data2, names=['a'])
+        assert table1.schema == self.schema
+
+        return flight.GeneratorStream(self.schema, [table1, table2])
 
 
 @contextlib.contextmanager
@@ -112,7 +115,7 @@ def test_flight_do_get():
 
     with flight_server(ConstantFlightServer) as server_port:
         client = flight.FlightClient.connect('localhost', server_port)
-        data = client.do_get(flight.Ticket(b''), table.schema).read_all()
+        data = client.do_get(flight.Ticket(b'')).read_all()
         assert data.equals(table)
 
 
@@ -134,7 +137,7 @@ def test_flight_large_message():
         # Write a single giant chunk
         writer.write_table(data, 10 * 1024 * 1024)
         writer.close()
-        result = client.do_get(flight.Ticket(b''), data.schema).read_all()
+        result = client.do_get(flight.Ticket(b'')).read_all()
         assert result.equals(data)
 
 
@@ -150,7 +153,7 @@ def test_flight_generator_stream():
                                data.schema)
         writer.write_table(data)
         writer.close()
-        result = client.do_get(flight.Ticket(b''), data.schema).read_all()
+        result = client.do_get(flight.Ticket(b'')).read_all()
         assert result.equals(data)
 
 
@@ -158,6 +161,5 @@ def test_flight_invalid_generator_stream():
     """Try streaming data with mismatched schemas."""
     with flight_server(InvalidStreamFlightServer) as server_port:
         client = flight.FlightClient.connect('localhost', server_port)
-        schema = InvalidStreamFlightServer.schema
         with pytest.raises(pa.ArrowException):
-            client.do_get(flight.Ticket(b''), schema).read_all()
+            client.do_get(flight.Ticket(b'')).read_all()

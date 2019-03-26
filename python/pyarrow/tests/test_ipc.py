@@ -23,11 +23,20 @@ import threading
 
 import numpy as np
 
-from pandas.util.testing import (assert_frame_equal,
-                                 assert_series_equal)
-import pandas as pd
-
 import pyarrow as pa
+
+
+try:
+    from pandas.util.testing import (assert_frame_equal,
+                                     assert_series_equal)
+    import pandas as pd
+except ImportError:
+    pass
+
+
+# TODO(wesm): The IPC tests depend a lot on pandas currently, so all excluded
+# when it is not installed
+pytestmark = pytest.mark.pandas
 
 
 class IpcFixture(object):

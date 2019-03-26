@@ -15,23 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use super::super::logicalplan::LogicalPlan;
-use std::rc::Rc;
+#pragma once
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum PhysicalPlan {
-    /// Run a query and return the results to the client
-    Interactive {
-        plan: Rc<LogicalPlan>,
-    },
-    /// Execute a logical plan and write the output to a file
-    Write {
-        plan: Rc<LogicalPlan>,
-        filename: String,
-        kind: String,
-    },
-    Show {
-        plan: Rc<LogicalPlan>,
-        count: usize,
-    },
-}
+#include <memory>
+#include <vector>
+
+#include "arrow/array.h"
+#include "arrow/memory_pool.h"
+#include "arrow/util/visibility.h"
+
+namespace arrow {
+
+/// \brief Concatenate arrays
+///
+/// \param[in] arrays a vector of arrays to be concatenated
+/// \param[in] pool memory to store the result will be allocated from this memory pool
+/// \param[out] out the resulting concatenated array
+/// \return Status
+ARROW_EXPORT
+Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
+                   std::shared_ptr<Array>* out);
+
+}  // namespace arrow

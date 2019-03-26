@@ -32,14 +32,16 @@ use parquet::file::reader::*;
 use parquet::reader::schema::parquet_to_arrow_schema;
 
 use crate::datasource::{RecordBatchIterator, ScanResult, Table};
-use crate::execution::error::{ExecutionError, Result};
+use crate::error::{ExecutionError, Result};
 
+/// Table-based representation of a `ParquetFile`
 pub struct ParquetTable {
     filename: String,
     schema: Arc<Schema>,
 }
 
 impl ParquetTable {
+    /// Attempt to initialize a new `ParquetTable` from a file path
     pub fn try_new(filename: &str) -> Result<Self> {
         let file = File::open(filename)?;
         let parquet_file = ParquetFile::open(file, None, 0)?;
@@ -67,6 +69,7 @@ impl Table for ParquetTable {
     }
 }
 
+/// Loader and reader for parquet data
 pub struct ParquetFile {
     reader: SerializedFileReader<File>,
     /// Projection expressed as column indices into underlying parquet reader
@@ -172,6 +175,7 @@ where
 }
 
 impl ParquetFile {
+    /// Read parquet data from a `File`
     pub fn open(
         file: File,
         projection: Option<Vec<usize>>,
@@ -253,6 +257,7 @@ impl ParquetFile {
             Some(reader) => {
                 let mut batch: Vec<Arc<Array>> = Vec::with_capacity(reader.num_columns());
                 for i in 0..self.column_readers.len() {
+                    let dt = self.schema().field(i).data_type().clone();
                     let is_nullable = self.schema().field(i).is_nullable();
                     let array: Arc<Array> = match self.column_readers[i] {
                         ColumnReader::BoolColumnReader(ref mut r) => {
@@ -262,20 +267,69 @@ impl ParquetFile {
                                 is_nullable,
                             )?
                         }
-                        ColumnReader::Int32ColumnReader(ref mut r) => {
-                            ArrowReader::<Int32Type>::read(
+                        ColumnReader::Int32ColumnReader(ref mut r) => match dt {
+                            DataType::Date32(DateUnit::Day) => {
+                                ArrowReader::<Date32Type>::read(
+                                    r,
+                                    self.batch_size,
+                                    is_nullable,
+                                )?
+                            }
+                            DataType::Time32(TimeUnit::Millisecond) => {
+                                ArrowReader::<Time32MillisecondType>::read(
+                                    r,
+                                    self.batch_size,
+                                    is_nullable,
+                                )?
+                            }
+                            _ => ArrowReader::<Int32Type>::read(
                                 r,
                                 self.batch_size,
                                 is_nullable,
-                            )?
-                        }
-                        ColumnReader::Int64ColumnReader(ref mut r) => {
-                            ArrowReader::<Int64Type>::read(
+                            )?,
+                        },
+                        ColumnReader::Int64ColumnReader(ref mut r) => match dt {
+                            DataType::Time64(TimeUnit::Microsecond) => {
+                                ArrowReader::<Time64MicrosecondType>::read(
+                                    r,
+                                    self.batch_size,
+                                    is_nullable,
+                                )?
+                            }
+                            DataType::Time64(TimeUnit::Nanosecond) => {
+                                ArrowReader::<Time64NanosecondType>::read(
+                                    r,
+                                    self.batch_size,
+                                    is_nullable,
+                                )?
+                            }
+                            DataType::Timestamp(TimeUnit::Millisecond) => {
+                                ArrowReader::<TimestampMillisecondType>::read(
+                                    r,
+                                    self.batch_size,
+                                    is_nullable,
+                                )?
+                            }
+                            DataType::Timestamp(TimeUnit::Microsecond) => {
+                                ArrowReader::<TimestampMicrosecondType>::read(
+                                    r,
+                                    self.batch_size,
+                                    is_nullable,
+                                )?
+                            }
+                            DataType::Timestamp(TimeUnit::Nanosecond) => {
+                                ArrowReader::<TimestampMicrosecondType>::read(
+                                    r,
+                                    self.batch_size,
+                                    is_nullable,
+                                )?
+                            }
+                            _ => ArrowReader::<Int64Type>::read(
                                 r,
                                 self.batch_size,
                                 is_nullable,
-                            )?
-                        }
+                            )?,
+                        },
                         ColumnReader::Int96ColumnReader(ref mut r) => {
                             let mut read_buffer: Vec<Int96> =
                                 vec![Int96::new(); self.batch_size];
@@ -428,6 +482,28 @@ mod tests {
     #[test]
     fn read_alltypes_plain_parquet() {
         let table = load_table("alltypes_plain.parquet");
+
+        let x: Vec<String> = table
+            .schema()
+            .fields()
+            .iter()
+            .map(|f| format!("{}: {:?}", f.name(), f.data_type()))
+            .collect();
+        let y = x.join("\n");
+        assert_eq!(
+            "id: Int32\n\
+             bool_col: Boolean\n\
+             tinyint_col: Int32\n\
+             smallint_col: Int32\n\
+             int_col: Int32\n\
+             bigint_col: Int64\n\
+             float_col: Float32\n\
+             double_col: Float64\n\
+             date_string_col: Utf8\n\
+             string_col: Utf8\n\
+             timestamp_col: Timestamp(Nanosecond)",
+            y
+        );
 
         let projection = None;
         let scan = table.scan(&projection, 1024).unwrap();

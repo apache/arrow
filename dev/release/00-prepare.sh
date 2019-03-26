@@ -56,6 +56,14 @@ update_versions() {
   git add configure.ac meson.build
   cd -
 
+  cd "${SOURCE_DIR}/../../csharp"
+  sed -i.bak -E -e \
+    "s/^    <Version>.+<\/Version>/    <Version>${version}<\/Version>/" \
+    Directory.Build.props
+  rm -f Directory.Build.props.bak
+  git add Directory.Build.props
+  cd -
+
   # We can enable this when Arrow JS uses the same version.
   # cd "${SOURCE_DIR}/../../js"
   # sed -i.bak -E -e \
@@ -121,6 +129,16 @@ update_versions() {
       parquet/README.md
   rm -f parquet/README.md.bak
   git add parquet/README.md
+
+  # Update version number for datafusion README
+  sed -i.bak -E -e \
+      "s/^datafusion = \".+\"/datafusion = \"${version}\"/g" \
+      datafusion/README.md
+  sed -i.bak -E -e \
+      "s/docs.rs\/crate\/datafusion\/.+\)/docs.rs\/crate\/datafusion\/${version}\)/g" \
+      datafusion/README.md
+  rm -f datafusion/README.md.bak
+  git add datafusion/README.md
   cd -
 }
 

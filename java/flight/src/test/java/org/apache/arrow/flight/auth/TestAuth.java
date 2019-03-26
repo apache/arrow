@@ -17,6 +17,8 @@
 
 package org.apache.arrow.flight.auth;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.io.IOException;
 import java.util.Arrays;
 
@@ -33,16 +35,14 @@ import org.apache.arrow.util.AutoCloseables;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 
 import com.google.common.collect.ImmutableList;
 
-public class TestAuth {
+import io.grpc.StatusRuntimeException;
 
-  @Rule
-  public ExpectedException thrown = ExpectedException.none();
+public class TestAuth {
+  final String PERMISSION_DENIED = "PERMISSION_DENIED";
 
   private static final String USERNAME = "flight";
   private static final String PASSWORD = "woohoo";
@@ -62,17 +62,20 @@ public class TestAuth {
   @Test
   public void invalidAuth() {
 
-    thrown.expectMessage("PERMISSION_DENIED");
-    client.authenticateBasic(USERNAME, "WRONG");
+    assertThrows(StatusRuntimeException.class, () -> {
+      client.authenticateBasic(USERNAME, "WRONG");
+    }, PERMISSION_DENIED);
 
-    thrown.expectMessage("PERMISSION_DENIED");
-    client.listFlights(Criteria.ALL);
+    assertThrows(StatusRuntimeException.class, () -> {
+      client.listFlights(Criteria.ALL);
+    }, PERMISSION_DENIED);
   }
 
   @Test
   public void didntAuth() {
-    thrown.expectMessage("PERMISSION_DENIED");
-    client.listFlights(Criteria.ALL);
+    assertThrows(StatusRuntimeException.class, () -> {
+      client.listFlights(Criteria.ALL);
+    }, PERMISSION_DENIED);
   }
 
   @Before

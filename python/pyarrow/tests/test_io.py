@@ -33,8 +33,6 @@ except ImportError:
 
 import numpy as np
 
-import pandas as pd
-
 from pyarrow.compat import u, guid, PY2
 import pyarrow as pa
 
@@ -628,9 +626,8 @@ def test_mock_output_stream():
 
     assert f1.size() == len(f2.getvalue())
 
-    # Do the same test with a pandas DataFrame
-    val = pd.DataFrame({'a': [1, 2, 3]})
-    record_batch = pa.RecordBatch.from_pandas(val)
+    # Do the same test with a table
+    record_batch = pa.RecordBatch.from_arrays([pa.array([1, 2, 3])], ['a'])
 
     f1 = pa.MockOutputStream()
     f2 = pa.BufferOutputStream()

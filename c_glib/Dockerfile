@@ -17,14 +17,19 @@
 
 FROM arrow:cpp
 
-RUN apt-get -q install --no-install-recommends -y \
-        ruby-dev \
-        pkg-config \
+RUN apt-get update -y -q && \
+    apt-get -q install --no-install-recommends -y \
         autoconf-archive \
+        gobject-introspection \
         gtk-doc-tools \
-        libgirepository1.0-dev
+        libgirepository1.0-dev \
+        libglib2.0-dev \
+        pkg-config \
+        ruby-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-ADD c_glib/Gemfile /arrow/c_glib/
+COPY c_glib/Gemfile /arrow/c_glib/
 RUN conda install meson=0.47.1 && \
     conda clean --all && \
     gem install bundler && \
@@ -39,6 +44,6 @@ ENV ARROW_BUILD_TESTS=OFF \
     GI_TYPELIB_PATH="${CONDA_PREFIX}/lib/girepository-1.0"
 
 # build, install and test
-CMD arrow/ci/docker_build_cpp.sh && \
+CMD ["/bin/bash", "-c", "arrow/ci/docker_build_cpp.sh && \
     arrow/ci/docker_build_c_glib.sh && \
-    arrow/c_glib/test/run-test.rb
+    arrow/c_glib/test/run-test.rb"]

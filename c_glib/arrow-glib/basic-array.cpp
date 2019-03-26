@@ -24,7 +24,6 @@
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/basic-data-type.hpp>
 #include <arrow-glib/buffer.hpp>
-#include <arrow-glib/compute.hpp>
 #include <arrow-glib/decimal128.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/type.hpp>
@@ -106,7 +105,7 @@ G_BEGIN_DECLS
  * more null values. You need to specify an array length to create a
  * new array.
  *
- * #GArrowBooleanArray is a class for binary array. It can store zero
+ * #GArrowBooleanArray is a class for boolean array. It can store zero
  * or more boolean data. If you don't have Arrow format data, you need
  * to use #GArrowBooleanArrayBuilder to create a new array.
  *
@@ -517,132 +516,6 @@ garrow_array_to_string(GArrowArray *array, GError **error)
   }
 }
 
-/**
- * garrow_array_cast:
- * @array: A #GArrowArray.
- * @target_data_type: A #GArrowDataType of cast target data.
- * @options: (nullable): A #GArrowCastOptions.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: (nullable) (transfer full):
- *   A newly created casted array on success, %NULL on error.
- *
- * Since: 0.7.0
- */
-GArrowArray *
-garrow_array_cast(GArrowArray *array,
-                  GArrowDataType *target_data_type,
-                  GArrowCastOptions *options,
-                  GError **error)
-{
-  auto arrow_array = garrow_array_get_raw(array);
-  auto arrow_array_raw = arrow_array.get();
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  auto arrow_target_data_type = garrow_data_type_get_raw(target_data_type);
-  std::shared_ptr<arrow::Array> arrow_casted_array;
-  arrow::Status status;
-  if (options) {
-    auto arrow_options = garrow_cast_options_get_raw(options);
-    status = arrow::compute::Cast(&context,
-                                  *arrow_array_raw,
-                                  arrow_target_data_type,
-                                  *arrow_options,
-                                  &arrow_casted_array);
-  } else {
-    arrow::compute::CastOptions arrow_options;
-    status = arrow::compute::Cast(&context,
-                                  *arrow_array_raw,
-                                  arrow_target_data_type,
-                                  arrow_options,
-                                  &arrow_casted_array);
-  }
-
-  if (!status.ok()) {
-    std::stringstream message;
-    message << "[array][cast] <";
-    message << arrow_array->type()->ToString();
-    message << "> -> <";
-    message << arrow_target_data_type->ToString();
-    message << ">";
-    garrow_error_check(error, status, message.str().c_str());
-    return NULL;
-  }
-
-  return garrow_array_new_raw(&arrow_casted_array);
-}
-
-/**
- * garrow_array_unique:
- * @array: A #GArrowArray.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: (nullable) (transfer full):
- *   A newly created unique elements array on success, %NULL on error.
- *
- * Since: 0.8.0
- */
-GArrowArray *
-garrow_array_unique(GArrowArray *array,
-                    GError **error)
-{
-  auto arrow_array = garrow_array_get_raw(array);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  std::shared_ptr<arrow::Array> arrow_unique_array;
-  auto status = arrow::compute::Unique(&context,
-                                       arrow::compute::Datum(arrow_array),
-                                       &arrow_unique_array);
-  if (!status.ok()) {
-    std::stringstream message;
-    message << "[array][unique] <";
-    message << arrow_array->type()->ToString();
-    message << ">";
-    garrow_error_check(error, status, message.str().c_str());
-    return NULL;
-  }
-
-  return garrow_array_new_raw(&arrow_unique_array);
-}
-
-/**
- * garrow_array_dictionary_encode:
- * @array: A #GArrowArray.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: (nullable) (transfer full):
- *   A newly created #GArrowDictionaryArray for the @array on success,
- *   %NULL on error.
- *
- * Since: 0.8.0
- */
-GArrowArray *
-garrow_array_dictionary_encode(GArrowArray *array,
-                               GError **error)
-{
-  auto arrow_array = garrow_array_get_raw(array);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum dictionary_encoded_datum;
-  auto status =
-    arrow::compute::DictionaryEncode(&context,
-                                     arrow::compute::Datum(arrow_array),
-                                     &dictionary_encoded_datum);
-  if (!status.ok()) {
-    std::stringstream message;
-    message << "[array][dictionary-encode] <";
-    message << arrow_array->type()->ToString();
-    message << ">";
-    garrow_error_check(error, status, message.str().c_str());
-    return NULL;
-  }
-
-  auto arrow_dictionary_encoded_array =
-    arrow::MakeArray(dictionary_encoded_datum.array());
-
-  return garrow_array_new_raw(&arrow_dictionary_encoded_array);
-}
-
 
 G_DEFINE_TYPE(GArrowNullArray,
               garrow_null_array,
@@ -787,143 +660,6 @@ garrow_boolean_array_get_values(GArrowBooleanArray *array,
   return values;
 }
 
-/**
- * garrow_boolean_array_invert:
- * @array: A #GArrowBooleanArray.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: (transfer full): The element-wise inverted boolean array.
- *
- *   It should be freed with g_object_unref() when no longer needed.
- *
- * Since: 0.13.0
- */
-GArrowBooleanArray *
-garrow_boolean_array_invert(GArrowBooleanArray *array,
-                            GError **error)
-{
-  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto datum = arrow::compute::Datum(arrow_array);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum inverted_datum;
-  auto status = arrow::compute::Invert(&context, datum, &inverted_datum);
-  if (garrow_error_check(error, status, "[boolean-array][invert]")) {
-    auto arrow_inverted_array = inverted_datum.make_array();
-    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_inverted_array));
-  } else {
-    return NULL;
-  }
-}
-
-/**
- * garrow_boolean_array_and:
- * @left: A left hand side #GArrowBooleanArray.
- * @right: A right hand side #GArrowBooleanArray.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: (transfer full): The element-wise AND operated boolean array.
- *
- *   It should be freed with g_object_unref() when no longer needed.
- *
- * Since: 0.13.0
- */
-GArrowBooleanArray *
-garrow_boolean_array_and(GArrowBooleanArray *left,
-                         GArrowBooleanArray *right,
-                         GError **error)
-{
-  auto arrow_left = garrow_array_get_raw(GARROW_ARRAY(left));
-  auto left_datum = arrow::compute::Datum(arrow_left);
-  auto arrow_right = garrow_array_get_raw(GARROW_ARRAY(right));
-  auto right_datum = arrow::compute::Datum(arrow_right);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum operated_datum;
-  auto status = arrow::compute::And(&context,
-                                    left_datum,
-                                    right_datum,
-                                    &operated_datum);
-  if (garrow_error_check(error, status, "[boolean-array][and]")) {
-    auto arrow_operated_array = operated_datum.make_array();
-    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_operated_array));
-  } else {
-    return NULL;
-  }
-}
-
-/**
- * garrow_boolean_array_or:
- * @left: A left hand side #GArrowBooleanArray.
- * @right: A right hand side #GArrowBooleanArray.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: (transfer full): The element-wise OR operated boolean array.
- *
- *   It should be freed with g_object_unref() when no longer needed.
- *
- * Since: 0.13.0
- */
-GArrowBooleanArray *
-garrow_boolean_array_or(GArrowBooleanArray *left,
-                        GArrowBooleanArray *right,
-                        GError **error)
-{
-  auto arrow_left = garrow_array_get_raw(GARROW_ARRAY(left));
-  auto left_datum = arrow::compute::Datum(arrow_left);
-  auto arrow_right = garrow_array_get_raw(GARROW_ARRAY(right));
-  auto right_datum = arrow::compute::Datum(arrow_right);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum operated_datum;
-  auto status = arrow::compute::Or(&context,
-                                   left_datum,
-                                   right_datum,
-                                   &operated_datum);
-  if (garrow_error_check(error, status, "[boolean-array][or]")) {
-    auto arrow_operated_array = operated_datum.make_array();
-    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_operated_array));
-  } else {
-    return NULL;
-  }
-}
-
-/**
- * garrow_boolean_array_xor:
- * @left: A left hand side #GArrowBooleanArray.
- * @right: A right hand side #GArrowBooleanArray.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: (transfer full): The element-wise XOR operated boolean array.
- *
- *   It should be freed with g_object_unref() when no longer needed.
- *
- * Since: 0.13.0
- */
-GArrowBooleanArray *
-garrow_boolean_array_xor(GArrowBooleanArray *left,
-                         GArrowBooleanArray *right,
-                         GError **error)
-{
-  auto arrow_left = garrow_array_get_raw(GARROW_ARRAY(left));
-  auto left_datum = arrow::compute::Datum(arrow_left);
-  auto arrow_right = garrow_array_get_raw(GARROW_ARRAY(right));
-  auto right_datum = arrow::compute::Datum(arrow_right);
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum operated_datum;
-  auto status = arrow::compute::Xor(&context,
-                                    left_datum,
-                                    right_datum,
-                                    &operated_datum);
-  if (garrow_error_check(error, status, "[boolean-array][xor]")) {
-    auto arrow_operated_array = operated_datum.make_array();
-    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_operated_array));
-  } else {
-    return NULL;
-  }
-}
-
 
 G_DEFINE_TYPE(GArrowNumericArray,
               garrow_numeric_array,
@@ -937,33 +673,6 @@ garrow_numeric_array_init(GArrowNumericArray *object)
 static void
 garrow_numeric_array_class_init(GArrowNumericArrayClass *klass)
 {
-}
-
-/**
- * garrow_numeric_array_mean:
- * @array: A #GArrowNumericArray.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: The value of the computed mean.
- *
- * Since: 0.13.0
- */
-gdouble
-garrow_numeric_array_mean(GArrowNumericArray *array,
-                          GError **error)
-{
-  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto memory_pool = arrow::default_memory_pool();
-  arrow::compute::FunctionContext context(memory_pool);
-  arrow::compute::Datum mean_datum;
-  auto status = arrow::compute::Mean(&context, arrow_array, &mean_datum);
-  if (garrow_error_check(error, status, "[numeric-array][mean]")) {
-    using ScalarType = typename arrow::TypeTraits<arrow::DoubleType>::ScalarType;
-    auto arrow_numeric_scalar = std::dynamic_pointer_cast<ScalarType>(mean_datum.scalar());
-    return arrow_numeric_scalar->value;
-  } else {
-    return 0.0;
-  }
 }
 
 
@@ -1038,7 +747,6 @@ garrow_int8_array_get_values(GArrowInt8Array *array,
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::Int8Type>(arrow_array, length);
 }
-
 
 G_DEFINE_TYPE(GArrowUInt8Array,
               garrow_uint8_array,

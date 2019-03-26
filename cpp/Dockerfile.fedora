@@ -73,4 +73,4 @@ ENV CC=gcc \
      CMAKE_ARGS="-DgRPC_SOURCE=BUNDLED"
 
 # build; tests don't work on Fedora at the moment due to compiler problems in gcc 8.2 (fixed in 8.3)
-CMD arrow/ci/docker_build_cpp.sh
+CMD ["arrow/ci/docker_build_cpp.sh"]

@@ -847,3 +847,13 @@ This project include code from CMake.
 Copyright: Copyright 2000-2019 Kitware, Inc. and Contributors
 Homepage: https://gitlab.kitware.com/cmake/cmake
 License: 3-clause BSD
+
+--------------------------------------------------------------------------------
+
+This project include code from mingw-w64.
+
+* cpp/src/arrow/util/cpu-info.cc has a polyfill for mingw-w64 < 5
+
+Copyright (c) 2009 - 2013 by the mingw-w64 project
+Homepage: https://mingw-w64.org
+License: Zope Public License (ZPL) Version 2.1.

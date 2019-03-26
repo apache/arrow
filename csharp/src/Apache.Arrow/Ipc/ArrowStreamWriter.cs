@@ -320,7 +320,7 @@ namespace Apache.Arrow.Ipc
         }
 
 
-        private async Task<Offset<Flatbuf.Schema>> WriteSchemaAsync(Schema schema, CancellationToken cancellationToken)
+        private async ValueTask<Offset<Flatbuf.Schema>> WriteSchemaAsync(Schema schema, CancellationToken cancellationToken)
         {
             Builder.Clear();
 
@@ -336,7 +336,7 @@ namespace Apache.Arrow.Ipc
             return schemaOffset;
         }
 
-        private async Task WriteMessageAsync<T>(
+        private async ValueTask WriteMessageAsync<T>(
             Flatbuf.MessageHeader headerType, Offset<T> headerOffset, int bodyLength,
             CancellationToken cancellationToken)
             where T: struct
@@ -350,18 +350,18 @@ namespace Apache.Arrow.Ipc
             var messageData = Builder.DataBuffer.ToReadOnlyMemory(Builder.DataBuffer.Position, Builder.Offset);
             var messagePaddingLength = CalculatePadding(messageData.Length);
 
-            await Buffers.RentReturnAsync(4, (buffer) =>
+            await Buffers.RentReturnAsync(4, async (buffer) =>
             {
                 var metadataSize = messageData.Length + messagePaddingLength;
-                BinaryPrimitives.WriteInt32LittleEndian(buffer, metadataSize);
-                return BaseStream.WriteAsync(buffer, 0, 4, cancellationToken);
+                BinaryPrimitives.WriteInt32LittleEndian(buffer.Span, metadataSize);
+                await BaseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
             }).ConfigureAwait(false);
 
             await BaseStream.WriteAsync(messageData, cancellationToken).ConfigureAwait(false);
             await WritePaddingAsync(messagePaddingLength).ConfigureAwait(false);
         }
 
-        private protected async Task WriteFlatBufferAsync(CancellationToken cancellationToken = default)
+        private protected async ValueTask WriteFlatBufferAsync(CancellationToken cancellationToken = default)
         {
             var segment = Builder.DataBuffer.ToReadOnlyMemory(Builder.DataBuffer.Position, Builder.Offset);
 

@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <unordered_set>
 #include <vector>
 
 #include "parquet/util/visibility.h"
@@ -50,6 +51,42 @@ namespace arrow {
 class ColumnChunkReader;
 class ColumnReader;
 class RowGroupReader;
+
+static constexpr bool DEFAULT_USE_THREADS = false;
+
+/// EXPERIMENTAL: Properties for configuring FileReader behavior.
+class PARQUET_EXPORT ArrowReaderProperties {
+ public:
+  explicit ArrowReaderProperties(bool use_threads = DEFAULT_USE_THREADS)
+      : use_threads_(use_threads), read_dict_indices_() {}
+
+  void set_use_threads(bool use_threads) { use_threads_ = use_threads; }
+
+  bool use_threads() const { return use_threads_; }
+
+  void set_read_dictionary(int column_index, bool read_dict) {
+    if (read_dict) {
+      read_dict_indices_.insert(column_index);
+    } else {
+      read_dict_indices_.erase(column_index);
+    }
+  }
+  bool read_dictionary(int column_index) const {
+    if (read_dict_indices_.find(column_index) != read_dict_indices_.end()) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+ private:
+  bool use_threads_;
+  std::unordered_set<int> read_dict_indices_;
+};
+
+/// EXPERIMENTAL: Constructs the default ArrowReaderProperties
+PARQUET_EXPORT
+ArrowReaderProperties default_arrow_reader_properties();
 
 // Arrow read adapter class for deserializing Parquet files as Arrow row
 // batches.
@@ -109,7 +146,8 @@ class RowGroupReader;
 // arrays
 class PARQUET_EXPORT FileReader {
  public:
-  FileReader(::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader);
+  FileReader(::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
+             const ArrowReaderProperties& properties = default_arrow_reader_properties());
 
   // Since the distribution of columns amongst a Parquet file's row groups may
   // be uneven (the number of values in each column chunk can be different), we
@@ -291,7 +329,7 @@ class PARQUET_EXPORT ColumnReader {
 };
 
 // Helper function to create a file reader from an implementation of an Arrow
-// readable file
+// random access file
 //
 // metadata : separately-computed file metadata, can be nullptr
 PARQUET_EXPORT
@@ -304,6 +342,12 @@ PARQUET_EXPORT
 PARQUET_EXPORT
 ::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                          ::arrow::MemoryPool* allocator,
+                         std::unique_ptr<FileReader>* reader);
+
+PARQUET_EXPORT
+::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
+                         ::arrow::MemoryPool* allocator,
+                         const ArrowReaderProperties& properties,
                          std::unique_ptr<FileReader>* reader);
 
 }  // namespace arrow

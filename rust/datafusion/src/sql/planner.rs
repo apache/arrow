@@ -17,19 +17,23 @@
 
 //! SQL Query Planner (produces logical plan from SQL AST)
 
-use std::collections::HashSet;
 use std::string::String;
 use std::sync::Arc;
 
-use crate::execution::error::*;
-use crate::logicalplan::*;
+use crate::error::{ExecutionError, Result};
+use crate::logicalplan::{Expr, FunctionMeta, LogicalPlan, Operator, ScalarValue};
+use crate::optimizer::utils;
 
 use arrow::datatypes::*;
 
 use sqlparser::sqlast::*;
 
+/// The SchemaProvider trait allows the query planner to obtain meta-data about tables and
+/// functions referenced in SQL statements
 pub trait SchemaProvider {
+    /// Getter for a field description
     fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>>;
+    /// Getter for a UDF description
     fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>>;
 }
 
@@ -109,8 +113,10 @@ impl SqlToRel {
                     let mut all_fields: Vec<Expr> = group_expr.clone();
                     aggr_expr.iter().for_each(|x| all_fields.push(x.clone()));
 
-                    let aggr_schema =
-                        Schema::new(exprlist_to_fields(&all_fields, input_schema));
+                    let aggr_schema = Schema::new(utils::exprlist_to_fields(
+                        &all_fields,
+                        input_schema,
+                    )?);
 
                     //TODO: selection, projection, everything else
                     Ok(Arc::new(LogicalPlan::Aggregate {
@@ -125,10 +131,9 @@ impl SqlToRel {
                         _ => input.clone(),
                     };
 
-                    let projection_schema = Arc::new(Schema::new(exprlist_to_fields(
-                        &expr,
-                        input_schema.as_ref(),
-                    )));
+                    let projection_schema = Arc::new(Schema::new(
+                        utils::exprlist_to_fields(&expr, input_schema.as_ref())?,
+                    ));
 
                     let projection = LogicalPlan::Projection {
                         expr: expr,
@@ -233,9 +238,7 @@ impl SqlToRel {
             }
 
             &ASTNode::SQLWildcard => {
-                //                schema.columns().iter().enumerate()
-                //                    .map(|(i,c)| Ok(Expr::Column(i))).collect()
-                unimplemented!("SQL wildcard operator is not supported in projection - please use explicit column names")
+                Err(ExecutionError::NotImplemented("SQL wildcard operator is not supported in projection - please use explicit column names".to_string()))
             }
 
             &ASTNode::SQLCast {
@@ -278,25 +281,11 @@ impl SqlToRel {
                     &SQLOperator::NotLike => Operator::NotLike,
                 };
 
-                let left_expr = self.sql_to_rex(&left, &schema)?;
-                let right_expr = self.sql_to_rex(&right, &schema)?;
-                let left_type = left_expr.get_type(schema);
-                let right_type = right_expr.get_type(schema);
-
-                match get_supertype(&left_type, &right_type) {
-                    Some(supertype) => Ok(Expr::BinaryExpr {
-                        left: Arc::new(left_expr.cast_to(&supertype, schema)?),
-                        op: operator,
-                        right: Arc::new(right_expr.cast_to(&supertype, schema)?),
-                    }),
-                    None => {
-                        return Err(ExecutionError::General(format!(
-                            "No common supertype found for binary operator {:?} \
-                             with input types {:?} and {:?}",
-                            operator, left_type, right_type
-                        )));
-                    }
-                }
+                Ok(Expr::BinaryExpr {
+                    left: Arc::new(self.sql_to_rex(&left, &schema)?),
+                    op: operator,
+                    right: Arc::new(self.sql_to_rex(&right, &schema)?),
+                })
             }
 
             //            &ASTNode::SQLOrderBy { ref expr, asc } => Ok(Expr::Sort {
@@ -396,127 +385,11 @@ pub fn convert_data_type(sql: &SQLType) -> Result<DataType> {
     }
 }
 
-pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Field {
-    match e {
-        Expr::Column(i) => input_schema.fields()[*i].clone(),
-        Expr::Literal(ref lit) => Field::new("lit", lit.get_datatype(), true),
-        Expr::ScalarFunction {
-            ref name,
-            ref return_type,
-            ..
-        } => Field::new(name, return_type.clone(), true),
-        Expr::AggregateFunction {
-            ref name,
-            ref return_type,
-            ..
-        } => Field::new(name, return_type.clone(), true),
-        Expr::Cast { ref data_type, .. } => Field::new("cast", data_type.clone(), true),
-        Expr::BinaryExpr {
-            ref left,
-            ref right,
-            ..
-        } => {
-            let left_type = left.get_type(input_schema);
-            let right_type = right.get_type(input_schema);
-            Field::new(
-                "binary_expr",
-                get_supertype(&left_type, &right_type).unwrap(),
-                true,
-            )
-        }
-        _ => unimplemented!("Cannot determine schema type for expression {:?}", e),
-    }
-}
-
-pub fn exprlist_to_fields(expr: &Vec<Expr>, input_schema: &Schema) -> Vec<Field> {
-    expr.iter()
-        .map(|e| expr_to_field(e, input_schema))
-        .collect()
-}
-
-fn collect_expr(e: &Expr, accum: &mut HashSet<usize>) {
-    match e {
-        Expr::Column(i) => {
-            accum.insert(*i);
-        }
-        Expr::Cast { ref expr, .. } => collect_expr(expr, accum),
-        Expr::Literal(_) => {}
-        Expr::IsNotNull(ref expr) => collect_expr(expr, accum),
-        Expr::IsNull(ref expr) => collect_expr(expr, accum),
-        Expr::BinaryExpr {
-            ref left,
-            ref right,
-            ..
-        } => {
-            collect_expr(left, accum);
-            collect_expr(right, accum);
-        }
-        Expr::AggregateFunction { ref args, .. } => {
-            args.iter().for_each(|e| collect_expr(e, accum));
-        }
-        Expr::ScalarFunction { ref args, .. } => {
-            args.iter().for_each(|e| collect_expr(e, accum));
-        }
-        Expr::Sort { ref expr, .. } => collect_expr(expr, accum),
-    }
-}
-
-pub fn push_down_projection(
-    plan: &Arc<LogicalPlan>,
-    projection: &HashSet<usize>,
-) -> Arc<LogicalPlan> {
-    //println!("push_down_projection() projection={:?}", projection);
-    match plan.as_ref() {
-        LogicalPlan::Aggregate {
-            ref input,
-            ref group_expr,
-            ref aggr_expr,
-            ref schema,
-        } => {
-            //TODO: apply projection first
-            let mut accum: HashSet<usize> = HashSet::new();
-            group_expr.iter().for_each(|e| collect_expr(e, &mut accum));
-            aggr_expr.iter().for_each(|e| collect_expr(e, &mut accum));
-            Arc::new(LogicalPlan::Aggregate {
-                input: push_down_projection(&input, &accum),
-                group_expr: group_expr.clone(),
-                aggr_expr: aggr_expr.clone(),
-                schema: schema.clone(),
-            })
-        }
-        LogicalPlan::Selection {
-            ref expr,
-            ref input,
-        } => {
-            let mut accum: HashSet<usize> = projection.clone();
-            collect_expr(expr, &mut accum);
-            Arc::new(LogicalPlan::Selection {
-                expr: expr.clone(),
-                input: push_down_projection(&input, &accum),
-            })
-        }
-        LogicalPlan::TableScan {
-            ref schema_name,
-            ref table_name,
-            ref schema,
-            ..
-        } => Arc::new(LogicalPlan::TableScan {
-            schema_name: schema_name.to_string(),
-            table_name: table_name.to_string(),
-            schema: schema.clone(),
-            projection: Some(projection.iter().cloned().collect()),
-        }),
-        LogicalPlan::Projection { .. } => plan.clone(),
-        LogicalPlan::Sort { .. } => plan.clone(),
-        LogicalPlan::Limit { .. } => plan.clone(),
-        LogicalPlan::EmptyRelation { .. } => plan.clone(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
     use super::*;
+    use crate::logicalplan::FunctionType;
     use sqlparser::sqlparser::*;
 
     #[test]
@@ -553,7 +426,7 @@ mod tests {
                    FROM person WHERE state = 'CO' AND age >= 21 AND age <= 65";
         let expected =
             "Projection: #0, #1, #2\
-            \n  Selection: #4 Eq Utf8(\"CO\") And CAST(#3 AS Int64) GtEq Int64(21) And CAST(#3 AS Int64) LtEq Int64(65)\
+            \n  Selection: #4 Eq Utf8(\"CO\") And #3 GtEq Int64(21) And #3 LtEq Int64(65)\
             \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -569,12 +442,12 @@ mod tests {
                    AND age < 65 \
                    AND age <= 65";
         let expected = "Projection: #3, #1, #2\
-                        \n  Selection: CAST(#3 AS Int64) Eq Int64(21) \
-                        And CAST(#3 AS Int64) NotEq Int64(21) \
-                        And CAST(#3 AS Int64) Gt Int64(21) \
-                        And CAST(#3 AS Int64) GtEq Int64(21) \
-                        And CAST(#3 AS Int64) Lt Int64(65) \
-                        And CAST(#3 AS Int64) LtEq Int64(65)\
+                        \n  Selection: #3 Eq Int64(21) \
+                        And #3 NotEq Int64(21) \
+                        And #3 Gt Int64(21) \
+                        And #3 GtEq Int64(21) \
+                        And #3 Lt Int64(65) \
+                        And #3 LtEq Int64(65)\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -638,28 +511,6 @@ mod tests {
                         \n  Projection: #0\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
-    }
-
-    #[test]
-    fn test_collect_expr() {
-        let mut accum: HashSet<usize> = HashSet::new();
-        collect_expr(
-            &Expr::Cast {
-                expr: Arc::new(Expr::Column(3)),
-                data_type: DataType::Float64,
-            },
-            &mut accum,
-        );
-        collect_expr(
-            &Expr::Cast {
-                expr: Arc::new(Expr::Column(3)),
-                data_type: DataType::Float64,
-            },
-            &mut accum,
-        );
-        println!("accum: {:?}", accum);
-        assert_eq!(1, accum.len());
-        assert!(accum.contains(&3));
     }
 
     /// Create logical plan, write with formatter, compare to expected output

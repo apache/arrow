@@ -72,5 +72,5 @@ ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/build/cpp/src/arrow:/opt/conda/lib/pkgco
 ENV LD_LIBRARY_PATH=/opt/conda/lib/:/build/cpp/src/arrow:/arrow/r/src
 
 # build, install, test R package
-CMD /arrow/ci/docker_build_cpp.sh && \
-    /arrow/ci/docker_build_r.sh
+CMD ["/bin/bash", "-c", "/arrow/ci/docker_build_cpp.sh && \
+    /arrow/ci/docker_build_r.sh"]

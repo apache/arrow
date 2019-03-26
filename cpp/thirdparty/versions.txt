@@ -45,6 +45,8 @@ RAPIDJSON_VERSION=2bbd33b33217ff4a73434ebf10cdac41e2ef5e34
 RE2_VERSION=2018-10-01
 SNAPPY_VERSION=1.1.3
 THRIFT_VERSION=0.12.0
+# CMake support appeared after latest release (0.9.1)
+URIPARSER_VERSION=63384be4fb8197264c55ff53a135110ecd5bd8c4
 ZLIB_VERSION=1.2.8
 ZSTD_VERSION=v1.3.7
 
@@ -70,6 +72,7 @@ DEPENDENCIES=(
   "ARROW_RE2_URL re2-${RE2_VERSION}.tar.gz https://github.com/google/re2/archive/${RE2_VERSION}.tar.gz"
   "ARROW_SNAPPY_URL snappy-${SNAPPY_VERSION}.tar.gz https://github.com/google/snappy/releases/download/${SNAPPY_VERSION}/snappy-${SNAPPY_VERSION}.tar.gz"
   "ARROW_THRIFT_URL thrift-${THRIFT_VERSION}.tar.gz http://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz"
+  "ARROW_URIPARSER_URL uriparser-${URIPARSER_VERSION}.tar.gz https://github.com/uriparser/uriparser/archive/${URIPARSER_VERSION}.tar.gz"
   "ARROW_ZLIB_URL zlib-${ZLIB_VERSION}.tar.gz http://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz"
   "ARROW_ZSTD_URL zstd-${ZSTD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/${ZSTD_VERSION}.tar.gz"
 )

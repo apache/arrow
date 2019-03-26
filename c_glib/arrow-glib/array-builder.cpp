@@ -153,6 +153,9 @@ G_BEGIN_DECLS
  *
  * You need to use array builder class to create a new array.
  *
+ * #GArrowNullArrayBuilder is the class to create a new
+ * #GArrowNullArray.
+ *
  * #GArrowBooleanArrayBuilder is the class to create a new
  * #GArrowBooleanArray.
  *
@@ -406,6 +409,81 @@ garrow_array_builder_finish(GArrowArrayBuilder *builder, GError **error)
   } else {
     return NULL;
   }
+}
+
+
+G_DEFINE_TYPE(GArrowNullArrayBuilder,
+              garrow_null_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_null_array_builder_init(GArrowNullArrayBuilder *builder)
+{
+}
+
+static void
+garrow_null_array_builder_class_init(GArrowNullArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_null_array_builder_new:
+ *
+ * Returns: A newly created #GArrowNullArrayBuilder.
+ *
+ * Since: 0.13.0
+ */
+GArrowNullArrayBuilder *
+garrow_null_array_builder_new(void)
+{
+  auto builder = garrow_array_builder_new(arrow::null(),
+                                          NULL,
+                                          "[null-array-builder][new]");
+  return GARROW_NULL_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_null_array_builder_append_null:
+ * @builder: A #GArrowNullArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.13.0
+ */
+gboolean
+garrow_null_array_builder_append_null(GArrowNullArrayBuilder *builder,
+                                      GError **error)
+{
+  return garrow_array_builder_append_null<arrow::NullBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     error,
+     "[null-array-builder][append-null]");
+}
+
+/**
+ * garrow_null_array_builder_append_nulls:
+ * @builder: A #GArrowNullArrayBuilder.
+ * @n: The number of null values to be appended.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple nulls at once. It's more efficient than multiple
+ * `append_null()` calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.13.0
+ */
+gboolean
+garrow_null_array_builder_append_nulls(GArrowNullArrayBuilder *builder,
+                                       gint64 n,
+                                       GError **error)
+{
+  return garrow_array_builder_append_nulls<arrow::NullBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     n,
+     error,
+     "[null-array-builder][append-nulls]");
 }
 
 
@@ -3890,6 +3968,9 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
 {
   if (type == G_TYPE_INVALID) {
     switch (arrow_builder->type()->id()) {
+    case arrow::Type::type::NA:
+      type = GARROW_TYPE_NULL_ARRAY_BUILDER;
+      break;
     case arrow::Type::type::BOOL:
       type = GARROW_TYPE_BOOLEAN_ARRAY_BUILDER;
       break;

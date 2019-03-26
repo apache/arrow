@@ -15,9 +15,7 @@
 # limitations under the License.
 
 os: linux
-dist: trusty
-sudo: required
-language: cpp
+
 services:
   - docker
 

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Runtime expression support
+
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -23,15 +25,18 @@ use arrow::compute;
 use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
-use super::super::logicalplan::{Expr, Operator, ScalarValue};
-use super::context::ExecutionContext;
-use super::error::{ExecutionError, Result};
+use crate::error::{ExecutionError, Result};
+use crate::execution::context::ExecutionContext;
+use crate::logicalplan::{Expr, Operator, ScalarValue};
 
 /// Compiled Expression (basically just a closure to evaluate the expression at runtime)
 pub type CompiledExpr = Rc<Fn(&RecordBatch) -> Result<ArrayRef>>;
 
+/// Similar to `CompiledExpr` but the closure transforms `ArrayRef` to another `ArrayRef`
 pub type CompiledCastFunction = Rc<Fn(&ArrayRef) -> Result<ArrayRef>>;
 
+/// Enumeration of supported aggregate functions
+#[allow(missing_docs)] // seems like these variants are self-evident
 pub enum AggregateType {
     Min,
     Max,
@@ -42,7 +47,7 @@ pub enum AggregateType {
 }
 
 /// Runtime expression
-pub enum RuntimeExpr {
+pub(super) enum RuntimeExpr {
     Compiled {
         name: String,
         f: CompiledExpr,
@@ -82,7 +87,7 @@ impl RuntimeExpr {
 }
 
 /// Compiles a scalar expression into a closure
-pub fn compile_expr(
+pub(super) fn compile_expr(
     ctx: &ExecutionContext,
     expr: &Expr,
     input_schema: &Schema,
@@ -250,7 +255,7 @@ macro_rules! literal_array {
 }
 
 /// Compiles a scalar expression into a closure
-pub fn compile_scalar_expr(
+pub(super) fn compile_scalar_expr(
     ctx: &ExecutionContext,
     expr: &Expr,
     input_schema: &Schema,

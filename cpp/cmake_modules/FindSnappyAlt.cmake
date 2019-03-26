@@ -16,27 +16,22 @@
 # under the License.
 
 if(Snappy_ROOT)
-  find_library(Snappy_LIB
-    NAMES snappy
-    PATHS ${Snappy_ROOT}
-    NO_DEFAULT_PATH)
-  find_path(Snappy_INCLUDE_DIR NAMES snappy.h
-    PATHS ${Snappy_ROOT} NO_DEFAULT_PATH
-    PATH_SUFFIXES "include")
+  find_library(Snappy_LIB NAMES snappy PATHS ${Snappy_ROOT} NO_DEFAULT_PATH)
+  find_path(Snappy_INCLUDE_DIR
+            NAMES snappy.h
+            PATHS ${Snappy_ROOT}
+            NO_DEFAULT_PATH
+            PATH_SUFFIXES "include")
 else()
-  find_library(Snappy_LIB
-    NAMES snappy)
-  find_path(Snappy_INCLUDE_DIR NAMES snappy.h
-    PATH_SUFFIXES "include")
+  find_library(Snappy_LIB NAMES snappy)
+  find_path(Snappy_INCLUDE_DIR NAMES snappy.h PATH_SUFFIXES "include")
 endif()
 
-find_package_handle_standard_args(SnappyAlt
-  REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)
+find_package_handle_standard_args(SnappyAlt REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)
 
-if (SnappyAlt_FOUND)
+if(SnappyAlt_FOUND)
   add_library(Snappy::snappy UNKNOWN IMPORTED)
-  set_target_properties(Snappy::snappy PROPERTIES
-          IMPORTED_LOCATION "${Snappy_LIB}"
-          INTERFACE_INCLUDE_DIRECTORIES "${Snappy_INCLUDE_DIR}"
-  )
+  set_target_properties(Snappy::snappy
+                        PROPERTIES IMPORTED_LOCATION "${Snappy_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${Snappy_INCLUDE_DIR}")
 endif()

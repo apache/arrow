@@ -34,7 +34,7 @@ tagrc=${tag}-rc${rc}
 
 echo "Preparing source for tag ${tag}"
 
-release_hash=`git rev-list $tag 2> /dev/null | head -n 1 `
+: ${release_hash=:`git rev-list $tag 2> /dev/null | head -n 1 `}
 
 if [ -z "$release_hash" ]; then
   echo "Cannot continue: unknown git tag: $tag"
@@ -68,8 +68,14 @@ rm -rf ${tag}/c_glib
 tar xf ${dist_c_glib_tar_gz} -C ${tag}
 rm -f ${dist_c_glib_tar_gz}
 
+# Resolve all hard and symbolic links
+rm -rf ${tag}.tmp
+mv ${tag} ${tag}.tmp
+cp -r -L ${tag}.tmp ${tag}
+rm -rf ${tag}.tmp
+
 # Create new tarball from modified source directory
-tar czhf ${tarball} ${tag}
+tar czf ${tarball} ${tag}
 rm -rf ${tag}
 
 ${SOURCE_DIR}/run-rat.sh ${tarball}

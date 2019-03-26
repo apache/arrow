@@ -22,15 +22,16 @@
 
 LANGUAGES = cpp cpp-alpine cpp-cmake32 c_glib go java js python python-alpine rust r
 MISC = lint iwyu clang-format docs pandas-master
-SERVERS = dask hdfs-integration spark-integration
+TESTS = dask hdfs-integration spark-integration python-nopandas
 
 # declare images dependencies
 DEPENDS_ON_CPP = build-c_glib build-python build-r
 DEPENDS_ON_CPP_ALPINE = build-python-alpine
-DEPENDS_ON_PYTHON = build-lint build-docs build-dask build-hdfs-integration build-spark-integration
+DEPENDS_ON_PYTHON = build-lint build-docs build-dask build-hdfs-integration \
+                    build-spark-integration build-python-nopandas
 DEPENDS_ON_LINT = build-iwyu build-clang-format
 
-SERVICES = $(LANGUAGES) $(MISC) $(SERVERS)
+SERVICES = $(LANGUAGES) $(MISC) $(TESTS)
 .PHONY: clean build-% run-% $(SERVICES)
 
 DC := docker-compose

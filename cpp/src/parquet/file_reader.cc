@@ -38,8 +38,6 @@
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 
-using std::string;
-
 namespace parquet {
 
 // PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file

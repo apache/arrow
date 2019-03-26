@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "arrow/api.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
@@ -2438,6 +2439,80 @@ TEST(TestArrowWriterAdHoc, SchemaMismatch) {
   auto tbl = ::arrow::Table::Make(table_schm, {col});
   ASSERT_RAISES(Invalid, writer->WriteTable(*tbl, 1));
 }
+
+// ----------------------------------------------------------------------
+// Tests for directly reading DictionaryArray
+class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
+ public:
+  void SetUp() override {
+    GenerateData(GetParam());
+    ASSERT_NO_FATAL_FAILURE(
+        WriteTableToBuffer(expected_dense_, expected_dense_->num_rows() / 2,
+                           default_arrow_writer_properties(), &buffer_));
+
+    properties_ = default_arrow_reader_properties();
+  }
+
+  void GenerateData(double null_probability) {
+    constexpr int num_unique = 100;
+    constexpr int repeat = 10;
+    constexpr int64_t min_length = 2;
+    constexpr int64_t max_length = 10;
+    ::arrow::random::RandomArrayGenerator rag(0);
+    auto dense_array = rag.StringWithRepeats(repeat * num_unique, num_unique, min_length,
+                                             max_length, null_probability);
+    expected_dense_ = MakeSimpleTable(dense_array, /*nullable=*/true);
+
+    ::arrow::StringDictionaryBuilder builder(default_memory_pool());
+    const auto& string_array = static_cast<const ::arrow::StringArray&>(*dense_array);
+    ASSERT_OK(builder.AppendArray(string_array));
+
+    std::shared_ptr<::arrow::Array> dict_array;
+    ASSERT_OK(builder.Finish(&dict_array));
+    expected_dict_ = MakeSimpleTable(dict_array, /*nullable=*/true);
+
+    // TODO(hatemhelal): Figure out if we can use the following to init the expected_dict_
+    // Currently fails due to DataType mismatch for indices array.
+    //    Datum out;
+    //    FunctionContext ctx(default_memory_pool());
+    //    ASSERT_OK(DictionaryEncode(&ctx, Datum(dense_array), &out));
+    //    expected_dict_ = MakeSimpleTable(out.make_array(), /*nullable=*/true);
+  }
+
+  void TearDown() override {}
+
+  void CheckReadWholeFile(const Table& expected) {
+    std::unique_ptr<FileReader> reader;
+    ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer_),
+                                ::arrow::default_memory_pool(), properties_, &reader));
+
+    std::shared_ptr<Table> actual;
+    ASSERT_OK_NO_THROW(reader->ReadTable(&actual));
+    ::arrow::AssertTablesEqual(*actual, expected, /*same_chunk_layout=*/false);
+  }
+
+  static std::vector<double> null_probabilites() { return {0.0, 0.5, 1}; }
+
+ protected:
+  std::shared_ptr<Table> expected_dense_;
+  std::shared_ptr<Table> expected_dict_;
+  std::shared_ptr<Buffer> buffer_;
+  ArrowReaderProperties properties_;
+};
+
+TEST_P(TestArrowReadDictionary, ReadWholeFileDict) {
+  properties_.set_read_dictionary(0, true);
+  CheckReadWholeFile(*expected_dict_);
+}
+
+TEST_P(TestArrowReadDictionary, ReadWholeFileDense) {
+  properties_.set_read_dictionary(0, false);
+  CheckReadWholeFile(*expected_dense_);
+}
+
+INSTANTIATE_TEST_CASE_P(
+    ReadDictionary, TestArrowReadDictionary,
+    ::testing::ValuesIn(TestArrowReadDictionary::null_probabilites()));
 
 }  // namespace arrow
 

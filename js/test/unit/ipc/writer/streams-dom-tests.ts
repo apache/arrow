@@ -32,7 +32,6 @@ import {
 } from '../../../Arrow';
 
 import {
-    nodeToDOMStream,
     ArrowIOTestHelper,
     concatBuffersAsync,
     readableDOMStreamToAsyncIterator
@@ -49,9 +48,6 @@ import {
     if (process.env.TEST_DOM_STREAMS !== 'true') {
         return test('not testing DOM streams because process.env.TEST_DOM_STREAMS !== "true"', () => {});
     }
-
-    /* tslint:disable */
-    const { PassThrough } = require('stream');
 
     /* tslint:disable */
     const { parse: bignumJSONParse } = require('json-bignum');
@@ -233,19 +229,16 @@ import {
 
     describe(`RecordBatchStreamWriter.throughDOM`, () => {
 
-        const psOpts = { objectMode: true };
         const opts = { autoDestroy: false };
         const sleep = (n: number) => new Promise((r) => setTimeout(r, n));
 
         it(`should write a stream of tables to the same output stream`, async () => {
 
             const tables = [] as Table[];
-            const stream = (AsyncIterable.from(generateRandomTables([10, 20, 30]))
+            const stream = AsyncIterable.from(generateRandomTables([10, 20, 30]))
                 // insert some asynchrony
                 .tap({ async next(table) { tables.push(table); await sleep(1); } })
-                // have to bail out to `any` until Ix supports DOM streams
-                .pipe((xs: any) => <any> nodeToDOMStream(xs.pipe(new PassThrough(psOpts)))) as any)
-                .pipeThrough(RecordBatchStreamWriter.throughDOM(opts)) as ReadableStream<Uint8Array>;
+                .pipeThrough(RecordBatchStreamWriter.throughDOM(opts));
 
             for await (const reader of RecordBatchReader.readAll(stream)) {
                 const sourceTable = tables.shift()!;
@@ -260,14 +253,12 @@ import {
         it(`should write a stream of record batches to the same output stream`, async () => {
 
             const tables = [] as Table[];
-            const stream = (AsyncIterable.from(generateRandomTables([10, 20, 30]))
+            const stream = AsyncIterable.from(generateRandomTables([10, 20, 30]))
                 // insert some asynchrony
                 .tap({ async next(table) { tables.push(table); await sleep(1); } })
                 // flatMap from Table -> RecordBatches[]
                 .flatMap((table) => AsyncIterable.as(table.chunks))
-                // have to bail out to `any` until Ix supports DOM streams
-                .pipe((xs: any) => <any> nodeToDOMStream(xs.pipe(new PassThrough(psOpts)))) as any)
-                .pipeThrough(RecordBatchStreamWriter.throughDOM(opts)) as ReadableStream<Uint8Array>;
+                .pipeThrough(RecordBatchStreamWriter.throughDOM(opts));
     
             for await (const reader of RecordBatchReader.readAll(stream)) {
                 const sourceTable = tables.shift()!;

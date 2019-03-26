@@ -15,11 +15,11 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Developing Apache Arrow
-=======================
-
 .. toctree::
    :maxdepth: 2
 
+   contributing
+   cpp
+   python
    integration
    documentation

@@ -25,6 +25,7 @@ import numpy as np
 import os
 import re
 import six
+import warnings
 
 import pyarrow as pa
 import pyarrow.lib as lib
@@ -114,9 +115,9 @@ class ParquetFile(object):
     source : str, pathlib.Path, pyarrow.NativeFile, or file-like object
         Readable source. For passing bytes or buffer-like file containing a
         Parquet file, use pyarorw.BufferReader
-    metadata : ParquetFileMetadata, default None
+    metadata : FileMetaData, default None
         Use existing metadata object, rather than reading from file.
-    common_metadata : ParquetFileMetadata, default None
+    common_metadata : FileMetaData, default None
         Will be used in reads for pandas schema metadata if not found in the
         main file's metadata, no other uses at the moment
     memory_map : boolean, default True
@@ -257,9 +258,9 @@ class ParquetFile(object):
                 index_columns = []
 
             if indices is not None and index_columns:
-                indices += [self.reader.column_name_idx(descr['field_name'])
+                indices += [self.reader.column_name_idx(descr)
                             for descr in index_columns
-                            if descr['kind'] == 'serialized']
+                            if not isinstance(descr, dict)]
 
         return indices
 
@@ -480,12 +481,37 @@ class ParquetDatasetPiece(object):
 
         return result
 
-    def get_metadata(self):
+    def get_metadata(self, open_file_func=None):
         """
-        Given a function that can create an open ParquetFile object, return the
-        file's metadata
+        Returns the file's metadata
+
+        Parameters
+        ----------
+        open_file_func : function, deprecated
+            Function to use for obtaining file handle to dataset piece.
+            Deprecated in version 0.13.0. Use ``open_file_func`` parameter of
+            the constructor instead.
+
+        Returns
+        -------
+        metadata : FileMetaData
         """
-        return self.open().metadata
+        if open_file_func is not None:
+            f = self._open(open_file_func)
+        else:
+            f = self.open()
+        return f.metadata
+
+    def _open(self, open_file_func):
+        """
+        Returns instance of ParquetFile
+        """
+        warnings.warn('open_file_func argument is deprecated, please pass '
+                      'it to ParquetDatasetPiece instead', DeprecationWarning)
+        reader = open_file_func(self.path)
+        if not isinstance(reader, ParquetFile):
+            reader = ParquetFile(reader)
+        return reader
 
     def open(self):
         """
@@ -497,7 +523,7 @@ class ParquetDatasetPiece(object):
         return reader
 
     def read(self, columns=None, use_threads=True, partitions=None,
-             file=None, use_pandas_metadata=False):
+             open_file_func=None, file=None, use_pandas_metadata=False):
         """
         Read this piece as a pyarrow.Table
 
@@ -507,9 +533,10 @@ class ParquetDatasetPiece(object):
         use_threads : boolean, default True
             Perform multi-threaded column reads
         partitions : ParquetPartitions, default None
-        open_file_func : function, default None
-            A function that knows how to construct a ParquetFile object given
-            the file path in this piece
+        open_file_func : function, deprecated
+            Function to use for obtaining file handle to dataset piece.
+            Deprecated in version 0.13.0. Use ``open_file_func`` parameter of
+            the constructor instead.
         file : file-like object
             passed to ParquetFile
 
@@ -517,7 +544,9 @@ class ParquetDatasetPiece(object):
         -------
         table : pyarrow.Table
         """
-        if self.open_file_func is not None:
+        if open_file_func is not None:
+            reader = self._open(open_file_func)
+        elif self.open_file_func is not None:
             reader = self.open()
         elif file is not None:
             reader = ParquetFile(file)
@@ -1203,7 +1232,7 @@ def _mkdir_if_not_exists(fs, path):
 
 
 def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
-                     **kwargs):
+                     preserve_index=None, **kwargs):
     """
     Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
@@ -1236,6 +1265,10 @@ def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
         Columns are partitioned in the order they are given
     **kwargs : dict, kwargs for write_table function.
     """
+    if preserve_index is not None:
+        warnings.warn('preserve_index argument is deprecated as of 0.13.0 and '
+                      'has no effect', DeprecationWarning)
+
     fs, root_path = _get_filesystem_and_path(filesystem, root_path)
 
     _mkdir_if_not_exists(fs, root_path)

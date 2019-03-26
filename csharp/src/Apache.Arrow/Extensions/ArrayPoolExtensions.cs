@@ -23,14 +23,14 @@ namespace Apache.Arrow
     internal static class ArrayPoolExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void RentReturn(this ArrayPool<byte> pool, int length, Action<byte[]> action)
+        public static void RentReturn(this ArrayPool<byte> pool, int length, Action<Memory<byte>> action)
         {
             byte[] array = null;
 
             try
             {
                 array = pool.Rent(length);
-                action(array);
+                action(array.AsMemory(0, length));
             }
             finally
             {
@@ -42,14 +42,14 @@ namespace Apache.Arrow
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Task RentReturnAsync(this ArrayPool<byte> pool, int length, Func<byte[], Task> action)
+        public static ValueTask RentReturnAsync(this ArrayPool<byte> pool, int length, Func<Memory<byte>, ValueTask> action)
         {
             byte[] array = null;
 
             try
             {
                 array = pool.Rent(length);
-                return action(array);
+                return action(array.AsMemory(0, length));
             }
             finally
             {

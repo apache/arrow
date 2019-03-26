@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/compare.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
@@ -39,8 +40,6 @@ namespace arrow {
 
 class Array;
 class ArrayVisitor;
-
-using BufferVector = std::vector<std::shared_ptr<Buffer>>;
 
 // When slicing, we do not know the null count of the sliced range without
 // doing some computation. To avoid doing this eagerly, we set the null count
@@ -67,7 +66,7 @@ class Status;
 /// could cast from int64 to float64 like so:
 ///
 /// Int64Array arr = GetMyData();
-/// auto new_data = arr.data()->ShallowCopy();
+/// auto new_data = arr.data()->Copy();
 /// new_data->type = arrow::float64();
 /// DoubleArray double_arr(new_data);
 ///
@@ -75,7 +74,7 @@ class Status;
 /// reused. For example, if we had a group of operations all returning doubles,
 /// say:
 ///
-/// Log(Sqrt(Expr(arr))
+/// Log(Sqrt(Expr(arr)))
 ///
 /// Then the low-level implementations of each of these functions could have
 /// the signatures
@@ -146,6 +145,7 @@ struct ARROW_EXPORT ArrayData {
         buffers(std::move(other.buffers)),
         child_data(std::move(other.child_data)) {}
 
+  // Copy constructor
   ArrayData(const ArrayData& other) noexcept
       : type(other.type),
         length(other.length),
@@ -155,15 +155,10 @@ struct ARROW_EXPORT ArrayData {
         child_data(other.child_data) {}
 
   // Move assignment
-  ArrayData& operator=(ArrayData&& other) {
-    type = std::move(other.type);
-    length = other.length;
-    null_count = other.null_count;
-    offset = other.offset;
-    buffers = std::move(other.buffers);
-    child_data = std::move(other.child_data);
-    return *this;
-  }
+  ArrayData& operator=(ArrayData&& other) = default;
+
+  // Copy assignment
+  ArrayData& operator=(const ArrayData& other) = default;
 
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
 
@@ -196,6 +191,9 @@ struct ARROW_EXPORT ArrayData {
   inline T* GetMutableValues(int i) {
     return GetMutableValues<T>(i, offset);
   }
+
+  // Construct a zero-copy slice of the data with the indicated offset and length
+  ArrayData Slice(int64_t offset, int64_t length) const;
 
   /// \brief Return null count, or compute and set it if it's not known
   int64_t GetNullCount() const;
@@ -275,11 +273,16 @@ class ARROW_EXPORT Array {
   /// This buffer does not account for any slice offset
   const uint8_t* null_bitmap_data() const { return null_bitmap_data_; }
 
+  /// Equality comparison with another array
   bool Equals(const Array& arr) const;
   bool Equals(const std::shared_ptr<Array>& arr) const;
 
-  bool ApproxEquals(const std::shared_ptr<Array>& arr) const;
-  bool ApproxEquals(const Array& arr) const;
+  /// Approximate equality comparison with another array
+  ///
+  /// epsilon is only used if this is FloatArray or DoubleArray
+  bool ApproxEquals(const std::shared_ptr<Array>& arr,
+                    double epsilon = kDefaultAbsoluteTolerance) const;
+  bool ApproxEquals(const Array& arr, double epsilon = kDefaultAbsoluteTolerance) const;
 
   /// Compare if the range of slots specified are equal for the given array and
   /// this array.  end_idx exclusive.  This methods does not bounds check.

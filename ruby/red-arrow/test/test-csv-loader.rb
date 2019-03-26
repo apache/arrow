@@ -141,5 +141,35 @@ count
 4
                    CSV
     end
+
+    test(":encoding") do
+      messages = [
+        "\u3042", # U+3042 HIRAGANA LETTER A
+        "\u3044", # U+3044 HIRAGANA LETTER I
+        "\u3046", # U+3046 HIRAGANA LETTER U
+      ]
+      table = Arrow::Table.new(:message => Arrow::StringArray.new(messages))
+      encoding = "cp932"
+      assert_equal(table,
+                   load_csv((["message"] + messages).join("\n").encode(encoding),
+                            schema: table.schema,
+                            encoding: encoding))
+    end
+
+    test(":encoding and :compression") do
+      messages = [
+        "\u3042", # U+3042 HIRAGANA LETTER A
+        "\u3044", # U+3044 HIRAGANA LETTER I
+        "\u3046", # U+3046 HIRAGANA LETTER U
+      ]
+      table = Arrow::Table.new(:message => Arrow::StringArray.new(messages))
+      encoding = "cp932"
+      csv = (["message"] + messages).join("\n").encode(encoding)
+      assert_equal(table,
+                   load_csv(Zlib::Deflate.deflate(csv),
+                            schema: table.schema,
+                            encoding: encoding,
+                            compression: :gzip))
+    end
   end
 end

@@ -64,7 +64,7 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
                                  "hashtable://test -s " + store_socket_name_ +
                                  " 1> /tmp/log.stdout 2> /tmp/log.stderr & " +
                                  "echo $! > " + store_socket_name_ + ".pid";
-    system(plasma_command.c_str());
+    PLASMA_CHECK_SYSTEM(system(plasma_command.c_str()));
     ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
   }
   void TearDown() override {
@@ -73,12 +73,14 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
 #ifdef COVERAGE_BUILD
     // Ask plasma_store to exit gracefully and give it time to write out
     // coverage files
-    std::string plasma_term_command = "kill -TERM `cat " + store_socket_name_ + ".pid`";
-    system(plasma_term_command.c_str());
+    std::string plasma_term_command =
+        "kill -TERM `cat " + store_socket_name_ + ".pid` || exit 0";
+    PLASMA_CHECK_SYSTEM(system(plasma_term_command.c_str()));
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
 #endif
-    std::string plasma_kill_command = "kill -KILL `cat " + store_socket_name_ + ".pid`";
-    system(plasma_kill_command.c_str());
+    std::string plasma_kill_command =
+        "kill -KILL `cat " + store_socket_name_ + ".pid` || exit 0";
+    PLASMA_CHECK_SYSTEM(system(plasma_kill_command.c_str()));
   }
 
  protected:

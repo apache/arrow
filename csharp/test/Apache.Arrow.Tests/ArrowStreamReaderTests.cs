@@ -16,7 +16,7 @@
 using Apache.Arrow.Ipc;
 using System;
 using System.IO;
-using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -49,7 +49,22 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
-        public async Task ReadRecordBatch()
+        public async Task ReadRecordBatch_Memory()
+        {
+            await TestReaderFromMemory((reader, originalBatch) =>
+            {
+                ArrowReaderVerifier.VerifyReader(reader, originalBatch);
+                return Task.CompletedTask;
+            });
+        }
+
+        [Fact]
+        public async Task ReadRecordBatchAsync_Memory()
+        {
+            await TestReaderFromMemory(ArrowReaderVerifier.VerifyReaderAsync);
+        }
+
+        private static async Task TestReaderFromMemory(Func<ArrowStreamReader, RecordBatch, Task> verificationFunc)
         {
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
 
@@ -62,92 +77,105 @@ namespace Apache.Arrow.Tests
             }
 
             ArrowStreamReader reader = new ArrowStreamReader(buffer);
-            RecordBatch readBatch = reader.ReadNextRecordBatch();
-            CompareBatches(originalBatch, readBatch);
-
-            // There should only be one batch - calling ReadNextRecordBatch again should return null.
-            Assert.Null(reader.ReadNextRecordBatch());
-            Assert.Null(reader.ReadNextRecordBatch());
+            await verificationFunc(reader, originalBatch);
         }
 
-        private void CompareBatches(RecordBatch expectedBatch, RecordBatch actualBatch)
+        [Fact]
+        public async Task ReadRecordBatch_Stream()
         {
-            CompareSchemas(expectedBatch.Schema, actualBatch.Schema);
-            Assert.Equal(expectedBatch.Length, actualBatch.Length);
-            Assert.Equal(expectedBatch.ColumnCount, actualBatch.ColumnCount);
-
-            for (int i = 0; i < expectedBatch.ColumnCount; i++)
+            await TestReaderFromStream((reader, originalBatch) =>
             {
-                IArrowArray expectedArray = expectedBatch.Arrays.ElementAt(i);
-                IArrowArray actualArray = actualBatch.Arrays.ElementAt(i);
+                ArrowReaderVerifier.VerifyReader(reader, originalBatch);
+                return Task.CompletedTask;
+            });
+        }
 
-                actualArray.Accept(new ArrayComparer(expectedArray));
+        [Fact]
+        public async Task ReadRecordBatchAsync_Stream()
+        {
+            await TestReaderFromStream(ArrowReaderVerifier.VerifyReaderAsync);
+        }
+
+        private static async Task TestReaderFromStream(Func<ArrowStreamReader, RecordBatch, Task> verificationFunc)
+        {
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+
+            using (MemoryStream stream = new MemoryStream())
+            {
+                ArrowStreamWriter writer = new ArrowStreamWriter(stream, originalBatch.Schema);
+                await writer.WriteRecordBatchAsync(originalBatch);
+
+                stream.Position = 0;
+
+                ArrowStreamReader reader = new ArrowStreamReader(stream);
+                await verificationFunc(reader, originalBatch);
             }
         }
 
-        private void CompareSchemas(Schema expectedSchema, Schema actualSchema)
+        [Fact]
+        public async Task ReadRecordBatch_PartialReadStream()
         {
-            Assert.True(SchemaComparer.Equals(expectedSchema, actualSchema));
+            await TestReaderFromPartialReadStream((reader, originalBatch) =>
+            {
+                ArrowReaderVerifier.VerifyReader(reader, originalBatch);
+                return Task.CompletedTask;
+            });
         }
 
-        private class ArrayComparer :
-            IArrowArrayVisitor<Int8Array>,
-            IArrowArrayVisitor<Int16Array>,
-            IArrowArrayVisitor<Int32Array>,
-            IArrowArrayVisitor<Int64Array>,
-            IArrowArrayVisitor<UInt8Array>,
-            IArrowArrayVisitor<UInt16Array>,
-            IArrowArrayVisitor<UInt32Array>,
-            IArrowArrayVisitor<UInt64Array>,
-            IArrowArrayVisitor<FloatArray>,
-            IArrowArrayVisitor<DoubleArray>,
-            IArrowArrayVisitor<BooleanArray>,
-            IArrowArrayVisitor<TimestampArray>,
-            IArrowArrayVisitor<Date32Array>,
-            IArrowArrayVisitor<Date64Array>,
-            IArrowArrayVisitor<ListArray>,
-            IArrowArrayVisitor<StringArray>,
-            IArrowArrayVisitor<BinaryArray>
+        [Fact]
+        public async Task ReadRecordBatchAsync_PartialReadStream()
         {
-            private readonly IArrowArray _expectedArray;
+            await TestReaderFromPartialReadStream(ArrowReaderVerifier.VerifyReaderAsync);
+        }
 
-            public ArrayComparer(IArrowArray expectedArray)
+        /// <summary>
+        /// Verifies that the stream reader reads multiple times when a stream
+        /// only returns a subset of the data from each Read.
+        /// </summary>
+        private static async Task TestReaderFromPartialReadStream(Func<ArrowStreamReader, RecordBatch, Task> verificationFunc)
+        {
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+
+            using (PartialReadStream stream = new PartialReadStream())
             {
-                _expectedArray = expectedArray;
+                ArrowStreamWriter writer = new ArrowStreamWriter(stream, originalBatch.Schema);
+                await writer.WriteRecordBatchAsync(originalBatch);
+
+                stream.Position = 0;
+
+                ArrowStreamReader reader = new ArrowStreamReader(stream);
+                await verificationFunc(reader, originalBatch);
+            }
+        }
+
+        /// <summary>
+        /// A stream class that only returns a part of the data at a time.
+        /// </summary>
+        private class PartialReadStream : MemoryStream
+        {
+            // by default return 20 bytes at a time
+            public int PartialReadLength { get; set; } = 20;
+
+            public override int Read(Span<byte> destination)
+            {
+                if (destination.Length > PartialReadLength)
+                {
+                    destination = destination.Slice(0, PartialReadLength);
+                }
+
+                return base.Read(destination);
             }
 
-            public void Visit(Int8Array array) => CompareArrays(array);
-            public void Visit(Int16Array array) => CompareArrays(array);
-            public void Visit(Int32Array array) => CompareArrays(array);
-            public void Visit(Int64Array array) => CompareArrays(array);
-            public void Visit(UInt8Array array) => CompareArrays(array);
-            public void Visit(UInt16Array array) => CompareArrays(array);
-            public void Visit(UInt32Array array) => CompareArrays(array);
-            public void Visit(UInt64Array array) => CompareArrays(array);
-            public void Visit(FloatArray array) => CompareArrays(array);
-            public void Visit(DoubleArray array) => CompareArrays(array);
-            public void Visit(BooleanArray array) => CompareArrays(array);
-            public void Visit(TimestampArray array) => CompareArrays(array);
-            public void Visit(Date32Array array) => CompareArrays(array);
-            public void Visit(Date64Array array) => CompareArrays(array);
-            public void Visit(ListArray array) => throw new NotImplementedException();
-            public void Visit(StringArray array) => throw new NotImplementedException();
-            public void Visit(BinaryArray array) => throw new NotImplementedException();
-            public void Visit(IArrowArray array) => throw new NotImplementedException();
-
-            private void CompareArrays<T>(PrimitiveArray<T> actualArray)
-                where T : struct, IEquatable<T>
+            public override ValueTask<int> ReadAsync(Memory<byte> destination, CancellationToken cancellationToken = default)
             {
-                Assert.IsAssignableFrom<PrimitiveArray<T>>(_expectedArray);
-                PrimitiveArray<T> expectedArray = (PrimitiveArray<T>)_expectedArray;
+                if (destination.Length > PartialReadLength)
+                {
+                    destination = destination.Slice(0, PartialReadLength);
+                }
 
-                Assert.Equal(expectedArray.Length, actualArray.Length);
-                Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
-                Assert.Equal(expectedArray.Offset, actualArray.Offset);
-
-                Assert.True(expectedArray.NullBitmapBuffer.Span.SequenceEqual(actualArray.NullBitmapBuffer.Span));
-                Assert.True(expectedArray.Values.Slice(0, expectedArray.Length).SequenceEqual(actualArray.Values.Slice(0, actualArray.Length)));
+                return base.ReadAsync(destination, cancellationToken);
             }
         }
     }
 }
+

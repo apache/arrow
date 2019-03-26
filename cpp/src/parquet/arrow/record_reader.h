@@ -51,7 +51,8 @@ class RecordReader {
 
   static std::shared_ptr<RecordReader> Make(
       const ColumnDescriptor* descr,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+      const bool read_dictionary = false);
 
   virtual ~RecordReader();
 
@@ -111,6 +112,10 @@ class RecordReader {
  private:
   std::unique_ptr<RecordReaderImpl> impl_;
   explicit RecordReader(RecordReaderImpl* impl);
+
+  static std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
+      const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
+      const bool read_dictionary);
 };
 
 }  // namespace internal

@@ -66,6 +66,8 @@
     ERR_getErrorString;
     # jemalloc
     je_arrow_*;
+    # uriparser
+    uri*;
     # ORC destructors
     _ZThn8_N3orc*;
     # Protobuf symbols that aren't hidden by the C++ section below

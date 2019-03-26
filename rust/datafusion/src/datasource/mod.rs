@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! DataFusion data sources
+
 pub mod csv;
 pub mod datasource;
 pub mod memory;

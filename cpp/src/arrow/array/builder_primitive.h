@@ -32,11 +32,16 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   explicit NullBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
       : ArrayBuilder(null(), pool) {}
 
-  Status AppendNull() {
-    ++null_count_;
-    ++length_;
+  /// \brief Append the specified number of null elements
+  Status AppendNulls(int64_t length) {
+    if (length < 0) return Status::Invalid("length must be positive");
+    null_count_ += length;
+    length_ += length;
     return Status::OK();
   }
+
+  /// \brief Append a single null element
+  Status AppendNull() { return AppendNulls(1); }
 
   Status Append(std::nullptr_t) { return AppendNull(); }
 

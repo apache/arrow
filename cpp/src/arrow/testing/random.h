@@ -198,6 +198,35 @@ class ARROW_EXPORT RandomArrayGenerator {
     }
   }
 
+  /// \brief Generates a random StringArray
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] min_length the lower bound of the string length
+  ///            determined by the uniform distribution
+  /// \param[in] max_length the upper bound of the string length
+  ///            determined by the uniform distribution
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> String(int64_t size, int32_t min_length,
+                                       int32_t max_length, double null_probability);
+
+  /// \brief Generates a random StringArray with repeated values
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] unique the number of unique string values used
+  ///            to populate the array
+  /// \param[in] min_length the lower bound of the string length
+  ///            determined by the uniform distribution
+  /// \param[in] max_length the upper bound of the string length
+  ///            determined by the uniform distribution
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<arrow::Array> StringWithRepeats(int64_t size, int64_t unique,
+                                                  int32_t min_length, int32_t max_length,
+                                                  double null_probability);
+
  private:
   SeedType seed() { return seed_distribution_(seed_rng_); }
 

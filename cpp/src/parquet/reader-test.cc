@@ -33,8 +33,6 @@
 #include "parquet/util/memory.h"
 #include "parquet/util/test-common.h"
 
-using std::string;
-
 namespace parquet {
 
 using ReadableFile = ::arrow::io::ReadableFile;

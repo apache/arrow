@@ -36,12 +36,16 @@ public class FlightServer implements AutoCloseable {
 
   private final Server server;
 
+  /** The maximum size of an individual gRPC message. This effectively disables the limit. */
+  static final int MAX_GRPC_MESSAGE_SIZE = Integer.MAX_VALUE;
+
   public FlightServer(
       BufferAllocator allocator,
       int port,
       FlightProducer producer,
       ServerAuthHandler authHandler) {
     this.server = ServerBuilder.forPort(port)
+        .maxInboundMessageSize(MAX_GRPC_MESSAGE_SIZE)
         .addService(
             ServerInterceptors.intercept(
                 new FlightBindingService(allocator, producer, authHandler),

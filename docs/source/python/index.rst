@@ -47,6 +47,5 @@ files into Arrow structures.
    cuda
    extending
    api
-   development
    getting_involved
    benchmarks
