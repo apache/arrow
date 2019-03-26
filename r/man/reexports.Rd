@@ -4,6 +4,7 @@
 \name{reexports}
 \alias{reexports}
 \alias{print.integer64}
+\alias{str.integer64}
 \alias{as_tibble}
 \title{Objects exported from other packages}
 \keyword{internal}
@@ -12,7 +13,7 @@ These objects are imported from other packages. Follow the links
 below to see their documentation.
 
 \describe{
-  \item{bit64}{\code{\link[bit64]{print.integer64}}, \code{\link[bit64]{print.integer64}}}
+  \item{bit64}{\code{\link[bit64]{print.integer64}}, \code{\link[bit64]{str.integer64}}}
 
   \item{tibble}{\code{\link[tibble]{as_tibble}}}
 }}
