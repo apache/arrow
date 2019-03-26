@@ -34,14 +34,14 @@ namespace parquet {
 namespace test {
 
 template <>
-void inline InitValues<bool>(int num_values, vector<bool>& values,
-                             vector<uint8_t>& buffer) {
+void inline InitValues<bool>(int num_values, std::vector<bool>& values,
+                             std::vector<uint8_t>& buffer) {
   values = flip_coins(num_values, 0);
 }
 
 template <>
-void inline InitValues<ByteArray>(int num_values, vector<ByteArray>& values,
-                                  vector<uint8_t>& buffer) {
+void inline InitValues<ByteArray>(int num_values, std::vector<ByteArray>& values,
+                                  std::vector<uint8_t>& buffer) {
   int max_byte_array_len = 12;
   int num_bytes = static_cast<int>(max_byte_array_len + sizeof(uint32_t));
   size_t nbytes = num_values * num_bytes;
@@ -49,8 +49,9 @@ void inline InitValues<ByteArray>(int num_values, vector<ByteArray>& values,
   random_byte_array(num_values, 0, buffer.data(), values.data(), max_byte_array_len);
 }
 
-void inline InitWideByteArrayValues(int num_values, vector<ByteArray>& values,
-                                    vector<uint8_t>& buffer, int min_len, int max_len) {
+void inline InitWideByteArrayValues(int num_values, std::vector<ByteArray>& values,
+                                    std::vector<uint8_t>& buffer, int min_len,
+                                    int max_len) {
   int num_bytes = static_cast<int>(max_len + sizeof(uint32_t));
   size_t nbytes = num_values * num_bytes;
   buffer.resize(nbytes);
@@ -58,16 +59,16 @@ void inline InitWideByteArrayValues(int num_values, vector<ByteArray>& values,
 }
 
 template <>
-void inline InitValues<FLBA>(int num_values, vector<FLBA>& values,
-                             vector<uint8_t>& buffer) {
+void inline InitValues<FLBA>(int num_values, std::vector<FLBA>& values,
+                             std::vector<uint8_t>& buffer) {
   size_t nbytes = num_values * FLBA_LENGTH;
   buffer.resize(nbytes);
   random_fixed_byte_array(num_values, 0, buffer.data(), FLBA_LENGTH, values.data());
 }
 
 template <>
-void inline InitValues<Int96>(int num_values, vector<Int96>& values,
-                              vector<uint8_t>& buffer) {
+void inline InitValues<Int96>(int num_values, std::vector<Int96>& values,
+                              std::vector<uint8_t>& buffer) {
   random_Int96_numbers(num_values, 0, std::numeric_limits<int32_t>::min(),
                        std::numeric_limits<int32_t>::max(), values.data());
 }
@@ -110,7 +111,7 @@ class PrimitiveTypedTest : public ::testing::Test {
   std::vector<int16_t> def_levels_;
 
   std::vector<uint8_t> buffer_;
-  // Pointer to the values, needed as we cannot use vector<bool>::data()
+  // Pointer to the values, needed as we cannot use std::vector<bool>::data()
   T* values_ptr_;
   std::vector<uint8_t> bool_buffer_;
 

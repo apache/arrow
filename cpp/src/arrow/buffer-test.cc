@@ -32,8 +32,6 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 
-using std::string;
-
 namespace arrow {
 
 TEST(TestAllocate, Bitmap) {

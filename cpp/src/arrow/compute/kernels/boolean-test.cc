@@ -31,9 +31,6 @@
 #include "arrow/compute/kernels/util-internal.h"
 #include "arrow/compute/test-util.h"
 
-using std::shared_ptr;
-using std::vector;
-
 namespace arrow {
 namespace compute {
 
@@ -99,8 +96,8 @@ class TestBooleanKernel : public ComputeFixture, public TestBase {
 };
 
 TEST_F(TestBooleanKernel, Invert) {
-  vector<bool> values1 = {true, false, true, false};
-  vector<bool> values2 = {false, true, false, true};
+  std::vector<bool> values1 = {true, false, true, false};
+  std::vector<bool> values2 = {false, true, false, true};
 
   auto type = boolean();
   auto a1 = _MakeArray<BooleanType, bool>(type, values1, {true, true, true, false});
@@ -153,25 +150,25 @@ TEST_F(TestBooleanKernel, BinaryOpOnEmptyArray) {
 }
 
 TEST_F(TestBooleanKernel, And) {
-  vector<bool> values1 = {true, false, true, false, true, true};
-  vector<bool> values2 = {true, true, false, false, true, false};
-  vector<bool> values3 = {true, false, false, false, true, false};
+  std::vector<bool> values1 = {true, false, true, false, true, true};
+  std::vector<bool> values2 = {true, true, false, false, true, false};
+  std::vector<bool> values3 = {true, false, false, false, true, false};
   TestBinaryKernel(And, values1, values2, values3, values3);
 }
 
 TEST_F(TestBooleanKernel, Or) {
-  vector<bool> values1 = {true, false, true, false, true, true};
-  vector<bool> values2 = {true, true, false, false, true, false};
-  vector<bool> values3 = {true, true, true, false, true, true};
-  vector<bool> values3_nulls = {true, false, false, false, true, false};
+  std::vector<bool> values1 = {true, false, true, false, true, true};
+  std::vector<bool> values2 = {true, true, false, false, true, false};
+  std::vector<bool> values3 = {true, true, true, false, true, true};
+  std::vector<bool> values3_nulls = {true, false, false, false, true, false};
   TestBinaryKernel(Or, values1, values2, values3, values3_nulls);
 }
 
 TEST_F(TestBooleanKernel, Xor) {
-  vector<bool> values1 = {true, false, true, false, true, true};
-  vector<bool> values2 = {true, true, false, false, true, false};
-  vector<bool> values3 = {false, true, true, false, false, true};
-  vector<bool> values3_nulls = {true, false, false, false, true, false};
+  std::vector<bool> values1 = {true, false, true, false, true, true};
+  std::vector<bool> values2 = {true, true, false, false, true, false};
+  std::vector<bool> values3 = {false, true, true, false, false, true};
+  std::vector<bool> values3_nulls = {true, false, false, false, true, false};
   TestBinaryKernel(Xor, values1, values2, values3, values3_nulls);
 }
 

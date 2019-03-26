@@ -34,9 +34,6 @@
 #include "parquet/statistics.h"
 #include "parquet/types.h"
 
-using std::string;
-using std::vector;
-
 namespace parquet {
 
 class ColumnReader;
@@ -136,7 +133,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
     char buffer[bufsize];
 
     // Create readers for selected columns and print contents
-    vector<std::shared_ptr<Scanner>> scanners(selected_columns.size(), nullptr);
+    std::vector<std::shared_ptr<Scanner>> scanners(selected_columns.size(), nullptr);
     int j = 0;
     for (auto i : selected_columns) {
       std::shared_ptr<ColumnReader> col_reader = group_reader->Column(i);

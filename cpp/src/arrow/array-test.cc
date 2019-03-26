@@ -50,9 +50,6 @@
 
 namespace arrow {
 
-using std::string;
-using std::vector;
-
 using internal::checked_cast;
 
 class TestArray : public ::testing::Test {
@@ -87,7 +84,7 @@ TEST_F(TestArray, TestLength) {
   ASSERT_EQ(arr->length(), 100);
 }
 
-Status MakeArrayFromValidBytes(const vector<uint8_t>& v, MemoryPool* pool,
+Status MakeArrayFromValidBytes(const std::vector<uint8_t>& v, MemoryPool* pool,
                                std::shared_ptr<Array>* out) {
   int64_t null_count = v.size() - std::accumulate(v.begin(), v.end(), 0);
 
@@ -145,7 +142,7 @@ TEST_F(TestArray, TestNullArrayEquality) {
 }
 
 TEST_F(TestArray, SliceRecomputeNullCount) {
-  vector<uint8_t> valid_bytes = {1, 0, 1, 1, 0, 1, 0, 0, 0};
+  std::vector<uint8_t> valid_bytes = {1, 0, 1, 1, 0, 1, 0, 0, 0};
 
   std::shared_ptr<Array> array;
   ASSERT_OK(MakeArrayFromValidBytes(valid_bytes, pool_, &array));
@@ -183,11 +180,11 @@ TEST_F(TestArray, NullArraySliceNullCount) {
 
 TEST_F(TestArray, TestIsNullIsValid) {
   // clang-format off
-  vector<uint8_t> null_bitmap = {1, 0, 1, 1, 0, 1, 0, 0,
-                                 1, 0, 1, 1, 0, 1, 0, 0,
-                                 1, 0, 1, 1, 0, 1, 0, 0,
-                                 1, 0, 1, 1, 0, 1, 0, 0,
-                                 1, 0, 0, 1};
+  std::vector<uint8_t> null_bitmap = {1, 0, 1, 1, 0, 1, 0, 0,
+                                      1, 0, 1, 1, 0, 1, 0, 0,
+                                      1, 0, 1, 1, 0, 1, 0, 0,
+                                      1, 0, 1, 1, 0, 1, 0, 0,
+                                      1, 0, 0, 1};
   // clang-format on
   int64_t null_count = 0;
   for (uint8_t x : null_bitmap) {
@@ -361,8 +358,8 @@ class TestPrimitiveBuilder : public TestBuilder {
   std::unique_ptr<BuilderType> builder_;
   std::unique_ptr<BuilderType> builder_nn_;
 
-  vector<T> draws_;
-  vector<uint8_t> valid_bytes_;
+  std::vector<T> draws_;
+  std::vector<uint8_t> valid_bytes_;
 };
 
 /// \brief uint8_t isn't a valid template parameter to uniform_int_distribution, so
@@ -394,7 +391,7 @@ struct UniformIntSampleType<int8_t> {
 #define PINT_DECL(CapType, c_type)                                                 \
   struct P##CapType {                                                              \
     PTYPE_DECL(CapType, c_type)                                                    \
-    static void draw(int64_t N, vector<T>* draws) {                                \
+    static void draw(int64_t N, std::vector<T>* draws) {                           \
       using sample_type = typename UniformIntSampleType<c_type>::type;             \
       const T lower = std::numeric_limits<T>::min();                               \
       const T upper = std::numeric_limits<T>::max();                               \
@@ -403,12 +400,12 @@ struct UniformIntSampleType<int8_t> {
     }                                                                              \
   }
 
-#define PFLOAT_DECL(CapType, c_type, LOWER, UPPER)  \
-  struct P##CapType {                               \
-    PTYPE_DECL(CapType, c_type)                     \
-    static void draw(int64_t N, vector<T>* draws) { \
-      random_real(N, 0, LOWER, UPPER, draws);       \
-    }                                               \
+#define PFLOAT_DECL(CapType, c_type, LOWER, UPPER)       \
+  struct P##CapType {                                    \
+    PTYPE_DECL(CapType, c_type)                          \
+    static void draw(int64_t N, std::vector<T>* draws) { \
+      random_real(N, 0, LOWER, UPPER, draws);            \
+    }                                                    \
   }
 
 PINT_DECL(UInt8, uint8_t);
@@ -558,8 +555,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
 
   int64_t size = 1000;
 
-  vector<T>& draws = this->draws_;
-  vector<uint8_t>& valid_bytes = this->valid_bytes_;
+  std::vector<T>& draws = this->draws_;
+  std::vector<uint8_t>& valid_bytes = this->valid_bytes_;
 
   int64_t memory_before = this->pool_->bytes_allocated();
 
@@ -588,8 +585,8 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
 
   const int64_t size = 1000;
   this->RandomData(size);
-  vector<T>& draws = this->draws_;
-  vector<uint8_t>& valid_bytes = this->valid_bytes_;
+  std::vector<T>& draws = this->draws_;
+  std::vector<uint8_t>& valid_bytes = this->valid_bytes_;
   std::shared_ptr<Array> array, equal_array, unequal_array;
   auto builder = this->builder_.get();
   ASSERT_OK(MakeArray(valid_bytes, draws, size, builder, &array));
@@ -624,8 +621,8 @@ TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
 
   const int64_t size = 1000;
   this->RandomData(size);
-  vector<T>& draws = this->draws_;
-  vector<uint8_t>& valid_bytes = this->valid_bytes_;
+  std::vector<T>& draws = this->draws_;
+  std::vector<uint8_t>& valid_bytes = this->valid_bytes_;
   auto builder = this->builder_.get();
 
   std::shared_ptr<Array> array;
@@ -657,8 +654,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
 
   const int64_t size = 10000;
 
-  vector<T>& draws = this->draws_;
-  vector<uint8_t>& valid_bytes = this->valid_bytes_;
+  std::vector<T>& draws = this->draws_;
+  std::vector<uint8_t>& valid_bytes = this->valid_bytes_;
 
   this->RandomData(size);
 
@@ -714,8 +711,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
   int64_t size = 10000;
   this->RandomData(size);
 
-  vector<T>& draws = this->draws_;
-  vector<uint8_t>& valid_bytes = this->valid_bytes_;
+  std::vector<T>& draws = this->draws_;
+  std::vector<uint8_t>& valid_bytes = this->valid_bytes_;
 
   // first slug
   int64_t K = 1000;
@@ -818,9 +815,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
   this->RandomData(size);
 
   // append convertible values
-  vector<conversion_type> draws_converted(this->draws_.begin(), this->draws_.end());
-  vector<int32_t> valid_bytes_converted(this->valid_bytes_.begin(),
-                                        this->valid_bytes_.end());
+  std::vector<conversion_type> draws_converted(this->draws_.begin(), this->draws_.end());
+  std::vector<int32_t> valid_bytes_converted(this->valid_bytes_.begin(),
+                                             this->valid_bytes_.end());
 
   auto cast_values = internal::MakeLazyRange(
       [&draws_converted](int64_t index) {
@@ -853,8 +850,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestZeroPadded) {
   int64_t size = 10000;
   this->RandomData(size);
 
-  vector<T>& draws = this->draws_;
-  vector<uint8_t>& valid_bytes = this->valid_bytes_;
+  std::vector<T>& draws = this->draws_;
+  std::vector<uint8_t>& valid_bytes = this->valid_bytes_;
 
   // first slug
   int64_t K = 1000;
@@ -872,7 +869,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
   int64_t size = 10000;
   this->RandomData(size);
 
-  vector<T>& draws = this->draws_;
+  std::vector<T>& draws = this->draws_;
 
   std::vector<bool> is_valid;
 
@@ -1009,8 +1006,8 @@ void CheckSliceApproxEquals() {
   using T = typename TYPE::c_type;
 
   const int64_t kSize = 50;
-  vector<T> draws1;
-  vector<T> draws2;
+  std::vector<T> draws1;
+  std::vector<T> draws2;
 
   const uint32_t kSeed = 0;
   random_real(kSize, kSeed, 0.0, 100.0, &draws1);
@@ -1022,7 +1019,7 @@ void CheckSliceApproxEquals() {
     draws2[i] = draws1[i];
   }
 
-  vector<bool> is_valid;
+  std::vector<bool> is_valid;
   random_is_valid(kSize, 0.1, &is_valid);
 
   std::shared_ptr<Array> array1, array2;
@@ -1062,10 +1059,10 @@ TEST_F(TestFWBinaryArray, Builder) {
 
   int64_t nbytes = length * byte_width;
 
-  vector<uint8_t> data(nbytes);
+  std::vector<uint8_t> data(nbytes);
   random_bytes(nbytes, 0, data.data());
 
-  vector<uint8_t> is_valid(length);
+  std::vector<uint8_t> is_valid(length);
   random_null_bytes(length, 0.1, is_valid.data());
 
   const uint8_t* raw_data = data.data();
@@ -1117,8 +1114,8 @@ TEST_F(TestFWBinaryArray, Builder) {
   InitBuilder(byte_width);
   for (int64_t i = 0; i < length; ++i) {
     if (is_valid[i]) {
-      ASSERT_OK(builder_->Append(
-          string(reinterpret_cast<const char*>(raw_data + byte_width * i), byte_width)));
+      ASSERT_OK(builder_->Append(std::string(
+          reinterpret_cast<const char*>(raw_data + byte_width * i), byte_width)));
     } else {
       ASSERT_OK(builder_->AppendNull());
     }
@@ -1197,8 +1194,8 @@ TEST_F(TestFWBinaryArray, Slice) {
   auto type = fixed_size_binary(4);
   FixedSizeBinaryBuilder builder(type);
 
-  vector<string> strings = {"foo1", "foo2", "foo3", "foo4", "foo5"};
-  vector<uint8_t> is_null = {0, 1, 0, 0, 0};
+  std::vector<std::string> strings = {"foo1", "foo2", "foo3", "foo4", "foo5"};
+  std::vector<uint8_t> is_null = {0, 1, 0, 0, 0};
 
   for (int i = 0; i < 5; ++i) {
     if (is_null[i]) {

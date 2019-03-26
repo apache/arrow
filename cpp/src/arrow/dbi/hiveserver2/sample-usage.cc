@@ -25,8 +25,6 @@
 namespace hs2 = arrow::hiveserver2;
 
 using arrow::Status;
-using std::string;
-using std::unique_ptr;
 
 using hs2::Operation;
 using hs2::Service;
@@ -43,11 +41,11 @@ using hs2::Session;
 
 int main(int argc, char** argv) {
   // Connect to the server.
-  string host = "localhost";
+  std::string host = "localhost";
   int port = 21050;
   int conn_timeout = 0;
   hs2::ProtocolVersion protocol = hs2::ProtocolVersion::PROTOCOL_V7;
-  unique_ptr<Service> service;
+  std::unique_ptr<Service> service;
   Status status = Service::Connect(host, port, conn_timeout, protocol, &service);
   if (!status.ok()) {
     std::cout << "Failed to connect to service: " << status.ToString();
@@ -56,9 +54,9 @@ int main(int argc, char** argv) {
   }
 
   // Open a session.
-  string user = "user";
+  std::string user = "user";
   hs2::HS2ClientConfig config;
-  unique_ptr<Session> session;
+  std::unique_ptr<Session> session;
   status = service->OpenSession(user, config, &session);
   if (!status.ok()) {
     std::cout << "Failed to open session: " << status.ToString();
@@ -68,8 +66,8 @@ int main(int argc, char** argv) {
   }
 
   // Execute a statement.
-  string statement = "SELECT int_col, string_col FROM test order by int_col";
-  unique_ptr<hs2::Operation> execute_op;
+  std::string statement = "SELECT int_col, string_col FROM test order by int_col";
+  std::unique_ptr<hs2::Operation> execute_op;
   status = session->ExecuteStatement(statement, &execute_op);
   if (!status.ok()) {
     std::cout << "Failed to execute select: " << status.ToString();
@@ -79,7 +77,7 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  unique_ptr<hs2::ColumnarRowSet> execute_results;
+  std::unique_ptr<hs2::ColumnarRowSet> execute_results;
   bool has_more_rows = true;
   int64_t total_retrieved = 0;
   std::cout << "Contents of test:\n";
@@ -93,8 +91,8 @@ int main(int argc, char** argv) {
       return 1;
     }
 
-    unique_ptr<hs2::Int32Column> int_col = execute_results->GetInt32Col(0);
-    unique_ptr<hs2::StringColumn> string_col = execute_results->GetStringCol(1);
+    std::unique_ptr<hs2::Int32Column> int_col = execute_results->GetInt32Col(0);
+    std::unique_ptr<hs2::StringColumn> string_col = execute_results->GetStringCol(1);
     assert(int_col->length() == string_col->length());
     total_retrieved += int_col->length();
     for (int64_t i = 0; i < int_col->length(); ++i) {
@@ -117,7 +115,7 @@ int main(int argc, char** argv) {
   std::cout << "\n";
   ABORT_NOT_OK(execute_op->Close());
 
-  unique_ptr<Operation> show_tables_op;
+  std::unique_ptr<Operation> show_tables_op;
   status = session->ExecuteStatement("show tables", &show_tables_op);
   if (!status.ok()) {
     std::cout << "Failed to execute GetTables: " << status.ToString();

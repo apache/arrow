@@ -18,7 +18,6 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
-#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -34,9 +33,6 @@
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
-
-using std::string;
-using std::vector;
 
 using internal::checked_cast;
 
@@ -73,10 +69,10 @@ TEST_F(TestListArray, Equality) {
   Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
 
   std::shared_ptr<Array> array, equal_array, unequal_array;
-  vector<int32_t> equal_offsets = {0, 1, 2, 5, 6, 7, 8, 10};
-  vector<int32_t> equal_values = {1, 2, 3, 4, 5, 2, 2, 2, 5, 6};
-  vector<int32_t> unequal_offsets = {0, 1, 4, 7};
-  vector<int32_t> unequal_values = {1, 2, 2, 2, 3, 4, 5};
+  std::vector<int32_t> equal_offsets = {0, 1, 2, 5, 6, 7, 8, 10};
+  std::vector<int32_t> equal_values = {1, 2, 3, 4, 5, 2, 2, 2, 5, 6};
+  std::vector<int32_t> unequal_offsets = {0, 1, 4, 7};
+  std::vector<int32_t> unequal_values = {1, 2, 2, 2, 3, 4, 5};
 
   // setup two equal arrays
   ASSERT_OK(builder_->AppendValues(equal_offsets.data(), equal_offsets.size()));
@@ -207,14 +203,14 @@ TEST_F(TestListArray, TestAppendNull) {
   ASSERT_NE(nullptr, values->data()->buffers[1]);
 }
 
-void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& values,
-                            const vector<uint8_t>& is_valid) {
+void ValidateBasicListArray(const ListArray* result, const std::vector<int32_t>& values,
+                            const std::vector<uint8_t>& is_valid) {
   ASSERT_OK(ValidateArray(*result));
   ASSERT_EQ(1, result->null_count());
   ASSERT_EQ(0, result->values()->null_count());
 
   ASSERT_EQ(3, result->length());
-  vector<int32_t> ex_offsets = {0, 3, 3, 7};
+  std::vector<int32_t> ex_offsets = {0, 3, 3, 7};
   for (size_t i = 0; i < ex_offsets.size(); ++i) {
     ASSERT_EQ(ex_offsets[i], result->value_offset(i));
   }
@@ -232,9 +228,9 @@ void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& valu
 }
 
 TEST_F(TestListArray, TestBasics) {
-  vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
-  vector<int> lengths = {3, 0, 4};
-  vector<uint8_t> is_valid = {1, 0, 1};
+  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
+  std::vector<int> lengths = {3, 0, 4};
+  std::vector<uint8_t> is_valid = {1, 0, 1};
 
   Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
 
@@ -254,10 +250,10 @@ TEST_F(TestListArray, TestBasics) {
 }
 
 TEST_F(TestListArray, BulkAppend) {
-  vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
-  vector<int> lengths = {3, 0, 4};
-  vector<uint8_t> is_valid = {1, 0, 1};
-  vector<int32_t> offsets = {0, 3, 3};
+  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
+  std::vector<int> lengths = {3, 0, 4};
+  std::vector<uint8_t> is_valid = {1, 0, 1};
+  std::vector<int32_t> offsets = {0, 3, 3};
 
   Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
   ASSERT_OK(vb->Reserve(values.size()));
@@ -271,11 +267,11 @@ TEST_F(TestListArray, BulkAppend) {
 }
 
 TEST_F(TestListArray, BulkAppendInvalid) {
-  vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
-  vector<int> lengths = {3, 0, 4};
-  vector<uint8_t> is_null = {0, 1, 0};
-  vector<uint8_t> is_valid = {1, 0, 1};
-  vector<int32_t> offsets = {0, 2, 4};  // should be 0, 3, 3 given the is_null array
+  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
+  std::vector<int> lengths = {3, 0, 4};
+  std::vector<uint8_t> is_null = {0, 1, 0};
+  std::vector<uint8_t> is_valid = {1, 0, 1};
+  std::vector<int32_t> offsets = {0, 2, 4};  // should be 0, 3, 3 given the is_null array
 
   Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
   ASSERT_OK(vb->Reserve(values.size()));
@@ -303,7 +299,7 @@ TEST_F(TestListArray, TestBuilderPreserveFieleName) {
   ASSERT_OK(MakeBuilder(pool_, list_type_with_name, &tmp));
   builder_.reset(checked_cast<ListBuilder*>(tmp.release()));
 
-  vector<int32_t> values = {1, 2, 4, 8};
+  std::vector<int32_t> values = {1, 2, 4, 8};
   ASSERT_OK(builder_->AppendValues(values.data(), values.size()));
 
   std::shared_ptr<Array> list_array;

@@ -25,8 +25,6 @@
 
 namespace hs2 = apache::hive::service::cli::thrift;
 using apache::thrift::TException;
-using std::string;
-using std::unique_ptr;
 
 namespace arrow {
 namespace hiveserver2 {
@@ -53,7 +51,7 @@ Status Session::Close() {
   return TStatusToStatus(resp.status);
 }
 
-Status Session::Open(const HS2ClientConfig& config, const string& user) {
+Status Session::Open(const HS2ClientConfig& config, const std::string& user) {
   hs2::TOpenSessionReq req;
   req.__set_configuration(config.GetConfig());
   req.__set_username(user);
@@ -71,7 +69,7 @@ class ExecuteStatementOperation : public Operation {
   explicit ExecuteStatementOperation(const std::shared_ptr<ThriftRPC>& rpc)
       : Operation(rpc) {}
 
-  Status Open(hs2::TSessionHandle session_handle, const string& statement,
+  Status Open(hs2::TSessionHandle session_handle, const std::string& statement,
               const HS2ClientConfig& config) {
     hs2::TExecuteStatementReq req;
     req.__set_sessionHandle(session_handle);
@@ -88,14 +86,14 @@ class ExecuteStatementOperation : public Operation {
   }
 };
 
-Status Session::ExecuteStatement(const string& statement,
-                                 unique_ptr<Operation>* operation) const {
+Status Session::ExecuteStatement(const std::string& statement,
+                                 std::unique_ptr<Operation>* operation) const {
   return ExecuteStatement(statement, HS2ClientConfig(), operation);
 }
 
-Status Session::ExecuteStatement(const string& statement,
+Status Session::ExecuteStatement(const std::string& statement,
                                  const HS2ClientConfig& conf_overlay,
-                                 unique_ptr<Operation>* operation) const {
+                                 std::unique_ptr<Operation>* operation) const {
   ExecuteStatementOperation* op = new ExecuteStatementOperation(rpc_);
   operation->reset(op);
   return op->Open(impl_->handle, statement, conf_overlay);

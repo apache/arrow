@@ -31,10 +31,6 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 
-using std::string;
-using std::unique_ptr;
-using std::vector;
-
 namespace arrow {
 namespace hiveserver2 {
 
@@ -207,13 +203,14 @@ class OperationTest : public HS2ClientTest {};
 
 TEST_F(OperationTest, TestFetch) {
   CreateTestTable();
-  InsertIntoTestTable(vector<int>({1, 2, 3, 4}), vector<string>({"a", "b", "c", "d"}));
+  InsertIntoTestTable(std::vector<int>({1, 2, 3, 4}),
+                      std::vector<string>({"a", "b", "c", "d"}));
 
-  unique_ptr<Operation> select_op;
+  std::unique_ptr<Operation> select_op;
   ASSERT_OK(session_->ExecuteStatement("select * from " + TEST_TBL + " order by int_col",
                                        &select_op));
 
-  unique_ptr<ColumnarRowSet> results;
+  std::unique_ptr<ColumnarRowSet> results;
   bool has_more_rows = false;
   // Impala only supports NEXT and FIRST.
   ASSERT_RAISES(IOError,
@@ -223,17 +220,17 @@ TEST_F(OperationTest, TestFetch) {
   ASSERT_OK(select_op->Fetch(2, FetchOrientation::NEXT, &results, &has_more_rows));
   ASSERT_OK(Wait(select_op));
   ASSERT_TRUE(select_op->HasResultSet());
-  unique_ptr<Int32Column> int_col = results->GetInt32Col(0);
-  unique_ptr<StringColumn> string_col = results->GetStringCol(1);
-  ASSERT_EQ(int_col->data(), vector<int>({1, 2}));
-  ASSERT_EQ(string_col->data(), vector<string>({"a", "b"}));
+  std::unique_ptr<Int32Column> int_col = results->GetInt32Col(0);
+  std::unique_ptr<StringColumn> string_col = results->GetStringCol(1);
+  ASSERT_EQ(int_col->data(), std::vector<int>({1, 2}));
+  ASSERT_EQ(string_col->data(), std::vector<string>({"a", "b"}));
   ASSERT_TRUE(has_more_rows);
 
   ASSERT_OK(select_op->Fetch(2, FetchOrientation::NEXT, &results, &has_more_rows));
   int_col = results->GetInt32Col(0);
   string_col = results->GetStringCol(1);
-  ASSERT_EQ(int_col->data(), vector<int>({3, 4}));
-  ASSERT_EQ(string_col->data(), vector<string>({"c", "d"}));
+  ASSERT_EQ(int_col->data(), std::vector<int>({3, 4}));
+  ASSERT_EQ(string_col->data(), std::vector<string>({"c", "d"}));
 
   ASSERT_OK(select_op->Fetch(2, FetchOrientation::NEXT, &results, &has_more_rows));
   int_col = results->GetInt32Col(0);
@@ -255,18 +252,18 @@ TEST_F(OperationTest, TestFetch) {
 TEST_F(OperationTest, TestIsNull) {
   CreateTestTable();
   // Insert some NULLs and ensure Column::IsNull() is correct.
-  InsertIntoTestTable(vector<int>({1, 2, 3, 4, 5, NULL_INT_VALUE}),
-                      vector<string>({"a", "b", "NULL", "d", "NULL", "f"}));
+  InsertIntoTestTable(std::vector<int>({1, 2, 3, 4, 5, NULL_INT_VALUE}),
+                      std::vector<string>({"a", "b", "NULL", "d", "NULL", "f"}));
 
-  unique_ptr<Operation> select_nulls_op;
+  std::unique_ptr<Operation> select_nulls_op;
   ASSERT_OK(session_->ExecuteStatement("select * from " + TEST_TBL + " order by int_col",
                                        &select_nulls_op));
 
-  unique_ptr<ColumnarRowSet> nulls_results;
+  std::unique_ptr<ColumnarRowSet> nulls_results;
   bool has_more_rows = false;
   ASSERT_OK(select_nulls_op->Fetch(&nulls_results, &has_more_rows));
-  unique_ptr<Int32Column> int_col = nulls_results->GetInt32Col(0);
-  unique_ptr<StringColumn> string_col = nulls_results->GetStringCol(1);
+  std::unique_ptr<Int32Column> int_col = nulls_results->GetInt32Col(0);
+  std::unique_ptr<StringColumn> string_col = nulls_results->GetStringCol(1);
   ASSERT_EQ(int_col->length(), 6);
   ASSERT_EQ(int_col->length(), string_col->length());
 
@@ -284,18 +281,19 @@ TEST_F(OperationTest, TestIsNull) {
 
 TEST_F(OperationTest, TestCancel) {
   CreateTestTable();
-  InsertIntoTestTable(vector<int>({1, 2, 3, 4}), vector<string>({"a", "b", "c", "d"}));
+  InsertIntoTestTable(std::vector<int>({1, 2, 3, 4}),
+                      std::vector<string>({"a", "b", "c", "d"}));
 
-  unique_ptr<Operation> op;
+  std::unique_ptr<Operation> op;
   ASSERT_OK(session_->ExecuteStatement("select count(*) from " + TEST_TBL, &op));
   ASSERT_OK(op->Cancel());
   // Impala currently returns ERROR and not CANCELED for canceled queries
   // due to the use of beeswax states, which don't support a canceled state.
   ASSERT_OK(Wait(op, Operation::State::ERROR));
 
-  string profile;
+  std::string profile;
   ASSERT_OK(op->GetProfile(&profile));
-  ASSERT_TRUE(profile.find("Cancelled") != string::npos);
+  ASSERT_TRUE(profile.find("Cancelled") != std::string::npos);
 
   ASSERT_OK(op->Close());
 }
@@ -303,9 +301,9 @@ TEST_F(OperationTest, TestCancel) {
 TEST_F(OperationTest, TestGetLog) {
   CreateTestTable();
 
-  unique_ptr<Operation> op;
+  std::unique_ptr<Operation> op;
   ASSERT_OK(session_->ExecuteStatement("select count(*) from " + TEST_TBL, &op));
-  string log;
+  std::string log;
   ASSERT_OK(op->GetLog(&log));
   ASSERT_NE(log, "");
 
@@ -313,24 +311,24 @@ TEST_F(OperationTest, TestGetLog) {
 }
 
 TEST_F(OperationTest, TestGetResultSetMetadata) {
-  const string TEST_COL1 = "int_col";
-  const string TEST_COL2 = "varchar_col";
+  const std::string TEST_COL1 = "int_col";
+  const std::string TEST_COL2 = "varchar_col";
   const int MAX_LENGTH = 10;
-  const string TEST_COL3 = "decimal_cal";
+  const std::string TEST_COL3 = "decimal_cal";
   const int PRECISION = 5;
   const int SCALE = 3;
   std::stringstream create_query;
   create_query << "create table " << TEST_TBL << " (" << TEST_COL1 << " int, "
                << TEST_COL2 << " varchar(" << MAX_LENGTH << "), " << TEST_COL3
                << " decimal(" << PRECISION << ", " << SCALE << "))";
-  unique_ptr<Operation> create_table_op;
+  std::unique_ptr<Operation> create_table_op;
   ASSERT_OK(session_->ExecuteStatement(create_query.str(), &create_table_op));
   ASSERT_OK(create_table_op->Close());
 
   // Perform a select, and check that we get the right metadata back.
-  unique_ptr<Operation> select_op;
+  std::unique_ptr<Operation> select_op;
   ASSERT_OK(session_->ExecuteStatement("select * from " + TEST_TBL, &select_op));
-  vector<ColumnDesc> column_descs;
+  std::vector<ColumnDesc> column_descs;
   ASSERT_OK(select_op->GetResultSetMetadata(&column_descs));
   ASSERT_EQ(column_descs.size(), 3);
 
@@ -359,9 +357,9 @@ TEST_F(OperationTest, TestGetResultSetMetadata) {
   insert_query << "insert into " << TEST_TBL << " VALUES (1, cast('a' as varchar("
                << MAX_LENGTH << ")), cast(1 as decimal(" << PRECISION << ", " << SCALE
                << ")))";
-  unique_ptr<Operation> insert_op;
+  std::unique_ptr<Operation> insert_op;
   ASSERT_OK(session_->ExecuteStatement(insert_query.str(), &insert_op));
-  vector<ColumnDesc> insert_column_descs;
+  std::vector<ColumnDesc> insert_column_descs;
   ASSERT_OK(insert_op->GetResultSetMetadata(&insert_column_descs));
   ASSERT_EQ(insert_column_descs.size(), 0);
   ASSERT_OK(insert_op->Close());
@@ -371,33 +369,33 @@ class SessionTest : public HS2ClientTest {};
 
 TEST_F(SessionTest, TestSessionConfig) {
   // Create a table in TEST_DB.
-  const string& TEST_TBL = "hs2client_test_table";
-  unique_ptr<Operation> create_table_op;
+  const std::string& TEST_TBL = "hs2client_test_table";
+  std::unique_ptr<Operation> create_table_op;
   ASSERT_OK(session_->ExecuteStatement(
       "create table " + TEST_TBL + " (int_col int, string_col string)",
       &create_table_op));
   ASSERT_OK(create_table_op->Close());
 
   // Start a new session with the use:database session option.
-  string user = "user";
+  std::string user = "user";
   HS2ClientConfig config_use;
   config_use.SetOption("use:database", TEST_DB);
-  unique_ptr<Session> session_ok;
+  std::unique_ptr<Session> session_ok;
   ASSERT_OK(service_->OpenSession(user, config_use, &session_ok));
 
   // Ensure the use:database worked and we can access the table.
-  unique_ptr<Operation> select_op;
+  std::unique_ptr<Operation> select_op;
   ASSERT_OK(session_ok->ExecuteStatement("select * from " + TEST_TBL, &select_op));
   ASSERT_OK(select_op->Close());
   ASSERT_OK(session_ok->Close());
 
   // Start another session without use:database.
   HS2ClientConfig config_no_use;
-  unique_ptr<Session> session_error;
+  std::unique_ptr<Session> session_error;
   ASSERT_OK(service_->OpenSession(user, config_no_use, &session_error));
 
   // Ensure the we can't access the table.
-  unique_ptr<Operation> select_op_error;
+  std::unique_ptr<Operation> select_op_error;
   ASSERT_RAISES(IOError, session_error->ExecuteStatement("select * from " + TEST_TBL,
                                                          &select_op_error));
   ASSERT_OK(session_error->Close());
@@ -405,18 +403,18 @@ TEST_F(SessionTest, TestSessionConfig) {
 
 TEST(ServiceTest, TestConnect) {
   // Open a connection.
-  string host = GetTestHost();
+  std::string host = GetTestHost();
   int port = 21050;
   int conn_timeout = 0;
   ProtocolVersion protocol_version = ProtocolVersion::PROTOCOL_V7;
-  unique_ptr<Service> service;
+  std::unique_ptr<Service> service;
   ASSERT_OK(Service::Connect(host, port, conn_timeout, protocol_version, &service));
   ASSERT_TRUE(service->IsConnected());
 
   // Check that we can start a session.
-  string user = "user";
+  std::string user = "user";
   HS2ClientConfig config;
-  unique_ptr<Session> session1;
+  std::unique_ptr<Session> session1;
   ASSERT_OK(service->OpenSession(user, config, &session1));
   ASSERT_OK(session1->Close());
 
@@ -424,7 +422,7 @@ TEST(ServiceTest, TestConnect) {
   ASSERT_OK(service->Close());
   ASSERT_FALSE(service->IsConnected());
   ASSERT_OK(service->Close());
-  unique_ptr<Session> session3;
+  std::unique_ptr<Session> session3;
   ASSERT_RAISES(IOError, service->OpenSession(user, config, &session3));
   ASSERT_OK(session3->Close());
 
@@ -434,16 +432,16 @@ TEST(ServiceTest, TestConnect) {
 }
 
 TEST(ServiceTest, TestFailedConnect) {
-  string host = GetTestHost();
+  std::string host = GetTestHost();
   int port = 21050;
 
   // Set 100ms timeout so these return quickly
   int conn_timeout = 100;
 
   ProtocolVersion protocol_version = ProtocolVersion::PROTOCOL_V7;
-  unique_ptr<Service> service;
+  std::unique_ptr<Service> service;
 
-  string invalid_host = "does_not_exist";
+  std::string invalid_host = "does_not_exist";
   ASSERT_RAISES(IOError, Service::Connect(invalid_host, port, conn_timeout,
                                           protocol_version, &service));
 
