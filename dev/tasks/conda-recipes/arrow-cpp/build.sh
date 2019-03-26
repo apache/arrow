@@ -40,7 +40,6 @@ cmake \
     -DARROW_PARQUET=ON \
     -DARROW_GANDIVA=ON \
     -DARROW_ORC=ON \
-    -DORC_HOME=$PREFIX \
     -DCMAKE_AR=${AR} \
     -DCMAKE_RANLIB=${RANLIB} \
     -GNinja \

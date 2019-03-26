@@ -9,7 +9,7 @@ channel_targets:
 cxx_compiler:
 - vs2015
 libprotobuf:
-- '3.6'
+- '3.7'
 lz4_c:
 - 1.8.1
 pin_run_as_build:

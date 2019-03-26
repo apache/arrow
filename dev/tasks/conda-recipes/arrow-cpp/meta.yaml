@@ -47,7 +47,6 @@ requirements:
     - llvmdev 7.*
     - lz4-c
     - numpy 1.14.*
-    - orc  # [unix]
     - python
     - rapidjson
     - re2
@@ -63,7 +62,6 @@ requirements:
     - gflags
     - glog
     - lz4-c
-    - orc  # [unix]
     - python
     - re2
     - snappy
