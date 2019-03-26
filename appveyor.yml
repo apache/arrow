@@ -35,8 +35,8 @@ cache:
   - C:\Users\Appveyor\clcache
   - C:\Users\Appveyor\.cargo\registry
 
-#matrix:
-#  fast_finish: true
+matrix:
+  fast_finish: true
 
 environment:
   global:
