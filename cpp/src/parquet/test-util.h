@@ -37,9 +37,6 @@
 #include "parquet/util/memory.h"
 #include "parquet/util/test-common.h"
 
-using std::shared_ptr;
-using std::vector;
-
 namespace parquet {
 
 static constexpr int FLBA_LENGTH = 12;
@@ -60,14 +57,15 @@ std::shared_ptr<Buffer> EncodeValues(Encoding::type encoding, bool use_dictionar
 }
 
 template <typename T>
-static void InitValues(int num_values, vector<T>& values, vector<uint8_t>& buffer) {
+static void InitValues(int num_values, std::vector<T>& values,
+                       std::vector<uint8_t>& buffer) {
   random_numbers(num_values, 0, std::numeric_limits<T>::min(),
                  std::numeric_limits<T>::max(), values.data());
 }
 
 template <typename T>
-static void InitDictValues(int num_values, int num_dicts, vector<T>& values,
-                           vector<uint8_t>& buffer) {
+static void InitDictValues(int num_values, int num_dicts, std::vector<T>& values,
+                           std::vector<uint8_t>& buffer) {
   int repeat_factor = num_values / num_dicts;
   InitValues<T>(num_dicts, values, buffer);
   // add some repeated values
@@ -85,13 +83,13 @@ static void InitDictValues(int num_values, int num_dicts, vector<T>& values,
 
 class MockPageReader : public PageReader {
  public:
-  explicit MockPageReader(const vector<shared_ptr<Page>>& pages)
+  explicit MockPageReader(const std::vector<std::shared_ptr<Page>>& pages)
       : pages_(pages), page_index_(0) {}
 
-  shared_ptr<Page> NextPage() override {
+  std::shared_ptr<Page> NextPage() override {
     if (page_index_ == static_cast<int>(pages_.size())) {
       // EOS to consumer
-      return shared_ptr<Page>(nullptr);
+      return std::shared_ptr<Page>(nullptr);
     }
     return pages_[page_index_++];
   }
@@ -100,7 +98,7 @@ class MockPageReader : public PageReader {
   void set_max_page_header_size(uint32_t size) override {}
 
  private:
-  vector<shared_ptr<Page>> pages_;
+  std::vector<std::shared_ptr<Page>> pages_;
   int page_index_;
 };
 
@@ -122,7 +120,7 @@ class DataPageBuilder {
         have_rep_levels_(false),
         have_values_(false) {}
 
-  void AppendDefLevels(const vector<int16_t>& levels, int16_t max_level,
+  void AppendDefLevels(const std::vector<int16_t>& levels, int16_t max_level,
                        Encoding::type encoding = Encoding::RLE) {
     AppendLevels(levels, max_level, encoding);
 
@@ -131,7 +129,7 @@ class DataPageBuilder {
     have_def_levels_ = true;
   }
 
-  void AppendRepLevels(const vector<int16_t>& levels, int16_t max_level,
+  void AppendRepLevels(const std::vector<int16_t>& levels, int16_t max_level,
                        Encoding::type encoding = Encoding::RLE) {
     AppendLevels(levels, max_level, encoding);
 
@@ -140,7 +138,7 @@ class DataPageBuilder {
     have_rep_levels_ = true;
   }
 
-  void AppendValues(const ColumnDescriptor* d, const vector<T>& values,
+  void AppendValues(const ColumnDescriptor* d, const std::vector<T>& values,
                     Encoding::type encoding = Encoding::PLAIN) {
     std::shared_ptr<Buffer> values_sink = EncodeValues<Type>(
         encoding, false, values.data(), static_cast<int>(values.size()), d);
@@ -172,14 +170,14 @@ class DataPageBuilder {
   bool have_values_;
 
   // Used internally for both repetition and definition levels
-  void AppendLevels(const vector<int16_t>& levels, int16_t max_level,
+  void AppendLevels(const std::vector<int16_t>& levels, int16_t max_level,
                     Encoding::type encoding) {
     if (encoding != Encoding::RLE) {
       ParquetException::NYI("only rle encoding currently implemented");
     }
 
     // TODO: compute a more precise maximum size for the encoded levels
-    vector<uint8_t> encode_buffer(levels.size() * 2);
+    std::vector<uint8_t> encode_buffer(levels.size() * 2);
 
     // We encode into separate memory from the output stream because the
     // RLE-encoded bytes have to be preceded in the stream by their absolute
@@ -198,7 +196,7 @@ class DataPageBuilder {
 
 template <>
 void DataPageBuilder<BooleanType>::AppendValues(const ColumnDescriptor* d,
-                                                const vector<bool>& values,
+                                                const std::vector<bool>& values,
                                                 Encoding::type encoding) {
   if (encoding != Encoding::PLAIN) {
     ParquetException::NYI("only plain encoding currently implemented");
@@ -216,11 +214,11 @@ void DataPageBuilder<BooleanType>::AppendValues(const ColumnDescriptor* d,
 }
 
 template <typename Type>
-static shared_ptr<DataPageV1> MakeDataPage(
-    const ColumnDescriptor* d, const vector<typename Type::c_type>& values, int num_vals,
-    Encoding::type encoding, const uint8_t* indices, int indices_size,
-    const vector<int16_t>& def_levels, int16_t max_def_level,
-    const vector<int16_t>& rep_levels, int16_t max_rep_level) {
+static std::shared_ptr<DataPageV1> MakeDataPage(
+    const ColumnDescriptor* d, const std::vector<typename Type::c_type>& values,
+    int num_vals, Encoding::type encoding, const uint8_t* indices, int indices_size,
+    const std::vector<int16_t>& def_levels, int16_t max_def_level,
+    const std::vector<int16_t>& rep_levels, int16_t max_rep_level) {
   int num_values = 0;
 
   InMemoryOutputStream page_stream;
@@ -265,7 +263,7 @@ class DictionaryPageBuilder {
 
   ~DictionaryPageBuilder() {}
 
-  shared_ptr<Buffer> AppendValues(const vector<TC>& values) {
+  std::shared_ptr<Buffer> AppendValues(const std::vector<TC>& values) {
     int num_values = static_cast<int>(values.size());
     // Dictionary encoding
     encoder_->Put(values.data(), num_values);
@@ -274,7 +272,7 @@ class DictionaryPageBuilder {
     return encoder_->FlushValues();
   }
 
-  shared_ptr<Buffer> WriteDict() {
+  std::shared_ptr<Buffer> WriteDict() {
     std::shared_ptr<Buffer> dict_buffer =
         AllocateBuffer(::arrow::default_memory_pool(), dict_traits_->dict_encoded_size());
     dict_traits_->WriteDict(dict_buffer->mutable_data());
@@ -296,23 +294,23 @@ DictionaryPageBuilder<BooleanType>::DictionaryPageBuilder(const ColumnDescriptor
 }
 
 template <>
-shared_ptr<Buffer> DictionaryPageBuilder<BooleanType>::WriteDict() {
+std::shared_ptr<Buffer> DictionaryPageBuilder<BooleanType>::WriteDict() {
   ParquetException::NYI("only plain encoding currently implemented for boolean");
   return nullptr;
 }
 
 template <>
-shared_ptr<Buffer> DictionaryPageBuilder<BooleanType>::AppendValues(
-    const vector<TC>& values) {
+std::shared_ptr<Buffer> DictionaryPageBuilder<BooleanType>::AppendValues(
+    const std::vector<TC>& values) {
   ParquetException::NYI("only plain encoding currently implemented for boolean");
   return nullptr;
 }
 
 template <typename Type>
-static shared_ptr<DictionaryPage> MakeDictPage(
-    const ColumnDescriptor* d, const vector<typename Type::c_type>& values,
-    const vector<int>& values_per_page, Encoding::type encoding,
-    vector<shared_ptr<Buffer>>& rle_indices) {
+static std::shared_ptr<DictionaryPage> MakeDictPage(
+    const ColumnDescriptor* d, const std::vector<typename Type::c_type>& values,
+    const std::vector<int>& values_per_page, Encoding::type encoding,
+    std::vector<std::shared_ptr<Buffer>>& rle_indices) {
   InMemoryOutputStream page_stream;
   test::DictionaryPageBuilder<Type> page_builder(d);
   int num_pages = static_cast<int>(values_per_page.size());
@@ -333,15 +331,15 @@ static shared_ptr<DictionaryPage> MakeDictPage(
 // Given def/rep levels and values create multiple dict pages
 template <typename Type>
 static void PaginateDict(const ColumnDescriptor* d,
-                         const vector<typename Type::c_type>& values,
-                         const vector<int16_t>& def_levels, int16_t max_def_level,
-                         const vector<int16_t>& rep_levels, int16_t max_rep_level,
-                         int num_levels_per_page, const vector<int>& values_per_page,
-                         vector<shared_ptr<Page>>& pages,
+                         const std::vector<typename Type::c_type>& values,
+                         const std::vector<int16_t>& def_levels, int16_t max_def_level,
+                         const std::vector<int16_t>& rep_levels, int16_t max_rep_level,
+                         int num_levels_per_page, const std::vector<int>& values_per_page,
+                         std::vector<std::shared_ptr<Page>>& pages,
                          Encoding::type encoding = Encoding::RLE_DICTIONARY) {
   int num_pages = static_cast<int>(values_per_page.size());
-  vector<shared_ptr<Buffer>> rle_indices;
-  shared_ptr<DictionaryPage> dict_page =
+  std::vector<std::shared_ptr<Buffer>> rle_indices;
+  std::shared_ptr<DictionaryPage> dict_page =
       MakeDictPage<Type>(d, values, values_per_page, encoding, rle_indices);
   pages.push_back(dict_page);
   int def_level_start = 0;
@@ -357,7 +355,7 @@ static void PaginateDict(const ColumnDescriptor* d,
       rep_level_start = i * num_levels_per_page;
       rep_level_end = (i + 1) * num_levels_per_page;
     }
-    shared_ptr<DataPageV1> data_page = MakeDataPage<Int32Type>(
+    std::shared_ptr<DataPageV1> data_page = MakeDataPage<Int32Type>(
         d, {}, values_per_page[i], encoding, rle_indices[i]->data(),
         static_cast<int>(rle_indices[i]->size()),
         slice(def_levels, def_level_start, def_level_end), max_def_level,
@@ -369,11 +367,12 @@ static void PaginateDict(const ColumnDescriptor* d,
 // Given def/rep levels and values create multiple plain pages
 template <typename Type>
 static void PaginatePlain(const ColumnDescriptor* d,
-                          const vector<typename Type::c_type>& values,
-                          const vector<int16_t>& def_levels, int16_t max_def_level,
-                          const vector<int16_t>& rep_levels, int16_t max_rep_level,
-                          int num_levels_per_page, const vector<int>& values_per_page,
-                          vector<shared_ptr<Page>>& pages,
+                          const std::vector<typename Type::c_type>& values,
+                          const std::vector<int16_t>& def_levels, int16_t max_def_level,
+                          const std::vector<int16_t>& rep_levels, int16_t max_rep_level,
+                          int num_levels_per_page,
+                          const std::vector<int>& values_per_page,
+                          std::vector<std::shared_ptr<Page>>& pages,
                           Encoding::type encoding = Encoding::PLAIN) {
   int num_pages = static_cast<int>(values_per_page.size());
   int def_level_start = 0;
@@ -390,7 +389,7 @@ static void PaginatePlain(const ColumnDescriptor* d,
       rep_level_start = i * num_levels_per_page;
       rep_level_end = (i + 1) * num_levels_per_page;
     }
-    shared_ptr<DataPage> page = MakeDataPage<Type>(
+    std::shared_ptr<DataPage> page = MakeDataPage<Type>(
         d, slice(values, value_start, value_start + values_per_page[i]),
         values_per_page[i], encoding, nullptr, 0,
         slice(def_levels, def_level_start, def_level_end), max_def_level,
@@ -403,9 +402,10 @@ static void PaginatePlain(const ColumnDescriptor* d,
 // Generates pages from randomly generated data
 template <typename Type>
 static int MakePages(const ColumnDescriptor* d, int num_pages, int levels_per_page,
-                     vector<int16_t>& def_levels, vector<int16_t>& rep_levels,
-                     vector<typename Type::c_type>& values, vector<uint8_t>& buffer,
-                     vector<shared_ptr<Page>>& pages,
+                     std::vector<int16_t>& def_levels, std::vector<int16_t>& rep_levels,
+                     std::vector<typename Type::c_type>& values,
+                     std::vector<uint8_t>& buffer,
+                     std::vector<std::shared_ptr<Page>>& pages,
                      Encoding::type encoding = Encoding::PLAIN) {
   int num_levels = levels_per_page * num_pages;
   int num_values = 0;
@@ -413,7 +413,7 @@ static int MakePages(const ColumnDescriptor* d, int num_pages, int levels_per_pa
   int16_t zero = 0;
   int16_t max_def_level = d->max_definition_level();
   int16_t max_rep_level = d->max_repetition_level();
-  vector<int> values_per_page(num_pages, levels_per_page);
+  std::vector<int> values_per_page(num_pages, levels_per_page);
   // Create definition levels
   if (max_def_level > 0) {
     def_levels.resize(num_levels);

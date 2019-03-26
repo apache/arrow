@@ -29,9 +29,6 @@
 #include "parquet/thrift.h"
 #include "parquet/types.h"
 
-using std::string;
-using std::vector;
-
 namespace parquet {
 
 using format::ConvertedType;

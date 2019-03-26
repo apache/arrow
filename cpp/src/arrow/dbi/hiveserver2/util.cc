@@ -31,7 +31,6 @@
 #include "arrow/status.h"
 
 namespace hs2 = apache::hive::service::cli::thrift;
-using std::string;
 using std::unique_ptr;
 
 namespace arrow {
