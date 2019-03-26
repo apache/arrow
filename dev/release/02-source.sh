@@ -34,7 +34,7 @@ tagrc=${tag}-rc${rc}
 
 echo "Preparing source for tag ${tag}"
 
-release_hash=`git rev-list $tag 2> /dev/null | head -n 1 `
+: ${release_hash=:`git rev-list $tag 2> /dev/null | head -n 1 `}
 
 if [ -z "$release_hash" ]; then
   echo "Cannot continue: unknown git tag: $tag"
