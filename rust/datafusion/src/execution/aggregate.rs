@@ -352,25 +352,21 @@ impl AggregateFunction for CountFunction {
         value: &Option<ScalarValue>,
         rollup: bool,
     ) -> Result<()> {
-        match value {
-            Some(ScalarValue::UInt64(n)) => {
-                if rollup {
-                    if self.value.is_none() {
-                        self.value = Some(*n);
-                    } else {
-                        self.value = Some(self.value.unwrap() + *n);
-                    }
+        if rollup {
+            if let Some(ScalarValue::UInt64(n)) = value {
+                if self.value.is_none() {
+                    self.value = Some(*n);
                 } else {
-                    if self.value.is_none() {
-                        self.value = Some(1);
-                    } else {
-                        self.value = Some(self.value.unwrap() + 1);
-                    }
+                    self.value = Some(self.value.unwrap() + *n);
                 }
             }
-            Some(_) => panic!(),
-            None => {
-                // do nothing
+        } else {
+            if value.is_some() {
+                if self.value.is_none() {
+                    self.value = Some(1);
+                } else {
+                    self.value = Some(self.value.unwrap() + 1);
+                }
             }
         }
         Ok(())
@@ -447,8 +443,8 @@ fn create_accumulators(
     Ok(AccumulatorSet { aggr_values })
 }
 
-fn array_min(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
-    match dt {
+fn array_min(array: ArrayRef) -> Result<Option<ScalarValue>> {
+    match array.data_type() {
         DataType::UInt8 => {
             match compute::min(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt8(n))),
@@ -515,8 +511,8 @@ fn array_min(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
     }
 }
 
-fn array_max(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
-    match dt {
+fn array_max(array: ArrayRef) -> Result<Option<ScalarValue>> {
+    match array.data_type() {
         DataType::UInt8 => {
             match compute::max(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt8(n))),
@@ -583,8 +579,8 @@ fn array_max(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
     }
 }
 
-fn array_sum(array: ArrayRef, dt: &DataType) -> Result<Option<ScalarValue>> {
-    match dt {
+fn array_sum(array: ArrayRef) -> Result<Option<ScalarValue>> {
+    match array.data_type() {
         DataType::UInt8 => {
             match compute::sum(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
                 Some(n) => Ok(Some(ScalarValue::UInt8(n))),
@@ -666,9 +662,9 @@ fn update_accumulators(
     // update the accumulators
     for j in 0..accumulator_set.aggr_values.len() {
         // evaluate the argument to the aggregate function
-        let array = aggr_expr[j].invoke(batch)?;
+        let array = aggr_expr[j].evaluate_arg(batch)?;
 
-        let value: Option<ScalarValue> = match aggr_expr[j].data_type() {
+        let value: Option<ScalarValue> = match array.data_type() {
             DataType::UInt8 => {
                 let z = array.as_any().downcast_ref::<UInt8Array>().unwrap();
                 Some(ScalarValue::UInt8(z.value(row)))
@@ -819,26 +815,17 @@ impl AggregateRelation {
         while let Some(batch) = self.input.borrow_mut().next()? {
             for i in 0..aggr_expr_count {
                 // evaluate the argument to the aggregate function
-                let array = self.aggr_expr[i].invoke(&batch)?;
-
-                let t = self.aggr_expr[i].data_type();
-
+                let array = self.aggr_expr[i].evaluate_arg(&batch)?;
                 match self.aggr_expr[i].aggr_type() {
-                    AggregateType::Min => accumulator_set.accumulate_scalar(
-                        i,
-                        array_min(array, &t)?,
-                        true,
-                    )?,
-                    AggregateType::Max => accumulator_set.accumulate_scalar(
-                        i,
-                        array_max(array, &t)?,
-                        true,
-                    )?,
-                    AggregateType::Sum => accumulator_set.accumulate_scalar(
-                        i,
-                        array_sum(array, &t)?,
-                        true,
-                    )?,
+                    AggregateType::Min => {
+                        accumulator_set.accumulate_scalar(i, array_min(array)?, true)?
+                    }
+                    AggregateType::Max => {
+                        accumulator_set.accumulate_scalar(i, array_max(array)?, true)?
+                    }
+                    AggregateType::Sum => {
+                        accumulator_set.accumulate_scalar(i, array_sum(array)?, true)?
+                    }
                     AggregateType::Count => {
                         accumulator_set.accumulate_scalar(i, array_count(array)?, true)?
                     }
@@ -1234,7 +1221,7 @@ mod tests {
     }
 
     #[test]
-    fn test_min_max_sum_f64_group_by_uint32() {
+    fn test_min_max_sum_count_f64_group_by_uint32() {
         let schema = aggr_test_schema();
         let relation = load_csv("../../testing/data/csv/aggregate_test_100.csv", &schema);
 
@@ -1335,19 +1322,31 @@ mod tests {
         assert_eq!(0.02182578039211991, min.value(0));
         assert_eq!(0.9237877978193884, max.value(0));
         assert_eq!(9.253864188402662, sum.value(0));
-        assert_eq!(0, count.value(0));
+        assert_eq!(23, count.value(0));
 
         assert_eq!(2, a.value(1));
         assert_eq!(0.16301110515739792, min.value(1));
         assert_eq!(0.991517828651004, max.value(1));
         assert_eq!(14.400412325480858, sum.value(1));
-        assert_eq!(0, count.value(1));
+        assert_eq!(22, count.value(1));
 
         assert_eq!(5, a.value(2));
         assert_eq!(0.01479305307777301, min.value(2));
         assert_eq!(0.9723580396501548, max.value(2));
         assert_eq!(6.037181692266781, sum.value(2));
-        assert_eq!(0, count.value(2));
+        assert_eq!(14, count.value(2));
+
+        assert_eq!(3, a.value(3));
+        assert_eq!(0.047343434291126085, min.value(3));
+        assert_eq!(0.9293883502480845, max.value(3));
+        assert_eq!(9.966125219358322, sum.value(3));
+        assert_eq!(19, count.value(3));
+
+        assert_eq!(1, a.value(4));
+        assert_eq!(0.05636955101974106, min.value(4));
+        assert_eq!(0.9965400387585364, max.value(4));
+        assert_eq!(11.239667565763519, sum.value(4));
+        assert_eq!(14, count.value(2));
     }
 
     fn aggr_test_schema() -> Arc<Schema> {

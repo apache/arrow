@@ -91,8 +91,8 @@ impl CompiledAggregateExpression {
         &self.t
     }
 
-    /// invoke the compiled expression
-    pub fn invoke(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+    /// invoke the compiled expression for the input to the aggregate function
+    pub fn evaluate_arg(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         self.args[0].invoke(batch)
     }
 }
