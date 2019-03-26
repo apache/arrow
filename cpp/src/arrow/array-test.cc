@@ -1007,27 +1007,41 @@ void CheckApproxEquals() {
   std::shared_ptr<Array> a, b;
 
   ArrayFromVector<TYPE>({true, false}, {0.5, 1.0}, &a);
-  ArrayFromVector<TYPE>({true, false}, {0.5000001, 1.0000001}, &b);
+  ArrayFromVector<TYPE>({true, false}, {0.5000001f, 1.0000001f}, &b);
   ASSERT_TRUE(a->ApproxEquals(b));
   ASSERT_TRUE(b->ApproxEquals(a));
+  ASSERT_TRUE(a->ApproxEquals(b, kDefaultAbsoluteTolerance, true /* nans_equal */));
+  ASSERT_TRUE(b->ApproxEquals(a, kDefaultAbsoluteTolerance, true /* nans_equal */));
 
-  ArrayFromVector<TYPE>({true, false}, {0.5001, 1.000001}, &b);
+  ArrayFromVector<TYPE>({true, false}, {0.5001f, 1.000001f}, &b);
   ASSERT_FALSE(a->ApproxEquals(b));
   ASSERT_FALSE(b->ApproxEquals(a));
+  ASSERT_FALSE(a->ApproxEquals(b, kDefaultAbsoluteTolerance, true /* nans_equal */));
+  ASSERT_FALSE(b->ApproxEquals(a, kDefaultAbsoluteTolerance, true /* nans_equal */));
+  ASSERT_TRUE(a->ApproxEquals(b, 1e-3 /* epsilon */));
+  ASSERT_TRUE(b->ApproxEquals(a, 1e-3 /* epsilon */));
+  ASSERT_TRUE(a->ApproxEquals(b, 1e-3 /* epsilon */, true /* nans_equal */));
+  ASSERT_TRUE(b->ApproxEquals(a, 1e-3 /* epsilon */, true /* nans_equal */));
 
-  ArrayFromVector<TYPE>({true, false}, {0.5, 1.1}, &b);
+  ArrayFromVector<TYPE>({true, false}, {0.5, 1.25}, &b);
   ASSERT_TRUE(a->ApproxEquals(b));
   ASSERT_TRUE(b->ApproxEquals(a));
+  ASSERT_TRUE(a->ApproxEquals(b, kDefaultAbsoluteTolerance, true /* nans_equal */));
+  ASSERT_TRUE(b->ApproxEquals(a, kDefaultAbsoluteTolerance, true /* nans_equal */));
 
   // Mismatching validity
   ArrayFromVector<TYPE>({true, false}, {0.5, 1.0}, &a);
   ArrayFromVector<TYPE>({false, false}, {0.5, 1.0}, &b);
   ASSERT_FALSE(a->ApproxEquals(b));
   ASSERT_FALSE(b->ApproxEquals(a));
+  ASSERT_FALSE(a->ApproxEquals(b, kDefaultAbsoluteTolerance, true /* nans_equal */));
+  ASSERT_FALSE(b->ApproxEquals(a, kDefaultAbsoluteTolerance, true /* nans_equal */));
 
   ArrayFromVector<TYPE>({false, true}, {0.5, 1.0}, &b);
   ASSERT_FALSE(a->ApproxEquals(b));
   ASSERT_FALSE(b->ApproxEquals(a));
+  ASSERT_FALSE(a->ApproxEquals(b, kDefaultAbsoluteTolerance, true /* nans_equal */));
+  ASSERT_FALSE(b->ApproxEquals(a, kDefaultAbsoluteTolerance, true /* nans_equal */));
 }
 
 template <typename TYPE>
@@ -1084,8 +1098,13 @@ void CheckFloatingNanEquality() {
   ArrayFromVector<TYPE>({false, true}, {0.5, nan_value}, &b);
   ASSERT_FALSE(a->Equals(b));
   ASSERT_FALSE(b->Equals(a));
+  ASSERT_TRUE(a->Equals(b, true /* nans_equal */));
+  ASSERT_TRUE(b->Equals(a, true /* nans_equal */));
   ASSERT_FALSE(a->ApproxEquals(b));
   ASSERT_FALSE(b->ApproxEquals(a));
+  ASSERT_TRUE(a->ApproxEquals(b, 1e-5, true /* nans_equal */));
+  ASSERT_TRUE(b->ApproxEquals(a, 1e-5, true /* nans_equal */));
+  // NaN in tested range
   ASSERT_FALSE(a->RangeEquals(b, 0, 2, 0));
   ASSERT_FALSE(b->RangeEquals(a, 0, 2, 0));
   ASSERT_FALSE(a->RangeEquals(b, 1, 2, 1));

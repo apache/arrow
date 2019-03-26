@@ -35,7 +35,8 @@ struct Scalar;
 static constexpr double kDefaultAbsoluteTolerance = 1E-5;
 
 /// Returns true if the arrays are exactly equal
-bool ARROW_EXPORT ArrayEquals(const Array& left, const Array& right);
+bool ARROW_EXPORT ArrayEquals(const Array& left, const Array& right,
+                              bool nans_equal = false);
 
 bool ARROW_EXPORT TensorEquals(const Tensor& left, const Tensor& right);
 
@@ -45,7 +46,8 @@ bool ARROW_EXPORT SparseTensorEquals(const SparseTensor& left, const SparseTenso
 /// Returns true if the arrays are approximately equal. For non-floating point
 /// types, this is equivalent to ArrayEquals(left, right)
 bool ARROW_EXPORT ArrayApproxEquals(const Array& left, const Array& right,
-                                    double epsilon = kDefaultAbsoluteTolerance);
+                                    double epsilon = kDefaultAbsoluteTolerance,
+                                    bool nans_equal = false);
 
 /// Returns true if indicated equal-length segment of arrays is exactly equal
 bool ARROW_EXPORT ArrayRangeEquals(const Array& left, const Array& right,

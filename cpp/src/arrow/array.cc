@@ -106,24 +106,27 @@ int64_t ArrayData::GetNullCount() const {
 
 int64_t Array::null_count() const { return data_->GetNullCount(); }
 
-bool Array::Equals(const Array& arr) const { return ArrayEquals(*this, arr); }
+bool Array::Equals(const Array& arr, bool nans_equal) const {
+  return ArrayEquals(*this, arr, nans_equal);
+}
 
-bool Array::Equals(const std::shared_ptr<Array>& arr) const {
+bool Array::Equals(const std::shared_ptr<Array>& arr, bool nans_equal) const {
   if (!arr) {
     return false;
   }
-  return Equals(*arr);
+  return Equals(*arr, nans_equal);
 }
 
-bool Array::ApproxEquals(const Array& arr, double epsilon) const {
-  return ArrayApproxEquals(*this, arr, epsilon);
+bool Array::ApproxEquals(const Array& arr, double epsilon, bool nans_equal) const {
+  return ArrayApproxEquals(*this, arr, epsilon, nans_equal);
 }
 
-bool Array::ApproxEquals(const std::shared_ptr<Array>& arr, double epsilon) const {
+bool Array::ApproxEquals(const std::shared_ptr<Array>& arr, double epsilon,
+                         bool nans_equal) const {
   if (!arr) {
     return false;
   }
-  return ApproxEquals(*arr, epsilon);
+  return ApproxEquals(*arr, epsilon, nans_equal);
 }
 
 bool Array::RangeEquals(const Array& other, int64_t start_idx, int64_t end_idx,
