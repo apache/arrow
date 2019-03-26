@@ -19,12 +19,12 @@
 
 use std::sync::Arc;
 
+use crate::arrow::datatypes::{Field, Schema};
 use crate::error::{ExecutionError, Result};
-use crate::logicalplan::{Expr, LogicalPlan};
-use crate::table::*;
-
 use crate::logicalplan::Expr::Literal;
 use crate::logicalplan::ScalarValue;
+use crate::logicalplan::{Expr, LogicalPlan};
+use crate::table::*;
 
 /// Implementation of Table API
 pub struct TableImpl {
@@ -42,13 +42,13 @@ impl Table for TableImpl {
     /// Apply a projection based on a list of column names
     fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<Table>> {
         let schema = self.plan.schema();
-        let mut projection: Vec<usize> = Vec::with_capacity(columns.len());
+        let mut projection_index: Vec<usize> = Vec::with_capacity(columns.len());
         let mut expr: Vec<Expr> = Vec::with_capacity(columns.len());
 
         for column in columns {
             match schema.column_with_name(column) {
                 Some((i, _)) => {
-                    projection.push(i);
+                    projection_index.push(i);
                     expr.push(Expr::Column(i));
                 }
                 _ => {
@@ -64,7 +64,7 @@ impl Table for TableImpl {
             LogicalPlan::Projection {
                 expr,
                 input: self.plan.clone(),
-                schema: schema.projection(&projection)?,
+                schema: projection(&schema, &projection_index)?,
             },
         ))))
     }
@@ -82,4 +82,20 @@ impl Table for TableImpl {
     fn to_logical_plan(&self) -> Arc<LogicalPlan> {
         self.plan.clone()
     }
+}
+
+/// Create a new schema by applying a projection to this schema's fields
+fn projection(schema: &Schema, projection: &Vec<usize>) -> Result<Arc<Schema>> {
+    let mut fields: Vec<Field> = Vec::with_capacity(projection.len());
+    for i in projection {
+        if *i < schema.fields().len() {
+            fields.push(schema.field(*i).clone());
+        } else {
+            return Err(ExecutionError::InvalidColumn(format!(
+                "Invalid column index {} in projection",
+                i
+            )));
+        }
+    }
+    Ok(Arc::new(Schema::new(fields)))
 }
