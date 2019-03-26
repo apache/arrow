@@ -68,8 +68,14 @@ rm -rf ${tag}/c_glib
 tar xf ${dist_c_glib_tar_gz} -C ${tag}
 rm -f ${dist_c_glib_tar_gz}
 
+# Resolve all hard and symbolic links
+rm -rf ${tag}.tmp
+mv ${tag} ${tag}.tmp
+cp -r -L ${tag}.tmp ${tag}
+rm -rf ${tag}.tmp
+
 # Create new tarball from modified source directory
-tar czhf ${tarball} ${tag}
+tar czf ${tarball} ${tag}
 rm -rf ${tag}
 
 ${SOURCE_DIR}/run-rat.sh ${tarball}
