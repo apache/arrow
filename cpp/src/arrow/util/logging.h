@@ -167,6 +167,9 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   /// If glog is not installed, this function won't do anything.
   static void InstallFailureSignalHandler();
 
+  /// Uninstall the signal actions installed by InstallFailureSignalHandler.
+  static void UninstallSignalAction();
+
   /// Return whether or not the log level is enabled in current setting.
   ///
   /// \param log_level The input log level to test.
@@ -175,9 +178,6 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrowLog);
-
-  /// Uninstall the signal actions installed by InstallFailureSignalHandler.
-  static void UninstallSignalAction();
 
   // Hide the implementation of log provider by void *.
   // Otherwise, lib user may define the same macro to use the correct header file.

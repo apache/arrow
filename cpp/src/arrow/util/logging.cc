@@ -173,7 +173,6 @@ void ArrowLog::UninstallSignalAction() {
 
 void ArrowLog::ShutDownArrowLog() {
 #ifdef ARROW_USE_GLOG
-  UninstallSignalAction();
   if (!log_dir_->empty()) {
     google::ShutdownGoogleLogging();
   }
