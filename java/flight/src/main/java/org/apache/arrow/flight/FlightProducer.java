@@ -23,7 +23,7 @@ import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.vector.VectorSchemaRoot;
 
 /**
- * API to Implement an Arrow Flight server.
+ * API to Implement an Arrow Flight producer.
  */
 public interface FlightProducer {
 

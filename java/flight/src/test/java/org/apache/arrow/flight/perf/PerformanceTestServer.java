@@ -36,7 +36,6 @@ import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
-import org.apache.arrow.flight.example.ExampleFlightServer;
 import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.flight.perf.impl.PerfOuterClass.Perf;
 import org.apache.arrow.flight.perf.impl.PerfOuterClass.Token;
@@ -54,7 +53,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 
 public class PerformanceTestServer implements AutoCloseable {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExampleFlightServer.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(PerformanceTestServer.class);
 
   private final FlightServer flightServer;
   private final Location location;
