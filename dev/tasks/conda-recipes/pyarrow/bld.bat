@@ -30,6 +30,7 @@ copy /Y "%SRC_DIR%\cpp\cmake_modules\FindNumPy.cmake" cmake_modules\
 copy /Y "%SRC_DIR%\cpp\cmake_modules\FindPythonLibsNew.cmake" cmake_modules\
 
 SET ARROW_HOME=%LIBRARY_PREFIX%
+SET SETUPTOOLS_SCM_PRETEND_VERSION=%PKG_VERSION%
 "%PYTHON%" setup.py ^
            build_ext --build-type=release ^
                      --with-parquet ^

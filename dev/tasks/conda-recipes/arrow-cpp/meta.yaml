@@ -23,11 +23,11 @@ source:
   path: ../../../../
 
 build:
+  build:
   number: 0
-  skip: true  # [win32]
-  skip: true  # [win and py<35]
-  features:
-    - vc14  # [win and py>=35]
+  skip: true  # [win and vc<14]
+  run_exports:
+    - {{ pin_subpackage("arrow-cpp", max_pin="x.x") }}
 
 requirements:
   build:
@@ -63,7 +63,6 @@ requirements:
     - gflags
     - glog
     - lz4-c
-    - orc  # [unix]
     - python
     - re2
     - snappy
