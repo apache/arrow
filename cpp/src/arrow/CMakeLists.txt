@@ -140,6 +140,9 @@ if("${COMPILER_FAMILY}" STREQUAL "clang")
                PROPERTY COMPILE_FLAGS " -Wno-unused-macros ")
 endif()
 
+# Unconditionally install testing headers that are also useful for Arrow consumers.
+add_subdirectory(testing)
+
 if(ARROW_COMPUTE)
   add_subdirectory(compute)
   set(ARROW_SRCS
