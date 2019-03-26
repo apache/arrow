@@ -38,7 +38,7 @@ build_script:
   - git -C %ARROW_SRC% checkout {{ arrow.head }} || exit /B
   - call %ARROW_SRC%\dev\tasks\python-wheels\win-build.bat
   # the artifacts must be uploaded from a directory relative to the build root
-  - move %ARROW_SRC%\python\dist\*.whl wheels\
+  - copy "%ARROW_SRC%\python\dist\*" wheels\
 
 artifacts:
   - path: wheels\*.whl
