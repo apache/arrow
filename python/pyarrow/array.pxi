@@ -1075,19 +1075,20 @@ cdef class UnionArray(Array):
         cdef shared_ptr[CArray] out
         cdef vector[shared_ptr[CArray]] c
         cdef Array child
-        cdef vector[c_string] fn
-        cdef vector[uint8_t] tc
+        cdef vector[c_string] c_field_names
+        cdef vector[uint8_t] c_type_codes
         for child in children:
             c.push_back(child.sp_array)
         if field_names is not None:
             for x in field_names:
-                fn.push_back(tobytes(x))
+                c_field_names.push_back(tobytes(x))
         if type_codes is not None:
             for x in type_codes:
-                tc.push_back(x)
+                c_type_codes.push_back(x)
         with nogil:
             check_status(CUnionArray.MakeDense(
-                deref(types.ap), deref(value_offsets.ap), c, fn, tc, &out))
+                deref(types.ap), deref(value_offsets.ap), c, c_field_names,
+                c_type_codes, &out))
         return pyarrow_wrap_array(out)
 
     @staticmethod
@@ -1111,18 +1112,20 @@ cdef class UnionArray(Array):
         cdef shared_ptr[CArray] out
         cdef vector[shared_ptr[CArray]] c
         cdef Array child
-        cdef vector[c_string] fn
-        cdef vector[uint8_t] tc
+        cdef vector[c_string] c_field_names
+        cdef vector[uint8_t] c_type_codes
         for child in children:
             c.push_back(child.sp_array)
         if field_names is not None:
             for x in field_names:
-                fn.push_back(tobytes(x))
+                c_field_names.push_back(tobytes(x))
         if type_codes is not None:
             for x in type_codes:
-                tc.push_back(x)
+                c_type_codes.push_back(x)
         with nogil:
-            check_status(CUnionArray.MakeSparse(deref(types.ap), c, fn, tc,
+            check_status(CUnionArray.MakeSparse(deref(types.ap), c,
+                                                c_field_names,
+                                                c_type_codes,
                                                 &out))
         return pyarrow_wrap_array(out)
 
