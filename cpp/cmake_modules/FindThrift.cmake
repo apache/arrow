@@ -83,10 +83,10 @@ if(THRIFT_PC_FOUND)
                PATH_SUFFIXES "bin")
 else()
   find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX}
-               HINTS ${Thrift_ROOT}
+               HINTS ${Thrift_ROOT} "${Thrift_ROOT}/Library"
                PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
   find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h
-            HINTS ${Thrift_ROOT}
+            HINTS ${Thrift_ROOT} "${Thrift_ROOT}/Library"
             PATH_SUFFIXES "include")
   find_program(THRIFT_COMPILER thrift HINTS ${Thrift_ROOT} PATH_SUFFIXES "bin")
 endif()

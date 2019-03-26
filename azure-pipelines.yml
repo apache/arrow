@@ -64,6 +64,9 @@ jobs:
     GENERATOR: Ninja
     CONFIGURATION: Release
     PYTHON: 3.7
+    ARROW_BUILD_GANDIVA: OFF
+    # XXX use a bool switch like ARROW_USE_TOOLCHAIN instead?
+    JOB: Toolchain
   steps:
   - script: set
     displayName: List environment variables
@@ -97,10 +100,12 @@ jobs:
       echo on
       set PATH=%CONDA%\Scripts;%PATH%
       call activate arrow
-      call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
       echo on
       @rem Prevent CMake from picking up MinGW over MSVC
-      del /S /Q C:\Tools\mingw64\bin\*.exe
+      @rem python ci\delete-compilers.py
+      set CC=cl.exe
+      set CXX=cl.exe
       set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
+      call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
       call ci\cpp-msvc-build-main.bat
     displayName: Build & test

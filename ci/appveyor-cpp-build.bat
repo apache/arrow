@@ -98,14 +98,14 @@ if "%JOB%" == "Build_Debug" (
 
 set CONDA_PACKAGES=--file=ci\conda_env_python.yml python=%PYTHON% numpy=1.14 boost-cpp
 
-if "%ARROW_BUILD_GANDIVA%" == "ON" (
-  @rem Install llvmdev in the toolchain if building gandiva.dll
-  set CONDA_PACKAGES=%CONDA_PACKAGES% llvmdev=%ARROW_LLVM_VERSION% clangdev=%ARROW_LLVM_VERSION%
-)
-
 if "%JOB%" == "Toolchain" (
   @rem Install pre-built "toolchain" packages for faster builds
   set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.yml
+)
+
+if "%ARROW_BUILD_GANDIVA%" == "ON" (
+  @rem Install llvmdev in the toolchain if building gandiva.dll
+  set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_gandiva.yml
 )
 
 conda create -n arrow -q -y %CONDA_PACKAGES% -c conda-forge || exit /B
