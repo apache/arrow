@@ -46,10 +46,9 @@ requirements:
     - libprotobuf
     - llvmdev 7.*
     - lz4-c
-    - llvmdev
     - numpy 1.14.*
+    - orc  # [unix]
     - python
-    - re2
     - rapidjson
     - re2
     - snappy
@@ -64,6 +63,7 @@ requirements:
     - gflags
     - glog
     - lz4-c
+    - orc  # [unix]
     - python
     - re2
     - snappy
