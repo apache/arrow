@@ -143,7 +143,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   @Override
   public void listActions(StreamListener<ActionType> listener) {
     listener.onNext(new ActionType("get", "pull a stream. Action must be done via standard get mechanism"));
-    listener.onNext(new ActionType("put", "push a stream. Action must be done via standard get mechanism"));
+    listener.onNext(new ActionType("put", "push a stream. Action must be done via standard put mechanism"));
     listener.onNext(new ActionType("drop", "delete a flight. Action body is a JSON encoded path."));
     listener.onCompleted();
   }
