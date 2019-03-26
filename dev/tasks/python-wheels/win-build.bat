@@ -53,6 +53,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_GANDIVA=ON ^
       ..  || exit /B
 cmake --build . --target INSTALL --config Release  || exit /B
+popd
 
 pushd %ARROW_SRC%\python
 set PYARROW_BUILD_TYPE=Release
