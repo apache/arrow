@@ -18,7 +18,7 @@
 //! Table API for building a logical query plan. This is similar to the Table API in Ibis and
 //! the DataFrame API in Apache Spark
 
-use crate::execution::error::Result;
+use crate::error::Result;
 use crate::logicalplan::LogicalPlan;
 use std::sync::Arc;
 

@@ -19,24 +19,27 @@
 
 use std::sync::Arc;
 
-use crate::execution::error::{ExecutionError, Result};
+use crate::error::{ExecutionError, Result};
 use crate::logicalplan::{Expr, LogicalPlan};
 use crate::table::*;
 
 use crate::logicalplan::Expr::Literal;
 use crate::logicalplan::ScalarValue;
 
+/// Implementation of Table API
 pub struct TableImpl {
     plan: Arc<LogicalPlan>,
 }
 
 impl TableImpl {
+    /// Create a new Table based on an existing logical plan
     pub fn new(plan: Arc<LogicalPlan>) -> Self {
         Self { plan }
     }
 }
 
 impl Table for TableImpl {
+    /// Apply a projection based on a list of column names
     fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<Table>> {
         let schema = self.plan.schema();
         let mut projection: Vec<usize> = Vec::with_capacity(columns.len());
@@ -66,6 +69,7 @@ impl Table for TableImpl {
         ))))
     }
 
+    /// Limit the number of rows
     fn limit(&self, n: usize) -> Result<Arc<Table>> {
         Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::Limit {
             expr: Literal(ScalarValue::UInt32(n as u32)),
@@ -74,6 +78,7 @@ impl Table for TableImpl {
         }))))
     }
 
+    /// Convert to logical plan
     fn to_logical_plan(&self) -> Arc<LogicalPlan> {
         self.plan.clone()
     }

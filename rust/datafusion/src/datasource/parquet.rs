@@ -31,7 +31,7 @@ use parquet::data_type::{ByteArray, Int96};
 use parquet::file::reader::*;
 use parquet::reader::schema::parquet_to_arrow_schema;
 
-use crate::datasource::{RecordBatchIterator, ScanResult, Table};
+use crate::datasource::{RecordBatchIterator, ScanResult, TableProvider};
 use crate::error::{ExecutionError, Result};
 
 /// Table-based representation of a `ParquetFile`
@@ -53,7 +53,7 @@ impl ParquetTable {
     }
 }
 
-impl Table for ParquetTable {
+impl TableProvider for ParquetTable {
     fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }
@@ -677,7 +677,7 @@ mod tests {
         );
     }
 
-    fn load_table(name: &str) -> Box<Table> {
+    fn load_table(name: &str) -> Box<TableProvider> {
         let testdata = env::var("PARQUET_TEST_DATA").unwrap();
         let filename = format!("{}/{}", testdata, name);
         let table = ParquetTable::try_new(&filename).unwrap();

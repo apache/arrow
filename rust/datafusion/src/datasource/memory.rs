@@ -24,7 +24,7 @@ use std::sync::{Arc, Mutex};
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::{RecordBatchIterator, ScanResult, Table};
+use crate::datasource::{RecordBatchIterator, ScanResult, TableProvider};
 use crate::error::{ExecutionError, Result};
 
 /// In-memory table

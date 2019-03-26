@@ -26,7 +26,7 @@ use std::sync::Arc;
 use arrow::datatypes::*;
 
 use crate::datasource::csv::CsvFile;
-use crate::datasource::datasource::Table;
+use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::aggregate::AggregateRelation;
 use crate::execution::expression::*;
@@ -42,7 +42,7 @@ use crate::optimizer::type_coercion::TypeCoercionRule;
 use crate::optimizer::utils;
 use crate::sql::parser::{DFASTNode, DFParser};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
-use crate::datasource::TableProvider;
+use crate::table::Table;
 
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
