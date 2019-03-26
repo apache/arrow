@@ -1232,7 +1232,7 @@ def _mkdir_if_not_exists(fs, path):
 
 
 def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
-                     **kwargs):
+                     preserve_index=None, **kwargs):
     """
     Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
@@ -1265,6 +1265,10 @@ def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
         Columns are partitioned in the order they are given
     **kwargs : dict, kwargs for write_table function.
     """
+    if preserve_index is not None:
+        warnings.warn('preserve_index argument is deprecated as of 0.13.0 and '
+                      'has no effect', DeprecationWarning)
+
     fs, root_path = _get_filesystem_and_path(filesystem, root_path)
 
     _mkdir_if_not_exists(fs, root_path)
