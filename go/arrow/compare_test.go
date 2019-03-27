@@ -237,9 +237,11 @@ func TestTypeEquals(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		got := TypeEquals(test.left, test.right, test.checkMetadata)
-		if got != test.want {
-			t.Errorf("TypeEquals(%v, %v, %v): got=%v, want=%v", test.left, test.right, test.checkMetadata, got, test.want)
-		}
+		t.Run("", func(t *testing.T) {
+			got := TypeEquals(test.left, test.right, test.checkMetadata)
+			if got != test.want {
+				t.Fatalf("TypeEquals(%v, %v, %v): got=%v, want=%v", test.left, test.right, test.checkMetadata, got, test.want)
+			}
+		})
 	}
 }
