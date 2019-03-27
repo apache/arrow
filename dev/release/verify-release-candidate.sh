@@ -224,7 +224,7 @@ ${ARROW_CMAKE_OPTIONS}
   git clone https://github.com/apache/parquet-testing.git
   export PARQUET_TEST_DATA=$PWD/parquet-testing/data
 
-  ctest -VV -L unittest
+  ctest -j$NPROC --output-on-failure -L unittest
   popd
 }
 
@@ -235,7 +235,14 @@ test_python() {
 
   pip install -r requirements.txt -r requirements-test.txt
 
-  python setup.py build_ext --inplace --with-parquet --with-plasma
+  export PYARROW_WITH_GANDIVA=1
+  export PYARROW_WITH_PARQUET=1
+  export PYARROW_WITH_PLASMA=1
+  if [ "${ARROW_CUDA}" = "ON" ]; then
+    export PYARROW_WITH_CUDA=1
+  fi
+
+  python setup.py build_ext --inplace
   py.test pyarrow -v --pdb
 
   popd
