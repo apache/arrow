@@ -248,8 +248,9 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   /// in store.cc).
   ///
   /// \param store_fd File descriptor to fetch from the store.
+  /// \param fd
   /// \return Client file descriptor corresponding to store_fd.
-  int GetStoreFd(int store_fd);
+  Status GetStoreFd(int store_fd, int* fd);
 
   /// This is a helper method for marking an object as unused by this client.
   ///
@@ -343,16 +344,14 @@ bool PlasmaClient::Impl::IsInUse(const ObjectID& object_id) {
   return (elem != objects_in_use_.end());
 }
 
-int PlasmaClient::Impl::GetStoreFd(int store_fd) {
+Status PlasmaClient::Impl::GetStoreFd(int store_fd, int* fd) {
   auto entry = mmap_table_.find(store_fd);
   if (entry == mmap_table_.end()) {
-    int fd;
-    auto status = store_conn_->RecvFd(&fd);
-    ARROW_CHECK(status.ok() && fd >= 0) << "recv not successful";
-    return fd;
+    RETURN_NOT_OK(store_conn_->RecvFd(fd));
   } else {
-    return entry->second->fd();
+    *fd = entry->second->fd();
   }
+  return Status::OK();
 }
 
 void PlasmaClient::Impl::IncrementObjectCount(const ObjectID& object_id,
@@ -398,7 +397,8 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
   // If the CreateReply included an error, then the store will not send a file
   // descriptor.
   if (device_num == 0) {
-    int fd = GetStoreFd(store_fd);
+    int fd;
+    RETURN_NOT_OK(GetStoreFd(store_fd, &fd));
     ARROW_CHECK(object.data_size == data_size);
     ARROW_CHECK(object.metadata_size == metadata_size);
     // The metadata should come right after the data.
@@ -484,8 +484,11 @@ Status PlasmaClient::Impl::GetBuffers(
       // This client created the object but hasn't sealed it. If we call Get
       // with no timeout, we will deadlock, because this client won't be able to
       // call Seal.
-      ARROW_CHECK(timeout_ms != -1)
-          << "Plasma client called get on an unsealed object that it created";
+      if (timeout_ms != -1) {
+        return Status::Invalid(
+            "Plasma client called get on an"
+            " unsealed object that it created");
+      }
       ARROW_LOG(WARNING)
           << "Attempting to get an object that this client created but hasn't sealed.";
       all_present = false;
@@ -536,7 +539,8 @@ Status PlasmaClient::Impl::GetBuffers(
   // in the subsequent loop based on just the store file descriptor and without
   // having to know the relevant file descriptor received from recv_fd.
   for (size_t i = 0; i < store_fds.size(); i++) {
-    int fd = GetStoreFd(store_fds[i]);
+    int fd;
+    RETURN_NOT_OK(GetStoreFd(store_fds[i], &fd));
     LookupOrMmap(fd, store_fds[i], mmap_sizes[i]);
   }
 
@@ -631,11 +635,14 @@ Status PlasmaClient::Impl::Release(const ObjectID& object_id) {
     return Status::OK();
   }
   auto object_entry = objects_in_use_.find(object_id);
-  ARROW_CHECK(object_entry != objects_in_use_.end());
-  object_entry->second->count -= 1;
-  ARROW_CHECK(object_entry->second->count >= 0);
+  if (object_entry == objects_in_use_.end()) {
+    return Status::Invalid("Trying to release a non-existing object.");
+  }
+  auto& entry = *object_entry->second;
+  entry.count -= 1;
+  ARROW_CHECK(entry.count >= 0) << "Got negative ref count.";
   // Check if the client is no longer using this object.
-  if (object_entry->second->count == 0) {
+  if (entry.count == 0) {
     // Tell the store that the client no longer needs the object.
     RETURN_NOT_OK(MarkObjectUnused(object_id));
     RETURN_NOT_OK(SendReleaseRequest(store_conn_, object_id));
@@ -773,22 +780,29 @@ Status PlasmaClient::Impl::Seal(const ObjectID& object_id) {
 
 Status PlasmaClient::Impl::Abort(const ObjectID& object_id) {
   auto object_entry = objects_in_use_.find(object_id);
-  ARROW_CHECK(object_entry != objects_in_use_.end())
-      << "Plasma client called abort on an object without a reference to it";
-  ARROW_CHECK(!object_entry->second->is_sealed)
-      << "Plasma client called abort on a sealed object";
+  if (object_entry == objects_in_use_.end()) {
+    return Status::Invalid(
+        "Plasma client called abort on "
+        "an object without a reference to it");
+  }
+
+  auto& entry = *object_entry->second;
+
+  if (entry.is_sealed) {
+    return Status::Invalid("Plasma client called abort on a sealed object");
+  }
 
   // Make sure that the Plasma client only has one reference to the object. If
   // it has more, then the client needs to release the buffer before calling
   // abort.
-  if (object_entry->second->count > 1) {
+  if (entry.count > 1) {
     return Status::Invalid("Plasma client cannot have a reference to the buffer.");
   }
 
   // Send the abort request.
   RETURN_NOT_OK(SendAbortRequest(store_conn_, object_id));
   // Decrease the reference count to zero, then remove the object.
-  object_entry->second->count--;
+  entry.count--;
   RETURN_NOT_OK(MarkObjectUnused(object_id));
 
   std::vector<uint8_t> buffer;
@@ -860,7 +874,12 @@ Status PlasmaClient::Impl::DecodeNotification(const uint8_t* buffer, ObjectID* o
                                               int64_t* data_size,
                                               int64_t* metadata_size) {
   auto object_info = flatbuffers::GetRoot<flatbuf::ObjectInfo>(buffer);
-  ARROW_CHECK(object_info->object_id()->size() == sizeof(ObjectID));
+  if (object_info->object_id()->size() != sizeof(ObjectID)) {
+    return Status::Invalid(
+        "The size of ObjectID in the message is different from the size "
+        "of ObjectID in Plasma. The message could have been corrupt.");
+  }
+
   memcpy(object_id, object_info->object_id()->data(), sizeof(ObjectID));
   if (object_info->is_deletion()) {
     *data_size = -1;

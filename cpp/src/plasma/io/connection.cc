@@ -138,7 +138,9 @@ void ServerConnection::WriteMessageAsync(int64_t type, int64_t length,
 
 Status ServerConnection::RecvFd(int* fd) {
   *fd = recv_fd(GetNativeHandle());
-  ARROW_CHECK(*fd);
+  if (*fd < 0) {
+    return Status::Invalid("Got an invalid fd.");
+  }
   return Status::OK();
 }
 

@@ -167,6 +167,11 @@ class PlasmaStore {
   /// \param client The client whose GetRequests should be removed.
   void RemoveGetRequestsForClient(const std::shared_ptr<ClientConnection>& client);
 
+  /// Release all resources used by the client.
+  ///
+  /// \param client The client whose resources should be released.
+  void ReleaseClientResources(const std::shared_ptr<ClientConnection>& client);
+
   void ReturnFromGet(GetRequest* get_req);
 
   void UpdateObjectGetRequests(const ObjectID& object_id);

@@ -713,8 +713,9 @@ void PlasmaStore::HandleAccept(const asio::error_code& error) {
                                                 const uint8_t* message) {
       Status s = ProcessClientMessage(client, message_type, length, message);
       if (!s.ok()) {
-        ARROW_LOG(FATAL) << "[Plasma Store] Failed to process the event"
-                         << "(type=" << message_type << "): " << s;
+        ARROW_LOG(ERROR) << "[PlasmaStore] Failed to process the event"
+                         << "(type=" << message_type << "): " << s << ", "
+                         << "fd = " << client->GetNativeHandle();
       }
     };
     // Accept a new local client and dispatch it to the store.
@@ -728,18 +729,8 @@ void PlasmaStore::HandleAccept(const asio::error_code& error) {
   DoAccept();
 }
 
-void PlasmaStore::ProcessDisconnectClient(
+void PlasmaStore::ReleaseClientResources(
     const std::shared_ptr<ClientConnection>& client) {
-  ARROW_CHECK(client->IsOpen());
-  auto it = connected_clients_.find(client);
-  ARROW_CHECK(it != connected_clients_.end());
-  // Remove the client from the notification list.
-  if (notification_clients_.count(client) > 0) {
-    notification_clients_.erase(client);
-  }
-  // Close the client.
-  ARROW_LOG(INFO) << "Disconnecting client on fd " << client->GetNativeHandle();
-  client->Close();
   // Release all the objects that the client was using.
   std::unordered_map<ObjectID, ObjectTableEntry*> sealed_objects;
   for (const auto& object_id : client->object_ids) {
@@ -766,7 +757,33 @@ void PlasmaStore::ProcessDisconnectClient(
     client->RemoveObjectID(entry.first);
     DecreaseObjectRefCount(entry.first, entry.second);
   }
+}
+
+void PlasmaStore::ProcessDisconnectClient(
+    const std::shared_ptr<ClientConnection>& client) {
+  if (!client->IsOpen()) {
+    ARROW_LOG(ERROR) << "Received disconnection request from a disconnected client.";
+    return;
+  }
+  // Close the client.
+  ARROW_LOG(INFO) << "Disconnecting client on fd " << client->GetNativeHandle();
+  client->Close();
+
+  // Remove the client from the connection set.
+  auto it = connected_clients_.find(client);
+  if (it == connected_clients_.end()) {
+    ARROW_LOG(FATAL) << "[PlasmaStore] (on DisconnectClient) Unexpected error: The "
+                     << "client to disconnect is not in the connected clients list.";
+    return;
+  }
   connected_clients_.erase(it);
+  // Remove the client from the notification set.
+  if (notification_clients_.count(client) > 0) {
+    notification_clients_.erase(client);
+  }
+
+  // Release resources.
+  ReleaseClientResources(client);
 }
 
 Status PlasmaStore::ProcessClientMessage(const std::shared_ptr<ClientConnection>& client,
@@ -797,7 +814,8 @@ Status PlasmaStore::ProcessClientMessage(const std::shared_ptr<ClientConnection>
         auto status = client->SendFd(object.store_fd);
         if (!status.ok()) {
           // TODO(suquark): Should we close the client here?
-          ARROW_LOG(ERROR) << "Failed to send a mmap fd to client";
+          ARROW_LOG(ERROR) << "[PlasmaStore] (on CreateRequest) Failed to send a mmap fd"
+                           << " to the client.";
         }
       }
     } break;
@@ -834,9 +852,10 @@ Status PlasmaStore::ProcessClientMessage(const std::shared_ptr<ClientConnection>
     } break;
     case MessageType::PlasmaAbortRequest: {
       RETURN_NOT_OK(ReadAbortRequest(message_data, message_size, &object_id));
-      ARROW_CHECK(AbortObject(object_id, client) == 1) << "To abort an object, the only "
-                                                          "client currently using it "
-                                                          "must be the creator.";
+      if (AbortObject(object_id, client) != 1) {
+        ARROW_LOG(ERROR) << "[PlasmaStore] (on AbortRequest) To abort an object, the "
+                         << "only client currently using it must be the creator.";
+      }
       RETURN_NOT_OK(SendAbortReply(client, object_id));
     } break;
     case MessageType::PlasmaGetRequest: {
