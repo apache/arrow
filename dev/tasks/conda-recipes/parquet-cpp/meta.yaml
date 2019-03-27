@@ -23,7 +23,7 @@
 
 package:
   name: parquet-cpp
-  version: {{ version }}
+  version: {{ parquet_version }}
 
 build:
   number: 0
