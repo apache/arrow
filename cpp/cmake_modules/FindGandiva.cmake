@@ -48,8 +48,13 @@ else()
 
   # TODO: ARROW-5021
   set(GANDIVA_SEARCH_LIB_PATH "${GANDIVA_HOME}/lib")
-  # TODO: ARROW-5025
-  set(GANDIVA_SEARCH_SHARED_LIB_PATH "${GANDIVA_HOME}/bin")
+  if(WIN32)
+    # TODO: ARROW-5025
+    set(GANDIVA_SEARCH_SHARED_LIB_PATH "${GANDIVA_HOME}/bin")
+  else()
+    # TODO: ARROW-5026
+    set(GANDIVA_SEARCH_SHARED_LIB_PATH "${GANDIVA_HOME}/lib")
+  endif()
 
   find_path(GANDIVA_INCLUDE_DIR gandiva/expression_registry.h
             PATHS ${GANDIVA_SEARCH_HEADER_PATHS}
