@@ -200,6 +200,20 @@ cdef api object pyarrow_wrap_chunked_array(
     arr.init(sp_array)
     return arr
 
+cdef api object pyarrow_wrap_scalar(const shared_ptr[CScalar]& sp_scalar):
+    if sp_scalar.get() == NULL:
+        raise ValueError('Scalar was NULL')
+
+    cdef CDataType* data_type = sp_scalar.get().type.get()
+
+    if data_type == NULL:
+        raise ValueError('Scalar data type was NULL')
+
+    klass = _scalar_classes[data_type.id()]
+
+    cdef ScalarValue scalar = klass.__new__(klass)
+    scalar.init(sp_scalar)
+    return scalar
 
 cdef api bint pyarrow_is_tensor(object tensor):
     return isinstance(tensor, Tensor)

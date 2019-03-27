@@ -568,6 +568,39 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type type_id()
         c_bool Equals(const CTensor& other)
 
+    cdef cppclass CScalar" arrow::Scalar":
+        shared_ptr[CDataType] type
+
+    cdef cppclass CInt8Scalar" arrow::Int8Scalar"(CScalar):
+        int8_t value
+
+    cdef cppclass CUInt8Scalar" arrow::UInt8Scalar"(CScalar):
+        uint8_t value
+
+    cdef cppclass CInt16Scalar" arrow::Int16Scalar"(CScalar):
+        int16_t value
+
+    cdef cppclass CUInt16Scalar" arrow::UInt16Scalar"(CScalar):
+        uint16_t value
+
+    cdef cppclass CInt32Scalar" arrow::Int32Scalar"(CScalar):
+        int32_t value
+
+    cdef cppclass CUInt32Scalar" arrow::UInt32Scalar"(CScalar):
+        uint32_t value
+
+    cdef cppclass CInt64Scalar" arrow::Int64Scalar"(CScalar):
+        int64_t value
+
+    cdef cppclass CUInt64Scalar" arrow::UInt64Scalar"(CScalar):
+        uint64_t value
+
+    cdef cppclass CFloatScalar" arrow::FloatScalar"(CScalar):
+        float value
+
+    cdef cppclass CDoubleScalar" arrow::DoubleScalar"(CScalar):
+        double value
+
     CStatus ConcatenateTables(const vector[shared_ptr[CTable]]& tables,
                               shared_ptr[CTable]* result)
 
@@ -1030,6 +1063,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
         shared_ptr[CArrayData] array()
         shared_ptr[CChunkedArray] chunked_array()
+        shared_ptr[CScalar] scalar()
 
     CStatus Cast(CFunctionContext* context, const CArray& array,
                  const shared_ptr[CDataType]& to_type,
@@ -1045,6 +1079,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     CStatus DictionaryEncode(CFunctionContext* context, const CDatum& value,
                              CDatum* out)
+
+    CStatus Sum(CFunctionContext* context, const CDatum& value, CDatum* out)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
