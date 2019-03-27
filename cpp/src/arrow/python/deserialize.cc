@@ -107,10 +107,12 @@ Status DeserializeArray(int32_t index, PyObject* base, const SerializedPyObject&
   RETURN_NOT_OK(py::TensorToNdarray(blobs.ndarrays[index], base, out));
   // Mark the array as immutable
   OwnedRef flags(PyObject_GetAttrString(*out, "flags"));
-  DCHECK(flags.obj() != NULL) << "Could not mark Numpy array immutable";
-  Py_INCREF(Py_False);
-  int flag_set = PyObject_SetAttrString(flags.obj(), "writeable", Py_False);
-  DCHECK(flag_set == 0) << "Could not mark Numpy array immutable";
+  if (flags.obj() == NULL) {
+    return ConvertPyError();
+  }
+  if (PyObject_SetAttrString(flags.obj(), "writeable", Py_False) < 0) {
+    return ConvertPyError();
+  }
   return Status::OK();
 }
 
