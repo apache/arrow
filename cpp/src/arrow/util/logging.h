@@ -167,6 +167,9 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   /// If glog is not installed, this function won't do anything.
   static void InstallFailureSignalHandler();
 
+  /// Uninstall the signal actions installed by InstallFailureSignalHandler.
+  static void UninstallSignalAction();
+
   /// Return whether or not the log level is enabled in current setting.
   ///
   /// \param log_level The input log level to test.
@@ -183,9 +186,6 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   bool is_enabled_;
 
   static ArrowLogLevel severity_threshold_;
-  // In InitGoogleLogging, it simply keeps the pointer.
-  // We need to make sure the app name passed to InitGoogleLogging exist.
-  static std::unique_ptr<std::string> app_name_;
 
  protected:
   virtual std::ostream& Stream();
