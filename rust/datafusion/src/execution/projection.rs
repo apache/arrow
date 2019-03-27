@@ -29,7 +29,7 @@ use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
 use crate::error::Result;
-use crate::execution::expression::RuntimeExpr;
+use crate::execution::expression::CompiledExpr;
 use crate::execution::relation::Relation;
 
 /// Projection relation
@@ -39,13 +39,13 @@ pub(super) struct ProjectRelation {
     /// The relation that the projection is being applied to
     input: Rc<RefCell<Relation>>,
     /// Projection expressions
-    expr: Vec<RuntimeExpr>,
+    expr: Vec<CompiledExpr>,
 }
 
 impl ProjectRelation {
     pub fn new(
         input: Rc<RefCell<Relation>>,
-        expr: Vec<RuntimeExpr>,
+        expr: Vec<CompiledExpr>,
         schema: Arc<Schema>,
     ) -> Self {
         ProjectRelation {
@@ -61,12 +61,12 @@ impl Relation for ProjectRelation {
         match self.input.borrow_mut().next()? {
             Some(batch) => {
                 let projected_columns: Result<Vec<ArrayRef>> =
-                    self.expr.iter().map(|e| e.get_func()?(&batch)).collect();
+                    self.expr.iter().map(|e| e.invoke(&batch)).collect();
 
                 let schema = Schema::new(
                     self.expr
                         .iter()
-                        .map(|e| Field::new(&e.get_name(), e.get_type(), true))
+                        .map(|e| Field::new(&e.name(), e.data_type().clone(), true))
                         .collect(),
                 );
 

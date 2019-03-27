@@ -175,12 +175,8 @@ impl ExecutionContext {
             } => {
                 let input_rel = self.execute(input, batch_size)?;
                 let input_schema = input_rel.as_ref().borrow().schema().clone();
-                let runtime_expr = compile_scalar_expr(&self, expr, &input_schema)?;
-                let rel = FilterRelation::new(
-                    input_rel,
-                    runtime_expr, /* .get_func()?.clone() */
-                    input_schema,
-                );
+                let runtime_expr = compile_expr(&self, expr, &input_schema)?;
+                let rel = FilterRelation::new(input_rel, runtime_expr, input_schema);
                 Ok(Rc::new(RefCell::new(rel)))
             }
             LogicalPlan::Projection {
@@ -197,9 +193,9 @@ impl ExecutionContext {
 
                 let project_schema = Arc::new(Schema::new(project_columns));
 
-                let compiled_expr: Result<Vec<RuntimeExpr>> = expr
+                let compiled_expr: Result<Vec<CompiledExpr>> = expr
                     .iter()
-                    .map(|e| compile_scalar_expr(&self, e, &input_schema))
+                    .map(|e| compile_expr(&self, e, &input_schema))
                     .collect();
 
                 let rel = ProjectRelation::new(input_rel, compiled_expr?, project_schema);
@@ -216,16 +212,17 @@ impl ExecutionContext {
 
                 let input_schema = input_rel.as_ref().borrow().schema().clone();
 
-                let compiled_group_expr_result: Result<Vec<RuntimeExpr>> = group_expr
-                    .iter()
-                    .map(|e| compile_scalar_expr(&self, e, &input_schema))
-                    .collect();
-                let compiled_group_expr = compiled_group_expr_result?;
-
-                let compiled_aggr_expr_result: Result<Vec<RuntimeExpr>> = aggr_expr
+                let compiled_group_expr_result: Result<Vec<CompiledExpr>> = group_expr
                     .iter()
                     .map(|e| compile_expr(&self, e, &input_schema))
                     .collect();
+                let compiled_group_expr = compiled_group_expr_result?;
+
+                let compiled_aggr_expr_result: Result<Vec<CompiledAggregateExpression>> =
+                    aggr_expr
+                        .iter()
+                        .map(|e| compile_aggregate_expr(&self, e, &input_schema))
+                        .collect();
                 let compiled_aggr_expr = compiled_aggr_expr_result?;
 
                 let mut output_fields: Vec<Field> = vec![];
