@@ -84,6 +84,7 @@ enum GroupByScalar {
 trait AggregateFunction {
     /// Get the function name (used for debugging)
     fn name(&self) -> &str;
+
     /// Update the current aggregate value based on a new value. If rollup is false, then
     /// this aggregate function instance is being used to aggregate individual values within
     /// a RecordBatch. If rollup is true then the aggregate function instance is being used
@@ -97,9 +98,17 @@ trait AggregateFunction {
         value: &Option<ScalarValue>,
         rollup: bool,
     ) -> Result<()>;
+
+    fn accumulate_array(
+        &mut self,
+        value: &Option<ScalarValue>,
+        rollup: bool,
+    ) -> Result<()>;
+
     /// Return the result of the aggregate function after all values have been processed
     /// by calls to `acccumulate_scalar`.
     fn result(&self) -> Option<ScalarValue>;
+
     /// Get the data type of the result of the aggregate function. For some operations,
     /// such as `min`, `max`, and `sum`, the data type will be the same as the data type
     /// of the argument. For other aggregates, such as `count`, the data type is independent
@@ -107,7 +116,7 @@ trait AggregateFunction {
     fn data_type(&self) -> &DataType;
 }
 
-/// Implemntation of MIN aggregate function
+/// Implementation of MIN aggregate function
 #[derive(Debug)]
 struct MinFunction {
     data_type: DataType,
@@ -186,7 +195,7 @@ impl AggregateFunction for MinFunction {
     }
 }
 
-/// Implemntation of MAX aggregate function
+/// Implementation of MAX aggregate function
 #[derive(Debug)]
 struct MaxFunction {
     data_type: DataType,
@@ -265,7 +274,7 @@ impl AggregateFunction for MaxFunction {
     }
 }
 
-/// Implemntation of SUM aggregate function
+/// Implementation of SUM aggregate function
 #[derive(Debug)]
 struct SumFunction {
     data_type: DataType,
@@ -344,7 +353,7 @@ impl AggregateFunction for SumFunction {
     }
 }
 
-/// Implemntation of COUNT aggregate function
+/// Implementation of COUNT aggregate function
 #[derive(Debug)]
 struct CountFunction {
     value: Option<u64>,
