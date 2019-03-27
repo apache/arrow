@@ -289,7 +289,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (Int64, UInt64) => cast_numeric_arrays::<Int64Type, UInt64Type>(array),
         (Int64, Int8) => cast_numeric_arrays::<Int64Type, Int8Type>(array),
         (Int64, Int16) => cast_numeric_arrays::<Int64Type, Int16Type>(array),
-        (Int64, Int64) => cast_numeric_arrays::<Int64Type, Int64Type>(array),
+        (Int64, Int32) => cast_numeric_arrays::<Int64Type, Int32Type>(array),
         (Int64, Float32) => cast_numeric_arrays::<Int64Type, Float32Type>(array),
         (Int64, Float64) => cast_numeric_arrays::<Int64Type, Float64Type>(array),
 

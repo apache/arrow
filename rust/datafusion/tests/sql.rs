@@ -200,8 +200,6 @@ fn load_parquet_table(name: &str) -> Rc<TableProvider> {
 fn execute(ctx: &mut ExecutionContext, sql: &str) -> String {
     let plan = ctx.create_logical_plan(&sql).unwrap();
     let optimized_plan = ctx.optimize(&plan).unwrap();
-    println!("Logical plan:\n{:?}", plan);
-    println!("Optimized plan:\n{:?}", optimized_plan);
     let results = ctx.execute(&plan, DEFAULT_BATCH_SIZE).unwrap();
     result_str(&results)
 }
