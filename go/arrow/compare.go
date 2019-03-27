@@ -20,9 +20,26 @@ import (
 	"reflect"
 )
 
+type typeEqualsConfig struct {
+	metadata bool
+}
+
+type TypeEqualsOption func(*typeEqualsConfig)
+
+func CheckMetadata() TypeEqualsOption {
+	return func(cfg *typeEqualsConfig) {
+		cfg.metadata = true
+	}
+}
+
 // TypeEquals checks if two DataType are the same, optionally checking metadata
 // equality for STRUCT types.
-func TypeEquals(left DataType, right DataType, checkMetadata bool) bool {
+func TypeEquals(left DataType, right DataType, opts ...TypeEqualsOption) bool {
+	var cfg typeEqualsConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	switch {
 	case left == nil || right == nil:
 		return false
@@ -32,7 +49,7 @@ func TypeEquals(left DataType, right DataType, checkMetadata bool) bool {
 
 	// StructType is the only type that has metadata.
 	l, ok := left.(*StructType)
-	if !ok || checkMetadata {
+	if !ok || cfg.metadata {
 		return reflect.DeepEqual(left, right)
 	}
 
@@ -50,7 +67,7 @@ func TypeEquals(left DataType, right DataType, checkMetadata bool) bool {
 			return false
 		case leftField.Nullable != rightField.Nullable:
 			return false
-		case !TypeEquals(leftField.Type, rightField.Type, checkMetadata):
+		case !TypeEquals(leftField.Type, rightField.Type, opts...):
 			return false
 		}
 	}
