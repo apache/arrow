@@ -15,4 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow._json import ReadOptions, ParseOptions, ConvertOptions, read_json  # noqa
+from pyarrow._json import ReadOptions, ParseOptions, read_json  # noqa
