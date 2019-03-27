@@ -1072,6 +1072,9 @@ cdef extern from "arrow/json/reader.h" namespace "arrow::json" nogil:
 
         CStatus Read(shared_ptr[CTable]* out)
 
+    cdef CStatus ParseOne(CJSONParseOptions options, shared_ptr[CBuffer] json,
+                          shared_ptr[CRecordBatch]* out)
+
 
 cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
