@@ -127,7 +127,7 @@ impl ExecutionContext {
     }
 
     /// Optimize the logical plan by applying optimizer rules
-    fn optimize(&self, plan: &LogicalPlan) -> Result<Arc<LogicalPlan>> {
+    pub fn optimize(&self, plan: &LogicalPlan) -> Result<Arc<LogicalPlan>> {
         let rules: Vec<Box<OptimizerRule>> = vec![
             Box::new(ProjectionPushDown::new()),
             Box::new(TypeCoercionRule::new()),
