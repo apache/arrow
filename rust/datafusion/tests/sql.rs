@@ -27,7 +27,7 @@ use arrow::array::*;
 use arrow::datatypes::{DataType, Field, Schema};
 
 use datafusion::datasource::parquet::ParquetTable;
-use datafusion::datasource::Table;
+use datafusion::datasource::TableProvider;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::execution::relation::Relation;
 
@@ -179,7 +179,7 @@ fn register_csv(
     ctx.register_csv(name, filename, &schema, true);
 }
 
-fn load_parquet_table(name: &str) -> Rc<Table> {
+fn load_parquet_table(name: &str) -> Rc<TableProvider> {
     let testdata = env::var("PARQUET_TEST_DATA").unwrap();
     let filename = format!("{}/{}", testdata, name);
     let table = ParquetTable::try_new(&filename).unwrap();
