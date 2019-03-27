@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Execution of a simple aggregate relation containing MIN, MAX, COUNT, SUM aggregate
-//! functions with optional GROUP BY columns
+//! Support for aggregate functions and relations
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -25,7 +24,6 @@ use std::sync::Arc;
 
 use arrow::array::*;
 use arrow::builder::*;
-use arrow::compute;
 use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
@@ -37,6 +35,16 @@ use crate::logicalplan::ScalarValue;
 use crate::execution::expression::CompiledAggregateExpression;
 use crate::execution::expression::CompiledExpr;
 use fnv::FnvHashMap;
+
+pub mod count;
+pub mod max;
+pub mod min;
+pub mod sum;
+
+use crate::execution::aggregate::count::CountFunction;
+use crate::execution::aggregate::max::MaxFunction;
+use crate::execution::aggregate::min::MinFunction;
+use crate::execution::aggregate::sum::SumFunction;
 
 /// An aggregate relation is made up of zero or more grouping expressions and one
 /// or more aggregate expressions
@@ -99,11 +107,7 @@ trait AggregateFunction {
         rollup: bool,
     ) -> Result<()>;
 
-    fn accumulate_array(
-        &mut self,
-        value: &Option<ScalarValue>,
-        rollup: bool,
-    ) -> Result<()>;
+    fn accumulate_array(&mut self, array: ArrayRef) -> Result<()>;
 
     /// Return the result of the aggregate function after all values have been processed
     /// by calls to `acccumulate_scalar`.
@@ -116,312 +120,11 @@ trait AggregateFunction {
     fn data_type(&self) -> &DataType;
 }
 
-/// Implementation of MIN aggregate function
-#[derive(Debug)]
-struct MinFunction {
-    data_type: DataType,
-    value: Option<ScalarValue>,
-}
-
-impl MinFunction {
-    fn new(data_type: &DataType) -> Self {
-        Self {
-            data_type: data_type.clone(),
-            value: None,
-        }
-    }
-}
-
-impl AggregateFunction for MinFunction {
-    fn name(&self) -> &str {
-        "min"
-    }
-
-    fn accumulate_scalar(
-        &mut self,
-        value: &Option<ScalarValue>,
-        _rollup: bool,
-    ) -> Result<()> {
-        if self.value.is_none() {
-            self.value = value.clone();
-        } else if value.is_some() {
-            self.value = match (&self.value, value) {
-                (Some(ScalarValue::UInt8(a)), Some(ScalarValue::UInt8(b))) => {
-                    Some(ScalarValue::UInt8(*a.min(b)))
-                }
-                (Some(ScalarValue::UInt16(a)), Some(ScalarValue::UInt16(b))) => {
-                    Some(ScalarValue::UInt16(*a.min(b)))
-                }
-                (Some(ScalarValue::UInt32(a)), Some(ScalarValue::UInt32(b))) => {
-                    Some(ScalarValue::UInt32(*a.min(b)))
-                }
-                (Some(ScalarValue::UInt64(a)), Some(ScalarValue::UInt64(b))) => {
-                    Some(ScalarValue::UInt64(*a.min(b)))
-                }
-                (Some(ScalarValue::Int8(a)), Some(ScalarValue::Int8(b))) => {
-                    Some(ScalarValue::Int8(*a.min(b)))
-                }
-                (Some(ScalarValue::Int16(a)), Some(ScalarValue::Int16(b))) => {
-                    Some(ScalarValue::Int16(*a.min(b)))
-                }
-                (Some(ScalarValue::Int32(a)), Some(ScalarValue::Int32(b))) => {
-                    Some(ScalarValue::Int32(*a.min(b)))
-                }
-                (Some(ScalarValue::Int64(a)), Some(ScalarValue::Int64(b))) => {
-                    Some(ScalarValue::Int64(*a.min(b)))
-                }
-                (Some(ScalarValue::Float32(a)), Some(ScalarValue::Float32(b))) => {
-                    Some(ScalarValue::Float32(a.min(*b)))
-                }
-                (Some(ScalarValue::Float64(a)), Some(ScalarValue::Float64(b))) => {
-                    Some(ScalarValue::Float64(a.min(*b)))
-                }
-                _ => {
-                    return Err(ExecutionError::ExecutionError(
-                        "unsupported data type for MIN".to_string(),
-                    ));
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn result(&self) -> Option<ScalarValue> {
-        self.value.clone()
-    }
-
-    fn data_type(&self) -> &DataType {
-        &self.data_type
-    }
-}
-
-/// Implementation of MAX aggregate function
-#[derive(Debug)]
-struct MaxFunction {
-    data_type: DataType,
-    value: Option<ScalarValue>,
-}
-
-impl MaxFunction {
-    fn new(data_type: &DataType) -> Self {
-        Self {
-            data_type: data_type.clone(),
-            value: None,
-        }
-    }
-}
-
-impl AggregateFunction for MaxFunction {
-    fn name(&self) -> &str {
-        "max"
-    }
-
-    fn accumulate_scalar(
-        &mut self,
-        value: &Option<ScalarValue>,
-        _rollup: bool,
-    ) -> Result<()> {
-        if self.value.is_none() {
-            self.value = value.clone();
-        } else if value.is_some() {
-            self.value = match (&self.value, value) {
-                (Some(ScalarValue::UInt8(a)), Some(ScalarValue::UInt8(b))) => {
-                    Some(ScalarValue::UInt8(*a.max(b)))
-                }
-                (Some(ScalarValue::UInt16(a)), Some(ScalarValue::UInt16(b))) => {
-                    Some(ScalarValue::UInt16(*a.max(b)))
-                }
-                (Some(ScalarValue::UInt32(a)), Some(ScalarValue::UInt32(b))) => {
-                    Some(ScalarValue::UInt32(*a.max(b)))
-                }
-                (Some(ScalarValue::UInt64(a)), Some(ScalarValue::UInt64(b))) => {
-                    Some(ScalarValue::UInt64(*a.max(b)))
-                }
-                (Some(ScalarValue::Int8(a)), Some(ScalarValue::Int8(b))) => {
-                    Some(ScalarValue::Int8(*a.max(b)))
-                }
-                (Some(ScalarValue::Int16(a)), Some(ScalarValue::Int16(b))) => {
-                    Some(ScalarValue::Int16(*a.max(b)))
-                }
-                (Some(ScalarValue::Int32(a)), Some(ScalarValue::Int32(b))) => {
-                    Some(ScalarValue::Int32(*a.max(b)))
-                }
-                (Some(ScalarValue::Int64(a)), Some(ScalarValue::Int64(b))) => {
-                    Some(ScalarValue::Int64(*a.max(b)))
-                }
-                (Some(ScalarValue::Float32(a)), Some(ScalarValue::Float32(b))) => {
-                    Some(ScalarValue::Float32(a.max(*b)))
-                }
-                (Some(ScalarValue::Float64(a)), Some(ScalarValue::Float64(b))) => {
-                    Some(ScalarValue::Float64(a.max(*b)))
-                }
-                _ => {
-                    return Err(ExecutionError::ExecutionError(
-                        "unsupported data type for MAX".to_string(),
-                    ));
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn result(&self) -> Option<ScalarValue> {
-        self.value.clone()
-    }
-
-    fn data_type(&self) -> &DataType {
-        &self.data_type
-    }
-}
-
-/// Implementation of SUM aggregate function
-#[derive(Debug)]
-struct SumFunction {
-    data_type: DataType,
-    value: Option<ScalarValue>,
-}
-
-impl SumFunction {
-    fn new(data_type: &DataType) -> Self {
-        Self {
-            data_type: data_type.clone(),
-            value: None,
-        }
-    }
-}
-
-impl AggregateFunction for SumFunction {
-    fn name(&self) -> &str {
-        "sum"
-    }
-
-    fn accumulate_scalar(
-        &mut self,
-        value: &Option<ScalarValue>,
-        _rollup: bool,
-    ) -> Result<()> {
-        if self.value.is_none() {
-            self.value = value.clone();
-        } else if value.is_some() {
-            self.value = match (&self.value, value) {
-                (Some(ScalarValue::UInt8(a)), Some(ScalarValue::UInt8(b))) => {
-                    Some(ScalarValue::UInt8(*a + b))
-                }
-                (Some(ScalarValue::UInt16(a)), Some(ScalarValue::UInt16(b))) => {
-                    Some(ScalarValue::UInt16(*a + b))
-                }
-                (Some(ScalarValue::UInt32(a)), Some(ScalarValue::UInt32(b))) => {
-                    Some(ScalarValue::UInt32(*a + b))
-                }
-                (Some(ScalarValue::UInt64(a)), Some(ScalarValue::UInt64(b))) => {
-                    Some(ScalarValue::UInt64(*a + b))
-                }
-                (Some(ScalarValue::Int8(a)), Some(ScalarValue::Int8(b))) => {
-                    Some(ScalarValue::Int8(*a + b))
-                }
-                (Some(ScalarValue::Int16(a)), Some(ScalarValue::Int16(b))) => {
-                    Some(ScalarValue::Int16(*a + b))
-                }
-                (Some(ScalarValue::Int32(a)), Some(ScalarValue::Int32(b))) => {
-                    Some(ScalarValue::Int32(*a + b))
-                }
-                (Some(ScalarValue::Int64(a)), Some(ScalarValue::Int64(b))) => {
-                    Some(ScalarValue::Int64(*a + b))
-                }
-                (Some(ScalarValue::Float32(a)), Some(ScalarValue::Float32(b))) => {
-                    Some(ScalarValue::Float32(a + *b))
-                }
-                (Some(ScalarValue::Float64(a)), Some(ScalarValue::Float64(b))) => {
-                    Some(ScalarValue::Float64(a + *b))
-                }
-                _ => {
-                    return Err(ExecutionError::ExecutionError(
-                        "unsupported data type for SUM".to_string(),
-                    ));
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn result(&self) -> Option<ScalarValue> {
-        self.value.clone()
-    }
-
-    fn data_type(&self) -> &DataType {
-        &self.data_type
-    }
-}
-
-/// Implementation of COUNT aggregate function
-#[derive(Debug)]
-struct CountFunction {
-    value: Option<u64>,
-}
-
-impl CountFunction {
-    fn new() -> Self {
-        Self { value: None }
-    }
-}
-
-impl AggregateFunction for CountFunction {
-    fn name(&self) -> &str {
-        "count"
-    }
-
-    fn accumulate_scalar(
-        &mut self,
-        value: &Option<ScalarValue>,
-        rollup: bool,
-    ) -> Result<()> {
-        if rollup {
-            if let Some(ScalarValue::UInt64(n)) = value {
-                if self.value.is_none() {
-                    self.value = Some(*n);
-                } else {
-                    self.value = Some(self.value.unwrap() + *n);
-                }
-            }
-        } else {
-            if value.is_some() {
-                if self.value.is_none() {
-                    self.value = Some(1);
-                } else {
-                    self.value = Some(self.value.unwrap() + 1);
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn result(&self) -> Option<ScalarValue> {
-        match self.value {
-            Some(n) => Some(ScalarValue::UInt64(n)),
-            None => None,
-        }
-    }
-
-    fn data_type(&self) -> &DataType {
-        &DataType::UInt64
-    }
-}
-
 struct AccumulatorSet {
     aggr_values: Vec<Rc<RefCell<AggregateFunction>>>,
 }
 
 impl AccumulatorSet {
-    fn accumulate_scalar(
-        &mut self,
-        i: usize,
-        value: Option<ScalarValue>,
-        rollup: bool,
-    ) -> Result<()> {
-        let mut accumulator = self.aggr_values[i].borrow_mut();
-        accumulator.accumulate_scalar(&value, rollup)
-    }
-
     fn values(&self) -> Vec<Option<ScalarValue>> {
         self.aggr_values
             .iter()
@@ -464,216 +167,6 @@ fn create_accumulators(
         .collect::<Result<Vec<Rc<RefCell<_>>>>>()?;
 
     Ok(AccumulatorSet { aggr_values })
-}
-
-fn array_min(array: ArrayRef) -> Result<Option<ScalarValue>> {
-    match array.data_type() {
-        DataType::UInt8 => {
-            match compute::min(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::UInt8(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::UInt16 => {
-            match compute::min(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::UInt16(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::UInt32 => {
-            match compute::min(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::UInt32(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::UInt64 => {
-            match compute::min(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::UInt64(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int8 => {
-            match compute::min(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Int8(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int16 => {
-            match compute::min(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Int16(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int32 => {
-            match compute::min(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Int32(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int64 => {
-            match compute::min(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Int64(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Float32 => {
-            match compute::min(array.as_any().downcast_ref::<Float32Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Float32(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Float64 => {
-            match compute::min(array.as_any().downcast_ref::<Float64Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Float64(n))),
-                None => Ok(None),
-            }
-        }
-        _ => Err(ExecutionError::ExecutionError(
-            "Unsupported data type for MIN".to_string(),
-        )),
-    }
-}
-
-fn array_max(array: ArrayRef) -> Result<Option<ScalarValue>> {
-    match array.data_type() {
-        DataType::UInt8 => {
-            match compute::max(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::UInt8(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::UInt16 => {
-            match compute::max(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::UInt16(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::UInt32 => {
-            match compute::max(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::UInt32(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::UInt64 => {
-            match compute::max(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::UInt64(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int8 => {
-            match compute::max(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Int8(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int16 => {
-            match compute::max(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Int16(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int32 => {
-            match compute::max(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Int32(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int64 => {
-            match compute::max(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Int64(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Float32 => {
-            match compute::max(array.as_any().downcast_ref::<Float32Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Float32(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Float64 => {
-            match compute::max(array.as_any().downcast_ref::<Float64Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Float64(n))),
-                None => Ok(None),
-            }
-        }
-        _ => Err(ExecutionError::ExecutionError(
-            "Unsupported data type for MAX".to_string(),
-        )),
-    }
-}
-
-fn array_sum(array: ArrayRef) -> Result<Option<ScalarValue>> {
-    match array.data_type() {
-        DataType::UInt8 => {
-            match compute::sum(array.as_any().downcast_ref::<UInt8Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::UInt8(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::UInt16 => {
-            match compute::sum(array.as_any().downcast_ref::<UInt16Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::UInt16(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::UInt32 => {
-            match compute::sum(array.as_any().downcast_ref::<UInt32Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::UInt32(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::UInt64 => {
-            match compute::sum(array.as_any().downcast_ref::<UInt64Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::UInt64(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int8 => {
-            match compute::sum(array.as_any().downcast_ref::<Int8Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Int8(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int16 => {
-            match compute::sum(array.as_any().downcast_ref::<Int16Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Int16(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int32 => {
-            match compute::sum(array.as_any().downcast_ref::<Int32Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Int32(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Int64 => {
-            match compute::sum(array.as_any().downcast_ref::<Int64Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Int64(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Float32 => {
-            match compute::sum(array.as_any().downcast_ref::<Float32Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Float32(n))),
-                None => Ok(None),
-            }
-        }
-        DataType::Float64 => {
-            match compute::sum(array.as_any().downcast_ref::<Float64Array>().unwrap()) {
-                Some(n) => Ok(Some(ScalarValue::Float64(n))),
-                None => Ok(None),
-            }
-        }
-        _ => Err(ExecutionError::ExecutionError(
-            "Unsupported data type for SUM".to_string(),
-        )),
-    }
-}
-
-fn array_count(array: ArrayRef) -> Result<Option<ScalarValue>> {
-    Ok(Some(ScalarValue::UInt64(
-        (array.len() - array.null_count()) as u64,
-    )))
 }
 
 fn update_accumulators(
@@ -736,7 +229,8 @@ fn update_accumulators(
             }
         };
 
-        accumulator_set.accumulate_scalar(j, value, false)?;
+        let mut accumulator = accumulator_set.aggr_values[j].borrow_mut();
+        accumulator.accumulate_scalar(&value, false)?;
     }
     Ok(())
 }
@@ -833,31 +327,15 @@ impl AggregateRelation {
     /// perform simple aggregate on entire columns without grouping logic
     fn without_group_by(&mut self) -> Result<Option<RecordBatch>> {
         let aggr_expr_count = self.aggr_expr.len();
-        let mut accumulator_set = create_accumulators(&self.aggr_expr)?;
+        let accumulator_set = create_accumulators(&self.aggr_expr)?;
 
         while let Some(batch) = self.input.borrow_mut().next()? {
             for i in 0..aggr_expr_count {
                 // evaluate the argument to the aggregate function
                 let array = self.aggr_expr[i].evaluate_arg(&batch)?;
-                match self.aggr_expr[i].aggr_type() {
-                    AggregateType::Min => {
-                        accumulator_set.accumulate_scalar(i, array_min(array)?, true)?
-                    }
-                    AggregateType::Max => {
-                        accumulator_set.accumulate_scalar(i, array_max(array)?, true)?
-                    }
-                    AggregateType::Sum => {
-                        accumulator_set.accumulate_scalar(i, array_sum(array)?, true)?
-                    }
-                    AggregateType::Count => {
-                        accumulator_set.accumulate_scalar(i, array_count(array)?, true)?
-                    }
-                    _ => {
-                        return Err(ExecutionError::NotImplemented(
-                            "Unsupported aggregate function".to_string(),
-                        ));
-                    }
-                }
+
+                let mut accumulator = accumulator_set.aggr_values[i].borrow_mut();
+                accumulator.accumulate_array(array)?
             }
         }
 
