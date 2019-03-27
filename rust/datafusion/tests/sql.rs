@@ -47,6 +47,16 @@ fn parquet_query() {
 }
 
 #[test]
+fn csv_count_star() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    let sql = "SELECT COUNT(*), COUNT(1), COUNT(c1) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql);
+    let expected = "100\t100\t100\n".to_string();
+    assert_eq!(expected, actual);
+}
+
+#[test]
 fn csv_query_with_predicate() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
