@@ -107,6 +107,7 @@ trait AggregateFunction {
         rollup: bool,
     ) -> Result<()>;
 
+    /// Update the current aggregate value based on an array of values.
     fn accumulate_array(&mut self, array: ArrayRef) -> Result<()>;
 
     /// Return the result of the aggregate function after all values have been processed
