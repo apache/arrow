@@ -255,6 +255,12 @@ cdef class ConvertOptions:
     null_values: list, optional
         A sequence of strings that denote nulls in the data
         (defaults are appropriate in most cases).
+    true_values: list, optional
+        A sequence of strings that denote true booleans in the data
+        (defaults are appropriate in most cases).
+    false_values: list, optional
+        A sequence of strings that denote false booleans in the data
+        (defaults are appropriate in most cases).
     """
     cdef:
         CCSVConvertOptions options
@@ -262,7 +268,8 @@ cdef class ConvertOptions:
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, check_utf8=None, column_types=None, null_values=None):
+    def __init__(self, check_utf8=None, column_types=None, null_values=None,
+                 true_values=None, false_values=None):
         self.options = CCSVConvertOptions.Defaults()
         if check_utf8 is not None:
             self.check_utf8 = check_utf8
@@ -270,6 +277,10 @@ cdef class ConvertOptions:
             self.column_types = column_types
         if null_values is not None:
             self.null_values = null_values
+        if true_values is not None:
+            self.true_values = true_values
+        if false_values is not None:
+            self.false_values = false_values
 
     @property
     def check_utf8(self):
@@ -321,6 +332,28 @@ cdef class ConvertOptions:
     @null_values.setter
     def null_values(self, value):
         self.options.null_values = [tobytes(x) for x in value]
+
+    @property
+    def true_values(self):
+        """
+        A sequence of strings that denote true booleans in the data.
+        """
+        return [frombytes(x) for x in self.options.true_values]
+
+    @true_values.setter
+    def true_values(self, value):
+        self.options.true_values = [tobytes(x) for x in value]
+
+    @property
+    def false_values(self):
+        """
+        A sequence of strings that denote false booleans in the data.
+        """
+        return [frombytes(x) for x in self.options.false_values]
+
+    @false_values.setter
+    def false_values(self, value):
+        self.options.false_values = [tobytes(x) for x in value]
 
 
 cdef _get_reader(input_file, shared_ptr[InputStream]* out):

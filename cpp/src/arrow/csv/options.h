@@ -69,6 +69,9 @@ struct ARROW_EXPORT ConvertOptions {
   std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
   // Recognized spellings for null values
   std::vector<std::string> null_values;
+  // Recognized spellings for boolean values
+  std::vector<std::string> true_values;
+  std::vector<std::string> false_values;
 
   static ConvertOptions Defaults();
 };

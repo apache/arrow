@@ -157,11 +157,22 @@ def test_convert_options():
     opts.null_values = ['xxx', 'yyy']
     assert opts.null_values == ['xxx', 'yyy']
 
+    assert isinstance(opts.true_values, list)
+    opts.true_values = ['xxx', 'yyy']
+    assert opts.true_values == ['xxx', 'yyy']
+
+    assert isinstance(opts.false_values, list)
+    opts.false_values = ['xxx', 'yyy']
+    assert opts.false_values == ['xxx', 'yyy']
+
     opts = cls(check_utf8=False, column_types={'a': pa.null()},
-               null_values=['xxx', 'yyy'])
+               null_values=['N', 'nn'], true_values=['T', 'tt'],
+               false_values=['F', 'ff'])
     assert opts.check_utf8 is False
     assert opts.column_types == {'a': pa.null()}
-    assert opts.null_values == ['xxx', 'yyy']
+    assert opts.null_values == ['N', 'nn']
+    assert opts.false_values == ['F', 'ff']
+    assert opts.true_values == ['T', 'tt']
 
 
 class BaseTestCSVRead:
@@ -196,30 +207,33 @@ class BaseTestCSVRead:
 
     def test_simple_varied(self):
         # Infer various kinds of data
-        rows = b"a,b,c\n1,2,3\n4.0,-5,foo\n"
+        rows = b"a,b,c,d\n1,2,3,0\n4.0,-5,foo,True\n"
         table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.float64()),
                             ('b', pa.int64()),
-                            ('c', pa.string())])
+                            ('c', pa.string()),
+                            ('d', pa.bool_())])
         assert table.schema == schema
         assert table.to_pydict() == {
             'a': [1.0, 4.0],
             'b': [2, -5],
             'c': [u"3", u"foo"],
+            'd': [False, True],
             }
 
     def test_simple_nulls(self):
         # Infer various kinds of data, with nulls
-        rows = (b"a,b,c,d,e\n"
-                b"1,2,,,3\n"
-                b"nan,-5,foo,,nan\n"
-                b"4.5,#N/A,nan,,\xff\n")
+        rows = (b"a,b,c,d,e,f\n"
+                b"1,2,,,3,N/A\n"
+                b"nan,-5,foo,,nan,TRUE\n"
+                b"4.5,#N/A,nan,,\xff,false\n")
         table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.float64()),
                             ('b', pa.int64()),
                             ('c', pa.string()),
                             ('d', pa.null()),
-                            ('e', pa.binary())])
+                            ('e', pa.binary()),
+                            ('f', pa.bool_())])
         assert table.schema == schema
         assert table.to_pydict() == {
             'a': [1.0, None, 4.5],
@@ -227,6 +241,7 @@ class BaseTestCSVRead:
             'c': [u"", u"foo", u"nan"],
             'd': [None, None, None],
             'e': [b"3", b"nan", b"\xff"],
+            'f': [None, True, False],
             }
 
     def test_simple_timestamps(self):
@@ -267,6 +282,27 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             'a': [u"#N/A"],
             'b': [u""],
+            }
+
+    def test_custom_bools(self):
+        # Infer booleans with custom values
+        opts = ConvertOptions(true_values=['T', 'yes'],
+                              false_values=['F', 'no'])
+        rows = (b"a,b,c\n"
+                b"True,T,t\n"
+                b"False,F,f\n"
+                b"True,yes,yes\n"
+                b"False,no,no\n"
+                b"N/A,N/A,N/A\n")
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.string()),
+                            ('b', pa.bool_()),
+                            ('c', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': ["True", "False", "True", "False", "N/A"],
+            'b': [True, False, True, False, None],
+            'c': ["t", "f", "yes", "no", "N/A"],
             }
 
     def test_column_types(self):
