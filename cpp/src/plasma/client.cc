@@ -484,10 +484,9 @@ Status PlasmaClient::Impl::GetBuffers(
       // This client created the object but hasn't sealed it. If we call Get
       // with no timeout, we will deadlock, because this client won't be able to
       // call Seal.
-      if (timeout_ms != -1) {
+      if (timeout_ms == -1) {
         return Status::Invalid(
-            "Plasma client called get on an"
-            " unsealed object that it created");
+            "Plasma client called get on an unsealed object that it created");
       }
       ARROW_LOG(WARNING)
           << "Attempting to get an object that this client created but hasn't sealed.";
@@ -782,8 +781,7 @@ Status PlasmaClient::Impl::Abort(const ObjectID& object_id) {
   auto object_entry = objects_in_use_.find(object_id);
   if (object_entry == objects_in_use_.end()) {
     return Status::Invalid(
-        "Plasma client called abort on "
-        "an object without a reference to it");
+        "Plasma client called abort on an object without a reference to it");
   }
 
   auto& entry = *object_entry->second;
