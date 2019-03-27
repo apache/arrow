@@ -80,16 +80,30 @@ enum GroupByScalar {
     Utf8(String),
 }
 
-/// Common trait for all aggregation functions
+/// Aggregate function that can accept individual values and compute an aggregate
 trait AggregateFunction {
     /// Get the function name (used for debugging)
     fn name(&self) -> &str;
+    /// Update the current aggregate value based on a new value. If rollup is false, then
+    /// this aggregate function instance is being used to aggregate individual values within
+    /// a RecordBatch. If rollup is true then the aggregate function instance is being used
+    /// to combine the aggregates for multiple batches. For some aggregate operations, such
+    /// as `min`, `max`, and `sum`, the logic is the same regardless of whether rollup is
+    /// true or false. For example, `min` can be implemented as
+    /// `min(min(batch1), min(batch2), ..)`. However for `count` the logic is
+    /// `sum(count(batch1), count(batch2), ..)`.
     fn accumulate_scalar(
         &mut self,
         value: &Option<ScalarValue>,
         rollup: bool,
     ) -> Result<()>;
+    /// Return the result of the aggregate function after all values have been processed
+    /// by calls to `acccumulate_scalar`.
     fn result(&self) -> Option<ScalarValue>;
+    /// Get the data type of the result of the aggregate function. For some operations,
+    /// such as `min`, `max`, and `sum`, the data type will be the same as the data type
+    /// of the argument. For other aggregates, such as `count`, the data type is independent
+    /// of the data type of the input.
     fn data_type(&self) -> &DataType;
 }
 
