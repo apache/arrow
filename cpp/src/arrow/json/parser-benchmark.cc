@@ -39,22 +39,22 @@ static void BenchmarkJSONChunking(benchmark::State& state,  // NOLINT non-const 
   state.SetBytesProcessed(state.iterations() * json.size());
 }
 
-static void BenchmarkJSONParsing(benchmark::State& state,  // NOLINT non-const reference
-                                 const std::string& json, int32_t num_rows,
-                                 ParseOptions options) {
-  for (auto _ : state) {
-    std::shared_ptr<Buffer> src;
-    ABORT_NOT_OK(MakeBuffer(json, &src));
-    BlockParser parser(options, src);
-    ABORT_NOT_OK(parser.Parse(src));
-    if (parser.num_rows() != num_rows) {
-      std::cerr << "Parsing incomplete\n";
-      std::abort();
-    }
-    std::shared_ptr<Array> parsed;
-    ABORT_NOT_OK(parser.Finish(&parsed));
+static void BM_ChunkJSONPrettyPrinted(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const int32_t num_rows = 5000;
+  auto options = ParseOptions::Defaults();
+  options.newlines_in_values = true;
+  options.explicit_schema = schema({field("int", int32()), field("str", utf8())});
+  std::default_random_engine engine;
+  std::string json;
+  for (int i = 0; i != num_rows; ++i) {
+    StringBuffer sb;
+    Writer writer(sb);
+    ABORT_NOT_OK(Generate(options.explicit_schema, engine, &writer));
+    json += sb.GetString();
+    json += "\n";
   }
-  state.SetBytesProcessed(state.iterations() * json.size());
+  BenchmarkJSONChunking(state, json, options);
 }
 
 static void BM_ChunkJSONLineDelimited(
@@ -73,6 +73,26 @@ static void BM_ChunkJSONLineDelimited(
     json += "\n";
   }
   BenchmarkJSONChunking(state, json, options);
+}
+
+BENCHMARK(BM_ChunkJSONLineDelimited)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+
+static void BenchmarkJSONParsing(benchmark::State& state,  // NOLINT non-const reference
+                                 const std::string& json, int32_t num_rows,
+                                 ParseOptions options) {
+  for (auto _ : state) {
+    std::shared_ptr<Buffer> src;
+    ABORT_NOT_OK(MakeBuffer(json, &src));
+    BlockParser parser(options, src);
+    ABORT_NOT_OK(parser.Parse(src));
+    if (parser.num_rows() != num_rows) {
+      std::cerr << "Parsing incomplete\n";
+      std::abort();
+    }
+    std::shared_ptr<Array> parsed;
+    ABORT_NOT_OK(parser.Finish(&parsed));
+  }
+  state.SetBytesProcessed(state.iterations() * json.size());
 }
 
 static void BM_ParseJSONBlockWithSchema(

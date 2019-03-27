@@ -245,5 +245,30 @@ TEST(ParseOne, Nested) {
        R"([{"ps":null}, null, {"ps":78}, {"ps":90}])"});
 }
 
+TEST(ParseOne, PartialSchema) {
+  auto options = ParseOptions::Defaults();
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  options.explicit_schema = schema({field("nuf", struct_({field("absent", date32())})),
+                                    field("arr", list(float32()))});
+  AssertParseOne(
+      options, nested_src(),
+      {field("yo", utf8()), field("arr", list(float32())),
+       field("nuf", struct_({field("absent", date32()), field("ps", int64())}))},
+      {"[\"thing\", null, \"\xe5\xbf\x8d\", null]", R"([[1, 2, 3], [2], [], null])",
+       R"([{"absent":null,"ps":null}, null, {"absent":null,"ps":78}, {"absent":null,"ps":90}])"});
+}
+
+TEST(ParseOne, InferTimestamp) {
+  auto options = ParseOptions::Defaults();
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  std::string src = R"(
+    {"ts":null}
+    {"ts":"1970-01-01"}
+    {"ts":"2018-11-13 17:11:10"}
+    )";
+  AssertParseOne(options, src, {field("ts", timestamp(TimeUnit::SECOND))},
+                 {R"([null, "1970-01-01", "2018-11-13 17:11:10"])"});
+}
+
 }  // namespace json
 }  // namespace arrow
