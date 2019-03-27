@@ -45,6 +45,8 @@ requirements:
     - arrow-cpp {{ ARROW_VERSION }}
 
   run:
+    - glog
+    - snappy
     - boost-cpp
     - python
     - setuptools
