@@ -31,11 +31,7 @@ pin_run_as_build:
   zstd:
     max_pin: x.x.x
 python:
-<<<<<<< HEAD
 - '3.7'
-=======
-- '3.6'
->>>>>>> update variants, build orc_ep instead of using from conda-forge [skip ci]
 snappy:
 - 1.1.7
 zlib:
