@@ -16,6 +16,7 @@
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,7 +24,9 @@ using System.Threading.Tasks;
 namespace Apache.Arrow.Ipc
 {
     public class ArrowFileWriter: ArrowStreamWriter
-    { 
+    {
+        private long _currentRecordBatchOffset = -1;
+
         private bool HasWrittenHeader { get; set; }
         private bool HasWrittenFooter { get; set; }
 
@@ -67,10 +70,27 @@ namespace Apache.Arrow.Ipc
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            var block = await WriteRecordBatchInternalAsync(recordBatch, cancellationToken)
+            await WriteRecordBatchInternalAsync(recordBatch, cancellationToken)
                 .ConfigureAwait(false);
+        }
+
+        private protected override void StartingWritingRecordBatch()
+        {
+            _currentRecordBatchOffset = BaseStream.Position;
+        }
+
+        private protected override void FinishedWritingRecordBatch(long bodyLength, long metadataLength)
+        {
+            Debug.Assert(_currentRecordBatchOffset > 0);
+
+            var block = new Block(
+                offset: _currentRecordBatchOffset,
+                length: bodyLength,
+                metadataLength: Convert.ToInt32(metadataLength));
 
             RecordBatchBlocks.Add(block);
+
+            _currentRecordBatchOffset = -1;
         }
 
         public async Task WriteFooterAsync(CancellationToken cancellationToken = default)
@@ -158,6 +178,20 @@ namespace Apache.Arrow.Ipc
         {
             return BaseStream.WriteAsync(
                 ArrowFileConstants.Magic, 0, ArrowFileConstants.Magic.Length);
+        }
+
+        internal readonly struct Block
+        {
+            public readonly long Offset;
+            public readonly long Length;
+            public readonly int MetadataLength;
+
+            public Block(long offset, long length, int metadataLength)
+            {
+                Offset = offset;
+                Length = length;
+                MetadataLength = metadataLength;
+            }
         }
     }
 }
