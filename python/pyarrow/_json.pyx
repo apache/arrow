@@ -67,15 +67,23 @@ cdef class ReadOptions:
     def block_size(self, value):
           self.options.block_size = value
 
-class ParseOptions:
-    pass
+cdef class ParseOptions:
+
+    cdef:
+        CJSONParseOptions options
+
+    __slots__ = ()
+
+
+cdef _get_reader(input_file, shared_ptr[InputStream]* out):
+    use_memory_map = False
+    get_input_stream(input_file, use_memory_map, out)
 
 cdef _get_read_options(ReadOptions read_options, CJSONReadOptions* out):
     if read_options is None:
         out[0] = CJSONReadOptions.Defaults()
     else:
         out[0] = read_options.options
-
 
 cdef _get_parse_options(ParseOptions parse_options, CJSONParseOptions* out):
     if parse_options is None:
@@ -84,12 +92,14 @@ cdef _get_parse_options(ParseOptions parse_options, CJSONParseOptions* out):
         out[0] = parse_options.options
 
 
-def parse_json(input_file, read_options=None, parse_options=None,
+def read_json(input_file, read_options=None, parse_options=None,
               convert_options=None, MemoryPool memory_pool=None):
     cdef:
         shared_ptr[InputStream] stream
         CJSONReadOptions c_read_options
         CJSONParseOptions c_parse_options
+        shared_ptr[CJSONReader] reader
+        shared_ptr[CTable] table
 
     _get_reader(input_file, &stream)
     _get_read_options(read_options, &c_read_options)
@@ -100,6 +110,6 @@ def parse_json(input_file, read_options=None, parse_options=None,
                                   &reader))
 
     with nogil:
-        check_status(reader.get().Reader(&table))
+        check_status(reader.get().Read(&table))
 
     return pyarrow_wrap_table(table)
