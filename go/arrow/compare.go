@@ -43,7 +43,7 @@ func TypeEquals(left DataType, right DataType, checkMetadata bool) bool {
 	case !reflect.DeepEqual(l.index, r.index):
 		return false
 	}
-	for i, _ := range l.fields {
+	for i := range l.fields {
 		leftField, rightField := l.fields[i], r.fields[i]
 		switch {
 		case leftField.Name != rightField.Name:
