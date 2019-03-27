@@ -17,7 +17,9 @@
 
 # ARROW-3229: this is a meta-package to prevent conflicts in the future
 
-{% set version = "1.5.0" %}
+{% set parquet_version = "1.5.1" %}
+# Don't forget to update me!
+{% set arrow_version = "0.12.0" %}
 
 package:
   name: parquet-cpp
