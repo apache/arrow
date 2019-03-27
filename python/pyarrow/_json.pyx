@@ -22,7 +22,10 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (check_status)
+from pyarrow.lib cimport (check_status, Field, MemoryPool, ensure_type,
+                          maybe_unbox_memory_pool, get_input_stream,
+                          pyarrow_wrap_table, pyarrow_wrap_data_type,
+                          pyarrow_unwrap_data_type)
 
 
 cdef class ReadOptions:
@@ -64,19 +67,39 @@ cdef class ReadOptions:
     def block_size(self, value):
           self.options.block_size = value
 
+class ParseOptions:
+    pass
 
-cdef _get_read_options(ReadOptions read_options, CCSVReadOptions* out):
+cdef _get_read_options(ReadOptions read_options, CJSONReadOptions* out):
     if read_options is None:
-        out[0] = CCSVReadOptions.Defaults()
+        out[0] = CJSONReadOptions.Defaults()
     else:
         out[0] = read_options.options
+
+
+cdef _get_parse_options(ParseOptions parse_options, CJSONParseOptions* out):
+    if parse_options is None:
+        out[0] = CJSONParseOptions.Defaults()
+    else:
+        out[0] = parse_options.options
 
 
 def parse_json(input_file, read_options=None, parse_options=None,
               convert_options=None, MemoryPool memory_pool=None):
     cdef:
-        CCSVReadOptions c_read_options
+        shared_ptr[InputStream] stream
+        CJSONReadOptions c_read_options
+        CJSONParseOptions c_parse_options
 
+    _get_reader(input_file, &stream)
     _get_read_options(read_options, &c_read_options)
+    _get_parse_options(parse_options, &c_parse_options)
 
-    check_status(ParseOne())
+    check_status(CJSONReader.Make(maybe_unbox_memory_pool(memory_pool),
+                                  stream, c_read_options, c_parse_options,
+                                  &reader))
+
+    with nogil:
+        check_status(reader.get().Reader(&table))
+
+    return pyarrow_wrap_table(table)

@@ -378,7 +378,7 @@ if(UNIX)
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif()
 
-set(CYTHON_EXTENSIONS lib _csv)
+set(CYTHON_EXTENSIONS lib _csv _json)
 
 set(LINK_LIBS arrow_shared arrow_python_shared)
 
