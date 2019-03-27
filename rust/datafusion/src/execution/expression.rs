@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Runtime expression support
+//! Evaluation of expressions against RecordBatch instances.
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -290,7 +290,7 @@ pub(super) fn compile_expr(
             ScalarValue::Float32(n) => literal_array!(n, Float32Array, Float32),
             ScalarValue::Float64(n) => literal_array!(n, Float64Array, Float64),
             other => Err(ExecutionError::ExecutionError(format!(
-                "No support for literal type {:?}",
+                "Unsupported literal type {:?}",
                 other
             ))),
         },
@@ -436,14 +436,14 @@ pub(super) fn compile_expr(
                     }),
                     t: op_type,
                 }),
-                other => Err(ExecutionError::ExecutionError(format!(
-                    "operator: {:?}",
+                other => Err(ExecutionError::NotImplemented(format!(
+                    "Unsupported operator: {:?}",
                     other
                 ))),
             }
         }
-        other => Err(ExecutionError::ExecutionError(format!(
-            "expression {:?}",
+        other => Err(ExecutionError::NotImplemented(format!(
+            "Unsupported expression {:?}",
             other
         ))),
     }
