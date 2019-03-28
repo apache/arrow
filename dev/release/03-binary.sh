@@ -65,6 +65,11 @@ if [ -z "${BINTRAY_PASSWORD}" ]; then
   exit 1
 fi
 
+if ! jq --help > /dev/null 2>&1; then
+  echo "jq is required"
+  exit 1
+fi
+
 : ${BINTRAY_REPOSITORY:=apache/arrow}
 
 docker_run() {
@@ -121,15 +126,6 @@ fi
   rm -rf ${container_id_dir}
 }
 
-jq() {
-  docker \
-    run \
-    --rm \
-    --interactive \
-    ${docker_image_name} \
-    jq "$@"
-}
-
 bintray() {
   local command=$1
   shift
@@ -181,6 +177,7 @@ download_files() {
       GET /packages/${BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}/files | \
       jq -r ".[].path")
 
+  local file=
   for file in ${files}; do
     mkdir -p "$(dirname ${file})"
     curl \
@@ -239,6 +236,7 @@ sign_and_upload_file() {
 
   upload_file ${version} ${rc} ${target} ${local_path} ${upload_path}
 
+  local suffix=
   for suffix in asc sha256 sha512; do
     pushd $(dirname ${local_path})
     local local_path_base=$(basename ${local_path})
@@ -293,6 +291,7 @@ upload_deb() {
   local distribution=$3
   local code_name=$4
 
+  local base_path=
   for base_path in *; do
     upload_deb_file ${version} ${rc} ${distribution} ${code_name} ${base_path} &
   done
@@ -327,6 +326,7 @@ upload_apt() {
     ${keyring_name} \
     ${keyring_name} &
 
+  local pool_code_name=
   for pool_code_name in pool/*; do
     local code_name=$(basename ${pool_code_name})
     local dist=dists/${code_name}/main
@@ -363,6 +363,7 @@ upload_apt() {
       --output dists/${code_name}/Release.gpg \
       dists/${code_name}/Release
 
+    local path=
     for path in $(find dists/${code_name}/ -type f); do
       sign_and_upload_file \
         ${version} \
@@ -415,6 +416,7 @@ upload_rpm() {
   local distribution=$3
   local distribution_version=$4
 
+  local rpm_path=
   for rpm_path in *.rpm; do
     upload_rpm_file \
       ${version} \
@@ -449,6 +451,9 @@ upload_yum() {
     ${distribution} \
     ${keyring_name} \
     ${keyring_name} &
+  local version_dir=
+  local arch_dir=
+  local repo_path=
   for version_dir in $(find . -mindepth 1 -maxdepth 1 -type d); do
     for arch_dir in ${version_dir}/*; do
       mkdir -p ${arch_dir}/repodata/
@@ -475,6 +480,7 @@ upload_python() {
   local rc=$2
   local target=python
 
+  local base_path=
   for base_path in *; do
     case ${base_path} in
       *.asc|*.sha256|*.sha512)
