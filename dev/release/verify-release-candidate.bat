@@ -82,10 +82,10 @@ cmake --build . --target INSTALL --config %CONFIGURATION%  || exit /B
 
 @rem Get testing datasets for Parquet unit tests
 git clone https://github.com/apache/parquet-testing.git %_VERIFICATION_DIR%\parquet-testing
-set ARROW_TEST_DATA=%_VERIFICATION_DIR%\arrow-testing\data
+set PARQUET_TEST_DATA=%_VERIFICATION_DIR%\arrow-testing\data
 
 git clone https://github.com/apache/arrow-testing.git %_VERIFICATION_DIR%\arrow-testing testing
-set PARQUET_TEST_DATA=%_VERIFICATION_DIR%\arrow-testing\data
+set ARROW_TEST_DATA=%_VERIFICATION_DIR%\testing\data
 
 @rem Needed so python-test.exe works
 set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\python35.zip;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%;%PYTHONPATH%
