@@ -224,7 +224,12 @@ ${ARROW_CMAKE_OPTIONS}
   git clone https://github.com/apache/parquet-testing.git
   export PARQUET_TEST_DATA=$PWD/parquet-testing/data
 
-  ctest -j$NPROC --output-on-failure -L unittest
+  # TODO: ARROW-5036
+  ctest \
+    --exclude-regex "plasma-serialization_tests" \
+    -j$NPROC \
+    --output-on-failure \
+    -L unittest
   popd
 }
 
