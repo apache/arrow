@@ -221,9 +221,6 @@ ${ARROW_CMAKE_OPTIONS}
   make -j$NPROC
   make install
 
-  git clone https://github.com/apache/parquet-testing.git
-  export PARQUET_TEST_DATA=$PWD/parquet-testing/data
-
   # TODO: ARROW-5036
   ctest \
     --exclude-regex "plasma-serialization_tests" \
@@ -405,6 +402,9 @@ if [ "$ARTIFACT" == "source" ]; then
   TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON}))
   TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
   TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
+
+  git clone https://github.com/apache/parquet-testing.git
+  export PARQUET_TEST_DATA=$PWD/parquet-testing/data
 
   fetch_archive $DIST_NAME
   tar xvzf ${DIST_NAME}.tar.gz
