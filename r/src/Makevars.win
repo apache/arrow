@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-VERSION = 0.12.0.9000
+VERSION = 0.13.0
 
 ifeq "$(ARROW_PATH)" ""
   RWINLIB = ../windows/arrow-$(VERSION)

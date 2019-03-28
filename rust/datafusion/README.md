@@ -27,7 +27,7 @@ Add this to your Cargo.toml:
 
 ```toml
 [dependencies]
-datafusion = "0.12"
+datafusion = "0.13.0"
 ```
 
 # Status
