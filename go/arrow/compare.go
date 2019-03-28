@@ -24,8 +24,12 @@ type typeEqualsConfig struct {
 	metadata bool
 }
 
+// TypeEqualsOption is a functional option type used for configuring type
+// equality checks.
 type TypeEqualsOption func(*typeEqualsConfig)
 
+// CheckMetadata is an option for TypeEquals that allows checking for metadata
+// equality besides type equality. It only makes sense for STRUCT type.
 func CheckMetadata() TypeEqualsOption {
 	return func(cfg *typeEqualsConfig) {
 		cfg.metadata = true
