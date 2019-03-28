@@ -113,7 +113,7 @@ Status SomeNull_Ingest(SEXP data, R_xlen_t start, R_xlen_t n,
   if (array->null_count()) {
     arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
                                                 array->offset(), n);
-    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data, ++p_values) {
+    for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data, ++p_values) {
       *p_data = bitmap_reader.IsSet() ? lambda(*p_values) : default_value<RTYPE>();
     }
   } else {
@@ -251,11 +251,11 @@ class Converter_Boolean : public Converter {
       arrow::internal::BitmapReader null_reader(array->null_bitmap()->data(),
                                                 array->offset(), n);
 
-      for (size_t i = 0; i < n; i++, data_reader.Next(), null_reader.Next(), ++p_data) {
+      for (R_xlen_t i = 0; i < n; i++, data_reader.Next(), null_reader.Next(), ++p_data) {
         *p_data = null_reader.IsSet() ? data_reader.IsSet() : NA_LOGICAL;
       }
     } else {
-      for (size_t i = 0; i < n; i++, data_reader.Next(), ++p_data) {
+      for (R_xlen_t i = 0; i < n; i++, data_reader.Next(), ++p_data) {
         *p_data = data_reader.IsSet();
       }
     }
@@ -472,12 +472,12 @@ class Converter_Decimal : public Converter {
       internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
                                            n);
 
-      for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
+      for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
         *p_data = bitmap_reader.IsSet() ? std::stod(decimals_arr.FormatValue(i).c_str())
                                         : NA_REAL;
       }
     } else {
-      for (size_t i = 0; i < n; i++, ++p_data) {
+      for (R_xlen_t i = 0; i < n; i++, ++p_data) {
         *p_data = std::stod(decimals_arr.FormatValue(i).c_str());
       }
     }
@@ -514,7 +514,7 @@ class Converter_Int64 : public Converter {
     if (array->null_count()) {
       internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
                                            n);
-      for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
+      for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
         *p_data = bitmap_reader.IsSet() ? p_values[i] : NA_INT64;
       }
     } else {
