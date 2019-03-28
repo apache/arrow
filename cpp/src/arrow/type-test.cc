@@ -282,10 +282,46 @@ TEST_F(TestSchema, TestRemoveMetadata) {
   auto f1 = field("f1", uint8(), false);
   auto f2 = field("f2", utf8());
   std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
-  KeyValueMetadata metadata({"foo", "bar"}, {"bizz", "buzz"});
-  auto schema = std::make_shared<Schema>(fields);
+  auto metadata = std::shared_ptr<KeyValueMetadata>(
+      new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
+  auto schema = std::make_shared<Schema>(fields, metadata);
   std::shared_ptr<Schema> new_schema = schema->RemoveMetadata();
   ASSERT_TRUE(new_schema->metadata() == nullptr);
+}
+
+TEST_F(TestSchema, SetDictionary) {
+  auto id1 = incomplete_dictionary(int32(), utf8(), false, 12 /* dictionary_id */);
+  auto id2 = incomplete_dictionary(int16(), int64(), false, 42 /* dictionary_id */);
+
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", id1);
+  auto f2 = field("f2", list(id2));
+  auto f3 = field("f3", struct_({field("s1", int8()), field("s2", id1)}));
+
+  auto schema = ::arrow::schema({f0, f1, f2, f3});
+
+  auto v1 = ArrayFromJSON(utf8(), "[\"foo\", \"bar\"]");
+  auto v2 = ArrayFromJSON(int64(), "[1000, 2000, 3000]");
+  std::shared_ptr<Schema> actual, expected;
+
+  ASSERT_OK(schema->SetDictionary(12, v1, &actual));
+  auto d1 = dictionary(int32(), v1);
+  f1 = field("f1", d1);
+  f3 = field("f3", struct_({field("s1", int8()), field("s2", d1)}));
+  expected = ::arrow::schema({f0, f1, f2, f3});
+  ASSERT_TRUE(actual->Equals(*expected));
+
+  ASSERT_OK(actual->SetDictionary(42, v2, &actual));
+  auto d2 = dictionary(int16(), v2);
+  f2 = field("f2", list(d2));
+  expected = ::arrow::schema({f0, f1, f2, f3});
+  ASSERT_TRUE(actual->Equals(*expected));
+
+  // Non-existent dictionary id
+  ASSERT_RAISES(Invalid, schema->SetDictionary(0, v1, &actual));
+
+  // Mismatching dictionary value type
+  ASSERT_RAISES(TypeError, schema->SetDictionary(12, v2, &actual));
 }
 
 #define PRIMITIVE_TEST(KLASS, CTYPE, ENUM, NAME)                              \
@@ -367,6 +403,18 @@ TEST(TestListType, Basics) {
 
   ListType lt2(lt);
   ASSERT_EQ("list<item: list<item: string>>", lt2.ToString());
+}
+
+TEST(TestListType, SetChild) {
+  std::shared_ptr<DataType> t1, t2, expected;
+
+  t1 = list(int8());
+  ASSERT_OK(t1->SetChild(0, utf8(), &t2));
+  expected = list(utf8());
+  ASSERT_TRUE(t2->Equals(expected));
+
+  // Bad child index
+  ASSERT_RAISES(Invalid, t1->SetChild(1, utf8(), &t2));
 }
 
 TEST(TestDateTypes, Attrs) {
@@ -556,6 +604,91 @@ TEST(TestStructType, GetFieldDuplicates) {
 
   results = struct_type.GetAllFieldsByName("not-found");
   ASSERT_EQ(results.size(), 0);
+}
+
+TEST(TestStructType, SetChild) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", int64());
+  auto f2 = field("f1", utf8(), false /* nullable */);
+  StructType struct_type({f0, f1, f2});
+
+  std::shared_ptr<DataType> actual, expected;
+  ASSERT_OK(struct_type.SetChild(2, list(binary()), &actual));
+
+  auto f3 = field("f1", list(binary()), false /* nullable */);
+  expected = struct_({f0, f1, f3});
+  ASSERT_TRUE(actual->Equals(*expected));
+
+  // Bad child index
+  ASSERT_RAISES(Invalid, struct_type.SetChild(3, list(binary()), &actual));
+}
+
+TEST(TestUnionType, Basics) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", float32());
+
+  auto t1 = union_({f0, f1}, {42, 43});
+  auto t2 = union_({f0, f1}, {42, 43});
+  auto t3 = union_({f1, f0}, {42, 43});
+  auto t4 = union_({f0, f1}, {42, 43}, UnionMode::DENSE);
+  auto t5 = union_({f0, f1}, {43, 44});
+
+  ASSERT_EQ(t1->ToString(), "union[sparse]<f0: int32=42, f1: float=43>");
+  ASSERT_EQ(t4->ToString(), "union[dense]<f0: int32=42, f1: float=43>");
+}
+
+TEST(TestUnionType, SetChild) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", float32());
+
+  auto t1 = union_({f0, f1}, {5, 6}, UnionMode::DENSE);
+
+  std::shared_ptr<DataType> actual, expected;
+  ASSERT_OK(t1->SetChild(0, float64(), &actual));
+
+  auto f2 = field("f0", float64());
+  expected = union_({f2, f1}, {5, 6}, UnionMode::DENSE);
+  ASSERT_TRUE(actual->Equals(*expected));
+
+  // Bad child index
+  ASSERT_RAISES(Invalid, t1->SetChild(2, float64(), &actual));
+}
+
+TEST(TestIncompleteDictionaryType, Equals) {
+  auto t1 = incomplete_dictionary(int8(), int32());
+  auto t2 = incomplete_dictionary(int8(), int32());
+  auto t3 = incomplete_dictionary(int16(), int32());
+  auto t4 = incomplete_dictionary(int8(), uint32());
+  auto t5 = incomplete_dictionary(int8(), int32(), true /* ordered */);
+  auto t6 = incomplete_dictionary(int8(), int32(), false /* ordered */, 0);
+  auto t7 = incomplete_dictionary(int8(), int32(), false /* ordered */, 1);
+  auto t8 = incomplete_dictionary(int8(), int32(), false /* ordered */, 1);
+
+  ASSERT_TRUE(t1->Equals(t2));
+  // Different index type
+  ASSERT_FALSE(t1->Equals(t3));
+  // Different value type
+  ASSERT_FALSE(t1->Equals(t4));
+  // Different orderedness
+  ASSERT_FALSE(t1->Equals(t5));
+  // Different dictionary id
+  ASSERT_FALSE(t1->Equals(t6));
+  ASSERT_FALSE(t6->Equals(t7));
+  ASSERT_TRUE(t7->Equals(t8));
+}
+
+TEST(TestIncompleteDictionaryType, Complete) {
+  auto type = incomplete_dictionary(int8(), int32());
+  const auto& dict_type = checked_cast<IncompleteDictionaryType&>(*type);
+  auto dict_values = ArrayFromJSON(int32(), "[3, 4, 5, 6]");
+
+  std::shared_ptr<DataType> completed, expected;
+  ASSERT_OK(dict_type.Complete(dict_values, &completed));
+  expected = dictionary(int8(), dict_values);
+  ASSERT_TRUE(completed->Equals(expected));
+
+  auto bad_type_dict_values = ArrayFromJSON(uint32(), "[3, 4, 5, 6]");
+  ASSERT_RAISES(TypeError, dict_type.Complete(bad_type_dict_values, &completed));
 }
 
 TEST(TestDictionaryType, Equals) {

@@ -177,6 +177,10 @@ struct UnpackValues {
     return Status::NotImplemented("gathering values of type ", t);
   }
 
+  Status Visit(const IncompleteDictionaryType& t) {
+    return Status::NotImplemented("gathering values of type ", t);
+  }
+
   const TakeParameters& params_;
 };
 

@@ -938,6 +938,10 @@ class ArrayDataWrapper {
     return Status::OK();
   }
 
+  Status Visit(const IncompleteDictionaryType& type) {
+    return Status::TypeError("Cannot create array of type '", type.ToString(), "'");
+  }
+
   Status Visit(const ExtensionType& type) {
     *out_ = type.MakeArray(data_);
     return Status::OK();

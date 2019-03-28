@@ -98,27 +98,52 @@ TYPED_TEST(TestDictionaryBuilder, ArrayInit) {
 }
 
 TYPED_TEST(TestDictionaryBuilder, MakeBuilder) {
+  // Explicit dictionary values are provided
   auto dict_array = ArrayFromJSON(std::make_shared<TypeParam>(), "[1, 2]");
   auto dict_type = dictionary(int8(), dict_array);
   std::unique_ptr<ArrayBuilder> boxed_builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &boxed_builder));
   auto& builder = checked_cast<DictionaryBuilder<TypeParam>&>(*boxed_builder);
 
-  ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
+  ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(2)));
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(2)));
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
   ASSERT_OK(builder.AppendNull());
 
   ASSERT_EQ(builder.length(), 4);
   ASSERT_EQ(builder.null_count(), 1);
-
-  // Build expected data
-
   std::shared_ptr<Array> result;
   ASSERT_OK(builder.Finish(&result));
 
-  auto int_array = ArrayFromJSON(int8(), "[0, 1, 0, null]");
+  // Build expected data
+  auto int_array = ArrayFromJSON(int8(), "[1, 1, 0, null]");
   DictionaryArray expected(dict_type, int_array);
+
+  AssertArraysEqual(expected, *result);
+}
+
+TYPED_TEST(TestDictionaryBuilder, MakeBuilderFromIncompleteDictType) {
+  // Dictionary values are inferred as an IncompleteDictionaryType is passed
+  auto value_type = std::make_shared<TypeParam>();
+  auto dict_type = incomplete_dictionary(int8(), value_type);
+  std::unique_ptr<ArrayBuilder> boxed_builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &boxed_builder));
+  auto& builder = checked_cast<DictionaryBuilder<TypeParam>&>(*boxed_builder);
+
+  ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(2)));
+  ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(2)));
+  ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
+  ASSERT_OK(builder.AppendNull());
+
+  ASSERT_EQ(builder.length(), 4);
+  ASSERT_EQ(builder.null_count(), 1);
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+
+  // Build expected data
+  auto int_array = ArrayFromJSON(int8(), "[0, 0, 1, null]");
+  auto actual_dict_type = dictionary(int8(), ArrayFromJSON(value_type, "[2, 1]"));
+  DictionaryArray expected(actual_dict_type, int_array);
 
   AssertArraysEqual(expected, *result);
 }

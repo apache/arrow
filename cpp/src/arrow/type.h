@@ -136,7 +136,10 @@ struct Type {
     MAP,
 
     /// Custom data type, implemented by user
-    EXTENSION
+    EXTENSION,
+
+    /// Incomplete dictionary type
+    INCOMPLETE_DICTIONARY
   };
 };
 
@@ -171,6 +174,11 @@ class ARROW_EXPORT DataType {
 
   Status Accept(TypeVisitor* visitor) const;
 
+  Status SetChild(int i, const std::shared_ptr<Field>& child_field,
+                  std::shared_ptr<DataType>* out) const;
+  Status SetChild(int i, const std::shared_ptr<DataType>& child_type,
+                  std::shared_ptr<DataType>* out) const;
+
   /// \brief A string representation of the type, including any children
   virtual std::string ToString() const = 0;
 
@@ -184,6 +192,9 @@ class ARROW_EXPORT DataType {
   Type::type id() const { return id_; }
 
  protected:
+  virtual Status SetChildInternal(int i, const std::shared_ptr<Field>& child_field,
+                                  std::shared_ptr<DataType>* out) const;
+
   Type::type id_;
   std::vector<std::shared_ptr<Field>> children_;
 
@@ -450,6 +461,10 @@ class ARROW_EXPORT ListType : public NestedType {
   std::string ToString() const override;
 
   std::string name() const override { return "list"; }
+
+ protected:
+  Status SetChildInternal(int i, const std::shared_ptr<Field>& child_field,
+                          std::shared_ptr<DataType>* out) const override;
 };
 
 /// \brief Concrete type class for variable-size binary data
@@ -527,6 +542,10 @@ class ARROW_EXPORT StructType : public NestedType {
   ARROW_DEPRECATED("Use GetFieldIndex")
   int GetChildIndex(const std::string& name) const;
 
+ protected:
+  Status SetChildInternal(int i, const std::shared_ptr<Field>& child_field,
+                          std::shared_ptr<DataType>* out) const override;
+
  private:
   std::unordered_multimap<std::string, int> name_to_index_;
 };
@@ -577,6 +596,10 @@ class ARROW_EXPORT UnionType : public NestedType {
   const std::vector<uint8_t>& type_codes() const { return type_codes_; }
 
   UnionMode::type mode() const { return mode_; }
+
+ protected:
+  Status SetChildInternal(int i, const std::shared_ptr<Field>& child_field,
+                          std::shared_ptr<DataType>* out) const override;
 
  private:
   UnionMode::type mode_;
@@ -749,7 +772,7 @@ class ARROW_EXPORT IntervalType : public FixedWidthType {
 // DictionaryType (for categorical or dictionary-encoded data)
 
 /// Concrete type class for dictionary data
-class ARROW_EXPORT DictionaryType : public FixedWidthType {
+class ARROW_EXPORT DictionaryType : public FixedWidthType, public ParametricType {
  public:
   static constexpr Type::type type_id = Type::DICTIONARY;
 
@@ -759,6 +782,8 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   int bit_width() const override;
 
   std::shared_ptr<DataType> index_type() const { return index_type_; }
+
+  std::shared_ptr<DataType> value_type() const;
 
   std::shared_ptr<Array> dictionary() const;
 
@@ -788,6 +813,49 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   // Must be an integer type (not currently checked)
   std::shared_ptr<DataType> index_type_;
   std::shared_ptr<Array> dictionary_;
+  bool ordered_;
+};
+
+/// Type class representing an incomplete dictionary type,
+/// whose index type and value type are known, but whose actual
+/// dictionary values are still unknown.
+class ARROW_EXPORT IncompleteDictionaryType : public FixedWidthType,
+                                              public ParametricType {
+ public:
+  static constexpr Type::type type_id = Type::INCOMPLETE_DICTIONARY;
+
+  IncompleteDictionaryType(const std::shared_ptr<DataType>& index_type,
+                           const std::shared_ptr<DataType>& value_type,
+                           bool ordered = false, int64_t dictionary_id = -1);
+
+  int bit_width() const override;
+
+  std::shared_ptr<DataType> index_type() const { return index_type_; }
+
+  std::shared_ptr<DataType> value_type() const { return value_type_; }
+
+  bool ordered() const { return ordered_; }
+
+  int64_t dictionary_id() const { return dictionary_id_; }
+
+  std::string ToString() const override;
+  std::string name() const override { return "incomplete-dictionary"; }
+
+  /// \brief Make a dictionary type, providing its values
+  ///
+  /// Create a DictionaryType with the same index and value types,
+  /// and with the given values as dictionary.  The value type must
+  /// be equal to the type of the values array.
+  /// \param[in] values The array of dictionary values
+  /// \param[out] out The new DictionaryType instance
+  Status Complete(const std::shared_ptr<Array>& values,
+                  std::shared_ptr<DataType>* out) const;
+
+ private:
+  // Must be an integer type (not currently checked)
+  std::shared_ptr<DataType> index_type_;
+  std::shared_ptr<DataType> value_type_;
+  int64_t dictionary_id_;
   bool ordered_;
 };
 
@@ -842,6 +910,10 @@ class ARROW_EXPORT Schema {
   Status RemoveField(int i, std::shared_ptr<Schema>* out) const;
   Status SetField(int i, const std::shared_ptr<Field>& field,
                   std::shared_ptr<Schema>* out) const;
+
+  /// \brief EXPERIMENTAL
+  Status SetDictionary(int64_t dict_id, const std::shared_ptr<Array>& dict_values,
+                       std::shared_ptr<Schema>* out) const;
 
   /// \brief Replace key-value metadata with new metadata
   ///
@@ -942,6 +1014,12 @@ union_(const std::vector<std::shared_ptr<Array>>& children,
 std::shared_ptr<DataType> ARROW_EXPORT
 dictionary(const std::shared_ptr<DataType>& index_type,
            const std::shared_ptr<Array>& values, bool ordered = false);
+
+/// \brief Create a IncompleteDictionaryType instance
+std::shared_ptr<DataType> ARROW_EXPORT
+incomplete_dictionary(const std::shared_ptr<DataType>& index_type,
+                      const std::shared_ptr<DataType>& value_type, bool ordered = false,
+                      int64_t dictionary_id = -1);
 
 /// @}
 

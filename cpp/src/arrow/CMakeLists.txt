@@ -317,6 +317,8 @@ arrow_add_pkg_config("arrow")
 add_arrow_test(allocator-test)
 
 if(WIN32)
+  # XXX This bogus special case because of MinGW
+  # see https://github.com/apache/arrow/pull/3693
   add_arrow_test(array-test
                  SOURCES
                  array-test.cc

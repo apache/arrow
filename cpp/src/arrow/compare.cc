@@ -775,6 +775,15 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
+  Status Visit(const IncompleteDictionaryType& left) {
+    const auto& right = checked_cast<const IncompleteDictionaryType&>(right_);
+    result_ = left.index_type()->Equals(right.index_type()) &&
+              left.value_type()->Equals(right.value_type()) &&
+              (left.dictionary_id() == right.dictionary_id()) &&
+              (left.ordered() == right.ordered());
+    return Status::OK();
+  }
+
   Status Visit(const ExtensionType& left) {
     result_ = left.ExtensionEquals(static_cast<const ExtensionType&>(right_));
     return Status::OK();
@@ -843,15 +852,8 @@ class ScalarEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const UnionScalar& left) { return Status::NotImplemented("union"); }
-
-  Status Visit(const DictionaryScalar& left) {
-    return Status::NotImplemented("dictionary");
-  }
-
-  Status Visit(const ExtensionScalar& left) {
-    return Status::NotImplemented("extension");
-  }
+  // Default case
+  Status Visit(const Scalar& left) { return Status::NotImplemented(left.type->name()); }
 
   bool result() const { return result_; }
 

@@ -47,6 +47,8 @@ class DictionaryType;
 class DictionaryArray;
 class DictionaryScalar;
 
+class IncompleteDictionaryType;
+
 class NullType;
 class NullArray;
 class NullBuilder;

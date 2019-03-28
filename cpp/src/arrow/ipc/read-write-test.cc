@@ -198,6 +198,31 @@ TEST_F(TestSchemaMetadata, DictionaryFields) {
   }
 }
 
+TEST_F(TestSchemaMetadata, IncompleteDictionaryFields) {
+  auto dict_type = dictionary(int8(), ArrayFromJSON(int32(), "[6, 5, 4]"));
+  auto f0 = field("f0", dict_type);
+  auto f1 = field("f1", list(dict_type));
+  Schema schema({f0, f1});
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_OK(SerializeSchema(schema, default_memory_pool(), &buffer));
+
+  // Only read one message.  It will not contain the schema dictionaries.
+  std::unique_ptr<Message> message;
+  std::shared_ptr<Schema> result;
+  io::BufferReader reader(buffer);
+  ASSERT_OK(ReadMessage(&reader, &message));
+  ASSERT_OK(ReadSchema(*message, &result));
+
+  // Decoding the schema should give us incomplete dictionary types.
+  auto incomplete_dict_type =
+      incomplete_dictionary(int8(), int32(), false /* ordered */, 0 /* dictionary_id */);
+  f0 = field("f0", incomplete_dict_type);
+  f1 = field("f1", list(incomplete_dict_type));
+  Schema expected({f0, f1});
+  AssertSchemaEqual(expected, *result);
+}
+
 TEST_F(TestSchemaMetadata, KeyValueMetadata) {
   auto field_metadata = key_value_metadata({{"key", "value"}});
   auto schema_metadata = key_value_metadata({{"foo", "bar"}, {"bizz", "buzz"}});

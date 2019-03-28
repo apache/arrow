@@ -25,7 +25,6 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/hashing.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -35,11 +34,21 @@ class MemoryPool;
 // ----------------------------------------------------------------------
 // Helper functions
 
-#define BUILDER_CASE(ENUM, BuilderType)      \
-  case Type::ENUM:                           \
-    out->reset(new BuilderType(type, pool)); \
-    return Status::OK();
+template <typename BuilderType>
+static Status CreateDictBuilder(const DictionaryType& dict_type, MemoryPool* pool,
+                                std::unique_ptr<ArrayBuilder>* out) {
+  out->reset(new BuilderType(dict_type.dictionary(), pool));
+  return Status::OK();
+}
 
+template <typename BuilderType>
+static Status CreateDictBuilder(const IncompleteDictionaryType& dict_type,
+                                MemoryPool* pool, std::unique_ptr<ArrayBuilder>* out) {
+  out->reset(new BuilderType(dict_type.value_type(), pool));
+  return Status::OK();
+}
+
+template <typename DICT_TYPE>
 struct DictionaryBuilderCase {
   template <typename ValueType>
   Status Visit(const ValueType&, typename ValueType::c_type* = nullptr) {
@@ -65,12 +74,11 @@ struct DictionaryBuilderCase {
 
   template <typename BuilderType>
   Status Create() {
-    out->reset(new BuilderType(dict_type.dictionary(), pool));
-    return Status::OK();
+    return CreateDictBuilder<BuilderType>(dict_type, pool, out);
   }
 
   MemoryPool* pool;
-  const DictionaryType& dict_type;
+  const DICT_TYPE& dict_type;
   std::unique_ptr<ArrayBuilder>* out;
 };
 
@@ -80,6 +88,11 @@ struct DictionaryBuilderCase {
 // TODO(wesm): come up with a less monolithic strategy
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                    std::unique_ptr<ArrayBuilder>* out) {
+#define BUILDER_CASE(ENUM, BuilderType)      \
+  case Type::ENUM:                           \
+    out->reset(new BuilderType(type, pool)); \
+    return Status::OK();
+
   switch (type->id()) {
     case Type::NA: {
       out->reset(new NullBuilder(pool));
@@ -107,9 +120,15 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       BUILDER_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryBuilder);
       BUILDER_CASE(DECIMAL, Decimal128Builder);
     case Type::DICTIONARY: {
-      const auto& dict_type = static_cast<const DictionaryType&>(*type);
-      DictionaryBuilderCase visitor = {pool, dict_type, out};
+      const auto& dict_type = internal::checked_cast<const DictionaryType&>(*type);
+      DictionaryBuilderCase<DictionaryType> visitor = {pool, dict_type, out};
       return VisitTypeInline(*dict_type.dictionary()->type(), &visitor);
+    }
+    case Type::INCOMPLETE_DICTIONARY: {
+      const auto& dict_type =
+          internal::checked_cast<const IncompleteDictionaryType&>(*type);
+      DictionaryBuilderCase<IncompleteDictionaryType> visitor = {pool, dict_type, out};
+      return VisitTypeInline(*dict_type.value_type(), &visitor);
     }
     case Type::LIST: {
       std::unique_ptr<ArrayBuilder> value_builder;
@@ -138,6 +157,8 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                                     type->ToString());
     }
   }
+
+#undef BUILDER_CASE
 }
 
 }  // namespace arrow

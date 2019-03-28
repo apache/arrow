@@ -588,6 +588,10 @@ class FieldToFlatbufferVisitor {
     return Status::OK();
   }
 
+  Status Visit(const IncompleteDictionaryType& type) {
+    return Status::NotImplemented("incomplete dictionary");
+  }
+
   Status GetResult(const Field& field, FieldOffset* offset) {
     auto fb_name = fbb_.CreateString(field.name());
     RETURN_NOT_OK(VisitType(*field.type()));
@@ -646,6 +650,24 @@ static Status GetFieldMetadata(const flatbuf::Field* field,
 
 static Status FieldFromFlatbuffer(const flatbuf::Field* field,
                                   const DictionaryMemo& dictionary_memo,
+                                  std::shared_ptr<Field>* out);
+
+// Reconstruct the data type of a flatbuffer-encoded field
+static Status ReconstructFieldType(const flatbuf::Field* field,
+                                   const KeyValueMetadata* metadata,
+                                   const DictionaryMemo& dictionary_memo,
+                                   std::shared_ptr<DataType>* out) {
+  auto children = field->children();
+  std::vector<std::shared_ptr<Field>> child_fields(children->size());
+  for (int i = 0; i < static_cast<int>(children->size()); ++i) {
+    RETURN_NOT_OK(
+        FieldFromFlatbuffer(children->Get(i), dictionary_memo, &child_fields[i]));
+  }
+  return TypeFromFlatbuffer(field, child_fields, metadata, out);
+}
+
+static Status FieldFromFlatbuffer(const flatbuf::Field* field,
+                                  const DictionaryMemo& dictionary_memo,
                                   std::shared_ptr<Field>* out) {
   std::shared_ptr<DataType> type;
 
@@ -657,24 +679,25 @@ static Status FieldFromFlatbuffer(const flatbuf::Field* field,
   if (encoding == nullptr) {
     // The field is not dictionary encoded. We must potentially visit its
     // children to fully reconstruct the data type
-    auto children = field->children();
-    std::vector<std::shared_ptr<Field>> child_fields(children->size());
-    for (int i = 0; i < static_cast<int>(children->size()); ++i) {
-      RETURN_NOT_OK(
-          FieldFromFlatbuffer(children->Get(i), dictionary_memo, &child_fields[i]));
-    }
-    RETURN_NOT_OK(TypeFromFlatbuffer(field, child_fields, metadata.get(), &type));
+    RETURN_NOT_OK(ReconstructFieldType(field, metadata.get(), dictionary_memo, &type));
   } else {
-    // The field is dictionary encoded. The type of the dictionary values has
-    // been determined elsewhere, and is stored in the DictionaryMemo. Here we
-    // construct the logical DictionaryType object
-
-    std::shared_ptr<Array> dictionary;
-    RETURN_NOT_OK(dictionary_memo.GetDictionary(encoding->id(), &dictionary));
+    // The field is dictionary encoded. Here we
+    // construct the logical dictionary type.
 
     std::shared_ptr<DataType> index_type;
     RETURN_NOT_OK(IntFromFlatbuffer(encoding->indexType(), &index_type));
-    type = ::arrow::dictionary(index_type, dictionary, encoding->isOrdered());
+    std::shared_ptr<Array> dictionary;
+    auto status = dictionary_memo.GetDictionary(encoding->id(), &dictionary);
+
+    if (status.IsKeyError()) {
+      // Dictionary array not found, need to reconstruct value type
+      RETURN_NOT_OK(ReconstructFieldType(field, metadata.get(), dictionary_memo, &type));
+      type = ::arrow::incomplete_dictionary(index_type, type, encoding->isOrdered(),
+                                            encoding->id());
+    } else {
+      RETURN_NOT_OK(status);  // Handle other errors
+      type = ::arrow::dictionary(index_type, dictionary, encoding->isOrdered());
+    }
   }
 
   *out = std::make_shared<Field>(field->name()->str(), type, field->nullable(), metadata);
@@ -684,16 +707,13 @@ static Status FieldFromFlatbuffer(const flatbuf::Field* field,
 
 static Status FieldFromFlatbufferDictionary(const flatbuf::Field* field,
                                             std::shared_ptr<Field>* out) {
-  // Need an empty memo to pass down for constructing children
-  DictionaryMemo dummy_memo;
-
   // Any DictionaryEncoding set is ignored here
 
   std::shared_ptr<DataType> type;
   auto children = field->children();
   std::vector<std::shared_ptr<Field>> child_fields(children->size());
   for (int i = 0; i < static_cast<int>(children->size()); ++i) {
-    RETURN_NOT_OK(FieldFromFlatbuffer(children->Get(i), dummy_memo, &child_fields[i]));
+    RETURN_NOT_OK(FieldFromFlatbufferDictionary(children->Get(i), &child_fields[i]));
   }
 
   std::shared_ptr<KeyValueMetadata> metadata;

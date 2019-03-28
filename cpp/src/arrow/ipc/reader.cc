@@ -232,11 +232,8 @@ class ArrayLoader {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<FixedWidthType, T>::value &&
-                              !std::is_base_of<FixedSizeBinaryType, T>::value &&
-                              !std::is_base_of<DictionaryType, T>::value,
-                          Status>::type
-  Visit(const T& type) {
+  typename std::enable_if<std::is_base_of<FixedWidthType, T>::value, Status>::type Visit(
+      const T& type) {
     return LoadPrimitive<T>();
   }
 
@@ -290,6 +287,10 @@ class ArrayLoader {
     RETURN_NOT_OK(LoadArray(type.index_type(), context_, out_));
     out_->type = type_;
     return Status::OK();
+  }
+
+  Status Visit(const IncompleteDictionaryType& type) {
+    return Status::TypeError("Incomplete dictionary encountered, bad IPC stream?");
   }
 
   Status Visit(const ExtensionType& type) {
@@ -373,9 +374,10 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
   return ReadRecordBatch(batch, schema, max_recursion_depth, file, out);
 }
 
-Status ReadDictionary(const Buffer& metadata, const DictionaryTypeMap& dictionary_types,
-                      io::RandomAccessFile* file, int64_t* dictionary_id,
-                      std::shared_ptr<Array>* out) {
+static Status ReadDictionary(const Buffer& metadata,
+                             const DictionaryTypeMap& dictionary_types,
+                             io::RandomAccessFile* file, int64_t* dictionary_id,
+                             std::shared_ptr<Array>* out) {
   auto message = flatbuf::GetMessage(metadata.data());
   auto dictionary_batch =
       reinterpret_cast<const flatbuf::DictionaryBatch*>(message->header());

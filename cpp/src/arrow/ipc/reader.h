@@ -21,6 +21,7 @@
 #define ARROW_IPC_READER_H
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 
 #include "arrow/ipc/message.h"

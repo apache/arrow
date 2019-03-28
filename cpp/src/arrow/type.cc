@@ -37,6 +37,9 @@ namespace arrow {
 
 using internal::checked_cast;
 
+// ----------------------------------------------------------------------
+// Field
+
 bool Field::HasMetadata() const {
   return (metadata_ != nullptr) && (metadata_->size() > 0);
 }
@@ -101,6 +104,9 @@ std::string Field::ToString() const {
   return ss.str();
 }
 
+// ----------------------------------------------------------------------
+// DataType
+
 DataType::~DataType() {}
 
 bool DataType::Equals(const DataType& other, bool check_metadata) const {
@@ -112,6 +118,28 @@ bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
     return false;
   }
   return Equals(*other.get());
+}
+
+Status DataType::SetChild(int i, const std::shared_ptr<Field>& field,
+                          std::shared_ptr<DataType>* out) const {
+  if (i < 0 || i >= num_children()) {
+    return Status::Invalid("Child number ", i, " invalid for type '", ToString(), "'");
+  }
+  return SetChildInternal(i, field, out);
+}
+
+Status DataType::SetChild(int i, const std::shared_ptr<DataType>& child_type,
+                          std::shared_ptr<DataType>* out) const {
+  if (i < 0 || i >= num_children()) {
+    return Status::Invalid("Child number ", i, " invalid for type '", ToString(), "'");
+  }
+  auto field = children_[i]->WithType(child_type);
+  return SetChildInternal(i, field, out);
+}
+
+Status DataType::SetChildInternal(int i, const std::shared_ptr<Field>& field,
+                                  std::shared_ptr<DataType>* out) const {
+  return Status::NotImplemented("Cannot set child on type '", ToString(), "'");
 }
 
 std::string BooleanType::ToString() const { return name(); }
@@ -128,6 +156,13 @@ std::string ListType::ToString() const {
   std::stringstream s;
   s << "list<" << value_field()->ToString() << ">";
   return s.str();
+}
+
+Status ListType::SetChildInternal(int i, const std::shared_ptr<Field>& child_field,
+                                  std::shared_ptr<DataType>* out) const {
+  DCHECK_EQ(i, 0);
+  *out = std::make_shared<ListType>(child_field);
+  return Status::OK();
 }
 
 std::string BinaryType::ToString() const { return std::string("binary"); }
@@ -222,6 +257,14 @@ std::string UnionType::ToString() const {
   return s.str();
 }
 
+Status UnionType::SetChildInternal(int i, const std::shared_ptr<Field>& child_field,
+                                   std::shared_ptr<DataType>* out) const {
+  auto new_children = children_;
+  new_children[i] = child_field;
+  *out = std::make_shared<UnionType>(new_children, type_codes_, mode_);
+  return Status::OK();
+}
+
 // ----------------------------------------------------------------------
 // Struct type
 
@@ -301,6 +344,14 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
   return result;
 }
 
+Status StructType::SetChildInternal(int i, const std::shared_ptr<Field>& child_field,
+                                    std::shared_ptr<DataType>* out) const {
+  auto new_children = children_;
+  new_children[i] = child_field;
+  *out = std::make_shared<StructType>(new_children);
+  return Status::OK();
+}
+
 // Deprecated methods
 
 std::shared_ptr<Field> StructType::GetChildByName(const std::string& name) const {
@@ -341,11 +392,55 @@ int DictionaryType::bit_width() const {
 
 std::shared_ptr<Array> DictionaryType::dictionary() const { return dictionary_; }
 
+std::shared_ptr<DataType> DictionaryType::value_type() const {
+  return dictionary_->type();
+}
+
 std::string DictionaryType::ToString() const {
   std::stringstream ss;
   ss << "dictionary<values=" << dictionary_->type()->ToString()
      << ", indices=" << index_type_->ToString() << ", ordered=" << ordered_ << ">";
   return ss.str();
+}
+
+// ----------------------------------------------------------------------
+// IncompleteDictionaryType
+
+IncompleteDictionaryType::IncompleteDictionaryType(
+    const std::shared_ptr<DataType>& index_type,
+    const std::shared_ptr<DataType>& value_type, bool ordered, int64_t dictionary_id)
+    : FixedWidthType(Type::INCOMPLETE_DICTIONARY),
+      index_type_(index_type),
+      value_type_(value_type),
+      dictionary_id_(dictionary_id),
+      ordered_(ordered) {
+#ifndef NDEBUG
+  const auto& int_type = checked_cast<const Integer&>(*index_type);
+  DCHECK_EQ(int_type.is_signed(), true) << "dictionary index type should be signed";
+#endif
+}
+
+int IncompleteDictionaryType::bit_width() const {
+  return checked_cast<const FixedWidthType&>(*index_type_).bit_width();
+}
+
+std::string IncompleteDictionaryType::ToString() const {
+  std::stringstream ss;
+  ss << "incomplete-dictionary<values=" << value_type_->ToString()
+     << ", indices=" << index_type_->ToString() << ", ordered=" << ordered_
+     << ", dictionary_id=" << dictionary_id_ << ">";
+  return ss.str();
+}
+
+Status IncompleteDictionaryType::Complete(const std::shared_ptr<Array>& values,
+                                          std::shared_ptr<DataType>* out_type) const {
+  if (!values->type()->Equals(*value_type_, false /* check_metadata */)) {
+    return Status::TypeError("IncompleteDictionaryType with value_type = '",
+                             value_type_->ToString(), "' got values with type = '",
+                             values->type()->ToString(), "'");
+  }
+  *out_type = dictionary(index_type_, values, ordered_);
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
@@ -442,6 +537,62 @@ Status Schema::SetField(int i, const std::shared_ptr<Field>& field,
 
   *out = std::make_shared<Schema>(internal::ReplaceVectorElement(fields_, i, field),
                                   metadata_);
+  return Status::OK();
+}
+
+namespace {
+
+// Recursive helper for SetDictionary()
+Status SetDictionaryInternal(int64_t dict_id, const std::shared_ptr<Array>& dict_values,
+                             const std::shared_ptr<Field>& field,
+                             std::shared_ptr<Field>* out) {
+  const auto& type = field->type();
+  auto new_field = field;
+  if (type->id() == Type::INCOMPLETE_DICTIONARY) {
+    const auto& dict_type = checked_cast<IncompleteDictionaryType&>(*type);
+    if (dict_type.dictionary_id() == dict_id) {
+      std::shared_ptr<DataType> new_dict_type;
+      RETURN_NOT_OK(dict_type.Complete(dict_values, &new_dict_type));
+      new_field = new_field->WithType(new_dict_type);
+    }
+  } else {
+    // Recurse over child fields
+    auto num_children = type->num_children();
+    std::shared_ptr<DataType> new_type = type;
+    for (int i = 0; i < num_children; ++i) {
+      const auto& child = type->child(i);
+      std::shared_ptr<Field> new_child;
+      RETURN_NOT_OK(SetDictionaryInternal(dict_id, dict_values, child, &new_child));
+      if (new_child.get() != child.get()) {
+        // Child field changed => rebuild parent type
+        RETURN_NOT_OK(type->SetChild(i, new_child, &new_type));
+      }
+    }
+    if (new_type.get() != type.get()) {
+      // Parent type changed => rebuild field
+      new_field = new_field->WithType(new_type);
+    }
+  }
+  *out = std::move(new_field);
+  return Status::OK();
+}
+
+}  // namespace
+
+Status Schema::SetDictionary(int64_t dict_id, const std::shared_ptr<Array>& dict_values,
+                             std::shared_ptr<Schema>* out) const {
+  std::vector<std::shared_ptr<Field>> new_fields(num_fields());
+  bool changed = false;
+  for (int i = 0; i < num_fields(); ++i) {
+    RETURN_NOT_OK(
+        SetDictionaryInternal(dict_id, dict_values, fields_[i], &new_fields[i]));
+    DCHECK(new_fields[i]);
+    changed = changed || (new_fields[i].get() != fields_[i].get());
+  }
+  if (!changed) {
+    return Status::Invalid("Dictionary id ", dict_id, " not found in schema");
+  }
+  *out = std::make_shared<Schema>(new_fields, metadata_);
   return Status::OK();
 }
 
@@ -600,6 +751,13 @@ std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type
                                      const std::shared_ptr<Array>& dict_values,
                                      bool ordered) {
   return std::make_shared<DictionaryType>(index_type, dict_values, ordered);
+}
+
+std::shared_ptr<DataType> incomplete_dictionary(
+    const std::shared_ptr<DataType>& index_type,
+    const std::shared_ptr<DataType>& value_type, bool ordered, int64_t dictionary_id) {
+  return std::make_shared<IncompleteDictionaryType>(index_type, value_type, ordered,
+                                                    dictionary_id);
 }
 
 std::shared_ptr<Field> field(const std::string& name,

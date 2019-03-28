@@ -69,10 +69,13 @@ template <typename VISITOR>
 inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
   switch (type.id()) {
     ARROW_GENERATE_FOR_ALL_TYPES(TYPE_VISIT_INLINE);
+    // IncompleteDictionary is not in ARROW_GENERATE_FOR_ALL_TYPES as it
+    // only makes sense for visiting types, not data.
+    TYPE_VISIT_INLINE(IncompleteDictionary);
     default:
       break;
   }
-  return Status::NotImplemented("Type not implemented");
+  return Status::NotImplemented("Type '", type.name(), "' not implemented");
 }
 
 #undef TYPE_VISIT_INLINE
@@ -90,7 +93,7 @@ inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {
     default:
       break;
   }
-  return Status::NotImplemented("Type not implemented");
+  return Status::NotImplemented("Type '", array.type()->name(), "' not implemented");
 }
 
 // Visit an array's data values, in order, without overhead.
@@ -244,8 +247,8 @@ inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
     default:
       break;
   }
-  return Status::NotImplemented("Scalar visitor for type not implemented ",
-                                scalar.type->ToString());
+  return Status::NotImplemented("Scalar visitor for type '", scalar.type->name(),
+                                "'not implemented ");
 }
 
 #undef TYPE_VISIT_INLINE

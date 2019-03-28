@@ -89,6 +89,7 @@ class ARROW_EXPORT TypeVisitor {
   virtual Status Visit(const StructType& type);
   virtual Status Visit(const UnionType& type);
   virtual Status Visit(const DictionaryType& type);
+  virtual Status Visit(const IncompleteDictionaryType& type);
   virtual Status Visit(const ExtensionType& type);
 };
 
