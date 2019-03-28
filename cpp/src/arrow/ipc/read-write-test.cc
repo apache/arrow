@@ -51,23 +51,9 @@ namespace arrow {
 using internal::checked_cast;
 
 namespace ipc {
+namespace test {
 
 using BatchVector = std::vector<std::shared_ptr<RecordBatch>>;
-
-class TestSchemaMetadata : public ::testing::Test {
- public:
-  void SetUp() {}
-
-  void CheckRoundtrip(const Schema& schema) {
-    std::shared_ptr<Buffer> buffer;
-    ASSERT_OK(SerializeSchema(schema, default_memory_pool(), &buffer));
-
-    std::shared_ptr<Schema> result;
-    io::BufferReader reader(buffer);
-    ASSERT_OK(ReadSchema(&reader, &result));
-    AssertSchemaEqual(schema, *result);
-  }
-};
 
 TEST(TestMessage, Equals) {
   std::string metadata = "foo";
@@ -147,6 +133,21 @@ TEST(TestMessage, Verify) {
   ASSERT_FALSE(message.Verify());
 }
 
+class TestSchemaMetadata : public ::testing::Test {
+ public:
+  void SetUp() {}
+
+  void CheckRoundtrip(const Schema& schema) {
+    std::shared_ptr<Buffer> buffer;
+    ASSERT_OK(SerializeSchema(schema, default_memory_pool(), &buffer));
+
+    std::shared_ptr<Schema> result;
+    io::BufferReader reader(buffer);
+    ASSERT_OK(ReadSchema(&reader, &result));
+    AssertSchemaEqual(schema, *result);
+  }
+};
+
 const std::shared_ptr<DataType> INT32 = std::make_shared<Int32Type>();
 
 TEST_F(TestSchemaMetadata, PrimitiveFields) {
@@ -176,6 +177,25 @@ TEST_F(TestSchemaMetadata, NestedFields) {
 
   Schema schema({f0, f1});
   CheckRoundtrip(schema);
+}
+
+TEST_F(TestSchemaMetadata, DictionaryFields) {
+  {
+    auto dict_type =
+        dictionary(int8(), ArrayFromJSON(int32(), "[6, 5, 4]"), true /* ordered */);
+    auto f0 = field("f0", dict_type);
+    auto f1 = field("f1", list(dict_type));
+
+    Schema schema({f0, f1});
+    CheckRoundtrip(schema);
+  }
+  {
+    auto dict_type = dictionary(int8(), ArrayFromJSON(list(int32()), "[[4, 5], [6]]"));
+    auto f0 = field("f0", dict_type);
+
+    Schema schema({f0});
+    CheckRoundtrip(schema);
+  }
 }
 
 TEST_F(TestSchemaMetadata, KeyValueMetadata) {
@@ -388,7 +408,7 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
 
   // String / Binary
   {
-    auto s = MakeRandomBinaryArray<StringBuilder, char>(500, false, pool, &a0);
+    auto s = MakeRandomStringArray(500, false, pool, &a0);
     ASSERT_TRUE(s.ok());
   }
   CheckArray(a0);
@@ -993,5 +1013,6 @@ TEST(TestRecordBatchStreamReader, MalformedInput) {
   ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader, &batch_reader));
 }
 
+}  // namespace test
 }  // namespace ipc
 }  // namespace arrow

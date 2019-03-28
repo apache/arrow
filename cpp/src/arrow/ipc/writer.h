@@ -302,28 +302,48 @@ namespace internal {
 // Intermediate data structure with metadata header, and zero or more buffers
 // for the message body.
 struct IpcPayload {
-  Message::Type type;
+  Message::Type type = Message::NONE;
   std::shared_ptr<Buffer> metadata;
   std::vector<std::shared_ptr<Buffer>> body_buffers;
-  int64_t body_length;
+  int64_t body_length = 0;
 };
 
-/// \brief Extract IPC payloads from given schema for purposes of wire
-/// transport, separate from using the *StreamWriter classes
-ARROW_EXPORT
-Status GetDictionaryPayloads(const Schema& schema,
-                             std::vector<std::unique_ptr<IpcPayload>>* out);
+class ARROW_EXPORT IpcPayloadWriter {
+ public:
+  virtual ~IpcPayloadWriter();
 
-/// \brief Compute IpcPayload for the given schema
+  // Default implementation is a no-op
+  virtual Status Start();
+
+  virtual Status WritePayload(const IpcPayload& payload) = 0;
+
+  virtual Status Close() = 0;
+};
+
+/// Create a new RecordBatchWriter from IpcPayloadWriter and schema.
+///
+/// \param[in] sink the IpcPayloadWriter to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \param[out] out the created RecordBatchWriter
+/// \return Status
+ARROW_EXPORT
+Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
+                             const std::shared_ptr<Schema>& schema,
+                             std::unique_ptr<RecordBatchWriter>* out);
+
+/// \brief Compute IpcPayloads for the given schema
 /// \param[in] schema the Schema that is being serialized
 /// \param[in,out] pool for any required temporary memory allocations
 /// \param[in,out] dictionary_memo class for tracking dictionaries and assigning
 /// dictionary ids
-/// \param[out] out the returned IpcPayload
+/// \param[out] out the returned vector of IpcPayloads
 /// \return Status
 ARROW_EXPORT
-Status GetSchemaPayload(const Schema& schema, MemoryPool* pool,
-                        DictionaryMemo* dictionary_memo, IpcPayload* out);
+Status GetSchemaPayloads(const Schema& schema, MemoryPool* pool,
+                         DictionaryMemo* dictionary_memo, std::vector<IpcPayload>* out);
+ARROW_EXPORT
+Status GetSchemaPayloads(const Schema& schema, MemoryPool* pool,
+                         std::vector<IpcPayload>* out);
 
 /// \brief Compute IpcPayload for the given record batch
 /// \param[in] batch the RecordBatch that is being serialized

@@ -88,31 +88,28 @@ class BatchIterator : public RecordBatchReader {
 
 using BatchVector = std::vector<std::shared_ptr<RecordBatch>>;
 
-inline std::shared_ptr<Schema> ExampleSchema1() {
-  auto f0 = field("f0", int32());
-  auto f1 = field("f1", int32());
-  return ::arrow::schema({f0, f1});
-}
+ARROW_EXPORT std::shared_ptr<Schema> ExampleIntSchema();
 
-inline std::shared_ptr<Schema> ExampleSchema2() {
-  auto f0 = field("f0", utf8());
-  auto f1 = field("f1", binary());
-  return ::arrow::schema({f0, f1});
-}
+ARROW_EXPORT std::shared_ptr<Schema> ExampleStringSchema();
+
+ARROW_EXPORT std::shared_ptr<Schema> ExampleDictSchema();
 
 ARROW_EXPORT
-Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
-                      const std::vector<FlightEndpoint>& endpoints, int64_t total_records,
-                      int64_t total_bytes, FlightInfo::Data* out);
+Status ExampleIntBatches(BatchVector* out);
+
+ARROW_EXPORT
+Status ExampleDictBatches(BatchVector* out);
 
 ARROW_EXPORT
 std::vector<FlightInfo> ExampleFlightInfo();
 
 ARROW_EXPORT
-Status SimpleIntegerBatches(const int num_batches, BatchVector* out);
+std::vector<ActionType> ExampleActionTypes();
 
 ARROW_EXPORT
-std::vector<ActionType> ExampleActionTypes();
+Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
+                      const std::vector<FlightEndpoint>& endpoints, int64_t total_records,
+                      int64_t total_bytes, FlightInfo::Data* out);
 
 }  // namespace flight
 }  // namespace arrow

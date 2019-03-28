@@ -25,6 +25,7 @@
 #include "arrow/ipc/test-common.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 
 #include "arrow/gpu/cuda_api.h"
 
@@ -320,7 +321,7 @@ class TestCudaArrowIpc : public TestCudaBufferBase {
 
 TEST_F(TestCudaArrowIpc, BasicWriteRead) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(ipc::MakeIntRecordBatch(&batch));
+  ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch));
 
   std::shared_ptr<CudaBuffer> device_serialized;
   ASSERT_OK(SerializeRecordBatch(*batch, context_.get(), &device_serialized));

@@ -128,28 +128,62 @@ Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
   return internal::SchemaToString(schema, &out->schema);
 }
 
+std::shared_ptr<Schema> ExampleIntSchema() {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", int32());
+  return ::arrow::schema({f0, f1});
+}
+
+std::shared_ptr<Schema> ExampleStringSchema() {
+  auto f0 = field("f0", utf8());
+  auto f1 = field("f1", binary());
+  return ::arrow::schema({f0, f1});
+}
+
+std::shared_ptr<Schema> ExampleDictSchema() {
+  std::shared_ptr<RecordBatch> batch;
+  ABORT_NOT_OK(ipc::test::MakeDictionary(&batch));
+  return batch->schema();
+}
+
 std::vector<FlightInfo> ExampleFlightInfo() {
-  FlightEndpoint endpoint1({{"ticket-id-1"}, {{"foo1.bar.com", 92385}}});
-  FlightEndpoint endpoint2({{"ticket-id-2"}, {{"foo2.bar.com", 92385}}});
-  FlightEndpoint endpoint3({{"ticket-id-3"}, {{"foo3.bar.com", 92385}}});
-  FlightDescriptor descr1{FlightDescriptor::PATH, "", {"foo", "bar"}};
+  FlightInfo::Data flight1, flight2, flight3;
+
+  FlightEndpoint endpoint1({{"ticket-ints-1"}, {{"foo1.bar.com", 92385}}});
+  FlightEndpoint endpoint2({{"ticket-ints-2"}, {{"foo2.bar.com", 92385}}});
+  FlightEndpoint endpoint3({{"ticket-cmd"}, {{"foo3.bar.com", 92385}}});
+  FlightEndpoint endpoint4({{"ticket-dicts-1"}, {{"foo4.bar.com", 92385}}});
+
+  FlightDescriptor descr1{FlightDescriptor::PATH, "", {"examples", "ints"}};
   FlightDescriptor descr2{FlightDescriptor::CMD, "my_command", {}};
+  FlightDescriptor descr3{FlightDescriptor::PATH, "", {"examples", "dicts"}};
 
-  auto schema1 = ExampleSchema1();
-  auto schema2 = ExampleSchema2();
+  auto schema1 = ExampleIntSchema();
+  auto schema2 = ExampleStringSchema();
+  auto schema3 = ExampleDictSchema();
 
-  FlightInfo::Data flight1, flight2;
   ARROW_EXPECT_OK(
       MakeFlightInfo(*schema1, descr1, {endpoint1, endpoint2}, 1000, 100000, &flight1));
   ARROW_EXPECT_OK(MakeFlightInfo(*schema2, descr2, {endpoint3}, 1000, 100000, &flight2));
-  return {FlightInfo(flight1), FlightInfo(flight2)};
+  ARROW_EXPECT_OK(MakeFlightInfo(*schema3, descr3, {endpoint4}, -1, -1, &flight3));
+  return {FlightInfo(flight1), FlightInfo(flight2), FlightInfo(flight3)};
 }
 
-Status SimpleIntegerBatches(const int num_batches, BatchVector* out) {
+Status ExampleIntBatches(BatchVector* out) {
   std::shared_ptr<RecordBatch> batch;
-  for (int i = 0; i < num_batches; ++i) {
+  for (int i = 0; i < 5; ++i) {
     // Make all different sizes, use different random seed
-    RETURN_NOT_OK(ipc::MakeIntBatchSized(10 + i, &batch, i));
+    RETURN_NOT_OK(ipc::test::MakeIntBatchSized(10 + i, &batch, i));
+    out->push_back(batch);
+  }
+  return Status::OK();
+}
+
+Status ExampleDictBatches(BatchVector* out) {
+  // Just the same batch, repeated a few times
+  std::shared_ptr<RecordBatch> batch;
+  for (int i = 0; i < 3; ++i) {
+    RETURN_NOT_OK(ipc::test::MakeDictionary(&batch));
     out->push_back(batch);
   }
   return Status::OK();

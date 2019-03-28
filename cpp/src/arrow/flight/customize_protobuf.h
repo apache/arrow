@@ -100,6 +100,8 @@ template <class T>
 class SerializationTraits<T, typename std::enable_if<std::is_same<
                                  arrow::flight::protocol::FlightData, T>::value>::type> {
  public:
+  // In the functions below, we cast back the Message argument to its real
+  // type (see ReadPayload() and WritePayload() for the initial cast).
   static Status Serialize(const grpc::protobuf::Message& msg, ByteBuffer* bb,
                           bool* own_buffer) {
     return arrow::flight::internal::FlightDataSerialize(

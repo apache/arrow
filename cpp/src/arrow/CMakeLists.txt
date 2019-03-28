@@ -274,6 +274,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   # that depend on gtest
   add_arrow_lib(arrow_testing
                 SOURCES
+                ipc/test-common.cc
                 testing/gtest_util.cc
                 testing/random.cc
                 OUTPUTS

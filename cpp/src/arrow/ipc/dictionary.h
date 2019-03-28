@@ -42,6 +42,8 @@ using DictionaryTypeMap = std::unordered_map<int64_t, std::shared_ptr<Field>>;
 class ARROW_EXPORT DictionaryMemo {
  public:
   DictionaryMemo();
+  DictionaryMemo(DictionaryMemo&&) = default;
+  DictionaryMemo& operator=(DictionaryMemo&&) = default;
 
   /// \brief Returns KeyError if dictionary not found
   Status GetDictionary(int64_t id, std::shared_ptr<Array>* dictionary) const;

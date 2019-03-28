@@ -87,6 +87,20 @@ struct FlightDescriptor {
   /// List of strings identifying a particular dataset. Should only be defined
   /// when type is PATH
   std::vector<std::string> path;
+
+  bool Equals(const FlightDescriptor& other) const;
+
+  std::string ToString() const;
+
+  // Convenience factory functions
+
+  static FlightDescriptor Command(const std::string& c) {
+    return FlightDescriptor{CMD, c, {}};
+  }
+
+  static FlightDescriptor Path(const std::vector<std::string>& p) {
+    return FlightDescriptor{PATH, "", p};
+  }
 };
 
 /// \brief Data structure providing an opaque identifier or credential to use
@@ -114,6 +128,8 @@ struct FlightEndpoint {
 };
 
 /// \brief Staging data structure for messages about to be put on the wire
+///
+/// This structure corresponds to FlightData in the protocol.
 struct FlightPayload {
   std::shared_ptr<Buffer> descriptor;
   ipc::internal::IpcPayload ipc_message;

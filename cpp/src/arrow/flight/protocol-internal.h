@@ -16,6 +16,8 @@
 
 #pragma once
 
+// This header holds the Flight protobuf definitions.
+
 // Need to include this first to get our gRPC customizations
 #include "arrow/flight/customize_protobuf.h"  // IWYU pragma: export
 

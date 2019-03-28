@@ -34,6 +34,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 
@@ -41,6 +42,8 @@ namespace arrow {
 namespace ipc {
 namespace internal {
 namespace json {
+
+using namespace ::arrow::ipc::test;  // NOLINT
 
 void TestSchemaRoundTrip(const Schema& schema) {
   rj::StringBuffer sb;

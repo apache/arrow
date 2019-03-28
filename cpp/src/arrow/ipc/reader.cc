@@ -56,6 +56,38 @@ namespace ipc {
 using internal::FileBlock;
 using internal::kArrowMagicBytes;
 
+namespace {
+
+Status InvalidMessageType(Message::Type expected, Message::Type actual) {
+  return Status::IOError("Expected IPC message of type ", FormatMessageType(expected),
+                         " got ", FormatMessageType(actual));
+}
+
+#define CHECK_MESSAGE_TYPE(expected, actual)           \
+  do {                                                 \
+    if ((actual) != (expected)) {                      \
+      return InvalidMessageType((expected), (actual)); \
+    }                                                  \
+  } while (0)
+
+#define CHECK_HAS_BODY(message)                                       \
+  do {                                                                \
+    if ((message).body() == nullptr) {                                \
+      return Status::IOError("Expected body in IPC message of type ", \
+                             FormatMessageType((message).type()));    \
+    }                                                                 \
+  } while (0)
+
+#define CHECK_HAS_NO_BODY(message)                                      \
+  do {                                                                  \
+    if ((message).body_length() != 0) {                                 \
+      return Status::IOError("Unexpected body in IPC message of type ", \
+                             FormatMessageType((message).type()));      \
+    }                                                                   \
+  } while (0)
+
+}  // namespace
+
 // ----------------------------------------------------------------------
 // Record batch read path
 
@@ -287,8 +319,9 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
 
 Status ReadRecordBatch(const Message& message, const std::shared_ptr<Schema>& schema,
                        std::shared_ptr<RecordBatch>* out) {
+  CHECK_MESSAGE_TYPE(message.type(), Message::RECORD_BATCH);
+  CHECK_HAS_BODY(message);
   io::BufferReader reader(message.body());
-  DCHECK_EQ(message.type(), Message::RECORD_BATCH);
   return ReadRecordBatch(*message.metadata(), schema, kMaxNestingDepth, &reader, out);
 }
 
@@ -382,14 +415,11 @@ static Status ReadMessageAndValidate(MessageReader* reader, Message::Type expect
   }
 
   if ((*message) == nullptr) {
+    // End of stream?
     return Status::OK();
   }
 
-  if ((*message)->type() != expected_type) {
-    return Status::IOError(
-        "Message not expected type: ", FormatMessageType(expected_type),
-        ", was: ", (*message)->type());
-  }
+  CHECK_MESSAGE_TYPE((*message)->type(), expected_type);
   return Status::OK();
 }
 
@@ -414,7 +444,13 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     std::unique_ptr<Message> message;
     RETURN_NOT_OK(ReadMessageAndValidate(message_reader_.get(), Message::DICTIONARY_BATCH,
                                          false, &message));
+    if (message == nullptr) {
+      // End of stream
+      return Status::IOError(
+          "End of IPC stream when attempting to read dictionary batch");
+    }
 
+    CHECK_HAS_BODY(*message);
     io::BufferReader reader(message->body());
 
     std::shared_ptr<Array> dictionary;
@@ -428,7 +464,12 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     std::unique_ptr<Message> message;
     RETURN_NOT_OK(
         ReadMessageAndValidate(message_reader_.get(), Message::SCHEMA, false, &message));
+    if (message == nullptr) {
+      // End of stream
+      return Status::IOError("End of IPC stream when attempting to read schema");
+    }
 
+    CHECK_HAS_NO_BODY(*message);
     if (message->header() == nullptr) {
       return Status::IOError("Header-pointer of flatbuffer-encoded Message is null.");
     }
@@ -448,13 +489,13 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     std::unique_ptr<Message> message;
     RETURN_NOT_OK(ReadMessageAndValidate(message_reader_.get(), Message::RECORD_BATCH,
                                          true, &message));
-
     if (message == nullptr) {
       // End of stream
       *batch = nullptr;
       return Status::OK();
     }
 
+    CHECK_HAS_BODY(*message);
     io::BufferReader reader(message->body());
     return ReadRecordBatch(*message->metadata(), schema_, &reader, batch);
   }
@@ -482,6 +523,15 @@ Status RecordBatchStreamReader::Open(std::unique_ptr<MessageReader> message_read
   auto result = std::shared_ptr<RecordBatchStreamReader>(new RecordBatchStreamReader());
   RETURN_NOT_OK(result->impl_->Open(std::move(message_reader)));
   *reader = result;
+  return Status::OK();
+}
+
+Status RecordBatchStreamReader::Open(std::unique_ptr<MessageReader> message_reader,
+                                     std::unique_ptr<RecordBatchReader>* reader) {
+  // Private ctor
+  auto result = std::unique_ptr<RecordBatchStreamReader>(new RecordBatchStreamReader());
+  RETURN_NOT_OK(result->impl_->Open(std::move(message_reader)));
+  *reader = std::move(result);
   return Status::OK();
 }
 
@@ -854,7 +904,8 @@ Status ReadSparseTensor(const Message& message, std::shared_ptr<SparseTensor>* o
 Status ReadSparseTensor(io::InputStream* file, std::shared_ptr<SparseTensor>* out) {
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
-  DCHECK_EQ(message->type(), Message::SPARSE_TENSOR);
+  CHECK_MESSAGE_TYPE(message->type(), Message::SPARSE_TENSOR);
+  CHECK_HAS_BODY(*message);
   io::BufferReader buffer_reader(message->body());
   return ReadSparseTensor(*message->metadata(), &buffer_reader, out);
 }

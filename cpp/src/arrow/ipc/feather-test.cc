@@ -304,9 +304,9 @@ class TestTableReader : public ::testing::Test {
 
 TEST_F(TestTableReader, ReadIndices) {
   std::shared_ptr<RecordBatch> batch1;
-  ASSERT_OK(MakeIntRecordBatch(&batch1));
+  ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch1));
   std::shared_ptr<RecordBatch> batch2;
-  ASSERT_OK(MakeIntRecordBatch(&batch2));
+  ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch2));
 
   ASSERT_OK(writer_->Append("f0", *batch1->column(0)));
   ASSERT_OK(writer_->Append("f1", *batch1->column(1)));
@@ -329,9 +329,9 @@ TEST_F(TestTableReader, ReadIndices) {
 
 TEST_F(TestTableReader, ReadNames) {
   std::shared_ptr<RecordBatch> batch1;
-  ASSERT_OK(MakeIntRecordBatch(&batch1));
+  ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch1));
   std::shared_ptr<RecordBatch> batch2;
-  ASSERT_OK(MakeIntRecordBatch(&batch2));
+  ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch2));
 
   ASSERT_OK(writer_->Append("f0", *batch1->column(0)));
   ASSERT_OK(writer_->Append("f1", *batch1->column(1)));
@@ -419,7 +419,7 @@ TEST_F(TestTableWriter, SetDescription) {
 
 TEST_F(TestTableWriter, PrimitiveRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeIntRecordBatch(&batch));
+  ASSERT_OK(ipc::test::MakeIntRecordBatch(&batch));
 
   ASSERT_OK(writer_->Append("f0", *batch->column(0)));
   ASSERT_OK(writer_->Append("f1", *batch->column(1)));
@@ -437,7 +437,7 @@ TEST_F(TestTableWriter, PrimitiveRoundTrip) {
 
 TEST_F(TestTableWriter, CategoryRoundtrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeDictionaryFlat(&batch));
+  ASSERT_OK(ipc::test::MakeDictionaryFlat(&batch));
   CheckBatch(batch);
 }
 
@@ -489,13 +489,13 @@ TEST_F(TestTableWriter, TimeTypes) {
 
 TEST_F(TestTableWriter, VLenPrimitiveRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeStringTypesRecordBatch(&batch));
+  ASSERT_OK(ipc::test::MakeStringTypesRecordBatch(&batch));
   CheckBatch(batch);
 }
 
 TEST_F(TestTableWriter, PrimitiveNullRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeNullRecordBatch(&batch));
+  ASSERT_OK(ipc::test::MakeNullRecordBatch(&batch));
 
   for (int i = 0; i < batch->num_columns(); ++i) {
     ASSERT_OK(writer_->Append(batch->column_name(i), *batch->column(i)));
@@ -540,7 +540,7 @@ class TestTableWriterSlice : public TestTableWriter,
 
 TEST_P(TestTableWriterSlice, SliceRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeIntBatchSized(600, &batch));
+  ASSERT_OK(ipc::test::MakeIntBatchSized(600, &batch));
   CheckSlice(batch);
 }
 
@@ -549,13 +549,13 @@ TEST_P(TestTableWriterSlice, SliceStringsRoundTrip) {
   auto start = std::get<0>(p);
   auto with_nulls = start % 2 == 0;
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeStringTypesRecordBatch(&batch, with_nulls));
+  ASSERT_OK(ipc::test::MakeStringTypesRecordBatch(&batch, with_nulls));
   CheckSlice(batch);
 }
 
 TEST_P(TestTableWriterSlice, SliceBooleanRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeBooleanBatchSized(600, &batch));
+  ASSERT_OK(ipc::test::MakeBooleanBatchSized(600, &batch));
   CheckSlice(batch);
 }
 

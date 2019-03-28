@@ -24,6 +24,7 @@
 
 #include "arrow/util/config.h"
 
+#include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 #include <google/protobuf/wire_format_lite.h>
 #include <grpc/byte_buffer_reader.h>
@@ -306,6 +307,53 @@ grpc::Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
 
   return grpc::Status::OK;
 }
+
+Status FlightData::OpenMessage(std::unique_ptr<ipc::Message>* message) {
+  return ipc::Message::Open(metadata, body, message);
+}
+
+// The pointer bitcast hack below causes legitimate warnings, silence them.
+#ifndef _WIN32
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
+
+// Pointer bitcast explanation: grpc::*Writer<T>::Write() and grpc::*Reader<T>::Read()
+// both take a T* argument (here pb::FlightData*).  But they don't do anything
+// with that argument except pass it to SerializationTraits<T>::Serialize() and
+// SerializationTraits<T>::Deserialize().
+//
+// Since we control SerializationTraits<pb::FlightData>, we can interpret the
+// pointer argument whichever way we want, including cast it back to the original type.
+// (see customize_protobuf.h).
+
+bool WritePayload(const FlightPayload& payload,
+                  grpc::ClientWriter<pb::FlightData>* writer) {
+  // Pretend to be pb::FlightData and intercept in SerializationTraits
+  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
+                       grpc::WriteOptions());
+}
+
+bool WritePayload(const FlightPayload& payload,
+                  grpc::ServerWriter<pb::FlightData>* writer) {
+  // Pretend to be pb::FlightData and intercept in SerializationTraits
+  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
+                       grpc::WriteOptions());
+}
+
+bool ReadPayload(grpc::ClientReader<pb::FlightData>* reader, FlightData* data) {
+  // Pretend to be pb::FlightData and intercept in SerializationTraits
+  return reader->Read(reinterpret_cast<pb::FlightData*>(data));
+}
+
+bool ReadPayload(grpc::ServerReader<pb::FlightData>* reader, FlightData* data) {
+  // Pretend to be pb::FlightData and intercept in SerializationTraits
+  return reader->Read(reinterpret_cast<pb::FlightData*>(data));
+}
+
+#ifndef _WIN32
+#pragma GCC diagnostic pop
+#endif
 
 }  // namespace internal
 }  // namespace flight
