@@ -2025,7 +2025,9 @@ macro(build_grpc)
                       ${GRPC_CPP_PLUGIN}
                       CMAKE_ARGS
                       ${GRPC_CMAKE_ARGS}
-                      ${EP_LOG_OPTIONS})
+                      ${EP_LOG_OPTIONS}
+                      DEPENDS
+                      ${grpc_dependencies})
 
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr
