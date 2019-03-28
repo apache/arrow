@@ -420,6 +420,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Thu Mar 28 2019 Kouhei Sutou <kou@clear-code.com> - 0.13.0-1
+- New upstream release.
+
 * Wed Jan 16 2019 Krisztián Szűcs <szucs.krisztian@gmail.com> - 0.12.0-1
 - New upstream release.
 
