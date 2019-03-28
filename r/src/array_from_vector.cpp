@@ -182,9 +182,18 @@ using internal::checked_cast;
 
 namespace internal {
 
-template <typename T, typename Target>
+template <typename T, typename Target, typename std::enable_if<std::is_signed<Target>::value, Target>::type = 0>
 Status int_cast(T x, Target* out) {
   if (x < std::numeric_limits<Target>::min() || x > std::numeric_limits<Target>::max()) {
+    return Status::Invalid("Value is too large to fit in C integer type");
+  }
+  *out = static_cast<Target>(x);
+  return Status::OK();
+}
+
+template <typename T, typename Target, typename std::enable_if<std::is_unsigned<Target>::value, Target>::type = 0>
+Status int_cast(T x, Target* out) {
+  if (x < 0 || x > std::numeric_limits<Target>::max()) {
     return Status::Invalid("Value is too large to fit in C integer type");
   }
   *out = static_cast<Target>(x);
