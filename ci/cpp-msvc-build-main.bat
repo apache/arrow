@@ -35,6 +35,7 @@ if "%JOB%" == "Toolchain" (
 
 @rem Retrieve git submodules, configure env var for Parquet unit tests
 git submodule update --init || exit /B
+set ARROW_TEST_DATA=%CD%\testing\data
 set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 
 @rem Enable warnings-as-errors
