@@ -199,7 +199,6 @@ fn load_parquet_table(name: &str) -> Rc<TableProvider> {
 /// Execute query and return result set as tab delimited string
 fn execute(ctx: &mut ExecutionContext, sql: &str) -> String {
     let plan = ctx.create_logical_plan(&sql).unwrap();
-    let optimized_plan = ctx.optimize(&plan).unwrap();
     let results = ctx.execute(&plan, DEFAULT_BATCH_SIZE).unwrap();
     result_str(&results)
 }
