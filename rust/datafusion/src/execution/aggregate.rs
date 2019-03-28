@@ -1030,12 +1030,15 @@ mod tests {
     use crate::execution::relation::DataSourceRelation;
     use crate::logicalplan::Expr;
     use arrow::datatypes::{DataType, Field, Schema};
+    use std::env;
     use std::sync::Mutex;
 
     #[test]
     fn min_f64_group_by_string() {
         let schema = aggr_test_schema();
-        let relation = load_csv("../../testing/data/csv/aggregate_test_100.csv", &schema);
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let relation =
+            load_csv(&format!("{}/csv/aggregate_test_100.csv", testdata), &schema);
         let context = ExecutionContext::new();
 
         let aggr_expr = vec![expression::compile_aggregate_expr(
@@ -1070,7 +1073,9 @@ mod tests {
     #[test]
     fn max_f64_group_by_string() {
         let schema = aggr_test_schema();
-        let relation = load_csv("../../testing/data/csv/aggregate_test_100.csv", &schema);
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let relation =
+            load_csv(&format!("{}/csv/aggregate_test_100.csv", testdata), &schema);
         let context = ExecutionContext::new();
 
         let aggr_expr = vec![expression::compile_aggregate_expr(
@@ -1105,7 +1110,9 @@ mod tests {
     #[test]
     fn test_min_max_sum_f64_group_by_uint32() {
         let schema = aggr_test_schema();
-        let relation = load_csv("../../testing/data/csv/aggregate_test_100.csv", &schema);
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let relation =
+            load_csv(&format!("{}/csv/aggregate_test_100.csv", testdata), &schema);
 
         let context = ExecutionContext::new();
 

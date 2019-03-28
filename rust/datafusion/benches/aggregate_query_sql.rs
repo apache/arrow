@@ -20,6 +20,7 @@ extern crate criterion;
 use criterion::Criterion;
 
 use std::cell::RefCell;
+use std::env;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -60,9 +61,11 @@ fn create_context() -> Rc<RefCell<ExecutionContext>> {
         Field::new("c13", DataType::Utf8, false),
     ]));
 
+    let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+
     // create CSV data source
     let csv = CsvFile::new(
-        "../../testing/data/csv/aggregate_test_100.csv",
+        &format!("{}/csv/aggregate_test_100.csv", testdata),
         &schema,
         true,
     );

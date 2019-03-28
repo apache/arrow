@@ -46,8 +46,14 @@ This populates data in two git submodules:
 - `cpp/submodules/parquet_testing/data` (sourced from https://github.com/apache/parquet-testing.git)
 - `testing` (sourced from https://github.com/apache/arrow-testing)
 
-Create a new environment variable called `PARQUET_TEST_DATA` to point
-to `cpp/submodules/parquet-testing/data` and then `cargo test` as usual.
+Create two new environment variables to point to these directories as follows:
+
+```bash
+export PARQUET_TEST_DATA=/path/to/arrow/cpp/submodules/parquet-testing/data
+export ARROW_TEST_DATA=/path/to/arrow/testing/data/
+```
+
+It is now possible to run `cargo test` as usual.
 
 ## Code Formatting
 

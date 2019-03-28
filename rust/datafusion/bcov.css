@@ -1,0 +1,32 @@
+/* Based upon the lcov CSS style, style files can be reused */
+body { color: #000000; background-color: #FFFFFF; }
+a:link { color: #284FA8; text-decoration: underline; }
+a:visited { color: #00CB40; text-decoration: underline; }
+a:active { color: #FF0040; text-decoration: underline; }
+td.title { text-align: center; padding-bottom: 10px; font-size: 20pt; font-weight: bold; }
+td.ruler { background-color: #6688D4; }
+td.headerItem { text-align: right; padding-right: 6px; font-family: sans-serif; font-weight: bold; }
+td.headerValue { text-align: left; color: #284FA8; font-family: sans-serif; font-weight: bold; }
+td.versionInfo { text-align: center; padding-top:  2px; }
+th.headerItem { text-align: right; padding-right: 6px; font-family: sans-serif; font-weight: bold; }
+th.headerValue { text-align: left; color: #284FA8; font-family: sans-serif; font-weight: bold; }
+pre.source { font-family: monospace; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+span.lineNum { background-color: #EFE383; }
+span.lineNumLegend { background-color: #EFE383; width: 96px; font-weight: bold ;}
+span.lineCov { background-color: #adff9a; }
+span.linePartCov { background-color: #fffe80; }
+span.lineNoCov { background-color: #ffbbbb; }
+span.orderNum { background-color: #e0b373; float: right; width:5em; text-align: left; }
+span.orderNumLegend { background-color: #e0b373; width: 96px; font-weight: bold ;}
+span.coverHits { background-color: #DFE383;  padding-left: 3px; padding-right: 1px;  text-align: right; list-style-type: none; display: inline-block; width: 5em; }
+span.coverHitsLegend { background-color: #DFE383; width: 96px; font-weight: bold; margin: 0 auto;}
+td.tableHead { text-align: center; color: #FFFFFF; background-color: #6688D4; font-family: sans-serif; font-size: 120%; font-weight: bold; }
+td.coverFile { text-align: left; padding-left: 10px; padding-right: 20px; color: #284FA8; font-family: monospace; }
+td.coverBar { padding-left: 10px; padding-right: 10px; background-color: #DAE7FE; }
+td.coverBarOutline { background-color: #000000; }
+td.coverPer { text-align: left; padding-left: 10px; padding-right: 10px; font-weight: bold; }
+td.coverPerLeftMed { text-align: left; padding-left: 10px; padding-right: 10px; background-color: #fffe80; font-weight: bold; }
+td.coverPerLeftLo { text-align: left; padding-left: 10px; padding-right: 10px; background-color: #ffbbbb; font-weight: bold; }
+td.coverPerLeftHi { text-align: left; padding-left: 10px; padding-right: 10px; background-color: #adff9a; font-weight: bold; }
+td.coverNum { text-align: right; padding-left: 10px; padding-right: 10px; }
+td.coverNum { text-align: right; padding-left: 10px; padding-right: 10px; }

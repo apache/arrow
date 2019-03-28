@@ -171,11 +171,12 @@ fn aggr_test_schema() -> Arc<Schema> {
 }
 
 fn register_aggregate_csv(ctx: &mut ExecutionContext) {
+    let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
     let schema = aggr_test_schema();
     register_csv(
         ctx,
         "aggregate_test_100",
-        "../../testing/data/csv/aggregate_test_100.csv",
+        &format!("{}/csv/aggregate_test_100.csv", testdata),
         &schema,
     );
 }
@@ -190,7 +191,7 @@ fn register_csv(
 }
 
 fn load_parquet_table(name: &str) -> Rc<TableProvider> {
-    let testdata = env::var("PARQUET_TEST_DATA").unwrap();
+    let testdata = env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
     let filename = format!("{}/{}", testdata, name);
     let table = ParquetTable::try_new(&filename).unwrap();
     Rc::new(table)
