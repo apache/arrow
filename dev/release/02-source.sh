@@ -112,7 +112,7 @@ echo "dev@arrow.apache.org mailing list"
 echo ""
 echo "---------------------------------------------------------"
 jira_url="https://issues.apache.org/jira"
-jql="project%20%3D%20ARROW%20AND%20status%20in%20(Resolved%2C%20Closed)%20AND%20fixVersion%20%3D%20${version}"
+jql="project%20%3D%20ARROW%20AND%20status%20in%20%28Resolved%2C%20Closed%29%20AND%20fixVersion%20%3D%20${version}"
 n_resolved_issues=$(curl "${jira_url}/rest/api/2/search/?jql=${jql}" | jq ".total")
 cat <<MAIL
 To: dev@arrow.apache.org
@@ -147,7 +147,7 @@ The vote will be open for at least 72 hours.
 [5]: https://bintray.com/apache/arrow/debian-rc/${version}-rc${rc}
 [6]: https://bintray.com/apache/arrow/python-rc/${version}-rc${rc}
 [7]: https://bintray.com/apache/arrow/ubuntu-rc/${version}-rc${rc}
-[8]: https://github.com/apache/arrow/blob/${release_hash}/CANGELOG.md
+[8]: https://github.com/apache/arrow/blob/${release_hash}/CHANGELOG.md
 [9]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
 MAIL
 echo "---------------------------------------------------------"
