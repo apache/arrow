@@ -410,6 +410,9 @@ if [ "$ARTIFACT" == "source" ]; then
   tar xvzf ${DIST_NAME}.tar.gz
   cd ${DIST_NAME}
 
+  rm -r testing
+  git clone https://github.com/apache/arrow-testing.git testing
+
   if [ ${TEST_JAVA} -gt 0 ]; then
     test_package_java
   fi
