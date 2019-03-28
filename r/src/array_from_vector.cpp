@@ -191,9 +191,14 @@ Status int_cast(T x, Target* out) {
   return Status::OK();
 }
 
+template <typename T>
+struct usigned_type;
+
 template <typename T, typename Target, typename std::enable_if<std::is_unsigned<Target>::value, Target>::type = 0>
 Status int_cast(T x, Target* out) {
-  if (x < 0 || x > std::numeric_limits<Target>::max()) {
+  // we need to compare between unsigned integers
+  uint64_t x64 = x;
+  if (x64 < 0 || x64 > std::numeric_limits<Target>::max()) {
     return Status::Invalid("Value is too large to fit in C integer type");
   }
   *out = static_cast<Target>(x);
