@@ -99,12 +99,6 @@ trait AggregateFunction {
         rollup: bool,
     ) -> Result<()>;
 
-    fn accumulate_array(
-        &mut self,
-        value: &Option<ScalarValue>,
-        rollup: bool,
-    ) -> Result<()>;
-
     /// Return the result of the aggregate function after all values have been processed
     /// by calls to `acccumulate_scalar`.
     fn result(&self) -> Option<ScalarValue>;
