@@ -34,7 +34,7 @@ func CheckMetadata() TypeEqualsOption {
 
 // TypeEquals checks if two DataType are the same, optionally checking metadata
 // equality for STRUCT types.
-func TypeEquals(left DataType, right DataType, opts ...TypeEqualsOption) bool {
+func TypeEquals(left, right DataType, opts ...TypeEqualsOption) bool {
 	var cfg typeEqualsConfig
 	for _, opt := range opts {
 		opt(&cfg)
