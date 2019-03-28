@@ -82,7 +82,7 @@ cmake --build . --target INSTALL --config %CONFIGURATION%  || exit /B
 
 @rem Get testing datasets for Parquet unit tests
 git clone https://github.com/apache/parquet-testing.git %_VERIFICATION_DIR%\parquet-testing
-set PARQUET_TEST_DATA=%_VERIFICATION_DIR%\arrow-testing\data
+set PARQUET_TEST_DATA=%_VERIFICATION_DIR%\parquet-testing\data
 
 git clone https://github.com/apache/arrow-testing.git %_VERIFICATION_DIR%\arrow-testing
 set ARROW_TEST_DATA=%_VERIFICATION_DIR%\arrow-testing\data
