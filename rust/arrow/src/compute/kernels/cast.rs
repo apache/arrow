@@ -283,16 +283,6 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (Int32, Float32) => cast_numeric_arrays::<Int32Type, Float32Type>(array),
         (Int32, Float64) => cast_numeric_arrays::<Int32Type, Float64Type>(array),
 
-        (Int64, UInt8) => cast_numeric_arrays::<Int64Type, UInt8Type>(array),
-        (Int64, UInt16) => cast_numeric_arrays::<Int64Type, UInt16Type>(array),
-        (Int64, UInt32) => cast_numeric_arrays::<Int64Type, UInt32Type>(array),
-        (Int64, UInt64) => cast_numeric_arrays::<Int64Type, UInt64Type>(array),
-        (Int64, Int8) => cast_numeric_arrays::<Int64Type, Int8Type>(array),
-        (Int64, Int16) => cast_numeric_arrays::<Int64Type, Int16Type>(array),
-        (Int64, Int32) => cast_numeric_arrays::<Int64Type, Int32Type>(array),
-        (Int64, Float32) => cast_numeric_arrays::<Int64Type, Float32Type>(array),
-        (Int64, Float64) => cast_numeric_arrays::<Int64Type, Float64Type>(array),
-
         (Float32, UInt8) => cast_numeric_arrays::<Float32Type, UInt8Type>(array),
         (Float32, UInt16) => cast_numeric_arrays::<Float32Type, UInt16Type>(array),
         (Float32, UInt32) => cast_numeric_arrays::<Float32Type, UInt32Type>(array),
