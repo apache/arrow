@@ -411,8 +411,8 @@ if [ "$ARTIFACT" == "source" ]; then
   cd ${DIST_NAME}
 
   rm -r testing
-  git clone https://github.com/apache/arrow-testing.git testing
-  export ARROW_TEST_DATA=$PWD/testing/data
+  git clone https://github.com/apache/arrow-testing.git
+  export ARROW_TEST_DATA=$PWD/arrow-testing/data
 
   if [ ${TEST_JAVA} -gt 0 ]; then
     test_package_java
