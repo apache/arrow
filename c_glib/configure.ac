@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.65)
 
-m4_define([arrow_glib_version], 0.13.0)
+m4_define([arrow_glib_version], 0.14.0-SNAPSHOT)
 AC_INIT([arrow-glib],
         arrow_glib_version,
         [https://issues.apache.org/jira/browse/ARROW],

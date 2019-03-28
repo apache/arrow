@@ -17,7 +17,7 @@
 
 [package]
 name = "parquet"
-version = "0.13.0"
+version = "0.14.0-SNAPSHOT"
 license = "Apache-2.0"
 description = "Apache Parquet implementation in Rust"
 homepage = "https://github.com/apache/arrow"

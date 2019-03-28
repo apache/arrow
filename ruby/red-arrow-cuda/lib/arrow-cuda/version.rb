@@ -16,7 +16,7 @@
 # under the License.
 
 module ArrowCUDA
-  VERSION = "0.13.0"
+  VERSION = "0.14.0-SNAPSHOT"
 
   module Version
     numbers, TAG = VERSION.split("-")
