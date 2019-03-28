@@ -280,40 +280,40 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-glib13_{no_rc_version}-1_amd64.deb
+      - libarrow-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib13_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda13_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-python13_{no_rc_version}-1_amd64.deb
-      - libarrow13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow13_{no_rc_version}-1_amd64.deb
+      - libarrow-python14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-python14_{no_rc_version}-1_amd64.deb
+      - libarrow14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow14_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-doc_{no_rc_version}-1_all.deb
-      - libgandiva-glib13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libgandiva-glib13_{no_rc_version}-1_amd64.deb
-      - libgandiva13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libgandiva13_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
+      - libgandiva14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libgandiva14_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libparquet-glib13_{no_rc_version}-1_amd64.deb
-      - libparquet13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libparquet13_{no_rc_version}-1_amd64.deb
+      - libparquet-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet-glib14_{no_rc_version}-1_amd64.deb
+      - libparquet14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet14_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libplasma-glib13_{no_rc_version}-1_amd64.deb
-      - libplasma13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libplasma13_{no_rc_version}-1_amd64.deb
+      - libplasma-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libplasma-glib14_{no_rc_version}-1_amd64.deb
+      - libplasma14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libplasma14_{no_rc_version}-1_amd64.deb
 
   ubuntu-trusty:
     platform: linux
@@ -335,18 +335,18 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib13_{no_rc_version}-1_amd64.deb
-      - libarrow13_{no_rc_version}-1_amd64.deb
+      - libarrow-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow14_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib13_{no_rc_version}-1_amd64.deb
-      - libparquet13_{no_rc_version}-1_amd64.deb
+      - libparquet-glib14_{no_rc_version}-1_amd64.deb
+      - libparquet14_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib13_{no_rc_version}-1_amd64.deb
-      - libplasma13_{no_rc_version}-1_amd64.deb
+      - libplasma-glib14_{no_rc_version}-1_amd64.deb
+      - libplasma14_{no_rc_version}-1_amd64.deb
 
   ubuntu-xenial:
     platform: linux
@@ -370,29 +370,29 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib13_{no_rc_version}-1_amd64.deb
+      - libarrow-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib13_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda13_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python13_{no_rc_version}-1_amd64.deb
-      - libarrow13_{no_rc_version}-1_amd64.deb
+      - libarrow-python14_{no_rc_version}-1_amd64.deb
+      - libarrow14_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-doc_{no_rc_version}-1_all.deb
-      - libgandiva-glib13_{no_rc_version}-1_amd64.deb
-      - libgandiva13_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
+      - libgandiva14_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib13_{no_rc_version}-1_amd64.deb
-      - libparquet13_{no_rc_version}-1_amd64.deb
+      - libparquet-glib14_{no_rc_version}-1_amd64.deb
+      - libparquet14_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib13_{no_rc_version}-1_amd64.deb
-      - libplasma13_{no_rc_version}-1_amd64.deb
+      - libplasma-glib14_{no_rc_version}-1_amd64.deb
+      - libplasma14_{no_rc_version}-1_amd64.deb
 
   ubuntu-bionic:
     platform: linux
@@ -416,29 +416,29 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib13_{no_rc_version}-1_amd64.deb
+      - libarrow-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib13_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda13_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python13_{no_rc_version}-1_amd64.deb
-      - libarrow13_{no_rc_version}-1_amd64.deb
+      - libarrow-python14_{no_rc_version}-1_amd64.deb
+      - libarrow14_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-doc_{no_rc_version}-1_all.deb
-      - libgandiva-glib13_{no_rc_version}-1_amd64.deb
-      - libgandiva13_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
+      - libgandiva14_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib13_{no_rc_version}-1_amd64.deb
-      - libparquet13_{no_rc_version}-1_amd64.deb
+      - libparquet-glib14_{no_rc_version}-1_amd64.deb
+      - libparquet14_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib13_{no_rc_version}-1_amd64.deb
-      - libplasma13_{no_rc_version}-1_amd64.deb
+      - libplasma-glib14_{no_rc_version}-1_amd64.deb
+      - libplasma14_{no_rc_version}-1_amd64.deb
 
   ubuntu-cosmic:
     platform: linux
@@ -462,29 +462,29 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib13_{no_rc_version}-1_amd64.deb
+      - libarrow-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib13_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda13_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python13_{no_rc_version}-1_amd64.deb
-      - libarrow13_{no_rc_version}-1_amd64.deb
+      - libarrow-python14_{no_rc_version}-1_amd64.deb
+      - libarrow14_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-doc_{no_rc_version}-1_all.deb
-      - libgandiva-glib13_{no_rc_version}-1_amd64.deb
-      - libgandiva13_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
+      - libgandiva14_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib13_{no_rc_version}-1_amd64.deb
-      - libparquet13_{no_rc_version}-1_amd64.deb
+      - libparquet-glib14_{no_rc_version}-1_amd64.deb
+      - libparquet14_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib13_{no_rc_version}-1_amd64.deb
-      - libplasma13_{no_rc_version}-1_amd64.deb
+      - libplasma-glib14_{no_rc_version}-1_amd64.deb
+      - libplasma14_{no_rc_version}-1_amd64.deb
 
   centos-6:
     platform: linux
