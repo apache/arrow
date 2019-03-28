@@ -928,8 +928,7 @@ class ArrayDataWrapper {
 std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
   std::shared_ptr<Array> out;
   internal::ArrayDataWrapper wrapper_visitor(data, &out);
-  Status s = VisitTypeInline(*data->type, &wrapper_visitor);
-  DCHECK(s.ok());
+  DCHECK_OK(VisitTypeInline(*data->type, &wrapper_visitor));
   DCHECK(out);
   return out;
 }

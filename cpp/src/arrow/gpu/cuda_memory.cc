@@ -99,7 +99,7 @@ CudaBuffer::CudaBuffer(uint8_t* data, int64_t size,
   mutable_data_ = data;
 }
 
-CudaBuffer::~CudaBuffer() { DCHECK(Close().ok()); }
+CudaBuffer::~CudaBuffer() { DCHECK_OK(Close()); }
 
 Status CudaBuffer::Close() {
   if (own_data_) {
@@ -182,8 +182,8 @@ Status CudaBuffer::ExportForIpc(std::shared_ptr<CudaIpcMemHandle>* handle) {
 
 CudaHostBuffer::~CudaHostBuffer() {
   CudaDeviceManager* manager = nullptr;
-  DCHECK(CudaDeviceManager::GetInstance(&manager).ok());
-  DCHECK(manager->FreeHost(mutable_data_, size_).ok());
+  DCHECK_OK(CudaDeviceManager::GetInstance(&manager));
+  DCHECK_OK(manager->FreeHost(mutable_data_, size_));
 }
 
 // ----------------------------------------------------------------------

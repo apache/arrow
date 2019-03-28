@@ -377,7 +377,7 @@ class ORCFileReader::Impl {
     if (!include_indices.empty()) {
       RETURN_NOT_OK(SelectIndices(&opts, include_indices));
     }
-    StripeInformation stripe_info;
+    StripeInformation stripe_info({0, 0, 0, 0});
     RETURN_NOT_OK(SelectStripeWithRowNumber(&opts, current_row_, &stripe_info));
     std::shared_ptr<Schema> schema;
     RETURN_NOT_OK(ReadSchema(opts, &schema));
