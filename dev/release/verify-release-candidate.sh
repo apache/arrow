@@ -320,14 +320,14 @@ test_rust() {
   # build and test rust
   pushd rust
 
+  # raises on any formatting errors
+  rustup component add rustfmt --toolchain stable
+  cargo +stable fmt --all -- --check
+
   # we are targeting Rust nightly for releases
   rustup default nightly
 
-  # raises on any formatting errors
-  rustup component add rustfmt-preview
-  cargo fmt --all -- --check
   # raises on any warnings
-
   RUSTFLAGS="-D warnings" cargo build
   cargo test
 
