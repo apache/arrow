@@ -306,7 +306,7 @@ struct Unbox<Type, enable_if_integer<Type>> {
       if (*p == na) {
         builder->UnsafeAppendNull();
       } else {
-        CType value;
+        CType value = 0;
         RETURN_NOT_OK(internal::int_cast(*p, &value));
         builder->UnsafeAppend(value);
       }
@@ -384,7 +384,7 @@ struct Unbox<FloatType> {
       if (*p == NA_INTEGER) {
         builder->UnsafeAppendNull();
       } else {
-        float value;
+        float value = 0;
         RETURN_NOT_OK(internal::float_cast(*p, &value));
         builder->UnsafeAppend(value);
       }
