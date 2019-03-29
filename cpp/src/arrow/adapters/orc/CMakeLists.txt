@@ -26,3 +26,22 @@ install(FILES adapter.h DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/adapters/
 configure_file(arrow-orc.pc.in "${CMAKE_CURRENT_BINARY_DIR}/arrow-orc.pc" @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-orc.pc"
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+
+set(ORC_MIN_TEST_LIBS GTest::Main GTest::GTest)
+
+if(ARROW_BUILD_STATIC)
+  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static)
+else()
+  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
+endif()
+
+if(APPLE)
+  set(ORC_MIN_TEST_LIBS ${ORC_MIN_TEST_LIBS} ${CMAKE_DL_LIBS})
+elseif(NOT MSVC)
+  set(ORC_MIN_TEST_LIBS ${ORC_MIN_TEST_LIBS} pthread ${CMAKE_DL_LIBS})
+endif()
+
+set(ORC_STATIC_TEST_LINK_LIBS ${ORC_MIN_TEST_LIBS} ${ARROW_LIBRARIES_FOR_STATIC_TESTS}
+    orc_static)
+
+add_arrow_test(adapter-test PREFIX "orc" STATIC_LINK_LIBS ${ORC_STATIC_TEST_LINK_LIBS})

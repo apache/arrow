@@ -27,7 +27,7 @@ use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::expression::RuntimeExpr;
+use crate::execution::expression::CompiledExpr;
 use crate::execution::relation::Relation;
 
 /// Implementation of a filter relation
@@ -37,13 +37,13 @@ pub(super) struct FilterRelation {
     /// Relation that is  being filtered
     input: Rc<RefCell<Relation>>,
     /// Filter expression
-    expr: RuntimeExpr,
+    expr: CompiledExpr,
 }
 
 impl FilterRelation {
     pub fn new(
         input: Rc<RefCell<Relation>>,
-        expr: RuntimeExpr,
+        expr: CompiledExpr,
         schema: Arc<Schema>,
     ) -> Self {
         Self {
@@ -59,7 +59,9 @@ impl Relation for FilterRelation {
         match self.input.borrow_mut().next()? {
             Some(batch) => {
                 // evaluate the filter expression against the batch
-                match self.expr.get_func()?(&batch)?
+                match self
+                    .expr
+                    .invoke(&batch)?
                     .as_any()
                     .downcast_ref::<BooleanArray>()
                 {

@@ -84,11 +84,12 @@ test_that("arrow::table round trip", {
   for( i in seq_along(chunks_raw)){
     expect_equal(chunked_array_raw$chunk(i-1L), chunks_raw[[i]])
   }
-  tf <- local_tempfile()
+  tf <- tempfile()
   write_arrow(tbl, tf)
 
   res <- read_arrow(tf)
   expect_identical(tbl, res)
+  unlink(tf)
 })
 
 test_that("arrow::table round trip handles NA in integer and numeric", {
@@ -114,7 +115,7 @@ test_that("arrow::table round trip handles NA in integer and numeric", {
   expect_equal(tab$column(1)$type, float64())
   expect_equal(tab$column(2)$type, int8())
 
-  tf <- local_tempfile()
+  tf <- tempfile()
   write_arrow(tbl, tf)
 
   res <- read_arrow(tf)
@@ -122,5 +123,6 @@ test_that("arrow::table round trip handles NA in integer and numeric", {
   expect_true(is.na(res$int[1]))
   expect_true(is.na(res$dbl[6]))
   expect_true(is.na(res$dbl[10]))
+  unlink(tf)
 })
 

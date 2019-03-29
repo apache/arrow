@@ -42,9 +42,6 @@
 #include "arrow/compute/kernels/util-internal.h"
 #include "arrow/compute/test-util.h"
 
-using std::shared_ptr;
-using std::vector;
-
 namespace arrow {
 namespace compute {
 
@@ -78,8 +75,8 @@ TEST_F(TestInvokeBinaryKernel, Exceptions) {
   MockBinaryKernel kernel;
   std::vector<Datum> outputs;
   std::shared_ptr<Table> table;
-  vector<bool> values1 = {true, false, true};
-  vector<bool> values2 = {false, true, false};
+  std::vector<bool> values1 = {true, false, true};
+  std::vector<bool> values2 = {false, true, false};
 
   auto type = boolean();
   auto a1 = _MakeArray<BooleanType, bool>(type, values1, {});

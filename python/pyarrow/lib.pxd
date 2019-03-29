@@ -138,6 +138,11 @@ cdef class ArrayValue(Scalar):
 
     cdef void _set_array(self, const shared_ptr[CArray]& sp_array)
 
+cdef class ScalarValue(Scalar):
+    cdef:
+        shared_ptr[CScalar] sp_scalar
+
+    cdef void init(self, const shared_ptr[CScalar]& sp_scalar)
 
 cdef class Int8Value(ArrayValue):
     pass

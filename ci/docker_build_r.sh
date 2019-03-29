@@ -18,7 +18,6 @@
 
 set -e
 
-export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export ARROW_HOME=$CONDA_PREFIX
 
 # Build arrow

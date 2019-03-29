@@ -236,6 +236,13 @@ def test_empty_table_roundtrip():
     _check_roundtrip(table, version='2.0')
 
 
+@pytest.mark.pandas
+def test_empty_table_no_columns():
+    df = pd.DataFrame()
+    empty = pa.Table.from_pandas(df, preserve_index=False)
+    _check_roundtrip(empty)
+
+
 def test_empty_lists_table_roundtrip():
     # ARROW-2744: Shouldn't crash when writing an array of empty lists
     arr = pa.array([[], []], type=pa.list_(pa.int32()))
@@ -1166,6 +1173,35 @@ def test_parquet_piece_read(tempdir):
     assert result.equals(table)
 
 
+@pytest.mark.pandas
+def test_parquet_piece_open_and_get_metadata(tempdir):
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df)
+
+    path = tempdir / 'parquet_piece_read.parquet'
+    _write_table(table, path, version='2.0')
+
+    piece = pq.ParquetDatasetPiece(path)
+    table1 = piece.read()
+    assert isinstance(table1, pa.Table)
+    meta1 = piece.get_metadata()
+    assert isinstance(meta1, pq.FileMetaData)
+
+    def open_parquet(fn):
+        return pq.ParquetFile(open(fn, mode='rb'))
+
+    # test deprecated open_file_func
+    with pytest.warns(DeprecationWarning):
+        table2 = piece.read(open_file_func=open_parquet)
+        assert isinstance(table2, pa.Table)
+    with pytest.warns(DeprecationWarning):
+        meta2 = piece.get_metadata(open_file_func=open_parquet)
+        assert isinstance(meta2, pq.FileMetaData)
+
+    assert table == table1 == table2
+    assert meta1 == meta2
+
+
 def test_parquet_piece_basics():
     path = '/baz.parq'
 
@@ -2084,6 +2120,13 @@ def test_large_table_int32_overflow():
     _write_table(table, f)
 
 
+def _simple_table_roundtrip(table):
+    stream = pa.BufferOutputStream()
+    _write_table(table, stream)
+    buf = stream.getvalue()
+    return _read_table(buf)
+
+
 @pytest.mark.pandas
 @pytest.mark.large_memory
 def test_binary_array_overflow_to_chunked():
@@ -2096,20 +2139,34 @@ def test_binary_array_overflow_to_chunked():
     df = pd.DataFrame({'byte_col': values})
 
     tbl = pa.Table.from_pandas(df, preserve_index=False)
-
-    buf = io.BytesIO()
-    _write_table(tbl, buf)
-    buf.seek(0)
-    read_tbl = _read_table(buf)
-    buf = None
+    read_tbl = _simple_table_roundtrip(tbl)
 
     col0_data = read_tbl[0].data
     assert isinstance(col0_data, pa.ChunkedArray)
 
-    # Split up into 16MB chunks. 128 * 16 = 2048, so 129
-    assert col0_data.num_chunks == 129
+    # Split up into 2GB chunks
+    assert col0_data.num_chunks == 2
 
     assert tbl.equals(read_tbl)
+
+
+@pytest.mark.pandas
+@pytest.mark.large_memory
+def test_list_of_binary_large_cell():
+    # ARROW-4688
+    data = []
+
+    # TODO(wesm): handle chunked children
+    # 2^31 - 1 bytes in a single cell
+    # data.append([b'x' * (1 << 20)] * 2047 + [b'x' * ((1 << 20) - 1)])
+
+    # A little under 2GB in cell each containing approximately 10MB each
+    data.extend([[b'x' * 1000000] * 10] * 214)
+
+    arr = pa.array(data)
+    table = pa.Table.from_arrays([arr], ['chunky_cells'])
+    read_table = _simple_table_roundtrip(table)
+    assert table.equals(read_table)
 
 
 @pytest.mark.pandas
@@ -2479,3 +2536,19 @@ def test_write_nested_zero_length_array_chunk_failure():
                   for batch in my_arrays]
     tbl = pa.Table.from_batches(my_batches, pa.schema(cols))
     _check_roundtrip(tbl)
+
+
+def test_partitioned_dataset(tempdir):
+    # ARROW-3208: Segmentation fault when reading a Parquet partitioned dataset
+    # to a Parquet file
+    path = tempdir / "ARROW-3208"
+    df = pd.DataFrame({
+        'one': [-1, 10, 2.5, 100, 1000, 1, 29.2],
+        'two': [-1, 10, 2, 100, 1000, 1, 11],
+        'three': [0, 0, 0, 0, 0, 0, 0]
+    })
+    table = pa.Table.from_pandas(df)
+    pq.write_to_dataset(table, root_path=str(path),
+                        partition_cols=['one', 'two'])
+    table = pq.ParquetDataset(path).read()
+    pq.write_table(table, path / "output.parquet")

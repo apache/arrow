@@ -46,7 +46,6 @@ using arrow::uint32;
 using arrow::uint64;
 using arrow::uint8;
 using arrow::utf8;
-using std::vector;
 
 inline DataTypePtr time32() { return arrow::time32(arrow::TimeUnit::MILLI); }
 

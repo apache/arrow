@@ -16,9 +16,7 @@
 # under the License.
 
 #' @importFrom bit64 print.integer64
-#' @export
 bit64::print.integer64
 
 #' @importFrom bit64 str.integer64
-#' @export
 bit64::str.integer64

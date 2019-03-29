@@ -29,9 +29,6 @@
 #include "parquet/thrift.h"
 #include "parquet/types.h"
 
-using std::string;
-using std::vector;
-
 namespace parquet {
 
 using format::ConvertedType;
@@ -446,6 +443,13 @@ TEST_F(TestSchemaConverter, NestedExample) {
   // Check that the parent relationship in each node is consitent
   ASSERT_EQ(group_->parent(), nullptr);
   ASSERT_TRUE(check_for_parent_consistency(group_));
+}
+
+TEST_F(TestSchemaConverter, ZeroColumns) {
+  // ARROW-3843
+  SchemaElement elements[1];
+  elements[0] = NewGroup("schema", FieldRepetitionType::REPEATED, 0, 0);
+  ASSERT_NO_THROW(Convert(elements, 1));
 }
 
 TEST_F(TestSchemaConverter, InvalidRoot) {

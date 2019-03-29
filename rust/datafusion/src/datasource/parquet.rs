@@ -31,15 +31,17 @@ use parquet::data_type::{ByteArray, Int96};
 use parquet::file::reader::*;
 use parquet::reader::schema::parquet_to_arrow_schema;
 
-use crate::datasource::{RecordBatchIterator, ScanResult, Table};
+use crate::datasource::{RecordBatchIterator, ScanResult, TableProvider};
 use crate::error::{ExecutionError, Result};
 
+/// Table-based representation of a `ParquetFile`
 pub struct ParquetTable {
     filename: String,
     schema: Arc<Schema>,
 }
 
 impl ParquetTable {
+    /// Attempt to initialize a new `ParquetTable` from a file path
     pub fn try_new(filename: &str) -> Result<Self> {
         let file = File::open(filename)?;
         let parquet_file = ParquetFile::open(file, None, 0)?;
@@ -51,7 +53,7 @@ impl ParquetTable {
     }
 }
 
-impl Table for ParquetTable {
+impl TableProvider for ParquetTable {
     fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }
@@ -67,6 +69,7 @@ impl Table for ParquetTable {
     }
 }
 
+/// Loader and reader for parquet data
 pub struct ParquetFile {
     reader: SerializedFileReader<File>,
     /// Projection expressed as column indices into underlying parquet reader
@@ -172,6 +175,7 @@ where
 }
 
 impl ParquetFile {
+    /// Read parquet data from a `File`
     pub fn open(
         file: File,
         projection: Option<Vec<usize>>,
@@ -673,7 +677,7 @@ mod tests {
         );
     }
 
-    fn load_table(name: &str) -> Box<Table> {
+    fn load_table(name: &str) -> Box<TableProvider> {
         let testdata = env::var("PARQUET_TEST_DATA").unwrap();
         let filename = format!("{}/{}", testdata, name);
         let table = ParquetTable::try_new(&filename).unwrap();

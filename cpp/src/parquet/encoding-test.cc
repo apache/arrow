@@ -19,7 +19,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <string>
 #include <vector>
 
 #include "arrow/array.h"
@@ -39,9 +38,6 @@
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
 
-using std::string;
-using std::vector;
-
 // TODO(hatemhelal): investigate whether this can be replaced with GTEST_SKIP in a future
 // gtest release that contains https://github.com/google/googletest/pull/1544
 #define SKIP_TEST_IF(condition) \
@@ -59,7 +55,7 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   int nbytes = static_cast<int>(::arrow::BitUtil::BytesForBits(nvalues));
 
   // seed the prng so failure is deterministic
-  vector<bool> draws = flip_coins_seed(nvalues, 0.5, 0);
+  std::vector<bool> draws = flip_coins_seed(nvalues, 0.5, 0);
 
   std::unique_ptr<BooleanEncoder> encoder =
       MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
@@ -71,7 +67,7 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   std::shared_ptr<Buffer> encode_buffer = encoder->FlushValues();
   ASSERT_EQ(nbytes, encode_buffer->size());
 
-  vector<uint8_t> decode_buffer(nbytes);
+  std::vector<uint8_t> decode_buffer(nbytes);
   const uint8_t* decode_data = &decode_buffer[0];
 
   decoder->SetData(nvalues, encode_buffer->data(),
@@ -88,27 +84,27 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
 // test data generation
 
 template <typename T>
-void GenerateData(int num_values, T* out, vector<uint8_t>* heap) {
+void GenerateData(int num_values, T* out, std::vector<uint8_t>* heap) {
   // seed the prng so failure is deterministic
   random_numbers(num_values, 0, std::numeric_limits<T>::min(),
                  std::numeric_limits<T>::max(), out);
 }
 
 template <>
-void GenerateData<bool>(int num_values, bool* out, vector<uint8_t>* heap) {
+void GenerateData<bool>(int num_values, bool* out, std::vector<uint8_t>* heap) {
   // seed the prng so failure is deterministic
   random_bools(num_values, 0.5, 0, out);
 }
 
 template <>
-void GenerateData<Int96>(int num_values, Int96* out, vector<uint8_t>* heap) {
+void GenerateData<Int96>(int num_values, Int96* out, std::vector<uint8_t>* heap) {
   // seed the prng so failure is deterministic
   random_Int96_numbers(num_values, 0, std::numeric_limits<int32_t>::min(),
                        std::numeric_limits<int32_t>::max(), out);
 }
 
 template <>
-void GenerateData<ByteArray>(int num_values, ByteArray* out, vector<uint8_t>* heap) {
+void GenerateData<ByteArray>(int num_values, ByteArray* out, std::vector<uint8_t>* heap) {
   // seed the prng so failure is deterministic
   int max_byte_array_len = 12;
   heap->resize(num_values * max_byte_array_len);
@@ -118,7 +114,7 @@ void GenerateData<ByteArray>(int num_values, ByteArray* out, vector<uint8_t>* he
 static int flba_length = 8;
 
 template <>
-void GenerateData<FLBA>(int num_values, FLBA* out, vector<uint8_t>* heap) {
+void GenerateData<FLBA>(int num_values, FLBA* out, std::vector<uint8_t>* heap) {
   // seed the prng so failure is deterministic
   heap->resize(num_values * flba_length);
   random_fixed_byte_array(num_values, 0, heap->data(), flba_length, out);
@@ -202,9 +198,9 @@ class TestEncodingBase : public ::testing::Test {
   int type_length_;
   T* draws_;
   T* decode_buf_;
-  vector<uint8_t> input_bytes_;
-  vector<uint8_t> output_bytes_;
-  vector<uint8_t> data_buffer_;
+  std::vector<uint8_t> input_bytes_;
+  std::vector<uint8_t> output_bytes_;
+  std::vector<uint8_t> data_buffer_;
 
   std::shared_ptr<Buffer> encode_buffer_;
   std::shared_ptr<ColumnDescriptor> descr_;
@@ -473,7 +469,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   std::shared_ptr<::arrow::Array> expected_dense_;
   int num_values_;
   int null_count_;
-  vector<ByteArray> input_data_;
+  std::vector<ByteArray> input_data_;
   const uint8_t* valid_bits_;
   std::unique_ptr<ByteArrayEncoder> encoder_;
   std::unique_ptr<ByteArrayDecoder> decoder_;

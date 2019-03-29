@@ -30,10 +30,12 @@ use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::expression::{AggregateType, RuntimeExpr};
+use crate::execution::expression::AggregateType;
 use crate::execution::relation::Relation;
 use crate::logicalplan::ScalarValue;
 
+use crate::execution::expression::CompiledAggregateExpression;
+use crate::execution::expression::CompiledExpr;
 use fnv::FnvHashMap;
 
 /// An aggregate relation is made up of zero or more grouping expressions and one
@@ -41,8 +43,8 @@ use fnv::FnvHashMap;
 pub(super) struct AggregateRelation {
     schema: Arc<Schema>,
     input: Rc<RefCell<Relation>>,
-    group_expr: Vec<RuntimeExpr>,
-    aggr_expr: Vec<RuntimeExpr>,
+    group_expr: Vec<CompiledExpr>,
+    aggr_expr: Vec<CompiledAggregateExpression>,
     end_of_results: bool,
 }
 
@@ -50,8 +52,8 @@ impl AggregateRelation {
     pub fn new(
         schema: Arc<Schema>,
         input: Rc<RefCell<Relation>>,
-        group_expr: Vec<RuntimeExpr>,
-        aggr_expr: Vec<RuntimeExpr>,
+        group_expr: Vec<CompiledExpr>,
+        aggr_expr: Vec<CompiledAggregateExpression>,
     ) -> Self {
         AggregateRelation {
             schema,
@@ -337,26 +339,29 @@ struct MapEntry {
 }
 
 /// Create an initial aggregate entry
-fn create_accumulators(aggr_expr: &Vec<RuntimeExpr>) -> Result<AccumulatorSet> {
+fn create_accumulators(
+    aggr_expr: &Vec<CompiledAggregateExpression>,
+) -> Result<AccumulatorSet> {
     let aggr_values: Vec<Rc<RefCell<AggregateFunction>>> = aggr_expr
         .iter()
-        .map(|e| match e {
-            RuntimeExpr::AggregateFunction { ref f, ref t, .. } => match f {
-                AggregateType::Min => Ok(Rc::new(RefCell::new(MinFunction::new(t)))
-                    as Rc<RefCell<AggregateFunction>>),
-                AggregateType::Max => Ok(Rc::new(RefCell::new(MaxFunction::new(t)))
-                    as Rc<RefCell<AggregateFunction>>),
-                AggregateType::Sum => Ok(Rc::new(RefCell::new(SumFunction::new(t)))
-                    as Rc<RefCell<AggregateFunction>>),
-                _ => Err(ExecutionError::ExecutionError(
-                    "unsupported aggregate function".to_string(),
-                )),
-            },
+        .map(|e| match e.aggr_type() {
+            AggregateType::Min => {
+                Ok(Rc::new(RefCell::new(MinFunction::new(e.data_type())))
+                    as Rc<RefCell<AggregateFunction>>)
+            }
+            AggregateType::Max => {
+                Ok(Rc::new(RefCell::new(MaxFunction::new(e.data_type())))
+                    as Rc<RefCell<AggregateFunction>>)
+            }
+            AggregateType::Sum => {
+                Ok(Rc::new(RefCell::new(SumFunction::new(e.data_type())))
+                    as Rc<RefCell<AggregateFunction>>)
+            }
             _ => Err(ExecutionError::ExecutionError(
-                "invalid aggregate expression".to_string(),
+                "unsupported aggregate function".to_string(),
             )),
         })
-        .collect::<Result<Vec<Rc<RefCell<AggregateFunction>>>>>()?;
+        .collect::<Result<Vec<Rc<RefCell<_>>>>>()?;
 
     Ok(AccumulatorSet { aggr_values })
 }
@@ -569,88 +574,63 @@ fn update_accumulators(
     batch: &RecordBatch,
     row: usize,
     accumulator_set: &mut AccumulatorSet,
-    aggr_expr: &Vec<RuntimeExpr>,
+    aggr_expr: &Vec<CompiledAggregateExpression>,
 ) -> Result<()> {
     // update the accumulators
     for j in 0..accumulator_set.aggr_values.len() {
-        match &aggr_expr[j] {
-            RuntimeExpr::AggregateFunction { args, t, .. } => {
-                // evaluate argument to aggregate function
-                match args[0](&batch) {
-                    Ok(array) => {
-                        let value: Option<ScalarValue> = match t {
-                            DataType::UInt8 => {
-                                let z =
-                                    array.as_any().downcast_ref::<UInt8Array>().unwrap();
-                                Some(ScalarValue::UInt8(z.value(row)))
-                            }
-                            DataType::UInt16 => {
-                                let z =
-                                    array.as_any().downcast_ref::<UInt16Array>().unwrap();
-                                Some(ScalarValue::UInt16(z.value(row)))
-                            }
-                            DataType::UInt32 => {
-                                let z =
-                                    array.as_any().downcast_ref::<UInt32Array>().unwrap();
-                                Some(ScalarValue::UInt32(z.value(row)))
-                            }
-                            DataType::UInt64 => {
-                                let z =
-                                    array.as_any().downcast_ref::<UInt64Array>().unwrap();
-                                Some(ScalarValue::UInt64(z.value(row)))
-                            }
-                            DataType::Int8 => {
-                                let z =
-                                    array.as_any().downcast_ref::<Int8Array>().unwrap();
-                                Some(ScalarValue::Int8(z.value(row)))
-                            }
-                            DataType::Int16 => {
-                                let z =
-                                    array.as_any().downcast_ref::<Int16Array>().unwrap();
-                                Some(ScalarValue::Int16(z.value(row)))
-                            }
-                            DataType::Int32 => {
-                                let z =
-                                    array.as_any().downcast_ref::<Int32Array>().unwrap();
-                                Some(ScalarValue::Int32(z.value(row)))
-                            }
-                            DataType::Int64 => {
-                                let z =
-                                    array.as_any().downcast_ref::<Int64Array>().unwrap();
-                                Some(ScalarValue::Int64(z.value(row)))
-                            }
-                            DataType::Float32 => {
-                                let z = array
-                                    .as_any()
-                                    .downcast_ref::<Float32Array>()
-                                    .unwrap();
-                                Some(ScalarValue::Float32(z.value(row)))
-                            }
-                            DataType::Float64 => {
-                                let z = array
-                                    .as_any()
-                                    .downcast_ref::<Float64Array>()
-                                    .unwrap();
-                                Some(ScalarValue::Float64(z.value(row)))
-                            }
-                            other => return Err(ExecutionError::ExecutionError(format!("Unsupported data type {:?} for result of aggregate expression", other))),
-                        };
-                        accumulator_set.accumulate_scalar(j, value)?;
-                    }
-                    Err(e) => {
-                        return Err(ExecutionError::ExecutionError(format!(
-                            "Failed to evaluate aggregate expression: {:?}",
-                            e
-                        )));
-                    }
-                }
+        // evaluate the argument to the aggregate function
+        let array = aggr_expr[j].invoke(batch)?;
+
+        let value: Option<ScalarValue> = match aggr_expr[j].data_type() {
+            DataType::UInt8 => {
+                let z = array.as_any().downcast_ref::<UInt8Array>().unwrap();
+                Some(ScalarValue::UInt8(z.value(row)))
             }
-            _ => {
-                return Err(ExecutionError::InternalError(
-                    "Invalid aggregate expression in accumulator".to_string(),
-                ));
+            DataType::UInt16 => {
+                let z = array.as_any().downcast_ref::<UInt16Array>().unwrap();
+                Some(ScalarValue::UInt16(z.value(row)))
             }
-        }
+            DataType::UInt32 => {
+                let z = array.as_any().downcast_ref::<UInt32Array>().unwrap();
+                Some(ScalarValue::UInt32(z.value(row)))
+            }
+            DataType::UInt64 => {
+                let z = array.as_any().downcast_ref::<UInt64Array>().unwrap();
+                Some(ScalarValue::UInt64(z.value(row)))
+            }
+            DataType::Int8 => {
+                let z = array.as_any().downcast_ref::<Int8Array>().unwrap();
+                Some(ScalarValue::Int8(z.value(row)))
+            }
+            DataType::Int16 => {
+                let z = array.as_any().downcast_ref::<Int16Array>().unwrap();
+                Some(ScalarValue::Int16(z.value(row)))
+            }
+            DataType::Int32 => {
+                let z = array.as_any().downcast_ref::<Int32Array>().unwrap();
+                Some(ScalarValue::Int32(z.value(row)))
+            }
+            DataType::Int64 => {
+                let z = array.as_any().downcast_ref::<Int64Array>().unwrap();
+                Some(ScalarValue::Int64(z.value(row)))
+            }
+            DataType::Float32 => {
+                let z = array.as_any().downcast_ref::<Float32Array>().unwrap();
+                Some(ScalarValue::Float32(z.value(row)))
+            }
+            DataType::Float64 => {
+                let z = array.as_any().downcast_ref::<Float64Array>().unwrap();
+                Some(ScalarValue::Float64(z.value(row)))
+            }
+            other => {
+                return Err(ExecutionError::ExecutionError(format!(
+                    "Unsupported data type {:?} for result of aggregate expression",
+                    other
+                )));
+            }
+        };
+
+        accumulator_set.accumulate_scalar(j, value)?;
     }
     Ok(())
 }
@@ -751,34 +731,24 @@ impl AggregateRelation {
 
         while let Some(batch) = self.input.borrow_mut().next()? {
             for i in 0..aggr_expr_count {
-                match &self.aggr_expr[i] {
-                    RuntimeExpr::AggregateFunction { f, args, t, .. } => {
-                        // evaluate argument to aggregate function
-                        match args[0](&batch) {
-                            Ok(array) => match f {
-                                AggregateType::Min => accumulator_set
-                                    .accumulate_scalar(i, array_min(array, &t)?)?,
-                                AggregateType::Max => accumulator_set
-                                    .accumulate_scalar(i, array_max(array, &t)?)?,
-                                AggregateType::Sum => accumulator_set
-                                    .accumulate_scalar(i, array_sum(array, &t)?)?,
-                                _ => {
-                                    return Err(ExecutionError::NotImplemented(
-                                        "Unsupported aggregate function".to_string(),
-                                    ));
-                                }
-                            },
-                            Err(_) => {
-                                return Err(ExecutionError::ExecutionError(
-                                    "Failed to evaluate argument to aggregate function"
-                                        .to_string(),
-                                ));
-                            }
-                        }
+                // evaluate the argument to the aggregate function
+                let array = self.aggr_expr[i].invoke(&batch)?;
+
+                let t = self.aggr_expr[i].data_type();
+
+                match self.aggr_expr[i].aggr_type() {
+                    AggregateType::Min => {
+                        accumulator_set.accumulate_scalar(i, array_min(array, &t)?)?
+                    }
+                    AggregateType::Max => {
+                        accumulator_set.accumulate_scalar(i, array_max(array, &t)?)?
+                    }
+                    AggregateType::Sum => {
+                        accumulator_set.accumulate_scalar(i, array_sum(array, &t)?)?
                     }
                     _ => {
-                        return Err(ExecutionError::General(
-                            "Invalid aggregate expression".to_string(),
+                        return Err(ExecutionError::NotImplemented(
+                            "Unsupported aggregate function".to_string(),
                         ));
                     }
                 }
@@ -849,7 +819,7 @@ impl AggregateRelation {
             let group_by_keys: Vec<ArrayRef> = self
                 .group_expr
                 .iter()
-                .map(|e| e.get_func()?(&batch))
+                .map(|e| e.invoke(&batch))
                 .collect::<Result<Vec<ArrayRef>>>()?;
 
             // iterate over each row in the batch
@@ -962,7 +932,7 @@ impl AggregateRelation {
 
         // grouping values
         for i in 0..self.group_expr.len() {
-            let array: Result<ArrayRef> = match self.group_expr[i].get_type() {
+            let array: Result<ArrayRef> = match self.group_expr[i].data_type() {
                 DataType::UInt8 => {
                     group_array_from_map_entries!(UInt8Builder, UInt8, entries, i)
                 }
@@ -1006,7 +976,7 @@ impl AggregateRelation {
 
         // aggregate values
         for i in 0..self.aggr_expr.len() {
-            let array = match self.aggr_expr[i].get_type() {
+            let array = match self.aggr_expr[i].data_type() {
                 DataType::UInt8 => {
                     aggr_array_from_map_entries!(UInt8Builder, UInt8, entries, i)
                 }
@@ -1068,7 +1038,7 @@ mod tests {
         let relation = load_csv("../../testing/data/csv/aggregate_test_100.csv", &schema);
         let context = ExecutionContext::new();
 
-        let aggr_expr = vec![expression::compile_expr(
+        let aggr_expr = vec![expression::compile_aggregate_expr(
             &context,
             &Expr::AggregateFunction {
                 name: String::from("min"),
@@ -1103,7 +1073,7 @@ mod tests {
         let relation = load_csv("../../testing/data/csv/aggregate_test_100.csv", &schema);
         let context = ExecutionContext::new();
 
-        let aggr_expr = vec![expression::compile_expr(
+        let aggr_expr = vec![expression::compile_aggregate_expr(
             &context,
             &Expr::AggregateFunction {
                 name: String::from("max"),
@@ -1142,7 +1112,7 @@ mod tests {
         let group_by_expr =
             expression::compile_expr(&context, &Expr::Column(1), &schema).unwrap();
 
-        let min_expr = expression::compile_expr(
+        let min_expr = expression::compile_aggregate_expr(
             &context,
             &Expr::AggregateFunction {
                 name: String::from("min"),
@@ -1153,7 +1123,7 @@ mod tests {
         )
         .unwrap();
 
-        let max_expr = expression::compile_expr(
+        let max_expr = expression::compile_aggregate_expr(
             &context,
             &Expr::AggregateFunction {
                 name: String::from("max"),
@@ -1164,7 +1134,7 @@ mod tests {
         )
         .unwrap();
 
-        let sum_expr = expression::compile_expr(
+        let sum_expr = expression::compile_aggregate_expr(
             &context,
             &Expr::AggregateFunction {
                 name: String::from("sum"),

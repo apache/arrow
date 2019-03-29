@@ -17,11 +17,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ENV["TZ"] = "Asia/Tokyo"
-
 $VERBOSE = true
 
 require "pathname"
+
+(ENV["ARROW_DLL_PATH"] || "").split(File::PATH_SEPARATOR).each do |path|
+  RubyInstaller::Runtime.add_dll_directory(path)
+end
 
 base_dir = Pathname.new(__dir__).parent.expand_path
 
@@ -33,9 +35,9 @@ make = nil
 if ENV["NO_MAKE"] != "yes"
   if ENV["MAKE"]
     make = ENV["MAKE"]
-  elsif system("type gmake > /dev/null")
+  elsif system("which gmake > #{File::NULL} 2>&1")
     make = "gmake"
-  elsif system("type make > /dev/null")
+  elsif system("which make > #{File::NULL} 2>&1")
     make = "make"
   end
 end
@@ -44,7 +46,7 @@ if make
     unless File.exist?("Makefile")
       system(RbConfig.ruby, "extconf.rb", "--enable-debug-build") or exit(false)
     end
-    system("#{make} > /dev/null") or exit(false)
+    system("#{make} > #{File::NULL}") or exit(false)
   end
 end
 

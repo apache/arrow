@@ -37,9 +37,6 @@
 
 namespace arrow {
 
-using std::string;
-using std::vector;
-
 using internal::checked_cast;
 
 // ----------------------------------------------------------------------
@@ -68,11 +65,11 @@ class TestStringArray : public ::testing::Test {
   }
 
  protected:
-  vector<int32_t> offsets_;
-  vector<char> chars_;
-  vector<uint8_t> valid_bytes_;
+  std::vector<int32_t> offsets_;
+  std::vector<char> chars_;
+  std::vector<uint8_t> valid_bytes_;
 
-  vector<string> expected_;
+  std::vector<std::string> expected_;
 
   std::shared_ptr<Buffer> value_buf_;
   std::shared_ptr<Buffer> offsets_buf_;
@@ -212,8 +209,8 @@ class TestStringBuilder : public TestBuilder {
 };
 
 TEST_F(TestStringBuilder, TestScalarAppend) {
-  vector<string> strings = {"", "bb", "a", "", "ccc"};
-  vector<uint8_t> is_null = {0, 0, 0, 1, 0};
+  std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
+  std::vector<uint8_t> is_null = {0, 0, 0, 1, 0};
 
   int N = static_cast<int>(strings.size());
   int reps = 1000;
@@ -251,8 +248,8 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
 }
 
 TEST_F(TestStringBuilder, TestAppendVector) {
-  vector<string> strings = {"", "bb", "a", "", "ccc"};
-  vector<uint8_t> valid_bytes = {1, 1, 1, 0, 1};
+  std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
+  std::vector<uint8_t> valid_bytes = {1, 1, 1, 0, 1};
 
   int N = static_cast<int>(strings.size());
   int reps = 1000;
@@ -285,7 +282,7 @@ TEST_F(TestStringBuilder, TestAppendVector) {
 
 TEST_F(TestStringBuilder, TestAppendCStringsWithValidBytes) {
   const char* strings[] = {nullptr, "aaa", nullptr, "ignored", ""};
-  vector<uint8_t> valid_bytes = {1, 1, 1, 0, 1};
+  std::vector<uint8_t> valid_bytes = {1, 1, 1, 0, 1};
 
   int N = static_cast<int>(sizeof(strings) / sizeof(strings[0]));
   int reps = 1000;
@@ -381,11 +378,11 @@ class TestBinaryArray : public ::testing::Test {
   }
 
  protected:
-  vector<int32_t> offsets_;
-  vector<char> chars_;
-  vector<uint8_t> valid_bytes_;
+  std::vector<int32_t> offsets_;
+  std::vector<char> chars_;
+  std::vector<uint8_t> valid_bytes_;
 
-  vector<string> expected_;
+  std::vector<std::string> expected_;
 
   std::shared_ptr<Buffer> value_buf_;
   std::shared_ptr<Buffer> offsets_buf_;
@@ -463,7 +460,7 @@ TEST_F(TestBinaryArray, TestGetString) {
 TEST_F(TestBinaryArray, TestEqualsEmptyStrings) {
   BinaryBuilder builder;
 
-  string empty_string("");
+  std::string empty_string("");
   for (int i = 0; i < 5; ++i) {
     ASSERT_OK(builder.Append(empty_string));
   }
@@ -501,8 +498,8 @@ class TestBinaryBuilder : public TestBuilder {
 };
 
 TEST_F(TestBinaryBuilder, TestScalarAppend) {
-  vector<string> strings = {"", "bb", "a", "", "ccc"};
-  vector<uint8_t> is_null = {0, 0, 0, 1, 0};
+  std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
+  std::vector<uint8_t> is_null = {0, 0, 0, 1, 0};
 
   int N = static_cast<int>(strings.size());
   int reps = 10;
@@ -536,8 +533,8 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
 }
 
 TEST_F(TestBinaryBuilder, TestScalarAppendUnsafe) {
-  vector<string> strings = {"", "bb", "a", "", "ccc"};
-  vector<uint8_t> is_null = {0, 0, 0, 1, 0};
+  std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
+  std::vector<uint8_t> is_null = {0, 0, 0, 1, 0};
 
   int N = static_cast<int>(strings.size());
   int reps = 13;
@@ -577,7 +574,8 @@ TEST_F(TestBinaryBuilder, TestScalarAppendUnsafe) {
 }
 
 TEST_F(TestBinaryBuilder, TestCapacityReserve) {
-  vector<string> strings = {"aaaaa", "bbbbbbbbbb", "ccccccccccccccc", "dddddddddd"};
+  std::vector<std::string> strings = {"aaaaa", "bbbbbbbbbb", "ccccccccccccccc",
+                                      "dddddddddd"};
   int N = static_cast<int>(strings.size());
   int reps = 15;
   int64_t length = 0;
@@ -632,8 +630,8 @@ void CheckSliceEquality() {
 
   BuilderType builder;
 
-  vector<string> strings = {"foo", "", "bar", "baz", "qux", ""};
-  vector<uint8_t> is_null = {0, 1, 0, 1, 0, 0};
+  std::vector<std::string> strings = {"foo", "", "bar", "baz", "qux", ""};
+  std::vector<uint8_t> is_null = {0, 1, 0, 1, 0, 0};
 
   int N = static_cast<int>(strings.size());
   int reps = 10;

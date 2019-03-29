@@ -96,7 +96,7 @@ if "%JOB%" == "Build_Debug" (
   exit /B 0
 )
 
-set CONDA_PACKAGES=--file=ci\conda_env_python.yml python=%PYTHON% numpy=1.14 thrift-cpp=0.11 boost-cpp
+set CONDA_PACKAGES=--file=ci\conda_env_python.yml python=%PYTHON% numpy=1.14 boost-cpp
 
 if "%ARROW_BUILD_GANDIVA%" == "ON" (
   @rem Install llvmdev in the toolchain if building gandiva.dll

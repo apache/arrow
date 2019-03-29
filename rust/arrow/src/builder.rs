@@ -696,6 +696,9 @@ impl StructBuilder {
                 .null_count(null_count)
                 .null_bit_buffer(null_bit_buffer);
         }
+
+        self.len = 0;
+
         StructArray::from(builder.build())
     }
 }
@@ -1355,7 +1358,15 @@ mod tests {
             ])
             .unwrap();
 
+        // Append slot values - all are valid.
+        for _ in 0..10 {
+            assert!(builder.append(true).is_ok())
+        }
+
+        assert_eq!(10, builder.len());
+
         let arr = builder.finish();
+
         assert_eq!(10, arr.len());
         assert_eq!(0, builder.len());
 
@@ -1370,7 +1381,15 @@ mod tests {
             .append_slice(&[false, true, false, true, false])
             .unwrap();
 
+        // Append slot values - all are valid.
+        for _ in 0..5 {
+            assert!(builder.append(true).is_ok())
+        }
+
+        assert_eq!(5, builder.len());
+
         let arr = builder.finish();
+
         assert_eq!(5, arr.len());
         assert_eq!(0, builder.len());
     }

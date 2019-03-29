@@ -8,7 +8,6 @@
 *.json
 *.snap
 .github/ISSUE_TEMPLATE.md
-cpp/examples/parquet/parquet-arrow/cmake_modules/FindArrow.cmake
 cpp/CHANGELOG_PARQUET.md
 cpp/src/arrow/io/mman.h
 cpp/src/arrow/util/random.h
@@ -19,13 +18,9 @@ cpp/build-support/asan_symbolize.py
 cpp/build-support/cpplint.py
 cpp/build-support/lint_exclusions.txt
 cpp/build-support/iwyu/*
-cpp/cmake_modules/BuildUtils.cmake
 cpp/cmake_modules/FindPythonLibsNew.cmake
-cpp/cmake_modules/FindNumPy.cmake
-cpp/cmake_modules/SetupCxxFlags.cmake
 cpp/cmake_modules/SnappyCMakeLists.txt
 cpp/cmake_modules/SnappyConfig.h
-cpp/cmake_modules/CompilerInfo.cmake
 cpp/src/parquet/.parquetcppversion
 cpp/src/plasma/thirdparty/ae/ae.c
 cpp/src/plasma/thirdparty/ae/ae.h
@@ -125,8 +120,9 @@ go/*.tmpldata
 go/*.s
 js/.npmignore
 js/closure-compiler-scripts/*
-python/cmake_modules
-python/cmake_modules/*
+python/cmake_modules/FindPythonLibsNew.cmake
+python/cmake_modules/SnappyCMakeLists.txt
+python/cmake_modules/SnappyConfig.h
 python/MANIFEST.in
 python/manylinux1/.dockerignore
 python/pyarrow/includes/__init__.pxd

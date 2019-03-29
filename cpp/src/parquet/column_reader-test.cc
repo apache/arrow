@@ -32,10 +32,6 @@
 #include "parquet/types.h"
 #include "parquet/util/test-common.h"
 
-using std::shared_ptr;
-using std::string;
-using std::vector;
-
 namespace parquet {
 
 using schema::NodePtr;
@@ -43,11 +39,11 @@ using schema::NodePtr;
 namespace test {
 
 template <typename T>
-static inline bool vector_equal_with_def_levels(const vector<T>& left,
-                                                const vector<int16_t>& def_levels,
+static inline bool vector_equal_with_def_levels(const std::vector<T>& left,
+                                                const std::vector<int16_t>& def_levels,
                                                 int16_t max_def_levels,
                                                 int16_t max_rep_levels,
-                                                const vector<T>& right) {
+                                                const std::vector<T>& right) {
   size_t i_left = 0;
   size_t i_right = 0;
   for (size_t i = 0; i < def_levels.size(); i++) {
@@ -83,9 +79,9 @@ class TestPrimitiveReader : public ::testing::Test {
   }
 
   void CheckResults() {
-    vector<int32_t> vresult(num_values_, -1);
-    vector<int16_t> dresult(num_levels_, -1);
-    vector<int16_t> rresult(num_levels_, -1);
+    std::vector<int32_t> vresult(num_values_, -1);
+    std::vector<int16_t> dresult(num_levels_, -1);
+    std::vector<int16_t> rresult(num_levels_, -1);
     int64_t values_read = 0;
     int total_values_read = 0;
     int batch_actual = 0;
@@ -122,10 +118,10 @@ class TestPrimitiveReader : public ::testing::Test {
   }
 
   void CheckResultsSpaced() {
-    vector<int32_t> vresult(num_levels_, -1);
-    vector<int16_t> dresult(num_levels_, -1);
-    vector<int16_t> rresult(num_levels_, -1);
-    vector<uint8_t> valid_bits(num_levels_, 255);
+    std::vector<int32_t> vresult(num_levels_, -1);
+    std::vector<int16_t> dresult(num_levels_, -1);
+    std::vector<int16_t> rresult(num_levels_, -1);
+    std::vector<uint8_t> valid_bits(num_levels_, 255);
     int total_values_read = 0;
     int batch_actual = 0;
     int levels_actual = 0;
@@ -219,12 +215,12 @@ class TestPrimitiveReader : public ::testing::Test {
   int num_values_;
   int16_t max_def_level_;
   int16_t max_rep_level_;
-  vector<shared_ptr<Page>> pages_;
+  std::vector<std::shared_ptr<Page>> pages_;
   std::shared_ptr<ColumnReader> reader_;
-  vector<int32_t> values_;
-  vector<int16_t> def_levels_;
-  vector<int16_t> rep_levels_;
-  vector<uint8_t> data_buffer_;  // For BA and FLBA
+  std::vector<int32_t> values_;
+  std::vector<int16_t> def_levels_;
+  std::vector<int16_t> rep_levels_;
+  std::vector<uint8_t> data_buffer_;  // For BA and FLBA
 };
 
 TEST_F(TestPrimitiveReader, TestInt32FlatRequired) {
@@ -270,9 +266,9 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRequiredSkip) {
   MakePages<Int32Type>(&descr, num_pages, levels_per_page, def_levels_, rep_levels_,
                        values_, data_buffer_, pages_, Encoding::PLAIN);
   InitReader(&descr);
-  vector<int32_t> vresult(levels_per_page / 2, -1);
-  vector<int16_t> dresult(levels_per_page / 2, -1);
-  vector<int16_t> rresult(levels_per_page / 2, -1);
+  std::vector<int32_t> vresult(levels_per_page / 2, -1);
+  std::vector<int16_t> dresult(levels_per_page / 2, -1);
+  std::vector<int16_t> rresult(levels_per_page / 2, -1);
 
   Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
   int64_t values_read = 0;
@@ -284,7 +280,7 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRequiredSkip) {
   // Read half a page
   reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(),
                     &values_read);
-  vector<int32_t> sub_values(
+  std::vector<int32_t> sub_values(
       values_.begin() + 2 * levels_per_page,
       values_.begin() + static_cast<int>(2.5 * static_cast<double>(levels_per_page)));
   ASSERT_TRUE(vector_equal(sub_values, vresult));
@@ -328,11 +324,11 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
   max_rep_level_ = 0;
   NodePtr type = schema::Int32("a", Repetition::REQUIRED);
   const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
-  shared_ptr<ResizableBuffer> dummy = AllocateBuffer();
+  std::shared_ptr<ResizableBuffer> dummy = AllocateBuffer();
 
-  shared_ptr<DictionaryPage> dict_page =
+  std::shared_ptr<DictionaryPage> dict_page =
       std::make_shared<DictionaryPage>(dummy, 0, Encoding::PLAIN);
-  shared_ptr<DataPageV1> data_page = MakeDataPage<Int32Type>(
+  std::shared_ptr<DataPageV1> data_page = MakeDataPage<Int32Type>(
       &descr, {}, 0, Encoding::RLE_DICTIONARY, {}, 0, {}, 0, {}, 0);
   pages_.push_back(dict_page);
   pages_.push_back(data_page);
@@ -366,9 +362,9 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
   ASSERT_THROW(reader_->HasNext(), ParquetException);
   pages_.clear();
 
-  shared_ptr<DictionaryPage> dict_page1 =
+  std::shared_ptr<DictionaryPage> dict_page1 =
       std::make_shared<DictionaryPage>(dummy, 0, Encoding::PLAIN_DICTIONARY);
-  shared_ptr<DictionaryPage> dict_page2 =
+  std::shared_ptr<DictionaryPage> dict_page2 =
       std::make_shared<DictionaryPage>(dummy, 0, Encoding::PLAIN);
   pages_.push_back(dict_page1);
   pages_.push_back(dict_page2);

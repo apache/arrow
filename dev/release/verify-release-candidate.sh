@@ -214,16 +214,19 @@ ${ARROW_CMAKE_OPTIONS}
 -DCMAKE_BUILD_TYPE=release
 -DARROW_BUILD_TESTS=ON
 -DARROW_CUDA=${ARROW_CUDA}
+-DARROW_DEPENDENCY_SOURCE=AUTO
 "
   cmake $ARROW_CMAKE_OPTIONS ..
 
   make -j$NPROC
   make install
 
-  git clone https://github.com/apache/parquet-testing.git
-  export PARQUET_TEST_DATA=$PWD/parquet-testing/data
-
-  ctest -VV -L unittest
+  # TODO: ARROW-5036
+  ctest \
+    --exclude-regex "plasma-serialization_tests" \
+    -j$NPROC \
+    --output-on-failure \
+    -L unittest
   popd
 }
 
@@ -234,7 +237,14 @@ test_python() {
 
   pip install -r requirements.txt -r requirements-test.txt
 
-  python setup.py build_ext --inplace --with-parquet --with-plasma
+  export PYARROW_WITH_GANDIVA=1
+  export PYARROW_WITH_PARQUET=1
+  export PYARROW_WITH_PLASMA=1
+  if [ "${ARROW_CUDA}" = "ON" ]; then
+    export PYARROW_WITH_CUDA=1
+  fi
+
+  python setup.py build_ext --inplace
   py.test pyarrow -v --pdb
 
   popd
@@ -288,6 +298,9 @@ test_ruby() {
 
   for module in ${modules}; do
     pushd ${module}
+    if [ "${module}" != "red-arrow" ]; then
+      echo 'gem "red-arrow", path: "../red-arrow"' >> Gemfile
+    fi
     bundle install --path vendor/bundle
     bundle exec ruby test/run-test.rb
     popd
@@ -309,14 +322,14 @@ test_rust() {
   # build and test rust
   pushd rust
 
+  # raises on any formatting errors
+  rustup component add rustfmt --toolchain stable
+  cargo +stable fmt --all -- --check
+
   # we are targeting Rust nightly for releases
   rustup default nightly
 
-  # raises on any formatting errors
-  rustup component add rustfmt-preview
-  cargo fmt --all -- --check
   # raises on any warnings
-
   RUSTFLAGS="-D warnings" cargo build
   cargo test
 
@@ -390,9 +403,15 @@ if [ "$ARTIFACT" == "source" ]; then
   TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
   TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
 
+  git clone https://github.com/apache/parquet-testing.git
+  export PARQUET_TEST_DATA=$PWD/parquet-testing/data
+
   fetch_archive $DIST_NAME
   tar xvzf ${DIST_NAME}.tar.gz
   cd ${DIST_NAME}
+
+  rm -r testing
+  git clone https://github.com/apache/arrow-testing.git testing
 
   if [ ${TEST_JAVA} -gt 0 ]; then
     test_package_java

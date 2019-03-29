@@ -414,6 +414,8 @@ class Target:
         if version is None:
             version = get_version(repo.path)
             formatted_version = version.format_with('{tag}.dev{distance}')
+        else:
+            formatted_version = version
         return cls(head=str(repo.head.target),
                    email=repo.email,
                    branch=repo.branch.branch_name,

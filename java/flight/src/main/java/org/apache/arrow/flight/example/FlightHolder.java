@@ -56,7 +56,7 @@ public class FlightHolder implements AutoCloseable {
   }
 
   public Stream.StreamCreator addStream(Schema schema) {
-    Preconditions.checkArgument(schema.equals(schema), "Stream schema inconsitent with existing schema.");
+    Preconditions.checkArgument(schema.equals(schema), "Stream schema inconsistent with existing schema.");
     return new Stream.StreamCreator(schema, allocator, t -> {
       synchronized (streams) {
         streams.add(t);

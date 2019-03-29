@@ -27,8 +27,6 @@
 #include "parquet/exception.h"
 #include "parquet/types.h"
 
-using std::vector;
-
 namespace parquet {
 
 namespace test {
@@ -52,7 +50,8 @@ const char* get_data_dir() {
 }
 
 template <typename T>
-static inline void assert_vector_equal(const vector<T>& left, const vector<T>& right) {
+static inline void assert_vector_equal(const std::vector<T>& left,
+                                       const std::vector<T>& right) {
   ASSERT_EQ(left.size(), right.size());
 
   for (size_t i = 0; i < left.size(); ++i) {
@@ -61,7 +60,7 @@ static inline void assert_vector_equal(const vector<T>& left, const vector<T>& r
 }
 
 template <typename T>
-static inline bool vector_equal(const vector<T>& left, const vector<T>& right) {
+static inline bool vector_equal(const std::vector<T>& left, const std::vector<T>& right) {
   if (left.size() != right.size()) {
     return false;
   }
@@ -78,30 +77,30 @@ static inline bool vector_equal(const vector<T>& left, const vector<T>& right) {
 }
 
 template <typename T>
-static vector<T> slice(const vector<T>& values, int start, int end) {
+static std::vector<T> slice(const std::vector<T>& values, int start, int end) {
   if (end < start) {
-    return vector<T>(0);
+    return std::vector<T>(0);
   }
 
-  vector<T> out(end - start);
+  std::vector<T> out(end - start);
   for (int i = start; i < end; ++i) {
     out[i - start] = values[i];
   }
   return out;
 }
 
-static inline vector<bool> flip_coins_seed(int n, double p, uint32_t seed) {
+static inline std::vector<bool> flip_coins_seed(int n, double p, uint32_t seed) {
   std::default_random_engine gen(seed);
   std::bernoulli_distribution d(p);
 
-  vector<bool> draws(n);
+  std::vector<bool> draws(n);
   for (int i = 0; i < n; ++i) {
     draws[i] = d(gen);
   }
   return draws;
 }
 
-static inline vector<bool> flip_coins(int n, double p) {
+static inline std::vector<bool> flip_coins(int n, double p) {
   uint64_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
   return flip_coins_seed(n, p, static_cast<uint32_t>(seed));
 }

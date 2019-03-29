@@ -1,19 +1,15 @@
 boost_cpp:
 - 1.68.0
-build_number_decrement:
-- '0'
+c_compiler:
+- vs2015
 channel_sources:
 - conda-forge,defaults
 channel_targets:
 - conda-forge main
-c_compiler:
-- gcc
 cxx_compiler:
-- gxx
-docker_image:
-- condaforge/linux-anvil-comp7
+- vs2015
 libprotobuf:
-- '3.6'
+- '3.7'
 lz4_c:
 - 1.8.1
 pin_run_as_build:
@@ -28,6 +24,8 @@ pin_run_as_build:
     max_pin: x.x
   snappy:
     max_pin: x.x.x
+  vc:
+    max_pin: x
   zlib:
     max_pin: x.x
   zstd:
@@ -36,13 +34,13 @@ python:
 - '3.6'
 snappy:
 - 1.1.7
+vc:
+- '14'
 zip_keys:
-- - c_compiler
+- - python
+  - vc
+  - c_compiler
   - cxx_compiler
-  - channel_sources
-  - channel_targets
-  - docker_image
-  - build_number_decrement
 zlib:
 - '1.2'
 zstd:

@@ -36,9 +36,6 @@
 
 namespace arrow {
 
-using std::string;
-using std::vector;
-
 using internal::checked_cast;
 
 // ----------------------------------------------------------------------
@@ -764,7 +761,7 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
 // DictionaryArray tests
 
 TEST(TestDictionary, Basics) {
-  vector<int32_t> values = {100, 1000, 10000, 100000};
+  std::vector<int32_t> values = {100, 1000, 10000, 100000};
   std::shared_ptr<Array> dict;
   ArrayFromVector<Int32Type, int32_t>(values, &dict);
 
@@ -785,7 +782,7 @@ TEST(TestDictionary, Basics) {
 }
 
 TEST(TestDictionary, Equals) {
-  vector<bool> is_valid = {true, true, false, true, true, true};
+  std::vector<bool> is_valid = {true, true, false, true, true, true};
   std::shared_ptr<Array> dict, dict2, indices, indices2, indices3;
 
   dict = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
@@ -794,13 +791,13 @@ TEST(TestDictionary, Equals) {
   dict2 = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\", \"qux\"]");
   std::shared_ptr<DataType> dict2_type = dictionary(int16(), dict2);
 
-  vector<int16_t> indices_values = {1, 2, -1, 0, 2, 0};
+  std::vector<int16_t> indices_values = {1, 2, -1, 0, 2, 0};
   ArrayFromVector<Int16Type, int16_t>(is_valid, indices_values, &indices);
 
-  vector<int16_t> indices2_values = {1, 2, 0, 0, 2, 0};
+  std::vector<int16_t> indices2_values = {1, 2, 0, 0, 2, 0};
   ArrayFromVector<Int16Type, int16_t>(is_valid, indices2_values, &indices2);
 
-  vector<int16_t> indices3_values = {1, 1, 0, 0, 2, 0};
+  std::vector<int16_t> indices3_values = {1, 1, 0, 0, 2, 0};
   ArrayFromVector<Int16Type, int16_t>(is_valid, indices3_values, &indices3);
 
   auto array = std::make_shared<DictionaryArray>(dict_type, indices);
@@ -880,8 +877,8 @@ TEST(TestDictionary, FromArray) {
 
   // Invalid index is masked by null
   std::shared_ptr<Array> indices3;
-  vector<bool> is_valid3 = {true, true, false, true, true, true};
-  vector<int16_t> indices_values3 = {1, 2, -1, 0, 2, 0};
+  std::vector<bool> is_valid3 = {true, true, false, true, true, true};
+  std::vector<int16_t> indices_values3 = {1, 2, -1, 0, 2, 0};
   ArrayFromVector<Int16Type, int16_t>(is_valid3, indices_values3, &indices3);
 
   // Index out of bounds

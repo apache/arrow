@@ -102,7 +102,8 @@ write_feather_RecordBatch <- function(data, stream) {
 #' @export
 #' @method write_feather_RecordBatch fs_path
 `write_feather_RecordBatch.fs_path` <- function(data, stream) {
-  file_stream <- close_on_exit(FileOutputStream(stream))
+  file_stream <- FileOutputStream(stream)
+  on.exit(file_stream$close())
   `write_feather_RecordBatch.arrow::io::OutputStream`(data, file_stream)
 }
 

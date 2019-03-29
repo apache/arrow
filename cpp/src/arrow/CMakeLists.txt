@@ -118,6 +118,7 @@ set(ARROW_SRCS
     testing/util.cc
     util/basic_decimal.cc
     util/bit-util.cc
+    util/concatenate.cc
     util/compression.cc
     util/cpu-info.cc
     util/decimal.cc
@@ -129,6 +130,7 @@ set(ARROW_SRCS
     util/task-group.cc
     util/thread-pool.cc
     util/trie.cc
+    util/uri.cc
     util/utf8.cc
     vendored/datetime/tz.cpp)
 
@@ -137,6 +139,9 @@ if("${COMPILER_FAMILY}" STREQUAL "clang")
                APPEND_STRING
                PROPERTY COMPILE_FLAGS " -Wno-unused-macros ")
 endif()
+
+# Unconditionally install testing headers that are also useful for Arrow consumers.
+add_subdirectory(testing)
 
 if(ARROW_COMPUTE)
   add_subdirectory(compute)
@@ -200,7 +205,7 @@ endif()
 
 if(ARROW_ORC)
   add_subdirectory(adapters/orc)
-  set(ARROW_SRCS adapters/orc/adapter.cc ${ARROW_SRCS})
+  set(ARROW_SRCS adapters/orc/adapter.cc adapters/orc/adapter_util.cc ${ARROW_SRCS})
 endif()
 
 if(ARROW_TENSORFLOW)

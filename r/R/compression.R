@@ -37,10 +37,14 @@ compression_codec <- function(type = "GZIP") {
 
 #' Compressed output stream
 #'
+#' @details This function is not supported in Windows.
+#'
 #' @param stream Underlying raw output stream
 #' @param codec a codec
 #' @export
 CompressedOutputStream <- function(stream, codec = compression_codec("GZIP")){
+  if (.Platform$OS.type == "windows") stop("'CompressedOutputStream' is unsupported in Windows.")
+
   UseMethod("CompressedOutputStream")
 }
 

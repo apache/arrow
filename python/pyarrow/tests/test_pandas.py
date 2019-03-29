@@ -254,16 +254,13 @@ class TestConvertMetadata(object):
         assert col3['name'] == col3['field_name']
 
         idx0_descr, foo_descr = js['index_columns']
-        assert idx0_descr['kind'] == 'serialized'
-        idx0_name = idx0_descr['field_name']
-        assert idx0_name == '__index_level_0__'
-        assert idx0['field_name'] == idx0_name
+        assert idx0_descr == '__index_level_0__'
+        assert idx0['field_name'] == idx0_descr
         assert idx0['name'] is None
 
-        foo_name = foo_descr['field_name']
-        assert foo_name == 'foo'
-        assert foo['field_name'] == foo_name
-        assert foo['name'] == foo_name
+        assert foo_descr == 'foo'
+        assert foo['field_name'] == foo_descr
+        assert foo['name'] == foo_descr
 
     def test_categorical_column_index(self):
         df = pd.DataFrame(

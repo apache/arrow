@@ -35,25 +35,28 @@ endif()
 # ----------------------------------------------------------------------
 # Resolve the dependencies
 
+# TODO: add uriparser here when it gets a conda package
 set(ARROW_THIRDPARTY_DEPENDENCIES
-    double-conversion
-    BROTLI
-    Snappy
-    gflags
-    Thrift
-    Protobuf
-    GTEST
     benchmark
-    RapidJSON
-    Flatbuffers
-    ZLIB
+    BOOST
+    Brotli
     BZip2
-    LZ4
-    ZSTD
-    RE2
     c-ares
+    double-conversion
+    Flatbuffers
+    gflags
+    GLOG
+    gRPC
+    GTest
     LLVM
-    BOOST)
+    Lz4
+    RE2
+    Protobuf
+    RapidJSON
+    Snappy
+    Thrift
+    ZLIB
+    ZSTD)
 
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
 
@@ -74,73 +77,64 @@ if(ARROW_PACKAGE_PREFIX)
   message(STATUS "Setting (unset) dependency *_ROOT variables: ${ARROW_PACKAGE_PREFIX}")
   set(ENV{PKG_CONFIG_PATH} "${ARROW_PACKAGE_PREFIX}/lib/pkgconfig/")
 
-  if(NOT BOOST_ROOT)
-    set(BOOST_ROOT ${ARROW_PACKAGE_PREFIX})
-  endif()
   if(NOT ENV{BOOST_ROOT})
     set(ENV{BOOST_ROOT} ${ARROW_PACKAGE_PREFIX})
   endif()
   if(NOT ENV{Boost_ROOT})
     set(ENV{Boost_ROOT} ${ARROW_PACKAGE_PREFIX})
   endif()
-
-  foreach(DEPENDENCY ${ARROW_THIRDPARTY_DEPENDENCIES})
-    if(NOT ${DEPENDENCY}_ROOT)
-      set(${DEPENDENCY}_ROOT ${ARROW_PACKAGE_PREFIX})
-    endif()
-  endforeach()
 endif()
 
-function(get_dependency_source DEPENDENCY_NAME)
-  if("${${DEPENDENCY_NAME}_SOURCE}" STREQUAL "")
-    set(${DEPENDENCY_NAME}_SOURCE ${ARROW_ACTUAL_DEPENDENCY_SOURCE} PARENT_SCOPE)
+# For each dependency, set dependency source to global default, if unset
+foreach(DEPENDENCY ${ARROW_THIRDPARTY_DEPENDENCIES})
+  if("${${DEPENDENCY}_SOURCE}" STREQUAL "")
+    set(${DEPENDENCY}_SOURCE ${ARROW_ACTUAL_DEPENDENCY_SOURCE})
+    # If no ROOT was supplied and we have a global prefix, use it
+    if(NOT ${DEPENDENCY}_ROOT AND ARROW_PACKAGE_PREFIX)
+      set(${DEPENDENCY}_ROOT ${ARROW_PACKAGE_PREFIX})
+    endif()
   endif()
-
-  # If AUTO was specified and a ROOT was supplied, use this root.
-  if(${DEPENDENCY_NAME}_ROOT AND ${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
-    set(${DEPENDENCY_NAME}_SOURCE "SYSTEM" PARENT_SCOPE)
-  endif()
-endfunction()
+endforeach()
 
 macro(build_dependency DEPENDENCY_NAME)
-  if("${DEPENDENCY_NAME}" STREQUAL "Brotli")
-    build_brotli()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "GLOG")
-    build_glog()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "gflags")
-    build_gflags()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
-    build_thrift()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
-    build_protobuf()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "GTest")
-    build_gtest()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "benchmark")
+  if("${DEPENDENCY_NAME}" STREQUAL "benchmark")
     build_benchmark()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "Flatbuffers")
-    build_flatbuffers()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "ZLIB")
-    build_zlib()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "Lz4")
-    build_lz4()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "ZSTD")
-    build_zstd()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "RE2")
-    build_re2()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "c-ares")
-    build_cares()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "gRPC")
-    build_grpc()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Brotli")
+    build_brotli()
   elseif("${DEPENDENCY_NAME}" STREQUAL "BZip2")
     build_bzip2()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "c-ares")
+    build_cares()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Flatbuffers")
+    build_flatbuffers()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "gflags")
+    build_gflags()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "GLOG")
+    build_glog()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "gRPC")
+    build_grpc()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "GTest")
+    build_gtest()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Lz4")
+    build_lz4()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
+    build_protobuf()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "RE2")
+    build_re2()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
+    build_thrift()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "uriparser")
+    build_uriparser()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "ZLIB")
+    build_zlib()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "ZSTD")
+    build_zstd()
   else()
     message(FATAL_ERROR "Unknown thirdparty dependency to build: ${DEPENDENCY_NAME}")
   endif()
 endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)
-  get_dependency_source(${DEPENDENCY_NAME})
-
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
     find_package(${DEPENDENCY_NAME} QUIET)
     if(NOT ${DEPENDENCY_NAME}_FOUND)
@@ -341,6 +335,13 @@ else()
     )
 endif()
 
+if(DEFINED ENV{ARROW_URIPARSER_URL})
+  set(URIPARSER_SOURCE_URL "$ENV{ARROW_URIPARSER_URL}")
+else()
+  set(URIPARSER_SOURCE_URL
+      "https://github.com/uriparser/uriparser/archive/${URIPARSER_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_ZLIB_URL})
   set(ZLIB_SOURCE_URL "$ENV{ARROW_ZLIB_URL}")
 else()
@@ -484,8 +485,6 @@ const int flags_ = double_conversion::StringToDoubleConverter::ALLOW_CASE_INSENS
       }" DOUBLE_CONVERSION_HAS_CASE_INSENSIBILITY)
 endmacro()
 
-get_dependency_source(double-conversion)
-
 if(double-conversion_SOURCE STREQUAL "AUTO")
   # Debian does not ship cmake configs for double-conversion
   # TODO: Make upstream bug
@@ -514,6 +513,72 @@ endif()
 include_directories(SYSTEM ${double-conversion_INCLUDE_DIRS})
 
 double_conversion_compability()
+
+# ----------------------------------------------------------------------
+# uriparser library
+
+macro(build_uriparser)
+  message(STATUS "Building uriparser from source")
+  set(URIPARSER_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/uriparser_ep-install")
+  set(
+    URIPARSER_STATIC_LIB
+    "${URIPARSER_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}uriparser${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  set(URIPARSER_INCLUDE_DIRS "${URIPARSER_PREFIX}/include")
+
+  set(URIPARSER_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      "-DURIPARSER_BUILD_DOCS=off"
+      "-DURIPARSER_BUILD_TESTS=off"
+      "-DURIPARSER_BUILD_TOOLS=off"
+      "-DURIPARSER_BUILD_WCHAR_T=off"
+      "-DBUILD_SHARED_LIBS=off"
+      "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+      "-DCMAKE_INSTALL_LIBDIR=lib"
+      "-DCMAKE_POSITION_INDEPENDENT_CODE=on"
+      "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>")
+
+  if(MSVC AND ARROW_USE_STATIC_CRT)
+    if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+      list(APPEND URIPARSER_CMAKE_ARGS "-DURIPARSER_MSVC_RUNTIME=/MTd")
+    else()
+      list(APPEND URIPARSER_CMAKE_ARGS "-DURIPARSER_MSVC_RUNTIME=/MT")
+    endif()
+  endif()
+
+  externalproject_add(uriparser_ep
+                      URL
+                      ${URIPARSER_SOURCE_URL}
+                      CMAKE_ARGS
+                      ${URIPARSER_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS
+                      ${URIPARSER_STATIC_LIB}
+                      INSTALL_DIR
+                      ${URIPARSER_PREFIX}
+                      ${EP_LOG_OPTIONS})
+
+  add_library(uriparser::uriparser STATIC IMPORTED)
+  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+  file(MAKE_DIRECTORY ${URIPARSER_INCLUDE_DIRS})
+  set_target_properties(
+    uriparser::uriparser
+    PROPERTIES IMPORTED_LOCATION ${URIPARSER_STATIC_LIB} INTERFACE_INCLUDE_DIRECTORIES
+               ${URIPARSER_INCLUDE_DIRS})
+
+  add_dependencies(toolchain uriparser_ep)
+  add_dependencies(uriparser::uriparser uriparser_ep)
+endmacro()
+
+# Unless the user overrides uriparser_SOURCE, build uriparser ourselves
+if("${uriparser_SOURCE}" STREQUAL "")
+  set(uriparser_SOURCE "BUNDLED")
+endif()
+
+resolve_dependency(uriparser)
+
+get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser
+                    INTERFACE_INCLUDE_DIRECTORIES)
+include_directories(SYSTEM ${URIPARSER_INCLUDE_DIRS})
 
 # ----------------------------------------------------------------------
 # Snappy
@@ -607,7 +672,6 @@ macro(build_snappy)
 endmacro()
 
 if(ARROW_WITH_SNAPPY)
-  get_dependency_source(Snappy)
   if(Snappy_SOURCE STREQUAL "AUTO")
     # Normally *Config.cmake files reside in /usr/lib/cmake but Snappy
     # errornously places them in ${CMAKE_ROOT}/Modules/
@@ -846,7 +910,6 @@ macro(build_gflags)
 endmacro()
 
 if(ARROW_NEED_GFLAGS)
-  get_dependency_source(gflags)
   if(gflags_SOURCE STREQUAL "AUTO")
     find_package(gflags QUIET)
     if(NOT gflags_FOUND)
@@ -1404,7 +1467,6 @@ endmacro()
 
 # TODO: Check for 1.1.0+
 if(ARROW_WITH_RAPIDJSON)
-  get_dependency_source(RapidJSON)
   if(RapidJSON_SOURCE STREQUAL "AUTO")
     # Fedora packages place the package information at the wrong location.
     # https://bugzilla.redhat.com/show_bug.cgi?id=1680400
@@ -1482,7 +1544,6 @@ macro(build_flatbuffers)
 endmacro()
 
 if(ARROW_WITH_FLATBUFFERS)
-  get_dependency_source(Flatbuffers)
   if(Flatbuffers_SOURCE STREQUAL "AUTO")
     find_package(Flatbuffers QUIET)
     # Older versions of Flatbuffers (that are not built using CMake)
@@ -1843,7 +1904,6 @@ macro(build_cares)
 endmacro()
 
 if(ARROW_WITH_GRPC)
-  get_dependency_source(c-ares)
   if(c-ares_SOURCE STREQUAL "AUTO")
     find_package(c-ares QUIET)
     if(NOT c-ares_FOUND)
@@ -1965,7 +2025,9 @@ macro(build_grpc)
                       ${GRPC_CPP_PLUGIN}
                       CMAKE_ARGS
                       ${GRPC_CMAKE_ARGS}
-                      ${EP_LOG_OPTIONS})
+                      ${EP_LOG_OPTIONS}
+                      DEPENDS
+                      ${grpc_dependencies})
 
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr
@@ -2002,7 +2064,24 @@ macro(build_grpc)
 endmacro()
 
 if(ARROW_WITH_GRPC)
-  get_dependency_source(gRPC)
+  # gRPC requires OpenSSL but it depends on OpenSSL::SSL and OpenSSL::Crypto
+  # which are not available in older CMake versions.
+  find_package(OpenSSL REQUIRED)
+  if(NOT TARGET OpenSSL::SSL)
+    add_library(OpenSSL::SSL UNKNOWN IMPORTED)
+    set_target_properties(OpenSSL::SSL
+                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                     "${OPENSSL_INCLUDE_DIR}")
+  endif()
+  if(NOT TARGET OpenSSL::Crypto)
+    add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
+    set_target_properties(OpenSSL::Crypto
+                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                     "${OPENSSL_INCLUDE_DIR}")
+  endif()
+
   if(gRPC_SOURCE STREQUAL "AUTO")
     find_package(gRPC QUIET)
     if(NOT gRPC_FOUND)
@@ -2264,6 +2343,11 @@ if(ARROW_ORC)
       "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
     if("${COMPILER_FAMILY}" STREQUAL "clang")
+      if("${COMPILER_VERSION}" VERSION_EQUAL "4.0")
+        # conda OSX builds uses clang 4.0.1 and orc_ep fails to build unless
+        # disabling the following errors
+        set(ORC_CMAKE_CXX_FLAGS " -Wno-error=weak-vtables -Wno-error=undef ")
+      endif()
       if("${COMPILER_VERSION}" VERSION_GREATER "4.0")
         set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
   -Wno-inconsistent-missing-destructor-override ")

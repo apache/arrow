@@ -64,14 +64,13 @@ update_versions() {
   git add Directory.Build.props
   cd -
 
-  # We can enable this when Arrow JS uses the same version.
-  # cd "${SOURCE_DIR}/../../js"
-  # sed -i.bak -E -e \
-  #   "s/^  \"version\": \".+\"/  \"version\": \"${version}\"/" \
-  #   package.json
-  # rm -f package.json
-  # git add package.json
-  # cd -
+  cd "${SOURCE_DIR}/../../js"
+  sed -i.bak -E -e \
+    "s/^  \"version\": \".+\"/  \"version\": \"${version}\"/" \
+    package.json
+  rm -f package.json.bak
+  git add package.json
+  cd -
 
   cd "${SOURCE_DIR}/../../matlab"
   sed -i.bak -E -e \
@@ -95,6 +94,14 @@ update_versions() {
     DESCRIPTION
   rm -f DESCRIPTION.bak
   git add DESCRIPTION
+  cd -
+
+  cd "${SOURCE_DIR}/../../r/src"
+  sed -i.bak -E -e \
+    "s/^VERSION = .+/VERSION = ${r_version}/" \
+    Makevars.win
+  rm -f Makevars.win.bak
+  git add Makevars.win
   cd -
 
   cd "${SOURCE_DIR}/../../ruby"

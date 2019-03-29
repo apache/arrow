@@ -17,7 +17,6 @@
 
 #include <algorithm>
 #include <memory>
-#include <string>
 #include <type_traits>
 #include <utility>
 
@@ -37,9 +36,6 @@
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
-
-using std::shared_ptr;
-using std::vector;
 
 namespace arrow {
 namespace compute {

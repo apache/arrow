@@ -429,7 +429,7 @@ class GZipCodec::GZipCodecImpl {
     // Must be in compression mode
     if (!compressor_initialized_) {
       Status s = InitCompressor();
-      DCHECK(s.ok());
+      DCHECK_OK(s);
     }
     int64_t max_len = deflateBound(&stream_, static_cast<uLong>(input_length));
     // ARROW-3514: return a more pessimistic estimate to account for bugs

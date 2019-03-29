@@ -29,9 +29,6 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 
-using std::shared_ptr;
-using std::vector;
-
 namespace arrow {
 
 std::shared_ptr<Column> column(const std::shared_ptr<Field>& field,
@@ -246,7 +243,7 @@ class TestTable : public TestBase {
     auto f1 = field("f1", uint8());
     auto f2 = field("f2", int16());
 
-    vector<shared_ptr<Field>> fields = {f0, f1, f2};
+    std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
     schema_ = std::make_shared<Schema>(fields);
 
     arrays_ = {MakeRandomArray<Int32Array>(length), MakeRandomArray<UInt8Array>(length),
@@ -259,7 +256,7 @@ class TestTable : public TestBase {
 
  protected:
   std::shared_ptr<Table> table_;
-  shared_ptr<Schema> schema_;
+  std::shared_ptr<Schema> schema_;
 
   std::vector<std::shared_ptr<Array>> arrays_;
   std::vector<std::shared_ptr<Column>> columns_;
@@ -343,7 +340,7 @@ TEST_F(TestTable, Equals) {
   auto f0 = field("f3", int32());
   auto f1 = field("f4", uint8());
   auto f2 = field("f5", int16());
-  vector<shared_ptr<Field>> fields = {f0, f1, f2};
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
   auto other_schema = std::make_shared<Schema>(fields);
   auto other = Table::Make(other_schema, columns_);
   ASSERT_FALSE(table_->Equals(*other));
@@ -567,7 +564,7 @@ TEST_F(TestRecordBatch, Equals) {
   auto f1 = field("f1", uint8());
   auto f2 = field("f2", int16());
 
-  vector<shared_ptr<Field>> fields = {f0, f1, f2};
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
   auto schema = ::arrow::schema({f0, f1, f2});
   auto schema2 = ::arrow::schema({f0, f1});
 
@@ -617,7 +614,7 @@ TEST_F(TestRecordBatch, Slice) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8());
 
-  vector<shared_ptr<Field>> fields = {f0, f1};
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1};
   auto schema = ::arrow::schema(fields);
 
   auto a0 = MakeRandomArray<Int32Array>(length);

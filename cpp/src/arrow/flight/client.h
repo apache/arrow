@@ -89,12 +89,9 @@ class ARROW_EXPORT FlightClient {
   /// \brief Given a flight ticket and schema, request to be sent the
   /// stream. Returns record batch stream reader
   /// \param[in] ticket The flight ticket to use
-  /// \param[in] schema the schema of the stream data as computed by
-  /// GetFlightInfo
   /// \param[out] stream the returned RecordBatchReader
   /// \return Status
-  Status DoGet(const Ticket& ticket, const std::shared_ptr<Schema>& schema,
-               std::unique_ptr<RecordBatchReader>* stream);
+  Status DoGet(const Ticket& ticket, std::unique_ptr<RecordBatchReader>* stream);
 
   /// \brief Upload data to a Flight described by the given
   /// descriptor. The caller must call Close() on the returned stream

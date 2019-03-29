@@ -15,14 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @importFrom withr defer_parent
-close_on_exit <- function(x, ...){
-  defer_parent(x$close(), ...)
-  x
-}
-
-local_tempfile <- function(...){
-  tf <- tempfile()
-  defer_parent(unlink(tf), ...)
-  tf
-}
+arrow_install_all_headers("arrow/vendored/datetime")

@@ -20,8 +20,8 @@ os: Visual Studio 2015
 environment:
   ARCH: "64"
   GENERATOR: Visual Studio 14 2015 Win64
-  NUMPY: "1.14.5"
-  PYTHON: "{{ python_version }}"
+  NUMPY_VERSION: "1.14.5"
+  PYTHON_VERSION: "{{ python_version }}"
   MSVC_DEFAULT_OPTIONS: ON
   ARROW_SRC: C:\apache-arrow
   PYARROW_VERSION: {{ arrow.no_rc_version }}
@@ -33,15 +33,17 @@ init:
 
 build_script:
   - mkdir wheels
+  - git config core.symlinks true
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} %ARROW_SRC% || exit /B
   - git -C %ARROW_SRC% checkout {{ arrow.head }} || exit /B
   - call %ARROW_SRC%\dev\tasks\python-wheels\win-build.bat
 
 after_build:
-  xcopy %ARROW_SRC%\python\dist\* wheels\
+  # the artifacts must be uploaded from a directory relative to the build root
+  - xcopy %ARROW_SRC%\python\dist\* wheels\
 
 artifacts:
-  - path: wheels\*.whl
+  - path: 'wheels\*.whl'
 
 deploy:
   release: {{ task.tag }}
