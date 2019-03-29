@@ -81,6 +81,11 @@ short description of your use case. See the following for some examples.
   team uses Arrow in its NodeJS GPU backend and client libraries, and is an
   early contributing member to GOAI and Arrow\[JS\] focused on bringing these
   technologies to the enterprise.
+* **[InAccel][29]:** A machine learning acceleration framework which leverages
+  FPGAs-as-a-service. InAccel supports dataframes backed by Apache Arrow to 
+  serve as input for our implemented ML algorithms. Those dataframes can be 
+  accessed from the FPGAs with a single DMA operation by implementing a shared
+  memory communication schema. 
 * **[libgdf][14]:** A C library of CUDA-based analytics functions and GPU IPC
   support for structured data. Uses the Arrow IPC format and targets the Arrow
   memory layout in its analytic functions. This work is part of the [GPU Open
@@ -159,3 +164,4 @@ short description of your use case. See the following for some examples.
 [26]: https://fastdata.io/
 [27]: https://github.com/apache/arrow/edit/master/site/powered_by.md
 [28]: https://github.com/uber/petastorm
+[29]: https://www.inaccel.com/
