@@ -304,7 +304,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (Float32, Float64) => cast_numeric_arrays::<Float32Type, Float64Type>(array),
 
         (Float64, UInt8) => cast_numeric_arrays::<Float64Type, UInt8Type>(array),
-        (Float64, UInt16) => cast_numeric_arrays::<UInt16Type, Float32Type>(array),
+        (Float64, UInt16) => cast_numeric_arrays::<Float64Type, UInt16Type>(array),
         (Float64, UInt32) => cast_numeric_arrays::<Float64Type, UInt32Type>(array),
         (Float64, UInt64) => cast_numeric_arrays::<Float64Type, UInt64Type>(array),
         (Float64, Int8) => cast_numeric_arrays::<Float64Type, Int8Type>(array),
@@ -780,6 +780,286 @@ mod tests {
             &DataType::List(Box::new(DataType::Timestamp(TimeUnit::Microsecond))),
         )
         .unwrap();
+    }
+
+    #[test]
+    fn test_cast_from_f64() {
+        let f64_values: Vec<f64> = vec![
+            std::i64::MIN as f64,
+            std::i32::MIN as f64,
+            std::i16::MIN as f64,
+            std::i8::MIN as f64,
+            0_f64,
+            std::u8::MAX as f64,
+            std::u16::MAX as f64,
+            std::u32::MAX as f64,
+            std::u64::MAX as f64,
+        ];
+        let f64_array: ArrayRef = Arc::new(Float64Array::from(f64_values.clone()));
+
+        let f64_expected = vec![
+            "-9223372036854776000.0",
+            "-2147483648.0",
+            "-32768.0",
+            "-128.0",
+            "0.0",
+            "255.0",
+            "65535.0",
+            "4294967295.0",
+            "18446744073709552000.0",
+        ];
+        assert_eq!(
+            f64_expected,
+            get_cast_values::<Float64Type>(&f64_array, &DataType::Float64)
+        );
+
+        let f32_expected = vec![
+            "-9223372000000000000.0",
+            "-2147483600.0",
+            "-32768.0",
+            "-128.0",
+            "0.0",
+            "255.0",
+            "65535.0",
+            "4294967300.0",
+            "18446744000000000000.0",
+        ];
+        assert_eq!(
+            f32_expected,
+            get_cast_values::<Float32Type>(&f64_array, &DataType::Float32)
+        );
+
+        let i64_expected = vec![
+            "-9223372036854775808",
+            "-2147483648",
+            "-32768",
+            "-128",
+            "0",
+            "255",
+            "65535",
+            "4294967295",
+            "null",
+        ];
+        assert_eq!(
+            i64_expected,
+            get_cast_values::<Int64Type>(&f64_array, &DataType::Int64)
+        );
+
+        let i32_expected = vec![
+            "null",
+            "-2147483648",
+            "-32768",
+            "-128",
+            "0",
+            "255",
+            "65535",
+            "null",
+            "null",
+        ];
+        assert_eq!(
+            i32_expected,
+            get_cast_values::<Int32Type>(&f64_array, &DataType::Int32)
+        );
+
+        let i16_expected = vec![
+            "null", "null", "-32768", "-128", "0", "255", "null", "null", "null",
+        ];
+        assert_eq!(
+            i16_expected,
+            get_cast_values::<Int16Type>(&f64_array, &DataType::Int16)
+        );
+
+        let i8_expected = vec![
+            "null", "null", "null", "-128", "0", "null", "null", "null", "null",
+        ];
+        assert_eq!(
+            i8_expected,
+            get_cast_values::<Int8Type>(&f64_array, &DataType::Int8)
+        );
+
+        let u64_expected = vec![
+            "null",
+            "null",
+            "null",
+            "null",
+            "0",
+            "255",
+            "65535",
+            "4294967295",
+            "null",
+        ];
+        assert_eq!(
+            u64_expected,
+            get_cast_values::<UInt64Type>(&f64_array, &DataType::UInt64)
+        );
+
+        let u32_expected = vec![
+            "null",
+            "null",
+            "null",
+            "null",
+            "0",
+            "255",
+            "65535",
+            "4294967295",
+            "null",
+        ];
+        assert_eq!(
+            u32_expected,
+            get_cast_values::<UInt32Type>(&f64_array, &DataType::UInt32)
+        );
+
+        let u16_expected = vec![
+            "null", "null", "null", "null", "0", "255", "65535", "null", "null",
+        ];
+        assert_eq!(
+            u16_expected,
+            get_cast_values::<UInt16Type>(&f64_array, &DataType::UInt16)
+        );
+
+        let u8_expected = vec![
+            "null", "null", "null", "null", "0", "255", "null", "null", "null",
+        ];
+        assert_eq!(
+            u8_expected,
+            get_cast_values::<UInt8Type>(&f64_array, &DataType::UInt8)
+        );
+    }
+
+    #[test]
+    fn test_cast_from_f32() {
+        let f32_values: Vec<f32> = vec![
+            std::i32::MIN as f32,
+            std::i32::MIN as f32,
+            std::i16::MIN as f32,
+            std::i8::MIN as f32,
+            0_f32,
+            std::u8::MAX as f32,
+            std::u16::MAX as f32,
+            std::u32::MAX as f32,
+            std::u32::MAX as f32,
+        ];
+        let f32_array: ArrayRef = Arc::new(Float32Array::from(f32_values.clone()));
+
+        let f64_expected = vec![
+            "-2147483648.0",
+            "-2147483648.0",
+            "-32768.0",
+            "-128.0",
+            "0.0",
+            "255.0",
+            "65535.0",
+            "4294967296.0",
+            "4294967296.0",
+        ];
+        assert_eq!(
+            f64_expected,
+            get_cast_values::<Float64Type>(&f32_array, &DataType::Float64)
+        );
+
+        let f32_expected = vec![
+            "-2147483600.0",
+            "-2147483600.0",
+            "-32768.0",
+            "-128.0",
+            "0.0",
+            "255.0",
+            "65535.0",
+            "4294967300.0",
+            "4294967300.0",
+        ];
+        assert_eq!(
+            f32_expected,
+            get_cast_values::<Float32Type>(&f32_array, &DataType::Float32)
+        );
+
+        let i64_expected = vec![
+            "-2147483648",
+            "-2147483648",
+            "-32768",
+            "-128",
+            "0",
+            "255",
+            "65535",
+            "4294967296",
+            "4294967296",
+        ];
+        assert_eq!(
+            i64_expected,
+            get_cast_values::<Int64Type>(&f32_array, &DataType::Int64)
+        );
+
+        let i32_expected = vec![
+            "-2147483648",
+            "-2147483648",
+            "-32768",
+            "-128",
+            "0",
+            "255",
+            "65535",
+            "null",
+            "null",
+        ];
+        assert_eq!(
+            i32_expected,
+            get_cast_values::<Int32Type>(&f32_array, &DataType::Int32)
+        );
+
+        let i16_expected = vec![
+            "null", "null", "-32768", "-128", "0", "255", "null", "null", "null",
+        ];
+        assert_eq!(
+            i16_expected,
+            get_cast_values::<Int16Type>(&f32_array, &DataType::Int16)
+        );
+
+        let i8_expected = vec![
+            "null", "null", "null", "-128", "0", "null", "null", "null", "null",
+        ];
+        assert_eq!(
+            i8_expected,
+            get_cast_values::<Int8Type>(&f32_array, &DataType::Int8)
+        );
+
+        let u64_expected = vec![
+            "null",
+            "null",
+            "null",
+            "null",
+            "0",
+            "255",
+            "65535",
+            "4294967296",
+            "4294967296",
+        ];
+        assert_eq!(
+            u64_expected,
+            get_cast_values::<UInt64Type>(&f32_array, &DataType::UInt64)
+        );
+
+        let u32_expected = vec![
+            "null", "null", "null", "null", "0", "255", "65535", "null", "null",
+        ];
+        assert_eq!(
+            u32_expected,
+            get_cast_values::<UInt32Type>(&f32_array, &DataType::UInt32)
+        );
+
+        let u16_expected = vec![
+            "null", "null", "null", "null", "0", "255", "65535", "null", "null",
+        ];
+        assert_eq!(
+            u16_expected,
+            get_cast_values::<UInt16Type>(&f32_array, &DataType::UInt16)
+        );
+
+        let u8_expected = vec![
+            "null", "null", "null", "null", "0", "255", "null", "null", "null",
+        ];
+        assert_eq!(
+            u8_expected,
+            get_cast_values::<UInt8Type>(&f32_array, &DataType::UInt8)
+        );
     }
 
     #[test]
