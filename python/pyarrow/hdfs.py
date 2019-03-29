@@ -125,7 +125,7 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 def _maybe_set_hadoop_classpath():
     import re
 
-    if re.match('.*/hadoop-common[^/]+.jar', os.environ.get('CLASSPATH', '')):
+    if re.search(r'hadoop-common[^/]+.jar', os.environ.get('CLASSPATH', '')):
         return
 
     if 'HADOOP_HOME' in os.environ:
