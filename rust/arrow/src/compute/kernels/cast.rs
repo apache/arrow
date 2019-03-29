@@ -781,4 +781,109 @@ mod tests {
         )
         .unwrap();
     }
+
+    #[test]
+    fn test_cast_from_int64() {
+        let i64_values: Vec<i64> = vec![
+            -std::i64::MAX,
+            -std::i32::MAX as i64,
+            -std::i16::MAX as i64,
+            -std::i8::MAX as i64,
+            0,
+            std::i8::MAX as i64,
+            std::i16::MAX as i64,
+            std::i32::MAX as i64,
+            std::i64::MAX,
+        ];
+        let i64_array: ArrayRef = Arc::new(Int64Array::from(i64_values.clone()));
+
+        let f64_expected: Vec<f64> = vec![
+            -2147483647_f64,
+            -32767_f64,
+            -127_f64,
+            0_f64,
+            127_f64,
+            32767_f64,
+            2147483647_f64,
+        ];
+        assert_eq!(
+            f64_expected,
+            get_cast_values::<Float64Type>(&i64_array, &DataType::Float64, 1, 8)
+        );
+
+        let f32_expected: Vec<f32> = vec![
+            -2147483647_f32,
+            -32767_f32,
+            -127_f32,
+            0_f32,
+            127_f32,
+            32767_f32,
+            2147483647_f32,
+        ];
+        assert_eq!(
+            f32_expected,
+            get_cast_values::<Float32Type>(&i64_array, &DataType::Float32, 1, 8)
+        );
+
+        let i32_expected: Vec<i32> =
+            vec![-2147483647, -32767, -127, 0, 127, 32767, 2147483647];
+        assert_eq!(
+            i32_expected,
+            get_cast_values::<Int32Type>(&i64_array, &DataType::Int32, 1, 8)
+        );
+
+        let i16_expected: Vec<i16> = vec![-32767, -127, 0, 127, 32767];
+        assert_eq!(
+            i16_expected,
+            get_cast_values::<Int16Type>(&i64_array, &DataType::Int16, 2, 7)
+        );
+
+        let i8_expected: Vec<i8> = vec![-127, 0, 127];
+        assert_eq!(
+            i8_expected,
+            get_cast_values::<Int8Type>(&i64_array, &DataType::Int8, 3, 6)
+        );
+
+        let u64_expected: Vec<u64> = vec![0, 127, 32767, 2147483647];
+        assert_eq!(
+            u64_expected,
+            get_cast_values::<UInt64Type>(&i64_array, &DataType::UInt64, 4, 8)
+        );
+
+        let u32_expected: Vec<u32> = vec![0, 127, 32767, 2147483647];
+        assert_eq!(
+            u32_expected,
+            get_cast_values::<UInt32Type>(&i64_array, &DataType::UInt32, 4, 8)
+        );
+
+        let u16_expected: Vec<u16> = vec![0, 127, 32767];
+        assert_eq!(
+            u16_expected,
+            get_cast_values::<UInt16Type>(&i64_array, &DataType::UInt16, 4, 7)
+        );
+
+        let u8_expected: Vec<u8> = vec![0, 127];
+        assert_eq!(
+            u8_expected,
+            get_cast_values::<UInt8Type>(&i64_array, &DataType::UInt8, 4, 6)
+        );
+    }
+
+    fn get_cast_values<T>(
+        array: &ArrayRef,
+        dt: &DataType,
+        start_index: usize,
+        end_index: usize,
+    ) -> Vec<T::Native>
+    where
+        T: ArrowNumericType,
+    {
+        let c = cast(&array, dt).unwrap();
+        let a = c.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
+        let mut v: Vec<T::Native> = vec![];
+        for i in start_index..end_index {
+            v.push(a.value(i));
+        }
+        v
+    }
 }
