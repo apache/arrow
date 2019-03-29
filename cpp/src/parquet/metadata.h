@@ -282,6 +282,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   void SetStatistics(const EncodedStatistics& stats);
   // get the column descriptor
   const ColumnDescriptor* descr() const;
+  int64_t total_compressed_size() const;
   // commit the metadata
   void Finish(int64_t num_values, int64_t dictonary_page_offset,
               int64_t index_page_offset, int64_t data_page_offset,
