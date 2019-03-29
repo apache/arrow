@@ -389,7 +389,9 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(BENCHMARK_NAME "${ARG_PREFIX}-${BENCHMARK_NAME}")
   endif()
 
-  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME}.cc)
+  set(BENCHMARK_SOURCE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME}.cc)
+
+  if(EXISTS ${BENCHMARK_SOURCE_PATH})
     # This benchmark has a corresponding .cc file, set it up as an executable.
     set(BENCHMARK_PATH "${EXECUTABLE_OUTPUT_PATH}/${BENCHMARK_NAME}")
     add_executable(${BENCHMARK_NAME} "${REL_BENCHMARK_NAME}.cc")
@@ -401,7 +403,7 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
       target_link_libraries(${BENCHMARK_NAME} PRIVATE ${ARROW_BENCHMARK_LINK_LIBS})
     endif()
     add_dependencies(benchmark ${BENCHMARK_NAME})
-    set(NO_COLOR "--color_print=false")
+    set(NO_COLOR "--benchmark_color=false")
 
     if(ARG_EXTRA_LINK_LIBS)
       target_link_libraries(${BENCHMARK_NAME} PRIVATE ${ARG_EXTRA_LINK_LIBS})
@@ -444,10 +446,10 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   endif()
 
   add_test(${BENCHMARK_NAME}
-           ${BUILD_SUPPORT_DIR}/run-test.sh
+           ${BUILD_SUPPORT_DIR}/run-benchmark.sh
            ${CMAKE_BINARY_DIR}
-           benchmark
            ${BENCHMARK_PATH}
+           ${BENCHMARK_SOURCE_PATH}
            ${NO_COLOR})
   set_property(TEST ${BENCHMARK_NAME} APPEND PROPERTY LABELS ${ARG_LABELS})
 endfunction()
