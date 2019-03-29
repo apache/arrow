@@ -44,6 +44,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_PARQUET=OFF \
     -DARROW_GANDIVA=ON \
     -DARROW_GANDIVA_JAVA=ON \
+    -DARROW_GANDIVA_JAVA7=ON \
     -DBoost_NAMESPACE=arrow_boost \
     -Ddouble-conversion_SOURCE=BUNDLED \
     -Dgflags_SOURCE=BUNDLED \
