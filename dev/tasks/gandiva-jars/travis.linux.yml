@@ -44,8 +44,10 @@ before_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
   - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
+  -
 
 script:
+  - cd $TRAVIS_BUILD_DIR
   - mkdir -p dist
   - docker run -v $PWD:/io -v $PWD:/arrow quay.io/praveenbingo/arrow:buildGandivaDocker /io/dev/tasks/gandiva-jars/build-cpp-linux.sh || travis_terminate 1
   - arrow/dev/tasks/gandiva-jars/build-java.sh || travis_terminate 1
