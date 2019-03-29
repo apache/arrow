@@ -21,7 +21,7 @@ set -e
 
 CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/dist/
 
-pushd arrow/java
+pushd java
   if [ $TRAVIS_OS_NAME == "linux" ]; then
     ldd $CPP_BUILD_DIR/libgandiva_jni.so
   fi
