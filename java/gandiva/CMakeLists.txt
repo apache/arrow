@@ -27,8 +27,12 @@ add_jar(gandiva_java
         src/main/java/org/apache/arrow/gandiva/evaluator/ConfigurationBuilder.java
         src/main/java/org/apache/arrow/gandiva/evaluator/JniWrapper.java
         src/main/java/org/apache/arrow/gandiva/evaluator/ExpressionRegistryJniHelper.java
-        src/main/java/org/apache/arrow/gandiva/exceptions/GandivaException.java
-        GENERATE_NATIVE_HEADERS
-        gandivajni_headers
-        DESTINATION
-        ${JNI_HEADERS_DIR}/jni)
+        src/main/java/org/apache/arrow/gandiva/exceptions/GandivaException.java)
+Create_javah(TARGET gandiva_jni_headers
+             CLASSES org.apache.arrow.gandiva.evaluator.ConfigurationBuilder
+                     org.apache.arrow.gandiva.evaluator.JniWrapper
+                     org.apache.arrow.gandiva.evaluator.ExpressionRegistryJniHelper
+                     org.apache.arrow.gandiva.exceptions.GandivaException
+             DEPENDS gandiva_java
+             CLASSPATH gandiva_java
+             OUTPUT_DIR ${JNI_HEADERS_DIR}/jni)

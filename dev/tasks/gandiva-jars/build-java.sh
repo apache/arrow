@@ -21,7 +21,7 @@ set -e
 
 source arrow/ci/travis_env_common.sh
 
-CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp/build/release
+CPP_BUILD_DIR=../../dist/
 
 pushd arrow/java
   if [ $TRAVIS_OS_NAME == "linux" ]; then
