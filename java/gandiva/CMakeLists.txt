@@ -52,4 +52,5 @@ else()
           gandivajni_headers
           DESTINATION
           ${JNI_HEADERS_DIR}/jni)
+  add_custom_target(gandiva_jni_headers)
 endif()
