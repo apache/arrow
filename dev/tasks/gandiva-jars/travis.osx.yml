@@ -36,12 +36,15 @@ before_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
   - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
-  - arrow/ci/travis_install_toolchain.sh
+  - brew update
+  - brew upgrade cmake
+  - brew install bison flex llvm@7
 
 script:
+  - cd arrow
   - mkdir -p dist
-  - arrow/dev/tasks/gandiva-jars/build-cpp.sh || travis_terminate 1
-  - arrow/dev/tasks/gandiva-jars/build-java.sh || travis_terminate 1
+  - dev/tasks/gandiva-jars/build-cpp-osx.sh || travis_terminate 1
+  - dev/tasks/gandiva-jars/build-java.sh || travis_terminate 1
 
 deploy:
   provider: releases

@@ -19,10 +19,8 @@
 
 set -e
 
-source arrow/ci/travis_env_common.sh
-
 # Builds arrow + gandiva and tests the same.
-pushd arrow/cpp
+pushd cpp
   mkdir build
   pushd build
     CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release \
