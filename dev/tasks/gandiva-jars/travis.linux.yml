@@ -47,7 +47,7 @@ before_script:
 
 script:
   - mkdir -p dist
-  - docker run -v $PWD:/io -v $PWD/../../:/arrow quay.io/praveenbingo/arrow:buildGandivaDocker /io/build-cpp-linux.sh || travis_terminate 1
+  - docker run -v $PWD:/io -v $PWD:/arrow quay.io/praveenbingo/arrow:buildGandivaDocker /io/dev/tasks/gandiva-jars/build-cpp-linux.sh || travis_terminate 1
   - arrow/dev/tasks/gandiva-jars/build-java.sh || travis_terminate 1
 
 deploy:
