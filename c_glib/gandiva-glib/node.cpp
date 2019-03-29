@@ -28,7 +28,7 @@
 #include <gandiva-glib/node.hpp>
 
 template <typename Type>
-Type
+const Type &
 ggandiva_literal_node_get(GGandivaLiteralNode *node)
 {
   auto gandiva_literal_node =
@@ -1178,7 +1178,7 @@ ggandiva_string_literal_node_new(const gchar *value)
 const gchar *
 ggandiva_string_literal_node_get_value(GGandivaStringLiteralNode *node)
 {
-  auto value = ggandiva_literal_node_get<std::string>(GGANDIVA_LITERAL_NODE(node));
+  auto &value = ggandiva_literal_node_get<std::string>(GGANDIVA_LITERAL_NODE(node));
   return value.c_str();
 }
 
