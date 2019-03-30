@@ -38,5 +38,7 @@ pushd cpp
     cmake $CMAKE_FLAGS ..
     make -j4
     ctest
+
+    cp -L release/libgandiva_jni.so $TRAVIS_BUILD_DIR/dist
   popd
 popd
