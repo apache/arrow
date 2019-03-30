@@ -97,8 +97,6 @@ std::shared_ptr<Configuration> TestConfiguration() {
   return builder.DefaultConfiguration();
 }
 
-
-
 }  // namespace gandiva
 
 #endif  // GANDIVA_TEST_UTIL_H
