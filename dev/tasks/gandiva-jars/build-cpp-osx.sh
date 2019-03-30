@@ -19,6 +19,8 @@
 
 set -e
 
+set -x
+
 # Builds arrow + gandiva and tests the same.
 pushd cpp
   mkdir build
@@ -39,6 +41,6 @@ pushd cpp
     make -j4
     ctest
 
-    cp -L release/libgandiva_jni.so $TRAVIS_BUILD_DIR/dist
+    cp -L release/libgandiva_jni.dylib $TRAVIS_BUILD_DIR/dist
   popd
 popd
