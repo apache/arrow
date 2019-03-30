@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <math.h>
+
 #include <gtest/gtest.h>
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
