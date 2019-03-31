@@ -22,6 +22,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get install -y -q --no-install-recommends \
         odbc-postgresql \
         postgresql \
+        sudo \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

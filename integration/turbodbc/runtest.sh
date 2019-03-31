@@ -31,10 +31,16 @@ git checkout arrow-0.13.0-prep
 git submodule update --init --recursive
 
 service postgresql start
-sudo -u postgres ./travis/setup_test_dbs.sh
+sudo -u postgres psql -U postgres -c 'CREATE DATABASE test_db;'
+sudo -u postgres psql -U postgres -c 'ALTER USER postgres WITH PASSWORD '\''password'\'';'
+export ODBCSYSINI="$(pwd)/travis/odbc/"
 
 mkdir build
 pushd build
 cmake -DCMAKE_INSTALL_PREFIX=./dist -DPYTHON_EXECUTABLE=`which python` -GNinja ..
 ninja install
+
+# TODO(ARROW-5074)
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/conda/lib"
+
 ctest --output-on-failure
