@@ -90,6 +90,16 @@ fn csv_query_cast() {
 }
 
 #[test]
+fn csv_query_cast_literal() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    let sql = "SELECT c12, CAST(1 AS float) FROM aggregate_test_100 WHERE c12 > CAST(0 AS float) LIMIT 2";
+    let actual = execute(&mut ctx, sql);
+    let expected = "0.9294097332465232\t1.0\n0.3114712539863804\t1.0\n".to_string();
+    assert_eq!(expected, actual);
+}
+
+#[test]
 fn csv_query_limit() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
