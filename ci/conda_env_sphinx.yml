@@ -19,5 +19,5 @@
 breathe
 doxygen
 ipython
-sphinx
+sphinx=1
 sphinx_rtd_theme
