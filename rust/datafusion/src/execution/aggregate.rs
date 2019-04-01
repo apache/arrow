@@ -85,12 +85,12 @@ trait AggregateFunction {
     /// Get the function name (used for debugging)
     fn name(&self) -> &str;
 
-    /// Update the current aggregate value based on a new value. If rollup is false, then
-    /// this aggregate function instance is being used to aggregate individual values within
-    /// a RecordBatch. If rollup is true then the aggregate function instance is being used
-    /// to combine the aggregates for multiple batches. For some aggregate operations, such
-    /// as `min`, `max`, and `sum`, the logic is the same regardless of whether rollup is
-    /// true or false. For example, `min` can be implemented as
+    /// Update the current aggregate value based on a new value. A value of `None` represents a
+    /// null value. If rollup is false, then this aggregate function instance is being used
+    /// to aggregate individual values within a RecordBatch. If rollup is true then the aggregate
+    /// function instance is being used to combine the aggregates for multiple batches.
+    /// For some aggregate operations, such as `min`, `max`, and `sum`, the logic is the same
+    /// regardless of whether rollup is true or false. For example, `min` can be implemented as
     /// `min(min(batch1), min(batch2), ..)`. However for `count` the logic is
     /// `sum(count(batch1), count(batch2), ..)`.
     fn accumulate_scalar(
@@ -370,19 +370,19 @@ impl AggregateFunction for CountFunction {
         rollup: bool,
     ) -> Result<()> {
         if rollup {
+            // in rollup mode, the counts are added together
             if let Some(ScalarValue::UInt64(n)) = value {
-                if self.value.is_none() {
-                    self.value = Some(*n);
-                } else {
-                    self.value = Some(self.value.unwrap() + *n);
+                self.value = match self.value {
+                    Some(cur_value) => Some(cur_value + *n),
+                    _ => *n,
                 }
             }
         } else {
+            // count the value if it is not null
             if value.is_some() {
-                if self.value.is_none() {
-                    self.value = Some(1);
-                } else {
-                    self.value = Some(self.value.unwrap() + 1);
+                self.value = match self.value {
+                    Some(cur_value) => Some(cur_value + 1),
+                    _ => 1,
                 }
             }
         }
