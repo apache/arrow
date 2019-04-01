@@ -28,12 +28,12 @@ elseif(uriparser_ROOT)
   message(STATUS "Using uriparser_ROOT: ${uriparser_ROOT}")
   find_library(uriparser_LIB
                NAMES uriparser
-               PATHS ${uriparser_ROOT} "${uriparser_ROOT}/Library"
+               PATHS ${uriparser_ROOT}
                PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   find_path(uriparser_INCLUDE_DIR
             NAMES uriparser/Uri.h
-            PATHS ${uriparser_ROOT} "${uriparser_ROOT}/Library"
+            PATHS ${uriparser_ROOT}
             NO_DEFAULT_PATH
             PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 else()

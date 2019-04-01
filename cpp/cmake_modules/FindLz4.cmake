@@ -37,12 +37,12 @@ elseif(LZ4_ROOT)
     LZ4_LIB
     NAMES lz4 ${LZ4_STATIC_LIB_NAME} lib${LZ4_STATIC_LIB_NAME}
           "${CMAKE_SHARED_LIBRARY_PREFIX}lz4_static${CMAKE_SHARED_LIBRARY_SUFFIX}"
-    PATHS ${LZ4_ROOT} "${LZ4_ROOT}/Library"
+    PATHS ${LZ4_ROOT}
     PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
     NO_DEFAULT_PATH)
   find_path(LZ4_INCLUDE_DIR
             NAMES lz4.h
-            PATHS ${LZ4_ROOT} "${LZ4_ROOT}/Library"
+            PATHS ${LZ4_ROOT}
             NO_DEFAULT_PATH
             PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 else()

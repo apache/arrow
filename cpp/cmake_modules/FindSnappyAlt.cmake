@@ -16,7 +16,11 @@
 # under the License.
 
 if(Snappy_ROOT)
-  find_library(Snappy_LIB NAMES snappy PATHS ${Snappy_ROOT} PATH_SUFFIXES ${LIB_PATH_SUFFIXES} NO_DEFAULT_PATH)
+  find_library(Snappy_LIB
+               NAMES snappy
+               PATHS ${Snappy_ROOT}
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
   find_path(Snappy_INCLUDE_DIR
             NAMES snappy.h
             PATHS ${Snappy_ROOT}

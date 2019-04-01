@@ -18,12 +18,12 @@
 if(c-ares_ROOT)
   find_library(CARES_LIB
                NAMES cares
-               PATHS ${c-ares_ROOT} "${c-ares_ROOT}/Library"
+               PATHS ${c-ares_ROOT}
                PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   find_path(CARES_INCLUDE_DIR
             NAMES ares.h
-            PATHS ${c-ares_ROOT} "${c-ares_ROOT}/Library"
+            PATHS ${c-ares_ROOT}
             NO_DEFAULT_PATH
             PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 else()

@@ -61,12 +61,13 @@ else()
             NO_DEFAULT_PATH)
 endif()
 
-find_library(ARROW_LIB_PATH NAMES arrow PATHS ${ARROW_SEARCH_LIB_PATH} NO_DEFAULT_PATH)
+find_library(ARROW_LIB_PATH NAMES arrow PATHS ${ARROW_SEARCH_LIB_PATH} PATH_SUFFIXES ${LIB_PATH_SUFFIXES} NO_DEFAULT_PATH)
 get_filename_component(ARROW_LIBS ${ARROW_LIB_PATH} DIRECTORY)
 
 find_library(ARROW_PYTHON_LIB_PATH
              NAMES arrow_python
              PATHS ${ARROW_SEARCH_LIB_PATH}
+             PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
              NO_DEFAULT_PATH)
 get_filename_component(ARROW_PYTHON_LIBS ${ARROW_PYTHON_LIB_PATH} DIRECTORY)
 
@@ -74,6 +75,7 @@ if(PYARROW_BUILD_FLIGHT)
   find_library(ARROW_FLIGHT_LIB_PATH
                NAMES arrow_flight
                PATHS ${ARROW_SEARCH_LIB_PATH}
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   get_filename_component(ARROW_FLIGHT_LIBS ${ARROW_FLIGHT_LIB_PATH} DIRECTORY)
 endif()
@@ -85,17 +87,20 @@ if(MSVC)
     set(ARROW_MSVC_STATIC_LIB_SUFFIX "_static")
   endif()
 
+  # Prioritize "/bin" over LIB_PATH_SUFFIXES - DLL files are installed
+  # in "/bin" and static objects are in "/lib", so we want to search
+  # "/bin" first
   find_library(ARROW_SHARED_LIBRARIES
                NAMES arrow
                PATHS ${ARROW_HOME}
-               NO_DEFAULT_PATH
-               PATH_SUFFIXES "bin")
+               PATH_SUFFIXES "bin" ${LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
 
   find_library(ARROW_PYTHON_SHARED_LIBRARIES
                NAMES arrow_python
                PATHS ${ARROW_HOME}
-               NO_DEFAULT_PATH
-               PATH_SUFFIXES "bin")
+               PATH_SUFFIXES "bin" ${LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
   get_filename_component(ARROW_SHARED_LIBS ${ARROW_SHARED_LIBRARIES} PATH)
   get_filename_component(ARROW_PYTHON_SHARED_LIBS ${ARROW_PYTHON_SHARED_LIBRARIES} PATH)
 endif()

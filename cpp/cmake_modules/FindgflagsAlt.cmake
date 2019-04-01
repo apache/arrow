@@ -16,7 +16,11 @@
 # under the License.
 
 if(gflags_ROOT)
-  find_library(gflags_LIB NAMES gflags PATHS ${gflags_ROOT} PATH_SUFFIXES ${LIB_PATH_SUFFIXES} NO_DEFAULT_PATH)
+  find_library(gflags_LIB
+               NAMES gflags
+               PATHS ${gflags_ROOT}
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
   find_path(GFLAGS_INCLUDE_DIR
             NAMES gflags/gflags.h
             PATHS ${gflags_ROOT}
@@ -24,7 +28,9 @@ if(gflags_ROOT)
             PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 else()
   find_library(gflags_LIB NAMES gflags)
-  find_path(GFLAGS_INCLUDE_DIR NAMES gflags/gflags.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+  find_path(GFLAGS_INCLUDE_DIR
+            NAMES gflags/gflags.h
+            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 endif()
 
 find_package_handle_standard_args(gflagsAlt REQUIRED_VARS gflags_LIB GFLAGS_INCLUDE_DIR)

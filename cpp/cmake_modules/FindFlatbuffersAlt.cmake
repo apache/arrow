@@ -32,7 +32,7 @@ if(Flatbuffers_ROOT)
                NO_DEFAULT_PATH
                PATH_SUFFIXES "bin")
 else()
-  find_library(FLATBUFFERS_LIB NAMES flatbuffers)
+  find_library(FLATBUFFERS_LIB NAMES flatbuffers PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
   find_path(FLATBUFFERS_INCLUDE_DIR
             NAMES flatbuffers/flatbuffers.h
             PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
