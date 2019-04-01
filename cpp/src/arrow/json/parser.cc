@@ -432,15 +432,12 @@ class HandlerBase : public BlockParser::Impl,
   /// @}
 
   /// \brief Set up builders using an expected Schema
-  Status SetSchema(const Schema& s) {
-    DCHECK_EQ(arena<Kind::kObject>().size(), 1);
-    for (const auto& f : s.fields()) {
-      BuilderPtr field_builder;
-      RETURN_NOT_OK(MakeBuilder(*f->type(), 0, &field_builder));
-      field_builder.nullable = f->nullable();
-      Cast<Kind::kObject>(builder_)->AddField(f->name(), field_builder);
+  Status Init(const std::shared_ptr<Schema>& s) {
+    auto type = struct_({});
+    if (s) {
+      type = struct_(s->fields());
     }
-    return Status::OK();
+    return MakeBuilder(*type, 0, &builder_);
   }
 
   Status Finish(BuilderPtr builder, std::shared_ptr<Array>* out) {
@@ -474,11 +471,7 @@ class HandlerBase : public BlockParser::Impl,
 
  protected:
   HandlerBase(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
-      : pool_(pool),
-        builder_(Kind::kObject, 0, false),
-        scalar_values_builder_(pool, scalar_storage) {
-    arena<Kind::kObject>().emplace_back(pool_);
-  }
+      : pool_(pool), scalar_values_builder_(pool, scalar_storage) {}
 
   /// finish a column of scalar values (string or number)
   Status FinishScalar(ScalarBuilder* builder, std::shared_ptr<Array>* out) {
@@ -518,7 +511,7 @@ class HandlerBase : public BlockParser::Impl,
     return Status::Invalid("Exceeded maximum rows");
   }
 
-  /// construct a builder of staticallly defined kind in arenas_
+  /// construct a builder of statically defined kind in arenas_
   template <Kind::type kind>
   Status MakeBuilder(int64_t leading_nulls, BuilderPtr* builder) {
     builder->index = static_cast<uint32_t>(arena<kind>().size());
@@ -976,24 +969,21 @@ BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
     case UnexpectedFieldBehavior::Ignore: {
       auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::Ignore>>(
           pool_, scalar_storage);
-      // FIXME(bkietz) move this to an Initialize()
-      ARROW_IGNORE_EXPR(handler->SetSchema(*options_.explicit_schema));
+      ARROW_IGNORE_EXPR(handler->Init(options_.explicit_schema));
       impl_ = std::move(handler);
       break;
     }
     case UnexpectedFieldBehavior::Error: {
       auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::Error>>(
           pool_, scalar_storage);
-      ARROW_IGNORE_EXPR(handler->SetSchema(*options_.explicit_schema));
+      ARROW_IGNORE_EXPR(handler->Init(options_.explicit_schema));
       impl_ = std::move(handler);
       break;
     }
     case UnexpectedFieldBehavior::InferType:
       auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::InferType>>(
           pool_, scalar_storage);
-      if (options.explicit_schema) {
-        ARROW_IGNORE_EXPR(handler->SetSchema(*options_.explicit_schema));
-      }
+      ARROW_IGNORE_EXPR(handler->Init(options_.explicit_schema));
       impl_ = std::move(handler);
       break;
   }

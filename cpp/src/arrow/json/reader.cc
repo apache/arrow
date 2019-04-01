@@ -21,14 +21,106 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
+#include "arrow/io/readahead.h"
+#include "arrow/json/chunker.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
+#include "arrow/util/task-group.h"
+#include "arrow/util/thread-pool.h"
 
 namespace arrow {
 namespace json {
 
+using internal::GetCpuThreadPool;
+using internal::ThreadPool;
+using io::internal::ReadaheadBuffer;
+using io::internal::ReadaheadSpooler;
+
 using internal::StringConverter;
+
+class SerialTableReader : public TableReader {
+ public:
+  // Since we're converting serially, no need to readahead more than one block
+  static constexpr int32_t block_queue_size = 1;
+
+  SerialTableReader(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
+                    const ReadOptions& read_options, const ParseOptions& parse_options)
+      : pool_(pool),
+        read_options_(read_options),
+        parse_options_(parse_options),
+        readahead_(pool_, input, read_options_.block_size, block_queue_size),
+        chunker_(Chunker::Make(parse_options_)),
+        task_group_(internal::TaskGroup::MakeSerial()),
+        column_count_(parse_options_.explicit_schema->num_fields()) {}
+
+  Status Read(std::shared_ptr<Table>* out) override {
+    ReadaheadBuffer rh;
+    RETURN_NOT_OK(readahead_.Read(&rh));
+    if (rh.buffer == nullptr) {
+      return Status::Invalid("Empty JSON file");
+    }
+
+    for (auto partial = std::make_shared<Buffer>(""); rh.buffer != nullptr;) {
+      // get the completion of a partial row from the previous block
+      // FIXME(bkietz) this will just error out if a row spans more than a pair of blocks
+      std::shared_ptr<Buffer> raw = rh.buffer, completion;
+      RETURN_NOT_OK(chunker_->Process(partial, raw, &completion, &raw));
+
+      // get all whole objects entirely inside the current buffer
+      std::shared_ptr<Buffer> whole, next_partial;
+      RETURN_NOT_OK(chunker_->Process(raw, &whole, &next_partial));
+
+      // launch parse task
+      int column_count;
+      {
+        // lock the schema mutex, store the current column count
+        column_count = column_count_;
+      }
+      task_group_->Append([this, column_count, partial, completion, whole] {
+        BlockParser parser(pool_, parse_options_, whole);
+        if (completion->size() != 0) {
+          // FIXME(bkietz) ensure that the parser has sufficient scalar storage for
+          // all scalars in straddling + whole
+          std::shared_ptr<Buffer> straddling;
+          RETURN_NOT_OK(ConcatenateBuffers({partial, completion}, pool_, &straddling));
+          RETURN_NOT_OK(parser.Parse(straddling));
+        }
+        RETURN_NOT_OK(parser.Parse(whole));
+        std::shared_ptr<Array> parsed;
+        RETURN_NOT_OK(parser.Finish(&parsed));
+        return Convert(column_count, std::move(parsed));
+      });
+
+      RETURN_NOT_OK(readahead_.Read(&rh));
+      partial = next_partial;
+    }
+    return Status::OK();
+  }
+
+  Status Convert(int column_count, std::shared_ptr<Array> parsed) {
+    // if we are not inferring, flatten parsed into columns for conversion, hand off to
+    // column builders, and return; nothing complicated.
+
+    // lock the schema mutex (column builders are a vector and we may need to realloc it)
+
+    // compare the (flattened) number of parsed columns to the number of columns expected
+    // at launch; if they are equal hand off as above and return.
+
+    // for each new column in parsed, identify an existing column builder or allocate a
+    // new one. Hand off as above, and return.
+    return Status::OK();
+  }
+
+ private:
+  MemoryPool* pool_;
+  ReadOptions read_options_;
+  ParseOptions parse_options_;
+  ReadaheadSpooler readahead_;
+  std::unique_ptr<Chunker> chunker_;
+  std::shared_ptr<internal::TaskGroup> task_group_;
+  int column_count_;
+};
 
 Kind::type KindFromTag(const std::shared_ptr<const KeyValueMetadata>& tag) {
   std::string kind_name = tag->value(0);
@@ -56,48 +148,33 @@ Kind::type KindFromTag(const std::shared_ptr<const KeyValueMetadata>& tag) {
 static Status Convert(const std::shared_ptr<DataType>& out_type,
                       std::shared_ptr<Array> in, std::shared_ptr<Array>* out);
 
-struct ConvertImpl {
-  Status Visit(const NullType&) {
-    *out = in;
-    return Status::OK();
-  }
-  Status Visit(const BooleanType&) {
-    *out = in;
-    return Status::OK();
-  }
-  // handle conversion to types with StringConverter
-  template <typename T>
-  Status ConvertEachWith(const T& t, StringConverter<T>& convert_one) {
-    auto dict_array = static_cast<const DictionaryArray*>(in.get());
-    const StringArray& dict = static_cast<const StringArray&>(*dict_array->dictionary());
-    const Int32Array& indices = static_cast<const Int32Array&>(*dict_array->indices());
-    using Builder = typename TypeTraits<T>::BuilderType;
-    Builder builder(out_type, default_memory_pool());
-    RETURN_NOT_OK(builder.Resize(indices.length()));
-    for (int64_t i = 0; i != indices.length(); ++i) {
-      if (indices.IsNull(i)) {
-        builder.UnsafeAppendNull();
-        continue;
-      }
-      auto repr = dict.GetView(indices.GetView(i));
-      typename StringConverter<T>::value_type value;
-      if (!convert_one(repr.data(), repr.size(), &value)) {
-        return Status::Invalid("Failed of conversion of JSON to ", t, ":", repr);
-      }
-      builder.UnsafeAppend(value);
+// handle conversion to types with StringConverter
+template <typename T>
+Status ConvertEachWith(StringConverter<T>& convert_one,
+                       const std::shared_ptr<DataType>& out_type, const Array* in,
+                       std::shared_ptr<Array>* out) {
+  auto dict_array = static_cast<const DictionaryArray*>(in);
+  const StringArray& dict = static_cast<const StringArray&>(*dict_array->dictionary());
+  const Int32Array& indices = static_cast<const Int32Array&>(*dict_array->indices());
+  using Builder = typename TypeTraits<T>::BuilderType;
+  Builder builder(out_type, default_memory_pool());
+  RETURN_NOT_OK(builder.Resize(indices.length()));
+  for (int64_t i = 0; i != indices.length(); ++i) {
+    if (indices.IsNull(i)) {
+      builder.UnsafeAppendNull();
+      continue;
     }
-    return builder.Finish(out);
+    auto repr = dict.GetView(indices.GetView(i));
+    typename StringConverter<T>::value_type value;
+    if (!convert_one(repr.data(), repr.size(), &value)) {
+      return Status::Invalid("Failed of conversion of JSON to ", *out_type, ":", repr);
+    }
+    builder.UnsafeAppend(value);
   }
-  template <typename T>
-  Status Visit(const T& t, decltype(StringConverter<T>())* = nullptr) {
-    StringConverter<T> convert_one;
-    return ConvertEachWith(t, convert_one);
-  }
-  // handle conversion to Timestamp
-  Status Visit(const TimestampType& t) {
-    StringConverter<TimestampType> convert_one(out_type);
-    return ConvertEachWith(t, convert_one);
-  }
+  return builder.Finish(out);
+}
+
+struct ConvertImpl {
   Status VisitAs(const std::shared_ptr<DataType>& repr_type) {
     std::shared_ptr<Array> repr_array;
     RETURN_NOT_OK(Convert(repr_type, in, &repr_array));
@@ -106,16 +183,38 @@ struct ConvertImpl {
     *out = MakeArray(data);
     return Status::OK();
   }
-  // handle half explicitly
-  Status Visit(const HalfFloatType&) { return VisitAs(float32()); }
+
+  Status Visit(const NullType&) {
+    *out = in;
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanType&) {
+    *out = in;
+    return Status::OK();
+  }
+
+  template <typename T>
+  Status Visit(const T&, decltype(StringConverter<T>())* = nullptr) {
+    StringConverter<T> convert_one;
+    return ConvertEachWith(convert_one, out_type, in.get(), out);
+  }
+
+  // handle conversion to Timestamp
+  Status Visit(const TimestampType&) {
+    StringConverter<TimestampType> convert_one(out_type);
+    return ConvertEachWith(convert_one, out_type, in.get(), out);
+  }
+
   // handle types represented as integers
   template <typename T>
   Status Visit(
-      const T& t,
+      const T&,
       typename std::enable_if<std::is_base_of<TimeType, T>::value ||
                               std::is_base_of<DateType, T>::value>::type* = nullptr) {
     return VisitAs(std::is_same<typename T::c_type, int64_t>::value ? int64() : int32());
   }
+
   // handle binary and string
   template <typename T>
   Status Visit(
@@ -145,6 +244,7 @@ struct ConvertImpl {
     }
     return builder.Finish(out);
   }
+
   Status Visit(const ListType& t) {
     auto list_array = static_cast<const ListArray*>(in.get());
     std::shared_ptr<Array> values;
@@ -156,6 +256,7 @@ struct ConvertImpl {
     *out = MakeArray(data);
     return Status::OK();
   }
+
   Status Visit(const StructType& t) {
     auto struct_array = static_cast<const StructArray*>(in.get());
     std::vector<std::shared_ptr<ArrayData>> child_data(t.num_children());
@@ -169,9 +270,11 @@ struct ConvertImpl {
     *out = MakeArray(data);
     return Status::OK();
   }
+
   Status Visit(const DataType& not_impl) {
     return Status::NotImplemented("JSON parsing of ", not_impl);
   }
+
   std::shared_ptr<DataType> out_type;
   std::shared_ptr<Array> in;
   std::shared_ptr<Array>* out;

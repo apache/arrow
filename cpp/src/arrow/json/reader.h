@@ -45,7 +45,6 @@ class ARROW_EXPORT TableReader {
 
   virtual Status Read(std::shared_ptr<Table>* out) = 0;
 
-  // XXX pass optional schema?
   static Status Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
                      const ReadOptions&, const ParseOptions&,
                      std::shared_ptr<TableReader>* out);

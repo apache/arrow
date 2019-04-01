@@ -59,9 +59,10 @@ std::string nested_src() {
   )";
 }
 
-void AssertRawStructArraysEqual(const StructArray& expected, const StructArray& actual);
+void AssertUnconvertedStructArraysEqual(const StructArray& expected,
+                                        const StructArray& actual);
 
-void AssertRawArraysEqual(const Array& expected, const Array& actual) {
+void AssertUnconvertedArraysEqual(const Array& expected, const Array& actual) {
   switch (actual.type_id()) {
     case Type::BOOL:
     case Type::NA:
@@ -81,24 +82,25 @@ void AssertRawArraysEqual(const Array& expected, const Array& actual) {
       AssertBufferEqual(*expected_offsets, *actual_offsets);
       auto expected_values = static_cast<const ListArray&>(expected).values();
       auto actual_values = static_cast<const ListArray&>(actual).values();
-      return AssertRawArraysEqual(*expected_values, *actual_values);
+      return AssertUnconvertedArraysEqual(*expected_values, *actual_values);
     }
     case Type::STRUCT:
       ASSERT_EQ(expected.type_id(), Type::STRUCT);
-      return AssertRawStructArraysEqual(static_cast<const StructArray&>(expected),
-                                        static_cast<const StructArray&>(actual));
+      return AssertUnconvertedStructArraysEqual(static_cast<const StructArray&>(expected),
+                                                static_cast<const StructArray&>(actual));
     default:
       FAIL();
   }
 }
 
-void AssertRawStructArraysEqual(const StructArray& expected, const StructArray& actual) {
+void AssertUnconvertedStructArraysEqual(const StructArray& expected,
+                                        const StructArray& actual) {
   ASSERT_EQ(expected.num_fields(), actual.num_fields());
   for (int i = 0; i != expected.num_fields(); ++i) {
     auto expected_name = expected.type()->child(i)->name();
     auto actual_name = actual.type()->child(i)->name();
     ASSERT_EQ(expected_name, actual_name);
-    AssertRawArraysEqual(*expected.field(i), *actual.field(i));
+    AssertUnconvertedArraysEqual(*expected.field(i), *actual.field(i));
   }
 }
 
@@ -113,11 +115,9 @@ void AssertParseColumns(ParseOptions options, string_view src_str,
   ASSERT_OK(parser.Finish(&parsed));
   auto struct_array = std::static_pointer_cast<StructArray>(parsed);
   for (size_t i = 0; i != fields.size(); ++i) {
-    // std::shared_ptr<Array> column_expected;
-    // ASSERT_OK(ArrayFromJSON(fields[i]->type(), columns_json[i], &column_expected));
     auto column_expected = ArrayFromJSON(fields[i]->type(), columns_json[i]);
     auto column = struct_array->GetFieldByName(fields[i]->name());
-    AssertRawArraysEqual(*column_expected, *column);
+    AssertUnconvertedArraysEqual(*column_expected, *column);
   }
 }
 
