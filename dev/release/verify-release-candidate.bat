@@ -84,6 +84,9 @@ cmake --build . --target INSTALL --config %CONFIGURATION%  || exit /B
 git clone https://github.com/apache/parquet-testing.git %_VERIFICATION_DIR%\parquet-testing
 set PARQUET_TEST_DATA=%_VERIFICATION_DIR%\parquet-testing\data
 
+git clone https://github.com/apache/arrow-testing.git %_VERIFICATION_DIR%\arrow-testing
+set ARROW_TEST_DATA=%_VERIFICATION_DIR%\arrow-testing\data
+
 @rem Needed so python-test.exe works
 set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\python35.zip;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%;%PYTHONPATH%
 

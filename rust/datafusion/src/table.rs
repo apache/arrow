@@ -39,6 +39,7 @@ mod tests {
     use super::*;
     use crate::execution::context::ExecutionContext;
     use arrow::datatypes::*;
+    use std::env;
 
     #[test]
     fn demonstrate_api_usage() {
@@ -60,9 +61,10 @@ mod tests {
 
     fn register_aggregate_csv(ctx: &mut ExecutionContext) {
         let schema = aggr_test_schema();
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
         ctx.register_csv(
             "aggregate_test_100",
-            "../../testing/data/csv/aggregate_test_100.csv",
+            &format!("{}/csv/aggregate_test_100.csv", testdata),
             &schema,
             true,
         );

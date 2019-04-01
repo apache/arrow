@@ -678,7 +678,8 @@ mod tests {
     }
 
     fn load_table(name: &str) -> Box<TableProvider> {
-        let testdata = env::var("PARQUET_TEST_DATA").unwrap();
+        let testdata =
+            env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
         let filename = format!("{}/{}", testdata, name);
         let table = ParquetTable::try_new(&filename).unwrap();
         Box::new(table)

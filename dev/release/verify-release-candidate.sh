@@ -403,15 +403,15 @@ if [ "$ARTIFACT" == "source" ]; then
   TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
   TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
 
+  git clone https://github.com/apache/arrow-testing.git
+  export ARROW_TEST_DATA=$PWD/arrow-testing/data
+
   git clone https://github.com/apache/parquet-testing.git
   export PARQUET_TEST_DATA=$PWD/parquet-testing/data
 
   fetch_archive $DIST_NAME
   tar xvzf ${DIST_NAME}.tar.gz
   cd ${DIST_NAME}
-
-  rm -r testing
-  git clone https://github.com/apache/arrow-testing.git testing
 
   if [ ${TEST_JAVA} -gt 0 ]; then
     test_package_java
