@@ -36,12 +36,11 @@
 #include "arrow/util/string_view.h"
 
 namespace arrow {
+namespace json {
 
 using util::string_view;
 
-namespace json {
-
-std::string scalars_only_src() {
+static std::string scalars_only_src() {
   return R"(
     { "hello": 3.5, "world": false, "yo": "thing" }
     { "hello": 3.2, "world": null }
@@ -50,7 +49,7 @@ std::string scalars_only_src() {
   )";
 }
 
-std::string nested_src() {
+static std::string nested_src() {
   return R"(
     { "hello": 3.5, "world": false, "yo": "thing", "arr": [1, 2, 3], "nuf": {} }
     { "hello": 3.2, "world": null, "arr": [2], "nuf": null }
@@ -107,12 +106,8 @@ void AssertUnconvertedStructArraysEqual(const StructArray& expected,
 void AssertParseColumns(ParseOptions options, string_view src_str,
                         const std::vector<std::shared_ptr<Field>>& fields,
                         const std::vector<std::string>& columns_json) {
-  std::shared_ptr<Buffer> src;
-  ASSERT_OK(MakeBuffer(src_str, &src));
-  BlockParser parser(options, src);
-  ASSERT_OK(parser.Parse(src));
   std::shared_ptr<Array> parsed;
-  ASSERT_OK(parser.Finish(&parsed));
+  ASSERT_OK(ParseFromString(options, src_str, &parsed));
   auto struct_array = std::static_pointer_cast<StructArray>(parsed);
   for (size_t i = 0; i != fields.size(); ++i) {
     auto column_expected = ArrayFromJSON(fields[i]->type(), columns_json[i]);
@@ -160,10 +155,8 @@ TEST(BlockParserWithSchema, FailOnInconvertible) {
   auto options = ParseOptions::Defaults();
   options.explicit_schema = schema({field("a", int32())});
   options.unexpected_field_behavior = UnexpectedFieldBehavior::Ignore;
-  std::shared_ptr<Buffer> src;
-  ASSERT_OK(MakeBuffer("{\"a\":0}\n{\"a\":true}", &src));
-  BlockParser parser(options, src);
-  ASSERT_RAISES(Invalid, parser.Parse(src));
+  std::shared_ptr<Array> parsed;
+  ASSERT_RAISES(Invalid, ParseFromString(options, "{\"a\":0}\n{\"a\":true}", &parsed));
 }
 
 TEST(BlockParserWithSchema, Nested) {
@@ -183,10 +176,8 @@ TEST(BlockParserWithSchema, FailOnIncompleteJson) {
   auto options = ParseOptions::Defaults();
   options.explicit_schema = schema({field("a", int32())});
   options.unexpected_field_behavior = UnexpectedFieldBehavior::Ignore;
-  std::shared_ptr<Buffer> src;
-  ASSERT_OK(MakeBuffer("{\"a\":0, \"b\"", &src));
-  BlockParser parser(options, src);
-  ASSERT_RAISES(Invalid, parser.Parse(src));
+  std::shared_ptr<Array> parsed;
+  ASSERT_RAISES(Invalid, ParseFromString(options, "{\"a\":0, \"b\"", &parsed));
 }
 
 TEST(BlockParser, Basics) {
@@ -255,7 +246,8 @@ TEST(ParseOne, PartialSchema) {
       {field("yo", utf8()), field("arr", list(float32())),
        field("nuf", struct_({field("absent", date32()), field("ps", int64())}))},
       {"[\"thing\", null, \"\xe5\xbf\x8d\", null]", R"([[1, 2, 3], [2], [], null])",
-       R"([{"absent":null,"ps":null}, null, {"absent":null,"ps":78}, {"absent":null,"ps":90}])"});
+       R"([{"absent":null,"ps":null}, null,)"
+       R"( {"absent":null,"ps":78}, {"absent":null,"ps":90}])"});
 }
 
 TEST(ParseOne, InferTimestamp) {

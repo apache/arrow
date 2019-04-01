@@ -23,6 +23,9 @@
 
 #include <rapidjson/writer.h>
 
+#include "arrow/json/converter.h"
+#include "arrow/json/options.h"
+#include "arrow/json/parser.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/string_view.h"
@@ -37,14 +40,16 @@ using Writer = rapidjson::Writer<StringBuffer>;
 inline static Status OK(bool ok) { return ok ? Status::OK() : Status::Invalid(""); }
 
 template <typename Engine>
-static Status Generate(const std::shared_ptr<DataType>& type, Engine& e, Writer* writer);
+inline static Status Generate(const std::shared_ptr<DataType>& type, Engine& e,
+                              Writer* writer);
 
 template <typename Engine>
-static Status Generate(const std::vector<std::shared_ptr<Field>>& fields, Engine& e,
-                       Writer* writer);
+inline static Status Generate(const std::vector<std::shared_ptr<Field>>& fields,
+                              Engine& e, Writer* writer);
 
 template <typename Engine>
-static Status Generate(const std::shared_ptr<Schema>& schm, Engine& e, Writer* writer) {
+inline static Status Generate(const std::shared_ptr<Schema>& schm, Engine& e,
+                              Writer* writer) {
   return Generate(schm->fields(), e, writer);
 }
 
@@ -98,7 +103,8 @@ struct GenerateImpl {
 };
 
 template <typename Engine>
-static Status Generate(const std::shared_ptr<DataType>& type, Engine& e, Writer* writer) {
+inline static Status Generate(const std::shared_ptr<DataType>& type, Engine& e,
+                              Writer* writer) {
   if (std::uniform_real_distribution<>{0, 1}(e) < .2) {
     // one out of 5 chance of null, anywhere
     writer->Null();
@@ -109,8 +115,8 @@ static Status Generate(const std::shared_ptr<DataType>& type, Engine& e, Writer*
 }
 
 template <typename Engine>
-static Status Generate(const std::vector<std::shared_ptr<Field>>& fields, Engine& e,
-                       Writer* writer) {
+inline static Status Generate(const std::vector<std::shared_ptr<Field>>& fields,
+                              Engine& e, Writer* writer) {
   RETURN_NOT_OK(OK(writer->StartObject()));
   for (const auto& f : fields) {
     writer->Key(f->name().c_str());
@@ -119,7 +125,7 @@ static Status Generate(const std::vector<std::shared_ptr<Field>>& fields, Engine
   return OK(writer->EndObject(static_cast<int>(fields.size())));
 }
 
-Status MakeBuffer(util::string_view data, std::shared_ptr<Buffer>* out) {
+inline static Status MakeBuffer(util::string_view data, std::shared_ptr<Buffer>* out) {
   RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), data.size(), out));
   std::copy(std::begin(data), std::end(data), (*out)->mutable_data());
   return Status::OK();
@@ -127,8 +133,8 @@ Status MakeBuffer(util::string_view data, std::shared_ptr<Buffer>* out) {
 
 // scalar values (numbers and strings) are parsed into a
 // dictionary<index:int32, value:string>. This can be decoded for ease of comparison
-Status DecodeStringDictionary(const DictionaryArray& dict_array,
-                              std::shared_ptr<Array>* decoded) {
+inline static Status DecodeStringDictionary(const DictionaryArray& dict_array,
+                                            std::shared_ptr<Array>* decoded) {
   const StringArray& dict = static_cast<const StringArray&>(*dict_array.dictionary());
   const Int32Array& indices = static_cast<const Int32Array&>(*dict_array.indices());
   StringBuilder builder;
@@ -143,6 +149,54 @@ Status DecodeStringDictionary(const DictionaryArray& dict_array,
     builder.UnsafeAppend(value);
   }
   return builder.Finish(decoded);
+}
+
+inline static Status ParseFromString(ParseOptions options, util::string_view src_str,
+                                     std::shared_ptr<Array>* parsed) {
+  std::shared_ptr<Buffer> src;
+  RETURN_NOT_OK(MakeBuffer(src_str, &src));
+  BlockParser parser(options, src);
+  RETURN_NOT_OK(parser.Parse(src));
+  return parser.Finish(parsed);
+}
+
+inline static Status Convert(const std::shared_ptr<DataType>& target_type,
+                             const std::shared_ptr<Array>& parsed,
+                             std::shared_ptr<ArrayData>* converted_data);
+
+inline static Status Convert(const std::shared_ptr<DataType>& target_type,
+                             const std::shared_ptr<Array>& parsed,
+                             std::shared_ptr<Array>* converted) {
+  auto converted_data = parsed->data()->Copy();
+  converted_data->type = target_type;
+  if (target_type->id() == Type::LIST) {
+    auto list_array = static_cast<const ListArray*>(parsed.get());
+    RETURN_NOT_OK(Convert(target_type->child(0)->type(), list_array->values(),
+                          &converted_data->child_data[0]));
+    *converted = MakeArray(converted_data);
+    return Status::OK();
+  }
+  if (target_type->id() == Type::STRUCT) {
+    auto struct_array = static_cast<const StructArray*>(parsed.get());
+    for (int i = 0; i < target_type->num_children(); ++i) {
+      RETURN_NOT_OK(Convert(target_type->child(i)->type(), struct_array->field(i),
+                            &converted_data->child_data[i]));
+    }
+    *converted = MakeArray(converted_data);
+    return Status::OK();
+  }
+  std::unique_ptr<Converter> converter;
+  RETURN_NOT_OK(MakeConverter(default_memory_pool(), target_type, &converter));
+  return converter->Convert(parsed, converted);
+}
+
+Status Convert(const std::shared_ptr<DataType>& target_type,
+               const std::shared_ptr<Array>& parsed,
+               std::shared_ptr<ArrayData>* converted_data) {
+  std::shared_ptr<Array> converted;
+  RETURN_NOT_OK(Convert(target_type, parsed, &converted));
+  *converted_data = converted->data();
+  return Status::OK();
 }
 
 }  // namespace json

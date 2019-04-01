@@ -109,6 +109,7 @@ set(ARROW_SRCS
     json/chunker.cc
     json/parser.cc
     json/reader.cc
+    json/converter.cc
     io/buffered.cc
     io/compressed.cc
     io/file.cc
