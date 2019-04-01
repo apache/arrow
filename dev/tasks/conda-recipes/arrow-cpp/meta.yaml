@@ -44,6 +44,7 @@ requirements:
     - gflags
     - glog
     - libprotobuf
+    - clangdev 7.*
     - llvmdev 7.*
     - lz4-c
     - numpy 1.14.*
