@@ -374,7 +374,7 @@ impl AggregateFunction for CountFunction {
             if let Some(ScalarValue::UInt64(n)) = value {
                 self.value = match self.value {
                     Some(cur_value) => Some(cur_value + *n),
-                    _ => *n,
+                    _ => Some(*n),
                 }
             }
         } else {
@@ -382,7 +382,7 @@ impl AggregateFunction for CountFunction {
             if value.is_some() {
                 self.value = match self.value {
                     Some(cur_value) => Some(cur_value + 1),
-                    _ => 1,
+                    _ => Some(1),
                 }
             }
         }
