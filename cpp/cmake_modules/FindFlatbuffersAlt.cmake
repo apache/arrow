@@ -20,12 +20,12 @@ if(Flatbuffers_ROOT)
                NAMES flatbuffers
                PATHS ${Flatbuffers_ROOT}
                NO_DEFAULT_PATH
-               PATH_SUFFIXES "lib")
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
   find_path(FLATBUFFERS_INCLUDE_DIR
             NAMES flatbuffers/flatbuffers.h
             PATHS ${Flatbuffers_ROOT}
             NO_DEFAULT_PATH
-            PATH_SUFFIXES "include")
+            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
   find_program(FLATC
                NAMES flatc
                PATHS ${Flatbuffers_ROOT}
@@ -35,7 +35,7 @@ else()
   find_library(FLATBUFFERS_LIB NAMES flatbuffers)
   find_path(FLATBUFFERS_INCLUDE_DIR
             NAMES flatbuffers/flatbuffers.h
-            PATH_SUFFIXES "include")
+            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
   find_program(FLATC NAMES flatc PATHS PATH_SUFFIXES "bin")
 endif()
 
