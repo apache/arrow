@@ -296,6 +296,9 @@ class FlightClient::FlightClientImpl {
     std::shared_ptr<Schema> schema;
     internal::FlightData data;
     if (!stream->Read(reinterpret_cast<pb::FlightData*>(&data))) {
+      // Get the gRPC status if not OK, to get any server error
+      // messages
+      RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish()));
       return Status(StatusCode::Invalid, "No data in Flight stream");
     }
     std::unique_ptr<ipc::Message> message;
