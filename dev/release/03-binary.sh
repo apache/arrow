@@ -71,6 +71,7 @@ if ! jq --help > /dev/null 2>&1; then
 fi
 
 : ${BINTRAY_REPOSITORY:=apache/arrow}
+: ${SOURCE_BINTRAY_REPOSITORY:=${BINTRAY_REPOSITORY}}
 
 docker_run() {
   docker \
@@ -174,7 +175,7 @@ download_files() {
 
   local files=$(
     bintray \
-      GET /packages/${BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}/files | \
+      GET /packages/${SOURCE_BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}/files | \
       jq -r ".[].path")
 
   local file=
@@ -184,7 +185,7 @@ download_files() {
       --fail \
       --location \
       --output ${file} \
-      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file} &
+      https://dl.bintray.com/${SOURCE_BINTRAY_REPOSITORY}/${file} &
   done
 }
 
@@ -500,6 +501,18 @@ docker build -t ${docker_image_name} ${SOURCE_DIR}/binary
 
 chmod go-rwx "${docker_ssh_key}"
 
+# By default upload all artifacts.
+# To deactivate one category, deactivate the category and all of its dependents.
+# To explicitly select one category, set UPLOAD_DEFAULT=0 UPLOAD_X=1.
+: ${UPLOAD_DEFAULT:=1}
+: ${UPLOAD_CENTOS_RPM:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_CENTOS_YUM:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_DEBIAN_APT:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_DEBIAN_DEB:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_PYTHON:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_UBUNTU_APT:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_UBUNTU_DEB:=${UPLOAD_DEFAULT}}
+
 have_debian=no
 have_ubuntu=no
 have_centos=no
@@ -536,18 +549,34 @@ for dir in *; do
 
   if [ ${is_deb} = "yes" ]; then
     pushd ${dir}
-    ensure_version ${version} ${rc} ${distribution}
-    upload_deb ${version} ${rc} ${distribution} ${code_name} &
+    case ${distribution} in
+      debian)
+        if [ ${UPLOAD_DEBIAN_DEB} -gt 0 ]; then
+          ensure_version ${version} ${rc} ${distribution}
+          upload_deb ${version} ${rc} ${distribution} ${code_name} &
+        fi
+        ;;
+      ubuntu)
+        if [ ${UPLOAD_UBUNTU_DEB} -gt 0 ]; then
+          ensure_version ${version} ${rc} ${distribution}
+          upload_deb ${version} ${rc} ${distribution} ${code_name} &
+        fi
+        ;;
+    esac
     popd
   elif [ ${is_rpm} = "yes" ]; then
     pushd ${dir}
-    ensure_version ${version} ${rc} ${distribution}
-    upload_rpm ${version} ${rc} ${distribution} ${distribution_version} &
+    if [ ${UPLOAD_CENTOS_RPM} -gt 0 ]; then
+      ensure_version ${version} ${rc} ${distribution}
+      upload_rpm ${version} ${rc} ${distribution} ${distribution_version} &
+    fi
     popd
   elif [ ${is_python} = "yes" ]; then
     pushd ${dir}
-    ensure_version ${version} ${rc} python
-    upload_python ${version} ${rc} &
+    if [ ${UPLOAD_PYTHON} -gt 0 ]; then
+      ensure_version ${version} ${rc} python
+      upload_python ${version} ${rc} &
+    fi
     popd
   fi
 done
@@ -555,13 +584,22 @@ wait
 popd
 
 if [ ${have_debian} = "yes" ]; then
-  upload_apt ${version} ${rc} debian
+  if [ ${UPLOAD_DEBIAN_APT} -gt 0 ]; then
+    ensure_version ${version} ${rc} debian
+    upload_apt ${version} ${rc} debian
+  fi
 fi
 if [ ${have_ubuntu} = "yes" ]; then
-  upload_apt ${version} ${rc} ubuntu
+  if [ ${UPLOAD_UBUNTU_APT} -gt 0 ]; then
+    ensure_version ${version} ${rc} ubuntu
+    upload_apt ${version} ${rc} ubuntu
+  fi
 fi
 if [ ${have_centos} = "yes" ]; then
-  upload_yum ${version} ${rc} centos
+  if [ ${UPLOAD_CENTOS_YUM} -gt 0 ]; then
+    ensure_version ${version} ${rc} centos
+    upload_yum ${version} ${rc} centos
+  fi
 fi
 
 echo "Success! The release candidate binaries are available here:"
