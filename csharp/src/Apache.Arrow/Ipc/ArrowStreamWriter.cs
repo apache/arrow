@@ -343,7 +343,10 @@ namespace Apache.Arrow.Ipc
             await BaseStream.WriteAsync(messageData, cancellationToken).ConfigureAwait(false);
             await WritePaddingAsync(messagePaddingLength).ConfigureAwait(false);
 
-            return 4 + messageData.Length + messagePaddingLength;
+            checked
+            {
+                return 4 + messageData.Length + messagePaddingLength;
+            }
         }
 
         private protected async ValueTask WriteFlatBufferAsync(CancellationToken cancellationToken = default)

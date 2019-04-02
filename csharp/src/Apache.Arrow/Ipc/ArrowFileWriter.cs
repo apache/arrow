@@ -81,12 +81,20 @@ namespace Apache.Arrow.Ipc
 
         private protected override void FinishedWritingRecordBatch(long bodyLength, long metadataLength)
         {
-            Debug.Assert(_currentRecordBatchOffset > 0);
+            // Record batches only appear after a Schema is written, so the record batch offsets must
+            // always be greater than 0.
+            Debug.Assert(_currentRecordBatchOffset > 0, "_currentRecordBatchOffset must be positive.");
+
+            int metadataLengthInt;
+            checked
+            {
+                metadataLengthInt = (int)metadataLength;
+            }
 
             var block = new Block(
                 offset: _currentRecordBatchOffset,
                 length: bodyLength,
-                metadataLength: Convert.ToInt32(metadataLength));
+                metadataLength: metadataLengthInt);
 
             RecordBatchBlocks.Add(block);
 
@@ -132,7 +140,7 @@ namespace Apache.Arrow.Ipc
             foreach (var recordBatch in RecordBatchBlocks)
             {
                 Flatbuf.Block.CreateBlock(
-                    Builder, recordBatch.Offset, recordBatch.MetadataLength, recordBatch.Length);
+                    Builder, recordBatch.Offset, recordBatch.MetadataLength, recordBatch.BodyLength);
             }
 
             var recordBatchesVectorOffset = Builder.EndVector();
@@ -161,8 +169,13 @@ namespace Apache.Arrow.Ipc
 
             await Buffers.RentReturnAsync(4, async (buffer) =>
             {
-                BinaryPrimitives.WriteInt32LittleEndian(buffer.Span,
-                    Convert.ToInt32(BaseStream.Position - offset));
+                int footerLength;
+                checked
+                {
+                    footerLength = (int)(BaseStream.Position - offset);
+                }
+
+                BinaryPrimitives.WriteInt32LittleEndian(buffer.Span, footerLength);
 
                 await BaseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
             }).ConfigureAwait(false);
@@ -178,20 +191,6 @@ namespace Apache.Arrow.Ipc
         {
             return BaseStream.WriteAsync(
                 ArrowFileConstants.Magic, 0, ArrowFileConstants.Magic.Length);
-        }
-
-        internal readonly struct Block
-        {
-            public readonly long Offset;
-            public readonly long Length;
-            public readonly int MetadataLength;
-
-            public Block(long offset, long length, int metadataLength)
-            {
-                Offset = offset;
-                Length = length;
-                MetadataLength = metadataLength;
-            }
         }
     }
 }

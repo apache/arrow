@@ -83,5 +83,27 @@ namespace Apache.Arrow.Tests
                 }
             }
         }
+
+        [Fact]
+        public async Task WriteEmptyBatch()
+        {
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 0);
+
+            using (MemoryStream stream = new MemoryStream())
+            {
+                using (var writer = new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true))
+                {
+                    await writer.WriteRecordBatchAsync(originalBatch);
+                }
+
+                stream.Position = 0;
+
+                using (var reader = new ArrowStreamReader(stream))
+                {
+                    RecordBatch newBatch = reader.ReadNextRecordBatch();
+                    ArrowReaderVerifier.CompareBatches(originalBatch, newBatch);
+                }
+            }
+        }
     }
 }
