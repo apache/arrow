@@ -35,7 +35,8 @@ def cli(debug):
 def contains_arrow_sources(path):
     cpp_path = os.path.join(path, "cpp")
     cmake_path = os.path.join(cpp_path, "CMakeLists.txt")
-    return os.path.exists(cmake_path):
+    return os.path.exists(cmake_path)
+
 
 def validate_arrow_sources(ctx, param, path):
     """ Ensure a directory contains Arrow cpp sources. """
@@ -71,7 +72,7 @@ def resolve_arrow_sources():
     # Implicit via archery ran from sources, find relative sources from
     this_dir = os.path.dirname(os.path.realpath(__file__))
     arrow_via_archery = os.path.join(this_dir, "..", "..", "..")
-    if contains_arrow_sources(arrow_via_archery)
+    if contains_arrow_sources(arrow_via_archery):
         return arrow_via_archery
 
     return None
@@ -113,22 +114,26 @@ warn_level_type = click.Choice(["everything", "checkin", "production"],
 @click.option("--with-flight", default=False, type=bool,
               help="Build with Flight rpc support.")
 # misc
-@click.option("-f", "--force", help="Delete existing build directory if found.")
-@click.option("--build-and-test", type=bool, default=False, help="")
+@click.option("-f", "--force",
+              help="Delete existing build directory if found.")
+@click.option("--targets", type=str, multiple=True,
+              help="Generator targets to run")
 @click.argument("build_dir", type=build_dir_type)
 @click.argument("src_dir", type=source_dir_type, default=resolve_arrow_sources,
                 callback=validate_arrow_sources, required=False)
-def build(src_dir, build_dir, force, build_and_test, **kwargs):
+def build(src_dir, build_dir, force, targets, **kwargs):
+    src_cpp = os.path.join(src_dir, "cpp")
+
     # Arrow's cpp cmake configuration
     conf = CppConfiguration(**kwargs)
     # This is a closure around cmake invocation, e.g. calling `def.build()`
     # yields a directory ready to be run with the generator
-    cpp_path = os.path.join(src_dir, "cpp")
-    cmake_def = CppCMakeDefinition(cpp_path, conf)
+    cmake_def = CppCMakeDefinition(src_cpp, conf)
     # Create build directory
     build = cmake_def.build(build_dir, force=force)
-    if build_and_test:
-        build.all()
+
+    for target in targets:
+        build.run(target)
 
 
 @cli.command()
@@ -143,6 +148,7 @@ def benchmark(rev_a, rev_b, src_dir):
 
         root_b = os.path.join(tmp_dir, rev_b)
         bench_b = CppBenchmarkSuite(src_dir, root_b, rev_b)
+
 
 if __name__ == "__main__":
     cli()
