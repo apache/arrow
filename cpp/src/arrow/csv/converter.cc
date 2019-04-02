@@ -56,6 +56,15 @@ inline bool IsWhitespace(uint8_t c) {
   return c == ' ' || c == '\t';
 }
 
+Status InitializeTrie(const std::vector<std::string>& inputs, Trie* trie) {
+  TrieBuilder builder;
+  for (const auto& s : inputs) {
+    RETURN_NOT_OK(builder.Append(s, true /* allow_duplicates */));
+  }
+  *trie = builder.Finish();
+  return Status::OK();
+}
+
 class ConcreteConverter : public Converter {
  public:
   using Converter::Converter;
@@ -69,12 +78,7 @@ class ConcreteConverter : public Converter {
 
 Status ConcreteConverter::Initialize() {
   // TODO no need to build a separate Trie for each Converter instance
-  TrieBuilder builder;
-  for (const auto& s : options_.null_values) {
-    RETURN_NOT_OK(builder.Append(s, true /* allow_duplicates */));
-  }
-  null_trie_ = builder.Finish();
-  return Status::OK();
+  return InitializeTrie(options_.null_values, &null_trie_);
 }
 
 bool ConcreteConverter::IsNull(const uint8_t* data, uint32_t size, bool quoted) {
@@ -147,7 +151,7 @@ class VarSizeBinaryConverter : public ConcreteConverter {
  protected:
   Status Initialize() override {
     util::InitializeUTF8();
-    return Status::OK();
+    return ConcreteConverter::Initialize();
   }
 };
 
@@ -175,6 +179,57 @@ Status FixedSizeBinaryConverter::Convert(const BlockParser& parser, int32_t col_
                              size, "-byte long string");
     }
     return builder.Append(data);
+  };
+  RETURN_NOT_OK(builder.Resize(parser.num_rows()));
+  RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
+  RETURN_NOT_OK(builder.Finish(out));
+
+  return Status::OK();
+}
+
+/////////////////////////////////////////////////////////////////////////
+// Concrete Converter for booleans
+
+class BooleanConverter : public ConcreteConverter {
+ public:
+  using ConcreteConverter::ConcreteConverter;
+
+  Status Convert(const BlockParser& parser, int32_t col_index,
+                 std::shared_ptr<Array>* out) override;
+
+ protected:
+  Status Initialize() override {
+    // TODO no need to build separate Tries for each BooleanConverter instance
+    RETURN_NOT_OK(InitializeTrie(options_.true_values, &true_trie_));
+    RETURN_NOT_OK(InitializeTrie(options_.false_values, &false_trie_));
+    return ConcreteConverter::Initialize();
+  }
+
+  Trie true_trie_;
+  Trie false_trie_;
+};
+
+Status BooleanConverter::Convert(const BlockParser& parser, int32_t col_index,
+                                 std::shared_ptr<Array>* out) {
+  BooleanBuilder builder(type_, pool_);
+
+  auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+    // XXX should quoted values be allowed at all?
+    if (IsNull(data, size, quoted)) {
+      builder.UnsafeAppendNull();
+      return Status::OK();
+    }
+    if (false_trie_.Find(util::string_view(reinterpret_cast<const char*>(data), size)) >=
+        0) {
+      builder.UnsafeAppend(false);
+      return Status::OK();
+    }
+    if (true_trie_.Find(util::string_view(reinterpret_cast<const char*>(data), size)) >=
+        0) {
+      builder.UnsafeAppend(true);
+      return Status::OK();
+    }
+    return GenericConversionError(type_, data, size);
   };
   RETURN_NOT_OK(builder.Resize(parser.num_rows()));
   RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
@@ -309,7 +364,7 @@ Status Converter::Make(const std::shared_ptr<DataType>& type,
     CONVERTER_CASE(Type::UINT64, NumericConverter<UInt64Type>)
     CONVERTER_CASE(Type::FLOAT, NumericConverter<FloatType>)
     CONVERTER_CASE(Type::DOUBLE, NumericConverter<DoubleType>)
-    CONVERTER_CASE(Type::BOOL, NumericConverter<BooleanType>)
+    CONVERTER_CASE(Type::BOOL, BooleanConverter)
     CONVERTER_CASE(Type::TIMESTAMP, TimestampConverter)
     CONVERTER_CASE(Type::BINARY, (VarSizeBinaryConverter<BinaryType, false>))
     CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
