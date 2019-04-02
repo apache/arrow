@@ -302,6 +302,18 @@ C++ codebase.
    features or developer tools are uniformly supported on Windows. If you are
    on Windows, have a look at the later section on Windows development.
 
+Compiler warning levels
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``BUILD_WARNING_LEVEL`` CMake option switches between sets of predetermined
+compiler warning levels that we use for code tidiness. For release builds, the
+default warning level is ``PRODUCTION``, while for debug builds the default is
+``CHECKIN``.
+
+When using ``CHECKIN`` for debug builds, ``-Werror`` is added when using gcc
+and clang, causing build failures for any warning, and ``/WX`` is set with MSVC
+having the same effect.
+
 Code Style, Linting, and CI
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
