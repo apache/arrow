@@ -197,6 +197,7 @@ int main(int argc, char** argv) {
   ARROW_CHECK_OK(g_server->Init(FLAGS_port));
   // Exit with a clean error code (0) on SIGTERM
   ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
+  std::cout << "Server port: " << FLAGS_port << std::endl;
   ARROW_CHECK_OK(g_server->Serve());
   return 0;
 }
