@@ -32,14 +32,10 @@ function collapseContiguousByteRanges(chunks: Uint8Array[]) {
     for (let x, y, i = 0, j = 0, n = chunks.length; ++i < n;) {
         x = result[j];
         y = chunks[i];
-        // continue x and y don't share the same underlying ArrayBuffer
-        if (!x || !y || x.buffer !== y.buffer) {
+        // continue if x and y don't share the same underlying ArrayBuffer, or if x isn't before y
+        if (!x || !y || x.buffer !== y.buffer || y.byteOffset < x.byteOffset) {
             y && (result[++j] = y);
             continue;
-        }
-        // swap if y starts before x
-        if (y.byteOffset < x.byteOffset) {
-            x = chunks[i]; y = result[j];
         }
         ({ byteOffset: xOffset, byteLength: xLen } = x);
         ({ byteOffset: yOffset, byteLength: yLen } = y);
