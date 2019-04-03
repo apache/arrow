@@ -57,9 +57,7 @@ class IntegrationTestServer {
       }
     }));
 
-    while (true) {
-      Thread.sleep(30000);
-    }
+    efs.awaitTermination();
   }
 
   public static void main(String[] args) {
