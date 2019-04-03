@@ -86,7 +86,7 @@ public class FlightClient implements AutoCloseable {
 
   /**
    * Get a list of available flights.
-   * @param criteria Critera for selecting flights
+   * @param criteria Criteria for selecting flights
    * @return FlightInfo Iterable
    */
   public Iterable<FlightInfo> listFlights(Criteria criteria) {

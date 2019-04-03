@@ -19,5 +19,6 @@
 breathe
 doxygen
 ipython
-sphinx
+# TODO(kszucs): remove this pin after breathe supports sphinx 2
+sphinx<2
 sphinx_rtd_theme

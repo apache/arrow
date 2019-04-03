@@ -13,20 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Database of contributors to Apache Arrow (WIP)
-# Blogs and other pages use this data
+# Database of the current verion
 #
 current:
-  number: '0.12.0'
-  pinned_number: '0.12.*'
-  date: '20 January 2019'
-  git-tag: '8ca41384b5324bfd0ef3d3ed3f728e1d10ed73f0'
-  github-tag-link: 'https://github.com/apache/arrow/releases/tag/apache-arrow-0.12.0'
-  release-notes: 'http://arrow.apache.org/release/0.12.0.html'
-  mirrors: 'https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.12.0/'
-  tarball_name: 'apache-arrow-0.12.0.tar.gz'
-  mirrors-tar: 'https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.12.0/apache-arrow-0.12.0.tar.gz'
-  java-artifacts: 'http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%220.12.0%22'
-  asc: 'https://www.apache.org/dist/arrow/arrow-0.12.0/apache-arrow-0.12.0.tar.gz.asc'
-  sha256: 'https://www.apache.org/dist/arrow/arrow-0.12.0/apache-arrow-0.12.0.tar.gz.sha256'
-  sha512: 'https://www.apache.org/dist/arrow/arrow-0.12.0/apache-arrow-0.12.0.tar.gz.sha512'
+  number: '0.13.0'
+  pinned_number: '0.13.*'
+  date: '1 April 2019'
+  git-tag: 'dfb9e7af3cd92722893a3819b6676dfdef08f896'
+  github-tag-link: 'https://github.com/apache/arrow/releases/tag/apache-arrow-0.13.0'
+  release-notes: 'https://arrow.apache.org/release/0.13.0.html'
+  mirrors: 'https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.13.0/'
+  tarball_name: 'apache-arrow-0.13.0.tar.gz'
+  mirrors-tar: 'https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.13.0/apache-arrow-0.13.0.tar.gz'
+  java-artifacts: 'http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%220.13.0%22'
+  asc: 'https://www.apache.org/dist/arrow/arrow-0.13.0/apache-arrow-0.13.0.tar.gz.asc'
+  sha256: 'https://www.apache.org/dist/arrow/arrow-0.13.0/apache-arrow-0.13.0.tar.gz.sha256'
+  sha512: 'https://www.apache.org/dist/arrow/arrow-0.13.0/apache-arrow-0.13.0.tar.gz.sha512'

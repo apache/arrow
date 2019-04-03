@@ -30,7 +30,7 @@ import io.netty.buffer.ByteBuf;
 /**
  * Allow a user to add a ByteBuf based InputStream directly into GRPC WritableBuffer to avoid an
  * extra copy. This could be solved in GRPC by adding a ByteBufListable interface on InputStream and
- * letting BufferChainOutputStream take adavantage of it.
+ * letting BufferChainOutputStream take advantage of it.
  */
 public class AddWritableBuffer {
 

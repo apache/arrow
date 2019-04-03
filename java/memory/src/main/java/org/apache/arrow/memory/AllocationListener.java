@@ -25,31 +25,34 @@ package org.apache.arrow.memory;
  */
 public interface AllocationListener {
 
-  public static final AllocationListener NOOP = new AllocationListener() {
-    @Override
-    public void onAllocation(long size) {
-    }
-
-    @Override
-    public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
-      return false;
-    }
-
-    @Override
-    public void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
-    }
-
-    @Override
-    public void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
-    }
-  };
+  public static final AllocationListener NOOP = new AllocationListener() {};
 
   /**
-   * Called each time a new buffer is allocated.
+   * Called each time a new buffer has been requested.
+   *
+   * <p>An exception can be safely thrown by this method to terminate the allocation.
    *
    * @param size the buffer size being allocated
    */
-  void onAllocation(long size);
+  default void onPreAllocation(long size) {}
+
+  /**
+   * Called each time a new buffer has been allocated.
+   *
+   * <p>An exception cannot be thrown by this method.
+   *
+   * @param size the buffer size being allocated
+   */
+  default void onAllocation(long size) {}
+
+  /**
+   * Informed each time a buffer is released from allocation.
+   *
+   * <p>An exception cannot be thrown by this method.
+   * @param size The size of the buffer being released.
+   */
+  default void onRelease(long size) {}
+
 
   /**
    * Called whenever an allocation failed, giving the caller a chance to create some space in the
@@ -60,7 +63,9 @@ public interface AllocationListener {
    * @param outcome  the outcome of the failed allocation. Carries information of what failed
    * @return true, if the allocation can be retried; false if the allocation should fail
    */
-  boolean onFailedAllocation(long size, AllocationOutcome outcome);
+  default boolean onFailedAllocation(long size, AllocationOutcome outcome) {
+    return false;
+  }
 
   /**
    * Called immediately after a child allocator was added to the parent allocator.
@@ -68,7 +73,7 @@ public interface AllocationListener {
    * @param parentAllocator The parent allocator to which a child was added
    * @param childAllocator  The child allocator that was just added
    */
-  void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator);
+  default void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator) {}
 
   /**
    * Called immediately after a child allocator was removed from the parent allocator.
@@ -76,5 +81,5 @@ public interface AllocationListener {
    * @param parentAllocator The parent allocator from which a child was removed
    * @param childAllocator The child allocator that was just removed
    */
-  void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator);
+  default void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator) {}
 }

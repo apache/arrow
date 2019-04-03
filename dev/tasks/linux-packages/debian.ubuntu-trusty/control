@@ -20,7 +20,7 @@ Build-Depends-Indep: libglib2.0-doc
 Standards-Version: 3.9.6
 Homepage: https://arrow.apache.org/
 
-Package: libarrow13
+Package: libarrow14
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -38,12 +38,12 @@ Architecture: any
 Multi-Arch: same
 Depends:
   ${misc:Depends},
-  libarrow13 (= ${binary:Version})
+  libarrow14 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files.
 
-Package: libplasma13
+Package: libplasma14
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -51,7 +51,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow13 (= ${binary:Version})
+  libarrow14 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
  This package provides C++ library files to connect plasma_store_server.
@@ -63,7 +63,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libplasma13 (= ${binary:Version})
+  libplasma14 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
  This package provides plasma_store_server.
@@ -75,12 +75,12 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libplasma13 (= ${binary:Version})
+  libplasma14 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
  This package provides C++ header files.
 
-Package: libparquet13
+Package: libparquet14
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -99,12 +99,12 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libparquet13 (= ${binary:Version})
+  libparquet14 (= ${binary:Version})
 Description: Apache Parquet is a columnar storage format
  .
  This package provides C++ header files.
 
-Package: libarrow-glib13
+Package: libarrow-glib14
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -112,7 +112,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow13 (= ${binary:Version})
+  libarrow14 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides GLib based library files.
@@ -136,7 +136,7 @@ Depends:
   ${misc:Depends},
   libglib2.0-dev,
   libarrow-dev (= ${binary:Version}),
-  libarrow-glib13 (= ${binary:Version}),
+  libarrow-glib14 (= ${binary:Version}),
   gir1.2-arrow-1.0 (= ${binary:Version})
 Suggests: libarrow-glib-doc
 Description: Apache Arrow is a data processing library for analysis
@@ -154,7 +154,7 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides documentations.
 
-Package: libplasma-glib13
+Package: libplasma-glib14
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -162,8 +162,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-glib13 (= ${binary:Version}),
-  libplasma13 (= ${binary:Version})
+  libarrow-glib14 (= ${binary:Version}),
+  libplasma14 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
  This package provides GLib based library files to connect plasma_store_server.
@@ -187,7 +187,7 @@ Depends:
   ${misc:Depends},
   libplasma-dev (= ${binary:Version}),
   libarrow-glib-dev (= ${binary:Version}),
-  libplasma-glib13 (= ${binary:Version}),
+  libplasma-glib14 (= ${binary:Version}),
   gir1.2-plasma-1.0 (= ${binary:Version})
 Description: Plasma is an in-memory object store and cache for big data.
  .
@@ -204,7 +204,7 @@ Description: Plasma is an in-memory object store and cache for big data.
  .
  This package provides documentations.
 
-Package: libparquet-glib13
+Package: libparquet-glib14
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -212,8 +212,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-glib13 (= ${binary:Version}),
-  libparquet13 (= ${binary:Version})
+  libarrow-glib14 (= ${binary:Version}),
+  libparquet14 (= ${binary:Version})
 Description: Apache Parquet is a columnar storage format
  .
  This package provides GLib based library files.
@@ -237,7 +237,7 @@ Depends:
   ${misc:Depends},
   libarrow-glib-dev (= ${binary:Version}),
   libparquet-dev (= ${binary:Version}),
-  libparquet-glib13 (= ${binary:Version}),
+  libparquet-glib14 (= ${binary:Version}),
   gir1.2-parquet-1.0 (= ${binary:Version})
 Suggests: libparquet-glib-doc
 Description: Apache Parquet is a columnar storage format

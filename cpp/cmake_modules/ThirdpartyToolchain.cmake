@@ -2025,7 +2025,9 @@ macro(build_grpc)
                       ${GRPC_CPP_PLUGIN}
                       CMAKE_ARGS
                       ${GRPC_CMAKE_ARGS}
-                      ${EP_LOG_OPTIONS})
+                      ${EP_LOG_OPTIONS}
+                      DEPENDS
+                      ${grpc_dependencies})
 
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr
@@ -2341,6 +2343,11 @@ if(ARROW_ORC)
       "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
     if("${COMPILER_FAMILY}" STREQUAL "clang")
+      if("${COMPILER_VERSION}" VERSION_EQUAL "4.0")
+        # conda OSX builds uses clang 4.0.1 and orc_ep fails to build unless
+        # disabling the following errors
+        set(ORC_CMAKE_CXX_FLAGS " -Wno-error=weak-vtables -Wno-error=undef ")
+      endif()
       if("${COMPILER_VERSION}" VERSION_GREATER "4.0")
         set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
   -Wno-inconsistent-missing-destructor-override ")

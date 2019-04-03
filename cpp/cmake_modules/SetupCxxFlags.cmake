@@ -101,8 +101,11 @@ else()
 endif()
 
 # BUILD_WARNING_LEVEL add warning/error compiler flags. The possible values are
-# - RELEASE: `-Werror` is not provide, thus warning do not halt the build.
-# - CHECKIN: Imply `-Werror -Wall` and some other warnings.
+# - PRODUCTION: Build with `-Wall` but do not add `-Werror`, so warnings do not
+#   halt the build.
+# - CHECKIN: Imply `-Weverything` with certain pedantic warnings
+#   disabled. `-Werror` is added in debug builds so that any warnings fail the
+#   build
 # - EVERYTHING: Like `CHECKIN`, but possible extra flags depending on the
 #               compiler, including `-Wextra`, `-Weverything`, `-pedantic`.
 #               This is the most aggressive warning level.
@@ -121,13 +124,22 @@ string(TOUPPER ${BUILD_WARNING_LEVEL} BUILD_WARNING_LEVEL)
 
 message(STATUS "Arrow build warning level: ${BUILD_WARNING_LEVEL}")
 
+macro(arrow_add_werror_if_debug)
+  if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+    # Treat all compiler warnings as errors
+    if("${COMPILER_FAMILY}" STREQUAL "msvc")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /WX")
+    else()
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Werror")
+    endif()
+  endif()
+endmacro()
+
 if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   # Pre-checkin builds
   if("${COMPILER_FAMILY}" STREQUAL "msvc")
     string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
-    # Treat all compiler warnings as errors
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /WX")
   elseif("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
 -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
@@ -159,18 +171,14 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     if("${COMPILER_VERSION}" VERSION_GREATER "3.9")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-zero-as-null-pointer-constant")
     endif()
-
-    # Treat all compiler warnings as errors
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option -Werror")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
   elseif("${COMPILER_FAMILY}" STREQUAL "gcc")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall \
 -Wno-conversion -Wno-sign-conversion -Wno-unused-variable")
-
-    # Treat all compiler warnings as errors
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Werror")
   else()
     message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
   endif()
+  arrow_add_werror_if_debug()
 elseif("${BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
   # Pedantic builds for fixing warnings
   if("${COMPILER_FAMILY}" STREQUAL "msvc")
@@ -178,21 +186,16 @@ elseif("${BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
     # https://docs.microsoft.com/en-us/cpp/build/reference/compiler-option-warning-level
     # /wdnnnn disables a warning where "nnnn" is a warning number
-    # Treat all compiler warnings as errors
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}  /WX")
   elseif("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS
         "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic")
-    # Treat all compiler warnings as errors
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Werror")
   elseif("${COMPILER_FAMILY}" STREQUAL "gcc")
     set(CXX_COMMON_FLAGS
         "${CXX_COMMON_FLAGS} -Wall -Wpedantic -Wextra -Wno-unused-parameter")
-    # Treat all compiler warnings as errors
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Werror")
   else()
     message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
   endif()
+  arrow_add_werror_if_debug()
 else()
   # Production builds (warning are not treated as errors)
   if("${COMPILER_FAMILY}" STREQUAL "msvc")

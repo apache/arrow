@@ -26,6 +26,10 @@ import org.apache.arrow.util.VisibleForTesting;
  */
 public class RootAllocator extends BaseAllocator {
 
+  public RootAllocator() {
+    this(AllocationListener.NOOP, Long.MAX_VALUE);
+  }
+
   public RootAllocator(final long limit) {
     this(AllocationListener.NOOP, limit);
   }

@@ -79,12 +79,13 @@ static ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>& type,
 #define MakeArrowArrayBinary MakeArrowArray<arrow::BinaryType, std::string>
 #define MakeArrowArrayDecimal MakeArrowArray<arrow::Decimal128Type, arrow::Decimal128>
 
-#define EXPECT_ARROW_ARRAY_EQUALS(a, b)                                \
-  EXPECT_TRUE((a)->Equals(b)) << "expected array: " << (a)->ToString() \
-                              << " actual array: " << (b)->ToString()
+#define EXPECT_ARROW_ARRAY_EQUALS(a, b)                               \
+  EXPECT_TRUE((a)->Equals(b, arrow::EqualOptions().nans_equal(true))) \
+      << "expected array: " << (a)->ToString() << " actual array: " << (b)->ToString()
 
-#define EXPECT_ARROW_ARRAY_APPROX_EQUALS(a, b, epsilon) \
-  EXPECT_TRUE((a)->ApproxEquals(b, epsilon))            \
+#define EXPECT_ARROW_ARRAY_APPROX_EQUALS(a, b, epsilon)                           \
+  EXPECT_TRUE(                                                                    \
+      (a)->ApproxEquals(b, arrow::EqualOptions().atol(epsilon).nans_equal(true))) \
       << "expected array: " << (a)->ToString() << " actual array: " << (b)->ToString()
 
 #define EXPECT_ARROW_TYPE_EQUALS(a, b)                                \

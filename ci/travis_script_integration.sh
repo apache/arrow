@@ -51,7 +51,7 @@ conda install -y -q python=3.6 six numpy
 INTEGRATION_TEMPDIR=$TRAVIS_BUILD_DIR/integration_temp
 mkdir -p $INTEGRATION_TEMPDIR
 
-python integration_test.py --debug --tempdir=$INTEGRATION_TEMPDIR
+python integration_test.py --debug --tempdir=$INTEGRATION_TEMPDIR --run_flight
 
 popd
 

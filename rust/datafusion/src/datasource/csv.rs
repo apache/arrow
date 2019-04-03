@@ -25,7 +25,7 @@ use arrow::csv;
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::{RecordBatchIterator, ScanResult, Table};
+use crate::datasource::{RecordBatchIterator, ScanResult, TableProvider};
 use crate::error::Result;
 
 /// Represents a CSV file with a provided schema
@@ -47,7 +47,7 @@ impl CsvFile {
     }
 }
 
-impl Table for CsvFile {
+impl TableProvider for CsvFile {
     fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }

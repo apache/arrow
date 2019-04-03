@@ -2,18 +2,16 @@ MACOSX_DEPLOYMENT_TARGET:
 - '10.9'
 boost_cpp:
 - 1.68.0
-build_number_decrement:
-- '0'
+c_compiler:
+- clang
 channel_sources:
 - conda-forge,defaults
 channel_targets:
 - conda-forge main
-c_compiler:
-- clang
 cxx_compiler:
 - clangxx
 libprotobuf:
-- '3.6'
+- '3.7'
 lz4_c:
 - 1.8.1
 macos_machine:
@@ -37,15 +35,9 @@ pin_run_as_build:
   zstd:
     max_pin: x.x.x
 python:
-- '3.7'
+- '3.6'
 snappy:
 - 1.1.7
-zip_keys:
-- - c_compiler
-  - cxx_compiler
-  - channel_sources
-  - channel_targets
-  - build_number_decrement
 zlib:
 - '1.2'
 zstd:

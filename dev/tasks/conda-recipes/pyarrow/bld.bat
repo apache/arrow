@@ -31,7 +31,10 @@ copy /Y "%SRC_DIR%\cpp\cmake_modules\FindPythonLibsNew.cmake" cmake_modules\
 
 SET ARROW_HOME=%LIBRARY_PREFIX%
 "%PYTHON%" setup.py ^
-           build_ext --build-type=release --with-parquet ^
-           install --single-version-externally-managed --record=record.txt
+           build_ext --build-type=release ^
+                     --with-parquet ^
+                     --with-gandiva ^
+           install --single-version-externally-managed ^
+                   --record=record.txt
 if errorlevel 1 exit 1
 popd

@@ -167,7 +167,7 @@ class InferringColumnBuilder : public ColumnBuilder {
   std::shared_ptr<Converter> converter_;
 
   // Current inference status
-  enum class InferKind { Null, Integer, Real, Timestamp, Text, Binary };
+  enum class InferKind { Null, Integer, Boolean, Real, Timestamp, Text, Binary };
 
   std::shared_ptr<DataType> infer_type_;
   InferKind infer_kind_;
@@ -191,6 +191,9 @@ Status InferringColumnBuilder::LoosenType() {
       infer_kind_ = InferKind::Integer;
       break;
     case InferKind::Integer:
+      infer_kind_ = InferKind::Boolean;
+      break;
+    case InferKind::Boolean:
       infer_kind_ = InferKind::Timestamp;
       break;
     case InferKind::Timestamp:
@@ -218,6 +221,10 @@ Status InferringColumnBuilder::UpdateType() {
       break;
     case InferKind::Integer:
       infer_type_ = int64();
+      can_loosen_type_ = true;
+      break;
+    case InferKind::Boolean:
+      infer_type_ = boolean();
       can_loosen_type_ = true;
       break;
     case InferKind::Timestamp:

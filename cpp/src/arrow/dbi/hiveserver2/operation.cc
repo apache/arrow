@@ -108,7 +108,7 @@ Status Operation::Fetch(int max_rows, FetchOrientation orientation,
     *has_more_rows = row_set_impl->resp.hasMoreRows;
   }
   Status status = TStatusToStatus(row_set_impl->resp.status);
-  DCHECK(status.ok());
+  RETURN_NOT_OK(status);
   results->reset(new ColumnarRowSet(row_set_impl.release()));
   return status;
 }

@@ -81,22 +81,38 @@ enum class ArrowLogLevel : int {
 #ifdef NDEBUG
 #define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_WARNING
 
-#define DCHECK(condition) \
+// CAUTION: DCHECK_OK() always evaluates its argument, but other DCHECK*() macros
+// only do so in debug mode.
+
+#define DCHECK(condition)                     \
+  while (false) ARROW_IGNORE_EXPR(condition); \
   while (false) ::arrow::util::detail::NullLog()
 #define DCHECK_OK(s)    \
   ARROW_IGNORE_EXPR(s); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_EQ(val1, val2) \
+#define DCHECK_EQ(val1, val2)            \
+  while (false) ARROW_IGNORE_EXPR(val1); \
+  while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_NE(val1, val2) \
+#define DCHECK_NE(val1, val2)            \
+  while (false) ARROW_IGNORE_EXPR(val1); \
+  while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_LE(val1, val2) \
+#define DCHECK_LE(val1, val2)            \
+  while (false) ARROW_IGNORE_EXPR(val1); \
+  while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_LT(val1, val2) \
+#define DCHECK_LT(val1, val2)            \
+  while (false) ARROW_IGNORE_EXPR(val1); \
+  while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_GE(val1, val2) \
+#define DCHECK_GE(val1, val2)            \
+  while (false) ARROW_IGNORE_EXPR(val1); \
+  while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_GT(val1, val2) \
+#define DCHECK_GT(val1, val2)            \
+  while (false) ARROW_IGNORE_EXPR(val1); \
+  while (false) ARROW_IGNORE_EXPR(val2); \
   while (false) ::arrow::util::detail::NullLog()
 
 #else
@@ -167,6 +183,9 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   /// If glog is not installed, this function won't do anything.
   static void InstallFailureSignalHandler();
 
+  /// Uninstall the signal actions installed by InstallFailureSignalHandler.
+  static void UninstallSignalAction();
+
   /// Return whether or not the log level is enabled in current setting.
   ///
   /// \param log_level The input log level to test.
@@ -183,9 +202,6 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   bool is_enabled_;
 
   static ArrowLogLevel severity_threshold_;
-  // In InitGoogleLogging, it simply keeps the pointer.
-  // We need to make sure the app name passed to InitGoogleLogging exist.
-  static std::unique_ptr<std::string> app_name_;
 
  protected:
   virtual std::ostream& Stream();

@@ -73,6 +73,7 @@ if [ $TRAVIS_OS_NAME == "osx" ]; then
   export GOPATH=$TRAVIS_BUILD_DIR/gopath
 fi
 
+export ARROW_TEST_DATA=$TRAVIS_BUILD_DIR/testing/data
 export PARQUET_TEST_DATA=$TRAVIS_BUILD_DIR/cpp/submodules/parquet-testing/data
 
 # e.g. "trusty" or "xenial"
