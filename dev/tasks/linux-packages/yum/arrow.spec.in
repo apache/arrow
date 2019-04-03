@@ -129,9 +129,13 @@ License:	Apache-2.0
 Requires:	boost-system
 Requires:	boost-filesystem
 Requires:	boost-regex
+%if %{_centos_ver} >= 7
 Requires:	double-conversion
+%endif
 Requires:	gflags
+%if %{_centos_ver} >= 7
 Requires:	glog
+%endif
 Requires:	libzstd
 Requires:	lz4
 Requires:	snappy
