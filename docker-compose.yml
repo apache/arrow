@@ -497,3 +497,40 @@ services:
       - spark-cache:/spark:delegated
 
   # TODO(kszucs): hive-integration
+
+  ######################## Verification Containers ############################
+
+  debian-stretch:
+    image: debian:stretch
+    volumes:
+      - .:/arrow:delegated
+
+  ubuntu-trusty:
+    image: ubuntu:trusty
+    volumes:
+      - .:/arrow:delegated
+
+  ubuntu-xenial:
+    image: ubuntu:xenial
+    volumes:
+      - .:/arrow:delegated
+
+  ubuntu-bionic:
+    image: ubuntu:bionic
+    volumes:
+      - .:/arrow:delegated
+
+  ubuntu-cosmic:
+    image: ubuntu:cosmic
+    volumes:
+      - .:/arrow:delegated
+
+  centos-6:
+    image: centos:6
+    volumes:
+      - .:/arrow:delegated
+
+  centos-7:
+    image: centos:7
+    volumes:
+      - .:/arrow:delegated
