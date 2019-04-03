@@ -77,14 +77,14 @@ TEST(TestExtendedMathOps, TestLogWithBase) {
   float64 out =
       log_int32_int32(reinterpret_cast<int64>(&context), 1 /*base*/, 10 /*value*/);
   VerifyFuzzyEquals(out, 0);
-  VerifyFuzzyEquals(context.has_error(), true);
+  EXPECT_EQ(context.has_error(), true);
   EXPECT_TRUE(context.get_error().find("divide by zero error") != std::string::npos)
       << context.get_error();
 
   gandiva::ExecutionContext context1;
   out = log_int32_int32(reinterpret_cast<int64>(&context), 2 /*base*/, 64 /*value*/);
   VerifyFuzzyEquals(out, 6);
-  VerifyFuzzyEquals(context1.has_error(), false);
+  EXPECT_EQ(context1.has_error(), false);
 }
 
 }  // namespace gandiva
