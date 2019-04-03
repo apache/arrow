@@ -210,12 +210,14 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
   ChunkedStructArrayBuilder(
       const std::shared_ptr<internal::TaskGroup>& task_group, MemoryPool* pool,
       const PromotionGraph* promotion_graph,
-      std::unordered_map<std::string, std::unique_ptr<ChunkedArrayBuilder>>
-          child_builders)
-      : ChunkedArrayBuilder(task_group),
-        pool_(pool),
-        promotion_graph_(promotion_graph),
-        child_builders_(std::move(child_builders)) {}
+      std::vector<std::pair<std::string, std::unique_ptr<ChunkedArrayBuilder>>>
+          name_builders)
+      : ChunkedArrayBuilder(task_group), pool_(pool), promotion_graph_(promotion_graph) {
+    for (auto&& name_builder : name_builders) {
+      name_to_index_.emplace(std::move(name_builder.first), name_to_index_.size());
+      child_builders_.emplace_back(std::move(name_builder.second));
+    }
+  }
 
   void Insert(int64_t block_index, const std::shared_ptr<Field>&,
               const std::shared_ptr<Array>& unconverted) override {
@@ -234,12 +236,12 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
     const auto& fields = unconverted->type()->children();
 
     for (int i = 0; i < unconverted->num_fields(); ++i) {
-      auto it = child_builders_.find(fields[i]->name());
+      auto it = name_to_index_.find(fields[i]->name());
 
       if (promotion_graph_ == nullptr) {
         // an unexpected field at this point is an error
-        DCHECK_NE(it, child_builders_.end());
-      } else if (it == child_builders_.end()) {
+        DCHECK_NE(it, name_to_index_.end());
+      } else if (it == name_to_index_.end()) {
         // add a new field to this builder
         auto type = promotion_graph_->Infer(fields[i]);
         if (type == nullptr) {
@@ -247,14 +249,17 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
                                  fields[i]->name(), ":", *fields[i]->type());
         }
 
+        it = name_to_index_.emplace(fields[i]->name(), name_to_index_.size()).first;
+
         std::unique_ptr<ChunkedArrayBuilder> child_builder;
         RETURN_NOT_OK(MakeChunkedArrayBuilder(task_group_, pool_, promotion_graph_, type,
                                               &child_builder));
-        it = child_builders_.emplace(fields[i]->name(), std::move(child_builder)).first;
+        child_builders_.emplace_back(std::move(child_builder));
       }
 
       auto unconverted_field = unconverted->type()->child(i);
-      it->second->Insert(block_index, unconverted_field, unconverted->field(i));
+      child_builders_[it->second]->Insert(block_index, unconverted_field,
+                                          unconverted->field(i));
     }
 
     if (null_bitmap_chunks_.size() <= static_cast<size_t>(block_index)) {
@@ -269,20 +274,23 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
   Status Finish(std::shared_ptr<ChunkedArray>* out) override {
     RETURN_NOT_OK(task_group_->Finish());
 
-    std::vector<std::shared_ptr<Field>> fields;
-    std::vector<std::shared_ptr<ChunkedArray>> child_arrays;
-    for (auto&& name_builder : child_builders_) {
+    std::vector<std::shared_ptr<Field>> fields(name_to_index_.size());
+    std::vector<std::shared_ptr<ChunkedArray>> child_arrays(name_to_index_.size());
+    for (auto&& name_index : name_to_index_) {
+      auto child_builder = child_builders_[name_index.second].get();
+
       std::shared_ptr<ChunkedArray> child_array;
-      RETURN_NOT_OK(name_builder.second->Finish(&child_array));
-      child_arrays.push_back(child_array);
-      fields.push_back(field(name_builder.first, child_array->type()));
+      RETURN_NOT_OK(child_builder->Finish(&child_array));
+
+      child_arrays[name_index.second] = child_array;
+      fields[name_index.second] = field(name_index.first, child_array->type());
     }
 
     auto type = struct_(std::move(fields));
     ArrayVector chunks(null_bitmap_chunks_.size());
     for (size_t i = 0; i < null_bitmap_chunks_.size(); ++i) {
       ArrayVector child_chunks;
-      for (auto&& child_array : child_arrays) {
+      for (const auto& child_array : child_arrays) {
         child_chunks.push_back(child_array->chunk(i));
       }
       chunks[i] = std::make_shared<StructArray>(type, chunk_lengths_[i], child_chunks,
@@ -297,7 +305,8 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
   std::mutex mutex_;
   MemoryPool* pool_;
   const PromotionGraph* promotion_graph_;
-  std::unordered_map<std::string, std::unique_ptr<ChunkedArrayBuilder>> child_builders_;
+  std::unordered_map<std::string, int> name_to_index_;
+  std::vector<std::unique_ptr<ChunkedArrayBuilder>> child_builders_;
   BufferVector null_bitmap_chunks_;
   std::vector<int64_t> chunk_lengths_;
 };
@@ -307,12 +316,13 @@ Status MakeChunkedArrayBuilder(const std::shared_ptr<internal::TaskGroup>& task_
                                const std::shared_ptr<DataType>& type,
                                std::unique_ptr<ChunkedArrayBuilder>* out) {
   if (type->id() == Type::STRUCT) {
-    std::unordered_map<std::string, std::unique_ptr<ChunkedArrayBuilder>> child_builders;
+    std::vector<std::pair<std::string, std::unique_ptr<ChunkedArrayBuilder>>>
+        child_builders;
     for (const auto& f : type->children()) {
       std::unique_ptr<ChunkedArrayBuilder> child_builder;
       RETURN_NOT_OK(MakeChunkedArrayBuilder(task_group, pool, promotion_graph, f->type(),
                                             &child_builder));
-      child_builders.emplace(f->name(), std::move(child_builder));
+      child_builders.emplace_back(f->name(), std::move(child_builder));
     }
     *out = internal::make_unique<ChunkedStructArrayBuilder>(
         task_group, pool, promotion_graph, std::move(child_builders));
