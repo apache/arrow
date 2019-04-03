@@ -19,9 +19,11 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <initializer_list>
 #include <limits>
 #include <sstream>
 #include <tuple>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -31,7 +33,6 @@
 #include "arrow/array.h"
 #include "arrow/buffer-builder.h"
 #include "arrow/builder.h"
-#include "arrow/csv/converter.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -39,6 +40,8 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
+#include "arrow/util/string_view.h"
+#include "arrow/util/trie.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -54,9 +57,73 @@ Status ParseError(T&&... t) {
 }
 
 Status KindChangeError(Kind::type from, Kind::type to) {
-  auto from_name = Tag(from)->value(0);
-  auto to_name = Tag(to)->value(0);
-  return ParseError("A column changed from ", from_name, " to ", to_name);
+  return ParseError("A column changed from ", Kind::Name(from), " to ", Kind::Name(to));
+}
+
+const std::string& Kind::Name(Kind::type kind) {
+  static const std::string names[] = {"null",   "boolean", "number",
+                                      "string", "array",   "object"};
+
+  return names[kind];
+}
+
+const std::shared_ptr<const KeyValueMetadata>& Kind::Tag(Kind::type kind) {
+  static const std::shared_ptr<const KeyValueMetadata> tags[] = {
+      key_value_metadata({{"json_kind", Kind::Name(Kind::kNull)}}),
+      key_value_metadata({{"json_kind", Kind::Name(Kind::kBoolean)}}),
+      key_value_metadata({{"json_kind", Kind::Name(Kind::kNumber)}}),
+      key_value_metadata({{"json_kind", Kind::Name(Kind::kString)}}),
+      key_value_metadata({{"json_kind", Kind::Name(Kind::kArray)}}),
+      key_value_metadata({{"json_kind", Kind::Name(Kind::kObject)}}),
+  };
+  return tags[kind];
+}
+
+internal::Trie MakeFromTagTrie() {
+  internal::TrieBuilder builder;
+  for (auto kind : {Kind::kNull, Kind::kBoolean, Kind::kNumber, Kind::kString,
+                    Kind::kArray, Kind::kObject}) {
+    DCHECK_OK(builder.Append(Kind::Name(kind)));
+  }
+  auto name_to_kind = builder.Finish();
+  DCHECK_OK(name_to_kind.Validate());
+  return name_to_kind;
+}
+
+Kind::type Kind::FromTag(const std::shared_ptr<const KeyValueMetadata>& tag) {
+  static internal::Trie name_to_kind = MakeFromTagTrie();
+  DCHECK_NE(tag->FindKey("json_kind"), -1);
+  util::string_view name = tag->value(tag->FindKey("json_kind"));
+  DCHECK_NE(name_to_kind.Find(name), -1);
+  return static_cast<Kind::type>(name_to_kind.Find(name));
+}
+
+Status Kind::ForType(const DataType& type, Kind::type* kind) {
+  struct {
+    Status Visit(const NullType&) { return SetKind(Kind::kNull); }
+    Status Visit(const BooleanType&) { return SetKind(Kind::kBoolean); }
+    Status Visit(const Number&) { return SetKind(Kind::kNumber); }
+    // XXX should TimeType & DateType be Kind::kNumber or Kind::kString?
+    Status Visit(const TimeType&) { return SetKind(Kind::kNumber); }
+    Status Visit(const DateType&) { return SetKind(Kind::kNumber); }
+    Status Visit(const BinaryType&) { return SetKind(Kind::kString); }
+    // XXX should Decimal128Type be Kind::kNumber or Kind::kString?
+    Status Visit(const FixedSizeBinaryType&) { return SetKind(Kind::kString); }
+    Status Visit(const DictionaryType& dict_type) {
+      return Kind::ForType(*dict_type.dictionary()->type(), kind_);
+    }
+    Status Visit(const ListType&) { return SetKind(Kind::kArray); }
+    Status Visit(const StructType&) { return SetKind(Kind::kObject); }
+    Status Visit(const DataType& not_impl) {
+      return Status::NotImplemented("JSON parsing of ", not_impl);
+    }
+    Status SetKind(Kind::type kind) {
+      *kind_ = kind;
+      return Status::OK();
+    }
+    Kind::type* kind_;
+  } visitor = {kind};
+  return VisitTypeInline(type, &visitor);
 }
 
 /// Similar to StringBuilder, but appends bytes into the provided buffer without
@@ -202,8 +269,9 @@ class ScalarBuilder {
   explicit ScalarBuilder(MemoryPool* pool)
       : data_builder_(pool), null_bitmap_builder_(pool) {}
 
-  Status Append(int32_t index) {
+  Status Append(int32_t index, int32_t value_length) {
     RETURN_NOT_OK(data_builder_.Append(index));
+    values_length_ += value_length;
     return null_bitmap_builder_.Append(true);
   }
 
@@ -229,9 +297,10 @@ class ScalarBuilder {
 
   int64_t length() { return null_bitmap_builder_.length(); }
 
-  // TODO(bkietz) track total length of bytes for later simpler allocation
+  int32_t values_length() { return values_length_; }
 
  private:
+  int32_t values_length_;
   TypedBufferBuilder<int32_t> data_builder_;
   TypedBufferBuilder<bool> null_bitmap_builder_;
 };
@@ -280,8 +349,8 @@ class RawArrayBuilder<Kind::kArray> {
     RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
     std::shared_ptr<Array> values;
     RETURN_NOT_OK(handler.Finish(value_builder_, &values));
-    auto type = list(
-        field("item", values->type(), value_builder_.nullable, Tag(value_builder_.kind)));
+    auto type = list(field("item", values->type(), value_builder_.nullable,
+                           Kind::Tag(value_builder_.kind)));
     *out = MakeArray(ArrayData::Make(type, size, {null_bitmap, offsets}, {values->data()},
                                      null_count));
     return Status::OK();
@@ -351,7 +420,7 @@ class RawArrayBuilder<Kind::kObject> {
       RETURN_NOT_OK(handler.Finish(field_builders_[i], &values));
       child_data[i] = values->data();
       fields[i] = field(field_names[i].to_string(), values->type(),
-                        field_builders_[i].nullable, Tag(field_builders_[i].kind));
+                        field_builders_[i].nullable, Kind::Tag(field_builders_[i].kind));
     }
 
     *out = MakeArray(ArrayData::Make(struct_(std::move(fields)), size, {null_bitmap},
@@ -476,6 +545,7 @@ class HandlerBase : public BlockParser::Impl,
   /// finish a column of scalar values (string or number)
   Status FinishScalar(ScalarBuilder* builder, std::shared_ptr<Array>* out) {
     std::shared_ptr<Array> indices;
+    // TODO(bkietz) embed builder->values_length() in this output somehow
     RETURN_NOT_OK(builder->Finish(&indices));
     return DictionaryArray::FromArrays(dictionary(int32(), scalar_values_), indices, out);
   }
@@ -484,7 +554,8 @@ class HandlerBase : public BlockParser::Impl,
   Status DoParse(Handler& handler, const std::shared_ptr<Buffer>& json) {
     constexpr auto parse_flags =
         rapidjson::kParseInsituFlag | rapidjson::kParseIterativeFlag |
-        rapidjson::kParseStopWhenDoneFlag | rapidjson::kParseNumbersAsStringsFlag;
+        rapidjson::kParseNanAndInfFlag | rapidjson::kParseStopWhenDoneFlag |
+        rapidjson::kParseNumbersAsStringsFlag;
     auto json_data = reinterpret_cast<char*>(json->mutable_data());
     rapidjson::GenericInsituStringStream<rapidjson::UTF8<>> ss(json_data);
     rapidjson::Reader reader;
@@ -524,7 +595,7 @@ class HandlerBase : public BlockParser::Impl,
   /// construct a builder of whatever kind corresponds to a DataType
   Status MakeBuilder(const DataType& t, int64_t leading_nulls, BuilderPtr* builder) {
     Kind::type kind;
-    RETURN_NOT_OK(KindForType(t, &kind));
+    RETURN_NOT_OK(Kind::ForType(t, &kind));
     switch (kind) {
       case Kind::kNull:
         *builder = BuilderPtr(Kind::kNull, static_cast<uint32_t>(leading_nulls), true);
@@ -625,7 +696,8 @@ class HandlerBase : public BlockParser::Impl,
       return IllegallyChangedTo(kind);
     }
     auto index = static_cast<int32_t>(scalar_values_builder_.length());
-    RETURN_NOT_OK(Cast<kind>(builder_)->Append(index));
+    auto value_length = static_cast<int32_t>(scalar.size());
+    RETURN_NOT_OK(Cast<kind>(builder_)->Append(index, value_length));
     return scalar_values_builder_.Append(scalar);
   }
 

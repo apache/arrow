@@ -59,12 +59,12 @@ void AssertParseAndConvert(ParseOptions options, string_view src_str,
                            const std::vector<std::string>& columns_json) {
   std::shared_ptr<Array> parsed;
   ASSERT_OK(ParseFromString(options, src_str, &parsed));
-  auto struct_array = std::static_pointer_cast<StructArray>(parsed);
+  auto struct_array = static_cast<StructArray*>(parsed.get());
   for (size_t i = 0; i < fields.size(); ++i) {
     auto column_expected = ArrayFromJSON(fields[i]->type(), columns_json[i]);
     std::shared_ptr<Array> column;
-    ASSERT_OK(Convert(fields[i]->type(), struct_array->GetFieldByName(fields[i]->name()),
-                      &column));
+    ASSERT_OK(Convert(default_memory_pool(), fields[i]->type(),
+                      struct_array->GetFieldByName(fields[i]->name()), &column));
     AssertArraysEqual(*column_expected, *column);
   }
 }

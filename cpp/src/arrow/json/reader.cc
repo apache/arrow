@@ -17,17 +17,21 @@
 
 #include "arrow/json/reader.h"
 
-#include <unordered_map>
+#include <future>
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/io/readahead.h"
+#include "arrow/json/chunked-builder.h"
 #include "arrow/json/chunker.h"
+#include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
 #include "arrow/util/task-group.h"
 #include "arrow/util/thread-pool.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 namespace json {
@@ -39,76 +43,101 @@ using io::internal::ReadaheadSpooler;
 
 using internal::StringConverter;
 
-class SerialTableReader : public TableReader {
+class ThreadedTableReader : public TableReader {
  public:
-  // Since we're converting serially, no need to readahead more than one block
-  static constexpr int32_t block_queue_size = 1;
-
-  SerialTableReader(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
-                    const ReadOptions& read_options, const ParseOptions& parse_options)
+  ThreadedTableReader(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
+                      ThreadPool* thread_pool, const ReadOptions& read_options,
+                      const ParseOptions& parse_options)
       : pool_(pool),
         read_options_(read_options),
         parse_options_(parse_options),
-        readahead_(pool_, input, read_options_.block_size, block_queue_size),
+        readahead_(pool_, input, read_options_.block_size, thread_pool->GetCapacity()),
         chunker_(Chunker::Make(parse_options_)),
-        task_group_(internal::TaskGroup::MakeSerial()),
-        column_count_(parse_options_.explicit_schema->num_fields()) {}
+        task_group_(internal::TaskGroup::MakeThreaded(thread_pool)) {}
 
   Status Read(std::shared_ptr<Table>* out) override {
+    auto type = parse_options_.explicit_schema
+                    ? struct_(parse_options_.explicit_schema->fields())
+                    : struct_({});
+    auto promotion_graph =
+        parse_options_.unexpected_field_behavior == UnexpectedFieldBehavior::InferType
+            ? GetPromotionGraph()
+            : nullptr;
+    RETURN_NOT_OK(
+        MakeChunkedArrayBuilder(task_group_, pool_, promotion_graph, type, &builder_));
+
     ReadaheadBuffer rh;
     RETURN_NOT_OK(readahead_.Read(&rh));
     if (rh.buffer == nullptr) {
       return Status::Invalid("Empty JSON file");
     }
 
-    for (auto partial = std::make_shared<Buffer>(""); rh.buffer != nullptr;) {
-      // get the completion of a partial row from the previous block
-      // FIXME(bkietz) this will just error out if a row spans more than a pair of blocks
-      std::shared_ptr<Buffer> raw = rh.buffer, completion;
-      RETURN_NOT_OK(chunker_->Process(partial, raw, &completion, &raw));
-
+    int64_t block_index = 0;
+    for (std::shared_ptr<Buffer> starts_with_whole = rh.buffer;; ++block_index) {
       // get all whole objects entirely inside the current buffer
-      std::shared_ptr<Buffer> whole, next_partial;
-      RETURN_NOT_OK(chunker_->Process(raw, &whole, &next_partial));
+      std::shared_ptr<Buffer> whole, partial;
+      RETURN_NOT_OK(chunker_->Process(starts_with_whole, &whole, &partial));
+
+      std::promise<std::shared_ptr<Buffer>> straddling_promise;
+      std::shared_future<std::shared_ptr<Buffer>> straddling_future(
+          straddling_promise.get_future());
 
       // launch parse task
-      int column_count;
-      {
-        // lock the schema mutex, store the current column count
-        column_count = column_count_;
-      }
-      task_group_->Append([this, column_count, partial, completion, whole] {
-        BlockParser parser(pool_, parse_options_, whole);
-        if (completion->size() != 0) {
+      task_group_->Append([this, rh, whole, straddling_future, block_index] {
+        BlockParser parser(pool_, parse_options_, rh.buffer);
+        RETURN_NOT_OK(parser.Parse(whole));
+
+        auto straddling = straddling_future.get();
+        if (straddling->size() != 0) {
           // FIXME(bkietz) ensure that the parser has sufficient scalar storage for
           // all scalars in straddling + whole
-          std::shared_ptr<Buffer> straddling;
-          RETURN_NOT_OK(ConcatenateBuffers({partial, completion}, pool_, &straddling));
           RETURN_NOT_OK(parser.Parse(straddling));
         }
-        RETURN_NOT_OK(parser.Parse(whole));
+
         std::shared_ptr<Array> parsed;
         RETURN_NOT_OK(parser.Finish(&parsed));
-        return Convert(column_count, std::move(parsed));
+        builder_->Insert(block_index, field("", parsed->type()), parsed);
+        return Status::OK();
       });
 
       RETURN_NOT_OK(readahead_.Read(&rh));
-      partial = next_partial;
+      if (rh.buffer) {
+        // get the completion of a partial row from the previous block and submit to
+        // just-lauched parse task
+        // FIXME(bkietz) this will just error out if a row spans more than a pair of
+        // blocks
+        std::shared_ptr<Buffer> completion, straddling;
+        RETURN_NOT_OK(
+            chunker_->Process(partial, rh.buffer, &completion, &starts_with_whole));
+        RETURN_NOT_OK(ConcatenateBuffers({partial, completion}, pool_, &straddling));
+        straddling_promise.set_value(straddling);
+      } else {
+        straddling_promise.set_value(std::make_shared<Buffer>(""));
+        break;
+      }
     }
-    return Status::OK();
+
+    return Finish(out);
   }
 
-  Status Convert(int column_count, std::shared_ptr<Array> parsed) {
-    // if we are not inferring, flatten parsed into columns for conversion, hand off to
-    // column builders, and return; nothing complicated.
+  Status Finish(std::shared_ptr<Table>* out) {
+    std::shared_ptr<ChunkedArray> array;
+    RETURN_NOT_OK(builder_->Finish(&array));
 
-    // lock the schema mutex (column builders are a vector and we may need to realloc it)
+    int num_fields = array->type()->num_children();
+    int num_chunks = array->num_chunks();
 
-    // compare the (flattened) number of parsed columns to the number of columns expected
-    // at launch; if they are equal hand off as above and return.
+    std::vector<std::shared_ptr<Column>> columns(num_fields);
+    for (int i = 0; i < num_fields; ++i) {
+      ArrayVector chunks(num_chunks);
+      for (int chunk_index = 0; chunk_index != num_chunks; ++chunk_index) {
+        chunks[chunk_index] =
+            static_cast<const StructArray&>(*array->chunk(chunk_index)).field(i);
+      }
+      columns[i] = std::make_shared<Column>(array->type()->child(i), chunks);
+    }
 
-    // for each new column in parsed, identify an existing column builder or allocate a
-    // new one. Hand off as above, and return.
+    *out = Table::Make(schema(array->type()->children()), columns, array->length());
     return Status::OK();
   }
 
@@ -119,31 +148,8 @@ class SerialTableReader : public TableReader {
   ReadaheadSpooler readahead_;
   std::unique_ptr<Chunker> chunker_;
   std::shared_ptr<internal::TaskGroup> task_group_;
-  int column_count_;
+  std::unique_ptr<ChunkedArrayBuilder> builder_;
 };
-
-Kind::type KindFromTag(const std::shared_ptr<const KeyValueMetadata>& tag) {
-  std::string kind_name = tag->value(0);
-  switch (kind_name[0]) {
-    case 'n':
-      if (kind_name[2] == 'l') {
-        return Kind::kNull;
-      } else {
-        return Kind::kNumber;
-      }
-    case 'b':
-      return Kind::kBoolean;
-    case 's':
-      return Kind::kString;
-    case 'o':
-      return Kind::kObject;
-    case 'a':
-      return Kind::kArray;
-    default:
-      ARROW_LOG(FATAL);
-      return Kind::kNull;
-  }
-}
 
 static Status Convert(const std::shared_ptr<DataType>& out_type,
                       std::shared_ptr<Array> in, std::shared_ptr<Array>* out);
@@ -290,7 +296,7 @@ static Status InferAndConvert(std::shared_ptr<DataType> expected,
                               const std::shared_ptr<const KeyValueMetadata>& tag,
                               const std::shared_ptr<Array>& in,
                               std::shared_ptr<Array>* out) {
-  Kind::type kind = KindFromTag(tag);
+  Kind::type kind = Kind::FromTag(tag);
   switch (kind) {
     case Kind::kObject: {
       // FIXME(bkietz) in general expected fields may not be an exact prefix of parsed's
@@ -379,11 +385,11 @@ Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
   std::shared_ptr<Array> converted;
   auto schm = options.explicit_schema;
   if (options.unexpected_field_behavior == UnexpectedFieldBehavior::InferType) {
+    auto tag = Kind::Tag(Kind::kObject);
     if (schm) {
-      RETURN_NOT_OK(InferAndConvert(struct_(schm->fields()), Tag(Kind::kObject), parsed,
-                                    &converted));
+      RETURN_NOT_OK(InferAndConvert(struct_(schm->fields()), tag, parsed, &converted));
     } else {
-      RETURN_NOT_OK(InferAndConvert(nullptr, Tag(Kind::kObject), parsed, &converted));
+      RETURN_NOT_OK(InferAndConvert(nullptr, tag, parsed, &converted));
     }
     schm = schema(converted->type()->children());
   } else {

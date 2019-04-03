@@ -21,6 +21,8 @@ add_arrow_test(chunker-test PREFIX "arrow-json")
 
 add_arrow_test(converter-test PREFIX "arrow-json")
 
+add_arrow_test(chunked-builder-test PREFIX "arrow-json")
+
 add_arrow_benchmark(parser-benchmark PREFIX "arrow-json")
 
 arrow_install_all_headers("arrow/json")

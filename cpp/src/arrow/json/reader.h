@@ -32,6 +32,7 @@ namespace arrow {
 
 class MemoryPool;
 class Table;
+class RecordBatch;
 
 namespace io {
 class InputStream;

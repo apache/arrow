@@ -29,13 +29,6 @@ namespace json {
 
 /// \brief interface for conversion of Arrays
 ///
-/// This does not change nested structure:
-/// - Arrays with non-nested type will never be converted to arrays with
-///   nested type.
-/// - Arrays with nested type will be converted to arrays with the same
-///   nested type, modulo conversions applied to their child arrays.
-/// - Children may not be added by a Converter, though some may be removed.
-///
 /// Converters are not required to be correct for arbitrary input- only
 /// for unconverted arrays emitted by a corresponding parser.
 class ARROW_EXPORT Converter {
@@ -48,31 +41,45 @@ class ARROW_EXPORT Converter {
   virtual Status Convert(const std::shared_ptr<Array>& in,
                          std::shared_ptr<Array>* out) = 0;
 
+  std::shared_ptr<DataType> out_type() const { return out_type_; }
+
   MemoryPool* pool() { return pool_; }
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Converter);
 
-  Converter(MemoryPool* pool) : pool_(pool) {}
+  Converter(MemoryPool* pool, const std::shared_ptr<DataType>& out_type)
+      : pool_(pool), out_type_(out_type) {}
 
   MemoryPool* pool_;
+  std::shared_ptr<DataType> out_type_;
 };
 
-/// \brief produce a single promotable converter
-///
-/// The output converter will be promotable.
-Status MakeConverter(MemoryPool* pool, const std::shared_ptr<DataType>& out_type,
-                     std::unique_ptr<Converter>* out);
+/// \brief produce a single converter to the specified out_type
+ARROW_EXPORT Status MakeConverter(const std::shared_ptr<DataType>& out_type,
+                                  MemoryPool* pool, std::shared_ptr<Converter>* out);
 
-/// \brief produce a flattened mapping from field paths to converters
-///
-/// Field paths are a concatenation of field names, delimited by '\0'.
-/// For example, in a row {"a":{"b":{"c":13}}} the path 13 would be "a\0b\0c".
-/// Fields are taken from options.explicit_schema
-///
-/// These converters will not be promotable.
-std::unordered_map<std::string, std::unique_ptr<Converter>> MakeConverters(
-    MemoryPool* pool, const ParseOptions& options);
+class ARROW_EXPORT PromotionGraph {
+ public:
+  virtual ~PromotionGraph() = default;
+
+  /// \brief given an unexpected field encountered during parsing, return a type to which
+  /// it may be convertible (may return null if none is available)
+  virtual std::shared_ptr<DataType> Infer(
+      const std::shared_ptr<Field>& unexpected_field) const = 0;
+
+  /// \brief given a type to which conversion failed, return a promoted type to which
+  /// conversion may succeed (may return null if none is available)
+  virtual std::shared_ptr<DataType> Promote(
+      const std::shared_ptr<DataType>& failed,
+      const std::shared_ptr<Field>& unexpected_field) const = 0;
+
+ protected:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(PromotionGraph);
+  PromotionGraph() = default;
+};
+
+ARROW_EXPORT const PromotionGraph* GetPromotionGraph();
 
 }  // namespace json
 }  // namespace arrow

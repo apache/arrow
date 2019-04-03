@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/builder.h"
 #include "arrow/json/parser.h"
 #include "arrow/type.h"
 #include "arrow/util/parsing.h"
@@ -29,7 +30,6 @@
 namespace arrow {
 namespace json {
 
-using internal::make_unique;
 using util::string_view;
 
 template <typename... Args>
@@ -52,13 +52,8 @@ Status VisitDictionaryEntries(const DictionaryArray* dict_array, Vis&& vis) {
 // base class for types which accept and output non-nested types
 class PrimitiveConverter : public Converter {
  public:
-  virtual std::shared_ptr<DataType> out_type() const { return out_type_; }
-
-  bool dont_promote_;
-
   PrimitiveConverter(MemoryPool* pool, std::shared_ptr<DataType> out_type)
-      : Converter(pool), out_type_(out_type) {}
-  std::shared_ptr<DataType> out_type_;
+      : Converter(pool, out_type) {}
 };
 
 class NullConverter : public PrimitiveConverter {
@@ -74,11 +69,33 @@ class NullConverter : public PrimitiveConverter {
   }
 };
 
+Status PrimitiveFromNull(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                         const Array& null, std::shared_ptr<Array>* out) {
+  auto data = ArrayData::Make(type, null.length(), {nullptr, nullptr}, null.length());
+  RETURN_NOT_OK(AllocateBitmap(pool, null.length(), &data->buffers[0]));
+  *out = MakeArray(data);
+  return Status::OK();
+}
+
+Status BinaryFromNull(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                      const Array& null, std::shared_ptr<Array>* out) {
+  auto data =
+      ArrayData::Make(type, null.length(), {nullptr, nullptr, nullptr}, null.length());
+  RETURN_NOT_OK(AllocateBitmap(pool, null.length(), &data->buffers[0]));
+  RETURN_NOT_OK(AllocateBuffer(pool, sizeof(int32_t), &data->buffers[1]));
+  data->GetMutableValues<int32_t>(1)[0] = 0;
+  *out = MakeArray(data);
+  return Status::OK();
+}
+
 class BooleanConverter : public PrimitiveConverter {
  public:
   using PrimitiveConverter::PrimitiveConverter;
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
+    if (in->type_id() == Type::NA) {
+      return PrimitiveFromNull(pool_, boolean(), *in, out);
+    }
     if (in->type_id() != Type::BOOL) {
       return GenericConversionError(*out_type_, " from ", *in->type());
     }
@@ -96,6 +113,10 @@ class NumericConverter : public PrimitiveConverter {
       : PrimitiveConverter(pool, type), convert_one_(type) {}
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
+    if (in->type_id() == Type::NA) {
+      return PrimitiveFromNull(pool_, out_type_, *in, out);
+    }
+
     auto dict_array = static_cast<const DictionaryArray*>(in.get());
 
     using Builder = typename TypeTraits<T>::BuilderType;
@@ -128,9 +149,13 @@ template <typename DateTimeType>
 class DateTimeConverter : public PrimitiveConverter {
  public:
   DateTimeConverter(MemoryPool* pool, const std::shared_ptr<DataType>& type)
-      : PrimitiveConverter(pool, type), converter_(pool, type) {}
+      : PrimitiveConverter(pool, type), converter_(pool, repr_type()) {}
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
+    if (in->type_id() == Type::NA) {
+      return PrimitiveFromNull(pool_, out_type_, *in, out);
+    }
+
     std::shared_ptr<Array> repr;
     RETURN_NOT_OK(converter_.Convert(in, &repr));
 
@@ -143,6 +168,9 @@ class DateTimeConverter : public PrimitiveConverter {
 
  private:
   using ReprType = typename CTypeTraits<typename DateTimeType::c_type>::ArrowType;
+  static std::shared_ptr<DataType> repr_type() {
+    return TypeTraits<ReprType>::type_singleton();
+  }
   NumericConverter<ReprType> converter_;
 };
 
@@ -152,6 +180,10 @@ class BinaryConverter : public PrimitiveConverter {
   using PrimitiveConverter::PrimitiveConverter;
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
+    if (in->type_id() == Type::NA) {
+      return BinaryFromNull(pool_, out_type_, *in, out);
+    }
+
     auto dict_array = static_cast<const DictionaryArray*>(in.get());
 
     using Builder = typename TypeTraits<T>::BuilderType;
@@ -182,12 +214,12 @@ class BinaryConverter : public PrimitiveConverter {
   }
 };
 
-Status MakeConverter(MemoryPool* pool, const std::shared_ptr<DataType>& out_type,
-                     std::unique_ptr<Converter>* out) {
+Status MakeConverter(const std::shared_ptr<DataType>& out_type, MemoryPool* pool,
+                     std::shared_ptr<Converter>* out) {
   switch (out_type->id()) {
-#define CONVERTER_CASE(TYPE_ID, CONVERTER_TYPE)         \
-  case TYPE_ID:                                         \
-    *out = make_unique<CONVERTER_TYPE>(pool, out_type); \
+#define CONVERTER_CASE(TYPE_ID, CONVERTER_TYPE)              \
+  case TYPE_ID:                                              \
+    *out = std::make_shared<CONVERTER_TYPE>(pool, out_type); \
     break
     CONVERTER_CASE(Type::NA, NullConverter);
     CONVERTER_CASE(Type::BOOL, BooleanConverter);
@@ -213,20 +245,63 @@ Status MakeConverter(MemoryPool* pool, const std::shared_ptr<DataType>& out_type
                                     " is not supported");
 #undef CONVERTER_CASE
   }
-  static_cast<PrimitiveConverter*>(out->get())->dont_promote_ = false;
   return Status::OK();
 }
 
-Status Promote(std::unique_ptr<Converter> failed, std::unique_ptr<Converter>* promoted) {
-  auto failed_scalar = static_cast<PrimitiveConverter*>(failed.get());
-  if (failed_scalar->dont_promote_) {
-    *promoted = nullptr;
-  } else if (failed_scalar->out_type()->id() == Type::INT64) {
-    *promoted = make_unique<NumericConverter<DoubleType>>(failed->pool(), float64());
-  } else if (failed_scalar->out_type()->id() == Type::TIMESTAMP) {
-    *promoted = make_unique<BinaryConverter<StringType>>(failed->pool(), utf8());
-  }
-  return Status::OK();
+const PromotionGraph* GetPromotionGraph() {
+  static struct : PromotionGraph {
+    std::shared_ptr<DataType> Infer(
+        const std::shared_ptr<Field>& unexpected_field) const override {
+      auto kind = Kind::FromTag(unexpected_field->metadata());
+      switch (kind) {
+        case Kind::kNull:
+          return null();
+
+        case Kind::kBoolean:
+          return boolean();
+
+        case Kind::kNumber:
+          return int64();
+
+        case Kind::kString:
+          return timestamp(TimeUnit::SECOND);
+
+        case Kind::kArray: {
+          auto type = static_cast<const ListType*>(unexpected_field->type().get());
+          return list(field(type->value_field()->name(), Infer(type->value_field())));
+        }
+        case Kind::kObject: {
+          auto fields = unexpected_field->type()->children();
+          for (auto& fld : fields) {
+            fld = field(fld->name(), Infer(fld));
+          }
+          return struct_(std::move(fields));
+        }
+        default:
+          return nullptr;
+      }
+    }
+
+    std::shared_ptr<DataType> Promote(
+        const std::shared_ptr<DataType>& failed,
+        const std::shared_ptr<Field>& unexpected_field) const override {
+      switch (failed->id()) {
+        case Type::NA:
+          return Infer(unexpected_field);
+
+        case Type::TIMESTAMP:
+          return utf8();
+
+        case Type::INT64:
+          return float64();
+
+        default:
+          return nullptr;
+      }
+    }
+  } impl;
+
+  return &impl;
 }
 
 }  // namespace json
