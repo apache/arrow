@@ -69,7 +69,7 @@ in `requirements.txt` to install the latest patch release.
 These include the Apache Arrow and Apache Parquet C++ binary libraries bundled
 with the wheel.
 
-### C++ and GLib (C) Packages for Debian GNU/Linux, Ubuntu and CentOS
+### C++ and GLib (C) Packages for Debian GNU/Linux, Ubuntu and CentOS (Unofficial)
 
 We have provided APT and Yum repositories for Apache Arrow C++ and
 Apache Arrow GLib (C). Here are supported platforms:
@@ -86,8 +86,11 @@ Debian GNU/Linux:
 
 ```shell
 sudo apt update
-sudo apt install -y -V apt-transport-https lsb-release
-sudo wget -O /usr/share/keyrings/apache-arrow-keyring.gpg https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-keyring.gpg
+sudo apt install -y -V apt-transport-https curl gnupg lsb-release
+sudo tee /etc/apt/sources.list.d/backports.list <<APT_LINE
+deb http://deb.debian.org/debian $(lsb_release --codename --short)-backports main
+APT_LINE
+sudo curl --output /usr/share/keyrings/apache-arrow-keyring.gpg https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-keyring.gpg
 sudo tee /etc/apt/sources.list.d/apache-arrow.list <<APT_LINE
 deb [arch=amd64 signed-by=/usr/share/keyrings/apache-arrow-keyring.gpg] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
 deb-src [signed-by=/usr/share/keyrings/apache-arrow-keyring.gpg] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
@@ -112,7 +115,7 @@ Ubuntu 18.04 LTS or later:
 
 ```shell
 sudo apt update
-sudo apt install -y -V apt-transport-https lsb-release
+sudo apt install -y -V apt-transport-https gnupg lsb-release wget
 sudo wget -O /usr/share/keyrings/apache-arrow-keyring.gpg https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-keyring.gpg
 sudo tee /etc/apt/sources.list.d/apache-arrow.list <<APT_LINE
 deb [arch=amd64 signed-by=/usr/share/keyrings/apache-arrow-keyring.gpg] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
@@ -133,7 +136,7 @@ Ubuntu 16.04 LTS:
 
 ```shell
 sudo apt update
-sudo apt install -y -V apt-transport-https lsb-release
+sudo apt install -y -V apt-transport-https curl gnupg lsb-release
 curl https://dist.apache.org/repos/dist/dev/arrow/KEYS | sudo apt-key add -
 sudo tee /etc/apt/sources.list.d/apache-arrow.list <<APT_LINE
 deb [arch=amd64] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
@@ -159,7 +162,7 @@ Ubuntu 14.04 LTS:
 
 ```shell
 sudo apt update
-sudo apt install -y -V apt-transport-https lsb-release
+sudo apt install -y -V apt-transport-https curl gnupg lsb-release
 curl https://dist.apache.org/repos/dist/dev/arrow/KEYS | sudo apt-key add -
 sudo tee /etc/apt/sources.list.d/apache-arrow.list <<APT_LINE
 deb [arch=amd64] https://dl.bintray.com/apache/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/ $(lsb_release --codename --short) main
