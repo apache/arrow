@@ -36,7 +36,7 @@ class PARQUET_EXPORT Comparator {
 
 // The default comparison is SIGNED
 template <typename DType>
-class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault : public Comparator {
+class CompareDefault : public Comparator {
  public:
   typedef typename DType::c_type T;
   CompareDefault() {}
@@ -44,7 +44,7 @@ class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault : public Comparator {
 };
 
 template <>
-class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault<Int96Type> : public Comparator {
+class CompareDefault<Int96Type> : public Comparator {
  public:
   CompareDefault() {}
   virtual bool operator()(const Int96& a, const Int96& b) {
@@ -62,7 +62,7 @@ class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault<Int96Type> : public Comparato
 };
 
 template <>
-class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault<ByteArrayType> : public Comparator {
+class CompareDefault<ByteArrayType> : public Comparator {
  public:
   CompareDefault() {}
   virtual bool operator()(const ByteArray& a, const ByteArray& b) {
@@ -73,7 +73,7 @@ class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault<ByteArrayType> : public Compa
 };
 
 template <>
-class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault<FLBAType> : public Comparator {
+class CompareDefault<FLBAType> : public Comparator {
  public:
   explicit CompareDefault(int length) : type_length_(length) {}
   virtual bool operator()(const FLBA& a, const FLBA& b) {
@@ -85,14 +85,14 @@ class PARQUET_TEMPLATE_CLASS_EXPORT CompareDefault<FLBAType> : public Comparator
   int32_t type_length_;
 };
 
-typedef CompareDefault<BooleanType> CompareDefaultBoolean;
-typedef CompareDefault<Int32Type> CompareDefaultInt32;
-typedef CompareDefault<Int64Type> CompareDefaultInt64;
-typedef CompareDefault<Int96Type> CompareDefaultInt96;
-typedef CompareDefault<FloatType> CompareDefaultFloat;
-typedef CompareDefault<DoubleType> CompareDefaultDouble;
-typedef CompareDefault<ByteArrayType> CompareDefaultByteArray;
-typedef CompareDefault<FLBAType> CompareDefaultFLBA;
+using CompareDefaultBoolean = CompareDefault<BooleanType>;
+using CompareDefaultInt32 = CompareDefault<Int32Type>;
+using CompareDefaultInt64 = CompareDefault<Int64Type>;
+using CompareDefaultInt96 = CompareDefault<Int96Type>;
+using CompareDefaultFloat = CompareDefault<FloatType>;
+using CompareDefaultDouble = CompareDefault<DoubleType>;
+using CompareDefaultByteArray = CompareDefault<ByteArrayType>;
+using CompareDefaultFLBA = CompareDefault<FLBAType>;
 
 // Define Unsigned Comparators
 class PARQUET_EXPORT CompareUnsignedInt32 : public CompareDefaultInt32 {
@@ -120,15 +120,6 @@ class PARQUET_EXPORT CompareUnsignedFLBA : public CompareDefaultFLBA {
   explicit CompareUnsignedFLBA(int length);
   bool operator()(const FLBA& a, const FLBA& b) override;
 };
-
-PARQUET_EXTERN_TEMPLATE CompareDefault<BooleanType>;
-PARQUET_EXTERN_TEMPLATE CompareDefault<Int32Type>;
-PARQUET_EXTERN_TEMPLATE CompareDefault<Int64Type>;
-PARQUET_EXTERN_TEMPLATE CompareDefault<Int96Type>;
-PARQUET_EXTERN_TEMPLATE CompareDefault<FloatType>;
-PARQUET_EXTERN_TEMPLATE CompareDefault<DoubleType>;
-PARQUET_EXTERN_TEMPLATE CompareDefault<ByteArrayType>;
-PARQUET_EXTERN_TEMPLATE CompareDefault<FLBAType>;
 
 }  // namespace parquet
 

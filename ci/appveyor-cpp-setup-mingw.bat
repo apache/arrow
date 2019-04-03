@@ -24,13 +24,12 @@ if "%MSYSTEM%" == "MINGW32" (
 )
 set PATH=%MINGW_PREFIX%\bin;C:\msys64\usr\bin;%PATH%
 
-pacman -S --noconfirm ^
+pacman --sync --refresh --noconfirm ^
     "%MINGW_PACKAGE_PREFIX%-boost" ^
     "%MINGW_PACKAGE_PREFIX%-brotli" ^
     "%MINGW_PACKAGE_PREFIX%-cmake" ^
     "%MINGW_PACKAGE_PREFIX%-double-conversion" ^
     "%MINGW_PACKAGE_PREFIX%-flatbuffers" ^
-    "%MINGW_PACKAGE_PREFIX%-gcc" ^
     "%MINGW_PACKAGE_PREFIX%-gflags" ^
     "%MINGW_PACKAGE_PREFIX%-gobject-introspection" ^
     "%MINGW_PACKAGE_PREFIX%-gtk-doc" ^
@@ -40,6 +39,7 @@ pacman -S --noconfirm ^
     "%MINGW_PACKAGE_PREFIX%-python3-numpy" ^
     "%MINGW_PACKAGE_PREFIX%-rapidjson" ^
     "%MINGW_PACKAGE_PREFIX%-snappy" ^
+    "%MINGW_PACKAGE_PREFIX%-thrift" ^
     "%MINGW_PACKAGE_PREFIX%-zlib" ^
     "%MINGW_PACKAGE_PREFIX%-zstd" || exit /B
 
