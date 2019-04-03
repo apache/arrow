@@ -130,6 +130,7 @@
         <version>3.1.1</version>
         <executions>
           <execution>
+            <id>shade-main</id>
             <phase>package</phase>
             <goals>
               <goal>shade</goal>
@@ -137,6 +138,32 @@
             <configuration>
               <shadedArtifactAttached>true</shadedArtifactAttached>
               <shadedClassifierName>shaded</shadedClassifierName>
+              <artifactSet>
+                <includes>
+                  <include>io.grpc:*</include>
+                  <include>com.google.protobuf:*</include>
+                </includes>
+              </artifactSet>
+              <relocations>
+                <relocation>
+                  <pattern>com.google.protobuf</pattern>
+                  <shadedPattern>arrow.flight.com.google.protobuf</shadedPattern>
+                </relocation>
+              </relocations>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+              </transformers>
+            </configuration>
+          </execution>
+          <execution>
+            <id>shade-ext</id>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedClassifierName>shaded-ext</shadedClassifierName>
               <artifactSet>
                 <includes>
                   <include>io.grpc:*</include>
