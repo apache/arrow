@@ -289,7 +289,7 @@ test_python() {
 test_glib() {
   pushd c_glib
 
-  if [ "$(uname)" == "Darwin" ]; then
+  if brew --prefix libffi > /dev/null 2>&1; then
     ./configure --prefix=$ARROW_HOME \
       PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH
   else
