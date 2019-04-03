@@ -48,7 +48,7 @@ esac
 set -ex
 set -o pipefail
 
-HERE=$(cd `dirname "${BASH_SOURCE[0]:-$0}"` && pwd)
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
 ARROW_BOOST_VENDORED=${ARROW_BOOST_VENDORED:=OFF}
 
@@ -117,6 +117,7 @@ download_bintray_files() {
 
   local version_name=${VERSION}-rc${RC_NUMBER}
 
+  local file
   bintray \
     GET /packages/${BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}/files | \
       jq -r ".[].path" | \
@@ -126,11 +127,12 @@ download_bintray_files() {
       --fail \
       --location \
       --output ${file} \
-      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file}
+      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file} &
   done
+  wait
 }
 
-verify_binary_artifacts() {
+test_binary() {
   local download_dir=binaries
   mkdir -p ${download_dir}
   pushd ${download_dir}
@@ -157,6 +159,39 @@ verify_binary_artifacts() {
   done
 
   popd
+}
+
+test_apt() {
+  for target in debian-stretch \
+                ubuntu-trusty \
+                ubuntu-xenial \
+                ubuntu-bionic \
+                ubuntu-cosmic; do
+    if ! "${SOURCE_DIR}/../run_docker_compose.sh" \
+           "${target}" \
+           /arrow/dev/release/verify-apt.sh \
+           "${VERSION}" \
+           "yes" \
+           "${BINTRAY_REPOSITORY}"; then
+      echo "Failed to verify the APT repository for ${target}"
+      exit 1
+    fi
+  done
+}
+
+test_yum() {
+  for target in centos-6 \
+                centos-7; do
+    if ! "${SOURCE_DIR}/../run_docker_compose.sh" \
+           "${target}" \
+           /arrow/dev/release/verify-yum.sh \
+           "${VERSION}" \
+           "yes" \
+           "${BINTRAY_REPOSITORY}"; then
+      echo "Failed to verify the Yum repository for ${target}"
+      exit 1
+    fi
+  done
 }
 
 setup_tempdir() {
@@ -379,29 +414,32 @@ fi
 
 import_gpg_keys
 
+# By default test all functionalities.
+# To deactivate one test, deactivate the test and all of its dependents
+# To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
+: ${TEST_DEFAULT:=1}
+: ${TEST_JAVA:=${TEST_DEFAULT}}
+: ${TEST_CPP:=${TEST_DEFAULT}}
+: ${TEST_GLIB:=${TEST_DEFAULT}}
+: ${TEST_RUBY:=${TEST_DEFAULT}}
+: ${TEST_PYTHON:=${TEST_DEFAULT}}
+: ${TEST_JS:=${TEST_DEFAULT}}
+: ${TEST_INTEGRATION:=${TEST_DEFAULT}}
+: ${TEST_RUST:=${TEST_DEFAULT}}
+: ${TEST_BINARY:=${TEST_DEFAULT}}
+: ${TEST_APT:=${TEST_DEFAULT}}
+: ${TEST_YUM:=${TEST_DEFAULT}}
+
+# Automatically test if its activated by a dependent
+TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
+TEST_PYTHON=$((${TEST_PYTHON} + ${TEST_INTEGRATION}))
+TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON}))
+TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
+TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
+
 if [ "$ARTIFACT" == "source" ]; then
   TARBALL=apache-arrow-$1.tar.gz
   DIST_NAME="apache-arrow-${VERSION}"
-
-  # By default test all functionalities.
-  # To deactivate one test, deactivate the test and all of its dependents
-  # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
-  : ${TEST_DEFAULT:=1}
-  : ${TEST_JAVA:=${TEST_DEFAULT}}
-  : ${TEST_CPP:=${TEST_DEFAULT}}
-  : ${TEST_GLIB:=${TEST_DEFAULT}}
-  : ${TEST_RUBY:=${TEST_DEFAULT}}
-  : ${TEST_PYTHON:=${TEST_DEFAULT}}
-  : ${TEST_JS:=${TEST_DEFAULT}}
-  : ${TEST_INTEGRATION:=${TEST_DEFAULT}}
-  : ${TEST_RUST:=${TEST_DEFAULT}}
-
-  # Automatically test if its activated by a dependent
-  TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
-  TEST_PYTHON=$((${TEST_PYTHON} + ${TEST_INTEGRATION}))
-  TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON}))
-  TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
-  TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
 
   git clone https://github.com/apache/arrow-testing.git
   export ARROW_TEST_DATA=$PWD/arrow-testing/data
@@ -441,7 +479,15 @@ if [ "$ARTIFACT" == "source" ]; then
 else
   : ${BINTRAY_REPOSITORY:=apache/arrow}
 
-  verify_binary_artifacts
+  if [ ${TEST_BINARY} -gt 0 ]; then
+    test_binary
+  fi
+  if [ ${TEST_APT} -gt 0 ]; then
+    test_apt
+  fi
+  if [ ${TEST_YUM} -gt 0 ]; then
+    test_yum
+  fi
 fi
 
 echo 'Release candidate looks good!'
