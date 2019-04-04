@@ -49,8 +49,7 @@ before_script:
 script:
   - cd $TRAVIS_BUILD_DIR
   - mkdir -p dist
-  # image used to build the docker available @ https://github.com/praveenbingo/arrow/tree/buildGandivaDocker
-  # further changes can be made on top of these changes.
+  # please refer to README for steps to update this image
   - docker run -v $PWD:/io -v $PWD:/arrow quay.io/praveenbingo/arrow:buildGandivaDocker /io/dev/tasks/gandiva-jars/build-cpp-linux.sh || travis_terminate 1
   - dev/tasks/gandiva-jars/build-java.sh || travis_terminate 1
 

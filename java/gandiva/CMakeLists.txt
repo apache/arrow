@@ -56,8 +56,7 @@ else()
     src/main/java/org/apache/arrow/gandiva/evaluator/ExpressionRegistryJniHelper.java
     src/main/java/org/apache/arrow/gandiva/exceptions/GandivaException.java
     GENERATE_NATIVE_HEADERS
-    gandivajni_headers
+    gandiva_jni_headers
     DESTINATION
     ${JNI_HEADERS_DIR}/jni)
-  add_custom_target(gandiva_jni_headers)
 endif()
