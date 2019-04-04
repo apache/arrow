@@ -20,7 +20,10 @@ if(RE2_PC_FOUND)
   set(RE2_INCLUDE_DIR "${RE2_PC_INCLUDEDIR}")
 
   list(APPEND RE2_PC_LIBRARY_DIRS "${RE2_PC_LIBDIR}")
-  find_library(RE2_LIB re2 PATHS ${RE2_PC_LIBRARY_DIRS} NO_DEFAULT_PATH)
+  find_library(RE2_LIB re2
+               PATHS ${RE2_PC_LIBRARY_DIRS}
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
 
   # On Fedora, the reported prefix is wrong. As users likely run into this,
   # workaround.
@@ -37,14 +40,14 @@ elseif(RE2_ROOT)
       re2
       "${CMAKE_STATIC_LIBRARY_PREFIX}re2${RE2_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       "${CMAKE_SHARED_LIBRARY_PREFIX}re2${CMAKE_SHARED_LIBRARY_SUFFIX}"
-    PATHS ${RE2_ROOT} "${RE2_ROOT}/Library"
-    PATH_SUFFIXES "lib64" "lib" "bin"
+    PATHS ${RE2_ROOT}
+    PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
     NO_DEFAULT_PATH)
   find_path(RE2_INCLUDE_DIR
             NAMES re2/re2.h
-            PATHS ${RE2_ROOT} "${RE2_ROOT}/Library"
+            PATHS ${RE2_ROOT}
             NO_DEFAULT_PATH
-            PATH_SUFFIXES "include")
+            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 else()
   find_library(
     RE2_LIB
@@ -52,8 +55,8 @@ else()
       re2
       "${CMAKE_STATIC_LIBRARY_PREFIX}re2${RE2_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       "${CMAKE_SHARED_LIBRARY_PREFIX}re2${CMAKE_SHARED_LIBRARY_SUFFIX}"
-    PATH_SUFFIXES "lib64" "lib" "bin")
-  find_path(RE2_INCLUDE_DIR NAMES re2/re2.h PATH_SUFFIXES "include")
+    PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+  find_path(RE2_INCLUDE_DIR NAMES re2/re2.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 endif()
 
 find_package_handle_standard_args(RE2 REQUIRED_VARS RE2_LIB RE2_INCLUDE_DIR)

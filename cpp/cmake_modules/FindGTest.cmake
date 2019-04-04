@@ -194,6 +194,7 @@ find_path(GTEST_INCLUDE_DIR gtest/gtest.h
     HINTS
         $ENV{GTEST_ROOT}/include
         ${GTEST_ROOT}/include
+    PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
 )
 mark_as_advanced(GTEST_INCLUDE_DIR)
 

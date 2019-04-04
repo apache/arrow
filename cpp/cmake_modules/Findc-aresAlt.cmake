@@ -18,17 +18,17 @@
 if(c-ares_ROOT)
   find_library(CARES_LIB
                NAMES cares
-               PATHS ${c-ares_ROOT} "${c-ares_ROOT}/Library"
-               PATH_SUFFIXES "lib64" "lib" "bin"
+               PATHS ${c-ares_ROOT}
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   find_path(CARES_INCLUDE_DIR
             NAMES ares.h
-            PATHS ${CARES_ROOT} "${CARES_ROOT}/Library"
+            PATHS ${c-ares_ROOT}
             NO_DEFAULT_PATH
-            PATH_SUFFIXES "include")
+            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 else()
-  find_library(CARES_LIB NAMES cares PATH_SUFFIXES "lib64" "lib" "bin")
-  find_path(CARES_INCLUDE_DIR NAMES ares.h PATH_SUFFIXES "include")
+  find_library(CARES_LIB NAMES cares PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+  find_path(CARES_INCLUDE_DIR NAMES ares.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 endif()
 
 find_package_handle_standard_args(c-aresAlt REQUIRED_VARS CARES_INCLUDE_DIR CARES_LIB)

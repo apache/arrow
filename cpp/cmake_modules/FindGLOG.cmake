@@ -21,21 +21,24 @@ pkg_check_modules(GLOG_PC libglog)
 if(GLOG_PC_FOUND)
   set(GLOG_INCLUDE_DIR "${GLOG_PC_INCLUDEDIR}")
   list(APPEND GLOG_PC_LIBRARY_DIRS "${GLOG_PC_LIBDIR}")
-  find_library(GLOG_LIB glog PATHS ${GLOG_PC_LIBRARY_DIRS} NO_DEFAULT_PATH)
+  find_library(GLOG_LIB glog
+               PATHS ${GLOG_PC_LIBRARY_DIRS}
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
 elseif(GLOG_ROOT)
   find_library(GLOG_LIB
                NAMES glog
-               PATHS ${GLOG_ROOT} "${GLOG_ROOT}/Library"
-               PATH_SUFFIXES "lib64" "lib" "bin"
+               PATHS ${GLOG_ROOT}
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   find_path(GLOG_INCLUDE_DIR
             NAMES glog/logging.h
-            PATHS ${GLOG_ROOT} "${GLOG_ROOT}/Library"
+            PATHS ${GLOG_ROOT}
             NO_DEFAULT_PATH
-            PATH_SUFFIXES "include")
+            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 else()
-  find_library(GLOG_LIB NAMES glog PATH_SUFFIXES "lib64" "lib" "bin")
-  find_path(GLOG_INCLUDE_DIR NAMES glog/logging.h PATH_SUFFIXES "include")
+  find_library(GLOG_LIB NAMES glog PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+  find_path(GLOG_INCLUDE_DIR NAMES glog/logging.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 endif()
 
 find_package_handle_standard_args(GLOG REQUIRED_VARS GLOG_INCLUDE_DIR GLOG_LIB)
