@@ -70,36 +70,36 @@ const (
 
 // Message is an IPC message, including metadata and body.
 type Message struct {
-	ref  int64
-	msg  *flatbuf.Message
-	meta *memory.Buffer
-	body *memory.Buffer
+	refCount int64
+	msg      *flatbuf.Message
+	meta     *memory.Buffer
+	body     *memory.Buffer
 }
 
 func NewMessage(meta, body *memory.Buffer) *Message {
 	meta.Retain()
 	body.Retain()
 	return &Message{
-		ref:  1,
-		msg:  flatbuf.GetRootAsMessage(meta.Bytes(), 0),
-		meta: meta,
-		body: body,
+		refCount: 1,
+		msg:      flatbuf.GetRootAsMessage(meta.Bytes(), 0),
+		meta:     meta,
+		body:     body,
 	}
 }
 
 // Retain increases the reference count by 1.
 // Retain may be called simultaneously from multiple goroutines.
 func (msg *Message) Retain() {
-	atomic.AddInt64(&msg.ref, 1)
+	atomic.AddInt64(&msg.refCount, 1)
 }
 
 // Release decreases the reference count by 1.
 // Release may be called simultaneously from multiple goroutines.
 // When the reference count goes to zero, the memory is freed.
 func (msg *Message) Release() {
-	debug.Assert(atomic.LoadInt64(&msg.ref) > 0, "too many releases")
+	debug.Assert(atomic.LoadInt64(&msg.refCount) > 0, "too many releases")
 
-	if atomic.AddInt64(&msg.ref, -1) == 0 {
+	if atomic.AddInt64(&msg.refCount, -1) == 0 {
 		msg.meta.Release()
 		msg.body.Release()
 		msg.msg = nil
