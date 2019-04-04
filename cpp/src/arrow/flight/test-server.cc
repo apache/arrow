@@ -75,6 +75,14 @@ class FlightTestServer : public FlightServerBase {
 
   Status DoGet(const Ticket& request,
                std::unique_ptr<FlightDataStream>* data_stream) override {
+    // Test for ARROW-5095
+    if (request.ticket == "ARROW-5095-fail") {
+      return Status::UnknownError("Server-side error");
+    }
+    if (request.ticket == "ARROW-5095-success") {
+      return Status::OK();
+    }
+
     std::shared_ptr<RecordBatchReader> batch_reader;
     RETURN_NOT_OK(GetBatchForFlight(request, &batch_reader));
 

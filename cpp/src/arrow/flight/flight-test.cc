@@ -25,6 +25,7 @@
 #include <thread>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/ipc/test-common.h"
@@ -256,6 +257,21 @@ TEST_F(TestFlightClient, DoAction) {
 
   ASSERT_OK(stream->Next(&result));
   ASSERT_EQ(nullptr, result);
+}
+
+TEST_F(TestFlightClient, Issue5095) {
+  // Make sure the server-side error message is reflected to the
+  // client
+  Ticket ticket1{"ARROW-5095-fail"};
+  std::unique_ptr<RecordBatchReader> stream;
+  Status status = client_->DoGet(ticket1, &stream);
+  ASSERT_RAISES(IOError, status);
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("Server-side error"));
+
+  Ticket ticket2{"ARROW-5095-success"};
+  status = client_->DoGet(ticket2, &stream);
+  ASSERT_RAISES(IOError, status);
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("No data"));
 }
 
 }  // namespace flight
