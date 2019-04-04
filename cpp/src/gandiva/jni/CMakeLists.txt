@@ -74,6 +74,7 @@ add_arrow_lib(gandiva_jni
               DEPENDENCIES
               gandiva_java
               gandiva_jni_proto
+              gandiva_jni_headers
               EXTRA_INCLUDES
               $<INSTALL_INTERFACE:include>
               $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>

@@ -44,14 +44,14 @@ before_script:
   - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
   - git -C arrow checkout {{ arrow.head }}
   - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
-  - arrow/ci/travis_install_linux.sh
-  - arrow/ci/travis_install_clang_tools.sh
-  - arrow/ci/travis_install_toolchain.sh
+  -
 
 script:
+  - cd $TRAVIS_BUILD_DIR
   - mkdir -p dist
-  - arrow/dev/tasks/gandiva-jars/build-cpp.sh || travis_terminate 1
-  - arrow/dev/tasks/gandiva-jars/build-java.sh || travis_terminate 1
+  # please refer to README for steps to update this image
+  - docker run -v $PWD:/io -v $PWD:/arrow quay.io/praveenbingo/arrow:buildGandivaDocker /io/dev/tasks/gandiva-jars/build-cpp-linux.sh || travis_terminate 1
+  - dev/tasks/gandiva-jars/build-java.sh || travis_terminate 1
 
 deploy:
   provider: releases

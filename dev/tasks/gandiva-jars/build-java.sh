@@ -19,11 +19,9 @@
 
 set -e
 
-source arrow/ci/travis_env_common.sh
+CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/dist/
 
-CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp/build/release
-
-pushd arrow/java
+pushd java
   if [ $TRAVIS_OS_NAME == "linux" ]; then
     ldd $CPP_BUILD_DIR/libgandiva_jni.so
   fi
@@ -33,5 +31,5 @@ pushd arrow/java
   # test only gandiva
   mvn test -P gandiva -pl gandiva -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR
   # copy the jars to distribution folder
-  find gandiva/target/ -name "*.jar" -not -name "*tests*" -exec cp  {} ../../dist/ \;
+  find gandiva/target/ -name "*.jar" -not -name "*tests*" -exec cp  {} $CPP_BUILD_DIR \;
 popd

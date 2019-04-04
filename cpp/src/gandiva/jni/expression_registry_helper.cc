@@ -150,7 +150,7 @@ Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSu
     types::ExtGandivaType* gandiva_data_type = gandiva_data_types.add_datatype();
     ArrowToProtobuf(type, gandiva_data_type);
   }
-  int size = static_cast<int>(gandiva_data_types.ByteSizeLong());
+  int size = gandiva_data_types.ByteSize();
   std::unique_ptr<jbyte[]> buffer{new jbyte[size]};
   gandiva_data_types.SerializeToArray(reinterpret_cast<void*>(buffer.get()), size);
   jbyteArray ret = env->NewByteArray(size);
@@ -179,7 +179,7 @@ Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSu
       ArrowToProtobuf(param_type, proto_param_type);
     }
   }
-  int size = static_cast<int>(gandiva_functions.ByteSizeLong());
+  int size = gandiva_functions.ByteSize();
   std::unique_ptr<jbyte[]> buffer{new jbyte[size]};
   gandiva_functions.SerializeToArray(reinterpret_cast<void*>(buffer.get()), size);
   jbyteArray ret = env->NewByteArray(size);

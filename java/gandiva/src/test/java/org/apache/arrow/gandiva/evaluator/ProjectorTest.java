@@ -326,7 +326,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     AtomicInteger errorCount = new AtomicInteger(0);
     AtomicInteger errorCountExp = new AtomicInteger(0);
     // pre-build the projector so that same projector is used for all executions.
-    Projector.make(s, exprs);
+    Projector test = Projector.make(s, exprs);
 
     IntStream.range(0, 1000).forEach(i -> {
       executors.submit(() -> {
@@ -373,6 +373,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     });
     executors.shutdown();
     executors.awaitTermination(100, java.util.concurrent.TimeUnit.SECONDS);
+    test.close();
     Assert.assertEquals(errorCountExp.intValue(), errorCount.intValue());
   }
 

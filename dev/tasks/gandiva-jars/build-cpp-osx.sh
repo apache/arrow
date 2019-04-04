@@ -19,10 +19,10 @@
 
 set -e
 
-source arrow/ci/travis_env_common.sh
+set -x
 
 # Builds arrow + gandiva and tests the same.
-pushd arrow/cpp
+pushd cpp
   mkdir build
   pushd build
     CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release \
@@ -40,5 +40,7 @@ pushd arrow/cpp
     cmake $CMAKE_FLAGS ..
     make -j4
     ctest
+
+    cp -L release/libgandiva_jni.dylib $TRAVIS_BUILD_DIR/dist
   popd
 popd
