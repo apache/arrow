@@ -125,20 +125,6 @@ namespace Apache.Arrow.Ipc
             }
         }
 
-        protected struct Block
-        {
-            public readonly int Offset;
-            public readonly int Length;
-            public readonly int MetadataLength;
-
-            public Block(int offset, int length, int metadataLength)
-            {
-                Offset = offset;
-                Length = length;
-                MetadataLength = metadataLength;
-            }
-        }
-
         protected Stream BaseStream { get; }
 
         protected ArrayPool<byte> Buffers { get; }
@@ -174,7 +160,7 @@ namespace Apache.Arrow.Ipc
             _fieldTypeBuilder = new ArrowTypeFlatbufferBuilder(Builder);
         }
 
-        protected virtual async Task<Block> WriteRecordBatchInternalAsync(RecordBatch recordBatch,
+        private protected async Task WriteRecordBatchInternalAsync(RecordBatch recordBatch,
             CancellationToken cancellationToken = default)
         {
             // TODO: Truncate buffers with extraneous padding / unused capacity
@@ -228,63 +214,55 @@ namespace Apache.Arrow.Ipc
 
             // Serialize record batch
 
+            StartingWritingRecordBatch();
+
             var recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, recordBatch.Length,
                 fieldNodesVectorOffset,
                 buffersVectorOffset);
 
-            var metadataOffset = BaseStream.Position;
-
-            await WriteMessageAsync(Flatbuf.MessageHeader.RecordBatch,
+            long metadataLength = await WriteMessageAsync(Flatbuf.MessageHeader.RecordBatch,
                 recordBatchOffset, recordBatchBuilder.TotalLength,
                 cancellationToken).ConfigureAwait(false);
 
-            var metadataLength = BaseStream.Position - metadataOffset;
-
             // Write buffer data
 
-            var lengthOffset = BaseStream.Position;
+            long bodyLength = 0;
 
             for (var i = 0; i < buffers.Count; i++)
             {
                 if (buffers[i].DataBuffer.IsEmpty)
                     continue;
 
-                
                 await WriteBufferAsync(buffers[i].DataBuffer, cancellationToken).ConfigureAwait(false);
+                bodyLength += buffers[i].DataBuffer.Length;
             }
 
             // Write padding so the record batch message body length is a multiple of 8 bytes
 
-            var bodyLength = Convert.ToInt32(BaseStream.Position - lengthOffset);
-            var bodyPaddingLength = CalculatePadding(bodyLength);
+            int bodyPaddingLength = CalculatePadding(bodyLength);
 
             await WritePaddingAsync(bodyPaddingLength).ConfigureAwait(false);
 
-            return new Block(
-                offset: Convert.ToInt32(metadataOffset),
-                length: bodyLength + bodyPaddingLength, 
-                metadataLength: Convert.ToInt32(metadataLength));
+            FinishedWritingRecordBatch(bodyLength + bodyPaddingLength, metadataLength);
+        }
+
+        private protected virtual void StartingWritingRecordBatch()
+        {
+        }
+
+        private protected virtual void FinishedWritingRecordBatch(long bodyLength, long metadataLength)
+        {
         }
 
         public virtual Task WriteRecordBatchAsync(RecordBatch recordBatch, CancellationToken cancellationToken = default)
         {
             return WriteRecordBatchInternalAsync(recordBatch, cancellationToken);
         }
-    
-        public Task WriteBufferAsync(ArrowBuffer arrowBuffer, CancellationToken cancellationToken = default)
+
+        public async Task WriteBufferAsync(ArrowBuffer arrowBuffer, CancellationToken cancellationToken = default)
         {
-            byte[] buffer = null;
-            try
-            {
-                var span = arrowBuffer.Span;
-                buffer = ArrayPool<byte>.Shared.Rent(span.Length);
-                span.CopyTo(buffer);
-                return BaseStream.WriteAsync(buffer, 0, span.Length, cancellationToken);
-            }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(buffer);
-            }
+            await BaseStream.WriteAsync(arrowBuffer.Memory, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         private protected Offset<Flatbuf.Schema> SerializeSchema(Schema schema)
@@ -319,7 +297,6 @@ namespace Apache.Arrow.Ipc
                 Builder, endianness, fieldsVectorOffset);
         }
 
-
         private async ValueTask<Offset<Flatbuf.Schema>> WriteSchemaAsync(Schema schema, CancellationToken cancellationToken)
         {
             Builder.Clear();
@@ -336,7 +313,13 @@ namespace Apache.Arrow.Ipc
             return schemaOffset;
         }
 
-        private async ValueTask WriteMessageAsync<T>(
+        /// <summary>
+        /// Writes the message to the <see cref="BaseStream"/>.
+        /// </summary>
+        /// <returns>
+        /// The number of bytes written to the stream.
+        /// </returns>
+        private async ValueTask<long> WriteMessageAsync<T>(
             Flatbuf.MessageHeader headerType, Offset<T> headerOffset, int bodyLength,
             CancellationToken cancellationToken)
             where T: struct
@@ -359,6 +342,11 @@ namespace Apache.Arrow.Ipc
 
             await BaseStream.WriteAsync(messageData, cancellationToken).ConfigureAwait(false);
             await WritePaddingAsync(messagePaddingLength).ConfigureAwait(false);
+
+            checked
+            {
+                return 4 + messageData.Length + messagePaddingLength;
+            }
         }
 
         private protected async ValueTask WriteFlatBufferAsync(CancellationToken cancellationToken = default)
@@ -368,8 +356,14 @@ namespace Apache.Arrow.Ipc
             await BaseStream.WriteAsync(segment, cancellationToken).ConfigureAwait(false);
         }
 
-        protected int CalculatePadding(int offset, int alignment = 8) =>
-            BitUtility.RoundUpToMultiplePowerOfTwo(offset, alignment) - offset;
+        protected int CalculatePadding(long offset, int alignment = 8)
+        {
+            long result = BitUtility.RoundUpToMultiplePowerOfTwo(offset, alignment) - offset;
+            checked
+            {
+                return (int)result;
+            }
+        }
 
         protected Task WritePaddingAsync(int length)
         {

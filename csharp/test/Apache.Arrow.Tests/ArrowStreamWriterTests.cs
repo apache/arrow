@@ -16,6 +16,9 @@
 using Apache.Arrow.Ipc;
 using System;
 using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -47,6 +50,60 @@ namespace Apache.Arrow.Tests
             var stream = new MemoryStream();
             new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true).Dispose();
             Assert.Equal(0, stream.Position);
+        }
+
+        [Fact]
+        public async Task CanWriteToNetworkStream()
+        {
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+
+            const int port = 32154;
+            TcpListener listener = new TcpListener(IPAddress.Loopback, port);
+            listener.Start();
+
+            using (TcpClient sender = new TcpClient())
+            {
+                sender.Connect(IPAddress.Loopback, port);
+                NetworkStream stream = sender.GetStream();
+
+                using (var writer = new ArrowStreamWriter(stream, originalBatch.Schema))
+                {
+                    await writer.WriteRecordBatchAsync(originalBatch);
+                    stream.Flush();
+                }
+            }
+
+            using (TcpClient receiver = listener.AcceptTcpClient())
+            {
+                NetworkStream stream = receiver.GetStream();
+                using (var reader = new ArrowStreamReader(stream))
+                {
+                    RecordBatch newBatch = reader.ReadNextRecordBatch();
+                    ArrowReaderVerifier.CompareBatches(originalBatch, newBatch);
+                }
+            }
+        }
+
+        [Fact]
+        public async Task WriteEmptyBatch()
+        {
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 0);
+
+            using (MemoryStream stream = new MemoryStream())
+            {
+                using (var writer = new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true))
+                {
+                    await writer.WriteRecordBatchAsync(originalBatch);
+                }
+
+                stream.Position = 0;
+
+                using (var reader = new ArrowStreamReader(stream))
+                {
+                    RecordBatch newBatch = reader.ReadNextRecordBatch();
+                    ArrowReaderVerifier.CompareBatches(originalBatch, newBatch);
+                }
+            }
         }
     }
 }

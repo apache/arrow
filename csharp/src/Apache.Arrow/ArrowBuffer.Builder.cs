@@ -111,7 +111,12 @@ namespace Apache.Arrow
 
             public ArrowBuffer Build(MemoryPool pool = default)
             {
-                var length = BitUtility.RoundUpToMultipleOf64(_buffer.Length);
+                int length;
+                checked
+                {
+                    length = (int)BitUtility.RoundUpToMultipleOf64(_buffer.Length);
+                }
+
                 var memoryPool = pool ?? MemoryPool.Default.Value;
                 var memory = memoryPool.Allocate(length);
 
