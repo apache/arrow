@@ -361,6 +361,9 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) array.Interface {
 		*arrow.Float32Type, *arrow.Float64Type:
 		return ctx.loadPrimitive(dt)
 
+	case *arrow.BinaryType, *arrow.StringType:
+		return ctx.loadBinary(dt)
+
 	default:
 		panic(errors.Errorf("array type %T not handled yet", dt))
 	}
@@ -402,6 +405,16 @@ func (ctx *arrayLoaderContext) loadPrimitive(dt arrow.DataType) array.Interface 
 	default:
 		buffers = append(buffers, ctx.buffer())
 	}
+
+	data := array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
+	defer data.Release()
+
+	return array.MakeFromData(data)
+}
+
+func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) array.Interface {
+	field, buffers := ctx.loadCommon(3)
+	buffers = append(buffers, ctx.buffer(), ctx.buffer())
 
 	data := array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
 	defer data.Release()
