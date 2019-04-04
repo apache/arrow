@@ -85,9 +85,6 @@ public class TestPerf {
                   new Location(FlightTestUtil.LOCALHOST, port)));
           final FlightClient client = new FlightClient(a, server.getLocation());
       ) {
-
-        server.start();
-
         final FlightInfo info = client.getInfo(getPerfFlightDescriptor(50_000_000L, 4095, 2));
         ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(4));
         List<ListenableFuture<Result>> results = info.getEndpoints()
@@ -104,7 +101,7 @@ public class TestPerf {
 
         double seconds = r.nanos * 1.0d / 1000 / 1000 / 1000;
         System.out.println(String.format(
-            "Transferred %d records totaling %s bytes at %f mb/s. %f record/s. %f batch/s.",
+            "Transferred %d records totaling %s bytes at %f MiB/s. %f record/s. %f batch/s.",
             r.rows,
             r.bytes,
             (r.bytes * 1.0d / 1024 / 1024) / seconds,

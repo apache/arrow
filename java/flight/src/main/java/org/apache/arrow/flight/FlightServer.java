@@ -62,6 +62,11 @@ public class FlightServer implements AutoCloseable {
     return server.getPort();
   }
 
+  /** Block until the server shuts down. */
+  public void awaitTermination() throws InterruptedException {
+    server.awaitTermination();
+  }
+
   public void close() throws InterruptedException {
     server.shutdown();
     final boolean terminated = server.awaitTermination(3000, TimeUnit.MILLISECONDS);

@@ -53,6 +53,10 @@ public class ExampleFlightServer implements AutoCloseable {
     flightServer.start();
   }
 
+  public void awaitTermination() throws InterruptedException {
+    flightServer.awaitTermination();
+  }
+
   public InMemoryStore getStore() {
     return mem;
   }
@@ -74,8 +78,6 @@ public class ExampleFlightServer implements AutoCloseable {
         e.printStackTrace();
       }
     }));
-    while (true) {
-      Thread.sleep(30000);
-    }
+    efs.awaitTermination();
   }
 }
