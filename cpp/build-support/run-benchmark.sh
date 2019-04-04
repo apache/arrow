@@ -14,7 +14,9 @@
 
 set -eux
 
-: ${BENCHMARK_REPETITIONS:=10}
+# See https://github.com/google/benchmark/blob/6a5c379ca/tools/gbench/report.py#L39
+# https://github.com/scipy/scipy/blob/c3fa90dcfcaef71/scipy/stats/stats.py#L4957
+: ${BENCHMARK_REPETITIONS:=20}
 
 PWD=$(cd $(dirname $BASH_SOURCE); pwd)
 
