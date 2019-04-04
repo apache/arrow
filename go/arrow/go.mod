@@ -16,8 +16,6 @@
 
 module github.com/apache/arrow/go/arrow
 
-go 1.12
-
 require (
 	github.com/davecgh/go-spew v1.1.0 // indirect
 	github.com/google/flatbuffers v1.10.0
