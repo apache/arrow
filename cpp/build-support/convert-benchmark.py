@@ -59,9 +59,10 @@ def run_cmd(cmd):
 
 class Context:
     """ Represents the runtime environment """
-    def __init__(self, **kwargs):
-        self.date = kwargs.get("date")
-        self.executable = kwargs.get("executable")
+
+    def __init__(self, date=None, executable=None, **kwargs):
+        self.date = date
+        self.executable = executable
 
     @property
     def host(self):
