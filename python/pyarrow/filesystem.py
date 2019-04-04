@@ -378,7 +378,7 @@ class ADLFSWrapper(DaskFileSystem):
     def isdir(self, path):
         path = _sanitize_remote_path(_stringify_path(path))
         try:
-            contents = self.ls(path)
+            contents = self.fs.ls(path)
             if len(contents) == 1 and contents[0] == path:
                 return False
             else:
@@ -390,7 +390,7 @@ class ADLFSWrapper(DaskFileSystem):
     def isfile(self, path):
         path = _sanitize_remote_path(_stringify_path(path))
         try:
-            contents = self.ls(path)
+            contents = self.fs.ls(path)
             return len(contents) == 1 and contents[0] == path
         except OSError:
             return False
@@ -406,7 +406,7 @@ class ADLFSWrapper(DaskFileSystem):
         directories = set()
         files = set()
 
-        for key in list(self._ls(path, invalidate_cache=invalidate_cache)):
+        for key in list(self.fs._ls(path, invalidate_cache=invalidate_cache)):
             path = key['name']
             if key['type'] == 'DIRECTORY':
                 directories.add(path)

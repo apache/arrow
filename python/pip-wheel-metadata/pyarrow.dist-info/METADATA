@@ -1,0 +1,113 @@
+Metadata-Version: 2.1
+Name: pyarrow
+Version: 0.12.1.dev204+g0bc43c9f
+Summary: Python library for Apache Arrow
+Home-page: https://arrow.apache.org/
+Maintainer: Apache Arrow Developers
+Maintainer-email: dev@arrow.apache.org
+License: Apache License, Version 2.0
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Description-Content-Type: text/markdown
+Requires-Dist: numpy (>=1.14)
+Requires-Dist: six (>=1.0.0)
+Requires-Dist: futures ; python_version < "3.2"
+Requires-Dist: enum34 (>=1.1.6) ; python_version < "3.4"
+
+<!---
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+-->
+
+## Python library for Apache Arrow
+
+This library provides a Python API for functionality provided by the Arrow C++
+libraries, along with tools for Arrow integration and interoperability with
+pandas, NumPy, and other software in the Python ecosystem.
+
+## Installing
+
+Across platforms, you can install a recent version of pyarrow with the conda
+package manager:
+
+```shell
+conda install pyarrow -c conda-forge
+```
+
+On Linux/macOS and Windows, you can also install binary wheels from PyPI with pip:
+
+```shell
+pip install pyarrow
+```
+
+## Development
+
+### Coding Style
+
+We follow a similar PEP8-like coding style to the [pandas project][3].
+
+The code must pass `flake8` (available from pip or conda) or it will fail the
+build. Check for style errors before submitting your pull request with:
+
+```
+flake8 .
+flake8 --config=.flake8.cython .
+```
+
+### Building from Source
+
+See the [Development][2] page in the documentation.
+
+### Running the unit tests
+
+We are using [pytest][4] to develop our unit test suite. After building the
+project using `setup.py build_ext --inplace`, you can run its unit tests like
+so:
+
+```bash
+pytest pyarrow
+```
+
+The project has a number of custom command line options for its test
+suite. Some tests are disabled by default, for example. To see all the options,
+run
+
+```bash
+pytest pyarrow --help
+```
+
+and look for the "custom options" section.
+
+For running the benchmarks, see the [Sphinx documentation][5].
+
+### Building the documentation
+
+```bash
+pip install -r ../docs/requirements.txt
+python setup.py build_sphinx -s ../docs/source
+```
+
+[2]: https://github.com/apache/arrow/blob/master/docs/source/python/development.rst
+[3]: https://github.com/pandas-dev/pandas
+[4]: https://docs.pytest.org/en/latest/
+[5]: https://arrow.apache.org/docs/latest/python/benchmarks.html
+
+
