@@ -15,3 +15,57 @@
 // limitations under the License.
 
 package ipc // import "github.com/apache/arrow/go/arrow/ipc"
+
+import (
+	"io"
+
+	"github.com/apache/arrow/go/arrow/memory"
+)
+
+const (
+	errNotArrowFile             = errString("arrow/ipc: not an Arrow file")
+	errInconsistentFileMetadata = errString("arrow/ipc: file is smaller than indicated metadata size")
+)
+
+type errString string
+
+func (s errString) Error() string {
+	return string(s)
+}
+
+type ReadAtSeeker interface {
+	io.Reader
+	io.Seeker
+	io.ReaderAt
+}
+
+type config struct {
+	alloc  memory.Allocator
+	footer struct {
+		offset int64
+	}
+}
+
+func newConfig() *config {
+	return &config{
+		alloc: memory.NewGoAllocator(),
+	}
+}
+
+// Option is a functional option to configure opening or creating Arrow files
+// and streams.
+type Option func(*config)
+
+// WithFooterOffset specifies the Arrow footer position in bytes.
+func WithFooterOffset(offset int64) Option {
+	return func(cfg *config) {
+		cfg.footer.offset = offset
+	}
+}
+
+// WithAllocator specifies the Arrow memory allocator used while building records.
+func WithAllocator(mem memory.Allocator) Option {
+	return func(cfg *config) {
+		cfg.alloc = mem
+	}
+}

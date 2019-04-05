@@ -123,17 +123,45 @@ func (msg Message) BodyLen() int64 {
 	return msg.msg.BodyLength()
 }
 
+// MessageReader reads messages from an io.Reader.
 type MessageReader struct {
 	r io.Reader
+
+	refCount int64
+	msg      *Message
 }
 
+// NewMessageReader returns a reader that reads messages from an input stream.
 func NewMessageReader(r io.Reader) (*MessageReader, error) {
-	return &MessageReader{r}, nil
+	return &MessageReader{r: r, refCount: 1}, nil
 }
 
-func (msg *MessageReader) Message() (*Message, error) {
+// Retain increases the reference count by 1.
+// Retain may be called simultaneously from multiple goroutines.
+func (r *MessageReader) Retain() {
+	atomic.AddInt64(&r.refCount, 1)
+}
+
+// Release decreases the reference count by 1.
+// When the reference count goes to zero, the memory is freed.
+// Release may be called simultaneously from multiple goroutines.
+func (r *MessageReader) Release() {
+	debug.Assert(atomic.LoadInt64(&r.refCount) > 0, "too many releases")
+
+	if atomic.AddInt64(&r.refCount, -1) == 0 {
+		if r.msg != nil {
+			r.msg.Release()
+			r.msg = nil
+		}
+	}
+}
+
+// Message returns the current message that has been extracted from the
+// underlying stream.
+// It is valid until the next call to Message.
+func (r *MessageReader) Message() (*Message, error) {
 	var buf = make([]byte, 4)
-	_, err := io.ReadFull(msg.r, buf)
+	_, err := io.ReadFull(r.r, buf)
 	if err != nil {
 		return nil, errors.Wrap(err, "arrow/ipc: could not read message length")
 	}
@@ -144,20 +172,26 @@ func (msg *MessageReader) Message() (*Message, error) {
 	}
 
 	buf = make([]byte, msgLen)
-	_, err = io.ReadFull(msg.r, buf)
+	_, err = io.ReadFull(r.r, buf)
 	if err != nil {
 		return nil, errors.Wrap(err, "arrow/ipc: could not read message metadata")
 	}
-	meta := memory.NewBufferBytes(buf[4:])
+	meta := memory.NewBufferBytes(buf)
 
 	bodyLen := flatbuf.GetRootAsMessage(meta.Bytes(), 0).BodyLength()
 
 	buf = make([]byte, bodyLen)
-	_, err = io.ReadFull(msg.r, buf)
+	_, err = io.ReadFull(r.r, buf)
 	if err != nil {
 		return nil, errors.Wrap(err, "arrow/ipc: could not read message body")
 	}
 	body := memory.NewBufferBytes(buf)
 
-	return NewMessage(meta, body), nil
+	if r.msg != nil {
+		r.msg.Release()
+		r.msg = nil
+	}
+	r.msg = NewMessage(meta, body)
+
+	return r.msg, nil
 }

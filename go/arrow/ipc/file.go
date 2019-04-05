@@ -30,47 +30,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	errNotArrowFile             = errString("arrow/ipc: not an Arrow file")
-	errInconsistentFileMetadata = errString("arrow/ipc: file is smaller than indicated metadata size")
-)
-
-type errString string
-
-func (s errString) Error() string {
-	return string(s)
-}
-
-type ReadAtSeeker interface {
-	io.Reader
-	io.Seeker
-	io.ReaderAt
-}
-
-type config struct {
-	alloc  memory.Allocator
-	footer struct {
-		offset int64
-	}
-}
-
-func newConfig() *config {
-	return &config{
-		alloc: memory.NewGoAllocator(),
-	}
-}
-
-// Option is a functional option to configure opening or creating Arrow files
-// and streams.
-type Option func(*config)
-
-// WithFooterOffset specifies the Arrow footer position in bytes.
-func WithFooterOffset(offset int64) Option {
-	return func(cfg *config) {
-		cfg.footer.offset = offset
-	}
-}
-
 // FileReader is a read-only Arrow file.
 type FileReader struct {
 	r ReadAtSeeker
@@ -313,11 +272,11 @@ func (f *FileReader) Record(i int) (array.Record, error) {
 		f.record.Release()
 	}
 
-	f.record = newRecord(f.schema, msg.meta, msg.body, f.r)
+	f.record = newRecord(f.schema, msg.meta, bytes.NewReader(msg.body.Bytes()))
 	return f.record, nil
 }
 
-func newRecord(schema *arrow.Schema, meta *memory.Buffer, body *memory.Buffer, r ReadAtSeeker) array.Record {
+func newRecord(schema *arrow.Schema, meta *memory.Buffer, body ReadAtSeeker) array.Record {
 	var (
 		msg = flatbuf.GetRootAsMessage(meta.Bytes(), 0)
 		md  flatbuf.RecordBatch
@@ -328,7 +287,7 @@ func newRecord(schema *arrow.Schema, meta *memory.Buffer, body *memory.Buffer, r
 	ctx := &arrayLoaderContext{
 		ipc: ipcSource{
 			meta: &md,
-			r:    bytes.NewReader(body.Bytes()),
+			r:    body,
 		},
 		max: kMaxNestingDepth,
 	}
