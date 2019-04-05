@@ -351,7 +351,7 @@ impl AggregateFunction for SumFunction {
 struct AvgFunction {
     data_type: DataType,
     sum_value: SumFunction,
-    count_value: CountFunction
+    count_value: CountFunction,
 }
 
 impl AvgFunction {
@@ -471,20 +471,12 @@ struct AccumulatorSet {
 }
 
 impl AccumulatorSet {
-    fn accumulate_scalar(
-        &mut self,
-        i: usize,
-        value: Option<ScalarValue>,
-    ) -> Result<()> {
+    fn accumulate_scalar(&mut self, i: usize, value: Option<ScalarValue>) -> Result<()> {
         let mut accumulator = self.aggr_values[i].borrow_mut();
         accumulator.accumulate_scalar(&value)
     }
 
-    fn accumulate_batch(
-        &mut self,
-        i: usize,
-        array: ArrayRef,
-    ) -> Result<()> {
+    fn accumulate_batch(&mut self, i: usize, array: ArrayRef) -> Result<()> {
         let mut accumulator = self.aggr_values[i].borrow_mut();
         accumulator.accumulate_batch(array)
     }
@@ -911,21 +903,11 @@ impl AggregateRelation {
                 // evaluate the argument to the aggregate function
                 let array = self.aggr_expr[i].evaluate_arg(&batch)?;
                 match self.aggr_expr[i].aggr_type() {
-                    AggregateType::Min => {
-                        accumulator_set.accumulate_batch(i, array)?
-                    }
-                    AggregateType::Max => {
-                        accumulator_set.accumulate_batch(i, array)?
-                    }
-                    AggregateType::Sum => {
-                        accumulator_set.accumulate_batch(i, array)?
-                    }
-                    AggregateType::Count => {
-                        accumulator_set.accumulate_batch(i, array)?
-                    }
-                    AggregateType::Avg => {
-                        accumulator_set.accumulate_batch(i, array)?
-                    }
+                    AggregateType::Min => accumulator_set.accumulate_batch(i, array)?,
+                    AggregateType::Max => accumulator_set.accumulate_batch(i, array)?,
+                    AggregateType::Sum => accumulator_set.accumulate_batch(i, array)?,
+                    AggregateType::Count => accumulator_set.accumulate_batch(i, array)?,
+                    AggregateType::Avg => accumulator_set.accumulate_batch(i, array)?,
                     _ => {
                         return Err(ExecutionError::NotImplemented(
                             "Unsupported aggregate function".to_string(),
