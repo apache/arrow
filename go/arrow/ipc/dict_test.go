@@ -17,6 +17,7 @@
 package ipc // import "github.com/apache/arrow/go/arrow/ipc"
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow/array"
@@ -126,5 +127,70 @@ func TestDictMemo(t *testing.T) {
 	}
 	if !memo.HasDict(f2) {
 		t.Fatalf("should have found f2")
+	}
+
+	// test we don't leak nor "double-delete" when adding an array multiple times.
+	memo.Add(42, f2)
+	if got, want := memo.ID(f2), int64(42); got != want {
+		t.Fatalf("found invalid id. got=%d, want=%d", got, want)
+	}
+	memo.Add(43, f2)
+	if got, want := memo.ID(f2), int64(43); got != want {
+		t.Fatalf("found invalid id. got=%d, want=%d", got, want)
+	}
+	if got, want := memo.Len(), 5; got != want {
+		t.Fatalf("invalid length. got=%d, want=%d", got, want)
+	}
+}
+
+func TestDictMemoPanics(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	bldr := array.NewFloat64Builder(mem)
+	defer bldr.Release()
+
+	bldr.AppendValues([]float64{1.0, 1.1, 1.2, 1.3}, nil)
+	f0 := bldr.NewFloat64Array()
+	defer f0.Release()
+
+	bldr.AppendValues([]float64{11.0, 11.1, 11.2, 11.3}, nil)
+	f1 := bldr.NewFloat64Array()
+	defer f1.Release()
+
+	for _, tc := range []struct {
+		vs  []array.Interface
+		ids []int64
+	}{
+		{
+			vs:  []array.Interface{f0, f1},
+			ids: []int64{0, 0},
+		},
+		{
+			vs:  []array.Interface{f0, f0},
+			ids: []int64{0, 0},
+		},
+	} {
+		t.Run("", func(t *testing.T) {
+			defer func() {
+				e := recover()
+				if e == nil {
+					t.Fatalf("should have panicked!")
+				}
+				if got, want := e.(error), fmt.Errorf("arrow/ipc: duplicate id=%d", 0); got.Error() != want.Error() {
+					t.Fatalf("invalid panic message.\ngot= %q\nwant=%q", got, want)
+				}
+			}()
+
+			memo := newMemo()
+			defer memo.delete()
+
+			if got, want := memo.Len(), 0; got != want {
+				t.Fatalf("invalid length: got=%d, want=%d", got, want)
+			}
+
+			memo.Add(tc.ids[0], tc.vs[0])
+			memo.Add(tc.ids[1], tc.vs[1])
+		})
 	}
 }
