@@ -30,7 +30,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// FileReader is a read-only Arrow file.
+// FileReader is an Arrow file reader.
 type FileReader struct {
 	r ReadAtSeeker
 
