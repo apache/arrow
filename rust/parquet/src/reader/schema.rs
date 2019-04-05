@@ -18,7 +18,8 @@
 //! Provides API for converting parquet schema to arrow schema and vice versa.
 //!
 //! The main interfaces for converting parquet schema to arrow schema  are
-//! `parquet_to_arrow_schema` and `parquet_to_arrow_schema_by_columns`.
+//! `parquet_to_arrow_schema`, `parquet_to_arrow_schema_by_columns` and
+//! `parquet_to_arrow_field`.
 //!
 //! The interfaces for converting arrow schema to parquet schema is coming.
 
