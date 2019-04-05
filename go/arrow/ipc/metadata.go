@@ -72,14 +72,14 @@ func (blk fileBlock) NewMessage() (*Message, error) {
 	buf = make([]byte, blk.Meta)
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
-		return nil, errors.Wrapf(err, "arrow/ipc: could not read message metadata")
+		return nil, errors.Wrap(err, "arrow/ipc: could not read message metadata")
 	}
 	meta := memory.NewBufferBytes(buf[4:])
 
 	buf = make([]byte, blk.Body)
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
-		return nil, errors.Wrapf(err, "arrow/ipc: could not read message body")
+		return nil, errors.Wrap(err, "arrow/ipc: could not read message body")
 	}
 	body := memory.NewBufferBytes(buf)
 

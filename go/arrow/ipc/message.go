@@ -17,12 +17,15 @@
 package ipc // import "github.com/apache/arrow/go/arrow/ipc"
 
 import (
+	"encoding/binary"
 	"fmt"
+	"io"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/arrow/internal/debug"
 	"github.com/apache/arrow/go/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/pkg/errors"
 )
 
 // MetadataVersion represents the Arrow metadata version.
@@ -118,4 +121,43 @@ func (msg Message) Type() MessageType {
 
 func (msg Message) BodyLen() int64 {
 	return msg.msg.BodyLength()
+}
+
+type MessageReader struct {
+	r io.Reader
+}
+
+func NewMessageReader(r io.Reader) (*MessageReader, error) {
+	return &MessageReader{r}, nil
+}
+
+func (msg *MessageReader) Message() (*Message, error) {
+	var buf = make([]byte, 4)
+	_, err := io.ReadFull(msg.r, buf)
+	if err != nil {
+		return nil, errors.Wrap(err, "arrow/ipc: could not read message length")
+	}
+	msgLen := binary.LittleEndian.Uint32(buf)
+	if msgLen == 0 {
+		// optional 0 EOS control message
+		return nil, io.EOF // FIXME(sbinet): send nil instead? or a special EOS error?
+	}
+
+	buf = make([]byte, msgLen)
+	_, err = io.ReadFull(msg.r, buf)
+	if err != nil {
+		return nil, errors.Wrap(err, "arrow/ipc: could not read message metadata")
+	}
+	meta := memory.NewBufferBytes(buf[4:])
+
+	bodyLen := flatbuf.GetRootAsMessage(meta.Bytes(), 0).BodyLength()
+
+	buf = make([]byte, bodyLen)
+	_, err = io.ReadFull(msg.r, buf)
+	if err != nil {
+		return nil, errors.Wrap(err, "arrow/ipc: could not read message body")
+	}
+	body := memory.NewBufferBytes(buf)
+
+	return NewMessage(meta, body), nil
 }

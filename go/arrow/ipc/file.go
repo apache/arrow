@@ -197,7 +197,7 @@ func (f *FileReader) readSchema() error {
 			return errors.Wrapf(err, "arrow/ipc: could not read dictionary %d from file", i)
 		}
 		f.memo.Add(id, dict)
-		dict.Release() // memo.Add increses ref-count of dict.
+		dict.Release() // memo.Add increases ref-count of dict.
 	}
 
 	schema := f.footer.data.Schema(nil)
