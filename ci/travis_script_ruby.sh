@@ -26,7 +26,7 @@ arrow_ruby_run_test()
   local arrow_c_glib_lib_dir="$1"
 
   local ld_library_path_keep="$LD_LIBRARY_PATH"
-  local pkg_config_path_keep="$PKG_COFNIG_PATH"
+  local pkg_config_path_keep="$PKG_CONFIG_PATH"
   LD_LIBRARY_PATH="${arrow_c_glib_lib_dir}:${LD_LIBRARY_PATH}"
   PKG_CONFIG_PATH="${arrow_c_glib_lib_dir}/pkgconfig:${PKG_CONFIG_PATH}"
   export GI_TYPELIB_PATH="${arrow_c_glib_lib_dir}/girepository-1.0"

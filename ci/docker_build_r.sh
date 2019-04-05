@@ -24,9 +24,11 @@ export ARROW_HOME=$CONDA_PREFIX
 pushd /arrow/r
 
 R CMD build --keep-empty-dirs .
-R CMD INSTALL $(ls | grep arrow_*.tar.gz)
+echo arrow_*.tar.gz | xargs R CMD INSTALL
+# R CMD INSTALL $(ls | grep arrow_*.tar.gz)
 
 export _R_CHECK_FORCE_SUGGESTS_=false
-R CMD check $(ls | grep arrow_*.tar.gz) --as-cran --no-manual
+echo arrow_*.tar.gz | xargs R CMD check --as-cran --no-manual
+# R CMD check $(ls | grep arrow_*.tar.gz) --as-cran --no-manual
 
 popd

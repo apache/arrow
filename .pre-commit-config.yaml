@@ -50,6 +50,13 @@ repos:
          - dockerfile
         entry: --entrypoint /bin/hadolint hadolint/hadolint:latest -
         exclude: ^dev/.*$
+      - id: shellcheck
+        name: Shell Format
+        language: system
+        entry: shellcheck
+        types:
+          - shell
+        args: [--color, always, -e, SC1091]
   - repo: git://github.com/pre-commit/pre-commit-hooks
     sha: v1.2.3
     hooks:
