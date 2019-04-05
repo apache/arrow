@@ -285,7 +285,7 @@ func newRecord(schema *arrow.Schema, meta *memory.Buffer, body ReadAtSeeker) arr
 	rows := md.Length()
 
 	ctx := &arrayLoaderContext{
-		ipc: ipcSource{
+		src: ipcSource{
 			meta: &md,
 			r:    body,
 		},
@@ -332,20 +332,20 @@ func (src *ipcSource) fieldMetadata(i int) *flatbuf.FieldNode {
 }
 
 type arrayLoaderContext struct {
-	ipc     ipcSource
+	src     ipcSource
 	ifield  int
 	ibuffer int
 	max     int
 }
 
 func (ctx *arrayLoaderContext) field() *flatbuf.FieldNode {
-	field := ctx.ipc.fieldMetadata(ctx.ifield)
+	field := ctx.src.fieldMetadata(ctx.ifield)
 	ctx.ifield++
 	return field
 }
 
 func (ctx *arrayLoaderContext) buffer() *memory.Buffer {
-	buf := ctx.ipc.buffer(ctx.ibuffer)
+	buf := ctx.src.buffer(ctx.ibuffer)
 	ctx.ibuffer++
 	return buf
 }
@@ -435,7 +435,7 @@ func readDictionary(meta *memory.Buffer, types dictTypeMap, r ReadAtSeeker) (int
 	//
 	//
 	//	ctx := &arrayLoaderContext{
-	//		ipc: ipcSource{
+	//		src: ipcSource{
 	//			meta: &md,
 	//			r:    bytes.NewReader(body.Bytes()),
 	//		},
