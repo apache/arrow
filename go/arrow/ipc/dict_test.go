@@ -31,16 +31,16 @@ func TestDictMemo(t *testing.T) {
 	defer bldr.Release()
 
 	bldr.AppendValues([]float64{1.0, 1.1, 1.2, 1.3}, nil)
+	f0 := bldr.NewFloat64Array()
+	defer f0.Release()
+
+	bldr.AppendValues([]float64{11.0, 11.1, 11.2, 11.3}, nil)
 	f1 := bldr.NewFloat64Array()
 	defer f1.Release()
 
 	bldr.AppendValues([]float64{11.0, 11.1, 11.2, 11.3}, nil)
 	f2 := bldr.NewFloat64Array()
 	defer f2.Release()
-
-	bldr.AppendValues([]float64{11.0, 11.1, 11.2, 11.3}, nil)
-	f3 := bldr.NewFloat64Array()
-	defer f3.Release()
 
 	memo := newMemo()
 	defer memo.delete()
@@ -49,14 +49,14 @@ func TestDictMemo(t *testing.T) {
 		t.Fatalf("invalid length: got=%d, want=%d", got, want)
 	}
 
+	memo.Add(0, f0)
 	memo.Add(1, f1)
-	memo.Add(2, f2)
 
-	if !memo.HasID(1) {
-		t.Fatalf("could not find id=1")
+	if !memo.HasID(0) {
+		t.Fatalf("could not find id=0")
 	}
 
-	if !memo.HasID(2) {
+	if !memo.HasID(1) {
 		t.Fatalf("could not find id=1")
 	}
 
@@ -66,37 +66,65 @@ func TestDictMemo(t *testing.T) {
 
 	var ff array.Interface
 
+	ff = f0
+	if !memo.HasDict(ff) {
+		t.Fatalf("failed to find f0 through interface")
+	}
+
 	ff = f1
 	if !memo.HasDict(ff) {
 		t.Fatalf("failed to find f1 through interface")
 	}
 
 	ff = f2
-	if !memo.HasDict(ff) {
-		t.Fatalf("failed to find f2 through interface")
-	}
-
-	ff = f3
 	if memo.HasDict(ff) {
-		t.Fatalf("should not have found f3")
+		t.Fatalf("should not have found f2")
 	}
 
 	fct := func(v array.Interface) array.Interface {
 		return v
 	}
 
-	if !memo.HasDict(fct(f2)) {
+	if !memo.HasDict(fct(f1)) {
 		t.Fatalf("failed to find dict through func through interface")
 	}
 
-	if memo.HasDict(f3) {
-		t.Fatalf("should not have found f3")
+	if memo.HasDict(f2) {
+		t.Fatalf("should not have found f2")
 	}
 
-	ff = f1
-	for i, f := range []array.Interface{f1, f2, ff, fct(f1), fct(f2)} {
+	ff = f0
+	for i, f := range []array.Interface{f0, f1, ff, fct(f0), fct(f1)} {
 		if !memo.HasDict(f) {
 			t.Fatalf("failed to find dict %d", i)
 		}
+	}
+
+	v, ok := memo.Dict(0)
+	if !ok {
+		t.Fatalf("expected to find id=0")
+	}
+	if v != f0 {
+		t.Fatalf("expected fo find id=0 array")
+	}
+
+	v, ok = memo.Dict(2)
+	if ok {
+		t.Fatalf("should not have found id=2")
+	}
+	v, ok = memo.Dict(-2)
+	if ok {
+		t.Fatalf("should not have found id=-2")
+	}
+
+	if got, want := memo.ID(f0), int64(0); got != want {
+		t.Fatalf("found invalid id. got=%d, want=%d", got, want)
+	}
+
+	if got, want := memo.ID(f2), int64(2); got != want {
+		t.Fatalf("found invalid id. got=%d, want=%d", got, want)
+	}
+	if !memo.HasDict(f2) {
+		t.Fatalf("should have found f2")
 	}
 }
