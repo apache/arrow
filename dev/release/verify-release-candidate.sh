@@ -289,7 +289,13 @@ test_python() {
 test_glib() {
   pushd c_glib
 
-  ./configure --prefix=$ARROW_HOME
+  if brew --prefix libffi > /dev/null 2>&1; then
+    ./configure --prefix=$ARROW_HOME \
+      PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH
+  else
+    ./configure --prefix=$ARROW_HOME
+  fi
+
   make -j$NPROC
   make install
 
