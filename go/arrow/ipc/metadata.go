@@ -27,8 +27,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-// magic string identifying an Apache Arrow file.
-var magic = []byte("ARROW1")
+// Magic string identifying an Apache Arrow file.
+var Magic = []byte("ARROW1")
 
 const (
 	currentMetadataVersion = MetadataV4

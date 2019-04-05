@@ -87,11 +87,11 @@ func NewFileReader(r ReadAtSeeker, opts ...Option) (*FileReader, error) {
 func (f *FileReader) readFooter() error {
 	var err error
 
-	if f.footer.offset <= int64(len(magic)*2+4) {
+	if f.footer.offset <= int64(len(Magic)*2+4) {
 		return fmt.Errorf("arrow/ipc: file too small (%d)", f.footer.offset)
 	}
 
-	eof := int64(len(magic) + 4)
+	eof := int64(len(Magic) + 4)
 	buf := make([]byte, eof)
 	n, err := f.r.ReadAt(buf, f.footer.offset-eof)
 	if err != nil {
@@ -101,12 +101,12 @@ func (f *FileReader) readFooter() error {
 		return errors.Errorf("arrow/ipc: could not read %d bytes from end of file", len(buf))
 	}
 
-	if !bytes.Equal(buf[4:], magic) {
+	if !bytes.Equal(buf[4:], Magic) {
 		return errNotArrowFile
 	}
 
 	size := int64(binary.LittleEndian.Uint32(buf[:4]))
-	if size <= 0 || size+int64(len(magic)*2+4) > f.footer.offset {
+	if size <= 0 || size+int64(len(Magic)*2+4) > f.footer.offset {
 		return errInconsistentFileMetadata
 	}
 

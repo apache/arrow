@@ -55,6 +55,7 @@
 package main // import "github.com/apache/arrow/go/arrow/ipc/cmd/arrow-cat"
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -113,6 +114,19 @@ func processFile(fname string) {
 		log.Fatal(err)
 	}
 	defer f.Close()
+
+	hdr := make([]byte, len(ipc.Magic))
+	_, err = io.ReadFull(f, hdr)
+	if err != nil {
+		log.Fatalf("could not read file header: %v", err)
+	}
+	f.Seek(0, io.SeekStart)
+
+	if !bytes.Equal(hdr, ipc.Magic) {
+		// try as a stream.
+		processStream(f)
+		return
+	}
 
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(nil, 0)
