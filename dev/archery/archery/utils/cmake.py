@@ -69,6 +69,7 @@ class CMakeDefinition:
               work around cmake deficiencies, e.g. CC and CXX.
         """
         self.source = os.path.abspath(source)
+        self.build_type = build_type
         self.generator = generator if generator else cmake.default_generator()
         self.definitions = definitions if definitions else []
         self.env = env
@@ -97,15 +98,16 @@ class CMakeDefinition:
         if os.path.exists(build_dir):
             # Extra safety to ensure we're deleting a build folder.
             if not CMakeBuild.is_build_dir(build_dir):
-                raise FileExistsError(f"{build_dir} exists but is not a cmake build, delete manually.")
+                raise FileExistsError(f"{build_dir} is not a cmake build")
             if not force:
-                raise FileExistsError(f"{build_dir} exists pass force to delete")
+                raise FileExistsError(f"{build_dir} exists use force=True")
             rmtree(build_dir)
 
         os.mkdir(build_dir)
 
         cmake(*self.arguments, cwd=build_dir, env=self.env)
-        return CMakeBuild(self, build_dir, **kwargs)
+        return CMakeBuild(build_dir, self.generator.lower(), self.build_type,
+                          definition=self, **kwargs)
 
     def __repr__(self):
         return f"CMakeDefinition[source={self.source}]"
@@ -118,7 +120,7 @@ class CMakeBuild(Command):
     user to know which generator is used.
     """
 
-    def __init__(self, definition, build_dir):
+    def __init__(self, build_dir, generator, build_type, definition=None):
         """ Initialize a CMakeBuild.
 
         The caller must ensure that cmake was invoked in the build directory.
@@ -130,18 +132,19 @@ class CMakeBuild(Command):
         build_dir : str
                     The build directory to setup into.
         """
-        self.definition = definition
         self.build_dir = os.path.abspath(build_dir)
+        self.bin = generator
+        self.build_type = build_type
+        self.definition = definition
 
     @property
-    def bin(self):
-        return self.definition.generator.lower()
+    def binaries_dir(self):
+        return os.path.join(self.build_dir, self.build_type)
 
     def run(self, *argv, verbose=False, **kwargs):
         extra = []
         if verbose:
-            is_make = self.bin is "make"
-            extra.append("VERBOSE=1" if is_make else "-v")
+            extra.append("-v" if self.bin.endswith("ninja") else "VERBOSE=1")
         # Commands must be ran under the build directory
         super().run(*extra, *argv, **kwargs, cwd=self.build_dir)
         return self
@@ -165,4 +168,9 @@ class CMakeBuild(Command):
         return os.path.exists(cmake_cache) and os.path.exists(cmake_files)
 
     def __repr__(self):
-        return f"CMakeBuild[build={self.build_dir},definition={self.definition}]"
+        return ("CMakeBuild["
+                "build = {},"
+                "build_type = {},"
+                "definition = {}]".format(self.build_dir,
+                                          self.build_type,
+                                          self.definition))

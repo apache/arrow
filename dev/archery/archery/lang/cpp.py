@@ -15,9 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import glob
 import os
 
-from ..benchmark import BenchmarkSuite
+from ..benchmark.runner import BenchmarkRunner
 from ..utils.cmake import CMakeDefinition
 
 
@@ -90,22 +91,5 @@ class CppCMakeDefinition(CMakeDefinition):
     def __init__(self, source, conf, **kwargs):
         self.configuration = conf
         super().__init__(source, **kwargs,
-                         definitions=conf.definitions, env=conf.environment)
-
-
-default_benchmark_conf = CppConfiguration(
-    build_type="release", with_tests=True, with_benchmarks=True)
-
-
-class CppBenchmarkSuite(BenchmarkSuite):
-    def __init__(self, *args, conf=None, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.conf = conf if conf else default_benchmark_conf
-        assert self.conf.build_type is not "debug"
-        self.build_dir = os.path.join(self.root, "build")
-        self.cmake_def = CppCMakeDefinition(
-            os.path.join(self.clone_dir, "cpp"), self.conf)
-        self.build = self.cmake_def.build(self.build_dir)
-        # Build sources
-        self.build.all()
+                         definitions=conf.definitions, env=conf.environment,
+                         build_type=conf.build_type)

@@ -33,12 +33,16 @@ class Command:
     def bin(self):
         raise NotImplementedError("Command must implement bin() method")
 
-    def run(self, *argv, **kwargs):
+    def run(self, *argv, raise_on_failure=True, **kwargs):
         invocation = [find_exec(self.bin)]
         invocation.extend(argv)
 
-        logger.debug(f"Executing `{' '.join(invocation)}`")
-        return subprocess.run(invocation, **kwargs)
+        logger.debug(f"Executing `{invocation}`")
+        result = subprocess.run(invocation, **kwargs)
+        if raise_on_failure:
+            result.check_returncode()
+
+        return result
 
     def __call__(self, *argv, **kwargs):
         self.run(*argv, **kwargs)

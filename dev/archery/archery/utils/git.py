@@ -21,6 +21,8 @@ from .command import Command
 
 
 class Git(Command):
+    WORKSPACE = "WORKSPACE"
+
     def __init__(self, *argv, git_bin=None, git_dir=None, **kwargs):
         self.bin = git_bin if git_bin else os.environ.get("GIT", "git")
         self.git_dir = git_dir
@@ -29,7 +31,7 @@ class Git(Command):
     @property
     def global_opts(self):
         if self.git_dir:
-            # For some reason, git does not accept `-Cdir`
+            # For some reason, git does not accept `-Cdir`  or `-C=dir`
             yield "-C"
             yield self.git_dir
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,70 +17,37 @@
 # under the License.
 
 import click
+from contextlib import contextmanager
 import logging
 import os
-import tempfile
+import re
+from tempfile import mkdtemp, TemporaryDirectory
 
-from .lang.cpp import CppCMakeDefinition, CppConfiguration, CppBenchmarkSuite
-from .utils.git import GitClone, GitCheckout
+# from .benchmark import GoogleCompareBenchmark
+from .benchmark.runner import CppBenchmarkRunner
+from .lang.cpp import CppCMakeDefinition, CppConfiguration
+from .utils.git import Git
 from .utils.logger import logger
+from .utils.source import ArrowSources
 
 
-@click.group(name="archery")
+@click.group()
 @click.option("--debug", count=True)
-def cli(debug):
+def archery(debug):
+    """ Apache Arrow developer utilities. """
     if debug:
         logger.setLevel(logging.DEBUG)
 
 
-def contains_arrow_sources(path):
-    cpp_path = os.path.join(path, "cpp")
-    cmake_path = os.path.join(cpp_path, "CMakeLists.txt")
-    return os.path.exists(cmake_path)
-
-
-def validate_arrow_sources(ctx, param, path):
+def validate_arrow_sources(ctx, param, src):
     """ Ensure a directory contains Arrow cpp sources. """
-    if not contains_arrow_sources(path):
-        raise click.BadParameter(f"No Arrow C++ sources found in {path}.")
-    return path
+    if isinstance(src, str):
+        if not ArrowSources.valid(src):
+            raise click.BadParameter(f"No Arrow C++ sources found in {src}.")
+        src = ArrowSources(src)
+    return src
 
 
-def resolve_arrow_sources():
-    """ Infer Arrow sources directory from various method.
-
-    The following guesses are done in order:
-
-    1. Checks if the environment variable `ARROW_SRC` is defined and use this.
-       No validation is performed.
-
-    2. Checks if the current working directory (cwd) contains is an Arrow
-       source directory. If successful return this.
-
-    3. Checks if this file (cli.py) is still in the original source repository.
-       If so, returns the relative path to the source directory.
-    """
-    # Explicit via environment variable
-    arrow_env = os.environ.get("ARROW_SRC")
-    if arrow_env:
-        return arrow_env
-
-    # Implicit via cwd
-    arrow_cwd = os.getcwd()
-    if contains_arrow_sources(arrow_cwd):
-        return arrow_cwd
-
-    # Implicit via archery ran from sources, find relative sources from
-    this_dir = os.path.dirname(os.path.realpath(__file__))
-    arrow_via_archery = os.path.join(this_dir, "..", "..", "..")
-    if contains_arrow_sources(arrow_via_archery):
-        return arrow_via_archery
-
-    return None
-
-
-source_dir_type = click.Path(exists=True, dir_okay=True, file_okay=False,
-                             readable=True, resolve_path=True)
 build_dir_type = click.Path(dir_okay=True, file_okay=False, resolve_path=True)
 # Supported build types
 build_type = click.Choice(["debug", "relwithdebinfo", "release"],
@@ -89,7 +57,10 @@ warn_level_type = click.Choice(["everything", "checkin", "production"],
                                case_sensitive=False)
 
 
-@cli.command()
+@archery.command(short_help="Initialize an Arrow C++ build")
+@click.option("--src", default=ArrowSources.find(),
+              callback=validate_arrow_sources,
+              help="Specify Arrow source directory")
 # toolchain
 @click.option("--cc", help="C compiler.")
 @click.option("--cxx", help="C++ compiler.")
@@ -114,21 +85,18 @@ warn_level_type = click.Choice(["everything", "checkin", "production"],
 @click.option("--with-flight", default=False, type=bool,
               help="Build with Flight rpc support.")
 # misc
-@click.option("-f", "--force",
+@click.option("-f", "--force", type=bool, is_flag=True, default=False,
               help="Delete existing build directory if found.")
 @click.option("--targets", type=str, multiple=True,
               help="Generator targets to run")
 @click.argument("build_dir", type=build_dir_type)
-@click.argument("src_dir", type=source_dir_type, default=resolve_arrow_sources,
-                callback=validate_arrow_sources, required=False)
-def build(src_dir, build_dir, force, targets, **kwargs):
-    src_cpp = os.path.join(src_dir, "cpp")
-
+def build(src, build_dir, force, targets, **kwargs):
+    """ Build. """
     # Arrow's cpp cmake configuration
     conf = CppConfiguration(**kwargs)
     # This is a closure around cmake invocation, e.g. calling `def.build()`
     # yields a directory ready to be run with the generator
-    cmake_def = CppCMakeDefinition(src_cpp, conf)
+    cmake_def = CppCMakeDefinition(src.cpp, conf)
     # Create build directory
     build = cmake_def.build(build_dir, force=force)
 
@@ -136,19 +104,74 @@ def build(src_dir, build_dir, force, targets, **kwargs):
         build.run(target)
 
 
-@cli.command()
-@click.argument("rev_a")
-@click.argument("rev_b")
-@click.argument("src_dir", type=source_dir_type, default=resolve_arrow_sources,
-                callback=validate_arrow_sources, required=False)
-def benchmark(rev_a, rev_b, src_dir):
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        root_a = os.path.join(tmp_dir, rev_a)
-        bench_a = CppBenchmarkSuite(src_dir, root_a, rev_a)
+@contextmanager
+def tmpdir(preserve, prefix="arrow-bench-"):
+    if preserve:
+        yield mkdtemp(prefix=prefix)
+    else:
+        with TemporaryDirectory(prefix=prefix) as tmp:
+            yield tmp
 
-        root_b = os.path.join(tmp_dir, rev_b)
-        bench_b = CppBenchmarkSuite(src_dir, root_b, rev_b)
+
+DEFAULT_BENCHMARK_CONF = CppConfiguration(
+    build_type="release", with_tests=True, with_benchmarks=True)
+
+
+def arrow_cpp_benchmark_runner(src, root, rev):
+    root_rev = os.path.join(root, rev)
+    os.mkdir(root_rev)
+
+    root_src = os.path.join(root_rev, "arrow")
+    # Possibly checkout the sources at given revision
+    src_rev = src if rev == Git.WORKSPACE else src.at_revision(rev, root_src)
+
+    # TODO: find a way to pass custom configuration without cluttering the cli
+    # Ideally via a configuration file that can be shared with the
+    # `build` sub-command.
+    cmake_def = CppCMakeDefinition(src_rev.cpp, DEFAULT_BENCHMARK_CONF)
+    build = cmake_def.build(os.path.join(root_rev, "build"))
+    return CppBenchmarkRunner(build)
+
+
+DEFAULT_BENCHMARK_FILTER = "^Regression"
+
+
+@archery.command(short_help="Run the C++ benchmark suite")
+@click.option("--src", default=ArrowSources.find(),
+              callback=validate_arrow_sources,
+              help="Specify Arrow source directory")
+@click.option("--preserve", type=bool, default=False, is_flag=True,
+              help="Preserve temporary workspace directory for investigation.")
+@click.option("--suite-filter", type=str, default=None,
+              help="Regex filtering benchmark suites.")
+@click.option("--benchmark-filter", type=str, default=DEFAULT_BENCHMARK_FILTER,
+              help="Regex filtering benchmark suites.")
+@click.argument("contender_rev", default=Git.WORKSPACE, required=False)
+@click.argument("baseline_rev", default="master", required=False)
+def benchmark(src, preserve, suite_filter,  benchmark_filter,
+              contender_rev, baseline_rev):
+    """ Benchmark Arrow C++ implementation.
+    """
+    with tmpdir(preserve) as root:
+        runner_cont = arrow_cpp_benchmark_runner(src, root, contender_rev)
+        runner_base = arrow_cpp_benchmark_runner(src, root, baseline_rev)
+
+        suites_cont = {s.name: s for s in runner_cont.suites(suite_filter,
+                                                             benchmark_filter)}
+        suites_base = {s.name: s for s in runner_base.suites(suite_filter,
+                                                             benchmark_filter)}
+
+        for name in suites_cont.keys() & suites_base.keys():
+            logger.debug(f"Comparing {name}")
+            contender_bin = suites_cont[name]
+            baseline_bin = suites_base[name]
+
+            # Note that compare.py requires contender and baseline inverted.
+            # GoogleCompareBenchmark("benchmarks", "--display_aggregates_only",
+            #                       baseline_bin, contender_bin,
+            #                       f"--benchmark_filter={benchmark_filter}",
+            #                       "--benchmark_repetitions=20")
 
 
 if __name__ == "__main__":
-    cli()
+    archery()
