@@ -624,6 +624,11 @@ impl ColumnDescriptor {
         self.primitive_type.as_ref()
     }
 
+    /// Returns self type [`TypePtr`](`::schema::types::TypePtr`)  for this leaf column.
+    pub fn self_type_ptr(&self) -> TypePtr {
+        self.primitive_type.clone()
+    }
+
     /// Returns root [`Type`](`::schema::types::Type`) (most top-level parent field) for
     /// this leaf column.
     pub fn root_type(&self) -> &Type {
