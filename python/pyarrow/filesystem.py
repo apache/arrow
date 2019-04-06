@@ -438,8 +438,8 @@ def _sanitize_remote_path(path):
     elif path.startswith('adl://'):
         newpath = path.replace('adl://', '')
         path_parts = newpath.split('/')
-        path_parts = [p for p in path_parts if not
-        'azuredatalakestore.net' in p]
+        path_parts = [p for p in path_parts if 'azuredatalakestore.net' not
+                      in p]
         outpath = "/".join(path_parts)
         return outpath
     elif path.startswith('/'):
