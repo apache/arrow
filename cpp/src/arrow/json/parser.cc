@@ -130,7 +130,7 @@ Status Kind::ForType(const DataType& type, Kind::type* kind) {
 /// resizing. This builder does not support appending nulls.
 class UnsafeStringBuilder {
  public:
-  UnsafeStringBuilder(MemoryPool* pool, const std::shared_ptr<Buffer>& buffer)
+  UnsafeStringBuilder(MemoryPool* pool, const std::shared_ptr<ResizableBuffer>& buffer)
       : offsets_builder_(pool), values_buffer_(buffer) {
     DCHECK_NE(values_buffer_, nullptr);
   }
@@ -142,6 +142,10 @@ class UnsafeStringBuilder {
     length_ += 1;
     values_end_ += str.size();
     return Status::OK();
+  }
+
+  Status ReserveData(int64_t additional_storage) {
+    return values_buffer_->Resize(capacity() + additional_storage, false);
   }
 
   // Builder may not be reused after Finish()
@@ -157,11 +161,11 @@ class UnsafeStringBuilder {
     return Status::OK();
   }
 
-  int64_t length() { return length_; }
+  int64_t length() const { return length_; }
 
-  int64_t capacity() { return values_buffer_->size(); }
+  int64_t capacity() const { return values_buffer_->size(); }
 
-  int64_t remaining_capacity() { return values_buffer_->size() - values_end_; }
+  int64_t remaining_capacity() const { return values_buffer_->size() - values_end_; }
 
  private:
   Status AppendNextOffset() {
@@ -171,7 +175,41 @@ class UnsafeStringBuilder {
   int64_t length_ = 0;
   int64_t values_end_ = 0;
   TypedBufferBuilder<int32_t> offsets_builder_;
-  std::shared_ptr<Buffer> values_buffer_;
+  std::shared_ptr<ResizableBuffer> values_buffer_;
+};
+
+struct InsituStringStream {
+  using Ch = char;
+
+  InsituStringStream(char* src, int64_t length)
+      : src_(src), dst_(0), head_(src), end_(src + length) {}
+
+  // Read
+  char Peek() { return src_ == end_ ? '\0' : *src_; }
+  char Take() { return src_ == end_ ? '\0' : *src_++; }
+  size_t Tell() { return static_cast<size_t>(src_ - head_); }
+
+  // Write
+  void Put(char c) {
+    RAPIDJSON_ASSERT(dst_ != 0);
+    *dst_++ = c;
+  }
+
+  char* PutBegin() { return dst_ = src_; }
+  size_t PutEnd(char* begin) { return static_cast<size_t>(dst_ - begin); }
+  void Flush() {}
+
+  char* Push(size_t count) {
+    char* begin = dst_;
+    dst_ += count;
+    return begin;
+  }
+  void Pop(size_t count) { dst_ -= count; }
+
+  char* src_;
+  char* dst_;
+  char* head_;
+  char* end_;
 };
 
 /// \brief ArrayBuilder for parsed but unconverted arrays
@@ -539,7 +577,7 @@ class HandlerBase : public BlockParser::Impl,
   int32_t num_rows() override { return num_rows_; }
 
  protected:
-  HandlerBase(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
+  HandlerBase(MemoryPool* pool, const std::shared_ptr<ResizableBuffer>& scalar_storage)
       : pool_(pool), scalar_values_builder_(pool, scalar_storage) {}
 
   /// finish a column of scalar values (string or number)
@@ -550,36 +588,57 @@ class HandlerBase : public BlockParser::Impl,
     return DictionaryArray::FromArrays(dictionary(int32(), scalar_values_), indices, out);
   }
 
-  template <typename Handler>
-  Status DoParse(Handler& handler, const std::shared_ptr<Buffer>& json) {
+  template <typename Handler, typename Stream>
+  Status DoParse(Handler& handler, Stream& json) {
     constexpr auto parse_flags =
         rapidjson::kParseInsituFlag | rapidjson::kParseIterativeFlag |
         rapidjson::kParseNanAndInfFlag | rapidjson::kParseStopWhenDoneFlag |
         rapidjson::kParseNumbersAsStringsFlag;
-    auto json_data = reinterpret_cast<char*>(json->mutable_data());
-    rapidjson::GenericInsituStringStream<rapidjson::UTF8<>> ss(json_data);
+
     rapidjson::Reader reader;
 
     for (; num_rows_ != kMaxParserNumRows; ++num_rows_) {
-      // parse a single line of JSON
-      auto ok = reader.Parse<parse_flags>(ss, handler);
+      auto ok = reader.Parse<parse_flags>(json, handler);
       switch (ok.Code()) {
         case rapidjson::kParseErrorNone:
           // parse the next object
           continue;
-        case rapidjson::kParseErrorDocumentEmpty: {
+        case rapidjson::kParseErrorDocumentEmpty:
           // parsed all objects, finish
           return Status::OK();
-        }
         case rapidjson::kParseErrorTermination:
           // handler emitted an error
           return handler.Error();
         default:
           // rapidjson emitted an error
+          // FIXME(bkietz) report more error data (at least the byte range of the current
+          // block, and maybe the path to the most recently parsed value?)
           return ParseError(rapidjson::GetParseError_En(ok.Code()));
       }
     }
     return Status::Invalid("Exceeded maximum rows");
+  }
+
+  template <typename Handler>
+  Status DoParse(Handler& handler, const std::shared_ptr<Buffer>& json) {
+    if (json->size() > scalar_values_builder_.remaining_capacity()) {
+      auto additional_storage =
+          json->size() - scalar_values_builder_.remaining_capacity();
+      RETURN_NOT_OK(scalar_values_builder_.ReserveData(additional_storage));
+    }
+    auto json_data = reinterpret_cast<char*>(json->mutable_data());
+
+    // if there is whitespace between the end of the last object
+    // and the beginning of the next, we can replace it with '\0' for
+    // more efficient parsing
+    if (std::isspace(json_data[json->size() - 1])) {
+      json_data[json->size() - 1] = '\0';
+      rapidjson::GenericInsituStringStream<rapidjson::UTF8<>> stream(json_data);
+      return DoParse(handler, stream);
+    } else {
+      InsituStringStream stream(json_data, json->size());
+      return DoParse(handler, stream);
+    }
   }
 
   /// construct a builder of statically defined kind in arenas_
@@ -823,7 +882,7 @@ class Handler;
 template <>
 class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
  public:
-  Handler(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
+  Handler(MemoryPool* pool, const std::shared_ptr<ResizableBuffer>& scalar_storage)
       : HandlerBase(pool, scalar_storage) {}
 
   Status Parse(const std::shared_ptr<Buffer>& json) override {
@@ -845,7 +904,7 @@ class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
 template <>
 class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
  public:
-  Handler(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
+  Handler(MemoryPool* pool, const std::shared_ptr<ResizableBuffer>& scalar_storage)
       : HandlerBase(pool, scalar_storage) {}
 
   Status Parse(const std::shared_ptr<Buffer>& json) override {
@@ -942,7 +1001,7 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
 template <>
 class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
  public:
-  Handler(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
+  Handler(MemoryPool* pool, const std::shared_ptr<ResizableBuffer>& scalar_storage)
       : HandlerBase(pool, scalar_storage) {}
 
   Status Parse(const std::shared_ptr<Buffer>& json) override {
@@ -1033,7 +1092,7 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
 };
 
 BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
-                         const std::shared_ptr<Buffer>& scalar_storage)
+                         const std::shared_ptr<ResizableBuffer>& scalar_storage)
     : pool_(pool), options_(options) {
   DCHECK(options_.unexpected_field_behavior == UnexpectedFieldBehavior::InferType ||
          options_.explicit_schema != nullptr);
@@ -1062,7 +1121,7 @@ BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
 }
 
 BlockParser::BlockParser(ParseOptions options,
-                         const std::shared_ptr<Buffer>& scalar_storage)
+                         const std::shared_ptr<ResizableBuffer>& scalar_storage)
     : BlockParser(default_memory_pool(), options, scalar_storage) {}
 
 }  // namespace json

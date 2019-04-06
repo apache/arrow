@@ -204,7 +204,7 @@ TEST(BlockParser, Nested) {
 void AssertParseOne(ParseOptions options, string_view src_str,
                     const std::vector<std::shared_ptr<Field>>& fields,
                     const std::vector<std::string>& columns_json) {
-  std::shared_ptr<Buffer> src;
+  std::shared_ptr<ResizableBuffer> src;
   ASSERT_OK(MakeBuffer(src_str, &src));
   std::shared_ptr<RecordBatch> parsed;
   ASSERT_OK(ParseOne(options, src, &parsed));
@@ -246,8 +246,7 @@ TEST(ParseOne, PartialSchema) {
       {field("yo", utf8()), field("arr", list(float32())),
        field("nuf", struct_({field("absent", date32()), field("ps", int64())}))},
       {"[\"thing\", null, \"\xe5\xbf\x8d\", null]", R"([[1, 2, 3], [2], [], null])",
-       R"([{"absent":null,"ps":null}, null,)"
-       R"( {"absent":null,"ps":78}, {"absent":null,"ps":90}])"});
+       R"([{"absent":null,"ps":null}, null, {"absent":null,"ps":78}, {"absent":null,"ps":90}])"});
 }
 
 TEST(ParseOne, InferTimestamp) {

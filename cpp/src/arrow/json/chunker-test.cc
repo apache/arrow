@@ -42,11 +42,15 @@ namespace json {
 using util::string_view;
 
 template <typename Lines>
-std::string join(Lines&& lines, std::string delimiter) {
-  std::string joined;
+std::shared_ptr<Buffer> join(Lines&& lines, std::string delimiter) {
+  std::shared_ptr<Buffer> joined;
+  BufferVector line_buffers;
+  auto delimiter_buffer = std::make_shared<Buffer>(delimiter);
   for (const auto& line : lines) {
-    joined += line + delimiter;
+    line_buffers.push_back(std::make_shared<Buffer>(line));
+    line_buffers.push_back(delimiter_buffer);
   }
+  ABORT_NOT_OK(ConcatenateBuffers(line_buffers, default_memory_pool(), &joined));
   return joined;
 }
 
@@ -82,7 +86,7 @@ std::size_t ConsumeWholeObject(std::shared_ptr<Buffer>* buf) {
   if (close_brace == string_view::npos) return fail();
   if (str.at(close_brace) != '}') return fail();
   auto length = close_brace + 1;
-  *buf = SliceBuffer(*buf, length);
+  *buf = SliceMutableBuffer(*buf, length);
   return length;
 }
 
@@ -106,7 +110,8 @@ void AssertChunking(Chunker& chunker, std::shared_ptr<Buffer> buf, int total_cou
   for (int i = 0; i != total_count; ++i) {
     // ensure shearing the closing brace off the last object causes it to be chunked out
     auto last_brace = View(buf).find_last_of('}');
-    AssertWholeObjects(chunker, SliceBuffer(buf, 0, last_brace), total_count - i - 1);
+    AssertWholeObjects(chunker, SliceMutableBuffer(buf, 0, last_brace),
+                       total_count - i - 1);
 
     // ensure skipping one object reduces the count by one
     ASSERT_NE(ConsumeWholeObject(&buf), string_view::npos);
@@ -114,14 +119,9 @@ void AssertChunking(Chunker& chunker, std::shared_ptr<Buffer> buf, int total_cou
   }
 }
 
-void AssertChunking(Chunker& chunker, const std::string& str, int total_count) {
-  AssertChunking(chunker, std::make_shared<Buffer>(str), total_count);
-}
-
-void AssertStraddledChunking(Chunker& chunker, const std::string& str) {
-  auto buf = std::make_shared<Buffer>(str);
-  auto first_half = SliceBuffer(buf, 0, buf->size() / 2);
-  auto second_half = SliceBuffer(buf, buf->size() / 2);
+void AssertStraddledChunking(Chunker& chunker, const std::shared_ptr<Buffer>& buf) {
+  auto first_half = SliceMutableBuffer(buf, 0, buf->size() / 2);
+  auto second_half = SliceMutableBuffer(buf, buf->size() / 2);
   AssertChunking(chunker, first_half, 1);
   std::shared_ptr<Buffer> first_whole, partial;
   ASSERT_OK(chunker.Process(first_half, &first_whole, &partial));
@@ -135,7 +135,7 @@ void AssertStraddledChunking(Chunker& chunker, const std::string& str) {
   auto length = ConsumeWholeObject(&straddling);
   ASSERT_NE(length, string_view::npos);
   ASSERT_NE(length, 0);
-  auto final_whole = SliceBuffer(second_half, completion->size());
+  auto final_whole = SliceMutableBuffer(second_half, completion->size());
   length = ConsumeWholeObject(&final_whole);
   ASSERT_NE(length, string_view::npos);
   ASSERT_NE(length, 0);
@@ -171,10 +171,11 @@ TEST_P(BaseChunkerTest, Basics) {
 }
 
 TEST_P(BaseChunkerTest, Empty) {
-  std::string empty = "\n";
-  AssertChunking(*chunker_, std::make_shared<Buffer>(empty), 0);
-  empty = "\n\n";
-  AssertChunking(*chunker_, std::make_shared<Buffer>(empty), 0);
+  std::shared_ptr<Buffer> empty;
+  ASSERT_OK(MutableBuffer::FromString("\n", &empty));
+  AssertChunking(*chunker_, empty, 0);
+  ASSERT_OK(MutableBuffer::FromString("\n\n", &empty));
+  AssertChunking(*chunker_, empty, 0);
 }
 
 TEST(ChunkerTest, PrettyPrinted) {
@@ -207,15 +208,14 @@ TEST(ChunkerTest, StraddlingSingleLine) {
 }
 
 TEST_P(BaseChunkerTest, StraddlingEmpty) {
-  auto joined = join(lines(), "\n");
-  auto all = std::make_shared<Buffer>(joined);
+  auto all = join(lines(), "\n");
 
-  auto first = SliceBuffer(all, 0, lines()[0].size() + 1);
+  auto first = SliceMutableBuffer(all, 0, lines()[0].size() + 1);
   std::shared_ptr<Buffer> first_whole, partial;
   ASSERT_OK(chunker_->Process(first, &first_whole, &partial));
   ASSERT_TRUE(WhitespaceOnly(partial));
 
-  auto others = SliceBuffer(all, first->size());
+  auto others = SliceMutableBuffer(all, first->size());
   std::shared_ptr<Buffer> completion, rest;
   ASSERT_OK(chunker_->Process(partial, others, &completion, &rest));
   ASSERT_EQ(completion->size(), 0);

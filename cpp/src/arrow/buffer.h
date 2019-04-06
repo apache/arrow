@@ -230,6 +230,16 @@ ARROW_EXPORT
 std::shared_ptr<Buffer> SliceMutableBuffer(const std::shared_ptr<Buffer>& buffer,
                                            const int64_t offset, const int64_t length);
 
+/// \brief Like SliceBuffer, but construct a mutable buffer slice.
+///
+/// If the parent buffer is not mutable, behavior is undefined (it may abort
+/// in debug builds).
+static inline std::shared_ptr<Buffer> SliceMutableBuffer(
+    const std::shared_ptr<Buffer>& buffer, const int64_t offset) {
+  int64_t length = buffer->size() - offset;
+  return SliceMutableBuffer(buffer, offset, length);
+}
+
 /// @}
 
 /// \class MutableBuffer

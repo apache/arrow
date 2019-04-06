@@ -30,6 +30,7 @@
 namespace arrow {
 
 class MemoryPool;
+class ResizableBuffer;
 
 namespace json {
 
@@ -57,11 +58,11 @@ constexpr int32_t kMaxParserNumRows = 100000;
 class ARROW_EXPORT BlockParser {
  public:
   BlockParser(MemoryPool* pool, ParseOptions options,
-              const std::shared_ptr<Buffer>& scalar_storage);
-  BlockParser(ParseOptions options, const std::shared_ptr<Buffer>& scalar_storage);
+              const std::shared_ptr<ResizableBuffer>& scalar_storage);
+  BlockParser(ParseOptions options,
+              const std::shared_ptr<ResizableBuffer>& scalar_storage);
 
   /// \brief Parse a block of data insitu (destructively)
-  /// \warning The input must be null terminated
   Status Parse(const std::shared_ptr<Buffer>& json) { return impl_->Parse(json); }
 
   /// \brief Extract parsed data

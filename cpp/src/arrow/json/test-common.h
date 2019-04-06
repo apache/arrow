@@ -23,6 +23,7 @@
 
 #include <rapidjson/writer.h>
 
+#include "arrow/io/memory.h"
 #include "arrow/json/converter.h"
 #include "arrow/json/options.h"
 #include "arrow/json/parser.h"
@@ -125,9 +126,18 @@ inline static Status Generate(const std::vector<std::shared_ptr<Field>>& fields,
   return OK(writer->EndObject(static_cast<int>(fields.size())));
 }
 
-inline static Status MakeBuffer(util::string_view data, std::shared_ptr<Buffer>* out) {
-  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), data.size(), out));
+inline static Status MakeBuffer(util::string_view data,
+                                std::shared_ptr<ResizableBuffer>* out) {
+  RETURN_NOT_OK(AllocateResizableBuffer(default_memory_pool(), data.size(), out));
   std::copy(std::begin(data), std::end(data), (*out)->mutable_data());
+  return Status::OK();
+}
+
+inline static Status MakeStream(util::string_view data,
+                                std::shared_ptr<io::InputStream>* out) {
+  std::shared_ptr<ResizableBuffer> buffer;
+  RETURN_NOT_OK(MakeBuffer(data, &buffer));
+  *out = std::make_shared<io::BufferReader>(buffer);
   return Status::OK();
 }
 
@@ -153,7 +163,7 @@ inline static Status DecodeStringDictionary(const DictionaryArray& dict_array,
 
 inline static Status ParseFromString(ParseOptions options, util::string_view src_str,
                                      std::shared_ptr<Array>* parsed) {
-  std::shared_ptr<Buffer> src;
+  std::shared_ptr<ResizableBuffer> src;
   RETURN_NOT_OK(MakeBuffer(src_str, &src));
   BlockParser parser(options, src);
   RETURN_NOT_OK(parser.Parse(src));

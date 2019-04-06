@@ -43,16 +43,22 @@ using io::internal::ReadaheadSpooler;
 
 using internal::StringConverter;
 
+// read without padding to the left, but pad to the right with block_size/64 bytes
+// to leave room for storing scalars from a row which straddles a block boundary
+constexpr int32_t kLeftPadding = 0;
+constexpr int32_t kRowsPerBlockGuess = 64;
+
 class SerialTableReader : public TableReader {
  public:
-  static constexpr auto block_queue_size = 1;
+  static constexpr int32_t block_queue_size = 1;
 
   SerialTableReader(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
                     const ReadOptions& read_options, const ParseOptions& parse_options)
       : pool_(pool),
         read_options_(read_options),
         parse_options_(parse_options),
-        readahead_(pool_, input, read_options_.block_size, block_queue_size),
+        readahead_(pool_, input, read_options_.block_size, block_queue_size, kLeftPadding,
+                   read_options.block_size / kRowsPerBlockGuess),
         chunker_(Chunker::Make(parse_options_)),
         task_group_(internal::TaskGroup::MakeSerial()) {}
 
@@ -72,6 +78,7 @@ class SerialTableReader : public TableReader {
     if (rh.buffer == nullptr) {
       return Status::Invalid("Empty JSON file");
     }
+    RETURN_NOT_OK(rh.buffer->Resize(read_options_.block_size, false));
 
     int64_t block_index = 0;
     for (std::shared_ptr<Buffer> starts_with_whole = rh.buffer;; ++block_index) {
@@ -90,6 +97,7 @@ class SerialTableReader : public TableReader {
         // just-lauched parse task
         // FIXME(bkietz) this will just error out if a row spans more than a pair of
         // blocks
+        RETURN_NOT_OK(rh.buffer->Resize(read_options_.block_size, false));
         RETURN_NOT_OK(
             chunker_->Process(partial, rh.buffer, &completion, &starts_with_whole));
         RETURN_NOT_OK(ConcatenateBuffers({partial, completion}, pool_, &straddling));
@@ -98,8 +106,6 @@ class SerialTableReader : public TableReader {
       }
 
       if (straddling->size() != 0) {
-        // FIXME(bkietz) ensure that the parser has sufficient scalar storage for
-        // all scalars in straddling + whole
         RETURN_NOT_OK(parser.Parse(straddling));
       }
 
@@ -154,7 +160,8 @@ class ThreadedTableReader : public TableReader {
       : pool_(pool),
         read_options_(read_options),
         parse_options_(parse_options),
-        readahead_(pool_, input, read_options_.block_size, thread_pool->GetCapacity()),
+        readahead_(pool_, input, read_options_.block_size, thread_pool->GetCapacity(),
+                   kLeftPadding, read_options.block_size / kRowsPerBlockGuess),
         chunker_(Chunker::Make(parse_options_)),
         task_group_(internal::TaskGroup::MakeThreaded(thread_pool)) {}
 
@@ -174,6 +181,7 @@ class ThreadedTableReader : public TableReader {
     if (rh.buffer == nullptr) {
       return Status::Invalid("Empty JSON file");
     }
+    RETURN_NOT_OK(rh.buffer->Resize(read_options_.block_size, false));
 
     int64_t block_index = 0;
     for (std::shared_ptr<Buffer> starts_with_whole = rh.buffer;; ++block_index) {
@@ -209,6 +217,7 @@ class ThreadedTableReader : public TableReader {
         // just-lauched parse task
         // FIXME(bkietz) this will just error out if a row spans more than a pair of
         // blocks
+        RETURN_NOT_OK(rh.buffer->Resize(read_options_.block_size, false));
         std::shared_ptr<Buffer> completion, straddling;
         RETURN_NOT_OK(
             chunker_->Process(partial, rh.buffer, &completion, &starts_with_whole));
@@ -267,7 +276,7 @@ Status TableReader::Make(MemoryPool* pool, std::shared_ptr<io::InputStream> inpu
   return Status::OK();
 }
 
-Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
+Status ParseOne(ParseOptions options, std::shared_ptr<ResizableBuffer> json,
                 std::shared_ptr<RecordBatch>* out) {
   BlockParser parser(default_memory_pool(), options, json);
   RETURN_NOT_OK(parser.Parse(json));

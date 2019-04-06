@@ -52,7 +52,7 @@ class ARROW_EXPORT TableReader {
 };
 
 ARROW_DEPRECATED("Use TableReader")
-ARROW_EXPORT Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
+ARROW_EXPORT Status ParseOne(ParseOptions options, std::shared_ptr<ResizableBuffer> json,
                              std::shared_ptr<RecordBatch>* out);
 
 }  // namespace json

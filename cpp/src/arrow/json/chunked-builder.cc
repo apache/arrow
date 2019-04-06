@@ -223,31 +223,43 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
               const std::shared_ptr<Array>& unconverted) override {
     auto struct_array = std::static_pointer_cast<StructArray>(unconverted);
     if (promotion_graph_ == nullptr) {
-      ARROW_IGNORE_EXPR(InsertChildren(block_index, struct_array.get()));
+      // If unexpected fields are ignored or result in an error then all parsers will emit
+      // columns exclusively in the ordering specified in ParseOptions::explicit_schema,
+      // so child_builders_ is immutable and no associative lookup is necessary.
+      for (int i = 0; i < unconverted->num_fields(); ++i) {
+        child_builders_[i]->Insert(block_index, unconverted->type()->child(i),
+                                   struct_array->field(i));
+      }
     } else {
       task_group_->Append([this, block_index, struct_array] {
         return InsertChildren(block_index, struct_array.get());
       });
     }
+
+    std::unique_lock<std::mutex> lock(null_mutex_);
+    if (null_bitmap_chunks_.size() <= static_cast<size_t>(block_index)) {
+      null_bitmap_chunks_.resize(static_cast<size_t>(block_index) + 1);
+      chunk_lengths_.resize(null_bitmap_chunks_.size());
+    }
+    null_bitmap_chunks_[block_index] = unconverted->null_bitmap();
+    chunk_lengths_[block_index] = unconverted->length();
   }
 
+  // Insert children associatively by name; the unconverted block may have unexpected or
+  // differently ordered fields
   Status InsertChildren(int64_t block_index, const StructArray* unconverted) {
-    std::unique_lock<std::mutex> lock(mutex_);
+    std::unique_lock<std::mutex> lock(children_mutex_);
     const auto& fields = unconverted->type()->children();
 
     for (int i = 0; i < unconverted->num_fields(); ++i) {
       auto it = name_to_index_.find(fields[i]->name());
 
-      if (promotion_graph_ == nullptr) {
-        // an unexpected field at this point is an error
-        DCHECK_NE(it, name_to_index_.end());
-      } else if (it == name_to_index_.end()) {
+      if (it == name_to_index_.end()) {
         // add a new field to this builder
         auto type = promotion_graph_->Infer(fields[i]);
-        if (type == nullptr) {
-          return Status::Invalid("invalid field encountered in conversion: ",
-                                 fields[i]->name(), ":", *fields[i]->type());
-        }
+        DCHECK_NE(type, nullptr)
+            << "invalid unconverted_field encountered in conversion: "
+            << fields[i]->name() << ":" << *fields[i]->type();
 
         it = name_to_index_.emplace(fields[i]->name(), name_to_index_.size()).first;
 
@@ -262,12 +274,6 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
                                           unconverted->field(i));
     }
 
-    if (null_bitmap_chunks_.size() <= static_cast<size_t>(block_index)) {
-      null_bitmap_chunks_.resize(static_cast<size_t>(block_index) + 1);
-      chunk_lengths_.resize(null_bitmap_chunks_.size());
-    }
-    null_bitmap_chunks_[block_index] = unconverted->null_bitmap();
-    chunk_lengths_[block_index] = unconverted->length();
     return Status::OK();
   }
 
@@ -302,7 +308,7 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
   }
 
  private:
-  std::mutex mutex_;
+  std::mutex null_mutex_, children_mutex_;
   MemoryPool* pool_;
   const PromotionGraph* promotion_graph_;
   std::unordered_map<std::string, int> name_to_index_;
