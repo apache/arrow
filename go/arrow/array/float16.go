@@ -19,13 +19,14 @@ package array
 import (
 	"fmt"
 	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/numeric"
 	"strings"
 )
 
 // A type which represents an immutable sequence of Float16 values.
 type Float16 struct {
 	array
-	values []arrow.Float16
+	values []numeric.Float16
 }
 
 func NewFloat16Data(data *Data) *Float16 {
@@ -35,11 +36,11 @@ func NewFloat16Data(data *Data) *Float16 {
 	return a
 }
 
-func (a *Float16) Value(i int) arrow.Float16 { return a.values[i] }
+func (a *Float16) Value(i int) numeric.Float16 { return a.values[i] }
 
 func (a *Float16) Float32Value(i int) float32 { return a.values[i].Float32() }
 
-func (a *Float16) Values() []arrow.Float16 { return a.values }
+func (a *Float16) Values() []numeric.Float16 { return a.values }
 
 func (a *Float16) Float32Values() []float32 {
 	values := make([]float32, len(a.values))

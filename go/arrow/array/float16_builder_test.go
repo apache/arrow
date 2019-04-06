@@ -17,9 +17,9 @@
 package array_test
 
 import (
-	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/arrow/numeric"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -37,9 +37,9 @@ func TestNewFloat16Builder(t *testing.T) {
 	ab.AppendFloat32(5)
 	ab.AppendFloat32(6)
 	ab.AppendNull()
-	ab.Append(arrow.NewFloat16(8))
-	ab.Append(arrow.NewFloat16(9))
-	ab.Append(arrow.NewFloat16(10))
+	ab.Append(numeric.NewFloat16(8))
+	ab.Append(numeric.NewFloat16(9))
+	ab.Append(numeric.NewFloat16(10))
 
 	// check state of builder before NewFloat16Array
 	assert.Equal(t, 10, ab.Len(), "unexpected Len()")

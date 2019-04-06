@@ -21,6 +21,7 @@ import (
 	"github.com/apache/arrow/go/arrow/internal/bitutil"
 	"github.com/apache/arrow/go/arrow/internal/debug"
 	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/arrow/numeric"
 	"sync/atomic"
 )
 
@@ -28,7 +29,7 @@ type Float16Builder struct {
 	builder
 
 	data    *memory.Buffer
-	rawData []arrow.Float16
+	rawData []numeric.Float16
 }
 
 func NewFloat16Builder(mem memory.Allocator) *Float16Builder {
@@ -53,7 +54,7 @@ func (b *Float16Builder) Release() {
 	}
 }
 
-func (b *Float16Builder) Append(v arrow.Float16) {
+func (b *Float16Builder) Append(v numeric.Float16) {
 	b.Reserve(1)
 	bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	b.rawData[b.length] = v
@@ -61,7 +62,7 @@ func (b *Float16Builder) Append(v arrow.Float16) {
 }
 
 func (b *Float16Builder) AppendFloat32(v float32) {
-	b.Append(arrow.NewFloat16(v))
+	b.Append(numeric.NewFloat16(v))
 }
 
 func (b *Float16Builder) AppendNull() {
@@ -81,7 +82,7 @@ func (b *Float16Builder) UnsafeAppendBoolToBitmap(isValid bool) {
 // AppendValues will append the values in the v slice. The valid slice determines which values
 // in v are valid (not null). The valid slice must either be empty or be equal in length to v. If empty,
 // all values in v are appended and considered valid.
-func (b *Float16Builder) AppendValues(v []arrow.Float16, valid []bool) {
+func (b *Float16Builder) AppendValues(v []numeric.Float16, valid []bool) {
 	if len(v) != len(valid) && len(valid) != 0 {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
