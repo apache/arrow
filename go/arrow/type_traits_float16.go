@@ -34,14 +34,15 @@ func NewFloat16(f float32) Float16 {
 	exp := (b >> 23) & 0xff
 	res := int16(exp) - 127 + 15
 	fc := uint16(b >> 13) & 0x3ff
-	if exp == 0 {
+	switch {
+	case exp == 0:
 		res = 0
-	} else if exp == 0xff {
+	case exp == 0xff:
 		res = 0x1f
-	} else if res > 0x1e {
+	case res > 0x1e:
 		res = 0x1f
 		fc = 0
-	} else if res < 0x01 {
+	case res < 0x01:
 		res = 0
 		fc = 0
 	}
@@ -53,9 +54,10 @@ func (f Float16) Float32() float32 {
 	exp := (f >> 10) & 0x1f
 	res := uint32(exp) + 127 - 15
 	fc := uint32(f & 0x3ff)
-	if exp == 0 {
+	switch {
+	case exp == 0:
 		res = 0
-	} else if exp == 0x1f {
+	case exp == 0x1f:
 		res = 0xff
 	}
 	return math.Float32frombits((sn << 31) | (res << 23) | (fc << 13))

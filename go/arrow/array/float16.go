@@ -23,20 +23,20 @@ import (
 )
 
 // A type which represents an immutable sequence of Float16 values.
-type HalfFloat struct {
+type Float16 struct {
 	array
 	values []arrow.Float16
 }
 
-func NewHalfFloatData(data *Data) *HalfFloat {
-	a := &HalfFloat{}
+func NewFloat16Data(data *Data) *Float16 {
+	a := &Float16{}
 	a.refCount = 1
 	a.setData(data)
 	return a
 }
 
-func (a *HalfFloat) Value(i int) float32 { return a.values[i].Float32() }
-func (a *HalfFloat) Values() []float32 {
+func (a *Float16) Value(i int) float32 { return a.values[i].Float32() }
+func (a *Float16) Values() []float32 {
 	values := make([]float32, len(a.values))
 	for i, v := range a.values {
 		values[i] = v.Float32()
@@ -44,7 +44,7 @@ func (a *HalfFloat) Values() []float32 {
 	return values
 }
 
-func (a *HalfFloat) String() string {
+func (a *Float16) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")
 	for i, v := range a.values {
@@ -62,7 +62,7 @@ func (a *HalfFloat) String() string {
 	return o.String()
 }
 
-func (a *HalfFloat) setData(data *Data) {
+func (a *Float16) setData(data *Data) {
 	a.array.setData(data)
 	vals := data.buffers[1]
 	if vals != nil {
@@ -74,5 +74,5 @@ func (a *HalfFloat) setData(data *Data) {
 }
 
 var (
-	_ Interface = (*HalfFloat)(nil)
+	_ Interface = (*Float16)(nil)
 )

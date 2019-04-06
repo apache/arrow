@@ -27,7 +27,7 @@ func TestNewFloat16Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	ab := array.NewHalfFloatBuilder(mem)
+	ab := array.NewFloat16Builder(mem)
 
 	ab.Append(1)
 	ab.Append(2)
