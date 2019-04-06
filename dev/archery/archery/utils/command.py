@@ -29,6 +29,20 @@ def find_exec(executable):
     return shutil.which(executable)
 
 
+# Decorator running a command and returning stdout
+class capture_stdout:
+    def __init__(self, strip=False):
+        self.strip = strip
+
+    def __call__(self, f):
+        def strip_it(x):
+            return x.strip() if self.strip else x
+
+        def wrapper(*argv, **kwargs):
+            return strip_it(fn(*argv, **kwargs, stdout=subprocess.PIPE).stdout)
+        return wrapper
+
+
 class Command:
     def bin(self):
         raise NotImplementedError("Command must implement bin() method")

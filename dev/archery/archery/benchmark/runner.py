@@ -21,14 +21,13 @@ import re
 import subprocess
 
 from .core import Benchmark, BenchmarkSuite
-from .google import GoogleBenchmarkCommand
+from .google import GoogleBenchmarkCommand, GoogleBenchmark, GoogleContext
 from ..utils.logger import logger
 
 
 def regex_filter(re_expr):
     if re_expr is None:
         return lambda s: True
-
     re_comp = re.compile(re_expr)
     return lambda s: re_comp.search(s)
 
@@ -42,39 +41,46 @@ class CppBenchmarkRunner(BenchmarkRunner):
     def __init__(self, build):
         """ Initialize a CppBenchmarkRunner. """
         self.build = build
-        # Ensure build is ready to run benchmarks
-        self.build.all()
 
     @property
     def suites_binaries(self):
         """ Returns a list of benchmark binaries for this build. """
+        # Ensure build is up-to-date to run benchmarks
+        self.build()
+        # Not the best method, but works for now
         glob_expr = os.path.join(self.build.binaries_dir, "*-benchmark")
         return {os.path.basename(b): b for b in glob.glob(glob_expr)}
 
-    def benchmarks(self, suite_bin, benchmark_filter):
+    def suite(self, name, suite_bin, benchmark_filter):
         """ Returns the resulting benchmarks for a given suite. """
-        suite_cmd = GoogleBenchmarkCommand(suite_bin)
-        benchmark_names = suite_cmd.list_benchmarks(benchmark_filter)
+        suite_cmd = GoogleBenchmarkCommand(suite_bin, benchmark_filter)
 
+        # Ensure there will be data
+        benchmark_names = suite_cmd.list_benchmarks()
         if not benchmark_names:
-            return []
+            return None
 
-        return benchmark_names
+        results = suite_cmd.results()
+        benchmarks = GoogleBenchmark.from_json(results.get("benchmarks"))
+        return BenchmarkSuite(name, benchmarks)
 
     def suites(self, suite_filter=None, benchmark_filter=None):
+        """ Returns all suite for a runner. """
         suite_matcher = regex_filter(suite_filter)
 
         suite_and_binaries = self.suites_binaries
         for suite_name in suite_and_binaries:
-            if suite_matcher(suite_name):
-                suite_bin = suite_and_binaries[suite_name]
-                benchmarks = self.benchmarks(suite_bin,
-                                             benchmark_filter=benchmark_filter)
-
-                # Filter may exclude all benchmarks
-                if not benchmarks:
-                    continue
-
-                yield BenchmarkSuite(suite_name, benchmarks)
-            else:
+            if not suite_matcher(suite_name):
                 logger.debug(f"Ignoring suite {suite_name}")
+                continue
+
+            suite_bin = suite_and_binaries[suite_name]
+            suite = self.suite(suite_name, suite_bin,
+                               benchmark_filter=benchmark_filter)
+
+            # Filter may exclude all benchmarks
+            if not suite:
+                logger.debug(f"Suite {suite_name} executed but no results")
+                continue
+
+            yield suite

@@ -17,7 +17,7 @@
 
 import os
 
-from .git import Git, GitCheckout, GitClone
+from .git import git
 
 
 class ArrowSources:
@@ -73,8 +73,8 @@ class ArrowSources:
         # A local clone is required to leave the current sources intact such
         # that build depending on said sources are not invalidated (or worse
         # slightly affected when re-invoking the generator).
-        GitClone("--local", self.path, clone_dir)
-        GitCheckout("-b", revision, git_dir=clone_dir)
+        git.clone("--local", self.path, clone_dir)
+        git.checkout("-b", revision, git_dir=clone_dir)
 
         return ArrowSources(clone_dir)
 

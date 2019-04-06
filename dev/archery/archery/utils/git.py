@@ -17,37 +17,60 @@
 
 import os
 
-from .command import Command
+from .command import Command, capture_stdout
+
+
+# Decorator prepending argv with the git sub-command found with the method
+# name.
+def git_cmd(fn):
+    # function name is the subcommand
+    sub_cmd = fn.__name__.replace("_", "-")
+
+    def wrapper(self, *argv, **kwargs):
+        return fn(self, sub_cmd, *argv, **kwargs)
+    return wrapper
 
 
 class Git(Command):
     WORKSPACE = "WORKSPACE"
+    HEAD = "HEAD"
 
-    def __init__(self, *argv, git_bin=None, git_dir=None, **kwargs):
+    def __init__(self, git_bin=None):
         self.bin = git_bin if git_bin else os.environ.get("GIT", "git")
-        self.git_dir = git_dir
-        self.run(*argv, **kwargs)
 
-    @property
-    def global_opts(self):
-        if self.git_dir:
-            # For some reason, git does not accept `-Cdir`  or `-C=dir`
-            yield "-C"
-            yield self.git_dir
+    def run_cmd(self, cmd, *argv, git_dir=None, **kwargs):
+        """ Inject flags before sub-command in argv. """
+        opts = []
+        if git_dir and isinstance(git_dir, str):
+            opts.extend(("-C", git_dir))
+
+        return self.run(*opts, cmd, *argv, **kwargs)
+
+    @git_cmd
+    def clone(self, *argv, **kwargs):
+        return self.run_cmd(*argv, **kwargs)
+
+    @git_cmd
+    def checkout(self, *argv, **kwargs):
+        return self.run_cmd(*argv, **kwargs)
+
+    @git_cmd
+    def log(self, *argv, **kwargs):
+        return self.run_cmd(*argv, **kwargs)
+
+    @git_cmd
+    def rev_parse(self, *argv, **kwargs):
+        print(self.head())
+        return self.run_cmd(*argv, **kwargs)
+
+    @capture_stdout(strip=True)
+    def head(self, **kwargs):
+        """ Return commit pointed by HEAD. """
+        return self.rev_parse(Git.HEAD, **kwargs)
+
+    @capture_stdout(strip=True)
+    def current_branch(self, **kwargs):
+        return self.rev_parse("--abbrev-ref", Git.HEAD, **kwargs)
 
 
-class GitSubCommand(Git):
-    def run(self, *argv, **kwargs):
-        super().run(*self.global_opts, self.cmd, *argv, **kwargs)
-
-
-class GitClone(GitSubCommand):
-    @property
-    def cmd(self):
-        return "clone"
-
-
-class GitCheckout(GitSubCommand):
-    @property
-    def cmd(self):
-        return "checkout"
+git = Git()

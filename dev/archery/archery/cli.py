@@ -23,9 +23,10 @@ import os
 import re
 from tempfile import mkdtemp, TemporaryDirectory
 
-# from .benchmark import GoogleCompareBenchmark
+from .benchmark.core import BenchmarkComparator
 from .benchmark.runner import CppBenchmarkRunner
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
+from .utils.cmake import CMakeBuild
 from .utils.git import Git
 from .utils.logger import logger
 from .utils.source import ArrowSources
@@ -33,8 +34,12 @@ from .utils.source import ArrowSources
 
 @click.group()
 @click.option("--debug", count=True)
-def archery(debug):
+@click.pass_context
+def archery(ctx, debug):
     """ Apache Arrow developer utilities. """
+    # Ensure ctx.obj exists
+    ctx.ensure_object(dict)
+    ctx.obj["DEBUG"] = debug
     if debug:
         logger.setLevel(logging.DEBUG)
 
@@ -58,7 +63,7 @@ warn_level_type = click.Choice(["everything", "checkin", "production"],
 
 
 @archery.command(short_help="Initialize an Arrow C++ build")
-@click.option("--src", default=ArrowSources.find(),
+@click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
 # toolchain
@@ -90,7 +95,8 @@ warn_level_type = click.Choice(["everything", "checkin", "production"],
 @click.option("--targets", type=str, multiple=True,
               help="Generator targets to run")
 @click.argument("build_dir", type=build_dir_type)
-def build(src, build_dir, force, targets, **kwargs):
+@click.pass_context
+def build(ctx, src, build_dir, force, targets, **kwargs):
     """ Build. """
     # Arrow's cpp cmake configuration
     conf = CppConfiguration(**kwargs)
@@ -117,61 +123,130 @@ DEFAULT_BENCHMARK_CONF = CppConfiguration(
     build_type="release", with_tests=True, with_benchmarks=True)
 
 
-def arrow_cpp_benchmark_runner(src, root, rev):
-    root_rev = os.path.join(root, rev)
-    os.mkdir(root_rev)
+def cpp_runner_from_rev_or_path(src, root, rev_or_path):
+    build = None
+    if os.path.exists(rev_or_path) and CMakeBuild.is_build_dir(rev_or_path):
+        build = CMakeBuild.from_path(rev_or_path)
+    else:
+        root_rev = os.path.join(root, rev_or_path)
+        os.mkdir(root_rev)
 
-    root_src = os.path.join(root_rev, "arrow")
-    # Possibly checkout the sources at given revision
-    src_rev = src if rev == Git.WORKSPACE else src.at_revision(rev, root_src)
+        # Possibly checkout the sources at given revision
+        src_rev = src
+        if rev_or_path != Git.WORKSPACE:
+            root_src = os.path.join(root_rev, "arrow")
+            src_rev = src.at_revision(rev_or_path, root_src)
 
-    # TODO: find a way to pass custom configuration without cluttering the cli
-    # Ideally via a configuration file that can be shared with the
-    # `build` sub-command.
-    cmake_def = CppCMakeDefinition(src_rev.cpp, DEFAULT_BENCHMARK_CONF)
-    build = cmake_def.build(os.path.join(root_rev, "build"))
+        # TODO: find a way to pass custom configuration without cluttering
+        # the cli. Ideally via a configuration file that can be shared with the
+        # `build` sub-command.
+        cmake_def = CppCMakeDefinition(src_rev.cpp, DEFAULT_BENCHMARK_CONF)
+        build = cmake_def.build(os.path.join(root_rev, "build"))
+
     return CppBenchmarkRunner(build)
 
 
 DEFAULT_BENCHMARK_FILTER = "^Regression"
 
 
-@archery.command(short_help="Run the C++ benchmark suite")
-@click.option("--src", default=ArrowSources.find(),
+@archery.group()
+@click.pass_context
+def benchmark(ctx):
+    """ Arrow benchmarking.
+
+    Use the diff sub-command to benchmake revisions, and/or build directories.
+    """
+    pass
+
+
+@benchmark.command(name="diff", short_help="Run the C++ benchmark suite")
+@click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
+@click.option("--suite-filter", metavar="<regex>", type=str, default=None,
+              help="Regex filtering benchmark suites.")
+@click.option("--benchmark-filter", metavar="<regex>", type=str,
+              default=DEFAULT_BENCHMARK_FILTER,
+              help="Regex filtering benchmark suites.")
 @click.option("--preserve", type=bool, default=False, is_flag=True,
               help="Preserve temporary workspace directory for investigation.")
-@click.option("--suite-filter", type=str, default=None,
-              help="Regex filtering benchmark suites.")
-@click.option("--benchmark-filter", type=str, default=DEFAULT_BENCHMARK_FILTER,
-              help="Regex filtering benchmark suites.")
-@click.argument("contender_rev", default=Git.WORKSPACE, required=False)
-@click.argument("baseline_rev", default="master", required=False)
-def benchmark(src, preserve, suite_filter,  benchmark_filter,
-              contender_rev, baseline_rev):
-    """ Benchmark Arrow C++ implementation.
+@click.argument("contender", metavar="[<contender>", default=Git.WORKSPACE,
+                required=False)
+@click.argument("baseline", metavar="[<baseline>]]", default="master",
+                required=False)
+@click.pass_context
+def benchmark_diff(ctx, src, preserve, suite_filter,  benchmark_filter,
+                   contender, baseline):
+    """ Compare (diff) benchmark runs.
+
+    This command acts like git-diff but for benchmark results.
+
+    The caller can optionally specify both the contender and the baseline. If
+    unspecified, the contender will default to the current workspace (like git)
+    and the baseline will default to master.
+
+    Each target (contender or baseline) can either be a git object reference
+    (commit, tag, special values like HEAD) or a cmake build directory. This
+    allow comparing git commits, and/or different compilers and/or compiler
+    flags.
+
+    When a commit is referenced, a local clone of the arrow sources (specified
+    via --src) is performed and the proper branch is created. This is done in
+    a temporary directory which can be left intact with the `---preserve` flag.
+
+    The special token "WORKSPACE" is reserved to specify the current git
+    workspace. This imply that no clone will be performed.
+
+    Examples:
+
+    \b
+    # Compare workspace (contender) with master (baseline)
+    archery benchmark diff
+
+    \b
+    # Compare master (contender) with latest version (baseline)
+    export LAST=$(git tag -l "apache-arrow-[0-9]*" | sort -rV | head -1)
+    archery benchmark diff master "$LAST"
+
+    \b
+    # Compare g++7 (contender) with clang++-7 (baseline) builds
+    archery build --with-benchmarks=true \\
+            --cc=gcc7 --cxx=g++7 gcc7-build
+    archery build --with-benchmarks=true \\
+            --cc=clang-7 --cxx=clang++-7 clang7-build
+    archery benchmark diff gcc7-build clang7-build
+
+    \b
+    # Compare default but only scoped to the suites matching `aggregate` and
+    # the benchmarks matching `Kernel`.
+    archery benchmark diff --suite-filter=aggregate --benchmark-filter=Kernel
     """
     with tmpdir(preserve) as root:
-        runner_cont = arrow_cpp_benchmark_runner(src, root, contender_rev)
-        runner_base = arrow_cpp_benchmark_runner(src, root, baseline_rev)
+        runner_cont = cpp_runner_from_rev_or_path(src, root, contender)
+        runner_base = cpp_runner_from_rev_or_path(src, root, baseline)
 
         suites_cont = {s.name: s for s in runner_cont.suites(suite_filter,
                                                              benchmark_filter)}
         suites_base = {s.name: s for s in runner_base.suites(suite_filter,
                                                              benchmark_filter)}
 
-        for name in suites_cont.keys() & suites_base.keys():
-            logger.debug(f"Comparing {name}")
-            contender_bin = suites_cont[name]
-            baseline_bin = suites_base[name]
+        for suite_name in suites_cont.keys() & suites_base.keys():
+            logger.debug(f"Comparing {suite_name}")
 
-            # Note that compare.py requires contender and baseline inverted.
-            # GoogleCompareBenchmark("benchmarks", "--display_aggregates_only",
-            #                       baseline_bin, contender_bin,
-            #                       f"--benchmark_filter={benchmark_filter}",
-            #                       "--benchmark_repetitions=20")
+            suite_cont = {
+                b.name: b for b in suites_cont[suite_name].benchmarks}
+            suite_base = {
+                b.name: b for b in suites_base[suite_name].benchmarks}
+
+            for bench_name in suite_cont.keys() & suite_base.keys():
+                logger.debug(f"Comparing {bench_name}")
+
+                bench_cont = suite_cont[bench_name]
+                bench_base = suite_base[bench_name]
+
+                comp = BenchmarkComparator(bench_cont, bench_base)
+                print(comp.compare())
 
 
 if __name__ == "__main__":
-    archery()
+    archery(obj={})

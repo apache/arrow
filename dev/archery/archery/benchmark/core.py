@@ -56,6 +56,11 @@ class BenchmarkSuite:
         self.name = name
         self.benchmarks = benchmarks
 
+    def __repr__(self):
+        name = self.name
+        benchmarks = self.benchmarks
+        return f"BenchmarkSuite[name={name}, benchmarks={benchmarks}]"
+
 
 def default_comparator(old, new, threshold=0.05):
     # negative change is better, positive is tolerable until it exceeds
@@ -63,14 +68,22 @@ def default_comparator(old, new, threshold=0.05):
     return changes(old, new) < threshold
 
 
+def changes(old, new):
+    if old == 0 and new == 0:
+        return 0.0
+    if old == 0:
+        return float(new - old) / (float(old + new) / 2)
+    return float(new - old) / abs(old)
+
+
 class BenchmarkComparator:
-    def __init__(self, baseline, contender):
-        self.baseline = baseline
+    def __init__(self, contender, baseline):
         self.contender = contender
+        self.baseline = baseline
 
     def compare(self, comparator=None):
         comparator = comparator if comparator else default_comparator
-        return comparator(self.baseline.value, self.contender.value)
+        return changes(self.baseline.value, self.contender.value)
 
     def confidence(self):
         """ Indicate if a comparison of benchmarks should be trusted. """

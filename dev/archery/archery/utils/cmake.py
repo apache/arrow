@@ -16,6 +16,7 @@
 # under the License.
 
 import os
+import re
 from shutil import rmtree, which
 
 from .command import Command
@@ -113,6 +114,9 @@ class CMakeDefinition:
         return f"CMakeDefinition[source={self.source}]"
 
 
+CMAKE_BUILD_TYPE_RE = re.compile("CMAKE_BUILD_TYPE:STRING=([a-zA-Z]+)")
+
+
 class CMakeBuild(Command):
     """ CMakeBuild represents a build directory initialized by cmake.
 
@@ -132,6 +136,7 @@ class CMakeBuild(Command):
         build_dir : str
                     The build directory to setup into.
         """
+        assert CMakeBuild.is_build_dir(build_dir)
         self.build_dir = os.path.abspath(build_dir)
         self.bin = generator
         self.build_type = build_type
@@ -166,6 +171,27 @@ class CMakeBuild(Command):
         cmake_cache = os.path.join(path, "CMakeCache.txt")
         cmake_files = os.path.join(path, "CMakeFiles")
         return os.path.exists(cmake_cache) and os.path.exists(cmake_files)
+
+    @staticmethod
+    def from_path(path):
+        if not CMakeBuild.is_build_dir(path):
+            raise ValueError(f"Not a valid CMakeBuild path: {path}")
+
+        generator = "make"
+        if os.path.exists(os.path.join(path, "build.ninja")):
+            generator = "ninja"
+
+        build_type = None
+        # Infer build_type by looking at CMakeCache.txt and looking for a magic
+        # definition
+        cmake_cache_path = os.path.join(path, "CMakeCache.txt")
+        with open(cmake_cache_path, "r") as cmake_cache:
+            candidates = CMAKE_BUILD_TYPE_RE.findall(cmake_cache.read())
+            if len(candidates) != 1:
+                ValueError("Could not chose build_type from {candidates}")
+            build_type = candidates[0].lower()
+
+        return CMakeBuild(path, generator, build_type)
 
     def __repr__(self):
         return ("CMakeBuild["
