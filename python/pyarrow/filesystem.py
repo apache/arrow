@@ -385,8 +385,8 @@ class ADLFSWrapper(DaskFileSystem):
             else:
                 if not any(ftype in path for ftype in
                            ['parquet', 'parq', 'metadata']):
-                    raise ValueError('Directory is not a partition of *.parquet. \
-                        Try passing a globstring.')
+                    raise ValueError('Directory is not a partition of'
+                                     ' *.parquet. Try passing a globstring.')
                 return True
         except OSError:
             return False
@@ -403,9 +403,8 @@ class ADLFSWrapper(DaskFileSystem):
     def walk(self, path, invalidate_cache=True, refresh=False):
         """
         Directory tree generator, like os.walk
-
-        Generator version of what is in ADLFSClient, which yields a flattened list of
-        files
+        Generator version of what is in ADLFSClient, which yields a
+        flattened list of files
         """
         path = _sanitize_remote_path(_stringify_path(path))
         directories = set()
@@ -439,8 +438,8 @@ def _sanitize_remote_path(path):
     elif path.startswith('adl://'):
         newpath = path.replace('adl://', '')
         path_parts = newpath.split('/')
-        path_parts = [p for p in path_parts if p
-                      not in 'azuredatalakestore.net']
+        path_parts = [p for p in path_parts if not
+        'azuredatalakestore.net' in p]
         outpath = "/".join(path_parts)
         return outpath
     elif path.startswith('/'):
