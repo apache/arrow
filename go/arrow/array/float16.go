@@ -35,8 +35,13 @@ func NewFloat16Data(data *Data) *Float16 {
 	return a
 }
 
-func (a *Float16) Value(i int) float32 { return a.values[i].Float32() }
-func (a *Float16) Values() []float32 {
+func (a *Float16) Value(i int) arrow.Float16 { return a.values[i] }
+
+func (a *Float16) Float32Value(i int) float32 { return a.values[i].Float32() }
+
+func (a *Float16) Values() []arrow.Float16 { return a.values }
+
+func (a *Float16) Float32Values() []float32 {
 	values := make([]float32, len(a.values))
 	for i, v := range a.values {
 		values[i] = v.Float32()

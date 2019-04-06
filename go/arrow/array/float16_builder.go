@@ -53,11 +53,15 @@ func (b *Float16Builder) Release() {
 	}
 }
 
-func (b *Float16Builder) Append(v float32) {
+func (b *Float16Builder) Append(v arrow.Float16) {
 	b.Reserve(1)
 	bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
-	b.rawData[b.length] = arrow.NewFloat16(v)
+	b.rawData[b.length] = v
 	b.length++
+}
+
+func (b *Float16Builder) AppendFloat32(v float32) {
+	b.Append(arrow.NewFloat16(v))
 }
 
 func (b *Float16Builder) AppendNull() {

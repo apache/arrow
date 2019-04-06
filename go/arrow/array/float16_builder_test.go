@@ -17,6 +17,7 @@
 package array_test
 
 import (
+	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/stretchr/testify/assert"
@@ -29,16 +30,16 @@ func TestNewFloat16Builder(t *testing.T) {
 
 	ab := array.NewFloat16Builder(mem)
 
-	ab.Append(1)
-	ab.Append(2)
-	ab.Append(3)
+	ab.AppendFloat32(1)
+	ab.AppendFloat32(2)
+	ab.AppendFloat32(3)
 	ab.AppendNull()
-	ab.Append(5)
-	ab.Append(6)
+	ab.AppendFloat32(5)
+	ab.AppendFloat32(6)
 	ab.AppendNull()
-	ab.Append(8)
-	ab.Append(9)
-	ab.Append(10)
+	ab.Append(arrow.NewFloat16(8))
+	ab.Append(arrow.NewFloat16(9))
+	ab.Append(arrow.NewFloat16(10))
 
 	// check state of builder before NewFloat16Array
 	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
@@ -54,18 +55,19 @@ func TestNewFloat16Builder(t *testing.T) {
 	// check state of array
 
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []float32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Values(), "unexpected Float16Values")
+	assert.Equal(t, []float32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Float32Values(), "unexpected Float16Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
 	assert.Len(t, a.Values(), 10, "unexpected length of Float16Values")
 
 	a.Release()
-	ab.Append(7)
-	ab.Append(8)
+	ab.AppendFloat32(7)
+	ab.AppendFloat32(8)
 
 	a = ab.NewFloat16Array()
 
 	assert.Equal(t, 0, a.NullN())
-	assert.Equal(t, []float32{7, 8}, a.Values())
+	assert.Equal(t, []float32{7, 8}, a.Float32Values())
+	assert.Len(t, a.Float32Values(), 2)
 	assert.Len(t, a.Values(), 2)
 
 	a.Release()
