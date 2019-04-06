@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyarrow
-Version: 0.12.1.dev204+g0bc43c9f
+Version: 0.12.1.dev205+g085022ab
 Summary: Python library for Apache Arrow
 Home-page: https://arrow.apache.org/
 Maintainer: Apache Arrow Developers

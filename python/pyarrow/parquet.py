@@ -1144,6 +1144,8 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
         path_or_paths = path_or_paths[0]
 
     if _is_path_like(path_or_paths) and fs.isdir(path_or_paths):
+        print('...This is a directory... checking fs.pathsep')
+        print(fs.pathsep)
         manifest = ParquetManifest(path_or_paths, filesystem=fs,
                                    open_file_func=open_file_func,
                                    pathsep=fs.pathsep,

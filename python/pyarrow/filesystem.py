@@ -382,6 +382,8 @@ class ADLFSWrapper(DaskFileSystem):
             if len(contents) == 1 and contents[0] == path:
                 return False
             else:
+                if not any(ftype in path for ftype in ['parquet', 'parq', 'metadata']):
+                    raise ValueError('Directory is not a partition of *.parquet.  Try passing a globstring.')
                 return True
         except OSError:
             return False
@@ -432,9 +434,15 @@ def _sanitize_remote_path(path):
     if path.startswith('s3://'):
         return path.replace('s3://', '')
     elif path.startswith('adl://'):
-        return path.replace('adl://', '')
-    elif path.startswith('adls://'):
-        return path.replace('adls://', '')
+        newpath = path.replace('adl://', '')
+        path_parts = newpath.split('/')
+        path_parts = [p for p in path_parts if not 'azuredatalakestore.net' in p]
+        outpath = "/".join(path_parts)
+        return outpath
+    elif path.startswith('/'):
+        # This is a shim.  When an individual file is passed to the adlfilesystemclient, it returns
+        # a leading "/" that has to be removed to make the path and sanitized paths match.
+        return path[1:]
     else:
         return path
 
