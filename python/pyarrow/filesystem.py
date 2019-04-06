@@ -372,8 +372,9 @@ class S3FSWrapper(DaskFileSystem):
             for tup in self.walk(directory, refresh=refresh):
                 yield tup
 
+
 class ADLFSWrapper(DaskFileSystem):
-    
+
     @implements(FileSystem.isdir)
     def isdir(self, path):
         path = _sanitize_remote_path(_stringify_path(path))
@@ -382,8 +383,10 @@ class ADLFSWrapper(DaskFileSystem):
             if len(contents) == 1 and contents[0] == path:
                 return False
             else:
-                if not any(ftype in path for ftype in ['parquet', 'parq', 'metadata']):
-                    raise ValueError('Directory is not a partition of *.parquet.  Try passing a globstring.')
+                if not any(ftype in path for ftype in
+                           ['parquet', 'parq', 'metadata']):
+                    raise ValueError('Directory is not a partition of *.parquet. \
+                        Try passing a globstring.')
                 return True
         except OSError:
             return False
@@ -397,7 +400,7 @@ class ADLFSWrapper(DaskFileSystem):
         except OSError:
             return False
 
-    def walk(self, path, invalidate_cache=True):
+    def walk(self, path, invalidate_cache=True, refresh=False):
         """
         Directory tree generator, like os.walk
 
@@ -436,12 +439,15 @@ def _sanitize_remote_path(path):
     elif path.startswith('adl://'):
         newpath = path.replace('adl://', '')
         path_parts = newpath.split('/')
-        path_parts = [p for p in path_parts if not 'azuredatalakestore.net' in p]
+        path_parts = [p for p in path_parts if p
+                      not in 'azuredatalakestore.net']
         outpath = "/".join(path_parts)
         return outpath
     elif path.startswith('/'):
-        # This is a shim.  When an individual file is passed to the adlfilesystemclient, it returns
-        # a leading "/" that has to be removed to make the path and sanitized paths match.
+        # This is a shim.  When an individual file is passed to the
+        #  adlfilesystemclient, it returns
+        # a leading "/" that has to be removed to make the path and
+        # sanitized paths match.
         return path[1:]
     else:
         return path
