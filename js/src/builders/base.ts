@@ -99,30 +99,22 @@ export class DataBuilder<T extends DataType = any> {
         const { type, nullCount, length, offset } = this;
         let { valueOffsets, values, nullBitmap, typeIds } = this;
         
-        const BPE = values && values.BYTES_PER_ELEMENT || 0;
-        // pad out to 64 bytes
-        const valueOffsetsLength = ((((length + 1) * 4) + 63) & ~63) / 4;
-        // pad out to 64 bytes
-        const valuesLength = ((((length * this.stride) * BPE) + 63) & ~63) / BPE;
-        // pad to 8 bytes if fewer than 64 elements, otherwise pad to 64 bytes
-        const nullBitmapLength = length < 64 ? ((length + 7) & ~7) : ((length + 63) & ~63);
-        // pad out to 64 bytes
-        const typeIdsLength = (((length * 4) + 63) & ~63) / 4;
-
-        if (typeIds) {
-            // pad out to 64 bytes
-            typeIds = sliceOrExtendArray(typeIds, typeIdsLength);
-        }
-
         if (valueOffsets) {
-            valueOffsets = sliceOrExtendArray(valueOffsets, valueOffsetsLength);
+            // pad out to 64 bytes
+            valueOffsets = sliceOrExtendArray(valueOffsets, ((((length + 1) * 4) + 63) & ~63) / 4);
+            // pad out to 64 bytes
+            values && (values = sliceOrExtendArray(values, ((values.length + 63) & ~63) / values.BYTES_PER_ELEMENT));
         } else if (values) {
-            values = sliceOrExtendArray(values, valuesLength);
+            // pad out to 64 bytes
+            values = sliceOrExtendArray(values, ((((length * this.stride) * values.BYTES_PER_ELEMENT) + 63) & ~63) / values.BYTES_PER_ELEMENT);
         }
-        
-        nullBitmap = nullBitmap ? sliceOrExtendArray(nullBitmap, nullBitmapLength) : new Uint8Array(0);
 
-        const data = new Data(
+        // pad out to 64 bytes
+        nullBitmap && (nullBitmap = sliceOrExtendArray(nullBitmap, ((length + 511) & ~511) >> 3));
+        // pad out to 64 bytes
+        typeIds && (typeIds = sliceOrExtendArray(typeIds, (((length * 4) + 63) & ~63) / 4));
+
+        const data = Data.new(
             type, offset, length, nullCount,
             [valueOffsets, values, nullBitmap, typeIds] as Buffers<T>,
             this.childData.map((child) => child.flush())) as Data<T>;
@@ -203,16 +195,14 @@ export class DataBuilder<T extends DataType = any> {
         let buf = this.nullBitmap;
         if (!buf) {
             len = length === undefined ? this.chunkLength : length;
-            // pad to 8 bytes if fewer than 64 elements, otherwise pad to 64 bytes
-            len = (len < 64 ? ((len + 63) & ~63) : ((len + 511) & ~511)) >> 3;
-            this.nullBitmap = buf = new Uint8Array(Math.max(len, 8));
+            len = (((len << 3) + 63) & ~63) >> 3; // pad out to 64 bytes
+            this.nullBitmap = buf = new Uint8Array(len);
         } else {
             len = this.length;
             len = Math.max(len, length === undefined ? len : length);
             if ((len >> 3) >= buf.length) {
-                // pad to 8 bytes if fewer than 64 elements, otherwise pad to 64 bytes
-                len = (len < 64 ? ((len + 63) & ~63) : ((len + 511) & ~511)) >> 3;
-                this.nullBitmap = buf = memcpy(new Uint8Array(len * 2), buf);
+                len = ((((len * 2) << 3) + 63) & ~63) >> 3; // pad out to 64 bytes
+                this.nullBitmap = buf = memcpy(new Uint8Array(len), buf);
             }
         }
         return buf;
