@@ -107,7 +107,7 @@ void AssertChunking(Chunker& chunker, std::shared_ptr<Buffer> buf, int total_cou
   AssertWholeObjects(chunker, buf, total_count);
 
   // Then chunkize incomplete substrings of the block
-  for (int i = 0; i != total_count; ++i) {
+  for (int i = 0; i < total_count; ++i) {
     // ensure shearing the closing brace off the last object causes it to be chunked out
     auto last_brace = View(buf).find_last_of('}');
     AssertWholeObjects(chunker, SliceMutableBuffer(buf, 0, last_brace),

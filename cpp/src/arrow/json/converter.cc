@@ -42,7 +42,7 @@ template <typename Vis>
 Status VisitDictionaryEntries(const DictionaryArray* dict_array, Vis&& vis) {
   const StringArray& dict = static_cast<const StringArray&>(*dict_array->dictionary());
   const Int32Array& indices = static_cast<const Int32Array&>(*dict_array->indices());
-  for (int64_t i = 0; i != indices.length(); ++i) {
+  for (int64_t i = 0; i < indices.length(); ++i) {
     bool is_valid = indices.IsValid(i);
     RETURN_NOT_OK(vis(is_valid, is_valid ? dict.GetView(indices.GetView(i)) : ""));
   }

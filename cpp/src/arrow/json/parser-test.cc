@@ -95,7 +95,7 @@ void AssertUnconvertedArraysEqual(const Array& expected, const Array& actual) {
 void AssertUnconvertedStructArraysEqual(const StructArray& expected,
                                         const StructArray& actual) {
   ASSERT_EQ(expected.num_fields(), actual.num_fields());
-  for (int i = 0; i != expected.num_fields(); ++i) {
+  for (int i = 0; i < expected.num_fields(); ++i) {
     auto expected_name = expected.type()->child(i)->name();
     auto actual_name = actual.type()->child(i)->name();
     ASSERT_EQ(expected_name, actual_name);
@@ -109,7 +109,7 @@ void AssertParseColumns(ParseOptions options, string_view src_str,
   std::shared_ptr<Array> parsed;
   ASSERT_OK(ParseFromString(options, src_str, &parsed));
   auto struct_array = std::static_pointer_cast<StructArray>(parsed);
-  for (size_t i = 0; i != fields.size(); ++i) {
+  for (size_t i = 0; i < fields.size(); ++i) {
     auto column_expected = ArrayFromJSON(fields[i]->type(), columns_json[i]);
     auto column = struct_array->GetFieldByName(fields[i]->name());
     AssertUnconvertedArraysEqual(*column_expected, *column);
@@ -208,7 +208,7 @@ void AssertParseOne(ParseOptions options, string_view src_str,
   ASSERT_OK(MakeBuffer(src_str, &src));
   std::shared_ptr<RecordBatch> parsed;
   ASSERT_OK(ParseOne(options, src, &parsed));
-  for (size_t i = 0; i != fields.size(); ++i) {
+  for (size_t i = 0; i < fields.size(); ++i) {
     auto column_expected = ArrayFromJSON(fields[i]->type(), columns_json[i]);
     auto column = parsed->GetColumnByName(fields[i]->name());
     AssertArraysEqual(*column_expected, *column);

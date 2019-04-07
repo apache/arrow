@@ -47,7 +47,7 @@ static void BM_ChunkJSONPrettyPrinted(
   options.explicit_schema = schema({field("int", int32()), field("str", utf8())});
   std::default_random_engine engine;
   std::string json;
-  for (int i = 0; i != num_rows; ++i) {
+  for (int i = 0; i < num_rows; ++i) {
     StringBuffer sb;
     Writer writer(sb);
     ABORT_NOT_OK(Generate(options.explicit_schema, engine, &writer));
@@ -65,7 +65,7 @@ static void BM_ChunkJSONLineDelimited(
   options.explicit_schema = schema({field("int", int32()), field("str", utf8())});
   std::default_random_engine engine;
   std::string json;
-  for (int i = 0; i != num_rows; ++i) {
+  for (int i = 0; i < num_rows; ++i) {
     StringBuffer sb;
     Writer writer(sb);
     ABORT_NOT_OK(Generate(options.explicit_schema, engine, &writer));
@@ -103,7 +103,7 @@ static void BM_ParseJSONBlockWithSchema(
   options.explicit_schema = schema({field("int", int32()), field("str", utf8())});
   std::default_random_engine engine;
   std::string json;
-  for (int i = 0; i != num_rows; ++i) {
+  for (int i = 0; i < num_rows; ++i) {
     StringBuffer sb;
     Writer writer(sb);
     ABORT_NOT_OK(Generate(options.explicit_schema, engine, &writer));

@@ -131,7 +131,7 @@ class SerialTableReader : public TableReader {
     std::vector<std::shared_ptr<Column>> columns(num_fields);
     for (int i = 0; i < num_fields; ++i) {
       ArrayVector chunks(num_chunks);
-      for (int chunk_index = 0; chunk_index != num_chunks; ++chunk_index) {
+      for (int chunk_index = 0; chunk_index < num_chunks; ++chunk_index) {
         chunks[chunk_index] =
             static_cast<const StructArray&>(*array->chunk(chunk_index)).field(i);
       }
@@ -242,7 +242,7 @@ class ThreadedTableReader : public TableReader {
     std::vector<std::shared_ptr<Column>> columns(num_fields);
     for (int i = 0; i < num_fields; ++i) {
       ArrayVector chunks(num_chunks);
-      for (int chunk_index = 0; chunk_index != num_chunks; ++chunk_index) {
+      for (int chunk_index = 0; chunk_index < num_chunks; ++chunk_index) {
         chunks[chunk_index] =
             static_cast<const StructArray&>(*array->chunk(chunk_index)).field(i);
       }
@@ -300,7 +300,7 @@ Status ParseOne(ParseOptions options, std::shared_ptr<ResizableBuffer> json,
   auto converted = static_cast<const StructArray*>(converted_chunked->chunk(0).get());
 
   std::vector<std::shared_ptr<Array>> columns(converted->num_fields());
-  for (int i = 0; i != converted->num_fields(); ++i) {
+  for (int i = 0; i < converted->num_fields(); ++i) {
     columns[i] = converted->field(i);
   }
   *out = RecordBatch::Make(schema(converted->type()->children()), converted->length(),

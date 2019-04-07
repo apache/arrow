@@ -95,7 +95,7 @@ struct GenerateImpl {
   Status Visit(const ListType& t) {
     auto size = std::poisson_distribution<>{4}(e);
     writer.StartArray();
-    for (int i = 0; i != size; ++i) RETURN_NOT_OK(Generate(t.value_type(), e, &writer));
+    for (int i = 0; i < size; ++i) RETURN_NOT_OK(Generate(t.value_type(), e, &writer));
     return OK(writer.EndArray(size));
   }
   Status Visit(const StructType& t) { return Generate(t.children(), e, &writer); }
@@ -149,7 +149,7 @@ inline static Status DecodeStringDictionary(const DictionaryArray& dict_array,
   const Int32Array& indices = static_cast<const Int32Array&>(*dict_array.indices());
   StringBuilder builder;
   RETURN_NOT_OK(builder.Resize(indices.length()));
-  for (int64_t i = 0; i != indices.length(); ++i) {
+  for (int64_t i = 0; i < indices.length(); ++i) {
     if (indices.IsNull(i)) {
       builder.UnsafeAppendNull();
       continue;

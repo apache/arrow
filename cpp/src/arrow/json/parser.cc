@@ -453,7 +453,7 @@ class RawArrayBuilder<Kind::kObject> {
 
     std::vector<std::shared_ptr<Field>> fields(num_fields());
     std::vector<std::shared_ptr<ArrayData>> child_data(num_fields());
-    for (int i = 0; i != num_fields(); ++i) {
+    for (int i = 0; i < num_fields(); ++i) {
       std::shared_ptr<Array> values;
       RETURN_NOT_OK(handler.Finish(field_builders_[i], &values));
       child_data[i] = values->data();
@@ -597,7 +597,7 @@ class HandlerBase : public BlockParser::Impl,
 
     rapidjson::Reader reader;
 
-    for (; num_rows_ != kMaxParserNumRows; ++num_rows_) {
+    for (; num_rows_ < kMaxParserNumRows; ++num_rows_) {
       auto ok = reader.Parse<parse_flags>(json, handler);
       switch (ok.Code()) {
         case rapidjson::kParseErrorNone:
@@ -729,7 +729,7 @@ class HandlerBase : public BlockParser::Impl,
         auto root = builder_;
         auto struct_builder = Cast<Kind::kObject>(builder_);
         RETURN_NOT_OK(struct_builder->AppendNull());
-        for (int i = 0; i != struct_builder->num_fields(); ++i) {
+        for (int i = 0; i < struct_builder->num_fields(); ++i) {
           builder_ = struct_builder->field_builder(i);
           RETURN_NOT_OK(AppendNull());
         }
@@ -792,7 +792,7 @@ class HandlerBase : public BlockParser::Impl,
     auto parent = Cast<Kind::kObject>(builder_stack_.back());
 
     auto expected_count = absent_fields_stack_.TopSize();
-    for (field_index_ = 0; field_index_ != expected_count; ++field_index_) {
+    for (field_index_ = 0; field_index_ < expected_count; ++field_index_) {
       if (!absent_fields_stack_[field_index_]) {
         continue;
       }
