@@ -111,7 +111,7 @@
             <resource>
                 <directory>${gandiva.cpp.build.dir}</directory>
                 <includes>
-                    <include>**/libgandiva_jni.*</include>
+                    <include>**/gandiva_jni.*</include>
                 </includes>
             </resource>
         </resources>
