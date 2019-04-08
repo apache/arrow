@@ -100,11 +100,6 @@ namespace arrow {
 typedef ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type,
                          Int16Type, Int32Type, Int64Type, FloatType, DoubleType>
     NumericArrowTypes;
-typedef ::testing::Types<NullType, BooleanType, UInt8Type, UInt16Type, UInt32Type,
-                         UInt64Type, Int8Type, Int16Type, Int32Type, Int64Type,
-                         HalfFloatType, FloatType, DoubleType, Date32Type, Date64Type,
-                         StringType, BinaryType>
-    ParameterFreeArrowTypes;
 
 class ChunkedArray;
 class Column;

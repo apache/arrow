@@ -185,18 +185,8 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   Status Append(const uint8_t* value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    UnsafeAppendToBitmap(true);
-    return byte_builder_.Append(value, byte_width_);
-  }
-
-  void UnsafeAppend(const uint8_t* value) {
-    UnsafeAppendToBitmap(true);
-    byte_builder_.UnsafeAppend(value, byte_width_);
-  }
-
-  void UnsafeAppend(util::string_view value) {
-    CheckValueSize(value);
-    UnsafeAppend(reinterpret_cast<const uint8_t*>(value.data()));
+    UnsafeAppend(value);
+    return Status::OK();
   }
 
   Status Append(const char* value) {
@@ -204,25 +194,40 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   }
 
   Status Append(const util::string_view& view) {
-    CheckValueSize(view);
-    return Append(reinterpret_cast<const uint8_t*>(view.data()));
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppend(view);
+    return Status::OK();
   }
 
   Status Append(const std::string& s) {
-    CheckValueSize(s);
-    return Append(reinterpret_cast<const uint8_t*>(s.data()));
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppend(s);
+    return Status::OK();
   }
 
   template <size_t NBYTES>
   Status Append(const std::array<uint8_t, NBYTES>& value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    UnsafeAppendToBitmap(true);
-    return byte_builder_.Append(value);
+    UnsafeAppend(
+        util::string_view(reinterpret_cast<const char*>(value.data()), value.size()));
+    return Status::OK();
   }
 
   Status AppendValues(const uint8_t* data, int64_t length,
                       const uint8_t* valid_bytes = NULLPTR);
   Status AppendNull();
+
+  void UnsafeAppend(const uint8_t* value) {
+    UnsafeAppendToBitmap(true);
+    byte_builder_.UnsafeAppend(value, byte_width_);
+  }
+
+  void UnsafeAppend(util::string_view value) {
+#ifndef NDEBUG
+    CheckValueSize(static_cast<size_t>(value.size()));
+#endif
+    UnsafeAppend(reinterpret_cast<const uint8_t*>(value.data()));
+  }
 
   void UnsafeAppendNull() {
     UnsafeAppendToBitmap(false);
@@ -251,13 +256,6 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
  protected:
   int32_t byte_width_;
   BufferBuilder byte_builder_;
-
-  template <typename Sized>
-  void CheckValueSize(const Sized& s, decltype(s.size())* = NULLPTR) {
-#ifndef NDEBUG
-    CheckValueSize(static_cast<size_t>(s.size()));
-#endif
-  }
 
 #ifndef NDEBUG
   void CheckValueSize(int64_t size);
