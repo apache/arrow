@@ -39,7 +39,7 @@ struct Datum;
 class ARROW_EXPORT FilterFunction {
  public:
   /// Filter an array with a scalar argument.
-  virtual Status Filter(const Array& input, const Scalar& scalar,
+  virtual Status Filter(const ArrayData& input, const Scalar& scalar,
                         ArrayData* output) const = 0;
 
   /// By default, FilterFunction emits a result bitmap.

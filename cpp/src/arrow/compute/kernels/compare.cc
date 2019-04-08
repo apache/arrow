@@ -35,14 +35,13 @@ template <typename ArrowType, CompareOperator Op,
           typename ArrayType = typename TypeTraits<ArrowType>::ArrayType,
           typename ScalarType = typename TypeTraits<ArrowType>::ScalarType,
           typename T = typename TypeTraits<ArrowType>::CType>
-static Status CompareArrayScalar(const ArrayType& input, const ScalarType& scalar,
+static Status CompareArrayScalar(const ArrayData& input, const ScalarType& scalar,
                                  uint8_t* bitmap) {
   const T right = scalar.value;
-  const T* values = input.raw_values();
+  const T* values = input.GetValues<T>(1);
 
-  // Bitmap is not sliced like the original array, thus offset=0
   size_t i = 0;
-  internal::GenerateBitsUnrolled(bitmap, 0, input.length(), [values, right, &i]() -> bool {
+  internal::GenerateBitsUnrolled(bitmap, 0, input.length, [values, right, &i]() -> bool {
     return Comparator<T, Op>::Compare(values[i++], right);
   });
 
@@ -57,28 +56,25 @@ class CompareFunction final : public FilterFunction {
  public:
   explicit CompareFunction(FunctionContext* ctx) : ctx_(ctx) {}
 
-  Status Filter(const Array& input, const Scalar& scalar, ArrayData* output) const {
+  Status Filter(const ArrayData& input, const Scalar& scalar, ArrayData* output) const {
     // Caller must cast
-    DCHECK(input.type()->Equals(scalar.type));
+    DCHECK(input.type->Equals(scalar.type));
     // Output must be a boolean array
     DCHECK(output->type->Equals(boolean()));
     // Output must be of same length
-    DCHECK_EQ(output->length, input.length());
-
-    auto input_data = input.data();
+    DCHECK_EQ(output->length, input.length);
 
     // Scalar is null, all comparisons are null.
     if (!scalar.is_valid) {
-      return detail::SetAllNulls(ctx_, *input_data, output);
+      return detail::SetAllNulls(ctx_, input, output);
     }
 
     // Copy null_bitmap
-    RETURN_NOT_OK(detail::PropagateNulls(ctx_, *input_data, output));
+    RETURN_NOT_OK(detail::PropagateNulls(ctx_, input, output));
 
     uint8_t* bitmap_result = output->buffers[1]->mutable_data();
-    return CompareArrayScalar<ArrowType, Op>(static_cast<const ArrayType&>(input),
-                                             static_cast<const ScalarType&>(scalar),
-                                             bitmap_result);
+    return CompareArrayScalar<ArrowType, Op>(
+        input, static_cast<const ScalarType&>(scalar), bitmap_result);
   }
 
  private:

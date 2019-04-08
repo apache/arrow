@@ -30,7 +30,7 @@ std::shared_ptr<DataType> FilterBinaryKernel::out_type() const {
 
 Status FilterBinaryKernel::Call(FunctionContext* ctx, const Datum& left,
                                 const Datum& right, Datum* out) {
-  auto array = left.make_array();
+  auto array = left.array();
   auto scalar = right.scalar();
   auto result = out->array();
 
