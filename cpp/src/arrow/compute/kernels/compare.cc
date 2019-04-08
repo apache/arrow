@@ -41,16 +41,10 @@ static Status CompareArrayScalar(const ArrayType& input, const ScalarType& scala
   const T* values = input.raw_values();
 
   // Bitmap is not sliced like the original array, thus offset=0
-  auto writer = internal::BitmapWriter(bitmap, 0, input.length());
-  for (int64_t i = 0; i < input.length(); i++, writer.Next()) {
-    if (Comparator<T, Op>::Compare(values[i], right)) {
-      writer.Set();
-    } else {
-      writer.Clear();
-    }
-  }
-
-  writer.Finish();
+  size_t i = 0;
+  internal::GenerateBitsUnrolled(bitmap, 0, input.length(), [values, right, &i]() -> bool {
+    return Comparator<T, Op>::Compare(values[i++], right);
+  });
 
   return Status::OK();
 }

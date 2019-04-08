@@ -30,7 +30,8 @@ namespace arrow {
 namespace compute {
 
 static void BenchCompareKernel(benchmark::State& state) {
-  const int64_t array_size = state.range(0) / sizeof(int64_t);
+  const int64_t memory_size = state.range(0) / 4;
+  const int64_t array_size = memory_size / sizeof(int64_t);
   const double null_percent = static_cast<double>(state.range(1)) / 100.0;
   auto rand = random::RandomArrayGenerator(0x94378165);
   auto array = std::static_pointer_cast<NumericArray<Int64Type>>(
@@ -45,7 +46,7 @@ static void BenchCompareKernel(benchmark::State& state) {
     benchmark::DoNotOptimize(out);
   }
 
-  state.counters["size"] = static_cast<double>(state.range(0));
+  state.counters["size"] = static_cast<double>(memory_size);
   state.counters["null_percent"] = static_cast<double>(state.range(1));
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t));
 }
