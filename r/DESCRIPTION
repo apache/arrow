@@ -8,7 +8,7 @@ Authors@R: c(
     person("Apache Arrow", email = "dev@arrow.apache.org", role = c("aut", "cph"))
   )
 Description: R Integration to 'Apache' 'Arrow'.
-Depends: R (>= 3.5)
+Depends: R (>= 3.1)
 License: Apache License (>= 2.0)
 Encoding: UTF-8
 LazyData: true
