@@ -17,7 +17,6 @@
 
 package org.apache.arrow.flight;
 
-import java.sql.Types;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -116,7 +115,8 @@ public class TestLargeMessage {
     }
 
     @Override
-    public void getStream(Ticket ticket, ServerStreamListener listener) {
+    public void getStream(CallContext context, Ticket ticket,
+        ServerStreamListener listener) {
       try (VectorSchemaRoot root = generateData(allocator)) {
         listener.start(root);
         listener.putNext();
@@ -125,17 +125,20 @@ public class TestLargeMessage {
     }
 
     @Override
-    public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
+    public void listFlights(CallContext context, Criteria criteria,
+        StreamListener<FlightInfo> listener) {
 
     }
 
     @Override
-    public FlightInfo getFlightInfo(FlightDescriptor descriptor) {
+    public FlightInfo getFlightInfo(CallContext context,
+        FlightDescriptor descriptor) {
       return null;
     }
 
     @Override
-    public Callable<Flight.PutResult> acceptPut(FlightStream flightStream) {
+    public Callable<Flight.PutResult> acceptPut(CallContext context,
+        FlightStream flightStream) {
       return () -> {
         try (VectorSchemaRoot root = flightStream.getRoot()) {
           while (flightStream.next()) {
@@ -147,12 +150,13 @@ public class TestLargeMessage {
     }
 
     @Override
-    public Result doAction(Action action) {
+    public Result doAction(CallContext context, Action action) {
       return null;
     }
 
     @Override
-    public void listActions(StreamListener<ActionType> listener) {
+    public void listActions(CallContext context,
+        StreamListener<ActionType> listener) {
 
     }
 

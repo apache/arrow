@@ -27,17 +27,22 @@ import org.apache.arrow.vector.VectorSchemaRoot;
  */
 public interface FlightProducer {
 
-  public void getStream(Ticket ticket, ServerStreamListener listener);
+  public void getStream(CallContext context, Ticket ticket,
+      ServerStreamListener listener);
 
-  public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener);
+  public void listFlights(CallContext context, Criteria criteria,
+      StreamListener<FlightInfo> listener);
 
-  public FlightInfo getFlightInfo(FlightDescriptor descriptor);
+  public FlightInfo getFlightInfo(CallContext context,
+      FlightDescriptor descriptor);
 
-  public Callable<PutResult> acceptPut(FlightStream flightStream);
+  public Callable<PutResult> acceptPut(CallContext context,
+      FlightStream flightStream);
 
-  public Result doAction(Action action);
+  public Result doAction(CallContext context, Action action);
 
-  public void listActions(StreamListener<ActionType> listener);
+  public void listActions(CallContext context,
+      StreamListener<ActionType> listener);
 
   public interface ServerStreamListener {
 
@@ -65,5 +70,14 @@ public interface FlightProducer {
 
   }
 
+  /**
+   * Call-specific context.
+   */
+  interface CallContext {
+    /** The identity of the authenticated peer. May be the empty string if unknown. */
+    String peerIdentity();
 
+    /** Whether the call has been cancelled by the client. */
+    boolean isCancelled();
+  }
 }

@@ -113,8 +113,9 @@ public class FlightClient implements AutoCloseable {
   }
 
   public void authenticate(ClientAuthHandler handler) {
-    Preconditions.checkArgument(!authInterceptor.hasToken(), "Auth already completed.");
-    authInterceptor.setToken(ClientAuthWrapper.doClientAuth(handler, asyncStub));
+    Preconditions.checkArgument(!authInterceptor.hasAuthHandler(), "Auth already completed.");
+    ClientAuthWrapper.doClientAuth(handler, asyncStub);
+    authInterceptor.setAuthHandler(handler);
   }
 
   /**

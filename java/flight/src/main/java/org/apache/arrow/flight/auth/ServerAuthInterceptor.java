@@ -17,6 +17,10 @@
 
 package org.apache.arrow.flight.auth;
 
+import java.util.Optional;
+
+import io.grpc.Context;
+import io.grpc.Contexts;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.ServerCall.Listener;
@@ -35,18 +39,21 @@ public class ServerAuthInterceptor implements ServerInterceptor {
   @Override
   public <ReqT, RespT> Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call, Metadata headers,
       ServerCallHandler<ReqT, RespT> next) {
-    if (
-        !call.getMethodDescriptor().getFullMethodName().equals(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME) &&
-        !isValid(headers)) {
-      call.close(Status.PERMISSION_DENIED, new Metadata());
-      // TODO: we should actually terminate here instead of causing an exception below.
-      return new NoopServerCallListener<>();
+    if (!call.getMethodDescriptor().getFullMethodName().equals(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
+      final Optional<String> peerIdentity = isValid(headers);
+      if (!peerIdentity.isPresent()) {
+        call.close(Status.PERMISSION_DENIED, new Metadata());
+        // TODO: we should actually terminate here instead of causing an exception below.
+        return new NoopServerCallListener<>();
+      }
+      return Contexts.interceptCall(Context.current().withValue(AuthConstants.PEER_IDENTITY_KEY, peerIdentity.get()),
+          call, headers, next);
     }
 
     return next.startCall(call, headers);
   }
 
-  private final boolean isValid(Metadata headers) {
+  private final Optional<String> isValid(Metadata headers) {
     byte[] token = headers.get(AuthConstants.TOKEN_KEY);
     return authHandler.isValid(token);
   }

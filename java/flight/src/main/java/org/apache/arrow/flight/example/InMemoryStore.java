@@ -55,7 +55,8 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public void getStream(Ticket ticket, ServerStreamListener listener) {
+  public void getStream(CallContext context, Ticket ticket,
+      ServerStreamListener listener) {
     getStream(ticket).sendTo(allocator, listener);
   }
 
@@ -79,7 +80,8 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
+  public void listFlights(CallContext context, Criteria criteria,
+      StreamListener<FlightInfo> listener) {
     try {
       for (FlightHolder h : holders.values()) {
         listener.onNext(h.getFlightInfo(location));
@@ -91,7 +93,8 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public FlightInfo getFlightInfo(FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfo(CallContext context,
+      FlightDescriptor descriptor) {
     FlightHolder h = holders.get(descriptor);
     if (h == null) {
       throw new IllegalStateException("Unknown descriptor.");
@@ -101,7 +104,8 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public Callable<PutResult> acceptPut(final FlightStream flightStream) {
+  public Callable<PutResult> acceptPut(CallContext context,
+      final FlightStream flightStream) {
     return () -> {
       StreamCreator creator = null;
       boolean success = false;
@@ -130,7 +134,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public Result doAction(Action action) {
+  public Result doAction(CallContext context, Action action) {
     switch (action.getType()) {
       case "drop":
         return new Result(new byte[0]);
@@ -141,7 +145,8 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public void listActions(StreamListener<ActionType> listener) {
+  public void listActions(CallContext context,
+      StreamListener<ActionType> listener) {
     listener.onNext(new ActionType("get", "pull a stream. Action must be done via standard get mechanism"));
     listener.onNext(new ActionType("put", "push a stream. Action must be done via standard put mechanism"));
     listener.onNext(new ActionType("drop", "delete a flight. Action body is a JSON encoded path."));

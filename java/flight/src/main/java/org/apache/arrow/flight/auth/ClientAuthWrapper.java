@@ -38,13 +38,11 @@ public class ClientAuthWrapper {
    * @param stub The service stub.
    * @return The token if auth was successful.
    */
-  public static byte[] doClientAuth(ClientAuthHandler authHandler, FlightServiceStub stub) {
-
+  public static void doClientAuth(ClientAuthHandler authHandler, FlightServiceStub stub) {
     AuthObserver observer = new AuthObserver();
     observer.responseObserver = stub.handshake(observer);
-    byte[] bytes = authHandler.authenticate(observer.sender, observer.iter);
+    authHandler.authenticate(observer.sender, observer.iter);
     observer.responseObserver.onCompleted();
-    return bytes;
   }
 
   private static class AuthObserver implements StreamObserver<HandshakeResponse> {
