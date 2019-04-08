@@ -358,7 +358,7 @@ mod tests {
 
     use crate::schema::{parser::parse_message_type, types::SchemaDescriptor};
 
-    use arrow::datatypes::{DataType, Field};
+    use arrow::datatypes::{DataType, DateUnit, Field, TimeUnit};
 
     use super::{
         parquet_to_arrow_field, parquet_to_arrow_schema,
@@ -837,6 +837,12 @@ mod tests {
             OPTIONAL DOUBLE  double;
             OPTIONAL FLOAT   float;
             OPTIONAL BINARY  string (UTF8);
+            REPEATED BOOLEAN bools;
+            OPTIONAL INT32   date       (DATE);
+            OPTIONAL INT32   time_milli (TIME_MILLIS);
+            OPTIONAL INT64   time_micro (TIME_MICROS);
+            OPTIONAL INT64   ts_milli (TIMESTAMP_MILLIS);
+            REQUIRED INT64   ts_micro (TIMESTAMP_MICROS);
         }
         ";
         let parquet_group_type = parse_message_type(message_type).unwrap();
@@ -857,6 +863,16 @@ mod tests {
             Field::new("double", DataType::Float64, true),
             Field::new("float", DataType::Float32, true),
             Field::new("string", DataType::Utf8, true),
+            Field::new("bools", DataType::List(Box::new(DataType::Boolean)), true),
+            Field::new("date", DataType::Date32(DateUnit::Day), true),
+            Field::new("time_milli", DataType::Time32(TimeUnit::Millisecond), true),
+            Field::new("time_micro", DataType::Time64(TimeUnit::Microsecond), true),
+            Field::new("ts_milli", DataType::Timestamp(TimeUnit::Millisecond), true),
+            Field::new(
+                "ts_micro",
+                DataType::Timestamp(TimeUnit::Microsecond),
+                false,
+            ),
         ];
 
         assert_eq!(arrow_fields, converted_arrow_fields);
