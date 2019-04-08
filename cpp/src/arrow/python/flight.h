@@ -19,6 +19,7 @@
 #define PYARROW_FLIGHT_H
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "arrow/flight/api.h"
@@ -35,21 +36,70 @@ namespace flight {
 /// Python.
 class ARROW_PYTHON_EXPORT PyFlightServerVtable {
  public:
-  std::function<void(PyObject*, const arrow::flight::Criteria*,
+  std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
+                     const arrow::flight::Criteria*,
                      std::unique_ptr<arrow::flight::FlightListing>*)>
       list_flights;
-  std::function<void(PyObject*, const arrow::flight::FlightDescriptor&,
+  std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
+                     const arrow::flight::FlightDescriptor&,
                      std::unique_ptr<arrow::flight::FlightInfo>*)>
       get_flight_info;
-  std::function<void(PyObject*, const arrow::flight::Ticket&,
+  std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
+                     const arrow::flight::Ticket&,
                      std::unique_ptr<arrow::flight::FlightDataStream>*)>
       do_get;
-  std::function<void(PyObject*, std::unique_ptr<arrow::flight::FlightMessageReader>)>
+  std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
+                     std::unique_ptr<arrow::flight::FlightMessageReader>)>
       do_put;
-  std::function<void(PyObject*, const arrow::flight::Action&,
+  std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
+                     const arrow::flight::Action&,
                      std::unique_ptr<arrow::flight::ResultStream>*)>
       do_action;
-  std::function<void(PyObject*, std::vector<arrow::flight::ActionType>*)> list_actions;
+  std::function<void(PyObject*, const arrow::flight::ServerCallContext&,
+                     std::vector<arrow::flight::ActionType>*)>
+      list_actions;
+};
+
+class ARROW_PYTHON_EXPORT PyServerAuthHandlerVtable {
+ public:
+  std::function<void(PyObject*, const arrow::flight::ServerAuthSender&,
+                     const arrow::flight::ServerAuthReader&)>
+      authenticate;
+  std::function<void(PyObject*, const std::string&, std::string*)> is_valid;
+};
+
+class ARROW_PYTHON_EXPORT PyClientAuthHandlerVtable {
+ public:
+  std::function<void(PyObject*, const arrow::flight::ClientAuthSender&,
+                     const arrow::flight::ClientAuthReader&)>
+      authenticate;
+  std::function<void(PyObject*, std::string*)> get_token;
+};
+
+/// \brief A helper to implement an auth mechanism in Python.
+class ARROW_PYTHON_EXPORT PyServerAuthHandler : public arrow::flight::ServerAuthHandler {
+ public:
+  explicit PyServerAuthHandler(PyObject* handler, PyServerAuthHandlerVtable vtable);
+  Status Authenticate(const arrow::flight::ServerAuthSender& outgoing,
+                      const arrow::flight::ServerAuthReader& incoming) override;
+  Status IsValid(const std::string& token, std::string* peer_identity) override;
+
+ private:
+  OwnedRefNoGIL handler_;
+  PyServerAuthHandlerVtable vtable_;
+};
+
+/// \brief A helper to implement an auth mechanism in Python.
+class ARROW_PYTHON_EXPORT PyClientAuthHandler : public arrow::flight::ClientAuthHandler {
+ public:
+  explicit PyClientAuthHandler(PyObject* handler, PyClientAuthHandlerVtable vtable);
+  Status Authenticate(const arrow::flight::ClientAuthSender& outgoing,
+                      const arrow::flight::ClientAuthReader& incoming) override;
+  Status GetToken(std::string* token) override;
+
+ private:
+  OwnedRefNoGIL handler_;
+  PyClientAuthHandlerVtable vtable_;
 };
 
 class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBase {
@@ -63,14 +113,19 @@ class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBas
   Status ListFlights(const arrow::flight::ServerCallContext& context,
                      const arrow::flight::Criteria* criteria,
                      std::unique_ptr<arrow::flight::FlightListing>* listings) override;
-  Status GetFlightInfo(const arrow::flight::FlightDescriptor& request,
+  Status GetFlightInfo(const arrow::flight::ServerCallContext& context,
+                       const arrow::flight::FlightDescriptor& request,
                        std::unique_ptr<arrow::flight::FlightInfo>* info) override;
-  Status DoGet(const arrow::flight::Ticket& request,
+  Status DoGet(const arrow::flight::ServerCallContext& context,
+               const arrow::flight::Ticket& request,
                std::unique_ptr<arrow::flight::FlightDataStream>* stream) override;
-  Status DoPut(std::unique_ptr<arrow::flight::FlightMessageReader> reader) override;
-  Status DoAction(const arrow::flight::Action& action,
+  Status DoPut(const arrow::flight::ServerCallContext& context,
+               std::unique_ptr<arrow::flight::FlightMessageReader> reader) override;
+  Status DoAction(const arrow::flight::ServerCallContext& context,
+                  const arrow::flight::Action& action,
                   std::unique_ptr<arrow::flight::ResultStream>* result) override;
-  Status ListActions(std::vector<arrow::flight::ActionType>* actions) override;
+  Status ListActions(const arrow::flight::ServerCallContext& context,
+                     std::vector<arrow::flight::ActionType>* actions) override;
 
  private:
   OwnedRefNoGIL server_;
