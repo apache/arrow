@@ -18,7 +18,8 @@
 //! Provides API for converting parquet schema to arrow schema and vice versa.
 //!
 //! The main interfaces for converting parquet schema to arrow schema  are
-//! `parquet_to_arrow_schema` and `parquet_to_arrow_schema_by_columns`.
+//! `parquet_to_arrow_schema`, `parquet_to_arrow_schema_by_columns` and
+//! `parquet_to_arrow_field`.
 //!
 //! The interfaces for converting arrow schema to parquet schema is coming.
 
@@ -26,7 +27,7 @@ use std::{collections::HashSet, rc::Rc};
 
 use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
 use crate::errors::{ParquetError::ArrowError, Result};
-use crate::schema::types::{SchemaDescPtr, Type, TypePtr};
+use crate::schema::types::{ColumnDescPtr, SchemaDescPtr, Type, TypePtr};
 
 use arrow::datatypes::TimeUnit;
 use arrow::datatypes::{DataType, DateUnit, Field, Schema};
@@ -70,6 +71,18 @@ where
         .collect::<Result<Vec<Option<Field>>>>()
         .map(|result| result.into_iter().filter_map(|f| f).collect::<Vec<Field>>())
         .map(|fields| Schema::new(fields))
+}
+
+/// Convert parquet column schema to arrow field.
+pub fn parquet_to_arrow_field(parquet_column: ColumnDescPtr) -> Result<Field> {
+    let schema = parquet_column.self_type_ptr();
+
+    let mut leaves = HashSet::new();
+    leaves.insert(parquet_column.self_type() as *const Type);
+
+    ParquetTypeConverter::new(schema, Rc::new(leaves))
+        .to_field()
+        .map(|opt| opt.unwrap())
 }
 
 /// This struct is used to group methods and data structures used to convert parquet
@@ -345,9 +358,12 @@ mod tests {
 
     use crate::schema::{parser::parse_message_type, types::SchemaDescriptor};
 
-    use arrow::datatypes::{DataType, Field};
+    use arrow::datatypes::{DataType, DateUnit, Field, TimeUnit};
 
-    use super::{parquet_to_arrow_schema, parquet_to_arrow_schema_by_columns};
+    use super::{
+        parquet_to_arrow_field, parquet_to_arrow_schema,
+        parquet_to_arrow_schema_by_columns,
+    };
 
     #[test]
     fn test_flat_primitives() {
@@ -807,5 +823,58 @@ mod tests {
         for i in 0..arrow_fields.len() {
             assert_eq!(arrow_fields[i], converted_fields[i]);
         }
+    }
+
+    #[test]
+    fn test_column_desc_to_field() {
+        let message_type = "
+        message test_schema {
+            REQUIRED BOOLEAN boolean;
+            REQUIRED INT32   int8  (INT_8);
+            REQUIRED INT32   int16 (INT_16);
+            REQUIRED INT32   int32;
+            REQUIRED INT64   int64 ;
+            OPTIONAL DOUBLE  double;
+            OPTIONAL FLOAT   float;
+            OPTIONAL BINARY  string (UTF8);
+            REPEATED BOOLEAN bools;
+            OPTIONAL INT32   date       (DATE);
+            OPTIONAL INT32   time_milli (TIME_MILLIS);
+            OPTIONAL INT64   time_micro (TIME_MICROS);
+            OPTIONAL INT64   ts_milli (TIMESTAMP_MILLIS);
+            REQUIRED INT64   ts_micro (TIMESTAMP_MICROS);
+        }
+        ";
+        let parquet_group_type = parse_message_type(message_type).unwrap();
+
+        let parquet_schema = SchemaDescriptor::new(Rc::new(parquet_group_type));
+        let converted_arrow_fields = parquet_schema
+            .columns()
+            .iter()
+            .map(|c| parquet_to_arrow_field(c.clone()).unwrap())
+            .collect::<Vec<Field>>();
+
+        let arrow_fields = vec![
+            Field::new("boolean", DataType::Boolean, false),
+            Field::new("int8", DataType::Int8, false),
+            Field::new("int16", DataType::Int16, false),
+            Field::new("int32", DataType::Int32, false),
+            Field::new("int64", DataType::Int64, false),
+            Field::new("double", DataType::Float64, true),
+            Field::new("float", DataType::Float32, true),
+            Field::new("string", DataType::Utf8, true),
+            Field::new("bools", DataType::List(Box::new(DataType::Boolean)), true),
+            Field::new("date", DataType::Date32(DateUnit::Day), true),
+            Field::new("time_milli", DataType::Time32(TimeUnit::Millisecond), true),
+            Field::new("time_micro", DataType::Time64(TimeUnit::Microsecond), true),
+            Field::new("ts_milli", DataType::Timestamp(TimeUnit::Millisecond), true),
+            Field::new(
+                "ts_micro",
+                DataType::Timestamp(TimeUnit::Microsecond),
+                false,
+            ),
+        ];
+
+        assert_eq!(arrow_fields, converted_arrow_fields);
     }
 }
