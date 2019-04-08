@@ -60,7 +60,8 @@ class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBas
   // if necessary.  This function may return with a Python exception set.
   Status ServeWithSignals();
 
-  Status ListFlights(const arrow::flight::Criteria* criteria,
+  Status ListFlights(const arrow::flight::ServerCallContext& context,
+                     const arrow::flight::Criteria* criteria,
                      std::unique_ptr<arrow::flight::FlightListing>* listings) override;
   Status GetFlightInfo(const arrow::flight::FlightDescriptor& request,
                        std::unique_ptr<arrow::flight::FlightInfo>* info) override;

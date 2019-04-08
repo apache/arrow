@@ -33,6 +33,7 @@ PyFlightServer::PyFlightServer(PyObject* server, PyFlightServerVtable vtable)
 }
 
 Status PyFlightServer::ListFlights(
+    const arrow::flight::ServerCallContext& context,
     const arrow::flight::Criteria* criteria,
     std::unique_ptr<arrow::flight::FlightListing>* listings) {
   PyAcquireGIL lock;
