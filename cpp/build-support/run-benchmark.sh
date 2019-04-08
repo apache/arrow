@@ -16,14 +16,14 @@ set -eux
 
 # See https://github.com/google/benchmark/blob/6a5c379ca/tools/gbench/report.py#L39
 # https://github.com/scipy/scipy/blob/c3fa90dcfcaef71/scipy/stats/stats.py#L4957
-: ${BENCHMARK_REPETITIONS:=20}
+: "${BENCHMARK_REPETITIONS:=20}"
 
-PWD=$(cd $(dirname $BASH_SOURCE); pwd)
+PWD=$(cd $(dirname "$BASH_SOURCE"); pwd)
 
 convert_benchmark() {
   local version=$1
 
-  ${PWD}/convert-benchmark.py ${version}
+  "${PWD}/convert-benchmark.py" "${version}"
 }
 
 run_benchmark() {
@@ -33,7 +33,7 @@ run_benchmark() {
   "${bin}" \
     --benchmark_format=json \
     --benchmark_repetitions=${BENCHMARK_REPETITIONS} \
-    $@
+    "$@"
 }
 
 main() {
@@ -53,14 +53,14 @@ main() {
     v=$(md5sum "${benchmark_src}" | cut -d' ' -f1)
   fi
 
-  local benchmark_name=$(basename "${benchmark_bin}")
+  local benchmark_name; benchmark_name=$(basename "${benchmark_bin}")
   local orig_result=${benchmark_dir}/${benchmark_name}.json.original
   local result=${benchmark_dir}/${benchmark_name}.json
 
   # pass in the converter but also keep the original output for debugging
-  run_benchmark "${benchmark_bin}" $@ | \
-    tee ${orig_result} | \
+  run_benchmark "${benchmark_bin}" "$@" | \
+    tee "${orig_result}" | \
     convert_benchmark "${v}" > "${result}"
 }
 
-main $@
+main "$@"
