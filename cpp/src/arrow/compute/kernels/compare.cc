@@ -60,8 +60,6 @@ class CompareFunction final : public FilterFunction {
   Status Filter(const Array& input, const Scalar& scalar, ArrayData* output) const {
     // Caller must cast
     DCHECK(input.type()->Equals(scalar.type));
-    // Caller must not pass null scalar, use IsNull, IsNotNull
-    DCHECK(scalar.is_valid);
     // Output must be a boolean array
     DCHECK(output->type->Equals(boolean()));
     // Output must be of same length
@@ -70,7 +68,9 @@ class CompareFunction final : public FilterFunction {
     auto input_data = input.data();
 
     // Scalar is null, all comparisons are null.
-    if (!scalar.is_valid) return detail::SetAllNulls(ctx_, *input_data, output);
+    if (!scalar.is_valid) {
+      return detail::SetAllNulls(ctx_, *input_data, output);
+    }
 
     // Copy null_bitmap
     RETURN_NOT_OK(detail::PropagateNulls(ctx_, *input_data, output));
@@ -164,8 +164,9 @@ Status Compare(FunctionContext* context, const Datum& left, const Datum& right,
   auto type = array->type();
 
   auto fn = MakeCompareFilterFunction(context, *type, options);
-  if (fn == nullptr)
-    return Status::Invalid("Compare not implemented for type ", type->ToString());
+  if (fn == nullptr) {
+    return Status::NotImplemented("Compare not implemented for type ", type->ToString());
+  }
 
   FilterBinaryKernel filter_kernel(fn);
   detail::PrimitiveAllocatingBinaryKernel kernel(&filter_kernel);

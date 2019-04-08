@@ -191,6 +191,20 @@ TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayScalar) {
   ValidateCompare<TypeParam>(&this->ctx_, lte, "[null,0,1,1]", one, "[null,1,1,1]");
 }
 
+TYPED_TEST(TestNumericCompareKernel, TestNullScalar) {
+  /* Ensure that null scalar broadcast to all null results. */
+  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+  using CType = typename TypeTraits<TypeParam>::CType;
+
+  Datum null(std::make_shared<ScalarType>(CType(0), false));
+  EXPECT_FALSE(null.scalar()->is_valid);
+
+  CompareOptions eq(CompareOperator::EQUAL);
+  ValidateCompare<TypeParam>(&this->ctx_, eq, "[]", null, "[]");
+  ValidateCompare<TypeParam>(&this->ctx_, eq, "[null]", null, "[null]");
+  ValidateCompare<TypeParam>(&this->ctx_, eq, "[1,2,3]", null, "[null, null, null]");
+}
+
 TYPED_TEST_CASE(TestNumericCompareKernel, NumericArrowTypes);
 TYPED_TEST(TestNumericCompareKernel, RandomCompareArrayScalar) {
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;

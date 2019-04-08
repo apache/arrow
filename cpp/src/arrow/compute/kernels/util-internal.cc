@@ -247,12 +247,11 @@ Status SetAllNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* outp
   if (output->buffers[0] == nullptr) {
     std::shared_ptr<Buffer> buffer;
     RETURN_NOT_OK(ctx->Allocate(BitUtil::BytesForBits(length), &buffer));
-    buffer->ZeroPadding();
     output->buffers[0] = std::move(buffer);
   }
 
   output->null_count = length;
-  BitUtil::SetBitsTo(output->buffers[0].get()->mutable_data(), 0, length, false);
+  BitUtil::SetBitsTo(output->buffers[0]->mutable_data(), 0, length, false);
 
   return Status::OK();
 }
