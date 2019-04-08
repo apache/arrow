@@ -200,13 +200,12 @@ namespace Apache.Arrow.Ipc
             }
 
             var buffers = recordBatchBuilder.Buffers;
-            var bufferOffsets = new Offset<Flatbuf.Buffer>[buffers.Count];
 
             Flatbuf.RecordBatch.StartBuffersVector(Builder, buffers.Count);
 
             for (var i = buffers.Count - 1; i >= 0; i--)
             {
-                bufferOffsets[i] = Flatbuf.Buffer.CreateBuffer(Builder,
+                Flatbuf.Buffer.CreateBuffer(Builder,
                     buffers[i].Offset, buffers[i].Length);
             }
 

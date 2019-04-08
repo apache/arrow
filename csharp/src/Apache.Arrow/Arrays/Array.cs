@@ -41,7 +41,7 @@ namespace Apache.Arrow
         }
 
         public bool IsValid(int index) =>
-            NullBitmapBuffer.IsEmpty || BitUtility.GetBit(NullBitmapBuffer.Span, index);
+            NullCount == 0 || NullBitmapBuffer.IsEmpty || BitUtility.GetBit(NullBitmapBuffer.Span, index);
 
         public bool IsNull(int index) => !IsValid(index);
 
