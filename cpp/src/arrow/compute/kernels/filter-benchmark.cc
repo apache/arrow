@@ -18,31 +18,16 @@
 #include "benchmark/benchmark.h"
 
 #include <vector>
-#ifdef _MSC_VER
-#include <intrin.h>
-#else
-#include <immintrin.h>
-#endif
-
-#include "arrow/builder.h"
-#include "arrow/memory_pool.h"
-#include "arrow/testing/gtest_util.h"
-#include "arrow/testing/random.h"
-#include "arrow/util/bit-util.h"
 
 #include "arrow/compute/benchmark-util.h"
-#include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/compare.h"
 #include "arrow/compute/test-util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 
 namespace arrow {
 namespace compute {
-
-#include <cassert>
-#include <cmath>
-#include <iostream>
-#include <random>
 
 static void BenchCompareKernel(benchmark::State& state) {
   const int64_t array_size = state.range(0) / sizeof(int64_t);

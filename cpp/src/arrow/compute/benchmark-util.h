@@ -19,17 +19,8 @@
 
 #include <vector>
 
-#include <benchmark/benchmark.h>
-
-#include "arrow/array.h"
-#include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/util.h"
-#include "arrow/type.h"
 #include "arrow/util/cpu-info.h"
-
-#include "arrow/compute/context.h"
-#include "arrow/compute/kernel.h"
 
 namespace arrow {
 namespace compute {
