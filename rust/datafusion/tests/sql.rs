@@ -100,6 +100,65 @@ fn csv_query_group_by_avg() {
 }
 
 #[test]
+fn csv_query_avg_multi_batch() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    //TODO add ORDER BY once supported, to make this test determistic
+    let sql = "SELECT avg(c12) FROM aggregate_test_100";
+    let plan = ctx.create_logical_plan(&sql).unwrap();
+    let results = ctx.execute(&plan, 4).unwrap();
+    let mut relation = results.borrow_mut();
+    let batch = relation.next().unwrap().unwrap();
+    let column = batch.column(0);
+    let array = column
+        .as_any()
+        .downcast_ref::<Float64Array>()
+        .unwrap();
+    let actual = array.value(0);
+    let expected = 0.5089725;
+    // Due to float number's accuracy, different batch size will lead to different answers.
+    assert!((expected - actual).abs() < 0.01);
+}
+
+#[test]
+fn csv_query_group_by_avg_multi_batch() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    //TODO add ORDER BY once supported, to make this test determistic
+    let sql = "SELECT c1, avg(c12) FROM aggregate_test_100 GROUP BY c1";
+    let plan = ctx.create_logical_plan(&sql).unwrap();
+    let results = ctx.execute(&plan, 4).unwrap();
+    let mut relation = results.borrow_mut();
+    let mut actual_vec = Vec::new();
+    while let Some(batch) = relation.next().unwrap() {
+        let column = batch.column(1);
+        let array = column
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+
+        for row_index in 0..batch.num_rows() {
+            actual_vec.push(array.value(row_index));
+        }
+    }
+
+    let expect_vec = vec![
+        0.48855379,
+        0.66004565,
+        0.41040709,
+        0.48754517
+    ];
+
+    actual_vec.iter().zip(expect_vec.iter())
+        .for_each(|(actual, expect)| {
+            // Due to float number's accuracy, different batch size will lead to different answers.
+            assert!((expect - actual).abs() < 0.01);
+        });
+
+}
+
+
+#[test]
 fn csv_query_count() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);

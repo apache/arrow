@@ -395,12 +395,18 @@ impl AggregateFunction for AvgFunction {
             Some(ScalarValue::Int64(a)) => a as f64,
             Some(ScalarValue::Float32(a)) => a as f64,
             Some(ScalarValue::Float64(a)) => a as f64,
+            Some(ScalarValue::Null) => {
+                return Some(ScalarValue::Null);
+            }
             _ => {
                 return None;
             }
         };
         let count = match self.count_value.result() {
             Some(ScalarValue::UInt64(a)) => a as f64,
+            Some(ScalarValue::Null) => {
+                return Some(ScalarValue::Null);
+            }
             _ => {
                 return None;
             }
@@ -434,7 +440,7 @@ impl AggregateFunction for CountFunction {
         if value.is_some() {
             self.value = match self.value {
                 Some(cur_value) => Some(cur_value + 1),
-                _ => Some(1),
+                None => Some(1),
             }
         }
 
@@ -447,7 +453,7 @@ impl AggregateFunction for CountFunction {
         if let Some(ScalarValue::UInt64(n)) = accumulated_value {
             self.value = match self.value {
                 Some(cur_value) => Some(cur_value + n),
-                _ => Some(n),
+                None => Some(n),
             }
         };
 
