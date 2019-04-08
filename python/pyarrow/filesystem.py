@@ -373,7 +373,10 @@ class S3FSWrapper(DaskFileSystem):
                 yield tup
 
 
-class ADLFSWrapper(DaskFileSystem):
+class AzureDatalakeFileSystemWrapper(DaskFileSystem):
+    """
+    Wraps the Gen1 Azure Datalake Filesystem client.
+    """
 
     @implements(FileSystem.isdir)
     def isdir(self, path):
@@ -419,7 +422,6 @@ class ADLFSWrapper(DaskFileSystem):
             else:
                 files.add(path)
 
-        # s3fs creates duplicate 'DIRECTORY' entries
         files = sorted([posixpath.split(f)[1] for f in files
                         if f not in directories])
         directories = sorted([posixpath.split(x)[1]
@@ -436,6 +438,19 @@ def _sanitize_remote_path(path):
     if path.startswith('s3://'):
         return path.replace('s3://', '')
     elif path.startswith('adl://'):
+        """ 
+        The Azure Datalake Filesystem Client is ultimately formatted as:
+        {store_name}.azuredtalakestore.net/{folder}/{files}, where
+        store_name is passed as a parameter to the filesystem client.
+
+        The dask-adlfs package formats this similar to a S3 bucket, as
+        adl://{store_name}/{folder}/{files}.
+
+        We resolve these differences here, by first stripping the
+        adl:// prefix, then splitting the filepath into its parts and
+        dropping {store_name}.azuredatalakestore.net.  Then
+        the {folder}/{file} is stitched back together.
+        """
         newpath = path.replace('adl://', '')
         path_parts = newpath.split('/')
         path_parts = [p for p in path_parts if 'azuredatalakestore.net' not
@@ -443,10 +458,13 @@ def _sanitize_remote_path(path):
         outpath = "/".join(path_parts)
         return outpath
     elif path.startswith('/'):
-        # This is a shim.  When an individual file is passed to the
-        #  adlfilesystemclient, it returns
-        # a leading "/" that has to be removed to make the path and
-        # sanitized paths match.
+        """
+        This was added to sanitize a particular
+        issue that only applies to Azure Datalake Gen1 paths.
+        When an individual file is passed to the adlfilesystemclient, 
+        it returns a leading "/" that has to be removed to make the 
+        path and sanitized paths match.
+        """
         return path[1:]
     else:
         return path
