@@ -110,10 +110,7 @@ fn csv_query_avg_multi_batch() {
     let mut relation = results.borrow_mut();
     let batch = relation.next().unwrap().unwrap();
     let column = batch.column(0);
-    let array = column
-        .as_any()
-        .downcast_ref::<Float64Array>()
-        .unwrap();
+    let array = column.as_any().downcast_ref::<Float64Array>().unwrap();
     let actual = array.value(0);
     let expected = 0.5089725;
     // Due to float number's accuracy, different batch size will lead to different answers.
@@ -132,31 +129,23 @@ fn csv_query_group_by_avg_multi_batch() {
     let mut actual_vec = Vec::new();
     while let Some(batch) = relation.next().unwrap() {
         let column = batch.column(1);
-        let array = column
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
+        let array = column.as_any().downcast_ref::<Float64Array>().unwrap();
 
         for row_index in 0..batch.num_rows() {
             actual_vec.push(array.value(row_index));
         }
     }
 
-    let expect_vec = vec![
-        0.48855379,
-        0.66004565,
-        0.41040709,
-        0.48754517
-    ];
+    let expect_vec = vec![0.48855379, 0.66004565, 0.41040709, 0.48754517];
 
-    actual_vec.iter().zip(expect_vec.iter())
+    actual_vec
+        .iter()
+        .zip(expect_vec.iter())
         .for_each(|(actual, expect)| {
             // Due to float number's accuracy, different batch size will lead to different answers.
             assert!((expect - actual).abs() < 0.01);
         });
-
 }
-
 
 #[test]
 fn csv_query_count() {
