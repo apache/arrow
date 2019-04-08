@@ -178,40 +178,6 @@ class UnsafeStringBuilder {
   std::shared_ptr<ResizableBuffer> values_buffer_;
 };
 
-struct InsituStringStream {
-  using Ch = char;
-
-  InsituStringStream(char* src, int64_t length)
-      : src_(src), dst_(0), head_(src), end_(src + length) {}
-
-  // Read
-  char Peek() { return src_ == end_ ? '\0' : *src_; }
-  char Take() { return src_ == end_ ? '\0' : *src_++; }
-  size_t Tell() { return static_cast<size_t>(src_ - head_); }
-
-  // Write
-  void Put(char c) {
-    RAPIDJSON_ASSERT(dst_ != 0);
-    *dst_++ = c;
-  }
-
-  char* PutBegin() { return dst_ = src_; }
-  size_t PutEnd(char* begin) { return static_cast<size_t>(dst_ - begin); }
-  void Flush() {}
-
-  char* Push(size_t count) {
-    char* begin = dst_;
-    dst_ += count;
-    return begin;
-  }
-  void Pop(size_t count) { dst_ -= count; }
-
-  char* src_;
-  char* dst_;
-  char* head_;
-  char* end_;
-};
-
 /// \brief ArrayBuilder for parsed but unconverted arrays
 template <Kind::type>
 class RawArrayBuilder;
@@ -589,11 +555,10 @@ class HandlerBase : public BlockParser::Impl,
   }
 
   template <typename Handler, typename Stream>
-  Status DoParse(Handler& handler, Stream& json) {
+  Status DoParse(Handler& handler, Stream&& json) {
     constexpr auto parse_flags =
-        rapidjson::kParseInsituFlag | rapidjson::kParseIterativeFlag |
-        rapidjson::kParseNanAndInfFlag | rapidjson::kParseStopWhenDoneFlag |
-        rapidjson::kParseNumbersAsStringsFlag;
+        rapidjson::kParseIterativeFlag | rapidjson::kParseNanAndInfFlag |
+        rapidjson::kParseStopWhenDoneFlag | rapidjson::kParseNumbersAsStringsFlag;
 
     rapidjson::Reader reader;
 
@@ -628,17 +593,10 @@ class HandlerBase : public BlockParser::Impl,
     }
     auto json_data = reinterpret_cast<char*>(json->mutable_data());
 
-    // if there is whitespace between the end of the last object
-    // and the beginning of the next, we can replace it with '\0' for
-    // more efficient parsing
-    if (std::isspace(json_data[json->size() - 1])) {
-      json_data[json->size() - 1] = '\0';
-      rapidjson::GenericInsituStringStream<rapidjson::UTF8<>> stream(json_data);
-      return DoParse(handler, stream);
-    } else {
-      InsituStringStream stream(json_data, json->size());
-      return DoParse(handler, stream);
-    }
+    using rapidjson::MemoryStream;
+    MemoryStream ms(json_data, json->size());
+    using InputStream = rapidjson::EncodedInputStream<rapidjson::UTF8<>, MemoryStream>;
+    return DoParse(handler, InputStream(ms));
   }
 
   /// construct a builder of statically defined kind in arenas_

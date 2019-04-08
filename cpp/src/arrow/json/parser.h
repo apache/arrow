@@ -62,7 +62,7 @@ class ARROW_EXPORT BlockParser {
   BlockParser(ParseOptions options,
               const std::shared_ptr<ResizableBuffer>& scalar_storage);
 
-  /// \brief Parse a block of data insitu (destructively)
+  /// \brief Parse a block of data
   Status Parse(const std::shared_ptr<Buffer>& json) { return impl_->Parse(json); }
 
   /// \brief Extract parsed data
