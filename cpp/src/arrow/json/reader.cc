@@ -284,9 +284,11 @@ Status TableReader::Make(MemoryPool* pool, std::shared_ptr<io::InputStream> inpu
   return Status::OK();
 }
 
-Status ParseOne(ParseOptions options, std::shared_ptr<ResizableBuffer> json,
+Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
                 std::shared_ptr<RecordBatch>* out) {
-  BlockParser parser(default_memory_pool(), options, json);
+  std::shared_ptr<ResizableBuffer> storage;
+  RETURN_NOT_OK(AllocateResizableBuffer(default_memory_pool(), json->size(), &storage));
+  BlockParser parser(default_memory_pool(), options, storage);
   RETURN_NOT_OK(parser.Parse(json));
   std::shared_ptr<Array> parsed;
   RETURN_NOT_OK(parser.Finish(&parsed));

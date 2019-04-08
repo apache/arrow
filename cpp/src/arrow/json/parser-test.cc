@@ -201,11 +201,10 @@ TEST(BlockParser, Nested) {
                       R"([{"ps":null}, null, {"ps":"78"}, {"ps":"90"}])"});
 }
 
-void AssertParseOne(ParseOptions options, string_view src_str,
+void AssertParseOne(ParseOptions options, const std::string& src_str,
                     const std::vector<std::shared_ptr<Field>>& fields,
                     const std::vector<std::string>& columns_json) {
-  std::shared_ptr<ResizableBuffer> src;
-  ASSERT_OK(MakeBuffer(src_str, &src));
+  auto src = std::make_shared<Buffer>(src_str);
   std::shared_ptr<RecordBatch> parsed;
   ASSERT_OK(ParseOne(options, src, &parsed));
   for (size_t i = 0; i < fields.size(); ++i) {

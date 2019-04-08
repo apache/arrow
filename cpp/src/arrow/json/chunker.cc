@@ -60,12 +60,12 @@ size_t ConsumeWhitespace(std::shared_ptr<Buffer>* buf) {
   auto data = reinterpret_cast<const char*>((*buf)->data());
   auto nonws_begin = rapidjson::SkipWhitespace_SIMD(data, data + (*buf)->size());
   auto ws_count = nonws_begin - data;
-  *buf = SliceMutableBuffer(*buf, ws_count);
+  *buf = SliceBuffer(*buf, ws_count);
   return static_cast<size_t>(ws_count);
 #undef ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD
 #else
   auto ws_count = View(*buf).find_first_not_of(" \t\r\n");
-  *buf = SliceMutableBuffer(*buf, ws_count);
+  *buf = SliceBuffer(*buf, ws_count);
   return ws_count;
 #endif
 }
@@ -77,11 +77,11 @@ class NewlinesStrictlyDelimitChunker : public Chunker {
     auto last_newline = View(block).find_last_of("\n\r");
     if (last_newline == string_view::npos) {
       // no newlines in this block, return empty chunk
-      *whole = SliceMutableBuffer(block, 0, 0);
+      *whole = SliceBuffer(block, 0, 0);
       *partial = block;
     } else {
-      *whole = SliceMutableBuffer(block, 0, last_newline + 1);
-      *partial = SliceMutableBuffer(block, last_newline + 1);
+      *whole = SliceBuffer(block, 0, last_newline + 1);
+      *partial = SliceBuffer(block, last_newline + 1);
     }
     return Status::OK();
   }
@@ -94,7 +94,7 @@ class NewlinesStrictlyDelimitChunker : public Chunker {
     ConsumeWhitespace(&partial);
     if (partial->size() == 0) {
       // if partial is empty, don't bother looking for completion
-      *completion = SliceMutableBuffer(block, 0, 0);
+      *completion = SliceBuffer(block, 0, 0);
       *rest = block;
       return Status::OK();
     }
@@ -104,8 +104,8 @@ class NewlinesStrictlyDelimitChunker : public Chunker {
       // retry with larger buffer
       return StraddlingTooLarge();
     }
-    *completion = SliceMutableBuffer(block, 0, first_newline + 1);
-    *rest = SliceMutableBuffer(block, first_newline + 1);
+    *completion = SliceBuffer(block, 0, first_newline + 1);
+    *rest = SliceBuffer(block, first_newline + 1);
     return Status::OK();
   }
 };
@@ -181,12 +181,12 @@ class ParsingChunker : public Chunker {
   Status Process(const std::shared_ptr<Buffer>& block, std::shared_ptr<Buffer>* whole,
                  std::shared_ptr<Buffer>* partial) override {
     if (block->size() == 0) {
-      *whole = SliceMutableBuffer(block, 0, 0);
+      *whole = SliceBuffer(block, 0, 0);
       *partial = block;
       return Status::OK();
     }
     size_t total_length = 0;
-    for (auto consumed = block;; consumed = SliceMutableBuffer(block, total_length)) {
+    for (auto consumed = block;; consumed = SliceBuffer(block, total_length)) {
       using rapidjson::MemoryStream;
       MemoryStream ms(reinterpret_cast<const char*>(consumed->data()), consumed->size());
       using InputStream = rapidjson::EncodedInputStream<rapidjson::UTF8<>, MemoryStream>;
@@ -201,8 +201,8 @@ class ParsingChunker : public Chunker {
       }
       total_length += length;
     }
-    *whole = SliceMutableBuffer(block, 0, total_length);
-    *partial = SliceMutableBuffer(block, total_length);
+    *whole = SliceBuffer(block, 0, total_length);
+    *partial = SliceBuffer(block, total_length);
     return Status::OK();
   }
 
@@ -214,7 +214,7 @@ class ParsingChunker : public Chunker {
     ConsumeWhitespace(&partial);
     if (partial->size() == 0) {
       // if partial is empty, don't bother looking for completion
-      *completion = SliceMutableBuffer(block, 0, 0);
+      *completion = SliceBuffer(block, 0, 0);
       *rest = block;
       return Status::OK();
     }
@@ -225,8 +225,8 @@ class ParsingChunker : public Chunker {
       return StraddlingTooLarge();
     }
     auto completion_length = length - partial->size();
-    *completion = SliceMutableBuffer(block, 0, completion_length);
-    *rest = SliceMutableBuffer(block, completion_length);
+    *completion = SliceBuffer(block, 0, completion_length);
+    *rest = SliceBuffer(block, completion_length);
     return Status::OK();
   }
 };

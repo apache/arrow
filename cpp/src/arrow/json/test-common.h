@@ -21,6 +21,9 @@
 #include <string>
 #include <vector>
 
+#include <rapidjson/document.h>
+#include <rapidjson/prettywriter.h>
+#include <rapidjson/reader.h>
 #include <rapidjson/writer.h>
 
 #include "arrow/io/memory.h"
@@ -126,18 +129,10 @@ inline static Status Generate(const std::vector<std::shared_ptr<Field>>& fields,
   return OK(writer->EndObject(static_cast<int>(fields.size())));
 }
 
-inline static Status MakeBuffer(util::string_view data,
-                                std::shared_ptr<ResizableBuffer>* out) {
-  RETURN_NOT_OK(AllocateResizableBuffer(default_memory_pool(), data.size(), out));
-  std::copy(std::begin(data), std::end(data), (*out)->mutable_data());
-  return Status::OK();
-}
-
-inline static Status MakeStream(util::string_view data,
+inline static Status MakeStream(util::string_view src_str,
                                 std::shared_ptr<io::InputStream>* out) {
-  std::shared_ptr<ResizableBuffer> buffer;
-  RETURN_NOT_OK(MakeBuffer(data, &buffer));
-  *out = std::make_shared<io::BufferReader>(buffer);
+  auto src = std::make_shared<Buffer>(src_str);
+  *out = std::make_shared<io::BufferReader>(src);
   return Status::OK();
 }
 
@@ -163,9 +158,10 @@ inline static Status DecodeStringDictionary(const DictionaryArray& dict_array,
 
 inline static Status ParseFromString(ParseOptions options, util::string_view src_str,
                                      std::shared_ptr<Array>* parsed) {
-  std::shared_ptr<ResizableBuffer> src;
-  RETURN_NOT_OK(MakeBuffer(src_str, &src));
-  BlockParser parser(options, src);
+  auto src = std::make_shared<Buffer>(src_str);
+  std::shared_ptr<ResizableBuffer> storage;
+  RETURN_NOT_OK(AllocateResizableBuffer(src->size(), &storage));
+  BlockParser parser(options, storage);
   RETURN_NOT_OK(parser.Parse(src));
   return parser.Finish(parsed);
 }
@@ -209,6 +205,15 @@ Status Convert(MemoryPool* pool, const std::shared_ptr<DataType>& target_type,
   RETURN_NOT_OK(Convert(pool, target_type, parsed, &converted));
   *converted_data = converted->data();
   return Status::OK();
+}
+
+std::string PrettyPrint(util::string_view one_line) {
+  rapidjson::Document document;
+  document.Parse(one_line.data());
+  rapidjson::StringBuffer sb;
+  rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(sb);
+  document.Accept(writer);
+  return sb.GetString();
 }
 
 }  // namespace json

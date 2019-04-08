@@ -591,10 +591,9 @@ class HandlerBase : public BlockParser::Impl,
           json->size() - scalar_values_builder_.remaining_capacity();
       RETURN_NOT_OK(scalar_values_builder_.ReserveData(additional_storage));
     }
-    auto json_data = reinterpret_cast<char*>(json->mutable_data());
 
     using rapidjson::MemoryStream;
-    MemoryStream ms(json_data, json->size());
+    MemoryStream ms(reinterpret_cast<const char*>(json->data()), json->size());
     using InputStream = rapidjson::EncodedInputStream<rapidjson::UTF8<>, MemoryStream>;
     return DoParse(handler, InputStream(ms));
   }

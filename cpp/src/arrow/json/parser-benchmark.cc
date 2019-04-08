@@ -30,13 +30,14 @@ namespace arrow {
 namespace json {
 
 static void BenchmarkJSONChunking(benchmark::State& state,  // NOLINT non-const reference
-                                  const std::string& json, ParseOptions options) {
+                                  const std::shared_ptr<Buffer>& json,
+                                  ParseOptions options) {
   auto chunker = Chunker::Make(options);
   for (auto _ : state) {
-    util::string_view chunked;
-    ABORT_NOT_OK(chunker->Process(json, &chunked));
+    std::shared_ptr<Buffer> chunked, partial;
+    ABORT_NOT_OK(chunker->Process(json, &chunked, &partial));
   }
-  state.SetBytesProcessed(state.iterations() * json.size());
+  state.SetBytesProcessed(state.iterations() * json->size());
 }
 
 static void BM_ChunkJSONPrettyPrinted(
@@ -51,11 +52,13 @@ static void BM_ChunkJSONPrettyPrinted(
     StringBuffer sb;
     Writer writer(sb);
     ABORT_NOT_OK(Generate(options.explicit_schema, engine, &writer));
-    json += sb.GetString();
+    json += PrettyPrint(sb.GetString());
     json += "\n";
   }
-  BenchmarkJSONChunking(state, json, options);
+  BenchmarkJSONChunking(state, std::make_shared<Buffer>(json), options);
 }
+
+BENCHMARK(BM_ChunkJSONPrettyPrinted)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 
 static void BM_ChunkJSONLineDelimited(
     benchmark::State& state) {  // NOLINT non-const reference
@@ -72,19 +75,19 @@ static void BM_ChunkJSONLineDelimited(
     json += sb.GetString();
     json += "\n";
   }
-  BenchmarkJSONChunking(state, json, options);
+  BenchmarkJSONChunking(state, std::make_shared<Buffer>(json), options);
 }
 
 BENCHMARK(BM_ChunkJSONLineDelimited)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 
 static void BenchmarkJSONParsing(benchmark::State& state,  // NOLINT non-const reference
-                                 const std::string& json, int32_t num_rows,
+                                 const std::shared_ptr<Buffer>& json, int32_t num_rows,
                                  ParseOptions options) {
+  std::shared_ptr<ResizableBuffer> storage;
+  ABORT_NOT_OK(AllocateResizableBuffer(json->size(), &storage));
   for (auto _ : state) {
-    std::shared_ptr<Buffer> src;
-    ABORT_NOT_OK(MakeBuffer(json, &src));
-    BlockParser parser(options, src);
-    ABORT_NOT_OK(parser.Parse(src));
+    BlockParser parser(options, storage);
+    ABORT_NOT_OK(parser.Parse(json));
     if (parser.num_rows() != num_rows) {
       std::cerr << "Parsing incomplete\n";
       std::abort();
@@ -92,7 +95,7 @@ static void BenchmarkJSONParsing(benchmark::State& state,  // NOLINT non-const r
     std::shared_ptr<Array> parsed;
     ABORT_NOT_OK(parser.Finish(&parsed));
   }
-  state.SetBytesProcessed(state.iterations() * json.size());
+  state.SetBytesProcessed(state.iterations() * json->size());
 }
 
 static void BM_ParseJSONBlockWithSchema(
@@ -110,7 +113,7 @@ static void BM_ParseJSONBlockWithSchema(
     json += sb.GetString();
     json += "\n";
   }
-  BenchmarkJSONParsing(state, json, num_rows, options);
+  BenchmarkJSONParsing(state, std::make_shared<Buffer>(json), num_rows, options);
 }
 
 BENCHMARK(BM_ParseJSONBlockWithSchema)->MinTime(1.0)->Unit(benchmark::kMicrosecond);

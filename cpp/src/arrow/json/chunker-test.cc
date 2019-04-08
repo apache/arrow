@@ -21,13 +21,11 @@
 #include <string>
 
 #include <gtest/gtest.h>
-#include <rapidjson/document.h>
-#include <rapidjson/prettywriter.h>
-#include <rapidjson/reader.h>
 
 #include "arrow/buffer.h"
 #include "arrow/json/chunker.h"
 #include "arrow/json/options.h"
+#include "arrow/json/test-common.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/string_view.h"
@@ -54,15 +52,6 @@ std::shared_ptr<Buffer> join(Lines&& lines, std::string delimiter) {
   return joined;
 }
 
-std::string PrettyPrint(string_view one_line) {
-  rapidjson::Document document;
-  document.Parse(one_line.data());
-  rapidjson::StringBuffer sb;
-  rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(sb);
-  document.Accept(writer);
-  return sb.GetString();
-}
-
 string_view View(const std::shared_ptr<Buffer>& buffer) {
   return string_view(reinterpret_cast<const char*>(buffer->data()), buffer->size());
 }
@@ -86,7 +75,7 @@ std::size_t ConsumeWholeObject(std::shared_ptr<Buffer>* buf) {
   if (close_brace == string_view::npos) return fail();
   if (str.at(close_brace) != '}') return fail();
   auto length = close_brace + 1;
-  *buf = SliceMutableBuffer(*buf, length);
+  *buf = SliceBuffer(*buf, length);
   return length;
 }
 
@@ -110,8 +99,7 @@ void AssertChunking(Chunker& chunker, std::shared_ptr<Buffer> buf, int total_cou
   for (int i = 0; i < total_count; ++i) {
     // ensure shearing the closing brace off the last object causes it to be chunked out
     auto last_brace = View(buf).find_last_of('}');
-    AssertWholeObjects(chunker, SliceMutableBuffer(buf, 0, last_brace),
-                       total_count - i - 1);
+    AssertWholeObjects(chunker, SliceBuffer(buf, 0, last_brace), total_count - i - 1);
 
     // ensure skipping one object reduces the count by one
     ASSERT_NE(ConsumeWholeObject(&buf), string_view::npos);
@@ -120,8 +108,8 @@ void AssertChunking(Chunker& chunker, std::shared_ptr<Buffer> buf, int total_cou
 }
 
 void AssertStraddledChunking(Chunker& chunker, const std::shared_ptr<Buffer>& buf) {
-  auto first_half = SliceMutableBuffer(buf, 0, buf->size() / 2);
-  auto second_half = SliceMutableBuffer(buf, buf->size() / 2);
+  auto first_half = SliceBuffer(buf, 0, buf->size() / 2);
+  auto second_half = SliceBuffer(buf, buf->size() / 2);
   AssertChunking(chunker, first_half, 1);
   std::shared_ptr<Buffer> first_whole, partial;
   ASSERT_OK(chunker.Process(first_half, &first_whole, &partial));
@@ -135,7 +123,7 @@ void AssertStraddledChunking(Chunker& chunker, const std::shared_ptr<Buffer>& bu
   auto length = ConsumeWholeObject(&straddling);
   ASSERT_NE(length, string_view::npos);
   ASSERT_NE(length, 0);
-  auto final_whole = SliceMutableBuffer(second_half, completion->size());
+  auto final_whole = SliceBuffer(second_half, completion->size());
   length = ConsumeWholeObject(&final_whole);
   ASSERT_NE(length, string_view::npos);
   ASSERT_NE(length, 0);
@@ -171,10 +159,9 @@ TEST_P(BaseChunkerTest, Basics) {
 }
 
 TEST_P(BaseChunkerTest, Empty) {
-  std::shared_ptr<Buffer> empty;
-  ASSERT_OK(MutableBuffer::FromString("\n", &empty));
+  auto empty = std::make_shared<Buffer>("\n");
   AssertChunking(*chunker_, empty, 0);
-  ASSERT_OK(MutableBuffer::FromString("\n\n", &empty));
+  empty = std::make_shared<Buffer>("\n\n");
   AssertChunking(*chunker_, empty, 0);
 }
 
@@ -210,12 +197,12 @@ TEST(ChunkerTest, StraddlingSingleLine) {
 TEST_P(BaseChunkerTest, StraddlingEmpty) {
   auto all = join(lines(), "\n");
 
-  auto first = SliceMutableBuffer(all, 0, lines()[0].size() + 1);
+  auto first = SliceBuffer(all, 0, lines()[0].size() + 1);
   std::shared_ptr<Buffer> first_whole, partial;
   ASSERT_OK(chunker_->Process(first, &first_whole, &partial));
   ASSERT_TRUE(WhitespaceOnly(partial));
 
-  auto others = SliceMutableBuffer(all, first->size());
+  auto others = SliceBuffer(all, first->size());
   std::shared_ptr<Buffer> completion, rest;
   ASSERT_OK(chunker_->Process(partial, others, &completion, &rest));
   ASSERT_EQ(completion->size(), 0);
