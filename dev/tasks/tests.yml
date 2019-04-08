@@ -43,12 +43,14 @@ groups:
     - docker-dask-integration
     - docker-hdfs-integration
     - docker-spark-integration
+    - docker-turbodbc-integration
 
   integration:
     - docker-pandas-master
     - docker-dask-integration
     - docker-hdfs-integration
     - docker-spark-integration
+    - docker-turbodbc-integration
 
   cpp-python:
     - docker-cpp
@@ -316,6 +318,18 @@ tasks:
         - docker-compose build python
         - docker-compose build spark-integration
         - docker-compose run spark-integration
+
+  docker-turbodbc-integration:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build turbodbc-integration
+        - docker-compose run turbodbc-integration
 
   docker-pandas-master:
     platform: linux
