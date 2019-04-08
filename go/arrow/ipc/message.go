@@ -132,8 +132,8 @@ type MessageReader struct {
 }
 
 // NewMessageReader returns a reader that reads messages from an input stream.
-func NewMessageReader(r io.Reader) (*MessageReader, error) {
-	return &MessageReader{r: r, refCount: 1}, nil
+func NewMessageReader(r io.Reader) *MessageReader {
+	return &MessageReader{r: r, refCount: 1}
 }
 
 // Retain increases the reference count by 1.
@@ -165,7 +165,7 @@ func (r *MessageReader) Message() (*Message, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "arrow/ipc: could not read message length")
 	}
-	msgLen := binary.LittleEndian.Uint32(buf)
+	msgLen := int32(binary.LittleEndian.Uint32(buf))
 	if msgLen == 0 {
 		// optional 0 EOS control message
 		return nil, io.EOF // FIXME(sbinet): send nil instead? or a special EOS error?

@@ -50,24 +50,19 @@ type Reader struct {
 
 // NewReader returns a reader that reads records from an input stream.
 func NewReader(r io.Reader, opts ...Option) (*Reader, error) {
-	msg, err := NewMessageReader(r)
-	if err != nil {
-		return nil, errors.Wrap(err, "arrow/ipc: could create message reader")
-	}
-
 	cfg := newConfig()
 	for _, opt := range opts {
 		opt(cfg)
 	}
 
 	rr := &Reader{
-		r:     msg,
+		r:     NewMessageReader(r),
 		types: make(dictTypeMap),
 		memo:  newMemo(),
 		mem:   cfg.alloc,
 	}
 
-	err = rr.readSchema()
+	err := rr.readSchema()
 	if err != nil {
 		return nil, errors.Wrap(err, "arrow/ipc: could not read schema from stream")
 	}
