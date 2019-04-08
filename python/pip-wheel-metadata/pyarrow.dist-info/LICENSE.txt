@@ -1,5 +1,4 @@
-## 3rd-party licenses for code that has been adapted for the Arrow Python
-   library
+
 
 -------------------------------------------------------------------------------
 Some code from pandas has been adapted for this codebase. pandas is available
