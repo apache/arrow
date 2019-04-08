@@ -896,14 +896,23 @@ class RecordBatchPayloadWriter : public RecordBatchWriter {
   ~RecordBatchPayloadWriter() override = default;
 
   RecordBatchPayloadWriter(std::unique_ptr<internal::IpcPayloadWriter> payload_writer,
-                           const std::shared_ptr<Schema>& schema)
+                           const Schema& schema)
       : payload_writer_(std::move(payload_writer)),
         schema_(schema),
         pool_(default_memory_pool()),
         started_(false) {}
 
+  // A Schema-owning constructor variant
+  RecordBatchPayloadWriter(std::unique_ptr<internal::IpcPayloadWriter> payload_writer,
+                           const std::shared_ptr<Schema>& schema)
+      : payload_writer_(std::move(payload_writer)),
+        shared_schema_(schema),
+        schema_(*schema),
+        pool_(default_memory_pool()),
+        started_(false) {}
+
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override {
-    if (!batch.schema()->Equals(*schema_, false /* check_metadata */)) {
+    if (!batch.schema()->Equals(schema_, false /* check_metadata */)) {
       return Status::Invalid("Tried to write record batch with different schema");
     }
 
@@ -928,7 +937,7 @@ class RecordBatchPayloadWriter : public RecordBatchWriter {
     std::vector<internal::IpcPayload> payloads;
     // XXX should we have a GetSchemaPayloads() variant that generates them
     // one by one, to minimize memory usage?
-    RETURN_NOT_OK(GetSchemaPayloads(*schema_, pool_, &payloads));
+    RETURN_NOT_OK(GetSchemaPayloads(schema_, pool_, &payloads));
     for (const auto& payload : payloads) {
       RETURN_NOT_OK(payload_writer_->WritePayload(payload));
     }
@@ -945,7 +954,8 @@ class RecordBatchPayloadWriter : public RecordBatchWriter {
 
  protected:
   std::unique_ptr<internal::IpcPayloadWriter> payload_writer_;
-  std::shared_ptr<Schema> schema_;
+  std::shared_ptr<Schema> shared_schema_;
+  const Schema& schema_;
   MemoryPool* pool_;
   bool started_;
 };
@@ -1067,9 +1077,7 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
     // Write file footer
     RETURN_NOT_OK(UpdatePosition());
     int64_t initial_position = position_;
-    DictionaryMemo dictionary_memo;  // Unused
-    RETURN_NOT_OK(WriteFileFooter(*schema_, dictionaries_, record_batches_,
-                                  &dictionary_memo, sink_));
+    RETURN_NOT_OK(WriteFileFooter(*schema_, dictionaries_, record_batches_, sink_));
 
     // Write footer length
     RETURN_NOT_OK(UpdatePosition());
@@ -1196,18 +1204,17 @@ Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
                           kMaxNestingDepth, true);
 }
 
+// TODO: this function also serializes dictionaries.  This is suboptimal for
+// the purpose of transmitting working set metadata without actually sending
+// the data (e.g. ListFlights() in Flight RPC).
+
 Status SerializeSchema(const Schema& schema, MemoryPool* pool,
                        std::shared_ptr<Buffer>* out) {
   std::shared_ptr<io::BufferOutputStream> stream;
   RETURN_NOT_OK(io::BufferOutputStream::Create(1024, pool, &stream));
 
-  // XXX: PayloadStreamWriter takes a std::shared_ptr<Schema> but we only got a
-  // raw reference.  We fake it with a null deleter.
-  auto deleter = [](Schema*) -> void {};
-  std::shared_ptr<Schema> schema_ptr(const_cast<Schema*>(&schema), deleter);
-
   auto payload_writer = make_unique<PayloadStreamWriter>(stream.get());
-  RecordBatchPayloadWriter writer(std::move(payload_writer), schema_ptr);
+  RecordBatchPayloadWriter writer(std::move(payload_writer), schema);
   // Write out schema and dictionaries
   RETURN_NOT_OK(writer.Start());
 

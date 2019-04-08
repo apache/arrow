@@ -83,13 +83,11 @@ class FlightIpcMessageReader : public ipc::MessageReader {
       *out = nullptr;
       return OverrideWithServerError(Status::OK());
     }
-    std::unique_ptr<ipc::Message> message;
     // Validate IPC message
-    auto st = data.OpenMessage(&message);
+    auto st = data.OpenMessage(out);
     if (!st.ok()) {
       return OverrideWithServerError(std::move(st));
     }
-    *out = std::move(message);
     return Status::OK();
   }
 
@@ -133,7 +131,9 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
       {
         pb::FlightDescriptor pb_descr;
         RETURN_NOT_OK(internal::ToProto(descriptor_, &pb_descr));
-        pb_descr.SerializeToString(&str_descr);
+        if (!pb_descr.SerializeToString(&str_descr)) {
+          return Status::UnknownError("Failed to serialized Flight descriptor");
+        }
       }
       RETURN_NOT_OK(Buffer::FromString(str_descr, &payload.descriptor));
       first_payload_ = false;
