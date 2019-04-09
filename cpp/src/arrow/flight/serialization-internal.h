@@ -20,15 +20,12 @@
 
 #pragma once
 
-// Enable gRPC customizations
-#include "arrow/flight/protocol-internal.h"  // IWYU pragma: keep
-
 #include <memory>
-
-#include <google/protobuf/io/coded_stream.h>
 
 #include "arrow/flight/internal.h"
 #include "arrow/flight/types.h"
+#include "arrow/ipc/message.h"
+#include "arrow/status.h"
 
 namespace arrow {
 
@@ -48,7 +45,22 @@ struct FlightData {
 
   /// Message body
   std::shared_ptr<Buffer> body;
+
+  /// Open IPC message from the metadata and body
+  Status OpenMessage(std::unique_ptr<ipc::Message>* message);
 };
+
+/// Write Flight message on gRPC stream with zero-copy optimizations.
+/// True is returned on success, false if some error occurred (connection closed?).
+bool WritePayload(const FlightPayload& payload,
+                  grpc::ClientWriter<pb::FlightData>* writer);
+bool WritePayload(const FlightPayload& payload,
+                  grpc::ServerWriter<pb::FlightData>* writer);
+
+/// Read Flight message from gRPC stream with zero-copy optimizations.
+/// True is returned on success, false if stream ended.
+bool ReadPayload(grpc::ClientReader<pb::FlightData>* reader, FlightData* data);
+bool ReadPayload(grpc::ServerReader<pb::FlightData>* reader, FlightData* data);
 
 }  // namespace internal
 }  // namespace flight

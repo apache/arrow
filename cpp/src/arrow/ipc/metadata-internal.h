@@ -151,7 +151,7 @@ Status WriteSparseTensorMessage(const SparseTensor& sparse_tensor, int64_t body_
 
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
                        const std::vector<FileBlock>& record_batches,
-                       DictionaryMemo* dictionary_memo, io::OutputStream* out);
+                       io::OutputStream* out);
 
 Status WriteDictionaryMessage(const int64_t id, const int64_t length,
                               const int64_t body_length,

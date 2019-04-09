@@ -18,6 +18,7 @@
 #include "arrow/flight/types.h"
 
 #include <memory>
+#include <sstream>
 #include <utility>
 
 #include "arrow/io/memory.h"
@@ -26,6 +27,47 @@
 
 namespace arrow {
 namespace flight {
+
+bool FlightDescriptor::Equals(const FlightDescriptor& other) const {
+  if (type != other.type) {
+    return false;
+  }
+  switch (type) {
+    case PATH:
+      return path == other.path;
+    case CMD:
+      return cmd == other.cmd;
+    default:
+      return false;
+  }
+}
+
+std::string FlightDescriptor::ToString() const {
+  std::stringstream ss;
+  ss << "FlightDescriptor<";
+  switch (type) {
+    case PATH: {
+      bool first = true;
+      ss << "path = '";
+      for (const auto& p : path) {
+        if (!first) {
+          ss << "/";
+        }
+        first = false;
+        ss << p;
+      }
+      ss << "'";
+      break;
+    }
+    case CMD:
+      ss << "cmd = '" << cmd << "'";
+      break;
+    default:
+      break;
+  }
+  ss << ">";
+  return ss.str();
+}
 
 Status FlightInfo::GetSchema(std::shared_ptr<Schema>* out) const {
   if (reconstructed_schema_) {

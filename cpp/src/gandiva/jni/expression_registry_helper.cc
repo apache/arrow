@@ -127,14 +127,7 @@ void ArrowToProtobuf(DataTypePtr type, types::ExtGandivaType* gandiva_data_type)
       gandiva_data_type->set_scale(0);
       break;
     }
-    case arrow::Type::type::FIXED_SIZE_BINARY:
-    case arrow::Type::type::MAP:
-    case arrow::Type::type::INTERVAL:
-    case arrow::Type::type::LIST:
-    case arrow::Type::type::STRUCT:
-    case arrow::Type::type::UNION:
-    case arrow::Type::type::DICTIONARY:
-    case arrow::Type::type::EXTENSION:
+    default:
       // un-supported types. test ensures that
       // when one of these are added build breaks.
       DCHECK(false);

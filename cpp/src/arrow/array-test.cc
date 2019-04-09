@@ -34,7 +34,6 @@
 #include "arrow/buffer-builder.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
-#include "arrow/ipc/test-common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -1688,45 +1687,6 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
   for (unsigned index = 0; index < size; ++index) {
     ASSERT_FALSE(result_->IsValid(index));
   }
-}
-
-// ----------------------------------------------------------------------
-// Union tests
-
-TEST(TestUnionArrayAdHoc, TestSliceEquals) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(ipc::MakeUnion(&batch));
-
-  const int64_t size = batch->num_rows();
-
-  auto CheckUnion = [&size](std::shared_ptr<Array> array) {
-    std::shared_ptr<Array> slice, slice2;
-    slice = array->Slice(2);
-    ASSERT_EQ(size - 2, slice->length());
-
-    slice2 = array->Slice(2);
-    ASSERT_EQ(size - 2, slice->length());
-
-    ASSERT_TRUE(slice->Equals(slice2));
-    ASSERT_TRUE(array->RangeEquals(2, array->length(), 0, slice));
-
-    // Chained slices
-    slice2 = array->Slice(1)->Slice(1);
-    ASSERT_TRUE(slice->Equals(slice2));
-
-    slice = array->Slice(1, 5);
-    slice2 = array->Slice(1, 5);
-    ASSERT_EQ(5, slice->length());
-
-    ASSERT_TRUE(slice->Equals(slice2));
-    ASSERT_TRUE(array->RangeEquals(1, 6, 0, slice));
-
-    AssertZeroPadded(*array);
-    TestInitialized(*array);
-  };
-
-  CheckUnion(batch->column(1));
-  CheckUnion(batch->column(2));
 }
 
 using DecimalVector = std::vector<Decimal128>;

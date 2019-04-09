@@ -1889,11 +1889,8 @@ class ArrowDeserializer {
     return Status::OK();
   }
 
-  Status Visit(const UnionType& type) { return Status::NotImplemented("union type"); }
-
-  Status Visit(const ExtensionType& type) {
-    return Status::NotImplemented("extension type");
-  }
+  // Default case
+  Status Visit(const DataType& type) { return Status::NotImplemented(type.name()); }
 
   Status Convert(PyObject** out) {
     RETURN_NOT_OK(VisitTypeInline(*col_->type(), this));

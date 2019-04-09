@@ -343,9 +343,8 @@ class SchemaWriter {
     return VisitType(*type.dictionary()->type());
   }
 
-  Status Visit(const ExtensionType& type) {
-    return Status::NotImplemented("extension type");
-  }
+  // Default case
+  Status Visit(const DataType& type) { return Status::NotImplemented(type.name()); }
 
  private:
   DictionaryMemo dictionary_memo_;
@@ -1210,10 +1209,6 @@ class ArrayReader {
     return Status::OK();
   }
 
-  Status Visit(const ExtensionType& type) {
-    return Status::NotImplemented("extension type");
-  }
-
   Status Visit(const DictionaryType& type) {
     // This stores the indices in result_
     //
@@ -1225,6 +1220,9 @@ class ArrayReader {
     result_ = std::make_shared<DictionaryArray>(type_, result_);
     return Status::OK();
   }
+
+  // Default case
+  Status Visit(const DataType& type) { return Status::NotImplemented(type.name()); }
 
   Status GetChildren(const RjObject& obj, const DataType& type,
                      std::vector<std::shared_ptr<Array>>* array) {

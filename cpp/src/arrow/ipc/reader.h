@@ -56,13 +56,16 @@ class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
  public:
   ~RecordBatchStreamReader() override;
 
-  /// Create batch reader from generic MessageReader
+  /// Create batch reader from generic MessageReader.
+  /// This will take ownership of the given MessageReader.
   ///
   /// \param[in] message_reader a MessageReader implementation
   /// \param[out] out the created RecordBatchReader object
   /// \return Status
   static Status Open(std::unique_ptr<MessageReader> message_reader,
                      std::shared_ptr<RecordBatchReader>* out);
+  static Status Open(std::unique_ptr<MessageReader> message_reader,
+                     std::unique_ptr<RecordBatchReader>* out);
 
   /// \brief Record batch stream reader from InputStream
   ///

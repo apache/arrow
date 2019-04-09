@@ -16,7 +16,6 @@
 // under the License.
 
 #include "arrow/flight/server.h"
-#include "arrow/flight/protocol-internal.h"
 
 #include <signal.h>
 #include <atomic>
@@ -32,7 +31,7 @@
 #include <grpc++/grpc++.h>
 #endif
 
-#include "arrow/ipc/dictionary.h"
+#include "arrow/buffer.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/memory_pool.h"
@@ -81,19 +80,11 @@ class FlightMessageReaderImpl : public FlightMessageReader {
     }
 
     internal::FlightData data;
-    // Pretend to be pb::FlightData and intercept in SerializationTraits
-#ifndef _WIN32
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
-    if (reader_->Read(reinterpret_cast<pb::FlightData*>(&data))) {
-#ifndef _WIN32
-#pragma GCC diagnostic pop
-#endif
+    if (internal::ReadPayload(reader_, &data)) {
       std::unique_ptr<ipc::Message> message;
 
       // Validate IPC message
-      RETURN_NOT_OK(ipc::Message::Open(data.metadata, data.body, &message));
+      RETURN_NOT_OK(data.OpenMessage(&message));
       if (message->type() == ipc::Message::Type::RECORD_BATCH) {
         return ipc::ReadRecordBatch(*message, schema_, out);
       } else {
@@ -126,9 +117,9 @@ class FlightServiceImpl : public FlightService::Service {
       return grpc::Status(grpc::StatusCode::INTERNAL, "No items to iterate");
     }
     // Write flight info to stream until listing is exhausted
-    ProtoType pb_value;
-    std::unique_ptr<UserType> value;
     while (true) {
+      ProtoType pb_value;
+      std::unique_ptr<UserType> value;
       GRPC_RETURN_NOT_OK(iterator->Next(&value));
       if (!value) {
         break;
@@ -148,8 +139,8 @@ class FlightServiceImpl : public FlightService::Service {
   grpc::Status WriteStream(const std::vector<UserType>& values,
                            ServerWriter<ProtoType>* writer) {
     // Write flight info to stream until listing is exhausted
-    ProtoType pb_value;
     for (const UserType& value : values) {
+      ProtoType pb_value;
       GRPC_RETURN_NOT_OK(internal::ToProto(value, &pb_value));
       // Blocking write
       if (!writer->Write(pb_value)) {
@@ -210,36 +201,34 @@ class FlightServiceImpl : public FlightService::Service {
       return grpc::Status(grpc::StatusCode::NOT_FOUND, "No data in this flight");
     }
 
-    // Write the schema as the first message in the stream
-    FlightPayload schema_payload;
+    // Write the schema as the first message(s) in the stream
+    // (several messages may be required if there are dictionaries)
     MemoryPool* pool = default_memory_pool();
-    ipc::DictionaryMemo dictionary_memo;
-    GRPC_RETURN_NOT_OK(ipc::internal::GetSchemaPayload(
-        *data_stream->schema(), pool, &dictionary_memo, &schema_payload.ipc_message));
+    std::vector<ipc::internal::IpcPayload> ipc_payloads;
+    GRPC_RETURN_NOT_OK(
+        ipc::internal::GetSchemaPayloads(*data_stream->schema(), pool, &ipc_payloads));
 
-    // Pretend to be pb::FlightData, we cast back to FlightPayload in
-    // SerializationTraits
-#ifndef _WIN32
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
-    writer->Write(*reinterpret_cast<const pb::FlightData*>(&schema_payload),
-                  grpc::WriteOptions());
+    for (auto& ipc_payload : ipc_payloads) {
+      // For DoGet, descriptor doesn't need to be written out
+      FlightPayload schema_payload;
+      schema_payload.ipc_message = std::move(ipc_payload);
 
+      if (!internal::WritePayload(schema_payload, writer)) {
+        // Connection terminated?  XXX return error code?
+        return grpc::Status::OK;
+      }
+    }
+
+    // Write incoming data as individual messages
     while (true) {
       FlightPayload payload;
       GRPC_RETURN_NOT_OK(data_stream->Next(&payload));
       if (payload.ipc_message.metadata == nullptr ||
-          !writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
-                         grpc::WriteOptions())) {
+          !internal::WritePayload(payload, writer))
         // No more messages to write, or connection terminated for some other
         // reason
         break;
-      }
     }
-#ifndef _WIN32
-#pragma GCC diagnostic pop
-#endif
     return grpc::Status::OK;
   }
 
@@ -247,10 +236,10 @@ class FlightServiceImpl : public FlightService::Service {
                      pb::PutResult* response) {
     // Get metadata
     internal::FlightData data;
-    if (reader->Read(reinterpret_cast<pb::FlightData*>(&data))) {
+    if (internal::ReadPayload(reader, &data)) {
       // Message only lives as long as data
       std::unique_ptr<ipc::Message> message;
-      GRPC_RETURN_NOT_OK(ipc::Message::Open(data.metadata, data.body, &message));
+      GRPC_RETURN_NOT_OK(data.OpenMessage(&message));
 
       if (!message || message->type() != ipc::Message::Type::SCHEMA) {
         return internal::ToGrpcStatus(

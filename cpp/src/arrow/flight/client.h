@@ -109,22 +109,5 @@ class ARROW_EXPORT FlightClient {
   std::unique_ptr<FlightClientImpl> impl_;
 };
 
-/// \brief An interface to upload record batches to a Flight server
-class ARROW_EXPORT FlightPutWriter : public ipc::RecordBatchWriter {
- public:
-  ~FlightPutWriter() override;
-
-  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
-  Status Close() override;
-  void set_memory_pool(MemoryPool* pool) override;
-
- private:
-  class FlightPutWriterImpl;
-  explicit FlightPutWriter(std::unique_ptr<FlightPutWriterImpl> impl);
-  std::unique_ptr<FlightPutWriterImpl> impl_;
-
-  friend class FlightClient;
-};
-
 }  // namespace flight
 }  // namespace arrow

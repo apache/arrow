@@ -38,9 +38,14 @@ namespace arrow {
 namespace flight {
 
 Status GetBatchForFlight(const Ticket& ticket, std::shared_ptr<RecordBatchReader>* out) {
-  if (ticket.ticket == "ticket-id-1") {
+  if (ticket.ticket == "ticket-ints-1") {
     BatchVector batches;
-    RETURN_NOT_OK(SimpleIntegerBatches(5, &batches));
+    RETURN_NOT_OK(ExampleIntBatches(&batches));
+    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    return Status::OK();
+  } else if (ticket.ticket == "ticket-dicts-1") {
+    BatchVector batches;
+    RETURN_NOT_OK(ExampleDictBatches(&batches));
     *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
     return Status::OK();
   } else {
@@ -57,20 +62,16 @@ class FlightTestServer : public FlightServerBase {
   }
 
   Status GetFlightInfo(const FlightDescriptor& request,
-                       std::unique_ptr<FlightInfo>* info) override {
+                       std::unique_ptr<FlightInfo>* out) override {
     std::vector<FlightInfo> flights = ExampleFlightInfo();
 
-    const FlightInfo* value;
-
-    // We only have one kind of flight for each descriptor type
-    if (request.type == FlightDescriptor::PATH) {
-      value = &flights[0];
-    } else {
-      value = &flights[1];
+    for (const auto& info : flights) {
+      if (info.descriptor().Equals(request)) {
+        *out = std::unique_ptr<FlightInfo>(new FlightInfo(info));
+        return Status::OK();
+      }
     }
-
-    *info = std::unique_ptr<FlightInfo>(new FlightInfo(*value));
-    return Status::OK();
+    return Status::Invalid("Flight not found: ", request.ToString());
   }
 
   Status DoGet(const Ticket& request,

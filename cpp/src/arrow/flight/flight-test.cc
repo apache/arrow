@@ -47,6 +47,90 @@ namespace pb = arrow::flight::protocol;
 namespace arrow {
 namespace flight {
 
+void AssertEqual(const ActionType& expected, const ActionType& actual) {
+  ASSERT_EQ(expected.type, actual.type);
+  ASSERT_EQ(expected.description, actual.description);
+}
+
+void AssertEqual(const FlightDescriptor& expected, const FlightDescriptor& actual) {
+  ASSERT_TRUE(expected.Equals(actual));
+}
+
+void AssertEqual(const Ticket& expected, const Ticket& actual) {
+  ASSERT_EQ(expected.ticket, actual.ticket);
+}
+
+void AssertEqual(const Location& expected, const Location& actual) {
+  ASSERT_EQ(expected.host, actual.host);
+  ASSERT_EQ(expected.port, actual.port);
+}
+
+void AssertEqual(const std::vector<FlightEndpoint>& expected,
+                 const std::vector<FlightEndpoint>& actual) {
+  ASSERT_EQ(expected.size(), actual.size());
+  for (size_t i = 0; i < expected.size(); ++i) {
+    AssertEqual(expected[i].ticket, actual[i].ticket);
+
+    ASSERT_EQ(expected[i].locations.size(), actual[i].locations.size());
+    for (size_t j = 0; j < expected[i].locations.size(); ++j) {
+      AssertEqual(expected[i].locations[j], actual[i].locations[j]);
+    }
+  }
+}
+
+template <typename T>
+void AssertEqual(const std::vector<T>& expected, const std::vector<T>& actual) {
+  ASSERT_EQ(expected.size(), actual.size());
+  for (size_t i = 0; i < expected.size(); ++i) {
+    AssertEqual(expected[i], actual[i]);
+  }
+}
+
+void AssertEqual(const FlightInfo& expected, const FlightInfo& actual) {
+  std::shared_ptr<Schema> ex_schema, actual_schema;
+  ASSERT_OK(expected.GetSchema(&ex_schema));
+  ASSERT_OK(actual.GetSchema(&actual_schema));
+
+  AssertSchemaEqual(*ex_schema, *actual_schema);
+  ASSERT_EQ(expected.total_records(), actual.total_records());
+  ASSERT_EQ(expected.total_bytes(), actual.total_bytes());
+
+  AssertEqual(expected.descriptor(), actual.descriptor());
+  AssertEqual(expected.endpoints(), actual.endpoints());
+}
+
+TEST(TestFlightDescriptor, Basics) {
+  auto a = FlightDescriptor::Command("select * from table");
+  auto b = FlightDescriptor::Command("select * from table");
+  auto c = FlightDescriptor::Command("select foo from table");
+  auto d = FlightDescriptor::Path({"foo", "bar"});
+  auto e = FlightDescriptor::Path({"foo", "baz"});
+  auto f = FlightDescriptor::Path({"foo", "baz"});
+
+  ASSERT_EQ(a.ToString(), "FlightDescriptor<cmd = 'select * from table'>");
+  ASSERT_EQ(d.ToString(), "FlightDescriptor<path = 'foo/bar'>");
+  ASSERT_TRUE(a.Equals(b));
+  ASSERT_FALSE(a.Equals(c));
+  ASSERT_FALSE(a.Equals(d));
+  ASSERT_FALSE(d.Equals(e));
+  ASSERT_TRUE(e.Equals(f));
+}
+
+TEST(TestFlightDescriptor, ToFromProto) {
+  FlightDescriptor descr_test;
+  pb::FlightDescriptor pb_descr;
+
+  FlightDescriptor descr1{FlightDescriptor::PATH, "", {"foo", "bar"}};
+  ASSERT_OK(internal::ToProto(descr1, &pb_descr));
+  ASSERT_OK(internal::FromProto(pb_descr, &descr_test));
+  AssertEqual(descr1, descr_test);
+
+  FlightDescriptor descr2{FlightDescriptor::CMD, "command", {}};
+  ASSERT_OK(internal::ToProto(descr2, &pb_descr));
+  ASSERT_OK(internal::FromProto(pb_descr, &descr_test));
+  AssertEqual(descr2, descr_test);
+}
+
 TEST(TestFlight, StartStopTestServer) {
   TestServer server("flight-test-server", 30000);
   server.Start();
@@ -85,63 +169,43 @@ class TestFlightClient : public ::testing::Test {
 
   Status ConnectClient() { return FlightClient::Connect("localhost", port_, &client_); }
 
+  template <typename EndpointCheckFunc>
+  void CheckDoGet(const FlightDescriptor& descr, const BatchVector& expected_batches,
+                  EndpointCheckFunc&& check_endpoints) {
+    auto num_batches = static_cast<int>(expected_batches.size());
+    DCHECK_GE(num_batches, 2);
+    auto expected_schema = expected_batches[0]->schema();
+
+    std::unique_ptr<FlightInfo> info;
+    ASSERT_OK(client_->GetFlightInfo(descr, &info));
+    check_endpoints(info->endpoints());
+
+    std::shared_ptr<Schema> schema;
+    ASSERT_OK(info->GetSchema(&schema));
+    AssertSchemaEqual(*expected_schema, *schema);
+
+    // By convention, fetch the first endpoint
+    Ticket ticket = info->endpoints()[0].ticket;
+    std::unique_ptr<RecordBatchReader> stream;
+    ASSERT_OK(client_->DoGet(ticket, &stream));
+
+    std::shared_ptr<RecordBatch> chunk;
+    for (int i = 0; i < num_batches; ++i) {
+      ASSERT_OK(stream->ReadNext(&chunk));
+      ASSERT_NE(nullptr, chunk);
+      ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk);
+    }
+
+    // Stream exhausted
+    ASSERT_OK(stream->ReadNext(&chunk));
+    ASSERT_EQ(nullptr, chunk);
+  }
+
  protected:
   int port_;
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<TestServer> server_;
 };
-
-// The server implementation is in test-server.cc; to make changes to the
-// expected results, make edits there
-void AssertEqual(const FlightDescriptor& expected, const FlightDescriptor& actual) {}
-
-void AssertEqual(const Ticket& expected, const Ticket& actual) {
-  ASSERT_EQ(expected.ticket, actual.ticket);
-}
-
-void AssertEqual(const Location& expected, const Location& actual) {
-  ASSERT_EQ(expected.host, actual.host);
-  ASSERT_EQ(expected.port, actual.port);
-}
-
-void AssertEqual(const std::vector<FlightEndpoint>& expected,
-                 const std::vector<FlightEndpoint>& actual) {
-  ASSERT_EQ(expected.size(), actual.size());
-  for (size_t i = 0; i < expected.size(); ++i) {
-    AssertEqual(expected[i].ticket, actual[i].ticket);
-
-    ASSERT_EQ(expected[i].locations.size(), actual[i].locations.size());
-    for (size_t j = 0; j < expected[i].locations.size(); ++j) {
-      AssertEqual(expected[i].locations[j], actual[i].locations[j]);
-    }
-  }
-}
-
-void AssertEqual(const FlightInfo& expected, const FlightInfo& actual) {
-  std::shared_ptr<Schema> ex_schema, actual_schema;
-  ASSERT_OK(expected.GetSchema(&ex_schema));
-  ASSERT_OK(actual.GetSchema(&actual_schema));
-
-  AssertSchemaEqual(*ex_schema, *actual_schema);
-  ASSERT_EQ(expected.total_records(), actual.total_records());
-  ASSERT_EQ(expected.total_bytes(), actual.total_bytes());
-
-  AssertEqual(expected.descriptor(), actual.descriptor());
-  AssertEqual(expected.endpoints(), actual.endpoints());
-}
-
-void AssertEqual(const ActionType& expected, const ActionType& actual) {
-  ASSERT_EQ(expected.type, actual.type);
-  ASSERT_EQ(expected.description, actual.description);
-}
-
-template <typename T>
-void AssertEqual(const std::vector<T>& expected, const std::vector<T>& actual) {
-  ASSERT_EQ(expected.size(), actual.size());
-  for (size_t i = 0; i < expected.size(); ++i) {
-    AssertEqual(expected[i], actual[i]);
-  }
-}
 
 TEST_F(TestFlightClient, ListFlights) {
   std::unique_ptr<FlightListing> listing;
@@ -149,8 +213,8 @@ TEST_F(TestFlightClient, ListFlights) {
   ASSERT_TRUE(listing != nullptr);
 
   std::vector<FlightInfo> flights = ExampleFlightInfo();
-  std::unique_ptr<FlightInfo> info;
 
+  std::unique_ptr<FlightInfo> info;
   for (const FlightInfo& flight : flights) {
     ASSERT_OK(listing->Next(&info));
     AssertEqual(flight, *info);
@@ -159,66 +223,56 @@ TEST_F(TestFlightClient, ListFlights) {
   ASSERT_TRUE(info == nullptr);
 
   ASSERT_OK(listing->Next(&info));
+  ASSERT_TRUE(info == nullptr);
 }
 
 TEST_F(TestFlightClient, GetFlightInfo) {
-  FlightDescriptor descr{FlightDescriptor::PATH, "", {"foo", "bar"}};
+  auto descr = FlightDescriptor::Path({"examples", "ints"});
   std::unique_ptr<FlightInfo> info;
-  ASSERT_OK(client_->GetFlightInfo(descr, &info));
 
-  ASSERT_TRUE(info != nullptr);
+  ASSERT_OK(client_->GetFlightInfo(descr, &info));
+  ASSERT_NE(info, nullptr);
 
   std::vector<FlightInfo> flights = ExampleFlightInfo();
   AssertEqual(flights[0], *info);
 }
 
-TEST(TestFlightProtocol, FlightDescriptor) {
-  FlightDescriptor descr_test;
-  pb::FlightDescriptor pb_descr;
-
-  FlightDescriptor descr1{FlightDescriptor::PATH, "", {"foo", "bar"}};
-  ASSERT_OK(internal::ToProto(descr1, &pb_descr));
-  ASSERT_OK(internal::FromProto(pb_descr, &descr_test));
-  AssertEqual(descr1, descr_test);
-
-  FlightDescriptor descr2{FlightDescriptor::CMD, "command", {}};
-  ASSERT_OK(internal::ToProto(descr2, &pb_descr));
-  ASSERT_OK(internal::FromProto(pb_descr, &descr_test));
-  AssertEqual(descr2, descr_test);
+TEST_F(TestFlightClient, GetFlightInfoNotFound) {
+  auto descr = FlightDescriptor::Path({"examples", "things"});
+  std::unique_ptr<FlightInfo> info;
+  // XXX Ideally should be Invalid (or KeyError), but gRPC doesn't support
+  // multiple error codes.
+  auto st = client_->GetFlightInfo(descr, &info);
+  ASSERT_RAISES(IOError, st);
+  ASSERT_NE(st.message().find("Flight not found"), std::string::npos);
 }
 
-TEST_F(TestFlightClient, DoGet) {
-  FlightDescriptor descr{FlightDescriptor::PATH, "", {"foo", "bar"}};
-  std::unique_ptr<FlightInfo> info;
-  ASSERT_OK(client_->GetFlightInfo(descr, &info));
-
-  // Two endpoints in the example FlightInfo
-  ASSERT_EQ(2, info->endpoints().size());
-
-  Ticket ticket = info->endpoints()[0].ticket;
-  AssertEqual(Ticket{"ticket-id-1"}, ticket);
-
-  std::shared_ptr<Schema> schema;
-  ASSERT_OK(info->GetSchema(&schema));
-
-  auto expected_schema = ExampleSchema1();
-  AssertSchemaEqual(*expected_schema, *schema);
-
-  std::unique_ptr<RecordBatchReader> stream;
-  ASSERT_OK(client_->DoGet(ticket, &stream));
-
+TEST_F(TestFlightClient, DoGetInts) {
+  auto descr = FlightDescriptor::Path({"examples", "ints"});
   BatchVector expected_batches;
-  const int num_batches = 5;
-  ASSERT_OK(SimpleIntegerBatches(num_batches, &expected_batches));
-  std::shared_ptr<RecordBatch> chunk;
-  for (int i = 0; i < num_batches; ++i) {
-    ASSERT_OK(stream->ReadNext(&chunk));
-    ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk);
-  }
+  ASSERT_OK(ExampleIntBatches(&expected_batches));
 
-  // Stream exhausted
-  ASSERT_OK(stream->ReadNext(&chunk));
-  ASSERT_EQ(nullptr, chunk);
+  auto check_endpoints = [](const std::vector<FlightEndpoint>& endpoints) {
+    // Two endpoints in the example FlightInfo
+    ASSERT_EQ(2, endpoints.size());
+    AssertEqual(Ticket{"ticket-ints-1"}, endpoints[0].ticket);
+  };
+
+  CheckDoGet(descr, expected_batches, check_endpoints);
+}
+
+TEST_F(TestFlightClient, DoGetDicts) {
+  auto descr = FlightDescriptor::Path({"examples", "dicts"});
+  BatchVector expected_batches;
+  ASSERT_OK(ExampleDictBatches(&expected_batches));
+
+  auto check_endpoints = [](const std::vector<FlightEndpoint>& endpoints) {
+    // One endpoint in the example FlightInfo
+    ASSERT_EQ(1, endpoints.size());
+    AssertEqual(Ticket{"ticket-dicts-1"}, endpoints[0].ticket);
+  };
+
+  CheckDoGet(descr, expected_batches, check_endpoints);
 }
 
 TEST_F(TestFlightClient, ListActions) {
