@@ -56,6 +56,7 @@ func TestNewFloat64Builder(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	ab := array.NewFloat64Builder(mem)
+	defer ab.Release()
 
 	ab.Append(1)
 	ab.Append(2)
@@ -104,6 +105,7 @@ func TestFloat64Builder_AppendValues(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	ab := array.NewFloat64Builder(mem)
+	defer ab.Release()
 
 	exp := []float64{1.0, 1.1, 1.2, 1.3}
 	ab.AppendValues(exp, nil)
@@ -111,7 +113,6 @@ func TestFloat64Builder_AppendValues(t *testing.T) {
 	assert.Equal(t, exp, a.Float64Values())
 
 	a.Release()
-	ab.Release()
 }
 
 func TestFloat64Builder_Empty(t *testing.T) {
@@ -119,6 +120,7 @@ func TestFloat64Builder_Empty(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	ab := array.NewFloat64Builder(mem)
+	defer ab.Release()
 
 	exp := []float64{1.0, 1.1, 1.2, 1.3}
 	ab.AppendValues(exp, nil)
@@ -129,8 +131,6 @@ func TestFloat64Builder_Empty(t *testing.T) {
 	a = ab.NewFloat64Array()
 	assert.Zero(t, a.Len())
 	a.Release()
-
-	ab.Release()
 }
 
 func TestFloat64Builder_Resize(t *testing.T) {
@@ -138,6 +138,7 @@ func TestFloat64Builder_Resize(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	ab := array.NewFloat64Builder(mem)
+	defer ab.Release()
 
 	assert.Equal(t, 0, ab.Cap())
 	assert.Equal(t, 0, ab.Len())
@@ -157,8 +158,6 @@ func TestFloat64Builder_Resize(t *testing.T) {
 
 	ab.Resize(32)
 	assert.Equal(t, 5, ab.Len())
-
-	ab.Release()
 }
 
 func TestNewTime32Builder(t *testing.T) {
@@ -167,6 +166,7 @@ func TestNewTime32Builder(t *testing.T) {
 
 	dtype := &arrow.Time32Type{Unit: arrow.Second}
 	ab := array.NewTime32Builder(mem, dtype)
+	defer ab.Release()
 
 	ab.Append(1)
 	ab.Append(2)
@@ -216,6 +216,7 @@ func TestTime32Builder_AppendValues(t *testing.T) {
 
 	dtype := &arrow.Time32Type{Unit: arrow.Second}
 	ab := array.NewTime32Builder(mem, dtype)
+	defer ab.Release()
 
 	exp := []arrow.Time32{0, 1, 2, 3}
 	ab.AppendValues(exp, nil)
@@ -223,7 +224,6 @@ func TestTime32Builder_AppendValues(t *testing.T) {
 	assert.Equal(t, exp, a.Time32Values())
 
 	a.Release()
-	ab.Release()
 }
 
 func TestTime32Builder_Empty(t *testing.T) {
@@ -232,6 +232,7 @@ func TestTime32Builder_Empty(t *testing.T) {
 
 	dtype := &arrow.Time32Type{Unit: arrow.Second}
 	ab := array.NewTime32Builder(mem, dtype)
+	defer ab.Release()
 
 	exp := []arrow.Time32{0, 1, 2, 3}
 	ab.AppendValues(exp, nil)
@@ -242,8 +243,6 @@ func TestTime32Builder_Empty(t *testing.T) {
 	a = ab.NewTime32Array()
 	assert.Zero(t, a.Len())
 	a.Release()
-
-	ab.Release()
 }
 
 func TestTime32Builder_Resize(t *testing.T) {
@@ -252,6 +251,7 @@ func TestTime32Builder_Resize(t *testing.T) {
 
 	dtype := &arrow.Time32Type{Unit: arrow.Second}
 	ab := array.NewTime32Builder(mem, dtype)
+	defer ab.Release()
 
 	assert.Equal(t, 0, ab.Cap())
 	assert.Equal(t, 0, ab.Len())
@@ -271,8 +271,6 @@ func TestTime32Builder_Resize(t *testing.T) {
 
 	ab.Resize(32)
 	assert.Equal(t, 5, ab.Len())
-
-	ab.Release()
 }
 
 func TestNewTime64Builder(t *testing.T) {
@@ -281,6 +279,7 @@ func TestNewTime64Builder(t *testing.T) {
 
 	dtype := &arrow.Time64Type{Unit: arrow.Second}
 	ab := array.NewTime64Builder(mem, dtype)
+	defer ab.Release()
 
 	ab.Append(1)
 	ab.Append(2)
@@ -330,6 +329,7 @@ func TestTime64Builder_AppendValues(t *testing.T) {
 
 	dtype := &arrow.Time64Type{Unit: arrow.Second}
 	ab := array.NewTime64Builder(mem, dtype)
+	defer ab.Release()
 
 	exp := []arrow.Time64{0, 1, 2, 3}
 	ab.AppendValues(exp, nil)
@@ -337,7 +337,6 @@ func TestTime64Builder_AppendValues(t *testing.T) {
 	assert.Equal(t, exp, a.Time64Values())
 
 	a.Release()
-	ab.Release()
 }
 
 func TestTime64Builder_Empty(t *testing.T) {
@@ -346,6 +345,7 @@ func TestTime64Builder_Empty(t *testing.T) {
 
 	dtype := &arrow.Time64Type{Unit: arrow.Second}
 	ab := array.NewTime64Builder(mem, dtype)
+	defer ab.Release()
 
 	exp := []arrow.Time64{0, 1, 2, 3}
 	ab.AppendValues(exp, nil)
@@ -356,8 +356,6 @@ func TestTime64Builder_Empty(t *testing.T) {
 	a = ab.NewTime64Array()
 	assert.Zero(t, a.Len())
 	a.Release()
-
-	ab.Release()
 }
 
 func TestTime64Builder_Resize(t *testing.T) {
@@ -366,6 +364,7 @@ func TestTime64Builder_Resize(t *testing.T) {
 
 	dtype := &arrow.Time64Type{Unit: arrow.Second}
 	ab := array.NewTime64Builder(mem, dtype)
+	defer ab.Release()
 
 	assert.Equal(t, 0, ab.Cap())
 	assert.Equal(t, 0, ab.Len())
@@ -385,8 +384,6 @@ func TestTime64Builder_Resize(t *testing.T) {
 
 	ab.Resize(32)
 	assert.Equal(t, 5, ab.Len())
-
-	ab.Release()
 }
 
 func TestNewDate32Builder(t *testing.T) {
@@ -394,6 +391,7 @@ func TestNewDate32Builder(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	ab := array.NewDate32Builder(mem)
+	defer ab.Release()
 
 	ab.Append(1)
 	ab.Append(2)
@@ -442,6 +440,7 @@ func TestDate32Builder_AppendValues(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	ab := array.NewDate32Builder(mem)
+	defer ab.Release()
 
 	exp := []arrow.Date32{1, 2, 3, 4}
 	ab.AppendValues(exp, nil)
@@ -449,7 +448,6 @@ func TestDate32Builder_AppendValues(t *testing.T) {
 	assert.Equal(t, exp, a.Date32Values())
 
 	a.Release()
-	ab.Release()
 }
 
 func TestDate32Builder_Empty(t *testing.T) {
@@ -457,6 +455,7 @@ func TestDate32Builder_Empty(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	ab := array.NewDate32Builder(mem)
+	defer ab.Release()
 
 	exp := []arrow.Date32{1, 2, 3, 4}
 	ab.AppendValues(exp, nil)
@@ -467,8 +466,6 @@ func TestDate32Builder_Empty(t *testing.T) {
 	a = ab.NewDate32Array()
 	assert.Zero(t, a.Len())
 	a.Release()
-
-	ab.Release()
 }
 
 func TestDate32Builder_Resize(t *testing.T) {
@@ -476,6 +473,7 @@ func TestDate32Builder_Resize(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	ab := array.NewDate32Builder(mem)
+	defer ab.Release()
 
 	assert.Equal(t, 0, ab.Cap())
 	assert.Equal(t, 0, ab.Len())
@@ -495,8 +493,6 @@ func TestDate32Builder_Resize(t *testing.T) {
 
 	ab.Resize(32)
 	assert.Equal(t, 5, ab.Len())
-
-	ab.Release()
 }
 
 func TestNewDate64Builder(t *testing.T) {
@@ -504,6 +500,7 @@ func TestNewDate64Builder(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	ab := array.NewDate64Builder(mem)
+	defer ab.Release()
 
 	ab.Append(1)
 	ab.Append(2)
@@ -552,6 +549,7 @@ func TestDate64Builder_AppendValues(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	ab := array.NewDate64Builder(mem)
+	defer ab.Release()
 
 	exp := []arrow.Date64{1, 2, 3, 4}
 	ab.AppendValues(exp, nil)
@@ -559,7 +557,6 @@ func TestDate64Builder_AppendValues(t *testing.T) {
 	assert.Equal(t, exp, a.Date64Values())
 
 	a.Release()
-	ab.Release()
 }
 
 func TestDate64Builder_Empty(t *testing.T) {
@@ -567,6 +564,7 @@ func TestDate64Builder_Empty(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	ab := array.NewDate64Builder(mem)
+	defer ab.Release()
 
 	exp := []arrow.Date64{1, 2, 3, 4}
 	ab.AppendValues(exp, nil)
@@ -577,8 +575,6 @@ func TestDate64Builder_Empty(t *testing.T) {
 	a = ab.NewDate64Array()
 	assert.Zero(t, a.Len())
 	a.Release()
-
-	ab.Release()
 }
 
 func TestDate64Builder_Resize(t *testing.T) {
@@ -586,6 +582,7 @@ func TestDate64Builder_Resize(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	ab := array.NewDate64Builder(mem)
+	defer ab.Release()
 
 	assert.Equal(t, 0, ab.Cap())
 	assert.Equal(t, 0, ab.Len())
@@ -605,6 +602,4 @@ func TestDate64Builder_Resize(t *testing.T) {
 
 	ab.Resize(32)
 	assert.Equal(t, 5, ab.Len())
-
-	ab.Release()
 }
