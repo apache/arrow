@@ -390,6 +390,12 @@ class TestPlasmaClient(object):
             object_id, -1, serialization_context=serialization_context)
         assert result.val == val.val
 
+    def test_store_np_matrix(self):
+        m = np.matrix(np.random.randn(10, 4))
+        object_id = self.plasma_client.put(m)
+        buf = self.plasma_client.get(object_id)
+        assert (buf == m).all()
+
     def test_store_arrow_objects(self):
         data = np.random.randn(10, 4)
         # Write an arrow object.
