@@ -322,7 +322,8 @@ if(WIN32)
                  array-test.cc
                  array-binary-test.cc
                  array-list-test.cc
-                 array-struct-test.cc)
+                 array-struct-test.cc
+                 array-union-test.cc)
 else()
   add_arrow_test(array-test
                  SOURCES
@@ -330,7 +331,8 @@ else()
                  array-binary-test.cc
                  array-dict-test.cc
                  array-list-test.cc
-                 array-struct-test.cc)
+                 array-struct-test.cc
+                 array-union-test.cc)
 endif()
 
 add_arrow_test(buffer-test)
@@ -351,7 +353,6 @@ add_arrow_test(table-test)
 add_arrow_test(table_builder-test)
 add_arrow_test(tensor-test)
 add_arrow_test(sparse_tensor-test)
-add_arrow_test(union_array-test)
 
 add_arrow_benchmark(builder-benchmark)
 add_arrow_benchmark(column-benchmark)
