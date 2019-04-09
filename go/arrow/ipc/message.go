@@ -79,7 +79,12 @@ type Message struct {
 	body     *memory.Buffer
 }
 
+// NewMessage creates a new message from the metadata and body buffers.
+// NewMessage panics if any of these buffers is nil.
 func NewMessage(meta, body *memory.Buffer) *Message {
+	if meta == nil || body == nil {
+		panic("arrow/ipc: nil buffers")
+	}
 	meta.Retain()
 	body.Retain()
 	return &Message{
@@ -111,15 +116,15 @@ func (msg *Message) Release() {
 	}
 }
 
-func (msg Message) Version() MetadataVersion {
+func (msg *Message) Version() MetadataVersion {
 	return MetadataVersion(msg.msg.Version())
 }
 
-func (msg Message) Type() MessageType {
+func (msg *Message) Type() MessageType {
 	return MessageType(msg.msg.HeaderType())
 }
 
-func (msg Message) BodyLen() int64 {
+func (msg *Message) BodyLen() int64 {
 	return msg.msg.BodyLength()
 }
 
