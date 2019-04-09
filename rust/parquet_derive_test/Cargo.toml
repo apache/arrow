@@ -1,0 +1,9 @@
+[package]
+name = "parquet_derive_test"
+version = "0.1.0"
+authors = ["Xavier Lange <xrlange@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+parquet = {path = "../parquet"}
+parquet_derive = {path = "../parquet_derive"}
