@@ -642,11 +642,35 @@ namespace red_arrow {
             auto record = rb_ary_new_capa(n_columns_);
             rb_ary_push(records_, record);
           }
+          row_offset_ = 0;
           for (int i = 0; i < n_columns_; ++i) {
             const auto array = record_batch.column(i).get();
             column_index_ = i;
             check_status(array->Accept(this),
-                         "[raw-records]");
+                         "[record-batch-raw-records]");
+          }
+          return Qnil;
+        });
+      }
+
+      void build(const arrow::Table& table) {
+        rb::protect([&] {
+          const auto n_rows = table.num_rows();
+          for (int64_t i = 0; i < n_rows; ++i) {
+            auto record = rb_ary_new_capa(n_columns_);
+            rb_ary_push(records_, record);
+          }
+          for (int i = 0; i < n_columns_; ++i) {
+            const auto column = table.column(i).get();
+            const auto chunked_array = column->data();
+            column_index_ = i;
+            // TODO: should we use array->offset() ?
+            row_offset_ = 0;
+            for (const auto array : chunked_array->chunks()) {
+              check_status(array->Accept(this),
+                           "[table-raw-records]");
+              row_offset_ += array->length();
+            }
           }
           return Qnil;
         });
@@ -708,12 +732,12 @@ namespace red_arrow {
             if (!array.IsNull(i)) {
               value = convert_value(array, i);
             }
-            auto record = rb_ary_entry(records_, i);
+            auto record = rb_ary_entry(records_, i + row_offset_);
             rb_ary_store(record, column_index_, value);
           }
         } else {
           for (int64_t i = 0; i < n; ++i) {
-            auto record = rb_ary_entry(records_, i);
+            auto record = rb_ary_entry(records_, i + row_offset_);
             rb_ary_store(record, column_index_, convert_value(array, i));
           }
         }
@@ -731,6 +755,9 @@ namespace red_arrow {
       // The current column index.
       int column_index_;
 
+      // The current row offset.
+      int64_t row_offset_;
+
       // The number of columns.
       const int n_columns_;
     };
@@ -747,6 +774,24 @@ namespace red_arrow {
     try {
       RawRecordsBuilder builder(records, n_columns);
       builder.build(*record_batch);
+    } catch (rb::State& state) {
+      state.jump();
+    }
+
+    return records;
+  }
+
+  VALUE
+  table_raw_records(VALUE rb_table) {
+    auto garrow_table = GARROW_TABLE(RVAL2GOBJ(rb_table));
+    auto table = garrow_table_get_raw(garrow_table).get();
+    const auto n_rows = table->num_rows();
+    const auto n_columns = table->num_columns();
+    auto records = rb_ary_new_capa(n_rows);
+
+    try {
+      RawRecordsBuilder builder(records, n_columns);
+      builder.build(*table);
     } catch (rb::State& state) {
       state.jump();
     }
