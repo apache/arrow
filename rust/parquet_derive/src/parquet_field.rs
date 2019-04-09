@@ -87,85 +87,41 @@ impl Type {
     fn inner_type(&self) -> &syn::Type {
         match self.leaf_type() {
             Type::TypePath(ref type_) => type_,
-            Type::Option(ref first_type) | Type::Vec(ref first_type) | Type::Array(ref first_type) | Type::Reference(_, ref first_type) => {
-                match **first_type {
-                    Type::TypePath(ref type_) => type_,
-                    _ => unimplemented!("leaf_type() should only return values containing TypePath")
-                }
+            Type::Option(ref first_type)
+            | Type::Vec(ref first_type)
+            | Type::Array(ref first_type)
+            | Type::Reference(_, ref first_type) => match **first_type {
+                Type::TypePath(ref type_) => type_,
+                _ => unimplemented!("leaf_type() should only return shallow types"),
             },
-            f @ _ => unimplemented!("sorry, we don't support nesting this far for {:#?}", f)
         }
-//        match &self {
-//            Type::Option(ref first_type) | Type::Vec(ref first_type) | Type::Array(ref first_type) => {
-//                match **first_type {
-//                    Type::TypePath(ref type_) => type_,
-//                    Type::Vec(ref second_type) | Type::Option(ref second_type) | Type::Array(ref second_type) | Type::Reference(_, ref second_type) => {
-//                        match **second_type {
-//                            Type::TypePath(ref type_) => type_,
-//                            Type::Vec(ref third_type) | Type::Option(ref third_type) | Type::Array(ref third_type) | Type::Reference(_, ref third_type) => {
-//                                match **third_type {
-//                                    Type::TypePath(ref type_) => type_,
-//                                    ref f @ _ => unimplemented!("nesting types this far is not supported, dying at {:#?}", f)
-//                                }
-//                            },
-//                            _ => unimplemented!("not supported yet!")
-//                        }
-//                    },
-//                }
-//            },
-//            Type::TypePath(ref type_) => type_,
-//            Type::Reference(_, ref first_type) => match **first_type {
-//                Type::TypePath(ref type_) => type_,
-//                Type::Option(ref second_type)
-//                | Type::Vec(ref second_type)
-//                | Type::Array(ref second_type) => match **second_type {
-//                    Type::TypePath(ref type_) => type_,
-//                    Type::Reference(_, ref third_type) | Type::Array(ref third_type) => {
-//                        match **third_type {
-//                            Type::TypePath(ref type_) => type_,
-//                            Type::Vec(ref fourth_type)
-//                            | Type::Option(ref fourth_type) => match **fourth_type {
-//                                Type::TypePath(ref type_) => type_,
-//                                _ => unimplemented!(
-//                                    "only two levels of generic nesting supported"
-//                                ),
-//                            },
-//                            _ => unimplemented!("references can "),
-//                        }
-//                    }
-//                    Type::Option(_) | Type::Vec(_) => {
-//                        unimplemented!("options cannot hold Option or Vec")
-//                    }
-//                },
-//                Type::Reference(_, _) => {
-//                    unimplemented!("double references are not supported")
-//                }
-//            },
-//        }
     }
 
     pub fn leaf_type(&self) -> &Type {
         match &self {
             Type::TypePath(_) => &self,
-            Type::Option(ref first_type) | Type::Vec(ref first_type) | Type::Array(ref first_type) | Type::Reference(_, ref first_type) => {
-                match **first_type {
-                    Type::TypePath(_) => &self,
-                    Type::Option(ref second_type) | Type::Vec(ref second_type) | Type::Array(ref second_type) | Type::Reference(_, ref second_type) => {
-                        match **second_type {
-                            Type::TypePath(_) => first_type,
-                            Type::Option(ref third_type) | Type::Vec(ref third_type) | Type::Array(ref third_type) | Type::Reference(_, ref third_type) => {
-                                match **third_type {
-                                    Type::TypePath(_) => second_type,
-                                    _ => unimplemented!("sorry fourthsies!")
-                                }
-                            }
-                            _ => unimplemented!("sorry thirdsies!")
-                        }
-                    }
-                    _ => unimplemented!("sorry secondsies!")
-                }
+            Type::Option(ref first_type)
+            | Type::Vec(ref first_type)
+            | Type::Array(ref first_type)
+            | Type::Reference(_, ref first_type) => match **first_type {
+                Type::TypePath(_) => &self,
+                Type::Option(ref second_type)
+                | Type::Vec(ref second_type)
+                | Type::Array(ref second_type)
+                | Type::Reference(_, ref second_type) => match **second_type {
+                    Type::TypePath(_) => first_type,
+                    Type::Option(ref third_type)
+                    | Type::Vec(ref third_type)
+                    | Type::Array(ref third_type)
+                    | Type::Reference(_, ref third_type) => match **third_type {
+                        Type::TypePath(_) => second_type,
+                        _ => unimplemented!("sorry fourthsies!"),
+                    },
+                    _ => unimplemented!("sorry thirdsies!"),
+                },
+                _ => unimplemented!("sorry secondsies!"),
             },
-            f @ _ => unimplemented!("sorry again! {:#?}", f)
+            f @ _ => unimplemented!("sorry again! {:#?}", f),
         }
     }
 
@@ -204,15 +160,6 @@ impl Type {
             "String" | "str" => BasicType::BYTE_ARRAY,
             f @ _ => unimplemented!("sorry, don't handle {} yet!", f),
         }
-        //        unimplemented!("hi mom {:#?}", self.inner_type())
-        //    BOOLEAN,
-        //    INT32,
-        //    INT64,
-        //    INT96,
-        //    FLOAT,
-        //    DOUBLE,
-        //    BYTE_ARRAY,
-        //    FIXED_LEN_BYTE_ARRAY,
     }
 
     pub fn from_type_path(f: &syn::Field, p: &syn::TypePath) -> Self {
