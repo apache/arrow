@@ -17,5 +17,9 @@
 
 import logging
 
+
+quiet = False
+
+""" Global logger. """
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("archery")

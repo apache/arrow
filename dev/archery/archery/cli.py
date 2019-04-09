@@ -23,23 +23,34 @@ import os
 import re
 from tempfile import mkdtemp, TemporaryDirectory
 
+from .utils.logger import logger
+import archery.utils.logger as log
+
 from .benchmark.core import BenchmarkComparator
 from .benchmark.runner import CppBenchmarkRunner
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
 from .utils.cmake import CMakeBuild
 from .utils.git import Git
-from .utils.logger import logger
 from .utils.source import ArrowSources
 
 
 @click.group()
-@click.option("--debug", count=True)
+@click.option("--debug", type=bool, is_flag=True, default=False,
+              help="Increase logging with debugging output.")
+@click.option("--quiet", type=bool, is_flag=True, default=False,
+              help="Silence executed commands.")
 @click.pass_context
-def archery(ctx, debug):
+def archery(ctx, debug, quiet):
     """ Apache Arrow developer utilities. """
     # Ensure ctx.obj exists
     ctx.ensure_object(dict)
-    ctx.obj["DEBUG"] = debug
+
+    print("Init")
+    print(id(log.quiet))
+    print(log.quiet)
+    log.quiet = quiet
+    print(log.quiet)
+
     if debug:
         logger.setLevel(logging.DEBUG)
 
@@ -160,16 +171,17 @@ def benchmark(ctx):
 
 
 @benchmark.command(name="diff", short_help="Run the C++ benchmark suite")
-@click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
+@click.option("--src", metavar="<arrow_src>", show_default=True,
+              default=ArrowSources.find(),
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
-@click.option("--suite-filter", metavar="<regex>", type=str, default=None,
+@click.option("--suite-filter", metavar="<regex>", show_default=True,
+              type=str, default=None, help="Regex filtering benchmark suites.")
+@click.option("--benchmark-filter", metavar="<regex>", show_default=True,
+              type=str, default=DEFAULT_BENCHMARK_FILTER,
               help="Regex filtering benchmark suites.")
-@click.option("--benchmark-filter", metavar="<regex>", type=str,
-              default=DEFAULT_BENCHMARK_FILTER,
-              help="Regex filtering benchmark suites.")
-@click.option("--preserve", type=bool, default=False, is_flag=True,
-              help="Preserve temporary workspace directory for investigation.")
+@click.option("--preserve", type=bool, default=False, show_default=True,
+              is_flag=True, help="Preserve workspace for investigation.")
 @click.argument("contender", metavar="[<contender>", default=Git.WORKSPACE,
                 required=False)
 @click.argument("baseline", metavar="[<baseline>]]", default="master",
@@ -201,25 +213,33 @@ def benchmark_diff(ctx, src, preserve, suite_filter,  benchmark_filter,
 
     \b
     # Compare workspace (contender) with master (baseline)
+    \b
     archery benchmark diff
 
     \b
     # Compare master (contender) with latest version (baseline)
+    \b
     export LAST=$(git tag -l "apache-arrow-[0-9]*" | sort -rV | head -1)
+    \b
     archery benchmark diff master "$LAST"
 
     \b
     # Compare g++7 (contender) with clang++-7 (baseline) builds
+    \b
     archery build --with-benchmarks=true \\
             --cc=gcc7 --cxx=g++7 gcc7-build
+    \b
     archery build --with-benchmarks=true \\
             --cc=clang-7 --cxx=clang++-7 clang7-build
+    \b
     archery benchmark diff gcc7-build clang7-build
 
     \b
-    # Compare default but only scoped to the suites matching `aggregate` and
-    # the benchmarks matching `Kernel`.
-    archery benchmark diff --suite-filter=aggregate --benchmark-filter=Kernel
+    # Compare default targets but scoped to the suites matching
+    # `^arrow-compute-aggregate` and benchmarks matching `(Sum|Mean)Kernel`.
+    \b
+    archery benchmark diff --suite-filter="^arrow-compute-aggregate" \\
+            --benchmark-filter="(Sum|Mean)Kernel"
     """
     with tmpdir(preserve) as root:
         runner_cont = cpp_runner_from_rev_or_path(src, root, contender)
@@ -244,8 +264,13 @@ def benchmark_diff(ctx, src, preserve, suite_filter,  benchmark_filter,
                 bench_cont = suite_cont[bench_name]
                 bench_base = suite_base[bench_name]
 
-                comp = BenchmarkComparator(bench_cont, bench_base)
-                print(comp.compare())
+                comparator = BenchmarkComparator(bench_cont, bench_base)
+                comparison = comparator()
+
+                comparison["suite"] = suite_name
+                comparison["benchmark"] = bench_name
+
+                print(comparison)
 
 
 if __name__ == "__main__":

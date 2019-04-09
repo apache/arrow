@@ -39,7 +39,8 @@ class GoogleBenchmarkCommand(Command):
         argv = ["--benchmark_list_tests"]
         if self.benchmark_filter:
             argv.append(f"--benchmark_filter={self.benchmark_filter}")
-        result = self.run(*argv, stdout=subprocess.PIPE)
+        result = self.run(*argv, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE)
         return [b for b in result.stdout]
 
     def results(self):
@@ -48,7 +49,8 @@ class GoogleBenchmarkCommand(Command):
         if self.benchmark_filter:
             argv.append(f"--benchmark_filter={self.benchmark_filter}")
 
-        return json.loads(self.run(*argv, stdout=subprocess.PIPE).stdout)
+        return json.loads(self.run(*argv, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE).stdout)
 
 
 class GoogleContext:
@@ -169,6 +171,10 @@ class GoogleBenchmark(Benchmark):
         params = enumerate(self.name.split("/")[1:])
         named_params = [parse_param(idx, p) for idx, p in params if p]
         return {k: v for k, v in named_params}
+
+    @property
+    def unit(self):
+        return self.runs[0].unit
 
     @property
     def less_is_better(self):

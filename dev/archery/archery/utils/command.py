@@ -19,7 +19,7 @@ import os
 import shutil
 import subprocess
 
-from .logger import logger
+from .logger import logger, quiet
 
 
 def find_exec(executable):
@@ -50,6 +50,16 @@ class Command:
     def run(self, *argv, raise_on_failure=True, **kwargs):
         invocation = [find_exec(self.bin)]
         invocation.extend(argv)
+
+        print("Within command module")
+        print(id(quiet))
+        print(quiet)
+
+        if "stdout" not in kwargs and quiet:
+            kwargs["stdout"] = subprocess.PIPE
+
+        if "stderr" not in kwargs and quiet:
+            kwargs["stderr"] = subprocess.PIPE
 
         logger.debug(f"Executing `{invocation}`")
         result = subprocess.run(invocation, **kwargs)

@@ -125,4 +125,4 @@ class ArrowSources:
         return None
 
     def __repr__(self):
-        return f"ArrowSources[{self.path}]"
+        return f"{self.path}"
