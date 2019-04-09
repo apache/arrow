@@ -78,35 +78,41 @@ TEST_F(TestUnionArray, MakeDenseTest) {
 
   // without field names and type codes
   ASSERT_OK(UnionArray::MakeDense(*type_ids_, *value_offsets, children, &result));
-  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::DENSE, {"0", "1", "2", "3"}, {0, 1, 2, 3});
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::DENSE,
+                  {"0", "1", "2", "3"}, {0, 1, 2, 3});
 
   // with field name
   ASSERT_RAISES(Invalid, UnionArray::MakeDense(*type_ids_, *value_offsets, children,
                                                {"one"}, &result));
   ASSERT_OK(
       UnionArray::MakeDense(*type_ids_, *value_offsets, children, field_names, &result));
-  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::DENSE, field_names, {0, 1, 2, 3});
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::DENSE, field_names,
+                  {0, 1, 2, 3});
 
   // with type codes
   ASSERT_RAISES(Invalid, UnionArray::MakeDense(*type_ids_, *value_offsets, children,
                                                std::vector<uint8_t>{0}, &result));
   ASSERT_OK(
       UnionArray::MakeDense(*type_ids_, *value_offsets, children, type_codes, &result));
-  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::DENSE, {"0", "1", "2", "3"}, type_codes);
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::DENSE,
+                  {"0", "1", "2", "3"}, type_codes);
 
   // with field names and type codes
   ASSERT_RAISES(Invalid, UnionArray::MakeDense(*type_ids_, *value_offsets, children,
                                                {"one"}, type_codes, &result));
   ASSERT_OK(UnionArray::MakeDense(*type_ids_, *value_offsets, children, field_names,
                                   type_codes, &result));
-  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::DENSE, field_names, type_codes);
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::DENSE, field_names,
+                  type_codes);
 }
 
 TEST_F(TestUnionArray, MakeSparseTest) {
   auto children = std::vector<std::shared_ptr<Array>>(4);
-  ArrayFromVector<StringType, std::string>({"abc", "", "", "def", "", "", "", "xyz", "", ""}, &children[0]);
+  ArrayFromVector<StringType, std::string>(
+      {"abc", "", "", "def", "", "", "", "xyz", "", ""}, &children[0]);
   ArrayFromVector<UInt8Type>({0, 10, 0, 0, 20, 0, 0, 0, 0, 30}, &children[1]);
-  ArrayFromVector<DoubleType>({0.0, 0.0, 1.618, 0.0, 0.0, 0.0, 2.718, 0.0, 3.142, 0.0}, &children[2]);
+  ArrayFromVector<DoubleType>({0.0, 0.0, 1.618, 0.0, 0.0, 0.0, 2.718, 0.0, 3.142, 0.0},
+                              &children[2]);
   ArrayFromVector<Int8Type>({0, 0, 0, 0, 0, -12, 0, 0, 0, 0}, &children[3]);
 
   std::vector<std::string> field_names = {"str", "int1", "real", "int2"};
@@ -116,25 +122,29 @@ TEST_F(TestUnionArray, MakeSparseTest) {
 
   // without field names and type codes
   ASSERT_OK(UnionArray::MakeSparse(*type_ids_, children, &result));
-  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE, {"0", "1", "2", "3"}, {0, 1, 2, 3});
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE,
+                  {"0", "1", "2", "3"}, {0, 1, 2, 3});
 
   // with field names
   ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*type_ids_, children, {"one"}, &result));
   ASSERT_OK(UnionArray::MakeSparse(*type_ids_, children, field_names, &result));
-  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE, field_names, {0, 1, 2, 3});
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE, field_names,
+                  {0, 1, 2, 3});
 
   // with type codes
   ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*type_ids_, children,
                                                 std::vector<uint8_t>{0}, &result));
   ASSERT_OK(UnionArray::MakeSparse(*type_ids_, children, type_codes, &result));
-  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE, {"0", "1", "2", "3"}, type_codes);
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE,
+                  {"0", "1", "2", "3"}, type_codes);
 
   // with field names and type codes
   ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*type_ids_, children, {"one"}, type_codes,
                                                 &result));
   ASSERT_OK(
       UnionArray::MakeSparse(*type_ids_, children, field_names, type_codes, &result));
-  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE, field_names, type_codes);
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE, field_names,
+                  type_codes);
 }
 
 }  // namespace arrow
