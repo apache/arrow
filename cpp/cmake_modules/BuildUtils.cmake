@@ -24,8 +24,8 @@ set(LIB_PATH_SUFFIXES
     "lib32"
     "lib"
     "bin"
-    "Library",
-    "Library/lib",
+    "Library"
+    "Library/lib"
     "Library/bin")
 set(INCLUDE_PATH_SUFFIXES "include" "Library" "Library/include")
 
