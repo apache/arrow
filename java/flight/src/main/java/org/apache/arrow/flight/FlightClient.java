@@ -86,35 +86,83 @@ public class FlightClient implements AutoCloseable {
 
   /**
    * Get a list of available flights.
+   *
    * @param criteria Criteria for selecting flights
    * @return FlightInfo Iterable
    */
   public Iterable<FlightInfo> listFlights(Criteria criteria) {
-    return ImmutableList.copyOf(blockingStub.listFlights(criteria.asCriteria()))
+    return listFlights(null, criteria);
+  }
+
+  /**
+   * Get a list of available flights.
+   *
+   * @param options RPC-layer hints for the call. May be null for default options.
+   * @param criteria Criteria for selecting flights
+   * @return FlightInfo Iterable
+   */
+  public Iterable<FlightInfo> listFlights(CallOptions options, Criteria criteria) {
+    return ImmutableList.copyOf(CallOptions.wrapBlockingStub(blockingStub, options).listFlights(criteria.asCriteria()))
         .stream()
-        .map(t -> new FlightInfo(t))
+        .map(FlightInfo::new)
         .collect(Collectors.toList());
   }
 
+  /**
+   * List actions available on the Flight service.
+   */
   public Iterable<ActionType> listActions() {
-    return ImmutableList.copyOf(blockingStub.listActions(Empty.getDefaultInstance()))
+    return listActions(null);
+  }
+
+  /**
+   * List actions available on the Flight service.
+   *
+   * @param options RPC-layer hints for the call. May be null for default options.
+   */
+  public Iterable<ActionType> listActions(CallOptions options) {
+    return ImmutableList.copyOf(CallOptions.wrapBlockingStub(blockingStub, options)
+        .listActions(Empty.getDefaultInstance()))
         .stream()
-        .map(t -> new ActionType(t))
+        .map(ActionType::new)
         .collect(Collectors.toList());
   }
 
+  /**
+   * Perform an action on the Flight service.
+   * @param action The action to perform.
+   * @return An iterator of results.
+   */
   public Iterator<Result> doAction(Action action) {
-    return Iterators.transform(blockingStub.doAction(action.toProtocol()), t -> new Result(t));
+    return doAction(null, action);
+  }
+
+  /**
+   * Perform an action on the Flight service.
+   *
+   * @param options RPC-layer hints for this call. May be null for default options.
+   * @param action The action to perform.
+   * @return An iterator of results.
+   */
+  public Iterator<Result> doAction(CallOptions options, Action action) {
+    return Iterators
+        .transform(CallOptions.wrapBlockingStub(blockingStub, options).doAction(action.toProtocol()), Result::new);
   }
 
   public void authenticateBasic(String username, String password) {
     BasicClientAuthHandler basicClient = new BasicClientAuthHandler(username, password);
-    authenticate(basicClient);
+    authenticate(null, basicClient);
   }
 
-  public void authenticate(ClientAuthHandler handler) {
+  /**
+   * Authenticate against the Flight service.
+   *
+   * @param options RPC-layer hints for this call. May be null for default options.
+   * @param handler The auth mechanism to use.
+   */
+  public void authenticate(CallOptions options, ClientAuthHandler handler) {
     Preconditions.checkArgument(!authInterceptor.hasAuthHandler(), "Auth already completed.");
-    ClientAuthWrapper.doClientAuth(handler, asyncStub);
+    ClientAuthWrapper.doClientAuth(handler, CallOptions.wrapStub(asyncStub, options));
     authInterceptor.setAuthHandler(handler);
   }
 
@@ -125,13 +173,26 @@ public class FlightClient implements AutoCloseable {
    * @return ClientStreamListener
    */
   public ClientStreamListener startPut(FlightDescriptor descriptor, VectorSchemaRoot root) {
+    return startPut(null, descriptor, root);
+  }
+
+  /**
+   * Create or append a descriptor with another stream.
+   * @param options RPC-layer hints for this call. May be null for default options.
+   * @param descriptor FlightDescriptor
+   * @param root VectorSchemaRoot
+   * @return ClientStreamListener
+   */
+  public ClientStreamListener startPut(CallOptions options,
+      FlightDescriptor descriptor, VectorSchemaRoot root) {
     Preconditions.checkNotNull(descriptor);
     Preconditions.checkNotNull(root);
 
     SetStreamObserver<PutResult> resultObserver = new SetStreamObserver<>();
+    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
     ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
         asyncClientStreamingCall(
-                authInterceptor.interceptCall(doPutDescriptor, asyncStub.getCallOptions(), channel), resultObserver);
+                authInterceptor.interceptCall(doPutDescriptor, callOptions, channel), resultObserver);
     // send the schema to start.
     ArrowMessage message = new ArrowMessage(descriptor.toProtocol(), root.getSchema());
     observer.onNext(message);
@@ -140,13 +201,38 @@ public class FlightClient implements AutoCloseable {
         observer, resultObserver.getFuture());
   }
 
+  /**
+   * Get info on a stream.
+   * @param descriptor The descriptor for the stream.
+   */
   public FlightInfo getInfo(FlightDescriptor descriptor) {
-    return new FlightInfo(blockingStub.getFlightInfo(descriptor.toProtocol()));
+    return getInfo(null, descriptor);
   }
 
+  /**
+   * Get info on a stream.
+   * @param options RPC-layer hints for this call. May be null for default options.
+   * @param descriptor The descriptor for the stream.
+   */
+  public FlightInfo getInfo(CallOptions options, FlightDescriptor descriptor) {
+    return new FlightInfo(CallOptions.wrapBlockingStub(blockingStub, options).getFlightInfo(descriptor.toProtocol()));
+  }
+
+  /**
+   * Retrieve a stream from the server.
+   */
   public FlightStream getStream(Ticket ticket) {
+    return getStream(null, ticket);
+  }
+
+  /**
+   * Retrieve a stream from the server.
+   * @param options RPC-layer hints for this call. May be null for default options.
+   */
+  public FlightStream getStream(CallOptions options, Ticket ticket) {
+    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
     ClientCall<Flight.Ticket, ArrowMessage> call =
-            authInterceptor.interceptCall(doGetDescriptor, asyncStub.getCallOptions(), channel);
+            authInterceptor.interceptCall(doGetDescriptor, callOptions, channel);
     FlightStream stream = new FlightStream(
         allocator,
         PENDING_REQUESTS,
@@ -157,27 +243,27 @@ public class FlightClient implements AutoCloseable {
     ClientResponseObserver<Flight.Ticket, ArrowMessage> clientResponseObserver =
         new ClientResponseObserver<Flight.Ticket, ArrowMessage>() {
 
-      @Override
-      public void beforeStart(ClientCallStreamObserver<org.apache.arrow.flight.impl.Flight.Ticket> requestStream) {
-        requestStream.disableAutoInboundFlowControl();
-      }
+          @Override
+          public void beforeStart(ClientCallStreamObserver<org.apache.arrow.flight.impl.Flight.Ticket> requestStream) {
+            requestStream.disableAutoInboundFlowControl();
+          }
 
-      @Override
-      public void onNext(ArrowMessage value) {
-        delegate.onNext(value);
-      }
+          @Override
+          public void onNext(ArrowMessage value) {
+            delegate.onNext(value);
+          }
 
-      @Override
-      public void onError(Throwable t) {
-        delegate.onError(t);
-      }
+          @Override
+          public void onError(Throwable t) {
+            delegate.onError(t);
+          }
 
-      @Override
-      public void onCompleted() {
-        delegate.onCompleted();
-      }
+          @Override
+          public void onCompleted() {
+            delegate.onCompleted();
+          }
 
-    };
+        };
 
     asyncServerStreamingCall(call, ticket.toProtocol(), clientResponseObserver);
     return stream;
@@ -265,5 +351,46 @@ public class FlightClient implements AutoCloseable {
   public void close() throws InterruptedException {
     channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
     allocator.close();
+  }
+
+  /**
+   * Per-call RPC options. These are hints to the underlying RPC layer and may not be respected.
+   */
+  public static class CallOptions {
+
+    long timeout = 0;
+    TimeUnit timeoutUnit = null;
+
+    public CallOptions() {
+    }
+
+    /**
+     * Set a timeout on a call.
+     */
+    public CallOptions setTimeout(long duration, TimeUnit unit) {
+      timeout = duration;
+      timeoutUnit = unit;
+      return this;
+    }
+
+    static FlightServiceBlockingStub wrapBlockingStub(FlightServiceBlockingStub stub, CallOptions options) {
+      if (options == null) {
+        return stub;
+      } else if (options.timeoutUnit != null) {
+        return stub.withDeadlineAfter(options.timeout, options.timeoutUnit);
+      } else {
+        return stub;
+      }
+    }
+
+    static FlightServiceStub wrapStub(FlightServiceStub stub, CallOptions options) {
+      if (options == null) {
+        return stub;
+      } else if (options.timeoutUnit != null) {
+        return stub.withDeadlineAfter(options.timeout, options.timeoutUnit);
+      } else {
+        return stub;
+      }
+    }
   }
 }
