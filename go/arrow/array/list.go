@@ -17,6 +17,8 @@
 package array
 
 import (
+	"fmt"
+	"strings"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/arrow"
@@ -41,6 +43,27 @@ func NewListData(data *Data) *List {
 }
 
 func (a *List) ListValues() Interface { return a.values }
+
+func (a *List) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i := 0; i < a.Len(); i++ {
+		if i > 0 {
+			o.WriteString(" ")
+		}
+		if !a.IsValid(i) {
+			o.WriteString("(null)")
+			continue
+		}
+		beg := int64(a.offsets[i])
+		end := int64(a.offsets[i+1])
+		sub := NewSlice(a.values, beg, end)
+		fmt.Fprintf(o, "%v", sub)
+		sub.Release()
+	}
+	o.WriteString("]")
+	return o.String()
+}
 
 func (a *List) setData(data *Data) {
 	a.array.setData(data)

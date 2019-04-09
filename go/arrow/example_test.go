@@ -188,6 +188,7 @@ func Example_listArray() {
 		pos = int(offsets[i])
 		fmt.Printf("]\n")
 	}
+	fmt.Printf("List      = %v\n", arr)
 
 	// Output:
 	// NullN()   = 2
@@ -200,6 +201,7 @@ func Example_listArray() {
 	// List[4]   = [6, 7, 8]
 	// List[5]   = (null)
 	// List[6]   = [9]
+	// List      = [[0 1 2] (null) [3] [4 5] [6 7 8] (null) [9]]
 }
 
 // This example shows how to create a Struct array.
