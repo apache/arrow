@@ -31,18 +31,7 @@ namespace compute {
 
 class FunctionContext;
 
-struct ARROW_EXPORT TakeOptions {
-  enum OutOfBoundsBehavior {
-    // Out of bounds indices will raise an error
-    RAISE,
-    // Out of bounds indices will result in a null value
-    TO_NULL,
-    // Bounds checking will be skipped, which is faster.
-    // Only use this if indices are known to be within bounds;
-    // out of bounds indices will result in undefined behavior
-    UNSAFE
-  } out_of_bounds = RAISE;
-};
+struct ARROW_EXPORT TakeOptions {};
 
 /// \brief Take from an array of values at indices in another array
 ///

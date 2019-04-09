@@ -94,9 +94,6 @@ TEST_F(TestTakeKernelWithBoolean, TakeBoolean) {
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(Invalid, this->Take(boolean(), "[true, false, true]", int8(), "[0, 9, 0]",
                                     options, &arr));
-
-  options.out_of_bounds = TakeOptions::TO_NULL;
-  this->AssertTake("[true, false, true]", "[0, 9, 0]", options, "[true, null, true]");
 }
 
 template <typename ArrowType>
@@ -122,9 +119,6 @@ TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(Invalid, this->Take(this->type_singleton(), "[7, 8, 9]", int8(),
                                     "[0, 9, 0]", options, &arr));
-
-  options.out_of_bounds = TakeOptions::TO_NULL;
-  this->AssertTake("[7, 8, 9]", "[0, 9, 0]", options, "[7, null, 7]");
 }
 
 class TestTakeKernelWithString : public TestTakeKernel<StringType> {
@@ -157,9 +151,6 @@ TEST_F(TestTakeKernelWithString, TakeString) {
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(Invalid, this->Take(utf8(), R"(["a", "b", "c"])", int8(), "[0, 9, 0]",
                                     options, &arr));
-
-  options.out_of_bounds = TakeOptions::TO_NULL;
-  this->AssertTake(R"(["a", "b", "c"])", "[0, 9, 0]", options, R"(["a", null, "a"])");
 }
 
 TEST_F(TestTakeKernelWithString, TakeDictionary) {
@@ -169,9 +160,6 @@ TEST_F(TestTakeKernelWithString, TakeDictionary) {
   this->AssertTakeDictionary(dict, "[null, 4, 2]", "[0, 1, 0]", options,
                              "[null, 4, null]");
   this->AssertTakeDictionary(dict, "[3, 4, 2]", "[null, 1, 0]", options, "[null, 4, 3]");
-
-  options.out_of_bounds = TakeOptions::TO_NULL;
-  this->AssertTakeDictionary(dict, "[3, 4, 2]", "[0, 9, 0]", options, "[3, null, 3]");
 }
 
 }  // namespace compute

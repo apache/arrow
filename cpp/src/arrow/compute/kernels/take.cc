@@ -68,8 +68,8 @@ Status UnsafeAppend(StringBuilder* builder, util::string_view value) {
   return Status::OK();
 }
 
-template <TakeOptions::OutOfBoundsBehavior B, bool AllValuesValid, bool AllIndicesValid,
-          typename ValueArray, typename IndexArray, typename OutBuilder>
+template <bool AllValuesValid, bool AllIndicesValid, typename ValueArray,
+          typename IndexArray, typename OutBuilder>
 Status TakeImpl(FunctionContext*, const ValueArray& values, const IndexArray& indices,
                 OutBuilder* builder) {
   auto raw_indices = indices.raw_values();
@@ -79,12 +79,8 @@ Status TakeImpl(FunctionContext*, const ValueArray& values, const IndexArray& in
       continue;
     }
     auto index = static_cast<int64_t>(raw_indices[i]);
-    if (B == TakeOptions::RAISE && (index < 0 || index >= values.length())) {
+    if (index < 0 || index >= values.length()) {
       return Status::Invalid("take index out of bounds");
-    }
-    if (B == TakeOptions::TO_NULL && (index < 0 || index >= values.length())) {
-      builder->UnsafeAppendNull();
-      continue;
     }
     if (!AllValuesValid && values.IsNull(index)) {
       builder->UnsafeAppendNull();
@@ -95,42 +91,23 @@ Status TakeImpl(FunctionContext*, const ValueArray& values, const IndexArray& in
   return Status::OK();
 }
 
-template <TakeOptions::OutOfBoundsBehavior B, bool AllValuesValid, typename ValueArray,
-          typename IndexArray, typename OutBuilder>
+template <bool AllValuesValid, typename ValueArray, typename IndexArray,
+          typename OutBuilder>
 Status UnpackIndicesNullCount(FunctionContext* context, const ValueArray& values,
                               const IndexArray& indices, OutBuilder* builder) {
   if (indices.null_count() == 0) {
-    return TakeImpl<B, AllValuesValid, true>(context, values, indices, builder);
+    return TakeImpl<AllValuesValid, true>(context, values, indices, builder);
   }
-  return TakeImpl<B, AllValuesValid, false>(context, values, indices, builder);
-}
-
-template <TakeOptions::OutOfBoundsBehavior B, typename ValueArray, typename IndexArray,
-          typename OutBuilder>
-Status UnpackValuesNullCount(FunctionContext* context, const ValueArray& values,
-                             const IndexArray& indices, OutBuilder* builder) {
-  if (values.null_count() == 0) {
-    return UnpackIndicesNullCount<B, true>(context, values, indices, builder);
-  }
-  return UnpackIndicesNullCount<B, false>(context, values, indices, builder);
+  return TakeImpl<AllValuesValid, false>(context, values, indices, builder);
 }
 
 template <typename ValueArray, typename IndexArray, typename OutBuilder>
-Status UnpackOutOfBoundsBehavior(FunctionContext* context, const ValueArray& values,
-                                 const IndexArray& indices, const TakeOptions& options,
-                                 OutBuilder* builder) {
-  switch (options.out_of_bounds) {
-    case TakeOptions::RAISE:
-      return UnpackValuesNullCount<TakeOptions::RAISE>(context, values, indices, builder);
-    case TakeOptions::TO_NULL:
-      return UnpackValuesNullCount<TakeOptions::TO_NULL>(context, values, indices,
-                                                         builder);
-    case TakeOptions::UNSAFE:
-      return UnpackValuesNullCount<TakeOptions::UNSAFE>(context, values, indices,
-                                                        builder);
-    default:
-      return Status::NotImplemented("how did we get here");
+Status UnpackValuesNullCount(FunctionContext* context, const ValueArray& values,
+                             const IndexArray& indices, OutBuilder* builder) {
+  if (values.null_count() == 0) {
+    return UnpackIndicesNullCount<true>(context, values, indices, builder);
   }
+  return UnpackIndicesNullCount<false>(context, values, indices, builder);
 }
 
 template <typename IndexType>
@@ -146,15 +123,14 @@ struct UnpackValues {
     std::unique_ptr<ArrayBuilder> builder;
     RETURN_NOT_OK(MakeBuilder(params_.context->memory_pool(), values.type(), &builder));
     RETURN_NOT_OK(builder->Reserve(indices.length()));
-    RETURN_NOT_OK(UnpackOutOfBoundsBehavior(params_.context, values, indices,
-                                            params_.options,
-                                            static_cast<OutBuilder*>(builder.get())));
+    RETURN_NOT_OK(UnpackValuesNullCount(params_.context, values, indices,
+                                        static_cast<OutBuilder*>(builder.get())));
     return builder->Finish(params_.out);
   }
 
   Status Visit(const NullType& t) {
     auto indices_length = params_.indices->length();
-    if (params_.options.out_of_bounds == TakeOptions::RAISE && indices_length != 0) {
+    if (indices_length != 0) {
       auto indices = static_cast<IndexArrayRef>(*params_.indices).raw_values();
       auto minmax = std::minmax_element(indices, indices + indices_length);
       auto min = static_cast<int64_t>(*minmax.first);
