@@ -254,6 +254,9 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		}
 		return arrow.ListOf(children[0].Type), nil
 
+	case flatbuf.TypeStruct_:
+		return arrow.StructOf(children...), nil
+
 	default:
 		// FIXME(sbinet): implement all the other types.
 		panic(fmt.Errorf("arrow/ipc: type %v not implemented", flatbuf.EnumNamesType[typ]))

@@ -367,6 +367,9 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) array.Interface {
 	case *arrow.ListType:
 		return ctx.loadList(dt)
 
+	case *arrow.StructType:
+		return ctx.loadStruct(dt)
+
 	default:
 		panic(errors.Errorf("array type %T not handled yet", dt))
 	}
@@ -446,6 +449,27 @@ func (ctx *arrayLoaderContext) loadList(dt *arrow.ListType) array.Interface {
 	defer data.Release()
 
 	return array.NewListData(data)
+}
+
+func (ctx *arrayLoaderContext) loadStruct(dt *arrow.StructType) array.Interface {
+	field, buffers := ctx.loadCommon(1)
+
+	arrs := make([]array.Interface, len(dt.Fields()))
+	subs := make([]*array.Data, len(dt.Fields()))
+	for i, f := range dt.Fields() {
+		arrs[i] = ctx.loadChild(f.Type)
+		subs[i] = arrs[i].Data()
+	}
+	defer func() {
+		for i := range arrs {
+			arrs[i].Release()
+		}
+	}()
+
+	data := array.NewData(dt, int(field.Length()), buffers, subs, int(field.NullCount()), 0)
+	defer data.Release()
+
+	return array.NewStructData(data)
 }
 
 func readDictionary(meta *memory.Buffer, types dictTypeMap, r ReadAtSeeker) (int64, array.Interface, error) {
