@@ -25,6 +25,32 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestNewInt8Builder_Empty(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewInt8Builder(mem)
+	defer ab.Release()
+
+	exp := []int8{0, 1, 2, 3}
+	ab.AppendValues(exp, nil)
+	a := ab.NewInt8Array()
+	assert.Equal(t, exp, a.Int8Values())
+	a.Release()
+
+	a = ab.NewInt8Array()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.AppendValues(nil, nil)
+	ab.AppendValues([]int8{}, nil)
+	ab.AppendValues(exp, nil)
+	a = ab.NewInt8Array()
+	assert.Equal(t, exp, a.Int8Values())
+	a.Release()
+
+}
+
 func TestNewFloat64Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
