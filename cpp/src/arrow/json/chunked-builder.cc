@@ -188,7 +188,7 @@ class ChunkedListArrayBuilder : public ChunkedArrayBuilder {
     auto type = list(field(field_name_, child_array->type()));
     ArrayVector chunks(null_bitmap_chunks_.size());
     for (size_t i = 0; i < null_bitmap_chunks_.size(); ++i) {
-      auto child_chunk = child_array->chunk(i);
+      auto child_chunk = child_array->chunk(static_cast<int>(i));
       chunks[i] =
           std::make_shared<ListArray>(type, child_chunk->length(), offset_chunks_[i],
                                       child_chunk, null_bitmap_chunks_[i]);
@@ -214,7 +214,8 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
           name_builders)
       : ChunkedArrayBuilder(task_group), pool_(pool), promotion_graph_(promotion_graph) {
     for (auto&& name_builder : name_builders) {
-      name_to_index_.emplace(std::move(name_builder.first), name_to_index_.size());
+      auto index = static_cast<int>(name_to_index_.size());
+      name_to_index_.emplace(std::move(name_builder.first), index);
       child_builders_.emplace_back(std::move(name_builder.second));
     }
   }
