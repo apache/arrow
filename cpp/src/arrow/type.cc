@@ -576,13 +576,21 @@ std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& chil
 }
 
 std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& children,
+                                 const std::vector<std::string>& field_names,
+                                 const std::vector<uint8_t>& given_type_codes,
                                  UnionMode::type mode) {
   std::vector<std::shared_ptr<Field>> types;
-  std::vector<uint8_t> type_codes;
+  std::vector<uint8_t> type_codes(given_type_codes);
   uint8_t counter = 0;
   for (const auto& child : children) {
-    types.push_back(field(std::to_string(counter), child->type()));
-    type_codes.push_back(counter);
+    if (field_names.size() == 0) {
+      types.push_back(field(std::to_string(counter), child->type()));
+    } else {
+      types.push_back(field(field_names[counter], child->type()));
+    }
+    if (given_type_codes.size() == 0) {
+      type_codes.push_back(counter);
+    }
     counter++;
   }
   return union_(types, type_codes, mode);

@@ -920,7 +920,23 @@ union_(const std::vector<std::shared_ptr<Field>>& child_fields,
 /// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
-       UnionMode::type mode = UnionMode::SPARSE);
+       const std::vector<std::string>& field_names,
+       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create a UnionType instance
+inline std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Array>>& children,
+       const std::vector<std::string>& field_names,
+       UnionMode::type mode = UnionMode::SPARSE) {
+  return union_(children, field_names, {}, mode);
+}
+
+/// \brief Create a UnionType instance
+inline std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Array>>& children,
+       UnionMode::type mode = UnionMode::SPARSE) {
+  return union_(children, {}, {}, mode);
+}
 
 /// \brief Create a DictionaryType instance
 std::shared_ptr<DataType> ARROW_EXPORT
