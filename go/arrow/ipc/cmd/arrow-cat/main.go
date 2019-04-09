@@ -89,19 +89,24 @@ func processStream(w io.Writer, rin io.Reader) error {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(nil, 0)
 
-	r, err := ipc.NewReader(rin, ipc.WithAllocator(mem))
-	if err != nil {
-		return err
-	}
-	defer r.Release()
+	for {
+		r, err := ipc.NewReader(rin, ipc.WithAllocator(mem))
+		if err != nil {
+			if errors.Cause(err) == io.EOF {
+				return nil
+			}
+			return err
+		}
+		defer r.Release()
 
-	n := 0
-	for r.Next() {
-		n++
-		fmt.Fprintf(w, "record %d...\n", n)
-		rec := r.Record()
-		for i, col := range rec.Columns() {
-			fmt.Fprintf(w, "  col[%d] %q: %v\n", i, rec.ColumnName(i), col)
+		n := 0
+		for r.Next() {
+			n++
+			fmt.Fprintf(w, "record %d...\n", n)
+			rec := r.Record()
+			for i, col := range rec.Columns() {
+				fmt.Fprintf(w, "  col[%d] %q: %v\n", i, rec.ColumnName(i), col)
+			}
 		}
 	}
 	return nil
@@ -142,6 +147,9 @@ func processFile(w io.Writer, fname string) error {
 
 	r, err := ipc.NewFileReader(f, ipc.WithAllocator(mem))
 	if err != nil {
+		if errors.Cause(err) == io.EOF {
+			return nil
+		}
 		return err
 	}
 	defer r.Close()
@@ -159,6 +167,7 @@ func processFile(w io.Writer, fname string) error {
 			fmt.Fprintf(w, "  col[%d] %q: %v\n", i, rec.ColumnName(i), col)
 		}
 	}
+
 	return nil
 }
 
