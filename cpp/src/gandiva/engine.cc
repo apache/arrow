@@ -146,11 +146,12 @@ Status Engine::LoadPreCompiledIR() {
   llvm::Expected<std::unique_ptr<llvm::Module>> module_or_error =
       llvm::getOwningLazyBitcodeModule(move(buffer), *context());
   if (!module_or_error) {
-    std::string error_string;
-    llvm::handleAllErrors(module_or_error.takeError(), [&](llvm::ErrorInfoBase& eib) {
-      error_string = eib.message();
-    });
-    return Status::CodeGenError(error_string);
+    // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
+    // (ARROW-5148)
+    std::string str;
+    llvm::raw_string_ostream stream(str);
+    stream << module_or_error.takeError();
+    return Status::CodeGenError(stream.str());
   }
   std::unique_ptr<llvm::Module> ir_module = move(module_or_error.get());
 
