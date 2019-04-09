@@ -19,7 +19,6 @@
 #define ARROW_CSV_TEST_COMMON_H
 
 #include <memory>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -30,11 +29,11 @@ namespace arrow {
 namespace csv {
 
 std::string MakeCSVData(std::vector<std::string> lines) {
-  std::stringstream ss;
+  std::string s;
   for (const auto& line : lines) {
-    ss << line;
+    s += line;
   }
-  return ss.str();
+  return s;
 }
 
 // Make a BlockParser from a vector of lines representing a CSV file

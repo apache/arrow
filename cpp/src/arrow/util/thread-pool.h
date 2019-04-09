@@ -25,11 +25,8 @@
 #include <cstdlib>
 #include <functional>
 #include <future>
-#include <iostream>
-#include <list>
 #include <memory>
 #include <string>
-#include <thread>
 #include <type_traits>
 #include <utility>
 
@@ -127,19 +124,17 @@ class ARROW_EXPORT ThreadPool {
 
     Status st = SpawnReal(detail::packaged_task_wrapper<Result>(std::move(task)));
     if (!st.ok()) {
-      // This happens when Submit() is called after Shutdown()
-      std::cerr << st.ToString() << std::endl;
-      std::abort();
+      st.Abort("ThreadPool::Submit() was probably called after Shutdown()");
     }
     return fut;
   }
+
+  struct State;
 
  protected:
   FRIEND_TEST(TestThreadPool, SetCapacity);
   FRIEND_TEST(TestGlobalThreadPool, Capacity);
   friend ARROW_EXPORT ThreadPool* GetCpuThreadPool();
-
-  struct State;
 
   ThreadPool();
 
@@ -154,11 +149,6 @@ class ARROW_EXPORT ThreadPool {
   int GetActualCapacity();
   // Reinitialize the thread pool if the pid changed
   void ProtectAgainstFork();
-
-  // The worker loop is a static method so that it can keep running
-  // after the ThreadPool is destroyed
-  static void WorkerLoop(std::shared_ptr<State> state,
-                         std::list<std::thread>::iterator it);
 
   static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
 

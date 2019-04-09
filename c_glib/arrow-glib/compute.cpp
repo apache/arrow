@@ -21,6 +21,8 @@
 #  include <config.h>
 #endif
 
+#include <sstream>
+
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/compute.hpp>
 #include <arrow-glib/data-type.hpp>

@@ -24,8 +24,6 @@
 #include "arrow/python/platform.h"
 
 #include <memory>
-#include <ostream>
-#include <string>
 
 #include "arrow/python/visibility.h"
 #include "arrow/type.h"

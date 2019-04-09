@@ -25,8 +25,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <memory>
-#include <sstream>  // IWYU pragma: keep
 #include <string>
 #include <thread>
 #include <vector>
@@ -39,6 +39,7 @@
 #include "arrow/io/test-common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/io-util.h"
 
@@ -95,7 +96,7 @@ class TestFileOutputStream : public FileTestFixture {
 #if defined(_MSC_VER)
 TEST_F(TestFileOutputStream, FileNameWideCharConversionRangeException) {
   std::shared_ptr<FileOutputStream> file;
-  // Form literal string with non-ASCII symbol(127 + 1)
+  // Invalid utf-8 filename
   std::string file_name = "\x80";
   ASSERT_RAISES(Invalid, FileOutputStream::Open(file_name, &file));
 
@@ -105,6 +106,8 @@ TEST_F(TestFileOutputStream, FileNameWideCharConversionRangeException) {
   std::shared_ptr<ReadableFile> rd_file;
   ASSERT_RAISES(Invalid, ReadableFile::Open(file_name, &rd_file));
 }
+
+// TODO add a test with a valid utf-8 filename
 #endif
 
 TEST_F(TestFileOutputStream, DestructorClosesFile) {

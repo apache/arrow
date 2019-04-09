@@ -27,12 +27,14 @@
 
 #include <gflags/gflags.h>
 
+#include "arrow/io/file.h"
 #include "arrow/io/test-common.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/json-integration.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"

@@ -21,6 +21,7 @@
 
 #include <benchmark/benchmark.h>
 
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/lazy.h"
 

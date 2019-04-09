@@ -27,6 +27,7 @@ namespace arrow {
 class Status;
 
 class DataType;
+class KeyValueMetadata;
 class Array;
 struct ArrayData;
 class ArrayBuilder;

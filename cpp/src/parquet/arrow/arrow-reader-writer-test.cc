@@ -354,16 +354,6 @@ void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual
   }
 }
 
-void PrintColumn(const Column& col, std::stringstream* ss) {
-  const ChunkedArray& carr = *col.data();
-  for (int i = 0; i < carr.num_chunks(); ++i) {
-    auto c1 = carr.chunk(i);
-    *ss << "Chunk " << i << std::endl;
-    ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, ss));
-    *ss << std::endl;
-  }
-}
-
 void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, bool use_threads,
                        int64_t row_group_size, const std::vector<int>& column_subset,
                        std::shared_ptr<Table>* out,

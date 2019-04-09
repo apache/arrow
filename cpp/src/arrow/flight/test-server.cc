@@ -25,6 +25,7 @@
 
 #include <gflags/gflags.h>
 
+#include "arrow/buffer.h"
 #include "arrow/io/test-common.h"
 #include "arrow/record_batch.h"
 #include "arrow/util/logging.h"

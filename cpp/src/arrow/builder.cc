@@ -17,7 +17,6 @@
 
 #include "arrow/builder.h"
 
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>

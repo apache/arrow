@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
