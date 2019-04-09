@@ -91,12 +91,12 @@ class SerialTableReader : public TableReader {
 
       RETURN_NOT_OK(readahead_.Read(&rh));
 
-      std::shared_ptr<Buffer> completion, straddling;
+      std::shared_ptr<Buffer> straddling;
       if (rh.buffer) {
-        // get the completion of a partial row from the previous block and submit to
-        // just-lauched parse task
+        // get the completion of a partial row from the previous block
         // FIXME(bkietz) this will just error out if a row spans more than a pair of
         // blocks
+        std::shared_ptr<Buffer> completion;
         RETURN_NOT_OK(
             chunker_->Process(partial, rh.buffer, &completion, &starts_with_whole));
         RETURN_NOT_OK(ConcatenateBuffers({partial, completion}, pool_, &straddling));
@@ -186,26 +186,32 @@ class ThreadedTableReader : public TableReader {
     }
 
     int64_t block_index = 0;
-    for (std::shared_ptr<Buffer> starts_with_whole = rh.buffer;; ++block_index) {
+    for (std::shared_ptr<Buffer> starts_with_whole = rh.buffer; rh.buffer;
+         ++block_index) {
       // get all whole objects entirely inside the current buffer
       std::shared_ptr<Buffer> whole, partial;
       RETURN_NOT_OK(chunker_->Process(starts_with_whole, &whole, &partial));
 
-      std::promise<std::shared_ptr<Buffer>> straddling_promise;
-      std::shared_future<std::shared_ptr<Buffer>> straddling_future(
-          straddling_promise.get_future());
+      // set up a promise for the completion of partial
+      struct completion_trap {
+        ~completion_trap() { promise.set_value(buffer); }
+
+        std::shared_ptr<Buffer> buffer = std::make_shared<Buffer>("");
+        std::promise<std::shared_ptr<Buffer>> promise;
+      } completion;
+      auto completion_future = completion.promise.get_future().share();
 
       // launch parse task
-      task_group_->Append([this, rh, whole, straddling_future, block_index] {
+      task_group_->Append([this, rh, whole, partial, completion_future, block_index] {
         std::shared_ptr<ResizableBuffer> storage;
         RETURN_NOT_OK(AllocateScalarStorage(&storage));
         BlockParser parser(pool_, parse_options_, storage);
         RETURN_NOT_OK(parser.Parse(whole));
 
-        auto straddling = straddling_future.get();
-        if (straddling->size() != 0) {
-          // FIXME(bkietz) ensure that the parser has sufficient scalar storage for
-          // all scalars in straddling + whole
+        auto completion = completion_future.get();
+        if (completion->size() != 0) {
+          std::shared_ptr<Buffer> straddling;
+          RETURN_NOT_OK(ConcatenateBuffers({partial, completion}, pool_, &straddling));
           RETURN_NOT_OK(parser.Parse(straddling));
         }
 
@@ -221,14 +227,9 @@ class ThreadedTableReader : public TableReader {
         // just-lauched parse task
         // FIXME(bkietz) this will just error out if a row spans more than a pair of
         // blocks
-        std::shared_ptr<Buffer> completion, straddling;
+        std::shared_ptr<Buffer> completion;
         RETURN_NOT_OK(
             chunker_->Process(partial, rh.buffer, &completion, &starts_with_whole));
-        RETURN_NOT_OK(ConcatenateBuffers({partial, completion}, pool_, &straddling));
-        straddling_promise.set_value(straddling);
-      } else {
-        straddling_promise.set_value(std::make_shared<Buffer>(""));
-        break;
       }
     }
 
