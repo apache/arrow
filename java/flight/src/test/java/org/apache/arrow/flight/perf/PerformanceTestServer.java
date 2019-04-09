@@ -33,6 +33,7 @@ import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.impl.Flight.PutResult;
@@ -79,7 +80,7 @@ public class PerformanceTestServer implements AutoCloseable {
     AutoCloseables.close(flightServer, allocator);
   }
 
-  private final class PerfProducer implements FlightProducer {
+  private final class PerfProducer extends NoOpFlightProducer {
 
     @Override
     public void getStream(CallContext context, Ticket ticket,
@@ -146,11 +147,6 @@ public class PerformanceTestServer implements AutoCloseable {
     }
 
     @Override
-    public void listFlights(CallContext context, Criteria criteria,
-        StreamListener<FlightInfo> listener) {
-    }
-
-    @Override
     public FlightInfo getFlightInfo(CallContext context,
         FlightDescriptor descriptor) {
       try {
@@ -181,24 +177,6 @@ public class PerformanceTestServer implements AutoCloseable {
         throw new RuntimeException(e);
       }
     }
-
-    @Override
-    public Callable<PutResult> acceptPut(CallContext context,
-        FlightStream flightStream) {
-      return null;
-    }
-
-    @Override
-    public void doAction(CallContext context, Action action,
-        StreamListener<Result> listener) {
-      listener.onCompleted();
-    }
-
-    @Override
-    public void listActions(CallContext context,
-        StreamListener<ActionType> listener) {
-    }
-
   }
 }
 

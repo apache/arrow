@@ -19,10 +19,9 @@ package org.apache.arrow.flight;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.stream.Stream;
 
-import org.apache.arrow.flight.impl.Flight;
+import org.apache.arrow.flight.FlightProducer.StreamListener;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -43,11 +42,9 @@ public class TestLargeMessage {
     try (final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
          final Producer producer = new Producer(a);
          final FlightServer s =
-             FlightTestUtil.getStartedServer(
-                 (port) -> FlightServer.builder(a, Location.forGrpcInsecure("localhost", port), producer).build())) {
+             FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build())) {
 
-      try (FlightClient client = FlightClient
-          .builder(a, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, s.getPort())).build()) {
+      try (FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
         FlightStream stream = client.getStream(new Ticket(new byte[]{}));
         try (VectorSchemaRoot root = stream.getRoot()) {
           while (stream.next()) {
@@ -74,18 +71,32 @@ public class TestLargeMessage {
     try (final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
          final Producer producer = new Producer(a);
          final FlightServer s =
-             FlightTestUtil.getStartedServer(
-                 (port) -> FlightServer.builder(a, Location.forGrpcInsecure("localhost", port), producer).build()
+             FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build()
              )) {
 
-      try (FlightClient client = FlightClient
-          .builder(a, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, s.getPort())).build();
+      try (FlightClient client = FlightClient.builder(a, s.getLocation()).build();
            BufferAllocator testAllocator = a.newChildAllocator("testcase", 0, Long.MAX_VALUE);
            VectorSchemaRoot root = generateData(testAllocator)) {
-        final FlightClient.ClientStreamListener listener = client.startPut(FlightDescriptor.path("hello"), root);
+        final FlightClient.ClientStreamListener listener = client.startPut(FlightDescriptor.path("hello"), root,
+            new StreamListener<PutResult>() {
+              @Override
+              public void onNext(PutResult val) {
+
+              }
+
+              @Override
+              public void onError(Throwable t) {
+
+              }
+
+              @Override
+              public void onCompleted() {
+
+              }
+            });
         listener.putNext();
         listener.completed();
-        Assert.assertEquals(listener.getResult(), Flight.PutResult.getDefaultInstance());
+        listener.getResult();
       }
     }
   }
@@ -141,14 +152,12 @@ public class TestLargeMessage {
     }
 
     @Override
-    public Callable<Flight.PutResult> acceptPut(CallContext context,
-        FlightStream flightStream) {
+    public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
         try (VectorSchemaRoot root = flightStream.getRoot()) {
           while (flightStream.next()) {
             ;
           }
-          return Flight.PutResult.getDefaultInstance();
         }
       };
     }

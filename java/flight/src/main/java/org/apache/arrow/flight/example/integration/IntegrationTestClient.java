@@ -19,6 +19,7 @@ package org.apache.arrow.flight.example.integration;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 
@@ -26,8 +27,10 @@ import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.FlightProducer.StreamListener;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorLoader;
@@ -93,11 +96,33 @@ class IntegrationTestClient {
       jsonRoot = VectorSchemaRoot.create(root.getSchema(), allocator);
       VectorUnloader unloader = new VectorUnloader(root);
       VectorLoader jsonLoader = new VectorLoader(jsonRoot);
-      FlightClient.ClientStreamListener stream = client.startPut(descriptor, root);
+      FlightClient.ClientStreamListener stream = client.startPut(descriptor, root, new StreamListener<PutResult>() {
+        int counter = 0;
+
+        @Override
+        public void onNext(PutResult val) {
+          final String metadata = StandardCharsets.UTF_8.decode(val.getApplicationMetadata()).toString();
+          if (!Integer.toString(counter).equals(metadata)) {
+            throw new RuntimeException(
+                String.format("Invalid ACK from server. Expected '%d' but got '%s'.", counter, metadata));
+          }
+          counter++;
+        }
+
+        @Override
+        public void onError(Throwable t) {
+        }
+
+        @Override
+        public void onCompleted() {
+        }
+      });
+      int counter = 0;
       while (reader.read(root)) {
-        stream.putNext();
+        stream.putNext(Integer.toString(counter).getBytes(StandardCharsets.UTF_8));
         jsonLoader.load(unloader.getRecordBatch());
         root.clear();
+        counter++;
       }
       stream.completed();
       // Need to call this, or exceptions from the server get swallowed

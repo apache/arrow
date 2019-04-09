@@ -23,9 +23,11 @@ import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClient.ClientStreamListener;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.FlightProducer.StreamListener;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -75,7 +77,20 @@ public class TestExampleServer {
     IntVector iv = new IntVector("c1", a);
 
     VectorSchemaRoot root = VectorSchemaRoot.of(iv);
-    ClientStreamListener listener = client.startPut(FlightDescriptor.path("hello"), root);
+    ClientStreamListener listener = client.startPut(FlightDescriptor.path("hello"), root,
+        new StreamListener<PutResult>() {
+          @Override
+          public void onNext(PutResult val) {
+          }
+
+          @Override
+          public void onError(Throwable t) {
+          }
+
+          @Override
+          public void onCompleted() {
+          }
+        });
 
     //batch 1
     root.allocateNew();

@@ -288,7 +288,7 @@ message FlightData {
   /*
    * Application-defined metadata.
    */
-  bytes data_app_metadata = 3;
+  bytes app_metadata = 3;
 
   /*
    * The actual batch of Arrow data. Preferably handled with minimal-copies
@@ -303,5 +303,5 @@ message FlightData {
  * The response message associated with the submission of a DoPut.
  */
 message PutResult {
-  bytes data_app_metadata = 1;
+  bytes app_metadata = 1;
 }

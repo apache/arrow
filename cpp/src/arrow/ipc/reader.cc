@@ -455,7 +455,7 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     RETURN_NOT_OK(
         ReadMessageAndValidate(message_reader_.get(), /*allow_null=*/false, &message));
 
-    CHECK_MESSAGE_TYPE(message->type(), Message::SCHEMA);
+    CHECK_MESSAGE_TYPE(Message::SCHEMA, message->type());
     CHECK_HAS_NO_BODY(*message);
     if (message->header() == nullptr) {
       return Status::IOError("Header-pointer of flatbuffer-encoded Message is null.");

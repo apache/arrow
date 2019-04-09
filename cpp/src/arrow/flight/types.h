@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/flight/visibility.h"
+#include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 
 namespace arrow {
@@ -205,6 +206,7 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
 /// This structure corresponds to FlightData in the protocol.
 struct ARROW_FLIGHT_EXPORT FlightPayload {
   std::shared_ptr<Buffer> descriptor;
+  std::shared_ptr<Buffer> app_metadata;
   ipc::internal::IpcPayload ipc_message;
 };
 
@@ -276,6 +278,16 @@ class ARROW_FLIGHT_EXPORT ResultStream {
   /// \param[out] info a single Result
   /// \return Status
   virtual Status Next(std::unique_ptr<Result>* info) = 0;
+};
+
+/// \brief A RecordBatchReader that also exposes application-defined
+/// metadata from the Flight protocol.
+class ARROW_EXPORT MetadataRecordBatchReader : public RecordBatchReader {
+ public:
+  virtual ~MetadataRecordBatchReader() = default;
+
+  virtual Status ReadWithMetadata(std::shared_ptr<RecordBatch>* out,
+                                  std::shared_ptr<Buffer>* app_metadata) = 0;
 };
 
 // \brief Create a FlightListing from a vector of FlightInfo objects. This can

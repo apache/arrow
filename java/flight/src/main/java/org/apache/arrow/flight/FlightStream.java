@@ -39,7 +39,7 @@ import io.grpc.stub.StreamObserver;
 /**
  * An adaptor between protobuf streams and flight data streams.
  */
-public class FlightStream {
+public class FlightStream implements AutoCloseable {
 
 
   private final Object DONE = new Object();
@@ -60,6 +60,7 @@ public class FlightStream {
   private volatile Throwable ex;
   private volatile FlightDescriptor descriptor;
   private volatile Schema schema;
+  private volatile byte[] applicationMetadata = null;
 
   /**
    * Constructs a new instance.
@@ -135,6 +136,7 @@ public class FlightStream {
         try (ArrowRecordBatch arb = msg.asRecordBatch()) {
           loader.load(arb);
         }
+        this.applicationMetadata = msg.getApplicationMetadata();
         return true;
       }
 
@@ -150,6 +152,16 @@ public class FlightStream {
     } catch (InterruptedException | ExecutionException e) {
       throw Throwables.propagate(e);
     }
+  }
+
+  /**
+   * Get the most recent metadata sent from the server. This may be cleared by calls to {@link #next()} if the server
+   * sends a message without metadata.
+   *
+   * @return the application metadata. May be null.
+   */
+  public byte[] getLatestMetadata() {
+    return applicationMetadata;
   }
 
   private synchronized void requestOutstanding() {

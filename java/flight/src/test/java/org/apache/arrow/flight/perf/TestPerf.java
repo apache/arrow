@@ -81,8 +81,7 @@ public class TestPerf {
       try (
           final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
           final PerformanceTestServer server =
-              FlightTestUtil.getStartedServer((port) -> new PerformanceTestServer(a,
-                  Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, port)));
+              FlightTestUtil.getStartedServer((location) -> new PerformanceTestServer(a, location));
           final FlightClient client = FlightClient.builder(a, server.getLocation()).build();
       ) {
         final FlightInfo info = client.getInfo(getPerfFlightDescriptor(50_000_000L, 4095, 2));

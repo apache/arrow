@@ -46,7 +46,7 @@ public class TestBackPressure {
     try (
         final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         final PerformanceTestServer server = FlightTestUtil.getStartedServer(
-            (port) -> (new PerformanceTestServer(a, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, port))));
+            (location) -> (new PerformanceTestServer(a, location)));
         final FlightClient client = FlightClient.builder(a, server.getLocation()).build()
     ) {
       FlightStream fs1 = client.getStream(client.getInfo(
@@ -121,13 +121,12 @@ public class TestBackPressure {
       try (
           BufferAllocator serverAllocator = allocator.newChildAllocator("server", 0, Long.MAX_VALUE);
           FlightServer server =
-              FlightTestUtil.getStartedServer(
-                  (port) -> FlightServer.builder(serverAllocator, Location.forGrpcInsecure("localhost", port), producer)
-                      .build());
+              FlightTestUtil.getStartedServer((location) -> FlightServer.builder(serverAllocator, location, producer)
+                  .build());
           BufferAllocator clientAllocator = allocator.newChildAllocator("client", 0, Long.MAX_VALUE);
           FlightClient client =
               FlightClient
-                  .builder(clientAllocator, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, server.getPort()))
+                  .builder(clientAllocator, server.getLocation())
                   .build()
       ) {
         FlightStream stream = client.getStream(new Ticket(new byte[1]));

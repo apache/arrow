@@ -20,6 +20,7 @@ import base64
 import contextlib
 import os
 import socket
+import struct
 import tempfile
 import threading
 import time
@@ -114,17 +115,57 @@ class ConstantFlightServer(flight.FlightServerBase):
         return flight.RecordBatchStream(table)
 
 
+class MetadataFlightServer(flight.FlightServerBase):
+    """A Flight server that numbers incoming/outgoing data."""
+
+    def do_get(self, context, ticket):
+        data = [
+            pa.array([-10, -5, 0, 5, 10])
+        ]
+        table = pa.Table.from_arrays(data, names=['a'])
+        return flight.GeneratorStream(
+            table.schema,
+            self.number_batches(table))
+
+    def do_put(self, context, descriptor, reader, writer):
+        counter = 0
+        expected_data = [-10, -5, 0, 5, 10]
+        while True:
+            try:
+                batch, buf = reader.read_with_metadata()
+                assert batch.equals(pa.RecordBatch.from_arrays(
+                    [pa.array([expected_data[counter]])],
+                    ['a']
+                ))
+                assert buf is not None
+                client_counter, = struct.unpack('<i', buf.to_pybytes())
+                assert counter == client_counter
+                writer.write(struct.pack('<i', counter))
+                counter += 1
+            except StopIteration:
+                return
+
+    @staticmethod
+    def number_batches(table):
+        for idx, batch in enumerate(table.to_batches()):
+            buf = struct.pack('<i', idx)
+            yield batch, buf
+
+
 class EchoFlightServer(flight.FlightServerBase):
     """A Flight server that returns the last data uploaded."""
 
-    def __init__(self):
+    def __init__(self, expected_schema=None):
         super(EchoFlightServer, self).__init__()
         self.last_message = None
+        self.expected_schema = expected_schema
 
     def do_get(self, context, ticket):
         return flight.RecordBatchStream(self.last_message)
 
-    def do_put(self, context, descriptor, reader):
+    def do_put(self, context, descriptor, reader, writer):
+        if self.expected_schema:
+            assert self.expected_schema == reader.schema
         self.last_message = reader.read_all()
 
 
@@ -392,15 +433,23 @@ def test_flight_get_info():
                     reason="Unix sockets can't be tested on Windows")
 def test_flight_domain_socket():
     """Try a simple do_get call over a Unix domain socket."""
-    table = simple_ints_table()
-
     with tempfile.NamedTemporaryFile() as sock:
         sock.close()
         location = flight.Location.for_grpc_unix(sock.name)
         with flight_server(ConstantFlightServer,
                            location=location) as server_location:
             client = flight.FlightClient.connect(server_location)
-            data = client.do_get(flight.Ticket(b'ints')).read_all()
+
+            reader = client.do_get(flight.Ticket(b'ints'))
+            table = simple_ints_table()
+            assert reader.schema.equals(table.schema)
+            data = reader.read_all()
+            assert data.equals(table)
+
+            reader = client.do_get(flight.Ticket(b'dicts'))
+            table = simple_dicts_table()
+            assert reader.schema.equals(table.schema)
+            data = reader.read_all()
             assert data.equals(table)
 
 
@@ -415,10 +464,11 @@ def test_flight_large_message():
         pa.array(range(0, 10 * 1024 * 1024))
     ], names=['a'])
 
-    with flight_server(EchoFlightServer) as server_location:
+    with flight_server(EchoFlightServer,
+                       expected_schema=data.schema) as server_location:
         client = flight.FlightClient.connect(server_location)
-        writer = client.do_put(flight.FlightDescriptor.for_path('test'),
-                               data.schema)
+        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
+                                  data.schema)
         # Write a single giant chunk
         writer.write_table(data, 10 * 1024 * 1024)
         writer.close()
@@ -434,8 +484,8 @@ def test_flight_generator_stream():
 
     with flight_server(EchoStreamFlightServer) as server_location:
         client = flight.FlightClient.connect(server_location)
-        writer = client.do_put(flight.FlightDescriptor.for_path('test'),
-                               data.schema)
+        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
+                                  data.schema)
         writer.write_table(data)
         writer.close()
         result = client.do_get(flight.Ticket(b'')).read_all()
@@ -585,3 +635,50 @@ def test_tls_override_hostname():
             override_hostname="fakehostname")
         with pytest.raises(pa.ArrowIOError):
             client.do_get(flight.Ticket(b'ints'))
+
+
+def test_flight_do_get_metadata():
+    """Try a simple do_get call with metadata."""
+    data = [
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+    table = pa.Table.from_arrays(data, names=['a'])
+
+    batches = []
+    with flight_server(MetadataFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        reader = client.do_get(flight.Ticket(b''))
+        idx = 0
+        while True:
+            try:
+                batch, metadata = reader.read_with_metadata()
+                batches.append(batch)
+                server_idx, = struct.unpack('<i', metadata.to_pybytes())
+                assert idx == server_idx
+                idx += 1
+            except StopIteration:
+                break
+        data = pa.Table.from_batches(batches)
+        assert data.equals(table)
+
+
+def test_flight_do_put_metadata():
+    """Try a simple do_put call with metadata."""
+    data = [
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+    table = pa.Table.from_arrays(data, names=['a'])
+
+    with flight_server(MetadataFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        writer, metadata_reader = client.do_put(
+            flight.FlightDescriptor.for_path(''),
+            table.schema)
+        with writer:
+            for idx, batch in enumerate(table.to_batches(chunksize=1)):
+                metadata = struct.pack('<i', idx)
+                writer.write_with_metadata(batch, metadata)
+                buf = metadata_reader.read()
+                assert buf is not None
+                server_idx, = struct.unpack('<i', buf.to_pybytes())
+                assert idx == server_idx

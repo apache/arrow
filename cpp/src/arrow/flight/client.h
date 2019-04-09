@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/status.h"
 
@@ -35,7 +36,6 @@ namespace arrow {
 
 class MemoryPool;
 class RecordBatch;
-class RecordBatchReader;
 class Schema;
 
 namespace flight {
@@ -64,6 +64,24 @@ class ARROW_FLIGHT_EXPORT FlightClientOptions {
   std::string tls_root_certs;
   /// \brief Override the hostname checked by TLS. Use with caution.
   std::string override_hostname;
+};
+
+/// \brief A RecordBatchWriter that also allows sending
+/// application-defined metadata via the Flight protocol.
+class ARROW_EXPORT FlightStreamWriter : public ipc::RecordBatchWriter {
+ public:
+  virtual Status WriteWithMetadata(const RecordBatch& batch,
+                                   std::shared_ptr<Buffer> app_metadata,
+                                   bool allow_64bit = false) = 0;
+};
+
+/// \brief A reader for application-specific metadata sent back to the
+/// client during an upload.
+class ARROW_EXPORT FlightMetadataReader {
+ public:
+  virtual ~FlightMetadataReader();
+  /// \brief Read a message from the server.
+  virtual Status ReadMetadata(std::shared_ptr<Buffer>* out) = 0;
 };
 
 /// \brief Client class for Arrow Flight RPC services (gRPC-based).
@@ -151,8 +169,8 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[out] stream the returned RecordBatchReader
   /// \return Status
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
-               std::unique_ptr<RecordBatchReader>* stream);
-  Status DoGet(const Ticket& ticket, std::unique_ptr<RecordBatchReader>* stream) {
+               std::unique_ptr<MetadataRecordBatchReader>* stream);
+  Status DoGet(const Ticket& ticket, std::unique_ptr<MetadataRecordBatchReader>* stream) {
     return DoGet({}, ticket, stream);
   }
 
@@ -163,13 +181,16 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] descriptor the descriptor of the stream
   /// \param[in] schema the schema for the data to upload
   /// \param[out] stream a writer to write record batches to
+  /// \param[out] reader a reader for application metadata from the server
   /// \return Status
   Status DoPut(const FlightCallOptions& options, const FlightDescriptor& descriptor,
                const std::shared_ptr<Schema>& schema,
-               std::unique_ptr<ipc::RecordBatchWriter>* stream);
+               std::unique_ptr<FlightStreamWriter>* stream,
+               std::unique_ptr<FlightMetadataReader>* reader);
   Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
-               std::unique_ptr<ipc::RecordBatchWriter>* stream) {
-    return DoPut({}, descriptor, schema, stream);
+               std::unique_ptr<FlightStreamWriter>* stream,
+               std::unique_ptr<FlightMetadataReader>* reader) {
+    return DoPut({}, descriptor, schema, stream, reader);
   }
 
  private:

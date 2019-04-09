@@ -74,8 +74,15 @@ class ArrowMessage implements AutoCloseable {
       (FlightData.DATA_BODY_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
   private static final int HEADER_TAG =
       (FlightData.DATA_HEADER_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
+  private static final int APP_METADATA_TAG =
+      (FlightData.APP_METADATA_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
 
   private static Marshaller<FlightData> NO_BODY_MARSHALLER = ProtoUtils.marshaller(FlightData.getDefaultInstance());
+
+  /** Get the application-specific metadata in this message. */
+  public byte[] getApplicationMetadata() {
+    return appMetadata;
+  }
 
   /** Types of messages that can be sent. */
   public enum HeaderType {
@@ -114,6 +121,7 @@ class ArrowMessage implements AutoCloseable {
 
   private final FlightDescriptor descriptor;
   private final Message message;
+  private final byte[] appMetadata;
   private final List<ArrowBuf> bufs;
 
   public ArrowMessage(FlightDescriptor descriptor, Schema schema) {
@@ -124,9 +132,10 @@ class ArrowMessage implements AutoCloseable {
     message = Message.getRootAsMessage(serializedMessage);
     bufs = ImmutableList.of();
     this.descriptor = descriptor;
+    this.appMetadata = null;
   }
 
-  public ArrowMessage(ArrowRecordBatch batch) {
+  public ArrowMessage(ArrowRecordBatch batch, byte[] appMetadata) {
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int batchOffset = batch.writeTo(builder);
     ByteBuffer serializedMessage = MessageSerializer.serializeMessage(builder, MessageHeader.RecordBatch, batchOffset,
@@ -135,11 +144,13 @@ class ArrowMessage implements AutoCloseable {
     this.message = Message.getRootAsMessage(serializedMessage);
     this.bufs = ImmutableList.copyOf(batch.getBuffers());
     this.descriptor = null;
+    this.appMetadata = appMetadata;
   }
 
-  private ArrowMessage(FlightDescriptor descriptor, Message message, ArrowBuf buf) {
+  private ArrowMessage(FlightDescriptor descriptor, Message message, byte[] appMetadata, ArrowBuf buf) {
     this.message = message;
     this.descriptor = descriptor;
+    this.appMetadata = appMetadata;
     this.bufs = buf == null ? ImmutableList.of() : ImmutableList.of(buf);
   }
 
@@ -183,6 +194,7 @@ class ArrowMessage implements AutoCloseable {
       FlightDescriptor descriptor = null;
       Message header = null;
       ArrowBuf body = null;
+      byte[] appMetadata = null;
       while (stream.available() > 0) {
         int tag = readRawVarint32(stream);
         switch (tag) {
@@ -199,6 +211,12 @@ class ArrowMessage implements AutoCloseable {
             byte[] bytes = new byte[size];
             ByteStreams.readFully(stream, bytes);
             header = Message.getRootAsMessage(ByteBuffer.wrap(bytes));
+            break;
+          }
+          case APP_METADATA_TAG: {
+            int size = readRawVarint32(stream);
+            appMetadata = new byte[size];
+            ByteStreams.readFully(stream, appMetadata);
             break;
           }
           case BODY_TAG:
@@ -225,7 +243,7 @@ class ArrowMessage implements AutoCloseable {
         }
       }
 
-      return new ArrowMessage(descriptor, header, body);
+      return new ArrowMessage(descriptor, header, appMetadata, body);
     } catch (Exception ioe) {
       throw new RuntimeException(ioe);
     }
@@ -245,7 +263,6 @@ class ArrowMessage implements AutoCloseable {
     try {
 
       final ByteString bytes = ByteString.copyFrom(message.getByteBuffer(), message.getByteBuffer().remaining());
-
 
       if (getMessageType() == HeaderType.SCHEMA) {
 
@@ -267,8 +284,12 @@ class ArrowMessage implements AutoCloseable {
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       CodedOutputStream cos = CodedOutputStream.newInstance(baos);
       cos.writeBytes(FlightData.DATA_HEADER_FIELD_NUMBER, bytes);
-      cos.writeTag(FlightData.DATA_BODY_FIELD_NUMBER, WireFormat.WIRETYPE_LENGTH_DELIMITED);
 
+      if (appMetadata != null && appMetadata.length > 0) {
+        cos.writeByteArray(FlightData.APP_METADATA_FIELD_NUMBER, appMetadata);
+      }
+
+      cos.writeTag(FlightData.DATA_BODY_FIELD_NUMBER, WireFormat.WIRETYPE_LENGTH_DELIMITED);
       int size = 0;
       List<ByteBuf> allBufs = new ArrayList<>();
       for (ArrowBuf b : bufs) {

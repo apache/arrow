@@ -17,9 +17,6 @@
 
 package org.apache.arrow.flight;
 
-import java.util.concurrent.Callable;
-
-import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.vector.VectorSchemaRoot;
 
 /**
@@ -27,17 +24,23 @@ import org.apache.arrow.vector.VectorSchemaRoot;
  */
 public interface FlightProducer {
 
+  /**
+   * Return data for the given stream.
+   */
   void getStream(CallContext context, Ticket ticket,
       ServerStreamListener listener);
 
+  /** List available flights given some criteria. */
   void listFlights(CallContext context, Criteria criteria,
       StreamListener<FlightInfo> listener);
 
+  /** Get information on a specific flight. */
   FlightInfo getFlightInfo(CallContext context,
       FlightDescriptor descriptor);
 
-  Callable<PutResult> acceptPut(CallContext context,
-      FlightStream flightStream);
+  /** Accept uploaded data for a flight. */
+  Runnable acceptPut(CallContext context,
+      FlightStream flightStream, StreamListener<PutResult> ackStream);
 
   void doAction(CallContext context, Action action,
       StreamListener<Result> listener);
@@ -50,16 +53,35 @@ public interface FlightProducer {
    */
   interface ServerStreamListener {
 
+    /**
+     * Check if the client has cancelled their request.
+     */
     boolean isCancelled();
 
+    /**
+     * Check if the client is ready to receive further data.
+     */
     boolean isReady();
 
+    /**
+     * Begin sending data from the specified root.
+     */
     void start(VectorSchemaRoot root);
 
+    /** Send the current contents of the root to the client. */
     void putNext();
 
+    /**
+     * Send the current contents of the root to the client, along with application-defined metadata on the side.
+     */
+    void putNext(byte[] metadata);
+
+    /**
+     *  Indicate an error to the client. Do not call {@link #completed} afterwards.
+     */
     void error(Throwable ex);
 
+    /** Indicate that the stream is finished. */
     void completed();
 
   }

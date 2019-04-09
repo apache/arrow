@@ -30,7 +30,6 @@ import org.apache.arrow.flight.impl.Flight.ActionType;
 import org.apache.arrow.flight.impl.Flight.Empty;
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
-import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceImplBase;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -145,8 +144,13 @@ class FlightService extends FlightServiceImplBase {
 
     @Override
     public void putNext() {
+      putNext(null);
+    }
+
+    @Override
+    public void putNext(byte[] metadata) {
       Preconditions.checkNotNull(unloader);
-      responseObserver.onNext(new ArrowMessage(unloader.getRecordBatch()));
+      responseObserver.onNext(new ArrowMessage(unloader.getRecordBatch(), metadata));
     }
 
     @Override
@@ -161,15 +165,17 @@ class FlightService extends FlightServiceImplBase {
 
   }
 
-  public StreamObserver<ArrowMessage> doPutCustom(final StreamObserver<PutResult> responseObserverSimple) {
-    ServerCallStreamObserver<PutResult> responseObserver = (ServerCallStreamObserver<PutResult>) responseObserverSimple;
+  public StreamObserver<ArrowMessage> doPutCustom(final StreamObserver<Flight.PutResult> responseObserverSimple) {
+    ServerCallStreamObserver<Flight.PutResult> responseObserver =
+        (ServerCallStreamObserver<Flight.PutResult>) responseObserverSimple;
     responseObserver.disableAutoInboundFlowControl();
     responseObserver.request(1);
 
     FlightStream fs = new FlightStream(allocator, PENDING_REQUESTS, null, (count) -> responseObserver.request(count));
     executors.submit(() -> {
       try {
-        responseObserver.onNext(producer.acceptPut(makeContext(responseObserver), fs).call());
+        producer.acceptPut(makeContext(responseObserver), fs,
+            StreamPipe.wrap(responseObserver, PutResult::toProtocol)).run();
         responseObserver.onCompleted();
       } catch (Exception ex) {
         responseObserver.onError(ex);

@@ -17,24 +17,22 @@
 
 package org.apache.arrow.flight;
 
-import static io.grpc.stub.ClientCalls.asyncClientStreamingCall;
-import static io.grpc.stub.ClientCalls.asyncServerStreamingCall;
-
 import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import javax.net.ssl.SSLException;
 
+import org.apache.arrow.flight.FlightProducer.StreamListener;
 import org.apache.arrow.flight.auth.BasicClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthInterceptor;
 import org.apache.arrow.flight.auth.ClientAuthWrapper;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.Empty;
-import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.flight.impl.FlightServiceGrpc;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceBlockingStub;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceStub;
@@ -47,8 +45,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 
 import io.grpc.ClientCall;
 import io.grpc.ManagedChannel;
@@ -56,6 +52,7 @@ import io.grpc.MethodDescriptor;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;
 import io.grpc.stub.ClientCallStreamObserver;
+import io.grpc.stub.ClientCalls;
 import io.grpc.stub.ClientResponseObserver;
 import io.grpc.stub.StreamObserver;
 
@@ -158,18 +155,19 @@ public class FlightClient implements AutoCloseable {
    * Create or append a descriptor with another stream.
    * @param descriptor FlightDescriptor
    * @param root VectorSchemaRoot
+   * @param metadataListener A handler for metadata messages from the server.
    * @param options RPC-layer hints for this call.
    * @return ClientStreamListener
    */
-  public ClientStreamListener startPut(
-      FlightDescriptor descriptor, VectorSchemaRoot root, CallOption... options) {
+  public ClientStreamListener startPut(FlightDescriptor descriptor, VectorSchemaRoot root,
+      StreamListener<PutResult> metadataListener, CallOption... options) {
     Preconditions.checkNotNull(descriptor);
     Preconditions.checkNotNull(root);
 
-    SetStreamObserver<PutResult> resultObserver = new SetStreamObserver<>();
+    SetStreamObserver resultObserver = new SetStreamObserver(metadataListener);
     final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
     ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
-        asyncClientStreamingCall(
+        ClientCalls.asyncBidiStreamingCall(
                 authInterceptor.interceptCall(doPutDescriptor, callOptions, channel), resultObserver);
     // send the schema to start.
     ArrowMessage message = new ArrowMessage(descriptor.toProtocol(), root.getSchema());
@@ -235,30 +233,43 @@ public class FlightClient implements AutoCloseable {
 
         };
 
-    asyncServerStreamingCall(call, ticket.toProtocol(), clientResponseObserver);
+    ClientCalls.asyncServerStreamingCall(call, ticket.toProtocol(), clientResponseObserver);
     return stream;
   }
 
-  private static class SetStreamObserver<T> implements StreamObserver<T> {
-    private final SettableFuture<T> result = SettableFuture.create();
-    private volatile T resultLocal;
+  private static class SetStreamObserver implements StreamObserver<Flight.PutResult> {
+    private final CompletableFuture<Void> result;
+    private final StreamListener<PutResult> listener;
+
+    SetStreamObserver(FlightProducer.StreamListener<PutResult> listener) {
+      this.listener = listener;
+      result = new CompletableFuture<>();
+    }
 
     @Override
-    public void onNext(T value) {
-      resultLocal = value;
+    public void onNext(Flight.PutResult value) {
+      if (listener != null) {
+        listener.onNext(PutResult.fromProtocol(value));
+      }
     }
 
     @Override
     public void onError(Throwable t) {
-      result.setException(t);
+      result.completeExceptionally(t);
+      if (listener != null) {
+        listener.onError(t);
+      }
     }
 
     @Override
     public void onCompleted() {
-      result.set(Preconditions.checkNotNull(resultLocal));
+      if (listener != null) {
+        listener.onCompleted();
+      }
+      result.complete(null);
     }
 
-    public ListenableFuture<T> getFuture() {
+    public CompletableFuture<Void> getFuture() {
       return result;
     }
   }
@@ -266,10 +277,10 @@ public class FlightClient implements AutoCloseable {
   private static class PutObserver implements ClientStreamListener {
     private final ClientCallStreamObserver<ArrowMessage> observer;
     private final VectorUnloader unloader;
-    private final ListenableFuture<PutResult> futureResult;
+    private final CompletableFuture<Void> futureResult;
 
     public PutObserver(VectorUnloader unloader, ClientCallStreamObserver<ArrowMessage> observer,
-        ListenableFuture<PutResult> futureResult) {
+        CompletableFuture<Void> futureResult) {
       this.observer = observer;
       this.unloader = unloader;
       this.futureResult = futureResult;
@@ -277,12 +288,17 @@ public class FlightClient implements AutoCloseable {
 
     @Override
     public void putNext() {
+      putNext(null);
+    }
+
+    @Override
+    public void putNext(byte[] appMetadata) {
       ArrowRecordBatch batch = unloader.getRecordBatch();
       // Check the futureResult in case server sent an exception
       while (!observer.isReady() && !futureResult.isDone()) {
         /* busy wait */
       }
-      observer.onNext(new ArrowMessage(batch));
+      observer.onNext(new ArrowMessage(batch, appMetadata));
     }
 
     @Override
@@ -296,9 +312,9 @@ public class FlightClient implements AutoCloseable {
     }
 
     @Override
-    public PutResult getResult() {
+    public void getResult() {
       try {
-        return futureResult.get();
+        futureResult.get();
       } catch (Exception ex) {
         throw Throwables.propagate(ex);
       }
@@ -312,11 +328,15 @@ public class FlightClient implements AutoCloseable {
 
     void putNext();
 
+    void putNext(byte[] appMetadata);
+
     void error(Throwable ex);
 
+    /** Indicate the stream is finished on the client side. */
     void completed();
 
-    PutResult getResult();
+    /** Wait for the stream to finish on the server side. */
+    void getResult();
 
   }
 

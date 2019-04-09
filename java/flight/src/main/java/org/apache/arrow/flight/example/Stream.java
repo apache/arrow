@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight.example;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -84,9 +85,11 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
     try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       listener.start(root);
       final VectorLoader loader = new VectorLoader(root);
+      int counter = 0;
       for (ArrowRecordBatch batch : batches) {
         loader.load(batch);
-        listener.putNext();
+        listener.putNext(Integer.toString(counter).getBytes(StandardCharsets.UTF_8));
+        counter++;
       }
       listener.completed();
     } catch (Exception ex) {
