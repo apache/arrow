@@ -76,6 +76,7 @@ impl Field {
 
 #[derive(Debug, PartialEq)]
 pub enum Type {
+    Array(Box<Type>),
     Option(Box<Type>),
     Vec(Box<Type>),
     TypePath(syn::Type),
@@ -84,42 +85,126 @@ pub enum Type {
 
 impl Type {
     fn inner_type(&self) -> &syn::Type {
-        match &self {
-            Type::Option(generic) | Type::Vec(generic) => match **generic {
-                Type::TypePath(ref type_) => type_,
-                _ => unimplemented!("nesting generics is not supported"),
-            },
+        match self.leaf_type() {
             Type::TypePath(ref type_) => type_,
-            Type::Reference(_, ref first_type) => match **first_type {
-                Type::TypePath(ref type_) => type_,
-                Type::Option(ref second_type) | Type::Vec(ref second_type) => {
-                    match **second_type {
-                        Type::TypePath(ref type_) => type_,
-                        Type::Reference(_, ref third_type) => match **third_type {
-                            Type::TypePath(ref type_) => type_,
-                            Type::Vec(ref fourth_type)
-                            | Type::Option(ref fourth_type) => match **fourth_type {
-                                Type::TypePath(ref type_) => type_,
-                                _ => unimplemented!(
-                                    "only two levels of generic nesting supported"
-                                ),
-                            },
-                            _ => unimplemented!("references can "),
-                        },
-                        Type::Option(_) | Type::Vec(_) => {
-                            unimplemented!("options cannot hold Option or Vec")
+            Type::Option(ref first_type) | Type::Vec(ref first_type) | Type::Array(ref first_type) | Type::Reference(_, ref first_type) => {
+                match **first_type {
+                    Type::TypePath(ref type_) => type_,
+                    _ => unimplemented!("leaf_type() should only return values containing TypePath")
+                }
+            },
+            f @ _ => unimplemented!("sorry, we don't support nesting this far for {:#?}", f)
+        }
+//        match &self {
+//            Type::Option(ref first_type) | Type::Vec(ref first_type) | Type::Array(ref first_type) => {
+//                match **first_type {
+//                    Type::TypePath(ref type_) => type_,
+//                    Type::Vec(ref second_type) | Type::Option(ref second_type) | Type::Array(ref second_type) | Type::Reference(_, ref second_type) => {
+//                        match **second_type {
+//                            Type::TypePath(ref type_) => type_,
+//                            Type::Vec(ref third_type) | Type::Option(ref third_type) | Type::Array(ref third_type) | Type::Reference(_, ref third_type) => {
+//                                match **third_type {
+//                                    Type::TypePath(ref type_) => type_,
+//                                    ref f @ _ => unimplemented!("nesting types this far is not supported, dying at {:#?}", f)
+//                                }
+//                            },
+//                            _ => unimplemented!("not supported yet!")
+//                        }
+//                    },
+//                }
+//            },
+//            Type::TypePath(ref type_) => type_,
+//            Type::Reference(_, ref first_type) => match **first_type {
+//                Type::TypePath(ref type_) => type_,
+//                Type::Option(ref second_type)
+//                | Type::Vec(ref second_type)
+//                | Type::Array(ref second_type) => match **second_type {
+//                    Type::TypePath(ref type_) => type_,
+//                    Type::Reference(_, ref third_type) | Type::Array(ref third_type) => {
+//                        match **third_type {
+//                            Type::TypePath(ref type_) => type_,
+//                            Type::Vec(ref fourth_type)
+//                            | Type::Option(ref fourth_type) => match **fourth_type {
+//                                Type::TypePath(ref type_) => type_,
+//                                _ => unimplemented!(
+//                                    "only two levels of generic nesting supported"
+//                                ),
+//                            },
+//                            _ => unimplemented!("references can "),
+//                        }
+//                    }
+//                    Type::Option(_) | Type::Vec(_) => {
+//                        unimplemented!("options cannot hold Option or Vec")
+//                    }
+//                },
+//                Type::Reference(_, _) => {
+//                    unimplemented!("double references are not supported")
+//                }
+//            },
+//        }
+    }
+
+    pub fn leaf_type(&self) -> &Type {
+        match &self {
+            Type::TypePath(_) => &self,
+            Type::Option(ref first_type) | Type::Vec(ref first_type) | Type::Array(ref first_type) | Type::Reference(_, ref first_type) => {
+                match **first_type {
+                    Type::TypePath(_) => &self,
+                    Type::Option(ref second_type) | Type::Vec(ref second_type) | Type::Array(ref second_type) | Type::Reference(_, ref second_type) => {
+                        match **second_type {
+                            Type::TypePath(_) => first_type,
+                            Type::Option(ref third_type) | Type::Vec(ref third_type) | Type::Array(ref third_type) | Type::Reference(_, ref third_type) => {
+                                match **third_type {
+                                    Type::TypePath(_) => second_type,
+                                    _ => unimplemented!("sorry fourthsies!")
+                                }
+                            }
+                            _ => unimplemented!("sorry thirdsies!")
                         }
                     }
-                }
-                Type::Reference(_, _) => {
-                    unimplemented!("double references are not supported")
+                    _ => unimplemented!("sorry secondsies!")
                 }
             },
+            f @ _ => unimplemented!("sorry again! {:#?}", f)
         }
     }
 
     pub fn physical_type(&self) -> parquet::basic::Type {
-        unimplemented!("hi mom {:#?}", self.inner_type())
+        use parquet::basic::Type as BasicType;
+
+        let inner_type = self.inner_type();
+        let inner_type_str = (quote! { #inner_type }).to_string();
+        let last_part = inner_type_str.split("::").last().unwrap().trim();
+
+        match self.leaf_type() {
+            Type::Array(ref first_type) => {
+                if let Type::TypePath(_) = **first_type {
+                    if last_part == "u8" {
+                        return BasicType::FIXED_LEN_BYTE_ARRAY;
+                    }
+                }
+            }
+            Type::Vec(ref first_type) => {
+                if let Type::TypePath(_) = **first_type {
+                    if last_part == "u8" {
+                        return BasicType::BYTE_ARRAY;
+                    }
+                }
+            }
+            _ => (),
+        }
+
+        match last_part.trim() {
+            "bool" => BasicType::BOOLEAN,
+            "u8" | "u16" | "u32" => BasicType::INT32,
+            "i8" | "i16" | "i32" => BasicType::INT32,
+            "u64" | "i64" => BasicType::INT64,
+            "f32" => BasicType::FLOAT,
+            "f64" => BasicType::DOUBLE,
+            "String" | "str" => BasicType::BYTE_ARRAY,
+            f @ _ => unimplemented!("sorry, don't handle {} yet!", f),
+        }
+        //        unimplemented!("hi mom {:#?}", self.inner_type())
         //    BOOLEAN,
         //    INT32,
         //    INT64,
@@ -171,10 +256,16 @@ impl Type {
         Type::Reference(lifetime, Box::new(inner_type))
     }
 
+    pub fn from_type_array(f: &syn::Field, ta: &syn::TypeArray) -> Self {
+        let inner_type = Type::from_type(f, ta.elem.as_ref());
+        Type::Array(Box::new(inner_type))
+    }
+
     pub fn from_type(f: &syn::Field, ty: &syn::Type) -> Self {
         match ty {
             syn::Type::Path(ref p) => Type::from_type_path(f, p),
             syn::Type::Reference(ref tr) => Type::from_type_reference(f, tr),
+            syn::Type::Array(ref ta) => Type::from_type_array(f, ta),
             other @ _ => unimplemented!(
                 "we can't derive for {:?}. it is an unsupported type\n{:#?}",
                 f.ident.as_ref().unwrap(),
@@ -228,6 +319,69 @@ mod test {
                     ident: syn::Ident::new("name", proc_macro2::Span::call_site()),
                     ty: Type::TypePath(syn::parse_str("String").unwrap())
                 }
+            ]
+        )
+    }
+
+    #[test]
+    fn test_get_inner_type() {
+        let snippet: proc_macro2::TokenStream = quote! {
+          struct LotsOfInnerTypes {
+            a_vec: Vec<u8>,
+            a_option: std::option::Option<bool>,
+            a_silly_string: std::string::String,
+            a_complicated_thing: std::option::Option<std::result::Result<(),()>>,
+          }
+        };
+
+        let fields = extract_fields(snippet);
+        let converted_fields: Vec<_> = fields.iter().map(|x| Type::from(x)).collect();
+        let inner_types: Vec<_> =
+            converted_fields.iter().map(|x| x.inner_type()).collect();
+        let inner_types_strs: Vec<_> = inner_types
+            .iter()
+            .map(|x| (quote! { #x }).to_string())
+            .collect();
+
+        assert_eq!(
+            inner_types_strs,
+            vec![
+                "u8",
+                "bool",
+                "std :: string :: String",
+                "std :: result :: Result < ( ) , ( ) >"
+            ]
+        )
+    }
+
+    #[test]
+    fn test_physical_type() {
+        use parquet::basic::Type as BasicType;
+        let snippet: proc_macro2::TokenStream = quote! {
+          struct LotsOfInnerTypes {
+            a_buf: Vec<u8>,
+            a_number: i32,
+            a_verbose_option: std::option::Option<bool>,
+            a_silly_string: std::string::String,
+            a_fix_byte_buf: [u8; 10],
+            a_complex_option: Option<&Vec<u8>>
+          }
+        };
+
+        let fields = extract_fields(snippet);
+        let converted_fields: Vec<_> = fields.iter().map(|x| Type::from(x)).collect();
+        let physical_types: Vec<_> =
+            converted_fields.iter().map(|x| x.physical_type()).collect();
+
+        assert_eq!(
+            physical_types,
+            vec![
+                BasicType::BYTE_ARRAY,
+                BasicType::INT32,
+                BasicType::BOOLEAN,
+                BasicType::BYTE_ARRAY,
+                BasicType::FIXED_LEN_BYTE_ARRAY,
+                BasicType::BYTE_ARRAY
             ]
         )
     }
