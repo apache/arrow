@@ -17,12 +17,26 @@
 
 #pragma once
 
-#include "arrow/array.h"
-#include "arrow/json/converter.h"
-#include "arrow/util/task-group.h"
+#include <memory>
+
+#include "arrow/status.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
+
+namespace internal {
+class TaskGroup;
+}  // namespace internal
+
+class Array;
+class MemoryPool;
+class DataType;
+class Field;
+class ChunkedArray;
+
 namespace json {
+
+class PromotionGraph;
 
 class ARROW_EXPORT ChunkedArrayBuilder {
  public:

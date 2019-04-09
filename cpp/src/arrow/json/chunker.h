@@ -20,15 +20,17 @@
 
 #include <memory>
 
-#include "arrow/buffer.h"
-#include "arrow/json/options.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/sse-util.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Buffer;
+
 namespace json {
+
+struct ParseOptions;
 
 /// \class Chunker
 /// \brief A reusable block-based chunker for JSON data
@@ -57,7 +59,7 @@ class ARROW_EXPORT Chunker {
                          std::shared_ptr<Buffer>* completion,
                          std::shared_ptr<Buffer>* rest) = 0;
 
-  static std::unique_ptr<Chunker> Make(ParseOptions options);
+  static std::unique_ptr<Chunker> Make(const ParseOptions& options);
 
  protected:
   Chunker() = default;

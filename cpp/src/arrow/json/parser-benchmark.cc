@@ -17,7 +17,6 @@
 
 #include "benchmark/benchmark.h"
 
-#include <iostream>
 #include <string>
 
 #include "arrow/json/chunker.h"

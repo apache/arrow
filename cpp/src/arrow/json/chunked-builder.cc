@@ -18,11 +18,16 @@
 #include "arrow/json/chunked-builder.h"
 
 #include <mutex>
+#include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
-#include "arrow/builder.h"
+#include "arrow/json/converter.h"
 #include "arrow/table.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
+#include "arrow/util/task-group.h"
 
 namespace arrow {
 namespace json {

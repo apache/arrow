@@ -17,6 +17,7 @@
 
 #include "arrow/json/converter.h"
 
+#include <memory>
 #include <utility>
 
 #include "arrow/array.h"
@@ -25,7 +26,7 @@
 #include "arrow/type.h"
 #include "arrow/util/parsing.h"
 #include "arrow/util/stl.h"
-#include "arrow/util/task-group.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace json {

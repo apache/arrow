@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
 #include <memory>
 #include <numeric>
 #include <string>
@@ -24,10 +23,8 @@
 
 #include "arrow/buffer.h"
 #include "arrow/json/chunker.h"
-#include "arrow/json/options.h"
 #include "arrow/json/test-common.h"
-#include "arrow/testing/gtest_common.h"
-#include "arrow/testing/util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {

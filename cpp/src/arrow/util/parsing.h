@@ -99,7 +99,7 @@ class StringToFloatConverterMixin {
  public:
   using value_type = typename ARROW_TYPE::c_type;
 
-  StringToFloatConverterMixin(const std::shared_ptr<DataType>& = NULLPTR)
+  explicit StringToFloatConverterMixin(const std::shared_ptr<DataType>& = NULLPTR)
       : main_converter_(flags_, main_junk_value_, main_junk_value_, "inf", "nan"),
         fallback_converter_(flags_, fallback_junk_value_, fallback_junk_value_, "inf",
                             "nan") {}

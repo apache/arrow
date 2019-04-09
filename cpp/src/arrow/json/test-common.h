@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
 #include <memory>
 #include <random>
 #include <string>
@@ -31,7 +30,7 @@
 #include "arrow/json/options.h"
 #include "arrow/json/parser.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/util.h"
+#include "arrow/type.h"
 #include "arrow/util/string_view.h"
 #include "arrow/visitor_inline.h"
 
@@ -39,6 +38,7 @@ namespace arrow {
 namespace json {
 
 using rapidjson::StringBuffer;
+using util::string_view;
 using Writer = rapidjson::Writer<StringBuffer>;
 
 inline static Status OK(bool ok) { return ok ? Status::OK() : Status::Invalid(""); }
@@ -129,7 +129,7 @@ inline static Status Generate(const std::vector<std::shared_ptr<Field>>& fields,
   return OK(writer->EndObject(static_cast<int>(fields.size())));
 }
 
-inline static Status MakeStream(util::string_view src_str,
+inline static Status MakeStream(string_view src_str,
                                 std::shared_ptr<io::InputStream>* out) {
   auto src = std::make_shared<Buffer>(src_str);
   *out = std::make_shared<io::BufferReader>(src);
@@ -156,7 +156,7 @@ inline static Status DecodeStringDictionary(const DictionaryArray& dict_array,
   return builder.Finish(decoded);
 }
 
-inline static Status ParseFromString(ParseOptions options, util::string_view src_str,
+inline static Status ParseFromString(ParseOptions options, string_view src_str,
                                      std::shared_ptr<Array>* parsed) {
   auto src = std::make_shared<Buffer>(src_str);
   std::shared_ptr<ResizableBuffer> storage;
@@ -207,7 +207,7 @@ Status Convert(MemoryPool* pool, const std::shared_ptr<DataType>& target_type,
   return Status::OK();
 }
 
-std::string PrettyPrint(util::string_view one_line) {
+std::string PrettyPrint(string_view one_line) {
   rapidjson::Document document;
   document.Parse(one_line.data());
   rapidjson::StringBuffer sb;

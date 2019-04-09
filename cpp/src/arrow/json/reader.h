@@ -19,17 +19,15 @@
 #define ARROW_JSON_READER_H
 
 #include <memory>
-#include <string>
-#include <utility>
-#include <vector>
 
-#include "arrow/json/options.h"  // IWYU pragma: keep
-#include "arrow/json/parser.h"   // IWYU pragma: keep
+#include "arrow/json/options.h"
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
+class Buffer;
 class MemoryPool;
 class Table;
 class RecordBatch;

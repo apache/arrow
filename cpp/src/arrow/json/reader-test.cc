@@ -17,14 +17,12 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/builder.h"
-#include "arrow/io/file.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/json/options.h"
 #include "arrow/json/reader.h"
 #include "arrow/json/test-common.h"
 #include "arrow/table.h"
-#include "arrow/testing/util.h"
-#include "arrow/util/stl.h"
-#include "arrow/util/thread-pool.h"
+#include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 namespace json {
@@ -32,8 +30,6 @@ namespace json {
 using util::string_view;
 
 using internal::checked_cast;
-using internal::GetCpuThreadPool;
-using internal::TaskGroup;
 
 static std::string scalars_only_src() {
   return R"(

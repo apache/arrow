@@ -17,14 +17,19 @@
 
 #pragma once
 
-#include <string>
-#include <unordered_map>
+#include <memory>
 
-#include "arrow/array.h"
-#include "arrow/json/parser.h"
-#include "arrow/util/task-group.h"
+#include "arrow/status.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Array;
+class DataType;
+class Field;
+class MemoryPool;
+
 namespace json {
 
 /// \brief interface for conversion of Arrays

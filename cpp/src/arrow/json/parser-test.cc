@@ -15,24 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
-#include <iomanip>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <rapidjson/error/en.h>
-#include <rapidjson/reader.h>
 
-#include "arrow/ipc/json-simple.h"
 #include "arrow/json/options.h"
 #include "arrow/json/parser.h"
-#include "arrow/json/reader.h"
 #include "arrow/json/test-common.h"
 #include "arrow/status.h"
-#include "arrow/testing/util.h"
-#include "arrow/util/logging.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {

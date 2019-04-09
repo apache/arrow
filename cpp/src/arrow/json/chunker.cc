@@ -18,12 +18,10 @@
 #include "arrow/json/chunker.h"
 
 #include <algorithm>
-#include <cstdint>
-#include <memory>
-#include <string>
 #include <utility>
 #include <vector>
 
+#include "arrow/util/sse-util.h"
 #if defined(ARROW_HAVE_SSE4_2)
 #define RAPIDJSON_SSE42 1
 #define ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD 1
@@ -32,12 +30,10 @@
 #define RAPIDJSON_SSE2 1
 #define ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD 1
 #endif
-#include <rapidjson/error/en.h>
 #include <rapidjson/reader.h>
 
 #include "arrow/buffer.h"
-#include "arrow/status.h"
-#include "arrow/util/logging.h"
+#include "arrow/json/options.h"
 #include "arrow/util/stl.h"
 #include "arrow/util/string_view.h"
 
@@ -231,7 +227,7 @@ class ParsingChunker : public Chunker {
   }
 };
 
-std::unique_ptr<Chunker> Chunker::Make(ParseOptions options) {
+std::unique_ptr<Chunker> Chunker::Make(const ParseOptions& options) {
   if (!options.newlines_in_values) {
     return make_unique<NewlinesStrictlyDelimitChunker>();
   }

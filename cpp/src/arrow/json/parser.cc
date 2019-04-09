@@ -17,16 +17,21 @@
 
 #include "arrow/json/parser.h"
 
-#include <algorithm>
-#include <cstdio>
-#include <initializer_list>
 #include <limits>
-#include <sstream>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "arrow/util/sse-util.h"
+#if defined(ARROW_HAVE_SSE4_2)
+#define RAPIDJSON_SSE42 1
+#define ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD 1
+#endif
+#if defined(ARROW_HAVE_SSE2)
+#define RAPIDJSON_SSE2 1
+#define ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD 1
+#endif
 #include <rapidjson/error/en.h>
 #include <rapidjson/reader.h>
 
@@ -34,10 +39,7 @@
 #include "arrow/buffer-builder.h"
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
-#include "arrow/record_batch.h"
-#include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
 #include "arrow/util/string_view.h"
@@ -103,11 +105,9 @@ Status Kind::ForType(const DataType& type, Kind::type* kind) {
     Status Visit(const NullType&) { return SetKind(Kind::kNull); }
     Status Visit(const BooleanType&) { return SetKind(Kind::kBoolean); }
     Status Visit(const Number&) { return SetKind(Kind::kNumber); }
-    // XXX should TimeType & DateType be Kind::kNumber or Kind::kString?
     Status Visit(const TimeType&) { return SetKind(Kind::kNumber); }
     Status Visit(const DateType&) { return SetKind(Kind::kNumber); }
     Status Visit(const BinaryType&) { return SetKind(Kind::kString); }
-    // XXX should Decimal128Type be Kind::kNumber or Kind::kString?
     Status Visit(const FixedSizeBinaryType&) { return SetKind(Kind::kString); }
     Status Visit(const DictionaryType& dict_type) {
       return Kind::ForType(*dict_type.dictionary()->type(), kind_);
@@ -1048,7 +1048,7 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
   }
 };
 
-BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
+BlockParser::BlockParser(MemoryPool* pool, const ParseOptions& options,
                          const std::shared_ptr<ResizableBuffer>& scalar_storage)
     : pool_(pool), options_(options) {
   DCHECK(options_.unexpected_field_behavior == UnexpectedFieldBehavior::InferType ||

@@ -18,31 +18,29 @@
 #include "arrow/json/reader.h"
 
 #include <future>
+#include <utility>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/builder.h"
 #include "arrow/io/readahead.h"
 #include "arrow/json/chunked-builder.h"
 #include "arrow/json/chunker.h"
+#include "arrow/json/converter.h"
+#include "arrow/json/parser.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/logging.h"
-#include "arrow/util/parsing.h"
 #include "arrow/util/task-group.h"
 #include "arrow/util/thread-pool.h"
-#include "arrow/visitor_inline.h"
 
 namespace arrow {
-namespace json {
 
 using internal::GetCpuThreadPool;
 using internal::ThreadPool;
 using io::internal::ReadaheadBuffer;
 using io::internal::ReadaheadSpooler;
 
-using internal::StringConverter;
+namespace json {
 
 // read without padding to the left, but pad to the right with block_size/64 bytes
 // to leave room for storing scalars from a row which straddles a block boundary
@@ -91,7 +89,7 @@ class SerialTableReader : public TableReader {
 
       RETURN_NOT_OK(readahead_.Read(&rh));
 
-      std::shared_ptr<Buffer> straddling;
+      auto straddling = std::make_shared<Buffer>("");
       if (rh.buffer) {
         // get the completion of a partial row from the previous block
         // FIXME(bkietz) this will just error out if a row spans more than a pair of
@@ -100,8 +98,6 @@ class SerialTableReader : public TableReader {
         RETURN_NOT_OK(
             chunker_->Process(partial, rh.buffer, &completion, &starts_with_whole));
         RETURN_NOT_OK(ConcatenateBuffers({partial, completion}, pool_, &straddling));
-      } else {
-        straddling = std::make_shared<Buffer>("");
       }
 
       if (straddling->size() != 0) {

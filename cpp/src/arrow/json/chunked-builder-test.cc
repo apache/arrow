@@ -15,18 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/json/chunked-builder.h"
-
-#include <mutex>
-#include <unordered_map>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
-#include "arrow/builder.h"
+#include "arrow/json/chunked-builder.h"
+#include "arrow/json/options.h"
 #include "arrow/json/test-common.h"
 #include "arrow/table.h"
-#include "arrow/testing/util.h"
-#include "arrow/util/stl.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/util/task-group.h"
 #include "arrow/util/thread-pool.h"
 
 namespace arrow {

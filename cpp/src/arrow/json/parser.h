@@ -18,7 +18,6 @@
 #ifndef ARROW_JSON_PARSER_H
 #define ARROW_JSON_PARSER_H
 
-#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -29,7 +28,10 @@
 
 namespace arrow {
 
+class Array;
+class Buffer;
 class MemoryPool;
+class KeyValueMetadata;
 class ResizableBuffer;
 
 namespace json {
@@ -57,7 +59,7 @@ constexpr int32_t kMaxParserNumRows = 100000;
 /// parser, so the original buffer can be discarded after Parse() returns.
 class ARROW_EXPORT BlockParser {
  public:
-  BlockParser(MemoryPool* pool, ParseOptions options,
+  BlockParser(MemoryPool* pool, const ParseOptions& options,
               const std::shared_ptr<ResizableBuffer>& scalar_storage);
   BlockParser(ParseOptions options,
               const std::shared_ptr<ResizableBuffer>& scalar_storage);

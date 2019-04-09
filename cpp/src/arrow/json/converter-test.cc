@@ -15,21 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <memory>
-#include <set>
+#include "arrow/json/converter.h"
+
 #include <string>
-#include <vector>
 
 #include <gtest/gtest.h>
 
-#include "arrow/array.h"
-#include "arrow/json/converter.h"
-#include "arrow/json/parser.h"
+#include "arrow/json/options.h"
 #include "arrow/json/test-common.h"
-#include "arrow/status.h"
-#include "arrow/testing/gtest_util.h"
-#include "arrow/type.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace json {
