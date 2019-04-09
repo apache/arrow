@@ -364,6 +364,9 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) array.Interface {
 	case *arrow.BinaryType, *arrow.StringType:
 		return ctx.loadBinary(dt)
 
+	case *arrow.ListType:
+		return ctx.loadList(dt)
+
 	default:
 		panic(errors.Errorf("array type %T not handled yet", dt))
 	}
@@ -383,6 +386,16 @@ func (ctx *arrayLoaderContext) loadCommon(nbufs int) (*flatbuf.FieldNode, []*mem
 	buffers = append(buffers, buf)
 
 	return field, buffers
+}
+
+func (ctx *arrayLoaderContext) loadChild(dt arrow.DataType) array.Interface {
+	if ctx.max == 0 {
+		panic("arrow/ipc: nested type limit reached")
+	}
+	ctx.max--
+	sub := ctx.loadArray(dt)
+	ctx.max++
+	return sub
 }
 
 func (ctx *arrayLoaderContext) loadNull() array.Interface {
@@ -420,6 +433,19 @@ func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) array.Interface {
 	defer data.Release()
 
 	return array.MakeFromData(data)
+}
+
+func (ctx *arrayLoaderContext) loadList(dt *arrow.ListType) array.Interface {
+	field, buffers := ctx.loadCommon(2)
+	buffers = append(buffers, ctx.buffer())
+
+	sub := ctx.loadChild(dt.Elem())
+	defer sub.Release()
+
+	data := array.NewData(dt, int(field.Length()), buffers, []*array.Data{sub.Data()}, int(field.NullCount()), 0)
+	defer data.Release()
+
+	return array.NewListData(data)
 }
 
 func readDictionary(meta *memory.Buffer, types dictTypeMap, r ReadAtSeeker) (int64, array.Interface, error) {
