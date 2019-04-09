@@ -247,3 +247,56 @@ func TestStructArrayBulkAppend(t *testing.T) {
 		}
 	}
 }
+
+func TestStructArrayStringer(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	var (
+		f1s = []float64{1.1, 1.2, 1.3, 1.4}
+		f2s = []int32{1, 2, 3, 4}
+
+		fields = []arrow.Field{
+			{Name: "f1", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f2", Type: arrow.PrimitiveTypes.Int32},
+		}
+		dtype = arrow.StructOf(fields...)
+	)
+
+	sb := array.NewStructBuilder(pool, dtype)
+	defer sb.Release()
+
+	f1b := sb.FieldBuilder(0).(*array.Float64Builder)
+	defer f1b.Release()
+
+	f2b := sb.FieldBuilder(1).(*array.Int32Builder)
+	defer f2b.Release()
+
+	if got, want := sb.NumField(), 2; got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	for i := range f1s {
+		sb.Append(true)
+		switch i {
+		case 1:
+			f1b.AppendNull()
+			f2b.Append(f2s[i])
+		case 2:
+			f1b.Append(f1s[i])
+			f2b.AppendNull()
+		default:
+			f1b.Append(f1s[i])
+			f2b.Append(f2s[i])
+		}
+	}
+
+	arr := sb.NewArray().(*array.Struct)
+	defer arr.Release()
+
+	want := "{[1.1 (null) 1.3 1.4] [1 2 (null) 4]}"
+	got := arr.String()
+	if got != want {
+		t.Fatalf("invalid string representation:\ngot = %q\nwant= %q", got, want)
+	}
+}

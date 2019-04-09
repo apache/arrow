@@ -46,19 +46,14 @@ func (a *Struct) Field(i int) Interface { return a.fields[i] }
 
 func (a *Struct) String() string {
 	o := new(strings.Builder)
-	o.WriteString("[")
+	o.WriteString("{")
 	for i, v := range a.fields {
 		if i > 0 {
 			o.WriteString(" ")
 		}
-		switch {
-		case a.IsNull(i):
-			o.WriteString("(null)")
-		default:
-			fmt.Fprintf(o, "%v", v)
-		}
+		fmt.Fprintf(o, "%v", v)
 	}
-	o.WriteString("]")
+	o.WriteString("}")
 	return o.String()
 }
 
