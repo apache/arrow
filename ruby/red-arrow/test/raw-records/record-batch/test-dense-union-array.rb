@@ -15,69 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class RawRecordsRecordBatchDenseUnionArrayTest < Test::Unit::TestCase
-  def fields(type, type_codes)
-    field_description = {}
-    if type.is_a?(Hash)
-      field_description = field_description.merge(type)
-    else
-      field_description[:type] = type
-    end
-    {
-      column: {
-        type: :dense_union,
-        fields: [
-          field_description.merge(name: "0"),
-          field_description.merge(name: "1"),
-        ],
-        type_codes: type_codes,
-      },
-    }
-  end
+require_relative '../helper/dense-union-array'
 
-  # TODO: Use Arrow::RecordBatch.new(fields(type), records)
-  def build_record_batch(type, records)
-    type_codes = [0, 1]
-    schema = Arrow::Schema.new(fields(type, type_codes))
-    type_ids = []
-    offsets = []
-    arrays = schema.fields[0].data_type.fields.collect do |field|
-      sub_schema = Arrow::Schema.new([field])
-      sub_records = []
-      records.each do |record|
-        column = record[0]
-        next if column.nil?
-        next unless column.key?(field.name)
-        sub_records << [column[field.name]]
-      end
-      sub_record_batch = Arrow::RecordBatch.new(sub_schema,
-                                                sub_records)
-      sub_record_batch.columns[0]
-    end
-    records.each do |record|
-      column = record[0]
-      if column.nil?
-        type_ids << nil
-        offsets << 0
-      elsif column.key?("0")
-        type_id = type_codes[0]
-        type_ids << type_id
-        offsets << (type_ids.count(type_id) - 1)
-      elsif column.key?("1")
-        type_id = type_codes[1]
-        type_ids << type_id
-        offsets << (type_ids.count(type_id) - 1)
-      end
-    end
-    union_array = Arrow::DenseUnionArray.new(schema.fields[0].data_type,
-                                             Arrow::Int8Array.new(type_ids),
-                                             Arrow::Int32Array.new(offsets),
-                                             arrays)
-    schema = Arrow::Schema.new(column: union_array.value_data_type)
-    Arrow::RecordBatch.new(schema,
-                           records.size,
-                           [union_array])
-  end
+class RawRecordsRecordBatchDenseUnionArrayTest < Test::Unit::TestCase
+  include RawRecordsDenseUnionArrayHelper
 
   test("NullArray") do
     records = [
