@@ -415,24 +415,28 @@ def test_union_from_dense():
         assert result.type.type_codes == expected_type_codes
 
     # without field names and type codes
-    check_result(pa.UnionArray.from_dense(types, value_offsets, [binary, int64]),
+    check_result(pa.UnionArray.from_dense(types, value_offsets,
+                                          [binary, int64]),
                  expected_field_names=['0', '1'],
                  expected_type_codes=[0, 1])
 
     # with field names
-    check_result(pa.UnionArray.from_dense(types, value_offsets, [binary, int64],
+    check_result(pa.UnionArray.from_dense(types, value_offsets,
+                                          [binary, int64],
                                           ['bin', 'int']),
                  expected_field_names=['bin', 'int'],
                  expected_type_codes=[0, 1])
 
     # with type codes
-    check_result(pa.UnionArray.from_dense(types, value_offsets, [binary, int64],
+    check_result(pa.UnionArray.from_dense(types, value_offsets,
+                                          [binary, int64],
                                           type_codes=[11, 13]),
                  expected_field_names=['0', '1'],
                  expected_type_codes=[11, 13])
 
     # with field names and type codes
-    check_result(pa.UnionArray.from_dense(types, value_offsets, [binary, int64],
+    check_result(pa.UnionArray.from_dense(types, value_offsets,
+                                          [binary, int64],
                                           ['bin', 'int'], [11, 13]),
                  expected_field_names=['bin', 'int'],
                  expected_type_codes=[11, 13])
@@ -457,7 +461,8 @@ def test_union_from_sparse():
                  expected_type_codes=[0, 1])
 
     # with field names
-    check_result(pa.UnionArray.from_sparse(types, [binary, int64], ['bin', 'int']),
+    check_result(pa.UnionArray.from_sparse(types, [binary, int64],
+                                           ['bin', 'int']),
                  expected_field_names=['bin', 'int'],
                  expected_type_codes=[0, 1])
 
@@ -468,7 +473,8 @@ def test_union_from_sparse():
                  expected_type_codes=[11, 13])
 
     # with field names and type codes
-    check_result(pa.UnionArray.from_sparse(types, [binary, int64], ['bin', 'int'],
+    check_result(pa.UnionArray.from_sparse(types, [binary, int64],
+                                           ['bin', 'int'],
                                            [11, 13]),
                  expected_field_names=['bin', 'int'],
                  expected_type_codes=[11, 13])
