@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <string>
 #include <vector>
@@ -41,6 +42,29 @@ namespace flight {
 
 class ClientAuthHandler;
 
+/// \brief A duration type for Flight call timeouts.
+typedef std::chrono::duration<double, std::chrono::seconds::period> TimeoutDuration;
+
+/// \brief Hints to the underlying RPC layer for Arrow Flight calls.
+class ARROW_EXPORT FlightCallOptions {
+ public:
+  FlightCallOptions();
+  ~FlightCallOptions();
+  /// \brief Set a timeout on this call. If the call does not complete
+  /// within the specified period, the call will complete with a
+  /// non-OK status.
+  void set_timeout(const TimeoutDuration& timeout_sec);
+  /// \brief Get the timeout for this call. Only valid if HasTimeout()
+  /// is true.
+  const TimeoutDuration& timeout() const;
+  /// \brief Check if a timeout was set for this call.
+  bool HasTimeout() const;
+
+ private:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
 /// \brief Client class for Arrow Flight RPC services (gRPC-based).
 /// API experimental for now
 class ARROW_EXPORT FlightClient {
@@ -57,29 +81,47 @@ class ARROW_EXPORT FlightClient {
                         std::unique_ptr<FlightClient>* client);
 
   /// \brief Authenticate to the server using the given handler.
+  /// \param[in] options Per-RPC options
+  /// \param[in] auth_handler The authentication mechanism to use
   /// \return Status OK if the client authenticated successfully
-  Status Authenticate(std::unique_ptr<ClientAuthHandler> auth_handler);
+  Status Authenticate(const FlightCallOptions& options,
+                      std::unique_ptr<ClientAuthHandler> auth_handler);
 
   /// \brief Perform the indicated action, returning an iterator to the stream
   /// of results, if any
+  /// \param[in] options Per-RPC options
   /// \param[in] action the action to be performed
   /// \param[out] results an iterator object for reading the returned results
   /// \return Status
-  Status DoAction(const Action& action, std::unique_ptr<ResultStream>* results);
+  Status DoAction(const FlightCallOptions& options, const Action& action,
+                  std::unique_ptr<ResultStream>* results);
+  Status DoAction(const Action& action, std::unique_ptr<ResultStream>* results) {
+    return DoAction({}, action, results);
+  }
 
   /// \brief Retrieve a list of available Action types
+  /// \param[in] options Per-RPC options
   /// \param[out] actions the available actions
   /// \return Status
-  Status ListActions(std::vector<ActionType>* actions);
+  Status ListActions(const FlightCallOptions& options, std::vector<ActionType>* actions);
+  Status ListActions(std::vector<ActionType>* actions) {
+    return ListActions({}, actions);
+  }
 
   /// \brief Request access plan for a single flight, which may be an existing
   /// dataset or a command to be executed
+  /// \param[in] options Per-RPC options
   /// \param[in] descriptor the dataset request, whether a named dataset or
   /// command
   /// \param[out] info the FlightInfo describing where to access the dataset
   /// \return Status
-  Status GetFlightInfo(const FlightDescriptor& descriptor,
+  Status GetFlightInfo(const FlightCallOptions& options,
+                       const FlightDescriptor& descriptor,
                        std::unique_ptr<FlightInfo>* info);
+  Status GetFlightInfo(const FlightDescriptor& descriptor,
+                       std::unique_ptr<FlightInfo>* info) {
+    return GetFlightInfo({}, descriptor, info);
+  }
 
   /// \brief List all available flights known to the server
   /// \param[out] listing an iterator that returns a FlightInfo for each flight
@@ -87,27 +129,40 @@ class ARROW_EXPORT FlightClient {
   Status ListFlights(std::unique_ptr<FlightListing>* listing);
 
   /// \brief List available flights given indicated filter criteria
+  /// \param[in] options Per-RPC options
   /// \param[in] criteria the filter criteria (opaque)
   /// \param[out] listing an iterator that returns a FlightInfo for each flight
   /// \return Status
-  Status ListFlights(const Criteria& criteria, std::unique_ptr<FlightListing>* listing);
+  Status ListFlights(const FlightCallOptions& options, const Criteria& criteria,
+                     std::unique_ptr<FlightListing>* listing);
 
   /// \brief Given a flight ticket and schema, request to be sent the
   /// stream. Returns record batch stream reader
+  /// \param[in] options Per-RPC options
   /// \param[in] ticket The flight ticket to use
   /// \param[out] stream the returned RecordBatchReader
   /// \return Status
-  Status DoGet(const Ticket& ticket, std::unique_ptr<RecordBatchReader>* stream);
+  Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
+               std::unique_ptr<RecordBatchReader>* stream);
+  Status DoGet(const Ticket& ticket, std::unique_ptr<RecordBatchReader>* stream) {
+    return DoGet({}, ticket, stream);
+  }
 
   /// \brief Upload data to a Flight described by the given
   /// descriptor. The caller must call Close() on the returned stream
   /// once they are done writing.
+  /// \param[in] options Per-RPC options
   /// \param[in] descriptor the descriptor of the stream
   /// \param[in] schema the schema for the data to upload
   /// \param[out] stream a writer to write record batches to
   /// \return Status
-  Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
+  Status DoPut(const FlightCallOptions& options, const FlightDescriptor& descriptor,
+               const std::shared_ptr<Schema>& schema,
                std::unique_ptr<ipc::RecordBatchWriter>* stream);
+  Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
+               std::unique_ptr<ipc::RecordBatchWriter>* stream) {
+    return DoPut({}, descriptor, schema, stream);
+  }
 
  private:
   FlightClient();
