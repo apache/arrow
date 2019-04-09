@@ -19,7 +19,6 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/compute/test-util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -33,9 +32,15 @@ class TestUnionArray : public ::testing::Test {
  public:
   void SetUp() {
     pool_ = default_memory_pool();
-    auto type_ids =
-        compute::_MakeArray<Int8Type, int8_t>(int8(), {0, 1, 2, 0, 1, 3, 2, 0, 2, 1}, {});
-    type_ids_ = checked_pointer_cast<Int8Array>(type_ids);
+    ArrayFromVector<Int8Type>({0, 1, 2, 0, 1, 3, 2, 0, 2, 1}, &type_ids_);
+  }
+
+  void CheckUnionArray(const UnionArray& array, UnionMode::type mode,
+                       const std::vector<std::string>& field_names,
+                       const std::vector<uint8_t>& type_codes) {
+    ASSERT_EQ(mode, array.mode());
+    CheckFieldNames(array, field_names);
+    CheckTypeCodes(array, type_codes);
   }
 
   void CheckFieldNames(const UnionArray& array, const std::vector<std::string>& names) {
@@ -53,226 +58,83 @@ class TestUnionArray : public ::testing::Test {
 
  protected:
   MemoryPool* pool_;
-  std::shared_ptr<Int8Array> type_ids_;
+  std::shared_ptr<Array> type_ids_;
 };
 
 TEST_F(TestUnionArray, MakeDenseTest) {
-  using compute::_MakeArray;
+  std::shared_ptr<Array> value_offsets;
+  ArrayFromVector<Int32Type, int32_t>({0, 0, 0, 1, 1, 0, 1, 2, 1, 2}, &value_offsets);
 
-  auto value_offsets =
-      _MakeArray<Int32Type, int32_t>(int32(), {0, 0, 0, 1, 1, 0, 1, 2, 1, 2}, {});
+  auto children = std::vector<std::shared_ptr<Array>>(4);
+  ArrayFromVector<StringType, std::string>({"abc", "def", "xyz"}, &children[0]);
+  ArrayFromVector<UInt8Type>({10, 20, 30}, &children[1]);
+  ArrayFromVector<DoubleType>({1.618, 2.718, 3.142}, &children[2]);
+  ArrayFromVector<Int8Type>({-12}, &children[3]);
 
-  auto string_array =
-      _MakeArray<StringType, std::string>(utf8(), {"abc", "def", "xyz"}, {});
-  auto uint8_array = _MakeArray<UInt8Type, uint8_t>(uint8(), {10, 20, 30}, {});
-  auto double_array =
-      _MakeArray<DoubleType, double>(float64(), {1.618, 2.718, 3.142}, {});
-  auto int8_array = _MakeArray<Int8Type, int8_t>(int8(), {-12}, {});
-
-  std::vector<std::shared_ptr<Array>> children = {string_array, uint8_array, double_array,
-                                                  int8_array};
-
-  std::shared_ptr<Array> result;
-  ASSERT_OK(UnionArray::MakeDense(*type_ids_, *value_offsets, children, &result));
-
-  UnionArray& union_array = checked_cast<UnionArray&>(*result);
-  ASSERT_EQ(UnionMode::DENSE, union_array.mode());
-  CheckFieldNames(union_array, {"0", "1", "2", "3"});
-  CheckTypeCodes(union_array, {0, 1, 2, 3});
-}
-
-TEST_F(TestUnionArray, MakeSparseTest) {
-  using compute::_MakeArray;
-
-  auto string_array = _MakeArray<StringType, std::string>(
-      utf8(), {"abc", "", "", "def", "", "", "", "xyz", "", ""}, {});
-  auto uint8_array =
-      _MakeArray<UInt8Type, uint8_t>(uint8(), {0, 10, 0, 0, 20, 0, 0, 0, 0, 30}, {});
-  auto double_array = _MakeArray<DoubleType, double>(
-      float64(), {0.0, 0.0, 1.618, 0.0, 0.0, 0.0, 2.718, 0.0, 3.142, 0.0}, {});
-  auto int8_array =
-      _MakeArray<Int8Type, int8_t>(int8(), {0, 0, 0, 0, 0, -12, 0, 0, 0, 0}, {});
-
-  std::vector<std::shared_ptr<Array>> children = {string_array, uint8_array, double_array,
-                                                  int8_array};
-
-  std::shared_ptr<Array> result;
-  ASSERT_OK(UnionArray::MakeSparse(*type_ids_, children, &result));
-
-  UnionArray& union_array = checked_cast<UnionArray&>(*result);
-  ASSERT_EQ(UnionMode::SPARSE, union_array.mode());
-  CheckFieldNames(union_array, {"0", "1", "2", "3"});
-  CheckTypeCodes(union_array, {0, 1, 2, 3});
-}
-
-TEST_F(TestUnionArray, MakeDenseWithFieldNamesTest) {
-  using compute::_MakeArray;
-
-  auto value_offsets =
-      _MakeArray<Int32Type, int32_t>(int32(), {0, 0, 0, 1, 1, 0, 1, 2, 1, 2}, {});
-
-  auto string_array =
-      _MakeArray<StringType, std::string>(utf8(), {"abc", "def", "xyz"}, {});
-  auto uint8_array = _MakeArray<UInt8Type, uint8_t>(uint8(), {10, 20, 30}, {});
-  auto double_array =
-      _MakeArray<DoubleType, double>(float64(), {1.618, 2.718, 3.142}, {});
-  auto int8_array = _MakeArray<Int8Type, int8_t>(int8(), {-12}, {});
-
-  std::vector<std::shared_ptr<Array>> children = {string_array, uint8_array, double_array,
-                                                  int8_array};
   std::vector<std::string> field_names = {"str", "int1", "real", "int2"};
+  std::vector<uint8_t> type_codes = {1, 2, 4, 8};
 
   std::shared_ptr<Array> result;
+
+  // without field names and type codes
+  ASSERT_OK(UnionArray::MakeDense(*type_ids_, *value_offsets, children, &result));
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::DENSE, {"0", "1", "2", "3"}, {0, 1, 2, 3});
+
+  // with field name
   ASSERT_RAISES(Invalid, UnionArray::MakeDense(*type_ids_, *value_offsets, children,
                                                {"one"}, &result));
   ASSERT_OK(
       UnionArray::MakeDense(*type_ids_, *value_offsets, children, field_names, &result));
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::DENSE, field_names, {0, 1, 2, 3});
 
-  UnionArray& union_array = checked_cast<UnionArray&>(*result);
-  ASSERT_EQ(UnionMode::DENSE, union_array.mode());
-  CheckFieldNames(union_array, field_names);
-  CheckTypeCodes(union_array, {0, 1, 2, 3});
-}
-
-TEST_F(TestUnionArray, MakeSparseWithFieldNamesTest) {
-  using compute::_MakeArray;
-
-  auto string_array = _MakeArray<StringType, std::string>(
-      utf8(), {"abc", "", "", "def", "", "", "", "xyz", "", ""}, {});
-  auto uint8_array =
-      _MakeArray<UInt8Type, uint8_t>(uint8(), {0, 10, 0, 0, 20, 0, 0, 0, 0, 30}, {});
-  auto double_array = _MakeArray<DoubleType, double>(
-      float64(), {0.0, 0.0, 1.618, 0.0, 0.0, 0.0, 2.718, 0.0, 3.142, 0.0}, {});
-  auto int8_array =
-      _MakeArray<Int8Type, int8_t>(int8(), {0, 0, 0, 0, 0, -12, 0, 0, 0, 0}, {});
-
-  std::vector<std::shared_ptr<Array>> children = {string_array, uint8_array, double_array,
-                                                  int8_array};
-  std::vector<std::string> field_names = {"str", "int1", "real", "int2"};
-
-  std::shared_ptr<Array> result;
-  ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*type_ids_, children, {"one"}, &result));
-  ASSERT_OK(UnionArray::MakeSparse(*type_ids_, children, field_names, &result));
-
-  UnionArray& union_array = checked_cast<UnionArray&>(*result);
-  ASSERT_EQ(UnionMode::SPARSE, union_array.mode());
-  CheckFieldNames(union_array, field_names);
-  CheckTypeCodes(union_array, {0, 1, 2, 3});
-}
-
-TEST_F(TestUnionArray, MakeDenseWithTypeCodesTest) {
-  using compute::_MakeArray;
-
-  auto value_offsets =
-      _MakeArray<Int32Type, int32_t>(int32(), {0, 0, 0, 1, 1, 0, 1, 2, 1, 2}, {});
-
-  auto string_array =
-      _MakeArray<StringType, std::string>(utf8(), {"abc", "def", "xyz"}, {});
-  auto uint8_array = _MakeArray<UInt8Type, uint8_t>(uint8(), {10, 20, 30}, {});
-  auto double_array =
-      _MakeArray<DoubleType, double>(float64(), {1.618, 2.718, 3.142}, {});
-  auto int8_array = _MakeArray<Int8Type, int8_t>(int8(), {-12}, {});
-
-  std::vector<std::shared_ptr<Array>> children = {string_array, uint8_array, double_array,
-                                                  int8_array};
-  std::vector<uint8_t> type_codes = {1, 2, 4, 8};
-
-  std::shared_ptr<Array> result;
+  // with type codes
   ASSERT_RAISES(Invalid, UnionArray::MakeDense(*type_ids_, *value_offsets, children,
                                                std::vector<uint8_t>{0}, &result));
   ASSERT_OK(
       UnionArray::MakeDense(*type_ids_, *value_offsets, children, type_codes, &result));
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::DENSE, {"0", "1", "2", "3"}, type_codes);
 
-  UnionArray& union_array = checked_cast<UnionArray&>(*result);
-  ASSERT_EQ(UnionMode::DENSE, union_array.mode());
-  CheckFieldNames(union_array, {"0", "1", "2", "3"});
-  CheckTypeCodes(union_array, type_codes);
-}
-
-TEST_F(TestUnionArray, MakeSparseWithTypeCodesTest) {
-  using compute::_MakeArray;
-
-  auto string_array = _MakeArray<StringType, std::string>(
-      utf8(), {"abc", "", "", "def", "", "", "", "xyz", "", ""}, {});
-  auto uint8_array =
-      _MakeArray<UInt8Type, uint8_t>(uint8(), {0, 10, 0, 0, 20, 0, 0, 0, 0, 30}, {});
-  auto double_array = _MakeArray<DoubleType, double>(
-      float64(), {0.0, 0.0, 1.618, 0.0, 0.0, 0.0, 2.718, 0.0, 3.142, 0.0}, {});
-  auto int8_array =
-      _MakeArray<Int8Type, int8_t>(int8(), {0, 0, 0, 0, 0, -12, 0, 0, 0, 0}, {});
-
-  std::vector<std::shared_ptr<Array>> children = {string_array, uint8_array, double_array,
-                                                  int8_array};
-  std::vector<uint8_t> type_codes = {1, 2, 4, 8};
-
-  std::shared_ptr<Array> result;
-  ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*type_ids_, children,
-                                                std::vector<uint8_t>{0}, &result));
-  ASSERT_OK(UnionArray::MakeSparse(*type_ids_, children, type_codes, &result));
-
-  UnionArray& union_array = checked_cast<UnionArray&>(*result);
-  ASSERT_EQ(UnionMode::SPARSE, union_array.mode());
-  CheckFieldNames(union_array, {"0", "1", "2", "3"});
-  CheckTypeCodes(union_array, type_codes);
-}
-
-TEST_F(TestUnionArray, MakeDenseWithFieldNamesAndTypeCodesTest) {
-  using compute::_MakeArray;
-
-  auto value_offsets =
-      _MakeArray<Int32Type, int32_t>(int32(), {0, 0, 0, 1, 1, 0, 1, 2, 1, 2}, {});
-
-  auto string_array =
-      _MakeArray<StringType, std::string>(utf8(), {"abc", "def", "xyz"}, {});
-  auto uint8_array = _MakeArray<UInt8Type, uint8_t>(uint8(), {10, 20, 30}, {});
-  auto double_array =
-      _MakeArray<DoubleType, double>(float64(), {1.618, 2.718, 3.142}, {});
-  auto int8_array = _MakeArray<Int8Type, int8_t>(int8(), {-12}, {});
-
-  std::vector<std::shared_ptr<Array>> children = {string_array, uint8_array, double_array,
-                                                  int8_array};
-  std::vector<std::string> field_names = {"str", "int1", "real", "int2"};
-  std::vector<uint8_t> type_codes = {1, 2, 4, 8};
-
-  std::shared_ptr<Array> result;
+  // with field names and type codes
   ASSERT_RAISES(Invalid, UnionArray::MakeDense(*type_ids_, *value_offsets, children,
                                                {"one"}, type_codes, &result));
   ASSERT_OK(UnionArray::MakeDense(*type_ids_, *value_offsets, children, field_names,
                                   type_codes, &result));
-
-  UnionArray& union_array = checked_cast<UnionArray&>(*result);
-  ASSERT_EQ(UnionMode::DENSE, union_array.mode());
-  CheckFieldNames(union_array, field_names);
-  CheckTypeCodes(union_array, type_codes);
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::DENSE, field_names, type_codes);
 }
 
-TEST_F(TestUnionArray, MakeSparseWithFieldNamesAndTypeCodesTest) {
-  using compute::_MakeArray;
+TEST_F(TestUnionArray, MakeSparseTest) {
+  auto children = std::vector<std::shared_ptr<Array>>(4);
+  ArrayFromVector<StringType, std::string>({"abc", "", "", "def", "", "", "", "xyz", "", ""}, &children[0]);
+  ArrayFromVector<UInt8Type>({0, 10, 0, 0, 20, 0, 0, 0, 0, 30}, &children[1]);
+  ArrayFromVector<DoubleType>({0.0, 0.0, 1.618, 0.0, 0.0, 0.0, 2.718, 0.0, 3.142, 0.0}, &children[2]);
+  ArrayFromVector<Int8Type>({0, 0, 0, 0, 0, -12, 0, 0, 0, 0}, &children[3]);
 
-  auto string_array = _MakeArray<StringType, std::string>(
-      utf8(), {"abc", "", "", "def", "", "", "", "xyz", "", ""}, {});
-  auto uint8_array =
-      _MakeArray<UInt8Type, uint8_t>(uint8(), {0, 10, 0, 0, 20, 0, 0, 0, 0, 30}, {});
-  auto double_array = _MakeArray<DoubleType, double>(
-      float64(), {0.0, 0.0, 1.618, 0.0, 0.0, 0.0, 2.718, 0.0, 3.142, 0.0}, {});
-  auto int8_array =
-      _MakeArray<Int8Type, int8_t>(int8(), {0, 0, 0, 0, 0, -12, 0, 0, 0, 0}, {});
-
-  std::vector<std::shared_ptr<Array>> children = {string_array, uint8_array, double_array,
-                                                  int8_array};
   std::vector<std::string> field_names = {"str", "int1", "real", "int2"};
   std::vector<uint8_t> type_codes = {1, 2, 4, 8};
 
   std::shared_ptr<Array> result;
+
+  // without field names and type codes
+  ASSERT_OK(UnionArray::MakeSparse(*type_ids_, children, &result));
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE, {"0", "1", "2", "3"}, {0, 1, 2, 3});
+
+  // with field names
+  ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*type_ids_, children, {"one"}, &result));
+  ASSERT_OK(UnionArray::MakeSparse(*type_ids_, children, field_names, &result));
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE, field_names, {0, 1, 2, 3});
+
+  // with type codes
+  ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*type_ids_, children,
+                                                std::vector<uint8_t>{0}, &result));
+  ASSERT_OK(UnionArray::MakeSparse(*type_ids_, children, type_codes, &result));
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE, {"0", "1", "2", "3"}, type_codes);
+
+  // with field names and type codes
   ASSERT_RAISES(Invalid, UnionArray::MakeSparse(*type_ids_, children, {"one"}, type_codes,
                                                 &result));
   ASSERT_OK(
       UnionArray::MakeSparse(*type_ids_, children, field_names, type_codes, &result));
-
-  UnionArray& union_array = checked_cast<UnionArray&>(*result);
-  ASSERT_EQ(UnionMode::SPARSE, union_array.mode());
-  CheckFieldNames(union_array, field_names);
-  CheckTypeCodes(union_array, type_codes);
+  CheckUnionArray(checked_cast<UnionArray&>(*result), UnionMode::SPARSE, field_names, type_codes);
 }
 
 }  // namespace arrow
