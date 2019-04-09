@@ -28,7 +28,7 @@ export { DateBuilder, DateDayBuilder, DateMillisecondBuilder };
 export { TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder };
 export { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder };
 export { DecimalBuilder };
-export { DictionaryBuilder }
+export { DictionaryBuilder };
 // export { ListBuilder };
 // export { StructBuilder };
 // export { UnionBuilder, DenseUnionBuilder, SparseUnionBuilder };
@@ -38,6 +38,7 @@ export { IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder };
 
 import { SetVisitor } from '../visitor/set';
 
+(                BoolBuilder.prototype as any)._setValue = SetVisitor.prototype.visitBool;
 (                 IntBuilder.prototype as any)._setValue = SetVisitor.prototype.visitInt;
 (                Int8Builder.prototype as any)._setValue = SetVisitor.prototype.visitInt8;
 (               Int16Builder.prototype as any)._setValue = SetVisitor.prototype.visitInt16;

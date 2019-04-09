@@ -1,14 +1,14 @@
-import { Utf8 } from '../type';
+import { Utf8, Binary } from '../type';
 import { FlatListBuilder } from './base';
 import { encodeUtf8 } from '../util/utf8';
 
-export interface Utf8Builder extends FlatListBuilder<Utf8> {
+export interface Utf8Builder extends FlatListBuilder<Utf8 | Binary> {
     nullBitmap: Uint8Array;
     valueOffsets: Int32Array;
     values: Uint8Array;
 }
 
-export class Utf8Builder extends FlatListBuilder<Utf8> {
+export class Utf8Builder extends FlatListBuilder<Utf8 | Binary> {
     constructor(nullValues?: any[], chunkSize?: number) {
         super(new Utf8(), nullValues, chunkSize);
     }

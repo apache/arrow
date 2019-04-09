@@ -1,5 +1,5 @@
 import { FlatBuilder } from './base';
-import { BN } from '../util/bn';
+import { bignumToBigInt } from '../util/bn';
 import { Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64 } from '../type';
 
 export interface IntBuilder<T extends Int> extends FlatBuilder<T> { nullBitmap: Uint8Array; values: T['TArray']; }
@@ -32,22 +32,28 @@ export class Int32Builder extends IntBuilder<Int32> {
     }
 }
 
+const toMaybeBigInt = ((memo: any) => (value: any) => {
+    if (ArrayBuffer.isView(value)) {
+        memo.buffer = value.buffer;
+        memo.byteOffset = value.byteOffset;
+        memo.byteLength = value.byteLength;
+        value = bignumToBigInt(memo);
+        memo.buffer = null;
+    }
+    return value;
+})({ BigIntArray: BigInt64Array });
+
 export class Int64Builder extends IntBuilder<Int64> {
     constructor(nullValues?: any[], chunkSize?: number) {
-        super(new Int64(), (nullValues || []).map((x) => ArrayBuffer.isView(x) ? (<any> BN.new(x))[Symbol.toPrimitive]('default') : x), chunkSize);
+        super(new Int64(), (nullValues || []).map((x) => toMaybeBigInt(x)), chunkSize);
     }
-    public set(value: any, index?: number) {
-        if (this.nullable) {
-            const nullValues = this.nullValues;
-            if (ArrayBuffer.isView(value)) {
-                if (nullValues.has((<any> BN.new(value))[Symbol.toPrimitive]('default'))) {
-                    return this.setValid(index, false);
-                }
-            } else if (nullValues.has(value)) {
-                return this.setValid(index, false);
-            }
-        }
-        return this.setValue(value, index);
+    public set(value: Int32Array | bigint | null, index = this.length) {
+        const valid = !(this.nullable && this.nullValues.has(toMaybeBigInt(value)));
+        this.setValid(valid, index) && this.setValue(value!, index);
+        return (this.length = Math.max(index, this.length) + 1);
+    }
+    public setValue(value: Int32Array | bigint, index: number) {
+        return super.setValue(<any> value, index);
     }
 }
 
@@ -71,19 +77,14 @@ export class Uint32Builder extends IntBuilder<Uint32> {
 
 export class Uint64Builder extends IntBuilder<Uint64> {
     constructor(nullValues?: any[], chunkSize?: number) {
-        super(new Uint64(), (nullValues || []).map((x) => ArrayBuffer.isView(x) ? +BN.new(x) : x), chunkSize);
+        super(new Uint64(), (nullValues || []).map((x) => toMaybeBigInt(x)), chunkSize);
     }
-    public set(value: any, index?: number) {
-        if (this.nullable) {
-            const nullValues = this.nullValues;
-            if (ArrayBuffer.isView(value)) {
-                if (nullValues.has(+BN.new(value))) {
-                    return this.setValid(index, false);
-                }
-            } else if (nullValues.has(value)) {
-                return this.setValid(index, false);
-            }
-        }
-        return this.setValue(value, index);
+    public set(value: Uint32Array | bigint | null, index = this.length) {
+        const valid = !(this.nullable && this.nullValues.has(toMaybeBigInt(value)));
+        this.setValid(valid, index) && this.setValue(value!, index);
+        return (this.length = Math.max(index, this.length) + 1);
+    }
+    public setValue(value: Uint32Array | bigint, index: number) {
+        return super.setValue(<any> value, index);
     }
 }

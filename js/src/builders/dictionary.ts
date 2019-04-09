@@ -1,6 +1,7 @@
+import { Data } from '../data';
+import { Vector } from '../vector';
 import { IntBuilder } from './int';
 import { DataBuilder } from './base';
-import { Vector } from '../vector';
 import { Dictionary } from '../type';
 
 type HashFunction = (x: string) => string;
@@ -43,15 +44,33 @@ export class DictionaryBuilder<T extends Dictionary> extends DataBuilder<T> {
         this.type.dictionaryVector = Vector.new(this.dictionary.finish().flush());
         return super.finish();
     }
-    public setValid(index = this.length, isValid: boolean) {
-        return (this.length = this.indices.setValid(index, isValid));
+    public set(value: any, index?: number) {
+        return (this.indices.length = super.set(value, index));
     }
-    public setValue(value: T['TValue'], index = this.length) {
-        let id = this._hash(`${value}`);
-        let valueKey = this.hashmap[id];
-        if (valueKey === undefined) {
-            this.hashmap[id] = valueKey = -1 + this.dictionary.setValue(value, valueKey);
+    public setValid(isValid: boolean, index: number) {
+        return this.indices.setValid(isValid, index);
+    }
+    public setValue(value: T['TValue'], index: number) {
+        let id = this._hash(value);
+        let hashmap = this.hashmap;
+        if (hashmap[id] === undefined) {
+            hashmap[id] = this.dictionary.set(value) - 1;
         }
-        return (this.length = this.indices.setValue(valueKey, index));
+        this.indices.setValue(hashmap[id], index);
+        return value;
+    }
+    public *fromIterable(source: Iterable<any>, chunkLength = Infinity) {
+        const chunks = [] as Data<T>[];
+        for (const chunk of super.fromIterable(source, chunkLength)) {
+            chunks.push(chunk);
+        }
+        yield* chunks;
+    }
+    public async *fromAsyncIterable(source: Iterable<any> | AsyncIterable<any>, chunkLength = Infinity) {
+        const chunks = [] as Data<T>[];
+        for await (const chunk of super.fromAsyncIterable(source, chunkLength)) {
+            chunks.push(chunk);
+        }
+        yield* chunks;
     }
 }
