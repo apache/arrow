@@ -378,9 +378,8 @@ class PullRequest(object):
 
 def cli():
     # Location of your Arrow git clone
-    SEP = os.path.sep
-    ARROW_HOME = os.path.abspath(__file__).rsplit(SEP, 2)[0]
-    PROJECT_NAME = ARROW_HOME.rsplit(SEP, 1)[1]
+    ARROW_HOME = os.path.abspath(os.path.dirname(__file__))
+    PROJECT_NAME = os.environ.get('ARROW_PROJECT_NAME') or 'arrow'
     print("ARROW_HOME = " + ARROW_HOME)
     print("PROJECT_NAME = " + PROJECT_NAME)
 
