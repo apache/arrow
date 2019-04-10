@@ -28,7 +28,7 @@ conda install -n arrow -q -y -c conda-forge ^
       cmake ^
       boost-cpp thrift-cpp ^
       gflags snappy zlib zstd lz4-c double-conversion ^
-      llvmdev libprotobuf
+      llvmdev=7 libprotobuf
 
 call activate arrow
 
