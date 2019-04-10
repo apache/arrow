@@ -91,6 +91,10 @@ func (b *FixedSizeBinaryBuilder) AppendValues(v [][]byte, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
+	if len(v) == 0 {
+		return
+	}
+
 	b.Reserve(len(v))
 	for _, vv := range v {
 		b.appendNextOffset()

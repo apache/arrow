@@ -95,6 +95,10 @@ func (b *BinaryBuilder) AppendValues(v [][]byte, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
+	if len(v) == 0 {
+		return
+	}
+
 	b.Reserve(len(v))
 	for _, vv := range v {
 		b.appendNextOffset()
@@ -110,6 +114,10 @@ func (b *BinaryBuilder) AppendValues(v [][]byte, valid []bool) {
 func (b *BinaryBuilder) AppendStringValues(v []string, valid []bool) {
 	if len(v) != len(valid) && len(valid) != 0 {
 		panic("len(v) != len(valid) && len(valid) != 0")
+	}
+
+	if len(v) == 0 {
+		return
 	}
 
 	b.Reserve(len(v))

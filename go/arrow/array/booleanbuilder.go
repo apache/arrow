@@ -85,6 +85,10 @@ func (b *BooleanBuilder) AppendValues(v []bool, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
+	if len(v) == 0 {
+		return
+	}
+
 	b.Reserve(len(v))
 	for i, vv := range v {
 		bitutil.SetBitTo(b.rawData, b.length+i, vv)
