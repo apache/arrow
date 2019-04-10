@@ -83,13 +83,13 @@
     EXPECT_TRUE(s.ok());        \
   } while (false)
 
-#define ABORT_NOT_OK(s)                  \
-  do {                                   \
-    ::arrow::Status _s = (s);            \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) { \
-      std::cerr << s.ToString() << "\n"; \
-      std::abort();                      \
-    }                                    \
+#define ABORT_NOT_OK(expr)                \
+  do {                                    \
+    ::arrow::Status _s = (expr);          \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) {  \
+      std::cerr << _s.ToString() << "\n"; \
+      std::abort();                       \
+    }                                     \
   } while (false);
 
 namespace arrow {
