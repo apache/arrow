@@ -69,7 +69,6 @@ impl Field {
             }
         };
 
-        //    unimplemented!()
         syn::parse2(column_writer_variant).map_err(|x| panic!("x: {:?}", x))
     }
 }
@@ -84,6 +83,22 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn column_writer(&self) -> syn::TypePath {
+        use parquet::basic::Type as BasicType;
+
+        let path = match self.physical_type() {
+            BasicType::BOOLEAN => syn::parse_str("parquet::column::writer::ColumnWriter::BoolColumnWriter"),
+            BasicType::INT32 => syn::parse_str("parquet::column::writer::ColumnWriter::Int32ColumnWriter"),
+            BasicType::INT64 => syn::parse_str("parquet::column::writer::ColumnWriter::Int64ColumnWriter"),
+            BasicType::INT96 => syn::parse_str("parquet::column::writer::ColumnWriter::Int96ColumnWriter"),
+            BasicType::FLOAT => syn::parse_str("parquet::column::writer::ColumnWriter::FloatColumnWriter"),
+            BasicType::DOUBLE => syn::parse_str("parquet::column::writer::ColumnWriter::DoubleColumnWriter"),
+            BasicType::BYTE_ARRAY => syn::parse_str("parquet::column::writer::ColumnWriter::ByteArrayColumnWriter"),
+            BasicType::FIXED_LEN_BYTE_ARRAY => syn::parse_str("parquet::column::writer::ColumnWriter::FixedLenByteArrayColumnWriter"),
+        };
+        path.unwrap()
+    }
+
     fn inner_type(&self) -> &syn::Type {
         match self.leaf_type() {
             Type::TypePath(ref type_) => type_,
@@ -115,7 +130,15 @@ impl Type {
                     | Type::Array(ref third_type)
                     | Type::Reference(_, ref third_type) => match **third_type {
                         Type::TypePath(_) => second_type,
-                        _ => unimplemented!("sorry fourthsies!"),
+                        Type::Option(ref fourth_type)
+                        | Type::Vec(ref fourth_type)
+                        | Type::Array(ref fourth_type)
+                        | Type::Reference(_, ref fourth_type) => {
+                            match **fourth_type {
+                                Type::TypePath(_) => third_type,
+                                _ => unimplemented!("sorry, I don't descend this far")
+                            }
+                        },
                     },
                     _ => unimplemented!("sorry thirdsies!"),
                 },
@@ -243,6 +266,26 @@ mod test {
     }
 
     #[test]
+    fn test_converting_to_column_writer_type() {
+        let snippet: proc_macro2::TokenStream = quote! {
+          struct ABasicStruct {
+            yes_no: bool,
+            name: String,
+          }
+        };
+
+        let fields = extract_fields(snippet);
+        let processed : Vec<_> = fields.iter().map(|x| Field::from(x)).collect();
+
+        let column_writers: Vec<_> = processed.iter().map(|x| x.ty.column_writer()).collect();
+
+        assert_eq!(column_writers, vec![
+            syn::parse_str("parquet::column::writer::ColumnWriter::BoolColumnWriter").unwrap(),
+            syn::parse_str("parquet::column::writer::ColumnWriter::ByteArrayColumnWriter").unwrap()
+        ]);
+    }
+
+    #[test]
     fn convert_basic_struct() {
         let snippet: proc_macro2::TokenStream = quote! {
           struct ABasicStruct {
@@ -311,7 +354,8 @@ mod test {
             a_verbose_option: std::option::Option<bool>,
             a_silly_string: std::string::String,
             a_fix_byte_buf: [u8; 10],
-            a_complex_option: Option<&Vec<u8>>
+            a_complex_option: Option<&Vec<u8>>,
+            a_complex_vec: &Vec<&Option<u8>>,
           }
         };
 
@@ -328,7 +372,8 @@ mod test {
                 BasicType::BOOLEAN,
                 BasicType::BYTE_ARRAY,
                 BasicType::FIXED_LEN_BYTE_ARRAY,
-                BasicType::BYTE_ARRAY
+                BasicType::BYTE_ARRAY,
+                BasicType::INT32
             ]
         )
     }
