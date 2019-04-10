@@ -86,21 +86,14 @@ trait AggregateFunction {
     fn name(&self) -> &str;
 
     /// Update the current aggregate value based on a new value. A value of `None` represents a
-    /// null value. If rollup is false, then this aggregate function instance is being used
-    /// to aggregate individual values within a RecordBatch. If rollup is true then the aggregate
-    /// function instance is being used to combine the aggregates for multiple batches.
-    /// For some aggregate operations, such as `min`, `max`, and `sum`, the logic is the same
-    /// regardless of whether rollup is true or false. For example, `min` can be implemented as
-    /// `min(min(batch1), min(batch2), ..)`. However for `count` the logic is
-    /// `sum(count(batch1), count(batch2), ..)`.
-    fn accumulate_scalar(
-        &mut self,
-        value: &Option<ScalarValue>,
-        rollup: bool,
-    ) -> Result<()>;
+    /// null value.
+    fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()>;
+
+    /// Update the current aggregate value based on an array.
+    fn accumulate_batch(&mut self, array: ArrayRef) -> Result<()>;
 
     /// Return the result of the aggregate function after all values have been processed
-    /// by calls to `acccumulate_scalar`.
+    /// by calls to `accumulate_scalar`.
     fn result(&self) -> Option<ScalarValue>;
 
     /// Get the data type of the result of the aggregate function. For some operations,
@@ -131,11 +124,7 @@ impl AggregateFunction for MinFunction {
         "min"
     }
 
-    fn accumulate_scalar(
-        &mut self,
-        value: &Option<ScalarValue>,
-        _rollup: bool,
-    ) -> Result<()> {
+    fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()> {
         if self.value.is_none() {
             self.value = value.clone();
         } else if value.is_some() {
@@ -180,6 +169,12 @@ impl AggregateFunction for MinFunction {
         Ok(())
     }
 
+    fn accumulate_batch(&mut self, array: ArrayRef) -> Result<()> {
+        let accumulated_value = array_min(array)?;
+
+        self.accumulate_scalar(&accumulated_value)
+    }
+
     fn result(&self) -> Option<ScalarValue> {
         self.value.clone()
     }
@@ -210,11 +205,7 @@ impl AggregateFunction for MaxFunction {
         "max"
     }
 
-    fn accumulate_scalar(
-        &mut self,
-        value: &Option<ScalarValue>,
-        _rollup: bool,
-    ) -> Result<()> {
+    fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()> {
         if self.value.is_none() {
             self.value = value.clone();
         } else if value.is_some() {
@@ -259,6 +250,12 @@ impl AggregateFunction for MaxFunction {
         Ok(())
     }
 
+    fn accumulate_batch(&mut self, array: ArrayRef) -> Result<()> {
+        let accumulated_value = array_max(array)?;
+
+        self.accumulate_scalar(&accumulated_value)
+    }
+
     fn result(&self) -> Option<ScalarValue> {
         self.value.clone()
     }
@@ -289,11 +286,7 @@ impl AggregateFunction for SumFunction {
         "sum"
     }
 
-    fn accumulate_scalar(
-        &mut self,
-        value: &Option<ScalarValue>,
-        _rollup: bool,
-    ) -> Result<()> {
+    fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()> {
         if self.value.is_none() {
             self.value = value.clone();
         } else if value.is_some() {
@@ -338,8 +331,87 @@ impl AggregateFunction for SumFunction {
         Ok(())
     }
 
+    fn accumulate_batch(&mut self, array: ArrayRef) -> Result<()> {
+        let accumulated_value = array_sum(array)?;
+
+        self.accumulate_scalar(&accumulated_value)
+    }
+
     fn result(&self) -> Option<ScalarValue> {
         self.value.clone()
+    }
+
+    fn data_type(&self) -> &DataType {
+        &self.data_type
+    }
+}
+
+/// Implementation of AVG aggregate function
+#[derive(Debug)]
+struct AvgFunction {
+    data_type: DataType,
+    sum_value: SumFunction,
+    count_value: CountFunction,
+}
+
+impl AvgFunction {
+    fn new(data_type: &DataType) -> Self {
+        Self {
+            data_type: DataType::Float64,
+            sum_value: SumFunction::new(data_type),
+            count_value: CountFunction::new(),
+        }
+    }
+}
+
+impl AggregateFunction for AvgFunction {
+    fn name(&self) -> &str {
+        "avg"
+    }
+
+    fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()> {
+        self.sum_value.accumulate_scalar(value)?;
+        self.count_value.accumulate_scalar(value)?;
+
+        Ok(())
+    }
+
+    fn accumulate_batch(&mut self, array: ArrayRef) -> Result<()> {
+        self.sum_value.accumulate_batch(array.clone())?;
+        self.count_value.accumulate_batch(array)?;
+
+        Ok(())
+    }
+
+    fn result(&self) -> Option<ScalarValue> {
+        let sum = match self.sum_value.result() {
+            Some(ScalarValue::UInt8(a)) => a as f64,
+            Some(ScalarValue::UInt16(a)) => a as f64,
+            Some(ScalarValue::UInt32(a)) => a as f64,
+            Some(ScalarValue::UInt64(a)) => a as f64,
+            Some(ScalarValue::Int8(a)) => a as f64,
+            Some(ScalarValue::Int16(a)) => a as f64,
+            Some(ScalarValue::Int32(a)) => a as f64,
+            Some(ScalarValue::Int64(a)) => a as f64,
+            Some(ScalarValue::Float32(a)) => a as f64,
+            Some(ScalarValue::Float64(a)) => a as f64,
+            Some(ScalarValue::Null) => {
+                return Some(ScalarValue::Null);
+            }
+            _ => {
+                return None;
+            }
+        };
+        let count = match self.count_value.result() {
+            Some(ScalarValue::UInt64(a)) => a as f64,
+            Some(ScalarValue::Null) => {
+                return Some(ScalarValue::Null);
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(ScalarValue::Float64(sum / count))
     }
 
     fn data_type(&self) -> &DataType {
@@ -364,28 +436,27 @@ impl AggregateFunction for CountFunction {
         "count"
     }
 
-    fn accumulate_scalar(
-        &mut self,
-        value: &Option<ScalarValue>,
-        rollup: bool,
-    ) -> Result<()> {
-        if rollup {
-            // in rollup mode, the counts are added together
-            if let Some(ScalarValue::UInt64(n)) = value {
-                self.value = match self.value {
-                    Some(cur_value) => Some(cur_value + *n),
-                    _ => Some(*n),
-                }
-            }
-        } else {
-            // count the value if it is not null
-            if value.is_some() {
-                self.value = match self.value {
-                    Some(cur_value) => Some(cur_value + 1),
-                    _ => Some(1),
-                }
+    fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()> {
+        if value.is_some() {
+            self.value = match self.value {
+                Some(cur_value) => Some(cur_value + 1),
+                None => Some(1),
             }
         }
+
+        Ok(())
+    }
+
+    fn accumulate_batch(&mut self, array: ArrayRef) -> Result<()> {
+        let accumulated_value = array_count(array)?;
+
+        if let Some(ScalarValue::UInt64(n)) = accumulated_value {
+            self.value = match self.value {
+                Some(cur_value) => Some(cur_value + n),
+                None => Some(n),
+            }
+        };
+
         Ok(())
     }
 
@@ -406,14 +477,14 @@ struct AccumulatorSet {
 }
 
 impl AccumulatorSet {
-    fn accumulate_scalar(
-        &mut self,
-        i: usize,
-        value: Option<ScalarValue>,
-        rollup: bool,
-    ) -> Result<()> {
+    fn accumulate_scalar(&mut self, i: usize, value: Option<ScalarValue>) -> Result<()> {
         let mut accumulator = self.aggr_values[i].borrow_mut();
-        accumulator.accumulate_scalar(&value, rollup)
+        accumulator.accumulate_scalar(&value)
+    }
+
+    fn accumulate_batch(&mut self, i: usize, array: ArrayRef) -> Result<()> {
+        let mut accumulator = self.aggr_values[i].borrow_mut();
+        accumulator.accumulate_batch(array)
     }
 
     fn values(&self) -> Vec<Option<ScalarValue>> {
@@ -447,6 +518,10 @@ fn create_accumulators(
             }
             AggregateType::Sum => {
                 Ok(Rc::new(RefCell::new(SumFunction::new(e.data_type())))
+                    as Rc<RefCell<AggregateFunction>>)
+            }
+            AggregateType::Avg => {
+                Ok(Rc::new(RefCell::new(AvgFunction::new(e.data_type())))
                     as Rc<RefCell<AggregateFunction>>)
             }
             AggregateType::Count => Ok(Rc::new(RefCell::new(CountFunction::new()))
@@ -730,7 +805,7 @@ fn update_accumulators(
             }
         };
 
-        accumulator_set.accumulate_scalar(j, value, false)?;
+        accumulator_set.accumulate_scalar(j, value)?;
     }
     Ok(())
 }
@@ -834,18 +909,11 @@ impl AggregateRelation {
                 // evaluate the argument to the aggregate function
                 let array = self.aggr_expr[i].evaluate_arg(&batch)?;
                 match self.aggr_expr[i].aggr_type() {
-                    AggregateType::Min => {
-                        accumulator_set.accumulate_scalar(i, array_min(array)?, true)?
-                    }
-                    AggregateType::Max => {
-                        accumulator_set.accumulate_scalar(i, array_max(array)?, true)?
-                    }
-                    AggregateType::Sum => {
-                        accumulator_set.accumulate_scalar(i, array_sum(array)?, true)?
-                    }
-                    AggregateType::Count => {
-                        accumulator_set.accumulate_scalar(i, array_count(array)?, true)?
-                    }
+                    AggregateType::Min => accumulator_set.accumulate_batch(i, array)?,
+                    AggregateType::Max => accumulator_set.accumulate_batch(i, array)?,
+                    AggregateType::Sum => accumulator_set.accumulate_batch(i, array)?,
+                    AggregateType::Count => accumulator_set.accumulate_batch(i, array)?,
+                    AggregateType::Avg => accumulator_set.accumulate_batch(i, array)?,
                     _ => {
                         return Err(ExecutionError::NotImplemented(
                             "Unsupported aggregate function".to_string(),
@@ -1243,7 +1311,7 @@ mod tests {
     }
 
     #[test]
-    fn test_min_max_sum_count_f64_group_by_uint32() {
+    fn test_min_max_sum_count_avg_f64_group_by_uint32() {
         let schema = aggr_test_schema();
         let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
         let relation =
@@ -1298,22 +1366,34 @@ mod tests {
         )
         .unwrap();
 
+        let avg_expr = expression::compile_aggregate_expr(
+            &context,
+            &Expr::AggregateFunction {
+                name: String::from("avg"),
+                args: vec![Expr::Column(11)],
+                return_type: DataType::Float64,
+            },
+            &schema,
+        )
+        .unwrap();
+
         let aggr_schema = Arc::new(Schema::new(vec![
             Field::new("c2", DataType::UInt32, false),
             Field::new("min", DataType::Float64, false),
             Field::new("max", DataType::Float64, false),
             Field::new("sum", DataType::Float64, false),
             Field::new("count", DataType::UInt64, false),
+            Field::new("avg", DataType::Float64, false),
         ]));
 
         let mut projection = AggregateRelation::new(
             aggr_schema,
             relation,
             vec![group_by_expr],
-            vec![min_expr, max_expr, sum_expr, count_expr],
+            vec![min_expr, max_expr, sum_expr, count_expr, avg_expr],
         );
         let batch = projection.next().unwrap().unwrap();
-        assert_eq!(5, batch.num_columns());
+        assert_eq!(6, batch.num_columns());
         assert_eq!(5, batch.num_rows());
 
         let a = batch
@@ -1341,36 +1421,46 @@ mod tests {
             .as_any()
             .downcast_ref::<UInt64Array>()
             .unwrap();
+        let avg = batch
+            .column(5)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
 
         assert_eq!(4, a.value(0));
         assert_eq!(0.02182578039211991, min.value(0));
         assert_eq!(0.9237877978193884, max.value(0));
         assert_eq!(9.253864188402662, sum.value(0));
         assert_eq!(23, count.value(0));
+        assert_eq!(0.40234192123489837, avg.value(0));
 
         assert_eq!(2, a.value(1));
         assert_eq!(0.16301110515739792, min.value(1));
         assert_eq!(0.991517828651004, max.value(1));
         assert_eq!(14.400412325480858, sum.value(1));
         assert_eq!(22, count.value(1));
+        assert_eq!(0.6545641966127662, avg.value(1));
 
         assert_eq!(5, a.value(2));
         assert_eq!(0.01479305307777301, min.value(2));
         assert_eq!(0.9723580396501548, max.value(2));
         assert_eq!(6.037181692266781, sum.value(2));
         assert_eq!(14, count.value(2));
+        assert_eq!(0.4312272637333415, avg.value(2));
 
         assert_eq!(3, a.value(3));
         assert_eq!(0.047343434291126085, min.value(3));
         assert_eq!(0.9293883502480845, max.value(3));
         assert_eq!(9.966125219358322, sum.value(3));
         assert_eq!(19, count.value(3));
+        assert_eq!(0.5245329062820169, avg.value(3));
 
         assert_eq!(1, a.value(4));
         assert_eq!(0.05636955101974106, min.value(4));
         assert_eq!(0.9965400387585364, max.value(4));
         assert_eq!(11.239667565763519, sum.value(4));
-        assert_eq!(14, count.value(2));
+        assert_eq!(22, count.value(4));
+        assert_eq!(0.5108939802619781, avg.value(4));
     }
 
     fn aggr_test_schema() -> Arc<Schema> {

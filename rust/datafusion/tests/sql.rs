@@ -78,6 +78,98 @@ fn csv_query_group_by_int_min_max() {
 }
 
 #[test]
+fn csv_query_avg() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    //TODO add ORDER BY once supported, to make this test determistic
+    let sql = "SELECT avg(c12) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql);
+    let expected = "0.5089725099127211\n".to_string();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn csv_query_group_by_avg() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    //TODO add ORDER BY once supported, to make this test determistic
+    let sql = "SELECT c1, avg(c12) FROM aggregate_test_100 GROUP BY c1";
+    let actual = execute(&mut ctx, sql);
+    let expected = "\"d\"\t0.48855379387549824\n\"c\"\t0.6600456536439784\n\"b\"\t0.41040709263815384\n\"a\"\t0.48754517466109415\n\"e\"\t0.48600669271341534\n".to_string();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn csv_query_avg_multi_batch() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    //TODO add ORDER BY once supported, to make this test determistic
+    let sql = "SELECT avg(c12) FROM aggregate_test_100";
+    let plan = ctx.create_logical_plan(&sql).unwrap();
+    let results = ctx.execute(&plan, 4).unwrap();
+    let mut relation = results.borrow_mut();
+    let batch = relation.next().unwrap().unwrap();
+    let column = batch.column(0);
+    let array = column.as_any().downcast_ref::<Float64Array>().unwrap();
+    let actual = array.value(0);
+    let expected = 0.5089725;
+    // Due to float number's accuracy, different batch size will lead to different answers.
+    assert!((expected - actual).abs() < 0.01);
+}
+
+#[test]
+fn csv_query_group_by_avg_multi_batch() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    //TODO add ORDER BY once supported, to make this test determistic
+    let sql = "SELECT c1, avg(c12) FROM aggregate_test_100 GROUP BY c1";
+    let plan = ctx.create_logical_plan(&sql).unwrap();
+    let results = ctx.execute(&plan, 4).unwrap();
+    let mut relation = results.borrow_mut();
+    let mut actual_vec = Vec::new();
+    while let Some(batch) = relation.next().unwrap() {
+        let column = batch.column(1);
+        let array = column.as_any().downcast_ref::<Float64Array>().unwrap();
+
+        for row_index in 0..batch.num_rows() {
+            actual_vec.push(array.value(row_index));
+        }
+    }
+
+    let expect_vec = vec![0.48855379, 0.66004565, 0.41040709, 0.48754517];
+
+    actual_vec
+        .iter()
+        .zip(expect_vec.iter())
+        .for_each(|(actual, expect)| {
+            // Due to float number's accuracy, different batch size will lead to different answers.
+            assert!((expect - actual).abs() < 0.01);
+        });
+}
+
+#[test]
+fn csv_query_count() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    //TODO add ORDER BY once supported, to make this test determistic
+    let sql = "SELECT count(c12) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql);
+    let expected = "100\n".to_string();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn csv_query_group_by_int_count() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    //TODO add ORDER BY once supported, to make this test determistic
+    let sql = "SELECT count(c12) FROM aggregate_test_100 GROUP BY c1";
+    let actual = execute(&mut ctx, sql);
+    let expected = "\"d\"\t18\n\"c\"\t21\n\"b\"\t19\n\"a\"\t21\n\"e\"\t21\n".to_string();
+    assert_eq!(expected, actual);
+}
+
+#[test]
 fn csv_query_group_by_string_min_max() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
@@ -149,7 +241,8 @@ fn csv_query_limit_zero() {
     assert_eq!(expected, actual);
 }
 
-//TODO Uncomment the following test when ORDER BY is implemented to be able to test ORDER BY + LIMIT
+//TODO Uncomment the following test when ORDER BY is implemented to be able to test ORDER
+// BY + LIMIT
 /*
 #[test]
 fn csv_query_limit_with_order_by() {

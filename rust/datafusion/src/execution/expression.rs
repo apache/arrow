@@ -121,6 +121,7 @@ pub(super) fn compile_aggregate_expr(
                 "max" => Ok(AggregateType::Max),
                 "count" => Ok(AggregateType::Count),
                 "sum" => Ok(AggregateType::Sum),
+                "avg" => Ok(AggregateType::Avg),
                 _ => Err(ExecutionError::General(format!(
                     "Unsupported aggregate function '{}'",
                     name
