@@ -339,9 +339,6 @@ test_ruby() {
 
   for module in ${modules}; do
     pushd ${module}
-    if [ "${module}" != "red-arrow" ]; then
-      echo 'gem "red-arrow", path: "../red-arrow"' >> Gemfile
-    fi
     bundle install --path vendor/bundle
     bundle exec ruby test/run-test.rb
     popd

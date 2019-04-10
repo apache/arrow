@@ -64,15 +64,6 @@ std::shared_ptr<Comparator> Comparator::Make(const ColumnDescriptor* descr) {
   return nullptr;
 }
 
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<BooleanType>;
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<Int32Type>;
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<Int64Type>;
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<Int96Type>;
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<FloatType>;
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<DoubleType>;
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<ByteArrayType>;
-template class PARQUET_TEMPLATE_EXPORT CompareDefault<FLBAType>;
-
 bool CompareUnsignedInt32::operator()(const int32_t& a, const int32_t& b) {
   const uint32_t ua = a;
   const uint32_t ub = b;
