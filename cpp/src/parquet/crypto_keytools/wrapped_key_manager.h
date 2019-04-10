@@ -25,8 +25,8 @@
 #include <string>
 #include <memory>
 
-#include "parquet/util/visibility.h"
 #include "parquet/encryption.h"
+#include "parquet/util/visibility.h"
 
 namespace parquet {
 
@@ -42,7 +42,7 @@ class PARQUET_EXPORT WrappedKeyManager {
    
    private:
     std::shared_ptr<KmsClient> const kms_client_;
-    const bool unwrap_locally_; //TODO:  implement unwrap_locally option
+    const bool unwrap_locally_;
     std::shared_ptr<WrappedKeyStore> const key_store_; //TODO: implement key store
     const std::string file_id_;
     std::string data_key_;
@@ -52,11 +52,11 @@ class PARQUET_EXPORT WrappedKeyManager {
   WrappedKeyManager(std::shared_ptr<KmsClient> kms_client, bool wrap_locally,
 		    std::shared_ptr<WrappedKeyStore> wrapped_key_store, std::string file_id);
   std::unique_ptr<ParquetKey> generateKey(std::string &master_key_id);
-  DecryptionKeyRetriever *getKeyRetriever();
+  std::shared_ptr<DecryptionKeyRetriever> getKeyRetriever();
  
   private:
    std::shared_ptr<KmsClient> const kms_client_;
-   const bool wrap_locally_; //TODO:  implement wrap_locally option
+   const bool wrap_locally_;
    std::shared_ptr<WrappedKeyStore> const wrapped_key_store_; //TODO: implement key store
    const std::string file_id_; //Used for WrappedKeyStore
 };

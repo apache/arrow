@@ -41,7 +41,7 @@ class PARQUET_EXPORT ParquetKey {
   }
   
  private:
-  //In the Parquet Modular Encryption design the key is of type byte[].
+  //In the Parquet Modular Encryption design the key is byte[].
   std::string key_bytes_;
   std::string key_metadata_;
 };
