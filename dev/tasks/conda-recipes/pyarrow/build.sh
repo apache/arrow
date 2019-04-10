@@ -23,6 +23,7 @@ set -x
 # Build dependencies
 export ARROW_HOME=$PREFIX
 export PARQUET_HOME=$PREFIX
+export SETUPTOOLS_SCM_PRETEND_VERSION=$PKG_VERSION
 
 cd python
 

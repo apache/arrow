@@ -23,11 +23,11 @@ source:
   path: ../../../../
 
 build:
+  build:
   number: 0
-  skip: true  # [win32]
-  skip: true  # [win and py<35]
-  features:
-    - vc14  # [win and py>=35]
+  skip: true  # [win and vc<14]
+  run_exports:
+    - {{ pin_subpackage("arrow-cpp", max_pin="x.x") }}
 
 requirements:
   build:
@@ -44,9 +44,11 @@ requirements:
     - gflags
     - glog
     - libprotobuf
+    - clangdev 7.*
     - llvmdev 7.*
     - lz4-c
     - numpy 1.14.*
+    - orc  # [unix]
     - python
     - rapidjson
     - re2
