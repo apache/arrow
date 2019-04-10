@@ -257,14 +257,15 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 }
 
 func intFromFB(data flatbuf.Int) (arrow.DataType, error) {
-	if data.BitWidth() > 64 {
-		return nil, errors.Errorf("arrow/ipc: integers with more than 64 bits not implemented (bits=%d)", data.BitWidth())
+	bw := data.BitWidth()
+	if bw > 64 {
+		return nil, errors.Errorf("arrow/ipc: integers with more than 64 bits not implemented (bits=%d)", bw)
 	}
-	if data.BitWidth() < 8 {
-		return nil, errors.Errorf("arrow/ipc: integers with less than 8 bits not implemented")
+	if bw < 8 {
+		return nil, errors.Errorf("arrow/ipc: integers with less than 8 bits not implemented (bits=%d)", bw)
 	}
 
-	switch data.BitWidth() {
+	switch bw {
 	case 8:
 		switch data.IsSigned() {
 		case 0:
