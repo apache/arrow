@@ -110,8 +110,8 @@ def build(ctx, src, build_dir, force, targets, **kwargs):
     """ Initialize a C++ build directory.
 
     The build command creates a directory initialized with Arrow's cpp source
-    cmake configuration. It can also optionally invoke the generator to test
-    the build (and used in scripts).
+    cmake and configuration. It can also optionally invoke the generator to
+    test the build (and used in scripts).
 
     Note that archery will carry the caller environment. It will also not touch
     an existing directory, one must use the `--force` option to remove the

@@ -22,7 +22,7 @@ from ..benchmark.runner import BenchmarkRunner
 from ..utils.cmake import CMakeDefinition
 
 
-def thrutifier(value):
+def truthifier(value):
     return "ON" if value else "OFF"
 
 
@@ -61,14 +61,14 @@ class CppConfiguration:
         yield ("CMAKE_BUILD_TYPE", or_else(self.build_type, "debug"))
         yield ("BUILD_WARNING_LEVEL", or_else(self.warn_level, "production"))
 
-        yield ("ARROW_BUILD_TESTS", thrutifier(self.with_tests))
-        yield ("ARROW_BUILD_BENCHMARKS", thrutifier(self.with_benchmarks))
+        yield ("ARROW_BUILD_TESTS", truthifier(self.with_tests))
+        yield ("ARROW_BUILD_BENCHMARKS", truthifier(self.with_benchmarks))
 
-        yield ("ARROW_PYTHON", thrutifier(self.with_python))
-        yield ("ARROW_PARQUET", thrutifier(self.with_parquet))
-        yield ("ARROW_GANDIVA", thrutifier(self.with_gandiva))
-        yield ("ARROW_PLASMA", thrutifier(self.with_plasma))
-        yield ("ARROW_FLIGHT", thrutifier(self.with_flight))
+        yield ("ARROW_PYTHON", truthifier(self.with_python))
+        yield ("ARROW_PARQUET", truthifier(self.with_parquet))
+        yield ("ARROW_GANDIVA", truthifier(self.with_gandiva))
+        yield ("ARROW_PLASMA", truthifier(self.with_plasma))
+        yield ("ARROW_FLIGHT", truthifier(self.with_flight))
 
     @property
     def definitions(self):

@@ -31,8 +31,8 @@ Installation
 ~~~~~~~~~~~~
 
 The simplest way to install archery is with pip from the top-level directory.
-It is recommended to use the ``-e,--editable`` flag such that pip don't copy
-the module files but use the actual sources.
+It is recommended to use the ``-e,--editable`` flag so that pip don't copy
+the module files but uses the actual sources.
 
 .. code-block:: shell
 
@@ -42,7 +42,7 @@ the module files but use the actual sources.
 Comparison
 ==========
 
-One desire with benchmarks is to detect performance regressions. Thus,
+One goal with benchmarking is to detect performance regressions. To this end,
 ``archery`` implements a benchmark comparison facility via the ``benchmark
 diff`` command.
 
@@ -55,7 +55,7 @@ multiple examples of invocation.
 Iterating efficiently
 ~~~~~~~~~~~~~~~~~~~~~
 
-Iterating with benchmarks development can be a tedious process due to long
+Iterating with benchmark development can be a tedious process due to long
 build time and long run times. ``archery benchmark diff`` provides 2 methods
 to reduce this overhead.
 
@@ -86,7 +86,7 @@ expressions.
     --suite-filter=compute-aggregate --benchmark-filter=Kernel \
     /tmp/arrow-bench*/{WORKSPACE,master}/build
 
-Both method can be combined.
+Both methods can be combined.
 
 Regression detection
 ====================

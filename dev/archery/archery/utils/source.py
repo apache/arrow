@@ -29,7 +29,7 @@ class ArrowSources:
         """ Initialize an ArrowSources
 
         The caller must ensure that path is valid arrow source directory (can
-        be checked with ArrowSources.valid
+        be checked with ArrowSources.valid)
 
         Parameters
         ----------
@@ -71,7 +71,7 @@ class ArrowSources:
             raise ValueError(f"{self} is not backed by git")
 
         # A local clone is required to leave the current sources intact such
-        # that build depending on said sources are not invalidated (or worse
+        # that builds depending on said sources are not invalidated (or worse
         # slightly affected when re-invoking the generator).
         git.clone("--local", self.path, clone_dir)
         git.checkout("-b", revision, git_dir=clone_dir)
@@ -100,8 +100,8 @@ class ArrowSources:
         2. Checks if the environment variable `ARROW_SRC` is defined and use
            this.
 
-        3. Checks if the current working directory (cwd) contains is an Arrow
-           source directory.
+        3. Checks if the current working directory (cwd) is an Arrow source
+           directory.
 
         4. Checks if this file (cli.py) is still in the original source
            repository. If so, returns the relative path to the source
