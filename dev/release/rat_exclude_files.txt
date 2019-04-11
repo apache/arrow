@@ -188,6 +188,7 @@ r/arrow.Rproj
 r/README.md
 r/README.Rmd
 r/man/*.Rd
+r/cran-comments.md
 .gitattributes
 ruby/red-arrow/.yardopts
 rust/arrow/test/data/*.csv

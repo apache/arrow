@@ -182,9 +182,25 @@ using internal::checked_cast;
 
 namespace internal {
 
-template <typename T, typename Target>
+template <typename T, typename Target,
+          typename std::enable_if<std::is_signed<Target>::value, Target>::type = 0>
 Status int_cast(T x, Target* out) {
   if (x < std::numeric_limits<Target>::min() || x > std::numeric_limits<Target>::max()) {
+    return Status::Invalid("Value is too large to fit in C integer type");
+  }
+  *out = static_cast<Target>(x);
+  return Status::OK();
+}
+
+template <typename T>
+struct usigned_type;
+
+template <typename T, typename Target,
+          typename std::enable_if<std::is_unsigned<Target>::value, Target>::type = 0>
+Status int_cast(T x, Target* out) {
+  // we need to compare between unsigned integers
+  uint64_t x64 = x;
+  if (x64 < 0 || x64 > std::numeric_limits<Target>::max()) {
     return Status::Invalid("Value is too large to fit in C integer type");
   }
   *out = static_cast<Target>(x);
@@ -297,7 +313,7 @@ struct Unbox<Type, enable_if_integer<Type>> {
       if (*p == na) {
         builder->UnsafeAppendNull();
       } else {
-        CType value;
+        CType value = 0;
         RETURN_NOT_OK(internal::int_cast(*p, &value));
         builder->UnsafeAppend(value);
       }
@@ -375,7 +391,7 @@ struct Unbox<FloatType> {
       if (*p == NA_INTEGER) {
         builder->UnsafeAppendNull();
       } else {
-        float value;
+        float value = 0;
         RETURN_NOT_OK(internal::float_cast(*p, &value));
         builder->UnsafeAppend(value);
       }

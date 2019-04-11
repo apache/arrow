@@ -99,7 +99,7 @@ LogicalVector Array__Mask(const std::shared_ptr<arrow::Array>& array) {
   LogicalVector res(no_init(n));
   arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
                                               array->offset(), n);
-  for (size_t i = 0; i < array->length(); i++, bitmap_reader.Next()) {
+  for (int64_t i = 0; i < n; i++, bitmap_reader.Next()) {
     res[i] = bitmap_reader.IsSet();
   }
   return res;

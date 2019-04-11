@@ -27,29 +27,17 @@
 
 # Library settings
 PKG_CONFIG_NAME="arrow parquet"
-PKG_DEB_NAME="arrow"
-PKG_RPM_NAME="arrow"
-PKG_CSW_NAME="arrow"
+PKG_DEB_NAME="(unsuppored)"
+PKG_RPM_NAME="(unsuppored)"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
-PKG_LIBS=""
+PKG_LIBS="-larrow -lparquet"
 
 # Use pkg-config if available
 pkg-config --version >/dev/null 2>&1
 if [ $? -eq 0 ]; then
-  PKGCONFIG_CFLAGS=$(pkg-config --cflags --silence-errors arrow)
-  if [ $? -ne 0 ]; then
-    echo "Apache Arrow C++ was not found using pkg-config"
-    exit 1
-  fi
-  PKGCONFIG_LIBS=$(pkg-config --libs arrow)
-  PKGCONFIG_CFLAGS_PARQUET=$(pkg-config --cflags --silence-errors parquet)
-  if [ $? -eq 0 ]; then
-    PKGCONFIG_CFLAGS="${PKGCONFIG_CFLAGS} ${PKGCONFIG_CFLAGS_PARQUET} -DARROW_R_WITH_PARQUET"
-    PKGCONFIG_LIBS="${PKGCONFIG_LIBS} $(pkg-config --libs parquet)"
-  fi
-else
-  PKG_LIBS="-larrow -lparquet"
+  PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
+  PKGCONFIG_LIBS=`pkg-config --libs ${PKG_CONFIG_NAME}`
 fi
 
 # Note that cflags may be empty in case of success
@@ -68,7 +56,7 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     curl -sfL "https://jeroen.github.io/autobrew/$PKG_BREW_NAME" > autobrew
     source autobrew
   fi
-  PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
+  PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include -DARROW_R_WITH_PARQUET"
   PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
 fi
 
@@ -83,9 +71,8 @@ CXX11STD=$("${R_HOME}"/bin/R CMD config CXX11STD)
 CPPFLAGS=$("${R_HOME}"/bin/R CMD config CPPFLAGS)
 
 # If libarrow uses the old GLIBCXX ABI, so we have to use it too
-PKG_CXXFLAGS="$C_VISIBILITY"
 if [ "$ARROW_USE_OLD_CXXABI" ]; then
-  PKG_CXXFLAGS="$PKG_CXXFLAGS -D_GLIBCXX_USE_CXX11_ABI=0"
+  $PKG_CFLAGS="$PKG_CFLAGS -D_GLIBCXX_USE_CXX11_ABI=0"
 fi
 
 # Test configuration
@@ -95,9 +82,6 @@ echo "#include $PKG_TEST_HEADER" | ${CXXCPP} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FL
 if [ $? -ne 0 ]; then
   echo "------------------------- ANTICONF ERROR ---------------------------"
   echo "Configuration failed because $PKG_CONFIG_NAME was not found. Try installing:"
-  echo " * deb: $PKG_DEB_NAME (Debian, Ubuntu, etc)"
-  echo " * rpm: $PKG_RPM_NAME (Fedora, CentOS, RHEL)"
-  echo " * csw: $PKG_CSW_NAME (Solaris)"
   echo " * brew: $PKG_BREW_NAME (Mac OSX)"
   echo "If $PKG_CONFIG_NAME is already installed, check that 'pkg-config' is in your"
   echo "PATH and PKG_CONFIG_PATH contains a $PKG_CONFIG_NAME.pc file. If pkg-config"
@@ -108,7 +92,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Write to Makevars
-sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" -e "s|@pkgcxxflags@|$PKG_CXXFLAGS|" src/Makevars.in > src/Makevars
+sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars
 
 # Success
 exit 0

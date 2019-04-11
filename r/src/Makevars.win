@@ -15,24 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-VERSION = 0.13.0.9000
-
-ifeq "$(ARROW_PATH)" ""
-  RWINLIB = ../windows/arrow-$(VERSION)
-	ARROW_INCLUDE = $(RWINLIB)/include
-	ARROW_LIBS = $(RWINLIB)/lib$(subst gcc,,$(COMPILED_BY))$(R_ARCH)
-	OTHER_LIBS = -L$(RWINLIB)/lib$(R_ARCH)
-else
-	ARROW_INCLUDE = $(ARROW_PATH)/include
-	ARROW_LIBS = $(ARROW_PATH)/lib
-endif
-
-PKG_CPPFLAGS = -I$(ARROW_INCLUDE) -DARROW_STATIC -DPARQUET_STATIC
+VERSION = 0.13.0
+RWINLIB = ../windows/arrow-$(VERSION)
+PKG_CPPFLAGS = -I$(RWINLIB)/include -DARROW_STATIC -DPARQUET_STATIC \
+	-DARROW_R_WITH_PARQUET
 CXX_STD = CXX11
 
 PKG_LIBS = \
-	-L$(ARROW_LIBS) \
-	$(OTHER_LIBS) \
+	-L$(RWINLIB)/lib$(subst gcc,,$(COMPILED_BY))$(R_ARCH) \
+	-L$(RWINLIB)/lib$(R_ARCH) \
 	-lparquet -larrow -lthrift -lboost_regex-mt-s -ldouble-conversion -lz -lws2_32
 
 #all: clean

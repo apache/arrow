@@ -9,3 +9,4 @@ Dockerfile
 .*\.tar\.gz
 ^windows
 clang_format.sh
+^cran-comments\.md$

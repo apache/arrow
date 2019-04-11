@@ -1,10 +1,11 @@
 Package: arrow
 Title: R Integration to 'Apache' 'Arrow'
-Version: 0.13.0.9000
+Version: 0.13.0
 Authors@R: c(
     person("Romain", "François", email = "romain@rstudio.com", role = c("aut", "cre")),
     person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("ctb")),
     person("Jeffrey", "Wong", email = "jeffreyw@netflix.com", role = c("ctb")),
+    person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),
     person("Apache Arrow", email = "dev@arrow.apache.org", role = c("aut", "cph"))
   )
 Description: R Integration to 'Apache' 'Arrow'.
