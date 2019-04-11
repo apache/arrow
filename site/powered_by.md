@@ -90,8 +90,8 @@ short description of your use case. See the following for some examples.
   support for structured data. Uses the Arrow IPC format and targets the Arrow
   memory layout in its analytic functions. This work is part of the [GPU Open
   Analytics Initiative][11]
-* **[MATLAB][30]:** A numerical computing environment for scientists and
-  engineers. MATLAB uses Apache Arrow to support reading and writing parquet
+* **[MATLAB][30]:** A numerical computing environment for engineers and
+  scientists. MATLAB uses Apache Arrow to support reading and writing parquet
   and feather files.
 * **[OmniSci][10] (formerly MapD):** In-memory columnar SQL engine designed to run
   on both GPUs and CPUs. OmniSci supports Arrow for data ingest and data interchange
