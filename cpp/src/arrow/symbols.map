@@ -23,71 +23,20 @@
       # those symbols.
       # See https://github.com/apache/arrow/pull/1953#issuecomment-386057063
       std::__once*;
+      # The leading asterisk is required for symbols such as
+      # "typeinfo for arrow::SomeClass".
+      # Unfortunately this will also catch template specializations
+      # (from e.g. STL or Flatbuffers) involving Arrow types.
+      *arrow::*;
     };
+    # Also export C-level helpers
+    arrow_*;
+    pyarrow_*;
 
   # Symbols marked as 'local' are not exported by the DSO and thus may not
-  # be used by client applications.
+  # be used by client applications.  Everything except the above falls here.
+  # This ensures we hide symbols of static dependencies.
   local:
-    # devtoolset / static-libstdc++ symbols
-    __cxa_*;
-    __once_proxy;
+    *;
 
-    # Static libraries that are linked in e.g. the manylinux1 build
-    # Brotli compression library
-    Brotli*;
-    # zlib
-    adler32*;
-    crc32*;
-    deflate*;
-    inflate*;
-    get_crc_table;
-    zcalloc;
-    zcfree;
-    zError;
-    zlibCompileFlags;
-    zlibVersion;
-    _tr_*;
-    # bz2
-    BZ2_*;
-    # lz4
-    LZ4_*;
-    LZ4F_*;
-    # zstandard
-    ZSTD_*;
-    ZSTDv*;
-    HUF_*;
-    HUFv*;
-    FSE_*;
-    FSEv*;
-    ZBUFFv*;
-    ZSTDMT*;
-    POOL_*;
-    HIST_*;
-    ERR_getErrorString;
-    # jemalloc
-    je_arrow_*;
-    # uriparser
-    uri*;
-    # ORC destructors
-    _ZThn8_N3orc*;
-    # Protobuf symbols that aren't hidden by the C++ section below
-    # (destructors, vtables, other stuff)
-    *N6google8protobuf*;
-
-    extern "C++" {
-      # devtoolset or -static-libstdc++ - the Red Hat devtoolset statically
-      # links c++11 symbols into binaries so that the result may be executed on
-      # a system with an older libstdc++ which doesn't include the necessary
-      # c++11 symbols.
-      std::*;
-
-      # Statically linked C++ dependencies
-      boost::*;
-      double_conversion::*;
-      google::*;
-      # glog
-      *MakeCheckOpValueString*;
-      orc::*;
-      snappy::*;
-    };
 };

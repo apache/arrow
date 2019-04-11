@@ -90,6 +90,8 @@ add_arrow_lib(arrow_flight
               DEPENDENCIES
               flight_grpc_gen
               metadata_fbs
+              SHARED_LINK_FLAGS
+              ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
               arrow_shared
               ${ARROW_FLIGHT_STATIC_LINK_LIBS}
