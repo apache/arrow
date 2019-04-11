@@ -62,16 +62,16 @@ class ARROW_PYTHON_EXPORT PyFlightServerVtable {
 
 class ARROW_PYTHON_EXPORT PyServerAuthHandlerVtable {
  public:
-  std::function<void(PyObject*, const arrow::flight::ServerAuthSender&,
-                     const arrow::flight::ServerAuthReader&)>
+  std::function<void(PyObject*, arrow::flight::ServerAuthSender*,
+                     arrow::flight::ServerAuthReader*)>
       authenticate;
   std::function<void(PyObject*, const std::string&, std::string*)> is_valid;
 };
 
 class ARROW_PYTHON_EXPORT PyClientAuthHandlerVtable {
  public:
-  std::function<void(PyObject*, const arrow::flight::ClientAuthSender&,
-                     const arrow::flight::ClientAuthReader&)>
+  std::function<void(PyObject*, arrow::flight::ClientAuthSender*,
+                     arrow::flight::ClientAuthReader*)>
       authenticate;
   std::function<void(PyObject*, std::string*)> get_token;
 };
@@ -80,8 +80,8 @@ class ARROW_PYTHON_EXPORT PyClientAuthHandlerVtable {
 class ARROW_PYTHON_EXPORT PyServerAuthHandler : public arrow::flight::ServerAuthHandler {
  public:
   explicit PyServerAuthHandler(PyObject* handler, PyServerAuthHandlerVtable vtable);
-  Status Authenticate(const arrow::flight::ServerAuthSender& outgoing,
-                      const arrow::flight::ServerAuthReader& incoming) override;
+  Status Authenticate(arrow::flight::ServerAuthSender* outgoing,
+                      arrow::flight::ServerAuthReader* incoming) override;
   Status IsValid(const std::string& token, std::string* peer_identity) override;
 
  private:
@@ -93,8 +93,8 @@ class ARROW_PYTHON_EXPORT PyServerAuthHandler : public arrow::flight::ServerAuth
 class ARROW_PYTHON_EXPORT PyClientAuthHandler : public arrow::flight::ClientAuthHandler {
  public:
   explicit PyClientAuthHandler(PyObject* handler, PyClientAuthHandlerVtable vtable);
-  Status Authenticate(const arrow::flight::ClientAuthSender& outgoing,
-                      const arrow::flight::ClientAuthReader& incoming) override;
+  Status Authenticate(arrow::flight::ClientAuthSender* outgoing,
+                      arrow::flight::ClientAuthReader* incoming) override;
   Status GetToken(std::string* token) override;
 
  private:

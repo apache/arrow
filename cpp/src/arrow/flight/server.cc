@@ -112,7 +112,7 @@ class GrpcServerAuthReader : public ServerAuthReader {
       grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream)
       : stream_(stream) {}
 
-  Status Read(std::string* token) const override {
+  Status Read(std::string* token) override {
     pb::HandshakeRequest request;
     if (stream_->Read(&request)) {
       *token = std::move(*request.release_payload());
@@ -131,7 +131,7 @@ class GrpcServerAuthSender : public ServerAuthSender {
       grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream)
       : stream_(stream) {}
 
-  Status Write(const std::string& token) const override {
+  Status Write(const std::string& token) override {
     pb::HandshakeResponse response;
     response.set_payload(token);
     if (stream_->Write(response)) {
@@ -232,7 +232,7 @@ class FlightServiceImpl : public FlightService::Service {
     }
     GrpcServerAuthSender outgoing{stream};
     GrpcServerAuthReader incoming{stream};
-    GRPC_RETURN_NOT_OK(auth_handler_->Authenticate(outgoing, incoming));
+    GRPC_RETURN_NOT_OK(auth_handler_->Authenticate(&outgoing, &incoming));
     return grpc::Status::OK;
   }
 

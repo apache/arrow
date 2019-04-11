@@ -508,7 +508,7 @@ cdef class ServerCallContext:
 cdef class ServerAuthReader:
     """A reader for messages from the client during an auth handshake."""
     cdef:
-        const CServerAuthReader* reader
+        CServerAuthReader* reader
 
     def read(self):
         cdef c_string token
@@ -529,17 +529,17 @@ cdef class ServerAuthReader:
         self.reader = NULL
 
     @staticmethod
-    cdef ServerAuthReader wrap(const CServerAuthReader& reader):
+    cdef ServerAuthReader wrap(CServerAuthReader* reader):
         cdef ServerAuthReader result = \
             ServerAuthReader.__new__(ServerAuthReader)
-        result.reader = &reader
+        result.reader = reader
         return result
 
 
 cdef class ServerAuthSender:
     """A writer for messages to the client during an auth handshake."""
     cdef:
-        const CServerAuthSender* sender
+        CServerAuthSender* sender
 
     def write(self, message):
         cdef c_string c_message = tobytes(message)
@@ -559,17 +559,17 @@ cdef class ServerAuthSender:
         self.sender = NULL
 
     @staticmethod
-    cdef ServerAuthSender wrap(const CServerAuthSender& sender):
+    cdef ServerAuthSender wrap(CServerAuthSender* sender):
         cdef ServerAuthSender result = \
             ServerAuthSender.__new__(ServerAuthSender)
-        result.sender = &sender
+        result.sender = sender
         return result
 
 
 cdef class ClientAuthReader:
     """A reader for messages from the server during an auth handshake."""
     cdef:
-        const CClientAuthReader* reader
+        CClientAuthReader* reader
 
     def read(self):
         cdef c_string token
@@ -590,17 +590,17 @@ cdef class ClientAuthReader:
         self.reader = NULL
 
     @staticmethod
-    cdef ClientAuthReader wrap(const CClientAuthReader& reader):
+    cdef ClientAuthReader wrap(CClientAuthReader* reader):
         cdef ClientAuthReader result = \
             ClientAuthReader.__new__(ClientAuthReader)
-        result.reader = &reader
+        result.reader = reader
         return result
 
 
 cdef class ClientAuthSender:
     """A writer for messages to the server during an auth handshake."""
     cdef:
-        const CClientAuthSender* sender
+        CClientAuthSender* sender
 
     def write(self, message):
         cdef c_string c_message = tobytes(message)
@@ -620,10 +620,10 @@ cdef class ClientAuthSender:
         self.sender = NULL
 
     @staticmethod
-    cdef ClientAuthSender wrap(const CClientAuthSender& sender):
+    cdef ClientAuthSender wrap(CClientAuthSender* sender):
         cdef ClientAuthSender result = \
             ClientAuthSender.__new__(ClientAuthSender)
-        result.sender = &sender
+        result.sender = sender
         return result
 
 
@@ -792,8 +792,8 @@ cdef void _list_actions(void* self, const CServerCallContext& context,
         actions.push_back(action_type)
 
 
-cdef void _server_authenticate(void* self, const CServerAuthSender& outgoing,
-                               const CServerAuthReader& incoming) except *:
+cdef void _server_authenticate(void* self, CServerAuthSender* outgoing,
+                               CServerAuthReader* incoming) except *:
     """Callback for implementing authentication in Python."""
     sender = ServerAuthSender.wrap(outgoing)
     reader = ServerAuthReader.wrap(incoming)
@@ -812,8 +812,8 @@ cdef void _is_valid(void* self, const c_string& token,
     peer_identity[0] = c_result
 
 
-cdef void _client_authenticate(void* self, const CClientAuthSender& outgoing,
-                               const CClientAuthReader& incoming) except *:
+cdef void _client_authenticate(void* self, CClientAuthSender* outgoing,
+                               CClientAuthReader* incoming) except *:
     """Callback for implementing authentication in Python."""
     sender = ClientAuthSender.wrap(outgoing)
     reader = ClientAuthReader.wrap(incoming)

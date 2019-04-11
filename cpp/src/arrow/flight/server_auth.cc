@@ -23,8 +23,8 @@ namespace flight {
 ServerAuthHandler::~ServerAuthHandler() {}
 
 NoOpAuthHandler::~NoOpAuthHandler() {}
-Status NoOpAuthHandler::Authenticate(const ServerAuthSender& outgoing,
-                                     const ServerAuthReader& incoming) {
+Status NoOpAuthHandler::Authenticate(ServerAuthSender* outgoing,
+                                     ServerAuthReader* incoming) {
   return Status::OK();
 }
 

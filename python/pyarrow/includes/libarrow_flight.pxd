@@ -181,11 +181,11 @@ ctypedef void cb_list_actions(object, const CServerCallContext&,
                               vector[CActionType]*)
 ctypedef void cb_result_next(object, unique_ptr[CResult]*)
 ctypedef void cb_data_stream_next(object, CFlightPayload*)
-ctypedef void cb_server_authenticate(object, const CServerAuthSender&,
-                                     const CServerAuthReader&)
+ctypedef void cb_server_authenticate(object, CServerAuthSender*,
+                                     CServerAuthReader*)
 ctypedef void cb_is_valid(object, const c_string&, c_string*)
-ctypedef void cb_client_authenticate(object, const CClientAuthSender&,
-                                     const CClientAuthReader&)
+ctypedef void cb_client_authenticate(object, CClientAuthSender*,
+                                     CClientAuthReader*)
 ctypedef void cb_get_token(object, c_string*)
 
 cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:

@@ -33,7 +33,7 @@ namespace flight {
 class ARROW_EXPORT ServerAuthReader {
  public:
   virtual ~ServerAuthReader() = default;
-  virtual Status Read(std::string* token) const = 0;
+  virtual Status Read(std::string* token) = 0;
 };
 
 /// \brief A writer for messages to the client during an
@@ -41,7 +41,7 @@ class ARROW_EXPORT ServerAuthReader {
 class ARROW_EXPORT ServerAuthSender {
  public:
   virtual ~ServerAuthSender() = default;
-  virtual Status Write(const std::string& message) const = 0;
+  virtual Status Write(const std::string& message) = 0;
 };
 
 /// \brief An authentication implementation for a Flight service.
@@ -55,8 +55,7 @@ class ARROW_EXPORT ServerAuthHandler {
   virtual ~ServerAuthHandler();
   /// \brief Authenticate the client on initial connection. The server
   /// can send and read responses from the client at any time.
-  virtual Status Authenticate(const ServerAuthSender& outgoing,
-                              const ServerAuthReader& incoming) = 0;
+  virtual Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) = 0;
   /// \brief Validate a per-call client token.
   /// \param[in] token The client token. May be the empty string if
   /// the client does not provide a token.
@@ -71,8 +70,7 @@ class ARROW_EXPORT ServerAuthHandler {
 class ARROW_EXPORT NoOpAuthHandler : public ServerAuthHandler {
  public:
   ~NoOpAuthHandler();
-  Status Authenticate(const ServerAuthSender& outgoing,
-                      const ServerAuthReader& incoming) override;
+  Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) override;
   Status IsValid(const std::string& token, std::string* peer_identity) override;
 };
 

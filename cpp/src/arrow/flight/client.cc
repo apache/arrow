@@ -84,7 +84,7 @@ class GrpcClientAuthSender : public ClientAuthSender {
           stream)
       : stream_(stream) {}
 
-  Status Write(const std::string& token) const override {
+  Status Write(const std::string& token) override {
     pb::HandshakeRequest response;
     response.set_payload(token);
     if (stream_->Write(response)) {
@@ -106,7 +106,7 @@ class GrpcClientAuthReader : public ClientAuthReader {
           stream)
       : stream_(stream) {}
 
-  Status Read(std::string* token) const override {
+  Status Read(std::string* token) override {
     pb::HandshakeResponse request;
     if (stream_->Read(&request)) {
       *token = std::move(*request.release_payload());
@@ -244,7 +244,7 @@ class FlightClient::FlightClientImpl {
         stream = stub_->Handshake(&context);
     GrpcClientAuthSender outgoing{stream};
     GrpcClientAuthReader incoming{stream};
-    RETURN_NOT_OK(auth_handler_->Authenticate(outgoing, incoming));
+    RETURN_NOT_OK(auth_handler_->Authenticate(&outgoing, &incoming));
     RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish()));
     return Status::OK();
   }

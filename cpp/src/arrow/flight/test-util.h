@@ -139,8 +139,7 @@ class ARROW_EXPORT TestServerAuthHandler : public ServerAuthHandler {
   explicit TestServerAuthHandler(const std::string& username,
                                  const std::string& password);
   ~TestServerAuthHandler();
-  Status Authenticate(const ServerAuthSender& outgoing,
-                      const ServerAuthReader& incoming) override;
+  Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) override;
   Status IsValid(const std::string& token, std::string* peer_identity) override;
 
  private:
@@ -153,8 +152,7 @@ class ARROW_EXPORT TestClientAuthHandler : public ClientAuthHandler {
   explicit TestClientAuthHandler(const std::string& username,
                                  const std::string& password);
   ~TestClientAuthHandler();
-  Status Authenticate(const ClientAuthSender& outgoing,
-                      const ClientAuthReader& incoming) override;
+  Status Authenticate(ClientAuthSender* outgoing, ClientAuthReader* incoming) override;
   Status GetToken(std::string* token) override;
 
  private:

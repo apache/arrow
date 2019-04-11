@@ -216,15 +216,17 @@ std::vector<ActionType> ExampleActionTypes() {
 TestServerAuthHandler::TestServerAuthHandler(const std::string& username,
                                              const std::string& password)
     : username_(username), password_(password) {}
+
 TestServerAuthHandler::~TestServerAuthHandler() {}
-Status TestServerAuthHandler::Authenticate(const ServerAuthSender& outgoing,
-                                           const ServerAuthReader& incoming) {
+
+Status TestServerAuthHandler::Authenticate(ServerAuthSender* outgoing,
+                                           ServerAuthReader* incoming) {
   std::string token;
-  RETURN_NOT_OK(incoming.Read(&token));
+  RETURN_NOT_OK(incoming->Read(&token));
   if (token != password_) {
     return Status::Invalid("Invalid password");
   }
-  RETURN_NOT_OK(outgoing.Write(username_));
+  RETURN_NOT_OK(outgoing->Write(username_));
   return Status::OK();
 }
 
@@ -240,12 +242,14 @@ Status TestServerAuthHandler::IsValid(const std::string& token,
 TestClientAuthHandler::TestClientAuthHandler(const std::string& username,
                                              const std::string& password)
     : username_(username), password_(password) {}
+
 TestClientAuthHandler::~TestClientAuthHandler() {}
-Status TestClientAuthHandler::Authenticate(const ClientAuthSender& outgoing,
-                                           const ClientAuthReader& incoming) {
-  RETURN_NOT_OK(outgoing.Write(password_));
+
+Status TestClientAuthHandler::Authenticate(ClientAuthSender* outgoing,
+                                           ClientAuthReader* incoming) {
+  RETURN_NOT_OK(outgoing->Write(password_));
   std::string username;
-  RETURN_NOT_OK(incoming.Read(&username));
+  RETURN_NOT_OK(incoming->Read(&username));
   if (username != username_) {
     return Status::Invalid("Invalid username");
   }

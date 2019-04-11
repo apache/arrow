@@ -31,7 +31,7 @@ namespace flight {
 class ARROW_EXPORT ClientAuthReader {
  public:
   virtual ~ClientAuthReader() = default;
-  virtual Status Read(std::string* response) const = 0;
+  virtual Status Read(std::string* response) = 0;
 };
 
 /// \brief A writer for messages to the server during an
@@ -39,7 +39,7 @@ class ARROW_EXPORT ClientAuthReader {
 class ARROW_EXPORT ClientAuthSender {
  public:
   virtual ~ClientAuthSender() = default;
-  virtual Status Write(const std::string& token) const = 0;
+  virtual Status Write(const std::string& token) = 0;
 };
 
 /// \brief An authentication implementation for a Flight service.
@@ -52,8 +52,7 @@ class ARROW_EXPORT ClientAuthHandler {
   /// \brief Authenticate the client on initial connection. The client
   /// can send messages to/read responses from the server at any time.
   /// \return Status OK if authenticated successfully
-  virtual Status Authenticate(const ClientAuthSender& outgoing,
-                              const ClientAuthReader& incoming) = 0;
+  virtual Status Authenticate(ClientAuthSender* outgoing, ClientAuthReader* incoming) = 0;
   /// \brief Get a per-call token.
   /// \param[out] token The token to send to the server.
   virtual Status GetToken(std::string* token) = 0;

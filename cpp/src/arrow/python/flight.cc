@@ -33,9 +33,8 @@ PyServerAuthHandler::PyServerAuthHandler(PyObject* handler,
   handler_.reset(handler);
 }
 
-Status PyServerAuthHandler::Authenticate(
-    const arrow::flight::ServerAuthSender& outgoing,
-    const arrow::flight::ServerAuthReader& incoming) {
+Status PyServerAuthHandler::Authenticate(arrow::flight::ServerAuthSender* outgoing,
+                                         arrow::flight::ServerAuthReader* incoming) {
   PyAcquireGIL lock;
   vtable_.authenticate(handler_.obj(), outgoing, incoming);
   return CheckPyError();
@@ -55,9 +54,8 @@ PyClientAuthHandler::PyClientAuthHandler(PyObject* handler,
   handler_.reset(handler);
 }
 
-Status PyClientAuthHandler::Authenticate(
-    const arrow::flight::ClientAuthSender& outgoing,
-    const arrow::flight::ClientAuthReader& incoming) {
+Status PyClientAuthHandler::Authenticate(arrow::flight::ClientAuthSender* outgoing,
+                                         arrow::flight::ClientAuthReader* incoming) {
   PyAcquireGIL lock;
   vtable_.authenticate(handler_.obj(), outgoing, incoming);
   return CheckPyError();
