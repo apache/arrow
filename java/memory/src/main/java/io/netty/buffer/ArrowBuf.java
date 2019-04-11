@@ -17,144 +17,84 @@
 
 package io.netty.buffer;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.channels.FileChannel;
-import java.nio.channels.GatheringByteChannel;
-import java.nio.channels.ScatteringByteChannel;
-import java.nio.charset.Charset;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.arrow.memory.AllocationManager.BufferLedger;
-import org.apache.arrow.memory.ArrowByteBufAllocator;
-import org.apache.arrow.memory.BaseAllocator;
+import io.netty.util.IllegalReferenceCountException;
+import io.netty.util.internal.MathUtil;
+import org.apache.arrow.memory.*;
 import org.apache.arrow.memory.BaseAllocator.Verbosity;
-import org.apache.arrow.memory.BoundsChecking;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.BufferManager;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
 
 import io.netty.util.internal.PlatformDependent;
 
 /**
- * ArrowBuf is the abstraction around raw byte arrays that
- * comprise arrow data structures.
+ * ArrowBuf serves as a facade over underlying memory by providing
+ * several access APIs to read/write data into a chunk of direct
+ * memory. All the accounting, ownership and reference management
+ * is done by {@link ReferenceManager} and ArrowBuf can work
+ * with a custom user provided implementation of ReferenceManager
  *
+ * Two important instance variables of an ArrowBuf:
  *
- * <p>Specifically, it serves as a facade over
- * {@linkplain UnsafeDirectLittleEndian} memory objects that hides the details
- * of raw memory addresses.
+ * (1) address - starting virtual address in the underlying memory
+ * chunk that this ArrowBuf has access to
  *
- * <p>ArrowBuf supports reference counting and ledgering to closely track where
- * memory is being used.
+ * (2) length - length (in bytes) in the underlying memory chunk
+ *  that this ArrowBuf has access to
+ *
+ * The mangement (allocation, deallocation, reference counting etc) for
+ * the memory chunk is not done by ArrowBuf.
+ *
+ * Default implementation of ReferenceManager, allocation is in
+ * {@link BaseAllocator}, {@link BufferLedger} and {@link AllocationManager}
  */
-public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
+public final class ArrowBuf implements AutoCloseable {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ArrowBuf.class);
 
   private static final AtomicLong idGenerator = new AtomicLong(0);
   private static final int LOG_BYTES_PER_ROW = 10;
   private final long id = idGenerator.incrementAndGet();
-  private final AtomicInteger refCnt;
-  private final UnsafeDirectLittleEndian udle;
+  private final ReferenceManager referenceManager;
   private final long addr;
-  private final int offset;
-  private final BufferLedger ledger;
-  private final BufferManager bufManager;
-  private final ArrowByteBufAllocator alloc;
   private final boolean isEmpty;
+  private int readerIndex;
+  private int writerIndex;
   private final HistoricalLog historicalLog = BaseAllocator.DEBUG ?
       new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH, "ArrowBuf[%d]", id) : null;
   private volatile int length;
 
   /**
    * Constructs a new ArrowBuf
-   * @param refCnt The atomic integer to use for reference counting this buffer.
-   * @param ledger The ledger to use for tracking memory usage of this buffer.
-   * @param byteBuf The underlying storage for this buffer.
-   * @param manager The manager that handles replacing this buffer.
-   * @param alloc The allocator for the buffer (needed for superclass compatibility)
-   * @param offset The byte offset into <code>byteBuf</code> this buffer starts at.
+   * @param referenceManager The memory manager to track memory usage and reference count of this buffer
    * @param length The  byte length of this buffer
    * @param isEmpty  Indicates if this buffer is empty which enables some optimizations.
    */
   public ArrowBuf(
-      final AtomicInteger refCnt,
-      final BufferLedger ledger,
-      final UnsafeDirectLittleEndian byteBuf,
-      final BufferManager manager,
-      final ArrowByteBufAllocator alloc,
-      final int offset,
+      final ReferenceManager referenceManager,
       final int length,
+      final long memoryAddress,
       boolean isEmpty) {
-    // TODO(emkornfield): Should this be byteBuf.maxCapacity - offset?
-    super(byteBuf.maxCapacity());
-    this.refCnt = refCnt;
-    this.udle = byteBuf;
+    this.referenceManager = referenceManager;
     this.isEmpty = isEmpty;
-    this.bufManager = manager;
-    this.alloc = alloc;
-    this.addr = byteBuf.memoryAddress() + offset;
-    this.ledger = ledger;
+    this.addr = memoryAddress;
     this.length = length;
-    this.offset = offset;
-
+    this.readerIndex = 0;
+    this.writerIndex = 0;
     if (BaseAllocator.DEBUG) {
       historicalLog.recordEvent("create()");
     }
-
   }
 
-  /** Returns a debug friendly string for the given ByteBuf. */
-  public static String bufferState(final ByteBuf buf) {
-    final int cap = buf.capacity();
-    final int mcap = buf.maxCapacity();
-    final int ri = buf.readerIndex();
-    final int rb = buf.readableBytes();
-    final int wi = buf.writerIndex();
-    final int wb = buf.writableBytes();
-    return String.format("cap/max: %d/%d, ri: %d, rb: %d, wi: %d, wb: %d",
-        cap, mcap, ri, rb, wi, wb);
-  }
-
-  /**
-   * Returns <code>this</code> if size is less then {@link #capacity()}, otherwise
-   * delegates to {@link BufferManager#replace(ArrowBuf, int)} to get a new buffer.
-   */
-  public ArrowBuf reallocIfNeeded(final int size) {
-    Preconditions.checkArgument(size >= 0, "reallocation size must be non-negative");
-
-    if (this.capacity() >= size) {
-      return this;
-    }
-
-    if (bufManager != null) {
-      return bufManager.replace(this, size);
-    } else {
-      throw new UnsupportedOperationException("Realloc is only available in the context of an " +
-          "operator's UDFs");
-    }
-  }
-
-  @Override
   public int refCnt() {
-    if (isEmpty) {
-      return 1;
-    } else {
-      return refCnt.get();
-    }
+    return isEmpty ? 1 : referenceManager.getRefCount();
   }
 
-  private long addr(int index) {
-    return addr + index;
-  }
-
-  private final void checkIndexD(int index, int fieldLength) {
+  private void checkIndexD(int index, int fieldLength) {
     ensureAccessible();
     if (fieldLength < 0) {
       throw new IllegalArgumentException("length: " + fieldLength + " (expected: >= 0)");
@@ -196,130 +136,18 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     }
   }
 
-  /**
-   * Create a new ArrowBuf that is associated with an alternative allocator for the purposes of
-   * memory ownership and
-   * accounting. This has no impact on the reference counting for the current ArrowBuf except in
-   * the situation where the
-   * passed in Allocator is the same as the current buffer.
-   *
-   * <p>This operation has no impact on the reference count of this ArrowBuf. The newly created
-   * ArrowBuf with either have a
-   * reference count of 1 (in the case that this is the first time this memory is being
-   * associated with the new
-   * allocator) or the current value of the reference count + 1 for the other
-   * AllocationManager/BufferLedger combination
-   * in the case that the provided allocator already had an association to this underlying memory.
-   *
-   * @param target The target allocator to create an association with.
-   * @return A new ArrowBuf which shares the same underlying memory as this ArrowBuf.
-   */
-  public ArrowBuf retain(BufferAllocator target) {
-
-    if (isEmpty) {
-      return this;
-    }
-
-    if (BaseAllocator.DEBUG) {
-      historicalLog.recordEvent("retain(%s)", target.getName());
-    }
-    final BufferLedger otherLedger = this.ledger.getLedgerForAllocator(target);
-    ArrowBuf newArrowBuf = otherLedger.newArrowBuf(offset, length, null);
-    newArrowBuf.readerIndex(this.readerIndex);
-    newArrowBuf.writerIndex(this.writerIndex);
-    return newArrowBuf;
+  public ReferenceManager getReferenceManager() {
+    return referenceManager;
   }
 
-  /**
-   * Transfer the memory accounting ownership of this ArrowBuf to another allocator. This will
-   * generate a new ArrowBuf
-   * that carries an association with the underlying memory of this ArrowBuf. If this ArrowBuf is
-   * connected to the
-   * owning BufferLedger of this memory, that memory ownership/accounting will be transferred to
-   * the target allocator. If
-   * this ArrowBuf does not currently own the memory underlying it (and is only associated with
-   * it), this does not
-   * transfer any ownership to the newly created ArrowBuf.
-   *
-   * <p>This operation has no impact on the reference count of this ArrowBuf. The newly created
-   * ArrowBuf with either have a
-   * reference count of 1 (in the case that this is the first time this memory is being
-   * associated with the new
-   * allocator) or the current value of the reference count for the other
-   * AllocationManager/BufferLedger combination in
-   * the case that the provided allocator already had an association to this underlying memory.
-   *
-   * <p>Transfers will always succeed, even if that puts the other allocator into an overlimit
-   * situation. This is possible
-   * due to the fact that the original owning allocator may have allocated this memory out of a
-   * local reservation
-   * whereas the target allocator may need to allocate new memory from a parent or RootAllocator.
-   * This operation is done
-   * in a mostly-lockless but consistent manner. As such, the overlimit==true situation could
-   * occur slightly prematurely
-   * to an actual overlimit==true condition. This is simply conservative behavior which means we
-   * may return overlimit
-   * slightly sooner than is necessary.
-   *
-   * @param target The allocator to transfer ownership to.
-   * @return A new transfer result with the impact of the transfer (whether it was overlimit) as
-   *         well as the newly created ArrowBuf.
-   */
-  public TransferResult transferOwnership(BufferAllocator target) {
-
-    if (isEmpty) {
-      return new TransferResult(true, this);
-    }
-
-    final BufferLedger otherLedger = this.ledger.getLedgerForAllocator(target);
-    final ArrowBuf newBuf = otherLedger.newArrowBuf(offset, length, null);
-    newBuf.setIndex(this.readerIndex, this.writerIndex);
-    final boolean allocationFit = this.ledger.transferBalance(otherLedger);
-    return new TransferResult(allocationFit, newBuf);
+  public boolean isEmpty() {
+    return isEmpty;
   }
 
-  @Override
-  public boolean release() {
-    return release(1);
-  }
-
-  /**
-   * Release the provided number of reference counts.
-   */
-  @Override
-  public boolean release(int decrement) {
-
-    if (isEmpty) {
-      return false;
-    }
-
-    if (decrement < 1) {
-      throw new IllegalStateException(String.format("release(%d) argument is not positive. Buffer Info: %s",
-          decrement, toVerboseString()));
-    }
-
-    final int refCnt = ledger.decrement(decrement);
-
-    if (BaseAllocator.DEBUG) {
-      historicalLog.recordEvent("release(%d). original value: %d", decrement, refCnt + decrement);
-    }
-
-    if (refCnt < 0) {
-      throw new IllegalStateException(
-          String.format("ArrowBuf[%d] refCnt has gone negative. Buffer Info: %s", id,
-              toVerboseString()));
-    }
-
-    return refCnt == 0;
-
-  }
-
-  @Override
   public int capacity() {
     return length;
   }
 
-  @Override
   public synchronized ArrowBuf capacity(int newCapacity) {
 
     if (newCapacity == length) {
@@ -336,61 +164,20 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     throw new UnsupportedOperationException("Buffers don't support resizing that increases the size.");
   }
 
-  @Override
-  public ArrowByteBufAllocator alloc() {
-    return alloc;
-  }
-
-  @Override
   public ByteOrder order() {
     return ByteOrder.LITTLE_ENDIAN;
   }
 
-  @Override
-  public ArrowBuf order(ByteOrder endianness) {
-    return this;
+  public int readableBytes() {
+    Preconditions.checkState(writerIndex >= readerIndex, "Writer index cannot be less than reader index");
+    return writerIndex - readerIndex;
   }
 
-  @Override
-  public ByteBuf unwrap() {
-    return udle;
-  }
-
-  @Override
-  public boolean isDirect() {
-    return true;
-  }
-
-  @Override
-  public ByteBuf readBytes(int length) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ByteBuf readSlice(int length) {
-    final ByteBuf slice = slice(readerIndex(), length);
-    readerIndex(readerIndex() + length);
-    return slice;
-  }
-
-  @Override
-  public ByteBuf copy() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ByteBuf copy(int index, int length) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public ArrowBuf slice() {
-    return slice(readerIndex(), readableBytes());
+    return slice(readerIndex, readableBytes());
   }
 
-  @Override
   public ArrowBuf slice(int index, int length) {
-
     if (isEmpty) {
       return this;
     }
@@ -403,89 +190,28 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
      * .html#wiki-h3-5, which
      * explains that derived buffers share their reference count with their parent
      */
-    final ArrowBuf newBuf = ledger.newArrowBuf(offset + index, length);
+    final ArrowBuf newBuf = referenceManager.deriveBuffer(this, index, length);
     newBuf.writerIndex(length);
     return newBuf;
   }
 
-  @Override
-  public ArrowBuf duplicate() {
-    return slice(0, length);
-  }
-
-  @Override
-  public int nioBufferCount() {
-    return 1;
-  }
-
-  @Override
   public ByteBuffer nioBuffer() {
-    return nioBuffer(readerIndex(), readableBytes());
+    // TODO SIDD
+    return null;
   }
 
-  @Override
   public ByteBuffer nioBuffer(int index, int length) {
-    return udle.nioBuffer(offset + index, length);
+    // TODO SIDD
+    return null;
   }
 
-  @Override
-  public ByteBuffer internalNioBuffer(int index, int length) {
-    return udle.internalNioBuffer(offset + index, length);
-  }
-
-  @Override
-  public ByteBuffer[] nioBuffers() {
-    return new ByteBuffer[] {nioBuffer()};
-  }
-
-  @Override
-  public ByteBuffer[] nioBuffers(int index, int length) {
-    return new ByteBuffer[] {nioBuffer(index, length)};
-  }
-
-  @Override
-  public boolean hasArray() {
-    return udle.hasArray();
-  }
-
-  @Override
-  public byte[] array() {
-    return udle.array();
-  }
-
-  @Override
-  public int arrayOffset() {
-    return udle.arrayOffset();
-  }
-
-  @Override
-  public boolean hasMemoryAddress() {
-    return true;
-  }
-
-  @Override
   public long memoryAddress() {
     return this.addr;
   }
 
   @Override
   public String toString() {
-    return String.format("ArrowBuf[%d], udle: [%d %d..%d]", id, udle.id, offset, offset + capacity());
-  }
-
-  @Override
-  public String toString(Charset charset) {
-    return toString(readerIndex, readableBytes(), charset);
-  }
-
-  @Override
-  public String toString(int index, int length, Charset charset) {
-
-    if (length == 0) {
-      return "";
-    }
-
-    return ByteBufUtil.decodeString(this, index, length, charset);
+    return String.format("ArrowBuf[%d], address:%d, length:%d", id, memoryAddress(), length);
   }
 
   @Override
@@ -499,243 +225,102 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this == obj;
   }
 
-  @Override
-  public ArrowBuf retain(int increment) {
-    Preconditions.checkArgument(increment > 0, "retain(%d) argument is not positive", increment);
-
-    if (isEmpty) {
-      return this;
-    }
-
-    if (BaseAllocator.DEBUG) {
-      historicalLog.recordEvent("retain(%d)", increment);
-    }
-
-    final int originalReferenceCount = refCnt.getAndAdd(increment);
-    Preconditions.checkArgument(originalReferenceCount > 0);
-    return this;
+  /**
+   * IMPORTANT NOTE
+   * The data getters and setters work with a caller provided
+   * index. This index is 0 based and since ArrowBuf has access
+   * to a portion of underlying chunk of memory starting at
+   * some address, we convert the given relative index into
+   * absolute index as memory address + index.
+   *
+   * Example:
+   *
+   * Let's say we have an underlying chunk of memory of length 64 bytes
+   * Now let's say we have an ArrowBuf that has access to the chunk
+   * from offset 4 for length of 16 bytes.
+   *
+   * If the starting virtual address of chunk is MAR, then memory
+   * address of this ArrowBuf is MAR + offset -- this is what is stored
+   * in variable addr. See the BufferLedger and AllocationManager code
+   * for the implementation of ReferenceManager that manages a
+   * chunk of memory and creates ArrowBuf with access to a range of
+   * bytes within the chunk (or the entire chunk)
+   *
+   * So now to get/set data, we will do => addr + index
+   * This logic is put in method addr(index) and is frequently
+   * used in get/set data methods to compute the absolute
+   * byte address for get/set operation in the underlying chunk
+   *
+   * @param index the index at which we the user wants to read/write
+   * @return the absolute address within the memro
+   */
+  private long addr(int index) {
+    return addr + index;
   }
 
-  @Override
-  public ArrowBuf retain() {
-    return retain(1);
-  }
-
-  @Override
-  public ByteBuf touch() {
-    return this;
-  }
-
-  @Override
-  public ByteBuf touch(Object hint) {
-    return this;
-  }
-
-  @Override
   public long getLong(int index) {
     chk(index, 8);
-    final long v = PlatformDependent.getLong(addr(index));
-    return v;
+    return PlatformDependent.getLong(addr(index));
   }
 
-  @Override
-  public float getFloat(int index) {
-    return Float.intBitsToFloat(getInt(index));
-  }
-
-  /**
-   * Gets a 64-bit long integer at the specified absolute {@code index} in
-   * this buffer in Big Endian Byte Order.
-   */
-  @Override
-  public long getLongLE(int index) {
-    chk(index, 8);
-    final long v = PlatformDependent.getLong(addr(index));
-    return Long.reverseBytes(v);
-  }
-
-  @Override
-  public double getDouble(int index) {
-    return Double.longBitsToDouble(getLong(index));
-  }
-
-  @Override
-  public char getChar(int index) {
-    return (char) getShort(index);
-  }
-
-  @Override
-  public long getUnsignedInt(int index) {
-    return getInt(index) & 0xFFFFFFFFL;
-  }
-
-  @Override
-  public int getInt(int index) {
-    chk(index, 4);
-    final int v = PlatformDependent.getInt(addr(index));
-    return v;
-  }
-
-  /**
-   * Gets a 32-bit integer at the specified absolute {@code index} in
-   * this buffer in Big Endian Byte Order.
-   */
-  @Override
-  public int getIntLE(int index) {
-    chk(index, 4);
-    final int v = PlatformDependent.getInt(addr(index));
-    return Integer.reverseBytes(v);
-  }
-
-  @Override
-  public int getUnsignedShort(int index) {
-    return getShort(index) & 0xFFFF;
-  }
-
-  @Override
-  public short getShort(int index) {
-    chk(index, 2);
-    final short v = PlatformDependent.getShort(addr(index));
-    return v;
-  }
-
-  /**
-   * Gets a 16-bit short integer at the specified absolute {@code index} in
-   * this buffer in Big Endian Byte Order.
-   */
-  @Override
-  public short getShortLE(int index) {
-    final short v = PlatformDependent.getShort(addr(index));
-    return Short.reverseBytes(v);
-  }
-
-  /**
-   * Gets an unsigned 24-bit medium integer at the specified absolute
-   * {@code index} in this buffer.
-   */
-  @Override
-  public int getUnsignedMedium(int index) {
-    chk(index, 3);
-    final long addr = addr(index);
-    return (PlatformDependent.getByte(addr) & 0xff) << 16 |
-        (PlatformDependent.getShort(addr + 1) & 0xffff);
-  }
-
-  /**
-   * Gets an unsigned 24-bit medium integer at the specified absolute {@code index} in
-   * this buffer in Big Endian Byte Order.
-   */
-  @Override
-  public int getUnsignedMediumLE(int index) {
-    chk(index, 3);
-    final long addr = addr(index);
-    return (PlatformDependent.getByte(addr) & 0xff) |
-        (Short.reverseBytes(PlatformDependent.getShort(addr + 1)) & 0xffff) << 8;
-  }
-
-  @Override
-  public ArrowBuf setShort(int index, int value) {
-    chk(index, 2);
-    PlatformDependent.putShort(addr(index), (short) value);
-    return this;
-  }
-
-  /**
-   * Sets the specified 16-bit short integer at the specified absolute {@code index}
-   * in this buffer with Big Endian byte order.
-   */
-  @Override
-  public ByteBuf setShortLE(int index, int value) {
-    chk(index, 2);
-    PlatformDependent.putShort(addr(index), Short.reverseBytes((short) value));
-    return this;
-  }
-
-  /**
-   * Sets the specified 24-bit medium integer at the specified absolute
-   * {@code index} in this buffer.
-   */
-  @Override
-  public ByteBuf setMedium(int index, int value) {
-    chk(index, 3);
-    final long addr = addr(index);
-    PlatformDependent.putByte(addr, (byte) (value >>> 16));
-    PlatformDependent.putShort(addr + 1, (short) value);
-    return this;
-  }
-
-
-  /**
-   * Sets the specified 24-bit medium integer at the specified absolute {@code index}
-   * in this buffer with Big Endian byte order.
-   */
-  @Override
-  public ByteBuf setMediumLE(int index, int value) {
-    chk(index, 3);
-    final long addr = addr(index);
-    PlatformDependent.putByte(addr, (byte) value);
-    PlatformDependent.putShort(addr + 1, Short.reverseBytes((short) (value >>> 8)));
-    return this;
-  }
-
-  @Override
-  public ArrowBuf setInt(int index, int value) {
-    chk(index, 4);
-    PlatformDependent.putInt(addr(index), value);
-    return this;
-  }
-
-  /**
-   * Sets the specified 32-bit integer at the specified absolute {@code index}
-   * in this buffer with Big Endian byte order.
-   */
-  @Override
-  public ByteBuf setIntLE(int index, int value) {
-    chk(index, 4);
-    PlatformDependent.putInt(addr(index), Integer.reverseBytes(value));
-    return this;
-  }
-
-  @Override
   public ArrowBuf setLong(int index, long value) {
     chk(index, 8);
     PlatformDependent.putLong(addr(index), value);
     return this;
   }
 
-  /**
-   * Sets the specified 64-bit long integer at the specified absolute {@code index}
-   * in this buffer with Big Endian byte order.
-   */
-  @Override
-  public ByteBuf setLongLE(int index, long value) {
-    chk(index, 8);
-    PlatformDependent.putLong(addr(index), Long.reverseBytes(value));
-    return this;
+  public float getFloat(int index) {
+    return Float.intBitsToFloat(getInt(index));
   }
 
-  @Override
-  public ArrowBuf setChar(int index, int value) {
-    chk(index, 2);
-    PlatformDependent.putShort(addr(index), (short) value);
-    return this;
-  }
-
-  @Override
   public ArrowBuf setFloat(int index, float value) {
     chk(index, 4);
     PlatformDependent.putInt(addr(index), Float.floatToRawIntBits(value));
     return this;
   }
 
-  @Override
+  public double getDouble(int index) {
+    return Double.longBitsToDouble(getLong(index));
+  }
+
   public ArrowBuf setDouble(int index, double value) {
     chk(index, 8);
     PlatformDependent.putLong(addr(index), Double.doubleToRawLongBits(value));
     return this;
   }
 
-  @Override
+  public char getChar(int index) {
+    return (char) getShort(index);
+  }
+
+  public ArrowBuf setChar(int index, int value) {
+    chk(index, 2);
+    PlatformDependent.putShort(addr(index), (short) value);
+    return this;
+  }
+
+  public int getInt(int index) {
+    chk(index, 4);
+    return PlatformDependent.getInt(addr(index));
+  }
+
+  public ArrowBuf setInt(int index, int value) {
+    chk(index, 4);
+    PlatformDependent.putInt(addr(index), value);
+    return this;
+  }
+
+  public short getShort(int index) {
+    chk(index, 2);
+    return PlatformDependent.getShort(addr(index));
+  }
+
+  public ArrowBuf setShort(int index, int value) {
+    chk(index, 2);
+    PlatformDependent.putShort(addr(index), (short) value);
+    return this;
+  }
+
   public ArrowBuf writeShort(int value) {
     ensure(2);
     PlatformDependent.putShort(addr(writerIndex), (short) value);
@@ -743,7 +328,6 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
-  @Override
   public ArrowBuf writeInt(int value) {
     ensure(4);
     PlatformDependent.putInt(addr(writerIndex), value);
@@ -751,7 +335,6 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
-  @Override
   public ArrowBuf writeLong(long value) {
     ensure(8);
     PlatformDependent.putLong(addr(writerIndex), value);
@@ -759,15 +342,6 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
-  @Override
-  public ArrowBuf writeChar(int value) {
-    ensure(2);
-    PlatformDependent.putShort(addr(writerIndex), (short) value);
-    writerIndex += 2;
-    return this;
-  }
-
-  @Override
   public ArrowBuf writeFloat(float value) {
     ensure(4);
     PlatformDependent.putInt(addr(writerIndex), Float.floatToRawIntBits(value));
@@ -775,7 +349,6 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
-  @Override
   public ArrowBuf writeDouble(double value) {
     ensure(8);
     PlatformDependent.putLong(addr(writerIndex), Double.doubleToRawLongBits(value));
@@ -783,177 +356,81 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
-  @Override
-  public ArrowBuf getBytes(int index, byte[] dst, int dstIndex, int length) {
-    udle.getBytes(index + offset, dst, dstIndex, length);
-    return this;
-  }
-
-  @Override
-  public ArrowBuf getBytes(int index, ByteBuffer dst) {
-    udle.getBytes(index + offset, dst);
-    return this;
-  }
-
-  @Override
   public ArrowBuf setByte(int index, int value) {
     chk(index, 1);
     PlatformDependent.putByte(addr(index), (byte) value);
     return this;
   }
 
-  public void setByte(int index, byte b) {
+  public ArrowBuf setByte(int index, byte b) {
     chk(index, 1);
     PlatformDependent.putByte(addr(index), b);
-  }
-
-  public void writeByteUnsafe(byte b) {
-    PlatformDependent.putByte(addr(readerIndex), b);
-    readerIndex++;
-  }
-
-  @Override
-  protected byte _getByte(int index) {
-    return getByte(index);
-  }
-
-  @Override
-  protected short _getShort(int index) {
-    return getShort(index);
-  }
-
-  /**
-   * @see ArrowBuf#getShortLE(int).
-   */
-  @Override
-  protected short _getShortLE(int index) {
-    return getShortLE(index);
-  }
-
-  @Override
-  protected int _getInt(int index) {
-    return getInt(index);
-  }
-
-  /**
-   * @see ArrowBuf#getIntLE(int).
-   */
-  @Override
-  protected int _getIntLE(int index) {
-    return getIntLE(index);
-  }
-
-  /**
-   * @see ArrowBuf#getUnsignedMedium(int).
-   */
-  @Override
-  protected int _getUnsignedMedium(int index) {
-    return getUnsignedMedium(index);
-  }
-
-  /**
-   * @see ArrowBuf#getUnsignedMediumLE(int).
-   */
-  @Override
-  protected int _getUnsignedMediumLE(int index) {
-    return getUnsignedMediumLE(index);
-  }
-
-  @Override
-  protected long _getLong(int index) {
-    return getLong(index);
-  }
-
-  /**
-   * @see ArrowBuf#getLongLE(int).
-   */
-  @Override
-  protected long _getLongLE(int index) {
-    return getLongLE(index);
-  }
-
-  @Override
-  protected void _setByte(int index, int value) {
-    setByte(index, value);
-  }
-
-  @Override
-  protected void _setShort(int index, int value) {
-    setShort(index, value);
-  }
-
-  /**
-   * @see ArrowBuf#setShortLE(int, int).
-   */
-  @Override
-  protected void _setShortLE(int index, int value) {
-    setShortLE(index, value);
-  }
-
-  @Override
-  protected void _setMedium(int index, int value) {
-    setMedium(index, value);
-  }
-
-  /**
-   * @see ArrowBuf#setMediumLE(int, int).
-   */
-  @Override
-  protected void _setMediumLE(int index, int value) {
-    setMediumLE(index, value);
-  }
-
-  @Override
-  protected void _setInt(int index, int value) {
-    setInt(index, value);
-  }
-
-  /**
-   * @see ArrowBuf#setIntLE(int, int).
-   */
-  @Override
-  protected void _setIntLE(int index, int value) {
-    setIntLE(index, value);
-  }
-
-  @Override
-  protected void _setLong(int index, long value) {
-    setLong(index, value);
-  }
-
-  /**
-   * @see ArrowBuf#setLongLE(int, long).
-   */
-  @Override
-  public void _setLongLE(int index, long value) {
-    setLongLE(index, value);
-  }
-
-  @Override
-  public ArrowBuf getBytes(int index, ByteBuf dst, int dstIndex, int length) {
-    udle.getBytes(index + offset, dst, dstIndex, length);
     return this;
   }
 
-  @Override
-  public ArrowBuf getBytes(int index, OutputStream out, int length) throws IOException {
-    udle.getBytes(index + offset, out, length);
+  public byte getByte(int index) {
+    chk(index, 1);
+    return PlatformDependent.getByte(addr(index));
+  }
+
+  // TODO: do bound checking properly for the following APIs
+
+  public ArrowBuf getBytes(int index, byte[] dst, int dstIndex, int length) {
+    final int end = dstIndex + length - 1;
+    for (int i = dstIndex; i <= end; i++) {
+      dst[i] = PlatformDependent.getByte(addr(index));
+    }
     return this;
   }
 
-  @Override
-  public int getBytes(int index, GatheringByteChannel out, int length) throws IOException {
-    return udle.getBytes(index + offset, out, length);
+  public ArrowBuf getBytes(int index, ByteBuffer dst) {
+    int toRead = length;
+    long address = addr(index);
+    // word by word memcpy
+    while (toRead >= 8) {
+      dst.putLong(PlatformDependent.getLong(address));
+      address += 8;
+      toRead -= 8;
+    }
+    while (toRead > 0) {
+      dst.put(PlatformDependent.getByte(address));
+      --toRead;
+    }
+    return this;
   }
 
-  @Override
-  public int getBytes(int index, FileChannel out, long position, int length) throws IOException {
-    return udle.getBytes(index + offset, out, position, length);
+  public ArrowBuf setBytes(int index, byte[] src, int srcIndex, int length) {
+    if (length != 0) {
+      // memcpy from source byte array at the starting index (srcIndex)
+      // to the underlying chunk of memory this ArrowBuf has access to
+      // at the given index (index)
+      PlatformDependent.copyMemory(src, srcIndex, addr(index), (long)length);
+    }
+    return this;
   }
 
-  @Override
-  public ArrowBuf setBytes(int index, ByteBuf src, int srcIndex, int length) {
-    udle.setBytes(index + offset, src, srcIndex, length);
+  public ArrowBuf setBytes(int index, ByteBuffer src) {
+    int length = src.remaining();
+    long dstAddress = addr(index);
+    if(length != 0) {
+      if(src.isDirect()) {
+        final long srcAddress = PlatformDependent.directBufferAddress(src) + (long)src.position();
+        PlatformDependent.copyMemory(srcAddress, dstAddress, (long)src.remaining());
+        src.position(src.position() + length);
+      } else if(src.hasArray()) {
+        PlatformDependent.copyMemory(src.array(), src.arrayOffset() + src.position(), dstAddress, (long)length);
+        src.position(src.position() + length);
+      } else {
+        while (length >= 8) {
+          PlatformDependent.putLong(dstAddress, src.getLong());
+          length -= 8;
+          dstAddress += 8;
+        }
+        while (length > 0) {
+          PlatformDependent.putByte(dstAddress, src.get());
+        }
+      }
+    }
     return this;
   }
 
@@ -962,19 +439,18 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
    * to this buffer starting at index.
    */
   public ArrowBuf setBytes(int index, ByteBuffer src, int srcIndex, int length) {
+    final long dstAddress = addr(index);
     if (src.isDirect()) {
-      checkIndex(index, length);
-      PlatformDependent.copyMemory(PlatformDependent.directBufferAddress(src) + srcIndex, this
-              .memoryAddress() + index,
-          length);
+      final long srcAddress = PlatformDependent.directBufferAddress(src) + srcIndex;
+      PlatformDependent.copyMemory(srcAddress, dstAddress, length);
     } else {
       if (srcIndex == 0 && src.capacity() == length) {
-        udle.setBytes(index + offset, src);
+        setBytes(index, src);
       } else {
         ByteBuffer newBuf = src.duplicate();
         newBuf.position(srcIndex);
         newBuf.limit(srcIndex + length);
-        udle.setBytes(index + offset, newBuf);
+        setBytes(index, newBuf);
       }
     }
 
@@ -982,69 +458,29 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  public ArrowBuf setBytes(int index, byte[] src, int srcIndex, int length) {
-    udle.setBytes(index + offset, src, srcIndex, length);
-    return this;
-  }
-
-  @Override
-  public ArrowBuf setBytes(int index, ByteBuffer src) {
-    udle.setBytes(index + offset, src);
-    return this;
-  }
-
-  @Override
-  public int setBytes(int index, InputStream in, int length) throws IOException {
-    return udle.setBytes(index + offset, in, length);
-  }
-
-  @Override
-  public int setBytes(int index, ScatteringByteChannel in, int length) throws IOException {
-    return udle.setBytes(index + offset, in, length);
-  }
-
-  @Override
-  public int setBytes(int index, FileChannel in, long position, int length) throws IOException {
-    return udle.setBytes(index + offset, in, position, length);
-  }
-
-  @Override
-  public byte getByte(int index) {
-    chk(index, 1);
-    return PlatformDependent.getByte(addr(index));
-  }
-
-  @Override
   public void close() {
-    release();
+    referenceManager.release();
   }
 
   /**
-   * Returns the possible memory consumed by this ArrowBuf in the worse case scenario. (not
-   * shared, connected to larger
-   * underlying buffer of allocated memory)
+   * Returns the possible memory consumed by this ArrowBuf in the worse case scenario.
+   * (not shared, connected to larger underlying buffer of allocated memory)
    *
    * @return Size in bytes.
    */
   public int getPossibleMemoryConsumed() {
-    if (isEmpty) {
-      return 0;
-    }
-    return ledger.getSize();
+    return isEmpty ? 0 : referenceManager.getSize();
   }
 
   /**
    * Return that is Accounted for by this buffer (and its potentially shared siblings within the
-   * context of the
-   * associated allocator).
+   * context of the associated allocator).
+   * TODO SIDD: I believe the following method should not be in ArrowBuf
    *
    * @return Size in bytes.
    */
   public int getActualMemoryConsumed() {
-    if (isEmpty) {
-      return 0;
-    }
-    return ledger.getAccountedSize();
+    return isEmpty ? 0 : referenceManager.getAccountedSize();
   }
 
   /**
@@ -1090,7 +526,8 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     }
 
     StringBuilder sb = new StringBuilder();
-    ledger.print(sb, 0, Verbosity.LOG_WITH_STACKTRACE);
+    // TODO SIDD
+    //referenceManager.print(sb, 0, Verbosity.LOG_WITH_STACKTRACE);
     return sb.toString();
   }
 
@@ -1111,39 +548,74 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     }
   }
 
-  @Override
+  public int readerIndex() {
+    return readerIndex;
+  }
+
+  public int writerIndex() {
+    return writerIndex;
+  }
+
   public ArrowBuf readerIndex(int readerIndex) {
-    super.readerIndex(readerIndex);
+    this.readerIndex = readerIndex;
     return this;
   }
 
-  @Override
   public ArrowBuf writerIndex(int writerIndex) {
-    super.writerIndex(writerIndex);
+    this.writerIndex = writerIndex;
     return this;
   }
 
-  /**
-   * The outcome of a Transfer.
-   */
-  public class TransferResult {
-
-    /**
-     * Whether this transfer fit within the target allocator's capacity.
-     */
-    public final boolean allocationFit;
-
-    /**
-     * The newly created buffer associated with the target allocator.
-     */
-    public final ArrowBuf buffer;
-
-    private TransferResult(boolean allocationFit, ArrowBuf buffer) {
-      this.allocationFit = allocationFit;
-      this.buffer = buffer;
+  private void ensureAccessible() {
+    if(this.refCnt() == 0) {
+      throw new IllegalReferenceCountException(0);
     }
-
   }
 
+  private void checkIndex(int index, int fieldLength) {
+    this.ensureAccessible();
+    this.checkIndex0(index, fieldLength);
+  }
 
+  private void  checkIndex0(int index, int fieldLength) {
+    if(MathUtil.isOutOfBounds(index, fieldLength, this.capacity())) {
+      throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
+        new Object[]{Integer.valueOf(index), Integer.valueOf(fieldLength), Integer.valueOf(this.capacity())}));
+    }
+  }
+
+  public ArrowBuf setZero(int index, int length) {
+    if(length == 0) {
+      return this;
+    } else {
+      this.checkIndex(index, length);
+      int nLong = length >>> 3;
+      int nBytes = length & 7;
+
+      int i;
+      for(i = nLong; i > 0; --i) {
+        setLong(index, 0L);
+        index += 8;
+      }
+
+      if(nBytes == 4) {
+        setInt(index, 0);
+      } else if(nBytes < 4) {
+        for(i = nBytes; i > 0; --i) {
+          setByte(index, 0);
+          ++index;
+        }
+      } else {
+        setInt(index, 0);
+        index += 4;
+
+        for(i = nBytes - 4; i > 0; --i) {
+          setByte(index, 0);
+          ++index;
+        }
+      }
+
+      return this;
+    }
+  }
 }
