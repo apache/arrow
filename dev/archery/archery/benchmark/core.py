@@ -75,7 +75,7 @@ class BenchmarkSuite:
         return f"BenchmarkSuite[name={name}, benchmarks={benchmarks}]"
 
 
-def regress(change, threshold=0.05):
+def regress(change, threshold):
     # negative change is better, positive is tolerable until it exceeds
     # threshold
     return change > threshold
@@ -89,10 +89,14 @@ def changes(old, new):
     return float(new - old) / abs(old)
 
 
+DEFAULT_THRESHOLD = 0.05
+
+
 class BenchmarkComparator:
-    def __init__(self, contender, baseline):
+    def __init__(self, contender, baseline, threshold=DEFAULT_THRESHOLD):
         self.contender = contender
         self.baseline = baseline
+        self.threshold = threshold
 
     def compare(self, comparator=None):
         base = self.baseline.value
@@ -104,7 +108,7 @@ class BenchmarkComparator:
         return {
             "benchmark": self.baseline.name,
             "change": change,
-            "regression": regress(adjusted_change),
+            "regression": regress(adjusted_change, self.threshold),
             "baseline": base,
             "contender": cont,
             "unit": self.baseline.unit,

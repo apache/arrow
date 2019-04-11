@@ -99,8 +99,8 @@ Writing a benchmark
    automatically, the name must match.
 
 2. The benchmark command will run with the ``--benchmark_repetitions=K``
-   options for statistical stability. Thus, a benchmark should not override the
-   repetitions in the (C++) benchmark's arguments definition.
+   options for statistical significance. Thus, a benchmark should not override
+   the repetitions in the (C++) benchmark's arguments definition.
 
 3. Due to #2, a benchmark should run sufficiently fast. Often, when the input
    does not fit in memory (L2/L3), the benchmark will be memory bound instead

@@ -328,7 +328,7 @@ static void RegressionSumKernel(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t));
 }
 
-BENCHMARK(RegressionSumKernel)->Apply(SetArgs);
+BENCHMARK(RegressionSumKernel)->Apply(BenchmarkSetArgs);
 
 }  // namespace compute
 }  // namespace arrow

@@ -201,13 +201,15 @@ def benchmark(ctx):
               help="Regex filtering benchmark suites.")
 @click.option("--preserve", type=bool, default=False, show_default=True,
               is_flag=True, help="Preserve workspace for investigation.")
+@click.option("--threshold", type=float, default=0.05, show_default=True,
+              help="Regression failure threshold in percentage.")
 @click.argument("contender", metavar="[<contender>", default=Git.WORKSPACE,
                 required=False)
 @click.argument("baseline", metavar="[<baseline>]]", default="master",
                 required=False)
 @click.pass_context
 def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
-                   contender, baseline):
+                   threshold, contender, baseline):
     """ Compare (diff) benchmark runs.
 
     This command acts like git-diff but for benchmark results.
@@ -288,7 +290,8 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
                 bench_cont = suite_cont[bench_name]
                 bench_base = suite_base[bench_name]
 
-                comparator = BenchmarkComparator(bench_cont, bench_base)
+                comparator = BenchmarkComparator(bench_cont, bench_base,
+                                                 threshold=threshold)
                 comparison = comparator()
 
                 comparison["suite"] = suite_name
