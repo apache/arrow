@@ -35,6 +35,7 @@ It is recommended to use the ``-e,--editable`` flag such that pip don't copy
 the module files but use the actual sources.
 
 .. code-block:: shell
+
   pip install -e dev/archery
   archery --help
 
