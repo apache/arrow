@@ -22,19 +22,19 @@ use parquet::record::RecordWriter;
 
 #[derive(ParquetRecordWriter)]
 struct ACompleteRecord<'a> {
-//  pub a_bool: bool,
-//  pub a_str: &'a str,
-//  pub a_string: String,
-//  pub a_borrowed_string: &'a String,
+  pub a_bool: bool,
+  pub a_str: &'a str,
+  pub a_string: String,
+  pub a_borrowed_string: &'a String,
   pub maybe_a_str: Option<&'a str>,
-//  pub maybe_a_string: Option<String>,
-//  pub magic_number: i32,
-//  pub low_quality_pi: f32,
-//  pub high_quality_pi: f64,
-//  pub maybe_pi: Option<f32>,
-//  pub maybe_best_pi: Option<f64>,
-//  pub borrowed_maybe_a_string: &'a Option<String>,
-//  pub borrowed_maybe_a_str: &'a Option<&'a str>,
+  pub maybe_a_string: Option<String>,
+  pub magic_number: i32,
+  pub low_quality_pi: f32,
+  pub high_quality_pi: f64,
+  pub maybe_pi: Option<f32>,
+  pub maybe_best_pi: Option<f64>,
+  pub borrowed_maybe_a_string: &'a Option<String>,
+  pub borrowed_maybe_a_str: &'a Option<&'a str>,
 //  pub unsigned_magic_number: u32,
 }
 
@@ -56,20 +56,21 @@ mod tests {
     let file = get_temp_file("test_parquet_derive_hello", &[]);
     let schema_str = "message schema {
             REQUIRED boolean         a_bool;
+            REQUIRED BINARY          a_str (UTF8);
+            REQUIRED BINARY          a_string (UTF8);
+            REQUIRED BINARY          a_borrowed_string (UTF8);
+            OPTIONAL BINARY          a_maybe_str (UTF8);
+            OPTIONAL BINARY          a_maybe_string (UTF8);
+            REQUIRED INT32           magic_number;
+            REQUIRED FLOAT           low_quality_pi;
+            REQUIRED DOUBLE          high_quality_pi;
+            OPTIONAL FLOAT           maybe_pi;
+            OPTIONAL DOUBLE          maybe_best_pi;
+            OPTIONAL BINARY          borrowed_maybe_a_string (UTF8);
+            OPTIONAL BINARY          borrowed_maybe_a_str (UTF8);
         }";
-//    REQUIRED BINARY          a_str (UTF8);
-//    REQUIRED BINARY          a_string (UTF8);
-//    REQUIRED BINARY          a_borrowed_string (UTF8);
-//    OPTIONAL BINARY          a_maybe_str (UTF8);
-//    OPTIONAL BINARY          a_maybe_string (UTF8);
-//    REQUIRED INT32           magic_number;
-//    REQUIRED FLOAT           low_quality_pi;
-//    REQUIRED DOUBLE          high_quality_pi;
-//    OPTIONAL FLOAT           maybe_pi;
-//    OPTIONAL DOUBLE          maybe_best_pi;
-//    OPTIONAL BINARY          borrowed_maybe_a_string (UTF8);
-//    OPTIONAL BINARY          maybe_a_str (UTF8);
-//    REQUIRED INT(32,false)   unsigned_magic_number;
+//            REQUIRED INT(32,false)   unsigned_magic_number;
+
 
     let schema = Rc::new(parse_message_type(schema_str).unwrap());
 
@@ -82,19 +83,19 @@ mod tests {
     let maybe_a_str = Some(&a_str[..]);
 
     let drs: Vec<ACompleteRecord> = vec![ACompleteRecord {
-//      a_bool: true,
-//      a_str: &a_str[..],
-//      a_string: "hello father".into(),
-//      a_borrowed_string: &a_borrowed_string,
+      a_bool: true,
+      a_str: &a_str[..],
+      a_string: "hello father".into(),
+      a_borrowed_string: &a_borrowed_string,
       maybe_a_str: Some(&a_str[..]),
-//      maybe_a_string: Some(a_str.clone()),
-//      magic_number: 100,
-//      low_quality_pi: 3.14,
-//      high_quality_pi: 3.1415,
-//      maybe_pi: Some(3.14),
-//      maybe_best_pi: Some(3.1415),
-//      borrowed_maybe_a_string: &maybe_a_string,
-//      borrowed_maybe_a_str: &maybe_a_str,
+      maybe_a_string: Some(a_str.clone()),
+      magic_number: 100,
+      low_quality_pi: 3.14,
+      high_quality_pi: 3.1415,
+      maybe_pi: Some(3.14),
+      maybe_best_pi: Some(3.1415),
+      borrowed_maybe_a_string: &maybe_a_string,
+      borrowed_maybe_a_str: &maybe_a_str,
 //      unsigned_magic_number: 1000,
     }];
     let chunks = &drs[..];

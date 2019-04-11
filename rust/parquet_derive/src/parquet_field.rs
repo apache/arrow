@@ -15,61 +15,175 @@ impl Field {
         }
     }
 
-    //  fn column_writer_variant(&self) -> Path {
-    //    let ftype_string = self.field_type.to_string();
-    //    let ftype_string = if &ftype_string[..] == "Option" {
-    //      let fga: &FieldInfoGenericArg = self
-    //        .field_generic_arguments
-    //        .get(0)
-    //        .expect("must have at least 1 generic argument");
-    //      let field_type = &fga.field_type;
-    //
-    //      let field_type_token_stream = quote!{ #field_type };
-    //      field_type_token_stream.to_string()
-    //    } else {
-    //      ftype_string
-    //    };
-    //
-    ////    if &ftype_string[..] != "Option" {
-    ////      panic!("blarp: {}", ftype_string);
-    ////    }
-    //
-    //    Self::ident_to_column_writer_variant(&ftype_string[..]).unwrap_or_else(|f| {
-    //      panic!("no column writer variant for {}/{}. err: `{}` ", ftype_string,
-    // self.field_type, f)    })
-    //  }
+    /// Takes the parsed field of the struct and emits a valid
+    /// column writer snippet.
+    ///
+    /// Can only generate writers for basic structs, for example:
+    ///
+    /// struct Record {
+    ///   a_bool: bool,
+    ///   maybe_a_bool: Option<bool>
+    /// }
+    ///
+    /// but not
+    ///
+    /// struct UnsupportedNestedRecord {
+    ///   a_property: bool,
+    ///   nested_record: Record
+    /// }
+    ///
+    /// because this parsing logic is not sophisticated enough for definition
+    /// levels beyond 2.
+    pub fn writer_snippet(&self) -> proc_macro2::TokenStream {
+        let ident = &self.ident;
+        let column_writer = self.ty.column_writer();
+        let is_a_byte_buf = self.ty.physical_type() == parquet::basic::Type::BYTE_ARRAY;
+        let copy_to_vec = match self.ty.physical_type() {
+            parquet::basic::Type::BYTE_ARRAY
+            | parquet::basic::Type::FIXED_LEN_BYTE_ARRAY => false,
+            _ => true,
+        };
 
-    fn ident_to_column_writer_variant(
-        id: &str,
-    ) -> Result<syn::Path, Box<dyn std::error::Error>> {
-        let column_writer_variant = match id {
-            "bool" => quote! { parquet::column::writer::ColumnWriter::BoolColumnWriter },
-            "str" | "String" | "Vec" => {
-                quote! { parquet::column::writer::ColumnWriter::ByteArrayColumnWriter }
+        fn option_into_vals(
+            id: &syn::Ident,
+            is_a_byte_buf: bool,
+            copy_to_vec: bool,
+        ) -> proc_macro2::TokenStream {
+            let some = if is_a_byte_buf {
+                quote! { Some((&inner[..]).into())}
+            } else {
+                quote! { Some(inner) }
+            };
+
+            let binding = if copy_to_vec {
+                quote! { let Some(inner) = x.#id }
+            } else {
+                quote! { let Some(ref inner) = x.#id }
+            };
+
+            quote! {
+                let vals: Vec<_> = records.iter().filter_map(|x| {
+                    if #binding {
+                        #some
+                    } else {
+                        None
+                    }
+                }).collect();
             }
-            "i32" => {
-                quote! { parquet::column::writer::ColumnWriter::Int32ColumnWriter }
+        }
+
+        fn copied_direct_vals(
+            id: &syn::Ident,
+            is_a_byte_buf: bool,
+        ) -> proc_macro2::TokenStream {
+            let access = if is_a_byte_buf {
+                quote! { (&x.#id[..]).into() }
+            } else {
+                quote! { x.#id }
+            };
+
+            quote! {
+                let vals: Vec<_> = records.iter().map(|x| #access).collect();
             }
-            "u32" => {
-                quote! { parquet::column::writer::ColumnWriter::FixedLenByteArrayColumnWriter }
+        }
+
+        let vals_builder = match &self.ty {
+            Type::TypePath(_) => copied_direct_vals(ident, is_a_byte_buf),
+            Type::Option(ref first_type) => match **first_type {
+                Type::TypePath(_) => option_into_vals(ident, is_a_byte_buf, copy_to_vec),
+                Type::Reference(_, ref second_type) => match **second_type {
+                    Type::TypePath(_) => {
+                        option_into_vals(ident, is_a_byte_buf, copy_to_vec)
+                    }
+                    _ => unimplemented!("sorry charlie"),
+                },
+                ref f @ _ => unimplemented!("whoa: {:#?}", f),
+            },
+            Type::Reference(_, ref first_type) => match **first_type {
+                Type::TypePath(_) => copied_direct_vals(ident, is_a_byte_buf),
+                Type::Option(ref second_type) => match **second_type {
+                    Type::TypePath(_) => {
+                        option_into_vals(ident, is_a_byte_buf, copy_to_vec)
+                    }
+                    Type::Reference(_, ref second_type) => match **second_type {
+                        Type::TypePath(_) => {
+                            option_into_vals(ident, is_a_byte_buf, copy_to_vec)
+                        }
+                        _ => unimplemented!("sorry charlie"),
+                    },
+                    ref f @ _ => unimplemented!("whoa: {:#?}", f),
+                },
+                ref f @ _ => unimplemented!("whoa: {:#?}", f),
+            },
+            f @ _ => unimplemented!("don't support {:#?}", f),
+        };
+
+        fn optional_definition_levels(id: &syn::Ident) -> proc_macro2::TokenStream {
+            quote! {
+                let definition_levels: Vec<i16> = self
+                  .iter()
+                  .map(|x| if x.#id.is_some() { 1 } else { 0 })
+                  .collect();
             }
-            "i64" | "u64" => {
-                quote! { parquet::column::writer::ColumnWriter::Int64ColumnWriter }
+        }
+
+        let definition_levels = match &self.ty {
+            Type::TypePath(_) => None,
+            Type::Option(ref first_type) => match **first_type {
+                Type::TypePath(_) => Some(optional_definition_levels(ident)),
+                Type::Option(_) => unimplemented!("nested options? that's weird"),
+                Type::Reference(_, ref second_type)
+                | Type::Vec(ref second_type)
+                | Type::Array(ref second_type) => match **second_type {
+                    Type::TypePath(_) => Some(optional_definition_levels(ident)),
+                    _ => unimplemented!("a little too much nesting. bailing out."),
+                },
+            },
+            Type::Reference(_, ref first_type)
+            | Type::Vec(ref first_type)
+            | Type::Array(ref first_type) => match **first_type {
+                Type::TypePath(_) => None,
+                Type::Reference(_, ref second_type)
+                | Type::Vec(ref second_type)
+                | Type::Array(ref second_type)
+                | Type::Option(ref second_type) => match **second_type {
+                    Type::TypePath(_) => Some(optional_definition_levels(ident)),
+                    Type::Reference(_, ref third_type) => match **third_type {
+                        Type::TypePath(_) => Some(optional_definition_levels(ident)),
+                        _ => unimplemented!(
+                            "we don't do some more complex definition levels... yet!"
+                        ),
+                    },
+                    _ => unimplemented!(
+                        "we don't do more complex definition levels... yet!"
+                    ),
+                },
+            },
+        };
+
+        let write_batch_expr = if definition_levels.is_some() {
+            quote! {
+                if let #column_writer(ref mut typed) = column_writer {
+                    typed.write_batch(&vals[..], Some(&definition_levels[..]), None).unwrap();
+                }
             }
-            "f32" => quote! { parquet::column::writer::ColumnWriter::FloatColumnWriter },
-            "f64" => quote! { parquet::column::writer::ColumnWriter::DoubleColumnWriter },
-            o => {
-                //        unimplemented!("don't know column writer variant for {}", o)
-                use std::io::{Error as IOError, ErrorKind as IOErrorKind};
-                //        unimplemented!()
-                return Err(Box::new(IOError::new(
-                    IOErrorKind::Other,
-                    format!("don't know {}", o),
-                )));
+        } else {
+            quote! {
+                if let #column_writer(ref mut typed) = column_writer {
+                    typed.write_batch(&vals[..], None, None).unwrap();
+                }
             }
         };
 
-        syn::parse2(column_writer_variant).map_err(|x| panic!("x: {:?}", x))
+        quote! {
+            {
+                #definition_levels
+
+                #vals_builder
+
+                #write_batch_expr
+            }
+        }
     }
 }
 
@@ -87,20 +201,38 @@ impl Type {
         use parquet::basic::Type as BasicType;
 
         let path = match self.physical_type() {
-            BasicType::BOOLEAN => syn::parse_str("parquet::column::writer::ColumnWriter::BoolColumnWriter"),
-            BasicType::INT32 => syn::parse_str("parquet::column::writer::ColumnWriter::Int32ColumnWriter"),
-            BasicType::INT64 => syn::parse_str("parquet::column::writer::ColumnWriter::Int64ColumnWriter"),
-            BasicType::INT96 => syn::parse_str("parquet::column::writer::ColumnWriter::Int96ColumnWriter"),
-            BasicType::FLOAT => syn::parse_str("parquet::column::writer::ColumnWriter::FloatColumnWriter"),
-            BasicType::DOUBLE => syn::parse_str("parquet::column::writer::ColumnWriter::DoubleColumnWriter"),
-            BasicType::BYTE_ARRAY => syn::parse_str("parquet::column::writer::ColumnWriter::ByteArrayColumnWriter"),
-            BasicType::FIXED_LEN_BYTE_ARRAY => syn::parse_str("parquet::column::writer::ColumnWriter::FixedLenByteArrayColumnWriter"),
+            BasicType::BOOLEAN => {
+                syn::parse_str("parquet::column::writer::ColumnWriter::BoolColumnWriter")
+            }
+            BasicType::INT32 => {
+                syn::parse_str("parquet::column::writer::ColumnWriter::Int32ColumnWriter")
+            }
+            BasicType::INT64 => {
+                syn::parse_str("parquet::column::writer::ColumnWriter::Int64ColumnWriter")
+            }
+            BasicType::INT96 => {
+                syn::parse_str("parquet::column::writer::ColumnWriter::Int96ColumnWriter")
+            }
+            BasicType::FLOAT => {
+                syn::parse_str("parquet::column::writer::ColumnWriter::FloatColumnWriter")
+            }
+            BasicType::DOUBLE => syn::parse_str(
+                "parquet::column::writer::ColumnWriter::DoubleColumnWriter",
+            ),
+            BasicType::BYTE_ARRAY => syn::parse_str(
+                "parquet::column::writer::ColumnWriter::ByteArrayColumnWriter",
+            ),
+            BasicType::FIXED_LEN_BYTE_ARRAY => syn::parse_str(
+                "parquet::column::writer::ColumnWriter::FixedLenByteArrayColumnWriter",
+            ),
         };
         path.unwrap()
     }
 
     fn inner_type(&self) -> &syn::Type {
-        match self.leaf_type() {
+        let leaf_type = self.leaf_type();
+
+        match leaf_type {
             Type::TypePath(ref type_) => type_,
             Type::Option(ref first_type)
             | Type::Vec(ref first_type)
@@ -133,18 +265,13 @@ impl Type {
                         Type::Option(ref fourth_type)
                         | Type::Vec(ref fourth_type)
                         | Type::Array(ref fourth_type)
-                        | Type::Reference(_, ref fourth_type) => {
-                            match **fourth_type {
-                                Type::TypePath(_) => third_type,
-                                _ => unimplemented!("sorry, I don't descend this far")
-                            }
+                        | Type::Reference(_, ref fourth_type) => match **fourth_type {
+                            Type::TypePath(_) => third_type,
+                            _ => unimplemented!("sorry, I don't descend this far"),
                         },
                     },
-                    _ => unimplemented!("sorry thirdsies!"),
                 },
-                _ => unimplemented!("sorry secondsies!"),
             },
-            f @ _ => unimplemented!("sorry again! {:#?}", f),
         }
     }
 
@@ -154,8 +281,9 @@ impl Type {
         let inner_type = self.inner_type();
         let inner_type_str = (quote! { #inner_type }).to_string();
         let last_part = inner_type_str.split("::").last().unwrap().trim();
+        let leaf_type = self.leaf_type();
 
-        match self.leaf_type() {
+        match leaf_type {
             Type::Array(ref first_type) => {
                 if let Type::TypePath(_) = **first_type {
                     if last_part == "u8" {
@@ -177,7 +305,7 @@ impl Type {
             "bool" => BasicType::BOOLEAN,
             "u8" | "u16" | "u32" => BasicType::INT32,
             "i8" | "i16" | "i32" => BasicType::INT32,
-            "u64" | "i64" => BasicType::INT64,
+            "u64" | "i64" | "usize" => BasicType::INT64,
             "f32" => BasicType::FLOAT,
             "f64" => BasicType::DOUBLE,
             "String" | "str" => BasicType::BYTE_ARRAY,
@@ -186,7 +314,7 @@ impl Type {
     }
 
     pub fn from_type_path(f: &syn::Field, p: &syn::TypePath) -> Self {
-        let mut segments_iter = p.path.segments.iter();
+        let segments_iter = p.path.segments.iter();
         let segments: Vec<syn::PathSegment> = segments_iter.map(|x| x.clone()).collect();
         let last_segment = segments.last().unwrap();
 
@@ -266,6 +394,108 @@ mod test {
     }
 
     #[test]
+    fn test_generating_a_simple_writer_snippet() {
+        let snippet: proc_macro2::TokenStream = quote! {
+          struct ABoringStruct {
+            counter: usize,
+          }
+        };
+
+        let fields = extract_fields(snippet);
+        let counter = Field::from(&fields[0]);
+
+        let snippet = counter.writer_snippet().to_string();
+        assert_eq!(snippet,
+                   (quote!{
+                        {
+                            let vals : Vec < _ > = records . iter ( ) . map ( | x | x . counter ) . collect ( );
+
+                            if let parquet::column::writer::ColumnWriter::Int64ColumnWriter ( ref mut typed ) = column_writer {
+                                typed . write_batch ( & vals [ .. ] , None , None ) . unwrap ( );
+                            }
+                        }
+                   }).to_string()
+        )
+    }
+
+    #[test]
+    fn test_optional_to_writer_snippet() {
+        let struct_def: proc_macro2::TokenStream = quote! {
+          struct StringBorrower<'a> {
+            optional_str: Option<&'a str>,
+            optional_string: &Option<String>,
+            optional_dumb_int: &Option<&i32>,
+          }
+        };
+
+        let fields = extract_fields(struct_def);
+
+        let optional = Field::from(&fields[0]);
+        let snippet = optional.writer_snippet();
+        assert_eq!(snippet.to_string(),
+          (quote! {
+          {
+                let definition_levels : Vec < i16 > = self . iter ( ) . map ( | x | if x . optional_str . is_some ( ) { 1 } else { 0 } ) . collect ( ) ;
+
+                let vals: Vec <_> = records.iter().filter_map( |x| {
+                    if let Some ( ref inner ) = x . optional_str {
+                        Some ( (&inner[..]).into() )
+                    } else {
+                        None
+                    }
+                }).collect();
+
+                if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter ( ref mut typed ) = column_writer {
+                    typed . write_batch ( & vals [ .. ] , Some(&definition_levels[..]) , None ) . unwrap ( ) ;
+                }
+           }
+            }
+          ).to_string());
+
+        let optional = Field::from(&fields[1]);
+        let snippet = optional.writer_snippet();
+        assert_eq!(snippet.to_string(),
+                   (quote!{
+                   {
+                        let definition_levels : Vec < i16 > = self . iter ( ) . map ( | x | if x . optional_string . is_some ( ) { 1 } else { 0 } ) . collect ( ) ;
+
+                        let vals: Vec <_> = records.iter().filter_map( |x| {
+                            if let Some ( ref inner ) = x . optional_string {
+                                Some ( (&inner[..]).into() )
+                            } else {
+                                None
+                            }
+                        }).collect();
+
+                        if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter ( ref mut typed ) = column_writer {
+                            typed . write_batch ( & vals [ .. ] , Some(&definition_levels[..]) , None ) . unwrap ( ) ;
+                        }
+                    }
+        }).to_string());
+
+        let optional = Field::from(&fields[2]);
+        let snippet = optional.writer_snippet();
+        assert_eq!(snippet.to_string(),
+                   (quote!{
+                    {
+                        let definition_levels : Vec < i16 > = self . iter ( ) . map ( | x | if x . optional_dumb_int . is_some ( ) { 1 } else { 0 } ) . collect ( ) ;
+
+                        let vals: Vec <_> = records.iter().filter_map( |x| {
+                            if let Some ( inner ) = x . optional_dumb_int {
+                                Some ( inner )
+                            } else {
+                                None
+                            }
+                        }).collect();
+
+                        if let parquet::column::writer::ColumnWriter::Int32ColumnWriter ( ref mut typed ) = column_writer {
+                            typed . write_batch ( & vals [ .. ] , Some(&definition_levels[..]) , None ) . unwrap ( ) ;
+                        }
+                    }
+        }).to_string());
+    }
+
+    #[test]
     fn test_converting_to_column_writer_type() {
         let snippet: proc_macro2::TokenStream = quote! {
           struct ABasicStruct {
@@ -275,14 +505,22 @@ mod test {
         };
 
         let fields = extract_fields(snippet);
-        let processed : Vec<_> = fields.iter().map(|x| Field::from(x)).collect();
+        let processed: Vec<_> = fields.iter().map(|x| Field::from(x)).collect();
 
-        let column_writers: Vec<_> = processed.iter().map(|x| x.ty.column_writer()).collect();
+        let column_writers: Vec<_> =
+            processed.iter().map(|x| x.ty.column_writer()).collect();
 
-        assert_eq!(column_writers, vec![
-            syn::parse_str("parquet::column::writer::ColumnWriter::BoolColumnWriter").unwrap(),
-            syn::parse_str("parquet::column::writer::ColumnWriter::ByteArrayColumnWriter").unwrap()
-        ]);
+        assert_eq!(
+            column_writers,
+            vec![
+                syn::parse_str("parquet::column::writer::ColumnWriter::BoolColumnWriter")
+                    .unwrap(),
+                syn::parse_str(
+                    "parquet::column::writer::ColumnWriter::ByteArrayColumnWriter"
+                )
+                .unwrap()
+            ]
+        );
     }
 
     #[test]

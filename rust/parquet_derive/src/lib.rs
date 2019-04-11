@@ -26,7 +26,6 @@ extern crate parquet;
 
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput};
 
-mod field_info;
 mod parquet_field;
 
 /// Derive flat, simple RecordWriter implementations. Works by parsing
@@ -59,13 +58,13 @@ pub fn parquet_record_writer(input: proc_macro::TokenStream) -> proc_macro::Toke
     Data::Union(_) => unimplemented!("don't support union"),
   };
 
-  let field_infos: Vec<field_info::FieldInfo> = fields
+  let field_infos: Vec<_> = fields
     .iter()
-    .map(|f: &syn::Field| field_info::FieldInfo::from(f))
+    .map(|f: &syn::Field| parquet_field::Field::from(f))
     .collect();
 
   let writer_snippets: Vec<proc_macro2::TokenStream> =
-    field_infos.iter().map(|x| x.writer_block()).collect();
+    field_infos.iter().map(|x| x.writer_snippet()).collect();
 
   let derived_for = input.ident;
   let generics = input.generics;
@@ -74,13 +73,14 @@ pub fn parquet_record_writer(input: proc_macro::TokenStream) -> proc_macro::Toke
     impl#generics RecordWriter<#derived_for#generics> for &[#derived_for#generics] {
       fn write_to_row_group(&self, row_group_writer: &mut Box<parquet::file::writer::RowGroupWriter>) {
         let mut row_group_writer = row_group_writer;
-      #(
-        {
-            let mut column_writer = row_group_writer.next_column().unwrap().unwrap();
-            #writer_snippets
-            row_group_writer.close_column(column_writer).unwrap();
-        }
-      );*
+        let records = &self;
+        #(
+          {
+              let mut column_writer = row_group_writer.next_column().unwrap().unwrap();
+              #writer_snippets
+              row_group_writer.close_column(column_writer).unwrap();
+          }
+        );*
       }
     }
   }).into()
