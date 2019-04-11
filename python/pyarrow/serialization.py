@@ -69,9 +69,9 @@ def _serialize_numpy_matrix(obj):
 def _deserialize_numpy_matrix(data):
     if data[1] != '|O':
         assert data[0].dtype == np.uint8
-        return np.matrix(data[0].view(data[1]))
+        return np.matrix(data[0].view(data[1]), copy=False)
     else:
-        return np.matrix(data[0], dtype=np.dtype(data[1]))
+        return np.matrix(data[0], dtype=np.dtype(data[1]), copy=False)
 
 
 # ----------------------------------------------------------------------
