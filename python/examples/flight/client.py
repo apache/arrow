@@ -134,7 +134,9 @@ def main():
     client = pyarrow.flight.FlightClient.connect(host, port)
     while True:
         try:
-            list(client.do_action(pyarrow.flight.Action("healthcheck", b""), options=pyarrow.flight.FlightCallOptions(timeout=1)))
+            action = pyarrow.flight.Action("healthcheck", b"")
+            options = pyarrow.flight.FlightCallOptions(timeout=1)
+            list(client.do_action(action, options=options))
             break
         except pyarrow.ArrowIOError as e:
             if "Deadline" in str(e):
