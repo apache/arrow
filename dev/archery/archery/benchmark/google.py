@@ -53,62 +53,6 @@ class GoogleBenchmarkCommand(Command):
                                    stderr=subprocess.PIPE).stdout)
 
 
-class GoogleContext:
-    """ Represents the runtime environment """
-
-    def __init__(self, date=None, executable=None, **kwargs):
-        self.date = date
-        self.executable = executable
-
-    @property
-    def host(self):
-        host = {
-            "hostname": gethostname(),
-            # Not sure if we should leak this.
-            "mac_address": getnode(),
-        }
-        return host
-
-    @property
-    def git(self):
-        head = git.head()
-        # %ai: author date, ISO 8601-like format
-        timestamp = git.log("-1", "--pretty='%ai'", head)
-        branch = git.current_branch(),
-        git_info = {
-            "git_commit_timestamp": timestamp,
-            "git_hash": head,
-            "git_branch": branch,
-        }
-        return git_info
-
-    @property
-    def toolchain(self):
-        # TODO parse local CMake generated info to extract compile flags and
-        # arrow features
-        deps = {}
-        toolchain = {
-            "language_implementation_version": "c++11",
-            "dependencies": deps,
-        }
-        return toolchain
-
-    def as_arrow(self):
-        ctx = {
-            "benchmark_language": "C++",
-            "run_timestamp": self.date,
-        }
-
-        for extra in (self.host, self.git, self.toolchain):
-            ctx.update(extra)
-
-        return ctx
-
-    @classmethod
-    def from_json(cls, payload):
-        return cls(**payload)
-
-
 class BenchmarkObservation:
     """ Represents one run of a single benchmark. """
 
@@ -158,19 +102,6 @@ class GoogleBenchmark(Benchmark):
         _, runs = partition(lambda b: b.is_agg, runs)
         self.runs = sorted(runs, key=lambda b: b.value)
         super().__init__(name, [b.value for b in self.runs])
-
-    @property
-    def parameters(self):
-        """ Extract parameters from Benchmark's name"""
-        def parse_param(idx, param):
-            k_v = param.split(":")
-            # nameless parameter are transformed into positional names
-            name = k_v[0] if len(k_v) > 1 else f"arg{idx}"
-            return name, k_v[-1]
-
-        params = enumerate(self.name.split("/")[1:])
-        named_params = [parse_param(idx, p) for idx, p in params if p]
-        return {k: v for k, v in named_params}
 
     @property
     def unit(self):

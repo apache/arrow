@@ -21,7 +21,7 @@ import re
 import subprocess
 
 from .core import Benchmark, BenchmarkSuite
-from .google import GoogleBenchmarkCommand, GoogleBenchmark, GoogleContext
+from .google import GoogleBenchmarkCommand, GoogleBenchmark
 from ..utils.logger import logger
 
 
