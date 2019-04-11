@@ -18,9 +18,10 @@ package array
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/numeric"
-	"strings"
 )
 
 // A type which represents an immutable sequence of Float16 values.

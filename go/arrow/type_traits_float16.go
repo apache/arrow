@@ -18,9 +18,10 @@ package arrow
 
 import (
 	"encoding/binary"
-	"github.com/apache/arrow/go/arrow/numeric"
 	"reflect"
 	"unsafe"
+
+	"github.com/apache/arrow/go/arrow/numeric"
 )
 
 // Float16 traits

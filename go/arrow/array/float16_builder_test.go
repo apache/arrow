@@ -17,11 +17,12 @@
 package array_test
 
 import (
+	"testing"
+
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/apache/arrow/go/arrow/numeric"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestNewFloat16Builder(t *testing.T) {
