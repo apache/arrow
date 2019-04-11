@@ -79,7 +79,7 @@ warn_level_type = click.Choice(["everything", "checkin", "production"],
 # toolchain
 @click.option("--cc", metavar="<compiler>", help="C compiler.")
 @click.option("--cxx", metavar="<compiler>", help="C++ compiler.")
-@click.option("--cxx_flags", help="C++ compiler flags.")
+@click.option("--cxx-flags", help="C++ compiler flags.")
 @click.option("--build-type", default="release", type=build_type,
               help="CMake's CMAKE_BUILD_TYPE")
 @click.option("--warn-level", default="production", type=warn_level_type,
@@ -122,7 +122,7 @@ def build(ctx, src, build_dir, force, targets, **kwargs):
     \b
     # Initialize build with clang7 and avx2 support in directory `clang7-build`
     \b
-    archery build --cc=clang-7 --cxx=clang++-7 --cxx_flags=-mavx2 clang7-build
+    archery build --cc=clang-7 --cxx=clang++-7 --cxx-flags=-mavx2 clang7-build
 
     \b
     # Builds and run test
@@ -248,11 +248,11 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
     # Compare g++7 (contender) with clang++-7 (baseline) builds
     \b
     archery build --with-benchmarks=true \\
-            --cxx_flags=-ftree-vectorize \\
+            --cxx-flags=-ftree-vectorize \\
             --cc=gcc-7 --cxx=g++-7 gcc7-build
     \b
     archery build --with-benchmarks=true \\
-            --cxx_flags=-flax-vector-conversions \\
+            --cxx-flags=-flax-vector-conversions \\
             --cc=clang-7 --cxx=clang++-7 clang7-build
     \b
     archery benchmark diff gcc7-build clang7-build
