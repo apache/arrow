@@ -54,7 +54,7 @@ class Command:
         for key in ["stdout", "stderr"]:
             # Preserve caller intention, otherwise silence
             if key not in kwargs and ctx.quiet:
-                kwargs["key"] = subprocess.PIPE
+                kwargs[key] = subprocess.PIPE
 
         # Prefer safe by default
         if "check" not in kwargs:
