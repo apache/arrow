@@ -17,7 +17,7 @@
 
 //! ExecutionContext contains methods for registering data sources and executing SQL queries
 
-use std::cell::RefCell;
+use std::cell::{RefCell, Ref};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::string::String;
@@ -43,6 +43,10 @@ use crate::optimizer::utils;
 use crate::sql::parser::{DFASTNode, DFParser};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
 use crate::table::Table;
+use crate::sql::parser::FileType;
+use sqlparser::sqlast::{SQLColumnDef, SQLType};
+use core::borrow::Borrow;
+use crate::execution::create_table::CreateTableRelation;
 
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
@@ -50,7 +54,7 @@ pub struct ExecutionContext {
 }
 
 impl ExecutionContext {
-    /// Create a new excution context for in-memory queries
+    /// Create a new execution context for in-memory queries
     pub fn new() -> Self {
         Self {
             datasources: Rc::new(RefCell::new(HashMap::new())),
@@ -82,11 +86,65 @@ impl ExecutionContext {
                 let plan = query_planner.sql_to_rel(&ansi)?;
 
                 Ok(self.optimize(&plan)?)
-            }
+            },
+            DFASTNode::CreateExternalTable {
+                name, columns, file_type, header_row, location
+            } => {
+                let schema = Arc::new(self.build_schema(columns)?);
+
+                Ok(Arc::new(LogicalPlan::CreateExternalTable {
+                    schema,
+                    name,
+                    location,
+                    file_type,
+                    header_row
+                }))
+            },
             other => Err(ExecutionError::General(format!(
                 "Cannot create logical plan from {:?}",
                 other
             ))),
+        }
+    }
+
+    fn build_schema(&self, columns: Vec<SQLColumnDef>) -> Result<Schema> {
+        let mut fields = Vec::new();
+
+        for column in columns {
+            let data_type = self.make_data_type(column.data_type)?;
+            fields.push(Field::new(&column.name, data_type, column.allow_null));
+        }
+
+        Ok(Schema::new(fields))
+    }
+
+    fn make_data_type(&self, sql_type: SQLType) -> Result<DataType> {
+        match sql_type {
+            SQLType::BigInt => Ok(DataType::Int64),
+            SQLType::Int => Ok(DataType::Int32),
+            SQLType::SmallInt => Ok(DataType::Int16),
+            SQLType::Char(_) |
+            SQLType::Varchar(_) |
+            SQLType::Text => Ok(DataType::Utf8),
+            SQLType::Decimal(_, _) => Ok(DataType::Float64),
+            SQLType::Float(_) => Ok(DataType::Float32),
+            SQLType::Real | SQLType::Double => Ok(DataType::Float64),
+            SQLType::Boolean => Ok(DataType::Boolean),
+            SQLType::Date => Ok(DataType::Date64(DateUnit::Day)),
+            SQLType::Time => Ok(DataType::Time64(TimeUnit::Millisecond)),
+            SQLType::Timestamp => Ok(DataType::Date64(DateUnit::Millisecond)),
+            SQLType::Uuid |
+            SQLType::Clob(_) |
+            SQLType::Binary(_) |
+            SQLType::Varbinary(_) |
+            SQLType::Blob(_) |
+            SQLType::Regclass |
+            SQLType::Bytea |
+            SQLType::Custom(_) |
+            SQLType::Array(_) => Err(ExecutionError::General(format!(
+                "Unsupported data type: {:?}.",
+                sql_type
+            )))
         }
     }
 
@@ -110,7 +168,7 @@ impl ExecutionContext {
 
     /// Get a table by name
     pub fn table(&mut self, table_name: &str) -> Result<Arc<Table>> {
-        match self.datasources.borrow().get(table_name) {
+        match (*self.datasources).borrow().get(table_name) {
             Some(provider) => {
                 Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::TableScan {
                     schema_name: "".to_string(),
@@ -151,7 +209,7 @@ impl ExecutionContext {
                 ref table_name,
                 ref projection,
                 ..
-            } => match self.datasources.borrow().get(table_name) {
+            } => match (*self.datasources).borrow().get(table_name) {
                 Some(provider) => {
                     let ds = provider.scan(projection, batch_size)?;
                     if ds.len() == 1 {
@@ -275,7 +333,26 @@ impl ExecutionContext {
                         "Limit only support positive integer literals".to_string(),
                     )),
                 }
-            }
+            },
+
+            LogicalPlan::CreateExternalTable {
+                ref schema,
+                ref name,
+                ref location,
+                ref file_type,
+                ref header_row
+            } => {
+                match file_type {
+                    FileType::CSV => {
+                        self.register_csv(name, location, schema, *header_row)
+                    },
+                    _ => return Err(ExecutionError::ExecutionError(
+                        format!("Unsupported file type {:?}.", file_type)
+                    ))
+                }
+
+                Ok(Rc::new(RefCell::new(CreateTableRelation::new(schema.clone()))))
+            },
 
             _ => Err(ExecutionError::NotImplemented(
                 "Unsupported logical plan for execution".to_string(),
@@ -289,7 +366,7 @@ struct ExecutionContextSchemaProvider {
 }
 impl SchemaProvider for ExecutionContextSchemaProvider {
     fn get_table_meta(&self, name: &str) -> Option<Arc<Schema>> {
-        match self.datasources.borrow().get(name) {
+        match (*self.datasources).borrow().get(name) {
             Some(ds) => Some(ds.schema().clone()),
             None => None,
         }

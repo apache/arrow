@@ -24,6 +24,7 @@ use arrow::datatypes::{DataType, Field, Schema};
 
 use crate::error::{ExecutionError, Result};
 use crate::optimizer::utils;
+use crate::sql::parser::FileType;
 
 /// Enumeration of supported function types (Scalar and Aggregate)
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -441,6 +442,14 @@ pub enum LogicalPlan {
         /// The schema description
         schema: Arc<Schema>,
     },
+    CreateExternalTable {
+        /// The schema
+        schema: Arc<Schema>,
+        name: String,
+        location: String,
+        file_type: FileType,
+        header_row: bool
+    }
 }
 
 impl LogicalPlan {
@@ -454,6 +463,7 @@ impl LogicalPlan {
             LogicalPlan::Aggregate { schema, .. } => &schema,
             LogicalPlan::Sort { schema, .. } => &schema,
             LogicalPlan::Limit { schema, .. } => &schema,
+            LogicalPlan::CreateExternalTable { schema, .. } => &schema,
         }
     }
 }
@@ -529,6 +539,12 @@ impl LogicalPlan {
             } => {
                 write!(f, "Limit: {:?}", expr)?;
                 input.fmt_with_indent(f, indent + 1)
+            }
+            LogicalPlan::CreateExternalTable {
+                ref name,
+                ..
+            } => {
+                write!(f, "CreateExternalTable: {:?}", name)
             }
         }
     }

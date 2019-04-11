@@ -32,7 +32,7 @@ macro_rules! parser_err {
 }
 
 /// Types of files to parse as DataFrames
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum FileType {
     /// Newline-delimited JSON
     NdJson,
@@ -134,18 +134,16 @@ impl DFParser {
                                         true
                                     };
 
-                                    match self.parser.peek_token() {
-                                        Some(Token::Comma) => {
-                                            self.parser.next_token();
-                                            columns.push(SQLColumnDef {
-                                                name: column_name,
-                                                data_type: data_type,
-                                                allow_null,
-                                                default: None,
-                                                is_primary: false,
-                                                is_unique: false,
-                                            });
-                                        }
+                                    columns.push(SQLColumnDef {
+                                        name: column_name,
+                                        data_type: data_type,
+                                        allow_null,
+                                        default: None,
+                                        is_primary: false,
+                                        is_unique: false,
+                                    });
+                                    match self.parser.next_token() {
+                                        Some(Token::Comma) => continue,
                                         Some(Token::RParen) => break,
                                         _ => {
                                             return parser_err!(

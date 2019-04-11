@@ -25,3 +25,4 @@ pub mod limit;
 pub mod projection;
 pub mod relation;
 pub mod table_impl;
+pub mod create_table;
