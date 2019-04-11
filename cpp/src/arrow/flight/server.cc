@@ -237,7 +237,7 @@ class FlightServiceImpl : public FlightService::Service {
   }
 
   grpc::Status ListFlights(ServerContext* context, const pb::Criteria* request,
-                           ServerWriter<pb::FlightGetInfo>* writer) {
+                           ServerWriter<pb::FlightInfo>* writer) {
     GrpcServerCallContext flight_context;
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(context, flight_context));
 
@@ -257,7 +257,7 @@ class FlightServiceImpl : public FlightService::Service {
   }
 
   grpc::Status GetFlightInfo(ServerContext* context, const pb::FlightDescriptor* request,
-                             pb::FlightGetInfo* response) {
+                             pb::FlightInfo* response) {
     CHECK_ARG_NOT_NULL(request, "FlightDescriptor cannot be null");
     GrpcServerCallContext flight_context;
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(context, flight_context));

@@ -25,7 +25,6 @@ import org.apache.arrow.flight.FlightClient.ClientStreamListener;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.FlightDescriptor.DescriptorType;
-import org.apache.arrow.flight.impl.Flight.FlightGetInfo;
 import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -166,7 +165,7 @@ public class TestBasicOperation {
     @Override
     public void listFlights(CallContext context, Criteria criteria,
         StreamListener<FlightInfo> listener) {
-      FlightGetInfo getInfo = FlightGetInfo.newBuilder()
+      Flight.FlightInfo getInfo = Flight.FlightInfo.newBuilder()
           .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
               .setType(DescriptorType.CMD)
               .setCmd(ByteString.copyFrom("cool thing", Charsets.UTF_8)))
@@ -227,7 +226,7 @@ public class TestBasicOperation {
     @Override
     public FlightInfo getFlightInfo(CallContext context,
         FlightDescriptor descriptor) {
-      FlightGetInfo getInfo = FlightGetInfo.newBuilder()
+      Flight.FlightInfo getInfo = Flight.FlightInfo.newBuilder()
           .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
               .setType(DescriptorType.CMD)
               .setCmd(ByteString.copyFrom("cool thing", Charsets.UTF_8)))

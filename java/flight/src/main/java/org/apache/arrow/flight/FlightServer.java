@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthInterceptor;
-import org.apache.arrow.flight.impl.Flight.FlightGetInfo;
+import org.apache.arrow.flight.impl.Flight.FlightInfo;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 
@@ -100,7 +100,7 @@ public class FlightServer implements AutoCloseable {
 
   public interface FlightServerHandler {
 
-    public FlightGetInfo getFlightInfo(String descriptor) throws Exception;
+    public FlightInfo getFlightInfo(String descriptor) throws Exception;
 
     public OutputFlight setupFlight(VectorSchemaRoot root);
 

@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flight.impl.Flight;
-import org.apache.arrow.flight.impl.Flight.FlightGetInfo;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
@@ -53,20 +52,20 @@ public class FlightInfo {
     this.records = records;
   }
 
-  FlightInfo(FlightGetInfo flightGetInfo) {
+  FlightInfo(Flight.FlightInfo pbFlightInfo) {
     try {
-      final ByteBuffer schemaBuf = flightGetInfo.getSchema().asReadOnlyByteBuffer();
-      schema = flightGetInfo.getSchema().size() > 0 ?
+      final ByteBuffer schemaBuf = pbFlightInfo.getSchema().asReadOnlyByteBuffer();
+      schema = pbFlightInfo.getSchema().size() > 0 ?
           MessageSerializer.deserializeSchema(
               new ReadChannel(Channels.newChannel(new ByteBufferBackedInputStream(schemaBuf))))
           : new Schema(ImmutableList.of());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-    descriptor = new FlightDescriptor(flightGetInfo.getFlightDescriptor());
-    endpoints = flightGetInfo.getEndpointList().stream().map(t -> new FlightEndpoint(t)).collect(Collectors.toList());
-    bytes = flightGetInfo.getTotalBytes();
-    records = flightGetInfo.getTotalRecords();
+    descriptor = new FlightDescriptor(pbFlightInfo.getFlightDescriptor());
+    endpoints = pbFlightInfo.getEndpointList().stream().map(t -> new FlightEndpoint(t)).collect(Collectors.toList());
+    bytes = pbFlightInfo.getTotalBytes();
+    records = pbFlightInfo.getTotalRecords();
   }
 
   public Schema getSchema() {
@@ -89,7 +88,7 @@ public class FlightInfo {
     return endpoints;
   }
 
-  FlightGetInfo toProtocol() {
+  Flight.FlightInfo toProtocol() {
     // Encode schema in a Message payload
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     try {
@@ -97,7 +96,7 @@ public class FlightInfo {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-    return Flight.FlightGetInfo.newBuilder()
+    return Flight.FlightInfo.newBuilder()
         .addAllEndpoint(endpoints.stream().map(t -> t.toProtocol()).collect(Collectors.toList()))
         .setSchema(ByteString.copyFrom(baos.toByteArray()))
         .setFlightDescriptor(descriptor.toProtocol())

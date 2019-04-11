@@ -77,10 +77,10 @@ Status FromProto(const pb::FlightData& pb_data, FlightDescriptor* descriptor,
                  std::unique_ptr<ipc::Message>* message);
 Status FromProto(const pb::FlightDescriptor& pb_descr, FlightDescriptor* descr);
 Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint);
-Status FromProto(const pb::FlightGetInfo& pb_info, FlightInfo::Data* info);
+Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info);
 
 Status ToProto(const FlightDescriptor& descr, pb::FlightDescriptor* pb_descr);
-Status ToProto(const FlightInfo& info, pb::FlightGetInfo* pb_info);
+Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info);
 Status ToProto(const ActionType& type, pb::ActionType* pb_type);
 Status ToProto(const Action& action, pb::Action* pb_action);
 Status ToProto(const Result& result, pb::Result* pb_result);

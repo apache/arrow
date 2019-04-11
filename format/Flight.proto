@@ -45,7 +45,7 @@ service FlightService {
    * the subset of streams that can be listed via this interface. Each flight
    * service allows its own definition of how to consume criteria.
    */
-  rpc ListFlights(Criteria) returns (stream FlightGetInfo) {}
+  rpc ListFlights(Criteria) returns (stream FlightInfo) {}
 
   /*
    * For a given FlightDescriptor, get information about how the flight can be
@@ -59,7 +59,7 @@ service FlightService {
    * available for consumption for the duration defined by the specific flight
    * service.
    */
-  rpc GetFlightInfo(FlightDescriptor) returns (FlightGetInfo) {}
+  rpc GetFlightInfo(FlightDescriptor) returns (FlightInfo) {}
 
   /*
    * Retrieve a single stream associated with a particular descriptor
@@ -212,10 +212,10 @@ message FlightDescriptor {
 }
 
 /*
- * The access coordinates for retrieval of a dataset. With a FlightGetInfo, a
+ * The access coordinates for retrieval of a dataset. With a FlightInfo, a
  * consumer is able to determine how to retrieve a dataset.
  */
-message FlightGetInfo {
+message FlightInfo {
   // schema of the dataset as described in Schema.fbs::Schema.
   bytes schema = 1;
 

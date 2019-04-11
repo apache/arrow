@@ -206,9 +206,9 @@ Status ToProto(const FlightDescriptor& descriptor, pb::FlightDescriptor* pb_desc
   return Status::OK();
 }
 
-// FlightGetInfo
+// FlightInfo
 
-Status FromProto(const pb::FlightGetInfo& pb_info, FlightInfo::Data* info) {
+Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
   RETURN_NOT_OK(FromProto(pb_info.flight_descriptor(), &info->descriptor));
 
   info->schema = pb_info.schema();
@@ -232,7 +232,7 @@ Status SchemaToString(const Schema& schema, std::string* out) {
   return Status::OK();
 }
 
-Status ToProto(const FlightInfo& info, pb::FlightGetInfo* pb_info) {
+Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
   // clear any repeated fields
   pb_info->clear_endpoint();
 
