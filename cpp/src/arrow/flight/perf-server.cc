@@ -136,7 +136,7 @@ class FlightPerfServer : public FlightServerBase {
                            field("d", int64())});
   }
 
-  Status GetFlightInfo(const FlightDescriptor& request,
+  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
                        std::unique_ptr<FlightInfo>* info) override {
     perf::Perf perf_request;
     CHECK_PARSE(perf_request.ParseFromString(request.cmd));
@@ -166,7 +166,7 @@ class FlightPerfServer : public FlightServerBase {
     return Status::OK();
   }
 
-  Status DoGet(const Ticket& request,
+  Status DoGet(const ServerCallContext& context, const Ticket& request,
                std::unique_ptr<FlightDataStream>* data_stream) override {
     perf::Token token;
     CHECK_PARSE(token.ParseFromString(request.ticket));
@@ -194,7 +194,8 @@ int main(int argc, char** argv) {
 
   g_server.reset(new arrow::flight::FlightPerfServer);
 
-  ARROW_CHECK_OK(g_server->Init(FLAGS_port));
+  ARROW_CHECK_OK(
+      g_server->Init(std::unique_ptr<arrow::flight::NoOpAuthHandler>(), FLAGS_port));
   // Exit with a clean error code (0) on SIGTERM
   ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
   std::cout << "Server port: " << FLAGS_port << std::endl;

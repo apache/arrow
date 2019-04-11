@@ -41,6 +41,7 @@
 
 #include "arrow/flight/internal.h"
 #include "arrow/flight/serialization-internal.h"
+#include "arrow/flight/server_auth.h"
 #include "arrow/flight/types.h"
 
 using FlightService = arrow::flight::protocol::FlightService;
@@ -105,11 +106,61 @@ class FlightMessageReaderImpl : public FlightMessageReader {
   bool stream_finished_;
 };
 
+class GrpcServerAuthReader : public ServerAuthReader {
+ public:
+  explicit GrpcServerAuthReader(
+      grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream)
+      : stream_(stream) {}
+
+  Status Read(std::string* token) override {
+    pb::HandshakeRequest request;
+    if (stream_->Read(&request)) {
+      *token = std::move(*request.release_payload());
+      return Status::OK();
+    }
+    return Status::UnknownError("Could not read client handshake request.");
+  }
+
+ private:
+  grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream_;
+};
+
+class GrpcServerAuthSender : public ServerAuthSender {
+ public:
+  explicit GrpcServerAuthSender(
+      grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream)
+      : stream_(stream) {}
+
+  Status Write(const std::string& token) override {
+    pb::HandshakeResponse response;
+    response.set_payload(token);
+    if (stream_->Write(response)) {
+      return Status::OK();
+    }
+    return Status::IOError("Stream was closed.");
+  }
+
+ private:
+  grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream_;
+};
+
+class FlightServiceImpl;
+class GrpcServerCallContext : public ServerCallContext {
+  const std::string& peer_identity() const override { return peer_identity_; }
+
+ private:
+  friend class FlightServiceImpl;
+  ServerContext* context_;
+  std::string peer_identity_;
+};
+
 // This class glues an implementation of FlightServerBase together with the
 // gRPC service definition, so the latter is not exposed in the public API
 class FlightServiceImpl : public FlightService::Service {
  public:
-  explicit FlightServiceImpl(FlightServerBase* server) : server_(server) {}
+  explicit FlightServiceImpl(std::shared_ptr<ServerAuthHandler> auth_handler,
+                             FlightServerBase* server)
+      : auth_handler_(auth_handler), server_(server) {}
 
   template <typename UserType, typename Iterator, typename ProtoType>
   grpc::Status WriteStream(Iterator* iterator, ServerWriter<ProtoType>* writer) {
@@ -151,8 +202,45 @@ class FlightServiceImpl : public FlightService::Service {
     return grpc::Status::OK;
   }
 
+  // Authenticate the client (if applicable) and construct the call context
+  grpc::Status CheckAuth(ServerContext* context, GrpcServerCallContext& flight_context) {
+    flight_context.context_ = context;
+    if (!auth_handler_) {
+      flight_context.peer_identity_ = "";
+      return grpc::Status::OK;
+    }
+
+    const auto client_metadata = context->client_metadata();
+    const auto auth_header = client_metadata.find(internal::AUTH_HEADER);
+    std::string token;
+    if (auth_header == client_metadata.end()) {
+      token = "";
+    } else {
+      token = std::string(auth_header->second.data(), auth_header->second.length());
+    }
+    GRPC_RETURN_NOT_OK(auth_handler_->IsValid(token, &flight_context.peer_identity_));
+    return grpc::Status::OK;
+  }
+
+  grpc::Status Handshake(
+      ServerContext* context,
+      grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream) {
+    if (!auth_handler_) {
+      return grpc::Status(
+          grpc::StatusCode::UNIMPLEMENTED,
+          "This service does not have an authentication mechanism enabled.");
+    }
+    GrpcServerAuthSender outgoing{stream};
+    GrpcServerAuthReader incoming{stream};
+    GRPC_RETURN_NOT_OK(auth_handler_->Authenticate(&outgoing, &incoming));
+    return grpc::Status::OK;
+  }
+
   grpc::Status ListFlights(ServerContext* context, const pb::Criteria* request,
                            ServerWriter<pb::FlightGetInfo>* writer) {
+    GrpcServerCallContext flight_context;
+    GRPC_RETURN_NOT_GRPC_OK(CheckAuth(context, flight_context));
+
     // Retrieve the listing from the implementation
     std::unique_ptr<FlightListing> listing;
 
@@ -160,7 +248,7 @@ class FlightServiceImpl : public FlightService::Service {
     if (request) {
       GRPC_RETURN_NOT_OK(internal::FromProto(*request, &criteria));
     }
-    GRPC_RETURN_NOT_OK(server_->ListFlights(&criteria, &listing));
+    GRPC_RETURN_NOT_OK(server_->ListFlights(flight_context, &criteria, &listing));
     if (!listing) {
       // Treat null listing as no flights available
       return grpc::Status::OK;
@@ -171,12 +259,14 @@ class FlightServiceImpl : public FlightService::Service {
   grpc::Status GetFlightInfo(ServerContext* context, const pb::FlightDescriptor* request,
                              pb::FlightGetInfo* response) {
     CHECK_ARG_NOT_NULL(request, "FlightDescriptor cannot be null");
+    GrpcServerCallContext flight_context;
+    GRPC_RETURN_NOT_GRPC_OK(CheckAuth(context, flight_context));
 
     FlightDescriptor descr;
     GRPC_RETURN_NOT_OK(internal::FromProto(*request, &descr));
 
     std::unique_ptr<FlightInfo> info;
-    GRPC_RETURN_NOT_OK(server_->GetFlightInfo(descr, &info));
+    GRPC_RETURN_NOT_OK(server_->GetFlightInfo(flight_context, descr, &info));
 
     if (!info) {
       // Treat null listing as no flights available
@@ -190,12 +280,14 @@ class FlightServiceImpl : public FlightService::Service {
   grpc::Status DoGet(ServerContext* context, const pb::Ticket* request,
                      ServerWriter<pb::FlightData>* writer) {
     CHECK_ARG_NOT_NULL(request, "ticket cannot be null");
+    GrpcServerCallContext flight_context;
+    GRPC_RETURN_NOT_GRPC_OK(CheckAuth(context, flight_context));
 
     Ticket ticket;
     GRPC_RETURN_NOT_OK(internal::FromProto(*request, &ticket));
 
     std::unique_ptr<FlightDataStream> data_stream;
-    GRPC_RETURN_NOT_OK(server_->DoGet(ticket, &data_stream));
+    GRPC_RETURN_NOT_OK(server_->DoGet(flight_context, ticket, &data_stream));
 
     if (!data_stream) {
       return grpc::Status(grpc::StatusCode::NOT_FOUND, "No data in this flight");
@@ -234,6 +326,8 @@ class FlightServiceImpl : public FlightService::Service {
 
   grpc::Status DoPut(ServerContext* context, grpc::ServerReader<pb::FlightData>* reader,
                      pb::PutResult* response) {
+    GrpcServerCallContext flight_context;
+    GRPC_RETURN_NOT_GRPC_OK(CheckAuth(context, flight_context));
     // Get metadata
     internal::FlightData data;
     if (internal::ReadPayload(reader, &data)) {
@@ -253,7 +347,8 @@ class FlightServiceImpl : public FlightService::Service {
 
         auto message_reader = std::unique_ptr<FlightMessageReader>(
             new FlightMessageReaderImpl(*data.descriptor.get(), schema, reader));
-        return internal::ToGrpcStatus(server_->DoPut(std::move(message_reader)));
+        return internal::ToGrpcStatus(
+            server_->DoPut(flight_context, std::move(message_reader)));
       }
     } else {
       return internal::ToGrpcStatus(
@@ -264,20 +359,24 @@ class FlightServiceImpl : public FlightService::Service {
 
   grpc::Status ListActions(ServerContext* context, const pb::Empty* request,
                            ServerWriter<pb::ActionType>* writer) {
+    GrpcServerCallContext flight_context;
+    GRPC_RETURN_NOT_GRPC_OK(CheckAuth(context, flight_context));
     // Retrieve the listing from the implementation
     std::vector<ActionType> types;
-    GRPC_RETURN_NOT_OK(server_->ListActions(&types));
+    GRPC_RETURN_NOT_OK(server_->ListActions(flight_context, &types));
     return WriteStream<ActionType>(types, writer);
   }
 
   grpc::Status DoAction(ServerContext* context, const pb::Action* request,
                         ServerWriter<pb::Result>* writer) {
+    GrpcServerCallContext flight_context;
+    GRPC_RETURN_NOT_GRPC_OK(CheckAuth(context, flight_context));
     CHECK_ARG_NOT_NULL(request, "Action cannot be null");
     Action action;
     GRPC_RETURN_NOT_OK(internal::FromProto(*request, &action));
 
     std::unique_ptr<ResultStream> results;
-    GRPC_RETURN_NOT_OK(server_->DoAction(action, &results));
+    GRPC_RETURN_NOT_OK(server_->DoAction(flight_context, action, &results));
 
     if (!results) {
       return grpc::Status::CANCELLED;
@@ -301,6 +400,7 @@ class FlightServiceImpl : public FlightService::Service {
   }
 
  private:
+  std::shared_ptr<ServerAuthHandler> auth_handler_;
   FlightServerBase* server_;
 };
 
@@ -341,9 +441,10 @@ FlightServerBase::FlightServerBase() { impl_.reset(new Impl); }
 
 FlightServerBase::~FlightServerBase() {}
 
-Status FlightServerBase::Init(int port) {
+Status FlightServerBase::Init(std::unique_ptr<ServerAuthHandler> auth_handler, int port) {
   impl_->address_ = "localhost:" + std::to_string(port);
-  impl_->service_.reset(new FlightServiceImpl(this));
+  std::shared_ptr<ServerAuthHandler> handler = std::move(auth_handler);
+  impl_->service_.reset(new FlightServiceImpl(handler, this));
 
   grpc::ServerBuilder builder;
   // Allow uploading messages of any length
@@ -409,31 +510,35 @@ void FlightServerBase::Shutdown() {
   impl_->server_->Shutdown();
 }
 
-Status FlightServerBase::ListFlights(const Criteria* criteria,
+Status FlightServerBase::ListFlights(const ServerCallContext& context,
+                                     const Criteria* criteria,
                                      std::unique_ptr<FlightListing>* listings) {
   return Status::NotImplemented("NYI");
 }
 
-Status FlightServerBase::GetFlightInfo(const FlightDescriptor& request,
+Status FlightServerBase::GetFlightInfo(const ServerCallContext& context,
+                                       const FlightDescriptor& request,
                                        std::unique_ptr<FlightInfo>* info) {
   return Status::NotImplemented("NYI");
 }
 
-Status FlightServerBase::DoGet(const Ticket& request,
+Status FlightServerBase::DoGet(const ServerCallContext& context, const Ticket& request,
                                std::unique_ptr<FlightDataStream>* data_stream) {
   return Status::NotImplemented("NYI");
 }
 
-Status FlightServerBase::DoPut(std::unique_ptr<FlightMessageReader> reader) {
+Status FlightServerBase::DoPut(const ServerCallContext& context,
+                               std::unique_ptr<FlightMessageReader> reader) {
   return Status::NotImplemented("NYI");
 }
 
-Status FlightServerBase::DoAction(const Action& action,
+Status FlightServerBase::DoAction(const ServerCallContext& context, const Action& action,
                                   std::unique_ptr<ResultStream>* result) {
   return Status::NotImplemented("NYI");
 }
 
-Status FlightServerBase::ListActions(std::vector<ActionType>* actions) {
+Status FlightServerBase::ListActions(const ServerCallContext& context,
+                                     std::vector<ActionType>* actions) {
   return Status::NotImplemented("NYI");
 }
 

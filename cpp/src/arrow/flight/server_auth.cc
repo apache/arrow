@@ -15,10 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
-#include "arrow/flight/client.h"
-#include "arrow/flight/client_auth.h"
-#include "arrow/flight/server.h"
 #include "arrow/flight/server_auth.h"
-#include "arrow/flight/types.h"
+
+namespace arrow {
+namespace flight {
+
+ServerAuthHandler::~ServerAuthHandler() {}
+
+NoOpAuthHandler::~NoOpAuthHandler() {}
+Status NoOpAuthHandler::Authenticate(ServerAuthSender* outgoing,
+                                     ServerAuthReader* incoming) {
+  return Status::OK();
+}
+
+Status NoOpAuthHandler::IsValid(const std::string& token, std::string* peer_identity) {
+  *peer_identity = "";
+  return Status::OK();
+}
+
+}  // namespace flight
+}  // namespace arrow

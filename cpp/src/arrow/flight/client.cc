@@ -38,6 +38,7 @@
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 
+#include "arrow/flight/client_auth.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/serialization-internal.h"
 #include "arrow/flight/types.h"
@@ -63,6 +64,60 @@ struct ClientRpc {
     ss << error_message << context.debug_error_string();
     return Status::IOError(ss.str());
   }
+
+  /// \brief Add an auth token via an auth handler
+  Status SetToken(ClientAuthHandler* auth_handler) {
+    if (auth_handler) {
+      std::string token;
+      RETURN_NOT_OK(auth_handler->GetToken(&token));
+      context.AddMetadata(internal::AUTH_HEADER, token);
+    }
+    return Status::OK();
+  }
+};
+
+class GrpcClientAuthSender : public ClientAuthSender {
+ public:
+  explicit GrpcClientAuthSender(
+      std::shared_ptr<
+          grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
+          stream)
+      : stream_(stream) {}
+
+  Status Write(const std::string& token) override {
+    pb::HandshakeRequest response;
+    response.set_payload(token);
+    if (stream_->Write(response)) {
+      return Status::OK();
+    }
+    return internal::FromGrpcStatus(stream_->Finish());
+  }
+
+ private:
+  std::shared_ptr<grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
+      stream_;
+};
+
+class GrpcClientAuthReader : public ClientAuthReader {
+ public:
+  explicit GrpcClientAuthReader(
+      std::shared_ptr<
+          grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
+          stream)
+      : stream_(stream) {}
+
+  Status Read(std::string* token) override {
+    pb::HandshakeResponse request;
+    if (stream_->Read(&request)) {
+      *token = std::move(*request.release_payload());
+      return Status::OK();
+    }
+    return internal::FromGrpcStatus(stream_->Finish());
+  }
+
+ private:
+  std::shared_ptr<grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
+      stream_;
 };
 
 class FlightIpcMessageReader : public ipc::MessageReader {
@@ -182,11 +237,24 @@ class FlightClient::FlightClientImpl {
     return Status::OK();
   }
 
+  Status Authenticate(std::unique_ptr<ClientAuthHandler> auth_handler) {
+    auth_handler_ = std::move(auth_handler);
+    grpc::ClientContext context{};
+    std::shared_ptr<grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
+        stream = stub_->Handshake(&context);
+    GrpcClientAuthSender outgoing{stream};
+    GrpcClientAuthReader incoming{stream};
+    RETURN_NOT_OK(auth_handler_->Authenticate(&outgoing, &incoming));
+    RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish()));
+    return Status::OK();
+  }
+
   Status ListFlights(const Criteria& criteria, std::unique_ptr<FlightListing>* listing) {
     // TODO(wesm): populate criteria
     pb::Criteria pb_criteria;
 
     ClientRpc rpc;
+    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
     std::unique_ptr<grpc::ClientReader<pb::FlightGetInfo>> stream(
         stub_->ListFlights(&rpc.context, pb_criteria));
 
@@ -208,6 +276,7 @@ class FlightClient::FlightClientImpl {
     RETURN_NOT_OK(internal::ToProto(action, &pb_action));
 
     ClientRpc rpc;
+    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
     std::unique_ptr<grpc::ClientReader<pb::Result>> stream(
         stub_->DoAction(&rpc.context, pb_action));
 
@@ -229,6 +298,7 @@ class FlightClient::FlightClientImpl {
     pb::Empty empty;
 
     ClientRpc rpc;
+    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
     std::unique_ptr<grpc::ClientReader<pb::ActionType>> stream(
         stub_->ListActions(&rpc.context, empty));
 
@@ -249,6 +319,7 @@ class FlightClient::FlightClientImpl {
     RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descriptor));
 
     ClientRpc rpc;
+    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
     Status s = internal::FromGrpcStatus(
         stub_->GetFlightInfo(&rpc.context, pb_descriptor, &pb_response));
     RETURN_NOT_OK(s);
@@ -264,6 +335,7 @@ class FlightClient::FlightClientImpl {
     internal::ToProto(ticket, &pb_ticket);
 
     std::unique_ptr<ClientRpc> rpc(new ClientRpc);
+    RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
     std::unique_ptr<grpc::ClientReader<pb::FlightData>> stream(
         stub_->DoGet(&rpc->context, pb_ticket));
 
@@ -275,6 +347,7 @@ class FlightClient::FlightClientImpl {
   Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
                std::unique_ptr<ipc::RecordBatchWriter>* out) {
     std::unique_ptr<ClientRpc> rpc(new ClientRpc);
+    RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
     std::unique_ptr<protocol::PutResult> response(new protocol::PutResult);
     std::unique_ptr<grpc::ClientWriter<pb::FlightData>> writer(
         stub_->DoPut(&rpc->context, response.get()));
@@ -288,6 +361,7 @@ class FlightClient::FlightClientImpl {
 
  private:
   std::unique_ptr<pb::FlightService::Stub> stub_;
+  std::shared_ptr<ClientAuthHandler> auth_handler_;
 };
 
 FlightClient::FlightClient() { impl_.reset(new FlightClientImpl); }
@@ -298,6 +372,10 @@ Status FlightClient::Connect(const std::string& host, int port,
                              std::unique_ptr<FlightClient>* client) {
   client->reset(new FlightClient);
   return (*client)->impl_->Connect(host, port);
+}
+
+Status FlightClient::Authenticate(std::unique_ptr<ClientAuthHandler> auth_handler) {
+  return impl_->Authenticate(std::move(auth_handler));
 }
 
 Status FlightClient::DoAction(const Action& action,

@@ -18,8 +18,10 @@
 package org.apache.arrow.flight.auth;
 
 import java.util.Iterator;
+import java.util.Optional;
 
 import org.apache.arrow.flight.impl.Flight.BasicAuth;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,7 +44,7 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
 
     public byte[] getToken(String username, String password) throws Exception;
 
-    public boolean isValid(byte[] token);
+    public Optional<String> isValid(byte[] token);
 
   }
 
@@ -64,7 +66,7 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
   }
 
   @Override
-  public boolean isValid(byte[] token) {
+  public Optional<String> isValid(byte[] token) {
     return authValidator.isValid(token);
   }
 

@@ -30,6 +30,7 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/server.h"
+#include "arrow/flight/server_auth.h"
 #include "arrow/flight/test-util.h"
 
 DEFINE_int32(port, 31337, "Server port to listen on");
@@ -54,14 +55,14 @@ Status GetBatchForFlight(const Ticket& ticket, std::shared_ptr<RecordBatchReader
 }
 
 class FlightTestServer : public FlightServerBase {
-  Status ListFlights(const Criteria* criteria,
+  Status ListFlights(const ServerCallContext& context, const Criteria* criteria,
                      std::unique_ptr<FlightListing>* listings) override {
     std::vector<FlightInfo> flights = ExampleFlightInfo();
     *listings = std::unique_ptr<FlightListing>(new SimpleFlightListing(flights));
     return Status::OK();
   }
 
-  Status GetFlightInfo(const FlightDescriptor& request,
+  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
                        std::unique_ptr<FlightInfo>* out) override {
     std::vector<FlightInfo> flights = ExampleFlightInfo();
 
@@ -74,7 +75,7 @@ class FlightTestServer : public FlightServerBase {
     return Status::Invalid("Flight not found: ", request.ToString());
   }
 
-  Status DoGet(const Ticket& request,
+  Status DoGet(const ServerCallContext& context, const Ticket& request,
                std::unique_ptr<FlightDataStream>* data_stream) override {
     // Test for ARROW-5095
     if (request.ticket == "ARROW-5095-fail") {
@@ -109,7 +110,8 @@ class FlightTestServer : public FlightServerBase {
     return Status::OK();
   }
 
-  Status DoAction(const Action& action, std::unique_ptr<ResultStream>* out) override {
+  Status DoAction(const ServerCallContext& context, const Action& action,
+                  std::unique_ptr<ResultStream>* out) override {
     if (action.type == "action1") {
       return RunAction1(action, out);
     } else if (action.type == "action2") {
@@ -119,7 +121,8 @@ class FlightTestServer : public FlightServerBase {
     }
   }
 
-  Status ListActions(std::vector<ActionType>* out) override {
+  Status ListActions(const ServerCallContext& context,
+                     std::vector<ActionType>* out) override {
     std::vector<ActionType> actions = ExampleActionTypes();
     *out = std::move(actions);
     return Status::OK();
@@ -135,7 +138,8 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   g_server.reset(new arrow::flight::FlightTestServer);
-  ARROW_CHECK_OK(g_server->Init(FLAGS_port));
+  ARROW_CHECK_OK(
+      g_server->Init(std::unique_ptr<arrow::flight::NoOpAuthHandler>(), FLAGS_port));
   // Exit with a clean error code (0) on SIGTERM
   ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
 

@@ -118,6 +118,26 @@ bool TestServer::IsRunning() { return server_process_->running(); }
 
 int TestServer::port() const { return port_; }
 
+Status InProcessTestServer::Start(std::unique_ptr<ServerAuthHandler> auth_handler) {
+  RETURN_NOT_OK(server_->Init(std::move(auth_handler), port_));
+  thread_ = std::thread([this]() { ARROW_EXPECT_OK(server_->Serve()); });
+  return Status::OK();
+}
+
+void InProcessTestServer::Stop() {
+  server_->Shutdown();
+  thread_.join();
+}
+
+int InProcessTestServer::port() const { return port_; }
+
+InProcessTestServer::~InProcessTestServer() {
+  // Make sure server shuts down properly
+  if (thread_.joinable()) {
+    Stop();
+  }
+}
+
 Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
                       const std::vector<FlightEndpoint>& endpoints, int64_t total_records,
                       int64_t total_bytes, FlightInfo::Data* out) {
@@ -191,6 +211,54 @@ Status ExampleDictBatches(BatchVector* out) {
 
 std::vector<ActionType> ExampleActionTypes() {
   return {{"drop", "drop a dataset"}, {"cache", "cache a dataset"}};
+}
+
+TestServerAuthHandler::TestServerAuthHandler(const std::string& username,
+                                             const std::string& password)
+    : username_(username), password_(password) {}
+
+TestServerAuthHandler::~TestServerAuthHandler() {}
+
+Status TestServerAuthHandler::Authenticate(ServerAuthSender* outgoing,
+                                           ServerAuthReader* incoming) {
+  std::string token;
+  RETURN_NOT_OK(incoming->Read(&token));
+  if (token != password_) {
+    return Status::Invalid("Invalid password");
+  }
+  RETURN_NOT_OK(outgoing->Write(username_));
+  return Status::OK();
+}
+
+Status TestServerAuthHandler::IsValid(const std::string& token,
+                                      std::string* peer_identity) {
+  if (token != password_) {
+    return Status::Invalid("Invalid token");
+  }
+  *peer_identity = username_;
+  return Status::OK();
+}
+
+TestClientAuthHandler::TestClientAuthHandler(const std::string& username,
+                                             const std::string& password)
+    : username_(username), password_(password) {}
+
+TestClientAuthHandler::~TestClientAuthHandler() {}
+
+Status TestClientAuthHandler::Authenticate(ClientAuthSender* outgoing,
+                                           ClientAuthReader* incoming) {
+  RETURN_NOT_OK(outgoing->Write(password_));
+  std::string username;
+  RETURN_NOT_OK(incoming->Read(&username));
+  if (username != username_) {
+    return Status::Invalid("Invalid username");
+  }
+  return Status::OK();
+}
+
+Status TestClientAuthHandler::GetToken(std::string* token) {
+  *token = password_;
+  return Status::OK();
 }
 
 }  // namespace flight

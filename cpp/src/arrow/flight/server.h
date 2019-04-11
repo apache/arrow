@@ -21,6 +21,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "arrow/util/visibility.h"
@@ -35,6 +36,8 @@ class Schema;
 class Status;
 
 namespace flight {
+
+class ServerAuthHandler;
 
 /// \brief Interface that produces a sequence of IPC payloads to be sent in
 /// FlightData protobuf messages
@@ -72,6 +75,14 @@ class ARROW_EXPORT FlightMessageReader : public RecordBatchReader {
   virtual const FlightDescriptor& descriptor() const = 0;
 };
 
+/// \brief Call state/contextual data.
+class ARROW_EXPORT ServerCallContext {
+ public:
+  virtual ~ServerCallContext() = default;
+  /// \brief The name of the authenticated peer (may be the empty string)
+  virtual const std::string& peer_identity() const = 0;
+};
+
 /// \brief Skeleton RPC server implementation which can be used to create
 /// custom servers by implementing its abstract methods
 class ARROW_EXPORT FlightServerBase {
@@ -84,7 +95,10 @@ class ARROW_EXPORT FlightServerBase {
   /// \brief Initialize an insecure TCP server listening on localhost
   /// at the given port.
   /// This method must be called before any other method.
-  Status Init(int port);
+  /// \param[in] port The port to serve on.
+  /// \param[in] auth_handler The authentication handler. May be
+  /// nullptr if no authentication is desired.
+  Status Init(std::unique_ptr<ServerAuthHandler> auth_handler, int port);
 
   /// \brief Set the server to stop when receiving any of the given signal
   /// numbers.
@@ -113,41 +127,52 @@ class ARROW_EXPORT FlightServerBase {
 
   /// \brief Retrieve a list of available fields given an optional opaque
   /// criteria
+  /// \param[in] context The call context.
   /// \param[in] criteria may be null
   /// \param[out] listings the returned listings iterator
   /// \return Status
-  virtual Status ListFlights(const Criteria* criteria,
+  virtual Status ListFlights(const ServerCallContext& context, const Criteria* criteria,
                              std::unique_ptr<FlightListing>* listings);
 
   /// \brief Retrieve the schema and an access plan for the indicated
   /// descriptor
+  /// \param[in] context The call context.
   /// \param[in] request may be null
   /// \param[out] info the returned flight info provider
   /// \return Status
-  virtual Status GetFlightInfo(const FlightDescriptor& request,
+  virtual Status GetFlightInfo(const ServerCallContext& context,
+                               const FlightDescriptor& request,
                                std::unique_ptr<FlightInfo>* info);
 
   /// \brief Get a stream of IPC payloads to put on the wire
+  /// \param[in] context The call context.
   /// \param[in] request an opaque ticket
   /// \param[out] stream the returned stream provider
   /// \return Status
-  virtual Status DoGet(const Ticket& request, std::unique_ptr<FlightDataStream>* stream);
+  virtual Status DoGet(const ServerCallContext& context, const Ticket& request,
+                       std::unique_ptr<FlightDataStream>* stream);
 
   /// \brief Process a stream of IPC payloads sent from a client
+  /// \param[in] context The call context.
   /// \param[in] reader a sequence of uploaded record batches
   /// \return Status
-  virtual Status DoPut(std::unique_ptr<FlightMessageReader> reader);
+  virtual Status DoPut(const ServerCallContext& context,
+                       std::unique_ptr<FlightMessageReader> reader);
 
   /// \brief Execute an action, return stream of zero or more results
+  /// \param[in] context The call context.
   /// \param[in] action the action to execute, with type and body
   /// \param[out] result the result iterator
   /// \return Status
-  virtual Status DoAction(const Action& action, std::unique_ptr<ResultStream>* result);
+  virtual Status DoAction(const ServerCallContext& context, const Action& action,
+                          std::unique_ptr<ResultStream>* result);
 
   /// \brief Retrieve the list of available actions
+  /// \param[in] context The call context.
   /// \param[out] actions a vector of available action types
   /// \return Status
-  virtual Status ListActions(std::vector<ActionType>* actions);
+  virtual Status ListActions(const ServerCallContext& context,
+                             std::vector<ActionType>* actions);
 
  private:
   struct Impl;

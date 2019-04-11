@@ -89,7 +89,8 @@ public class TestBackPressure {
       final FlightProducer producer = new NoOpFlightProducer() {
 
         @Override
-        public void getStream(Ticket ticket, ServerStreamListener listener) {
+        public void getStream(CallContext context, Ticket ticket,
+            ServerStreamListener listener) {
           int batches = 0;
           final Schema pojoSchema = new Schema(ImmutableList.of(Field.nullable("a", MinorType.BIGINT.getType())));
           VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator);

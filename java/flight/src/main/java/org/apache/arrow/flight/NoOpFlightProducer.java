@@ -24,32 +24,37 @@ import org.apache.arrow.flight.impl.Flight.PutResult;
 public class NoOpFlightProducer implements FlightProducer {
 
   @Override
-  public void getStream(Ticket ticket, ServerStreamListener listener) {
+  public void getStream(CallContext context, Ticket ticket,
+      ServerStreamListener listener) {
     listener.error(new UnsupportedOperationException("NYI"));
   }
 
   @Override
-  public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
+  public void listFlights(CallContext context, Criteria criteria,
+      StreamListener<FlightInfo> listener) {
     listener.onError(new UnsupportedOperationException("NYI"));
   }
 
   @Override
-  public FlightInfo getFlightInfo(FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfo(CallContext context,
+      FlightDescriptor descriptor) {
     throw new UnsupportedOperationException("NYI");
   }
 
   @Override
-  public Callable<PutResult> acceptPut(FlightStream flightStream) {
+  public Callable<PutResult> acceptPut(CallContext context,
+      FlightStream flightStream) {
     throw new UnsupportedOperationException("NYI");
   }
 
   @Override
-  public Result doAction(Action action) {
+  public Result doAction(CallContext context, Action action) {
     throw new UnsupportedOperationException("NYI");
   }
 
   @Override
-  public void listActions(StreamListener<ActionType> listener) {
+  public void listActions(CallContext context,
+      StreamListener<ActionType> listener) {
     listener.onError(new UnsupportedOperationException("NYI"));
   }
 

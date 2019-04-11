@@ -164,7 +164,8 @@ public class TestBasicOperation {
     }
 
     @Override
-    public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
+    public void listFlights(CallContext context, Criteria criteria,
+        StreamListener<FlightInfo> listener) {
       FlightGetInfo getInfo = FlightGetInfo.newBuilder()
           .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
               .setType(DescriptorType.CMD)
@@ -175,7 +176,8 @@ public class TestBasicOperation {
     }
 
     @Override
-    public Callable<PutResult> acceptPut(FlightStream flightStream) {
+    public Callable<PutResult> acceptPut(CallContext context,
+        FlightStream flightStream) {
       return () -> {
         try (VectorSchemaRoot root = flightStream.getRoot()) {
           while (flightStream.next()) {
@@ -187,7 +189,8 @@ public class TestBasicOperation {
     }
 
     @Override
-    public void getStream(Ticket ticket, ServerStreamListener listener) {
+    public void getStream(CallContext context, Ticket ticket,
+        ServerStreamListener listener) {
       final int size = 10;
 
       IntVector iv = new IntVector("c1", allocator);
@@ -222,7 +225,8 @@ public class TestBasicOperation {
     }
 
     @Override
-    public FlightInfo getFlightInfo(FlightDescriptor descriptor) {
+    public FlightInfo getFlightInfo(CallContext context,
+        FlightDescriptor descriptor) {
       FlightGetInfo getInfo = FlightGetInfo.newBuilder()
           .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
               .setType(DescriptorType.CMD)
@@ -232,7 +236,7 @@ public class TestBasicOperation {
     }
 
     @Override
-    public Result doAction(Action action) {
+    public Result doAction(CallContext context, Action action) {
       switch (action.getType()) {
         case "hello":
           return new Result("world".getBytes(Charsets.UTF_8));
@@ -242,7 +246,8 @@ public class TestBasicOperation {
     }
 
     @Override
-    public void listActions(StreamListener<ActionType> listener) {
+    public void listActions(CallContext context,
+        StreamListener<ActionType> listener) {
       listener.onNext(new ActionType("get", ""));
       listener.onNext(new ActionType("put", ""));
       listener.onNext(new ActionType("hello", ""));

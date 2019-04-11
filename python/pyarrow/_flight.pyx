@@ -312,6 +312,17 @@ cdef class FlightClient:
 
         return result
 
+    def authenticate(self, auth_handler):
+        """Authenticate to the server."""
+        cdef unique_ptr[CClientAuthHandler] handler
+        if not isinstance(auth_handler, ClientAuthHandler):
+            raise TypeError(
+                "FlightClient.authenticate takes a ClientAuthHandler, "
+                "not '{}'".format(type(auth_handler)))
+        handler.reset((<ClientAuthHandler> auth_handler).to_handler())
+        with nogil:
+            check_status(self.client.get().Authenticate(move(handler)))
+
     def list_actions(self):
         """List the actions available on a service."""
         cdef:
@@ -474,6 +485,148 @@ cdef class GeneratorStream(FlightDataStream):
         return new CPyGeneratorFlightDataStream(self, self.schema, callback)
 
 
+cdef class ServerCallContext:
+    """Per-call state/context."""
+    cdef:
+        const CServerCallContext* context
+
+    def peer_identity(self):
+        """Get the identity of the authenticated peer.
+
+        May be the empty string.
+        """
+        return tobytes(self.context.peer_identity())
+
+    @staticmethod
+    cdef ServerCallContext wrap(const CServerCallContext& context):
+        cdef ServerCallContext result = \
+            ServerCallContext.__new__(ServerCallContext)
+        result.context = &context
+        return result
+
+
+cdef class ServerAuthReader:
+    """A reader for messages from the client during an auth handshake."""
+    cdef:
+        CServerAuthReader* reader
+
+    def read(self):
+        cdef c_string token
+        if not self.reader:
+            raise ValueError("Cannot use ServerAuthReader outside "
+                             "ServerAuthHandler.authenticate")
+        with nogil:
+            check_status(self.reader.Read(&token))
+        return token
+
+    cdef void poison(self):
+        """Prevent further usage of this object.
+
+        This object is constructed by taking a pointer to a reference,
+        so we want to make sure Python users do not access this after
+        the reference goes away.
+        """
+        self.reader = NULL
+
+    @staticmethod
+    cdef ServerAuthReader wrap(CServerAuthReader* reader):
+        cdef ServerAuthReader result = \
+            ServerAuthReader.__new__(ServerAuthReader)
+        result.reader = reader
+        return result
+
+
+cdef class ServerAuthSender:
+    """A writer for messages to the client during an auth handshake."""
+    cdef:
+        CServerAuthSender* sender
+
+    def write(self, message):
+        cdef c_string c_message = tobytes(message)
+        if not self.sender:
+            raise ValueError("Cannot use ServerAuthSender outside "
+                             "ServerAuthHandler.authenticate")
+        with nogil:
+            check_status(self.sender.Write(c_message))
+
+    cdef void poison(self):
+        """Prevent further usage of this object.
+
+        This object is constructed by taking a pointer to a reference,
+        so we want to make sure Python users do not access this after
+        the reference goes away.
+        """
+        self.sender = NULL
+
+    @staticmethod
+    cdef ServerAuthSender wrap(CServerAuthSender* sender):
+        cdef ServerAuthSender result = \
+            ServerAuthSender.__new__(ServerAuthSender)
+        result.sender = sender
+        return result
+
+
+cdef class ClientAuthReader:
+    """A reader for messages from the server during an auth handshake."""
+    cdef:
+        CClientAuthReader* reader
+
+    def read(self):
+        cdef c_string token
+        if not self.reader:
+            raise ValueError("Cannot use ClientAuthReader outside "
+                             "ClientAuthHandler.authenticate")
+        with nogil:
+            check_status(self.reader.Read(&token))
+        return token
+
+    cdef void poison(self):
+        """Prevent further usage of this object.
+
+        This object is constructed by taking a pointer to a reference,
+        so we want to make sure Python users do not access this after
+        the reference goes away.
+        """
+        self.reader = NULL
+
+    @staticmethod
+    cdef ClientAuthReader wrap(CClientAuthReader* reader):
+        cdef ClientAuthReader result = \
+            ClientAuthReader.__new__(ClientAuthReader)
+        result.reader = reader
+        return result
+
+
+cdef class ClientAuthSender:
+    """A writer for messages to the server during an auth handshake."""
+    cdef:
+        CClientAuthSender* sender
+
+    def write(self, message):
+        cdef c_string c_message = tobytes(message)
+        if not self.sender:
+            raise ValueError("Cannot use ClientAuthSender outside "
+                             "ClientAuthHandler.authenticate")
+        with nogil:
+            check_status(self.sender.Write(c_message))
+
+    cdef void poison(self):
+        """Prevent further usage of this object.
+
+        This object is constructed by taking a pointer to a reference,
+        so we want to make sure Python users do not access this after
+        the reference goes away.
+        """
+        self.sender = NULL
+
+    @staticmethod
+    cdef ClientAuthSender wrap(CClientAuthSender* sender):
+        cdef ClientAuthSender result = \
+            ClientAuthSender.__new__(ClientAuthSender)
+        result.sender = sender
+        return result
+
+
 cdef void _data_stream_next(void* self, CFlightPayload* payload) except *:
     """Callback for implementing FlightDataStream in Python."""
     cdef:
@@ -534,12 +687,14 @@ cdef void _data_stream_next(void* self, CFlightPayload* payload) except *:
                         "not {}.".format(type(result)))
 
 
-cdef void _list_flights(void* self, const CCriteria* c_criteria,
+cdef void _list_flights(void* self, const CServerCallContext& context,
+                        const CCriteria* c_criteria,
                         unique_ptr[CFlightListing]* listing) except *:
     """Callback for implementing ListFlights in Python."""
     cdef:
         vector[CFlightInfo] flights
-    result = (<object> self).list_flights(c_criteria.expression)
+    result = (<object> self).list_flights(ServerCallContext.wrap(context),
+                                          c_criteria.expression)
     for info in result:
         if not isinstance(info, FlightInfo):
             raise TypeError("FlightServerBase.list_flights must return "
@@ -549,14 +704,16 @@ cdef void _list_flights(void* self, const CCriteria* c_criteria,
     listing.reset(new CSimpleFlightListing(flights))
 
 
-cdef void _get_flight_info(void* self, CFlightDescriptor c_descriptor,
+cdef void _get_flight_info(void* self, const CServerCallContext& context,
+                           CFlightDescriptor c_descriptor,
                            unique_ptr[CFlightInfo]* info) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         FlightDescriptor py_descriptor = \
             FlightDescriptor.__new__(FlightDescriptor)
     py_descriptor.descriptor = c_descriptor
-    result = (<object> self).get_flight_info(py_descriptor)
+    result = (<object> self).get_flight_info(ServerCallContext.wrap(context),
+                                             py_descriptor)
     if not isinstance(result, FlightInfo):
         raise TypeError("FlightServerBase.get_flight_info must return "
                         "a FlightInfo instance, but got {}".format(
@@ -564,7 +721,7 @@ cdef void _get_flight_info(void* self, CFlightDescriptor c_descriptor,
     info.reset(new CFlightInfo(deref((<FlightInfo> result).info.get())))
 
 
-cdef void _do_put(void* self,
+cdef void _do_put(void* self, const CServerCallContext& context,
                   unique_ptr[CFlightMessageReader] reader) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
@@ -574,17 +731,20 @@ cdef void _do_put(void* self,
 
     descriptor.descriptor = reader.get().descriptor()
     py_reader.reader.reset(reader.release())
-    (<object> self).do_put(descriptor, py_reader)
+    (<object> self).do_put(ServerCallContext.wrap(context), descriptor,
+                           py_reader)
 
 
-cdef void _do_get(void* self, CTicket ticket,
+cdef void _do_get(void* self, const CServerCallContext& context,
+                  CTicket ticket,
                   unique_ptr[CFlightDataStream]* stream) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         unique_ptr[CFlightDataStream] data_stream
 
     py_ticket = Ticket(ticket.ticket)
-    result = (<object> self).do_get(py_ticket)
+    result = (<object> self).do_get(ServerCallContext.wrap(context),
+                                    py_ticket)
     if not isinstance(result, FlightDataStream):
         raise TypeError("FlightServerBase.do_get must return "
                         "a FlightDataStream")
@@ -607,17 +767,20 @@ cdef void _do_action_result_next(void* self,
         result.reset(nullptr)
 
 
-cdef void _do_action(void* self, const CAction& action,
+cdef void _do_action(void* self, const CServerCallContext& context,
+                     const CAction& action,
                      unique_ptr[CResultStream]* result) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         function[cb_result_next] ptr = &_do_action_result_next
     py_action = Action(action.type, pyarrow_wrap_buffer(action.body))
-    responses = (<object> self).do_action(py_action)
+    responses = (<object> self).do_action(ServerCallContext.wrap(context),
+                                          py_action)
     result.reset(new CPyFlightResultStream(responses, ptr))
 
 
-cdef void _list_actions(void* self, vector[CActionType]* actions) except *:
+cdef void _list_actions(void* self, const CServerCallContext& context,
+                        vector[CActionType]* actions) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         CActionType action_type
@@ -629,17 +792,106 @@ cdef void _list_actions(void* self, vector[CActionType]* actions) except *:
         actions.push_back(action_type)
 
 
+cdef void _server_authenticate(void* self, CServerAuthSender* outgoing,
+                               CServerAuthReader* incoming) except *:
+    """Callback for implementing authentication in Python."""
+    sender = ServerAuthSender.wrap(outgoing)
+    reader = ServerAuthReader.wrap(incoming)
+    try:
+        (<object> self).authenticate(sender, reader)
+    finally:
+        sender.poison()
+        reader.poison()
+
+
+cdef void _is_valid(void* self, const c_string& token,
+                    c_string* peer_identity) except *:
+    """Callback for implementing authentication in Python."""
+    cdef c_string c_result
+    c_result = tobytes((<object> self).is_valid(token))
+    peer_identity[0] = c_result
+
+
+cdef void _client_authenticate(void* self, CClientAuthSender* outgoing,
+                               CClientAuthReader* incoming) except *:
+    """Callback for implementing authentication in Python."""
+    sender = ClientAuthSender.wrap(outgoing)
+    reader = ClientAuthReader.wrap(incoming)
+    try:
+        (<object> self).authenticate(sender, reader)
+    finally:
+        sender.poison()
+        reader.poison()
+
+
+cdef void _get_token(void* self, c_string* token) except *:
+    """Callback for implementing authentication in Python."""
+    cdef c_string c_result
+    c_result = tobytes((<object> self).get_token())
+    token[0] = c_result
+
+
+cdef class ServerAuthHandler:
+    """Authentication middleware for a server."""
+
+    def authenticate(self, outgoing, incoming):
+        """Conduct the handshake with the client."""
+        raise NotImplementedError
+
+    def is_valid(self, token):
+        """Validate a client token, returning their identity.
+
+        May return an empty string (if the auth mechanism does not
+        name the peer) or raise an exception (if the token is
+        invalid).
+
+        """
+        raise NotImplementedError
+
+    cdef PyServerAuthHandler* to_handler(self):
+        cdef PyServerAuthHandlerVtable vtable
+        vtable.authenticate = _server_authenticate
+        vtable.is_valid = _is_valid
+        return new PyServerAuthHandler(self, vtable)
+
+
+cdef class ClientAuthHandler:
+    """Authentication plugin for a client."""
+
+    def authenticate(self, outgoing, incoming):
+        """Conduct the handshake with the server."""
+        raise NotImplementedError
+
+    def get_token(self):
+        """Get the auth token for a call."""
+        raise NotImplementedError
+
+    cdef PyClientAuthHandler* to_handler(self):
+        cdef PyClientAuthHandlerVtable vtable
+        vtable.authenticate = _client_authenticate
+        vtable.get_token = _get_token
+        return new PyClientAuthHandler(self, vtable)
+
+
 cdef class FlightServerBase:
     """A Flight service definition."""
 
     cdef:
         unique_ptr[PyFlightServer] server
 
-    def run(self, port):
+    def run(self, port, auth_handler=None):
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             int c_port = port
             PyFlightServer* c_server
+            unique_ptr[CServerAuthHandler] c_auth_handler
+
+        if auth_handler:
+            if not isinstance(auth_handler, ServerAuthHandler):
+                raise TypeError("auth_handler must be a ServerAuthHandler, "
+                                "not a '{}'".format(type(auth_handler)))
+            c_auth_handler.reset(
+                (<ServerAuthHandler> auth_handler).to_handler())
 
         vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info
@@ -651,25 +903,25 @@ cdef class FlightServerBase:
         c_server = new PyFlightServer(self, vtable)
         self.server.reset(c_server)
         with nogil:
-            check_status(c_server.Init(c_port))
+            check_status(c_server.Init(move(c_auth_handler), c_port))
             check_status(c_server.ServeWithSignals())
 
-    def list_flights(self, criteria):
+    def list_flights(self, context, criteria):
         raise NotImplementedError
 
-    def get_flight_info(self, descriptor):
+    def get_flight_info(self, context, descriptor):
         raise NotImplementedError
 
-    def do_put(self, descriptor, reader):
+    def do_put(self, context, descriptor, reader):
         raise NotImplementedError
 
-    def do_get(self, ticket):
+    def do_get(self, context, ticket):
         raise NotImplementedError
 
-    def list_actions(self):
+    def list_actions(self, context):
         raise NotImplementedError
 
-    def do_action(self, action):
+    def do_action(self, context, action):
         raise NotImplementedError
 
     def shutdown(self):

@@ -18,10 +18,14 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <thread>
+#include <utility>
 #include <vector>
 
 #include "arrow/status.h"
 
+#include "arrow/flight/client_auth.h"
+#include "arrow/flight/server_auth.h"
 #include "arrow/flight/types.h"
 
 namespace boost {
@@ -55,6 +59,21 @@ class ARROW_EXPORT TestServer {
   std::string executable_name_;
   int port_;
   std::shared_ptr<::boost::process::child> server_process_;
+};
+
+class ARROW_EXPORT InProcessTestServer {
+ public:
+  explicit InProcessTestServer(std::unique_ptr<FlightServerBase> server, int port)
+      : server_(std::move(server)), port_(port), thread_() {}
+  ~InProcessTestServer();
+  Status Start(std::unique_ptr<ServerAuthHandler> auth_handler);
+  void Stop();
+  int port() const;
+
+ private:
+  std::unique_ptr<FlightServerBase> server_;
+  int port_;
+  std::thread thread_;
 };
 
 // ----------------------------------------------------------------------
@@ -110,6 +129,36 @@ ARROW_EXPORT
 Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
                       const std::vector<FlightEndpoint>& endpoints, int64_t total_records,
                       int64_t total_bytes, FlightInfo::Data* out);
+
+// ----------------------------------------------------------------------
+// A pair of authentication handlers that check for a predefined password
+// and set the peer identity to a predefined username.
+
+class ARROW_EXPORT TestServerAuthHandler : public ServerAuthHandler {
+ public:
+  explicit TestServerAuthHandler(const std::string& username,
+                                 const std::string& password);
+  ~TestServerAuthHandler();
+  Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) override;
+  Status IsValid(const std::string& token, std::string* peer_identity) override;
+
+ private:
+  std::string username_;
+  std::string password_;
+};
+
+class ARROW_EXPORT TestClientAuthHandler : public ClientAuthHandler {
+ public:
+  explicit TestClientAuthHandler(const std::string& username,
+                                 const std::string& password);
+  ~TestClientAuthHandler();
+  Status Authenticate(ClientAuthSender* outgoing, ClientAuthReader* incoming) override;
+  Status GetToken(std::string* token) override;
+
+ private:
+  std::string username_;
+  std::string password_;
+};
 
 }  // namespace flight
 }  // namespace arrow

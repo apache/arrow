@@ -120,10 +120,33 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
             " arrow::flight::RecordBatchStream"(CFlightDataStream):
         CRecordBatchStream(shared_ptr[CRecordBatchReader]& reader)
 
+    cdef cppclass CServerAuthReader" arrow::flight::ServerAuthReader":
+        CStatus Read(c_string* token)
+
+    cdef cppclass CServerAuthSender" arrow::flight::ServerAuthSender":
+        CStatus Write(c_string& token)
+
+    cdef cppclass CClientAuthReader" arrow::flight::ClientAuthReader":
+        CStatus Read(c_string* token)
+
+    cdef cppclass CClientAuthSender" arrow::flight::ClientAuthSender":
+        CStatus Write(c_string& token)
+
+    cdef cppclass CServerAuthHandler" arrow::flight::ServerAuthHandler":
+        pass
+
+    cdef cppclass CClientAuthHandler" arrow::flight::ClientAuthHandler":
+        pass
+
+    cdef cppclass CServerCallContext" arrow::flight::ServerCallContext":
+        c_string& peer_identity()
+
     cdef cppclass CFlightClient" arrow::flight::FlightClient":
         @staticmethod
         CStatus Connect(const c_string& host, int port,
                         unique_ptr[CFlightClient]* client)
+
+        CStatus Authenticate(unique_ptr[CClientAuthHandler] auth_handler)
 
         CStatus DoAction(CAction& action, unique_ptr[CResultStream]* results)
         CStatus ListActions(vector[CActionType]* actions)
@@ -141,18 +164,29 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
 # Callbacks for implementing Flight servers
 # Use typedef to emulate syntax for std::function<void(...)>
-ctypedef void cb_list_flights(object, const CCriteria*,
+ctypedef void cb_list_flights(object, const CServerCallContext&,
+                              const CCriteria*,
                               unique_ptr[CFlightListing]*)
-ctypedef void cb_get_flight_info(object, const CFlightDescriptor&,
+ctypedef void cb_get_flight_info(object, const CServerCallContext&,
+                                 const CFlightDescriptor&,
                                  unique_ptr[CFlightInfo]*)
-ctypedef void cb_do_put(object, unique_ptr[CFlightMessageReader])
-ctypedef void cb_do_get(object, const CTicket&,
+ctypedef void cb_do_put(object, const CServerCallContext&,
+                        unique_ptr[CFlightMessageReader])
+ctypedef void cb_do_get(object, const CServerCallContext&,
+                        const CTicket&,
                         unique_ptr[CFlightDataStream]*)
-ctypedef void cb_do_action(object, const CAction&,
+ctypedef void cb_do_action(object, const CServerCallContext&, const CAction&,
                            unique_ptr[CResultStream]*)
-ctypedef void cb_list_actions(object, vector[CActionType]*)
+ctypedef void cb_list_actions(object, const CServerCallContext&,
+                              vector[CActionType]*)
 ctypedef void cb_result_next(object, unique_ptr[CResult]*)
 ctypedef void cb_data_stream_next(object, CFlightPayload*)
+ctypedef void cb_server_authenticate(object, CServerAuthSender*,
+                                     CServerAuthReader*)
+ctypedef void cb_is_valid(object, const c_string&, c_string*)
+ctypedef void cb_client_authenticate(object, CClientAuthSender*,
+                                     CClientAuthReader*)
+ctypedef void cb_get_token(object, c_string*)
 
 cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef cppclass PyFlightServerVtable:
@@ -164,12 +198,30 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         function[cb_do_action] do_action
         function[cb_list_actions] list_actions
 
+    cdef cppclass PyServerAuthHandlerVtable:
+        PyServerAuthHandlerVtable()
+        function[cb_server_authenticate] authenticate
+        function[cb_is_valid] is_valid
+
+    cdef cppclass PyClientAuthHandlerVtable:
+        PyClientAuthHandlerVtable()
+        function[cb_client_authenticate] authenticate
+        function[cb_get_token] get_token
+
     cdef cppclass PyFlightServer:
         PyFlightServer(object server, PyFlightServerVtable vtable)
 
-        CStatus Init(int port)
+        CStatus Init(unique_ptr[CServerAuthHandler] auth_handler, int port)
         CStatus ServeWithSignals() except *
         void Shutdown()
+
+    cdef cppclass PyServerAuthHandler\
+            " arrow::py::flight::PyServerAuthHandler"(CServerAuthHandler):
+        PyServerAuthHandler(object handler, PyServerAuthHandlerVtable vtable)
+
+    cdef cppclass PyClientAuthHandler\
+            " arrow::py::flight::PyClientAuthHandler"(CClientAuthHandler):
+        PyClientAuthHandler(object handler, PyClientAuthHandlerVtable vtable)
 
     cdef cppclass CPyFlightResultStream\
             " arrow::py::flight::PyFlightResultStream"(CResultStream):
@@ -197,4 +249,6 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         unique_ptr[CFlightInfo]* out)
 
 cdef extern from "<utility>" namespace "std":
-    unique_ptr[CFlightDataStream] move(unique_ptr[CFlightDataStream])
+    unique_ptr[CFlightDataStream] move(unique_ptr[CFlightDataStream]) nogil
+    unique_ptr[CServerAuthHandler] move(unique_ptr[CServerAuthHandler]) nogil
+    unique_ptr[CClientAuthHandler] move(unique_ptr[CClientAuthHandler]) nogil

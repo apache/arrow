@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Optional;
 
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightClient;
@@ -32,6 +33,7 @@ import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -56,12 +58,10 @@ public class TestAuth {
   public void validAuth() {
     client.authenticateBasic(USERNAME, PASSWORD);
     Assert.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() >= 0);
-
   }
 
   @Test
   public void invalidAuth() {
-
     assertThrows(StatusRuntimeException.class, () -> {
       client.authenticateBasic(USERNAME, "WRONG");
     }, PERMISSION_DENIED);
@@ -84,8 +84,11 @@ public class TestAuth {
     final BasicServerAuthHandler.BasicAuthValidator validator = new BasicServerAuthHandler.BasicAuthValidator() {
 
       @Override
-      public boolean isValid(byte[] token) {
-        return Arrays.equals(token, VALID_TOKEN);
+      public Optional<String> isValid(byte[] token) {
+        if (Arrays.equals(token, VALID_TOKEN)) {
+          return Optional.of(USERNAME);
+        }
+        return Optional.empty();
       }
 
       @Override
@@ -103,7 +106,12 @@ public class TestAuth {
         port,
         new NoOpFlightProducer() {
           @Override
-          public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
+          public void listFlights(CallContext context, Criteria criteria,
+              StreamListener<FlightInfo> listener) {
+            if (!context.peerIdentity().equals(USERNAME)) {
+              listener.onError(new IllegalArgumentException("Invalid username"));
+              return;
+            }
             listener.onCompleted();
           }
         },

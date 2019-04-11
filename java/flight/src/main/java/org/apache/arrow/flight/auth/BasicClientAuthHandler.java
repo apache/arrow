@@ -28,6 +28,7 @@ public class BasicClientAuthHandler implements ClientAuthHandler {
 
   private final String name;
   private final String password;
+  private byte[] token = null;
 
   public BasicClientAuthHandler(String name, String password) {
     this.name = name;
@@ -35,7 +36,7 @@ public class BasicClientAuthHandler implements ClientAuthHandler {
   }
 
   @Override
-  public byte[] authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming) {
+  public void authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming) {
     BasicAuth.Builder builder = BasicAuth.newBuilder();
     if (name != null) {
       builder.setUsername(name);
@@ -46,7 +47,12 @@ public class BasicClientAuthHandler implements ClientAuthHandler {
     }
 
     outgoing.send(builder.build().toByteArray());
-    return incoming.next();
+    this.token = incoming.next();
+  }
+
+  @Override
+  public byte[] getCallToken() {
+    return token;
   }
 
 }

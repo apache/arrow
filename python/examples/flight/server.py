@@ -35,7 +35,7 @@ class FlightServer(pyarrow.flight.FlightServerBase):
         return (descriptor.descriptor_type.value, descriptor.command,
                 tuple(descriptor.path or tuple()))
 
-    def list_flights(self, criteria):
+    def list_flights(self, context, criteria):
         for key, table in self.flights.items():
             if key[1] is not None:
                 descriptor = \
@@ -51,7 +51,7 @@ class FlightServer(pyarrow.flight.FlightServerBase):
                                             descriptor, endpoints,
                                             table.num_rows, 0)
 
-    def get_flight_info(self, descriptor):
+    def get_flight_info(self, context, descriptor):
         key = FlightServer.descriptor_to_key(descriptor)
         if key in self.flights:
             table = self.flights[key]
@@ -64,25 +64,25 @@ class FlightServer(pyarrow.flight.FlightServerBase):
                                              table.num_rows, 0)
         raise KeyError('Flight not found.')
 
-    def do_put(self, descriptor, reader):
+    def do_put(self, context, descriptor, reader):
         key = FlightServer.descriptor_to_key(descriptor)
         print(key)
         self.flights[key] = reader.read_all()
         print(self.flights[key])
 
-    def do_get(self, ticket):
+    def do_get(self, context, ticket):
         key = ast.literal_eval(ticket.ticket.decode())
         if key not in self.flights:
             return None
         return pyarrow.flight.RecordBatchStream(self.flights[key])
 
-    def list_actions(self):
+    def list_actions(self, context):
         return [
             ("clear", "Clear the stored flights."),
             ("shutdown", "Shut down this server."),
         ]
 
-    def do_action(self, action):
+    def do_action(self, context, action):
         if action.type == "clear":
             raise NotImplementedError(
                 "{} is not implemented.".format(action.type))

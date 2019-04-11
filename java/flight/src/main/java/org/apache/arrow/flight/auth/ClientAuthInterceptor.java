@@ -26,20 +26,17 @@ import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 
 public class ClientAuthInterceptor implements ClientInterceptor {
+  private volatile ClientAuthHandler authHandler = null;
 
-  private volatile Metadata headerWithAuth;
-
-  public void setToken(byte[] token) {
-    final Metadata md = new Metadata();
-    md.put(AuthConstants.TOKEN_KEY, token);
-    this.headerWithAuth = md;
+  public void setAuthHandler(ClientAuthHandler authHandler) {
+    this.authHandler = authHandler;
   }
 
   public ClientAuthInterceptor() {
   }
 
-  public boolean hasToken() {
-    return headerWithAuth != null;
+  public boolean hasAuthHandler() {
+    return authHandler != null;
   }
 
   @Override
@@ -48,7 +45,7 @@ public class ClientAuthInterceptor implements ClientInterceptor {
     ClientCall<ReqT, RespT> call = next.newCall(methodDescriptor, callOptions);
 
     // once we have an auth header, add that to the calls.
-    if (headerWithAuth != null) {
+    if (authHandler != null) {
       call = new HeaderAttachingClientCall<>(call);
     }
 
@@ -63,7 +60,9 @@ public class ClientAuthInterceptor implements ClientInterceptor {
 
     @Override
     public void start(Listener<RespT> responseListener, Metadata headers) {
-      headers.merge(headerWithAuth);
+      final Metadata authHeaders = new Metadata();
+      authHeaders.put(AuthConstants.TOKEN_KEY, authHandler.getCallToken());
+      headers.merge(authHeaders);
       super.start(responseListener, headers);
     }
   }

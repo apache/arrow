@@ -45,15 +45,25 @@ class Message;
 
 namespace flight {
 
-#define GRPC_RETURN_NOT_OK(s)                             \
+#define GRPC_RETURN_NOT_OK(expr)                          \
   do {                                                    \
-    ::arrow::Status _s = (s);                             \
+    ::arrow::Status _s = (expr);                          \
     if (ARROW_PREDICT_FALSE(!_s.ok())) {                  \
       return ::arrow::flight::internal::ToGrpcStatus(_s); \
     }                                                     \
   } while (0)
 
+#define GRPC_RETURN_NOT_GRPC_OK(expr)    \
+  do {                                   \
+    ::grpc::Status _s = (expr);          \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) { \
+      return _s;                         \
+    }                                    \
+  } while (0)
+
 namespace internal {
+
+static const char* AUTH_HEADER = "auth-token-bin";
 
 Status SchemaToString(const Schema& schema, std::string* out);
 
