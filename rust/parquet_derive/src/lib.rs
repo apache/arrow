@@ -52,25 +52,25 @@ mod parquet_field;
 ///
 #[proc_macro_derive(ParquetRecordWriter)]
 pub fn parquet_record_writer(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-  let input: DeriveInput = parse_macro_input!(input as DeriveInput);
-  let fields = match input.data {
-    Data::Struct(DataStruct { fields, .. }) => fields,
-    Data::Enum(_) => unimplemented!("don't support enum"),
-    Data::Union(_) => unimplemented!("don't support union"),
-  };
+    let input: DeriveInput = parse_macro_input!(input as DeriveInput);
+    let fields = match input.data {
+        Data::Struct(DataStruct { fields, .. }) => fields,
+        Data::Enum(_) => unimplemented!("don't support enum"),
+        Data::Union(_) => unimplemented!("don't support union"),
+    };
 
-  let field_infos: Vec<_> = fields
-    .iter()
-    .map(|f: &syn::Field| parquet_field::Field::from(f))
-    .collect();
+    let field_infos: Vec<_> = fields
+        .iter()
+        .map(|f: &syn::Field| parquet_field::Field::from(f))
+        .collect();
 
-  let writer_snippets: Vec<proc_macro2::TokenStream> =
-    field_infos.iter().map(|x| x.writer_snippet()).collect();
+    let writer_snippets: Vec<proc_macro2::TokenStream> =
+        field_infos.iter().map(|x| x.writer_snippet()).collect();
 
-  let derived_for = input.ident;
-  let generics = input.generics;
+    let derived_for = input.ident;
+    let generics = input.generics;
 
-  (quote! {
+    (quote! {
     impl#generics RecordWriter<#derived_for#generics> for &[#derived_for#generics] {
       fn write_to_row_group(&self, row_group_writer: &mut Box<parquet::file::writer::RowGroupWriter>) {
         let mut row_group_writer = row_group_writer;
