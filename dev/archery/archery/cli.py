@@ -18,39 +18,38 @@
 
 import click
 from contextlib import contextmanager
+import json
 import logging
 import os
 import re
 from tempfile import mkdtemp, TemporaryDirectory
 
-from .utils.logger import logger
-import archery.utils.logger as log
 
 from .benchmark.core import BenchmarkComparator
 from .benchmark.runner import CppBenchmarkRunner
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
 from .utils.cmake import CMakeBuild
 from .utils.git import Git
+from .utils.logger import logger, ctx as log_ctx
 from .utils.source import ArrowSources
 
 
 @click.group()
 @click.option("--debug", type=bool, is_flag=True, default=False,
               help="Increase logging with debugging output.")
-@click.option("--quiet", type=bool, is_flag=True, default=False,
+@click.option("-q", "--quiet", type=bool, is_flag=True, default=False,
               help="Silence executed commands.")
 @click.pass_context
 def archery(ctx, debug, quiet):
-    """ Apache Arrow developer utilities. """
+    """ Apache Arrow developer utilities.
+
+    See sub-commands help with `archery <cmd> --help`.
+
+    """
     # Ensure ctx.obj exists
     ctx.ensure_object(dict)
 
-    print("Init")
-    print(id(log.quiet))
-    print(log.quiet)
-    log.quiet = quiet
-    print(log.quiet)
-
+    log_ctx.quiet = quiet
     if debug:
         logger.setLevel(logging.DEBUG)
 
@@ -78,8 +77,8 @@ warn_level_type = click.Choice(["everything", "checkin", "production"],
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
 # toolchain
-@click.option("--cc", help="C compiler.")
-@click.option("--cxx", help="C++ compiler.")
+@click.option("--cc", metavar="<compiler>", help="C compiler.")
+@click.option("--cxx", metavar="<compiler>", help="C++ compiler.")
 @click.option("--cxx_flags", help="C++ compiler flags.")
 @click.option("--build-type", default="release", type=build_type,
               help="CMake's CMAKE_BUILD_TYPE")
@@ -108,7 +107,27 @@ warn_level_type = click.Choice(["everything", "checkin", "production"],
 @click.argument("build_dir", type=build_dir_type)
 @click.pass_context
 def build(ctx, src, build_dir, force, targets, **kwargs):
-    """ Build. """
+    """ Initialize a C++ build directory.
+
+    The build command creates a directory initialized with Arrow's cpp source
+    cmake configuration. It can also optionally invoke the generator to test
+    the build (and used in scripts).
+
+    Note that archery will carry the caller environment. It will also not touch
+    an existing directory, one must use the `--force` option to remove the
+    existing directory.
+
+    Examples:
+
+    \b
+    # Initialize build with clang7 and avx2 support in directory `clang7-build`
+    \b
+    archery build --cc=clang-7 --cxx=clang++-7 --cxx_flags=-mavx2 clang7-build
+
+    \b
+    # Builds and run test
+    archery build --targets=all --targets=test build
+    """
     # Arrow's cpp cmake configuration
     conf = CppConfiguration(**kwargs)
     # This is a closure around cmake invocation, e.g. calling `def.build()`
@@ -187,7 +206,7 @@ def benchmark(ctx):
 @click.argument("baseline", metavar="[<baseline>]]", default="master",
                 required=False)
 @click.pass_context
-def benchmark_diff(ctx, src, preserve, suite_filter,  benchmark_filter,
+def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
                    contender, baseline):
     """ Compare (diff) benchmark runs.
 
@@ -227,9 +246,11 @@ def benchmark_diff(ctx, src, preserve, suite_filter,  benchmark_filter,
     # Compare g++7 (contender) with clang++-7 (baseline) builds
     \b
     archery build --with-benchmarks=true \\
-            --cc=gcc7 --cxx=g++7 gcc7-build
+            --cxx_flags=-ftree-vectorize \\
+            --cc=gcc-7 --cxx=g++-7 gcc7-build
     \b
     archery build --with-benchmarks=true \\
+            --cxx_flags=-flax-vector-conversions \\
             --cc=clang-7 --cxx=clang++-7 clang7-build
     \b
     archery benchmark diff gcc7-build clang7-build
@@ -242,6 +263,9 @@ def benchmark_diff(ctx, src, preserve, suite_filter,  benchmark_filter,
             --benchmark-filter="(Sum|Mean)Kernel"
     """
     with tmpdir(preserve) as root:
+        logger.debug(f"Comparing {contender} (contender) with "
+                     f"{baseline} (baseline)")
+
         runner_cont = cpp_runner_from_rev_or_path(src, root, contender)
         runner_base = cpp_runner_from_rev_or_path(src, root, baseline)
 
@@ -250,7 +274,7 @@ def benchmark_diff(ctx, src, preserve, suite_filter,  benchmark_filter,
         suites_base = {s.name: s for s in runner_base.suites(suite_filter,
                                                              benchmark_filter)}
 
-        for suite_name in suites_cont.keys() & suites_base.keys():
+        for suite_name in sorted(suites_cont.keys() & suites_base.keys()):
             logger.debug(f"Comparing {suite_name}")
 
             suite_cont = {
@@ -258,7 +282,7 @@ def benchmark_diff(ctx, src, preserve, suite_filter,  benchmark_filter,
             suite_base = {
                 b.name: b for b in suites_base[suite_name].benchmarks}
 
-            for bench_name in suite_cont.keys() & suite_base.keys():
+            for bench_name in sorted(suite_cont.keys() & suite_base.keys()):
                 logger.debug(f"Comparing {bench_name}")
 
                 bench_cont = suite_cont[bench_name]
@@ -270,7 +294,7 @@ def benchmark_diff(ctx, src, preserve, suite_filter,  benchmark_filter,
                 comparison["suite"] = suite_name
                 comparison["benchmark"] = bench_name
 
-                print(comparison)
+                print(json.dumps(comparison))
 
 
 if __name__ == "__main__":

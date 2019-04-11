@@ -19,14 +19,12 @@ import os
 import shutil
 import subprocess
 
-from .logger import logger, quiet
+from .logger import logger, ctx
 
 
 def find_exec(executable):
-    if os.path.exists(executable):
-        return executable
-
-    return shutil.which(executable)
+    exec_exists = os.path.exists(executable)
+    return executable if exec_exists else shutil.which(executable)
 
 
 # Decorator running a command and returning stdout
@@ -39,7 +37,9 @@ class capture_stdout:
             return x.strip() if self.strip else x
 
         def wrapper(*argv, **kwargs):
-            return strip_it(fn(*argv, **kwargs, stdout=subprocess.PIPE).stdout)
+            # Ensure stdout is captured
+            kwargs["stdout"] = subprocess.PIPE
+            return strip_it(fn(*argv, **kwargs).stdout)
         return wrapper
 
 
@@ -47,26 +47,21 @@ class Command:
     def bin(self):
         raise NotImplementedError("Command must implement bin() method")
 
-    def run(self, *argv, raise_on_failure=True, **kwargs):
+    def run(self, *argv, **kwargs):
         invocation = [find_exec(self.bin)]
         invocation.extend(argv)
 
-        print("Within command module")
-        print(id(quiet))
-        print(quiet)
+        for key in ["stdout", "stderr"]:
+            # Preserve caller intention, otherwise silence
+            if key not in kwargs and ctx.quiet:
+                kwargs["key"] = subprocess.PIPE
 
-        if "stdout" not in kwargs and quiet:
-            kwargs["stdout"] = subprocess.PIPE
-
-        if "stderr" not in kwargs and quiet:
-            kwargs["stderr"] = subprocess.PIPE
+        # Prefer safe by default
+        if "check" not in kwargs:
+            kwargs["check"] = True
 
         logger.debug(f"Executing `{invocation}`")
-        result = subprocess.run(invocation, **kwargs)
-        if raise_on_failure:
-            result.check_returncode()
-
-        return result
+        return subprocess.run(invocation, **kwargs)
 
     def __call__(self, *argv, **kwargs):
         self.run(*argv, **kwargs)
