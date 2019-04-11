@@ -972,5 +972,10 @@ cdef class FlightServerBase:
         request to finish. Instead, call this method from a background
         thread.
         """
-        if self.server.get() != NULL:
-            self.server.get().Shutdown()
+        # Must not hold the GIL: shutdown waits for pending RPCs to
+        # complete. Holding the GIL means Python-implemented Flight
+        # methods will never get to run, so this will hang
+        # indefinitely.
+        with nogil:
+            if self.server.get() != NULL:
+                self.server.get().Shutdown()
