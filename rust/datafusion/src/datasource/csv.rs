@@ -83,7 +83,6 @@ impl CsvBatchIterator {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Self {
-        println!("{}", filename);
         let file = File::open(filename).unwrap();
         let reader = csv::Reader::new(
             file,

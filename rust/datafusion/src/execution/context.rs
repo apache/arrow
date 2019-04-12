@@ -17,7 +17,7 @@
 
 //! ExecutionContext contains methods for registering data sources and executing SQL queries
 
-use std::cell::{RefCell, Ref};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::string::String;
@@ -25,6 +25,8 @@ use std::sync::Arc;
 
 use arrow::datatypes::*;
 
+use crate::arrow::array::ArrayRef;
+use crate::arrow::builder::BooleanBuilder;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
@@ -34,19 +36,18 @@ use crate::execution::filter::FilterRelation;
 use crate::execution::limit::LimitRelation;
 use crate::execution::projection::ProjectRelation;
 use crate::execution::relation::{DataSourceRelation, Relation};
+use crate::execution::scalar_relation::ScalarRelation;
 use crate::execution::table_impl::TableImpl;
 use crate::logicalplan::*;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::optimizer::type_coercion::TypeCoercionRule;
 use crate::optimizer::utils;
+use crate::sql::parser::FileType;
 use crate::sql::parser::{DFASTNode, DFParser};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
 use crate::table::Table;
-use crate::sql::parser::FileType;
 use sqlparser::sqlast::{SQLColumnDef, SQLType};
-use core::borrow::Borrow;
-use crate::execution::create_table::CreateTableRelation;
 
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
@@ -86,9 +87,13 @@ impl ExecutionContext {
                 let plan = query_planner.sql_to_rel(&ansi)?;
 
                 Ok(self.optimize(&plan)?)
-            },
+            }
             DFASTNode::CreateExternalTable {
-                name, columns, file_type, header_row, location
+                name,
+                columns,
+                file_type,
+                header_row,
+                location,
             } => {
                 let schema = Arc::new(self.build_schema(columns)?);
 
@@ -97,13 +102,9 @@ impl ExecutionContext {
                     name,
                     location,
                     file_type,
-                    header_row
+                    header_row,
                 }))
-            },
-            other => Err(ExecutionError::General(format!(
-                "Cannot create logical plan from {:?}",
-                other
-            ))),
+            }
         }
     }
 
@@ -123,9 +124,7 @@ impl ExecutionContext {
             SQLType::BigInt => Ok(DataType::Int64),
             SQLType::Int => Ok(DataType::Int32),
             SQLType::SmallInt => Ok(DataType::Int16),
-            SQLType::Char(_) |
-            SQLType::Varchar(_) |
-            SQLType::Text => Ok(DataType::Utf8),
+            SQLType::Char(_) | SQLType::Varchar(_) | SQLType::Text => Ok(DataType::Utf8),
             SQLType::Decimal(_, _) => Ok(DataType::Float64),
             SQLType::Float(_) => Ok(DataType::Float32),
             SQLType::Real | SQLType::Double => Ok(DataType::Float64),
@@ -133,18 +132,18 @@ impl ExecutionContext {
             SQLType::Date => Ok(DataType::Date64(DateUnit::Day)),
             SQLType::Time => Ok(DataType::Time64(TimeUnit::Millisecond)),
             SQLType::Timestamp => Ok(DataType::Date64(DateUnit::Millisecond)),
-            SQLType::Uuid |
-            SQLType::Clob(_) |
-            SQLType::Binary(_) |
-            SQLType::Varbinary(_) |
-            SQLType::Blob(_) |
-            SQLType::Regclass |
-            SQLType::Bytea |
-            SQLType::Custom(_) |
-            SQLType::Array(_) => Err(ExecutionError::General(format!(
+            SQLType::Uuid
+            | SQLType::Clob(_)
+            | SQLType::Binary(_)
+            | SQLType::Varbinary(_)
+            | SQLType::Blob(_)
+            | SQLType::Regclass
+            | SQLType::Bytea
+            | SQLType::Custom(_)
+            | SQLType::Array(_) => Err(ExecutionError::General(format!(
                 "Unsupported data type: {:?}.",
                 sql_type
-            )))
+            ))),
         }
     }
 
@@ -333,26 +332,39 @@ impl ExecutionContext {
                         "Limit only support positive integer literals".to_string(),
                     )),
                 }
-            },
+            }
 
             LogicalPlan::CreateExternalTable {
                 ref schema,
                 ref name,
                 ref location,
                 ref file_type,
-                ref header_row
+                ref header_row,
             } => {
                 match file_type {
                     FileType::CSV => {
                         self.register_csv(name, location, schema, *header_row)
-                    },
-                    _ => return Err(ExecutionError::ExecutionError(
-                        format!("Unsupported file type {:?}.", file_type)
-                    ))
+                    }
+                    _ => {
+                        return Err(ExecutionError::ExecutionError(format!(
+                            "Unsupported file type {:?}.",
+                            file_type
+                        )));
+                    }
                 }
+                let mut builder = BooleanBuilder::new(1);
+                builder.append_value(true)?;
 
-                Ok(Rc::new(RefCell::new(CreateTableRelation::new(schema.clone()))))
-            },
+                let columns = vec![Arc::new(builder.finish()) as ArrayRef];
+                Ok(Rc::new(RefCell::new(ScalarRelation::new(
+                    Arc::new(Schema::new(vec![Field::new(
+                        "result",
+                        DataType::Boolean,
+                        false,
+                    )])),
+                    columns,
+                ))))
+            }
 
             _ => Err(ExecutionError::NotImplemented(
                 "Unsupported logical plan for execution".to_string(),

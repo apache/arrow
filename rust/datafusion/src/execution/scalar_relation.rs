@@ -15,47 +15,48 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use arrow::datatypes::{Schema, Field};
-use crate::execution::relation::Relation;
-use crate::error::Result;
-use std::sync::Arc;
-use arrow::record_batch::RecordBatch;
-use arrow::array::ArrayRef;
-use arrow::builder::BooleanBuilder;
-use arrow::datatypes::DataType;
+//! Scalar relation, emit one fixed scalar value.
 
-/// Implementation of a LIMIT relation
-pub(super) struct CreateTableRelation {
+use crate::error::Result;
+use crate::execution::relation::Relation;
+use arrow::array::ArrayRef;
+use arrow::datatypes::Schema;
+use arrow::record_batch::RecordBatch;
+use std::sync::Arc;
+
+/// A relation emit single scalar array;
+pub(super) struct ScalarRelation {
     /// The schema for the limit relation, which is always the same as the schema of the input relation
     schema: Arc<Schema>,
 
+    value: Vec<ArrayRef>,
+
     /// The number of rows that have been returned so far
-    emit: bool,
+    emitted: bool,
 }
 
-impl CreateTableRelation {
-    pub fn new(schema: Arc<Schema>) -> Self {
+impl ScalarRelation {
+    pub fn new(schema: Arc<Schema>, value: Vec<ArrayRef>) -> Self {
         Self {
             schema,
-            emit: false,
+            value,
+            emitted: false,
         }
     }
 }
 
-impl Relation for CreateTableRelation {
+impl Relation for ScalarRelation {
     fn next(&mut self) -> Result<Option<RecordBatch>> {
-        if self.emit {
+        if self.emitted {
             return Ok(None);
         }
 
-        self.emit = true;
-        let mut builder = BooleanBuilder::new(1);
-        builder.append_value(true)?;
+        self.emitted = true;
 
-        let columns = vec![Arc::new(builder.finish()) as ArrayRef];
-        Ok(Some(RecordBatch::try_new(Arc::new(Schema::new(vec![
-            Field::new("result", DataType::Boolean, false)
-        ])), columns)?))
+        Ok(Some(RecordBatch::try_new(
+            self.schema().clone(),
+            self.value.clone(),
+        )?))
     }
 
     fn schema(&self) -> &Arc<Schema> {

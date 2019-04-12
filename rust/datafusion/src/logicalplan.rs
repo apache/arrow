@@ -442,14 +442,19 @@ pub enum LogicalPlan {
         /// The schema description
         schema: Arc<Schema>,
     },
+    /// Represents a create external table expression.
     CreateExternalTable {
-        /// The schema
+        /// The table schema
         schema: Arc<Schema>,
+        /// The table name
         name: String,
+        /// The physical location
         location: String,
+        /// The file type of physical file
         file_type: FileType,
-        header_row: bool
-    }
+        /// Whether the CSV file contains a header
+        header_row: bool,
+    },
 }
 
 impl LogicalPlan {
@@ -540,10 +545,7 @@ impl LogicalPlan {
                 write!(f, "Limit: {:?}", expr)?;
                 input.fmt_with_indent(f, indent + 1)
             }
-            LogicalPlan::CreateExternalTable {
-                ref name,
-                ..
-            } => {
+            LogicalPlan::CreateExternalTable { ref name, .. } => {
                 write!(f, "CreateExternalTable: {:?}", name)
             }
         }
