@@ -24,6 +24,9 @@ edition = "2018"
 [lib]
 proc-macro = true
 
+[features]
+chrono = []
+
 [dependencies]
 proc-macro2 = "0.4"
 quote = "0.6.10"

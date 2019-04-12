@@ -55,6 +55,7 @@ impl Field {
         let ident = &self.ident;
         let column_writer = self.ty.column_writer();
         let is_a_byte_buf = self.ty.physical_type() == parquet::basic::Type::BYTE_ARRAY;
+        let is_a_timestamp = self.ty.last_part() == "NaiveDateTime";// TODO
         let copy_to_vec = match self.ty.physical_type() {
             parquet::basic::Type::BYTE_ARRAY
             | parquet::basic::Type::FIXED_LEN_BYTE_ARRAY => false,
@@ -64,18 +65,21 @@ impl Field {
         fn option_into_vals(
             id: &syn::Ident,
             is_a_byte_buf: bool,
+            is_a_timestamp: bool,
             copy_to_vec: bool,
         ) -> proc_macro2::TokenStream {
-            let some = if is_a_byte_buf {
-                quote! { Some((&inner[..]).into())}
-            } else {
-                quote! { Some(inner) }
-            };
-
             let binding = if copy_to_vec {
                 quote! { let Some(inner) = x.#id }
             } else {
                 quote! { let Some(ref inner) = x.#id }
+            };
+
+            let some = if is_a_byte_buf {
+                quote! { Some((&inner[..]).into())}
+            } else if is_a_timestamp {
+                quote! { Some(inner.timestamp_millis()) }
+            } else {
+                quote! { Some(inner) }
             };
 
             quote! {
@@ -92,9 +96,12 @@ impl Field {
         fn copied_direct_vals(
             id: &syn::Ident,
             is_a_byte_buf: bool,
+            is_a_timestamp: bool,
         ) -> proc_macro2::TokenStream {
             let access = if is_a_byte_buf {
                 quote! { (&x.#id[..]).into() }
+            } else if is_a_timestamp {
+                quote!( x.#id.timestamp_millis() )
             } else {
                 quote! { x.#id }
             };
@@ -105,26 +112,26 @@ impl Field {
         }
 
         let vals_builder = match &self.ty {
-            Type::TypePath(_) => copied_direct_vals(ident, is_a_byte_buf),
+            Type::TypePath(_) => copied_direct_vals(ident, is_a_byte_buf, is_a_timestamp),
             Type::Option(ref first_type) => match **first_type {
-                Type::TypePath(_) => option_into_vals(ident, is_a_byte_buf, copy_to_vec),
+                Type::TypePath(_) => option_into_vals(ident, is_a_byte_buf, is_a_timestamp,copy_to_vec),
                 Type::Reference(_, ref second_type) => match **second_type {
                     Type::TypePath(_) => {
-                        option_into_vals(ident, is_a_byte_buf, copy_to_vec)
+                        option_into_vals(ident, is_a_byte_buf, is_a_timestamp, copy_to_vec)
                     }
                     _ => unimplemented!("sorry charlie"),
                 },
                 ref f @ _ => unimplemented!("whoa: {:#?}", f),
             },
             Type::Reference(_, ref first_type) => match **first_type {
-                Type::TypePath(_) => copied_direct_vals(ident, is_a_byte_buf),
+                Type::TypePath(_) => copied_direct_vals(ident, is_a_byte_buf, is_a_timestamp),
                 Type::Option(ref second_type) => match **second_type {
                     Type::TypePath(_) => {
-                        option_into_vals(ident, is_a_byte_buf, copy_to_vec)
+                        option_into_vals(ident, is_a_byte_buf, is_a_timestamp, copy_to_vec)
                     }
                     Type::Reference(_, ref second_type) => match **second_type {
                         Type::TypePath(_) => {
-                            option_into_vals(ident, is_a_byte_buf, copy_to_vec)
+                            option_into_vals(ident, is_a_byte_buf, is_a_timestamp, copy_to_vec)
                         }
                         _ => unimplemented!("sorry charlie"),
                     },
@@ -292,12 +299,17 @@ impl Type {
         }
     }
 
+    pub fn last_part(&self) -> String {
+        let inner_type = self.inner_type();
+        let inner_type_str = (quote! { #inner_type }).to_string();
+
+        inner_type_str.split("::").last().unwrap().trim().to_string()
+    }
+
     pub fn physical_type(&self) -> parquet::basic::Type {
         use parquet::basic::Type as BasicType;
 
-        let inner_type = self.inner_type();
-        let inner_type_str = (quote! { #inner_type }).to_string();
-        let last_part = inner_type_str.split("::").last().unwrap().trim();
+        let last_part = self.last_part();
         let leaf_type = self.leaf_type();
 
         match leaf_type {
@@ -322,7 +334,7 @@ impl Type {
             "bool" => BasicType::BOOLEAN,
             "u8" | "u16" | "u32" => BasicType::INT32,
             "i8" | "i16" | "i32" => BasicType::INT32,
-            "u64" | "i64" | "usize" => BasicType::INT64,
+            "u64" | "i64" | "usize" | "NaiveDateTime" => BasicType::INT64,
             "f32" => BasicType::FLOAT,
             "f64" => BasicType::DOUBLE,
             "String" | "str" => BasicType::BYTE_ARRAY,
@@ -717,5 +729,27 @@ mod test {
             let _ = fields.iter().map(|x| Type::from(x)).collect::<Vec<_>>();
         });
         assert!(res.is_err());
+    }
+
+
+    #[test]
+    #[cfg(feature = "chrono")]
+    fn chrono_timestamp_millis() {
+        let snippet: proc_macro2::TokenStream = quote! {
+          struct ATimestampStruct {
+            henceforth: chrono::NaiveDateTime,
+          }
+        };
+
+        let fields = extract_fields(snippet);
+        let when = Field::from(&fields[0]);
+        assert_eq!(when.writer_snippet().to_string(),(quote!{
+            {
+                let vals : Vec<_> = records.iter().map(|x| x.henceforth.timestamp_millis() ).collect();
+                if let parquet::column::writer::ColumnWriter::Int64ColumnWriter(ref mut typed) = column_writer {
+                    typed.write_batch(&vals[..], None, None).unwrap();
+                }
+            }
+        }).to_string());
     }
 }
