@@ -218,9 +218,7 @@ pub trait PageWriter {
     fn close(&mut self) -> Result<()>;
 }
 
-/// API for iterating over pages of columns in a parquet file.
-///
-/// It's mainly used to decouple high level readers from low level file readers.
+/// An iterator over pages of some specific column in a parquet file.
 pub trait PageIterator: Iterator<Item = Result<Box<PageReader>>> {
     /// Get schema of parquet file.
     fn schema(&mut self) -> Result<SchemaDescPtr>;

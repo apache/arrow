@@ -586,7 +586,7 @@ impl FilePageIterator {
         row_group_indices: Box<Iterator<Item = usize>>,
         file_reader: Rc<FileReader>,
     ) -> Result<Self> {
-        // Check that column_index are valid
+        // Check that column_index is valid
         let num_columns = file_reader
             .metadata()
             .file_metadata()
