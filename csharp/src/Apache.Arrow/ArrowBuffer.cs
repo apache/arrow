@@ -21,13 +21,9 @@ namespace Apache.Arrow
 {
     public readonly partial struct ArrowBuffer: IEquatable<ArrowBuffer>
     {
-        public static ArrowBuffer WrapExternalMemoryAsAnArrowBuffer(Memory<byte> externalMemory)
-        {
-            return new ArrowBuffer(externalMemory);
-        }
         public static ArrowBuffer Empty => new ArrowBuffer(Memory<byte>.Empty);
 
-        internal ArrowBuffer(ReadOnlyMemory<byte> data)
+        public ArrowBuffer(ReadOnlyMemory<byte> data)
         {
             Memory = data;
         }

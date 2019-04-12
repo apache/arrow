@@ -93,7 +93,7 @@ namespace Apache.Arrow.Tests
             span[1] = 1;
             span[2] = 2;
 
-            ArrowBuffer buffer = ArrowBuffer.WrapExternalMemoryAsAnArrowBuffer(memory);
+            ArrowBuffer buffer = new ArrowBuffer(memory);
             Assert.Equal(2, buffer.Span.CastTo<int>()[2]);
 
             span[2] = 10;
