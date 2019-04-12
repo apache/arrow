@@ -34,6 +34,10 @@ edition = "2018"
 name = "datafusion"
 path = "src/lib.rs"
 
+[[bin]]
+name = "datafusion-cli"
+path = "src/bin/repl.rs"
+
 [dependencies]
 fnv = "1.0.3"
 arrow = { path = "../arrow" }

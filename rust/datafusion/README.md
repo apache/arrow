@@ -23,12 +23,43 @@ DataFusion is an in-memory query engine that uses Apache Arrow as the memory mod
 
 ## Usage
 
+
+#### Use as a lib
 Add this to your Cargo.toml:
 
 ```toml
 [dependencies]
 datafusion = "0.14.0-SNAPSHOT"
 ```
+
+#### Use as a bin
+##### Build your own bin(requires rust toolchains)
+```sh
+git clone https://github/apache/arrow
+cd arrow/rust/datafusion
+cargo run --bin datafusion-cli
+```
+##### Use Dockerfile
+```sh
+git clone https://github/apache/arrow
+cd arrow
+docker build -f rust/datafusion/Dockerfile . --tag datafusion-cli
+docker run -it -v $(your_data_location):/data datafusion-cli
+```
+
+```
+USAGE:
+    datafusion-cli [OPTIONS]
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -c, --batch-size <batch-size>    The batch size of each query, default value is 1048576
+    -p, --data-path <data-path>      Path to your data, default to current directory
+```
+
 
 # Status
 
