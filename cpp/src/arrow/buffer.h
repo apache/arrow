@@ -29,6 +29,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -62,14 +63,14 @@ class ARROW_EXPORT Buffer {
         size_(size),
         capacity_(size) {}
 
-  /// \brief Construct from std::string without copying memory
+  /// \brief Construct from string_view without copying memory
   ///
-  /// \param[in] data a std::string object
+  /// \param[in] data a string_view object
   ///
-  /// \note The std::string must stay alive for the lifetime of the Buffer, so
-  /// temporary rvalue strings must be stored in an lvalue somewhere
-  explicit Buffer(const std::string& data)
-      : Buffer(reinterpret_cast<const uint8_t*>(data.c_str()),
+  /// \note The memory viewed by data must not be deallocated in the lifetime of the
+  /// Buffer; temporary rvalue strings must be stored in an lvalue somewhere
+  explicit Buffer(util::string_view data)
+      : Buffer(reinterpret_cast<const uint8_t*>(data.data()),
                static_cast<int64_t>(data.size())) {}
 
   virtual ~Buffer() = default;
@@ -229,6 +230,16 @@ static inline std::shared_ptr<Buffer> SliceBuffer(const std::shared_ptr<Buffer>&
 ARROW_EXPORT
 std::shared_ptr<Buffer> SliceMutableBuffer(const std::shared_ptr<Buffer>& buffer,
                                            const int64_t offset, const int64_t length);
+
+/// \brief Like SliceBuffer, but construct a mutable buffer slice.
+///
+/// If the parent buffer is not mutable, behavior is undefined (it may abort
+/// in debug builds).
+static inline std::shared_ptr<Buffer> SliceMutableBuffer(
+    const std::shared_ptr<Buffer>& buffer, const int64_t offset) {
+  int64_t length = buffer->size() - offset;
+  return SliceMutableBuffer(buffer, offset, length);
+}
 
 /// @}
 

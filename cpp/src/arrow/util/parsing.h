@@ -55,6 +55,8 @@ class StringConverter;
 template <>
 class StringConverter<BooleanType> {
  public:
+  explicit StringConverter(const std::shared_ptr<DataType>& = NULLPTR) {}
+
   using value_type = bool;
 
   bool operator()(const char* s, size_t length, value_type* out) {
@@ -97,7 +99,7 @@ class StringToFloatConverterMixin {
  public:
   using value_type = typename ARROW_TYPE::c_type;
 
-  StringToFloatConverterMixin()
+  explicit StringToFloatConverterMixin(const std::shared_ptr<DataType>& = NULLPTR)
       : main_converter_(flags_, main_junk_value_, main_junk_value_, "inf", "nan"),
         fallback_converter_(flags_, fallback_junk_value_, fallback_junk_value_, "inf",
                             "nan") {}
@@ -148,10 +150,14 @@ class StringToFloatConverterMixin {
 };
 
 template <>
-class StringConverter<FloatType> : public StringToFloatConverterMixin<FloatType> {};
+class StringConverter<FloatType> : public StringToFloatConverterMixin<FloatType> {
+  using StringToFloatConverterMixin<FloatType>::StringToFloatConverterMixin;
+};
 
 template <>
-class StringConverter<DoubleType> : public StringToFloatConverterMixin<DoubleType> {};
+class StringConverter<DoubleType> : public StringToFloatConverterMixin<DoubleType> {
+  using StringToFloatConverterMixin<DoubleType>::StringToFloatConverterMixin;
+};
 
 // NOTE: HalfFloatType would require a half<->float conversion library
 
@@ -277,6 +283,9 @@ class StringToUnsignedIntConverterMixin {
  public:
   using value_type = typename ARROW_TYPE::c_type;
 
+  explicit StringToUnsignedIntConverterMixin(const std::shared_ptr<DataType>& = NULLPTR) {
+  }
+
   bool operator()(const char* s, size_t length, value_type* out) {
     if (ARROW_PREDICT_FALSE(length == 0)) {
       return false;
@@ -291,18 +300,23 @@ class StringToUnsignedIntConverterMixin {
 };
 
 template <>
-class StringConverter<UInt8Type> : public StringToUnsignedIntConverterMixin<UInt8Type> {};
+class StringConverter<UInt8Type> : public StringToUnsignedIntConverterMixin<UInt8Type> {
+  using StringToUnsignedIntConverterMixin<UInt8Type>::StringToUnsignedIntConverterMixin;
+};
 
 template <>
 class StringConverter<UInt16Type> : public StringToUnsignedIntConverterMixin<UInt16Type> {
+  using StringToUnsignedIntConverterMixin<UInt16Type>::StringToUnsignedIntConverterMixin;
 };
 
 template <>
 class StringConverter<UInt32Type> : public StringToUnsignedIntConverterMixin<UInt32Type> {
+  using StringToUnsignedIntConverterMixin<UInt32Type>::StringToUnsignedIntConverterMixin;
 };
 
 template <>
 class StringConverter<UInt64Type> : public StringToUnsignedIntConverterMixin<UInt64Type> {
+  using StringToUnsignedIntConverterMixin<UInt64Type>::StringToUnsignedIntConverterMixin;
 };
 
 template <class ARROW_TYPE>
@@ -310,6 +324,8 @@ class StringToSignedIntConverterMixin {
  public:
   using value_type = typename ARROW_TYPE::c_type;
   using unsigned_type = typename std::make_unsigned<value_type>::type;
+
+  explicit StringToSignedIntConverterMixin(const std::shared_ptr<DataType>& = NULLPTR) {}
 
   bool operator()(const char* s, size_t length, value_type* out) {
     static constexpr unsigned_type max_positive =
@@ -356,16 +372,24 @@ class StringToSignedIntConverterMixin {
 };
 
 template <>
-class StringConverter<Int8Type> : public StringToSignedIntConverterMixin<Int8Type> {};
+class StringConverter<Int8Type> : public StringToSignedIntConverterMixin<Int8Type> {
+  using StringToSignedIntConverterMixin<Int8Type>::StringToSignedIntConverterMixin;
+};
 
 template <>
-class StringConverter<Int16Type> : public StringToSignedIntConverterMixin<Int16Type> {};
+class StringConverter<Int16Type> : public StringToSignedIntConverterMixin<Int16Type> {
+  using StringToSignedIntConverterMixin<Int16Type>::StringToSignedIntConverterMixin;
+};
 
 template <>
-class StringConverter<Int32Type> : public StringToSignedIntConverterMixin<Int32Type> {};
+class StringConverter<Int32Type> : public StringToSignedIntConverterMixin<Int32Type> {
+  using StringToSignedIntConverterMixin<Int32Type>::StringToSignedIntConverterMixin;
+};
 
 template <>
-class StringConverter<Int64Type> : public StringToSignedIntConverterMixin<Int64Type> {};
+class StringConverter<Int64Type> : public StringToSignedIntConverterMixin<Int64Type> {
+  using StringToSignedIntConverterMixin<Int64Type>::StringToSignedIntConverterMixin;
+};
 
 template <>
 class StringConverter<TimestampType> {

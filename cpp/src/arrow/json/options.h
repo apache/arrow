@@ -20,15 +20,13 @@
 
 #include <cstdint>
 #include <memory>
-#include <string>
-#include <unordered_map>
 
-#include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class DataType;
+class Schema;
 
 namespace json {
 

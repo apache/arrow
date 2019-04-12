@@ -20,15 +20,17 @@
 
 #include <memory>
 
-#include "arrow/json/options.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/sse-util.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Buffer;
+
 namespace json {
+
+struct ParseOptions;
 
 /// \class Chunker
 /// \brief A reusable block-based chunker for JSON data
@@ -41,17 +43,23 @@ class ARROW_EXPORT Chunker {
 
   /// \brief Carve up a chunk in a block of data to contain only whole objects
   /// \param[in] block json data to be chunked
-  /// \param[out] chunked subrange of block containing whole json objects
-  virtual Status Process(util::string_view block, util::string_view* chunked) = 0;
+  /// \param[out] whole subrange of block containing whole json objects
+  /// \param[out] partial subrange of block a partial json object
+  virtual Status Process(const std::shared_ptr<Buffer>& block,
+                         std::shared_ptr<Buffer>* whole,
+                         std::shared_ptr<Buffer>* partial) = 0;
 
   /// \brief Carve the completion of a partial object out of a block
   /// \param[in] partial incomplete json object
   /// \param[in] block json data
-  /// \param[out] completion subrange of block contining the completion of partial
-  virtual Status Process(util::string_view partial, util::string_view block,
-                         util::string_view* completion) = 0;
+  /// \param[out] completion subrange of block containing the completion of partial
+  /// \param[out] rest subrange of block containing what completion does not cover
+  virtual Status Process(const std::shared_ptr<Buffer>& partial,
+                         const std::shared_ptr<Buffer>& block,
+                         std::shared_ptr<Buffer>* completion,
+                         std::shared_ptr<Buffer>* rest) = 0;
 
-  static std::unique_ptr<Chunker> Make(ParseOptions options);
+  static std::unique_ptr<Chunker> Make(const ParseOptions& options);
 
  protected:
   Chunker() = default;

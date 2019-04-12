@@ -19,19 +19,18 @@
 #define ARROW_JSON_READER_H
 
 #include <memory>
-#include <string>
-#include <utility>
-#include <vector>
 
-#include "arrow/json/options.h"  // IWYU pragma: keep
-#include "arrow/json/parser.h"   // IWYU pragma: keep
+#include "arrow/json/options.h"
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
+class Buffer;
 class MemoryPool;
 class Table;
+class RecordBatch;
 
 namespace io {
 class InputStream;
@@ -45,12 +44,12 @@ class ARROW_EXPORT TableReader {
 
   virtual Status Read(std::shared_ptr<Table>* out) = 0;
 
-  // XXX pass optional schema?
   static Status Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
                      const ReadOptions&, const ParseOptions&,
                      std::shared_ptr<TableReader>* out);
 };
 
+ARROW_DEPRECATED("Use TableReader")
 ARROW_EXPORT Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
                              std::shared_ptr<RecordBatch>* out);
 

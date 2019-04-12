@@ -17,28 +17,33 @@
 
 #include "arrow/json/parser.h"
 
-#include <algorithm>
-#include <cstdio>
 #include <limits>
-#include <sstream>
 #include <tuple>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "arrow/util/sse-util.h"
+#if defined(ARROW_HAVE_SSE4_2)
+#define RAPIDJSON_SSE42 1
+#define ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD 1
+#endif
+#if defined(ARROW_HAVE_SSE2)
+#define RAPIDJSON_SSE2 1
+#define ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD 1
+#endif
 #include <rapidjson/error/en.h>
 #include <rapidjson/reader.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer-builder.h"
 #include "arrow/builder.h"
-#include "arrow/csv/converter.h"
 #include "arrow/memory_pool.h"
-#include "arrow/record_batch.h"
-#include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
+#include "arrow/util/string_view.h"
+#include "arrow/util/trie.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -54,16 +59,78 @@ Status ParseError(T&&... t) {
 }
 
 Status KindChangeError(Kind::type from, Kind::type to) {
-  auto from_name = Tag(from)->value(0);
-  auto to_name = Tag(to)->value(0);
-  return ParseError("A column changed from ", from_name, " to ", to_name);
+  return ParseError("A column changed from ", Kind::Name(from), " to ", Kind::Name(to));
+}
+
+const std::string& Kind::Name(Kind::type kind) {
+  static const std::string names[] = {"null",   "boolean", "number",
+                                      "string", "array",   "object"};
+
+  return names[kind];
+}
+
+const std::shared_ptr<const KeyValueMetadata>& Kind::Tag(Kind::type kind) {
+  static const std::shared_ptr<const KeyValueMetadata> tags[] = {
+      key_value_metadata({{"json_kind", Kind::Name(Kind::kNull)}}),
+      key_value_metadata({{"json_kind", Kind::Name(Kind::kBoolean)}}),
+      key_value_metadata({{"json_kind", Kind::Name(Kind::kNumber)}}),
+      key_value_metadata({{"json_kind", Kind::Name(Kind::kString)}}),
+      key_value_metadata({{"json_kind", Kind::Name(Kind::kArray)}}),
+      key_value_metadata({{"json_kind", Kind::Name(Kind::kObject)}}),
+  };
+  return tags[kind];
+}
+
+internal::Trie MakeFromTagTrie() {
+  internal::TrieBuilder builder;
+  for (auto kind : {Kind::kNull, Kind::kBoolean, Kind::kNumber, Kind::kString,
+                    Kind::kArray, Kind::kObject}) {
+    DCHECK_OK(builder.Append(Kind::Name(kind)));
+  }
+  auto name_to_kind = builder.Finish();
+  DCHECK_OK(name_to_kind.Validate());
+  return name_to_kind;
+}
+
+Kind::type Kind::FromTag(const std::shared_ptr<const KeyValueMetadata>& tag) {
+  static internal::Trie name_to_kind = MakeFromTagTrie();
+  DCHECK_NE(tag->FindKey("json_kind"), -1);
+  util::string_view name = tag->value(tag->FindKey("json_kind"));
+  DCHECK_NE(name_to_kind.Find(name), -1);
+  return static_cast<Kind::type>(name_to_kind.Find(name));
+}
+
+Status Kind::ForType(const DataType& type, Kind::type* kind) {
+  struct {
+    Status Visit(const NullType&) { return SetKind(Kind::kNull); }
+    Status Visit(const BooleanType&) { return SetKind(Kind::kBoolean); }
+    Status Visit(const Number&) { return SetKind(Kind::kNumber); }
+    Status Visit(const TimeType&) { return SetKind(Kind::kNumber); }
+    Status Visit(const DateType&) { return SetKind(Kind::kNumber); }
+    Status Visit(const BinaryType&) { return SetKind(Kind::kString); }
+    Status Visit(const FixedSizeBinaryType&) { return SetKind(Kind::kString); }
+    Status Visit(const DictionaryType& dict_type) {
+      return Kind::ForType(*dict_type.dictionary()->type(), kind_);
+    }
+    Status Visit(const ListType&) { return SetKind(Kind::kArray); }
+    Status Visit(const StructType&) { return SetKind(Kind::kObject); }
+    Status Visit(const DataType& not_impl) {
+      return Status::NotImplemented("JSON parsing of ", not_impl);
+    }
+    Status SetKind(Kind::type kind) {
+      *kind_ = kind;
+      return Status::OK();
+    }
+    Kind::type* kind_;
+  } visitor = {kind};
+  return VisitTypeInline(type, &visitor);
 }
 
 /// Similar to StringBuilder, but appends bytes into the provided buffer without
 /// resizing. This builder does not support appending nulls.
 class UnsafeStringBuilder {
  public:
-  UnsafeStringBuilder(MemoryPool* pool, const std::shared_ptr<Buffer>& buffer)
+  UnsafeStringBuilder(MemoryPool* pool, const std::shared_ptr<ResizableBuffer>& buffer)
       : offsets_builder_(pool), values_buffer_(buffer) {
     DCHECK_NE(values_buffer_, nullptr);
   }
@@ -75,6 +142,10 @@ class UnsafeStringBuilder {
     length_ += 1;
     values_end_ += str.size();
     return Status::OK();
+  }
+
+  Status ReserveData(int64_t additional_storage) {
+    return values_buffer_->Resize(capacity() + additional_storage, false);
   }
 
   // Builder may not be reused after Finish()
@@ -90,11 +161,11 @@ class UnsafeStringBuilder {
     return Status::OK();
   }
 
-  int64_t length() { return length_; }
+  int64_t length() const { return length_; }
 
-  int64_t capacity() { return values_buffer_->size(); }
+  int64_t capacity() const { return values_buffer_->size(); }
 
-  int64_t remaining_capacity() { return values_buffer_->size() - values_end_; }
+  int64_t remaining_capacity() const { return values_buffer_->size() - values_end_; }
 
  private:
   Status AppendNextOffset() {
@@ -104,7 +175,7 @@ class UnsafeStringBuilder {
   int64_t length_ = 0;
   int64_t values_end_ = 0;
   TypedBufferBuilder<int32_t> offsets_builder_;
-  std::shared_ptr<Buffer> values_buffer_;
+  std::shared_ptr<ResizableBuffer> values_buffer_;
 };
 
 /// \brief ArrayBuilder for parsed but unconverted arrays
@@ -202,8 +273,9 @@ class ScalarBuilder {
   explicit ScalarBuilder(MemoryPool* pool)
       : data_builder_(pool), null_bitmap_builder_(pool) {}
 
-  Status Append(int32_t index) {
+  Status Append(int32_t index, int32_t value_length) {
     RETURN_NOT_OK(data_builder_.Append(index));
+    values_length_ += value_length;
     return null_bitmap_builder_.Append(true);
   }
 
@@ -229,9 +301,10 @@ class ScalarBuilder {
 
   int64_t length() { return null_bitmap_builder_.length(); }
 
-  // TODO(bkietz) track total length of bytes for later simpler allocation
+  int32_t values_length() { return values_length_; }
 
  private:
+  int32_t values_length_;
   TypedBufferBuilder<int32_t> data_builder_;
   TypedBufferBuilder<bool> null_bitmap_builder_;
 };
@@ -280,8 +353,8 @@ class RawArrayBuilder<Kind::kArray> {
     RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
     std::shared_ptr<Array> values;
     RETURN_NOT_OK(handler.Finish(value_builder_, &values));
-    auto type = list(
-        field("item", values->type(), value_builder_.nullable, Tag(value_builder_.kind)));
+    auto type = list(field("item", values->type(), value_builder_.nullable,
+                           Kind::Tag(value_builder_.kind)));
     *out = MakeArray(ArrayData::Make(type, size, {null_bitmap, offsets}, {values->data()},
                                      null_count));
     return Status::OK();
@@ -346,12 +419,12 @@ class RawArrayBuilder<Kind::kObject> {
 
     std::vector<std::shared_ptr<Field>> fields(num_fields());
     std::vector<std::shared_ptr<ArrayData>> child_data(num_fields());
-    for (int i = 0; i != num_fields(); ++i) {
+    for (int i = 0; i < num_fields(); ++i) {
       std::shared_ptr<Array> values;
       RETURN_NOT_OK(handler.Finish(field_builders_[i], &values));
       child_data[i] = values->data();
       fields[i] = field(field_names[i].to_string(), values->type(),
-                        field_builders_[i].nullable, Tag(field_builders_[i].kind));
+                        field_builders_[i].nullable, Kind::Tag(field_builders_[i].kind));
     }
 
     *out = MakeArray(ArrayData::Make(struct_(std::move(fields)), size, {null_bitmap},
@@ -432,15 +505,12 @@ class HandlerBase : public BlockParser::Impl,
   /// @}
 
   /// \brief Set up builders using an expected Schema
-  Status SetSchema(const Schema& s) {
-    DCHECK_EQ(arena<Kind::kObject>().size(), 1);
-    for (const auto& f : s.fields()) {
-      BuilderPtr field_builder;
-      RETURN_NOT_OK(MakeBuilder(*f->type(), 0, &field_builder));
-      field_builder.nullable = f->nullable();
-      Cast<Kind::kObject>(builder_)->AddField(f->name(), field_builder);
+  Status Init(const std::shared_ptr<Schema>& s) {
+    auto type = struct_({});
+    if (s) {
+      type = struct_(s->fields());
     }
-    return Status::OK();
+    return MakeBuilder(*type, 0, &builder_);
   }
 
   Status Finish(BuilderPtr builder, std::shared_ptr<Array>* out) {
@@ -473,52 +543,62 @@ class HandlerBase : public BlockParser::Impl,
   int32_t num_rows() override { return num_rows_; }
 
  protected:
-  HandlerBase(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
-      : pool_(pool),
-        builder_(Kind::kObject, 0, false),
-        scalar_values_builder_(pool, scalar_storage) {
-    arena<Kind::kObject>().emplace_back(pool_);
-  }
+  HandlerBase(MemoryPool* pool, const std::shared_ptr<ResizableBuffer>& scalar_storage)
+      : pool_(pool), scalar_values_builder_(pool, scalar_storage) {}
 
   /// finish a column of scalar values (string or number)
   Status FinishScalar(ScalarBuilder* builder, std::shared_ptr<Array>* out) {
     std::shared_ptr<Array> indices;
+    // TODO(bkietz) embed builder->values_length() in this output somehow
     RETURN_NOT_OK(builder->Finish(&indices));
     return DictionaryArray::FromArrays(dictionary(int32(), scalar_values_), indices, out);
   }
 
-  template <typename Handler>
-  Status DoParse(Handler& handler, const std::shared_ptr<Buffer>& json) {
+  template <typename Handler, typename Stream>
+  Status DoParse(Handler& handler, Stream&& json) {
     constexpr auto parse_flags =
-        rapidjson::kParseInsituFlag | rapidjson::kParseIterativeFlag |
+        rapidjson::kParseIterativeFlag | rapidjson::kParseNanAndInfFlag |
         rapidjson::kParseStopWhenDoneFlag | rapidjson::kParseNumbersAsStringsFlag;
-    auto json_data = reinterpret_cast<char*>(json->mutable_data());
-    rapidjson::GenericInsituStringStream<rapidjson::UTF8<>> ss(json_data);
+
     rapidjson::Reader reader;
 
-    for (; num_rows_ != kMaxParserNumRows; ++num_rows_) {
-      // parse a single line of JSON
-      auto ok = reader.Parse<parse_flags>(ss, handler);
+    for (; num_rows_ < kMaxParserNumRows; ++num_rows_) {
+      auto ok = reader.Parse<parse_flags>(json, handler);
       switch (ok.Code()) {
         case rapidjson::kParseErrorNone:
           // parse the next object
           continue;
-        case rapidjson::kParseErrorDocumentEmpty: {
+        case rapidjson::kParseErrorDocumentEmpty:
           // parsed all objects, finish
           return Status::OK();
-        }
         case rapidjson::kParseErrorTermination:
           // handler emitted an error
           return handler.Error();
         default:
           // rapidjson emitted an error
+          // FIXME(bkietz) report more error data (at least the byte range of the current
+          // block, and maybe the path to the most recently parsed value?)
           return ParseError(rapidjson::GetParseError_En(ok.Code()));
       }
     }
     return Status::Invalid("Exceeded maximum rows");
   }
 
-  /// construct a builder of staticallly defined kind in arenas_
+  template <typename Handler>
+  Status DoParse(Handler& handler, const std::shared_ptr<Buffer>& json) {
+    if (json->size() > scalar_values_builder_.remaining_capacity()) {
+      auto additional_storage =
+          json->size() - scalar_values_builder_.remaining_capacity();
+      RETURN_NOT_OK(scalar_values_builder_.ReserveData(additional_storage));
+    }
+
+    using rapidjson::MemoryStream;
+    MemoryStream ms(reinterpret_cast<const char*>(json->data()), json->size());
+    using InputStream = rapidjson::EncodedInputStream<rapidjson::UTF8<>, MemoryStream>;
+    return DoParse(handler, InputStream(ms));
+  }
+
+  /// construct a builder of statically defined kind in arenas_
   template <Kind::type kind>
   Status MakeBuilder(int64_t leading_nulls, BuilderPtr* builder) {
     builder->index = static_cast<uint32_t>(arena<kind>().size());
@@ -531,7 +611,7 @@ class HandlerBase : public BlockParser::Impl,
   /// construct a builder of whatever kind corresponds to a DataType
   Status MakeBuilder(const DataType& t, int64_t leading_nulls, BuilderPtr* builder) {
     Kind::type kind;
-    RETURN_NOT_OK(KindForType(t, &kind));
+    RETURN_NOT_OK(Kind::ForType(t, &kind));
     switch (kind) {
       case Kind::kNull:
         *builder = BuilderPtr(Kind::kNull, static_cast<uint32_t>(leading_nulls), true);
@@ -606,7 +686,7 @@ class HandlerBase : public BlockParser::Impl,
         auto root = builder_;
         auto struct_builder = Cast<Kind::kObject>(builder_);
         RETURN_NOT_OK(struct_builder->AppendNull());
-        for (int i = 0; i != struct_builder->num_fields(); ++i) {
+        for (int i = 0; i < struct_builder->num_fields(); ++i) {
           builder_ = struct_builder->field_builder(i);
           RETURN_NOT_OK(AppendNull());
         }
@@ -632,7 +712,8 @@ class HandlerBase : public BlockParser::Impl,
       return IllegallyChangedTo(kind);
     }
     auto index = static_cast<int32_t>(scalar_values_builder_.length());
-    RETURN_NOT_OK(Cast<kind>(builder_)->Append(index));
+    auto value_length = static_cast<int32_t>(scalar.size());
+    RETURN_NOT_OK(Cast<kind>(builder_)->Append(index, value_length));
     return scalar_values_builder_.Append(scalar);
   }
 
@@ -668,7 +749,7 @@ class HandlerBase : public BlockParser::Impl,
     auto parent = Cast<Kind::kObject>(builder_stack_.back());
 
     auto expected_count = absent_fields_stack_.TopSize();
-    for (field_index_ = 0; field_index_ != expected_count; ++field_index_) {
+    for (field_index_ = 0; field_index_ < expected_count; ++field_index_) {
       if (!absent_fields_stack_[field_index_]) {
         continue;
       }
@@ -758,7 +839,7 @@ class Handler;
 template <>
 class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
  public:
-  Handler(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
+  Handler(MemoryPool* pool, const std::shared_ptr<ResizableBuffer>& scalar_storage)
       : HandlerBase(pool, scalar_storage) {}
 
   Status Parse(const std::shared_ptr<Buffer>& json) override {
@@ -780,7 +861,7 @@ class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
 template <>
 class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
  public:
-  Handler(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
+  Handler(MemoryPool* pool, const std::shared_ptr<ResizableBuffer>& scalar_storage)
       : HandlerBase(pool, scalar_storage) {}
 
   Status Parse(const std::shared_ptr<Buffer>& json) override {
@@ -877,7 +958,7 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
 template <>
 class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
  public:
-  Handler(MemoryPool* pool, const std::shared_ptr<Buffer>& scalar_storage)
+  Handler(MemoryPool* pool, const std::shared_ptr<ResizableBuffer>& scalar_storage)
       : HandlerBase(pool, scalar_storage) {}
 
   Status Parse(const std::shared_ptr<Buffer>& json) override {
@@ -967,8 +1048,8 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
   }
 };
 
-BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
-                         const std::shared_ptr<Buffer>& scalar_storage)
+BlockParser::BlockParser(MemoryPool* pool, const ParseOptions& options,
+                         const std::shared_ptr<ResizableBuffer>& scalar_storage)
     : pool_(pool), options_(options) {
   DCHECK(options_.unexpected_field_behavior == UnexpectedFieldBehavior::InferType ||
          options_.explicit_schema != nullptr);
@@ -976,31 +1057,28 @@ BlockParser::BlockParser(MemoryPool* pool, ParseOptions options,
     case UnexpectedFieldBehavior::Ignore: {
       auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::Ignore>>(
           pool_, scalar_storage);
-      // FIXME(bkietz) move this to an Initialize()
-      ARROW_IGNORE_EXPR(handler->SetSchema(*options_.explicit_schema));
+      ARROW_IGNORE_EXPR(handler->Init(options_.explicit_schema));
       impl_ = std::move(handler);
       break;
     }
     case UnexpectedFieldBehavior::Error: {
       auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::Error>>(
           pool_, scalar_storage);
-      ARROW_IGNORE_EXPR(handler->SetSchema(*options_.explicit_schema));
+      ARROW_IGNORE_EXPR(handler->Init(options_.explicit_schema));
       impl_ = std::move(handler);
       break;
     }
     case UnexpectedFieldBehavior::InferType:
       auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::InferType>>(
           pool_, scalar_storage);
-      if (options.explicit_schema) {
-        ARROW_IGNORE_EXPR(handler->SetSchema(*options_.explicit_schema));
-      }
+      ARROW_IGNORE_EXPR(handler->Init(options_.explicit_schema));
       impl_ = std::move(handler);
       break;
   }
 }
 
 BlockParser::BlockParser(ParseOptions options,
-                         const std::shared_ptr<Buffer>& scalar_storage)
+                         const std::shared_ptr<ResizableBuffer>& scalar_storage)
     : BlockParser(default_memory_pool(), options, scalar_storage) {}
 
 }  // namespace json
