@@ -33,6 +33,7 @@ use parquet_format::{
 use thrift::protocol::TCompactInputProtocol;
 
 use crate::basic::{ColumnOrder, Compression, Encoding, Type};
+use crate::column::page::PageIterator;
 use crate::column::{
     page::{Page, PageReader},
     reader::{ColumnReader, ColumnReaderImpl},
@@ -41,7 +42,9 @@ use crate::compression::{create_codec, Codec};
 use crate::errors::{ParquetError, Result};
 use crate::file::{metadata::*, statistics, FOOTER_SIZE, PARQUET_MAGIC};
 use crate::record::reader::RowIter;
-use crate::schema::types::{self, SchemaDescriptor, Type as SchemaType};
+use crate::schema::types::{
+    self, ColumnDescPtr, SchemaDescPtr, SchemaDescriptor, Type as SchemaType,
+};
 use crate::util::{io::FileSource, memory::ByteBufferPtr};
 
 // ----------------------------------------------------------------------
@@ -560,6 +563,75 @@ impl<T: Read> PageReader for SerializedPageReader<T> {
     }
 }
 
+/// Implementation of page iterator for parquet file.
+pub struct FilePageIterator {
+    column_index: usize,
+    row_group_indices: Box<Iterator<Item = usize>>,
+    file_reader: Rc<FileReader>,
+}
+
+impl FilePageIterator {
+    /// Creates a page iterator for all row groups in file.
+    pub fn new(column_index: usize, file_reader: Rc<FileReader>) -> Result<Self> {
+        let num_row_groups = file_reader.metadata().num_row_groups();
+
+        let row_group_indices = Box::new(0..num_row_groups);
+
+        Self::with_row_groups(column_index, row_group_indices, file_reader)
+    }
+
+    /// Create page iterator from parquet file reader with only some row groups.
+    pub fn with_row_groups(
+        column_index: usize,
+        row_group_indices: Box<Iterator<Item = usize>>,
+        file_reader: Rc<FileReader>,
+    ) -> Result<Self> {
+        // Check that column_index is valid
+        let num_columns = file_reader
+            .metadata()
+            .file_metadata()
+            .schema_descr_ptr()
+            .num_columns();
+
+        if column_index >= num_columns {
+            return Err(ParquetError::IndexOutOfBound(column_index, num_columns));
+        }
+
+        // We don't check iterators here because iterator may be infinite
+        Ok(Self {
+            column_index,
+            row_group_indices,
+            file_reader,
+        })
+    }
+}
+
+impl Iterator for FilePageIterator {
+    type Item = Result<Box<PageReader>>;
+
+    fn next(&mut self) -> Option<Result<Box<PageReader>>> {
+        self.row_group_indices.next().map(|row_group_index| {
+            self.file_reader
+                .get_row_group(row_group_index)
+                .and_then(|r| r.get_column_page_reader(self.column_index))
+        })
+    }
+}
+
+impl PageIterator for FilePageIterator {
+    fn schema(&mut self) -> Result<SchemaDescPtr> {
+        Ok(self
+            .file_reader
+            .metadata()
+            .file_metadata()
+            .schema_descr_ptr())
+    }
+
+    fn column_schema(&mut self) -> Result<ColumnDescPtr> {
+        self.schema().map(|s| s.column(self.column_index))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -924,5 +996,36 @@ mod tests {
             page_count += 1;
         }
         assert_eq!(page_count, 2);
+    }
+
+    #[test]
+    fn test_page_iterator() {
+        let file = get_test_file("alltypes_plain.parquet");
+        let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
+
+        let mut page_iterator = FilePageIterator::new(0, file_reader.clone()).unwrap();
+
+        // read first page
+        let page = page_iterator.next();
+        assert!(page.is_some());
+        assert!(page.unwrap().is_ok());
+
+        // reach end of file
+        let page = page_iterator.next();
+        assert!(page.is_none());
+
+        let row_group_indices = Box::new(0..1);
+        let mut page_iterator =
+            FilePageIterator::with_row_groups(0, row_group_indices, file_reader.clone())
+                .unwrap();
+
+        // read first page
+        let page = page_iterator.next();
+        assert!(page.is_some());
+        assert!(page.unwrap().is_ok());
+
+        // reach end of file
+        let page = page_iterator.next();
+        assert!(page.is_none());
     }
 }
