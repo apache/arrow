@@ -38,7 +38,7 @@ class CppConfiguration:
                  # components
                  with_tests=True, with_benchmarks=False, with_python=True,
                  with_parquet=False, with_gandiva=False, with_plasma=False,
-                 with_flight=False):
+                 with_flight=False, cmake_extras=None):
         self.cc = cc
         self.cxx = cxx
         self.cxx_flags = cxx_flags
@@ -53,6 +53,7 @@ class CppConfiguration:
         self.with_gandiva = with_gandiva
         self.with_plasma = with_plasma
         self.with_flight = with_flight
+        self.cmake_extras = cmake_extras
 
     def _gen_defs(self):
         if self.cxx_flags:
@@ -72,7 +73,8 @@ class CppConfiguration:
 
     @property
     def definitions(self):
-        return [f"-D{d[0]}={d[1]}" for d in self._gen_defs()]
+        extras = list(self.cmake_extras) if self.cmake_extras else []
+        return [f"-D{d[0]}={d[1]}" for d in self._gen_defs()] + extras
 
     @property
     def environment(self):

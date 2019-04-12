@@ -99,11 +99,14 @@ warn_level_type = click.Choice(["everything", "checkin", "production"],
               help="Build with Plasma object store support.")
 @click.option("--with-flight", default=False, type=bool,
               help="Build with Flight rpc support.")
+@click.option("--cmake-extras", type=str, multiple=True,
+              help="Extra flags/options to pass to cmake invocation. "
+              "Can be stacked")
 # misc
 @click.option("-f", "--force", type=bool, is_flag=True, default=False,
               help="Delete existing build directory if found.")
 @click.option("--targets", type=str, multiple=True,
-              help="Generator targets to run")
+              help="Generator targets to run. Can be stacked.")
 @click.argument("build_dir", type=build_dir_type)
 @click.pass_context
 def build(ctx, src, build_dir, force, targets, **kwargs):
