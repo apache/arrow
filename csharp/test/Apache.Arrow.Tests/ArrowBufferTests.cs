@@ -86,7 +86,7 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void TestExternalMemoryWrappedAsArrowBuffer()
         {
-            Memory<byte> memory = new byte[4 * 3];
+            Memory<byte> memory = new byte[sizeof(int) * 3];
             Span<byte> spanOfBytes = memory.Span;
             var span = spanOfBytes.CastTo<int>();
             span[0] = 0;
