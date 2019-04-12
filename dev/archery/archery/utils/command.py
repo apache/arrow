@@ -44,10 +44,14 @@ class capture_stdout:
 
 
 class Command:
-    def bin(self):
-        raise NotImplementedError("Command must implement bin() method")
+    """ A runnable command.
+
+    Class inheriting from the Command class must provide the bin
+    property/attribute.
+    """
 
     def run(self, *argv, **kwargs):
+        assert(hasattr(self, "bin"))
         invocation = [find_exec(self.bin)]
         invocation.extend(argv)
 
