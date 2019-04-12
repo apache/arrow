@@ -33,29 +33,6 @@ namespace json {
 
 using internal::StringConverter;
 
-Kind::type KindFromTag(const std::shared_ptr<const KeyValueMetadata>& tag) {
-  std::string kind_name = tag->value(0);
-  switch (kind_name[0]) {
-    case 'n':
-      if (kind_name[2] == 'l') {
-        return Kind::kNull;
-      } else {
-        return Kind::kNumber;
-      }
-    case 'b':
-      return Kind::kBoolean;
-    case 's':
-      return Kind::kString;
-    case 'o':
-      return Kind::kObject;
-    case 'a':
-      return Kind::kArray;
-    default:
-      ARROW_LOG(FATAL);
-      return Kind::kNull;
-  }
-}
-
 struct ConvertImpl {
   Status Visit(const NullType&) {
     *out = in;
@@ -187,7 +164,7 @@ static Status InferAndConvert(std::shared_ptr<DataType> expected,
                               const std::shared_ptr<const KeyValueMetadata>& tag,
                               const std::shared_ptr<Array>& in,
                               std::shared_ptr<Array>* out) {
-  Kind::type kind = KindFromTag(tag);
+  Kind::type kind = Kind::FromTag(tag);
   switch (kind) {
     case Kind::kObject: {
       // FIXME(bkietz) in general expected fields may not be an exact prefix of parsed's
