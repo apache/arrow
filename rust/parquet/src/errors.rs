@@ -58,6 +58,10 @@ quick_error! {
               description(message)
               from(e: ArrowError) -> (format!("underlying Arrow error: {:?}", e))
       }
+      IndexOutOfBound(index: usize, bound: usize) {
+          display("Index {} out of bound: {}", index, bound)
+              description("Index out of bound error")
+      }
   }
 }
 
@@ -92,15 +96,4 @@ macro_rules! nyi_err {
 macro_rules! eof_err {
     ($fmt:expr) => (ParquetError::EOF($fmt.to_owned()));
     ($fmt:expr, $($args:expr),*) => (ParquetError::EOF(format!($fmt, $($args),*)));
-}
-
-// ----------------------------------------------------------------------
-// Some useful utility functions
-#[inline]
-pub fn check_in_range(index: usize, max_size: usize) -> Result<()> {
-    if index >= max_size {
-        Err(general_err!("Index {} out of bound {}", index, max_size))
-    } else {
-        Ok(())
-    }
 }

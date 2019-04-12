@@ -39,7 +39,7 @@ use crate::column::{
     reader::{ColumnReader, ColumnReaderImpl},
 };
 use crate::compression::{create_codec, Codec};
-use crate::errors::{check_in_range, ParquetError, Result};
+use crate::errors::{ParquetError, Result};
 use crate::file::{metadata::*, statistics, FOOTER_SIZE, PARQUET_MAGIC};
 use crate::record::reader::RowIter;
 use crate::schema::types::{
@@ -593,7 +593,9 @@ impl FilePageIterator {
             .schema_descr_ptr()
             .num_columns();
 
-        check_in_range(column_index, num_columns)?;
+        if column_index >= num_columns {
+            return Err(ParquetError::IndexOutOfBound(column_index, num_columns));
+        }
 
         // We don't check iterators here because iterator may be infinite
         Ok(Self {
