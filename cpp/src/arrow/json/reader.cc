@@ -22,9 +22,11 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/json/parser.h"
+#include "arrow/table.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 namespace json {
@@ -53,9 +55,6 @@ Kind::type KindFromTag(const std::shared_ptr<const KeyValueMetadata>& tag) {
       return Kind::kNull;
   }
 }
-
-static Status Convert(const std::shared_ptr<DataType>& out_type,
-                      std::shared_ptr<Array> in, std::shared_ptr<Array>* out);
 
 struct ConvertImpl {
   Status Visit(const NullType&) {
@@ -178,8 +177,8 @@ struct ConvertImpl {
   std::shared_ptr<Array>* out;
 };
 
-static Status Convert(const std::shared_ptr<DataType>& out_type,
-                      std::shared_ptr<Array> in, std::shared_ptr<Array>* out) {
+Status Convert(const std::shared_ptr<DataType>& out_type, std::shared_ptr<Array> in,
+               std::shared_ptr<Array>* out) {
   ConvertImpl visitor = {out_type, in, out};
   return VisitTypeInline(*out_type, &visitor);
 }
@@ -270,7 +269,9 @@ static Status InferAndConvert(std::shared_ptr<DataType> expected,
 
 Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
                 std::shared_ptr<RecordBatch>* out) {
-  BlockParser parser(default_memory_pool(), options, json);
+  std::shared_ptr<ResizableBuffer> storage;
+  RETURN_NOT_OK(AllocateResizableBuffer(json->size(), &storage));
+  BlockParser parser(default_memory_pool(), options, storage);
   RETURN_NOT_OK(parser.Parse(json));
   std::shared_ptr<Array> parsed;
   RETURN_NOT_OK(parser.Finish(&parsed));
@@ -278,10 +279,11 @@ Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
   auto schm = options.explicit_schema;
   if (options.unexpected_field_behavior == UnexpectedFieldBehavior::InferType) {
     if (schm) {
-      RETURN_NOT_OK(InferAndConvert(struct_(schm->fields()), Tag(Kind::kObject), parsed,
-                                    &converted));
+      RETURN_NOT_OK(InferAndConvert(struct_(schm->fields()), Kind::Tag(Kind::kObject),
+                                    parsed, &converted));
     } else {
-      RETURN_NOT_OK(InferAndConvert(nullptr, Tag(Kind::kObject), parsed, &converted));
+      RETURN_NOT_OK(
+          InferAndConvert(nullptr, Kind::Tag(Kind::kObject), parsed, &converted));
     }
     schm = schema(converted->type()->children());
   } else {

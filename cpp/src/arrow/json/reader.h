@@ -31,6 +31,8 @@ class Buffer;
 class MemoryPool;
 class Table;
 class RecordBatch;
+class Array;
+class DataType;
 
 namespace io {
 class InputStream;
@@ -49,9 +51,11 @@ class ARROW_EXPORT TableReader {
                      std::shared_ptr<TableReader>* out);
 };
 
-ARROW_DEPRECATED("Use TableReader")
 ARROW_EXPORT Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
                              std::shared_ptr<RecordBatch>* out);
+
+Status Convert(const std::shared_ptr<DataType>& out_type, std::shared_ptr<Array> in,
+               std::shared_ptr<Array>* out);
 
 }  // namespace json
 }  // namespace arrow
