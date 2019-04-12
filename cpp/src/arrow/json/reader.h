@@ -50,7 +50,6 @@ class ARROW_EXPORT TableReader {
                      std::shared_ptr<TableReader>* out);
 };
 
-ARROW_DEPRECATED("Use TableReader")
 ARROW_EXPORT Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
                              std::shared_ptr<RecordBatch>* out);
 
