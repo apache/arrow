@@ -189,12 +189,16 @@ impl Field {
             quote! {
                 if let #column_writer(ref mut typed) = column_writer {
                     typed.write_batch(&vals[..], Some(&definition_levels[..]), None).unwrap();
+                } else {
+                    panic!("schema and struct disagree on type for {}", stringify!{#ident})
                 }
             }
         } else {
             quote! {
                 if let #column_writer(ref mut typed) = column_writer {
                     typed.write_batch(&vals[..], None, None).unwrap();
+                } else {
+                    panic!("schema and struct disagree on type for {}", stringify!{#ident})
                 }
             }
         };
@@ -441,6 +445,8 @@ mod test {
 
                             if let parquet::column::writer::ColumnWriter::Int64ColumnWriter ( ref mut typed ) = column_writer {
                                 typed . write_batch ( & vals [ .. ] , None , None ) . unwrap ( );
+                            }  else {
+                                panic!("schema and struct disagree on type for {}" , stringify!{ counter } )
                             }
                         }
                    }).to_string()
@@ -476,6 +482,8 @@ mod test {
 
                 if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter ( ref mut typed ) = column_writer {
                     typed . write_batch ( & vals [ .. ] , Some(&definition_levels[..]) , None ) . unwrap ( ) ;
+                } else {
+                    panic!("schema and struct disagree on type for {}" , stringify ! { optional_str } )
                 }
            }
             }
@@ -498,6 +506,8 @@ mod test {
 
                         if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter ( ref mut typed ) = column_writer {
                             typed . write_batch ( & vals [ .. ] , Some(&definition_levels[..]) , None ) . unwrap ( ) ;
+                        } else {
+                            panic!("schema and struct disagree on type for {}" , stringify ! { optional_string } )
                         }
                     }
         }).to_string());
@@ -519,6 +529,8 @@ mod test {
 
                         if let parquet::column::writer::ColumnWriter::Int32ColumnWriter ( ref mut typed ) = column_writer {
                             typed . write_batch ( & vals [ .. ] , Some(&definition_levels[..]) , None ) . unwrap ( ) ;
+                        }  else {
+                            panic!("schema and struct disagree on type for {}" , stringify ! { optional_dumb_int } )
                         }
                     }
         }).to_string());
@@ -738,6 +750,7 @@ mod test {
         let snippet: proc_macro2::TokenStream = quote! {
           struct ATimestampStruct {
             henceforth: chrono::NaiveDateTime,
+            maybe_happened: Option<&chrono::NaiveDateTime>,
           }
         };
 
@@ -748,6 +761,28 @@ mod test {
                 let vals : Vec<_> = records.iter().map(|x| x.henceforth.timestamp_millis() ).collect();
                 if let parquet::column::writer::ColumnWriter::Int64ColumnWriter(ref mut typed) = column_writer {
                     typed.write_batch(&vals[..], None, None).unwrap();
+                } else {
+                    panic!("schema and struct disagree on type for {}" , stringify!{ henceforth })
+                }
+            }
+        }).to_string());
+
+        let maybe_happened = Field::from(&fields[1]);
+        assert_eq!(maybe_happened.writer_snippet().to_string(),(quote!{
+            {
+                let definition_levels : Vec<i16> = self.iter().map(|x| if x.maybe_happened.is_some() { 1 } else { 0 }).collect();
+                let vals : Vec<_> = records.iter().filter_map(|x| {
+                    if let Some(inner) = x.maybe_happened {
+                        Some( inner.timestamp_millis() )
+                    } else {
+                        None
+                    }
+                }).collect();
+
+                if let parquet::column::writer::ColumnWriter::Int64ColumnWriter(ref mut typed) = column_writer {
+                    typed.write_batch(&vals[..], Some(&definition_levels[..]), None).unwrap();
+                } else {
+                    panic!("schema and struct disagree on type for {}" , stringify!{ maybe_happened })
                 }
             }
         }).to_string());
