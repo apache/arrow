@@ -335,12 +335,11 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Ok(Arc::new(date32) as ArrayRef)
         }
         (Time32(TimeUnit::Second), Time32(TimeUnit::Millisecond)) => {
-            let time_array = array.as_any().downcast_ref::<Time32SecondArray>().unwrap();
+            let time_array = Time32MillisecondArray::from(array.data());
             let mult =
                 Time32MillisecondArray::from(vec![MILLISECONDS as i32; array.len()]);
             // cast to millisecond so we can multiply
-            let c: Time32MillisecondArray = numeric_cast(&time_array)?;
-            let time32_ms = multiply(&c, &mult)?;
+            let time32_ms = multiply(&time_array, &mult)?;
 
             Ok(Arc::new(time32_ms) as ArrayRef)
         }
@@ -348,8 +347,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             let time_array = Time32SecondArray::from(array.data());
             let divisor = Time32SecondArray::from(vec![MILLISECONDS as i32; array.len()]);
             // cast to millisecond so we can multiply
-            let c: Time32SecondArray = numeric_cast(&time_array)?;
-            let time32_s = divide(&c, &divisor)?;
+            let time32_s = divide(&time_array, &divisor)?;
 
             Ok(Arc::new(time32_s) as ArrayRef)
         }
@@ -375,7 +373,6 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             }
         }
         (Time64(TimeUnit::Microsecond), Time64(TimeUnit::Nanosecond)) => {
-            // cast to nanosecond so we can op
             let time_array = Time64NanosecondArray::from(array.data());
             let mult = Time64NanosecondArray::from(vec![MILLISECONDS; array.len()]);
             let time64_ns = multiply(&time_array, &mult)?;
@@ -383,11 +380,9 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Ok(Arc::new(time64_ns) as ArrayRef)
         }
         (Time64(TimeUnit::Nanosecond), Time64(TimeUnit::Microsecond)) => {
-            let time_array = Int64Array::from(array.data());
+            let time_array = Time64MicrosecondArray::from(array.data());
             let divisor = Time64MicrosecondArray::from(vec![MILLISECONDS; array.len()]);
-            // cast to millisecond so we can op
-            let c: Time64MicrosecondArray = numeric_cast(&time_array)?;
-            let time64_us = divide(&c, &divisor)?;
+            let time64_us = divide(&time_array, &divisor)?;
 
             Ok(Arc::new(time64_us) as ArrayRef)
         }
@@ -412,7 +407,10 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                 _ => unreachable!("array type not supported"),
             }
         }
-        (Timestamp(_), Int64) => Ok(Arc::new(Int64Array::from(array.data())) as ArrayRef),
+        (Timestamp(_), Int64) => {
+            // TODO this returns correct data, but the ArrayData still refers to Timestamp
+            Ok(Arc::new(Int64Array::from(array.data())) as ArrayRef)
+        }
         (Timestamp(from_unit), Timestamp(to_unit)) => {
             let time_array = Int64Array::from(array.data());
             let from_size = time_unit_multiple(&from_unit);
@@ -463,14 +461,11 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             let from_size = time_unit_multiple(&from_unit);
             let to_size = MILLISECONDS;
             if from_size != to_size {
-                let time_array = Int64Array::from(array.data());
-                Ok(Arc::new(Date64Array::from(
-                    divide(
-                        &time_array,
-                        &Int64Array::from(vec![from_size / to_size; array.len()]),
-                    )?
-                    .data(),
-                )) as ArrayRef)
+                let time_array = Date64Array::from(array.data());
+                Ok(Arc::new(divide(
+                    &time_array,
+                    &Date64Array::from(vec![from_size / to_size; array.len()]),
+                )?) as ArrayRef)
             } else {
                 Ok(Arc::new(Date64Array::from(array.data())) as ArrayRef)
             }
@@ -484,6 +479,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
     }
 }
 
+/// Get the time unit as a multiple of a second
 fn time_unit_multiple(unit: &TimeUnit) -> i64 {
     match unit {
         TimeUnit::Second => 1,
@@ -1063,6 +1059,8 @@ mod tests {
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Int64).unwrap();
         let c = b.as_any().downcast_ref::<Int64Array>().unwrap();
+        // TODO data type still refers to timestamp
+        // assert_eq!(&DataType::Int64, c.data_type());
         assert_eq!(864000000005, c.value(0));
         assert_eq!(1545696000001, c.value(1));
         assert!(c.is_null(2));

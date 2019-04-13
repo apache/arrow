@@ -26,21 +26,33 @@ extern crate arrow;
 
 use arrow::array::*;
 use arrow::compute::cast;
-use arrow::datatypes::{DataType, DateUnit};
+use arrow::datatypes::{DataType, DateUnit, TimeUnit};
 
-fn create_date32_array(size: usize) -> Date32Array {
-    let data: Vec<i32> = vec![random(); size];
-    Date32Array::from(data)
+fn cast_date64_to_date32(size: usize) {
+    let arr_a = Arc::new(Date64Array::from(vec![random::<i64>(); size])) as ArrayRef;
+    criterion::black_box(cast(&arr_a, &DataType::Date32(DateUnit::Day)).unwrap());
 }
 
 fn cast_date32_to_date64(size: usize) {
-    let arr_a = Arc::new(create_date32_array(size)) as ArrayRef;
+    let arr_a = Arc::new(Date32Array::from(vec![random::<i32>(); size])) as ArrayRef;
     criterion::black_box(cast(&arr_a, &DataType::Date64(DateUnit::Millisecond)).unwrap());
 }
 
+fn cast_time32_s_to_time32_ms(size: usize) {
+    let arr_a =
+        Arc::new(Time32SecondArray::from(vec![random::<i32>(); size])) as ArrayRef;
+    criterion::black_box(cast(&arr_a, &DataType::Time32(TimeUnit::Millisecond)).unwrap());
+}
+
 fn add_benchmark(c: &mut Criterion) {
+    c.bench_function("cast date64 to date32 512", |b| {
+        b.iter(|| cast_date64_to_date32(512))
+    });
     c.bench_function("cast date32 to date64 512", |b| {
         b.iter(|| cast_date32_to_date64(512))
+    });
+    c.bench_function("cast time32s to time32ms 512", |b| {
+        b.iter(|| cast_time32_s_to_time32_ms(512))
     });
 }
 
