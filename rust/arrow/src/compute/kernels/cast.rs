@@ -41,6 +41,7 @@ use crate::array::*;
 use crate::array_data::ArrayData;
 use crate::buffer::Buffer;
 use crate::builder::*;
+use crate::compute::kernels::arithmetic::{divide, multiply};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 
@@ -313,12 +314,195 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (Float64, Int64) => cast_numeric_arrays::<Float64Type, Int64Type>(array),
         (Float64, Float32) => cast_numeric_arrays::<Float64Type, Float32Type>(array),
         // end numeric casts
+
+        // temporal casts
+        (Date32(DateUnit::Day), Date64(DateUnit::Millisecond)) => {
+            let date_array = array.as_any().downcast_ref::<Date32Array>().unwrap();
+            let mult = Date64Array::from(vec![MILLISECONDS_IN_DAY; array.len()]);
+            // cast from i32 to i64, keeping the date datatype
+            let date_as_i64: Date64Array = numeric_cast(&date_array)?;
+            let date64 = multiply(&date_as_i64, &mult)?;
+
+            Ok(Arc::new(date64) as ArrayRef)
+        }
+        (Date64(DateUnit::Millisecond), Date32(DateUnit::Day)) => {
+            let date_array = array.as_any().downcast_ref::<Date64Array>().unwrap();
+            let divisor = Date64Array::from(vec![MILLISECONDS_IN_DAY; array.len()]);
+            let days_as_i64 = divide(&date_array, &divisor)?;
+            // cast from i64 to i32, keeping the date datatype
+            let date32: Date32Array = numeric_cast(&days_as_i64)?;
+
+            Ok(Arc::new(date32) as ArrayRef)
+        }
+        (Time32(TimeUnit::Second), Time32(TimeUnit::Millisecond)) => {
+            let time_array = array.as_any().downcast_ref::<Time32SecondArray>().unwrap();
+            let mult =
+                Time32MillisecondArray::from(vec![MILLISECONDS as i32; array.len()]);
+            // cast to millisecond so we can multiply
+            let c: Time32MillisecondArray = numeric_cast(&time_array)?;
+            let time32_ms = multiply(&c, &mult)?;
+
+            Ok(Arc::new(time32_ms) as ArrayRef)
+        }
+        (Time32(TimeUnit::Millisecond), Time32(TimeUnit::Second)) => {
+            let time_array = Time32SecondArray::from(array.data());
+            let divisor = Time32SecondArray::from(vec![MILLISECONDS as i32; array.len()]);
+            // cast to millisecond so we can multiply
+            let c: Time32SecondArray = numeric_cast(&time_array)?;
+            let time32_s = divide(&c, &divisor)?;
+
+            Ok(Arc::new(time32_s) as ArrayRef)
+        }
+        (Time32(from_unit), Time64(to_unit)) => {
+            let time_array = Int32Array::from(array.data());
+            // cast up to i64 so we can multiply
+            let c: Int64Array = numeric_cast(&time_array)?;
+            let from_size = time_unit_multiple(&from_unit);
+            let to_size = time_unit_multiple(&to_unit);
+            // from is only smaller than to if 64milli/64second don't exist
+            let mult = Int64Array::from(vec![to_size / from_size; array.len()]);
+            // return the correct data type
+            match to_unit {
+                TimeUnit::Microsecond => {
+                    let r: Time64MicrosecondArray = numeric_cast(&multiply(&c, &mult)?)?;
+                    Ok(Arc::new(r) as ArrayRef)
+                }
+                TimeUnit::Nanosecond => {
+                    let r: Time64NanosecondArray = numeric_cast(&multiply(&c, &mult)?)?;
+                    Ok(Arc::new(r) as ArrayRef)
+                }
+                _ => unreachable!("array type not supported"),
+            }
+        }
+        (Time64(TimeUnit::Microsecond), Time64(TimeUnit::Nanosecond)) => {
+            // cast to nanosecond so we can op
+            let time_array = Time64NanosecondArray::from(array.data());
+            let mult = Time64NanosecondArray::from(vec![MILLISECONDS; array.len()]);
+            let time64_ns = multiply(&time_array, &mult)?;
+
+            Ok(Arc::new(time64_ns) as ArrayRef)
+        }
+        (Time64(TimeUnit::Nanosecond), Time64(TimeUnit::Microsecond)) => {
+            let time_array = Int64Array::from(array.data());
+            let divisor = Time64MicrosecondArray::from(vec![MILLISECONDS; array.len()]);
+            // cast to millisecond so we can op
+            let c: Time64MicrosecondArray = numeric_cast(&time_array)?;
+            let time64_us = divide(&c, &divisor)?;
+
+            Ok(Arc::new(time64_us) as ArrayRef)
+        }
+        (Time64(from_unit), Time32(to_unit)) => {
+            let time_array = Int64Array::from(array.data());
+            let from_size = time_unit_multiple(&from_unit);
+            let to_size = time_unit_multiple(&to_unit);
+            // to is only smaller than from if 64milli/64second don't exist
+            let mult = Int64Array::from(vec![from_size / to_size; array.len()]);
+            // return the correct data type
+            match to_unit {
+                TimeUnit::Second => {
+                    let r: Time32SecondArray =
+                        numeric_cast(&divide(&time_array, &mult)?)?;
+                    Ok(Arc::new(r) as ArrayRef)
+                }
+                TimeUnit::Millisecond => {
+                    let r: Time32MillisecondArray =
+                        numeric_cast(&divide(&time_array, &mult)?)?;
+                    Ok(Arc::new(r) as ArrayRef)
+                }
+                _ => unreachable!("array type not supported"),
+            }
+        }
+        (Timestamp(_), Int64) => Ok(Arc::new(Int64Array::from(array.data())) as ArrayRef),
+        (Timestamp(from_unit), Timestamp(to_unit)) => {
+            let time_array = Int64Array::from(array.data());
+            let from_size = time_unit_multiple(&from_unit);
+            let to_size = time_unit_multiple(&to_unit);
+            // we either divide or multiply, depending on size of each unit
+            // units are never the same when the types are the same
+            let converted = if from_size >= to_size {
+                divide(
+                    &time_array,
+                    &Int64Array::from(vec![from_size / to_size; array.len()]),
+                )?
+            } else {
+                multiply(
+                    &time_array,
+                    &Int64Array::from(vec![to_size / from_size; array.len()]),
+                )?
+            };
+            // cast converted from i64 to correct type
+            Ok(match to_unit {
+                TimeUnit::Second => {
+                    Arc::new(numeric_cast::<Int64Type, TimestampSecondType>(&converted)?)
+                        as ArrayRef
+                }
+                TimeUnit::Millisecond => Arc::new(numeric_cast::<
+                    Int64Type,
+                    TimestampMillisecondType,
+                >(&converted)?) as ArrayRef,
+                TimeUnit::Microsecond => Arc::new(numeric_cast::<
+                    Int64Type,
+                    TimestampMicrosecondType,
+                >(&converted)?) as ArrayRef,
+                TimeUnit::Nanosecond => Arc::new(numeric_cast::<
+                    Int64Type,
+                    TimestampNanosecondType,
+                >(&converted)?) as ArrayRef,
+            })
+        }
+        (Timestamp(from_unit), Date32(_)) => {
+            let time_array = Int64Array::from(array.data());
+            let from_size = time_unit_multiple(&from_unit) * SECONDS_IN_DAY;
+            let date32: Date32Array = numeric_cast(&divide(
+                &time_array,
+                &Int64Array::from(vec![from_size; array.len()]),
+            )?)?;
+            Ok(Arc::new(date32) as ArrayRef)
+        }
+        (Timestamp(from_unit), Date64(_)) => {
+            let from_size = time_unit_multiple(&from_unit);
+            let to_size = MILLISECONDS;
+            if from_size != to_size {
+                let time_array = Int64Array::from(array.data());
+                Ok(Arc::new(Date64Array::from(
+                    divide(
+                        &time_array,
+                        &Int64Array::from(vec![from_size / to_size; array.len()]),
+                    )?
+                    .data(),
+                )) as ArrayRef)
+            } else {
+                Ok(Arc::new(Date64Array::from(array.data())) as ArrayRef)
+            }
+        }
+
+        // end temporal casts
         (_, _) => Err(ArrowError::ComputeError(format!(
             "Casting from {:?} to {:?} not supported",
             from_type, to_type,
         ))),
     }
 }
+
+fn time_unit_multiple(unit: &TimeUnit) -> i64 {
+    match unit {
+        TimeUnit::Second => 1,
+        TimeUnit::Millisecond => MILLISECONDS,
+        TimeUnit::Microsecond => MICROSECONDS,
+        TimeUnit::Nanosecond => NANOSECONDS,
+    }
+}
+
+/// Number of seconds in a day
+const SECONDS_IN_DAY: i64 = 86_400;
+/// Number of milliseconds in a second
+const MILLISECONDS: i64 = 1_000;
+/// Number of microseconds in a second
+const MICROSECONDS: i64 = 1_000_000;
+/// Number of nanoseconds in a second
+const NANOSECONDS: i64 = 1_000_000_000;
+/// Number of milliseconds in a day
+const MILLISECONDS_IN_DAY: i64 = SECONDS_IN_DAY * MILLISECONDS;
 
 /// Convert Array into a PrimitiveArray of type, and apply numeric cast
 fn cast_numeric_arrays<FROM, TO>(from: &ArrayRef) -> Result<ArrayRef>
@@ -780,6 +964,135 @@ mod tests {
             &DataType::List(Box::new(DataType::Timestamp(TimeUnit::Microsecond))),
         )
         .unwrap();
+    }
+
+    #[test]
+    fn test_cast_date32_to_date64() {
+        let a = Date32Array::from(vec![10000, 17890]);
+        assert_eq!(
+            "PrimitiveArray<Date32(Day)>\n[\n  1997-05-19,\n  2018-12-25,\n]",
+            format!("{:?}", a)
+        );
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Date64(DateUnit::Millisecond)).unwrap();
+        let c = b.as_any().downcast_ref::<Date64Array>().unwrap();
+        assert_eq!(864000000000, c.value(0));
+        assert_eq!(1545696000000, c.value(1));
+        assert_eq!(
+            "PrimitiveArray<Date64(Millisecond)>\n[\n  1997-05-19,\n  2018-12-25,\n]",
+            format!("{:?}", c)
+        );
+    }
+
+    #[test]
+    fn test_cast_date64_to_date32() {
+        let a = Date64Array::from(vec![Some(864000000005), Some(1545696000001), None]);
+        assert_eq!(
+            "PrimitiveArray<Date64(Millisecond)>\n[\n  1997-05-19,\n  2018-12-25,\n  null,\n]",
+            format!("{:?}", a)
+        );
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Date32(DateUnit::Day)).unwrap();
+        let c = b.as_any().downcast_ref::<Date32Array>().unwrap();
+        assert_eq!(10000, c.value(0));
+        assert_eq!(17890, c.value(1));
+        assert!(c.is_null(2));
+        assert_eq!(
+            "PrimitiveArray<Date32(Day)>\n[\n  1997-05-19,\n  2018-12-25,\n  null,\n]",
+            format!("{:?}", c)
+        );
+    }
+
+    #[test]
+    fn test_cast_timestamp_to_date32() {
+        let a = TimestampMillisecondArray::from(vec![
+            Some(864000000005),
+            Some(1545696000001),
+            None,
+        ]);
+        assert_eq!(
+            "PrimitiveArray<Timestamp(Millisecond)>\n[\n  1997-05-19T00:00:00.005,\n  2018-12-25T00:00:00.001,\n  null,\n]",
+            format!("{:?}", a)
+        );
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Date32(DateUnit::Day)).unwrap();
+        let c = b.as_any().downcast_ref::<Date32Array>().unwrap();
+        assert_eq!(10000, c.value(0));
+        assert_eq!(17890, c.value(1));
+        assert!(c.is_null(2));
+        assert_eq!(
+            "PrimitiveArray<Date32(Day)>\n[\n  1997-05-19,\n  2018-12-25,\n  null,\n]",
+            format!("{:?}", c)
+        );
+    }
+
+    #[test]
+    fn test_cast_timestamp_to_date64() {
+        let a = TimestampMillisecondArray::from(vec![
+            Some(864000000005),
+            Some(1545696000001),
+            None,
+        ]);
+        assert_eq!(
+            "PrimitiveArray<Timestamp(Millisecond)>\n[\n  1997-05-19T00:00:00.005,\n  2018-12-25T00:00:00.001,\n  null,\n]",
+            format!("{:?}", a)
+        );
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Date64(DateUnit::Millisecond)).unwrap();
+        let c = b.as_any().downcast_ref::<Date64Array>().unwrap();
+        assert_eq!(864000000005, c.value(0));
+        assert_eq!(1545696000001, c.value(1));
+        assert!(c.is_null(2));
+        assert_eq!(
+            "PrimitiveArray<Date64(Millisecond)>\n[\n  1997-05-19,\n  2018-12-25,\n  null,\n]",
+            format!("{:?}", c)
+        );
+    }
+
+    #[test]
+    fn test_cast_timestamp_to_i64() {
+        let a = TimestampMillisecondArray::from(vec![
+            Some(864000000005),
+            Some(1545696000001),
+            None,
+        ]);
+        assert_eq!(
+            "PrimitiveArray<Timestamp(Millisecond)>\n[\n  1997-05-19T00:00:00.005,\n  2018-12-25T00:00:00.001,\n  null,\n]",
+            format!("{:?}", a)
+        );
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Int64).unwrap();
+        let c = b.as_any().downcast_ref::<Int64Array>().unwrap();
+        assert_eq!(864000000005, c.value(0));
+        assert_eq!(1545696000001, c.value(1));
+        assert!(c.is_null(2));
+        assert_eq!(
+            "PrimitiveArray<Int64>\n[\n  864000000005,\n  1545696000001,\n  null,\n]",
+            format!("{:?}", c)
+        );
+    }
+
+    #[test]
+    fn test_cast_between_timestamps() {
+        let a = TimestampMillisecondArray::from(vec![
+            Some(864000003005),
+            Some(1545696002001),
+            None,
+        ]);
+        assert_eq!(
+            "PrimitiveArray<Timestamp(Millisecond)>\n[\n  1997-05-19T00:00:03.005,\n  2018-12-25T00:00:02.001,\n  null,\n]",
+            format!("{:?}", a)
+        );
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Timestamp(TimeUnit::Second)).unwrap();
+        let c = b.as_any().downcast_ref::<TimestampSecondArray>().unwrap();
+        assert_eq!(864000003, c.value(0));
+        assert_eq!(1545696002, c.value(1));
+        assert!(c.is_null(2));
+        assert_eq!(
+            "PrimitiveArray<Timestamp(Second)>\n[\n  1997-05-19T00:00:03,\n  2018-12-25T00:00:02,\n  null,\n]",
+            format!("{:?}", c)
+        );
     }
 
     #[test]
