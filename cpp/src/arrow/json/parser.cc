@@ -54,11 +54,11 @@ using internal::checked_cast;
 using util::string_view;
 
 template <typename... T>
-Status ParseError(T&&... t) {
+static Status ParseError(T&&... t) {
   return Status::Invalid("JSON parse error: ", std::forward<T>(t)...);
 }
 
-Status KindChangeError(Kind::type from, Kind::type to) {
+static Status KindChangeError(Kind::type from, Kind::type to) {
   return ParseError("A column changed from ", Kind::Name(from), " to ", Kind::Name(to));
 }
 
@@ -81,7 +81,7 @@ const std::shared_ptr<const KeyValueMetadata>& Kind::Tag(Kind::type kind) {
   return tags[kind];
 }
 
-internal::Trie MakeFromTagTrie() {
+static internal::Trie MakeFromTagTrie() {
   internal::TrieBuilder builder;
   for (auto kind : {Kind::kNull, Kind::kBoolean, Kind::kNumber, Kind::kString,
                     Kind::kArray, Kind::kObject}) {

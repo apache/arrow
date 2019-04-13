@@ -37,7 +37,7 @@ namespace json {
 using util::string_view;
 
 template <typename Lines>
-std::shared_ptr<Buffer> join(Lines&& lines, std::string delimiter) {
+static std::shared_ptr<Buffer> join(Lines&& lines, std::string delimiter) {
   std::shared_ptr<Buffer> joined;
   BufferVector line_buffers;
   auto delimiter_buffer = std::make_shared<Buffer>(delimiter);
@@ -49,17 +49,19 @@ std::shared_ptr<Buffer> join(Lines&& lines, std::string delimiter) {
   return joined;
 }
 
-string_view View(const std::shared_ptr<Buffer>& buffer) {
+static string_view View(const std::shared_ptr<Buffer>& buffer) {
   return string_view(reinterpret_cast<const char*>(buffer->data()), buffer->size());
 }
 
-bool WhitespaceOnly(string_view s) {
+static bool WhitespaceOnly(string_view s) {
   return s.find_first_not_of(" \t\r\n") == string_view::npos;
 }
 
-bool WhitespaceOnly(const std::shared_ptr<Buffer>& b) { return WhitespaceOnly(View(b)); }
+static bool WhitespaceOnly(const std::shared_ptr<Buffer>& b) {
+  return WhitespaceOnly(View(b));
+}
 
-std::size_t ConsumeWholeObject(std::shared_ptr<Buffer>* buf) {
+static std::size_t ConsumeWholeObject(std::shared_ptr<Buffer>* buf) {
   auto str = View(*buf);
   auto fail = [buf] {
     *buf = nullptr;
@@ -144,7 +146,7 @@ INSTANTIATE_TEST_CASE_P(NoNewlineChunkerTest, BaseChunkerTest, ::testing::Values
 INSTANTIATE_TEST_CASE_P(ChunkerTest, BaseChunkerTest, ::testing::Values(true));
 
 constexpr auto object_count = 3;
-const std::vector<std::string>& lines() {
+static const std::vector<std::string>& lines() {
   static const std::vector<std::string> l = {R"({"0":"ab","1":"c","2":""})",
                                              R"({"0":"def","1":"","2":"gh"})",
                                              R"({"0":"","1":"ij","2":"kl"})"};

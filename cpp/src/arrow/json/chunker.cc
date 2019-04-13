@@ -43,15 +43,15 @@ namespace json {
 using internal::make_unique;
 using util::string_view;
 
-string_view View(const std::shared_ptr<Buffer>& buffer) {
+static string_view View(const std::shared_ptr<Buffer>& buffer) {
   return string_view(reinterpret_cast<const char*>(buffer->data()), buffer->size());
 }
 
-Status StraddlingTooLarge() {
+static Status StraddlingTooLarge() {
   return Status::Invalid("straddling object straddles two block boundaries");
 }
 
-size_t ConsumeWhitespace(std::shared_ptr<Buffer>* buf) {
+static size_t ConsumeWhitespace(std::shared_ptr<Buffer>* buf) {
 #if defined(ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD)
   auto data = reinterpret_cast<const char*>((*buf)->data());
   auto nonws_begin = rapidjson::SkipWhitespace_SIMD(data, data + (*buf)->size());
@@ -154,7 +154,7 @@ class MultiStringStream {
 };
 
 template <typename Stream>
-size_t ConsumeWholeObject(Stream&& stream) {
+static size_t ConsumeWholeObject(Stream&& stream) {
   static constexpr unsigned parse_flags = rapidjson::kParseIterativeFlag |
                                           rapidjson::kParseStopWhenDoneFlag |
                                           rapidjson::kParseNumbersAsStringsFlag;
