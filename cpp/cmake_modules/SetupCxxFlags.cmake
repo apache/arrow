@@ -138,8 +138,8 @@ endmacro()
 if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   # Pre-checkin builds
   if("${COMPILER_FAMILY}" STREQUAL "msvc")
-    string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
+    # https://docs.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warnings-by-compiler-version
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3 /wd4365 /wd4267 /wd4838")
   elseif("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
 -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
