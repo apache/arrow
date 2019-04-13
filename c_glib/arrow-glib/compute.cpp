@@ -902,6 +902,43 @@ garrow_double_array_sum(GArrowDoubleArray *array,
                                                      0);
 }
 
+/**
+ * garrow_array_take:
+ * @array: A #GArrowArray.
+ * @indices: The indices of values to take.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowArray taken from
+ *   an array of values at indices in input array or %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowArray *
+garrow_array_take(GArrowArray *array,
+                  GArrowArray *indices,
+                  GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_array_raw = arrow_array.get();
+  auto arrow_indices = garrow_array_get_raw(indices);
+  auto arrow_indices_raw = arrow_indices.get();
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::Array> taken_array;
+  arrow::compute::TakeOptions options;
+  auto status = arrow::compute::Take(&context,
+                                     *arrow_array_raw,
+                                     *arrow_indices_raw,
+                                     options,
+                                     &taken_array);
+
+  if (garrow_error_check(error, status, "[array][take]")) {
+    return garrow_array_new_raw(&taken_array);
+  } else {
+    return NULL;
+  }
+}
+
 
 G_END_DECLS
 

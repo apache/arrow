@@ -131,5 +131,9 @@ gdouble garrow_float_array_sum(GArrowFloatArray *array,
 GARROW_AVAILABLE_IN_0_13
 gdouble garrow_double_array_sum(GArrowDoubleArray *array,
                                 GError **error);
+GARROW_AVAILABLE_IN_0_14
+GArrowArray *garrow_array_take(GArrowArray *array,
+                               GArrowArray *indices,
+                               GError **error);
 
 G_END_DECLS
