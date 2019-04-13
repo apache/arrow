@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_JSON_CHUNKER_H
-#define ARROW_JSON_CHUNKER_H
+#pragma once
 
 #include <memory>
 
@@ -68,5 +67,3 @@ class ARROW_EXPORT Chunker {
 
 }  // namespace json
 }  // namespace arrow
-
-#endif  // ARROW_JSON_CHUNKER_H

@@ -18,6 +18,8 @@
 #include "arrow/json/reader.h"
 
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/builder.h"

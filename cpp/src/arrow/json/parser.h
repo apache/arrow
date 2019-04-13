@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_JSON_PARSER_H
-#define ARROW_JSON_PARSER_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -90,5 +89,3 @@ class ARROW_EXPORT BlockParser {
 
 }  // namespace json
 }  // namespace arrow
-
-#endif  // ARROW_JSON_PARSER_H

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_JSON_READER_H
-#define ARROW_JSON_READER_H
+#pragma once
 
 #include <memory>
 
@@ -59,5 +58,3 @@ Status Convert(const std::shared_ptr<DataType>& out_type, std::shared_ptr<Array>
 
 }  // namespace json
 }  // namespace arrow
-
-#endif  // ARROW_JSON_READER_H
