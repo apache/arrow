@@ -26,10 +26,10 @@ use arrow::builder::{BinaryBuilder, PrimitiveBuilder, TimestampNanosecondBuilder
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
+use parquet::arrow::schema::parquet_to_arrow_schema;
 use parquet::column::reader::*;
 use parquet::data_type::{ByteArray, Int96};
 use parquet::file::reader::*;
-use parquet::reader::schema::parquet_to_arrow_schema;
 
 use crate::datasource::{RecordBatchIterator, ScanResult, TableProvider};
 use crate::error::{ExecutionError, Result};
