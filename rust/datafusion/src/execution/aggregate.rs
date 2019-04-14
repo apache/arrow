@@ -1194,8 +1194,8 @@ mod tests {
     use super::*;
     use crate::datasource::CsvBatchIterator;
     use crate::execution::context::ExecutionContext;
-    use crate::execution::expression;
     use crate::execution::datasource::DataSourceRelation;
+    use crate::execution::expression;
     use crate::logicalplan::Expr;
     use arrow::datatypes::{DataType, Field, Schema};
     use std::env;
