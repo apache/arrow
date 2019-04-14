@@ -424,10 +424,10 @@ impl<T: DataType> ColumnWriterImpl<T> {
         match self.dict_encoder {
             Some(ref encoder) => {
                 encoder.estimated_data_encoded_size() >= self.props.data_pagesize_limit()
-            },
+            }
             None => {
-                self.encoder.estimated_data_encoded_size() >=
-                    self.props.data_pagesize_limit()
+                self.encoder.estimated_data_encoded_size()
+                    >= self.props.data_pagesize_limit()
             }
         }
     }
@@ -1394,10 +1394,12 @@ mod tests {
         let file = get_temp_file("test_column_writer_add_data_pages_with_dict", &[]);
         let sink = FileSink::new(&file);
         let page_writer = Box::new(SerializedPageWriter::new(sink));
-        let props = Rc::new(WriterProperties::builder()
-            .set_data_pagesize_limit(15) // actually each page will have size 15-18 bytes
-            .set_write_batch_size(3) // write 3 values at a time
-            .build());
+        let props = Rc::new(
+            WriterProperties::builder()
+                .set_data_pagesize_limit(15) // actually each page will have size 15-18 bytes
+                .set_write_batch_size(3) // write 3 values at a time
+                .build(),
+        );
         let data = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         let mut writer = get_test_column_writer::<Int32Type>(page_writer, 0, 0, props);
         writer.write_batch(data, None, None).unwrap();
@@ -1410,8 +1412,9 @@ mod tests {
                 source,
                 data.len() as i64,
                 Compression::UNCOMPRESSED,
-                Int32Type::get_physical_type()
-            ).unwrap()
+                Int32Type::get_physical_type(),
+            )
+            .unwrap(),
         );
         let mut res = Vec::new();
         while let Some(page) = page_reader.get_next_page().unwrap() {
