@@ -88,6 +88,12 @@ fn cast_timestamp_ms_to_timestamp_ns(size: usize) {
     );
 }
 
+fn cast_timestamp_ms_to_i64(size: usize) {
+    let arr_a = Arc::new(TimestampMillisecondArray::from(vec![random::<i64>(); size]))
+        as ArrayRef;
+    criterion::black_box(cast(&arr_a, &DataType::Int64).unwrap());
+}
+
 fn add_benchmark(c: &mut Criterion) {
     c.bench_function("cast int32 to int32 512", |b| {
         b.iter(|| cast_int32_to_int32(512))
@@ -118,6 +124,9 @@ fn add_benchmark(c: &mut Criterion) {
     });
     c.bench_function("cast timestamp_ms to timestamp_ns 512", |b| {
         b.iter(|| cast_timestamp_ms_to_timestamp_ns(512))
+    });
+    c.bench_function("cast timestamp_ms to i64 512", |b| {
+        b.iter(|| cast_timestamp_ms_to_i64(512))
     });
 }
 
