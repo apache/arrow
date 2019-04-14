@@ -234,10 +234,7 @@ mod tests {
         let e = add(&a, &b)
             .err()
             .expect("should have failed due to different lengths");
-        assert_eq!(
-            "ComputeError(\"Cannot perform math operation on arrays of different length\")",
-            format!("{:?}", e)
-        );
+        assert_eq!("ComputeError(\"Cannot perform math operation on arrays of different length\")", format!("{:?}", e));
     }
 
     #[test]

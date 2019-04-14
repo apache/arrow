@@ -15,15 +15,36 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Query optimizer traits
+//! Data source relation
 
+use std::sync::{Arc, Mutex};
+
+use arrow::datatypes::Schema;
+use arrow::record_batch::RecordBatch;
+
+use crate::datasource::RecordBatchIterator;
 use crate::error::Result;
-use crate::logicalplan::LogicalPlan;
-use std::sync::Arc;
+use crate::execution::relation::Relation;
 
-/// An optimizer rules performs a transformation on a logical plan to produce an optimized
-/// logical plan.
-pub trait OptimizerRule {
-    /// Perform optimizations on the plan
-    fn optimize(&mut self, plan: &LogicalPlan) -> Result<Arc<LogicalPlan>>;
+/// Implementation of a relation that represents a DataFusion data source
+pub(super) struct DataSourceRelation {
+    schema: Arc<Schema>,
+    ds: Arc<Mutex<RecordBatchIterator>>,
+}
+
+impl DataSourceRelation {
+    pub fn new(ds: Arc<Mutex<RecordBatchIterator>>) -> Self {
+        let schema = ds.lock().unwrap().schema().clone();
+        Self { ds, schema }
+    }
+}
+
+impl Relation for DataSourceRelation {
+    fn next(&mut self) -> Result<Option<RecordBatch>> {
+        self.ds.lock().unwrap().next()
+    }
+
+    fn schema(&self) -> &Arc<Schema> {
+        &self.schema
+    }
 }

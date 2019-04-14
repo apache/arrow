@@ -62,10 +62,7 @@ fn main() {
     if args.len() == 3 {
         match args[2].parse() {
             Ok(b) => verbose = b,
-            Err(e) => panic!(
-                "Error when reading value for [verbose] (expected either 'true' or 'false'): {}",
-                e
-            ),
+            Err(e) => panic!("Error when reading value for [verbose] (expected either 'true' or 'false'): {}", e),
         }
     }
     let file = match File::open(&path) {

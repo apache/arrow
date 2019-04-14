@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! ExecutionContext contains methods for registering data sources and executing SQL queries
+//! ExecutionContext contains methods for registering data sources and executing SQL
+//! queries
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -33,7 +34,8 @@ use crate::execution::expression::*;
 use crate::execution::filter::FilterRelation;
 use crate::execution::limit::LimitRelation;
 use crate::execution::projection::ProjectRelation;
-use crate::execution::relation::{DataSourceRelation, Relation};
+use crate::execution::datasource::DataSourceRelation;
+use crate::execution::relation::Relation;
 use crate::execution::table_impl::TableImpl;
 use crate::logicalplan::*;
 use crate::optimizer::optimizer::OptimizerRule;
@@ -139,8 +141,8 @@ impl ExecutionContext {
         Ok(plan)
     }
 
-    /// Execute a logical plan and produce a Relation (a schema-aware iterator over a series
-    /// of RecordBatch instances)
+    /// Execute a logical plan and produce a Relation (a schema-aware iterator over a
+    /// series of RecordBatch instances)
     pub fn execute(
         &mut self,
         plan: &LogicalPlan,

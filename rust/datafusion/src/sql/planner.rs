@@ -216,52 +216,27 @@ impl SqlToRel {
     /// Generate a relational expression from a SQL expression
     pub fn sql_to_rex(&self, sql: &ASTNode, schema: &Schema) -> Result<Expr> {
         match sql {
-            &ASTNode::SQLValue(sqlparser::sqlast::Value::Long(n)) => {
-                Ok(Expr::Literal(ScalarValue::Int64(n)))
-            }
-            &ASTNode::SQLValue(sqlparser::sqlast::Value::Double(n)) => {
-                Ok(Expr::Literal(ScalarValue::Float64(n)))
-            }
-            &ASTNode::SQLValue(sqlparser::sqlast::Value::SingleQuotedString(ref s)) => {
-                Ok(Expr::Literal(ScalarValue::Utf8(Arc::new(s.clone()))))
-            }
+            &ASTNode::SQLValue(sqlparser::sqlast::Value::Long(n)) => Ok(Expr::Literal(ScalarValue::Int64(n))),
+            &ASTNode::SQLValue(sqlparser::sqlast::Value::Double(n)) => Ok(Expr::Literal(ScalarValue::Float64(n))),
+            &ASTNode::SQLValue(sqlparser::sqlast::Value::SingleQuotedString(ref s)) => Ok(Expr::Literal(ScalarValue::Utf8(Arc::new(s.clone())))),
 
-            &ASTNode::SQLIdentifier(ref id) => {
-                match schema.fields().iter().position(|c| c.name().eq(id)) {
-                    Some(index) => Ok(Expr::Column(index)),
-                    None => Err(ExecutionError::ExecutionError(format!(
-                        "Invalid identifier '{}' for schema {}",
-                        id,
-                        schema.to_string()
-                    ))),
-                }
-            }
+            &ASTNode::SQLIdentifier(ref id) => match schema.fields().iter().position(|c| c.name().eq(id)) {
+                Some(index) => Ok(Expr::Column(index)),
+                None => Err(ExecutionError::ExecutionError(format!("Invalid identifier '{}' for schema {}", id, schema.to_string()))),
+            },
 
-            &ASTNode::SQLWildcard => {
-                Err(ExecutionError::NotImplemented("SQL wildcard operator is not supported in projection - please use explicit column names".to_string()))
-            }
+            &ASTNode::SQLWildcard => Err(ExecutionError::NotImplemented("SQL wildcard operator is not supported in projection - please use explicit column names".to_string())),
 
-            &ASTNode::SQLCast {
-                ref expr,
-                ref data_type,
-            } => Ok(Expr::Cast {
+            &ASTNode::SQLCast { ref expr, ref data_type } => Ok(Expr::Cast {
                 expr: Arc::new(self.sql_to_rex(&expr, schema)?),
                 data_type: convert_data_type(data_type)?,
             }),
 
-            &ASTNode::SQLIsNull(ref expr) => {
-                Ok(Expr::IsNull(Arc::new(self.sql_to_rex(expr, schema)?)))
-            }
+            &ASTNode::SQLIsNull(ref expr) => Ok(Expr::IsNull(Arc::new(self.sql_to_rex(expr, schema)?))),
 
-            &ASTNode::SQLIsNotNull(ref expr) => {
-                Ok(Expr::IsNotNull(Arc::new(self.sql_to_rex(expr, schema)?)))
-            }
+            &ASTNode::SQLIsNotNull(ref expr) => Ok(Expr::IsNotNull(Arc::new(self.sql_to_rex(expr, schema)?))),
 
-            &ASTNode::SQLBinaryExpr {
-                ref left,
-                ref op,
-                ref right,
-            } => {
+            &ASTNode::SQLBinaryExpr { ref left, ref op, ref right } => {
                 let operator = match op {
                     &SQLOperator::Gt => Operator::Gt,
                     &SQLOperator::GtEq => Operator::GtEq,
@@ -296,20 +271,13 @@ impl SqlToRel {
                 //TODO: fix this hack
                 match id.to_lowercase().as_ref() {
                     "min" | "max" | "sum" | "avg" => {
-                        let rex_args = args
-                            .iter()
-                            .map(|a| self.sql_to_rex(a, schema))
-                            .collect::<Result<Vec<Expr>>>()?;
+                        let rex_args = args.iter().map(|a| self.sql_to_rex(a, schema)).collect::<Result<Vec<Expr>>>()?;
 
                         // return type is same as the argument type for these aggregate
                         // functions
                         let return_type = rex_args[0].get_type(schema).clone();
 
-                        Ok(Expr::AggregateFunction {
-                            name: id.clone(),
-                            args: rex_args,
-                            return_type,
-                        })
+                        Ok(Expr::AggregateFunction { name: id.clone(), args: rex_args, return_type })
                     }
                     "count" => {
                         let rex_args = args
@@ -325,45 +293,25 @@ impl SqlToRel {
                             })
                             .collect::<Result<Vec<Expr>>>()?;
 
-                        Ok(Expr::AggregateFunction {
-                            name: id.clone(),
-                            args: rex_args,
-                            return_type: DataType::UInt64,
-                        })
+                        Ok(Expr::AggregateFunction { name: id.clone(), args: rex_args, return_type: DataType::UInt64 })
                     }
                     _ => match self.schema_provider.get_function_meta(id) {
                         Some(fm) => {
-                            let rex_args = args
-                                .iter()
-                                .map(|a| self.sql_to_rex(a, schema))
-                                .collect::<Result<Vec<Expr>>>()?;
+                            let rex_args = args.iter().map(|a| self.sql_to_rex(a, schema)).collect::<Result<Vec<Expr>>>()?;
 
                             let mut safe_args: Vec<Expr> = vec![];
                             for i in 0..rex_args.len() {
-                                safe_args.push(
-                                    rex_args[i]
-                                        .cast_to(fm.args()[i].data_type(), schema)?,
-                                );
+                                safe_args.push(rex_args[i].cast_to(fm.args()[i].data_type(), schema)?);
                             }
 
-                            Ok(Expr::ScalarFunction {
-                                name: id.clone(),
-                                args: safe_args,
-                                return_type: fm.return_type().clone(),
-                            })
+                            Ok(Expr::ScalarFunction { name: id.clone(), args: safe_args, return_type: fm.return_type().clone() })
                         }
-                        _ => Err(ExecutionError::General(format!(
-                            "Invalid function '{}'",
-                            id
-                        ))),
+                        _ => Err(ExecutionError::General(format!("Invalid function '{}'", id))),
                     },
                 }
             }
 
-            _ => Err(ExecutionError::General(format!(
-                "Unsupported ast node {:?} in sqltorel",
-                sql
-            ))),
+            _ => Err(ExecutionError::General(format!("Unsupported ast node {:?} in sqltorel", sql))),
         }
     }
 }
@@ -424,10 +372,9 @@ mod tests {
     fn select_compound_selection() {
         let sql = "SELECT id, first_name, last_name \
                    FROM person WHERE state = 'CO' AND age >= 21 AND age <= 65";
-        let expected =
-            "Projection: #0, #1, #2\
-            \n  Selection: #4 Eq Utf8(\"CO\") And #3 GtEq Int64(21) And #3 LtEq Int64(65)\
-            \n    TableScan: person projection=None";
+        let expected = "Projection: #0, #1, #2\
+                        \n  Selection: #4 Eq Utf8(\"CO\") And #3 GtEq Int64(21) And #3 LtEq Int64(65)\
+                        \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
 

@@ -16,15 +16,14 @@
 // under the License.
 
 //! A relation is a representation of a set of tuples. A database table is a
-//! type of relation. During query execution, each operation on a relation (such as projection,
-//! selection, aggregation) results in a new relation.
+//! type of relation. During query execution, each operation on a relation (such as
+//! projection, selection, aggregation) results in a new relation.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::RecordBatchIterator;
 use crate::error::Result;
 
 /// trait for all relations (a relation is essentially just an iterator over batches
@@ -35,27 +34,4 @@ pub trait Relation {
 
     /// get the schema for this relation
     fn schema(&self) -> &Arc<Schema>;
-}
-
-/// Implementation of a relation that represents a DataFusion data source
-pub(super) struct DataSourceRelation {
-    schema: Arc<Schema>,
-    ds: Arc<Mutex<RecordBatchIterator>>,
-}
-
-impl DataSourceRelation {
-    pub fn new(ds: Arc<Mutex<RecordBatchIterator>>) -> Self {
-        let schema = ds.lock().unwrap().schema().clone();
-        Self { ds, schema }
-    }
-}
-
-impl Relation for DataSourceRelation {
-    fn next(&mut self) -> Result<Option<RecordBatch>> {
-        self.ds.lock().unwrap().next()
-    }
-
-    fn schema(&self) -> &Arc<Schema> {
-        &self.schema
-    }
 }

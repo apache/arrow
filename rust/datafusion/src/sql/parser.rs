@@ -148,9 +148,7 @@ impl DFParser {
                                         }
                                         Some(Token::RParen) => break,
                                         _ => {
-                                            return parser_err!(
-                                                "Expected ',' or ')' after column definition"
-                                            );
+                                            return parser_err!("Expected ',' or ')' after column definition");
                                         }
                                     }
                                 } else {

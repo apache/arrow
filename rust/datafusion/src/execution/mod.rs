@@ -19,6 +19,7 @@
 
 pub mod aggregate;
 pub mod context;
+pub mod datasource;
 pub mod expression;
 pub mod filter;
 pub mod limit;

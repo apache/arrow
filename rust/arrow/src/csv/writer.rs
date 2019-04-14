@@ -53,7 +53,8 @@
 //! let batch = RecordBatch::try_new(
 //!     Arc::new(schema),
 //!     vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
-//! ).unwrap();
+//! )
+//! .unwrap();
 //!
 //! let file = get_temp_file("out.csv", &[]);
 //!
@@ -304,8 +305,7 @@ mod tests {
         file.read_to_end(&mut buffer).unwrap();
 
         assert_eq!(
-            "c1,c2,c3,c3\nLorem ipsum dolor sit amet,123.564532,3,true\nconsectetur adipiscing elit,,2,false\nsed do eiusmod tempor,-556132.25,1,\nLorem ipsum dolor sit amet,123.564532,3,true\nconsectetur adipiscing elit,,2,false\nsed do eiusmod tempor,-556132.25,1,\n"
-            .to_string(),
+            "c1,c2,c3,c3\nLorem ipsum dolor sit amet,123.564532,3,true\nconsectetur adipiscing elit,,2,false\nsed do eiusmod tempor,-556132.25,1,\nLorem ipsum dolor sit amet,123.564532,3,true\nconsectetur adipiscing elit,,2,false\nsed do eiusmod tempor,-556132.25,1,\n".to_string(),
             String::from_utf8(buffer).unwrap()
         );
     }
@@ -350,10 +350,6 @@ mod tests {
         let mut buffer: Vec<u8> = vec![];
         file.read_to_end(&mut buffer).unwrap();
 
-        assert_eq!(
-            "Lorem ipsum dolor sit amet|123.564532|3|true\nconsectetur adipiscing elit||2|false\nsed do eiusmod tempor|-556132.25|1|\n"
-            .to_string(),
-            String::from_utf8(buffer).unwrap()
-        );
+        assert_eq!("Lorem ipsum dolor sit amet|123.564532|3|true\nconsectetur adipiscing elit||2|false\nsed do eiusmod tempor|-556132.25|1|\n".to_string(), String::from_utf8(buffer).unwrap());
     }
 }

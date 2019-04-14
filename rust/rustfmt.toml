@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-max_width = 90
+max_width = 300
 wrap_comments = true
 format_doc_comments = true
-comment_width = 90
+comment_width = 300

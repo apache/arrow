@@ -271,9 +271,7 @@ impl<'a> PrimitiveTypeBuilder<'a> {
                     | PhysicalType::BYTE_ARRAY
                     | PhysicalType::FIXED_LEN_BYTE_ARRAY => (),
                     _ => {
-                        return Err(general_err!(
-                            "DECIMAL can only annotate INT32, INT64, BYTE_ARRAY and FIXED"
-                        ));
+                        return Err(general_err!("DECIMAL can only annotate INT32, INT64, BYTE_ARRAY and FIXED"));
                     }
                 }
 
@@ -324,11 +322,11 @@ impl<'a> PrimitiveTypeBuilder<'a> {
 
                         if self.precision > max_precision {
                             return Err(general_err!(
-                "Cannot represent FIXED_LEN_BYTE_ARRAY as DECIMAL with length {} and \
-                 precision {}",
-                self.length,
-                self.precision
-              ));
+                                "Cannot represent FIXED_LEN_BYTE_ARRAY as DECIMAL with length {} and \
+                                 precision {}",
+                                self.length,
+                                self.precision
+                            ));
                         }
                     }
                     _ => (), // For BYTE_ARRAY precision is not limited
@@ -1132,10 +1130,7 @@ mod tests {
             .build();
         assert!(result.is_err());
         if let Err(e) = result {
-            assert_eq!(
-                e.description(),
-                "Invalid DECIMAL: scale (2) cannot be greater than or equal to precision (1)"
-            );
+            assert_eq!(e.description(), "Invalid DECIMAL: scale (2) cannot be greater than or equal to precision (1)");
         }
 
         result = Type::primitive_type_builder("foo", PhysicalType::INT32)
@@ -1175,10 +1170,7 @@ mod tests {
             .build();
         assert!(result.is_err());
         if let Err(e) = result {
-            assert_eq!(
-                e.description(),
-                "Cannot represent FIXED_LEN_BYTE_ARRAY as DECIMAL with length 5 and precision 12"
-            );
+            assert_eq!(e.description(), "Cannot represent FIXED_LEN_BYTE_ARRAY as DECIMAL with length 5 and precision 12");
         }
 
         result = Type::primitive_type_builder("foo", PhysicalType::INT64)

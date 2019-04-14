@@ -577,10 +577,7 @@ mod tests {
     #[test]
     fn test_statistics_display() {
         let stats = Statistics::int32(Some(1), Some(12), None, 12, true);
-        assert_eq!(
-            format!("{}", stats),
-            "{min: 1, max: 12, distinct_count: N/A, null_count: 12, min_max_deprecated: true}"
-        );
+        assert_eq!(format!("{}", stats), "{min: 1, max: 12, distinct_count: N/A, null_count: 12, min_max_deprecated: true}");
 
         let stats = Statistics::int64(None, None, None, 7, false);
         assert_eq!(
@@ -609,10 +606,7 @@ mod tests {
             7,
             false,
         );
-        assert_eq!(
-            format!("{}", stats),
-            "{min: [1], max: [2], distinct_count: 5, null_count: 7, min_max_deprecated: false}"
-        );
+        assert_eq!(format!("{}", stats), "{min: [1], max: [2], distinct_count: 5, null_count: 7, min_max_deprecated: false}");
     }
 
     #[test]

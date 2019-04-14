@@ -375,25 +375,15 @@ impl<R: Read> Reader<R> {
             .map(|field| {
                 match field.data_type().clone() {
                     DataType::Boolean => self.build_boolean_array(rows, field.name()),
-                    DataType::Float64 => {
-                        self.build_primitive_array::<Float64Type>(rows, field.name())
-                    }
-                    DataType::Float32 => {
-                        self.build_primitive_array::<Float32Type>(rows, field.name())
-                    }
+                    DataType::Float64 => self.build_primitive_array::<Float64Type>(rows, field.name()),
+                    DataType::Float32 => self.build_primitive_array::<Float32Type>(rows, field.name()),
                     DataType::Int64 => self.build_primitive_array::<Int64Type>(rows, field.name()),
                     DataType::Int32 => self.build_primitive_array::<Int32Type>(rows, field.name()),
                     DataType::Int16 => self.build_primitive_array::<Int16Type>(rows, field.name()),
                     DataType::Int8 => self.build_primitive_array::<Int8Type>(rows, field.name()),
-                    DataType::UInt64 => {
-                        self.build_primitive_array::<UInt64Type>(rows, field.name())
-                    }
-                    DataType::UInt32 => {
-                        self.build_primitive_array::<UInt32Type>(rows, field.name())
-                    }
-                    DataType::UInt16 => {
-                        self.build_primitive_array::<UInt16Type>(rows, field.name())
-                    }
+                    DataType::UInt64 => self.build_primitive_array::<UInt64Type>(rows, field.name()),
+                    DataType::UInt32 => self.build_primitive_array::<UInt32Type>(rows, field.name()),
+                    DataType::UInt16 => self.build_primitive_array::<UInt16Type>(rows, field.name()),
                     DataType::UInt8 => self.build_primitive_array::<UInt8Type>(rows, field.name()),
                     DataType::Utf8 => {
                         let mut builder = BinaryBuilder::new(rows.len());
@@ -433,24 +423,26 @@ impl<R: Read> Reader<R> {
                                         let vals: Vec<Option<String>> = if let Value::String(v) = value {
                                             vec![Some(v.to_string())]
                                         } else if let Value::Array(n) = value {
-                                            n.iter().map(|v: &Value| {
-                                                if v.is_string() {
-                                                    Some(v.as_str().unwrap().to_string())
-                                                } else if v.is_array() || v.is_object() {
-                                                    // implicitly drop nested values
-                                                    // TODO support deep-nesting
-                                                    None
-                                                } else {
-                                                    Some(v.to_string())
-                                                }
-                                            }).collect()
+                                            n.iter()
+                                                .map(|v: &Value| {
+                                                    if v.is_string() {
+                                                        Some(v.as_str().unwrap().to_string())
+                                                    } else if v.is_array() || v.is_object() {
+                                                        // implicitly drop nested values
+                                                        // TODO support deep-nesting
+                                                        None
+                                                    } else {
+                                                        Some(v.to_string())
+                                                    }
+                                                })
+                                                .collect()
                                         } else if let Value::Null = value {
                                             vec![None]
                                         } else {
                                             if !value.is_object() {
                                                 vec![Some(value.to_string())]
                                             } else {
-                                                return Err(ArrowError::JsonError("1Only scalars are currently supported in JSON arrays".to_string()))
+                                                return Err(ArrowError::JsonError("1Only scalars are currently supported in JSON arrays".to_string()));
                                             }
                                         };
                                         for i in 0..vals.len() {

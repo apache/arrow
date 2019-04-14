@@ -481,11 +481,7 @@ impl<T: Read> PageReader for SerializedPageReader<T> {
                     let decompressed_size = decompressor
                         .decompress(&buffer[offset..], &mut decompressed_buffer)?;
                     if decompressed_size != uncompressed_len {
-                        return Err(general_err!(
-                            "Actual decompressed size doesn't match the expected one ({} vs {})",
-                            decompressed_size,
-                            uncompressed_len
-                        ));
+                        return Err(general_err!("Actual decompressed size doesn't match the expected one ({} vs {})", decompressed_size, uncompressed_len));
                     }
                     if offset == 0 {
                         buffer = decompressed_buffer;
@@ -831,10 +827,7 @@ mod tests {
         // Test contents in file metadata
         let file_metadata = metadata.file_metadata();
         assert!(file_metadata.created_by().is_some());
-        assert_eq!(
-            file_metadata.created_by().as_ref().unwrap(),
-            "impala version 1.3.0-INTERNAL (build 8a48ddb1eff84592b3fc06bc6f51ec120e1fffc9)"
-        );
+        assert_eq!(file_metadata.created_by().as_ref().unwrap(), "impala version 1.3.0-INTERNAL (build 8a48ddb1eff84592b3fc06bc6f51ec120e1fffc9)");
         assert_eq!(file_metadata.num_rows(), 8);
         assert_eq!(file_metadata.version(), 1);
         assert_eq!(file_metadata.column_orders(), None);

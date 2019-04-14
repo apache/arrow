@@ -896,11 +896,7 @@ impl From<ListArray> for BinaryArray {
             "BinaryArray can only be created from list array of u8 values \
              (i.e. List<PrimitiveArray<u8>>)."
         );
-        assert_eq!(
-            v.data().child_data()[0].data_type(),
-            &DataType::UInt8,
-            "BinaryArray can only be created from List<u8> arrays, mismatched data types."
-        );
+        assert_eq!(v.data().child_data()[0].data_type(), &DataType::UInt8, "BinaryArray can only be created from List<u8> arrays, mismatched data types.");
 
         let mut builder = ArrayData::builder(DataType::Utf8)
             .len(v.len())
@@ -1216,10 +1212,7 @@ mod tests {
     fn test_timestamp_fmt_debug() {
         let arr: PrimitiveArray<TimestampMillisecondType> =
             vec![1546214400000, 1546214400000].into();
-        assert_eq!(
-            "PrimitiveArray<Timestamp(Millisecond)>\n[\n  2018-12-31T00:00:00,\n  2018-12-31T00:00:00,\n]",
-            format!("{:?}", arr)
-        );
+        assert_eq!("PrimitiveArray<Timestamp(Millisecond)>\n[\n  2018-12-31T00:00:00,\n  2018-12-31T00:00:00,\n]", format!("{:?}", arr));
     }
 
     #[test]

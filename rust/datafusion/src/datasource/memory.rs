@@ -16,8 +16,8 @@
 // under the License.
 
 //! In-memory data source for presenting a Vec<RecordBatch> as a data source that can be
-//! queried by DataFusion. This allows data to be pre-loaded into memory and then repeatedly
-//! queried without incurring additional file I/O overhead.
+//! queried by DataFusion. This allows data to be pre-loaded into memory and then
+//! repeatedly queried without incurring additional file I/O overhead.
 
 use std::sync::{Arc, Mutex};
 

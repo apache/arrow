@@ -64,11 +64,7 @@ impl RecordBatch {
                 ));
             }
             if columns[i].data_type() != schema.field(i).data_type() {
-                return Err(ArrowError::InvalidArgumentError(format!(
-                    "column types must match schema types, expected {:?} but found {:?} at column index {}", 
-                    schema.field(i).data_type(),
-                    columns[i].data_type(),
-                    i)));
+                return Err(ArrowError::InvalidArgumentError(format!("column types must match schema types, expected {:?} but found {:?} at column index {}", schema.field(i).data_type(), columns[i].data_type(), i)));
             }
         }
         Ok(RecordBatch { schema, columns })
