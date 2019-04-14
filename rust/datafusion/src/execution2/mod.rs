@@ -6,9 +6,15 @@ use arrow::record_batch::RecordBatch;
 
 use crate::error::Result;
 use std::thread::JoinHandle;
+use crate::execution::datasource::DataSourceRelation;
 use crate::execution::expression::CompiledExpr;
 
 pub type Partition = Arc<Mutex<RBIterator>>;
+
+
+
+
+
 
 pub trait RBIterator: Send {
     fn next(&mut self) -> Result<Option<RecordBatch>>;
@@ -98,6 +104,32 @@ mod test {
         };
 
         plan.execute().unwrap();
+
+    }
+
+    #[test]
+    fn thread_ds() {
+
+        use std::sync::mpsc::{Sender, Receiver};
+        use std::sync::mpsc;
+        use std::thread;
+
+        let (request_tx, request_rx): (Sender<i32>, Receiver<i32>) = mpsc::channel();
+        let (response_tx, response_rx, ): (Sender<i32>, Receiver<i32>) = mpsc::channel();
+
+        thread::spawn(move || {
+            loop {
+                let x = request_rx.recv().unwrap();
+                println!("{}", x);
+                response_tx.send(x * x).unwrap();
+            }
+        });
+
+        for i in 0..5 {
+            request_tx.send(i).unwrap();
+            let y = response_rx.recv().unwrap();
+            println!("{} = {}", i, y);
+        }
 
     }
 

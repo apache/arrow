@@ -27,7 +27,7 @@ use crate::error::Result;
 use crate::execution::relation::Relation;
 
 /// Implementation of a relation that represents a DataFusion data source
-pub(super) struct DataSourceRelation {
+pub struct DataSourceRelation {
     schema: Arc<Schema>,
     ds: Arc<Mutex<RecordBatchIterator>>,
 }
