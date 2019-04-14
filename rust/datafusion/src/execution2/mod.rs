@@ -50,16 +50,17 @@ impl ExecutionPlan for FilterExec {
             })
         }).collect();
 
+        let mut result = vec![];
         for t in threads {
             match t.join() {
                 Ok(x) => {
-
+                    result.push(x);
                 }
                 _ => panic!()
             }
         }
 
-        unimplemented!()
+        Ok(result)
     }
 }
 
