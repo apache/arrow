@@ -65,6 +65,22 @@ GArrowCountOptions *
 garrow_count_options_new(void);
 
 
+#define GARROW_TYPE_TAKE_OPTIONS (garrow_take_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowTakeOptions,
+                         garrow_take_options,
+                         GARROW,
+                         TAKE_OPTIONS,
+                         GObject)
+struct _GArrowTakeOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_14
+GArrowTakeOptions *
+garrow_take_options_new(void);
+
+
 GArrowArray *garrow_array_cast(GArrowArray *array,
                                GArrowDataType *target_data_type,
                                GArrowCastOptions *options,
@@ -131,5 +147,10 @@ gdouble garrow_float_array_sum(GArrowFloatArray *array,
 GARROW_AVAILABLE_IN_0_13
 gdouble garrow_double_array_sum(GArrowDoubleArray *array,
                                 GError **error);
+GARROW_AVAILABLE_IN_0_14
+GArrowArray *garrow_array_take(GArrowArray *array,
+                               GArrowArray *indices,
+                               GArrowTakeOptions *options,
+                               GError **error);
 
 G_END_DECLS
