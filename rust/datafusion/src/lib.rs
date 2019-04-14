@@ -29,6 +29,7 @@ extern crate sqlparser;
 pub mod datasource;
 pub mod error;
 pub mod execution;
+pub mod execution2;
 pub mod logicalplan;
 pub mod optimizer;
 pub mod sql;
