@@ -421,7 +421,15 @@ impl<T: DataType> ColumnWriterImpl<T> {
     /// Returns true if there is enough data for a data page, false otherwise.
     #[inline]
     fn should_add_data_page(&self) -> bool {
-        self.encoder.estimated_data_encoded_size() >= self.props.data_pagesize_limit()
+        match self.dict_encoder {
+            Some(ref encoder) => {
+                encoder.estimated_data_encoded_size() >= self.props.data_pagesize_limit()
+            }
+            None => {
+                self.encoder.estimated_data_encoded_size()
+                    >= self.props.data_pagesize_limit()
+            }
+        }
     }
 
     /// Performs dictionary fallback.
@@ -1376,6 +1384,51 @@ mod tests {
             ::std::i32::MAX,
             10,
             10,
+        );
+    }
+
+    #[test]
+    fn test_column_writer_add_data_pages_with_dict() {
+        // ARROW-5129: Test verifies that we add data page in case of dictionary encoding
+        // and no fallback occured so far.
+        let file = get_temp_file("test_column_writer_add_data_pages_with_dict", &[]);
+        let sink = FileSink::new(&file);
+        let page_writer = Box::new(SerializedPageWriter::new(sink));
+        let props = Rc::new(
+            WriterProperties::builder()
+                .set_data_pagesize_limit(15) // actually each page will have size 15-18 bytes
+                .set_write_batch_size(3) // write 3 values at a time
+                .build(),
+        );
+        let data = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        let mut writer = get_test_column_writer::<Int32Type>(page_writer, 0, 0, props);
+        writer.write_batch(data, None, None).unwrap();
+        let (bytes_written, _, _) = writer.close().unwrap();
+
+        // Read pages and check the sequence
+        let source = FileSource::new(&file, 0, bytes_written as usize);
+        let mut page_reader = Box::new(
+            SerializedPageReader::new(
+                source,
+                data.len() as i64,
+                Compression::UNCOMPRESSED,
+                Int32Type::get_physical_type(),
+            )
+            .unwrap(),
+        );
+        let mut res = Vec::new();
+        while let Some(page) = page_reader.get_next_page().unwrap() {
+            res.push((page.page_type(), page.num_values()));
+        }
+        assert_eq!(
+            res,
+            vec![
+                (PageType::DICTIONARY_PAGE, 10),
+                (PageType::DATA_PAGE, 3),
+                (PageType::DATA_PAGE, 3),
+                (PageType::DATA_PAGE, 3),
+                (PageType::DATA_PAGE, 1)
+            ]
         );
     }
 
