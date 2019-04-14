@@ -28,6 +28,12 @@ use arrow::array::*;
 use arrow::compute::cast;
 use arrow::datatypes::{DataType, DateUnit, TimeUnit};
 
+// this is the best possible scenario, use this as the baseline when reading the numbers
+fn cast_int32_to_int32(size: usize) {
+    let arr_a = Arc::new(Int32Array::from(vec![random::<i32>(); size])) as ArrayRef;
+    criterion::black_box(cast(&arr_a, &DataType::Int32).unwrap());
+}
+
 fn cast_int32_to_int64(size: usize) {
     let arr_a = Arc::new(Int32Array::from(vec![random::<i32>(); size])) as ArrayRef;
     criterion::black_box(cast(&arr_a, &DataType::Int64).unwrap());
@@ -83,6 +89,9 @@ fn cast_timestamp_ms_to_timestamp_ns(size: usize) {
 }
 
 fn add_benchmark(c: &mut Criterion) {
+    c.bench_function("cast int32 to int32 512", |b| {
+        b.iter(|| cast_int32_to_int32(512))
+    });
     c.bench_function("cast int64 to int32 512", |b| {
         b.iter(|| cast_int64_to_int32(512))
     });
