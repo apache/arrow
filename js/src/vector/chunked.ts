@@ -71,6 +71,7 @@ export class Chunked<T extends DataType = any>
     public get length() { return this._length; }
     public get chunks() { return this._chunks; }
     public get typeId(): T['TType'] { return this._type.typeId; }
+    public get VectorName() { return `Chunked<${this._type}>`; }
     public get data(): Data<T> {
         return this._chunks[0] ? this._chunks[0].data : <any> null;
     }
