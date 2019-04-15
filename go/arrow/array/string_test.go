@@ -97,7 +97,7 @@ func TestStringArray(t *testing.T) {
 	}
 }
 
-func TestStringArray_Empty(t *testing.T) {
+func TestStringBuilder_Empty(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
