@@ -102,11 +102,11 @@ static inline EncryptionAlgorithm FromThrift(format::EncryptionAlgorithm encrypt
   EncryptionAlgorithm encryption_algorithm;
 
   if (encryption.__isset.AES_GCM_V1) {
-    encryption_algorithm.algorithm = Encryption::AES_GCM_V1;
+    encryption_algorithm.algorithm = ParquetCipher::AES_GCM_V1;
     encryption_algorithm.aad = FromThrift(encryption.AES_GCM_V1);
 
   } else {
-    encryption_algorithm.algorithm = Encryption::AES_GCM_CTR_V1;
+    encryption_algorithm.algorithm = ParquetCipher::AES_GCM_CTR_V1;
     encryption_algorithm.aad = FromThrift(encryption.AES_GCM_CTR_V1);
   }
   return encryption_algorithm;
@@ -180,7 +180,7 @@ static inline format::AesGcmCtrV1 ToAesGcmCtrV1Thrift(AadMetadata aad) {
 
 static inline format::EncryptionAlgorithm ToThrift(EncryptionAlgorithm encryption) {
   format::EncryptionAlgorithm encryption_algorithm;
-  if (encryption.algorithm == Encryption::AES_GCM_V1) {
+  if (encryption.algorithm == ParquetCipher::AES_GCM_V1) {
     encryption_algorithm.__isset.AES_GCM_V1 = true;
     encryption_algorithm.AES_GCM_V1 = ToAesGcmV1Thrift(encryption.aad);
   } else {
