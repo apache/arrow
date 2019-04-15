@@ -272,7 +272,7 @@ static uint32 murmur3_32_buf(const uint8* key, int32 len, int32 seed) {
   const uint32* blocks = reinterpret_cast<const uint32*>(key);
   int nblocks = len / 4;
   const uint8* tail = reinterpret_cast<const uint8*>(key + nblocks * 4);
-  for (uint64 i = 0; i < nblocks; i += 4) {
+  for (int i = 0; i < nblocks; i++) {
     uint64 lk1 = static_cast<uint64>(blocks[i]);
 
     // k1 *= c1;
