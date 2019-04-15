@@ -82,7 +82,6 @@ func TestFixedSizeBinaryBuilder_Empty(t *testing.T) {
 		[]byte("AZERTYU"),
 		[]byte("7654321"),
 	}
-	ab.AppendValues(want, nil)
 
 	fixedSizeValues := func(a *FixedSizeBinary) [][]byte {
 		vs := make([][]byte, a.Len())
@@ -92,20 +91,12 @@ func TestFixedSizeBinaryBuilder_Empty(t *testing.T) {
 		return vs
 	}
 
+	ab.AppendValues([][]byte{}, nil)
 	a := ab.NewFixedSizeBinaryArray()
-	assert.Equal(t, want, fixedSizeValues(a))
-	a.Release()
-
-	a = ab.NewFixedSizeBinaryArray()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewFixedSizeBinaryArray()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([][]byte{}, nil)
 	a = ab.NewFixedSizeBinaryArray()
 	assert.Zero(t, a.Len())
 	a.Release()

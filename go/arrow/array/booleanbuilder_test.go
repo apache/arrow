@@ -53,8 +53,6 @@ func TestBooleanBuilder_Empty(t *testing.T) {
 
 	want := tools.Bools(1, 1, 0, 1, 1, 0, 1, 0)
 
-	ab.AppendValues(want, nil)
-
 	boolValues := func(a *array.Boolean) []bool {
 		vs := make([]bool, a.Len())
 		for i := range vs {
@@ -63,12 +61,8 @@ func TestBooleanBuilder_Empty(t *testing.T) {
 		return vs
 	}
 
+	ab.AppendValues([]bool{}, nil)
 	a := ab.NewBooleanArray()
-	ab.Release()
-	assert.Equal(t, want, boolValues(a))
-	a.Release()
-
-	a = ab.NewBooleanArray()
 	assert.Zero(t, a.Len())
 	a.Release()
 
@@ -77,9 +71,9 @@ func TestBooleanBuilder_Empty(t *testing.T) {
 	assert.Zero(t, a.Len())
 	a.Release()
 
-	ab.AppendValues([]bool{}, nil)
+	ab.AppendValues(want, nil)
 	a = ab.NewBooleanArray()
-	assert.Zero(t, a.Len())
+	assert.Equal(t, want, boolValues(a))
 	a.Release()
 
 	ab.AppendValues([]bool{}, nil)

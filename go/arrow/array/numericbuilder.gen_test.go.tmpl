@@ -113,21 +113,13 @@ func Test{{.Name}}Builder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []{{or .QualifiedType .Type}}{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.New{{.Name}}Array()
-	assert.Equal(t, exp, a.{{.Name}}Values())
-	a.Release()
 
-	a = ab.New{{.Name}}Array()
+	ab.AppendValues([]{{or .QualifiedType .Type}}{}, nil)
+	a := ab.New{{.Name}}Array()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.New{{.Name}}Array()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]{{or .QualifiedType .Type}}{}, nil)
 	a = ab.New{{.Name}}Array()
 	assert.Zero(t, a.Len())
 	a.Release()

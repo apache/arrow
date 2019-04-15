@@ -106,8 +106,6 @@ func TestStringArray_Empty(t *testing.T) {
 	ab := array.NewStringBuilder(mem)
 	defer ab.Release()
 
-	ab.AppendValues(want, nil)
-
 	stringValues := func(a *array.String) []string {
 		vs := make([]string, a.Len())
 		for i := range vs {
@@ -116,20 +114,12 @@ func TestStringArray_Empty(t *testing.T) {
 		return vs
 	}
 
+	ab.AppendValues([]string{}, nil)
 	a := ab.NewStringArray()
-	assert.Equal(t, want, stringValues(a))
-	a.Release()
-
-	a = ab.NewStringArray()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewStringArray()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]string{}, nil)
 	a = ab.NewStringArray()
 	assert.Zero(t, a.Len())
 	a.Release()

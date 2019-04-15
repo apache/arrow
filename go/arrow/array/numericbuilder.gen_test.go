@@ -99,21 +99,13 @@ func TestInt64Builder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []int64{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewInt64Array()
-	assert.Equal(t, exp, a.Int64Values())
-	a.Release()
 
-	a = ab.NewInt64Array()
+	ab.AppendValues([]int64{}, nil)
+	a := ab.NewInt64Array()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewInt64Array()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]int64{}, nil)
 	a = ab.NewInt64Array()
 	assert.Zero(t, a.Len())
 	a.Release()
@@ -230,21 +222,13 @@ func TestUint64Builder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []uint64{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewUint64Array()
-	assert.Equal(t, exp, a.Uint64Values())
-	a.Release()
 
-	a = ab.NewUint64Array()
+	ab.AppendValues([]uint64{}, nil)
+	a := ab.NewUint64Array()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewUint64Array()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]uint64{}, nil)
 	a = ab.NewUint64Array()
 	assert.Zero(t, a.Len())
 	a.Release()
@@ -361,21 +345,13 @@ func TestFloat64Builder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []float64{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewFloat64Array()
-	assert.Equal(t, exp, a.Float64Values())
-	a.Release()
 
-	a = ab.NewFloat64Array()
+	ab.AppendValues([]float64{}, nil)
+	a := ab.NewFloat64Array()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewFloat64Array()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]float64{}, nil)
 	a = ab.NewFloat64Array()
 	assert.Zero(t, a.Len())
 	a.Release()
@@ -492,21 +468,13 @@ func TestInt32Builder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []int32{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewInt32Array()
-	assert.Equal(t, exp, a.Int32Values())
-	a.Release()
 
-	a = ab.NewInt32Array()
+	ab.AppendValues([]int32{}, nil)
+	a := ab.NewInt32Array()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewInt32Array()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]int32{}, nil)
 	a = ab.NewInt32Array()
 	assert.Zero(t, a.Len())
 	a.Release()
@@ -623,21 +591,13 @@ func TestUint32Builder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []uint32{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewUint32Array()
-	assert.Equal(t, exp, a.Uint32Values())
-	a.Release()
 
-	a = ab.NewUint32Array()
+	ab.AppendValues([]uint32{}, nil)
+	a := ab.NewUint32Array()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewUint32Array()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]uint32{}, nil)
 	a = ab.NewUint32Array()
 	assert.Zero(t, a.Len())
 	a.Release()
@@ -754,21 +714,13 @@ func TestFloat32Builder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []float32{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewFloat32Array()
-	assert.Equal(t, exp, a.Float32Values())
-	a.Release()
 
-	a = ab.NewFloat32Array()
+	ab.AppendValues([]float32{}, nil)
+	a := ab.NewFloat32Array()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewFloat32Array()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]float32{}, nil)
 	a = ab.NewFloat32Array()
 	assert.Zero(t, a.Len())
 	a.Release()
@@ -885,21 +837,13 @@ func TestInt16Builder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []int16{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewInt16Array()
-	assert.Equal(t, exp, a.Int16Values())
-	a.Release()
 
-	a = ab.NewInt16Array()
+	ab.AppendValues([]int16{}, nil)
+	a := ab.NewInt16Array()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewInt16Array()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]int16{}, nil)
 	a = ab.NewInt16Array()
 	assert.Zero(t, a.Len())
 	a.Release()
@@ -1016,21 +960,13 @@ func TestUint16Builder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []uint16{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewUint16Array()
-	assert.Equal(t, exp, a.Uint16Values())
-	a.Release()
 
-	a = ab.NewUint16Array()
+	ab.AppendValues([]uint16{}, nil)
+	a := ab.NewUint16Array()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewUint16Array()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]uint16{}, nil)
 	a = ab.NewUint16Array()
 	assert.Zero(t, a.Len())
 	a.Release()
@@ -1147,21 +1083,13 @@ func TestInt8Builder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []int8{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewInt8Array()
-	assert.Equal(t, exp, a.Int8Values())
-	a.Release()
 
-	a = ab.NewInt8Array()
+	ab.AppendValues([]int8{}, nil)
+	a := ab.NewInt8Array()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewInt8Array()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]int8{}, nil)
 	a = ab.NewInt8Array()
 	assert.Zero(t, a.Len())
 	a.Release()
@@ -1278,21 +1206,13 @@ func TestUint8Builder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []uint8{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewUint8Array()
-	assert.Equal(t, exp, a.Uint8Values())
-	a.Release()
 
-	a = ab.NewUint8Array()
+	ab.AppendValues([]uint8{}, nil)
+	a := ab.NewUint8Array()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewUint8Array()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]uint8{}, nil)
 	a = ab.NewUint8Array()
 	assert.Zero(t, a.Len())
 	a.Release()
@@ -1412,21 +1332,13 @@ func TestTimestampBuilder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []arrow.Timestamp{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewTimestampArray()
-	assert.Equal(t, exp, a.TimestampValues())
-	a.Release()
 
-	a = ab.NewTimestampArray()
+	ab.AppendValues([]arrow.Timestamp{}, nil)
+	a := ab.NewTimestampArray()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewTimestampArray()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]arrow.Timestamp{}, nil)
 	a = ab.NewTimestampArray()
 	assert.Zero(t, a.Len())
 	a.Release()
@@ -1547,21 +1459,13 @@ func TestTime32Builder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []arrow.Time32{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewTime32Array()
-	assert.Equal(t, exp, a.Time32Values())
-	a.Release()
 
-	a = ab.NewTime32Array()
+	ab.AppendValues([]arrow.Time32{}, nil)
+	a := ab.NewTime32Array()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewTime32Array()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]arrow.Time32{}, nil)
 	a = ab.NewTime32Array()
 	assert.Zero(t, a.Len())
 	a.Release()
@@ -1682,21 +1586,13 @@ func TestTime64Builder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []arrow.Time64{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewTime64Array()
-	assert.Equal(t, exp, a.Time64Values())
-	a.Release()
 
-	a = ab.NewTime64Array()
+	ab.AppendValues([]arrow.Time64{}, nil)
+	a := ab.NewTime64Array()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewTime64Array()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]arrow.Time64{}, nil)
 	a = ab.NewTime64Array()
 	assert.Zero(t, a.Len())
 	a.Release()
@@ -1814,21 +1710,13 @@ func TestDate32Builder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []arrow.Date32{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewDate32Array()
-	assert.Equal(t, exp, a.Date32Values())
-	a.Release()
 
-	a = ab.NewDate32Array()
+	ab.AppendValues([]arrow.Date32{}, nil)
+	a := ab.NewDate32Array()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewDate32Array()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]arrow.Date32{}, nil)
 	a = ab.NewDate32Array()
 	assert.Zero(t, a.Len())
 	a.Release()
@@ -1945,21 +1833,13 @@ func TestDate64Builder_Empty(t *testing.T) {
 	defer ab.Release()
 
 	exp := []arrow.Date64{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewDate64Array()
-	assert.Equal(t, exp, a.Date64Values())
-	a.Release()
 
-	a = ab.NewDate64Array()
+	ab.AppendValues([]arrow.Date64{}, nil)
+	a := ab.NewDate64Array()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.NewDate64Array()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]arrow.Date64{}, nil)
 	a = ab.NewDate64Array()
 	assert.Zero(t, a.Len())
 	a.Release()
