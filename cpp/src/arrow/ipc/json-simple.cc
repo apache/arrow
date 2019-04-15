@@ -164,17 +164,18 @@ ConvertNumber(const rj::Value& json_obj, typename T::c_type* out) {
                              TypeTraits<T>::type_singleton());
     }
   } else {
+    *out = static_cast<typename T::c_type>(0);
     return JSONTypeError("signed int", json_obj.GetType());
   }
 }
 
 // Convert single unsigned integer value
-template <typename T, typename CType = typename TypeTraits<T>::CType>
+template <typename T>
 enable_if_unsigned_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
-                                                    CType* out) {
+                                                    typename T::c_type* out) {
   if (json_obj.IsUint64()) {
     uint64_t v64 = json_obj.GetUint64();
-    *out = static_cast<CType>(v64);
+    *out = static_cast<typename T::c_type>(v64);
     if (*out == v64) {
       return Status::OK();
     } else {
@@ -182,17 +183,20 @@ enable_if_unsigned_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
                              TypeTraits<T>::type_singleton());
     }
   } else {
+    *out = static_cast<typename T::c_type>(0);
     return JSONTypeError("unsigned int", json_obj.GetType());
   }
 }
 
 // Convert single floating point value
-template <typename T, typename CType = typename TypeTraits<T>::CType>
-enable_if_floating_point<T, Status> ConvertNumber(const rj::Value& json_obj, CType* out) {
+template <typename T>
+enable_if_floating_point<T, Status> ConvertNumber(const rj::Value& json_obj,
+                                                  typename T::c_type* out) {
   if (json_obj.IsNumber()) {
-    *out = static_cast<CType>(json_obj.GetDouble());
+    *out = static_cast<typename T::c_type>(json_obj.GetDouble());
     return Status::OK();
   } else {
+    *out = static_cast<typename T::c_type>(0);
     return JSONTypeError("number", json_obj.GetType());
   }
 }
