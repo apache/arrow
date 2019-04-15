@@ -70,19 +70,25 @@ export {
 
 export {
     DataBuilder,
-    BoolBuilder,
-    IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder,
-    FloatBuilder, Float16Builder, Float32Builder, Float64Builder,
-    Utf8Builder,
     BinaryBuilder,
-    FixedSizeBinaryBuilder,
+    BoolBuilder,
     DateBuilder, DateDayBuilder, DateMillisecondBuilder,
-    TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder,
-    TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder,
     DecimalBuilder,
     DictionaryBuilder,
-    IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder
-} from './builders/index';
+    FixedSizeBinaryBuilder,
+    FixedSizeListBuilder,
+    FloatBuilder, Float16Builder, Float32Builder, Float64Builder,
+    IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder,
+    IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder,
+    ListBuilder,
+    MapBuilder,
+    NullBuilder,
+    StructBuilder,
+    TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder,
+    TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder,
+    UnionBuilder, DenseUnionBuilder, SparseUnionBuilder,
+    Utf8Builder,
+} from './builder/index';
 
 export { ByteStream, AsyncByteStream, AsyncByteQueue, ReadableSource, WritableSink } from './io/stream';
 export { RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, AsyncRecordBatchFileReader, AsyncRecordBatchStreamReader } from './ipc/reader';
