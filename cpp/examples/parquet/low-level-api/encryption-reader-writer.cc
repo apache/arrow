@@ -53,51 +53,58 @@ int main(int argc, char** argv) {
   std::vector<std::shared_ptr<parquet::FileDecryptionProperties>> file_decryption_properties;
 
   // uniform encryption
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_1;
-  file_encryption_builder_1.footer_key(FOOTER_ENCRYPTION_KEY);
-
-  std::shared_ptr<parquet::FileDecryptionProperties> decryption_properties_1 =
-          std::make_shared<parquet::FileDecryptionProperties>(FOOTER_ENCRYPTION_KEY);
+  parquet::FileEncryptionProperties::Builder file_encryption_builder_1(FOOTER_ENCRYPTION_KEY);
+  parquet::FileDecryptionProperties::Builder decryption_properties_builder_1;
+  decryption_properties_builder_1.withFooterKey(FOOTER_ENCRYPTION_KEY);
 
   // non-uniform with column keys
-  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>> encryption_cols;
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_0("ba_field", true);
-  encryption_col_builder_0.key(COLUMN_ENCRYPTION_KEY);
+  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
+           std::shared_ptr<parquet::ColumnEncryptionProperties>,
+           parquet::schema::ColumnPath::CmpColumnPath> encryption_cols;
+  std::shared_ptr<parquet::schema::ColumnPath> path_ptr = parquet::schema::ColumnPath::FromDotString("ba_field");
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_0(path_ptr);
+  encryption_col_builder_0.withKey(COLUMN_ENCRYPTION_KEY);
   auto encryption_col0 = encryption_col_builder_0.build();
-  encryption_cols[encryption_col0->path()] = encryption_col0;
+  encryption_cols[path_ptr] = encryption_col0;
 
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_2;
-  file_encryption_builder_2.footer_key(FOOTER_ENCRYPTION_KEY);
-  file_encryption_builder_2.column_properties(encryption_cols, true);
+  parquet::FileEncryptionProperties::Builder file_encryption_builder_2(FOOTER_ENCRYPTION_KEY);
+      std::map<std::shared_ptr<parquet::schema::ColumnPath>,
+             std::shared_ptr<parquet::ColumnDecryptionProperties>,
+             parquet::schema::ColumnPath::CmpColumnPath> decryption_cols;
+    parquet::ColumnDecryptionProperties::Builder decryption_col_builder2(path_ptr);
+    decryption_col_builder2.withKey(COLUMN_ENCRYPTION_KEY);
+    decryption_cols[path_ptr] = decryption_col_builder2.build();
 
-  std::shared_ptr<parquet::FileDecryptionProperties> decryption_properties_2 =
-      std::make_shared<parquet::FileDecryptionProperties>(FOOTER_ENCRYPTION_KEY);
-  decryption_properties_2->SetColumnKey("ba_field", COLUMN_ENCRYPTION_KEY);
+  file_encryption_builder_2.withEncryptedColumns(encryption_cols);
 
-  // plaintext mode footer = unencrypted footer
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_3;
-  file_encryption_builder_3.footer_key(FOOTER_ENCRYPTION_KEY, false);
+  parquet::FileDecryptionProperties::Builder decryption_properties_builder_2;
+  decryption_properties_builder_2.withFooterKey(FOOTER_ENCRYPTION_KEY);
+  decryption_properties_builder_2.withColumnKeys(decryption_cols);
 
-  std::shared_ptr<parquet::FileDecryptionProperties> decryption_properties_3 =
-      std::make_shared<parquet::FileDecryptionProperties>(FOOTER_ENCRYPTION_KEY);
+  // plain mode footer =  unencrypted footer
+  parquet::FileEncryptionProperties::Builder file_encryption_builder_3(FOOTER_ENCRYPTION_KEY);
+  file_encryption_builder_3.withPlaintextFooter();
 
-  // plaintext mode footer, hidden column
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_4;
-  file_encryption_builder_4.footer_key(FOOTER_ENCRYPTION_KEY, false);
-  file_encryption_builder_4.column_properties(encryption_cols, true); // reusing encryption_cols
+  parquet::FileDecryptionProperties::Builder decryption_properties_builder_3;
+  decryption_properties_builder_3.withFooterKey(FOOTER_ENCRYPTION_KEY);
 
-  std::shared_ptr<parquet::FileDecryptionProperties> decryption_properties_4 =
-      std::make_shared<parquet::FileDecryptionProperties>(FOOTER_ENCRYPTION_KEY);
+ // plaintext mode footer, hidden column
+  parquet::FileEncryptionProperties::Builder file_encryption_builder_4(FOOTER_ENCRYPTION_KEY);
+
+  file_encryption_builder_4.withPlaintextFooter();
+  file_encryption_builder_4.withEncryptedColumns(encryption_cols);  // reusing encryption_cols
+  parquet::FileDecryptionProperties::Builder decryption_properties_builder_4;
+  decryption_properties_builder_4.withFooterKey(FOOTER_ENCRYPTION_KEY);
 
   file_encryption_properties.push_back(file_encryption_builder_1.build());
   file_encryption_properties.push_back(file_encryption_builder_2.build());
   file_encryption_properties.push_back(file_encryption_builder_3.build());
   file_encryption_properties.push_back(file_encryption_builder_4.build());
 
-  file_decryption_properties.push_back(decryption_properties_1);
-  file_decryption_properties.push_back(decryption_properties_2);
-  file_decryption_properties.push_back(decryption_properties_3);
-  file_decryption_properties.push_back(decryption_properties_4);
+  file_decryption_properties.push_back(decryption_properties_builder_1.build());
+  file_decryption_properties.push_back(decryption_properties_builder_2.build());
+  file_decryption_properties.push_back(decryption_properties_builder_3.build());
+  file_decryption_properties.push_back(decryption_properties_builder_4.build());
 
   for (unsigned example_id = 0; example_id < file_encryption_properties.size(); ++example_id) {
     /**********************************************************************************

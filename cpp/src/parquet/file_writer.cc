@@ -270,7 +270,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
         WriteFileMetaData(*file_metadata_, sink_.get());
       }
       else {
-        if (file_encryption->encrypt_footer()) {
+        if (file_encryption->encryptedFooter()) {
           // encrypted footer
           file_metadata_ = metadata_->Finish();
 
@@ -278,23 +278,27 @@ class FileSerializer : public ParquetFileWriter::Contents {
           auto crypto_metadata = metadata_->GetCryptoMetaData();
           WriteFileCryptoMetaData(*crypto_metadata, sink_.get());
 
+          ParquetCipher::type algorithm = file_encryption->getAlgorithm().algorithm;
+          // TODO: Fix AAD calculation
           std::shared_ptr<EncryptionProperties> footer_encryption =
-            file_encryption->GetFooterEncryptionProperties();
+            std::make_shared<EncryptionProperties>(algorithm,
+						   file_encryption->getFooterEncryptionKey());
           WriteFileMetaData(*file_metadata_, sink_.get(), footer_encryption, true);
           uint32_t footer_and_crypto_len = static_cast<uint32_t>(sink_->Tell() - metadata_start);
           sink_->Write(reinterpret_cast<uint8_t*>(&footer_and_crypto_len), 4);
-
+	  
           sink_->Write(PARQUET_EMAGIC, 4);
         }
         else {
           // footer plain mode
           EncryptionAlgorithm signing_encryption;
-          signing_encryption.algorithm = Encryption::AES_GCM_V1;
-          // TODO: AAD
-          file_metadata_ = metadata_->Finish(&signing_encryption, file_encryption->footer_key_metadata());
-
-          std::shared_ptr<EncryptionProperties> footer_encryption =
-            file_encryption->GetFooterEncryptionProperties();
+          signing_encryption.algorithm = ParquetCipher::AES_GCM_V1;
+          file_metadata_ = metadata_->Finish(&signing_encryption, file_encryption->getFooterSigningKeyMetadata ());
+          // TODO: Fix AAD calculation
+	  ParquetCipher::type algorithm = file_encryption->getAlgorithm().algorithm;
+	  std::shared_ptr<EncryptionProperties> footer_encryption =
+	    std::make_shared<EncryptionProperties>(algorithm,
+						   file_encryption->getFooterSigningKey());
           WriteFileMetaData(*file_metadata_, sink_.get(), footer_encryption, false);
         }
       }

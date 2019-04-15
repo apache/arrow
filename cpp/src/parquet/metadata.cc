@@ -178,29 +178,42 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
         }
         // should decrypt metadata
         std::shared_ptr<schema::ColumnPath> path = std::make_shared<schema::ColumnPath>(
-          ccmd.ENCRYPTION_WITH_COLUMN_KEY.path_in_schema);
+											ccmd.ENCRYPTION_WITH_COLUMN_KEY.path_in_schema);
         std::string key_metadata = ccmd.ENCRYPTION_WITH_COLUMN_KEY.key_metadata;
-        if (!file_decryption->HasColumnKey(path, key_metadata)) {
-          throw HiddenColumnException(path->ToDotString());
-        }
-        const std::string& key = file_decryption->GetColumnKey(path, key_metadata);
-
-        DCHECK(algorithm != NULLPTR);
-        // TODO: AAD
-        auto encryption = std::make_shared<EncryptionProperties>(algorithm->algorithm, key);
-
-        uint32_t len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
-        DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(column->encrypted_column_metadata.c_str()),
-            &len, &metadata_, encryption, false);
+        std::string key = file_decryption->getColumnKey(path);
+	// No explicit column key given via API. Retrieve via key metadata.
+	if (key.empty() && !key_metadata.empty() && file_decryption->getKeyRetriever() != nullptr){
+	  try {
+	    key = file_decryption->getKeyRetriever()->GetKey(key_metadata);
+	  } catch (KeyAccessDeniedException e) {
+	    // Hidden column: encrypted, but key unavailable
+	    throw HiddenColumnException("HiddenColumnException path=" + path->ToDotString());
+	  }
+	  if (key.empty ())
+	    throw HiddenColumnException("HiddenColumnException path=" + path->ToDotString());
+	}
+	
+	if (key.empty()) {
+	  // Hidden column: encrypted, but key unavailable
+	  throw HiddenColumnException("HiddenColumnException path= " + path->ToDotString());
+	}
+	DCHECK(algorithm != NULLPTR);
+	
+	// TODO: AAD
+	auto encryption = std::make_shared<EncryptionProperties>(algorithm->algorithm, key);
+	
+	uint32_t len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
+	DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(column->encrypted_column_metadata.c_str()),
+			     &len, &metadata_, encryption, false);
       }
     }
-
+    
     for (auto encoding : metadata_.encodings) {
       encodings_.push_back(FromThrift(encoding));
     }
     possible_stats_ = nullptr;
   }
-
+  
   // column chunk
   inline int64_t file_offset() const { return column_->file_offset; }
   inline const std::string& file_path() const { return column_->file_path; }
@@ -910,7 +923,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     const auto& encrypt_md = properties_->column_encryption_props(column_->path());
 
     // column is unencrypted
-    if (!encrypt_md || !encrypt_md->encrypted()) {
+    if (!encrypt_md || !encrypt_md->isEncrypted()) {
       column_chunk_->__isset.meta_data = true;
       column_chunk_->__set_meta_data(column_metadata_);
 
@@ -920,12 +933,12 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
       // encrypted with footer key
       format::ColumnCryptoMetaData ccmd;
-      if (encrypt_md->encrypted_with_footer_key()) {
+      if (encrypt_md->isEncryptedWithFooterKey()) {
         ccmd.__isset.ENCRYPTION_WITH_FOOTER_KEY = true;
         ccmd.__set_ENCRYPTION_WITH_FOOTER_KEY(format::EncryptionWithFooterKey());
       } else {  // encrypted with column key
         format::EncryptionWithColumnKey eck;
-        eck.__set_key_metadata(encrypt_md->key_metadata());
+        eck.__set_key_metadata(encrypt_md->getKeyMetaData());
         eck.__set_path_in_schema(column_->path()->ToDotVector());
         ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY = true;
         ccmd.__set_ENCRYPTION_WITH_COLUMN_KEY(eck);
@@ -936,8 +949,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
       // non-uniform: footer is unencrypted, or column is encrypted with a column-specific
       // key
-      if ((footer_encryption == nullptr && encrypt_md->encrypted()) ||
-          !encrypt_md->encrypted_with_footer_key()) {
+      if ((footer_encryption == nullptr && encrypt_md->isEncrypted()) ||
+          !encrypt_md->isEncryptedWithFooterKey()) {
         // Thrift-serialize the ColumnMetaData structure,
         // encrypt it with the column key, and write to encrypted_column_metadata
         auto encrypt_props = properties_->encryption(column_->path());
@@ -1277,7 +1290,12 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     // TODO: aad metadata
     //encryption_algorithm.aad_metadata = file_encryption->aad_metadata();
     crypto_metadata_->__set_encryption_algorithm(ToThrift(encryption_algorithm));
-    std::string key_metadata = file_encryption->footer_key_metadata();
+    std::string key_metadata;
+    if (file_encryption->encryptedFooter())
+      key_metadata = file_encryption->getFooterEncryptionKeyMetadata();
+    else
+      key_metadata = file_encryption->getFooterSigningKeyMetadata();
+    
     if (!key_metadata.empty()) {
       crypto_metadata_->__set_key_metadata(key_metadata);
     }

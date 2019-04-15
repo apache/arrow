@@ -90,6 +90,13 @@ class PARQUET_EXPORT ColumnPath {
   std::string ToDotString() const;
   const std::vector<std::string>& ToDotVector() const;
 
+  struct CmpColumnPath {
+    bool operator()(const std::shared_ptr<schema::ColumnPath>& a,
+		    const std::shared_ptr<schema::ColumnPath>& b) const {
+      return a->ToDotString() < b->ToDotString();
+    }
+  };
+
  protected:
   std::vector<std::string> path_;
 };
