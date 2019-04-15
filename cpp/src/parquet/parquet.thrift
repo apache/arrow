@@ -35,7 +35,7 @@ enum Type {
   BOOLEAN = 0;
   INT32 = 1;
   INT64 = 2;
-  INT96 = 3;
+  INT96 = 3;  // deprecated, only used by legacy implementations.
   FLOAT = 4;
   DOUBLE = 5;
   BYTE_ARRAY = 6;
@@ -259,9 +259,11 @@ struct DecimalType {
 /** Time units for logical types */
 struct MilliSeconds {}
 struct MicroSeconds {}
+struct NanoSeconds {}
 union TimeUnit {
   1: MilliSeconds MILLIS
   2: MicroSeconds MICROS
+  3: NanoSeconds NANOS
 }
 
 /**
@@ -277,7 +279,7 @@ struct TimestampType {
 /**
  * Time logical type annotation
  *
- * Allowed for physical types: INT32 (millis), INT64 (micros)
+ * Allowed for physical types: INT32 (millis), INT64 (micros, nanos)
  */
 struct TimeType {
   1: required bool isAdjustedToUTC
@@ -320,19 +322,27 @@ struct BsonType {
  * following table.
  */
 union LogicalType {
-  1:  StringType STRING       // use ConvertedType UTF8 if encoding is UTF-8
+  1:  StringType STRING       // use ConvertedType UTF8
   2:  MapType MAP             // use ConvertedType MAP
   3:  ListType LIST           // use ConvertedType LIST
   4:  EnumType ENUM           // use ConvertedType ENUM
   5:  DecimalType DECIMAL     // use ConvertedType DECIMAL
   6:  DateType DATE           // use ConvertedType DATE
-  7:  TimeType TIME           // use ConvertedType TIME_MICROS or TIME_MILLIS
-  8:  TimestampType TIMESTAMP // use ConvertedType TIMESTAMP_MICROS or TIMESTAMP_MILLIS
+
+  // use ConvertedType TIME_MICROS for TIME(isAdjustedToUTC = true, unit = MICROS)
+  // use ConvertedType TIME_MILLIS for TIME(isAdjustedToUTC = true, unit = MILLIS)
+  7:  TimeType TIME
+
+  // use ConvertedType TIMESTAMP_MICROS for TIMESTAMP(isAdjustedToUTC = true, unit = MICROS)
+  // use ConvertedType TIMESTAMP_MILLIS for TIMESTAMP(isAdjustedToUTC = true, unit = MILLIS)
+  8:  TimestampType TIMESTAMP
+
   // 9: reserved for INTERVAL
   10: IntType INTEGER         // use ConvertedType INT_* or UINT_*
   11: NullType UNKNOWN        // no compatible ConvertedType
   12: JsonType JSON           // use ConvertedType JSON
   13: BsonType BSON           // use ConvertedType BSON
+  14: UUIDType UUID
 }
 
 /**
