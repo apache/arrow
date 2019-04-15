@@ -45,6 +45,7 @@ perf.data.old
 
 cpp/.idea/
 cpp/apidoc/xml/
+dev/archery/archery.egg-info/
 docs/example.gz
 docs/example1.dat
 docs/example3.dat
