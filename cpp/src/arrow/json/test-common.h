@@ -20,10 +20,11 @@
 #include <string>
 #include <vector>
 
-#include <rapidjson/document.h>
-#include <rapidjson/prettywriter.h>
-#include <rapidjson/reader.h>
-#include <rapidjson/writer.h>
+#include "arrow/json/rapidjson-defs.h"
+#include "rapidjson/document.h"
+#include "rapidjson/prettywriter.h"
+#include "rapidjson/reader.h"
+#include "rapidjson/writer.h"
 
 #include "arrow/io/memory.h"
 #include "arrow/json/options.h"
@@ -36,9 +37,11 @@
 namespace arrow {
 namespace json {
 
-using rapidjson::StringBuffer;
+namespace rj = arrow::rapidjson;
+
+using rj::StringBuffer;
 using util::string_view;
-using Writer = rapidjson::Writer<StringBuffer>;
+using Writer = rj::Writer<StringBuffer>;
 
 inline static Status OK(bool ok) { return ok ? Status::OK() : Status::Invalid(""); }
 
@@ -102,7 +105,7 @@ struct GenerateImpl {
   }
   Status Visit(const StructType& t) { return Generate(t.children(), e, &writer); }
   Engine& e;
-  rapidjson::Writer<rapidjson::StringBuffer>& writer;
+  rj::Writer<rj::StringBuffer>& writer;
 };
 
 template <typename Engine>
@@ -165,10 +168,10 @@ inline static Status ParseFromString(ParseOptions options, string_view src_str,
 }
 
 std::string PrettyPrint(string_view one_line) {
-  rapidjson::Document document;
+  rj::Document document;
   document.Parse(one_line.data());
-  rapidjson::StringBuffer sb;
-  rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(sb);
+  rj::StringBuffer sb;
+  rj::PrettyWriter<rj::StringBuffer> writer(sb);
   document.Accept(writer);
   return sb.GetString();
 }

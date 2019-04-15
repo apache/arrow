@@ -49,20 +49,16 @@ static std::shared_ptr<Buffer> join(Lines&& lines, std::string delimiter) {
   return joined;
 }
 
-static string_view View(const std::shared_ptr<Buffer>& buffer) {
-  return string_view(reinterpret_cast<const char*>(buffer->data()), buffer->size());
-}
-
 static bool WhitespaceOnly(string_view s) {
   return s.find_first_not_of(" \t\r\n") == string_view::npos;
 }
 
 static bool WhitespaceOnly(const std::shared_ptr<Buffer>& b) {
-  return WhitespaceOnly(View(b));
+  return WhitespaceOnly(string_view(*b));
 }
 
 static std::size_t ConsumeWholeObject(std::shared_ptr<Buffer>* buf) {
-  auto str = View(*buf);
+  auto str = string_view(**buf);
   auto fail = [buf] {
     *buf = nullptr;
     return string_view::npos;
@@ -96,7 +92,7 @@ void AssertChunking(Chunker& chunker, std::shared_ptr<Buffer> buf, int total_cou
   // Then chunkize incomplete substrings of the block
   for (int i = 0; i < total_count; ++i) {
     // ensure shearing the closing brace off the last object causes it to be chunked out
-    auto last_brace = View(buf).find_last_of('}');
+    auto last_brace = string_view(*buf).find_last_of('}');
     AssertWholeObjects(chunker, SliceBuffer(buf, 0, last_brace), total_count - i - 1);
 
     // ensure skipping one object reduces the count by one
@@ -111,10 +107,10 @@ void AssertStraddledChunking(Chunker& chunker, const std::shared_ptr<Buffer>& bu
   AssertChunking(chunker, first_half, 1);
   std::shared_ptr<Buffer> first_whole, partial;
   ASSERT_OK(chunker.Process(first_half, &first_whole, &partial));
-  ASSERT_TRUE(View(first_half).starts_with(View(first_whole)));
+  ASSERT_TRUE(string_view(*first_half).starts_with(string_view(*first_whole)));
   std::shared_ptr<Buffer> completion, rest;
   ASSERT_OK(chunker.ProcessWithPartial(partial, second_half, &completion, &rest));
-  ASSERT_TRUE(View(second_half).starts_with(View(completion)));
+  ASSERT_TRUE(string_view(*second_half).starts_with(string_view(*completion)));
   std::shared_ptr<Buffer> straddling;
   ASSERT_OK(
       ConcatenateBuffers({partial, completion}, default_memory_pool(), &straddling));
@@ -122,10 +118,10 @@ void AssertStraddledChunking(Chunker& chunker, const std::shared_ptr<Buffer>& bu
   ASSERT_NE(length, string_view::npos);
   ASSERT_NE(length, 0);
   auto final_whole = SliceBuffer(second_half, completion->size());
+  ASSERT_EQ(string_view(*final_whole), string_view(*rest));
   length = ConsumeWholeObject(&final_whole);
   ASSERT_NE(length, string_view::npos);
   ASSERT_NE(length, 0);
-  ASSERT_EQ(View(final_whole), View(rest));
 }
 
 std::unique_ptr<Chunker> MakeChunker(bool newlines_in_values) {

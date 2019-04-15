@@ -162,6 +162,12 @@ class ARROW_EXPORT Buffer {
   /// \note Can throw std::bad_alloc if buffer is large
   std::string ToString() const;
 
+  /// \brief View buffer contents as a util::string_view
+  /// \return util::string_view
+  explicit operator util::string_view() const {
+    return util::string_view(reinterpret_cast<const char*>(data_), size_);
+  }
+
   /// \brief Return a pointer to the buffer's data
   const uint8_t* data() const { return data_; }
   /// \brief Return a writable pointer to the buffer's data

@@ -21,16 +21,8 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/util/sse-util.h"
-#if defined(ARROW_HAVE_SSE4_2)
-#define RAPIDJSON_SSE42 1
-#define ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD 1
-#endif
-#if defined(ARROW_HAVE_SSE2)
-#define RAPIDJSON_SSE2 1
-#define ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD 1
-#endif
-#include <rapidjson/reader.h>
+#include "arrow/json/rapidjson-defs.h"
+#include "rapidjson/reader.h"
 
 #include "arrow/buffer.h"
 #include "arrow/json/options.h"
@@ -40,12 +32,10 @@
 namespace arrow {
 namespace json {
 
+namespace rj = arrow::rapidjson;
+
 using internal::make_unique;
 using util::string_view;
-
-static string_view View(const std::shared_ptr<Buffer>& buffer) {
-  return string_view(reinterpret_cast<const char*>(buffer->data()), buffer->size());
-}
 
 static Status StraddlingTooLarge() {
   return Status::Invalid("straddling object straddles two block boundaries");
@@ -54,13 +44,13 @@ static Status StraddlingTooLarge() {
 static size_t ConsumeWhitespace(std::shared_ptr<Buffer>* buf) {
 #if defined(ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD)
   auto data = reinterpret_cast<const char*>((*buf)->data());
-  auto nonws_begin = rapidjson::SkipWhitespace_SIMD(data, data + (*buf)->size());
+  auto nonws_begin = rj::SkipWhitespace_SIMD(data, data + (*buf)->size());
   auto ws_count = nonws_begin - data;
   *buf = SliceBuffer(*buf, ws_count);
   return static_cast<size_t>(ws_count);
 #undef ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD
 #else
-  auto ws_count = View(*buf).find_first_not_of(" \t\r\n");
+  auto ws_count = string_view(**buf).find_first_not_of(" \t\r\n");
   *buf = SliceBuffer(*buf, ws_count);
   return ws_count;
 #endif
@@ -70,7 +60,7 @@ class NewlinesStrictlyDelimitChunker : public Chunker {
  public:
   Status Process(const std::shared_ptr<Buffer>& block, std::shared_ptr<Buffer>* whole,
                  std::shared_ptr<Buffer>* partial) override {
-    auto last_newline = View(block).find_last_of("\n\r");
+    auto last_newline = string_view(*block).find_last_of("\n\r");
     if (last_newline == string_view::npos) {
       // no newlines in this block, return empty chunk
       *whole = SliceBuffer(block, 0, 0);
@@ -94,7 +84,7 @@ class NewlinesStrictlyDelimitChunker : public Chunker {
       *rest = block;
       return Status::OK();
     }
-    auto first_newline = View(block).find_first_of("\n\r");
+    auto first_newline = string_view(*block).find_first_of("\n\r");
     if (first_newline == string_view::npos) {
       // no newlines in this block; straddling object straddles *two* block boundaries.
       // retry with larger buffer
@@ -117,7 +107,7 @@ class MultiStringStream {
   }
   explicit MultiStringStream(const BufferVector& buffers) : strings_(buffers.size()) {
     for (size_t i = 0; i < buffers.size(); ++i) {
-      strings_[i] = View(buffers[i]);
+      strings_[i] = string_view(*buffers[i]);
     }
     std::reverse(strings_.begin(), strings_.end());
   }
@@ -155,16 +145,16 @@ class MultiStringStream {
 
 template <typename Stream>
 static size_t ConsumeWholeObject(Stream&& stream) {
-  static constexpr unsigned parse_flags = rapidjson::kParseIterativeFlag |
-                                          rapidjson::kParseStopWhenDoneFlag |
-                                          rapidjson::kParseNumbersAsStringsFlag;
-  rapidjson::BaseReaderHandler<rapidjson::UTF8<>> handler;
-  rapidjson::Reader reader;
+  static constexpr unsigned parse_flags = rj::kParseIterativeFlag |
+                                          rj::kParseStopWhenDoneFlag |
+                                          rj::kParseNumbersAsStringsFlag;
+  rj::BaseReaderHandler<rj::UTF8<>> handler;
+  rj::Reader reader;
   // parse a single JSON object
   switch (reader.Parse<parse_flags>(stream, handler).Code()) {
-    case rapidjson::kParseErrorNone:
+    case rj::kParseErrorNone:
       return stream.Tell();
-    case rapidjson::kParseErrorDocumentEmpty:
+    case rj::kParseErrorDocumentEmpty:
       return 0;
     default:
       // rapidjson emitted an error, the most recent object was partial
@@ -183,9 +173,9 @@ class ParsingChunker : public Chunker {
     }
     size_t total_length = 0;
     for (auto consumed = block;; consumed = SliceBuffer(block, total_length)) {
-      using rapidjson::MemoryStream;
-      MemoryStream ms(reinterpret_cast<const char*>(consumed->data()), consumed->size());
-      using InputStream = rapidjson::EncodedInputStream<rapidjson::UTF8<>, MemoryStream>;
+      rj::MemoryStream ms(reinterpret_cast<const char*>(consumed->data()),
+                          consumed->size());
+      using InputStream = rj::EncodedInputStream<rj::UTF8<>, rj::MemoryStream>;
       auto length = ConsumeWholeObject(InputStream(ms));
       if (length == string_view::npos || length == 0) {
         // found incomplete object or consumed is empty

@@ -23,17 +23,9 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/util/sse-util.h"
-#if defined(ARROW_HAVE_SSE4_2)
-#define RAPIDJSON_SSE42 1
-#define ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD 1
-#endif
-#if defined(ARROW_HAVE_SSE2)
-#define RAPIDJSON_SSE2 1
-#define ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD 1
-#endif
-#include <rapidjson/error/en.h>
-#include <rapidjson/reader.h>
+#include "arrow/json/rapidjson-defs.h"
+#include "rapidjson/error/en.h"
+#include "rapidjson/reader.h"
 
 #include "arrow/array.h"
 #include "arrow/buffer-builder.h"
@@ -48,6 +40,8 @@
 
 namespace arrow {
 namespace json {
+
+namespace rj = arrow::rapidjson;
 
 using internal::BitsetStack;
 using internal::checked_cast;
@@ -393,7 +387,7 @@ class RawArrayBuilder<Kind::kObject> {
 /// UnexpectedFieldBehavior. However most of the logic is identical in each
 /// case, so the majority of the implementation is in this base class
 class HandlerBase : public BlockParser,
-                    public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, HandlerBase> {
+                    public rj::BaseReaderHandler<rj::UTF8<>, HandlerBase> {
  public:
   /// Retrieve a pointer to a builder from a BuilderPtr
   template <Kind::type kind>
@@ -406,9 +400,9 @@ class HandlerBase : public BlockParser,
   /// Accessor for a stored error Status
   Status Error() { return status_; }
 
-  /// \defgroup rapidjson-handler-interface functions expected by rapidjson::Reader
+  /// \defgroup rapidjson-handler-interface functions expected by rj::Reader
   ///
-  /// bool Key(const char* data, rapidjson::SizeType size, ...) is omitted since
+  /// bool Key(const char* data, rj::SizeType size, ...) is omitted since
   /// the behavior varies greatly between UnexpectedFieldBehaviors
   ///
   /// @{
@@ -422,12 +416,12 @@ class HandlerBase : public BlockParser,
     return status_.ok();
   }
 
-  bool RawNumber(const char* data, rapidjson::SizeType size, ...) {
+  bool RawNumber(const char* data, rj::SizeType size, ...) {
     status_ = AppendScalar<Kind::kNumber>(string_view(data, size));
     return status_.ok();
   }
 
-  bool String(const char* data, rapidjson::SizeType size, ...) {
+  bool String(const char* data, rj::SizeType size, ...) {
     status_ = AppendScalar<Kind::kString>(string_view(data, size));
     return status_.ok();
   }
@@ -447,7 +441,7 @@ class HandlerBase : public BlockParser,
     return status_.ok();
   }
 
-  bool EndArray(rapidjson::SizeType size) {
+  bool EndArray(rj::SizeType size) {
     status_ = EndArrayImpl(size);
     return status_.ok();
   }
@@ -489,7 +483,8 @@ class HandlerBase : public BlockParser,
     return Finish(builder_, parsed);
   }
 
-  HandlerBase(MemoryPool* pool) : BlockParser(pool), scalar_values_builder_(pool) {}
+  explicit HandlerBase(MemoryPool* pool)
+      : BlockParser(pool), scalar_values_builder_(pool) {}
 
  protected:
   /// finish a column of scalar values (string or number)
@@ -502,29 +497,29 @@ class HandlerBase : public BlockParser,
 
   template <typename Handler, typename Stream>
   Status DoParse(Handler& handler, Stream&& json) {
-    constexpr auto parse_flags =
-        rapidjson::kParseIterativeFlag | rapidjson::kParseNanAndInfFlag |
-        rapidjson::kParseStopWhenDoneFlag | rapidjson::kParseNumbersAsStringsFlag;
+    constexpr auto parse_flags = rj::kParseIterativeFlag | rj::kParseNanAndInfFlag |
+                                 rj::kParseStopWhenDoneFlag |
+                                 rj::kParseNumbersAsStringsFlag;
 
-    rapidjson::Reader reader;
+    rj::Reader reader;
 
     for (; num_rows_ < kMaxParserNumRows; ++num_rows_) {
       auto ok = reader.Parse<parse_flags>(json, handler);
       switch (ok.Code()) {
-        case rapidjson::kParseErrorNone:
+        case rj::kParseErrorNone:
           // parse the next object
           continue;
-        case rapidjson::kParseErrorDocumentEmpty:
+        case rj::kParseErrorDocumentEmpty:
           // parsed all objects, finish
           return Status::OK();
-        case rapidjson::kParseErrorTermination:
+        case rj::kParseErrorTermination:
           // handler emitted an error
           return handler.Error();
         default:
-          // rapidjson emitted an error
+          // rj emitted an error
           // FIXME(bkietz) report more error data (at least the byte range of the current
           // block, and maybe the path to the most recently parsed value?)
-          return ParseError(rapidjson::GetParseError_En(ok.Code()));
+          return ParseError(rj::GetParseError_En(ok.Code()));
       }
     }
     return Status::Invalid("Exceeded maximum rows");
@@ -539,9 +534,8 @@ class HandlerBase : public BlockParser,
       RETURN_NOT_OK(scalar_values_builder_.ReserveData(additional_storage));
     }
 
-    using rapidjson::MemoryStream;
-    MemoryStream ms(reinterpret_cast<const char*>(json->data()), json->size());
-    using InputStream = rapidjson::EncodedInputStream<rapidjson::UTF8<>, MemoryStream>;
+    rj::MemoryStream ms(reinterpret_cast<const char*>(json->data()), json->size());
+    using InputStream = rj::EncodedInputStream<rj::UTF8<>, rj::MemoryStream>;
     return DoParse(handler, InputStream(ms));
   }
 
@@ -724,7 +718,7 @@ class HandlerBase : public BlockParser,
     return Status::OK();
   }
 
-  Status EndArrayImpl(rapidjson::SizeType size) {
+  Status EndArrayImpl(rj::SizeType size) {
     PopStacks();
     // append to list_builder here
     auto list_builder = Cast<Kind::kArray>(builder_);
@@ -795,7 +789,7 @@ class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
   /// \ingroup rapidjson-handler-interface
   ///
   /// if an unexpected field is encountered, emit a parse error and bail
-  bool Key(const char* key, rapidjson::SizeType len, ...) {
+  bool Key(const char* key, rj::SizeType len, ...) {
     if (ARROW_PREDICT_TRUE(SetFieldBuilder(string_view(key, len)))) {
       return true;
     }
@@ -827,14 +821,14 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
     return HandlerBase::Bool(value);
   }
 
-  bool RawNumber(const char* data, rapidjson::SizeType size, ...) {
+  bool RawNumber(const char* data, rj::SizeType size, ...) {
     if (Skipping()) {
       return true;
     }
     return HandlerBase::RawNumber(data, size);
   }
 
-  bool String(const char* data, rapidjson::SizeType size, ...) {
+  bool String(const char* data, rj::SizeType size, ...) {
     if (Skipping()) {
       return true;
     }
@@ -852,7 +846,7 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
   /// \ingroup rapidjson-handler-interface
   ///
   /// if an unexpected field is encountered, skip until its value has been consumed
-  bool Key(const char* key, rapidjson::SizeType len, ...) {
+  bool Key(const char* key, rj::SizeType len, ...) {
     MaybeStopSkipping();
     if (Skipping()) {
       return true;
@@ -880,7 +874,7 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
     return HandlerBase::StartArray();
   }
 
-  bool EndArray(rapidjson::SizeType size) {
+  bool EndArray(rj::SizeType size) {
     if (Skipping()) {
       return true;
     }
@@ -916,14 +910,14 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
     return HandlerBase::Bool(value);
   }
 
-  bool RawNumber(const char* data, rapidjson::SizeType size, ...) {
+  bool RawNumber(const char* data, rj::SizeType size, ...) {
     if (ARROW_PREDICT_FALSE(MaybePromoteFromNull<Kind::kNumber>())) {
       return false;
     }
     return HandlerBase::RawNumber(data, size);
   }
 
-  bool String(const char* data, rapidjson::SizeType size, ...) {
+  bool String(const char* data, rj::SizeType size, ...) {
     if (ARROW_PREDICT_FALSE(MaybePromoteFromNull<Kind::kString>())) {
       return false;
     }
@@ -943,7 +937,7 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
   /// the current parent builder. It is added as a NullBuilder with
   /// (parent.length - 1) leading nulls. The next value parsed
   /// will probably trigger promotion of this field from null
-  bool Key(const char* key, rapidjson::SizeType len, ...) {
+  bool Key(const char* key, rj::SizeType len, ...) {
     if (ARROW_PREDICT_TRUE(SetFieldBuilder(string_view(key, len)))) {
       return true;
     }

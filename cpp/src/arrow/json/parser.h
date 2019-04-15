@@ -75,7 +75,7 @@ class ARROW_EXPORT BlockParser {
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(BlockParser);
 
-  BlockParser(MemoryPool* pool) : pool_(pool) {}
+  explicit BlockParser(MemoryPool* pool) : pool_(pool) {}
 
   MemoryPool* pool_;
   int32_t num_rows_ = 0;
