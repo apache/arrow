@@ -41,7 +41,7 @@ class GoogleBenchmarkCommand(Command):
             argv.append(f"--benchmark_filter={self.benchmark_filter}")
         result = self.run(*argv, stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE)
-        return [b for b in result.stdout]
+        return str.splitlines(result.stdout.decode("utf-8"))
 
     def results(self):
         argv = ["--benchmark_format=json", "--benchmark_repetitions=20"]
