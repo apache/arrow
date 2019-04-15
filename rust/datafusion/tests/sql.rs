@@ -241,6 +241,26 @@ fn csv_query_limit_zero() {
     assert_eq!(expected, actual);
 }
 
+#[test]
+fn csv_query_create_external_table() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv_by_sql(&mut ctx);
+    let sql = "SELECT c1, c2, c3, c4, c5, c6, c7, c8, c9, 10, c11, c12, c13 FROM aggregate_test_100 LIMIT 1";
+    let actual = execute(&mut ctx, sql);
+    let expected = "\"c\"\t2\t1\t18109\t2033001162\t-6513304855495910254\t25\t43062\t1491205016\t10\t0.110830784\t0.9294097332465232\t\"6WfVFBVGJSQb7FhA7E0lBwdvjfZnSW\"\n".to_string();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn csv_query_external_table_count() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv_by_sql(&mut ctx);
+    let sql = "SELECT COUNT(c12) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql);
+    let expected = "100\n".to_string();
+    assert_eq!(expected, actual);
+}
+
 //TODO Uncomment the following test when ORDER BY is implemented to be able to test ORDER
 // BY + LIMIT
 /*
@@ -271,6 +291,39 @@ fn aggr_test_schema() -> Arc<Schema> {
         Field::new("c12", DataType::Float64, false),
         Field::new("c13", DataType::Utf8, false),
     ]))
+}
+
+fn register_aggregate_csv_by_sql(ctx: &mut ExecutionContext) {
+    let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+
+    // TODO: The following c9 should be migrated to UInt32 and c10 should be UInt64 once unsigned is supported.
+    ctx.sql(
+        &format!(
+            "
+    CREATE EXTERNAL TABLE aggregate_test_100 (
+        c1  VARCHAR NOT NULL,
+        c2  INT NOT NULL,
+        c3  SMALLINT NOT NULL,
+        c4  SMALLINT NOT NULL,
+        c5  INT NOT NULL,
+        c6  BIGINT NOT NULL,
+        c7  SMALLINT NOT NULL,
+        c8  INT NOT NULL,
+        c9  BIGINT NOT NULL,
+        c10 VARCHAR NOT NULL,
+        c11 FLOAT NOT NULL,
+        c12 DOUBLE NOT NULL,
+        c13 VARCHAR NOT NULL
+    )
+    STORED AS CSV
+    WITH HEADER ROW
+    LOCATION '{}/csv/aggregate_test_100.csv'
+    ",
+            testdata
+        ),
+        1024,
+    )
+    .unwrap();
 }
 
 fn register_aggregate_csv(ctx: &mut ExecutionContext) {
