@@ -18,8 +18,8 @@
 import { Data } from '../../src/data';
 import { Field } from '../../src/schema';
 import { DataType } from '../../src/type';
-import { Row } from '../../src/vector/row';
 import { Vector, BoolVector } from '../../src/vector/index';
+import { RowProxyGenerator as Row } from '../../src/vector/row';
 import { Bool, Int8, Utf8, List, Dictionary, Struct, Map_ } from '../../src/type';
 
 type NamedSchema = { a: Int8, b: Utf8, c: Dictionary<List<Bool>>; [idx: string]: DataType; };
@@ -34,7 +34,7 @@ function checkIndexTypes(schema: IndexSchema) {
         Object.keys(schema).map((x) => new Field(x, schema[(<any> x)]))
     ), 0, 0, 0, null, []);
 
-    const row = Row.new(schema).bind(Vector.new(data), 0);
+    const row = Row.new(Vector.new(data), schema).bind(0);
 
     const check_0 = (x = row[0]) => expect(typeof x === 'number').toBe(true);
     const check_1 = (x = row[1]) => expect(typeof x === 'string').toBe(true);
@@ -51,7 +51,7 @@ function checkNamedTypes(schema: NamedSchema) {
         Object.keys(schema).map((x) => new Field(x, schema[x]))
     ), 0, 0, 0, null, []);
 
-    const row = Row.new(schema).bind(Vector.new(data), 0);
+    const row = Row.new(Vector.new(data), schema).bind(0);
 
     const check_a = (x = row.a) => expect(typeof x === 'number').toBe(true);
     const check_b = (x = row.b) => expect(typeof x === 'string').toBe(true);
