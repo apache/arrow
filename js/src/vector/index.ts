@@ -75,7 +75,7 @@ Vector.new = newVector;
 
 /** @ignore */
 function newVector<T extends DataType>(data: Data<T>, ...args: VectorCtorArgs<V<T>>): V<T> {
-    return new (getVectorConstructor.getVisitFn(data.type)())(data, ...args) as V<T>;
+    return new (getVectorConstructor.getVisitFn<T>(data)())(data, ...args) as V<T>;
 }
 
 //
@@ -114,29 +114,17 @@ BaseVector.prototype[Symbol.iterator] = function baseVectorSymbolIterator<T exte
 
 // Perf: bind and assign the operator Visitor methods to each of the Vector subclasses for each Type
 (Object.keys(Type) as any[])
-    .filter((typeId) => typeId !== Type.NONE && typeId !== Type[Type.NONE])
-    .map((T: any) => Type[T] as any).filter((T: any): T is Type => typeof T === 'number')
+    .map((T: any) => Type[T] as any)
+    .filter((T: any): T is Type => typeof T === 'number')
+    .filter((typeId) => typeId !== Type.NONE)
     .forEach((typeId) => {
-        let typeIds: Type[];
-        switch (typeId) {
-            case Type.Int:       typeIds = [Type.Int8, Type.Int16, Type.Int32, Type.Int64, Type.Uint8, Type.Uint16, Type.Uint32, Type.Uint64]; break;
-            case Type.Float:     typeIds = [Type.Float16, Type.Float32, Type.Float64]; break;
-            case Type.Date:      typeIds = [Type.DateDay, Type.DateMillisecond]; break;
-            case Type.Time:      typeIds = [Type.TimeSecond, Type.TimeMillisecond, Type.TimeMicrosecond, Type.TimeNanosecond]; break;
-            case Type.Timestamp: typeIds = [Type.TimestampSecond, Type.TimestampMillisecond, Type.TimestampMicrosecond, Type.TimestampNanosecond]; break;
-            case Type.Interval:  typeIds = [Type.IntervalDayTime, Type.IntervalYearMonth]; break;
-            case Type.Union:     typeIds = [Type.DenseUnion, Type.SparseUnion]; break;
-            default:                typeIds = [typeId]; break;
-        }
-        typeIds.forEach((typeId) => {
-            const VectorCtor = getVectorConstructor.visit(typeId);
-            VectorCtor.prototype['get'] = partial1(getVisitor.getVisitFn(typeId));
-            VectorCtor.prototype['set'] = partial2(setVisitor.getVisitFn(typeId));
-            VectorCtor.prototype['indexOf'] = partial2(indexOfVisitor.getVisitFn(typeId));
-            VectorCtor.prototype['toArray'] = partial0(toArrayVisitor.getVisitFn(typeId));
-            VectorCtor.prototype['getByteWidth'] = partialType0(byteWidthVisitor.getVisitFn(typeId));
-            VectorCtor.prototype[Symbol.iterator] = partial0(iteratorVisitor.getVisitFn(typeId));
-        });
+        const VectorCtor = getVectorConstructor.visit(typeId);
+        VectorCtor.prototype['get'] = partial1(getVisitor.getVisitFn(typeId));
+        VectorCtor.prototype['set'] = partial2(setVisitor.getVisitFn(typeId));
+        VectorCtor.prototype['indexOf'] = partial2(indexOfVisitor.getVisitFn(typeId));
+        VectorCtor.prototype['toArray'] = partial0(toArrayVisitor.getVisitFn(typeId));
+        VectorCtor.prototype['getByteWidth'] = partialType0(byteWidthVisitor.getVisitFn(typeId));
+        VectorCtor.prototype[Symbol.iterator] = partial0(iteratorVisitor.getVisitFn(typeId));
     });
 
 /** @ignore */
