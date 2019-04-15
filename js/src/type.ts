@@ -518,3 +518,18 @@ export interface IterableArrayLike<T = any> extends ArrayLike<T>, Iterable<T> {}
 export type FloatArray = Uint16Array | Float32Array | Float64Array;
 /** @ignore */
 export type IntArray = Int8Array | Int16Array | Int32Array | Uint8Array | Uint16Array | Uint32Array;
+
+export function strideForType(type: DataType) {
+    let t: any = type;
+    switch (type.typeId) {
+        case Type.Decimal: return 4;
+        case Type.Timestamp: return 2;
+        case Type.Date: return 1 + (t as Date_).unit;
+        case Type.Interval: return 1 + (t as Interval_).unit;
+        case Type.Int: return 1 + +((t as Int_).bitWidth > 32);
+        case Type.Time: return 1 + +((t as Time_).bitWidth > 32);
+        case Type.FixedSizeList: return (t as FixedSizeList).listSize;
+        case Type.FixedSizeBinary: return (t as FixedSizeBinary).byteWidth;
+        default: return 1;
+    }
+}

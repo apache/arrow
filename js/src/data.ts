@@ -18,8 +18,8 @@
 import { Vector } from './vector';
 import { truncateBitmap } from './util/bit';
 import { popcnt_bit_range } from './util/bit';
-import { DataType, SparseUnion, DenseUnion } from './type';
 import { VectorType as BufferType, UnionMode, Type } from './enum';
+import { DataType, SparseUnion, DenseUnion, strideForType } from './type';
 import { toArrayBufferView, toUint8Array, toInt32Array } from './util/buffer';
 import {
     Dictionary,
@@ -103,23 +103,12 @@ export class Data<T extends DataType = DataType> {
             this.nullBitmap = buffers.nullBitmap;
             this.valueOffsets = buffers.valueOffsets;
         } else {
+            this.stride = strideForType(type);
             if (buffers) {
                 (buffer = (buffers as Buffers<T>)[0]) && (this.valueOffsets = buffer);
                 (buffer = (buffers as Buffers<T>)[1]) && (this.values = buffer);
                 (buffer = (buffers as Buffers<T>)[2]) && (this.nullBitmap = buffer);
                 (buffer = (buffers as Buffers<T>)[3]) && (this.typeIds = buffer);
-            }
-            const t: any = type;
-            switch (type.typeId) {
-                case Type.Decimal: this.stride = 4; break;
-                case Type.Timestamp: this.stride = 2; break;
-                case Type.Date: this.stride = 1 + (t as Date_).unit; break;
-                case Type.Interval: this.stride = 1 + (t as Interval).unit; break;
-                case Type.Int: this.stride = 1 + +((t as Int).bitWidth > 32); break;
-                case Type.Time: this.stride = 1 + +((t as Time).bitWidth > 32); break;
-                case Type.FixedSizeList: this.stride = (t as FixedSizeList).listSize; break;
-                case Type.FixedSizeBinary: this.stride = (t as FixedSizeBinary).byteWidth; break;
-                default: this.stride = 1;
             }
         }
     }
