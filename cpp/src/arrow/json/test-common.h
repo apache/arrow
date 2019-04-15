@@ -158,11 +158,10 @@ inline static Status DecodeStringDictionary(const DictionaryArray& dict_array,
 inline static Status ParseFromString(ParseOptions options, string_view src_str,
                                      std::shared_ptr<Array>* parsed) {
   auto src = std::make_shared<Buffer>(src_str);
-  std::shared_ptr<ResizableBuffer> storage;
-  RETURN_NOT_OK(AllocateResizableBuffer(src->size(), &storage));
-  BlockParser parser(options, storage);
-  RETURN_NOT_OK(parser.Parse(src));
-  return parser.Finish(parsed);
+  std::unique_ptr<BlockParser> parser;
+  RETURN_NOT_OK(BlockParser::Make(options, &parser));
+  RETURN_NOT_OK(parser->Parse(src));
+  return parser->Finish(parsed);
 }
 
 std::string PrettyPrint(string_view one_line) {

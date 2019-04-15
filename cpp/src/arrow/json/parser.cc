@@ -51,6 +51,7 @@ namespace json {
 
 using internal::BitsetStack;
 using internal::checked_cast;
+using internal::make_unique;
 using util::string_view;
 
 template <typename... T>
@@ -125,58 +126,6 @@ Status Kind::ForType(const DataType& type, Kind::type* kind) {
   } visitor = {kind};
   return VisitTypeInline(type, &visitor);
 }
-
-/// Similar to StringBuilder, but appends bytes into the provided buffer without
-/// resizing. This builder does not support appending nulls.
-class UnsafeStringBuilder {
- public:
-  UnsafeStringBuilder(MemoryPool* pool, const std::shared_ptr<ResizableBuffer>& buffer)
-      : offsets_builder_(pool), values_buffer_(buffer) {
-    DCHECK_NE(values_buffer_, nullptr);
-  }
-
-  Status Append(string_view str) {
-    DCHECK_LE(static_cast<int64_t>(str.size()), capacity() - values_end_);
-    RETURN_NOT_OK(AppendNextOffset());
-    std::memcpy(values_buffer_->mutable_data() + values_end_, str.data(), str.size());
-    length_ += 1;
-    values_end_ += str.size();
-    return Status::OK();
-  }
-
-  Status ReserveData(int64_t additional_storage) {
-    return values_buffer_->Resize(capacity() + additional_storage, false);
-  }
-
-  // Builder may not be reused after Finish()
-  Status Finish(std::shared_ptr<Array>* out, int64_t* values_length = nullptr) && {
-    RETURN_NOT_OK(AppendNextOffset());
-    if (values_length) {
-      *values_length = values_end_;
-    }
-    std::shared_ptr<Buffer> offsets;
-    RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
-    auto data = ArrayData::Make(utf8(), length_, {nullptr, offsets, values_buffer_}, 0);
-    *out = MakeArray(data);
-    return Status::OK();
-  }
-
-  int64_t length() const { return length_; }
-
-  int64_t capacity() const { return values_buffer_->size(); }
-
-  int64_t remaining_capacity() const { return values_buffer_->size() - values_end_; }
-
- private:
-  Status AppendNextOffset() {
-    return offsets_builder_.Append(static_cast<int32_t>(values_end_));
-  }
-
-  int64_t length_ = 0;
-  int64_t values_end_ = 0;
-  TypedBufferBuilder<int32_t> offsets_builder_;
-  std::shared_ptr<ResizableBuffer> values_buffer_;
-};
 
 /// \brief ArrayBuilder for parsed but unconverted arrays
 template <Kind::type>
@@ -440,10 +389,10 @@ class RawArrayBuilder<Kind::kObject> {
   TypedBufferBuilder<bool> null_bitmap_builder_;
 };
 
-/// Three implementations are provided for BlockParser::Impl, one for each
+/// Three implementations are provided for BlockParser, one for each
 /// UnexpectedFieldBehavior. However most of the logic is identical in each
 /// case, so the majority of the implementation is in this base class
-class HandlerBase : public BlockParser::Impl,
+class HandlerBase : public BlockParser,
                     public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, HandlerBase> {
  public:
   /// Retrieve a pointer to a builder from a BuilderPtr
@@ -505,7 +454,7 @@ class HandlerBase : public BlockParser::Impl,
   /// @}
 
   /// \brief Set up builders using an expected Schema
-  Status Init(const std::shared_ptr<Schema>& s) {
+  Status Initialize(const std::shared_ptr<Schema>& s) {
     auto type = struct_({});
     if (s) {
       type = struct_(s->fields());
@@ -536,16 +485,13 @@ class HandlerBase : public BlockParser::Impl,
   }
 
   Status Finish(std::shared_ptr<Array>* parsed) override {
-    RETURN_NOT_OK(std::move(scalar_values_builder_).Finish(&scalar_values_));
+    RETURN_NOT_OK(scalar_values_builder_.Finish(&scalar_values_));
     return Finish(builder_, parsed);
   }
 
-  int32_t num_rows() override { return num_rows_; }
+  HandlerBase(MemoryPool* pool) : BlockParser(pool), scalar_values_builder_(pool) {}
 
  protected:
-  HandlerBase(MemoryPool* pool, const std::shared_ptr<ResizableBuffer>& scalar_storage)
-      : pool_(pool), scalar_values_builder_(pool, scalar_storage) {}
-
   /// finish a column of scalar values (string or number)
   Status FinishScalar(ScalarBuilder* builder, std::shared_ptr<Array>* out) {
     std::shared_ptr<Array> indices;
@@ -586,9 +532,10 @@ class HandlerBase : public BlockParser::Impl,
 
   template <typename Handler>
   Status DoParse(Handler& handler, const std::shared_ptr<Buffer>& json) {
-    if (json->size() > scalar_values_builder_.remaining_capacity()) {
-      auto additional_storage =
-          json->size() - scalar_values_builder_.remaining_capacity();
+    auto remaining_capacity = scalar_values_builder_.value_data_capacity() -
+                              scalar_values_builder_.value_data_length();
+    if (json->size() > remaining_capacity) {
+      auto additional_storage = json->size() - remaining_capacity;
       RETURN_NOT_OK(scalar_values_builder_.ReserveData(additional_storage));
     }
 
@@ -714,7 +661,9 @@ class HandlerBase : public BlockParser::Impl,
     auto index = static_cast<int32_t>(scalar_values_builder_.length());
     auto value_length = static_cast<int32_t>(scalar.size());
     RETURN_NOT_OK(Cast<kind>(builder_)->Append(index, value_length));
-    return scalar_values_builder_.Append(scalar);
+    RETURN_NOT_OK(scalar_values_builder_.Reserve(1));
+    scalar_values_builder_.UnsafeAppend(scalar);
+    return Status::OK();
   }
 
   /// @}
@@ -811,7 +760,6 @@ class HandlerBase : public BlockParser::Impl,
   }
 
   Status status_;
-  MemoryPool* pool_;
   std::tuple<std::tuple<>, std::vector<RawArrayBuilder<Kind::kBoolean>>,
              std::vector<RawArrayBuilder<Kind::kNumber>>,
              std::vector<RawArrayBuilder<Kind::kString>>,
@@ -828,9 +776,8 @@ class HandlerBase : public BlockParser::Impl,
   int field_index_;
   // top of this stack == field_index_
   std::vector<int> field_index_stack_;
-  UnsafeStringBuilder scalar_values_builder_;
+  StringBuilder scalar_values_builder_;
   std::shared_ptr<Array> scalar_values_;
-  int32_t num_rows_ = 0;
 };
 
 template <UnexpectedFieldBehavior>
@@ -839,8 +786,7 @@ class Handler;
 template <>
 class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
  public:
-  Handler(MemoryPool* pool, const std::shared_ptr<ResizableBuffer>& scalar_storage)
-      : HandlerBase(pool, scalar_storage) {}
+  using HandlerBase::HandlerBase;
 
   Status Parse(const std::shared_ptr<Buffer>& json) override {
     return DoParse(*this, json);
@@ -861,8 +807,7 @@ class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
 template <>
 class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
  public:
-  Handler(MemoryPool* pool, const std::shared_ptr<ResizableBuffer>& scalar_storage)
-      : HandlerBase(pool, scalar_storage) {}
+  using HandlerBase::HandlerBase;
 
   Status Parse(const std::shared_ptr<Buffer>& json) override {
     return DoParse(*this, json);
@@ -958,8 +903,7 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
 template <>
 class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
  public:
-  Handler(MemoryPool* pool, const std::shared_ptr<ResizableBuffer>& scalar_storage)
-      : HandlerBase(pool, scalar_storage) {}
+  using HandlerBase::HandlerBase;
 
   Status Parse(const std::shared_ptr<Buffer>& json) override {
     return DoParse(*this, json);
@@ -1048,38 +992,30 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
   }
 };
 
-BlockParser::BlockParser(MemoryPool* pool, const ParseOptions& options,
-                         const std::shared_ptr<ResizableBuffer>& scalar_storage)
-    : pool_(pool), options_(options) {
-  DCHECK(options_.unexpected_field_behavior == UnexpectedFieldBehavior::InferType ||
-         options_.explicit_schema != nullptr);
-  switch (options_.unexpected_field_behavior) {
+Status BlockParser::Make(MemoryPool* pool, const ParseOptions& options,
+                         std::unique_ptr<BlockParser>* out) {
+  DCHECK(options.unexpected_field_behavior == UnexpectedFieldBehavior::InferType ||
+         options.explicit_schema != nullptr);
+
+  switch (options.unexpected_field_behavior) {
     case UnexpectedFieldBehavior::Ignore: {
-      auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::Ignore>>(
-          pool_, scalar_storage);
-      ARROW_IGNORE_EXPR(handler->Init(options_.explicit_schema));
-      impl_ = std::move(handler);
+      *out = make_unique<Handler<UnexpectedFieldBehavior::Ignore>>(pool);
       break;
     }
     case UnexpectedFieldBehavior::Error: {
-      auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::Error>>(
-          pool_, scalar_storage);
-      ARROW_IGNORE_EXPR(handler->Init(options_.explicit_schema));
-      impl_ = std::move(handler);
+      *out = make_unique<Handler<UnexpectedFieldBehavior::Error>>(pool);
       break;
     }
     case UnexpectedFieldBehavior::InferType:
-      auto handler = internal::make_unique<Handler<UnexpectedFieldBehavior::InferType>>(
-          pool_, scalar_storage);
-      ARROW_IGNORE_EXPR(handler->Init(options_.explicit_schema));
-      impl_ = std::move(handler);
+      *out = make_unique<Handler<UnexpectedFieldBehavior::InferType>>(pool);
       break;
   }
+  return static_cast<HandlerBase&>(**out).Initialize(options.explicit_schema);
 }
 
-BlockParser::BlockParser(ParseOptions options,
-                         const std::shared_ptr<ResizableBuffer>& scalar_storage)
-    : BlockParser(default_memory_pool(), options, scalar_storage) {}
+Status BlockParser::Make(const ParseOptions& options, std::unique_ptr<BlockParser>* out) {
+  return BlockParser::Make(default_memory_pool(), options, out);
+}
 
 }  // namespace json
 }  // namespace arrow

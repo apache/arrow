@@ -53,8 +53,10 @@ class ARROW_EXPORT TableReader {
 ARROW_EXPORT Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
                              std::shared_ptr<RecordBatch>* out);
 
-Status Convert(const std::shared_ptr<DataType>& out_type, std::shared_ptr<Array> in,
-               std::shared_ptr<Array>* out);
+/// \brief convert an Array produced by BlockParser into an Array of out_type
+ARROW_EXPORT Status Convert(const std::shared_ptr<DataType>& out_type,
+                            const std::shared_ptr<Array>& in,
+                            std::shared_ptr<Array>* out);
 
 }  // namespace json
 }  // namespace arrow

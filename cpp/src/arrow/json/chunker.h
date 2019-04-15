@@ -53,10 +53,10 @@ class ARROW_EXPORT Chunker {
   /// \param[in] block json data
   /// \param[out] completion subrange of block containing the completion of partial
   /// \param[out] rest subrange of block containing what completion does not cover
-  virtual Status Process(const std::shared_ptr<Buffer>& partial,
-                         const std::shared_ptr<Buffer>& block,
-                         std::shared_ptr<Buffer>* completion,
-                         std::shared_ptr<Buffer>* rest) = 0;
+  virtual Status ProcessWithPartial(const std::shared_ptr<Buffer>& partial,
+                                    const std::shared_ptr<Buffer>& block,
+                                    std::shared_ptr<Buffer>* completion,
+                                    std::shared_ptr<Buffer>* rest) = 0;
 
   static std::unique_ptr<Chunker> Make(const ParseOptions& options);
 

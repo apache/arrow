@@ -82,10 +82,10 @@ class NewlinesStrictlyDelimitChunker : public Chunker {
     return Status::OK();
   }
 
-  Status Process(const std::shared_ptr<Buffer>& partial_original,
-                 const std::shared_ptr<Buffer>& block,
-                 std::shared_ptr<Buffer>* completion,
-                 std::shared_ptr<Buffer>* rest) override {
+  Status ProcessWithPartial(const std::shared_ptr<Buffer>& partial_original,
+                            const std::shared_ptr<Buffer>& block,
+                            std::shared_ptr<Buffer>* completion,
+                            std::shared_ptr<Buffer>* rest) override {
     auto partial = partial_original;
     ConsumeWhitespace(&partial);
     if (partial->size() == 0) {
@@ -202,10 +202,10 @@ class ParsingChunker : public Chunker {
     return Status::OK();
   }
 
-  Status Process(const std::shared_ptr<Buffer>& partial_original,
-                 const std::shared_ptr<Buffer>& block,
-                 std::shared_ptr<Buffer>* completion,
-                 std::shared_ptr<Buffer>* rest) override {
+  Status ProcessWithPartial(const std::shared_ptr<Buffer>& partial_original,
+                            const std::shared_ptr<Buffer>& block,
+                            std::shared_ptr<Buffer>* completion,
+                            std::shared_ptr<Buffer>* rest) override {
     auto partial = partial_original;
     ConsumeWhitespace(&partial);
     if (partial->size() == 0) {

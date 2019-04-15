@@ -82,17 +82,16 @@ BENCHMARK(BM_ChunkJSONLineDelimited)->MinTime(1.0)->Unit(benchmark::kMicrosecond
 static void BenchmarkJSONParsing(benchmark::State& state,  // NOLINT non-const reference
                                  const std::shared_ptr<Buffer>& json, int32_t num_rows,
                                  ParseOptions options) {
-  std::shared_ptr<ResizableBuffer> storage;
-  ABORT_NOT_OK(AllocateResizableBuffer(json->size(), &storage));
   for (auto _ : state) {
-    BlockParser parser(options, storage);
-    ABORT_NOT_OK(parser.Parse(json));
-    if (parser.num_rows() != num_rows) {
+    std::unique_ptr<BlockParser> parser;
+    ABORT_NOT_OK(BlockParser::Make(options, &parser));
+    ABORT_NOT_OK(parser->Parse(json));
+    if (parser->num_rows() != num_rows) {
       std::cerr << "Parsing incomplete\n";
       std::abort();
     }
     std::shared_ptr<Array> parsed;
-    ABORT_NOT_OK(parser.Finish(&parsed));
+    ABORT_NOT_OK(parser->Finish(&parsed));
   }
   state.SetBytesProcessed(state.iterations() * json->size());
 }

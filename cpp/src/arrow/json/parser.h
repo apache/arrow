@@ -52,39 +52,33 @@ constexpr int32_t kMaxParserNumRows = 100000;
 /// \class BlockParser
 /// \brief A reusable block-based parser for JSON data
 ///
-/// The parser takes a block of newline delimited JSON data and extracts
-/// keys and value pairs, inserting into provided ArrayBuilders.
-/// Parsed data is own by the
-/// parser, so the original buffer can be discarded after Parse() returns.
+/// The parser takes a block of newline delimited JSON data and extracts Arrays
+/// of unconverted strings which can be fed to a Converter to obtain a usable Array.
 class ARROW_EXPORT BlockParser {
  public:
-  BlockParser(MemoryPool* pool, const ParseOptions& options,
-              const std::shared_ptr<ResizableBuffer>& scalar_storage);
-  BlockParser(ParseOptions options,
-              const std::shared_ptr<ResizableBuffer>& scalar_storage);
+  virtual ~BlockParser() = default;
 
   /// \brief Parse a block of data
-  Status Parse(const std::shared_ptr<Buffer>& json) { return impl_->Parse(json); }
+  virtual Status Parse(const std::shared_ptr<Buffer>& json) = 0;
 
   /// \brief Extract parsed data
-  Status Finish(std::shared_ptr<Array>* parsed) { return impl_->Finish(parsed); }
+  virtual Status Finish(std::shared_ptr<Array>* parsed) = 0;
 
   /// \brief Return the number of parsed rows
-  int32_t num_rows() const { return impl_->num_rows(); }
+  int32_t num_rows() const { return num_rows_; }
 
-  struct Impl {
-    virtual ~Impl() = default;
-    virtual Status Parse(const std::shared_ptr<Buffer>& json) = 0;
-    virtual Status Finish(std::shared_ptr<Array>* parsed) = 0;
-    virtual int32_t num_rows() = 0;
-  };
+  static Status Make(MemoryPool* pool, const ParseOptions& options,
+                     std::unique_ptr<BlockParser>* out);
+
+  static Status Make(const ParseOptions& options, std::unique_ptr<BlockParser>* out);
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(BlockParser);
 
+  BlockParser(MemoryPool* pool) : pool_(pool) {}
+
   MemoryPool* pool_;
-  const ParseOptions options_;
-  std::unique_ptr<Impl> impl_;
+  int32_t num_rows_ = 0;
 };
 
 }  // namespace json

@@ -72,7 +72,6 @@ static std::size_t ConsumeWholeObject(std::shared_ptr<Buffer>* buf) {
   if (str.at(open_brace) != '{') return fail();
   auto close_brace = str.find_first_of("}");
   if (close_brace == string_view::npos) return fail();
-  if (str.at(close_brace) != '}') return fail();
   auto length = close_brace + 1;
   *buf = SliceBuffer(*buf, length);
   return length;
@@ -114,7 +113,7 @@ void AssertStraddledChunking(Chunker& chunker, const std::shared_ptr<Buffer>& bu
   ASSERT_OK(chunker.Process(first_half, &first_whole, &partial));
   ASSERT_TRUE(View(first_half).starts_with(View(first_whole)));
   std::shared_ptr<Buffer> completion, rest;
-  ASSERT_OK(chunker.Process(partial, second_half, &completion, &rest));
+  ASSERT_OK(chunker.ProcessWithPartial(partial, second_half, &completion, &rest));
   ASSERT_TRUE(View(second_half).starts_with(View(completion)));
   std::shared_ptr<Buffer> straddling;
   ASSERT_OK(
@@ -126,6 +125,7 @@ void AssertStraddledChunking(Chunker& chunker, const std::shared_ptr<Buffer>& bu
   length = ConsumeWholeObject(&final_whole);
   ASSERT_NE(length, string_view::npos);
   ASSERT_NE(length, 0);
+  ASSERT_EQ(View(final_whole), View(rest));
 }
 
 std::unique_ptr<Chunker> MakeChunker(bool newlines_in_values) {
@@ -203,7 +203,7 @@ TEST_P(BaseChunkerTest, StraddlingEmpty) {
 
   auto others = SliceBuffer(all, first->size());
   std::shared_ptr<Buffer> completion, rest;
-  ASSERT_OK(chunker_->Process(partial, others, &completion, &rest));
+  ASSERT_OK(chunker_->ProcessWithPartial(partial, others, &completion, &rest));
   ASSERT_EQ(completion->size(), 0);
   ASSERT_TRUE(rest->Equals(*others));
 }

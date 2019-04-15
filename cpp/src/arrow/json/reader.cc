@@ -156,8 +156,8 @@ struct ConvertImpl {
   std::shared_ptr<Array>* out;
 };
 
-Status Convert(const std::shared_ptr<DataType>& out_type, std::shared_ptr<Array> in,
-               std::shared_ptr<Array>* out) {
+Status Convert(const std::shared_ptr<DataType>& out_type,
+               const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) {
   ConvertImpl visitor = {out_type, in, out};
   return VisitTypeInline(*out_type, &visitor);
 }
@@ -248,12 +248,11 @@ static Status InferAndConvert(std::shared_ptr<DataType> expected,
 
 Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
                 std::shared_ptr<RecordBatch>* out) {
-  std::shared_ptr<ResizableBuffer> storage;
-  RETURN_NOT_OK(AllocateResizableBuffer(json->size(), &storage));
-  BlockParser parser(default_memory_pool(), options, storage);
-  RETURN_NOT_OK(parser.Parse(json));
+  std::unique_ptr<BlockParser> parser;
+  RETURN_NOT_OK(BlockParser::Make(options, &parser));
+  RETURN_NOT_OK(parser->Parse(json));
   std::shared_ptr<Array> parsed;
-  RETURN_NOT_OK(parser.Finish(&parsed));
+  RETURN_NOT_OK(parser->Finish(&parsed));
   std::shared_ptr<Array> converted;
   auto schm = options.explicit_schema;
   if (options.unexpected_field_behavior == UnexpectedFieldBehavior::InferType) {

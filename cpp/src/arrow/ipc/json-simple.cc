@@ -149,12 +149,14 @@ class BooleanConverter final : public ConcreteConverter<BooleanConverter> {
 // Helpers for numeric converters
 
 // Convert single signed integer value (also {Date,Time}{32,64} and Timestamp)
-template <typename T, typename CType = typename TypeTraits<T>::CType>
-enable_if_signed_integer<typename CTypeTraits<CType>::ArrowType, Status> ConvertNumber(
-    const rj::Value& json_obj, CType* out) {
+template <typename T>
+typename std::enable_if<is_signed_integer<T>::value || is_date<T>::value ||
+                            is_time<T>::value || is_timestamp<T>::value,
+                        Status>::type
+ConvertNumber(const rj::Value& json_obj, typename T::c_type* out) {
   if (json_obj.IsInt64()) {
     int64_t v64 = json_obj.GetInt64();
-    *out = static_cast<CType>(v64);
+    *out = static_cast<typename T::c_type>(v64);
     if (*out == v64) {
       return Status::OK();
     } else {

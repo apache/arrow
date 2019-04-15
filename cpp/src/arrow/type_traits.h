@@ -302,18 +302,17 @@ using enable_if_primitive_ctype =
     typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value, R>::type;
 
 template <typename T, typename R = void>
-using enable_if_date =
-    typename std::enable_if<std::is_base_of<DateType, T>::value, R>::type;
-
-template <typename T, typename R = void>
 using enable_if_integer =
     typename std::enable_if<std::is_base_of<Integer, T>::value, R>::type;
 
+template <typename T>
+using is_signed_integer =
+    std::integral_constant<bool, std::is_base_of<Integer, T>::value &&
+                                     std::is_signed<typename T::c_type>::value>;
+
 template <typename T, typename R = void>
 using enable_if_signed_integer =
-    typename std::enable_if<std::is_base_of<Integer, T>::value &&
-                                std::is_signed<typename T::c_type>::value,
-                            R>::type;
+    typename std::enable_if<is_signed_integer<T>::value, R>::type;
 
 template <typename T, typename R = void>
 using enable_if_unsigned_integer =
@@ -325,13 +324,23 @@ template <typename T, typename R = void>
 using enable_if_floating_point =
     typename std::enable_if<std::is_base_of<FloatingPoint, T>::value, R>::type;
 
-template <typename T, typename R = void>
-using enable_if_time =
-    typename std::enable_if<std::is_base_of<TimeType, T>::value, R>::type;
+template <typename T>
+using is_date = std::is_base_of<DateType, T>;
 
 template <typename T, typename R = void>
-using enable_if_timestamp =
-    typename std::enable_if<std::is_base_of<TimestampType, T>::value, R>::type;
+using enable_if_date = typename std::enable_if<is_date<T>::value, R>::type;
+
+template <typename T>
+using is_time = std::is_base_of<TimeType, T>;
+
+template <typename T, typename R = void>
+using enable_if_time = typename std::enable_if<is_time<T>::value, R>::type;
+
+template <typename T>
+using is_timestamp = std::is_base_of<TimestampType, T>;
+
+template <typename T, typename R = void>
+using enable_if_timestamp = typename std::enable_if<is_timestamp<T>::value, R>::type;
 
 template <typename T, typename R = void>
 using enable_if_has_c_type = typename std::enable_if<has_c_type<T>::value, R>::type;

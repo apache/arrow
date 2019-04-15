@@ -315,9 +315,11 @@ TEST(TestString, Basics) {
   s = '\x00';
   s += "\x1f";
   AssertJSONArray<BinaryType, std::string>(type, "[\"\\u0000\\u001f\"]", {s});
+}
 
+TEST(TestTimestamp, Basics) {
   // Timestamp type
-  type = timestamp(TimeUnit::SECOND);
+  auto type = timestamp(TimeUnit::SECOND);
   AssertJSONArray<TimestampType, int64_t>(
       type, R"(["1970-01-01","2000-02-29","3989-07-14","1900-02-28"])",
       {0, 951782400, 63730281600LL, -2203977600LL});
@@ -326,35 +328,6 @@ TEST(TestString, Basics) {
   AssertJSONArray<TimestampType, int64_t>(
       type, R"(["1970-01-01","2000-02-29","1900-02-28"])",
       {0, 951782400000000000LL, -2203977600000000000LL});
-}
-
-TEST(TestTimestamp, Basics) {
-  // Timestamp type
-  std::shared_ptr<DataType> type = utf8();
-  std::shared_ptr<Array> expected, actual;
-
-  AssertJSONArray<StringType, std::string>(type, "[]", {});
-  AssertJSONArray<StringType, std::string>(type, "[\"\", \"foo\"]", {"", "foo"});
-  AssertJSONArray<StringType, std::string>(type, "[\"\", null]", {true, false}, {"", ""});
-  // NUL character in string
-  std::string s = "some";
-  s += '\x00';
-  s += "char";
-  AssertJSONArray<StringType, std::string>(type, "[\"\", \"some\\u0000char\"]", {"", s});
-  // UTF8 sequence in string
-  AssertJSONArray<StringType, std::string>(type, "[\"\xc3\xa9\"]", {"\xc3\xa9"});
-
-  // Binary type
-  type = binary();
-  AssertJSONArray<BinaryType, std::string>(type, "[\"\", \"foo\", null]",
-                                           {true, true, false}, {"", "foo", ""});
-  // Arbitrary binary (non-UTF8) sequence in string
-  s = "\xff\x9f";
-  AssertJSONArray<BinaryType, std::string>(type, "[\"" + s + "\"]", {s});
-  // Bytes < 0x20 can be represented as JSON unicode escapes
-  s = '\x00';
-  s += "\x1f";
-  AssertJSONArray<BinaryType, std::string>(type, "[\"\\u0000\\u001f\"]", {s});
 }
 
 TEST(TestString, Errors) {
