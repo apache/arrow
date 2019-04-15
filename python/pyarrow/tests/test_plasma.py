@@ -390,20 +390,6 @@ class TestPlasmaClient(object):
             object_id, -1, serialization_context=serialization_context)
         assert result.val == val.val
 
-    def test_store_np_matrix(self):
-        class CustomType(object):
-            def __init__(self, val):
-                self.val = val
-
-        array = np.random.randint(low=-1, high=1, size=(2, 2))
-
-        for data_type in [str, int, float, CustomType]:
-            m = np.matrix(array.astype(data_type))
-            object_id = self.plasma_client.put(m)
-            buf = self.plasma_client.get(object_id)
-            assert (buf == m).all()
-            assert buf.dtype == m.dtype
-
     def test_store_arrow_objects(self):
         data = np.random.randn(10, 4)
         # Write an arrow object.
