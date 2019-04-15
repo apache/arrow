@@ -236,6 +236,26 @@ Status PropagateNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* o
   return Status::OK();
 }
 
+Status SetAllNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* output) {
+  const int64_t length = input.length;
+  if (output->buffers.size() == 0) {
+    // Ensure we can assign a buffer
+    output->buffers.resize(1);
+  }
+
+  // Handle validity bitmap
+  if (output->buffers[0] == nullptr) {
+    std::shared_ptr<Buffer> buffer;
+    RETURN_NOT_OK(ctx->Allocate(BitUtil::BytesForBits(length), &buffer));
+    output->buffers[0] = std::move(buffer);
+  }
+
+  output->null_count = length;
+  BitUtil::SetBitsTo(output->buffers[0]->mutable_data(), 0, length, false);
+
+  return Status::OK();
+}
+
 Status AssignNullIntersection(FunctionContext* ctx, const ArrayData& left,
                               const ArrayData& right, ArrayData* output) {
   if (output->buffers.size() == 0) {
@@ -288,9 +308,7 @@ Status PrimitiveAllocatingBinaryKernel::Call(FunctionContext* ctx, const Datum& 
                                              const Datum& right, Datum* out) {
   std::vector<std::shared_ptr<Buffer>> data_buffers;
   DCHECK_EQ(left.kind(), Datum::ARRAY);
-  DCHECK_EQ(right.kind(), Datum::ARRAY);
   const ArrayData& left_data = *left.array();
-  DCHECK_EQ(left_data.length, right.array()->length);
 
   DCHECK_EQ(out->kind(), Datum::ARRAY);
 

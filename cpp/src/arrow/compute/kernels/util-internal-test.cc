@@ -96,6 +96,21 @@ TEST(PropagateNulls, OffsetAndHasNulls) {
               Each(0));
 }
 
+TEST(SetAllNulls, Basic) {
+  const int64_t length = 16;
+  ArrayData input(boolean(), length);
+  FunctionContext ctx(default_memory_pool());
+  ArrayData output;
+
+  ASSERT_OK(SetAllNulls(&ctx, input, &output));
+  ASSERT_THAT(output.null_count, Eq(length));
+
+  const auto& output_buffer = *output.buffers[0];
+  ASSERT_THAT(std::vector<uint8_t>(output_buffer.data(),
+                                   output_buffer.data() + output_buffer.size()),
+              Each(0));
+}
+
 TEST(AssignNullIntersection, ZeroCopyWhenZeroNullsOnOneInput) {
   ArrayData some_nulls(boolean(), /* length= */ 16, kUnknownNullCount);
   constexpr uint8_t validity_bitmap[8] = {254, 0, 0, 0, 0, 0, 0, 0};

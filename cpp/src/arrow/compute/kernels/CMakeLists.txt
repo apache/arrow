@@ -26,3 +26,7 @@ add_arrow_test(util-internal-test PREFIX "arrow-compute")
 # Aggregates
 add_arrow_test(aggregate-test PREFIX "arrow-compute")
 add_arrow_benchmark(aggregate-benchmark PREFIX "arrow-compute")
+
+# Filters
+add_arrow_test(filter-test PREFIX "arrow-compute")
+add_arrow_benchmark(filter-benchmark PREFIX "arrow-compute")

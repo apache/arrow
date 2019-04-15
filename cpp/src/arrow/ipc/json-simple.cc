@@ -137,6 +137,9 @@ class BooleanConverter final : public ConcreteConverter<BooleanConverter> {
     if (json_obj.IsBool()) {
       return builder_->Append(json_obj.GetBool());
     }
+    if (json_obj.IsInt()) {
+      return builder_->Append(json_obj.GetInt() != 0);
+    }
     return JSONTypeError("boolean", json_obj.GetType());
   }
 

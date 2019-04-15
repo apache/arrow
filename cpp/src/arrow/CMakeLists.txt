@@ -154,7 +154,9 @@ if(ARROW_COMPUTE)
       compute/kernels/aggregate.cc
       compute/kernels/boolean.cc
       compute/kernels/cast.cc
+      compute/kernels/compare.cc
       compute/kernels/count.cc
+      compute/kernels/filter.cc
       compute/kernels/hash.cc
       compute/kernels/mean.cc
       compute/kernels/sum.cc

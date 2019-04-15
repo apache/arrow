@@ -232,13 +232,17 @@ TEST(TestBoolean, Basics) {
   AssertJSONArray<BooleanType, bool>(type, "[false, true, false]", {false, true, false});
   AssertJSONArray<BooleanType, bool>(type, "[false, true, null]", {true, true, false},
                                      {false, true, false});
+  // Supports integer literal casting
+  AssertJSONArray<BooleanType, bool>(type, "[0, 1, 0]", {false, true, false});
+  AssertJSONArray<BooleanType, bool>(type, "[0, 1, null]", {true, true, false},
+                                     {false, true, false});
 }
 
 TEST(TestBoolean, Errors) {
   std::shared_ptr<DataType> type = boolean();
   std::shared_ptr<Array> array;
 
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0.0]", &array));
   ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"true\"]", &array));
 }
 

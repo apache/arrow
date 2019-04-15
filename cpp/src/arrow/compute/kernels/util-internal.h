@@ -72,6 +72,14 @@ Status InvokeBinaryArrayKernel(FunctionContext* ctx, BinaryKernel* kernel,
 ARROW_EXPORT
 Status PropagateNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* output);
 
+/// \brief Set validity bitmap in output with all null values.
+///
+/// \param[in] ctx the kernel FunctionContext
+/// \param[in] input the input array
+/// \param[out] output the output array.  Must have length and buffer set correctly.
+ARROW_EXPORT
+Status SetAllNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* output);
+
 /// \brief Assign validity bitmap to output, taking the intersection of left and right
 /// null bitmaps if necessary, but zero-copy otherwise.
 ///

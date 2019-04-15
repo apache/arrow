@@ -29,8 +29,8 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/cpu-info.h"
 
+#include "arrow/compute/benchmark-util.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/sum.h"
@@ -42,13 +42,6 @@ namespace compute {
 #include <cmath>
 #include <iostream>
 #include <random>
-
-using internal::CpuInfo;
-static CpuInfo* cpu_info = CpuInfo::GetInstance();
-
-static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::L1_CACHE);
-static const int64_t kL2Size = cpu_info->CacheSize(CpuInfo::L2_CACHE);
-static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::L3_CACHE);
 
 namespace BitUtil = arrow::BitUtil;
 using arrow::internal::BitmapReader;
@@ -308,35 +301,13 @@ void BenchSum(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(T));
 }
 
-template <typename Func>
-struct BenchmarkArgsType;
-
-template <typename Values>
-struct BenchmarkArgsType<benchmark::internal::Benchmark* (
-    benchmark::internal::Benchmark::*)(const std::vector<Values>&)> {
-  using type = Values;
-};
-
-static void SetArgs(benchmark::internal::Benchmark* bench) {
-  // Benchmark changed its parameter type between releases from
-  // int to int64_t. As it doesn't have version macros, we need
-  // to apply C++ template magic.
-  using ArgsType =
-      typename BenchmarkArgsType<decltype(&benchmark::internal::Benchmark::Args)>::type;
-  bench->Unit(benchmark::kMicrosecond);
-
-  for (auto size : {kL1Size, kL2Size, kL3Size, kL3Size * 4})
-    for (auto nulls : std::vector<ArgsType>({0, 1, 10, 50}))
-      bench->Args({static_cast<ArgsType>(size), nulls});
-}
-
-BENCHMARK_TEMPLATE(BenchSum, SumNoNulls<int64_t>)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumNoNullsUnrolled<int64_t>)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumSentinel<int64_t>)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumSentinelUnrolled<int64_t>)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumBitmapNaive<int64_t>)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumBitmapReader<int64_t>)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumBitmapVectorizeUnroll<int64_t>)->Apply(SetArgs);
+BENCHMARK_TEMPLATE(BenchSum, SumNoNulls<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(BenchSum, SumNoNullsUnrolled<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(BenchSum, SumSentinel<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(BenchSum, SumSentinelUnrolled<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(BenchSum, SumBitmapNaive<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(BenchSum, SumBitmapReader<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(BenchSum, SumBitmapVectorizeUnroll<int64_t>)->Apply(BenchmarkSetArgs);
 
 static void BenchSumKernel(benchmark::State& state) {
   const int64_t array_size = state.range(0) / sizeof(int64_t);
@@ -357,7 +328,7 @@ static void BenchSumKernel(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t));
 }
 
-BENCHMARK(BenchSumKernel)->Apply(SetArgs);
+BENCHMARK(BenchSumKernel)->Apply(BenchmarkSetArgs);
 
 }  // namespace compute
 }  // namespace arrow
