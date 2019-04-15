@@ -10,12 +10,10 @@ import {
 } from './utils';
 
 describe('Utf8Builder', () => {
-    runTestsWithEncoder('chunkLength: 5', encodeAll(() => new Utf8(), 5));
-    runTestsWithEncoder('chunkLength: 25', encodeAll(() => new Utf8(), 25));
-    runTestsWithEncoder('chunkLength: undefined', encodeAll(() => new Utf8(), void 0));
-    runTestsWithEncoder('chunkLength: 5', encodeEach(() => new Utf8(), 5));
-    runTestsWithEncoder('chunkLength: 25', encodeEach(() => new Utf8(), 25));
-    runTestsWithEncoder('chunkLength: undefined', encodeEach(() => new Utf8(), void 0));
+    runTestsWithEncoder('encodeAll', encodeAll(() => new Utf8()));
+    runTestsWithEncoder('encodeEach: 5', encodeEach(() => new Utf8(), 5));
+    runTestsWithEncoder('encodeEach: 25', encodeEach(() => new Utf8(), 25));
+    runTestsWithEncoder('encodeEach: undefined', encodeEach(() => new Utf8(), void 0));
 });
 
 function runTestsWithEncoder(name: string, encode: (vals: (string | null)[], nullVals?: any[]) => Vector<Utf8>) {

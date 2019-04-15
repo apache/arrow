@@ -22,12 +22,10 @@ import {
 
 describe('BoolBuilder', () => {
 
-    runTestsWithEncoder('chunkLength: 5', encodeAll(() => new Bool(), 5));
-    runTestsWithEncoder('chunkLength: 25', encodeAll(() => new Bool(), 25));
-    runTestsWithEncoder('chunkLength: undefined', encodeAll(() => new Bool()));
-    runTestsWithEncoder('chunkLength: 5', encodeEach(() => new Bool(), 5));
-    runTestsWithEncoder('chunkLength: 25', encodeEach(() => new Bool(), 25));
-    runTestsWithEncoder('chunkLength: undefined', encodeEach(() => new Bool()));
+    runTestsWithEncoder('encodeAll: 5', encodeAll(() => new Bool()));
+    runTestsWithEncoder('encodeEach: 5', encodeEach(() => new Bool(), 5));
+    runTestsWithEncoder('encodeEach: 25', encodeEach(() => new Bool(), 25));
+    runTestsWithEncoder('encodeEach: undefined', encodeEach(() => new Bool()));
 
     function runTestsWithEncoder<T extends DataType>(name: string, encode: (vals: (T['TValue'] | null)[], nullVals?: any[]) => Vector<T>) {
         describe(`${encode.name} ${name}`, () => {
@@ -66,12 +64,10 @@ type PrimitiveTypeOpts<T extends DataType> = [
         const typeFactory = () => new TypeCtor();
         const valueName = TypeCtor.name.toLowerCase();
 
-        runTestsWithEncoder('chunkLength: 5', encodeAll(typeFactory, 5));
-        runTestsWithEncoder('chunkLength: 25', encodeAll(typeFactory, 25));
-        runTestsWithEncoder('chunkLength: undefined', encodeAll(typeFactory));
-        runTestsWithEncoder('chunkLength: 5', encodeEach(typeFactory, 5));
-        runTestsWithEncoder('chunkLength: 25', encodeEach(typeFactory, 25));
-        runTestsWithEncoder('chunkLength: undefined', encodeEach(typeFactory));
+        runTestsWithEncoder('encodeAll', encodeAll(typeFactory));
+        runTestsWithEncoder('encodeEach: 5', encodeEach(typeFactory, 5));
+        runTestsWithEncoder('encodeEach: 25', encodeEach(typeFactory, 25));
+        runTestsWithEncoder('encodeEach: undefined', encodeEach(typeFactory));
     
         function runTestsWithEncoder<T extends DataType>(name: string, encode: (vals: (T['TValue'] | null)[], nullVals?: any[]) => Vector<T>) {
             describe(`${encode.name} ${name}`, () => {
@@ -111,12 +107,10 @@ type PrimitiveTypeOpts<T extends DataType> = [
         const typeFactory = () => new TypeCtor();
         const valueName = TypeCtor.name.toLowerCase();
 
-        runTestsWithEncoder('chunkLength: 5', encodeAll(typeFactory, 5));
-        runTestsWithEncoder('chunkLength: 25', encodeAll(typeFactory, 25));
-        runTestsWithEncoder('chunkLength: undefined', encodeAll(typeFactory));
-        runTestsWithEncoder('chunkLength: 5', encodeEach(typeFactory, 5));
-        runTestsWithEncoder('chunkLength: 25', encodeEach(typeFactory, 25));
-        runTestsWithEncoder('chunkLength: undefined', encodeEach(typeFactory));
+        runTestsWithEncoder('encodeAll', encodeAll(typeFactory));
+        runTestsWithEncoder('encodeEach: 5', encodeEach(typeFactory, 5));
+        runTestsWithEncoder('encodeEach: 25', encodeEach(typeFactory, 25));
+        runTestsWithEncoder('encodeEach: undefined', encodeEach(typeFactory));
 
         function runTestsWithEncoder<T extends DataType>(name: string, encode: (vals: (T['TValue'] | null)[], nullVals?: any[]) => Vector<T>) {
             describe(`${encode.name} ${name}`, () => {

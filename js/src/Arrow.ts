@@ -69,7 +69,7 @@ export {
 } from './vector/index';
 
 export {
-    DataBuilder,
+    Builder,
     BinaryBuilder,
     BoolBuilder,
     DateBuilder, DateDayBuilder, DateMillisecondBuilder,

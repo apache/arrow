@@ -11,12 +11,10 @@ import {
 
 describe('DateDayBuilder', () => {
 
-    runTestsWithEncoder('chunkLength: 5', encodeAll(() => new DateDay(), 5));
-    runTestsWithEncoder('chunkLength: 25', encodeAll(() => new DateDay(), 25));
-    runTestsWithEncoder('chunkLength: undefined', encodeAll(() => new DateDay()));
-    runTestsWithEncoder('chunkLength: 5', encodeEach(() => new DateDay(), 5));
-    runTestsWithEncoder('chunkLength: 25', encodeEach(() => new DateDay(), 25));
-    runTestsWithEncoder('chunkLength: undefined', encodeEach(() => new DateDay()));
+    runTestsWithEncoder('encodeAll', encodeAll(() => new DateDay()));
+    runTestsWithEncoder('encodeEach chunkLength: 5', encodeEach(() => new DateDay(), 5));
+    runTestsWithEncoder('encodeEach chunkLength: 25', encodeEach(() => new DateDay(), 25));
+    runTestsWithEncoder('encodeEach chunkLength: undefined', encodeEach(() => new DateDay()));
     
     function runTestsWithEncoder(name: string, encode: (vals: (Date | null)[], nullVals?: any[]) => Vector<DateDay>) {
         describe(`${encode.name} ${name}`, () => {
@@ -34,12 +32,10 @@ describe('DateDayBuilder', () => {
 
 describe('DateMillisecondBuilder', () => {
 
-    runTestsWithEncoder('chunkLength: 5', encodeAll(() => new DateMillisecond(), 5));
-    runTestsWithEncoder('chunkLength: 25', encodeAll(() => new DateMillisecond(), 25));
-    runTestsWithEncoder('chunkLength: undefined', encodeAll(() => new DateMillisecond()));
-    runTestsWithEncoder('chunkLength: 5', encodeEach(() => new DateMillisecond(), 5));
-    runTestsWithEncoder('chunkLength: 25', encodeEach(() => new DateMillisecond(), 25));
-    runTestsWithEncoder('chunkLength: undefined', encodeEach(() => new DateMillisecond()));
+    runTestsWithEncoder('encodeAll', encodeAll(() => new DateMillisecond()));
+    runTestsWithEncoder('encodeEach: 5', encodeEach(() => new DateMillisecond(), 5));
+    runTestsWithEncoder('encodeEach: 25', encodeEach(() => new DateMillisecond(), 25));
+    runTestsWithEncoder('encodeEach: undefined', encodeEach(() => new DateMillisecond()));
 
     function runTestsWithEncoder(name: string, encode: (vals: (Date | null)[], nullVals?: any[]) => Vector<DateMillisecond>) {
         describe(`${encode.name} ${name}`, () => {
@@ -56,7 +52,7 @@ describe('DateMillisecondBuilder', () => {
 });
 
 describe('DateMillisecondBuilder', () => {
-    const encode = encodeAll(() => new DateMillisecond(), 5);
+    const encode = encodeAll(() => new DateMillisecond());
     const dates = [
         null,
         "2019-03-19T13:40:14.746Z",

@@ -20,6 +20,8 @@ import { Type } from './enum';
 import * as type from './type';
 import { DataType } from './type';
 import * as vecs from './vector/index';
+import * as builders from './builder/index';
+import { DataBuilderOptions } from './builder/base';
 
 /** @ignore */ type FloatArray = Float32Array | Float64Array;
 /** @ignore */ type IntArray = Int8Array | Int16Array | Int32Array;
@@ -87,6 +89,15 @@ export type VectorCtorArgs<
                   new (data: Data<R>, ...args: TArgs) => T
 > = TCtor extends new (data: Data<R>, ...args: infer TArgs) => T ? TArgs : never;
 
+/** @ignore */
+export type BuilderCtorArgs<
+    T extends Builder<R, any>,
+    R extends DataType = any,
+    TArgs extends any[] = any[],
+    TCtor extends new (type: R, ...args: TArgs) => T =
+                  new (type: R, ...args: TArgs) => T
+> = TCtor extends new (type: R, ...args: infer TArgs) => T ? TArgs : never;
+
 /**
  * Obtain the constructor function of an instance type
  * @ignore
@@ -106,10 +117,25 @@ export type VectorCtorType<
 > = TCtor extends new (data: Data<R>, ...args: VectorCtorArgs<T, R>) => T ? TCtor : never;
 
 /** @ignore */
+export type BuilderCtorType<
+    T extends Builder<R, any>,
+    R extends DataType = any,
+    TCtor extends new (options: DataBuilderOptions<R, any>) => T =
+                  new (options: DataBuilderOptions<R, any>) => T
+> = TCtor extends new (options: DataBuilderOptions<R, any>) => T ? TCtor : never;
+
+/** @ignore */
 export type Vector<T extends Type | DataType = any> =
     T extends Type          ? TypeToVector<T>     :
     T extends DataType      ? DataTypeToVector<T> :
                               vecs.BaseVector<any>
+    ;
+
+/** @ignore */
+export type Builder<T extends Type | DataType = any, TNull = any> =
+    T extends Type          ? TypeToBuilder<T, TNull>         :
+    T extends DataType      ? DataTypeToBuilder<T, TNull>     :
+                              builders.Builder<any, TNull>
     ;
 
 /** @ignore */
@@ -118,6 +144,13 @@ export type VectorCtor<T extends Type | DataType | Vector> =
     T extends Type          ? VectorCtorType<Vector<T>>          :
     T extends DataType      ? VectorCtorType<Vector<T['TType']>> :
                               VectorCtorType<vecs.BaseVector>
+    ;
+
+/** @ignore */
+export type BuilderCtor<T extends Type | DataType = any> =
+    T extends Type          ? BuilderCtorType<Builder<T>> :
+    T extends DataType      ? BuilderCtorType<Builder<T>> :
+                              BuilderCtorType<builders.Builder>
     ;
 
 /** @ignore */
@@ -270,4 +303,100 @@ export type TypeToDataType<T extends Type> =
     : T extends Type.Dictionary           ? type.Dictionary
     : T extends Type.FixedSizeList        ? type.FixedSizeList
                                           : DataType
+    ;
+
+/** @ignore */
+type TypeToBuilder<T extends Type = any, TNull = any> =
+    T extends Type.Null                 ? builders.NullBuilder<TNull>                 :
+    T extends Type.Bool                 ? builders.BoolBuilder<TNull>                 :
+    T extends Type.Int8                 ? builders.Int8Builder<TNull>                 :
+    T extends Type.Int16                ? builders.Int16Builder<TNull>                :
+    T extends Type.Int32                ? builders.Int32Builder<TNull>                :
+    T extends Type.Int64                ? builders.Int64Builder<TNull>                :
+    T extends Type.Uint8                ? builders.Uint8Builder<TNull>                :
+    T extends Type.Uint16               ? builders.Uint16Builder<TNull>               :
+    T extends Type.Uint32               ? builders.Uint32Builder<TNull>               :
+    T extends Type.Uint64               ? builders.Uint64Builder<TNull>               :
+    T extends Type.Int                  ? builders.IntBuilder<any, TNull>             :
+    T extends Type.Float16              ? builders.Float16Builder<TNull>              :
+    T extends Type.Float32              ? builders.Float32Builder<TNull>              :
+    T extends Type.Float64              ? builders.Float64Builder<TNull>              :
+    T extends Type.Float                ? builders.FloatBuilder<any, TNull>           :
+    T extends Type.Utf8                 ? builders.Utf8Builder<TNull>                 :
+    T extends Type.Binary               ? builders.BinaryBuilder<TNull>               :
+    T extends Type.FixedSizeBinary      ? builders.FixedSizeBinaryBuilder<TNull>      :
+    T extends Type.Date                 ? builders.DateBuilder<any, TNull>            :
+    T extends Type.DateDay              ? builders.DateDayBuilder<TNull>              :
+    T extends Type.DateMillisecond      ? builders.DateMillisecondBuilder<TNull>      :
+    T extends Type.Timestamp            ? builders.TimestampBuilder<any, TNull>       :
+    T extends Type.TimestampSecond      ? builders.TimestampSecondBuilder<TNull>      :
+    T extends Type.TimestampMillisecond ? builders.TimestampMillisecondBuilder<TNull> :
+    T extends Type.TimestampMicrosecond ? builders.TimestampMicrosecondBuilder<TNull> :
+    T extends Type.TimestampNanosecond  ? builders.TimestampNanosecondBuilder<TNull>  :
+    T extends Type.Time                 ? builders.TimeBuilder<any, TNull>            :
+    T extends Type.TimeSecond           ? builders.TimeSecondBuilder<TNull>           :
+    T extends Type.TimeMillisecond      ? builders.TimeMillisecondBuilder<TNull>      :
+    T extends Type.TimeMicrosecond      ? builders.TimeMicrosecondBuilder<TNull>      :
+    T extends Type.TimeNanosecond       ? builders.TimeNanosecondBuilder<TNull>       :
+    T extends Type.Decimal              ? builders.DecimalBuilder<TNull>              :
+    T extends Type.Union                ? builders.UnionBuilder<any, TNull>           :
+    T extends Type.DenseUnion           ? builders.DenseUnionBuilder<any, TNull>      :
+    T extends Type.SparseUnion          ? builders.SparseUnionBuilder<any, TNull>     :
+    T extends Type.Interval             ? builders.IntervalBuilder<any, TNull>        :
+    T extends Type.IntervalDayTime      ? builders.IntervalDayTimeBuilder<TNull>      :
+    T extends Type.IntervalYearMonth    ? builders.IntervalYearMonthBuilder<TNull>    :
+    T extends Type.Map                  ? builders.MapBuilder<any, TNull>             :
+    T extends Type.List                 ? builders.ListBuilder<any, TNull>            :
+    T extends Type.Struct               ? builders.StructBuilder<any, TNull>          :
+    T extends Type.Dictionary           ? builders.DictionaryBuilder<any, TNull>      :
+    T extends Type.FixedSizeList        ? builders.FixedSizeListBuilder<any, TNull>   :
+                                          builders.Builder<any, TNull>
+    ;
+
+/** @ignore */
+type DataTypeToBuilder<T extends DataType = any, TNull = any> =
+    T extends type.Null                 ? builders.NullBuilder<TNull>                          :
+    T extends type.Bool                 ? builders.BoolBuilder<TNull>                          :
+    T extends type.Int8                 ? builders.Int8Builder<TNull>                          :
+    T extends type.Int16                ? builders.Int16Builder<TNull>                         :
+    T extends type.Int32                ? builders.Int32Builder<TNull>                         :
+    T extends type.Int64                ? builders.Int64Builder<TNull>                         :
+    T extends type.Uint8                ? builders.Uint8Builder<TNull>                         :
+    T extends type.Uint16               ? builders.Uint16Builder<TNull>                        :
+    T extends type.Uint32               ? builders.Uint32Builder<TNull>                        :
+    T extends type.Uint64               ? builders.Uint64Builder<TNull>                        :
+    T extends type.Int                  ? builders.IntBuilder<T, TNull>                        :
+    T extends type.Float16              ? builders.Float16Builder<TNull>                       :
+    T extends type.Float32              ? builders.Float32Builder<TNull>                       :
+    T extends type.Float64              ? builders.Float64Builder<TNull>                       :
+    T extends type.Float                ? builders.FloatBuilder<T, TNull>                      :
+    T extends type.Utf8                 ? builders.Utf8Builder<TNull>                          :
+    T extends type.Binary               ? builders.BinaryBuilder<TNull>                        :
+    T extends type.FixedSizeBinary      ? builders.FixedSizeBinaryBuilder<TNull>               :
+    T extends type.Date_                ? builders.DateBuilder<T, TNull>                       :
+    T extends type.DateDay              ? builders.DateDayBuilder<TNull>                       :
+    T extends type.DateMillisecond      ? builders.DateMillisecondBuilder<TNull>               :
+    T extends type.Timestamp            ? builders.TimestampBuilder<T, TNull>                  :
+    T extends type.TimestampSecond      ? builders.TimestampSecondBuilder<TNull>               :
+    T extends type.TimestampMillisecond ? builders.TimestampMillisecondBuilder<TNull>          :
+    T extends type.TimestampMicrosecond ? builders.TimestampMicrosecondBuilder<TNull>          :
+    T extends type.TimestampNanosecond  ? builders.TimestampNanosecondBuilder<TNull>           :
+    T extends type.Time                 ? builders.TimeBuilder<T, TNull>                       :
+    T extends type.TimeSecond           ? builders.TimeSecondBuilder<TNull>                    :
+    T extends type.TimeMillisecond      ? builders.TimeMillisecondBuilder<TNull>               :
+    T extends type.TimeMicrosecond      ? builders.TimeMicrosecondBuilder<TNull>               :
+    T extends type.TimeNanosecond       ? builders.TimeNanosecondBuilder<TNull>                :
+    T extends type.Decimal              ? builders.DecimalBuilder<TNull>                       :
+    T extends type.Union                ? builders.UnionBuilder<T, TNull>                      :
+    T extends type.DenseUnion           ? builders.DenseUnionBuilder<T, TNull>                 :
+    T extends type.SparseUnion          ? builders.SparseUnionBuilder<T, TNull>                :
+    T extends type.Interval             ? builders.IntervalBuilder<T, TNull>                   :
+    T extends type.IntervalDayTime      ? builders.IntervalDayTimeBuilder<TNull>               :
+    T extends type.IntervalYearMonth    ? builders.IntervalYearMonthBuilder<TNull>             :
+    T extends type.Map_                 ? builders.MapBuilder<T['dataTypes'], TNull>           :
+    T extends type.List                 ? builders.ListBuilder<T['valueType'], TNull>          :
+    T extends type.Struct               ? builders.StructBuilder<T['dataTypes'], TNull>        :
+    T extends type.Dictionary           ? builders.DictionaryBuilder<T, TNull>                 :
+    T extends type.FixedSizeList        ? builders.FixedSizeListBuilder<T['valueType'], TNull> :
+                                          builders.Builder<any, TNull>
     ;

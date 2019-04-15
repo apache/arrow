@@ -12,12 +12,10 @@ import {
 
 describe('DictionaryBuilder', () => {
     describe('<Utf8, Int32>', () => {
-        runTestsWithEncoder('chunkLength: 5', encodeAll(() => new Dictionary(new Utf8(), new Int32()), 5));
-        runTestsWithEncoder('chunkLength: 25', encodeAll(() => new Dictionary(new Utf8(), new Int32()), 25));
-        runTestsWithEncoder('chunkLength: undefined', encodeAll(() => new Dictionary(new Utf8(), new Int32()), void 0));
-        runTestsWithEncoder('chunkLength: 5', encodeEach(() => new Dictionary(new Utf8(), new Int32()), 5));
-        runTestsWithEncoder('chunkLength: 25', encodeEach(() => new Dictionary(new Utf8(), new Int32()), 25));
-        runTestsWithEncoder('chunkLength: undefined', encodeEach(() => new Dictionary(new Utf8(), new Int32()), void 0));
+        runTestsWithEncoder('encodeAll', encodeAll(() => new Dictionary(new Utf8(), new Int32())));
+        runTestsWithEncoder('encodeEach: 5', encodeEach(() => new Dictionary(new Utf8(), new Int32()), 5));
+        runTestsWithEncoder('encodeEach: 25', encodeEach(() => new Dictionary(new Utf8(), new Int32()), 25));
+        runTestsWithEncoder('encodeEach: undefined', encodeEach(() => new Dictionary(new Utf8(), new Int32()), void 0));
     });
 });
 

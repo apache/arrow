@@ -83,7 +83,7 @@ export {
     DataFrame, FilteredDataFrame, CountByResult, BindFunc, NextFunc,
     predicate,
     util,
-    DataBuilder,
+    Builder,
     BinaryBuilder,
     BoolBuilder,
     DateBuilder, DateDayBuilder, DateMillisecondBuilder,

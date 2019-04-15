@@ -1,5 +1,5 @@
 import { util } from '../../Arrow';
-import { DataBuilder } from '../../Arrow';
+import { Builder } from '../../Arrow';
 import { DataType, Vector, Chunked } from '../../Arrow';
 
 const rand = Math.random.bind(Math);
@@ -80,21 +80,21 @@ export const duplicateItems = (n: number, xs: (any | null)[]) => {
     return out;
 };
 
-export function encodeAll<T extends DataType>(typeFactory: () => T, chunkLen?: number) {
-    return function encodeAll<R extends T['TValue']>(values: (R | null)[], nulls?: any[]): Vector<T> {
+export function encodeAll<T extends DataType>(typeFactory: () => T) {
+    return function encodeAll<TNull = any>(values: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
-        const builder = DataBuilder.new(type, nulls, chunkLen);
-        values.forEach(builder.set.bind(builder));
+        const builder = Builder.new<T, TNull>({ type, nullValues });
+        values.forEach(builder.write.bind(builder));
         return Vector.new(builder.finish().flush()) as Vector<T>;
     }
 }
 
 export function encodeEach<T extends DataType>(typeFactory: () => T, chunkLen?: number) {
-    return function encodeEach<R extends T['TValue']>(vals: (R | null)[], nulls?: any[]): Vector<T> {
+    return function encodeEach<TNull = any>(vals: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
-        const builder = DataBuilder.new(type, nulls);
-        const chunks = [...builder.fromIterable(vals, chunkLen)];
-        return Chunked.concat(...chunks.map(Vector.new)) as any;
+        const builder = Builder.new<T, TNull>({ type, nullValues });
+        const chunks = [...builder.readAll(vals, chunkLen)];
+        return Chunked.concat(...chunks.map(Vector.new)) as Chunked<T>;
     }
 }
 
@@ -117,8 +117,8 @@ export function validateVector<T extends DataType>(vals: (T['TValue'] | null)[],
     } catch (e) {
         throw new Error([
             `${(vec as any).VectorName}[${i}]: ${e}`,
-            `nulls: ${JSON.stringify(nullVals || [])}`,
-            `values: ${JSON.stringify(vals)}`,
+            `nulls: [${nullVals.join(', ')}]`,
+            `values: [${vals.join(', ')}]`,
         ].join('\n'));
     }
 }
