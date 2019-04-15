@@ -36,7 +36,7 @@
 
 // gcc/clang (possibly others)
 
-#if defined(__SSE4_2__)
+#if defined(__SSE2__)
 #define ARROW_HAVE_SSE2 1
 #include <emmintrin.h>
 #endif
