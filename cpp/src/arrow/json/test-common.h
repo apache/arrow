@@ -27,6 +27,7 @@
 #include "rapidjson/writer.h"
 
 #include "arrow/io/memory.h"
+#include "arrow/json/converter.h"
 #include "arrow/json/options.h"
 #include "arrow/json/parser.h"
 #include "arrow/testing/gtest_util.h"
@@ -165,6 +166,52 @@ inline static Status ParseFromString(ParseOptions options, string_view src_str,
   RETURN_NOT_OK(BlockParser::Make(options, &parser));
   RETURN_NOT_OK(parser->Parse(src));
   return parser->Finish(parsed);
+}
+
+inline static Status Convert(MemoryPool* pool,
+                             const std::shared_ptr<DataType>& target_type,
+                             const std::shared_ptr<Array>& parsed,
+                             std::shared_ptr<ArrayData>* converted_data);
+
+inline static Status Convert(MemoryPool* pool,
+                             const std::shared_ptr<DataType>& target_type,
+                             const std::shared_ptr<Array>& parsed,
+                             std::shared_ptr<Array>* converted) {
+  auto converted_data = parsed->data()->Copy();
+  converted_data->type = target_type;
+  if (target_type->id() == Type::LIST) {
+    auto list_array = static_cast<const ListArray*>(parsed.get());
+    RETURN_NOT_OK(Convert(pool, target_type->child(0)->type(), list_array->values(),
+                          &converted_data->child_data[0]));
+    *converted = MakeArray(converted_data);
+    return Status::OK();
+  }
+  if (target_type->id() == Type::STRUCT) {
+    auto struct_array = static_cast<const StructArray*>(parsed.get());
+    for (int i = 0; i < target_type->num_children(); ++i) {
+      RETURN_NOT_OK(Convert(pool, target_type->child(i)->type(), struct_array->field(i),
+                            &converted_data->child_data[i]));
+    }
+    *converted = MakeArray(converted_data);
+    return Status::OK();
+  }
+  std::shared_ptr<Converter> converter;
+  RETURN_NOT_OK(MakeConverter(target_type, pool, &converter));
+  return converter->Convert(parsed, converted);
+}
+
+Status Convert(MemoryPool* pool, const std::shared_ptr<DataType>& target_type,
+               const std::shared_ptr<Array>& parsed,
+               std::shared_ptr<ArrayData>* converted_data) {
+  std::shared_ptr<Array> converted;
+  RETURN_NOT_OK(Convert(pool, target_type, parsed, &converted));
+  *converted_data = converted->data();
+  return Status::OK();
+}
+
+Status Convert(const std::shared_ptr<DataType>& target_type,
+               const std::shared_ptr<Array>& parsed, std::shared_ptr<Array>* converted) {
+  return Convert(default_memory_pool(), target_type, parsed, converted);
 }
 
 std::string PrettyPrint(string_view one_line) {

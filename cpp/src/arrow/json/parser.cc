@@ -41,6 +41,11 @@
 namespace arrow {
 namespace json {
 
+// This guess is used to inflate memory reserved for storage of parsed strings
+// to hold the strings encountered in parsing a block *and* those from the presumed
+// partial trailing object which straddles the block boundary.
+constexpr int32_t kRowsPerBlockGuess = 64;
+
 namespace rj = arrow::rapidjson;
 
 using internal::BitsetStack;
@@ -143,10 +148,9 @@ struct BuilderPtr {
   // index of builder in its arena
   // OR the length of that builder if kind == Kind::kNull
   // (we don't allocate an arena for nulls since they're trivial)
-  // FIXME(bkietz) GCC is emitting conversion errors for the bitfields
-  uint32_t index;  // : 28;
-  Kind::type kind;
-  bool nullable;
+  uint32_t index : 28;
+  Kind::type kind : 3;
+  bool nullable : 1;
 
   bool operator==(BuilderPtr other) const {
     return kind == other.kind && index == other.index;
@@ -531,6 +535,7 @@ class HandlerBase : public BlockParser,
                               scalar_values_builder_.value_data_length();
     if (json->size() > remaining_capacity) {
       auto additional_storage = json->size() - remaining_capacity;
+      additional_storage *= (kRowsPerBlockGuess + 1.0) / kRowsPerBlockGuess;
       RETURN_NOT_OK(scalar_values_builder_.ReserveData(additional_storage));
     }
 
