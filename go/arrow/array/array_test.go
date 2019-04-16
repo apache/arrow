@@ -32,6 +32,7 @@ type testDataType struct {
 
 func (d *testDataType) ID() arrow.Type { return d.id }
 func (d *testDataType) Name() string   { panic("implement me") }
+func (d *testDataType) BitWidth() int  { return 8 }
 
 func TestMakeFromData(t *testing.T) {
 	tests := []struct {
