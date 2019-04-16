@@ -74,7 +74,7 @@ func (blk fileBlock) NewMessage() (*Message, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "arrow/ipc: could not read message metadata")
 	}
-	meta := memory.NewBufferBytes(buf[4:])
+	meta := memory.NewBufferBytes(buf[4:]) // drop buf-size already known from blk.Meta
 
 	buf = make([]byte, blk.Body)
 	_, err = io.ReadFull(r, buf)

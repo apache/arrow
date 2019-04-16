@@ -95,6 +95,19 @@ func NewMessage(meta, body *memory.Buffer) *Message {
 	}
 }
 
+func newMessageFromFB(meta *flatbuf.Message, body *memory.Buffer) *Message {
+	if meta == nil || body == nil {
+		panic("arrow/ipc: nil buffers")
+	}
+	body.Retain()
+	return &Message{
+		refCount: 1,
+		msg:      meta,
+		meta:     memory.NewBufferBytes(meta.Table().Bytes),
+		body:     body,
+	}
+}
+
 // Retain increases the reference count by 1.
 // Retain may be called simultaneously from multiple goroutines.
 func (msg *Message) Retain() {
@@ -181,9 +194,9 @@ func (r *MessageReader) Message() (*Message, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "arrow/ipc: could not read message metadata")
 	}
-	meta := memory.NewBufferBytes(buf)
 
-	bodyLen := flatbuf.GetRootAsMessage(meta.Bytes(), 0).BodyLength()
+	meta := flatbuf.GetRootAsMessage(buf, 0)
+	bodyLen := meta.BodyLength()
 
 	buf = make([]byte, bodyLen)
 	_, err = io.ReadFull(r.r, buf)
@@ -196,7 +209,7 @@ func (r *MessageReader) Message() (*Message, error) {
 		r.msg.Release()
 		r.msg = nil
 	}
-	r.msg = NewMessage(meta, body)
+	r.msg = newMessageFromFB(meta, body)
 
 	return r.msg, nil
 }
