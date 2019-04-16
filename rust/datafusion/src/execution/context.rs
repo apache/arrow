@@ -34,6 +34,7 @@ use crate::execution::datasource::DataSourceRelation;
 use crate::execution::expression::*;
 use crate::execution::filter::FilterRelation;
 use crate::execution::limit::LimitRelation;
+use crate::execution::physical_plan::{ExecutionPlan, Partition, ResultSet};
 use crate::execution::projection::ProjectRelation;
 use crate::execution::relation::Relation;
 use crate::execution::table_impl::TableImpl;
@@ -45,6 +46,72 @@ use crate::optimizer::utils;
 use crate::sql::parser::{DFASTNode, DFParser};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
 use crate::table::Table;
+use arrow::record_batch::RecordBatch;
+
+struct TableScanExec {
+
+}
+
+impl ExecutionPlan for TableScanExec {
+    fn schema(&self) -> Arc<Schema> {
+        unimplemented!()
+    }
+
+    fn partitions(&self) -> Result<Vec<Rc<Partition>>> {
+        unimplemented!()
+    }
+}
+
+struct FilterExec {
+    input: Rc<ExecutionPlan>,
+    expr: CompiledExpr
+}
+
+impl FilterExec {
+    pub fn new(input: Rc<ExecutionPlan>, expr: CompiledExpr) -> Self {
+        Self { input, expr }
+    }
+}
+
+impl ExecutionPlan for FilterExec {
+    fn schema(&self) -> Arc<Schema> {
+        unimplemented!()
+    }
+
+    fn partitions(&self) -> Result<Vec<Rc<Partition>>> {
+        //TODO: inject filter logic
+        Ok(self.input.partitions()?.iter().map(|p| p.clone()).collect())
+    }
+}
+
+struct FilterPartition {
+    input: Rc<RefCell<Partition>>
+}
+
+impl Partition for FilterPartition {
+    fn execute(&self) -> Result<Rc<Iterator<Item=Result<RecordBatch>>>> {
+        unimplemented!()
+    }
+}
+
+struct FilterResultSet {
+    input: Rc<RefCell<ResultSet>>
+}
+
+impl Iterator for FilterResultSet {
+    type Item=Result<RecordBatch>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.input.borrow_mut().next() {
+            Some(Ok(batch)) => {
+                //TODO apply filter
+                Some(Ok(batch))
+            },
+            Some(_) => panic!(),
+            None => None
+        }
+    }
+}
 
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
@@ -89,6 +156,22 @@ impl ExecutionContext {
                 "Cannot create logical plan from {:?}",
                 other
             ))),
+        }
+    }
+
+    pub fn create_physical_plan(&mut self, logical_plan: &Arc<LogicalPlan>) -> Result<Rc<ExecutionPlan>> {
+        match logical_plan.as_ref() {
+            LogicalPlan::TableScan{ .. } => {
+                let physical_plan = TableScanExec {};
+                Ok(Rc::new(physical_plan))
+            }
+            LogicalPlan::Selection { input, expr, .. } => {
+                let input = self.create_physical_plan(input)?;
+                let input_schema = input.as_ref().schema().clone();
+                let runtime_expr = compile_expr(&self, expr, &input_schema)?;
+                Ok(Rc::new(FilterExec::new(input, runtime_expr)))
+            }
+            _ => unimplemented!()
         }
     }
 

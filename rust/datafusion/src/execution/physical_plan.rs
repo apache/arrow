@@ -15,15 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! DataFusion query execution
+//! Traits for physical query plan
 
-pub mod aggregate;
-pub mod context;
-pub mod datasource;
-pub mod expression;
-pub mod filter;
-pub mod limit;
-pub mod physical_plan;
-pub mod projection;
-pub mod relation;
-pub mod table_impl;
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::Arc;
+
+use arrow::datatypes::Schema;
+use arrow::record_batch::RecordBatch;
+
+use crate::error::Result;
+
+pub type ResultSet = Iterator<Item=Result<RecordBatch>>;
+
+pub trait ExecutionPlan {
+    fn schema(&self) -> Arc<Schema>;
+    fn partitions(&self) -> Result<Vec<Rc<Partition>>>;
+}
+
+pub trait Partition {
+    fn execute(&self) -> Result<Rc<ResultSet>>;
+}
+

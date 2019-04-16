@@ -17,77 +17,77 @@ use crate::datasource::RecordBatchIterator;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::datasource::TableProvider;
 
-pub trait Partition {
-    fn execute(&mut self) -> Rc<RefCell<Iterator<Item=Result<RecordBatch>>>>;
-}
-
-pub trait ExecutionPlan {
-    fn schema(&self) -> Arc<Schema>;
-    fn partitions(&self) -> Vec<Rc<RefCell<Partition>>>;
-}
-
-pub struct TableExec {
-    filenames: Vec<String>
-}
-
-impl ExecutionPlan for TableExec {
-
-    fn schema(&self) -> Arc<Schema> {
-        unimplemented!()
-    }
-
-    fn partitions(&self) -> Vec<Rc<RefCell<Partition>>> {
-        self.filenames.iter().map(|f|
-            Rc::new(RefCell::new(TablePartition { filename: f.to_string() })) as Rc<RefCell<Partition>>
-        ).collect()
-    }
-}
-
-pub struct TablePartition {
-    filename: String
-}
-
-impl Partition for TablePartition {
-    fn execute(&mut self) -> Rc<RefCell<Iterator<Item=Result<RecordBatch>>>> {
-        Rc::new(RefCell::new(TablePartitionIterator::new(&self.filename)))
-    }
-}
-
-pub struct TablePartitionIterator {
-    request_tx: Sender<()>,
-    response_rx: Receiver<RecordBatch>,
-}
-
-impl TablePartitionIterator {
-
-    fn new(filename: &str) -> Self {
-        let (request_tx, request_rx): (Sender<()>, Receiver<()>) = mpsc::channel();
-        let (response_tx, response_rx): (Sender<RecordBatch>, Receiver<RecordBatch>) = mpsc::channel();
-
-        let filename = filename.to_string();
-        thread::spawn(move || {
-            let table = ParquetTable::try_new(&filename).unwrap();
-            let partitions = table.scan(&None, 1024).unwrap();
-            let partition = partitions[0].clone();
-            loop {
-                let x = request_rx.recv().unwrap();
-                let batch = partition.lock().unwrap().next().unwrap().unwrap();
-                response_tx.send(batch).unwrap();
-            }
-        });
-
-        Self { request_tx, response_rx }
-    }
-
-}
-impl Iterator for TablePartitionIterator {
-    type Item = Result<RecordBatch>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.request_tx.send(()).unwrap();
-        Some(Ok(self.response_rx.recv().unwrap()))
-    }
-}
+//pub trait Partition {
+//    fn execute(&mut self) -> Rc<RefCell<Iterator<Item=Result<RecordBatch>>>>;
+//}
+//
+//pub trait ExecutionPlan {
+//    fn schema(&self) -> Arc<Schema>;
+//    fn partitions(&self) -> Vec<Rc<RefCell<Partition>>>;
+//}
+//
+//pub struct TableExec {
+//    filenames: Vec<String>
+//}
+//
+//impl ExecutionPlan for TableExec {
+//
+//    fn schema(&self) -> Arc<Schema> {
+//        unimplemented!()
+//    }
+//
+//    fn partitions(&self) -> Vec<Rc<RefCell<Partition>>> {
+//        self.filenames.iter().map(|f|
+//            Rc::new(RefCell::new(TablePartition { filename: f.to_string() })) as Rc<RefCell<Partition>>
+//        ).collect()
+//    }
+//}
+//
+//pub struct TablePartition {
+//    filename: String
+//}
+//
+//impl Partition for TablePartition {
+//    fn execute(&mut self) -> Rc<RefCell<Iterator<Item=Result<RecordBatch>>>> {
+//        Rc::new(RefCell::new(TablePartitionIterator::new(&self.filename)))
+//    }
+//}
+//
+//pub struct TablePartitionIterator {
+//    request_tx: Sender<()>,
+//    response_rx: Receiver<RecordBatch>,
+//}
+//
+//impl TablePartitionIterator {
+//
+//    fn new(filename: &str) -> Self {
+//        let (request_tx, request_rx): (Sender<()>, Receiver<()>) = mpsc::channel();
+//        let (response_tx, response_rx): (Sender<RecordBatch>, Receiver<RecordBatch>) = mpsc::channel();
+//
+//        let filename = filename.to_string();
+//        thread::spawn(move || {
+//            let table = ParquetTable::try_new(&filename).unwrap();
+//            let partitions = table.scan(&None, 1024).unwrap();
+//            let partition = partitions[0].clone();
+//            loop {
+//                let x = request_rx.recv().unwrap();
+//                let batch = partition.lock().unwrap().next().unwrap().unwrap();
+//                response_tx.send(batch).unwrap();
+//            }
+//        });
+//
+//        Self { request_tx, response_rx }
+//    }
+//
+//}
+//impl Iterator for TablePartitionIterator {
+//    type Item = Result<RecordBatch>;
+//
+//    fn next(&mut self) -> Option<Self::Item> {
+//        self.request_tx.send(()).unwrap();
+//        Some(Ok(self.response_rx.recv().unwrap()))
+//    }
+//}
 
 //struct FilterExec {
 //    input: Vec<Partition>,
@@ -121,11 +121,11 @@ impl Iterator for TablePartitionIterator {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use arrow::datatypes::{Field, DataType};
-    use arrow::builder::UInt32Builder;
-    use core::borrow::BorrowMut;
-    use crate::execution2::Partition;
+//    use super::*;
+//    use arrow::datatypes::{Field, DataType};
+//    use arrow::builder::UInt32Builder;
+//    use core::borrow::BorrowMut;
+//    use crate::execution2::Partition;
 
 //    #[test]
 //    fn test() {
@@ -158,29 +158,29 @@ mod test {
 //
 //    }
 
-    #[test]
-    fn thread_ds() {
-
-        use super::Partition;
-
-        let p = TableExec {
-            filenames: vec![
-                "/home/andy/git/andygrove/arrow/cpp/submodules/parquet-testing/data/alltypes_plain.parquet".to_string(),
-                "/home/andy/git/andygrove/arrow/cpp/submodules/parquet-testing/data/alltypes_plain.parquet".to_string()
-            ]
-        };
-
-        for i in 0..1 {
-            let partitions = p.partitions();
-            let mut xx = partitions[0].clone();
-            xx.borrow_mut().execute();
+//    #[test]
+//    fn thread_ds() {
+//
+//        use super::Partition;
+//
+//        let p = TableExec {
+//            filenames: vec![
+//                "/home/andy/git/andygrove/arrow/cpp/submodules/parquet-testing/data/alltypes_plain.parquet".to_string(),
+//                "/home/andy/git/andygrove/arrow/cpp/submodules/parquet-testing/data/alltypes_plain.parquet".to_string()
+//            ]
+//        };
+//
+//        for i in 0..1 {
+//            let partitions = p.partitions();
+//            let mut xx = partitions[0].clone();
+//            xx.borrow_mut().execute();
 
 
 //            let yy = xx.borrow_mut();
 //            let batch = yy.borrow_mut().next().unwrap().unwrap();
 //            println!("batch has {} rows", batch.num_rows());
-        }
+//        }
 
-    }
+//    }
 
 }
