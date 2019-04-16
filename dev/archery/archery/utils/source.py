@@ -74,7 +74,7 @@ class ArrowSources:
         # that builds depending on said sources are not invalidated (or worse
         # slightly affected when re-invoking the generator).
         git.clone("--local", self.path, clone_dir)
-        git.checkout("-b", revision, git_dir=clone_dir)
+        git.checkout(revision, git_dir=clone_dir)
 
         return ArrowSources(clone_dir)
 
