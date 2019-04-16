@@ -30,6 +30,8 @@
   }                             \
   }
 
+#include "arrow/util/sse-util.h"
+
 // enable SIMD whitespace skipping, if available
 #if defined(ARROW_HAVE_SSE2)
 #define RAPIDJSON_SSE2 1
