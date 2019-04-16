@@ -49,8 +49,8 @@ TEST(TestComparatorOperator, BasicOperator) {
       EXPECT_EQ((Comparator<T, NOT_EQUAL>::Compare(i, j)), i != j);
       EXPECT_EQ((Comparator<T, GREATER>::Compare(i, j)), i > j);
       EXPECT_EQ((Comparator<T, GREATER_EQUAL>::Compare(i, j)), i >= j);
-      EXPECT_EQ((Comparator<T, LOWER>::Compare(i, j)), i < j);
-      EXPECT_EQ((Comparator<T, LOWER_EQUAL>::Compare(i, j)), i <= j);
+      EXPECT_EQ((Comparator<T, LESS>::Compare(i, j)), i < j);
+      EXPECT_EQ((Comparator<T, LESS_EQUAL>::Compare(i, j)), i <= j);
     }
   }
 }
@@ -84,9 +84,9 @@ static inline bool SlowCompare(CompareOperator op, const T& lhs, const T& rhs) {
       return lhs > rhs;
     case GREATER_EQUAL:
       return lhs >= rhs;
-    case LOWER:
+    case LESS:
       return lhs < rhs;
-    case LOWER_EQUAL:
+    case LESS_EQUAL:
       return lhs <= rhs;
     default:
       return false;
@@ -174,7 +174,7 @@ TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayScalar) {
   ValidateCompare<TypeParam>(&this->ctx_, gte, "[4,5,6,7,8,9]", one, "[1,1,1,1,1,1]");
   ValidateCompare<TypeParam>(&this->ctx_, gte, "[null,0,1,1]", one, "[null,0,1,1]");
 
-  CompareOptions lt(CompareOperator::LOWER);
+  CompareOptions lt(CompareOperator::LESS);
   ValidateCompare<TypeParam>(&this->ctx_, lt, "[]", one, "[]");
   ValidateCompare<TypeParam>(&this->ctx_, lt, "[null]", one, "[null]");
   ValidateCompare<TypeParam>(&this->ctx_, lt, "[0,0,1,1,2,2]", one, "[1,1,0,0,0,0]");
@@ -182,7 +182,7 @@ TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayScalar) {
   ValidateCompare<TypeParam>(&this->ctx_, lt, "[4,5,6,7,8,9]", one, "[0,0,0,0,0,0]");
   ValidateCompare<TypeParam>(&this->ctx_, lt, "[null,0,1,1]", one, "[null,1,0,0]");
 
-  CompareOptions lte(CompareOperator::LOWER_EQUAL);
+  CompareOptions lte(CompareOperator::LESS_EQUAL);
   ValidateCompare<TypeParam>(&this->ctx_, lte, "[]", one, "[]");
   ValidateCompare<TypeParam>(&this->ctx_, lte, "[null]", one, "[null]");
   ValidateCompare<TypeParam>(&this->ctx_, lte, "[0,0,1,1,2,2]", one, "[1,1,1,1,0,0]");
