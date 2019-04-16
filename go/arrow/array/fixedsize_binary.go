@@ -81,7 +81,7 @@ func (a *FixedSizeBinary) setData(data *Data) {
 	case nil:
 		// re-compute offsets
 		offsets := make([]int32, a.Len()+1)
-		bw := a.DataType().(interface{ BitWidth() int }).BitWidth() / 8
+		bw := a.DataType().(arrow.FixedWidthDataType).BitWidth() / 8
 		for i := range offsets[1:] {
 			var delta int32
 			if a.IsValid(i) {
