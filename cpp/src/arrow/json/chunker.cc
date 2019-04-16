@@ -51,6 +51,9 @@ static size_t ConsumeWhitespace(std::shared_ptr<Buffer>* buf) {
 #undef ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD
 #else
   auto ws_count = string_view(**buf).find_first_not_of(" \t\r\n");
+  if (ws_count == string_view::npos) {
+    ws_count = (*buf)->size();
+  }
   *buf = SliceBuffer(*buf, ws_count);
   return ws_count;
 #endif
