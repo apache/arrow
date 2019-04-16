@@ -20,7 +20,7 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CChunkedArray, CSchema, CStatus,
-                                        CTable, CMemoryPool,
+                                        CTable, CMemoryPool, CBuffer,
                                         CKeyValueMetadata,
                                         RandomAccessFile, OutputStream,
                                         TimeUnit)
@@ -225,6 +225,11 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         unique_ptr[CRowGroupMetaData] RowGroup(int i)
         const SchemaDescriptor* schema()
         shared_ptr[const CKeyValueMetadata] key_value_metadata() const
+        void WriteTo(ParquetOutputStream* dst) const
+
+    cdef shared_ptr[CFileMetaData] CFileMetaData_Make \
+        " parquet::FileMetaData::Make"(const void* serialized_metadata,
+                                       uint32_t* metadata_len)
 
     cdef cppclass ReaderProperties:
         pass
@@ -247,9 +252,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
     cdef cppclass ParquetOutputStream" parquet::OutputStream":
         pass
 
-    cdef cppclass LocalFileOutputStream(ParquetOutputStream):
-        LocalFileOutputStream(const c_string& path)
-        void Close()
+    cdef cppclass ParquetInMemoryOutputStream \
+            " parquet::InMemoryOutputStream"(ParquetOutputStream):
+        shared_ptr[CBuffer] GetBuffer()
 
     cdef cppclass WriterProperties:
         cppclass Builder:

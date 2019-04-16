@@ -2307,6 +2307,17 @@ def test_backwards_compatible_column_metadata_handling(datadir):
 
 
 @pytest.mark.pandas
+def test_pickle_dataset(datadir):
+    import cloudpickle as cp
+
+    path = datadir / 'v0.7.1.column-metadata-handling.parquet'
+    dataset = pq.ParquetDataset(path)
+
+    result = cp.loads(cp.dumps(dataset))
+    assert dataset == result
+
+
+@pytest.mark.pandas
 def test_decimal_roundtrip(tempdir):
     num_values = 10
 

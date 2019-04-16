@@ -961,6 +961,23 @@ class ParquetDataset(object):
             filters = _check_filters(filters)
             self._filter(filters)
 
+    def equals(self, other):
+        if self.fs.__class__ != other.fs.__class__:
+            return False
+        for prop in ('paths', 'memory_map', 'pieces', 'partitions',
+                     'common_metadata_path', 'metadata_path',
+                     'common_metadata', 'metadata', 'schema',
+                     'split_row_groups'):
+            if getattr(self, prop) != getattr(other, prop):
+                return False
+        return True
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
     def validate_schemas(self):
         if self.metadata is None and self.schema is None:
             if self.common_metadata is not None:

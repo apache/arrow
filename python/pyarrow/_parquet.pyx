@@ -19,24 +19,26 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+import io
+import six
+import warnings
+
 from cython.operator cimport dereference as deref
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (Array, Schema,
+from pyarrow.lib cimport (Buffer, Array, Schema,
                           check_status,
                           MemoryPool, maybe_unbox_memory_pool,
                           Table,
                           pyarrow_wrap_chunked_array,
                           pyarrow_wrap_schema,
                           pyarrow_wrap_table,
+                          pyarrow_wrap_buffer,
                           NativeFile, get_reader, get_writer)
 
 from pyarrow.compat import tobytes, frombytes
 from pyarrow.lib import ArrowException, NativeFile, _stringify_path
 from pyarrow.util import indent
-
-import six
-import warnings
 
 
 cdef class RowGroupStatistics:
@@ -287,6 +289,17 @@ cdef class RowGroupMetaData:
         return self.metadata.total_byte_size()
 
 
+def _reconstruct_filemetadata(Buffer serialized):
+    cdef:
+        FileMetaData metadata = FileMetaData.__new__(FileMetaData)
+        CBuffer *buffer = serialized.buffer.get()
+        uint32_t metadata_len = buffer.size()
+
+    metadata.init(CFileMetaData_Make(buffer.data(), &metadata_len))
+
+    return metadata
+
+
 cdef class FileMetaData:
     cdef:
         shared_ptr[CFileMetaData] sp_metadata
@@ -299,6 +312,14 @@ cdef class FileMetaData:
     cdef init(self, const shared_ptr[CFileMetaData]& metadata):
         self.sp_metadata = metadata
         self._metadata = metadata.get()
+
+    def __reduce__(self):
+        cdef ParquetInMemoryOutputStream sink
+        with nogil:
+            self._metadata.WriteTo(&sink)
+
+        cdef Buffer buffer = pyarrow_wrap_buffer(sink.GetBuffer())
+        return _reconstruct_filemetadata, (buffer,)
 
     def __repr__(self):
         return """{0}
@@ -405,6 +426,9 @@ cdef class ParquetSchema:
         return """{0}
 {1}
  """.format(object.__repr__(self), '\n'.join(elements))
+
+    def __reduce__(self):
+        return ParquetSchema, (self.parent,)
 
     def __len__(self):
         return self.schema.num_columns()
