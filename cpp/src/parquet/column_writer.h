@@ -84,7 +84,8 @@ class PARQUET_EXPORT PageWriter {
   static std::unique_ptr<PageWriter> Open(
       const std::shared_ptr<ArrowOutputStream>& sink, Compression::type codec,
       const std::shared_ptr<EncryptionProperties>& encryption,
-      ColumnChunkMetaDataBuilder* metadata,
+      ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal = -1,
+      int16_t column_chunk_ordinal = -1,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
       bool buffered_row_group = false);
 

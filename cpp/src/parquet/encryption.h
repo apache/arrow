@@ -60,10 +60,16 @@ class PARQUET_EXPORT HiddenColumnException : public ParquetException {
 
 class PARQUET_EXPORT KeyAccessDeniedException : public ParquetException {
  public:
- KeyAccessDeniedException(const std::string &columnPath)
+ KeyAccessDeniedException(const std::string& columnPath)
    : ParquetException(columnPath.c_str()) {}
 };
 
+class PARQUET_EXPORT UnsupportedOperationException : public ParquetException {
+ public:
+ UnsupportedOperationException(const std::string& columnPath)
+   : ParquetException(columnPath.c_str()) {}
+};
+ 
 }  // namespace parquet
 
 #endif  // PARQUET_ENCRYPTION_H
