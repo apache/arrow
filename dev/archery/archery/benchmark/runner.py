@@ -18,9 +18,8 @@
 import glob
 import os
 import re
-import subprocess
 
-from .core import Benchmark, BenchmarkSuite
+from .core import BenchmarkSuite
 from .google import GoogleBenchmarkCommand, GoogleBenchmark
 from ..utils.logger import logger
 

@@ -21,7 +21,6 @@ import subprocess
 
 from .core import Benchmark
 from ..utils.command import Command
-from ..utils.git import git
 
 
 def partition(pred, iterable):

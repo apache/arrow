@@ -15,10 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import glob
 import os
 
-from ..benchmark.runner import BenchmarkRunner
 from ..utils.cmake import CMakeDefinition
 
 

@@ -39,7 +39,7 @@ class capture_stdout:
         def wrapper(*argv, **kwargs):
             # Ensure stdout is captured
             kwargs["stdout"] = subprocess.PIPE
-            return strip_it(fn(*argv, **kwargs).stdout)
+            return strip_it(f(*argv, **kwargs).stdout)
         return wrapper
 
 
