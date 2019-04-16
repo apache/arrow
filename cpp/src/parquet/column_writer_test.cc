@@ -246,7 +246,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     // complete (no changes to the metadata buffer can be made after instantiation)
     ApplicationVersion app_version(this->writer_properties_->created_by());
     auto metadata_accessor =
-        ColumnChunkMetaData::Make(metadata_->contents(), this->descr_, &app_version);
+        ColumnChunkMetaData::Make(metadata_->contents(), this->descr_, -1, -1, &app_version);
     return metadata_accessor->is_stats_set();
   }
 
