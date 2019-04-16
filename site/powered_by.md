@@ -90,6 +90,9 @@ short description of your use case. See the following for some examples.
   support for structured data. Uses the Arrow IPC format and targets the Arrow
   memory layout in its analytic functions. This work is part of the [GPU Open
   Analytics Initiative][11]
+* **[MATLAB][30]:** A numerical computing environment for engineers and
+  scientists. MATLAB uses Apache Arrow to support reading and writing Parquet
+  and Feather files.
 * **[OmniSci][10] (formerly MapD):** In-memory columnar SQL engine designed to run
   on both GPUs and CPUs. OmniSci supports Arrow for data ingest and data interchange
   via CUDA IPC handles. This work is part of the [GPU Open Analytics Initiative][11]
@@ -165,3 +168,4 @@ short description of your use case. See the following for some examples.
 [27]: https://github.com/apache/arrow/edit/master/site/powered_by.md
 [28]: https://github.com/uber/petastorm
 [29]: https://www.inaccel.com/
+[30]: https://www.mathworks.com
