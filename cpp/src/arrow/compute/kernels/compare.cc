@@ -99,10 +99,10 @@ static inline std::shared_ptr<FilterFunction> MakeCompareFilterFunctionType(
       return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::GREATER>(ctx);
     case CompareOperator::GREATER_EQUAL:
       return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::GREATER_EQUAL>(ctx);
-    case CompareOperator::LOWER:
-      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::LOWER>(ctx);
-    case CompareOperator::LOWER_EQUAL:
-      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::LOWER_EQUAL>(ctx);
+    case CompareOperator::LESS:
+      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::LESS>(ctx);
+    case CompareOperator::LESS_EQUAL:
+      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::LESS_EQUAL>(ctx);
   }
 
   return nullptr;

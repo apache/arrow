@@ -39,8 +39,8 @@ enum CompareOperator {
   NOT_EQUAL,
   GREATER,
   GREATER_EQUAL,
-  LOWER,
-  LOWER_EQUAL,
+  LESS,
+  LESS_EQUAL,
 };
 
 template <typename T, CompareOperator Op>
@@ -67,12 +67,12 @@ struct Comparator<T, CompareOperator::GREATER_EQUAL> {
 };
 
 template <typename T>
-struct Comparator<T, CompareOperator::LOWER> {
+struct Comparator<T, CompareOperator::LESS> {
   constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs < rhs; }
 };
 
 template <typename T>
-struct Comparator<T, CompareOperator::LOWER_EQUAL> {
+struct Comparator<T, CompareOperator::LESS_EQUAL> {
   constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs <= rhs; }
 };
 
