@@ -491,8 +491,8 @@ class PARQUET_EXPORT EncryptionProperties {
  public:
   EncryptionProperties() = default;
   EncryptionProperties(ParquetCipher::type algorithm, const std::string& key,
-                       const std::string& aad = "")
-      : algorithm_(algorithm), key_(key), aad_(aad) {}
+                       const std::string& file_aad, const std::string& aad = "")
+      : algorithm_(algorithm), key_(key), file_aad_(file_aad), aad_(aad) {}
 
   ~EncryptionProperties() { key_.replace(0, key_.length(), key_.length(), '\0'); }
 
@@ -507,6 +507,7 @@ class PARQUET_EXPORT EncryptionProperties {
 
   const std::string& key() const { return key_; }
   const std::string& aad() const { return aad_; }
+  const std::string& fileAAD() const { return file_aad_; }
 
   uint32_t CalculateCipherSize(uint32_t plain_len, bool is_metadata = false) const {
     if (is_metadata || algorithm_ == ParquetCipher::AES_GCM_V1) {
@@ -529,6 +530,7 @@ class PARQUET_EXPORT EncryptionProperties {
  private:
   ParquetCipher::type algorithm_;  // encryption algorithm
   std::string key_;             // encryption key, should have 16, 24, 32-byte length
+  std::string file_aad_;
   std::string aad_;             // encryption additional authenticated data
 };
 

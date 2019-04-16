@@ -23,6 +23,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include <random>
+#include <openssl/rand.h>
+
 #include "arrow/type.h"
 
 #include "parquet/encryption.h"
@@ -402,6 +405,10 @@ class PARQUET_EXPORT ReaderProperties {
       : pool_(pool) {
     buffered_stream_enabled_ = DEFAULT_USE_BUFFERED_STREAM;
     buffer_size_ = DEFAULT_BUFFER_SIZE;
+    column_map_ = std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
+      std::string, parquet::schema::ColumnPath::CmpColumnPath>>(new std::map<std::shared_ptr<schema::ColumnPath>,
+                                                                std::string,
+                                                                parquet::schema::ColumnPath::CmpColumnPath>());
   }
 
   MemoryPool* memory_pool() const { return pool_; }
@@ -419,6 +426,15 @@ class PARQUET_EXPORT ReaderProperties {
 
   int64_t buffer_size() const { return buffer_size_; }
 
+  std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
+    std::string, parquet::schema::ColumnPath::CmpColumnPath>> column_map () {
+    return column_map_;
+  }
+  
+  const std::string& fileAAD() { return fileAAD_; }
+
+  void set_fileAAD (std::string fileAAD) { fileAAD_ = fileAAD; }
+  
   void file_decryption(const std::shared_ptr<FileDecryptionProperties>& decryption) {
     file_decryption_ = decryption;
   }
@@ -430,6 +446,10 @@ class PARQUET_EXPORT ReaderProperties {
   int64_t buffer_size_;
   bool buffered_stream_enabled_;
   std::shared_ptr<FileDecryptionProperties> file_decryption_;
+  std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
+    std::string, parquet::schema::ColumnPath::CmpColumnPath>> column_map_; // a map between
+  //ColumnPath and their encryption keys 
+  std::string fileAAD_;
 };
 
 ReaderProperties PARQUET_EXPORT default_reader_properties();
@@ -449,6 +469,7 @@ static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOM
 static constexpr ParquetCipher::type DEFAULT_ENCRYPTION_ALGORITHM = ParquetCipher::AES_GCM_V1;
 static constexpr int32_t MAXIMAL_AAD_METADATA_LENGTH = 256;
 static constexpr bool DEFAULT_ENCRYPTED_FOOTER = true;
+static constexpr int32_t AAD_FILE_UNIQUE_LENGTH = 8;
 
 class PARQUET_EXPORT ColumnProperties {
  public:
@@ -672,8 +693,27 @@ class PARQUET_EXPORT FileEncryptionProperties {
       DCHECK(!footer_key.empty());
       // footer_key must be either 16, 24 or 32 bytes.
       DCHECK(footer_key.length() == 16 || footer_key.length() == 24 || footer_key.length() == 32);
+
+      uint8_t aad_file_unique[AAD_FILE_UNIQUE_LENGTH];
+      memset(aad_file_unique, 0, AAD_FILE_UNIQUE_LENGTH);
+      RAND_bytes(aad_file_unique, sizeof(AAD_FILE_UNIQUE_LENGTH));
+      std::string aad_file_unique_str(reinterpret_cast<char const*>(aad_file_unique),
+                                      AAD_FILE_UNIQUE_LENGTH) ;
       
-    }
+      bool supply_aad_prefix = false;
+      if (aad_prefix.empty())
+        file_AAD_ = aad_file_unique_str;
+      else {
+        file_AAD_ = aad_prefix + aad_file_unique_str;
+        if (!store_aad_prefix_in_file) supply_aad_prefix = true;
+      }
+      algorithm_.algorithm = cipher;
+      algorithm_.aad.aad_file_unique = aad_file_unique_str;
+      algorithm_.aad.supply_aad_prefix = supply_aad_prefix;
+      if (!aad_prefix.empty() && store_aad_prefix_in_file) {
+        algorithm_.aad.aad_prefix = aad_prefix;
+      }
+    } 
 };
  
 class PARQUET_EXPORT WriterProperties {
@@ -914,7 +954,6 @@ class PARQUET_EXPORT WriterProperties {
       return NULLPTR;
     } else {
       std::string footer_key = parquet_file_encryption_->getFooterEncryptionKey ();
-      //TODO: Fix AAD calculation
       if (footer_key.empty())
 	footer_key = parquet_file_encryption_->getFooterSigningKey ();
       return std::make_shared<EncryptionProperties>(parquet_file_encryption_->getAlgorithm().algorithm,
@@ -982,7 +1021,6 @@ class PARQUET_EXPORT WriterProperties {
       if (column_prop == NULLPTR)
 	return NULLPTR;
       if (column_prop->isEncryptedWithFooterKey()) {
-	//TODO: Fix AAD calculation
 	if (parquet_file_encryption_->encryptedFooter ()) {
 	  return std::make_shared<EncryptionProperties>(parquet_file_encryption_->getAlgorithm().algorithm,
 							parquet_file_encryption_->getFooterEncryptionKey(),

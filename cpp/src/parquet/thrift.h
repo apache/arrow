@@ -164,17 +164,17 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
 
 static inline format::AesGcmV1 ToAesGcmV1Thrift(AadMetadata aad) {
   format::AesGcmV1 aesGcmV1;
-  aesGcmV1.aad_prefix = aad.aad_prefix;
-  aesGcmV1.aad_file_unique = aad.aad_file_unique;
-  aesGcmV1.supply_aad_prefix = aad.supply_aad_prefix;
+  aesGcmV1.__set_aad_prefix(aad.aad_prefix);
+  aesGcmV1.__set_aad_file_unique(aad.aad_file_unique);
+  aesGcmV1.__set_supply_aad_prefix(aad.supply_aad_prefix);
   return aesGcmV1;
 }
 
 static inline format::AesGcmCtrV1 ToAesGcmCtrV1Thrift(AadMetadata aad) {
   format::AesGcmCtrV1 aesGcmCtrV1;
-  aesGcmCtrV1.aad_prefix = aad.aad_prefix;
-  aesGcmCtrV1.aad_file_unique = aad.aad_file_unique;
-  aesGcmCtrV1.supply_aad_prefix = aad.supply_aad_prefix;
+  aesGcmCtrV1.__set_aad_prefix(aad.aad_prefix);
+  aesGcmCtrV1.__set_aad_file_unique(aad.aad_file_unique);
+  aesGcmCtrV1.__set_supply_aad_prefix(aad.supply_aad_prefix);
   return aesGcmCtrV1;
 }
 
@@ -237,9 +237,10 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
     if (decrypted_buffer_len <= 0) {
       throw ParquetException("Couldn't decrypt buffer\n");
     }
+    *len = encryption->CalculateCipherSize(decrypted_buffer_len, true);
     DeserializeThriftMsg(decrypted_buffer.data(), &decrypted_buffer_len,
                          deserialized_msg);
-    *len = encryption->CalculateCipherSize(decrypted_buffer_len, true);
+
   }
 }
 
