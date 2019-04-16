@@ -925,7 +925,6 @@ class ParquetDataset(object):
             self.paths = _parse_uri(path_or_paths)
 
         self.memory_map = memory_map
-        self._open_file_func = self._get_open_file_func()
 
         (self.pieces,
          self.partitions,
@@ -1065,19 +1064,16 @@ class ParquetDataset(object):
         keyvalues = self.common_metadata.metadata
         return keyvalues.get(b'pandas', None)
 
-    def _get_open_file_func(self):
+    def _open_file_func(self, path, meta=None):
         if self.fs is None or isinstance(self.fs, LocalFileSystem):
-            def open_file(path, meta=None):
-                return ParquetFile(path, metadata=meta,
-                                   memory_map=self.memory_map,
-                                   common_metadata=self.common_metadata)
+            return ParquetFile(path, metadata=meta,
+                               memory_map=self.memory_map,
+                               common_metadata=self.common_metadata)
         else:
-            def open_file(path, meta=None):
-                return ParquetFile(self.fs.open(path, mode='rb'),
-                                   memory_map=self.memory_map,
-                                   metadata=meta,
-                                   common_metadata=self.common_metadata)
-        return open_file
+            return ParquetFile(self.fs.open(path, mode='rb'),
+                               memory_map=self.memory_map,
+                               metadata=meta,
+                               common_metadata=self.common_metadata)
 
     def _filter(self, filters):
         accepts_filter = self.partitions.filter_accepts_partition
