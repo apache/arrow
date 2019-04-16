@@ -931,7 +931,7 @@ class ParquetDataset(object):
          self.common_metadata_path,
          self.metadata_path) = _make_manifest(
              path_or_paths, self.fs, metadata_nthreads=metadata_nthreads,
-             open_file_func=self._open_file_func)
+             open_file_func=self._open_file)
 
         if self.common_metadata_path is not None:
             with self.fs.open(self.common_metadata_path) as f:
@@ -961,6 +961,9 @@ class ParquetDataset(object):
             self._filter(filters)
 
     def equals(self, other):
+        if not isinstance(other, ParquetDataset):
+            raise TypeError('`other` must be an instance of ParquetDataset')
+
         if self.fs.__class__ != other.fs.__class__:
             return False
         for prop in ('paths', 'memory_map', 'pieces', 'partitions',
@@ -969,12 +972,13 @@ class ParquetDataset(object):
                      'split_row_groups'):
             if getattr(self, prop) != getattr(other, prop):
                 return False
+
         return True
 
     def __eq__(self, other):
-        try:
+        if isinstance(other, ParquetDataset):
             return self.equals(other)
-        except TypeError:
+        else:
             return NotImplemented
 
     def validate_schemas(self):
@@ -1064,7 +1068,7 @@ class ParquetDataset(object):
         keyvalues = self.common_metadata.metadata
         return keyvalues.get(b'pandas', None)
 
-    def _open_file_func(self, path, meta=None):
+    def _open_file(self, path, meta=None):
         if self.fs is None or isinstance(self.fs, LocalFileSystem):
             return ParquetFile(path, metadata=meta,
                                memory_map=self.memory_map,
