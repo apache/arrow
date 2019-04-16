@@ -29,8 +29,8 @@ const useNativeEncoders = typeof TextDecoder === 'function' && typeof TextEncode
 /** @ignore */
 export const decodeUtf8 = ((TextDecoder) => {
     if (useNativeEncoders || !_Buffer) {
-        const decoder = new TextDecoder();
-        return (buffer?: ArrayBuffer | ArrayBufferView, options?: TextDecodeOptions) => decoder.decode(buffer, options);
+        const decoder = new TextDecoder('utf-8');
+        return (buffer?: ArrayBuffer | ArrayBufferView) => decoder.decode(buffer);
     }
     return (input: ArrayBufferLike | ArrayBufferView) => {
         const { buffer, byteOffset, length } = toUint8Array(input);

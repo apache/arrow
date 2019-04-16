@@ -145,23 +145,23 @@ const setUtf8 = <T extends Utf8>({ values, valueOffsets }: Vector<T>, index: num
 /** @ignore */
 const setInt = <T extends Int>(vector: Vector<T>, index: number, value: T['TValue']): void => {
     vector.type.bitWidth < 64
-        ? setNumeric(<any> vector, index, value as Numeric1X['TValue'])
-        : setNumericX2(<any> vector, index, value as Numeric2X['TValue']);
+        ? setNumeric(vector as Vector<Numeric1X>, index, value as Numeric1X['TValue'])
+        : setNumericX2(vector as Vector<Numeric2X>, index, value as Numeric2X['TValue']);
 };
 
 /* istanbul ignore next */
 /** @ignore */
 const setFloat = <T extends Float>(vector: Vector<T>, index: number, value: T['TValue']): void => {
     vector.type.precision !== Precision.HALF
-        ? setNumeric(<any> vector, index, value)
-        : setFloat16(<any> vector, index, value);
+        ? setNumeric(vector as Vector<Numeric1X>, index, value)
+        : setFloat16(vector as Vector<Float16>, index, value);
 };
 
 /* istanbul ignore next */
 const setDate = <T extends Date_> (vector: Vector<T>, index: number, value: T['TValue']): void => {
     vector.type.unit === DateUnit.DAY
-        ? setDateDay(vector, index, value)
-        : setDateMillisecond(vector, index, value);
+        ? setDateDay(vector as Vector<DateDay>, index, value)
+        : setDateMillisecond(vector as Vector<DateMillisecond>, index, value);
 };
 
 /** @ignore */
@@ -263,8 +263,8 @@ const setDictionary = <T extends Dictionary>(vector: Vector<T>, index: number, v
 /** @ignore */
 const setIntervalValue = <T extends Interval>(vector: Vector<T>, index: number, value: T['TValue']): void => {
     (vector.type.unit === IntervalUnit.DAY_TIME)
-        ? setIntervalDayTime(vector, index, value)
-        : setIntervalYearMonth(vector, index, value);
+        ? setIntervalDayTime(vector as Vector<IntervalDayTime>, index, value)
+        : setIntervalYearMonth(vector as Vector<IntervalYearMonth>, index, value);
 };
 
 /** @ignore */

@@ -21,6 +21,7 @@ export { Utf8Builder } from './utf8';
 import { Type } from '../enum';
 import { Builder } from './base';
 import { DataType } from '../type';
+import { Utf8Builder } from './utf8';
 import { DataBuilderOptions } from './base';
 import { Builder as B } from '../interfaces';
 import { instance as setVisitor } from '../visitor/set';
@@ -48,3 +49,5 @@ function newBuilder<T extends DataType = any, TNull = any>(options: DataBuilderO
         const BuilderCtor = getBuilderConstructor.visit(typeId);
         BuilderCtor.prototype._setValue = setVisitor.getVisitFn(typeId);
     });
+
+(Utf8Builder.prototype as any)._setValue = setVisitor.getVisitFn(Type.Binary);

@@ -266,6 +266,6 @@ export class Table<T extends { [key: string]: DataType } = any>
             ...indices.map((i) => other.getColumnAt(i)!)
         ].filter(Boolean) as Column<(T & R)[keyof T | keyof R]>[];
 
-        return new Table(...distributeVectorsIntoRecordBatches<T & R>(schema, columns));
+        return new Table<T & R>(...distributeVectorsIntoRecordBatches<any>(schema, columns));
     }
 }

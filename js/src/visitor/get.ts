@@ -139,24 +139,24 @@ const getUtf8 = <T extends Utf8>({ values, valueOffsets }: Vector<T>, index: num
 /** @ignore */
 const getInt = <T extends Int>(vector: Vector<T>, index: number): T['TValue'] => (
     vector.type.bitWidth < 64
-        ? getNumeric(<any> vector, index)
-        : getBigInts(<any> vector, index)
+        ? getNumeric(vector as Vector<Numeric1X>, index)
+        : getBigInts(vector as Vector<Numeric2X>, index)
 );
 
 /* istanbul ignore next */
 /** @ignore */
 const getFloat = <T extends Float> (vector: Vector<T>, index: number): T['TValue'] => (
     vector.type.precision !== Precision.HALF
-        ? getNumeric(vector as any, index)
-        : getFloat16(vector as any, index)
+        ? getNumeric(vector as Vector<Numeric1X>, index)
+        : getFloat16(vector as Vector<Float16>, index)
 );
 
 /* istanbul ignore next */
 /** @ignore */
 const getDate = <T extends Date_> (vector: Vector<T>, index: number): T['TValue'] => (
     vector.type.unit === DateUnit.DAY
-        ? getDateDay(vector as any, index)
-        : getDateMillisecond(vector as any, index)
+        ? getDateDay(vector as Vector<DateDay>, index)
+        : getDateMillisecond(vector as Vector<DateMillisecond>, index)
 );
 
 /** @ignore */
@@ -211,7 +211,7 @@ const getNested = <
     S extends { [key: string]: DataType },
     V extends Vector<Map_<S>> | Vector<Struct<S>>
 >(vector: V, index: number): V['TValue'] => {
-    return vector.rowProxy.bind(index);
+    return vector.rowProxy.bind(index) as V['TValue'];
 };
 
 /* istanbul ignore next */
@@ -247,8 +247,8 @@ const getDictionary = <T extends Dictionary>(vector: Vector<T>, index: number): 
 /** @ignore */
 const getInterval = <T extends Interval>(vector: Vector<T>, index: number): T['TValue'] =>
     (vector.type.unit === IntervalUnit.DAY_TIME)
-        ? getIntervalDayTime(vector as any, index)
-        : getIntervalYearMonth(vector as any, index);
+        ? getIntervalDayTime(vector as Vector<IntervalDayTime>, index)
+        : getIntervalYearMonth(vector as Vector<IntervalYearMonth>, index);
 
 /** @ignore */
 const getIntervalDayTime = <T extends IntervalDayTime>({ values }: Vector<T>, index: number): T['TValue'] => values.subarray(2 * index, 2 * (index + 1));

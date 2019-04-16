@@ -105,7 +105,7 @@ export class RowProxyGenerator<T extends { [key: string]: DataType }> {
         };
     }
     public bind(rowIndex: number) {
-        const bound = Object.create(this.rowPrototype);
+        const bound: Row<T> = Object.create(this.rowPrototype);
         bound[kRowIndex] = rowIndex;
         return bound;
     }

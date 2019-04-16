@@ -461,7 +461,7 @@ export class FixedSizeList<T extends DataType = any> extends DataType<Type.Fixed
     })(FixedSizeList.prototype);
 }
 
-export interface Map_<T extends { [key: string]: DataType } = any> extends DataType<Type.Map> { TArray: Uint8Array; TValue: RowLike<T>; dataTypes: T; }
+export interface Map_<T extends { [key: string]: DataType } = any> extends DataType<Type.Map> { TArray: IterableArrayLike<RowLike<T>>; TValue: RowLike<T>; dataTypes: T; }
 export class Map_<T extends { [key: string]: DataType } = any> extends DataType<Type.Map, T> {
     constructor(public readonly children: Field<T[keyof T]>[],
                 public readonly keysSorted: boolean = false) {

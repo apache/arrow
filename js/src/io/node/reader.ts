@@ -70,7 +70,7 @@ class RecordBatchReaderDuplex<T extends { [key: string]: DataType } = any> exten
         cb(this._asyncQueue = this._reader = null);
     }
     async _open(source: AsyncByteQueue) {
-        return await (await RecordBatchReader.from(source)).open({ autoDestroy: this._autoDestroy });
+        return await (await RecordBatchReader.from<T>(source)).open({ autoDestroy: this._autoDestroy });
     }
     async _pull(size: number, reader: RecordBatchReader<T>) {
         let r: IteratorResult<RecordBatch<T>> | null = null;

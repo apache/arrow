@@ -30,7 +30,7 @@ checkNamedTypes({ a: new Int8(), b: new Utf8(), c: new Dictionary<List<Bool>>(nu
 
 function checkIndexTypes(schema: IndexSchema) {
 
-    const data = Data.Struct(new Struct(
+    const data = Data.Struct(new Struct<IndexSchema>(
         Object.keys(schema).map((x) => new Field(x, schema[(<any> x)]))
     ), 0, 0, 0, null, []);
 
@@ -47,7 +47,7 @@ function checkIndexTypes(schema: IndexSchema) {
 
 function checkNamedTypes(schema: NamedSchema) {
 
-    const data = Data.Map(new Map_(
+    const data = Data.Map(new Map_<NamedSchema>(
         Object.keys(schema).map((x) => new Field(x, schema[x]))
     ), 0, 0, 0, null, []);
 

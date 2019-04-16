@@ -18,7 +18,7 @@
 /* tslint:disable */
 // Dynamically load an Arrow target build based on command line arguments
 
-import '@mattiasbuelens/web-streams-polyfill';
+import 'web-streams-polyfill';
 
 /* tslint:disable */
 // import this before assigning window global since it does a `typeof window` check

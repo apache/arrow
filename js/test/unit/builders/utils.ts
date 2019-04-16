@@ -83,7 +83,7 @@ export const duplicateItems = (n: number, xs: (any | null)[]) => {
 export function encodeAll<T extends DataType>(typeFactory: () => T) {
     return function encodeAll<TNull = any>(values: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
-        const builder = Builder.new<T, TNull>({ type, nullValues });
+        const builder = Builder.new({ type, nullValues });
         values.forEach(builder.write.bind(builder));
         return Vector.new(builder.finish().flush()) as Vector<T>;
     }
@@ -92,7 +92,7 @@ export function encodeAll<T extends DataType>(typeFactory: () => T) {
 export function encodeEach<T extends DataType>(typeFactory: () => T, chunkLen?: number) {
     return function encodeEach<TNull = any>(vals: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
-        const builder = Builder.new<T, TNull>({ type, nullValues });
+        const builder = Builder.new({ type, nullValues });
         const chunks = [...builder.readAll(vals, chunkLen)];
         return Chunked.concat(...chunks.map(Vector.new)) as Chunked<T>;
     }
