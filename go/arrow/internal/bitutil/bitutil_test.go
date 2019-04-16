@@ -17,6 +17,7 @@
 package bitutil_test
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -24,6 +25,35 @@ import (
 	"github.com/apache/arrow/go/arrow/internal/testing/tools"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestIsMultipleOf8(t *testing.T) {
+	for _, tc := range []struct {
+		v    int64
+		want bool
+	}{
+		{-16, true},
+		{-9, false},
+		{-8, true},
+		{-7, false},
+		{-4, false},
+		{-1, false},
+		{-0, true},
+		{0, true},
+		{1, false},
+		{4, false},
+		{7, false},
+		{8, true},
+		{9, false},
+		{16, true},
+	} {
+		t.Run(fmt.Sprintf("v=%d", tc.v), func(t *testing.T) {
+			got := bitutil.IsMultipleOf8(tc.v)
+			if got != tc.want {
+				t.Fatalf("IsMultipleOf8(%d): got=%v, want=%v", tc.v, got, tc.want)
+			}
+		})
+	}
+}
 
 func TestCeilByte(t *testing.T) {
 	tests := []struct {
