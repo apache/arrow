@@ -2307,7 +2307,6 @@ def test_backwards_compatible_column_metadata_handling(datadir):
     tm.assert_frame_equal(result, expected[['a']].reset_index(drop=True))
 
 
-@pytest.mark.pandas
 def test_pickle_dataset(datadir):
     path = datadir / 'v0.7.1.column-metadata-handling.parquet'
     dataset = pq.ParquetDataset(path)
@@ -2319,7 +2318,6 @@ def test_pickle_dataset(datadir):
         assert piece == pickle.loads(pickle.dumps(piece))
 
 
-@pytest.mark.pandas
 def test_cloudpickle_dataset(datadir):
     cp = pytest.importorskip('cloudpickle')
 
