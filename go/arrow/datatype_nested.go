@@ -19,6 +19,7 @@ package arrow
 import (
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 // ListType describes a nested type in which each array slot contains
@@ -38,8 +39,9 @@ func ListOf(t DataType) *ListType {
 	return &ListType{elem: t}
 }
 
-func (*ListType) ID() Type     { return LIST }
-func (*ListType) Name() string { return "list" }
+func (*ListType) ID() Type         { return LIST }
+func (*ListType) Name() string     { return "list" }
+func (t *ListType) String() string { return fmt.Sprintf("list<item: %v>", t.elem) }
 
 // Elem returns the ListType's element type.
 func (t *ListType) Elem() DataType { return t.elem }
@@ -87,6 +89,19 @@ func StructOf(fs ...Field) *StructType {
 
 func (*StructType) ID() Type     { return STRUCT }
 func (*StructType) Name() string { return "struct" }
+
+func (t *StructType) String() string {
+	o := new(strings.Builder)
+	o.WriteString("struct<")
+	for i, f := range t.fields {
+		if i > 0 {
+			o.WriteString(", ")
+		}
+		o.WriteString(fmt.Sprintf("%s: %v", f.Name, f.Type))
+	}
+	o.WriteString(">")
+	return o.String()
+}
 
 func (t *StructType) Fields() []Field   { return t.fields }
 func (t *StructType) Field(i int) Field { return t.fields[i] }
