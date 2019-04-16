@@ -71,44 +71,53 @@ func main() {
 
 	flag.Parse()
 
+	var err error
 	switch flag.NArg() {
 	case 0:
-		processStream(os.Stdin)
+		err = processStream(os.Stdout, os.Stdin)
 	default:
-		processFiles(flag.Args())
+		err = processFiles(os.Stdout, flag.Args())
+	}
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
-func processStream(rin io.Reader) {
+func processStream(w io.Writer, rin io.Reader) error {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(nil, 0)
 
 	r, err := ipc.NewReader(rin, ipc.WithAllocator(mem))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer r.Release()
 
-	fmt.Printf("schema:\n%v", displaySchema(r.Schema()))
+	fmt.Fprintf(w, "schema:\n%v", displaySchema(r.Schema()))
 
 	nrecs := 0
 	for r.Next() {
 		nrecs++
 	}
-	fmt.Printf("records: %d\n", nrecs)
+	fmt.Fprintf(w, "records: %d\n", nrecs)
+	return nil
 }
 
-func processFiles(names []string) {
+func processFiles(w io.Writer, names []string) error {
 	for _, name := range names {
-		processFile(name)
+		err := processFile(w, name)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func processFile(fname string) {
+func processFile(w io.Writer, fname string) error {
 
 	f, err := os.Open(fname)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer f.Close()
 
@@ -117,13 +126,14 @@ func processFile(fname string) {
 
 	r, err := ipc.NewFileReader(f, ipc.WithAllocator(mem))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer r.Close()
 
-	fmt.Printf("version: %v\n", r.Version())
-	fmt.Printf("schema:\n%v", displaySchema(r.Schema()))
-	fmt.Printf("records: %d\n", r.NumRecords())
+	fmt.Fprintf(w, "version: %v\n", r.Version())
+	fmt.Fprintf(w, "schema:\n%v", displaySchema(r.Schema()))
+	fmt.Fprintf(w, "records: %d\n", r.NumRecords())
+	return nil
 }
 
 func displaySchema(s *arrow.Schema) string {

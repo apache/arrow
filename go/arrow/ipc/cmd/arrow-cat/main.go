@@ -64,6 +64,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/pkg/errors"
 )
 
 func main() {
@@ -72,60 +73,68 @@ func main() {
 
 	flag.Parse()
 
+	var err error
 	switch flag.NArg() {
 	case 0:
-		processStream(os.Stdin)
+		err = processStream(os.Stdout, os.Stdin)
 	default:
-		processFiles(flag.Args())
+		err = processFiles(os.Stdout, flag.Args())
+	}
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
-func processStream(rin io.Reader) {
+func processStream(w io.Writer, rin io.Reader) error {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(nil, 0)
 
 	r, err := ipc.NewReader(rin, ipc.WithAllocator(mem))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer r.Release()
 
 	n := 0
 	for r.Next() {
 		n++
-		fmt.Printf("record %d...\n", n)
+		fmt.Fprintf(w, "record %d...\n", n)
 		rec := r.Record()
 		for i, col := range rec.Columns() {
-			fmt.Printf("  col[%d] %q: %v\n", i, rec.ColumnName(i), col)
+			fmt.Fprintf(w, "  col[%d] %q: %v\n", i, rec.ColumnName(i), col)
 		}
 	}
+	return nil
 }
 
-func processFiles(names []string) {
+func processFiles(w io.Writer, names []string) error {
 	for _, name := range names {
-		processFile(name)
+		err := processFile(w, name)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func processFile(fname string) {
+func processFile(w io.Writer, fname string) error {
 
 	f, err := os.Open(fname)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer f.Close()
 
 	hdr := make([]byte, len(ipc.Magic))
 	_, err = io.ReadFull(f, hdr)
 	if err != nil {
-		log.Fatalf("could not read file header: %v", err)
+		return errors.Errorf("could not read file header: %v", err)
 	}
 	f.Seek(0, io.SeekStart)
 
 	if !bytes.Equal(hdr, ipc.Magic) {
 		// try as a stream.
-		processStream(f)
-		return
+		return processStream(w, f)
 	}
 
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
@@ -133,23 +142,24 @@ func processFile(fname string) {
 
 	r, err := ipc.NewFileReader(f, ipc.WithAllocator(mem))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer r.Close()
 
-	fmt.Printf("version: %v\n", r.Version())
+	fmt.Fprintf(w, "version: %v\n", r.Version())
 	for i := 0; i < r.NumRecords(); i++ {
-		fmt.Printf("record %d/%d...\n", i+1, r.NumRecords())
+		fmt.Fprintf(w, "record %d/%d...\n", i+1, r.NumRecords())
 		rec, err := r.Record(i)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		defer rec.Release()
 
 		for i, col := range rec.Columns() {
-			fmt.Printf("  col[%d] %q: %v\n", i, rec.ColumnName(i), col)
+			fmt.Fprintf(w, "  col[%d] %q: %v\n", i, rec.ColumnName(i), col)
 		}
 	}
+	return nil
 }
 
 func init() {
