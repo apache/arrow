@@ -867,6 +867,16 @@ def _path_split(path, sep):
 EXCLUDED_PARQUET_PATHS = {'_SUCCESS'}
 
 
+def _open_dataset_file(dataset, path, meta=None):
+    if dataset.fs is None or isinstance(dataset.fs, LocalFileSystem):
+        return ParquetFile(path, metadata=meta, memory_map=dataset.memory_map,
+                           common_metadata=dataset.common_metadata)
+    else:
+        return ParquetFile(dataset.fs.open(path, mode='rb'), metadata=meta,
+                           memory_map=dataset.memory_map,
+                           common_metadata=dataset.common_metadata)
+
+
 class ParquetDataset(object):
     """
     Encapsulates details of reading a complete Parquet dataset possibly
@@ -931,7 +941,7 @@ class ParquetDataset(object):
          self.common_metadata_path,
          self.metadata_path) = _make_manifest(
              path_or_paths, self.fs, metadata_nthreads=metadata_nthreads,
-             open_file_func=self._open_file)
+             open_file_func=partial(_open_dataset_file, self))
 
         if self.common_metadata_path is not None:
             with self.fs.open(self.common_metadata_path) as f:
@@ -1067,17 +1077,6 @@ class ParquetDataset(object):
 
         keyvalues = self.common_metadata.metadata
         return keyvalues.get(b'pandas', None)
-
-    def _open_file(self, path, meta=None):
-        if self.fs is None or isinstance(self.fs, LocalFileSystem):
-            return ParquetFile(path, metadata=meta,
-                               memory_map=self.memory_map,
-                               common_metadata=self.common_metadata)
-        else:
-            return ParquetFile(self.fs.open(path, mode='rb'),
-                               memory_map=self.memory_map,
-                               metadata=meta,
-                               common_metadata=self.common_metadata)
 
     def _filter(self, filters):
         accepts_filter = self.partitions.filter_accepts_partition

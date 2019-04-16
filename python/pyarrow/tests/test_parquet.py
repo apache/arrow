@@ -2308,8 +2308,6 @@ def test_backwards_compatible_column_metadata_handling(datadir):
 
 
 @pytest.mark.pandas
-@pytest.mark.skipif(pickle.HIGHEST_PROTOCOL < 3,
-                    reason="can't pickle instancemethod objects")
 def test_pickle_dataset(datadir):
     path = datadir / 'v0.7.1.column-metadata-handling.parquet'
     dataset = pq.ParquetDataset(path)
