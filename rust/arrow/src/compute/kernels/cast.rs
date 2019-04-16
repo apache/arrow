@@ -367,7 +367,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         }
         (Time32(from_unit), Time64(to_unit)) => {
             let time_array = Int32Array::from(array.data());
-            // cast up to i64 so we can multiply
+            // note: (numeric_cast + SIMD multiply) is faster than (cast & multiply)
             let c: Int64Array = numeric_cast(&time_array)?;
             let from_size = time_unit_multiple(&from_unit);
             let to_size = time_unit_multiple(&to_unit);
