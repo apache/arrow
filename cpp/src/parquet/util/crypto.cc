@@ -249,16 +249,16 @@ int SignedFooterEncrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* ke
     return gcm_encrypt(plaintext, plaintext_len, key, key_len, nonce, nonce_len, aad, aad_len, ciphertext);
 }
 
-int Encrypt(Encryption::type alg_id, bool metadata, const uint8_t* plaintext,
+int Encrypt(ParquetCipher::type alg_id, bool metadata, const uint8_t* plaintext,
             int plaintext_len, uint8_t* key, int key_len, uint8_t* aad, int aad_len,
             uint8_t* ciphertext) {
-  if (Encryption::AES_GCM_V1 != alg_id && Encryption::AES_GCM_CTR_V1 != alg_id) {
+  if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
     std::stringstream ss;
     ss << "Crypto algorithm " << alg_id << " is not supported";
     throw ParquetException(ss.str());
   }
 
-  if (metadata || (Encryption::AES_GCM_V1 == alg_id)) {
+  if (metadata || (ParquetCipher::AES_GCM_V1 == alg_id)) {
     uint8_t nonce[nonceLen];
     memset(nonce, 0, nonceLen);
 
@@ -393,21 +393,31 @@ int ctr_decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int
   return plaintext_len;
 }
 
-int Decrypt(Encryption::type alg_id, bool metadata, const uint8_t* ciphertext,
+int Decrypt(ParquetCipher::type alg_id, bool metadata, const uint8_t* ciphertext,
             int ciphertext_len, uint8_t* key, int key_len, uint8_t* aad, int aad_len,
             uint8_t* plaintext) {
-  if (Encryption::AES_GCM_V1 != alg_id && Encryption::AES_GCM_CTR_V1 != alg_id) {
+  if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
     std::stringstream ss;
     ss << "Crypto algorithm " << alg_id << " is not supported";
     throw ParquetException(ss.str());
   }
 
-  if (metadata || (Encryption::AES_GCM_V1 == alg_id)) {
+  if (metadata || (ParquetCipher::AES_GCM_V1 == alg_id)) {
     return gcm_decrypt(ciphertext, ciphertext_len, key, key_len, aad, aad_len, plaintext);
   }
 
   // Data (page) decryption with AES_GCM_CTR_V1
   return ctr_decrypt(ciphertext, ciphertext_len, key, key_len, plaintext);
+}
+
+static std::string shortToBytesLE(int16_t input) {
+  int8_t output[2];
+  memset(output, 0, 2);
+  output[1] = (int8_t)(0xff & (input >> 8));
+  output[0] = (int8_t)(0xff & (input));
+  std::string output_str(reinterpret_cast<char const*>(output), 2) ;
+
+  return output_str;
 }
 
 int Decrypt(std::shared_ptr<EncryptionProperties> encryption_props, bool metadata,
@@ -416,6 +426,41 @@ int Decrypt(std::shared_ptr<EncryptionProperties> encryption_props, bool metadat
                  encryption_props->key_bytes(), encryption_props->key_length(),
                  encryption_props->aad_bytes(), encryption_props->aad_length(),
                  plaintext);
+}
+
+std::string createModuleAAD(const std::string& fileAAD, int8_t module_type,
+			    int16_t row_group_ordinal, int16_t column_ordinal,
+			    int16_t page_ordinal) {
+  
+  int8_t type_ordinal_bytes[1];
+  type_ordinal_bytes[0] = module_type;
+  std::string type_ordinal_bytes_str(reinterpret_cast<char const*>(type_ordinal_bytes), 1) ;
+  if (Footer == module_type) {
+    std::string result = fileAAD + type_ordinal_bytes_str;
+    return result;
+  }
+  std::string row_group_ordinal_bytes = shortToBytesLE(row_group_ordinal);
+  std::string column_ordinal_bytes = shortToBytesLE(column_ordinal);
+  if (DataPage != module_type && DataPageHeader != module_type) {
+    std::string result =  fileAAD + type_ordinal_bytes_str + row_group_ordinal_bytes
+      + column_ordinal_bytes;
+    return result;
+  }
+  std::string page_ordinal_bytes = shortToBytesLE(page_ordinal);
+  std::string result = fileAAD + type_ordinal_bytes_str + row_group_ordinal_bytes
+    + column_ordinal_bytes + page_ordinal_bytes;;
+  return result;
+}
+  
+std::string createFooterAAD(const std::string& aad_prefix_bytes) {
+  return createModuleAAD(aad_prefix_bytes, Footer, (int16_t) -1, (int16_t) -1, (int16_t) -1);
+}
+  
+// Update last two bytes with new page ordinal (instead of creating new page AAD from scratch)
+void quickUpdatePageAAD(const std::string &AAD, int16_t new_page_ordinal) {
+  std::string page_ordinal_bytes = shortToBytesLE(new_page_ordinal);
+  int length = (int)AAD.size();
+  std::memcpy((int16_t*)(AAD.c_str()+length-2), (int16_t*)(page_ordinal_bytes.c_str()), 2);
 }
 
 }  // namespace parquet_encryption
