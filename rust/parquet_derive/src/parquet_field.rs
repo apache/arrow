@@ -15,20 +15,107 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use crate::parquet_field::ThirdPartyTypes::ChronoNaiveDateTime;
+
 #[derive(Debug, PartialEq)]
 pub struct Field {
     ident: syn::Ident,
     ty: Type,
+    is_a_byte_buf: bool,
+    third_party_type: Option<ThirdPartyType>
+}
+
+mod FieldHelpers {
+    fn option_into_vals(
+        id: &syn::Ident,
+        is_a_byte_buf: bool,
+        is_a_timestamp: bool,
+        copy_to_vec: bool,
+    ) -> proc_macro2::TokenStream {
+        let binding = if copy_to_vec {
+            quote! { let Some(inner) = x.#id }
+        } else {
+            quote! { let Some(ref inner) = x.#id }
+        };
+
+        let some = if is_a_byte_buf {
+            quote! { Some((&inner[..]).into())}
+        } else if is_a_timestamp {
+            quote! { Some(inner.timestamp_millis()) }
+        } else {
+            quote! { Some(inner) }
+        };
+
+        quote! {
+                let vals: Vec<_> = records.iter().filter_map(|x| {
+                    if #binding {
+                        #some
+                    } else {
+                        None
+                    }
+                }).collect();
+            }
+    }
+
+    fn copied_direct_vals(
+        id: &syn::Ident,
+        is_a_byte_buf: bool,
+        is_a_timestamp: bool,
+    ) -> proc_macro2::TokenStream {
+        let access = if is_a_byte_buf {
+            quote! { (&x.#id[..]).into() }
+        } else if is_a_timestamp {
+            quote!( x.#id.timestamp_millis() )
+        } else {
+            quote! { x.#id }
+        };
+
+        quote! {
+                let vals: Vec<_> = records.iter().map(|x| #access).collect();
+            }
+    }
+
+    fn optional_definition_levels(id: &syn::Ident) -> proc_macro2::TokenStream {
+        quote! {
+                let definition_levels: Vec<i16> = self
+                  .iter()
+                  .map(|x| if x.#id.is_some() { 1 } else { 0 })
+                  .collect();
+            }
+    }
+}
+
+/// Use third party libraries, detected
+/// at compile time. These libraries will
+/// be written to parquet as their preferred
+/// physical type.
+///
+///   ChronoNaiveDateTime is written as i64
+///   ChronoNaiveDate is written as i32
+enum ThirdPartyType {
+    ChronoNaiveDateTime,
+    ChronoNaiveDate,
 }
 
 impl Field {
     pub fn from(f: &syn::Field) -> Self {
+        let ty = Type::from(f);
+        let is_a_byte_buf = ty.physical_type() == parquet::basic::Type::BYTE_ARRAY;
+
+        let third_party_type = match &ty.last_part()[..] {
+            "NaiveDateTime" => Some(ThirdPartyType::ChronoNaiveDateTime),
+            "NaiveDate" => Some(ThirdPartyType::ChronoNaiveDate),
+            _ => None
+        };
+
         Field {
             ident: f
                 .ident
                 .clone()
                 .expect("we only support structs with named fields"),
-            ty: Type::from(f),
+            ty,
+            is_a_byte_buf,
+            third_party_type,
         }
     }
 
@@ -54,62 +141,11 @@ impl Field {
     pub fn writer_snippet(&self) -> proc_macro2::TokenStream {
         let ident = &self.ident;
         let column_writer = self.ty.column_writer();
-        let is_a_byte_buf = self.ty.physical_type() == parquet::basic::Type::BYTE_ARRAY;
-        let is_a_timestamp = self.ty.last_part() == "NaiveDateTime";// TODO
         let copy_to_vec = match self.ty.physical_type() {
             parquet::basic::Type::BYTE_ARRAY
             | parquet::basic::Type::FIXED_LEN_BYTE_ARRAY => false,
             _ => true,
         };
-
-        fn option_into_vals(
-            id: &syn::Ident,
-            is_a_byte_buf: bool,
-            is_a_timestamp: bool,
-            copy_to_vec: bool,
-        ) -> proc_macro2::TokenStream {
-            let binding = if copy_to_vec {
-                quote! { let Some(inner) = x.#id }
-            } else {
-                quote! { let Some(ref inner) = x.#id }
-            };
-
-            let some = if is_a_byte_buf {
-                quote! { Some((&inner[..]).into())}
-            } else if is_a_timestamp {
-                quote! { Some(inner.timestamp_millis()) }
-            } else {
-                quote! { Some(inner) }
-            };
-
-            quote! {
-                let vals: Vec<_> = records.iter().filter_map(|x| {
-                    if #binding {
-                        #some
-                    } else {
-                        None
-                    }
-                }).collect();
-            }
-        }
-
-        fn copied_direct_vals(
-            id: &syn::Ident,
-            is_a_byte_buf: bool,
-            is_a_timestamp: bool,
-        ) -> proc_macro2::TokenStream {
-            let access = if is_a_byte_buf {
-                quote! { (&x.#id[..]).into() }
-            } else if is_a_timestamp {
-                quote!( x.#id.timestamp_millis() )
-            } else {
-                quote! { x.#id }
-            };
-
-            quote! {
-                let vals: Vec<_> = records.iter().map(|x| #access).collect();
-            }
-        }
 
         let vals_builder = match &self.ty {
             Type::TypePath(_) => copied_direct_vals(ident, is_a_byte_buf, is_a_timestamp),
@@ -141,15 +177,6 @@ impl Field {
             },
             f @ _ => unimplemented!("don't support {:#?}", f),
         };
-
-        fn optional_definition_levels(id: &syn::Ident) -> proc_macro2::TokenStream {
-            quote! {
-                let definition_levels: Vec<i16> = self
-                  .iter()
-                  .map(|x| if x.#id.is_some() { 1 } else { 0 })
-                  .collect();
-            }
-        }
 
         let definition_levels = match &self.ty {
             Type::TypePath(_) => None,
@@ -272,6 +299,16 @@ impl Type {
         }
     }
 
+    /// Helper to simplify a nested field definition to its leaf type
+    ///
+    /// Ex:
+    ///   Option<&String> => Type::TypePath(String)
+    ///   &Option<i32> => Type::TypePath(i32)
+    ///   Vec<Vec<u8>> => Type::Vec(u8)
+    ///
+    /// Useful in determining the physical type of a field and the
+    /// definition levels.
+    ///
     pub fn leaf_type(&self) -> &Type {
         match &self {
             Type::TypePath(_) => &self,
@@ -303,6 +340,20 @@ impl Type {
         }
     }
 
+    ///
+    /// Helper to normalize a type path by extracting the
+    /// most identifiable part
+    ///
+    /// Ex:
+    ///   std::string::String => String
+    ///   Vec<u8> => Vec<u8>
+    ///   chrono::NaiveDateTime => NaiveDateTime
+    ///
+    /// Does run the risk of mis-identifying a type if import
+    /// rename is in play. Please note procedural macros always
+    /// run before type resolution so this is a risk the user
+    /// takes on when renaming imports.
+    ///
     pub fn last_part(&self) -> String {
         let inner_type = self.inner_type();
         let inner_type_str = (quote! { #inner_type }).to_string();
@@ -310,6 +361,14 @@ impl Type {
         inner_type_str.split("::").last().unwrap().trim().to_string()
     }
 
+    ///
+    /// Converts rust types to parquet physical types.
+    ///
+    /// Ex:
+    ///   [u8; 10] => FIXED_LEN_BYTE_ARRAY
+    ///   Vec<u8>  => BYTE_ARRAY
+    ///   String => BYTE_ARRAY
+    ///   i32 => INT32
     pub fn physical_type(&self) -> parquet::basic::Type {
         use parquet::basic::Type as BasicType;
 
@@ -346,6 +405,10 @@ impl Type {
         }
     }
 
+    ///
+    /// Convert a parsed rust field AST in to a more easy to manipulate
+    /// parquet_derive::Field
+    ///
     pub fn from_type_path(f: &syn::Field, p: &syn::TypePath) -> Self {
         let segments_iter = p.path.segments.iter();
         let segments: Vec<syn::PathSegment> = segments_iter.map(|x| x.clone()).collect();
