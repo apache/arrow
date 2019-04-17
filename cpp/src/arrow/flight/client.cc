@@ -255,12 +255,12 @@ class FlightClient::FlightClientImpl {
 
     ClientRpc rpc;
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
-    std::unique_ptr<grpc::ClientReader<pb::FlightGetInfo>> stream(
+    std::unique_ptr<grpc::ClientReader<pb::FlightInfo>> stream(
         stub_->ListFlights(&rpc.context, pb_criteria));
 
     std::vector<FlightInfo> flights;
 
-    pb::FlightGetInfo pb_info;
+    pb::FlightInfo pb_info;
     while (stream->Read(&pb_info)) {
       FlightInfo::Data info_data;
       RETURN_NOT_OK(internal::FromProto(pb_info, &info_data));
@@ -314,7 +314,7 @@ class FlightClient::FlightClientImpl {
   Status GetFlightInfo(const FlightDescriptor& descriptor,
                        std::unique_ptr<FlightInfo>* info) {
     pb::FlightDescriptor pb_descriptor;
-    pb::FlightGetInfo pb_response;
+    pb::FlightInfo pb_response;
 
     RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descriptor));
 

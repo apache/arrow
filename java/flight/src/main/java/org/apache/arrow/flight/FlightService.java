@@ -28,7 +28,6 @@ import org.apache.arrow.flight.auth.ServerAuthWrapper;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.ActionType;
 import org.apache.arrow.flight.impl.Flight.Empty;
-import org.apache.arrow.flight.impl.Flight.FlightGetInfo;
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
 import org.apache.arrow.flight.impl.Flight.PutResult;
@@ -67,7 +66,7 @@ class FlightService extends FlightServiceImplBase {
   }
 
   @Override
-  public void listFlights(Flight.Criteria criteria, StreamObserver<FlightGetInfo> responseObserver) {
+  public void listFlights(Flight.Criteria criteria, StreamObserver<Flight.FlightInfo> responseObserver) {
     try {
       producer.listFlights(makeContext((ServerCallStreamObserver<?>) responseObserver), new Criteria(criteria),
           StreamPipe.wrap(responseObserver, FlightInfo::toProtocol));
@@ -181,7 +180,7 @@ class FlightService extends FlightServiceImplBase {
   }
 
   @Override
-  public void getFlightInfo(Flight.FlightDescriptor request, StreamObserver<FlightGetInfo> responseObserver) {
+  public void getFlightInfo(Flight.FlightDescriptor request, StreamObserver<Flight.FlightInfo> responseObserver) {
     try {
       FlightInfo info = producer
           .getFlightInfo(makeContext((ServerCallStreamObserver<?>) responseObserver), new FlightDescriptor(request));
