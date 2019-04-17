@@ -1,5 +1,6 @@
-import { FlatBuilder, DataBuilderOptions } from './base';
 import { bignumToBigInt } from '../util/bn';
+import { BigInt64Array } from '../util/compat';
+import { FlatBuilder, DataBuilderOptions } from './base';
 import { Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64 } from '../type';
 
 export interface IntBuilder<T extends Int = Int, TNull = any> extends FlatBuilder<T, TNull> {
