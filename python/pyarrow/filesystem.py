@@ -479,7 +479,7 @@ def _ensure_filesystem(fs):
         for mro in inspect.getmro(fs_type):
             if mro.__name__ == 'S3FileSystem':
                 return S3FSWrapper(fs)
-            # In case its an Azure Datalake Gen1 Filesystem, use the 
+            # In case its an Azure Datalake Gen1 Filesystem, use the
             # AzureDatalakeFilesystem wrapper
             elif mro.__name__ == 'AzureDatalakeFileSystem':
                 return AzureDatalakeFileSystemWrapper(fs)
