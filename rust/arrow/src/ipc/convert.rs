@@ -17,7 +17,8 @@
 
 //! Utilities for converting between IPC types and native Arrow types
 
-use crate::datatypes::DataType::*;
+use crate::datatypes::DataType;
+use crate::datatypes::Field;
 use crate::datatypes::Schema;
 use crate::ipc;
 
@@ -25,6 +26,7 @@ use flatbuffers::FlatBufferBuilder;
 
 /// Serialize a schema in IPC format
 fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
+    use DataType::*;
     let mut fbb = FlatBufferBuilder::new();
 
     let mut fields = vec![];
@@ -59,6 +61,72 @@ fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
     fbb.finish(root, None);
 
     fbb
+}
+
+/// Deserialize a Schema table from IPC format to Schema data type
+pub fn fb_to_schema(fb: ipc::Schema) -> Schema {
+    let mut fields: Vec<Field> = vec![];
+    let c_fields = fb.fields().unwrap();
+    let len = c_fields.len();
+    for i in 0..len {
+        let c_field: ipc::Field = c_fields.get(i);
+        let field = Field::new(
+            c_field.name().unwrap(),
+            get_data_type(c_field),
+            c_field.nullable(),
+        );
+        fields.push(field);
+    }
+    Schema::new(fields)
+}
+
+fn get_fbs_type(dtype: DataType) -> ipc::Type {
+    use ipc::Type::*;
+    use DataType::*;
+
+    match dtype {
+        Boolean => Bool,
+        Int8 | Int16 | Int32 | Int64 => Int,
+        UInt8 | UInt16 | UInt32 | UInt64 => Int,
+        Float16 => unimplemented!("Float16 type not supported in Rust Arrow"),
+        Float32 | Float64 => FloatingPoint,
+        DataType::Timestamp(_) => ipc::Type::Timestamp,
+        Date32(_) | Date64(_) => Date,
+        Time32(_) | Time64(_) => Time,
+        DataType::Interval(_) => unimplemented!("Interval type not supported"),
+        DataType::Utf8 => ipc::Type::Utf8,
+        DataType::List(_) => ipc::Type::List,
+        Struct(_) => Struct_,
+        _ => unimplemented!("Type not supported in Rust Arrow"),
+    }
+}
+
+fn get_data_type(field: ipc::Field) -> DataType {
+    match field.type_type() {
+        ipc::Type::Bool => DataType::Boolean,
+        ipc::Type::Int => {
+            let int = field.type__as_int().unwrap();
+            match (int.bitWidth(), int.is_signed()) {
+                (8, true) => DataType::Int8,
+                (8, false) => DataType::UInt8,
+                (16, true) => DataType::Int16,
+                (16, false) => DataType::UInt16,
+                (32, true) => DataType::Int32,
+                (32, false) => DataType::UInt32,
+                (64, true) => DataType::Int64,
+                (64, false) => DataType::UInt64,
+                _ => panic!("Unexpected bitwidth and signed"),
+            }
+        }
+        ipc::Type::Utf8 => DataType::Utf8,
+        ipc::Type::FloatingPoint => DataType::Float64,
+        t @ _ => unimplemented!("Type {:?} not supported", t),
+        // ipc::Type::BINARY => DataType::Utf8,
+        // ipc::Type::CATEGORY => unimplemented!("Reading CATEGORY type columns not implemented"),
+        // ipc::Type::TIMESTAMP | fbs::Type::DATE | fbs::Type::TIME => {
+        //     unimplemented!("Reading date and time fields not implemented")
+        // }
+    }
 }
 
 #[cfg(test)]
