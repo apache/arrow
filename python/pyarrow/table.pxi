@@ -1160,6 +1160,8 @@ cdef class Table(_PandasConvertible):
             inferred. If Arrays passed, this argument is required
         schema : Schema, default None
             If not passed, will be inferred from the arrays
+        metadata : dict or Mapping, default None
+            Optional metadata for the schema (if inferred).
 
         Returns
         -------
@@ -1176,7 +1178,9 @@ cdef class Table(_PandasConvertible):
             _schema_from_arrays(arrays, names, metadata, &c_schema)
         elif schema is not None:
             if names is not None:
-                raise ValueError('Cannot pass schema and arrays')
+                raise ValueError('Cannot pass both schema and names')
+            if metadata is not None:
+                raise ValueError('Cannot pass both schema and metadata')
             cy_schema = schema
 
             if len(schema) != len(arrays):
@@ -1213,6 +1217,38 @@ cdef class Table(_PandasConvertible):
                 raise TypeError(type(arrays[i]))
 
         return pyarrow_wrap_table(CTable.Make(c_schema, columns))
+
+    @staticmethod
+    def from_pydict(mapping, schema=None, metadata=None):
+        """
+        Construct a Table from Arrow arrays or columns
+
+        Parameters
+        ----------
+        mapping : dict or Mapping
+            A mapping of strings to Arrays or Python lists.
+        schema : Schema, default None
+            If not passed, will be inferred from the Mapping values
+        metadata : dict or Mapping, default None
+            Optional metadata for the schema (if inferred).
+
+        Returns
+        -------
+        pyarrow.Table
+
+        """
+        names = []
+        arrays = []
+        for k, v in mapping.items():
+            names.append(k)
+            if not isinstance(v, (Array, ChunkedArray)):
+                v = array(v)
+            arrays.append(v)
+        if schema is None:
+            return Table.from_arrays(arrays, names, metadata=metadata)
+        else:
+            # Will raise if metadata is not None
+            return Table.from_arrays(arrays, schema=schema, metadata=metadata)
 
     @staticmethod
     def from_batches(batches, Schema schema=None):
