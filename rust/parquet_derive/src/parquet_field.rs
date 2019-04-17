@@ -82,7 +82,6 @@ impl Field {
         let ident = &self.ident;
         let column_writer = self.ty.column_writer();
 
-
         let vals_builder = match &self.ty {
             Type::TypePath(_) => self.copied_direct_vals(),
             Type::Option(ref first_type) => match **first_type {
@@ -177,20 +176,16 @@ impl Field {
         }
     }
 
-    fn copy_to_vec(&self) -> bool {
-        match self.ty.physical_type() {
-            parquet::basic::Type::BYTE_ARRAY
-            | parquet::basic::Type::FIXED_LEN_BYTE_ARRAY => false,
-            _ => true,
-        }
-    }
-
-    pub fn option_into_vals(&self) -> proc_macro2::TokenStream {
+    fn option_into_vals(&self) -> proc_macro2::TokenStream {
         let field_name = &self.ident;
         let is_a_byte_buf = self.is_a_byte_buf;
         let is_a_timestamp = self.third_party_type == Some(ThirdPartyType::ChronoNaiveDateTime);
         let is_a_date = self.third_party_type == Some(ThirdPartyType::ChronoNaiveDate);
-        let copy_to_vec = self.copy_to_vec();
+        let copy_to_vec = match self.ty.physical_type() {
+            parquet::basic::Type::BYTE_ARRAY
+            | parquet::basic::Type::FIXED_LEN_BYTE_ARRAY => false,
+            _ => true,
+        };
 
         let binding = if copy_to_vec {
             quote! { let Some(inner) = x.#field_name }
@@ -219,7 +214,7 @@ impl Field {
         }
     }
 
-    pub fn copied_direct_vals(&self) -> proc_macro2::TokenStream {
+    fn copied_direct_vals(&self) -> proc_macro2::TokenStream {
         let field_name = &self.ident;
         let is_a_byte_buf = self.is_a_byte_buf;
         let is_a_timestamp = self.third_party_type == Some(ThirdPartyType::ChronoNaiveDateTime);
@@ -240,7 +235,7 @@ impl Field {
         }
     }
 
-    pub fn optional_definition_levels(&self) -> proc_macro2::TokenStream {
+    fn optional_definition_levels(&self) -> proc_macro2::TokenStream {
         let field_name = &self.ident;
 
         quote! {
@@ -253,7 +248,7 @@ impl Field {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Type {
+enum Type {
     Array(Box<Type>),
     Option(Box<Type>),
     Vec(Box<Type>),
@@ -262,7 +257,11 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn column_writer(&self) -> syn::TypePath {
+    ///
+    /// Takes a rust type and returns the appropriate
+    /// parquet-rs column writer
+    ///
+    fn column_writer(&self) -> syn::TypePath {
         use parquet::basic::Type as BasicType;
 
         let path = match self.physical_type() {
@@ -294,21 +293,6 @@ impl Type {
         path.unwrap()
     }
 
-    fn inner_type(&self) -> &syn::Type {
-        let leaf_type = self.leaf_type();
-
-        match leaf_type {
-            Type::TypePath(ref type_) => type_,
-            Type::Option(ref first_type)
-            | Type::Vec(ref first_type)
-            | Type::Array(ref first_type)
-            | Type::Reference(_, ref first_type) => match **first_type {
-                Type::TypePath(ref type_) => type_,
-                _ => unimplemented!("leaf_type() should only return shallow types"),
-            },
-        }
-    }
-
     /// Helper to simplify a nested field definition to its leaf type
     ///
     /// Ex:
@@ -319,7 +303,7 @@ impl Type {
     /// Useful in determining the physical type of a field and the
     /// definition levels.
     ///
-    pub fn leaf_type(&self) -> &Type {
+    fn leaf_type(&self) -> &Type {
         match &self {
             Type::TypePath(_) => &self,
             Type::Option(ref first_type)
@@ -351,6 +335,26 @@ impl Type {
     }
 
     ///
+    /// Helper method to further unwrap leaf_type() to get inner-most
+    /// type information, useful for determining the physical type
+    /// and normalizing the type paths.
+    ///
+    fn inner_type(&self) -> &syn::Type {
+        let leaf_type = self.leaf_type();
+
+        match leaf_type {
+            Type::TypePath(ref type_) => type_,
+            Type::Option(ref first_type)
+            | Type::Vec(ref first_type)
+            | Type::Array(ref first_type)
+            | Type::Reference(_, ref first_type) => match **first_type {
+                Type::TypePath(ref type_) => type_,
+                _ => unimplemented!("leaf_type() should only return shallow types"),
+            },
+        }
+    }
+
+    ///
     /// Helper to normalize a type path by extracting the
     /// most identifiable part
     ///
@@ -364,7 +368,7 @@ impl Type {
     /// run before type resolution so this is a risk the user
     /// takes on when renaming imports.
     ///
-    pub fn last_part(&self) -> String {
+    fn last_part(&self) -> String {
         let inner_type = self.inner_type();
         let inner_type_str = (quote! { #inner_type }).to_string();
 
@@ -379,7 +383,7 @@ impl Type {
     ///   Vec<u8>  => BYTE_ARRAY
     ///   String => BYTE_ARRAY
     ///   i32 => INT32
-    pub fn physical_type(&self) -> parquet::basic::Type {
+    fn physical_type(&self) -> parquet::basic::Type {
         use parquet::basic::Type as BasicType;
 
         let last_part = self.last_part();
@@ -419,10 +423,25 @@ impl Type {
     /// Convert a parsed rust field AST in to a more easy to manipulate
     /// parquet_derive::Field
     ///
-    pub fn from_type_path(f: &syn::Field, p: &syn::TypePath) -> Self {
-        let segments_iter = p.path.segments.iter();
-        let segments: Vec<syn::PathSegment> = segments_iter.map(|x| x.clone()).collect();
-        let last_segment = segments.last().unwrap();
+    fn from(f: &syn::Field) -> Self {
+        Type::from_type(f, &f.ty)
+    }
+
+    fn from_type(f: &syn::Field, ty: &syn::Type) -> Self {
+        match ty {
+            syn::Type::Path(ref p) => Type::from_type_path(f, p),
+            syn::Type::Reference(ref tr) => Type::from_type_reference(f, tr),
+            syn::Type::Array(ref ta) => Type::from_type_array(f, ta),
+            other @ _ => unimplemented!(
+                "we can't derive for {:?}. it is an unsupported type\n{:#?}",
+                f.ident.as_ref().unwrap(),
+                other
+            ),
+        }
+    }
+
+    fn from_type_path(f: &syn::Field, p: &syn::TypePath) -> Self {
+        let last_segment = p.path.segments.last().unwrap().into_value();
 
         let is_vec =
             last_segment.ident == syn::Ident::new("Vec", proc_macro2::Span::call_site());
@@ -454,32 +473,15 @@ impl Type {
         }
     }
 
-    pub fn from_type_reference(f: &syn::Field, tr: &syn::TypeReference) -> Self {
+    fn from_type_reference(f: &syn::Field, tr: &syn::TypeReference) -> Self {
         let lifetime = tr.lifetime.clone();
         let inner_type = Type::from_type(f, tr.elem.as_ref());
         Type::Reference(lifetime, Box::new(inner_type))
     }
 
-    pub fn from_type_array(f: &syn::Field, ta: &syn::TypeArray) -> Self {
+    fn from_type_array(f: &syn::Field, ta: &syn::TypeArray) -> Self {
         let inner_type = Type::from_type(f, ta.elem.as_ref());
         Type::Array(Box::new(inner_type))
-    }
-
-    pub fn from_type(f: &syn::Field, ty: &syn::Type) -> Self {
-        match ty {
-            syn::Type::Path(ref p) => Type::from_type_path(f, p),
-            syn::Type::Reference(ref tr) => Type::from_type_reference(f, tr),
-            syn::Type::Array(ref ta) => Type::from_type_array(f, ta),
-            other @ _ => unimplemented!(
-                "we can't derive for {:?}. it is an unsupported type\n{:#?}",
-                f.ident.as_ref().unwrap(),
-                other
-            ),
-        }
-    }
-
-    pub fn from(f: &syn::Field) -> Self {
-        Type::from_type(f, &f.ty)
     }
 }
 
