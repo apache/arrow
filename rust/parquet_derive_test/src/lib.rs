@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 extern crate parquet;
+
 #[macro_use]
 extern crate parquet_derive;
 
@@ -52,7 +53,7 @@ mod tests {
     use std::{env, fs, io::Write, rc::Rc};
 
     #[test]
-    fn hello() {
+    fn test_parquet_derive_hello() {
         let file = get_temp_file("test_parquet_derive_hello", &[]);
         let schema_str = "message schema {
             REQUIRED boolean         a_bool;
@@ -69,7 +70,6 @@ mod tests {
             OPTIONAL BINARY          borrowed_maybe_a_string (UTF8);
             OPTIONAL BINARY          borrowed_maybe_a_str (UTF8);
         }";
-        //            REQUIRED INT(32,false)   unsigned_magic_number;
 
         let schema = Rc::new(parse_message_type(schema_str).unwrap());
 

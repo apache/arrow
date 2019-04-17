@@ -65,10 +65,10 @@ let mut writer = SerializedFileWriter::new(file, schema, props).unwrap();
 let mut row_group = writer.next_row_group().unwrap();
 
 // Build up your records
-let chunks = ...
+let chunks = vec![ACompleteRecord{...}];
 
 // The derived `RecordWriter` takes over here
-chunks.write_to_row_group(&mut row_group);
+(&chunks[..]).write_to_row_group(&mut row_group);
 
 writer.close_row_group(row_group).unwrap();
 writer.close().unwrap();

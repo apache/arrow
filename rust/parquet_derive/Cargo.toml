@@ -17,8 +17,9 @@
 
 [package]
 name = "parquet_derive"
-version = "0.13.0"
+version = "2.0.0-SNAPSHOT"
 authors = ["Apache Arrow <dev@arrow.apache.org>"]
+keywords = [ "parquet" ]
 edition = "2018"
 
 [lib]
@@ -31,4 +32,4 @@ chrono = []
 proc-macro2 = "0.4"
 quote = "0.6.10"
 syn = { version = "0.15.22", features = ["full", "extra-traits"] }
-parquet = { path = "../parquet" }
+parquet = { path = "../parquet", version = "2.0.0-SNAPSHOT" }
