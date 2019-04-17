@@ -321,6 +321,19 @@ TEST(TestString, Basics) {
   AssertJSONArray<BinaryType, std::string>(type, "[\"\\u0000\\u001f\"]", {s});
 }
 
+TEST(TestTimestamp, Basics) {
+  // Timestamp type
+  auto type = timestamp(TimeUnit::SECOND);
+  AssertJSONArray<TimestampType, int64_t>(
+      type, R"(["1970-01-01","2000-02-29","3989-07-14","1900-02-28"])",
+      {0, 951782400, 63730281600LL, -2203977600LL});
+
+  type = timestamp(TimeUnit::NANO);
+  AssertJSONArray<TimestampType, int64_t>(
+      type, R"(["1970-01-01","2000-02-29","1900-02-28"])",
+      {0, 951782400000000000LL, -2203977600000000000LL});
+}
+
 TEST(TestString, Errors) {
   std::shared_ptr<DataType> type = utf8();
   std::shared_ptr<Array> array;

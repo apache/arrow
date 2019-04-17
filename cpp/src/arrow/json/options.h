@@ -15,20 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_JSON_OPTIONS_H
-#define ARROW_JSON_OPTIONS_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
-#include <string>
-#include <unordered_map>
 
-#include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class DataType;
+class Schema;
 
 namespace json {
 
@@ -64,5 +61,3 @@ struct ARROW_EXPORT ReadOptions {
 
 }  // namespace json
 }  // namespace arrow
-
-#endif  // ARROW_JSON_OPTIONS_H

@@ -18,11 +18,9 @@
 // From Apache Impala as of 2016-01-29. Pared down to a minimal set of
 // functions needed for parquet-cpp
 
-#ifndef ARROW_UTIL_SSE_UTIL_H
-#define ARROW_UTIL_SSE_UTIL_H
+#pragma once
 
-#undef ARROW_HAVE_SSE2
-#undef ARROW_HAVE_SSE4_2
+#include "arrow/util/macros.h"
 
 #ifdef ARROW_USE_SIMD
 
@@ -36,7 +34,7 @@
 
 // gcc/clang (possibly others)
 
-#if defined(__SSE4_2__)
+#if defined(__SSE2__)
 #define ARROW_HAVE_SSE2 1
 #include <emmintrin.h>
 #endif
@@ -46,7 +44,9 @@
 #include <nmmintrin.h>
 #endif
 
-#endif
+#endif  // ARROW_USE_SIMD
+
+// MSVC x86-64
 
 namespace arrow {
 
@@ -155,5 +155,3 @@ static inline uint32_t SSE4_crc32_u64(uint32_t, uint64_t) {
 #endif  // ARROW_HAVE_SSE4_2
 
 }  // namespace arrow
-
-#endif  //  ARROW_UTIL_SSE_UTIL_H

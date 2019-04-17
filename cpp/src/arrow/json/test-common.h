@@ -15,36 +15,47 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
 #include <memory>
 #include <random>
 #include <string>
 #include <vector>
 
-#include <rapidjson/writer.h>
+#include "arrow/json/rapidjson-defs.h"
+#include "rapidjson/document.h"
+#include "rapidjson/prettywriter.h"
+#include "rapidjson/reader.h"
+#include "rapidjson/writer.h"
 
+#include "arrow/io/memory.h"
+#include "arrow/json/options.h"
+#include "arrow/json/parser.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/util.h"
+#include "arrow/type.h"
 #include "arrow/util/string_view.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
 namespace json {
 
-using rapidjson::StringBuffer;
-using Writer = rapidjson::Writer<StringBuffer>;
+namespace rj = arrow::rapidjson;
+
+using rj::StringBuffer;
+using util::string_view;
+using Writer = rj::Writer<StringBuffer>;
 
 inline static Status OK(bool ok) { return ok ? Status::OK() : Status::Invalid(""); }
 
 template <typename Engine>
-static Status Generate(const std::shared_ptr<DataType>& type, Engine& e, Writer* writer);
+inline static Status Generate(const std::shared_ptr<DataType>& type, Engine& e,
+                              Writer* writer);
 
 template <typename Engine>
-static Status Generate(const std::vector<std::shared_ptr<Field>>& fields, Engine& e,
-                       Writer* writer);
+inline static Status Generate(const std::vector<std::shared_ptr<Field>>& fields,
+                              Engine& e, Writer* writer);
 
 template <typename Engine>
-static Status Generate(const std::shared_ptr<Schema>& schm, Engine& e, Writer* writer) {
+inline static Status Generate(const std::shared_ptr<Schema>& schm, Engine& e,
+                              Writer* writer) {
   return Generate(schm->fields(), e, writer);
 }
 
@@ -89,16 +100,17 @@ struct GenerateImpl {
   Status Visit(const ListType& t) {
     auto size = std::poisson_distribution<>{4}(e);
     writer.StartArray();
-    for (int i = 0; i != size; ++i) RETURN_NOT_OK(Generate(t.value_type(), e, &writer));
+    for (int i = 0; i < size; ++i) RETURN_NOT_OK(Generate(t.value_type(), e, &writer));
     return OK(writer.EndArray(size));
   }
   Status Visit(const StructType& t) { return Generate(t.children(), e, &writer); }
   Engine& e;
-  rapidjson::Writer<rapidjson::StringBuffer>& writer;
+  rj::Writer<rj::StringBuffer>& writer;
 };
 
 template <typename Engine>
-static Status Generate(const std::shared_ptr<DataType>& type, Engine& e, Writer* writer) {
+inline static Status Generate(const std::shared_ptr<DataType>& type, Engine& e,
+                              Writer* writer) {
   if (std::uniform_real_distribution<>{0, 1}(e) < .2) {
     // one out of 5 chance of null, anywhere
     writer->Null();
@@ -109,8 +121,8 @@ static Status Generate(const std::shared_ptr<DataType>& type, Engine& e, Writer*
 }
 
 template <typename Engine>
-static Status Generate(const std::vector<std::shared_ptr<Field>>& fields, Engine& e,
-                       Writer* writer) {
+inline static Status Generate(const std::vector<std::shared_ptr<Field>>& fields,
+                              Engine& e, Writer* writer) {
   RETURN_NOT_OK(OK(writer->StartObject()));
   for (const auto& f : fields) {
     writer->Key(f->name().c_str());
@@ -119,21 +131,22 @@ static Status Generate(const std::vector<std::shared_ptr<Field>>& fields, Engine
   return OK(writer->EndObject(static_cast<int>(fields.size())));
 }
 
-Status MakeBuffer(util::string_view data, std::shared_ptr<Buffer>* out) {
-  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), data.size(), out));
-  std::copy(std::begin(data), std::end(data), (*out)->mutable_data());
+inline static Status MakeStream(string_view src_str,
+                                std::shared_ptr<io::InputStream>* out) {
+  auto src = std::make_shared<Buffer>(src_str);
+  *out = std::make_shared<io::BufferReader>(src);
   return Status::OK();
 }
 
 // scalar values (numbers and strings) are parsed into a
 // dictionary<index:int32, value:string>. This can be decoded for ease of comparison
-Status DecodeStringDictionary(const DictionaryArray& dict_array,
-                              std::shared_ptr<Array>* decoded) {
+inline static Status DecodeStringDictionary(const DictionaryArray& dict_array,
+                                            std::shared_ptr<Array>* decoded) {
   const StringArray& dict = static_cast<const StringArray&>(*dict_array.dictionary());
   const Int32Array& indices = static_cast<const Int32Array&>(*dict_array.indices());
   StringBuilder builder;
   RETURN_NOT_OK(builder.Resize(indices.length()));
-  for (int64_t i = 0; i != indices.length(); ++i) {
+  for (int64_t i = 0; i < indices.length(); ++i) {
     if (indices.IsNull(i)) {
       builder.UnsafeAppendNull();
       continue;
@@ -143,6 +156,24 @@ Status DecodeStringDictionary(const DictionaryArray& dict_array,
     builder.UnsafeAppend(value);
   }
   return builder.Finish(decoded);
+}
+
+inline static Status ParseFromString(ParseOptions options, string_view src_str,
+                                     std::shared_ptr<Array>* parsed) {
+  auto src = std::make_shared<Buffer>(src_str);
+  std::unique_ptr<BlockParser> parser;
+  RETURN_NOT_OK(BlockParser::Make(options, &parser));
+  RETURN_NOT_OK(parser->Parse(src));
+  return parser->Finish(parsed);
+}
+
+std::string PrettyPrint(string_view one_line) {
+  rj::Document document;
+  document.Parse(one_line.data());
+  rj::StringBuffer sb;
+  rj::PrettyWriter<rj::StringBuffer> writer(sb);
+  document.Accept(writer);
+  return sb.GetString();
 }
 
 }  // namespace json

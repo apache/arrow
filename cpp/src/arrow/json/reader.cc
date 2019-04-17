@@ -18,43 +18,22 @@
 #include "arrow/json/reader.h"
 
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
+#include "arrow/json/parser.h"
+#include "arrow/table.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 namespace json {
 
 using internal::StringConverter;
-
-Kind::type KindFromTag(const std::shared_ptr<const KeyValueMetadata>& tag) {
-  std::string kind_name = tag->value(0);
-  switch (kind_name[0]) {
-    case 'n':
-      if (kind_name[2] == 'l') {
-        return Kind::kNull;
-      } else {
-        return Kind::kNumber;
-      }
-    case 'b':
-      return Kind::kBoolean;
-    case 's':
-      return Kind::kString;
-    case 'o':
-      return Kind::kObject;
-    case 'a':
-      return Kind::kArray;
-    default:
-      ARROW_LOG(FATAL);
-      return Kind::kNull;
-  }
-}
-
-static Status Convert(const std::shared_ptr<DataType>& out_type,
-                      std::shared_ptr<Array> in, std::shared_ptr<Array>* out);
 
 struct ConvertImpl {
   Status Visit(const NullType&) {
@@ -177,8 +156,8 @@ struct ConvertImpl {
   std::shared_ptr<Array>* out;
 };
 
-static Status Convert(const std::shared_ptr<DataType>& out_type,
-                      std::shared_ptr<Array> in, std::shared_ptr<Array>* out) {
+Status Convert(const std::shared_ptr<DataType>& out_type,
+               const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) {
   ConvertImpl visitor = {out_type, in, out};
   return VisitTypeInline(*out_type, &visitor);
 }
@@ -187,7 +166,7 @@ static Status InferAndConvert(std::shared_ptr<DataType> expected,
                               const std::shared_ptr<const KeyValueMetadata>& tag,
                               const std::shared_ptr<Array>& in,
                               std::shared_ptr<Array>* out) {
-  Kind::type kind = KindFromTag(tag);
+  Kind::type kind = Kind::FromTag(tag);
   switch (kind) {
     case Kind::kObject: {
       // FIXME(bkietz) in general expected fields may not be an exact prefix of parsed's
@@ -269,18 +248,20 @@ static Status InferAndConvert(std::shared_ptr<DataType> expected,
 
 Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
                 std::shared_ptr<RecordBatch>* out) {
-  BlockParser parser(default_memory_pool(), options, json);
-  RETURN_NOT_OK(parser.Parse(json));
+  std::unique_ptr<BlockParser> parser;
+  RETURN_NOT_OK(BlockParser::Make(options, &parser));
+  RETURN_NOT_OK(parser->Parse(json));
   std::shared_ptr<Array> parsed;
-  RETURN_NOT_OK(parser.Finish(&parsed));
+  RETURN_NOT_OK(parser->Finish(&parsed));
   std::shared_ptr<Array> converted;
   auto schm = options.explicit_schema;
   if (options.unexpected_field_behavior == UnexpectedFieldBehavior::InferType) {
     if (schm) {
-      RETURN_NOT_OK(InferAndConvert(struct_(schm->fields()), Tag(Kind::kObject), parsed,
-                                    &converted));
+      RETURN_NOT_OK(InferAndConvert(struct_(schm->fields()), Kind::Tag(Kind::kObject),
+                                    parsed, &converted));
     } else {
-      RETURN_NOT_OK(InferAndConvert(nullptr, Tag(Kind::kObject), parsed, &converted));
+      RETURN_NOT_OK(
+          InferAndConvert(nullptr, Kind::Tag(Kind::kObject), parsed, &converted));
     }
     schm = schema(converted->type()->children());
   } else {

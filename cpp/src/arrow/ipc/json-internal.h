@@ -18,22 +18,11 @@
 #ifndef ARROW_IPC_JSON_INTERNAL_H
 #define ARROW_IPC_JSON_INTERNAL_H
 
-#define RAPIDJSON_HAS_STDSTRING 1
-#define RAPIDJSON_HAS_CXX11_RVALUE_REFS 1
-#define RAPIDJSON_HAS_CXX11_RANGE_FOR 1
-
-#define RAPIDJSON_NAMESPACE arrow::rapidjson
-#define RAPIDJSON_NAMESPACE_BEGIN \
-  namespace arrow {               \
-  namespace rapidjson {
-#define RAPIDJSON_NAMESPACE_END \
-  }                             \
-  }
-
 #include <memory>
 #include <sstream>
 #include <string>
 
+#include "arrow/json/rapidjson-defs.h"
 #include "rapidjson/document.h"      // IWYU pragma: export
 #include "rapidjson/encodings.h"     // IWYU pragma: export
 #include "rapidjson/error/en.h"      // IWYU pragma: export
