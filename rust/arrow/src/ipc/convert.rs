@@ -17,14 +17,14 @@
 
 //! Utilities for converting between IPC types and native Arrow types
 
-use crate::datatypes::DataType;
-use crate::datatypes::Field;
-use crate::datatypes::Schema;
+use crate::datatypes::{DataType, DateUnit, Field, Schema, TimeUnit};
 use crate::ipc;
 
 use flatbuffers::FlatBufferBuilder;
 
 /// Serialize a schema in IPC format
+///
+/// TODO(Neville) add bit-widths and other field metadata to flatbuffer Type
 fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
     use DataType::*;
     let mut fbb = FlatBufferBuilder::new();
@@ -97,10 +97,10 @@ fn get_fbs_type(dtype: DataType) -> ipc::Type {
         DataType::Utf8 => ipc::Type::Utf8,
         DataType::List(_) => ipc::Type::List,
         Struct(_) => Struct_,
-        _ => unimplemented!("Type not supported in Rust Arrow"),
     }
 }
 
+/// Get the Arrow data type from the flatbuffer Field table
 fn get_data_type(field: ipc::Field) -> DataType {
     match field.type_type() {
         ipc::Type::Bool => DataType::Boolean,
@@ -118,14 +118,50 @@ fn get_data_type(field: ipc::Field) -> DataType {
                 _ => panic!("Unexpected bitwidth and signed"),
             }
         }
-        ipc::Type::Utf8 => DataType::Utf8,
-        ipc::Type::FloatingPoint => DataType::Float64,
+        ipc::Type::Utf8 | ipc::Type::Binary => DataType::Utf8,
+        ipc::Type::FloatingPoint => {
+            let float = field.type__as_floating_point().unwrap();
+            match float.precision() {
+                ipc::Precision::HALF => DataType::Float16,
+                ipc::Precision::SINGLE => DataType::Float32,
+                ipc::Precision::DOUBLE => DataType::Float64,
+            }
+        }
+        ipc::Type::Time => {
+            let time = field.type__as_time().unwrap();
+            match (time.bitWidth(), time.unit()) {
+                (32, ipc::TimeUnit::SECOND) => DataType::Time32(TimeUnit::Second),
+                (32, ipc::TimeUnit::MILLISECOND) => {
+                    DataType::Time32(TimeUnit::Millisecond)
+                }
+                (64, ipc::TimeUnit::MICROSECOND) => {
+                    DataType::Time64(TimeUnit::Microsecond)
+                }
+                (64, ipc::TimeUnit::NANOSECOND) => DataType::Time64(TimeUnit::Nanosecond),
+                z @ _ => panic!(
+                    "Time type with bit witdh of {} and unit of {:?} not supported",
+                    z.0, z.1
+                ),
+            }
+        }
+        ipc::Type::Timestamp => {
+            let timestamp = field.type__as_timestamp().unwrap();
+            match timestamp.unit() {
+                ipc::TimeUnit::SECOND => DataType::Timestamp(TimeUnit::Second),
+                ipc::TimeUnit::MILLISECOND => DataType::Timestamp(TimeUnit::Millisecond),
+                ipc::TimeUnit::MICROSECOND => DataType::Timestamp(TimeUnit::Microsecond),
+                ipc::TimeUnit::NANOSECOND => DataType::Timestamp(TimeUnit::Nanosecond),
+            }
+        }
+        ipc::Type::Date => {
+            let date = field.type__as_date().unwrap();
+            match date.unit() {
+                ipc::DateUnit::DAY => DataType::Date32(DateUnit::Day),
+                ipc::DateUnit::MILLISECOND => DataType::Date64(DateUnit::Millisecond),
+            }
+        }
+        // TODO add interval support
         t @ _ => unimplemented!("Type {:?} not supported", t),
-        // ipc::Type::BINARY => DataType::Utf8,
-        // ipc::Type::CATEGORY => unimplemented!("Reading CATEGORY type columns not implemented"),
-        // ipc::Type::TIMESTAMP | fbs::Type::DATE | fbs::Type::TIME => {
-        //     unimplemented!("Reading date and time fields not implemented")
-        // }
     }
 }
 

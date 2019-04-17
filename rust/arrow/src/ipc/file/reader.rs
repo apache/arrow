@@ -30,17 +30,7 @@ use crate::record_batch::RecordBatch;
 
 static ARROW_MAGIC: [u8; 6] = [b'A', b'R', b'R', b'O', b'W', b'1'];
 
-fn as_u32_le(array: &[u8; 4]) -> u32 {
-    ((array[0] as u32) << 0)
-        + ((array[1] as u32) << 8)
-        + ((array[2] as u32) << 16)
-        + ((array[3] as u32) << 24)
-}
-
-fn create_record_batch(schema: Schema, node: &ipc::FieldNode) -> Result<RecordBatch> {
-    unimplemented!()
-}
-
+/// Read a buffer based on offset and length
 fn read_buffer(c_buf: &ipc::Buffer, a_data: &Vec<u8>) -> Buffer {
     let start_offset = c_buf.offset() as usize;
     let end_offset = start_offset + c_buf.length() as usize;
@@ -48,7 +38,8 @@ fn read_buffer(c_buf: &ipc::Buffer, a_data: &Vec<u8>) -> Buffer {
     Buffer::from(&buf_data)
 }
 
-/// Reads the correct number of buffers based on data type and null_count, and creates an array ref
+/// Reads the correct number of buffers based on data type and null_count, and creates an
+/// array ref
 fn create_array(
     c_node: &ipc::FieldNode,
     data_type: &DataType,
@@ -95,7 +86,8 @@ fn create_array(
             }
         }
         Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float32
-        | Boolean | Float64 => {
+        | Boolean | Float64 | Time32(_) | Time64(_) | Timestamp(_) | Date32(_)
+        | Date64(_) => {
             if null_count > 0 {
                 // read 3 buffers
                 let array_data = ArrayData::new(
@@ -124,23 +116,34 @@ fn create_array(
                 array_data
             }
         }
+        // TODO implement list and struct if I can find/generate test data
         t @ _ => panic!("Data type {:?} not supported", t),
     };
 
     (crate::array::make_array(Arc::new(array_data)), offset)
 }
 
+/// Arrow File reader
 pub struct Reader<R: Read + Seek> {
+    /// Buffered reader that supports reading and seeking
     reader: BufReader<R>,
-    offset: usize,
-    schema: Schema,
+    /// The schema that is read from the file header
+    schema: Arc<Schema>,
+    /// The blocks in the file
+    ///
+    /// A block indicates the regions in the file to read to get data
     blocks: Vec<ipc::Block>,
+    /// A counter to keep track of the current block that should be read
     current_block: usize,
+    /// The total number of blocks, which may contain record batches and other types
     total_blocks: usize,
 }
 
 impl<R: Read + Seek> Reader<R> {
-    /// create a new reader
+    /// Try to create a new reader
+    ///
+    /// Returns errors if the file does not meet the Arrow Format header and footer
+    /// requirements
     pub fn try_new(reader: R) -> Result<Self> {
         let mut reader = BufReader::new(reader);
         // check if header and footer contain correct magic bytes
@@ -162,7 +165,7 @@ impl<R: Read + Seek> Reader<R> {
         // determine metadata length
         let mut meta_size: [u8; 4] = [0; 4];
         reader.read_exact(&mut meta_size)?;
-        let meta_len = as_u32_le(&meta_size);
+        let meta_len = u32::from_le_bytes(meta_size);
 
         let mut meta_buffer = vec![0; meta_len as usize];
         reader.seek(SeekFrom::Start(12))?;
@@ -178,7 +181,7 @@ impl<R: Read + Seek> Reader<R> {
         let mut footer_size: [u8; 4] = [0; 4];
         reader.seek(SeekFrom::End(-10))?;
         reader.read_exact(&mut footer_size)?;
-        let footer_len = as_u32_le(&footer_size);
+        let footer_len = u32::from_le_bytes(footer_size);
 
         // read footer
         let mut footer_data = vec![0; footer_len as usize];
@@ -188,21 +191,29 @@ impl<R: Read + Seek> Reader<R> {
 
         let c_blocks = c_footer.recordBatches().unwrap();
 
-        dbg!(c_footer.recordBatches());
         let total_blocks = c_blocks.len();
 
         Ok(Self {
             reader,
-            offset: 8 + 4 + meta_len as usize,
-            schema,
+            schema: Arc::new(schema),
             blocks: c_blocks.to_vec(),
             current_block: 0,
             total_blocks,
         })
     }
 
-    /// Read file into record batches
-    pub fn read(&mut self) -> Result<Option<RecordBatch>> {
+    /// Return the number of batches in the file
+    pub fn num_batches(&self) -> usize {
+        self.total_blocks
+    }
+
+    /// Return the schema of the file
+    pub fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
+    }
+
+    /// Read the next record batch
+    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
         // get current block
         if self.current_block < self.total_blocks {
             let block = self.blocks[self.current_block];
@@ -257,7 +268,7 @@ impl<R: Read + Seek> Reader<R> {
                         arrays.push(array);
                     }
 
-                    RecordBatch::try_new(Arc::new(self.schema.clone()), arrays)
+                    RecordBatch::try_new(self.schema.clone(), arrays)
                         .map(|batch| Some(batch))
                 }
                 ipc::MessageHeader::SparseTensor => panic!(),
@@ -268,12 +279,29 @@ impl<R: Read + Seek> Reader<R> {
             Ok(None)
         }
     }
+
+    /// Read a specific record batch
+    ///
+    /// Sets the current block to the batch number, and reads the record batch at that
+    /// block
+    pub fn read_batch(&mut self, batch_num: usize) -> Result<Option<RecordBatch>> {
+        if batch_num >= self.total_blocks {
+            Err(ArrowError::IoError(format!(
+                "Cannot read batch at index {} from {} total batches",
+                batch_num, self.total_blocks
+            )))
+        } else {
+            self.current_block = batch_num;
+            self.next()
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    use crate::array::*;
     use std::fs::File;
 
     #[test]
@@ -281,10 +309,50 @@ mod tests {
         let file = File::open("./test/data/arrow_file.dat").unwrap();
 
         let mut reader = Reader::try_new(file).unwrap();
-        let batch: RecordBatch = reader.read().unwrap().unwrap();
+        assert_eq!(5, reader.num_batches());
+        for _ in 0..reader.num_batches() {
+            let batch = reader.next().unwrap().unwrap();
+            validate_batch(batch);
+        }
+        // try read a batch after all batches are exhausted
+        let batch = reader.next().unwrap();
+        assert!(batch.is_none());
 
+        // seek a specific batch
+        let batch = reader.read_batch(4).unwrap().unwrap();
+        validate_batch(batch);
+        // try read a batch after seeking to the last batch
+        let batch = reader.next().unwrap();
+        assert!(batch.is_none());
+    }
+
+    fn validate_batch(batch: RecordBatch) {
         assert_eq!(5, batch.num_rows());
         assert_eq!(4, batch.num_columns());
         let arr_1 = batch.column(0);
+        let int32_array = Int32Array::from(arr_1.data());
+        assert_eq!(
+            "PrimitiveArray<Int32>\n[\n  1,\n  2,\n  3,\n  null,\n  5,\n]",
+            format!("{:?}", int32_array)
+        );
+        let arr_2 = batch.column(1);
+        let binary_array = BinaryArray::from(arr_2.data());
+        assert_eq!("foo", std::str::from_utf8(binary_array.value(0)).unwrap());
+        assert_eq!("bar", std::str::from_utf8(binary_array.value(1)).unwrap());
+        assert_eq!("baz", std::str::from_utf8(binary_array.value(2)).unwrap());
+        assert!(binary_array.is_null(3));
+        assert_eq!("quux", std::str::from_utf8(binary_array.value(4)).unwrap());
+        let arr_3 = batch.column(2);
+        let f32_array = Float32Array::from(arr_3.data());
+        assert_eq!(
+            "PrimitiveArray<Float32>\n[\n  1.0,\n  2.0,\n  null,\n  4.0,\n  5.0,\n]",
+            format!("{:?}", f32_array)
+        );
+        let arr_4 = batch.column(3);
+        let bool_array = BooleanArray::from(arr_4.data());
+        assert_eq!(
+            "PrimitiveArray<Boolean>\n[\n  true,\n  null,\n  false,\n  true,\n  false,\n]",
+            format!("{:?}", bool_array)
+        );
     }
 }
