@@ -31,8 +31,8 @@ mod parquet_field;
 
 /// Derive flat, simple RecordWriter implementations. Works by parsing
 /// a struct tagged with `#[derive(ParquetRecordWriter)]` and emitting
-/// the correct writing code for each field of the struct, in
-/// the order fields are defined.
+/// the correct writing code for each field of the struct. Column writers
+/// are generated in the order they are defined.
 ///
 /// It is up to the programmer to keep the order of the struct
 /// fields lined up with the schema.

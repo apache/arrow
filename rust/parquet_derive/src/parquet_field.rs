@@ -193,7 +193,7 @@ impl Field {
         } else if is_a_timestamp {
             quote! { Some(inner.timestamp_millis()) }
         } else if is_a_date {
-            quote! { Some(inner.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days()) }
+            quote! { Some(inner.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32)  }
         } else {
             quote! { Some(inner) }
         };
@@ -221,7 +221,7 @@ impl Field {
         } else if is_a_timestamp {
             quote! { x.#field_name.timestamp_millis() }
         } else if is_a_date {
-            quote! { x.#field_name.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() }
+            quote! { x.#field_name.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32 }
         } else {
             quote! { x.#field_name }
         };
@@ -858,7 +858,7 @@ mod test {
         let when = Field::from(&fields[0]);
         assert_eq!(when.writer_snippet().to_string(),(quote!{
             {
-                let vals : Vec<_> = records.iter().map(|x| x.henceforth.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() ).collect();
+                let vals : Vec<_> = records.iter().map(|x| x.henceforth.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32).collect();
                 if let parquet::column::writer::ColumnWriter::Int32ColumnWriter(ref mut typed) = column_writer {
                     typed.write_batch(&vals[..], None, None).unwrap();
                 } else {
@@ -873,7 +873,7 @@ mod test {
                 let definition_levels : Vec<i16> = self.iter().map(|x| if x.maybe_happened.is_some() { 1 } else { 0 }).collect();
                 let vals : Vec<_> = records.iter().filter_map(|x| {
                     if let Some(inner) = x.maybe_happened {
-                        Some( inner.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() )
+                        Some( inner.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32 )
                     } else {
                         None
                     }
