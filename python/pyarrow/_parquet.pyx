@@ -75,7 +75,7 @@ cdef class RowGroupStatistics:
             return NotImplemented
 
     def equals(self, RowGroupStatistics other):
-        # TODO(kszucs): implement native Equals method for CColumnChunkMetaData
+        # TODO(kszucs): implement native Equals method for RowGroupStatistics
         return (self.has_min_max == other.has_min_max and
                 self.min == other.min and
                 self.max == other.max and

@@ -676,6 +676,10 @@ class ParquetPartitions(object):
         except TypeError:
             return NotImplemented
 
+    def __ne__(self, other):
+        # required for python 2, cython implements it by default
+        return not (self == other)
+
     def get_index(self, level, name, key):
         """
         Record a partition value at a particular level, returning the distinct
@@ -1003,6 +1007,10 @@ class ParquetDataset(object):
             return self.equals(other)
         except TypeError:
             return NotImplemented
+
+    def __ne__(self, other):
+        # required for python 2, cython implements it by default
+        return not (self == other)
 
     def validate_schemas(self):
         if self.metadata is None and self.schema is None:
