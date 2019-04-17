@@ -343,6 +343,7 @@ schema : arrow Schema
 """.format(_parquet_writer_arg_docs)
 
     def __init__(self, where, schema, filesystem=None,
+                 md_where=None,
                  flavor=None,
                  version='1.0',
                  use_dictionary=True,
@@ -363,19 +364,31 @@ schema : arrow Schema
 
         self.schema = schema
         self.where = where
+        self.md_where = md_where
 
         # If we open a file using a filesystem, store file handle so we can be
         # sure to close it when `self.close` is called.
         self.file_handle = None
+        self.md_file_handle = None
 
-        filesystem, path = resolve_filesystem_and_path(where, filesystem)
-        if filesystem is not None:
-            sink = self.file_handle = filesystem.open(path, 'wb')
+        filesystem_, path = resolve_filesystem_and_path(where, filesystem)
+        if filesystem_ is not None:
+            sink = self.file_handle = filesystem_.open(path, 'wb')
         else:
             sink = where
 
+        if md_where is not None:
+            filesystem_, path = resolve_filesystem_and_path(md_where,
+                                                            filesystem)
+            if filesystem_ is not None:
+                md_sink = self.md_file_handle = filesystem_.open(path, 'wb')
+            else:
+                md_sink = md_where
+        else:
+            md_sink = None
+
         self.writer = _parquet.ParquetWriter(
-            sink, schema,
+            sink, md_sink, schema,
             version=version,
             compression=compression,
             use_dictionary=use_dictionary,
@@ -414,6 +427,8 @@ schema : arrow Schema
             self.is_open = False
         if self.file_handle is not None:
             self.file_handle.close()
+        if self.md_file_handle is not None:
+            self.md_file_handle.close()
 
 
 def _get_pandas_index_columns(keyvalues):
@@ -1182,7 +1197,8 @@ read_pandas.__doc__ = _read_table_docstring.format(
     indexes as columns""")
 
 
-def write_table(table, where, row_group_size=None, version='1.0',
+def write_table(table, where, md_where=None,
+                row_group_size=None, version='1.0',
                 use_dictionary=True, compression='snappy',
                 use_deprecated_int96_timestamps=None,
                 coerce_timestamps=None,
@@ -1193,6 +1209,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
     try:
         with ParquetWriter(
                 where, table.schema,
+                md_where=md_where,
                 filesystem=filesystem,
                 version=version,
                 flavor=flavor,
@@ -1207,6 +1224,11 @@ def write_table(table, where, row_group_size=None, version='1.0',
         if _is_path_like(where):
             try:
                 os.remove(_stringify_path(where))
+            except os.error:
+                pass
+        if md_where is not None and _is_path_like(md_where):
+            try:
+                os.remove(_stringify_path(md_where))
             except os.error:
                 pass
         raise
@@ -1232,6 +1254,7 @@ def _mkdir_if_not_exists(fs, path):
 
 
 def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
+                     write_metadata=False,
                      preserve_index=None, **kwargs):
     """
     Wrapper around parquet.write_table for writing a Table to
@@ -1263,6 +1286,8 @@ def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
     partition_cols : list,
         Column names by which to partition the dataset
         Columns are partitioned in the order they are given
+    write_metadata : bool
+        When True, write metadata to _metadata.parquet file.
     **kwargs : dict, kwargs for write_table function.
     """
     if preserve_index is not None:
@@ -1272,6 +1297,12 @@ def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
     fs, root_path = _get_filesystem_and_path(filesystem, root_path)
 
     _mkdir_if_not_exists(fs, root_path)
+
+    if write_metadata:
+        md_path = os.path.join(root_path, '_metadata.parquet')
+        md_f = fs.open(md_path, 'wb')
+    else:
+        md_f = None
 
     if partition_cols is not None and len(partition_cols) > 0:
         df = table.to_pandas(ignore_metadata=True)
@@ -1302,12 +1333,15 @@ def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
             outfile = guid() + '.parquet'
             full_path = '/'.join([prefix, outfile])
             with fs.open(full_path, 'wb') as f:
-                write_table(subtable, f, **kwargs)
+                write_table(subtable, f, md_f, **kwargs)
     else:
         outfile = guid() + '.parquet'
         full_path = '/'.join([root_path, outfile])
         with fs.open(full_path, 'wb') as f:
-            write_table(table, f, **kwargs)
+            write_table(table, f, md_f, **kwargs)
+
+    if md_f is not None:
+        md_f.close()
 
 
 def write_metadata(schema, where, version='1.0',

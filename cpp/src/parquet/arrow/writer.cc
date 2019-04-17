@@ -1106,6 +1106,25 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
 
 Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                         const std::shared_ptr<OutputStream>& sink,
+                        const std::shared_ptr<OutputStream>& md_sink,
+                        const std::shared_ptr<WriterProperties>& properties,
+                        std::unique_ptr<FileWriter>* writer) {
+  return Open(schema, pool, sink, md_sink, properties, default_arrow_writer_properties(),
+              writer);
+}
+
+Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+                        const std::shared_ptr<OutputStream>& sink,
+                        const std::shared_ptr<WriterProperties>& properties,
+                        const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
+                        std::unique_ptr<FileWriter>* writer) {
+  const std::shared_ptr<OutputStream> md_sink;
+  return Open(schema, pool, sink, md_sink, properties, arrow_properties, writer);
+}
+
+Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+                        const std::shared_ptr<OutputStream>& sink,
+                        const std::shared_ptr<OutputStream>& md_sink,
                         const std::shared_ptr<WriterProperties>& properties,
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
                         std::unique_ptr<FileWriter>* writer) {
@@ -1114,9 +1133,8 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
       ToParquetSchema(&schema, *properties, *arrow_properties, &parquet_schema));
 
   auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
-
   std::unique_ptr<ParquetFileWriter> base_writer =
-      ParquetFileWriter::Open(sink, schema_node, properties, schema.metadata());
+      ParquetFileWriter::Open(sink, md_sink, schema_node, properties, schema.metadata());
 
   auto schema_ptr = std::make_shared<::arrow::Schema>(schema);
   writer->reset(
@@ -1134,11 +1152,38 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
 
 Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                         const std::shared_ptr<::arrow::io::OutputStream>& sink,
+                        const std::shared_ptr<::arrow::io::OutputStream>& md_sink,
+                        const std::shared_ptr<WriterProperties>& properties,
+                        std::unique_ptr<FileWriter>* writer) {
+  auto wrapper = std::make_shared<ArrowOutputStream>(sink);
+  if (md_sink) {
+    auto md_wrapper = std::make_shared<ArrowOutputStream>(md_sink);
+    return Open(schema, pool, wrapper, md_wrapper, properties, writer);
+  } else
+    return Open(schema, pool, wrapper, properties, writer);
+}
+
+Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+                        const std::shared_ptr<::arrow::io::OutputStream>& sink,
                         const std::shared_ptr<WriterProperties>& properties,
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
                         std::unique_ptr<FileWriter>* writer) {
   auto wrapper = std::make_shared<ArrowOutputStream>(sink);
   return Open(schema, pool, wrapper, properties, arrow_properties, writer);
+}
+
+Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+                        const std::shared_ptr<::arrow::io::OutputStream>& sink,
+                        const std::shared_ptr<::arrow::io::OutputStream>& md_sink,
+                        const std::shared_ptr<WriterProperties>& properties,
+                        const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
+                        std::unique_ptr<FileWriter>* writer) {
+  auto wrapper = std::make_shared<ArrowOutputStream>(sink);
+  if (md_sink) {
+    auto md_wrapper = std::make_shared<ArrowOutputStream>(md_sink);
+    return Open(schema, pool, wrapper, md_wrapper, properties, arrow_properties, writer);
+  } else
+    return Open(schema, pool, wrapper, properties, arrow_properties, writer);
 }
 
 Status WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink) {
@@ -1193,8 +1238,17 @@ Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
                   const std::shared_ptr<OutputStream>& sink, int64_t chunk_size,
                   const std::shared_ptr<WriterProperties>& properties,
                   const std::shared_ptr<ArrowWriterProperties>& arrow_properties) {
+  const std::shared_ptr<OutputStream> md_sink;
+  return WriteTable(table, pool, sink, md_sink, chunk_size, properties, arrow_properties);
+}
+
+Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
+                  const std::shared_ptr<OutputStream>& sink,
+                  const std::shared_ptr<OutputStream>& md_sink, int64_t chunk_size,
+                  const std::shared_ptr<WriterProperties>& properties,
+                  const std::shared_ptr<ArrowWriterProperties>& arrow_properties) {
   std::unique_ptr<FileWriter> writer;
-  RETURN_NOT_OK(FileWriter::Open(*table.schema(), pool, sink, properties,
+  RETURN_NOT_OK(FileWriter::Open(*table.schema(), pool, sink, md_sink, properties,
                                  arrow_properties, &writer));
   RETURN_NOT_OK(writer->WriteTable(table, chunk_size));
   return writer->Close();
@@ -1206,6 +1260,17 @@ Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
                   const std::shared_ptr<ArrowWriterProperties>& arrow_properties) {
   auto wrapper = std::make_shared<ArrowOutputStream>(sink);
   return WriteTable(table, pool, wrapper, chunk_size, properties, arrow_properties);
+}
+
+Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
+                  const std::shared_ptr<::arrow::io::OutputStream>& sink,
+                  const std::shared_ptr<::arrow::io::OutputStream>& md_sink,
+                  int64_t chunk_size, const std::shared_ptr<WriterProperties>& properties,
+                  const std::shared_ptr<ArrowWriterProperties>& arrow_properties) {
+  auto wrapper = std::make_shared<ArrowOutputStream>(sink);
+  auto md_wrapper = std::make_shared<ArrowOutputStream>(md_sink);
+  return WriteTable(table, pool, wrapper, md_wrapper, chunk_size, properties,
+                    arrow_properties);
 }
 
 }  // namespace arrow

@@ -804,7 +804,9 @@ cdef class ParquetWriter:
     cdef:
         unique_ptr[FileWriter] writer
         shared_ptr[OutputStream] sink
+        shared_ptr[OutputStream] md_sink
         bint own_sink
+        bint own_md_sink
 
     cdef readonly:
         object use_dictionary
@@ -815,7 +817,8 @@ cdef class ParquetWriter:
         object version
         int row_group_size
 
-    def __cinit__(self, where, Schema schema, use_dictionary=None,
+    def __cinit__(self, where, md_where, Schema schema,
+                  use_dictionary=None,
                   compression=None, version=None,
                   MemoryPool memory_pool=None,
                   use_deprecated_int96_timestamps=False,
@@ -825,7 +828,6 @@ cdef class ParquetWriter:
             shared_ptr[WriterProperties] properties
             c_string c_where
             CMemoryPool* pool
-
         try:
             where = _stringify_path(where)
         except TypeError:
@@ -837,6 +839,19 @@ cdef class ParquetWriter:
                 check_status(FileOutputStream.Open(c_where,
                                                    &self.sink))
             self.own_sink = True
+
+        self.own_md_sink = False
+        if md_where is not None:
+            try:
+                md_where = _stringify_path(md_where)
+            except TypeError:
+                get_writer(md_where, &self.md_sink)
+            else:
+                c_where = tobytes(md_where)
+                with nogil:
+                    check_status(FileOutputStream.Open(c_where,
+                                                       &self.md_sink))
+                self.own_md_sink = True
 
         self.use_dictionary = use_dictionary
         self.compression = compression
@@ -861,7 +876,8 @@ cdef class ParquetWriter:
         with nogil:
             check_status(
                 FileWriter.Open(deref(schema.schema), pool,
-                                self.sink, properties, arrow_properties,
+                                self.sink, self.md_sink,
+                                properties, arrow_properties,
                                 &self.writer))
 
     cdef void _set_int96_support(self, ArrowWriterProperties.Builder* props):
@@ -922,6 +938,8 @@ cdef class ParquetWriter:
             check_status(self.writer.get().Close())
             if self.own_sink:
                 check_status(self.sink.get().Close())
+            if self.own_md_sink:
+                check_status(self.md_sink.get().Close())
 
     def write_table(self, Table table, row_group_size=None):
         cdef:

@@ -237,11 +237,13 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 class FileSerializer : public ParquetFileWriter::Contents {
  public:
   static std::unique_ptr<ParquetFileWriter::Contents> Open(
-      const std::shared_ptr<OutputStream>& sink, const std::shared_ptr<GroupNode>& schema,
+      const std::shared_ptr<OutputStream>& sink,
+      const std::shared_ptr<OutputStream>& md_sink,
+      const std::shared_ptr<GroupNode>& schema,
       const std::shared_ptr<WriterProperties>& properties,
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
     std::unique_ptr<ParquetFileWriter::Contents> result(
-        new FileSerializer(sink, schema, properties, key_value_metadata));
+        new FileSerializer(sink, md_sink, schema, properties, key_value_metadata));
 
     return result;
   }
@@ -260,6 +262,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
       // Write magic bytes and metadata
       auto metadata = metadata_->Finish();
       WriteFileMetaData(*metadata, sink_.get());
+
+      if (md_sink_) metadata->WriteTo(md_sink_.get());
 
       sink_->Close();
     }
@@ -300,11 +304,13 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
  private:
   FileSerializer(const std::shared_ptr<OutputStream>& sink,
+                 const std::shared_ptr<OutputStream>& md_sink,
                  const std::shared_ptr<GroupNode>& schema,
                  const std::shared_ptr<WriterProperties>& properties,
                  const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
       : ParquetFileWriter::Contents(schema, key_value_metadata),
         sink_(sink),
+        md_sink_(md_sink),
         is_open_(true),
         properties_(properties),
         num_row_groups_(0),
@@ -314,6 +320,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
   }
 
   std::shared_ptr<OutputStream> sink_;
+  std::shared_ptr<OutputStream> md_sink_;
   bool is_open_;
   const std::shared_ptr<WriterProperties> properties_;
   int num_row_groups_;
@@ -345,8 +352,24 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
     const std::shared_ptr<GroupNode>& schema,
     const std::shared_ptr<WriterProperties>& properties,
     const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
-  return Open(std::make_shared<ArrowOutputStream>(sink), schema, properties,
+  const std::shared_ptr<ArrowOutputStream> md_sink;
+  return Open(std::make_shared<ArrowOutputStream>(sink), md_sink, schema, properties,
               key_value_metadata);
+}
+
+std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
+    const std::shared_ptr<::arrow::io::OutputStream>& sink,
+    const std::shared_ptr<::arrow::io::OutputStream>& md_sink,
+    const std::shared_ptr<GroupNode>& schema,
+    const std::shared_ptr<WriterProperties>& properties,
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
+  if (md_sink)
+    return Open(std::make_shared<ArrowOutputStream>(sink),
+                std::make_shared<ArrowOutputStream>(md_sink), schema, properties,
+                key_value_metadata);
+  else
+    return Open(std::make_shared<ArrowOutputStream>(sink), schema, properties,
+                key_value_metadata);
 }
 
 std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
@@ -354,7 +377,18 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
     const std::shared_ptr<schema::GroupNode>& schema,
     const std::shared_ptr<WriterProperties>& properties,
     const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
-  auto contents = FileSerializer::Open(sink, schema, properties, key_value_metadata);
+  const std::shared_ptr<OutputStream> md_sink;
+  return Open(sink, md_sink, schema, properties, key_value_metadata);
+}
+
+std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
+    const std::shared_ptr<OutputStream>& sink,
+    const std::shared_ptr<OutputStream>& md_sink,
+    const std::shared_ptr<schema::GroupNode>& schema,
+    const std::shared_ptr<WriterProperties>& properties,
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
+  auto contents =
+      FileSerializer::Open(sink, md_sink, schema, properties, key_value_metadata);
   std::unique_ptr<ParquetFileWriter> result(new ParquetFileWriter());
   result->Open(std::move(contents));
   return result;

@@ -206,6 +206,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t index_page_offset() const
         int64_t total_compressed_size() const
         int64_t total_uncompressed_size() const
+        c_bool has_index_page() const
 
     cdef cppclass CRowGroupMetaData" parquet::RowGroupMetaData":
         int num_columns()
@@ -310,6 +311,7 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
         @staticmethod
         CStatus Open(const CSchema& schema, CMemoryPool* pool,
                      const shared_ptr[OutputStream]& sink,
+                     const shared_ptr[OutputStream]& md_sink,
                      const shared_ptr[WriterProperties]& properties,
                      const shared_ptr[ArrowWriterProperties]& arrow_properties,
                      unique_ptr[FileWriter]* writer)
