@@ -2552,3 +2552,16 @@ def test_partitioned_dataset(tempdir):
                         partition_cols=['one', 'two'])
     table = pq.ParquetDataset(path).read()
     pq.write_table(table, path / "output.parquet")
+
+
+def test_read_column_invalid_index():
+    table = pa.Table.from_arrays([pa.array([4, 5]), pa.array(["foo", "bar"])],
+                                 ['ints', 'strs'])
+    bio = pa.BufferOutputStream()
+    pq.write_table(table, bio)
+    f = pq.ParquetFile(bio.getvalue())
+    assert f.reader.read_column(0).to_pylist() == [4, 5]
+    assert f.reader.read_column(1).to_pylist() == ["foo", "bar"]
+    for index in (-1, 2):
+        with pytest.raises((ValueError, IndexError)):
+            f.reader.read_column(index)

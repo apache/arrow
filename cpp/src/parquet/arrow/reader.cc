@@ -380,6 +380,13 @@ FileReader::~FileReader() {}
 
 Status FileReader::Impl::GetColumn(int i, FileColumnIteratorFactory iterator_factory,
                                    std::unique_ptr<ColumnReader>* out) {
+  if (i < 0 || i >= this->num_columns()) {
+    return Status::Invalid("Column index out of bounds (got ", i,
+                           ", should be "
+                           "between 0 and ",
+                           this->num_columns() - 1, ")");
+  }
+
   std::unique_ptr<FileColumnIterator> input(iterator_factory(i, reader_.get()));
   bool read_dict = reader_properties_.read_dictionary(i);
 
