@@ -217,7 +217,7 @@ class ParsingChunker : public Chunker {
     *rest = SliceBuffer(block, completion_length);
     return Status::OK();
   }
-};  // namespace json
+};
 
 std::unique_ptr<Chunker> Chunker::Make(const ParseOptions& options) {
   if (!options.newlines_in_values) {
