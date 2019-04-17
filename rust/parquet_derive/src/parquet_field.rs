@@ -20,7 +20,7 @@ pub struct Field {
     ident: syn::Ident,
     ty: Type,
     is_a_byte_buf: bool,
-    third_party_type: Option<ThirdPartyType>
+    third_party_type: Option<ThirdPartyType>,
 }
 
 /// Use third party libraries, detected
@@ -30,7 +30,7 @@ pub struct Field {
 ///
 ///   ChronoNaiveDateTime is written as i64
 ///   ChronoNaiveDate is written as i32
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 enum ThirdPartyType {
     ChronoNaiveDateTime,
     ChronoNaiveDate,
@@ -44,7 +44,7 @@ impl Field {
         let third_party_type = match &ty.last_part()[..] {
             "NaiveDateTime" => Some(ThirdPartyType::ChronoNaiveDateTime),
             "NaiveDate" => Some(ThirdPartyType::ChronoNaiveDate),
-            _ => None
+            _ => None,
         };
 
         Field {
@@ -87,9 +87,7 @@ impl Field {
             Type::Option(ref first_type) => match **first_type {
                 Type::TypePath(_) => self.option_into_vals(),
                 Type::Reference(_, ref second_type) => match **second_type {
-                    Type::TypePath(_) => {
-                        self.option_into_vals()
-                    }
+                    Type::TypePath(_) => self.option_into_vals(),
                     _ => unimplemented!("sorry charlie"),
                 },
                 ref f @ _ => unimplemented!("whoa: {:#?}", f),
@@ -97,13 +95,9 @@ impl Field {
             Type::Reference(_, ref first_type) => match **first_type {
                 Type::TypePath(_) => self.copied_direct_vals(),
                 Type::Option(ref second_type) => match **second_type {
-                    Type::TypePath(_) => {
-                        self.option_into_vals()
-                    }
+                    Type::TypePath(_) => self.option_into_vals(),
                     Type::Reference(_, ref second_type) => match **second_type {
-                        Type::TypePath(_) => {
-                            self.option_into_vals()
-                        }
+                        Type::TypePath(_) => self.option_into_vals(),
                         _ => unimplemented!("sorry charlie"),
                     },
                     ref f @ _ => unimplemented!("whoa: {:#?}", f),
@@ -179,7 +173,8 @@ impl Field {
     fn option_into_vals(&self) -> proc_macro2::TokenStream {
         let field_name = &self.ident;
         let is_a_byte_buf = self.is_a_byte_buf;
-        let is_a_timestamp = self.third_party_type == Some(ThirdPartyType::ChronoNaiveDateTime);
+        let is_a_timestamp =
+            self.third_party_type == Some(ThirdPartyType::ChronoNaiveDateTime);
         let is_a_date = self.third_party_type == Some(ThirdPartyType::ChronoNaiveDate);
         let copy_to_vec = match self.ty.physical_type() {
             parquet::basic::Type::BYTE_ARRAY
@@ -217,15 +212,16 @@ impl Field {
     fn copied_direct_vals(&self) -> proc_macro2::TokenStream {
         let field_name = &self.ident;
         let is_a_byte_buf = self.is_a_byte_buf;
-        let is_a_timestamp = self.third_party_type == Some(ThirdPartyType::ChronoNaiveDateTime);
+        let is_a_timestamp =
+            self.third_party_type == Some(ThirdPartyType::ChronoNaiveDateTime);
         let is_a_date = self.third_party_type == Some(ThirdPartyType::ChronoNaiveDate);
 
         let access = if is_a_byte_buf {
             quote! { (&x.#field_name[..]).into() }
         } else if is_a_timestamp {
-            quote!{ x.#field_name.timestamp_millis() }
+            quote! { x.#field_name.timestamp_millis() }
         } else if is_a_date {
-            quote!{ x.#field_name.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() }
+            quote! { x.#field_name.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() }
         } else {
             quote! { x.#field_name }
         };
@@ -239,11 +235,11 @@ impl Field {
         let field_name = &self.ident;
 
         quote! {
-                let definition_levels: Vec<i16> = self
-                  .iter()
-                  .map(|x| if x.#field_name.is_some() { 1 } else { 0 })
-                  .collect();
-            }
+            let definition_levels: Vec<i16> = self
+              .iter()
+              .map(|x| if x.#field_name.is_some() { 1 } else { 0 })
+              .collect();
+        }
     }
 }
 
@@ -257,10 +253,8 @@ enum Type {
 }
 
 impl Type {
-    ///
     /// Takes a rust type and returns the appropriate
     /// parquet-rs column writer
-    ///
     fn column_writer(&self) -> syn::TypePath {
         use parquet::basic::Type as BasicType;
 
@@ -302,7 +296,6 @@ impl Type {
     ///
     /// Useful in determining the physical type of a field and the
     /// definition levels.
-    ///
     fn leaf_type(&self) -> &Type {
         match &self {
             Type::TypePath(_) => &self,
@@ -334,11 +327,9 @@ impl Type {
         }
     }
 
-    ///
     /// Helper method to further unwrap leaf_type() to get inner-most
     /// type information, useful for determining the physical type
     /// and normalizing the type paths.
-    ///
     fn inner_type(&self) -> &syn::Type {
         let leaf_type = self.leaf_type();
 
@@ -354,7 +345,6 @@ impl Type {
         }
     }
 
-    ///
     /// Helper to normalize a type path by extracting the
     /// most identifiable part
     ///
@@ -367,15 +357,18 @@ impl Type {
     /// rename is in play. Please note procedural macros always
     /// run before type resolution so this is a risk the user
     /// takes on when renaming imports.
-    ///
     fn last_part(&self) -> String {
         let inner_type = self.inner_type();
         let inner_type_str = (quote! { #inner_type }).to_string();
 
-        inner_type_str.split("::").last().unwrap().trim().to_string()
+        inner_type_str
+            .split("::")
+            .last()
+            .unwrap()
+            .trim()
+            .to_string()
     }
 
-    ///
     /// Converts rust types to parquet physical types.
     ///
     /// Ex:
@@ -419,10 +412,8 @@ impl Type {
         }
     }
 
-    ///
     /// Convert a parsed rust field AST in to a more easy to manipulate
     /// parquet_derive::Field
-    ///
     fn from(f: &syn::Field) -> Self {
         Type::from_type(f, &f.ty)
     }
