@@ -17,16 +17,21 @@
   under the License.
 -->
 
-# parquet_derive-rs
+# Parquet Derive
 
-A crate for automatically deriving `RecordWriter` for arbitrary, _simple_ structs. This does not generate writers for nested structures but it will work great for shallow structures.
+A crate for deriving `RecordWriter` for arbitrary, _simple_ structs. This does not generate writers for arbitrarily nested
+structures. It only works for primitives and a few generic structures and
+various levels of reference. Please see features checklist for what is currently
+supported.
+
+Derive also has some support for the chrono time library. You must must enable the `chrono` feature to get this support.
 
 ## Usage
 Add this to your Cargo.toml:
 ```toml
 [dependencies]
-parquet = "0.4"
-parquet_derive = "0.4"
+parquet = "0.13.0"
+parquet_derive = "0.13.0"
 ```
 
 and this to your crate root:
@@ -72,9 +77,11 @@ writer.close().unwrap();
 ## Features
 - [X] Support writing `String`, `&str`, `bool`, `i32`, `f32`, `f64`, `Vec<u8>`
 - [ ] Support writing dictionaries
-- [ ] Support writing logical types like timestamp
+- [X] Support writing logical types like timestamp
 - [X] Derive definition_levels for `Option`
 - [ ] Derive definition levels for nested structures
+- [ ] Derive writing tuple struct
+- [ ] Derive writing `tuple` container types
 
 ## Requirements
 - Same as `parquet-rs`

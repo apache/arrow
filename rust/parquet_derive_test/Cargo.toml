@@ -17,8 +17,8 @@
 
 [package]
 name = "parquet_derive_test"
-version = "0.1.0"
-authors = ["Xavier Lange <xrlange@gmail.com>"]
+version = "0.13.0"
+authors = ["Apache Arrow <dev@arrow.apache.org>"]
 edition = "2018"
 
 [dependencies]
