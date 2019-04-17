@@ -438,7 +438,7 @@ def _sanitize_remote_path(path):
     if path.startswith('s3://'):
         return path.replace('s3://', '')
     elif path.startswith('adl://'):
-        """ 
+        """
         The Azure Datalake Filesystem Client is ultimately formatted as:
         {store_name}.azuredtalakestore.net/{folder}/{files}, where
         store_name is passed as a parameter to the filesystem client.
@@ -449,7 +449,7 @@ def _sanitize_remote_path(path):
         We resolve these differences here, by first stripping the
         adl:// prefix, then splitting the filepath into its parts and
         dropping {store_name}.azuredatalakestore.net.  Then
-        the {folder}/{file} is stitched back together.
+        the /{folder}/{file} is stitched back together.
         """
         newpath = path.replace('adl://', '')
         path_parts = newpath.split('/')
@@ -457,15 +457,15 @@ def _sanitize_remote_path(path):
                       in p]
         outpath = "/".join(path_parts)
         return outpath
-    elif path.startswith('/'):
-        """
-        This was added to sanitize a particular
-        issue that only applies to Azure Datalake Gen1 paths.
-        When an individual file is passed to the adlfilesystemclient, 
-        it returns a leading "/" that has to be removed to make the 
-        path and sanitized paths match.
-        """
-        return path[1:]
+    # elif path.startswith('/'):
+    #     """
+    #     This was added to sanitize a particular
+    #     issue that only applies to Azure Datalake Gen1 paths.
+    #     When an individual file is passed to the adlfilesystemclient it
+    #     returns a leading "/" that has to be removed to make the
+    #     path and sanitized paths match.
+    #     """
+    #     return path[1:]
     else:
         return path
 
@@ -479,6 +479,10 @@ def _ensure_filesystem(fs):
         for mro in inspect.getmro(fs_type):
             if mro.__name__ == 'S3FileSystem':
                 return S3FSWrapper(fs)
+            # In case its an Azure Datalake Gen1 Filesystem, use the 
+            # AzureDatalakeFilesystem wrapper
+            elif mro.__name__ == 'AzureDatalakeFileSystem':
+                return AzureDatalakeFileSystemWrapper(fs)
             # In case its a simple LocalFileSystem (e.g. dask) use native arrow
             # FS
             elif mro.__name__ == 'LocalFileSystem':
@@ -520,6 +524,9 @@ def resolve_filesystem_and_path(where, filesystem=None):
     elif parsed_uri.scheme == 'file':
         # Input is local URI such as file:///home/user/myfile.parquet
         fs = LocalFileSystem.get_instance()
+        fs_path = parsed_uri.path
+    elif parsed_uri.scheme == 'adl':
+        fs = AzureDatalakeFileSystemWrapper(FileSystem)
         fs_path = parsed_uri.path
     else:
         # Input is local path such as /home/user/myfile.parquet

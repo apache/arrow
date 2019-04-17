@@ -35,3 +35,17 @@ def test_resolve_local_path():
         fs, path = filesystem.resolve_filesystem_and_path(uri)
         assert isinstance(fs, filesystem.LocalFileSystem)
         assert path == uri
+
+
+def test_resolve_azuredatalakefilesystem_uri():
+        uri = "adl://home/folder/myfile.parquet"
+        fs, path = filesystem.resolve_filesystem_and_path(uri)
+        assert isinstance(fs, filesystem.AzureDatalakeFileSystemWrapper)
+        assert path == '/folder/myfile.parquet'
+
+
+def test_resolve_azuredatalakefilesystem_file():
+        uri = "adl://home/myfile.parquet"
+        fs, path = filesystem.resolve_filesystem_and_path(uri)
+        assert isinstance(fs, filesystem.AzureDatalakeFileSystemWrapper)
+        assert path == "/myfile.parquet"
