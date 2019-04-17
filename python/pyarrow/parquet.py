@@ -994,7 +994,6 @@ class ParquetDataset(object):
                      'common_metadata', 'metadata', 'schema',
                      'split_row_groups'):
             if getattr(self, prop) != getattr(other, prop):
-                print('HHHHHHHHHHHHHHHHHHHHHHHHHHHHH', prop)
                 return False
 
         return True
