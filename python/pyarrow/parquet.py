@@ -663,6 +663,19 @@ class ParquetPartitions(object):
     def __getitem__(self, i):
         return self.levels[i]
 
+    def equals(self, other):
+        if not isinstance(other, ParquetPartitions):
+            raise TypeError('`other` must be an instance of ParquetPartitions')
+
+        return (self.levels == other.levels and
+                self.partition_names == other.partition_names)
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
     def get_index(self, level, name, key):
         """
         Record a partition value at a particular level, returning the distinct
@@ -981,14 +994,15 @@ class ParquetDataset(object):
                      'common_metadata', 'metadata', 'schema',
                      'split_row_groups'):
             if getattr(self, prop) != getattr(other, prop):
+                print('HHHHHHHHHHHHHHHHHHHHHHHHHHHHH', prop)
                 return False
 
         return True
 
     def __eq__(self, other):
-        if isinstance(other, ParquetDataset):
+        try:
             return self.equals(other)
-        else:
+        except TypeError:
             return NotImplemented
 
     def validate_schemas(self):

@@ -2307,28 +2307,58 @@ def test_backwards_compatible_column_metadata_handling(datadir):
     tm.assert_frame_equal(result, expected[['a']].reset_index(drop=True))
 
 
-def test_pickle_dataset(datadir):
-    path = datadir / 'v0.7.1.column-metadata-handling.parquet'
-    dataset = pq.ParquetDataset(path)
+def _make_dataset_for_pickling(tempdir, N=100):
+    path = tempdir / 'data.parquet'
+    fs = LocalFileSystem.get_instance()
 
-    result = pickle.loads(pickle.dumps(dataset))
-    assert dataset == result
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'values': np.random.randn(N)
+    }, columns=['index', 'values'])
+    table = pa.Table.from_pandas(df)
+
+    num_groups = 3
+    with pq.ParquetWriter(path, table.schema) as writer:
+        for i in range(num_groups):
+            writer.write_table(table)
+
+    reader = pq.ParquetFile(path)
+    assert reader.metadata.num_row_groups == num_groups
+
+    metadata_path = tempdir / '_metadata'
+    with fs.open(metadata_path, 'wb') as f:
+        pq.write_metadata(table.schema, f)
+
+    dataset = pq.ParquetDataset(tempdir, filesystem=fs)
+    assert dataset.metadata_path == str(metadata_path)
+
+    return dataset
+
+
+@pytest.mark.pandas
+@pytest.mark.parametrize('pickler', [
+    pytest.param(pickle, id='builtin'),
+    pytest.param(pytest.importorskip('cloudpickle'), id='cloudpickle')
+])
+def test_pickle_dataset(tempdir, datadir, pickler):
+    def is_pickleable(obj):
+        return obj == pickler.loads(pickler.dumps(obj))
+
+    dataset = _make_dataset_for_pickling(tempdir)
+
+    assert is_pickleable(dataset)
+    assert is_pickleable(dataset.metadata)
+    assert is_pickleable(dataset.metadata.schema)
+    assert len(dataset.metadata.schema)
+    for column in dataset.metadata.schema:
+        assert is_pickleable(column)
 
     for piece in dataset.pieces:
-        assert piece == pickle.loads(pickle.dumps(piece))
-
-
-def test_cloudpickle_dataset(datadir):
-    cp = pytest.importorskip('cloudpickle')
-
-    path = datadir / 'v0.7.1.column-metadata-handling.parquet'
-    dataset = pq.ParquetDataset(path)
-
-    result = cp.loads(cp.dumps(dataset))
-    assert dataset == result
-
-    for piece in dataset.pieces:
-        assert piece == cp.loads(cp.dumps(piece))
+        assert is_pickleable(piece)
+        metadata = piece.get_metadata()
+        assert metadata.num_row_groups
+        for i in range(metadata.num_row_groups):
+            assert is_pickleable(metadata.row_group(i))
 
 
 @pytest.mark.pandas

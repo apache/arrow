@@ -68,6 +68,22 @@ cdef class RowGroupStatistics:
                                self.num_values,
                                self.physical_type)
 
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def equals(self, RowGroupStatistics other):
+        # TODO(kszucs): implement native Equals method for CColumnChunkMetaData
+        return (self.has_min_max == other.has_min_max and
+                self.min == other.min and
+                self.max == other.max and
+                self.null_count == other.null_count and
+                self.distinct_count == other.distinct_count and
+                self.num_values == other.num_values and
+                self.physical_type == other.physical_type)
+
     cdef inline _cast_statistic(self, object value):
         # Input value is bytes
         cdef ParquetType physical_type = self.statistics.get().physical_type()
@@ -176,6 +192,29 @@ cdef class ColumnChunkMetaData:
                                           self.total_compressed_size,
                                           self.total_uncompressed_size)
 
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def equals(self, ColumnChunkMetaData other):
+        # TODO(kszucs): implement native Equals method for CColumnChunkMetaData
+        return (self.file_offset == other.file_offset and
+                self.file_path == other.file_path and
+                self.physical_type == other.physical_type and
+                self.num_values == other.num_values and
+                self.path_in_schema == other.path_in_schema and
+                self.is_stats_set == other.is_stats_set and
+                self.statistics == other.statistics and
+                self.compression == other.compression and
+                self.encodings == other.encodings and
+                self.has_dictionary_page == other.has_dictionary_page and
+                self.dictionary_page_offset == other.dictionary_page_offset and
+                self.data_page_offset == other.data_page_offset and
+                self.total_compressed_size == other.total_compressed_size and
+                self.total_uncompressed_size == other.total_uncompressed_size)
+
     @property
     def file_offset(self):
         return self.metadata.file_offset()
@@ -251,16 +290,39 @@ cdef class ColumnChunkMetaData:
 
 cdef class RowGroupMetaData:
     cdef:
+        int index  # for pickling support
         unique_ptr[CRowGroupMetaData] up_metadata
         CRowGroupMetaData* metadata
         FileMetaData parent
 
-    def __cinit__(self, FileMetaData parent, int i):
-        if i < 0 or i >= parent.num_row_groups:
-            raise IndexError('{0} out of bounds'.format(i))
-        self.up_metadata = parent._metadata.RowGroup(i)
+    def __cinit__(self, FileMetaData parent, int index):
+        if index < 0 or index >= parent.num_row_groups:
+            raise IndexError('{0} out of bounds'.format(index))
+        self.up_metadata = parent._metadata.RowGroup(index)
         self.metadata = self.up_metadata.get()
         self.parent = parent
+        self.index = index
+
+    def __reduce__(self):
+        return RowGroupMetaData, (self.parent, self.index)
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def equals(self, RowGroupMetaData other):
+        if not (self.num_columns == other.num_columns and
+                self.num_rows == other.num_rows and
+                self.total_byte_size == other.total_byte_size):
+            return False
+
+        for i in range(self.num_columns):
+            if self.column(i) != other.column(i):
+                return False
+
+        return True
 
     def column(self, int i):
         chunk = ColumnChunkMetaData()
@@ -293,7 +355,7 @@ def _reconstruct_filemetadata(Buffer serialized):
     cdef:
         FileMetaData metadata = FileMetaData.__new__(FileMetaData)
         CBuffer *buffer = serialized.buffer.get()
-        uint32_t metadata_len = buffer.size()
+        uint32_t metadata_len = <uint32_t>buffer.size()
 
     metadata.init(CFileMetaData_Make(buffer.data(), &metadata_len))
 
@@ -478,18 +540,23 @@ cdef class ParquetSchema:
 
 cdef class ColumnSchema:
     cdef:
+        int index
         ParquetSchema parent
         const ColumnDescriptor* descr
 
-    def __cinit__(self, ParquetSchema schema, int i):
+    def __cinit__(self, ParquetSchema schema, int index):
         self.parent = schema
-        self.descr = schema.schema.Column(i)
+        self.index = index  # for pickling support
+        self.descr = schema.schema.Column(index)
 
     def __eq__(self, other):
         try:
             return self.equals(other)
         except TypeError:
             return NotImplemented
+
+    def __reduce__(self):
+        return ColumnSchema, (self.parent, self.index)
 
     def equals(self, ColumnSchema other):
         """
