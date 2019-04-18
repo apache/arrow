@@ -91,7 +91,9 @@ const std::string& WrappedKeyManager::WrappedKeyRetriever::GetKey(const std::str
     try {
       encoded_master_key = kms_client_->getKeyFromServer(master_key_id);
     } catch (UnsupportedOperationException &e) {
-      throw ParquetException("KMS client doesnt support key fetching");
+      std::stringstream ss;
+      ss << "KMS client doesnt support key fetching  " << e.what() << "\n";
+      throw ParquetException(ss.str());
     }
     if (encoded_master_key.empty()) {
       std::string error_msg = "Failed to get from KMS the master key" + master_key_id;
@@ -123,7 +125,9 @@ const std::string& WrappedKeyManager::WrappedKeyRetriever::GetKey(const std::str
       encoded_data_key = kms_client_->unwrapDataKeyInServer(encoded_wrapped_data_key,
 							    master_key_id);
     } catch (UnsupportedOperationException &e) {
-      throw ParquetException("KMS client doesnt support key fetching ", e);
+      std::stringstream ss;
+      ss << "KMS client doesnt support key fetching  " << e.what() << "\n";
+      throw ParquetException(ss.str());
     }
     if (encoded_data_key.empty()) {
       std::string error_msg = "Failed to get from KMS the master key" + master_key_id;
@@ -161,10 +165,14 @@ std::unique_ptr<ParquetKey> WrappedKeyManager::generateKey(std::string &master_k
     try {
       encoded_master_key = kms_client_->getKeyFromServer(master_key_id);
     } catch (KeyAccessDeniedException &e) {
-      std::string error_msg = "Unauthorized to fetch key: " + master_key_id + e.what();
-      throw ParquetException(error_msg);
+      std::stringstream ss;
+      ss << "Unauthorized to fetch key:" + master_key_id + " " 
+	 << e.what() << "\n";
+      throw ParquetException(ss.str());
     } catch (UnsupportedOperationException &e) {
-      throw ParquetException("KMS client doesnt support key fetching ", e);
+      std::stringstream ss;
+      ss << "KMS client doesnt support key fetching  " << e.what() << "\n";
+      throw ParquetException(ss.str());
     }
     if (encoded_master_key.empty()) {
       throw ParquetException("Failed to get encoded_master_key from KMS");
@@ -201,10 +209,14 @@ std::unique_ptr<ParquetKey> WrappedKeyManager::generateKey(std::string &master_k
     try {
       encoded_wrapped_data_key = kms_client_->wrapDataKeyInServer(encoded_data_key, master_key_id);
     } catch (KeyAccessDeniedException &e) {
-      std::string error_msg = "Unauthorized to fetch key: " + master_key_id + e.what();
-      throw ParquetException(error_msg);
+      std::stringstream ss;
+      ss << "Unauthorized to fetch key:" + master_key_id + " "
+	 << e.what() << "\n";
+      throw ParquetException(ss.str());
     } catch (UnsupportedOperationException &e) {
-      throw ParquetException("KMS client doesnt support key fetching", e);
+      std::stringstream ss;
+      ss << "KMS client doesnt support key fetching  " << e.what() << "\n";
+      throw ParquetException(ss.str());
     }
     if (encoded_wrapped_data_key.empty()) {
       throw ParquetException("Failed to get encoded data key from server");
