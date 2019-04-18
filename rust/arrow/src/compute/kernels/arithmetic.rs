@@ -20,7 +20,7 @@
 //! These kernels can leverage SIMD if available on your system.  Currently no runtime
 //! detection is provided, you should enable the specific SIMD intrinsics using
 //! `RUSTFLAGS="-C target-feature=+avx2"` for example.  See the documentation
-//! [here] (https://doc.rust-lang.org/stable/std/arch/) for more information.
+//! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
 use std::mem;
 use std::ops::{Add, Div, Mul, Sub};

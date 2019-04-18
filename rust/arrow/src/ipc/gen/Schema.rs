@@ -878,9 +878,9 @@ impl<'a: 'b, 'b> FixedSizeListBuilder<'a, 'b> {
 /// not enforced
 ///
 /// Map
-///   - child[0] entry: Struct
-///     - child[0] key: K
-///     - child[1] value: V
+///   - `child[0]` entry: Struct
+///     - `child[0]` key: K
+///     - `child[1]` value: V
 ///
 /// Neither the "entry" field nor the "key" field may be nullable.
 ///
@@ -967,7 +967,7 @@ impl<'a: 'b, 'b> MapBuilder<'a, 'b> {
 /// A union is a complex type with children in Field
 /// By default ids in the type vector refer to the offsets in the children
 /// optionally typeIds provides an indirection between the child offset and the type id
-/// for each child typeIds[offset] is the id used in the type vector
+/// for each child `typeIds[offset]` is the id used in the type vector
 pub enum UnionOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 

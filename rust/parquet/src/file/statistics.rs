@@ -280,8 +280,8 @@ impl Statistics {
     /// This means that the column order is likely to be undefined, which, for old files
     /// could mean a signed sort order of values.
     ///
-    /// Refer to [`ColumnOrder`](`::basic::ColumnOrder`) and
-    /// [`SortOrder`](`::basic::SortOrder`) for more information.
+    /// Refer to [`ColumnOrder`](crate::basic::ColumnOrder) and
+    /// [`SortOrder`](crate::basic::SortOrder) for more information.
     pub fn is_min_max_deprecated(&self) -> bool {
         statistics_enum_func![self, is_min_max_deprecated]
     }

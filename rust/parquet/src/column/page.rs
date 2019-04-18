@@ -57,7 +57,7 @@ pub enum Page {
 }
 
 impl Page {
-    /// Returns [`PageType`](`::basic::PageType`) for this page.
+    /// Returns [`PageType`](crate::basic::PageType) for this page.
     pub fn page_type(&self) -> PageType {
         match self {
             &Page::DataPage { .. } => PageType::DATA_PAGE,
@@ -84,7 +84,7 @@ impl Page {
         }
     }
 
-    /// Returns this page [`Encoding`](`::basic::Encoding`).
+    /// Returns this page [`Encoding`](crate::basic::Encoding).
     pub fn encoding(&self) -> Encoding {
         match self {
             &Page::DataPage { encoding, .. } => encoding,
@@ -93,7 +93,7 @@ impl Page {
         }
     }
 
-    /// Returns optional [`Statistics`](`::file::metadata::Statistics`).
+    /// Returns optional [`Statistics`](crate::file::metadata::Statistics).
     pub fn statistics(&self) -> Option<&Statistics> {
         match self {
             &Page::DataPage { ref statistics, .. } => statistics.as_ref(),

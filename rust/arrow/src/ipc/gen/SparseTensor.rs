@@ -234,28 +234,34 @@ impl<'a> SparseMatrixIndexCSR<'a> {
     pub const VT_INDPTRBUFFER: flatbuffers::VOffsetT = 4;
     pub const VT_INDICESBUFFER: flatbuffers::VOffsetT = 6;
 
-    /// indptrBuffer stores the location and size of indptr array that
+    /// `indptrBuffer` stores the location and size of `indptr` array that
     /// represents the range of the rows.
-    /// The i-th row spans from indptr[i] to indptr[i+1] in the data.
+    /// The `i`-th row spans from `indptr[i]` to `indptr[i+1]` in the data.
     /// The length of this array is 1 + (the number of rows), and the type
     /// of index value is long.
     ///
     /// For example, let X be the following 6x4 matrix:
     ///
+    ///```text
     ///   X := [[0, 1, 2, 0],
     ///         [0, 0, 3, 0],
     ///         [0, 4, 0, 5],
     ///         [0, 0, 0, 0],
     ///         [6, 0, 7, 8],
     ///         [0, 9, 0, 0]].
+    ///```
     ///
     /// The array of non-zero values in X is:
     ///
+    ///```text
     ///   values(X) = [1, 2, 3, 4, 5, 6, 7, 8, 9].
+    ///```
     ///
-    /// And the indptr of X is:
+    /// And the `indptr` of X is:
     ///
+    ///```text
     ///   indptr(X) = [0, 2, 3, 5, 5, 8, 10].
+    ///```
     #[inline]
     pub fn indptrBuffer(&self) -> Option<&'a Buffer> {
         self._tab
