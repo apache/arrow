@@ -32,7 +32,7 @@ class CppConfiguration:
     def __init__(self,
                  # toolchain
                  cc=None, cxx=None, cxx_flags=None,
-                 build_type=None, warn_level=None, verbose_third_party=True
+                 build_type=None, warn_level=None, verbose_third_party=True,
                  # components
                  with_tests=True, with_benchmarks=False, with_python=True,
                  with_parquet=False, with_gandiva=False, with_plasma=False,
