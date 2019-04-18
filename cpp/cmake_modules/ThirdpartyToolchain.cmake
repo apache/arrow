@@ -2201,6 +2201,14 @@ if(ARROW_BOOST_VENDORED)
         "link=${BOOST_BUILD_LINK}"
         "variant=${BOOST_BUILD_VARIANT}"
         "cxxflags=-fPIC")
+
+    add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
+
+    add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
+
+    add_thirdparty_lib(boost_regex STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}")
+
+    set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
   endif()
   externalproject_add(boost_ep
                       URL
@@ -2234,6 +2242,8 @@ else()
   if(ARROW_BOOST_USE_SHARED)
     # Find shared Boost libraries.
     set(Boost_USE_STATIC_LIBS OFF)
+    set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
+    set(BUILD_SHARED_LIBS ON)
 
     if(MSVC)
       # force all boost libraries to dynamic link
@@ -2244,19 +2254,13 @@ else()
       find_package(Boost REQUIRED)
     else()
       find_package(Boost COMPONENTS regex system filesystem REQUIRED)
-      if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-        set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
-        set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
-        set(BOOST_SHARED_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_DEBUG})
-      else()
-        set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
-        set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
-        set(BOOST_SHARED_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_RELEASE})
-      endif()
-      set(BOOST_SYSTEM_LIBRARY boost_system_shared)
-      set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_shared)
-      set(BOOST_REGEX_LIBRARY boost_regex_shared)
+      set(BOOST_SYSTEM_LIBRARY Boost::system)
+      set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
+      set(BOOST_REGEX_LIBRARY Boost::regex)
+      set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
     endif()
+    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
+    unset(BUILD_SHARED_LIBS_KEEP)
   else()
     # Find static boost headers and libs
     # TODO Differentiate here between release and debug builds
@@ -2265,46 +2269,16 @@ else()
       find_package(Boost REQUIRED)
     else()
       find_package(Boost COMPONENTS regex system filesystem REQUIRED)
-      if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-        set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
-        set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
-        set(BOOST_STATIC_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_DEBUG})
-      else()
-        set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
-        set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
-        set(BOOST_STATIC_REGEX_LIBRARY ${Boost_REGEX_LIBRARY_RELEASE})
-      endif()
-      set(BOOST_SYSTEM_LIBRARY boost_system_static)
-      set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-      set(BOOST_REGEX_LIBRARY boost_regex_static)
+      set(BOOST_SYSTEM_LIBRARY Boost::system)
+      set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
+      set(BOOST_REGEX_LIBRARY Boost::regex)
+      set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
     endif()
   endif()
 endif()
 
 message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIR})
 message(STATUS "Boost libraries: " ${Boost_LIBRARIES})
-
-if(NOT ARROW_BOOST_HEADER_ONLY)
-  add_thirdparty_lib(boost_system
-                     STATIC_LIB
-                     "${BOOST_STATIC_SYSTEM_LIBRARY}"
-                     SHARED_LIB
-                     "${BOOST_SHARED_SYSTEM_LIBRARY}")
-
-  add_thirdparty_lib(boost_filesystem
-                     STATIC_LIB
-                     "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
-                     SHARED_LIB
-                     "${BOOST_SHARED_FILESYSTEM_LIBRARY}")
-
-  add_thirdparty_lib(boost_regex
-                     STATIC_LIB
-                     "${BOOST_STATIC_REGEX_LIBRARY}"
-                     SHARED_LIB
-                     "${BOOST_SHARED_REGEX_LIBRARY}")
-
-  set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
-endif()
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
