@@ -2346,7 +2346,13 @@ void TryReadDataFile(const std::string& testing_file_path, bool should_succeed =
   try {
     arrow_reader.reset(new FileReader(pool, ParquetFileReader::OpenFile(path, false)));
     std::shared_ptr<::arrow::Table> table;
-    ASSERT_OK(arrow_reader->ReadTable(&table));
+    auto status = arrow_reader->ReadTable(&table);
+
+    if (should_succeed) {
+      ASSERT_OK(status);
+    } else {
+      ASSERT_FALSE(status.ok()) << "Expected reading file to fail.";
+    }
   } catch (const ParquetException& e) {
     if (should_succeed) {
       FAIL() << "Exception thrown when reading file: " << e.what();
@@ -2361,7 +2367,7 @@ TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
 
 TEST(TestArrowReaderAdHoc, CorruptedSchema) {
   // PARQUET-1481
-  TryReadDataFile("bad_data/PARQUET-1481.parquet", false /* should_succeed */);
+  TryReadDataFile("/../bad_data/PARQUET-1481.parquet", false /* should_succeed */);
 }
 
 class TestArrowReaderAdHocSparkAndHvr
