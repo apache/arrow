@@ -28,7 +28,17 @@ TEST(TestTime, TestCastDate) {
   int64_t context_ptr = reinterpret_cast<int64_t>(&context);
 
   EXPECT_EQ(castDATE_utf8(context_ptr, "1967-12-1", 9), -65836800000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "2067-12-1", 9), 3089923200000);
+
+  EXPECT_EQ(castDATE_utf8(context_ptr, "7-12-1", 6), 1196467200000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "67-12-1", 7), 3089923200000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "067-12-1", 8), 3089923200000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "0067-12-1", 9), -60023980800000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "00067-12-1", 10), -60023980800000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "167-12-1", 8), -56868307200000);
+
   EXPECT_EQ(castDATE_utf8(context_ptr, "1972-12-1", 9), 92016000000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "72-12-1", 7), 92016000000);
 
   EXPECT_EQ(castDATE_utf8(context_ptr, "1972222222", 10), 0);
   EXPECT_EQ(context.get_error(), "Not a valid date value 1972222222");
@@ -38,8 +48,8 @@ TEST(TestTime, TestCastDate) {
   EXPECT_EQ(castDATE_utf8(context_ptr, "1967-12-1bb", 11), -65836800000);
 
   EXPECT_EQ(castDATE_utf8(context_ptr, "67-12-1", 7), 3089923200000);
-  EXPECT_EQ(castDATE_utf8(context_ptr, "67-1-1", 7), 3061065600000);
-  EXPECT_EQ(castDATE_utf8(context_ptr, "71-1-1", 7), 31536000000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "67-1-1", 6), 3061065600000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "71-1-1", 6), 31536000000);
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-45-1", 7), 0);
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-12-XX", 8), 0);
 }
@@ -49,10 +59,22 @@ TEST(TestTime, TestCastTimestamp) {
   int64_t context_ptr = reinterpret_cast<int64_t>(&context);
 
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1967-12-1", 9), -65836800000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2067-12-1", 9), 3089923200000);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "7-12-1", 6), 1196467200000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "67-12-1", 7), 3089923200000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "067-12-1", 8), 3089923200000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "0067-12-1", 9), -60023980800000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "00067-12-1", 10), -60023980800000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "167-12-1", 8), -56868307200000);
+
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1972-12-1", 9), 92016000000);
-  EXPECT_EQ(castDATE_utf8(context_ptr, "67-12-1", 7), 3089923200000);
-  EXPECT_EQ(castDATE_utf8(context_ptr, "67-1-1", 7), 3061065600000);
-  EXPECT_EQ(castDATE_utf8(context_ptr, "71-1-1", 7), 31536000000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "72-12-1", 7), 92016000000);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1972-12-1", 9), 92016000000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "67-12-1", 7), 3089923200000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "67-1-1", 6), 3061065600000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "71-1-1", 6), 31536000000);
 
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30", 18), 969702330000);
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920", 22), 969702330920);
