@@ -63,16 +63,18 @@ environment:
     - JOB: "Build_Debug"
       GENERATOR: Ninja
       CONFIGURATION: "Debug"
-    - JOB: "MinGW32"
-      MINGW_PACKAGE_PREFIX: mingw-w64-i686
-      MINGW_PREFIX: c:\msys64\mingw32
-      MSYSTEM: MINGW32
-      USE_CLCACHE: false
-    - JOB: "MinGW64"
-      MINGW_PACKAGE_PREFIX: mingw-w64-x86_64
-      MINGW_PREFIX: c:\msys64\mingw64
-      MSYSTEM: MINGW64
-      USE_CLCACHE: false
+    #- JOB: "MinGW32"
+      #MINGW_ARCH: i686
+      #MINGW_PACKAGE_PREFIX: mingw-w64-i686
+      #MINGW_PREFIX: c:\msys64\mingw32
+      #MSYSTEM: MINGW32
+      #USE_CLCACHE: false
+    #- JOB: "MinGW64"
+      #MINGW_ARCH: x86_64
+      #MINGW_PACKAGE_PREFIX: mingw-w64-x86_64
+      #MINGW_PREFIX: c:\msys64\mingw64
+      #MSYSTEM: MINGW64
+      #USE_CLCACHE: false
     - JOB: "Rust"
       TARGET: x86_64-pc-windows-msvc
       USE_CLCACHE: false
