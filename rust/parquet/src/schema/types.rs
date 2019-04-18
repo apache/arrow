@@ -195,13 +195,13 @@ impl<'a> PrimitiveTypeBuilder<'a> {
         }
     }
 
-    /// Sets [`Repetition`](`::basic::Repetition`) for this field and returns itself.
+    /// Sets [`Repetition`](crate::basic::Repetition) for this field and returns itself.
     pub fn with_repetition(mut self, repetition: Repetition) -> Self {
         self.repetition = repetition;
         self
     }
 
-    /// Sets [`LogicalType`](`::basic::LogicalType`) for this field and returns itself.
+    /// Sets [`LogicalType`](crate::basic::LogicalType) for this field and returns itself.
     pub fn with_logical_type(mut self, logical_type: LogicalType) -> Self {
         self.logical_type = logical_type;
         self
@@ -416,13 +416,13 @@ impl<'a> GroupTypeBuilder<'a> {
         }
     }
 
-    /// Sets [`Repetition`](`::basic::Repetition`) for this field and returns itself.
+    /// Sets [`Repetition`](crate::basic::Repetition) for this field and returns itself.
     pub fn with_repetition(mut self, repetition: Repetition) -> Self {
         self.repetition = Some(repetition);
         self
     }
 
-    /// Sets [`LogicalType`](`::basic::LogicalType`) for this field and returns itself.
+    /// Sets [`LogicalType`](crate::basic::LogicalType) for this field and returns itself.
     pub fn with_logical_type(mut self, logical_type: LogicalType) -> Self {
         self.logical_type = logical_type;
         self
@@ -479,13 +479,13 @@ impl BasicTypeInfo {
         self.repetition.is_some()
     }
 
-    /// Returns [`Repetition`](`::basic::Repetition`) value for the type.
+    /// Returns [`Repetition`](crate::basic::Repetition) value for the type.
     pub fn repetition(&self) -> Repetition {
         assert!(self.repetition.is_some());
         self.repetition.unwrap()
     }
 
-    /// Returns [`LogicalType`](`::basic::LogicalType`) value for the type.
+    /// Returns [`LogicalType`](crate::basic::LogicalType) value for the type.
     pub fn logical_type(&self) -> LogicalType {
         self.logical_type
     }
@@ -619,17 +619,17 @@ impl ColumnDescriptor {
         &self.path
     }
 
-    /// Returns self type [`Type`](`::schema::types::Type`) for this leaf column.
+    /// Returns self type [`Type`](crate::schema::types::Type) for this leaf column.
     pub fn self_type(&self) -> &Type {
         self.primitive_type.as_ref()
     }
 
-    /// Returns self type [`TypePtr`](`::schema::types::TypePtr`)  for this leaf column.
+    /// Returns self type [`TypePtr`](crate::schema::types::TypePtr)  for this leaf column.
     pub fn self_type_ptr(&self) -> TypePtr {
         self.primitive_type.clone()
     }
 
-    /// Returns root [`Type`](`::schema::types::Type`) (most top-level parent field) for
+    /// Returns root [`Type`](crate::schema::types::Type) (most top-level parent field) for
     /// this leaf column.
     pub fn root_type(&self) -> &Type {
         assert!(self.root_type.is_some());
@@ -641,7 +641,7 @@ impl ColumnDescriptor {
         self.primitive_type.name()
     }
 
-    /// Returns [`LogicalType`](`::basic::LogicalType`) for this column.
+    /// Returns [`LogicalType`](crate::basic::LogicalType) for this column.
     pub fn logical_type(&self) -> LogicalType {
         self.primitive_type.get_basic_info().logical_type()
     }
@@ -751,13 +751,13 @@ impl SchemaDescriptor {
         self.leaves.len()
     }
 
-    /// Returns column root [`Type`](`::schema::types::Type`) for a field position.
+    /// Returns column root [`Type`](crate::schema::types::Type) for a field position.
     pub fn get_column_root(&self, i: usize) -> &Type {
         let result = self.column_root_of(i);
         result.as_ref()
     }
 
-    /// Returns column root [`Type`](`::schema::types::Type`) pointer for a field
+    /// Returns column root [`Type`](crate::schema::types::Type) pointer for a field
     /// position.
     pub fn get_column_root_ptr(&self, i: usize) -> TypePtr {
         let result = self.column_root_of(i);
@@ -781,7 +781,7 @@ impl SchemaDescriptor {
         result.unwrap()
     }
 
-    /// Returns schema as [`Type`](`::schema::types::Type`).
+    /// Returns schema as [`Type`](crate::schema::types::Type).
     pub fn root_schema(&self) -> &Type {
         self.schema.as_ref()
     }

@@ -132,7 +132,7 @@ pub fn get_decoder<T: DataType>(
 /// Plain decoding that supports all types.
 /// Values are encoded back to back. For native types, data is encoded as little endian.
 /// Floating point types are encoded in IEEE.
-/// See [`PlainDecoder`](`::encoding::PlainEncoder`) for more information.
+/// See [`PlainEncoder`](crate::encoding::PlainEncoder) for more information.
 pub struct PlainDecoder<T: DataType> {
     // The remaining number of values in the byte array
     num_values: usize,
@@ -306,7 +306,7 @@ impl Decoder<FixedLenByteArrayType> for PlainDecoder<FixedLenByteArrayType> {
 /// Dictionary decoder.
 /// The dictionary encoding builds a dictionary of values encountered in a given column.
 /// The dictionary is be stored in a dictionary page per column chunk.
-/// See [`DictEncoder`](`::encoding::DictEncoder`) for more information.
+/// See [`DictEncoder`](crate::encoding::DictEncoder) for more information.
 pub struct DictDecoder<T: DataType> {
     // The dictionary, which maps ids to the values
     dictionary: Vec<T::T>,
@@ -377,7 +377,7 @@ impl<T: DataType> Decoder<T> for DictDecoder<T> {
 
 /// RLE/Bit-Packing hybrid decoding for values.
 /// Currently is used only for data pages v2 and supports boolean types.
-/// See [`RleValueEncoder`](`::encoding::RleValueEncoder`) for more information.
+/// See [`RleValueEncoder`](crate::encoding::RleValueEncoder) for more information.
 pub struct RleValueDecoder<T: DataType> {
     values_left: usize,
     decoder: Option<RleDecoder>,
@@ -459,7 +459,7 @@ impl Decoder<BoolType> for RleValueDecoder<BoolType> {
 
 /// Delta binary packed decoder.
 /// Supports INT32 and INT64 types.
-/// See [`DeltaBitPackEncoder`](`::encoding::DeltaBitPackEncoder`) for more information.
+/// See [`DeltaBitPackEncoder`](crate::encoding::DeltaBitPackEncoder) for more information.
 pub struct DeltaBitPackDecoder<T: DataType> {
     bit_reader: BitReader,
     initialized: bool,
@@ -705,7 +705,7 @@ impl DeltaBitPackDecoderConversion<Int64Type> for DeltaBitPackDecoder<Int64Type>
 /// Delta length byte array decoder.
 /// Only applied to byte arrays to separate the length values and the data, the lengths
 /// are encoded using DELTA_BINARY_PACKED encoding.
-/// See [`DeltaLengthByteArrayEncoder`](`::encoding::DeltaLengthByteArrayEncoder`)
+/// See [`DeltaLengthByteArrayEncoder`](crate::encoding::DeltaLengthByteArrayEncoder)
 /// for more information.
 pub struct DeltaLengthByteArrayDecoder<T: DataType> {
     // Lengths for each byte array in `data`
@@ -802,7 +802,7 @@ impl Decoder<ByteArrayType> for DeltaLengthByteArrayDecoder<ByteArrayType> {
 /// Delta byte array decoder.
 /// Prefix lengths are encoded using `DELTA_BINARY_PACKED` encoding, Suffixes are stored
 /// using `DELTA_LENGTH_BYTE_ARRAY` encoding.
-/// See [`DeltaByteArrayEncoder`](`::encoding::DeltaByteArrayEncoder`) for more
+/// See [`DeltaByteArrayEncoder`](crate::encoding::DeltaByteArrayEncoder) for more
 /// information.
 pub struct DeltaByteArrayDecoder<T: DataType> {
     // Prefix lengths for each byte array
