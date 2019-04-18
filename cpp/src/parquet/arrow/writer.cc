@@ -1159,8 +1159,9 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
   if (md_sink) {
     auto md_wrapper = std::make_shared<ArrowOutputStream>(md_sink);
     return Open(schema, pool, wrapper, md_wrapper, properties, writer);
-  } else
+  } else {
     return Open(schema, pool, wrapper, properties, writer);
+  }
 }
 
 Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
@@ -1182,8 +1183,9 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
   if (md_sink) {
     auto md_wrapper = std::make_shared<ArrowOutputStream>(md_sink);
     return Open(schema, pool, wrapper, md_wrapper, properties, arrow_properties, writer);
-  } else
+  } else {
     return Open(schema, pool, wrapper, properties, arrow_properties, writer);
+  }
 }
 
 Status WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink) {
