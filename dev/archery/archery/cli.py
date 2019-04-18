@@ -152,7 +152,8 @@ def tmpdir(preserve, prefix="arrow-bench-"):
 
 
 DEFAULT_BENCHMARK_CONF = CppConfiguration(
-    build_type="release", with_tests=True, with_benchmarks=True)
+    build_type="release", with_tests=True, with_benchmarks=True,
+    with_python=False)
 
 
 def cpp_runner_from_rev_or_path(src, root, rev_or_path):
