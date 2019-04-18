@@ -151,7 +151,7 @@ public class BaseFileTest {
       structWriter.end();
     }
     writer.setValueCount(count);
-    varchar.release();
+    varchar.getReferenceManager().release();
   }
 
   public void printVectors(List<FieldVector> vectors) {
@@ -554,7 +554,7 @@ public class BaseFileTest {
       }
     }
     writer.setValueCount(count);
-    varchar.release();
+    varchar.getReferenceManager().release();
   }
 
   protected void writeVarBinaryData(int count, StructVector parent) {
@@ -573,7 +573,7 @@ public class BaseFileTest {
       listWriter.endList();
     }
     writer.setValueCount(count);
-    varbin.release();
+    varbin.getReferenceManager().release();
   }
 
   protected void validateVarBinary(int count, VectorSchemaRoot root) {

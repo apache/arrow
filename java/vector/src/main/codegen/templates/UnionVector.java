@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ReferenceManager;
+
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/UnionVector.java" />
 
@@ -109,8 +113,8 @@ public class UnionVector implements FieldVector {
     }
 
     ArrowBuf buffer = ownBuffers.get(0);
-    typeBuffer.release();
-    typeBuffer = buffer.retain(allocator);
+    typeBuffer.getReferenceManager().release();
+    typeBuffer = buffer.getReferenceManager().retain(buffer, allocator);
     typeBufferAllocationSizeInBytes = typeBuffer.capacity();
     this.valueCount = fieldNode.getLength();
   }
@@ -289,7 +293,7 @@ public class UnionVector implements FieldVector {
     final ArrowBuf newBuf = allocator.buffer((int)newAllocationSize);
     newBuf.setBytes(0, typeBuffer, 0, currentBufferCapacity);
     newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
-    typeBuffer.release(1);
+    typeBuffer.getReferenceManager().release(1);
     typeBuffer = newBuf;
     typeBufferAllocationSizeInBytes = (int)newAllocationSize;
   }
@@ -310,7 +314,7 @@ public class UnionVector implements FieldVector {
   @Override
   public void clear() {
     valueCount = 0;
-    typeBuffer.release();
+    typeBuffer.getReferenceManager().release();
     typeBuffer = allocator.getEmpty();
     internalStruct.clear();
   }
@@ -393,7 +397,8 @@ public class UnionVector implements FieldVector {
     @Override
     public void transfer() {
       to.clear();
-      to.typeBuffer = typeBuffer.transferOwnership(to.allocator).buffer;
+      final ReferenceManager refManager = typeBuffer.getReferenceManager();
+      to.typeBuffer = refManager.transferOwnership(typeBuffer, to.allocator).getTransferredBuffer();
       internalStructVectorTransferPair.transfer();
       to.valueCount = valueCount;
       clear();
@@ -405,7 +410,9 @@ public class UnionVector implements FieldVector {
       internalStructVectorTransferPair.splitAndTransfer(startIndex, length);
       final int startPoint = startIndex * TYPE_WIDTH;
       final int sliceLength = length * TYPE_WIDTH;
-      to.typeBuffer = typeBuffer.slice(startPoint, sliceLength).transferOwnership(to.allocator).buffer;
+      final ArrowBuf slicedBuffer = typeBuffer.slice(startPoint, sliceLength);
+      final ReferenceManager refManager = slicedBuffer.getReferenceManager();
+      to.typeBuffer = refManager.transferOwnership(slicedBuffer, to.allocator).getTransferredBuffer();
       to.setValueCount(length);
     }
 
@@ -466,8 +473,8 @@ public class UnionVector implements FieldVector {
     }
     if (clear) {
       valueCount = 0;
-      typeBuffer.retain();
-      typeBuffer.release();
+      typeBuffer.getReferenceManager().retain();
+      typeBuffer.getReferenceManager().release();
       typeBuffer = allocator.getEmpty();
     }
     return list.toArray(new ArrowBuf[list.size()]);

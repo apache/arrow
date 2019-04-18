@@ -135,7 +135,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
 
     ArrowBuf bitBuffer = ownBuffers.get(0);
 
-    validityBuffer.release();
+    validityBuffer.getReferenceManager().release();
     validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuffer, allocator);
     valueCount = fieldNode.getLength();
 
@@ -231,7 +231,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
     newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
     newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
-    validityBuffer.release(1);
+    validityBuffer.getReferenceManager().release(1);
     validityBuffer = newBuf;
     validityAllocationSizeInBytes = (int) newAllocationSize;
   }
@@ -305,7 +305,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     }
     if (clear) {
       for (ArrowBuf buffer : buffers) {
-        buffer.retain();
+        buffer.getReferenceManager().retain();
       }
       clear();
     }
@@ -481,7 +481,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     public void transfer() {
       to.clear();
       dataPair.transfer();
-      to.validityBuffer = validityBuffer.transferOwnership(to.allocator).buffer;
+      to.validityBuffer = BaseValueVector.transferBuffer(validityBuffer, to.allocator);
       to.setValueCount(valueCount);
       clear();
     }

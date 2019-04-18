@@ -183,7 +183,7 @@ public class TestVectorUnloadLoad {
         }
 
         for (ArrowBuf newBuf : newBuffers) {
-          newBuf.release();
+          newBuf.getReferenceManager().release();
         }
       }
     }
@@ -269,7 +269,7 @@ public class TestVectorUnloadLoad {
       assertEquals(1234, intDefinedVector.get(count + 10));
     } finally {
       for (ArrowBuf arrowBuf : values) {
-        arrowBuf.release();
+        arrowBuf.getReferenceManager().release();
       }
     }
   }

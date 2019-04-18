@@ -41,7 +41,7 @@ public class ExpandableByteBuf extends MutableWrappedByteBuf {
   @Override
   public ByteBuf capacity(int newCapacity) {
     if (newCapacity > capacity()) {
-      ByteBuf newBuf = allocator.buffer(newCapacity);
+      ByteBuf newBuf = allocator.buffer(newCapacity).asNettyBuffer();
       newBuf.writeBytes(buffer, 0, buffer.capacity());
       newBuf.readerIndex(buffer.readerIndex());
       newBuf.writerIndex(buffer.writerIndex());

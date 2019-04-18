@@ -576,7 +576,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     readToken(END_OBJECT);
 
     for (ArrowBuf buffer: vectorBuffers) {
-      buffer.release();
+      buffer.getReferenceManager().release();
     }
   }
 

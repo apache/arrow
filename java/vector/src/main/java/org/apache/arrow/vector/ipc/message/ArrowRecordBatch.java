@@ -71,7 +71,7 @@ public class ArrowRecordBatch implements ArrowMessage {
     List<ArrowBuffer> arrowBuffers = new ArrayList<>();
     long offset = 0;
     for (ArrowBuf arrowBuf : buffers) {
-      arrowBuf.retain();
+      arrowBuf.getReferenceManager().retain();
       long size = arrowBuf.readableBytes();
       arrowBuffers.add(new ArrowBuffer(offset, size));
       LOGGER.debug("Buffer in RecordBatch at {}, length: {}", offset, size);
@@ -134,7 +134,10 @@ public class ArrowRecordBatch implements ArrowMessage {
    */
   public ArrowRecordBatch cloneWithTransfer(final BufferAllocator allocator) {
     final List<ArrowBuf> newBufs = buffers.stream()
-        .map(t -> (t.transferOwnership(allocator).buffer).writerIndex(t.writerIndex()))
+        .map(buf ->
+          (buf.getReferenceManager().transferOwnership(buf, allocator)
+            .getTransferredBuffer())
+            .writerIndex(buf.writerIndex()))
         .collect(Collectors.toList());
     close();
     return new ArrowRecordBatch(false, length, nodes, newBufs);
@@ -175,7 +178,7 @@ public class ArrowRecordBatch implements ArrowMessage {
     if (!closed) {
       closed = true;
       for (ArrowBuf arrowBuf : buffers) {
-        arrowBuf.release();
+        arrowBuf.getReferenceManager().release();
       }
     }
   }

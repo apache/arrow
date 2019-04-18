@@ -1,6 +1,24 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.arrow.memory;
 
 import io.netty.buffer.ArrowBuf;
+import io.netty.buffer.ByteBuf;
 
 /**
  * Reference Manager manages one or more ArrowBufs that share the
@@ -9,13 +27,13 @@ import io.netty.buffer.ArrowBuf;
 public interface ReferenceManager {
 
   /**
-   * Return the reference count
+   * Return the reference count.
    * @return reference count
    */
   int getRefCount();
 
   /**
-   * Decrement this reference manager's reference count for the associated underlying
+   * Decrement this reference manager's reference count by 1 for the associated underlying
    * memory. If the reference count drops to 0, it implies that ArrowBufs managed by this
    * reference manager no longer need access to the underlying memory
    * @return the new reference count
@@ -26,10 +44,10 @@ public interface ReferenceManager {
    * Decrement this reference manager's reference count for the associated underlying
    * memory. If the reference count drops to 0, it implies that ArrowBufs managed by this
    * reference manager no longer need access to the underlying memory
-   * @param increment the count to increase the reference count by
+   * @param decrement the count to decrease the reference count by
    * @return the new reference count
    */
-  boolean release(int increment);
+  boolean release(int decrement);
 
   /**
    * Increment this reference manager's reference count by 1 for the associated underlying
@@ -39,7 +57,7 @@ public interface ReferenceManager {
 
   /**
    * Increment this reference manager's reference count by a given amount for the
-   * associated underlying memory
+   * associated underlying memory.
    * @param increment the count to increase the reference count by
    */
   void retain(int increment);
@@ -48,7 +66,6 @@ public interface ReferenceManager {
    * Create a new ArrowBuf that is associated with an alternative allocator for the purposes of
    * memory ownership and accounting. This has no impact on the reference counting for the current
    * ArrowBuf except in the situation where the passed in Allocator is the same as the current buffer.
-   *
    * This operation has no impact on the reference count of this ArrowBuf. The newly created
    * ArrowBuf with either have a reference count of 1 (in the case that this is the first time this
    * memory is being associated with the target allocator or in other words allocation manager currently
@@ -60,7 +77,7 @@ public interface ReferenceManager {
    * @param targetAllocator The target allocator to create an association with.
    * @return A new ArrowBuf which shares the same underlying memory as this ArrowBuf.
    */
-  ArrowBuf retain (ArrowBuf srcBuffer, BufferAllocator targetAllocator);
+  ArrowBuf retain(ArrowBuf srcBuffer, BufferAllocator targetAllocator);
 
   /**
    * Derive a new ArrowBuf from a given source ArrowBuf. The new derived
@@ -86,16 +103,93 @@ public interface ReferenceManager {
 
   /**
    * Get the buffer allocator associated with this reference manager
-   * @return buffer allocator
+   * @return buffer allocator.
    */
   BufferAllocator getAllocator();
 
+  int getOffsetForBuffer(final ArrowBuf buffer);
+
+  ByteBuf getUnderlying();
+
   /**
-   * Total size (in bytes) of memory underlying this reference manager
-   * @return Size (in bytes) of the memory chunk
+   * Total size (in bytes) of memory underlying this reference manager.
+   * @return Size (in bytes) of the memory chunk.
    */
   int getSize();
 
-  // TODO SIDD: figure out what to do with this
-  int getAccountedSize();
+  /**
+   * Get the total accounted size (in bytes).
+   * @return accounted size.
+   */
+  int getAccountedSize(); // TODO SIDD: figure out what to do with this
+
+  ArrowByteBufAllocator getByteBufAllocator();
+
+  ReferenceManager NO_OP = new ReferenceManager() {
+    @Override
+    public int getRefCount() {
+      throw new UnsupportedOperationException("Operation not supported");
+    }
+
+    @Override
+    public boolean release() {
+      throw new UnsupportedOperationException("Operation not supported");
+    }
+
+    @Override
+    public boolean release(int decrement) {
+      throw new UnsupportedOperationException("Operation not supported");
+    }
+
+    @Override
+    public void retain() { }
+
+    @Override
+    public void retain(int increment) { }
+
+    @Override
+    public ArrowBuf retain(ArrowBuf srcBuffer, BufferAllocator targetAllocator) {
+      throw new UnsupportedOperationException("Operation not supported");
+    }
+
+    @Override
+    public ArrowBuf deriveBuffer(ArrowBuf sourceBuffer, int index, int length) {
+      throw new UnsupportedOperationException("Operation not supported");
+    }
+
+    @Override
+    public OwnershipTransferResult transferOwnership(ArrowBuf sourceBuffer, BufferAllocator targetAllocator) {
+      throw new UnsupportedOperationException("Operation not supported");
+    }
+
+    @Override
+    public BufferAllocator getAllocator() {
+      throw new UnsupportedOperationException("Operation not supported");
+    }
+
+    @Override
+    public int getOffsetForBuffer(ArrowBuf buffer) {
+      throw new UnsupportedOperationException("Operation not supported");
+    }
+
+    @Override
+    public ByteBuf getUnderlying() {
+      throw new UnsupportedOperationException("Operation not supported");
+    }
+
+    @Override
+    public int getSize() {
+      throw new UnsupportedOperationException("Operation not supported");
+    }
+
+    @Override
+    public int getAccountedSize() {
+      throw new UnsupportedOperationException("Operation not supported");
+    }
+
+    @Override
+    public ArrowByteBufAllocator getByteBufAllocator() {
+      throw new UnsupportedOperationException("Operation not supported");
+    }
+  };
 }

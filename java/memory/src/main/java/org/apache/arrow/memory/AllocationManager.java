@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.arrow.util.Preconditions;
 
-import io.netty.buffer.ByteBuf;
 import io.netty.buffer.PooledByteBufAllocatorL;
 import io.netty.buffer.UnsafeDirectLittleEndian;
 
@@ -93,7 +92,7 @@ public class AllocationManager {
   }
 
   /**
-   * Get the underlying memory chunk managed by this AllocationManager
+   * Get the underlying memory chunk managed by this AllocationManager.
    * @return buffer
    */
   UnsafeDirectLittleEndian getMemoryChunk() {
@@ -106,7 +105,7 @@ public class AllocationManager {
    *
    * @param allocator The target allocator to associate this buffer with.
    * @return The reference manager (new or existing) that associates the underlying
-   * buffer to this new ledger.
+   *         buffer to this new ledger.
    */
   BufferLedger associate(final BaseAllocator allocator) {
     return associate(allocator, true);
@@ -115,7 +114,7 @@ public class AllocationManager {
   private BufferLedger associate(final BaseAllocator allocator, final boolean retain) {
     allocator.assertOpen();
     Preconditions.checkState(root == allocator.root,
-      "A buffer can only be associated between two allocators that share the same root");
+          "A buffer can only be associated between two allocators that share the same root");
 
     synchronized (this) {
       BufferLedger ledger = map.get(allocator);
@@ -137,7 +136,7 @@ public class AllocationManager {
       // store the mapping for <allocator, reference manager>
       BufferLedger oldLedger = map.put(ledger);
       Preconditions.checkState(oldLedger == null,
-        "Detected inconsitent state: A reference manager already exists for this allocator");
+          "Detected inconsitent state: A reference manager already exists for this allocator");
 
       // needed for debugging only: keep a pointer to reference manager inside allocator
       // to dump state, verify allocator state etc
@@ -160,7 +159,7 @@ public class AllocationManager {
     // remove the <BaseAllocator, BufferLedger> mapping for the allocator
     // of calling BufferLedger
     Preconditions.checkState(map.containsKey(allocator),
-      "Expecting a mapping for allocator and reference manager");
+        "Expecting a mapping for allocator and reference manager");
     final BufferLedger oldLedger = map.remove(allocator);
 
     // needed for debug only: tell the allocator that AllocationManager is removing a
@@ -193,12 +192,12 @@ public class AllocationManager {
       // the release call was made by a non-owning reference manager, so after remove there have
       // to be 1 or more <allocator, reference manager> mappings
       Preconditions.checkState(map.size() > 0,
-        "The final removal of reference manager should be connected to owning reference manager");
+          "The final removal of reference manager should be connected to owning reference manager");
     }
   }
 
   /**
-   * Return the size of underlying chunk of memory managed by this Allocation Manager
+   * Return the size of underlying chunk of memory managed by this Allocation Manager.
    * @return size of memory chunk
    */
   public int getSize() {

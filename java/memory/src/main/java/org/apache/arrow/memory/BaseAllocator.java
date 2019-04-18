@@ -41,9 +41,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   public static final String DEBUG_ALLOCATOR = "arrow.memory.debug.allocator";
   public static final int DEBUG_LOG_LENGTH = 6;
   public static final boolean DEBUG = AssertionUtil.isAssertionsEnabled() ||
-    Boolean.parseBoolean(System.getProperty(DEBUG_ALLOCATOR, "false"));
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseAllocator
-    .class);
+      Boolean.parseBoolean(System.getProperty(DEBUG_ALLOCATOR, "false"));
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseAllocator.class);
   // Package exposed for sharing between AllocatorManger and BaseAllocator objects
   final String name;
   final RootAllocator root;
@@ -70,11 +69,11 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    *                          construction
    */
   protected BaseAllocator(
-    final BaseAllocator parentAllocator,
-    final AllocationListener listener,
-    final String name,
-    final long initReservation,
-    final long maxAllocation) throws OutOfMemoryException {
+      final BaseAllocator parentAllocator,
+      final AllocationListener listener,
+      final String name,
+      final long initReservation,
+      final long maxAllocation) throws OutOfMemoryException {
     super(parentAllocator, initReservation, maxAllocation);
 
     this.listener = listener;
@@ -277,9 +276,9 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
     // round to next largest power of two if we're within a chunk since that is how our allocator
     // operates
-    final int actualRequestSize = initialRequestSize < AllocationManager.CHUNK_SIZE ?
-      nextPowerOfTwo(initialRequestSize)
-      : initialRequestSize;
+    final int actualRequestSize =
+        initialRequestSize < AllocationManager.CHUNK_SIZE ?
+          nextPowerOfTwo(initialRequestSize) : initialRequestSize;
 
     listener.onPreAllocation(actualRequestSize);
 
@@ -320,12 +319,12 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   /**
-   * Used by usual allocation as well as for allocating a pre-reserved buffer. Skips the typical
-   * accounting associated
-   * with creating a new buffer.
+   * Used by usual allocation as well as for allocating a pre-reserved buffer.
+   * Skips the typical accounting associated with creating a new buffer.
    */
-  private ArrowBuf bufferWithoutReservation(final int size, BufferManager bufferManager) throws
-    OutOfMemoryException {
+  private ArrowBuf bufferWithoutReservation(
+      final int size,
+      BufferManager bufferManager) throws OutOfMemoryException {
     assertOpen();
 
     final AllocationManager manager = new AllocationManager(this, size);
@@ -334,7 +333,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
     // make sure that our allocation is equal to what we expected.
     Preconditions.checkArgument(buffer.capacity() == size,
-      "Allocated capacity %d was not equal to requested capacity %d.", buffer.capacity(), size);
+        "Allocated capacity %d was not equal to requested capacity %d.", buffer.capacity(), size);
 
     return buffer;
   }
@@ -346,28 +345,28 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   @Override
   public BufferAllocator newChildAllocator(
-    final String name,
-    final long initReservation,
-    final long maxAllocation) {
+      final String name,
+      final long initReservation,
+      final long maxAllocation) {
     return newChildAllocator(name, this.listener, initReservation, maxAllocation);
   }
 
   @Override
   public BufferAllocator newChildAllocator(
-    final String name,
-    final AllocationListener listener,
-    final long initReservation,
-    final long maxAllocation) {
+      final String name,
+      final AllocationListener listener,
+      final long initReservation,
+      final long maxAllocation) {
     assertOpen();
 
-    final ChildAllocator childAllocator = new ChildAllocator(listener, this, name, initReservation,
-      maxAllocation);
+    final ChildAllocator childAllocator =
+        new ChildAllocator(listener, this, name, initReservation, maxAllocation);
 
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
         childAllocators.put(childAllocator, childAllocator);
         historicalLog.recordEvent("allocator[%s] created new child allocator[%s]", name,
-          childAllocator.name);
+            childAllocator.name);
       }
     }
     this.listener.onChildAdded(this, childAllocator);
@@ -403,8 +402,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
           for (final BaseAllocator childAllocator : childAllocators.keySet()) {
             if (childAllocator.isClosed) {
               logger.warn(String.format(
-                "Closed child allocator[%s] on parent allocator[%s]'s child list.\n%s",
-                childAllocator.name, name, toString()));
+                  "Closed child allocator[%s] on parent allocator[%s]'s child list.\n%s",
+                  childAllocator.name, name, toString()));
             }
           }
 
@@ -449,9 +448,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
     if (DEBUG) {
       historicalLog.recordEvent("closed");
-      logger.debug(String.format(
-        "closed allocator[%s].",
-        name));
+      logger.debug(String.format("closed allocator[%s].", name));
     }
 
 
@@ -460,7 +457,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   @Override
   public String toString() {
     final Verbosity verbosity = logger.isTraceEnabled() ? Verbosity.LOG_WITH_STACKTRACE
-      : Verbosity.BASIC;
+        : Verbosity.BASIC;
     final StringBuilder sb = new StringBuilder();
     print(sb, 0, verbosity);
     return sb.toString();
@@ -490,24 +487,21 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    * @throws IllegalStateException when any problems are found
    */
   void verifyAllocator() {
-    final IdentityHashMap<UnsafeDirectLittleEndian, BaseAllocator> buffersSeen = new
-      IdentityHashMap<>();
-    verifyAllocator(buffersSeen);
+    final IdentityHashMap<UnsafeDirectLittleEndian, BaseAllocator> seen = new IdentityHashMap<>();
+    verifyAllocator(seen);
   }
 
   /**
-   * Verifies the accounting state of the allocator. Only works for DEBUG.
-   *
-   * <p>This overload is used for recursive calls, allowing for checking that ArrowBufs are unique
-   * across all allocators
-   * that are checked.
+   * Verifies the accounting state of the allocator (Only works for DEBUG)
+   * This overload is used for recursive calls, allowing for checking
+   * that ArrowBufs are unique across all allocators that are checked.
    *
    * @param buffersSeen a map of buffers that have already been seen when walking a tree of
    *                    allocators
    * @throws IllegalStateException when any problems are found
    */
-  private void verifyAllocator(final IdentityHashMap<UnsafeDirectLittleEndian, BaseAllocator>
-    buffersSeen) {
+  private void verifyAllocator(
+      final IdentityHashMap<UnsafeDirectLittleEndian, BaseAllocator> buffersSeen) {
     // The remaining tests can only be performed if we're in debug mode.
     if (!DEBUG) {
       return;
@@ -554,7 +548,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
           continue;
         }
 
-        final UnsafeDirectLittleEndian udle = ledger.getUnderlying();
+        final UnsafeDirectLittleEndian udle = (UnsafeDirectLittleEndian)ledger.getUnderlying();
         /*
          * Even when shared, ArrowBufs are rewrapped, so we should never see the same instance
          * twice.
@@ -678,7 +672,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       if (!ledger.isOwningLedger()) {
         continue;
       }
-      final UnsafeDirectLittleEndian udle = ledger.getUnderlying();
+      final UnsafeDirectLittleEndian udle = (UnsafeDirectLittleEndian)ledger.getUnderlying();
       sb.append("UnsafeDirectLittleEndian[identityHashCode == ");
       sb.append(Integer.toString(System.identityHashCode(udle)));
       sb.append("] size ");
@@ -856,7 +850,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         listener.onAllocation(nBytes);
         if (DEBUG) {
           historicalLog.recordEvent("allocate() => %s", String.format("ArrowBuf[%d]", arrowBuf
-            .getId()));
+              .getId()));
         }
         success = true;
         return arrowBuf;

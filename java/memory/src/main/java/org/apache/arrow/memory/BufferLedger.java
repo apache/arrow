@@ -1,24 +1,39 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.arrow.memory;
 
-import io.netty.buffer.ArrowBuf;
-import io.netty.buffer.UnsafeDirectLittleEndian;
-import org.apache.arrow.memory.util.HistoricalLog;
-import org.apache.arrow.util.Preconditions;
+import static org.apache.arrow.memory.BaseAllocator.indent;
 
 import java.util.IdentityHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static org.apache.arrow.memory.BaseAllocator.indent;
+import org.apache.arrow.memory.util.HistoricalLog;
+import org.apache.arrow.util.Preconditions;
+
+import io.netty.buffer.ArrowBuf;
+import io.netty.buffer.ByteBuf;
 
 /**
  * The reference manager that binds an {@link AllocationManager} to
  * {@link BufferAllocator} and a set of {@link ArrowBuf}. The set of
  * ArrowBufs managed by this reference manager share a common
- * fate (same reference count)
- *
- * As with AllocationManager, the only reason this is public is due to ArrowBuf
- * being in io.netty.buffer package.
+ * fate (same reference count).
  */
 public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, ReferenceManager  {
 
@@ -33,7 +48,8 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
   private final BaseAllocator allocator;
   private final AllocationManager allocationManager;
   private final HistoricalLog historicalLog =
-    BaseAllocator.DEBUG ? new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH, "BufferLedger[%d]", 1) : null;
+      BaseAllocator.DEBUG ? new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH,
+        "BufferLedger[%d]", 1) : null;
   private volatile long lDestructionTime = 0;
 
   BufferLedger(final BaseAllocator allocator, final AllocationManager allocationManager) {
@@ -50,7 +66,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
   }
 
   /**
-   * Get the buffer allocator associated with this reference manager
+   * Get the buffer allocator associated with this reference manager.
    * @return buffer allocator
    */
   @Override
@@ -59,7 +75,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
   }
 
   /**
-   * Get this ledger's reference count
+   * Get this ledger's reference count.
    * @return reference count
    */
   @Override
@@ -106,11 +122,13 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    */
   @Override
   public boolean release(int decrement) {
-    Preconditions.checkState(decrement >= 1, "ref count decrement should be greater than or equal to 1");
+    Preconditions.checkState(decrement >= 1,
+          "ref count decrement should be greater than or equal to 1");
     // decrement the ref count
     final int refCnt = decrement(decrement);
     if (BaseAllocator.DEBUG) {
-      historicalLog.recordEvent("release(%d). original value: %d", decrement, refCnt + decrement);
+      historicalLog.recordEvent("release(%d). original value: %d",
+          decrement, refCnt + decrement);
     }
     // the new ref count should be >= 0
     Preconditions.checkState(refCnt >= 0, "RefCnt has gone negative");
@@ -148,7 +166,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
 
   /**
    * Increment the ledger's reference count for associated
-   * underlying memory chunk by 1
+   * underlying memory chunk by 1.
    */
   @Override
   public void retain() {
@@ -157,7 +175,8 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
 
   /**
    * Increment the ledger's reference count for associated
-   * underlying memory chunk by the given amount
+   * underlying memory chunk by the given amount.
+   *
    * @param increment amount to increase the reference count by
    */
   @Override
@@ -174,20 +193,21 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * Derive a new ArrowBuf from a given source ArrowBuf. The new derived
    * ArrowBuf will share the same reference count as rest of the ArrowBufs
    * associated with this ledger. This operation is typically used for
-   * slicing -- creating new ArrowBufs from a compound
-   * ArrowBuf starting at a particular index in the underlying memory
-   * and having access to a particular length (in bytes) of data in
-   * memory chunk
-   * @param sourceBuffer source ArrowBuf
-   * @param index index (relative to source ArrowBuf) new ArrowBuf should be derived from
-   * @param length length (bytes) of data in underlying memory that derived buffer will
-   *               have access to in underlying memory
-   * @return derived buffer
-   *
+   * slicing -- creating new ArrowBufs from a compound ArrowBuf starting at
+   * a particular index in the underlying memory and having access to a
+   * particular length (in bytes) of data in memory chunk.
+   * <p>
    * This method is also used as a helper for transferring ownership and retain to target
    * allocator and in that case the source ArrowBuf is not associated with the reference
    * manager on which we invoke this method so callers can pass null for sourceBuffer
    * in such cases.
+   * </p>
+   * @param sourceBuffer source ArrowBuf
+   * @param index index (relative to source ArrowBuf) new ArrowBuf should be
+   *              derived from
+   * @param length length (bytes) of data in underlying memory that derived buffer will
+   *               have access to in underlying memory
+   * @return derived buffer
    */
   @Override
   public ArrowBuf deriveBuffer(final ArrowBuf sourceBuffer, int index, int length) {
@@ -226,11 +246,11 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
       // logging
       if (BaseAllocator.DEBUG) {
         historicalLog.recordEvent(
-          "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
-            "UnsafeDirectLittleEndian[identityHashCode == " +
-            "%d](%s)) => ledger hc == %d",
-          allocator.name, System.identityHashCode(derivedBuf), derivedBuf.toString(),
-          System.identityHashCode(this));
+            "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
+                "UnsafeDirectLittleEndian[identityHashCode == " +
+                "%d](%s)) => ledger hc == %d",
+              allocator.name, System.identityHashCode(derivedBuf), derivedBuf.toString(),
+              System.identityHashCode(this));
       }
     }
 
@@ -247,7 +267,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * @param manager An optional BufferManager argument that can be used to manage expansion of
    *                this ArrowBuf
    * @return A new ArrowBuf that shares references with all ArrowBufs associated
-   * with this BufferLedger
+   *         with this BufferLedger
    */
   ArrowBuf newArrowBuf(final int length, final BufferManager manager) {
     // TODO: SIDD I believe we can remove BufferManager. I have removed it from ArrowBuf. I don't think its needed
@@ -269,11 +289,10 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     // logging
     if (BaseAllocator.DEBUG) {
       historicalLog.recordEvent(
-        "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
-          "UnsafeDirectLittleEndian[identityHashCode == " +
-          "%d](%s)) => ledger hc == %d",
-        allocator.name, System.identityHashCode(buf), buf.toString(),
-        System.identityHashCode(this));
+          "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
+          "UnsafeDirectLittleEndian[identityHashCode == " + "%d](%s)) => ledger hc == %d",
+          allocator.name, System.identityHashCode(buf), buf.toString(),
+          System.identityHashCode(this));
     }
 
     return buf;
@@ -283,22 +302,23 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * Create a new ArrowBuf that is associated with an alternative allocator for the purposes of
    * memory ownership and accounting. This has no impact on the reference counting for the current
    * ArrowBuf except in the situation where the passed in Allocator is the same as the current buffer.
-   *
+   * <p>
    * This operation has no impact on the reference count of this ArrowBuf. The newly created
    * ArrowBuf with either have a reference count of 1 (in the case that this is the first time this
    * memory is being associated with the target allocator or in other words allocation manager currently
    * doesn't hold a mapping for the target allocator) or the current value of the reference count for
    * the target allocator-reference manager combination + 1 in the case that the provided allocator
    * already had an association to this underlying memory.
+   * </p>
    *
-   * @param srcArrowBuf source ArrowBuf
+   * @param srcBuffer source ArrowBuf
    * @param target The target allocator to create an association with.
    * @return A new ArrowBuf which shares the same underlying memory as the provided ArrowBuf.
    */
   @Override
-  public ArrowBuf retain(final ArrowBuf srcArrowBuf, BufferAllocator target) {
-    if (srcArrowBuf.isEmpty()) {
-      return srcArrowBuf;
+  public ArrowBuf retain(final ArrowBuf srcBuffer, BufferAllocator target) {
+    if (srcBuffer.isEmpty()) {
+      return srcBuffer;
     }
 
     if (BaseAllocator.DEBUG) {
@@ -312,11 +332,13 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     // alternatively, if there was already a mapping for <buffer allocator, ref manager> in
     // allocation manager, the ref count of the new buffer will be targetrefmanager.refcount() + 1
     // and this will be true for all the existing buffers currently managed by targetrefmanager
-    final BufferLedger targetReferenceManager = allocationManager.associate((BaseAllocator)target);
+    final BufferLedger targetRefManager = allocationManager.associate((BaseAllocator)target);
     // create a new ArrowBuf to associate with new allocator and target ref manager
-    ArrowBuf targetArrowBuf = targetReferenceManager.deriveBuffer(null, buffers.get(srcArrowBuf), srcArrowBuf.capacity());
-    targetArrowBuf.readerIndex(srcArrowBuf.readerIndex());
-    targetArrowBuf.writerIndex(srcArrowBuf.writerIndex());
+    final int targetBufOffset = buffers.get(srcBuffer);
+    final int targetBufLength = srcBuffer.capacity();
+    ArrowBuf targetArrowBuf = targetRefManager.deriveBuffer(null, targetBufOffset, targetBufLength);
+    targetArrowBuf.readerIndex(srcBuffer.readerIndex());
+    targetArrowBuf.writerIndex(srcBuffer.writerIndex());
     return targetArrowBuf;
   }
 
@@ -328,9 +350,11 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * @return Whether transfer fit within target ledgers limits.
    */
   boolean transferBalance(final ReferenceManager targetReferenceManager) {
-    Preconditions.checkArgument(targetReferenceManager != null, "Expecting valid target reference manager");
-    Preconditions.checkArgument(allocator.root == ((BaseAllocator)targetReferenceManager.getAllocator()).root,
-      "You can only transfer between two allocators that share the same root.");
+    Preconditions.checkArgument(targetReferenceManager != null,
+        "Expecting valid target reference manager");
+    final BaseAllocator targetAllocator = (BaseAllocator)targetReferenceManager.getAllocator();
+    Preconditions.checkArgument(allocator.root == targetAllocator.root,
+        "You can only transfer between two allocators that share the same root.");
 
     allocator.assertOpen();
     targetReferenceManager.getAllocator().assertOpen();
@@ -352,12 +376,11 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
       }
 
       if (BaseAllocator.DEBUG) {
-        this.historicalLog.recordEvent("transferBalance(%s)", targetReferenceManager.getAllocator().getName());
-        // TODO SIDD
-        //targetReferenceManager.historicalLog.recordEvent("incoming(from %s)", allocationManager.getOwningLedger().allocator.name);
+        this.historicalLog.recordEvent("transferBalance(%s)",
+            targetReferenceManager.getAllocator().getName());
       }
 
-      boolean overlimit = ((BaseAllocator)targetReferenceManager.getAllocator()).forceAllocate(allocationManager.getSize());
+      boolean overlimit = targetAllocator.forceAllocate(allocationManager.getSize());
       allocator.releaseBytes(allocationManager.getSize());
       // since the transfer can only happen from the owning reference manager,
       // we need to set the target ref manager as the new owning ref manager
@@ -374,13 +397,14 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * that memory ownership/accounting will be transferred to the target allocator. If this
    * ArrowBuf does not currently own the memory underlying it (and is only associated with it),
    * this does not transfer any ownership to the newly created ArrowBuf.
-   *
+   * <p>
    * This operation has no impact on the reference count of this ArrowBuf. The newly created
    * ArrowBuf with either have a reference count of 1 (in the case that this is the first time
    * this memory is being associated with the new allocator) or the current value of the reference
    * count for the other AllocationManager/BufferLedger combination + 1 in the case that the provided
    * allocator already had an association to this underlying memory.
-   *
+   * </p>
+   * <p>
    * Transfers will always succeed, even if that puts the other allocator into an overlimit
    * situation. This is possible due to the fact that the original owning allocator may have
    * allocated this memory out of a local reservation whereas the target allocator may need to
@@ -388,6 +412,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * but consistent manner. As such, the overlimit==true situation could occur slightly prematurely
    * to an actual overlimit==true condition. This is simply conservative behavior which means we may
    * return overlimit slightly sooner than is necessary.
+   * </p>
    *
    * @param target The allocator to transfer ownership to.
    * @return A new transfer result with the impact of the transfer (whether it was overlimit) as
@@ -405,12 +430,14 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     // alternatively, if there was already a mapping for <buffer allocator, ref manager> in
     // allocation manager, the ref count of the new buffer will be targetrefmanager.refcount() + 1
     // and this will be true for all the existing buffers currently managed by targetrefmanager
-    final BufferLedger targetReferenceManager = allocationManager.associate((BaseAllocator)target);
+    final BufferLedger targetRefManager = allocationManager.associate((BaseAllocator)target);
     // create a new ArrowBuf to associate with new allocator and target ref manager
-    final ArrowBuf targetArrowBuf = targetReferenceManager.deriveBuffer(null, buffers.get(srcBuffer), srcBuffer.capacity());
+    final int targetBufOffset = buffers.get(srcBuffer);
+    final int targetBufLength = srcBuffer.capacity();
+    final ArrowBuf targetArrowBuf = targetRefManager.deriveBuffer(null, targetBufOffset, targetBufLength);
     targetArrowBuf.readerIndex(srcBuffer.readerIndex());
     targetArrowBuf.writerIndex(srcBuffer.writerIndex());
-    final boolean allocationFit = transferBalance(targetReferenceManager);
+    final boolean allocationFit = transferBalance(targetRefManager);
     return new TransferResult(allocationFit, targetArrowBuf);
   }
 
@@ -434,14 +461,15 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     public ArrowBuf getTransferredBuffer() {
       return buffer;
     }
-  }
 
-  UnsafeDirectLittleEndian getUnderlying() {
-    return allocationManager.getMemoryChunk();
+    @Override
+    public boolean getAllocationFit() {
+      return allocationFit;
+    }
   }
 
   /**
-   * Total size (in bytes) of memory underlying this reference manager
+   * Total size (in bytes) of memory underlying this reference manager.
    * @return Size (in bytes) of the memory chunk
    */
   @Override
@@ -450,10 +478,9 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
   }
 
   /**
-   * How much memory is accounted for by this ledger. This is either getSize() if this is the
-   * owning ledger for the
-   * memory or zero in the case that this is not the owning ledger associated with this memory.
-   *
+   * How much memory is accounted for by this ledger. This is either getSize()
+   * if this is the owning ledger for the memory or zero in the case that this
+   * is not the owning ledger associated with this memory.
    * @return Amount of accounted(owned) memory associated with this ledger.
    */
   @Override
@@ -511,5 +538,20 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
         }
       }
     }
+  }
+
+  @Override
+  public ByteBuf getUnderlying() {
+    return allocationManager.getMemoryChunk();
+  }
+
+  @Override
+  public int getOffsetForBuffer(final ArrowBuf buf) {
+    return buffers.get(buf);
+  }
+
+  @Override
+  public ArrowByteBufAllocator getByteBufAllocator() {
+    return allocator.getAsByteBufAllocator();
   }
 }
