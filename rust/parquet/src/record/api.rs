@@ -74,6 +74,11 @@ pub trait RowAccessor {
     fn get_map(&self, i: usize) -> Result<&Map>;
 }
 
+/// Trait for formating fields within a Row.
+pub trait RowFormatter {
+    fn fmt(&self, i: usize) -> Result<&fmt::Display>;
+}
+
 /// Macro to generate type-safe get_xxx methods for primitive types,
 /// e.g. `get_bool`, `get_short`.
 macro_rules! row_primitive_accessor {
@@ -100,6 +105,16 @@ macro_rules! row_complex_accessor {
       }
     }
   }
+}
+
+impl RowFormatter for Row {
+    /// Get Display reference for a given field.
+    fn fmt(&self, i: usize) -> Result<&fmt::Display> {
+        match self.fields.get(i) {
+            Some(t) => Ok(&t.1),
+            _ => Err(general_err!("Cannot access field {}", i)),
+        }
+    }
 }
 
 impl RowAccessor for Row {
@@ -1120,6 +1135,95 @@ mod tests {
                 (Field::Int(3), Field::Float(2.3))
             ]))
             .is_primitive()
+        );
+    }
+
+    #[test]
+    fn test_row_primitive_field_fmt() {
+        // Primitives types
+        let row = make_row(vec![
+            ("00".to_string(), Field::Null),
+            ("01".to_string(), Field::Bool(false)),
+            ("02".to_string(), Field::Byte(3)),
+            ("03".to_string(), Field::Short(4)),
+            ("04".to_string(), Field::Int(5)),
+            ("05".to_string(), Field::Long(6)),
+            ("06".to_string(), Field::UByte(7)),
+            ("07".to_string(), Field::UShort(8)),
+            ("08".to_string(), Field::UInt(9)),
+            ("09".to_string(), Field::ULong(10)),
+            ("10".to_string(), Field::Float(11.1)),
+            ("11".to_string(), Field::Double(12.1)),
+            ("12".to_string(), Field::Str("abc".to_string())),
+            (
+                "13".to_string(),
+                Field::Bytes(ByteArray::from(vec![1, 2, 3, 4, 5])),
+            ),
+            ("14".to_string(), Field::Date(14611)),
+            ("15".to_string(), Field::Timestamp(1262391174000)),
+            ("16".to_string(), Field::Decimal(Decimal::from_i32(4, 7, 2))),
+        ]);
+
+        assert_eq!("null", format!("{}", row.fmt(0).unwrap()));
+        assert_eq!("false", format!("{}", row.fmt(1).unwrap()));
+        assert_eq!("3", format!("{}", row.fmt(2).unwrap()));
+        assert_eq!("4", format!("{}", row.fmt(3).unwrap()));
+        assert_eq!("5", format!("{}", row.fmt(4).unwrap()));
+        assert_eq!("6", format!("{}", row.fmt(5).unwrap()));
+        assert_eq!("7", format!("{}", row.fmt(6).unwrap()));
+        assert_eq!("8", format!("{}", row.fmt(7).unwrap()));
+        assert_eq!("9", format!("{}", row.fmt(8).unwrap()));
+        assert_eq!("10", format!("{}", row.fmt(9).unwrap()));
+        assert_eq!("11.1", format!("{}", row.fmt(10).unwrap()));
+        assert_eq!("12.1", format!("{}", row.fmt(11).unwrap()));
+        assert_eq!("\"abc\"", format!("{}", row.fmt(12).unwrap()));
+        assert_eq!("[1, 2, 3, 4, 5]", format!("{}", row.fmt(13).unwrap()));
+        assert_eq!(
+            convert_date_to_string(14611),
+            format!("{}", row.fmt(14).unwrap())
+        );
+        assert_eq!(
+            convert_timestamp_to_string(1262391174000),
+            format!("{}", row.fmt(15).unwrap())
+        );
+        assert_eq!("0.04", format!("{}", row.fmt(16).unwrap()));
+    }
+
+    #[test]
+    fn test_row_complex_field_fmt() {
+        // Complex types
+        let row = make_row(vec![
+            (
+                "00".to_string(),
+                Field::Group(make_row(vec![
+                    ("x".to_string(), Field::Null),
+                    ("Y".to_string(), Field::Int(2)),
+                ])),
+            ),
+            (
+                "01".to_string(),
+                Field::ListInternal(make_list(vec![
+                    Field::Int(2),
+                    Field::Int(1),
+                    Field::Null,
+                    Field::Int(12),
+                ])),
+            ),
+            (
+                "02".to_string(),
+                Field::MapInternal(make_map(vec![
+                    (Field::Int(1), Field::Float(1.2)),
+                    (Field::Int(2), Field::Float(4.5)),
+                    (Field::Int(3), Field::Float(2.3)),
+                ])),
+            ),
+        ]);
+
+        assert_eq!("{x: null, Y: 2}", format!("{}", row.fmt(0).unwrap()));
+        assert_eq!("[2, 1, null, 12]", format!("{}", row.fmt(1).unwrap()));
+        assert_eq!(
+            "{1 -> 1.2, 2 -> 4.5, 3 -> 2.3}",
+            format!("{}", row.fmt(2).unwrap())
         );
     }
 
