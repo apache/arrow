@@ -53,7 +53,8 @@
 //! let batch = RecordBatch::try_new(
 //!     Arc::new(schema),
 //!     vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
-//! ).unwrap();
+//! )
+//! .unwrap();
 //!
 //! let file = get_temp_file("out.csv", &[]);
 //!
@@ -446,7 +447,7 @@ mod tests {
         file.read_to_end(&mut buffer).unwrap();
 
         assert_eq!(
-            r#"c1,c2,c3,c4,c5
+            r#"c1,c2,c3,c4,c5,c6
 Lorem ipsum dolor sit amet,123.564532,3,true,,00:20:34
 consectetur adipiscing elit,,2,false,2019-04-18T10:54:47.378000000,06:51:20
 sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
