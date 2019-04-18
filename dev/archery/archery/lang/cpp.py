@@ -32,7 +32,7 @@ class CppConfiguration:
     def __init__(self,
                  # toolchain
                  cc=None, cxx=None, cxx_flags=None,
-                 build_type=None, warn_level=None,
+                 build_type=None, warn_level=None, verbose_third_party=True
                  # components
                  with_tests=True, with_benchmarks=False, with_python=True,
                  with_parquet=False, with_gandiva=False, with_plasma=False,
@@ -43,6 +43,7 @@ class CppConfiguration:
 
         self.build_type = build_type
         self.warn_level = warn_level
+        self.verbose_third_party = verbose_third_party
 
         self.with_tests = with_tests
         self.with_benchmarks = with_benchmarks
@@ -59,6 +60,8 @@ class CppConfiguration:
 
         yield ("CMAKE_BUILD_TYPE", or_else(self.build_type, "debug"))
         yield ("BUILD_WARNING_LEVEL", or_else(self.warn_level, "production"))
+        yield ("ARROW_VERBOSE_THIRDPARTY_BUILD",
+               truthifier(self.verbose_third_party))
 
         yield ("ARROW_BUILD_TESTS", truthifier(self.with_tests))
         yield ("ARROW_BUILD_BENCHMARKS", truthifier(self.with_benchmarks))
