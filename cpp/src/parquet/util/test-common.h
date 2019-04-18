@@ -22,6 +22,7 @@
 #include <iostream>
 #include <limits>
 #include <random>
+#include <string>
 #include <vector>
 
 #include "parquet/exception.h"
