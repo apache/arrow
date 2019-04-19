@@ -329,37 +329,11 @@ class SerializedFile : public ParquetFileReader::Contents {
       file_metadata_ = FileMetaData::Make(metadata_buffer->data(), &read_metadata_len);
 
       if (file_metadata_->is_plaintext_mode()) {
-        if (metadata_len - read_metadata_len != 28) {
-          throw ParquetException("Invalid parquet file. Cannot verify plaintext"
-				 "mode footer.");
-        }
-        // get footer key
-        std::string footer_key_metadata = file_metadata_->footer_signing_key_metadata();
         auto file_decryption = properties_.file_decryption();
         if (file_decryption == nullptr) {
-          throw ParquetException("No decryption properties are provided. "
-				 "Could not verify plaintext footer metadata");
+          throw ParquetException("No decryption properties are provided");
         }
-	std::string footer_key = file_decryption->getFooterKey();
-	// ignore footer key metadata if footer key is explicitly set via API
-        if (footer_key.empty()) {
-	  if (footer_key_metadata.empty()) throw ParquetException("No footer key or "
-								  "key metadata");
-          if (file_decryption->getKeyRetriever() == nullptr)
-	    throw ParquetException("No footer key or key retriever");
-          try {
-	    footer_key = file_decryption->getKeyRetriever()->GetKey(footer_key_metadata);
-          } catch (KeyAccessDeniedException &e) {
-	    std::stringstream ss;
-	    ss << e.what();
-	    ss << "Footer key: access denied";
-	    throw ParquetException(ss.str());
-          }
-	}
-        if (footer_key.empty()) {
-          throw ParquetException("Footer key unavailable. Could not verify plaintext "
-				 "footer metadata");
-        }
+
 	EncryptionAlgorithm algo = file_metadata_->encryption_algorithm();
 	bool supply_aad_prefix = algo.aad.supply_aad_prefix;
 	std::string aad_file_unique = algo.aad.aad_file_unique;
@@ -387,15 +361,45 @@ class SerializedFile : public ParquetFileReader::Contents {
 	else
 	  fileAAD = file_decryption->getAADPrefix() + aad_file_unique;
 	
-        properties_.set_fileAAD(fileAAD);	
-	std::string aad = parquet_encryption::createFooterAAD(fileAAD);
-        auto encryption = std::make_shared<EncryptionProperties>(
-	    file_metadata_->encryption_algorithm().algorithm,
-	    footer_key, fileAAD, aad);
-        if (! file_metadata_->verify(encryption, metadata_buffer->data()
-				     + read_metadata_len, 28)) {
-          throw ParquetException("Invalid parquet file. Could not verify plaintext"
-				 " footer metadata");
+        properties_.set_fileAAD(fileAAD);
+        if (file_decryption->checkFooterIntegrity()) {
+          if (metadata_len - read_metadata_len != 28) {
+            throw ParquetException("Invalid parquet file. Cannot verify plaintext"
+           "mode footer.");
+          }
+
+          // get footer key
+          std::string footer_key_metadata = file_metadata_->footer_signing_key_metadata();
+          std::string footer_key = file_decryption->getFooterKey();
+          // ignore footer key metadata if footer key is explicitly set via API
+          if (footer_key.empty()) {
+            if (footer_key_metadata.empty()) throw ParquetException("No footer key or "
+                    "key metadata");
+            if (file_decryption->getKeyRetriever() == nullptr)
+              throw ParquetException("No footer key or key retriever");
+            try {
+              footer_key = file_decryption->getKeyRetriever()->GetKey(footer_key_metadata);
+            } catch (KeyAccessDeniedException &e) {
+              std::stringstream ss;
+              ss << e.what();
+              ss << "Footer key: access denied";
+              throw ParquetException(ss.str());
+            }
+          }
+          if (footer_key.empty()) {
+            throw ParquetException("Footer key unavailable. Could not verify plaintext "
+           "footer metadata");
+          }
+
+          std::string aad = parquet_encryption::createFooterAAD(fileAAD);
+          auto encryption = std::make_shared<EncryptionProperties>(
+          file_metadata_->encryption_algorithm().algorithm,
+          footer_key, fileAAD, aad);
+          if (! file_metadata_->verify(encryption, metadata_buffer->data()
+               + read_metadata_len, 28)) {
+            throw ParquetException("Invalid parquet file. Could not verify plaintext"
+           " footer metadata");
+          }
         }
       }
     }
