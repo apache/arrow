@@ -53,7 +53,8 @@
 //! let batch = RecordBatch::try_new(
 //!     Arc::new(schema),
 //!     vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
-//! ).unwrap();
+//! )
+//! .unwrap();
 //!
 //! let file = get_temp_file("out.csv", &[]);
 //!
@@ -69,6 +70,10 @@ use crate::array::*;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
+
+const DEFAULT_DATE_FORMAT: &str = "%F";
+const DEFAULT_TIME_FORMAT: &str = "%T";
+const DEFAULT_TIMESTAMP_FORMAT: &str = "%FT%H:%M:%S.%9f";
 
 fn write_primitive_value<T>(array: &ArrayRef, i: usize) -> String
 where
@@ -87,6 +92,12 @@ pub struct Writer {
     delimiter: u8,
     /// Whether file should be written with headers. Defaults to `true`
     has_headers: bool,
+    /// The date format for date arrays
+    date_format: String,
+    /// The timestamp format for timestamp arrays
+    timestamp_format: String,
+    /// The time format for time arrays
+    time_format: String,
 }
 
 impl Writer {
@@ -96,6 +107,9 @@ impl Writer {
             file,
             delimiter: b',',
             has_headers: true,
+            date_format: DEFAULT_DATE_FORMAT.to_string(),
+            time_format: DEFAULT_TIME_FORMAT.to_string(),
+            timestamp_format: DEFAULT_TIMESTAMP_FORMAT.to_string(),
         }
     }
 
@@ -169,6 +183,88 @@ impl Writer {
                             let c = col.as_any().downcast_ref::<BinaryArray>().unwrap();
                             String::from_utf8(c.value(row_index).to_vec())?
                         }
+                        DataType::Date32(DateUnit::Day) => {
+                            let c = col.as_any().downcast_ref::<Date32Array>().unwrap();
+                            c.value_as_date(row_index)
+                                .unwrap()
+                                .format(&self.date_format)
+                                .to_string()
+                        }
+                        DataType::Date64(DateUnit::Millisecond) => {
+                            let c = col.as_any().downcast_ref::<Date64Array>().unwrap();
+                            c.value_as_date(row_index)
+                                .unwrap()
+                                .format(&self.date_format)
+                                .to_string()
+                        }
+                        DataType::Time32(TimeUnit::Second) => {
+                            let c =
+                                col.as_any().downcast_ref::<Time32SecondArray>().unwrap();
+                            c.value_as_time(row_index)
+                                .unwrap()
+                                .format(&self.time_format)
+                                .to_string()
+                        }
+                        DataType::Time32(TimeUnit::Millisecond) => {
+                            let c = col
+                                .as_any()
+                                .downcast_ref::<Time32MillisecondArray>()
+                                .unwrap();
+                            c.value_as_time(row_index)
+                                .unwrap()
+                                .format(&self.time_format)
+                                .to_string()
+                        }
+                        DataType::Time64(TimeUnit::Microsecond) => {
+                            let c = col
+                                .as_any()
+                                .downcast_ref::<Time64MicrosecondArray>()
+                                .unwrap();
+                            c.value_as_time(row_index)
+                                .unwrap()
+                                .format(&self.time_format)
+                                .to_string()
+                        }
+                        DataType::Time64(TimeUnit::Nanosecond) => {
+                            let c = col
+                                .as_any()
+                                .downcast_ref::<Time64NanosecondArray>()
+                                .unwrap();
+                            c.value_as_time(row_index)
+                                .unwrap()
+                                .format(&self.time_format)
+                                .to_string()
+                        }
+                        DataType::Timestamp(time_unit) => {
+                            use TimeUnit::*;
+                            let datetime = match time_unit {
+                                Second => col
+                                    .as_any()
+                                    .downcast_ref::<TimestampSecondArray>()
+                                    .unwrap()
+                                    .value_as_datetime(row_index)
+                                    .unwrap(),
+                                Millisecond => col
+                                    .as_any()
+                                    .downcast_ref::<TimestampMillisecondArray>()
+                                    .unwrap()
+                                    .value_as_datetime(row_index)
+                                    .unwrap(),
+                                Microsecond => col
+                                    .as_any()
+                                    .downcast_ref::<TimestampMicrosecondArray>()
+                                    .unwrap()
+                                    .value_as_datetime(row_index)
+                                    .unwrap(),
+                                Nanosecond => col
+                                    .as_any()
+                                    .downcast_ref::<TimestampNanosecondArray>()
+                                    .unwrap()
+                                    .value_as_datetime(row_index)
+                                    .unwrap(),
+                            };
+                            format!("{}", datetime.format(&self.timestamp_format))
+                        }
                         t => {
                             // List and Struct arrays not supported by the writer, any
                             // other type needs to be implemented
@@ -196,6 +292,12 @@ pub struct WriterBuilder {
     delimiter: Option<u8>,
     /// Whether to write column names as file headers. Defaults to `true`
     has_headers: bool,
+    /// Optional date format for date arrays
+    date_format: Option<String>,
+    /// Optional timestamp format for timestamp arrays
+    timestamp_format: Option<String>,
+    /// Optional time format for time arrays
+    time_format: Option<String>,
 }
 
 impl Default for WriterBuilder {
@@ -203,6 +305,9 @@ impl Default for WriterBuilder {
         Self {
             has_headers: true,
             delimiter: None,
+            date_format: Some(DEFAULT_DATE_FORMAT.to_string()),
+            time_format: Some(DEFAULT_TIME_FORMAT.to_string()),
+            timestamp_format: Some(DEFAULT_TIMESTAMP_FORMAT.to_string()),
         }
     }
 }
@@ -246,12 +351,35 @@ impl WriterBuilder {
         self
     }
 
+    /// Set the CSV file's date format
+    pub fn with_date_format(mut self, format: String) -> Self {
+        self.date_format = Some(format);
+        self
+    }
+
+    /// Set the CSV file's time format
+    pub fn with_time_format(mut self, format: String) -> Self {
+        self.time_format = Some(format);
+        self
+    }
+
+    /// Set the CSV file's timestamp format
+    pub fn with_timestamp_format(mut self, format: String) -> Self {
+        self.timestamp_format = Some(format);
+        self
+    }
+
     /// Create a new `Writer`
     pub fn build(self, file: File) -> Writer {
         Writer {
             file,
             delimiter: self.delimiter.unwrap_or(b','),
             has_headers: self.has_headers,
+            date_format: self.date_format.unwrap_or(DEFAULT_DATE_FORMAT.to_string()),
+            time_format: self.time_format.unwrap_or(DEFAULT_TIME_FORMAT.to_string()),
+            timestamp_format: self
+                .timestamp_format
+                .unwrap_or(DEFAULT_TIMESTAMP_FORMAT.to_string()),
         }
     }
 }
@@ -271,7 +399,9 @@ mod tests {
             Field::new("c1", DataType::Utf8, false),
             Field::new("c2", DataType::Float64, true),
             Field::new("c3", DataType::UInt32, false),
-            Field::new("c3", DataType::Boolean, true),
+            Field::new("c4", DataType::Boolean, true),
+            Field::new("c5", DataType::Timestamp(TimeUnit::Millisecond), true),
+            Field::new("c6", DataType::Time32(TimeUnit::Second), false),
         ]);
 
         let c1 = BinaryArray::from(vec![
@@ -286,10 +416,23 @@ mod tests {
         ]);
         let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
         let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
+        let c5 = TimestampMillisecondArray::from(vec![
+            None,
+            Some(1555584887378),
+            Some(1555555555555),
+        ]);
+        let c6 = Time32SecondArray::from(vec![1234, 24680, 85563]);
 
         let batch = RecordBatch::try_new(
             Arc::new(schema),
-            vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
+            vec![
+                Arc::new(c1),
+                Arc::new(c2),
+                Arc::new(c3),
+                Arc::new(c4),
+                Arc::new(c5),
+                Arc::new(c6),
+            ],
         )
         .unwrap();
 
@@ -304,7 +447,14 @@ mod tests {
         file.read_to_end(&mut buffer).unwrap();
 
         assert_eq!(
-            "c1,c2,c3,c3\nLorem ipsum dolor sit amet,123.564532,3,true\nconsectetur adipiscing elit,,2,false\nsed do eiusmod tempor,-556132.25,1,\nLorem ipsum dolor sit amet,123.564532,3,true\nconsectetur adipiscing elit,,2,false\nsed do eiusmod tempor,-556132.25,1,\n"
+            r#"c1,c2,c3,c4,c5,c6
+Lorem ipsum dolor sit amet,123.564532,3,true,,00:20:34
+consectetur adipiscing elit,,2,false,2019-04-18T10:54:47.378000000,06:51:20
+sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
+Lorem ipsum dolor sit amet,123.564532,3,true,,00:20:34
+consectetur adipiscing elit,,2,false,2019-04-18T10:54:47.378000000,06:51:20
+sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
+"#
             .to_string(),
             String::from_utf8(buffer).unwrap()
         );
@@ -316,7 +466,8 @@ mod tests {
             Field::new("c1", DataType::Utf8, false),
             Field::new("c2", DataType::Float64, true),
             Field::new("c3", DataType::UInt32, false),
-            Field::new("c3", DataType::Boolean, true),
+            Field::new("c4", DataType::Boolean, true),
+            Field::new("c6", DataType::Time32(TimeUnit::Second), false),
         ]);
 
         let c1 = BinaryArray::from(vec![
@@ -331,16 +482,26 @@ mod tests {
         ]);
         let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
         let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
+        let c6 = Time32SecondArray::from(vec![1234, 24680, 85563]);
 
         let batch = RecordBatch::try_new(
             Arc::new(schema),
-            vec![Arc::new(c1), Arc::new(c2), Arc::new(c3), Arc::new(c4)],
+            vec![
+                Arc::new(c1),
+                Arc::new(c2),
+                Arc::new(c3),
+                Arc::new(c4),
+                Arc::new(c6),
+            ],
         )
         .unwrap();
 
         let file = get_temp_file("custom_options.csv", &[]);
 
-        let builder = WriterBuilder::new().has_headers(false).with_delimiter(b'|');
+        let builder = WriterBuilder::new()
+            .has_headers(false)
+            .with_delimiter(b'|')
+            .with_time_format("%r".to_string());
 
         let writer = builder.build(file);
         writer.write(vec![&batch]).unwrap();
@@ -351,7 +512,7 @@ mod tests {
         file.read_to_end(&mut buffer).unwrap();
 
         assert_eq!(
-            "Lorem ipsum dolor sit amet|123.564532|3|true\nconsectetur adipiscing elit||2|false\nsed do eiusmod tempor|-556132.25|1|\n"
+            "Lorem ipsum dolor sit amet|123.564532|3|true|12:20:34 AM\nconsectetur adipiscing elit||2|false|06:51:20 AM\nsed do eiusmod tempor|-556132.25|1||11:46:03 PM\n"
             .to_string(),
             String::from_utf8(buffer).unwrap()
         );
