@@ -23,6 +23,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::string::String;
 use std::sync::Arc;
+use std::thread;
 
 use arrow::datatypes::*;
 
@@ -47,6 +48,7 @@ use crate::sql::parser::{DFASTNode, DFParser};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
 use crate::table::Table;
 use arrow::record_batch::RecordBatch;
+use std::thread::JoinHandle;
 
 struct TableScanExec {
 
@@ -173,6 +175,19 @@ impl ExecutionContext {
             }
             _ => unimplemented!()
         }
+    }
+
+    pub fn execute_physical_plan(&mut self, plan: Rc<ExecutionPlan>) -> Result<()> {
+
+        // execute each partition on a thread
+        let threads: Vec<JoinHandle<Result<Rc<ResultSet>>>> = plan.partitions()?.iter().map(|p| {
+            let p = p.clone();
+            thread::spawn(move || {
+                p.execute()
+            })
+        });
+
+        unimplemented!()
     }
 
     /// Register a CSV file as a table so that it can be queried from SQL

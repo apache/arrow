@@ -33,7 +33,7 @@ pub trait ExecutionPlan {
     fn partitions(&self) -> Result<Vec<Rc<Partition>>>;
 }
 
-pub trait Partition {
+pub trait Partition: Send {
     fn execute(&self) -> Result<Rc<ResultSet>>;
 }
 
