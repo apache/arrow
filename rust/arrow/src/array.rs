@@ -991,6 +991,11 @@ impl From<Vec<(Field, ArrayRef)>> for StructArray {
                 field_values[i].len(),
                 "all child arrays of a StructArray must have the same length"
             );
+            assert_eq!(
+                field_types[i].data_type(),
+                field_values[i].data().data_type(),
+                "the field data types must match the array data in a StructArray"
+            )
         }
 
         let data = ArrayData::builder(DataType::Struct(field_types))
@@ -1746,6 +1751,24 @@ mod tests {
         assert_eq!(4, struct_array.len());
         assert_eq!(0, struct_array.null_count());
         assert_eq!(0, struct_array.offset());
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "the field data types must match the array data in a StructArray"
+    )]
+    fn test_struct_array_from_mismatched_types() {
+        StructArray::from(vec![
+            (
+                Field::new("b", DataType::Int16, false),
+                Arc::new(BooleanArray::from(vec![false, false, true, true]))
+                    as Arc<Array>,
+            ),
+            (
+                Field::new("c", DataType::Utf8, false),
+                Arc::new(Int32Array::from(vec![42, 28, 19, 31])),
+            ),
+        ]);
     }
 
     #[test]
