@@ -906,3 +906,55 @@ def test_invalid_table_construct():
 
     with pytest.raises(pa.lib.ArrowInvalid):
         pa.Table.from_arrays(arrays, names=["a1", "a2"])
+
+
+def test_table_from_pydict():
+    table = pa.Table.from_pydict({})
+    assert table.num_columns == 0
+    assert table.num_rows == 0
+    assert table.schema == pa.schema([])
+    assert table.to_pydict() == {}
+
+    # With arrays as values
+    data = OrderedDict([('strs', pa.array([u'', u'foo', u'bar'])),
+                        ('floats', pa.array([4.5, 5, None]))])
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64())])
+    table = pa.Table.from_pydict(data)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.schema == schema
+
+    # With chunked arrays as values
+    data = OrderedDict([('strs', pa.chunked_array([[u''], [u'foo', u'bar']])),
+                        ('floats', pa.chunked_array([[4.5], [5, None]]))])
+    table = pa.Table.from_pydict(data)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.schema == schema
+
+    # With lists as values
+    data = OrderedDict([('strs', [u'', u'foo', u'bar']),
+                        ('floats', [4.5, 5, None])])
+    table = pa.Table.from_pydict(data)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.schema == schema
+    assert table.to_pydict() == data
+
+    # With metadata and inferred schema
+    metadata = {b'foo': b'bar'}
+    schema = schema.add_metadata(metadata)
+    table = pa.Table.from_pydict(data, metadata=metadata)
+    assert table.schema == schema
+    assert table.schema.metadata == metadata
+    assert table.to_pydict() == data
+
+    # With explicit schema
+    table = pa.Table.from_pydict(data, schema=schema)
+    assert table.schema == schema
+    assert table.schema.metadata == metadata
+    assert table.to_pydict() == data
+
+    # Cannot pass both schema and metadata
+    with pytest.raises(ValueError):
+        pa.Table.from_pydict(data, schema=schema, metadata=metadata)
