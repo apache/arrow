@@ -532,7 +532,15 @@ int PlasmaStore::RemoveFromClientObjectIds(const ObjectID& object_id,
 
 void PlasmaStore::EraseFromObjectTable(const ObjectID& object_id) {
   auto& object = store_info_.objects[object_id];
-  PlasmaAllocator::Free(object->pointer, object->data_size + object->metadata_size);
+  if (object->device_num == 0) {
+    PlasmaAllocator::Free(object->pointer, object->data_size + object->metadata_size);
+  } else {
+#ifdef PLASMA_CUDA
+    std::shared_ptr<CudaContext> context_;
+    manager_->GetContext(object->device_num - 1, &context_);
+    context_->Free(object->pointer, object->data_size + object->metadata_size);
+#endif
+  }
   store_info_.objects.erase(object_id);
 }
 
