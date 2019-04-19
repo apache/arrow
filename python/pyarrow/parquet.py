@@ -663,6 +663,23 @@ class ParquetPartitions(object):
     def __getitem__(self, i):
         return self.levels[i]
 
+    def equals(self, other):
+        if not isinstance(other, ParquetPartitions):
+            raise TypeError('`other` must be an instance of ParquetPartitions')
+
+        return (self.levels == other.levels and
+                self.partition_names == other.partition_names)
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def __ne__(self, other):
+        # required for python 2, cython implements it by default
+        return not (self == other)
+
     def get_index(self, level, name, key):
         """
         Record a partition value at a particular level, returning the distinct
@@ -867,6 +884,16 @@ def _path_split(path, sep):
 EXCLUDED_PARQUET_PATHS = {'_SUCCESS'}
 
 
+def _open_dataset_file(dataset, path, meta=None):
+    if dataset.fs is None or isinstance(dataset.fs, LocalFileSystem):
+        return ParquetFile(path, metadata=meta, memory_map=dataset.memory_map,
+                           common_metadata=dataset.common_metadata)
+    else:
+        return ParquetFile(dataset.fs.open(path, mode='rb'), metadata=meta,
+                           memory_map=dataset.memory_map,
+                           common_metadata=dataset.common_metadata)
+
+
 class ParquetDataset(object):
     """
     Encapsulates details of reading a complete Parquet dataset possibly
@@ -925,14 +952,13 @@ class ParquetDataset(object):
             self.paths = _parse_uri(path_or_paths)
 
         self.memory_map = memory_map
-        self._open_file_func = self._get_open_file_func()
 
         (self.pieces,
          self.partitions,
          self.common_metadata_path,
          self.metadata_path) = _make_manifest(
              path_or_paths, self.fs, metadata_nthreads=metadata_nthreads,
-             open_file_func=self._open_file_func)
+             open_file_func=partial(_open_dataset_file, self))
 
         if self.common_metadata_path is not None:
             with self.fs.open(self.common_metadata_path) as f:
@@ -960,6 +986,31 @@ class ParquetDataset(object):
         if filters is not None:
             filters = _check_filters(filters)
             self._filter(filters)
+
+    def equals(self, other):
+        if not isinstance(other, ParquetDataset):
+            raise TypeError('`other` must be an instance of ParquetDataset')
+
+        if self.fs.__class__ != other.fs.__class__:
+            return False
+        for prop in ('paths', 'memory_map', 'pieces', 'partitions',
+                     'common_metadata_path', 'metadata_path',
+                     'common_metadata', 'metadata', 'schema',
+                     'split_row_groups'):
+            if getattr(self, prop) != getattr(other, prop):
+                return False
+
+        return True
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def __ne__(self, other):
+        # required for python 2, cython implements it by default
+        return not (self == other)
 
     def validate_schemas(self):
         if self.metadata is None and self.schema is None:
@@ -1047,20 +1098,6 @@ class ParquetDataset(object):
 
         keyvalues = self.common_metadata.metadata
         return keyvalues.get(b'pandas', None)
-
-    def _get_open_file_func(self):
-        if self.fs is None or isinstance(self.fs, LocalFileSystem):
-            def open_file(path, meta=None):
-                return ParquetFile(path, metadata=meta,
-                                   memory_map=self.memory_map,
-                                   common_metadata=self.common_metadata)
-        else:
-            def open_file(path, meta=None):
-                return ParquetFile(self.fs.open(path, mode='rb'),
-                                   memory_map=self.memory_map,
-                                   metadata=meta,
-                                   common_metadata=self.common_metadata)
-        return open_file
 
     def _filter(self, filters):
         accepts_filter = self.partitions.filter_accepts_partition
