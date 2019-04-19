@@ -68,6 +68,7 @@ use crate::buffer::{Buffer, MutableBuffer};
 use crate::builder::*;
 use crate::datatypes::*;
 use crate::memory;
+use crate::record_batch::RecordBatch;
 use crate::util::bit_util;
 
 /// Number of seconds in a day
@@ -942,6 +943,19 @@ impl StructArray {
     /// Returns the field at `pos`.
     pub fn column(&self, pos: usize) -> &ArrayRef {
         &self.boxed_fields[pos]
+    }
+
+    /// Converts the StructArray into a `RecordBatch`
+    ///
+    /// This currently does not flatten any nested `StructArray`s
+    pub fn flatten(&self) -> RecordBatch {
+        if let DataType::Struct(fields) = self.data_type() {
+            let schema = Schema::new(fields.clone());
+            let arrays = self.boxed_fields.clone();
+            RecordBatch::try_new(Arc::new(schema), arrays).unwrap()
+        } else {
+            panic!("unable to get datatype as struct")
+        }
     }
 }
 
@@ -1855,6 +1869,42 @@ mod tests {
         assert_eq!(42, sliced_c1.value(0));
         assert!(sliced_c1.is_null(1));
         assert!(sliced_c1.is_null(2));
+    }
+
+    #[test]
+    fn test_struct_array_flatten() {
+        let boolean_data = ArrayData::builder(DataType::Boolean)
+            .len(4)
+            .add_buffer(Buffer::from([12_u8]))
+            .build();
+        let int_data = ArrayData::builder(DataType::Int32)
+            .len(4)
+            .add_buffer(Buffer::from([42, 28, 19, 31].to_byte_slice()))
+            .build();
+        let struct_array = StructArray::from(vec![
+            (
+                Field::new("b", DataType::Boolean, false),
+                Arc::new(BooleanArray::from(vec![false, false, true, true]))
+                    as Arc<Array>,
+            ),
+            (
+                Field::new("c", DataType::Int32, false),
+                Arc::new(Int32Array::from(vec![42, 28, 19, 31])),
+            ),
+        ]);
+        assert_eq!(boolean_data, struct_array.column(0).data());
+        assert_eq!(int_data, struct_array.column(1).data());
+        assert_eq!(4, struct_array.len());
+        assert_eq!(0, struct_array.null_count());
+        assert_eq!(0, struct_array.offset());
+
+        let batch = struct_array.flatten();
+        assert_eq!(2, batch.num_columns());
+        assert_eq!(4, batch.num_rows());
+        assert_eq!(
+            struct_array.data_type(),
+            &DataType::Struct(batch.schema().fields().to_vec())
+        );
     }
 
     #[test]
