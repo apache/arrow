@@ -130,6 +130,11 @@ public final class ArrowBuf implements AutoCloseable {
     }
   }
 
+  /**
+   * Get a wrapper buffer to comply with Netty interfaces and
+   * can be used in RPC/RPC allocator code.
+   * @return netty compliant {@link NettyArrowBuf}
+   */
   public NettyArrowBuf asNettyBuffer() {
     return new NettyArrowBuf((UnsafeDirectLittleEndian)referenceManager.getUnderlying(),
       this,
@@ -138,6 +143,10 @@ public final class ArrowBuf implements AutoCloseable {
       length);
   }
 
+  /**
+   * Get reference manager for this ArrowBuf.
+   * @return user provided implementation of {@link ReferenceManager}
+   */
   public ReferenceManager getReferenceManager() {
     return referenceManager;
   }
@@ -171,7 +180,8 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   public int readableBytes() {
-    Preconditions.checkState(writerIndex >= readerIndex, "Writer index cannot be less than reader index");
+    Preconditions.checkState(writerIndex >= readerIndex,
+            "Writer index cannot be less than reader index");
     return writerIndex - readerIndex;
   }
 
@@ -202,13 +212,11 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   public ByteBuffer nioBuffer() {
-    // TODO SIDD
-    return null;
+    return isEmpty ? ByteBuffer.allocateDirect(0) : asNettyBuffer().nioBuffer();
   }
 
   public ByteBuffer nioBuffer(int index, int length) {
-    // TODO SIDD
-    return null;
+    return isEmpty ? ByteBuffer.allocateDirect(0) : asNettyBuffer().nioBuffer(index, length);
   }
 
   public long memoryAddress() {
@@ -264,6 +272,8 @@ public final class ArrowBuf implements AutoCloseable {
     return addr + index;
   }
 
+
+
   /*-------------------------------------------------*
    | Following are a set of fast path data set and   |
    | get APIs to write/read data from ArrowBuf       |
@@ -272,6 +282,8 @@ public final class ArrowBuf implements AutoCloseable {
    | memory chunk).                                  |
    |                                                 |
    *-------------------------------------------------*/
+
+
 
   /**
    * Helper function to do bounds checking at a particular
@@ -289,9 +301,7 @@ public final class ArrowBuf implements AutoCloseable {
     // check reference count
     ensureAccessible();
     // check bounds
-    if (fieldLength < 0) {
-      throw new IllegalArgumentException("length: " + fieldLength + " (expected: >= 0)");
-    }
+    Preconditions.checkArgument(fieldLength >= 0, "expecting non-negative data length");
     if (index < 0 || index > capacity() - fieldLength) {
       if (BaseAllocator.DEBUG) {
         historicalLog.logHistory(logger);
@@ -301,83 +311,203 @@ public final class ArrowBuf implements AutoCloseable {
     }
   }
 
+  /**
+   * Get long value stored at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 8 byte long value
+   */
   public long getLong(int index) {
     chk(index, LONG_SIZE);
     return PlatformDependent.getLong(addr(index));
   }
 
+  /**
+   * Set long value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
   public void setLong(int index, long value) {
     chk(index, LONG_SIZE);
     PlatformDependent.putLong(addr(index), value);
   }
 
+  /**
+   * Get float value stored at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 4 byte float value
+   */
   public float getFloat(int index) {
     return Float.intBitsToFloat(getInt(index));
   }
 
+  /**
+   * Set float value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
   public void setFloat(int index, float value) {
     chk(index, FLOAT_SIZE);
     PlatformDependent.putInt(addr(index), Float.floatToRawIntBits(value));
   }
 
+  /**
+   * Get double value stored at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 8 byte double value
+   */
   public double getDouble(int index) {
     return Double.longBitsToDouble(getLong(index));
   }
 
+  /**
+   * Set double value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
   public void setDouble(int index, double value) {
     chk(index, DOUBLE_SIZE);
     PlatformDependent.putLong(addr(index), Double.doubleToRawLongBits(value));
   }
 
+  /**
+   * Get char value stored at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 2 byte char value
+   */
   public char getChar(int index) {
     return (char) getShort(index);
   }
 
+  /**
+   * Set char value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
   public void setChar(int index, int value) {
     chk(index, SHORT_SIZE);
     PlatformDependent.putShort(addr(index), (short) value);
   }
 
+  /**
+   * Get int value stored at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 4 byte int value
+   */
   public int getInt(int index) {
     chk(index, INT_SIZE);
     return PlatformDependent.getInt(addr(index));
   }
 
+  /**
+   * Set int value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
   public void setInt(int index, int value) {
     chk(index, INT_SIZE);
     PlatformDependent.putInt(addr(index), value);
   }
 
-  public void setShort(int index, int value) {
-    chk(index, SHORT_SIZE);
-    PlatformDependent.putShort(addr(index), (short) value);
-  }
-
+  /**
+   * Get short value stored at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 2 byte short value
+   */
   public short getShort(int index) {
-    chk(index, INT_SIZE);
+    chk(index, SHORT_SIZE);
     return PlatformDependent.getShort(addr(index));
   }
 
+  /**
+   * Set short value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
+  public void setShort(int index, int value) {
+    setShort(index, (short)value);
+  }
+
+  /**
+   * Set short value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
+  public void setShort(int index, short value) {
+    chk(index, SHORT_SIZE);
+    PlatformDependent.putShort(addr(index), value);
+  }
+
+  /**
+   * Set byte value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
   public void setByte(int index, int value) {
     chk(index, 1);
     PlatformDependent.putByte(addr(index), (byte) value);
   }
 
-  public void setByte(int index, byte b) {
+  /**
+   * Set byte value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
+  public void setByte(int index, byte value) {
     chk(index, 1);
-    PlatformDependent.putByte(addr(index), b);
+    PlatformDependent.putByte(addr(index), value);
   }
 
+  /**
+   * Get byte value stored at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return byte value
+   */
   public byte getByte(int index) {
     chk(index, 1);
     return PlatformDependent.getByte(addr(index));
   }
+
+
 
   /*--------------------------------------------------*
    | Following are another set of data set APIs       |
    | that directly work with writerIndex              |
    |                                                  |
    *--------------------------------------------------*/
+
+
 
   /**
    * Helper function to do bound checking w.r.t writerIndex
@@ -428,6 +558,10 @@ public final class ArrowBuf implements AutoCloseable {
     return b;
   }
 
+  /**
+   * Read dst.length bytes at readerIndex into dst byte array
+   * @param dst byte array where the data will be written
+   */
   public void readBytes(byte[] dst) {
     Preconditions.checkArgument(dst != null, "expecting valid dst bytearray");
     ensureReadable(dst.length);
@@ -516,12 +650,14 @@ public final class ArrowBuf implements AutoCloseable {
     writerIndex += DOUBLE_SIZE;
   }
 
+
   /*--------------------------------------------------*
    | Following are another set of data set/get APIs   |
    | that read and write stream of bytes from/to byte |
    | arrays, ByteBuffer etc                           |
    |                                                  |
    *--------------------------------------------------*/
+
 
   private void checkIndex(int index, int fieldLength) {
     // check reference count

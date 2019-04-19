@@ -740,7 +740,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
           target.validityBuffer.getReferenceManager().release();
         }
         target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
-        target.validityBuffer.getReferenceManager().release();
+        target.validityBuffer.getReferenceManager().retain();
       } else {
         /* Copy data
          * When the first bit starts from the middle of a byte (offset != 0),

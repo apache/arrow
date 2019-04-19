@@ -17,6 +17,8 @@
 
 package org.apache.arrow.memory;
 
+import org.apache.arrow.util.Preconditions;
+
 import io.netty.buffer.ArrowBuf;
 import io.netty.buffer.ByteBuf;
 
@@ -36,7 +38,7 @@ public interface ReferenceManager {
    * Decrement this reference manager's reference count by 1 for the associated underlying
    * memory. If the reference count drops to 0, it implies that ArrowBufs managed by this
    * reference manager no longer need access to the underlying memory
-   * @return the new reference count
+   * @return true if ref count has dropped to 0, false otherwise
    */
   boolean release();
 
@@ -121,24 +123,26 @@ public interface ReferenceManager {
    * Get the total accounted size (in bytes).
    * @return accounted size.
    */
-  int getAccountedSize(); // TODO SIDD: figure out what to do with this
+  int getAccountedSize();
 
   ArrowByteBufAllocator getByteBufAllocator();
+
+  public static String NO_OP_ERROR_MESSAGE = "Operation not supported on NO_OP Reference Manager";
 
   ReferenceManager NO_OP = new ReferenceManager() {
     @Override
     public int getRefCount() {
-      throw new UnsupportedOperationException("Operation not supported");
+      return 1;
     }
 
     @Override
     public boolean release() {
-      throw new UnsupportedOperationException("Operation not supported");
+      return false;
     }
 
     @Override
     public boolean release(int decrement) {
-      throw new UnsupportedOperationException("Operation not supported");
+      return false;
     }
 
     @Override
@@ -149,47 +153,49 @@ public interface ReferenceManager {
 
     @Override
     public ArrowBuf retain(ArrowBuf srcBuffer, BufferAllocator targetAllocator) {
-      throw new UnsupportedOperationException("Operation not supported");
+      Preconditions.checkArgument(srcBuffer.isEmpty(), "Illegal use of Reference Manager");
+      return srcBuffer;
     }
 
     @Override
     public ArrowBuf deriveBuffer(ArrowBuf sourceBuffer, int index, int length) {
-      throw new UnsupportedOperationException("Operation not supported");
+      Preconditions.checkArgument(sourceBuffer.isEmpty(), "Illegal use of Reference Manager");
+      return sourceBuffer;
     }
 
     @Override
     public OwnershipTransferResult transferOwnership(ArrowBuf sourceBuffer, BufferAllocator targetAllocator) {
-      throw new UnsupportedOperationException("Operation not supported");
+      throw new UnsupportedOperationException(NO_OP_ERROR_MESSAGE);
     }
 
     @Override
     public BufferAllocator getAllocator() {
-      throw new UnsupportedOperationException("Operation not supported");
+      throw new UnsupportedOperationException(NO_OP_ERROR_MESSAGE);
     }
 
     @Override
     public int getOffsetForBuffer(ArrowBuf buffer) {
-      throw new UnsupportedOperationException("Operation not supported");
+      throw new UnsupportedOperationException(NO_OP_ERROR_MESSAGE);
     }
 
     @Override
     public ByteBuf getUnderlying() {
-      throw new UnsupportedOperationException("Operation not supported");
+      throw new UnsupportedOperationException(NO_OP_ERROR_MESSAGE);
     }
 
     @Override
     public int getSize() {
-      throw new UnsupportedOperationException("Operation not supported");
+      return 0;
     }
 
     @Override
     public int getAccountedSize() {
-      throw new UnsupportedOperationException("Operation not supported");
+      return 0;
     }
 
     @Override
     public ArrowByteBufAllocator getByteBufAllocator() {
-      throw new UnsupportedOperationException("Operation not supported");
+      throw new UnsupportedOperationException(NO_OP_ERROR_MESSAGE);
     }
   };
 }

@@ -32,6 +32,9 @@ import org.apache.arrow.util.Preconditions;
 
 import io.netty.util.internal.PlatformDependent;
 
+/**
+ * Netty specific wrapper over ArrowBuf for use in Netty framework.
+ */
 public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   private final UnsafeDirectLittleEndian udle;
@@ -187,19 +190,44 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
   }
 
   @Override
+  public int readerIndex() {
+    return arrowBuf.readerIndex();
+  }
+
+  @Override
+  public int writerIndex() {
+    return arrowBuf.writerIndex();
+  }
+
+  @Override
+  public int readableBytes() {
+    return arrowBuf.readableBytes();
+  }
+
+  @Override
+  public int writableBytes() {
+    return arrowBuf.writableBytes();
+  }
+
+  @Override
+  public ByteBuffer nioBuffer() {
+    return nioBuffer(readerIndex(), readableBytes());
+  }
+
+  @Override
   public ByteBuffer nioBuffer(int index, int length) {
     return udle.nioBuffer(offset + index, length);
   }
 
   @Override
   public ByteBuf getBytes(int index, ByteBuffer dst) {
-    udle.getBytes(index + offset, dst);
+    udle.getBytes(offset + index, dst);
     return this;
   }
 
   @Override
   public ByteBuf setBytes(int index, ByteBuffer src) {
-    udle.setBytes(index + offset, src);
+    udle.setBytes(offset + index, src);
     return this;
   }
 
@@ -245,7 +273,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   public int setBytes(int index, ScatteringByteChannel in, int length) throws IOException {
-    return udle.setBytes(index + offset, in, length);
+    return udle.setBytes(offset + index, in, length);
   }
 
   @Override
@@ -255,7 +283,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   public int setBytes(int index, FileChannel in, long position, int length) throws IOException {
-    return udle.setBytes(index + offset, in, position, length);
+    return udle.setBytes(offset + index, in, position, length);
   }
 
   @Override
@@ -268,64 +296,6 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
     return this;
   }
 
-  private long addr(int index) {
-    return address + index;
-  }
-
-  private void chk(int index, int width) {
-    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
-      checkIndexD(index, width);
-    }
-  }
-
-  private void checkIndexD(int index, int fieldLength) {
-    ensureAccessible();
-    if (fieldLength < 0) {
-      throw new IllegalArgumentException("length: " + fieldLength + " (expected: >= 0)");
-    }
-    if (index < 0 || index > capacity() - fieldLength) {
-      throw new IndexOutOfBoundsException(String.format(
-        "index: %d, length: %d (expected: range(0, %d))", index, fieldLength, capacity()));
-    }
-  }
-
-  @Override
-  public ByteBuf setLongLE(int index, long value) {
-    chk(index, 8);
-    PlatformDependent.putLong(addr(index), Long.reverseBytes(value));
-    return this;
-  }
-
-  @Override
-  public void _setLongLE(int index, long value) {
-    setLongLE(index, value);
-  }
-
-  @Override
-  protected byte _getByte(int index) {
-    return arrowBuf.getByte(index);
-  }
-
-  @Override
-  protected short _getShort(int index) {
-    return arrowBuf.getShort(index);
-  }
-
-  @Override
-  protected short _getShortLE(int index) {
-    return getShortLE(index);
-  }
-
-  @Override
-  protected int _getInt(int index) {
-    return arrowBuf.getInt(index);
-  }
-
-  @Override
-  protected int _getIntLE(int index) {
-    return getIntLE(index);
-  }
-
   @Override
   protected int _getUnsignedMedium(int index) {
     return getUnsignedMedium(index);
@@ -336,19 +306,91 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
     return getUnsignedMediumLE(index);
   }
 
+
+  /*-------------------------------------------------*
+   |                                                 |
+   |            get() APIs                           |
+   |                                                 |
+   *-------------------------------------------------*/
+
+
+  @Override
+  protected byte _getByte(int index) {
+    return getByte(index);
+  }
+
+  @Override
+  public byte getByte(int index) {
+    return arrowBuf.getByte(index);
+  }
+
+  @Override
+  protected short _getShortLE(int index) {
+    return getShort(index);
+  }
+
+  @Override
+  protected short _getShort(int index) {
+    return getShort(index);
+  }
+
+  @Override
+  public short getShort(int index) {
+    return arrowBuf.getShort(index);
+  }
+
+  @Override
+  protected int _getIntLE(int index) {
+    return getInt(index);
+  }
+
+  @Override
+  protected int _getInt(int index) {
+    return getInt(index);
+  }
+
+  @Override
+  public int getInt(int index) {
+    return arrowBuf.getInt(index);
+  }
+
+  @Override
+  protected long _getLongLE(int index) {
+    return getLong(index);
+  }
+
   @Override
   protected long _getLong(int index) {
     return getLong(index);
   }
 
   @Override
-  protected long _getLongLE(int index) {
-    return getLongLE(index);
+  public long getLong(int index) {
+    return arrowBuf.getLong(index);
   }
+
+
+  /*-------------------------------------------------*
+   |                                                 |
+   |            set() APIs                           |
+   |                                                 |
+   *-------------------------------------------------*/
+
 
   @Override
   protected void _setByte(int index, int value) {
     setByte(index, value);
+  }
+
+  @Override
+  public NettyArrowBuf setByte(int index, int value) {
+    arrowBuf.setByte(index, value);
+    return this;
+  }
+
+  @Override
+  protected void _setShortLE(int index, int value) {
+    setShort(index, value);
   }
 
   @Override
@@ -357,8 +399,34 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
   }
 
   @Override
-  protected void _setShortLE(int index, int value) {
-    setShortLE(index, value);
+  public NettyArrowBuf setShort(int index, int value) {
+    arrowBuf.setShort(index, value);
+    return this;
+  }
+
+  private long addr(int index) {
+    return address + index;
+  }
+
+  /**
+   * Helper function to do bounds checking at a particular
+   * index for particular length of data.
+   * @param index index (0 based relative to this ArrowBuf)
+   * @param fieldLength provided length of data for get/set
+   */
+  private void chk(int index, int fieldLength) {
+    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
+      // check reference count
+      ensureAccessible();
+      // check bounds
+      if (fieldLength < 0) {
+        throw new IllegalArgumentException("length: " + fieldLength + " (expected: >= 0)");
+      }
+      if (index < 0 || index > capacity() - fieldLength) {
+        throw new IndexOutOfBoundsException(String.format(
+                "index: %d, length: %d (expected: range(0, %d))", index, fieldLength, capacity()));
+      }
+    }
   }
 
   @Override
@@ -368,7 +436,28 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   protected void _setMediumLE(int index, int value) {
-    setMediumLE(index, value);
+    setMedium(index, value);
+  }
+
+  @Override
+  public NettyArrowBuf setMedium(int index, int value) {
+    chk(index, 3);
+    final long addr = addr(index);
+    // we need to store 3 bytes starting from least significant byte
+    // and ignoring the most significant byte
+    // since arrow memory format is little endian, we will
+    // first store the first 2 bytes followed by third byte
+    // example: if the 4 byte int value is ABCD where A is MSB
+    // D is LSB then we effectively want to store DCB in increasing
+    // address to get Little Endian byte order
+    // (short)value will give us CD and PlatformDependent.putShort()
+    // will store them in LE order as DC starting at address addr
+    // in order to get B, we do ABCD >>> 16 = 00AB => (byte)AB which
+    // gives B. We store this at address addr + 2. So finally we get
+    // DCB
+    PlatformDependent.putShort(addr, (short) value);
+    PlatformDependent.putByte(addr + 2, (byte) (value >>> 16));
+    return this;
   }
 
   @Override
@@ -378,11 +467,28 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   protected void _setIntLE(int index, int value) {
-    setIntLE(index, value);
+    setInt(index, value);
+  }
+
+  @Override
+  public NettyArrowBuf setInt(int index, int value) {
+    arrowBuf.setInt(index, value);
+    return this;
   }
 
   @Override
   protected void _setLong(int index, long value) {
     setLong(index, value);
+  }
+
+  @Override
+  public void _setLongLE(int index, long value) {
+    setLong(index, value);
+  }
+
+  @Override
+  public NettyArrowBuf setLong(int index, long value) {
+    arrowBuf.setLong(index, value);
+    return this;
   }
 }
