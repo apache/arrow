@@ -1758,15 +1758,7 @@ mod tests {
         expected = "the field data types must match the array data in a StructArray"
     )]
     fn test_struct_array_from_mismatched_types() {
-        let boolean_data = ArrayData::builder(DataType::Boolean)
-            .len(4)
-            .add_buffer(Buffer::from([12_u8]))
-            .build();
-        let int_data = ArrayData::builder(DataType::Int32)
-            .len(4)
-            .add_buffer(Buffer::from([42, 28, 19, 31].to_byte_slice()))
-            .build();
-        let struct_array = StructArray::from(vec![
+        StructArray::from(vec![
             (
                 Field::new("b", DataType::Int16, false),
                 Arc::new(BooleanArray::from(vec![false, false, true, true]))
@@ -1777,11 +1769,6 @@ mod tests {
                 Arc::new(Int32Array::from(vec![42, 28, 19, 31])),
             ),
         ]);
-        assert_eq!(boolean_data, struct_array.column(0).data());
-        assert_eq!(int_data, struct_array.column(1).data());
-        assert_eq!(4, struct_array.len());
-        assert_eq!(0, struct_array.null_count());
-        assert_eq!(0, struct_array.offset());
     }
 
     #[test]
