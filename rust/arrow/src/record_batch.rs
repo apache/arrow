@@ -95,6 +95,24 @@ impl RecordBatch {
     }
 }
 
+impl From<&StructArray> for RecordBatch {
+    /// Create a record batch from struct array.
+    ///
+    /// This currently does not flatten and nested struct types
+    fn from(struct_array: &StructArray) -> Self {
+        if let DataType::Struct(fields) = struct_array.data_type() {
+            let schema = Schema::new(fields.clone());
+            let columns = struct_array.boxed_fields.clone();
+            RecordBatch {
+                schema: Arc::new(schema),
+                columns,
+            }
+        } else {
+            unreachable!("unable to get datatype as struct")
+        }
+    }
+}
+
 unsafe impl Send for RecordBatch {}
 unsafe impl Sync for RecordBatch {}
 
@@ -160,5 +178,38 @@ mod tests {
         let batch =
             RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)]);
         assert!(!batch.is_ok());
+    }
+
+    #[test]
+    fn create_record_batch_from_struct_array() {
+        let boolean_data = ArrayData::builder(DataType::Boolean)
+            .len(4)
+            .add_buffer(Buffer::from([12_u8]))
+            .build();
+        let int_data = ArrayData::builder(DataType::Int32)
+            .len(4)
+            .add_buffer(Buffer::from([42, 28, 19, 31].to_byte_slice()))
+            .build();
+        let struct_array = StructArray::from(vec![
+            (
+                Field::new("b", DataType::Boolean, false),
+                Arc::new(BooleanArray::from(vec![false, false, true, true]))
+                    as Arc<Array>,
+            ),
+            (
+                Field::new("c", DataType::Int32, false),
+                Arc::new(Int32Array::from(vec![42, 28, 19, 31])),
+            ),
+        ]);
+
+        let batch = RecordBatch::from(&struct_array);
+        assert_eq!(2, batch.num_columns());
+        assert_eq!(4, batch.num_rows());
+        assert_eq!(
+            struct_array.data_type(),
+            &DataType::Struct(batch.schema().fields().to_vec())
+        );
+        assert_eq!(batch.column(0).data(), boolean_data);
+        assert_eq!(batch.column(1).data(), int_data);
     }
 }
