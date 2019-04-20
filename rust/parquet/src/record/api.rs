@@ -1175,10 +1175,7 @@ mod tests {
         assert_eq!("12.1", format!("{}", row.fmt(11)));
         assert_eq!("\"abc\"", format!("{}", row.fmt(12)));
         assert_eq!("[1, 2, 3, 4, 5]", format!("{}", row.fmt(13)));
-        assert_eq!(
-            convert_date_to_string(14611),
-            format!("{}", row.fmt(14))
-        );
+        assert_eq!(convert_date_to_string(14611), format!("{}", row.fmt(14)));
         assert_eq!(
             convert_timestamp_to_string(1262391174000),
             format!("{}", row.fmt(15))
@@ -1218,10 +1215,7 @@ mod tests {
 
         assert_eq!("{x: null, Y: 2}", format!("{}", row.fmt(0)));
         assert_eq!("[2, 1, null, 12]", format!("{}", row.fmt(1)));
-        assert_eq!(
-            "{1 -> 1.2, 2 -> 4.5, 3 -> 2.3}",
-            format!("{}", row.fmt(2))
-        );
+        assert_eq!("{1 -> 1.2, 2 -> 4.5, 3 -> 2.3}", format!("{}", row.fmt(2)));
     }
 
     #[test]
