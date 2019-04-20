@@ -645,6 +645,34 @@ impl StructBuilder {
             DataType::Float32 => Box::new(Float32Builder::new(capacity)),
             DataType::Float64 => Box::new(Float64Builder::new(capacity)),
             DataType::Utf8 => Box::new(BinaryBuilder::new(capacity)),
+            DataType::Date32(DateUnit::Day) => Box::new(Date32Builder::new(capacity)),
+            DataType::Date64(DateUnit::Millisecond) => {
+                Box::new(Date64Builder::new(capacity))
+            }
+            DataType::Time32(TimeUnit::Second) => {
+                Box::new(Time32SecondBuilder::new(capacity))
+            }
+            DataType::Time32(TimeUnit::Millisecond) => {
+                Box::new(Time32MillisecondBuilder::new(capacity))
+            }
+            DataType::Time64(TimeUnit::Microsecond) => {
+                Box::new(Time64MicrosecondBuilder::new(capacity))
+            }
+            DataType::Time64(TimeUnit::Nanosecond) => {
+                Box::new(Time64NanosecondBuilder::new(capacity))
+            }
+            DataType::Timestamp(TimeUnit::Second) => {
+                Box::new(TimestampSecondBuilder::new(capacity))
+            }
+            DataType::Timestamp(TimeUnit::Millisecond) => {
+                Box::new(TimestampMillisecondBuilder::new(capacity))
+            }
+            DataType::Timestamp(TimeUnit::Microsecond) => {
+                Box::new(TimestampMicrosecondBuilder::new(capacity))
+            }
+            DataType::Timestamp(TimeUnit::Nanosecond) => {
+                Box::new(TimestampNanosecondBuilder::new(capacity))
+            }
             DataType::Struct(fields) => {
                 let schema = Schema::new(fields.clone());
                 Box::new(Self::from_schema(schema, capacity))

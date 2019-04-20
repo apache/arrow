@@ -146,6 +146,34 @@ pub(crate) fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::UInt64 => Arc::new(UInt64Array::from(data)) as ArrayRef,
         DataType::Float32 => Arc::new(Float32Array::from(data)) as ArrayRef,
         DataType::Float64 => Arc::new(Float64Array::from(data)) as ArrayRef,
+        DataType::Date32(DateUnit::Day) => Arc::new(Date32Array::from(data)) as ArrayRef,
+        DataType::Date64(DateUnit::Millisecond) => {
+            Arc::new(Date64Array::from(data)) as ArrayRef
+        }
+        DataType::Time32(TimeUnit::Second) => {
+            Arc::new(Time32SecondArray::from(data)) as ArrayRef
+        }
+        DataType::Time32(TimeUnit::Millisecond) => {
+            Arc::new(Time32MillisecondArray::from(data)) as ArrayRef
+        }
+        DataType::Time64(TimeUnit::Microsecond) => {
+            Arc::new(Time64MicrosecondArray::from(data)) as ArrayRef
+        }
+        DataType::Time64(TimeUnit::Nanosecond) => {
+            Arc::new(Time64NanosecondArray::from(data)) as ArrayRef
+        }
+        DataType::Timestamp(TimeUnit::Second) => {
+            Arc::new(TimestampSecondArray::from(data)) as ArrayRef
+        }
+        DataType::Timestamp(TimeUnit::Millisecond) => {
+            Arc::new(TimestampMillisecondArray::from(data)) as ArrayRef
+        }
+        DataType::Timestamp(TimeUnit::Microsecond) => {
+            Arc::new(TimestampMicrosecondArray::from(data)) as ArrayRef
+        }
+        DataType::Timestamp(TimeUnit::Nanosecond) => {
+            Arc::new(TimestampNanosecondArray::from(data)) as ArrayRef
+        }
         DataType::Utf8 => Arc::new(BinaryArray::from(data)) as ArrayRef,
         DataType::List(_) => Arc::new(ListArray::from(data)) as ArrayRef,
         DataType::Struct(_) => Arc::new(StructArray::from(data)) as ArrayRef,
@@ -935,7 +963,7 @@ impl Array for BinaryArray {
 /// array.
 pub struct StructArray {
     data: ArrayDataRef,
-    boxed_fields: Vec<ArrayRef>,
+    pub(crate) boxed_fields: Vec<ArrayRef>,
 }
 
 impl StructArray {
