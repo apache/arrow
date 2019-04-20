@@ -21,4 +21,4 @@ mod api;
 pub mod reader;
 mod triplet;
 
-pub use self::api::{List, ListAccessor, Map, MapAccessor, Row, RowAccessor};
+pub use self::api::{List, ListAccessor, Map, MapAccessor, Row, RowAccessor, RowFormatter};
