@@ -153,6 +153,10 @@ class ParquetFile(object):
         return self.reader.metadata
 
     @property
+    def metadata_last(self):
+        return self.reader.metadata_last
+
+    @property
     def schema(self):
         return self.metadata.schema
 
@@ -1299,7 +1303,7 @@ def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
     _mkdir_if_not_exists(fs, root_path)
 
     if write_metadata:
-        md_path = os.path.join(root_path, '_metadata.parquet')
+        md_path = root_path + '_metadata.parquet'
         md_f = fs.open(md_path, 'wb')
     else:
         md_f = None
@@ -1374,7 +1378,7 @@ def write_metadata(schema, where, version='1.0',
 
 def read_metadata(where, memory_map=False):
     """
-    Read FileMetadata from footer of a single Parquet file
+    Read FileMetaData from footer of a single Parquet file
 
     Parameters
     ----------
@@ -1384,9 +1388,30 @@ def read_metadata(where, memory_map=False):
 
     Returns
     -------
-    metadata : FileMetadata
+    metadata : FileMetaData
     """
     return ParquetFile(where, memory_map=memory_map).metadata
+
+
+def read_metadata_list(where, memory_map=False):
+    """Return a list of dataset file metadata instances.
+
+    Parameters
+    ----------
+    where : string (filepath) or file-like object
+        The source is assumed to contain file metadata instances
+        written by `write_to_dataset(..., write_metadata=True)` call.
+    memory_map : boolean, default False
+        Create memory map when the source is a file path
+
+    Returns
+    -------
+    metadatas : list
+        List of FileMetaData instances.
+    """
+    reader = ParquetReader()
+    reader.open(where, use_memory_map=memory_map)
+    return list(reader.iter_metadata)[::-1]
 
 
 def read_schema(where, memory_map=False):

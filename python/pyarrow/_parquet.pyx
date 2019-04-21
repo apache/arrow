@@ -687,6 +687,23 @@ cdef class ParquetReader:
         return result
 
     @property
+    def iter_metadata(self):
+        cdef:
+            shared_ptr[CFileMetaData] metadata
+            FileMetaData result
+
+        while 1:
+            with nogil:
+                metadata = self.reader.get().metadata_last()
+
+            if metadata:
+                result = FileMetaData()
+                result.init(metadata)
+                yield result
+            else:
+                break
+
+    @property
     def num_row_groups(self):
         return self.reader.get().num_row_groups()
 

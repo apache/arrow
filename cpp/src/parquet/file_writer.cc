@@ -263,8 +263,27 @@ class FileSerializer : public ParquetFileWriter::Contents {
       auto metadata = metadata_->Finish();
       WriteFileMetaData(*metadata, sink_.get());
 
-      if (md_sink_) metadata->WriteTo(md_sink_.get());
-
+      if (md_sink_ != nullptr) {
+        // metadata sink will contain many metadata blocks, each starts
+        // and ends with magic bytes:
+        //
+        //   <4-byte magic>
+        //   <FileMetaData data>
+        //   <4-byte size of FileMetaData>
+        //   <4-byte magic>
+        //   <next 4-byte magic>
+        //   <next FileMetaData data>
+        //   ...
+        //   <last 4-byte magic>
+        //
+        // Information for a reader: since the size of FileMetaData
+        // block is determined at the end of metadata block, the
+        // locations of metadata blocks can be determined starting
+        // from the last one. Also, the reader is responsible for
+        // opening and closing the metadata sink.
+        md_sink_->Write(PARQUET_MAGIC, 4);
+        WriteFileMetaData(*metadata, md_sink_.get());
+      }
       sink_->Close();
     }
   }
@@ -363,12 +382,12 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
     const std::shared_ptr<GroupNode>& schema,
     const std::shared_ptr<WriterProperties>& properties,
     const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
-  if (md_sink)
-    return Open(std::make_shared<ArrowOutputStream>(sink),
-                std::make_shared<ArrowOutputStream>(md_sink), schema, properties,
+  if (md_sink == nullptr)
+    return Open(std::make_shared<ArrowOutputStream>(sink), schema, properties,
                 key_value_metadata);
   else
-    return Open(std::make_shared<ArrowOutputStream>(sink), schema, properties,
+    return Open(std::make_shared<ArrowOutputStream>(sink),
+                std::make_shared<ArrowOutputStream>(md_sink), schema, properties,
                 key_value_metadata);
 }
 

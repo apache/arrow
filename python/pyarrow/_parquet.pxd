@@ -292,6 +292,8 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
 
         void set_use_threads(c_bool use_threads)
 
+        shared_ptr[CFileMetaData] metadata_last()
+
 
 cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
     CStatus FromParquetSchema(

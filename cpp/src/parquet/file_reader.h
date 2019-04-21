@@ -82,6 +82,7 @@ class PARQUET_EXPORT ParquetFileReader {
     virtual void Close() = 0;
     virtual std::shared_ptr<RowGroupReader> GetRowGroup(int i) = 0;
     virtual std::shared_ptr<FileMetaData> metadata() const = 0;
+    virtual std::shared_ptr<FileMetaData> metadata_last() = 0;
   };
 
   ParquetFileReader();
@@ -119,6 +120,9 @@ class PARQUET_EXPORT ParquetFileReader {
 
   // Returns the file metadata. Only one instance is ever created
   std::shared_ptr<FileMetaData> metadata() const;
+
+  // Returns the last file metadata of a dataset metadata file.
+  std::shared_ptr<FileMetaData> metadata_last();
 
  private:
   // Holds a pointer to an instance of Contents implementation

@@ -1156,11 +1156,11 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
                         const std::shared_ptr<WriterProperties>& properties,
                         std::unique_ptr<FileWriter>* writer) {
   auto wrapper = std::make_shared<ArrowOutputStream>(sink);
-  if (md_sink) {
+  if (md_sink == nullptr) {
+    return Open(schema, pool, wrapper, properties, writer);
+  } else {
     auto md_wrapper = std::make_shared<ArrowOutputStream>(md_sink);
     return Open(schema, pool, wrapper, md_wrapper, properties, writer);
-  } else {
-    return Open(schema, pool, wrapper, properties, writer);
   }
 }
 
@@ -1180,11 +1180,11 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
                         std::unique_ptr<FileWriter>* writer) {
   auto wrapper = std::make_shared<ArrowOutputStream>(sink);
-  if (md_sink) {
+  if (md_sink == nullptr) {
+    return Open(schema, pool, wrapper, properties, arrow_properties, writer);
+  } else {
     auto md_wrapper = std::make_shared<ArrowOutputStream>(md_sink);
     return Open(schema, pool, wrapper, md_wrapper, properties, arrow_properties, writer);
-  } else {
-    return Open(schema, pool, wrapper, properties, arrow_properties, writer);
   }
 }
 

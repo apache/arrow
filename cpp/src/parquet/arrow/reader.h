@@ -234,6 +234,7 @@ class PARQUET_EXPORT FileReader {
   int num_row_groups() const;
 
   const ParquetFileReader* parquet_reader() const;
+  std::shared_ptr<FileMetaData> metadata_last();
 
   /// Set the number of threads to use during reads of multiple columns. By
   /// default only 1 thread is used

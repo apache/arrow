@@ -135,7 +135,7 @@ class SerializedFile : public ParquetFileReader::Contents {
  public:
   SerializedFile(std::unique_ptr<RandomAccessSource> source,
                  const ReaderProperties& props = default_reader_properties())
-      : source_(std::move(source)), properties_(props) {}
+    : source_(std::move(source)), properties_(props), next_metadata_pos_(-1) {}
 
   ~SerializedFile() override {
     try {
@@ -159,8 +159,10 @@ class SerializedFile : public ParquetFileReader::Contents {
   }
 
   void ParseMetaData() {
-    int64_t file_size = source_->Size();
+    parse_metadata(source_->Size());
+  }
 
+  int64_t parse_metadata(int64_t file_size) {
     if (file_size < FOOTER_SIZE) {
       throw ParquetException("Corrupted file, smaller than file footer");
     }
@@ -202,12 +204,35 @@ class SerializedFile : public ParquetFileReader::Contents {
     }
 
     file_metadata_ = FileMetaData::Make(metadata_buffer->data(), &metadata_len);
+
+    // 12 bytes is 2 x 4-byte magic + 4-byte metadata-size:
+    int64_t next_metadata_pos = file_size - (metadata_len + 12);
+    // Check if the footer contains more metadata and return its position:
+    if (next_metadata_pos >= 4) {
+      bytes_read = source_->ReadAt(next_metadata_pos - 4, 4, footer_buffer);
+      if (!(bytes_read != 4 || memcmp(footer_buffer, PARQUET_MAGIC, 4) != 0)) {
+        return next_metadata_pos;
+      }
+    }
+    return 0; // no more metadata
+  }
+
+  std::shared_ptr<FileMetaData> metadata_last() override {
+    if (next_metadata_pos_ == -1)
+      next_metadata_pos_ = source_->Size();
+    if (next_metadata_pos_ > 0) {
+      next_metadata_pos_ = parse_metadata(next_metadata_pos_);
+    } else {
+      file_metadata_.reset();
+    }
+    return file_metadata_;
   }
 
  private:
   std::unique_ptr<RandomAccessSource> source_;
   std::shared_ptr<FileMetaData> file_metadata_;
   ReaderProperties properties_;
+  int64_t next_metadata_pos_;
 };
 
 // ----------------------------------------------------------------------
@@ -239,7 +264,6 @@ std::unique_ptr<ParquetFileReader::Contents> ParquetFileReader::Contents::Open(
   } else {
     file->set_metadata(metadata);
   }
-
   return result;
 }
 
@@ -286,6 +310,10 @@ void ParquetFileReader::Close() {
   if (contents_) {
     contents_->Close();
   }
+}
+
+std::shared_ptr<FileMetaData> ParquetFileReader::metadata_last() {
+  return contents_->metadata_last();
 }
 
 std::shared_ptr<FileMetaData> ParquetFileReader::metadata() const {

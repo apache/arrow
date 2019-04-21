@@ -296,6 +296,8 @@ class FileReader::Impl {
       const ::arrow::Schema& old_schema, const std::vector<int>& dict_indices,
       std::vector<std::shared_ptr<::arrow::Column>>& columns);
 
+  std::shared_ptr<FileMetaData> metadata_last() { return reader_.get()->metadata_last(); }
+
  private:
   MemoryPool* pool_;
   std::unique_ptr<ParquetFileReader> reader_;
@@ -377,6 +379,10 @@ FileReader::FileReader(MemoryPool* pool, std::unique_ptr<ParquetFileReader> read
     : impl_(new FileReader::Impl(pool, std::move(reader), properties)) {}
 
 FileReader::~FileReader() {}
+
+std::shared_ptr<FileMetaData> FileReader::metadata_last() {
+  return impl_.get()->metadata_last();
+}
 
 Status FileReader::Impl::GetColumn(int i, FileColumnIteratorFactory iterator_factory,
                                    std::unique_ptr<ColumnReader>* out) {
