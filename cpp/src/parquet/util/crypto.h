@@ -57,8 +57,8 @@ int Decrypt(std::shared_ptr<EncryptionProperties> encryption_props, bool metadat
             const uint8_t* ciphertext, int ciphertext_len, uint8_t* plaintext);
 
 std::string createModuleAAD(const std::string& fileAAD, int8_t module_type,
-			    int16_t row_group_ordinal, int16_t column_ordinal,
-			    int16_t page_ordinal);
+                            int16_t row_group_ordinal, int16_t column_ordinal,
+                            int16_t page_ordinal);
 
 std::string createFooterAAD(const std::string& aad_prefix_bytes);
 

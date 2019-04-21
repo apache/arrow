@@ -429,12 +429,13 @@ int Decrypt(std::shared_ptr<EncryptionProperties> encryption_props, bool metadat
 }
 
 std::string createModuleAAD(const std::string& fileAAD, int8_t module_type,
-			    int16_t row_group_ordinal, int16_t column_ordinal,
-			    int16_t page_ordinal) {
-  
+                            int16_t row_group_ordinal, int16_t column_ordinal,
+                            int16_t page_ordinal) {
   int8_t type_ordinal_bytes[1];
+
   type_ordinal_bytes[0] = module_type;
-  std::string type_ordinal_bytes_str(reinterpret_cast<char const*>(type_ordinal_bytes), 1) ;
+  std::string type_ordinal_bytes_str(reinterpret_cast<char const*>
+                                     (type_ordinal_bytes), 1) ;
   if (Footer == module_type) {
     std::string result = fileAAD + type_ordinal_bytes_str;
     return result;
@@ -442,25 +443,31 @@ std::string createModuleAAD(const std::string& fileAAD, int8_t module_type,
   std::string row_group_ordinal_bytes = shortToBytesLE(row_group_ordinal);
   std::string column_ordinal_bytes = shortToBytesLE(column_ordinal);
   if (DataPage != module_type && DataPageHeader != module_type) {
-    std::string result =  fileAAD + type_ordinal_bytes_str + row_group_ordinal_bytes
+    std::string result =  fileAAD + type_ordinal_bytes_str
+      + row_group_ordinal_bytes
       + column_ordinal_bytes;
     return result;
   }
   std::string page_ordinal_bytes = shortToBytesLE(page_ordinal);
-  std::string result = fileAAD + type_ordinal_bytes_str + row_group_ordinal_bytes
+  std::string result = fileAAD + type_ordinal_bytes_str +
+    row_group_ordinal_bytes
     + column_ordinal_bytes + page_ordinal_bytes;;
   return result;
 }
-  
+
 std::string createFooterAAD(const std::string& aad_prefix_bytes) {
-  return createModuleAAD(aad_prefix_bytes, Footer, (int16_t) -1, (int16_t) -1, (int16_t) -1);
+  return createModuleAAD(aad_prefix_bytes, Footer, (int16_t) -1,
+                         (int16_t) -1, (int16_t) -1);
 }
-  
-// Update last two bytes with new page ordinal (instead of creating new page AAD from scratch)
+
+// Update last two bytes with new page ordinal (instead of creating
+// new page AAD from scratch)
 void quickUpdatePageAAD(const std::string &AAD, int16_t new_page_ordinal) {
   std::string page_ordinal_bytes = shortToBytesLE(new_page_ordinal);
   int length = (int)AAD.size();
-  std::memcpy((int16_t*)(AAD.c_str()+length-2), (int16_t*)(page_ordinal_bytes.c_str()), 2);
+
+  std::memcpy((int16_t*)(AAD.c_str()+length-2),
+              (int16_t*)(page_ordinal_bytes.c_str()), 2);
 }
 
 }  // namespace parquet_encryption
